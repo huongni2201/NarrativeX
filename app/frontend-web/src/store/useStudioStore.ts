@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { Character, Project, ProjectWizardDraft, ScreenType } from "@/types/studio";
+import { isMockDataMode } from "@/lib/data-mode";
 import { MOCK_CHARACTERS, MOCK_PROJECTS, SAMPLE_STORY_PRESET } from "@/lib/mock-data";
 
 interface StudioStore {
@@ -56,14 +57,14 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   currentScreen: "overview",
   authMode: "login",
   isLoggedIn: true,
-  selectedProjectId: "proj-1",
-  selectedCharacterId: "char-1",
+  selectedProjectId: isMockDataMode ? "proj-1" : null,
+  selectedCharacterId: isMockDataMode ? "char-1" : null,
 
-  projects: MOCK_PROJECTS,
+  projects: isMockDataMode ? MOCK_PROJECTS : [],
   projectFilterTab: "all",
   projectSearchQuery: "",
 
-  characters: MOCK_CHARACTERS,
+  characters: isMockDataMode ? MOCK_CHARACTERS : [],
   characterFilterProject: "all",
   characterFilterStatus: "all",
   characterSearchQuery: "",

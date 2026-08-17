@@ -4,14 +4,15 @@ import { useState } from "react";
 
 import { EmptyState, MetricCard, StatusPill } from "@/components/ui";
 import { api } from "@/lib/api";
-import type { AspectRatio, Project } from "@/types";
+import type { ApiProject } from "@/types/api";
+import type { AspectRatio } from "@/types/studio";
 
 const ratios: AspectRatio[] = ["16:9", "9:16", "1:1", "4:3", "3:4"];
 
 export function StudioDashboard() {
   const [projectName, setProjectName] = useState("");
   const [selectedRatio, setSelectedRatio] = useState<AspectRatio>("16:9");
-  const [project, setProject] = useState<Project | null>(null);
+  const [project, setProject] = useState<ApiProject | null>(null);
   const [notice, setNotice] = useState("Local shell ready. Connect the API when you are ready to create a project.");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -82,7 +83,7 @@ export function StudioDashboard() {
             <aside className="rounded-3xl border border-white/10 bg-[#151321]/85 p-6"><p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#f0b67f]">Workflow guardrails</p><h2 className="display-type mt-3 text-3xl text-[#f5f4ee]">A calm handoff.</h2><ul className="mt-7 space-y-5">{["Story stays untrusted data", "Character versions are snapshots", "Every regenerate creates an attempt", "Cost is estimated before queueing"].map((item, index) => <li className="flex gap-3 text-sm leading-5 text-[#c8cedc]" key={item}><span className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-[#f0b67f]/40 text-[10px] font-bold text-[#f0b67f]">0{index + 1}</span>{item}</li>)}</ul></aside>
           </div>
 
-          <section className="mt-6">{project ? <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6"><div className="flex items-center justify-between"><div><p className="text-[11px] uppercase tracking-[0.2em] text-[#7f879b]">Recent project</p><h2 className="mt-2 text-xl font-semibold">{project.name || project.title}</h2></div><StatusPill label={project.status || "DRAFT"} tone="acid" /></div><p className="mt-4 text-sm text-[#9ca3b4]">Frame {selectedRatio} · Image quality STANDARD · Story input pending</p></div> : <EmptyState eyebrow="No projects yet" title="Your first story is waiting." description="Dashboard rỗng là một lời mời hành động: tạo project, paste story, chọn profile, rồi Analyze." action="Create your first project" onAction={() => document.querySelector("input")?.focus()} />}</section>
+          <section className="mt-6">{project ? <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6"><div className="flex items-center justify-between"><div><p className="text-[11px] uppercase tracking-[0.2em] text-[#7f879b]">Recent project</p><h2 className="mt-2 text-xl font-semibold">{project.name}</h2></div><StatusPill label={project.status || "DRAFT"} tone="acid" /></div><p className="mt-4 text-sm text-[#9ca3b4]">Frame {selectedRatio} · Image quality STANDARD · Story input pending</p></div> : <EmptyState eyebrow="No projects yet" title="Your first story is waiting." description="Dashboard rỗng là một lời mời hành động: tạo project, paste story, chọn profile, rồi Analyze." action="Create your first project" onAction={() => document.querySelector("input")?.focus()} />}</section>
         </section>
       </div>
     </main>

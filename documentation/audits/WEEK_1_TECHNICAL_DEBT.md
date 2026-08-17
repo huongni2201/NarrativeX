@@ -14,11 +14,11 @@ This register records evidence-backed gaps found during the audit. It does not a
 | NX-W1-D1-002 | P0 | security/backend | Local authentication and API authorization fail open | YES | OPEN |
 | NX-W1-D1-003 | P1 | frontend | Visible studio flows are mock/local-state driven | NO | OPEN |
 | NX-W1-D1-004 | P1 | backend/worker | Durable async operation handoff is incomplete | YES | OPEN |
-| NX-W1-D1-005 | P1 | backend/frontend | API and error contracts are incomplete for the target flows | NO | OPEN |
+| NX-W1-D1-005 | P1 | backend/frontend | API and error contracts are incomplete for the target flows | NO | PARTIAL — W1-D2 shared error/client boundary closed; Week 2 resource contracts remain |
 | NX-W1-D1-006 | P1 | database/backend | H2 test profile bypasses PostgreSQL migrations | YES | OPEN |
 | NX-W1-D1-007 | P1 | infrastructure/security | Local infrastructure has exposed defaults and no app runtime composition | NO | OPEN |
 | NX-W1-D1-008 | P2 | database | Foreign-key access paths are not explicitly indexed | NO | OPEN |
-| NX-W1-D1-009 | P2 | frontend/docs | Documentation and route surface have drift/dead entries | NO | OPEN |
+| NX-W1-D1-009 | P2 | frontend/docs | Documentation and route surface have drift/dead entries | NO | VERIFIED for W1-D2 baseline; notification/settings remain planned/no-op |
 
 ## Findings
 
@@ -182,4 +182,8 @@ Target milestone: W1-D2 or scheduled UI integration milestone
 Dependencies: Preserve the concurrent user asset/preset work and decide its target screen scope.  
 Closure test: Route/README audit has no version mismatch or unhandled navigation entry.  
 Blocks next phase: NO  
-Status: OPEN
+Status: VERIFIED for the W1-D2 documentation baseline. Current `app/page.tsx` renders Assets and Style Presets, so those surfaces are MOCK/reachable rather than DEAD. The frontend README now matches Next.js 16.3.1. Notification/settings remain non-functional sidebar controls and are not classified as rendered business integrations.
+
+### W1-D2 closure note for NX-W1-D1-005
+
+W1-D2 closes the shared HTTP ProblemDetail/correlation boundary, typed frontend error parsing and the application/API dependency violations. The target Project/Story/Asset/Job resource contracts and visible API wiring remain intentionally open for W2-D1+.

@@ -1,5 +1,7 @@
 package com.narrativex.backend.configuration;
 
+import com.narrativex.backend.shared.api.ApiAccessDeniedHandler;
+import com.narrativex.backend.shared.api.ApiAuthenticationEntryPoint;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,13 +24,18 @@ public class SecurityConfig {
     @Bean
     @Order(1)
     @ConditionalOnProperty(prefix = "narrativex.security", name = "oidc-enabled", havingValue = "true")
-    SecurityFilterChain oidcSecurityFilterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain oidcSecurityFilterChain(HttpSecurity http,
+                                                 ApiAuthenticationEntryPoint authenticationEntryPoint,
+                                                 ApiAccessDeniedHandler accessDeniedHandler) throws Exception {
         http
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/actuator/health", "/oauth2/**", "/login/**").permitAll()
                 .anyRequest().authenticated())
+            .exceptionHandling(errors -> errors
+                .authenticationEntryPoint(authenticationEntryPoint)
+                .accessDeniedHandler(accessDeniedHandler))
             .oauth2Login(Customizer.withDefaults())
             .logout(logout -> logout.logoutSuccessUrl("/"));
         return http.build();
@@ -37,13 +44,18 @@ public class SecurityConfig {
     @Bean
     @Order(2)
     @ConditionalOnProperty(prefix = "narrativex.security", name = "oidc-enabled", havingValue = "false", matchIfMissing = true)
-    SecurityFilterChain localSecurityFilterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain localSecurityFilterChain(HttpSecurity http,
+                                                  ApiAuthenticationEntryPoint authenticationEntryPoint,
+                                                  ApiAccessDeniedHandler accessDeniedHandler) throws Exception {
         http
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/actuator/**", "/api/v1/**").permitAll()
-                .anyRequest().permitAll());
+                .anyRequest().permitAll())
+            .exceptionHandling(errors -> errors
+                .authenticationEntryPoint(authenticationEntryPoint)
+                .accessDeniedHandler(accessDeniedHandler));
         return http.build();
     }
 }

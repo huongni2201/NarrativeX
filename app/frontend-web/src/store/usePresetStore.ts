@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { StylePreset, PresetCategory } from "@/types/presets";
 import { MOCK_PRESETS } from "@/lib/presets-mock";
+import { isMockDataMode } from "@/lib/data-mode";
 
 interface PresetStore {
   presets: StylePreset[];
@@ -25,11 +26,11 @@ interface PresetStore {
 }
 
 export const usePresetStore = create<PresetStore>((set, get) => ({
-  presets: MOCK_PRESETS,
-  selectedPresetId: "style-1", // Default open Cinematic Dark Fantasy matching mockup
+  presets: isMockDataMode ? MOCK_PRESETS : [],
+  selectedPresetId: isMockDataMode ? "style-1" : null, // Default open Cinematic Dark Fantasy matching mockup
   activeCategory: "VISUAL_STYLE",
   searchQuery: "",
-  isDetailDrawerOpen: true, // open right detail drawer matching mockup
+  isDetailDrawerOpen: isMockDataMode, // open right detail drawer matching mockup
   isEditorModalOpen: false,
   editingPreset: null,
 

@@ -2,6 +2,8 @@ package com.narrativex.backend.modules.project.api;
 
 import com.narrativex.backend.modules.generation.api.JobResponse;
 import com.narrativex.backend.modules.generation.application.GenerationApplicationService;
+import com.narrativex.backend.modules.project.application.CreateProjectCommand;
+import com.narrativex.backend.modules.project.application.CreateStoryVersionCommand;
 import com.narrativex.backend.modules.project.application.ProjectApplicationService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -36,7 +38,9 @@ public class ProjectController {
     @ResponseStatus(HttpStatus.CREATED)
     public ProjectResponse create(@Valid @RequestBody CreateProjectRequest request,
                                   @RequestHeader(name = "X-User-Id", required = false) String ownerId) {
-        return ProjectResponse.from(projectService.createProject(request, ownerId));
+        return ProjectResponse.from(projectService.createProject(new CreateProjectCommand(
+            request.name(), request.sourceLanguage(), request.narrationLanguage(), request.metadataLanguage(),
+            request.imageAspectRatio(), request.imageQualityTier()), ownerId));
     }
 
     @PostMapping("/{projectId}/stories")
@@ -44,7 +48,9 @@ public class ProjectController {
     public StoryVersionResponse createStory(@PathVariable Long projectId,
                                             @Valid @RequestBody CreateStoryVersionRequest request,
                                             @RequestHeader(name = "X-User-Id", required = false) String ownerId) {
-        return StoryVersionResponse.from(projectService.createStory(projectId, request, ownerId));
+        return StoryVersionResponse.from(projectService.createStory(projectId, new CreateStoryVersionCommand(
+            request.content(), request.sourceLanguage(), request.rightsAttestationAccepted(),
+            request.rightsPolicyVersion(), request.rightsBasis()), ownerId));
     }
 
     @PostMapping("/{projectId}/analysis-jobs")

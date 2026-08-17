@@ -57,9 +57,18 @@ Concrete route evidence is in `src/main/java/com/narrativex/backend/modules/proj
 - MinIO/S3 is present only in local Compose and environment naming; no storage adapter exists in backend or worker.
 - Provider SDKs are absent from the backend. The worker exposes provider ports and a disabled adapter.
 
+## W1-D2 architecture and error boundary
+
+- `ProjectApplicationService` consumes `CreateProjectCommand` and `CreateStoryVersionCommand`; controllers perform the HTTP DTO mapping.
+- `GenerationApplicationService` consumes `ProjectAccess` from `project.application`; it no longer imports `ProjectRepository`.
+- `ArchitectureRulesTest` checks dependency direction and controller placement on every test run.
+- `ApiExceptionHandler` produces RFC 9457 `ProblemDetail` with stable error codes, message keys, path, instance and correlation ID. Validation exposes structured field violations; not-found, conflict, authorization, unauthenticated and unexpected paths are redacted.
+- `CorrelationIdFilter` accepts a bounded safe `X-Correlation-Id` or generates one and returns it in the response header.
+- `@Transactional` and `@Transactional(readOnly = true)` remain on application use-case methods; controllers do not own transactions.
+
 ## Error handling
 
-`ApiExceptionHandler` maps `IllegalArgumentException` and validation failures to `ProblemDetail` (`shared/api/ApiExceptionHandler.java:10-31`). There is no explicit mapping for not-found, access denied, optimistic conflict, database constraint, or unexpected failures. This is insufficient as a stable FE integration contract.
+The W1-D2 handler maps invalid requests to `INVALID_REQUEST`, bean validation to `VALIDATION_FAILED`, missing resources to `RESOURCE_NOT_FOUND`, resource/optimistic conflicts to `RESOURCE_CONFLICT`, access/identity failures to `ACCESS_DENIED`/`UNAUTHENTICATED`, and unexpected failures to redacted `INTERNAL_ERROR`. Security entry-point and access-denied writers are reusable without changing the W1-D5 authentication model.
 
 ## Testing
 

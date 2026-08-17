@@ -1,0 +1,100 @@
+package com.narrativex.backend.architecture;
+
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Stream;
+import org.junit.jupiter.api.Test;
+
+class ArchitectureRulesTest {
+
+    private static final Path SOURCE_ROOT = Path.of("src/main/java/com/narrativex/backend");
+
+    @Test
+    void productionPackagesRespectDependencyDirection() throws IOException {
+        List<String> violations = scanProductionSources();
+        assertTrue(violations.isEmpty(), () -> String.join(System.lineSeparator(), violations));
+    }
+
+    @Test
+    void rulesDetectARepresentativeInvalidDependency() {
+        assertTrue(isForbiddenApplicationImport("import com.narrativex.backend.modules.project.api.CreateProjectRequest;"));
+        assertTrue(isForbiddenCrossModuleRepositoryImport(
+            "com.narrativex.backend.modules.generation.application",
+            "import com.narrativex.backend.modules.project.repository.ProjectRepository;"));
+    }
+
+    private static List<String> scanProductionSources() throws IOException {
+        List<String> violations = new ArrayList<>();
+        try (Stream<Path> paths = Files.walk(SOURCE_ROOT)) {
+            paths.filter(path -> path.toString().endsWith(".java")).forEach(path -> {
+                try {
+                    String source = Files.readString(path);
+                    String packageName = packageName(source);
+                    String relative = SOURCE_ROOT.relativize(path).toString().replace('\\', '/');
+                    if (packageName.contains(".application") && source.lines().anyMatch(ArchitectureRulesTest::isForbiddenApplicationImport)) {
+                        violations.add(relative + ": application imports an API package");
+                    }
+                    if (packageName.contains(".api") && source.lines().anyMatch(line -> line.contains(".repository."))) {
+                        violations.add(relative + ": API imports a repository package");
+                    }
+                    if (packageName.contains(".modules.") && source.lines()
+                        .anyMatch(line -> isForbiddenCrossModuleRepositoryImport(packageName, line))) {
+                        violations.add(relative + ": module imports another module repository");
+                    }
+                    if (packageName.contains(".domain") && source.lines().anyMatch(ArchitectureRulesTest::isForbiddenDomainImport)) {
+                        violations.add(relative + ": domain imports an outer runtime dependency");
+                    }
+                    if (packageName.contains(".shared") && source.lines().anyMatch(line -> line.contains("com.narrativex.backend.modules."))) {
+                        violations.add(relative + ": shared imports a business module");
+                    }
+                    if (source.contains("@RestController") && !packageName.contains(".api")) {
+                        violations.add(relative + ": REST controller is outside an API package");
+                    }
+                } catch (IOException exception) {
+                    throw new IllegalStateException("Unable to inspect " + path, exception);
+                }
+            });
+        }
+        return violations;
+    }
+
+    private static String packageName(String source) {
+        return source.lines()
+            .filter(line -> line.startsWith("package "))
+            .map(line -> line.substring("package ".length(), line.length() - 1))
+            .findFirst()
+            .orElse("");
+    }
+
+    private static boolean isForbiddenApplicationImport(String line) {
+        return line.startsWith("import ") && line.contains("com.narrativex.backend.modules.") && line.contains(".api.");
+    }
+
+    private static boolean isForbiddenCrossModuleRepositoryImport(String packageName, String line) {
+        if (!line.startsWith("import ") || !line.contains("com.narrativex.backend.modules.") || !line.contains(".repository.")) {
+            return false;
+        }
+        String currentModule = packageName.substring(packageName.indexOf(".modules.") + ".modules.".length()).split("\\.")[0];
+        String importedModule = line.substring(line.indexOf(".modules.") + ".modules.".length()).split("\\.")[0];
+        return !currentModule.equals(importedModule);
+    }
+
+    private static boolean isForbiddenDomainImport(String line) {
+        if (!line.startsWith("import ")) {
+            return false;
+        }
+        String lower = line.toLowerCase();
+        return lower.startsWith("import org.springframework.web")
+            || lower.contains("redis")
+            || lower.contains("minio")
+            || lower.contains("software.amazon")
+            || lower.contains("provider")
+            || lower.contains("narrativex_worker");
+    }
+}

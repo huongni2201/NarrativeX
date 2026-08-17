@@ -79,6 +79,19 @@ Rules:
 - `shared` is intentionally small. If a type contains business policy, it belongs to its owning module.
 - A new microservice is justified only by measured bottleneck, independent deployment/ownership, or a hard runtime/security boundary. The Python worker already meets the runtime boundary.
 
+## W1-D2 enforcement
+
+The current backend enforces these rules with automated package/dependency tests under `src/test/java/com/narrativex/backend/architecture/`:
+
+- `module.api` may call application use cases, but not repositories;
+- application packages do not import HTTP API DTOs;
+- a module may not reach another module's repository;
+- domain packages do not import web, Redis, storage, provider, or worker runtime packages;
+- `shared` does not import business modules;
+- REST controllers live in `module.api` packages.
+
+Cross-module project lookup is intentionally exposed as the small `project.application.ProjectAccess` contract. This preserves PostgreSQL/project ownership in the project module without introducing an event bus or repository registry. The shared HTTP boundary uses RFC 9457 `ProblemDetail` and a request correlation ID; security enforcement remains a W1-D5 concern.
+
 ## External system ownership
 
 | System | NarrativeX owns | System owns |

@@ -1,13 +1,13 @@
 import { Chapter, ProjectProductionDetail, Scene, VisualBeat } from "@/types/domain";
 
-export const MOCK_VISUAL_BEATS_CH06: VisualBeat[] = [
+export const MOCK_VISUAL_BEATS_CH01: VisualBeat[] = [
   {
     id: "beat-1",
     number: 1,
     sceneId: "scene-1",
-    chapterId: "ch-06",
+    chapterId: "ch-01",
     prompt: "EXT. THÀNH HẮC VÂN - SÁNG SỚM. Dark gothic castle gate opening with armoured knights marching into thick mountain fog, cinematic rim lighting, 8k octane render",
-    description: "EXT. THÀNH HẮC VÂN - SÁNG SỚM",
+    description: "EXT. THÀNH HẮC VÂN – SÁNG SỚM",
     status: "APPROVED",
     imageUrl: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=600&auto=format&fit=crop",
     durationSeconds: 12,
@@ -18,7 +18,7 @@ export const MOCK_VISUAL_BEATS_CH06: VisualBeat[] = [
     id: "beat-2",
     number: 2,
     sceneId: "scene-1",
-    chapterId: "ch-06",
+    chapterId: "ch-01",
     prompt: "ĐOÀN QUÂN XUẤT PHÁT. A vanguard of silver-armored warriors on horseback crossing an icy bridge, glowing banner in twilight, ultra realistic",
     description: "ĐOÀN QUÂN XUẤT PHÁT",
     status: "APPROVED",
@@ -30,8 +30,8 @@ export const MOCK_VISUAL_BEATS_CH06: VisualBeat[] = [
   {
     id: "beat-3",
     number: 3,
-    sceneId: "scene-2",
-    chapterId: "ch-06",
+    sceneId: "scene-1",
+    chapterId: "ch-01",
     prompt: "ĐƯỜNG NÚI TUYẾT. Steep mountain pass covered in heavy blizzard snow, lone warrior silhouette guiding the troops through treacherous cliffs",
     description: "ĐƯỜNG NÚI TUYẾT",
     status: "APPROVED",
@@ -43,10 +43,10 @@ export const MOCK_VISUAL_BEATS_CH06: VisualBeat[] = [
   {
     id: "beat-4",
     number: 4,
-    sceneId: "scene-2",
-    chapterId: "ch-06",
-    prompt: "BÃO TUYẾT ẬP ĐẾN. Intense vortex of snow swirling around ancient frozen monoliths, dark shadows creeping behind ice pillars",
-    description: "BÃO TUYẾT ẬP ĐẾN",
+    sceneId: "scene-1",
+    chapterId: "ch-01",
+    prompt: "BÃO TUYẾT ÁP ĐẾN. Intense vortex of snow swirling around ancient frozen monoliths, dark shadows creeping behind ice pillars",
+    description: "BÃO TUYẾT ÁP ĐẾN",
     status: "NEEDS_REVIEW",
     imageUrl: "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?q=80&w=600&auto=format&fit=crop",
     durationSeconds: 15,
@@ -56,8 +56,8 @@ export const MOCK_VISUAL_BEATS_CH06: VisualBeat[] = [
   {
     id: "beat-5",
     number: 5,
-    sceneId: "scene-3",
-    chapterId: "ch-06",
+    sceneId: "scene-1",
+    chapterId: "ch-01",
     prompt: "SINH VẬT BĂNG GIÁ. Colossal frost golem emerging from glacial crevices with glowing blue ice core eyes, terrifying scale",
     description: "SINH VẬT BĂNG GIÁ",
     status: "APPROVED",
@@ -69,8 +69,8 @@ export const MOCK_VISUAL_BEATS_CH06: VisualBeat[] = [
   {
     id: "beat-6",
     number: 6,
-    sceneId: "scene-3",
-    chapterId: "ch-06",
+    sceneId: "scene-1",
+    chapterId: "ch-01",
     prompt: "GIAO CHIẾN. Knight with flaming radiant sword clashing against icy claws, sparks flying in subzero gale, epic cinematic composition",
     description: "GIAO CHIẾN",
     status: "NEEDS_REVIEW",
@@ -82,8 +82,8 @@ export const MOCK_VISUAL_BEATS_CH06: VisualBeat[] = [
   {
     id: "beat-7",
     number: 7,
-    sceneId: "scene-4",
-    chapterId: "ch-06",
+    sceneId: "scene-1",
+    chapterId: "ch-01",
     prompt: "THIÊN BĂNG KÍCH. Ice shards erupting from the ground, character consistency mismatch in armor detail",
     description: "THIÊN BĂNG KÍCH",
     status: "REJECTED",
@@ -95,8 +95,8 @@ export const MOCK_VISUAL_BEATS_CH06: VisualBeat[] = [
   {
     id: "beat-8",
     number: 8,
-    sceneId: "scene-4",
-    chapterId: "ch-06",
+    sceneId: "scene-1",
+    chapterId: "ch-01",
     prompt: "RÚT LUI CHIẾN THUẬT. Scouting party taking shelter inside an ancient crystal cavern, torches flickering against ice walls",
     description: "RÚT LUI CHIẾN THUẬT",
     status: "APPROVED",
@@ -107,14 +107,17 @@ export const MOCK_VISUAL_BEATS_CH06: VisualBeat[] = [
   },
 ];
 
-export const MOCK_SCENES_CH06: Scene[] = [
+export const MOCK_VISUAL_BEATS_CH06: VisualBeat[] = MOCK_VISUAL_BEATS_CH01;
+
+export const MOCK_SCENES_CH01: Scene[] = [
   {
     id: "scene-1",
     number: "01",
     title: "Rời khỏi Hắc Vân",
-    chapterId: "ch-06",
-    beatsCount: 3,
-    approvedBeatsCount: 2,
+    subtitle: "EXT. Thành Hắc Vân – Sáng sớm",
+    chapterId: "ch-01",
+    beatsCount: 8,
+    approvedBeatsCount: 6,
     thumbnail: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=600&auto=format&fit=crop",
     status: "READY",
   },
@@ -122,7 +125,8 @@ export const MOCK_SCENES_CH06: Scene[] = [
     id: "scene-2",
     number: "02",
     title: "Giữa cơn bão tuyết",
-    chapterId: "ch-06",
+    subtitle: "EXT. Đường núi – Bão tuyết",
+    chapterId: "ch-01",
     beatsCount: 4,
     approvedBeatsCount: 4,
     thumbnail: "https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=600&auto=format&fit=crop",
@@ -132,7 +136,8 @@ export const MOCK_SCENES_CH06: Scene[] = [
     id: "scene-3",
     number: "03",
     title: "Sinh vật băng giá",
-    chapterId: "ch-06",
+    subtitle: "EXT. Hang băng – Ban đêm",
+    chapterId: "ch-01",
     beatsCount: 3,
     approvedBeatsCount: 3,
     thumbnail: "https://images.unsplash.com/photo-1563089145-599997674d42?q=80&w=600&auto=format&fit=crop",
@@ -141,49 +146,33 @@ export const MOCK_SCENES_CH06: Scene[] = [
   {
     id: "scene-4",
     number: "04",
-    title: "Do thám địch",
-    chapterId: "ch-06",
+    title: "Nghỉ chân trong rừng",
+    subtitle: "EXT. Rừng sâu – Chiều muộn",
+    chapterId: "ch-01",
     beatsCount: 5,
     approvedBeatsCount: 5,
     thumbnail: "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?q=80&w=600&auto=format&fit=crop",
     status: "READY",
   },
-  {
-    id: "scene-5",
-    number: "05",
-    title: "Thung Lũng Gió Hú",
-    chapterId: "ch-06",
-    beatsCount: 4,
-    approvedBeatsCount: 3,
-    thumbnail: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=600&auto=format&fit=crop",
-    status: "READY",
-  },
-  {
-    id: "scene-6",
-    number: "06",
-    title: "Đền Thờ Băng Cổ",
-    chapterId: "ch-06",
-    beatsCount: 6,
-    approvedBeatsCount: 4,
-    thumbnail: "https://images.unsplash.com/photo-1578632767115-351597cf2477?q=80&w=600&auto=format&fit=crop",
-    status: "READY",
-  },
 ];
+
+export const MOCK_SCENES_CH06: Scene[] = MOCK_SCENES_CH01;
 
 export const MOCK_CHAPTERS: Chapter[] = [
   {
     id: "ch-01",
     number: "01",
     title: "Khởi đầu",
-    status: "RENDERED",
+    status: "VISUAL_READY",
     scenesCount: 12,
     duration: "06:12",
-    lastUpdated: "17/08/2026 10:30",
-    progressPercent: 100,
+    lastUpdated: "17/05/2025 04:45",
+    author: "Ngọc Bùi",
+    progressPercent: 90,
     generatedVisualsCount: 32,
     totalVisualsCount: 32,
-    scenes: [],
-    storyExcerpt: "Thiếu niên rời khỏi ngôi làng nhỏ dưới chân núi với thanh đoản kiếm rỉ sét...",
+    scenes: MOCK_SCENES_CH01,
+    storyExcerpt: "Khởi nguồn của số mệnh. Từ một kiếm linh thức tỉnh, một huyền thoại bắt đầu được viết nên.",
   },
   {
     id: "ch-02",

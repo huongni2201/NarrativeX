@@ -1,12 +1,14 @@
 import { create } from "zustand";
 import { Chapter, ProductionViewMode, ProjectProductionDetail, Scene, VisualBeat, VisualBeatStatus } from "@/types/domain";
-import { MOCK_PROJECT_PRODUCTION, MOCK_SCENES_CH06, MOCK_VISUAL_BEATS_CH06 } from "@/lib/production-mock";
+import { MOCK_PROJECT_PRODUCTION, MOCK_VISUAL_BEATS_CH01 } from "@/lib/production-mock";
+import { isMockDataMode } from "@/lib/data-mode";
 
 interface ProductionStore {
   // State
   project: ProjectProductionDetail;
   activeChapterId: string;
   activeSceneId: string;
+  activeWorkspaceTab: string;
   visualBeats: VisualBeat[];
   currentView: ProductionViewMode;
   selectedVisualBeatIds: string[];
@@ -15,6 +17,7 @@ interface ProductionStore {
 
   // Actions
   setView: (view: ProductionViewMode) => void;
+  setActiveWorkspaceTab: (tab: string) => void;
   setActiveChapter: (chapterId: string) => void;
   setActiveScene: (sceneId: string) => void;
   setActiveReviewTab: (tab: "all" | "approved" | "needs_review" | "rejected") => void;
@@ -36,15 +39,23 @@ interface ProductionStore {
 
 export const useProductionStore = create<ProductionStore>((set, get) => ({
   project: MOCK_PROJECT_PRODUCTION,
-  activeChapterId: "ch-06",
+  activeChapterId: "ch-01",
   activeSceneId: "scene-1",
-  visualBeats: MOCK_VISUAL_BEATS_CH06,
-  currentView: "overview",
-  selectedVisualBeatIds: ["beat-1", "beat-2", "beat-3"],
+  activeWorkspaceTab: "storyboard",
+  visualBeats: isMockDataMode ? MOCK_VISUAL_BEATS_CH01 : [],
+  currentView: "workspace",
+  selectedVisualBeatIds: isMockDataMode ? ["beat-1", "beat-2", "beat-3"] : [],
   isAddChapterModalOpen: false,
   activeReviewTab: "all",
 
-  setView: (view) => set({ currentView: view }),
+  setView: (view) => {
+    if (view === "storyboard") {
+      set({ currentView: "workspace", activeWorkspaceTab: "storyboard" });
+    } else {
+      set({ currentView: view });
+    }
+  },
+  setActiveWorkspaceTab: (tab) => set({ activeWorkspaceTab: tab }),
   setActiveChapter: (chapterId) => {
     set({ activeChapterId: chapterId });
   },

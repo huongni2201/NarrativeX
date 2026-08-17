@@ -4,8 +4,8 @@
 
 - Package manifest: Next.js `^16.3.1`, React `^19.2.8`, TypeScript `^5.8.2`, Zustand `^5.0.15`, TanStack Query `^5.101.4`.
 - Runtime verified: Node `v26.4.0`, npm `11.17.0`.
-- App Router routes: `/`, `/auth`, `/dashboard`, `/characters`; the root page is a client-side screen switcher rather than a route-param project shell.
-- The frontend README says Next.js 15, which is documentation drift against `package.json`.
+- App Router routes: `/`, `/auth`, `/dashboard`, `/characters`; the root page is a client-side screen switcher rather than a route-param project shell. The root screen switcher currently renders overview, project workspace, characters, Assets and Style Presets surfaces.
+- The frontend README now matches the Next.js 16.3.1 package manifest.
 
 ## Routes and existing UI/features
 
@@ -20,16 +20,22 @@
 | Production overview/chapter | `ProductionShell`, Screens 01-03 | `useProductionStore` initialized from `production-mock.ts` | MOCK |
 | Storyboard/visual review | Screens 04-05 | local visual-beat array and local status mutations | MOCK |
 | Render/preview | Screens 06-07 | local settings + 1.2s timer; no export call | MOCK |
-| Assets/presets | current sidebar plus untracked asset/preset stores/components | local mocks; no `app/page.tsx` render branch | DEAD/UNKNOWN |
+| Assets/presets | current sidebar plus asset/preset stores/components | local mocks rendered by `app/page.tsx` | MOCK |
 | Notifications/settings/upgrade | sidebar controls | hard-coded badge/credits and no-op handlers | DEAD |
 
 ## State ownership and API client
 
 - `src/store/useStudioStore.ts:55-160` owns navigation, auth state, project mocks, characters and wizard draft.
 - `src/store/useProductionStore.ts:37-153` owns production project, chapters, beats, review mutations and local continuation logic.
-- `src/lib/api.ts:13-37` is a small fetch client with `credentials: include` and `ProblemDetail.detail` extraction. It exports `listProjects`, `createProject`, `createStoryVersion` and `enqueueAnalysis`.
+- `src/lib/api.ts` is the single fetch owner with API base URL, credentials, JSON negotiation, RFC 9457 parsing, safe non-JSON fallback and typed `ApiClientError`. It exports `listProjects`, `createProject`, `createStoryVersion` and `enqueueAnalysis` against API DTO types in `src/types/api.ts`.
 - Only `StudioDashboard.tsx:18-36` calls `api.createProject`; `rg` found no rendered/imported caller for `StudioDashboard`. The visible wizard therefore does not use the client.
-- TanStack Query is declared but no `useQuery`/`useMutation` call exists. There is no SSE client, upload client, auth redirect client, localStorage/sessionStorage persistence or direct fetch outside `lib/api.ts`.
+- TanStack Query now has an `AppProviders`/`QueryClientProvider` foundation, conservative 4xx retry behavior and centralized query keys. No visible screen is wired to Query yet; there is still no SSE, upload or auth redirect client.
+
+## W1-D2 state ownership and mock mode
+
+- TanStack Query is the future owner of persisted server state; Zustand remains UI/editor/transient and explicitly gated prototype state until W2 integrations land.
+- `NEXT_PUBLIC_NX_DATA_MODE=mock|api` is documented and validated. Development defaults to mock when omitted; non-development defaults to API and rejects mock mode.
+- In API mode, local project/character/asset/preset stores start empty and the production shell does not render mock production data. This prevents fake business state from masquerading as persisted production state without redesigning local prototype screens.
 
 ## Real, partial and mock integrations
 

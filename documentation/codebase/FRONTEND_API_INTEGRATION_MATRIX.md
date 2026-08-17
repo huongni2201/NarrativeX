@@ -17,10 +17,16 @@ This matrix maps the existing UI to the smallest backend contracts required for 
 | Chapter add | production workspace | add chapter/import | `useProductionStore.addChapter()` local | MOCK | none | `POST /api/v1/projects/{id}/chapters` | project editor + rights attestation | submit and reconcile returned chapter | chapter API absent | W2-D2+ |
 | Storyboard/visual review | production views | approve/reject/generate visuals | local visual beat array and mutations | MOCK | none | storyboard read/update + visual generation job APIs | project/workspace scoped; entitlement/safety | replace local mutations with optimistic API + conflict states | scene/visual-beat endpoints and generation command | W2-D3+ |
 | Render/export | production view 06/07 | render now / preview/download | 1.2s timer then local preview | MOCK | none | render job create, job status/events, signed download URL | server-side entitlement/watermark/export policy | mutation/job/download handling | render/export APIs absent | W2-D3+ |
-| Assets/presets | sidebar current worktree | open/upload/edit/delete preset | local mock stores; no page render | DEAD/UNKNOWN | none | asset list/detail/delete and preset CRUD | workspace scoped | add route render only in a later scoped task; wire stores | asset/preset endpoints absent | later |
+| Assets/presets | root screen switcher via sidebar | open/upload/edit/delete preset | local mock stores rendered by `app/page.tsx` | MOCK | none | asset list/detail/delete and preset CRUD | workspace scoped | keep prototype state explicit; wire stores in a later scoped task | asset/preset endpoints absent | later |
 
 ## Contract notes
 
 - Existing backend routes are inventoried in `BACKEND_CODEBASE.md`; only six routes exist.
 - The matrix intentionally separates “existing client function” from “visible caller”: the client is not integration evidence.
 - No D1 code changes were made to wire these rows.
+
+## W1-D2 foundation corrections
+
+- The current API client now owns credentials, JSON negotiation, ProblemDetail parsing and `ApiClientError`; API DTOs are separate from presentation models.
+- TanStack Query is available through the root `AppProviders` foundation, but no visible Week 2 flow was migrated early.
+- Mock state is gated by `NEXT_PUBLIC_NX_DATA_MODE`; this is a safety boundary, not evidence that any visible flow is API-backed.

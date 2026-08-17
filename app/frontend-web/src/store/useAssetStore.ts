@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { MediaAsset, AssetFilterType, AssetSortOption, AssetStatus } from "@/types/assets";
 import { MOCK_ASSETS } from "@/lib/assets-mock";
+import { isMockDataMode } from "@/lib/data-mode";
 
 interface AssetStore {
   assets: MediaAsset[];
@@ -35,8 +36,8 @@ interface AssetStore {
 }
 
 export const useAssetStore = create<AssetStore>((set, get) => ({
-  assets: MOCK_ASSETS,
-  selectedAssetId: "ast-1", // Default to first asset open matching mockup
+  assets: isMockDataMode ? MOCK_ASSETS : [],
+  selectedAssetId: isMockDataMode ? "ast-1" : null, // Default to first asset open matching mockup
   filterType: "all",
   filterStatus: "all",
   filterProject: "all",
@@ -44,7 +45,7 @@ export const useAssetStore = create<AssetStore>((set, get) => ({
   searchQuery: "",
   sortOption: "newest",
   viewMode: "grid",
-  isDetailDrawerOpen: true, // open right drawer matching mockup
+  isDetailDrawerOpen: isMockDataMode, // open right drawer matching mockup
   isUploadModalOpen: false,
 
   selectAsset: (id) =>

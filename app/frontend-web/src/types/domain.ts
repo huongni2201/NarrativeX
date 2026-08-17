@@ -47,6 +47,7 @@ export interface Scene {
   id: string;
   number: string; // e.g. "01"
   title: string;
+  subtitle?: string; // e.g. "EXT. Thành Hắc Vân – Sáng sớm"
   chapterId: string;
   beatsCount: number;
   approvedBeatsCount: number;
@@ -63,6 +64,7 @@ export interface Chapter {
   scenesCount: number;
   duration: string; // e.g. "06:12"
   lastUpdated: string;
+  author?: string;
   scenes: Scene[];
   storyExcerpt?: string;
   progressPercent: number;
