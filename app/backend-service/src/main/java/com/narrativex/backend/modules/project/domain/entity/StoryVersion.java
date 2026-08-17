@@ -1,14 +1,13 @@
-package com.narrativex.backend.modules.project.domain.aggregate;
+package com.narrativex.backend.modules.project.domain.entity;
 
+import com.narrativex.backend.modules.common.domain.DomainEntity;
 import com.narrativex.backend.modules.project.domain.enums.ModerationDecision;
 import com.narrativex.backend.modules.project.domain.enums.StoryVersionStatus;
-import com.narrativex.backend.shared.domain.DomainEntity;
 import java.time.Instant;
 import java.util.Objects;
 
 /** Story version entity owned by the Project aggregate. */
 public final class StoryVersion extends DomainEntity {
-
     private final Long projectId;
     private final int versionNumber;
     private final String content;
@@ -26,15 +25,9 @@ public final class StoryVersion extends DomainEntity {
                          boolean rightsAttested, String rightsPolicyVersion, String rightsBasis,
                          Instant rightsAttestedAt, String rightsAttestedBy) {
         super(id, rowVersion);
-        if (projectId == null || projectId <= 0) {
-            throw new IllegalArgumentException("projectId must be positive");
-        }
-        if (versionNumber <= 0) {
-            throw new IllegalArgumentException("versionNumber must be positive");
-        }
-        if (content == null || content.isBlank()) {
-            throw new IllegalArgumentException("content must not be blank");
-        }
+        if (projectId == null || projectId <= 0) throw new IllegalArgumentException("projectId must be positive");
+        if (versionNumber <= 0) throw new IllegalArgumentException("versionNumber must be positive");
+        if (content == null || content.isBlank()) throw new IllegalArgumentException("content must not be blank");
         this.projectId = projectId;
         this.versionNumber = versionNumber;
         this.content = content;
@@ -46,14 +39,18 @@ public final class StoryVersion extends DomainEntity {
         this.rightsBasis = Objects.requireNonNull(rightsBasis, "rightsBasis");
         this.rightsAttestedAt = rightsAttestedAt;
         this.rightsAttestedBy = rightsAttestedBy;
+        if (rightsAttested && (rightsAttestedAt == null || rightsAttestedBy == null || rightsAttestedBy.isBlank())) {
+            throw new IllegalArgumentException("Attested rights require timestamp and actor");
+        }
     }
 
     public static StoryVersion create(Long projectId, int versionNumber, String content, String sourceLanguage,
                                       boolean rightsAttested, String rightsPolicyVersion, String rightsBasis,
                                       String rightsAttestedBy) {
+        String actor = rightsAttested ? required(rightsAttestedBy, "rightsAttestedBy") : null;
         return new StoryVersion(null, 0L, projectId, versionNumber, content, sourceLanguage,
             StoryVersionStatus.DRAFT, ModerationDecision.PENDING, rightsAttested, rightsPolicyVersion,
-            rightsBasis, rightsAttested ? Instant.now() : null, rightsAttestedBy);
+            rightsBasis, rightsAttested ? Instant.now() : null, actor);
     }
 
     public static StoryVersion rehydrate(Long id, long rowVersion, Long projectId, int versionNumber,
@@ -62,11 +59,16 @@ public final class StoryVersion extends DomainEntity {
                                          String rightsPolicyVersion, String rightsBasis,
                                          Instant rightsAttestedAt, String rightsAttestedBy) {
         return new StoryVersion(id, rowVersion, projectId, versionNumber, content, sourceLanguage, status,
-            moderationDecision, rightsAttested, rightsPolicyVersion, rightsBasis, rightsAttestedAt,
-            rightsAttestedBy);
+            moderationDecision, rightsAttested, rightsPolicyVersion, rightsBasis, rightsAttestedAt, rightsAttestedBy);
     }
 
     public void activate() {
+        if (status != StoryVersionStatus.DRAFT) {
+            throw new IllegalStateException("Only draft story versions can be activated");
+        }
+        if (!rightsAttested) {
+            throw new IllegalStateException("Story rights must be attested before activation");
+        }
         status = StoryVersionStatus.ACTIVE;
     }
 
@@ -81,4 +83,9 @@ public final class StoryVersion extends DomainEntity {
     public String getRightsBasis() { return rightsBasis; }
     public Instant getRightsAttestedAt() { return rightsAttestedAt; }
     public String getRightsAttestedBy() { return rightsAttestedBy; }
+
+    private static String required(String value, String field) {
+        if (value == null || value.isBlank()) throw new IllegalArgumentException(field + " must not be blank");
+        return value;
+    }
 }
