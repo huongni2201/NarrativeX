@@ -1,5 +1,5 @@
-import HomePage from "../page";
+import { StudioAppShell } from "@/components/layout/StudioAppShell";
 
 export default function CharactersPage() {
-  return <HomePage screen="characters" />;
+  return <StudioAppShell screen="characters" />;
 }
