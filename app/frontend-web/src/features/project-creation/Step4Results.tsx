@@ -26,6 +26,31 @@ export const Step4Results: React.FC<Step4Props> = ({ onBack }) => {
 
   const mainCharacters = characters.slice(0, 4);
 
+  if (!isMockDataMode) {
+    return (
+      <div className="space-y-6 min-h-[480px]">
+        <div>
+          <h2 className="text-xl font-bold text-white tracking-wide">Chờ phân tích backend</h2>
+          <p className="text-xs text-slate-400 mt-1 leading-5">
+            Analysis job chưa được tạo. Hãy quay lại chỉnh sửa hoặc xác nhận để gửi project và story lên backend.
+          </p>
+        </div>
+        <div className="rounded-xl border border-dashed border-slate-700 bg-[#0a0f1d] p-6 text-center">
+          <Sparkles className="mx-auto h-8 w-8 text-purple-400" />
+          <p className="mt-3 text-sm font-semibold text-slate-200">Kết quả sẽ xuất hiện sau khi job hoàn tất</p>
+          <p className="mt-2 text-xs leading-5 text-slate-400">NarrativeX không hiển thị dữ liệu phân tích giả trong API mode.</p>
+        </div>
+        <button
+          type="button"
+          onClick={onBack}
+          className="rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-700/80"
+        >
+          Chỉnh sửa
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 min-h-[480px]">
       {/* Header with Title and Quick Edit */}

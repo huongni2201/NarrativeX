@@ -16,7 +16,9 @@ import { useProductionStore } from "@/store/useProductionStore";
 import { cn } from "@/lib/utils";
 
 export const StudioSidebar: React.FC = () => {
-  const { currentScreen, setScreen, openWizard } = useStudioStore();
+  const currentScreen = useStudioStore((state) => state.currentScreen);
+  const setScreen = useStudioStore((state) => state.setScreen);
+  const openWizard = useStudioStore((state) => state.openWizard);
   const setView = useProductionStore((state) => state.setView);
 
   const navItems = [

@@ -1,21 +1,24 @@
 "use client";
 
 import React from "react";
+import dynamic from "next/dynamic";
 import { useStudioStore } from "@/store/useStudioStore";
 import { StudioSidebar } from "@/components/layout/StudioSidebar";
 import { StudioHeader } from "@/components/layout/StudioHeader";
 import { ProjectsDashboard } from "@/features/dashboard/ProjectsDashboard";
-import { CharacterLibrary } from "@/features/characters/CharacterLibrary";
-import { ProjectWizardModal } from "@/features/project-creation/ProjectWizardModal";
-import { CharacterBibleModal } from "@/features/characters/CharacterBibleModal";
-import { ProductionShell } from "@/features/production/ProductionShell";
-import { AssetLibraryScreen } from "@/features/assets/AssetLibraryScreen";
-import { StylePresetsScreen } from "@/features/presets/StylePresetsScreen";
 import { useAuthStore } from "@/store/useAuthStore";
 import { AuthLoadingScreen, AuthScreen } from "@/features/auth/AuthScreen";
 
+const ProductionShell = dynamic(() => import("@/features/production/ProductionShell").then((module) => module.ProductionShell));
+const CharacterLibrary = dynamic(() => import("@/features/characters/CharacterLibrary").then((module) => module.CharacterLibrary));
+const ProjectWizardModal = dynamic(() => import("@/features/project-creation/ProjectWizardModal").then((module) => module.ProjectWizardModal));
+const CharacterBibleModal = dynamic(() => import("@/features/characters/CharacterBibleModal").then((module) => module.CharacterBibleModal));
+const AssetLibraryScreen = dynamic(() => import("@/features/assets/AssetLibraryScreen").then((module) => module.AssetLibraryScreen));
+const StylePresetsScreen = dynamic(() => import("@/features/presets/StylePresetsScreen").then((module) => module.StylePresetsScreen));
+
 export default function HomePage() {
-  const { currentScreen, wizardDraft } = useStudioStore();
+  const currentScreen = useStudioStore((state) => state.currentScreen);
+  const wizardStep = useStudioStore((state) => state.wizardDraft.step);
   const { status, error } = useAuthStore();
 
   if (status === "bootstrapping") {
@@ -43,7 +46,7 @@ export default function HomePage() {
     "character-bible": "Chi tiết nhân vật (Character Bible)",
     assets: "08. Thư viện tài sản (Asset Library)",
     presets: "09. Mẫu & Phong cách (Style & Presets)",
-    wizard: `Tạo dự án mới – Bước ${wizardDraft.step}`,
+    wizard: `Tạo dự án mới – Bước ${wizardStep}`,
   };
 
   return (

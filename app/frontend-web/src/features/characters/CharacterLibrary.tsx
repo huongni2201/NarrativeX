@@ -30,7 +30,7 @@ import { queryKeys } from "@/lib/query-keys";
 import { Project } from "@/types/studio";
 
 const PROJECT_PAGE = 0;
-const PROJECT_PAGE_SIZE = 20;
+const PROJECT_PAGE_SIZE = 100;
 
 export const CharacterLibrary: React.FC = () => {
   const {

@@ -11,8 +11,10 @@ interface StudioHeaderProps {
 }
 
 export const StudioHeader: React.FC<StudioHeaderProps> = ({ title, actions }) => {
-  const { setScreen, openWizard } = useStudioStore();
-  const { user, clearSession } = useAuthStore();
+  const setScreen = useStudioStore((state) => state.setScreen);
+  const openWizard = useStudioStore((state) => state.openWizard);
+  const user = useAuthStore((state) => state.user);
+  const clearSession = useAuthStore((state) => state.clearSession);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);

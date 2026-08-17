@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useStudioStore } from "@/store/useStudioStore";
 import { useProductionStore } from "@/store/useProductionStore";
@@ -35,30 +35,50 @@ export const ProjectWizardModal: React.FC = () => {
   const queryClient = useQueryClient();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<ApiFieldError[]>([]);
+  const workflowRef = useRef<{
+    fingerprint: string;
+    project: Awaited<ReturnType<typeof api.createProject>>;
+    storyCreated: boolean;
+  } | null>(null);
 
   const createProjectWorkflow = useMutation({
     mutationFn: async (draft: ProjectWizardDraft) => {
       const language = languageCodes[draft.language] ?? "vi-VN";
-      const project = await api.createProject({
-        name: draft.title.trim(),
-        sourceLanguage: language,
-        narrationLanguage: language,
-        metadataLanguage: language,
-        imageAspectRatio: draft.aspectRatio,
-        imageQualityTier: draft.quality.toUpperCase(),
-      });
-      const story = await api.createStoryVersion(project.id, {
-        content: draft.storyText.trim(),
-        sourceLanguage: language,
+      const fingerprint = JSON.stringify({
+        title: draft.title.trim(),
+        storyText: draft.storyText.trim(),
+        language,
+        aspectRatio: draft.aspectRatio,
+        quality: draft.quality,
         rightsAttestationAccepted: draft.rightsAttestationAccepted,
-        rightsPolicyVersion: "rights-v1.7",
-        rightsBasis: "USER_ATTESTED",
       });
+      const existingWorkflow = workflowRef.current?.fingerprint === fingerprint ? workflowRef.current : null;
+      const project = existingWorkflow?.project ?? await api.createProject({
+          name: draft.title.trim(),
+          sourceLanguage: language,
+          narrationLanguage: language,
+          metadataLanguage: language,
+          imageAspectRatio: draft.aspectRatio,
+          imageQualityTier: draft.quality.toUpperCase(),
+        });
+      workflowRef.current = existingWorkflow ?? { fingerprint, project, storyCreated: false };
+
+      if (!workflowRef.current.storyCreated) {
+        await api.createStoryVersion(project.id, {
+          content: draft.storyText.trim(),
+          sourceLanguage: language,
+          rightsAttestationAccepted: draft.rightsAttestationAccepted,
+          rightsPolicyVersion: "rights-v1.7",
+          rightsBasis: "USER_ATTESTED",
+        });
+        workflowRef.current = { fingerprint, project, storyCreated: true };
+      }
       const job = await api.enqueueAnalysis(project.id);
-      return { project, story, job };
+      return { project, job };
     },
     onSuccess: async ({ project }) => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.projects });
+      workflowRef.current = null;
       selectProject(project.id);
       closeWizard();
       setScreen("project-workspace");

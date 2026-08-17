@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { AssetFilterType, MediaAsset } from "@/types/assets";
 import { cn } from "@/lib/utils";
+import { isMockDataMode } from "@/lib/data-mode";
 
 export const AssetLibraryScreen: React.FC = () => {
   const {
@@ -49,6 +50,18 @@ export const AssetLibraryScreen: React.FC = () => {
   } = useAssetStore();
 
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+
+  if (!isMockDataMode) {
+    return (
+      <div className="rounded-2xl border border-dashed border-slate-700 bg-[#0d1420]/40 p-8">
+        <p className="text-[11px] uppercase tracking-[0.2em] text-purple-300">Asset Library</p>
+        <h2 className="mt-2 text-lg font-semibold text-slate-200">Asset API chưa sẵn sàng</h2>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+          Upload, duyệt và xoá tài sản sẽ được bật khi backend có contract lưu trữ. Không tạo dữ liệu cục bộ giả trong API mode.
+        </p>
+      </div>
+    );
+  }
 
   // Dynamic Type Tabs with computed counts from data
   const totalCount = assets.length;

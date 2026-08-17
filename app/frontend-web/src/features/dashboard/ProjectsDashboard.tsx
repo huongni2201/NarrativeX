@@ -14,7 +14,10 @@ import { Loader2, RefreshCw } from "lucide-react";
 
 const completedStatuses = new Set(["COMPLETED", "ARCHIVED"]);
 const PROJECT_PAGE = 0;
-const PROJECT_PAGE_SIZE = 20;
+// The backend currently bounds page size to 100. Use that bound so the
+// dashboard does not silently hide most projects while pagination endpoints
+// for the workspace are still being completed.
+const PROJECT_PAGE_SIZE = 100;
 
 export const ProjectsDashboard: React.FC = () => {
   const projectFilterTab = useStudioStore((state) => state.projectFilterTab);

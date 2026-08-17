@@ -144,16 +144,24 @@ export const useStudioStore = create<StudioStore>((set) => ({
     set((state) => ({
       isWizardOpen: true,
       currentScreen: "wizard",
-      wizardDraft: { ...state.wizardDraft, step: initialStep },
+      // Consent is specific to the story currently being submitted. Never
+      // carry it into a later wizard session, even when the draft is kept.
+      wizardDraft: { ...state.wizardDraft, step: initialStep, rightsAttestationAccepted: false },
     })),
-  closeWizard: () => set({ isWizardOpen: false, currentScreen: "dashboard" }),
+  closeWizard: () => set({ isWizardOpen: false, currentScreen: "overview" }),
   setWizardStep: (step) =>
     set((state) => ({
       wizardDraft: { ...state.wizardDraft, step },
     })),
   updateWizardDraft: (data) =>
     set((state) => ({
-      wizardDraft: { ...state.wizardDraft, ...data },
+      wizardDraft: {
+        ...state.wizardDraft,
+        ...data,
+        ...(data.storyText !== undefined && data.storyText !== state.wizardDraft.storyText
+          ? { rightsAttestationAccepted: false }
+          : {}),
+      },
     })),
   loadSampleStory: () =>
     set((state) => ({

@@ -139,7 +139,12 @@ async function loadCsrfToken(): Promise<CsrfTokenResponse> {
 }
 
 function csrfToken(): Promise<CsrfTokenResponse> {
-  csrfTokenPromise ??= loadCsrfToken();
+  csrfTokenPromise ??= loadCsrfToken().catch((error) => {
+    // Do not poison the module-level cache after a transient network/server
+    // failure. A later mutation must be able to request a fresh token.
+    resetCsrfToken();
+    throw error;
+  });
   return csrfTokenPromise;
 }
 
@@ -182,9 +187,11 @@ async function sendRequest<T>(
 
   if (!response.ok) {
     const errorResponse = await parseErrorResponse(response);
-    if (errorResponse.status === 401) {
+    if (errorResponse.status === 401 || errorResponse.status === 403) {
       resetCsrfToken();
-      useAuthStore.getState().setUnauthenticated();
+      if (errorResponse.status === 401) {
+        useAuthStore.getState().setUnauthenticated();
+      }
     }
     throw new ApiClientError(errorResponse);
   }

@@ -29,7 +29,7 @@ import { api } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 
 const PROJECT_PAGE = 0;
-const PROJECT_PAGE_SIZE = 20;
+const PROJECT_PAGE_SIZE = 100;
 
 export const CharacterBibleModal: React.FC = () => {
   const {

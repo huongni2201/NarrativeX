@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { PresetCategory, StylePreset } from "@/types/presets";
 import { cn } from "@/lib/utils";
+import { isMockDataMode } from "@/lib/data-mode";
 
 export const StylePresetsScreen: React.FC = () => {
   const {
@@ -38,6 +39,18 @@ export const StylePresetsScreen: React.FC = () => {
   } = usePresetStore();
 
   const [showFilters, setShowFilters] = useState(false);
+
+  if (!isMockDataMode) {
+    return (
+      <div className="rounded-2xl border border-dashed border-slate-700 bg-[#0d1420]/40 p-8">
+        <p className="text-[11px] uppercase tracking-[0.2em] text-purple-300">Style &amp; Presets</p>
+        <h2 className="mt-2 text-lg font-semibold text-slate-200">Preset API chưa sẵn sàng</h2>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+          Tạo, sửa và xoá preset sẽ được bật khi backend có contract lưu trữ. Không ghi dữ liệu cục bộ giả trong API mode.
+        </p>
+      </div>
+    );
+  }
 
   // Category Tabs with computed dynamic counts matching Mockup 09
   const categoryTabs: { id: PresetCategory; label: string; count: number }[] = [

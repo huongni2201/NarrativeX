@@ -71,7 +71,7 @@ export const Modal: React.FC<ModalProps> = ({
       {/* Content Container */}
       <div
         className={cn(
-          "relative w-full bg-[#0d1420] border border-slate-800/90 rounded-2xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col z-10 animate-in zoom-in-95 duration-200",
+          "relative w-full max-h-[calc(100vh-2rem)] bg-[#0d1420] border border-slate-800/90 rounded-2xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col z-10 animate-in zoom-in-95 duration-200",
           maxWidthStyles[maxWidth],
           className
         )}
