@@ -15,10 +15,10 @@ class ArchitectureRulesTest {
     @Test void productionPackagesRespectDependencyDirectionAndNaming() throws IOException { List<String> violations=scanProductionSources();assertTrue(violations.isEmpty(),()->String.join(System.lineSeparator(),violations)); }
     @Test void aggregateRootDoesNotInheritDomainEntity() throws IOException { String source=Files.readString(SOURCE_ROOT.resolve("modules/common/domain/AggregateRoot.java"));assertTrue(!source.contains("extends DomainEntity")); }
     @Test void rulesDetectRepresentativeInvalidDependencies() {
-        assertTrue(isForbiddenApplicationImport("project","import com.narrativex.backend.modules.project.api.request.CreateProjectRequest;"));
-        assertTrue(isForbiddenApplicationImport("project","import com.narrativex.backend.modules.character.api.response.CharacterResponse;"));
-        assertTrue(isForbiddenApplicationImport("project","import com.narrativex.backend.modules.project.infrastructure.persistence.adapter.ProjectPersistenceAdapter;"));
-        assertTrue(isForbiddenApiImport("import com.narrativex.backend.modules.project.application.port.out.ProjectRepository;"));
+        assertTrue(isForbiddenApplicationImport("project","import com.narrativex.backend.feature.project.api.request.CreateProjectRequest;"));
+        assertTrue(isForbiddenApplicationImport("project","import com.narrativex.backend.feature.character.api.response.CharacterResponse;"));
+        assertTrue(isForbiddenApplicationImport("project","import com.narrativex.backend.feature.project.infrastructure.persistence.adapter.ProjectPersistenceAdapter;"));
+        assertTrue(isForbiddenApiImport("import com.narrativex.backend.feature.project.application.port.out.ProjectRepository;"));
         assertTrue(isForbiddenDomainImport("import jakarta.persistence.Entity;"));
     }
 
@@ -29,7 +29,7 @@ class ArchitectureRulesTest {
             if(pkg.contains(".application")&&source.lines().anyMatch(line->isForbiddenApplicationImport(module,line))) violations.add(relative+": application imports a forbidden API/infrastructure package");
             if(pkg.contains(".api")&&source.lines().anyMatch(ArchitectureRulesTest::isForbiddenApiImport)) violations.add(relative+": API imports infrastructure/outbound port");
             if(pkg.contains(".domain")&&source.lines().anyMatch(ArchitectureRulesTest::isForbiddenDomainImport)) violations.add(relative+": domain imports framework/infrastructure");
-            if(pkg.startsWith("com.narrativex.backend.modules.common")&&source.lines().anyMatch(line->line.startsWith("import com.narrativex.backend.modules.")&&!line.contains(".modules.common."))) violations.add(relative+": common imports a business module");
+            if(pkg.startsWith("com.narrativex.backend.feature.common")&&source.lines().anyMatch(line->line.startsWith("import com.narrativex.backend.feature.")&&!line.contains(".modules.common."))) violations.add(relative+": common imports a business module");
             if(source.contains("@RestController")&&!pkg.contains(".api.")) violations.add(relative+": REST controller is outside API");
             if(fileName.endsWith("Command.java")&&!pkg.contains(".application.command")) violations.add(relative+": command is outside application/command");
             if(fileName.endsWith("Query.java")&&!pkg.contains(".application.query")) violations.add(relative+": query is outside application/query");
@@ -43,8 +43,8 @@ class ArchitectureRulesTest {
         return violations;
     }
     private static String packageName(String source){return source.lines().filter(line->line.startsWith("package ")).map(line->line.substring(8,line.length()-1)).findFirst().orElse("");}
-    private static String moduleName(String pkg){String marker="com.narrativex.backend.modules.";if(!pkg.startsWith(marker))return "";String rest=pkg.substring(marker.length());int dot=rest.indexOf('.');return dot<0?rest:rest.substring(0,dot);}
-    private static boolean isForbiddenApplicationImport(String module,String line){if(!line.startsWith("import com.narrativex.backend.modules."))return false;if(line.contains(".infrastructure.")||line.contains(".api.controller.")||line.contains(".api.request."))return true;if(line.contains(".api.response.")){String imported=moduleName(line.substring("import ".length(),line.length()-1));return !module.equals(imported);}return false;}
+    private static String moduleName(String pkg){String marker="com.narrativex.backend.feature.";if(!pkg.startsWith(marker))return "";String rest=pkg.substring(marker.length());int dot=rest.indexOf('.');return dot<0?rest:rest.substring(0,dot);}
+    private static boolean isForbiddenApplicationImport(String module,String line){if(!line.startsWith("import com.narrativex.backend.feature."))return false;if(line.contains(".infrastructure.")||line.contains(".api.controller.")||line.contains(".api.request."))return true;if(line.contains(".api.response.")){String imported=moduleName(line.substring("import ".length(),line.length()-1));return !module.equals(imported);}return false;}
     private static boolean isForbiddenApiImport(String line){return line.startsWith("import ")&&(line.contains(".infrastructure.")||line.contains(".application.port.out."));}
     private static boolean isForbiddenDomainImport(String line){if(!line.startsWith("import "))return false;String lower=line.toLowerCase();return lower.startsWith("import jakarta.persistence")||lower.startsWith("import jakarta.validation")||lower.startsWith("import org.springframework")||lower.contains(".infrastructure.")||lower.contains("redis")||lower.contains("minio")||lower.contains("software.amazon")||lower.contains("narrativex_worker");}
 }
