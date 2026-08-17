@@ -40,7 +40,7 @@ export const CharacterBibleModal: React.FC = () => {
   } = useStudioStore();
   const projectsQuery = useQuery({
     queryKey: queryKeys.projectsPage(PROJECT_PAGE, PROJECT_PAGE_SIZE),
-    queryFn: () => api.listProjects({ page: PROJECT_PAGE, size: PROJECT_PAGE_SIZE }),
+    queryFn: () => api.listProjects({ limit: PROJECT_PAGE_SIZE }),
     enabled: !isMockDataMode,
   });
   const projects = isMockDataMode ? MOCK_PROJECTS : projectsQuery.data?.content ?? [];

@@ -20,7 +20,7 @@ interface ProductionShellProps {
 export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
   const projectsQuery = useQuery({
     queryKey: queryKeys.projectsPage(PROJECT_PAGE, PROJECT_PAGE_SIZE),
-    queryFn: () => api.listProjects({ page: PROJECT_PAGE, size: PROJECT_PAGE_SIZE }),
+    queryFn: () => api.listProjects({ limit: PROJECT_PAGE_SIZE }),
     enabled: !isMockDataMode && Boolean(projectId),
   });
 
