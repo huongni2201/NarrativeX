@@ -1,0 +1,166 @@
+name: Apply Phase A Product Refactor V13
+
+on:
+  push:
+    branches: [agent/full-api-runtime-integration]
+    paths: ['.github/workflows/apply-phase-a-v13.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  refactor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: agent/full-api-runtime-integration
+          fetch-depth: 0
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+          cache-dependency-path: app/backend-service/pom.xml
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: app/frontend-web/package-lock.json
+
+      - name: Replay V12 product source and pin local principal
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          source = Path('.github/workflows/apply-phase-a-v12.yml').read_text(encoding='utf-8')
+          blocks=[]; pos=0
+          marker="          python <<'PY'\n"
+          while True:
+              try: start=source.index(marker,pos)+len(marker)
+              except ValueError: break
+              end=source.index("\n          PY\n",start)
+              lines=source[start:end].splitlines()
+              blocks.append('\n'.join(line[10:] if line.startswith('          ') else line for line in lines))
+              pos=end+1
+          Path('/tmp/v12_first.py').write_text(blocks[0],encoding='utf-8')
+          Path('/tmp/v12_second.py').write_text(blocks[1],encoding='utf-8')
+          PY
+          python /tmp/v12_first.py
+          python /tmp/a1.py
+          python /tmp/a2.py
+          python /tmp/v12_second.py
+
+          cat > app/backend-service/src/main/java/com/narrativex/backend/feature/auth/infrastructure/configuration/SecurityConfig.java <<'JAVA'
+          package com.narrativex.backend.feature.auth.infrastructure.configuration;
+
+          import com.narrativex.backend.feature.auth.infrastructure.security.ApiAccessDeniedHandler;
+          import com.narrativex.backend.feature.auth.infrastructure.security.ApiAuthenticationEntryPoint;
+          import java.util.Arrays;
+          import java.util.List;
+          import org.springframework.beans.factory.annotation.Value;
+          import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+          import org.springframework.context.annotation.Bean;
+          import org.springframework.context.annotation.Configuration;
+          import org.springframework.context.annotation.Profile;
+          import org.springframework.core.annotation.Order;
+          import org.springframework.security.config.Customizer;
+          import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+          import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+          import org.springframework.security.config.http.SessionCreationPolicy;
+          import org.springframework.security.web.SecurityFilterChain;
+          import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+          import org.springframework.web.cors.CorsConfiguration;
+          import org.springframework.web.cors.CorsConfigurationSource;
+          import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+          @Configuration
+          @EnableWebSecurity
+          public class SecurityConfig {
+              @Bean
+              CorsConfigurationSource corsConfigurationSource(
+                      @Value("${narrativex.security.cors.allowed-origins:http://localhost:3000,http://127.0.0.1:3000}") String origins) {
+                  List<String> allowedOrigins = Arrays.stream(origins.split(","))
+                          .map(String::trim).filter(value -> !value.isEmpty()).toList();
+                  CorsConfiguration configuration = new CorsConfiguration();
+                  configuration.setAllowedOrigins(allowedOrigins);
+                  configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"));
+                  configuration.setAllowedHeaders(List.of("Accept", "Content-Type", "X-CSRF-TOKEN", "X-XSRF-TOKEN", "X-Correlation-Id"));
+                  configuration.setAllowCredentials(true);
+                  configuration.setMaxAge(3600L);
+                  UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+                  source.registerCorsConfiguration("/**", configuration);
+                  return source;
+              }
+
+              @Bean
+              @Order(1)
+              @ConditionalOnProperty(prefix = "narrativex.security", name = "oidc-enabled", havingValue = "true")
+              SecurityFilterChain oidcSecurityFilterChain(
+                      HttpSecurity http,
+                      ApiAuthenticationEntryPoint authenticationEntryPoint,
+                      ApiAccessDeniedHandler accessDeniedHandler,
+                      @Value("${narrativex.security.frontend-base-url:http://localhost:3000}") String frontendBaseUrl)
+                      throws Exception {
+                  http.cors(Customizer.withDefaults())
+                          .csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()))
+                          .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+                          .authorizeHttpRequests(auth -> auth
+                                  .requestMatchers("/actuator/health", "/oauth2/**", "/login/**").permitAll()
+                                  .anyRequest().authenticated())
+                          .exceptionHandling(errors -> errors
+                                  .authenticationEntryPoint(authenticationEntryPoint)
+                                  .accessDeniedHandler(accessDeniedHandler))
+                          .oauth2Login(oauth2 -> oauth2.defaultSuccessUrl(frontendBaseUrl, true))
+                          .logout(logout -> logout.logoutSuccessUrl(frontendBaseUrl));
+                  return http.build();
+              }
+
+              @Bean
+              @Order(2)
+              @Profile({"local", "test"})
+              @ConditionalOnProperty(prefix = "narrativex.security", name = "oidc-enabled", havingValue = "false", matchIfMissing = true)
+              SecurityFilterChain localSecurityFilterChain(
+                      HttpSecurity http,
+                      ApiAuthenticationEntryPoint authenticationEntryPoint,
+                      ApiAccessDeniedHandler accessDeniedHandler,
+                      @Value("${narrativex.security.local-user-id:local-dev-user}") String localUserId)
+                      throws Exception {
+                  http.cors(Customizer.withDefaults())
+                          .csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()))
+                          .anonymous(anonymous -> anonymous.key("narrativex-local").principal(localUserId).authorities("ROLE_USER"))
+                          .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+                          .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+                          .exceptionHandling(errors -> errors
+                                  .authenticationEntryPoint(authenticationEntryPoint)
+                                  .accessDeniedHandler(accessDeniedHandler));
+                  return http.build();
+              }
+          }
+          JAVA
+
+      - name: Format and verify backend
+        working-directory: app/backend-service
+        run: |
+          chmod +x mvnw
+          ./mvnw --batch-mode --no-transfer-progress spotless:apply
+          ./mvnw --batch-mode --no-transfer-progress clean verify
+
+      - name: Verify frontend
+        working-directory: app/frontend-web
+        run: |
+          npm ci
+          npm run lint
+          npm run type-check
+          npm run build
+
+      - name: Commit product code only
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app AGENTS.md README.md documentation contracts || true
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'refactor: use security context and real project APIs'
+          git push origin HEAD:agent/full-api-runtime-integration
