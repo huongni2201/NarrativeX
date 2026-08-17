@@ -1,69 +1,72 @@
-# Backend Codebase and Module Plan
+# NarrativeX W1-D1 Backend Baseline
 
-## Current implementation
+## Framework/runtime
 
-`app/backend-service` is a Spring Boot 4.1.0 application with Java 25, Spring Web, Validation, Data JPA, Security, Redis, Actuator, PostgreSQL and Flyway. The entry point is `NarrativeXBackendApplication`. The repository now contains first module foundations under `modules/project`, `modules/generation`, `modules/storyboard` and `modules/health`, plus shared API/domain primitives. The migrations include the baseline, `V2__domain_foundation.sql` and the v1.7 control-plane migration; the full v1.7 domain remains incremental.
+- Java runtime verified: `25.0.3`.
+- Spring Boot parent: `4.1.0`; Maven: `3.9.16` installed. `mvn` works after dependency download; the Windows wrapper fails before Maven with `Cannot index into a null array` in `mvnw.cmd:35`.
+- Entry point: `com.narrativex.backend.NarrativeXBackendApplication`.
+- Build: Maven, single module `app/backend-service`.
+- Persistence: Spring Data JPA + PostgreSQL driver + Flyway; Redis starter and Actuator are configured.
 
-The current `SecurityConfig` is development scaffolding: CSRF is disabled, every route is permitted and sessions are stateless. It is not the v1.7 auth contract. The current generation foundation includes `GenerationJob`, `OperationPlan`, `StageAttempt` and `ProviderOperation` domain types, but the complete worker lease/reconciliation/outbox implementation is still target work.
+## Module inventory
 
-## Target module responsibilities
+| Module | Responsibility | Incoming | Outgoing / DB ownership | Security ownership | Violations/gaps |
+|---|---|---|---|---|---|
+| `project.api` | HTTP DTOs and project/story routes | frontend/HTTP | project service | passes owner header to service | controller still exposes client owner header in local mode |
+| `project.application` | project/story use cases and limits | project controller | project/story repositories | resolves owner via `CurrentUserId` | no read/update story API; version allocation is count-plus-one |
+| `project.domain` | JPA project/story entities and enums | service/repository | PostgreSQL tables | owner field only | no workspace aggregate/membership |
+| `generation.api` | job query route and response mapping | frontend/HTTP | generation service | owner-filtered query | no SSE/cancel |
+| `generation.application` | operation-plan/job insert and owner-filtered lookup | project/generation controllers | generation/project repositories | owner-filtered project/job lookup | no reservation, idempotency, delivery, claim or worker handoff |
+| `storyboard.domain` | chapter/scene/visual-beat JPA entities | JPA scan only | PostgreSQL tables | none at API surface | no repositories/controllers/use cases |
+| `health.api` | provider configuration status | frontend/ops | no persistence/provider call | route follows global chain | response says configuration, not real health |
+| `shared.api` | basic `ProblemDetail` mapping | all controllers | none | none | no 401/403/404/409/5xx contract or correlation ID |
 
-```text
-auth              Google OIDC, HttpOnly session, roles/current user
-project           ownership and project lifecycle
-story             StoryVersion, rights attestation, analysis command
-character         Bible, versions, outfits, references, consent
-scene             Scene, Shot, VisualBeat, storyboard edits
-generation        Job/StageAttempt/Lease/ProviderOperation state machines
-asset             metadata, checksum, signed URL and lifecycle policy
-render            RenderVersion, manifest and FinalArtifact validation
-shorts            candidates, vertical plan and ShortClip
-provider          capability registry, routing, health and ports
-cost/billing      OperationPlan, reservation, usage and reconciliation
-entitlement       plan capability, usage windows, watermark/export limits
-safety             moderation, prompt boundary, rights/consent gates
-notification      outbox, in-app notification and channel delivery
-characterlibrary  immutable user template versions and project snapshots
-```
+No provider SDK import was found in backend domain/application packages. This satisfies the provider-boundary rule at the current scaffold level.
 
-## Persistence contract
+## API inventory
 
-PostgreSQL owns all canonical state. The target schema includes users/external identities, projects/story/chapter/scene/visual beat, character versions/references, assets, generation jobs/attempts, stage attempts, provider operations, render/final artifacts, shorts, operation plans/reservations/estimates, usage/resource records, entitlements/usage windows, notifications/outbox, rights/moderation/consent, AI audit and deletion requests.
+| Method | Path | Controller | Auth | Workspace scoped | Request | Response | Persistence | Transaction | Used by FE | Risk/gap |
+|---|---|---|---|---|---|---|---|---|---|---|
+| GET | `/api/v1/projects` | `ProjectController#list` | local open; OIDC chain authenticated | owner string, no workspace | optional `X-User-Id` | `ProjectResponse[]` | real JPA query | read-only | client function exists, no caller | client header unsafe in local mode; no pagination |
+| POST | `/api/v1/projects` | `ProjectController#create` | local open; OIDC chain authenticated | owner string, no workspace | `CreateProjectRequest` | `ProjectResponse` | real JPA insert | write transaction | only unreachable `StudioDashboard` | no idempotency |
+| POST | `/api/v1/projects/{projectId}/stories` | `ProjectController#createStory` | local open; OIDC chain authenticated | project owner check | `CreateStoryVersionRequest` | `StoryVersionResponse` | real JPA insert | write transaction | client function exists, no caller | no story read/update; no If-Match |
+| POST | `/api/v1/projects/{projectId}/analysis-jobs` | `ProjectController#analyze` | local open; OIDC chain authenticated | project owner check | no body | `JobResponse` | `OperationPlan` + `GenerationJob` insert | write transaction | client function exists, no caller | zero-cost plan; no reservation/queue/worker |
+| GET | `/api/v1/jobs/{jobId}` | `GenerationJobController#get` | local open; OIDC chain authenticated | job joins project owner | no body | `JobResponse` | real JPA query | read-only | no | no progress producer; no SSE |
+| GET | `/api/v1/provider-health` | `ProviderHealthController#get` | local open; OIDC chain authenticated | none | no body | configured flag/location/model map | config only | none | no | no external call; not provider health |
 
-JPA entities must use optimistic locking for mutable rows (`row_version`). Approved/locked/render snapshots are immutable. Flyway migrations must be backward-compatible, rehearsed in staging, and preceded by a production backup snapshot.
+Concrete route evidence is in `src/main/java/com/narrativex/backend/modules/project/api/ProjectController.java:18-55`, `.../generation/api/GenerationJobController.java:10-24`, and `.../health/api/ProviderHealthController.java:9-34`.
 
-## Application flow
+## Security
 
-Controller -> authenticated user/ownership -> use case -> safety/entitlement/abuse guards -> affected scope and operation plan -> reservation -> job/stage persistence -> Redis delivery hint -> worker -> state transition/event. Long-running work never runs in an HTTP request thread.
+- `SecurityConfig.localSecurityFilterChain` permits `/actuator/**`, `/api/v1/**` and every other route (`SecurityConfig.java:37-48`). It is selected by default when `narrativex.security.oidc-enabled` is absent/false (`application.yml:37-39`). There is no profile guard forcing OIDC outside local development.
+- OIDC mode uses an HttpOnly server session shape (`SecurityConfig.java:22-35`) but CSRF is disabled for both chains. This remains an unresolved cookie-auth assumption.
+- `CurrentUserId.resolve` trusts `X-User-Id` whenever OIDC is disabled (`CurrentUserId.java:24-27`). OIDC correctly ignores the header and reads `Authentication` (`:29-35`), but local mode is unsafe if reachable beyond a private developer machine.
+- Controllers have no workspace membership concept; the current filter is a string owner ID on project/job rows.
+- Actuator web exposure is `health,info,metrics` (`application.yml:47-54`); health details are `when_authorized`, but local security makes actuator routes open.
 
-Every command that can be retried accepts an idempotency key. Unique constraints cover operation/event/provider fingerprints. A stale `If-Match`/row version returns `409`, and duplicate idempotent requests return the existing result.
+## Persistence and transactions
 
-## Durable job model
+- JPA entities use `Long` identity PKs, `@Version` row version, UTC instants and lazy parent relationships.
+- Project list/create, story create and analysis enqueue have explicit `@Transactional` boundaries. Job read and project list are read-only transactions.
+- `GenerationApplicationService.enqueueStoryAnalysis` persists a zero-cost `OperationPlan` and a queued job but does not reserve budget, create stage attempts, or publish a delivery event.
+- No repository directly writes Redis or object storage.
 
-`GenerationJob` is the parent operation. A `StageAttempt` is a persisted, independently retryable stage with lease and heartbeat. A billable provider call has a `ProviderOperation` reserved before submission:
+## Redis, storage and provider boundary
 
-```text
-StageAttempt: QUEUED -> RUNNING -> COMPLETED / FAILED / CANCELED
-               \-> STALLED -> RETRY_WAIT / RECONCILING
-ProviderOperation: RESERVED -> SUBMITTED -> RUNNING
-                   -> COMPLETED / FAILED / UNKNOWN
-FinalArtifact: PENDING -> VALIDATING -> READY / INVALID
-```
+- Redis is configured but unused in Java source; no cache/queue/progress/lock behavior exists.
+- MinIO/S3 is present only in local Compose and environment naming; no storage adapter exists in backend or worker.
+- Provider SDKs are absent from the backend. The worker exposes provider ports and a disabled adapter.
 
-`UNKNOWN` is a first-class safety state. The backend schedules reconciliation against provider status and storage evidence; no blind resubmit is allowed. Parent completion requires all required stages and a valid immutable `FinalArtifact`.
+## Error handling
 
-## Security and policy responsibilities
+`ApiExceptionHandler` maps `IllegalArgumentException` and validation failures to `ProblemDetail` (`shared/api/ApiExceptionHandler.java:10-31`). There is no explicit mapping for not-found, access denied, optimistic conflict, database constraint, or unexpected failures. This is insufficient as a stable FE integration contract.
 
-The backend, not the client or worker, enforces Google OIDC session ownership, account/IP abuse limits, rights attestation, real-person consent, moderation decisions, prompt-injection boundaries, plan entitlement, quota and max authorized spend. Provider credentials use runtime secret injection/workload identity/ADC and never appear in the browser.
+## Testing
 
-## Notifications and audit
+- `mvn test`: 4 tests passed; the Spring context test uses H2, `ddl-auto=create-drop`, and Flyway disabled (`src/test/resources/application-test.yml:1-16`). It does not validate real PostgreSQL migrations.
+- `mvn -DskipTests package`: produced `target/backend-service-0.0.1-SNAPSHOT.jar` during the audit.
+- Real startup against local PostgreSQL 16 failed with `Schema validation: missing table [chapters]`; the DB had no `flyway_schema_history` and no public tables. This is a P0 empty-database boot failure, not an H2 test failure.
 
-Terminal state changes and notification outbox events are committed transactionally. The dispatcher creates durable in-app notifications and retries optional email/web-push independently. AI audit events capture actor, project/job/stage, provider/model, prompt/schema/policy versions, fingerprints, safety outcome and usage while minimizing raw sensitive content.
+## P0/P1 gaps
 
-## Verification priorities for implementation
-
-1. Replace permissive `SecurityConfig` with Google OIDC/session and ownership tests.
-2. Add Flyway domain migrations and module boundaries before feature controllers.
-3. Add idempotent operation-plan/reservation/job/stage persistence.
-4. Add worker contract, leases, reconciliation and outbox recovery.
-5. Add provider adapters and cost/safety/entitlement integration tests.
+See `documentation/audits/WEEK_1_TECHNICAL_DEBT.md`. Highest-risk backend items are fail-open local identity/security, empty-DB migration/startup failure, incomplete async handoff, unstable error contracts and missing ownership/workspace enforcement.

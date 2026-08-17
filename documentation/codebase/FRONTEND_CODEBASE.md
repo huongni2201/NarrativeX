@@ -1,49 +1,55 @@
-# Frontend Codebase and Client Boundary
+# NarrativeX W1-D1 Frontend Integration Baseline
 
-## Current implementation
+## Framework/runtime
 
-`app/frontend-web` is a Next.js App Router application using React 19, TypeScript and Tailwind CSS. The current repository contains a v1.7-oriented studio shell:
+- Package manifest: Next.js `^16.3.1`, React `^19.2.8`, TypeScript `^5.8.2`, Zustand `^5.0.15`, TanStack Query `^5.101.4`.
+- Runtime verified: Node `v26.4.0`, npm `11.17.0`.
+- App Router routes: `/`, `/auth`, `/dashboard`, `/characters`; the root page is a client-side screen switcher rather than a route-param project shell.
+- The frontend README says Next.js 15, which is documentation drift against `package.json`.
 
-- `src/app/layout.tsx`: root metadata and dark layout.
-- `src/app/page.tsx`: Studio dashboard entry point.
-- `src/app/globals.css`: Tailwind directives and base colors.
-- `src/lib/api.ts`: typed project/story API boundary and error handling.
-- `src/features/StudioDashboard.tsx`: project/story/settings/job planning surface with empty states.
-- `src/features/auth/`, `src/store/`, `src/components/layout/` and `src/components/ui/`: auth/session shell, client state, navigation and reusable UI primitives.
-- `src/types/`: project, storyboard and studio domain types.
+## Routes and existing UI/features
 
-The frontend still does not claim production OIDC, full storyboard editing or durable SSE/job ownership; those remain backend-integrated work. The package build file is the version authority (`next` `^16.3.1`).
+| Feature | Component(s) | Current data source | State |
+|---|---|---|---|
+| Auth/login/register | `AuthScreen` | Zustand boolean + local form state + 600ms timer | MOCK |
+| Dashboard/project list | `ProjectsDashboard`, `ProjectCard` | `useStudioStore.projects` initialized from `lib/mock-data.ts` | MOCK |
+| Create project wizard | `ProjectWizardModal`, steps 1-4 | Zustand `wizardDraft`; confirm creates a local object | MOCK |
+| Story input | `Step2ImportStory` | Zustand text; sample preset; upload tab has no file input | MOCK |
+| AI analysis | `Step3AiAnalysis`, `Step4Results` | hard-coded counts/checklist + `setInterval` progress | MOCK |
+| Characters/Character Bible | `CharacterLibrary`, `CharacterBibleModal` | `MOCK_CHARACTERS`, local filters/modal | MOCK |
+| Production overview/chapter | `ProductionShell`, Screens 01-03 | `useProductionStore` initialized from `production-mock.ts` | MOCK |
+| Storyboard/visual review | Screens 04-05 | local visual-beat array and local status mutations | MOCK |
+| Render/preview | Screens 06-07 | local settings + 1.2s timer; no export call | MOCK |
+| Assets/presets | current sidebar plus untracked asset/preset stores/components | local mocks; no `app/page.tsx` render branch | DEAD/UNKNOWN |
+| Notifications/settings/upgrade | sidebar controls | hard-coded badge/credits and no-op handlers | DEAD |
 
-## Target feature slices
+## State ownership and API client
 
-```text
-src/features/
-├── auth/               # OIDC redirect, current user, logout
-├── projects/           # project/story/chapter lifecycle
-├── characters/         # Bible/version/reference/consent review
-├── storyboard/         # scene/shot/visual beat editing and prompts
-├── generation/         # image/motion actions, attempts and identity QA
-├── jobs/               # durable job status, SSE reconnect and cancel
-├── cost/entitlements/  # estimate, reservation confirmation, usage limits
-├── render/             # animatic, render profile and final artifacts
-├── shorts/             # candidates, 9:16 plan and exports
-└── notifications/      # in-app center and preferences
-```
+- `src/store/useStudioStore.ts:55-160` owns navigation, auth state, project mocks, characters and wizard draft.
+- `src/store/useProductionStore.ts:37-153` owns production project, chapters, beats, review mutations and local continuation logic.
+- `src/lib/api.ts:13-37` is a small fetch client with `credentials: include` and `ProblemDetail.detail` extraction. It exports `listProjects`, `createProject`, `createStoryVersion` and `enqueueAnalysis`.
+- Only `StudioDashboard.tsx:18-36` calls `api.createProject`; `rg` found no rendered/imported caller for `StudioDashboard`. The visible wizard therefore does not use the client.
+- TanStack Query is declared but no `useQuery`/`useMutation` call exists. There is no SSE client, upload client, auth redirect client, localStorage/sessionStorage persistence or direct fetch outside `lib/api.ts`.
 
-## Client/server rules
+## Real, partial and mock integrations
 
-- The browser talks only to the Spring Boot API and SSE endpoints.
-- Google OIDC is a backend redirect/session flow. The browser does not store provider tokens or credentials in local storage.
-- Project-scoped actions rely on server ownership/role checks. UI hiding is not authorization.
-- Long-running actions show persisted job/stage progress; SSE reconnect is read-only and must not create a new job. Polling is a fallback.
-- Expensive actions show estimate range, confidence, affected scope and max authorized spend before confirmation. Client credit counters never replace server-side reservation/entitlement enforcement.
-- Optimistic `row_version`/`If-Match` conflicts surface as `409` with reload/diff/re-submit UX; complex prompt/narration edits are not silently merged.
-- Asset URLs are short-lived signed URLs from the backend. The client never assumes a public bucket.
+The only real FE-to-BE call is an unreachable legacy create-project shell. API client functions for list/story/analysis are present but unused. All visible Week 1–2 workflows are `MOCK` or local state. UI loading exists for a few timers/buttons, but there are no backend-driven error, forbidden, conflict, upload, persisted-progress or reconnect states.
 
-## Safety and review UX
+## Integration risks
 
-The UI must distinguish `SAFE`, `REVIEW` and `BLOCK`, show actionable error catalog entries, and require human approval at character/storyboard/visual/publish gates. Prompt preview and overrides are explicit structured data. Real-person reference flows expose consent and retention implications. A review state cannot be treated as publishable by client code.
+- Backend IDs are numeric (`Long`/`entityId`), while studio `Project.id` and production IDs are strings such as `proj-1` and `ch-06`.
+- Backend `ProjectResponse` has no description/cover/progress/count fields required by `ProjectsDashboard` and `ProjectCard`.
+- Backend `StoryVersionResponse` omits story content, while the frontend type expects `content`.
+- Visible wizard `quality` values are `Standard|High`, while backend accepts enum names such as `STANDARD`.
+- Story upload is a visual dropzone without an `<input type="file">` or upload client.
+- Login form and Google button call `login()` locally; no backend OIDC redirect is wired.
 
-## Localization
+## Missing API wiring by flow
 
-Baseline locales are `vi-VN` and `en-US`. Backend state uses stable enums/codes/message keys; the frontend resolves presentation copy by locale. Story source, narration and metadata languages remain separate settings.
+Exact rows and target contracts are in `FRONTEND_API_INTEGRATION_MATRIX.md`. The required sequence is project query/create, story create/read/update, upload intent/complete, analysis job creation, job polling/SSE, then asset/character/storyboard APIs. No replacement UI is proposed in D1.
+
+## P0/P1 gaps
+
+- P0: visible app assumes a local authenticated identity while backend local mode permits arbitrary `X-User-Id`; see security audit.
+- P1: visible dashboard, wizard, story, analysis progress, production and assets are not connected to durable backend state.
+- P1: API/error contracts are not yet compatible with the full visible UI model.

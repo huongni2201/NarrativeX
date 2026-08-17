@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useStudioStore } from "@/store/useStudioStore";
 import { Tabs } from "@/components/ui/Tabs";
-import { FileText, UploadCloud, Link as LinkIcon, Sparkles, Info } from "lucide-react";
+import { FileText, UploadCloud, Sparkles, Info } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 
 interface Step2Props {
@@ -16,7 +16,6 @@ export const Step2ImportStory: React.FC<Step2Props> = ({ onNext, onBack }) => {
   const importTabs = [
     { id: "text", label: "Nhập văn bản", icon: <FileText className="w-3.5 h-3.5" /> },
     { id: "upload", label: "Tải file", icon: <UploadCloud className="w-3.5 h-3.5" /> },
-    { id: "url", label: "Nhập từ URL", icon: <LinkIcon className="w-3.5 h-3.5" /> },
   ];
 
   const characterCount = wizardDraft.storyText ? wizardDraft.storyText.length : 0;
@@ -75,26 +74,6 @@ export const Step2ImportStory: React.FC<Step2Props> = ({ onNext, onBack }) => {
               </p>
               <p className="text-xs text-slate-500">Hỗ trợ .txt, .docx, .pdf, .epub (tối đa 50MB)</p>
             </div>
-          </div>
-        )}
-
-        {/* Tab content: Nhập từ URL */}
-        {activeTab === "url" && (
-          <div className="flex-1 rounded-xl bg-[#0a0f1d] border border-slate-800 p-6 space-y-4">
-            <label className="text-xs font-medium text-slate-300">Đường dẫn truyện trực tuyến</label>
-            <div className="flex gap-2">
-              <input
-                type="url"
-                placeholder="https://example.com/truyen/chuong-1"
-                className="flex-1 bg-[#070b14] border border-slate-800 rounded-lg px-3.5 py-2 text-sm text-slate-100 focus:outline-none focus:border-purple-500"
-              />
-              <Button variant="primary" size="md">
-                Tải về
-              </Button>
-            </div>
-            <p className="text-xs text-slate-500">
-              Tự động cào và trích xuất nội dung văn bản từ các trang đọc truyện trực tuyến phổ biến.
-            </p>
           </div>
         )}
       </div>

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useStudioStore } from "@/store/useStudioStore";
 import { Modal } from "@/components/ui/Modal";
 import { Stepper } from "@/components/ui/Stepper";
@@ -18,19 +18,37 @@ export const ProjectWizardModal: React.FC = () => {
     confirmAndCreateProject,
   } = useStudioStore();
 
-  if (!isWizardOpen) return null;
-
   const currentStep = wizardDraft.step;
+  const [maxAccessibleStep, setMaxAccessibleStep] = useState<number>(currentStep);
+
+  // Sync and update maxAccessibleStep when wizard is opened or step advances
+  useEffect(() => {
+    if (isWizardOpen) {
+      setMaxAccessibleStep((prev) => Math.max(prev, wizardDraft.step));
+    } else {
+      setMaxAccessibleStep(1);
+    }
+  }, [isWizardOpen, wizardDraft.step]);
+
+  if (!isWizardOpen) return null;
 
   const handleNext = () => {
     if (currentStep < 4) {
-      setWizardStep((currentStep + 1) as 1 | 2 | 3 | 4);
+      const nextStep = (currentStep + 1) as 1 | 2 | 3 | 4;
+      setMaxAccessibleStep((prev) => Math.max(prev, nextStep));
+      setWizardStep(nextStep);
     }
   };
 
   const handleBack = () => {
     if (currentStep > 1) {
       setWizardStep((currentStep - 1) as 1 | 2 | 3 | 4);
+    }
+  };
+
+  const handleStepClick = (stepId: number) => {
+    if (stepId <= maxAccessibleStep) {
+      setWizardStep(stepId as 1 | 2 | 3 | 4);
     }
   };
 
@@ -57,6 +75,7 @@ export const ProjectWizardModal: React.FC = () => {
         </div>
 
         <button
+          type="button"
           onClick={closeWizard}
           className="text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 p-1.5 rounded-lg transition-colors"
         >
@@ -70,7 +89,8 @@ export const ProjectWizardModal: React.FC = () => {
         <div className="border-b md:border-b-0 md:border-r border-slate-800/80 pb-4 md:pb-0">
           <Stepper
             currentStep={currentStep}
-            onStepClick={(step) => setWizardStep(step as 1 | 2 | 3 | 4)}
+            maxAccessibleStep={maxAccessibleStep}
+            onStepClick={handleStepClick}
           />
         </div>
 

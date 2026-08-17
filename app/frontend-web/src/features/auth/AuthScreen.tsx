@@ -37,15 +37,12 @@ export const AuthScreen: React.FC = () => {
         <div className="absolute inset-0 bg-purple-950/20 mix-blend-color" />
 
         {/* Top Brand Logo on Hero */}
-        <div className="relative z-10 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center shadow-[0_0_20px_rgba(124,58,237,0.6)]">
-            <Sparkles className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <span className="font-bold text-2xl tracking-wider text-white">
-              Narrative<span className="text-purple-400">X</span>
-            </span>
-          </div>
+        <div className="relative z-10 flex items-center">
+          <img
+            src="/branding/narrativex-logo-dark.png"
+            alt="NarrativeX Logo"
+            className="h-14 w-auto object-contain drop-shadow-[0_0_25px_rgba(124,58,237,0.7)]"
+          />
         </div>
 
         {/* Bottom Hero Tagline */}
@@ -67,11 +64,14 @@ export const AuthScreen: React.FC = () => {
       <div className="flex-1 flex items-center justify-center p-6 md:p-12 relative z-10">
         <div className="w-full max-w-md space-y-7 bg-[#0d1420]/90 backdrop-blur-xl p-8 rounded-2xl border border-slate-800/80 shadow-[0_0_50px_rgba(0,0,0,0.5)]">
           {/* Header */}
-          <div className="text-center space-y-2">
-            <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-purple-950/60 border border-purple-800/60 mb-1">
-              <Sparkles className="w-6 h-6 text-purple-400" />
+          <div className="text-center space-y-3">
+            <div className="flex justify-center">
+              <img
+                src="/branding/narrativex-logo-dark.png"
+                alt="NarrativeX Logo"
+                className="h-13 w-auto object-contain drop-shadow-[0_0_20px_rgba(124,58,237,0.55)]"
+              />
             </div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">NarrativeX</h1>
             <p className="text-xs text-purple-300 font-medium tracking-wide">AI Story Video Studio</p>
             <p className="text-xs text-slate-400 pt-1">
               {authMode === "login"

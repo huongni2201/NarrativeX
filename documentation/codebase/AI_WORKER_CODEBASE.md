@@ -1,59 +1,50 @@
-# AI Worker Codebase and Execution Contract
+# NarrativeX W1-D1 AI Worker Baseline
 
-## Current implementation
+## Runtime and entry points
 
-`app/ai-worker` is a Python 3.12 package built with Hatchling. Dependencies currently include Pydantic v2, Pydantic Settings and HTTPX; development tooling includes Pytest, Ruff and strict Mypy.
+- Python runtime verified: `3.12.10`.
+- Package: `narrativex-worker 0.1.0`, Hatchling build, Pydantic v2, HTTPX, pytest/pytest-asyncio, Ruff and strict mypy configured in `pyproject.toml`.
+- Entry points: `python -m narrativex_worker` and `narrativex-worker`.
+- `--dry-run` initializes settings, logs readiness and exits. Normal start enters an idle `asyncio.sleep(1)` loop.
 
-- `src/narrativex_worker/config.py`: environment-backed `WorkerSettings` (`worker_name`, `worker_env`, `log_level`, `backend_url`, health port).
-- `src/narrativex_worker/worker.py`: lifecycle runner, logging and graceful signal/cancellation handling; `start(dry_run=True)` exits without processing.
-- `src/narrativex_worker/schema.py`: typed resource classes, v1.7 chapter job types, image settings, moderation decisions, rights-policy metadata, story-analysis request and provider-operation states.
-- `src/narrativex_worker/prompting.py`: deterministic prompt construction with an explicit untrusted-story boundary.
-- `src/narrativex_worker/providers/ports.py`: provider port and operation contract; `disabled.py` is the safe non-production adapter.
-- `src/narrativex_worker/service.py`: provider-backed service façade that requires rights attestation before story analysis.
-- `src/narrativex_worker/__main__.py`: CLI entry point.
-- `tests/test_worker.py`: settings, dry-run and stop behavior.
+## Current capability classification
 
-There is currently no durable queue consumer, real provider SDK, object-storage client or media pipeline. The current provider façade is intentionally adapter-owned and non-production. The README describes the intended boundary, not current feature completeness.
+| Capability | Classification | Evidence |
+|---|---|---|
+| Provider-neutral request/schema types | `PORT_ONLY` | `src/narrativex_worker/schema.py`, `providers/ports.py` |
+| Safe disabled provider | `DETERMINISTIC_FAKE` | `providers/disabled.py:16-34`; every estimate/submit/status/reconcile call raises `ProviderNotConfiguredError` |
+| Rights/prompt boundary | `PORT_ONLY` | `service.py:12-17`, `prompting.py:8-16` |
+| Real provider adapter | `UNIMPLEMENTED` | no provider SDK or adapter package found |
+| Durable job intake/claim | `UNIMPLEMENTED` | no queue, HTTP consumer, Redis client or backend client |
+| Media/object-storage execution | `UNIMPLEMENTED` | no storage/media/FFmpeg client |
 
-## Target package shape
+## Lifecycle audit
 
-```text
-src/narrativex_worker/
-├── contract/       # backend API DTOs, stage claims, heartbeat/results
-├── execution/      # lease-safe dispatcher and job handlers
-├── providers/
-│   ├── llm/        # VertexGeminiProvider
-│   ├── image/      # image capability adapters
-│   ├── video/      # VertexVeoProvider, KlingProvider, future adapters
-│   └── tts/        # narration adapter
-├── safety/         # prompt boundary, schema/output checks, moderation mapping
-├── identity/       # reference snapshots and Identity QA
-├── media/          # Pillow/OpenCV, crop/reframe, audio/subtitle helpers
-├── ffmpeg/         # scene/final render, ffprobe and atomic promotion
-├── storage/        # MinIO/S3-compatible temporary and immutable object contract
-├── metering/       # resource usage and provider cost evidence
-└── config.py / worker.py / __main__.py
-```
+| Concern | Current state | Week 2 foundation gap |
+|---|---|---|
+| Job intake | none; process only | consume a versioned backend delivery contract |
+| Claim/lease | none | claim `StageAttempt` with lease token and durable owner |
+| Heartbeat | none | heartbeat and stale lease detection |
+| Retry/timeout | none | classify local retryable failures vs external reconcile; explicit timeouts |
+| Cancellation/shutdown | process signal handling on non-Windows; `CancelledError` is logged and re-raised | cooperative job cancellation and claim release |
+| Idempotency | provider port has no idempotency key field; schema has a job-event idempotency key only | persist and enforce operation/stage idempotency end-to-end |
+| UNKNOWN/reconciliation | enum and port method exist, no implementation/state transition | ambiguous submit must persist `UNKNOWN` and reconcile before retry |
+| Storage | none | private object-store adapter and immutable asset metadata |
+| Logging | basic process-level log format, no job/stage/provider correlation fields | structured correlation without raw story/prompt/secret leakage |
+| Testing | 7 unit tests, no queue/provider integration | deterministic fake integration path and recovery tests |
 
-## Stage execution contract
+## Provider boundary and untrusted input
 
-1. Poll/recover a backend-issued delivery hint, then claim a `StageAttempt` by durable ID and lease token.
-2. Heartbeat at the configured interval (baseline 30 seconds; lease around 120 seconds).
-3. Load immutable snapshots: workflow version, model/provider, prompt, character/location/style references, output profile and operation budget.
-4. Before external submission, ask the backend to persist/confirm the `ProviderOperation` reservation and pass rate/circuit/resource/budget guards.
-5. Execute through a provider port or deterministic local handler. All story text is explicitly untrusted data; structured schemas and allowlists prevent model output from authorizing arbitrary tools/jobs/keys.
-6. On ambiguous timeout, report `UNKNOWN` and evidence. Reconcile before retrying; never “retry until it works” against a possibly submitted operation.
-7. Write temp output, validate MIME/codec/dimensions/duration/checksum, promote immutable storage, and report asset metadata.
-8. Report usage (`gpu_seconds`, `cpu_seconds`, storage/egress, provider/internal/billable cost) and terminal stage state to the backend.
+The worker follows the intended boundary: `WorkerService` checks rights attestation, `build_story_analysis_prompt` wraps story content in an explicit untrusted-data marker, and `DisabledProvider` refuses to fake success. No real paid provider was called during D1. The current `ProviderOperation` dataclass has `operation_id` and `UNKNOWN`, but there is no durable reservation or reconciliation storage behind it.
 
-## Provider ports
+## Verification
 
-The worker must keep vendor SDKs inside adapters. `VertexGeminiProvider` handles planning/intelligence via Vertex AI and ADC/workload identity. Image and video are independent ports; Veo/Kling produce selected-beat `MotionAsset` outputs and do not replace the image-first pipeline.
+- `./.venv/Scripts/python.exe -m pytest`: 7 passed.
+- `./.venv/Scripts/python.exe -m ruff check .`: pass.
+- `./.venv/Scripts/python.exe -m mypy src`: pass with strict configuration.
+- `./.venv/Scripts/python.exe -m narrativex_worker --dry-run`: pass; output explicitly says dry run completed and exits.
+- The first system-Python pytest/mypy attempts were blocked by missing `pydantic`/`pydantic-settings`; the ignored `.venv` install resolved the environment prerequisite without changing production source.
 
-## Safety, privacy and secrets
+## Missing Week 2 foundation
 
-Provider credentials are runtime-only. Real-person references require consent/use-right basis; identity templates/embeddings are private, tenant-isolated, excluded from logs/public manifests and deleted/expired by lifecycle policy. Input and output moderation decisions are mapped to application `SAFE`, `REVIEW` or `BLOCK`; hard blocks fail closed.
-
-## Scaling and recovery
-
-CPU provider orchestration and FFmpeg queues scale independently. Optional GPU workers use a lease/resource class with one heavy workflow per GPU by default. A worker restart cannot lose PostgreSQL state. Redis loss triggers PostgreSQL/outbox recovery. Stalled local stages may retry; stalled submitted external stages reconcile.
+Implement only after D1/D2 decisions: backend contract client, durable claim/lease protocol, heartbeat/recovery, fake provider integration, provider-operation reservation and reconciliation, usage reporting, storage adapter, and structured observability. Do not add them as part of this audit.

@@ -1,5 +1,6 @@
 import React from "react";
 import { useStudioStore } from "@/store/useStudioStore";
+import { useProductionStore } from "@/store/useProductionStore";
 import { ProjectCard } from "./ProjectCard";
 import { Tabs } from "@/components/ui/Tabs";
 import { Button } from "@/components/ui/Button";
@@ -18,6 +19,8 @@ export const ProjectsDashboard: React.FC = () => {
     openWizard,
     setScreen,
   } = useStudioStore();
+
+  const { setView } = useProductionStore();
 
   const filterTabs = [
     { id: "all", label: "Tất cả", count: projects.length },
@@ -58,8 +61,9 @@ export const ProjectsDashboard: React.FC = () => {
   });
 
   const handleCardClick = (project: Project) => {
-    // Navigate to character library for this project or open preview
-    setScreen("characters");
+    // Navigate directly into Production Workspace for this project
+    setScreen("project-workspace");
+    setView("overview");
   };
 
   return (
@@ -89,7 +93,7 @@ export const ProjectsDashboard: React.FC = () => {
           <Button
             onClick={() => openWizard(1)}
             variant="primary"
-            className="flex items-center gap-2 shadow-[0_0_20px_rgba(124,58,237,0.4)]"
+            className="flex items-center gap-2 shadow-[0_0_20px_rgba(124,58,237,0.4)] font-semibold"
           >
             <Plus className="w-4 h-4" />
             <span>Dự án mới</span>

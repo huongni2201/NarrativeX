@@ -1,105 +1,111 @@
-# NarrativeX Codebase Map
+# NarrativeX W1-D1 Codebase Map
 
-This map describes the current repository and the intended v1.7 growth shape. “Target” entries are contracts, not claims that the scaffold has already implemented them.
+## Audit scope and status
+
+- Audit: NX-W1-D1, 2026-08-17.
+- Status: `PARTIAL`. The repository was mapped and native checks were run, but a fresh PostgreSQL startup fails schema validation and frontend checks were blocked by a locked `node_modules` binary.
+- Initial Git state: branch `main`, HEAD `d6760188130814c7e4654c4bdc391472e05d338c`, dirty before the audit with frontend/documentation changes. The audit preserved them.
+- “Target” below is a later integration shape, not a claim that the target capability already exists.
 
 ## Repository layout
 
 ```text
-NarrativeX/
-├── app/
-│   ├── frontend-web/       # Next.js/React web client
-│   ├── backend-service/    # Spring Boot modular-monolith boundary
-│   └── ai-worker/          # Python 3.12 async AI/media worker
-├── documentation/
-│   ├── architecture/       # system, data flow, boundaries, stack
-│   ├── codebase/           # this map and package ownership
-│   └── workflows/          # durable business workflows
-├── docker-compose.yml      # local PostgreSQL/Redis/MinIO baseline
-├── CONTRIBUTING.md
-└── AGENTS.md / AI_CONTEXT.md
+app/backend-service/   Spring Boot modular monolith: HTTP, domain state, JPA, Flyway, security
+app/frontend-web/      Next.js App Router / React / TypeScript studio UI
+app/ai-worker/         Python 3.12 worker foundation and provider ports
+contracts/             versioned backend-to-worker JSON schema
+docker-compose.yml     local PostgreSQL, Redis and MinIO dependencies only
+documentation/         architecture, domain, workflows, plans, ADRs and audit outputs
+infrastructure/        local/production guardrail notes; no deployment manifests
+scripts/               README only; no executable verification script
 ```
 
-## Current source tree
+## Runtime architecture
 
-### `app/backend-service`
+```mermaid
+flowchart LR
+  FE[Next.js studio UI] -->|HTTP JSON, credentials include| BE[Spring Boot API]
+  BE --> PG[(PostgreSQL 16)]
+  BE -. configured, no current call sites .-> R[(Redis 7)]
+  BE -. target binary boundary .-> S[(MinIO / S3)]
+  BE -. target delivery contract .-> W[Python worker]
+  W -. target provider ports .-> P[External AI/media providers]
+```
+
+Current reality: the only verified runtime path that reaches PostgreSQL is the backend. The worker does not consume a durable queue or call the backend, and visible frontend screens do not use the API client except for the unreachable legacy `StudioDashboard.createProject` path.
+
+## Backend modules (current)
+
+| Module | Current responsibility | Runtime status |
+|---|---|---|
+| `project` | project list/create, story-version create, owner-filtered persistence | real API/persistence; incomplete CRUD |
+| `generation` | operation-plan and generation-job scaffold, owner-filtered job read | real persistence scaffold; no worker execution |
+| `storyboard` | JPA entities for chapter/scene/visual beat | entity-only, no controller/repository API |
+| `health` | provider configuration status response | diagnostic/configuration only, not a provider health probe |
+| `shared.api` | Spring `ProblemDetail` handlers for validation and `IllegalArgumentException` | partial error contract |
+| `configuration` | limits and conditional OIDC/local security chain | local mode open by default; not production safe |
+
+## Frontend routes and visible features (current)
+
+| Route | Visible surface | Current state |
+|---|---|---|
+| `/` | overview, project workspace, characters, wizard modals | Zustand-driven shell; mostly mock/local |
+| `/auth` | login/register form and Google button | visual/local-only login; no backend auth call |
+| `/dashboard` | delegates to `/` shell | same as root; no route-param project loading |
+| `/characters` | character library | mock data and local modal state |
+| sidebar `assets` / `presets` | controls exist in current worktree | no render branch in `app/page.tsx`; dead/unreachable until wired |
+| production views | chapters, workspace, storyboard, visual review, render, preview | mock production store; local transitions and timers |
+
+## Worker architecture (current)
+
+- Entrypoint: `python -m narrativex_worker` and `narrativex-worker` console script.
+- `NarrativeXWorker` handles logging, dry-run and process cancellation; non-dry-run is an idle loop.
+- `WorkerService` enforces rights attestation, builds a prompt with an explicit untrusted-story boundary, then calls a provider port.
+- `DisabledProvider` fails closed; no real provider SDK, queue client, object-storage client, database client, lease, heartbeat, cancellation protocol or reconciliation loop is implemented.
+- The worker is therefore `PORT_ONLY` plus a safe disabled adapter, not an integrated production worker.
+
+## Database ownership and schema
+
+- Backend owns the Flyway files and JPA mappings.
+- PostgreSQL is intended to be authoritative; Redis has no current application call sites.
+- V1 creates only `schema_baseline`; V2 creates the initial domain tables; V3 adds control-plane tables/columns.
+- A clean PostgreSQL database currently has zero tables after the application startup attempt: Flyway history was not present and Hibernate validation stopped at missing `chapters`. See `documentation/audits/evidence/W1-D1_COMMAND_EVIDENCE.md`.
+- Binary storage is only described in documentation/Compose; no backend or worker object-storage adapter is present.
+
+## Redis usage
+
+`spring-boot-starter-data-redis` and connection properties are present, but `rg` found no `RedisTemplate`, `StringRedisTemplate`, queue, stream, pub/sub, lock or progress implementation. Current classification is `UNUSED_CONFIGURED_DEPENDENCY`, not business state.
+
+## Current vs target
+
+| Capability | Current | Target needed for Week 2 |
+|---|---|---|
+| Project list/create | Backend real; visible UI reads mock store | API-backed query and mutation with server identity |
+| Story persistence | POST-only backend; visible wizard local | create/read/update story with version/If-Match semantics |
+| Upload | UI placeholder/mock | upload intent, object-store upload, completion/validation |
+| Async analysis | job/operation rows are inserted with zero estimate | reservation, idempotency, queue delivery, worker claim and recovery |
+| Progress | fake interval/local store | persisted job read plus SSE/replayable event path |
+| Auth/ownership | conditional OIDC scaffold and client-supplied local ID | fail-closed auth, workspace membership and server-side ownership |
+| Media assets | UI mocks and remote sample images | private object storage, immutable asset metadata and access checks |
+
+## Critical dependency graph
 
 ```text
-src/main/java/com/narrativex/backend/
-├── NarrativeXBackendApplication.java
-├── modules/
-│   ├── generation/       # job, operation plan, provider operation, stage attempt, API
-│   ├── health/           # provider health API
-│   ├── project/          # project/story API, entities and repositories
-│   └── storyboard/       # chapter/scene/visual-beat domain foundations
-├── shared/api/           # API exception handling
-├── shared/domain/        # audited persistence primitive
-├── configuration/SecurityConfig.java
-└── shared/package-info.java
-src/main/resources/
-├── application.yml
-└── db/migration/V1__initial_schema.sql
-src/test/
-├── java/.../NarrativeXBackendApplicationTests.java
-└── resources/application-test.yml
+FE visible action
+  -> Zustand/local mock or (only legacy StudioDashboard) api.ts
+  -> existing /api/v1 project/story/job endpoints
+  -> JPA repository
+  -> PostgreSQL (currently cannot start from empty DB)
+
+Future async path:
+  backend operation plan/reservation/job
+  -> durable delivery hint / contract
+  -> worker claim + lease + provider operation reservation
+  -> provider adapter / media storage
+  -> backend state transition + event/outbox
+  -> FE polling/SSE
 ```
 
-`V2__domain_foundation.sql` and the `modules/` packages now provide the first project/story/generation/storyboard foundations; `V3__v17_control_plane.sql` adds the durable v1.7 rights, safety, notification, entitlement, abuse, audit and deletion tables. The full v1.7 domain is still incremental. `application.yml` wires PostgreSQL, Redis and Flyway configuration. `SecurityConfig` currently permits all routes and uses stateless sessions for local scaffolding; production must implement Google OIDC, Secure/HttpOnly/SameSite server sessions and project ownership checks.
+## Existing decisions validated
 
-### `app/ai-worker`
-
-```text
-src/narrativex_worker/
-├── __main__.py            # CLI and --dry-run entry point
-├── config.py              # Pydantic settings
-├── prompting.py           # explicit untrusted-story prompt boundary
-├── schema.py              # typed job/provider/safety payloads
-├── service.py             # provider-backed worker service boundary
-├── providers/              # provider ports and disabled adapter
-├── worker.py              # lifecycle runner and graceful stop
-└── __init__.py
-tests/test_worker.py
-pyproject.toml / Dockerfile / .env.example / README.md
-```
-
-The current worker still does not claim durable jobs or execute real media providers, but it now has typed payloads, an explicit untrusted-story prompt boundary, a service façade and provider ports/disabled adapter. Target packages should add lease-safe handlers, backend contract client, real provider adapters, storage/media pipeline, usage reporting and reconciliation without moving canonical state ownership into Python.
-
-### `app/frontend-web`
-
-```text
-src/
-├── app/layout.tsx, page.tsx, globals.css
-├── components/ui/index.ts
-├── features/index.ts
-├── lib/api.ts
-└── types/index.ts
-```
-
-The current UI is a health/status shell. `lib/api.ts` contains only the API base URL and `types/index.ts` a generic response type. Target feature slices cover auth, projects/story, characters, storyboard/visual review, jobs/SSE, cost/entitlement, notifications, rendering and Shorts.
-
-## Target backend package shape
-
-```text
-com.narrativex.backend/
-├── auth/ project/ story/ character/ scene/
-├── generation/ render/ asset/ shorts/
-├── cost/ billing/ entitlement/ provider/
-├── safety/ notification/ characterlibrary/
-├── configuration/ infrastructure/
-└── shared/
-```
-
-Each module should keep API/application/domain/persistence concerns local and expose application commands/queries or explicit ports. Vendor SDKs and storage clients belong to infrastructure adapters. Flyway remains backend-owned.
-
-## Cross-repository contracts
-
-- API: authenticated REST commands/queries, `If-Match`/row-version conflicts, idempotency keys and SSE job events.
-- Worker contract: claim/heartbeat/complete stage, provider operation evidence, asset validation metadata and resource usage.
-- Storage contract: private upload target, temporary object, checksum/HEAD validation, immutable promotion and signed read URL.
-- Provider contract: capability-aware estimate/submit/status/reconcile/fetch; external operation ambiguity maps to `UNKNOWN`.
-- Event contract: transactional outbox with unique event key for notifications and recovery scans.
-
-## Reading guide
-
-- Architecture decisions and runtime topology: `documentation/architecture/`.
-- Current-vs-target code ownership: `documentation/codebase/BACKEND_CODEBASE.md`, `AI_WORKER_CODEBASE.md`, `FRONTEND_CODEBASE.md`.
-- User-visible asynchronous journeys: `documentation/workflows/`.
+The audit found no architectural decision that should change in D1. Existing ADR-0001 (modular monolith plus worker) and ADR-0002 (PostgreSQL authoritative state plus durable provider operations) remain the correct target constraints; the findings document incomplete implementation against them.

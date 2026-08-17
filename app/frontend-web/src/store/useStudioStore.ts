@@ -53,7 +53,7 @@ interface StudioStore {
 }
 
 export const useStudioStore = create<StudioStore>((set, get) => ({
-  currentScreen: "dashboard",
+  currentScreen: "overview",
   authMode: "login",
   isLoggedIn: true,
   selectedProjectId: "proj-1",
@@ -82,7 +82,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
 
   setScreen: (screen) => set({ currentScreen: screen }),
   setAuthMode: (mode) => set({ authMode: mode }),
-  login: () => set({ isLoggedIn: true, currentScreen: "dashboard" }),
+  login: () => set({ isLoggedIn: true, currentScreen: "overview" }),
   logout: () => set({ isLoggedIn: false, currentScreen: "auth" }),
 
   setProjectFilterTab: (tab) => set({ projectFilterTab: tab }),
@@ -153,7 +153,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     set({
       projects: [newProject, ...projects],
       isWizardOpen: false,
-      currentScreen: "dashboard",
+      currentScreen: "project-workspace",
     });
 
     return newProject;

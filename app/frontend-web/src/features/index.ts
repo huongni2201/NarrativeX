@@ -13,3 +13,5 @@ export * from "./production/Screen04Storyboard";
 export * from "./production/Screen05VisualReview";
 export * from "./production/Screen06Render";
 export * from "./production/Screen07LongFormPreview";
+export * from "./assets/AssetLibraryScreen";
+export * from "./presets/StylePresetsScreen";
