@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.narrativex.backend.feature.auth.infrastructure.security.SecurityContextCurrentUser;
 import com.narrativex.backend.feature.project.domain.enums.AspectRatio;
-import com.narrativex.backend.feature.project.domain.aggregate.StoryVersion;
+import com.narrativex.backend.feature.project.domain.entity.StoryVersion;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.TestingAuthenticationToken;

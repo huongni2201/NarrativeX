@@ -11,8 +11,8 @@ import com.narrativex.backend.feature.generation.application.port.out.Generation
 import com.narrativex.backend.feature.generation.application.port.out.OperationPlanRepository;
 import com.narrativex.backend.feature.generation.application.usecase.EnqueueStoryAnalysisUseCase;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
-import com.narrativex.backend.feature.generation.domain.aggregate.JobType;
-import com.narrativex.backend.feature.generation.domain.aggregate.ResourceClass;
+import com.narrativex.backend.feature.generation.domain.enums.JobType;
+import com.narrativex.backend.feature.generation.domain.enums.ResourceClass;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.project.domain.enums.AspectRatio;
 import com.narrativex.backend.feature.project.domain.enums.ImageQualityTier;

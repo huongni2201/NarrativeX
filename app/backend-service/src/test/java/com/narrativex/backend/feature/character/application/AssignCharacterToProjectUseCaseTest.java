@@ -12,7 +12,7 @@ import com.narrativex.backend.feature.character.application.port.out.CharacterVe
 import com.narrativex.backend.feature.character.application.port.out.ProjectCharacterRepository;
 import com.narrativex.backend.feature.character.application.usecase.AssignCharacterToProjectUseCase;
 import com.narrativex.backend.feature.character.domain.aggregate.Character;
-import com.narrativex.backend.feature.character.domain.aggregate.enums.CharacterStatus;
+import com.narrativex.backend.feature.character.domain.enums.CharacterStatus;
 import com.narrativex.backend.feature.character.domain.aggregate.ProjectCharacter;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.project.domain.enums.AspectRatio;

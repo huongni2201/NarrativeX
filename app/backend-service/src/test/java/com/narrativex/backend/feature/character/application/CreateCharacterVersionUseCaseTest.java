@@ -12,8 +12,8 @@ import com.narrativex.backend.feature.character.application.port.out.CharacterRe
 import com.narrativex.backend.feature.character.application.port.out.CharacterVersionRepository;
 import com.narrativex.backend.feature.character.application.usecase.CreateCharacterVersionUseCase;
 import com.narrativex.backend.feature.character.domain.aggregate.Character;
-import com.narrativex.backend.feature.character.domain.aggregate.enums.CharacterStatus;
-import com.narrativex.backend.feature.character.domain.aggregate.CharacterVersion;
+import com.narrativex.backend.feature.character.domain.enums.CharacterStatus;
+import com.narrativex.backend.feature.character.domain.entity.CharacterVersion;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;

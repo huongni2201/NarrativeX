@@ -13,11 +13,11 @@ import com.narrativex.backend.feature.character.application.port.out.CharacterRe
 import com.narrativex.backend.feature.character.application.port.out.OutfitVersionRepository;
 import com.narrativex.backend.feature.character.application.usecase.CreateCharacterAppearanceUseCase;
 import com.narrativex.backend.feature.character.domain.aggregate.Character;
-import com.narrativex.backend.feature.character.domain.aggregate.enums.CharacterStatus;
-import com.narrativex.backend.feature.character.domain.aggregate.OutfitVersion;
-import com.narrativex.backend.feature.character.domain.aggregate.enums.OutfitVersionStatus;
+import com.narrativex.backend.feature.character.domain.enums.CharacterStatus;
+import com.narrativex.backend.feature.character.domain.entity.OutfitVersion;
+import com.narrativex.backend.feature.character.domain.enums.OutfitVersionStatus;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
-import com.narrativex.backend.shared.exception.ResourceNotFoundException;
+import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

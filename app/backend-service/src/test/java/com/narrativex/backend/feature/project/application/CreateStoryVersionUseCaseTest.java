@@ -16,7 +16,7 @@ import com.narrativex.backend.feature.project.domain.enums.AspectRatio;
 import com.narrativex.backend.feature.project.domain.enums.ImageQualityTier;
 import com.narrativex.backend.feature.project.domain.aggregate.Project;
 import com.narrativex.backend.feature.project.domain.enums.ProjectStatus;
-import com.narrativex.backend.feature.project.domain.aggregate.StoryVersion;
+import com.narrativex.backend.feature.project.domain.entity.StoryVersion;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;

@@ -4,12 +4,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.narrativex.backend.feature.character.domain.aggregate.Character;
-import com.narrativex.backend.feature.character.domain.aggregate.CharacterAppearance;
-import com.narrativex.backend.feature.character.domain.aggregate.CharacterVersion;
-import com.narrativex.backend.feature.character.domain.aggregate.enums.CharacterStatus;
-import com.narrativex.backend.feature.character.domain.aggregate.enums.CharacterVersionStatus;
-import com.narrativex.backend.feature.character.domain.aggregate.OutfitVersion;
-import com.narrativex.backend.feature.character.domain.aggregate.enums.OutfitVersionStatus;
+import com.narrativex.backend.feature.character.domain.entity.CharacterAppearance;
+import com.narrativex.backend.feature.character.domain.entity.CharacterVersion;
+import com.narrativex.backend.feature.character.domain.enums.CharacterStatus;
+import com.narrativex.backend.feature.character.domain.enums.CharacterVersionStatus;
+import com.narrativex.backend.feature.character.domain.entity.OutfitVersion;
+import com.narrativex.backend.feature.character.domain.enums.OutfitVersionStatus;
 import com.narrativex.backend.feature.character.domain.aggregate.ProjectCharacter;
 import org.junit.jupiter.api.Test;
 
