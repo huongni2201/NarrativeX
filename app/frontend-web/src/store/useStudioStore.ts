@@ -130,6 +130,7 @@ export const useStudioStore = create<StudioStore>((set) => ({
     }),
   closeCharacterBible: () =>
     set({
+      selectedCharacterId: null,
       currentScreen: "characters",
     }),
 
@@ -137,9 +138,17 @@ export const useStudioStore = create<StudioStore>((set) => ({
     set((state) => ({
       isWizardOpen: true,
       currentScreen: "wizard",
-      wizardDraft: { ...state.wizardDraft, step: initialStep, rightsAttestationAccepted: false },
+      wizardDraft:
+        initialStep === 1
+          ? createEmptyWizardDraft()
+          : { ...state.wizardDraft, step: initialStep, rightsAttestationAccepted: false },
     })),
-  closeWizard: () => set({ isWizardOpen: false, currentScreen: "overview" }),
+  closeWizard: () =>
+    set({
+      isWizardOpen: false,
+      currentScreen: "overview",
+      wizardDraft: createEmptyWizardDraft(),
+    }),
   setWizardStep: (step) =>
     set((state) => ({
       wizardDraft: { ...state.wizardDraft, step },
