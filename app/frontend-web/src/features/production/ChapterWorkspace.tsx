@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useProductionStore } from "@/store/useProductionStore";
 import { VisualStatusBadge } from "@/components/production/VisualStatusBadge";
@@ -134,20 +134,15 @@ export const ChapterWorkspace: React.FC = () => {
   const effectiveSceneId = currentActiveScene.id;
   const normalizedSearch = searchQuery.trim().toLocaleLowerCase("vi");
   const normalizedStatus = statusFilter.toUpperCase();
-
-  const filteredBeats = useMemo(
-    () =>
-      visualBeats.filter((beat) => {
-        const matchesScene = beat.chapterId === chapter.id && beat.sceneId === effectiveSceneId;
-        const matchesSearch =
-          !normalizedSearch ||
-          beat.description.toLocaleLowerCase("vi").includes(normalizedSearch) ||
-          beat.prompt.toLocaleLowerCase("vi").includes(normalizedSearch);
-        const matchesStatus = statusFilter === "all" || beat.status === normalizedStatus;
-        return matchesScene && matchesSearch && matchesStatus;
-      }),
-    [chapter.id, effectiveSceneId, normalizedSearch, normalizedStatus, statusFilter, visualBeats],
-  );
+  const filteredBeats = visualBeats.filter((beat) => {
+    const matchesScene = beat.chapterId === chapter.id && beat.sceneId === effectiveSceneId;
+    const matchesSearch =
+      !normalizedSearch ||
+      beat.description.toLocaleLowerCase("vi").includes(normalizedSearch) ||
+      beat.prompt.toLocaleLowerCase("vi").includes(normalizedSearch);
+    const matchesStatus = statusFilter === "all" || beat.status === normalizedStatus;
+    return matchesScene && matchesSearch && matchesStatus;
+  });
 
   const handleSceneSelect = (sceneId: string) => {
     setActiveScene(sceneId);
