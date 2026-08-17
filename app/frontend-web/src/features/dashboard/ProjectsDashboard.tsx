@@ -1,70 +1,76 @@
-import React from "react";
+"use client";
+
+import React, { useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useStudioStore } from "@/store/useStudioStore";
 import { useProductionStore } from "@/store/useProductionStore";
 import { ProjectCard } from "./ProjectCard";
 import { Tabs } from "@/components/ui/Tabs";
 import { Button } from "@/components/ui/Button";
-import { Plus, Search, FolderKanban } from "lucide-react";
+import { Plus, Search, FolderKanban, Loader2, RefreshCw } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { api, apiErrorMessage } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 import type { ApiProject } from "@/types/api";
-import { Loader2, RefreshCw } from "lucide-react";
 
 const completedStatuses = new Set(["COMPLETED", "ARCHIVED"]);
 const PROJECT_PAGE = 0;
-// The backend currently bounds page size to 100. Use that bound so the
-// dashboard does not silently hide most projects while pagination endpoints
-// for the workspace are still being completed.
 const PROJECT_PAGE_SIZE = 100;
+type ProjectFilterTab = "all" | "in_progress" | "completed";
 
 export const ProjectsDashboard: React.FC = () => {
+  const router = useRouter();
   const projectFilterTab = useStudioStore((state) => state.projectFilterTab);
   const setProjectFilterTab = useStudioStore((state) => state.setProjectFilterTab);
   const projectSearchQuery = useStudioStore((state) => state.projectSearchQuery);
   const setProjectSearchQuery = useStudioStore((state) => state.setProjectSearchQuery);
   const openWizard = useStudioStore((state) => state.openWizard);
-  const setScreen = useStudioStore((state) => state.setScreen);
-  const selectProject = useStudioStore((state) => state.selectProject);
-
   const setView = useProductionStore((state) => state.setView);
+
   const projectsQuery = useQuery({
     queryKey: queryKeys.projectsPage(PROJECT_PAGE, PROJECT_PAGE_SIZE),
     queryFn: () => api.listProjects({ page: PROJECT_PAGE, size: PROJECT_PAGE_SIZE }),
   });
   const projects = projectsQuery.data?.content ?? [];
 
-  const filterTabs = [
-    { id: "all", label: "Tất cả", count: projects.length },
-    {
-      id: "in_progress",
-      label: "Đang xử lý",
-      count: projects.filter((p) => !completedStatuses.has(p.status)).length,
-    },
-    {
-      id: "completed",
-      label: "Hoàn thành",
-      count: projects.filter((p) => completedStatuses.has(p.status)).length,
-    },
-  ];
+  const filterTabs = useMemo(
+    () => [
+      { id: "all", label: "Tất cả", count: projects.length },
+      {
+        id: "in_progress",
+        label: "Đang xử lý",
+        count: projects.filter((project) => !completedStatuses.has(project.status)).length,
+      },
+      {
+        id: "completed",
+        label: "Hoàn thành",
+        count: projects.filter((project) => completedStatuses.has(project.status)).length,
+      },
+    ],
+    [projects],
+  );
 
-  const filteredProjects = projects.filter((project) => {
-    const matchesSearch = project.name.toLowerCase().includes(projectSearchQuery.toLowerCase());
+  const normalizedSearch = projectSearchQuery.trim().toLocaleLowerCase("vi");
+  const filteredProjects = useMemo(
+    () =>
+      projects.filter((project) => {
+        const matchesSearch = !normalizedSearch || project.name.toLocaleLowerCase("vi").includes(normalizedSearch);
 
-    if (projectFilterTab === "in_progress") {
-      return matchesSearch && !completedStatuses.has(project.status);
-    }
-    if (projectFilterTab === "completed") {
-      return matchesSearch && completedStatuses.has(project.status);
-    }
-    return matchesSearch;
-  });
+        if (projectFilterTab === "in_progress") {
+          return matchesSearch && !completedStatuses.has(project.status);
+        }
+        if (projectFilterTab === "completed") {
+          return matchesSearch && completedStatuses.has(project.status);
+        }
+        return matchesSearch;
+      }),
+    [normalizedSearch, projectFilterTab, projects],
+  );
 
   const handleCardClick = (project: ApiProject) => {
-    selectProject(project.id);
-    setScreen("project-workspace");
     setView("overview");
+    router.push(`/projects/${project.id}`);
   };
 
   if (projectsQuery.isPending) {
@@ -83,25 +89,22 @@ export const ProjectsDashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Top Filter and Action Bar matching Mockup */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        {/* Filter Tabs */}
         <div className="flex items-center gap-3">
           <Tabs
             tabs={filterTabs}
             activeTab={projectFilterTab}
-            onChange={(tab) => setProjectFilterTab(tab as any)}
+            onChange={(tab) => setProjectFilterTab(tab as ProjectFilterTab)}
             variant="pills"
           />
         </div>
 
-        {/* Action Button */}
         <div className="flex items-center gap-3">
           <div className="w-60 hidden md:block">
             <Input
               placeholder="Tìm kiếm dự án..."
               value={projectSearchQuery}
-              onChange={(e) => setProjectSearchQuery(e.target.value)}
+              onChange={(event) => setProjectSearchQuery(event.target.value)}
               icon={<Search className="w-4 h-4" />}
             />
           </div>
@@ -116,7 +119,6 @@ export const ProjectsDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Projects Grid matching Mockup (4 cols on large screens, 8 cards) */}
       {filteredProjects.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
           {filteredProjects.map((project) => (
