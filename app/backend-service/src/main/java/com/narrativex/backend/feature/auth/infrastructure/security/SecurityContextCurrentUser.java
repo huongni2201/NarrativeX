@@ -3,10 +3,7 @@ package com.narrativex.backend.feature.auth.infrastructure.security;
 import com.narrativex.backend.feature.auth.api.response.CurrentUserResponse;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserProfile;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
@@ -15,58 +12,39 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 public class SecurityContextCurrentUser implements CurrentUserId, CurrentUserProfile {
-    private final boolean oidcEnabled;
-    private final String localUserId;
+  @Override
+  public String get() {
+    return authenticated().getName();
+  }
 
-    public SecurityContextCurrentUser(
-            @Value("${narrativex.security.oidc-enabled:false}") boolean oidcEnabled,
-            @Value("${narrativex.security.local-user-id:local-dev-user}") String localUserId) {
-        this.oidcEnabled = oidcEnabled;
-        this.localUserId = localUserId;
+  @Override
+  public CurrentUserResponse current() {
+    Authentication authentication = authenticated();
+    String id = authentication.getName();
+    if (authentication.getPrincipal() instanceof OidcUser user) {
+      return new CurrentUserResponse(
+          id,
+          firstNonBlank(user.getFullName(), user.getGivenName(), user.getEmail(), id),
+          user.getEmail(),
+          user.getPicture());
     }
+    log.debug("Resolved authenticated principal {}", id);
+    return new CurrentUserResponse(id, id, null, null);
+  }
 
-    @Override
-    public String get() {
-        if (!oidcEnabled) {
-            return localUserId;
-        }
-        return authenticated().getName();
+  private static Authentication authenticated() {
+    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    if (authentication == null
+        || !authentication.isAuthenticated()
+        || authentication.getName() == null
+        || authentication.getName().isBlank()) {
+      throw new IllegalArgumentException("Authenticated user is required");
     }
+    return authentication;
+  }
 
-    @Override
-    public CurrentUserResponse current() {
-        String id = get();
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.getPrincipal() instanceof OidcUser oidcUser) {
-            return new CurrentUserResponse(
-                    id,
-                    firstNonBlank(
-                            oidcUser.getFullName(), oidcUser.getGivenName(), oidcUser.getEmail(), id),
-                    oidcUser.getEmail(),
-                    oidcUser.getPicture());
-        }
-        log.debug("Using local development identity {}", id);
-        return new CurrentUserResponse(id, id, null, null);
-    }
-
-    private Authentication authenticated() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null
-                || !authentication.isAuthenticated()
-                || authentication instanceof AnonymousAuthenticationToken
-                || authentication.getName() == null
-                || authentication.getName().isBlank()) {
-            throw new IllegalArgumentException("Authenticated user is required");
-        }
-        return authentication;
-    }
-
-    private static String firstNonBlank(String... values) {
-        for (String value : values) {
-            if (value != null && !value.isBlank()) {
-                return value;
-            }
-        }
-        return null;
-    }
+  private static String firstNonBlank(String... values) {
+    for (String value : values) if (value != null && !value.isBlank()) return value;
+    return null;
+  }
 }

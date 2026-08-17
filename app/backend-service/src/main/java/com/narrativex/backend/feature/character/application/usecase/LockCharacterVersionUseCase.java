@@ -15,18 +15,20 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class LockCharacterVersionUseCase {
-    private final CharacterVersionRepository versionRepository;
-    private final CurrentUserId currentUserId;
+  private final CharacterVersionRepository versionRepository;
+  private final CurrentUserId currentUserId;
 
-    @Transactional
-    public ApiResponse<CharacterVersion> execute(ChangeCharacterVersionStatusCommand command) {
-        String actorId = currentUserId.get();
-        CharacterVersion version = versionRepository
-                .findOwnedById(command.characterVersionId(), actorId)
-                .orElseThrow(() -> new ResourceNotFoundException("Character version not found"));
-        version.lock(actorId);
-        CharacterVersion saved = versionRepository.save(version);
-        log.info("Locked character version {} by authenticated principal", command.characterVersionId());
-        return ApiResponse.success("Character version locked successfully", saved);
-    }
+  @Transactional
+  public ApiResponse<CharacterVersion> execute(ChangeCharacterVersionStatusCommand command) {
+    String actorId = currentUserId.get();
+    CharacterVersion version =
+        versionRepository
+            .findOwnedById(command.characterVersionId(), actorId)
+            .orElseThrow(() -> new ResourceNotFoundException("Character version not found"));
+    version.lock(actorId);
+    CharacterVersion saved = versionRepository.save(version);
+    log.info(
+        "Locked character version {} by authenticated principal", command.characterVersionId());
+    return ApiResponse.success("Character version locked successfully", saved);
+  }
 }

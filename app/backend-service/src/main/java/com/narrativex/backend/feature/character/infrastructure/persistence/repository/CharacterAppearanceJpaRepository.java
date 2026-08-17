@@ -3,5 +3,5 @@ package com.narrativex.backend.feature.character.infrastructure.persistence.repo
 import com.narrativex.backend.feature.character.infrastructure.persistence.entity.CharacterAppearanceJpaEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface CharacterAppearanceJpaRepository extends JpaRepository<CharacterAppearanceJpaEntity, Long> {
-}
+public interface CharacterAppearanceJpaRepository
+    extends JpaRepository<CharacterAppearanceJpaEntity, Long> {}

@@ -16,13 +16,25 @@ import tools.jackson.databind.ObjectMapper;
 
 @Component
 public class ApiAuthenticationEntryPoint implements AuthenticationEntryPoint {
-    private final ObjectMapper objectMapper;
-    public ApiAuthenticationEntryPoint(ObjectMapper objectMapper) { this.objectMapper = objectMapper; }
-    @Override
-    public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException exception)
-            throws IOException, ServletException {
-        ApiErrorWriter.write(response, objectMapper, HttpStatus.UNAUTHORIZED,
-            ErrorResponse.of(HttpStatus.UNAUTHORIZED.value(), ApiErrorCode.UNAUTHORIZED.name(),
-                "Authentication is required.", request.getRequestURI(), CorrelationIdFilter.correlationId(request)));
-    }
+  private final ObjectMapper objectMapper;
+
+  public ApiAuthenticationEntryPoint(ObjectMapper objectMapper) {
+    this.objectMapper = objectMapper;
+  }
+
+  @Override
+  public void commence(
+      HttpServletRequest request, HttpServletResponse response, AuthenticationException exception)
+      throws IOException, ServletException {
+    ApiErrorWriter.write(
+        response,
+        objectMapper,
+        HttpStatus.UNAUTHORIZED,
+        ErrorResponse.of(
+            HttpStatus.UNAUTHORIZED.value(),
+            ApiErrorCode.UNAUTHORIZED.name(),
+            "Authentication is required.",
+            request.getRequestURI(),
+            CorrelationIdFilter.correlationId(request)));
+  }
 }

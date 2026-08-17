@@ -12,14 +12,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/auth")
 public class CurrentUserController {
-    private final GetCurrentUserUseCase getCurrentUserUseCase;
+  private final GetCurrentUserUseCase getCurrentUserUseCase;
 
-    public CurrentUserController(GetCurrentUserUseCase getCurrentUserUseCase) {
-        this.getCurrentUserUseCase = getCurrentUserUseCase;
-    }
+  public CurrentUserController(GetCurrentUserUseCase getCurrentUserUseCase) {
+    this.getCurrentUserUseCase = getCurrentUserUseCase;
+  }
 
-    @GetMapping("/me")
-    public ResponseEntity<ApiResponse<CurrentUserResponse>> me() {
-        return ResponseEntity.ok(getCurrentUserUseCase.execute(new CurrentUserQuery()));
-    }
+  @GetMapping("/me")
+  public ResponseEntity<ApiResponse<CurrentUserResponse>> me() {
+    return ResponseEntity.ok(getCurrentUserUseCase.execute(new CurrentUserQuery()));
+  }
 }

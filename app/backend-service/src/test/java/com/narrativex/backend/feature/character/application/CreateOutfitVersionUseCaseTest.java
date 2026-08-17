@@ -12,8 +12,8 @@ import com.narrativex.backend.feature.character.application.port.out.CharacterRe
 import com.narrativex.backend.feature.character.application.port.out.OutfitVersionRepository;
 import com.narrativex.backend.feature.character.application.usecase.CreateOutfitVersionUseCase;
 import com.narrativex.backend.feature.character.domain.aggregate.Character;
-import com.narrativex.backend.feature.character.domain.enums.CharacterStatus;
 import com.narrativex.backend.feature.character.domain.entity.OutfitVersion;
+import com.narrativex.backend.feature.character.domain.enums.CharacterStatus;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -23,26 +23,29 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class CreateOutfitVersionUseCaseTest {
-    @Mock private CharacterRepository characterRepository;
-    @Mock private OutfitVersionRepository outfitVersionRepository;
+  @Mock private CharacterRepository characterRepository;
+  @Mock private OutfitVersionRepository outfitVersionRepository;
 
-    @Test
-    void locksCharacterBeforeAllocatingNextVersion() {
-        when(characterRepository.findOwnedByIdForUpdate(10L, "owner")).thenReturn(Optional.of(character()));
-        when(outfitVersionRepository.findMaxVersionNumberByCharacterId(10L)).thenReturn(3);
-        when(outfitVersionRepository.save(any(OutfitVersion.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        CurrentUserId currentUserId = requested -> requested == null ? "local-dev-user" : requested;
-        CreateOutfitVersionUseCase useCase = new CreateOutfitVersionUseCase(characterRepository,
-            outfitVersionRepository, currentUserId);
+  @Test
+  void locksCharacterBeforeAllocatingNextVersion() {
+    when(characterRepository.findOwnedByIdForUpdate(10L, "owner"))
+        .thenReturn(Optional.of(character()));
+    when(outfitVersionRepository.findMaxVersionNumberByCharacterId(10L)).thenReturn(3);
+    when(outfitVersionRepository.save(any(OutfitVersion.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+    CurrentUserId currentUserId = () -> "owner";
+    CreateOutfitVersionUseCase useCase =
+        new CreateOutfitVersionUseCase(characterRepository, outfitVersionRepository, currentUserId);
 
-        var response = useCase.execute(new CreateOutfitVersionCommand(10L, "Travel", null, "prompt", "owner"));
+    var response =
+        useCase.execute(new CreateOutfitVersionCommand(10L, "Travel", null, "prompt", "owner"));
 
-        assertEquals(4, response.data().getVersionNumber());
-        verify(characterRepository).findOwnedByIdForUpdate(10L, "owner");
-        verify(characterRepository, never()).findOwnedById(10L, "owner");
-    }
+    assertEquals(4, response.data().getVersionNumber());
+    verify(characterRepository).findOwnedByIdForUpdate(10L, "owner");
+    verify(characterRepository, never()).findOwnedById(10L, "owner");
+  }
 
-    private static Character character() {
-        return Character.rehydrate(10L, 0L, "owner", null, "Mina", List.of(), CharacterStatus.ACTIVE);
-    }
+  private static Character character() {
+    return Character.rehydrate(10L, 0L, "owner", null, "Mina", List.of(), CharacterStatus.ACTIVE);
+  }
 }

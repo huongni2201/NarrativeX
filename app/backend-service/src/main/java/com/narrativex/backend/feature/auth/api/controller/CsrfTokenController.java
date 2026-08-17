@@ -13,15 +13,15 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/auth")
 public class CsrfTokenController {
-    private final GetCsrfTokenUseCase getCsrfTokenUseCase;
+  private final GetCsrfTokenUseCase getCsrfTokenUseCase;
 
-    public CsrfTokenController(GetCsrfTokenUseCase getCsrfTokenUseCase) {
-        this.getCsrfTokenUseCase = getCsrfTokenUseCase;
-    }
+  public CsrfTokenController(GetCsrfTokenUseCase getCsrfTokenUseCase) {
+    this.getCsrfTokenUseCase = getCsrfTokenUseCase;
+  }
 
-    @GetMapping("/csrf")
-    public ResponseEntity<ApiResponse<CsrfTokenResponse>> csrf(CsrfToken token) {
-        CsrfTokenQuery query = new CsrfTokenQuery(token.getToken(), token.getHeaderName());
-        return ResponseEntity.ok(getCsrfTokenUseCase.execute(query));
-    }
+  @GetMapping("/csrf")
+  public ResponseEntity<ApiResponse<CsrfTokenResponse>> csrf(CsrfToken token) {
+    CsrfTokenQuery query = new CsrfTokenQuery(token.getToken(), token.getHeaderName());
+    return ResponseEntity.ok(getCsrfTokenUseCase.execute(query));
+  }
 }

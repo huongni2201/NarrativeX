@@ -9,13 +9,26 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class StoryVersionPersistenceAdapter implements StoryVersionRepository {
-    private final StoryVersionJpaRepository repository;
-    public StoryVersionPersistenceAdapter(StoryVersionJpaRepository repository) { this.repository = repository; }
-    @Override public int findMaxVersionNumberByProjectId(Long projectId) { return repository.findMaxVersionNumberByProjectId(projectId); }
-    @Override public StoryVersion save(StoryVersion storyVersion) {
-        StoryVersionJpaEntity entity = storyVersion.getId() == null ? new StoryVersionJpaEntity(storyVersion)
-            : repository.findById(storyVersion.getId()).orElseGet(() -> new StoryVersionJpaEntity(storyVersion));
-        entity.apply(storyVersion);
-        return ProjectPersistenceMapper.toDomain(repository.save(entity));
-    }
+  private final StoryVersionJpaRepository repository;
+
+  public StoryVersionPersistenceAdapter(StoryVersionJpaRepository repository) {
+    this.repository = repository;
+  }
+
+  @Override
+  public int findMaxVersionNumberByProjectId(Long projectId) {
+    return repository.findMaxVersionNumberByProjectId(projectId);
+  }
+
+  @Override
+  public StoryVersion save(StoryVersion storyVersion) {
+    StoryVersionJpaEntity entity =
+        storyVersion.getId() == null
+            ? new StoryVersionJpaEntity(storyVersion)
+            : repository
+                .findById(storyVersion.getId())
+                .orElseGet(() -> new StoryVersionJpaEntity(storyVersion));
+    entity.apply(storyVersion);
+    return ProjectPersistenceMapper.toDomain(repository.save(entity));
+  }
 }

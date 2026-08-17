@@ -10,11 +10,24 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class CreateCharacterUseCase {
-    private final CharacterRepository characterRepository;
-    private final CurrentUserId currentUserId;
-    public CreateCharacterUseCase(CharacterRepository characterRepository, CurrentUserId currentUserId) { this.characterRepository = characterRepository; this.currentUserId = currentUserId; }
-    @Transactional public ApiResponse<Character> execute(CreateCharacterCommand command) {
-        Character character = characterRepository.save(Character.create(currentUserId.resolve(command.ownerId()), command.workspaceId(), command.canonicalName(), command.aliases()));
-        return ApiResponse.success("Character created successfully", character);
-    }
+  private final CharacterRepository characterRepository;
+  private final CurrentUserId currentUserId;
+
+  public CreateCharacterUseCase(
+      CharacterRepository characterRepository, CurrentUserId currentUserId) {
+    this.characterRepository = characterRepository;
+    this.currentUserId = currentUserId;
+  }
+
+  @Transactional
+  public ApiResponse<Character> execute(CreateCharacterCommand command) {
+    Character character =
+        characterRepository.save(
+            Character.create(
+                currentUserId.get(),
+                command.workspaceId(),
+                command.canonicalName(),
+                command.aliases()));
+    return ApiResponse.success("Character created successfully", character);
+  }
 }

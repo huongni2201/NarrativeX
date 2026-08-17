@@ -16,13 +16,25 @@ import tools.jackson.databind.ObjectMapper;
 
 @Component
 public class ApiAccessDeniedHandler implements AccessDeniedHandler {
-    private final ObjectMapper objectMapper;
-    public ApiAccessDeniedHandler(ObjectMapper objectMapper) { this.objectMapper = objectMapper; }
-    @Override
-    public void handle(HttpServletRequest request, HttpServletResponse response, AccessDeniedException exception)
-            throws IOException, ServletException {
-        ApiErrorWriter.write(response, objectMapper, HttpStatus.FORBIDDEN,
-            ErrorResponse.of(HttpStatus.FORBIDDEN.value(), ApiErrorCode.FORBIDDEN.name(),
-                "Access denied.", request.getRequestURI(), CorrelationIdFilter.correlationId(request)));
-    }
+  private final ObjectMapper objectMapper;
+
+  public ApiAccessDeniedHandler(ObjectMapper objectMapper) {
+    this.objectMapper = objectMapper;
+  }
+
+  @Override
+  public void handle(
+      HttpServletRequest request, HttpServletResponse response, AccessDeniedException exception)
+      throws IOException, ServletException {
+    ApiErrorWriter.write(
+        response,
+        objectMapper,
+        HttpStatus.FORBIDDEN,
+        ErrorResponse.of(
+            HttpStatus.FORBIDDEN.value(),
+            ApiErrorCode.FORBIDDEN.name(),
+            "Access denied.",
+            request.getRequestURI(),
+            CorrelationIdFilter.correlationId(request)));
+  }
 }

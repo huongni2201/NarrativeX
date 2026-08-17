@@ -7,8 +7,9 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class GetCsrfTokenUseCase {
-    public ApiResponse<CsrfTokenResponse> execute(CsrfTokenQuery query) {
-        return ApiResponse.success("CSRF token retrieved successfully",
-            new CsrfTokenResponse(query.token(), query.headerName()));
-    }
+  public ApiResponse<CsrfTokenResponse> execute(CsrfTokenQuery query) {
+    return ApiResponse.success(
+        "CSRF token retrieved successfully",
+        new CsrfTokenResponse(query.token(), query.headerName()));
+  }
 }

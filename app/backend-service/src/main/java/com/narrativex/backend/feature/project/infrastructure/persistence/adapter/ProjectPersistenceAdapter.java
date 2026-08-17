@@ -15,54 +15,57 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class ProjectPersistenceAdapter implements ProjectRepository {
-    private final ProjectJpaRepository repository;
+  private final ProjectJpaRepository repository;
 
-    public ProjectPersistenceAdapter(ProjectJpaRepository repository) {
-        this.repository = repository;
-    }
+  public ProjectPersistenceAdapter(ProjectJpaRepository repository) {
+    this.repository = repository;
+  }
 
-    @Override
-    public CursorPage<Project> findActiveByOwnerId(String ownerId, String cursor, int limit) {
-        CursorKey cursorKey = CursorCodec.decode(cursor);
-        PageRequest fetchLimit = PageRequest.of(0, limit + 1);
-        List<ProjectJpaEntity> entities = cursorKey == null
+  @Override
+  public CursorPage<Project> findActiveByOwnerId(String ownerId, String cursor, int limit) {
+    CursorKey cursorKey = CursorCodec.decode(cursor);
+    PageRequest fetchLimit = PageRequest.of(0, limit + 1);
+    List<ProjectJpaEntity> entities =
+        cursorKey == null
             ? repository.findActiveFirstPage(ownerId, fetchLimit)
-            : repository.findActiveAfter(ownerId, cursorKey.updatedAt(), cursorKey.id(), fetchLimit);
+            : repository.findActiveAfter(
+                ownerId, cursorKey.updatedAt(), cursorKey.id(), fetchLimit);
 
-        boolean hasNext = entities.size() > limit;
-        List<ProjectJpaEntity> visibleEntities = entities.subList(0, Math.min(limit, entities.size()));
-        String nextCursor = hasNext && !visibleEntities.isEmpty()
-            ? cursorFor(visibleEntities.getLast())
-            : null;
-        List<Project> content = visibleEntities.stream()
-            .map(ProjectPersistenceMapper::toDomain)
-            .toList();
+    boolean hasNext = entities.size() > limit;
+    List<ProjectJpaEntity> visibleEntities = entities.subList(0, Math.min(limit, entities.size()));
+    String nextCursor =
+        hasNext && !visibleEntities.isEmpty() ? cursorFor(visibleEntities.getLast()) : null;
+    List<Project> content =
+        visibleEntities.stream().map(ProjectPersistenceMapper::toDomain).toList();
 
-        return new CursorPage<>(content, nextCursor, limit, hasNext);
-    }
+    return new CursorPage<>(content, nextCursor, limit, hasNext);
+  }
 
-    @Override
-    public Optional<Project> findOwnedById(Long projectId, String ownerId) {
-        return repository.findByIdAndOwnerIdAndArchivedAtIsNull(projectId, ownerId)
-            .map(ProjectPersistenceMapper::toDomain);
-    }
+  @Override
+  public Optional<Project> findOwnedById(Long projectId, String ownerId) {
+    return repository
+        .findByIdAndOwnerIdAndArchivedAtIsNull(projectId, ownerId)
+        .map(ProjectPersistenceMapper::toDomain);
+  }
 
-    @Override
-    public Optional<Project> findOwnedByIdForUpdate(Long projectId, String ownerId) {
-        return repository.findOwnedByIdForUpdate(projectId, ownerId)
-            .map(ProjectPersistenceMapper::toDomain);
-    }
+  @Override
+  public Optional<Project> findOwnedByIdForUpdate(Long projectId, String ownerId) {
+    return repository
+        .findOwnedByIdForUpdate(projectId, ownerId)
+        .map(ProjectPersistenceMapper::toDomain);
+  }
 
-    @Override
-    public Project save(Project project) {
-        ProjectJpaEntity entity = project.getId() == null
+  @Override
+  public Project save(Project project) {
+    ProjectJpaEntity entity =
+        project.getId() == null
             ? new ProjectJpaEntity(project)
             : repository.findById(project.getId()).orElseGet(() -> new ProjectJpaEntity(project));
-        entity.apply(project);
-        return ProjectPersistenceMapper.toDomain(repository.save(entity));
-    }
+    entity.apply(project);
+    return ProjectPersistenceMapper.toDomain(repository.save(entity));
+  }
 
-    private static String cursorFor(ProjectJpaEntity entity) {
-        return CursorCodec.encode(entity.getUpdatedAt(), entity.getId());
-    }
+  private static String cursorFor(ProjectJpaEntity entity) {
+    return CursorCodec.encode(entity.getUpdatedAt(), entity.getId());
+  }
 }

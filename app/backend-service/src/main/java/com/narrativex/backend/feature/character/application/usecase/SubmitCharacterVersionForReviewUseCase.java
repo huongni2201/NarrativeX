@@ -15,18 +15,19 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class SubmitCharacterVersionForReviewUseCase {
-    private final CharacterVersionRepository versionRepository;
-    private final CurrentUserId currentUserId;
+  private final CharacterVersionRepository versionRepository;
+  private final CurrentUserId currentUserId;
 
-    @Transactional
-    public ApiResponse<CharacterVersion> execute(ChangeCharacterVersionStatusCommand command) {
-        String actorId = currentUserId.get();
-        CharacterVersion version = versionRepository
-                .findOwnedById(command.characterVersionId(), actorId)
-                .orElseThrow(() -> new ResourceNotFoundException("Character version not found"));
-        version.submitForReview();
-        CharacterVersion saved = versionRepository.save(version);
-        log.info("Submitted character version {} for review", command.characterVersionId());
-        return ApiResponse.success("Character version submitted for review", saved);
-    }
+  @Transactional
+  public ApiResponse<CharacterVersion> execute(ChangeCharacterVersionStatusCommand command) {
+    String actorId = currentUserId.get();
+    CharacterVersion version =
+        versionRepository
+            .findOwnedById(command.characterVersionId(), actorId)
+            .orElseThrow(() -> new ResourceNotFoundException("Character version not found"));
+    version.submitForReview();
+    CharacterVersion saved = versionRepository.save(version);
+    log.info("Submitted character version {} for review", command.characterVersionId());
+    return ApiResponse.success("Character version submitted for review", saved);
+  }
 }

@@ -12,18 +12,21 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class GetGenerationJobUseCase {
-    private final GenerationJobRepository jobRepository;
-    private final CurrentUserId currentUserId;
+  private final GenerationJobRepository jobRepository;
+  private final CurrentUserId currentUserId;
 
-    public GetGenerationJobUseCase(GenerationJobRepository jobRepository, CurrentUserId currentUserId) {
-        this.jobRepository = jobRepository;
-        this.currentUserId = currentUserId;
-    }
+  public GetGenerationJobUseCase(
+      GenerationJobRepository jobRepository, CurrentUserId currentUserId) {
+    this.jobRepository = jobRepository;
+    this.currentUserId = currentUserId;
+  }
 
-    @Transactional(readOnly = true)
-    public ApiResponse<JobResponse> execute(GetGenerationJobQuery query) {
-        GenerationJob job = jobRepository.findByJobIdAndOwner(query.jobId(), currentUserId.resolve(query.ownerId()))
+  @Transactional(readOnly = true)
+  public ApiResponse<JobResponse> execute(GetGenerationJobQuery query) {
+    GenerationJob job =
+        jobRepository
+            .findByJobIdAndOwner(query.jobId(), currentUserId.get())
             .orElseThrow(() -> new ResourceNotFoundException("Job not found"));
-        return ApiResponse.success("Generation job retrieved successfully", JobResponse.from(job));
-    }
+    return ApiResponse.success("Generation job retrieved successfully", JobResponse.from(job));
+  }
 }

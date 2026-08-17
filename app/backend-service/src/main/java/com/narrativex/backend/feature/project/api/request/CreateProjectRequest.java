@@ -9,6 +9,4 @@ public record CreateProjectRequest(
     @Size(max = 16) String narrationLanguage,
     @Size(max = 16) String metadataLanguage,
     @Size(max = 8) String imageAspectRatio,
-    @Size(max = 16) String imageQualityTier
-) {
-}
+    @Size(max = 16) String imageQualityTier) {}

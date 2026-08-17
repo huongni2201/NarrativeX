@@ -8,9 +8,11 @@ import org.springframework.data.repository.query.Param;
 
 public interface GenerationJobJpaRepository extends JpaRepository<GenerationJobJpaEntity, Long> {
 
-    @Query(value = "select j.* from generation_jobs j join projects p on p.id = j.project_id "
-        + "where j.job_id = :jobId and p.owner_id = :ownerId and p.archived_at is null",
-        nativeQuery = true)
-    Optional<GenerationJobJpaEntity> findByJobIdAndOwner(@Param("jobId") String jobId,
-                                                         @Param("ownerId") String ownerId);
+  @Query(
+      value =
+          "select j.* from generation_jobs j join projects p on p.id = j.project_id "
+              + "where j.job_id = :jobId and p.owner_id = :ownerId and p.archived_at is null",
+      nativeQuery = true)
+  Optional<GenerationJobJpaEntity> findByJobIdAndOwner(
+      @Param("jobId") String jobId, @Param("ownerId") String ownerId);
 }

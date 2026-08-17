@@ -12,15 +12,35 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class CreateOutfitVersionUseCase {
-    private final CharacterRepository characterRepository;
-    private final OutfitVersionRepository outfitVersionRepository;
-    private final CurrentUserId currentUserId;
-    public CreateOutfitVersionUseCase(CharacterRepository characterRepository, OutfitVersionRepository outfitVersionRepository, CurrentUserId currentUserId) { this.characterRepository = characterRepository; this.outfitVersionRepository = outfitVersionRepository; this.currentUserId = currentUserId; }
-    @Transactional public ApiResponse<OutfitVersion> execute(CreateOutfitVersionCommand command) {
-        String ownerId = currentUserId.resolve(command.ownerId());
-        characterRepository.findOwnedByIdForUpdate(command.characterId(), ownerId).orElseThrow(() -> new ResourceNotFoundException("Character not found"));
-        int versionNumber = outfitVersionRepository.findMaxVersionNumberByCharacterId(command.characterId()) + 1;
-        OutfitVersion outfit = outfitVersionRepository.save(OutfitVersion.create(command.characterId(), versionNumber, command.name(), command.description(), command.prompt()));
-        return ApiResponse.success("Outfit version created successfully", outfit);
-    }
+  private final CharacterRepository characterRepository;
+  private final OutfitVersionRepository outfitVersionRepository;
+  private final CurrentUserId currentUserId;
+
+  public CreateOutfitVersionUseCase(
+      CharacterRepository characterRepository,
+      OutfitVersionRepository outfitVersionRepository,
+      CurrentUserId currentUserId) {
+    this.characterRepository = characterRepository;
+    this.outfitVersionRepository = outfitVersionRepository;
+    this.currentUserId = currentUserId;
+  }
+
+  @Transactional
+  public ApiResponse<OutfitVersion> execute(CreateOutfitVersionCommand command) {
+    String ownerId = currentUserId.get();
+    characterRepository
+        .findOwnedByIdForUpdate(command.characterId(), ownerId)
+        .orElseThrow(() -> new ResourceNotFoundException("Character not found"));
+    int versionNumber =
+        outfitVersionRepository.findMaxVersionNumberByCharacterId(command.characterId()) + 1;
+    OutfitVersion outfit =
+        outfitVersionRepository.save(
+            OutfitVersion.create(
+                command.characterId(),
+                versionNumber,
+                command.name(),
+                command.description(),
+                command.prompt()));
+    return ApiResponse.success("Outfit version created successfully", outfit);
+  }
 }

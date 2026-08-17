@@ -11,13 +11,33 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class OutfitVersionPersistenceAdapter implements OutfitVersionRepository {
-    private final OutfitVersionJpaRepository repository;
-    public OutfitVersionPersistenceAdapter(OutfitVersionJpaRepository repository) { this.repository = repository; }
-    @Override public int findMaxVersionNumberByCharacterId(Long characterId) { return repository.findMaxVersionNumberByCharacterId(characterId); }
-    @Override public Optional<OutfitVersion> findOwnedById(Long id, String ownerId) { return repository.findOwnedById(id, ownerId, CharacterStatus.ARCHIVED).map(CharacterPersistenceMapper::toDomain); }
-    @Override public OutfitVersion save(OutfitVersion outfit) {
-        OutfitVersionJpaEntity entity = outfit.getId() == null ? new OutfitVersionJpaEntity(outfit) : repository.findById(outfit.getId()).orElseGet(() -> new OutfitVersionJpaEntity(outfit));
-        entity.apply(outfit);
-        return CharacterPersistenceMapper.toDomain(repository.save(entity));
-    }
+  private final OutfitVersionJpaRepository repository;
+
+  public OutfitVersionPersistenceAdapter(OutfitVersionJpaRepository repository) {
+    this.repository = repository;
+  }
+
+  @Override
+  public int findMaxVersionNumberByCharacterId(Long characterId) {
+    return repository.findMaxVersionNumberByCharacterId(characterId);
+  }
+
+  @Override
+  public Optional<OutfitVersion> findOwnedById(Long id, String ownerId) {
+    return repository
+        .findOwnedById(id, ownerId, CharacterStatus.ARCHIVED)
+        .map(CharacterPersistenceMapper::toDomain);
+  }
+
+  @Override
+  public OutfitVersion save(OutfitVersion outfit) {
+    OutfitVersionJpaEntity entity =
+        outfit.getId() == null
+            ? new OutfitVersionJpaEntity(outfit)
+            : repository
+                .findById(outfit.getId())
+                .orElseGet(() -> new OutfitVersionJpaEntity(outfit));
+    entity.apply(outfit);
+    return CharacterPersistenceMapper.toDomain(repository.save(entity));
+  }
 }

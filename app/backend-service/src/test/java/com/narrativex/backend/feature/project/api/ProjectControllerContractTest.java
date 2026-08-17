@@ -16,6 +16,7 @@ import com.narrativex.backend.feature.project.application.command.CreateProjectC
 import com.narrativex.backend.feature.project.application.query.ProjectListQuery;
 import com.narrativex.backend.feature.project.application.usecase.CreateProjectUseCase;
 import com.narrativex.backend.feature.project.application.usecase.CreateStoryVersionUseCase;
+import com.narrativex.backend.feature.project.application.usecase.GetProjectUseCase;
 import com.narrativex.backend.feature.project.application.usecase.ListProjectsUseCase;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,46 +24,51 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 
 class ProjectControllerContractTest {
-    private final ListProjectsUseCase listProjectsUseCase = mock(ListProjectsUseCase.class);
-    private final CreateProjectUseCase createProjectUseCase = mock(CreateProjectUseCase.class);
-    private final CreateStoryVersionUseCase createStoryVersionUseCase = mock(CreateStoryVersionUseCase.class);
-    private ProjectController controller;
+  private final ListProjectsUseCase listProjectsUseCase = mock(ListProjectsUseCase.class);
+  private final GetProjectUseCase getProjectUseCase = mock(GetProjectUseCase.class);
+  private final CreateProjectUseCase createProjectUseCase = mock(CreateProjectUseCase.class);
+  private final CreateStoryVersionUseCase createStoryVersionUseCase =
+      mock(CreateStoryVersionUseCase.class);
+  private ProjectController controller;
 
-    @BeforeEach
-    void setUp() {
-        controller = new ProjectController(
+  @BeforeEach
+  void setUp() {
+    controller =
+        new ProjectController(
             listProjectsUseCase,
+            getProjectUseCase,
             createProjectUseCase,
             createStoryVersionUseCase);
-    }
+  }
 
-    @Test
-    void listMapsCursorInputToQueryAndPreservesEnvelope() {
-        ProjectResponse project = new ProjectResponse(
+  @Test
+  void listMapsCursorInputToQueryAndPreservesEnvelope() {
+    ProjectResponse project =
+        new ProjectResponse(
             7L, "Story", "DRAFT", "vi-VN", "vi-VN", "vi-VN", "16:9", "STANDARD", 3L);
-        CursorPage<ProjectResponse> page = new CursorPage<>(List.of(project), "next", 100, true);
-        when(listProjectsUseCase.execute(any(ProjectListQuery.class)))
-            .thenReturn(ApiResponse.success("Projects retrieved successfully", page));
+    CursorPage<ProjectResponse> page = new CursorPage<>(List.of(project), "next", 100, true);
+    when(listProjectsUseCase.execute(any(ProjectListQuery.class)))
+        .thenReturn(ApiResponse.success("Projects retrieved successfully", page));
 
-        var responseEntity = controller.list("owner", "cursor-token", 100);
+    var responseEntity = controller.list("cursor-token", 100);
 
-        assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
-        assertTrue(responseEntity.getBody().success());
-        verify(listProjectsUseCase).execute(new ProjectListQuery("owner", "cursor-token", 100));
-    }
+    assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
+    assertTrue(responseEntity.getBody().success());
+    verify(listProjectsUseCase).execute(new ProjectListQuery(null, "cursor-token", 100));
+  }
 
-    @Test
-    void createMapsRequestToCommandAndKeeps201() {
-        ProjectResponse project = new ProjectResponse(
+  @Test
+  void createMapsRequestToCommandAndKeeps201() {
+    ProjectResponse project =
+        new ProjectResponse(
             7L, "Story", "DRAFT", "vi-VN", "vi-VN", "vi-VN", "16:9", "STANDARD", 0L);
-        when(createProjectUseCase.execute(any(CreateProjectCommand.class)))
-            .thenReturn(ApiResponse.success("Project created successfully", project));
+    when(createProjectUseCase.execute(any(CreateProjectCommand.class)))
+        .thenReturn(ApiResponse.success("Project created successfully", project));
 
-        var responseEntity = controller.create(
-            new CreateProjectRequest("Story", null, null, null, null, null),
-            "owner");
+    var responseEntity =
+        controller.create(new CreateProjectRequest("Story", null, null, null, null, null));
 
-        assertEquals(HttpStatus.CREATED, responseEntity.getStatusCode());
-        assertEquals(7L, responseEntity.getBody().data().id());
-    }
+    assertEquals(HttpStatus.CREATED, responseEntity.getStatusCode());
+    assertEquals(7L, responseEntity.getBody().data().id());
+  }
 }
