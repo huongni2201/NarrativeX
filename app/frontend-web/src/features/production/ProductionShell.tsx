@@ -71,7 +71,23 @@ export const ProductionShell: React.FC = () => {
           <div className="rounded-xl border border-slate-800 bg-[#090e18] p-4"><p className="text-[11px] text-slate-500">Quality</p><p className="mt-1 text-sm text-slate-200">{project.imageQualityTier}</p></div>
         </div>
       </section>
-      <div className="rounded-2xl border border-dashed border-slate-700 bg-[#0d1420]/40 p-6 text-sm text-slate-400">Project, story version và analysis job đã đi qua API thật. Chapter, character và visual-beat endpoints sẽ được nối vào cùng query boundary khi backend contract sẵn sàng.</div>
+      <div className="rounded-2xl border border-dashed border-slate-700 bg-[#0d1420]/40 p-6">
+        <p className="text-[11px] uppercase tracking-[0.2em] text-purple-300">Production workspace</p>
+        <h3 className="mt-2 text-base font-semibold text-slate-200">Một phần backend đã kết nối</h3>
+        <p className="mt-2 text-sm leading-6 text-slate-400">Project, story version và analysis job đã đi qua API thật. Chapter, character, storyboard, visual-beat, render và export endpoints chưa sẵn sàng nên workspace không hiển thị dữ liệu mẫu.</p>
+        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          {[
+            ["Project / Story", "Connected"],
+            ["Chapter / Storyboard", "Not connected"],
+            ["Render / Export", "Coming soon"],
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-xl border border-slate-800 bg-[#090e18] p-4">
+              <p className="text-[11px] text-slate-500">{label}</p>
+              <p className="mt-1 text-sm font-semibold text-slate-200">{value}</p>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 };

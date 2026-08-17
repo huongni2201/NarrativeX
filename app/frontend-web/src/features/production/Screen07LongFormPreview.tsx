@@ -24,6 +24,8 @@ export const Screen07LongFormPreview: React.FC = () => {
   const [isMuted, setIsMuted] = useState(false);
   const [activeChapterNumber, setActiveChapterNumber] = useState("06");
 
+  if (!project) return null;
+
   const readyChapters = project.chapters.filter(
     (c) => c.status === "RENDERED" || c.status === "VISUAL_READY" || c.status === "GENERATING_VISUALS"
   );

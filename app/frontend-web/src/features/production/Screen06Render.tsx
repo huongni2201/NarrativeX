@@ -24,6 +24,8 @@ export const Screen06Render: React.FC = () => {
   const [addWatermark, setAddWatermark] = useState(true);
   const [isRendering, setIsRendering] = useState(false);
 
+  if (!project) return null;
+
   const chapter =
     project.chapters.find((c) => c.id === activeChapterId) ||
     project.chapters.find((c) => c.number === "06") ||

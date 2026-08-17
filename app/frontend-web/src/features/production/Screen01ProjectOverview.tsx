@@ -32,6 +32,8 @@ export const Screen01ProjectOverview: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState("chapters");
 
+  if (!project) return null;
+
   const projectTabs = [
     { id: "chapters", label: "Chapters", count: project.chapters.length },
     { id: "info", label: "Thông tin dự án" },

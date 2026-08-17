@@ -5,7 +5,9 @@ import { isMockDataMode } from "@/lib/data-mode";
 
 interface ProductionStore {
   // State
-  project: ProjectProductionDetail;
+  // Production business data is only available in the Storybook/test fixture.
+  // API mode must wait for the server query instead of booting with a fixture.
+  project: ProjectProductionDetail | null;
   activeChapterId: string;
   activeSceneId: string;
   activeWorkspaceTab: string;
@@ -38,7 +40,7 @@ interface ProductionStore {
 }
 
 export const useProductionStore = create<ProductionStore>((set, get) => ({
-  project: MOCK_PROJECT_PRODUCTION,
+  project: isMockDataMode ? MOCK_PROJECT_PRODUCTION : null,
   activeChapterId: "ch-01",
   activeSceneId: "scene-1",
   activeWorkspaceTab: "storyboard",
@@ -67,6 +69,9 @@ export const useProductionStore = create<ProductionStore>((set, get) => ({
 
   addChapter: ({ title, storyText, number }) => {
     const { project } = get();
+    if (!project) {
+      throw new Error("Chapter creation requires the backend chapter API.");
+    }
     const nextNum = number || String(project.chapters.length + 1).padStart(2, "0");
     const newChapterId = `ch-${Date.now()}`;
 
@@ -137,6 +142,9 @@ export const useProductionStore = create<ProductionStore>((set, get) => ({
   // Smart Continuation Logic for long-form series
   continueProject: () => {
     const { project } = get();
+    if (!project) {
+      return;
+    }
     // 1. Find the first chapter that has pending review
     const reviewChapter = project.chapters.find((c) => c.status === "VISUAL_REVIEW");
     if (reviewChapter) {

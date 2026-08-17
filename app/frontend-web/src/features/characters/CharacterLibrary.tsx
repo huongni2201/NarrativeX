@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useShallow } from "zustand/react/shallow";
 import { useStudioStore } from "@/store/useStudioStore";
 import { CharacterCard } from "./CharacterCard";
 import { CharacterListView } from "./CharacterListView";
@@ -54,9 +55,40 @@ export const CharacterLibrary: React.FC = () => {
     characterSearchQuery,
     setCharacterSearchQuery,
     openCharacterBible,
-  } = useStudioStore();
+  } = useStudioStore(
+    useShallow((state) => ({
+      characterFilterProject: state.characterFilterProject,
+      setCharacterFilterProject: state.setCharacterFilterProject,
+      characterFilterRole: state.characterFilterRole,
+      setCharacterFilterRole: state.setCharacterFilterRole,
+      characterFilterGender: state.characterFilterGender,
+      setCharacterFilterGender: state.setCharacterFilterGender,
+      characterFilterStatus: state.characterFilterStatus,
+      setCharacterFilterStatus: state.setCharacterFilterStatus,
+      characterFilterGroup: state.characterFilterGroup,
+      setCharacterFilterGroup: state.setCharacterFilterGroup,
+      characterFilterCategoryTab: state.characterFilterCategoryTab,
+      setCharacterFilterCategoryTab: state.setCharacterFilterCategoryTab,
+      characterSortBy: state.characterSortBy,
+      setCharacterSortBy: state.setCharacterSortBy,
+      characterViewMode: state.characterViewMode,
+      setCharacterViewMode: state.setCharacterViewMode,
+      isMoreFiltersOpen: state.isMoreFiltersOpen,
+      setIsMoreFiltersOpen: state.setIsMoreFiltersOpen,
+      characterAdvancedFilters: state.characterAdvancedFilters,
+      setCharacterAdvancedFilters: state.setCharacterAdvancedFilters,
+      resetCharacterFilters: state.resetCharacterFilters,
+      characterSearchQuery: state.characterSearchQuery,
+      setCharacterSearchQuery: state.setCharacterSearchQuery,
+      openCharacterBible: state.openCharacterBible,
+    }))
+  );
 
-  const projectsQuery = useQuery({ queryKey: queryKeys.projects, queryFn: api.listProjects });
+  const projectsQuery = useQuery({
+    queryKey: queryKeys.projects,
+    queryFn: api.listProjects,
+    enabled: isMockDataMode,
+  });
   const serverProjects = projectsQuery.data ?? [];
   const projects: Project[] = useMemo(() => {
     if (serverProjects.length > 0) {
@@ -263,6 +295,30 @@ export const CharacterLibrary: React.FC = () => {
     characterAdvancedFilters.onlyLocked ||
     characterAdvancedFilters.hasReferences ||
     characterAdvancedFilters.minAppearances;
+
+  if (!isMockDataMode) {
+    return (
+      <div className="rounded-2xl border border-dashed border-slate-700 bg-[#0d1420]/50 p-8">
+        <p className="text-[11px] uppercase tracking-[0.2em] text-purple-300">Character API</p>
+        <h1 className="mt-2 text-2xl font-bold text-white">Thư viện nhân vật chưa kết nối</h1>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">
+          Backend hiện chưa expose character, project-character và group endpoints. Màn hình này không nạp fixture runtime và sẽ mở khi query server-side sẵn sàng.
+        </p>
+        <div className="mt-6 grid gap-3 sm:grid-cols-3">
+          {[
+            ["Status", "Not connected"],
+            ["Search", "Server-side pending"],
+            ["Create/edit", "Coming soon"],
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-xl border border-slate-800 bg-[#090e18] p-4">
+              <p className="text-[11px] text-slate-500">{label}</p>
+              <p className="mt-1 text-sm font-semibold text-slate-200">{value}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">

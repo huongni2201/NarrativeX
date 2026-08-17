@@ -53,9 +53,9 @@ Current reality: the only verified runtime path that reaches PostgreSQL is the b
 | `/` | overview, project workspace, characters, wizard modals | Zustand-driven shell; mostly mock/local |
 | `/auth` | login/register form and Google button | visual/local-only login; no backend auth call |
 | `/dashboard` | delegates to `/` shell | same as root; no route-param project loading |
-| `/characters` | character library | mock data and local modal state |
+| `/characters` | character library | explicit API-not-connected state in application mode; fixture UI only in test/Storybook |
 | sidebar `assets` / `presets` | controls exist in current worktree | no render branch in `app/page.tsx`; dead/unreachable until wired |
-| production views | chapters, workspace, storyboard, visual review, render, preview | mock production store; local transitions and timers |
+| production views | chapters, workspace, storyboard, visual review, render, preview | backend project overview plus explicit unsupported-capability states; fixture screens only in test/Storybook |
 
 ## Worker architecture (current)
 

@@ -38,6 +38,8 @@ export const Screen03ChapterWorkspace: React.FC = () => {
     setView,
   } = useProductionStore();
 
+  if (!project) return null;
+
   const chapter =
     project.chapters.find((c) => c.id === activeChapterId) ||
     project.chapters.find((c) => c.number === "01") ||

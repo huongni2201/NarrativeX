@@ -31,6 +31,8 @@ export const Screen05VisualReview: React.FC = () => {
     setView,
   } = useProductionStore();
 
+  if (!project) return null;
+
   const chapter =
     project.chapters.find((c) => c.id === activeChapterId) ||
     project.chapters.find((c) => c.number === "06") ||
