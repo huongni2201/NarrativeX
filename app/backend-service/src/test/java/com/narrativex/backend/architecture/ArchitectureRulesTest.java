@@ -66,7 +66,7 @@ class ArchitectureRulesTest {
                 && source.lines().anyMatch(line -> isForbiddenApplicationImport(feature, line))) {
             violations.add(relative + ": application imports a forbidden feature/API/infrastructure package");
         }
-        if (packageName.contains(".api")
+        if (isApiPackage(packageName)
                 && source.lines().anyMatch(ArchitectureRulesTest::isForbiddenApiImport)) {
             violations.add(relative + ": API imports infrastructure/outbound port");
         }
@@ -78,7 +78,7 @@ class ArchitectureRulesTest {
                 && source.lines().anyMatch(ArchitectureRulesTest::commonImportsBusinessFeature)) {
             violations.add(relative + ": common imports a business feature");
         }
-        if (source.contains("@RestController") && !packageName.contains(".api.")) {
+        if (hasRestControllerAnnotation(source) && !isApiPackage(packageName)) {
             violations.add(relative + ": REST controller is outside API");
         }
         if (fileName.endsWith("Command.java") && !packageName.contains(".application.command")) {
@@ -105,6 +105,16 @@ class ArchitectureRulesTest {
         if (source.contains("com.narrativex.backend.modules") || source.contains("com.narrativex.backend.shared")) {
             violations.add(relative + ": legacy package reference remains");
         }
+    }
+
+    private static boolean hasRestControllerAnnotation(String source) {
+        return source.lines()
+            .map(String::strip)
+            .anyMatch("@RestController"::equals);
+    }
+
+    private static boolean isApiPackage(String packageName) {
+        return packageName.endsWith(".api") || packageName.contains(".api.");
     }
 
     private static String packageName(String source) {
