@@ -1,4 +1,4 @@
-package com.narrativex.backend.modules.project.application.usecase;
+package com.narrativex.backend.modules.project.application.service;
 
 import com.narrativex.backend.modules.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.modules.project.application.port.in.ProjectAccess;

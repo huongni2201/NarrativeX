@@ -3,7 +3,7 @@ package com.narrativex.backend.modules.project.application.usecase;
 import com.narrativex.backend.modules.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.modules.project.application.port.out.ProjectRepository;
 import com.narrativex.backend.modules.project.application.query.ProjectListQuery;
-import com.narrativex.backend.modules.project.application.response.ProjectResponse;
+import com.narrativex.backend.modules.project.api.response.ProjectResponse;
 import com.narrativex.backend.shared.application.response.ApiResponse;
 import com.narrativex.backend.shared.application.response.PaginationResponse;
 import org.springframework.stereotype.Service;

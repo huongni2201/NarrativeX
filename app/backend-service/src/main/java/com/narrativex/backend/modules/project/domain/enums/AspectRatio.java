@@ -1,4 +1,4 @@
-package com.narrativex.backend.modules.project.domain.aggregate;
+package com.narrativex.backend.modules.project.domain.enums;
 
 public enum AspectRatio {
     RATIO_16_9("16:9"),

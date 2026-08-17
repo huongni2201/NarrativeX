@@ -1,5 +1,7 @@
 package com.narrativex.backend.modules.project.domain.aggregate;
 
+import com.narrativex.backend.modules.project.domain.enums.ModerationDecision;
+import com.narrativex.backend.modules.project.domain.enums.StoryVersionStatus;
 import com.narrativex.backend.shared.domain.DomainEntity;
 import java.time.Instant;
 import java.util.Objects;

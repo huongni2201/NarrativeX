@@ -1,9 +1,9 @@
 package com.narrativex.backend.modules.project.infrastructure.persistence.entity;
 
-import com.narrativex.backend.modules.project.domain.aggregate.AspectRatio;
-import com.narrativex.backend.modules.project.domain.aggregate.ImageQualityTier;
+import com.narrativex.backend.modules.project.domain.enums.AspectRatio;
+import com.narrativex.backend.modules.project.domain.enums.ImageQualityTier;
 import com.narrativex.backend.modules.project.domain.aggregate.Project;
-import com.narrativex.backend.modules.project.domain.aggregate.ProjectStatus;
+import com.narrativex.backend.modules.project.domain.enums.ProjectStatus;
 import com.narrativex.backend.shared.infrastructure.persistence.JpaAuditedEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

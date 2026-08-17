@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.narrativex.backend.modules.auth.infrastructure.security.SecurityContextCurrentUser;
-import com.narrativex.backend.modules.project.domain.aggregate.AspectRatio;
+import com.narrativex.backend.modules.project.domain.enums.AspectRatio;
 import com.narrativex.backend.modules.project.domain.aggregate.StoryVersion;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;

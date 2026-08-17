@@ -1,7 +1,7 @@
 package com.narrativex.backend.modules.character.infrastructure.persistence.entity;
 
 import com.narrativex.backend.modules.character.domain.aggregate.CharacterVersion;
-import com.narrativex.backend.modules.character.domain.aggregate.CharacterVersionStatus;
+import com.narrativex.backend.modules.character.domain.aggregate.enums.CharacterVersionStatus;
 import com.narrativex.backend.shared.infrastructure.persistence.JpaAuditedEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

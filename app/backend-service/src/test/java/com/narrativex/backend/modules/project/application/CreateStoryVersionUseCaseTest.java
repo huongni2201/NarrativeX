@@ -12,10 +12,10 @@ import com.narrativex.backend.modules.project.application.command.CreateStoryVer
 import com.narrativex.backend.modules.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.modules.project.application.port.out.StoryVersionRepository;
 import com.narrativex.backend.modules.project.application.usecase.CreateStoryVersionUseCase;
-import com.narrativex.backend.modules.project.domain.aggregate.AspectRatio;
-import com.narrativex.backend.modules.project.domain.aggregate.ImageQualityTier;
+import com.narrativex.backend.modules.project.domain.enums.AspectRatio;
+import com.narrativex.backend.modules.project.domain.enums.ImageQualityTier;
 import com.narrativex.backend.modules.project.domain.aggregate.Project;
-import com.narrativex.backend.modules.project.domain.aggregate.ProjectStatus;
+import com.narrativex.backend.modules.project.domain.enums.ProjectStatus;
 import com.narrativex.backend.modules.project.domain.aggregate.StoryVersion;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

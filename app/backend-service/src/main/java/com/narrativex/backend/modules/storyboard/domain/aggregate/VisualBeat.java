@@ -1,7 +1,7 @@
 package com.narrativex.backend.modules.storyboard.domain.aggregate;
 
-import com.narrativex.backend.modules.project.domain.aggregate.AspectRatio;
-import com.narrativex.backend.modules.project.domain.aggregate.ImageQualityTier;
+import com.narrativex.backend.modules.project.domain.enums.AspectRatio;
+import com.narrativex.backend.modules.project.domain.enums.ImageQualityTier;
 import com.narrativex.backend.shared.domain.DomainEntity;
 import java.util.Objects;
 

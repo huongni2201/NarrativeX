@@ -1,5 +1,8 @@
 package com.narrativex.backend.modules.project.domain.aggregate;
 
+import com.narrativex.backend.modules.project.domain.enums.AspectRatio;
+import com.narrativex.backend.modules.project.domain.enums.ImageQualityTier;
+import com.narrativex.backend.modules.project.domain.enums.ProjectStatus;
 import com.narrativex.backend.shared.domain.AggregateRoot;
 import java.time.Instant;
 import java.util.Objects;

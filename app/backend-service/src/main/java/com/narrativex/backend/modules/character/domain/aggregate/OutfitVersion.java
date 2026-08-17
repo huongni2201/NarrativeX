@@ -1,5 +1,6 @@
 package com.narrativex.backend.modules.character.domain.aggregate;
 
+import com.narrativex.backend.modules.character.domain.aggregate.enums.OutfitVersionStatus;
 import com.narrativex.backend.shared.domain.DomainEntity;
 import java.util.Objects;
 

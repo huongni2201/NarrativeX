@@ -6,9 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import com.narrativex.backend.modules.character.domain.aggregate.Character;
 import com.narrativex.backend.modules.character.domain.aggregate.CharacterAppearance;
 import com.narrativex.backend.modules.character.domain.aggregate.CharacterVersion;
-import com.narrativex.backend.modules.character.domain.aggregate.CharacterVersionStatus;
+import com.narrativex.backend.modules.character.domain.aggregate.enums.CharacterStatus;
+import com.narrativex.backend.modules.character.domain.aggregate.enums.CharacterVersionStatus;
 import com.narrativex.backend.modules.character.domain.aggregate.OutfitVersion;
-import com.narrativex.backend.modules.character.domain.aggregate.OutfitVersionStatus;
+import com.narrativex.backend.modules.character.domain.aggregate.enums.OutfitVersionStatus;
 import com.narrativex.backend.modules.character.domain.aggregate.ProjectCharacter;
 import org.junit.jupiter.api.Test;
 
@@ -17,7 +18,7 @@ class CharacterAggregateTest {
     @Test
     void oneCharacterIdentityCanBeAssignedToMultipleProjects() {
         Character character = Character.rehydrate(10L, 0L, "owner", null, "Mina", java.util.List.of("M"),
-            com.narrativex.backend.modules.character.domain.aggregate.CharacterStatus.ACTIVE);
+            CharacterStatus.ACTIVE);
 
         ProjectCharacter first = ProjectCharacter.assign(100L, character.getId(), "PROTAGONIST", 1,
             java.util.List.of(), null, java.util.List.of("main"), null);

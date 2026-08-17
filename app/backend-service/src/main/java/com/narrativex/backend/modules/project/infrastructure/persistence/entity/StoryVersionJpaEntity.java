@@ -1,8 +1,8 @@
 package com.narrativex.backend.modules.project.infrastructure.persistence.entity;
 
-import com.narrativex.backend.modules.project.domain.aggregate.ModerationDecision;
+import com.narrativex.backend.modules.project.domain.enums.ModerationDecision;
 import com.narrativex.backend.modules.project.domain.aggregate.StoryVersion;
-import com.narrativex.backend.modules.project.domain.aggregate.StoryVersionStatus;
+import com.narrativex.backend.modules.project.domain.enums.StoryVersionStatus;
 import com.narrativex.backend.shared.infrastructure.persistence.JpaAuditedEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

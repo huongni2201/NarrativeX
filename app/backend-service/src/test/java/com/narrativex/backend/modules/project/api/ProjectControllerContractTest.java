@@ -13,7 +13,7 @@ import com.narrativex.backend.modules.project.api.controller.ProjectController;
 import com.narrativex.backend.modules.project.api.request.CreateProjectRequest;
 import com.narrativex.backend.modules.project.application.command.CreateProjectCommand;
 import com.narrativex.backend.modules.project.application.query.ProjectListQuery;
-import com.narrativex.backend.modules.project.application.response.ProjectResponse;
+import com.narrativex.backend.modules.project.api.response.ProjectResponse;
 import com.narrativex.backend.modules.project.application.usecase.CreateProjectUseCase;
 import com.narrativex.backend.modules.project.application.usecase.CreateStoryVersionUseCase;
 import com.narrativex.backend.modules.project.application.usecase.ListProjectsUseCase;

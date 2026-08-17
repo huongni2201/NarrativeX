@@ -1,4 +1,4 @@
-package com.narrativex.backend.modules.project.application.response;
+package com.narrativex.backend.modules.project.api.response;
 
 import com.narrativex.backend.modules.project.domain.aggregate.StoryVersion;
 import java.time.Instant;

@@ -12,13 +12,13 @@ import com.narrativex.backend.modules.character.application.port.out.CharacterVe
 import com.narrativex.backend.modules.character.application.port.out.ProjectCharacterRepository;
 import com.narrativex.backend.modules.character.application.usecase.AssignCharacterToProjectUseCase;
 import com.narrativex.backend.modules.character.domain.aggregate.Character;
-import com.narrativex.backend.modules.character.domain.aggregate.CharacterStatus;
+import com.narrativex.backend.modules.character.domain.aggregate.enums.CharacterStatus;
 import com.narrativex.backend.modules.character.domain.aggregate.ProjectCharacter;
 import com.narrativex.backend.modules.project.application.port.in.ProjectAccess;
-import com.narrativex.backend.modules.project.domain.aggregate.AspectRatio;
-import com.narrativex.backend.modules.project.domain.aggregate.ImageQualityTier;
+import com.narrativex.backend.modules.project.domain.enums.AspectRatio;
+import com.narrativex.backend.modules.project.domain.enums.ImageQualityTier;
 import com.narrativex.backend.modules.project.domain.aggregate.Project;
-import com.narrativex.backend.modules.project.domain.aggregate.ProjectStatus;
+import com.narrativex.backend.modules.project.domain.enums.ProjectStatus;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;

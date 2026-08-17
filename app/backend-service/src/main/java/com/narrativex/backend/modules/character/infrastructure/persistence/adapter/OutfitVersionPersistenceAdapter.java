@@ -2,7 +2,7 @@ package com.narrativex.backend.modules.character.infrastructure.persistence.adap
 
 import com.narrativex.backend.modules.character.application.port.out.OutfitVersionRepository;
 import com.narrativex.backend.modules.character.domain.aggregate.OutfitVersion;
-import com.narrativex.backend.modules.character.domain.aggregate.CharacterStatus;
+import com.narrativex.backend.modules.character.domain.aggregate.enums.CharacterStatus;
 import com.narrativex.backend.modules.character.infrastructure.persistence.entity.OutfitVersionJpaEntity;
 import com.narrativex.backend.modules.character.infrastructure.persistence.mapper.CharacterPersistenceMapper;
 import com.narrativex.backend.modules.character.infrastructure.persistence.repository.OutfitVersionJpaRepository;

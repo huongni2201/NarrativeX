@@ -12,7 +12,7 @@ import com.narrativex.backend.modules.character.application.port.out.CharacterRe
 import com.narrativex.backend.modules.character.application.port.out.CharacterVersionRepository;
 import com.narrativex.backend.modules.character.application.usecase.CreateCharacterVersionUseCase;
 import com.narrativex.backend.modules.character.domain.aggregate.Character;
-import com.narrativex.backend.modules.character.domain.aggregate.CharacterStatus;
+import com.narrativex.backend.modules.character.domain.aggregate.enums.CharacterStatus;
 import com.narrativex.backend.modules.character.domain.aggregate.CharacterVersion;
 import java.util.List;
 import java.util.Optional;

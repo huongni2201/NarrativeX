@@ -1,5 +1,6 @@
 package com.narrativex.backend.modules.character.domain.aggregate;
 
+import com.narrativex.backend.modules.character.domain.aggregate.enums.CharacterVersionStatus;
 import com.narrativex.backend.shared.domain.DomainEntity;
 import java.time.Instant;
 import java.util.List;

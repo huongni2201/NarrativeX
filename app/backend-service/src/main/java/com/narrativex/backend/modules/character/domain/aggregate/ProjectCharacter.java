@@ -1,5 +1,7 @@
 package com.narrativex.backend.modules.character.domain.aggregate;
 
+import com.narrativex.backend.modules.character.domain.aggregate.enums.CharacterVersionStatus;
+import com.narrativex.backend.modules.character.domain.aggregate.enums.ProjectCharacterStatus;
 import com.narrativex.backend.shared.domain.AggregateRoot;
 import java.util.List;
 import java.util.Objects;
