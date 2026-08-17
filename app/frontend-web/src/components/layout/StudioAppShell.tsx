@@ -6,7 +6,6 @@ import { StudioSidebar } from "@/components/layout/StudioSidebar";
 import { ProjectsDashboard } from "@/features/dashboard/ProjectsDashboard";
 import { AuthLoadingScreen, AuthScreen } from "@/features/auth/AuthScreen";
 import { useAuthStore } from "@/store/useAuthStore";
-import { useStudioStore } from "@/store/useStudioStore";
 import type { ScreenType } from "@/types/studio";
 
 const ProductionShell = dynamic(() =>
@@ -28,17 +27,28 @@ const StylePresetsScreen = dynamic(() =>
   import("@/features/presets/StylePresetsScreen").then((module) => module.StylePresetsScreen),
 );
 
+type StudioRouteScreen = Extract<
+  ScreenType,
+  "overview" | "dashboard" | "project-workspace" | "characters" | "assets" | "presets"
+>;
+
 interface StudioAppShellProps {
-  screen?: ScreenType;
+  screen: StudioRouteScreen;
   projectId?: string;
 }
 
+const screenTitles: Record<StudioRouteScreen, string> = {
+  overview: "Tổng quan – Danh sách dự án",
+  dashboard: "Production Workspace",
+  "project-workspace": "Production Workspace",
+  characters: "Thư viện nhân vật",
+  assets: "Thư viện tài sản (Asset Library)",
+  presets: "Mẫu & Phong cách (Style & Presets)",
+};
+
 export function StudioAppShell({ screen, projectId }: Readonly<StudioAppShellProps>) {
-  const storeScreen = useStudioStore((state) => state.currentScreen);
-  const wizardStep = useStudioStore((state) => state.wizardDraft.step);
   const status = useAuthStore((state) => state.status);
   const error = useAuthStore((state) => state.error);
-  const currentScreen = screen ?? storeScreen;
 
   if (status === "bootstrapping") {
     return <AuthLoadingScreen message="Đang kiểm tra phiên đăng nhập…" />;
@@ -65,32 +75,21 @@ export function StudioAppShell({ screen, projectId }: Readonly<StudioAppShellPro
     return <AuthScreen />;
   }
 
-  const screenTitles: Partial<Record<ScreenType, string>> = {
-    overview: "Tổng quan – Danh sách dự án",
-    dashboard: "Production Workspace",
-    "project-workspace": "Production Workspace",
-    characters: "Thư viện nhân vật",
-    "character-bible": "Chi tiết nhân vật (Character Bible)",
-    assets: "Thư viện tài sản (Asset Library)",
-    presets: "Mẫu & Phong cách (Style & Presets)",
-    wizard: `Tạo dự án mới – Bước ${wizardStep}`,
-  };
-
   return (
     <div className="flex min-h-screen bg-[#070b14] text-slate-100">
       <StudioSidebar />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <StudioHeader title={screenTitles[currentScreen] || "Tổng quan"} />
+        <StudioHeader title={screenTitles[screen]} />
 
         <main className="mx-auto w-full max-w-[1700px] flex-1 p-5 pb-16 lg:p-8">
-          {currentScreen === "overview" && <ProjectsDashboard />}
-          {(currentScreen === "project-workspace" || currentScreen === "dashboard") && (
+          {screen === "overview" && <ProjectsDashboard />}
+          {(screen === "project-workspace" || screen === "dashboard") && (
             <ProductionShell projectId={projectId} />
           )}
-          {currentScreen === "characters" && <CharacterLibrary />}
-          {currentScreen === "assets" && <AssetLibraryScreen />}
-          {currentScreen === "presets" && <StylePresetsScreen />}
+          {screen === "characters" && <CharacterLibrary />}
+          {screen === "assets" && <AssetLibraryScreen />}
+          {screen === "presets" && <StylePresetsScreen />}
         </main>
       </div>
 
