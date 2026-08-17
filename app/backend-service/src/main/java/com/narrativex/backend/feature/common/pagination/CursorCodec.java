@@ -3,7 +3,6 @@ package com.narrativex.backend.feature.common.pagination;
 import com.narrativex.backend.feature.common.domain.exception.DomainValidationException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.time.format.DateTimeParseException;
 import java.util.Base64;
 
 public final class CursorCodec {
@@ -27,15 +26,13 @@ public final class CursorCodec {
             String decoded = new String(Base64.getUrlDecoder().decode(cursor), StandardCharsets.UTF_8);
             int separatorIndex = decoded.lastIndexOf(SEPARATOR);
             if (separatorIndex <= 0 || separatorIndex == decoded.length() - 1) {
-                throw new DomainValidationException("Invalid pagination cursor");
+                throw new IllegalArgumentException("Malformed cursor");
             }
+
             Instant updatedAt = Instant.parse(decoded.substring(0, separatorIndex));
             long id = Long.parseLong(decoded.substring(separatorIndex + 1));
             return new CursorKey(updatedAt, id);
-        } catch (IllegalArgumentException | DateTimeParseException exception) {
-            if (exception instanceof DomainValidationException domainValidationException) {
-                throw domainValidationException;
-            }
+        } catch (RuntimeException exception) {
             throw new DomainValidationException("Invalid pagination cursor", exception);
         }
     }
