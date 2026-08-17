@@ -34,7 +34,15 @@ public final class CharacterAppearance extends DomainEntity {
     public static CharacterAppearance create(Long characterId, Long projectId, String timelineKey,
                                              String ageState, String hairstyle, String injury,
                                              String wardrobeContext, String appearancePrompt,
-                                             Long outfitVersionId) {
+                                             OutfitVersion outfitVersion) {
+        Objects.requireNonNull(characterId, "characterId");
+        Long outfitVersionId = outfitVersion == null ? null : outfitVersion.getId();
+        if (outfitVersion != null && !characterId.equals(outfitVersion.getCharacterId())) {
+            throw new IllegalArgumentException("outfitVersion must belong to characterId");
+        }
+        if (outfitVersion != null && outfitVersionId == null) {
+            throw new IllegalArgumentException("outfitVersion must be persisted");
+        }
         return new CharacterAppearance(null, 0L, characterId, projectId, timelineKey, ageState, hairstyle,
             injury, wardrobeContext, appearancePrompt, outfitVersionId);
     }

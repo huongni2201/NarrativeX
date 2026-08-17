@@ -28,7 +28,8 @@ public class CreateStoryVersionUseCase {
 
     @Transactional
     public StoryVersion execute(Long projectId, CreateStoryVersionCommand command, String ownerId) {
-        Project project = projectAccess.findOwnedProject(projectId, currentUserId.resolve(ownerId));
+        String resolvedOwnerId = currentUserId.resolve(ownerId);
+        Project project = projectAccess.findOwnedProjectForUpdate(projectId, resolvedOwnerId);
         int characterCount = command.content().codePointCount(0, command.content().length());
         int estimatedTokens = Math.max(1, (characterCount + 3) / 4);
         if (characterCount > limits.getMaxStoryCharacters()) {
@@ -37,11 +38,11 @@ public class CreateStoryVersionUseCase {
         if (estimatedTokens > limits.getMaxEstimatedInputTokens()) {
             throw new IllegalArgumentException("Story exceeds the configured estimated token limit");
         }
-        int versionNumber = storyVersionRepository.countByProjectId(projectId) + 1;
+        int versionNumber = storyVersionRepository.findMaxVersionNumberByProjectId(projectId) + 1;
         StoryVersion storyVersion = project.createStoryVersion(versionNumber, command.content(),
             defaultValue(command.sourceLanguage(), "vi-VN"), command.rightsAttestationAccepted(),
             defaultValue(command.rightsPolicyVersion(), "rights-v1.7"),
-            defaultValue(command.rightsBasis(), "USER_ATTESTED_RIGHTS_OR_LICENSE"), currentUserId.resolve(ownerId));
+            defaultValue(command.rightsBasis(), "USER_ATTESTED_RIGHTS_OR_LICENSE"), resolvedOwnerId);
         return storyVersionRepository.save(storyVersion);
     }
 

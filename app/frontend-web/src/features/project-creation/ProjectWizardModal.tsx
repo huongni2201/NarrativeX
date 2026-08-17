@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useStudioStore } from "@/store/useStudioStore";
+import { useProductionStore } from "@/store/useProductionStore";
 import { Modal } from "@/components/ui/Modal";
 import { Stepper } from "@/components/ui/Stepper";
 import { Step1BasicInfo } from "./Step1BasicInfo";
@@ -8,6 +10,16 @@ import { Step3AiAnalysis } from "./Step3AiAnalysis";
 import { Step4Results } from "./Step4Results";
 import { Button } from "@/components/ui/Button";
 import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
+import { api, ApiClientError } from "@/lib/api";
+import { queryKeys } from "@/lib/query-keys";
+import type { ProjectWizardDraft } from "@/types/studio";
+
+const languageCodes: Record<string, string> = {
+  "Tiếng Việt": "vi-VN",
+  English: "en",
+  "日本語": "ja",
+  "한국어": "ko",
+};
 
 export const ProjectWizardModal: React.FC = () => {
   const {
@@ -15,8 +27,46 @@ export const ProjectWizardModal: React.FC = () => {
     closeWizard,
     wizardDraft,
     setWizardStep,
-    confirmAndCreateProject,
+    selectProject,
+    setScreen,
   } = useStudioStore();
+  const setView = useProductionStore((state) => state.setView);
+  const queryClient = useQueryClient();
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const createProjectWorkflow = useMutation({
+    mutationFn: async (draft: ProjectWizardDraft) => {
+      const language = languageCodes[draft.language] ?? "vi-VN";
+      const project = await api.createProject({
+        name: draft.title.trim(),
+        sourceLanguage: language,
+        narrationLanguage: language,
+        metadataLanguage: language,
+        imageAspectRatio: draft.aspectRatio,
+        imageQualityTier: draft.quality.toUpperCase(),
+      });
+      const story = await api.createStoryVersion(project.id, {
+        content: draft.storyText.trim(),
+        sourceLanguage: language,
+        rightsAttestationAccepted: draft.rightsAttestationAccepted,
+        rightsPolicyVersion: "rights-v1.7",
+        rightsBasis: "USER_ATTESTED",
+      });
+      const job = await api.enqueueAnalysis(project.id);
+      return { project, story, job };
+    },
+    onSuccess: async ({ project }) => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.projects });
+      selectProject(project.id);
+      closeWizard();
+      setScreen("project-workspace");
+      setView("overview");
+      setSubmitError(null);
+    },
+    onError: (error) => {
+      setSubmitError(error instanceof ApiClientError ? error.message : "Không thể tạo project từ backend.");
+    },
+  });
 
   const currentStep = wizardDraft.step;
   const [maxAccessibleStep, setMaxAccessibleStep] = useState<number>(currentStep);
@@ -53,7 +103,23 @@ export const ProjectWizardModal: React.FC = () => {
   };
 
   const handleConfirm = () => {
-    confirmAndCreateProject();
+    if (!wizardDraft.title.trim()) {
+      setSubmitError("Vui lòng nhập tên dự án.");
+      setWizardStep(1);
+      return;
+    }
+    if (!wizardDraft.storyText.trim()) {
+      setSubmitError("Vui lòng nhập nội dung truyện trước khi phân tích.");
+      setWizardStep(2);
+      return;
+    }
+    if (!wizardDraft.rightsAttestationAccepted) {
+      setSubmitError("Bạn cần xác nhận quyền sử dụng nội dung trước khi gửi lên backend.");
+      setWizardStep(2);
+      return;
+    }
+    setSubmitError(null);
+    createProjectWorkflow.mutate(wizardDraft);
   };
 
   return (
@@ -106,7 +172,7 @@ export const ProjectWizardModal: React.FC = () => {
             <Step3AiAnalysis onNext={handleNext} onBack={handleBack} />
           )}
           {currentStep === 4 && (
-            <Step4Results onBack={handleBack} onConfirm={handleConfirm} />
+            <Step4Results onBack={handleBack} />
           )}
         </div>
       </div>
@@ -136,15 +202,17 @@ export const ProjectWizardModal: React.FC = () => {
             <Button
               variant="gradient"
               onClick={handleConfirm}
+              disabled={createProjectWorkflow.isPending}
               size="md"
               className="shadow-[0_0_20px_rgba(124,58,237,0.5)]"
             >
               <Check className="w-4 h-4 mr-1.5" />
-              <span>Xác nhận & Tạo dự án</span>
+              <span>{createProjectWorkflow.isPending ? "Đang gửi lên backend…" : "Xác nhận & Tạo dự án"}</span>
             </Button>
           )}
         </div>
       </div>
+      {submitError && <p className="border-t border-rose-500/20 bg-rose-950/20 px-8 py-3 text-xs text-rose-200">{submitError}</p>}
     </Modal>
   );
 };

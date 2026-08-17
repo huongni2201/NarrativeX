@@ -15,6 +15,7 @@ The maintained domain model defines a Character as a reusable identity owned by 
 - `CharacterVersion` stores the immutable identity/Bible/visual/reference snapshot used by generation. Only a reviewed version may be locked or pinned to a project assignment.
 - `CharacterAppearance` and `OutfitVersion` model temporal and visual state separately from identity.
 - The module stores scalar IDs for project, asset and version boundaries. Cross-module access goes through application ports, not another module's JPA repository.
+- Creating a `CharacterAppearance` must resolve the current user, verify character ownership, verify optional project ownership, and verify optional outfit ownership before persistence. An outfit version must belong to the same character as the appearance; the domain factory enforces this relation and PostgreSQL mirrors it with a composite foreign key.
 - PostgreSQL owns canonical state; JSON arrays are persisted only as structured metadata, not as an alternative source of truth.
 
 ## Consequences

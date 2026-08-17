@@ -5,4 +5,5 @@ import com.narrativex.backend.modules.project.domain.model.Project;
 /** Cross-module inbound contract for ownership-checked project access. */
 public interface ProjectAccess {
     Project findOwnedProject(Long projectId, String ownerId);
+    Project findOwnedProjectForUpdate(Long projectId, String ownerId);
 }

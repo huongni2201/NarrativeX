@@ -1,5 +1,4 @@
-import React, { useEffect, useState } from "react";
-import { useStudioStore } from "@/store/useStudioStore";
+import React from "react";
 import { Progress } from "@/components/ui/Progress";
 import { Badge } from "@/components/ui/Badge";
 import {
@@ -8,77 +7,55 @@ import {
   BookOpen,
   Film,
   Sparkles,
-  CheckCircle2,
-  Loader2,
-  Clock,
-  Bot,
 } from "lucide-react";
-import { Button } from "@/components/ui/Button";
 
 interface Step3Props {
   onNext: () => void;
   onBack: () => void;
 }
 
-export const Step3AiAnalysis: React.FC<Step3Props> = ({ onNext, onBack }) => {
-  const [progress, setProgress] = useState(80);
-  const [statusMessage, setStatusMessage] = useState("Đang phân tích chương 12/15...");
+export const Step3AiAnalysis: React.FC<Step3Props> = () => {
 
   const metrics = [
-    { id: "characters", label: "Nhân vật", count: 24, icon: Users },
-    { id: "locations", label: "Địa điểm", count: 18, icon: MapPin },
-    { id: "chapters", label: "Chương", count: 15, icon: BookOpen },
-    { id: "scenes", label: "Cảnh", count: 87, icon: Film },
-    { id: "visual_beats", label: "Visual Beats", count: 156, icon: Sparkles },
+    { id: "characters", label: "Nhân vật", count: "—", icon: Users },
+    { id: "locations", label: "Địa điểm", count: "—", icon: MapPin },
+    { id: "chapters", label: "Chương", count: "—", icon: BookOpen },
+    { id: "scenes", label: "Cảnh", count: "—", icon: Film },
+    { id: "visual_beats", label: "Visual Beats", count: "—", icon: Sparkles },
   ];
 
   const checklist = [
     {
       id: "plot",
       title: "Phân tích cốt truyện",
-      status: "completed" as const,
-      badge: "Hoàn thành",
+      status: "pending" as const,
+      badge: "Chờ backend",
     },
     {
       id: "characters",
       title: "Nhận diện nhân vật",
-      status: "completed" as const,
-      badge: "Hoàn thành",
+      status: "pending" as const,
+      badge: "Chờ backend",
     },
     {
       id: "locations",
       title: "Phân tích địa điểm",
-      status: "completed" as const,
-      badge: "Hoàn thành",
+      status: "pending" as const,
+      badge: "Chờ backend",
     },
     {
       id: "chapters",
       title: "Phân chia chương",
-      status: "in_progress" as const,
-      badge: "Đang xử lý",
+      status: "pending" as const,
+      badge: "Chờ backend",
     },
     {
       id: "visual_beats",
       title: "Tạo visual beats",
       status: "pending" as const,
-      badge: "Chờ xử lý",
+      badge: "Chờ backend",
     },
   ];
-
-  // Simulated AI progress ticking
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          setStatusMessage("Phân tích hoàn tất!");
-          clearInterval(timer);
-          return 100;
-        }
-        return prev + 2;
-      });
-    }, 800);
-    return () => clearInterval(timer);
-  }, []);
 
   return (
     <div className="space-y-8 min-h-[480px]">
@@ -90,10 +67,10 @@ export const Step3AiAnalysis: React.FC<Step3Props> = ({ onNext, onBack }) => {
           </div>
           <div>
             <h2 className="text-xl font-bold text-white tracking-wide">
-              AI đang phân tích câu chuyện của bạn...
+              Sẵn sàng gửi câu chuyện lên backend
             </h2>
             <p className="text-xs text-slate-400">
-              Trích xuất thực thể, bối cảnh, phân cảnh và tạo prompt visual beats
+              Analysis job sẽ được enqueue sau khi bạn xác nhận project.
             </p>
           </div>
         </div>
@@ -101,10 +78,10 @@ export const Step3AiAnalysis: React.FC<Step3Props> = ({ onNext, onBack }) => {
         {/* Big Progress Container */}
         <div className="p-4 rounded-xl bg-[#090e18] border border-slate-800/80 space-y-2">
           <div className="flex items-center justify-between text-xs font-mono">
-            <span className="text-purple-300 font-medium">{statusMessage}</span>
-            <span className="text-purple-400 font-bold text-sm">{progress}%</span>
+            <span className="text-purple-300 font-medium">Chưa bắt đầu</span>
+            <span className="text-purple-400 font-bold text-sm">—</span>
           </div>
-          <Progress value={progress} color="purple" />
+          <Progress value={0} color="purple" />
         </div>
       </div>
 
@@ -143,32 +120,14 @@ export const Step3AiAnalysis: React.FC<Step3Props> = ({ onNext, onBack }) => {
                 className="flex items-center justify-between py-2 px-3 rounded-lg bg-[#0d1420]/80 border border-slate-800/60"
               >
                 <div className="flex items-center gap-3">
-                  {item.status === "completed" && (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  )}
-                  {item.status === "in_progress" && (
-                    <Loader2 className="w-4 h-4 text-purple-400 animate-spin" />
-                  )}
-                  {item.status === "pending" && (
-                    <div className="w-4 h-4 rounded-full border border-slate-600" />
-                  )}
-                  <span
-                    className={`text-xs font-medium ${
-                      item.status === "pending" ? "text-slate-500" : "text-slate-200"
-                    }`}
-                  >
+                  <div className="w-4 h-4 rounded-full border border-slate-600" />
+                  <span className="text-xs font-medium text-slate-500">
                     {item.title}
                   </span>
                 </div>
 
                 <Badge
-                  variant={
-                    item.status === "completed"
-                      ? "success"
-                      : item.status === "in_progress"
-                      ? "primary"
-                      : "neutral"
-                  }
+                  variant="neutral"
                   size="sm"
                 >
                   {item.badge}
@@ -189,7 +148,7 @@ export const Step3AiAnalysis: React.FC<Step3Props> = ({ onNext, onBack }) => {
           <div className="space-y-1">
             <h4 className="text-xs font-semibold text-slate-300">Ghi chú</h4>
             <p className="text-xs text-slate-400 leading-relaxed max-w-[200px]">
-              Quá trình này có thể mất vài phút tùy thuộc vào độ dài của truyện.
+            Backend sẽ trả về trạng thái và tiến độ thật sau khi job được tạo.
             </p>
           </div>
         </div>

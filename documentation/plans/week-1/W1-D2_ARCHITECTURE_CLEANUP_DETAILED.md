@@ -928,12 +928,12 @@ NEXT_PUBLIC_NX_DATA_MODE=mock|api
 Policy:
 
 ```text
-development:
-  may use mock explicitly
-
-staging/production:
+application runtime (development/staging/production):
   default to api
-  must not silently fall back to mock
+  mock is rejected
+
+test/Storybook:
+  may use mock explicitly
 ```
 
 Implementation must keep `npm run build` passing.
@@ -941,7 +941,8 @@ Implementation must keep `npm run build` passing.
 Acceptable approaches:
 
 - initialize mock datasets only when `DATA_MODE === "mock"`;
-- default mock mode only in local development;
+- default API mode for every application runtime;
+- allow mock mode only in test or Storybook runtimes;
 - ensure production mode does not present mock project/job/asset data as real persisted state;
 - fail clearly on an explicitly invalid data-mode configuration;
 - document the mode in `.env.example` and frontend README.

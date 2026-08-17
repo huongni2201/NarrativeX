@@ -25,4 +25,11 @@ public class GetOwnedProjectUseCase implements ProjectAccess {
         return projectRepository.findOwnedById(projectId, currentUserId.resolve(ownerId))
             .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
     }
+
+    @Override
+    @Transactional
+    public Project findOwnedProjectForUpdate(Long projectId, String ownerId) {
+        return projectRepository.findOwnedByIdForUpdate(projectId, currentUserId.resolve(ownerId))
+            .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
+    }
 }

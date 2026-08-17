@@ -22,6 +22,13 @@ public class CharacterPersistenceAdapter implements CharacterRepository {
     }
 
     @Override
+    public java.util.Optional<Character> findOwnedByIdForUpdate(Long characterId, String ownerId) {
+        return repository.findOwnedByIdForUpdate(characterId, ownerId,
+                com.narrativex.backend.modules.character.domain.model.CharacterStatus.ARCHIVED)
+            .map(CharacterPersistenceMapper::toDomain);
+    }
+
+    @Override
     public Character save(Character character) {
         CharacterJpaEntity entity = character.getId() == null
             ? new CharacterJpaEntity(character)

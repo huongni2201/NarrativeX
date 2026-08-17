@@ -30,6 +30,12 @@ public class ProjectPersistenceAdapter implements ProjectRepository {
     }
 
     @Override
+    public Optional<Project> findOwnedByIdForUpdate(Long projectId, String ownerId) {
+        return repository.findOwnedByIdForUpdate(projectId, ownerId)
+            .map(ProjectPersistenceMapper::toDomain);
+    }
+
+    @Override
     public Project save(Project project) {
         ProjectJpaEntity entity = project.getId() == null
             ? new ProjectJpaEntity(project)

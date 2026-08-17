@@ -1,4 +1,5 @@
 import React from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useStudioStore } from "@/store/useStudioStore";
 import { useProductionStore } from "@/store/useProductionStore";
 import { ProjectCard } from "./ProjectCard";
@@ -6,65 +7,74 @@ import { Tabs } from "@/components/ui/Tabs";
 import { Button } from "@/components/ui/Button";
 import { Plus, Search, FolderKanban } from "lucide-react";
 import { Input } from "@/components/ui/Input";
-import { Project } from "@/types/studio";
+import { api } from "@/lib/api";
+import { queryKeys } from "@/lib/query-keys";
+import type { ApiProject } from "@/types/api";
+import { Loader2, RefreshCw } from "lucide-react";
+
+const completedStatuses = new Set(["COMPLETED", "ARCHIVED"]);
 
 export const ProjectsDashboard: React.FC = () => {
-  const {
-    projects,
-    projectFilterTab,
-    setProjectFilterTab,
-    projectSearchQuery,
-    setProjectSearchQuery,
-    toggleFavoriteProject,
-    openWizard,
-    setScreen,
-  } = useStudioStore();
+  const projectFilterTab = useStudioStore((state) => state.projectFilterTab);
+  const setProjectFilterTab = useStudioStore((state) => state.setProjectFilterTab);
+  const projectSearchQuery = useStudioStore((state) => state.projectSearchQuery);
+  const setProjectSearchQuery = useStudioStore((state) => state.setProjectSearchQuery);
+  const openWizard = useStudioStore((state) => state.openWizard);
+  const setScreen = useStudioStore((state) => state.setScreen);
+  const selectProject = useStudioStore((state) => state.selectProject);
 
-  const { setView } = useProductionStore();
+  const setView = useProductionStore((state) => state.setView);
+  const projectsQuery = useQuery({
+    queryKey: queryKeys.projects,
+    queryFn: api.listProjects,
+  });
+  const projects = projectsQuery.data ?? [];
 
   const filterTabs = [
     { id: "all", label: "Tất cả", count: projects.length },
     {
       id: "in_progress",
       label: "Đang xử lý",
-      count: projects.filter((p) => p.progress < 100).length,
+      count: projects.filter((p) => !completedStatuses.has(p.status)).length,
     },
     {
       id: "completed",
       label: "Hoàn thành",
-      count: projects.filter((p) => p.progress === 100).length,
-    },
-    {
-      id: "favorites",
-      label: "Yêu thích",
-      count: projects.filter((p) => p.isFavorite).length,
+      count: projects.filter((p) => completedStatuses.has(p.status)).length,
     },
   ];
 
   const filteredProjects = projects.filter((project) => {
-    // Search query filter
-    const matchesSearch =
-      project.title.toLowerCase().includes(projectSearchQuery.toLowerCase()) ||
-      project.description.toLowerCase().includes(projectSearchQuery.toLowerCase());
+    const matchesSearch = project.name.toLowerCase().includes(projectSearchQuery.toLowerCase());
 
-    // Tab filter
     if (projectFilterTab === "in_progress") {
-      return matchesSearch && project.progress < 100;
+      return matchesSearch && !completedStatuses.has(project.status);
     }
     if (projectFilterTab === "completed") {
-      return matchesSearch && project.progress === 100;
-    }
-    if (projectFilterTab === "favorites") {
-      return matchesSearch && project.isFavorite;
+      return matchesSearch && completedStatuses.has(project.status);
     }
     return matchesSearch;
   });
 
-  const handleCardClick = (project: Project) => {
-    // Navigate directly into Production Workspace for this project
+  const handleCardClick = (project: ApiProject) => {
+    selectProject(project.id);
     setScreen("project-workspace");
     setView("overview");
   };
+
+  if (projectsQuery.isPending) {
+    return <div className="flex min-h-72 items-center justify-center text-sm text-slate-400"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang tải dự án từ backend…</div>;
+  }
+
+  if (projectsQuery.isError) {
+    return (
+      <div className="rounded-2xl border border-rose-500/30 bg-rose-950/20 p-8 text-center">
+        <h3 className="text-base font-semibold text-rose-200">Không tải được danh sách dự án</h3>
+        <p className="mx-auto mt-2 max-w-lg text-xs leading-5 text-rose-200/70">{projectsQuery.error instanceof Error ? projectsQuery.error.message : "Backend API chưa phản hồi."}</p>
+        <Button onClick={() => projectsQuery.refetch()} variant="secondary" size="sm" className="mt-5"><RefreshCw className="mr-2 h-3.5 w-3.5" />Thử lại</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -108,10 +118,6 @@ export const ProjectsDashboard: React.FC = () => {
             <ProjectCard
               key={project.id}
               project={project}
-              onFavoriteToggle={(e, id) => {
-                e.stopPropagation();
-                toggleFavoriteProject(id);
-              }}
               onClick={handleCardClick}
             />
           ))}

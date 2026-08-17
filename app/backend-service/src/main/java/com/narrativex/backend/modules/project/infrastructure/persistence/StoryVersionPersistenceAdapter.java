@@ -16,8 +16,8 @@ public class StoryVersionPersistenceAdapter implements StoryVersionRepository {
     }
 
     @Override
-    public int countByProjectId(Long projectId) {
-        return repository.countByProjectId(projectId);
+    public int findMaxVersionNumberByProjectId(Long projectId) {
+        return repository.findMaxVersionNumberByProjectId(projectId);
     }
 
     @Override

@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 
 export const StudioSidebar: React.FC = () => {
   const { currentScreen, setScreen, openWizard } = useStudioStore();
-  const { setView } = useProductionStore();
+  const setView = useProductionStore((state) => state.setView);
 
   const navItems = [
     {
@@ -163,7 +163,7 @@ export const StudioSidebar: React.FC = () => {
           </div>
           <button
             type="button"
-            onClick={() => {}}
+            onClick={() => { }}
             className="w-full py-1.5 px-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-semibold rounded-lg transition-all shadow-[0_0_12px_rgba(124,58,237,0.35)]"
           >
             Nâng cấp

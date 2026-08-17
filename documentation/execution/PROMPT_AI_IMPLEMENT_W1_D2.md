@@ -464,12 +464,12 @@ NEXT_PUBLIC_NX_DATA_MODE=mock|api
 Policy:
 
 ```text
-local development:
-  mock may be explicitly enabled
-
-staging/production:
+application runtime (development/staging/production):
   default api
-  never silently fallback to mock
+  mock is rejected
+
+test/Storybook:
+  mock may be explicitly enabled
 ```
 
 Keep `npm run build` green.

@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { useStudioStore } from "@/store/useStudioStore";
+import { isMockDataMode } from "@/lib/data-mode";
+import { MOCK_CHARACTERS, MOCK_PROJECT_CHARACTERS } from "@/lib/mock-data";
 import { Tabs } from "@/components/ui/Tabs";
 import { Badge } from "@/components/ui/Badge";
 import { Edit3, ArrowRight, Check, Sparkles, X, Plus } from "lucide-react";
@@ -7,19 +9,19 @@ import { Button } from "@/components/ui/Button";
 
 interface Step4Props {
   onBack: () => void;
-  onConfirm: () => void;
 }
 
-export const Step4Results: React.FC<Step4Props> = ({ onBack, onConfirm }) => {
-  const { characters, projectCharacters, confirmAndCreateProject, setScreen, openCharacterBible } =
-    useStudioStore();
+export const Step4Results: React.FC<Step4Props> = ({ onBack }) => {
+  const { setScreen, openCharacterBible } = useStudioStore();
   const [activeTab, setActiveTab] = useState("characters");
+  const characters = isMockDataMode ? MOCK_CHARACTERS : [];
+  const projectCharacters = isMockDataMode ? MOCK_PROJECT_CHARACTERS : [];
 
   const resultTabs = [
-    { id: "characters", label: "Nhân vật", count: 24 },
-    { id: "locations", label: "Địa điểm", count: 18 },
-    { id: "chapters", label: "Chương & Cảnh", count: 15 },
-    { id: "visual_beats", label: "Visual Beats", count: 156 },
+    { id: "characters", label: "Nhân vật" },
+    { id: "locations", label: "Địa điểm" },
+    { id: "chapters", label: "Chương & Cảnh" },
+    { id: "visual_beats", label: "Visual Beats" },
   ];
 
   const mainCharacters = characters.slice(0, 4);
@@ -45,26 +47,26 @@ export const Step4Results: React.FC<Step4Props> = ({ onBack, onConfirm }) => {
         </button>
       </div>
 
-      {/* Top 5 Metric Highlights */}
+      {/* Counts are supplied by the analysis result in the next backend contract. */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <div className="p-3 rounded-xl bg-purple-950/40 border border-purple-800/50 text-center">
-          <div className="text-2xl font-extrabold text-white font-mono">24</div>
+          <div className="text-2xl font-extrabold text-white font-mono">—</div>
           <div className="text-xs text-purple-300 font-medium">Nhân vật</div>
         </div>
         <div className="p-3 rounded-xl bg-purple-950/40 border border-purple-800/50 text-center">
-          <div className="text-2xl font-extrabold text-white font-mono">18</div>
+          <div className="text-2xl font-extrabold text-white font-mono">—</div>
           <div className="text-xs text-purple-300 font-medium">Địa điểm</div>
         </div>
         <div className="p-3 rounded-xl bg-purple-950/40 border border-purple-800/50 text-center">
-          <div className="text-2xl font-extrabold text-white font-mono">15</div>
+          <div className="text-2xl font-extrabold text-white font-mono">—</div>
           <div className="text-xs text-purple-300 font-medium">Chương</div>
         </div>
         <div className="p-3 rounded-xl bg-purple-950/40 border border-purple-800/50 text-center">
-          <div className="text-2xl font-extrabold text-white font-mono">87</div>
+          <div className="text-2xl font-extrabold text-white font-mono">—</div>
           <div className="text-xs text-purple-300 font-medium">Cảnh</div>
         </div>
         <div className="p-3 rounded-xl bg-purple-950/40 border border-purple-800/50 text-center">
-          <div className="text-2xl font-extrabold text-white font-mono">156</div>
+          <div className="text-2xl font-extrabold text-white font-mono">—</div>
           <div className="text-xs text-purple-300 font-medium">Visual Beats</div>
         </div>
       </div>
@@ -92,8 +94,7 @@ export const Step4Results: React.FC<Step4Props> = ({ onBack, onConfirm }) => {
             </button>
           </div>
 
-          {/* 4 Main Character Cards matching Mockup */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {characters.length > 0 ? <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {mainCharacters.map((char) => (
               <div
                 key={char.id}
@@ -133,7 +134,7 @@ export const Step4Results: React.FC<Step4Props> = ({ onBack, onConfirm }) => {
                 </div>
               </div>
             ))}
-          </div>
+          </div> : <p className="rounded-xl border border-slate-800/80 bg-[#0a0f1d] p-5 text-xs leading-5 text-slate-400">Kết quả nhân vật sẽ xuất hiện sau khi backend hoàn tất analysis job.</p>}
         </div>
       )}
 
@@ -202,7 +203,7 @@ export const Step4Results: React.FC<Step4Props> = ({ onBack, onConfirm }) => {
         <div className="p-6 rounded-xl bg-[#0a0f1d] border border-slate-800 text-center space-y-2">
           <Sparkles className="w-8 h-8 text-purple-400 mx-auto" />
           <h4 className="text-sm font-semibold text-slate-200">
-            156 Visual Beats đã sẵn sàng render
+            Visual Beats sẽ được cập nhật từ analysis job
           </h4>
           <p className="text-xs text-slate-400 max-w-md mx-auto">
             Hệ thống đã chuẩn bị đầy đủ prompt keyframe, camera movement và consistency tokens cho các cảnh quay.

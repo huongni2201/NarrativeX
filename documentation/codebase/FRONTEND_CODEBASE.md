@@ -12,10 +12,10 @@
 | Feature | Component(s) | Current data source | State |
 |---|---|---|---|
 | Auth/login/register | `AuthScreen` | Zustand boolean + local form state + 600ms timer | MOCK |
-| Dashboard/project list | `ProjectsDashboard`, `ProjectCard` | `useStudioStore.projects` initialized from `lib/mock-data.ts` | MOCK |
-| Create project wizard | `ProjectWizardModal`, steps 1-4 | Zustand `wizardDraft`; confirm creates a local object | MOCK |
-| Story input | `Step2ImportStory` | Zustand text; sample preset; upload tab has no file input | MOCK |
-| AI analysis | `Step3AiAnalysis`, `Step4Results` | hard-coded counts/checklist + `setInterval` progress | MOCK |
+| Dashboard/project list | `ProjectsDashboard`, `ProjectCard` | React Query `queryKeys.projects` → `api.listProjects` | API |
+| Create project wizard | `ProjectWizardModal`, steps 1-4 | React Query mutation: create project → story version → analysis job | API |
+| Story input | `Step2ImportStory` | Zustand draft until submit; rights attestation; API story-version mutation | PARTIAL API |
+| AI analysis | `Step3AiAnalysis`, `Step4Results` | API enqueue is real; progress/result polling contract still pending | PARTIAL API |
 | Characters/Character Bible | `CharacterLibrary`, `CharacterBibleModal` | canonical `Character[]` plus `ProjectCharacter[]` assignments from mock/API boundary | MOCK |
 | Production overview/chapter | `ProductionShell`, Screens 01-03 | `useProductionStore` initialized from `production-mock.ts` | MOCK |
 | Storyboard/visual review | Screens 04-05 | local visual-beat array and local status mutations | MOCK |
@@ -25,22 +25,22 @@
 
 ## State ownership and API client
 
-- `src/store/useStudioStore.ts:55-160` owns navigation, auth state, project mocks, characters and wizard draft.
+- `src/store/useStudioStore.ts` owns navigation, auth state, filters, selection and the unsaved wizard draft; it does not own persisted project data.
 - `src/store/useProductionStore.ts:37-153` owns production project, chapters, beats, review mutations and local continuation logic.
 - `src/lib/api.ts` is the single fetch owner with API base URL, credentials, JSON negotiation, RFC 9457 parsing, safe non-JSON fallback and typed `ApiClientError`. It exports `listProjects`, `createProject`, `createStoryVersion` and `enqueueAnalysis` against API DTO types in `src/types/api.ts`.
-- Only `StudioDashboard.tsx:18-36` calls `api.createProject`; `rg` found no rendered/imported caller for `StudioDashboard`. The visible wizard therefore does not use the client.
-- TanStack Query now has an `AppProviders`/`QueryClientProvider` foundation, conservative 4xx retry behavior and centralized query keys. No visible screen is wired to Query yet; there is still no SSE, upload or auth redirect client.
+- `ProjectsDashboard` now calls `api.listProjects` through React Query, and the visible wizard calls `createProject`, `createStoryVersion` and `enqueueAnalysis` through one mutation workflow. `StudioDashboard` remains a legacy unrendered shell.
+- TanStack Query owns the visible project server state with conservative 4xx retry behavior and centralized query keys; SSE, upload, auth redirect and analysis-result queries remain pending contracts.
 
 ## W1-D2 state ownership and mock mode
 
 - TanStack Query is the future owner of persisted server state; Zustand remains UI/editor/transient and explicitly gated prototype state until W2 integrations land.
-- `NEXT_PUBLIC_NX_DATA_MODE=mock|api` is documented and validated. Development defaults to mock when omitted; non-development defaults to API and rejects mock mode.
+- `NEXT_PUBLIC_NX_DATA_MODE=mock|api` is documented and validated. All application runtimes default to API when omitted; mock mode is accepted only by test or Storybook runtimes.
 - In API mode, local project/character/asset/preset stores start empty and the production shell does not render mock production data. This prevents fake business state from masquerading as persisted production state without redesigning local prototype screens.
 - Character UI types keep canonical identity separate from project usage: `Character` owns identity/version fields, while `ProjectCharacter` owns role, importance, aliases, groups and pinned version. Project filtering resolves assignments by `characterId`/`projectId`; it does not filter a `projectName` field on Character.
 
 ## Real, partial and mock integrations
 
-The only real FE-to-BE call is an unreachable legacy create-project shell. API client functions for list/story/analysis are present but unused. All visible Week 1–2 workflows are `MOCK` or local state. UI loading exists for a few timers/buttons, but there are no backend-driven error, forbidden, conflict, upload, persisted-progress or reconnect states.
+The project overview and creation/analysis submission workflow are real FE-to-BE integrations. Character, chapter, storyboard, render, asset and preset surfaces remain prototype/placeholder flows because their backend contracts are not present yet. The project list has backend loading/error/empty states; analysis progress/result polling and other durable workflow states remain pending.
 
 ## Integration risks
 

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useStudioStore } from "@/store/useStudioStore";
 import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
@@ -22,17 +23,22 @@ import {
   Copy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { isMockDataMode } from "@/lib/data-mode";
+import { MOCK_CHARACTERS, MOCK_PROJECT_CHARACTERS } from "@/lib/mock-data";
+import { api } from "@/lib/api";
+import { queryKeys } from "@/lib/query-keys";
 
 export const CharacterBibleModal: React.FC = () => {
   const {
     currentScreen,
     selectedCharacterId,
-    characters,
-    projectCharacters,
-    projects,
     selectedProjectId,
     closeCharacterBible,
   } = useStudioStore();
+  const projectsQuery = useQuery({ queryKey: queryKeys.projects, queryFn: api.listProjects });
+  const projects = projectsQuery.data ?? [];
+  const characters = isMockDataMode ? MOCK_CHARACTERS : [];
+  const projectCharacters = isMockDataMode ? MOCK_PROJECT_CHARACTERS : [];
 
   const [activeSubTab, setActiveSubTab] = useState("overview");
   const [copiedPrompt, setCopiedPrompt] = useState(false);
@@ -48,7 +54,7 @@ export const CharacterBibleModal: React.FC = () => {
       (assignment) =>
         assignment.characterId === character.id && assignment.projectId === selectedProjectId
     ) ?? projectCharacters.find((assignment) => assignment.characterId === character.id);
-  const assignedProject = projects.find((project) => project.id === projectCharacter?.projectId);
+  const assignedProject = projects.find((project) => String(project.id) === projectCharacter?.projectId);
 
   const subNavItems = [
     { id: "overview", label: "Tổng quan", icon: LayoutDashboard },
@@ -178,7 +184,7 @@ export const CharacterBibleModal: React.FC = () => {
 
                 <div className="space-y-1">
                   <h4 className="text-xs font-semibold text-purple-400">
-                    {assignedProject?.title ?? "Global Character Hub"}
+                    {assignedProject?.name ?? "Global Character Hub"}
                   </h4>
                   <p className="text-xs text-slate-300 leading-relaxed">
                     {character.description}

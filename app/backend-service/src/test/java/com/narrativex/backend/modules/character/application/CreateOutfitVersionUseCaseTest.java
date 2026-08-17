@@ -1,0 +1,53 @@
+package com.narrativex.backend.modules.character.application;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import com.narrativex.backend.modules.character.application.command.CreateOutfitVersionCommand;
+import com.narrativex.backend.modules.character.application.port.out.CharacterRepository;
+import com.narrativex.backend.modules.character.application.port.out.OutfitVersionRepository;
+import com.narrativex.backend.modules.character.application.usecase.CreateOutfitVersionUseCase;
+import com.narrativex.backend.modules.character.domain.model.Character;
+import com.narrativex.backend.modules.character.domain.model.CharacterStatus;
+import com.narrativex.backend.modules.character.domain.model.OutfitVersion;
+import com.narrativex.backend.shared.security.CurrentUserId;
+import java.util.List;
+import java.util.Optional;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+@ExtendWith(MockitoExtension.class)
+class CreateOutfitVersionUseCaseTest {
+    @Mock
+    private CharacterRepository characterRepository;
+    @Mock
+    private OutfitVersionRepository outfitVersionRepository;
+
+    @Test
+    void locksCharacterBeforeAllocatingNextVersion() {
+        when(characterRepository.findOwnedByIdForUpdate(10L, "owner"))
+            .thenReturn(Optional.of(character()));
+        when(outfitVersionRepository.findMaxVersionNumberByCharacterId(10L)).thenReturn(3);
+        when(outfitVersionRepository.save(any(OutfitVersion.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        CreateOutfitVersionUseCase useCase = new CreateOutfitVersionUseCase(characterRepository,
+            outfitVersionRepository, new CurrentUserId(false, "local-dev-user"));
+
+        OutfitVersion created = useCase.execute(new CreateOutfitVersionCommand(10L, "Travel", null,
+            "prompt"), "owner");
+
+        assertEquals(4, created.getVersionNumber());
+        verify(characterRepository).findOwnedByIdForUpdate(10L, "owner");
+        verify(characterRepository, never()).findOwnedById(10L, "owner");
+    }
+
+    private static Character character() {
+        return Character.rehydrate(10L, 0L, "owner", null, "Mina", List.of(), CharacterStatus.ACTIVE);
+    }
+}

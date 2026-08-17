@@ -27,3 +27,44 @@ The canonical product and architecture baseline is the repository-local `documen
 - Add or update tests with behavior changes. Prefer deterministic fake providers in tests; never report fake provider success as production health.
 - Update the relevant Markdown document and an ADR when a cross-cutting architectural decision changes.
 - Run the narrowest relevant checks locally, then the repository verification commands documented in `CONTRIBUTING.md`.
+
+## Mandatory Frontend Verification
+
+For ANY task that changes frontend UI, styling, layout, routing,
+modal, form, interaction, responsive behavior, or frontend data rendering:
+
+1. Start or reuse the frontend development server.
+2. Launch the available browser automation environment.
+3. If the browser was closed or its session was lost, relaunch it automatically.
+4. Navigate to every affected screen.
+5. Execute the actual user flow affected by the change.
+6. Inspect:
+   - browser console errors
+   - failed network/API requests
+   - unexpected mock/fake data usage
+   - layout/overflow issues
+   - loading/error/empty states
+7. Capture screenshot evidence after implementation.
+8. When relevant, capture before/after screenshots.
+9. Review the rendered UI visually against the current source of truth,
+   approved reference image, and design specification.
+10. If verification fails, fix the implementation and repeat browser verification.
+
+### Completion Gate
+
+NEVER mark a frontend task as DONE based only on:
+- source-code review
+- lint
+- typecheck
+- unit tests
+- build success
+
+A frontend UI task is DONE only when:
+- browser verification has been executed;
+- the affected user flow has been tested;
+- no blocking console/network errors remain;
+- screenshot evidence exists.
+
+If browser automation is unavailable or cannot be launched,
+report the task as `IMPLEMENTED — UI VERIFICATION BLOCKED`,
+not `DONE`.

@@ -18,6 +18,7 @@ Use a package-by-capability DDD structure inside the modular monolith:
 - `application.port.out` abstracts persistence and other driven dependencies.
 - `infrastructure.persistence` contains JPA entities, Spring Data repositories, adapters and mappers.
 - Cross-module relationships use stable IDs and explicit application ports; generation does not import project persistence classes or map an ORM relationship to another module.
+- Ordered child versions are allocated inside the parent aggregate transaction. The parent row is acquired with a pessimistic write lock before reading the current maximum version and inserting the next version, so concurrent requests cannot allocate the same number; allocation never relies on `COUNT(*) + 1`.
 
 The first migrated aggregates are `Project`, `GenerationJob` and `OperationPlan`. `StoryVersion` is an entity owned by `Project`; storyboard persistence mappings are moved out of the domain while storyboard use cases remain future work.
 

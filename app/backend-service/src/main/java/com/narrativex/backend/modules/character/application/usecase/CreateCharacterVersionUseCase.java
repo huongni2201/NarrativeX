@@ -26,9 +26,9 @@ public class CreateCharacterVersionUseCase {
     @Transactional
     public CharacterVersion execute(CreateCharacterVersionCommand command, String ownerId) {
         String resolvedOwnerId = currentUserId.resolve(ownerId);
-        var character = characterRepository.findOwnedById(command.characterId(), resolvedOwnerId)
+        var character = characterRepository.findOwnedByIdForUpdate(command.characterId(), resolvedOwnerId)
             .orElseThrow(() -> new ResourceNotFoundException("Character not found"));
-        int versionNumber = versionRepository.countByCharacterId(character.getId()) + 1;
+        int versionNumber = versionRepository.findMaxVersionNumberByCharacterId(character.getId()) + 1;
         return versionRepository.save(character.createVersion(versionNumber, command.bible(),
             command.visualPrompt(), command.masterAssetId(), command.referenceAssetIds()));
     }

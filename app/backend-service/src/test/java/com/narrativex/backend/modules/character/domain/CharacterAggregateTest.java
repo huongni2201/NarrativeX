@@ -7,6 +7,8 @@ import com.narrativex.backend.modules.character.domain.model.Character;
 import com.narrativex.backend.modules.character.domain.model.CharacterAppearance;
 import com.narrativex.backend.modules.character.domain.model.CharacterVersion;
 import com.narrativex.backend.modules.character.domain.model.CharacterVersionStatus;
+import com.narrativex.backend.modules.character.domain.model.OutfitVersion;
+import com.narrativex.backend.modules.character.domain.model.OutfitVersionStatus;
 import com.narrativex.backend.modules.character.domain.model.ProjectCharacter;
 import org.junit.jupiter.api.Test;
 
@@ -34,6 +36,15 @@ class CharacterAggregateTest {
 
         assertEquals(10L, appearance.getCharacterId());
         assertEquals(100L, appearance.getProjectId());
+    }
+
+    @Test
+    void appearanceRejectsAnOutfitVersionFromAnotherCharacter() {
+        OutfitVersion outfit = OutfitVersion.rehydrate(11L, 0L, 20L, 1, "Mina travel", null, "prompt",
+            OutfitVersionStatus.DRAFT);
+
+        assertThrows(IllegalArgumentException.class, () -> CharacterAppearance.create(10L, 100L, "chapter-1",
+            "young", "short hair", null, "school uniform", "young character", outfit));
     }
 
     @Test

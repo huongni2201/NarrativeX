@@ -62,11 +62,12 @@ docker run -p 3000:3000 narrativex-frontend-web
 
 ## Data mode and state ownership
 
-Set `NEXT_PUBLIC_NX_DATA_MODE=mock` explicitly for local prototype data. When the
-flag is omitted, development defaults to `mock` and non-development builds
-default to `api`. Mock mode is rejected outside local development, so staging
-and production cannot silently present fake projects, assets, jobs or
-entitlements as persisted backend state.
+The application uses API mode by default in development, staging and
+production. Set `NEXT_PUBLIC_NX_DATA_MODE=mock` only for test or Storybook
+runtimes. Mock mode is rejected in application runtimes, so development,
+staging and production cannot silently present fake projects, assets, jobs or
+entitlements as persisted backend state. MSW-based tests can intercept API
+requests while the application remains in API mode.
 
 TanStack Query is the owner for persisted server state as API integrations are
 introduced. Zustand remains for UI/editor state, local wizard drafts, filters,

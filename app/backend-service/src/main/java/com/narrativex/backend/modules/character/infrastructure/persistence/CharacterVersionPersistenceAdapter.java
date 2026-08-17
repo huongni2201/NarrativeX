@@ -16,8 +16,8 @@ public class CharacterVersionPersistenceAdapter implements CharacterVersionRepos
     }
 
     @Override
-    public int countByCharacterId(Long characterId) {
-        return repository.countByCharacterId(characterId);
+    public int findMaxVersionNumberByCharacterId(Long characterId) {
+        return repository.findMaxVersionNumberByCharacterId(characterId);
     }
 
     @Override

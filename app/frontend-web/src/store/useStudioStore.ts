@@ -1,7 +1,6 @@
 import { create } from "zustand";
-import { Character, Project, ProjectCharacter, ProjectWizardDraft, ScreenType } from "@/types/studio";
-import { isMockDataMode } from "@/lib/data-mode";
-import { MOCK_CHARACTERS, MOCK_PROJECTS, MOCK_PROJECT_CHARACTERS, SAMPLE_STORY_PRESET } from "@/lib/mock-data";
+import { ProjectWizardDraft, ScreenType } from "@/types/studio";
+import { SAMPLE_STORY_PRESET } from "@/lib/mock-data";
 
 interface StudioStore {
   // Navigation & Screen View
@@ -10,65 +9,87 @@ interface StudioStore {
   isLoggedIn: boolean;
   selectedProjectId: string | null;
   selectedCharacterId: string | null;
-  
-  // Projects Dashboard State
-  projects: Project[];
-  projectFilterTab: "all" | "in_progress" | "completed" | "favorites";
+
+  // Projects Dashboard UI state. Server data belongs to React Query.
+  projectFilterTab: "all" | "in_progress" | "completed";
   projectSearchQuery: string;
 
-  // Character Library State
-  characters: Character[];
-  projectCharacters: ProjectCharacter[];
+  // Character Library UI state. Character data belongs to its API query when available.
   characterFilterProject: string;
+  characterFilterRole: string;
+  characterFilterGender: string;
   characterFilterStatus: string;
+  characterFilterGroup: string;
+  characterFilterCategoryTab: "all" | "main" | "supporting" | "minor" | "groups";
+  characterSortBy: "recent" | "name_asc" | "name_desc" | "most_used" | "version";
+  characterViewMode: "grid" | "list";
+  isMoreFiltersOpen: boolean;
+  characterAdvancedFilters: {
+    minAppearances?: number;
+    onlyLocked?: boolean;
+    hasReferences?: boolean;
+  };
   characterSearchQuery: string;
 
   // Project Creation Wizard State
   wizardDraft: ProjectWizardDraft;
   isWizardOpen: boolean;
-  
+
   // Actions
   setScreen: (screen: ScreenType) => void;
   setAuthMode: (mode: "login" | "register") => void;
   login: () => void;
   logout: () => void;
-  
+
   // Dashboard Actions
-  setProjectFilterTab: (tab: "all" | "in_progress" | "completed" | "favorites") => void;
+  setProjectFilterTab: (tab: "all" | "in_progress" | "completed") => void;
   setProjectSearchQuery: (query: string) => void;
-  toggleFavoriteProject: (id: string) => void;
-  
+  selectProject: (projectId: number) => void;
+
   // Character Actions
   setCharacterFilterProject: (project: string) => void;
+  setCharacterFilterRole: (role: string) => void;
+  setCharacterFilterGender: (gender: string) => void;
   setCharacterFilterStatus: (status: string) => void;
+  setCharacterFilterGroup: (group: string) => void;
+  setCharacterFilterCategoryTab: (tab: "all" | "main" | "supporting" | "minor" | "groups") => void;
+  setCharacterSortBy: (sortBy: "recent" | "name_asc" | "name_desc" | "most_used" | "version") => void;
+  setCharacterViewMode: (mode: "grid" | "list") => void;
+  setIsMoreFiltersOpen: (isOpen: boolean) => void;
+  setCharacterAdvancedFilters: (filters: { minAppearances?: number; onlyLocked?: boolean; hasReferences?: boolean }) => void;
+  resetCharacterFilters: () => void;
   setCharacterSearchQuery: (query: string) => void;
   openCharacterBible: (characterId: string) => void;
   closeCharacterBible: () => void;
-  
+
   // Wizard Actions
   openWizard: (initialStep?: 1 | 2 | 3 | 4) => void;
   closeWizard: () => void;
   setWizardStep: (step: 1 | 2 | 3 | 4) => void;
   updateWizardDraft: (data: Partial<ProjectWizardDraft>) => void;
   loadSampleStory: () => void;
-  confirmAndCreateProject: () => Project;
 }
 
-export const useStudioStore = create<StudioStore>((set, get) => ({
+export const useStudioStore = create<StudioStore>((set) => ({
   currentScreen: "overview",
   authMode: "login",
   isLoggedIn: true,
-  selectedProjectId: isMockDataMode ? "proj-1" : null,
-  selectedCharacterId: isMockDataMode ? "char-1" : null,
+  selectedProjectId: null,
+  selectedCharacterId: null,
 
-  projects: isMockDataMode ? MOCK_PROJECTS : [],
   projectFilterTab: "all",
   projectSearchQuery: "",
 
-  characters: isMockDataMode ? MOCK_CHARACTERS : [],
-  projectCharacters: isMockDataMode ? MOCK_PROJECT_CHARACTERS : [],
   characterFilterProject: "all",
+  characterFilterRole: "all",
+  characterFilterGender: "all",
   characterFilterStatus: "all",
+  characterFilterGroup: "all",
+  characterFilterCategoryTab: "all",
+  characterSortBy: "recent",
+  characterViewMode: "grid",
+  isMoreFiltersOpen: false,
+  characterAdvancedFilters: {},
   characterSearchQuery: "",
 
   wizardDraft: {
@@ -79,6 +100,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     aspectRatio: "16:9",
     quality: "High",
     storyText: SAMPLE_STORY_PRESET,
+    rightsAttestationAccepted: false,
     step: 1,
   },
   isWizardOpen: false,
@@ -90,15 +112,33 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
 
   setProjectFilterTab: (tab) => set({ projectFilterTab: tab }),
   setProjectSearchQuery: (query) => set({ projectSearchQuery: query }),
-  toggleFavoriteProject: (id) =>
-    set((state) => ({
-      projects: state.projects.map((p) =>
-        p.id === id ? { ...p, isFavorite: !p.isFavorite } : p
-      ),
-    })),
+  selectProject: (projectId) => set({ selectedProjectId: String(projectId) }),
 
   setCharacterFilterProject: (project) => set({ characterFilterProject: project }),
+  setCharacterFilterRole: (role) => set({ characterFilterRole: role }),
+  setCharacterFilterGender: (gender) => set({ characterFilterGender: gender }),
   setCharacterFilterStatus: (status) => set({ characterFilterStatus: status }),
+  setCharacterFilterGroup: (group) => set({ characterFilterGroup: group }),
+  setCharacterFilterCategoryTab: (tab) => set({ characterFilterCategoryTab: tab }),
+  setCharacterSortBy: (sortBy) => set({ characterSortBy: sortBy }),
+  setCharacterViewMode: (mode) => set({ characterViewMode: mode }),
+  setIsMoreFiltersOpen: (isOpen) => set({ isMoreFiltersOpen: isOpen }),
+  setCharacterAdvancedFilters: (filters) =>
+    set((state) => ({
+      characterAdvancedFilters: { ...state.characterAdvancedFilters, ...filters },
+    })),
+  resetCharacterFilters: () =>
+    set({
+      characterFilterProject: "all",
+      characterFilterRole: "all",
+      characterFilterGender: "all",
+      characterFilterStatus: "all",
+      characterFilterGroup: "all",
+      characterFilterCategoryTab: "all",
+      characterSortBy: "recent",
+      characterSearchQuery: "",
+      characterAdvancedFilters: {},
+    }),
   setCharacterSearchQuery: (query) => set({ characterSearchQuery: query }),
   openCharacterBible: (characterId) =>
     set({
@@ -132,33 +172,4 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
         storyText: SAMPLE_STORY_PRESET,
       },
     })),
-  confirmAndCreateProject: () => {
-    const { wizardDraft, projects } = get();
-    const newProject: Project = {
-      id: `proj-${Date.now()}`,
-      title: wizardDraft.title || "Dự án mới",
-      description: wizardDraft.description || "Dự án tạo từ AI Story Studio",
-      updatedAt: "Vừa xong",
-      progress: 5,
-      isFavorite: false,
-      coverImage: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=800&auto=format&fit=crop",
-      genre: wizardDraft.genre,
-      language: wizardDraft.language,
-      aspectRatio: wizardDraft.aspectRatio,
-      quality: wizardDraft.quality,
-      characterCount: 24,
-      locationCount: 18,
-      chapterCount: 15,
-      sceneCount: 87,
-      visualBeatsCount: 156,
-    };
-
-    set({
-      projects: [newProject, ...projects],
-      isWizardOpen: false,
-      currentScreen: "project-workspace",
-    });
-
-    return newProject;
-  },
 }));

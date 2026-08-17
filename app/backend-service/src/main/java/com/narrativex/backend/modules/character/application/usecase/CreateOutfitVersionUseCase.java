@@ -25,9 +25,10 @@ public class CreateOutfitVersionUseCase {
 
     @Transactional
     public OutfitVersion execute(CreateOutfitVersionCommand command, String ownerId) {
-        characterRepository.findOwnedById(command.characterId(), currentUserId.resolve(ownerId))
+        String resolvedOwnerId = currentUserId.resolve(ownerId);
+        characterRepository.findOwnedByIdForUpdate(command.characterId(), resolvedOwnerId)
             .orElseThrow(() -> new ResourceNotFoundException("Character not found"));
-        int versionNumber = outfitVersionRepository.countByCharacterId(command.characterId()) + 1;
+        int versionNumber = outfitVersionRepository.findMaxVersionNumberByCharacterId(command.characterId()) + 1;
         return outfitVersionRepository.save(OutfitVersion.create(command.characterId(), versionNumber,
             command.name(), command.description(), command.prompt()));
     }

@@ -48,6 +48,9 @@ export interface CharacterVersionSummary {
   lockedAt?: string;
 }
 
+export type CharacterLifecycleStatus = "IN_USE" | "DRAFT" | "ARCHIVED";
+export type CharacterRoleCategory = "main" | "supporting" | "minor";
+
 export interface Character {
   id: string;
   name: string;
@@ -55,7 +58,11 @@ export interface Character {
   aliases?: string[];
   ownerId?: string;
   workspaceId?: string;
-  status?: "ACTIVE" | "ARCHIVED";
+  status?: CharacterLifecycleStatus | "ACTIVE" | "ARCHIVED";
+  roleCategory?: CharacterRoleCategory;
+  group?: string;
+  appearancesCount?: number;
+  updatedAt?: string;
   latestVersion: CharacterVersionSummary;
   avatarUrl: string;
   fullPortraitUrl: string;
@@ -112,6 +119,7 @@ export interface ProjectWizardDraft {
   aspectRatio: AspectRatio;
   quality: ImageQuality;
   storyText: string;
+  rightsAttestationAccepted: boolean;
   step: 1 | 2 | 3 | 4;
 }
 

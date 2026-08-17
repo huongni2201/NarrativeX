@@ -2,8 +2,10 @@ package com.narrativex.backend.modules.character.infrastructure.persistence;
 
 import com.narrativex.backend.modules.character.application.port.out.OutfitVersionRepository;
 import com.narrativex.backend.modules.character.domain.model.OutfitVersion;
+import com.narrativex.backend.modules.character.domain.model.CharacterStatus;
 import com.narrativex.backend.modules.character.infrastructure.persistence.entity.OutfitVersionJpaEntity;
 import com.narrativex.backend.modules.character.infrastructure.persistence.repository.OutfitVersionJpaRepository;
+import java.util.Optional;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -15,8 +17,14 @@ public class OutfitVersionPersistenceAdapter implements OutfitVersionRepository 
     }
 
     @Override
-    public int countByCharacterId(Long characterId) {
-        return repository.countByCharacterId(characterId);
+    public int findMaxVersionNumberByCharacterId(Long characterId) {
+        return repository.findMaxVersionNumberByCharacterId(characterId);
+    }
+
+    @Override
+    public Optional<OutfitVersion> findOwnedById(Long outfitVersionId, String ownerId) {
+        return repository.findOwnedById(outfitVersionId, ownerId, CharacterStatus.ARCHIVED)
+            .map(CharacterPersistenceMapper::toDomain);
     }
 
     @Override
