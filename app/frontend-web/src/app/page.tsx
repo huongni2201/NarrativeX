@@ -19,9 +19,10 @@ const StylePresetsScreen = dynamic(() => import("@/features/presets/StylePresets
 
 interface HomePageProps {
   screen?: ScreenType;
+  projectId?: string;
 }
 
-export default function HomePage({ screen }: Readonly<HomePageProps>) {
+export default function HomePage({ screen, projectId }: Readonly<HomePageProps>) {
   const storeScreen = useStudioStore((state) => state.currentScreen);
   const wizardStep = useStudioStore((state) => state.wizardDraft.step);
   const status = useAuthStore((state) => state.status);
@@ -65,7 +66,9 @@ export default function HomePage({ screen }: Readonly<HomePageProps>) {
 
         <main className="flex-1 p-5 lg:p-8 max-w-[1700px] w-full mx-auto pb-16">
           {currentScreen === "overview" && <ProjectsDashboard />}
-          {(currentScreen === "project-workspace" || currentScreen === "dashboard") && <ProductionShell />}
+          {(currentScreen === "project-workspace" || currentScreen === "dashboard") && (
+            <ProductionShell projectId={projectId} />
+          )}
           {currentScreen === "characters" && <CharacterLibrary />}
           {currentScreen === "assets" && <AssetLibraryScreen />}
           {currentScreen === "presets" && <StylePresetsScreen />}
