@@ -58,22 +58,38 @@ export interface CreateStoryVersionApiInput {
   rightsBasis?: string;
 }
 
-export interface ApiFieldViolation {
+export interface ApiResponse<T> {
+  success: true;
+  message: string;
+  data: T;
+  timestamp: string;
+}
+
+export interface PaginationResponse<T> {
+  content: T[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  first: boolean;
+  last: boolean;
+  hasNext: boolean;
+  hasPrevious: boolean;
+}
+
+export interface ApiFieldError {
   field: string;
   code?: string;
-  messageKey?: string;
   message?: string;
 }
 
-export interface ApiProblem {
-  type?: string;
-  title?: string;
+export interface ErrorResponse {
+  success: false;
   status: number;
-  detail?: string;
-  instance?: string;
-  code?: string;
-  messageKey?: string;
+  code: string;
+  message: string;
   path?: string;
   correlationId?: string;
-  violations?: ApiFieldViolation[];
+  errors?: ApiFieldError[];
+  timestamp: string;
 }

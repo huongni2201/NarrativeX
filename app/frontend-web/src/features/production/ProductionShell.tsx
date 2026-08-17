@@ -13,12 +13,15 @@ import { isMockDataMode } from "@/lib/data-mode";
 import { api } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 
+const PROJECT_PAGE = 0;
+const PROJECT_PAGE_SIZE = 20;
+
 export const ProductionShell: React.FC = () => {
   const currentView = useProductionStore((state) => state.currentView);
   const selectedProjectId = useStudioStore((state) => state.selectedProjectId);
   const projectsQuery = useQuery({
-    queryKey: queryKeys.projects,
-    queryFn: api.listProjects,
+    queryKey: queryKeys.projectsPage(PROJECT_PAGE, PROJECT_PAGE_SIZE),
+    queryFn: () => api.listProjects({ page: PROJECT_PAGE, size: PROJECT_PAGE_SIZE }),
     enabled: !isMockDataMode,
   });
 
@@ -48,7 +51,7 @@ export const ProductionShell: React.FC = () => {
     return <div className="rounded-2xl border border-rose-500/30 bg-rose-950/20 p-8 text-sm text-rose-200">Không tải được project từ backend.</div>;
   }
 
-  const project = projectsQuery.data?.find((item) => String(item.id) === selectedProjectId);
+  const project = projectsQuery.data?.content.find((item) => String(item.id) === selectedProjectId);
 
   if (!project) {
     return <div className="rounded-2xl border border-slate-800/80 bg-[#0d1420]/50 p-8 text-sm text-slate-300">Chọn một project từ Tổng quan để mở workspace.</div>;

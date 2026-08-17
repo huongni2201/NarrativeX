@@ -1,5 +1,6 @@
 package com.narrativex.backend.modules.health.api;
 
+import com.narrativex.backend.shared.api.ApiResponse;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,12 +25,12 @@ public class ProviderHealthController {
     }
 
     @GetMapping
-    public Map<String, Object> get() {
-        return Map.of(
+    public ApiResponse<Map<String, Object>> get() {
+        return ApiResponse.success("Provider health retrieved successfully", Map.of(
             "vertexGemini", Map.of(
                 "status", vertexGeminiEnabled ? "CONFIGURED_NOT_VERIFIED" : "NOT_CONFIGURED",
                 "location", location,
                 "model", model,
-                "externalCallVerified", false));
+                "externalCallVerified", false)));
     }
 }

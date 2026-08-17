@@ -15,7 +15,7 @@ import com.narrativex.backend.modules.character.domain.model.Character;
 import com.narrativex.backend.modules.character.domain.model.CharacterStatus;
 import com.narrativex.backend.modules.character.domain.model.OutfitVersion;
 import com.narrativex.backend.modules.project.application.port.in.ProjectAccess;
-import com.narrativex.backend.shared.error.ResourceNotFoundException;
+import com.narrativex.backend.shared.exception.ResourceNotFoundException;
 import com.narrativex.backend.shared.security.CurrentUserId;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;

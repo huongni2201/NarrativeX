@@ -4,14 +4,17 @@ import { Input, Textarea } from "@/components/ui/Input";
 import { AspectRatio, ImageQuality } from "@/types/studio";
 import { Sparkles, Info, Lightbulb } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { ApiFieldError } from "@/types/api";
 
 interface Step1Props {
   onNext: () => void;
   onCancel: () => void;
+  validationErrors?: ApiFieldError[];
 }
 
-export const Step1BasicInfo: React.FC<Step1Props> = ({ onNext, onCancel }) => {
+export const Step1BasicInfo: React.FC<Step1Props> = ({ validationErrors = [] }) => {
   const { wizardDraft, updateWizardDraft } = useStudioStore();
+  const nameError = validationErrors.find((error) => ["name", "title", "projectName"].includes(error.field));
 
   const aspectRatios: AspectRatio[] = ["16:9", "9:16", "1:1", "4:3", "3:4"];
   const qualities: ImageQuality[] = ["Standard", "High"];
@@ -45,7 +48,9 @@ export const Step1BasicInfo: React.FC<Step1Props> = ({ onNext, onCancel }) => {
             value={wizardDraft.title}
             onChange={(e) => updateWizardDraft({ title: e.target.value })}
             placeholder="Nhập tên dự án (ví dụ: Huyền Thoại Ánh Sáng)..."
+            aria-invalid={nameError ? "true" : undefined}
           />
+          {nameError && <p className="text-xs text-rose-300">{nameError.message || nameError.code || "Tên dự án không hợp lệ."}</p>}
         </div>
 
         {/* Mô tả */}

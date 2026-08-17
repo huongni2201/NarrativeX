@@ -13,6 +13,7 @@ import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
 import { api, ApiClientError } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 import type { ProjectWizardDraft } from "@/types/studio";
+import type { ApiFieldError } from "@/types/api";
 
 const languageCodes: Record<string, string> = {
   "Tiếng Việt": "vi-VN",
@@ -33,6 +34,7 @@ export const ProjectWizardModal: React.FC = () => {
   const setView = useProductionStore((state) => state.setView);
   const queryClient = useQueryClient();
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<ApiFieldError[]>([]);
 
   const createProjectWorkflow = useMutation({
     mutationFn: async (draft: ProjectWizardDraft) => {
@@ -64,7 +66,19 @@ export const ProjectWizardModal: React.FC = () => {
       setSubmitError(null);
     },
     onError: (error) => {
-      setSubmitError(error instanceof ApiClientError ? error.message : "Không thể tạo project từ backend.");
+      if (error instanceof ApiClientError) {
+        const errors = error.errors ?? [];
+        setValidationErrors(errors);
+        setSubmitError(error.message);
+        if (errors.some((fieldError) => ["content", "storyText"].includes(fieldError.field))) {
+          setWizardStep(2);
+        } else if (errors.length > 0) {
+          setWizardStep(1);
+        }
+        return;
+      }
+      setValidationErrors([]);
+      setSubmitError("Không thể tạo project từ backend.");
     },
   });
 
@@ -104,21 +118,25 @@ export const ProjectWizardModal: React.FC = () => {
 
   const handleConfirm = () => {
     if (!wizardDraft.title.trim()) {
+      setValidationErrors([]);
       setSubmitError("Vui lòng nhập tên dự án.");
       setWizardStep(1);
       return;
     }
     if (!wizardDraft.storyText.trim()) {
+      setValidationErrors([]);
       setSubmitError("Vui lòng nhập nội dung truyện trước khi phân tích.");
       setWizardStep(2);
       return;
     }
     if (!wizardDraft.rightsAttestationAccepted) {
+      setValidationErrors([]);
       setSubmitError("Bạn cần xác nhận quyền sử dụng nội dung trước khi gửi lên backend.");
       setWizardStep(2);
       return;
     }
     setSubmitError(null);
+    setValidationErrors([]);
     createProjectWorkflow.mutate(wizardDraft);
   };
 
@@ -163,10 +181,10 @@ export const ProjectWizardModal: React.FC = () => {
         {/* Right Dynamic Step Form */}
         <div className="flex-1">
           {currentStep === 1 && (
-            <Step1BasicInfo onNext={handleNext} onCancel={closeWizard} />
+            <Step1BasicInfo onNext={handleNext} onCancel={closeWizard} validationErrors={validationErrors} />
           )}
           {currentStep === 2 && (
-            <Step2ImportStory onNext={handleNext} onBack={handleBack} />
+            <Step2ImportStory onNext={handleNext} onBack={handleBack} validationErrors={validationErrors} />
           )}
           {currentStep === 3 && (
             <Step3AiAnalysis onNext={handleNext} onBack={handleBack} />
@@ -212,7 +230,21 @@ export const ProjectWizardModal: React.FC = () => {
           )}
         </div>
       </div>
-      {submitError && <p className="border-t border-rose-500/20 bg-rose-950/20 px-8 py-3 text-xs text-rose-200">{submitError}</p>}
+      {(submitError || validationErrors.length > 0) && (
+        <div className="border-t border-rose-500/20 bg-rose-950/20 px-8 py-3 text-xs text-rose-200">
+          {submitError && <p>{submitError}</p>}
+          {validationErrors.length > 0 && (
+            <ul className="mt-2 space-y-1 text-rose-200/80">
+              {validationErrors.map((fieldError, index) => (
+                <li key={`${fieldError.field}-${index}`}>
+                  <span className="font-medium">{fieldError.field}:</span>{" "}
+                  {fieldError.message || fieldError.code || "Giá trị không hợp lệ."}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </Modal>
   );
 };

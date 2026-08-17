@@ -7,12 +7,14 @@ import { Tabs } from "@/components/ui/Tabs";
 import { Button } from "@/components/ui/Button";
 import { Plus, Search, FolderKanban } from "lucide-react";
 import { Input } from "@/components/ui/Input";
-import { api } from "@/lib/api";
+import { api, ApiClientError } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 import type { ApiProject } from "@/types/api";
 import { Loader2, RefreshCw } from "lucide-react";
 
 const completedStatuses = new Set(["COMPLETED", "ARCHIVED"]);
+const PROJECT_PAGE = 0;
+const PROJECT_PAGE_SIZE = 20;
 
 export const ProjectsDashboard: React.FC = () => {
   const projectFilterTab = useStudioStore((state) => state.projectFilterTab);
@@ -25,10 +27,10 @@ export const ProjectsDashboard: React.FC = () => {
 
   const setView = useProductionStore((state) => state.setView);
   const projectsQuery = useQuery({
-    queryKey: queryKeys.projects,
-    queryFn: api.listProjects,
+    queryKey: queryKeys.projectsPage(PROJECT_PAGE, PROJECT_PAGE_SIZE),
+    queryFn: () => api.listProjects({ page: PROJECT_PAGE, size: PROJECT_PAGE_SIZE }),
   });
-  const projects = projectsQuery.data ?? [];
+  const projects = projectsQuery.data?.content ?? [];
 
   const filterTabs = [
     { id: "all", label: "Tất cả", count: projects.length },
@@ -70,7 +72,7 @@ export const ProjectsDashboard: React.FC = () => {
     return (
       <div className="rounded-2xl border border-rose-500/30 bg-rose-950/20 p-8 text-center">
         <h3 className="text-base font-semibold text-rose-200">Không tải được danh sách dự án</h3>
-        <p className="mx-auto mt-2 max-w-lg text-xs leading-5 text-rose-200/70">{projectsQuery.error instanceof Error ? projectsQuery.error.message : "Backend API chưa phản hồi."}</p>
+        <p className="mx-auto mt-2 max-w-lg text-xs leading-5 text-rose-200/70">{projectsQuery.error instanceof ApiClientError ? projectsQuery.error.message : "Backend API chưa phản hồi."}</p>
         <Button onClick={() => projectsQuery.refetch()} variant="secondary" size="sm" className="mt-5"><RefreshCw className="mr-2 h-3.5 w-3.5" />Thử lại</Button>
       </div>
     );

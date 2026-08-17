@@ -1,11 +1,11 @@
-# NarrativeX W1-D1 Frontend API Integration Matrix
+# NarrativeX Frontend API Integration Matrix
 
 This matrix maps the existing UI to the smallest backend contracts required for later wiring. It does not propose new screens or visual changes.
 
 | Screen/Feature | Route | UI Action | Current Data Source | State | Existing Client Function | Required Backend API | Auth/Workspace Scope | Missing FE Wiring | Missing BE Contract | Week Target |
 |---|---|---|---|---|---|---|---|---|---|---|
 | Auth | `/auth`, root `auth` | submit login / Google / logout | server session via `GET /api/auth/me` | API | `api.getCurrentUser`, `api.logout`, `api.googleLoginUrl` | backend OIDC redirect/session + current-user query + Spring logout | authenticated session; no provider token in browser | implemented: bootstrap gate, OIDC redirect, real logout, global 401 → auth state | password auth intentionally not exposed until a backend contract exists | W1-D5 |
-| Dashboard | `/`, `ProjectsDashboard` | load/filter/search projects | React Query `queryKeys.projects` | API | `api.listProjects` | `GET /api/v1/projects` with pagination/filter fields | authenticated user + workspace membership | numeric ID is retained in API DTO; counts map only from status; loading/error/empty states wired | stable list contract with counts/cover/progress still optional | W2-D1 |
+| Dashboard | `/`, `ProjectsDashboard` | load/filter/search projects | React Query `queryKeys.projectsPage(page, size)` | API | `api.listProjects` | `GET /api/v1/projects?page=0&size=20` | authenticated user + workspace membership | `ApiResponse.data` is unwrapped by transport; pagination metadata and loading/error/empty states wired | filter/count/cover/progress fields remain optional | W2-D1 |
 | Create project | `/`, wizard / `ProjectWizardModal` | confirm project | React Query mutation calls `api.createProject` | API | `api.createProject` | `POST /api/v1/projects` | authenticated workspace owner/editor | returned ID is retained and query invalidated; mutation/error states wired | idempotency contract still recommended | W2-D1 |
 | Story input | `/`, `Step2ImportStory` | save pasted story and rights attestation | Zustand draft until submit; rights checkbox | PARTIAL API | `api.createStoryVersion` | `POST /api/v1/projects/{id}/stories` | authenticated project editor; rights/consent required | story creation is wired after project creation; story reload/edit is still missing | story read/update and version/If-Match contract still missing | W2-D1 |
 | Story reload/edit | project workspace (no real project route) | reopen and edit story | local draft/mock production store | MOCK | none | `GET /api/v1/projects/{id}/story`, `PUT /api/v1/projects/{id}/story` | project/workspace scoped | route-param project identity, query cache, conflict handling | both endpoints, row version/If-Match and canonical content response | W2-D1 |
@@ -21,12 +21,13 @@ This matrix maps the existing UI to the smallest backend contracts required for 
 
 ## Contract notes
 
-- Existing backend routes are inventoried in `BACKEND_CODEBASE.md`; only six routes exist.
+- Existing backend routes are inventoried in `BACKEND_CODEBASE.md`; normal JSON routes use `ApiResponse<T>` and errors use `ErrorResponse`.
 - The matrix intentionally separates “existing client function” from “visible caller”: the client is not integration evidence.
 - The project list and project/story/analysis submission rows are now wired; the remaining rows continue to describe missing backend contracts.
 
 ## W1-D2 foundation corrections
 
-- The current API client now owns credentials, JSON negotiation, ProblemDetail parsing and `ApiClientError`; API DTOs are separate from presentation models.
+- The current API client owns credentials, JSON negotiation, `ErrorResponse` parsing and `ApiClientError`; it unwraps `ApiResponse.data` centrally and API DTOs remain separate from presentation models.
+- Paginated functions return `PaginationResponse<T>` after transport unwrapping; `204` responses intentionally return no envelope.
 - TanStack Query owns the visible project list and project creation workflow; no mock project array is used by the main application runtime.
 - Mock state is gated by `NEXT_PUBLIC_NX_DATA_MODE`; this is a safety boundary, not evidence that any visible flow is API-backed.

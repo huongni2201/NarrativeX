@@ -90,7 +90,7 @@ The current backend enforces these rules with automated package/dependency tests
 - `shared` does not import business modules;
 - REST controllers live in `module.api` packages.
 
-Cross-module project lookup is intentionally exposed as the small `project.application.port.in.ProjectAccess` contract. This preserves PostgreSQL/project ownership in the project module without introducing an event bus or repository registry. The shared HTTP boundary uses RFC 9457 `ProblemDetail` and a request correlation ID; security enforcement remains a W1-D5 concern.
+Cross-module project lookup is intentionally exposed as the small `project.application.port.in.ProjectAccess` contract. This preserves PostgreSQL/project ownership in the project module without introducing an event bus or repository registry. The shared HTTP boundary uses `ApiResponse<T>`/`PaginationResponse<T>` for normal JSON success and `ErrorResponse` for application errors, with a request correlation ID. SSE, binary, download, actuator and other protocol payloads remain outside this envelope.
 
 ## DDD package structure
 

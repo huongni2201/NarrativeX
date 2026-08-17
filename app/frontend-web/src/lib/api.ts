@@ -1,11 +1,14 @@
 import type {
   ApiAuthUser,
+  ApiFieldError,
   ApiGenerationJob,
-  ApiProblem,
   ApiProject,
+  ApiResponse,
   ApiStoryVersion,
   CreateProjectApiInput,
   CreateStoryVersionApiInput,
+  ErrorResponse,
+  PaginationResponse,
 } from "@/types/api";
 import { useAuthStore } from "@/store/useAuthStore";
 
@@ -14,31 +17,39 @@ export const API_BASE_URL =
     ? process.env.NEXT_PUBLIC_API_BASE_URL
     : "";
 
+const DEFAULT_PROJECT_PAGE = 0;
+const DEFAULT_PROJECT_PAGE_SIZE = 20;
+
 function apiUrl(path: string): string {
   return `${API_BASE_URL.replace(/\/$/, "")}${path}`;
 }
 
 export class ApiClientError extends Error {
   readonly status: number;
-  readonly code?: string;
-  readonly messageKey?: string;
+  readonly code: string;
   readonly correlationId?: string;
-  readonly problem: ApiProblem;
+  readonly errors?: ApiFieldError[];
+  readonly response: ErrorResponse;
 
-  constructor(problem: ApiProblem, fallbackMessage = "Request failed") {
-    super(problem.detail || fallbackMessage);
+  constructor(response: ErrorResponse) {
+    super(response.message);
     this.name = "ApiClientError";
-    this.status = problem.status;
-    this.code = problem.code;
-    this.messageKey = problem.messageKey;
-    this.correlationId = problem.correlationId;
-    this.problem = problem;
+    this.status = response.status;
+    this.code = response.code;
+    this.correlationId = response.correlationId;
+    this.errors = response.errors;
+    this.response = response;
   }
 }
 
 interface ApiRequestInit extends Omit<RequestInit, "body"> {
   json?: unknown;
   parseJson?: boolean;
+}
+
+export interface ProjectListParams {
+  page?: number;
+  size?: number;
 }
 
 interface CsrfTokenResponse {
@@ -52,28 +63,71 @@ function resetCsrfToken(): void {
   csrfTokenPromise = undefined;
 }
 
-function isApiProblem(value: unknown): value is ApiProblem {
-  return typeof value === "object" && value !== null && typeof (value as { status?: unknown }).status === "number";
+function isApiResponse(value: unknown): value is ApiResponse<unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    (value as { success?: unknown }).success === true &&
+    typeof (value as { message?: unknown }).message === "string" &&
+    "data" in value &&
+    typeof (value as { timestamp?: unknown }).timestamp === "string"
+  );
 }
 
-async function parseProblem(response: Response): Promise<ApiProblem> {
-  const raw = await response.text();
+function isApiFieldError(value: unknown): value is ApiFieldError {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as { field?: unknown }).field === "string" &&
+    (typeof (value as { code?: unknown }).code === "undefined" ||
+      typeof (value as { code?: unknown }).code === "string") &&
+    (typeof (value as { message?: unknown }).message === "undefined" ||
+      typeof (value as { message?: unknown }).message === "string")
+  );
+}
+
+function isErrorResponse(value: unknown): value is ErrorResponse {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    (value as { success?: unknown }).success !== false ||
+    typeof (value as { status?: unknown }).status !== "number" ||
+    typeof (value as { code?: unknown }).code !== "string" ||
+    typeof (value as { message?: unknown }).message !== "string" ||
+    typeof (value as { timestamp?: unknown }).timestamp !== "string"
+  ) {
+    return false;
+  }
+
+  const errors = (value as { errors?: unknown }).errors;
+  return typeof errors === "undefined" || (Array.isArray(errors) && errors.every(isApiFieldError));
+}
+
+function correlationIdFrom(response: Response): string | undefined {
+  return response.headers.get("X-Correlation-Id") || undefined;
+}
+
+export async function parseErrorResponse(response: Response): Promise<ErrorResponse> {
   let parsed: unknown;
 
   try {
+    const raw = await response.text();
     parsed = raw ? JSON.parse(raw) : undefined;
   } catch {
     parsed = undefined;
   }
 
-  if (isApiProblem(parsed)) {
+  if (isErrorResponse(parsed)) {
     return parsed;
   }
 
   return {
+    success: false,
     status: response.status,
-    detail: response.status >= 500 ? "The server could not complete the request." : "The request was rejected.",
-    correlationId: response.headers.get("X-Correlation-Id") || undefined,
+    code: "HTTP_ERROR",
+    message: response.statusText || "Request failed",
+    correlationId: correlationIdFrom(response),
+    timestamp: new Date().toISOString(),
   };
 }
 
@@ -84,7 +138,7 @@ async function loadCsrfToken(): Promise<CsrfTokenResponse> {
   });
 
   if (!response.ok) {
-    throw new ApiClientError(await parseProblem(response));
+    throw new ApiClientError(await parseErrorResponse(response));
   }
 
   const payload = (await response.json()) as Partial<CsrfTokenResponse>;
@@ -102,7 +156,7 @@ function csrfToken(): Promise<CsrfTokenResponse> {
 async function request<T>(path: string, init: ApiRequestInit = {}): Promise<T> {
   const { json, parseJson = true, headers: initialHeaders, ...requestInit } = init;
   const headers = new Headers(initialHeaders);
-  headers.set("Accept", "application/json, application/problem+json");
+  headers.set("Accept", "application/json");
 
   if (json !== undefined) {
     headers.set("Content-Type", "application/json");
@@ -113,7 +167,12 @@ async function request<T>(path: string, init: ApiRequestInit = {}): Promise<T> {
   return sendRequest<T>(path, requestInit, headers, parseJson);
 }
 
-async function sendRequest<T>(path: string, requestInit: RequestInit, headers: Headers, parseJson: boolean): Promise<T> {
+async function sendRequest<T>(
+  path: string,
+  requestInit: RequestInit,
+  headers: Headers,
+  parseJson: boolean,
+): Promise<T> {
   const method = (requestInit.method || "GET").toUpperCase();
   if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
     const token = await csrfToken();
@@ -127,26 +186,37 @@ async function sendRequest<T>(path: string, requestInit: RequestInit, headers: H
   });
 
   if (!response.ok) {
-    const problem = await parseProblem(response);
-    if (problem.status === 401) {
+    const errorResponse = await parseErrorResponse(response);
+    if (errorResponse.status === 401) {
       resetCsrfToken();
       useAuthStore.getState().setUnauthenticated();
     }
-    throw new ApiClientError(problem);
+    throw new ApiClientError(errorResponse);
   }
 
   if (response.status === 204 || !parseJson) {
     return undefined as T;
   }
 
-  return (await response.json()) as T;
+  const envelope = (await response.json()) as unknown;
+  if (!isApiResponse(envelope)) {
+    throw new Error("The server returned an invalid success response.");
+  }
+
+  return envelope.data as T;
+}
+
+function projectListPath({ page = DEFAULT_PROJECT_PAGE, size = DEFAULT_PROJECT_PAGE_SIZE }: ProjectListParams = {}): string {
+  const params = new URLSearchParams({ page: String(page), size: String(size) });
+  return `/api/v1/projects?${params.toString()}`;
 }
 
 export const api = {
   getCurrentUser: () => request<ApiAuthUser>("/api/auth/me"),
   logout: () => request<void>("/logout", { method: "POST", parseJson: false }),
   googleLoginUrl: () => apiUrl("/oauth2/authorization/google"),
-  listProjects: () => request<ApiProject[]>("/api/v1/projects"),
+  listProjects: (params: ProjectListParams = {}) =>
+    request<PaginationResponse<ApiProject>>(projectListPath(params)),
   createProject: (input: CreateProjectApiInput) =>
     request<ApiProject>("/api/v1/projects", { method: "POST", json: input }),
   createStoryVersion: (projectId: number, input: CreateStoryVersionApiInput) =>

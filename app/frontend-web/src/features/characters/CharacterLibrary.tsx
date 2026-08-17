@@ -29,6 +29,9 @@ import { api } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 import { Project } from "@/types/studio";
 
+const PROJECT_PAGE = 0;
+const PROJECT_PAGE_SIZE = 20;
+
 export const CharacterLibrary: React.FC = () => {
   const {
     characterFilterProject,
@@ -85,11 +88,11 @@ export const CharacterLibrary: React.FC = () => {
   );
 
   const projectsQuery = useQuery({
-    queryKey: queryKeys.projects,
-    queryFn: api.listProjects,
-    enabled: isMockDataMode,
+    queryKey: queryKeys.projectsPage(PROJECT_PAGE, PROJECT_PAGE_SIZE),
+    queryFn: () => api.listProjects({ page: PROJECT_PAGE, size: PROJECT_PAGE_SIZE }),
+    enabled: !isMockDataMode,
   });
-  const serverProjects = projectsQuery.data ?? [];
+  const serverProjects = projectsQuery.data?.content ?? [];
   const projects: Project[] = useMemo(() => {
     if (serverProjects.length > 0) {
       return serverProjects.map((p) => ({

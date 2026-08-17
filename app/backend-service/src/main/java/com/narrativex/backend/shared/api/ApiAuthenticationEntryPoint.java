@@ -22,8 +22,9 @@ public class ApiAuthenticationEntryPoint implements AuthenticationEntryPoint {
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response,
                          AuthenticationException exception) throws IOException, ServletException {
-        ApiProblemWriter.write(response, objectMapper, HttpStatus.UNAUTHORIZED,
-            ApiProblemFactory.create(HttpStatus.UNAUTHORIZED, ApiErrorCode.UNAUTHENTICATED,
-                "api.auth.unauthenticated", "Authentication is required.", request));
+        ApiErrorWriter.write(response, objectMapper, HttpStatus.UNAUTHORIZED,
+            ErrorResponse.of(HttpStatus.UNAUTHORIZED.value(), ApiErrorCode.UNAUTHORIZED.name(),
+                "Authentication is required.", request.getRequestURI(),
+                CorrelationIdFilter.correlationId(request)));
     }
 }

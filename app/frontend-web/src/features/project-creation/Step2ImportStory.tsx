@@ -3,15 +3,18 @@ import { useStudioStore } from "@/store/useStudioStore";
 import { Tabs } from "@/components/ui/Tabs";
 import { FileText, UploadCloud, Sparkles, Info } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import type { ApiFieldError } from "@/types/api";
 
 interface Step2Props {
   onNext: () => void;
   onBack: () => void;
+  validationErrors?: ApiFieldError[];
 }
 
-export const Step2ImportStory: React.FC<Step2Props> = ({ onNext, onBack }) => {
+export const Step2ImportStory: React.FC<Step2Props> = ({ validationErrors = [] }) => {
   const { wizardDraft, updateWizardDraft, loadSampleStory } = useStudioStore();
   const [activeTab, setActiveTab] = useState("text");
+  const contentError = validationErrors.find((error) => ["content", "storyText"].includes(error.field));
 
   const importTabs = [
     { id: "text", label: "Nhập văn bản", icon: <FileText className="w-3.5 h-3.5" /> },
@@ -48,6 +51,7 @@ export const Step2ImportStory: React.FC<Step2Props> = ({ onNext, onBack }) => {
               value={wizardDraft.storyText}
               onChange={(e) => updateWizardDraft({ storyText: e.target.value })}
               placeholder="Dán nội dung truyện của bạn vào đây (tiểu thuyết, truyện ngắn, kịch bản)..."
+              aria-invalid={contentError ? "true" : undefined}
               className="w-full flex-1 p-4 bg-transparent text-slate-100 placeholder:text-slate-500 focus:outline-none text-sm leading-relaxed resize-none font-sans"
             />
             {/* Bottom Character Counter Bar */}
@@ -59,6 +63,7 @@ export const Step2ImportStory: React.FC<Step2Props> = ({ onNext, onBack }) => {
                 Ước tính: ~{Math.ceil(characterCount / 500)} phút phân tích
               </span>
             </div>
+            {contentError && <p className="px-4 py-2 text-xs text-rose-300">{contentError.message || contentError.code || "Nội dung truyện không hợp lệ."}</p>}
           </div>
         )}
 

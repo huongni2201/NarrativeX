@@ -2,6 +2,7 @@ package com.narrativex.backend.modules.generation.api;
 
 import com.narrativex.backend.modules.generation.application.command.GetGenerationJobQuery;
 import com.narrativex.backend.modules.generation.application.usecase.GetGenerationJobUseCase;
+import com.narrativex.backend.shared.api.ApiResponse;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -19,8 +20,9 @@ public class GenerationJobController {
     }
 
     @GetMapping("/{jobId}")
-    public JobResponse get(@PathVariable String jobId,
+    public ApiResponse<JobResponse> get(@PathVariable String jobId,
                            @RequestHeader(name = "X-User-Id", required = false) String ownerId) {
-        return JobResponse.from(getGenerationJobUseCase.execute(new GetGenerationJobQuery(jobId, ownerId)));
+        return ApiResponse.success("Generation job retrieved successfully", JobResponse.from(
+            getGenerationJobUseCase.execute(new GetGenerationJobQuery(jobId, ownerId))));
     }
 }

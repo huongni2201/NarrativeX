@@ -4,8 +4,9 @@ import com.narrativex.backend.modules.project.application.port.out.ProjectReposi
 import com.narrativex.backend.modules.project.domain.model.Project;
 import com.narrativex.backend.modules.project.infrastructure.persistence.entity.ProjectJpaEntity;
 import com.narrativex.backend.modules.project.infrastructure.persistence.repository.ProjectJpaRepository;
-import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -18,9 +19,9 @@ public class ProjectPersistenceAdapter implements ProjectRepository {
     }
 
     @Override
-    public List<Project> findActiveByOwnerId(String ownerId) {
-        return repository.findByOwnerIdAndArchivedAtIsNullOrderByUpdatedAtDesc(ownerId).stream()
-            .map(ProjectPersistenceMapper::toDomain).toList();
+    public Page<Project> findActiveByOwnerId(String ownerId, Pageable pageable) {
+        return repository.findByOwnerIdAndArchivedAtIsNullOrderByUpdatedAtDesc(ownerId, pageable)
+            .map(ProjectPersistenceMapper::toDomain);
     }
 
     @Override

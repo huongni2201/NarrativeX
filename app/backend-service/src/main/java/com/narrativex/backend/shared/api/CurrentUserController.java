@@ -19,17 +19,16 @@ public class CurrentUserController {
     }
 
     @GetMapping("/me")
-    public CurrentUserResponse me(Authentication authentication) {
+    public ApiResponse<CurrentUserResponse> me(Authentication authentication) {
         String id = currentUserId.resolve(null);
         if (authentication != null && authentication.getPrincipal() instanceof OidcUser oidcUser) {
-            return new CurrentUserResponse(
+            return ApiResponse.success(new CurrentUserResponse(
                 id,
                 firstNonBlank(oidcUser.getFullName(), oidcUser.getGivenName(), oidcUser.getEmail(), id),
                 oidcUser.getEmail(),
-                oidcUser.getPicture()
-            );
+                oidcUser.getPicture()));
         }
-        return new CurrentUserResponse(id, id, null, null);
+        return ApiResponse.success(new CurrentUserResponse(id, id, null, null));
     }
 
     private static String firstNonBlank(String... values) {

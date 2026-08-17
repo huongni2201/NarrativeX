@@ -2,16 +2,19 @@ package com.narrativex.backend.shared.api;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-
-import jakarta.servlet.http.HttpServletRequest;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.http.ProblemDetail;
-import org.springframework.mock.web.MockHttpServletRequest;
-import org.springframework.web.bind.MethodArgumentNotValidException;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import com.narrativex.backend.shared.exception.ResourceConflictException;
 import com.narrativex.backend.shared.exception.ResourceNotFoundException;
+import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 
 class ApiExceptionHandlerTest {
 
@@ -31,45 +34,73 @@ class ApiExceptionHandlerTest {
     }
 
     @Test
-    void notFoundUsesStableProblemContract() {
-        ProblemDetail problem = handler.handleNotFound(new ResourceNotFoundException("secret story"), request);
+    void notFoundUsesErrorResponseContract() {
+        ErrorResponse error = body(handler.handleNotFound(
+            new ResourceNotFoundException("secret story"), request));
 
-        assertEquals(404, problem.getStatus());
-        assertEquals("RESOURCE_NOT_FOUND", problem.getProperties().get("code"));
-        assertEquals("corr-test-123", problem.getProperties().get("correlationId"));
-        assertEquals("/api/v1/projects", problem.getProperties().get("path"));
-        assertFalse(problem.getDetail().contains("secret story"));
+        assertEquals(404, error.status());
+        assertEquals("RESOURCE_NOT_FOUND", error.code());
+        assertEquals("corr-test-123", error.correlationId());
+        assertEquals("/api/v1/projects", error.path());
+        assertFalse(error.success());
+        assertEquals("The requested resource was not found.", error.message());
     }
 
     @Test
     void conflictUses409() {
-        ProblemDetail problem = handler.handleConflict(new ResourceConflictException("internal version"), request);
+        ErrorResponse error = body(handler.handleConflict(
+            new ResourceConflictException("internal version"), request));
 
-        assertEquals(409, problem.getStatus());
-        assertEquals("RESOURCE_CONFLICT", problem.getProperties().get("code"));
+        assertEquals(409, error.status());
+        assertEquals("RESOURCE_CONFLICT", error.code());
+    }
+
+    @Test
+    void securityExceptionsUseExpectedStatusesAndCodes() {
+        ErrorResponse forbidden = body(handler.handleAccessDenied(
+            new AccessDeniedException("internal detail"), request));
+        ErrorResponse unauthorized = body(handler.handleUnauthenticated(
+            new BadCredentialsException("internal detail"), request));
+
+        assertEquals(403, forbidden.status());
+        assertEquals("FORBIDDEN", forbidden.code());
+        assertEquals("Access denied.", forbidden.message());
+        assertEquals(401, unauthorized.status());
+        assertEquals("UNAUTHORIZED", unauthorized.code());
+        assertEquals("Authentication is required.", unauthorized.message());
     }
 
     @Test
     void unexpectedFailureIsRedacted() {
-        ProblemDetail problem = handler.handleUnexpected(new RuntimeException("SQL password=hidden"), request);
+        ErrorResponse error = body(handler.handleUnexpected(
+            new RuntimeException("SQL password=hidden"), request));
 
-        assertEquals(500, problem.getStatus());
-        assertEquals("INTERNAL_ERROR", problem.getProperties().get("code"));
-        assertEquals("An unexpected error occurred.", problem.getDetail());
-        assertFalse(problem.getDetail().contains("SQL"));
+        assertEquals(500, error.status());
+        assertEquals("INTERNAL_ERROR", error.code());
+        assertEquals("An unexpected error occurred.", error.message());
+        assertFalse(error.message().contains("SQL"));
+        assertNotNull(error.timestamp());
     }
 
     @Test
-    void validationProducesStructuredViolations() {
-        var binding = new org.springframework.validation.BeanPropertyBindingResult(new RequestPayload(), "request");
+    void validationProducesStructuredErrors() throws Exception {
+        var binding = new org.springframework.validation.BeanPropertyBindingResult(
+            new RequestPayload(), "request");
         binding.rejectValue("name", "NotBlank", "must not be blank");
         var exception = new MethodArgumentNotValidException(
-                new org.springframework.core.MethodParameter(ApiExceptionHandlerTest.class.getDeclaredMethods()[0], -1),
-                binding);
+            new org.springframework.core.MethodParameter(
+                ApiExceptionHandlerTest.class.getDeclaredMethods()[0], -1), binding);
 
-        ProblemDetail problem = handler.handleValidation(exception, request);
+        ErrorResponse error = body(handler.handleValidation(exception, request));
 
-        assertEquals("VALIDATION_FAILED", problem.getProperties().get("code"));
-        assertEquals(1, ((java.util.List<?>) problem.getProperties().get("violations")).size());
+        assertEquals(400, error.status());
+        assertEquals("VALIDATION_FAILED", error.code());
+        assertEquals(List.of(new FieldViolation("name", "NotBlank",
+            "validation.name.NotBlank", "must not be blank")), error.errors());
+    }
+
+    private static ErrorResponse body(ResponseEntity<ErrorResponse> response) {
+        assertEquals(HttpStatus.valueOf(response.getBody().status()), response.getStatusCode());
+        return response.getBody();
     }
 }

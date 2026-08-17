@@ -28,6 +28,9 @@ import { MOCK_CHARACTERS, MOCK_PROJECT_CHARACTERS } from "@/lib/mock-data";
 import { api } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 
+const PROJECT_PAGE = 0;
+const PROJECT_PAGE_SIZE = 20;
+
 export const CharacterBibleModal: React.FC = () => {
   const {
     currentScreen,
@@ -35,8 +38,11 @@ export const CharacterBibleModal: React.FC = () => {
     selectedProjectId,
     closeCharacterBible,
   } = useStudioStore();
-  const projectsQuery = useQuery({ queryKey: queryKeys.projects, queryFn: api.listProjects });
-  const projects = projectsQuery.data ?? [];
+  const projectsQuery = useQuery({
+    queryKey: queryKeys.projectsPage(PROJECT_PAGE, PROJECT_PAGE_SIZE),
+    queryFn: () => api.listProjects({ page: PROJECT_PAGE, size: PROJECT_PAGE_SIZE }),
+  });
+  const projects = projectsQuery.data?.content ?? [];
   const characters = isMockDataMode ? MOCK_CHARACTERS : [];
   const projectCharacters = isMockDataMode ? MOCK_PROJECT_CHARACTERS : [];
 

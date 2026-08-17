@@ -22,8 +22,9 @@ public class ApiAccessDeniedHandler implements AccessDeniedHandler {
     @Override
     public void handle(HttpServletRequest request, HttpServletResponse response,
                        AccessDeniedException exception) throws IOException, ServletException {
-        ApiProblemWriter.write(response, objectMapper, HttpStatus.FORBIDDEN,
-            ApiProblemFactory.create(HttpStatus.FORBIDDEN, ApiErrorCode.ACCESS_DENIED,
-                "api.auth.accessDenied", "Access to this resource is denied.", request));
+        ApiErrorWriter.write(response, objectMapper, HttpStatus.FORBIDDEN,
+            ErrorResponse.of(HttpStatus.FORBIDDEN.value(), ApiErrorCode.FORBIDDEN.name(),
+                "Access denied.", request.getRequestURI(),
+                CorrelationIdFilter.correlationId(request)));
     }
 }

@@ -26,7 +26,7 @@
 | `storyboard.domain.model` | framework-free chapter/scene/visual-beat entities | future storyboard use cases | no direct database/framework dependency | none at API surface | no repositories/controllers/use cases |
 | `storyboard.infrastructure.persistence` | JPA table mappings for chapter/scene/visual-beat | future storyboard ports | PostgreSQL tables | scalar parent IDs preserve module isolation | persistence adapter/use cases still pending |
 | `health.api` | provider configuration status | frontend/ops | no persistence/provider call | route follows global chain | response says configuration, not real health |
-| `shared.api` | basic `ProblemDetail` mapping | all controllers | none | none | no 401/403/404/409/5xx contract or correlation ID |
+| `shared.api` | `ApiResponse`/`PaginationResponse` success envelopes and `ErrorResponse` mapping | all current JSON controllers | none | correlation ID plus security writers | future resource routes still pending |
 
 No provider SDK, web, JPA or storage import is allowed in backend domain model packages. Persistence is now an infrastructure concern and provider work remains outside the domain/application core.
 
@@ -34,12 +34,12 @@ No provider SDK, web, JPA or storage import is allowed in backend domain model p
 
 | Method | Path | Controller | Auth | Workspace scoped | Request | Response | Persistence | Transaction | Used by FE | Risk/gap |
 |---|---|---|---|---|---|---|---|---|---|---|
-| GET | `/api/v1/projects` | `ProjectController#list` | local open; OIDC chain authenticated | owner string, no workspace | optional `X-User-Id` | `ProjectResponse[]` | real JPA query | read-only | client function exists, no caller | client header unsafe in local mode; no pagination |
-| POST | `/api/v1/projects` | `ProjectController#create` | local open; OIDC chain authenticated | owner string, no workspace | `CreateProjectRequest` | `ProjectResponse` | real JPA insert | write transaction | only unreachable `StudioDashboard` | no idempotency |
-| POST | `/api/v1/projects/{projectId}/stories` | `ProjectController#createStory` | local open; OIDC chain authenticated | project owner check | `CreateStoryVersionRequest` | `StoryVersionResponse` | real JPA insert | write transaction | client function exists, no caller | no story read/update; no If-Match |
-| POST | `/api/v1/projects/{projectId}/analysis-jobs` | `ProjectController#analyze` | local open; OIDC chain authenticated | project owner check | no body | `JobResponse` | `OperationPlan` + `GenerationJob` insert | write transaction | client function exists, no caller | zero-cost plan; no reservation/queue/worker |
-| GET | `/api/v1/jobs/{jobId}` | `GenerationJobController#get` | local open; OIDC chain authenticated | job joins project owner | no body | `JobResponse` | real JPA query | read-only | no | no progress producer; no SSE |
-| GET | `/api/v1/provider-health` | `ProviderHealthController#get` | local open; OIDC chain authenticated | none | no body | configured flag/location/model map | config only | none | no | no external call; not provider health |
+| GET | `/api/v1/projects` | `ProjectController#list` | local open; OIDC chain authenticated | owner string, no workspace | optional `X-User-Id`, `page`, `size` | `ApiResponse<PaginationResponse<ProjectResponse>>` | real JPA `Page` query | read-only | `api.listProjects` | client header unsafe in local mode; filters remain future |
+| POST | `/api/v1/projects` | `ProjectController#create` | local open; OIDC chain authenticated | owner string, no workspace | `CreateProjectRequest` | `ApiResponse<ProjectResponse>`; HTTP 201 | real JPA insert | write transaction | `api.createProject` | no idempotency |
+| POST | `/api/v1/projects/{projectId}/stories` | `ProjectController#createStory` | local open; OIDC chain authenticated | project owner check | `CreateStoryVersionRequest` | `ApiResponse<StoryVersionResponse>`; HTTP 201 | real JPA insert | write transaction | `api.createStoryVersion` | no story read/update; no If-Match |
+| POST | `/api/v1/projects/{projectId}/analysis-jobs` | `ProjectController#analyze` | local open; OIDC chain authenticated | project owner check | no body | `ApiResponse<JobResponse>`; HTTP 202 | `OperationPlan` + `GenerationJob` insert | write transaction | `api.enqueueAnalysis` | zero-cost plan; no reservation/queue/worker |
+| GET | `/api/v1/jobs/{jobId}` | `GenerationJobController#get` | local open; OIDC chain authenticated | job joins project owner | no body | `ApiResponse<JobResponse>` | real JPA query | read-only | future caller | no progress producer; no SSE |
+| GET | `/api/v1/provider-health` | `ProviderHealthController#get` | local open; OIDC chain authenticated | none | no body | `ApiResponse<Map<String,Object>>` | config only | none | no | no external call; not provider health |
 
 Concrete route evidence is in `src/main/java/com/narrativex/backend/modules/project/api/ProjectController.java:18-55`, `.../generation/api/GenerationJobController.java:10-24`, and `.../health/api/ProviderHealthController.java:9-34`.
 
@@ -74,13 +74,13 @@ Concrete route evidence is in `src/main/java/com/narrativex/backend/modules/proj
 - Application code depends on `application.port.out` repository interfaces. Spring Data JPA implementations live under `infrastructure.persistence` and map between JPA entities and domain models.
 - API controllers map HTTP DTOs to application commands and invoke use cases; they do not know Spring Data repositories or JPA entities.
 - `ArchitectureRulesTest` checks that domain models are framework-free, application does not import API/infrastructure, API does not import outbound ports/infrastructure, and controllers stay in API packages.
-- `ApiExceptionHandler` produces RFC 9457 `ProblemDetail` with stable error codes, message keys, path, instance and correlation ID. Validation exposes structured field violations; not-found, conflict, authorization, unauthenticated and unexpected paths are redacted.
+- `ApiExceptionHandler` produces `ErrorResponse` with stable error codes, status, path and correlation ID. Validation exposes structured field violations; not-found, conflict, authorization, unauthenticated and unexpected paths are redacted.
 - `CorrelationIdFilter` accepts a bounded safe `X-Correlation-Id` or generates one and returns it in the response header.
 - `@Transactional` and `@Transactional(readOnly = true)` remain on application use-case methods; controllers do not own transactions.
 
 ## Error handling
 
-The W1-D2 handler maps invalid requests to `INVALID_REQUEST`, bean validation to `VALIDATION_FAILED`, missing resources to `RESOURCE_NOT_FOUND`, resource/optimistic conflicts to `RESOURCE_CONFLICT`, access/identity failures to `ACCESS_DENIED`/`UNAUTHENTICATED`, and unexpected failures to redacted `INTERNAL_ERROR`. Security entry-point and access-denied writers are reusable without changing the W1-D5 authentication model.
+The API handler maps invalid requests to `INVALID_REQUEST`, bean validation to `VALIDATION_FAILED`, missing resources to `RESOURCE_NOT_FOUND`, resource/optimistic conflicts to `RESOURCE_CONFLICT`, access/identity failures to `FORBIDDEN`/`UNAUTHORIZED`, and unexpected failures to redacted `INTERNAL_ERROR`. All application errors serialize as `ErrorResponse` with `application/json`; security entry-point and access-denied writers use the same contract.
 
 ## Testing
 

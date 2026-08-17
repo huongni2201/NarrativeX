@@ -5,6 +5,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -43,7 +44,10 @@ class SecurityConfigurationTest {
     void currentUserEndpointReturnsTheLocalServerIdentity() throws Exception {
         mockMvc.perform(get("/api/auth/me"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.id").value("local-dev-user"));
+            .andExpect(content().contentTypeCompatibleWith("application/json"))
+            .andExpect(jsonPath("$.success").value(true))
+            .andExpect(jsonPath("$.data.id").value("local-dev-user"))
+            .andExpect(jsonPath("$.timestamp").exists());
     }
 
     @Test
@@ -51,7 +55,14 @@ class SecurityConfigurationTest {
         mockMvc.perform(post("/api/v1/projects")
                 .contentType("application/json")
                 .content("{}"))
-            .andExpect(status().isForbidden());
+            .andExpect(status().isForbidden())
+            .andExpect(content().contentTypeCompatibleWith("application/json"))
+            .andExpect(jsonPath("$.success").value(false))
+            .andExpect(jsonPath("$.status").value(403))
+            .andExpect(jsonPath("$.code").value("FORBIDDEN"))
+            .andExpect(jsonPath("$.path").value("/api/v1/projects"))
+            .andExpect(jsonPath("$.correlationId").exists())
+            .andExpect(jsonPath("$.timestamp").exists());
     }
 
     @Test
