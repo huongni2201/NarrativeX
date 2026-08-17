@@ -1,5 +1,5 @@
-import HomePage from "../page";
+import { StudioAppShell } from "@/components/layout/StudioAppShell";
 
 export default function DashboardPage() {
-  return <HomePage screen="project-workspace" />;
+  return <StudioAppShell screen="project-workspace" />;
 }
