@@ -94,7 +94,7 @@ Cross-module project lookup is intentionally exposed as the small `project.appli
 
 ## DDD package structure
 
-The active `project`, `generation` and `storyboard` slices now use the following dependency direction:
+The active `project`, `character`, `generation` and `storyboard` slices now use the following dependency direction:
 
 ```text
 module.api
@@ -112,6 +112,8 @@ module.infrastructure.persistence
 - `application.port.out` owns persistence abstractions; it does not expose Spring Data types.
 - `infrastructure.persistence` owns JPA entities, Spring Data repositories and domain/persistence mappers.
 - Cross-module references use stable IDs or explicit application ports. Generation never maps a JPA relationship to the project module.
+- `Character` is reusable at user/workspace scope. `ProjectCharacter` owns project-specific role/context; a project never receives a cloned Character row.
+- CharacterVersion, appearance and outfit records are resolved through Character application ports and persisted as immutable/explicit snapshots before generation context is built.
 
 ## External system ownership
 

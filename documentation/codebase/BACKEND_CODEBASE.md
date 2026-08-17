@@ -16,6 +16,9 @@
 | `project.application` | commands, inbound access port and project/story use cases | project controller; generation through `ProjectAccess` | outbound repository ports | resolves owner via `CurrentUserId` | no read/update story API; version allocation is count-plus-one |
 | `project.domain.model` | framework-free Project aggregate root, StoryVersion entity and enums | project use cases | no direct database/framework dependency | owner field only | no workspace aggregate/membership |
 | `project.infrastructure.persistence` | JPA entities, Spring Data repositories, mappers and outbound adapters | application ports | PostgreSQL project/story tables | translates persistence state to domain | no separate query/read model yet |
+| `character.application` | Character commands, ownership checks, version lifecycle and ProjectCharacter assignment use cases | character API/future generation orchestration | character repository ports plus `ProjectAccess` | resolves user ownership through `CurrentUserId` | asset/consent gates remain future bounded contexts |
+| `character.domain.model` | Reusable Character identity, ProjectCharacter assignment, immutable CharacterVersion, CharacterAppearance and OutfitVersion | character use cases | no direct database/framework dependency | owner/workspace IDs and immutable lock state | no asset/consent aggregate yet |
+| `character.infrastructure.persistence` | JPA entities, Spring Data repositories, mappers and adapters for character identity and assignments | character application ports | PostgreSQL `characters`, `character_versions`, `project_characters`, appearance/outfit tables | scalar IDs preserve module isolation | no read model or generation context resolver yet |
 | `generation.api` | job query route and response mapping | frontend/HTTP | generation service | owner-filtered query | no SSE/cancel |
 | `generation.application` | commands and enqueue/read job use cases | project/generation controllers | generation outbound repository ports and project inbound access port | owner-filtered project/job lookup | no reservation, idempotency, delivery, claim or worker handoff |
 | `generation.domain.model` | GenerationJob and OperationPlan aggregate roots plus stage/provider entities | generation use cases | no direct database/framework dependency | requested/billed user IDs | no worker claim state machine yet |
@@ -65,6 +68,8 @@ Concrete route evidence is in `src/main/java/com/narrativex/backend/modules/proj
 
 - `Project` is the project aggregate root; it creates `StoryVersion` entities through `createStoryVersion(...)` and rejects creation for archived/unsaved projects.
 - `GenerationJob` and `OperationPlan` are separate aggregate roots; generation stores `projectId` as an ID and crosses into project through `project.application.port.in.ProjectAccess`.
+- `Character` is reusable at user/workspace scope; `ProjectCharacter` is the project assignment. CharacterVersion is immutable after lock, while appearance/outfit changes stay in their own entities.
+- Character persistence stores asset and project references as scalar IDs. Character application services validate ownership through ports and never clone a Character into a Project.
 - Application code depends on `application.port.out` repository interfaces. Spring Data JPA implementations live under `infrastructure.persistence` and map between JPA entities and domain models.
 - API controllers map HTTP DTOs to application commands and invoke use cases; they do not know Spring Data repositories or JPA entities.
 - `ArchitectureRulesTest` checks that domain models are framework-free, application does not import API/infrastructure, API does not import outbound ports/infrastructure, and controllers stay in API packages.
@@ -78,7 +83,7 @@ The W1-D2 handler maps invalid requests to `INVALID_REQUEST`, bean validation to
 
 ## Testing
 
-- `mvn clean test`: 15 tests passed after the DDD migration; the Spring context test uses H2, `ddl-auto=create-drop`, and Flyway disabled (`src/test/resources/application-test.yml:1-16`). It does not validate real PostgreSQL migrations.
+- `mvn test`: compile and Spring context verification passed after the Character migration; the Spring context test uses H2, `ddl-auto=create-drop`, and Flyway disabled (`src/test/resources/application-test.yml:1-16`). Domain/use-case tests cover reusable identity, immutable lock/pin rules and project assignment. It does not validate real PostgreSQL migrations.
 - `mvn -DskipTests package`: produced `target/backend-service-0.0.1-SNAPSHOT.jar` during the audit.
 - Real startup against local PostgreSQL 16 failed with `Schema validation: missing table [chapters]`; the DB had no `flyway_schema_history` and no public tables. This is a P0 empty-database boot failure, not an H2 test failure.
 

@@ -39,6 +39,7 @@ Current reality: the only verified runtime path that reaches PostgreSQL is the b
 | Module | Current responsibility | Runtime status |
 |---|---|---|
 | `project` | Project aggregate, story-version use cases, commands, ports and JPA adapters | real API/persistence; incomplete CRUD |
+| `character` | Reusable Character identity, ProjectCharacter assignments, CharacterVersion lock lifecycle, appearance/outfit state and JPA adapters | domain/application/persistence slice; no HTTP API yet |
 | `generation` | GenerationJob/OperationPlan aggregates, enqueue/read use cases, ports and JPA adapters | real persistence scaffold; no worker execution |
 | `storyboard` | framework-free chapter/scene/visual-beat models plus JPA mappings | persistence mapping only; no controller/use-case API |
 | `health` | provider configuration status response | diagnostic/configuration only, not a provider health probe |
@@ -68,7 +69,7 @@ Current reality: the only verified runtime path that reaches PostgreSQL is the b
 
 - Backend owns the Flyway files and JPA mappings.
 - PostgreSQL is intended to be authoritative; Redis has no current application call sites.
-- V1 creates only `schema_baseline`; V2 creates the initial domain tables; V3 adds control-plane tables/columns.
+- V1 creates only `schema_baseline`; V2 creates the initial domain tables; V3 adds control-plane tables/columns; V4 adds reusable character identity, immutable versions, appearances, outfits and project assignments.
 - A clean PostgreSQL database currently has zero tables after the application startup attempt: Flyway history was not present and Hibernate validation stopped at missing `chapters`. See `documentation/audits/evidence/W1-D1_COMMAND_EVIDENCE.md`.
 - Binary storage is only described in documentation/Compose; no backend or worker object-storage adapter is present.
 
