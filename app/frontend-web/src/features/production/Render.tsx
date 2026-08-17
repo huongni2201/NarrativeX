@@ -4,17 +4,10 @@ import { Button } from "@/components/ui/Button";
 import { Tabs } from "@/components/ui/Tabs";
 import {
   ArrowLeft,
-  Film,
-  Sparkles,
-  CheckCircle2,
-  AlertTriangle,
-  Play,
-  Layers,
   Video,
-  DownloadCloud,
 } from "lucide-react";
 
-export const Screen06Render: React.FC = () => {
+export const Render: React.FC = () => {
   const { project, activeChapterId, setView } = useProductionStore();
 
   const [activeTab, setActiveTab] = useState("chapter");

@@ -17,16 +17,15 @@ import {
   ChevronDown,
   Volume2,
   Sparkles,
-  Zap,
-  Check,
   AlertTriangle,
   X,
   FileText,
+  Check,
 } from "lucide-react";
-import { Scene, VisualBeat } from "@/types/domain";
+import { Scene } from "@/types/domain";
 import { cn } from "@/lib/utils";
 
-export const Screen03ChapterWorkspace: React.FC = () => {
+export const ChapterWorkspace: React.FC = () => {
   const {
     project,
     activeChapterId,

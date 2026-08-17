@@ -2,13 +2,13 @@ import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useProductionStore } from "@/store/useProductionStore";
 import { useStudioStore } from "@/store/useStudioStore";
-import { Screen01ProjectOverview } from "./Screen01ProjectOverview";
-import { Screen02AddChapterModal } from "./Screen02AddChapterModal";
-import { Screen03ChapterWorkspace } from "./Screen03ChapterWorkspace";
-import { Screen04Storyboard } from "./Screen04Storyboard";
-import { Screen05VisualReview } from "./Screen05VisualReview";
-import { Screen06Render } from "./Screen06Render";
-import { Screen07LongFormPreview } from "./Screen07LongFormPreview";
+import { ProjectOverview } from "./ProjectOverview";
+import { AddChapterModal } from "./AddChapterModal";
+import { ChapterWorkspace } from "./ChapterWorkspace";
+import { Storyboard } from "./Storyboard";
+import { VisualReview } from "./VisualReview";
+import { Render } from "./Render";
+import { LongFormPreview } from "./LongFormPreview";
 import { isMockDataMode } from "@/lib/data-mode";
 import { api } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
@@ -25,13 +25,13 @@ export const ProductionShell: React.FC = () => {
   if (isMockDataMode) {
     return (
       <div className="w-full">
-        {currentView === "overview" && <Screen01ProjectOverview />}
-        {currentView === "workspace" && <Screen03ChapterWorkspace />}
-        {currentView === "storyboard" && <Screen04Storyboard />}
-        {currentView === "visual-review" && <Screen05VisualReview />}
-        {currentView === "render" && <Screen06Render />}
-        {currentView === "preview" && <Screen07LongFormPreview />}
-        <Screen02AddChapterModal />
+        {currentView === "overview" && <ProjectOverview />}
+        {currentView === "workspace" && <ChapterWorkspace />}
+        {currentView === "storyboard" && <Storyboard />}
+        {currentView === "visual-review" && <VisualReview />}
+        {currentView === "render" && <Render />}
+        {currentView === "preview" && <LongFormPreview />}
+        <AddChapterModal />
       </div>
     );
   }

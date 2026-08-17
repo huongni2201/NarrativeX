@@ -5,17 +5,14 @@ import { BatchReviewToolbar } from "@/components/production/BatchReviewToolbar";
 import { Button } from "@/components/ui/Button";
 import {
   ArrowLeft,
-  Filter,
   Check,
   CheckSquare,
   Square,
-  Sparkles,
   SlidersHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { VisualBeatStatus } from "@/types/domain";
 
-export const Screen05VisualReview: React.FC = () => {
+export const VisualReview: React.FC = () => {
   const {
     project,
     activeChapterId,
@@ -25,7 +22,6 @@ export const Screen05VisualReview: React.FC = () => {
     selectAllVisualBeats,
     clearSelectedVisualBeats,
     batchUpdateVisualBeatsStatus,
-    singleUpdateVisualBeatStatus,
     activeReviewTab,
     setActiveReviewTab,
     setView,

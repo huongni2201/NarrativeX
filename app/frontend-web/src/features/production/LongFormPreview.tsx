@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { useProductionStore } from "@/store/useProductionStore";
 import { ChapterTimeline } from "@/components/production/ChapterTimeline";
-import { Button } from "@/components/ui/Button";
 import {
   ArrowLeft,
   Play,
@@ -10,13 +9,11 @@ import {
   VolumeX,
   Maximize2,
   Subtitles,
-  Sparkles,
-  GripVertical,
   Sliders,
 } from "lucide-react";
 import { Chapter } from "@/types/domain";
 
-export const Screen07LongFormPreview: React.FC = () => {
+export const LongFormPreview: React.FC = () => {
   const { project, activeChapterId, setActiveChapter, setView } =
     useProductionStore();
 

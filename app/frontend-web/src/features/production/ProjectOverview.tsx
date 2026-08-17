@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { Chapter } from "@/types/domain";
 
-export const Screen01ProjectOverview: React.FC = () => {
+export const ProjectOverview: React.FC = () => {
   const {
     project,
     setActiveChapter,
@@ -57,7 +57,7 @@ export const Screen01ProjectOverview: React.FC = () => {
       {/* Top Project Hero Banner matching Screen 01 */}
       <div className="flex flex-col md:flex-row gap-6 p-6 rounded-2xl bg-[#0d1420] border border-slate-800/90 shadow-xl">
         {/* Cover Hero Thumbnail */}
-        <div className="relative w-full md:w-56 aspect-[3/4] rounded-xl overflow-hidden bg-slate-900 border border-purple-500/30 shrink-0 shadow-[0_0_25px_rgba(124,58,237,0.2)]">
+        <div className="relative w-full md:w-56 aspect-[3/4] rounded-xl overflow-hidden bg-slate-950 border border-purple-500/30 shrink-0 shadow-[0_0_25px_rgba(124,58,237,0.2)]">
           <img
             src={project.coverImage}
             alt={project.title}

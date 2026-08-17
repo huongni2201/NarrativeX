@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Tabs } from "@/components/ui/Tabs";
 import { CheckCircle2, FileText, UploadCloud, X, Sparkles, ShieldCheck } from "lucide-react";
 
-export const Screen02AddChapterModal: React.FC = () => {
+export const AddChapterModal: React.FC = () => {
   const { isAddChapterModalOpen, closeAddChapterModal, addChapter } =
     useProductionStore();
 
