@@ -1,9 +1,7 @@
-package com.narrativex.backend.shared.api;
+package com.narrativex.backend.modules.common.response;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import com.narrativex.backend.shared.application.response.ApiResponse;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
 
