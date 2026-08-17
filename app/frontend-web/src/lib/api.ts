@@ -7,8 +7,8 @@ import type {
   ApiStoryVersion,
   CreateProjectApiInput,
   CreateStoryVersionApiInput,
+  CursorPage,
   ErrorResponse,
-  PaginationResponse,
 } from "@/types/api";
 import {
   isApiAuthUser,
@@ -16,8 +16,8 @@ import {
   isApiProject,
   isApiResponse,
   isApiStoryVersion,
+  isCursorPage,
   isErrorResponse,
-  isPaginationResponse,
 } from "@/types/api";
 import { useAuthStore } from "@/store/useAuthStore";
 
@@ -26,7 +26,6 @@ export const API_BASE_URL =
     ? process.env.NEXT_PUBLIC_API_BASE_URL
     : "";
 
-const DEFAULT_PROJECT_PAGE = 0;
 const DEFAULT_PROJECT_PAGE_SIZE = 20;
 
 function apiUrl(path: string): string {
@@ -69,8 +68,8 @@ interface ApiRequestInit extends Omit<RequestInit, "body"> {
 }
 
 export interface ProjectListParams {
-  page?: number;
-  size?: number;
+  cursor?: string;
+  limit?: number;
 }
 
 interface CsrfTokenResponse {
@@ -140,8 +139,6 @@ async function loadCsrfToken(): Promise<CsrfTokenResponse> {
 
 function csrfToken(): Promise<CsrfTokenResponse> {
   csrfTokenPromise ??= loadCsrfToken().catch((error) => {
-    // Do not poison the module-level cache after a transient network/server
-    // failure. A later mutation must be able to request a fresh token.
     resetCsrfToken();
     throw error;
   });
@@ -208,8 +205,11 @@ async function sendRequest<T>(
   return envelope.data as T;
 }
 
-function projectListPath({ page = DEFAULT_PROJECT_PAGE, size = DEFAULT_PROJECT_PAGE_SIZE }: ProjectListParams = {}): string {
-  const params = new URLSearchParams({ page: String(page), size: String(size) });
+function projectListPath({ cursor, limit = DEFAULT_PROJECT_PAGE_SIZE }: ProjectListParams = {}): string {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (cursor) {
+    params.set("cursor", cursor);
+  }
   return `/api/v1/projects?${params.toString()}`;
 }
 
@@ -218,10 +218,10 @@ export const api = {
   logout: () => request<void>("/logout", { method: "POST", parseJson: false }),
   googleLoginUrl: () => apiUrl("/oauth2/authorization/google"),
   listProjects: (params: ProjectListParams = {}) =>
-    request<PaginationResponse<ApiProject>>(
+    request<CursorPage<ApiProject>>(
       projectListPath(params),
       {},
-      (value): value is PaginationResponse<ApiProject> => isPaginationResponse(value, isApiProject),
+      (value): value is CursorPage<ApiProject> => isCursorPage(value, isApiProject),
     ),
   createProject: (input: CreateProjectApiInput) =>
     request<ApiProject>("/api/v1/projects", { method: "POST", json: input }, isApiProject),
