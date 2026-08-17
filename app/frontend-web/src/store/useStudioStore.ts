@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import { ProjectWizardDraft, ScreenType } from "@/types/studio";
-import { SAMPLE_STORY_PRESET } from "@/lib/mock-data";
+import type { ProjectWizardDraft, ScreenType } from "@/types/studio";
+import { SAMPLE_STORY_PRESET } from "@/features/project-creation/model/sample-story";
 
 interface StudioStore {
   currentScreen: ScreenType;
@@ -10,22 +10,6 @@ interface StudioStore {
   projectFilterTab: "all" | "in_progress" | "completed";
   projectSearchQuery: string;
 
-  characterFilterProject: string;
-  characterFilterRole: string;
-  characterFilterGender: string;
-  characterFilterStatus: string;
-  characterFilterGroup: string;
-  characterFilterCategoryTab: "all" | "main" | "supporting" | "minor" | "groups";
-  characterSortBy: "recent" | "name_asc" | "name_desc" | "most_used" | "version";
-  characterViewMode: "grid" | "list";
-  isMoreFiltersOpen: boolean;
-  characterAdvancedFilters: {
-    minAppearances?: number;
-    onlyLocked?: boolean;
-    hasReferences?: boolean;
-  };
-  characterSearchQuery: string;
-
   wizardDraft: ProjectWizardDraft;
   isWizardOpen: boolean;
 
@@ -34,18 +18,6 @@ interface StudioStore {
   setProjectSearchQuery: (query: string) => void;
   selectProject: (projectId: number) => void;
 
-  setCharacterFilterProject: (project: string) => void;
-  setCharacterFilterRole: (role: string) => void;
-  setCharacterFilterGender: (gender: string) => void;
-  setCharacterFilterStatus: (status: string) => void;
-  setCharacterFilterGroup: (group: string) => void;
-  setCharacterFilterCategoryTab: (tab: "all" | "main" | "supporting" | "minor" | "groups") => void;
-  setCharacterSortBy: (sortBy: "recent" | "name_asc" | "name_desc" | "most_used" | "version") => void;
-  setCharacterViewMode: (mode: "grid" | "list") => void;
-  setIsMoreFiltersOpen: (isOpen: boolean) => void;
-  setCharacterAdvancedFilters: (filters: { minAppearances?: number; onlyLocked?: boolean; hasReferences?: boolean }) => void;
-  resetCharacterFilters: () => void;
-  setCharacterSearchQuery: (query: string) => void;
   openCharacterBible: (characterId: string) => void;
   closeCharacterBible: () => void;
 
@@ -76,53 +48,14 @@ export const useStudioStore = create<StudioStore>((set) => ({
   projectFilterTab: "all",
   projectSearchQuery: "",
 
-  characterFilterProject: "all",
-  characterFilterRole: "all",
-  characterFilterGender: "all",
-  characterFilterStatus: "all",
-  characterFilterGroup: "all",
-  characterFilterCategoryTab: "all",
-  characterSortBy: "recent",
-  characterViewMode: "grid",
-  isMoreFiltersOpen: false,
-  characterAdvancedFilters: {},
-  characterSearchQuery: "",
-
   wizardDraft: createEmptyWizardDraft(),
   isWizardOpen: false,
 
   setScreen: (screen) => set({ currentScreen: screen }),
-
   setProjectFilterTab: (tab) => set({ projectFilterTab: tab }),
   setProjectSearchQuery: (query) => set({ projectSearchQuery: query }),
   selectProject: (projectId) => set({ selectedProjectId: String(projectId) }),
 
-  setCharacterFilterProject: (project) => set({ characterFilterProject: project }),
-  setCharacterFilterRole: (role) => set({ characterFilterRole: role }),
-  setCharacterFilterGender: (gender) => set({ characterFilterGender: gender }),
-  setCharacterFilterStatus: (status) => set({ characterFilterStatus: status }),
-  setCharacterFilterGroup: (group) => set({ characterFilterGroup: group }),
-  setCharacterFilterCategoryTab: (tab) => set({ characterFilterCategoryTab: tab }),
-  setCharacterSortBy: (sortBy) => set({ characterSortBy: sortBy }),
-  setCharacterViewMode: (mode) => set({ characterViewMode: mode }),
-  setIsMoreFiltersOpen: (isOpen) => set({ isMoreFiltersOpen: isOpen }),
-  setCharacterAdvancedFilters: (filters) =>
-    set((state) => ({
-      characterAdvancedFilters: { ...state.characterAdvancedFilters, ...filters },
-    })),
-  resetCharacterFilters: () =>
-    set({
-      characterFilterProject: "all",
-      characterFilterRole: "all",
-      characterFilterGender: "all",
-      characterFilterStatus: "all",
-      characterFilterGroup: "all",
-      characterFilterCategoryTab: "all",
-      characterSortBy: "recent",
-      characterSearchQuery: "",
-      characterAdvancedFilters: {},
-    }),
-  setCharacterSearchQuery: (query) => set({ characterSearchQuery: query }),
   openCharacterBible: (characterId) =>
     set({
       selectedCharacterId: characterId,
