@@ -6,18 +6,27 @@ import com.narrativex.backend.feature.character.application.port.out.CharacterVe
 import com.narrativex.backend.feature.character.domain.entity.CharacterVersion;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.response.ApiResponse;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class LockCharacterVersionUseCase {
     private final CharacterVersionRepository versionRepository;
     private final CurrentUserId currentUserId;
-    public LockCharacterVersionUseCase(CharacterVersionRepository versionRepository, CurrentUserId currentUserId) { this.versionRepository = versionRepository; this.currentUserId = currentUserId; }
-    @Transactional public ApiResponse<CharacterVersion> execute(ChangeCharacterVersionStatusCommand command) {
-        String actorId = currentUserId.resolve(command.actorId());
-        CharacterVersion version = versionRepository.findOwnedById(command.characterVersionId(), actorId).orElseThrow(() -> new ResourceNotFoundException("Character version not found"));
+
+    @Transactional
+    public ApiResponse<CharacterVersion> execute(ChangeCharacterVersionStatusCommand command) {
+        String actorId = currentUserId.get();
+        CharacterVersion version = versionRepository
+                .findOwnedById(command.characterVersionId(), actorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Character version not found"));
         version.lock(actorId);
-        return ApiResponse.success("Character version locked successfully", versionRepository.save(version));
+        CharacterVersion saved = versionRepository.save(version);
+        log.info("Locked character version {} by authenticated principal", command.characterVersionId());
+        return ApiResponse.success("Character version locked successfully", saved);
     }
 }
