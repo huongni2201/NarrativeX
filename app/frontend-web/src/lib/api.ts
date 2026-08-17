@@ -8,7 +8,9 @@ import type {
 } from "@/types/api";
 
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
+  process.env.NEXT_PUBLIC_API_BASE_URL !== undefined
+    ? process.env.NEXT_PUBLIC_API_BASE_URL
+    : "";
 
 export class ApiClientError extends Error {
   readonly status: number;
@@ -31,6 +33,13 @@ export class ApiClientError extends Error {
 interface ApiRequestInit extends Omit<RequestInit, "body"> {
   json?: unknown;
 }
+
+interface CsrfTokenResponse {
+  token: string;
+  headerName: string;
+}
+
+let csrfTokenPromise: Promise<CsrfTokenResponse> | undefined;
 
 function isApiProblem(value: unknown): value is ApiProblem {
   return typeof value === "object" && value !== null && typeof (value as { status?: unknown }).status === "number";
@@ -57,6 +66,28 @@ async function parseProblem(response: Response): Promise<ApiProblem> {
   };
 }
 
+async function loadCsrfToken(): Promise<CsrfTokenResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/csrf`, {
+    headers: { Accept: "application/json" },
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new ApiClientError(await parseProblem(response));
+  }
+
+  const payload = (await response.json()) as Partial<CsrfTokenResponse>;
+  if (!payload.token || !payload.headerName) {
+    throw new Error("The server did not return a usable CSRF token.");
+  }
+  return { token: payload.token, headerName: payload.headerName };
+}
+
+function csrfToken(): Promise<CsrfTokenResponse> {
+  csrfTokenPromise ??= loadCsrfToken();
+  return csrfTokenPromise;
+}
+
 async function request<T>(path: string, init: ApiRequestInit = {}): Promise<T> {
   const { json, headers: initialHeaders, ...requestInit } = init;
   const headers = new Headers(initialHeaders);
@@ -72,6 +103,12 @@ async function request<T>(path: string, init: ApiRequestInit = {}): Promise<T> {
 }
 
 async function sendRequest<T>(path: string, requestInit: RequestInit, headers: Headers): Promise<T> {
+  const method = (requestInit.method || "GET").toUpperCase();
+  if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
+    const token = await csrfToken();
+    headers.set(token.headerName, token.token);
+  }
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...requestInit,
     headers,

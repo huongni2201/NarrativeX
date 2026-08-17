@@ -10,5 +10,6 @@ This directory records decisions that affect more than one module or change a pr
 - [ADR-0004: DDD aggregates and persistence adapters](./ADR-0004-ddd-aggregates-and-persistence-adapters.md)
 - [ADR-0005: Reusable Character identity and ProjectCharacter assignment](./ADR-0005-reusable-character-identity-and-project-assignment.md)
 - [ADR-0006: Chapter-first storyboard routes](./ADR-0006-chapter-first-storyboard-routes.md)
+- [ADR-0007: Fail-closed OIDC profiles and browser CSRF protection](./ADR-0007-fail-closed-oidc-and-browser-csrf.md)
 
 Use a new sequential ADR for a new cross-cutting decision. Do not rewrite a historical decision; supersede it with a new ADR.

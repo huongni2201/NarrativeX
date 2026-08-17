@@ -13,7 +13,7 @@
 | Module | Responsibility | Incoming | Outgoing / DB ownership | Security ownership | Violations/gaps |
 |---|---|---|---|---|---|
 | `project.api` | HTTP DTOs and project/story routes | frontend/HTTP | project service | passes owner header to service | controller still exposes client owner header in local mode |
-| `project.application` | commands, inbound access port and project/story use cases | project controller; generation through `ProjectAccess` | outbound repository ports | resolves owner via `CurrentUserId` | no read/update story API; version allocation is count-plus-one |
+| `project.application` | commands, inbound access port and project/story use cases | project controller; generation through `ProjectAccess` | outbound repository ports | resolves owner via `CurrentUserId` | no read/update story API; version allocation is parent-locked max-plus-one |
 | `project.domain.model` | framework-free Project aggregate root, StoryVersion entity and enums | project use cases | no direct database/framework dependency | owner field only | no workspace aggregate/membership |
 | `project.infrastructure.persistence` | JPA entities, Spring Data repositories, mappers and outbound adapters | application ports | PostgreSQL project/story tables | translates persistence state to domain | no separate query/read model yet |
 | `character.application` | Character commands, ownership checks, version lifecycle and ProjectCharacter assignment use cases | character API/future generation orchestration | character repository ports plus `ProjectAccess` | resolves user ownership through `CurrentUserId` | asset/consent gates remain future bounded contexts |
@@ -45,9 +45,10 @@ Concrete route evidence is in `src/main/java/com/narrativex/backend/modules/proj
 
 ## Security
 
-- `SecurityConfig.localSecurityFilterChain` permits `/actuator/**`, `/api/v1/**` and every other route (`SecurityConfig.java:37-48`). It is selected by default when `narrativex.security.oidc-enabled` is absent/false (`application.yml:37-39`). There is no profile guard forcing OIDC outside local development.
-- OIDC mode uses an HttpOnly server session shape (`SecurityConfig.java:22-35`) but CSRF is disabled for both chains. This remains an unresolved cookie-auth assumption.
+- `SecurityConfig.localSecurityFilterChain` is restricted to `local` and `test`; the default profile is local. A separate guard refuses `staging`, `prod` and `production` startup when OIDC is absent/false.
+- Both chains use an HttpOnly server session shape plus cookie-backed CSRF. `GET /api/v1/auth/csrf` provides the session-bound token metadata and the frontend API client sends it on mutations.
 - `CurrentUserId.resolve` trusts `X-User-Id` whenever OIDC is disabled (`CurrentUserId.java:24-27`). OIDC correctly ignores the header and reads `Authentication` (`:29-35`), but local mode is unsafe if reachable beyond a private developer machine.
+- CORS is credentialed but restricted to `narrativex.security.cors.allowed-origins`; wildcard headers/origins are not used.
 - Controllers have no workspace membership concept; the current filter is a string owner ID on project/job rows.
 - Actuator web exposure is `health,info,metrics` (`application.yml:47-54`); health details are `when_authorized`, but local security makes actuator routes open.
 

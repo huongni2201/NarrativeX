@@ -25,6 +25,8 @@ Browser
 4. Account/session/IP/route/resource-class abuse limiting runs before entitlement/quota and before creating a paid `OperationPlan`. Provider limiters/circuit breakers remain a separate outbound layer.
 5. Logout invalidates the server session. Reconnect to SSE re-authenticates and only reads authorized events.
 6. Authentication events, authorization failures, admin overrides and support actions are auditable without logging OIDC tokens or sensitive identity data.
+7. `local` is the only profile allowed to use the developer identity fallback. `staging` and production profiles fail during startup unless OIDC is enabled.
+8. Credentialed browser mutations include the session-bound CSRF header obtained from `GET /api/v1/auth/csrf`; CORS uses an explicit configured origin allowlist.
 
 ## Error and retry behavior
 
@@ -35,4 +37,4 @@ Browser
 
 ## Current repository gap
 
-The current `SecurityConfig` permits all routes, disables CSRF and uses stateless sessions for local scaffolding. Production implementation must replace this with Google OIDC/session and ownership tests before public beta.
+The remaining work is the full Google identity-to-PostgreSQL actor mapping, workspace membership and production session lifecycle. The profile guard, credentialed CORS and CSRF transport are now in place.
