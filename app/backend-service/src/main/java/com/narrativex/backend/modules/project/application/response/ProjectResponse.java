@@ -1,4 +1,4 @@
-package com.narrativex.backend.modules.project.api.response;
+package com.narrativex.backend.modules.project.application.response;
 
 import com.narrativex.backend.modules.project.domain.aggregate.Project;
 
