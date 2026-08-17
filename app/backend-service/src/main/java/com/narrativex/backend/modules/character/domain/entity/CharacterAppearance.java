@@ -1,11 +1,10 @@
-package com.narrativex.backend.modules.character.domain.aggregate;
+package com.narrativex.backend.modules.character.domain.entity;
 
-import com.narrativex.backend.shared.domain.DomainEntity;
+import com.narrativex.backend.modules.common.domain.DomainEntity;
 import java.util.Objects;
 
-/** Story/timeline visual state; changing it does not create a new Character identity. */
+/** Story/timeline visual state owned by a Character context. */
 public final class CharacterAppearance extends DomainEntity {
-
     private final Long characterId;
     private final Long projectId;
     private final String timelineKey;
@@ -20,7 +19,9 @@ public final class CharacterAppearance extends DomainEntity {
                                 String ageState, String hairstyle, String injury, String wardrobeContext,
                                 String appearancePrompt, Long outfitVersionId) {
         super(id, rowVersion);
-        this.characterId = Objects.requireNonNull(characterId, "characterId");
+        if (characterId == null || characterId <= 0) throw new IllegalArgumentException("characterId must be positive");
+        if (projectId != null && projectId <= 0) throw new IllegalArgumentException("projectId must be positive when provided");
+        this.characterId = characterId;
         this.projectId = projectId;
         this.timelineKey = required(timelineKey, "timelineKey");
         this.ageState = ageState;
@@ -35,14 +36,9 @@ public final class CharacterAppearance extends DomainEntity {
                                              String ageState, String hairstyle, String injury,
                                              String wardrobeContext, String appearancePrompt,
                                              OutfitVersion outfitVersion) {
-        Objects.requireNonNull(characterId, "characterId");
         Long outfitVersionId = outfitVersion == null ? null : outfitVersion.getId();
-        if (outfitVersion != null && !characterId.equals(outfitVersion.getCharacterId())) {
-            throw new IllegalArgumentException("outfitVersion must belong to characterId");
-        }
-        if (outfitVersion != null && outfitVersionId == null) {
-            throw new IllegalArgumentException("outfitVersion must be persisted");
-        }
+        if (outfitVersion != null && !characterId.equals(outfitVersion.getCharacterId())) throw new IllegalArgumentException("outfitVersion must belong to characterId");
+        if (outfitVersion != null && outfitVersionId == null) throw new IllegalArgumentException("outfitVersion must be persisted");
         return new CharacterAppearance(null, 0L, characterId, projectId, timelineKey, ageState, hairstyle,
             injury, wardrobeContext, appearancePrompt, outfitVersionId);
     }
@@ -66,9 +62,7 @@ public final class CharacterAppearance extends DomainEntity {
     public Long getOutfitVersionId() { return outfitVersionId; }
 
     private static String required(String value, String field) {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(field + " must not be blank");
-        }
+        if (value == null || value.isBlank()) throw new IllegalArgumentException(field + " must not be blank");
         return value;
     }
 }

@@ -1,14 +1,13 @@
-package com.narrativex.backend.modules.character.domain.aggregate;
+package com.narrativex.backend.modules.character.domain.entity;
 
-import com.narrativex.backend.modules.character.domain.aggregate.enums.CharacterVersionStatus;
-import com.narrativex.backend.shared.domain.DomainEntity;
+import com.narrativex.backend.modules.character.domain.enums.CharacterVersionStatus;
+import com.narrativex.backend.modules.common.domain.DomainEntity;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 
-/** Immutable-after-lock identity/Bible/reference snapshot. */
+/** Immutable-after-lock identity/Bible/reference snapshot owned by Character. */
 public final class CharacterVersion extends DomainEntity {
-
     private final Long characterId;
     private final int versionNumber;
     private final String bible;
@@ -23,12 +22,8 @@ public final class CharacterVersion extends DomainEntity {
                              String visualPrompt, Long masterAssetId, List<Long> referenceAssetIds,
                              CharacterVersionStatus status, Instant lockedAt, String lockedBy) {
         super(id, rowVersion);
-        if (characterId == null || characterId <= 0) {
-            throw new IllegalArgumentException("characterId must be positive");
-        }
-        if (versionNumber <= 0) {
-            throw new IllegalArgumentException("versionNumber must be positive");
-        }
+        if (characterId == null || characterId <= 0) throw new IllegalArgumentException("characterId must be positive");
+        if (versionNumber <= 0) throw new IllegalArgumentException("versionNumber must be positive");
         this.characterId = characterId;
         this.versionNumber = versionNumber;
         this.bible = required(bible, "bible");
@@ -62,12 +57,12 @@ public final class CharacterVersion extends DomainEntity {
     }
 
     public void lock(String actorId) {
-        if (status != CharacterVersionStatus.REVIEW) {
-            throw new IllegalStateException("Only reviewed character versions can be locked");
-        }
+        if (status != CharacterVersionStatus.REVIEW) throw new IllegalStateException("Only reviewed character versions can be locked");
+        String resolvedActorId = required(actorId, "actorId");
+        Instant now = Instant.now();
         status = CharacterVersionStatus.LOCKED;
-        lockedAt = Instant.now();
-        lockedBy = required(actorId, "actorId");
+        lockedAt = now;
+        lockedBy = resolvedActorId;
     }
 
     public Long getCharacterId() { return characterId; }
@@ -81,9 +76,7 @@ public final class CharacterVersion extends DomainEntity {
     public String getLockedBy() { return lockedBy; }
 
     private static String required(String value, String field) {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(field + " must not be blank");
-        }
+        if (value == null || value.isBlank()) throw new IllegalArgumentException(field + " must not be blank");
         return value;
     }
 }
