@@ -1,8 +1,8 @@
 package com.narrativex.backend.modules.auth.infrastructure.security;
 
+import com.narrativex.backend.modules.auth.api.response.CurrentUserResponse;
 import com.narrativex.backend.modules.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.modules.auth.application.port.in.CurrentUserProfile;
-import com.narrativex.backend.modules.auth.application.response.CurrentUserResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -13,7 +13,6 @@ import org.springframework.stereotype.Component;
 /** Spring Security adapter for the application-owned current-user ports. */
 @Component
 public class SecurityContextCurrentUser implements CurrentUserId, CurrentUserProfile {
-
     private final boolean oidcEnabled;
     private final String localUserId;
 
@@ -57,9 +56,7 @@ public class SecurityContextCurrentUser implements CurrentUserId, CurrentUserPro
 
     private static String firstNonBlank(String... values) {
         for (String value : values) {
-            if (value != null && !value.isBlank()) {
-                return value;
-            }
+            if (value != null && !value.isBlank()) return value;
         }
         return null;
     }
