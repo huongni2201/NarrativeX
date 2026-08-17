@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useStudioStore } from "@/store/useStudioStore";
 import { useProductionStore } from "@/store/useProductionStore";
@@ -23,14 +24,11 @@ const languageCodes: Record<string, string> = {
 };
 
 export const ProjectWizardModal: React.FC = () => {
-  const {
-    isWizardOpen,
-    closeWizard,
-    wizardDraft,
-    setWizardStep,
-    selectProject,
-    setScreen,
-  } = useStudioStore();
+  const router = useRouter();
+  const isWizardOpen = useStudioStore((state) => state.isWizardOpen);
+  const closeWizard = useStudioStore((state) => state.closeWizard);
+  const wizardDraft = useStudioStore((state) => state.wizardDraft);
+  const setWizardStep = useStudioStore((state) => state.setWizardStep);
   const setView = useProductionStore((state) => state.setView);
   const queryClient = useQueryClient();
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -52,15 +50,18 @@ export const ProjectWizardModal: React.FC = () => {
         quality: draft.quality,
         rightsAttestationAccepted: draft.rightsAttestationAccepted,
       });
-      const existingWorkflow = workflowRef.current?.fingerprint === fingerprint ? workflowRef.current : null;
-      const project = existingWorkflow?.project ?? await api.createProject({
+      const existingWorkflow =
+        workflowRef.current?.fingerprint === fingerprint ? workflowRef.current : null;
+      const project =
+        existingWorkflow?.project ??
+        (await api.createProject({
           name: draft.title.trim(),
           sourceLanguage: language,
           narrationLanguage: language,
           metadataLanguage: language,
           imageAspectRatio: draft.aspectRatio,
           imageQualityTier: draft.quality.toUpperCase(),
-        });
+        }));
       workflowRef.current = existingWorkflow ?? { fingerprint, project, storyCreated: false };
 
       if (!workflowRef.current.storyCreated) {
@@ -73,17 +74,18 @@ export const ProjectWizardModal: React.FC = () => {
         });
         workflowRef.current = { fingerprint, project, storyCreated: true };
       }
+
       const job = await api.enqueueAnalysis(project.id);
       return { project, job };
     },
     onSuccess: async ({ project }) => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.projects });
       workflowRef.current = null;
-      selectProject(project.id);
-      closeWizard();
-      setScreen("project-workspace");
       setView("overview");
+      closeWizard();
       setSubmitError(null);
+      setValidationErrors([]);
+      router.push(`/projects/${project.id}`);
     },
     onError: (error) => {
       if (error instanceof ApiClientError) {
@@ -105,10 +107,9 @@ export const ProjectWizardModal: React.FC = () => {
   const currentStep = wizardDraft.step;
   const [maxAccessibleStep, setMaxAccessibleStep] = useState<number>(currentStep);
 
-  // Sync and update maxAccessibleStep when wizard is opened or step advances
   useEffect(() => {
     if (isWizardOpen) {
-      setMaxAccessibleStep((prev) => Math.max(prev, wizardDraft.step));
+      setMaxAccessibleStep((previous) => Math.max(previous, wizardDraft.step));
     } else {
       setMaxAccessibleStep(1);
     }
@@ -119,7 +120,7 @@ export const ProjectWizardModal: React.FC = () => {
   const handleNext = () => {
     if (currentStep < 4) {
       const nextStep = (currentStep + 1) as 1 | 2 | 3 | 4;
-      setMaxAccessibleStep((prev) => Math.max(prev, nextStep));
+      setMaxAccessibleStep((previous) => Math.max(previous, nextStep));
       setWizardStep(nextStep);
     }
   };
@@ -167,7 +168,6 @@ export const ProjectWizardModal: React.FC = () => {
       maxWidth="6xl"
       className="p-0 border border-slate-800 bg-[#0d1420]"
     >
-      {/* Wizard Header Bar */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800/80 bg-[#090e18]">
         <div className="flex items-center gap-6">
           <span className="font-bold text-base text-white tracking-wide">
@@ -182,14 +182,13 @@ export const ProjectWizardModal: React.FC = () => {
           type="button"
           onClick={closeWizard}
           className="text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 p-1.5 rounded-lg transition-colors"
+          aria-label="Đóng trình tạo dự án"
         >
           <X className="w-5 h-5" />
         </button>
       </div>
 
-      {/* Main Content Body */}
       <div className="p-6 md:p-8 flex flex-col md:flex-row gap-6 md:gap-8 min-h-[500px]">
-        {/* Left Stepper Navigation Column */}
         <div className="border-b md:border-b-0 md:border-r border-slate-800/80 pb-4 md:pb-0">
           <Stepper
             currentStep={currentStep}
@@ -198,24 +197,26 @@ export const ProjectWizardModal: React.FC = () => {
           />
         </div>
 
-        {/* Right Dynamic Step Form */}
         <div className="flex-1">
           {currentStep === 1 && (
-            <Step1BasicInfo onNext={handleNext} onCancel={closeWizard} validationErrors={validationErrors} />
+            <Step1BasicInfo
+              onNext={handleNext}
+              onCancel={closeWizard}
+              validationErrors={validationErrors}
+            />
           )}
           {currentStep === 2 && (
-            <Step2ImportStory onNext={handleNext} onBack={handleBack} validationErrors={validationErrors} />
+            <Step2ImportStory
+              onNext={handleNext}
+              onBack={handleBack}
+              validationErrors={validationErrors}
+            />
           )}
-          {currentStep === 3 && (
-            <Step3AiAnalysis onNext={handleNext} onBack={handleBack} />
-          )}
-          {currentStep === 4 && (
-            <Step4Results onBack={handleBack} />
-          )}
+          {currentStep === 3 && <Step3AiAnalysis onNext={handleNext} onBack={handleBack} />}
+          {currentStep === 4 && <Step4Results onBack={handleBack} />}
         </div>
       </div>
 
-      {/* Wizard Footer Controls matching Mockup */}
       <div className="px-8 py-4 bg-[#090e18] border-t border-slate-800/80 flex items-center justify-between">
         <div>
           {currentStep === 1 ? (
@@ -245,11 +246,16 @@ export const ProjectWizardModal: React.FC = () => {
               className="shadow-[0_0_20px_rgba(124,58,237,0.5)]"
             >
               <Check className="w-4 h-4 mr-1.5" />
-              <span>{createProjectWorkflow.isPending ? "Đang gửi lên backend…" : "Xác nhận & Tạo dự án"}</span>
+              <span>
+                {createProjectWorkflow.isPending
+                  ? "Đang gửi lên backend…"
+                  : "Xác nhận & Tạo dự án"}
+              </span>
             </Button>
           )}
         </div>
       </div>
+
       {(submitError || validationErrors.length > 0) && (
         <div className="border-t border-rose-500/20 bg-rose-950/20 px-8 py-3 text-xs text-rose-200">
           {submitError && <p>{submitError}</p>}
