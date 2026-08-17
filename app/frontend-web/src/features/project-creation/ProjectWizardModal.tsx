@@ -10,7 +10,7 @@ import { Step3AiAnalysis } from "./Step3AiAnalysis";
 import { Step4Results } from "./Step4Results";
 import { Button } from "@/components/ui/Button";
 import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
-import { api, ApiClientError } from "@/lib/api";
+import { api, apiErrorMessage, ApiClientError } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 import type { ProjectWizardDraft } from "@/types/studio";
 import type { ApiFieldError } from "@/types/api";
@@ -78,7 +78,7 @@ export const ProjectWizardModal: React.FC = () => {
         return;
       }
       setValidationErrors([]);
-      setSubmitError("Không thể tạo project từ backend.");
+      setSubmitError(apiErrorMessage(error, "Không thể tạo project từ backend."));
     },
   });
 

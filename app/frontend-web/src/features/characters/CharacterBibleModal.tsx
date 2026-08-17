@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isMockDataMode } from "@/lib/data-mode";
-import { MOCK_CHARACTERS, MOCK_PROJECT_CHARACTERS } from "@/lib/mock-data";
+import { MOCK_CHARACTERS, MOCK_PROJECT_CHARACTERS, MOCK_PROJECTS } from "@/lib/mock-data";
 import { api } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 
@@ -41,8 +41,9 @@ export const CharacterBibleModal: React.FC = () => {
   const projectsQuery = useQuery({
     queryKey: queryKeys.projectsPage(PROJECT_PAGE, PROJECT_PAGE_SIZE),
     queryFn: () => api.listProjects({ page: PROJECT_PAGE, size: PROJECT_PAGE_SIZE }),
+    enabled: !isMockDataMode,
   });
-  const projects = projectsQuery.data?.content ?? [];
+  const projects = isMockDataMode ? MOCK_PROJECTS : projectsQuery.data?.content ?? [];
   const characters = isMockDataMode ? MOCK_CHARACTERS : [];
   const projectCharacters = isMockDataMode ? MOCK_PROJECT_CHARACTERS : [];
 

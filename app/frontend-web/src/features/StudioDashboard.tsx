@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { EmptyState, MetricCard, StatusPill } from "@/components/ui";
-import { api } from "@/lib/api";
+import { api, apiErrorMessage } from "@/lib/api";
 import type { ApiProject } from "@/types/api";
 import type { AspectRatio } from "@/types/studio";
 
@@ -30,8 +30,8 @@ export function StudioDashboard() {
       });
       setProject(created);
       setNotice("Project đã tạo. Bước tiếp theo là paste story và chạy Analyze.");
-    } catch {
-      setNotice("Backend chưa kết nối — shell vẫn có thể được duyệt độc lập.");
+    } catch (error: unknown) {
+      setNotice(apiErrorMessage(error, "Backend chưa kết nối — shell vẫn có thể được duyệt độc lập."));
     } finally {
       setIsSaving(false);
     }

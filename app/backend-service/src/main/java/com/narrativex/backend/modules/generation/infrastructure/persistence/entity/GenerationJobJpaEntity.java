@@ -1,9 +1,9 @@
 package com.narrativex.backend.modules.generation.infrastructure.persistence.entity;
 
-import com.narrativex.backend.modules.generation.domain.model.GenerationJob;
-import com.narrativex.backend.modules.generation.domain.model.JobStatus;
-import com.narrativex.backend.modules.generation.domain.model.JobType;
-import com.narrativex.backend.modules.generation.domain.model.ResourceClass;
+import com.narrativex.backend.modules.generation.domain.aggregate.GenerationJob;
+import com.narrativex.backend.modules.generation.domain.aggregate.JobStatus;
+import com.narrativex.backend.modules.generation.domain.aggregate.JobType;
+import com.narrativex.backend.modules.generation.domain.aggregate.ResourceClass;
 import com.narrativex.backend.shared.infrastructure.persistence.JpaAuditedEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

@@ -10,7 +10,7 @@ import { VisualReview } from "./VisualReview";
 import { Render } from "./Render";
 import { LongFormPreview } from "./LongFormPreview";
 import { isMockDataMode } from "@/lib/data-mode";
-import { api } from "@/lib/api";
+import { api, apiErrorMessage } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 
 const PROJECT_PAGE = 0;
@@ -48,7 +48,7 @@ export const ProductionShell: React.FC = () => {
   }
 
   if (projectsQuery.isError) {
-    return <div className="rounded-2xl border border-rose-500/30 bg-rose-950/20 p-8 text-sm text-rose-200">Không tải được project từ backend.</div>;
+    return <div className="rounded-2xl border border-rose-500/30 bg-rose-950/20 p-8 text-sm text-rose-200">{apiErrorMessage(projectsQuery.error, "Không tải được project từ backend.")}</div>;
   }
 
   const project = projectsQuery.data?.content.find((item) => String(item.id) === selectedProjectId);

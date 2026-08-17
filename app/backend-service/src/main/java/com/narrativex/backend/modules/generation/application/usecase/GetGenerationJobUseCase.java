@@ -2,7 +2,7 @@ package com.narrativex.backend.modules.generation.application.usecase;
 
 import com.narrativex.backend.modules.generation.application.command.GetGenerationJobQuery;
 import com.narrativex.backend.modules.generation.application.port.out.GenerationJobRepository;
-import com.narrativex.backend.modules.generation.domain.model.GenerationJob;
+import com.narrativex.backend.modules.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.shared.exception.ResourceNotFoundException;
 import com.narrativex.backend.shared.security.CurrentUserId;
 import org.springframework.stereotype.Service;

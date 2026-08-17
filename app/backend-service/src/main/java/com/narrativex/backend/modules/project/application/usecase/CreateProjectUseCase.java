@@ -2,9 +2,9 @@ package com.narrativex.backend.modules.project.application.usecase;
 
 import com.narrativex.backend.modules.project.application.command.CreateProjectCommand;
 import com.narrativex.backend.modules.project.application.port.out.ProjectRepository;
-import com.narrativex.backend.modules.project.domain.model.AspectRatio;
-import com.narrativex.backend.modules.project.domain.model.ImageQualityTier;
-import com.narrativex.backend.modules.project.domain.model.Project;
+import com.narrativex.backend.modules.project.domain.aggregate.AspectRatio;
+import com.narrativex.backend.modules.project.domain.aggregate.ImageQualityTier;
+import com.narrativex.backend.modules.project.domain.aggregate.Project;
 import com.narrativex.backend.shared.security.CurrentUserId;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

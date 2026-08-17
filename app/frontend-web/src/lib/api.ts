@@ -1,14 +1,23 @@
 import type {
   ApiAuthUser,
+  ApiDataGuard,
   ApiFieldError,
   ApiGenerationJob,
   ApiProject,
-  ApiResponse,
   ApiStoryVersion,
   CreateProjectApiInput,
   CreateStoryVersionApiInput,
   ErrorResponse,
   PaginationResponse,
+} from "@/types/api";
+import {
+  isApiAuthUser,
+  isApiGenerationJob,
+  isApiProject,
+  isApiResponse,
+  isApiStoryVersion,
+  isErrorResponse,
+  isPaginationResponse,
 } from "@/types/api";
 import { useAuthStore } from "@/store/useAuthStore";
 
@@ -42,6 +51,18 @@ export class ApiClientError extends Error {
   }
 }
 
+export class ApiProtocolError extends Error {
+  readonly path: string;
+  readonly payload: unknown;
+
+  constructor(path: string, payload: unknown) {
+    super(`Invalid success response from ${path}.`);
+    this.name = "ApiProtocolError";
+    this.path = path;
+    this.payload = payload;
+  }
+}
+
 interface ApiRequestInit extends Omit<RequestInit, "body"> {
   json?: unknown;
   parseJson?: boolean;
@@ -63,44 +84,13 @@ function resetCsrfToken(): void {
   csrfTokenPromise = undefined;
 }
 
-function isApiResponse(value: unknown): value is ApiResponse<unknown> {
+function isCsrfTokenResponse(value: unknown): value is CsrfTokenResponse {
   return (
     typeof value === "object" &&
     value !== null &&
-    (value as { success?: unknown }).success === true &&
-    typeof (value as { message?: unknown }).message === "string" &&
-    "data" in value &&
-    typeof (value as { timestamp?: unknown }).timestamp === "string"
+    typeof (value as { token?: unknown }).token === "string" &&
+    typeof (value as { headerName?: unknown }).headerName === "string"
   );
-}
-
-function isApiFieldError(value: unknown): value is ApiFieldError {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    typeof (value as { field?: unknown }).field === "string" &&
-    (typeof (value as { code?: unknown }).code === "undefined" ||
-      typeof (value as { code?: unknown }).code === "string") &&
-    (typeof (value as { message?: unknown }).message === "undefined" ||
-      typeof (value as { message?: unknown }).message === "string")
-  );
-}
-
-function isErrorResponse(value: unknown): value is ErrorResponse {
-  if (
-    typeof value !== "object" ||
-    value === null ||
-    (value as { success?: unknown }).success !== false ||
-    typeof (value as { status?: unknown }).status !== "number" ||
-    typeof (value as { code?: unknown }).code !== "string" ||
-    typeof (value as { message?: unknown }).message !== "string" ||
-    typeof (value as { timestamp?: unknown }).timestamp !== "string"
-  ) {
-    return false;
-  }
-
-  const errors = (value as { errors?: unknown }).errors;
-  return typeof errors === "undefined" || (Array.isArray(errors) && errors.every(isApiFieldError));
 }
 
 function correlationIdFrom(response: Response): string | undefined {
@@ -141,11 +131,11 @@ async function loadCsrfToken(): Promise<CsrfTokenResponse> {
     throw new ApiClientError(await parseErrorResponse(response));
   }
 
-  const payload = (await response.json()) as Partial<CsrfTokenResponse>;
-  if (!payload.token || !payload.headerName) {
+  const payload = (await response.json()) as unknown;
+  if (!isApiResponse(payload, isCsrfTokenResponse)) {
     throw new Error("The server did not return a usable CSRF token.");
   }
-  return { token: payload.token, headerName: payload.headerName };
+  return payload.data;
 }
 
 function csrfToken(): Promise<CsrfTokenResponse> {
@@ -153,7 +143,11 @@ function csrfToken(): Promise<CsrfTokenResponse> {
   return csrfTokenPromise;
 }
 
-async function request<T>(path: string, init: ApiRequestInit = {}): Promise<T> {
+async function request<T>(
+  path: string,
+  init: ApiRequestInit = {},
+  dataGuard?: ApiDataGuard<T>,
+): Promise<T> {
   const { json, parseJson = true, headers: initialHeaders, ...requestInit } = init;
   const headers = new Headers(initialHeaders);
   headers.set("Accept", "application/json");
@@ -161,10 +155,10 @@ async function request<T>(path: string, init: ApiRequestInit = {}): Promise<T> {
   if (json !== undefined) {
     headers.set("Content-Type", "application/json");
     const requestWithBody: RequestInit = { ...requestInit, body: JSON.stringify(json) };
-    return sendRequest<T>(path, requestWithBody, headers, parseJson);
+    return sendRequest<T>(path, requestWithBody, headers, parseJson, dataGuard);
   }
 
-  return sendRequest<T>(path, requestInit, headers, parseJson);
+  return sendRequest<T>(path, requestInit, headers, parseJson, dataGuard);
 }
 
 async function sendRequest<T>(
@@ -172,6 +166,7 @@ async function sendRequest<T>(
   requestInit: RequestInit,
   headers: Headers,
   parseJson: boolean,
+  dataGuard?: ApiDataGuard<T>,
 ): Promise<T> {
   const method = (requestInit.method || "GET").toUpperCase();
   if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
@@ -199,8 +194,8 @@ async function sendRequest<T>(
   }
 
   const envelope = (await response.json()) as unknown;
-  if (!isApiResponse(envelope)) {
-    throw new Error("The server returned an invalid success response.");
+  if (!isApiResponse(envelope, dataGuard)) {
+    throw new ApiProtocolError(path, envelope);
   }
 
   return envelope.data as T;
@@ -212,15 +207,37 @@ function projectListPath({ page = DEFAULT_PROJECT_PAGE, size = DEFAULT_PROJECT_P
 }
 
 export const api = {
-  getCurrentUser: () => request<ApiAuthUser>("/api/auth/me"),
+  getCurrentUser: () => request<ApiAuthUser>("/api/auth/me", {}, isApiAuthUser),
   logout: () => request<void>("/logout", { method: "POST", parseJson: false }),
   googleLoginUrl: () => apiUrl("/oauth2/authorization/google"),
   listProjects: (params: ProjectListParams = {}) =>
-    request<PaginationResponse<ApiProject>>(projectListPath(params)),
+    request<PaginationResponse<ApiProject>>(
+      projectListPath(params),
+      {},
+      (value): value is PaginationResponse<ApiProject> => isPaginationResponse(value, isApiProject),
+    ),
   createProject: (input: CreateProjectApiInput) =>
-    request<ApiProject>("/api/v1/projects", { method: "POST", json: input }),
+    request<ApiProject>("/api/v1/projects", { method: "POST", json: input }, isApiProject),
   createStoryVersion: (projectId: number, input: CreateStoryVersionApiInput) =>
-    request<ApiStoryVersion>(`/api/v1/projects/${projectId}/stories`, { method: "POST", json: input }),
+    request<ApiStoryVersion>(
+      `/api/v1/projects/${projectId}/stories`,
+      { method: "POST", json: input },
+      isApiStoryVersion,
+    ),
   enqueueAnalysis: (projectId: number) =>
-    request<ApiGenerationJob>(`/api/v1/projects/${projectId}/analysis-jobs`, { method: "POST" }),
+    request<ApiGenerationJob>(
+      `/api/v1/projects/${projectId}/analysis-jobs`,
+      { method: "POST" },
+      isApiGenerationJob,
+    ),
 };
+
+export function apiErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof ApiClientError || error instanceof ApiProtocolError) {
+    return error.message;
+  }
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return fallback;
+}

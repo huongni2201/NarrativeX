@@ -1,6 +1,6 @@
-package com.narrativex.backend.modules.project.api.dto.response;
+package com.narrativex.backend.modules.project.api.response;
 
-import com.narrativex.backend.modules.project.domain.model.Project;
+import com.narrativex.backend.modules.project.domain.aggregate.Project;
 
 public record ProjectResponse(
     Long id,

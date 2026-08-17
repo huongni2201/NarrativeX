@@ -3,11 +3,11 @@ package com.narrativex.backend.modules.project.domain;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import com.narrativex.backend.modules.project.domain.model.AspectRatio;
-import com.narrativex.backend.modules.project.domain.model.ImageQualityTier;
-import com.narrativex.backend.modules.project.domain.model.Project;
-import com.narrativex.backend.modules.project.domain.model.ProjectStatus;
-import com.narrativex.backend.modules.project.domain.model.StoryVersion;
+import com.narrativex.backend.modules.project.domain.aggregate.AspectRatio;
+import com.narrativex.backend.modules.project.domain.aggregate.ImageQualityTier;
+import com.narrativex.backend.modules.project.domain.aggregate.Project;
+import com.narrativex.backend.modules.project.domain.aggregate.ProjectStatus;
+import com.narrativex.backend.modules.project.domain.aggregate.StoryVersion;
 import org.junit.jupiter.api.Test;
 
 class ProjectAggregateTest {

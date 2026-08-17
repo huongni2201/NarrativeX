@@ -2,7 +2,7 @@ package com.narrativex.backend.modules.character.application.usecase;
 
 import com.narrativex.backend.modules.character.application.command.ChangeCharacterVersionStatusCommand;
 import com.narrativex.backend.modules.character.application.port.out.CharacterVersionRepository;
-import com.narrativex.backend.modules.character.domain.model.CharacterVersion;
+import com.narrativex.backend.modules.character.domain.aggregate.CharacterVersion;
 import com.narrativex.backend.shared.exception.ResourceNotFoundException;
 import com.narrativex.backend.shared.security.CurrentUserId;
 import org.springframework.stereotype.Service;

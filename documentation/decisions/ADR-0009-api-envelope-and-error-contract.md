@@ -12,6 +12,8 @@ The application had a mixed public contract: normal responses were unwrapped dom
 
 Normal NarrativeX REST JSON success responses use `ApiResponse<T>`. Database-backed collection endpoints use `ApiResponse<PaginationResponse<T>>` with real `Page<T>` pagination. Application and security errors use `ErrorResponse` with status, stable code, path, correlation ID when available, structured validation errors and timestamp. The frontend transport unwraps `ApiResponse.data`, returns `PaginationResponse<T>` to feature code, handles 204 without parsing a body, and defensively converts invalid/non-JSON failures to `HTTP_ERROR`.
 
+Spring MVC controllers return `ResponseEntity<ApiResponse<T>>` so HTTP status remains explicit at the controller boundary. Create routes use 201, queued asynchronous operations use 202, and successful reads use 200; `ApiResponse` remains the JSON body envelope rather than the status authority.
+
 SSE, job-event, binary/media, download, redirect, actuator and WebSocket payloads remain independent protocol contracts and are not wrapped.
 
 ## Consequences

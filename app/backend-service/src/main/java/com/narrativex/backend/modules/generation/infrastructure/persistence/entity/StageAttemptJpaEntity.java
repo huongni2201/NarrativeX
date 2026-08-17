@@ -1,6 +1,6 @@
 package com.narrativex.backend.modules.generation.infrastructure.persistence.entity;
 
-import com.narrativex.backend.modules.generation.domain.model.JobStatus;
+import com.narrativex.backend.modules.generation.domain.aggregate.JobStatus;
 import com.narrativex.backend.shared.infrastructure.persistence.JpaAuditedEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

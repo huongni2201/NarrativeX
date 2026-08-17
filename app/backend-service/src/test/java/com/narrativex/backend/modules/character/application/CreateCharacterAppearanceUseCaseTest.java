@@ -11,9 +11,9 @@ import com.narrativex.backend.modules.character.application.port.out.CharacterAp
 import com.narrativex.backend.modules.character.application.port.out.CharacterRepository;
 import com.narrativex.backend.modules.character.application.port.out.OutfitVersionRepository;
 import com.narrativex.backend.modules.character.application.usecase.CreateCharacterAppearanceUseCase;
-import com.narrativex.backend.modules.character.domain.model.Character;
-import com.narrativex.backend.modules.character.domain.model.CharacterStatus;
-import com.narrativex.backend.modules.character.domain.model.OutfitVersion;
+import com.narrativex.backend.modules.character.domain.aggregate.Character;
+import com.narrativex.backend.modules.character.domain.aggregate.CharacterStatus;
+import com.narrativex.backend.modules.character.domain.aggregate.OutfitVersion;
 import com.narrativex.backend.modules.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.shared.exception.ResourceNotFoundException;
 import com.narrativex.backend.shared.security.CurrentUserId;
@@ -111,6 +111,6 @@ class CreateCharacterAppearanceUseCaseTest {
 
     private static OutfitVersion outfit(Long id, Long characterId) {
         return OutfitVersion.rehydrate(id, 0L, characterId, 1, "Travel", null, "prompt",
-            com.narrativex.backend.modules.character.domain.model.OutfitVersionStatus.DRAFT);
+            com.narrativex.backend.modules.character.domain.aggregate.OutfitVersionStatus.DRAFT);
     }
 }

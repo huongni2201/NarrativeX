@@ -4,7 +4,7 @@ import com.narrativex.backend.modules.character.application.command.AssignCharac
 import com.narrativex.backend.modules.character.application.port.out.CharacterRepository;
 import com.narrativex.backend.modules.character.application.port.out.CharacterVersionRepository;
 import com.narrativex.backend.modules.character.application.port.out.ProjectCharacterRepository;
-import com.narrativex.backend.modules.character.domain.model.ProjectCharacter;
+import com.narrativex.backend.modules.character.domain.aggregate.ProjectCharacter;
 import com.narrativex.backend.modules.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.shared.exception.ResourceNotFoundException;
 import com.narrativex.backend.shared.security.CurrentUserId;

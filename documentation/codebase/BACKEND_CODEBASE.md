@@ -3,7 +3,7 @@
 ## Framework/runtime
 
 - Java runtime verified: `25.0.3`.
-- Spring Boot parent: `4.1.0`; Maven: `3.9.16` installed. `mvn` works after dependency download; the Windows wrapper fails before Maven with `Cannot index into a null array` in `mvnw.cmd:35`.
+- Spring Boot parent: `4.1.0`; Maven: `3.9.16` installed. Both `mvn` and the Windows wrapper work after dependency download; `mvnw.cmd` now handles non-junction `.m2` directories without indexing a null target.
 - Entry point: `com.narrativex.backend.NarrativeXBackendApplication`.
 - Build: Maven, single module `app/backend-service`.
 - Persistence: Spring Data JPA + PostgreSQL driver + Flyway; Redis starter and Actuator are configured.
@@ -12,23 +12,23 @@
 
 | Module | Responsibility | Incoming | Outgoing / DB ownership | Security ownership | Violations/gaps |
 |---|---|---|---|---|---|
-| `project.api` | HTTP DTOs and project/story routes | frontend/HTTP | project service | passes owner header to service | controller still exposes client owner header in local mode |
+| `project.api` | HTTP controllers, requests and responses for project/story routes | frontend/HTTP | project service | passes owner header to service | controller still exposes client owner header in local mode |
 | `project.application` | commands, inbound access port and project/story use cases | project controller; generation through `ProjectAccess` | outbound repository ports | resolves owner via `CurrentUserId` | no read/update story API; version allocation is parent-locked max-plus-one |
-| `project.domain.model` | framework-free Project aggregate root, StoryVersion entity and enums | project use cases | no direct database/framework dependency | owner field only | no workspace aggregate/membership |
-| `project.infrastructure.persistence` | JPA entities, Spring Data repositories, mappers and outbound adapters | application ports | PostgreSQL project/story tables | translates persistence state to domain | no separate query/read model yet |
+| `project.domain.aggregate` | framework-free Project aggregate root, StoryVersion entity and enums | project use cases | no direct database/framework dependency | owner field only | no workspace aggregate/membership |
+| `project.infrastructure.persistence.{entity,repository,mapper,adapter}` | JPA entities, Spring Data repositories, mappers and outbound adapters | application ports | PostgreSQL project/story tables | translates persistence state to domain | no separate query/read model yet |
 | `character.application` | Character commands, ownership checks, version lifecycle and ProjectCharacter assignment use cases | character API/future generation orchestration | character repository ports plus `ProjectAccess` | resolves user ownership through `CurrentUserId` | asset/consent gates remain future bounded contexts |
-| `character.domain.model` | Reusable Character identity, ProjectCharacter assignment, immutable CharacterVersion, CharacterAppearance and OutfitVersion | character use cases | no direct database/framework dependency | owner/workspace IDs and immutable lock state | no asset/consent aggregate yet |
-| `character.infrastructure.persistence` | JPA entities, Spring Data repositories, mappers and adapters for character identity and assignments | character application ports | PostgreSQL `characters`, `character_versions`, `project_characters`, appearance/outfit tables | scalar IDs preserve module isolation | no read model or generation context resolver yet |
-| `generation.api` | job query route and response mapping | frontend/HTTP | generation service | owner-filtered query | no SSE/cancel |
+| `character.domain.aggregate` | Reusable Character identity, ProjectCharacter assignment, immutable CharacterVersion, CharacterAppearance and OutfitVersion | character use cases | no direct database/framework dependency | owner/workspace IDs and immutable lock state | no asset/consent aggregate yet |
+| `character.infrastructure.persistence.{entity,repository,mapper,adapter}` | JPA entities, Spring Data repositories, mappers and adapters for character identity and assignments | character application ports | PostgreSQL `characters`, `character_versions`, `project_characters`, appearance/outfit tables | scalar IDs preserve module isolation | no read model or generation context resolver yet |
+| `generation.api` | job controller, response mapping and job query route | frontend/HTTP | generation service | owner-filtered query | no SSE/cancel |
 | `generation.application` | commands and enqueue/read job use cases | project/generation controllers | generation outbound repository ports and project inbound access port | owner-filtered project/job lookup | no reservation, idempotency, delivery, claim or worker handoff |
-| `generation.domain.model` | GenerationJob and OperationPlan aggregate roots plus stage/provider entities | generation use cases | no direct database/framework dependency | requested/billed user IDs | no worker claim state machine yet |
-| `generation.infrastructure.persistence` | JPA entities, repositories, mappers and adapters | application ports | PostgreSQL generation tables | scalar project IDs avoid cross-module ORM links | no durable delivery adapter yet |
-| `storyboard.domain.model` | framework-free chapter/scene/visual-beat entities | future storyboard use cases | no direct database/framework dependency | none at API surface | no repositories/controllers/use cases |
-| `storyboard.infrastructure.persistence` | JPA table mappings for chapter/scene/visual-beat | future storyboard ports | PostgreSQL tables | scalar parent IDs preserve module isolation | persistence adapter/use cases still pending |
+| `generation.domain.aggregate` | GenerationJob and OperationPlan aggregate roots plus stage/provider entities | generation use cases | no direct database/framework dependency | requested/billed user IDs | no worker claim state machine yet |
+| `generation.infrastructure.persistence.{entity,repository,mapper,adapter}` | JPA entities, repositories, mappers and adapters | application ports | PostgreSQL generation tables | scalar project IDs avoid cross-module ORM links | no durable delivery adapter yet |
+| `storyboard.domain.aggregate` | framework-free chapter/scene/visual-beat entities | future storyboard use cases | no direct database/framework dependency | none at API surface | no repositories/controllers/use cases |
+| `storyboard.infrastructure.persistence.entity` | JPA table mappings for chapter/scene/visual-beat | future storyboard ports | PostgreSQL tables | scalar parent IDs preserve module isolation | persistence adapter/use cases still pending |
 | `health.api` | provider configuration status | frontend/ops | no persistence/provider call | route follows global chain | response says configuration, not real health |
 | `shared.api` | `ApiResponse`/`PaginationResponse` success envelopes and `ErrorResponse` mapping | all current JSON controllers | none | correlation ID plus security writers | future resource routes still pending |
 
-No provider SDK, web, JPA or storage import is allowed in backend domain model packages. Persistence is now an infrastructure concern and provider work remains outside the domain/application core.
+No provider SDK, web, JPA or storage import is allowed in backend domain aggregate packages. Persistence is now an infrastructure concern and provider work remains outside the domain/application core.
 
 ## API inventory
 
@@ -39,9 +39,9 @@ No provider SDK, web, JPA or storage import is allowed in backend domain model p
 | POST | `/api/v1/projects/{projectId}/stories` | `ProjectController#createStory` | local open; OIDC chain authenticated | project owner check | `CreateStoryVersionRequest` | `ApiResponse<StoryVersionResponse>`; HTTP 201 | real JPA insert | write transaction | `api.createStoryVersion` | no story read/update; no If-Match |
 | POST | `/api/v1/projects/{projectId}/analysis-jobs` | `ProjectController#analyze` | local open; OIDC chain authenticated | project owner check | no body | `ApiResponse<JobResponse>`; HTTP 202 | `OperationPlan` + `GenerationJob` insert | write transaction | `api.enqueueAnalysis` | zero-cost plan; no reservation/queue/worker |
 | GET | `/api/v1/jobs/{jobId}` | `GenerationJobController#get` | local open; OIDC chain authenticated | job joins project owner | no body | `ApiResponse<JobResponse>` | real JPA query | read-only | future caller | no progress producer; no SSE |
-| GET | `/api/v1/provider-health` | `ProviderHealthController#get` | local open; OIDC chain authenticated | none | no body | `ApiResponse<Map<String,Object>>` | config only | none | no | no external call; not provider health |
+| GET | `/api/v1/provider-health` | `ProviderHealthController#get` | local open; OIDC chain authenticated | none | no body | `ResponseEntity<ApiResponse<ProviderHealthResponse>>` | config only | no | no external call; not provider health |
 
-Concrete route evidence is in `src/main/java/com/narrativex/backend/modules/project/api/ProjectController.java:18-55`, `.../generation/api/GenerationJobController.java:10-24`, and `.../health/api/ProviderHealthController.java:9-34`.
+Concrete route evidence is in `src/main/java/com/narrativex/backend/modules/project/api/controller/ProjectController.java`, `.../generation/api/controller/GenerationJobController.java`, and `.../health/api/controller/ProviderHealthController.java`.
 
 ## Security
 
@@ -71,8 +71,8 @@ Concrete route evidence is in `src/main/java/com/narrativex/backend/modules/proj
 - `GenerationJob` and `OperationPlan` are separate aggregate roots; generation stores `projectId` as an ID and crosses into project through `project.application.port.in.ProjectAccess`.
 - `Character` is reusable at user/workspace scope; `ProjectCharacter` is the project assignment. CharacterVersion is immutable after lock, while appearance/outfit changes stay in their own entities.
 - Character persistence stores asset and project references as scalar IDs. Character application services validate ownership through ports and never clone a Character into a Project.
-- Application code depends on `application.port.out` repository interfaces. Spring Data JPA implementations live under `infrastructure.persistence` and map between JPA entities and domain models.
-- API controllers map HTTP DTOs to application commands and invoke use cases; they do not know Spring Data repositories or JPA entities.
+- Application code depends on `application.port.out` repository interfaces. Spring Data JPA implementations live under `infrastructure.persistence.adapter` and map through `infrastructure.persistence.mapper` between JPA entities and domain aggregates.
+- API controllers under `api.controller` map HTTP DTOs from `api.request` to application commands and invoke use cases; they return `ResponseEntity<ApiResponse<T>>` and do not know Spring Data repositories or JPA entities.
 - `ArchitectureRulesTest` checks that domain models are framework-free, application does not import API/infrastructure, API does not import outbound ports/infrastructure, and controllers stay in API packages.
 - `ApiExceptionHandler` produces `ErrorResponse` with stable error codes, status, path and correlation ID. Validation exposes structured field violations; not-found, conflict, authorization, unauthenticated and unexpected paths are redacted.
 - `CorrelationIdFilter` accepts a bounded safe `X-Correlation-Id` or generates one and returns it in the response header.

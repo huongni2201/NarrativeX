@@ -1,6 +1,6 @@
 package com.narrativex.backend.modules.character.infrastructure.persistence.entity;
 
-import com.narrativex.backend.modules.character.domain.model.CharacterAppearance;
+import com.narrativex.backend.modules.character.domain.aggregate.CharacterAppearance;
 import com.narrativex.backend.shared.infrastructure.persistence.JpaAuditedEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

@@ -12,11 +12,12 @@ The first backend slice placed JPA entities and Spring Data repositories beside 
 
 Use a package-by-capability DDD structure inside the modular monolith:
 
-- `domain.model` contains framework-free aggregates/entities and business invariants.
+- `domain.aggregate` contains framework-free aggregates/entities and business invariants.
 - `application.command` contains use-case input commands; `application.usecase` owns orchestration and transaction boundaries.
 - `application.port.in` exposes intentional cross-module application contracts.
 - `application.port.out` abstracts persistence and other driven dependencies.
-- `infrastructure.persistence` contains JPA entities, Spring Data repositories, adapters and mappers.
+- `infrastructure.persistence.entity` contains JPA entities, `repository` contains Spring Data repositories,
+  `adapter` contains outbound port implementations, and `mapper` contains persistence/domain mappers.
 - Cross-module relationships use stable IDs and explicit application ports; generation does not import project persistence classes or map an ORM relationship to another module.
 - Ordered child versions are allocated inside the parent aggregate transaction. The parent row is acquired with a pessimistic write lock before reading the current maximum version and inserting the next version, so concurrent requests cannot allocate the same number; allocation never relies on `COUNT(*) + 1`.
 

@@ -1,8 +1,8 @@
 package com.narrativex.backend.modules.storyboard.infrastructure.persistence.entity;
 
-import com.narrativex.backend.modules.project.domain.model.AspectRatio;
-import com.narrativex.backend.modules.project.domain.model.ImageQualityTier;
-import com.narrativex.backend.modules.storyboard.domain.model.MotionAction;
+import com.narrativex.backend.modules.project.domain.aggregate.AspectRatio;
+import com.narrativex.backend.modules.project.domain.aggregate.ImageQualityTier;
+import com.narrativex.backend.modules.storyboard.domain.aggregate.MotionAction;
 import com.narrativex.backend.shared.infrastructure.persistence.JpaAuditedEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

@@ -1,7 +1,7 @@
 package com.narrativex.backend.modules.generation.infrastructure.persistence.entity;
 
-import com.narrativex.backend.modules.generation.domain.model.EstimateConfidence;
-import com.narrativex.backend.modules.generation.domain.model.OperationPlan;
+import com.narrativex.backend.modules.generation.domain.aggregate.EstimateConfidence;
+import com.narrativex.backend.modules.generation.domain.aggregate.OperationPlan;
 import com.narrativex.backend.shared.infrastructure.persistence.JpaAuditedEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

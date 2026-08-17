@@ -3,6 +3,7 @@ package com.narrativex.backend.shared.api;
 import com.narrativex.backend.shared.security.CurrentUserId;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -19,16 +20,16 @@ public class CurrentUserController {
     }
 
     @GetMapping("/me")
-    public ApiResponse<CurrentUserResponse> me(Authentication authentication) {
+    public ResponseEntity<ApiResponse<CurrentUserResponse>> me(Authentication authentication) {
         String id = currentUserId.resolve(null);
         if (authentication != null && authentication.getPrincipal() instanceof OidcUser oidcUser) {
-            return ApiResponse.success(new CurrentUserResponse(
+            return ResponseEntity.ok(ApiResponse.success(new CurrentUserResponse(
                 id,
                 firstNonBlank(oidcUser.getFullName(), oidcUser.getGivenName(), oidcUser.getEmail(), id),
                 oidcUser.getEmail(),
-                oidcUser.getPicture()));
+                oidcUser.getPicture())));
         }
-        return ApiResponse.success(new CurrentUserResponse(id, id, null, null));
+        return ResponseEntity.ok(ApiResponse.success(new CurrentUserResponse(id, id, null, null)));
     }
 
     private static String firstNonBlank(String... values) {

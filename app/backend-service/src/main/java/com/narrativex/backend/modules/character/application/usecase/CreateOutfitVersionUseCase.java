@@ -3,7 +3,7 @@ package com.narrativex.backend.modules.character.application.usecase;
 import com.narrativex.backend.modules.character.application.command.CreateOutfitVersionCommand;
 import com.narrativex.backend.modules.character.application.port.out.CharacterRepository;
 import com.narrativex.backend.modules.character.application.port.out.OutfitVersionRepository;
-import com.narrativex.backend.modules.character.domain.model.OutfitVersion;
+import com.narrativex.backend.modules.character.domain.aggregate.OutfitVersion;
 import com.narrativex.backend.shared.exception.ResourceNotFoundException;
 import com.narrativex.backend.shared.security.CurrentUserId;
 import org.springframework.stereotype.Service;

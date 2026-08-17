@@ -4,9 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import com.narrativex.backend.modules.project.domain.model.AspectRatio;
-import com.narrativex.backend.modules.project.domain.model.Project;
-import com.narrativex.backend.modules.project.domain.model.StoryVersion;
+import com.narrativex.backend.modules.project.domain.aggregate.AspectRatio;
+import com.narrativex.backend.modules.project.domain.aggregate.Project;
+import com.narrativex.backend.modules.project.domain.aggregate.StoryVersion;
 import com.narrativex.backend.shared.security.CurrentUserId;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;

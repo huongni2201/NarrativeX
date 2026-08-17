@@ -10,9 +10,9 @@ import com.narrativex.backend.modules.character.application.command.CreateCharac
 import com.narrativex.backend.modules.character.application.port.out.CharacterRepository;
 import com.narrativex.backend.modules.character.application.port.out.CharacterVersionRepository;
 import com.narrativex.backend.modules.character.application.usecase.CreateCharacterVersionUseCase;
-import com.narrativex.backend.modules.character.domain.model.Character;
-import com.narrativex.backend.modules.character.domain.model.CharacterStatus;
-import com.narrativex.backend.modules.character.domain.model.CharacterVersion;
+import com.narrativex.backend.modules.character.domain.aggregate.Character;
+import com.narrativex.backend.modules.character.domain.aggregate.CharacterStatus;
+import com.narrativex.backend.modules.character.domain.aggregate.CharacterVersion;
 import com.narrativex.backend.shared.security.CurrentUserId;
 import java.util.List;
 import java.util.Optional;

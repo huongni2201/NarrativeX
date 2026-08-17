@@ -3,13 +3,13 @@ package com.narrativex.backend.modules.character.domain;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import com.narrativex.backend.modules.character.domain.model.Character;
-import com.narrativex.backend.modules.character.domain.model.CharacterAppearance;
-import com.narrativex.backend.modules.character.domain.model.CharacterVersion;
-import com.narrativex.backend.modules.character.domain.model.CharacterVersionStatus;
-import com.narrativex.backend.modules.character.domain.model.OutfitVersion;
-import com.narrativex.backend.modules.character.domain.model.OutfitVersionStatus;
-import com.narrativex.backend.modules.character.domain.model.ProjectCharacter;
+import com.narrativex.backend.modules.character.domain.aggregate.Character;
+import com.narrativex.backend.modules.character.domain.aggregate.CharacterAppearance;
+import com.narrativex.backend.modules.character.domain.aggregate.CharacterVersion;
+import com.narrativex.backend.modules.character.domain.aggregate.CharacterVersionStatus;
+import com.narrativex.backend.modules.character.domain.aggregate.OutfitVersion;
+import com.narrativex.backend.modules.character.domain.aggregate.OutfitVersionStatus;
+import com.narrativex.backend.modules.character.domain.aggregate.ProjectCharacter;
 import org.junit.jupiter.api.Test;
 
 class CharacterAggregateTest {
@@ -17,7 +17,7 @@ class CharacterAggregateTest {
     @Test
     void oneCharacterIdentityCanBeAssignedToMultipleProjects() {
         Character character = Character.rehydrate(10L, 0L, "owner", null, "Mina", java.util.List.of("M"),
-            com.narrativex.backend.modules.character.domain.model.CharacterStatus.ACTIVE);
+            com.narrativex.backend.modules.character.domain.aggregate.CharacterStatus.ACTIVE);
 
         ProjectCharacter first = ProjectCharacter.assign(100L, character.getId(), "PROTAGONIST", 1,
             java.util.List.of(), null, java.util.List.of("main"), null);

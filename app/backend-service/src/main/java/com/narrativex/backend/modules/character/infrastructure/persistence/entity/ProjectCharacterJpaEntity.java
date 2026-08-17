@@ -1,7 +1,7 @@
 package com.narrativex.backend.modules.character.infrastructure.persistence.entity;
 
-import com.narrativex.backend.modules.character.domain.model.ProjectCharacter;
-import com.narrativex.backend.modules.character.domain.model.ProjectCharacterStatus;
+import com.narrativex.backend.modules.character.domain.aggregate.ProjectCharacter;
+import com.narrativex.backend.modules.character.domain.aggregate.ProjectCharacterStatus;
 import com.narrativex.backend.shared.infrastructure.persistence.JpaAuditedEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

@@ -1,7 +1,7 @@
 package com.narrativex.backend.modules.character.infrastructure.persistence.repository;
 
 import com.narrativex.backend.modules.character.infrastructure.persistence.entity.CharacterJpaEntity;
-import com.narrativex.backend.modules.character.domain.model.CharacterStatus;
+import com.narrativex.backend.modules.character.domain.aggregate.CharacterStatus;
 import jakarta.persistence.LockModeType;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;

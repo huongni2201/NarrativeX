@@ -2,7 +2,7 @@ package com.narrativex.backend.modules.character.application.usecase;
 
 import com.narrativex.backend.modules.character.application.command.CreateCharacterCommand;
 import com.narrativex.backend.modules.character.application.port.out.CharacterRepository;
-import com.narrativex.backend.modules.character.domain.model.Character;
+import com.narrativex.backend.modules.character.domain.aggregate.Character;
 import com.narrativex.backend.shared.security.CurrentUserId;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

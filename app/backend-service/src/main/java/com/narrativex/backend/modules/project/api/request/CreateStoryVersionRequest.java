@@ -1,4 +1,4 @@
-package com.narrativex.backend.modules.project.api.dto.request;
+package com.narrativex.backend.modules.project.api.request;
 
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;

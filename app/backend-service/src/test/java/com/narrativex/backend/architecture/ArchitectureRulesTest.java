@@ -23,9 +23,10 @@ class ArchitectureRulesTest {
 
     @Test
     void rulesDetectARepresentativeInvalidDependency() {
-        assertTrue(isForbiddenApplicationImport("import com.narrativex.backend.modules.project.api.CreateProjectRequest;"));
         assertTrue(isForbiddenApplicationImport(
-            "import com.narrativex.backend.modules.project.infrastructure.persistence.ProjectPersistenceAdapter;"));
+            "import com.narrativex.backend.modules.project.api.request.CreateProjectRequest;"));
+        assertTrue(isForbiddenApplicationImport(
+            "import com.narrativex.backend.modules.project.infrastructure.persistence.adapter.ProjectPersistenceAdapter;"));
         assertTrue(isForbiddenApiImport(
             "import com.narrativex.backend.modules.project.application.port.out.ProjectRepository;"));
         assertTrue(isForbiddenDomainImport("import jakarta.persistence.Entity;"));

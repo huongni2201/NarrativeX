@@ -1,6 +1,8 @@
 package com.narrativex.backend.shared.api;
 
+import com.narrativex.backend.shared.api.ApiResponse;
 import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -11,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class CsrfTokenController {
 
     @GetMapping("/csrf")
-    public CsrfToken csrf(CsrfToken token) {
-        return token;
+    public ResponseEntity<ApiResponse<CsrfToken>> csrf(CsrfToken token) {
+        return ResponseEntity.ok(ApiResponse.success(token));
     }
 }
