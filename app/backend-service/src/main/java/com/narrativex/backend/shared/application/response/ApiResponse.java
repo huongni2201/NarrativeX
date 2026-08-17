@@ -1,4 +1,4 @@
-package com.narrativex.backend.shared.api;
+package com.narrativex.backend.shared.application.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.Instant;

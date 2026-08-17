@@ -1,6 +1,9 @@
-package com.narrativex.backend.shared.api;
+package com.narrativex.backend.modules.auth.infrastructure.security;
 
-import tools.jackson.databind.ObjectMapper;
+import com.narrativex.backend.shared.api.ApiErrorCode;
+import com.narrativex.backend.shared.api.ApiErrorWriter;
+import com.narrativex.backend.shared.api.CorrelationIdFilter;
+import com.narrativex.backend.shared.api.ErrorResponse;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -9,10 +12,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.ObjectMapper;
 
 @Component
 public class ApiAccessDeniedHandler implements AccessDeniedHandler {
-
     private final ObjectMapper objectMapper;
 
     public ApiAccessDeniedHandler(ObjectMapper objectMapper) {
@@ -24,7 +27,6 @@ public class ApiAccessDeniedHandler implements AccessDeniedHandler {
                        AccessDeniedException exception) throws IOException, ServletException {
         ApiErrorWriter.write(response, objectMapper, HttpStatus.FORBIDDEN,
             ErrorResponse.of(HttpStatus.FORBIDDEN.value(), ApiErrorCode.FORBIDDEN.name(),
-                "Access denied.", request.getRequestURI(),
-                CorrelationIdFilter.correlationId(request)));
+                "Access denied.", request.getRequestURI(), CorrelationIdFilter.correlationId(request)));
     }
 }

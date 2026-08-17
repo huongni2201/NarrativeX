@@ -1,6 +1,9 @@
-package com.narrativex.backend.shared.api;
+package com.narrativex.backend.modules.auth.infrastructure.security;
 
-import tools.jackson.databind.ObjectMapper;
+import com.narrativex.backend.shared.api.ApiErrorCode;
+import com.narrativex.backend.shared.api.ApiErrorWriter;
+import com.narrativex.backend.shared.api.CorrelationIdFilter;
+import com.narrativex.backend.shared.api.ErrorResponse;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -9,10 +12,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.ObjectMapper;
 
 @Component
 public class ApiAuthenticationEntryPoint implements AuthenticationEntryPoint {
-
     private final ObjectMapper objectMapper;
 
     public ApiAuthenticationEntryPoint(ObjectMapper objectMapper) {
@@ -24,7 +27,6 @@ public class ApiAuthenticationEntryPoint implements AuthenticationEntryPoint {
                          AuthenticationException exception) throws IOException, ServletException {
         ApiErrorWriter.write(response, objectMapper, HttpStatus.UNAUTHORIZED,
             ErrorResponse.of(HttpStatus.UNAUTHORIZED.value(), ApiErrorCode.UNAUTHORIZED.name(),
-                "Authentication is required.", request.getRequestURI(),
-                CorrelationIdFilter.correlationId(request)));
+                "Authentication is required.", request.getRequestURI(), CorrelationIdFilter.correlationId(request)));
     }
 }
