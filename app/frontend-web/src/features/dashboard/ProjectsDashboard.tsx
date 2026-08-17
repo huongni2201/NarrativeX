@@ -30,7 +30,7 @@ export const ProjectsDashboard: React.FC = () => {
 
   const projectsQuery = useQuery({
     queryKey: queryKeys.projectsPage(PROJECT_PAGE, PROJECT_PAGE_SIZE),
-    queryFn: () => api.listProjects({ page: PROJECT_PAGE, size: PROJECT_PAGE_SIZE }),
+    queryFn: () => api.listProjects({ limit: PROJECT_PAGE_SIZE }),
   });
   const projects = projectsQuery.data?.content ?? [];
 

@@ -4,35 +4,40 @@ import type {
   ApiStoryVersion,
   CreateProjectApiInput,
   CreateStoryVersionApiInput,
-  PaginationResponse,
+  CursorPage,
 } from "@/types/api";
 import {
   isApiGenerationJob,
   isApiProject,
   isApiStoryVersion,
-  isPaginationResponse,
+  isCursorPage,
 } from "@/types/api";
 import { apiRequest } from "@/shared/api/client";
 
-const DEFAULT_PROJECT_PAGE = 0;
 const DEFAULT_PROJECT_PAGE_SIZE = 20;
 
 export interface ProjectListParams {
-  page?: number;
-  size?: number;
+  cursor?: string;
+  limit?: number;
 }
 
-function projectListPath({ page = DEFAULT_PROJECT_PAGE, size = DEFAULT_PROJECT_PAGE_SIZE }: ProjectListParams = {}) {
-  const params = new URLSearchParams({ page: String(page), size: String(size) });
+function projectListPath({
+  cursor,
+  limit = DEFAULT_PROJECT_PAGE_SIZE,
+}: ProjectListParams = {}): string {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (cursor) {
+    params.set("cursor", cursor);
+  }
   return `/api/v1/projects?${params.toString()}`;
 }
 
 export const projectsApi = {
   list: (params: ProjectListParams = {}) =>
-    apiRequest<PaginationResponse<ApiProject>>(
+    apiRequest<CursorPage<ApiProject>>(
       projectListPath(params),
       {},
-      (value): value is PaginationResponse<ApiProject> => isPaginationResponse(value, isApiProject),
+      (value): value is CursorPage<ApiProject> => isCursorPage(value, isApiProject),
     ),
   create: (input: CreateProjectApiInput) =>
     apiRequest<ApiProject>("/api/v1/projects", { method: "POST", json: input }, isApiProject),
