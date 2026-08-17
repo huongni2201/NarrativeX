@@ -67,16 +67,11 @@ export interface ApiResponse<T> {
 
 export type ApiDataGuard<T> = (value: unknown) => value is T;
 
-export interface PaginationResponse<T> {
+export interface CursorPage<T> {
   content: T[];
-  page: number;
-  size: number;
-  totalElements: number;
-  totalPages: number;
-  first: boolean;
-  last: boolean;
+  nextCursor: string | null;
+  limit: number;
   hasNext: boolean;
-  hasPrevious: boolean;
 }
 
 export interface ApiFieldError {
@@ -130,25 +125,17 @@ export function isApiResponse<T = unknown>(
   return dataGuard ? dataGuard(value.data) : true;
 }
 
-export function isPaginationResponse<T = unknown>(
+export function isCursorPage<T = unknown>(
   value: unknown,
   itemGuard?: ApiDataGuard<T>,
-): value is PaginationResponse<T> {
+): value is CursorPage<T> {
   if (
     !isRecord(value) ||
     !Array.isArray(value.content) ||
-    !isNumber(value.page) ||
-    !Number.isInteger(value.page) ||
-    !isNumber(value.size) ||
-    !Number.isInteger(value.size) ||
-    !isNumber(value.totalElements) ||
-    !Number.isInteger(value.totalElements) ||
-    !isNumber(value.totalPages) ||
-    !Number.isInteger(value.totalPages) ||
-    !isBoolean(value.first) ||
-    !isBoolean(value.last) ||
-    !isBoolean(value.hasNext) ||
-    !isBoolean(value.hasPrevious)
+    !(value.nextCursor === null || isString(value.nextCursor)) ||
+    !isNumber(value.limit) ||
+    !Number.isInteger(value.limit) ||
+    !isBoolean(value.hasNext)
   ) {
     return false;
   }
