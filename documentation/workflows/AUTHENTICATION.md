@@ -2,7 +2,33 @@
 
 ## Purpose
 
-Authenticate a user with Google OIDC, establish a server-managed session, and make ownership/role and abuse checks available to every project-scoped operation. Authentication is a prerequisite for paid work; it is not a substitute for entitlement, rights, consent or moderation.
+Authenticate a user with Google OIDC, establish a server-managed session, and expose caller identity to business modules through an application port. Authentication remains a prerequisite for paid work; it is not a substitute for entitlement, rights, consent or moderation.
+
+## Module boundary
+
+```text
+modules/auth
+  api/controller
+    CurrentUserController
+    CsrfTokenController
+  application
+    port/in/CurrentUserId
+    port/in/CurrentUserProfile
+    query/*
+    response/*
+    usecase/*
+  infrastructure
+    configuration/SecurityConfig
+    configuration/NonLocalSecurityConfigurationGuard
+    security/SecurityContextCurrentUser
+    security/ApiAuthenticationEntryPoint
+    security/ApiAccessDeniedHandler
+
+project / character / generation
+  -> depend on auth.application.port.in.CurrentUserId only
+```
+
+This boundary is intentionally service-extraction friendly: business modules do not read `SecurityContextHolder`, OIDC principals or Spring Security configuration directly.
 
 ## Flow
 
@@ -10,32 +36,30 @@ Authenticate a user with Google OIDC, establish a server-managed session, and ma
 Browser
   -> GET /oauth2/authorization/google
   -> Google OIDC callback to Spring Security
-  -> upsert User + ExternalIdentity in PostgreSQL
-  -> create Secure/HttpOnly/SameSite server session
-  -> redirect to app
+  -> server session
   -> GET /api/auth/me
-  -> project ownership/role + account/IP abuse checks on every scoped command
+  -> CurrentUserController maps HTTP call to CurrentUserQuery
+  -> GetCurrentUserUseCase
+  -> CurrentUserProfile port
+  -> SecurityContextCurrentUser adapter
+
+Browser mutation
+  -> GET /api/v1/auth/csrf
+  -> CsrfTokenController maps CsrfToken to CsrfTokenQuery
+  -> GetCsrfTokenUseCase
+  -> ApiResponse<CsrfTokenResponse>
 ```
 
 ## State and security rules
 
-1. Google identity claims are mapped to a local user and `external_identities` row. Provider subject, not a mutable display name/email alone, is the stable identity key.
-2. The session cookie is server-managed, Secure/HttpOnly/SameSite and environment-scoped. Provider tokens and secrets never enter local storage, frontend bundles, logs or worker payloads.
-3. Every project-scoped endpoint loads the current user and checks owner/role. A guessed project ID must not reveal metadata, signed URLs, job status, notifications or cost history.
-4. Account/session/IP/route/resource-class abuse limiting runs before entitlement/quota and before creating a paid `OperationPlan`. Provider limiters/circuit breakers remain a separate outbound layer.
-5. Logout invalidates the server session. Reconnect to SSE re-authenticates and only reads authorized events.
-6. Authentication events, authorization failures, admin overrides and support actions are auditable without logging OIDC tokens or sensitive identity data.
-7. `local` is the only profile allowed to use the developer identity fallback. `staging` and production profiles fail during startup unless OIDC is enabled.
-8. Credentialed browser mutations include the session-bound CSRF header obtained from `GET /api/v1/auth/csrf`; CORS uses an explicit configured origin allowlist.
-9. OIDC callback success and logout redirect to the configured `NARRATIVEX_FRONTEND_BASE_URL`; this must be the public FE origin when FE and backend use separate hosts.
-
-## Error and retry behavior
-
-- OIDC denial or invalid callback: no local session; return an actionable login error without creating a project/job.
-- Unknown/disabled user: deny project access and signed URLs; do not retry provider work.
-- Abuse throttle: return a structured retry-after response; do not turn it into a generic provider error or let the frontend spam retries.
-- Session expiry during an operation: existing durable work may finish according to policy, but new user commands require re-authentication and ownership checks.
+1. Provider subject, not mutable display name/email alone, is the stable external identity key when identity persistence is implemented.
+2. Provider tokens and secrets never enter frontend storage, logs or worker payloads.
+3. Every project-scoped command/query resolves its owner/actor through the auth application port.
+4. `local`/`test` may use the configured developer identity fallback; staging/production fail closed when OIDC is disabled.
+5. Credentialed browser mutations include the session-bound CSRF header; CORS uses the configured explicit origin allowlist.
+6. Logout invalidates the server session; durable work follows its own reconciliation policy.
+7. Authorization failures use the shared error contract while Spring Security-specific handlers remain inside auth infrastructure.
 
 ## Current repository gap
 
-The frontend now bootstraps `GET /api/auth/me`, starts Google OIDC through `/oauth2/authorization/google`, calls Spring Security `POST /logout`, and treats any API `401` as session expiry. The remaining work is the full Google identity-to-PostgreSQL actor mapping, workspace membership and production session lifecycle. The profile guard, credentialed CORS and CSRF transport are now in place.
+The auth module now owns the Spring Security/OIDC/CSRF boundary and exposes application ports to other modules. Remaining work is durable User/ExternalIdentity persistence, workspace membership/roles, production session lifecycle and abuse/entitlement integration.

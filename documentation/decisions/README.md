@@ -12,5 +12,7 @@ This directory records decisions that affect more than one module or change a pr
 - [ADR-0006: Chapter-first storyboard routes](./ADR-0006-chapter-first-storyboard-routes.md)
 - [ADR-0007: Fail-closed OIDC profiles and browser CSRF protection](./ADR-0007-fail-closed-oidc-and-browser-csrf.md)
 - [ADR-0008: Runtime API mode and fixture isolation](./ADR-0008-runtime-api-mode-and-fixture-isolation.md)
+- [ADR-0009: Unified JSON API envelope and error contract](./ADR-0009-api-envelope-and-error-contract.md)
+- [ADR-0010: Application command/query boundaries and auth module isolation](./ADR-0010-application-boundaries-and-auth-module.md)
 
-Use a new sequential ADR for a new cross-cutting decision. Do not rewrite a historical decision; supersede it with a new ADR.
+Use a new sequential ADR for a new cross-cutting decision. Do not rewrite a historical decision; supersede or amend it with a new ADR.
