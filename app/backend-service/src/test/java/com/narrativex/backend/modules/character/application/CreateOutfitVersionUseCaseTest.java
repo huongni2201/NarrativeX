@@ -6,6 +6,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.narrativex.backend.modules.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.modules.character.application.command.CreateOutfitVersionCommand;
 import com.narrativex.backend.modules.character.application.port.out.CharacterRepository;
 import com.narrativex.backend.modules.character.application.port.out.OutfitVersionRepository;
@@ -13,7 +14,6 @@ import com.narrativex.backend.modules.character.application.usecase.CreateOutfit
 import com.narrativex.backend.modules.character.domain.aggregate.Character;
 import com.narrativex.backend.modules.character.domain.aggregate.CharacterStatus;
 import com.narrativex.backend.modules.character.domain.aggregate.OutfitVersion;
-import com.narrativex.backend.shared.security.CurrentUserId;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -23,26 +23,21 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class CreateOutfitVersionUseCaseTest {
-    @Mock
-    private CharacterRepository characterRepository;
-    @Mock
-    private OutfitVersionRepository outfitVersionRepository;
+    @Mock private CharacterRepository characterRepository;
+    @Mock private OutfitVersionRepository outfitVersionRepository;
 
     @Test
     void locksCharacterBeforeAllocatingNextVersion() {
-        when(characterRepository.findOwnedByIdForUpdate(10L, "owner"))
-            .thenReturn(Optional.of(character()));
+        when(characterRepository.findOwnedByIdForUpdate(10L, "owner")).thenReturn(Optional.of(character()));
         when(outfitVersionRepository.findMaxVersionNumberByCharacterId(10L)).thenReturn(3);
-        when(outfitVersionRepository.save(any(OutfitVersion.class)))
-            .thenAnswer(invocation -> invocation.getArgument(0));
-
+        when(outfitVersionRepository.save(any(OutfitVersion.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        CurrentUserId currentUserId = requested -> requested == null ? "local-dev-user" : requested;
         CreateOutfitVersionUseCase useCase = new CreateOutfitVersionUseCase(characterRepository,
-            outfitVersionRepository, new CurrentUserId(false, "local-dev-user"));
+            outfitVersionRepository, currentUserId);
 
-        OutfitVersion created = useCase.execute(new CreateOutfitVersionCommand(10L, "Travel", null,
-            "prompt"), "owner");
+        var response = useCase.execute(new CreateOutfitVersionCommand(10L, "Travel", null, "prompt", "owner"));
 
-        assertEquals(4, created.getVersionNumber());
+        assertEquals(4, response.data().getVersionNumber());
         verify(characterRepository).findOwnedByIdForUpdate(10L, "owner");
         verify(characterRepository, never()).findOwnedById(10L, "owner");
     }

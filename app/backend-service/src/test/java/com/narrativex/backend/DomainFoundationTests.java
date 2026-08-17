@@ -4,10 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.narrativex.backend.modules.auth.infrastructure.security.SecurityContextCurrentUser;
 import com.narrativex.backend.modules.project.domain.aggregate.AspectRatio;
-import com.narrativex.backend.modules.project.domain.aggregate.Project;
 import com.narrativex.backend.modules.project.domain.aggregate.StoryVersion;
-import com.narrativex.backend.shared.security.CurrentUserId;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.TestingAuthenticationToken;
@@ -30,7 +29,6 @@ class DomainFoundationTests {
     void storyVersionDoesNotInventRightsAttestation() {
         StoryVersion story = StoryVersion.create(1L, 1, "text", "en-US", false,
             "rights-v1.7", "USER_ATTESTED_RIGHTS_OR_LICENSE", "owner");
-
         assertFalse(story.isRightsAttested());
     }
 
@@ -38,7 +36,6 @@ class DomainFoundationTests {
     void oidcIdentityWinsOverClientHeader() {
         SecurityContextHolder.getContext().setAuthentication(
             new TestingAuthenticationToken("oidc-subject", "credentials", "ROLE_USER"));
-
-        assertEquals("oidc-subject", new CurrentUserId(true, "local-user").resolve("attacker"));
+        assertEquals("oidc-subject", new SecurityContextCurrentUser(true, "local-user").resolve("attacker"));
     }
 }

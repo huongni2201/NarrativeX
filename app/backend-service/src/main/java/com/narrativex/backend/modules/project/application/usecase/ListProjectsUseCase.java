@@ -1,16 +1,16 @@
 package com.narrativex.backend.modules.project.application.usecase;
 
+import com.narrativex.backend.modules.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.modules.project.application.port.out.ProjectRepository;
-import com.narrativex.backend.modules.project.domain.aggregate.Project;
-import com.narrativex.backend.shared.security.CurrentUserId;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+import com.narrativex.backend.modules.project.application.query.ProjectListQuery;
+import com.narrativex.backend.modules.project.application.response.ProjectResponse;
+import com.narrativex.backend.shared.application.response.ApiResponse;
+import com.narrativex.backend.shared.application.response.PaginationResponse;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ListProjectsUseCase {
-
     private final ProjectRepository projectRepository;
     private final CurrentUserId currentUserId;
 
@@ -20,7 +20,8 @@ public class ListProjectsUseCase {
     }
 
     @Transactional(readOnly = true)
-    public Page<Project> execute(String ownerId, Pageable pageable) {
-        return projectRepository.findActiveByOwnerId(currentUserId.resolve(ownerId), pageable);
+    public ApiResponse<PaginationResponse<ProjectResponse>> execute(ProjectListQuery query) {
+        var projects = projectRepository.findActiveByOwnerId(currentUserId.resolve(query.ownerId()), query.pageable());
+        return ApiResponse.success("Projects retrieved successfully", PaginationResponse.from(projects, ProjectResponse::from));
     }
 }

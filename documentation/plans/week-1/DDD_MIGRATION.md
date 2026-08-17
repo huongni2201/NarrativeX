@@ -2,22 +2,28 @@
 
 ## Scope
 
-This migration corrects the backend structure for the active `project`, `generation` and `storyboard` slices without changing public routes, Flyway schema ownership, PostgreSQL authority or provider behavior.
+This migration corrects backend module/application boundaries without changing public routes, Flyway schema ownership, PostgreSQL authority or provider behavior.
 
 ## Completed
 
-- `Project` is a framework-free aggregate root. `StoryVersion` is an entity created through the Project aggregate boundary.
-- `GenerationJob` and `OperationPlan` are framework-free aggregate roots. Generation references projects by stable ID and uses the project application access port for ownership checks.
-- Commands live in `application/command` and orchestration lives in `application/usecase`.
-- Persistence contracts live in `application/port/out`; cross-module access uses `application/port/in`.
-- JPA entities, Spring Data repositories, mappers and adapters live under `infrastructure/persistence`.
-- Storyboard domain classes are framework-free; their current JPA mappings are infrastructure-only until storyboard use cases are implemented.
-- Architecture tests reject JPA/framework imports from domain models and reject API/application dependencies on infrastructure persistence.
+- `AggregateRoot` and `DomainEntity` are independent framework-free identity bases. Aggregate roots extend `AggregateRoot`; non-root entities extend `DomainEntity`.
+- `Project` is an aggregate root; `StoryVersion` is an entity created through the Project boundary.
+- `GenerationJob` and `OperationPlan` are aggregate roots. Generation references projects by stable ID through the project application access port.
+- Commands live in `application/command`; queries live in `application/query` and use `*Command` / `*Query` naming.
+- Controller request/path/header data is mapped into a command or query before application execution.
+- External-facing use cases return `ApiResponse<T>`. Success envelopes and pagination models live in `shared/application/response`.
+- Feature response DTOs used by application logic live in `application/response`, not `api/response`.
+- `ProjectAccessService` implements the internal cross-module `ProjectAccess` port and intentionally returns domain objects instead of HTTP envelopes.
+- Authentication/security code is isolated under `modules/auth`; business modules depend on auth application ports rather than Spring Security implementation classes.
+- Provider health now has query/use-case/port/infrastructure boundaries instead of configuration logic inside its controller.
+- Character use cases follow the same command + `ApiResponse` convention; owner/actor request context is carried by the command.
+- Persistence contracts remain in `application/port/out`; JPA entities, repositories, mappers and adapters remain under `infrastructure/persistence`.
+- Architecture tests enforce dependency direction, command/query placement, use-case envelopes and the aggregate-root inheritance rule.
 
 ## Deliberately deferred
 
 - Storyboard commands, repositories and HTTP use cases.
-- Workspace membership and production authentication enforcement.
+- Workspace membership and full production identity persistence.
 - PostgreSQL migration/startup validation and Testcontainers coverage.
 - Durable queue delivery, worker lease/reconciliation and provider adapters.
 
@@ -26,5 +32,6 @@ This migration corrects the backend structure for the active `project`, `generat
 - Existing table/column names, identity keys, row-version columns and Flyway ownership remain unchanged.
 - Story content limits, rights-attestation fields, owner filtering and the queue-only generation contract remain in place.
 - No external provider call is introduced inside a transaction.
+- Existing REST routes and success-envelope JSON shape remain stable.
 
-See [ADR-0004](../../decisions/ADR-0004-ddd-aggregates-and-persistence-adapters.md) for the cross-cutting structure decision.
+See [ADR-0010](../../decisions/ADR-0010-application-boundaries-and-auth-module.md) for the current cross-cutting boundary rules.
