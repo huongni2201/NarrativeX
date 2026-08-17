@@ -3,6 +3,7 @@ package com.narrativex.backend.modules.project.api;
 import com.narrativex.backend.modules.generation.api.JobResponse;
 import com.narrativex.backend.modules.generation.application.command.EnqueueStoryAnalysisCommand;
 import com.narrativex.backend.modules.generation.application.usecase.EnqueueStoryAnalysisUseCase;
+import com.narrativex.backend.modules.project.api.CreateProjectRequest;
 import com.narrativex.backend.modules.project.application.command.CreateProjectCommand;
 import com.narrativex.backend.modules.project.application.command.CreateStoryVersionCommand;
 import com.narrativex.backend.modules.project.application.usecase.CreateProjectUseCase;
@@ -30,8 +31,8 @@ public class ProjectController {
     private final EnqueueStoryAnalysisUseCase enqueueStoryAnalysisUseCase;
 
     public ProjectController(ListProjectsUseCase listProjectsUseCase, CreateProjectUseCase createProjectUseCase,
-                             CreateStoryVersionUseCase createStoryVersionUseCase,
-                             EnqueueStoryAnalysisUseCase enqueueStoryAnalysisUseCase) {
+            CreateStoryVersionUseCase createStoryVersionUseCase,
+            EnqueueStoryAnalysisUseCase enqueueStoryAnalysisUseCase) {
         this.listProjectsUseCase = listProjectsUseCase;
         this.createProjectUseCase = createProjectUseCase;
         this.createStoryVersionUseCase = createStoryVersionUseCase;
@@ -46,27 +47,27 @@ public class ProjectController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ProjectResponse create(@Valid @RequestBody CreateProjectRequest request,
-                                  @RequestHeader(name = "X-User-Id", required = false) String ownerId) {
+            @RequestHeader(name = "X-User-Id", required = false) String ownerId) {
         return ProjectResponse.from(createProjectUseCase.execute(new CreateProjectCommand(
-            request.name(), request.sourceLanguage(), request.narrationLanguage(), request.metadataLanguage(),
-            request.imageAspectRatio(), request.imageQualityTier()), ownerId));
+                request.name(), request.sourceLanguage(), request.narrationLanguage(), request.metadataLanguage(),
+                request.imageAspectRatio(), request.imageQualityTier()), ownerId));
     }
 
     @PostMapping("/{projectId}/stories")
     @ResponseStatus(HttpStatus.CREATED)
     public StoryVersionResponse createStory(@PathVariable Long projectId,
-                                            @Valid @RequestBody CreateStoryVersionRequest request,
-                                            @RequestHeader(name = "X-User-Id", required = false) String ownerId) {
+            @Valid @RequestBody CreateStoryVersionRequest request,
+            @RequestHeader(name = "X-User-Id", required = false) String ownerId) {
         return StoryVersionResponse.from(createStoryVersionUseCase.execute(projectId, new CreateStoryVersionCommand(
-            request.content(), request.sourceLanguage(), request.rightsAttestationAccepted(),
-            request.rightsPolicyVersion(), request.rightsBasis()), ownerId));
+                request.content(), request.sourceLanguage(), request.rightsAttestationAccepted(),
+                request.rightsPolicyVersion(), request.rightsBasis()), ownerId));
     }
 
     @PostMapping("/{projectId}/analysis-jobs")
     @ResponseStatus(HttpStatus.ACCEPTED)
     public JobResponse analyze(@PathVariable Long projectId,
-                               @RequestHeader(name = "X-User-Id", required = false) String ownerId) {
+            @RequestHeader(name = "X-User-Id", required = false) String ownerId) {
         return JobResponse.from(enqueueStoryAnalysisUseCase.execute(
-            new EnqueueStoryAnalysisCommand(projectId, ownerId)));
+                new EnqueueStoryAnalysisCommand(projectId, ownerId)));
     }
 }

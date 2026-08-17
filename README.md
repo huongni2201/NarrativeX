@@ -11,13 +11,26 @@ NarrativeX is an image-first AI Story Video Studio for turning flexible-length s
 | `app/frontend-web` | Next.js/TypeScript storyboard, review, cost and notification UI |
 | `documentation` | Product, domain, architecture, workflows, codebase notes and ADRs |
 | `contracts` | Versioned backend ↔ worker payload contracts |
-| `docker-compose.yml` | Local PostgreSQL, Redis and MinIO dependencies |
+| `docker-compose.yml` | Local PostgreSQL 18, Redis 8, MinIO and backend service |
 
-## Start local dependencies
+## Start the local stack
 
 ```powershell
-docker compose up -d
+Copy-Item .env.example .env
+docker compose up -d --build
 ```
+
+This starts PostgreSQL 18, Redis 8, MinIO and the Spring Boot backend. The backend is available at `http://localhost:8080`; Actuator health is at `http://localhost:8080/actuator/health`.
+
+To start only infrastructure dependencies:
+
+```powershell
+docker compose up -d postgres redis minio
+```
+
+The backend container uses `postgres` and `redis` as service hostnames. Host-run backend development should continue using `localhost` from `app/backend-service/.env.example`.
+
+PostgreSQL 18 uses a new data directory layout. Do not point it directly at an existing PostgreSQL 16 data volume; migrate retained data with a tested dump/restore or PostgreSQL upgrade procedure first.
 
 Then follow the module READMEs and `CONTRIBUTING.md` for backend, worker, and frontend checks.
 

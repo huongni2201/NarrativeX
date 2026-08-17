@@ -14,7 +14,7 @@ app/backend-service/   Spring Boot modular monolith: API, DDD modules, persisten
 app/frontend-web/      Next.js App Router / React / TypeScript studio UI
 app/ai-worker/         Python 3.12 worker foundation and provider ports
 contracts/             versioned backend-to-worker JSON schema
-docker-compose.yml     local PostgreSQL, Redis and MinIO dependencies only
+docker-compose.yml     local PostgreSQL 18, Redis 8, MinIO and backend service
 documentation/         architecture, domain, workflows, plans, ADRs and audit outputs
 infrastructure/        local/production guardrail notes; no deployment manifests
 scripts/               README only; no executable verification script
@@ -25,8 +25,8 @@ scripts/               README only; no executable verification script
 ```mermaid
 flowchart LR
   FE[Next.js studio UI] -->|HTTP JSON, credentials include| BE[Spring Boot API]
-  BE --> PG[(PostgreSQL 16)]
-  BE -. configured, no current call sites .-> R[(Redis 7)]
+  BE --> PG[(PostgreSQL 18)]
+  BE -. configured, no current call sites .-> R[(Redis 8)]
   BE -. target binary boundary .-> S[(MinIO / S3)]
   BE -. target delivery contract .-> W[Python worker]
   W -. target provider ports .-> P[External AI/media providers]

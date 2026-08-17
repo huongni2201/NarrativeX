@@ -1,4 +1,4 @@
-package com.narrativex.backend.shared.error;
+package com.narrativex.backend.shared.exception;
 
 public class ResourceConflictException extends RuntimeException {
 

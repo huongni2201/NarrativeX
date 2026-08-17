@@ -5,8 +5,6 @@ import { SAMPLE_STORY_PRESET } from "@/lib/mock-data";
 interface StudioStore {
   // Navigation & Screen View
   currentScreen: ScreenType;
-  authMode: "login" | "register";
-  isLoggedIn: boolean;
   selectedProjectId: string | null;
   selectedCharacterId: string | null;
 
@@ -37,9 +35,6 @@ interface StudioStore {
 
   // Actions
   setScreen: (screen: ScreenType) => void;
-  setAuthMode: (mode: "login" | "register") => void;
-  login: () => void;
-  logout: () => void;
 
   // Dashboard Actions
   setProjectFilterTab: (tab: "all" | "in_progress" | "completed") => void;
@@ -72,8 +67,6 @@ interface StudioStore {
 
 export const useStudioStore = create<StudioStore>((set) => ({
   currentScreen: "overview",
-  authMode: "login",
-  isLoggedIn: true,
   selectedProjectId: null,
   selectedCharacterId: null,
 
@@ -106,9 +99,6 @@ export const useStudioStore = create<StudioStore>((set) => ({
   isWizardOpen: false,
 
   setScreen: (screen) => set({ currentScreen: screen }),
-  setAuthMode: (mode) => set({ authMode: mode }),
-  login: () => set({ isLoggedIn: true, currentScreen: "overview" }),
-  logout: () => set({ isLoggedIn: false, currentScreen: "auth" }),
 
   setProjectFilterTab: (tab) => set({ projectFilterTab: tab }),
   setProjectSearchQuery: (query) => set({ projectSearchQuery: query }),

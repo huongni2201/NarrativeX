@@ -1,7 +1,7 @@
 "use client";
 
-import { AuthScreen } from "@/features/auth/AuthScreen";
+import HomePage from "@/app/page";
 
 export default function AuthPage() {
-  return <AuthScreen />;
+  return <HomePage />;
 }

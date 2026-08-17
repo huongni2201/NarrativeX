@@ -4,7 +4,6 @@ import React from "react";
 import { useStudioStore } from "@/store/useStudioStore";
 import { StudioSidebar } from "@/components/layout/StudioSidebar";
 import { StudioHeader } from "@/components/layout/StudioHeader";
-import { AuthScreen } from "@/features/auth/AuthScreen";
 import { ProjectsDashboard } from "@/features/dashboard/ProjectsDashboard";
 import { CharacterLibrary } from "@/features/characters/CharacterLibrary";
 import { ProjectWizardModal } from "@/features/project-creation/ProjectWizardModal";
@@ -12,12 +11,27 @@ import { CharacterBibleModal } from "@/features/characters/CharacterBibleModal";
 import { ProductionShell } from "@/features/production/ProductionShell";
 import { AssetLibraryScreen } from "@/features/assets/AssetLibraryScreen";
 import { StylePresetsScreen } from "@/features/presets/StylePresetsScreen";
+import { useAuthStore } from "@/store/useAuthStore";
+import { AuthLoadingScreen, AuthScreen } from "@/features/auth/AuthScreen";
 
 export default function HomePage() {
   const { currentScreen, wizardDraft } = useStudioStore();
+  const { status, error } = useAuthStore();
 
-  // Screen 01: Đăng nhập / Đăng ký
-  if (currentScreen === "auth") {
+  if (status === "bootstrapping") {
+    return <AuthLoadingScreen message="Đang kiểm tra phiên đăng nhập…" />;
+  }
+
+  if (status === "error") {
+    return (
+      <AuthLoadingScreen
+        message={error || "Không thể kiểm tra phiên đăng nhập."}
+        action={<button type="button" onClick={() => window.location.reload()} className="text-sm text-purple-300 hover:text-purple-200">Thử lại</button>}
+      />
+    );
+  }
+
+  if (status === "unauthenticated") {
     return <AuthScreen />;
   }
 

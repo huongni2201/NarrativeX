@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useStudioStore } from "@/store/useStudioStore";
-import { useProductionStore } from "@/store/useProductionStore";
-import { ChevronDown, Plus, LogOut, Settings, User, Sparkles } from "lucide-react";
+import { useAuthStore } from "@/store/useAuthStore";
+import { ApiClientError, api } from "@/lib/api";
+import { ChevronDown, Plus, LogOut, Settings, User } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 
 interface StudioHeaderProps {
@@ -10,9 +11,34 @@ interface StudioHeaderProps {
 }
 
 export const StudioHeader: React.FC<StudioHeaderProps> = ({ title, actions }) => {
-  const { currentScreen, setScreen, openWizard, logout } = useStudioStore();
+  const { setScreen, openWizard } = useStudioStore();
+  const { user, clearSession } = useAuthStore();
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const displayName = user?.displayName || user?.email || "NarrativeX Creator";
+  const email = user?.email || user?.id || "";
+  const initials = displayName.slice(0, 1).toUpperCase();
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    setLogoutError(null);
+    try {
+      await api.logout();
+      clearSession();
+    } catch (error) {
+      if (error instanceof ApiClientError && error.status === 401) {
+        clearSession();
+      } else {
+        setLogoutError("Không thể đăng xuất. Vui lòng thử lại.");
+        setIsProfileMenuOpen(true);
+      }
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -54,15 +80,15 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({ title, actions }) =>
             className="flex items-center gap-2 p-1 rounded-lg hover:bg-slate-800/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
           >
             <div className="w-8 h-8 rounded-full overflow-hidden border border-purple-500/40 ring-2 ring-purple-600/20 shrink-0">
-              <img
-                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=150&auto=format&fit=crop"
-                alt="Ngọc Bùi"
-                className="w-full h-full object-cover"
-              />
+              {user?.avatarUrl ? (
+                <img src={user.avatarUrl} alt={displayName} className="w-full h-full object-cover" />
+              ) : (
+                <span className="w-full h-full flex items-center justify-center bg-purple-700 text-sm font-bold">{initials}</span>
+              )}
             </div>
             <div className="text-left hidden md:block">
               <p className="text-xs font-semibold text-slate-200 leading-tight">
-                Ngọc Bùi
+                {displayName}
               </p>
               <p className="text-[10px] text-purple-400 font-mono">Creator Pro</p>
             </div>
@@ -73,8 +99,8 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({ title, actions }) =>
           {isProfileMenuOpen && (
             <div className="absolute right-0 mt-2 w-48 rounded-xl bg-[#0d1420] border border-slate-800 shadow-2xl py-1 z-50 animate-in fade-in zoom-in-95 duration-150">
               <div className="px-3.5 py-2.5 border-b border-slate-800/80">
-                <p className="text-xs font-bold text-white">Ngọc Bùi</p>
-                <p className="text-[11px] text-slate-400 font-mono">ngocbui@narrativex.ai</p>
+                <p className="text-xs font-bold text-white">{displayName}</p>
+                <p className="text-[11px] text-slate-400 font-mono">{email}</p>
               </div>
 
               <div className="p-1 space-y-0.5">
@@ -105,15 +131,14 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({ title, actions }) =>
 
                 <button
                   type="button"
-                  onClick={() => {
-                    setIsProfileMenuOpen(false);
-                    logout();
-                  }}
+                  onClick={handleLogout}
+                  disabled={isLoggingOut}
                   className="w-full text-left px-3 py-1.5 rounded-lg text-xs text-rose-400 hover:bg-rose-950/40 hover:text-rose-300 flex items-center gap-2 transition-colors font-medium"
                 >
                   <LogOut className="w-3.5 h-3.5" />
-                  <span>Đăng xuất</span>
+                  <span>{isLoggingOut ? "Đang đăng xuất…" : "Đăng xuất"}</span>
                 </button>
+                {logoutError && <p className="px-3 py-1 text-[11px] text-rose-400">{logoutError}</p>}
               </div>
             </div>
           )}

@@ -5,6 +5,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.Test;
@@ -36,6 +37,13 @@ class SecurityConfigurationTest {
         mockMvc.perform(get("/api/v1/auth/csrf"))
             .andExpect(status().isOk())
             .andExpect(cookie().exists("XSRF-TOKEN"));
+    }
+
+    @Test
+    void currentUserEndpointReturnsTheLocalServerIdentity() throws Exception {
+        mockMvc.perform(get("/api/auth/me"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id").value("local-dev-user"));
     }
 
     @Test

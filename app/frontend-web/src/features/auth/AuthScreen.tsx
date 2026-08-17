@@ -1,23 +1,25 @@
 import React, { useState } from "react";
-import { useStudioStore } from "@/store/useStudioStore";
-import { Sparkles, Eye, EyeOff, Lock, Mail } from "lucide-react";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
+import { api } from "@/lib/api";
+
+export const AuthLoadingScreen: React.FC<{
+  message: string;
+  action?: React.ReactNode;
+}> = ({ message, action }) => (
+  <div className="min-h-screen w-full bg-[#070b14] flex items-center justify-center text-slate-100 p-6">
+    <div className="text-center space-y-3">
+      <img src="/branding/narrativex-logo-dark.png" alt="NarrativeX Logo" className="h-12 w-auto mx-auto" />
+      <p className="text-sm text-slate-300">{message}</p>
+      {action}
+    </div>
+  </div>
+);
 
 export const AuthScreen: React.FC = () => {
-  const { authMode, setAuthMode, login } = useStudioStore();
-  const [email, setEmail] = useState("you@email.com");
-  const [password, setPassword] = useState("••••••••");
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      login();
-    }, 600);
+  const handleGoogleLogin = () => {
+    setIsRedirecting(true);
+    window.location.assign(api.googleLoginUrl());
   };
 
   return (
@@ -74,16 +76,15 @@ export const AuthScreen: React.FC = () => {
             </div>
             <p className="text-xs text-purple-300 font-medium tracking-wide">AI Story Video Studio</p>
             <p className="text-xs text-slate-400 pt-1">
-              {authMode === "login"
-                ? "Biến truyện chữ thành video sống động với vai nhân vật nhất quán"
-                : "Tạo tài khoản mới để bắt đầu sản xuất phim truyện AI"}
+              Đăng nhập bằng tài khoản Google để bắt đầu sản xuất phim truyện AI
             </p>
           </div>
 
           {/* Google SSO Button */}
           <button
             type="button"
-            onClick={login}
+            onClick={handleGoogleLogin}
+            disabled={isRedirecting}
             className="w-full flex items-center justify-center gap-3 py-2.5 px-4 rounded-lg bg-slate-100 hover:bg-white text-slate-900 font-semibold text-sm transition-all duration-200 shadow-md active:scale-[0.99]"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24">
@@ -104,98 +105,11 @@ export const AuthScreen: React.FC = () => {
                 d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
               />
             </svg>
-            <span>Đăng nhập với Google</span>
+            <span>{isRedirecting ? "Đang chuyển đến Google…" : "Đăng nhập với Google"}</span>
           </button>
 
-          {/* Divider */}
-          <div className="relative flex items-center justify-center">
-            <div className="w-full border-t border-slate-800" />
-            <span className="bg-[#0d1420] px-3 text-xs text-slate-500 uppercase tracking-widest absolute font-medium">
-              hoặc
-            </span>
-          </div>
-
-          {/* Auth Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-slate-300">Email</label>
-              <Input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@email.com"
-                icon={<Mail className="w-4 h-4" />}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-medium text-slate-300">Mật khẩu</label>
-                {authMode === "login" && (
-                  <button
-                    type="button"
-                    className="text-xs text-purple-400 hover:text-purple-300 transition-colors"
-                  >
-                    Quên mật khẩu?
-                  </button>
-                )}
-              </div>
-              <div className="relative">
-                <Input
-                  type={showPassword ? "text" : "password"}
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  icon={<Lock className="w-4 h-4" />}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            <Button
-              type="submit"
-              variant="gradient"
-              size="lg"
-              isLoading={isLoading}
-              className="w-full mt-2"
-            >
-              {authMode === "login" ? "Đăng nhập" : "Tạo tài khoản"}
-            </Button>
-          </form>
-
-          {/* Footer toggle */}
           <div className="text-center text-xs text-slate-400 pt-2">
-            {authMode === "login" ? (
-              <p>
-                Chưa có tài khoản?{" "}
-                <button
-                  type="button"
-                  onClick={() => setAuthMode("register")}
-                  className="text-purple-400 font-semibold hover:text-purple-300 ml-1"
-                >
-                  Đăng ký
-                </button>
-              </p>
-            ) : (
-              <p>
-                Đã có tài khoản?{" "}
-                <button
-                  type="button"
-                  onClick={() => setAuthMode("login")}
-                  className="text-purple-400 font-semibold hover:text-purple-300 ml-1"
-                >
-                  Đăng nhập
-                </button>
-              </p>
-            )}
+            Email/mật khẩu sẽ được bổ sung khi backend có password-auth contract.
           </div>
         </div>
       </div>

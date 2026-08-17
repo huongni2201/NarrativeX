@@ -39,6 +39,7 @@ narrativex:
   security:
     oidc-enabled: ${NARRATIVEX_OIDC_ENABLED:false}
     local-user-id: ${NARRATIVEX_LOCAL_USER_ID:local-dev-user}
+    frontend-base-url: ${NARRATIVEX_FRONTEND_BASE_URL:http://localhost:3000}
     cors:
       allowed-origins: ${NARRATIVEX_CORS_ALLOWED_ORIGINS:http://localhost:3000,http://127.0.0.1:3000}
   providers:

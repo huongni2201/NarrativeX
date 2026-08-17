@@ -54,7 +54,8 @@ public class SecurityConfig {
     @ConditionalOnProperty(prefix = "narrativex.security", name = "oidc-enabled", havingValue = "true")
     SecurityFilterChain oidcSecurityFilterChain(HttpSecurity http,
                                                  ApiAuthenticationEntryPoint authenticationEntryPoint,
-                                                 ApiAccessDeniedHandler accessDeniedHandler) throws Exception {
+                                                 ApiAccessDeniedHandler accessDeniedHandler,
+                                                 @Value("${narrativex.security.frontend-base-url:http://localhost:3000}") String frontendBaseUrl) throws Exception {
         http
             .cors(Customizer.withDefaults())
             .csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()))
@@ -65,8 +66,8 @@ public class SecurityConfig {
             .exceptionHandling(errors -> errors
                 .authenticationEntryPoint(authenticationEntryPoint)
                 .accessDeniedHandler(accessDeniedHandler))
-            .oauth2Login(Customizer.withDefaults())
-            .logout(logout -> logout.logoutSuccessUrl("/"));
+            .oauth2Login(oauth2 -> oauth2.defaultSuccessUrl(frontendBaseUrl, true))
+            .logout(logout -> logout.logoutSuccessUrl(frontendBaseUrl));
         return http.build();
     }
 

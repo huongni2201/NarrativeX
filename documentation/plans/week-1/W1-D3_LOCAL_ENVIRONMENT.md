@@ -15,7 +15,7 @@ Next.js :3000
   -> Python worker (dry-run/health in Week 1)
 ```
 
-PostgreSQL, Redis and MinIO are the required Compose baseline. Running all application processes in Compose is optional for D3 if the documented host-run workflow is one command per app and the dependencies are reproducible.
+PostgreSQL 18, Redis 8 and MinIO are the required Compose baseline. The Spring Boot backend is also available as a Compose-built container; the worker and frontend remain independently runnable during this phase.
 
 ## Files
 
@@ -31,12 +31,12 @@ PostgreSQL, Redis and MinIO are the required Compose baseline. Running all appli
 
 ### 1. Validate Compose dependencies
 
-- [ ] Pin PostgreSQL, Redis and MinIO image versions; document the update policy.
+- [x] Pin PostgreSQL 18, Redis 8 and MinIO image versions; document the PostgreSQL 18 data-layout migration caveat.
 - [ ] Add health checks that execute inside each image and verify the current MinIO image actually contains the health-check command.
 - [ ] Add restart behavior suitable for local development without masking persistent crash loops.
 - [ ] Create the private local bucket through an idempotent init service or documented bootstrap command.
 - [ ] Keep volumes named and local; document the explicit command for destructive reset rather than running it automatically.
-- [ ] Verify `docker compose config`, clean start, stop and second start.
+- [ ] Verify `docker compose config`, clean start, stop and second start. (`docker compose config` passes; Docker daemon was unavailable for lifecycle verification.)
 
 ### 2. Define environment contracts
 
@@ -77,7 +77,7 @@ Document:
 
 1. Required Java/Node/Python/Docker versions.
 2. Copy `.env.example` to `.env` and which values may remain default locally.
-3. `docker compose up -d` and health verification.
+3. `docker compose up -d --build` and health verification.
 4. Backend, worker dry-run and frontend startup commands.
 5. Local URLs and login mode.
 6. Safe stop command.
@@ -101,4 +101,3 @@ Document:
 - [ ] Redis flush does not remove PostgreSQL business state.
 - [ ] Restarting Compose preserves PostgreSQL and MinIO data through named volumes.
 - [ ] All configuration and CORS tests pass.
-

@@ -6,7 +6,7 @@ import com.narrativex.backend.modules.character.application.port.out.CharacterVe
 import com.narrativex.backend.modules.character.application.port.out.ProjectCharacterRepository;
 import com.narrativex.backend.modules.character.domain.model.ProjectCharacter;
 import com.narrativex.backend.modules.project.application.port.in.ProjectAccess;
-import com.narrativex.backend.shared.error.ResourceNotFoundException;
+import com.narrativex.backend.shared.exception.ResourceNotFoundException;
 import com.narrativex.backend.shared.security.CurrentUserId;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,9 +20,9 @@ public class AssignCharacterToProjectUseCase {
     private final CurrentUserId currentUserId;
 
     public AssignCharacterToProjectUseCase(CharacterRepository characterRepository,
-                                           CharacterVersionRepository versionRepository,
-                                           ProjectCharacterRepository projectCharacterRepository,
-                                           ProjectAccess projectAccess, CurrentUserId currentUserId) {
+            CharacterVersionRepository versionRepository,
+            ProjectCharacterRepository projectCharacterRepository,
+            ProjectAccess projectAccess, CurrentUserId currentUserId) {
         this.characterRepository = characterRepository;
         this.versionRepository = versionRepository;
         this.projectCharacterRepository = projectCharacterRepository;
@@ -35,13 +35,13 @@ public class AssignCharacterToProjectUseCase {
         String resolvedOwnerId = currentUserId.resolve(ownerId);
         projectAccess.findOwnedProject(command.projectId(), resolvedOwnerId);
         characterRepository.findOwnedById(command.characterId(), resolvedOwnerId)
-            .orElseThrow(() -> new ResourceNotFoundException("Character not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Character not found"));
         ProjectCharacter assignment = ProjectCharacter.assign(command.projectId(), command.characterId(),
-            command.role(), command.importance(), command.projectAliases(), command.storyMetadata(),
-            command.groups(), null);
+                command.role(), command.importance(), command.projectAliases(), command.storyMetadata(),
+                command.groups(), null);
         if (command.pinnedCharacterVersionId() != null) {
             var version = versionRepository.findOwnedById(command.pinnedCharacterVersionId(), resolvedOwnerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Character version not found"));
+                    .orElseThrow(() -> new ResourceNotFoundException("Character version not found"));
             assignment.pinVersion(version);
         }
         return projectCharacterRepository.save(assignment);

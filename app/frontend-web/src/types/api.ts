@@ -34,6 +34,13 @@ export interface ApiGenerationJob {
   errorCode: string | null;
 }
 
+export interface ApiAuthUser {
+  id: string;
+  displayName: string | null;
+  email: string | null;
+  avatarUrl: string | null;
+}
+
 export interface CreateProjectApiInput {
   name: string;
   sourceLanguage?: string;

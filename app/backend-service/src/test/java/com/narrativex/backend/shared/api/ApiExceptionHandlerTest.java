@@ -3,14 +3,15 @@ package com.narrativex.backend.shared.api;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
-import com.narrativex.backend.shared.error.ResourceConflictException;
-import com.narrativex.backend.shared.error.ResourceNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ProblemDetail;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+
+import com.narrativex.backend.shared.exception.ResourceConflictException;
+import com.narrativex.backend.shared.exception.ResourceNotFoundException;
 
 class ApiExceptionHandlerTest {
 
@@ -63,7 +64,8 @@ class ApiExceptionHandlerTest {
         var binding = new org.springframework.validation.BeanPropertyBindingResult(new RequestPayload(), "request");
         binding.rejectValue("name", "NotBlank", "must not be blank");
         var exception = new MethodArgumentNotValidException(
-            new org.springframework.core.MethodParameter(ApiExceptionHandlerTest.class.getDeclaredMethods()[0], -1), binding);
+                new org.springframework.core.MethodParameter(ApiExceptionHandlerTest.class.getDeclaredMethods()[0], -1),
+                binding);
 
         ProblemDetail problem = handler.handleValidation(exception, request);
 

@@ -27,6 +27,7 @@ Browser
 6. Authentication events, authorization failures, admin overrides and support actions are auditable without logging OIDC tokens or sensitive identity data.
 7. `local` is the only profile allowed to use the developer identity fallback. `staging` and production profiles fail during startup unless OIDC is enabled.
 8. Credentialed browser mutations include the session-bound CSRF header obtained from `GET /api/v1/auth/csrf`; CORS uses an explicit configured origin allowlist.
+9. OIDC callback success and logout redirect to the configured `NARRATIVEX_FRONTEND_BASE_URL`; this must be the public FE origin when FE and backend use separate hosts.
 
 ## Error and retry behavior
 
@@ -37,4 +38,4 @@ Browser
 
 ## Current repository gap
 
-The remaining work is the full Google identity-to-PostgreSQL actor mapping, workspace membership and production session lifecycle. The profile guard, credentialed CORS and CSRF transport are now in place.
+The frontend now bootstraps `GET /api/auth/me`, starts Google OIDC through `/oauth2/authorization/google`, calls Spring Security `POST /logout`, and treats any API `401` as session expiry. The remaining work is the full Google identity-to-PostgreSQL actor mapping, workspace membership and production session lifecycle. The profile guard, credentialed CORS and CSRF transport are now in place.

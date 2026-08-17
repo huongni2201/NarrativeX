@@ -1,4 +1,5 @@
 import type {
+  ApiAuthUser,
   ApiGenerationJob,
   ApiProblem,
   ApiProject,
@@ -6,11 +7,16 @@ import type {
   CreateProjectApiInput,
   CreateStoryVersionApiInput,
 } from "@/types/api";
+import { useAuthStore } from "@/store/useAuthStore";
 
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL !== undefined
     ? process.env.NEXT_PUBLIC_API_BASE_URL
     : "";
+
+function apiUrl(path: string): string {
+  return `${API_BASE_URL.replace(/\/$/, "")}${path}`;
+}
 
 export class ApiClientError extends Error {
   readonly status: number;
@@ -32,6 +38,7 @@ export class ApiClientError extends Error {
 
 interface ApiRequestInit extends Omit<RequestInit, "body"> {
   json?: unknown;
+  parseJson?: boolean;
 }
 
 interface CsrfTokenResponse {
@@ -40,6 +47,10 @@ interface CsrfTokenResponse {
 }
 
 let csrfTokenPromise: Promise<CsrfTokenResponse> | undefined;
+
+function resetCsrfToken(): void {
+  csrfTokenPromise = undefined;
+}
 
 function isApiProblem(value: unknown): value is ApiProblem {
   return typeof value === "object" && value !== null && typeof (value as { status?: unknown }).status === "number";
@@ -67,7 +78,7 @@ async function parseProblem(response: Response): Promise<ApiProblem> {
 }
 
 async function loadCsrfToken(): Promise<CsrfTokenResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/auth/csrf`, {
+  const response = await fetch(apiUrl("/api/v1/auth/csrf"), {
     headers: { Accept: "application/json" },
     credentials: "include",
   });
@@ -89,37 +100,42 @@ function csrfToken(): Promise<CsrfTokenResponse> {
 }
 
 async function request<T>(path: string, init: ApiRequestInit = {}): Promise<T> {
-  const { json, headers: initialHeaders, ...requestInit } = init;
+  const { json, parseJson = true, headers: initialHeaders, ...requestInit } = init;
   const headers = new Headers(initialHeaders);
   headers.set("Accept", "application/json, application/problem+json");
 
   if (json !== undefined) {
     headers.set("Content-Type", "application/json");
     const requestWithBody: RequestInit = { ...requestInit, body: JSON.stringify(json) };
-    return sendRequest<T>(path, requestWithBody, headers);
+    return sendRequest<T>(path, requestWithBody, headers, parseJson);
   }
 
-  return sendRequest<T>(path, requestInit, headers);
+  return sendRequest<T>(path, requestInit, headers, parseJson);
 }
 
-async function sendRequest<T>(path: string, requestInit: RequestInit, headers: Headers): Promise<T> {
+async function sendRequest<T>(path: string, requestInit: RequestInit, headers: Headers, parseJson: boolean): Promise<T> {
   const method = (requestInit.method || "GET").toUpperCase();
   if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
     const token = await csrfToken();
     headers.set(token.headerName, token.token);
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(apiUrl(path), {
     ...requestInit,
     headers,
     credentials: "include",
   });
 
   if (!response.ok) {
-    throw new ApiClientError(await parseProblem(response));
+    const problem = await parseProblem(response);
+    if (problem.status === 401) {
+      resetCsrfToken();
+      useAuthStore.getState().setUnauthenticated();
+    }
+    throw new ApiClientError(problem);
   }
 
-  if (response.status === 204) {
+  if (response.status === 204 || !parseJson) {
     return undefined as T;
   }
 
@@ -127,6 +143,9 @@ async function sendRequest<T>(path: string, requestInit: RequestInit, headers: H
 }
 
 export const api = {
+  getCurrentUser: () => request<ApiAuthUser>("/api/auth/me"),
+  logout: () => request<void>("/logout", { method: "POST", parseJson: false }),
+  googleLoginUrl: () => apiUrl("/oauth2/authorization/google"),
   listProjects: () => request<ApiProject[]>("/api/v1/projects"),
   createProject: (input: CreateProjectApiInput) =>
     request<ApiProject>("/api/v1/projects", { method: "POST", json: input }),
