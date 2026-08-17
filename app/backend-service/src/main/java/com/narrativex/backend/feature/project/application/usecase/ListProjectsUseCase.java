@@ -1,8 +1,8 @@
 package com.narrativex.backend.feature.project.application.usecase;
 
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
+import com.narrativex.backend.feature.common.pagination.CursorPage;
 import com.narrativex.backend.feature.common.response.ApiResponse;
-import com.narrativex.backend.feature.common.response.PaginationResponse;
 import com.narrativex.backend.feature.project.api.response.ProjectResponse;
 import com.narrativex.backend.feature.project.application.port.out.ProjectRepository;
 import com.narrativex.backend.feature.project.application.query.ProjectListQuery;
@@ -20,8 +20,11 @@ public class ListProjectsUseCase {
     }
 
     @Transactional(readOnly = true)
-    public ApiResponse<PaginationResponse<ProjectResponse>> execute(ProjectListQuery query) {
-        var projects = projectRepository.findActiveByOwnerId(currentUserId.resolve(query.ownerId()), query.pageable());
-        return ApiResponse.success("Projects retrieved successfully", PaginationResponse.from(projects, ProjectResponse::from));
+    public ApiResponse<CursorPage<ProjectResponse>> execute(ProjectListQuery query) {
+        String ownerId = currentUserId.resolve(query.ownerId());
+        CursorPage<ProjectResponse> page = projectRepository
+            .findActiveByOwnerId(ownerId, query.cursor(), query.limit())
+            .map(ProjectResponse::from);
+        return ApiResponse.success("Projects retrieved successfully", page);
     }
 }
