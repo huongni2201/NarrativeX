@@ -1,15 +1,17 @@
 import React from "react";
-import { Character } from "@/types/studio";
+import { Character, ProjectCharacter } from "@/types/studio";
 import { Badge } from "@/components/ui/Badge";
 import { MoreVertical, Lock, Sparkles, Trash2 } from "lucide-react";
 
 interface CharacterCardProps {
   character: Character;
+  projectCharacter?: ProjectCharacter;
   onClick: (character: Character) => void;
 }
 
 export const CharacterCard: React.FC<CharacterCardProps> = ({
   character,
+  projectCharacter,
   onClick,
 }) => {
   return (
@@ -29,7 +31,7 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
 
         {/* Top Badges */}
         <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
-          {character.isLocked && (
+          {character.latestVersion.status === "LOCKED" && (
             <span className="p-1 rounded bg-black/60 backdrop-blur-md text-slate-300 border border-white/10" title="Phiên bản đã khóa">
               <Lock className="w-3 h-3 text-slate-300" />
             </span>
@@ -55,11 +57,13 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
             {character.name}
           </h3>
           <span className="text-[11px] font-mono text-purple-400 font-medium">
-            Version {character.version}
+            Version {character.latestVersion.versionNumber}
           </span>
         </div>
 
-        <p className="text-xs text-slate-400 truncate">{character.projectName}</p>
+        <p className="text-xs text-slate-400 truncate">
+          {projectCharacter?.role ?? "Reusable identity"}
+        </p>
       </div>
     </div>
   );

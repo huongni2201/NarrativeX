@@ -23,6 +23,21 @@ Tham chiếu roadmap tổng thể: [`NARRATIVEX_TIMELINE.md`](./NARRATIVEX_TIMEL
 
 ## 2. Tuần 1 — Foundation & Clean
 
+### Navigation decision carried into integration
+
+Storyboard remains a chapter-scoped workspace in W1-D2. The target URL contract is recorded in ADR-0006:
+
+```text
+/projects/{projectId}
+/projects/{projectId}/chapters/{chapterId}
+/projects/{projectId}/chapters/{chapterId}/storyboard
+/projects/{projectId}/chapters/{chapterId}/visuals
+/projects/{projectId}/chapters/{chapterId}/audio
+/projects/{projectId}/chapters/{chapterId}/render
+```
+
+The current Zustand screen switcher is intentionally retained until FE↔BE/project integration; route work must preserve the active Chapter context.
+
 Kế hoạch triển khai chi tiết theo file: [`documentation/plans/week-1/README.md`](../plans/week-1/README.md).
 
 ### W1-D1 — Audit toàn bộ repository
@@ -119,15 +134,21 @@ Definition of Done quan trọng nhất: một developer clone repository mới c
 Chưa cần implement toàn bộ generation schema, nhưng foundation cần hỗ trợ quan hệ:
 
 ```text
-User
-└── Workspace
-    └── Project
-        ├── Story
-        ├── Character
-        ├── Scene
-        ├── Asset
-        ├── GenerationJob
-        └── Render
+User / Workspace
+├── Character
+│   └── CharacterVersion
+│       ├── CharacterMaster
+│       └── Reference Assets
+│
+└── Project
+    ├── StoryVersion
+    ├── ProjectCharacter ──→ Character
+    ├── Chapter
+    │   └── Scene
+    │       └── VisualBeat
+    ├── Asset
+    ├── GenerationJob
+    └── RenderVersion
 ```
 
 Baseline dữ liệu:

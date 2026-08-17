@@ -1,6 +1,6 @@
 # NarrativeX System Architecture
 
-Status: target architecture for v1.7, aligned to `C:\\Users\\huongpc\\Downloads\\NarrativeX_Project_Specification_v1\\NarrativeX_Project_Specification_v1.7.md`.
+Status: target architecture for v1.7, aligned to [`documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_7.md`](../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_7.md).
 
 ## Architectural stance
 

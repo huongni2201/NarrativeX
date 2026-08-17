@@ -4,7 +4,7 @@
 
 - Package manifest: Next.js `^16.3.1`, React `^19.2.8`, TypeScript `^5.8.2`, Zustand `^5.0.15`, TanStack Query `^5.101.4`.
 - Runtime verified: Node `v26.4.0`, npm `11.17.0`.
-- App Router routes: `/`, `/auth`, `/dashboard`, `/characters`; the root page is a client-side screen switcher rather than a route-param project shell. The root screen switcher currently renders overview, project workspace, characters, Assets and Style Presets surfaces.
+- App Router routes: `/`, `/auth`, `/dashboard`, `/characters`; the root page is a client-side screen switcher rather than a route-param project shell. The root screen switcher currently renders overview, project workspace, characters, Assets and Style Presets surfaces. The target chapter-first route contract is recorded in ADR-0006 and is deliberately deferred beyond W1-D2.
 - The frontend README now matches the Next.js 16.3.1 package manifest.
 
 ## Routes and existing UI/features
@@ -16,7 +16,7 @@
 | Create project wizard | `ProjectWizardModal`, steps 1-4 | Zustand `wizardDraft`; confirm creates a local object | MOCK |
 | Story input | `Step2ImportStory` | Zustand text; sample preset; upload tab has no file input | MOCK |
 | AI analysis | `Step3AiAnalysis`, `Step4Results` | hard-coded counts/checklist + `setInterval` progress | MOCK |
-| Characters/Character Bible | `CharacterLibrary`, `CharacterBibleModal` | `MOCK_CHARACTERS`, local filters/modal | MOCK |
+| Characters/Character Bible | `CharacterLibrary`, `CharacterBibleModal` | canonical `Character[]` plus `ProjectCharacter[]` assignments from mock/API boundary | MOCK |
 | Production overview/chapter | `ProductionShell`, Screens 01-03 | `useProductionStore` initialized from `production-mock.ts` | MOCK |
 | Storyboard/visual review | Screens 04-05 | local visual-beat array and local status mutations | MOCK |
 | Render/preview | Screens 06-07 | local settings + 1.2s timer; no export call | MOCK |
@@ -36,6 +36,7 @@
 - TanStack Query is the future owner of persisted server state; Zustand remains UI/editor/transient and explicitly gated prototype state until W2 integrations land.
 - `NEXT_PUBLIC_NX_DATA_MODE=mock|api` is documented and validated. Development defaults to mock when omitted; non-development defaults to API and rejects mock mode.
 - In API mode, local project/character/asset/preset stores start empty and the production shell does not render mock production data. This prevents fake business state from masquerading as persisted production state without redesigning local prototype screens.
+- Character UI types keep canonical identity separate from project usage: `Character` owns identity/version fields, while `ProjectCharacter` owns role, importance, aliases, groups and pinned version. Project filtering resolves assignments by `characterId`/`projectId`; it does not filter a `projectName` field on Character.
 
 ## Real, partial and mock integrations
 

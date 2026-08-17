@@ -1,7 +1,7 @@
  # NarrativeX — Product Specification V1.7
 
  **Trạng thái:** Final production specification · 17/08/2026
- **Source of truth:** `C:\\Users\\huongpc\\Downloads\\NarrativeX_Project_Specification_v1\\NarrativeX_Project_Specification_v1.7.md`
+ **Source of truth:** [`documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_7.md`](../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_7.md)
 
  ## 1. Định vị và mục tiêu
 

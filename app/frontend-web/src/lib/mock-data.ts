@@ -1,4 +1,12 @@
-import { Character, Project } from "@/types/studio";
+import { Character, Project, ProjectCharacter } from "@/types/studio";
+
+type CharacterSeed = Omit<Character, "canonicalIdentity" | "latestVersion"> & {
+  role: string;
+  projectName: string;
+  projectId: string;
+  version: number;
+  isLocked: boolean;
+};
 
 export const MOCK_PROJECTS: Project[] = [
   {
@@ -147,7 +155,7 @@ export const MOCK_PROJECTS: Project[] = [
   },
 ];
 
-export const MOCK_CHARACTERS: Character[] = [
+export const MOCK_CHARACTER_SEEDS: CharacterSeed[] = [
   {
     id: "char-1",
     name: "Eleanor",
@@ -341,6 +349,31 @@ export const MOCK_CHARACTERS: Character[] = [
     referenceAssets: [],
   },
 ];
+
+export const MOCK_CHARACTERS: Character[] = MOCK_CHARACTER_SEEDS.map(
+  ({ role, projectName, projectId, version, isLocked, ...character }) => ({
+    ...character,
+    canonicalIdentity: character.name,
+    latestVersion: {
+      versionNumber: version,
+      status: isLocked ? "LOCKED" : "DRAFT",
+    },
+  })
+);
+
+export const MOCK_PROJECT_CHARACTERS: ProjectCharacter[] = MOCK_CHARACTER_SEEDS.map(
+  ({ id: characterId, projectId, role, version, isLocked }) => ({
+    id: `project-character-${projectId}-${characterId}`,
+    projectId,
+    characterId,
+    role,
+    importance: role === "Nữ chính" || role === "Nam chính" ? 1 : 0,
+    projectAliases: [],
+    groups: [],
+    pinnedCharacterVersionId: isLocked ? `${characterId}-v${version}` : undefined,
+    status: "ACTIVE",
+  })
+);
 
 export const SAMPLE_STORY_PRESET = `Ngày xửa ngày xưa, tại vương quốc Eboria trù phú nằm giữa những dãy núi tuyết ngút ngàn và đại dương vô tận...
 

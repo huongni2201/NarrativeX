@@ -9,6 +9,7 @@ import { Character } from "@/types/studio";
 export const CharacterLibrary: React.FC = () => {
   const {
     characters,
+    projectCharacters,
     projects,
     characterFilterProject,
     setCharacterFilterProject,
@@ -21,17 +22,32 @@ export const CharacterLibrary: React.FC = () => {
 
   const filteredCharacters = characters.filter((c) => {
     const matchesSearch =
+      c.canonicalIdentity.toLowerCase().includes(characterSearchQuery.toLowerCase()) ||
       c.name.toLowerCase().includes(characterSearchQuery.toLowerCase()) ||
-      c.projectName.toLowerCase().includes(characterSearchQuery.toLowerCase()) ||
-      c.role.toLowerCase().includes(characterSearchQuery.toLowerCase());
+      (c.aliases ?? []).some((alias) => alias.toLowerCase().includes(characterSearchQuery.toLowerCase())) ||
+      projects.some(
+        (project) =>
+          projectCharacters.some(
+            (assignment) => assignment.characterId === c.id && assignment.projectId === project.id
+          ) && project.title.toLowerCase().includes(characterSearchQuery.toLowerCase())
+      ) ||
+      projectCharacters.some(
+        (assignment) =>
+          assignment.characterId === c.id &&
+          (assignment.role.toLowerCase().includes(characterSearchQuery.toLowerCase()) ||
+            assignment.projectAliases.some((alias) => alias.toLowerCase().includes(characterSearchQuery.toLowerCase())))
+      );
 
     const matchesProject =
-      characterFilterProject === "all" || c.projectName === characterFilterProject;
+      characterFilterProject === "all" ||
+      projectCharacters.some(
+        (assignment) => assignment.characterId === c.id && assignment.projectId === characterFilterProject
+      );
 
     const matchesStatus =
       characterFilterStatus === "all" ||
-      (characterFilterStatus === "locked" && c.isLocked) ||
-      (characterFilterStatus === "unlocked" && !c.isLocked);
+      (characterFilterStatus === "locked" && c.latestVersion.status === "LOCKED") ||
+      (characterFilterStatus === "unlocked" && c.latestVersion.status !== "LOCKED");
 
     return matchesSearch && matchesProject && matchesStatus;
   });
@@ -61,7 +77,7 @@ export const CharacterLibrary: React.FC = () => {
             >
               <option value="all">Tất cả dự án</option>
               {projects.map((p) => (
-                <option key={p.id} value={p.title}>
+                <option key={p.id} value={p.id}>
                   {p.title}
                 </option>
               ))}
@@ -108,6 +124,11 @@ export const CharacterLibrary: React.FC = () => {
             <CharacterCard
               key={character.id}
               character={character}
+              projectCharacter={projectCharacters.find(
+                (assignment) =>
+                  assignment.characterId === character.id &&
+                  (characterFilterProject === "all" || assignment.projectId === characterFilterProject)
+              )}
               onClick={() => openCharacterBible(character.id)}
             />
           ))}

@@ -40,14 +40,23 @@ export interface CharacterReferenceAsset {
   type: "front" | "side" | "expression" | "action" | "costume" | "portrait";
 }
 
+export type CharacterVersionStatus = "DRAFT" | "GENERATING" | "REVIEW" | "LOCKED" | "REJECTED";
+
+export interface CharacterVersionSummary {
+  versionNumber: number;
+  status: CharacterVersionStatus;
+  lockedAt?: string;
+}
+
 export interface Character {
   id: string;
   name: string;
-  role: string;
-  projectName: string;
-  projectId?: string;
-  version: number;
-  isLocked: boolean;
+  canonicalIdentity: string;
+  aliases?: string[];
+  ownerId?: string;
+  workspaceId?: string;
+  status?: "ACTIVE" | "ARCHIVED";
+  latestVersion: CharacterVersionSummary;
   avatarUrl: string;
   fullPortraitUrl: string;
   description: string;
@@ -61,6 +70,19 @@ export interface Character {
   costume?: string;
   relationships?: string;
   referenceAssets: CharacterReferenceAsset[];
+}
+
+export interface ProjectCharacter {
+  id: string;
+  projectId: string;
+  characterId: string;
+  role: string;
+  importance: number;
+  projectAliases: string[];
+  storyMetadata?: string;
+  groups: string[];
+  pinnedCharacterVersionId?: string;
+  status: "ACTIVE" | "REMOVED";
 }
 
 export interface AnalysisChecklistItem {

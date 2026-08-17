@@ -11,7 +11,7 @@ interface Step4Props {
 }
 
 export const Step4Results: React.FC<Step4Props> = ({ onBack, onConfirm }) => {
-  const { characters, confirmAndCreateProject, setScreen, openCharacterBible } =
+  const { characters, projectCharacters, confirmAndCreateProject, setScreen, openCharacterBible } =
     useStudioStore();
   const [activeTab, setActiveTab] = useState("characters");
 
@@ -126,7 +126,10 @@ export const Step4Results: React.FC<Step4Props> = ({ onBack, onConfirm }) => {
                   <h4 className="font-semibold text-sm text-slate-100 group-hover:text-purple-300 transition-colors">
                     {char.name}
                   </h4>
-                  <p className="text-xs text-slate-400">{char.role}</p>
+                  <p className="text-xs text-slate-400">
+                    {projectCharacters.find((assignment) => assignment.characterId === char.id)?.role ??
+                      "Reusable identity"}
+                  </p>
                 </div>
               </div>
             ))}

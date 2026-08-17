@@ -1,7 +1,7 @@
 import { create } from "zustand";
-import { Character, Project, ProjectWizardDraft, ScreenType } from "@/types/studio";
+import { Character, Project, ProjectCharacter, ProjectWizardDraft, ScreenType } from "@/types/studio";
 import { isMockDataMode } from "@/lib/data-mode";
-import { MOCK_CHARACTERS, MOCK_PROJECTS, SAMPLE_STORY_PRESET } from "@/lib/mock-data";
+import { MOCK_CHARACTERS, MOCK_PROJECTS, MOCK_PROJECT_CHARACTERS, SAMPLE_STORY_PRESET } from "@/lib/mock-data";
 
 interface StudioStore {
   // Navigation & Screen View
@@ -18,6 +18,7 @@ interface StudioStore {
 
   // Character Library State
   characters: Character[];
+  projectCharacters: ProjectCharacter[];
   characterFilterProject: string;
   characterFilterStatus: string;
   characterSearchQuery: string;
@@ -65,6 +66,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   projectSearchQuery: "",
 
   characters: isMockDataMode ? MOCK_CHARACTERS : [],
+  projectCharacters: isMockDataMode ? MOCK_PROJECT_CHARACTERS : [],
   characterFilterProject: "all",
   characterFilterStatus: "all",
   characterSearchQuery: "",

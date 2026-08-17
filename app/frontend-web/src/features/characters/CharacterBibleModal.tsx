@@ -28,6 +28,9 @@ export const CharacterBibleModal: React.FC = () => {
     currentScreen,
     selectedCharacterId,
     characters,
+    projectCharacters,
+    projects,
+    selectedProjectId,
     closeCharacterBible,
   } = useStudioStore();
 
@@ -38,6 +41,14 @@ export const CharacterBibleModal: React.FC = () => {
 
   const character =
     characters.find((c) => c.id === selectedCharacterId) || characters[0];
+  if (!character) return null;
+
+  const projectCharacter =
+    projectCharacters.find(
+      (assignment) =>
+        assignment.characterId === character.id && assignment.projectId === selectedProjectId
+    ) ?? projectCharacters.find((assignment) => assignment.characterId === character.id);
+  const assignedProject = projects.find((project) => project.id === projectCharacter?.projectId);
 
   const subNavItems = [
     { id: "overview", label: "Tổng quan", icon: LayoutDashboard },
@@ -119,7 +130,7 @@ export const CharacterBibleModal: React.FC = () => {
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
             <div className="absolute bottom-3 left-3 right-3 text-center">
               <span className="text-[11px] font-semibold text-white tracking-wider uppercase font-mono drop-shadow-md">
-                MASTER PORTRAIT V{character.version}
+                MASTER PORTRAIT V{character.latestVersion.versionNumber}
               </span>
             </div>
           </div>
@@ -156,9 +167,9 @@ export const CharacterBibleModal: React.FC = () => {
                     {character.name}
                   </h1>
                   <Badge variant="primary" size="sm">
-                    Version {character.version}
+                    Version {character.latestVersion.versionNumber}
                   </Badge>
-                  {character.isLocked && (
+                  {character.latestVersion.status === "LOCKED" && (
                     <Badge variant="locked" size="sm">
                       <Lock className="w-3 h-3 text-slate-400" /> LOCKED
                     </Badge>
@@ -167,7 +178,7 @@ export const CharacterBibleModal: React.FC = () => {
 
                 <div className="space-y-1">
                   <h4 className="text-xs font-semibold text-purple-400">
-                    {character.projectName}
+                    {assignedProject?.title ?? "Global Character Hub"}
                   </h4>
                   <p className="text-xs text-slate-300 leading-relaxed">
                     {character.description}
@@ -183,7 +194,9 @@ export const CharacterBibleModal: React.FC = () => {
                 <div className="grid grid-cols-2 gap-x-6 gap-y-2 p-3.5 rounded-xl bg-[#090e18] border border-slate-800/80 text-xs">
                   <div className="flex justify-between py-1 border-b border-slate-800/50">
                     <span className="text-slate-400">Vai trò</span>
-                    <span className="text-slate-200 font-semibold">{character.role}</span>
+                    <span className="text-slate-200 font-semibold">
+                      {projectCharacter?.role ?? "Canonical identity"}
+                    </span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-slate-800/50">
                     <span className="text-slate-400">Giới tính</span>

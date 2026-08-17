@@ -4,7 +4,7 @@ This matrix distinguishes the attached project specification from the implementa
 
 | Source-of-truth area | Maintained repository reference | Current delivery status |
 | --- | --- | --- |
-| Product scope, actors, functional requirements | `documentation/product/PRODUCT_SPEC.md`, `FEATURE_CATALOG.md` | v1.7 summarized; chapter continuation, control-plane features and production gates remain explicit |
+| Product scope, actors, functional requirements | `documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_7.md`, `documentation/product/PRODUCT_SPEC.md`, `FEATURE_CATALOG.md` | repository-local V1.7 authority with maintainable summaries; chapter continuation, control-plane features and production gates remain explicit |
 | Business rules and state transitions | `documentation/domain/BUSINESS_RULES.md`, `DOMAIN_MODEL.md` | Documented; executable enforcement is incremental in the base project |
 | Terms and stable domain codes | `documentation/domain/GLOSSARY.md` | Documented |
 | System topology and deployment | `documentation/architecture/SYSTEM_ARCHITECTURE.md`, `TECHNOLOGY_STACK.md` | Documented |
