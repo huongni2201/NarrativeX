@@ -1,13 +1,13 @@
 package com.narrativex.backend.modules.project.application.usecase;
 
 import com.narrativex.backend.modules.auth.application.port.in.CurrentUserId;
+import com.narrativex.backend.modules.common.response.ApiResponse;
+import com.narrativex.backend.modules.project.api.response.ProjectResponse;
 import com.narrativex.backend.modules.project.application.command.CreateProjectCommand;
 import com.narrativex.backend.modules.project.application.port.out.ProjectRepository;
-import com.narrativex.backend.modules.project.api.response.ProjectResponse;
+import com.narrativex.backend.modules.project.domain.aggregate.Project;
 import com.narrativex.backend.modules.project.domain.enums.AspectRatio;
 import com.narrativex.backend.modules.project.domain.enums.ImageQualityTier;
-import com.narrativex.backend.modules.project.domain.aggregate.Project;
-import com.narrativex.backend.shared.application.response.ApiResponse;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

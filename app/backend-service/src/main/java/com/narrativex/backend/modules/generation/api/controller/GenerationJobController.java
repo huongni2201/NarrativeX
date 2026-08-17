@@ -1,9 +1,9 @@
 package com.narrativex.backend.modules.generation.api.controller;
 
+import com.narrativex.backend.modules.common.response.ApiResponse;
+import com.narrativex.backend.modules.generation.api.response.JobResponse;
 import com.narrativex.backend.modules.generation.application.query.GetGenerationJobQuery;
-import com.narrativex.backend.modules.generation.application.response.JobResponse;
 import com.narrativex.backend.modules.generation.application.usecase.GetGenerationJobUseCase;
-import com.narrativex.backend.shared.application.response.ApiResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;

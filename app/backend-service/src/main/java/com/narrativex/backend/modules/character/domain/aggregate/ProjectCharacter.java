@@ -1,14 +1,14 @@
 package com.narrativex.backend.modules.character.domain.aggregate;
 
-import com.narrativex.backend.modules.character.domain.aggregate.enums.CharacterVersionStatus;
-import com.narrativex.backend.modules.character.domain.aggregate.enums.ProjectCharacterStatus;
-import com.narrativex.backend.shared.domain.AggregateRoot;
+import com.narrativex.backend.modules.character.domain.entity.CharacterVersion;
+import com.narrativex.backend.modules.character.domain.enums.CharacterVersionStatus;
+import com.narrativex.backend.modules.character.domain.enums.ProjectCharacterStatus;
+import com.narrativex.backend.modules.common.domain.AggregateRoot;
 import java.util.List;
 import java.util.Objects;
 
 /** Project-scoped assignment of a reusable Character identity. */
 public final class ProjectCharacter extends AggregateRoot {
-
     private final Long projectId;
     private final Long characterId;
     private final String role;
@@ -23,12 +23,12 @@ public final class ProjectCharacter extends AggregateRoot {
                              int importance, List<String> projectAliases, String storyMetadata,
                              List<String> groups, Long pinnedCharacterVersionId, ProjectCharacterStatus status) {
         super(id, rowVersion);
-        this.projectId = Objects.requireNonNull(projectId, "projectId");
-        this.characterId = Objects.requireNonNull(characterId, "characterId");
+        if (projectId == null || projectId <= 0) throw new IllegalArgumentException("projectId must be positive");
+        if (characterId == null || characterId <= 0) throw new IllegalArgumentException("characterId must be positive");
+        this.projectId = projectId;
+        this.characterId = characterId;
         this.role = required(role, "role");
-        if (importance < 0) {
-            throw new IllegalArgumentException("importance must not be negative");
-        }
+        if (importance < 0) throw new IllegalArgumentException("importance must not be negative");
         this.importance = importance;
         this.projectAliases = List.copyOf(projectAliases == null ? List.of() : projectAliases);
         this.storyMetadata = storyMetadata;
@@ -53,19 +53,15 @@ public final class ProjectCharacter extends AggregateRoot {
     }
 
     public void pinVersion(CharacterVersion version) {
-        if (!characterId.equals(version.getCharacterId())) {
-            throw new IllegalArgumentException("Pinned character version belongs to another character");
-        }
-        if (version.getStatus() != CharacterVersionStatus.LOCKED) {
-            throw new IllegalStateException("Only locked character versions can be pinned");
-        }
+        Objects.requireNonNull(version, "version");
+        if (status == ProjectCharacterStatus.REMOVED) throw new IllegalStateException("Removed project characters cannot be modified");
+        if (!characterId.equals(version.getCharacterId())) throw new IllegalArgumentException("Pinned character version belongs to another character");
+        if (version.getStatus() != CharacterVersionStatus.LOCKED) throw new IllegalStateException("Only locked character versions can be pinned");
+        if (version.getId() == null) throw new IllegalArgumentException("Pinned character version must be persisted");
         pinnedCharacterVersionId = version.getId();
     }
 
-    public void remove() {
-        status = ProjectCharacterStatus.REMOVED;
-    }
-
+    public void remove() { status = ProjectCharacterStatus.REMOVED; }
     public Long getProjectId() { return projectId; }
     public Long getCharacterId() { return characterId; }
     public String getRole() { return role; }
@@ -77,9 +73,7 @@ public final class ProjectCharacter extends AggregateRoot {
     public ProjectCharacterStatus getStatus() { return status; }
 
     private static String required(String value, String field) {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(field + " must not be blank");
-        }
+        if (value == null || value.isBlank()) throw new IllegalArgumentException(field + " must not be blank");
         return value;
     }
 }

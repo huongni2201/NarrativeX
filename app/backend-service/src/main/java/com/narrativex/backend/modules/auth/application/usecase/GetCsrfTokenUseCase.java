@@ -1,8 +1,8 @@
 package com.narrativex.backend.modules.auth.application.usecase;
 
+import com.narrativex.backend.modules.auth.api.response.CsrfTokenResponse;
 import com.narrativex.backend.modules.auth.application.query.CsrfTokenQuery;
-import com.narrativex.backend.modules.auth.application.response.CsrfTokenResponse;
-import com.narrativex.backend.shared.application.response.ApiResponse;
+import com.narrativex.backend.modules.common.response.ApiResponse;
 import org.springframework.stereotype.Service;
 
 @Service

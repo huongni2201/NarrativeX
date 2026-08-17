@@ -1,9 +1,9 @@
 package com.narrativex.backend.modules.health.application.usecase;
 
+import com.narrativex.backend.modules.common.response.ApiResponse;
+import com.narrativex.backend.modules.health.api.response.ProviderHealthResponse;
 import com.narrativex.backend.modules.health.application.port.out.ProviderHealthSettings;
 import com.narrativex.backend.modules.health.application.query.ProviderHealthQuery;
-import com.narrativex.backend.modules.health.application.response.ProviderHealthResponse;
-import com.narrativex.backend.shared.application.response.ApiResponse;
 import org.springframework.stereotype.Service;
 
 @Service

@@ -3,110 +3,103 @@
 ## Runtime
 
 - Entry point: `com.narrativex.backend.NarrativeXBackendApplication`.
-- Build: Maven single module under `app/backend-service`.
-- Persistence: Spring Data JPA + PostgreSQL + Flyway. PostgreSQL remains authoritative; Redis remains reconstructable infrastructure.
-- Backend architecture remains a modular monolith plus a separate Python AI/media worker.
+- Build: Maven under `app/backend-service`.
+- Persistence: Spring Data JPA + PostgreSQL + Flyway. PostgreSQL remains authoritative; Redis is reconstructable infrastructure.
+- Architecture: modular monolith plus a separate Python AI/media worker.
 
-## Current module inventory
+## Standard module layout
 
-| Module | Application boundary | Domain / infrastructure notes |
+```text
+modules/
+  common/
+    api/                    # generic HTTP error/correlation helpers
+    domain/                 # AggregateRoot, DomainEntity
+    exception/
+    infrastructure/persistence/
+    response/               # ApiResponse, PaginationResponse
+
+  <feature>/
+    api/
+      controller/
+      request/
+      response/
+    application/
+      command/
+      query/
+      service/
+      usecase/
+      port/in/
+      port/out/
+    domain/
+      aggregate/
+      entity/
+      enums/
+    infrastructure/
+      ...
+```
+
+Folders are created only when the module needs them. `domain/aggregate` is not a generic bucket for every domain class.
+
+## Current domain classification
+
+| Module | Aggregate roots | Entities |
 |---|---|---|
-| `modules/auth` | `api -> query -> usecase -> application port` | Owns Spring Security/OIDC/CSRF/session configuration and adapters. Other business modules depend on auth application ports, not `SecurityContextHolder`. |
-| `modules/project` | commands for writes, `ProjectListQuery` for list/read, application responses, use cases, `ProjectAccess` internal port | `Project` is an aggregate root. `StoryVersion` is created through Project. Persistence adapters remain under `infrastructure/persistence`. |
-| `modules/character` | commands carry owner/actor request context; use cases return `ApiResponse` | Reusable Character identity and ProjectCharacter assignment remain separate from Project ownership. Persistence stays isolated behind application ports. |
-| `modules/generation` | enqueue command, job query, application response, use cases | Generation crosses to project through `ProjectAccess`; queued work remains durable and provider calls remain outside transactions. |
-| `modules/health` | `ProviderHealthQuery -> GetProviderHealthUseCase`; configuration accessed through `ProviderHealthSettings` port | `ConfiguredProviderHealthSettings` is the infrastructure adapter. Controller no longer reads `@Value`. |
-| `modules/storyboard` | application/HTTP layer deliberately deferred | Framework-free storyboard domain entities and infrastructure persistence mappings remain the current baseline. |
-| `shared/application/response` | common success/pagination envelopes | Contains `ApiResponse<T>` and `PaginationResponse<T>`. |
-| `shared/api` | generic HTTP error/correlation helpers only | Contains `ErrorResponse`, exception handler, error writer/codes, correlation filter. Authentication-specific handlers moved to `modules/auth`. |
-| `shared/domain` | framework-free identity bases | `AggregateRoot` and `DomainEntity` are independent; `AggregateRoot` no longer extends `DomainEntity`. |
+| project | `Project` | `StoryVersion` |
+| character | `Character`, `ProjectCharacter` | `CharacterVersion`, `CharacterAppearance`, `OutfitVersion` |
+| generation | `GenerationJob`, `OperationPlan` | `ProviderOperation`, `StageAttempt` |
+| storyboard | none yet | `Chapter`, `Scene`, `VisualBeat` |
 
-## Controller -> application convention
+Storyboard intentionally has no invented root until a real consistency/transaction boundary is defined.
 
-Every REST controller follows this boundary:
+## Controller/application convention
 
 ```text
-HTTP request/path/header/pageable
-  -> map to Command or Query
-  -> useCase.execute(commandOrQuery)
-  -> ApiResponse<T>
-  -> ResponseEntity sets the HTTP status only
+HTTP input
+  -> Controller maps Request/path/header/pageable to Command or Query
+  -> UseCase.execute(commandOrQuery)
+  -> ApiResponse<feature api.response DTO>
+  -> Controller selects HTTP status
 ```
 
-Rules:
+- Commands: `application/command/*Command`.
+- Queries: `application/query/*Query`.
+- Generic envelopes: `modules/common/response`.
+- Feature HTTP DTOs: `<feature>/api/response`.
+- Application may reference its own module's API response DTO by project convention, but never API controllers/requests, another module's response DTOs, or infrastructure implementations.
+- Internal ports such as `ProjectAccess` are not HTTP APIs and may return domain objects.
 
-- write input records live under `application/command` and use `*Command` names;
-- read input records live under `application/query` and use `*Query` names;
-- actor/owner values received from the HTTP boundary belong to the command/query rather than a second use-case parameter;
-- external-facing use cases return `ApiResponse<T>`;
-- response DTOs required by application use cases live under `application/response`, not `api/response`;
-- controllers do not map domain entities to response DTOs and do not construct success envelopes;
-- internal module ports such as `ProjectAccess` are not HTTP APIs and intentionally return domain objects.
+## Common module rule
 
-## Authentication boundary
+`modules/common` is a small shared kernel/cross-cutting module, not a dumping ground. It may hold generic identity primitives, response envelopes, generic exceptions, API error/correlation helpers and common persistence auditing. Business concepts, business enums and feature workflows stay inside their owning module. `common` must not import a business module.
 
-Authentication is now a first-class module:
+## Domain rules
 
-```text
-modules/auth/
-  api/controller/
-  application/
-    port/in/
-    query/
-    response/
-    usecase/
-  infrastructure/
-    configuration/
-    security/
-```
+- A true root extends `AggregateRoot` and lives in `domain/aggregate`.
+- An owned/non-root entity extends `DomainEntity` and lives in `domain/entity`.
+- Enums live in `domain/enums`.
+- Domain code is framework-free and does not import Spring/JPA/provider/storage infrastructure.
+- Aggregate factories/methods guard invariants; application services coordinate authorization, repositories, locks and transactions.
 
-`CurrentUserId` is an application port. Project, Character and Generation use cases depend on that port. `SecurityContextCurrentUser` is the Spring Security adapter and is the only current business-identity implementation that reads `SecurityContextHolder`/OIDC principals.
+Examples of enforced invariants include positive IDs/version numbers, valid generation progress/cost ranges, rights checks before StoryVersion activation, archived-root mutation protection, and CharacterVersion lock validation before state mutation.
 
-This layout is intentional preparation for a future auth-service extraction: replacing the adapter/port integration must not require business modules to import Spring Security types.
+## Concurrency/performance notes
 
-## Success and error contracts
+Version creation currently uses `max(version_number) + 1` while holding a pessimistic lock on the owning `Project`/`Character`. The lock is intentional: removing it would make concurrent version creation race. Unique constraints remain the final database guard. Project list paging is bounded to 100 rows per request.
 
-Success JSON uses `shared.application.response.ApiResponse<T>`. Paginated success data uses `PaginationResponse<T>`. HTTP status remains authoritative and is selected by the controller (`200`, `201`, `202`, etc.).
+Potential future optimization should be measurement-driven: if version creation becomes a lock hotspot, replace max-scan numbering with an atomic per-root counter/sequence rather than weakening consistency.
 
-Errors remain `shared.api.ErrorResponse` and are written consistently by the exception handler and auth-specific security handlers. SSE, worker-event, media/download and other protocol-specific payloads remain outside the JSON success envelope rule.
+## Authentication
 
-## DDD identity convention
+`modules/auth` owns controller, query/use-case ports and Spring Security/OIDC/CSRF infrastructure. Business modules depend on `auth.application.port.in.CurrentUserId`, not `SecurityContextHolder`.
 
-`AggregateRoot` and `DomainEntity` are separate framework-free base classes with their own identity/row-version behavior.
+Auth response DTOs live in `auth/api/response`. Generic security error JSON is provided by `modules/common/api`; Spring Security-specific handlers remain under auth infrastructure.
 
-- A true aggregate root extends `AggregateRoot`.
-- An owned/non-root entity extends `DomainEntity`.
-- Do not make an entity an aggregate root merely because of its folder name.
-- Do not reintroduce `AggregateRoot extends DomainEntity`.
+## Architecture enforcement
 
-Existing examples of aggregate roots include `Project`, `Character`, `ProjectCharacter`, `GenerationJob` and `OperationPlan`. Story/project/character/generation child objects keep entity semantics where modeled as entities.
-
-## Dependency direction
-
-- `domain` must not import Spring/JPA/provider/storage dependencies.
-- `application` must not import feature `api` or `infrastructure` packages.
-- `api` must not import outbound persistence ports or infrastructure implementations.
-- persistence implementations live under `infrastructure/persistence/{entity,repository,mapper,adapter}`.
-- business modules may cross boundaries only through explicit application ports.
-- generic shared code must not import a business module.
-
-`ArchitectureRulesTest` additionally enforces command/query placement, external-facing use-case `ApiResponse` returns, REST-controller placement and the independent AggregateRoot hierarchy.
-
-## API routes preserved by the migration
-
-| Method | Path | Application input | Success response |
-|---|---|---|---|
-| GET | `/api/v1/projects` | `ProjectListQuery` | `ApiResponse<PaginationResponse<ProjectResponse>>` |
-| POST | `/api/v1/projects` | `CreateProjectCommand` | `ApiResponse<ProjectResponse>` / HTTP 201 |
-| POST | `/api/v1/projects/{projectId}/stories` | `CreateStoryVersionCommand` | `ApiResponse<StoryVersionResponse>` / HTTP 201 |
-| POST | `/api/v1/projects/{projectId}/analysis-jobs` | `EnqueueStoryAnalysisCommand` | `ApiResponse<JobResponse>` / HTTP 202 |
-| GET | `/api/v1/jobs/{jobId}` | `GetGenerationJobQuery` | `ApiResponse<JobResponse>` |
-| GET | `/api/v1/provider-health` | `ProviderHealthQuery` | `ApiResponse<ProviderHealthResponse>` |
-| GET | `/api/auth/me` | `CurrentUserQuery` | `ApiResponse<CurrentUserResponse>` |
-| GET | `/api/v1/auth/csrf` | `CsrfTokenQuery` | `ApiResponse<CsrfTokenResponse>` |
+`ArchitectureRulesTest` rejects legacy `shared` references, feature `application/response`, misplaced commands/queries/controllers, framework imports in domain, aggregate/entity folder mismatches, `domain/aggregate/enums`, business imports from `common`, and forbidden application/API dependencies.
 
 ## Verification status
 
-Architecture and contract tests were updated together with the migration. The GitHub connector used for this refactor cannot execute Maven locally, so this document does **not** claim that the full `./mvnw test` suite has been executed after the migration. Run backend CI/local Maven tests before merging the migration PR.
+The GitHub connector used for this migration cannot run Maven locally, and this repository currently has no PR workflow providing test evidence. Therefore this document does not claim `./mvnw test` passed. Run backend Maven tests before merging.
 
-See [ADR-0010](../decisions/ADR-0010-application-boundaries-and-auth-module.md) and [DDD_MIGRATION.md](../plans/week-1/DDD_MIGRATION.md) for the governing decision and migration status.
+See [ADR-0011](../decisions/ADR-0011-module-package-and-aggregate-boundaries.md) and [DDD_MIGRATION.md](../plans/week-1/DDD_MIGRATION.md).

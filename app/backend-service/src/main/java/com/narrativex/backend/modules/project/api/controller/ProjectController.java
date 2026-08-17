@@ -1,20 +1,20 @@
 package com.narrativex.backend.modules.project.api.controller;
 
+import com.narrativex.backend.modules.common.response.ApiResponse;
+import com.narrativex.backend.modules.common.response.PaginationResponse;
+import com.narrativex.backend.modules.generation.api.response.JobResponse;
 import com.narrativex.backend.modules.generation.application.command.EnqueueStoryAnalysisCommand;
-import com.narrativex.backend.modules.generation.application.response.JobResponse;
 import com.narrativex.backend.modules.generation.application.usecase.EnqueueStoryAnalysisUseCase;
 import com.narrativex.backend.modules.project.api.request.CreateProjectRequest;
 import com.narrativex.backend.modules.project.api.request.CreateStoryVersionRequest;
+import com.narrativex.backend.modules.project.api.response.ProjectResponse;
+import com.narrativex.backend.modules.project.api.response.StoryVersionResponse;
 import com.narrativex.backend.modules.project.application.command.CreateProjectCommand;
 import com.narrativex.backend.modules.project.application.command.CreateStoryVersionCommand;
 import com.narrativex.backend.modules.project.application.query.ProjectListQuery;
-import com.narrativex.backend.modules.project.api.response.ProjectResponse;
-import com.narrativex.backend.modules.project.api.response.StoryVersionResponse;
 import com.narrativex.backend.modules.project.application.usecase.CreateProjectUseCase;
 import com.narrativex.backend.modules.project.application.usecase.CreateStoryVersionUseCase;
 import com.narrativex.backend.modules.project.application.usecase.ListProjectsUseCase;
-import com.narrativex.backend.shared.application.response.ApiResponse;
-import com.narrativex.backend.shared.application.response.PaginationResponse;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;

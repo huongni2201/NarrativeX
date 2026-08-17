@@ -1,10 +1,10 @@
 package com.narrativex.backend.modules.project.application.service;
 
 import com.narrativex.backend.modules.auth.application.port.in.CurrentUserId;
+import com.narrativex.backend.modules.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.modules.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.modules.project.application.port.out.ProjectRepository;
 import com.narrativex.backend.modules.project.domain.aggregate.Project;
-import com.narrativex.backend.shared.exception.ResourceNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

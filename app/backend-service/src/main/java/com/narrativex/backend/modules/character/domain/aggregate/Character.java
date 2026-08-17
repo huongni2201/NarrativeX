@@ -1,13 +1,13 @@
 package com.narrativex.backend.modules.character.domain.aggregate;
 
-import com.narrativex.backend.modules.character.domain.aggregate.enums.CharacterStatus;
-import com.narrativex.backend.shared.domain.AggregateRoot;
+import com.narrativex.backend.modules.character.domain.entity.CharacterVersion;
+import com.narrativex.backend.modules.character.domain.enums.CharacterStatus;
+import com.narrativex.backend.modules.common.domain.AggregateRoot;
 import java.util.List;
 import java.util.Objects;
 
 /** Reusable identity aggregate owned by a user/workspace, never duplicated per project. */
 public final class Character extends AggregateRoot {
-
     private final String ownerId;
     private final String workspaceId;
     private final String canonicalName;
@@ -24,8 +24,7 @@ public final class Character extends AggregateRoot {
         this.status = Objects.requireNonNull(status, "status");
     }
 
-    public static Character create(String ownerId, String workspaceId, String canonicalName,
-                                   List<String> aliases) {
+    public static Character create(String ownerId, String workspaceId, String canonicalName, List<String> aliases) {
         return new Character(null, 0L, ownerId, workspaceId, canonicalName, aliases, CharacterStatus.ACTIVE);
     }
 
@@ -36,14 +35,9 @@ public final class Character extends AggregateRoot {
 
     public CharacterVersion createVersion(int versionNumber, String bible, String visualPrompt,
                                           Long masterAssetId, List<Long> referenceAssetIds) {
-        if (getId() == null) {
-            throw new IllegalStateException("Character must be persisted before creating a version");
-        }
-        if (status == CharacterStatus.ARCHIVED) {
-            throw new IllegalStateException("Archived characters cannot receive new versions");
-        }
-        return CharacterVersion.create(getId(), versionNumber, bible, visualPrompt, masterAssetId,
-            referenceAssetIds);
+        if (getId() == null) throw new IllegalStateException("Character must be persisted before creating a version");
+        if (status == CharacterStatus.ARCHIVED) throw new IllegalStateException("Archived characters cannot receive new versions");
+        return CharacterVersion.create(getId(), versionNumber, bible, visualPrompt, masterAssetId, referenceAssetIds);
     }
 
     public void archive() {
@@ -57,13 +51,8 @@ public final class Character extends AggregateRoot {
     public CharacterStatus getStatus() { return status; }
 
     private static String required(String value, String field) {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(field + " must not be blank");
-        }
+        if (value == null || value.isBlank()) throw new IllegalArgumentException(field + " must not be blank");
         return value;
     }
-
-    private static String optional(String value) {
-        return value == null || value.isBlank() ? null : value;
-    }
+    private static String optional(String value) { return value == null || value.isBlank() ? null : value; }
 }

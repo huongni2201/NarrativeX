@@ -1,9 +1,9 @@
 package com.narrativex.backend.modules.auth.infrastructure.security;
 
-import com.narrativex.backend.shared.api.ApiErrorCode;
-import com.narrativex.backend.shared.api.ApiErrorWriter;
-import com.narrativex.backend.shared.api.CorrelationIdFilter;
-import com.narrativex.backend.shared.api.ErrorResponse;
+import com.narrativex.backend.modules.common.api.ApiErrorCode;
+import com.narrativex.backend.modules.common.api.ApiErrorWriter;
+import com.narrativex.backend.modules.common.api.CorrelationIdFilter;
+import com.narrativex.backend.modules.common.api.ErrorResponse;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -17,14 +17,10 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 public class ApiAuthenticationEntryPoint implements AuthenticationEntryPoint {
     private final ObjectMapper objectMapper;
-
-    public ApiAuthenticationEntryPoint(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
-    }
-
+    public ApiAuthenticationEntryPoint(ObjectMapper objectMapper) { this.objectMapper = objectMapper; }
     @Override
-    public void commence(HttpServletRequest request, HttpServletResponse response,
-                         AuthenticationException exception) throws IOException, ServletException {
+    public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException exception)
+            throws IOException, ServletException {
         ApiErrorWriter.write(response, objectMapper, HttpStatus.UNAUTHORIZED,
             ErrorResponse.of(HttpStatus.UNAUTHORIZED.value(), ApiErrorCode.UNAUTHORIZED.name(),
                 "Authentication is required.", request.getRequestURI(), CorrelationIdFilter.correlationId(request)));

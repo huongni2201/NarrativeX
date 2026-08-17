@@ -1,15 +1,15 @@
 package com.narrativex.backend.modules.project.domain.aggregate;
 
+import com.narrativex.backend.modules.common.domain.AggregateRoot;
+import com.narrativex.backend.modules.project.domain.entity.StoryVersion;
 import com.narrativex.backend.modules.project.domain.enums.AspectRatio;
 import com.narrativex.backend.modules.project.domain.enums.ImageQualityTier;
 import com.narrativex.backend.modules.project.domain.enums.ProjectStatus;
-import com.narrativex.backend.shared.domain.AggregateRoot;
 import java.time.Instant;
 import java.util.Objects;
 
 /** Project aggregate root; child story versions are created through this boundary. */
 public final class Project extends AggregateRoot {
-
     private final String name;
     private final String ownerId;
     private ProjectStatus status;
@@ -64,6 +64,9 @@ public final class Project extends AggregateRoot {
     }
 
     public void archive() {
+        if (status == ProjectStatus.ARCHIVED) {
+            return;
+        }
         status = ProjectStatus.ARCHIVED;
         archivedAt = Instant.now();
     }
@@ -79,12 +82,8 @@ public final class Project extends AggregateRoot {
     public Instant getArchivedAt() { return archivedAt; }
 
     private static String required(String value, String field, int maxLength) {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(field + " must not be blank");
-        }
-        if (value.length() > maxLength) {
-            throw new IllegalArgumentException(field + " exceeds the maximum length");
-        }
+        if (value == null || value.isBlank()) throw new IllegalArgumentException(field + " must not be blank");
+        if (value.length() > maxLength) throw new IllegalArgumentException(field + " exceeds the maximum length");
         return value;
     }
 }
