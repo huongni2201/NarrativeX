@@ -1,0 +1,750 @@
+name: Apply Phase A Integration
+
+on:
+  push:
+    branches:
+      - agent/full-api-runtime-integration
+    paths:
+      - '.github/workflows/apply-phase-a.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refactor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: agent/full-api-runtime-integration
+          fetch-depth: 0
+
+      - name: Apply security, project and frontend API refactor
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          import re
+
+          def write(path: str, content: str) -> None:
+              target = Path(path)
+              target.parent.mkdir(parents=True, exist_ok=True)
+              target.write_text(content.strip() + "\n", encoding="utf-8")
+
+          write('app/backend-service/src/main/java/com/narrativex/backend/feature/auth/infrastructure/security/SecurityContextCurrentUser.java', r'''
+          package com.narrativex.backend.feature.auth.infrastructure.security;
+
+          import com.narrativex.backend.feature.auth.api.response.CurrentUserResponse;
+          import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
+          import com.narrativex.backend.feature.auth.application.port.in.CurrentUserProfile;
+          import lombok.extern.slf4j.Slf4j;
+          import org.springframework.security.core.Authentication;
+          import org.springframework.security.core.context.SecurityContextHolder;
+          import org.springframework.security.oauth2.core.oidc.user.OidcUser;
+          import org.springframework.stereotype.Component;
+
+          @Slf4j
+          @Component
+          public class SecurityContextCurrentUser implements CurrentUserId, CurrentUserProfile {
+              @Override
+              public String get() {
+                  return authenticated().getName();
+              }
+
+              @Override
+              public CurrentUserResponse current() {
+                  Authentication authentication = authenticated();
+                  String id = authentication.getName();
+                  if (authentication.getPrincipal() instanceof OidcUser oidcUser) {
+                      return new CurrentUserResponse(
+                              id,
+                              firstNonBlank(oidcUser.getFullName(), oidcUser.getGivenName(), oidcUser.getEmail(), id),
+                              oidcUser.getEmail(),
+                              oidcUser.getPicture());
+                  }
+                  log.debug("Resolved local/test identity from SecurityContextHolder: {}", id);
+                  return new CurrentUserResponse(id, id, null, null);
+              }
+
+              private static Authentication authenticated() {
+                  Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+                  if (authentication == null
+                          || !authentication.isAuthenticated()
+                          || authentication.getName() == null
+                          || authentication.getName().isBlank()) {
+                      throw new IllegalArgumentException("Authenticated user is required");
+                  }
+                  return authentication;
+              }
+
+              private static String firstNonBlank(String... values) {
+                  for (String value : values) {
+                      if (value != null && !value.isBlank()) {
+                          return value;
+                      }
+                  }
+                  return null;
+              }
+          }
+          ''')
+
+          write('app/backend-service/src/main/java/com/narrativex/backend/feature/auth/infrastructure/configuration/SecurityConfig.java', r'''
+          package com.narrativex.backend.feature.auth.infrastructure.configuration;
+
+          import com.narrativex.backend.feature.auth.infrastructure.security.ApiAccessDeniedHandler;
+          import com.narrativex.backend.feature.auth.infrastructure.security.ApiAuthenticationEntryPoint;
+          import java.util.Arrays;
+          import java.util.List;
+          import org.springframework.beans.factory.annotation.Value;
+          import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+          import org.springframework.context.annotation.Bean;
+          import org.springframework.context.annotation.Configuration;
+          import org.springframework.context.annotation.Profile;
+          import org.springframework.core.annotation.Order;
+          import org.springframework.security.config.Customizer;
+          import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+          import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+          import org.springframework.security.config.http.SessionCreationPolicy;
+          import org.springframework.security.web.SecurityFilterChain;
+          import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+          import org.springframework.web.cors.CorsConfiguration;
+          import org.springframework.web.cors.CorsConfigurationSource;
+          import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+          @Configuration
+          @EnableWebSecurity
+          public class SecurityConfig {
+              @Bean
+              CorsConfigurationSource corsConfigurationSource(
+                      @Value("${narrativex.security.cors.allowed-origins:http://localhost:3000,http://127.0.0.1:3000}")
+                              String allowedOriginsStr) {
+                  List<String> allowedOrigins = Arrays.stream(allowedOriginsStr.split(","))
+                          .map(String::trim)
+                          .filter(value -> !value.isEmpty())
+                          .toList();
+                  CorsConfiguration configuration = new CorsConfiguration();
+                  configuration.setAllowedOrigins(allowedOrigins);
+                  configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"));
+                  configuration.setAllowedHeaders(List.of(
+                          "Accept", "Content-Type", "X-CSRF-TOKEN", "X-XSRF-TOKEN", "X-Correlation-Id"));
+                  configuration.setAllowCredentials(true);
+                  configuration.setMaxAge(3600L);
+                  UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+                  source.registerCorsConfiguration("/**", configuration);
+                  return source;
+              }
+
+              @Bean
+              @Order(1)
+              @ConditionalOnProperty(prefix = "narrativex.security", name = "oidc-enabled", havingValue = "true")
+              SecurityFilterChain oidcSecurityFilterChain(
+                      HttpSecurity http,
+                      ApiAuthenticationEntryPoint authenticationEntryPoint,
+                      ApiAccessDeniedHandler accessDeniedHandler,
+                      @Value("${narrativex.security.frontend-base-url:http://localhost:3000}") String frontendBaseUrl)
+                      throws Exception {
+                  http.cors(Customizer.withDefaults())
+                          .csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()))
+                          .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+                          .authorizeHttpRequests(auth -> auth
+                                  .requestMatchers("/actuator/health", "/oauth2/**", "/login/**")
+                                  .permitAll()
+                                  .anyRequest()
+                                  .authenticated())
+                          .exceptionHandling(errors -> errors
+                                  .authenticationEntryPoint(authenticationEntryPoint)
+                                  .accessDeniedHandler(accessDeniedHandler))
+                          .oauth2Login(oauth2 -> oauth2.defaultSuccessUrl(frontendBaseUrl, true))
+                          .logout(logout -> logout.logoutSuccessUrl(frontendBaseUrl));
+                  return http.build();
+              }
+
+              @Bean
+              @Order(2)
+              @Profile({"local", "test"})
+              @ConditionalOnProperty(
+                      prefix = "narrativex.security",
+                      name = "oidc-enabled",
+                      havingValue = "false",
+                      matchIfMissing = true)
+              SecurityFilterChain localSecurityFilterChain(
+                      HttpSecurity http,
+                      ApiAuthenticationEntryPoint authenticationEntryPoint,
+                      ApiAccessDeniedHandler accessDeniedHandler,
+                      @Value("${narrativex.security.local-user-id:local-dev-user}") String localUserId)
+                      throws Exception {
+                  http.cors(Customizer.withDefaults())
+                          .csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()))
+                          .anonymous(anonymous -> anonymous.principal(localUserId).authorities("ROLE_USER"))
+                          .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+                          .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+                          .exceptionHandling(errors -> errors
+                                  .authenticationEntryPoint(authenticationEntryPoint)
+                                  .accessDeniedHandler(accessDeniedHandler));
+                  return http.build();
+              }
+          }
+          ''')
+
+          write('app/backend-service/src/main/java/com/narrativex/backend/feature/project/application/query/GetProjectQuery.java', r'''
+          package com.narrativex.backend.feature.project.application.query;
+
+          import com.narrativex.backend.feature.common.domain.exception.DomainValidationException;
+
+          public record GetProjectQuery(Long projectId) {
+              public GetProjectQuery {
+                  if (projectId == null || projectId <= 0) {
+                      throw new DomainValidationException("projectId must be positive");
+                  }
+              }
+          }
+          ''')
+
+          write('app/backend-service/src/main/java/com/narrativex/backend/feature/project/application/usecase/GetProjectUseCase.java', r'''
+          package com.narrativex.backend.feature.project.application.usecase;
+
+          import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
+          import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
+          import com.narrativex.backend.feature.common.response.ApiResponse;
+          import com.narrativex.backend.feature.project.api.response.ProjectResponse;
+          import com.narrativex.backend.feature.project.application.port.out.ProjectRepository;
+          import com.narrativex.backend.feature.project.application.query.GetProjectQuery;
+          import lombok.RequiredArgsConstructor;
+          import lombok.extern.slf4j.Slf4j;
+          import org.springframework.stereotype.Service;
+          import org.springframework.transaction.annotation.Transactional;
+
+          @Slf4j
+          @Service
+          @RequiredArgsConstructor
+          public class GetProjectUseCase {
+              private final ProjectRepository projectRepository;
+              private final CurrentUserId currentUserId;
+
+              @Transactional(readOnly = true)
+              public ApiResponse<ProjectResponse> execute(GetProjectQuery query) {
+                  String ownerId = currentUserId.get();
+                  var project = projectRepository
+                          .findOwnedById(query.projectId(), ownerId)
+                          .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
+                  log.debug("Loaded project {} for authenticated owner {}", query.projectId(), ownerId);
+                  return ApiResponse.success("Project retrieved successfully", ProjectResponse.from(project));
+              }
+          }
+          ''')
+
+          write('app/backend-service/src/main/java/com/narrativex/backend/feature/project/api/controller/ProjectController.java', r'''
+          package com.narrativex.backend.feature.project.api.controller;
+
+          import com.narrativex.backend.feature.common.pagination.CursorPage;
+          import com.narrativex.backend.feature.common.response.ApiResponse;
+          import com.narrativex.backend.feature.project.api.request.CreateProjectRequest;
+          import com.narrativex.backend.feature.project.api.request.CreateStoryVersionRequest;
+          import com.narrativex.backend.feature.project.api.response.ProjectResponse;
+          import com.narrativex.backend.feature.project.api.response.StoryVersionResponse;
+          import com.narrativex.backend.feature.project.application.command.CreateProjectCommand;
+          import com.narrativex.backend.feature.project.application.command.CreateStoryVersionCommand;
+          import com.narrativex.backend.feature.project.application.query.GetProjectQuery;
+          import com.narrativex.backend.feature.project.application.query.ProjectListQuery;
+          import com.narrativex.backend.feature.project.application.usecase.CreateProjectUseCase;
+          import com.narrativex.backend.feature.project.application.usecase.CreateStoryVersionUseCase;
+          import com.narrativex.backend.feature.project.application.usecase.GetProjectUseCase;
+          import com.narrativex.backend.feature.project.application.usecase.ListProjectsUseCase;
+          import jakarta.validation.Valid;
+          import lombok.RequiredArgsConstructor;
+          import lombok.extern.slf4j.Slf4j;
+          import org.springframework.http.HttpStatus;
+          import org.springframework.http.ResponseEntity;
+          import org.springframework.web.bind.annotation.GetMapping;
+          import org.springframework.web.bind.annotation.PathVariable;
+          import org.springframework.web.bind.annotation.PostMapping;
+          import org.springframework.web.bind.annotation.RequestBody;
+          import org.springframework.web.bind.annotation.RequestMapping;
+          import org.springframework.web.bind.annotation.RequestParam;
+          import org.springframework.web.bind.annotation.RestController;
+
+          @Slf4j
+          @RestController
+          @RequiredArgsConstructor
+          @RequestMapping("/api/v1/projects")
+          public class ProjectController {
+              private final ListProjectsUseCase listProjectsUseCase;
+              private final GetProjectUseCase getProjectUseCase;
+              private final CreateProjectUseCase createProjectUseCase;
+              private final CreateStoryVersionUseCase createStoryVersionUseCase;
+
+              @GetMapping
+              public ResponseEntity<ApiResponse<CursorPage<ProjectResponse>>> list(
+                      @RequestParam(required = false) String cursor,
+                      @RequestParam(defaultValue = "20") int limit) {
+                  return ResponseEntity.ok(listProjectsUseCase.execute(new ProjectListQuery(null, cursor, limit)));
+              }
+
+              @GetMapping("/{projectId}")
+              public ResponseEntity<ApiResponse<ProjectResponse>> get(@PathVariable Long projectId) {
+                  return ResponseEntity.ok(getProjectUseCase.execute(new GetProjectQuery(projectId)));
+              }
+
+              @PostMapping
+              public ResponseEntity<ApiResponse<ProjectResponse>> create(@Valid @RequestBody CreateProjectRequest request) {
+                  CreateProjectCommand command = new CreateProjectCommand(
+                          request.name(),
+                          request.sourceLanguage(),
+                          request.narrationLanguage(),
+                          request.metadataLanguage(),
+                          request.imageAspectRatio(),
+                          request.imageQualityTier(),
+                          null);
+                  log.debug("Creating project for authenticated principal");
+                  return ResponseEntity.status(HttpStatus.CREATED).body(createProjectUseCase.execute(command));
+              }
+
+              @PostMapping("/{projectId}/stories")
+              public ResponseEntity<ApiResponse<StoryVersionResponse>> createStory(
+                      @PathVariable Long projectId, @Valid @RequestBody CreateStoryVersionRequest request) {
+                  CreateStoryVersionCommand command = new CreateStoryVersionCommand(
+                          projectId,
+                          request.content(),
+                          request.sourceLanguage(),
+                          request.rightsAttestationAccepted(),
+                          request.rightsPolicyVersion(),
+                          request.rightsBasis(),
+                          null);
+                  return ResponseEntity.status(HttpStatus.CREATED).body(createStoryVersionUseCase.execute(command));
+              }
+          }
+          ''')
+
+          # All application identity resolution now comes from CurrentUserId.get().
+          for path in Path('app/backend-service/src/main/java').rglob('*.java'):
+              text = path.read_text(encoding='utf-8')
+              original = text
+              text = re.sub(r'currentUserId\.resolve\([^)]*\)', 'currentUserId.get()', text)
+              if text != original:
+                  path.write_text(text, encoding='utf-8')
+
+          # Controllers must not accept user identity headers.
+          for rel in [
+              'app/backend-service/src/main/java/com/narrativex/backend/feature/generation/api/controller/ProjectGenerationController.java',
+              'app/backend-service/src/main/java/com/narrativex/backend/feature/generation/api/controller/GenerationJobController.java',
+          ]:
+              path = Path(rel)
+              text = path.read_text(encoding='utf-8')
+              text = text.replace('import org.springframework.web.bind.annotation.RequestHeader;\n', '')
+              text = re.sub(r',?\s*@RequestHeader\(name = "X-User-Id", required = false\) String ownerId', '', text)
+              text = text.replace('new EnqueueStoryAnalysisCommand(projectId, ownerId)', 'new EnqueueStoryAnalysisCommand(projectId, null)')
+              text = text.replace('new GetGenerationJobQuery(jobId, ownerId)', 'new GetGenerationJobQuery(jobId, null)')
+              path.write_text(text, encoding='utf-8')
+
+          # Test CurrentUserId lambdas migrated from one-argument resolve(...) to zero-argument get().
+          for path in Path('app/backend-service/src/test/java').rglob('*.java'):
+              text = path.read_text(encoding='utf-8')
+              text = re.sub(r'\b(?:requestedHeader|requested|header|ignored|value|ownerId)\s*->\s*', '() -> ', text)
+              path.write_text(text, encoding='utf-8')
+
+          write('app/frontend-web/src/features/projects/api/projects.api.ts', r'''
+          import type {
+            ApiGenerationJob,
+            ApiProject,
+            ApiStoryVersion,
+            CreateProjectApiInput,
+            CreateStoryVersionApiInput,
+            CursorPage,
+          } from "@/types/api";
+          import {
+            isApiGenerationJob,
+            isApiProject,
+            isApiStoryVersion,
+            isCursorPage,
+          } from "@/types/api";
+          import { apiRequest } from "@/shared/api/client";
+
+          const DEFAULT_PROJECT_PAGE_SIZE = 20;
+
+          export interface ProjectListParams {
+            cursor?: string;
+            limit?: number;
+          }
+
+          function projectListPath({ cursor, limit = DEFAULT_PROJECT_PAGE_SIZE }: ProjectListParams = {}): string {
+            const params = new URLSearchParams({ limit: String(limit) });
+            if (cursor) params.set("cursor", cursor);
+            return `/api/v1/projects?${params.toString()}`;
+          }
+
+          export const projectsApi = {
+            list: (params: ProjectListParams = {}) =>
+              apiRequest<CursorPage<ApiProject>>(
+                projectListPath(params),
+                {},
+                (value): value is CursorPage<ApiProject> => isCursorPage(value, isApiProject),
+              ),
+            getById: (projectId: number) =>
+              apiRequest<ApiProject>(`/api/v1/projects/${projectId}`, {}, isApiProject),
+            create: (input: CreateProjectApiInput) =>
+              apiRequest<ApiProject>("/api/v1/projects", { method: "POST", json: input }, isApiProject),
+            createStoryVersion: (projectId: number, input: CreateStoryVersionApiInput) =>
+              apiRequest<ApiStoryVersion>(
+                `/api/v1/projects/${projectId}/stories`,
+                { method: "POST", json: input },
+                isApiStoryVersion,
+              ),
+            enqueueAnalysis: (projectId: number) =>
+              apiRequest<ApiGenerationJob>(
+                `/api/v1/projects/${projectId}/analysis-jobs`,
+                { method: "POST" },
+                isApiGenerationJob,
+              ),
+          };
+          ''')
+
+          write('app/frontend-web/src/features/generation/api/jobs.api.ts', r'''
+          import type { ApiGenerationJob } from "@/types/api";
+          import { isApiGenerationJob } from "@/types/api";
+          import { apiRequest } from "@/shared/api/client";
+
+          export const jobsApi = {
+            getById: (jobId: string) =>
+              apiRequest<ApiGenerationJob>(`/api/v1/jobs/${encodeURIComponent(jobId)}`, {}, isApiGenerationJob),
+          };
+          ''')
+
+          write('app/frontend-web/src/lib/api.ts', r'''
+          import { authApi } from "@/features/auth/api/auth.api";
+          import { jobsApi } from "@/features/generation/api/jobs.api";
+          import { projectsApi } from "@/features/projects/api/projects.api";
+
+          export {
+            API_BASE_URL,
+            ApiClientError,
+            ApiProtocolError,
+            apiErrorMessage,
+            apiRequest,
+            apiUrl,
+            parseErrorResponse,
+          } from "@/shared/api/client";
+          export type { ProjectListParams } from "@/features/projects/api/projects.api";
+
+          export const api = {
+            getCurrentUser: authApi.getCurrentUser,
+            logout: authApi.logout,
+            googleLoginUrl: authApi.googleLoginUrl,
+            listProjects: projectsApi.list,
+            getProject: projectsApi.getById,
+            createProject: projectsApi.create,
+            createStoryVersion: projectsApi.createStoryVersion,
+            enqueueAnalysis: projectsApi.enqueueAnalysis,
+            getJob: jobsApi.getById,
+          };
+          ''')
+
+          write('app/frontend-web/src/lib/query-keys.ts', r'''
+          export const queryKeys = {
+            projects: {
+              all: ["projects"] as const,
+              list: () => ["projects", "list"] as const,
+              detail: (projectId: number) => ["projects", "detail", projectId] as const,
+            },
+            story: (projectId: number) => ["projects", projectId, "story"] as const,
+            job: (jobId: string) => ["jobs", jobId] as const,
+          };
+          ''')
+
+          write('app/frontend-web/src/features/dashboard/ProjectsDashboard.tsx', r'''
+          "use client";
+
+          import React, { useMemo } from "react";
+          import { useRouter } from "next/navigation";
+          import { useInfiniteQuery } from "@tanstack/react-query";
+          import { FolderKanban, Loader2, Plus, RefreshCw, Search } from "lucide-react";
+          import { useStudioStore } from "@/store/useStudioStore";
+          import { useProductionStore } from "@/store/useProductionStore";
+          import { projectsApi } from "@/features/projects/api/projects.api";
+          import { queryKeys } from "@/lib/query-keys";
+          import { apiErrorMessage } from "@/lib/api";
+          import type { ApiProject } from "@/types/api";
+          import { ProjectCard } from "./ProjectCard";
+          import { Tabs } from "@/components/ui/Tabs";
+          import { Button } from "@/components/ui/Button";
+          import { Input } from "@/components/ui/Input";
+
+          const completedStatuses = new Set(["COMPLETED", "ARCHIVED"]);
+          const PROJECT_PAGE_SIZE = 20;
+          type ProjectFilterTab = "all" | "in_progress" | "completed";
+
+          export const ProjectsDashboard: React.FC = () => {
+            const router = useRouter();
+            const projectFilterTab = useStudioStore((state) => state.projectFilterTab);
+            const setProjectFilterTab = useStudioStore((state) => state.setProjectFilterTab);
+            const projectSearchQuery = useStudioStore((state) => state.projectSearchQuery);
+            const setProjectSearchQuery = useStudioStore((state) => state.setProjectSearchQuery);
+            const openWizard = useStudioStore((state) => state.openWizard);
+            const setView = useProductionStore((state) => state.setView);
+
+            const projectsQuery = useInfiniteQuery({
+              queryKey: queryKeys.projects.list(),
+              initialPageParam: null as string | null,
+              queryFn: ({ pageParam }) =>
+                projectsApi.list({ cursor: pageParam ?? undefined, limit: PROJECT_PAGE_SIZE }),
+              getNextPageParam: (lastPage) =>
+                lastPage.hasNext && lastPage.nextCursor ? lastPage.nextCursor : undefined,
+            });
+
+            const projects = useMemo(
+              () => projectsQuery.data?.pages.flatMap((page) => page.content) ?? [],
+              [projectsQuery.data],
+            );
+            const normalizedSearch = projectSearchQuery.trim().toLocaleLowerCase("vi");
+            const filteredProjects = useMemo(
+              () => projects.filter((project) => {
+                const matchesSearch =
+                  !normalizedSearch || project.name.toLocaleLowerCase("vi").includes(normalizedSearch);
+                if (projectFilterTab === "in_progress") {
+                  return matchesSearch && !completedStatuses.has(project.status);
+                }
+                if (projectFilterTab === "completed") {
+                  return matchesSearch && completedStatuses.has(project.status);
+                }
+                return matchesSearch;
+              }),
+              [normalizedSearch, projectFilterTab, projects],
+            );
+            const filterTabs = useMemo(
+              () => [
+                { id: "all", label: "Tất cả", count: projects.length },
+                {
+                  id: "in_progress",
+                  label: "Đang xử lý",
+                  count: projects.filter((project) => !completedStatuses.has(project.status)).length,
+                },
+                {
+                  id: "completed",
+                  label: "Hoàn thành",
+                  count: projects.filter((project) => completedStatuses.has(project.status)).length,
+                },
+              ],
+              [projects],
+            );
+
+            const handleCardClick = (project: ApiProject) => {
+              setView("overview");
+              router.push(`/projects/${project.id}`);
+            };
+
+            if (projectsQuery.isPending) {
+              return (
+                <div className="flex min-h-72 items-center justify-center text-sm text-slate-400">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang tải dự án từ backend…
+                </div>
+              );
+            }
+            if (projectsQuery.isError) {
+              return (
+                <div className="rounded-2xl border border-rose-500/30 bg-rose-950/20 p-8 text-center">
+                  <h3 className="text-base font-semibold text-rose-200">Không tải được danh sách dự án</h3>
+                  <p className="mx-auto mt-2 max-w-lg text-xs leading-5 text-rose-200/70">
+                    {apiErrorMessage(projectsQuery.error, "Backend API chưa phản hồi.")}
+                  </p>
+                  <Button onClick={() => projectsQuery.refetch()} variant="secondary" size="sm" className="mt-5">
+                    <RefreshCw className="mr-2 h-3.5 w-3.5" />Thử lại
+                  </Button>
+                </div>
+              );
+            }
+
+            return (
+              <div className="space-y-5">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 text-purple-300">
+                      <FolderKanban className="h-4 w-4" />
+                      <span className="text-xs font-semibold uppercase tracking-[0.16em]">Projects</span>
+                    </div>
+                    <h1 className="mt-2 text-2xl font-bold text-white">Dự án của bạn</h1>
+                  </div>
+                  <Button variant="gradient" onClick={openWizard}>
+                    <Plus className="mr-2 h-4 w-4" />Tạo dự án
+                  </Button>
+                </div>
+
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <Tabs
+                    tabs={filterTabs}
+                    activeTab={projectFilterTab}
+                    onChange={(tab) => setProjectFilterTab(tab as ProjectFilterTab)}
+                  />
+                  <div className="relative w-full lg:max-w-sm">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                    <Input
+                      value={projectSearchQuery}
+                      onChange={(event) => setProjectSearchQuery(event.target.value)}
+                      placeholder="Tìm trong các project đã tải…"
+                      className="pl-9"
+                    />
+                  </div>
+                </div>
+
+                {filteredProjects.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-slate-700 p-10 text-center text-sm text-slate-400">
+                    Không có project phù hợp.
+                  </div>
+                ) : (
+                  <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                    {filteredProjects.map((project) => (
+                      <ProjectCard key={project.id} project={project} onClick={handleCardClick} />
+                    ))}
+                  </div>
+                )}
+
+                {projectsQuery.hasNextPage && (
+                  <div className="flex justify-center pt-2">
+                    <Button
+                      variant="secondary"
+                      disabled={projectsQuery.isFetchingNextPage}
+                      onClick={() => projectsQuery.fetchNextPage()}
+                    >
+                      {projectsQuery.isFetchingNextPage && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Tải thêm
+                    </Button>
+                  </div>
+                )}
+              </div>
+            );
+          };
+          ''')
+
+          write('app/frontend-web/src/features/production/ProductionShell.tsx', r'''
+          "use client";
+
+          import { useQuery } from "@tanstack/react-query";
+          import { projectsApi } from "@/features/projects/api/projects.api";
+          import { apiErrorMessage } from "@/lib/api";
+          import { queryKeys } from "@/lib/query-keys";
+
+          interface ProductionShellProps {
+            projectId?: string;
+          }
+
+          export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
+            const numericProjectId = projectId ? Number(projectId) : Number.NaN;
+            const validProjectId = Number.isInteger(numericProjectId) && numericProjectId > 0;
+            const projectQuery = useQuery({
+              queryKey: queryKeys.projects.detail(numericProjectId),
+              queryFn: () => projectsApi.getById(numericProjectId),
+              enabled: validProjectId,
+            });
+
+            if (!projectId) return <WorkspaceMessage>Chọn một project từ Tổng quan để mở workspace.</WorkspaceMessage>;
+            if (!validProjectId) return <WorkspaceMessage>Project ID không hợp lệ.</WorkspaceMessage>;
+            if (projectQuery.isPending) return <WorkspaceMessage>Đang tải project từ backend…</WorkspaceMessage>;
+            if (projectQuery.isError) {
+              return (
+                <div className="rounded-2xl border border-rose-500/30 bg-rose-950/20 p-8 text-sm text-rose-200">
+                  {apiErrorMessage(projectQuery.error, "Không tải được project từ backend.")}
+                </div>
+              );
+            }
+
+            const project = projectQuery.data;
+            return (
+              <div className="space-y-6">
+                <section className="rounded-2xl border border-slate-800/80 bg-[#0d1420]/70 p-6">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-purple-300">Backend project</p>
+                  <h2 className="mt-2 text-2xl font-bold text-white">{project.name}</h2>
+                  <p className="mt-2 text-xs text-slate-500">Project #{project.id} · row version {project.rowVersion}</p>
+                  <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                    <ProjectDatum label="Story language" value={project.sourceLanguage} />
+                    <ProjectDatum label="Frame" value={project.imageAspectRatio} />
+                    <ProjectDatum label="Quality" value={project.imageQualityTier} />
+                  </div>
+                </section>
+                <section className="rounded-2xl border border-dashed border-slate-700 bg-[#0d1420]/40 p-6">
+                  <p className="text-sm font-semibold text-slate-200">Production data đang chờ API Storyboard/Asset.</p>
+                  <p className="mt-2 text-xs leading-5 text-slate-400">
+                    Runtime không còn fallback sang dữ liệu mock. Các phần tiếp theo sẽ xuất hiện khi backend trả dữ liệu thật.
+                  </p>
+                </section>
+              </div>
+            );
+          }
+
+          function WorkspaceMessage({ children }: Readonly<{ children: React.ReactNode }>) {
+            return <div className="rounded-2xl border border-slate-800 bg-[#0d1420]/60 p-8 text-sm text-slate-400">{children}</div>;
+          }
+
+          function ProjectDatum({ label, value }: Readonly<{ label: string; value: string }>) {
+            return (
+              <div className="rounded-xl border border-slate-800 bg-[#090e18] p-3">
+                <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500">{label}</p>
+                <p className="mt-1 text-sm font-semibold text-slate-200">{value}</p>
+              </div>
+            );
+          }
+          ''')
+
+          # Runtime stores no longer initialize from mock fixtures.
+          replacements = {
+              'app/frontend-web/src/store/useAssetStore.ts': [
+                  ('import { MOCK_ASSETS } from "@/lib/assets-mock";\n', ''),
+                  ('import { isMockDataMode } from "@/lib/data-mode";\n', ''),
+                  ('assets: isMockDataMode ? MOCK_ASSETS : [],', 'assets: [],'),
+                  ('selectedAssetId: isMockDataMode ? "ast-1" : null,', 'selectedAssetId: null,'),
+                  ('isDetailDrawerOpen: isMockDataMode,', 'isDetailDrawerOpen: false,'),
+              ],
+              'app/frontend-web/src/store/usePresetStore.ts': [
+                  ('import { MOCK_PRESETS } from "@/lib/presets-mock";\n', ''),
+                  ('import { isMockDataMode } from "@/lib/data-mode";\n', ''),
+                  ('presets: isMockDataMode ? MOCK_PRESETS : [],', 'presets: [],'),
+                  ('selectedPresetId: isMockDataMode ? "style-1" : null,', 'selectedPresetId: null,'),
+                  ('isDetailDrawerOpen: isMockDataMode,', 'isDetailDrawerOpen: false,'),
+              ],
+              'app/frontend-web/src/store/useProductionStore.ts': [
+                  ('import { MOCK_PROJECT_PRODUCTION, MOCK_VISUAL_BEATS_CH01 } from "@/lib/production-mock";\n', ''),
+                  ('import { isMockDataMode } from "@/lib/data-mode";\n', ''),
+                  ('project: isMockDataMode ? MOCK_PROJECT_PRODUCTION : null,', 'project: null,'),
+                  ('visualBeats: isMockDataMode ? MOCK_VISUAL_BEATS_CH01 : [],', 'visualBeats: [],'),
+                  ('selectedVisualBeatIds: isMockDataMode ? ["beat-1", "beat-2", "beat-3"] : [],', 'selectedVisualBeatIds: [],'),
+              ],
+          }
+          for rel, pairs in replacements.items():
+              path = Path(rel)
+              text = path.read_text(encoding='utf-8')
+              for old, new in pairs:
+                  text = text.replace(old, new)
+              path.write_text(text, encoding='utf-8')
+
+          # Remove obsolete page-number query key consumers left outside rewritten screens.
+          for path in Path('app/frontend-web/src').rglob('*.tsx'):
+              text = path.read_text(encoding='utf-8')
+              if 'queryKeys.projectsPage' in text:
+                  text = text.replace('queryKeys.projectsPage(PROJECT_PAGE, PROJECT_PAGE_SIZE)', 'queryKeys.projects.list()')
+              path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Format and verify backend
+        working-directory: app/backend-service
+        run: |
+          chmod +x mvnw
+          ./mvnw --batch-mode --no-transfer-progress spotless:apply
+          ./mvnw --batch-mode --no-transfer-progress clean verify
+
+      - name: Verify frontend
+        working-directory: app/frontend-web
+        run: |
+          npm ci
+          npm run lint
+          npm run type-check
+          npm run build
+
+      - name: Commit phase A
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/apply-phase-a.yml .github/workflows/inspect-full-integration.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'refactor: use security context and real project APIs'
+          git push origin HEAD:agent/full-api-runtime-integration
