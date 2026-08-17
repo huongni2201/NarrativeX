@@ -7,9 +7,17 @@
  | CharacterVersion | Snapshot versioned của Character Bible và references. |
  | Reference Asset | Ảnh dùng làm điều kiện tham chiếu cho AI. |
  | Character Master | Ảnh/phiên bản user chọn làm identity source chính của CharacterVersion. |
+ | Character | Canonical reusable character identity thuộc User/Workspace; có thể tham gia nhiều Project. |
+| ProjectCharacter | Assignment của Character vào một Project; giữ role và metadata riêng của story/project. |
+| CharacterVersion | Immutable version của Character identity/Bible/references. |
+| CharacterAppearance | Visual state của Character trong một khoảng story/timeline; không phải identity mới. |
+| SceneCharacter | Character participation trong một Scene; tham chiếu ProjectCharacter và scene-specific state. |
+| CharacterTemplate | Optional template dùng để tạo Character mới; không phải runtime identity và không bắt buộc clone mỗi Project. |
+| Global Character Hub | User/Workspace-scoped library của reusable Character identities. |
+| Project Character Library | Project-scoped view của các ProjectCharacter assignments. |
  | OutfitVersion | Phiên bản trang phục tách khỏi identity nhân vật. |
  | CharacterTemplate | Nhân vật reusable ở user-level library; Project import thành snapshot. |
- | Project Bible | Tập Character, Location, Outfit, Style metadata/reference dùng xuyên chapter. |
+| Project Bible | Project-scoped snapshot/assignments của ProjectCharacter, Location, Outfit, Style và generation settings dùng xuyên chapter. |
  | Scene | Đơn vị nội dung storyboard có narration và duration. |
  | Shot | Đơn vị camera fine-grained bên trong Scene. |
  | VisualBeat | Khoảng narration/timeline có visual intent ổn định; đơn vị generation chính long-form. |

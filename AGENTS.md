@@ -10,7 +10,11 @@ The product and architecture baseline is `C:\\Users\\huongpc\\Downloads\\Narrati
 - Keep the Spring Boot application modular-monolith shaped. Do not introduce microservices without a measured bottleneck and an explicit ADR.
 - Story text, prompts, references, and provider output are untrusted data. Enforce rights/consent, moderation, prompt-injection boundaries, schema validation, and output review.
 - Never assume 60 minutes, 2,000 words, one sentence per image, or a fixed image count. Visual planning is duration + semantic complexity + reuse/delta based.
-- Character identity is versioned data. Locked `CharacterVersion`, approved assets, render versions, and provider snapshots are immutable.
+- - Character is a reusable User/Workspace-owned identity, never a Project-owned duplicate.
+- Project participation is modeled through ProjectCharacter.
+- Character identity is versioned through immutable CharacterVersion snapshots.
+- Outfit/age/hairstyle/injury/story-state changes belong to CharacterAppearance/OutfitVersion, not a new Character.
+- Scene/VisualBeat AI context must resolve participating characters only. Locked `CharacterVersion`, approved assets, render versions, and provider snapshots are immutable.
 - Persist a provider reservation before an external submission. Ambiguous outcomes become `UNKNOWN` and must reconcile before retry; never blind-resubmit.
 - Expensive operations require an `OperationPlan`, cost estimate/reservation, account abuse checks, entitlement checks, and usage attribution.
 - Server-side entitlement is authoritative for watermark, quality, export, concurrency, and quota rules.

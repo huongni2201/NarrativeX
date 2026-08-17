@@ -90,7 +90,28 @@ The current backend enforces these rules with automated package/dependency tests
 - `shared` does not import business modules;
 - REST controllers live in `module.api` packages.
 
-Cross-module project lookup is intentionally exposed as the small `project.application.ProjectAccess` contract. This preserves PostgreSQL/project ownership in the project module without introducing an event bus or repository registry. The shared HTTP boundary uses RFC 9457 `ProblemDetail` and a request correlation ID; security enforcement remains a W1-D5 concern.
+Cross-module project lookup is intentionally exposed as the small `project.application.port.in.ProjectAccess` contract. This preserves PostgreSQL/project ownership in the project module without introducing an event bus or repository registry. The shared HTTP boundary uses RFC 9457 `ProblemDetail` and a request correlation ID; security enforcement remains a W1-D5 concern.
+
+## DDD package structure
+
+The active `project`, `generation` and `storyboard` slices now use the following dependency direction:
+
+```text
+module.api
+  -> module.application.command / usecase / port.in
+      -> module.domain.model
+      -> module.application.port.out
+module.infrastructure.persistence
+  -> module.application.port.out
+  -> module.domain.model
+```
+
+- `domain.model` contains framework-free entities, value-like enums and aggregate behavior.
+- `application.command` contains input contracts owned by use cases; HTTP request records remain in `api`.
+- `application.usecase` owns orchestration and transaction boundaries.
+- `application.port.out` owns persistence abstractions; it does not expose Spring Data types.
+- `infrastructure.persistence` owns JPA entities, Spring Data repositories and domain/persistence mappers.
+- Cross-module references use stable IDs or explicit application ports. Generation never maps a JPA relationship to the project module.
 
 ## External system ownership
 

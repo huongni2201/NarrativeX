@@ -71,7 +71,7 @@
  | FR-53 | Batch review | Batch approve/reject/regenerate; partial result, item conflict không rollback item hợp lệ. |
  | FR-54 | Prompt inspector | Auto prompt + structured override + submitted prompt; raw override có warning. |
  | FR-55 | Animatic | Browser animatic image/keyframe + audio/subtitle/timing/light motion trước encode. |
- | FR-56 | Character library | TemplateVersion reuse; import thành Project snapshot, không auto-update project cũ. |
+| FR-56 | Character library | Global Character Hub quản lý reusable Character identities; Project Character Library quản lý ProjectCharacter assignments. Assign Character vào Project không duplicate identity. Generation sử dụng immutable CharacterVersion/Appearance snapshot. |
  | FR-57 | Vertex Gemini | Story/scene/visual/prompt/highlight qua Vertex AI; ADC/workload identity; config server-side. |
  | FR-58 | Capability registry | Provider/model expose modes/aspect/resolution/duration/pricing; domain không vendor branch. |
  | FR-59 | Motion planning | STILL/BASIC_MOTION/AI_VIDEO; image-first fallback. |
@@ -109,6 +109,8 @@
  | FR-81 | Chapter lifecycle | DRAFT → ANALYZED → VISUAL_READY → RENDERED; readiness phản ánh trạng thái bền vững, không suy ra từ counter tạm. |
  | FR-82 | Chapter resume/progress | Resume/retry theo Chapter, durable progress và không tạo job trùng khi reconnect/worker restart. |
  | FR-83 | Chapter render scope | Render Chapter hoặc Full Project; chỉ enqueue affected/new scope khi thêm/sửa Chapter. |
+ | FR-84 | Character appearance | Quản lý nhiều visual states/appearances của cùng Character theo chapter/timeline mà không duplicate identity. |
+| FR-85 | Character context resolution | Scene/VisualBeat generation chỉ resolve participating characters và required references; không inject toàn bộ project/global library vào AI context. |
 
  ## Non-functional release expectations
 

@@ -82,7 +82,7 @@ Severity: P1
 Component: backend/worker  
 Title: Durable async operation handoff is incomplete  
 Evidence: Enqueue creates an `OperationPlan` with zeroed estimates and a `GenerationJob`, but no reservation, idempotency key, queue publication, worker claim, lease, heartbeat, or reconciliation path exists. The worker is an idle loop with a disabled provider.  
-File/line or command: `GenerationApplicationService.java:33-43`; `app/ai-worker/src/narrativex_worker/worker.py`; `service.py`; `providers/ports.py`; `providers/disabled.py`; `contracts/job-event.v1.schema.json`.  
+File/line or command: `modules/generation/application/usecase/EnqueueStoryAnalysisUseCase.java`; `app/ai-worker/src/narrativex_worker/worker.py`; `service.py`; `providers/ports.py`; `providers/disabled.py`; `contracts/job-event.v1.schema.json`.
 Current behavior: A job row can be created without a durable handoff or safe external-operation lifecycle.  
 Expected behavior: Reserve cost before submission, publish a durable job event, claim with lease/idempotency, persist provider operation state, represent ambiguity as `UNKNOWN`, and reconcile before retry.  
 Impact: Jobs can remain inert, duplicate external work, or lose the authoritative state transition during restart/failure.  

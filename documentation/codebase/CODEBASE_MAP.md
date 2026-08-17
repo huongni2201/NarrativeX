@@ -10,7 +10,7 @@
 ## Repository layout
 
 ```text
-app/backend-service/   Spring Boot modular monolith: HTTP, domain state, JPA, Flyway, security
+app/backend-service/   Spring Boot modular monolith: API, DDD modules, persistence adapters, Flyway, security
 app/frontend-web/      Next.js App Router / React / TypeScript studio UI
 app/ai-worker/         Python 3.12 worker foundation and provider ports
 contracts/             versioned backend-to-worker JSON schema
@@ -38,9 +38,9 @@ Current reality: the only verified runtime path that reaches PostgreSQL is the b
 
 | Module | Current responsibility | Runtime status |
 |---|---|---|
-| `project` | project list/create, story-version create, owner-filtered persistence | real API/persistence; incomplete CRUD |
-| `generation` | operation-plan and generation-job scaffold, owner-filtered job read | real persistence scaffold; no worker execution |
-| `storyboard` | JPA entities for chapter/scene/visual beat | entity-only, no controller/repository API |
+| `project` | Project aggregate, story-version use cases, commands, ports and JPA adapters | real API/persistence; incomplete CRUD |
+| `generation` | GenerationJob/OperationPlan aggregates, enqueue/read use cases, ports and JPA adapters | real persistence scaffold; no worker execution |
+| `storyboard` | framework-free chapter/scene/visual-beat models plus JPA mappings | persistence mapping only; no controller/use-case API |
 | `health` | provider configuration status response | diagnostic/configuration only, not a provider health probe |
 | `shared.api` | Spring `ProblemDetail` handlers for validation and `IllegalArgumentException` | partial error contract |
 | `configuration` | limits and conditional OIDC/local security chain | local mode open by default; not production safe |
@@ -94,7 +94,9 @@ Current reality: the only verified runtime path that reaches PostgreSQL is the b
 FE visible action
   -> Zustand/local mock or (only legacy StudioDashboard) api.ts
   -> existing /api/v1 project/story/job endpoints
-  -> JPA repository
+  -> application outbound port
+  -> infrastructure persistence adapter
+  -> Spring Data JPA repository/JPA entity
   -> PostgreSQL (currently cannot start from empty DB)
 
 Future async path:

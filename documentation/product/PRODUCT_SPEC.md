@@ -9,11 +9,26 @@
 
  Mục tiêu V1.7:
 
- - Chuyển story → Character/Location/Chapter/Scene/VisualBeat → audio → animatic → render bền vững.
+ - Chuyển story → detected Character identities → ProjectCharacter assignments → CharacterAppearance/Location → Chapter/Scene/VisualBeat → audio → animatic → render bền vững.
  - Giữ nhất quán nhân vật bằng Character Master, Character Bible, Reference Asset, CharacterVersion, Outfit/Location/Style Bible và Identity QA.
  - Cho phép regenerate theo affected scope, reuse asset và review batch thay vì chạy lại toàn project.
  - Đo và giới hạn chi phí theo `user → project → operation → job → stage`, có estimate range, reservation, spending cap và actual usage.
  - Đưa Trust & Safety, rights/consent, prompt-injection defense, abuse protection, privacy/deletion và audit vào control plane trước public production.
+
+ ### Character ownership and reuse
+
+Character is a reusable identity owned at User/Workspace scope.
+
+A Project does not own Character identity directly.
+It owns a ProjectCharacter assignment.
+
+The same Character may participate in multiple Projects.
+
+Visual changes such as outfit, hairstyle, aging or injuries must use
+CharacterAppearance/OutfitVersion instead of creating duplicate Characters.
+
+Generation always snapshots resolved CharacterVersion,
+CharacterAppearance, OutfitVersion and references.
 
  ## 2. Phạm vi V1.7
 
@@ -21,7 +36,7 @@
 
  - Google OIDC; backend giữ HttpOnly session và project ownership.
  - Paste/import story, `StoryVersion`, semantic analysis và chunking cho nội dung ngắn/dài.
- - Character/CharacterVersion/Character Master/Outfit, Project Bible, Location và Style Profile.
+ - Global reusable Character identity, ProjectCharacter assignment, CharacterVersion, CharacterAppearance, Character Master, OutfitVersion, Project Bible, Location và Style Profile.
  - Storyboard Scene/VisualBeat/Shot; merge/split theo narration và semantic complexity.
  - Image generation qua provider adapter với `ImageGenerationSettings`; approve/reject/regenerate và lưu mọi attempt.
  - TTS narration, subtitle timing, basic pan/zoom/fade, browser animatic và FFmpeg scene/chapter/final render.

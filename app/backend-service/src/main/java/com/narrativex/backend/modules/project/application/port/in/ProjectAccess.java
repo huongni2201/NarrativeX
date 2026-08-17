@@ -1,0 +1,8 @@
+package com.narrativex.backend.modules.project.application.port.in;
+
+import com.narrativex.backend.modules.project.domain.model.Project;
+
+/** Cross-module inbound contract for ownership-checked project access. */
+public interface ProjectAccess {
+    Project findOwnedProject(Long projectId, String ownerId);
+}

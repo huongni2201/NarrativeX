@@ -24,9 +24,11 @@ class ArchitectureRulesTest {
     @Test
     void rulesDetectARepresentativeInvalidDependency() {
         assertTrue(isForbiddenApplicationImport("import com.narrativex.backend.modules.project.api.CreateProjectRequest;"));
-        assertTrue(isForbiddenCrossModuleRepositoryImport(
-            "com.narrativex.backend.modules.generation.application",
-            "import com.narrativex.backend.modules.project.repository.ProjectRepository;"));
+        assertTrue(isForbiddenApplicationImport(
+            "import com.narrativex.backend.modules.project.infrastructure.persistence.ProjectPersistenceAdapter;"));
+        assertTrue(isForbiddenApiImport(
+            "import com.narrativex.backend.modules.project.application.port.out.ProjectRepository;"));
+        assertTrue(isForbiddenDomainImport("import jakarta.persistence.Entity;"));
     }
 
     private static List<String> scanProductionSources() throws IOException {
@@ -38,17 +40,13 @@ class ArchitectureRulesTest {
                     String packageName = packageName(source);
                     String relative = SOURCE_ROOT.relativize(path).toString().replace('\\', '/');
                     if (packageName.contains(".application") && source.lines().anyMatch(ArchitectureRulesTest::isForbiddenApplicationImport)) {
-                        violations.add(relative + ": application imports an API package");
+                        violations.add(relative + ": application imports an API or infrastructure package");
                     }
-                    if (packageName.contains(".api") && source.lines().anyMatch(line -> line.contains(".repository."))) {
-                        violations.add(relative + ": API imports a repository package");
-                    }
-                    if (packageName.contains(".modules.") && source.lines()
-                        .anyMatch(line -> isForbiddenCrossModuleRepositoryImport(packageName, line))) {
-                        violations.add(relative + ": module imports another module repository");
+                    if (packageName.contains(".api") && source.lines().anyMatch(ArchitectureRulesTest::isForbiddenApiImport)) {
+                        violations.add(relative + ": API imports an infrastructure or outbound port package");
                     }
                     if (packageName.contains(".domain") && source.lines().anyMatch(ArchitectureRulesTest::isForbiddenDomainImport)) {
-                        violations.add(relative + ": domain imports an outer runtime dependency");
+                        violations.add(relative + ": domain imports a framework or infrastructure dependency");
                     }
                     if (packageName.contains(".shared") && source.lines().anyMatch(line -> line.contains("com.narrativex.backend.modules."))) {
                         violations.add(relative + ": shared imports a business module");
@@ -73,16 +71,12 @@ class ArchitectureRulesTest {
     }
 
     private static boolean isForbiddenApplicationImport(String line) {
-        return line.startsWith("import ") && line.contains("com.narrativex.backend.modules.") && line.contains(".api.");
+        return line.startsWith("import ") && line.contains("com.narrativex.backend.modules.")
+            && (line.contains(".api.") || line.contains(".infrastructure."));
     }
 
-    private static boolean isForbiddenCrossModuleRepositoryImport(String packageName, String line) {
-        if (!line.startsWith("import ") || !line.contains("com.narrativex.backend.modules.") || !line.contains(".repository.")) {
-            return false;
-        }
-        String currentModule = packageName.substring(packageName.indexOf(".modules.") + ".modules.".length()).split("\\.")[0];
-        String importedModule = line.substring(line.indexOf(".modules.") + ".modules.".length()).split("\\.")[0];
-        return !currentModule.equals(importedModule);
+    private static boolean isForbiddenApiImport(String line) {
+        return line.startsWith("import ") && (line.contains(".infrastructure.") || line.contains(".application.port.out."));
     }
 
     private static boolean isForbiddenDomainImport(String line) {
@@ -90,7 +84,10 @@ class ArchitectureRulesTest {
             return false;
         }
         String lower = line.toLowerCase();
-        return lower.startsWith("import org.springframework.web")
+        return lower.startsWith("import jakarta.persistence")
+            || lower.startsWith("import jakarta.validation")
+            || lower.startsWith("import org.springframework")
+            || lower.contains("shared.infrastructure")
             || lower.contains("redis")
             || lower.contains("minio")
             || lower.contains("software.amazon")

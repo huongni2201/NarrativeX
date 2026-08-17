@@ -9,11 +9,11 @@ W1-D2 establishes enforceable boundaries around the existing modular monolith an
 ## Implemented baseline
 
 - Application services use application commands/contracts rather than HTTP request DTOs.
-- Generation accesses projects through `project.application.ProjectAccess`, never a project repository.
+- Generation accesses projects through `project.application.port.in.ProjectAccess`, never a project repository.
 - Automated source-level architecture tests enforce application/API, API/repository, cross-module repository, domain/runtime, shared/business, and controller-package rules.
 - Shared RFC 9457 `ProblemDetail` responses expose stable `code`, `messageKey`, `status`, `path`, `instance`, and `correlationId`; validation includes field violations.
 - A correlation-ID filter returns `X-Correlation-Id` on responses and supplies it to problem payloads.
-- Transactions remain at application use-case boundaries; no persistence/schema rewrite was performed.
+- Transactions remain at application use-case boundaries; the later DDD migration separates persistence mappings without changing the database schema (see `DDD_MIGRATION.md`).
 - The frontend has typed API DTOs, a single fetch/error boundary, conservative TanStack Query defaults, stable query keys, and an App Router provider wrapper.
 - Mock data is explicit through `NEXT_PUBLIC_NX_DATA_MODE`; non-development builds default to API mode and reject mock mode.
 

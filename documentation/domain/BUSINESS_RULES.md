@@ -5,10 +5,10 @@
  ## Story, identity và asset lifecycle
 
  - **BR-01** Mỗi Project có đúng một StoryVersion ACTIVE tại một thời điểm.
- - **BR-02** Character thuộc đúng một Project.
- - **BR-03** Character có nhiều CharacterVersion; chỉ ACTIVE/LOCKED dùng mặc định.
+ - **BR-02** Character là reusable identity thuộc User/Workspace, không thuộc trực tiếp một Project. Quan hệ Character tham gia Project được biểu diễn bằng ProjectCharacter.
+ - **BR-03** Character có nhiều CharacterVersion immutable. ProjectCharacter có thể pin một CharacterVersion; nếu không pin thì resolve ACTIVE/LOCKED version theo policy tại thời điểm tạo generation snapshot.
  - **BR-04** Lock không xóa version cũ.
- - **BR-05** Scene đã generate lưu CharacterVersion đã dùng.
+ - **BR-05** Scene/VisualBeat đã generate phải lưu immutable references tới Character, ProjectCharacter, CharacterVersion và CharacterAppearance/OutfitVersion đã resolve tại thời điểm generation.
  - **BR-06** Đổi CharacterVersion không ghi đè shot cũ; đánh dấu OUTDATED khi cần.
  - **BR-07** Shot có tối đa một primary image APPROVED, nhưng nhiều attempts.
  - **BR-08** Regenerate tạo attempt mới, không overwrite artifact cũ.
@@ -29,17 +29,17 @@
  - **BR-23** Reference bắt buộc mất thì fail fast, không tự tạo nhân vật mới.
  - **BR-24** V1.7 image-first; AI video chỉ optional/selected theo capability, cost, quality.
  - **BR-25** Đổi scene order làm render hiện tại OUTDATED nhưng không xóa export.
- - **BR-26** Character Bible/Master ở Project, dùng lại xuyên chapter.
+ - **BR-26** Character Bible/Master thuộc Character identity ở User/Workspace scope. Project sử dụng Character thông qua ProjectCharacter; ProjectCharacter giữ role, story-specific metadata và version pins. Character được reuse xuyên Project và Chapter mà không duplicate identity.
  - **BR-27** LOCKED CharacterVersion immutable identity/reference; thay đổi tạo version mới.
- - **BR-28** Outfit là entity/version riêng, không tạo Character mới.
+ - **BR-28** Thay đổi outfit, hairstyle, age-state, injury, accessories hoặc visual state không tạo Character mới. Các thay đổi visual theo timeline thuộc CharacterAppearance và/hoặc OutfitVersion.
  - **BR-29** VisualBeat là đơn vị generation chính; planner đề xuất, user merge/split.
- - **BR-30** GenerationAttempt lưu character/outfit/reference/workflow/model/resolved prompt snapshot.
+ - **BR-30** GenerationAttempt lưu Character ID, ProjectCharacter ID, CharacterVersion, CharacterAppearance/OutfitVersion, resolved references, workflow, model và resolved prompt snapshot.
  - **BR-31** Generation success không tự APPROVED; cần human review và/hoặc Identity QA.
  - **BR-32** Identity QA chỉ là tín hiệu hỗ trợ; similarity không bảo đảm tuyệt đối.
  - **BR-33** Regenerate beat/shot chỉ tác động đơn vị đó trừ khi user yêu cầu rộng hơn.
  - **BR-34** Location Bible và Style Profile được resolve vào beat liên quan.
  - **BR-35** Render chapter không làm đổi snapshot/reference của chapter đã render.
- - **BR-36** Multi-character phải chỉ rõ CharacterVersion từng nhân vật; region/inpaint là nâng cao.
+ - **BR-36** Multi-character phải resolve riêng ProjectCharacter → Character → CharacterVersion → CharacterAppearance/OutfitVersion cho từng nhân vật; không resolve bằng character name.
  - **BR-37** V1.7 không bắt buộc train LoRA/adapter; reference conditioning phải hoạt động.
 
  ## Duration, Short và image/render settings
@@ -77,7 +77,7 @@
  - **BR-67** Render/Short terminal transition tạo outbox event idempotent; persist notification trước email; email retry không duplicate.
  - **BR-82** Batch action dùng item-level result + optimistic concurrency; conflict item không rollback item hợp lệ.
  - **BR-83** Prompt tách auto_resolved, structured override, submitted; raw override không sửa LOCKED snapshot.
- - **BR-84** Character Library dùng template version + Project snapshot; update library không cascade.
+ - **BR-84** Project Character Library là view project-scoped của ProjectCharacter assignments. Global Character Hub chứa reusable Character identities. Một Character có thể được assign vào nhiều Project. Character identity update không được mutate generation history; existing GenerationAttempt/Render snapshot vẫn immutable.
 
  ## Entitlement, concurrency, cost và operations
 
@@ -128,3 +128,9 @@
  - **BR-110** REVIEW không tự thành SAFE vì provider success; publishable cần policy decision độc lập.
  - **BR-111** Reference phải ghi rõ REAL_PERSON_REFERENCE hay FICTIONAL_REFERENCE để áp đúng retention/consent.
  - **BR-112** Safety/security/rights/consent policy version phải snapshot vào quyết định để audit lịch sử.
+- **BR-113** ProjectCharacter là association giữa Project và Character; chứa role, importance, project aliases, story-specific description, groups, lifecycle và optional version pins.
+- **BR-114** CharacterAppearance biểu diễn visual state theo story timeline; thay đổi appearance không tạo Character identity mới.
+- **BR-115** Scene/VisualBeat chỉ reference Character bằng immutable ID; character name chỉ là display/search field, không phải identity key.
+- **BR-116** AI generation không được load toàn bộ Character Library mặc định. Context được resolve từ Scene/VisualBeat → participating ProjectCharacters → required Character versions/appearances/references.
+- **BR-117** Xóa ProjectCharacter chỉ bỏ assignment khỏi Project; không tự động xóa reusable Character identity.
+- **BR-118** Project Character Library mặc định chỉ query characters được assign vào Project hiện tại; Global Character Hub là scope riêng.

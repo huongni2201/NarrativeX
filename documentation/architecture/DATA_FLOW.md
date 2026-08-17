@@ -57,6 +57,25 @@ The same transaction that commits a terminal job state writes an `outbox_events`
 
 An edit creates a new snapshot/version where needed. `AffectedScopeResolver` compares story, scene, character, style, timing and render dependencies. Unchanged approved assets and compatible scene clips are reused; changed visuals may be reframed/basic-motion or regenerated. The new `OperationPlan` prices only the delta. Immutable approved assets and render versions are never overwritten.
 
+Scene/VisualBeat
+ → SceneCharacter
+ → ProjectCharacter
+ → Character
+ → CharacterVersion
+ → CharacterAppearance
+ → OutfitVersion
+ → ReferenceAssets
+
+Character edits have two scopes:
+
+1. identity-level change:
+   Character / CharacterVersion
+
+2. project/story usage change:
+   ProjectCharacter / CharacterAppearance
+
+AffectedScopeResolver must distinguish both.
+
 ## Deletion flow
 
 Deletion is a durable operation: stop new jobs, cancel or reconcile pending stages, quarantine late provider results, revoke signed URL access, expire/delete identity data and derivatives, reconcile storage accounting, and record completion/error. Backup copies follow retention/recovery policy; the API must not promise immediate physical erasure where backup systems cannot provide it.

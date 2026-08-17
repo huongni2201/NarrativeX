@@ -1,4 +1,4 @@
-# NarrativeX W1-D1 Backend Baseline
+# NarrativeX Backend Codebase
 
 ## Framework/runtime
 
@@ -13,15 +13,19 @@
 | Module | Responsibility | Incoming | Outgoing / DB ownership | Security ownership | Violations/gaps |
 |---|---|---|---|---|---|
 | `project.api` | HTTP DTOs and project/story routes | frontend/HTTP | project service | passes owner header to service | controller still exposes client owner header in local mode |
-| `project.application` | project/story use cases and limits | project controller | project/story repositories | resolves owner via `CurrentUserId` | no read/update story API; version allocation is count-plus-one |
-| `project.domain` | JPA project/story entities and enums | service/repository | PostgreSQL tables | owner field only | no workspace aggregate/membership |
+| `project.application` | commands, inbound access port and project/story use cases | project controller; generation through `ProjectAccess` | outbound repository ports | resolves owner via `CurrentUserId` | no read/update story API; version allocation is count-plus-one |
+| `project.domain.model` | framework-free Project aggregate root, StoryVersion entity and enums | project use cases | no direct database/framework dependency | owner field only | no workspace aggregate/membership |
+| `project.infrastructure.persistence` | JPA entities, Spring Data repositories, mappers and outbound adapters | application ports | PostgreSQL project/story tables | translates persistence state to domain | no separate query/read model yet |
 | `generation.api` | job query route and response mapping | frontend/HTTP | generation service | owner-filtered query | no SSE/cancel |
-| `generation.application` | operation-plan/job insert and owner-filtered lookup | project/generation controllers | generation/project repositories | owner-filtered project/job lookup | no reservation, idempotency, delivery, claim or worker handoff |
-| `storyboard.domain` | chapter/scene/visual-beat JPA entities | JPA scan only | PostgreSQL tables | none at API surface | no repositories/controllers/use cases |
+| `generation.application` | commands and enqueue/read job use cases | project/generation controllers | generation outbound repository ports and project inbound access port | owner-filtered project/job lookup | no reservation, idempotency, delivery, claim or worker handoff |
+| `generation.domain.model` | GenerationJob and OperationPlan aggregate roots plus stage/provider entities | generation use cases | no direct database/framework dependency | requested/billed user IDs | no worker claim state machine yet |
+| `generation.infrastructure.persistence` | JPA entities, repositories, mappers and adapters | application ports | PostgreSQL generation tables | scalar project IDs avoid cross-module ORM links | no durable delivery adapter yet |
+| `storyboard.domain.model` | framework-free chapter/scene/visual-beat entities | future storyboard use cases | no direct database/framework dependency | none at API surface | no repositories/controllers/use cases |
+| `storyboard.infrastructure.persistence` | JPA table mappings for chapter/scene/visual-beat | future storyboard ports | PostgreSQL tables | scalar parent IDs preserve module isolation | persistence adapter/use cases still pending |
 | `health.api` | provider configuration status | frontend/ops | no persistence/provider call | route follows global chain | response says configuration, not real health |
 | `shared.api` | basic `ProblemDetail` mapping | all controllers | none | none | no 401/403/404/409/5xx contract or correlation ID |
 
-No provider SDK import was found in backend domain/application packages. This satisfies the provider-boundary rule at the current scaffold level.
+No provider SDK, web, JPA or storage import is allowed in backend domain model packages. Persistence is now an infrastructure concern and provider work remains outside the domain/application core.
 
 ## API inventory
 
@@ -46,9 +50,9 @@ Concrete route evidence is in `src/main/java/com/narrativex/backend/modules/proj
 
 ## Persistence and transactions
 
-- JPA entities use `Long` identity PKs, `@Version` row version, UTC instants and lazy parent relationships.
-- Project list/create, story create and analysis enqueue have explicit `@Transactional` boundaries. Job read and project list are read-only transactions.
-- `GenerationApplicationService.enqueueStoryAnalysis` persists a zero-cost `OperationPlan` and a queued job but does not reserve budget, create stage attempts, or publish a delivery event.
+- Infrastructure JPA entities use `Long` identity PKs, `@Version` row version, UTC instants and explicit scalar foreign-key IDs. Domain models do not carry JPA annotations or ORM relationships.
+- Project, story and generation actions are explicit use cases under `application/usecase`; commands are under `application/command`; transactions remain at use-case boundaries.
+- `EnqueueStoryAnalysisUseCase` persists a zero-cost `OperationPlan` and a queued job but does not reserve budget, create stage attempts, or publish a delivery event.
 - No repository directly writes Redis or object storage.
 
 ## Redis, storage and provider boundary
@@ -57,11 +61,13 @@ Concrete route evidence is in `src/main/java/com/narrativex/backend/modules/proj
 - MinIO/S3 is present only in local Compose and environment naming; no storage adapter exists in backend or worker.
 - Provider SDKs are absent from the backend. The worker exposes provider ports and a disabled adapter.
 
-## W1-D2 architecture and error boundary
+## DDD structure and dependency direction
 
-- `ProjectApplicationService` consumes `CreateProjectCommand` and `CreateStoryVersionCommand`; controllers perform the HTTP DTO mapping.
-- `GenerationApplicationService` consumes `ProjectAccess` from `project.application`; it no longer imports `ProjectRepository`.
-- `ArchitectureRulesTest` checks dependency direction and controller placement on every test run.
+- `Project` is the project aggregate root; it creates `StoryVersion` entities through `createStoryVersion(...)` and rejects creation for archived/unsaved projects.
+- `GenerationJob` and `OperationPlan` are separate aggregate roots; generation stores `projectId` as an ID and crosses into project through `project.application.port.in.ProjectAccess`.
+- Application code depends on `application.port.out` repository interfaces. Spring Data JPA implementations live under `infrastructure.persistence` and map between JPA entities and domain models.
+- API controllers map HTTP DTOs to application commands and invoke use cases; they do not know Spring Data repositories or JPA entities.
+- `ArchitectureRulesTest` checks that domain models are framework-free, application does not import API/infrastructure, API does not import outbound ports/infrastructure, and controllers stay in API packages.
 - `ApiExceptionHandler` produces RFC 9457 `ProblemDetail` with stable error codes, message keys, path, instance and correlation ID. Validation exposes structured field violations; not-found, conflict, authorization, unauthenticated and unexpected paths are redacted.
 - `CorrelationIdFilter` accepts a bounded safe `X-Correlation-Id` or generates one and returns it in the response header.
 - `@Transactional` and `@Transactional(readOnly = true)` remain on application use-case methods; controllers do not own transactions.
@@ -72,7 +78,7 @@ The W1-D2 handler maps invalid requests to `INVALID_REQUEST`, bean validation to
 
 ## Testing
 
-- `mvn test`: 4 tests passed; the Spring context test uses H2, `ddl-auto=create-drop`, and Flyway disabled (`src/test/resources/application-test.yml:1-16`). It does not validate real PostgreSQL migrations.
+- `mvn clean test`: 15 tests passed after the DDD migration; the Spring context test uses H2, `ddl-auto=create-drop`, and Flyway disabled (`src/test/resources/application-test.yml:1-16`). It does not validate real PostgreSQL migrations.
 - `mvn -DskipTests package`: produced `target/backend-service-0.0.1-SNAPSHOT.jar` during the audit.
 - Real startup against local PostgreSQL 16 failed with `Schema validation: missing table [chapters]`; the DB had no `flyway_schema_history` and no public tables. This is a P0 empty-database boot failure, not an H2 test failure.
 

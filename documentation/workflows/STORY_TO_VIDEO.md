@@ -10,10 +10,21 @@ Google OIDC/session + ownership
   -> rights attestation for StoryVersion
   -> input moderation + prompt-injection defense
   -> STORY_ANALYZE (Vertex AI Gemini)
-  -> Characters / Locations / Chapters / Scenes
+  -> detected character identities / Locations / Chapters / Scenes
+  -> Character identity matching / deduplication
+  -> create or reuse Character
+  -> create ProjectCharacter assignments
   -> Character Bible + CharacterVersion review/lock
+  -> CharacterAppearance planning
   -> VISUAL_BEAT_PLAN (semantic timing and adaptive density)
   -> OperationPlan + reuse/delta + cost confirmation/reservation
+  -> Scene / VisualBeat
+  -> SceneCharacter / VisualBeatCharacter
+  -> ProjectCharacter
+  -> Character
+  -> locked/pinned CharacterVersion
+  -> CharacterAppearance / OutfitVersion
+  -> required ReferenceAssets only
   -> image generation + Identity QA + visual review
   -> TTS narration + subtitle timing
   -> browser animatic review

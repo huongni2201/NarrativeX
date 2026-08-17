@@ -1,6 +1,6 @@
 package com.narrativex.backend.modules.project.api;
 
-import com.narrativex.backend.modules.project.domain.StoryVersion;
+import com.narrativex.backend.modules.project.domain.model.StoryVersion;
 import java.time.Instant;
 
 public record StoryVersionResponse(
@@ -16,7 +16,7 @@ public record StoryVersionResponse(
     int contentCharacterCount
 ) {
     public static StoryVersionResponse from(StoryVersion storyVersion) {
-        return new StoryVersionResponse(storyVersion.getId(), storyVersion.getProject().getId(),
+        return new StoryVersionResponse(storyVersion.getId(), storyVersion.getProjectId(),
             storyVersion.getVersionNumber(), storyVersion.getStatus().name(),
             storyVersion.getModerationDecision().name(), storyVersion.isRightsAttested(),
             storyVersion.getRightsPolicyVersion(), storyVersion.getRightsBasis(), storyVersion.getRightsAttestedAt(),

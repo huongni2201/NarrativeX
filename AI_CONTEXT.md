@@ -18,3 +18,12 @@ Durable jobs and provider reconciliation, adaptive visual planning, CharacterVer
 ## Important constraints
 
 Do not encode fixed duration or fixed image-count assumptions in code. Do not put provider credentials in the browser. Do not make a final artifact ready before MIME/dimension/checksum validation. Do not overwrite immutable history when regenerating.
+
+Character model:
+- Character = reusable User/Workspace-owned identity.
+- ProjectCharacter = Character assignment within one Project.
+- CharacterVersion = immutable identity snapshot.
+- CharacterAppearance = story/timeline visual state.
+- Scene/VisualBeat generation resolves only participating ProjectCharacters.
+- Never duplicate Character solely for outfit/age/hairstyle/injury changes.
+- Never use character name as a relational identity key.

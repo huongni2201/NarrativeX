@@ -8,13 +8,24 @@ Image generation is image-first and visual-beat/shot scoped. It produces `Keyfra
 Authenticated owner
   -> story/reference rights + consent checks
   -> input moderation and prompt-injection boundary
-  -> CharacterVersion/Outfit/Location/Style snapshot resolution
+  -> Scene/VisualBeat participating character resolution
+  -> ProjectCharacter resolution
+  -> CharacterVersion pin/lock resolution
+  -> CharacterAppearance + OutfitVersion resolution
+  -> only required Character ReferenceAssets
+  -> Location/Style resolution
   -> ImageGenerationSettings (aspect ratio + quality tier + overrides)
   -> capability validation
   -> AffectedScope + asset reuse/reframe resolution
   -> OperationPlan estimate and user confirmation
   -> CostReservation
 ```
+
+The worker MUST NOT receive the complete Global Character Hub
+or complete Project Character Library for normal image generation.
+
+For a beat containing N participating characters,
+the generation payload should normally resolve only those N characters.
 
 The planner prices only `NEW_IMAGE`/`REGENERATE` work. Approved reusable assets and compatible reframe/basic-motion work reduce the plan. Quality tiers are provider-agnostic (`DRAFT`, `STANDARD`, `HIGH`) and must not be confused with final video resolution.
 

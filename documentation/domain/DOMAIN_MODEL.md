@@ -12,11 +12,13 @@
  | ExternalIdentity | Google OIDC provider/subject/claims; không chứa provider secret |
  | Project | owner, status, active StoryVersion, default ImageGenerationSettings, row_version |
  | StoryVersion | project, version_no, raw_text, status, source language, rights attestation |
- | Character | project, name, role, status |
- | CharacterVersion | immutable bible/prompt/reference snapshot, status, lock, row_version |
- | CharacterMaster/Reference | identity source, view/weight/status; sensitive khi real-person |
- | OutfitVersion | outfit riêng identity, version/status/reference |
- | CharacterTemplate/Version | user library immutable template; import vào project thành snapshot |
+| Character | owner/workspace, canonical identity, name, aliases, status; reusable across Projects |
+| ProjectCharacter | project + character assignment; role, importance, project aliases, story metadata, groups, optional pinned CharacterVersion |
+| CharacterVersion | immutable identity/Bible/prompt/reference snapshot, status, lock, row_version |
+| CharacterMaster/Reference | identity source của CharacterVersion, view/weight/status; sensitive khi real-person |
+| CharacterAppearance | visual state của Character trong story timeline: age-state, hairstyle, injury, wardrobe context, appearance prompt |
+| OutfitVersion | reusable/versioned outfit definition có thể được CharacterAppearance tham chiếu |
+| CharacterTemplate/Version | optional creation template; không phải canonical runtime Character identity |
  | Location/LocationReference | project-level environment bible và reference |
  | ProjectStyleProfile | style/negative prompt/aspect/version |
  | Chapter | StoryVersion boundary, order/title |
@@ -60,8 +62,19 @@
 
  ```text
  User 1──* Project 1──* StoryVersion 1──* Chapter 1──* Scene 1──* VisualBeat 1──* GenerationAttempt
- Project 1──* Character 1──* CharacterVersion 1──* ReferenceAsset
- VisualBeat *──* CharacterVersion + OutfitVersion + Location/StyleProfile
+User/Workspace 1──* Character 1──* CharacterVersion 1──* ReferenceAsset
+Project 1──* ProjectCharacter *──1 Character
+Character 1──* CharacterAppearance
+Character 1──* OutfitVersion
+
+Scene 1──* SceneCharacter *──1 ProjectCharacter
+
+VisualBeat
+  1──* VisualBeatCharacter
+          ├── ProjectCharacter
+          ├── CharacterVersion
+          ├── CharacterAppearance
+          └── OutfitVersion
  Project 1──* OperationPlan 1──* GenerationJob 1──* StageAttempt 0──* ProviderOperation
  VisualBeat 0──1 KeyframeAsset + 0──1 MotionAsset → RenderVersion → FinalArtifact
  OperationPlan 1──* CostEstimateItem + 1──1 CostReservation → UsageLedger/ResourceUsageRecord
@@ -69,9 +82,16 @@
  ```
 
  - Project dùng Character/Location/Style xuyên chapter nhưng mỗi generation snapshot version/reference đã resolve.
- - Library import tạo `project_character_imports` và local CharacterVersion; library update không cascade.
+- Assigning a reusable Character to a Project creates ProjectCharacter; không clone Character identity.
+- ProjectCharacter MAY pin a CharacterVersion when deterministic continuity is required.
+- GenerationAttempt always snapshots the resolved CharacterVersion/Appearance/References, therefore later Character edits do not mutate historical outputs.
  - GenerationAttempt, VideoGenerationAttempt, RenderVersion, FinalArtifact và APPROVED asset là lịch sử/snapshot; thay đổi tạo record mới.
  - `OUTDATED` chỉ biểu thị snapshot không còn khớp dependency mới; không xóa binary/export tự động.
+
+- Character identity is global/reusable within its ownership boundary.
+- ProjectCharacter owns project-specific usage.
+- CharacterAppearance owns visual state.
+- SceneCharacter/VisualBeatCharacter owns scene-specific participation.
 
  ## 4. State machine canonical
 
