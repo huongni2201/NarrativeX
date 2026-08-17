@@ -1,9 +1,10 @@
-"use client";
+import { StudioAppShell } from "@/components/layout/StudioAppShell";
 
-import { useParams } from "next/navigation";
-import HomePage from "../../page";
+interface ProjectWorkspacePageProps {
+  params: Promise<{ projectId: string }>;
+}
 
-export default function ProjectWorkspacePage() {
-  const params = useParams<{ projectId: string }>();
-  return <HomePage screen="project-workspace" projectId={params.projectId} />;
+export default async function ProjectWorkspacePage({ params }: Readonly<ProjectWorkspacePageProps>) {
+  const { projectId } = await params;
+  return <StudioAppShell screen="project-workspace" projectId={projectId} />;
 }
