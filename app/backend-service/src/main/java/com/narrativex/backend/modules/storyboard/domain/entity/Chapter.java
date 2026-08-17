@@ -1,11 +1,9 @@
-package com.narrativex.backend.modules.storyboard.domain.aggregate;
+package com.narrativex.backend.modules.storyboard.domain.entity;
 
-import com.narrativex.backend.shared.domain.DomainEntity;
-import java.util.Objects;
+import com.narrativex.backend.modules.common.domain.DomainEntity;
 
-/** Storyboard entity; its persistence mapping belongs to infrastructure. */
+/** Storyboard chapter entity tied to a story-version snapshot. */
 public final class Chapter extends DomainEntity {
-
     private final Long storyVersionId;
     private final int orderIndex;
     private final String title;
@@ -16,9 +14,12 @@ public final class Chapter extends DomainEntity {
 
     private Chapter(Long id, long rowVersion, Long storyVersionId, int orderIndex, String title) {
         super(id, rowVersion);
-        this.storyVersionId = Objects.requireNonNull(storyVersionId, "storyVersionId");
+        if (storyVersionId == null || storyVersionId <= 0) throw new IllegalArgumentException("storyVersionId must be positive");
+        if (orderIndex < 0) throw new IllegalArgumentException("orderIndex must not be negative");
+        if (title == null || title.isBlank()) throw new IllegalArgumentException("title must not be blank");
+        this.storyVersionId = storyVersionId;
         this.orderIndex = orderIndex;
-        this.title = Objects.requireNonNull(title, "title");
+        this.title = title;
     }
 
     public static Chapter rehydrate(Long id, long rowVersion, Long storyVersionId, int orderIndex, String title) {

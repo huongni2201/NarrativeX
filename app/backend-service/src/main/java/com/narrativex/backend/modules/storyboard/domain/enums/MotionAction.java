@@ -1,4 +1,4 @@
-package com.narrativex.backend.modules.storyboard.domain.aggregate;
+package com.narrativex.backend.modules.storyboard.domain.enums;
 
 public enum MotionAction {
     STILL,

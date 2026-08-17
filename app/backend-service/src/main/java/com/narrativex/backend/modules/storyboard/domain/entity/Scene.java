@@ -1,10 +1,8 @@
-package com.narrativex.backend.modules.storyboard.domain.aggregate;
+package com.narrativex.backend.modules.storyboard.domain.entity;
 
-import com.narrativex.backend.shared.domain.DomainEntity;
-import java.util.Objects;
+import com.narrativex.backend.modules.common.domain.DomainEntity;
 
 public final class Scene extends DomainEntity {
-
     private final Long chapterId;
     private final int orderIndex;
     private final String title;
@@ -18,9 +16,13 @@ public final class Scene extends DomainEntity {
     private Scene(Long id, long rowVersion, Long chapterId, int orderIndex, String title,
                   String narration, Integer durationSeconds) {
         super(id, rowVersion);
-        this.chapterId = Objects.requireNonNull(chapterId, "chapterId");
+        if (chapterId == null || chapterId <= 0) throw new IllegalArgumentException("chapterId must be positive");
+        if (orderIndex < 0) throw new IllegalArgumentException("orderIndex must not be negative");
+        if (title == null || title.isBlank()) throw new IllegalArgumentException("title must not be blank");
+        if (durationSeconds != null && durationSeconds < 0) throw new IllegalArgumentException("durationSeconds must not be negative");
+        this.chapterId = chapterId;
         this.orderIndex = orderIndex;
-        this.title = Objects.requireNonNull(title, "title");
+        this.title = title;
         this.narration = narration;
         this.durationSeconds = durationSeconds;
     }

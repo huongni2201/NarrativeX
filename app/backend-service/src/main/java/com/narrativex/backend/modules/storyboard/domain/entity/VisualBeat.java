@@ -1,12 +1,11 @@
-package com.narrativex.backend.modules.storyboard.domain.aggregate;
+package com.narrativex.backend.modules.storyboard.domain.entity;
 
+import com.narrativex.backend.modules.common.domain.DomainEntity;
 import com.narrativex.backend.modules.project.domain.enums.AspectRatio;
 import com.narrativex.backend.modules.project.domain.enums.ImageQualityTier;
-import com.narrativex.backend.shared.domain.DomainEntity;
-import java.util.Objects;
+import com.narrativex.backend.modules.storyboard.domain.enums.MotionAction;
 
 public final class VisualBeat extends DomainEntity {
-
     private final Long sceneId;
     private final int orderIndex;
     private final String visualIntent;
@@ -22,10 +21,14 @@ public final class VisualBeat extends DomainEntity {
                        MotionAction motionAction, AspectRatio aspectRatioOverride,
                        ImageQualityTier qualityTierOverride) {
         super(id, rowVersion);
-        this.sceneId = Objects.requireNonNull(sceneId, "sceneId");
+        if (sceneId == null || sceneId <= 0) throw new IllegalArgumentException("sceneId must be positive");
+        if (orderIndex < 0) throw new IllegalArgumentException("orderIndex must not be negative");
+        if (visualIntent == null || visualIntent.isBlank()) throw new IllegalArgumentException("visualIntent must not be blank");
+        if (motionAction == null) throw new IllegalArgumentException("motionAction must not be null");
+        this.sceneId = sceneId;
         this.orderIndex = orderIndex;
-        this.visualIntent = Objects.requireNonNull(visualIntent, "visualIntent");
-        this.motionAction = Objects.requireNonNull(motionAction, "motionAction");
+        this.visualIntent = visualIntent;
+        this.motionAction = motionAction;
         this.aspectRatioOverride = aspectRatioOverride;
         this.qualityTierOverride = qualityTierOverride;
     }
