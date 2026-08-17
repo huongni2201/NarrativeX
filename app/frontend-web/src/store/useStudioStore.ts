@@ -3,16 +3,13 @@ import { ProjectWizardDraft, ScreenType } from "@/types/studio";
 import { SAMPLE_STORY_PRESET } from "@/lib/mock-data";
 
 interface StudioStore {
-  // Navigation & Screen View
   currentScreen: ScreenType;
   selectedProjectId: string | null;
   selectedCharacterId: string | null;
 
-  // Projects Dashboard UI state. Server data belongs to React Query.
   projectFilterTab: "all" | "in_progress" | "completed";
   projectSearchQuery: string;
 
-  // Character Library UI state. Character data belongs to its API query when available.
   characterFilterProject: string;
   characterFilterRole: string;
   characterFilterGender: string;
@@ -29,19 +26,14 @@ interface StudioStore {
   };
   characterSearchQuery: string;
 
-  // Project Creation Wizard State
   wizardDraft: ProjectWizardDraft;
   isWizardOpen: boolean;
 
-  // Actions
   setScreen: (screen: ScreenType) => void;
-
-  // Dashboard Actions
   setProjectFilterTab: (tab: "all" | "in_progress" | "completed") => void;
   setProjectSearchQuery: (query: string) => void;
   selectProject: (projectId: number) => void;
 
-  // Character Actions
   setCharacterFilterProject: (project: string) => void;
   setCharacterFilterRole: (role: string) => void;
   setCharacterFilterGender: (gender: string) => void;
@@ -57,13 +49,24 @@ interface StudioStore {
   openCharacterBible: (characterId: string) => void;
   closeCharacterBible: () => void;
 
-  // Wizard Actions
   openWizard: (initialStep?: 1 | 2 | 3 | 4) => void;
   closeWizard: () => void;
   setWizardStep: (step: 1 | 2 | 3 | 4) => void;
   updateWizardDraft: (data: Partial<ProjectWizardDraft>) => void;
   loadSampleStory: () => void;
 }
+
+const createEmptyWizardDraft = (): ProjectWizardDraft => ({
+  title: "",
+  description: "",
+  genre: "Fantasy",
+  language: "Tiếng Việt",
+  aspectRatio: "16:9",
+  quality: "High",
+  storyText: "",
+  rightsAttestationAccepted: false,
+  step: 1,
+});
 
 export const useStudioStore = create<StudioStore>((set) => ({
   currentScreen: "overview",
@@ -85,17 +88,7 @@ export const useStudioStore = create<StudioStore>((set) => ({
   characterAdvancedFilters: {},
   characterSearchQuery: "",
 
-  wizardDraft: {
-    title: "Huyền Thoại Ánh Sáng",
-    description: "Câu chuyện về cuộc hành trình của một nhóm anh hùng chống lại thế lực bóng tối.",
-    genre: "Fantasy",
-    language: "Tiếng Việt",
-    aspectRatio: "16:9",
-    quality: "High",
-    storyText: SAMPLE_STORY_PRESET,
-    rightsAttestationAccepted: false,
-    step: 1,
-  },
+  wizardDraft: createEmptyWizardDraft(),
   isWizardOpen: false,
 
   setScreen: (screen) => set({ currentScreen: screen }),
@@ -137,6 +130,7 @@ export const useStudioStore = create<StudioStore>((set) => ({
     }),
   closeCharacterBible: () =>
     set({
+      selectedCharacterId: null,
       currentScreen: "characters",
     }),
 
@@ -144,11 +138,17 @@ export const useStudioStore = create<StudioStore>((set) => ({
     set((state) => ({
       isWizardOpen: true,
       currentScreen: "wizard",
-      // Consent is specific to the story currently being submitted. Never
-      // carry it into a later wizard session, even when the draft is kept.
-      wizardDraft: { ...state.wizardDraft, step: initialStep, rightsAttestationAccepted: false },
+      wizardDraft:
+        initialStep === 1
+          ? createEmptyWizardDraft()
+          : { ...state.wizardDraft, step: initialStep, rightsAttestationAccepted: false },
     })),
-  closeWizard: () => set({ isWizardOpen: false, currentScreen: "overview" }),
+  closeWizard: () =>
+    set({
+      isWizardOpen: false,
+      currentScreen: "overview",
+      wizardDraft: createEmptyWizardDraft(),
+    }),
   setWizardStep: (step) =>
     set((state) => ({
       wizardDraft: { ...state.wizardDraft, step },
@@ -168,6 +168,7 @@ export const useStudioStore = create<StudioStore>((set) => ({
       wizardDraft: {
         ...state.wizardDraft,
         storyText: SAMPLE_STORY_PRESET,
+        rightsAttestationAccepted: false,
       },
     })),
 }));

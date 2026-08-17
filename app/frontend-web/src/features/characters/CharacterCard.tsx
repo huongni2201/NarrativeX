@@ -1,6 +1,6 @@
 import React from "react";
 import { Character, ProjectCharacter } from "@/types/studio";
-import { Lock, Sparkles, Folder, Layers, MoreVertical } from "lucide-react";
+import { Lock, Folder } from "lucide-react";
 
 interface CharacterCardProps {
   character: Character;
@@ -19,21 +19,20 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
   const status = character.status || (isLocked ? "IN_USE" : "DRAFT");
 
   return (
-    <div
+    <button
+      type="button"
       onClick={() => onClick(character)}
-      className="group relative bg-[#0b101b] hover:bg-[#0f1726] border border-slate-800/80 hover:border-purple-500/60 rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-[0_0_30px_rgba(124,58,237,0.22)] flex flex-col"
+      className="group relative w-full text-left bg-[#0b101b] hover:bg-[#0f1726] border border-slate-800/80 hover:border-purple-500/60 rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-[0_0_30px_rgba(124,58,237,0.22)] flex flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
     >
-      {/* Card Image Area */}
       <div className="aspect-[3/4] w-full overflow-hidden bg-slate-950 relative">
         <img
           src={character.avatarUrl}
           alt={character.name}
-          className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-108"
+          className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.08]"
           loading="lazy"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-[#0b101b] via-[#0b101b]/20 to-black/40 pointer-events-none" />
 
-        {/* Top Badges */}
         <div className="absolute top-2.5 left-2.5 flex flex-wrap items-center gap-1.5 z-10">
           {isLocked && (
             <span
@@ -67,7 +66,6 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
           )}
         </div>
 
-        {/* Group or Gender Pill Top Right */}
         <div className="absolute top-2.5 right-2.5 flex items-center gap-1 z-10">
           {character.group && (
             <span className="px-2 py-0.5 rounded-md bg-purple-950/80 backdrop-blur-md text-purple-300 border border-purple-700/40 text-[10px] font-medium">
@@ -76,7 +74,6 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
           )}
         </div>
 
-        {/* Quick bottom-over-image info */}
         <div className="absolute bottom-2.5 left-3 right-3 flex items-center justify-between text-[11px] text-slate-300 z-10">
           {projectName && (
             <span className="flex items-center gap-1 text-slate-300 font-medium truncate max-w-[150px] bg-black/50 px-2 py-0.5 rounded-md backdrop-blur-sm">
@@ -92,8 +89,7 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
         </div>
       </div>
 
-      {/* Info Area */}
-      <div className="p-3.5 space-y-1.5 bg-[#0b101b] border-t border-slate-800/60">
+      <div className="p-3.5 space-y-1.5 bg-[#0b101b] border-t border-slate-800/60 w-full">
         <div className="flex items-center justify-between gap-2">
           <h3 className="font-semibold text-sm text-slate-100 group-hover:text-purple-300 transition-colors truncate">
             {character.name}
@@ -112,6 +108,6 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
           </span>
         </div>
       </div>
-    </div>
+    </button>
   );
 };

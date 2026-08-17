@@ -1,4 +1,7 @@
+"use client";
+
 import React from "react";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   FolderKanban,
@@ -8,17 +11,14 @@ import {
   Clock,
   Bell,
   Settings,
-  Sparkles,
   Zap,
 } from "lucide-react";
-import { useStudioStore } from "@/store/useStudioStore";
 import { useProductionStore } from "@/store/useProductionStore";
 import { cn } from "@/lib/utils";
 
 export const StudioSidebar: React.FC = () => {
-  const currentScreen = useStudioStore((state) => state.currentScreen);
-  const setScreen = useStudioStore((state) => state.setScreen);
-  const openWizard = useStudioStore((state) => state.openWizard);
+  const pathname = usePathname();
+  const router = useRouter();
   const setView = useProductionStore((state) => state.setView);
 
   const navItems = [
@@ -26,55 +26,47 @@ export const StudioSidebar: React.FC = () => {
       id: "overview",
       label: "Tổng quan",
       icon: LayoutDashboard,
-      onClick: () => {
-        setScreen("overview");
-      },
-      active: currentScreen === "overview",
+      onClick: () => router.push("/"),
+      active: pathname === "/",
     },
     {
       id: "projects",
       label: "Dự án của tôi",
       icon: FolderKanban,
       onClick: () => {
-        setScreen("project-workspace");
         setView("overview");
+        router.push("/dashboard");
       },
-      active: currentScreen === "project-workspace" || currentScreen === "dashboard",
+      active: pathname === "/dashboard" || pathname.startsWith("/projects/"),
     },
     {
       id: "characters",
       label: "Thư viện nhân vật",
       icon: Users,
-      onClick: () => {
-        setScreen("characters");
-      },
-      active: currentScreen === "characters" || currentScreen === "character-bible",
+      onClick: () => router.push("/characters"),
+      active: pathname === "/characters" || pathname.startsWith("/characters/"),
     },
     {
       id: "assets",
       label: "Thư viện tài sản",
       icon: ImageIcon,
-      onClick: () => {
-        setScreen("assets");
-      },
-      active: currentScreen === "assets",
+      onClick: () => router.push("/assets"),
+      active: pathname === "/assets" || pathname.startsWith("/assets/"),
     },
     {
       id: "templates",
       label: "Mẫu & Phong cách",
       icon: Palette,
-      onClick: () => {
-        setScreen("presets");
-      },
-      active: currentScreen === "presets",
+      onClick: () => router.push("/presets"),
+      active: pathname === "/presets" || pathname.startsWith("/presets/"),
     },
     {
       id: "jobs",
       label: "Lịch sử công việc",
       icon: Clock,
       onClick: () => {
-        setScreen("project-workspace");
         setView("workspace");
+        router.push("/dashboard");
       },
       active: false,
     },
@@ -82,29 +74,31 @@ export const StudioSidebar: React.FC = () => {
 
   return (
     <aside className="w-64 bg-[#090e17] border-r border-slate-800/80 flex flex-col justify-between shrink-0 h-screen sticky top-0 select-none z-20">
-      {/* Brand Header */}
       <div>
         <div className="p-4 px-5 border-b border-slate-800/60 flex items-center justify-between">
-          <div
-            onClick={() => setScreen("overview")}
+          <button
+            type="button"
+            onClick={() => router.push("/")}
             className="flex items-center cursor-pointer group py-1"
+            aria-label="Về trang tổng quan NarrativeX"
           >
             <img
               src="/branding/narrativex-logo-dark.png"
               alt="NarrativeX Logo"
               className="h-11 w-auto max-w-[190px] object-contain transition-transform group-hover:scale-105"
             />
-          </div>
+          </button>
         </div>
 
-        {/* Navigation Menu */}
-        <nav className="p-3 space-y-1">
+        <nav className="p-3 space-y-1" aria-label="Điều hướng studio">
           {navItems.map((item) => {
             const Icon = item.icon;
             return (
               <button
                 key={item.id}
+                type="button"
                 onClick={item.onClick}
+                aria-current={item.active ? "page" : undefined}
                 className={cn(
                   "w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500",
                   item.active
@@ -125,9 +119,7 @@ export const StudioSidebar: React.FC = () => {
         </nav>
       </div>
 
-      {/* Footer / Account & Plan */}
       <div className="p-3 space-y-3">
-        {/* Bottom Utility Nav */}
         <div className="space-y-1 pt-2 border-t border-slate-800/60">
           <button
             type="button"
@@ -151,7 +143,6 @@ export const StudioSidebar: React.FC = () => {
           </button>
         </div>
 
-        {/* Plan & Credits Card */}
         <div className="p-3.5 rounded-xl bg-[#0e1626] border border-slate-800/80 shadow-md">
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-xs text-slate-400">Gói của bạn</span>
@@ -165,7 +156,6 @@ export const StudioSidebar: React.FC = () => {
           </div>
           <button
             type="button"
-            onClick={() => { }}
             className="w-full py-1.5 px-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-semibold rounded-lg transition-all shadow-[0_0_12px_rgba(124,58,237,0.35)]"
           >
             Nâng cấp

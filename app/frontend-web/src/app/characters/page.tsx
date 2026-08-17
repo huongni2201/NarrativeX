@@ -1,15 +1,5 @@
-"use client";
-
-import { useEffect } from "react";
-import { useStudioStore } from "@/store/useStudioStore";
-import HomePage from "../page";
+import { StudioAppShell } from "@/components/layout/StudioAppShell";
 
 export default function CharactersPage() {
-  const setScreen = useStudioStore((state) => state.setScreen);
-
-  useEffect(() => {
-    setScreen("characters");
-  }, [setScreen]);
-
-  return <HomePage />;
+  return <StudioAppShell screen="characters" />;
 }

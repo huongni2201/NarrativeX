@@ -1,7 +1,5 @@
-"use client";
-
-import HomePage from "../page";
+import { StudioAppShell } from "@/components/layout/StudioAppShell";
 
 export default function DashboardPage() {
-  return <HomePage />;
+  return <StudioAppShell screen="project-workspace" />;
 }

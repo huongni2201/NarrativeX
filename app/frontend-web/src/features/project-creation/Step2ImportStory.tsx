@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { useStudioStore } from "@/store/useStudioStore";
 import { Tabs } from "@/components/ui/Tabs";
 import { FileText, UploadCloud, Sparkles, Info } from "lucide-react";
-import { Button } from "@/components/ui/Button";
 import type { ApiFieldError } from "@/types/api";
 
 interface Step2Props {
@@ -12,7 +11,9 @@ interface Step2Props {
 }
 
 export const Step2ImportStory: React.FC<Step2Props> = ({ validationErrors = [] }) => {
-  const { wizardDraft, updateWizardDraft, loadSampleStory } = useStudioStore();
+  const wizardDraft = useStudioStore((state) => state.wizardDraft);
+  const updateWizardDraft = useStudioStore((state) => state.updateWizardDraft);
+  const loadSampleStory = useStudioStore((state) => state.loadSampleStory);
   const [activeTab, setActiveTab] = useState("text");
   const contentError = validationErrors.find((error) => ["content", "storyText"].includes(error.field));
 
@@ -21,11 +22,10 @@ export const Step2ImportStory: React.FC<Step2Props> = ({ validationErrors = [] }
     { id: "upload", label: "Tải file", icon: <UploadCloud className="w-3.5 h-3.5" /> },
   ];
 
-  const characterCount = wizardDraft.storyText ? wizardDraft.storyText.length : 0;
+  const characterCount = wizardDraft.storyText.length;
 
   return (
     <div className="flex flex-col md:flex-row gap-8 min-h-[480px]">
-      {/* Left Input Area */}
       <div className="flex-1 space-y-4 flex flex-col">
         <div className="flex items-center justify-between">
           <div>
@@ -43,18 +43,16 @@ export const Step2ImportStory: React.FC<Step2Props> = ({ validationErrors = [] }
           />
         </div>
 
-        {/* Tab content: Nhập văn bản */}
         {activeTab === "text" && (
           <div className="flex-1 flex flex-col relative rounded-xl border border-slate-800 bg-[#0a0f1d] overflow-hidden focus-within:border-purple-500 transition-colors min-h-[320px]">
             <textarea
               rows={12}
               value={wizardDraft.storyText}
-              onChange={(e) => updateWizardDraft({ storyText: e.target.value })}
+              onChange={(event) => updateWizardDraft({ storyText: event.target.value })}
               placeholder="Dán nội dung truyện của bạn vào đây (tiểu thuyết, truyện ngắn, kịch bản)..."
               aria-invalid={contentError ? "true" : undefined}
               className="w-full flex-1 p-4 bg-transparent text-slate-100 placeholder:text-slate-500 focus:outline-none text-sm leading-relaxed resize-none font-sans"
             />
-            {/* Bottom Character Counter Bar */}
             <div className="px-4 py-2 bg-[#090e18] border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
               <span className="font-mono">
                 Số ký tự: <strong className="text-purple-300">{characterCount.toLocaleString()}</strong>
@@ -67,7 +65,6 @@ export const Step2ImportStory: React.FC<Step2Props> = ({ validationErrors = [] }
           </div>
         )}
 
-        {/* Tab content: Tải file */}
         {activeTab === "upload" && (
           <div className="flex-1 border-2 border-dashed border-slate-800 hover:border-purple-500/50 rounded-xl bg-[#0a0f1d] flex flex-col items-center justify-center p-8 text-center space-y-3 cursor-pointer transition-colors">
             <div className="w-12 h-12 rounded-xl bg-purple-950/60 border border-purple-800/60 flex items-center justify-center text-purple-400">
@@ -83,7 +80,6 @@ export const Step2ImportStory: React.FC<Step2Props> = ({ validationErrors = [] }
         )}
       </div>
 
-      {/* Right Tips Sidebar Panel */}
       <div className="w-full md:w-64 shrink-0 space-y-4">
         <div className="p-4 rounded-xl bg-[#090e18] border border-slate-800/80 space-y-4">
           <div className="flex items-center gap-2 text-slate-300 font-semibold text-xs">
@@ -106,7 +102,6 @@ export const Step2ImportStory: React.FC<Step2Props> = ({ validationErrors = [] }
             </li>
           </ul>
 
-          {/* Sample Preset Button */}
           <div className="pt-2 border-t border-slate-800/80">
             <button
               type="button"
