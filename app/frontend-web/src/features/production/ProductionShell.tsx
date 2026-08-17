@@ -1,26 +1,23 @@
-import React from "react";
+"use client";
+
+import dynamic from "next/dynamic";
 import { useQuery } from "@tanstack/react-query";
-import { useProductionStore } from "@/store/useProductionStore";
-import { ProjectOverview } from "./ProjectOverview";
-import { AddChapterModal } from "./AddChapterModal";
-import { ChapterWorkspace } from "./ChapterWorkspace";
-import { Storyboard } from "./Storyboard";
-import { VisualReview } from "./VisualReview";
-import { Render } from "./Render";
-import { LongFormPreview } from "./LongFormPreview";
-import { isMockDataMode } from "@/lib/data-mode";
 import { api, apiErrorMessage } from "@/lib/api";
+import { isMockDataMode } from "@/lib/data-mode";
 import { queryKeys } from "@/lib/query-keys";
 
 const PROJECT_PAGE = 0;
 const PROJECT_PAGE_SIZE = 100;
 
+const ProductionDemoWorkspace = dynamic(() =>
+  import("./ProductionDemoWorkspace").then((module) => module.ProductionDemoWorkspace),
+);
+
 interface ProductionShellProps {
   projectId?: string;
 }
 
-export const ProductionShell: React.FC<ProductionShellProps> = ({ projectId }) => {
-  const currentView = useProductionStore((state) => state.currentView);
+export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
   const projectsQuery = useQuery({
     queryKey: queryKeys.projectsPage(PROJECT_PAGE, PROJECT_PAGE_SIZE),
     queryFn: () => api.listProjects({ page: PROJECT_PAGE, size: PROJECT_PAGE_SIZE }),
@@ -28,33 +25,15 @@ export const ProductionShell: React.FC<ProductionShellProps> = ({ projectId }) =
   });
 
   if (isMockDataMode) {
-    return (
-      <div className="w-full">
-        {currentView === "overview" && <ProjectOverview />}
-        {currentView === "workspace" && <ChapterWorkspace />}
-        {currentView === "storyboard" && <Storyboard />}
-        {currentView === "visual-review" && <VisualReview />}
-        {currentView === "render" && <Render />}
-        {currentView === "preview" && <LongFormPreview />}
-        <AddChapterModal />
-      </div>
-    );
+    return <ProductionDemoWorkspace />;
   }
 
   if (!projectId) {
-    return (
-      <div className="rounded-2xl border border-slate-800/80 bg-[#0d1420]/50 p-8 text-sm text-slate-300">
-        Chọn một project từ Tổng quan để mở workspace.
-      </div>
-    );
+    return <WorkspaceMessage>Chọn một project từ Tổng quan để mở workspace.</WorkspaceMessage>;
   }
 
   if (projectsQuery.isPending) {
-    return (
-      <div className="rounded-2xl border border-slate-800/80 bg-[#0d1420]/50 p-8 text-sm text-slate-300">
-        Đang tải project từ backend…
-      </div>
-    );
+    return <WorkspaceMessage>Đang tải project từ backend…</WorkspaceMessage>;
   }
 
   if (projectsQuery.isError) {
@@ -69,9 +48,9 @@ export const ProductionShell: React.FC<ProductionShellProps> = ({ projectId }) =
 
   if (!project) {
     return (
-      <div className="rounded-2xl border border-slate-800/80 bg-[#0d1420]/50 p-8 text-sm text-slate-300">
-        Project không tồn tại trong danh sách hiện tại hoặc bạn không có quyền truy cập.
-      </div>
+      <WorkspaceMessage>
+        Project không tồn tại trong trang dữ liệu hiện tại hoặc bạn không có quyền truy cập.
+      </WorkspaceMessage>
     );
   }
 
@@ -90,43 +69,45 @@ export const ProductionShell: React.FC<ProductionShellProps> = ({ projectId }) =
             {project.status}
           </span>
         </div>
+
         <div className="mt-6 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-xl border border-slate-800 bg-[#090e18] p-4">
-            <p className="text-[11px] text-slate-500">Story language</p>
-            <p className="mt-1 text-sm text-slate-200">{project.sourceLanguage}</p>
-          </div>
-          <div className="rounded-xl border border-slate-800 bg-[#090e18] p-4">
-            <p className="text-[11px] text-slate-500">Frame</p>
-            <p className="mt-1 text-sm text-slate-200">{project.imageAspectRatio}</p>
-          </div>
-          <div className="rounded-xl border border-slate-800 bg-[#090e18] p-4">
-            <p className="text-[11px] text-slate-500">Quality</p>
-            <p className="mt-1 text-sm text-slate-200">{project.imageQualityTier}</p>
-          </div>
+          <ProjectDatum label="Story language" value={project.sourceLanguage} />
+          <ProjectDatum label="Frame" value={project.imageAspectRatio} />
+          <ProjectDatum label="Quality" value={project.imageQualityTier} />
         </div>
       </section>
 
-      <div className="rounded-2xl border border-dashed border-slate-700 bg-[#0d1420]/40 p-6">
+      <section className="rounded-2xl border border-dashed border-slate-700 bg-[#0d1420]/40 p-6">
         <p className="text-[11px] uppercase tracking-[0.2em] text-purple-300">Production workspace</p>
         <h3 className="mt-2 text-base font-semibold text-slate-200">Một phần backend đã kết nối</h3>
         <p className="mt-2 text-sm leading-6 text-slate-400">
           Project, story version và analysis job đã đi qua API thật. Chapter, character,
-          storyboard, visual-beat, render và export endpoints chưa sẵn sàng nên workspace không
-          hiển thị dữ liệu mẫu.
+          storyboard, visual-beat, render và export endpoints chưa sẵn sàng nên production không
+          hiển thị dữ liệu fixture.
         </p>
         <div className="mt-5 grid gap-3 sm:grid-cols-3">
-          {[
-            ["Project / Story", "Connected"],
-            ["Chapter / Storyboard", "Not connected"],
-            ["Render / Export", "Coming soon"],
-          ].map(([label, value]) => (
-            <div key={label} className="rounded-xl border border-slate-800 bg-[#090e18] p-4">
-              <p className="text-[11px] text-slate-500">{label}</p>
-              <p className="mt-1 text-sm font-semibold text-slate-200">{value}</p>
-            </div>
-          ))}
+          <ProjectDatum label="Project / Story" value="Connected" />
+          <ProjectDatum label="Chapter / Storyboard" value="Not connected" />
+          <ProjectDatum label="Render / Export" value="Coming soon" />
         </div>
-      </div>
+      </section>
     </div>
   );
-};
+}
+
+function ProjectDatum({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-slate-800 bg-[#090e18] p-4">
+      <p className="text-[11px] text-slate-500">{label}</p>
+      <p className="mt-1 text-sm font-semibold text-slate-200">{value}</p>
+    </div>
+  );
+}
+
+function WorkspaceMessage({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-2xl border border-slate-800/80 bg-[#0d1420]/50 p-8 text-sm text-slate-300">
+      {children}
+    </div>
+  );
+}
