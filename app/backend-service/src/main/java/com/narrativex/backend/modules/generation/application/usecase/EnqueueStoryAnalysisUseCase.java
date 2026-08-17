@@ -1,16 +1,16 @@
 package com.narrativex.backend.modules.generation.application.usecase;
 
 import com.narrativex.backend.modules.auth.application.port.in.CurrentUserId;
+import com.narrativex.backend.modules.common.response.ApiResponse;
+import com.narrativex.backend.modules.generation.api.response.JobResponse;
 import com.narrativex.backend.modules.generation.application.command.EnqueueStoryAnalysisCommand;
 import com.narrativex.backend.modules.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.modules.generation.application.port.out.OperationPlanRepository;
-import com.narrativex.backend.modules.generation.application.response.JobResponse;
 import com.narrativex.backend.modules.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.modules.generation.domain.aggregate.JobType;
 import com.narrativex.backend.modules.generation.domain.aggregate.OperationPlan;
 import com.narrativex.backend.modules.generation.domain.aggregate.ResourceClass;
 import com.narrativex.backend.modules.project.application.port.in.ProjectAccess;
-import com.narrativex.backend.shared.application.response.ApiResponse;
 import java.math.BigDecimal;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

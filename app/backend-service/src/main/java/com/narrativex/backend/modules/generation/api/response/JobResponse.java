@@ -1,4 +1,4 @@
-package com.narrativex.backend.modules.generation.application.response;
+package com.narrativex.backend.modules.generation.api.response;
 
 import com.narrativex.backend.modules.generation.domain.aggregate.GenerationJob;
 

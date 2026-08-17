@@ -1,9 +1,9 @@
 package com.narrativex.backend.modules.health.api.controller;
 
+import com.narrativex.backend.modules.common.response.ApiResponse;
+import com.narrativex.backend.modules.health.api.response.ProviderHealthResponse;
 import com.narrativex.backend.modules.health.application.query.ProviderHealthQuery;
-import com.narrativex.backend.modules.health.application.response.ProviderHealthResponse;
 import com.narrativex.backend.modules.health.application.usecase.GetProviderHealthUseCase;
-import com.narrativex.backend.shared.application.response.ApiResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;

@@ -1,12 +1,12 @@
 package com.narrativex.backend.modules.generation.application.usecase;
 
 import com.narrativex.backend.modules.auth.application.port.in.CurrentUserId;
+import com.narrativex.backend.modules.common.exception.ResourceNotFoundException;
+import com.narrativex.backend.modules.common.response.ApiResponse;
+import com.narrativex.backend.modules.generation.api.response.JobResponse;
 import com.narrativex.backend.modules.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.modules.generation.application.query.GetGenerationJobQuery;
-import com.narrativex.backend.modules.generation.application.response.JobResponse;
 import com.narrativex.backend.modules.generation.domain.aggregate.GenerationJob;
-import com.narrativex.backend.shared.application.response.ApiResponse;
-import com.narrativex.backend.shared.exception.ResourceNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
