@@ -19,7 +19,7 @@ public record CursorPage<T>(
         }
     }
 
-    public <R> CursorPage<R> map(Function<? super T, ? extends R> mapper) {
+    public <R> CursorPage<R> map(Function<? super T, R> mapper) {
         return new CursorPage<>(content.stream().map(mapper).toList(), nextCursor, limit, hasNext);
     }
 }
