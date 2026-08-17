@@ -28,11 +28,13 @@ Real AI generation, worker queue execution, asset upload, Project/Story vertical
 
 | Day | Plan | Primary deliverable |
 |---|---|---|
-| W1-D1 | [`W1-D1_REPOSITORY_AUDIT.md`](./W1-D1_REPOSITORY_AUDIT.md) | Architecture map, baseline checks, P0/P1/P2 debt register and no-refactor list |
-| W1-D2 | [`W1-D2_ARCHITECTURE_CLEANUP.md`](./W1-D2_ARCHITECTURE_CLEANUP.md) | Enforced modular-monolith and frontend API boundaries |
+| W1-D1 | [`W1-D1_REPOSITORY_AUDIT_UPDATED.md`](./W1-D1_REPOSITORY_AUDIT_UPDATED.md) | Architecture map, baseline checks, P0/P1/P2 debt register and no-refactor list |
+| W1-D2 | [`W1-D2_ARCHITECTURE_CLEANUP_DETAILED.md`](./W1-D2_ARCHITECTURE_CLEANUP_DETAILED.md) | Enforced modular-monolith and frontend API boundaries |
 | W1-D3 | [`W1-D3_LOCAL_ENVIRONMENT.md`](./W1-D3_LOCAL_ENVIRONMENT.md) | One-command dependency stack, profiles, health and onboarding runbook |
 | W1-D4 | [`W1-D4_DATABASE_FOUNDATION.md`](./W1-D4_DATABASE_FOUNDATION.md) | Reviewed schema baseline, safe Flyway path and persistence tests |
 | W1-D5 | [`W1-D5_AUTH_SECURITY_OWNERSHIP.md`](./W1-D5_AUTH_SECURITY_OWNERSHIP.md) | Google OIDC/session foundation and server-side tenant ownership |
+
+Compatibility entrypoints without the `_UPDATED` / `_DETAILED` suffix are retained only for older prompts and automation. New links should target the maintained files above.
 
 ## Delivery order and gates
 
@@ -92,4 +94,3 @@ docker compose ps
 ```
 
 Do not commit generated frontend files such as `tsconfig.tsbuildinfo`. Preserve unrelated worktree changes while implementing these plans.
-
