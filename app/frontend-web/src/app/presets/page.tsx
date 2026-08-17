@@ -1,5 +1,5 @@
-import HomePage from "../page";
+import { StudioAppShell } from "@/components/layout/StudioAppShell";
 
 export default function PresetsPage() {
-  return <HomePage screen="presets" />;
+  return <StudioAppShell screen="presets" />;
 }
