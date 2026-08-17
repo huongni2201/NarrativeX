@@ -1,4 +1,4 @@
-package com.narrativex.backend.modules.project.api;
+package com.narrativex.backend.modules.project.api.dto.response;
 
 import com.narrativex.backend.modules.project.domain.model.Project;
 
