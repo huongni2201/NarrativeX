@@ -5,6 +5,8 @@ import com.narrativex.backend.feature.project.domain.entity.StoryVersion;
 import com.narrativex.backend.feature.project.domain.enums.AspectRatio;
 import com.narrativex.backend.feature.project.domain.enums.ImageQualityTier;
 import com.narrativex.backend.feature.project.domain.enums.ProjectStatus;
+import com.narrativex.backend.feature.project.domain.exception.ArchivedProjectException;
+import com.narrativex.backend.feature.project.domain.exception.ProjectPersistenceRequiredException;
 import java.time.Instant;
 import java.util.Objects;
 
@@ -20,9 +22,18 @@ public final class Project extends AggregateRoot {
     private final ImageQualityTier imageQualityTier;
     private Instant archivedAt;
 
-    private Project(Long id, long rowVersion, String name, String ownerId, ProjectStatus status,
-                    String sourceLanguage, String narrationLanguage, String metadataLanguage,
-                    AspectRatio imageAspectRatio, ImageQualityTier imageQualityTier, Instant archivedAt) {
+    private Project(
+            Long id,
+            long rowVersion,
+            String name,
+            String ownerId,
+            ProjectStatus status,
+            String sourceLanguage,
+            String narrationLanguage,
+            String metadataLanguage,
+            AspectRatio imageAspectRatio,
+            ImageQualityTier imageQualityTier,
+            Instant archivedAt) {
         super(id, rowVersion);
         this.name = required(name, "name", 160);
         this.ownerId = required(ownerId, "ownerId", 128);
@@ -35,31 +46,47 @@ public final class Project extends AggregateRoot {
         this.archivedAt = archivedAt;
     }
 
-    public static Project create(String name, String ownerId, String sourceLanguage,
-                                 String narrationLanguage, String metadataLanguage,
-                                 AspectRatio imageAspectRatio, ImageQualityTier imageQualityTier) {
-        return new Project(null, 0L, name, ownerId, ProjectStatus.DRAFT, sourceLanguage,
+    public static Project create(
+            String name,
+            String ownerId,
+            String sourceLanguage,
+            String narrationLanguage,
+            String metadataLanguage,
+            AspectRatio imageAspectRatio,
+            ImageQualityTier imageQualityTier) {
+        return new Project(
+            null, 0L, name, ownerId, ProjectStatus.DRAFT, sourceLanguage,
             narrationLanguage, metadataLanguage, imageAspectRatio, imageQualityTier, null);
     }
 
-    public static Project rehydrate(Long id, long rowVersion, String name, String ownerId,
-                                    ProjectStatus status, String sourceLanguage, String narrationLanguage,
-                                    String metadataLanguage, AspectRatio imageAspectRatio,
-                                    ImageQualityTier imageQualityTier, Instant archivedAt) {
-        return new Project(id, rowVersion, name, ownerId, status, sourceLanguage, narrationLanguage,
+    public static Project rehydrate(
+            Long id,
+            long rowVersion,
+            String name,
+            String ownerId,
+            ProjectStatus status,
+            String sourceLanguage,
+            String narrationLanguage,
+            String metadataLanguage,
+            AspectRatio imageAspectRatio,
+            ImageQualityTier imageQualityTier,
+            Instant archivedAt) {
+        return new Project(
+            id, rowVersion, name, ownerId, status, sourceLanguage, narrationLanguage,
             metadataLanguage, imageAspectRatio, imageQualityTier, archivedAt);
     }
 
-    public StoryVersion createStoryVersion(int versionNumber, String content, String sourceLanguage,
-                                           boolean rightsAttested, String rightsPolicyVersion,
-                                           String rightsBasis, String attestedBy) {
-        if (status == ProjectStatus.ARCHIVED) {
-            throw new IllegalStateException("Archived projects cannot receive story versions");
-        }
-        if (getId() == null) {
-            throw new IllegalStateException("Project must be persisted before creating a story version");
-        }
-        return StoryVersion.create(getId(), versionNumber, content, sourceLanguage, rightsAttested,
+    public StoryVersion createStoryVersion(
+            int versionNumber,
+            String content,
+            String sourceLanguage,
+            boolean rightsAttested,
+            String rightsPolicyVersion,
+            String rightsBasis,
+            String attestedBy) {
+        ensureStoryVersionCanBeCreated();
+        return StoryVersion.create(
+            getId(), versionNumber, content, sourceLanguage, rightsAttested,
             rightsPolicyVersion, rightsBasis, attestedBy);
     }
 
@@ -71,19 +98,58 @@ public final class Project extends AggregateRoot {
         archivedAt = Instant.now();
     }
 
-    public String getName() { return name; }
-    public String getOwnerId() { return ownerId; }
-    public ProjectStatus getStatus() { return status; }
-    public String getSourceLanguage() { return sourceLanguage; }
-    public String getNarrationLanguage() { return narrationLanguage; }
-    public String getMetadataLanguage() { return metadataLanguage; }
-    public AspectRatio getImageAspectRatio() { return imageAspectRatio; }
-    public ImageQualityTier getImageQualityTier() { return imageQualityTier; }
-    public Instant getArchivedAt() { return archivedAt; }
+    private void ensureStoryVersionCanBeCreated() {
+        if (status == ProjectStatus.ARCHIVED) {
+            throw new ArchivedProjectException();
+        }
+        if (getId() == null) {
+            throw new ProjectPersistenceRequiredException();
+        }
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public String getOwnerId() {
+        return ownerId;
+    }
+
+    public ProjectStatus getStatus() {
+        return status;
+    }
+
+    public String getSourceLanguage() {
+        return sourceLanguage;
+    }
+
+    public String getNarrationLanguage() {
+        return narrationLanguage;
+    }
+
+    public String getMetadataLanguage() {
+        return metadataLanguage;
+    }
+
+    public AspectRatio getImageAspectRatio() {
+        return imageAspectRatio;
+    }
+
+    public ImageQualityTier getImageQualityTier() {
+        return imageQualityTier;
+    }
+
+    public Instant getArchivedAt() {
+        return archivedAt;
+    }
 
     private static String required(String value, String field, int maxLength) {
-        if (value == null || value.isBlank()) throw new IllegalArgumentException(field + " must not be blank");
-        if (value.length() > maxLength) throw new IllegalArgumentException(field + " exceeds the maximum length");
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(field + " must not be blank");
+        }
+        if (value.length() > maxLength) {
+            throw new IllegalArgumentException(field + " exceeds the maximum length");
+        }
         return value;
     }
 }
