@@ -1,5 +1,5 @@
-import HomePage from "../page";
+import { StudioAppShell } from "@/components/layout/StudioAppShell";
 
 export default function AssetsPage() {
-  return <HomePage screen="assets" />;
+  return <StudioAppShell screen="assets" />;
 }
