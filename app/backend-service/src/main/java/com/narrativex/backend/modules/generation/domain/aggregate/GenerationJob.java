@@ -1,12 +1,14 @@
 package com.narrativex.backend.modules.generation.domain.aggregate;
 
-import com.narrativex.backend.shared.domain.AggregateRoot;
+import com.narrativex.backend.modules.common.domain.AggregateRoot;
+import com.narrativex.backend.modules.generation.domain.enums.JobStatus;
+import com.narrativex.backend.modules.generation.domain.enums.JobType;
+import com.narrativex.backend.modules.generation.domain.enums.ResourceClass;
 import java.util.Objects;
 import java.util.UUID;
 
 /** Durable generation job aggregate; project ownership is represented by an ID, not a cross-module entity link. */
 public final class GenerationJob extends AggregateRoot {
-
     private final String jobId;
     private final Long projectId;
     private final JobType type;
@@ -22,16 +24,18 @@ public final class GenerationJob extends AggregateRoot {
                           JobStatus status, ResourceClass resourceClass, int progress, String currentStep,
                           String errorCode, String requestedByUserId, String billedToUserId) {
         super(id, rowVersion);
-        this.jobId = Objects.requireNonNull(jobId, "jobId");
-        this.projectId = Objects.requireNonNull(projectId, "projectId");
+        this.jobId = required(jobId, "jobId");
+        if (projectId == null || projectId <= 0) throw new IllegalArgumentException("projectId must be positive");
+        this.projectId = projectId;
         this.type = Objects.requireNonNull(type, "type");
         this.status = Objects.requireNonNull(status, "status");
         this.resourceClass = Objects.requireNonNull(resourceClass, "resourceClass");
+        if (progress < 0 || progress > 100) throw new IllegalArgumentException("progress must be between 0 and 100");
         this.progress = progress;
         this.currentStep = currentStep;
         this.errorCode = errorCode;
-        this.requestedByUserId = Objects.requireNonNull(requestedByUserId, "requestedByUserId");
-        this.billedToUserId = Objects.requireNonNull(billedToUserId, "billedToUserId");
+        this.requestedByUserId = required(requestedByUserId, "requestedByUserId");
+        this.billedToUserId = required(billedToUserId, "billedToUserId");
     }
 
     public static GenerationJob create(Long projectId, JobType type, ResourceClass resourceClass, String userId) {
@@ -57,4 +61,9 @@ public final class GenerationJob extends AggregateRoot {
     public String getErrorCode() { return errorCode; }
     public String getRequestedByUserId() { return requestedByUserId; }
     public String getBilledToUserId() { return billedToUserId; }
+
+    private static String required(String value, String field) {
+        if (value == null || value.isBlank()) throw new IllegalArgumentException(field + " must not be blank");
+        return value;
+    }
 }

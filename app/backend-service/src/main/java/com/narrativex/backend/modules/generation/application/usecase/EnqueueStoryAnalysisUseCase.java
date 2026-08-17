@@ -7,9 +7,9 @@ import com.narrativex.backend.modules.generation.application.command.EnqueueStor
 import com.narrativex.backend.modules.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.modules.generation.application.port.out.OperationPlanRepository;
 import com.narrativex.backend.modules.generation.domain.aggregate.GenerationJob;
-import com.narrativex.backend.modules.generation.domain.aggregate.JobType;
 import com.narrativex.backend.modules.generation.domain.aggregate.OperationPlan;
-import com.narrativex.backend.modules.generation.domain.aggregate.ResourceClass;
+import com.narrativex.backend.modules.generation.domain.enums.JobType;
+import com.narrativex.backend.modules.generation.domain.enums.ResourceClass;
 import com.narrativex.backend.modules.project.application.port.in.ProjectAccess;
 import java.math.BigDecimal;
 import org.springframework.stereotype.Service;
@@ -21,23 +21,6 @@ public class EnqueueStoryAnalysisUseCase {
     private final OperationPlanRepository operationPlanRepository;
     private final ProjectAccess projectAccess;
     private final CurrentUserId currentUserId;
-
-    public EnqueueStoryAnalysisUseCase(GenerationJobRepository jobRepository,
-            OperationPlanRepository operationPlanRepository, ProjectAccess projectAccess, CurrentUserId currentUserId) {
-        this.jobRepository = jobRepository;
-        this.operationPlanRepository = operationPlanRepository;
-        this.projectAccess = projectAccess;
-        this.currentUserId = currentUserId;
-    }
-
-    @Transactional
-    public ApiResponse<JobResponse> execute(EnqueueStoryAnalysisCommand command) {
-        String ownerId = currentUserId.resolve(command.ownerId());
-        var project = projectAccess.findOwnedProject(command.projectId(), ownerId);
-        operationPlanRepository.save(OperationPlan.create(project.getId(), "STORY_ANALYZE",
-            BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO));
-        GenerationJob job = jobRepository.save(GenerationJob.create(project.getId(), JobType.STORY_ANALYZE,
-            ResourceClass.PROVIDER_INTERACTIVE, ownerId));
-        return ApiResponse.success("Story analysis job queued", JobResponse.from(job));
-    }
+    public EnqueueStoryAnalysisUseCase(GenerationJobRepository jobRepository, OperationPlanRepository operationPlanRepository, ProjectAccess projectAccess, CurrentUserId currentUserId){this.jobRepository=jobRepository;this.operationPlanRepository=operationPlanRepository;this.projectAccess=projectAccess;this.currentUserId=currentUserId;}
+    @Transactional public ApiResponse<JobResponse> execute(EnqueueStoryAnalysisCommand command){String ownerId=currentUserId.resolve(command.ownerId());var project=projectAccess.findOwnedProject(command.projectId(),ownerId);operationPlanRepository.save(OperationPlan.create(project.getId(),"STORY_ANALYZE",BigDecimal.ZERO,BigDecimal.ZERO,BigDecimal.ZERO));GenerationJob job=jobRepository.save(GenerationJob.create(project.getId(),JobType.STORY_ANALYZE,ResourceClass.PROVIDER_INTERACTIVE,ownerId));return ApiResponse.success("Story analysis job queued",JobResponse.from(job));}
 }
