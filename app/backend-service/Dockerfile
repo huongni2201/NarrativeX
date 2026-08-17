@@ -5,11 +5,11 @@ WORKDIR /workspace
 # Copy Maven wrapper and POM
 COPY .mvn .mvn
 COPY mvnw pom.xml ./
-RUN ./mvnw dependency:go-offline -B
+RUN sed -i 's/\r$//' mvnw && sh ./mvnw dependency:go-offline -B
 
 # Copy source code and build package
 COPY src ./src
-RUN ./mvnw clean package -DskipTests -B
+RUN sh ./mvnw clean package -Dmaven.test.skip=true -B
 
 # Stage 2: Production runtime
 FROM eclipse-temurin:25-jre-alpine AS runner

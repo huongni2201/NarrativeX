@@ -1,5 +1,7 @@
 # Infrastructure baseline
 
+The local Compose stack uses a PostgreSQL-18-specific named volume (`postgres-data`) so older local PostgreSQL volumes are not mounted with an incompatible layout.
+
 The v1.7 baseline separates environment configuration from application images and secrets. `docker-compose.yml` is the local/dev dependency stack for PostgreSQL, Redis, and MinIO. Copy the repository-root `.env.example` to `.env` before starting the full local stack. Staging and production must use isolated accounts, buckets, databases, secrets, and provider routes; production promotion is from an immutable image and requires a backup/restore check before migrations.
 
 ## Production guardrails
