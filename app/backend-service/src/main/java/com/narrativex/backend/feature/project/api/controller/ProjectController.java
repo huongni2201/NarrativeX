@@ -27,8 +27,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/projects")
 public class ProjectController {
-    private static final int DEFAULT_PAGE_LIMIT = 20;
-
     private final ListProjectsUseCase listProjectsUseCase;
     private final CreateProjectUseCase createProjectUseCase;
     private final CreateStoryVersionUseCase createStoryVersionUseCase;
@@ -47,7 +45,7 @@ public class ProjectController {
             @RequestHeader(name = "X-User-Id", required = false) String ownerId,
             @RequestParam(required = false) String cursor,
             @RequestParam(defaultValue = "20") int limit) {
-        ProjectListQuery query = new ProjectListQuery(ownerId, cursor, normalizeLimit(limit));
+        ProjectListQuery query = new ProjectListQuery(ownerId, cursor, limit);
         return ResponseEntity.ok(listProjectsUseCase.execute(query));
     }
 
@@ -70,9 +68,5 @@ public class ProjectController {
             projectId, request.content(), request.sourceLanguage(), request.rightsAttestationAccepted(),
             request.rightsPolicyVersion(), request.rightsBasis(), ownerId);
         return ResponseEntity.status(HttpStatus.CREATED).body(createStoryVersionUseCase.execute(command));
-    }
-
-    private static int normalizeLimit(int limit) {
-        return limit == 0 ? DEFAULT_PAGE_LIMIT : limit;
     }
 }
