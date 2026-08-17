@@ -1,7 +1,10 @@
 package com.narrativex.backend.configuration;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -9,27 +12,38 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 
 /**
- * Infrastructure scaffolding security configuration.
- *
- * NOTE: This configuration temporarily permits application and actuator endpoints
- * for local development and smoke-testing. Real domain authentication, JWT/OAuth2
- * validation, and role-based access control will be implemented in subsequent phases.
+ * Local development is deliberately open so the skeleton can run without OAuth credentials.
+ * Enabling OIDC switches the chain to an authenticated HttpOnly server session.
  */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    @Order(1)
+    @ConditionalOnProperty(prefix = "narrativex.security", name = "oidc-enabled", havingValue = "true")
+    SecurityFilterChain oidcSecurityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(AbstractHttpConfigurer::disable)
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/actuator/**").permitAll()
-                .requestMatchers("/api/**").permitAll()
-                .anyRequest().permitAll()
-            );
+                .requestMatchers("/actuator/health", "/oauth2/**", "/login/**").permitAll()
+                .anyRequest().authenticated())
+            .oauth2Login(Customizer.withDefaults())
+            .logout(logout -> logout.logoutSuccessUrl("/"));
+        return http.build();
+    }
 
+    @Bean
+    @Order(2)
+    @ConditionalOnProperty(prefix = "narrativex.security", name = "oidc-enabled", havingValue = "false", matchIfMissing = true)
+    SecurityFilterChain localSecurityFilterChain(HttpSecurity http) throws Exception {
+        http
+            .csrf(AbstractHttpConfigurer::disable)
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/actuator/**", "/api/v1/**").permitAll()
+                .anyRequest().permitAll());
         return http.build();
     }
 }

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://narrativex.local/contracts/job-event.v1.schema.json",
+  "title": "NarrativeX Job Event v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "eventId", "idempotencyKey", "jobId", "operationId", "type", "status", "resourceClass", "billedToUserId"],
+  "properties": {
+    "schemaVersion": { "const": "job-event.v1" },
+    "eventId": { "type": "string", "minLength": 1 },
+    "idempotencyKey": { "type": "string", "minLength": 1 },
+    "jobId": { "type": "string", "minLength": 1 },
+    "operationId": { "type": "string", "minLength": 1 },
+    "type": { "type": "string", "enum": ["ANALYZE_STORY", "STORY_ANALYZE", "ANALYZE_CHAPTER", "CHAPTER_ANALYZE", "GENERATE_CHAPTER", "CHAPTER_GENERATE", "RENDER_CHAPTER", "CHAPTER_RENDER", "CONTINUE_PROJECT", "PROJECT_CONTINUE", "GENERATE_IMAGE", "SHOT_IMAGE_GENERATE", "GENERATE_AUDIO", "RENDER_VIDEO", "RENDER_PROJECT", "GENERATE_SHORT", "RENDER_SHORT", "ANIMATE_BEAT", "VISUAL_BEAT_PLAN", "RECONCILE_PROVIDER", "NOTIFICATION_DISPATCH"] },
+    "status": { "type": "string", "enum": ["QUEUED", "RUNNING", "STALLED", "UNKNOWN", "COMPLETED", "FAILED", "CANCELLED", "PAUSED_COST_LIMIT"] },
+    "resourceClass": { "type": "string", "enum": ["PROVIDER_INTERACTIVE", "PROVIDER_BATCH", "GPU_HEAVY", "CPU_RENDER", "CPU_LIGHT", "BACKGROUND", "NOTIFICATION"] },
+    "billedToUserId": { "type": "string", "minLength": 1 },
+    "stageId": { "type": "string" },
+    "attempt": { "type": "integer", "minimum": 1 },
+    "providerOperationId": { "type": ["string", "null"] },
+    "payload": { "type": "object" },
+    "errorCode": { "type": ["string", "null"] }
+  }
+}

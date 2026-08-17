@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "NarrativeX - AI Story Studio",
-  description: "AI Story Studio - Production Foundation",
+  title: "NarrativeX - AI Story Video Studio",
+  description: "Biến truyện chữ thành video sống động với vai nhân vật nhất quán.",
 };
 
 export default function RootLayout({
@@ -12,8 +12,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className="antialiased min-h-screen bg-[#0a0a0c] text-[#ededed]">
+    <html lang="vi" className="dark">
+      <body className="antialiased min-h-screen bg-[#070b14] text-[#f8fafc] selection:bg-purple-600 selection:text-white">
         {children}
       </body>
     </html>

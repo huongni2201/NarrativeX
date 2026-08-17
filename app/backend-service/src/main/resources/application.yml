@@ -9,11 +9,14 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
+    open-in-view: false
     show-sql: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
+        jdbc:
+          time_zone: UTC
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -25,6 +28,21 @@ spring:
 
 server:
   port: ${PORT:8080}
+  forward-headers-strategy: framework
+
+narrativex:
+  limits:
+    max-story-characters: ${NARRATIVEX_MAX_STORY_CHARACTERS:500000}
+    max-estimated-input-tokens: ${NARRATIVEX_MAX_ESTIMATED_INPUT_TOKENS:120000}
+  security:
+    oidc-enabled: ${NARRATIVEX_OIDC_ENABLED:false}
+    local-user-id: ${NARRATIVEX_LOCAL_USER_ID:local-dev-user}
+  providers:
+    vertex-gemini:
+      enabled: ${VERTEX_GEMINI_ENABLED:false}
+      project-id: ${GOOGLE_CLOUD_PROJECT:}
+      location: ${VERTEX_LOCATION:us-central1}
+      model: ${VERTEX_GEMINI_MODEL:gemini-2.5-flash}
 
 management:
   endpoints:
