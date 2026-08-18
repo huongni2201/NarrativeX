@@ -1,12 +1,12 @@
 package com.narrativex.backend;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.narrativex.backend.feature.auth.infrastructure.security.SecurityContextCurrentUser;
 import com.narrativex.backend.feature.project.domain.entity.StoryVersion;
 import com.narrativex.backend.feature.project.domain.enums.AspectRatio;
+import com.narrativex.backend.feature.project.domain.enums.StoryVersionStatus;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.TestingAuthenticationToken;
@@ -26,18 +26,12 @@ class DomainFoundationTests {
   }
 
   @Test
-  void storyVersionDoesNotInventRightsAttestation() {
-    StoryVersion story =
-        StoryVersion.create(
-            1L,
-            1,
-            "text",
-            "en-US",
-            false,
-            "rights-v1.7",
-            "USER_ATTESTED_RIGHTS_OR_LICENSE",
-            "owner");
-    assertFalse(story.isRightsAttested());
+  void storyVersionCanActivateWithoutRightsAttestation() {
+    StoryVersion story = StoryVersion.create(1L, 1, "text", "en-US");
+
+    story.activate();
+
+    assertEquals(StoryVersionStatus.ACTIVE, story.getStatus());
   }
 
   @Test
