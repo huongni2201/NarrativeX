@@ -17,7 +17,6 @@ from narrativex_worker.schema import (
 from narrativex_worker.service import WorkerService
 from narrativex_worker.worker import NarrativeXWorker
 
-
 SOURCE_HASH = "a" * 64
 
 
