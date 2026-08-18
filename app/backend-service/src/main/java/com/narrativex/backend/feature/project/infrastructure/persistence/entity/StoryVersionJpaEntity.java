@@ -10,7 +10,6 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
-import java.time.Instant;
 
 @Entity
 @Table(
@@ -40,21 +39,6 @@ public class StoryVersionJpaEntity extends JpaAuditedEntity {
   @Column(name = "moderation_decision", nullable = false, length = 16)
   private ModerationDecision moderationDecision;
 
-  @Column(name = "rights_attested", nullable = false)
-  private boolean rightsAttested;
-
-  @Column(name = "rights_policy_version", nullable = false, length = 64)
-  private String rightsPolicyVersion;
-
-  @Column(name = "rights_basis", nullable = false, length = 64)
-  private String rightsBasis;
-
-  @Column(name = "rights_attested_at")
-  private Instant rightsAttestedAt;
-
-  @Column(name = "rights_attested_by", length = 128)
-  private String rightsAttestedBy;
-
   protected StoryVersionJpaEntity() {}
 
   public StoryVersionJpaEntity(StoryVersion storyVersion) {
@@ -68,11 +52,6 @@ public class StoryVersionJpaEntity extends JpaAuditedEntity {
     sourceLanguage = storyVersion.getSourceLanguage();
     status = storyVersion.getStatus();
     moderationDecision = storyVersion.getModerationDecision();
-    rightsAttested = storyVersion.isRightsAttested();
-    rightsPolicyVersion = storyVersion.getRightsPolicyVersion();
-    rightsBasis = storyVersion.getRightsBasis();
-    rightsAttestedAt = storyVersion.getRightsAttestedAt();
-    rightsAttestedBy = storyVersion.getRightsAttestedBy();
   }
 
   public Long getProjectId() {
@@ -97,25 +76,5 @@ public class StoryVersionJpaEntity extends JpaAuditedEntity {
 
   public ModerationDecision getModerationDecision() {
     return moderationDecision;
-  }
-
-  public boolean isRightsAttested() {
-    return rightsAttested;
-  }
-
-  public String getRightsPolicyVersion() {
-    return rightsPolicyVersion;
-  }
-
-  public String getRightsBasis() {
-    return rightsBasis;
-  }
-
-  public Instant getRightsAttestedAt() {
-    return rightsAttestedAt;
-  }
-
-  public String getRightsAttestedBy() {
-    return rightsAttestedBy;
   }
 }
