@@ -46,6 +46,14 @@ request
 
 Until this path exists and is integration-tested, `POST /api/v1/projects/{projectId}/analysis-jobs` returns `FEATURE_NOT_AVAILABLE` and must not create fake queued work.
 
+## Implementation status — 2026-08-18
+
+The backend now enforces the fail-closed rule above in `EnqueueStoryAnalysisUseCase`: the analysis-create operation returns `FEATURE_NOT_AVAILABLE` before any `OperationPlan` or `GenerationJob` is persisted. This closes the unsafe scaffold where rows could remain indefinitely in `QUEUED` while the Python worker had no consumer path.
+
+The durable production path is still intentionally pending. Re-enabling story-analysis enqueue requires all of the following to land together with integration coverage: request idempotency, active/current StoryVersion validation, safety/abuse checks, entitlement/quota/concurrency checks, non-placeholder cost estimate and authorization/reservation, atomic `GenerationJob + StageAttempt(s) + OutboxEvent` persistence, post-commit dispatch, worker claim/lease/heartbeat/recovery, and `ProviderOperation RESERVED` before any external provider submission.
+
+Invalid user-triggered domain state transitions are represented as `DomainConflictException` subclasses rather than raw `IllegalStateException`, so the existing API exception mapping can return a conflict response instead of falling through to HTTP 500.
+
 ## Consequences
 
 - Domain transactions and ownership checks remain local and explicit.

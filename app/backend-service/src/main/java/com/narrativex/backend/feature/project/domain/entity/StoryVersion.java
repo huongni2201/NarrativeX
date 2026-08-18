@@ -3,6 +3,7 @@ package com.narrativex.backend.feature.project.domain.entity;
 import com.narrativex.backend.feature.common.domain.DomainEntity;
 import com.narrativex.backend.feature.project.domain.enums.ModerationDecision;
 import com.narrativex.backend.feature.project.domain.enums.StoryVersionStatus;
+import com.narrativex.backend.feature.project.domain.exception.InvalidStoryVersionTransitionException;
 import java.time.Instant;
 import java.util.Objects;
 
@@ -117,7 +118,8 @@ public final class StoryVersion extends DomainEntity {
    */
   public void activate() {
     if (status != StoryVersionStatus.DRAFT) {
-      throw new IllegalStateException("Only draft story versions can be activated");
+      throw new InvalidStoryVersionTransitionException(
+          "Only draft story versions can be activated");
     }
     status = StoryVersionStatus.ACTIVE;
   }
@@ -125,7 +127,8 @@ public final class StoryVersion extends DomainEntity {
   /** Supersedes the currently ACTIVE version as part of a Project-owned activation transition. */
   public void supersede() {
     if (status != StoryVersionStatus.ACTIVE) {
-      throw new IllegalStateException("Only active story versions can be superseded");
+      throw new InvalidStoryVersionTransitionException(
+          "Only active story versions can be superseded");
     }
     status = StoryVersionStatus.SUPERSEDED;
   }
