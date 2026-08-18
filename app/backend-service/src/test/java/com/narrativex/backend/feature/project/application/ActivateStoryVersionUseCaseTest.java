@@ -48,7 +48,7 @@ class ActivateStoryVersionUseCaseTest {
 
     assertEquals(StoryVersionStatus.SUPERSEDED, current.getStatus());
     assertEquals(StoryVersionStatus.ACTIVE, next.getStatus());
-    assertEquals(StoryVersionStatus.ACTIVE, response.data().status());
+    assertEquals("ACTIVE", response.data().status());
 
     InOrder order = inOrder(projectAccess, storyVersionRepository);
     order.verify(projectAccess).findOwnedProjectForUpdate(42L, "owner");
