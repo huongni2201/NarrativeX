@@ -57,6 +57,26 @@ public class GenerationJobJpaEntity extends JpaAuditedEntity {
   @Column(name = "billed_to_user_id", nullable = false, length = 128)
   private String billedToUserId;
 
+  @Column(name = "story_version_id")
+  private Long storyVersionId;
+
+  @Column(name = "chapter_id")
+  private Long chapterId;
+
+  @Column(name = "chapter_row_version")
+  private Long chapterRowVersion;
+
+  @Column(name = "source_hash", length = 64)
+  private String sourceHash;
+
+  @Column(name = "source_text", columnDefinition = "TEXT")
+  private String sourceText;
+
+  @Column(name = "source_language", length = 16)
+  private String sourceLanguage;
+
+  @Column(name = "idempotency_key", length = 200)
+  private String idempotencyKey;
 
   public void apply(GenerationJob job) {
     jobId = job.getJobId();
@@ -69,6 +89,12 @@ public class GenerationJobJpaEntity extends JpaAuditedEntity {
     errorCode = job.getErrorCode();
     requestedByUserId = job.getRequestedByUserId();
     billedToUserId = job.getBilledToUserId();
+    storyVersionId = job.getStoryVersionId();
+    chapterId = job.getChapterId();
+    chapterRowVersion = job.getChapterRowVersion();
+    sourceHash = job.getSourceHash();
+    sourceText = job.getSourceText();
+    sourceLanguage = job.getSourceLanguage();
+    idempotencyKey = job.getIdempotencyKey();
   }
 }
-
