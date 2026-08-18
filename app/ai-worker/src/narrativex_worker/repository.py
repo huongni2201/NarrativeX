@@ -3,7 +3,7 @@
 import json
 from dataclasses import dataclass
 
-import asyncpg
+import asyncpg  # type: ignore[import-untyped]
 
 from narrativex_worker.schema import ChapterAnalysisRequest, ChapterAnalysisResult
 
@@ -122,7 +122,7 @@ class WorkerRepository:
             stage_attempt_id,
             worker_id,
         )
-        return result == "UPDATE 1"
+        return str(result) == "UPDATE 1"
 
     async def complete(
         self,
