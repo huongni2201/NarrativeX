@@ -12,10 +12,11 @@ import { Step3AiAnalysis } from "./Step3AiAnalysis";
 import { Button } from "@/components/ui/Button";
 import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
 import { projectsApi } from "@/features/projects/api/projects.api";
+import { chaptersApi } from "@/features/chapters/api/chapters.api";
 import { ApiClientError, apiErrorMessage } from "@/shared/api/client";
 import { queryKeys } from "@/lib/query-keys";
 import type { ProjectWizardDraft } from "@/types/studio";
-import type { ApiFieldError } from "@/types/api";
+import type { ApiChapter, ApiFieldError, ApiStoryVersion } from "@/types/api";
 
 const Step4Results = dynamic(() => import("./Step4Results").then((module) => module.Step4Results));
 
@@ -29,8 +30,9 @@ const languageCodes: Record<string, string> = {
 type WorkflowState = {
   fingerprint: string;
   project: Awaited<ReturnType<typeof projectsApi.create>>;
-  storyCreated: boolean;
-  storyStateUncertain: boolean;
+  storyVersion: ApiStoryVersion | null;
+  chapter: ApiChapter | null;
+  stateUncertain: boolean;
 };
 
 export const ProjectWizardModal: React.FC = () => {
@@ -54,75 +56,109 @@ export const ProjectWizardModal: React.FC = () => {
   const createProjectWorkflow = useMutation({
     mutationFn: async (draft: ProjectWizardDraft) => {
       const language = languageCodes[draft.language] ?? "vi-VN";
+      const normalizedStoryText = draft.storyText.trim();
       const fingerprint = JSON.stringify({
         title: draft.title.trim(),
-        storyText: draft.storyText.trim(),
+        storyText: normalizedStoryText,
         language,
         aspectRatio: draft.aspectRatio,
         quality: draft.quality,
       });
-      const existingWorkflow = workflowRef.current?.fingerprint === fingerprint ? workflowRef.current : null;
+      const existingWorkflow =
+        workflowRef.current?.fingerprint === fingerprint ? workflowRef.current : null;
 
-      if (existingWorkflow?.storyStateUncertain) {
-        throw new Error("Không thể retry an toàn vì trạng thái StoryVersion trước đó chưa xác định. Hãy kiểm tra project đã tạo trước khi gửi lại.");
+      if (existingWorkflow?.stateUncertain) {
+        throw new Error(
+          "Không thể retry an toàn vì trạng thái lần gửi trước chưa xác định. Hãy kiểm tra project đã tạo trước khi gửi lại.",
+        );
       }
 
-      const project = existingWorkflow?.project ?? await projectsApi.create({
-        name: draft.title.trim(),
-        sourceLanguage: language,
-        narrationLanguage: language,
-        metadataLanguage: language,
-        imageAspectRatio: draft.aspectRatio,
-        imageQualityTier: draft.quality.toUpperCase(),
-      });
+      const project =
+        existingWorkflow?.project ??
+        (await projectsApi.create({
+          name: draft.title.trim(),
+          sourceLanguage: language,
+          narrationLanguage: language,
+          metadataLanguage: language,
+          imageAspectRatio: draft.aspectRatio,
+          imageQualityTier: draft.quality.toUpperCase(),
+        }));
 
-      workflowRef.current = existingWorkflow ?? {
-        fingerprint,
-        project,
-        storyCreated: false,
-        storyStateUncertain: false,
-      };
+      workflowRef.current =
+        existingWorkflow ?? {
+          fingerprint,
+          project,
+          storyVersion: null,
+          chapter: null,
+          stateUncertain: false,
+        };
 
-      if (!workflowRef.current.storyCreated) {
+      if (!workflowRef.current.storyVersion) {
         try {
-          await projectsApi.createStoryVersion(project.id, {
-            content: draft.storyText.trim(),
+          const storyVersion = await projectsApi.createStoryVersion(project.id, {
+            content: normalizedStoryText,
             sourceLanguage: language,
           });
-          workflowRef.current = { ...workflowRef.current, storyCreated: true };
+          workflowRef.current = { ...workflowRef.current, storyVersion };
         } catch (error) {
           if (!(error instanceof ApiClientError)) {
-            workflowRef.current = { ...workflowRef.current, storyStateUncertain: true };
+            workflowRef.current = { ...workflowRef.current, stateUncertain: true };
           }
           throw error;
         }
       }
 
-      return { project };
+      if (!workflowRef.current.chapter) {
+        try {
+          const storyVersion = workflowRef.current.storyVersion;
+          if (!storyVersion) throw new Error("StoryVersion chưa sẵn sàng để tạo Chapter.");
+          const chapter = await chaptersApi.create(project.id, {
+            storyVersionId: storyVersion.id,
+            orderIndex: 0,
+            title: "Chapter 1",
+            sourceText: normalizedStoryText,
+          });
+          workflowRef.current = { ...workflowRef.current, chapter };
+        } catch (error) {
+          if (!(error instanceof ApiClientError)) {
+            workflowRef.current = { ...workflowRef.current, stateUncertain: true };
+          }
+          throw error;
+        }
+      }
+
+      return { project, chapter: workflowRef.current.chapter };
     },
-    onSuccess: async ({ project }) => {
+    onSuccess: async ({ project, chapter }) => {
+      if (!chapter) throw new Error("Chapter creation completed without a Chapter response.");
       await queryClient.invalidateQueries({ queryKey: queryKeys.projects });
+      queryClient.setQueryData(queryKeys.chapter(project.id, chapter.id), chapter);
       resetLocalWorkflow();
       setView("overview");
       closeWizard();
-      router.push(`/projects/${project.id}`);
+      router.push(`/projects/${project.id}/chapters/${chapter.id}`);
     },
     onError: (error) => {
       if (error instanceof ApiClientError) {
         const errors = error.errors ?? [];
         setValidationErrors(errors);
         setSubmitError(error.message);
-        if (errors.some((fieldError) => ["content", "storyText"].includes(fieldError.field))) setWizardStep(2);
-        else if (errors.length > 0) setWizardStep(1);
+        if (errors.some((fieldError) => ["content", "storyText", "sourceText"].includes(fieldError.field))) {
+          setWizardStep(2);
+        } else if (errors.length > 0) {
+          setWizardStep(1);
+        }
         return;
       }
 
       setValidationErrors([]);
-      if (workflowRef.current?.storyStateUncertain) {
-        setSubmitError(`Project #${workflowRef.current.project.id} đã được tạo nhưng FE không thể xác định StoryVersion có được commit hay không. Retry bị khóa để tránh tạo dữ liệu trùng.`);
+      if (workflowRef.current?.stateUncertain) {
+        setSubmitError(
+          `Project #${workflowRef.current.project.id} đã được tạo nhưng FE không thể xác định StoryVersion/Chapter có được commit hay không. Retry bị khóa để tránh tạo dữ liệu trùng.`,
+        );
         return;
       }
-      setSubmitError(apiErrorMessage(error, "Không thể tạo project từ backend."));
+      setSubmitError(apiErrorMessage(error, "Không thể tạo project và Chapter từ backend."));
     },
   });
 
@@ -151,10 +187,14 @@ export const ProjectWizardModal: React.FC = () => {
     }
   };
   const handleBack = () => {
-    if (!createProjectWorkflow.isPending && currentStep > 1) setWizardStep((currentStep - 1) as 1 | 2 | 3 | 4);
+    if (!createProjectWorkflow.isPending && currentStep > 1) {
+      setWizardStep((currentStep - 1) as 1 | 2 | 3 | 4);
+    }
   };
   const handleStepClick = (stepId: number) => {
-    if (!createProjectWorkflow.isPending && stepId <= maxAccessibleStep) setWizardStep(stepId as 1 | 2 | 3 | 4);
+    if (!createProjectWorkflow.isPending && stepId <= maxAccessibleStep) {
+      setWizardStep(stepId as 1 | 2 | 3 | 4);
+    }
   };
   const handleConfirm = () => {
     if (!wizardDraft.title.trim()) {
@@ -169,14 +209,14 @@ export const ProjectWizardModal: React.FC = () => {
       setWizardStep(2);
       return;
     }
-    if (workflowRef.current?.storyStateUncertain) return;
+    if (workflowRef.current?.stateUncertain) return;
     setSubmitError(null);
     setValidationErrors([]);
     createProjectWorkflow.mutate(wizardDraft);
   };
 
   const isCloseLocked = createProjectWorkflow.isPending;
-  const isRetryBlocked = Boolean(workflowRef.current?.storyStateUncertain);
+  const isRetryBlocked = Boolean(workflowRef.current?.stateUncertain);
 
   return (
     <Modal
@@ -194,35 +234,91 @@ export const ProjectWizardModal: React.FC = () => {
           {currentStep === 3 && "05. Phân tích AI – Tổng quan"}
           {currentStep === 4 && "06. Xác nhận"}
         </span>
-        <button type="button" onClick={handleCloseWizard} disabled={isCloseLocked} className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-800/60 hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-40" aria-label={isCloseLocked ? "Đang tạo dự án, chưa thể đóng" : "Đóng trình tạo dự án"}>
+        <button
+          type="button"
+          onClick={handleCloseWizard}
+          disabled={isCloseLocked}
+          className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-800/60 hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
+          aria-label={isCloseLocked ? "Đang tạo dự án, chưa thể đóng" : "Đóng trình tạo dự án"}
+        >
           <X className="h-5 w-5" />
         </button>
       </div>
 
       <div className="flex min-h-[500px] flex-col gap-6 p-6 md:flex-row md:gap-8 md:p-8">
-        <div className="border-b border-slate-800/80 pb-4 md:border-b-0 md:border-r md:pb-0"><Stepper currentStep={currentStep} maxAccessibleStep={maxAccessibleStep} onStepClick={handleStepClick} /></div>
+        <div className="border-b border-slate-800/80 pb-4 md:border-b-0 md:border-r md:pb-0">
+          <Stepper
+            currentStep={currentStep}
+            maxAccessibleStep={maxAccessibleStep}
+            onStepClick={handleStepClick}
+          />
+        </div>
         <div className="flex-1">
-          {currentStep === 1 && <Step1BasicInfo onNext={handleNext} onCancel={handleCloseWizard} validationErrors={validationErrors} />}
-          {currentStep === 2 && <Step2ImportStory onNext={handleNext} onBack={handleBack} validationErrors={validationErrors} />}
+          {currentStep === 1 && (
+            <Step1BasicInfo
+              onNext={handleNext}
+              onCancel={handleCloseWizard}
+              validationErrors={validationErrors}
+            />
+          )}
+          {currentStep === 2 && (
+            <Step2ImportStory
+              onNext={handleNext}
+              onBack={handleBack}
+              validationErrors={validationErrors}
+            />
+          )}
           {currentStep === 3 && <Step3AiAnalysis onNext={handleNext} onBack={handleBack} />}
           {currentStep === 4 && <Step4Results onBack={handleBack} />}
         </div>
       </div>
 
       <div className="flex items-center justify-between border-t border-slate-800/80 bg-[#090e18] px-8 py-4">
-        {currentStep === 1 ? <Button variant="secondary" onClick={handleCloseWizard} disabled={isCloseLocked}>Hủy</Button> : <Button variant="secondary" onClick={handleBack} disabled={isCloseLocked}><ArrowLeft className="mr-1.5 h-4 w-4" />Quay lại</Button>}
-        {currentStep < 4 ? <Button variant="primary" onClick={handleNext} disabled={isCloseLocked}>Tiếp tục<ArrowRight className="ml-1.5 h-4 w-4" /></Button> : (
-          <Button variant="gradient" onClick={handleConfirm} disabled={createProjectWorkflow.isPending || isRetryBlocked}>
+        {currentStep === 1 ? (
+          <Button variant="secondary" onClick={handleCloseWizard} disabled={isCloseLocked}>
+            Hủy
+          </Button>
+        ) : (
+          <Button variant="secondary" onClick={handleBack} disabled={isCloseLocked}>
+            <ArrowLeft className="mr-1.5 h-4 w-4" />Quay lại
+          </Button>
+        )}
+        {currentStep < 4 ? (
+          <Button variant="primary" onClick={handleNext} disabled={isCloseLocked}>
+            Tiếp tục<ArrowRight className="ml-1.5 h-4 w-4" />
+          </Button>
+        ) : (
+          <Button
+            variant="gradient"
+            onClick={handleConfirm}
+            disabled={createProjectWorkflow.isPending || isRetryBlocked}
+          >
             <Check className="mr-1.5 h-4 w-4" />
-            {createProjectWorkflow.isPending ? "Đang gửi lên backend…" : isRetryBlocked ? "Kiểm tra project trước khi retry" : "Xác nhận & Tạo dự án"}
+            {createProjectWorkflow.isPending
+              ? "Đang lưu Project / Story / Chapter…"
+              : isRetryBlocked
+                ? "Kiểm tra project trước khi retry"
+                : "Xác nhận & Tạo dự án"}
           </Button>
         )}
       </div>
 
       {(submitError || validationErrors.length > 0) && (
-        <div className="border-t border-rose-500/20 bg-rose-950/20 px-8 py-3 text-xs text-rose-200" role="alert">
+        <div
+          className="border-t border-rose-500/20 bg-rose-950/20 px-8 py-3 text-xs text-rose-200"
+          role="alert"
+        >
           {submitError && <p>{submitError}</p>}
-          {validationErrors.length > 0 && <ul className="mt-2 space-y-1 text-rose-200/80">{validationErrors.map((fieldError, index) => <li key={`${fieldError.field}-${index}`}><span className="font-medium">{fieldError.field}:</span> {fieldError.message || fieldError.code || "Giá trị không hợp lệ."}</li>)}</ul>}
+          {validationErrors.length > 0 && (
+            <ul className="mt-2 space-y-1 text-rose-200/80">
+              {validationErrors.map((fieldError, index) => (
+                <li key={`${fieldError.field}-${index}`}>
+                  <span className="font-medium">{fieldError.field}:</span>{" "}
+                  {fieldError.message || fieldError.code || "Giá trị không hợp lệ."}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
     </Modal>
