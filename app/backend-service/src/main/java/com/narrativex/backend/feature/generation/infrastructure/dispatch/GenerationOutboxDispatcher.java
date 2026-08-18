@@ -6,11 +6,12 @@ import java.time.Duration;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.data.redis.core.StringRedisTemplate;
 
 /**
  * Best-effort Redis delivery hint for durable generation jobs. PostgreSQL remains authoritative: a
@@ -19,6 +20,10 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@ConditionalOnProperty(
+    name = "narrativex.generation.outbox-dispatch-enabled",
+    havingValue = "true",
+    matchIfMissing = true)
 public class GenerationOutboxDispatcher {
   static final String CHANNEL = "narrativex:generation:jobs";
 
@@ -49,7 +54,9 @@ public class GenerationOutboxDispatcher {
             "UPDATE outbox_events SET status = 'PUBLISHED', attempts = attempts + 1 WHERE id = ?",
             row.id());
       } catch (RuntimeException exception) {
-        log.warn("Redis generation hint failed for outbox event {}; PostgreSQL polling remains active", row.id());
+        log.warn(
+            "Redis generation hint failed for outbox event {}; PostgreSQL polling remains active",
+            row.id());
         jdbcTemplate.update(
             """
             UPDATE outbox_events
