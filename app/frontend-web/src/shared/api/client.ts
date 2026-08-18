@@ -54,7 +54,9 @@ export function apiUrl(path: string) {
 
 export function subscribeUnauthorized(handler: UnauthorizedHandler) {
   unauthorizedHandlers.add(handler);
-  return () => unauthorizedHandlers.delete(handler);
+  return () => {
+    unauthorizedHandlers.delete(handler);
+  };
 }
 
 function notifyUnauthorized() {
