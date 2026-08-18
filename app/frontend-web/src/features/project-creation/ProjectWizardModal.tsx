@@ -48,7 +48,6 @@ export const ProjectWizardModal: React.FC = () => {
         language,
         aspectRatio: draft.aspectRatio,
         quality: draft.quality,
-        rightsAttestationAccepted: draft.rightsAttestationAccepted,
       });
       const existingWorkflow =
         workflowRef.current?.fingerprint === fingerprint ? workflowRef.current : null;
@@ -68,9 +67,6 @@ export const ProjectWizardModal: React.FC = () => {
         await api.createStoryVersion(project.id, {
           content: draft.storyText.trim(),
           sourceLanguage: language,
-          rightsAttestationAccepted: draft.rightsAttestationAccepted,
-          rightsPolicyVersion: "rights-v1.7",
-          rightsBasis: "USER_ATTESTED",
         });
         workflowRef.current = { fingerprint, project, storyCreated: true };
       }
@@ -147,12 +143,6 @@ export const ProjectWizardModal: React.FC = () => {
     if (!wizardDraft.storyText.trim()) {
       setValidationErrors([]);
       setSubmitError("Vui lòng nhập nội dung truyện trước khi phân tích.");
-      setWizardStep(2);
-      return;
-    }
-    if (!wizardDraft.rightsAttestationAccepted) {
-      setValidationErrors([]);
-      setSubmitError("Bạn cần xác nhận quyền sử dụng nội dung trước khi gửi lên backend.");
       setWizardStep(2);
       return;
     }
