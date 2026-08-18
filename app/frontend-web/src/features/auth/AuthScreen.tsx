@@ -1,12 +1,15 @@
 import React, { FormEvent, useState } from "react";
+import Image from "next/image";
 import { authApi } from "@/features/auth/api/auth.api";
 import { apiErrorMessage } from "@/shared/api/client";
 import { useAuthStore } from "@/store/useAuthStore";
 
+const LOGO_SRC = "/branding/narrativex-logo-dark.png";
+
 export const AuthLoadingScreen: React.FC<{ message: string; action?: React.ReactNode }> = ({ message, action }) => (
   <div className="flex min-h-screen w-full items-center justify-center bg-[#070b14] p-6 text-slate-100">
     <div className="space-y-3 text-center">
-      <img src="/branding/narrativex-logo-dark.png" alt="NarrativeX" className="mx-auto h-12 w-auto" />
+      <Image src={LOGO_SRC} alt="NarrativeX" width={240} height={64} priority className="mx-auto h-12 w-auto" />
       <p className="text-sm text-slate-300">{message}</p>
       {action}
     </div>
@@ -53,11 +56,19 @@ export const AuthScreen: React.FC = () => {
   return (
     <div className="flex min-h-screen w-full flex-col bg-[#070b14] text-slate-100 md:flex-row">
       <section className="relative flex min-h-[40vh] flex-col justify-between overflow-hidden bg-slate-950 p-8 md:min-h-screen md:w-1/2 md:p-12 lg:w-3/5">
-        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1600&auto=format&fit=crop')] bg-cover bg-center" />
+        <Image
+          src="https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1600&auto=format&fit=crop"
+          alt=""
+          fill
+          priority
+          sizes="(min-width: 1024px) 60vw, (min-width: 768px) 50vw, 100vw"
+          className="object-cover"
+          aria-hidden="true"
+        />
         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#070b14]/40 to-[#070b14]" />
         <div className="absolute inset-0 bg-gradient-to-t from-[#070b14] via-transparent to-black/60" />
 
-        <img src="/branding/narrativex-logo-dark.png" alt="NarrativeX" className="relative z-10 h-14 w-auto self-start object-contain" />
+        <Image src={LOGO_SRC} alt="NarrativeX" width={280} height={72} priority className="relative z-10 h-14 w-auto self-start object-contain" />
 
         <div className="relative z-10 max-w-lg space-y-3">
           <div className="inline-flex items-center gap-2 rounded-full border border-purple-500/30 bg-purple-950/80 px-3 py-1 text-xs font-semibold tracking-wide text-purple-300">
@@ -72,7 +83,7 @@ export const AuthScreen: React.FC = () => {
       <main className="relative z-10 flex flex-1 items-center justify-center p-6 md:p-12">
         <div className="w-full max-w-md space-y-6 rounded-2xl border border-slate-800/80 bg-[#0d1420]/90 p-8 shadow-[0_0_50px_rgba(0,0,0,0.5)]">
           <div className="space-y-2 text-center">
-            <img src="/branding/narrativex-logo-dark.png" alt="NarrativeX" className="mx-auto h-12 w-auto" />
+            <Image src={LOGO_SRC} alt="NarrativeX" width={240} height={64} className="mx-auto h-12 w-auto" />
             <h1 className="text-xl font-bold text-white">{mode === "login" ? "Đăng nhập NarrativeX" : "Tạo tài khoản NarrativeX"}</h1>
             <p className="text-xs text-slate-400">{mode === "login" ? "Tiếp tục dự án của bạn bằng email hoặc Google." : "Tạo tài khoản để bắt đầu sản xuất video AI."}</p>
           </div>
