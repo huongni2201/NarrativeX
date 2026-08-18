@@ -4,12 +4,15 @@ import com.narrativex.backend.feature.auth.application.exception.AuthRateLimitEx
 import com.narrativex.backend.feature.common.api.CorrelationIdFilter;
 import com.narrativex.backend.feature.common.api.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+@Order(Ordered.HIGHEST_PRECEDENCE)
 @RestControllerAdvice(assignableTypes = PasswordAuthController.class)
 public class AuthRateLimitExceptionHandler {
 
