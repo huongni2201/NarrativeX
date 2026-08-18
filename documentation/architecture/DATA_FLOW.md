@@ -1,22 +1,23 @@
 # NarrativeX Data Flow and Durability Model
 
-This document describes the canonical flow from user intent to media output. PostgreSQL state, not Redis messages or object existence alone, determines what the system believes happened.
+This document describes the canonical flow from user intent to analysis/media output. PostgreSQL state, not Redis messages or object existence alone, determines what the system believes happened.
 
 ## Authority matrix
 
 | Concern | Authoritative store | Acceleration / external copy | Rule |
 |---|---|---|---|
 | Users, ownership, project/story/chapter/scene state | PostgreSQL | Redis cache | Every project-scoped read/write checks owner/role. |
-| Jobs, stages and provider operations | PostgreSQL | Redis delivery/progress | Redis loss must be recoverable from persisted state/outbox. |
-| Cost plans, reservations, usage ledger | PostgreSQL | Cloud billing export for reconciliation | `billed_to_user_id` is mandatory; history is append-only. |
+| Jobs and stage attempts | PostgreSQL | Redis delivery/progress hints | Redis loss must be recoverable from persisted state/outbox. |
+| Provider operations | PostgreSQL target contract | Provider APIs/storage evidence | Dedicated durable ProviderOperation persistence and `UNKNOWN` reconciliation remain required before production. |
+| Cost plans, reservations, usage ledger | PostgreSQL | Cloud billing export for reconciliation | `billed_to_user_id` is mandatory before billable production work; current Chapter-analysis MVP does not yet complete the full cost reservation lifecycle. |
 | Asset metadata and manifests | PostgreSQL | MinIO/S3 binary | DB metadata, checksum and storage key must agree. |
 | Binary media | MinIO/S3-compatible storage | CDN/signed URL | Buckets are private; only short-lived signed URLs are exposed. |
-| Notifications | PostgreSQL notification + outbox rows | Email/web-push providers | Delivery failure does not change job status. |
+| Notifications | PostgreSQL notification + outbox rows | Email/web-push providers | Delivery failure does not change canonical job status. |
 | Safety, real-person consent, AI audit | PostgreSQL | Provider safety signals | Application policy/version is canonical. Per-story copyright attestation is not an Analyze/Generate prerequisite. |
 
 ## Project and Chapter trigger boundary
 
-Creating a Project is metadata-only and is outside the paid AI/media execution pipeline. The first analysis trigger is an explicit Analyze action for a persisted Chapter source/snapshot.
+Creating a Project is metadata-only and is outside the paid AI/media execution pipeline. Saving a Chapter also does not trigger AI. The first analysis trigger is an explicit Analyze action for a persisted Chapter.
 
 ```text
 Create Project
@@ -24,72 +25,156 @@ Create Project
   -> no AI job
 
 Create/Edit Chapter
-  -> persist Chapter source/snapshot
-  -> user explicitly requests Analyze
+  -> persist sourceText
+  -> backend computes sourceHash
+  -> rowVersion identifies the saved Chapter state
+  -> no AI job
+
+User clicks Analyze
+  -> backend reloads the persisted Chapter
   -> durable Chapter analysis flow
 ```
 
-## Request-to-result flow
+The analysis authority is the persisted Chapter snapshot. The browser does not submit arbitrary story text as the source of truth for the AI request.
+
+## Implemented Chapter Analysis MVP flow
+
+The current Chapter-analysis vertical slice implements the following durability boundary:
 
 ```text
-Authenticated Chapter analysis request
-  -> ownership/role + Chapter/Project consistency
-  -> idempotency
-  -> persisted/current Chapter source snapshot
-  -> active/current StoryVersion where required by the source model
-  -> account/IP abuse gate
-  -> input moderation + real-person consent when applicable
-  -> prompt-injection boundary and structured request validation
-  -> entitlement/quota + affected-scope resolution
-  -> OperationPlan (estimate range, confidence, max spend)
-  -> user confirmation and atomic CostReservation when required
-  -> one transaction: GenerationJob + required StageAttempts + outbox/delivery intent
+Authenticated user
+  -> POST /api/v1/projects/{projectId}/chapters/{chapterId}/analysis-jobs
+  -> ownership + Project/Chapter/StoryVersion consistency
+  -> load persisted Chapter
+  -> snapshot:
+       projectId
+       storyVersionId
+       chapterId
+       chapterRowVersion
+       sourceHash
+       sourceText
+       sourceLanguage
+  -> idempotency based on persisted Chapter source identity
+  -> one backend transaction:
+       OperationPlan
+       GenerationJob
+       StageAttempt
+       OutboxEvent
   -> COMMIT
-  -> dispatcher publishes delivery hint
-  -> worker claim/lease + heartbeat
-  -> ProviderOperation RESERVED before external submit
-  -> provider/local operation + usage metering
-  -> output validation + moderation/identity QA/human gate
-  -> approved analysis/assets / RenderVersion / FinalArtifact as applicable
-  -> atomic terminal state + notification outbox
+  -> best-effort Redis delivery hint
+  -> Python worker polls PostgreSQL
+  -> claim StageAttempt using FOR UPDATE ... SKIP LOCKED
+  -> set RUNNING + lease owner + heartbeat
+  -> ChapterAnalysisRequest
+  -> one configured LLM provider
+  -> structured ChapterAnalysisResult validation
+  -> verify Chapter rowVersion/sourceHash still match snapshot
+  -> one materialization transaction:
+       Character
+       ProjectCharacter
+       CharacterVersion
+       Scene
+       VisualBeat
+       StageAttempt COMPLETED
+       GenerationJob COMPLETED
 ```
 
-The create-job endpoint must remain disabled until this durable path is actually implemented and tested. A controller/use case that only inserts a `QUEUED` job is not a production execution workflow.
+Redis is not required for correctness of this flow. If the Redis hint is lost, the worker can still recover durable queued work from PostgreSQL.
 
-## Durable operation lifecycle
+## Chapter analysis contract
 
-1. The API accepts an idempotency key and resolves the current owner, Project, persisted/current Chapter source snapshot, applicable StoryVersion and expected row versions. A repeated key returns the existing operation/job rather than creating another one.
-2. The request passes account abuse/rate-limit, input safety/moderation, entitlement/quota and any applicable real-person identity consent checks. There is no per-story copyright/rights checkbox prerequisite.
-3. The backend calculates `AffectedScope` and reuse before estimating. The plan snapshots Chapter/source identity, duration, semantic complexity, quality, provider/model, TTS duration, render profile and expected new work.
-4. The user confirms `maxAuthorizedCost`/credits when required. Authorization/reservation is persisted before any billable provider or GPU stage can be claimed.
-5. One transaction persists the `OperationPlan`/authorization-reservation, `GenerationJob`, required `StageAttempt` rows and a unique outbox/delivery intent. No Redis publish is required for transaction success.
-6. Only after commit may the outbox dispatcher publish a Redis/delivery message.
-7. A worker claims a queued stage with a lease and heartbeat. It must pass resource-class, account fairness, provider limiter/circuit and budget guards.
-8. Before an external call, the worker persists a `ProviderOperation` in `RESERVED`, including provider namespace and fingerprint/idempotency evidence. A known successful submission moves through `SUBMITTED`/`RUNNING`; a known failure follows retry policy.
-9. A timeout or ambiguous network outcome becomes `UNKNOWN`. The worker queries provider status and storage evidence. It does not submit a second operation until reconciliation proves the first did not happen.
-10. Outputs land in a unique temporary object or `.partial` file. MIME, dimensions, duration, checksum, codec and manifest are validated before immutable promotion where media is produced.
-11. The worker records `ResourceUsageRecord`, actual internal/provider cost and billable cost, then the backend consumes/releases the reservation and appends `UsageLedger` entries.
-12. Required stage completion and required result/artifact validation are verified before the parent job is `COMPLETED`. Missing/invalid required output leaves the job failed, paused or reconciling.
+The worker request is Chapter-scoped rather than story-text-scoped:
 
-## Current implementation gate
-
-Until durable enqueue/dispatch/worker execution exists, the backend configuration defaults:
-
-```yaml
-narrativex:
-  features:
-    story-analysis-enabled: false
+```text
+ChapterAnalysisRequest
+  projectId
+  storyVersionId
+  chapterId
+  chapterRowVersion
+  sourceHash
+  sourceText
+  sourceLanguage
 ```
 
-When disabled:
+There are intentionally no `rights_attested`, `rights_policy_version` or `rights_basis` fields. Copyright report/review/takedown handling and safety policy remain separate product concerns; a blanket per-story rights checkbox is not a Chapter Analyze prerequisite.
 
-- `POST /api/v1/projects/{projectId}/chapters/{chapterId}/analysis-jobs` returns `503 FEATURE_NOT_AVAILABLE`;
-- the request must not create `OperationPlan`, `GenerationJob` or other queued-work rows;
-- Project creation must never call the analysis endpoint;
-- the frontend may expose Analyze only in Chapter context and must represent the disabled capability explicitly;
-- no UI may display fake job progress or fake analysis results in API mode.
+The worker prompt treats `sourceText` as untrusted story data. Commands embedded in story text must not become tool/system instructions.
 
-The feature may be enabled only after the minimum durable execution invariant is satisfied and integration-tested.
+## Structured Chapter analysis result
+
+The MVP provider result is validated before persistence. Conceptually:
+
+```json
+{
+  "characters": [
+    {
+      "name": "...",
+      "aliases": [],
+      "description": "..."
+    }
+  ],
+  "locations": [
+    {
+      "name": "...",
+      "description": "..."
+    }
+  ],
+  "scenes": [
+    {
+      "title": "...",
+      "narration": "...",
+      "characters": [],
+      "location": "...",
+      "visual_beats": [
+        {
+          "visual_intent": "..."
+        }
+      ]
+    }
+  ]
+}
+```
+
+The current persistence slice materializes Character/ProjectCharacter/CharacterVersion and Scene/VisualBeat. Public Location and Scene-character/linking contracts may evolve separately; the structured provider output must not be confused with every final domain relation already being public and complete.
+
+## Frontend Chapter Analyze flow
+
+```text
+ChapterEditor
+  -> local edit makes Chapter dirty
+  -> Analyze disabled
+  -> user saves Chapter
+  -> backend returns new rowVersion/sourceHash
+  -> Analyze enabled
+  -> POST analysis-jobs
+  -> poll GET /api/v1/generation-jobs/{jobId}
+  -> QUEUED
+  -> RUNNING
+  -> COMPLETED / FAILED
+```
+
+The frontend must never auto-save and analyze an unpersisted local draft as one hidden action. A user-visible saved Chapter is the analysis boundary.
+
+After `COMPLETED`, project-scoped queries may be invalidated. The public Character and Storyboard read APIs are still required before the UI can claim that all materialized analysis results are directly browsable.
+
+## Durable operation lifecycle — production target
+
+The Chapter-analysis MVP satisfies the first durable enqueue/claim boundary, but the complete production pipeline remains broader:
+
+1. The API resolves owner, Project and persisted/current Chapter snapshot.
+2. Idempotency prevents duplicate active work for the same request/source identity.
+3. Production abuse, moderation, entitlement/quota and real-person consent gates run where applicable.
+4. `OperationPlan` records planned work. Full production cost estimate/reservation/reconciliation still needs completion.
+5. One transaction persists `OperationPlan`, `GenerationJob`, required `StageAttempt` rows and unique outbox intent.
+6. Only after commit may Redis or another dispatcher publish a delivery hint.
+7. A worker claims a queued stage with a durable lease and heartbeat.
+8. Before any ambiguous/billable external submission, a dedicated `ProviderOperation` is persisted in `RESERVED`.
+9. Provider state advances through `SUBMITTED` / `RUNNING` / terminal state.
+10. A timeout or ambiguous external outcome becomes `UNKNOWN`; reconciliation checks provider/storage evidence before resubmission.
+11. Outputs are validated before promotion/materialization.
+12. Usage/cost is reconciled and reservations are consumed/released.
+13. Required output validation occurs before the parent job is `COMPLETED`.
+14. Terminal job and notification/outbox state are committed atomically where applicable.
 
 ## Provider operation lifecycle
 
@@ -101,59 +186,142 @@ RESERVED -> SUBMITTED -> RUNNING -> COMPLETED
 SUBMITTED/RUNNING/submit ambiguity -> UNKNOWN -> reconcile -> terminal/known state
 ```
 
-`ProviderOperation` must use a dedicated `ProviderOperationStatus`; it must not reuse `JobStatus`. `UNKNOWN` never means “blindly retry”.
+The worker contract uses `COMPLETED`, not `SUCCEEDED`, as the canonical successful terminal provider state.
+
+The current Vertex Chapter-analysis adapter performs a synchronous `generateContent` call and validates the returned structured result, but dedicated durable `ProviderOperation` persistence and `UNKNOWN` reconciliation are not yet complete. Therefore this part remains a production release gate.
 
 ## Stage lease lifecycle
 
-A stage attempt must support at least:
+Current Chapter-analysis worker stages support the durable lifecycle:
 
 ```text
-QUEUED -> RUNNING -> COMPLETED / FAILED / CANCELED
+QUEUED -> RUNNING -> COMPLETED / FAILED
              |
-             +-- lease expired / heartbeat stale -> STALLED -> recovery policy
+             +-- heartbeat stale / lease reclaim -> another worker may claim
 ```
 
-Claim, lease owner, lease expiry/heartbeat and retry attempt number are durable state. Worker process memory is not authoritative.
+Important rules:
+
+- `StageAttempt.worker_id` and `heartbeat_at` are persisted.
+- worker claim uses PostgreSQL row locking with `FOR UPDATE ... SKIP LOCKED`;
+- worker process memory is not authoritative;
+- a worker must still own the running lease before result materialization is committed;
+- a stale lease can be reclaimed according to the configured lease timeout.
+
+A future retry policy may explicitly use `STALLED`/new attempt rows rather than overloading one attempt; retry-count and provider-ambiguity policy must remain explicit.
+
+## Snapshot consistency during analysis
+
+Before AI result materialization, the worker verifies that the Chapter still matches the persisted job snapshot:
+
+```text
+chapter.id == job.chapterId
+chapter.storyVersionId == job.storyVersionId
+chapter.rowVersion == job.chapterRowVersion
+chapter.sourceHash == job.sourceHash
+```
+
+If the Chapter changed while AI was running, the stale result must not overwrite/materialize against the newer Chapter source. The job fails/requires a new Analyze request for the new source snapshot.
+
+For MVP, this is intentionally preferred over creating separate `ChapterVersion`, `ChapterRevision` or `ChapterSnapshot` aggregates. `Chapter.sourceHash + rowVersion` plus the GenerationJob snapshot is sufficient.
 
 ## Redis loss and replay
 
-Redis messages are hints for delivery. A recovery loop scans PostgreSQL for `QUEUED`, retryable/stalled and reconcilable `UNKNOWN` work, recreates delivery messages, and uses unique job/stage/provider fingerprints to prevent duplicate work. Progress may lag after Redis loss, but canonical state and provider-operation history must remain intact.
+Redis messages are delivery hints. The durable worker path scans PostgreSQL state, so canonical work remains discoverable if Redis is unavailable or a hint is dropped.
 
-## Notification flow
+The minimum rule is:
 
-The same transaction that commits a terminal job state writes an `outbox_events` row with a unique `event_key`. The dispatcher claims outbox rows, creates an in-app `Notification`, and optionally enqueues email/web-push according to user preferences. Re-delivery is idempotent. Delivery failure does not rewrite the canonical job result.
+```text
+PostgreSQL QUEUED/RUNNING/stale-stage state
+  -> recoverable worker claim
+```
+
+Future generalized dispatch/replay may republish from outbox rows and provider reconciliation state. Redis loss may delay wake-up/progress signals, but must not erase job/source snapshot state.
+
+## Outbox behavior
+
+The Chapter-analysis enqueue transaction writes an outbox event with a unique event key. The dispatcher runs after commit and publishes a best-effort generation hint.
+
+The Chapter source text itself is not copied into the Redis hint. The durable GenerationJob row contains the snapshot; events only need enough identity for delivery/observation.
+
+Production notification outbox behavior remains a separate concern. A terminal job should eventually write notification intent atomically with terminal state, and delivery failure must not rewrite the canonical job result.
+
+## Vertex provider boundary
+
+The worker has one real Chapter-analysis adapter for Vertex Gemini. It uses ADC/workload identity rather than browser/backend-stored provider secrets and requests structured JSON output which is revalidated by Pydantic before persistence.
+
+Safe defaults:
+
+```text
+provider_mode=disabled
+```
+
+This means local/dev does not accidentally report fake AI success. To execute a real provider smoke/E2E test, valid Vertex configuration and ADC credentials must be supplied explicitly.
+
+Multi-provider routing is intentionally out of the current MVP slice.
+
+## Image/TTS/render boundary
+
+Image generation, TTS and FFmpeg rendering are not part of the Chapter Analysis Vertical Slice. They should be implemented only after the following flow is stable:
+
+```text
+Save Chapter
+  -> Analyze
+  -> QUEUED
+  -> RUNNING
+  -> Character + Scene + VisualBeat persistence
+  -> COMPLETED
+```
+
+The next product milestones can then consume those approved/reviewed analysis artifacts rather than coupling media generation to raw Chapter text.
 
 ## Edit and incremental regeneration flow
 
-An edit creates a new Chapter/source snapshot or downstream version where needed. `AffectedScopeResolver` compares story/chapter, scene, character, style, timing and render dependencies. Unchanged approved assets and compatible scene clips are reused; changed visuals may be reframed/basic-motion or regenerated. The new `OperationPlan` prices only the delta. Immutable approved assets and render versions are never overwritten.
+When a Chapter source changes:
 
 ```text
-Chapter
- -> Scene/VisualBeat
- -> SceneCharacter
- -> ProjectCharacter
- -> Character
- -> CharacterVersion
- -> CharacterAppearance
- -> OutfitVersion
- -> ReferenceAssets
+sourceText changes
+  -> backend recalculates sourceHash
+  -> rowVersion advances
+  -> previous analysis job remains historical evidence for its old snapshot
+  -> user explicitly analyzes the new saved Chapter state
 ```
+
+Future `AffectedScopeResolver` logic can compare Chapter/source, Scene, Character, style, timing and render dependencies to reuse unchanged approved media. Immutable approved assets and render versions should not be overwritten.
 
 Character edits have two scopes:
 
 1. identity-level change: `Character / CharacterVersion`;
 2. project/story usage change: `ProjectCharacter / CharacterAppearance`.
 
-`AffectedScopeResolver` must distinguish both.
-
 ## Deletion flow
 
-Deletion is a durable operation: stop new jobs, cancel or reconcile pending stages, quarantine late provider results, revoke signed URL access, expire/delete identity data and derivatives, reconcile storage accounting, and record completion/error. Backup copies follow retention/recovery policy; the API must not promise immediate physical erasure where backup systems cannot provide it.
+Deletion remains a durable production operation: stop new jobs, cancel or reconcile pending stages, quarantine late provider results, revoke signed URL access, expire/delete identity data and derivatives, reconcile storage accounting, and record completion/error. Backup copies follow retention/recovery policy.
 
 ## Consistency rules
 
 - Mutable project, chapter, scene, visual-beat, character-draft and short-draft rows use optimistic `row_version`/`If-Match` where their public command contract supports mutation; stale writes return `409`.
+- Chapter source is persisted before analysis; Analyze is disabled for a dirty frontend draft.
+- GenerationJob snapshots the saved Chapter identity/source used by AI.
+- Worker materialization checks Chapter `rowVersion/sourceHash` before commit.
 - Locked character versions, approved assets, render versions and final artifacts are immutable snapshots.
-- Provider/model/workflow/prompt/schema/safety versions are stored with attempts for reproducibility.
-- Output moderation and identity QA happen before an asset is publishable; `REVIEW` is not equivalent to `SAFE`.
+- Provider/model/workflow/prompt/schema/safety versions should be stored with attempts for reproducibility as those production contracts land.
+- Output moderation and identity QA happen before media is publishable; `REVIEW` is not equivalent to `SAFE`.
 - Local/test developer identity is allowed only under explicit `local`/`test` Spring profiles; missing or unknown profiles with OIDC disabled fail startup.
+
+## Current verification gate
+
+The Chapter Analysis Vertical Slice is not complete merely because source code exists. Before the draft PR is treated as done, verify:
+
+```text
+Backend CI
+Worker CI
+Frontend CI
+PostgreSQL migration/integration tests
+real Vertex structured-output smoke test
+worker restart/stale lease recovery
+stale Chapter snapshot rejection
+end-to-end Chapter -> Analyze -> COMPLETED -> DB result rows
+```
+
+Public Character and Storyboard read APIs should also land before the product UI claims the analyzed artifacts are fully consumable.
