@@ -14,6 +14,7 @@ import com.narrativex.backend.feature.project.application.command.CreateProjectC
 import com.narrativex.backend.feature.project.application.query.ProjectListQuery;
 import com.narrativex.backend.feature.project.application.usecase.CreateProjectUseCase;
 import com.narrativex.backend.feature.project.application.usecase.CreateStoryVersionUseCase;
+import com.narrativex.backend.feature.project.application.usecase.GetLatestStoryVersionUseCase;
 import com.narrativex.backend.feature.project.application.usecase.GetProjectUseCase;
 import com.narrativex.backend.feature.project.application.usecase.ListProjectsUseCase;
 import com.narrativex.backend.feature.project.domain.aggregate.Project;
@@ -31,6 +32,8 @@ class ProjectControllerContractTest {
   private final CreateProjectUseCase createProjectUseCase = mock(CreateProjectUseCase.class);
   private final CreateStoryVersionUseCase createStoryVersionUseCase =
       mock(CreateStoryVersionUseCase.class);
+  private final GetLatestStoryVersionUseCase getLatestStoryVersionUseCase =
+      mock(GetLatestStoryVersionUseCase.class);
   private ProjectController controller;
 
   @BeforeEach
@@ -40,7 +43,8 @@ class ProjectControllerContractTest {
             listProjectsUseCase,
             getProjectUseCase,
             createProjectUseCase,
-            createStoryVersionUseCase);
+            createStoryVersionUseCase,
+            getLatestStoryVersionUseCase);
   }
 
   @Test
