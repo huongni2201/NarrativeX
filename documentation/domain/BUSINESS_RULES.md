@@ -41,6 +41,7 @@
 - **BR-35** Render chapter không làm đổi snapshot/reference của chapter đã render.
 - **BR-36** Multi-character phải resolve riêng ProjectCharacter → Character → CharacterVersion → CharacterAppearance/OutfitVersion cho từng nhân vật; không resolve bằng character name.
 - **BR-37** V1.8 không bắt buộc train LoRA/adapter; reference conditioning phải hoạt động.
+- **BR-120** Tạo Project là thao tác metadata-only và không được enqueue Analyze/Image/TTS/Render hay paid AI/media job. Story analysis chỉ được request tường minh cho một Chapter đã persist source/snapshot; thêm/sửa Chapter không mặc định re-analyze các Chapter không bị ảnh hưởng.
 
 ## Duration, Short và image/render settings
 
@@ -78,7 +79,7 @@
 - **BR-82** Batch action dùng item-level result + optimistic concurrency; conflict item không rollback item hợp lệ.
 - **BR-83** Prompt tách auto_resolved, structured override, submitted; raw override không sửa LOCKED snapshot.
 - **BR-84** Project Character Library là view project-scoped của ProjectCharacter assignments. Global Character Hub chứa reusable Character identities. Một Character có thể được assign vào nhiều Project. Character identity update không được mutate generation history; existing GenerationAttempt/Render snapshot vẫn immutable.
-- **BR-119** Endpoint tạo generation job chỉ được bật khi durable execution path thực sự tồn tại: transaction phải persist OperationPlan/authorization-reservation, GenerationJob, required StageAttempt và outbox; dispatch chỉ sau commit. Scaffold chỉ tạo QUEUED row không được trả 202 như một production capability.
+- **BR-119** Endpoint tạo generation job chỉ được bật khi durable execution path thực sự tồn tại: transaction phải persist OperationPlan/authorization-reservation, GenerationJob, required StageAttempt và outbox; dispatch chỉ sau commit. Scaffold chỉ tạo QUEUED row không được trả 202 như một production capability. Với Story Analysis, production endpoint là `POST /api/v1/projects/{projectId}/chapters/{chapterId}/analysis-jobs`.
 
 ## Entitlement, concurrency, cost và operations
 
@@ -128,7 +129,7 @@
 - **BR-109** Localized label/message không phải state; DB lưu enum/code/message_key.
 - **BR-110** REVIEW không tự thành SAFE vì provider success; publishable cần policy decision độc lập.
 - **BR-111** Reference phải ghi rõ REAL_PERSON_REFERENCE hay FICTIONAL_REFERENCE để áp đúng retention/consent.
-- **BR-112** Safety/security/consent policy version phải snapshot vào quyết định để audit lịch sử. Legacy StoryVersion rights columns đã bị loại bởi Flyway V6 và `content_rights_attestations` bị loại bởi V7; chúng không còn là compatibility schema và không được dùng làm prerequisite Analyze/Generate.
+- **BR-112** Safety/security/consent policy version phải snapshot vào quyết định để audit lịch sử. Consolidated Flyway V1 baseline không chứa legacy StoryVersion rights columns hoặc `content_rights_attestations`; chúng không còn là compatibility schema và không được dùng làm prerequisite Analyze/Generate.
 - **BR-113** ProjectCharacter là association giữa Project và Character; chứa role, importance, project aliases, story-specific description, groups, lifecycle và optional version pins.
 - **BR-114** CharacterAppearance biểu diễn visual state theo story timeline; thay đổi appearance không tạo Character identity mới.
 - **BR-115** Scene/VisualBeat chỉ reference Character bằng immutable ID; character name chỉ là display/search field, không phải identity key.
