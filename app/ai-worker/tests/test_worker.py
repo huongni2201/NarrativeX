@@ -1,5 +1,7 @@
 """Tests for the NarrativeX Chapter analysis worker."""
 
+import asyncio
+
 import pytest
 
 from narrativex_worker.config import WorkerSettings, get_settings
@@ -8,6 +10,7 @@ from narrativex_worker.providers.disabled import (
     DisabledProvider,
     ProviderNotConfiguredError,
 )
+from narrativex_worker.repository import ClaimedChapterAnalysisJob
 from narrativex_worker.schema import (
     ChapterAnalysisRequest,
     ImageAspectRatio,
@@ -99,3 +102,57 @@ def test_provider_terminal_status_is_completed() -> None:
 async def test_disabled_provider_never_fakes_success() -> None:
     with pytest.raises(ProviderNotConfiguredError):
         await WorkerService(DisabledProvider()).submit_chapter_analysis(chapter_request())
+
+
+@pytest.mark.asyncio
+async def test_process_cancels_provider_work_when_lease_is_lost(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    worker = NarrativeXWorker(settings=WorkerSettings(worker_env="test"))
+    provider_cancelled = asyncio.Event()
+
+    class SlowService:
+        async def submit_chapter_analysis(self, request: ChapterAnalysisRequest) -> None:
+            del request
+            try:
+                await asyncio.Event().wait()
+            except asyncio.CancelledError:
+                provider_cancelled.set()
+                raise
+
+    class RepositorySpy:
+        def __init__(self) -> None:
+            self.complete_called = False
+            self.fail_called = False
+
+        async def complete(self, *args: object) -> None:
+            del args
+            self.complete_called = True
+
+        async def fail(self, *args: object) -> None:
+            del args
+            self.fail_called = True
+
+    async def lost_lease(stage_attempt_id: int) -> None:
+        del stage_attempt_id
+        await asyncio.sleep(0)
+        raise RuntimeError("Worker lost its StageAttempt lease")
+
+    repository = RepositorySpy()
+    worker.service = SlowService()  # type: ignore[assignment]
+    worker.repository = repository  # type: ignore[assignment]
+    monkeypatch.setattr(worker, "_heartbeat_loop", lost_lease)
+
+    claimed = ClaimedChapterAnalysisJob(
+        stage_attempt_id=10,
+        generation_job_id=20,
+        job_id="job-1",
+        requested_by_user_id="user-1",
+        request=chapter_request(),
+    )
+
+    await worker._process(claimed)
+
+    assert provider_cancelled.is_set()
+    assert not repository.complete_called
+    assert repository.fail_called

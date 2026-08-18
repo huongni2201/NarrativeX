@@ -197,22 +197,25 @@ class WorkerRepository:
         pool = self._require_pool()
         async with pool.acquire() as connection:
             async with connection.transaction():
-                await connection.execute(
+                stage_update = await connection.execute(
                     """
                     UPDATE stage_attempts
                        SET status = 'FAILED', heartbeat_at = CURRENT_TIMESTAMP,
                            updated_at = CURRENT_TIMESTAMP, row_version = row_version + 1
-                     WHERE id = $1 AND worker_id = $2
+                     WHERE id = $1 AND worker_id = $2 AND status = 'RUNNING'
                     """,
                     claimed.stage_attempt_id,
                     worker_id,
                 )
+                if stage_update != "UPDATE 1":
+                    return
+
                 await connection.execute(
                     """
                     UPDATE generation_jobs
                        SET status = 'FAILED', current_step = 'FAILED', error_code = $2,
                            updated_at = CURRENT_TIMESTAMP, row_version = row_version + 1
-                     WHERE id = $1
+                     WHERE id = $1 AND status = 'RUNNING'
                     """,
                     claimed.generation_job_id,
                     error_code[:80],
