@@ -4,7 +4,8 @@
 
 - Entry point: `com.narrativex.backend.NarrativeXBackendApplication`.
 - Build: Maven under `app/backend-service`.
-- Persistence: Spring Data JPA + PostgreSQL + Flyway. PostgreSQL remains authoritative; Redis is reconstructable infrastructure.
+- Persistence: Spring Data JPA + PostgreSQL + Flyway. PostgreSQL remains authoritative for durable business state.
+- Redis: Spring Data Redis provides non-authoritative abuse-control/delivery/cache/progress infrastructure, while Spring Session Data Redis stores ephemeral authenticated HTTP session state. Queue/progress state is reconstructable where designed; session loss may sign users out but must not lose durable PostgreSQL business state.
 - Architecture: modular monolith with extraction-oriented feature boundaries plus a separate Python AI/media worker.
 
 ## Standard feature layout
@@ -88,6 +89,19 @@ APPROVED + mutable edit -> OUTDATED
 
 Edits while `GENERATING` or `REVIEW` are rejected by the aggregate. Editing an `APPROVED` scene does not overwrite immutable media history; the mutable Scene becomes `OUTDATED` and downstream affected-scope logic decides what must be regenerated.
 
+## Authentication/session infrastructure
+
+The browser contract is Spring Security server-managed session + CSRF for both password and Google OIDC authentication.
+
+- Spring Session Data Redis stores the authenticated `HttpSession` under the configurable `narrativex:session` namespace by default.
+- The browser receives only the opaque `NX_SESSION` cookie; shared/default policy is `HttpOnly`, `Secure`, `SameSite=Lax`, with explicit local/test non-Secure overrides for HTTP development/testing.
+- Default session timeout is seven days and configurable through `NARRATIVEX_SESSION_TIMEOUT`.
+- Password/OIDC principals must be serializable; password credentials are erased and the password hash is transient before session serialization.
+- `POST /logout` invalidates the server session, clears authentication/session cookies and returns 204; CSRF protection still applies.
+- Multiple backend replicas can resolve the same session from Redis without sticky sessions.
+- Password login/register abuse limiting is separate Redis infrastructure and intentionally fails open on Redis data-access failure. Spring Session availability does not share this fail-open policy.
+- JWT access/refresh tokens remain outside the current runtime contract. See ADR-0004 and ADR-0008.
+
 ## List API pagination
 
 Collection endpoints use cursor/keyset pagination rather than page-number/offset pagination.
@@ -155,6 +169,8 @@ Project list retrieval uses a composite keyset index and avoids offset scans/cou
 
 ## CI verification
 
-The repository has GitHub Actions for backend, frontend and worker. Pull requests into `main` run the relevant workflow by path. Backend CI executes Maven `clean verify`; frontend CI executes install/lint/type-check/build`; worker CI executes Ruff, mypy and pytest.
+The repository has GitHub Actions for backend, frontend and worker. Pull requests into `main` run the relevant workflow by path. Backend CI executes Maven `clean verify`; frontend CI executes `npm ci`, `npm test`, `npm run lint`, `npm run type-check` and `npm run build`; worker CI executes Ruff, mypy and pytest.
 
-See [ADR-0003](../decisions/ADR-0003-ddd-feature-boundaries-and-api-contracts.md) for general DDD/package decisions and [ADR-0007](../decisions/ADR-0007-storyboard-aggregate-boundaries.md) for the storyboard-specific aggregate decision.
+Ordinary backend tests exclude Redis Session auto-configuration so the suite does not silently require an external Redis service. Session principal serialization is covered directly; deployed Redis-session integration validation belongs to the environment/Compose integration path.
+
+See [ADR-0003](../decisions/ADR-0003-ddd-feature-boundaries-and-api-contracts.md) for general DDD/package decisions, [ADR-0007](../decisions/ADR-0007-storyboard-aggregate-boundaries.md) for the storyboard-specific aggregate decision, and [ADR-0008](../decisions/ADR-0008-redis-backed-http-sessions.md) for shared HTTP session persistence.
