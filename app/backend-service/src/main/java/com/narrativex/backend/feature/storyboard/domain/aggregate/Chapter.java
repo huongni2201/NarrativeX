@@ -42,6 +42,13 @@ public final class Chapter extends AggregateRoot {
     this.sourceHash = requiredSourceHash(sourceHash);
   }
 
+  /** Backward-compatible rehydration for legacy empty draft fixtures. */
+  public static Chapter rehydrate(
+      Long id, long rowVersion, Long storyVersionId, int orderIndex, String title) {
+    return new Chapter(
+        id, rowVersion, storyVersionId, orderIndex, title, "", EMPTY_SOURCE_SHA_256);
+  }
+
   public static Chapter rehydrate(
       Long id,
       long rowVersion,
