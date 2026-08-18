@@ -1,5 +1,5 @@
-import { StudioAppShell } from "@/components/layout/StudioAppShell";
+import { redirect } from "next/navigation";
 
 export default function HomePage() {
-  return <StudioAppShell screen="overview" />;
+  redirect("/projects");
 }
