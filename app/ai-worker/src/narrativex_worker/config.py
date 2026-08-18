@@ -1,7 +1,7 @@
 """Worker configuration module.
 
-Provider credentials are intentionally not represented here. Production Vertex
-authentication is expected to come from ADC/workload identity at runtime.
+Production Vertex authentication comes from ADC/workload identity at runtime. Provider credentials
+are never copied into durable job payloads.
 """
 
 from typing import Literal
@@ -24,6 +24,12 @@ class WorkerSettings(BaseSettings):
     log_level: str = Field(default="INFO", description="Logging level")
     backend_url: str = Field(default="http://localhost:8080", description="Backend service URL")
     health_check_port: int = Field(default=8001, description="Worker health port")
+    database_url: str = Field(
+        default="postgresql://narrativex:narrativex@localhost:5432/narrativex",
+        description="PostgreSQL URL used for durable claim/lease and result materialization",
+    )
+    poll_interval_seconds: float = Field(default=1.0, gt=0, le=60)
+    lease_seconds: int = Field(default=60, ge=10, le=3600)
     provider_mode: Literal["disabled", "vertex"] = Field(
         default="disabled", description="Provider adapter mode; disabled is safe by default"
     )
@@ -32,6 +38,7 @@ class WorkerSettings(BaseSettings):
     )
     vertex_location: str = Field(default="us-central1", description="Vertex AI region")
     vertex_model: str = Field(default="gemini-2.5-flash", description="Configured Gemini model key")
+    vertex_timeout_seconds: float = Field(default=120.0, gt=1, le=600)
 
 
 def get_settings() -> WorkerSettings:
