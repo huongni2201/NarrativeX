@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.generation.infrastructure.persistence.adapter;
 
+import com.narrativex.backend.feature.common.infrastructure.persistence.OptimisticConcurrency;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.entity.GenerationJobJpaEntity;
@@ -23,6 +24,11 @@ public class GenerationJobPersistenceAdapter implements GenerationJobRepository 
             : repository
                 .findById(job.getId())
                 .map(existing -> {
+                  OptimisticConcurrency.requireVersion(
+                      job.getRowVersion(),
+                      existing.getRowVersion(),
+                      GenerationJobJpaEntity.class,
+                      job.getId());
                   existing.apply(job);
                   return existing;
                 })
