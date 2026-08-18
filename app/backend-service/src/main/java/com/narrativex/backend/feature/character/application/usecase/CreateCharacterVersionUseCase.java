@@ -6,7 +6,6 @@ import com.narrativex.backend.feature.character.application.port.out.CharacterRe
 import com.narrativex.backend.feature.character.application.port.out.CharacterVersionRepository;
 import com.narrativex.backend.feature.character.domain.entity.CharacterVersion;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
-import com.narrativex.backend.feature.common.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,21 +18,19 @@ public class CreateCharacterVersionUseCase {
   private final CurrentUserId currentUserId;
 
   @Transactional
-  public ApiResponse<CharacterVersion> execute(CreateCharacterVersionCommand command) {
+  public CharacterVersion execute(CreateCharacterVersionCommand command) {
     String ownerId = currentUserId.get();
     var character =
         characterRepository
             .findOwnedByIdForUpdate(command.characterId(), ownerId)
             .orElseThrow(() -> new ResourceNotFoundException("Character not found"));
     int versionNumber = versionRepository.findMaxVersionNumberByCharacterId(character.getId()) + 1;
-    CharacterVersion version =
-        versionRepository.save(
-            character.createVersion(
-                versionNumber,
-                command.bible(),
-                command.visualPrompt(),
-                command.masterAssetId(),
-                command.referenceAssetIds()));
-    return ApiResponse.success("Character version created successfully", version);
+    return versionRepository.save(
+        character.createVersion(
+            versionNumber,
+            command.bible(),
+            command.visualPrompt(),
+            command.masterAssetId(),
+            command.referenceAssetIds()));
   }
 }
