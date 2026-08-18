@@ -8,14 +8,15 @@ This page separates technology visible in the repository from the V1.8 target co
 |---|---|---|
 | Web | Next.js `^16.3.1`, React `^19.2.8`, TypeScript `^5.8.2`, Tailwind CSS, TanStack Query, Zustand; Node.js 22 CI/runtime baseline | Route-driven story/project UI, visual review, cost confirmation, SSE progress and notifications as backend contracts become available |
 | Backend | Java `25`, Spring Boot `4.1.0`, Web, Validation, JPA, Security, Actuator | Modular monolith, API, ownership, durable orchestration and business rules |
-| Persistence | PostgreSQL driver, Flyway, Spring Data JPA; baseline migration only today | Authoritative transactional domain/job/cost/safety state |
-| Queue/cache | Spring Data Redis dependency | Delivery, cache, progress acceleration and scheduling hints; not source of truth |
+| Persistence | PostgreSQL driver, Flyway, Spring Data JPA; consolidated V1 baseline plus forward-only migrations through V7 | Authoritative transactional domain/job/cost/safety state |
+| Redis infrastructure | Spring Data Redis | Delivery hints, cache, progress/scheduling and transient abuse-control counters; not durable business state |
+| Session storage | Spring Session Data Redis | Shared server-managed `HttpSession` storage for Spring Security; opaque `NX_SESSION` cookie with configurable timeout/namespace |
 | Worker | Python `>=3.12`, Pydantic v2/settings, HTTPX, Hatchling | Async AI/media execution, adapters, QA and FFmpeg orchestration |
 | Media | FFmpeg, Pillow/OpenCV and optional PyTorch/Diffusers in target | TTS/audio assembly, image pre/post-processing, deterministic motion and render |
 | Object storage | MinIO local/dev; S3-compatible private storage target | Images, audio, video and derivative media; versioning for critical media |
 | AI | Vertex AI Gemini through server-side ADC/workload identity; provider ports | Story/scene/visual/prompt/highlight planning; optional image/video providers |
-| Auth | Spring Security + Google OIDC/session foundation | Server-side Secure/HttpOnly/SameSite session; provider tokens never reach browser |
-| Migrations | Flyway consolidated baseline `V1__initial_schema.sql` | PostgreSQL schema bootstrap; future changes use forward migrations |
+| Auth | Spring Security + email/password + Google OIDC + CSRF + Spring Session Redis | Server-side Secure/HttpOnly/SameSite session; provider tokens and bearer/refresh tokens never reach browser in the current contract |
+| Migrations | Flyway `V1__initial_schema.sql` plus forward migrations V2-V7 | PostgreSQL bootstrap and forward-only schema evolution; historical shared migrations are not rewritten |
 | Observability | Spring Boot Actuator foundation | Correlated logs/metrics/traces across request -> job -> worker -> provider/storage |
 | Testing/quality | Backend JUnit/Spring/Testcontainers; worker Pytest; frontend Node regression tests + ESLint + TypeScript + Next build + architecture-boundary check in CI | Contract, idempotency, provider reconciliation, safety, restore, accessibility and E2E gates |
 
@@ -36,6 +37,18 @@ Browser requests default to same-origin paths so session cookies, CSRF and OAuth
 The current standalone frontend image resolves its rewrite configuration when `next build` runs. Docker builds therefore accept `BACKEND_INTERNAL_URL`, `NEXT_PUBLIC_API_BASE_URL` and `NEXT_PUBLIC_NX_DATA_MODE` as build arguments. When frontend and backend run as separate containers, `BACKEND_INTERNAL_URL` must name the backend service/network address; frontend-container `localhost:8080` is not a backend-service address.
 
 This build-time proxy contract is acceptable for environment-specific image builds. If staging and production must promote the exact same immutable frontend image while using different backend hosts, use a runtime reverse proxy/BFF topology for that destination instead of baking an environment-specific backend host into the Next.js build.
+
+## Authentication and Redis contract
+
+The browser authentication contract is still server-managed session + CSRF. Password login/registration and Google OIDC resolve to the internal NarrativeX user and persist the Spring Security context in Spring Session Redis.
+
+- Default session cookie: `NX_SESSION`, `HttpOnly`, `Secure`, `SameSite=Lax`.
+- Explicit `local` and test configuration may set `Secure=false` for HTTP localhost/test usage.
+- Default session timeout: 7 days via `NARRATIVEX_SESSION_TIMEOUT`.
+- Default Redis session namespace: `narrativex:session` via `NARRATIVEX_SESSION_REDIS_NAMESPACE`.
+- `POST /logout` invalidates the server session, clears authentication/session cookies and returns `204 No Content`; CSRF still applies.
+- Password login/register abuse limiting uses separate Redis counters and intentionally fails open on Redis data-access failures; session storage does not share that fail-open behavior.
+- JWT access tokens, refresh tokens, refresh-token persistence/rotation/revocation and JWKS are not part of the current implementation.
 
 ## Provider and media contract
 
@@ -60,7 +73,7 @@ The frontend, backend and worker are separately buildable packages under `app/`,
 
 ## Reliability and DR
 
-PostgreSQL uses automated backups/WAL/PITR, >=30-day retention and quarterly restore drills (RPO <=15 minutes, RTO <=4 hours). Critical objects use versioning and a secondary failure-domain copy (RPO <=1 hour, RTO <=8 hours). Intermediate artifacts can use cheaper retention and regeneration from persisted snapshots. Redis is reconstructable and is not a backup source.
+PostgreSQL uses automated backups/WAL/PITR, >=30-day retention and quarterly restore drills (RPO <=15 minutes, RTO <=4 hours). Critical objects use versioning and a secondary failure-domain copy (RPO <=1 hour, RTO <=8 hours). Intermediate artifacts can use cheaper retention and regeneration from persisted snapshots. Redis is not a backup source: queue/delivery/progress state must be reconstructable where designed, while loss of the Redis session namespace may intentionally invalidate active browser sessions without losing durable business state.
 
 ## Capacity baseline
 
