@@ -1,6 +1,5 @@
 import type { ApiDataGuard, ApiFieldError, ErrorResponse } from "@/types/api";
 import { isApiResponse, isErrorResponse } from "@/types/api";
-import { useAuthStore } from "@/store/useAuthStore";
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
@@ -14,7 +13,10 @@ interface CsrfTokenResponse {
   headerName: string;
 }
 
+type UnauthorizedHandler = () => void;
+
 let csrfTokenPromise: Promise<CsrfTokenResponse> | undefined;
+const unauthorizedHandlers = new Set<UnauthorizedHandler>();
 
 export class ApiClientError extends Error {
   readonly status: number;
@@ -48,6 +50,15 @@ export class ApiProtocolError extends Error {
 
 export function apiUrl(path: string) {
   return `${API_BASE_URL.replace(/\/$/, "")}${path}`;
+}
+
+export function subscribeUnauthorized(handler: UnauthorizedHandler) {
+  unauthorizedHandlers.add(handler);
+  return () => unauthorizedHandlers.delete(handler);
+}
+
+function notifyUnauthorized() {
+  unauthorizedHandlers.forEach((handler) => handler());
 }
 
 function resetCsrfToken() {
@@ -152,7 +163,7 @@ async function sendRequest<T>(
   if (!response.ok) {
     const errorResponse = await parseErrorResponse(response);
     if (errorResponse.status === 401 || errorResponse.status === 403) resetCsrfToken();
-    if (errorResponse.status === 401) useAuthStore.getState().setUnauthenticated();
+    if (errorResponse.status === 401) notifyUnauthorized();
     throw new ApiClientError(errorResponse);
   }
 
