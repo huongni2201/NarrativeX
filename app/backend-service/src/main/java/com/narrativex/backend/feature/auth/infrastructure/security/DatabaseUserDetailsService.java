@@ -16,8 +16,16 @@ public class DatabaseUserDetailsService implements UserDetailsService {
 
   @Override
   public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-    AuthUserJpaEntity user = repository.findByEmailIgnoreCase(RegisterAuthAccountService.normalizeEmail(email))
-        .filter(candidate -> candidate.getPasswordHash() != null && !candidate.getPasswordHash().isBlank())
+    if (email == null || email.isBlank()) {
+      throw new UsernameNotFoundException("Invalid credentials");
+    }
+
+    AuthUserJpaEntity user =
+        repository
+            .findByEmailIgnoreCase(RegisterAuthAccountService.normalizeEmail(email))
+            .filter(
+                candidate ->
+                    candidate.getPasswordHash() != null && !candidate.getPasswordHash().isBlank())
         .orElseThrow(() -> new UsernameNotFoundException("Invalid credentials"));
 
     return new NarrativeXUserPrincipal(

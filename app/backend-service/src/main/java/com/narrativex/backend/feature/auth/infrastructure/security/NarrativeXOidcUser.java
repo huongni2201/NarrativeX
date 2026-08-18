@@ -4,21 +4,20 @@ import java.io.Serial;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
+
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.oauth2.core.oidc.OidcIdToken;
 import org.springframework.security.oauth2.core.oidc.OidcUserInfo;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
+
+@RequiredArgsConstructor
 
 public final class NarrativeXOidcUser implements OidcUser, Serializable {
   @Serial private static final long serialVersionUID = 1L;
 
   private final String userId;
   private final OidcUser delegate;
-
-  public NarrativeXOidcUser(String userId, OidcUser delegate) {
-    this.userId = userId;
-    this.delegate = delegate;
-  }
 
   @Override
   public String getName() {

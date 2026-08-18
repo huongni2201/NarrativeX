@@ -5,8 +5,8 @@ import com.narrativex.backend.feature.auth.infrastructure.persistence.entity.Aut
 import com.narrativex.backend.feature.auth.infrastructure.persistence.repository.AuthUserJpaRepository;
 import java.time.Instant;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest;
-import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.OAuth2Error;
@@ -19,12 +19,10 @@ public class NarrativeXOidcUserService implements OAuth2UserService<OidcUserRequ
   private final OAuth2UserService<OidcUserRequest, OidcUser> delegate;
   private final AuthUserJpaRepository repository;
 
-  public NarrativeXOidcUserService(AuthUserJpaRepository repository) {
-    this(repository, new OidcUserService());
-  }
-
-  NarrativeXOidcUserService(
-      AuthUserJpaRepository repository, OAuth2UserService<OidcUserRequest, OidcUser> delegate) {
+  public NarrativeXOidcUserService(
+      AuthUserJpaRepository repository,
+      @Qualifier("narrativeXOidcDelegate")
+      OAuth2UserService<OidcUserRequest, OidcUser> delegate) {
     this.repository = repository;
     this.delegate = delegate;
   }

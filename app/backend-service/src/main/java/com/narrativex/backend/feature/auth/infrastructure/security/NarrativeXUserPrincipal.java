@@ -4,11 +4,14 @@ import java.io.Serial;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.List;
+
+import lombok.AllArgsConstructor;
 import org.springframework.security.core.CredentialsContainer;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+@AllArgsConstructor
 public final class NarrativeXUserPrincipal
     implements UserDetails, CredentialsContainer, Serializable {
   @Serial private static final long serialVersionUID = 1L;
@@ -19,21 +22,6 @@ public final class NarrativeXUserPrincipal
   private final String avatarUrl;
   private transient String passwordHash;
   private final boolean enabled;
-
-  public NarrativeXUserPrincipal(
-      String id,
-      String email,
-      String displayName,
-      String avatarUrl,
-      String passwordHash,
-      boolean enabled) {
-    this.id = id;
-    this.email = email;
-    this.displayName = displayName;
-    this.avatarUrl = avatarUrl;
-    this.passwordHash = passwordHash;
-    this.enabled = enabled;
-  }
 
   public String id() {
     return id;
