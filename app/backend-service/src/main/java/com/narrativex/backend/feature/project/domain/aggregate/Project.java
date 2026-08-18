@@ -10,7 +10,7 @@ import com.narrativex.backend.feature.project.domain.exception.ProjectPersistenc
 import java.time.Instant;
 import java.util.Objects;
 
-/** Project aggregate root; child story versions are created through this boundary. */
+/** Project aggregate root; child story versions are created and activated through this boundary. */
 public final class Project extends AggregateRoot {
   private final String name;
   private final String ownerId;
@@ -95,11 +95,27 @@ public final class Project extends AggregateRoot {
   }
 
   public StoryVersion createStoryVersion(
-      int versionNumber,
-      String content,
-      String sourceLanguage) {
-    ensureStoryVersionCanBeCreated();
+      int versionNumber, String content, String sourceLanguage) {
+    ensureStoryVersionCanBeManaged();
     return StoryVersion.create(getId(), versionNumber, content, sourceLanguage);
+  }
+
+  /**
+   * Owns the StoryVersion activation lifecycle. The application transaction must lock this Project,
+   * load the current ACTIVE version, persist its SUPERSEDED transition, and only then persist the new
+   * ACTIVE version.
+   */
+  public void activateStoryVersion(StoryVersion nextVersion, StoryVersion currentActiveVersion) {
+    ensureStoryVersionCanBeManaged();
+    StoryVersion next = requireOwnedStoryVersion(nextVersion, "nextVersion");
+    if (currentActiveVersion != null) {
+      StoryVersion current = requireOwnedStoryVersion(currentActiveVersion, "currentActiveVersion");
+      if (Objects.equals(current.getId(), next.getId()) && current.getId() != null) {
+        throw new IllegalArgumentException("Current and next story version must be different");
+      }
+      current.supersede();
+    }
+    next.activate();
   }
 
   public void archive() {
@@ -110,7 +126,15 @@ public final class Project extends AggregateRoot {
     archivedAt = Instant.now();
   }
 
-  private void ensureStoryVersionCanBeCreated() {
+  private StoryVersion requireOwnedStoryVersion(StoryVersion storyVersion, String field) {
+    StoryVersion resolved = Objects.requireNonNull(storyVersion, field);
+    if (!Objects.equals(getId(), resolved.getProjectId())) {
+      throw new IllegalArgumentException(field + " does not belong to this project");
+    }
+    return resolved;
+  }
+
+  private void ensureStoryVersionCanBeManaged() {
     if (status == ProjectStatus.ARCHIVED) {
       throw new ArchivedProjectException();
     }
