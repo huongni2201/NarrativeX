@@ -1,12 +1,14 @@
 import { create } from "zustand";
-import { Chapter, ProductionViewMode, ProjectProductionDetail, Scene, VisualBeat, VisualBeatStatus } from "@/types/domain";
-import { MOCK_PROJECT_PRODUCTION, MOCK_VISUAL_BEATS_CH01 } from "@/lib/production-mock";
+import type {
+  Chapter,
+  ProductionViewMode,
+  ProjectProductionDetail,
+  VisualBeat,
+  VisualBeatStatus,
+} from "@/types/domain";
 import { isMockDataMode } from "@/lib/data-mode";
 
 interface ProductionStore {
-  // State
-  // Production business data is only available in the Storybook/test fixture.
-  // API mode must wait for the server query instead of booting with a fixture.
   project: ProjectProductionDetail | null;
   activeChapterId: string;
   activeSceneId: string;
@@ -17,38 +19,46 @@ interface ProductionStore {
   isAddChapterModalOpen: boolean;
   activeReviewTab: "all" | "approved" | "needs_review" | "rejected";
 
-  // Actions
+  hydrateDemoProduction: (project: ProjectProductionDetail, visualBeats: VisualBeat[]) => void;
   setView: (view: ProductionViewMode) => void;
   setActiveWorkspaceTab: (tab: string) => void;
   setActiveChapter: (chapterId: string) => void;
   setActiveScene: (sceneId: string) => void;
   setActiveReviewTab: (tab: "all" | "approved" | "needs_review" | "rejected") => void;
-  
   openAddChapterModal: () => void;
   closeAddChapterModal: () => void;
   addChapter: (data: { title: string; storyText: string; number?: string }) => Chapter;
-
-  // Batch Visual Review Actions
   toggleSelectVisualBeat: (id: string) => void;
   selectAllVisualBeats: () => void;
   clearSelectedVisualBeats: () => void;
   batchUpdateVisualBeatsStatus: (status: VisualBeatStatus) => void;
   singleUpdateVisualBeatStatus: (id: string, status: VisualBeatStatus) => void;
-
-  // Smart Continuation Logic
   continueProject: () => void;
 }
 
 export const useProductionStore = create<ProductionStore>((set, get) => ({
-  project: isMockDataMode ? MOCK_PROJECT_PRODUCTION : null,
-  activeChapterId: "ch-01",
-  activeSceneId: "scene-1",
+  project: null,
+  activeChapterId: "",
+  activeSceneId: "",
   activeWorkspaceTab: "storyboard",
-  visualBeats: isMockDataMode ? MOCK_VISUAL_BEATS_CH01 : [],
+  visualBeats: [],
   currentView: "workspace",
-  selectedVisualBeatIds: isMockDataMode ? ["beat-1", "beat-2", "beat-3"] : [],
+  selectedVisualBeatIds: [],
   isAddChapterModalOpen: false,
   activeReviewTab: "all",
+
+  hydrateDemoProduction: (project, visualBeats) =>
+    set((state) =>
+      state.project
+        ? state
+        : {
+            project,
+            visualBeats,
+            activeChapterId: project.chapters[0]?.id ?? "",
+            activeSceneId: project.chapters[0]?.scenes[0]?.id ?? "",
+            selectedVisualBeatIds: visualBeats.slice(0, 3).map((beat) => beat.id),
+          },
+    ),
 
   setView: (view) => {
     if (view === "storyboard") {
@@ -126,7 +136,7 @@ export const useProductionStore = create<ProductionStore>((set, get) => ({
       const selectedIds = new Set(state.selectedVisualBeatIds);
       return {
         visualBeats: state.visualBeats.map((beat) =>
-          selectedIds.has(beat.id) ? { ...beat, status } : beat
+          selectedIds.has(beat.id) ? { ...beat, status } : beat,
         ),
         selectedVisualBeatIds: [],
       };
@@ -135,39 +145,38 @@ export const useProductionStore = create<ProductionStore>((set, get) => ({
   singleUpdateVisualBeatStatus: (id, status) =>
     set((state) => ({
       visualBeats: state.visualBeats.map((beat) =>
-        beat.id === id ? { ...beat, status } : beat
+        beat.id === id ? { ...beat, status } : beat,
       ),
     })),
 
-  // Smart Continuation Logic for long-form series
   continueProject: () => {
     const { project } = get();
-    if (!project) {
-      return;
-    }
-    // 1. Find the first chapter that has pending review
+    if (!project) return;
+
     const reviewChapter = project.chapters.find((c) => c.status === "VISUAL_REVIEW");
     if (reviewChapter) {
-      set({
-        activeChapterId: reviewChapter.id,
-        currentView: "visual-review",
-      });
+      set({ activeChapterId: reviewChapter.id, currentView: "visual-review" });
       return;
     }
 
-    // 2. Find chapter currently in progress
     const inProgressChapter = project.chapters.find(
-      (c) => c.status === "GENERATING_VISUALS" || c.status === "ANALYZED" || c.status === "DRAFT"
+      (c) => c.status === "GENERATING_VISUALS" || c.status === "ANALYZED" || c.status === "DRAFT",
     );
     if (inProgressChapter) {
-      set({
-        activeChapterId: inProgressChapter.id,
-        currentView: "workspace",
-      });
+      set({ activeChapterId: inProgressChapter.id, currentView: "workspace" });
       return;
     }
 
-    // 3. If all ready, go to render/preview
     set({ currentView: "preview" });
   },
 }));
+
+if (isMockDataMode) {
+  void import("@/lib/production-mock").then(
+    ({ MOCK_PROJECT_PRODUCTION, MOCK_VISUAL_BEATS_CH01 }) => {
+      useProductionStore
+        .getState()
+        .hydrateDemoProduction(MOCK_PROJECT_PRODUCTION, MOCK_VISUAL_BEATS_CH01);
+    },
+  );
+}
