@@ -6,11 +6,13 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.generation.api.controller.GenerationJobController;
-import com.narrativex.backend.feature.generation.api.response.JobResponse;
 import com.narrativex.backend.feature.generation.application.query.GetGenerationJobQuery;
 import com.narrativex.backend.feature.generation.application.usecase.GetGenerationJobUseCase;
+import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
+import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
+import com.narrativex.backend.feature.generation.domain.enums.JobType;
+import com.narrativex.backend.feature.generation.domain.enums.ResourceClass;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 
@@ -19,11 +21,22 @@ class GenerationJobControllerContractTest {
   private final GenerationJobController controller = new GenerationJobController(useCase);
 
   @Test
-  void getMapsPathAndHeaderToQueryAndReturnsUseCaseEnvelope() {
-    JobResponse job =
-        new JobResponse("job-1", "STORY_ANALYZE", "RUNNING", 40, "ANALYZING", "PROJECT", 7L, null);
-    when(useCase.execute(any(GetGenerationJobQuery.class)))
-        .thenReturn(ApiResponse.success("Generation job retrieved successfully", job));
+  void getMapsPathToQueryAndWrapsDomainResult() {
+    GenerationJob job =
+        GenerationJob.rehydrate(
+            1L,
+            0L,
+            "job-1",
+            7L,
+            JobType.STORY_ANALYZE,
+            JobStatus.RUNNING,
+            ResourceClass.STANDARD,
+            40,
+            "ANALYZING",
+            null,
+            "owner",
+            "owner");
+    when(useCase.execute(any(GetGenerationJobQuery.class))).thenReturn(job);
 
     var responseEntity = controller.get("job-1");
 
