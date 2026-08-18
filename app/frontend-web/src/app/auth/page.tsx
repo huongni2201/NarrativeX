@@ -1,7 +1,5 @@
-"use client";
-
-import HomePage from "@/app/page";
+import { StudioAppShell } from "@/components/layout/StudioAppShell";
 
 export default function AuthPage() {
-  return <HomePage />;
+  return <StudioAppShell screen="overview" />;
 }
