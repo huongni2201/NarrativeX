@@ -10,7 +10,7 @@ Core business chạy trong Spring Boot Modular Monolith; Python 3.12 AI/Media Wo
 |---|---|
 | User | identity, email, locale/preferences, status; sở hữu project và template |
 | ExternalIdentity | Google OIDC provider/subject/claims; không chứa provider secret |
-| Project | owner, status, active StoryVersion, default ImageGenerationSettings, row_version |
+| Project | owner, status, active StoryVersion, default ImageGenerationSettings, row_version; creation is metadata-only and does not enqueue AI/media work |
 | StoryVersion | project, version_no, raw_text, status, source language; không có per-story rights attestation prerequisite |
 | Character | owner/workspace, canonical identity, name, aliases, status; reusable across Projects |
 | ProjectCharacter | project + character assignment; role, importance, project aliases, story metadata, groups, optional pinned CharacterVersion |
@@ -21,7 +21,7 @@ Core business chạy trong Spring Boot Modular Monolith; Python 3.12 AI/Media Wo
 | CharacterTemplate/Version | optional creation template; không phải canonical runtime Character identity |
 | Location/LocationReference | project-level environment bible và reference |
 | ProjectStyleProfile | style/negative prompt/aspect/version |
-| Chapter | StoryVersion boundary, order/title |
+| Chapter | durable analyze/generate/render scope; StoryVersion relation, order/title; source persistence/snapshot alignment is required before production analysis |
 | Scene | chapter, order, narration, duration, row_version, status |
 | Shot | Optional finer-grained camera/timeline concept; V1.8 does not require duplicating VisualBeat semantics |
 | VisualBeat | scene timeline, narration segment, visual intent, location, row_version; generation unit |
@@ -57,7 +57,7 @@ Core business chạy trong Spring Boot Modular Monolith; Python 3.12 AI/Media Wo
 | DataDeletionRequest | account/project/asset scope, durable workflow status and retention deadline |
 | AbuseEvent | user/session/IP hash, route/signal, allow/throttle/block/challenge, policy version |
 
-The active StoryVersion model contains no `rights_*` fields. Flyway V6 removes the legacy StoryVersion rights columns and V7 removes the legacy `content_rights_attestations` table. Those records are no longer compatibility state and must not be referenced as active domain entities or Analyze/Generate prerequisites.
+The active StoryVersion model contains no `rights_*` fields. The current consolidated Flyway V1 baseline excludes the retired StoryVersion rights columns and the legacy `content_rights_attestations` table. Those records are not active compatibility state and must not be referenced as domain entities or Analyze/Generate prerequisites.
 
 Password login/register abuse throttling currently uses transient Redis counters keyed by hashed subjects. Those counters are infrastructure control state, not a replacement for persisted `AbuseEvent`/audit records where durable security telemetry is required.
 
@@ -85,6 +85,8 @@ OperationPlan 1──* CostEstimateItem + 1──1 CostReservation → UsageLedg
 Job/Render terminal transition → OutboxEvent → Notification → optional email
 ```
 
+- Creating a Project only persists Project metadata/defaults; it does not create `OperationPlan`, `GenerationJob`, `StageAttempt` or AI/provider work.
+- Chapter is the durable processing scope for analyze/generate/render/resume. Analysis is explicitly requested only after its source/snapshot exists.
 - Project dùng Character/Location/Style xuyên chapter nhưng mỗi generation snapshot version/reference đã resolve.
 - Assigning a reusable Character to a Project creates ProjectCharacter; không clone Character identity.
 - ProjectCharacter MAY pin a CharacterVersion when deterministic continuity is required.
@@ -125,19 +127,25 @@ State transitions must be auditable, idempotent and guarded by ownership, policy
 
 `OperationPlan` là aggregate boundary cho expensive work. Nó giữ affected scope, estimate range/confidence/ETA, provider/model/rate version, reusable assets, max authorized spend và user attribution. `CostReservation` được ghi trước provider/GPU work; stage tiếp theo chỉ chạy nếu cap còn đủ. `ResourceUsageRecord` ghi provider cost, gpu_seconds, cpu_seconds, storage/egress, internal cost và billable cost. Ledger append-only, idempotency key và billed user luôn hiện diện kể cả admin/internal operation.
 
-Generation enqueue production invariant:
+Chapter analysis enqueue production invariant:
 
 ```text
-preconditions
-  -> operation planning/authorization
+request
+  -> authentication + ownership + Project/Chapter consistency
+  -> idempotency
+  -> persisted/current Chapter source snapshot
+  -> StoryVersion validation where required
+  -> abuse + safety/moderation
+  -> entitlement/quota
+  -> affected scope + operation planning/authorization
   -> one DB transaction persists OperationPlan/CostReservation + GenerationJob + StageAttempt(s) + OutboxEvent
   -> commit
   -> dispatcher
-  -> worker claim/lease
+  -> worker claim/lease/heartbeat
   -> ProviderOperation RESERVED before external submit
 ```
 
-Nếu path này chưa tồn tại thì endpoint create generation job phải feature-gated và không được tạo `QUEUED` row giả.
+Nếu path này chưa tồn tại thì `POST /api/v1/projects/{projectId}/chapters/{chapterId}/analysis-jobs` phải feature-gated và không được tạo `QUEUED` row giả.
 
 ## 7. Concurrency và eventing
 
@@ -145,4 +153,4 @@ Mutable entities dùng `row_version`/ETag; expected version mismatch trả 409. 
 
 ## 8. Safety/privacy/deletion aggregates
 
-`ModerationDecision` là canonical application outcome, không để provider signal tự quyết định publish. Story Analyze/Generate không yêu cầu per-story copyright/rights attestation hoặc checkbox xác nhận quyền sử dụng. `IdentityConsent` bắt buộc cho `REAL_PERSON_REFERENCE`; đây là concern riêng với story copyright handling. `IdentityProfile` private/tenant-isolated, không log/public/cross-user reuse, có expires/deleted timestamp. `DataDeletionRequest` chặn job mới, cancel/reconcile, revoke signed URLs, expire/delete derivatives/identity data, quarantine late provider result và hoàn tất theo retention/backup policy.
+`ModerationDecision` là canonical application outcome, không để provider signal tự quyết định publish. Story/Chapter Analyze/Generate không yêu cầu per-story copyright/rights attestation hoặc checkbox xác nhận quyền sử dụng. `IdentityConsent` bắt buộc cho `REAL_PERSON_REFERENCE`; đây là concern riêng với story copyright handling. `IdentityProfile` private/tenant-isolated, không log/public/cross-user reuse, có expires/deleted timestamp. `DataDeletionRequest` chặn job mới, cancel/reconcile, revoke signed URLs, expire/delete derivatives/identity data, quarantine late provider result và hoàn tất theo retention/backup policy.

@@ -10,12 +10,19 @@ import org.junit.jupiter.api.Test;
 class EnqueueStoryAnalysisUseCaseTest {
 
   @Test
-  void storyAnalysisMustFailClosedUntilDurableExecutionControlsExist() {
+  void chapterAnalysisMustFailClosedUntilDurableExecutionControlsExist() {
     var useCase = new EnqueueStoryAnalysisUseCase();
 
     assertThrows(
         FeatureNotAvailableException.class,
-        () -> useCase.execute(new EnqueueStoryAnalysisCommand(7L, "owner")));
+        () -> useCase.execute(new EnqueueStoryAnalysisCommand(7L, 11L)));
+  }
+
+  @Test
+  void analysisCommandRequiresAValidProjectAndChapterScope() {
+    assertThrows(IllegalArgumentException.class, () -> new EnqueueStoryAnalysisCommand(null, 11L));
+    assertThrows(IllegalArgumentException.class, () -> new EnqueueStoryAnalysisCommand(7L, null));
+    assertThrows(IllegalArgumentException.class, () -> new EnqueueStoryAnalysisCommand(0L, 11L));
+    assertThrows(IllegalArgumentException.class, () -> new EnqueueStoryAnalysisCommand(7L, 0L));
   }
 }
-

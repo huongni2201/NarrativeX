@@ -49,9 +49,9 @@ export const projectsApi = {
       { method: "POST", json: input },
       isApiStoryVersion,
     ),
-  enqueueAnalysis: (projectId: number) =>
+  enqueueAnalysis: (projectId: number, chapterId: number) =>
     apiRequest<ApiGenerationJob>(
-      `/api/v1/projects/${projectId}/analysis-jobs`,
+      `/api/v1/projects/${projectId}/chapters/${chapterId}/analysis-jobs`,
       { method: "POST" },
       isApiGenerationJob,
     ),

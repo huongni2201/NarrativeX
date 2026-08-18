@@ -11,11 +11,11 @@ import org.junit.jupiter.api.Test;
 
 class ProjectGenerationControllerContractTest {
   @Test
-  void disabledStoryAnalysisDoesNotCreateAQueuedJob() {
+  void disabledChapterAnalysisDoesNotCreateAQueuedJob() {
     EnqueueStoryAnalysisUseCase useCase = mock(EnqueueStoryAnalysisUseCase.class);
     ProjectGenerationController controller = new ProjectGenerationController(useCase, false);
 
-    assertThrows(FeatureNotAvailableException.class, () -> controller.analyze(7L));
+    assertThrows(FeatureNotAvailableException.class, () -> controller.analyzeChapter(7L, 11L));
     verifyNoInteractions(useCase);
   }
 }
