@@ -108,8 +108,7 @@ public final class Scene extends AggregateRoot {
 
   private void ensureEditable() {
     if (status == SceneStatus.GENERATING || status == SceneStatus.REVIEW) {
-      throw new InvalidSceneTransitionException(
-          "Scene cannot be edited while status is " + status);
+      throw new InvalidSceneTransitionException("Scene cannot be edited while status is " + status);
     }
     if (status == SceneStatus.APPROVED) {
       status = SceneStatus.OUTDATED;

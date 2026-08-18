@@ -63,7 +63,6 @@ public class CharacterVersionJpaEntity extends JpaAuditedEntity {
   @Column(name = "locked_by", length = 128)
   private String lockedBy;
 
-
   public void apply(CharacterVersion v) {
     characterId = v.getCharacterId();
     versionNumber = v.getVersionNumber();
@@ -76,4 +75,3 @@ public class CharacterVersionJpaEntity extends JpaAuditedEntity {
     lockedBy = v.getLockedBy();
   }
 }
-

@@ -24,6 +24,7 @@ public class GenerationJobController {
     return ResponseEntity.ok(
         ApiResponse.success(
             "Generation job retrieved successfully",
-            JobResponse.from(getGenerationJobUseCase.execute(new GetGenerationJobQuery(jobId, null)))));
+            JobResponse.from(
+                getGenerationJobUseCase.execute(new GetGenerationJobQuery(jobId, null)))));
   }
 }

@@ -29,18 +29,18 @@ public class CreateStoryVersionUseCase {
     int characterCount = command.content().codePointCount(0, command.content().length());
     int estimatedTokens = StoryInputEstimator.estimateTokensConservatively(command.content());
     if (characterCount > limits.getMaxStoryCharacters()) {
-      throw new StoryCharacterLimitExceededException(characterCount, limits.getMaxStoryCharacters());
+      throw new StoryCharacterLimitExceededException(
+          characterCount, limits.getMaxStoryCharacters());
     }
     if (estimatedTokens > limits.getMaxEstimatedInputTokens()) {
-      throw new StoryTokenLimitExceededException(estimatedTokens, limits.getMaxEstimatedInputTokens());
+      throw new StoryTokenLimitExceededException(
+          estimatedTokens, limits.getMaxEstimatedInputTokens());
     }
     int versionNumber =
         storyVersionRepository.findMaxVersionNumberByProjectId(command.projectId()) + 1;
     StoryVersion storyVersion =
         project.createStoryVersion(
-            versionNumber,
-            command.content(),
-            defaultValue(command.sourceLanguage(), "vi-VN"));
+            versionNumber, command.content(), defaultValue(command.sourceLanguage(), "vi-VN"));
     return storyVersionRepository.save(storyVersion);
   }
 

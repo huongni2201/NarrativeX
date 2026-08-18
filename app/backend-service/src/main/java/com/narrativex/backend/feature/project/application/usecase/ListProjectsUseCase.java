@@ -17,6 +17,7 @@ public class ListProjectsUseCase {
 
   @Transactional(readOnly = true)
   public CursorPage<Project> execute(ProjectListQuery query) {
-    return projectRepository.findActiveByOwnerId(currentUserId.get(), query.cursor(), query.limit());
+    return projectRepository.findActiveByOwnerId(
+        currentUserId.get(), query.cursor(), query.limit());
   }
 }

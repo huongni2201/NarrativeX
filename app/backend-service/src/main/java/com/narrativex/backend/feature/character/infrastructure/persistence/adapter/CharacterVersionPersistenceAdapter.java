@@ -33,15 +33,16 @@ public class CharacterVersionPersistenceAdapter implements CharacterVersionRepos
             ? buildJpaEntity(version)
             : repository
                 .findById(version.getId())
-                .map(existing -> {
-                  OptimisticConcurrency.requireVersion(
-                      version.getRowVersion(),
-                      existing.getRowVersion(),
-                      CharacterVersionJpaEntity.class,
-                      version.getId());
-                  existing.apply(version);
-                  return existing;
-                })
+                .map(
+                    existing -> {
+                      OptimisticConcurrency.requireVersion(
+                          version.getRowVersion(),
+                          existing.getRowVersion(),
+                          CharacterVersionJpaEntity.class,
+                          version.getId());
+                      existing.apply(version);
+                      return existing;
+                    })
                 .orElseGet(() -> buildJpaEntity(version));
     return CharacterPersistenceMapper.toDomain(repository.save(entity));
   }

@@ -28,10 +28,12 @@ class SecurityConfigurationTest {
   void oidcDisabledFailsClosedWithoutAnExplicitLocalOrTestProfile() {
     assertStartupFails("narrativex.security.oidc-enabled=false");
     assertStartupFails("spring.profiles.active=prod", "narrativex.security.oidc-enabled=false");
-    assertStartupFails("spring.profiles.active=production", "narrativex.security.oidc-enabled=false");
+    assertStartupFails(
+        "spring.profiles.active=production", "narrativex.security.oidc-enabled=false");
     assertStartupFails("spring.profiles.active=staging", "narrativex.security.oidc-enabled=false");
     assertStartupFails("spring.profiles.active=qa", "narrativex.security.oidc-enabled=false");
-    assertStartupFails("spring.profiles.active=unexpected", "narrativex.security.oidc-enabled=false");
+    assertStartupFails(
+        "spring.profiles.active=unexpected", "narrativex.security.oidc-enabled=false");
   }
 
   @Test
@@ -45,7 +47,8 @@ class SecurityConfigurationTest {
   @Test
   void oidcEnabledDoesNotRequireAProfile() {
     assertStartupSucceeds("narrativex.security.oidc-enabled=true");
-    assertStartupSucceeds("spring.profiles.active=production", "narrativex.security.oidc-enabled=true");
+    assertStartupSucceeds(
+        "spring.profiles.active=production", "narrativex.security.oidc-enabled=true");
   }
 
   @Test

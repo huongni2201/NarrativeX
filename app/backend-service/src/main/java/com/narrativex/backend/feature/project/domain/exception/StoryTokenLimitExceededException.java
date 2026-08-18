@@ -4,6 +4,11 @@ import com.narrativex.backend.feature.common.domain.exception.DomainValidationEx
 
 public class StoryTokenLimitExceededException extends DomainValidationException {
   public StoryTokenLimitExceededException(int estimated, int maximum) {
-    super("Story is conservatively estimated at " + estimated + " input tokens; maximum allowed is " + maximum + ".");
+    super(
+        "Story is conservatively estimated at "
+            + estimated
+            + " input tokens; maximum allowed is "
+            + maximum
+            + ".");
   }
 }

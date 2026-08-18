@@ -47,7 +47,6 @@ public class OutfitVersionJpaEntity extends JpaAuditedEntity {
   @Column(name = "status", nullable = false, length = 24)
   private OutfitVersionStatus status;
 
-
   public void apply(OutfitVersion v) {
     characterId = v.getCharacterId();
     versionNumber = v.getVersionNumber();

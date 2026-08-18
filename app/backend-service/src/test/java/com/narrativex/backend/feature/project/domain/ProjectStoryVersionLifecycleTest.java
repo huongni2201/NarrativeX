@@ -65,13 +65,6 @@ class ProjectStoryVersionLifecycleTest {
   private static StoryVersion story(
       Long id, Long projectId, int versionNumber, StoryVersionStatus status) {
     return StoryVersion.rehydrate(
-        id,
-        0L,
-        projectId,
-        versionNumber,
-        "story",
-        "vi-VN",
-        status,
-        ModerationDecision.PENDING);
+        id, 0L, projectId, versionNumber, "story", "vi-VN", status, ModerationDecision.PENDING);
   }
 }

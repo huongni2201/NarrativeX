@@ -58,7 +58,6 @@ public class ProjectJpaEntity extends JpaAuditedEntity {
   @Column(name = "archived_at")
   private Instant archivedAt;
 
-
   public void apply(Project project) {
     name = project.getName();
     ownerId = project.getOwnerId();
@@ -71,4 +70,3 @@ public class ProjectJpaEntity extends JpaAuditedEntity {
     archivedAt = project.getArchivedAt();
   }
 }
-

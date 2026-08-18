@@ -97,7 +97,8 @@ public class ChapterController {
       if (version < 0) throw new NumberFormatException("negative version");
       return version;
     } catch (NumberFormatException exception) {
-      throw new IllegalArgumentException("If-Match must contain a non-negative row version", exception);
+      throw new IllegalArgumentException(
+          "If-Match must contain a non-negative row version", exception);
     }
   }
 

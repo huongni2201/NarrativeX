@@ -42,7 +42,6 @@ public class OperationPlanJpaEntity extends JpaAuditedEntity {
   @Column(name = "confidence", nullable = false, length = 16)
   private EstimateConfidence confidence;
 
-
   public void apply(OperationPlan p) {
     projectId = p.getProjectId();
     operationType = p.getOperationType();
@@ -52,4 +51,3 @@ public class OperationPlanJpaEntity extends JpaAuditedEntity {
     confidence = p.getConfidence();
   }
 }
-

@@ -11,8 +11,7 @@ import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 
 @Configuration
-@ConditionalOnProperty(
-    prefix = "narrativex.security", name = "oidc-enabled", havingValue = "true")
+@ConditionalOnProperty(prefix = "narrativex.security", name = "oidc-enabled", havingValue = "true")
 public class GoogleOidcClientConfiguration {
   @Bean
   ClientRegistrationRepository clientRegistrationRepository(

@@ -95,16 +95,15 @@ public final class Project extends AggregateRoot {
         archivedAt);
   }
 
-  public StoryVersion createStoryVersion(
-      int versionNumber, String content, String sourceLanguage) {
+  public StoryVersion createStoryVersion(int versionNumber, String content, String sourceLanguage) {
     ensureStoryVersionCanBeManaged();
     return StoryVersion.create(getId(), versionNumber, content, sourceLanguage);
   }
 
   /**
    * Owns the StoryVersion activation lifecycle. The application transaction must lock this Project,
-   * load the current ACTIVE version, persist its SUPERSEDED transition, and only then persist the new
-   * ACTIVE version.
+   * load the current ACTIVE version, persist its SUPERSEDED transition, and only then persist the
+   * new ACTIVE version.
    */
   public void activateStoryVersion(StoryVersion nextVersion, StoryVersion currentActiveVersion) {
     ensureStoryVersionCanBeManaged();

@@ -47,4 +47,3 @@ public class StageAttemptJpaEntity extends JpaAuditedEntity {
   @Column(name = "heartbeat_at")
   private Instant heartbeatAt;
 }
-

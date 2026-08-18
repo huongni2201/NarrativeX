@@ -46,4 +46,3 @@ public class SceneJpaEntity extends JpaAuditedEntity {
   @Column(name = "status", nullable = false, length = 24)
   private SceneStatus status;
 }
-

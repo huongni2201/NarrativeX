@@ -55,10 +55,7 @@ public class PasswordAuthController {
   }
 
   private ResponseEntity<ApiResponse<CurrentUserResponse>> authenticate(
-      String email,
-      String password,
-      HttpServletRequest request,
-      HttpServletResponse response) {
+      String email, String password, HttpServletRequest request, HttpServletResponse response) {
     Authentication authentication =
         authenticationManager.authenticate(
             UsernamePasswordAuthenticationToken.unauthenticated(email, password));

@@ -26,7 +26,8 @@ public class LockCharacterVersionUseCase {
             .orElseThrow(() -> new ResourceNotFoundException("Character version not found"));
     version.lock(actorId);
     CharacterVersion saved = versionRepository.save(version);
-    log.info("Locked character version {} by authenticated principal", command.characterVersionId());
+    log.info(
+        "Locked character version {} by authenticated principal", command.characterVersionId());
     return saved;
   }
 }

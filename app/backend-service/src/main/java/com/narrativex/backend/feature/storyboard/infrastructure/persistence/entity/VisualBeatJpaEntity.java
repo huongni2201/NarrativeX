@@ -50,4 +50,3 @@ public class VisualBeatJpaEntity extends JpaAuditedEntity {
   @Column(name = "quality_tier_override", length = 16)
   private ImageQualityTier qualityTierOverride;
 }
-

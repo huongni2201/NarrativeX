@@ -32,13 +32,15 @@ public class ApiExceptionHandler {
   @ExceptionHandler(DomainValidationException.class)
   ResponseEntity<ErrorResponse> handleDomainValidation(
       DomainValidationException exception, HttpServletRequest request) {
-    return error(HttpStatus.BAD_REQUEST, ApiErrorCode.INVALID_REQUEST, exception.getMessage(), request);
+    return error(
+        HttpStatus.BAD_REQUEST, ApiErrorCode.INVALID_REQUEST, exception.getMessage(), request);
   }
 
   @ExceptionHandler(IllegalArgumentException.class)
   ResponseEntity<ErrorResponse> handleIllegalArgument(
       IllegalArgumentException exception, HttpServletRequest request) {
-    return error(HttpStatus.BAD_REQUEST, ApiErrorCode.INVALID_REQUEST, "The request is invalid.", request);
+    return error(
+        HttpStatus.BAD_REQUEST, ApiErrorCode.INVALID_REQUEST, "The request is invalid.", request);
   }
 
   @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -80,10 +82,7 @@ public class ApiExceptionHandler {
   ResponseEntity<ErrorResponse> handleMalformedRequest(
       Exception exception, HttpServletRequest request) {
     return error(
-        HttpStatus.BAD_REQUEST,
-        ApiErrorCode.INVALID_REQUEST,
-        "The request is invalid.",
-        request);
+        HttpStatus.BAD_REQUEST, ApiErrorCode.INVALID_REQUEST, "The request is invalid.", request);
   }
 
   @ExceptionHandler(ResourceNotFoundException.class)
@@ -162,15 +161,11 @@ public class ApiExceptionHandler {
   ResponseEntity<ErrorResponse> handleUnauthenticated(
       AuthenticationException exception, HttpServletRequest request) {
     return error(
-        HttpStatus.UNAUTHORIZED,
-        ApiErrorCode.UNAUTHORIZED,
-        "Authentication is required.",
-        request);
+        HttpStatus.UNAUTHORIZED, ApiErrorCode.UNAUTHORIZED, "Authentication is required.", request);
   }
 
   @ExceptionHandler(Exception.class)
-  ResponseEntity<ErrorResponse> handleUnexpected(
-      Exception exception, HttpServletRequest request) {
+  ResponseEntity<ErrorResponse> handleUnexpected(Exception exception, HttpServletRequest request) {
     String correlationId = CorrelationIdFilter.correlationId(request);
     log.error(
         "Unhandled exception at API boundary correlationId={} method={} path={}",
@@ -189,7 +184,8 @@ public class ApiExceptionHandler {
   private static boolean hasSqlState(Throwable throwable, String sqlState) {
     Throwable current = throwable;
     while (current != null) {
-      if (current instanceof SQLException sqlException && sqlState.equals(sqlException.getSQLState())) {
+      if (current instanceof SQLException sqlException
+          && sqlState.equals(sqlException.getSQLState())) {
         return true;
       }
       current = current.getCause();

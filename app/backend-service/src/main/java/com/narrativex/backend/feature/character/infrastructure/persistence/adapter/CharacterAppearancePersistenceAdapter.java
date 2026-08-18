@@ -21,15 +21,16 @@ public class CharacterAppearancePersistenceAdapter implements CharacterAppearanc
             ? buildJpaEntity(appearance)
             : repository
                 .findById(appearance.getId())
-                .map(existing -> {
-                  OptimisticConcurrency.requireVersion(
-                      appearance.getRowVersion(),
-                      existing.getRowVersion(),
-                      CharacterAppearanceJpaEntity.class,
-                      appearance.getId());
-                  existing.apply(appearance);
-                  return existing;
-                })
+                .map(
+                    existing -> {
+                      OptimisticConcurrency.requireVersion(
+                          appearance.getRowVersion(),
+                          existing.getRowVersion(),
+                          CharacterAppearanceJpaEntity.class,
+                          appearance.getId());
+                      existing.apply(appearance);
+                      return existing;
+                    })
                 .orElseGet(() -> buildJpaEntity(appearance));
     return CharacterPersistenceMapper.toDomain(repository.save(entity));
   }

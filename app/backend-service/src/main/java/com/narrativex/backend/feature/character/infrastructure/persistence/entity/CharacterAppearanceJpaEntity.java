@@ -46,7 +46,6 @@ public class CharacterAppearanceJpaEntity extends JpaAuditedEntity {
   @Column(name = "outfit_version_id")
   private Long outfitVersionId;
 
-
   public void apply(CharacterAppearance a) {
     characterId = a.getCharacterId();
     projectId = a.getProjectId();
@@ -59,4 +58,3 @@ public class CharacterAppearanceJpaEntity extends JpaAuditedEntity {
     outfitVersionId = a.getOutfitVersionId();
   }
 }
-

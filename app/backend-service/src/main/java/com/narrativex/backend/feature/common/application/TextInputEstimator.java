@@ -1,6 +1,8 @@
 package com.narrativex.backend.feature.common.application;
 
-/** Cheap, deliberately conservative preflight text estimator. Providers enforce real token limits. */
+/**
+ * Cheap, deliberately conservative preflight text estimator. Providers enforce real token limits.
+ */
 public final class TextInputEstimator {
   private TextInputEstimator() {}
 

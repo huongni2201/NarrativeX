@@ -47,7 +47,6 @@ public class CharacterJpaEntity extends JpaAuditedEntity {
   @Column(name = "status", nullable = false, length = 24)
   private CharacterStatus status;
 
-
   public void apply(Character c) {
     ownerId = c.getOwnerId();
     workspaceId = c.getWorkspaceId();
@@ -56,4 +55,3 @@ public class CharacterJpaEntity extends JpaAuditedEntity {
     status = c.getStatus();
   }
 }
-

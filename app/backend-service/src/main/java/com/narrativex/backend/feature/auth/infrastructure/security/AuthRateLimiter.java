@@ -38,7 +38,8 @@ public class AuthRateLimiter implements AuthRateLimitPolicy {
       StringRedisTemplate redisTemplate,
       @Value("${narrativex.security.auth-rate-limit.enabled:true}") boolean enabled,
       @Value("${narrativex.security.auth-rate-limit.login.ip-limit:30}") int loginIpLimit,
-      @Value("${narrativex.security.auth-rate-limit.login.identity-limit:10}") int loginIdentityLimit,
+      @Value("${narrativex.security.auth-rate-limit.login.identity-limit:10}")
+          int loginIdentityLimit,
       @Value("${narrativex.security.auth-rate-limit.login.window-seconds:300}")
           long loginWindowSeconds,
       @Value("${narrativex.security.auth-rate-limit.register.ip-limit:10}") int registerIpLimit,
@@ -68,15 +69,17 @@ public class AuthRateLimiter implements AuthRateLimitPolicy {
     if (!enabled) return;
     consume("register:ip", normalizedIp(clientIp), registerIpLimit, registerWindowSeconds);
     consume(
-        "register:identity", normalizedIdentity(email), registerIdentityLimit, registerWindowSeconds);
+        "register:identity",
+        normalizedIdentity(email),
+        registerIdentityLimit,
+        registerWindowSeconds);
   }
 
   private void consume(String bucket, String subject, int limit, long windowSeconds) {
     String key = "narrativex:auth-rate:" + bucket + ":" + sha256(subject);
     try {
       Long count =
-          redisTemplate.execute(
-              INCREMENT_WITH_EXPIRY, List.of(key), Long.toString(windowSeconds));
+          redisTemplate.execute(INCREMENT_WITH_EXPIRY, List.of(key), Long.toString(windowSeconds));
       if (count != null && count > limit) {
         throw new AuthRateLimitExceededException(windowSeconds);
       }
@@ -90,9 +93,7 @@ public class AuthRateLimiter implements AuthRateLimitPolicy {
   }
 
   private static String normalizedIdentity(String email) {
-    return email == null || email.isBlank()
-        ? "unknown"
-        : email.trim().toLowerCase(Locale.ROOT);
+    return email == null || email.isBlank() ? "unknown" : email.trim().toLowerCase(Locale.ROOT);
   }
 
   private static String normalizedIp(String clientIp) {

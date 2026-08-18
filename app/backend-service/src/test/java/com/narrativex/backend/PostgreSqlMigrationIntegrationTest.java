@@ -85,15 +85,13 @@ class PostgreSqlMigrationIntegrationTest {
 
       SQLException duplicateActive =
           assertThrows(
-              SQLException.class,
-              () -> insertStoryVersion(connection, projectId, 2, "ACTIVE"));
+              SQLException.class, () -> insertStoryVersion(connection, projectId, 2, "ACTIVE"));
       assertEquals("23505", duplicateActive.getSQLState());
       connection.rollback();
 
       SQLException missingProject =
           assertThrows(
-              SQLException.class,
-              () -> insertStoryVersion(connection, Long.MAX_VALUE, 3, "DRAFT"));
+              SQLException.class, () -> insertStoryVersion(connection, Long.MAX_VALUE, 3, "DRAFT"));
       assertEquals("23503", missingProject.getSQLState());
       connection.rollback();
     }
@@ -138,7 +136,8 @@ class PostgreSqlMigrationIntegrationTest {
       projectId = insertProject(seed);
     }
 
-    try (Connection holder = dataSource.getConnection(); Connection contender = dataSource.getConnection()) {
+    try (Connection holder = dataSource.getConnection();
+        Connection contender = dataSource.getConnection()) {
       holder.setAutoCommit(false);
       contender.setAutoCommit(false);
       lockProject(holder, projectId);
