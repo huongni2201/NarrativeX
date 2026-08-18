@@ -49,18 +49,15 @@ export const ProjectWizardModal: React.FC = () => {
         aspectRatio: draft.aspectRatio,
         quality: draft.quality,
       });
-      const existingWorkflow =
-        workflowRef.current?.fingerprint === fingerprint ? workflowRef.current : null;
-      const project =
-        existingWorkflow?.project ??
-        (await api.createProject({
-          name: draft.title.trim(),
-          sourceLanguage: language,
-          narrationLanguage: language,
-          metadataLanguage: language,
-          imageAspectRatio: draft.aspectRatio,
-          imageQualityTier: draft.quality.toUpperCase(),
-        }));
+      const existingWorkflow = workflowRef.current?.fingerprint === fingerprint ? workflowRef.current : null;
+      const project = existingWorkflow?.project ?? await api.createProject({
+        name: draft.title.trim(),
+        sourceLanguage: language,
+        narrationLanguage: language,
+        metadataLanguage: language,
+        imageAspectRatio: draft.aspectRatio,
+        imageQualityTier: draft.quality.toUpperCase(),
+      });
       workflowRef.current = existingWorkflow ?? { fingerprint, project, storyCreated: false };
 
       if (!workflowRef.current.storyCreated) {
@@ -71,8 +68,7 @@ export const ProjectWizardModal: React.FC = () => {
         workflowRef.current = { fingerprint, project, storyCreated: true };
       }
 
-      const job = await api.enqueueAnalysis(project.id);
-      return { project, job };
+      return { project };
     },
     onSuccess: async ({ project }) => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.projects });
@@ -104,11 +100,8 @@ export const ProjectWizardModal: React.FC = () => {
   const [maxAccessibleStep, setMaxAccessibleStep] = useState<number>(currentStep);
 
   useEffect(() => {
-    if (isWizardOpen) {
-      setMaxAccessibleStep((previous) => Math.max(previous, wizardDraft.step));
-    } else {
-      setMaxAccessibleStep(1);
-    }
+    if (isWizardOpen) setMaxAccessibleStep((previous) => Math.max(previous, wizardDraft.step));
+    else setMaxAccessibleStep(1);
   }, [isWizardOpen, wizardDraft.step]);
 
   if (!isWizardOpen) return null;
@@ -122,15 +115,11 @@ export const ProjectWizardModal: React.FC = () => {
   };
 
   const handleBack = () => {
-    if (currentStep > 1) {
-      setWizardStep((currentStep - 1) as 1 | 2 | 3 | 4);
-    }
+    if (currentStep > 1) setWizardStep((currentStep - 1) as 1 | 2 | 3 | 4);
   };
 
   const handleStepClick = (stepId: number) => {
-    if (stepId <= maxAccessibleStep) {
-      setWizardStep(stepId as 1 | 2 | 3 | 4);
-    }
+    if (stepId <= maxAccessibleStep) setWizardStep(stepId as 1 | 2 | 3 | 4);
   };
 
   const handleConfirm = () => {
@@ -142,7 +131,7 @@ export const ProjectWizardModal: React.FC = () => {
     }
     if (!wizardDraft.storyText.trim()) {
       setValidationErrors([]);
-      setSubmitError("Vui lòng nhập nội dung truyện trước khi phân tích.");
+      setSubmitError("Vui lòng nhập nội dung truyện trước khi tạo dự án.");
       setWizardStep(2);
       return;
     }
@@ -152,56 +141,28 @@ export const ProjectWizardModal: React.FC = () => {
   };
 
   return (
-    <Modal
-      isOpen={isWizardOpen}
-      onClose={closeWizard}
-      maxWidth="6xl"
-      className="p-0 border border-slate-800 bg-[#0d1420]"
-    >
+    <Modal isOpen={isWizardOpen} onClose={closeWizard} maxWidth="6xl" className="p-0 border border-slate-800 bg-[#0d1420]">
       <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800/80 bg-[#090e18]">
         <div className="flex items-center gap-6">
           <span className="font-bold text-base text-white tracking-wide">
             {currentStep === 1 && "03. Tạo dự án mới"}
             {currentStep === 2 && "04. Nhập truyện"}
             {currentStep === 3 && "05. Phân tích AI – Tổng quan"}
-            {currentStep === 4 && "06. Kết quả phân tích"}
+            {currentStep === 4 && "06. Xác nhận"}
           </span>
         </div>
-
-        <button
-          type="button"
-          onClick={closeWizard}
-          className="text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 p-1.5 rounded-lg transition-colors"
-          aria-label="Đóng trình tạo dự án"
-        >
+        <button type="button" onClick={closeWizard} className="text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 p-1.5 rounded-lg transition-colors" aria-label="Đóng trình tạo dự án">
           <X className="w-5 h-5" />
         </button>
       </div>
 
       <div className="p-6 md:p-8 flex flex-col md:flex-row gap-6 md:gap-8 min-h-[500px]">
         <div className="border-b md:border-b-0 md:border-r border-slate-800/80 pb-4 md:pb-0">
-          <Stepper
-            currentStep={currentStep}
-            maxAccessibleStep={maxAccessibleStep}
-            onStepClick={handleStepClick}
-          />
+          <Stepper currentStep={currentStep} maxAccessibleStep={maxAccessibleStep} onStepClick={handleStepClick} />
         </div>
-
         <div className="flex-1">
-          {currentStep === 1 && (
-            <Step1BasicInfo
-              onNext={handleNext}
-              onCancel={closeWizard}
-              validationErrors={validationErrors}
-            />
-          )}
-          {currentStep === 2 && (
-            <Step2ImportStory
-              onNext={handleNext}
-              onBack={handleBack}
-              validationErrors={validationErrors}
-            />
-          )}
+          {currentStep === 1 && <Step1BasicInfo onNext={handleNext} onCancel={closeWizard} validationErrors={validationErrors} />}
+          {currentStep === 2 && <Step2ImportStory onNext={handleNext} onBack={handleBack} validationErrors={validationErrors} />}
           {currentStep === 3 && <Step3AiAnalysis onNext={handleNext} onBack={handleBack} />}
           {currentStep === 4 && <Step4Results onBack={handleBack} />}
         </div>
@@ -209,38 +170,17 @@ export const ProjectWizardModal: React.FC = () => {
 
       <div className="px-8 py-4 bg-[#090e18] border-t border-slate-800/80 flex items-center justify-between">
         <div>
-          {currentStep === 1 ? (
-            <Button variant="secondary" onClick={closeWizard} size="md">
-              Hủy
-            </Button>
-          ) : (
-            <Button variant="secondary" onClick={handleBack} size="md">
-              <ArrowLeft className="w-4 h-4 mr-1.5" />
-              Quay lại
-            </Button>
+          {currentStep === 1 ? <Button variant="secondary" onClick={closeWizard} size="md">Hủy</Button> : (
+            <Button variant="secondary" onClick={handleBack} size="md"><ArrowLeft className="w-4 h-4 mr-1.5" />Quay lại</Button>
           )}
         </div>
-
         <div>
           {currentStep < 4 ? (
-            <Button variant="primary" onClick={handleNext} size="md">
-              <span>Tiếp tục</span>
-              <ArrowRight className="w-4 h-4 ml-1.5" />
-            </Button>
+            <Button variant="primary" onClick={handleNext} size="md"><span>Tiếp tục</span><ArrowRight className="w-4 h-4 ml-1.5" /></Button>
           ) : (
-            <Button
-              variant="gradient"
-              onClick={handleConfirm}
-              disabled={createProjectWorkflow.isPending}
-              size="md"
-              className="shadow-[0_0_20px_rgba(124,58,237,0.5)]"
-            >
+            <Button variant="gradient" onClick={handleConfirm} disabled={createProjectWorkflow.isPending} size="md" className="shadow-[0_0_20px_rgba(124,58,237,0.5)]">
               <Check className="w-4 h-4 mr-1.5" />
-              <span>
-                {createProjectWorkflow.isPending
-                  ? "Đang gửi lên backend…"
-                  : "Xác nhận & Tạo dự án"}
-              </span>
+              <span>{createProjectWorkflow.isPending ? "Đang gửi lên backend…" : "Xác nhận & Tạo dự án"}</span>
             </Button>
           )}
         </div>
@@ -252,10 +192,7 @@ export const ProjectWizardModal: React.FC = () => {
           {validationErrors.length > 0 && (
             <ul className="mt-2 space-y-1 text-rose-200/80">
               {validationErrors.map((fieldError, index) => (
-                <li key={`${fieldError.field}-${index}`}>
-                  <span className="font-medium">{fieldError.field}:</span>{" "}
-                  {fieldError.message || fieldError.code || "Giá trị không hợp lệ."}
-                </li>
+                <li key={`${fieldError.field}-${index}`}><span className="font-medium">{fieldError.field}:</span>{" "}{fieldError.message || fieldError.code || "Giá trị không hợp lệ."}</li>
               ))}
             </ul>
           )}
