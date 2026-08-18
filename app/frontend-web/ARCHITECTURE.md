@@ -115,9 +115,9 @@ Project creation currently spans Project + initial StoryVersion writes.
 - Keep `"use client"` boundaries as narrow as practical.
 - Use `next/image` for local branding, known trusted remote hosts and demo imagery so layout dimensions, responsive `sizes` and image optimization are explicit.
 - Only allow trusted optimization hosts in `next.config.mjs`; do not add broad wildcard remote-image hosts to make arbitrary URLs pass.
-- Backend media URLs may come from MinIO/S3/CDN hosts that vary by environment. Until the storage contract provides a stable trusted media hostname, render those URLs through `next/image` with `unoptimized` so layout/lazy-loading semantics are retained without pretending the Next image optimizer is configured for an unknown origin.
-- Once a stable media host is part of configuration, add the narrow `remotePatterns` entry and remove `unoptimized` for that media path.
-- Above-the-fold brand/hero images may use `priority`; card/grid imagery should remain lazy by default and provide responsive `sizes`.
+- Backend media URLs may come from MinIO/S3/CDN hosts that vary by environment. Until the storage contract provides a stable trusted media hostname, use native `<img loading="lazy" decoding="async">` for those arbitrary runtime URLs instead of weakening `remotePatterns`.
+- Once a stable media host is part of configuration, add the narrow `remotePatterns` entry and migrate that media path to `next/image`.
+- Above-the-fold brand/hero images may use `priority`; card/grid imagery should remain lazy by default and provide responsive `sizes` when rendered through `next/image`.
 - Decorative motion and spinners use reduced-motion-aware utilities (`motion-safe:*`) unless movement is essential to communicate state.
 
 ## Architecture enforcement
