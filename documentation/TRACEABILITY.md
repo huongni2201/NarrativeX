@@ -7,14 +7,14 @@ This matrix distinguishes the V1.8 product/domain intent from the implementation
 | Product scope, actors, functional requirements | attached `NARRATIVEX_PROJECT_SPEC_V1_8.md`, `documentation/product/PRODUCT_SPEC.md`, `FEATURE_CATALOG.md` | V1.8 contract; production gates remain explicit |
 | Business rules and state transitions | `documentation/domain/BUSINESS_RULES.md`, `DOMAIN_MODEL.md` | Documented; per-story copyright/rights attestation is no longer an Analyze/Generate prerequisite and legacy rights persistence is removed through Flyway V7 |
 | Terms and stable domain codes | `documentation/domain/GLOSSARY.md` | Documented |
-| System topology and deployment | `documentation/architecture/SYSTEM_ARCHITECTURE.md`, `TECHNOLOGY_STACK.md` | Documented; frontend same-origin proxy/build-time routing contract is explicit |
+| System topology and deployment | `documentation/architecture/SYSTEM_ARCHITECTURE.md`, `TECHNOLOGY_STACK.md` | Documented; frontend same-origin proxy/build-time routing contract and Redis-backed shared HTTP-session boundary are explicit |
 | Data flow and service/module boundaries | `documentation/architecture/DATA_FLOW.md`, `SERVICE_BOUNDARIES.md` | Target durable flow documented; runtime implementation remains incomplete |
-| Authentication/runtime security | `documentation/decisions/ADR-0004-authentication-and-frontend-runtime-security.md` | Fail-closed profile guard, canonical frontend auth routing and Redis-backed login/register abuse limiting; current browser auth remains session + CSRF and JWT/access/refresh-token migration is deferred |
+| Authentication/runtime security | `documentation/decisions/ADR-0004-authentication-and-frontend-runtime-security.md`, `ADR-0008-redis-backed-http-sessions.md` | Fail-closed profile guard, canonical frontend auth routing, Redis-backed login/register abuse limiting, and Spring Session Redis are implemented; current browser auth remains session + CSRF and JWT/access/refresh-token migration is deferred |
 | Frontend implementation/runtime map | `documentation/codebase/FRONTEND_CODEBASE.md`, `FRONTEND_API_INTEGRATION_MATRIX.md`, `app/frontend-web/README.md` | Current route/state/API/lazy-loading/CI behavior documented against implementation |
 | Durable generation execution | `documentation/decisions/ADR-0001-system-topology-and-durable-execution.md` | Production contract documented; story-analysis enqueue endpoint is feature-gated until durable enqueue/worker execution exists |
 | Source layout and module responsibilities | `documentation/codebase/*`, `app/*/README.md` | Base project map maintained with the code skeleton |
 | Backend ↔ worker payloads | `contracts/*` | Versioned schema exists; durable intake/lease/reconciliation integration remains a release gate |
-| Local infrastructure | `docker-compose.yml`, root/module READMEs | PostgreSQL, Redis and MinIO local baseline; frontend image is separately buildable and requires an explicit backend destination when containerized |
+| Local infrastructure | `docker-compose.yml`, root/module READMEs | PostgreSQL, Redis and MinIO local baseline; Redis also stores Spring Session state; frontend image is separately buildable and requires an explicit backend destination when containerized |
 
 ## Deliberate non-claims
 
@@ -37,7 +37,7 @@ Before public beta, the release gate must still prove ownership/authentication, 
 | Frontend lazy overlay loading | `StudioAppShell`, dynamic wizard/Character Bible imports | IMPLEMENTED boundary; heavy overlays mount only while active |
 | Frontend quality gate | `.github/workflows/frontend-ci.yml`, `package.json`, architecture tests | IMPLEMENTED foundation; `npm test`, lint/architecture, type-check and build run in CI; behavioral/E2E suite remains pending |
 | StoryVersion create | Project story command/persistence and frontend create flow | IMPLEMENTED foundation; per-story rights checkbox removed; legacy StoryVersion rights columns and `content_rights_attestations` are removed by V6/V7 |
-| Authentication | Spring Security session/CSRF, password auth, Google OIDC, startup guard, Redis auth limiter | IMPLEMENTED foundation; login/register rate limited; JWT/access/refresh-token migration not yet implemented |
+| Authentication | Spring Security session/CSRF, password auth, Google OIDC, startup guard, Redis auth limiter, Spring Session Redis, `NX_SESSION` cookie | IMPLEMENTED foundation; shared session state stored in Redis with configurable timeout/namespace; login/register rate limited; logout invalidates session and returns 204; JWT/access/refresh-token migration not yet implemented |
 | Analysis enqueue | Generation controller/use case/domain scaffold | **DISABLED BY DEFAULT**; returns `FEATURE_NOT_AVAILABLE` until durable transaction, stage/outbox dispatch, worker claim/lease and reconciliation exist |
 | Generation job read | Generation job query/controller | Scaffold/read contract exists; meaningful runtime progress requires durable worker updates |
 | Reusable character domain | Character/ProjectCharacter/version/appearance/outfit domain and persistence plus tests | IMPLEMENTED foundation; public REST contract pending |
@@ -53,7 +53,9 @@ Before public beta, the release gate must still prove ownership/authentication, 
 3. No active profile, `prod`, `production`, `staging`, `qa`, `uat`, preview or any unknown profile must fail startup when OIDC is disabled.
 4. PostgreSQL Testcontainers migration verification runs with explicit `test` profile and PostgreSQL datasource/dialect overrides so both the security startup guard and authoritative migration path are exercised in CI.
 5. Password login and registration are subject to server-side Redis-backed abuse limits and return `429` + `Retry-After` when exceeded.
-6. Story analysis must not return `202 QUEUED` while there is no durable worker execution path.
-7. Provider submission must eventually use a dedicated `ProviderOperationStatus` lifecycle with `RESERVED`, `SUBMITTED`, `RUNNING`, `COMPLETED`, `FAILED`, `UNKNOWN`; `UNKNOWN` reconciles before resubmission.
-8. A containerized frontend must not rely on its own `localhost:8080` as the backend service address; the proxy destination must match the deployment topology.
-9. Authenticated application content must not be served under the canonical `/auth` entry URL.
+6. Shared/default browser sessions use Spring Session Redis with an opaque `NX_SESSION`; shared environments use Secure cookies, while the explicit local/test override may disable Secure for HTTP localhost/test.
+7. Redis session availability is distinct from the fail-open auth-rate-limiter policy: Redis loss may invalidate active sessions, but it must not lose durable PostgreSQL business state.
+8. Story analysis must not return `202 QUEUED` while there is no durable worker execution path.
+9. Provider submission must eventually use a dedicated `ProviderOperationStatus` lifecycle with `RESERVED`, `SUBMITTED`, `RUNNING`, `COMPLETED`, `FAILED`, `UNKNOWN`; `UNKNOWN` reconciles before resubmission.
+10. A containerized frontend must not rely on its own `localhost:8080` as the backend service address; the proxy destination must match the deployment topology.
+11. Authenticated application content must not be served under the canonical `/auth` entry URL.
