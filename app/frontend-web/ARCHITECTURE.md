@@ -17,7 +17,7 @@ app/ -> features/ -> shared/
 ## Canonical routes
 
 ```text
-/                         overview entry
+/                         redirect -> /projects until a distinct overview exists
 /projects                 project list
 /projects/[projectId]     project workspace
 /characters               character library
@@ -27,7 +27,7 @@ app/ -> features/ -> shared/
 /dashboard                legacy redirect -> /projects
 ```
 
-Do not introduce a second route for the same screen without an explicit redirect or product requirement. A project workspace always derives its project identity from `/projects/[projectId]`; do not infer it from a Zustand selection.
+Do not introduce a second navigation entry or route that renders the same project-list screen without an explicit product requirement. A distinct `/` overview may be reintroduced only when it has its own backend-backed content. A project workspace always derives its project identity from `/projects/[projectId]`; do not infer it from a Zustand selection.
 
 ## Recommended feature shape
 
@@ -89,6 +89,20 @@ The transport layer must not import React, Zustand, app routes, or feature state
 - components receive typed props and render UI.
 - avoid `as any`; update the type or add a typed adapter.
 - user-visible plan, credit, notification, job, asset or entitlement values must come from a real API contract. Until then, hide/disable the control or show an explicit unavailable state rather than fake persisted data.
+- unsupported file import must remain visibly disabled until upload, storage and document-extraction contracts exist; do not render a drag/drop surface that has no real action behind it.
+
+## Multi-step mutation safety
+
+Project creation currently spans two persisted mutations: create Project, then create the initial StoryVersion.
+
+- Do not treat an in-memory `useRef` as idempotency.
+- After a definitive HTTP error from StoryVersion creation, reusing the already-created Project may be safe because the server returned an explicit failure.
+- After an ambiguous transport/protocol failure, the client must not blindly retry StoryVersion creation because the backend may already have committed it.
+- In an ambiguous state, block retry and direct the user to inspect the created Project before taking another write action.
+- While a persisted multi-step workflow is pending, close/back/step-change actions that can orphan UI state must be locked.
+- Reset local wizard/error/workflow state after a non-pending close.
+
+The long-term backend contract should expose either an idempotent orchestration endpoint or a transactional create-project-with-initial-story command. Client-side safeguards reduce duplication risk but do not replace backend idempotency.
 
 ## Accessibility baseline
 
@@ -96,6 +110,7 @@ The transport layer must not import React, Zustand, app routes, or feature state
 - Icon-only controls have accessible names.
 - Tabs support ArrowLeft/ArrowRight/Home/End keyboard navigation.
 - Modals trap focus while open, close on Escape, restore previous focus and restore the previous body scroll state.
+- A modal may intentionally ignore Escape/backdrop close while a persisted mutation is pending; the close control must communicate its disabled state.
 - Menus/dialogs return focus to their trigger when dismissed by keyboard.
 - Small secondary text should use a contrast-safe token/value; avoid low-contrast placeholder/body text.
 - Motion must respect `prefers-reduced-motion` for non-essential animation.
