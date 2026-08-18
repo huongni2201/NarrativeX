@@ -22,15 +22,16 @@ public class ProjectCharacterPersistenceAdapter implements ProjectCharacterRepos
             ? buildJpaEntity(assignment)
             : repository
                 .findById(assignment.getId())
-                .map(existing -> {
-                  OptimisticConcurrency.requireVersion(
-                      assignment.getRowVersion(),
-                      existing.getRowVersion(),
-                      ProjectCharacterJpaEntity.class,
-                      assignment.getId());
-                  existing.apply(assignment);
-                  return existing;
-                })
+                .map(
+                    existing -> {
+                      OptimisticConcurrency.requireVersion(
+                          assignment.getRowVersion(),
+                          existing.getRowVersion(),
+                          ProjectCharacterJpaEntity.class,
+                          assignment.getId());
+                      existing.apply(assignment);
+                      return existing;
+                    })
                 .orElseGet(() -> buildJpaEntity(assignment));
     return CharacterPersistenceMapper.toDomain(repository.save(entity));
   }

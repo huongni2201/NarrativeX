@@ -35,15 +35,16 @@ public class OutfitVersionPersistenceAdapter implements OutfitVersionRepository 
             ? buildJpaEntity(outfit)
             : repository
                 .findById(outfit.getId())
-                .map(existing -> {
-                  OptimisticConcurrency.requireVersion(
-                      outfit.getRowVersion(),
-                      existing.getRowVersion(),
-                      OutfitVersionJpaEntity.class,
-                      outfit.getId());
-                  existing.apply(outfit);
-                  return existing;
-                })
+                .map(
+                    existing -> {
+                      OptimisticConcurrency.requireVersion(
+                          outfit.getRowVersion(),
+                          existing.getRowVersion(),
+                          OutfitVersionJpaEntity.class,
+                          outfit.getId());
+                      existing.apply(outfit);
+                      return existing;
+                    })
                 .orElseGet(() -> buildJpaEntity(outfit));
     return CharacterPersistenceMapper.toDomain(repository.save(entity));
   }

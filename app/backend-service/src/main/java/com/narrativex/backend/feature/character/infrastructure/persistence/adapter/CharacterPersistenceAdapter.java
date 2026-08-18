@@ -37,15 +37,16 @@ public class CharacterPersistenceAdapter implements CharacterRepository {
             ? buildJpaEntity(character)
             : repository
                 .findById(character.getId())
-                .map(existing -> {
-                  OptimisticConcurrency.requireVersion(
-                      character.getRowVersion(),
-                      existing.getRowVersion(),
-                      CharacterJpaEntity.class,
-                      character.getId());
-                  existing.apply(character);
-                  return existing;
-                })
+                .map(
+                    existing -> {
+                      OptimisticConcurrency.requireVersion(
+                          character.getRowVersion(),
+                          existing.getRowVersion(),
+                          CharacterJpaEntity.class,
+                          character.getId());
+                      existing.apply(character);
+                      return existing;
+                    })
                 .orElseGet(() -> buildJpaEntity(character));
     return CharacterPersistenceMapper.toDomain(repository.save(entity));
   }

@@ -30,7 +30,8 @@ class ChapterPersistenceAdapterTest {
     when(repository.findById(11L)).thenReturn(Optional.of(persisted));
     ChapterPersistenceAdapter adapter = new ChapterPersistenceAdapter(repository);
 
-    assertThrows(ObjectOptimisticLockingFailureException.class, () -> adapter.saveAndFlush(chapter));
+    assertThrows(
+        ObjectOptimisticLockingFailureException.class, () -> adapter.saveAndFlush(chapter));
 
     verify(repository, never()).saveAndFlush(persisted);
   }

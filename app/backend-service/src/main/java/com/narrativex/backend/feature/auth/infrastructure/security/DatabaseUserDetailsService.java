@@ -26,10 +26,14 @@ public class DatabaseUserDetailsService implements UserDetailsService {
             .filter(
                 candidate ->
                     candidate.getPasswordHash() != null && !candidate.getPasswordHash().isBlank())
-        .orElseThrow(() -> new UsernameNotFoundException("Invalid credentials"));
+            .orElseThrow(() -> new UsernameNotFoundException("Invalid credentials"));
 
     return new NarrativeXUserPrincipal(
-        user.getId(), user.getEmail(), user.getDisplayName(), user.getAvatarUrl(),
-        user.getPasswordHash(), user.isEnabled());
+        user.getId(),
+        user.getEmail(),
+        user.getDisplayName(),
+        user.getAvatarUrl(),
+        user.getPasswordHash(),
+        user.isEnabled());
   }
 }

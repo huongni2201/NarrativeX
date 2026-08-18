@@ -38,4 +38,3 @@ public class ProviderOperationJpaEntity extends JpaAuditedEntity {
   @Column(name = "reserved_at", nullable = false)
   private Instant reservedAt;
 }
-

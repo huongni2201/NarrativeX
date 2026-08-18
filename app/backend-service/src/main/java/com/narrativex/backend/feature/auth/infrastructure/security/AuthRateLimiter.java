@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.auth.infrastructure.security;
 
 import com.narrativex.backend.feature.auth.application.exception.AuthRateLimitExceededException;
+import com.narrativex.backend.feature.auth.application.port.in.AuthRateLimitPolicy;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -16,7 +17,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 @Slf4j
-public class AuthRateLimiter {
+public class AuthRateLimiter implements AuthRateLimitPolicy {
   private static final DefaultRedisScript<Long> INCREMENT_WITH_EXPIRY =
       new DefaultRedisScript<>(
           "local current = redis.call('INCR', KEYS[1]); "
@@ -37,7 +38,8 @@ public class AuthRateLimiter {
       StringRedisTemplate redisTemplate,
       @Value("${narrativex.security.auth-rate-limit.enabled:true}") boolean enabled,
       @Value("${narrativex.security.auth-rate-limit.login.ip-limit:30}") int loginIpLimit,
-      @Value("${narrativex.security.auth-rate-limit.login.identity-limit:10}") int loginIdentityLimit,
+      @Value("${narrativex.security.auth-rate-limit.login.identity-limit:10}")
+          int loginIdentityLimit,
       @Value("${narrativex.security.auth-rate-limit.login.window-seconds:300}")
           long loginWindowSeconds,
       @Value("${narrativex.security.auth-rate-limit.register.ip-limit:10}") int registerIpLimit,
@@ -55,25 +57,29 @@ public class AuthRateLimiter {
     this.registerWindowSeconds = positive(registerWindowSeconds, "registerWindowSeconds");
   }
 
+  @Override
   public void checkLogin(String email, String clientIp) {
     if (!enabled) return;
     consume("login:ip", normalizedIp(clientIp), loginIpLimit, loginWindowSeconds);
     consume("login:identity", normalizedIdentity(email), loginIdentityLimit, loginWindowSeconds);
   }
 
+  @Override
   public void checkRegister(String email, String clientIp) {
     if (!enabled) return;
     consume("register:ip", normalizedIp(clientIp), registerIpLimit, registerWindowSeconds);
     consume(
-        "register:identity", normalizedIdentity(email), registerIdentityLimit, registerWindowSeconds);
+        "register:identity",
+        normalizedIdentity(email),
+        registerIdentityLimit,
+        registerWindowSeconds);
   }
 
   private void consume(String bucket, String subject, int limit, long windowSeconds) {
     String key = "narrativex:auth-rate:" + bucket + ":" + sha256(subject);
     try {
       Long count =
-          redisTemplate.execute(
-              INCREMENT_WITH_EXPIRY, List.of(key), Long.toString(windowSeconds));
+          redisTemplate.execute(INCREMENT_WITH_EXPIRY, List.of(key), Long.toString(windowSeconds));
       if (count != null && count > limit) {
         throw new AuthRateLimitExceededException(windowSeconds);
       }
@@ -87,9 +93,7 @@ public class AuthRateLimiter {
   }
 
   private static String normalizedIdentity(String email) {
-    return email == null || email.isBlank()
-        ? "unknown"
-        : email.trim().toLowerCase(Locale.ROOT);
+    return email == null || email.isBlank() ? "unknown" : email.trim().toLowerCase(Locale.ROOT);
   }
 
   private static String normalizedIp(String clientIp) {

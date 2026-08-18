@@ -57,7 +57,7 @@ class PostgreSqlMigrationIntegrationTest {
   @Test
   void emptyPostgresMigratesAndHibernateValidates() throws SQLException {
     try (Connection connection = dataSource.getConnection()) {
-      assertEquals(6, latestFlywayVersion(connection));
+      assertEquals(7, latestFlywayVersion(connection));
       assertEquals("jsonb", columnType(connection, "moderation_decisions", "categories_json"));
       assertTrue(indexExists(connection, "uq_story_versions_one_active_per_project"));
       assertTrue(indexExists(connection, "idx_projects_active_owner_updated_id"));
@@ -85,15 +85,13 @@ class PostgreSqlMigrationIntegrationTest {
 
       SQLException duplicateActive =
           assertThrows(
-              SQLException.class,
-              () -> insertStoryVersion(connection, projectId, 2, "ACTIVE"));
+              SQLException.class, () -> insertStoryVersion(connection, projectId, 2, "ACTIVE"));
       assertEquals("23505", duplicateActive.getSQLState());
       connection.rollback();
 
       SQLException missingProject =
           assertThrows(
-              SQLException.class,
-              () -> insertStoryVersion(connection, Long.MAX_VALUE, 3, "DRAFT"));
+              SQLException.class, () -> insertStoryVersion(connection, Long.MAX_VALUE, 3, "DRAFT"));
       assertEquals("23503", missingProject.getSQLState());
       connection.rollback();
     }
@@ -138,7 +136,8 @@ class PostgreSqlMigrationIntegrationTest {
       projectId = insertProject(seed);
     }
 
-    try (Connection holder = dataSource.getConnection(); Connection contender = dataSource.getConnection()) {
+    try (Connection holder = dataSource.getConnection();
+        Connection contender = dataSource.getConnection()) {
       holder.setAutoCommit(false);
       contender.setAutoCommit(false);
       lockProject(holder, projectId);

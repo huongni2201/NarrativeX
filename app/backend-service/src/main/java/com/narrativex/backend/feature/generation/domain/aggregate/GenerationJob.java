@@ -113,7 +113,8 @@ public final class GenerationJob extends AggregateRoot {
       throw new IllegalArgumentException("storyVersionId must be positive");
     if (chapterId == null || chapterId <= 0)
       throw new IllegalArgumentException("chapterId must be positive");
-    if (chapterRowVersion < 0) throw new IllegalArgumentException("chapterRowVersion must not be negative");
+    if (chapterRowVersion < 0)
+      throw new IllegalArgumentException("chapterRowVersion must not be negative");
     return new GenerationJob(
         null,
         0L,
@@ -213,23 +214,73 @@ public final class GenerationJob extends AggregateRoot {
         idempotencyKey);
   }
 
-  public String getJobId() { return jobId; }
-  public Long getProjectId() { return projectId; }
-  public JobType getType() { return type; }
-  public JobStatus getStatus() { return status; }
-  public ResourceClass getResourceClass() { return resourceClass; }
-  public int getProgress() { return progress; }
-  public String getCurrentStep() { return currentStep; }
-  public String getErrorCode() { return errorCode; }
-  public String getRequestedByUserId() { return requestedByUserId; }
-  public String getBilledToUserId() { return billedToUserId; }
-  public Long getStoryVersionId() { return storyVersionId; }
-  public Long getChapterId() { return chapterId; }
-  public Long getChapterRowVersion() { return chapterRowVersion; }
-  public String getSourceHash() { return sourceHash; }
-  public String getSourceText() { return sourceText; }
-  public String getSourceLanguage() { return sourceLanguage; }
-  public String getIdempotencyKey() { return idempotencyKey; }
+  public String getJobId() {
+    return jobId;
+  }
+
+  public Long getProjectId() {
+    return projectId;
+  }
+
+  public JobType getType() {
+    return type;
+  }
+
+  public JobStatus getStatus() {
+    return status;
+  }
+
+  public ResourceClass getResourceClass() {
+    return resourceClass;
+  }
+
+  public int getProgress() {
+    return progress;
+  }
+
+  public String getCurrentStep() {
+    return currentStep;
+  }
+
+  public String getErrorCode() {
+    return errorCode;
+  }
+
+  public String getRequestedByUserId() {
+    return requestedByUserId;
+  }
+
+  public String getBilledToUserId() {
+    return billedToUserId;
+  }
+
+  public Long getStoryVersionId() {
+    return storyVersionId;
+  }
+
+  public Long getChapterId() {
+    return chapterId;
+  }
+
+  public Long getChapterRowVersion() {
+    return chapterRowVersion;
+  }
+
+  public String getSourceHash() {
+    return sourceHash;
+  }
+
+  public String getSourceText() {
+    return sourceText;
+  }
+
+  public String getSourceLanguage() {
+    return sourceLanguage;
+  }
+
+  public String getIdempotencyKey() {
+    return idempotencyKey;
+  }
 
   private static String required(String value, String field) {
     if (value == null || value.isBlank())

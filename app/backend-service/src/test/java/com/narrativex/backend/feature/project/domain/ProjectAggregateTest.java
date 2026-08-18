@@ -51,7 +51,6 @@ class ProjectAggregateTest {
             null);
 
     assertThrows(
-        ArchivedProjectException.class,
-        () -> project.createStoryVersion(1, "content", "vi-VN"));
+        ArchivedProjectException.class, () -> project.createStoryVersion(1, "content", "vi-VN"));
   }
 }

@@ -72,16 +72,7 @@ class StoryboardAggregateBoundaryTest {
 
   @Test
   void editingApprovedSceneMarksItsSnapshotOutdated() {
-    Scene scene =
-        Scene.rehydrate(
-            10L,
-            3L,
-            1L,
-            0,
-            "Scene 1",
-            "Narration",
-            12,
-            SceneStatus.APPROVED);
+    Scene scene = Scene.rehydrate(10L, 3L, 1L, 0, "Scene 1", "Narration", 12, SceneStatus.APPROVED);
 
     scene.updateNarration("Updated narration");
 

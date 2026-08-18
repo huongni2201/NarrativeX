@@ -47,7 +47,6 @@ public class AuthUserJpaEntity {
   @Column(name = "updated_at", nullable = false)
   private Instant updatedAt;
 
-
   public void linkGoogle(String subject, String displayName, String avatarUrl) {
     this.googleSubject = subject;
     if (displayName != null && !displayName.isBlank()) {
@@ -59,4 +58,3 @@ public class AuthUserJpaEntity {
     this.updatedAt = Instant.now();
   }
 }
-

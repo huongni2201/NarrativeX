@@ -45,8 +45,7 @@ public final class Chapter extends AggregateRoot {
   /** Backward-compatible rehydration for legacy empty draft fixtures. */
   public static Chapter rehydrate(
       Long id, long rowVersion, Long storyVersionId, int orderIndex, String title) {
-    return new Chapter(
-        id, rowVersion, storyVersionId, orderIndex, title, "", EMPTY_SOURCE_SHA_256);
+    return new Chapter(id, rowVersion, storyVersionId, orderIndex, title, "", EMPTY_SOURCE_SHA_256);
   }
 
   public static Chapter rehydrate(
@@ -57,8 +56,7 @@ public final class Chapter extends AggregateRoot {
       String title,
       String sourceText,
       String sourceHash) {
-    return new Chapter(
-        id, rowVersion, storyVersionId, orderIndex, title, sourceText, sourceHash);
+    return new Chapter(id, rowVersion, storyVersionId, orderIndex, title, sourceText, sourceHash);
   }
 
   /** Rename this chapter while preserving the chapter identity and story-version boundary. */

@@ -18,7 +18,8 @@ public class ChapterSourceHasher {
 
   private static String sha256Hex(String value) {
     try {
-      byte[] digest = MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
+      byte[] digest =
+          MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
       return java.util.HexFormat.of().formatHex(digest);
     } catch (NoSuchAlgorithmException exception) {
       throw new IllegalStateException("SHA-256 must be available in the JDK", exception);

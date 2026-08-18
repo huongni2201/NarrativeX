@@ -64,7 +64,6 @@ public class ProjectCharacterJpaEntity extends JpaAuditedEntity {
   @Column(name = "status", nullable = false, length = 24)
   private ProjectCharacterStatus status;
 
-
   public void apply(ProjectCharacter a) {
     projectId = a.getProjectId();
     characterId = a.getCharacterId();
@@ -77,4 +76,3 @@ public class ProjectCharacterJpaEntity extends JpaAuditedEntity {
     status = a.getStatus();
   }
 }
-

@@ -25,15 +25,16 @@ public class GenerationJobPersistenceAdapter implements GenerationJobRepository 
             ? buildJpaEntity(job)
             : repository
                 .findById(job.getId())
-                .map(existing -> {
-                  OptimisticConcurrency.requireVersion(
-                      job.getRowVersion(),
-                      existing.getRowVersion(),
-                      GenerationJobJpaEntity.class,
-                      job.getId());
-                  existing.apply(job);
-                  return existing;
-                })
+                .map(
+                    existing -> {
+                      OptimisticConcurrency.requireVersion(
+                          job.getRowVersion(),
+                          existing.getRowVersion(),
+                          GenerationJobJpaEntity.class,
+                          job.getId());
+                      existing.apply(job);
+                      return existing;
+                    })
                 .orElseGet(() -> buildJpaEntity(job));
     return GenerationPersistenceMapper.toDomain(repository.save(entity));
   }
@@ -69,7 +70,9 @@ public class GenerationJobPersistenceAdapter implements GenerationJobRepository 
 
   @Override
   public Optional<GenerationJob> findByIdempotencyKey(String idempotencyKey) {
-    return repository.findByIdempotencyKey(idempotencyKey).map(GenerationPersistenceMapper::toDomain);
+    return repository
+        .findByIdempotencyKey(idempotencyKey)
+        .map(GenerationPersistenceMapper::toDomain);
   }
 
   @Override

@@ -100,13 +100,6 @@ class ActivateStoryVersionUseCaseTest {
 
   private static StoryVersion story(Long id, int versionNumber, StoryVersionStatus status) {
     return StoryVersion.rehydrate(
-        id,
-        0L,
-        42L,
-        versionNumber,
-        "story",
-        "vi-VN",
-        status,
-        ModerationDecision.PENDING);
+        id, 0L, 42L, versionNumber, "story", "vi-VN", status, ModerationDecision.PENDING);
   }
 }

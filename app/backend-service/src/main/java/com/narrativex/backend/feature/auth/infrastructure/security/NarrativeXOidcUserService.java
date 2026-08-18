@@ -21,8 +21,7 @@ public class NarrativeXOidcUserService implements OAuth2UserService<OidcUserRequ
 
   public NarrativeXOidcUserService(
       AuthUserJpaRepository repository,
-      @Qualifier("narrativeXOidcDelegate")
-      OAuth2UserService<OidcUserRequest, OidcUser> delegate) {
+      @Qualifier("narrativeXOidcDelegate") OAuth2UserService<OidcUserRequest, OidcUser> delegate) {
     this.repository = repository;
     this.delegate = delegate;
   }
@@ -51,7 +50,8 @@ public class NarrativeXOidcUserService implements OAuth2UserService<OidcUserRequ
         }
         String linkedSubject = existingEmailAccount.getGoogleSubject();
         if (linkedSubject != null && !linkedSubject.equals(subject)) {
-          throw invalidUserInfo("This NarrativeX account is already linked to another Google account.");
+          throw invalidUserInfo(
+              "This NarrativeX account is already linked to another Google account.");
         }
         existingEmailAccount.linkGoogle(subject, displayName, avatarUrl);
         account = repository.save(existingEmailAccount);

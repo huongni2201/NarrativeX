@@ -22,15 +22,16 @@ public class OperationPlanPersistenceAdapter implements OperationPlanRepository 
             ? buildJpaEntity(operationPlan)
             : repository
                 .findById(operationPlan.getId())
-                .map(existing -> {
-                  OptimisticConcurrency.requireVersion(
-                      operationPlan.getRowVersion(),
-                      existing.getRowVersion(),
-                      OperationPlanJpaEntity.class,
-                      operationPlan.getId());
-                  existing.apply(operationPlan);
-                  return existing;
-                })
+                .map(
+                    existing -> {
+                      OptimisticConcurrency.requireVersion(
+                          operationPlan.getRowVersion(),
+                          existing.getRowVersion(),
+                          OperationPlanJpaEntity.class,
+                          operationPlan.getId());
+                      existing.apply(operationPlan);
+                      return existing;
+                    })
                 .orElseGet(() -> buildJpaEntity(operationPlan));
     return GenerationPersistenceMapper.toDomain(repository.save(entity));
   }

@@ -39,10 +39,7 @@ public final class StoryVersion extends DomainEntity {
   }
 
   public static StoryVersion create(
-      Long projectId,
-      int versionNumber,
-      String content,
-      String sourceLanguage) {
+      Long projectId, int versionNumber, String content, String sourceLanguage) {
     return new StoryVersion(
         null,
         0L,

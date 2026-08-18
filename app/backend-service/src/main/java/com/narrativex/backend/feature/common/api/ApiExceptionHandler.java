@@ -5,8 +5,6 @@ import com.narrativex.backend.feature.common.domain.exception.DomainValidationEx
 import com.narrativex.backend.feature.common.exception.FeatureNotAvailableException;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
-import com.narrativex.backend.feature.project.domain.exception.StoryCharacterLimitExceededException;
-import com.narrativex.backend.feature.project.domain.exception.StoryTokenLimitExceededException;
 import jakarta.persistence.OptimisticLockException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
@@ -31,36 +29,18 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 public class ApiExceptionHandler {
   private static final String UNIQUE_VIOLATION_SQL_STATE = "23505";
 
-  @ExceptionHandler(StoryCharacterLimitExceededException.class)
-  ResponseEntity<ErrorResponse> handleStoryCharacterLimit(
-      StoryCharacterLimitExceededException exception, HttpServletRequest request) {
-    return error(
-        HttpStatus.BAD_REQUEST,
-        ApiErrorCode.STORY_CHARACTER_LIMIT_EXCEEDED,
-        exception.getMessage(),
-        request);
-  }
-
-  @ExceptionHandler(StoryTokenLimitExceededException.class)
-  ResponseEntity<ErrorResponse> handleStoryTokenLimit(
-      StoryTokenLimitExceededException exception, HttpServletRequest request) {
-    return error(
-        HttpStatus.BAD_REQUEST,
-        ApiErrorCode.STORY_TOKEN_LIMIT_EXCEEDED,
-        exception.getMessage(),
-        request);
-  }
-
   @ExceptionHandler(DomainValidationException.class)
   ResponseEntity<ErrorResponse> handleDomainValidation(
       DomainValidationException exception, HttpServletRequest request) {
-    return error(HttpStatus.BAD_REQUEST, ApiErrorCode.INVALID_REQUEST, exception.getMessage(), request);
+    return error(
+        HttpStatus.BAD_REQUEST, ApiErrorCode.INVALID_REQUEST, exception.getMessage(), request);
   }
 
   @ExceptionHandler(IllegalArgumentException.class)
   ResponseEntity<ErrorResponse> handleIllegalArgument(
       IllegalArgumentException exception, HttpServletRequest request) {
-    return error(HttpStatus.BAD_REQUEST, ApiErrorCode.INVALID_REQUEST, "The request is invalid.", request);
+    return error(
+        HttpStatus.BAD_REQUEST, ApiErrorCode.INVALID_REQUEST, "The request is invalid.", request);
   }
 
   @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -102,10 +82,7 @@ public class ApiExceptionHandler {
   ResponseEntity<ErrorResponse> handleMalformedRequest(
       Exception exception, HttpServletRequest request) {
     return error(
-        HttpStatus.BAD_REQUEST,
-        ApiErrorCode.INVALID_REQUEST,
-        "The request is invalid.",
-        request);
+        HttpStatus.BAD_REQUEST, ApiErrorCode.INVALID_REQUEST, "The request is invalid.", request);
   }
 
   @ExceptionHandler(ResourceNotFoundException.class)
@@ -184,15 +161,11 @@ public class ApiExceptionHandler {
   ResponseEntity<ErrorResponse> handleUnauthenticated(
       AuthenticationException exception, HttpServletRequest request) {
     return error(
-        HttpStatus.UNAUTHORIZED,
-        ApiErrorCode.UNAUTHORIZED,
-        "Authentication is required.",
-        request);
+        HttpStatus.UNAUTHORIZED, ApiErrorCode.UNAUTHORIZED, "Authentication is required.", request);
   }
 
   @ExceptionHandler(Exception.class)
-  ResponseEntity<ErrorResponse> handleUnexpected(
-      Exception exception, HttpServletRequest request) {
+  ResponseEntity<ErrorResponse> handleUnexpected(Exception exception, HttpServletRequest request) {
     String correlationId = CorrelationIdFilter.correlationId(request);
     log.error(
         "Unhandled exception at API boundary correlationId={} method={} path={}",
@@ -211,7 +184,8 @@ public class ApiExceptionHandler {
   private static boolean hasSqlState(Throwable throwable, String sqlState) {
     Throwable current = throwable;
     while (current != null) {
-      if (current instanceof SQLException sqlException && sqlState.equals(sqlException.getSQLState())) {
+      if (current instanceof SQLException sqlException
+          && sqlState.equals(sqlException.getSQLState())) {
         return true;
       }
       current = current.getCause();

@@ -107,8 +107,7 @@ class CharacterAggregateTest {
             100L, 10L, "PROTAGONIST", 1, java.util.List.of(), null, java.util.List.of(), null);
 
     assertThrows(
-        InvalidProjectCharacterTransitionException.class,
-        () -> assignment.pinVersion(version));
+        InvalidProjectCharacterTransitionException.class, () -> assignment.pinVersion(version));
     version.submitForReview();
     version.lock("owner");
     assignment.pinVersion(version);

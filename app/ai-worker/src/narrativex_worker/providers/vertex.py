@@ -107,6 +107,6 @@ class VertexGeminiProvider(LlmProvider):
         if not self._credentials.valid or not self._credentials.token:
             await asyncio.to_thread(self._credentials.refresh, Request())
         token = self._credentials.token
-        if not token:
+        if not isinstance(token, str) or not token:
             raise VertexProviderError("Unable to acquire Vertex access token from ADC")
         return token

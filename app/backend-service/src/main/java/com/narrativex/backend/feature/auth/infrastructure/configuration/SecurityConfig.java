@@ -160,7 +160,8 @@ public class SecurityConfig {
       ApiAccessDeniedHandler accessDeniedHandler,
       SecurityContextRepository securityContextRepository,
       @Value("${narrativex.security.local-user-id:local-dev-user}") String localUserId,
-      @Value("${narrativex.security.local-dev-identity-enabled:false}") boolean localDevIdentityEnabled)
+      @Value("${narrativex.security.local-dev-identity-enabled:false}")
+          boolean localDevIdentityEnabled)
       throws Exception {
     http.cors(Customizer.withDefaults())
         .csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()))
