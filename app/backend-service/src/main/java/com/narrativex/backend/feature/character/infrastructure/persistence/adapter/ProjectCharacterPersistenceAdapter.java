@@ -5,6 +5,7 @@ import com.narrativex.backend.feature.character.domain.aggregate.ProjectCharacte
 import com.narrativex.backend.feature.character.infrastructure.persistence.entity.ProjectCharacterJpaEntity;
 import com.narrativex.backend.feature.character.infrastructure.persistence.mapper.CharacterPersistenceMapper;
 import com.narrativex.backend.feature.character.infrastructure.persistence.repository.ProjectCharacterJpaRepository;
+import com.narrativex.backend.feature.common.infrastructure.persistence.OptimisticConcurrency;
 import java.util.ArrayList;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -22,6 +23,11 @@ public class ProjectCharacterPersistenceAdapter implements ProjectCharacterRepos
             : repository
                 .findById(assignment.getId())
                 .map(existing -> {
+                  OptimisticConcurrency.requireVersion(
+                      assignment.getRowVersion(),
+                      existing.getRowVersion(),
+                      ProjectCharacterJpaEntity.class,
+                      assignment.getId());
                   existing.apply(assignment);
                   return existing;
                 })
