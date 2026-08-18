@@ -93,15 +93,18 @@ public class JdbcProjectOverviewQueryAdapter implements ProjectOverviewQueryRepo
                c.title,
                CASE
                  WHEN latest_job.status IN ('QUEUED', 'RUNNING', 'STALLED', 'PAUSED_COST_LIMIT')
+                      AND latest_job.source_hash = c.source_hash
                    THEN 'ANALYZING'
                  WHEN latest_job.status = 'FAILED'
+                      AND latest_job.source_hash = c.source_hash
                    THEN 'FAILED'
-                 WHEN c.status IN ('DRAFT', 'ANALYZING', 'ANALYZED', 'GENERATING_VISUALS',
-                                   'VISUAL_REVIEW', 'VISUAL_READY', 'GENERATING_AUDIO',
-                                   'AUDIO_READY', 'RENDERING', 'RENDERED', 'FAILED')
+                 WHEN latest_job.status = 'COMPLETED'
+                      AND latest_job.source_hash = c.source_hash
+                   THEN 'ANALYZED'
+                 WHEN c.status IN ('ANALYZED', 'GENERATING_VISUALS', 'VISUAL_REVIEW', 'VISUAL_READY',
+                                   'GENERATING_AUDIO', 'AUDIO_READY', 'RENDERING', 'RENDERED', 'FAILED')
                    THEN c.status
                  WHEN c.status = 'READY' THEN 'ANALYZED'
-                 WHEN COUNT(s.id) > 0 THEN 'ANALYZED'
                  ELSE 'DRAFT'
                END AS overview_status,
                COUNT(s.id)::int AS scene_count,
@@ -114,7 +117,7 @@ public class JdbcProjectOverviewQueryAdapter implements ProjectOverviewQueryRepo
           FROM chapters c
           LEFT JOIN scenes s ON s.chapter_id = c.id
           LEFT JOIN LATERAL (
-              SELECT status
+              SELECT status, source_hash
                 FROM generation_jobs
                WHERE chapter_id = c.id
                  AND job_type = 'CHAPTER_ANALYZE'
@@ -122,8 +125,8 @@ public class JdbcProjectOverviewQueryAdapter implements ProjectOverviewQueryRepo
                LIMIT 1
           ) latest_job ON TRUE
          WHERE c.story_version_id = ?
-         GROUP BY c.id, c.order_index, c.title, c.status, c.estimated_duration_ms,
-                  c.updated_at, latest_job.status
+         GROUP BY c.id, c.order_index, c.title, c.status, c.source_hash, c.estimated_duration_ms,
+                  c.updated_at, latest_job.status, latest_job.source_hash
          ORDER BY c.order_index ASC, c.id ASC
         """,
         (rs, rowNum) ->
