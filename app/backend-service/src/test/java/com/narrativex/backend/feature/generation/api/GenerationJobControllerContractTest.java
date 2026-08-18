@@ -30,7 +30,7 @@ class GenerationJobControllerContractTest {
             7L,
             JobType.STORY_ANALYZE,
             JobStatus.RUNNING,
-            ResourceClass.STANDARD,
+            ResourceClass.FAST_CPU,
             40,
             "ANALYZING",
             null,
