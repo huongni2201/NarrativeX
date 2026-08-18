@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useStudioStore } from "@/store/useStudioStore";
@@ -36,7 +36,7 @@ export const ProjectsDashboard: React.FC = () => {
     setSearchInput(projectSearchQuery);
   }, [projectSearchQuery]);
 
-  const updateSearchParams = (updates: { status?: ProjectFilterTab; q?: string }) => {
+  const updateSearchParams = useCallback((updates: { status?: ProjectFilterTab; q?: string }) => {
     const params = new URLSearchParams(searchParams.toString());
     if (updates.status !== undefined) {
       if (updates.status === "all") params.delete("status");
@@ -49,7 +49,7 @@ export const ProjectsDashboard: React.FC = () => {
     }
     const queryString = params.toString();
     router.replace(queryString ? `${pathname}?${queryString}` : pathname, { scroll: false });
-  };
+  }, [pathname, router, searchParams]);
 
   useEffect(() => {
     if (searchInput === projectSearchQuery) return;
@@ -57,7 +57,7 @@ export const ProjectsDashboard: React.FC = () => {
       updateSearchParams({ q: searchInput });
     }, SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(timeoutId);
-  }, [projectSearchQuery, searchInput]);
+  }, [projectSearchQuery, searchInput, updateSearchParams]);
 
   const projectsQuery = useInfiniteQuery({
     queryKey: queryKeys.projects,
