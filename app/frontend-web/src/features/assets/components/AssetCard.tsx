@@ -1,5 +1,4 @@
 import React from "react";
-import Image from "next/image";
 import type { MediaAsset } from "@/types/assets";
 import { Download, Play, Volume2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -20,13 +19,13 @@ export const AssetCard: React.FC<AssetCardProps> = ({ asset, isSelected = false,
         {asset.type === "AUDIO" ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 bg-[#090e18] text-purple-300"><Volume2 className="h-8 w-8" /><span className="text-xs">{asset.duration ?? "Audio"}</span></div>
         ) : (
-          <Image
+          // Backend media may come from environment-specific MinIO/S3/CDN hosts. Keep native image loading until the storage contract exposes a stable trusted hostname for next/image remotePatterns.
+          <img
             src={asset.thumbnailUrl}
             alt={asset.filename}
-            fill
-            unoptimized
-            sizes="(min-width: 1280px) 20vw, (min-width: 768px) 25vw, (min-width: 640px) 33vw, 50vw"
-            className="object-cover transition-transform motion-safe:group-hover:scale-105"
+            loading="lazy"
+            decoding="async"
+            className="h-full w-full object-cover transition-transform motion-safe:group-hover:scale-105"
           />
         )}
         <div className="absolute left-2 right-2 top-2 flex items-center justify-between"><AssetTypeBadge type={asset.type} /><AssetStatusBadge status={asset.status} progressPercent={asset.progressPercent} /></div>
