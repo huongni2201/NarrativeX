@@ -3,6 +3,7 @@ package com.narrativex.backend.feature.auth.infrastructure.configuration;
 import com.narrativex.backend.feature.auth.infrastructure.security.ApiAccessDeniedHandler;
 import com.narrativex.backend.feature.auth.infrastructure.security.ApiAuthenticationEntryPoint;
 import com.narrativex.backend.feature.auth.infrastructure.security.NarrativeXOidcUserService;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.Arrays;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
@@ -119,7 +120,16 @@ public class SecurityConfig {
                 oauth2
                     .userInfoEndpoint(userInfo -> userInfo.oidcUserService(oidcUserService))
                     .defaultSuccessUrl(frontendBaseUrl, true))
-        .logout(logout -> logout.logoutSuccessUrl(frontendBaseUrl));
+        .logout(
+            logout ->
+                logout
+                    .logoutUrl("/logout")
+                    .invalidateHttpSession(true)
+                    .clearAuthentication(true)
+                    .deleteCookies("NX_SESSION", "XSRF-TOKEN")
+                    .logoutSuccessHandler(
+                        (request, response, authentication) ->
+                            response.setStatus(HttpServletResponse.SC_NO_CONTENT)));
     return http.build();
   }
 
@@ -144,6 +154,16 @@ public class SecurityConfig {
         .securityContext(context -> context.securityContextRepository(securityContextRepository))
         .sessionManagement(
             session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+        .logout(
+            logout ->
+                logout
+                    .logoutUrl("/logout")
+                    .invalidateHttpSession(true)
+                    .clearAuthentication(true)
+                    .deleteCookies("NX_SESSION", "XSRF-TOKEN")
+                    .logoutSuccessHandler(
+                        (request, response, authentication) ->
+                            response.setStatus(HttpServletResponse.SC_NO_CONTENT)))
         .exceptionHandling(
             errors ->
                 errors
