@@ -98,6 +98,15 @@ export async function parseErrorResponse(response: Response): Promise<ErrorRespo
   };
 }
 
+async function parseSuccessPayload(response: Response, path: string): Promise<unknown> {
+  try {
+    const raw = await response.text();
+    return raw ? JSON.parse(raw) : undefined;
+  } catch {
+    throw new ApiProtocolError(path, undefined);
+  }
+}
+
 async function loadCsrfToken(): Promise<CsrfTokenResponse> {
   const response = await fetch(apiUrl("/api/v1/auth/csrf"), {
     headers: { Accept: "application/json" },
@@ -105,7 +114,7 @@ async function loadCsrfToken(): Promise<CsrfTokenResponse> {
   });
   if (!response.ok) throw new ApiClientError(await parseErrorResponse(response));
 
-  const payload = (await response.json()) as unknown;
+  const payload = await parseSuccessPayload(response, "/api/v1/auth/csrf");
   if (!isApiResponse(payload, isCsrfTokenResponse)) {
     throw new ApiProtocolError("/api/v1/auth/csrf", payload);
   }
@@ -171,7 +180,7 @@ async function sendRequest<T>(
 
   if (response.status === 204 || !parseJson) return undefined as T;
 
-  const envelope = (await response.json()) as unknown;
+  const envelope = await parseSuccessPayload(response, path);
   if (!isApiResponse(envelope, dataGuard)) throw new ApiProtocolError(path, envelope);
   return envelope.data as T;
 }

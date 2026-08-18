@@ -6,6 +6,7 @@ import { StudioMobileNav } from "@/components/layout/StudioMobileNav";
 import { StudioSidebar } from "@/components/layout/StudioSidebar";
 import { AuthLoadingScreen, AuthScreen } from "@/features/auth/AuthScreen";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useStudioStore } from "@/store/useStudioStore";
 import type { ScreenType } from "@/types/studio";
 
 const ProjectsDashboard = dynamic(() =>
@@ -52,6 +53,8 @@ const screenTitles: Record<StudioRouteScreen, string> = {
 export function StudioAppShell({ screen, projectId }: Readonly<StudioAppShellProps>) {
   const status = useAuthStore((state) => state.status);
   const error = useAuthStore((state) => state.error);
+  const isWizardOpen = useStudioStore((state) => state.isWizardOpen);
+  const selectedCharacterId = useStudioStore((state) => state.selectedCharacterId);
 
   if (status === "bootstrapping") {
     return <AuthLoadingScreen message="Đang kiểm tra phiên đăng nhập…" />;
@@ -99,8 +102,8 @@ export function StudioAppShell({ screen, projectId }: Readonly<StudioAppShellPro
       </div>
 
       <StudioMobileNav />
-      <ProjectWizardModal />
-      <CharacterBibleModal />
+      {isWizardOpen && <ProjectWizardModal />}
+      {selectedCharacterId && <CharacterBibleModal />}
     </div>
   );
 }
