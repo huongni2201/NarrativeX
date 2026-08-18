@@ -16,6 +16,6 @@ The P0 findings are not permission for an unbounded refactor. They should be rem
 
 ## Audit change boundary
 
-Allowed W1-D1 changes: maintainable audit/codebase Markdown, evidence notes, and (only if an architecture decision changed) an ADR. Existing ADR-0001 and ADR-0002 remain consistent with the observed codebase, so no new ADR was required.
+Allowed W1-D1 changes: maintainable audit/codebase Markdown, evidence notes, and (only if an architecture decision changed) an ADR. The topology and durable-state decisions are now represented by canonical ADR-0001; no new architecture decision was required for this audit.
 
 Disallowed in this task: changes under `app/backend-service/src`, `app/frontend-web/src`, `app/ai-worker/src`, migrations, Compose, dependency manifests, or runtime configuration.

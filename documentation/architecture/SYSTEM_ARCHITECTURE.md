@@ -1,6 +1,6 @@
 # NarrativeX System Architecture
 
-Status: target architecture for v1.7, aligned to [`documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_7.md`](../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_7.md).
+Status: V1.8 target architecture and current implementation boundary. The attached `NARRATIVEX_PROJECT_SPEC_V1_8.md` is the product/architecture contract; this page records the repository-facing view.
 
 ## Architectural stance
 
@@ -99,4 +99,4 @@ Production baseline is at least two API replicas, private PostgreSQL with automa
 
 ## Current implementation note
 
-The repository currently contains the application shells described in `documentation/codebase/`. The architecture above is the contract to implement incrementally. Current `SecurityConfig` is explicitly permissive/stateless scaffolding; it must not be interpreted as production authentication.
+The repository currently contains the application shells and partial API integrations described in `documentation/codebase/`. The architecture above is the contract to implement incrementally. Current security is an implementation foundation: OIDC mode requires authentication, local/test may use a configured fallback, CSRF and configured credentialed CORS are present, and shared environments must fail closed when OIDC is disabled.

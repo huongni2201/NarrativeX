@@ -8,14 +8,12 @@ Establish a production-safe persistence baseline for identity, workspace ownersh
 
 ## Existing schema assessment
 
-The repository already contains:
+The repository now contains one consolidated baseline:
 
-- `V1__initial_schema.sql`: schema marker.
-- `V2__domain_foundation.sql`: projects, stories, chapters, scenes, visual beats, jobs, stage/provider operations and operation plans.
-- `V3__v17_control_plane.sql`: rights, moderation, notifications/outbox, entitlement/usage, identity privacy, AI audit, deletion and abuse tables.
+- `V1__initial_schema.sql`: schema marker, projects, stories, chapters, scenes, visual beats, jobs, stage/provider operations, operation plans, rights, moderation, notifications/outbox, entitlement/usage, identity privacy, AI audit, deletion, abuse, reusable character identity, appearances, assignments and keyset pagination.
 - JPA `AuditedEntity` using `BIGINT IDENTITY`, `row_version`, `created_at` and `updated_at`.
 
-Do not edit an applied migration. Corrections are introduced as a new forward migration unless the team proves the migration has never left an isolated disposable environment.
+This baseline was consolidated before any data or migration history existed in a shared environment. Do not edit it after release; future corrections must use a new forward migration.
 
 ## P0 decision: identifier strategy
 
@@ -60,7 +58,7 @@ If v1.7 chooses single-owner projects for the first release, retain a workspace/
 
 **Files:**
 
-- Review: `app/backend-service/src/main/resources/db/migration/V1__*.sql` through `V3__*.sql`
+- Review: `app/backend-service/src/main/resources/db/migration/V1__initial_schema.sql`
 - Create: next forward migration, never reuse an applied version
 - Modify: JPA mappings only to match the accepted migration contract
 - Create/modify: PostgreSQL Testcontainers migration tests

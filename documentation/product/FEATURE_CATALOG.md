@@ -1,10 +1,10 @@
- # NarrativeX V1.7 — Feature Catalog
+# NarrativeX V1.8 — Feature Catalog
 
- **Phạm vi:** production specification ngày 17/08/2026. Các ID dưới đây là catalog chức năng canonical; số liệu launch là configuration có version, không phải hằng số rải trong domain.
+**Phạm vi:** V1.8 product contract ngày 18/08/2026. Các ID FR-01—FR-85 được giữ lại từ V1.7 trừ khi đặc tả V1.8 diễn giải khác; số liệu launch là configuration có version, không phải hằng số rải trong domain.
 
  ## Core product (FR-01—FR-20)
 
- | ID | Nhóm | Yêu cầu V1.7 |
+| ID | Nhóm | Yêu cầu V1.8 |
  |---|---|---|
  | FR-01 | Authentication | Google OIDC + HttpOnly server session; không Keycloak. |
  | FR-02 | Project | Tạo, rename, archive, duplicate project. |
@@ -29,7 +29,7 @@
 
  ## Storyboard, consistency và media (FR-21—FR-40)
 
- | ID | Nhóm | Yêu cầu V1.7 |
+| ID | Nhóm | Yêu cầu V1.8 |
  |---|---|---|
  | FR-21 | Visual planning | Tạo VisualBeat theo visual change, không 1 câu = 1 ảnh. |
  | FR-22 | Outfit Bible | Outfit version tách identity; scene chọn outfit. |
@@ -54,7 +54,7 @@
 
  ## Entitlement, concurrency và cost (FR-41—FR-66)
 
- | ID | Nhóm | Yêu cầu V1.7 |
+| ID | Nhóm | Yêu cầu V1.8 |
  |---|---|---|
  | FR-41 | Plan entitlement | Backend trả và enforce watermark, max quality, exports, concurrency, flags. |
  | FR-42 | Export policy | FREE launch baseline: watermark, Standard 720p max, 1 long-form + 3 Short/tháng; paid theo config. |
@@ -85,7 +85,7 @@
 
  ## Trust, safety, privacy và localization (FR-67—FR-78)
 
- | ID | Nhóm | Yêu cầu V1.7 |
+| ID | Nhóm | Yêu cầu V1.8 |
  |---|---|---|
  | FR-67 | Input moderation | Story/character/prompt/reference trước planning/generation; SAFE/REVIEW/BLOCK + policy version; BLOCK không paid call. |
  | FR-68 | Output moderation | Image/video/text metadata trước APPROVED/PUBLISHABLE; normalize provider rejection. |
@@ -102,7 +102,7 @@
 
  ## Chapter-first và incremental continuation (FR-79—FR-83)
 
- | ID | Nhóm | Yêu cầu V1.7 |
+| ID | Nhóm | Yêu cầu V1.8 |
  |---|---|---|
  | FR-79 | Chapter management | Tạo, sửa, đổi thứ tự Chapter với optimistic locking và liên kết StoryVersion nguồn. |
  | FR-80 | Incremental continuation | Nhập thêm Chapter theo nhiều đợt; inherit Bible, locked CharacterVersion, Location, Style và generation settings theo snapshot. |

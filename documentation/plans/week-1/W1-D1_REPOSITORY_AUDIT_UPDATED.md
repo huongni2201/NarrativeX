@@ -18,7 +18,7 @@ The frontend UI is already implemented. Frontend work in D1 is therefore limited
 
 Treat the following as **initial hypotheses that must be verified with repository evidence**, not as unquestioned facts:
 
-- Backend: Spring Boot 4.1/Java 25 with JPA, Flyway V1–V3, Redis, Actuator and initial `project`, `storyboard`, `generation`, `health` modules.
+- Backend: Spring Boot 4.1/Java 25 with JPA, consolidated Flyway V1 baseline, Redis, Actuator and initial `project`, `storyboard`, `generation`, `health` modules.
 - Security: conditional OIDC exists, but local mode permits every `/api/v1/**` route; project ownership currently depends on a local user ID scaffold.
 - Frontend: Next.js 16/React 19 studio UI, typed API client, Zustand/TanStack Query dependencies and several mock-data paths.
 - Worker: Python 3.12 typed provider boundary and dry-run lifecycle; no durable claim/lease/queue execution.

@@ -21,7 +21,7 @@ NarrativeX is one deployable Spring Boot application with explicit bounded modul
 | `notification` | Notification, preferences, transactional outbox and delivery state | Email vendor coupling inside domain entities |
 | `safety` | Moderation decisions, policy versioning, rights/consent gates, identity-review decisions | Treating provider safety signals as canonical business state |
 | `character-library` | User-owned immutable CharacterTemplate versions and project import snapshots | Auto-updating old projects from a mutable library |
-| `shared` | Small cross-cutting primitives, IDs, clocks, error contracts | A catch-all business module or “god utility” |
+| `common` | Small cross-cutting primitives, IDs, clocks, error contracts | A catch-all business module or “god utility” |
 
 ## Worker boundary
 
@@ -76,37 +76,37 @@ Rules:
 - `generation` coordinates through interfaces; provider implementations live in infrastructure/worker adapters.
 - `asset` owns storage abstraction so callers cannot each invent bucket/key rules.
 - Modules communicate with explicit application commands/events; do not reach into another module's repositories.
-- `shared` is intentionally small. If a type contains business policy, it belongs to its owning module.
+- `feature/common` is intentionally small. If a type contains business policy, it belongs to its owning feature.
 - A new microservice is justified only by measured bottleneck, independent deployment/ownership, or a hard runtime/security boundary. The Python worker already meets the runtime boundary.
 
-## W1-D2 enforcement
+## Architecture enforcement
 
 The current backend enforces these rules with automated package/dependency tests under `src/test/java/com/narrativex/backend/architecture/`:
 
-- `module.api` may call application use cases, but not repositories;
+- `feature/<name>/api` may call application use cases, but not repositories;
 - application packages do not import HTTP API DTOs;
 - a module may not reach another module's repository;
 - domain packages do not import web, Redis, storage, provider, or worker runtime packages;
-- `shared` does not import business modules;
-- REST controllers live in `module.api` packages.
+- `feature/common` does not import business features;
+- REST controllers live in the owning `feature/<name>/api/controller` packages.
 
-Cross-module project lookup is intentionally exposed as the small `project.application.port.in.ProjectAccess` contract. This preserves PostgreSQL/project ownership in the project module without introducing an event bus or repository registry. The shared HTTP boundary uses `ApiResponse<T>`/`PaginationResponse<T>` for normal JSON success and `ErrorResponse` for application errors, with a request correlation ID. SSE, binary, download, actuator and other protocol payloads remain outside this envelope.
+Cross-module project lookup is intentionally exposed as the small `project.application.port.in.ProjectAccess` contract. This preserves PostgreSQL/project ownership in the project feature without introducing an event bus or repository registry. The shared HTTP boundary uses `ApiResponse<T>`/cursor-page responses for normal JSON success and `ErrorResponse` for application errors, with a request correlation ID. SSE, binary, download, actuator and other protocol payloads remain outside this envelope.
 
 ## DDD package structure
 
 The active `project`, `character`, `generation` and `storyboard` slices now use the following dependency direction:
 
 ```text
-module.api
-  -> module.application.command / usecase / port.in
-      -> module.domain.model
-      -> module.application.port.out
-module.infrastructure.persistence
-  -> module.application.port.out
-  -> module.domain.model
+feature/<name>.api
+  -> feature/<name>.application.command / usecase / port.in
+      -> feature/<name>.domain
+      -> feature/<name>.application.port.out
+feature/<name>.infrastructure.persistence
+  -> feature/<name>.application.port.out
+  -> feature/<name>.domain
 ```
 
-- `domain.model` contains framework-free entities, value-like enums and aggregate behavior.
+- `domain/aggregate`, `domain/entity` and `domain/enums` contain framework-free entities, value-like enums and aggregate behavior.
 - `application.command` contains input contracts owned by use cases; HTTP request records remain in `api`.
 - `application.usecase` owns orchestration and transaction boundaries.
 - `application.port.out` owns persistence abstractions; it does not expose Spring Data types.

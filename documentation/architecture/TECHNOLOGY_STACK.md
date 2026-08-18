@@ -1,10 +1,10 @@
 # NarrativeX Technology Stack
 
-This page separates the technology already visible in the repository from the v1.7 target contract. Versions below are derived from the current build files where available; the specification remains the authority for production behavior.
+This page separates technology visible in the repository from the V1.8 target contract. Versions below are derived from the current build files where available; the attached V1.8 specification remains the authority for intended production behavior.
 
 ## Application stack
 
-| Layer | Current repository evidence | v1.7 role |
+| Layer | Current repository evidence | V1.8 role |
 |---|---|---|
 | Web | Next.js `^16.3.1`, React `19.2.8`, TypeScript, Tailwind CSS | Story/project UI, visual review, cost confirmation, SSE progress and notifications |
 | Backend | Java `25`, Spring Boot `4.1.0`, Web, Validation, JPA, Security, Actuator | Modular monolith, API, ownership, durable orchestration and business rules |
@@ -15,7 +15,7 @@ This page separates the technology already visible in the repository from the v1
 | Object storage | MinIO local/dev; S3-compatible private storage target | Images, audio, video and derivative media; versioning for critical media |
 | AI | Vertex AI Gemini through server-side ADC/workload identity; provider ports | Story/scene/visual/prompt/highlight planning; optional image/video providers |
 | Auth | Spring Security dependency; current config is permissive scaffold | Google OIDC with server-side Secure/HttpOnly/SameSite session |
-| Migrations | Flyway `V1__initial_schema.sql` baseline | Backward-compatible versioned PostgreSQL migrations and rehearsal in staging |
+| Migrations | Flyway consolidated baseline `V1__initial_schema.sql` | PostgreSQL schema bootstrap; future changes must use new forward migrations |
 | Observability | Spring Boot Actuator foundation | Correlated logs/metrics/traces across request -> job -> worker -> provider/storage |
 | Testing | JUnit/Spring Boot/Testcontainers; Pytest/pytest-asyncio; frontend lint/type-check | Contract, idempotency, provider reconciliation, safety, restore and E2E gates |
 

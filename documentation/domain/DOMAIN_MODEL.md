@@ -1,4 +1,4 @@
- # NarrativeX V1.7 — Domain Model
+# NarrativeX V1.8 — Domain Model
 
  ## 1. Bounded responsibility
 
@@ -23,7 +23,7 @@
  | ProjectStyleProfile | style/negative prompt/aspect/version |
  | Chapter | StoryVersion boundary, order/title |
  | Scene | chapter, order, narration, duration, row_version, status |
- | Shot | scene, order, camera/visual intent/duration/approved asset |
+| Shot | Optional finer-grained camera/timeline concept; V1.8 does not require duplicating VisualBeat semantics |
  | VisualBeat | scene timeline, narration segment, visual intent, location, row_version; generation unit |
  | VisualBeatCharacter | beat + CharacterVersion + OutfitVersion + role in frame |
  | Asset | storage metadata/type/checksum/dimensions/duration/status; binary ngoài DB |

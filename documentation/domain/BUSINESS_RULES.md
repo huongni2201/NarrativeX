@@ -1,6 +1,6 @@
- # NarrativeX V1.7 — Business Rules
+# NarrativeX V1.8 — Business Rules
 
- **Nguồn:** đặc tả V1.7 Production ngày 17/08/2026. Mọi threshold/plan default có chữ “baseline/default” là configuration có version; không hard-code trong aggregate hay UI.
+**Nguồn:** đặc tả V1.8 ngày 18/08/2026. Mọi threshold/plan default có chữ “baseline/default” là configuration có version; không hard-code trong aggregate hay UI.
 
  ## Story, identity và asset lifecycle
 
@@ -10,14 +10,14 @@
  - **BR-04** Lock không xóa version cũ.
  - **BR-05** Scene/VisualBeat đã generate phải lưu immutable references tới Character, ProjectCharacter, CharacterVersion và CharacterAppearance/OutfitVersion đã resolve tại thời điểm generation.
  - **BR-06** Đổi CharacterVersion không ghi đè shot cũ; đánh dấu OUTDATED khi cần.
- - **BR-07** Shot có tối đa một primary image APPROVED, nhưng nhiều attempts.
+  - **BR-07** VisualBeat có tối đa một primary image APPROVED, nhưng nhiều attempts; Shot chỉ là khái niệm finer-grained tùy workflow.
  - **BR-08** Regenerate tạo attempt mới, không overwrite artifact cũ.
  - **BR-09** Project render chỉ bắt đầu khi mọi scene bắt buộc READY.
  - **BR-10** Job dài luôn async; HTTP không giữ đến khi AI hoàn tất.
  - **BR-11** Retry FAILED theo policy và idempotent theo job/attempt.
  - **BR-12** Binary không lưu trong PostgreSQL.
  - **BR-13** Delete Project soft-delete trước; physical cleanup bằng retention job.
- - **BR-14** Scene order unique trong Chapter; Shot order unique trong Scene.
+  - **BR-14** Scene order unique trong Chapter; VisualBeat order unique trong Scene.
  - **BR-15** Narration timing là duration mặc định nếu user không override.
  - **BR-16** Lưu resolved prompt và mọi reference/version snapshot để reproducible.
  - **BR-17** Provider/model nằm ngoài domain qua configuration/port.
@@ -27,7 +27,7 @@
  - **BR-21** Chỉ owner/share được truy cập asset.
  - **BR-22** Transition job quan trọng có audit timestamp và error code khi fail.
  - **BR-23** Reference bắt buộc mất thì fail fast, không tự tạo nhân vật mới.
- - **BR-24** V1.7 image-first; AI video chỉ optional/selected theo capability, cost, quality.
+  - **BR-24** V1.8 image-first; AI video chỉ optional/selected theo capability, cost, quality.
  - **BR-25** Đổi scene order làm render hiện tại OUTDATED nhưng không xóa export.
  - **BR-26** Character Bible/Master thuộc Character identity ở User/Workspace scope. Project sử dụng Character thông qua ProjectCharacter; ProjectCharacter giữ role, story-specific metadata và version pins. Character được reuse xuyên Project và Chapter mà không duplicate identity.
  - **BR-27** LOCKED CharacterVersion immutable identity/reference; thay đổi tạo version mới.
@@ -36,11 +36,11 @@
  - **BR-30** GenerationAttempt lưu Character ID, ProjectCharacter ID, CharacterVersion, CharacterAppearance/OutfitVersion, resolved references, workflow, model và resolved prompt snapshot.
  - **BR-31** Generation success không tự APPROVED; cần human review và/hoặc Identity QA.
  - **BR-32** Identity QA chỉ là tín hiệu hỗ trợ; similarity không bảo đảm tuyệt đối.
- - **BR-33** Regenerate beat/shot chỉ tác động đơn vị đó trừ khi user yêu cầu rộng hơn.
+  - **BR-33** Regenerate VisualBeat chỉ tác động đơn vị đó trừ khi user yêu cầu rộng hơn.
  - **BR-34** Location Bible và Style Profile được resolve vào beat liên quan.
  - **BR-35** Render chapter không làm đổi snapshot/reference của chapter đã render.
  - **BR-36** Multi-character phải resolve riêng ProjectCharacter → Character → CharacterVersion → CharacterAppearance/OutfitVersion cho từng nhân vật; không resolve bằng character name.
- - **BR-37** V1.7 không bắt buộc train LoRA/adapter; reference conditioning phải hoạt động.
+  - **BR-37** V1.8 không bắt buộc train LoRA/adapter; reference conditioning phải hoạt động.
 
  ## Duration, Short và image/render settings
 
@@ -56,7 +56,7 @@
  - **BR-53** Image ratio chỉ từ capability provider/model active.
  - **BR-54** Quality tier là DRAFT/STANDARD/HIGH provider-agnostic; adapter map và snapshot resolved option.
  - **BR-55** Attempt lưu requested ratio/tier và actual dimensions; Project default đổi không đổi asset cũ.
- - **BR-56** Beat/Shot có thể override ratio/tier; không override thì inherit; regenerate tạo attempt mới.
+  - **BR-56** VisualBeat có thể override ratio/tier; không override thì inherit; regenerate tạo attempt mới.
  - **BR-57** Ratio mismatch phải chọn crop/fit/pad/reframe; cấm silent stretch.
  - **BR-58** Quality tier không giả định pixel dimensions; actual dimensions phải persist.
  - **BR-59** RenderProfile resolve ratio + video quality thành dimensions encoder hợp lệ.

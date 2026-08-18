@@ -30,4 +30,4 @@ Render/Short job terminal transition
 
 ## Current foundation status
 
-`V3__v17_control_plane.sql` provides `outbox_events`, `notifications` and `notification_preferences`. The dispatcher, email adapter and exact-once integration tests remain target work.
+The control-plane section of consolidated `V1__initial_schema.sql` provides `outbox_events`, `notifications` and `notification_preferences` for the V1.8-retained control plane. The dispatcher, email adapter and exact-once integration tests remain target work.

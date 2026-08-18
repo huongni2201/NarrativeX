@@ -1,4 +1,4 @@
- # NarrativeX V1.7 — Glossary
+# NarrativeX V1.8 — Glossary
 
  | Thuật ngữ | Định nghĩa |
  |---|---|
@@ -19,7 +19,7 @@
  | CharacterTemplate | Nhân vật reusable ở user-level library; Project import thành snapshot. |
 | Project Bible | Project-scoped snapshot/assignments của ProjectCharacter, Location, Outfit, Style và generation settings dùng xuyên chapter. |
  | Scene | Đơn vị nội dung storyboard có narration và duration. |
- | Shot | Đơn vị camera fine-grained bên trong Scene. |
+ | Shot | Khái niệm camera/timeline finer-grained tùy workflow; V1.8 không bắt buộc tách semantics khỏi VisualBeat. |
  | VisualBeat | Khoảng narration/timeline có visual intent ổn định; đơn vị generation chính long-form. |
  | GenerationAttempt | Một lần generate cụ thể, lưu prompt/model/seed/settings/output. |
  | Approved Asset | Asset được user chọn làm output chính cho beat/shot. |

@@ -3,7 +3,7 @@
 ## Before opening a change
 
 1. Read `AGENTS.md` and the relevant document under `documentation/`.
-2. Confirm the change against the v1.7 source-of-truth specification.
+2. Confirm the change against the V1.8 project specification and the current code/ADR baseline.
 3. Keep the write scope focused and preserve unrelated worktree changes.
 4. Add tests for new business rules, state transitions, contracts, or security boundaries.
 

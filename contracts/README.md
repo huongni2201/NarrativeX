@@ -10,4 +10,4 @@ This directory contains versioned payloads shared by the Spring Boot API and Pyt
 - Snapshot references for prompt, character/outfit, image settings, render profile, and policy versions where applicable.
 - Explicit terminal/error states; ambiguous provider submission is `UNKNOWN`, not an automatic retry.
 
-The first concrete contract is [job-event.v1.schema.json](./job-event.v1.schema.json). It now includes the v1.7 chapter continuation and notification dispatch job types; adding a type does not bypass the backend safety/entitlement gates.
+The first concrete contract is [job-event.v1.schema.json](./job-event.v1.schema.json). It retains the V1.7 chapter-continuation and notification-dispatch job types in the V1.8 baseline; adding a type does not bypass the backend safety/entitlement gates.

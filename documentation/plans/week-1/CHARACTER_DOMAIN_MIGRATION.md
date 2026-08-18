@@ -7,7 +7,7 @@
 - Added `CharacterVersion` with `DRAFT -> REVIEW -> LOCKED` behavior and lock metadata.
 - Added `CharacterAppearance` and `OutfitVersion` so age, hairstyle, injury and wardrobe changes do not create a new identity.
 - Added application commands, ownership-aware use cases, repository ports and JPA persistence adapters.
-- Added Flyway V4 tables and indexes for PostgreSQL-authoritative state.
+- Added the character tables and indexes to the consolidated Flyway V1 baseline for PostgreSQL-authoritative state.
 
 ## Deliberate follow-up
 

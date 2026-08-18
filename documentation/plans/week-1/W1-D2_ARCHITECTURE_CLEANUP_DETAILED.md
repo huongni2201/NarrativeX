@@ -1,6 +1,6 @@
 # NarrativeX — W1-D2 Architecture Boundary & Frontend API Foundation
 
-> Historical W1-D2 plan. The subsequent DDD persistence migration is tracked in `DDD_MIGRATION.md` and ADR-0004; the pre-migration observations below are retained as implementation evidence.
+> Historical W1-D2 plan. The subsequent DDD persistence migration is tracked in `DDD_MIGRATION.md` and canonical ADR-0003; the pre-migration observations below are retained as implementation evidence.
 
 > **Status:** READY TO IMPLEMENT  
 > **Week:** Week 1 — Foundation & Clean  

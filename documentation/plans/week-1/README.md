@@ -1,7 +1,7 @@
 # NarrativeX Week 1 — Implementation Pack
 
 Status: proposed implementation plan  
-Source of truth: NarrativeX Project Specification v1.7 and [`NARRATIVEX_WEEK_1_2_IMPLEMENTATION_TIMELINE.md`](../../product/NARRATIVEX_WEEK_1_2_IMPLEMENTATION_TIMELINE.md)  
+Historical plan baseline: NarrativeX Project Specification v1.7. Current implementation work must be checked against the V1.8 specification and [`NARRATIVEX_WEEK_1_2_IMPLEMENTATION_TIMELINE.md`](../../product/NARRATIVEX_WEEK_1_2_IMPLEMENTATION_TIMELINE.md).
 Scope: Week 1 — Foundation & Clean
 
 ## Outcome

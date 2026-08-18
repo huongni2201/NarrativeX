@@ -7,7 +7,7 @@ Authenticate a user with Google OIDC, establish a server-managed session, and ex
 ## Module boundary
 
 ```text
-modules/auth/
+feature/auth/
   api/
     controller/
     response/
@@ -19,9 +19,9 @@ modules/auth/
     configuration/
     security/
 
-modules/common/
+feature/common/
   api/        # generic ErrorResponse/correlation/error writer
-  response/   # generic ApiResponse/PaginationResponse
+  response/   # generic ApiResponse/cursor-page response
 
 project / character / generation
   -> depend on auth.application.port.in.CurrentUserId
@@ -49,7 +49,7 @@ Browser mutation
   -> ApiResponse<CsrfTokenResponse>
 ```
 
-`CurrentUserResponse` and `CsrfTokenResponse` live in `auth/api/response`. Generic envelope/error infrastructure lives in `modules/common`; Spring Security-specific entry-point/access-denied handlers stay in auth infrastructure.
+`CurrentUserResponse` and `CsrfTokenResponse` live in `auth/api/response`. Generic envelope/error infrastructure lives in `feature/common`; Spring Security-specific entry-point/access-denied handlers stay in auth infrastructure.
 
 ## Security rules
 

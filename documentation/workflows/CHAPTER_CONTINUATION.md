@@ -1,6 +1,6 @@
 # Chapter-first continuation workflow
 
-Chapter là processing boundary bền vững của v1.7. Project có thể nhận thêm hoặc sửa một Chapter mà không mặc định phân tích/generate/render lại các Chapter không bị ảnh hưởng.
+Chapter là processing boundary bền vững của V1.8. Project có thể nhận thêm hoặc sửa một Chapter mà không mặc định phân tích/generate/render lại các Chapter không bị ảnh hưởng.
 
 ## Flow
 
@@ -31,4 +31,4 @@ Rights attestation, input moderation, prompt-injection boundaries, account abuse
 
 ## Current foundation status
 
-The repository has Chapter/Scene/VisualBeat persistence, v1.7 worker job types, contract enum values and V3 snapshot metadata columns. Full chapter command controllers, affected-scope resolver and resume executor remain implementation work.
+The repository has Chapter/Scene/VisualBeat persistence, retained chapter-continuation worker job types, contract enum values and V3 snapshot metadata columns. Full chapter command controllers, affected-scope resolver and resume executor remain implementation work.

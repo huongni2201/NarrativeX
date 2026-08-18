@@ -25,7 +25,7 @@ Tham chiếu roadmap tổng thể: [`NARRATIVEX_TIMELINE.md`](./NARRATIVEX_TIMEL
 
 ### Navigation decision carried into integration
 
-Storyboard remains a chapter-scoped workspace in W1-D2. The target URL contract is recorded in ADR-0006:
+Storyboard remains a chapter-scoped workspace in W1-D2. The target URL contract is recorded in ADR-0002:
 
 ```text
 /projects/{projectId}

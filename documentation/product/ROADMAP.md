@@ -1,6 +1,6 @@
- # NarrativeX — Roadmap và release plan V1.7
+# NarrativeX — Roadmap và release plan V1.8
 
- **Ngày đặc tả:** 17/08/2026 · **Mục tiêu:** production-ready image-first story video studio.
+**Ngày đặc tả:** 18/08/2026 · **Mục tiêu:** production-ready image-first story video studio.
 
  ## Release baseline
 
@@ -8,12 +8,12 @@
  |---|---|---|
  | Internal MVP | Story → analysis → character/storyboard → image/TTS → FFmpeg; fake + limited real smoke | 4–6 tuần với team nhỏ đã có baseline |
  | Creator MVP / Staging | Google auth, durable jobs, cost controls, batch review, Shorts baseline, real-provider E2E, staging CI/CD | 8–12 tuần cumulative |
- | Production-ready Beta (V1.7) | Trust & Safety, abuse limit, privacy/deletion, backup/restore, observability, provider resilience, entitlement, chapter continuation và notification outbox | 14–20 tuần cumulative |
+| Production-ready Beta (V1.8) | Trust & Safety, abuse limit, privacy/deletion, backup/restore, observability, provider resilience, entitlement, chapter continuation và notification outbox | 14–20 tuần cumulative |
  | Scale hardening | Capacity tuning, selected AI-video, routing, storage lifecycle, billing/analytics reconciliation | +6–10 tuần sau beta theo usage thực tế |
 
  Các mốc là planning envelope, không phải cam kết sprint. Mỗi gate cần acceptance kỹ thuật + product + cost + safety.
 
- ## V1.7 production scope
+## V1.8 production scope
 
  1. **Durable core:** Google OIDC, ownership, StoryVersion, semantic scene/beat planning, CharacterVersion lock, Outfit/Project Bible, image/TTS/subtitle/FFmpeg và FinalArtifact validation.
  2. **Creator control:** review grid, batch approve/reject/regenerate, prompt inspector, animatic, chapter/incremental render, ShortCandidate/ShortClip.
@@ -30,9 +30,9 @@
  | V1.1 | Style presets, Location/Outfit Bible, Identity QA nâng cao, auto merge/split, batch generation, prompt editor, usage dashboard. |
  | V1.2 | AI video cho selected shots; Economy/Balanced/Cinematic mode. |
  | V1.5 | Vertex Gemini production, dynamic operation cost, per-user accounting, delta/reuse, batch review, prompt inspector, animatic, watchdog/resiliency. |
- | **V1.7** | **Trust & Safety production layer, rights/consent/privacy, abuse protection, deletion lifecycle, AI audit, vi-VN/en-US i18n, entitlement, chapter continuation và selected-beat provider path.** |
+| **V1.8** | **V1.8 architecture requirements, while retaining the V1.7 functional catalog: Trust & Safety, rights/consent/privacy, abuse protection, deletion lifecycle, AI audit, vi-VN/en-US i18n, entitlement, chapter continuation và selected-beat provider path.** |
 
- ## Next after V1.7
+## Next after V1.8
 
  | Version | Scope | Entry criteria |
  |---|---|---|

@@ -32,4 +32,4 @@ Normalize backend module/package semantics without intentionally changing public
 
 No Maven/CI pass is claimed for this migration because the GitHub connector cannot execute Maven and the repository currently has no PR workflow providing test evidence. Run `./mvnw test` (or `mvnw.cmd test`) before merge.
 
-See [ADR-0011](../../decisions/ADR-0011-module-package-and-aggregate-boundaries.md).
+See [ADR-0003](../../decisions/ADR-0003-ddd-feature-boundaries-and-api-contracts.md).

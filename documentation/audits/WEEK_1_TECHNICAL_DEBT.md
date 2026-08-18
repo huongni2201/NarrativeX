@@ -28,15 +28,15 @@ Severity: P0
 Component: database/backend  
 Title: Fresh PostgreSQL cannot boot the backend  
 Evidence: The backend is configured with Flyway and Hibernate validation, but a fresh Compose PostgreSQL instance had no migration history or application tables. Starting Spring Boot failed with `Schema-validation: missing table [chapters]`; `psql` confirmed `flyway_schema_history` did not exist.  
-File/line or command: `app/backend-service/src/main/resources/application.yml:9-27`; `app/backend-service/src/main/resources/db/migration/V1__schema_baseline.sql`; `V2__create_core_schema.sql`; `V3__add_rights_and_control_plane.sql`; commands in `documentation/audits/evidence/W1-D1_COMMAND_EVIDENCE.md`.  
+File/line or command: `app/backend-service/src/main/resources/application.yml:9-27`; `app/backend-service/src/main/resources/db/migration/V1__initial_schema.sql`; commands in `documentation/audits/evidence/W1-D1_COMMAND_EVIDENCE.md`.
 Current behavior: Hibernate validates against an empty PostgreSQL schema before the service becomes usable.  
-Expected behavior: Flyway applies V1-V3 to an empty supported PostgreSQL database before Hibernate validation, and startup succeeds with a recorded migration history.  
+Expected behavior: Flyway applies the consolidated V1 baseline to an empty supported PostgreSQL database before Hibernate validation, and startup succeeds with a recorded migration history.
 Impact: A clean environment cannot start the backend or execute the first database-backed flow.  
 Risk type: reliability, deployment, data integrity  
 Recommended owner: backend/platform  
 Target milestone: W1-D4  
 Dependencies: Confirm Flyway configuration/order and use an isolated PostgreSQL integration test.  
-Closure test: Start an empty PostgreSQL 16 instance, boot the backend, assert migration history contains V1-V3, and exercise a project read/write.  
+Closure test: Start an empty supported PostgreSQL instance, boot the backend, assert migration history contains V1, and exercise a project read/write.
 Blocks next phase: YES  
 Status: OPEN
 
@@ -119,7 +119,7 @@ Component: database/backend
 Title: H2 test profile bypasses PostgreSQL migrations  
 Evidence: Tests use H2 in-memory storage with `ddl-auto=create-drop` and Flyway disabled, while production uses PostgreSQL and schema validation.  
 File/line or command: `app/backend-service/src/test/resources/application-test.yml:1-16`.  
-Current behavior: The passing context test does not validate V1-V3 SQL, PostgreSQL types/indexes/constraints, or migration ordering.  
+Current behavior: The passing context test does not validate consolidated V1 SQL, PostgreSQL types/indexes/constraints, or migration ordering.
 Expected behavior: At least one repeatable integration gate boots against PostgreSQL and applies the real migration chain.  
 Impact: The P0 fresh-database failure can pass unnoticed in the default test suite.  
 Risk type: test coverage, deployment reliability  
@@ -154,7 +154,7 @@ Severity: P2
 Component: database  
 Title: Foreign-key access paths are not explicitly indexed  
 Evidence: The core migration adds an owner/status index for projects but does not add explicit indexes for most foreign-key columns such as project, story version, job, chapter, or scene references.  
-File/line or command: `V2__create_core_schema.sql`; `V3__add_rights_and_control_plane.sql`.  
+File/line or command: `app/backend-service/src/main/resources/db/migration/V1__initial_schema.sql`.
 Current behavior: Query plans may rely on sequential scans or incidental indexes as data grows.  
 Expected behavior: Indexes follow measured ownership/status/job polling and relationship queries, with constraints retained separately from access paths.  
 Impact: Potential latency and lock/maintenance pressure at scale.  

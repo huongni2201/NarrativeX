@@ -1,23 +1,21 @@
-# NarrativeX W1-D1 Codebase Map
+# NarrativeX Current Codebase Map
 
 ## Audit scope and status
 
-- Audit: NX-W1-D1, 2026-08-17.
-- Status: `PARTIAL`. The repository was mapped and native checks were run, but a fresh PostgreSQL startup fails schema validation and frontend checks were blocked by a locked `node_modules` binary.
-- Initial Git state: branch `main`, HEAD `d6760188130814c7e4654c4bdc391472e05d338c`, dirty before the audit with frontend/documentation changes. The audit preserved them.
+- Baseline: V1.8 cut, 2026-08-18.
+- Status: `PARTIAL`. This map records the current implementation boundary; historical W1-D1 command evidence remains under `documentation/audits/`.
+- Current Git baseline: branch `main`, HEAD `f5fb996bcd942da60550902109fe4eb1fff305a3`.
 - “Target” below is a later integration shape, not a claim that the target capability already exists.
 
 ## Repository layout
 
 ```text
-app/backend-service/   Spring Boot modular monolith: API, DDD modules, persistence adapters, Flyway, security
+app/backend-service/   Spring Boot modular monolith: API, feature slices, persistence adapters, Flyway, security
 app/frontend-web/      Next.js App Router / React / TypeScript studio UI
 app/ai-worker/         Python 3.12 worker foundation and provider ports
 contracts/             versioned backend-to-worker JSON schema
 docker-compose.yml     local PostgreSQL 18, Redis 8, MinIO and backend service
 documentation/         architecture, domain, workflows, plans, ADRs and audit outputs
-infrastructure/        local/production guardrail notes; no deployment manifests
-scripts/               README only; no executable verification script
 ```
 
 ## Runtime architecture
@@ -32,7 +30,7 @@ flowchart LR
   W -. target provider ports .-> P[External AI/media providers]
 ```
 
-Current reality: the only verified runtime path that reaches PostgreSQL is the backend. The worker does not consume a durable queue or call the backend, and visible frontend screens do not use the API client except for the unreachable legacy `StudioDashboard.createProject` path.
+Current reality: the backend owns the verified PostgreSQL path. The worker does not yet consume a durable queue or call the backend. The main frontend project list/create/story/analysis flow uses the API client; character, storyboard, render and asset capabilities remain explicit unsupported/prototype surfaces outside API mode.
 
 ## Backend modules (current)
 
@@ -43,18 +41,18 @@ Current reality: the only verified runtime path that reaches PostgreSQL is the b
 | `generation` | GenerationJob/OperationPlan aggregates, enqueue/read use cases, ports and JPA adapters | real persistence scaffold; no worker execution |
 | `storyboard` | framework-free chapter/scene/visual-beat models plus JPA mappings | persistence mapping only; no controller/use-case API |
 | `health` | provider configuration status response | diagnostic/configuration only, not a provider health probe |
-| `shared.api` | `ApiResponse`/`PaginationResponse` success envelopes, `ErrorResponse` handlers, security writers and correlation IDs | API contract migration complete for current JSON routes; future resource routes still pending |
-| `configuration` | limits and conditional OIDC/local security chain | local mode open by default; not production safe |
+| `feature.common` | `ApiResponse`/cursor-page success envelopes, `ErrorResponse` handlers, security writers and correlation IDs | API contract foundation for current JSON routes; future resource routes still pending |
+| `feature.auth` | current-user/CSRF endpoints, SecurityContext identity, OIDC/local security chains and CORS | foundation implemented; shared environments require OIDC configuration |
 
 ## Frontend routes and visible features (current)
 
 | Route | Visible surface | Current state |
 |---|---|---|
-| `/` | overview, project workspace, characters, wizard modals | Zustand-driven shell; mostly mock/local |
-| `/auth` | login/register form and Google button | visual/local-only login; no backend auth call |
+| `/` | overview, project workspace, characters, wizard modals | project list/create/story/analysis path is API-backed; unsupported surfaces are explicit |
+| `/auth` | login/register form and Google button | server-session bootstrap and OIDC redirect/logout foundation; password auth is not exposed |
 | `/dashboard` | delegates to `/` shell | same as root; no route-param project loading |
 | `/characters` | character library | explicit API-not-connected state in application mode; fixture UI only in test/Storybook |
-| sidebar `assets` / `presets` | controls exist in current worktree | no render branch in `app/page.tsx`; dead/unreachable until wired |
+| sidebar `assets` / `presets` | controls and prototype screens exist | fixture-backed prototype only; API contract pending |
 | production views | chapters, workspace, storyboard, visual review, render, preview | backend project overview plus explicit unsupported-capability states; fixture screens only in test/Storybook |
 
 ## Worker architecture (current)
@@ -69,8 +67,8 @@ Current reality: the only verified runtime path that reaches PostgreSQL is the b
 
 - Backend owns the Flyway files and JPA mappings.
 - PostgreSQL is intended to be authoritative; Redis has no current application call sites.
-- V1 creates only `schema_baseline`; V2 creates the initial domain tables; V3 adds control-plane tables/columns; V4 adds reusable character identity, immutable versions, appearances, outfits and project assignments.
-- A clean PostgreSQL database currently has zero tables after the application startup attempt: Flyway history was not present and Hibernate validation stopped at missing `chapters`. See `documentation/audits/evidence/W1-D1_COMMAND_EVIDENCE.md`.
+- V1 creates `schema_baseline`; V2 creates the initial domain tables; V3 adds control-plane tables/columns; V4 adds reusable character identity and assignments; V5 adds appearance invariants; V6 adds the Project keyset index.
+- Historical empty-database startup evidence is retained in `documentation/audits/evidence/W1-D1_COMMAND_EVIDENCE.md`; it is not the current V1.8 schema inventory.
 - Binary storage is only described in documentation/Compose; no backend or worker object-storage adapter is present.
 
 ## Redis usage
@@ -81,24 +79,24 @@ Current reality: the only verified runtime path that reaches PostgreSQL is the b
 
 | Capability | Current | Target needed for Week 2 |
 |---|---|---|
-| Project list/create | Backend real; visible UI reads mock store | API-backed query and mutation with server identity |
+| Project list/create | Backend real; visible UI uses API-backed Query data | cursor pagination edge cases and broader project fields |
 | Story persistence | POST-only backend; visible wizard local | create/read/update story with version/If-Match semantics |
 | Upload | UI placeholder/mock | upload intent, object-store upload, completion/validation |
 | Async analysis | job/operation rows are inserted with zero estimate | reservation, idempotency, queue delivery, worker claim and recovery |
 | Progress | fake interval/local store | persisted job read plus SSE/replayable event path |
-| Auth/ownership | conditional OIDC scaffold and client-supplied local ID | fail-closed auth, workspace membership and server-side ownership |
+| Auth/ownership | SecurityContext-backed identity; local/test fallback is profile-gated | broader workspace membership and production OIDC rollout |
 | Media assets | UI mocks and remote sample images | private object storage, immutable asset metadata and access checks |
 
 ## Critical dependency graph
 
 ```text
 FE visible action
-  -> Zustand/local mock or (only legacy StudioDashboard) api.ts
+  -> feature API client / TanStack Query
   -> existing /api/v1 project/story/job endpoints
   -> application outbound port
   -> infrastructure persistence adapter
   -> Spring Data JPA repository/JPA entity
-  -> PostgreSQL (currently cannot start from empty DB)
+  -> PostgreSQL via consolidated Flyway V1 baseline
 
 Future async path:
   backend operation plan/reservation/job
@@ -111,4 +109,4 @@ Future async path:
 
 ## Existing decisions validated
 
-The audit found no architectural decision that should change in D1. Existing ADR-0001 (modular monolith plus worker) and ADR-0002 (PostgreSQL authoritative state plus durable provider operations) remain the correct target constraints; the findings document incomplete implementation against them.
+The audit found no architectural decision that should change in D1. The canonical constraints are now consolidated in ADR-0001 (modular monolith, worker, PostgreSQL authority and durable provider operations); the findings document incomplete implementation against them.

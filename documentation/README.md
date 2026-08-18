@@ -1,19 +1,17 @@
 # NarrativeX documentation map
 
-The canonical product and architecture baseline is [`source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_7.md`](./source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_7.md). The remaining Markdown files are implementation-facing views of that baseline and the current codebase.
+The canonical product and architecture baseline is the attached `NARRATIVEX_PROJECT_SPEC_V1_8.md` (effective 18/08/2026). This repository does not duplicate that specification; the remaining Markdown files are implementation-facing views of the V1.8 contract and the current codebase.
 
 ## Navigation
 
 | Area | Purpose |
 | --- | --- |
-| [`source-of-truth/`](./source-of-truth/) | Canonical NarrativeX project specification |
 | [`product/`](./product/) | Product scope, feature catalog, roadmap, and delivery timeline |
 | [`domain/`](./domain/) | Domain model, business rules, and glossary |
 | [`architecture/`](./architecture/) | System architecture, service boundaries, data flow, and technology stack |
 | [`workflows/`](./workflows/) | End-to-end application workflows |
 | [`decisions/`](./decisions/) | Accepted architecture decision records (ADRs) |
 | [`plans/`](./plans/) | Time-boxed implementation plans |
-| [`execution/`](./execution/) | AI/coding-agent execution prompts that point to maintained plans |
 | [`audits/`](./audits/) | Baselines, security/technical-debt audits, and command evidence |
 | [`codebase/`](./codebase/) | Current implementation maps and integration matrices |
 | [`TRACEABILITY.md`](./TRACEABILITY.md) | Links between specification, implementation, and evidence |

@@ -4,13 +4,11 @@ services:
     environment:
       POSTGRES_DB: ${DB_NAME:-narrativex}
       POSTGRES_USER: ${DB_USERNAME:-narrativex}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env or your deployment secret store}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
       - "${DB_PORT:-5432}:5432"
     volumes:
-      # PostgreSQL 18 uses PGDATA under /var/lib/postgresql/<major>/docker.
-      # Keep the PG18 layout isolated from older local PostgreSQL volumes.
-      - postgres-data-v18:/var/lib/postgresql
+      - postgres-data:/var/lib/postgresql
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${DB_USERNAME:-narrativex} -d ${DB_NAME:-narrativex}" ]
       interval: 5s
@@ -40,7 +38,7 @@ services:
       DB_PORT: 5432
       DB_NAME: ${DB_NAME:-narrativex}
       DB_USERNAME: ${DB_USERNAME:-narrativex}
-      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env or your deployment secret store}
+      DB_PASSWORD: ${DB_PASSWORD}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       NARRATIVEX_OIDC_ENABLED: ${NARRATIVEX_OIDC_ENABLED:-false}
@@ -72,7 +70,7 @@ services:
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${S3_ACCESS_KEY:-narrativex}
-      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?Set S3_SECRET_KEY in .env or your deployment secret store}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY}
     ports:
       - "${S3_PORT:-9000}:9000"
       - "${MINIO_CONSOLE_PORT:-9001}:9001"
@@ -85,6 +83,6 @@ services:
       retries: 10
 
 volumes:
-  postgres-data-v18:
+  postgres-data:
   redis-data:
   minio-data:

@@ -11,7 +11,7 @@ NarrativeX is an image-first AI Story Video Studio. It turns flexible-length sto
 - `contracts`: versioned cross-runtime payload contracts.
 - `infrastructure`: local/deployment support; `docker-compose.yml` provides local dependencies.
 
-## v1.7 priorities
+## V1.8 priorities
 
 Durable jobs and provider reconciliation, adaptive visual planning, CharacterVersion/OutfitVersion snapshots, OperationPlan and cost reservation, account abuse throttling before paid work, entitlement enforcement, trust & safety, privacy/deletion, notification outbox, optimistic locking, and production backup/restore readiness.
 

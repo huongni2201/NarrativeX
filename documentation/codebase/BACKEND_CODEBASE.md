@@ -130,4 +130,4 @@ Project list retrieval now uses a composite keyset index and avoids offset scans
 
 The repository has GitHub Actions for backend, frontend and worker. Pull requests into `main` run the relevant workflow by path. Backend CI executes Maven `clean verify`; frontend CI executes install/lint/type-check/build; worker CI executes Ruff, mypy and pytest.
 
-See [ADR-0011](../decisions/ADR-0011-module-package-and-aggregate-boundaries.md) and [ADR-0012](../decisions/ADR-0012-feature-boundaries-and-keyset-pagination.md).
+See [ADR-0003](../decisions/ADR-0003-ddd-feature-boundaries-and-api-contracts.md) for the canonical DDD, package and pagination decision.

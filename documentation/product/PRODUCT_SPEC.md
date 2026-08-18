@@ -1,13 +1,13 @@
- # NarrativeX — Product Specification V1.7
+# NarrativeX — Product Specification V1.8
 
- **Trạng thái:** Final production specification · 17/08/2026
- **Source of truth:** [`documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_7.md`](../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_7.md)
+**Trạng thái:** V1.8 product contract and maintained summary · 18/08/2026
+**Source:** attached `NARRATIVEX_PROJECT_SPEC_V1_8.md`; current implementation status is tracked separately in `documentation/TRACEABILITY.md`.
 
  ## 1. Định vị và mục tiêu
 
  NarrativeX là **AI Long-form Story Video Studio**: biến truyện chữ có độ dài linh hoạt thành video image-first, rồi tái sử dụng timeline/assets để tạo Short/Reel. Sản phẩm tối ưu cho orchestration, character consistency, review và chi phí có thể dự đoán; đây không phải one-click full text-to-video.
 
- Mục tiêu V1.7:
+Mục tiêu V1.8:
 
  - Chuyển story → detected Character identities → ProjectCharacter assignments → CharacterAppearance/Location → Chapter/Scene/VisualBeat → audio → animatic → render bền vững.
  - Giữ nhất quán nhân vật bằng Character Master, Character Bible, Reference Asset, CharacterVersion, Outfit/Location/Style Bible và Identity QA.
@@ -30,7 +30,7 @@ CharacterAppearance/OutfitVersion instead of creating duplicate Characters.
 Generation always snapshots resolved CharacterVersion,
 CharacterAppearance, OutfitVersion and references.
 
- ## 2. Phạm vi V1.7
+## 2. Phạm vi V1.8
 
  ### In scope
 
