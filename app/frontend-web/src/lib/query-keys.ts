@@ -1,4 +1,5 @@
 export const queryKeys = {
+  currentUser: ["auth", "current-user"] as const,
   projects: ["projects"] as const,
   projectsPage: (page: number, size: number) => ["projects", page, size] as const,
   project: (projectId: number) => ["projects", projectId] as const,

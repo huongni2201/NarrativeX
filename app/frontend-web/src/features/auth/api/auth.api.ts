@@ -1,6 +1,6 @@
 import type { ApiAuthUser } from "@/types/api";
 import { isApiAuthUser } from "@/types/api";
-import { apiRequest, apiUrl } from "@/shared/api/client";
+import { apiRequest, apiUrl, resetCsrfTokenCache } from "@/shared/api/client";
 
 export interface LoginInput {
   email: string;
@@ -13,18 +13,27 @@ export interface RegisterInput extends LoginInput {
 
 export const authApi = {
   getCurrentUser: () => apiRequest<ApiAuthUser>("/api/auth/me", {}, isApiAuthUser),
-  login: (input: LoginInput) =>
-    apiRequest<ApiAuthUser>(
+  login: async (input: LoginInput) => {
+    const user = await apiRequest<ApiAuthUser>(
       "/api/auth/login",
-      { method: "POST", json: input },
+      { method: "POST", json: input, notifyUnauthorized: false },
       isApiAuthUser,
-    ),
-  register: (input: RegisterInput) =>
-    apiRequest<ApiAuthUser>(
+    );
+    resetCsrfTokenCache();
+    return user;
+  },
+  register: async (input: RegisterInput) => {
+    const user = await apiRequest<ApiAuthUser>(
       "/api/auth/register",
-      { method: "POST", json: input },
+      { method: "POST", json: input, notifyUnauthorized: false },
       isApiAuthUser,
-    ),
-  logout: () => apiRequest<void>("/logout", { method: "POST", parseJson: false }),
+    );
+    resetCsrfTokenCache();
+    return user;
+  },
+  logout: async () => {
+    await apiRequest<void>("/logout", { method: "POST", parseJson: false });
+    resetCsrfTokenCache();
+  },
   googleLoginUrl: () => apiUrl("/oauth2/authorization/google"),
 };

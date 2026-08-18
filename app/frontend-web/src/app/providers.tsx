@@ -4,27 +4,31 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { createQueryClient } from "@/lib/query-client";
 import { authApi } from "@/features/auth/api/auth.api";
+import { useAuthSessionLifecycle } from "@/features/auth/hooks/useAuthSessionLifecycle";
 import { ApiClientError, subscribeUnauthorized } from "@/shared/api/client";
 import { useAuthStore } from "@/store/useAuthStore";
 
 function AuthBootstrap({ children }: Readonly<{ children: React.ReactNode }>) {
-  const setAuthenticated = useAuthStore((state) => state.setAuthenticated);
-  const setUnauthenticated = useAuthStore((state) => state.setUnauthenticated);
+  const { markAuthenticated, clearAuthenticatedSession } = useAuthSessionLifecycle();
   const setBootstrapError = useAuthStore((state) => state.setBootstrapError);
 
-  useEffect(() => subscribeUnauthorized(setUnauthenticated), [setUnauthenticated]);
+  useEffect(
+    () => subscribeUnauthorized(clearAuthenticatedSession),
+    [clearAuthenticatedSession],
+  );
 
   useEffect(() => {
     let cancelled = false;
 
-    authApi.getCurrentUser()
+    authApi
+      .getCurrentUser()
       .then((user) => {
-        if (!cancelled) setAuthenticated(user);
+        if (!cancelled) markAuthenticated(user);
       })
       .catch((error: unknown) => {
         if (cancelled) return;
         if (error instanceof ApiClientError && error.status === 401) {
-          setUnauthenticated();
+          clearAuthenticatedSession();
           return;
         }
         setBootstrapError("Không thể kiểm tra phiên đăng nhập. Vui lòng thử lại.");
@@ -33,7 +37,7 @@ function AuthBootstrap({ children }: Readonly<{ children: React.ReactNode }>) {
     return () => {
       cancelled = true;
     };
-  }, [setAuthenticated, setBootstrapError, setUnauthenticated]);
+  }, [clearAuthenticatedSession, markAuthenticated, setBootstrapError]);
 
   return children;
 }
