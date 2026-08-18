@@ -109,14 +109,16 @@ flowchart LR
 
 Phần trên là nội dung được chuyển thể từ ảnh; các quy tắc dưới đây là ràng buộc triển khai của repository và có độ ưu tiên cao hơn các lựa chọn công nghệ mang tính minh họa trong ảnh:
 
-- PostgreSQL là nguồn sự thật cho business state. Redis chỉ dùng cho queue, cache và progress; không dùng Redis để thay thế dữ liệu nghiệp vụ.
+- PostgreSQL là nguồn sự thật cho business state. Redis dùng cho queue/cache/progress/scheduling và các counter abuse-control tạm thời; không dùng Redis để thay thế dữ liệu nghiệp vụ bền vững.
 - Backend giữ hình dạng modular monolith Spring Boot. Runtime AI/media và các dependency Python thuộc về AI worker; domain backend không import provider SDK.
+- Auth runtime hiện tại là Spring Security + email/password/Google OIDC + HttpOnly server session + CSRF. Password login/register có Redis-backed abuse limiting. JWT/accessToken/refreshToken chưa migrate trong phase bug-fix hiện tại và phải được thiết kế/triển khai riêng.
 - Các provider bên ngoài phải có reservation trước khi submit. Kết quả không rõ ràng phải ở trạng thái `UNKNOWN` và được reconcile trước khi retry.
 - Tác vụ tốn chi phí phải đi qua `OperationPlan`, cost estimate/reservation, entitlement, abuse check và usage attribution.
-- Story text, prompt, reference và provider output đều là dữ liệu không tin cậy: cần rights/consent, moderation, prompt-injection boundary, schema validation và output review.
+- Story text, prompt, reference và provider output đều là dữ liệu không tin cậy: cần moderation, prompt-injection boundary, schema validation và output review; `REAL_PERSON_REFERENCE` cần consent/use-right khi áp dụng. Copyright dispute xử lý qua report/review/evidence/takedown, không bằng blanket per-story rights-attestation checkbox.
 - Character identity, approved asset và render version là dữ liệu versioned/immutable; không nên coi “character consistency” là một thao tác stateless.
+- Flyway V6 loại legacy StoryVersion rights columns và V7 loại `content_rights_attestations`; không mô tả các field/table đó như active hoặc compatibility schema sau V7.
 - Mốc “5–15 phút”, số lượng ảnh/video và thời lượng đầu ra là mục tiêu sản phẩm, không phải quy tắc cố định. Visual planning phải dựa trên duration, semantic complexity, reuse và delta.
-- Production launch cần kiểm tra thêm backup/restore, observability, deletion/retention, real-person consent, entitlement server-side và provider resilience.
+- Production launch cần kiểm tra thêm backup/restore, observability, deletion/retention, real-person consent, broader abuse controls, entitlement server-side và provider resilience.
 
 ## 9. Thông điệp thương hiệu trong ảnh
 
