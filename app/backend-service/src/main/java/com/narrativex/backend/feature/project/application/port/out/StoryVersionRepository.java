@@ -10,6 +10,8 @@ public interface StoryVersionRepository {
 
   Optional<StoryVersion> findActiveByProjectId(Long projectId);
 
+  Optional<StoryVersion> findLatestByProjectId(Long projectId);
+
   StoryVersion save(StoryVersion storyVersion);
 
   StoryVersion saveAndFlush(StoryVersion storyVersion);
