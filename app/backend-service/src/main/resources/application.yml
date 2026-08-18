@@ -39,6 +39,9 @@ narrativex:
     local-user-id: ${NARRATIVEX_LOCAL_USER_ID:local-dev-user}
     local-dev-identity-enabled: ${NARRATIVEX_LOCAL_DEV_IDENTITY_ENABLED:false}
     frontend-base-url: ${NARRATIVEX_FRONTEND_BASE_URL:http://localhost:3000}
+    google:
+      client-id: ${GOOGLE_OAUTH_CLIENT_ID:}
+      client-secret: ${GOOGLE_OAUTH_CLIENT_SECRET:}
     cors:
       allowed-origins: ${NARRATIVEX_CORS_ALLOWED_ORIGINS:http://localhost:3000,http://127.0.0.1:3000}
   features:
