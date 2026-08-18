@@ -34,6 +34,55 @@ export interface ApiChapter extends ApiChapterSummary {
   sourceText: string;
 }
 
+export interface ApiChapterWorkspaceSummary {
+  sceneCount: number;
+  visualBeatCount: number;
+  estimatedDurationSeconds: number;
+}
+
+export interface ApiChapterWorkspacePipelineStep {
+  status: string;
+  completedAt: string | null;
+}
+
+export interface ApiChapterWorkspaceProgressStep {
+  status: string;
+  total: number;
+  completed: number;
+  failed: number;
+}
+
+export interface ApiChapterWorkspacePreviewScene {
+  id: number;
+  orderIndex: number;
+  title: string;
+  durationSeconds: number | null;
+  status: string;
+  visualBeatCount: number;
+  previewImageUrl: string | null;
+}
+
+export interface ApiChapterWorkspace {
+  chapter: ApiChapter;
+  projectName: string;
+  summary: ApiChapterWorkspaceSummary;
+  pipeline: {
+    analysis: ApiChapterWorkspacePipelineStep;
+    visualPlanning: ApiChapterWorkspacePipelineStep;
+    visualGeneration: ApiChapterWorkspaceProgressStep;
+    audio: ApiChapterWorkspacePipelineStep;
+    render: ApiChapterWorkspacePipelineStep;
+    sourceOutdated: boolean;
+  };
+  previewScenes: ApiChapterWorkspacePreviewScene[];
+  capabilities: {
+    canAnalyze: boolean;
+    canGenerateVisuals: boolean;
+    canGenerateAudio: boolean;
+    canRender: boolean;
+  };
+}
+
 export interface ApiGenerationJob {
   jobId: string;
   type: string;
@@ -128,6 +177,14 @@ function isBoolean(value: unknown): value is boolean {
   return typeof value === "boolean";
 }
 
+function isNullableString(value: unknown): value is string | null {
+  return value === null || isString(value);
+}
+
+function isNullableNumber(value: unknown): value is number | null {
+  return value === null || isNumber(value);
+}
+
 function isProjectStatus(value: unknown): value is ProjectStatus {
   return value === "DRAFT" || value === "ACTIVE" || value === "ARCHIVED";
 }
@@ -207,10 +264,70 @@ export function isApiChapterSummary(value: unknown): value is ApiChapterSummary 
 }
 
 export function isApiChapter(value: unknown): value is ApiChapter {
+  return isRecord(value) && isApiChapterSummary(value) && isString(value.sourceText);
+}
+
+function isApiChapterWorkspacePipelineStep(
+  value: unknown,
+): value is ApiChapterWorkspacePipelineStep {
+  return isRecord(value) && isString(value.status) && isNullableString(value.completedAt);
+}
+
+function isApiChapterWorkspaceProgressStep(
+  value: unknown,
+): value is ApiChapterWorkspaceProgressStep {
   return (
     isRecord(value) &&
-    isApiChapterSummary(value) &&
-    isString(value.sourceText)
+    isString(value.status) &&
+    isNumber(value.total) &&
+    isNumber(value.completed) &&
+    isNumber(value.failed)
+  );
+}
+
+function isApiChapterWorkspacePreviewScene(
+  value: unknown,
+): value is ApiChapterWorkspacePreviewScene {
+  return (
+    isRecord(value) &&
+    isNumber(value.id) &&
+    isNumber(value.orderIndex) &&
+    isString(value.title) &&
+    isNullableNumber(value.durationSeconds) &&
+    isString(value.status) &&
+    isNumber(value.visualBeatCount) &&
+    isNullableString(value.previewImageUrl)
+  );
+}
+
+export function isApiChapterWorkspace(value: unknown): value is ApiChapterWorkspace {
+  if (
+    !isRecord(value) ||
+    !isApiChapter(value.chapter) ||
+    !isString(value.projectName) ||
+    !isRecord(value.summary) ||
+    !isNumber(value.summary.sceneCount) ||
+    !isNumber(value.summary.visualBeatCount) ||
+    !isNumber(value.summary.estimatedDurationSeconds) ||
+    !isRecord(value.pipeline) ||
+    !isApiChapterWorkspacePipelineStep(value.pipeline.analysis) ||
+    !isApiChapterWorkspacePipelineStep(value.pipeline.visualPlanning) ||
+    !isApiChapterWorkspaceProgressStep(value.pipeline.visualGeneration) ||
+    !isApiChapterWorkspacePipelineStep(value.pipeline.audio) ||
+    !isApiChapterWorkspacePipelineStep(value.pipeline.render) ||
+    !isBoolean(value.pipeline.sourceOutdated) ||
+    !Array.isArray(value.previewScenes) ||
+    !value.previewScenes.every(isApiChapterWorkspacePreviewScene) ||
+    !isRecord(value.capabilities)
+  ) {
+    return false;
+  }
+
+  return (
+    isBoolean(value.capabilities.canAnalyze) &&
+    isBoolean(value.capabilities.canGenerateVisuals) &&
+    isBoolean(value.capabilities.canGenerateAudio) &&
+    isBoolean(value.capabilities.canRender)
   );
 }
 
@@ -260,6 +377,8 @@ export function isErrorResponse(value: unknown): value is ErrorResponse {
     return false;
   }
 
-  return value.errors === undefined ||
-    (Array.isArray(value.errors) && value.errors.every(isApiFieldError));
+  return (
+    value.errors === undefined ||
+    (Array.isArray(value.errors) && value.errors.every(isApiFieldError))
+  );
 }
