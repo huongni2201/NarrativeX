@@ -107,11 +107,25 @@ public class JdbcProjectOverviewQueryAdapter implements ProjectOverviewQueryRepo
                  WHEN c.status = 'READY' THEN 'ANALYZED'
                  ELSE 'DRAFT'
                END AS overview_status,
-               COUNT(s.id)::int AS scene_count,
                CASE
-                 WHEN COALESCE(SUM(s.duration_seconds), 0) > 0
-                   THEN COALESCE(SUM(s.duration_seconds), 0)
-                 ELSE COALESCE(c.estimated_duration_ms / 1000, 0)
+                 WHEN (latest_job.status = 'COMPLETED' AND latest_job.source_hash = c.source_hash)
+                      OR c.status = 'READY'
+                      OR c.status IN ('ANALYZED', 'GENERATING_VISUALS', 'VISUAL_REVIEW', 'VISUAL_READY',
+                                      'GENERATING_AUDIO', 'AUDIO_READY', 'RENDERING', 'RENDERED')
+                   THEN COUNT(s.id)::int
+                 ELSE 0
+               END AS scene_count,
+               CASE
+                 WHEN (latest_job.status = 'COMPLETED' AND latest_job.source_hash = c.source_hash)
+                      OR c.status = 'READY'
+                      OR c.status IN ('ANALYZED', 'GENERATING_VISUALS', 'VISUAL_REVIEW', 'VISUAL_READY',
+                                      'GENERATING_AUDIO', 'AUDIO_READY', 'RENDERING', 'RENDERED')
+                   THEN CASE
+                          WHEN COALESCE(SUM(s.duration_seconds), 0) > 0
+                            THEN COALESCE(SUM(s.duration_seconds), 0)
+                          ELSE COALESCE(c.estimated_duration_ms / 1000, 0)
+                        END
+                 ELSE 0
                END AS duration_seconds,
                c.updated_at
           FROM chapters c
