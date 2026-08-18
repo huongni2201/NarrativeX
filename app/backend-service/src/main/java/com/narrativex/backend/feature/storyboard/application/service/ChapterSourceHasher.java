@@ -3,7 +3,6 @@ package com.narrativex.backend.feature.storyboard.application.service;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.text.Normalizer;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -13,8 +12,7 @@ public class ChapterSourceHasher {
     if (sourceText == null) {
       throw new IllegalArgumentException("sourceText must not be null");
     }
-    String normalized =
-        Normalizer.normalize(sourceText.replace("\r\n", "\n").replace('\r', '\n'), Normalizer.Form.NFC);
+    String normalized = sourceText.replace("\r\n", "\n").replace('\r', '\n');
     return new NormalizedSource(normalized, sha256Hex(normalized));
   }
 
