@@ -29,11 +29,7 @@ public class CharacterPersistenceAdapter implements CharacterRepository {
         cursorKey == null
             ? repository.findActiveFirstPage(ownerId, CharacterStatus.ACTIVE, fetchLimit)
             : repository.findActiveAfter(
-                ownerId,
-                CharacterStatus.ACTIVE,
-                cursorKey.updatedAt(),
-                cursorKey.id(),
-                fetchLimit);
+                ownerId, CharacterStatus.ACTIVE, cursorKey.updatedAt(), cursorKey.id(), fetchLimit);
 
     boolean hasNext = entities.size() > limit;
     List<CharacterJpaEntity> visibleEntities =
