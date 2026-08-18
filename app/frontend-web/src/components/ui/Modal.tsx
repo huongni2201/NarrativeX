@@ -10,7 +10,7 @@ interface ModalProps {
   ariaLabel?: string;
   closeDisabled?: boolean;
   children: React.ReactNode;
-  maxWidth?: "sm" | "md" | "lg" | "xl" | "2xl" | "4xl" | "6xl" | "full";
+  maxWidth?: "sm" | "md" | "lg" | "xl" | "2xl" | "4xl" | "5xl" | "6xl" | "full";
   className?: string;
 }
 
@@ -86,7 +86,7 @@ export const Modal: React.FC<ModalProps> = ({
 
   if (!isOpen) return null;
 
-  const maxWidthStyles = { sm: "max-w-sm", md: "max-w-md", lg: "max-w-lg", xl: "max-w-xl", "2xl": "max-w-2xl", "4xl": "max-w-4xl", "6xl": "max-w-6xl", full: "max-w-[96vw] h-[92vh]" };
+  const maxWidthStyles = { sm: "max-w-sm", md: "max-w-md", lg: "max-w-lg", xl: "max-w-xl", "2xl": "max-w-2xl", "4xl": "max-w-4xl", "5xl": "max-w-5xl", "6xl": "max-w-6xl", full: "max-w-[96vw] h-[92vh]" };
   const accessibleLabel = title ? undefined : ariaLabel;
 
   return (
