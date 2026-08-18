@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint src",
+    "check:architecture": "node scripts/check-architecture.mjs",
+    "lint": "eslint src && npm run check:architecture",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {

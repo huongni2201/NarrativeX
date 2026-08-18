@@ -3,60 +3,80 @@
 ## Framework/runtime
 
 - Package manifest: Next.js `^16.3.1`, React `^19.2.8`, TypeScript `^5.8.2`, Zustand `^5.0.15`, TanStack Query `^5.101.4`.
-- Runtime verified: Node `v26.4.0`, npm `11.17.0`.
-- App Router routes: `/`, `/auth`, `/dashboard`, `/characters`, `/assets`, `/presets`, and `/projects/[projectId]`. The root page renders the authenticated overview shell; project workspace navigation uses the project route, while chapter-first domain APIs remain pending.
-- The frontend README now matches the Next.js 16.3.1 package manifest.
+- CI/runtime baseline: Node.js 22.
+- Canonical App Router routes: `/`, `/auth`, `/projects`, `/projects/[projectId]`, `/characters`, `/assets`, `/presets`. `/dashboard` is a legacy redirect to `/projects`.
+- Project identity is route-owned. The project workspace fetches `GET /api/v1/projects/{projectId}` directly and never infers the project from a Zustand selection or a bounded project list.
 
 ## Routes and existing UI/features
 
 | Feature | Component(s) | Current data source | State |
 |---|---|---|---|
-| Auth/login/register | `AuthScreen` | backend current-user bootstrap + Google OIDC redirect/session | PARTIAL API |
-| Dashboard/project list | `ProjectsDashboard`, `ProjectCard` | React Query `queryKeys.projects` → `api.listProjects` | API |
-| Create project wizard | `ProjectWizardModal`, steps 1-4 | React Query mutation: create project → story version → analysis job | API |
-| Story input | `Step2ImportStory` | Zustand draft until submit; rights attestation; API story-version mutation | PARTIAL API |
-| AI analysis | `Step3AiAnalysis`, `Step4Results` | API enqueue is real; progress/result polling contract still pending | PARTIAL API |
-| Characters/Character Bible | `CharacterLibrary`, `CharacterBibleModal` | explicit API-not-connected state; fixtures only in test/Storybook | PENDING API |
-| Production overview/chapter | `ProductionShell`, Screens 01-03 | backend project query; fixture screens only in test/Storybook | PARTIAL API |
-| Storyboard/visual review | Screens 04-05 | explicit API-not-connected state; fixture mutations only in test/Storybook | PENDING API |
-| Render/preview | Screens 06-07 | explicit API-not-connected state in application mode; fixture timer only in test/Storybook | PENDING API |
-| Assets/presets | current sidebar plus asset/preset stores/components | explicit API-mode disconnected state; fixtures only in test/Storybook | PROTOTYPE/PENDING |
-| Notifications/settings/upgrade | sidebar controls | hard-coded badge/credits and no-op handlers | DEAD |
+| Auth/login/logout | `AuthScreen`, `AuthBootstrap`, `StudioHeader` | backend current-user session + Google OIDC redirect/logout | PARTIAL API |
+| Project list | `ProjectsDashboard`, `ProjectCard` | TanStack Query cursor pagination via `projectsApi.list` | API |
+| Project filters/search | `ProjectsDashboard` | URL search params `status` and `q`; filtering applies to loaded cursor pages | CLIENT/URL |
+| Project workspace | `ProductionShell` | `projectsApi.getById(projectId)` | API FOUNDATION |
+| Create project wizard | `ProjectWizardModal`, steps 1-4 | mutation: create project -> story version; analysis enqueue remains feature-gated | API FOUNDATION |
+| Story input | `Step2ImportStory` | transient Zustand wizard draft until submit, then story create API | PARTIAL API |
+| AI analysis | `Step3AiAnalysis`, `Step4Results` | explicit unavailable/pending state in API runtime until durable execution is enabled | PENDING API |
+| Characters/Character Bible | `CharacterLibrary`, `CharacterBibleModal` | explicit API-not-connected state; fixtures only behind test/Storybook demo boundaries | PENDING API |
+| Production/chapter/storyboard/review | `ProductionShell` plus demo/editor surfaces | project metadata real; chapter/storyboard domain APIs pending | PARTIAL/PENDING |
+| Render/preview | production demo/editor surfaces | explicit API-not-connected state in application mode | PENDING API |
+| Assets | `AssetLibraryScreen` | explicit disconnected state in API mode; typed demo store only in mock/test runtime | PENDING API |
+| Presets | `StylePresetsScreen` | explicit disconnected state in API mode; typed demo store only in mock/test runtime | PENDING API |
+| Plan/credits/notifications/jobs | app shell | not rendered until backed by real contracts | PENDING API |
 
-## State ownership and API client
+## State ownership
 
-- `src/store/useStudioStore.ts` owns navigation, auth state, filters, selection and the unsaved wizard draft; it does not own persisted project data.
-- `src/store/useProductionStore.ts` owns UI navigation and fixture-only prototype state; its project is `null` in API mode and business-data actions fail closed.
-- `src/shared/api/client.ts` is the transport owner with API base URL, credentials, CSRF bootstrap/header handling, JSON envelope validation, safe non-JSON fallback and typed `ApiClientError`. `src/lib/api.ts` remains a compatibility facade over feature APIs.
-- `ProjectsDashboard` now calls `api.listProjects` through React Query, and the visible wizard calls `createProject`, `createStoryVersion` and `enqueueAnalysis` through one mutation workflow. `StudioDashboard` remains a legacy unrendered shell.
-- TanStack Query owns the visible project server state with centralized query keys; SSE, upload, and analysis-result queries remain pending contracts.
+Frontend state follows this order:
 
-## W1-D2 state ownership and mock mode
+1. component state for ephemeral interaction;
+2. URL/search params for navigable/shareable state;
+3. TanStack Query for persisted server state;
+4. Zustand only for transient cross-screen/editor state that cannot naturally live in URL or Query cache.
 
-- TanStack Query owns persisted server state; Zustand remains UI/editor/transient and explicitly gated prototype state.
-- `NEXT_PUBLIC_NX_DATA_MODE=mock|api` is documented and validated. All application runtimes default to API when omitted; mock mode is accepted only by test or Storybook runtimes.
-- In API mode, local project/character/asset/preset stores start empty and Production/Character Library surfaces render explicit connection states. Mock production screens are available only in test/Storybook runtimes. See ADR-0004.
-- Character UI types keep canonical identity separate from project usage: `Character` owns identity/version fields, while `ProjectCharacter` owns role, importance, aliases, groups and pinned version. Project filtering resolves assignments by `characterId`/`projectId`; it does not filter a `projectName` field on Character.
+`useStudioStore` no longer owns project-list filters/search. `useProductionStore`, `useAssetStore` and `usePresetStore` are prototype/editor stores and load fixture data only through dynamic imports when the validated mock runtime is active.
 
-## Real, partial and mock integrations
+## API transport boundary
 
-The project overview and creation/analysis submission workflow are real FE-to-BE integrations. Character, chapter, storyboard, render, asset and preset surfaces remain pending/placeholder flows because their backend contracts are not present yet. The project list has backend loading/error/empty states; analysis progress/result polling and other durable workflow states remain pending.
+- `src/shared/api/client.ts` owns HTTP transport, credentials, CSRF, response-envelope validation and typed errors.
+- The shared transport does not import Zustand, app routes or feature state.
+- HTTP 401 is exposed as a transport event/error; `src/app/providers.tsx` owns the session/UI reaction.
+- Feature APIs live under `features/<feature>/api`. `src/lib/api.ts` remains compatibility-only and should not gain new feature consumers.
 
-## Integration risks
+## P1/P2 corrections now applied
 
-- Backend IDs are numeric (`Long`/`entityId`), while studio `Project.id` and production IDs are strings such as `proj-1` and `ch-06`.
-- Backend `ProjectResponse` has no description/cover/progress/count fields required by `ProjectsDashboard` and `ProjectCard`.
-- Backend `StoryVersionResponse` omits story content, while the frontend type expects `content`.
-- Visible wizard `quality` values are `Standard|High`, while backend accepts enum names such as `STANDARD`.
-- Story upload is a visual dropzone without an `<input type="file">` or upload client.
-- Google login redirects to the backend OIDC endpoint; email/password remains intentionally unavailable because no backend password-auth contract exists.
+- `/projects` is the canonical project-list route; `/dashboard` redirects.
+- Route files do not import another route's `page.tsx`.
+- Project detail loads by ID instead of `list(limit=100)` + `.find()`.
+- Project collections use cursor pagination rather than a hard first-100 limit.
+- Large fixture modules are lazy-loaded only in mock/test/Storybook mode.
+- Desktop navigation is replaced by a mobile bottom navigation below `lg`.
+- Shared Input/Textarea errors use ARIA relationships; Tabs support arrow/Home/End keyboard navigation; Modal traps/restores focus and body scroll state.
+- Fake Creator Pro/credits/notification counts and the misleading Jobs route are removed.
+- Asset demo counts and sorting are data-driven and typed; `as any` was removed from sort handling.
+- Project filter/search state is URL-owned.
+- Reduced-motion behavior is defined globally and low-contrast secondary text tokens use the safer slate-400 range.
+- Legacy `StudioDashboard.tsx` and the broad `features/index.ts` barrel were removed to prevent accidental use of obsolete UI/source-of-truth.
 
-## Missing API wiring by flow
+## Quality gates
 
-Exact rows and target contracts are in `FRONTEND_API_INTEGRATION_MATRIX.md`. The required sequence is project query/create, story create/read/update, upload intent/complete, analysis job creation, job polling/SSE, then asset/character/storyboard APIs. No replacement UI is proposed in D1.
+Frontend CI runs:
 
-## P0/P1 gaps
+```bash
+npm ci
+npm run lint
+npm run type-check
+npm run build
+```
 
-- P1: local security fallback is permitted only in `local`/`test`; shared environments must fail closed when OIDC is disabled.
-- P1: analysis progress/result polling, character/storyboard/render/export/assets APIs and durable worker execution remain pending.
-- P1: project list currently fetches a bounded first cursor page; full cursor navigation and broader project fields remain pending.
+`npm run lint` also runs `scripts/check-architecture.mjs`, which fails CI when:
+
+- `src/shared` imports app/feature/Zustand state;
+- a route `page.tsx` imports another route page;
+- a production module statically imports fixture/mock modules outside an allowed demo/test boundary.
+
+## Remaining backend-dependent gaps
+
+Analysis progress/results, chapter/storyboard commands, render/export, persisted asset/preset APIs, notifications, entitlements/credits and settings remain backend-contract work. API mode must keep these explicit rather than substituting fixtures.
+
+Search/filter across the entire unbounded project collection also requires a backend query contract; the current `q`/`status` URL state filters the cursor pages already loaded by the client.

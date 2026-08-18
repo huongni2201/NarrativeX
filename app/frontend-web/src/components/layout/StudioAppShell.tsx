@@ -4,11 +4,13 @@ import dynamic from "next/dynamic";
 import { StudioHeader } from "@/components/layout/StudioHeader";
 import { StudioMobileNav } from "@/components/layout/StudioMobileNav";
 import { StudioSidebar } from "@/components/layout/StudioSidebar";
-import { ProjectsDashboard } from "@/features/dashboard/ProjectsDashboard";
 import { AuthLoadingScreen, AuthScreen } from "@/features/auth/AuthScreen";
 import { useAuthStore } from "@/store/useAuthStore";
 import type { ScreenType } from "@/types/studio";
 
+const ProjectsDashboard = dynamic(() =>
+  import("@/features/dashboard/ProjectsDashboard").then((module) => module.ProjectsDashboard),
+);
 const ProductionShell = dynamic(() =>
   import("@/features/production/ProductionShell").then((module) => module.ProductionShell),
 );

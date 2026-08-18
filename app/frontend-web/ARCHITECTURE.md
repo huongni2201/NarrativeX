@@ -1,6 +1,6 @@
 # NarrativeX Frontend Architecture
 
-This frontend uses Next.js App Router with feature-oriented modules. Route files should compose features; they should not contain business logic.
+NarrativeX Frontend uses Next.js App Router with feature-oriented modules. Route files compose features and stay free of business logic.
 
 ## Dependency direction
 
@@ -9,29 +9,48 @@ app/ -> features/ -> shared/
              \-> types/
 ```
 
-Avoid reverse imports from `shared/` into a feature. Avoid feature-to-feature imports unless the imported module is explicitly a public API.
+- `shared/` must never depend on feature modules or Zustand stores.
+- Features may depend on `shared/` and `types/`.
+- Avoid feature-to-feature imports unless the imported feature exposes an intentional public API.
+- `src/lib/api.ts` is a compatibility facade only. New feature code should import its domain API directly.
+
+## Canonical routes
+
+```text
+/                         overview entry
+/projects                 project list
+/projects/[projectId]     project workspace
+/characters               character library
+/assets                   asset library
+/presets                  style/preset library
+/auth                     auth entry
+/dashboard                legacy redirect -> /projects
+```
+
+Do not introduce a second route for the same screen without an explicit redirect or product requirement. A project workspace always derives its project identity from `/projects/[projectId]`; do not infer it from a Zustand selection.
 
 ## Recommended feature shape
 
 ```text
 features/<feature>/
 ├── api/          # HTTP endpoints for this domain
-├── components/   # presentational UI
+├── components/   # feature-owned UI
 ├── hooks/        # client orchestration / view-model hooks
-├── model/        # pure functions, domain rules, selectors
+├── model/        # pure transforms, validation, selectors
 ├── fixtures/     # test / Storybook-only data when needed
-└── index.ts      # optional public feature API
+└── index.ts      # optional narrow public feature API
 ```
 
-Not every feature needs every folder. Create a folder only when it has a real responsibility.
+Generic primitives belong in `components/ui`; app shell components belong in `components/layout`. Domain-specific components should live under their owning feature instead of creating parallel `components/<domain>` and `features/<domain>` trees.
 
 ## App Router rules
 
-- `src/app/**/page.tsx` should stay small and route-driven.
-- URL params are the source of truth for navigable state such as `projectId`.
-- Keep Server Components as the default. Add `"use client"` only at interactive boundaries.
-- Lazy-load large client-only prototype/editor surfaces that are not required for initial render.
-- Do not import one route `page.tsx` from another route.
+- `src/app/**/page.tsx` stays small and route-driven.
+- Never import one route `page.tsx` from another route.
+- URL params/search params are the source of truth for navigable state such as `projectId`, chapter/scene identity, tabs that must deep-link, and shareable filters.
+- Server Components are the default. Add `"use client"` only at interactive boundaries.
+- Lazy-load large client-only editor/demo surfaces not required for the initial render.
+- Legacy URLs use redirects rather than rendering an ambiguous workspace without required route state.
 
 ## State ownership
 
@@ -40,9 +59,27 @@ Use the narrowest owner possible:
 1. local component state for ephemeral UI;
 2. URL/search params for shareable navigation/filter state;
 3. TanStack Query for server state;
-4. Zustand only for cross-screen client state that cannot naturally live in the URL or Query cache.
+4. Zustand only for cross-screen client state that cannot naturally live in URL or Query cache.
 
-Do not copy API entities into Zustand just to render them.
+Do not copy API entities into Zustand merely to render them. Wizard drafts and transient editor selections may remain client state until a backend contract owns them.
+
+## Server data
+
+- Collection screens for unbounded data use cursor/server pagination.
+- Entity workspaces fetch by stable entity ID (`GET /api/v1/projects/{projectId}` for projects), not by loading a collection and calling `.find()`.
+- Query keys represent server resources and are invalidated after successful mutations.
+- Search/filtering that must cover the complete unbounded collection belongs on the backend when that contract becomes available. Client filtering must be labelled/implemented only over loaded pages.
+
+## API organization
+
+```text
+shared/api/client.ts                  # transport, CSRF, envelopes, typed errors
+features/auth/api/auth.api.ts         # auth endpoints
+features/projects/api/projects.api.ts # project endpoints
+app/providers.tsx                     # app-level auth/session reaction to HTTP 401
+```
+
+The transport layer must not import React, Zustand, app routes, or feature state. It can expose typed errors/events; the app boundary decides how a 401 changes session UI.
 
 ## Data and UI separation
 
@@ -50,26 +87,46 @@ Do not copy API entities into Zustand just to render them.
 - `model/` contains pure transforms, filters, sorting, validation and indexing.
 - hooks combine server data + local interaction state into a view model.
 - components receive typed props and render UI.
-- avoid `as any`; add an adapter or update the type instead.
+- avoid `as any`; update the type or add a typed adapter.
+- user-visible plan, credit, notification, job, asset or entitlement values must come from a real API contract. Until then, hide/disable the control or show an explicit unavailable state rather than fake persisted data.
+
+## Accessibility baseline
+
+- All form errors connect to fields using `aria-invalid`/`aria-describedby`.
+- Icon-only controls have accessible names.
+- Tabs support ArrowLeft/ArrowRight/Home/End keyboard navigation.
+- Modals trap focus while open, close on Escape, restore previous focus and restore the previous body scroll state.
+- Menus/dialogs return focus to their trigger when dismissed by keyboard.
+- Small secondary text should use a contrast-safe token/value; avoid low-contrast placeholder/body text.
+- Motion must respect `prefers-reduced-motion` for non-essential animation.
+
+## Responsive shell
+
+- Desktop sidebar is rendered at `lg` and above.
+- Mobile uses the bottom studio navigation and reserves safe-area/content padding so controls are not covered.
+- Do not hide horizontal overflow to compensate for a non-responsive fixed-width navigation layout.
+
+## Fixture policy
+
+Runtime application mode is API-backed. Mock/fixture data is allowed only in tests or Storybook. Fixtures must stay behind lazy/dynamic boundaries so API-mode production chunks do not statically import large mock modules.
 
 ## Performance rules
 
 - Do not statically import Storybook/test fixtures from production entry paths.
-- Pre-index repeated relations with `Map`/`Set` instead of calling `.find()` inside large render/filter loops.
+- Pre-index repeated relations with `Map`/`Set` instead of `.find()` inside large render/filter loops.
 - Prefer server pagination/search for unbounded collections.
 - Use dynamic imports for large editor/prototype surfaces that are not needed in API mode.
-- Prefer semantic buttons/links for clickable cards and preserve keyboard focus styles.
+- Keep `"use client"` boundaries as narrow as practical.
 
-## API organization
+## Quality gates
 
-```text
-shared/api/client.ts                 # transport, CSRF, protocol/errors
-features/auth/api/auth.api.ts        # auth endpoints
-features/projects/api/projects.api.ts# project endpoints
+Frontend CI must run, at minimum:
+
+```bash
+npm ci
+npm run lint
+npm run type-check
+npm run build
 ```
 
-`src/lib/api.ts` is currently a compatibility facade. New feature code should import its domain API directly.
-
-## Fixture policy
-
-Runtime application mode is API-backed. Mock/fixture data is allowed only in tests or Storybook. Keep fixtures behind a lazy boundary when a demo screen needs them so they are not part of the normal production client graph.
+A frontend architecture/refactor PR is not complete if any of these gates fail.
