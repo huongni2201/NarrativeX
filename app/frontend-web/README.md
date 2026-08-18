@@ -10,6 +10,7 @@ The Frontend Web application provides the NarrativeX web client for project crea
 - **Server State**: TanStack Query
 - **Client State**: Zustand for transient editor/UI state only
 - **Styling**: Tailwind CSS
+- **Images**: `next/image` for local/trusted imagery; dynamic backend media stays unoptimized until a stable trusted media hostname is part of the storage contract
 - **Linting**: ESLint + architecture checks
 - **Tests**: Node.js built-in test runner for zero-dependency architecture regression tests
 - **Runtime / CI**: Node.js 22
@@ -78,7 +79,7 @@ Project creation currently spans Project + initial StoryVersion mutations. After
 
 The long-term backend contract should provide an idempotent or transactional orchestration endpoint.
 
-## Accessibility baseline
+## Accessibility and performance baseline
 
 - Shared dialogs have an accessible name through `title` or `ariaLabel`.
 - Modal focus is trapped/restored and Escape/backdrop closing can be disabled during persisted mutations.
@@ -86,6 +87,10 @@ The long-term backend contract should provide an idempotent or transactional orc
 - Validation errors use `aria-invalid`/`aria-describedby` through shared form controls.
 - Mutually exclusive options expose radio-group semantics.
 - Non-essential animation uses reduced-motion-aware `motion-safe` utilities.
+- Local branding, trusted remote images and demo imagery use `next/image`, explicit layout dimensions and responsive `sizes`.
+- Above-the-fold hero/brand assets may use `priority`; card/grid media stays lazy by default.
+- `next.config.mjs` only whitelists trusted image origins; NarrativeX does not use broad wildcard image origins.
+- Asset URLs returned by backend storage may vary across MinIO/S3/CDN environments. Until a stable media hostname is defined by configuration, dynamic asset thumbnails use `next/image` with `unoptimized`. Once the storage hostname is stable, whitelist that narrow origin and enable optimizer delivery.
 
 ## Quality gates
 
