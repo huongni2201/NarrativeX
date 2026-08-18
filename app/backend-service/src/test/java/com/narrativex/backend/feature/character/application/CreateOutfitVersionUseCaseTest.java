@@ -37,10 +37,10 @@ class CreateOutfitVersionUseCaseTest {
     CreateOutfitVersionUseCase useCase =
         new CreateOutfitVersionUseCase(characterRepository, outfitVersionRepository, currentUserId);
 
-    var response =
+    OutfitVersion response =
         useCase.execute(new CreateOutfitVersionCommand(10L, "Travel", null, "prompt", "owner"));
 
-    assertEquals(4, response.data().getVersionNumber());
+    assertEquals(4, response.getVersionNumber());
     verify(characterRepository).findOwnedByIdForUpdate(10L, "owner");
     verify(characterRepository, never()).findOwnedById(10L, "owner");
   }

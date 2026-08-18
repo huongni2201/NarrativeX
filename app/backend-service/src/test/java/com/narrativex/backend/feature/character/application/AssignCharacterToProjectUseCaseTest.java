@@ -63,7 +63,7 @@ class AssignCharacterToProjectUseCaseTest {
             projectAccess,
             currentUserId);
 
-    var response =
+    ProjectCharacter response =
         useCase.execute(
             new AssignCharacterToProjectCommand(
                 100L,
@@ -76,8 +76,8 @@ class AssignCharacterToProjectUseCaseTest {
                 null,
                 "owner"));
 
-    assertEquals(10L, response.data().getCharacterId());
-    assertEquals(100L, response.data().getProjectId());
+    assertEquals(10L, response.getCharacterId());
+    assertEquals(100L, response.getProjectId());
     verify(projectAccess).findOwnedProject(100L, "owner");
   }
 }

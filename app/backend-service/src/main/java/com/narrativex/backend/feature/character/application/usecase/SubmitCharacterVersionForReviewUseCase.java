@@ -5,7 +5,6 @@ import com.narrativex.backend.feature.character.application.command.ChangeCharac
 import com.narrativex.backend.feature.character.application.port.out.CharacterVersionRepository;
 import com.narrativex.backend.feature.character.domain.entity.CharacterVersion;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
-import com.narrativex.backend.feature.common.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -19,7 +18,7 @@ public class SubmitCharacterVersionForReviewUseCase {
   private final CurrentUserId currentUserId;
 
   @Transactional
-  public ApiResponse<CharacterVersion> execute(ChangeCharacterVersionStatusCommand command) {
+  public CharacterVersion execute(ChangeCharacterVersionStatusCommand command) {
     String actorId = currentUserId.get();
     CharacterVersion version =
         versionRepository
@@ -28,6 +27,6 @@ public class SubmitCharacterVersionForReviewUseCase {
     version.submitForReview();
     CharacterVersion saved = versionRepository.save(version);
     log.info("Submitted character version {} for review", command.characterVersionId());
-    return ApiResponse.success("Character version submitted for review", saved);
+    return saved;
   }
 }

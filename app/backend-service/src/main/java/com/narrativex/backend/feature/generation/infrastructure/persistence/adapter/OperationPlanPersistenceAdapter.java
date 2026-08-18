@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.generation.infrastructure.persistence.adapter;
 
+import com.narrativex.backend.feature.common.infrastructure.persistence.OptimisticConcurrency;
 import com.narrativex.backend.feature.generation.application.port.out.OperationPlanRepository;
 import com.narrativex.backend.feature.generation.domain.aggregate.OperationPlan;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.entity.OperationPlanJpaEntity;
@@ -22,6 +23,11 @@ public class OperationPlanPersistenceAdapter implements OperationPlanRepository 
             : repository
                 .findById(operationPlan.getId())
                 .map(existing -> {
+                  OptimisticConcurrency.requireVersion(
+                      operationPlan.getRowVersion(),
+                      existing.getRowVersion(),
+                      OperationPlanJpaEntity.class,
+                      operationPlan.getId());
                   existing.apply(operationPlan);
                   return existing;
                 })

@@ -12,18 +12,16 @@
 
 | Migration | Tables/columns owned | Indexes/constraints | Owner module |
 |---|---|---|---|
-| V1 `initial_schema` | Consolidated baseline schema: auth, project/storyboard/generation tables, control-plane tables, reusable character/appearance tables and project keyset access path | FKs, unique version/order/idempotency constraints, appearance/outfit invariants and indexes | backend/platform plus auth, project, storyboard, generation and character features |
-| V2 `seed_demo_data` | Deterministic local/demo rows for every application table, including `auth_users` | fixed seed IDs and unique event keys; idempotent inserts | backend/platform |
+| V1 `initial_schema` | Consolidated baseline schema: auth, project/storyboard/generation tables, control-plane tables, reusable character/appearance tables and project access paths | FKs, unique version/order/idempotency constraints, appearance/outfit invariants and baseline indexes | backend/platform plus auth, project, storyboard, generation and character features |
+| V3 `optimize_active_project_listing` | no table/column changes | partial keyset index `idx_projects_active_owner_updated_id(owner_id, updated_at DESC, id DESC) WHERE archived_at IS NULL` | project persistence/performance |
 
-V1 is treated as the consolidated baseline schema.
-
-V2 is local/demo seed data rather than production business content. It includes ten accounts, with `huongnn2201@gmail.com` as the first account, and at least ten rows per application table. The seed uses synthetic provider, moderation and identity-reference values; it must not be interpreted as production provider health or real-person consent. Flyway's own `flyway_schema_history` remains migration metadata and is not seed data.
+V1 is treated as the consolidated baseline schema. V3 is a forward optimization matching the active-project cursor query. There is no current V2 migration on this branch; documentation must not imply a seed migration that is not present in the repository.
 
 ## Entity/schema matrix
 
 | Domain type | Table | Migration owner | PK type | FK / delete rule | Important indexes/constraints | JPA match | Gap/risk |
 |---|---|---|---|---|---|---|---|
-| `Project` aggregate | `projects` | V1 | BIGINT identity | none declared | `(owner_id,status)`, project keyset index | MATCH | broader workspace membership pending |
+| `Project` aggregate | `projects` | V1 + V3 index | BIGINT identity | none declared | `(owner_id,status)`, active-project partial keyset index | MATCH | broader workspace membership pending |
 | `StoryVersion` entity | `story_versions` | V1 | BIGINT identity | `project_id -> projects(id)` | unique `(project_id,version_number)` | MATCH | read/update/moderation flow incomplete |
 | `Chapter` aggregate | `chapters` | V1 | BIGINT identity | `story_version_id`; optional source story reference | unique `(story_version_id,order_index)` | MATCH foundation | repository/application API pending |
 | `Scene` aggregate | `scenes` | V1 | BIGINT identity | `chapter_id -> chapters(id)` | unique `(chapter_id,order_index)` | MATCH | repository/application API pending |
@@ -56,6 +54,36 @@ VisualBeat child entity
 - Scene lifecycle values are `DRAFT`, `READY_FOR_VISUAL`, `GENERATING`, `REVIEW`, `APPROVED`, `FAILED`, `OUTDATED`.
 - Ordered uniqueness (`Scene` within Chapter, `VisualBeat` within Scene) remains protected by database unique constraints in addition to domain/application validation.
 
+## Optimistic write contract
+
+JPA `@Version` remains the persistence-level conflict guard. In addition, mutable aggregate adapters compare the detached domain model's expected `rowVersion` to the version on the currently loaded persistence entity before copying mutable state. This closes the gap where a stale detached object could otherwise be applied to a fresh managed entity before flush-time optimistic locking.
+
+A version mismatch is a conflict and must not degrade to last-write-wins. HTTP ETag/`If-Match` propagation is still required where the public API exposes concurrent mutable updates.
+
+## Project-list query contract
+
+Active project listing uses keyset pagination with this shape:
+
+```sql
+WHERE owner_id = ?
+  AND archived_at IS NULL
+  AND (
+    updated_at < ?
+    OR (updated_at = ? AND id < ?)
+  )
+ORDER BY updated_at DESC, id DESC
+```
+
+V3 adds the matching partial index:
+
+```sql
+CREATE INDEX IF NOT EXISTS idx_projects_active_owner_updated_id
+ON projects (owner_id, updated_at DESC, id DESC)
+WHERE archived_at IS NULL;
+```
+
+The partial predicate keeps archived rows out of this access path, which becomes increasingly useful as archived projects accumulate.
+
 ## Schema risks / pending work
 
 1. Most foreign-key access paths should be benchmarked and explicitly indexed when query patterns become active; PostgreSQL does not automatically index every FK.
@@ -63,13 +91,15 @@ VisualBeat child entity
 3. BIGINT database identities and string/UUID public job identifiers must remain explicit boundary mappings.
 4. Storyboard repositories/mappers are still incomplete; JPA table presence alone is not a complete aggregate persistence implementation.
 5. Scene lifecycle writes require expected `row_version`; HTTP/API wiring for `If-Match`/409 semantics remains implementation work.
+6. Planned/future tables in the consolidated baseline must not be removed casually. Their cleanup requires an explicit schema/product migration decision rather than a mechanical code-review fix.
 
 ## Verification gate
 
 For schema-impacting PRs:
 
-1. Apply V1 then V2 to an empty supported PostgreSQL instance.
+1. Apply every migration currently present on the branch to an empty supported PostgreSQL instance.
 2. Start backend with Hibernate `ddl-auto=validate`.
 3. Run backend Maven `clean verify`.
-4. Exercise Scene persistence with all canonical enum values and optimistic locking.
-5. Do not rely on H2-only tests as proof of PostgreSQL/Flyway compatibility.
+4. Exercise mutable aggregate stale-version regression tests and Scene persistence with all canonical enum values.
+5. Verify the active-project query plan can use `idx_projects_active_owner_updated_id` under representative data volume when performance work is being validated.
+6. Do not rely on H2-only tests as proof of PostgreSQL/Flyway compatibility.

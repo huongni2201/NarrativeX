@@ -44,11 +44,11 @@ class ActivateStoryVersionUseCaseTest {
     ActivateStoryVersionUseCase useCase =
         new ActivateStoryVersionUseCase(projectAccess, storyVersionRepository, currentUserId);
 
-    var response = useCase.execute(42L, 11L);
+    StoryVersion response = useCase.execute(42L, 11L);
 
     assertEquals(StoryVersionStatus.SUPERSEDED, current.getStatus());
     assertEquals(StoryVersionStatus.ACTIVE, next.getStatus());
-    assertEquals("ACTIVE", response.data().status());
+    assertEquals(StoryVersionStatus.ACTIVE, response.getStatus());
 
     InOrder order = inOrder(projectAccess, storyVersionRepository);
     order.verify(projectAccess).findOwnedProjectForUpdate(42L, "owner");

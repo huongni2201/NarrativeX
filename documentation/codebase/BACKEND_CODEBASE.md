@@ -49,6 +49,7 @@ feature/
 - A feature domain must not import another business feature's domain.
 - Cross-feature application dependencies are allowed only through explicit inbound ports (`application.port.in`) while the system remains a modular monolith.
 - Controllers belong to the feature that owns the use case even when the HTTP route is nested under another resource. For example, `/api/v1/projects/{projectId}/chapters/{chapterId}/analysis-jobs` is owned by Generation, not Project or Storyboard.
+- Application use cases return application/domain results; they do not return `ApiResponse`, API response DTOs, servlet types or other HTTP transport objects. Controllers perform transport mapping at the API boundary.
 - `feature/common` is a deliberately small shared kernel and must not import a business feature.
 - Feature-owned value types are duplicated when their meaning belongs to separate bounded contexts. Storyboard therefore owns its aspect-ratio and quality-tier enums instead of importing Project domain enums.
 
@@ -69,8 +70,15 @@ Storyboard deliberately uses two aggregate boundaries rather than a single giant
 
 - Creating a `Project` is metadata-only and must not enqueue AI/media work.
 - Analysis is explicitly requested for a persisted `Chapter` through `POST /api/v1/projects/{projectId}/chapters/{chapterId}/analysis-jobs`.
-- The endpoint remains fail-closed until the durable enqueue transaction, outbox dispatch and worker claim/lease/recovery path exist.
+- There is no feature toggle that can turn the current scaffold into a production capability.
+- The endpoint remains fail-closed with `503 FEATURE_NOT_AVAILABLE` until the durable enqueue transaction, outbox dispatch and worker claim/lease/recovery path exist.
 - The current Chapter model still requires source-persistence alignment before production analysis can be enabled; do not paper over that gap by falling back to project-wide analysis.
+
+### Story preflight validation
+
+Story-size validation distinguishes stable failure modes instead of returning only a generic invalid-request response. Character-count and estimated-token limits have separate error codes.
+
+The backend estimator is deliberately conservative for multilingual text and is only a preflight heuristic. It must not be treated as the provider's exact tokenizer. The worker/provider adapter still validates the selected model's real token budget before external execution.
 
 ## Domain rules and exceptions
 
@@ -137,7 +145,7 @@ Rules:
 - cursor is opaque Base64URL containing the last `(updatedAt, id)` key;
 - persistence fetches `limit + 1` to determine `hasNext`;
 - no `OFFSET` and no total-count query are required for normal list navigation;
-- database index `idx_projects_owner_updated_id(owner_id, updated_at DESC, id DESC)` supports the access pattern.
+- active-project listing is supported by the partial index `idx_projects_active_owner_updated_id(owner_id, updated_at DESC, id DESC) WHERE archived_at IS NULL`.
 
 `Page`, `Pageable` and Spring Data pagination types must not cross application ports. Framework pagination objects are allowed only inside infrastructure adapters.
 
@@ -145,11 +153,13 @@ Rules:
 
 Version creation uses `max(version_number) + 1` while holding a pessimistic lock on the owning `Project`/`Character`. The lock is intentional and protects version allocation from concurrent duplicates; unique constraints remain the final database guard.
 
-Mutable aggregate writes use optimistic `row_version`/JPA `@Version`. Scene is an independent aggregate specifically so unrelated scene edits/generation do not compete for one Chapter aggregate version.
+Mutable aggregate writes use optimistic `row_version`/JPA `@Version`. Persistence adapters also compare the detached domain model's expected `rowVersion` against the currently loaded JPA entity version **before** applying domain state. This prevents a stale domain object from overwriting a newer row before Hibernate's normal flush-time optimistic locking can protect it.
+
+The explicit stale-version guard currently covers mutable Project, StoryVersion, Character, CharacterVersion, CharacterAppearance, OutfitVersion, ProjectCharacter, GenerationJob and OperationPlan write paths. Scene is an independent aggregate specifically so unrelated scene edits/generation do not compete for one Chapter aggregate version.
 
 Potential optimization is measurement-driven: if version creation becomes a lock hotspot, replace max-scan numbering with an atomic per-root counter/sequence rather than removing correctness guards.
 
-Project list retrieval uses a composite keyset index and avoids offset scans/count queries. Provider calls remain outside database transactions.
+Project list retrieval uses a partial composite keyset index for the active-project query and avoids offset scans/count queries. Provider calls remain outside database transactions.
 
 ## Code conventions and Lombok usage
 
@@ -169,7 +179,7 @@ Project list retrieval uses a composite keyset index and avoids offset scans/cou
 - framework/infrastructure imports in domain;
 - domain imports of another business feature's domain;
 - business imports from `common`;
-- forbidden application/API dependencies;
+- forbidden application/API dependencies, including application-layer dependencies on transport response types;
 - misplaced controllers, commands, queries, aggregate roots and entities.
 
 `StoryboardAggregateBoundaryTest` additionally locks the current storyboard aggregate classification and lifecycle invariants.
@@ -177,6 +187,8 @@ Project list retrieval uses a composite keyset index and avoids offset scans/cou
 ## CI verification
 
 The repository has GitHub Actions for backend, frontend and worker. Pull requests into `main` run the relevant workflow by path. Backend CI executes Maven `clean verify`; frontend CI executes `npm ci`, `npm test`, `npm run lint`, `npm run type-check` and `npm run build`; worker CI executes Ruff, mypy and pytest.
+
+Backend `clean verify` includes tests, Spotless, JaCoCo report generation and a bootstrap bundle-level line-coverage minimum. The current minimum is intentionally modest and must be raised as meaningful behavior coverage grows; passing the threshold is not equivalent to comprehensive test coverage.
 
 Ordinary backend tests exclude Redis Session auto-configuration so the suite does not silently require an external Redis service. Session principal serialization is covered directly; deployed Redis-session integration validation belongs to the environment/Compose integration path.
 

@@ -38,15 +38,10 @@ class CreateStoryVersionUseCaseTest {
         new CreateStoryVersionUseCase(
             projectAccess, storyVersionRepository, currentUserId, new NarrativeXLimitsProperties());
 
-    var response =
-        useCase.execute(
-            new CreateStoryVersionCommand(
-                42L,
-                "story",
-                "vi-VN",
-                "owner"));
+    StoryVersion response =
+        useCase.execute(new CreateStoryVersionCommand(42L, "story", "vi-VN", "owner"));
 
-    assertEquals(4, response.data().versionNumber());
+    assertEquals(4, response.getVersionNumber());
     verify(projectAccess).findOwnedProjectForUpdate(42L, "owner");
     verify(projectAccess, never()).findOwnedProject(42L, "owner");
   }

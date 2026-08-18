@@ -5,6 +5,7 @@ import com.narrativex.backend.feature.character.domain.entity.CharacterVersion;
 import com.narrativex.backend.feature.character.infrastructure.persistence.entity.CharacterVersionJpaEntity;
 import com.narrativex.backend.feature.character.infrastructure.persistence.mapper.CharacterPersistenceMapper;
 import com.narrativex.backend.feature.character.infrastructure.persistence.repository.CharacterVersionJpaRepository;
+import com.narrativex.backend.feature.common.infrastructure.persistence.OptimisticConcurrency;
 import java.util.ArrayList;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +34,11 @@ public class CharacterVersionPersistenceAdapter implements CharacterVersionRepos
             : repository
                 .findById(version.getId())
                 .map(existing -> {
+                  OptimisticConcurrency.requireVersion(
+                      version.getRowVersion(),
+                      existing.getRowVersion(),
+                      CharacterVersionJpaEntity.class,
+                      version.getId());
                   existing.apply(version);
                   return existing;
                 })
