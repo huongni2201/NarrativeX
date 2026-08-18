@@ -1,35 +1,39 @@
 # NarrativeX Frontend API Integration Matrix
 
-This matrix maps the existing UI to the smallest backend contracts required for later wiring. It does not propose new screens or visual changes.
+This matrix records the current UI-to-backend wiring and the next backend contracts needed. API mode is authoritative; unavailable backend capabilities must remain explicit rather than falling back to fixture data.
 
-| Screen/Feature | Route | UI Action | Current Data Source | State | Existing Client Function | Required Backend API | Auth/Workspace Scope | Missing FE Wiring | Missing BE Contract | Week Target |
-|---|---|---|---|---|---|---|---|---|---|---|
-| Auth | `/auth`, root `auth` | submit login / Google / logout | server session via `GET /api/auth/me` | API | `api.getCurrentUser`, `api.logout`, `api.googleLoginUrl` | backend OIDC redirect/session + current-user query + Spring logout | authenticated session; no provider token in browser | implemented: bootstrap gate, OIDC redirect, real logout, global 401 → auth state | password auth intentionally not exposed until a backend contract exists | W1-D5 |
-| Dashboard | `/`, `ProjectsDashboard` | load/filter/search projects | React Query `queryKeys.projectsPage(batchIndex, batchSize)` | API | `api.listProjects` | `GET /api/v1/projects?limit=20&cursor=<opaque>` | authenticated user + workspace membership | cursor page, loading/error/empty states wired | filter/count/cover/progress fields remain optional | W2-D1 |
-| Create project | `/`, wizard / `ProjectWizardModal` | confirm project | React Query mutation calls `api.createProject` | API | `api.createProject` | `POST /api/v1/projects` | authenticated workspace owner/editor | returned ID retained and query invalidated | idempotency contract still recommended | W2-D1 |
-| Story input | `/`, `Step2ImportStory` | save pasted story | Zustand draft until submit, then backend create | API FOUNDATION | `api.createStoryVersion` | `POST /api/v1/projects/{id}/stories` | authenticated project editor | story creation wired; reload/edit pending | story read/update and version/If-Match contract still missing | W2-D1 |
-| Story reload/edit | project workspace | reopen and edit story | local draft/prototype state | PENDING API | none | `GET/PUT` story/version resources | project/workspace scoped | route-param project identity, query cache, conflict handling | read/update contract + row version | W2-D1 |
-| AI analysis start | project creation/workspace | start analysis | **disabled production capability** | NOT AVAILABLE | client function may exist but wizard does not call it | `POST /api/v1/projects/{id}/analysis-jobs` | project editor + abuse/safety/entitlement/idempotency/cost gates | only wire after backend advertises durable support | durable enqueue transaction, StageAttempt/outbox dispatch, worker lease, provider reconciliation | W2-D3+ |
-| Analysis progress | workspace | observe progress/result | none in API runtime | PENDING API | none for polling/SSE | `GET /api/v1/jobs/{jobId}` + events/replay | job owner/workspace scoped | polling/SSE, reconnect, failed/UNKNOWN/paused states | durable worker transitions/event stream | W2-D4+ |
-| Analysis result | workspace | inspect characters/chapters/beats | explicit unavailable state | PENDING API | none | result resources derived from completed analysis | project/workspace scoped; safety review | map real result into UI | result DTOs + moderation/review state | W2-D4+ |
-| Upload reference | chapter/project/asset UI | upload story/asset file | visual dropzone only | MOCK/PENDING | none | upload intent + complete | workspace/project scoped; MIME/size checks; real-person consent where applicable | file selection, upload progress, retry/cancel | private storage + immutable asset metadata | W2-D2 |
-| Characters | `/characters` and Character Bible | filter/open/create/edit/lock | explicit API-not-connected state | PENDING API | none | character/version/reference/lock APIs | project/workspace scoped | query/mutations and server version mapping | public resources absent | W2-D2+ |
-| Chapter add | production workspace | add chapter/import | disabled in API mode | PENDING API | none | `POST /api/v1/projects/{id}/chapters` | project editor | submit and reconcile returned chapter | chapter API absent | W2-D2+ |
-| Storyboard/visual review | production views | approve/reject/generate visuals | explicit API-not-connected state | PENDING API | none | storyboard read/update + generation APIs | project/workspace scoped; entitlement/safety | optimistic API + conflict states | scene/visual-beat commands | W2-D3+ |
-| Render/export | production view 06/07 | render now / preview/download | explicit API-not-connected state | PENDING API | none | render job create, status/events, signed download URL | server-side entitlement/watermark/export policy | mutation/job/download handling | render/export APIs absent | W2-D3+ |
-| Assets/presets | root screen switcher | open/upload/edit/delete preset | local prototype stores | MOCK | none | asset list/detail/delete and preset CRUD | workspace scoped | keep prototype state explicit | asset/preset endpoints absent | later |
+| Screen/Feature | Route | Current Data Source | State | Existing Client Function | Required / Current Backend API | Missing Work |
+|---|---|---|---|---|---|---|
+| Auth | `/auth`, app shell | server session bootstrap + Google OIDC + logout | API FOUNDATION | `authApi.getCurrentUser`, `authApi.logout`, `authApi.googleLoginUrl` | `GET /api/auth/me`, `/oauth2/authorization/google`, `POST /logout` | server-side bootstrap can be considered later to reduce auth hydration wait |
+| Project list | `/projects` and overview entry | TanStack Query cursor pages | API | `projectsApi.list` | `GET /api/v1/projects?limit=<n>&cursor=<opaque>` | backend search/status query if filters must cover the entire unbounded collection |
+| Project detail/workspace | `/projects/[projectId]` | direct entity query by route ID | API FOUNDATION | `projectsApi.getById` | `GET /api/v1/projects/{projectId}` | richer project/story/chapter DTOs as production workspace expands |
+| Create project | project wizard | TanStack Query mutation | API | `projectsApi.create` | `POST /api/v1/projects` | idempotency contract remains recommended |
+| Story input | project wizard | Zustand draft until submit, then backend create | API FOUNDATION | `projectsApi.createStoryVersion` | `POST /api/v1/projects/{id}/stories` | read/update/version conflict contract |
+| AI analysis start | wizard/workspace | disabled production capability | NOT AVAILABLE | `projectsApi.enqueueAnalysis` exists but normal create flow does not call it | `POST /api/v1/projects/{id}/analysis-jobs`, feature-gated off by default | enable only after durable enqueue/outbox/stage/worker/reconciliation invariant exists |
+| Analysis progress/result | workspace | explicit pending/unavailable state | PENDING API | none | job query/event replay + result resources | polling/SSE/reconnect/UNKNOWN/failed UI and result mapping |
+| Characters | `/characters` | explicit API-not-connected state | PENDING API | none | character/version/reference/lock APIs | query/mutations and canonical identity/project-usage mapping |
+| Chapter/storyboard | project workspace | explicit pending state in API runtime | PENDING API | none | chapter/scene/visual-beat resources and commands | URL-owned chapter/scene deep links once backend IDs/contracts exist |
+| Render/export | project workspace | explicit API-not-connected state | PENDING API | none | render job create/status/events + signed artifact URL | mutation/job/download flow |
+| Assets | `/assets` | explicit API-not-connected state; demo fixtures lazy in mock runtime | PENDING API | none | asset list/detail/upload/delete/review APIs | replace demo store with Query/mutations when contract lands |
+| Presets | `/presets` | explicit API-not-connected state; demo fixtures lazy in mock runtime | PENDING API | none | preset CRUD APIs | replace demo store with Query/mutations when contract lands |
+| Notifications / credits / plan / settings / jobs | shell | hidden/disabled until real contract exists | PENDING API | none | notification, entitlement/usage and settings/job-list APIs | render real values only after contracts exist |
 
-## Contract notes
+## Route and state rules
 
-- Normal JSON routes use `ApiResponse<T>` and failures use `ErrorResponse`.
-- The project and StoryVersion create flows are real API foundations.
-- The project-creation wizard deliberately **does not call** `enqueueAnalysis` while durable execution is unavailable.
-- `POST /api/v1/projects/{id}/analysis-jobs` is feature-gated off by default and returns `503 FEATURE_NOT_AVAILABLE`; when disabled it must not persist an `OperationPlan` or `GenerationJob`.
-- Enabling the endpoint requires a single durable enqueue transaction covering operation authorization/reservation, `GenerationJob`, required `StageAttempt` rows and an outbox event, followed by post-commit dispatch and a real worker claim/lease path.
-- Story creation no longer contains a per-story copyright/rights checkbox. Real-person consent remains a separate reference/identity concern.
+- `/projects` is the canonical project-list route; `/dashboard` only redirects to `/projects`.
+- `/projects/[projectId]` owns project identity. The workspace never discovers a project by loading a collection and calling `.find()`.
+- Navigable project-list filters live in URL search params (`status`, `q`). They currently filter loaded cursor pages only; server-wide filtering requires a backend query contract.
+- TanStack Query owns persisted server state. Zustand is reserved for transient wizard/editor/demo state.
 
-## Runtime safety corrections
+## Transport rules
 
-- The API client owns credentials, JSON negotiation, `ErrorResponse` parsing and `ApiClientError`; it unwraps `ApiResponse.data` centrally.
-- TanStack Query owns persisted server state; fixture data remains isolated to tests/Storybook.
-- API mode must never report fake analysis progress or fake analysis success.
+- `src/shared/api/client.ts` owns request transport, credentials, CSRF, envelope validation and typed errors.
+- Shared transport has no dependency on Zustand or feature/app state. A 401 is surfaced to the app boundary, where `AppProviders` updates session UI.
+- New feature code imports domain APIs directly instead of extending the compatibility facade in `src/lib/api.ts`.
+
+## Runtime safety rules
+
+- The project-creation wizard deliberately does **not** call analysis enqueue while durable execution is unavailable.
+- `POST /api/v1/projects/{id}/analysis-jobs` remains feature-gated off by default and must not persist queued work while disabled.
+- API mode must never show fake analysis progress/results, fake notification counts, fake credits/plan data or fixture-backed persisted entities.
+- Mock modules are lazy-loaded only in validated test/Storybook-style mock runtimes.
