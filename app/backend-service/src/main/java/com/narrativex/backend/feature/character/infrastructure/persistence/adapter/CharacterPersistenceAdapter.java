@@ -36,7 +36,8 @@ public class CharacterPersistenceAdapter implements CharacterRepository {
                 fetchLimit);
 
     boolean hasNext = entities.size() > limit;
-    List<CharacterJpaEntity> visibleEntities = entities.subList(0, Math.min(limit, entities.size()));
+    List<CharacterJpaEntity> visibleEntities =
+        entities.subList(0, Math.min(limit, entities.size()));
     String nextCursor =
         hasNext && !visibleEntities.isEmpty() ? cursorFor(visibleEntities.getLast()) : null;
     List<Character> content =
