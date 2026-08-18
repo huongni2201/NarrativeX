@@ -7,16 +7,23 @@ import com.narrativex.backend.feature.common.exception.ResourceConflictException
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import jakarta.persistence.OptimisticLockException;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolationException;
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
+@Slf4j
 @RestControllerAdvice
 public class ApiExceptionHandler {
   @ExceptionHandler(DomainValidationException.class)
@@ -34,70 +41,171 @@ public class ApiExceptionHandler {
   @ExceptionHandler(MethodArgumentNotValidException.class)
   ResponseEntity<ErrorResponse> handleValidation(
       MethodArgumentNotValidException exception, HttpServletRequest request) {
-    List<FieldViolation> violations = exception.getBindingResult().getFieldErrors().stream()
-        .map(error -> new FieldViolation(error.getField(), error.getCode(),
-            "validation." + error.getField() + "." + error.getCode(), error.getDefaultMessage()))
-        .toList();
-    return error(HttpStatus.BAD_REQUEST, ApiErrorCode.VALIDATION_FAILED,
-        "Request validation failed.", request, violations);
+    List<FieldViolation> violations =
+        exception.getBindingResult().getFieldErrors().stream()
+            .map(
+                fieldError ->
+                    new FieldViolation(
+                        fieldError.getField(),
+                        fieldError.getCode(),
+                        "validation." + fieldError.getField() + "." + fieldError.getCode(),
+                        fieldError.getDefaultMessage()))
+            .toList();
+    return error(
+        HttpStatus.BAD_REQUEST,
+        ApiErrorCode.VALIDATION_FAILED,
+        "Request validation failed.",
+        request,
+        violations);
+  }
+
+  @ExceptionHandler(ConstraintViolationException.class)
+  ResponseEntity<ErrorResponse> handleConstraintViolation(
+      ConstraintViolationException exception, HttpServletRequest request) {
+    return error(
+        HttpStatus.BAD_REQUEST,
+        ApiErrorCode.VALIDATION_FAILED,
+        "Request validation failed.",
+        request);
+  }
+
+  @ExceptionHandler({
+    HttpMessageNotReadableException.class,
+    MethodArgumentTypeMismatchException.class,
+    MissingServletRequestParameterException.class
+  })
+  ResponseEntity<ErrorResponse> handleMalformedRequest(
+      Exception exception, HttpServletRequest request) {
+    return error(
+        HttpStatus.BAD_REQUEST,
+        ApiErrorCode.INVALID_REQUEST,
+        "The request is invalid.",
+        request);
   }
 
   @ExceptionHandler(ResourceNotFoundException.class)
-  ResponseEntity<ErrorResponse> handleNotFound(ResourceNotFoundException exception, HttpServletRequest request) {
-    return error(HttpStatus.NOT_FOUND, ApiErrorCode.RESOURCE_NOT_FOUND,
-        "The requested resource was not found.", request);
+  ResponseEntity<ErrorResponse> handleNotFound(
+      ResourceNotFoundException exception, HttpServletRequest request) {
+    return error(
+        HttpStatus.NOT_FOUND,
+        ApiErrorCode.RESOURCE_NOT_FOUND,
+        "The requested resource was not found.",
+        request);
   }
 
   @ExceptionHandler(FeatureNotAvailableException.class)
   ResponseEntity<ErrorResponse> handleFeatureNotAvailable(
       FeatureNotAvailableException exception, HttpServletRequest request) {
-    return error(HttpStatus.SERVICE_UNAVAILABLE, ApiErrorCode.FEATURE_NOT_AVAILABLE,
-        exception.getMessage(), request);
+    return error(
+        HttpStatus.SERVICE_UNAVAILABLE,
+        ApiErrorCode.FEATURE_NOT_AVAILABLE,
+        exception.getMessage(),
+        request);
   }
 
   @ExceptionHandler(DomainConflictException.class)
-  ResponseEntity<ErrorResponse> handleDomainConflict(DomainConflictException exception, HttpServletRequest request) {
-    return error(HttpStatus.CONFLICT, ApiErrorCode.RESOURCE_CONFLICT, exception.getMessage(), request);
+  ResponseEntity<ErrorResponse> handleDomainConflict(
+      DomainConflictException exception, HttpServletRequest request) {
+    return error(
+        HttpStatus.CONFLICT, ApiErrorCode.RESOURCE_CONFLICT, exception.getMessage(), request);
   }
 
   @ExceptionHandler(ResourceConflictException.class)
-  ResponseEntity<ErrorResponse> handleConflict(ResourceConflictException exception, HttpServletRequest request) {
-    return error(HttpStatus.CONFLICT, ApiErrorCode.RESOURCE_CONFLICT,
-        "The resource changed or conflicts with the requested operation.", request);
+  ResponseEntity<ErrorResponse> handleConflict(
+      ResourceConflictException exception, HttpServletRequest request) {
+    return conflict(request);
   }
 
   @ExceptionHandler({OptimisticLockException.class, ObjectOptimisticLockingFailureException.class})
-  ResponseEntity<ErrorResponse> handleOptimisticConflict(RuntimeException exception, HttpServletRequest request) {
-    return error(HttpStatus.CONFLICT, ApiErrorCode.RESOURCE_CONFLICT,
-        "The resource changed or conflicts with the requested operation.", request);
+  ResponseEntity<ErrorResponse> handleOptimisticConflict(
+      RuntimeException exception, HttpServletRequest request) {
+    return conflict(request);
+  }
+
+  @ExceptionHandler(DataIntegrityViolationException.class)
+  ResponseEntity<ErrorResponse> handleDataIntegrityConflict(
+      DataIntegrityViolationException exception, HttpServletRequest request) {
+    log.warn(
+        "Data integrity conflict at API boundary correlationId={} method={} path={}",
+        CorrelationIdFilter.correlationId(request),
+        request.getMethod(),
+        request.getRequestURI());
+    return conflict(request);
   }
 
   @ExceptionHandler(AccessDeniedException.class)
-  ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException exception, HttpServletRequest request) {
+  ResponseEntity<ErrorResponse> handleAccessDenied(
+      AccessDeniedException exception, HttpServletRequest request) {
     return error(HttpStatus.FORBIDDEN, ApiErrorCode.FORBIDDEN, "Access denied.", request);
   }
 
   @ExceptionHandler(AuthenticationException.class)
-  ResponseEntity<ErrorResponse> handleUnauthenticated(AuthenticationException exception, HttpServletRequest request) {
-    return error(HttpStatus.UNAUTHORIZED, ApiErrorCode.UNAUTHORIZED, "Authentication is required.", request);
+  ResponseEntity<ErrorResponse> handleUnauthenticated(
+      AuthenticationException exception, HttpServletRequest request) {
+    return error(
+        HttpStatus.UNAUTHORIZED,
+        ApiErrorCode.UNAUTHORIZED,
+        "Authentication is required.",
+        request);
   }
 
   @ExceptionHandler(Exception.class)
-  ResponseEntity<ErrorResponse> handleUnexpected(Exception exception, HttpServletRequest request) {
-    return error(HttpStatus.INTERNAL_SERVER_ERROR, ApiErrorCode.INTERNAL_ERROR,
-        "An unexpected error occurred.", request);
+  ResponseEntity<ErrorResponse> handleUnexpected(
+      Exception exception, HttpServletRequest request) {
+    String correlationId = CorrelationIdFilter.correlationId(request);
+    log.error(
+        "Unhandled exception at API boundary correlationId={} method={} path={}",
+        correlationId,
+        request.getMethod(),
+        request.getRequestURI(),
+        exception);
+    return error(
+        HttpStatus.INTERNAL_SERVER_ERROR,
+        ApiErrorCode.INTERNAL_ERROR,
+        "An unexpected error occurred.",
+        request,
+        correlationId);
+  }
+
+  private ResponseEntity<ErrorResponse> conflict(HttpServletRequest request) {
+    return error(
+        HttpStatus.CONFLICT,
+        ApiErrorCode.RESOURCE_CONFLICT,
+        "The resource changed or conflicts with the requested operation.",
+        request);
   }
 
   private ResponseEntity<ErrorResponse> error(
       HttpStatus status, ApiErrorCode code, String message, HttpServletRequest request) {
-    return ResponseEntity.status(status).body(ErrorResponse.of(status.value(), code.name(), message,
-        request.getRequestURI(), CorrelationIdFilter.correlationId(request)));
+    return error(status, code, message, request, CorrelationIdFilter.correlationId(request));
   }
 
   private ResponseEntity<ErrorResponse> error(
-      HttpStatus status, ApiErrorCode code, String message, HttpServletRequest request,
+      HttpStatus status,
+      ApiErrorCode code,
+      String message,
+      HttpServletRequest request,
+      String correlationId) {
+    return ResponseEntity.status(status)
+        .body(
+            ErrorResponse.of(
+                status.value(), code.name(), message, request.getRequestURI(), correlationId));
+  }
+
+  private ResponseEntity<ErrorResponse> error(
+      HttpStatus status,
+      ApiErrorCode code,
+      String message,
+      HttpServletRequest request,
       List<FieldViolation> violations) {
-    return ResponseEntity.status(status).body(ErrorResponse.validation(status.value(), code.name(), message,
-        request.getRequestURI(), CorrelationIdFilter.correlationId(request), violations));
+    return ResponseEntity.status(status)
+        .body(
+            ErrorResponse.validation(
+                status.value(),
+                code.name(),
+                message,
+                request.getRequestURI(),
+                CorrelationIdFilter.correlationId(request),
+                violations));
   }
 }
