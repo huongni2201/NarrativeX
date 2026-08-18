@@ -6,7 +6,7 @@ from narrativex_worker.providers.ports import (
     ProviderEstimate,
     ProviderOperation,
 )
-from narrativex_worker.schema import StoryAnalysisRequest
+from narrativex_worker.schema import ChapterAnalysisRequest
 
 
 class ProviderNotConfiguredError(RuntimeError):
@@ -17,11 +17,11 @@ class DisabledProvider(LlmProvider):
     def get_capabilities(self) -> ProviderCapabilities:
         return ProviderCapabilities(provider_key="disabled", supports_story_analysis=False)
 
-    def estimate(self, request: StoryAnalysisRequest) -> ProviderEstimate:
+    def estimate(self, request: ChapterAnalysisRequest) -> ProviderEstimate:
         del request
         raise ProviderNotConfiguredError("No real AI provider is configured")
 
-    async def submit(self, request: StoryAnalysisRequest) -> ProviderOperation:
+    async def submit(self, request: ChapterAnalysisRequest) -> ProviderOperation:
         del request
         raise ProviderNotConfiguredError("No real AI provider is configured")
 
