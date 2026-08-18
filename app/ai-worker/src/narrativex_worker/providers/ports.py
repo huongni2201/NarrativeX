@@ -3,7 +3,11 @@
 from dataclasses import dataclass
 from typing import Protocol
 
-from narrativex_worker.schema import ProviderOperationStatus, StoryAnalysisRequest
+from narrativex_worker.schema import (
+    ChapterAnalysisRequest,
+    ChapterAnalysisResult,
+    ProviderOperationStatus,
+)
 
 
 @dataclass(frozen=True)
@@ -26,6 +30,7 @@ class ProviderOperation:
     provider_key: str
     operation_id: str | None
     status: ProviderOperationStatus
+    result: ChapterAnalysisResult | None = None
 
 
 class LlmProvider(Protocol):
@@ -34,10 +39,10 @@ class LlmProvider(Protocol):
     def get_capabilities(self) -> ProviderCapabilities:
         ...
 
-    def estimate(self, request: StoryAnalysisRequest) -> ProviderEstimate:
+    def estimate(self, request: ChapterAnalysisRequest) -> ProviderEstimate:
         ...
 
-    async def submit(self, request: StoryAnalysisRequest) -> ProviderOperation:
+    async def submit(self, request: ChapterAnalysisRequest) -> ProviderOperation:
         ...
 
     async def get_status(self, operation: ProviderOperation) -> ProviderOperation:
