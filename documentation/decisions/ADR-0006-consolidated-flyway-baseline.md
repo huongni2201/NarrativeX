@@ -20,7 +20,9 @@ features such as JSONB, partial indexes, or PostgreSQL constraint behavior.
 
 - Keep `app/backend-service/src/main/resources/db/migration/V1__initial_schema.sql`
   immutable after its initial shared/released use.
-- All subsequent schema changes use forward-only migrations (`V2`, `V3`, ...).
+- All subsequent schema changes use forward-only migrations. The current sequence is
+  `V1__initial_schema.sql`, `V2__scene_status.sql`, `V3__auth_accounts.sql`, then
+  `V4__story_version_active_invariant.sql`.
 - Set `spring.flyway.baseline-on-migrate=false` in the normal application
   configuration. An unknown non-empty schema must fail migration instead of
   being silently accepted.
@@ -37,11 +39,11 @@ features such as JSONB, partial indexes, or PostgreSQL constraint behavior.
 
 ## StoryVersion invariant rollout
 
-`V3__story_version_active_invariant.sql` adds a PostgreSQL partial unique index
+`V4__story_version_active_invariant.sql` adds a PostgreSQL partial unique index
 that permits at most one `ACTIVE` story version per project. The migration first
 checks for historical duplicates and fails loudly if any exist. It deliberately
 does not choose a winning version or silently mutate business history; operators
-must reconcile duplicate ACTIVE rows before retrying V3.
+must reconcile duplicate ACTIVE rows before retrying V4.
 
 ## Consequences
 

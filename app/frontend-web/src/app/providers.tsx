@@ -3,7 +3,8 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { createQueryClient } from "@/lib/query-client";
-import { api, ApiClientError } from "@/lib/api";
+import { authApi } from "@/features/auth/api/auth.api";
+import { ApiClientError, subscribeUnauthorized } from "@/shared/api/client";
 import { useAuthStore } from "@/store/useAuthStore";
 
 function AuthBootstrap({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -11,10 +12,12 @@ function AuthBootstrap({ children }: Readonly<{ children: React.ReactNode }>) {
   const setUnauthenticated = useAuthStore((state) => state.setUnauthenticated);
   const setBootstrapError = useAuthStore((state) => state.setBootstrapError);
 
+  useEffect(() => subscribeUnauthorized(setUnauthenticated), [setUnauthenticated]);
+
   useEffect(() => {
     let cancelled = false;
 
-    api.getCurrentUser()
+    authApi.getCurrentUser()
       .then((user) => {
         if (!cancelled) setAuthenticated(user);
       })

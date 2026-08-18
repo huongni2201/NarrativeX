@@ -2,6 +2,7 @@ package com.narrativex.backend.feature.auth.infrastructure.configuration;
 
 import com.narrativex.backend.feature.auth.infrastructure.security.ApiAccessDeniedHandler;
 import com.narrativex.backend.feature.auth.infrastructure.security.ApiAuthenticationEntryPoint;
+import com.narrativex.backend.feature.auth.infrastructure.security.NarrativeXOidcUserService;
 import java.util.Arrays;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
@@ -10,11 +11,21 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.annotation.Order;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.ProviderManager;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.crypto.factory.PasswordEncoderFactories;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.context.DelegatingSecurityContextRepository;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -23,6 +34,30 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+  private static final String[] PUBLIC_AUTH_PATHS = {
+    "/actuator/health", "/api/v1/auth/csrf", "/api/auth/login", "/api/auth/register"
+  };
+
+  @Bean
+  PasswordEncoder passwordEncoder() {
+    return PasswordEncoderFactories.createDelegatingPasswordEncoder();
+  }
+
+  @Bean
+  AuthenticationManager authenticationManager(
+      UserDetailsService userDetailsService, PasswordEncoder passwordEncoder) {
+    DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
+    provider.setPasswordEncoder(passwordEncoder);
+    return new ProviderManager(provider);
+  }
+
+  @Bean
+  SecurityContextRepository securityContextRepository() {
+    return new DelegatingSecurityContextRepository(
+        new RequestAttributeSecurityContextRepository(),
+        new HttpSessionSecurityContextRepository());
+  }
+
   @Bean
   CorsConfigurationSource corsConfigurationSource(
       @Value(
@@ -56,16 +91,21 @@ public class SecurityConfig {
       HttpSecurity http,
       ApiAuthenticationEntryPoint authenticationEntryPoint,
       ApiAccessDeniedHandler accessDeniedHandler,
+      NarrativeXOidcUserService oidcUserService,
+      SecurityContextRepository securityContextRepository,
       @Value("${narrativex.security.frontend-base-url:http://localhost:3000}")
           String frontendBaseUrl)
       throws Exception {
     http.cors(Customizer.withDefaults())
         .csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()))
+        .securityContext(context -> context.securityContextRepository(securityContextRepository))
         .sessionManagement(
             session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
         .authorizeHttpRequests(
             auth ->
-                auth.requestMatchers("/actuator/health", "/oauth2/**", "/login/**")
+                auth.requestMatchers(PUBLIC_AUTH_PATHS)
+                    .permitAll()
+                    .requestMatchers("/oauth2/**", "/login/**")
                     .permitAll()
                     .anyRequest()
                     .authenticated())
@@ -74,7 +114,11 @@ public class SecurityConfig {
                 errors
                     .authenticationEntryPoint(authenticationEntryPoint)
                     .accessDeniedHandler(accessDeniedHandler))
-        .oauth2Login(oauth2 -> oauth2.defaultSuccessUrl(frontendBaseUrl, true))
+        .oauth2Login(
+            oauth2 ->
+                oauth2
+                    .userInfoEndpoint(userInfo -> userInfo.oidcUserService(oidcUserService))
+                    .defaultSuccessUrl(frontendBaseUrl, true))
         .logout(logout -> logout.logoutSuccessUrl(frontendBaseUrl));
     return http.build();
   }
@@ -91,21 +135,30 @@ public class SecurityConfig {
       HttpSecurity http,
       ApiAuthenticationEntryPoint authenticationEntryPoint,
       ApiAccessDeniedHandler accessDeniedHandler,
-      @Value("${narrativex.security.local-user-id:local-dev-user}") String localUserId)
+      SecurityContextRepository securityContextRepository,
+      @Value("${narrativex.security.local-user-id:local-dev-user}") String localUserId,
+      @Value("${narrativex.security.local-dev-identity-enabled:false}") boolean localDevIdentityEnabled)
       throws Exception {
     http.cors(Customizer.withDefaults())
         .csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()))
-        .anonymous(
-            anonymous ->
-                anonymous.key("narrativex-local").principal(localUserId).authorities("ROLE_USER"))
+        .securityContext(context -> context.securityContextRepository(securityContextRepository))
         .sessionManagement(
             session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
-        .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
         .exceptionHandling(
             errors ->
                 errors
                     .authenticationEntryPoint(authenticationEntryPoint)
                     .accessDeniedHandler(accessDeniedHandler));
+
+    if (localDevIdentityEnabled) {
+      http.anonymous(
+              anonymous ->
+                  anonymous.key("narrativex-local").principal(localUserId).authorities("ROLE_USER"))
+          .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+    } else {
+      http.authorizeHttpRequests(
+          auth -> auth.requestMatchers(PUBLIC_AUTH_PATHS).permitAll().anyRequest().authenticated());
+    }
     return http.build();
   }
 }

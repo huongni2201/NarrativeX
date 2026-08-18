@@ -15,6 +15,10 @@ spring:
       repositories:
         enabled: false
 
+narrativex:
+  security:
+    local-dev-identity-enabled: true
+
 management:
   endpoints:
     web:
