@@ -60,9 +60,9 @@ These rules make a future extraction mechanical: replace an inbound in-process p
 | project | `Project` | `StoryVersion` |
 | character | `Character`, `ProjectCharacter` | `CharacterVersion`, `CharacterAppearance`, `OutfitVersion` |
 | generation | `GenerationJob`, `OperationPlan` | `ProviderOperation`, `StageAttempt` |
-| storyboard | none yet | `Chapter`, `Scene`, `VisualBeat` |
+| storyboard | `Chapter`, `Scene` | `VisualBeat` |
 
-Storyboard still has no invented aggregate root until a real consistency/transaction boundary is defined.
+Storyboard deliberately uses two aggregate boundaries rather than a single giant Storyboard/Chapter object graph. `Chapter` owns chapter-level identity/title/order rules. `Scene` owns scene-level mutable state and lifecycle so independent user/worker updates do not contend on one Chapter version. `VisualBeat` remains a child domain entity. See [ADR-0007](../decisions/ADR-0007-storyboard-aggregate-boundaries.md).
 
 ## Domain rules and exceptions
 
@@ -71,9 +71,22 @@ Storyboard still has no invented aggregate root until a real consistency/transac
 - Enums live in `domain/enums`; business exceptions live in `domain/exception`.
 - Domain code remains framework-free.
 - Invariants spanning an aggregate are enforced by aggregate factories/methods; application services coordinate authorization, repositories, transactions and external systems.
-- Entity-local transitions may remain on the owned entity when the invariant is local to that entity; do not move behavior to a root only to satisfy a folder convention.
+- Business behavior should be expressed with intent-based methods such as `scene.startGeneration()` and `chapter.reorder(...)`, not unrestricted state setters.
+- Aggregate methods must not call repositories, Redis, MinIO/S3, provider SDKs or worker runtimes.
 - Domain validation errors extend `DomainValidationException` and map to HTTP 400. State/business conflicts extend `DomainConflictException` and map to HTTP 409.
-- Feature-specific exceptions make failed transitions explicit, e.g. `ArchivedProjectException`, `ProjectPersistenceRequiredException`, `ArchivedCharacterException`, `CharacterPersistenceRequiredException`, and `InvalidCharacterVersionTransitionException`.
+- Feature-specific exceptions make failed transitions explicit, including `InvalidSceneTransitionException`.
+
+### Storyboard lifecycle
+
+`Scene` follows the canonical V1.8 lifecycle:
+
+```text
+DRAFT -> READY_FOR_VISUAL -> GENERATING -> REVIEW -> APPROVED
+                           \-> FAILED
+APPROVED + mutable edit -> OUTDATED
+```
+
+Edits while `GENERATING` or `REVIEW` are rejected by the aggregate. Editing an `APPROVED` scene does not overwrite immutable media history; the mutable Scene becomes `OUTDATED` and downstream affected-scope logic decides what must be regenerated.
 
 ## List API pagination
 
@@ -111,9 +124,11 @@ Rules:
 
 Version creation uses `max(version_number) + 1` while holding a pessimistic lock on the owning `Project`/`Character`. The lock is intentional and protects version allocation from concurrent duplicates; unique constraints remain the final database guard.
 
+Mutable aggregate writes use optimistic `row_version`/JPA `@Version`. Scene is an independent aggregate specifically so unrelated scene edits/generation do not compete for one Chapter aggregate version.
+
 Potential optimization is measurement-driven: if version creation becomes a lock hotspot, replace max-scan numbering with an atomic per-root counter/sequence rather than removing correctness guards.
 
-Project list retrieval now uses a composite keyset index and avoids offset scans/count queries. Provider calls remain outside database transactions.
+Project list retrieval uses a composite keyset index and avoids offset scans/count queries. Provider calls remain outside database transactions.
 
 ## Architecture enforcement
 
@@ -126,8 +141,10 @@ Project list retrieval now uses a composite keyset index and avoids offset scans
 - forbidden application/API dependencies;
 - misplaced controllers, commands, queries, aggregate roots and entities.
 
+`StoryboardAggregateBoundaryTest` additionally locks the current storyboard aggregate classification and lifecycle invariants.
+
 ## CI verification
 
-The repository has GitHub Actions for backend, frontend and worker. Pull requests into `main` run the relevant workflow by path. Backend CI executes Maven `clean verify`; frontend CI executes install/lint/type-check/build; worker CI executes Ruff, mypy and pytest.
+The repository has GitHub Actions for backend, frontend and worker. Pull requests into `main` run the relevant workflow by path. Backend CI executes Maven `clean verify`; frontend CI executes install/lint/type-check/build`; worker CI executes Ruff, mypy and pytest.
 
-See [ADR-0003](../decisions/ADR-0003-ddd-feature-boundaries-and-api-contracts.md) for the canonical DDD, package and pagination decision.
+See [ADR-0003](../decisions/ADR-0003-ddd-feature-boundaries-and-api-contracts.md) for general DDD/package decisions and [ADR-0007](../decisions/ADR-0007-storyboard-aggregate-boundaries.md) for the storyboard-specific aggregate decision.

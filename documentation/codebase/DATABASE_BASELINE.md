@@ -2,40 +2,72 @@
 
 ## Authority and validation
 
-- PostgreSQL is the intended authoritative business-state store; Redis is not used by current application code.
+- PostgreSQL is the intended authoritative business-state store; Redis is not authoritative state.
 - Backend is the only Flyway/schema owner in the repository.
-- `application.yml:9-12` sets `spring.jpa.hibernate.ddl-auto=validate`; `application.yml:24-27` enables Flyway and points at `classpath:db/migration`.
-- Test profile deliberately uses H2 `create-drop` and disables Flyway (`src/test/resources/application-test.yml:1-16`), so the passing Spring test is not PostgreSQL validation.
-- The current Compose baseline targets PostgreSQL 18. Historical W1-D1 startup evidence remains in `documentation/audits/evidence/`; it is not evidence of the current migration chain being absent.
+- `spring.jpa.hibernate.ddl-auto=validate` is used outside the test profile; Flyway owns forward schema changes.
+- Test profile may use H2/create-drop for unit support, but PostgreSQL + Flyway remains the release schema gate.
+- The current Compose baseline targets PostgreSQL 18.
 
 ## Flyway migration matrix
 
 | Migration | Tables/columns owned | Indexes/constraints | Owner module |
 |---|---|---|---|
-| V1 `initial_schema` | Consolidated baseline: `schema_baseline`, project/storyboard/generation tables, control-plane tables, reusable character/appearance tables and project keyset access path | FKs, unique version/order/idempotency constraints, appearance/outfit composite invariant and indexes | backend/platform plus project, generation, control-plane and character features |
+| V1 `initial_schema` | Consolidated baseline: project/storyboard/generation tables, control-plane tables, reusable character/appearance tables and project keyset access path | FKs, unique version/order/idempotency constraints, appearance/outfit invariants and indexes | backend/platform plus project, storyboard, generation and character features |
+| V2 `scene_status` | Adds `scenes.status VARCHAR(24) NOT NULL DEFAULT 'DRAFT'` | state column persisted as canonical Scene lifecycle enum | storyboard |
+
+V1 is treated as the consolidated baseline. V2 is a forward migration introduced by the Storyboard aggregate/lifecycle implementation and must not be folded back into V1 after the baseline decision.
 
 ## Entity/schema matrix
 
-| Entity | Table | Migration owner | PK type | FK / delete rule | Important indexes | Workspace/Tenant scope | JPA match | Gap/risk |
-|---|---|---|---|---|---|---|---|---|
-| `Project` | `projects` | V1 | BIGINT identity | none declared; default NO ACTION | `(owner_id,status)`, `(owner_id,updated_at DESC,id DESC)` | owner string only | MATCH after V1 | no workspace membership or tenant FK |
-| `StoryVersion` | `story_versions` | V1 | BIGINT identity | `project_id -> projects(id)`; default NO ACTION | unique `(project_id,version_number)` | inherited through project | MATCH after V1 | no API read/update; no moderation workflow |
-| `Chapter` | `chapters` | V1 | BIGINT identity | `story_version_id`; `source_story_version_id`; default NO ACTION | unique `(story_version_id,order_index)` | inherited through story | MATCH expected after V1 | startup could not validate because table absent |
-| `Scene` | `scenes` | V1 | BIGINT identity | `chapter_id`; default NO ACTION | unique `(chapter_id,order_index)` | inherited through chapter | MATCH | no repository/API |
-| `VisualBeat` | `visual_beats` | V1 | BIGINT identity | `scene_id`; default NO ACTION | unique `(scene_id,order_index)` | inherited through scene | MATCH | no repository/API |
-| `GenerationJob` | `generation_jobs` | V1 | BIGINT identity plus UUID-like `job_id` | `project_id`; default NO ACTION | unique `job_id` | owner fields + project owner | MATCH expected | no durable dispatch/progress producer |
-| `StageAttempt` | `stage_attempts` | V1 | BIGINT identity | `generation_job_id`; default NO ACTION | unique `(generation_job_id,stage_name,attempt_number)` | inherited through job | MATCH | no claim/lease columns beyond worker/heartbeat scaffold |
-| `ProviderOperation` | `provider_operations` | V1 | BIGINT identity | `stage_attempt_id`; default NO ACTION | none beyond PK | inherited through stage/job | MATCH | no unique provider fingerprint/idempotency key |
-| `OperationPlan` | `operation_plans` | V1 | BIGINT identity | `project_id`; default NO ACTION | none beyond PK | inherited through project | MATCH expected | current enqueue writes zero estimates and no reservation |
+| Domain type | Table | Migration owner | PK type | FK / delete rule | Important indexes/constraints | JPA match | Gap/risk |
+|---|---|---|---|---|---|---|---|
+| `Project` aggregate | `projects` | V1 | BIGINT identity | none declared | `(owner_id,status)`, project keyset index | MATCH | broader workspace membership pending |
+| `StoryVersion` entity | `story_versions` | V1 | BIGINT identity | `project_id -> projects(id)` | unique `(project_id,version_number)` | MATCH | read/update/moderation flow incomplete |
+| `Chapter` aggregate | `chapters` | V1 | BIGINT identity | `story_version_id`; optional source story reference | unique `(story_version_id,order_index)` | MATCH foundation | repository/application API pending |
+| `Scene` aggregate | `scenes` | V1 + V2 | BIGINT identity | `chapter_id -> chapters(id)` | unique `(chapter_id,order_index)` | MATCH after V2 | repository/application API pending |
+| `VisualBeat` entity | `visual_beats` | V1 | BIGINT identity | `scene_id -> scenes(id)` | unique `(scene_id,order_index)` | MATCH foundation | aggregate-owned write path pending |
+| `GenerationJob` aggregate | `generation_jobs` | V1 | BIGINT identity plus UUID-like `job_id` | `project_id` | unique `job_id` | MATCH foundation | durable dispatch/progress producer incomplete |
+| `StageAttempt` entity | `stage_attempts` | V1 | BIGINT identity | `generation_job_id` | unique `(generation_job_id,stage_name,attempt_number)` | MATCH | full claim/lease workflow pending |
+| `ProviderOperation` entity | `provider_operations` | V1 | BIGINT identity | `stage_attempt_id` | provider-operation semantics | MATCH foundation | stronger submission fingerprinting may be needed |
+| `OperationPlan` aggregate | `operation_plans` | V1 | BIGINT identity | `project_id` | plan-level fields | MATCH foundation | full reservation/cost flow incomplete |
 
-## Schema risks found
+## Storyboard persistence contract
 
-1. Fresh database boot is blocked: no Flyway history or tables were present and Hibernate validation failed at `chapters`. This is `NX-W1-D1-001` (P0).
-2. The consolidated baseline has no explicit indexes on most FK columns. PostgreSQL does not auto-index FKs. This is a measured structural gap to review in W1-D4, not a D1 redesign recommendation.
-3. The consolidated baseline creates many control-plane tables with user/project IDs as strings and several nullable project/character/reference links. There is no workspace table/membership FK or database-level tenant boundary.
-4. All mapped entities use BIGINT database PKs while the worker/API contracts also expose string job/operation identifiers. This is workable as a boundary mapping but must be kept explicit; do not migrate identifiers in D1.
-5. Delete rules are left at PostgreSQL default `NO ACTION`; deletion workflows are documented but not implemented in the current domain/API.
+`Chapter` and `Scene` are independent aggregate roots even though both live in relational parent/child tables. Relational foreign keys do not imply one DDD aggregate object graph.
 
-## Closure test for W1-D4
+```text
+StoryVersion
+   |
+   v
+Chapter aggregate
+   |
+   | chapter_id reference
+   v
+Scene aggregate
+   |
+   v
+VisualBeat child entity
+```
 
-Run the consolidated `V1__initial_schema.sql` against an isolated empty PostgreSQL database, assert V1 in Flyway history, run backend with `ddl-auto=validate`, and inspect all mapped tables/columns/constraints/indexes. Keep H2 tests as unit support, not as the schema gate.
+- `Chapter` and `Scene` mutations are protected by `row_version`/JPA `@Version`.
+- `Scene.status` uses `@Enumerated(EnumType.STRING)` so database values remain stable domain codes rather than enum ordinals.
+- Scene lifecycle values are `DRAFT`, `READY_FOR_VISUAL`, `GENERATING`, `REVIEW`, `APPROVED`, `FAILED`, `OUTDATED`.
+- Ordered uniqueness (`Scene` within Chapter, `VisualBeat` within Scene) remains protected by database unique constraints in addition to domain/application validation.
+
+## Schema risks / pending work
+
+1. Most foreign-key access paths should be benchmarked and explicitly indexed when query patterns become active; PostgreSQL does not automatically index every FK.
+2. Delete rules remain conservative; durable deletion/retention workflows are not replaced by cascade-delete shortcuts.
+3. BIGINT database identities and string/UUID public job identifiers must remain explicit boundary mappings.
+4. Storyboard repositories/mappers are still incomplete; JPA table presence alone is not a complete aggregate persistence implementation.
+5. Scene lifecycle writes require expected `row_version`; HTTP/API wiring for `If-Match`/409 semantics remains implementation work.
+
+## Verification gate
+
+For schema-impacting PRs:
+
+1. Apply V1 then V2 to an empty supported PostgreSQL instance.
+2. Start backend with Hibernate `ddl-auto=validate`.
+3. Run backend Maven `clean verify`.
+4. Exercise Scene persistence with all canonical enum values and optimistic locking.
+5. Do not rely on H2-only tests as proof of PostgreSQL/Flyway compatibility.

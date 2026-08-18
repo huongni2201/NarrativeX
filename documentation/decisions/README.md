@@ -10,5 +10,6 @@ This directory records decisions that affect more than one feature or change a p
 - [ADR-0004: Authentication and frontend runtime security](./ADR-0004-authentication-and-frontend-runtime-security.md)
 - [ADR-0005: Reusable Character identity and ProjectCharacter assignment](./ADR-0005-reusable-character-identity-and-project-assignment.md)
 - [ADR-0006: Consolidated Flyway PostgreSQL baseline](./ADR-0006-consolidated-flyway-baseline.md)
+- [ADR-0007: Storyboard aggregate boundaries](./ADR-0007-storyboard-aggregate-boundaries.md)
 
-The previous ADR records were consolidated into these five canonical files and removed after migration. Use a new sequential ADR for a new cross-cutting decision.
+The previous ADR records were consolidated into the canonical files above. Use a new sequential ADR for a new cross-cutting decision.
