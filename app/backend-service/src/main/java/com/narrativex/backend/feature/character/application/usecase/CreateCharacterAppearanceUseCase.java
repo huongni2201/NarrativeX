@@ -8,7 +8,6 @@ import com.narrativex.backend.feature.character.application.port.out.OutfitVersi
 import com.narrativex.backend.feature.character.domain.entity.CharacterAppearance;
 import com.narrativex.backend.feature.character.domain.entity.OutfitVersion;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
-import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -24,7 +23,7 @@ public class CreateCharacterAppearanceUseCase {
   private final CurrentUserId currentUserId;
 
   @Transactional
-  public ApiResponse<CharacterAppearance> execute(CreateCharacterAppearanceCommand command) {
+  public CharacterAppearance execute(CreateCharacterAppearanceCommand command) {
     String ownerId = currentUserId.get();
     characterRepository
         .findOwnedById(command.characterId(), ownerId)
@@ -36,18 +35,16 @@ public class CreateCharacterAppearanceUseCase {
             : outfitVersionRepository
                 .findOwnedById(command.outfitVersionId(), ownerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Outfit version not found"));
-    CharacterAppearance appearance =
-        appearanceRepository.save(
-            CharacterAppearance.create(
-                command.characterId(),
-                command.projectId(),
-                command.timelineKey(),
-                command.ageState(),
-                command.hairstyle(),
-                command.injury(),
-                command.wardrobeContext(),
-                command.appearancePrompt(),
-                outfitVersion));
-    return ApiResponse.success("Character appearance created successfully", appearance);
+    return appearanceRepository.save(
+        CharacterAppearance.create(
+            command.characterId(),
+            command.projectId(),
+            command.timelineKey(),
+            command.ageState(),
+            command.hairstyle(),
+            command.injury(),
+            command.wardrobeContext(),
+            command.appearancePrompt(),
+            outfitVersion));
   }
 }
