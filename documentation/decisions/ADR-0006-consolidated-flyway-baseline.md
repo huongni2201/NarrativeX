@@ -23,7 +23,8 @@ features such as JSONB, partial indexes, or PostgreSQL constraint behavior.
 - All subsequent schema changes use forward-only migrations. The current sequence is
   `V1__initial_schema.sql`, `V2__scene_status.sql`, `V3__auth_accounts.sql`,
   `V4__story_version_active_invariant.sql`, `V5__drop_redundant_auth_indexes.sql`,
-  then `V6__drop_legacy_story_rights_columns.sql`.
+  `V6__drop_legacy_story_rights_columns.sql`, then
+  `V7__drop_legacy_content_rights_attestations.sql`.
 - Set `spring.flyway.baseline-on-migrate=false` in the normal application
   configuration. An unknown non-empty schema must fail migration instead of
   being silently accepted.
@@ -58,22 +59,42 @@ redundant non-unique indexes. The unique constraints and their PostgreSQL-owned
 backing indexes remain intact, so lookup behavior and uniqueness guarantees do
 not change.
 
-## Legacy StoryVersion rights cleanup
+## Legacy story rights cleanup
 
 The initial schema carried five copyright/rights attestation columns on
 `story_versions`: `rights_attested`, `rights_policy_version`, `rights_basis`,
-`rights_attested_at`, and `rights_attested_by`. The current product contract does
-not require a blanket per-story copyright/rights attestation, so keeping those
-columns would leave stale schema state that no longer belongs to StoryVersion.
+`rights_attested_at`, and `rights_attested_by`. It also carried the legacy
+`content_rights_attestations` table and its supporting index.
 
-Because V1 is immutable, V6 removes the five columns with a forward migration.
+The active product/domain contract does **not** require a blanket per-story
+copyright/rights attestation or checkbox before Analyze/Generate. Moderation,
+report/review/takedown and real-person consent remain separate concerns and are
+not modeled through StoryVersion rights fields.
+
+Because V1 is immutable, cleanup is forward-only:
+
+- V6 removes the five legacy `story_versions` rights columns.
+- V7 removes the remaining `content_rights_attestations` table; dependent indexes
+  disappear with the table.
+
 The Java domain model, JPA mapping, API response, persistence mapper and tests are
-updated in the same change so Hibernate `ddl-auto=validate` agrees with the
-post-V6 schema.
+aligned with the post-V7 schema. No active StoryVersion or product invariant may
+reference these removed fields/table.
+
+## Test-profile migration invariant
+
+The PostgreSQL migration integration test must run with the explicit `test`
+profile so the non-local OIDC startup guard is satisfied in CI. Because the
+shared test profile normally configures H2, the Testcontainers test overrides the
+datasource and Hibernate dialect back to PostgreSQL before validating Flyway and
+`ddl-auto=validate`.
+
+This keeps both invariants active: security still requires an explicit test
+profile, while schema validation still exercises real PostgreSQL semantics.
 
 ## Consequences
 
-- Fresh databases have a deterministic, fail-fast migration path.
+- Fresh databases have a deterministic, fail-fast migration path through V7.
 - Accidental connection to an incompatible non-empty schema fails instead of
   being silently baselined.
 - PostgreSQL-only behavior is exercised in automated integration tests rather
@@ -83,10 +104,13 @@ post-V6 schema.
 - Auth writes no longer maintain duplicate secondary indexes that provide no
   additional query or constraint value.
 - StoryVersion persistence no longer carries obsolete copyright/rights columns.
+- The legacy rights-attestation table is also removed; documentation and product
+  rules must not describe it as an active or compatibility schema component.
 
 ## Verification
 
-- Apply all migrations to an empty supported PostgreSQL instance.
+- Apply all migrations to an empty supported PostgreSQL instance and verify the
+  latest successful Flyway version is 7.
 - Start the backend with Hibernate `ddl-auto=validate`.
 - Verify JSONB columns and foreign keys on PostgreSQL.
 - Verify `uq_story_versions_one_active_per_project` rejects a second ACTIVE story
@@ -94,5 +118,6 @@ post-V6 schema.
 - Verify `idx_auth_users_email` and `idx_auth_users_google_subject` are absent
   after V5 while the `UNIQUE` constraints on both columns remain effective.
 - Verify all five legacy StoryVersion rights columns are absent after V6.
+- Verify `content_rights_attestations` is absent after V7.
 - Verify a non-empty unknown schema fails normal Flyway startup unless the
   controlled `legacy-migration` profile is explicitly selected.
