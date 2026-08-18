@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { StudioHeader } from "@/components/layout/StudioHeader";
+import { StudioMobileNav } from "@/components/layout/StudioMobileNav";
 import { StudioSidebar } from "@/components/layout/StudioSidebar";
 import { ProjectsDashboard } from "@/features/dashboard/ProjectsDashboard";
 import { AuthLoadingScreen, AuthScreen } from "@/features/auth/AuthScreen";
@@ -77,12 +78,14 @@ export function StudioAppShell({ screen, projectId }: Readonly<StudioAppShellPro
 
   return (
     <div className="flex min-h-screen bg-[#070b14] text-slate-100">
-      <StudioSidebar />
+      <div className="hidden lg:block">
+        <StudioSidebar />
+      </div>
 
       <div className="flex min-w-0 flex-1 flex-col">
         <StudioHeader title={screenTitles[screen]} />
 
-        <main className="mx-auto w-full max-w-[1700px] flex-1 p-5 pb-16 lg:p-8">
+        <main className="mx-auto w-full max-w-[1700px] flex-1 p-4 pb-24 sm:p-5 sm:pb-24 lg:p-8 lg:pb-16">
           {screen === "overview" && <ProjectsDashboard />}
           {(screen === "project-workspace" || screen === "dashboard") && (
             <ProductionShell projectId={projectId} />
@@ -93,6 +96,7 @@ export function StudioAppShell({ screen, projectId }: Readonly<StudioAppShellPro
         </main>
       </div>
 
+      <StudioMobileNav />
       <ProjectWizardModal />
       <CharacterBibleModal />
     </div>
