@@ -23,59 +23,89 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+  @Bean
+  CorsConfigurationSource corsConfigurationSource(
+      @Value(
+              "${narrativex.security.cors.allowed-origins:http://localhost:3000,http://127.0.0.1:3000}")
+          String origins) {
+    List<String> allowedOrigins =
+        Arrays.stream(origins.split(","))
+            .map(String::trim)
+            .filter(value -> !value.isEmpty())
+            .toList();
+    CorsConfiguration configuration = new CorsConfiguration();
+    configuration.setAllowedOrigins(allowedOrigins);
+    configuration.setAllowedMethods(
+        List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"));
+    configuration.setAllowedHeaders(
+        List.of("Accept", "Content-Type", "X-CSRF-TOKEN", "X-XSRF-TOKEN", "X-Correlation-Id"));
+    configuration.setAllowCredentials(true);
+    configuration.setMaxAge(3600L);
+    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+    source.registerCorsConfiguration("/**", configuration);
+    return source;
+  }
 
-    @Bean
-    CorsConfigurationSource corsConfigurationSource(
-            @Value("${narrativex.security.cors.allowed-origins:http://localhost:3000,http://127.0.0.1:3000}") String allowedOriginsStr) {
-        List<String> allowedOrigins = Arrays.stream(allowedOriginsStr.split(","))
-            .map(String::trim).filter(s -> !s.isEmpty()).toList();
-        CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(allowedOrigins);
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"));
-        configuration.setAllowedHeaders(List.of("Accept", "Content-Type", "X-CSRF-TOKEN", "X-XSRF-TOKEN",
-            "X-User-Id", "X-Correlation-Id"));
-        configuration.setAllowCredentials(true);
-        configuration.setMaxAge(3600L);
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
-        return source;
-    }
+  @Bean
+  @Order(1)
+  @ConditionalOnProperty(
+      prefix = "narrativex.security",
+      name = "oidc-enabled",
+      havingValue = "true")
+  SecurityFilterChain oidcSecurityFilterChain(
+      HttpSecurity http,
+      ApiAuthenticationEntryPoint authenticationEntryPoint,
+      ApiAccessDeniedHandler accessDeniedHandler,
+      @Value("${narrativex.security.frontend-base-url:http://localhost:3000}")
+          String frontendBaseUrl)
+      throws Exception {
+    http.cors(Customizer.withDefaults())
+        .csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()))
+        .sessionManagement(
+            session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+        .authorizeHttpRequests(
+            auth ->
+                auth.requestMatchers("/actuator/health", "/oauth2/**", "/login/**")
+                    .permitAll()
+                    .anyRequest()
+                    .authenticated())
+        .exceptionHandling(
+            errors ->
+                errors
+                    .authenticationEntryPoint(authenticationEntryPoint)
+                    .accessDeniedHandler(accessDeniedHandler))
+        .oauth2Login(oauth2 -> oauth2.defaultSuccessUrl(frontendBaseUrl, true))
+        .logout(logout -> logout.logoutSuccessUrl(frontendBaseUrl));
+    return http.build();
+  }
 
-    @Bean
-    @Order(1)
-    @ConditionalOnProperty(prefix = "narrativex.security", name = "oidc-enabled", havingValue = "true")
-    SecurityFilterChain oidcSecurityFilterChain(HttpSecurity http,
-            ApiAuthenticationEntryPoint authenticationEntryPoint,
-            ApiAccessDeniedHandler accessDeniedHandler,
-            @Value("${narrativex.security.frontend-base-url:http://localhost:3000}") String frontendBaseUrl) throws Exception {
-        http.cors(Customizer.withDefaults())
-            .csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()))
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/actuator/health", "/oauth2/**", "/login/**").permitAll()
-                .anyRequest().authenticated())
-            .exceptionHandling(errors -> errors.authenticationEntryPoint(authenticationEntryPoint)
-                .accessDeniedHandler(accessDeniedHandler))
-            .oauth2Login(oauth2 -> oauth2.defaultSuccessUrl(frontendBaseUrl, true))
-            .logout(logout -> logout.logoutSuccessUrl(frontendBaseUrl));
-        return http.build();
-    }
-
-    @Bean
-    @Order(2)
-    @Profile({"local", "test"})
-    @ConditionalOnProperty(prefix = "narrativex.security", name = "oidc-enabled", havingValue = "false", matchIfMissing = true)
-    SecurityFilterChain localSecurityFilterChain(HttpSecurity http,
-            ApiAuthenticationEntryPoint authenticationEntryPoint,
-            ApiAccessDeniedHandler accessDeniedHandler) throws Exception {
-        http.cors(Customizer.withDefaults())
-            .csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()))
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/actuator/**", "/api/v1/**").permitAll()
-                .anyRequest().permitAll())
-            .exceptionHandling(errors -> errors.authenticationEntryPoint(authenticationEntryPoint)
-                .accessDeniedHandler(accessDeniedHandler));
-        return http.build();
-    }
+  @Bean
+  @Order(2)
+  @Profile({"local", "test"})
+  @ConditionalOnProperty(
+      prefix = "narrativex.security",
+      name = "oidc-enabled",
+      havingValue = "false",
+      matchIfMissing = true)
+  SecurityFilterChain localSecurityFilterChain(
+      HttpSecurity http,
+      ApiAuthenticationEntryPoint authenticationEntryPoint,
+      ApiAccessDeniedHandler accessDeniedHandler,
+      @Value("${narrativex.security.local-user-id:local-dev-user}") String localUserId)
+      throws Exception {
+    http.cors(Customizer.withDefaults())
+        .csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()))
+        .anonymous(
+            anonymous ->
+                anonymous.key("narrativex-local").principal(localUserId).authorities("ROLE_USER"))
+        .sessionManagement(
+            session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+        .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+        .exceptionHandling(
+            errors ->
+                errors
+                    .authenticationEntryPoint(authenticationEntryPoint)
+                    .accessDeniedHandler(accessDeniedHandler));
+    return http.build();
+  }
 }

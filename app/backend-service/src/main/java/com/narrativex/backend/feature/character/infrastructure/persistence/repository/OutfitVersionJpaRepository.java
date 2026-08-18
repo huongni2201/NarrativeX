@@ -8,8 +8,14 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface OutfitVersionJpaRepository extends JpaRepository<OutfitVersionJpaEntity, Long> {
-    @Query("select coalesce(max(outfit.versionNumber), 0) from OutfitVersionJpaEntity outfit where outfit.characterId = :characterId")
-    int findMaxVersionNumberByCharacterId(@Param("characterId") Long characterId);
-    @Query("select outfit from OutfitVersionJpaEntity outfit, CharacterJpaEntity character where outfit.id = :outfitVersionId and outfit.characterId = character.id and character.ownerId = :ownerId and character.status <> :archivedStatus")
-    Optional<OutfitVersionJpaEntity> findOwnedById(@Param("outfitVersionId") Long id, @Param("ownerId") String ownerId, @Param("archivedStatus") CharacterStatus archivedStatus);
+  @Query(
+      "select coalesce(max(outfit.versionNumber), 0) from OutfitVersionJpaEntity outfit where outfit.characterId = :characterId")
+  int findMaxVersionNumberByCharacterId(@Param("characterId") Long characterId);
+
+  @Query(
+      "select outfit from OutfitVersionJpaEntity outfit, CharacterJpaEntity character where outfit.id = :outfitVersionId and outfit.characterId = character.id and character.ownerId = :ownerId and character.status <> :archivedStatus")
+  Optional<OutfitVersionJpaEntity> findOwnedById(
+      @Param("outfitVersionId") Long id,
+      @Param("ownerId") String ownerId,
+      @Param("archivedStatus") CharacterStatus archivedStatus);
 }

@@ -10,18 +10,21 @@ import org.springframework.stereotype.Component;
 @Component
 public class OperationPlanPersistenceAdapter implements OperationPlanRepository {
 
-    private final OperationPlanJpaRepository repository;
+  private final OperationPlanJpaRepository repository;
 
-    public OperationPlanPersistenceAdapter(OperationPlanJpaRepository repository) {
-        this.repository = repository;
-    }
+  public OperationPlanPersistenceAdapter(OperationPlanJpaRepository repository) {
+    this.repository = repository;
+  }
 
-    @Override
-    public OperationPlan save(OperationPlan operationPlan) {
-        OperationPlanJpaEntity entity = operationPlan.getId() == null
+  @Override
+  public OperationPlan save(OperationPlan operationPlan) {
+    OperationPlanJpaEntity entity =
+        operationPlan.getId() == null
             ? new OperationPlanJpaEntity(operationPlan)
-            : repository.findById(operationPlan.getId()).orElseGet(() -> new OperationPlanJpaEntity(operationPlan));
-        entity.apply(operationPlan);
-        return GenerationPersistenceMapper.toDomain(repository.save(entity));
-    }
+            : repository
+                .findById(operationPlan.getId())
+                .orElseGet(() -> new OperationPlanJpaEntity(operationPlan));
+    entity.apply(operationPlan);
+    return GenerationPersistenceMapper.toDomain(repository.save(entity));
+  }
 }

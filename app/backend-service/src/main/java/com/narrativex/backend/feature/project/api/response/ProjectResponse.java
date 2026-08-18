@@ -11,11 +11,17 @@ public record ProjectResponse(
     String metadataLanguage,
     String imageAspectRatio,
     String imageQualityTier,
-    long rowVersion
-) {
-    public static ProjectResponse from(Project project) {
-        return new ProjectResponse(project.getId(), project.getName(), project.getStatus().name(),
-            project.getSourceLanguage(), project.getNarrationLanguage(), project.getMetadataLanguage(),
-            project.getImageAspectRatio().getCode(), project.getImageQualityTier().name(), project.getRowVersion());
-    }
+    long rowVersion) {
+  public static ProjectResponse from(Project project) {
+    return new ProjectResponse(
+        project.getId(),
+        project.getName(),
+        project.getStatus().name(),
+        project.getSourceLanguage(),
+        project.getNarrationLanguage(),
+        project.getMetadataLanguage(),
+        project.getImageAspectRatio().getCode(),
+        project.getImageQualityTier().name(),
+        project.getRowVersion());
+  }
 }

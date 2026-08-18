@@ -1,4 +1,3 @@
 package com.narrativex.backend.feature.auth.application.query;
 
-public record CurrentUserQuery() {
-}
+public record CurrentUserQuery() {}

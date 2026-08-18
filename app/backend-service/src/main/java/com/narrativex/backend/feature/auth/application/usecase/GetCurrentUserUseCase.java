@@ -8,13 +8,13 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class GetCurrentUserUseCase {
-    private final CurrentUserProfile currentUserProfile;
+  private final CurrentUserProfile currentUserProfile;
 
-    public GetCurrentUserUseCase(CurrentUserProfile currentUserProfile) {
-        this.currentUserProfile = currentUserProfile;
-    }
+  public GetCurrentUserUseCase(CurrentUserProfile currentUserProfile) {
+    this.currentUserProfile = currentUserProfile;
+  }
 
-    public ApiResponse<CurrentUserResponse> execute(CurrentUserQuery query) {
-        return ApiResponse.success("Current user retrieved successfully", currentUserProfile.current());
-    }
+  public ApiResponse<CurrentUserResponse> execute(CurrentUserQuery query) {
+    return ApiResponse.success("Current user retrieved successfully", currentUserProfile.current());
+  }
 }

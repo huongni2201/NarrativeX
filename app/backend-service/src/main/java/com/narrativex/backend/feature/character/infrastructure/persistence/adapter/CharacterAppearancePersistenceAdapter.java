@@ -9,11 +9,21 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class CharacterAppearancePersistenceAdapter implements CharacterAppearanceRepository {
-    private final CharacterAppearanceJpaRepository repository;
-    public CharacterAppearancePersistenceAdapter(CharacterAppearanceJpaRepository repository) { this.repository = repository; }
-    @Override public CharacterAppearance save(CharacterAppearance appearance) {
-        CharacterAppearanceJpaEntity entity = appearance.getId() == null ? new CharacterAppearanceJpaEntity(appearance) : repository.findById(appearance.getId()).orElseGet(() -> new CharacterAppearanceJpaEntity(appearance));
-        entity.apply(appearance);
-        return CharacterPersistenceMapper.toDomain(repository.save(entity));
-    }
+  private final CharacterAppearanceJpaRepository repository;
+
+  public CharacterAppearancePersistenceAdapter(CharacterAppearanceJpaRepository repository) {
+    this.repository = repository;
+  }
+
+  @Override
+  public CharacterAppearance save(CharacterAppearance appearance) {
+    CharacterAppearanceJpaEntity entity =
+        appearance.getId() == null
+            ? new CharacterAppearanceJpaEntity(appearance)
+            : repository
+                .findById(appearance.getId())
+                .orElseGet(() -> new CharacterAppearanceJpaEntity(appearance));
+    entity.apply(appearance);
+    return CharacterPersistenceMapper.toDomain(repository.save(entity));
+  }
 }

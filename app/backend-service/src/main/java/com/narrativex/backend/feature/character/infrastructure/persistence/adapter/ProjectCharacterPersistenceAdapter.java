@@ -9,18 +9,21 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class ProjectCharacterPersistenceAdapter implements ProjectCharacterRepository {
-    private final ProjectCharacterJpaRepository repository;
+  private final ProjectCharacterJpaRepository repository;
 
-    public ProjectCharacterPersistenceAdapter(ProjectCharacterJpaRepository repository) {
-        this.repository = repository;
-    }
+  public ProjectCharacterPersistenceAdapter(ProjectCharacterJpaRepository repository) {
+    this.repository = repository;
+  }
 
-    @Override
-    public ProjectCharacter save(ProjectCharacter assignment) {
-        ProjectCharacterJpaEntity entity = assignment.getId() == null
+  @Override
+  public ProjectCharacter save(ProjectCharacter assignment) {
+    ProjectCharacterJpaEntity entity =
+        assignment.getId() == null
             ? new ProjectCharacterJpaEntity(assignment)
-            : repository.findById(assignment.getId()).orElseGet(() -> new ProjectCharacterJpaEntity(assignment));
-        entity.apply(assignment);
-        return CharacterPersistenceMapper.toDomain(repository.save(entity));
-    }
+            : repository
+                .findById(assignment.getId())
+                .orElseGet(() -> new ProjectCharacterJpaEntity(assignment));
+    entity.apply(assignment);
+    return CharacterPersistenceMapper.toDomain(repository.save(entity));
+  }
 }

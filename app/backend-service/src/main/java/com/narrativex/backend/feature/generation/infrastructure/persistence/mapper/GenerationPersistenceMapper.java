@@ -7,19 +7,33 @@ import com.narrativex.backend.feature.generation.infrastructure.persistence.enti
 
 public final class GenerationPersistenceMapper {
 
-    private GenerationPersistenceMapper() {
-    }
+  private GenerationPersistenceMapper() {}
 
-    public static GenerationJob toDomain(GenerationJobJpaEntity entity) {
-        return GenerationJob.rehydrate(entity.getId(), entity.getRowVersion(), entity.getJobId(),
-            entity.getProjectId(), entity.getType(), entity.getStatus(), entity.getResourceClass(),
-            entity.getProgress(), entity.getCurrentStep(), entity.getErrorCode(), entity.getRequestedByUserId(),
-            entity.getBilledToUserId());
-    }
+  public static GenerationJob toDomain(GenerationJobJpaEntity entity) {
+    return GenerationJob.rehydrate(
+        entity.getId(),
+        entity.getRowVersion(),
+        entity.getJobId(),
+        entity.getProjectId(),
+        entity.getType(),
+        entity.getStatus(),
+        entity.getResourceClass(),
+        entity.getProgress(),
+        entity.getCurrentStep(),
+        entity.getErrorCode(),
+        entity.getRequestedByUserId(),
+        entity.getBilledToUserId());
+  }
 
-    public static OperationPlan toDomain(OperationPlanJpaEntity entity) {
-        return OperationPlan.rehydrate(entity.getId(), entity.getRowVersion(), entity.getProjectId(),
-            entity.getOperationType(), entity.getEstimateMin(), entity.getEstimateMax(),
-            entity.getMaxAuthorizedCost(), entity.getConfidence());
-    }
+  public static OperationPlan toDomain(OperationPlanJpaEntity entity) {
+    return OperationPlan.rehydrate(
+        entity.getId(),
+        entity.getRowVersion(),
+        entity.getProjectId(),
+        entity.getOperationType(),
+        entity.getEstimateMin(),
+        entity.getEstimateMax(),
+        entity.getMaxAuthorizedCost(),
+        entity.getConfidence());
+  }
 }

@@ -12,10 +12,73 @@ import com.narrativex.backend.feature.character.infrastructure.persistence.entit
 import com.narrativex.backend.feature.character.infrastructure.persistence.entity.ProjectCharacterJpaEntity;
 
 public final class CharacterPersistenceMapper {
-    private CharacterPersistenceMapper() {}
-    public static Character toDomain(CharacterJpaEntity e) { return Character.rehydrate(e.getId(), e.getRowVersion(), e.getOwnerId(), e.getWorkspaceId(), e.getCanonicalName(), e.getAliases(), e.getStatus()); }
-    public static CharacterVersion toDomain(CharacterVersionJpaEntity e) { return CharacterVersion.rehydrate(e.getId(), e.getRowVersion(), e.getCharacterId(), e.getVersionNumber(), e.getBible(), e.getVisualPrompt(), e.getMasterAssetId(), e.getReferenceAssetIds(), e.getStatus(), e.getLockedAt(), e.getLockedBy()); }
-    public static ProjectCharacter toDomain(ProjectCharacterJpaEntity e) { return ProjectCharacter.rehydrate(e.getId(), e.getRowVersion(), e.getProjectId(), e.getCharacterId(), e.getRole(), e.getImportance(), e.getProjectAliases(), e.getStoryMetadata(), e.getGroups(), e.getPinnedCharacterVersionId(), e.getStatus()); }
-    public static CharacterAppearance toDomain(CharacterAppearanceJpaEntity e) { return CharacterAppearance.rehydrate(e.getId(), e.getRowVersion(), e.getCharacterId(), e.getProjectId(), e.getTimelineKey(), e.getAgeState(), e.getHairstyle(), e.getInjury(), e.getWardrobeContext(), e.getAppearancePrompt(), e.getOutfitVersionId()); }
-    public static OutfitVersion toDomain(OutfitVersionJpaEntity e) { return OutfitVersion.rehydrate(e.getId(), e.getRowVersion(), e.getCharacterId(), e.getVersionNumber(), e.getName(), e.getDescription(), e.getPrompt(), e.getStatus()); }
+  private CharacterPersistenceMapper() {}
+
+  public static Character toDomain(CharacterJpaEntity e) {
+    return Character.rehydrate(
+        e.getId(),
+        e.getRowVersion(),
+        e.getOwnerId(),
+        e.getWorkspaceId(),
+        e.getCanonicalName(),
+        e.getAliases(),
+        e.getStatus());
+  }
+
+  public static CharacterVersion toDomain(CharacterVersionJpaEntity e) {
+    return CharacterVersion.rehydrate(
+        e.getId(),
+        e.getRowVersion(),
+        e.getCharacterId(),
+        e.getVersionNumber(),
+        e.getBible(),
+        e.getVisualPrompt(),
+        e.getMasterAssetId(),
+        e.getReferenceAssetIds(),
+        e.getStatus(),
+        e.getLockedAt(),
+        e.getLockedBy());
+  }
+
+  public static ProjectCharacter toDomain(ProjectCharacterJpaEntity e) {
+    return ProjectCharacter.rehydrate(
+        e.getId(),
+        e.getRowVersion(),
+        e.getProjectId(),
+        e.getCharacterId(),
+        e.getRole(),
+        e.getImportance(),
+        e.getProjectAliases(),
+        e.getStoryMetadata(),
+        e.getGroups(),
+        e.getPinnedCharacterVersionId(),
+        e.getStatus());
+  }
+
+  public static CharacterAppearance toDomain(CharacterAppearanceJpaEntity e) {
+    return CharacterAppearance.rehydrate(
+        e.getId(),
+        e.getRowVersion(),
+        e.getCharacterId(),
+        e.getProjectId(),
+        e.getTimelineKey(),
+        e.getAgeState(),
+        e.getHairstyle(),
+        e.getInjury(),
+        e.getWardrobeContext(),
+        e.getAppearancePrompt(),
+        e.getOutfitVersionId());
+  }
+
+  public static OutfitVersion toDomain(OutfitVersionJpaEntity e) {
+    return OutfitVersion.rehydrate(
+        e.getId(),
+        e.getRowVersion(),
+        e.getCharacterId(),
+        e.getVersionNumber(),
+        e.getName(),
+        e.getDescription(),
+        e.getPrompt(),
+        e.getStatus());
+  }
 }

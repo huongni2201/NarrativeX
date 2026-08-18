@@ -7,6 +7,4 @@ public record CreateStoryVersionCommand(
     boolean rightsAttestationAccepted,
     String rightsPolicyVersion,
     String rightsBasis,
-    String ownerId
-) {
-}
+    String ownerId) {}

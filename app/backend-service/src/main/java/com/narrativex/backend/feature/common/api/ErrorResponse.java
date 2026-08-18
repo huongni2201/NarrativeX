@@ -13,14 +13,21 @@ public record ErrorResponse(
     String path,
     String correlationId,
     List<FieldViolation> errors,
-    Instant timestamp
-) {
-    public static ErrorResponse of(int status, String code, String message, String path, String correlationId) {
-        return new ErrorResponse(false, status, code, message, path, correlationId, null, Instant.now());
-    }
+    Instant timestamp) {
+  public static ErrorResponse of(
+      int status, String code, String message, String path, String correlationId) {
+    return new ErrorResponse(
+        false, status, code, message, path, correlationId, null, Instant.now());
+  }
 
-    public static ErrorResponse validation(int status, String code, String message, String path,
-            String correlationId, List<FieldViolation> errors) {
-        return new ErrorResponse(false, status, code, message, path, correlationId, errors, Instant.now());
-    }
+  public static ErrorResponse validation(
+      int status,
+      String code,
+      String message,
+      String path,
+      String correlationId,
+      List<FieldViolation> errors) {
+    return new ErrorResponse(
+        false, status, code, message, path, correlationId, errors, Instant.now());
+  }
 }

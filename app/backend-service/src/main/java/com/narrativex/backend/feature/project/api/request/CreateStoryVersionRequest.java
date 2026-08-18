@@ -8,8 +8,6 @@ public record CreateStoryVersionRequest(
     @NotBlank String content,
     @Size(max = 16) String sourceLanguage,
     @AssertTrue(message = "rightsAttestationAccepted must be true before story analysis")
-    boolean rightsAttestationAccepted,
+        boolean rightsAttestationAccepted,
     @Size(max = 64) String rightsPolicyVersion,
-    @Size(max = 64) String rightsBasis
-) {
-}
+    @Size(max = 64) String rightsBasis) {}

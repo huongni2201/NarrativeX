@@ -11,20 +11,21 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ListProjectsUseCase {
-    private final ProjectRepository projectRepository;
-    private final CurrentUserId currentUserId;
+  private final ProjectRepository projectRepository;
+  private final CurrentUserId currentUserId;
 
-    public ListProjectsUseCase(ProjectRepository projectRepository, CurrentUserId currentUserId) {
-        this.projectRepository = projectRepository;
-        this.currentUserId = currentUserId;
-    }
+  public ListProjectsUseCase(ProjectRepository projectRepository, CurrentUserId currentUserId) {
+    this.projectRepository = projectRepository;
+    this.currentUserId = currentUserId;
+  }
 
-    @Transactional(readOnly = true)
-    public ApiResponse<CursorPage<ProjectResponse>> execute(ProjectListQuery query) {
-        String ownerId = currentUserId.resolve(query.ownerId());
-        CursorPage<ProjectResponse> page = projectRepository
+  @Transactional(readOnly = true)
+  public ApiResponse<CursorPage<ProjectResponse>> execute(ProjectListQuery query) {
+    String ownerId = currentUserId.get();
+    CursorPage<ProjectResponse> page =
+        projectRepository
             .findActiveByOwnerId(ownerId, query.cursor(), query.limit())
             .map(ProjectResponse::from);
-        return ApiResponse.success("Projects retrieved successfully", page);
-    }
+    return ApiResponse.success("Projects retrieved successfully", page);
+  }
 }

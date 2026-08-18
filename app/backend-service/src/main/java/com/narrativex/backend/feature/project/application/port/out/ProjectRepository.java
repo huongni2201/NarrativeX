@@ -5,11 +5,11 @@ import com.narrativex.backend.feature.project.domain.aggregate.Project;
 import java.util.Optional;
 
 public interface ProjectRepository {
-    CursorPage<Project> findActiveByOwnerId(String ownerId, String cursor, int limit);
+  CursorPage<Project> findActiveByOwnerId(String ownerId, String cursor, int limit);
 
-    Optional<Project> findOwnedById(Long projectId, String ownerId);
+  Optional<Project> findOwnedById(Long projectId, String ownerId);
 
-    Optional<Project> findOwnedByIdForUpdate(Long projectId, String ownerId);
+  Optional<Project> findOwnedByIdForUpdate(Long projectId, String ownerId);
 
-    Project save(Project project);
+  Project save(Project project);
 }

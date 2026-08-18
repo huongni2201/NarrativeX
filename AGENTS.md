@@ -2,7 +2,7 @@
 
 ## Source of truth
 
-The canonical product and architecture baseline is the repository-local `documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_7.md` (NarrativeX v1.7, 17/08/2026). Markdown under `documentation/` is the maintainable implementation-facing summary of that specification; local Downloads copies are not authoritative.
+The repository itself is the current implementation source of truth. Keep architecture decisions in `documentation/decisions/`, implementation-facing architecture and codebase guidance under `documentation/`, and update those documents whenever behavior or boundaries change. Do not reference the removed `NARRATIVEX_PROJECT_SPEC_V1_7.md`; it was intentionally retired after the implementation diverged from that snapshot.
 
 ## Non-negotiable domain rules
 
@@ -15,15 +15,17 @@ The canonical product and architecture baseline is the repository-local `documen
 - Character identity is versioned through immutable CharacterVersion snapshots.
 - Outfit/age/hairstyle/injury/story-state changes belong to CharacterAppearance/OutfitVersion, not a new Character.
 - Scene/VisualBeat AI context must resolve participating characters only. Locked `CharacterVersion`, approved assets, render versions, and provider snapshots are immutable.
-- Persist a provider reservation before an external submission. Ambiguous outcomes become `UNKNOWN` and must reconcile before retry; never blind-resubmit.
-- Expensive operations require an `OperationPlan`, cost estimate/reservation, account abuse checks, entitlement checks, and usage attribution.
+- Persist provider reservation/outbox state before external submission. Ambiguous outcomes become `UNKNOWN` and must reconcile before retry; never blind-resubmit.
+- Expensive operations require an `OperationPlan`, cost estimate/reservation, account abuse checks, entitlement checks, idempotency, and usage attribution.
 - Server-side entitlement is authoritative for watermark, quality, export, concurrency, and quota rules.
 - Real-person references require explicit consent, tenant isolation, restricted retention, and deletion handling.
+- Runtime frontend code uses real APIs only. Mock data is limited to isolated tests and Storybook fixtures and must never be selected by application runtime configuration.
+- User identity comes from Spring Security `SecurityContextHolder`; application APIs must not accept identity through `X-User-Id` or equivalent client-controlled headers.
 
 ## Change discipline
 
 - Preserve existing user changes in the worktree.
-- Keep module ownership clear: backend domain must not import provider SDKs; adapters belong in integration layers; the Python worker owns AI/media runtime dependencies.
+- Keep feature ownership clear: backend domain must not import provider SDKs; adapters belong in infrastructure/integration layers; the Python worker owns AI/media runtime dependencies.
 - Add or update tests with behavior changes. Prefer deterministic fake providers in tests; never report fake provider success as production health.
 - Update the relevant Markdown document and an ADR when a cross-cutting architectural decision changes.
 - Run the narrowest relevant checks locally, then the repository verification commands documented in `CONTRIBUTING.md`.
@@ -46,8 +48,7 @@ modal, form, interaction, responsive behavior, or frontend data rendering:
    - loading/error/empty states
 7. Capture screenshot evidence after implementation.
 8. When relevant, capture before/after screenshots.
-9. Review the rendered UI visually against the current source of truth,
-   approved reference image, and design specification.
+9. Review the rendered UI visually against current implementation-facing documentation and approved design references.
 10. If verification fails, fix the implementation and repeat browser verification.
 
 ### Completion Gate
