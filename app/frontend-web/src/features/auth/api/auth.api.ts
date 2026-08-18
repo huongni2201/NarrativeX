@@ -12,7 +12,12 @@ export interface RegisterInput extends LoginInput {
 }
 
 export const authApi = {
-  getCurrentUser: () => apiRequest<ApiAuthUser>("/api/auth/me", {}, isApiAuthUser),
+  getCurrentUser: () =>
+    apiRequest<ApiAuthUser>(
+      "/api/auth/me",
+      { notifyUnauthorized: false },
+      isApiAuthUser,
+    ),
   login: async (input: LoginInput) => {
     const user = await apiRequest<ApiAuthUser>(
       "/api/auth/login",
