@@ -6,7 +6,7 @@
 
 | ID | Nhóm | Yêu cầu V1.8 |
  |---|---|---|
- | FR-01 | Authentication | Google OIDC + HttpOnly server session; không Keycloak. |
+ | FR-01 | Authentication | Google OIDC + HttpOnly server session + CSRF; password login/register có server-side abuse limiting. JWT/accessToken/refreshToken là migration riêng về sau, chưa thuộc runtime hiện tại. |
  | FR-02 | Project | Tạo, rename, archive, duplicate project. |
  | FR-03 | Story input | Paste/import và lưu StoryVersion. |
  | FR-04 | Analysis | Phân tích character/location/chapter/scene; semantic split. |
@@ -89,18 +89,18 @@
  |---|---|---|
  | FR-67 | Input moderation | Story/character/prompt/reference trước planning/generation; SAFE/REVIEW/BLOCK + policy version; BLOCK không paid call. |
  | FR-68 | Output moderation | Image/video/text metadata trước APPROVED/PUBLISHABLE; normalize provider rejection. |
- | FR-69 | Rights | Active rights attestation; report/review/disable/takedown. |
+ | FR-69 | Copyright/report handling | Không yêu cầu blanket per-story rights-attestation checkbox trước Analyze/Generate; hỗ trợ report/review/disable/takedown và không để LLM tự kết luận license/public-domain. |
  | FR-70 | Injection defense | Untrusted boundary, structured schema, field/tool allowlist, optional Model Armor/equivalent. |
  | FR-71 | Real-person consent | `REAL_PERSON_REFERENCE` + consent/use-right basis trước identity processing. |
  | FR-72 | Identity privacy | Tenant isolation, encryption/private, no log/public/cross-user reuse, retention/deletion. |
- | FR-73 | Abuse protection | Rate limit account/session/IP/route + concurrent jobs + anomaly signal trước paid work. |
+ | FR-73 | Abuse protection | Password login/register có Redis rate limit theo IP + identity/IP; target production còn cần account/session/IP/route/resource-class, concurrent jobs và anomaly controls trước paid work. |
  | FR-74 | AI audit | Provider/model/version, prompt/schema/policy, safety, fingerprint/hash, usage/params/correlation. |
  | FR-75 | Deletion | Cancel/reconcile, revoke access/URLs, expire assets/identity, audit, backup retention. |
  | FR-76 | I18n | vi-VN/en-US; stable codes/message keys; source/narration/metadata language độc lập. |
  | FR-77 | Review/appeal | REVIEW queue; hard-block minors không override; category khác có workflow/audit. |
  | FR-78 | Safety normalization | Adapter normalize provider signal; application policy là canonical. |
 
- ## Chapter-first và incremental continuation (FR-79—FR-83)
+ ## Chapter-first và incremental continuation (FR-79—FR-85)
 
 | ID | Nhóm | Yêu cầu V1.8 |
  |---|---|---|
@@ -114,4 +114,4 @@
 
  ## Non-functional release expectations
 
- PostgreSQL authoritative state; Redis queue/cache/progress; MinIO/S3 binary; async workers; production real adapters; backup/PITR/restore drill; structured observability; no shared lower/prod secrets/data; P0/P1 safety/security blockers block public launch.
+ PostgreSQL authoritative state; Redis queue/cache/progress/scheduling và transient abuse-control counters; MinIO/S3 binary; async workers; production real adapters; backup/PITR/restore drill; structured observability; no shared lower/prod secrets/data; P0/P1 safety/security blockers block public launch.
