@@ -1,6 +1,6 @@
 import type { ApiAuthUser } from "@/types/api";
 import { isApiAuthUser } from "@/types/api";
-import { apiRequest, apiUrl, resetCsrfTokenCache } from "@/shared/api/client";
+import { apiRequest, resetCsrfTokenCache } from "@/shared/api/client";
 
 export interface LoginInput {
   email: string;
@@ -9,6 +9,15 @@ export interface LoginInput {
 
 export interface RegisterInput extends LoginInput {
   displayName: string;
+}
+
+const AUTH_BASE_URL =
+  process.env.NEXT_PUBLIC_AUTH_BASE_URL ??
+  process.env.NEXT_PUBLIC_API_BASE_URL ??
+  "http://localhost:8080";
+
+function authUrl(path: string) {
+  return `${AUTH_BASE_URL.replace(/\/$/, "")}${path}`;
 }
 
 export const authApi = {
@@ -40,5 +49,5 @@ export const authApi = {
     await apiRequest<void>("/logout", { method: "POST", parseJson: false });
     resetCsrfTokenCache();
   },
-  googleLoginUrl: () => apiUrl("/oauth2/authorization/google"),
+  googleLoginUrl: () => authUrl("/oauth2/authorization/google"),
 };
