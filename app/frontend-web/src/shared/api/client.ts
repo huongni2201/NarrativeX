@@ -6,6 +6,7 @@ export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 interface ApiRequestInit extends Omit<RequestInit, "body"> {
   json?: unknown;
   parseJson?: boolean;
+  notifyUnauthorized?: boolean;
 }
 
 interface CsrfTokenResponse {
@@ -63,7 +64,7 @@ function notifyUnauthorized() {
   unauthorizedHandlers.forEach((handler) => handler());
 }
 
-function resetCsrfToken() {
+export function resetCsrfTokenCache() {
   csrfTokenPromise = undefined;
 }
 
@@ -123,7 +124,7 @@ async function loadCsrfToken(): Promise<CsrfTokenResponse> {
 
 function csrfToken() {
   csrfTokenPromise ??= loadCsrfToken().catch((error) => {
-    resetCsrfToken();
+    resetCsrfTokenCache();
     throw error;
   });
   return csrfTokenPromise;
@@ -134,7 +135,13 @@ export async function apiRequest<T>(
   init: ApiRequestInit = {},
   dataGuard?: ApiDataGuard<T>,
 ): Promise<T> {
-  const { json, parseJson = true, headers: initialHeaders, ...requestInit } = init;
+  const {
+    json,
+    parseJson = true,
+    notifyUnauthorized: notifyUnauthorizedOn401 = true,
+    headers: initialHeaders,
+    ...requestInit
+  } = init;
   const headers = new Headers(initialHeaders);
   headers.set("Accept", "application/json");
 
@@ -145,11 +152,19 @@ export async function apiRequest<T>(
       { ...requestInit, body: JSON.stringify(json) },
       headers,
       parseJson,
+      notifyUnauthorizedOn401,
       dataGuard,
     );
   }
 
-  return sendRequest<T>(path, requestInit, headers, parseJson, dataGuard);
+  return sendRequest<T>(
+    path,
+    requestInit,
+    headers,
+    parseJson,
+    notifyUnauthorizedOn401,
+    dataGuard,
+  );
 }
 
 async function sendRequest<T>(
@@ -157,6 +172,7 @@ async function sendRequest<T>(
   requestInit: RequestInit,
   headers: Headers,
   parseJson: boolean,
+  notifyUnauthorizedOn401: boolean,
   dataGuard?: ApiDataGuard<T>,
 ): Promise<T> {
   const method = (requestInit.method || "GET").toUpperCase();
@@ -173,8 +189,8 @@ async function sendRequest<T>(
 
   if (!response.ok) {
     const errorResponse = await parseErrorResponse(response);
-    if (errorResponse.status === 401 || errorResponse.status === 403) resetCsrfToken();
-    if (errorResponse.status === 401) notifyUnauthorized();
+    if (errorResponse.status === 401 || errorResponse.status === 403) resetCsrfTokenCache();
+    if (errorResponse.status === 401 && notifyUnauthorizedOn401) notifyUnauthorized();
     throw new ApiClientError(errorResponse);
   }
 

@@ -18,6 +18,7 @@ interface StudioStore {
   setWizardStep: (step: 1 | 2 | 3 | 4) => void;
   updateWizardDraft: (data: Partial<ProjectWizardDraft>) => void;
   loadSampleStory: () => void;
+  resetSessionState: () => void;
 }
 
 const createEmptyWizardDraft = (): ProjectWizardDraft => ({
@@ -40,16 +41,37 @@ export const useStudioStore = create<StudioStore>((set) => ({
 
   setScreen: (screen) => set({ currentScreen: screen }),
   selectProject: (projectId) => set({ selectedProjectId: String(projectId) }),
-  openCharacterBible: (characterId) => set({ selectedCharacterId: characterId, currentScreen: "character-bible" }),
+  openCharacterBible: (characterId) =>
+    set({ selectedCharacterId: characterId, currentScreen: "character-bible" }),
   closeCharacterBible: () => set({ selectedCharacterId: null, currentScreen: "characters" }),
   openWizard: (initialStep = 1) =>
     set((state) => ({
       isWizardOpen: true,
       currentScreen: "wizard",
-      wizardDraft: initialStep === 1 ? createEmptyWizardDraft() : { ...state.wizardDraft, step: initialStep },
+      wizardDraft:
+        initialStep === 1
+          ? createEmptyWizardDraft()
+          : { ...state.wizardDraft, step: initialStep },
     })),
-  closeWizard: () => set({ isWizardOpen: false, currentScreen: "overview", wizardDraft: createEmptyWizardDraft() }),
+  closeWizard: () =>
+    set({
+      isWizardOpen: false,
+      currentScreen: "overview",
+      wizardDraft: createEmptyWizardDraft(),
+    }),
   setWizardStep: (step) => set((state) => ({ wizardDraft: { ...state.wizardDraft, step } })),
-  updateWizardDraft: (data) => set((state) => ({ wizardDraft: { ...state.wizardDraft, ...data } })),
-  loadSampleStory: () => set((state) => ({ wizardDraft: { ...state.wizardDraft, storyText: SAMPLE_STORY_PRESET } })),
+  updateWizardDraft: (data) =>
+    set((state) => ({ wizardDraft: { ...state.wizardDraft, ...data } })),
+  loadSampleStory: () =>
+    set((state) => ({
+      wizardDraft: { ...state.wizardDraft, storyText: SAMPLE_STORY_PRESET },
+    })),
+  resetSessionState: () =>
+    set({
+      currentScreen: "overview",
+      selectedProjectId: null,
+      selectedCharacterId: null,
+      wizardDraft: createEmptyWizardDraft(),
+      isWizardOpen: false,
+    }),
 }));
