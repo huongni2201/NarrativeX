@@ -48,11 +48,7 @@ for (const file of files) {
   }
 
   for (const specifier of staticImports) {
-    if (
-      specifier === "@/lib/mock-data" ||
-      /@\/lib\/[^"']*-mock$/.test(specifier) ||
-      /@\/lib\/production-mock$/.test(specifier)
-    ) {
+    if (specifier === "@/lib/mock-data" || /@\/lib\/[^"']*-mock$/.test(specifier) || /@\/lib\/production-mock$/.test(specifier)) {
       const allowedDemo = /(?:Demo|\.stories|\.test|\.spec)\.(?:ts|tsx|js|jsx)$/.test(rel);
       if (!allowedDemo) add(file, "fixture-import", `fixture must be lazy-loaded behind a demo/test boundary: ${specifier}`);
     }
@@ -60,6 +56,13 @@ for (const file of files) {
 
   if (rel.startsWith("src/features/") && staticImports.includes("@/lib/api")) {
     add(file, "feature-api-facade", "feature code must import its domain API and shared transport errors directly instead of @/lib/api");
+  }
+
+  if (/^src\/components\/(?:assets|presets|production)\//.test(rel)) {
+    const compatibilityExport = /^export\s+\{[^}]+\}\s+from\s+["']@\/features\/(?:assets|presets|production)\/components\/[^"']+["'];?\s*$/.test(source.trim());
+    if (!compatibilityExport) {
+      add(file, "domain-component-ownership", "legacy domain component paths may contain compatibility re-exports only; implementation belongs in features/<domain>/components");
+    }
   }
 }
 
