@@ -21,6 +21,7 @@ export const api = {
   logout: authApi.logout,
   googleLoginUrl: authApi.googleLoginUrl,
   listProjects: projectsApi.list,
+  getProject: projectsApi.getById,
   createProject: projectsApi.create,
   createStoryVersion: projectsApi.createStoryVersion,
   enqueueAnalysis: projectsApi.enqueueAnalysis,

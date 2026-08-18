@@ -39,6 +39,8 @@ export const projectsApi = {
       {},
       (value): value is CursorPage<ApiProject> => isCursorPage(value, isApiProject),
     ),
+  getById: (projectId: number) =>
+    apiRequest<ApiProject>(`/api/v1/projects/${projectId}`, {}, isApiProject),
   create: (input: CreateProjectApiInput) =>
     apiRequest<ApiProject>("/api/v1/projects", { method: "POST", json: input }, isApiProject),
   createStoryVersion: (projectId: number, input: CreateStoryVersionApiInput) =>

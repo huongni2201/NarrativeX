@@ -6,9 +6,6 @@ import { api, apiErrorMessage } from "@/lib/api";
 import { isMockDataMode } from "@/lib/data-mode";
 import { queryKeys } from "@/lib/query-keys";
 
-const PROJECT_PAGE = 0;
-const PROJECT_PAGE_SIZE = 100;
-
 const ProductionDemoWorkspace = dynamic(() =>
   import("./ProductionDemoWorkspace").then((module) => module.ProductionDemoWorkspace),
 );
@@ -18,10 +15,13 @@ interface ProductionShellProps {
 }
 
 export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
-  const projectsQuery = useQuery({
-    queryKey: queryKeys.projectsPage(PROJECT_PAGE, PROJECT_PAGE_SIZE),
-    queryFn: () => api.listProjects({ limit: PROJECT_PAGE_SIZE }),
-    enabled: !isMockDataMode && Boolean(projectId),
+  const numericProjectId = projectId ? Number(projectId) : Number.NaN;
+  const hasValidProjectId = Number.isSafeInteger(numericProjectId) && numericProjectId > 0;
+
+  const projectQuery = useQuery({
+    queryKey: hasValidProjectId ? queryKeys.project(numericProjectId) : ["projects", "invalid"],
+    queryFn: () => api.getProject(numericProjectId),
+    enabled: !isMockDataMode && hasValidProjectId,
   });
 
   if (isMockDataMode) {
@@ -29,30 +29,26 @@ export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
   }
 
   if (!projectId) {
-    return <WorkspaceMessage>Chọn một project từ Tổng quan để mở workspace.</WorkspaceMessage>;
+    return <WorkspaceMessage>Chọn một project từ danh sách dự án để mở workspace.</WorkspaceMessage>;
   }
 
-  if (projectsQuery.isPending) {
+  if (!hasValidProjectId) {
+    return <WorkspaceMessage>Project ID không hợp lệ.</WorkspaceMessage>;
+  }
+
+  if (projectQuery.isPending) {
     return <WorkspaceMessage>Đang tải project từ backend…</WorkspaceMessage>;
   }
 
-  if (projectsQuery.isError) {
+  if (projectQuery.isError) {
     return (
       <div className="rounded-2xl border border-rose-500/30 bg-rose-950/20 p-8 text-sm text-rose-200">
-        {apiErrorMessage(projectsQuery.error, "Không tải được project từ backend.")}
+        {apiErrorMessage(projectQuery.error, "Không tải được project từ backend.")}
       </div>
     );
   }
 
-  const project = projectsQuery.data?.content.find((item) => String(item.id) === projectId);
-
-  if (!project) {
-    return (
-      <WorkspaceMessage>
-        Project không tồn tại trong trang dữ liệu hiện tại hoặc bạn không có quyền truy cập.
-      </WorkspaceMessage>
-    );
-  }
+  const project = projectQuery.data;
 
   return (
     <div className="space-y-6">

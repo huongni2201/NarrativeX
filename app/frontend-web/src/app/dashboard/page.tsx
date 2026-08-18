@@ -1,5 +1,5 @@
-import { StudioAppShell } from "@/components/layout/StudioAppShell";
+import { redirect } from "next/navigation";
 
 export default function DashboardPage() {
-  return <StudioAppShell screen="project-workspace" />;
+  redirect("/projects");
 }

@@ -33,11 +33,8 @@ export const StudioSidebar: React.FC = () => {
       id: "projects",
       label: "Dự án của tôi",
       icon: FolderKanban,
-      onClick: () => {
-        setView("overview");
-        router.push("/dashboard");
-      },
-      active: pathname === "/dashboard" || pathname.startsWith("/projects/"),
+      onClick: () => router.push("/projects"),
+      active: pathname === "/projects" || pathname.startsWith("/projects/"),
     },
     {
       id: "characters",
@@ -66,7 +63,7 @@ export const StudioSidebar: React.FC = () => {
       icon: Clock,
       onClick: () => {
         setView("workspace");
-        router.push("/dashboard");
+        router.push("/projects");
       },
       active: false,
     },

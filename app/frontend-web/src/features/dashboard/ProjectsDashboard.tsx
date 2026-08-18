@@ -2,9 +2,8 @@
 
 import React, { useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { useStudioStore } from "@/store/useStudioStore";
-import { useProductionStore } from "@/store/useProductionStore";
 import { ProjectCard } from "./ProjectCard";
 import { Tabs } from "@/components/ui/Tabs";
 import { Button } from "@/components/ui/Button";
@@ -15,8 +14,7 @@ import { queryKeys } from "@/lib/query-keys";
 import type { ApiProject } from "@/types/api";
 
 const completedStatuses = new Set(["COMPLETED", "ARCHIVED"]);
-const PROJECT_PAGE = 0;
-const PROJECT_PAGE_SIZE = 100;
+const PROJECT_PAGE_SIZE = 20;
 type ProjectFilterTab = "all" | "in_progress" | "completed";
 
 export const ProjectsDashboard: React.FC = () => {
@@ -26,13 +24,23 @@ export const ProjectsDashboard: React.FC = () => {
   const projectSearchQuery = useStudioStore((state) => state.projectSearchQuery);
   const setProjectSearchQuery = useStudioStore((state) => state.setProjectSearchQuery);
   const openWizard = useStudioStore((state) => state.openWizard);
-  const setView = useProductionStore((state) => state.setView);
 
-  const projectsQuery = useQuery({
-    queryKey: queryKeys.projectsPage(PROJECT_PAGE, PROJECT_PAGE_SIZE),
-    queryFn: () => api.listProjects({ limit: PROJECT_PAGE_SIZE }),
+  const projectsQuery = useInfiniteQuery({
+    queryKey: queryKeys.projects,
+    queryFn: ({ pageParam }) =>
+      api.listProjects({
+        cursor: pageParam ?? undefined,
+        limit: PROJECT_PAGE_SIZE,
+      }),
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) =>
+      lastPage.hasNext ? (lastPage.nextCursor ?? undefined) : undefined,
   });
-  const projects = projectsQuery.data?.content ?? [];
+
+  const projects = useMemo(
+    () => projectsQuery.data?.pages.flatMap((page) => page.content) ?? [],
+    [projectsQuery.data],
+  );
 
   const filterTabs = useMemo(
     () => [
@@ -55,7 +63,8 @@ export const ProjectsDashboard: React.FC = () => {
   const filteredProjects = useMemo(
     () =>
       projects.filter((project) => {
-        const matchesSearch = !normalizedSearch || project.name.toLocaleLowerCase("vi").includes(normalizedSearch);
+        const matchesSearch =
+          !normalizedSearch || project.name.toLocaleLowerCase("vi").includes(normalizedSearch);
 
         if (projectFilterTab === "in_progress") {
           return matchesSearch && !completedStatuses.has(project.status);
@@ -69,20 +78,34 @@ export const ProjectsDashboard: React.FC = () => {
   );
 
   const handleCardClick = (project: ApiProject) => {
-    setView("overview");
     router.push(`/projects/${project.id}`);
   };
 
   if (projectsQuery.isPending) {
-    return <div className="flex min-h-72 items-center justify-center text-sm text-slate-400"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang tải dự án từ backend…</div>;
+    return (
+      <div className="flex min-h-72 items-center justify-center text-sm text-slate-400">
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        Đang tải dự án từ backend…
+      </div>
+    );
   }
 
   if (projectsQuery.isError) {
     return (
       <div className="rounded-2xl border border-rose-500/30 bg-rose-950/20 p-8 text-center">
         <h3 className="text-base font-semibold text-rose-200">Không tải được danh sách dự án</h3>
-        <p className="mx-auto mt-2 max-w-lg text-xs leading-5 text-rose-200/70">{apiErrorMessage(projectsQuery.error, "Backend API chưa phản hồi.")}</p>
-        <Button onClick={() => projectsQuery.refetch()} variant="secondary" size="sm" className="mt-5"><RefreshCw className="mr-2 h-3.5 w-3.5" />Thử lại</Button>
+        <p className="mx-auto mt-2 max-w-lg text-xs leading-5 text-rose-200/70">
+          {apiErrorMessage(projectsQuery.error, "Backend API chưa phản hồi.")}
+        </p>
+        <Button
+          onClick={() => projectsQuery.refetch()}
+          variant="secondary"
+          size="sm"
+          className="mt-5"
+        >
+          <RefreshCw className="mr-2 h-3.5 w-3.5" />
+          Thử lại
+        </Button>
       </div>
     );
   }
@@ -102,7 +125,7 @@ export const ProjectsDashboard: React.FC = () => {
         <div className="flex items-center gap-3">
           <div className="w-60 hidden md:block">
             <Input
-              placeholder="Tìm kiếm dự án..."
+              placeholder="Tìm kiếm dự án đã tải..."
               value={projectSearchQuery}
               onChange={(event) => setProjectSearchQuery(event.target.value)}
               icon={<Search className="w-4 h-4" />}
@@ -120,15 +143,30 @@ export const ProjectsDashboard: React.FC = () => {
       </div>
 
       {filteredProjects.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
-          {filteredProjects.map((project) => (
-            <ProjectCard
-              key={project.id}
-              project={project}
-              onClick={handleCardClick}
-            />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
+            {filteredProjects.map((project) => (
+              <ProjectCard
+                key={project.id}
+                project={project}
+                onClick={handleCardClick}
+              />
+            ))}
+          </div>
+
+          {projectsQuery.hasNextPage && (
+            <div className="flex justify-center pt-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                isLoading={projectsQuery.isFetchingNextPage}
+                onClick={() => projectsQuery.fetchNextPage()}
+              >
+                Tải thêm dự án
+              </Button>
+            </div>
+          )}
+        </>
       ) : (
         <div className="py-20 text-center bg-[#0d1420]/50 rounded-2xl border border-slate-800/80 p-8 space-y-4">
           <div className="w-14 h-14 mx-auto rounded-2xl bg-purple-950/60 border border-purple-800/60 flex items-center justify-center text-purple-400">
@@ -142,9 +180,20 @@ export const ProjectsDashboard: React.FC = () => {
               Hãy thử thay đổi bộ lọc tìm kiếm hoặc tạo một dự án mới để bắt đầu.
             </p>
           </div>
-          <Button onClick={() => openWizard(1)} variant="primary" size="sm">
-            <Plus className="w-3.5 h-3.5" /> Tạo dự án mới
-          </Button>
+          {projectsQuery.hasNextPage ? (
+            <Button
+              onClick={() => projectsQuery.fetchNextPage()}
+              variant="secondary"
+              size="sm"
+              isLoading={projectsQuery.isFetchingNextPage}
+            >
+              Tải thêm dự án để tìm tiếp
+            </Button>
+          ) : (
+            <Button onClick={() => openWizard(1)} variant="primary" size="sm">
+              <Plus className="w-3.5 h-3.5" /> Tạo dự án mới
+            </Button>
+          )}
         </div>
       )}
     </div>

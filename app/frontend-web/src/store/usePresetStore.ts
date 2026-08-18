@@ -1,6 +1,5 @@
 import { create } from "zustand";
-import { StylePreset, PresetCategory } from "@/types/presets";
-import { MOCK_PRESETS } from "@/lib/presets-mock";
+import type { StylePreset, PresetCategory } from "@/types/presets";
 import { isMockDataMode } from "@/lib/data-mode";
 
 interface PresetStore {
@@ -12,7 +11,7 @@ interface PresetStore {
   isEditorModalOpen: boolean;
   editingPreset: StylePreset | null;
 
-  // Actions
+  hydrateDemoPresets: (presets: StylePreset[]) => void;
   selectPreset: (id: string | null) => void;
   closeDetailDrawer: () => void;
   setActiveCategory: (category: PresetCategory) => void;
@@ -26,13 +25,24 @@ interface PresetStore {
 }
 
 export const usePresetStore = create<PresetStore>((set, get) => ({
-  presets: isMockDataMode ? MOCK_PRESETS : [],
-  selectedPresetId: isMockDataMode ? "style-1" : null, // Default open Cinematic Dark Fantasy matching mockup
+  presets: [],
+  selectedPresetId: null,
   activeCategory: "VISUAL_STYLE",
   searchQuery: "",
-  isDetailDrawerOpen: isMockDataMode, // open right detail drawer matching mockup
+  isDetailDrawerOpen: false,
   isEditorModalOpen: false,
   editingPreset: null,
+
+  hydrateDemoPresets: (presets) =>
+    set((state) =>
+      state.presets.length > 0
+        ? state
+        : {
+            presets,
+            selectedPresetId: presets[0]?.id ?? null,
+            isDetailDrawerOpen: presets.length > 0,
+          },
+    ),
 
   selectPreset: (id) =>
     set({
@@ -74,22 +84,22 @@ export const usePresetStore = create<PresetStore>((set, get) => ({
   savePreset: (presetData) => {
     const { presets, editingPreset } = get();
     if (editingPreset) {
-      // Edit existing
       set({
         presets: presets.map((p) =>
-          p.id === editingPreset.id ? { ...p, ...presetData } as StylePreset : p
+          p.id === editingPreset.id ? ({ ...p, ...presetData } as StylePreset) : p,
         ),
         isEditorModalOpen: false,
         editingPreset: null,
       });
     } else {
-      // Create new
       const newPreset: StylePreset = {
         id: `preset-${Date.now()}`,
         name: presetData.name || "Preset mới",
         category: presetData.category || get().activeCategory,
         description: presetData.description || "Cấu hình sáng tạo tái sử dụng",
-        coverImage: presetData.coverImage || "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=800&auto=format&fit=crop",
+        coverImage:
+          presetData.coverImage ||
+          "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=800&auto=format&fit=crop",
         tags: presetData.tags || ["CUSTOM"],
         usedInProjectsCount: 0,
         colorPalette: presetData.colorPalette || ["#070B14", "#111A29", "#7C3AED", "#F59E0B", "#E2E8F0"],
@@ -142,3 +152,9 @@ export const usePresetStore = create<PresetStore>((set, get) => ({
     });
   },
 }));
+
+if (isMockDataMode) {
+  void import("@/lib/presets-mock").then(({ MOCK_PRESETS }) => {
+    usePresetStore.getState().hydrateDemoPresets(MOCK_PRESETS);
+  });
+}

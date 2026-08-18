@@ -1,6 +1,5 @@
 import { create } from "zustand";
-import { MediaAsset, AssetFilterType, AssetSortOption, AssetStatus } from "@/types/assets";
-import { MOCK_ASSETS } from "@/lib/assets-mock";
+import type { MediaAsset, AssetFilterType, AssetSortOption, AssetStatus } from "@/types/assets";
 import { isMockDataMode } from "@/lib/data-mode";
 
 interface AssetStore {
@@ -16,7 +15,7 @@ interface AssetStore {
   isDetailDrawerOpen: boolean;
   isUploadModalOpen: boolean;
 
-  // Actions
+  hydrateDemoAssets: (assets: MediaAsset[]) => void;
   selectAsset: (id: string | null) => void;
   closeDetailDrawer: () => void;
   setFilterType: (type: AssetFilterType) => void;
@@ -36,8 +35,8 @@ interface AssetStore {
 }
 
 export const useAssetStore = create<AssetStore>((set, get) => ({
-  assets: isMockDataMode ? MOCK_ASSETS : [],
-  selectedAssetId: isMockDataMode ? "ast-1" : null, // Default to first asset open matching mockup
+  assets: [],
+  selectedAssetId: null,
   filterType: "all",
   filterStatus: "all",
   filterProject: "all",
@@ -45,8 +44,19 @@ export const useAssetStore = create<AssetStore>((set, get) => ({
   searchQuery: "",
   sortOption: "newest",
   viewMode: "grid",
-  isDetailDrawerOpen: isMockDataMode, // open right drawer matching mockup
+  isDetailDrawerOpen: false,
   isUploadModalOpen: false,
+
+  hydrateDemoAssets: (assets) =>
+    set((state) =>
+      state.assets.length > 0
+        ? state
+        : {
+            assets,
+            selectedAssetId: assets[0]?.id ?? null,
+            isDetailDrawerOpen: assets.length > 0,
+          },
+    ),
 
   selectAsset: (id) =>
     set({
@@ -84,7 +94,7 @@ export const useAssetStore = create<AssetStore>((set, get) => ({
   approveAsset: (id) => {
     set((state) => ({
       assets: state.assets.map((a) =>
-        a.id === id ? { ...a, status: "APPROVED" as AssetStatus } : a
+        a.id === id ? { ...a, status: "APPROVED" as AssetStatus } : a,
       ),
     }));
   },
@@ -92,7 +102,7 @@ export const useAssetStore = create<AssetStore>((set, get) => ({
   rejectAsset: (id) => {
     set((state) => ({
       assets: state.assets.map((a) =>
-        a.id === id ? { ...a, status: "REJECTED" as AssetStatus } : a
+        a.id === id ? { ...a, status: "REJECTED" as AssetStatus } : a,
       ),
     }));
   },
@@ -105,7 +115,7 @@ export const useAssetStore = create<AssetStore>((set, get) => ({
               ...a,
               status: (a.status === "LOCKED" ? "APPROVED" : "LOCKED") as AssetStatus,
             }
-          : a
+          : a,
       ),
     }));
   },
@@ -116,3 +126,9 @@ export const useAssetStore = create<AssetStore>((set, get) => ({
       isUploadModalOpen: false,
     })),
 }));
+
+if (isMockDataMode) {
+  void import("@/lib/assets-mock").then(({ MOCK_ASSETS }) => {
+    useAssetStore.getState().hydrateDemoAssets(MOCK_ASSETS);
+  });
+}

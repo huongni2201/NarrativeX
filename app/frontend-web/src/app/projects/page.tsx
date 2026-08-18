@@ -1,5 +1,5 @@
 import { StudioAppShell } from "@/components/layout/StudioAppShell";
 
-export default function AuthPage() {
+export default function ProjectsPage() {
   return <StudioAppShell screen="overview" />;
 }
