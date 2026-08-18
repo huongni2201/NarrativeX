@@ -1,6 +1,4 @@
 -- Complete the persisted Chapter source contract used by the Chapter-first workflow.
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
-
 ALTER TABLE chapters
     ADD COLUMN source_hash VARCHAR(64);
 
@@ -9,7 +7,7 @@ SET source_text = ''
 WHERE source_text IS NULL;
 
 UPDATE chapters
-SET source_hash = encode(digest(convert_to(source_text, 'UTF8'), 'sha256'), 'hex')
+SET source_hash = encode(sha256(convert_to(source_text, 'UTF8')), 'hex')
 WHERE source_hash IS NULL;
 
 ALTER TABLE chapters
