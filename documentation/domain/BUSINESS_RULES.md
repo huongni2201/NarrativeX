@@ -51,7 +51,7 @@
 - **BR-42** Short density tham chiếu 6/30s, 8–10/45s, 10–12/60s; adaptive theo complexity.
 - **BR-43** Short default 9:16; reuse asset nếu crop/reframe còn tốt.
 - **BR-44** Provider credentials server-side/secret store; không BYOK bắt buộc.
-- **BR-45** Auth là Spring Security + Google OIDC + HttpOnly session; không Keycloak.
+- **BR-45** Auth runtime hiện tại là Spring Security + Google OIDC/email-password + HttpOnly server session + CSRF; password login/register phải có server-side abuse limiting. JWT/accessToken/refreshToken là migration riêng về sau, không được coi là đã triển khai.
 - **BR-52** Project có ImageGenerationSettings default: long-form 16:9 + STANDARD; Short 9:16 + STANDARD nếu chưa chọn.
 - **BR-53** Image ratio chỉ từ capability provider/model active.
 - **BR-54** Quality tier là DRAFT/STANDARD/HIGH provider-agnostic; adapter map và snapshot resolved option.
@@ -123,12 +123,12 @@
 - **BR-104** REAL_PERSON_REFERENCE cần consent/use-right; revoke dừng generation tương lai và expire/delete derivatives.
 - **BR-105** Identity embedding/template private per-user/per-project; không log/analytics/error/public manifest/cross-tenant reuse.
 - **BR-106** Delete Project/Account idempotent, durable; late external result quarantine/expire, không reattach deleted owner.
-- **BR-107** Account rate limit khác provider limit; quota/credit không thay abuse policy.
+- **BR-107** Account abuse limit khác provider limit; quota/credit không thay abuse policy. Password login/register hiện phải có Redis-backed limiter theo IP và identity+IP; broader account/session/route/resource-class/concurrency controls vẫn là production requirement.
 - **BR-108** AI audit đủ tái hiện kỹ thuật; raw sensitive prompt/reference chỉ giữ theo retention, không vô hạn.
 - **BR-109** Localized label/message không phải state; DB lưu enum/code/message_key.
 - **BR-110** REVIEW không tự thành SAFE vì provider success; publishable cần policy decision độc lập.
 - **BR-111** Reference phải ghi rõ REAL_PERSON_REFERENCE hay FICTIONAL_REFERENCE để áp đúng retention/consent.
-- **BR-112** Safety/security/consent policy version phải snapshot vào quyết định để audit lịch sử. Legacy rights fields nếu còn trong schema chỉ phục vụ backward compatibility và không được dùng làm prerequisite Analyze/Generate.
+- **BR-112** Safety/security/consent policy version phải snapshot vào quyết định để audit lịch sử. Legacy StoryVersion rights columns đã bị loại bởi Flyway V6 và `content_rights_attestations` bị loại bởi V7; chúng không còn là compatibility schema và không được dùng làm prerequisite Analyze/Generate.
 - **BR-113** ProjectCharacter là association giữa Project và Character; chứa role, importance, project aliases, story-specific description, groups, lifecycle và optional version pins.
 - **BR-114** CharacterAppearance biểu diễn visual state theo story timeline; thay đổi appearance không tạo Character identity mới.
 - **BR-115** Scene/VisualBeat chỉ reference Character bằng immutable ID; character name chỉ là display/search field, không phải identity key.

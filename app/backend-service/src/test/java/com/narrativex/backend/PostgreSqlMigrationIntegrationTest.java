@@ -20,6 +20,7 @@ import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -28,6 +29,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 @Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest
+@ActiveProfiles("test")
 class PostgreSqlMigrationIntegrationTest {
   @Container
   static final PostgreSQLContainer<?> POSTGRES =
@@ -43,6 +45,7 @@ class PostgreSqlMigrationIntegrationTest {
     registry.add("spring.datasource.password", POSTGRES::getPassword);
     registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
     registry.add("spring.jpa.hibernate.ddl-auto", () -> "validate");
+    registry.add("spring.jpa.database-platform", () -> "org.hibernate.dialect.PostgreSQLDialect");
     registry.add("spring.flyway.enabled", () -> true);
     registry.add("spring.flyway.baseline-on-migrate", () -> false);
     registry.add("spring.data.redis.repositories.enabled", () -> false);
@@ -54,7 +57,7 @@ class PostgreSqlMigrationIntegrationTest {
   @Test
   void emptyPostgresMigratesAndHibernateValidates() throws SQLException {
     try (Connection connection = dataSource.getConnection()) {
-      assertEquals(6, latestFlywayVersion(connection));
+      assertEquals(7, latestFlywayVersion(connection));
       assertEquals("jsonb", columnType(connection, "moderation_decisions", "categories_json"));
       assertTrue(indexExists(connection, "uq_story_versions_one_active_per_project"));
       assertFalse(indexExists(connection, "idx_auth_users_email"));
@@ -64,6 +67,7 @@ class PostgreSqlMigrationIntegrationTest {
       assertFalse(columnExists(connection, "story_versions", "rights_basis"));
       assertFalse(columnExists(connection, "story_versions", "rights_attested_at"));
       assertFalse(columnExists(connection, "story_versions", "rights_attested_by"));
+      assertFalse(tableExists(connection, "content_rights_attestations"));
     }
   }
 
@@ -179,6 +183,19 @@ class PostgreSqlMigrationIntegrationTest {
                 + "where table_schema = 'public' and table_name = ? and column_name = ?)")) {
       statement.setString(1, table);
       statement.setString(2, column);
+      try (ResultSet result = statement.executeQuery()) {
+        result.next();
+        return result.getBoolean(1);
+      }
+    }
+  }
+
+  private static boolean tableExists(Connection connection, String table) throws SQLException {
+    try (PreparedStatement statement =
+        connection.prepareStatement(
+            "select exists(select 1 from information_schema.tables "
+                + "where table_schema = 'public' and table_name = ?)")) {
+      statement.setString(1, table);
       try (ResultSet result = statement.executeQuery()) {
         result.next();
         return result.getBoolean(1);

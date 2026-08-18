@@ -18,6 +18,8 @@ spring:
 narrativex:
   security:
     local-dev-identity-enabled: true
+    auth-rate-limit:
+      enabled: false
 
 management:
   endpoints:

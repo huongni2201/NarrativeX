@@ -13,7 +13,7 @@ Mục tiêu V1.8:
  - Giữ nhất quán nhân vật bằng Character Master, Character Bible, Reference Asset, CharacterVersion, Outfit/Location/Style Bible và Identity QA.
  - Cho phép regenerate theo affected scope, reuse asset và review batch thay vì chạy lại toàn project.
  - Đo và giới hạn chi phí theo `user → project → operation → job → stage`, có estimate range, reservation, spending cap và actual usage.
- - Đưa Trust & Safety, rights/consent, prompt-injection defense, abuse protection, privacy/deletion và audit vào control plane trước public production.
+ - Đưa Trust & Safety, consent, prompt-injection defense, abuse protection, privacy/deletion, report/review/takedown và audit vào control plane trước public production.
 
  ### Character ownership and reuse
 
@@ -34,7 +34,7 @@ CharacterAppearance, OutfitVersion and references.
 
  ### In scope
 
- - Google OIDC; backend giữ HttpOnly session và project ownership.
+ - Google OIDC; backend giữ HttpOnly server session, CSRF và project ownership. Password login/register có application-layer abuse limiting. JWT/accessToken/refreshToken chưa thuộc runtime hiện tại và được tách thành migration riêng sau.
  - Paste/import story, `StoryVersion`, semantic analysis và chunking cho nội dung ngắn/dài.
  - Global reusable Character identity, ProjectCharacter assignment, CharacterVersion, CharacterAppearance, Character Master, OutfitVersion, Project Bible, Location và Style Profile.
  - Storyboard Scene/VisualBeat/Shot; merge/split theo narration và semantic complexity.
@@ -48,7 +48,7 @@ CharacterAppearance, OutfitVersion and references.
  - Operation planning, cost reservation, per-user attribution, resource ledger, delta/reuse planning và spending cap.
  - Notification center + email opt-in qua transactional outbox.
  - Server-side plan entitlement, quota/credit, watermark, export/quality/concurrency enforcement.
- - Input/output moderation, rights attestation, prompt-injection defense, real-person consent, identity privacy, abuse limit, audit và deletion lifecycle.
+ - Input/output moderation, prompt-injection defense, real-person consent, identity privacy, abuse limit, report/review/takedown, audit và deletion lifecycle. Story Analyze/Generate không yêu cầu blanket per-story copyright/rights-attestation checkbox.
  - UI baseline `vi-VN`/`en-US`; domain lưu stable code/enum/message key.
 
  ### Out of scope
@@ -111,18 +111,18 @@ CharacterAppearance, OutfitVersion and references.
 
  ## 7. Trust, safety, privacy và deletion
 
- Luồng canonical: authentication/ownership → account abuse limit → rights/consent → input moderation → prompt-injection defense → entitlement/cost → provider → schema/domain validation → output moderation → Identity QA/human review → approve/publish.
+ Luồng canonical: authentication/ownership → account abuse limit → real-person consent khi áp dụng → input moderation → prompt-injection defense → entitlement/cost → provider → schema/domain validation → output moderation → Identity QA/human review → approve/publish. Copyright/report/takedown là concern pháp lý/review riêng, không phải checkbox gate của Story Analyze/Generate.
 
  - Moderation chuẩn hóa `SAFE`/`REVIEW`/`BLOCK` + category + `policy_version`; sexual content involving minors là hard block.
  - Story/chapter/character/prompt override là untrusted data; không được thay system policy, tool allowlist, owner/billing/storage path hay job authority.
- - Import story cần rights attestation; tranh chấp dùng report/review/evidence/takedown, không suy diễn license/public domain bằng LLM.
+ - Import/story analysis không yêu cầu per-story rights-attestation checkbox. Tranh chấp dùng report/review/evidence/takedown; hệ thống không suy diễn license/public domain bằng LLM.
  - `REAL_PERSON_REFERENCE` cần consent/use-right basis; identity template/embedding private, tenant-isolated, không log/public manifest/cross-user reuse và có retention riêng.
- - Rate limit account/session/IP/route/resource class và concurrent expensive jobs chạy trước paid provider work; tách biệt với provider limiter/circuit breaker.
+ - Password login/register có Redis-backed application rate limit theo IP và identity+IP, trả `429` + `Retry-After` khi vượt ngưỡng. Broader account/session/IP/route/resource-class và concurrent-expensive-job controls vẫn cần trước paid provider work; tách biệt với provider limiter/circuit breaker.
  - Xóa account/project là durable workflow: chặn job mới, cancel/reconcile, revoke URL, xóa/expire derivatives và identity data, quarantine late result, cleanup storage theo retention; backup tuân expiry policy.
 
  ## 8. Durability và concurrency
 
- PostgreSQL là authoritative state; Redis chỉ queue/cache/progress/scheduling; binary ở MinIO/S3-compatible storage. Job dài chạy async. `ProviderOperation` phải reserve trước submit; outcome mơ hồ là `UNKNOWN`, tuyệt đối không blind resubmit. FinalArtifact chỉ `READY` sau validate storage/checksum/MIME/dimensions/manifest.
+ PostgreSQL là authoritative state; Redis chỉ queue/cache/progress/scheduling và transient abuse-control counters; binary ở MinIO/S3-compatible storage. Job dài chạy async. `ProviderOperation` phải reserve trước submit; outcome mơ hồ là `UNKNOWN`, tuyệt đối không blind resubmit. FinalArtifact chỉ `READY` sau validate storage/checksum/MIME/dimensions/manifest.
 
  Mutable entity dùng `row_version`/ETag/If-Match. Expected version không khớp trả `409 CONFLICT`/`STALE_VERSION`; không last-write-wins. LOCKED CharacterVersion, APPROVED Asset và completed RenderVersion là immutable snapshot; thay đổi tạo version/attempt mới.
 
@@ -130,6 +130,6 @@ CharacterAppearance, OutfitVersion and references.
 
  ## 9. Release acceptance gates
 
- Story Parsed → Characters Approved → Storyboard Approved → Visual Ready → Audio Ready → Render Ready → Final Artifact Valid. Short có thêm candidate duration/timeline/visual/subtitle readiness. Public beta cần auth/ownership, moderation, injection tests, rights/consent, deletion, cost/provider controls, backup/restore, observability và không còn P0/P1 safety/security blocker.
+ Story Parsed → Characters Approved → Storyboard Approved → Visual Ready → Audio Ready → Render Ready → Final Artifact Valid. Short có thêm candidate duration/timeline/visual/subtitle readiness. Public beta cần auth/ownership, moderation, injection tests, real-person consent where applicable, report/review/takedown handling, abuse controls, deletion, cost/provider controls, backup/restore, observability và không còn P0/P1 safety/security blocker.
 
  Chi tiết ID đầy đủ nằm trong [FEATURE_CATALOG.md](FEATURE_CATALOG.md); luật bất biến nằm trong [../domain/BUSINESS_RULES.md](../domain/BUSINESS_RULES.md).

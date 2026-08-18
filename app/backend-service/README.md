@@ -24,6 +24,43 @@ The shared application configuration does **not** default to the `local` profile
 
 Local development therefore has to opt in explicitly.
 
+## Authentication runtime contract
+
+The current backend authentication contract is still **Spring Security server-side session + CSRF**. Password login/registration and Google OIDC resolve to the internal NarrativeX user identity and persist authentication in the server-managed session.
+
+This branch intentionally does **not** migrate authentication to JWT, access tokens or refresh tokens. Any future token-based authentication migration must be handled as a separate compatibility/security change with an explicit API rollout, refresh-token rotation/revocation policy and frontend migration plan.
+
+Credentialed browser mutations continue to use CSRF protection. The CSRF bootstrap endpoint is `GET /api/v1/auth/csrf`; password login/registration remain under `/api/auth/*` until a separate API-versioning/auth migration is approved.
+
+### Password auth abuse protection
+
+`POST /api/auth/login` and `POST /api/auth/register` are protected by a Redis-backed fixed-window limiter before authentication or account creation.
+
+The limiter uses atomic Redis Lua increment/expiry operations and SHA-256 bucket subjects so raw email/IP values are not stored in Redis keys. It maintains separate IP and identity+IP buckets.
+
+Default policy:
+
+| Endpoint | Bucket | Default |
+|---|---|---:|
+| Login | IP | 30 requests / 5 minutes |
+| Login | identity + IP | 10 requests / 5 minutes |
+| Register | IP | 10 requests / hour |
+| Register | identity + IP | 5 requests / hour |
+
+When a bucket is exceeded the API returns `429 Too Many Requests`, the existing structured `ErrorResponse`, and `Retry-After`.
+
+Redis data-access failure is intentionally **fail-open** for this limiter so a Redis outage does not become a total authentication outage. That tradeoff must be covered by infrastructure monitoring and edge/gateway protection in shared environments. The default `test` profile disables the external Redis limiter so ordinary Spring tests do not require a Redis service; focused limiter tests should exercise the limiter separately.
+
+Limits are configuration, not domain invariants, and may be changed under `narrativex.security.auth-rate-limit.*` without changing the authentication contract.
+
+## Database migration invariant
+
+Flyway migrations are forward-only once shared. Historical migrations V1-V6 are not edited to remove released schema state.
+
+`V6__drop_legacy_story_rights_columns.sql` removes the obsolete StoryVersion rights columns. `V7__drop_legacy_content_rights_attestations.sql` removes the remaining legacy `content_rights_attestations` table. The active product/domain contract has no blanket per-story copyright/rights-attestation prerequisite for Analyze/Generate; moderation, report/review/takedown and real-person consent remain independent concerns.
+
+The PostgreSQL Testcontainers migration test runs with the explicit `test` profile while overriding the test datasource/dialect back to PostgreSQL, then validates the complete Flyway path and Hibernate schema compatibility.
+
 ## Development Commands
 
 ### Run Locally

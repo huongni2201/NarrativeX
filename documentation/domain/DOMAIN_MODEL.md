@@ -2,7 +2,7 @@
 
 ## 1. Bounded responsibility
 
-Core business chạy trong Spring Boot Modular Monolith; Python 3.12 AI/Media Worker xử lý job; PostgreSQL là authoritative state; Redis chỉ queue/cache/progress/scheduling; MinIO/S3-compatible storage giữ binary. Provider/model nằm sau port/adapter. Character consistency là data/version/state, không phải prompt cố định.
+Core business chạy trong Spring Boot Modular Monolith; Python 3.12 AI/Media Worker xử lý job; PostgreSQL là authoritative state; Redis chỉ queue/cache/progress/scheduling và transient abuse-control counters; MinIO/S3-compatible storage giữ binary. Provider/model nằm sau port/adapter. Character consistency là data/version/state, không phải prompt cố định.
 
 ## 2. Aggregate và entity chính
 
@@ -57,7 +57,9 @@ Core business chạy trong Spring Boot Modular Monolith; Python 3.12 AI/Media Wo
 | DataDeletionRequest | account/project/asset scope, durable workflow status and retention deadline |
 | AbuseEvent | user/session/IP hash, route/signal, allow/throttle/block/challenge, policy version |
 
-Legacy `rights_*` columns/records may remain temporarily for schema compatibility, but they are not part of the active StoryVersion invariant and must not gate Analyze/Generate.
+The active StoryVersion model contains no `rights_*` fields. Flyway V6 removes the legacy StoryVersion rights columns and V7 removes the legacy `content_rights_attestations` table. Those records are no longer compatibility state and must not be referenced as active domain entities or Analyze/Generate prerequisites.
+
+Password login/register abuse throttling currently uses transient Redis counters keyed by hashed subjects. Those counters are infrastructure control state, not a replacement for persisted `AbuseEvent`/audit records where durable security telemetry is required.
 
 ## 3. Relationship and snapshot rules
 
@@ -143,4 +145,4 @@ Mutable entities dùng `row_version`/ETag; expected version mismatch trả 409. 
 
 ## 8. Safety/privacy/deletion aggregates
 
-`ModerationDecision` là canonical application outcome, không để provider signal tự quyết định publish. Story Analyze/Generate không yêu cầu per-story copyright/rights attestation. `IdentityConsent` bắt buộc cho `REAL_PERSON_REFERENCE`; đây là concern riêng với copyright checkbox của story. `IdentityProfile` private/tenant-isolated, không log/public/cross-user reuse, có expires/deleted timestamp. `DataDeletionRequest` chặn job mới, cancel/reconcile, revoke signed URLs, expire/delete derivatives/identity data, quarantine late provider result và hoàn tất theo retention/backup policy.
+`ModerationDecision` là canonical application outcome, không để provider signal tự quyết định publish. Story Analyze/Generate không yêu cầu per-story copyright/rights attestation hoặc checkbox xác nhận quyền sử dụng. `IdentityConsent` bắt buộc cho `REAL_PERSON_REFERENCE`; đây là concern riêng với story copyright handling. `IdentityProfile` private/tenant-isolated, không log/public/cross-user reuse, có expires/deleted timestamp. `DataDeletionRequest` chặn job mới, cancel/reconcile, revoke signed URLs, expire/delete derivatives/identity data, quarantine late provider result và hoàn tất theo retention/backup policy.

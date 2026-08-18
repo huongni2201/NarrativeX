@@ -57,7 +57,7 @@
  | PAUSED_COST_LIMIT | Operation tạm dừng vì stage billable tiếp theo có thể vượt max authorized spend. |
  | VideoGenerationAttempt | Attempt tạo MotionAsset bằng Veo/Kling/provider tương lai với request/cost/output snapshot. |
  | Moderation Decision | Application outcome SAFE/REVIEW/BLOCK + categories/provider signal/policy version. |
- | Rights Attestation | User declaration có quyền sử dụng story; prerequisite nghiệp vụ, không phải phán quyết pháp lý tuyệt đối. |
+ | Story rights handling | NarrativeX không yêu cầu blanket per-story rights-attestation checkbox trước Analyze/Generate; report/review/takedown và nghĩa vụ pháp lý được xử lý như concern riêng. |
  | REAL_PERSON_REFERENCE | Reference có người thật; cần consent/use-right basis và retention/privacy chặt hơn. |
  | FICTIONAL_REFERENCE | Reference fictional/generated; áp policy khác REAL_PERSON_REFERENCE. |
  | Identity Profile | Private identity template/embedding có tenant isolation, retention và deletion lifecycle. |
@@ -69,6 +69,7 @@
  | Human-in-the-loop | AI đề xuất/generate nhưng user/admin duyệt tại các gate quan trọng. |
  | Entitlement | Quyền tính năng/usage mà backend phải enforce; UI không thể tự cấp quyền. |
  | Abuse Protection | Rate limit, burst/concurrency/fairness/anomaly controls ở account/API layer, tách provider quota. |
+ | Auth Rate Limit | Application-layer throttle cho password login/register; hiện dùng Redis fixed-window với IP và identity+IP bucket, trả 429 + Retry-After khi vượt ngưỡng. |
  | Deletion Workflow | Quy trình durable chặn job, revoke URL, cleanup/quarantine, retention và audit thay cho DELETE đơn lẻ. |
 
  ## Canonical status vocabulary
@@ -77,4 +78,4 @@
 
  ## Configuration vs invariant
 
- Domain invariant: ownership, version snapshots, idempotency, no blind resubmit, no silent stretch, cap enforcement, immutable final artifacts, safety/privacy gates. Configuration/policy: scene duration guardrails, density priors, story limits, 20% re-estimate threshold, FREE limits, retry/circuit thresholds, retention windows và pricing. Các policy luôn snapshot version vào quyết định liên quan.
+ Domain invariant: ownership, version snapshots, idempotency, no blind resubmit, no silent stretch, cap enforcement, immutable final artifacts, safety/privacy gates. Configuration/policy: scene duration guardrails, density priors, story limits, auth-rate-limit thresholds, 20% re-estimate threshold, FREE limits, retry/circuit thresholds, retention windows và pricing. Các policy luôn snapshot version vào quyết định liên quan khi cần audit lịch sử.
