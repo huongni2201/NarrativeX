@@ -11,7 +11,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
   project,
   onClick,
 }) => {
-  const isCompleted = project.status === "COMPLETED" || project.status === "ARCHIVED";
+  const isDraft = project.status === "DRAFT";
 
   return (
     <button
@@ -35,7 +35,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
-          <span className={`rounded border px-2 py-0.5 font-medium ${isCompleted ? "border-emerald-500/30 text-emerald-300" : "border-purple-500/30 text-purple-300"}`}>
+          <span className={`rounded border px-2 py-0.5 font-medium ${isDraft ? "border-slate-500/30 text-slate-300" : "border-emerald-500/30 text-emerald-300"}`}>
             {project.status}
           </span>
           <span>{project.imageAspectRatio}</span>

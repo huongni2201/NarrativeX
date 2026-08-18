@@ -10,7 +10,7 @@ Core business chạy trong Spring Boot Modular Monolith; Python 3.12 AI/Media Wo
 |---|---|
 | User | identity, email, locale/preferences, status; sở hữu project và template |
 | ExternalIdentity | Google OIDC provider/subject/claims; không chứa provider secret |
-| Project | owner, status, active StoryVersion, default ImageGenerationSettings, row_version; creation is metadata-only and does not enqueue AI/media work |
+| Project | owner, lifecycle status, active StoryVersion, default ImageGenerationSettings, row_version; creation is metadata-only and does not enqueue AI/media work |
 | StoryVersion | project, version_no, raw_text, status, source language; không có per-story rights attestation prerequisite |
 | Character | owner/workspace, canonical identity, name, aliases, status; reusable across Projects |
 | ProjectCharacter | project + character assignment; role, importance, project aliases, story metadata, groups, optional pinned CharacterVersion |
@@ -102,7 +102,7 @@ Job/Render terminal transition → OutboxEvent → Notification → optional ema
 
 | Entity | States |
 |---|---|
-| Project | DRAFT → PREPARING → READY → RENDERING → COMPLETED / ARCHIVED |
+| Project | DRAFT → ACTIVE → ARCHIVED |
 | CharacterVersion | DRAFT → GENERATING → REVIEW → LOCKED / REJECTED |
 | Scene/Shot | DRAFT → READY_FOR_VISUAL → GENERATING → REVIEW → APPROVED / FAILED / OUTDATED |
 | VisualBeat | PROPOSED → READY_FOR_VISUAL → GENERATING → REVIEW → APPROVED / REJECTED / OUTDATED |
@@ -114,6 +114,8 @@ Job/Render terminal transition → OutboxEvent → Notification → optional ema
 | ShortClip | DRAFT → PLANNING → READY → RENDERING → REVIEW → APPROVED / FAILED / OUTDATED |
 | OperationPlan | DRAFT → ESTIMATED → RESERVED → RUNNING → PAUSED_COST_LIMIT / RECONFIRMATION_REQUIRED → COMPLETED / CANCELED |
 | VideoGenerationAttempt | QUEUED → SUBMITTED → RUNNING → REVIEW → APPROVED / REJECTED / FAILED / UNKNOWN |
+
+`ProjectStatus` represents only the durable lifecycle of the Project itself. `ANALYZING`, visual/storyboard readiness, generation and rendering are not Project states: Chapter/Scene state describes content readiness and `GenerationJob`/`StageAttempt` describes transient execution. This allows different Chapters in one active Project to be edited, analyzed or rendered independently without forcing one contradictory Project status.
 
 `ProviderOperation` must use a dedicated provider-operation status type rather than `JobStatus`. `UNKNOWN` is a reconciliation state, not a retry trigger. StageAttempt must support worker claim, lease expiry, heartbeat and STALLED recovery semantics.
 

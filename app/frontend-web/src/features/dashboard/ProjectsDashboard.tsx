@@ -14,13 +14,12 @@ import { projectsApi } from "@/features/projects/api/projects.api";
 import { queryKeys } from "@/lib/query-keys";
 import type { ApiProject } from "@/types/api";
 
-const completedStatuses = new Set(["COMPLETED", "ARCHIVED"]);
 const PROJECT_PAGE_SIZE = 20;
 const SEARCH_DEBOUNCE_MS = 300;
-type ProjectFilterTab = "all" | "in_progress" | "completed";
+type ProjectFilterTab = "all" | "draft" | "active";
 
 function projectFilterFrom(value: string | null): ProjectFilterTab {
-  return value === "in_progress" || value === "completed" ? value : "all";
+  return value === "draft" || value === "active" ? value : "all";
 }
 
 export const ProjectsDashboard: React.FC = () => {
@@ -74,8 +73,8 @@ export const ProjectsDashboard: React.FC = () => {
   const filterTabs = useMemo(
     () => [
       { id: "all", label: "Tất cả", count: projects.length },
-      { id: "in_progress", label: "Đang xử lý", count: projects.filter((project) => !completedStatuses.has(project.status)).length },
-      { id: "completed", label: "Hoàn thành", count: projects.filter((project) => completedStatuses.has(project.status)).length },
+      { id: "active", label: "Đang hoạt động", count: projects.filter((project) => project.status === "ACTIVE").length },
+      { id: "draft", label: "Bản nháp", count: projects.filter((project) => project.status === "DRAFT").length },
     ],
     [projects],
   );
@@ -84,8 +83,8 @@ export const ProjectsDashboard: React.FC = () => {
   const filteredProjects = useMemo(
     () => projects.filter((project) => {
       const matchesSearch = !normalizedSearch || project.name.toLocaleLowerCase("vi").includes(normalizedSearch);
-      if (projectFilterTab === "in_progress") return matchesSearch && !completedStatuses.has(project.status);
-      if (projectFilterTab === "completed") return matchesSearch && completedStatuses.has(project.status);
+      if (projectFilterTab === "active") return matchesSearch && project.status === "ACTIVE";
+      if (projectFilterTab === "draft") return matchesSearch && project.status === "DRAFT";
       return matchesSearch;
     }),
     [normalizedSearch, projectFilterTab, projects],

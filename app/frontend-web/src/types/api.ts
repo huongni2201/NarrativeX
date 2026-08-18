@@ -1,7 +1,9 @@
+export type ProjectStatus = "DRAFT" | "ACTIVE" | "ARCHIVED";
+
 export interface ApiProject {
   id: number;
   name: string;
-  status: string;
+  status: ProjectStatus;
   sourceLanguage: string;
   narrationLanguage: string;
   metadataLanguage: string;
@@ -126,6 +128,10 @@ function isBoolean(value: unknown): value is boolean {
   return typeof value === "boolean";
 }
 
+function isProjectStatus(value: unknown): value is ProjectStatus {
+  return value === "DRAFT" || value === "ACTIVE" || value === "ARCHIVED";
+}
+
 export function isApiResponse<T = unknown>(
   value: unknown,
   dataGuard?: ApiDataGuard<T>,
@@ -166,7 +172,7 @@ export function isApiProject(value: unknown): value is ApiProject {
     isRecord(value) &&
     isNumber(value.id) &&
     isString(value.name) &&
-    isString(value.status) &&
+    isProjectStatus(value.status) &&
     isString(value.sourceLanguage) &&
     isString(value.narrationLanguage) &&
     isString(value.metadataLanguage) &&
