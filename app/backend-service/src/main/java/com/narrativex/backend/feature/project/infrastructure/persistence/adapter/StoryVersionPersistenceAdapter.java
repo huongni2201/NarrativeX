@@ -64,11 +64,6 @@ public class StoryVersionPersistenceAdapter implements StoryVersionRepository {
         .sourceLanguage(storyVersion.getSourceLanguage())
         .status(storyVersion.getStatus())
         .moderationDecision(storyVersion.getModerationDecision())
-        .rightsAttested(storyVersion.isRightsAttested())
-        .rightsPolicyVersion(storyVersion.getRightsPolicyVersion())
-        .rightsBasis(storyVersion.getRightsBasis())
-        .rightsAttestedAt(storyVersion.getRightsAttestedAt())
-        .rightsAttestedBy(storyVersion.getRightsAttestedBy())
         .build();
   }
 }

@@ -54,6 +54,18 @@ The durable production path is still intentionally pending. Re-enabling story-an
 
 Invalid user-triggered domain state transitions are represented as `DomainConflictException` subclasses rather than raw `IllegalStateException`, so the existing API exception mapping can return a conflict response instead of falling through to HTTP 500.
 
+Project ownership access now uses the explicit `ownerId` supplied to the cross-module `ProjectAccess` port. The service no longer reaches back into the request `SecurityContext` itself; HTTP-facing use cases remain responsible for resolving the current authenticated user before crossing the port boundary.
+
+Database integrity errors are classified by SQLSTATE at the API boundary. Expected uniqueness conflicts (`23505`) are returned as `409 RESOURCE_CONFLICT`; other integrity violations are treated as unexpected server defects and logged with the original exception before returning `500 INTERNAL_ERROR`.
+
+## Rights and consent policy clarification
+
+NarrativeX does not require a blanket copyright/rights attestation for ordinary story input. The legacy `StoryVersion` rights state has been removed from the domain model, persistence model, API response, and PostgreSQL schema through forward migration `V6__drop_legacy_story_rights_columns.sql`.
+
+The removed columns are `rights_attested`, `rights_policy_version`, `rights_basis`, `rights_attested_at`, and `rights_attested_by`. They are no longer part of the canonical StoryVersion contract and must not be reintroduced as a mandatory per-story checkbox.
+
+This does not remove safety or consent obligations that are materially different from copyright attestation. Moderation remains independent, and real-person references still require explicit consent, tenant isolation, retention controls and deletion handling.
+
 ## Consequences
 
 - Domain transactions and ownership checks remain local and explicit.
@@ -61,6 +73,9 @@ Invalid user-triggered domain state transitions are represented as `DomainConfli
 - Retries preserve prior evidence and are policy-driven rather than blind.
 - Cross-runtime contracts must be versioned, tested and unable to bypass ownership, entitlement, safety or reconciliation rules.
 - UI must represent analysis as unavailable/pending integration instead of treating a non-executable queued row as successful submission.
+- Cross-module application ports must honor their explicit identity/ownership parameters instead of implicitly consulting request-scoped security state.
+- Unexpected database integrity failures stay observable as server defects rather than being hidden behind a generic client conflict.
+- StoryVersion no longer carries legacy copyright/rights attestation state in API or persistence contracts.
 
 ## Consolidation note
 

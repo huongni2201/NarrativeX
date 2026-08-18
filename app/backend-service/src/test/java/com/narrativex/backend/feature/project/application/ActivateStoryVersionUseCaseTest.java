@@ -82,11 +82,6 @@ class ActivateStoryVersionUseCaseTest {
         "story",
         "vi-VN",
         status,
-        ModerationDecision.PENDING,
-        false,
-        "not-required",
-        "NOT_REQUIRED",
-        null,
-        null);
+        ModerationDecision.PENDING);
   }
 }

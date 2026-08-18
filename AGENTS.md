@@ -8,7 +8,7 @@ The repository itself is the current implementation source of truth. Keep archit
 
 - PostgreSQL is authoritative for business state; Redis is only a queue/cache/progress accelerator.
 - Keep the Spring Boot application modular-monolith shaped. Do not introduce microservices without a measured bottleneck and an explicit ADR.
-- Story text, prompts, references, and provider output are untrusted data. Enforce rights/consent, moderation, prompt-injection boundaries, schema validation, and output review.
+- Story text, prompts, references, and provider output are untrusted data. Enforce moderation, prompt-injection boundaries, schema validation, and output review. Do not require a blanket per-story copyright/rights attestation checkbox. Rights/consent gates apply only where a concrete product or legal requirement exists; real-person references still require explicit consent.
 - Never assume 60 minutes, 2,000 words, one sentence per image, or a fixed image count. Visual planning is duration + semantic complexity + reuse/delta based.
 - Character is a reusable User/Workspace-owned identity, never a Project-owned duplicate.
 - Project participation is modeled through ProjectCharacter.

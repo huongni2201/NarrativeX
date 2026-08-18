@@ -8,6 +8,7 @@ import com.narrativex.backend.feature.common.exception.ResourceNotFoundException
 import jakarta.persistence.OptimisticLockException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
+import java.sql.SQLException;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -26,6 +27,8 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 @Slf4j
 @RestControllerAdvice
 public class ApiExceptionHandler {
+  private static final String UNIQUE_VIOLATION_SQL_STATE = "23505";
+
   @ExceptionHandler(DomainValidationException.class)
   ResponseEntity<ErrorResponse> handleDomainValidation(
       DomainValidationException exception, HttpServletRequest request) {
@@ -123,14 +126,30 @@ public class ApiExceptionHandler {
   }
 
   @ExceptionHandler(DataIntegrityViolationException.class)
-  ResponseEntity<ErrorResponse> handleDataIntegrityConflict(
+  ResponseEntity<ErrorResponse> handleDataIntegrityViolation(
       DataIntegrityViolationException exception, HttpServletRequest request) {
-    log.warn(
-        "Data integrity conflict at API boundary correlationId={} method={} path={}",
-        CorrelationIdFilter.correlationId(request),
+    if (hasSqlState(exception, UNIQUE_VIOLATION_SQL_STATE)) {
+      log.warn(
+          "Unique constraint conflict at API boundary correlationId={} method={} path={}",
+          CorrelationIdFilter.correlationId(request),
+          request.getMethod(),
+          request.getRequestURI());
+      return conflict(request);
+    }
+
+    String correlationId = CorrelationIdFilter.correlationId(request);
+    log.error(
+        "Unexpected data integrity violation at API boundary correlationId={} method={} path={}",
+        correlationId,
         request.getMethod(),
-        request.getRequestURI());
-    return conflict(request);
+        request.getRequestURI(),
+        exception);
+    return error(
+        HttpStatus.INTERNAL_SERVER_ERROR,
+        ApiErrorCode.INTERNAL_ERROR,
+        "An unexpected error occurred.",
+        request,
+        correlationId);
   }
 
   @ExceptionHandler(AccessDeniedException.class)
@@ -165,6 +184,17 @@ public class ApiExceptionHandler {
         "An unexpected error occurred.",
         request,
         correlationId);
+  }
+
+  private static boolean hasSqlState(Throwable throwable, String sqlState) {
+    Throwable current = throwable;
+    while (current != null) {
+      if (current instanceof SQLException sqlException && sqlState.equals(sqlException.getSQLState())) {
+        return true;
+      }
+      current = current.getCause();
+    }
+    return false;
   }
 
   private ResponseEntity<ErrorResponse> conflict(HttpServletRequest request) {
