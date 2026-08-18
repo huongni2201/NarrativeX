@@ -13,6 +13,8 @@ import {
   isCursorPage,
 } from "@/types/api";
 import { apiRequest } from "@/shared/api/client";
+import type { ApiProjectOverview } from "./project-overview.types";
+import { isApiProjectOverview } from "./project-overview.types";
 
 const DEFAULT_PROJECT_PAGE_SIZE = 20;
 
@@ -39,6 +41,12 @@ export const projectsApi = {
     ),
   getById: (projectId: number) =>
     apiRequest<ApiProject>(`/api/v1/projects/${projectId}`, {}, isApiProject),
+  getOverview: (projectId: number) =>
+    apiRequest<ApiProjectOverview>(
+      `/api/v1/projects/${projectId}/overview`,
+      {},
+      isApiProjectOverview,
+    ),
   create: (input: CreateProjectApiInput) =>
     apiRequest<ApiProject>("/api/v1/projects", { method: "POST", json: input }, isApiProject),
   getLatestStoryVersion: (projectId: number) =>
