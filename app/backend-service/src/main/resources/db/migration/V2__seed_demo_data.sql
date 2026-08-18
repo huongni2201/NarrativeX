@@ -408,27 +408,3 @@ VALUES
     (19010, (SELECT id FROM auth_users WHERE email = 'seed.user10@example.com'), 'seed-ip-hash-10', 'seed-session-10', '/api/v1/generation', 'RATE_OK', 'ALLOW', 'abuse-v1')
 ON CONFLICT (id) DO NOTHING;
 
--- JPA persists AspectRatio with EnumType.STRING, so durable enum columns must
--- contain Java enum names rather than the public API display codes.
-
-UPDATE projects
-SET image_aspect_ratio = CASE image_aspect_ratio
-    WHEN '16:9' THEN 'RATIO_16_9'
-    WHEN '9:16' THEN 'RATIO_9_16'
-    WHEN '1:1' THEN 'RATIO_1_1'
-    WHEN '4:3' THEN 'RATIO_4_3'
-    WHEN '3:4' THEN 'RATIO_3_4'
-    ELSE image_aspect_ratio
-  END
-WHERE image_aspect_ratio IN ('16:9', '9:16', '1:1', '4:3', '3:4');
-
-UPDATE visual_beats
-SET aspect_ratio_override = CASE aspect_ratio_override
-    WHEN '16:9' THEN 'RATIO_16_9'
-    WHEN '9:16' THEN 'RATIO_9_16'
-    WHEN '1:1' THEN 'RATIO_1_1'
-    WHEN '4:3' THEN 'RATIO_4_3'
-    WHEN '3:4' THEN 'RATIO_3_4'
-    ELSE aspect_ratio_override
-  END
-WHERE aspect_ratio_override IN ('16:9', '9:16', '1:1', '4:3', '3:4');
