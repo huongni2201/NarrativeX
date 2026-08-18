@@ -9,9 +9,7 @@ class WorkerService:
     def __init__(self, provider: LlmProvider) -> None:
         self.provider = provider
 
-    async def submit_chapter_analysis(
-        self, request: ChapterAnalysisRequest
-    ) -> ProviderOperation:
+    async def submit_chapter_analysis(self, request: ChapterAnalysisRequest) -> ProviderOperation:
         # Building the prompt is deterministic and testable; submission remains adapter-owned.
         build_chapter_analysis_prompt(request)
         return await self.provider.submit(request)
