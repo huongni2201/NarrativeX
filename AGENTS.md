@@ -6,7 +6,7 @@ The repository itself is the current implementation source of truth. Keep archit
 
 ## Non-negotiable domain rules
 
-- PostgreSQL is authoritative for business state; Redis is only a queue/cache/progress accelerator.
+- PostgreSQL is authoritative for durable business state. Redis is non-authoritative infrastructure used for queue/delivery hints, cache, progress/scheduling, transient abuse-control counters, and server-managed HTTP session storage. Queue/progress state must be reconstructable where designed; Redis session loss may sign users out but must never lose durable business state.
 - Keep the Spring Boot application modular-monolith shaped. Do not introduce microservices without a measured bottleneck and an explicit ADR.
 - Story text, prompts, references, and provider output are untrusted data. Enforce moderation, prompt-injection boundaries, schema validation, and output review. Do not require a blanket per-story copyright/rights attestation checkbox. Rights/consent gates apply only where a concrete product or legal requirement exists; real-person references still require explicit consent.
 - Never assume 60 minutes, 2,000 words, one sentence per image, or a fixed image count. Visual planning is duration + semantic complexity + reuse/delta based.
@@ -21,6 +21,7 @@ The repository itself is the current implementation source of truth. Keep archit
 - Real-person references require explicit consent, tenant isolation, restricted retention, and deletion handling.
 - Runtime frontend code uses real APIs only. Mock data is limited to isolated tests and Storybook fixtures and must never be selected by application runtime configuration.
 - User identity comes from Spring Security `SecurityContextHolder`; application APIs must not accept identity through `X-User-Id` or equivalent client-controlled headers.
+- Browser authentication currently uses Spring Security server-managed sessions + CSRF for password and Google OIDC flows. Spring Session persists the opaque `NX_SESSION` in Redis; JWT/access/refresh tokens are not part of the current runtime contract.
 
 ## Change discipline
 

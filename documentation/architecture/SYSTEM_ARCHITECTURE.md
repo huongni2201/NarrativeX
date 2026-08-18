@@ -11,7 +11,7 @@ The Python worker is a hard technical boundary because AI/GPU libraries, provide
 Core invariants:
 
 - PostgreSQL is the authoritative source for domain, job, stage, provider-operation, cost, entitlement, notification-outbox and audit state.
-- Redis is delivery/cache/progress acceleration only. Queued work must be reconstructable from PostgreSQL and the outbox after Redis loss.
+- Redis is non-authoritative infrastructure used for queue delivery hints, cache, progress/scheduling, transient abuse-control counters, and Spring Session-backed HTTP session storage. Queued/retryable work must be reconstructable from PostgreSQL/outbox after Redis loss; active browser sessions are ephemeral and may be invalidated if their Redis session state is lost.
 - MinIO in local/dev and private S3-compatible storage in staging/production hold binary media; PostgreSQL stores metadata, checksums, manifests and lifecycle state.
 - Every expensive operation has an `OperationPlan`, estimate range/confidence, `CostReservation`, `max_authorized_cost` and `billed_to_user_id` before a billable stage is submitted.
 - Every external submission has a durable `StageAttempt` and `ProviderOperation`. An ambiguous result is `UNKNOWN` and must be reconciled before any resubmission.
@@ -24,13 +24,14 @@ Core invariants:
 Browser
   |
   | HTTPS, REST, SSE, Google OIDC redirect
+  | NX_SESSION + CSRF token
   v
 Next.js + TypeScript frontend
   |  same-origin /api, /oauth2, /login, /logout
   |  (Next.js rewrite or future runtime reverse proxy/BFF)
   v
 Spring Boot 4.1 modular monolith
-  |-- auth / ownership / session
+  |-- auth / ownership / Spring Security session + CSRF
   |-- project / story / character / scene
   |-- generation / render / shorts
   |-- provider ports / capability routing
@@ -41,7 +42,11 @@ Spring Boot 4.1 modular monolith
   | transactional state and durable queue intent
   +--> PostgreSQL <---- Flyway migrations
   |
-  +--> Redis (queue delivery, cache, progress acceleration)
+  +--> Redis
+  |      |-- Spring Session (`narrativex:session`, configurable)
+  |      |-- auth abuse-limit counters
+  |      |-- queue delivery hints
+  |      |-- cache / progress / scheduling
   |
   +--> MinIO/S3-compatible object storage (private media)
   |
@@ -73,6 +78,12 @@ Route identity is canonical: `/projects` is the project collection, `/projects/[
 
 The backend is the canonical application boundary. It validates ownership and optimistic-concurrency tokens, applies entitlement and abuse limits, creates operation plans and reservations, persists jobs/stages/provider operations, exposes APIs/SSE, and writes transactional outbox events. Domain modules depend on ports, not vendor SDKs.
 
+Current browser authentication is Spring Security server-managed session + CSRF for both email/password and Google OIDC. Spring Session stores the server-side `HttpSession` in Redis under a configurable namespace. The browser only receives the opaque `NX_SESSION` cookie; JWT access/refresh tokens are not part of the current runtime contract.
+
+Shared/default cookie policy is `HttpOnly`, `Secure`, `SameSite=Lax`, with an explicit non-Secure override only for local/test HTTP usage. Default session timeout is seven days and is configurable. `POST /logout` invalidates the session, clears authentication/session cookies and returns `204 No Content`; CSRF protection remains in effect.
+
+The password login/register Redis limiter is a separate concern from Spring Session. The limiter intentionally fails open on Redis data-access failure; authenticated session reads/writes do not share that fail-open policy and therefore make Redis an availability dependency for logged-in browser sessions.
+
 ### Python worker
 
 Workers claim persisted stages using leases, execute deterministic or provider-backed work, upload verified outputs, meter usage, and report stage results to the backend. A worker restart cannot erase state. A submitted external operation is reconciled rather than blindly submitted again.
@@ -96,18 +107,19 @@ Workers claim persisted stages using leases, execute deterministic or provider-b
 1. Orchestration: `GenerationJob` -> `StageAttempt` -> provider/local execution -> persisted result.
 2. Cost and entitlement: account abuse limiter -> entitlement/quota check -> `OperationPlan` -> reservation -> measured usage -> append-only ledger.
 3. Trust & Safety: rights/consent, moderation decisions (`SAFE`/`REVIEW`/`BLOCK`), prompt-injection boundary, output moderation, identity QA and human review.
-4. Notification: terminal job transaction writes an outbox event; a dispatcher creates durable in-app notifications and best-effort email/web-push delivery.
-5. Lifecycle and recovery: deletion requests stop new work, reconcile late provider results, revoke URLs and expire/delete media according to retention policy.
+4. Authentication/session: Spring Security identity + CSRF, Spring Session Redis persistence, explicit logout/session invalidation, password-auth abuse limiting.
+5. Notification: terminal job transaction writes an outbox event; a dispatcher creates durable in-app notifications and best-effort email/web-push delivery.
+6. Lifecycle and recovery: deletion requests stop new work, reconcile late provider results, revoke URLs and expire/delete media according to retention policy.
 
 ## Deployment and isolation
 
-Local/dev uses Docker Compose with PostgreSQL, Redis and MinIO; fake providers are the default. Staging and production use separate databases, Redis namespaces, object-storage buckets/roots, OIDC callbacks, secrets and provider projects/locations.
+Local/dev uses Docker Compose with PostgreSQL, Redis and MinIO; fake providers are the default. Staging and production use separate databases, Redis namespaces, object-storage buckets/roots, OIDC callbacks, secrets and provider projects/locations. Redis namespace separation includes Spring Session state in addition to queue/cache/progress and abuse-control data.
 
 The frontend, backend and worker are separately buildable/deployable artifacts. For the current frontend Dockerfile, Next.js rewrite destinations are part of build configuration. A frontend image built for a container topology must therefore receive a backend network destination such as `http://backend:8080`; frontend-container `localhost:8080` must not be treated as another service.
 
 Where staging and production promote the exact same immutable frontend image, environment-specific backend routing must be provided by a runtime reverse proxy/BFF or another environment-neutral routing layer. If routing is baked into the frontend build, those build inputs are part of the image identity and staging/production equivalence must be assessed accordingly.
 
-Production baseline is at least two API replicas, private PostgreSQL with automated backup/WAL/PITR, Redis, versioned private object storage, CPU workers, optional GPU pool and centralized metrics/logs/traces. Managed-provider mode may run with zero self-hosted GPUs. A single MinIO node/volume is acceptable only for local/dev, never as the sole copy of critical media.
+Production baseline is at least two API replicas, private PostgreSQL with automated backup/WAL/PITR, Redis, versioned private object storage, CPU workers, optional GPU pool and centralized metrics/logs/traces. Multiple API replicas share authenticated browser sessions through Spring Session Redis and do not require sticky sessions for session affinity. Managed-provider mode may run with zero self-hosted GPUs. A single MinIO node/volume is acceptable only for local/dev, never as the sole copy of critical media.
 
 ## Verification baseline
 
@@ -128,8 +140,9 @@ npm run build
 - PostgreSQL metadata: automated backups plus WAL/PITR, at least 30-day retention, quarterly restore drill, target RPO <= 15 minutes and RTO <= 4 hours.
 - Critical media (Character Master/References, Approved Assets, FinalArtifacts): object versioning plus a second failure-domain copy, target RPO <= 1 hour and RTO <= 8 hours.
 - Intermediate attempts/cache: lifecycle-managed and rebuildable from persisted prompt/reference/model snapshots; RPO <= 24 hours or regeneration is acceptable.
-- Redis: never treated as backup source. Rebuild queued/retryable delivery from PostgreSQL/outbox without duplicate provider submission.
+- Redis queue/delivery/progress state: never treated as backup source. Rebuild queued/retryable delivery from PostgreSQL/outbox without duplicate provider submission.
+- Redis session state: ephemeral authentication state, not durable business state. Redis/session-namespace loss may sign users out; recovery does not attempt to synthesize old authenticated sessions from PostgreSQL.
 
 ## Current implementation note
 
-The repository currently contains the application shells and partial API integrations described in `documentation/codebase/`. The architecture above is the contract to implement incrementally. Current security is an implementation foundation: OIDC mode requires authentication, local/test may use a configured fallback, CSRF and configured credentialed CORS are present, and shared environments must fail closed when OIDC is disabled.
+The repository currently contains the application shells and partial API integrations described in `documentation/codebase/`. The architecture above is the contract to implement incrementally. Current security is an implementation foundation: OIDC mode requires authentication, local/test may use a configured fallback, CSRF and configured credentialed CORS are present, shared environments must fail closed when OIDC is disabled, password login/register are Redis-rate-limited, and authenticated `HttpSession` state is persisted through Spring Session Redis as defined by ADR-0008.
