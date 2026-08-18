@@ -5,9 +5,6 @@ import process from "node:process";
 const root = process.cwd();
 const srcRoot = path.join(root, "src");
 const violations = [];
-const explicitLazyFixtureBoundaries = new Set([
-  "src/features/project-creation/Step4Results.tsx",
-]);
 
 async function walk(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -56,11 +53,13 @@ for (const file of files) {
       /@\/lib\/[^"']*-mock$/.test(specifier) ||
       /@\/lib\/production-mock$/.test(specifier)
     ) {
-      const allowedDemo =
-        /(?:Demo|\.stories|\.test|\.spec)\.(?:ts|tsx|js|jsx)$/.test(rel) ||
-        explicitLazyFixtureBoundaries.has(rel);
+      const allowedDemo = /(?:Demo|\.stories|\.test|\.spec)\.(?:ts|tsx|js|jsx)$/.test(rel);
       if (!allowedDemo) add(file, "fixture-import", `fixture must be lazy-loaded behind a demo/test boundary: ${specifier}`);
     }
+  }
+
+  if (rel.startsWith("src/features/") && staticImports.includes("@/lib/api")) {
+    add(file, "feature-api-facade", "feature code must import its domain API and shared transport errors directly instead of @/lib/api");
   }
 }
 
