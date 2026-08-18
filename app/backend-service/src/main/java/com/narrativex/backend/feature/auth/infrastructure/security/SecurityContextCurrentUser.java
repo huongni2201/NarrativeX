@@ -4,6 +4,7 @@ import com.narrativex.backend.feature.auth.api.response.CurrentUserResponse;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserProfile;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
@@ -38,7 +39,7 @@ public class SecurityContextCurrentUser implements CurrentUserId, CurrentUserPro
         || !authentication.isAuthenticated()
         || authentication.getName() == null
         || authentication.getName().isBlank()) {
-      throw new IllegalArgumentException("Authenticated user is required");
+      throw new AuthenticationCredentialsNotFoundException("Authenticated user is required");
     }
     return authentication;
   }
