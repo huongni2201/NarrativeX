@@ -67,9 +67,6 @@ public class ProjectController {
             projectId,
             request.content(),
             request.sourceLanguage(),
-            request.rightsAttestationAccepted(),
-            request.rightsPolicyVersion(),
-            request.rightsBasis(),
             null);
     return ResponseEntity.status(HttpStatus.CREATED)
         .body(createStoryVersionUseCase.execute(command));
