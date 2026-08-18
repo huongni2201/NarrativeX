@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.project.infrastructure.persistence.adapter;
 
+import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.infrastructure.persistence.OptimisticConcurrency;
 import com.narrativex.backend.feature.project.application.port.out.StoryVersionRepository;
 import com.narrativex.backend.feature.project.domain.entity.StoryVersion;
@@ -53,20 +54,21 @@ public class StoryVersionPersistenceAdapter implements StoryVersionRepository {
   }
 
   private StoryVersionJpaEntity toJpaEntity(StoryVersion storyVersion) {
-    return storyVersion.getId() == null
-        ? buildJpaEntity(storyVersion)
-        : repository
+    if (storyVersion.getId() == null) {
+      return buildJpaEntity(storyVersion);
+    }
+
+    StoryVersionJpaEntity existing =
+        repository
             .findById(storyVersion.getId())
-            .map(existing -> {
-              OptimisticConcurrency.requireVersion(
-                  storyVersion.getRowVersion(),
-                  existing.getRowVersion(),
-                  StoryVersionJpaEntity.class,
-                  storyVersion.getId());
-              existing.apply(storyVersion);
-              return existing;
-            })
-            .orElseGet(() -> buildJpaEntity(storyVersion));
+            .orElseThrow(() -> new ResourceNotFoundException("Story version was not found"));
+    OptimisticConcurrency.requireVersion(
+        storyVersion.getRowVersion(),
+        existing.getRowVersion(),
+        StoryVersionJpaEntity.class,
+        storyVersion.getId());
+    existing.apply(storyVersion);
+    return existing;
   }
 
   private static StoryVersionJpaEntity buildJpaEntity(StoryVersion storyVersion) {

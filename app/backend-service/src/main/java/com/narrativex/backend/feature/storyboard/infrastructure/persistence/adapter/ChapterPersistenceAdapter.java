@@ -1,5 +1,7 @@
 package com.narrativex.backend.feature.storyboard.infrastructure.persistence.adapter;
 
+import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
+import com.narrativex.backend.feature.common.infrastructure.persistence.OptimisticConcurrency;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
 import com.narrativex.backend.feature.storyboard.domain.aggregate.Chapter;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.entity.ChapterJpaEntity;
@@ -44,27 +46,25 @@ public class ChapterPersistenceAdapter implements ChapterRepository {
 
   private ChapterJpaEntity toJpaEntity(Chapter chapter) {
     if (chapter.getId() == null) {
-      ChapterJpaEntity entity =
-          ChapterJpaEntity.builder()
-              .storyVersionId(chapter.getStoryVersionId())
-              .orderIndex(chapter.getOrderIndex())
-              .title(chapter.getTitle())
-              .sourceText(chapter.getSourceText())
-              .sourceHash(chapter.getSourceHash())
-              .status("DRAFT")
-              .generationProgress(0)
-              .sourceStoryVersionId(chapter.getStoryVersionId())
-              .build();
-      return entity;
+      return ChapterJpaEntity.builder()
+          .storyVersionId(chapter.getStoryVersionId())
+          .orderIndex(chapter.getOrderIndex())
+          .title(chapter.getTitle())
+          .sourceText(chapter.getSourceText())
+          .sourceHash(chapter.getSourceHash())
+          .status("DRAFT")
+          .generationProgress(0)
+          .sourceStoryVersionId(chapter.getStoryVersionId())
+          .build();
     }
 
-    return repository
-        .findById(chapter.getId())
-        .map(
-            existing -> {
-              ChapterPersistenceMapper.apply(chapter, existing);
-              return existing;
-            })
-        .orElseThrow(() -> new IllegalStateException("Persisted Chapter disappeared during update"));
+    ChapterJpaEntity existing =
+        repository
+            .findById(chapter.getId())
+            .orElseThrow(() -> new ResourceNotFoundException("Chapter was not found"));
+    OptimisticConcurrency.requireVersion(
+        chapter.getRowVersion(), existing.getRowVersion(), ChapterJpaEntity.class, chapter.getId());
+    ChapterPersistenceMapper.apply(chapter, existing);
+    return existing;
   }
 }

@@ -53,51 +53,70 @@ export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
   const createChapter = useMutation({
     mutationFn: async () => {
       const normalizedTitle = title.trim();
-      const normalizedSource = sourceText.trim();
-      if (!normalizedTitle || !normalizedSource) throw new Error("Nhập tiêu đề và nội dung Chapter.");
+      if (!normalizedTitle || !sourceText.trim()) {
+        throw new Error("Nhập tiêu đề và nội dung Chapter.");
+      }
 
       let storyVersion = storyQuery.data;
       if (!storyVersion) {
         const project = projectQuery.data;
         if (!project) throw new Error("Project chưa sẵn sàng.");
         storyVersion = await projectsApi.createStoryVersion(numericProjectId, {
-          content: normalizedSource,
+          content: sourceText,
           sourceLanguage: project.sourceLanguage,
         });
         queryClient.setQueryData(queryKeys.story(numericProjectId), storyVersion);
       }
 
       const chapters = chaptersQuery.data ?? [];
-      const nextOrder = chapters.length === 0 ? 0 : Math.max(...chapters.map((chapter) => chapter.orderIndex)) + 1;
+      const nextOrder =
+        chapters.length === 0
+          ? 0
+          : Math.max(...chapters.map((chapter) => chapter.orderIndex)) + 1;
       return chaptersApi.create(numericProjectId, {
         storyVersionId: storyVersion.id,
         orderIndex: nextOrder,
         title: normalizedTitle,
-        sourceText: normalizedSource,
+        sourceText,
       });
     },
-    onSuccess: async (chapter) => {
+    onSuccess: (chapter) => {
       setFormError(null);
       setFormOpen(false);
       setTitle("");
       setSourceText("");
-      await queryClient.invalidateQueries({ queryKey: queryKeys.story(numericProjectId) });
-      await queryClient.invalidateQueries({
+      queryClient.setQueryData(queryKeys.chapter(numericProjectId, chapter.id), chapter);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.story(numericProjectId) });
+      void queryClient.invalidateQueries({
         queryKey: queryKeys.chapters(numericProjectId, chapter.storyVersionId),
       });
-      queryClient.setQueryData(queryKeys.chapter(numericProjectId, chapter.id), chapter);
       router.push(`/projects/${numericProjectId}/chapters/${chapter.id}`);
     },
     onError: (error) => setFormError(apiErrorMessage(error, "Không thể tạo Chapter.")),
   });
 
-  if (!projectId) return <WorkspaceMessage>Chọn một project từ danh sách dự án để mở workspace.</WorkspaceMessage>;
+  if (!projectId)
+    return <WorkspaceMessage>Chọn một project từ danh sách dự án để mở workspace.</WorkspaceMessage>;
   if (!hasValidProjectId) return <WorkspaceMessage>Project ID không hợp lệ.</WorkspaceMessage>;
-  if (projectQuery.isPending) return <WorkspaceMessage>Đang tải project từ backend…</WorkspaceMessage>;
-  if (projectQuery.isError) return <WorkspaceError error={projectQuery.error} fallback="Không tải được project từ backend." />;
+  if (projectQuery.isPending)
+    return <WorkspaceMessage>Đang tải project từ backend…</WorkspaceMessage>;
+  if (projectQuery.isError)
+    return (
+      <WorkspaceError
+        error={projectQuery.error}
+        fallback="Không tải được project từ backend."
+      />
+    );
   if (storyQuery.isPending) return <WorkspaceMessage>Đang tải Story Version…</WorkspaceMessage>;
-  if (storyQuery.isError) return <WorkspaceError error={storyQuery.error} fallback="Không tải được Story Version." />;
-  if (chaptersQuery.isError) return <WorkspaceError error={chaptersQuery.error} fallback="Không tải được danh sách Chapter." />;
+  if (storyQuery.isError)
+    return <WorkspaceError error={storyQuery.error} fallback="Không tải được Story Version." />;
+  if (chaptersQuery.isError)
+    return (
+      <WorkspaceError
+        error={chaptersQuery.error}
+        fallback="Không tải được danh sách Chapter."
+      />
+    );
 
   const project = projectQuery.data;
   const chapters = chaptersQuery.data ?? [];
@@ -109,9 +128,13 @@ export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
           <div>
             <p className="text-[11px] uppercase tracking-[0.2em] text-purple-300">Project workspace</p>
             <h2 className="mt-2 text-2xl font-bold text-white">{project.name}</h2>
-            <p className="mt-2 text-xs text-slate-500">Project #{project.id} · row version {project.rowVersion}</p>
+            <p className="mt-2 text-xs text-slate-500">
+              Project #{project.id} · row version {project.rowVersion}
+            </p>
           </div>
-          <span className="rounded-full border border-purple-500/30 px-3 py-1 text-xs font-semibold text-purple-300">{project.status}</span>
+          <span className="rounded-full border border-purple-500/30 px-3 py-1 text-xs font-semibold text-purple-300">
+            {project.status}
+          </span>
         </div>
         <div className="mt-6 grid gap-3 sm:grid-cols-3">
           <ProjectDatum label="Story language" value={project.sourceLanguage} />
@@ -126,7 +149,9 @@ export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
             <p className="text-[11px] uppercase tracking-[0.2em] text-purple-300">Chapters</p>
             <h3 className="mt-1 text-lg font-semibold text-white">Nội dung truyện theo Chapter</h3>
             <p className="mt-1 text-sm text-slate-400">
-              {storyQuery.data ? `Story Version #${storyQuery.data.versionNumber}` : "Chưa có Story Version"}
+              {storyQuery.data
+                ? `Story Version #${storyQuery.data.versionNumber}`
+                : "Chưa có Story Version"}
             </p>
           </div>
           <button
@@ -154,10 +179,25 @@ export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
               rows={10}
               className="w-full resize-y rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-sm leading-6 text-slate-200 outline-none focus:border-purple-500"
             />
-            {formError && <p role="alert" className="text-xs text-rose-300">{formError}</p>}
+            {formError && (
+              <p role="alert" className="text-xs text-rose-300">
+                {formError}
+              </p>
+            )}
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setFormOpen(false)} className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300">Hủy</button>
-              <button type="button" onClick={() => createChapter.mutate()} disabled={createChapter.isPending || !title.trim() || !sourceText.trim()} className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+              <button
+                type="button"
+                onClick={() => setFormOpen(false)}
+                className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={() => createChapter.mutate()}
+                disabled={createChapter.isPending || !title.trim() || !sourceText.trim()}
+                className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
                 {createChapter.isPending ? "Đang tạo…" : "Tạo Chapter"}
               </button>
             </div>
@@ -165,8 +205,14 @@ export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
         )}
 
         <div className="mt-5 space-y-2">
-          {chaptersQuery.isPending && storyVersionId && <p className="text-sm text-slate-400">Đang tải Chapters…</p>}
-          {!chaptersQuery.isPending && chapters.length === 0 && <p className="rounded-xl border border-dashed border-slate-700 p-5 text-sm text-slate-400">Chưa có Chapter. Tạo Chapter đầu tiên để nhập nội dung truyện.</p>}
+          {chaptersQuery.isPending && storyVersionId && (
+            <p className="text-sm text-slate-400">Đang tải Chapters…</p>
+          )}
+          {!chaptersQuery.isPending && chapters.length === 0 && (
+            <p className="rounded-xl border border-dashed border-slate-700 p-5 text-sm text-slate-400">
+              Chưa có Chapter. Tạo Chapter đầu tiên để nhập nội dung truyện.
+            </p>
+          )}
           {chapters.map((chapter) => (
             <button
               type="button"
@@ -176,7 +222,9 @@ export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
             >
               <div>
                 <p className="text-sm font-semibold text-slate-200">{chapter.title}</p>
-                <p className="mt-1 text-xs text-slate-500">Chapter #{chapter.orderIndex + 1} · row version {chapter.rowVersion}</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Chapter #{chapter.orderIndex + 1} · row version {chapter.rowVersion}
+                </p>
               </div>
               <span className="text-xs text-purple-300">Mở editor →</span>
             </button>
@@ -188,13 +236,26 @@ export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
 }
 
 function WorkspaceError({ error, fallback }: { error: unknown; fallback: string }) {
-  return <div className="rounded-2xl border border-rose-500/30 bg-rose-950/20 p-8 text-sm text-rose-200">{apiErrorMessage(error, fallback)}</div>;
+  return (
+    <div className="rounded-2xl border border-rose-500/30 bg-rose-950/20 p-8 text-sm text-rose-200">
+      {apiErrorMessage(error, fallback)}
+    </div>
+  );
 }
 
 function ProjectDatum({ label, value }: { label: string; value: string }) {
-  return <div className="rounded-xl border border-slate-800 bg-[#090e18] p-4"><p className="text-[11px] text-slate-500">{label}</p><p className="mt-1 text-sm font-semibold text-slate-200">{value}</p></div>;
+  return (
+    <div className="rounded-xl border border-slate-800 bg-[#090e18] p-4">
+      <p className="text-[11px] text-slate-500">{label}</p>
+      <p className="mt-1 text-sm font-semibold text-slate-200">{value}</p>
+    </div>
+  );
 }
 
 function WorkspaceMessage({ children }: { children: React.ReactNode }) {
-  return <div className="rounded-2xl border border-slate-800/80 bg-[#0d1420]/50 p-8 text-sm text-slate-300">{children}</div>;
+  return (
+    <div className="rounded-2xl border border-slate-800/80 bg-[#0d1420]/50 p-8 text-sm text-slate-300">
+      {children}
+    </div>
+  );
 }

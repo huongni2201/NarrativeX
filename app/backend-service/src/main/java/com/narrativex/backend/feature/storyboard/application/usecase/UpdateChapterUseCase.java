@@ -6,6 +6,7 @@ import com.narrativex.backend.feature.common.exception.ResourceConflictException
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
+import com.narrativex.backend.feature.project.application.service.StoryInputEstimator;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterResponse;
 import com.narrativex.backend.feature.storyboard.application.command.UpdateChapterCommand;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
@@ -45,7 +46,7 @@ public class UpdateChapterUseCase {
   private void validateSourceSize(String sourceText) {
     if (sourceText == null) throw new IllegalArgumentException("sourceText must not be null");
     int characterCount = sourceText.codePointCount(0, sourceText.length());
-    int estimatedTokens = Math.max(1, (characterCount + 3) / 4);
+    int estimatedTokens = StoryInputEstimator.estimateTokensConservatively(sourceText);
     if (characterCount > limits.getMaxStoryCharacters()) {
       throw new IllegalArgumentException("Chapter exceeds the configured Unicode character limit");
     }
