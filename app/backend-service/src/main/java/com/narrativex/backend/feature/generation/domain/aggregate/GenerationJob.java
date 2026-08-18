@@ -9,7 +9,8 @@ import java.util.UUID;
 
 /**
  * Durable generation job aggregate; project ownership is represented by an ID, not a cross-module
- * entity link.
+ * entity link. Chapter analysis jobs carry the immutable Chapter snapshot that was persisted before
+ * enqueue so workers never analyze arbitrary client text.
  */
 public final class GenerationJob extends AggregateRoot {
   private final String jobId;
@@ -22,6 +23,13 @@ public final class GenerationJob extends AggregateRoot {
   private final String errorCode;
   private final String requestedByUserId;
   private final String billedToUserId;
+  private final Long storyVersionId;
+  private final Long chapterId;
+  private final Long chapterRowVersion;
+  private final String sourceHash;
+  private final String sourceText;
+  private final String sourceLanguage;
+  private final String idempotencyKey;
 
   private GenerationJob(
       Long id,
@@ -35,7 +43,14 @@ public final class GenerationJob extends AggregateRoot {
       String currentStep,
       String errorCode,
       String requestedByUserId,
-      String billedToUserId) {
+      String billedToUserId,
+      Long storyVersionId,
+      Long chapterId,
+      Long chapterRowVersion,
+      String sourceHash,
+      String sourceText,
+      String sourceLanguage,
+      String idempotencyKey) {
     super(id, rowVersion);
     this.jobId = required(jobId, "jobId");
     if (projectId == null || projectId <= 0)
@@ -51,6 +66,13 @@ public final class GenerationJob extends AggregateRoot {
     this.errorCode = errorCode;
     this.requestedByUserId = required(requestedByUserId, "requestedByUserId");
     this.billedToUserId = required(billedToUserId, "billedToUserId");
+    this.storyVersionId = storyVersionId;
+    this.chapterId = chapterId;
+    this.chapterRowVersion = chapterRowVersion;
+    this.sourceHash = sourceHash;
+    this.sourceText = sourceText;
+    this.sourceLanguage = sourceLanguage;
+    this.idempotencyKey = idempotencyKey;
   }
 
   public static GenerationJob create(
@@ -67,7 +89,51 @@ public final class GenerationJob extends AggregateRoot {
         "QUEUED",
         null,
         userId,
-        userId);
+        userId,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null);
+  }
+
+  public static GenerationJob createChapterAnalysis(
+      Long projectId,
+      Long storyVersionId,
+      Long chapterId,
+      long chapterRowVersion,
+      String sourceHash,
+      String sourceText,
+      String sourceLanguage,
+      String idempotencyKey,
+      String userId) {
+    if (storyVersionId == null || storyVersionId <= 0)
+      throw new IllegalArgumentException("storyVersionId must be positive");
+    if (chapterId == null || chapterId <= 0)
+      throw new IllegalArgumentException("chapterId must be positive");
+    if (chapterRowVersion < 0) throw new IllegalArgumentException("chapterRowVersion must not be negative");
+    return new GenerationJob(
+        null,
+        0L,
+        UUID.randomUUID().toString(),
+        projectId,
+        JobType.CHAPTER_ANALYZE,
+        JobStatus.QUEUED,
+        ResourceClass.PROVIDER_INTERACTIVE,
+        0,
+        "QUEUED",
+        null,
+        userId,
+        userId,
+        storyVersionId,
+        chapterId,
+        chapterRowVersion,
+        required(sourceHash, "sourceHash"),
+        required(sourceText, "sourceText"),
+        required(sourceLanguage, "sourceLanguage"),
+        required(idempotencyKey, "idempotencyKey"));
   }
 
   public static GenerationJob rehydrate(
@@ -83,6 +149,48 @@ public final class GenerationJob extends AggregateRoot {
       String errorCode,
       String requestedByUserId,
       String billedToUserId) {
+    return rehydrate(
+        id,
+        rowVersion,
+        jobId,
+        projectId,
+        type,
+        status,
+        resourceClass,
+        progress,
+        currentStep,
+        errorCode,
+        requestedByUserId,
+        billedToUserId,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null);
+  }
+
+  public static GenerationJob rehydrate(
+      Long id,
+      long rowVersion,
+      String jobId,
+      Long projectId,
+      JobType type,
+      JobStatus status,
+      ResourceClass resourceClass,
+      int progress,
+      String currentStep,
+      String errorCode,
+      String requestedByUserId,
+      String billedToUserId,
+      Long storyVersionId,
+      Long chapterId,
+      Long chapterRowVersion,
+      String sourceHash,
+      String sourceText,
+      String sourceLanguage,
+      String idempotencyKey) {
     return new GenerationJob(
         id,
         rowVersion,
@@ -95,48 +203,33 @@ public final class GenerationJob extends AggregateRoot {
         currentStep,
         errorCode,
         requestedByUserId,
-        billedToUserId);
+        billedToUserId,
+        storyVersionId,
+        chapterId,
+        chapterRowVersion,
+        sourceHash,
+        sourceText,
+        sourceLanguage,
+        idempotencyKey);
   }
 
-  public String getJobId() {
-    return jobId;
-  }
-
-  public Long getProjectId() {
-    return projectId;
-  }
-
-  public JobType getType() {
-    return type;
-  }
-
-  public JobStatus getStatus() {
-    return status;
-  }
-
-  public ResourceClass getResourceClass() {
-    return resourceClass;
-  }
-
-  public int getProgress() {
-    return progress;
-  }
-
-  public String getCurrentStep() {
-    return currentStep;
-  }
-
-  public String getErrorCode() {
-    return errorCode;
-  }
-
-  public String getRequestedByUserId() {
-    return requestedByUserId;
-  }
-
-  public String getBilledToUserId() {
-    return billedToUserId;
-  }
+  public String getJobId() { return jobId; }
+  public Long getProjectId() { return projectId; }
+  public JobType getType() { return type; }
+  public JobStatus getStatus() { return status; }
+  public ResourceClass getResourceClass() { return resourceClass; }
+  public int getProgress() { return progress; }
+  public String getCurrentStep() { return currentStep; }
+  public String getErrorCode() { return errorCode; }
+  public String getRequestedByUserId() { return requestedByUserId; }
+  public String getBilledToUserId() { return billedToUserId; }
+  public Long getStoryVersionId() { return storyVersionId; }
+  public Long getChapterId() { return chapterId; }
+  public Long getChapterRowVersion() { return chapterRowVersion; }
+  public String getSourceHash() { return sourceHash; }
+  public String getSourceText() { return sourceText; }
+  public String getSourceLanguage() { return sourceLanguage; }
+  public String getIdempotencyKey() { return idempotencyKey; }
 
   private static String required(String value, String field) {
     if (value == null || value.isBlank())
