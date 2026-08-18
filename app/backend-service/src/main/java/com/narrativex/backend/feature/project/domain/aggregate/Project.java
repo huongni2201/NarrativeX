@@ -97,21 +97,9 @@ public final class Project extends AggregateRoot {
   public StoryVersion createStoryVersion(
       int versionNumber,
       String content,
-      String sourceLanguage,
-      boolean rightsAttested,
-      String rightsPolicyVersion,
-      String rightsBasis,
-      String attestedBy) {
+      String sourceLanguage) {
     ensureStoryVersionCanBeCreated();
-    return StoryVersion.create(
-        getId(),
-        versionNumber,
-        content,
-        sourceLanguage,
-        rightsAttested,
-        rightsPolicyVersion,
-        rightsBasis,
-        attestedBy);
+    return StoryVersion.create(getId(), versionNumber, content, sourceLanguage);
   }
 
   public void archive() {
