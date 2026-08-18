@@ -61,7 +61,8 @@ public class ProjectController {
   }
 
   @GetMapping("/{projectId}/overview")
-  public ResponseEntity<ApiResponse<ProjectOverviewResponse>> overview(@PathVariable Long projectId) {
+  public ResponseEntity<ApiResponse<ProjectOverviewResponse>> overview(
+      @PathVariable Long projectId) {
     return ResponseEntity.ok(
         ApiResponse.success(
             "Project overview retrieved successfully",
