@@ -75,7 +75,8 @@ public class GenerationJobPersistenceAdapter implements GenerationJobRepository 
   @Override
   public void acquireIdempotencyLock(String idempotencyKey) {
     entityManager
-        .createNativeQuery("SELECT pg_advisory_xact_lock(hashtextextended(:idempotencyKey, 0))")
+        .createNativeQuery(
+            "SELECT 1 FROM pg_advisory_xact_lock(hashtextextended(:idempotencyKey, 0))")
         .setParameter("idempotencyKey", idempotencyKey)
         .getSingleResult();
   }
