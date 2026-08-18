@@ -17,6 +17,7 @@ public class ListCharactersUseCase {
 
   @Transactional(readOnly = true)
   public CursorPage<Character> execute(CharacterListQuery query) {
-    return characterRepository.findActiveByOwnerId(currentUserId.get(), query.cursor(), query.limit());
+    return characterRepository.findActiveByOwnerId(
+        currentUserId.get(), query.cursor(), query.limit());
   }
 }
