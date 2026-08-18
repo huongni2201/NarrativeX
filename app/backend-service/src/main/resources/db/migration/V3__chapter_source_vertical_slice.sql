@@ -7,6 +7,9 @@ SET source_text = ''
 WHERE source_text IS NULL;
 
 UPDATE chapters
+SET source_text = replace(replace(source_text, E'\r\n', E'\n'), E'\r', E'\n');
+
+UPDATE chapters
 SET source_hash = encode(sha256(convert_to(source_text, 'UTF8')), 'hex')
 WHERE source_hash IS NULL;
 
