@@ -54,11 +54,16 @@ class PostgreSqlMigrationIntegrationTest {
   @Test
   void emptyPostgresMigratesAndHibernateValidates() throws SQLException {
     try (Connection connection = dataSource.getConnection()) {
-      assertEquals(5, latestFlywayVersion(connection));
+      assertEquals(6, latestFlywayVersion(connection));
       assertEquals("jsonb", columnType(connection, "moderation_decisions", "categories_json"));
       assertTrue(indexExists(connection, "uq_story_versions_one_active_per_project"));
       assertFalse(indexExists(connection, "idx_auth_users_email"));
       assertFalse(indexExists(connection, "idx_auth_users_google_subject"));
+      assertFalse(columnExists(connection, "story_versions", "rights_attested"));
+      assertFalse(columnExists(connection, "story_versions", "rights_policy_version"));
+      assertFalse(columnExists(connection, "story_versions", "rights_basis"));
+      assertFalse(columnExists(connection, "story_versions", "rights_attested_at"));
+      assertFalse(columnExists(connection, "story_versions", "rights_attested_by"));
     }
   }
 
@@ -166,6 +171,21 @@ class PostgreSqlMigrationIntegrationTest {
     }
   }
 
+  private static boolean columnExists(Connection connection, String table, String column)
+      throws SQLException {
+    try (PreparedStatement statement =
+        connection.prepareStatement(
+            "select exists(select 1 from information_schema.columns "
+                + "where table_schema = 'public' and table_name = ? and column_name = ?)")) {
+      statement.setString(1, table);
+      statement.setString(2, column);
+      try (ResultSet result = statement.executeQuery()) {
+        result.next();
+        return result.getBoolean(1);
+      }
+    }
+  }
+
   private static boolean indexExists(Connection connection, String indexName) throws SQLException {
     try (PreparedStatement statement =
         connection.prepareStatement(
@@ -198,9 +218,8 @@ class PostgreSqlMigrationIntegrationTest {
     try (PreparedStatement statement =
         connection.prepareStatement(
             "insert into story_versions "
-                + "(project_id, version_number, content, source_language, status, moderation_decision, "
-                + "rights_attested, rights_policy_version, rights_basis) "
-                + "values (?, ?, 'story', 'vi-VN', ?, 'PENDING', false, 'not-required', 'NOT_REQUIRED')")) {
+                + "(project_id, version_number, content, source_language, status, moderation_decision) "
+                + "values (?, ?, 'story', 'vi-VN', ?, 'PENDING')")) {
       statement.setLong(1, projectId);
       statement.setInt(2, versionNumber);
       statement.setString(3, status);
