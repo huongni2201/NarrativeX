@@ -5,10 +5,12 @@ import com.narrativex.backend.feature.storyboard.api.request.CreateChapterReques
 import com.narrativex.backend.feature.storyboard.api.request.UpdateChapterRequest;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterResponse;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterSummaryResponse;
+import com.narrativex.backend.feature.storyboard.api.response.ChapterWorkspaceResponse;
 import com.narrativex.backend.feature.storyboard.application.command.CreateChapterCommand;
 import com.narrativex.backend.feature.storyboard.application.command.UpdateChapterCommand;
 import com.narrativex.backend.feature.storyboard.application.usecase.CreateChapterUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.GetChapterUseCase;
+import com.narrativex.backend.feature.storyboard.application.usecase.GetChapterWorkspaceUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.ListChaptersUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.UpdateChapterUseCase;
 import jakarta.validation.Valid;
@@ -34,6 +36,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ChapterController {
   private final CreateChapterUseCase createChapterUseCase;
   private final GetChapterUseCase getChapterUseCase;
+  private final GetChapterWorkspaceUseCase getChapterWorkspaceUseCase;
   private final ListChaptersUseCase listChaptersUseCase;
   private final UpdateChapterUseCase updateChapterUseCase;
 
@@ -68,6 +71,12 @@ public class ChapterController {
     return ResponseEntity.ok()
         .header(HttpHeaders.ETAG, quotedVersion(response.data().rowVersion()))
         .body(response);
+  }
+
+  @GetMapping("/{chapterId}/workspace")
+  public ResponseEntity<ApiResponse<ChapterWorkspaceResponse>> workspace(
+      @PathVariable Long projectId, @PathVariable Long chapterId) {
+    return ResponseEntity.ok(getChapterWorkspaceUseCase.execute(projectId, chapterId));
   }
 
   @PutMapping("/{chapterId}")

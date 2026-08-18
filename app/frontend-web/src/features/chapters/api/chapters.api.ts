@@ -1,11 +1,17 @@
 import type {
   ApiChapter,
   ApiChapterSummary,
+  ApiChapterWorkspace,
   ApiGenerationJob,
   CreateChapterApiInput,
   UpdateChapterApiInput,
 } from "@/types/api";
-import { isApiChapter, isApiChapterSummary, isApiGenerationJob } from "@/types/api";
+import {
+  isApiChapter,
+  isApiChapterSummary,
+  isApiChapterWorkspace,
+  isApiGenerationJob,
+} from "@/types/api";
 import { apiRequest } from "@/shared/api/client";
 
 export const chaptersApi = {
@@ -21,6 +27,12 @@ export const chaptersApi = {
       `/api/v1/projects/${projectId}/chapters/${chapterId}`,
       {},
       isApiChapter,
+    ),
+  getWorkspace: (projectId: number, chapterId: number) =>
+    apiRequest<ApiChapterWorkspace>(
+      `/api/v1/projects/${projectId}/chapters/${chapterId}/workspace`,
+      {},
+      isApiChapterWorkspace,
     ),
   create: (projectId: number, input: CreateChapterApiInput) =>
     apiRequest<ApiChapter>(
