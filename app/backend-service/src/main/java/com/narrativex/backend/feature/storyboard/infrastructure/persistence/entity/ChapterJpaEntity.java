@@ -33,8 +33,11 @@ public class ChapterJpaEntity extends JpaAuditedEntity {
   @Column(name = "title", nullable = false, length = 200)
   private String title;
 
-  @Column(name = "source_text", columnDefinition = "TEXT")
+  @Column(name = "source_text", nullable = false, columnDefinition = "TEXT")
   private String sourceText;
+
+  @Column(name = "source_hash", nullable = false, length = 64)
+  private String sourceHash;
 
   @Column(name = "status", nullable = false, length = 24)
   private String status;
@@ -51,4 +54,3 @@ public class ChapterJpaEntity extends JpaAuditedEntity {
   @Column(name = "inherited_snapshot_hash", length = 128)
   private String inheritedSnapshotHash;
 }
-
