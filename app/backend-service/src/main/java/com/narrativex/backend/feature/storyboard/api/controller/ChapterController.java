@@ -74,7 +74,7 @@ public class ChapterController {
   public ResponseEntity<ApiResponse<ChapterResponse>> update(
       @PathVariable Long projectId,
       @PathVariable Long chapterId,
-      @RequestHeader(HttpHeaders.IF_MATCH) String ifMatch,
+      @RequestHeader(value = HttpHeaders.IF_MATCH, required = false) String ifMatch,
       @Valid @RequestBody UpdateChapterRequest request) {
     long expectedRowVersion = parseExpectedVersion(ifMatch);
     ApiResponse<ChapterResponse> response =
