@@ -29,6 +29,21 @@ npm start
 
 Local dev is available at `http://localhost:3000` by default.
 
+## Docker build contract
+
+Next.js rewrites are produced from `next.config.mjs`, so the frontend image must be built with the backend URL that the deployed frontend container can reach. Do not rely on the default `localhost:8080` when the backend runs in another container or host.
+
+Example for a Docker network where the backend service is named `backend`:
+
+```bash
+docker build \
+  --build-arg BACKEND_INTERNAL_URL=http://backend:8080 \
+  --build-arg NEXT_PUBLIC_NX_DATA_MODE=api \
+  -t narrativex-frontend-web .
+```
+
+`NEXT_PUBLIC_API_BASE_URL` should normally remain empty for same-origin requests through the Next.js proxy. If it is intentionally set, pass it as a build argument because `NEXT_PUBLIC_*` values are compiled into the browser bundle.
+
 ## Canonical routes
 
 - `/` — redirect to `/projects` until a distinct backend-backed overview exists
