@@ -37,12 +37,12 @@ class CreateCharacterVersionUseCaseTest {
     CreateCharacterVersionUseCase useCase =
         new CreateCharacterVersionUseCase(characterRepository, versionRepository, currentUserId);
 
-    var response =
+    CharacterVersion response =
         useCase.execute(
             new CreateCharacterVersionCommand(
                 10L, "bible", "visual prompt", null, List.of(), "owner"));
 
-    assertEquals(4, response.data().getVersionNumber());
+    assertEquals(4, response.getVersionNumber());
     verify(characterRepository).findOwnedByIdForUpdate(10L, "owner");
     verify(characterRepository, never()).findOwnedById(10L, "owner");
   }
