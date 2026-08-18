@@ -6,9 +6,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
+import java.sql.SQLException;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -48,6 +50,31 @@ class ApiExceptionHandlerTest {
         body(handler.handleConflict(new ResourceConflictException("internal version"), request));
     assertEquals(409, error.status());
     assertEquals("RESOURCE_CONFLICT", error.code());
+  }
+
+  @Test
+  void uniqueDataIntegrityViolationUses409() {
+    ErrorResponse error =
+        body(
+            handler.handleDataIntegrityViolation(
+                new DataIntegrityViolationException(
+                    "duplicate", new SQLException("duplicate", "23505")),
+                request));
+    assertEquals(409, error.status());
+    assertEquals("RESOURCE_CONFLICT", error.code());
+  }
+
+  @Test
+  void unexpectedDataIntegrityViolationUses500() {
+    ErrorResponse error =
+        body(
+            handler.handleDataIntegrityViolation(
+                new DataIntegrityViolationException(
+                    "foreign key", new SQLException("foreign key", "23503")),
+                request));
+    assertEquals(500, error.status());
+    assertEquals("INTERNAL_ERROR", error.code());
+    assertFalse(error.message().contains("foreign key"));
   }
 
   @Test
