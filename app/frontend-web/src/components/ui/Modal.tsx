@@ -31,6 +31,11 @@ export const Modal: React.FC<ModalProps> = ({
   const descId = useId();
   const contentRef = useRef<HTMLDivElement>(null);
 
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const closeDisabledRef = useRef(closeDisabled);
+  closeDisabledRef.current = closeDisabled;
+
   useEffect(() => {
     if (!isOpen) return;
     const previousOverflow = document.body.style.overflow;
@@ -38,13 +43,19 @@ export const Modal: React.FC<ModalProps> = ({
     document.body.style.overflow = "hidden";
 
     const focusable = () => Array.from(contentRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []);
-    queueMicrotask(() => focusable()[0]?.focus());
+    if (!contentRef.current?.contains(document.activeElement)) {
+      queueMicrotask(() => {
+        if (contentRef.current && !contentRef.current.contains(document.activeElement)) {
+          focusable()[0]?.focus();
+        }
+      });
+    }
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        if (closeDisabled) return;
+        if (closeDisabledRef.current) return;
         event.preventDefault();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (event.key !== "Tab") return;
@@ -71,7 +82,7 @@ export const Modal: React.FC<ModalProps> = ({
       window.removeEventListener("keydown", handleKeyDown);
       previousActiveElement?.focus();
     };
-  }, [closeDisabled, isOpen, onClose]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

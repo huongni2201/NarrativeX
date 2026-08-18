@@ -1,5 +1,8 @@
 package com.narrativex.backend.feature.storyboard.domain.enums;
 
+import lombok.Getter;
+
+@Getter
 public enum AspectRatio {
   RATIO_16_9("16:9"),
   RATIO_9_16("9:16"),
@@ -11,10 +14,6 @@ public enum AspectRatio {
 
   AspectRatio(String code) {
     this.code = code;
-  }
-
-  public String getCode() {
-    return code;
   }
 
   public static AspectRatio fromCode(String code) {

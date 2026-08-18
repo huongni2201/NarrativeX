@@ -142,12 +142,12 @@ export const AssetLibraryScreen: React.FC = () => {
 
             <SelectField label="Lọc theo trạng thái" value={filterStatus} onChange={setFilterStatus}>
               <option value="all">Trạng thái: Tất cả</option>
-              {['APPROVED','NEEDS_REVIEW','LOCKED','GENERATED','PROCESSING','FAILED','COMPLETED'].map((status) => <option key={status} value={status}>{status}</option>)}
+              {['APPROVED', 'NEEDS_REVIEW', 'LOCKED', 'GENERATED', 'PROCESSING', 'FAILED', 'COMPLETED'].map((status) => <option key={status} value={status}>{status}</option>)}
             </SelectField>
 
             <SelectField label="Lọc theo tỷ lệ" value={filterAspectRatio} onChange={setFilterAspectRatio}>
               <option value="all">Tỷ lệ: Tất cả</option>
-              {['16:9','2:3','1:1','9:16'].map((ratio) => <option key={ratio} value={ratio}>{ratio}</option>)}
+              {['16:9', '2:3', '1:1', '9:16'].map((ratio) => <option key={ratio} value={ratio}>{ratio}</option>)}
             </SelectField>
           </div>
 

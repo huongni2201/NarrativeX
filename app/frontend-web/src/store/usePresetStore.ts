@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import type { StylePreset, PresetCategory } from "@/types/presets";
-import { isMockDataMode } from "@/lib/data-mode";
 
 interface PresetStore {
   presets: StylePreset[];
@@ -152,9 +151,3 @@ export const usePresetStore = create<PresetStore>((set, get) => ({
     });
   },
 }));
-
-if (isMockDataMode) {
-  void import("@/lib/presets-mock").then(({ MOCK_PRESETS }) => {
-    usePresetStore.getState().hydrateDemoPresets(MOCK_PRESETS);
-  });
-}

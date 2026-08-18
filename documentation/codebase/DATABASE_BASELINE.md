@@ -12,10 +12,12 @@
 
 | Migration | Tables/columns owned | Indexes/constraints | Owner module |
 |---|---|---|---|
-| V1 `initial_schema` | Consolidated baseline: project/storyboard/generation tables, control-plane tables, reusable character/appearance tables and project keyset access path | FKs, unique version/order/idempotency constraints, appearance/outfit invariants and indexes | backend/platform plus project, storyboard, generation and character features |
-| V2 `scene_status` | Adds `scenes.status VARCHAR(24) NOT NULL DEFAULT 'DRAFT'` | state column persisted as canonical Scene lifecycle enum | storyboard |
+| V1 `initial_schema` | Consolidated baseline schema: auth, project/storyboard/generation tables, control-plane tables, reusable character/appearance tables and project keyset access path | FKs, unique version/order/idempotency constraints, appearance/outfit invariants and indexes | backend/platform plus auth, project, storyboard, generation and character features |
+| V2 `seed_demo_data` | Deterministic local/demo rows for every application table, including `auth_users` | fixed seed IDs and unique event keys; idempotent inserts | backend/platform |
 
-V1 is treated as the consolidated baseline. V2 is a forward migration introduced by the Storyboard aggregate/lifecycle implementation and must not be folded back into V1 after the baseline decision.
+V1 is treated as the consolidated baseline schema.
+
+V2 is local/demo seed data rather than production business content. It includes ten accounts, with `huongnn2201@gmail.com` as the first account, and at least ten rows per application table. The seed uses synthetic provider, moderation and identity-reference values; it must not be interpreted as production provider health or real-person consent. Flyway's own `flyway_schema_history` remains migration metadata and is not seed data.
 
 ## Entity/schema matrix
 
@@ -24,7 +26,7 @@ V1 is treated as the consolidated baseline. V2 is a forward migration introduced
 | `Project` aggregate | `projects` | V1 | BIGINT identity | none declared | `(owner_id,status)`, project keyset index | MATCH | broader workspace membership pending |
 | `StoryVersion` entity | `story_versions` | V1 | BIGINT identity | `project_id -> projects(id)` | unique `(project_id,version_number)` | MATCH | read/update/moderation flow incomplete |
 | `Chapter` aggregate | `chapters` | V1 | BIGINT identity | `story_version_id`; optional source story reference | unique `(story_version_id,order_index)` | MATCH foundation | repository/application API pending |
-| `Scene` aggregate | `scenes` | V1 + V2 | BIGINT identity | `chapter_id -> chapters(id)` | unique `(chapter_id,order_index)` | MATCH after V2 | repository/application API pending |
+| `Scene` aggregate | `scenes` | V1 | BIGINT identity | `chapter_id -> chapters(id)` | unique `(chapter_id,order_index)` | MATCH | repository/application API pending |
 | `VisualBeat` entity | `visual_beats` | V1 | BIGINT identity | `scene_id -> scenes(id)` | unique `(scene_id,order_index)` | MATCH foundation | aggregate-owned write path pending |
 | `GenerationJob` aggregate | `generation_jobs` | V1 | BIGINT identity plus UUID-like `job_id` | `project_id` | unique `job_id` | MATCH foundation | durable dispatch/progress producer incomplete |
 | `StageAttempt` entity | `stage_attempts` | V1 | BIGINT identity | `generation_job_id` | unique `(generation_job_id,stage_name,attempt_number)` | MATCH | full claim/lease workflow pending |

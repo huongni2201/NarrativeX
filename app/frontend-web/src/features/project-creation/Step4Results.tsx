@@ -1,21 +1,11 @@
 import React from "react";
-import dynamic from "next/dynamic";
-import { isMockDataMode } from "@/lib/data-mode";
 import { Sparkles } from "lucide-react";
 
 interface Step4Props {
   onBack: () => void;
 }
 
-const Step4DemoResults = dynamic(() =>
-  import("./Step4DemoResults").then((module) => module.Step4DemoResults),
-);
-
 export const Step4Results: React.FC<Step4Props> = ({ onBack }) => {
-  if (isMockDataMode) {
-    return <Step4DemoResults onBack={onBack} />;
-  }
-
   return (
     <div className="min-h-[480px] space-y-6">
       <div>
@@ -28,7 +18,7 @@ export const Step4Results: React.FC<Step4Props> = ({ onBack }) => {
         <Sparkles className="mx-auto h-8 w-8 text-purple-400" />
         <p className="mt-3 text-sm font-semibold text-slate-200">Kết quả sẽ xuất hiện sau khi job hoàn tất</p>
         <p className="mt-2 text-xs leading-5 text-slate-400">
-          NarrativeX không tải hoặc hiển thị fixture phân tích trong API mode.
+          Dữ liệu kịch bản và phân tích sẽ được đồng bộ trực tiếp từ API backend.
         </p>
       </div>
       <button

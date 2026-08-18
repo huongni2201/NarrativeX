@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import type { MediaAsset, AssetFilterType, AssetSortOption, AssetStatus } from "@/types/assets";
-import { isMockDataMode } from "@/lib/data-mode";
 
 interface AssetStore {
   assets: MediaAsset[];
@@ -126,9 +125,3 @@ export const useAssetStore = create<AssetStore>((set, get) => ({
       isUploadModalOpen: false,
     })),
 }));
-
-if (isMockDataMode) {
-  void import("@/lib/assets-mock").then(({ MOCK_ASSETS }) => {
-    useAssetStore.getState().hydrateDemoAssets(MOCK_ASSETS);
-  });
-}

@@ -136,12 +136,12 @@ export const ProjectWizardModal: React.FC = () => {
 
   if (!isWizardOpen) return null;
 
-  const handleCloseWizard = () => {
+  const handleCloseWizard = React.useCallback(() => {
     if (createProjectWorkflow.isPending) return;
     resetLocalWorkflow();
     createProjectWorkflow.reset();
     closeWizard();
-  };
+  }, [closeWizard, createProjectWorkflow]);
 
   const handleNext = () => {
     if (currentStep < 4) {

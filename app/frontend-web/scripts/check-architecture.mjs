@@ -49,8 +49,7 @@ for (const file of files) {
 
   for (const specifier of staticImports) {
     if (specifier === "@/lib/mock-data" || /@\/lib\/[^"']*-mock$/.test(specifier) || /@\/lib\/production-mock$/.test(specifier)) {
-      const allowedDemo = /(?:Demo|\.stories|\.test|\.spec)\.(?:ts|tsx|js|jsx)$/.test(rel);
-      if (!allowedDemo) add(file, "fixture-import", `fixture must be lazy-loaded behind a demo/test boundary: ${specifier}`);
+      add(file, "no-mock-data", `mock fixtures are not allowed; runtime code must use real backend APIs: ${specifier}`);
     }
   }
 

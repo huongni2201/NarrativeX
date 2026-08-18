@@ -6,7 +6,6 @@ import type {
   VisualBeat,
   VisualBeatStatus,
 } from "@/types/domain";
-import { isMockDataMode } from "@/lib/data-mode";
 
 interface ProductionStore {
   project: ProjectProductionDetail | null;
@@ -170,13 +169,3 @@ export const useProductionStore = create<ProductionStore>((set, get) => ({
     set({ currentView: "preview" });
   },
 }));
-
-if (isMockDataMode) {
-  void import("@/lib/production-mock").then(
-    ({ MOCK_PROJECT_PRODUCTION, MOCK_VISUAL_BEATS_CH01 }) => {
-      useProductionStore
-        .getState()
-        .hydrateDemoProduction(MOCK_PROJECT_PRODUCTION, MOCK_VISUAL_BEATS_CH01);
-    },
-  );
-}
