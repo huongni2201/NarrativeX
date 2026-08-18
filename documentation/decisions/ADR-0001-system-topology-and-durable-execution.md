@@ -60,7 +60,9 @@ Database integrity errors are classified by SQLSTATE at the API boundary. Expect
 
 ## Rights and consent policy clarification
 
-NarrativeX does not require a blanket copyright/rights attestation for ordinary story input. Legacy `StoryVersion` rights columns may remain temporarily for migration compatibility, but `not-required` / `NOT_REQUIRED` is the current behavior and those columns must not be used to reintroduce a mandatory per-story checkbox.
+NarrativeX does not require a blanket copyright/rights attestation for ordinary story input. The legacy `StoryVersion` rights state has been removed from the domain model, persistence model, API response, and PostgreSQL schema through forward migration `V6__drop_legacy_story_rights_columns.sql`.
+
+The removed columns are `rights_attested`, `rights_policy_version`, `rights_basis`, `rights_attested_at`, and `rights_attested_by`. They are no longer part of the canonical StoryVersion contract and must not be reintroduced as a mandatory per-story checkbox.
 
 This does not remove safety or consent obligations that are materially different from copyright attestation. Moderation remains independent, and real-person references still require explicit consent, tenant isolation, retention controls and deletion handling.
 
@@ -73,6 +75,7 @@ This does not remove safety or consent obligations that are materially different
 - UI must represent analysis as unavailable/pending integration instead of treating a non-executable queued row as successful submission.
 - Cross-module application ports must honor their explicit identity/ownership parameters instead of implicitly consulting request-scoped security state.
 - Unexpected database integrity failures stay observable as server defects rather than being hidden behind a generic client conflict.
+- StoryVersion no longer carries legacy copyright/rights attestation state in API or persistence contracts.
 
 ## Consolidation note
 
