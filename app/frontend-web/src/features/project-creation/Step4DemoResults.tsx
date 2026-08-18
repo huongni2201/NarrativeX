@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import Image from "next/image";
 import { MOCK_CHARACTERS, MOCK_PROJECT_CHARACTERS } from "@/lib/mock-data";
 import { Tabs } from "@/components/ui/Tabs";
 import { Sparkles } from "lucide-react";
@@ -43,7 +44,9 @@ export function Step4DemoResults({ onBack }: Readonly<Step4DemoResultsProps>) {
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           {characters.map((character) => (
             <article key={character.id} className="overflow-hidden rounded-xl border border-slate-800 bg-[#0a0f1d]">
-              <img src={character.avatarUrl} alt={character.name} className="aspect-[3/4] w-full object-cover" />
+              <div className="relative aspect-[3/4] w-full bg-slate-900">
+                <Image src={character.avatarUrl} alt={character.name} fill sizes="(min-width: 640px) 25vw, 50vw" className="object-cover" />
+              </div>
               <div className="p-3">
                 <h3 className="text-sm font-semibold text-slate-100">{character.name}</h3>
                 <p className="mt-1 text-xs text-slate-400">
