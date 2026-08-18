@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: backend-ci-${{ github.workflow }}-${{ github.ref }}
@@ -35,6 +35,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
 
       - name: Set up Java 25
         uses: actions/setup-java@v5
@@ -46,6 +48,22 @@ jobs:
 
       - name: Make Maven wrapper executable
         run: chmod +x mvnw
+
+      - name: Apply Spotless formatting
+        if: github.event_name == 'pull_request' && github.head_ref == 'fix/post-merge-chapter-analysis-ci'
+        run: ./mvnw --batch-mode --no-transfer-progress spotless:apply
+
+      - name: Commit Spotless formatting
+        if: github.event_name == 'pull_request' && github.head_ref == 'fix/post-merge-chapter-analysis-ci'
+        run: |
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "style(backend): apply Spotless formatting"
+          git push origin "HEAD:${{ github.head_ref }}"
 
       - name: Verify backend
         run: ./mvnw --batch-mode --no-transfer-progress clean verify
