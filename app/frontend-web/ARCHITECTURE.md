@@ -14,7 +14,7 @@ app/ -> features/ -> shared/
 - Feature code must import its domain API directly; `src/features/**` must not import the compatibility facade `@/lib/api`.
 - `src/lib/api.ts` remains temporary compatibility only for legacy non-feature callers and should shrink over time.
 
-## Canonical routes
+## Canonical routes and navigation state
 
 ```text
 /                         redirect -> /projects until a distinct overview exists
@@ -27,9 +27,9 @@ app/ -> features/ -> shared/
 /dashboard                legacy redirect -> /projects
 ```
 
-Project identity comes from `/projects/[projectId]`. Shareable/navigable chapter, scene and workspace-tab state belongs in URL params/search params, not Zustand. Demo-only production state may temporarily remain in its mock workspace but must not become the production navigation contract.
+Project identity comes from `/projects/[projectId]`. Any production chapter, scene or workspace-tab state that users must deep-link, refresh or share belongs in URL params/search params. The existing Zustand chapter/scene/tab state is scoped to `ProductionDemoWorkspace` only and must not be reused as the production navigation contract when chapter/storyboard APIs arrive.
 
-## Recommended feature shape
+## Feature shape and component ownership
 
 ```text
 features/<feature>/
@@ -41,9 +41,19 @@ features/<feature>/
 └── index.ts      # optional narrow public API
 ```
 
-Generic primitives belong in `components/ui`; app-shell components belong in `components/layout`. Domain components belong under their owning feature. Legacy `components/assets`, `components/presets` and `components/production` folders are migration debt: do not add new files there, and move files into their feature when touching them.
+Generic primitives belong in `components/ui`; app-shell components belong in `components/layout`. Domain implementations belong under their feature.
 
-## App Router and state ownership
+The asset, preset and production implementations now live in:
+
+```text
+features/assets/components/
+features/presets/components/
+features/production/components/
+```
+
+The old `components/assets`, `components/presets` and `components/production` files exist only as compatibility re-exports while older demo imports are migrated. They must contain no implementation. `check-architecture.mjs` enforces this.
+
+## State ownership
 
 Use the narrowest owner possible:
 
@@ -70,10 +80,10 @@ The shared transport layer must not import React, Zustand, app routes or feature
 API mode is the runtime source of truth. Fixtures are allowed only behind demo/test boundaries.
 
 - Production/API-mode entry paths must not statically import `@/lib/mock-data`, `*-mock` or `production-mock`.
-- A component with real API behavior must never be whitelisted to bypass this rule.
+- A component with real/API-mode behavior must never be whitelisted to bypass this rule.
 - Demo modules use an explicit `Demo` filename and are dynamically imported by the API-mode boundary.
-- `Step4Results` therefore contains only real/unavailable API-mode UI; `Step4DemoResults` owns mock analysis preview data and is loaded only when mock mode is active.
-- Unsupported backend functionality must render an explicit unavailable state rather than fake persisted data.
+- `Step4Results` contains only API-mode/unavailable UI; `Step4DemoResults` owns mock analysis preview data and is loaded only in mock mode.
+- Unsupported backend functionality renders an explicit unavailable state rather than fake persisted data.
 
 ## Multi-step mutation safety
 
@@ -81,9 +91,9 @@ Project creation currently spans Project + initial StoryVersion writes.
 
 - Do not treat in-memory state as backend idempotency.
 - Definitive HTTP failure may permit retry against the already-created Project.
-- Ambiguous transport/protocol failure must block blind StoryVersion retry because the previous write may have committed.
+- Ambiguous transport/protocol failure blocks blind StoryVersion retry because the previous write may have committed.
 - Persisted mutation workflows lock close/back/step actions while pending.
-- The long-term backend contract should expose an idempotent orchestration endpoint or a transactional create-project-with-initial-story command.
+- The long-term backend contract should expose an idempotent orchestration endpoint or transactional create-project-with-initial-story command.
 
 ## Accessibility baseline
 
@@ -94,7 +104,7 @@ Project creation currently spans Project + initial StoryVersion writes.
 - Shared form errors connect through `aria-invalid` and `aria-describedby`.
 - Mutually exclusive visual options use radio/radiogroup semantics.
 - Icon-only controls have accessible names.
-- Non-essential motion must respect reduced-motion preferences; use `motion-safe` for Tailwind animation utilities.
+- Non-essential motion respects reduced-motion preferences through `motion-safe` or equivalent behavior.
 
 ## Performance rules
 
@@ -106,12 +116,13 @@ Project creation currently spans Project + initial StoryVersion writes.
 
 ## Architecture enforcement
 
-`scripts/check-architecture.mjs` currently enforces:
+`scripts/check-architecture.mjs` enforces:
 
 - shared boundary (`shared` cannot import store/features/app);
 - route page isolation;
 - fixture imports only from Demo/test/spec/story modules;
-- no `@/lib/api` imports from feature code.
+- no `@/lib/api` imports from feature code;
+- legacy domain-component paths are compatibility re-exports only.
 
 Architecture enforcement must not use one-off production-component whitelists to silence violations. Fix the dependency boundary instead.
 
