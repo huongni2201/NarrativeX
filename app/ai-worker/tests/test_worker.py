@@ -6,10 +6,7 @@ import pytest
 
 from narrativex_worker.config import WorkerSettings, get_settings
 from narrativex_worker.prompting import build_chapter_analysis_prompt
-from narrativex_worker.providers.disabled import (
-    DisabledProvider,
-    ProviderNotConfiguredError,
-)
+from narrativex_worker.providers.disabled import DisabledProvider, ProviderNotConfiguredError
 from narrativex_worker.repository import ClaimedChapterAnalysisJob
 from narrativex_worker.schema import (
     ChapterAnalysisRequest,
