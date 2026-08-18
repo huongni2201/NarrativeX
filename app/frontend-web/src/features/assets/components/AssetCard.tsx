@@ -1,4 +1,5 @@
 import React from "react";
+import Image from "next/image";
 import type { MediaAsset } from "@/types/assets";
 import { Download, Play, Volume2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -19,7 +20,14 @@ export const AssetCard: React.FC<AssetCardProps> = ({ asset, isSelected = false,
         {asset.type === "AUDIO" ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 bg-[#090e18] text-purple-300"><Volume2 className="h-8 w-8" /><span className="text-xs">{asset.duration ?? "Audio"}</span></div>
         ) : (
-          <img src={asset.thumbnailUrl} alt={asset.filename} loading="lazy" className="h-full w-full object-cover transition-transform motion-safe:group-hover:scale-105" />
+          <Image
+            src={asset.thumbnailUrl}
+            alt={asset.filename}
+            fill
+            unoptimized
+            sizes="(min-width: 1280px) 20vw, (min-width: 768px) 25vw, (min-width: 640px) 33vw, 50vw"
+            className="object-cover transition-transform motion-safe:group-hover:scale-105"
+          />
         )}
         <div className="absolute left-2 right-2 top-2 flex items-center justify-between"><AssetTypeBadge type={asset.type} /><AssetStatusBadge status={asset.status} progressPercent={asset.progressPercent} /></div>
         {(asset.type === "VIDEO" || asset.type === "FINAL_OUTPUT" || asset.type === "MOTION") && <Play className="absolute left-1/2 top-1/2 h-8 w-8 -translate-x-1/2 -translate-y-1/2 text-white" aria-hidden="true" />}
