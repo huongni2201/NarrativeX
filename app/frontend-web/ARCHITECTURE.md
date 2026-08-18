@@ -106,13 +106,19 @@ Project creation currently spans Project + initial StoryVersion writes.
 - Icon-only controls have accessible names.
 - Non-essential motion respects reduced-motion preferences through `motion-safe` or equivalent behavior.
 
-## Performance rules
+## Performance and media rules
 
 - Keep mock/test fixtures out of API production chunks.
 - Pre-index repeated relations with `Map`/`Set` instead of repeated `.find()` in render loops.
 - Prefer server pagination/search for unbounded collections.
 - Lazy-load large demo/editor surfaces not required for initial render.
 - Keep `"use client"` boundaries as narrow as practical.
+- Use `next/image` for local branding, known trusted remote hosts and demo imagery so layout dimensions, responsive `sizes` and image optimization are explicit.
+- Only allow trusted optimization hosts in `next.config.mjs`; do not add broad wildcard remote-image hosts to make arbitrary URLs pass.
+- Backend media URLs may come from MinIO/S3/CDN hosts that vary by environment. Until the storage contract provides a stable trusted media hostname, render those URLs through `next/image` with `unoptimized` so layout/lazy-loading semantics are retained without pretending the Next image optimizer is configured for an unknown origin.
+- Once a stable media host is part of configuration, add the narrow `remotePatterns` entry and remove `unoptimized` for that media path.
+- Above-the-fold brand/hero images may use `priority`; card/grid imagery should remain lazy by default and provide responsive `sizes`.
+- Decorative motion and spinners use reduced-motion-aware utilities (`motion-safe:*`) unless movement is essential to communicate state.
 
 ## Architecture enforcement
 
