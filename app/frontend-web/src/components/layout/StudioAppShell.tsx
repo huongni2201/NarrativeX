@@ -55,7 +55,7 @@ const screenTitles: Record<StudioRouteScreen, string> = {
   overview: "Dự án của tôi",
   dashboard: "01. Project Overview (Quản lý dự án)",
   "project-workspace": "01. Project Overview (Quản lý dự án)",
-  "chapter-workspace": "Chapter Source",
+  "chapter-workspace": "Chapter Workspace",
   characters: "Thư viện nhân vật",
   assets: "Thư viện tài sản (Asset Library)",
   presets: "Mẫu & Phong cách (Style & Presets)",
