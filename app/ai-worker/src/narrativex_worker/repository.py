@@ -1,5 +1,6 @@
 """PostgreSQL source-of-truth repository for worker claim/lease and analysis materialization."""
 
+import json
 from dataclasses import dataclass
 
 import asyncpg
@@ -121,11 +122,27 @@ class WorkerRepository:
         return result == "UPDATE 1"
 
     async def complete(
-        self, claimed: ClaimedChapterAnalysisJob, result: ChapterAnalysisResult
+        self,
+        claimed: ClaimedChapterAnalysisJob,
+        worker_id: str,
+        result: ChapterAnalysisResult,
     ) -> None:
         pool = self._require_pool()
         async with pool.acquire() as connection:
             async with connection.transaction():
+                lease_owned = await connection.fetchval(
+                    """
+                    SELECT EXISTS(
+                        SELECT 1 FROM stage_attempts
+                         WHERE id = $1 AND worker_id = $2 AND status = 'RUNNING'
+                    )
+                    """,
+                    claimed.stage_attempt_id,
+                    worker_id,
+                )
+                if not lease_owned:
+                    raise RuntimeError("Worker no longer owns the analysis lease")
+
                 # Never materialize a result for a Chapter that changed after the persisted snapshot.
                 snapshot_matches = await connection.fetchval(
                     """
@@ -145,16 +162,18 @@ class WorkerRepository:
 
                 await self._materialize_characters(connection, claimed, result)
                 await self._materialize_storyboard(connection, claimed, result)
-                await connection.execute(
+                stage_update = await connection.execute(
                     """
                     UPDATE stage_attempts
                        SET status = 'COMPLETED', heartbeat_at = CURRENT_TIMESTAMP,
                            updated_at = CURRENT_TIMESTAMP, row_version = row_version + 1
-                     WHERE id = $1 AND worker_id = $2
+                     WHERE id = $1 AND worker_id = $2 AND status = 'RUNNING'
                     """,
                     claimed.stage_attempt_id,
-                    self._worker_id_from_stage(connection, claimed.stage_attempt_id),
+                    worker_id,
                 )
+                if stage_update != "UPDATE 1":
+                    raise RuntimeError("Worker lost the analysis lease before completion")
                 await connection.execute(
                     """
                     UPDATE generation_jobs
@@ -225,7 +244,7 @@ class WorkerRepository:
                     """,
                     claimed.requested_by_user_id,
                     character.name,
-                    __import__("json").dumps(character.aliases, ensure_ascii=False),
+                    json.dumps(character.aliases, ensure_ascii=False),
                 )
                 version_id = await connection.fetchval(
                     """
@@ -269,7 +288,8 @@ class WorkerRepository:
         claimed: ClaimedChapterAnalysisJob,
         result: ChapterAnalysisResult,
     ) -> None:
-        # A newer sourceHash gets a new job. Replace only the draft AI storyboard for this Chapter.
+        # Analysis is the only producer in the current MVP. Later visual-generation PRs should switch
+        # this replacement to an explicit OUTDATED transition instead of deleting approved outputs.
         await connection.execute(
             """
             DELETE FROM visual_beats
@@ -305,15 +325,6 @@ class WorkerRepository:
                     beat_index,
                     beat.visual_intent,
                 )
-
-    @staticmethod
-    async def _worker_id_from_stage(connection: asyncpg.Connection, stage_attempt_id: int) -> str:
-        worker_id = await connection.fetchval(
-            "SELECT worker_id FROM stage_attempts WHERE id = $1", stage_attempt_id
-        )
-        if not worker_id:
-            raise RuntimeError("Stage attempt has no lease owner")
-        return str(worker_id)
 
     def _require_pool(self) -> asyncpg.Pool:
         if self._pool is None:
