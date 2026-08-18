@@ -1,6 +1,7 @@
 package com.narrativex.backend;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -53,9 +54,11 @@ class PostgreSqlMigrationIntegrationTest {
   @Test
   void emptyPostgresMigratesAndHibernateValidates() throws SQLException {
     try (Connection connection = dataSource.getConnection()) {
-      assertEquals(4, latestFlywayVersion(connection));
+      assertEquals(5, latestFlywayVersion(connection));
       assertEquals("jsonb", columnType(connection, "moderation_decisions", "categories_json"));
       assertTrue(indexExists(connection, "uq_story_versions_one_active_per_project"));
+      assertFalse(indexExists(connection, "idx_auth_users_email"));
+      assertFalse(indexExists(connection, "idx_auth_users_google_subject"));
     }
   }
 
