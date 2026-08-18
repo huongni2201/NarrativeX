@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.auth.infrastructure.security;
 
 import com.narrativex.backend.feature.auth.application.exception.AuthRateLimitExceededException;
+import com.narrativex.backend.feature.auth.application.port.in.AuthRateLimitPolicy;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -16,7 +17,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 @Slf4j
-public class AuthRateLimiter {
+public class AuthRateLimiter implements AuthRateLimitPolicy {
   private static final DefaultRedisScript<Long> INCREMENT_WITH_EXPIRY =
       new DefaultRedisScript<>(
           "local current = redis.call('INCR', KEYS[1]); "
@@ -55,12 +56,14 @@ public class AuthRateLimiter {
     this.registerWindowSeconds = positive(registerWindowSeconds, "registerWindowSeconds");
   }
 
+  @Override
   public void checkLogin(String email, String clientIp) {
     if (!enabled) return;
     consume("login:ip", normalizedIp(clientIp), loginIpLimit, loginWindowSeconds);
     consume("login:identity", normalizedIdentity(email), loginIdentityLimit, loginWindowSeconds);
   }
 
+  @Override
   public void checkRegister(String email, String clientIp) {
     if (!enabled) return;
     consume("register:ip", normalizedIp(clientIp), registerIpLimit, registerWindowSeconds);
