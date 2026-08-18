@@ -2,10 +2,10 @@ package com.narrativex.backend.feature.storyboard.application.usecase;
 
 import com.narrativex.backend.configuration.NarrativeXLimitsProperties;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
+import com.narrativex.backend.feature.common.application.TextInputEstimator;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
-import com.narrativex.backend.feature.project.application.service.StoryInputEstimator;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterResponse;
 import com.narrativex.backend.feature.storyboard.application.command.CreateChapterCommand;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
@@ -50,7 +50,7 @@ public class CreateChapterUseCase {
   private void validateSourceSize(String sourceText) {
     if (sourceText == null) throw new IllegalArgumentException("sourceText must not be null");
     int characterCount = sourceText.codePointCount(0, sourceText.length());
-    int estimatedTokens = StoryInputEstimator.estimateTokensConservatively(sourceText);
+    int estimatedTokens = TextInputEstimator.estimateTokensConservatively(sourceText);
     if (characterCount > limits.getMaxStoryCharacters()) {
       throw new IllegalArgumentException("Chapter exceeds the configured Unicode character limit");
     }
