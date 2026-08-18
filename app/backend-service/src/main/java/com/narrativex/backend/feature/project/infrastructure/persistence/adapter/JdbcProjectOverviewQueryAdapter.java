@@ -52,7 +52,8 @@ public class JdbcProjectOverviewQueryAdapter implements ProjectOverviewQueryRepo
         project.storyVersionId() == null ? List.of() : loadChapters(project.storyVersionId());
 
     int totalChapters = chapters.size();
-    int readyChapters = (int) chapters.stream().filter(chapter -> isReady(chapter.status())).count();
+    int readyChapters =
+        (int) chapters.stream().filter(chapter -> isReady(chapter.status())).count();
     int renderedChapters =
         (int) chapters.stream().filter(chapter -> "RENDERED".equals(chapter.status())).count();
     int totalScenes = chapters.stream().mapToInt(ProjectOverviewView.Chapter::sceneCount).sum();
