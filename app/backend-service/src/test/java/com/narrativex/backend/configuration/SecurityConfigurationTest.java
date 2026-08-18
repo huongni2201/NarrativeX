@@ -25,15 +25,27 @@ class SecurityConfigurationTest {
   @Autowired private MockMvc mockMvc;
 
   @Test
-  void nonLocalProfileRefusesToStartWithOidcDisabled() {
-    new ApplicationContextRunner()
-        .withUserConfiguration(NonLocalSecurityConfigurationGuard.class)
-        .withPropertyValues(
-            "spring.profiles.active=staging", "narrativex.security.oidc-enabled=false")
-        .run(
-            context ->
-                assertThat(context.getStartupFailure())
-                    .hasRootCauseInstanceOf(IllegalStateException.class));
+  void oidcDisabledFailsClosedWithoutAnExplicitLocalOrTestProfile() {
+    assertStartupFails("narrativex.security.oidc-enabled=false");
+    assertStartupFails("spring.profiles.active=prod", "narrativex.security.oidc-enabled=false");
+    assertStartupFails("spring.profiles.active=production", "narrativex.security.oidc-enabled=false");
+    assertStartupFails("spring.profiles.active=staging", "narrativex.security.oidc-enabled=false");
+    assertStartupFails("spring.profiles.active=qa", "narrativex.security.oidc-enabled=false");
+    assertStartupFails("spring.profiles.active=unexpected", "narrativex.security.oidc-enabled=false");
+  }
+
+  @Test
+  void oidcDisabledStartsOnlyForExplicitLocalOrTestProfiles() {
+    assertStartupSucceeds("spring.profiles.active=local", "narrativex.security.oidc-enabled=false");
+    assertStartupSucceeds("spring.profiles.active=test", "narrativex.security.oidc-enabled=false");
+    assertStartupSucceeds(
+        "spring.profiles.active=local,test", "narrativex.security.oidc-enabled=false");
+  }
+
+  @Test
+  void oidcEnabledDoesNotRequireAProfile() {
+    assertStartupSucceeds("narrativex.security.oidc-enabled=true");
+    assertStartupSucceeds("spring.profiles.active=production", "narrativex.security.oidc-enabled=true");
   }
 
   @Test
@@ -70,5 +82,22 @@ class SecurityConfigurationTest {
         .perform(
             post("/api/v1/projects").with(csrf()).contentType("application/json").content("{}"))
         .andExpect(status().isBadRequest());
+  }
+
+  private static void assertStartupFails(String... properties) {
+    new ApplicationContextRunner()
+        .withUserConfiguration(NonLocalSecurityConfigurationGuard.class)
+        .withPropertyValues(properties)
+        .run(
+            context ->
+                assertThat(context.getStartupFailure())
+                    .hasRootCauseInstanceOf(IllegalStateException.class));
+  }
+
+  private static void assertStartupSucceeds(String... properties) {
+    new ApplicationContextRunner()
+        .withUserConfiguration(NonLocalSecurityConfigurationGuard.class)
+        .withPropertyValues(properties)
+        .run(context -> assertThat(context).hasNotFailed());
   }
 }
