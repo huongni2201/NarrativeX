@@ -22,8 +22,8 @@ features such as JSONB, partial indexes, or PostgreSQL constraint behavior.
   immutable after its initial shared/released use.
 - All subsequent schema changes use forward-only migrations. The current sequence is
   `V1__initial_schema.sql`, `V2__scene_status.sql`, `V3__auth_accounts.sql`,
-  `V4__story_version_active_invariant.sql`, then
-  `V5__drop_redundant_auth_indexes.sql`.
+  `V4__story_version_active_invariant.sql`, `V5__drop_redundant_auth_indexes.sql`,
+  then `V6__drop_legacy_story_rights_columns.sql`.
 - Set `spring.flyway.baseline-on-migrate=false` in the normal application
   configuration. An unknown non-empty schema must fail migration instead of
   being silently accepted.
@@ -58,6 +58,19 @@ redundant non-unique indexes. The unique constraints and their PostgreSQL-owned
 backing indexes remain intact, so lookup behavior and uniqueness guarantees do
 not change.
 
+## Legacy StoryVersion rights cleanup
+
+The initial schema carried five copyright/rights attestation columns on
+`story_versions`: `rights_attested`, `rights_policy_version`, `rights_basis`,
+`rights_attested_at`, and `rights_attested_by`. The current product contract does
+not require a blanket per-story copyright/rights attestation, so keeping those
+columns would leave stale schema state that no longer belongs to StoryVersion.
+
+Because V1 is immutable, V6 removes the five columns with a forward migration.
+The Java domain model, JPA mapping, API response, persistence mapper and tests are
+updated in the same change so Hibernate `ddl-auto=validate` agrees with the
+post-V6 schema.
+
 ## Consequences
 
 - Fresh databases have a deterministic, fail-fast migration path.
@@ -69,6 +82,7 @@ not change.
   normal startup behavior.
 - Auth writes no longer maintain duplicate secondary indexes that provide no
   additional query or constraint value.
+- StoryVersion persistence no longer carries obsolete copyright/rights columns.
 
 ## Verification
 
@@ -79,5 +93,6 @@ not change.
   version for the same project.
 - Verify `idx_auth_users_email` and `idx_auth_users_google_subject` are absent
   after V5 while the `UNIQUE` constraints on both columns remain effective.
+- Verify all five legacy StoryVersion rights columns are absent after V6.
 - Verify a non-empty unknown schema fails normal Flyway startup unless the
   controlled `legacy-migration` profile is explicitly selected.
