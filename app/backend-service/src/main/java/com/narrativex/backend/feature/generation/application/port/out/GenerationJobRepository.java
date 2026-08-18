@@ -9,4 +9,6 @@ public interface GenerationJobRepository {
   Optional<GenerationJob> findByJobIdAndOwner(String jobId, String ownerId);
 
   Optional<GenerationJob> findByIdempotencyKey(String idempotencyKey);
+
+  void acquireIdempotencyLock(String idempotencyKey);
 }
