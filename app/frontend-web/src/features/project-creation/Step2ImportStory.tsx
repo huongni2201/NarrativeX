@@ -113,16 +113,6 @@ export const Step2ImportStory: React.FC<Step2Props> = ({ validationErrors = [] }
             </button>
           </div>
         </div>
-
-        <label className="flex items-start gap-2 rounded-xl border border-amber-500/20 bg-amber-950/10 p-3 text-xs leading-5 text-slate-300">
-          <input
-            type="checkbox"
-            checked={wizardDraft.rightsAttestationAccepted}
-            onChange={(event) => updateWizardDraft({ rightsAttestationAccepted: event.target.checked })}
-            className="mt-1 accent-purple-500"
-          />
-          <span>Tôi xác nhận mình có quyền sử dụng nội dung này và cho phép NarrativeX gửi nội dung lên backend để phân tích.</span>
-        </label>
       </div>
     </div>
   );
