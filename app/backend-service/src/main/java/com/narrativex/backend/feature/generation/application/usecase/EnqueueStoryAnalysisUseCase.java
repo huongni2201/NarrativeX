@@ -63,6 +63,9 @@ public class EnqueueStoryAnalysisUseCase {
             + ":"
             + chapter.getSourceHash();
 
+    // Serialize identical requests inside this PostgreSQL transaction. A concurrent request waits
+    // for the first transaction to commit, then observes and returns the already-created job.
+    generationJobRepository.acquireIdempotencyLock(idempotencyKey);
     var existing = generationJobRepository.findByIdempotencyKey(idempotencyKey);
     if (existing.isPresent()) {
       return existing.get();
