@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.sql.SQLException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -77,7 +78,9 @@ class ApiExceptionHandlerMockMvcTest {
         .perform(get("/test/errors/conflict"))
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.code").value("RESOURCE_CONFLICT"))
-        .andExpect(jsonPath("$.message").value("The resource changed or conflicts with the requested operation."));
+        .andExpect(
+            jsonPath("$.message")
+                .value("The resource changed or conflicts with the requested operation."));
   }
 
   @Test
@@ -113,7 +116,9 @@ class ApiExceptionHandlerMockMvcTest {
 
     @GetMapping("/conflict")
     void conflict() {
-      throw new DataIntegrityViolationException("duplicate key SQL detail must not leak");
+      throw new DataIntegrityViolationException(
+          "duplicate key SQL detail must not leak",
+          new SQLException("duplicate key SQL detail must not leak", "23505"));
     }
 
     @GetMapping("/unexpected")
