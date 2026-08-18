@@ -86,7 +86,9 @@ class VertexGeminiProvider(LlmProvider):
             parsed = json.loads(text)
             result = ChapterAnalysisResult.model_validate(parsed)
         except (KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError) as exception:
-            raise VertexProviderError("Vertex returned an invalid Chapter analysis payload") from exception
+            raise VertexProviderError(
+                "Vertex returned an invalid Chapter analysis payload"
+            ) from exception
 
         return ProviderOperation(
             provider_key="vertex",
