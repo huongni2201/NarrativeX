@@ -6,6 +6,7 @@ import com.narrativex.backend.feature.auth.api.response.CurrentUserResponse;
 import com.narrativex.backend.feature.auth.application.query.CurrentUserQuery;
 import com.narrativex.backend.feature.auth.application.service.RegisterAuthAccountService;
 import com.narrativex.backend.feature.auth.application.usecase.GetCurrentUserUseCase;
+import com.narrativex.backend.feature.auth.infrastructure.security.AuthRateLimiter;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -32,12 +33,14 @@ public class PasswordAuthController {
   private final SecurityContextRepository securityContextRepository;
   private final RegisterAuthAccountService registrationService;
   private final GetCurrentUserUseCase getCurrentUserUseCase;
+  private final AuthRateLimiter authRateLimiter;
 
   @PostMapping("/login")
   public ResponseEntity<ApiResponse<CurrentUserResponse>> login(
       @Valid @RequestBody LoginRequest body,
       HttpServletRequest request,
       HttpServletResponse response) {
+    authRateLimiter.checkLogin(body.email(), request.getRemoteAddr());
     return authenticate(body.email(), body.password(), request, response);
   }
 
@@ -46,6 +49,7 @@ public class PasswordAuthController {
       @Valid @RequestBody RegisterRequest body,
       HttpServletRequest request,
       HttpServletResponse response) {
+    authRateLimiter.checkRegister(body.email(), request.getRemoteAddr());
     registrationService.register(body.displayName(), body.email(), body.password());
     return authenticate(body.email(), body.password(), request, response);
   }
