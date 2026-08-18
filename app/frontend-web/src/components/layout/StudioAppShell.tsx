@@ -41,7 +41,7 @@ interface StudioAppShellProps {
 }
 
 const screenTitles: Record<StudioRouteScreen, string> = {
-  overview: "Tổng quan – Danh sách dự án",
+  overview: "Dự án của tôi",
   dashboard: "Production Workspace",
   "project-workspace": "Production Workspace",
   characters: "Thư viện nhân vật",
