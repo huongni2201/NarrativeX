@@ -1,7 +1,6 @@
 """Tests for the NarrativeX Chapter analysis worker."""
 
 import asyncio
-from typing import Any
 
 import pytest
 
@@ -106,7 +105,9 @@ async def test_disabled_provider_never_fakes_success() -> None:
 
 
 @pytest.mark.asyncio
-async def test_process_cancels_provider_work_when_lease_is_lost(monkeypatch: Any) -> None:
+async def test_process_cancels_provider_work_when_lease_is_lost(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     worker = NarrativeXWorker(settings=WorkerSettings(worker_env="test"))
     provider_cancelled = asyncio.Event()
 
@@ -124,11 +125,11 @@ async def test_process_cancels_provider_work_when_lease_is_lost(monkeypatch: Any
             self.complete_called = False
             self.fail_called = False
 
-        async def complete(self, *args: Any) -> None:
+        async def complete(self, *args: object) -> None:
             del args
             self.complete_called = True
 
-        async def fail(self, *args: Any) -> None:
+        async def fail(self, *args: object) -> None:
             del args
             self.fail_called = True
 
