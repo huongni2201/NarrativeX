@@ -7,20 +7,20 @@
  | Gate | Nội dung bắt buộc | Planning envelope |
  |---|---|---|
  | Internal MVP | Story → analysis → character/storyboard → image/TTS → FFmpeg; fake + limited real smoke | 4–6 tuần với team nhỏ đã có baseline |
- | Creator MVP / Staging | Google auth, durable jobs, cost controls, batch review, Shorts baseline, real-provider E2E, staging CI/CD | 8–12 tuần cumulative |
-| Production-ready Beta (V1.8) | Trust & Safety, abuse limit, privacy/deletion, backup/restore, observability, provider resilience, entitlement, chapter continuation và notification outbox | 14–20 tuần cumulative |
+ | Creator MVP / Staging | Google auth, password-auth abuse limiting, durable jobs, cost controls, batch review, Shorts baseline, real-provider E2E, staging CI/CD | 8–12 tuần cumulative |
+| Production-ready Beta (V1.8) | Trust & Safety, broader abuse controls, privacy/deletion, backup/restore, observability, provider resilience, entitlement, chapter continuation và notification outbox | 14–20 tuần cumulative |
  | Scale hardening | Capacity tuning, selected AI-video, routing, storage lifecycle, billing/analytics reconciliation | +6–10 tuần sau beta theo usage thực tế |
 
  Các mốc là planning envelope, không phải cam kết sprint. Mỗi gate cần acceptance kỹ thuật + product + cost + safety.
 
 ## V1.8 production scope
 
- 1. **Durable core:** Google OIDC, ownership, StoryVersion, semantic scene/beat planning, CharacterVersion lock, Outfit/Project Bible, image/TTS/subtitle/FFmpeg và FinalArtifact validation.
+ 1. **Durable core:** Google OIDC/email-password, current server-session + CSRF auth contract, ownership, StoryVersion, semantic scene/beat planning, CharacterVersion lock, Outfit/Project Bible, image/TTS/subtitle/FFmpeg và FinalArtifact validation. JWT/accessToken/refreshToken migration là scope riêng về sau.
  2. **Creator control:** review grid, batch approve/reject/regenerate, prompt inspector, animatic, chapter/incremental render, ShortCandidate/ShortClip.
  3. **Cost and operations:** OperationPlan, affected scope, asset reuse, estimate range/confidence/ETA, CostReservation, max spend, dynamic re-estimation, usage ledger, resource accounting.
  4. **Reliability:** provider reservation/UNKNOWN reconciliation, retry caps, resource scheduler, per-user fairness, provider rate limit/circuit breaker, lease/watchdog, atomic finalization, error catalog.
  5. **Product platform:** aspect/quality settings, output profiles, notification/outbox, plan entitlement, watermark/exports/concurrency, optimistic locking/409 UX, i18n baseline.
- 6. **Trust & Safety:** input/output moderation, rights attestation/takedown, prompt-injection defense, real-person consent/identity privacy, account abuse limiting, AI audit, deletion lifecycle.
+ 6. **Trust & Safety:** input/output moderation, copyright report/review/takedown handling without a blanket per-story rights-attestation gate, prompt-injection defense, real-person consent/identity privacy, account abuse limiting, AI audit, deletion lifecycle.
  7. **Provider path:** Vertex AI Gemini production adapter via ADC/workload identity; VideoGenerationProvider/MotionAsset contract sẵn sàng nhưng AI video chỉ bật khi quality/cost/safety gate đạt.
 
  ## Historical progression
@@ -30,7 +30,7 @@
  | V1.1 | Style presets, Location/Outfit Bible, Identity QA nâng cao, auto merge/split, batch generation, prompt editor, usage dashboard. |
  | V1.2 | AI video cho selected shots; Economy/Balanced/Cinematic mode. |
  | V1.5 | Vertex Gemini production, dynamic operation cost, per-user accounting, delta/reuse, batch review, prompt inspector, animatic, watchdog/resiliency. |
-| **V1.8** | **V1.8 architecture requirements, while retaining the V1.7 functional catalog: Trust & Safety, rights/consent/privacy, abuse protection, deletion lifecycle, AI audit, vi-VN/en-US i18n, entitlement, chapter continuation và selected-beat provider path.** |
+| **V1.8** | **V1.8 architecture requirements, while retaining the V1.7 functional catalog: Trust & Safety, copyright report/review/takedown handling, consent/privacy, abuse protection, deletion lifecycle, AI audit, vi-VN/en-US i18n, entitlement, chapter continuation và selected-beat provider path.** |
 
 ## Next after V1.8
 
@@ -56,7 +56,7 @@
  ## Release blockers
 
  - P0/P1 security/safety chưa đóng, real-provider E2E chưa xác minh, hoặc prompt-injection test chưa pass.
- - Account rate limit, per-user attribution, entitlement hoặc spending cap chưa enforce server-side.
- - Deletion/retention/consent chưa chạy end-to-end.
+ - Password login/register đã có server-side Redis limiter; public beta vẫn bị block nếu broader account/session/route/resource-class/concurrent-job abuse controls, per-user attribution, entitlement hoặc spending cap chưa enforce server-side.
+ - Deletion/retention/real-person consent chưa chạy end-to-end.
  - Backup/restore, FinalArtifact atomicity, UNKNOWN reconciliation hoặc audit còn mất dữ liệu.
  - AI video chưa có benchmark hoặc fallback image-first/cost/safety chưa đạt thì feature flag phải tắt.
