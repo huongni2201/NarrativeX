@@ -7,14 +7,43 @@ import com.narrativex.backend.feature.character.infrastructure.persistence.entit
 import com.narrativex.backend.feature.character.infrastructure.persistence.mapper.CharacterPersistenceMapper;
 import com.narrativex.backend.feature.character.infrastructure.persistence.repository.CharacterJpaRepository;
 import com.narrativex.backend.feature.common.infrastructure.persistence.OptimisticConcurrency;
+import com.narrativex.backend.feature.common.pagination.CursorCodec;
+import com.narrativex.backend.feature.common.pagination.CursorKey;
+import com.narrativex.backend.feature.common.pagination.CursorPage;
 import java.util.ArrayList;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
 public class CharacterPersistenceAdapter implements CharacterRepository {
   private final CharacterJpaRepository repository;
+
+  @Override
+  public CursorPage<Character> findActiveByOwnerId(String ownerId, String cursor, int limit) {
+    CursorKey cursorKey = CursorCodec.decode(cursor);
+    PageRequest fetchLimit = PageRequest.of(0, limit + 1);
+    List<CharacterJpaEntity> entities =
+        cursorKey == null
+            ? repository.findActiveFirstPage(ownerId, CharacterStatus.ACTIVE, fetchLimit)
+            : repository.findActiveAfter(
+                ownerId,
+                CharacterStatus.ACTIVE,
+                cursorKey.updatedAt(),
+                cursorKey.id(),
+                fetchLimit);
+
+    boolean hasNext = entities.size() > limit;
+    List<CharacterJpaEntity> visibleEntities = entities.subList(0, Math.min(limit, entities.size()));
+    String nextCursor =
+        hasNext && !visibleEntities.isEmpty() ? cursorFor(visibleEntities.getLast()) : null;
+    List<Character> content =
+        visibleEntities.stream().map(CharacterPersistenceMapper::toDomain).toList();
+
+    return new CursorPage<>(content, nextCursor, limit, hasNext);
+  }
 
   @Override
   public java.util.Optional<Character> findOwnedById(Long id, String ownerId) {
@@ -59,5 +88,9 @@ public class CharacterPersistenceAdapter implements CharacterRepository {
         .aliases(new ArrayList<>(character.getAliases()))
         .status(character.getStatus())
         .build();
+  }
+
+  private static String cursorFor(CharacterJpaEntity entity) {
+    return CursorCodec.encode(entity.getUpdatedAt(), entity.getId());
   }
 }
