@@ -19,7 +19,7 @@ public class AuthUserJpaEntity {
   @Column(name = "display_name", length = 160, nullable = false)
   private String displayName;
 
-  @Column(name = "avatar_url")
+  @Column(name = "avatar_url", columnDefinition = "TEXT")
   private String avatarUrl;
 
   @Column(name = "password_hash", length = 255)
@@ -40,8 +40,13 @@ public class AuthUserJpaEntity {
   protected AuthUserJpaEntity() {}
 
   public AuthUserJpaEntity(
-      String id, String email, String displayName, String avatarUrl, String passwordHash,
-      String googleSubject, boolean enabled) {
+      String id,
+      String email,
+      String displayName,
+      String avatarUrl,
+      String passwordHash,
+      String googleSubject,
+      boolean enabled) {
     Instant now = Instant.now();
     this.id = id;
     this.email = email;
@@ -56,16 +61,40 @@ public class AuthUserJpaEntity {
 
   public void linkGoogle(String subject, String displayName, String avatarUrl) {
     this.googleSubject = subject;
-    if (displayName != null && !displayName.isBlank()) this.displayName = displayName;
-    if (avatarUrl != null && !avatarUrl.isBlank()) this.avatarUrl = avatarUrl;
+    if (displayName != null && !displayName.isBlank()) {
+      this.displayName = displayName;
+    }
+    if (avatarUrl != null && !avatarUrl.isBlank()) {
+      this.avatarUrl = avatarUrl;
+    }
     this.updatedAt = Instant.now();
   }
 
-  public String getId() { return id; }
-  public String getEmail() { return email; }
-  public String getDisplayName() { return displayName; }
-  public String getAvatarUrl() { return avatarUrl; }
-  public String getPasswordHash() { return passwordHash; }
-  public String getGoogleSubject() { return googleSubject; }
-  public boolean isEnabled() { return enabled; }
+  public String getId() {
+    return id;
+  }
+
+  public String getEmail() {
+    return email;
+  }
+
+  public String getDisplayName() {
+    return displayName;
+  }
+
+  public String getAvatarUrl() {
+    return avatarUrl;
+  }
+
+  public String getPasswordHash() {
+    return passwordHash;
+  }
+
+  public String getGoogleSubject() {
+    return googleSubject;
+  }
+
+  public boolean isEnabled() {
+    return enabled;
+  }
 }
