@@ -80,7 +80,14 @@ public class SecurityConfig {
     configuration.setAllowedMethods(
         List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"));
     configuration.setAllowedHeaders(
-        List.of("Accept", "Content-Type", "X-CSRF-TOKEN", "X-XSRF-TOKEN", "X-Correlation-Id"));
+        List.of(
+            "Accept",
+            "Content-Type",
+            "X-CSRF-TOKEN",
+            "X-XSRF-TOKEN",
+            "X-Correlation-Id",
+            "If-Match"));
+    configuration.setExposedHeaders(List.of("ETag", "Location", "X-Correlation-Id"));
     configuration.setAllowCredentials(true);
     configuration.setMaxAge(3600L);
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

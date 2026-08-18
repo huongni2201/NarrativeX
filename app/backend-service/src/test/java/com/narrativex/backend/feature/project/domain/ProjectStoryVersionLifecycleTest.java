@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 
 class ProjectStoryVersionLifecycleTest {
   @Test
-  void activatingNewVersionSupersedesCurrentActiveVersion() {
+  void activatingNewVersionSupersedesCurrentActiveVersionAndActivatesProject() {
     Project project = project(42L);
     StoryVersion current = story(10L, 42L, 1, StoryVersionStatus.ACTIVE);
     StoryVersion next = story(11L, 42L, 2, StoryVersionStatus.DRAFT);
@@ -23,6 +23,18 @@ class ProjectStoryVersionLifecycleTest {
 
     assertEquals(StoryVersionStatus.SUPERSEDED, current.getStatus());
     assertEquals(StoryVersionStatus.ACTIVE, next.getStatus());
+    assertEquals(ProjectStatus.ACTIVE, project.getStatus());
+  }
+
+  @Test
+  void reconcilingAlreadyActiveVersionRepairsDraftProject() {
+    Project project = project(42L);
+    StoryVersion active = story(10L, 42L, 1, StoryVersionStatus.ACTIVE);
+
+    project.reconcileActiveStoryVersion(active);
+
+    assertEquals(ProjectStatus.ACTIVE, project.getStatus());
+    assertEquals(StoryVersionStatus.ACTIVE, active.getStatus());
   }
 
   @Test
@@ -32,6 +44,7 @@ class ProjectStoryVersionLifecycleTest {
 
     assertThrows(IllegalArgumentException.class, () -> project.activateStoryVersion(next, null));
     assertEquals(StoryVersionStatus.DRAFT, next.getStatus());
+    assertEquals(ProjectStatus.DRAFT, project.getStatus());
   }
 
   private static Project project(Long id) {
