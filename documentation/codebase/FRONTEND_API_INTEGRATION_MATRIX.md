@@ -8,15 +8,15 @@ This matrix records the current UI-to-backend wiring and the next backend contra
 | Project list | `/projects` and overview entry | TanStack Query cursor pages | API | `projectsApi.list` | `GET /api/v1/projects?limit=<n>&cursor=<opaque>` | backend search/status query if filters must cover the entire unbounded collection |
 | Project filters/search | `/projects?status=...&q=...` | URL-owned filter state; responsive local text input with 300 ms URL debounce | CLIENT/URL | `projectsApi.list` supplies loaded pages | same project-list API today | server-side `q`/`status` query contract for filtering the full collection |
 | Project detail/workspace | `/projects/[projectId]` | direct entity query by route ID | API FOUNDATION | `projectsApi.getById` | `GET /api/v1/projects/{projectId}` | richer project/story/chapter DTOs as production workspace expands |
-| Create project | project wizard | TanStack Query mutation; wizard modal mounted only while open | API | `projectsApi.create` | `POST /api/v1/projects` | idempotency contract remains recommended |
-| Story input | project wizard | Zustand draft until submit, then backend create | API FOUNDATION | `projectsApi.createStoryVersion` | `POST /api/v1/projects/{id}/stories` | read/update/version conflict contract |
-| AI analysis start | wizard/workspace | disabled production capability | NOT AVAILABLE | `projectsApi.enqueueAnalysis` exists but normal create flow does not call it | `POST /api/v1/projects/{id}/analysis-jobs`, feature-gated off by default | enable only after durable enqueue/outbox/stage/worker/reconciliation invariant exists |
-| Analysis progress/result | workspace | explicit pending/unavailable state | PENDING API | none | job query/event replay + result resources | polling/SSE/reconnect/UNKNOWN/failed UI and result mapping |
+| Create project | project wizard | TanStack Query mutation; wizard modal mounted only while open | API | `projectsApi.create` | `POST /api/v1/projects` | metadata-only creation; idempotency contract remains recommended |
+| Story input | project/chapter workflow | Zustand draft until submit, then backend persistence | API FOUNDATION | `projectsApi.createStoryVersion` | `POST /api/v1/projects/{id}/stories` | chapter source persistence/read/update/version-conflict contract still needs alignment |
+| AI analysis start | chapter workspace | disabled production capability; user explicitly analyzes a persisted Chapter | NOT AVAILABLE | `projectsApi.enqueueAnalysis(projectId, chapterId)` | `POST /api/v1/projects/{projectId}/chapters/{chapterId}/analysis-jobs`, feature-gated off by default | enable only after durable enqueue/outbox/stage/worker/reconciliation invariant exists |
+| Analysis progress/result | chapter workspace | explicit pending/unavailable state | PENDING API | none | job query/event replay + chapter analysis result resources | polling/SSE/reconnect/UNKNOWN/failed UI and result mapping |
 | Characters | `/characters` | explicit API-not-connected state; Character Bible overlay mounted only when selected | PENDING API | none | character/version/reference/lock APIs | query/mutations and canonical identity/project-usage mapping |
-| Chapter/storyboard | project workspace | explicit pending state in API runtime | PENDING API | none | chapter/scene/visual-beat resources and commands | URL-owned chapter/scene deep links once backend IDs/contracts exist |
+| Chapter/storyboard | `/projects/[projectId]/chapters/[chapterId]` target hierarchy | explicit pending state in API runtime | PENDING API | none | chapter/scene/visual-beat resources and commands | persisted Chapter source/snapshot contract and URL-owned chapter/scene deep links |
 | Render/export | project workspace | explicit API-not-connected state | PENDING API | none | render job create/status/events + signed artifact URL | mutation/job/download flow |
-| Assets | `/assets` | explicit API-not-connected state; demo fixtures lazy in mock runtime | PENDING API | none | asset list/detail/upload/delete/review APIs | replace demo store with Query/mutations when contract lands |
-| Presets | `/presets` | explicit API-not-connected state; demo fixtures lazy in mock runtime | PENDING API | none | preset CRUD APIs | replace demo store with Query/mutations when contract lands |
+| Assets | `/assets` | explicit API-not-connected state | PENDING API | none | asset list/detail/upload/delete/review APIs | replace pending state with Query/mutations when contract lands |
+| Presets | `/presets` | explicit API-not-connected state | PENDING API | none | preset CRUD APIs | replace pending state with Query/mutations when contract lands |
 | Notifications / credits / plan / settings / jobs | shell | hidden/disabled until real contract exists | PENDING API | none | notification, entitlement/usage and settings/job-list APIs | render real values only after contracts exist |
 
 ## Route and state rules
@@ -24,9 +24,10 @@ This matrix records the current UI-to-backend wiring and the next backend contra
 - `/projects` is the canonical project-list route; `/dashboard` only redirects to `/projects`.
 - `/auth` is not an alternate project-list URL. When the session bootstrap resolves authenticated, `AuthEntry` uses route replacement to `/projects`.
 - `/projects/[projectId]` owns project identity. The workspace never discovers a project by loading a collection and calling `.find()`.
+- Target Chapter routes use `/projects/[projectId]/chapters/[chapterId]` and child routes defined by ADR-0002.
 - Navigable project-list filters live in URL search params (`status`, `q`). Search typing is kept in local component state and URL synchronization is debounced by 300 ms to avoid one App Router navigation per keystroke.
 - Current filtering applies to cursor pages already loaded by the client; server-wide filtering requires a backend query contract.
-- TanStack Query owns persisted server state. Zustand is reserved for transient wizard/editor/demo state.
+- TanStack Query owns persisted server state. Zustand is reserved for transient wizard/editor state.
 
 ## Transport rules
 
@@ -44,11 +45,10 @@ This matrix records the current UI-to-backend wiring and the next backend contra
 
 ## Runtime safety rules
 
-- The project-creation wizard deliberately does **not** call analysis enqueue while durable execution is unavailable.
-- `POST /api/v1/projects/{id}/analysis-jobs` remains feature-gated off by default and must not persist queued work while disabled.
+- Creating a Project is metadata-only. The project-creation flow must not call AI analysis as a side effect of `POST /api/v1/projects`.
+- Analysis is an explicit Chapter action after a persisted Chapter source/snapshot exists.
+- `POST /api/v1/projects/{projectId}/chapters/{chapterId}/analysis-jobs` remains feature-gated off by default and must not persist queued work while disabled.
 - API mode must never show fake analysis progress/results, fake notification counts, fake credits/plan data or fixture-backed persisted entities.
-- Mock modules are lazy-loaded only in validated test/Storybook-style mock runtimes.
-- Dynamically imported modal/overlay components are mounted only while their state is active so closed overlays do not eagerly fetch their chunks.
 
 ## Frontend verification gate
 
