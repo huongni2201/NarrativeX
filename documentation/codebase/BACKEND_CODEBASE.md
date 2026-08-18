@@ -13,12 +13,12 @@
 ```text
 feature/
   common/
-    api/                    # generic HTTP error/correlation helpers
-    domain/                 # shared DDD primitives + domain exception categories
-    pagination/             # framework-free cursor primitives
-    exception/              # generic resource/application exceptions
+    api/
+    domain/
+    pagination/
+    exception/
     infrastructure/persistence/
-    response/               # generic HTTP envelopes
+    response/
 
   <feature>/
     api/
@@ -30,7 +30,7 @@ feature/
       query/
       service/
       usecase/
-      port/in/              # allowed cross-feature in-process contract
+      port/in/
       port/out/
     domain/
       aggregate/
@@ -48,7 +48,7 @@ feature/
 - A business feature owns its API, application, domain and infrastructure vertical slice.
 - A feature domain must not import another business feature's domain.
 - Cross-feature application dependencies are allowed only through explicit inbound ports (`application.port.in`) while the system remains a modular monolith.
-- Controllers belong to the feature that owns the use case even when the HTTP route is nested under another resource. For example, `/api/v1/projects/{projectId}/analysis-jobs` is owned by Generation, not Project.
+- Controllers belong to the feature that owns the use case even when the HTTP route is nested under another resource. For example, `/api/v1/projects/{projectId}/chapters/{chapterId}/analysis-jobs` is owned by Generation, not Project or Storyboard.
 - `feature/common` is a deliberately small shared kernel and must not import a business feature.
 - Feature-owned value types are duplicated when their meaning belongs to separate bounded contexts. Storyboard therefore owns its aspect-ratio and quality-tier enums instead of importing Project domain enums.
 
@@ -64,6 +64,13 @@ These rules make a future extraction mechanical: replace an inbound in-process p
 | storyboard | `Chapter`, `Scene` | `VisualBeat` |
 
 Storyboard deliberately uses two aggregate boundaries rather than a single giant Storyboard/Chapter object graph. `Chapter` owns chapter-level identity/title/order rules. `Scene` owns scene-level mutable state and lifecycle so independent user/worker updates do not contend on one Chapter version. `VisualBeat` remains a child domain entity. See [ADR-0007](../decisions/ADR-0007-storyboard-aggregate-boundaries.md).
+
+### Chapter analysis boundary
+
+- Creating a `Project` is metadata-only and must not enqueue AI/media work.
+- Analysis is explicitly requested for a persisted `Chapter` through `POST /api/v1/projects/{projectId}/chapters/{chapterId}/analysis-jobs`.
+- The endpoint remains fail-closed until the durable enqueue transaction, outbox dispatch and worker claim/lease/recovery path exist.
+- The current Chapter model still requires source-persistence alignment before production analysis can be enabled; do not paper over that gap by falling back to project-wide analysis.
 
 ## Domain rules and exceptions
 
@@ -148,10 +155,10 @@ Project list retrieval uses a composite keyset index and avoids offset scans/cou
 
 - **JPA Entities (`infrastructure/persistence/entity/`)**:
   - Annotated with Lombok `@Getter`, `@Setter`, `@Builder`, `@NoArgsConstructor`, `@AllArgsConstructor`.
-  - Initialized collection fields (such as aliases and group lists) must be marked with `@Builder.Default` to prevent builders from overriding default instances.
-  - Entities do not maintain public domain-accepting constructors; mapping from domain models is performed explicitly via `.builder()...build()` and state mutation via `apply(domainModel)`.
+  - Initialized collection fields must use `@Builder.Default` where necessary.
+  - Mapping from domain models is explicit through builders/mappers rather than public domain-accepting persistence constructors.
 - **Services, Use Cases, Adapters and Controllers**:
-  - Use Lombok `@RequiredArgsConstructor` for constructor-based dependency injection on final fields, eliminating verbose manual constructor boilerplate.
+  - Prefer constructor-based dependency injection; Lombok `@RequiredArgsConstructor` is appropriate when all constructor dependencies are final and no custom constructor behavior is required.
   - Logging is standardized via `@Slf4j`.
 
 ## Architecture enforcement
@@ -173,4 +180,4 @@ The repository has GitHub Actions for backend, frontend and worker. Pull request
 
 Ordinary backend tests exclude Redis Session auto-configuration so the suite does not silently require an external Redis service. Session principal serialization is covered directly; deployed Redis-session integration validation belongs to the environment/Compose integration path.
 
-See [ADR-0003](../decisions/ADR-0003-ddd-feature-boundaries-and-api-contracts.md) for general DDD/package decisions, [ADR-0007](../decisions/ADR-0007-storyboard-aggregate-boundaries.md) for the storyboard-specific aggregate decision, and [ADR-0008](../decisions/ADR-0008-redis-backed-http-sessions.md) for shared HTTP session persistence.
+See [ADR-0001](../decisions/ADR-0001-system-topology-and-durable-execution.md) for durable execution, [ADR-0002](../decisions/ADR-0002-chapter-first-workflow-and-routes.md) for chapter-first analysis/routes, [ADR-0003](../decisions/ADR-0003-ddd-feature-boundaries-and-api-contracts.md) for general DDD/package decisions, [ADR-0007](../decisions/ADR-0007-storyboard-aggregate-boundaries.md) for storyboard aggregate boundaries, and [ADR-0008](../decisions/ADR-0008-redis-backed-http-sessions.md) for shared HTTP session persistence.
