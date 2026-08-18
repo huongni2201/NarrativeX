@@ -3,10 +3,12 @@ package com.narrativex.backend.feature.project.application;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
+import com.narrativex.backend.feature.project.application.port.out.ProjectRepository;
 import com.narrativex.backend.feature.project.application.port.out.StoryVersionRepository;
 import com.narrativex.backend.feature.project.application.usecase.ActivateStoryVersionUseCase;
 import com.narrativex.backend.feature.project.domain.aggregate.Project;
@@ -26,10 +28,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class ActivateStoryVersionUseCaseTest {
   @Mock private ProjectAccess projectAccess;
+  @Mock private ProjectRepository projectRepository;
   @Mock private StoryVersionRepository storyVersionRepository;
 
   @Test
-  void locksProjectAndFlushesSupersededVersionBeforeSavingNewActiveVersion() {
+  void locksProjectFlushesOldVersionAndPersistsActiveProject() {
     Project project = project();
     StoryVersion current = story(10L, 1, StoryVersionStatus.ACTIVE);
     StoryVersion next = story(11L, 2, StoryVersionStatus.DRAFT);
@@ -42,20 +45,42 @@ class ActivateStoryVersionUseCaseTest {
         .thenAnswer(invocation -> invocation.getArgument(0));
     CurrentUserId currentUserId = () -> "owner";
     ActivateStoryVersionUseCase useCase =
-        new ActivateStoryVersionUseCase(projectAccess, storyVersionRepository, currentUserId);
+        new ActivateStoryVersionUseCase(
+            projectAccess, projectRepository, storyVersionRepository, currentUserId);
 
     StoryVersion response = useCase.execute(42L, 11L);
 
     assertEquals(StoryVersionStatus.SUPERSEDED, current.getStatus());
     assertEquals(StoryVersionStatus.ACTIVE, next.getStatus());
     assertEquals(StoryVersionStatus.ACTIVE, response.getStatus());
+    assertEquals(ProjectStatus.ACTIVE, project.getStatus());
 
-    InOrder order = inOrder(projectAccess, storyVersionRepository);
+    InOrder order = inOrder(projectAccess, storyVersionRepository, projectRepository);
     order.verify(projectAccess).findOwnedProjectForUpdate(42L, "owner");
     order.verify(storyVersionRepository).findByIdAndProjectId(11L, 42L);
     order.verify(storyVersionRepository).findActiveByProjectId(42L);
     order.verify(storyVersionRepository).saveAndFlush(current);
     order.verify(storyVersionRepository).save(next);
+    order.verify(projectRepository).save(project);
+  }
+
+  @Test
+  void activatingAlreadyActiveVersionRepairsDraftProject() {
+    Project project = project();
+    StoryVersion active = story(10L, 1, StoryVersionStatus.ACTIVE);
+    when(projectAccess.findOwnedProjectForUpdate(42L, "owner")).thenReturn(project);
+    when(storyVersionRepository.findByIdAndProjectId(10L, 42L)).thenReturn(Optional.of(active));
+    when(storyVersionRepository.findActiveByProjectId(42L)).thenReturn(Optional.of(active));
+    CurrentUserId currentUserId = () -> "owner";
+    ActivateStoryVersionUseCase useCase =
+        new ActivateStoryVersionUseCase(
+            projectAccess, projectRepository, storyVersionRepository, currentUserId);
+
+    StoryVersion response = useCase.execute(42L, 10L);
+
+    assertEquals(StoryVersionStatus.ACTIVE, response.getStatus());
+    assertEquals(ProjectStatus.ACTIVE, project.getStatus());
+    verify(projectRepository).save(project);
   }
 
   private static Project project() {

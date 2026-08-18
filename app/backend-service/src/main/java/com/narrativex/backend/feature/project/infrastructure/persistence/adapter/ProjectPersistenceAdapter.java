@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.project.infrastructure.persistence.adapter;
 
+import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.infrastructure.persistence.OptimisticConcurrency;
 import com.narrativex.backend.feature.common.pagination.CursorCodec;
 import com.narrativex.backend.feature.common.pagination.CursorKey;
@@ -56,21 +57,22 @@ public class ProjectPersistenceAdapter implements ProjectRepository {
 
   @Override
   public Project save(Project project) {
-    ProjectJpaEntity entity =
-        project.getId() == null
-            ? buildJpaEntity(project)
-            : repository
-                .findById(project.getId())
-                .map(existing -> {
-                  OptimisticConcurrency.requireVersion(
-                      project.getRowVersion(),
-                      existing.getRowVersion(),
-                      ProjectJpaEntity.class,
-                      project.getId());
-                  existing.apply(project);
-                  return existing;
-                })
-                .orElseGet(() -> buildJpaEntity(project));
+    ProjectJpaEntity entity;
+    if (project.getId() == null) {
+      entity = buildJpaEntity(project);
+    } else {
+      ProjectJpaEntity existing =
+          repository
+              .findById(project.getId())
+              .orElseThrow(() -> new ResourceNotFoundException("Project was not found"));
+      OptimisticConcurrency.requireVersion(
+          project.getRowVersion(),
+          existing.getRowVersion(),
+          ProjectJpaEntity.class,
+          project.getId());
+      existing.apply(project);
+      entity = existing;
+    }
     return ProjectPersistenceMapper.toDomain(repository.save(entity));
   }
 

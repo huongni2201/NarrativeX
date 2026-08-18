@@ -5,6 +5,7 @@ import com.narrativex.backend.feature.project.domain.entity.StoryVersion;
 import com.narrativex.backend.feature.project.domain.enums.AspectRatio;
 import com.narrativex.backend.feature.project.domain.enums.ImageQualityTier;
 import com.narrativex.backend.feature.project.domain.enums.ProjectStatus;
+import com.narrativex.backend.feature.project.domain.enums.StoryVersionStatus;
 import com.narrativex.backend.feature.project.domain.exception.ArchivedProjectException;
 import com.narrativex.backend.feature.project.domain.exception.ProjectPersistenceRequiredException;
 import java.time.Instant;
@@ -116,6 +117,17 @@ public final class Project extends AggregateRoot {
       current.supersede();
     }
     next.activate();
+    ensureProjectActive();
+  }
+
+  /** Repairs a DRAFT project when its persisted StoryVersion is already ACTIVE. */
+  public void reconcileActiveStoryVersion(StoryVersion activeVersion) {
+    ensureStoryVersionCanBeManaged();
+    StoryVersion active = requireOwnedStoryVersion(activeVersion, "activeVersion");
+    if (active.getStatus() != StoryVersionStatus.ACTIVE) {
+      throw new IllegalArgumentException("activeVersion must be active");
+    }
+    ensureProjectActive();
   }
 
   public void archive() {
@@ -140,6 +152,12 @@ public final class Project extends AggregateRoot {
     }
     if (getId() == null) {
       throw new ProjectPersistenceRequiredException();
+    }
+  }
+
+  private void ensureProjectActive() {
+    if (status == ProjectStatus.DRAFT) {
+      status = ProjectStatus.ACTIVE;
     }
   }
 
