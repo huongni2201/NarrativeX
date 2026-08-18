@@ -9,6 +9,7 @@ import com.narrativex.backend.feature.auth.application.usecase.GetCurrentUserUse
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -63,8 +64,15 @@ public class PasswordAuthController {
       String password,
       HttpServletRequest request,
       HttpServletResponse response) {
-    Authentication authentication = authenticationManager.authenticate(
-        UsernamePasswordAuthenticationToken.unauthenticated(email, password));
+    Authentication authentication =
+        authenticationManager.authenticate(
+            UsernamePasswordAuthenticationToken.unauthenticated(email, password));
+
+    HttpSession existingSession = request.getSession(false);
+    if (existingSession != null) {
+      existingSession.invalidate();
+    }
+
     SecurityContext context = SecurityContextHolder.createEmptyContext();
     context.setAuthentication(authentication);
     SecurityContextHolder.setContext(context);
