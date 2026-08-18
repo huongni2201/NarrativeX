@@ -15,6 +15,9 @@ const ProjectsDashboard = dynamic(() =>
 const ProductionShell = dynamic(() =>
   import("@/features/production/ProductionShell").then((module) => module.ProductionShell),
 );
+const ChapterEditor = dynamic(() =>
+  import("@/features/chapters/components/ChapterEditor").then((module) => module.ChapterEditor),
+);
 const CharacterLibrary = dynamic(() =>
   import("@/features/characters/CharacterLibrary").then((module) => module.CharacterLibrary),
 );
@@ -33,24 +36,36 @@ const StylePresetsScreen = dynamic(() =>
 
 type StudioRouteScreen = Extract<
   ScreenType,
-  "overview" | "dashboard" | "project-workspace" | "characters" | "assets" | "presets"
+  | "overview"
+  | "dashboard"
+  | "project-workspace"
+  | "chapter-workspace"
+  | "characters"
+  | "assets"
+  | "presets"
 >;
 
 interface StudioAppShellProps {
   screen: StudioRouteScreen;
   projectId?: string;
+  chapterId?: string;
 }
 
 const screenTitles: Record<StudioRouteScreen, string> = {
   overview: "Dự án của tôi",
   dashboard: "Production Workspace",
   "project-workspace": "Production Workspace",
+  "chapter-workspace": "Chapter Source",
   characters: "Thư viện nhân vật",
   assets: "Thư viện tài sản (Asset Library)",
   presets: "Mẫu & Phong cách (Style & Presets)",
 };
 
-export function StudioAppShell({ screen, projectId }: Readonly<StudioAppShellProps>) {
+export function StudioAppShell({
+  screen,
+  projectId,
+  chapterId,
+}: Readonly<StudioAppShellProps>) {
   const status = useAuthStore((state) => state.status);
   const error = useAuthStore((state) => state.error);
   const isWizardOpen = useStudioStore((state) => state.isWizardOpen);
@@ -94,6 +109,9 @@ export function StudioAppShell({ screen, projectId }: Readonly<StudioAppShellPro
           {screen === "overview" && <ProjectsDashboard />}
           {(screen === "project-workspace" || screen === "dashboard") && (
             <ProductionShell projectId={projectId} />
+          )}
+          {screen === "chapter-workspace" && projectId && chapterId && (
+            <ChapterEditor projectId={projectId} chapterId={chapterId} />
           )}
           {screen === "characters" && <CharacterLibrary />}
           {screen === "assets" && <AssetLibraryScreen />}
