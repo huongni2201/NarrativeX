@@ -7,12 +7,19 @@ import java.util.regex.Pattern;
 /** Storyboard chapter aggregate tied to a story-version snapshot. */
 public final class Chapter extends AggregateRoot {
   private static final Pattern SHA_256_HEX = Pattern.compile("[0-9a-f]{64}");
+  private static final String EMPTY_SOURCE_SHA_256 =
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
   private final Long storyVersionId;
   private int orderIndex;
   private String title;
   private String sourceText;
   private String sourceHash;
+
+  /** Convenience constructor for an empty draft Chapter. */
+  public Chapter(Long storyVersionId, int orderIndex, String title) {
+    this(storyVersionId, orderIndex, title, "", EMPTY_SOURCE_SHA_256);
+  }
 
   public Chapter(
       Long storyVersionId, int orderIndex, String title, String sourceText, String sourceHash) {
