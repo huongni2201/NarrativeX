@@ -7,6 +7,8 @@ interface ModalProps {
   onClose: () => void;
   title?: string;
   subtitle?: string;
+  ariaLabel?: string;
+  closeDisabled?: boolean;
   children: React.ReactNode;
   maxWidth?: "sm" | "md" | "lg" | "xl" | "2xl" | "4xl" | "6xl" | "full";
   className?: string;
@@ -14,7 +16,17 @@ interface ModalProps {
 
 const FOCUSABLE = 'a[href],button:not([disabled]),textarea:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
-export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, subtitle, children, maxWidth = "4xl", className }) => {
+export const Modal: React.FC<ModalProps> = ({
+  isOpen,
+  onClose,
+  title,
+  subtitle,
+  ariaLabel,
+  closeDisabled = false,
+  children,
+  maxWidth = "4xl",
+  className,
+}) => {
   const titleId = useId();
   const descId = useId();
   const contentRef = useRef<HTMLDivElement>(null);
@@ -30,6 +42,7 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, subtitle, 
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        if (closeDisabled) return;
         event.preventDefault();
         onClose();
         return;
@@ -58,28 +71,40 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, subtitle, 
       window.removeEventListener("keydown", handleKeyDown);
       previousActiveElement?.focus();
     };
-  }, [isOpen, onClose]);
+  }, [closeDisabled, isOpen, onClose]);
 
   if (!isOpen) return null;
 
   const maxWidthStyles = { sm: "max-w-sm", md: "max-w-md", lg: "max-w-lg", xl: "max-w-xl", "2xl": "max-w-2xl", "4xl": "max-w-4xl", "6xl": "max-w-6xl", full: "max-w-[96vw] h-[92vh]" };
+  const accessibleLabel = title ? undefined : ariaLabel;
 
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby={title ? titleId : undefined} aria-describedby={subtitle ? descId : undefined} className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 md:p-8">
-      <div className="fixed inset-0 bg-black/85 backdrop-blur-md transition-opacity animate-in fade-in duration-200" onClick={onClose} aria-hidden="true" />
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={accessibleLabel}
+      aria-labelledby={title ? titleId : undefined}
+      aria-describedby={subtitle ? descId : undefined}
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 md:p-8"
+    >
+      <div
+        className="fixed inset-0 bg-black/85 backdrop-blur-md transition-opacity motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200"
+        onClick={closeDisabled ? undefined : onClose}
+        aria-hidden="true"
+      />
       <div
         ref={contentRef}
         tabIndex={-1}
-        className={cn("relative w-full max-h-[calc(100vh-2rem)] bg-[#0d1420] border border-slate-800/90 rounded-2xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col z-10 animate-in zoom-in-95 duration-200", maxWidthStyles[maxWidth], className)}
+        className={cn("relative z-10 flex w-full max-h-[calc(100vh-2rem)] flex-col overflow-hidden rounded-2xl border border-slate-800/90 bg-[#0d1420] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] motion-safe:animate-in motion-safe:zoom-in-95 motion-safe:duration-200", maxWidthStyles[maxWidth], className)}
       >
         {(title || subtitle) && (
-          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800/80 bg-[#090e18]/80 shrink-0">
+          <div className="flex shrink-0 items-center justify-between border-b border-slate-800/80 bg-[#090e18]/80 px-6 py-4">
             <div>
               {title && <h3 id={titleId} className="text-lg font-bold text-slate-100">{title}</h3>}
-              {subtitle && <p id={descId} className="text-xs text-slate-400 mt-0.5">{subtitle}</p>}
+              {subtitle && <p id={descId} className="mt-0.5 text-xs text-slate-400">{subtitle}</p>}
             </div>
-            <button type="button" onClick={onClose} aria-label="Đóng hộp thoại" className="text-slate-400 hover:text-slate-200 hover:bg-slate-800/80 p-2 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:outline-none">
-              <X className="w-5 h-5" />
+            <button type="button" onClick={onClose} disabled={closeDisabled} aria-label="Đóng hộp thoại" className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-800/80 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 disabled:cursor-not-allowed disabled:opacity-40">
+              <X className="h-5 w-5" />
             </button>
           </div>
         )}
