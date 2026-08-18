@@ -39,19 +39,21 @@ public class NarrativeXOidcUserService implements OAuth2UserService<OidcUserRequ
 
     AuthUserJpaEntity account = repository.findByGoogleSubject(subject).orElse(null);
     if (account == null) {
-      account = repository.findByEmailIgnoreCase(email).orElse(null);
-      if (account != null
-          && account.getGoogleSubject() != null
-          && !account.getGoogleSubject().equals(subject)) {
-        throw invalidUserInfo("This email is already linked to another Google identity.");
+      AuthUserJpaEntity existingEmailAccount = repository.findByEmailIgnoreCase(email).orElse(null);
+      if (existingEmailAccount != null) {
+        throw invalidUserInfo(
+            "This email already belongs to a NarrativeX account. Sign in with that method first before linking Google.");
       }
-      if (account == null) {
-        account = new AuthUserJpaEntity(
-            UUID.randomUUID().toString(), email, displayName, avatarUrl, null, subject, true);
-      } else {
-        account.linkGoogle(subject, displayName, avatarUrl);
-      }
-      account = repository.save(account);
+      account =
+          repository.save(
+              new AuthUserJpaEntity(
+                  UUID.randomUUID().toString(),
+                  email,
+                  displayName,
+                  avatarUrl,
+                  null,
+                  subject,
+                  true));
     } else {
       account.linkGoogle(subject, displayName, avatarUrl);
       account = repository.save(account);
@@ -64,12 +66,15 @@ public class NarrativeXOidcUserService implements OAuth2UserService<OidcUserRequ
   }
 
   private static OAuth2AuthenticationException invalidUserInfo(String description) {
-    return new OAuth2AuthenticationException(
-        new OAuth2Error("invalid_user_info"), description);
+    return new OAuth2AuthenticationException(new OAuth2Error("invalid_user_info"), description);
   }
 
   private static String firstNonBlank(String... values) {
-    for (String value : values) if (value != null && !value.isBlank()) return value;
+    for (String value : values) {
+      if (value != null && !value.isBlank()) {
+        return value;
+      }
+    }
     return "NarrativeX user";
   }
 }
