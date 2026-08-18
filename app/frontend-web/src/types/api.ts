@@ -201,7 +201,11 @@ export function isApiChapterSummary(value: unknown): value is ApiChapterSummary 
 }
 
 export function isApiChapter(value: unknown): value is ApiChapter {
-  return isApiChapterSummary(value) && isString(value.sourceText);
+  return (
+    isRecord(value) &&
+    isApiChapterSummary(value) &&
+    isString(value.sourceText)
+  );
 }
 
 export function isApiGenerationJob(value: unknown): value is ApiGenerationJob {
