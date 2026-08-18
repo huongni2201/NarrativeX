@@ -36,6 +36,13 @@ public class StoryVersionPersistenceAdapter implements StoryVersionRepository {
   }
 
   @Override
+  public Optional<StoryVersion> findLatestByProjectId(Long projectId) {
+    return repository
+        .findFirstByProjectIdOrderByVersionNumberDesc(projectId)
+        .map(ProjectPersistenceMapper::toDomain);
+  }
+
+  @Override
   public StoryVersion save(StoryVersion storyVersion) {
     return ProjectPersistenceMapper.toDomain(repository.save(toJpaEntity(storyVersion)));
   }
