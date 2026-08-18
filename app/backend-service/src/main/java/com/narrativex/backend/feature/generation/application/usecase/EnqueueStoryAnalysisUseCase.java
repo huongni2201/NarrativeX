@@ -12,7 +12,7 @@ import com.narrativex.backend.feature.generation.domain.aggregate.OperationPlan;
 import com.narrativex.backend.feature.generation.domain.entity.StageAttempt;
 import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
 import com.narrativex.backend.feature.project.application.port.out.ProjectRepository;
-import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
+import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
 import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -26,7 +26,7 @@ public class EnqueueStoryAnalysisUseCase {
   private final CurrentUserId currentUserId;
   private final StoryVersionAccess storyVersionAccess;
   private final ProjectRepository projectRepository;
-  private final ChapterRepository chapterRepository;
+  private final ChapterAnalysisSourceAccess chapterAnalysisSourceAccess;
   private final OperationPlanRepository operationPlanRepository;
   private final GenerationJobRepository generationJobRepository;
   private final StageAttemptRepository stageAttemptRepository;
@@ -39,19 +39,16 @@ public class EnqueueStoryAnalysisUseCase {
   @Transactional
   public GenerationJob execute(EnqueueStoryAnalysisCommand command) {
     String userId = currentUserId.get();
-    var chapter =
-        chapterRepository
-            .findById(command.chapterId())
-            .orElseThrow(() -> new ResourceNotFoundException("Chapter not found"));
+    var chapter = chapterAnalysisSourceAccess.requireById(command.chapterId());
 
     storyVersionAccess.requireOwnedStoryVersion(
-        command.projectId(), chapter.getStoryVersionId(), userId);
+        command.projectId(), chapter.storyVersionId(), userId);
     var project =
         projectRepository
             .findOwnedById(command.projectId(), userId)
             .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
 
-    if (chapter.getSourceText().isBlank()) {
+    if (chapter.sourceText().isBlank()) {
       throw new IllegalArgumentException("Chapter source must be saved before analysis");
     }
 
@@ -61,7 +58,7 @@ public class EnqueueStoryAnalysisUseCase {
             + ":"
             + command.chapterId()
             + ":"
-            + chapter.getSourceHash();
+            + chapter.sourceHash();
 
     // Serialize identical requests inside this PostgreSQL transaction. A concurrent request waits
     // for the first transaction to commit, then observes and returns the already-created job.
@@ -85,11 +82,11 @@ public class EnqueueStoryAnalysisUseCase {
         generationJobRepository.save(
             GenerationJob.createChapterAnalysis(
                 command.projectId(),
-                chapter.getStoryVersionId(),
+                chapter.storyVersionId(),
                 command.chapterId(),
-                chapter.getRowVersion(),
-                chapter.getSourceHash(),
-                chapter.getSourceText(),
+                chapter.rowVersion(),
+                chapter.sourceHash(),
+                chapter.sourceText(),
                 project.getSourceLanguage(),
                 idempotencyKey,
                 userId));
