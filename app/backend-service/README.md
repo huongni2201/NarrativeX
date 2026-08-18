@@ -3,6 +3,8 @@
 ## Purpose
 The Backend Service is the core application and domain authority of NarrativeX. It coordinates business workflows, manages persistence, enforces authorization and business rules, and serves as the single API gateway for clients. Long-running generation is asynchronous, but production job creation remains disabled until the durable enqueue/worker path is implemented and verified.
 
+Creating a Project is metadata-only. AI/media work is never triggered as a side effect of Project creation; story analysis is explicitly scoped to a persisted Chapter.
+
 ## Technology Stack
 - **Language**: Java 25
 - **Framework**: Spring Boot 4
@@ -76,11 +78,11 @@ Limits are configuration, not domain invariants, and may be changed under `narra
 
 ## Database migration invariant
 
-Flyway migrations are forward-only once shared. Historical migrations are not edited to remove released schema state.
+Flyway migrations are forward-only once shared. The repository currently uses a consolidated V1 schema baseline for the active domain, followed by seed/forward migrations as documented in `documentation/codebase/DATABASE_BASELINE.md`.
 
-The current migration path includes a consolidated V1 baseline and forward migrations through V7. `V6__drop_legacy_story_rights_columns.sql` removes the obsolete StoryVersion rights columns. `V7__drop_legacy_content_rights_attestations.sql` removes the remaining legacy `content_rights_attestations` table. The active product/domain contract has no blanket per-story copyright/rights-attestation prerequisite for Analyze/Generate; moderation, report/review/takedown and real-person consent remain independent concerns.
+The consolidated baseline does not contain the retired StoryVersion copyright/rights-attestation columns or the legacy `content_rights_attestations` table. Those names belong to historical migration context only and are not active schema compatibility requirements. The active product/domain contract has no blanket per-story copyright/rights-attestation prerequisite for Analyze/Generate; moderation, report/review/takedown and real-person consent remain independent concerns.
 
-The PostgreSQL Testcontainers migration test runs with the explicit `test` profile while overriding the test datasource/dialect back to PostgreSQL, then validates the complete Flyway path and Hibernate schema compatibility.
+The PostgreSQL Testcontainers migration test runs with the explicit `test` profile while overriding the test datasource/dialect back to PostgreSQL, then validates the current Flyway path and Hibernate schema compatibility.
 
 ## Development Commands
 
@@ -155,7 +157,13 @@ The standalone container command assumes PostgreSQL and Redis are reachable from
 
 ## Story analysis feature gate
 
-`POST /api/v1/projects/{projectId}/analysis-jobs` is disabled by default with:
+Story analysis is Chapter-scoped:
+
+```http
+POST /api/v1/projects/{projectId}/chapters/{chapterId}/analysis-jobs
+```
+
+It is disabled by default with:
 
 ```yaml
 narrativex:
@@ -163,9 +171,9 @@ narrativex:
     story-analysis-enabled: false
 ```
 
-The environment override is `NARRATIVEX_STORY_ANALYSIS_ENABLED`. Do **not** enable it in a shared environment until the durable enqueue transaction, StageAttempt/outbox dispatch, worker claim/lease/heartbeat path, provider-operation reconciliation, entitlement/quota, abuse/safety gates and cost authorization/reservation are implemented and integration-tested.
+The environment override is `NARRATIVEX_STORY_ANALYSIS_ENABLED`. Do **not** enable it in a shared environment until persisted/current Chapter source validation, idempotency, the atomic durable enqueue transaction, StageAttempt/outbox dispatch, worker claim/lease/heartbeat/recovery, provider-operation reconciliation, entitlement/quota, abuse/safety gates and cost authorization/reservation are implemented and integration-tested.
 
-When disabled, the endpoint returns `503 FEATURE_NOT_AVAILABLE` and must not create a fake `QUEUED` job.
+When disabled, the endpoint returns `503 FEATURE_NOT_AVAILABLE` and must not create a fake `QUEUED` job. `POST /api/v1/projects` must never invoke this endpoint or enqueue equivalent AI/media work as a side effect.
 
 ## Application Boundaries
 - **Must Own**: Domain models, business rule validation, project state, database schema and migrations (Flyway), client API endpoints, authorization and durable job control-plane state.
