@@ -12,6 +12,7 @@ import com.narrativex.backend.feature.project.application.query.GetProjectQuery;
 import com.narrativex.backend.feature.project.application.query.ProjectListQuery;
 import com.narrativex.backend.feature.project.application.usecase.CreateProjectUseCase;
 import com.narrativex.backend.feature.project.application.usecase.CreateStoryVersionUseCase;
+import com.narrativex.backend.feature.project.application.usecase.GetLatestStoryVersionUseCase;
 import com.narrativex.backend.feature.project.application.usecase.GetProjectUseCase;
 import com.narrativex.backend.feature.project.application.usecase.ListProjectsUseCase;
 import jakarta.validation.Valid;
@@ -36,6 +37,7 @@ public class ProjectController {
   private final GetProjectUseCase getProjectUseCase;
   private final CreateProjectUseCase createProjectUseCase;
   private final CreateStoryVersionUseCase createStoryVersionUseCase;
+  private final GetLatestStoryVersionUseCase getLatestStoryVersionUseCase;
 
   @GetMapping
   public ResponseEntity<ApiResponse<CursorPage<ProjectResponse>>> list(
@@ -51,6 +53,15 @@ public class ProjectController {
         ApiResponse.success(
             "Project retrieved successfully",
             ProjectResponse.from(getProjectUseCase.execute(new GetProjectQuery(projectId)))));
+  }
+
+  @GetMapping("/{projectId}/stories/latest")
+  public ResponseEntity<ApiResponse<StoryVersionResponse>> getLatestStory(
+      @PathVariable Long projectId) {
+    return ResponseEntity.ok(
+        ApiResponse.success(
+            "Latest story version retrieved successfully",
+            StoryVersionResponse.from(getLatestStoryVersionUseCase.execute(projectId))));
   }
 
   @PostMapping
