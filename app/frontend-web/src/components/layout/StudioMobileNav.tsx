@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FolderKanban, Image as ImageIcon, LayoutDashboard, Palette, Users } from "lucide-react";
+import { FolderKanban, Image as ImageIcon, Palette, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { href: "/", label: "Tổng quan", icon: LayoutDashboard },
   { href: "/projects", label: "Dự án", icon: FolderKanban },
   { href: "/characters", label: "Nhân vật", icon: Users },
   { href: "/assets", label: "Tài sản", icon: ImageIcon },
@@ -19,13 +18,10 @@ export function StudioMobileNav() {
   return (
     <nav
       aria-label="Điều hướng studio trên di động"
-      className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-slate-800/90 bg-[#090e17]/95 px-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-lg lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-slate-800/90 bg-[#090e17]/95 px-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-lg lg:hidden"
     >
       {navItems.map(({ href, label, icon: Icon }) => {
-        const active =
-          href === "/"
-            ? pathname === "/"
-            : pathname === href || pathname.startsWith(`${href}/`);
+        const active = pathname === href || pathname.startsWith(`${href}/`);
 
         return (
           <Link
