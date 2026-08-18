@@ -32,11 +32,6 @@ public final class ProjectPersistenceMapper {
         entity.getContent(),
         entity.getSourceLanguage(),
         entity.getStatus(),
-        entity.getModerationDecision(),
-        entity.isRightsAttested(),
-        entity.getRightsPolicyVersion(),
-        entity.getRightsBasis(),
-        entity.getRightsAttestedAt(),
-        entity.getRightsAttestedBy());
+        entity.getModerationDecision());
   }
 }
