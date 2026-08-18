@@ -25,6 +25,8 @@ server:
         secure: false
 
 narrativex:
+  generation:
+    outbox-dispatch-enabled: false
   security:
     local-dev-identity-enabled: true
     auth-rate-limit:
