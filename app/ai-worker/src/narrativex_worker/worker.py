@@ -87,20 +87,25 @@ class NarrativeXWorker:
             claimed.request.chapter_id,
             claimed.request.source_hash,
         )
+        processing_task = asyncio.create_task(self._execute_claimed(claimed))
         heartbeat_task = asyncio.create_task(self._heartbeat_loop(claimed.stage_attempt_id))
         try:
-            operation = await self.service.submit_chapter_analysis(claimed.request)
-            if (
-                operation.status is not ProviderOperationStatus.COMPLETED
-                or operation.result is None
-            ):
-                raise RuntimeError(
-                    f"Chapter analysis provider returned non-terminal status {operation.status}"
-                )
-            await self.repository.complete(claimed, self.worker_id, operation.result)
-            self.logger.info("Completed Chapter analysis job=%s", claimed.job_id)
+            done, _ = await asyncio.wait(
+                {processing_task, heartbeat_task},
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+
+            if heartbeat_task in done:
+                await heartbeat_task
+                raise RuntimeError("Heartbeat loop stopped unexpectedly")
+
+            await processing_task
         except Exception as exception:
             self.logger.exception("Chapter analysis job=%s failed", claimed.job_id)
+            if not processing_task.done():
+                processing_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await processing_task
             with contextlib.suppress(Exception):
                 await self.repository.fail(
                     claimed,
@@ -108,9 +113,21 @@ class NarrativeXWorker:
                     type(exception).__name__.upper()[:80],
                 )
         finally:
-            heartbeat_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await heartbeat_task
+            for task in (processing_task, heartbeat_task):
+                if not task.done():
+                    task.cancel()
+            for task in (processing_task, heartbeat_task):
+                with contextlib.suppress(asyncio.CancelledError, Exception):
+                    await task
+
+    async def _execute_claimed(self, claimed: ClaimedChapterAnalysisJob) -> None:
+        operation = await self.service.submit_chapter_analysis(claimed.request)
+        if operation.status is not ProviderOperationStatus.COMPLETED or operation.result is None:
+            raise RuntimeError(
+                f"Chapter analysis provider returned non-terminal status {operation.status}"
+            )
+        await self.repository.complete(claimed, self.worker_id, operation.result)
+        self.logger.info("Completed Chapter analysis job=%s", claimed.job_id)
 
     async def _heartbeat_loop(self, stage_attempt_id: int) -> None:
         interval = max(3.0, self.settings.lease_seconds / 3)
