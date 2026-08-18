@@ -39,8 +39,8 @@ docker run -p 3000:3000 narrativex-frontend-web
 
 ## Canonical routes
 
-- `/` — overview entry
-- `/projects` — project list
+- `/` — redirect to `/projects` until a distinct backend-backed overview dashboard exists
+- `/projects` — canonical project list
 - `/projects/[projectId]` — project workspace
 - `/characters` — character library
 - `/assets` — asset library
@@ -48,7 +48,7 @@ docker run -p 3000:3000 narrativex-frontend-web
 - `/auth` — auth entry
 - `/dashboard` — legacy redirect to `/projects`
 
-Project identity comes from the URL. The workspace must not depend on a selected-project value in Zustand.
+Do not expose two navigation entries that render the same project-list screen. Project identity comes from the URL. The workspace must not depend on a selected-project value in Zustand.
 
 ## Application Boundaries
 
@@ -62,7 +62,15 @@ API mode is the runtime source of truth. `NEXT_PUBLIC_NX_DATA_MODE=mock` is rese
 
 Mock modules must be lazy-loaded behind demo boundaries. Production/API-mode entry paths must not statically import fixture modules such as project, production, asset, character, preset, job, entitlement, or account fixtures.
 
-When a backend feature is not available yet, the API-mode UI must show an explicit unavailable/coming-soon state rather than silently using local fake data.
+When a backend feature is not available yet, the API-mode UI must show an explicit unavailable/coming-soon state rather than silently using local fake data. In particular, story file import remains disabled until the backend exposes a document-upload/extraction/storage contract; the UI must not present a fake drag-and-drop uploader.
+
+## Project creation workflow safety
+
+Project creation currently spans two persisted resources: the Project and its initial StoryVersion. The frontend may reuse the already-created Project after a definitive HTTP error from StoryVersion creation, but it must not blindly retry after an ambiguous transport/protocol failure because the backend may already have committed the StoryVersion.
+
+When StoryVersion commit state is uncertain, the wizard blocks retry and directs the user to inspect the created project first. This is a client-side safety guard, not a substitute for backend idempotency. The long-term backend contract should provide an idempotent or transactional orchestration endpoint for creating a project together with its initial story.
+
+While the create workflow is pending, the wizard must not close via the close button, backdrop, Escape, step navigation, or back actions. Local workflow/error state must be reset when the wizard closes after the request is no longer pending.
 
 ## State ownership
 
