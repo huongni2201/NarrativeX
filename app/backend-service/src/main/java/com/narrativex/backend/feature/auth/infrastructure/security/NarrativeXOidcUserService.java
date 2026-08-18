@@ -40,30 +40,38 @@ public class NarrativeXOidcUserService implements OAuth2UserService<OidcUserRequ
     if (account == null) {
       AuthUserJpaEntity existingEmailAccount = repository.findByEmailIgnoreCase(email).orElse(null);
       if (existingEmailAccount != null) {
-        throw invalidUserInfo(
-            "This email already belongs to a NarrativeX account. Sign in with that method first before linking Google.");
+        if (!existingEmailAccount.isEnabled()) {
+          throw invalidUserInfo("The NarrativeX account is disabled.");
+        }
+        String linkedSubject = existingEmailAccount.getGoogleSubject();
+        if (linkedSubject != null && !linkedSubject.equals(subject)) {
+          throw invalidUserInfo("This NarrativeX account is already linked to another Google account.");
+        }
+        existingEmailAccount.linkGoogle(subject, displayName, avatarUrl);
+        account = repository.save(existingEmailAccount);
+      } else {
+        Instant now = Instant.now();
+        account =
+            repository.save(
+                AuthUserJpaEntity.builder()
+                    .id(UUID.randomUUID().toString())
+                    .email(email)
+                    .displayName(displayName)
+                    .avatarUrl(avatarUrl)
+                    .googleSubject(subject)
+                    .enabled(true)
+                    .createdAt(now)
+                    .updatedAt(now)
+                    .build());
       }
-      Instant now = Instant.now();
-      account =
-          repository.save(
-              AuthUserJpaEntity.builder()
-                  .id(UUID.randomUUID().toString())
-                  .email(email)
-                  .displayName(displayName)
-                  .avatarUrl(avatarUrl)
-                  .googleSubject(subject)
-                  .enabled(true)
-                  .createdAt(now)
-                  .updatedAt(now)
-                  .build());
     } else {
+      if (!account.isEnabled()) {
+        throw invalidUserInfo("The NarrativeX account is disabled.");
+      }
       account.linkGoogle(subject, displayName, avatarUrl);
       account = repository.save(account);
     }
 
-    if (!account.isEnabled()) {
-      throw invalidUserInfo("The NarrativeX account is disabled.");
-    }
     return new NarrativeXOidcUser(account.getId(), oidcUser);
   }
 
