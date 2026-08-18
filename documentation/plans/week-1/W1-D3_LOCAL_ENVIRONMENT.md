@@ -40,8 +40,8 @@ PostgreSQL 18, Redis 8 and MinIO are the required Compose baseline. The Spring B
 
 ### 2. Define environment contracts
 
-- [ ] Root `.env.example` contains safe local placeholders for database, Redis, MinIO, app ports and frontend API base URL.
-- [ ] OIDC/provider credentials are empty and documented as optional for local fake mode.
+- [x] Root `.env.example` contains safe local placeholders for database, Redis, MinIO, app ports and frontend API base URL.
+- [x] OIDC/provider credentials are empty and documented as optional for local fake mode.
 - [ ] Use separate configuration namespaces for `local`, `dev`, `staging` and `prod`; staging/prod must not inherit local passwords or `permitAll` behavior.
 - [ ] Fail startup in non-local profiles when required secret/config values are absent.
 - [ ] Never expose server/provider credentials through `NEXT_PUBLIC_*`.
