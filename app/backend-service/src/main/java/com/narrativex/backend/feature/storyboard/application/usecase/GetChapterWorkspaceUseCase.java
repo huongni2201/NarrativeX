@@ -94,14 +94,16 @@ public class GetChapterWorkspaceUseCase {
             new ChapterWorkspaceResponse.Pipeline(
                 new ChapterWorkspaceResponse.PipelineStep(analysisStatus, analysis.completedAt()),
                 new ChapterWorkspaceResponse.PipelineStep(planningStatus, analysis.completedAt()),
-                new ChapterWorkspaceResponse.ProgressStep(
-                    "NOT_STARTED", visualBeatCount == null ? 0 : visualBeatCount, 0, 0),
+                new ChapterWorkspaceResponse.ProgressStep("NOT_STARTED", 0, 0, 0),
                 new ChapterWorkspaceResponse.PipelineStep("NOT_STARTED", null),
                 new ChapterWorkspaceResponse.PipelineStep("NOT_STARTED", null),
                 sourceOutdated),
             previewScenes,
             new ChapterWorkspaceResponse.Capabilities(
-                !chapter.getSourceText().isBlank() && !isActive(analysisStatus), false, false, false));
+                !chapter.getSourceText().isBlank() && !isActive(analysisStatus),
+                false,
+                false,
+                false));
 
     return ApiResponse.success(response);
   }
