@@ -46,11 +46,7 @@ public class CreateStoryVersionUseCase {
         project.createStoryVersion(
             versionNumber,
             command.content(),
-            defaultValue(command.sourceLanguage(), "vi-VN"),
-            command.rightsAttestationAccepted(),
-            defaultValue(command.rightsPolicyVersion(), "rights-v1.7"),
-            defaultValue(command.rightsBasis(), "USER_ATTESTED_RIGHTS_OR_LICENSE"),
-            resolvedOwnerId);
+            defaultValue(command.sourceLanguage(), "vi-VN"));
     StoryVersion saved = storyVersionRepository.save(storyVersion);
     return ApiResponse.success(
         "Story version created successfully", StoryVersionResponse.from(saved));

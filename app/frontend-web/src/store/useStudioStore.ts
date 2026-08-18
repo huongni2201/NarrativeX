@@ -36,7 +36,6 @@ const createEmptyWizardDraft = (): ProjectWizardDraft => ({
   aspectRatio: "16:9",
   quality: "High",
   storyText: "",
-  rightsAttestationAccepted: false,
   step: 1,
 });
 
@@ -74,7 +73,7 @@ export const useStudioStore = create<StudioStore>((set) => ({
       wizardDraft:
         initialStep === 1
           ? createEmptyWizardDraft()
-          : { ...state.wizardDraft, step: initialStep, rightsAttestationAccepted: false },
+          : { ...state.wizardDraft, step: initialStep },
     })),
   closeWizard: () =>
     set({
@@ -91,9 +90,6 @@ export const useStudioStore = create<StudioStore>((set) => ({
       wizardDraft: {
         ...state.wizardDraft,
         ...data,
-        ...(data.storyText !== undefined && data.storyText !== state.wizardDraft.storyText
-          ? { rightsAttestationAccepted: false }
-          : {}),
       },
     })),
   loadSampleStory: () =>
@@ -101,7 +97,6 @@ export const useStudioStore = create<StudioStore>((set) => ({
       wizardDraft: {
         ...state.wizardDraft,
         storyText: SAMPLE_STORY_PRESET,
-        rightsAttestationAccepted: false,
       },
     })),
 }));

@@ -44,9 +44,6 @@ class CreateStoryVersionUseCaseTest {
                 42L,
                 "story",
                 "vi-VN",
-                true,
-                "rights-v1.7",
-                "USER_ATTESTED_RIGHTS_OR_LICENSE",
                 "owner"));
 
     assertEquals(4, response.data().versionNumber());

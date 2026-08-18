@@ -53,9 +53,6 @@ export interface CreateProjectApiInput {
 export interface CreateStoryVersionApiInput {
   content: string;
   sourceLanguage?: string;
-  rightsAttestationAccepted: boolean;
-  rightsPolicyVersion?: string;
-  rightsBasis?: string;
 }
 
 export interface ApiResponse<T> {

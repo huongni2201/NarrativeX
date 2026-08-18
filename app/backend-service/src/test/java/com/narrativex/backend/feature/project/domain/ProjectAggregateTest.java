@@ -28,9 +28,7 @@ class ProjectAggregateTest {
             ImageQualityTier.STANDARD,
             null);
 
-    StoryVersion storyVersion =
-        project.createStoryVersion(
-            1, "content", "vi-VN", true, "rights-v1.7", "USER_ATTESTED_RIGHTS_OR_LICENSE", "owner");
+    StoryVersion storyVersion = project.createStoryVersion(1, "content", "vi-VN");
 
     assertEquals(42L, storyVersion.getProjectId());
     assertEquals(1, storyVersion.getVersionNumber());
@@ -54,14 +52,6 @@ class ProjectAggregateTest {
 
     assertThrows(
         ArchivedProjectException.class,
-        () ->
-            project.createStoryVersion(
-                1,
-                "content",
-                "vi-VN",
-                true,
-                "rights-v1.7",
-                "USER_ATTESTED_RIGHTS_OR_LICENSE",
-                "owner"));
+        () -> project.createStoryVersion(1, "content", "vi-VN"));
   }
 }

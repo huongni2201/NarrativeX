@@ -119,7 +119,6 @@ export interface ProjectWizardDraft {
   aspectRatio: AspectRatio;
   quality: ImageQuality;
   storyText: string;
-  rightsAttestationAccepted: boolean;
   step: 1 | 2 | 3 | 4;
 }
 

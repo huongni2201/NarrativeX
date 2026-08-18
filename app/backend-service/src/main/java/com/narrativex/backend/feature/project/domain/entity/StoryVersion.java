@@ -8,6 +8,9 @@ import java.util.Objects;
 
 /** Story version entity owned by the Project aggregate. */
 public final class StoryVersion extends DomainEntity {
+  private static final String LEGACY_RIGHTS_POLICY_NOT_REQUIRED = "not-required";
+  private static final String LEGACY_RIGHTS_BASIS_NOT_REQUIRED = "NOT_REQUIRED";
+
   private final Long projectId;
   private final int versionNumber;
   private final String content;
@@ -61,12 +64,7 @@ public final class StoryVersion extends DomainEntity {
       Long projectId,
       int versionNumber,
       String content,
-      String sourceLanguage,
-      boolean rightsAttested,
-      String rightsPolicyVersion,
-      String rightsBasis,
-      String rightsAttestedBy) {
-    String actor = rightsAttested ? required(rightsAttestedBy, "rightsAttestedBy") : null;
+      String sourceLanguage) {
     return new StoryVersion(
         null,
         0L,
@@ -76,11 +74,11 @@ public final class StoryVersion extends DomainEntity {
         sourceLanguage,
         StoryVersionStatus.DRAFT,
         ModerationDecision.PENDING,
-        rightsAttested,
-        rightsPolicyVersion,
-        rightsBasis,
-        rightsAttested ? Instant.now() : null,
-        actor);
+        false,
+        LEGACY_RIGHTS_POLICY_NOT_REQUIRED,
+        LEGACY_RIGHTS_BASIS_NOT_REQUIRED,
+        null,
+        null);
   }
 
   public static StoryVersion rehydrate(
@@ -116,9 +114,6 @@ public final class StoryVersion extends DomainEntity {
   public void activate() {
     if (status != StoryVersionStatus.DRAFT) {
       throw new IllegalStateException("Only draft story versions can be activated");
-    }
-    if (!rightsAttested) {
-      throw new IllegalStateException("Story rights must be attested before activation");
     }
     status = StoryVersionStatus.ACTIVE;
   }
@@ -165,11 +160,5 @@ public final class StoryVersion extends DomainEntity {
 
   public String getRightsAttestedBy() {
     return rightsAttestedBy;
-  }
-
-  private static String required(String value, String field) {
-    if (value == null || value.isBlank())
-      throw new IllegalArgumentException(field + " must not be blank");
-    return value;
   }
 }
