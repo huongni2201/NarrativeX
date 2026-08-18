@@ -29,14 +29,26 @@ public record ProjectOverviewResponse(
         view.createdAt(),
         view.updatedAt(),
         new ProjectOverviewMetricsResponse(
-            metrics.totalChapters(), metrics.readyChapters(), metrics.renderedChapters(),
-            metrics.totalScenes(), metrics.estimatedDurationSeconds(), metrics.approvedVisuals(),
-            metrics.processingJobs(), metrics.overallProgress()),
+            metrics.totalChapters(),
+            metrics.readyChapters(),
+            metrics.renderedChapters(),
+            metrics.totalScenes(),
+            metrics.estimatedDurationSeconds(),
+            metrics.approvedVisuals(),
+            metrics.processingJobs(),
+            metrics.overallProgress()),
         new ProjectOverviewCountsResponse(counts.characters(), counts.locations(), counts.assets()),
         view.chapters().stream()
-            .map(chapter -> new ProjectOverviewChapterResponse(
-                chapter.id(), chapter.orderIndex(), chapter.title(), chapter.status(),
-                chapter.sceneCount(), chapter.durationSeconds(), chapter.updatedAt()))
+            .map(
+                chapter ->
+                    new ProjectOverviewChapterResponse(
+                        chapter.id(),
+                        chapter.orderIndex(),
+                        chapter.title(),
+                        chapter.status(),
+                        chapter.sceneCount(),
+                        chapter.durationSeconds(),
+                        chapter.updatedAt()))
             .toList());
   }
 }
