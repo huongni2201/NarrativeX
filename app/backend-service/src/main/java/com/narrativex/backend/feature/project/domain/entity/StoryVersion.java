@@ -111,11 +111,23 @@ public final class StoryVersion extends DomainEntity {
         rightsAttestedBy);
   }
 
+  /**
+   * Transitions this version to ACTIVE. Application code should coordinate this transition through
+   * the owning {@code Project} so the previous ACTIVE version is superseded in the same transaction.
+   */
   public void activate() {
     if (status != StoryVersionStatus.DRAFT) {
       throw new IllegalStateException("Only draft story versions can be activated");
     }
     status = StoryVersionStatus.ACTIVE;
+  }
+
+  /** Supersedes the currently ACTIVE version as part of a Project-owned activation transition. */
+  public void supersede() {
+    if (status != StoryVersionStatus.ACTIVE) {
+      throw new IllegalStateException("Only active story versions can be superseded");
+    }
+    status = StoryVersionStatus.SUPERSEDED;
   }
 
   public Long getProjectId() {
