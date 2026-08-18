@@ -5,7 +5,6 @@ import com.narrativex.backend.feature.auth.infrastructure.persistence.entity.Aut
 import com.narrativex.backend.feature.auth.infrastructure.persistence.repository.AuthUserJpaRepository;
 import java.time.Instant;
 import java.util.UUID;
-import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest;
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
@@ -16,10 +15,19 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@RequiredArgsConstructor
 public class NarrativeXOidcUserService implements OAuth2UserService<OidcUserRequest, OidcUser> {
-  private final OidcUserService delegate = new OidcUserService();
+  private final OAuth2UserService<OidcUserRequest, OidcUser> delegate;
   private final AuthUserJpaRepository repository;
+
+  public NarrativeXOidcUserService(AuthUserJpaRepository repository) {
+    this(repository, new OidcUserService());
+  }
+
+  NarrativeXOidcUserService(
+      AuthUserJpaRepository repository, OAuth2UserService<OidcUserRequest, OidcUser> delegate) {
+    this.repository = repository;
+    this.delegate = delegate;
+  }
 
   @Override
   @Transactional
@@ -40,30 +48,38 @@ public class NarrativeXOidcUserService implements OAuth2UserService<OidcUserRequ
     if (account == null) {
       AuthUserJpaEntity existingEmailAccount = repository.findByEmailIgnoreCase(email).orElse(null);
       if (existingEmailAccount != null) {
-        throw invalidUserInfo(
-            "This email already belongs to a NarrativeX account. Sign in with that method first before linking Google.");
+        if (!existingEmailAccount.isEnabled()) {
+          throw invalidUserInfo("The NarrativeX account is disabled.");
+        }
+        String linkedSubject = existingEmailAccount.getGoogleSubject();
+        if (linkedSubject != null && !linkedSubject.equals(subject)) {
+          throw invalidUserInfo("This NarrativeX account is already linked to another Google account.");
+        }
+        existingEmailAccount.linkGoogle(subject, displayName, avatarUrl);
+        account = repository.save(existingEmailAccount);
+      } else {
+        Instant now = Instant.now();
+        account =
+            repository.save(
+                AuthUserJpaEntity.builder()
+                    .id(UUID.randomUUID().toString())
+                    .email(email)
+                    .displayName(displayName)
+                    .avatarUrl(avatarUrl)
+                    .googleSubject(subject)
+                    .enabled(true)
+                    .createdAt(now)
+                    .updatedAt(now)
+                    .build());
       }
-      Instant now = Instant.now();
-      account =
-          repository.save(
-              AuthUserJpaEntity.builder()
-                  .id(UUID.randomUUID().toString())
-                  .email(email)
-                  .displayName(displayName)
-                  .avatarUrl(avatarUrl)
-                  .googleSubject(subject)
-                  .enabled(true)
-                  .createdAt(now)
-                  .updatedAt(now)
-                  .build());
     } else {
+      if (!account.isEnabled()) {
+        throw invalidUserInfo("The NarrativeX account is disabled.");
+      }
       account.linkGoogle(subject, displayName, avatarUrl);
       account = repository.save(account);
     }
 
-    if (!account.isEnabled()) {
-      throw invalidUserInfo("The NarrativeX account is disabled.");
-    }
     return new NarrativeXOidcUser(account.getId(), oidcUser);
   }
 

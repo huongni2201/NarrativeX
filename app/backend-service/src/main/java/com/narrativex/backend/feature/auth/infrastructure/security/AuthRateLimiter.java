@@ -6,6 +6,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Locale;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataAccessException;
@@ -56,26 +57,19 @@ public class AuthRateLimiter {
 
   public void checkLogin(String email, String clientIp) {
     if (!enabled) return;
-    consume("login:ip", clientIp, loginIpLimit, loginWindowSeconds);
-    consume(
-        "login:identity",
-        normalizedIdentity(email, clientIp),
-        loginIdentityLimit,
-        loginWindowSeconds);
+    consume("login:ip", normalizedIp(clientIp), loginIpLimit, loginWindowSeconds);
+    consume("login:identity", normalizedIdentity(email), loginIdentityLimit, loginWindowSeconds);
   }
 
   public void checkRegister(String email, String clientIp) {
     if (!enabled) return;
-    consume("register:ip", clientIp, registerIpLimit, registerWindowSeconds);
+    consume("register:ip", normalizedIp(clientIp), registerIpLimit, registerWindowSeconds);
     consume(
-        "register:identity",
-        normalizedIdentity(email, clientIp),
-        registerIdentityLimit,
-        registerWindowSeconds);
+        "register:identity", normalizedIdentity(email), registerIdentityLimit, registerWindowSeconds);
   }
 
   private void consume(String bucket, String subject, int limit, long windowSeconds) {
-    String key = "narrativex:auth-rate:" + bucket + ":" + sha256(subject == null ? "unknown" : subject);
+    String key = "narrativex:auth-rate:" + bucket + ":" + sha256(subject);
     try {
       Long count =
           redisTemplate.execute(
@@ -86,14 +80,20 @@ public class AuthRateLimiter {
     } catch (AuthRateLimitExceededException exception) {
       throw exception;
     } catch (DataAccessException exception) {
-      log.warn("Auth rate limiter unavailable; allowing request to preserve authentication availability", exception);
+      log.warn(
+          "Auth rate limiter unavailable; allowing request to preserve authentication availability",
+          exception);
     }
   }
 
-  private static String normalizedIdentity(String email, String clientIp) {
-    String normalizedEmail = email == null ? "unknown" : email.trim().toLowerCase();
-    String normalizedIp = clientIp == null || clientIp.isBlank() ? "unknown" : clientIp.trim();
-    return normalizedEmail + "|" + normalizedIp;
+  private static String normalizedIdentity(String email) {
+    return email == null || email.isBlank()
+        ? "unknown"
+        : email.trim().toLowerCase(Locale.ROOT);
+  }
+
+  private static String normalizedIp(String clientIp) {
+    return clientIp == null || clientIp.isBlank() ? "unknown" : clientIp.trim();
   }
 
   private static String sha256(String value) {
