@@ -57,8 +57,11 @@ class WorkerRepository:
                            sa.status IN ('QUEUED', 'STALLED')
                            OR (
                                sa.status = 'RUNNING'
-                               AND (sa.heartbeat_at IS NULL
-                                    OR sa.heartbeat_at < CURRENT_TIMESTAMP - ($1 * INTERVAL '1 second'))
+                               AND (
+                                   sa.heartbeat_at IS NULL
+                                   OR sa.heartbeat_at
+                                      < CURRENT_TIMESTAMP - ($1 * INTERVAL '1 second')
+                               )
                            )
                        )
                      ORDER BY sa.created_at, sa.id
@@ -143,7 +146,7 @@ class WorkerRepository:
                 if not lease_owned:
                     raise RuntimeError("Worker no longer owns the analysis lease")
 
-                # Never materialize a result for a Chapter that changed after the persisted snapshot.
+                # Reject results when the Chapter changed after this snapshot was persisted.
                 snapshot_matches = await connection.fetchval(
                     """
                     SELECT EXISTS(
@@ -288,8 +291,8 @@ class WorkerRepository:
         claimed: ClaimedChapterAnalysisJob,
         result: ChapterAnalysisResult,
     ) -> None:
-        # Analysis is the only producer in the current MVP. Later visual-generation PRs should switch
-        # this replacement to an explicit OUTDATED transition instead of deleting approved outputs.
+        # Analysis is the only storyboard producer in the current MVP. Later visual-generation
+        # work should transition approved outputs to OUTDATED instead of deleting them.
         await connection.execute(
             """
             DELETE FROM visual_beats
