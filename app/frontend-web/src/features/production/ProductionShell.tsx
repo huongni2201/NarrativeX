@@ -5,16 +5,20 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
-  ChevronRight,
   Clock3,
   FileText,
   ImageIcon,
   MoreVertical,
   Play,
   Plus,
+  Settings,
   ShieldCheck,
   Sparkles,
   UploadCloud,
+  Users,
+  MapPin,
+  FolderKanban,
+  ExternalLink,
 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { chaptersApi } from "@/features/chapters/api/chapters.api";
@@ -44,6 +48,7 @@ export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
   const [sourceText, setSourceText] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"chapters" | "info" | "characters" | "locations" | "assets" | "settings">("chapters");
 
   const overviewQuery = useQuery({
     queryKey: hasValidProjectId
@@ -149,158 +154,311 @@ export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
   };
 
   return (
-    <div className="space-y-5">
-      <section className="overflow-hidden rounded-2xl border border-slate-800/90 bg-[#0d1420] shadow-[0_22px_60px_rgba(0,0,0,0.28)]">
-        <div className="grid gap-6 p-5 lg:grid-cols-[150px_minmax(0,1fr)] lg:p-6">
-          <ProjectCover name={overview.name} coverImageUrl={overview.coverImageUrl} />
+    <div className="space-y-6">
+      {/* Top Project Hero Banner matching Screen 01 */}
+      <section className="overflow-hidden rounded-2xl border border-slate-800/90 bg-[#0d1420] shadow-[0_22px_60px_rgba(0,0,0,0.35)]">
+        <div className="flex flex-col md:flex-row gap-6 p-6">
+          {/* Cover Hero Thumbnail */}
+          <div className="relative w-full md:w-56 aspect-[3/4] rounded-xl overflow-hidden bg-slate-950 border border-purple-500/30 shrink-0 shadow-[0_0_25px_rgba(124,58,237,0.25)]">
+            <ProjectCover name={overview.name} coverImageUrl={overview.coverImageUrl} />
+            <div className="absolute top-3 left-3 z-10">
+              <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-purple-600/90 text-white border border-purple-400/40 shadow-sm">
+                PRO
+              </span>
+            </div>
+          </div>
 
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2.5">
-                  <h1 className="truncate text-2xl font-bold tracking-tight text-white">
+          {/* Project Meta and Metrics */}
+          <div className="flex-1 flex flex-col justify-between space-y-4 min-w-0">
+            <div>
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
+                <div className="flex items-center gap-3">
+                  <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight truncate">
                     {overview.name}
                   </h1>
-                  <span className="rounded-md border border-purple-600/40 bg-purple-950/80 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-purple-300">
-                    {overview.status}
+                  <span className="px-2 py-0.5 rounded text-xs font-bold bg-purple-950/90 text-purple-300 border border-purple-700/60 font-mono">
+                    PRO
                   </span>
                 </div>
-                <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
-                  {overview.description || "Project chưa có mô tả."}
-                </p>
-                <p className="mt-2 text-xs text-slate-500">
-                  Tạo: {formatDate(overview.createdAt)} · Cập nhật: {formatDate(overview.updatedAt)}
-                </p>
+
+                {/* Top Action Buttons */}
+                <div className="flex items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("info")}
+                    className="px-3.5 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 text-xs font-semibold text-slate-300 border border-slate-700 transition-colors flex items-center gap-1.5"
+                  >
+                    <Settings className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Chi tiết dự án</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={continueProject}
+                    className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-xs font-semibold text-white shadow-[0_0_20px_rgba(124,58,237,0.5)] transition-all flex items-center gap-2"
+                  >
+                    <Play className="w-3.5 h-3.5 fill-white" />
+                    <span>Continue Project</span>
+                  </button>
+                </div>
               </div>
 
-              <div className="flex shrink-0 items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => router.push(`/projects/${numericProjectId}`)}
-                  className="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-xs font-semibold text-slate-300 transition hover:border-slate-600 hover:bg-slate-800"
-                >
-                  Chi tiết dự án
-                </button>
-                <button
-                  type="button"
-                  onClick={continueProject}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-purple-600 px-3.5 py-2 text-xs font-semibold text-white shadow-[0_0_18px_rgba(124,58,237,0.35)] transition hover:bg-purple-500"
-                >
-                  <Play className="h-3.5 w-3.5 fill-current" />
-                  Continue Project
-                </button>
+              <p className="text-xs text-slate-300 leading-relaxed max-w-2xl">
+                {overview.description || "Hành trình sáng tạo video tự động từ kịch bản phân cảnh AI."}
+              </p>
+
+              <div className="flex items-center gap-4 text-xs text-slate-400 mt-2 font-mono">
+                <span>Tạo: {formatDate(overview.createdAt)}</span>
+                <span>•</span>
+                <span>Cập nhật: {formatDate(overview.updatedAt)}</span>
               </div>
             </div>
 
-            <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <MetricCard value={String(metrics.totalChapters)} label="Chapters" />
-              <MetricCard value={formatDuration(metrics.estimatedDurationSeconds)} label="Estimated" />
-              <MetricCard value={String(metrics.totalScenes)} label="Scenes" />
-              <MetricCard value={String(metrics.approvedVisuals)} label="Approved Visuals" />
+            {/* 4 Project Stats Summary */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 py-3 border-y border-slate-800/80">
+              <div>
+                <div className="text-xl font-extrabold text-white font-mono">
+                  {metrics.totalChapters}
+                </div>
+                <div className="text-xs text-slate-400 font-medium">Chapters</div>
+              </div>
+              <div>
+                <div className="text-xl font-extrabold text-white font-mono">
+                  {formatDuration(metrics.estimatedDurationSeconds)}
+                </div>
+                <div className="text-xs text-slate-400 font-medium">Estimated</div>
+              </div>
+              <div>
+                <div className="text-xl font-extrabold text-white font-mono">
+                  {metrics.totalScenes}
+                </div>
+                <div className="text-xs text-slate-400 font-medium">Scenes</div>
+              </div>
+              <div>
+                <div className="text-xl font-extrabold text-white font-mono text-purple-300">
+                  {metrics.approvedVisuals}
+                </div>
+                <div className="text-xs text-purple-400 font-medium">Approved Visuals</div>
+              </div>
             </div>
 
-            <div className="mt-5">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-slate-300">Tiến độ tổng thể</span>
-                <span className="font-bold text-slate-200">{metrics.overallProgress}%</span>
+            {/* Overall Progress with Sub-metrics matching Screen 01 */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs font-mono">
+                <span className="text-slate-300 font-semibold">Tiến độ tổng thể</span>
+                <span className="text-purple-300 font-bold text-sm">
+                  {metrics.overallProgress}%
+                </span>
               </div>
-              <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-800">
+              <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-violet-600 to-purple-400 transition-[width] duration-500"
                   style={{ width: `${Math.max(0, Math.min(metrics.overallProgress, 100))}%` }}
                 />
               </div>
-              <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-400 sm:grid-cols-4">
-                <SmallMetric
-                  value={`${metrics.readyChapters}/${metrics.totalChapters}`}
-                  label="Chapters ready"
-                />
-                <SmallMetric
-                  value={`${metrics.renderedChapters}/${metrics.totalChapters}`}
-                  label="Chapters rendered"
-                />
-                <SmallMetric value={String(metrics.processingJobs)} label="Đang xử lý" />
-                <SmallMetric
-                  value={`~${formatMinutes(metrics.estimatedDurationSeconds)}`}
-                  label="Thời lượng dự kiến"
-                />
+
+              <div className="flex flex-wrap items-center justify-between text-xs text-slate-400 pt-1 font-mono gap-2">
+                <span>{metrics.readyChapters}/{metrics.totalChapters} Chapters ready</span>
+                <span>•</span>
+                <span>{metrics.renderedChapters}/{metrics.totalChapters} Chapters rendered</span>
+                <span>•</span>
+                <span className="text-purple-400 font-semibold">{metrics.processingJobs} Đang xử lý</span>
+                <span>•</span>
+                <span>~{formatMinutes(metrics.estimatedDurationSeconds)} Thời lượng dự kiến</span>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="border-t border-slate-800 px-5 lg:px-6">
-          <nav className="flex min-w-max gap-6 overflow-x-auto text-sm" aria-label="Project sections">
-            <Tab label="Chapters" active />
-            <Tab label="Thông tin dự án" />
-            <Tab label={`Nhân vật${overview.counts.characters ? ` (${overview.counts.characters})` : ""}`} />
-            <Tab label="Địa điểm" />
-            <Tab label="Tài sản" />
-            <Tab label="Cài đặt" />
+        {/* Tabs Navigation matching Screen 01 */}
+        <div className="border-t border-slate-800 px-6">
+          <nav className="flex min-w-max gap-8 overflow-x-auto text-sm" aria-label="Project tabs">
+            <TabButton
+              label="Chapters"
+              active={activeTab === "chapters"}
+              onClick={() => setActiveTab("chapters")}
+            />
+            <TabButton
+              label="Thông tin dự án"
+              active={activeTab === "info"}
+              onClick={() => setActiveTab("info")}
+            />
+            <TabButton
+              label={`Nhân vật${overview.counts.characters ? ` (${overview.counts.characters})` : ""}`}
+              active={activeTab === "characters"}
+              onClick={() => setActiveTab("characters")}
+            />
+            <TabButton
+              label="Địa điểm"
+              active={activeTab === "locations"}
+              onClick={() => setActiveTab("locations")}
+            />
+            <TabButton
+              label="Tài sản"
+              active={activeTab === "assets"}
+              onClick={() => setActiveTab("assets")}
+            />
+            <TabButton
+              label="Cài đặt"
+              active={activeTab === "settings"}
+              onClick={() => setActiveTab("settings")}
+            />
           </nav>
         </div>
 
-        <div className="border-t border-slate-800/70">
-          {chapters.length === 0 ? (
-            <div className="p-8 text-center">
-              <FileText className="mx-auto h-9 w-9 text-slate-600" />
-              <h2 className="mt-3 text-sm font-semibold text-slate-200">Chưa có Chapter</h2>
-              <p className="mt-1 text-sm text-slate-500">
-                Thêm Chapter đầu tiên để bắt đầu nhập nội dung truyện.
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[820px] text-left text-xs">
-                <thead className="bg-[#090e18] text-[10px] uppercase tracking-wider text-slate-500">
-                  <tr>
-                    <th className="w-14 px-4 py-3 text-center">#</th>
-                    <th className="px-4 py-3">Chapter</th>
-                    <th className="px-4 py-3">Trạng thái</th>
-                    <th className="px-4 py-3 text-center">Scenes</th>
-                    <th className="px-4 py-3">Thời lượng</th>
-                    <th className="px-4 py-3">Cập nhật lần cuối</th>
-                    <th className="w-12 px-4 py-3" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/70">
-                  {chapters.map((chapter, index) => (
-                    <ChapterRow
-                      key={chapter.id}
-                      chapter={chapter}
-                      displayNumber={index + 1}
-                      onOpen={() =>
-                        router.push(`/projects/${numericProjectId}/chapters/${chapter.id}`)
-                      }
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+        {/* Chapters Tab Content */}
+        {activeTab === "chapters" && (
+          <div className="border-t border-slate-800/80">
+            {chapters.length === 0 ? (
+              <div className="p-12 text-center">
+                <FileText className="mx-auto h-10 w-10 text-slate-600" />
+                <h2 className="mt-3 text-sm font-semibold text-slate-200">Chưa có Chapter</h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  Thêm Chapter đầu tiên để bắt đầu nhập nội dung truyện và tạo storyboard.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[820px] text-left text-xs">
+                  <thead className="bg-[#090e18] text-slate-400 uppercase tracking-wider font-semibold border-b border-slate-800">
+                    <tr>
+                      <th className="py-3 px-4 w-12 text-center">#</th>
+                      <th className="py-3 px-4">Chapter</th>
+                      <th className="py-3 px-4">Trạng thái</th>
+                      <th className="py-3 px-4 text-center">Scenes</th>
+                      <th className="py-3 px-4">Thời lượng</th>
+                      <th className="py-3 px-4">Cập nhật lần cuối</th>
+                      <th className="py-3 px-4 text-right"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60 font-medium">
+                    {chapters.map((chapter, index) => (
+                      <ChapterRow
+                        key={chapter.id}
+                        chapter={chapter}
+                        displayNumber={index + 1}
+                        onOpen={() =>
+                          router.push(`/projects/${numericProjectId}/chapters/${chapter.id}`)
+                        }
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
-          <div className="grid gap-3 border-t border-slate-800/70 p-4 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => setFormOpen(true)}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-dashed border-purple-600/50 bg-purple-950/10 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:border-purple-500 hover:bg-purple-950/20"
-            >
-              <Plus className="h-4 w-4" />
-              Add Chapter
-            </button>
-            <button
-              type="button"
-              disabled
-              title="Import nhiều chapter chưa được triển khai ở backend"
-              className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-slate-800 bg-[#090e18] px-4 py-3 text-sm font-semibold text-slate-500 opacity-70"
-            >
-              <UploadCloud className="h-4 w-4" />
-              Import nhiều chapter
-            </button>
+            {/* Bottom Table Action Buttons */}
+            <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-t border-slate-800/70">
+              <button
+                type="button"
+                onClick={() => setFormOpen(true)}
+                className="px-5 py-2.5 rounded-lg border border-dashed border-purple-500/60 bg-purple-950/20 hover:bg-purple-900/30 text-xs font-semibold text-purple-200 shadow-[0_0_20px_rgba(124,58,237,0.2)] transition-all flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4 text-purple-400" />
+                <span>+ Add Chapter</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  alert("Tính năng Import nhiều chapter từ file văn bản / kịch bản đang trong lộ trình backend.");
+                }}
+                className="px-4 py-2.5 rounded-lg bg-[#0d1420] hover:bg-slate-800 text-xs font-semibold text-slate-300 border border-slate-700/80 flex items-center gap-2 transition-colors"
+              >
+                <UploadCloud className="w-4 h-4 text-purple-400" />
+                <span>Import nhiều chapter</span>
+              </button>
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Info Tab */}
+        {activeTab === "info" && (
+          <div className="p-6 border-t border-slate-800 space-y-4 text-xs text-slate-300 leading-relaxed">
+            <h3 className="text-sm font-bold text-white">Thông tin dự án &amp; Kịch bản gốc</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-2">
+                <span className="text-[11px] text-slate-400 uppercase font-semibold">Tên dự án</span>
+                <p className="text-sm font-bold text-white">{overview.name}</p>
+                <span className="text-[11px] text-slate-400 uppercase font-semibold block pt-2">Mô tả</span>
+                <p className="text-xs text-slate-300">{overview.description || "Chưa có mô tả."}</p>
+              </div>
+              <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-2">
+                <span className="text-[11px] text-slate-400 uppercase font-semibold">Ngôn ngữ &amp; Tỷ lệ</span>
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-1 rounded bg-slate-800 text-slate-200 font-mono">16:9</span>
+                  <span className="px-2 py-1 rounded bg-slate-800 text-slate-200 font-mono">vi-VN</span>
+                  <span className="px-2 py-1 rounded bg-purple-950 text-purple-300 border border-purple-800 font-mono">STANDARD</span>
+                </div>
+                <span className="text-[11px] text-slate-400 uppercase font-semibold block pt-2">ID Dự án</span>
+                <p className="text-xs text-slate-400 font-mono">{overview.id}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Characters Tab */}
+        {activeTab === "characters" && (
+          <div className="p-6 border-t border-slate-800 space-y-4 text-xs text-slate-300">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-white">Nhân vật tham gia dự án</h3>
+              <button
+                type="button"
+                onClick={() => router.push("/characters")}
+                className="text-xs text-purple-400 hover:text-purple-300 font-medium flex items-center gap-1"
+              >
+                <span>Quản lý Thư viện nhân vật</span>
+                <ExternalLink className="w-3 h-3" />
+              </button>
+            </div>
+            <p className="text-xs text-slate-400">
+              Nhân vật trong NarrativeX thuộc quyền sở hữu của User/Workspace và được tham gia vào dự án thông qua ProjectCharacter snapshot bất biến.
+            </p>
+          </div>
+        )}
+
+        {/* Locations Tab */}
+        {activeTab === "locations" && (
+          <div className="p-6 border-t border-slate-800 space-y-4 text-xs text-slate-300">
+            <h3 className="text-sm font-bold text-white">Địa điểm &amp; Bối cảnh thế giới</h3>
+            <p className="text-xs text-slate-400">
+              Địa điểm và bối cảnh (Location Bible) giúp đảm bảo tính nhất quán môi trường qua từng Visual Beat. API đang được hoàn thiện.
+            </p>
+          </div>
+        )}
+
+        {/* Assets Tab */}
+        {activeTab === "assets" && (
+          <div className="p-6 border-t border-slate-800 space-y-4 text-xs text-slate-300">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-white">Tài sản dự án (Assets)</h3>
+              <button
+                type="button"
+                onClick={() => router.push("/assets")}
+                className="text-xs text-purple-400 hover:text-purple-300 font-medium flex items-center gap-1"
+              >
+                <span>Mở Thư viện tài sản</span>
+                <ExternalLink className="w-3 h-3" />
+              </button>
+            </div>
+            <p className="text-xs text-slate-400">
+              Các hình ảnh, video clip, audio âm thanh đã được render và duyệt cho dự án này.
+            </p>
+          </div>
+        )}
+
+        {/* Settings Tab */}
+        {activeTab === "settings" && (
+          <div className="p-6 border-t border-slate-800 space-y-4 text-xs text-slate-300">
+            <h3 className="text-sm font-bold text-white">Cài đặt dự án</h3>
+            <p className="text-xs text-slate-400">
+              Quản lý quyền chia sẻ, xuất video, cấu hình AI renderer và lưu trữ đám mây.
+            </p>
+          </div>
+        )}
       </section>
 
+      {/* Add Chapter Modal */}
       <Modal
         isOpen={formOpen}
         onClose={() => !createChapter.isPending && setFormOpen(false)}
@@ -410,57 +568,59 @@ export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
 }
 
 function ProjectCover({ name, coverImageUrl }: { name: string; coverImageUrl: string | null }) {
+  if (coverImageUrl) {
+    return (
+      <div
+        className="w-full h-full bg-cover bg-center relative"
+        style={{ backgroundImage: `url(${coverImageUrl})` }}
+      >
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+      </div>
+    );
+  }
+
   return (
-    <div
-      className="relative min-h-52 overflow-hidden rounded-xl border border-slate-700 bg-[radial-gradient(circle_at_top,#312e81_0%,#111827_46%,#020617_100%)] lg:min-h-0"
-      style={
-        coverImageUrl
-          ? {
-              backgroundImage: `linear-gradient(to top, rgba(2,6,23,.72), rgba(2,6,23,.08)), url(${JSON.stringify(coverImageUrl).slice(1, -1)})`,
-              backgroundPosition: "center",
-              backgroundSize: "cover",
-            }
-          : undefined
-      }
-      aria-label={coverImageUrl ? `Ảnh bìa ${name}` : `Project ${name} chưa có ảnh bìa`}
-      role="img"
-    >
-      {!coverImageUrl && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
-          <ImageIcon className="h-8 w-8 text-purple-300/70" />
-          <p className="mt-2 line-clamp-3 text-sm font-semibold text-slate-300">{name}</p>
-        </div>
-      )}
+    <div className="w-full h-full relative flex flex-col justify-end p-4 bg-gradient-to-b from-[#1b1938] via-[#0f1424] to-[#080c16]">
+      {/* Decorative artwork background */}
+      <div className="absolute inset-0 opacity-40 mix-blend-screen overflow-hidden">
+        <svg viewBox="0 0 200 300" className="w-full h-full object-cover">
+          <defs>
+            <linearGradient id="castleGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.8" />
+              <stop offset="100%" stopColor="#1e1b4b" stopOpacity="0.2" />
+            </linearGradient>
+          </defs>
+          <path d="M20 300 L20 220 L40 220 L40 180 L50 180 L50 140 L70 140 L70 110 L90 110 L90 70 L110 70 L110 110 L130 110 L130 140 L150 140 L150 180 L160 180 L160 220 L180 220 L180 300 Z" fill="url(#castleGrad)" />
+          <circle cx="100" cy="80" r="40" fill="#c084fc" opacity="0.15" />
+          <circle cx="100" cy="80" r="20" fill="#e9d5ff" opacity="0.25" />
+        </svg>
+      </div>
+      <div className="relative z-10 space-y-1">
+        <Sparkles className="w-5 h-5 text-purple-400 mb-1" />
+        <p className="line-clamp-2 text-xs font-bold text-slate-100">{name}</p>
+        <p className="text-[10px] text-purple-300 font-medium">NarrativeX Visual</p>
+      </div>
     </div>
   );
 }
 
-function MetricCard({ value, label }: { value: string; label: string }) {
-  return (
-    <div className="rounded-xl border border-slate-800 bg-[#090e18]/80 px-3 py-3">
-      <div className="text-xl font-bold tabular-nums text-white">{value}</div>
-      <div className="mt-0.5 text-[11px] text-slate-500">{label}</div>
-    </div>
-  );
-}
-
-function SmallMetric({ value, label }: { value: string; label: string }) {
-  return (
-    <div className="rounded-lg border border-slate-800/80 bg-[#090e18]/60 px-3 py-2">
-      <div className="font-semibold tabular-nums text-slate-300">{value}</div>
-      <div className="mt-0.5 text-[10px] text-slate-500">{label}</div>
-    </div>
-  );
-}
-
-function Tab({ label, active = false }: { label: string; active?: boolean }) {
+function TabButton({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
   return (
     <button
       type="button"
-      className={`border-b-2 py-3 text-xs font-medium transition ${
+      onClick={onClick}
+      className={`border-b-2 py-3.5 text-xs font-semibold transition-all ${
         active
-          ? "border-purple-500 text-purple-300"
-          : "border-transparent text-slate-500 hover:text-slate-300"
+          ? "border-purple-500 text-purple-300 font-bold"
+          : "border-transparent text-slate-400 hover:text-slate-200"
       }`}
     >
       {label}
@@ -480,19 +640,27 @@ function ChapterRow({
   return (
     <tr
       onClick={onOpen}
-      className="cursor-pointer bg-[#0d1420] text-slate-300 transition hover:bg-[#111a29]"
+      className="cursor-pointer bg-[#0d1420] text-slate-300 transition hover:bg-[#111a29] group"
     >
-      <td className="px-4 py-3 text-center font-mono text-slate-500">
+      <td className="py-3.5 px-4 text-center font-mono text-slate-400">
         {String(displayNumber).padStart(2, "0")}
       </td>
-      <td className="px-4 py-3 font-semibold text-slate-200">{chapter.title}</td>
-      <td className="px-4 py-3">
+      <td className="py-3.5 px-4 font-semibold text-slate-200 group-hover:text-purple-300 transition-colors">
+        {chapter.title}
+      </td>
+      <td className="py-3.5 px-4">
         <OverviewStatusBadge status={chapter.status} />
       </td>
-      <td className="px-4 py-3 text-center font-mono">{chapter.sceneCount}</td>
-      <td className="px-4 py-3 font-mono text-slate-400">{formatDuration(chapter.durationSeconds)}</td>
-      <td className="px-4 py-3 text-slate-500">{formatDateTime(chapter.updatedAt)}</td>
-      <td className="px-4 py-3 text-right">
+      <td className="py-3.5 px-4 text-center font-mono text-slate-300">
+        {chapter.sceneCount}
+      </td>
+      <td className="py-3.5 px-4 font-mono text-slate-400">
+        {formatDuration(chapter.durationSeconds)}
+      </td>
+      <td className="py-3.5 px-4 text-slate-400 font-mono text-[11px]">
+        {formatDateTime(chapter.updatedAt)}
+      </td>
+      <td className="py-3.5 px-4 text-right">
         <button
           type="button"
           aria-label={`Mở Chapter ${chapter.title}`}
@@ -500,9 +668,9 @@ function ChapterRow({
             event.stopPropagation();
             onOpen();
           }}
-          className="rounded-md p-1.5 text-slate-500 transition hover:bg-slate-800 hover:text-slate-300"
+          className="p-1 rounded text-slate-400 hover:text-slate-200 transition-colors"
         >
-          <MoreVertical className="h-4 w-4" />
+          <MoreVertical className="w-4 h-4" />
         </button>
       </td>
     </tr>
@@ -511,27 +679,51 @@ function ChapterRow({
 
 function OverviewStatusBadge({ status }: { status: string }) {
   const normalized = status.toUpperCase();
-  if (normalized === "RENDERED") return <Badge tone="emerald">Rendered</Badge>;
-  if (normalized === "VISUAL_REVIEW") return <Badge tone="purple">Visual Review</Badge>;
-  if (normalized === "ANALYZED") return <Badge tone="blue">Analyzed</Badge>;
-  if (normalized === "ANALYZING") return <Badge tone="purple">Analyzing</Badge>;
-  if (normalized === "FAILED") return <Badge tone="rose">Failed</Badge>;
-  if (normalized === "DRAFT") return <Badge tone="amber">Draft</Badge>;
-  return <Badge tone="slate">{status.replaceAll("_", " ")}</Badge>;
-}
-
-function Badge({ children, tone }: { children: React.ReactNode; tone: string }) {
-  const classes: Record<string, string> = {
-    emerald: "border-emerald-800/60 bg-emerald-950/70 text-emerald-300",
-    purple: "border-purple-800/60 bg-purple-950/70 text-purple-300",
-    blue: "border-blue-800/60 bg-blue-950/70 text-blue-300",
-    amber: "border-amber-800/60 bg-amber-950/70 text-amber-300",
-    rose: "border-rose-800/60 bg-rose-950/70 text-rose-300",
-    slate: "border-slate-700 bg-slate-900 text-slate-300",
-  };
+  if (normalized === "RENDERED") {
+    return (
+      <span className="inline-flex rounded px-2 py-0.5 text-[11px] font-bold border border-emerald-600/50 bg-emerald-950/80 text-emerald-300">
+        Rendered
+      </span>
+    );
+  }
+  if (normalized === "VISUAL_REVIEW" || normalized === "IN_REVIEW") {
+    return (
+      <span className="inline-flex rounded px-2 py-0.5 text-[11px] font-bold border border-purple-600/50 bg-purple-950/80 text-purple-300">
+        Visual Review
+      </span>
+    );
+  }
+  if (normalized === "ANALYZED") {
+    return (
+      <span className="inline-flex rounded px-2 py-0.5 text-[11px] font-bold border border-blue-600/50 bg-blue-950/80 text-blue-300">
+        Analyzed
+      </span>
+    );
+  }
+  if (normalized === "ANALYZING" || normalized === "IN_PROGRESS") {
+    return (
+      <span className="inline-flex rounded px-2 py-0.5 text-[11px] font-bold border border-purple-500 bg-purple-950/90 text-purple-200 animate-pulse">
+        Analyzing
+      </span>
+    );
+  }
+  if (normalized === "DRAFT") {
+    return (
+      <span className="inline-flex rounded px-2 py-0.5 text-[11px] font-bold border border-amber-600/50 bg-amber-950/80 text-amber-300">
+        Draft
+      </span>
+    );
+  }
+  if (normalized === "FAILED") {
+    return (
+      <span className="inline-flex rounded px-2 py-0.5 text-[11px] font-bold border border-rose-600/50 bg-rose-950/80 text-rose-300">
+        Failed
+      </span>
+    );
+  }
   return (
-    <span className={`inline-flex rounded-md border px-2 py-0.5 text-[10px] font-semibold ${classes[tone]}`}>
-      {children}
+    <span className="inline-flex rounded px-2 py-0.5 text-[11px] font-bold border border-slate-700 bg-slate-900 text-slate-400">
+      {status.replaceAll("_", " ")}
     </span>
   );
 }
@@ -553,7 +745,11 @@ function formatMinutes(seconds: number): string {
 function formatDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
-  return new Intl.DateTimeFormat("vi-VN", { dateStyle: "short" }).format(date);
+  return new Intl.DateTimeFormat("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date);
 }
 
 function formatDateTime(value: string): string {
@@ -583,3 +779,4 @@ function WorkspaceMessage({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+

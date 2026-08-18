@@ -46,30 +46,30 @@ ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO story_versions (id, project_id, version_number, content, source_language, status, moderation_decision)
 VALUES
-    (2001, 1001, 1, 'A lantern maker follows a warm light through the old quarter and finds a forgotten promise.', 'vi-VN', 'READY', 'ALLOW'),
-    (2002, 1002, 1, 'A young cartographer discovers that a clockmaker has hidden a city inside a pocket watch.', 'en-US', 'READY', 'ALLOW'),
-    (2003, 1003, 1, 'At midnight, a boatman follows moonlit ripples toward a village that appears only once a year.', 'vi-VN', 'READY', 'ALLOW'),
-    (2004, 1004, 1, 'A family learns to listen to the rain after it begins speaking in the voice of an old friend.', 'en-US', 'DRAFT', 'ALLOW'),
-    (2005, 1005, 1, 'A paper dragon leaves a trail of origami scales to guide a child home before dawn.', 'zh-CN', 'READY', 'ALLOW'),
-    (2006, 1006, 1, 'Two hikers hear a choir beneath the pines and uncover a forest protecting its oldest tree.', 'en-US', 'READY', 'ALLOW'),
-    (2007, 1007, 1, 'Seven seeds pass from grandmother to granddaughter through seven seasons of change.', 'vi-VN', 'ARCHIVED', 'ALLOW'),
-    (2008, 1008, 1, 'A blue kite rises above the city and carries a quiet message across rooftops.', 'en-US', 'READY', 'ALLOW'),
-    (2009, 1009, 1, 'A child maps the constellations reflected in a river of small stars.', 'en-US', 'DRAFT', 'ALLOW'),
-    (2010, 1010, 1, 'The last seed keeper crosses a dry valley to return one green memory to the earth.', 'vi-VN', 'READY', 'ALLOW')
+    (2001, 1001, 1, 'A lantern maker follows a warm light through the old quarter and finds a forgotten promise.', 'vi-VN', 'ACTIVE', 'SAFE'),
+    (2002, 1002, 1, 'A young cartographer discovers that a clockmaker has hidden a city inside a pocket watch.', 'en-US', 'ACTIVE', 'SAFE'),
+    (2003, 1003, 1, 'At midnight, a boatman follows moonlit ripples toward a village that appears only once a year.', 'vi-VN', 'ACTIVE', 'SAFE'),
+    (2004, 1004, 1, 'A family learns to listen to the rain after it begins speaking in the voice of an old friend.', 'en-US', 'DRAFT', 'SAFE'),
+    (2005, 1005, 1, 'A paper dragon leaves a trail of origami scales to guide a child home before dawn.', 'zh-CN', 'ACTIVE', 'SAFE'),
+    (2006, 1006, 1, 'Two hikers hear a choir beneath the pines and uncover a forest protecting its oldest tree.', 'en-US', 'ACTIVE', 'SAFE'),
+    (2007, 1007, 1, 'Seven seeds pass from grandmother to granddaughter through seven seasons of change.', 'vi-VN', 'SUPERSEDED', 'SAFE'),
+    (2008, 1008, 1, 'A blue kite rises above the city and carries a quiet message across rooftops.', 'en-US', 'ACTIVE', 'SAFE'),
+    (2009, 1009, 1, 'A child maps the constellations reflected in a river of small stars.', 'en-US', 'DRAFT', 'SAFE'),
+    (2010, 1010, 1, 'The last seed keeper crosses a dry valley to return one green memory to the earth.', 'vi-VN', 'ACTIVE', 'SAFE')
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO chapters (id, story_version_id, order_index, title, source_text, status, estimated_duration_ms, generation_progress, source_story_version_id)
+INSERT INTO chapters (id, story_version_id, order_index, title, source_text, source_hash, status, estimated_duration_ms, generation_progress, source_story_version_id)
 VALUES
-    (3001, 2001, 1, 'The First Lantern', 'The first lantern flickered before the street woke.', 'READY', 90000, 100, 2001),
-    (3002, 2002, 1, 'A Map in Brass', 'The map was hidden inside a brass clock.', 'READY', 96000, 100, 2002),
-    (3003, 2003, 1, 'The Midnight Crossing', 'The river opened beneath the moon.', 'READY', 84000, 100, 2003),
-    (3004, 2004, 1, 'Rain at the Window', 'The rain arrived with a familiar voice.', 'DRAFT', 78000, 20, 2004),
-    (3005, 2005, 1, 'Folded Wings', 'The paper dragon unfolded its first wing.', 'READY', 87000, 100, 2005),
-    (3006, 2006, 1, 'The Listening Pines', 'The hikers stopped where the forest began to sing.', 'READY', 93000, 100, 2006),
-    (3007, 2007, 1, 'The First Seed', 'The grandmother planted the first seed.', 'ARCHIVED', 72000, 100, 2007),
-    (3008, 2008, 1, 'The Blue Thread', 'A blue kite pulled against the morning wind.', 'READY', 81000, 100, 2008),
-    (3009, 2009, 1, 'Water Constellations', 'The river held a second sky.', 'DRAFT', 75000, 20, 2009),
-    (3010, 2010, 1, 'The Dry Valley', 'The seed keeper entered the valley alone.', 'READY', 102000, 100, 2010)
+    (3001, 2001, 1, 'The First Lantern', 'The first lantern flickered before the street woke.', encode(sha256(convert_to('The first lantern flickered before the street woke.', 'UTF8')), 'hex'), 'READY', 90000, 100, 2001),
+    (3002, 2002, 1, 'A Map in Brass', 'The map was hidden inside a brass clock.', encode(sha256(convert_to('The map was hidden inside a brass clock.', 'UTF8')), 'hex'), 'READY', 96000, 100, 2002),
+    (3003, 2003, 1, 'The Midnight Crossing', 'The river opened beneath the moon.', encode(sha256(convert_to('The river opened beneath the moon.', 'UTF8')), 'hex'), 'READY', 84000, 100, 2003),
+    (3004, 2004, 1, 'Rain at the Window', 'The rain arrived with a familiar voice.', encode(sha256(convert_to('The rain arrived with a familiar voice.', 'UTF8')), 'hex'), 'DRAFT', 78000, 20, 2004),
+    (3005, 2005, 1, 'Folded Wings', 'The paper dragon unfolded its first wing.', encode(sha256(convert_to('The paper dragon unfolded its first wing.', 'UTF8')), 'hex'), 'READY', 87000, 100, 2005),
+    (3006, 2006, 1, 'The Listening Pines', 'The hikers stopped where the forest began to sing.', encode(sha256(convert_to('The hikers stopped where the forest began to sing.', 'UTF8')), 'hex'), 'READY', 93000, 100, 2006),
+    (3007, 2007, 1, 'The First Seed', 'The grandmother planted the first seed.', encode(sha256(convert_to('The grandmother planted the first seed.', 'UTF8')), 'hex'), 'ARCHIVED', 72000, 100, 2007),
+    (3008, 2008, 1, 'The Blue Thread', 'A blue kite pulled against the morning wind.', encode(sha256(convert_to('A blue kite pulled against the morning wind.', 'UTF8')), 'hex'), 'READY', 81000, 100, 2008),
+    (3009, 2009, 1, 'Water Constellations', 'The river held a second sky.', encode(sha256(convert_to('The river held a second sky.', 'UTF8')), 'hex'), 'DRAFT', 75000, 20, 2009),
+    (3010, 2010, 1, 'The Dry Valley', 'The seed keeper entered the valley alone.', encode(sha256(convert_to('The seed keeper entered the valley alone.', 'UTF8')), 'hex'), 'READY', 102000, 100, 2010)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO scenes (id, chapter_id, order_index, title, narration, duration_seconds, status)

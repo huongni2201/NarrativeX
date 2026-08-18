@@ -12,16 +12,16 @@
 
 | Migration | Tables/columns owned | Indexes/constraints | Owner module |
 |---|---|---|---|
-| V1 `initial_schema` | Consolidated baseline schema: auth, project/storyboard/generation tables, control-plane tables, reusable character/appearance tables and project access paths | FKs, unique version/order/idempotency constraints, appearance/outfit invariants and baseline indexes | backend/platform plus auth, project, storyboard, generation and character features |
-| V3 `optimize_active_project_listing` | no table/column changes | partial keyset index `idx_projects_active_owner_updated_id(owner_id, updated_at DESC, id DESC) WHERE archived_at IS NULL` | project persistence/performance |
+| V1 `initial_schema` | Final consolidated schema: auth, project/storyboard/generation tables, control-plane tables, reusable character/appearance tables, read-model fields and project access paths | FKs, enum checks, source-hash/idempotency constraints, appearance/outfit invariants and all baseline indexes | backend/platform plus auth, project, storyboard, generation and character features |
+| V2 `seed_demo_data` | Deterministic local/demo rows for the V1 schema | Idempotent seed inserts using stable identifiers | local development and integration fixtures |
 
-V1 is treated as the consolidated baseline schema. V3 is a forward optimization matching the active-project cursor query. There is no current V2 migration on this branch; documentation must not imply a seed migration that is not present in the repository.
+The active branch intentionally contains exactly two Flyway migrations. V1 is the complete schema baseline; V2 is the deterministic local/demo seed. This is a development re-baseline, not a recipe for rewriting a released migration history. Existing databases with the former V3–V8 history require a reviewed database recreation or explicit operator-managed re-baselining before using the two-file path.
 
 ## Entity/schema matrix
 
 | Domain type | Table | Migration owner | PK type | FK / delete rule | Important indexes/constraints | JPA match | Gap/risk |
 |---|---|---|---|---|---|---|---|
-| `Project` aggregate | `projects` | V1 + V3 index | BIGINT identity | none declared | `(owner_id,status)`, active-project partial keyset index | MATCH | broader workspace membership pending |
+| `Project` aggregate | `projects` | V1 | BIGINT identity | none declared | `(owner_id,status)`, active-project partial keyset index | MATCH | broader workspace membership pending |
 | `StoryVersion` entity | `story_versions` | V1 | BIGINT identity | `project_id -> projects(id)` | unique `(project_id,version_number)` | MATCH | read/update/moderation flow incomplete |
 | `Chapter` aggregate | `chapters` | V1 | BIGINT identity | `story_version_id`; optional source story reference | unique `(story_version_id,order_index)` | MATCH foundation | repository/application API pending |
 | `Scene` aggregate | `scenes` | V1 | BIGINT identity | `chapter_id -> chapters(id)` | unique `(chapter_id,order_index)` | MATCH | repository/application API pending |
@@ -74,7 +74,7 @@ WHERE owner_id = ?
 ORDER BY updated_at DESC, id DESC
 ```
 
-V3 adds the matching partial index:
+V1 includes the matching partial index:
 
 ```sql
 CREATE INDEX IF NOT EXISTS idx_projects_active_owner_updated_id

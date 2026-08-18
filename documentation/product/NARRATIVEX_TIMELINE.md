@@ -116,7 +116,7 @@ Phần trên là nội dung được chuyển thể từ ảnh; các quy tắc d
 - Tác vụ tốn chi phí phải đi qua `OperationPlan`, cost estimate/reservation, entitlement, abuse check và usage attribution.
 - Story text, prompt, reference và provider output đều là dữ liệu không tin cậy: cần moderation, prompt-injection boundary, schema validation và output review; `REAL_PERSON_REFERENCE` cần consent/use-right khi áp dụng. Copyright dispute xử lý qua report/review/evidence/takedown, không bằng blanket per-story rights-attestation checkbox.
 - Character identity, approved asset và render version là dữ liệu versioned/immutable; không nên coi “character consistency” là một thao tác stateless.
-- Flyway V6 loại legacy StoryVersion rights columns và V7 loại `content_rights_attestations`; không mô tả các field/table đó như active hoặc compatibility schema sau V7.
+- Consolidated Flyway V1 excludes legacy StoryVersion rights columns and `content_rights_attestations`; không mô tả các field/table đó như active hoặc compatibility schema.
 - Mốc “5–15 phút”, số lượng ảnh/video và thời lượng đầu ra là mục tiêu sản phẩm, không phải quy tắc cố định. Visual planning phải dựa trên duration, semantic complexity, reuse và delta.
 - Production launch cần kiểm tra thêm backup/restore, observability, deletion/retention, real-person consent, broader abuse controls, entitlement server-side và provider resilience.
 

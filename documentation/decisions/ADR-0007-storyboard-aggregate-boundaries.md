@@ -22,7 +22,7 @@ The V1.8 domain model also gives Scene its own mutable lifecycle: `DRAFT -> READ
 - Edits are rejected while Scene is `GENERATING` or `REVIEW` unless a future explicit workflow defines a safe transition.
 - Cross-aggregate orchestration remains in the application layer. Scene/Chapter aggregates must not call Redis, MinIO/S3, provider SDKs, repositories or worker runtimes directly.
 - PostgreSQL `row_version`/JPA `@Version` remains the optimistic-concurrency guard for mutable aggregate writes.
-- Scene status is persisted as a string enum and introduced through forward Flyway migration `V2__scene_status.sql`.
+- Scene status is persisted as a string enum in the consolidated Flyway V1 baseline.
 
 ## Consequences
 

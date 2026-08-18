@@ -35,7 +35,7 @@ Before public beta, the release gate must still prove ownership/authentication, 
 
 | V1.8 area | Repository evidence | Status |
 |---|---|---|
-| Project list/create and cursor pagination | Project controller/use cases, `CursorPage`, consolidated V1 baseline, V5 active-project partial index and frontend Query integration | IMPLEMENTED foundation; Create Project is metadata-only; active listing uses keyset pagination with an index matching `archived_at IS NULL` |
+| Project list/create and cursor pagination | Project controller/use cases, `CursorPage`, consolidated V1 baseline and frontend Query integration | IMPLEMENTED foundation; Create Project is metadata-only; active listing uses keyset pagination with an index matching `archived_at IS NULL` |
 | Project search/filter UX | `ProjectsDashboard`, URL `status`/`q`, 300 ms search URL debounce | IMPLEMENTED client boundary; full-collection server-side filtering still requires backend query support |
 | Frontend canonical auth routing | `AuthEntry`, `/auth`, `/projects` | IMPLEMENTED boundary; authenticated `/auth` replaces to `/projects` |
 | Frontend transport/proxy | `src/shared/api/client.ts`, `next.config.mjs`, frontend Dockerfile | IMPLEMENTED foundation; typed protocol errors and explicit Docker build-time backend destination |
@@ -44,7 +44,7 @@ Before public beta, the release gate must still prove ownership/authentication, 
 | Story-size preflight | StoryVersion validation/error mapping and multilingual estimator tests | IMPLEMENTED foundation; provider/model tokenizer validation is still required at execution time |
 | Authentication | Spring Security session/CSRF, password auth, Google OIDC, startup guard, Redis auth limiter, Spring Session Redis, `NX_SESSION` cookie | IMPLEMENTED foundation; JWT/access/refresh-token migration not implemented |
 | Chapter CRUD/source snapshot | Chapter controller/use cases/repository, `sourceText`, SHA-256 `sourceHash`, optimistic `rowVersion`, ETag/`If-Match`, frontend Chapter editor | IMPLEMENTED foundation; create/list/get/update are public and source identity is server-persisted |
-| Chapter analysis enqueue | `EnqueueStoryAnalysisUseCase`, generation repositories, V6 migration, StageAttempt/outbox adapters | IMPLEMENTED FOUNDATION on PR #38; one transaction persists OperationPlan + GenerationJob Chapter snapshot + StageAttempt + outbox intent with idempotency by persisted Chapter source identity |
+| Chapter analysis enqueue | `EnqueueStoryAnalysisUseCase`, generation repositories, consolidated V1 baseline, StageAttempt/outbox adapters | IMPLEMENTED FOUNDATION on PR #38; one transaction persists OperationPlan + GenerationJob Chapter snapshot + StageAttempt + outbox intent with idempotency by persisted Chapter source identity |
 | Generation outbox dispatch | generation outbox adapter/dispatcher, Redis publisher | IMPLEMENTED FOUNDATION on PR #38; dispatch occurs after durable DB state and Redis remains a delivery hint rather than source of truth |
 | Generation job read | `GenerationJobController`, generation query/use case | IMPLEMENTED foundation; canonical route is `GET /api/v1/generation-jobs/{jobId}` with `/api/v1/jobs/{jobId}` compatibility alias |
 | Worker claim/lease/heartbeat | `app/ai-worker/src/narrativex_worker/repository.py`, `worker.py` | IMPLEMENTED FOUNDATION on PR #38; PostgreSQL `FOR UPDATE ... SKIP LOCKED`, heartbeat and stale-lease recovery are present |
@@ -107,5 +107,5 @@ Required verification before the draft PR is promoted:
 15. Mutable persistence adapters must reject stale detached-domain `rowVersion` rather than overwriting newer rows.
 16. Application use cases must not return HTTP/API transport wrappers; mapping belongs to controllers/adapters.
 17. Story character-limit and estimated-token-limit failures remain distinct stable errors; multilingual token estimate is a preflight heuristic only.
-18. Active-project cursor pagination must retain its matching V5 partial PostgreSQL index while the query filters `archived_at IS NULL` and orders by `(updated_at DESC, id DESC)`.
+18. Active-project cursor pagination must retain its matching V1 partial PostgreSQL index while the query filters `archived_at IS NULL` and orders by `(updated_at DESC, id DESC)`.
 19. Backend `clean verify` must produce the JaCoCo report and enforce the configured minimum coverage floor in addition to tests and formatting checks.

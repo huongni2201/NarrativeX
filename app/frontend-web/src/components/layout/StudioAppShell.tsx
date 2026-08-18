@@ -53,8 +53,8 @@ interface StudioAppShellProps {
 
 const screenTitles: Record<StudioRouteScreen, string> = {
   overview: "Dự án của tôi",
-  dashboard: "Production Workspace",
-  "project-workspace": "Production Workspace",
+  dashboard: "01. Project Overview (Quản lý dự án)",
+  "project-workspace": "01. Project Overview (Quản lý dự án)",
   "chapter-workspace": "Chapter Source",
   characters: "Thư viện nhân vật",
   assets: "Thư viện tài sản (Asset Library)",

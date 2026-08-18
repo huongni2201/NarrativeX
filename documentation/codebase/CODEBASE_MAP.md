@@ -102,8 +102,8 @@ Frontend feature/page boundaries do not define backend aggregate or feature boun
 ## Database ownership and schema
 
 - Backend owns Flyway and JPA mappings.
-- `V1__initial_schema.sql` is the consolidated baseline.
-- `V2__scene_status.sql` is the first forward migration after the consolidated baseline and adds `scenes.status` for the canonical Scene lifecycle.
+- `V1__initial_schema.sql` is the complete consolidated schema baseline.
+- `V2__seed_demo_data.sql` contains deterministic local/demo rows for the V1 schema.
 - `chapters` and `scenes` remain separate relational tables with unique order constraints.
 - Independent tables/FKs do not by themselves define DDD aggregate ownership.
 - Binary storage remains outside PostgreSQL.
