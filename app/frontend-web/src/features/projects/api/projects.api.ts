@@ -26,9 +26,7 @@ function projectListPath({
   limit = DEFAULT_PROJECT_PAGE_SIZE,
 }: ProjectListParams = {}): string {
   const params = new URLSearchParams({ limit: String(limit) });
-  if (cursor) {
-    params.set("cursor", cursor);
-  }
+  if (cursor) params.set("cursor", cursor);
   return `/api/v1/projects?${params.toString()}`;
 }
 
@@ -43,6 +41,12 @@ export const projectsApi = {
     apiRequest<ApiProject>(`/api/v1/projects/${projectId}`, {}, isApiProject),
   create: (input: CreateProjectApiInput) =>
     apiRequest<ApiProject>("/api/v1/projects", { method: "POST", json: input }, isApiProject),
+  getLatestStoryVersion: (projectId: number) =>
+    apiRequest<ApiStoryVersion>(
+      `/api/v1/projects/${projectId}/stories/latest`,
+      {},
+      isApiStoryVersion,
+    ),
   createStoryVersion: (projectId: number, input: CreateStoryVersionApiInput) =>
     apiRequest<ApiStoryVersion>(
       `/api/v1/projects/${projectId}/stories`,
