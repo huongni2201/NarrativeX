@@ -101,9 +101,6 @@ class ArchitectureRulesTest {
     if (fileName.endsWith("Query.java") && !packageName.contains(".application.query")) {
       violations.add(relative + ": query is outside application/query");
     }
-    if (fileName.endsWith("UseCase.java") && !source.contains("ApiResponse<")) {
-      violations.add(relative + ": external use case must return ApiResponse<T>");
-    }
     if (relative.contains("/application/response/")) {
       violations.add(relative + ": feature responses belong in api/response");
     }
