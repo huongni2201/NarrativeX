@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.project.infrastructure.persistence.adapter;
 
+import com.narrativex.backend.feature.common.infrastructure.persistence.OptimisticConcurrency;
 import com.narrativex.backend.feature.project.application.port.out.StoryVersionRepository;
 import com.narrativex.backend.feature.project.domain.entity.StoryVersion;
 import com.narrativex.backend.feature.project.domain.enums.StoryVersionStatus;
@@ -50,6 +51,11 @@ public class StoryVersionPersistenceAdapter implements StoryVersionRepository {
         : repository
             .findById(storyVersion.getId())
             .map(existing -> {
+              OptimisticConcurrency.requireVersion(
+                  storyVersion.getRowVersion(),
+                  existing.getRowVersion(),
+                  StoryVersionJpaEntity.class,
+                  storyVersion.getId());
               existing.apply(storyVersion);
               return existing;
             })

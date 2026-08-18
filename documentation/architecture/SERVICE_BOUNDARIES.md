@@ -98,6 +98,8 @@ Rules:
 
 - Domain does not import provider SDKs, FFmpeg, Redis clients, MinIO/S3 clients or Spring/JPA.
 - Aggregates own business invariants and state transitions; application services orchestrate multiple aggregates and technical ports.
+- Application use cases return application/domain results and must not return `ApiResponse`, controller response DTOs, servlet types or other HTTP transport wrappers. Controllers map use-case results to the public API response contract.
+- API request/response DTOs belong to the API adapter boundary. Shared generic HTTP helpers may live in `feature/common`, but business application packages must not depend on them.
 - `generation` coordinates execution; it does not own Scene business state.
 - `asset` owns storage metadata/abstraction when implemented so each feature does not invent bucket/key rules.
 - Features communicate through explicit application contracts, stable IDs or events; do not reach into another feature's repositories.
@@ -110,6 +112,7 @@ The backend enforces package/dependency rules under `src/test/java/com/narrative
 
 - API may call application use cases, but not infrastructure repositories directly;
 - application packages do not depend on another feature's domain implementation;
+- application packages do not depend on API response/request types or generic HTTP response wrappers;
 - cross-feature application calls use explicit inbound ports where needed;
 - domain packages do not import web, Redis, storage, provider or worker runtime packages;
 - `feature/common` does not import business features;

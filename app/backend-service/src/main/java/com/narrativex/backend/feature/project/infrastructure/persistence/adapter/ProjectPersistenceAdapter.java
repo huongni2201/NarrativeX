@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.project.infrastructure.persistence.adapter;
 
+import com.narrativex.backend.feature.common.infrastructure.persistence.OptimisticConcurrency;
 import com.narrativex.backend.feature.common.pagination.CursorCodec;
 import com.narrativex.backend.feature.common.pagination.CursorKey;
 import com.narrativex.backend.feature.common.pagination.CursorPage;
@@ -61,6 +62,11 @@ public class ProjectPersistenceAdapter implements ProjectRepository {
             : repository
                 .findById(project.getId())
                 .map(existing -> {
+                  OptimisticConcurrency.requireVersion(
+                      project.getRowVersion(),
+                      existing.getRowVersion(),
+                      ProjectJpaEntity.class,
+                      project.getId());
                   existing.apply(project);
                   return existing;
                 })

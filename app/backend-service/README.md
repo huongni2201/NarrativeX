@@ -1,7 +1,7 @@
 # NarrativeX Backend Service
 
 ## Purpose
-The Backend Service is the core application and domain authority of NarrativeX. It coordinates business workflows, manages persistence, enforces authorization and business rules, and serves as the single API gateway for clients. Long-running generation is asynchronous, but production job creation remains disabled until the durable enqueue/worker path is implemented and verified.
+The Backend Service is the core application and domain authority of NarrativeX. It coordinates business workflows, manages persistence, enforces authorization and business rules, and serves as the single API gateway for clients. Long-running generation is asynchronous, but production job creation remains unavailable until the durable enqueue/worker path is implemented and verified.
 
 Creating a Project is metadata-only. AI/media work is never triggered as a side effect of Project creation; story analysis is explicitly scoped to a persisted Chapter.
 
@@ -13,7 +13,7 @@ Creating a Project is metadata-only. AI/media work is never triggered as a side 
 - **Security**: Spring Security + email/password + Google OIDC + CSRF + server-managed session
 - **Observability**: Spring Boot Actuator
 - **Build Tool**: Maven with Maven Wrapper
-- **Testing**: JUnit 5, Spring Boot Test, Testcontainers
+- **Testing**: JUnit 5, Spring Boot Test, Testcontainers, JaCoCo
 
 ## Local Prerequisites
 - Java 25+ JDK installed
@@ -78,11 +78,23 @@ Limits are configuration, not domain invariants, and may be changed under `narra
 
 ## Database migration invariant
 
-Flyway migrations are forward-only once shared. The repository currently uses a consolidated V1 schema baseline for the active domain, followed by seed/forward migrations as documented in `documentation/codebase/DATABASE_BASELINE.md`.
+Flyway migrations are forward-only once shared. The active branch currently contains the consolidated `V1__initial_schema.sql` baseline plus `V3__optimize_active_project_listing.sql`, which adds the partial index used by active-project keyset pagination. See `documentation/codebase/DATABASE_BASELINE.md` for the current migration matrix.
 
 The consolidated baseline does not contain the retired StoryVersion copyright/rights-attestation columns or the legacy `content_rights_attestations` table. Those names belong to historical migration context only and are not active schema compatibility requirements. The active product/domain contract has no blanket per-story copyright/rights-attestation prerequisite for Analyze/Generate; moderation, report/review/takedown and real-person consent remain independent concerns.
 
 The PostgreSQL Testcontainers migration test runs with the explicit `test` profile while overriding the test datasource/dialect back to PostgreSQL, then validates the current Flyway path and Hibernate schema compatibility.
+
+## Optimistic concurrency
+
+Mutable aggregate persistence is protected by JPA `@Version` **and** an explicit detached-domain `rowVersion` guard before applying domain state to an already-loaded JPA entity. A stale domain object must fail with an optimistic-lock conflict instead of silently overwriting a newer row.
+
+This guard is applied to mutable Project, StoryVersion, Character, CharacterVersion, CharacterAppearance, OutfitVersion, ProjectCharacter, GenerationJob and OperationPlan persistence paths. Public HTTP `If-Match`/ETag wiring remains a separate API-contract task where not yet implemented.
+
+## Story-size validation
+
+Story preflight validation uses stable domain/API error codes instead of a generic invalid-request message. The current boundary distinguishes at least character-limit and estimated-token-limit failures.
+
+Estimated token count is a conservative multilingual preflight heuristic. It is intentionally not treated as a provider tokenizer. Provider/worker execution must still validate the actual model-specific token budget before a paid/external call.
 
 ## Development Commands
 
@@ -120,6 +132,18 @@ $env:SPRING_PROFILES_ACTIVE = "local"
 .\mvnw.cmd test
 ```
 
+### Verify quality gates
+
+```bash
+# Unix
+./mvnw clean verify
+
+# Windows
+.\mvnw.cmd clean verify
+```
+
+`verify` runs the backend test suite, Spotless checks, JaCoCo report generation and the current bundle-level minimum line-coverage gate. The minimum is intentionally a low bootstrap threshold and should be raised as behavior coverage expands; it is not a statement that the backend is comprehensively tested.
+
 ### Build JAR Package
 ```bash
 # Unix
@@ -155,7 +179,7 @@ docker run --rm -p 8080:8080 \
 
 The standalone container command assumes PostgreSQL and Redis are reachable from Docker through `host.docker.internal`; Compose is preferred because it provides service discovery, health ordering and named volumes.
 
-## Story analysis feature gate
+## Story analysis availability boundary
 
 Story analysis is Chapter-scoped:
 
@@ -163,18 +187,11 @@ Story analysis is Chapter-scoped:
 POST /api/v1/projects/{projectId}/chapters/{chapterId}/analysis-jobs
 ```
 
-It is disabled by default with:
+There is no runtime feature flag that can make the current scaffold production-ready. Until persisted/current Chapter source validation, idempotency, the atomic durable enqueue transaction, StageAttempt/outbox dispatch, worker claim/lease/heartbeat/recovery, provider-operation reconciliation, entitlement/quota, abuse/safety gates and cost authorization/reservation are implemented and integration-tested, this endpoint returns `503 FEATURE_NOT_AVAILABLE` and must not create a fake `QUEUED` job.
 
-```yaml
-narrativex:
-  features:
-    story-analysis-enabled: false
-```
-
-The environment override is `NARRATIVEX_STORY_ANALYSIS_ENABLED`. Do **not** enable it in a shared environment until persisted/current Chapter source validation, idempotency, the atomic durable enqueue transaction, StageAttempt/outbox dispatch, worker claim/lease/heartbeat/recovery, provider-operation reconciliation, entitlement/quota, abuse/safety gates and cost authorization/reservation are implemented and integration-tested.
-
-When disabled, the endpoint returns `503 FEATURE_NOT_AVAILABLE` and must not create a fake `QUEUED` job. `POST /api/v1/projects` must never invoke this endpoint or enqueue equivalent AI/media work as a side effect.
+`POST /api/v1/projects` must never invoke this endpoint or enqueue equivalent AI/media work as a side effect.
 
 ## Application Boundaries
 - **Must Own**: Domain models, business rule validation, project state, database schema and migrations (Flyway), client API endpoints, authorization and durable job control-plane state.
 - **Must NOT Own**: Direct GPU/media processing, FFmpeg video rendering execution, direct interaction with heavy Python AI inference libraries (delegated asynchronously to `ai-worker`), browser UI rendering (owned by `frontend-web`).
+- **Application-layer rule**: use cases return application/domain results, not `ApiResponse`, controller response DTOs or servlet/HTTP transport types. API controllers perform transport mapping at the boundary.

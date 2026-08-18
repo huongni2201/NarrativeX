@@ -2,8 +2,6 @@ package com.narrativex.backend.feature.project.application.usecase;
 
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
-import com.narrativex.backend.feature.common.response.ApiResponse;
-import com.narrativex.backend.feature.project.api.response.StoryVersionResponse;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.project.application.port.out.StoryVersionRepository;
 import com.narrativex.backend.feature.project.domain.aggregate.Project;
@@ -21,7 +19,7 @@ public class ActivateStoryVersionUseCase {
   private final CurrentUserId currentUserId;
 
   @Transactional
-  public ApiResponse<StoryVersionResponse> execute(Long projectId, Long storyVersionId) {
+  public StoryVersion execute(Long projectId, Long storyVersionId) {
     String ownerId = currentUserId.get();
     Project project = projectAccess.findOwnedProjectForUpdate(projectId, ownerId);
     StoryVersion nextVersion =
@@ -31,8 +29,7 @@ public class ActivateStoryVersionUseCase {
     Optional<StoryVersion> currentActive = storyVersionRepository.findActiveByProjectId(projectId);
 
     if (currentActive.map(StoryVersion::getId).filter(storyVersionId::equals).isPresent()) {
-      return ApiResponse.success(
-          "Story version is already active", StoryVersionResponse.from(nextVersion));
+      return nextVersion;
     }
 
     project.activateStoryVersion(nextVersion, currentActive.orElse(null));
@@ -40,9 +37,6 @@ public class ActivateStoryVersionUseCase {
     // PostgreSQL's partial unique index is immediate. Flush the previous ACTIVE -> SUPERSEDED
     // update before persisting the next ACTIVE row so Hibernate cannot order an INSERT first.
     currentActive.ifPresent(storyVersionRepository::saveAndFlush);
-    StoryVersion saved = storyVersionRepository.save(nextVersion);
-
-    return ApiResponse.success(
-        "Story version activated successfully", StoryVersionResponse.from(saved));
+    return storyVersionRepository.save(nextVersion);
   }
 }

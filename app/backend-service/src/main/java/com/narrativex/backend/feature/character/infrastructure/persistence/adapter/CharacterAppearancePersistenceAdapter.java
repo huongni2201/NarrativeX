@@ -5,6 +5,7 @@ import com.narrativex.backend.feature.character.domain.entity.CharacterAppearanc
 import com.narrativex.backend.feature.character.infrastructure.persistence.entity.CharacterAppearanceJpaEntity;
 import com.narrativex.backend.feature.character.infrastructure.persistence.mapper.CharacterPersistenceMapper;
 import com.narrativex.backend.feature.character.infrastructure.persistence.repository.CharacterAppearanceJpaRepository;
+import com.narrativex.backend.feature.common.infrastructure.persistence.OptimisticConcurrency;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -21,6 +22,11 @@ public class CharacterAppearancePersistenceAdapter implements CharacterAppearanc
             : repository
                 .findById(appearance.getId())
                 .map(existing -> {
+                  OptimisticConcurrency.requireVersion(
+                      appearance.getRowVersion(),
+                      existing.getRowVersion(),
+                      CharacterAppearanceJpaEntity.class,
+                      appearance.getId());
                   existing.apply(appearance);
                   return existing;
                 })

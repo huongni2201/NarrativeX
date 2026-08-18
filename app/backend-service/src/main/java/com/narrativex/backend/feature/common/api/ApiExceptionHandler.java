@@ -5,6 +5,8 @@ import com.narrativex.backend.feature.common.domain.exception.DomainValidationEx
 import com.narrativex.backend.feature.common.exception.FeatureNotAvailableException;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
+import com.narrativex.backend.feature.project.domain.exception.StoryCharacterLimitExceededException;
+import com.narrativex.backend.feature.project.domain.exception.StoryTokenLimitExceededException;
 import jakarta.persistence.OptimisticLockException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
@@ -28,6 +30,26 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 @RestControllerAdvice
 public class ApiExceptionHandler {
   private static final String UNIQUE_VIOLATION_SQL_STATE = "23505";
+
+  @ExceptionHandler(StoryCharacterLimitExceededException.class)
+  ResponseEntity<ErrorResponse> handleStoryCharacterLimit(
+      StoryCharacterLimitExceededException exception, HttpServletRequest request) {
+    return error(
+        HttpStatus.BAD_REQUEST,
+        ApiErrorCode.STORY_CHARACTER_LIMIT_EXCEEDED,
+        exception.getMessage(),
+        request);
+  }
+
+  @ExceptionHandler(StoryTokenLimitExceededException.class)
+  ResponseEntity<ErrorResponse> handleStoryTokenLimit(
+      StoryTokenLimitExceededException exception, HttpServletRequest request) {
+    return error(
+        HttpStatus.BAD_REQUEST,
+        ApiErrorCode.STORY_TOKEN_LIMIT_EXCEEDED,
+        exception.getMessage(),
+        request);
+  }
 
   @ExceptionHandler(DomainValidationException.class)
   ResponseEntity<ErrorResponse> handleDomainValidation(

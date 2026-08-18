@@ -8,7 +8,7 @@ This page separates technology visible in the repository from the V1.8 target co
 |---|---|---|
 | Web | Next.js `^16.3.1`, React `^19.2.8`, TypeScript `^5.8.2`, Tailwind CSS, TanStack Query, Zustand; Node.js 22 CI/runtime baseline | Route-driven story/project UI, visual review, cost confirmation, SSE progress and notifications as backend contracts become available |
 | Backend | Java `25`, Spring Boot `4.1.0`, Web, Validation, JPA, Security, Actuator | Modular monolith, API, ownership, durable orchestration and business rules |
-| Persistence | PostgreSQL driver, Flyway, Spring Data JPA; consolidated V1 baseline plus forward-only migrations through V7 | Authoritative transactional domain/job/cost/safety state |
+| Persistence | PostgreSQL driver, Flyway, Spring Data JPA; consolidated `V1__initial_schema.sql` plus current forward migration `V3__optimize_active_project_listing.sql` | Authoritative transactional domain/job/cost/safety state |
 | Redis infrastructure | Spring Data Redis | Delivery hints, cache, progress/scheduling and transient abuse-control counters; not durable business state |
 | Session storage | Spring Session Data Redis | Shared server-managed `HttpSession` storage for Spring Security; opaque `NX_SESSION` cookie with configurable timeout/namespace |
 | Worker | Python `>=3.12`, Pydantic v2/settings, HTTPX, Hatchling | Async AI/media execution, adapters, QA and FFmpeg orchestration |
@@ -16,9 +16,17 @@ This page separates technology visible in the repository from the V1.8 target co
 | Object storage | MinIO local/dev; S3-compatible private storage target | Images, audio, video and derivative media; versioning for critical media |
 | AI | Vertex AI Gemini through server-side ADC/workload identity; provider ports | Story/scene/visual/prompt/highlight planning; optional image/video providers |
 | Auth | Spring Security + email/password + Google OIDC + CSRF + Spring Session Redis | Server-side Secure/HttpOnly/SameSite session; provider tokens and bearer/refresh tokens never reach browser in the current contract |
-| Migrations | Flyway `V1__initial_schema.sql` plus forward migrations V2-V7 | PostgreSQL bootstrap and forward-only schema evolution; historical shared migrations are not rewritten |
+| Migrations | Flyway consolidated V1 baseline plus forward-only migrations present on the active branch | PostgreSQL bootstrap and forward schema evolution; shared migrations are not rewritten after release |
 | Observability | Spring Boot Actuator foundation | Correlated logs/metrics/traces across request -> job -> worker -> provider/storage |
-| Testing/quality | Backend JUnit/Spring/Testcontainers; worker Pytest; frontend Node regression tests + ESLint + TypeScript + Next build + architecture-boundary check in CI | Contract, idempotency, provider reconciliation, safety, restore, accessibility and E2E gates |
+| Testing/quality | Backend JUnit/Spring/Testcontainers + Spotless + JaCoCo; worker Pytest; frontend Node regression tests + ESLint + TypeScript + Next build + architecture-boundary check in CI | Contract, concurrency, idempotency, provider reconciliation, safety, restore, accessibility and E2E gates |
+
+## Backend quality contract
+
+Backend CI runs `./mvnw clean verify`. The verify lifecycle includes unit/integration tests, Spotless, JaCoCo report generation and a bootstrap bundle-level minimum line-coverage threshold. The current threshold is intentionally low while the suite is being expanded; it is a regression floor, not evidence of comprehensive behavioral coverage.
+
+Optimistic concurrency uses JPA `@Version` plus an explicit comparison between the detached domain model's expected `rowVersion` and the currently loaded persistence entity version before applying state. Stale mutable writes must fail rather than silently overwrite newer data.
+
+Story-size preflight validation exposes stable character-limit and estimated-token-limit failures. Token estimation is a conservative multilingual heuristic only; the real selected provider/model token budget remains authoritative before execution.
 
 ## Frontend runtime contract
 

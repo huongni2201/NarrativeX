@@ -19,7 +19,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 @Slf4j
 @RestController
@@ -34,13 +40,17 @@ public class ProjectController {
   @GetMapping
   public ResponseEntity<ApiResponse<CursorPage<ProjectResponse>>> list(
       @RequestParam(required = false) String cursor, @RequestParam(defaultValue = "20") int limit) {
-    return ResponseEntity.ok(
-        listProjectsUseCase.execute(new ProjectListQuery(null, cursor, limit)));
+    CursorPage<ProjectResponse> page =
+        listProjectsUseCase.execute(new ProjectListQuery(null, cursor, limit)).map(ProjectResponse::from);
+    return ResponseEntity.ok(ApiResponse.success("Projects retrieved successfully", page));
   }
 
   @GetMapping("/{projectId}")
   public ResponseEntity<ApiResponse<ProjectResponse>> get(@PathVariable Long projectId) {
-    return ResponseEntity.ok(getProjectUseCase.execute(new GetProjectQuery(projectId)));
+    return ResponseEntity.ok(
+        ApiResponse.success(
+            "Project retrieved successfully",
+            ProjectResponse.from(getProjectUseCase.execute(new GetProjectQuery(projectId)))));
   }
 
   @PostMapping
@@ -56,19 +66,21 @@ public class ProjectController {
             request.imageQualityTier(),
             null);
     log.debug("Creating project for authenticated principal");
-    return ResponseEntity.status(HttpStatus.CREATED).body(createProjectUseCase.execute(command));
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .body(
+            ApiResponse.success(
+                "Project created successfully", ProjectResponse.from(createProjectUseCase.execute(command))));
   }
 
   @PostMapping("/{projectId}/stories")
   public ResponseEntity<ApiResponse<StoryVersionResponse>> createStory(
       @PathVariable Long projectId, @Valid @RequestBody CreateStoryVersionRequest request) {
     var command =
-        new CreateStoryVersionCommand(
-            projectId,
-            request.content(),
-            request.sourceLanguage(),
-            null);
+        new CreateStoryVersionCommand(projectId, request.content(), request.sourceLanguage(), null);
     return ResponseEntity.status(HttpStatus.CREATED)
-        .body(createStoryVersionUseCase.execute(command));
+        .body(
+            ApiResponse.success(
+                "Story version created successfully",
+                StoryVersionResponse.from(createStoryVersionUseCase.execute(command))));
   }
 }

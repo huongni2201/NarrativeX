@@ -6,6 +6,7 @@ import com.narrativex.backend.feature.character.domain.enums.CharacterStatus;
 import com.narrativex.backend.feature.character.infrastructure.persistence.entity.OutfitVersionJpaEntity;
 import com.narrativex.backend.feature.character.infrastructure.persistence.mapper.CharacterPersistenceMapper;
 import com.narrativex.backend.feature.character.infrastructure.persistence.repository.OutfitVersionJpaRepository;
+import com.narrativex.backend.feature.common.infrastructure.persistence.OptimisticConcurrency;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -35,6 +36,11 @@ public class OutfitVersionPersistenceAdapter implements OutfitVersionRepository 
             : repository
                 .findById(outfit.getId())
                 .map(existing -> {
+                  OptimisticConcurrency.requireVersion(
+                      outfit.getRowVersion(),
+                      existing.getRowVersion(),
+                      OutfitVersionJpaEntity.class,
+                      outfit.getId());
                   existing.apply(outfit);
                   return existing;
                 })
