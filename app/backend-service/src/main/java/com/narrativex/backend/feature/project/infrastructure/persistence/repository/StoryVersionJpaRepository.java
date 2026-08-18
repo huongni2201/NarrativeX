@@ -17,4 +17,6 @@ public interface StoryVersionJpaRepository extends JpaRepository<StoryVersionJpa
 
   Optional<StoryVersionJpaEntity> findFirstByProjectIdAndStatus(
       Long projectId, StoryVersionStatus status);
+
+  Optional<StoryVersionJpaEntity> findFirstByProjectIdOrderByVersionNumberDesc(Long projectId);
 }
