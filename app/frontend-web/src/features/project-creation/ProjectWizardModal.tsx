@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useStudioStore } from "@/store/useStudioStore";
@@ -8,13 +9,16 @@ import { Stepper } from "@/components/ui/Stepper";
 import { Step1BasicInfo } from "./Step1BasicInfo";
 import { Step2ImportStory } from "./Step2ImportStory";
 import { Step3AiAnalysis } from "./Step3AiAnalysis";
-import { Step4Results } from "./Step4Results";
 import { Button } from "@/components/ui/Button";
 import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
 import { api, apiErrorMessage, ApiClientError } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 import type { ProjectWizardDraft } from "@/types/studio";
 import type { ApiFieldError } from "@/types/api";
+
+const Step4Results = dynamic(() =>
+  import("./Step4Results").then((module) => module.Step4Results),
+);
 
 const languageCodes: Record<string, string> = {
   "Tiếng Việt": "vi-VN",
