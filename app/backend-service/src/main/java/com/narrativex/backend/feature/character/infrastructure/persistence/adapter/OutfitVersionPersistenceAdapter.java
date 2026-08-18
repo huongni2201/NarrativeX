@@ -7,15 +7,13 @@ import com.narrativex.backend.feature.character.infrastructure.persistence.entit
 import com.narrativex.backend.feature.character.infrastructure.persistence.mapper.CharacterPersistenceMapper;
 import com.narrativex.backend.feature.character.infrastructure.persistence.repository.OutfitVersionJpaRepository;
 import java.util.Optional;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class OutfitVersionPersistenceAdapter implements OutfitVersionRepository {
   private final OutfitVersionJpaRepository repository;
-
-  public OutfitVersionPersistenceAdapter(OutfitVersionJpaRepository repository) {
-    this.repository = repository;
-  }
 
   @Override
   public int findMaxVersionNumberByCharacterId(Long characterId) {
@@ -33,11 +31,25 @@ public class OutfitVersionPersistenceAdapter implements OutfitVersionRepository 
   public OutfitVersion save(OutfitVersion outfit) {
     OutfitVersionJpaEntity entity =
         outfit.getId() == null
-            ? new OutfitVersionJpaEntity(outfit)
+            ? buildJpaEntity(outfit)
             : repository
                 .findById(outfit.getId())
-                .orElseGet(() -> new OutfitVersionJpaEntity(outfit));
-    entity.apply(outfit);
+                .map(existing -> {
+                  existing.apply(outfit);
+                  return existing;
+                })
+                .orElseGet(() -> buildJpaEntity(outfit));
     return CharacterPersistenceMapper.toDomain(repository.save(entity));
+  }
+
+  private static OutfitVersionJpaEntity buildJpaEntity(OutfitVersion outfit) {
+    return OutfitVersionJpaEntity.builder()
+        .characterId(outfit.getCharacterId())
+        .versionNumber(outfit.getVersionNumber())
+        .name(outfit.getName())
+        .description(outfit.getDescription())
+        .prompt(outfit.getPrompt())
+        .status(outfit.getStatus())
+        .build();
   }
 }

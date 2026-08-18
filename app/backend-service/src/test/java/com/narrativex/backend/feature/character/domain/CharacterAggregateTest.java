@@ -11,6 +11,7 @@ import com.narrativex.backend.feature.character.domain.entity.OutfitVersion;
 import com.narrativex.backend.feature.character.domain.enums.CharacterStatus;
 import com.narrativex.backend.feature.character.domain.enums.CharacterVersionStatus;
 import com.narrativex.backend.feature.character.domain.enums.OutfitVersionStatus;
+import com.narrativex.backend.feature.character.domain.exception.InvalidProjectCharacterTransitionException;
 import org.junit.jupiter.api.Test;
 
 class CharacterAggregateTest {
@@ -105,7 +106,9 @@ class CharacterAggregateTest {
         ProjectCharacter.assign(
             100L, 10L, "PROTAGONIST", 1, java.util.List.of(), null, java.util.List.of(), null);
 
-    assertThrows(IllegalStateException.class, () -> assignment.pinVersion(version));
+    assertThrows(
+        InvalidProjectCharacterTransitionException.class,
+        () -> assignment.pinVersion(version));
     version.submitForReview();
     version.lock("owner");
     assignment.pinVersion(version);

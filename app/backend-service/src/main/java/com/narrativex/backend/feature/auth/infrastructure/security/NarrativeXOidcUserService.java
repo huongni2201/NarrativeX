@@ -3,7 +3,9 @@ package com.narrativex.backend.feature.auth.infrastructure.security;
 import com.narrativex.backend.feature.auth.application.service.RegisterAuthAccountService;
 import com.narrativex.backend.feature.auth.infrastructure.persistence.entity.AuthUserJpaEntity;
 import com.narrativex.backend.feature.auth.infrastructure.persistence.repository.AuthUserJpaRepository;
+import java.time.Instant;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest;
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
@@ -14,13 +16,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class NarrativeXOidcUserService implements OAuth2UserService<OidcUserRequest, OidcUser> {
   private final OidcUserService delegate = new OidcUserService();
   private final AuthUserJpaRepository repository;
-
-  public NarrativeXOidcUserService(AuthUserJpaRepository repository) {
-    this.repository = repository;
-  }
 
   @Override
   @Transactional
@@ -44,16 +43,19 @@ public class NarrativeXOidcUserService implements OAuth2UserService<OidcUserRequ
         throw invalidUserInfo(
             "This email already belongs to a NarrativeX account. Sign in with that method first before linking Google.");
       }
+      Instant now = Instant.now();
       account =
           repository.save(
-              new AuthUserJpaEntity(
-                  UUID.randomUUID().toString(),
-                  email,
-                  displayName,
-                  avatarUrl,
-                  null,
-                  subject,
-                  true));
+              AuthUserJpaEntity.builder()
+                  .id(UUID.randomUUID().toString())
+                  .email(email)
+                  .displayName(displayName)
+                  .avatarUrl(avatarUrl)
+                  .googleSubject(subject)
+                  .enabled(true)
+                  .createdAt(now)
+                  .updatedAt(now)
+                  .build());
     } else {
       account.linkGoogle(subject, displayName, avatarUrl);
       account = repository.save(account);

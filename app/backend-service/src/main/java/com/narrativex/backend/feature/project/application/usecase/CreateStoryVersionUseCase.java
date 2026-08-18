@@ -9,26 +9,17 @@ import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.project.application.port.out.StoryVersionRepository;
 import com.narrativex.backend.feature.project.domain.aggregate.Project;
 import com.narrativex.backend.feature.project.domain.entity.StoryVersion;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class CreateStoryVersionUseCase {
   private final ProjectAccess projectAccess;
   private final StoryVersionRepository storyVersionRepository;
   private final CurrentUserId currentUserId;
   private final NarrativeXLimitsProperties limits;
-
-  public CreateStoryVersionUseCase(
-      ProjectAccess projectAccess,
-      StoryVersionRepository storyVersionRepository,
-      CurrentUserId currentUserId,
-      NarrativeXLimitsProperties limits) {
-    this.projectAccess = projectAccess;
-    this.storyVersionRepository = storyVersionRepository;
-    this.currentUserId = currentUserId;
-    this.limits = limits;
-  }
 
   @Transactional
   public ApiResponse<StoryVersionResponse> execute(CreateStoryVersionCommand command) {

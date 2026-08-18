@@ -5,19 +5,15 @@ import com.narrativex.backend.feature.auth.application.port.out.PasswordHashing;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import java.util.Locale;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class RegisterAuthAccountService {
   private final AuthAccountRegistration accounts;
   private final PasswordHashing passwordHashing;
-
-  public RegisterAuthAccountService(
-      AuthAccountRegistration accounts, PasswordHashing passwordHashing) {
-    this.accounts = accounts;
-    this.passwordHashing = passwordHashing;
-  }
 
   @Transactional
   public String register(String displayName, String email, String rawPassword) {

@@ -7,19 +7,15 @@ import com.narrativex.backend.feature.generation.api.response.JobResponse;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.application.query.GetGenerationJobQuery;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class GetGenerationJobUseCase {
   private final GenerationJobRepository jobRepository;
   private final CurrentUserId currentUserId;
-
-  public GetGenerationJobUseCase(
-      GenerationJobRepository jobRepository, CurrentUserId currentUserId) {
-    this.jobRepository = jobRepository;
-    this.currentUserId = currentUserId;
-  }
 
   @Transactional(readOnly = true)
   public ApiResponse<JobResponse> execute(GetGenerationJobQuery query) {

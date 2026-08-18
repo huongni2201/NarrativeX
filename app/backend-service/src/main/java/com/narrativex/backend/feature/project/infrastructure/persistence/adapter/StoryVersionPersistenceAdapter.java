@@ -7,15 +7,13 @@ import com.narrativex.backend.feature.project.infrastructure.persistence.entity.
 import com.narrativex.backend.feature.project.infrastructure.persistence.mapper.ProjectPersistenceMapper;
 import com.narrativex.backend.feature.project.infrastructure.persistence.repository.StoryVersionJpaRepository;
 import java.util.Optional;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class StoryVersionPersistenceAdapter implements StoryVersionRepository {
   private final StoryVersionJpaRepository repository;
-
-  public StoryVersionPersistenceAdapter(StoryVersionJpaRepository repository) {
-    this.repository = repository;
-  }
 
   @Override
   public int findMaxVersionNumberByProjectId(Long projectId) {
@@ -47,13 +45,30 @@ public class StoryVersionPersistenceAdapter implements StoryVersionRepository {
   }
 
   private StoryVersionJpaEntity toJpaEntity(StoryVersion storyVersion) {
-    StoryVersionJpaEntity entity =
-        storyVersion.getId() == null
-            ? new StoryVersionJpaEntity(storyVersion)
-            : repository
-                .findById(storyVersion.getId())
-                .orElseGet(() -> new StoryVersionJpaEntity(storyVersion));
-    entity.apply(storyVersion);
-    return entity;
+    return storyVersion.getId() == null
+        ? buildJpaEntity(storyVersion)
+        : repository
+            .findById(storyVersion.getId())
+            .map(existing -> {
+              existing.apply(storyVersion);
+              return existing;
+            })
+            .orElseGet(() -> buildJpaEntity(storyVersion));
+  }
+
+  private static StoryVersionJpaEntity buildJpaEntity(StoryVersion storyVersion) {
+    return StoryVersionJpaEntity.builder()
+        .projectId(storyVersion.getProjectId())
+        .versionNumber(storyVersion.getVersionNumber())
+        .content(storyVersion.getContent())
+        .sourceLanguage(storyVersion.getSourceLanguage())
+        .status(storyVersion.getStatus())
+        .moderationDecision(storyVersion.getModerationDecision())
+        .rightsAttested(storyVersion.isRightsAttested())
+        .rightsPolicyVersion(storyVersion.getRightsPolicyVersion())
+        .rightsBasis(storyVersion.getRightsBasis())
+        .rightsAttestedAt(storyVersion.getRightsAttestedAt())
+        .rightsAttestedBy(storyVersion.getRightsAttestedBy())
+        .build();
   }
 }

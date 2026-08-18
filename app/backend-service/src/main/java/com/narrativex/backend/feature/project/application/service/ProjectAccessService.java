@@ -5,19 +5,16 @@ import com.narrativex.backend.feature.common.exception.ResourceNotFoundException
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.project.application.port.out.ProjectRepository;
 import com.narrativex.backend.feature.project.domain.aggregate.Project;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /** Internal cross-module access service; this is not an HTTP-facing query use case. */
 @Service
+@RequiredArgsConstructor
 public class ProjectAccessService implements ProjectAccess {
   private final ProjectRepository projectRepository;
   private final CurrentUserId currentUserId;
-
-  public ProjectAccessService(ProjectRepository projectRepository, CurrentUserId currentUserId) {
-    this.projectRepository = projectRepository;
-    this.currentUserId = currentUserId;
-  }
 
   @Override
   @Transactional(readOnly = true)

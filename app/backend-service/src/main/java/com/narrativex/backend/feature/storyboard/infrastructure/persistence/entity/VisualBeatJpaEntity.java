@@ -10,6 +10,11 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
 @Table(
@@ -18,6 +23,11 @@ import jakarta.persistence.UniqueConstraint;
         @UniqueConstraint(
             name = "uk_visual_beats_scene_order",
             columnNames = {"scene_id", "order_index"}))
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class VisualBeatJpaEntity extends JpaAuditedEntity {
   @Column(name = "scene_id", nullable = false)
   private Long sceneId;
@@ -39,6 +49,5 @@ public class VisualBeatJpaEntity extends JpaAuditedEntity {
   @Enumerated(EnumType.STRING)
   @Column(name = "quality_tier_override", length = 16)
   private ImageQualityTier qualityTierOverride;
-
-  protected VisualBeatJpaEntity() {}
 }
+

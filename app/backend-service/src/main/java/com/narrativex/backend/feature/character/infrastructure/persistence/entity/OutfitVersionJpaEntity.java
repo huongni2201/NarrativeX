@@ -3,7 +3,17 @@ package com.narrativex.backend.feature.character.infrastructure.persistence.enti
 import com.narrativex.backend.feature.character.domain.entity.OutfitVersion;
 import com.narrativex.backend.feature.character.domain.enums.OutfitVersionStatus;
 import com.narrativex.backend.feature.common.infrastructure.persistence.JpaAuditedEntity;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
 @Table(
@@ -12,6 +22,11 @@ import jakarta.persistence.*;
         @UniqueConstraint(
             name = "uk_outfit_versions_character_version",
             columnNames = {"character_id", "version_number"}))
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class OutfitVersionJpaEntity extends JpaAuditedEntity {
   @Column(name = "character_id", nullable = false)
   private Long characterId;
@@ -32,11 +47,6 @@ public class OutfitVersionJpaEntity extends JpaAuditedEntity {
   @Column(name = "status", nullable = false, length = 24)
   private OutfitVersionStatus status;
 
-  protected OutfitVersionJpaEntity() {}
-
-  public OutfitVersionJpaEntity(OutfitVersion v) {
-    apply(v);
-  }
 
   public void apply(OutfitVersion v) {
     characterId = v.getCharacterId();
@@ -45,29 +55,5 @@ public class OutfitVersionJpaEntity extends JpaAuditedEntity {
     description = v.getDescription();
     prompt = v.getPrompt();
     status = v.getStatus();
-  }
-
-  public Long getCharacterId() {
-    return characterId;
-  }
-
-  public int getVersionNumber() {
-    return versionNumber;
-  }
-
-  public String getName() {
-    return name;
-  }
-
-  public String getDescription() {
-    return description;
-  }
-
-  public String getPrompt() {
-    return prompt;
-  }
-
-  public OutfitVersionStatus getStatus() {
-    return status;
   }
 }

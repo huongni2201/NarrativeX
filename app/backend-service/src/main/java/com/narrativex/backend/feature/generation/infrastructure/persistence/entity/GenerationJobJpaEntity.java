@@ -5,10 +5,24 @@ import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
 import com.narrativex.backend.feature.generation.domain.enums.ResourceClass;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
 @Table(name = "generation_jobs")
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class GenerationJobJpaEntity extends JpaAuditedEntity {
   @Column(name = "job_id", nullable = false, unique = true, length = 36)
   private String jobId;
@@ -43,11 +57,6 @@ public class GenerationJobJpaEntity extends JpaAuditedEntity {
   @Column(name = "billed_to_user_id", nullable = false, length = 128)
   private String billedToUserId;
 
-  protected GenerationJobJpaEntity() {}
-
-  public GenerationJobJpaEntity(GenerationJob job) {
-    apply(job);
-  }
 
   public void apply(GenerationJob job) {
     jobId = job.getJobId();
@@ -61,44 +70,5 @@ public class GenerationJobJpaEntity extends JpaAuditedEntity {
     requestedByUserId = job.getRequestedByUserId();
     billedToUserId = job.getBilledToUserId();
   }
-
-  public String getJobId() {
-    return jobId;
-  }
-
-  public Long getProjectId() {
-    return projectId;
-  }
-
-  public JobType getType() {
-    return type;
-  }
-
-  public JobStatus getStatus() {
-    return status;
-  }
-
-  public ResourceClass getResourceClass() {
-    return resourceClass;
-  }
-
-  public int getProgress() {
-    return progress;
-  }
-
-  public String getCurrentStep() {
-    return currentStep;
-  }
-
-  public String getErrorCode() {
-    return errorCode;
-  }
-
-  public String getRequestedByUserId() {
-    return requestedByUserId;
-  }
-
-  public String getBilledToUserId() {
-    return billedToUserId;
-  }
 }
+

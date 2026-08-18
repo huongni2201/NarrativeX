@@ -9,23 +9,16 @@ import com.narrativex.backend.feature.project.application.port.out.StoryVersionR
 import com.narrativex.backend.feature.project.domain.aggregate.Project;
 import com.narrativex.backend.feature.project.domain.entity.StoryVersion;
 import java.util.Optional;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class ActivateStoryVersionUseCase {
   private final ProjectAccess projectAccess;
   private final StoryVersionRepository storyVersionRepository;
   private final CurrentUserId currentUserId;
-
-  public ActivateStoryVersionUseCase(
-      ProjectAccess projectAccess,
-      StoryVersionRepository storyVersionRepository,
-      CurrentUserId currentUserId) {
-    this.projectAccess = projectAccess;
-    this.storyVersionRepository = storyVersionRepository;
-    this.currentUserId = currentUserId;
-  }
 
   @Transactional
   public ApiResponse<StoryVersionResponse> execute(Long projectId, Long storyVersionId) {

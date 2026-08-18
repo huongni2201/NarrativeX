@@ -7,23 +7,16 @@ import com.narrativex.backend.feature.character.application.port.out.OutfitVersi
 import com.narrativex.backend.feature.character.domain.entity.OutfitVersion;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.response.ApiResponse;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class CreateOutfitVersionUseCase {
   private final CharacterRepository characterRepository;
   private final OutfitVersionRepository outfitVersionRepository;
   private final CurrentUserId currentUserId;
-
-  public CreateOutfitVersionUseCase(
-      CharacterRepository characterRepository,
-      OutfitVersionRepository outfitVersionRepository,
-      CurrentUserId currentUserId) {
-    this.characterRepository = characterRepository;
-    this.outfitVersionRepository = outfitVersionRepository;
-    this.currentUserId = currentUserId;
-  }
 
   @Transactional
   public ApiResponse<OutfitVersion> execute(CreateOutfitVersionCommand command) {

@@ -10,29 +10,18 @@ import com.narrativex.backend.feature.character.domain.entity.OutfitVersion;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class CreateCharacterAppearanceUseCase {
   private final CharacterRepository characterRepository;
   private final CharacterAppearanceRepository appearanceRepository;
   private final OutfitVersionRepository outfitVersionRepository;
   private final ProjectAccess projectAccess;
   private final CurrentUserId currentUserId;
-
-  public CreateCharacterAppearanceUseCase(
-      CharacterRepository characterRepository,
-      CharacterAppearanceRepository appearanceRepository,
-      OutfitVersionRepository outfitVersionRepository,
-      ProjectAccess projectAccess,
-      CurrentUserId currentUserId) {
-    this.characterRepository = characterRepository;
-    this.appearanceRepository = appearanceRepository;
-    this.outfitVersionRepository = outfitVersionRepository;
-    this.projectAccess = projectAccess;
-    this.currentUserId = currentUserId;
-  }
 
   @Transactional
   public ApiResponse<CharacterAppearance> execute(CreateCharacterAppearanceCommand command) {

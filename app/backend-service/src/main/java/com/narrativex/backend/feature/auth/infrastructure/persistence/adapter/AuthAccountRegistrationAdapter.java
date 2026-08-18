@@ -4,16 +4,15 @@ import com.narrativex.backend.feature.auth.application.port.out.AuthAccountRegis
 import com.narrativex.backend.feature.auth.infrastructure.persistence.entity.AuthUserJpaEntity;
 import com.narrativex.backend.feature.auth.infrastructure.persistence.repository.AuthUserJpaRepository;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
+import java.time.Instant;
+import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class AuthAccountRegistrationAdapter implements AuthAccountRegistration {
   private final AuthUserJpaRepository repository;
-
-  public AuthAccountRegistrationAdapter(AuthUserJpaRepository repository) {
-    this.repository = repository;
-  }
 
   @Override
   public boolean existsByEmail(String email) {
@@ -24,8 +23,17 @@ public class AuthAccountRegistrationAdapter implements AuthAccountRegistration {
   public void createPasswordAccount(
       String id, String email, String displayName, String passwordHash) {
     try {
+      Instant now = Instant.now();
       repository.saveAndFlush(
-          new AuthUserJpaEntity(id, email, displayName, null, passwordHash, null, true));
+          AuthUserJpaEntity.builder()
+              .id(id)
+              .email(email)
+              .displayName(displayName)
+              .passwordHash(passwordHash)
+              .enabled(true)
+              .createdAt(now)
+              .updatedAt(now)
+              .build());
     } catch (DataIntegrityViolationException exception) {
       throw new ResourceConflictException("An account already exists for this email.");
     }

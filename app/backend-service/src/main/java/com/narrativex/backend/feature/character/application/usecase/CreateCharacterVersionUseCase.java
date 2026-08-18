@@ -7,23 +7,16 @@ import com.narrativex.backend.feature.character.application.port.out.CharacterVe
 import com.narrativex.backend.feature.character.domain.entity.CharacterVersion;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.response.ApiResponse;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class CreateCharacterVersionUseCase {
   private final CharacterRepository characterRepository;
   private final CharacterVersionRepository versionRepository;
   private final CurrentUserId currentUserId;
-
-  public CreateCharacterVersionUseCase(
-      CharacterRepository characterRepository,
-      CharacterVersionRepository versionRepository,
-      CurrentUserId currentUserId) {
-    this.characterRepository = characterRepository;
-    this.versionRepository = versionRepository;
-    this.currentUserId = currentUserId;
-  }
 
   @Transactional
   public ApiResponse<CharacterVersion> execute(CreateCharacterVersionCommand command) {

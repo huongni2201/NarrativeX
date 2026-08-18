@@ -5,19 +5,15 @@ import com.narrativex.backend.feature.character.application.command.CreateCharac
 import com.narrativex.backend.feature.character.application.port.out.CharacterRepository;
 import com.narrativex.backend.feature.character.domain.aggregate.Character;
 import com.narrativex.backend.feature.common.response.ApiResponse;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class CreateCharacterUseCase {
   private final CharacterRepository characterRepository;
   private final CurrentUserId currentUserId;
-
-  public CreateCharacterUseCase(
-      CharacterRepository characterRepository, CurrentUserId currentUserId) {
-    this.characterRepository = characterRepository;
-    this.currentUserId = currentUserId;
-  }
 
   @Transactional
   public ApiResponse<Character> execute(CreateCharacterCommand command) {
