@@ -1,7 +1,6 @@
 package com.narrativex.backend.feature.generation.application.usecase;
 
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
-import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.generation.application.command.EnqueueStoryAnalysisCommand;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationOutboxRepository;
@@ -10,8 +9,8 @@ import com.narrativex.backend.feature.generation.application.port.out.StageAttem
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.aggregate.OperationPlan;
 import com.narrativex.backend.feature.generation.domain.entity.StageAttempt;
+import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
-import com.narrativex.backend.feature.project.application.port.out.ProjectRepository;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
 import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +24,7 @@ public class EnqueueStoryAnalysisUseCase {
 
   private final CurrentUserId currentUserId;
   private final StoryVersionAccess storyVersionAccess;
-  private final ProjectRepository projectRepository;
+  private final ProjectAccess projectAccess;
   private final ChapterAnalysisSourceAccess chapterAnalysisSourceAccess;
   private final OperationPlanRepository operationPlanRepository;
   private final GenerationJobRepository generationJobRepository;
@@ -43,10 +42,7 @@ public class EnqueueStoryAnalysisUseCase {
 
     storyVersionAccess.requireOwnedStoryVersion(
         command.projectId(), chapter.storyVersionId(), userId);
-    var project =
-        projectRepository
-            .findOwnedById(command.projectId(), userId)
-            .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
+    var project = projectAccess.findOwnedProject(command.projectId(), userId);
 
     if (chapter.sourceText().isBlank()) {
       throw new IllegalArgumentException("Chapter source must be saved before analysis");
