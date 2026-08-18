@@ -1,16 +1,14 @@
 "use client";
 
-import React from "react";
-import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, FolderKanban, Users, Image as ImageIcon, Palette, Settings } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { FolderKanban, Users, Image as ImageIcon, Palette, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export const StudioSidebar: React.FC = () => {
+export const StudioSidebar = () => {
   const pathname = usePathname();
-  const router = useRouter();
 
   const navItems = [
-    { id: "overview", label: "Tổng quan", icon: LayoutDashboard, href: "/", active: pathname === "/" },
     { id: "projects", label: "Dự án của tôi", icon: FolderKanban, href: "/projects", active: pathname === "/projects" || pathname.startsWith("/projects/") },
     { id: "characters", label: "Thư viện nhân vật", icon: Users, href: "/characters", active: pathname === "/characters" || pathname.startsWith("/characters/") },
     { id: "assets", label: "Thư viện tài sản", icon: ImageIcon, href: "/assets", active: pathname === "/assets" || pathname.startsWith("/assets/") },
@@ -21,19 +19,18 @@ export const StudioSidebar: React.FC = () => {
     <aside className="w-64 bg-[#090e17] border-r border-slate-800/80 flex flex-col justify-between shrink-0 h-screen sticky top-0 select-none z-20">
       <div>
         <div className="p-4 px-5 border-b border-slate-800/60 flex items-center justify-between">
-          <button type="button" onClick={() => router.push("/")} className="flex items-center cursor-pointer group py-1" aria-label="Về trang tổng quan NarrativeX">
+          <Link href="/projects" className="flex items-center cursor-pointer group py-1" aria-label="Về danh sách dự án NarrativeX">
             <img src="/branding/narrativex-logo-dark.png" alt="NarrativeX Logo" className="h-11 w-auto max-w-[190px] object-contain transition-transform group-hover:scale-105" />
-          </button>
+          </Link>
         </div>
 
         <nav className="p-3 space-y-1" aria-label="Điều hướng studio">
           {navItems.map((item) => {
             const Icon = item.icon;
             return (
-              <button
+              <Link
                 key={item.id}
-                type="button"
-                onClick={() => router.push(item.href)}
+                href={item.href}
                 aria-current={item.active ? "page" : undefined}
                 className={cn(
                   "w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500",
@@ -42,7 +39,7 @@ export const StudioSidebar: React.FC = () => {
               >
                 <Icon className={cn("w-4.5 h-4.5 shrink-0", item.active ? "text-purple-400" : "text-slate-500")} />
                 <span>{item.label}</span>
-              </button>
+              </Link>
             );
           })}
         </nav>
