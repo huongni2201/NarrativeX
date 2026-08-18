@@ -1,6 +1,5 @@
-import React, { useState } from "react";
+import React from "react";
 import { useStudioStore } from "@/store/useStudioStore";
-import { Tabs } from "@/components/ui/Tabs";
 import { FileText, UploadCloud, Sparkles, Info } from "lucide-react";
 import type { ApiFieldError } from "@/types/api";
 
@@ -14,70 +13,63 @@ export const Step2ImportStory: React.FC<Step2Props> = ({ validationErrors = [] }
   const wizardDraft = useStudioStore((state) => state.wizardDraft);
   const updateWizardDraft = useStudioStore((state) => state.updateWizardDraft);
   const loadSampleStory = useStudioStore((state) => state.loadSampleStory);
-  const [activeTab, setActiveTab] = useState("text");
   const contentError = validationErrors.find((error) => ["content", "storyText"].includes(error.field));
-
-  const importTabs = [
-    { id: "text", label: "Nhập văn bản", icon: <FileText className="w-3.5 h-3.5" /> },
-    { id: "upload", label: "Tải file", icon: <UploadCloud className="w-3.5 h-3.5" /> },
-  ];
-
   const characterCount = wizardDraft.storyText.length;
 
   return (
     <div className="flex flex-col md:flex-row gap-8 min-h-[480px]">
       <div className="flex-1 space-y-4 flex flex-col">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-white">Nhập truyện của bạn</h2>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Dán truyện chữ, kịch bản hoặc tải tệp tài liệu để AI phân tích.
-            </p>
-          </div>
-
-          <Tabs
-            tabs={importTabs}
-            activeTab={activeTab}
-            onChange={setActiveTab}
-            variant="pills"
-          />
+        <div>
+          <h2 className="text-lg font-semibold text-white">Nhập truyện của bạn</h2>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Dán nội dung truyện hoặc kịch bản để lưu vào StoryVersion trên backend.
+          </p>
         </div>
 
-        {activeTab === "text" && (
-          <div className="flex-1 flex flex-col relative rounded-xl border border-slate-800 bg-[#0a0f1d] overflow-hidden focus-within:border-purple-500 transition-colors min-h-[320px]">
-            <textarea
-              rows={12}
-              value={wizardDraft.storyText}
-              onChange={(event) => updateWizardDraft({ storyText: event.target.value })}
-              placeholder="Dán nội dung truyện của bạn vào đây (tiểu thuyết, truyện ngắn, kịch bản)..."
-              aria-invalid={contentError ? "true" : undefined}
-              className="w-full flex-1 p-4 bg-transparent text-slate-100 placeholder:text-slate-500 focus:outline-none text-sm leading-relaxed resize-none font-sans"
-            />
-            <div className="px-4 py-2 bg-[#090e18] border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
-              <span className="font-mono">
-                Số ký tự: <strong className="text-purple-300">{characterCount.toLocaleString()}</strong>
-              </span>
-              <span className="text-[11px] text-slate-500">
-                Ước tính: ~{Math.ceil(characterCount / 500)} phút phân tích
-              </span>
-            </div>
-            {contentError && <p className="px-4 py-2 text-xs text-rose-300">{contentError.message || contentError.code || "Nội dung truyện không hợp lệ."}</p>}
-          </div>
-        )}
+        <div className="flex items-center gap-2 text-xs font-semibold text-purple-300">
+          <FileText className="w-3.5 h-3.5" />
+          Nhập văn bản
+        </div>
 
-        {activeTab === "upload" && (
-          <div className="flex-1 border-2 border-dashed border-slate-800 hover:border-purple-500/50 rounded-xl bg-[#0a0f1d] flex flex-col items-center justify-center p-8 text-center space-y-3 cursor-pointer transition-colors">
-            <div className="w-12 h-12 rounded-xl bg-purple-950/60 border border-purple-800/60 flex items-center justify-center text-purple-400">
-              <UploadCloud className="w-6 h-6" />
+        <div className="flex-1 flex flex-col relative rounded-xl border border-slate-800 bg-[#0a0f1d] overflow-hidden focus-within:border-purple-500 transition-colors min-h-[320px]">
+          <textarea
+            rows={12}
+            value={wizardDraft.storyText}
+            onChange={(event) => updateWizardDraft({ storyText: event.target.value })}
+            placeholder="Dán nội dung truyện của bạn vào đây (tiểu thuyết, truyện ngắn, kịch bản)..."
+            aria-invalid={contentError ? "true" : undefined}
+            aria-describedby={contentError ? "story-content-error" : undefined}
+            className="w-full flex-1 p-4 bg-transparent text-slate-100 placeholder:text-slate-500 focus:outline-none text-sm leading-relaxed resize-none font-sans"
+          />
+          <div className="px-4 py-2 bg-[#090e18] border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+            <span className="font-mono">
+              Số ký tự: <strong className="text-purple-300">{characterCount.toLocaleString()}</strong>
+            </span>
+            <span className="text-[11px] text-slate-500">Dữ liệu sẽ được lưu bằng API thật.</span>
+          </div>
+          {contentError && (
+            <p id="story-content-error" className="px-4 py-2 text-xs text-rose-300">
+              {contentError.message || contentError.code || "Nội dung truyện không hợp lệ."}
+            </p>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-dashed border-slate-700 bg-[#090e18]/70 p-5" aria-disabled="true">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-lg bg-slate-900 border border-slate-700 flex items-center justify-center text-slate-500 shrink-0">
+              <UploadCloud className="w-5 h-5" />
             </div>
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-slate-200">
-                Kéo thả file truyện hoặc <span className="text-purple-400 underline">duyệt máy tính</span>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-semibold text-slate-300">Tải file</p>
+                <span className="rounded-full border border-slate-700 bg-slate-900 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Sắp có</span>
+              </div>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                Import .txt, .docx, .pdf và .epub đang bị vô hiệu hóa cho tới khi backend có Document Import API và storage contract tương ứng.
               </p>
-              <p className="text-xs text-slate-500">Hỗ trợ .txt, .docx, .pdf, .epub (tối đa 50MB)</p>
             </div>
           </div>
-        )}
+        </div>
       </div>
 
       <div className="w-full md:w-64 shrink-0 space-y-4">
@@ -88,28 +80,15 @@ export const Step2ImportStory: React.FC<Step2Props> = ({ validationErrors = [] }
           </div>
 
           <ul className="space-y-2.5 text-xs text-slate-400 leading-relaxed">
-            <li className="flex items-start gap-2">
-              <span className="text-purple-400 font-bold">•</span>
-              <span>Dán nội dung truyện của bạn vào đây hoặc tải file .txt, .docx</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-purple-400 font-bold">•</span>
-              <span>AI sẽ phân tích và chia nhỏ câu chuyện thành các thông số</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-purple-400 font-bold">•</span>
-              <span>Không giới hạn độ dài câu chuyện</span>
-            </li>
+            <li className="flex items-start gap-2"><span className="text-purple-400 font-bold">•</span><span>Dán nội dung truyện hiện có vào ô văn bản.</span></li>
+            <li className="flex items-start gap-2"><span className="text-purple-400 font-bold">•</span><span>Project và StoryVersion chỉ được tạo khi bạn xác nhận ở bước cuối.</span></li>
+            <li className="flex items-start gap-2"><span className="text-purple-400 font-bold">•</span><span>File import sẽ được bật sau khi backend hỗ trợ extraction và storage.</span></li>
           </ul>
 
           <div className="pt-2 border-t border-slate-800/80">
-            <button
-              type="button"
-              onClick={loadSampleStory}
-              className="w-full py-2 px-3 rounded-lg bg-purple-950/60 hover:bg-purple-900/60 border border-purple-800/60 text-purple-300 text-xs font-semibold flex items-center justify-center gap-2 transition-all"
-            >
+            <button type="button" onClick={loadSampleStory} className="w-full py-2 px-3 rounded-lg bg-purple-950/60 hover:bg-purple-900/60 border border-purple-800/60 text-purple-300 text-xs font-semibold flex items-center justify-center gap-2 transition-all">
               <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-              <span>Ví dụ</span>
+              <span>Điền truyện mẫu</span>
             </button>
           </div>
         </div>
