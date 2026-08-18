@@ -9,11 +9,12 @@ This matrix records the current UI-to-backend wiring and the next backend contra
 | Project filters/search | `/projects?status=...&q=...` | URL-owned filter state; responsive local text input with 300 ms URL debounce | CLIENT/URL | `projectsApi.list` supplies loaded pages | same project-list API today | server-side `q`/`status` query contract for filtering the full collection |
 | Project detail/workspace | `/projects/[projectId]` | direct entity query by route ID | API FOUNDATION | `projectsApi.getById` | `GET /api/v1/projects/{projectId}` | richer project/story/chapter DTOs as production workspace expands |
 | Create project | project wizard | TanStack Query mutation; wizard modal mounted only while open | API | `projectsApi.create` | `POST /api/v1/projects` | metadata-only creation; idempotency contract remains recommended |
-| Story input | project/chapter workflow | Zustand draft until submit, then backend persistence | API FOUNDATION | `projectsApi.createStoryVersion` | `POST /api/v1/projects/{id}/stories` | chapter source persistence/read/update/version-conflict contract still needs alignment |
+| Story input | project/chapter workflow | Zustand draft until submit, then StoryVersion + first Chapter persisted through backend APIs | API | `projectsApi.createStoryVersion`, `chaptersApi.create` | `POST /api/v1/projects/{id}/stories`, `POST /api/v1/projects/{projectId}/chapters` | richer import/chapter-splitting workflow can evolve independently of persistence contract |
 | AI analysis start | chapter workspace | disabled production capability; user explicitly analyzes a persisted Chapter | NOT AVAILABLE | `projectsApi.enqueueAnalysis(projectId, chapterId)` | `POST /api/v1/projects/{projectId}/chapters/{chapterId}/analysis-jobs`, feature-gated off by default | enable only after durable enqueue/outbox/stage/worker/reconciliation invariant exists |
 | Analysis progress/result | chapter workspace | explicit pending/unavailable state | PENDING API | none | job query/event replay + chapter analysis result resources | polling/SSE/reconnect/UNKNOWN/failed UI and result mapping |
 | Characters | `/characters` | explicit API-not-connected state; Character Bible overlay mounted only when selected | PENDING API | none | character/version/reference/lock APIs | query/mutations and canonical identity/project-usage mapping |
-| Chapter/storyboard | `/projects/[projectId]/chapters/[chapterId]` target hierarchy | explicit pending state in API runtime | PENDING API | none | chapter/scene/visual-beat resources and commands | persisted Chapter source/snapshot contract and URL-owned chapter/scene deep links |
+| Chapter source | `/projects/[projectId]/chapters/[chapterId]` | TanStack Query server state + local dirty editor draft | API | `chaptersApi.list`, `chaptersApi.getById`, `chaptersApi.create`, `chaptersApi.update` | `GET/POST /api/v1/projects/{projectId}/chapters`, `GET/PUT /api/v1/projects/{projectId}/chapters/{chapterId}` with `ETag`/`If-Match` | delete/reorder and Scene/VisualBeat editing remain separate follow-up contracts |
+| Chapter storyboard | chapter child routes defined by ADR-0002 | explicit pending state in API runtime | PENDING API | none | scene/visual-beat resources and commands | persisted Scene/VisualBeat public API + URL-owned deep links |
 | Render/export | project workspace | explicit API-not-connected state | PENDING API | none | render job create/status/events + signed artifact URL | mutation/job/download flow |
 | Assets | `/assets` | explicit API-not-connected state | PENDING API | none | asset list/detail/upload/delete/review APIs | replace pending state with Query/mutations when contract lands |
 | Presets | `/presets` | explicit API-not-connected state | PENDING API | none | preset CRUD APIs | replace pending state with Query/mutations when contract lands |
@@ -24,7 +25,8 @@ This matrix records the current UI-to-backend wiring and the next backend contra
 - `/projects` is the canonical project-list route; `/dashboard` only redirects to `/projects`.
 - `/auth` is not an alternate project-list URL. When the session bootstrap resolves authenticated, `AuthEntry` uses route replacement to `/projects`.
 - `/projects/[projectId]` owns project identity. The workspace never discovers a project by loading a collection and calling `.find()`.
-- Target Chapter routes use `/projects/[projectId]/chapters/[chapterId]` and child routes defined by ADR-0002.
+- `/projects/[projectId]/chapters/[chapterId]` is the persisted Chapter source editor route. It loads Chapter detail by route ID, keeps unsaved text local, and saves with the server `rowVersion` through `If-Match`.
+- Target Chapter child routes continue to follow ADR-0002 as Scene/VisualBeat APIs land.
 - Navigable project-list filters live in URL search params (`status`, `q`). Search typing is kept in local component state and URL synchronization is debounced by 300 ms to avoid one App Router navigation per keystroke.
 - Current filtering applies to cursor pages already loaded by the client; server-wide filtering requires a backend query contract.
 - TanStack Query owns persisted server state. Zustand is reserved for transient wizard/editor state.
@@ -45,8 +47,8 @@ This matrix records the current UI-to-backend wiring and the next backend contra
 
 ## Runtime safety rules
 
-- Creating a Project is metadata-only. The project-creation flow must not call AI analysis as a side effect of `POST /api/v1/projects`.
-- Analysis is an explicit Chapter action after a persisted Chapter source/snapshot exists.
+- Creating a Project is metadata-only. The project-creation flow may persist StoryVersion/Chapter source as explicit follow-up API calls, but `POST /api/v1/projects` itself must not create AI/media work.
+- Saving Chapter source never triggers analysis. Analysis is an explicit Chapter action after persisted source exists.
 - `POST /api/v1/projects/{projectId}/chapters/{chapterId}/analysis-jobs` remains feature-gated off by default and must not persist queued work while disabled.
 - API mode must never show fake analysis progress/results, fake notification counts, fake credits/plan data or fixture-backed persisted entities.
 

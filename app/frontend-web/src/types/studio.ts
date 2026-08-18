@@ -2,6 +2,7 @@ export type ScreenType =
   | "auth"
   | "overview"
   | "project-workspace"
+  | "chapter-workspace"
   | "dashboard"
   | "wizard"
   | "characters"

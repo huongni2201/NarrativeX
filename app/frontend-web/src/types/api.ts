@@ -16,11 +16,20 @@ export interface ApiStoryVersion {
   versionNumber: number;
   status: string;
   moderationDecision: string;
-  rightsAttested: boolean;
-  rightsPolicyVersion: string;
-  rightsBasis: string;
-  rightsAttestedAt: string | null;
   contentCharacterCount: number;
+}
+
+export interface ApiChapterSummary {
+  id: number;
+  storyVersionId: number;
+  orderIndex: number;
+  title: string;
+  sourceHash: string;
+  rowVersion: number;
+}
+
+export interface ApiChapter extends ApiChapterSummary {
+  sourceText: string;
 }
 
 export interface ApiGenerationJob {
@@ -53,6 +62,18 @@ export interface CreateProjectApiInput {
 export interface CreateStoryVersionApiInput {
   content: string;
   sourceLanguage?: string;
+}
+
+export interface CreateChapterApiInput {
+  storyVersionId: number;
+  orderIndex: number;
+  title: string;
+  sourceText: string;
+}
+
+export interface UpdateChapterApiInput {
+  title: string;
+  sourceText: string;
 }
 
 export interface ApiResponse<T> {
@@ -163,11 +184,27 @@ export function isApiStoryVersion(value: unknown): value is ApiStoryVersion {
     isNumber(value.versionNumber) &&
     isString(value.status) &&
     isString(value.moderationDecision) &&
-    isBoolean(value.rightsAttested) &&
-    isString(value.rightsPolicyVersion) &&
-    isString(value.rightsBasis) &&
-    (value.rightsAttestedAt === null || isString(value.rightsAttestedAt)) &&
     isNumber(value.contentCharacterCount)
+  );
+}
+
+export function isApiChapterSummary(value: unknown): value is ApiChapterSummary {
+  return (
+    isRecord(value) &&
+    isNumber(value.id) &&
+    isNumber(value.storyVersionId) &&
+    isNumber(value.orderIndex) &&
+    isString(value.title) &&
+    isString(value.sourceHash) &&
+    isNumber(value.rowVersion)
+  );
+}
+
+export function isApiChapter(value: unknown): value is ApiChapter {
+  return (
+    isRecord(value) &&
+    isApiChapterSummary(value) &&
+    isString(value.sourceText)
   );
 }
 
