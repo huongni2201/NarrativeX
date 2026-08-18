@@ -57,9 +57,12 @@ class PostgreSqlMigrationIntegrationTest {
   @Test
   void emptyPostgresMigratesAndHibernateValidates() throws SQLException {
     try (Connection connection = dataSource.getConnection()) {
-      assertEquals(2, latestFlywayVersion(connection));
+      assertEquals(3, latestFlywayVersion(connection));
       assertEquals("jsonb", columnType(connection, "moderation_decisions", "categories_json"));
       assertTrue(indexExists(connection, "uq_story_versions_one_active_per_project"));
+      assertTrue(columnExists(connection, "chapters", "source_hash"));
+      assertEquals("NO", columnNullable(connection, "chapters", "source_text"));
+      assertEquals("NO", columnNullable(connection, "chapters", "source_hash"));
       assertFalse(indexExists(connection, "idx_auth_users_email"));
       assertFalse(indexExists(connection, "idx_auth_users_google_subject"));
       assertFalse(columnExists(connection, "story_versions", "rights_attested"));
@@ -165,6 +168,21 @@ class PostgreSqlMigrationIntegrationTest {
     try (PreparedStatement statement =
         connection.prepareStatement(
             "select data_type from information_schema.columns "
+                + "where table_schema = 'public' and table_name = ? and column_name = ?")) {
+      statement.setString(1, table);
+      statement.setString(2, column);
+      try (ResultSet result = statement.executeQuery()) {
+        result.next();
+        return result.getString(1);
+      }
+    }
+  }
+
+  private static String columnNullable(Connection connection, String table, String column)
+      throws SQLException {
+    try (PreparedStatement statement =
+        connection.prepareStatement(
+            "select is_nullable from information_schema.columns "
                 + "where table_schema = 'public' and table_name = ? and column_name = ?")) {
       statement.setString(1, table);
       statement.setString(2, column);
