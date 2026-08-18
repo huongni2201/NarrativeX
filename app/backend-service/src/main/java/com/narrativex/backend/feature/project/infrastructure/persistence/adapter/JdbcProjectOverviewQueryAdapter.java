@@ -52,11 +52,7 @@ public class JdbcProjectOverviewQueryAdapter implements ProjectOverviewQueryRepo
         project.storyVersionId() == null ? List.of() : loadChapters(project.storyVersionId());
 
     int totalChapters = chapters.size();
-    int readyChapters =
-        (int)
-            chapters.stream()
-                .filter(chapter -> isReady(chapter.status()))
-                .count();
+    int readyChapters = (int) chapters.stream().filter(chapter -> isReady(chapter.status())).count();
     int renderedChapters =
         (int) chapters.stream().filter(chapter -> "RENDERED".equals(chapter.status())).count();
     int totalScenes = chapters.stream().mapToInt(ProjectOverviewView.Chapter::sceneCount).sum();
@@ -184,7 +180,8 @@ public class JdbcProjectOverviewQueryAdapter implements ProjectOverviewQueryRepo
   private static int calculateProgress(List<ProjectOverviewView.Chapter> chapters) {
     if (chapters.isEmpty()) return 0;
     int total = chapters.stream().mapToInt(chapter -> statusProgress(chapter.status())).sum();
-    return Math.clamp(Math.round((float) total / chapters.size()), 0, 100);
+    int average = Math.round((float) total / chapters.size());
+    return Math.max(0, Math.min(100, average));
   }
 
   private static int statusProgress(String status) {
@@ -209,6 +206,7 @@ public class JdbcProjectOverviewQueryAdapter implements ProjectOverviewQueryRepo
 
   private static ProjectRow mapProject(ResultSet rs) throws SQLException {
     long storyVersionId = rs.getLong("story_version_id");
+    boolean missingStoryVersion = rs.wasNull();
     return new ProjectRow(
         rs.getLong("id"),
         rs.getString("name"),
@@ -217,7 +215,7 @@ public class JdbcProjectOverviewQueryAdapter implements ProjectOverviewQueryRepo
         rs.getString("status"),
         instant(rs, "created_at"),
         instant(rs, "updated_at"),
-        rs.wasNull() ? null : storyVersionId);
+        missingStoryVersion ? null : storyVersionId);
   }
 
   private static Instant instant(ResultSet rs, String column) throws SQLException {
