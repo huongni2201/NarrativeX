@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Slf4j
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/jobs")
+@RequestMapping({"/api/v1/generation-jobs", "/api/v1/jobs"})
 public class GenerationJobController {
   private final GetGenerationJobUseCase getGenerationJobUseCase;
 

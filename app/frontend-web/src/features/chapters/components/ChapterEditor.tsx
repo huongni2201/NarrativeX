@@ -11,6 +11,9 @@ interface ChapterEditorProps {
   chapterId: string;
 }
 
+const TERMINAL_JOB_STATUSES = new Set(["COMPLETED", "FAILED", "CANCELLED"]);
+const ACTIVE_JOB_STATUSES = new Set(["QUEUED", "RUNNING", "STALLED", "UNKNOWN"]);
+
 export function ChapterEditor({ projectId, chapterId }: Readonly<ChapterEditorProps>) {
   const numericProjectId = Number(projectId);
   const numericChapterId = Number(chapterId);
@@ -25,6 +28,8 @@ export function ChapterEditor({ projectId, chapterId }: Readonly<ChapterEditorPr
   const [rowVersion, setRowVersion] = useState(0);
   const [dirty, setDirty] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [analysisJobId, setAnalysisJobId] = useState<string | null>(null);
+  const [analysisMessage, setAnalysisMessage] = useState<string | null>(null);
 
   const chapterQuery = useQuery({
     queryKey: validIds
@@ -45,7 +50,15 @@ export function ChapterEditor({ projectId, chapterId }: Readonly<ChapterEditorPr
     if (!dirty) return;
     const preventUnload = (event: BeforeUnloadEvent) => event.preventDefault();
     const interceptInternalLink = (event: MouseEvent) => {
-      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      )
+        return;
       const target = event.target instanceof Element ? event.target.closest("a[href]") : null;
       if (!(target instanceof HTMLAnchorElement) || target.target === "_blank") return;
       const nextUrl = new URL(target.href, window.location.href);
@@ -73,15 +86,58 @@ export function ChapterEditor({ projectId, chapterId }: Readonly<ChapterEditorPr
       setRowVersion(chapter.rowVersion);
       setDirty(false);
       setSaveMessage("Đã lưu Chapter.");
+      setAnalysisMessage(null);
     },
     onError: (error) => {
       if (error instanceof ApiClientError && error.status === 409) {
-        setSaveMessage("Chapter đã thay đổi ở phiên khác. Bản local vẫn được giữ; chỉ tải bản server nếu bạn chấp nhận bỏ draft local.");
+        setSaveMessage(
+          "Chapter đã thay đổi ở phiên khác. Bản local vẫn được giữ; chỉ tải bản server nếu bạn chấp nhận bỏ draft local.",
+        );
         return;
       }
       setSaveMessage(apiErrorMessage(error, "Không thể lưu Chapter."));
     },
   });
+
+  const analyzeChapter = useMutation({
+    mutationFn: () => chaptersApi.analyze(numericProjectId, numericChapterId),
+    onMutate: () => setAnalysisMessage("Đang tạo durable analysis job…"),
+    onSuccess: (job) => {
+      setAnalysisJobId(job.jobId);
+      queryClient.setQueryData(queryKeys.job(job.jobId), job);
+      setAnalysisMessage(`Analysis job ${job.status.toLowerCase()}.`);
+    },
+    onError: (error) => {
+      setAnalysisMessage(apiErrorMessage(error, "Không thể bắt đầu phân tích Chapter."));
+    },
+  });
+
+  const analysisJobQuery = useQuery({
+    queryKey: analysisJobId ? queryKeys.job(analysisJobId) : ["jobs", "none"],
+    queryFn: () => chaptersApi.getAnalysisJob(analysisJobId!),
+    enabled: Boolean(analysisJobId),
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status && TERMINAL_JOB_STATUSES.has(status) ? false : 1500;
+    },
+  });
+
+  const analysisJob = analysisJobQuery.data ?? analyzeChapter.data;
+  const analysisStatus = analysisJob?.status ?? null;
+  const analysisActive = Boolean(analysisStatus && ACTIVE_JOB_STATUSES.has(analysisStatus));
+
+  useEffect(() => {
+    if (!analysisJobId || !analysisJobQuery.data) return;
+    const job = analysisJobQuery.data;
+    if (job.status === "COMPLETED") {
+      setAnalysisMessage("Phân tích hoàn tất. Characters và Storyboard đã được cập nhật từ backend.");
+      void queryClient.invalidateQueries({ queryKey: ["projects", numericProjectId] });
+    } else if (job.status === "FAILED") {
+      setAnalysisMessage(
+        `Phân tích thất bại${job.errorCode ? ` (${job.errorCode})` : ""}. Bạn có thể thử lại sau khi kiểm tra worker/provider.`,
+      );
+    }
+  }, [analysisJobId, analysisJobQuery.data, numericProjectId, queryClient]);
 
   useEffect(() => {
     const saveShortcut = (event: KeyboardEvent) => {
@@ -96,15 +152,26 @@ export function ChapterEditor({ projectId, chapterId }: Readonly<ChapterEditorPr
 
   if (!validIds) return <EditorMessage>Chapter route không hợp lệ.</EditorMessage>;
   if (chapterQuery.isPending) return <EditorMessage>Đang tải Chapter từ backend…</EditorMessage>;
-  if (chapterQuery.isError) return <EditorMessage>{apiErrorMessage(chapterQuery.error, "Không tải được Chapter từ backend.")}</EditorMessage>;
+  if (chapterQuery.isError)
+    return (
+      <EditorMessage>
+        {apiErrorMessage(chapterQuery.error, "Không tải được Chapter từ backend.")}
+      </EditorMessage>
+    );
 
   const markDirty = () => {
     setDirty(true);
     setSaveMessage(null);
+    setAnalysisMessage(null);
+    setAnalysisJobId(null);
   };
 
   const reloadLatest = async () => {
-    if (dirty && !window.confirm("Tải bản mới nhất sẽ bỏ toàn bộ thay đổi local chưa lưu. Tiếp tục?")) return;
+    if (
+      dirty &&
+      !window.confirm("Tải bản mới nhất sẽ bỏ toàn bộ thay đổi local chưa lưu. Tiếp tục?")
+    )
+      return;
     const latest = await chapterQuery.refetch();
     if (!latest.data) return;
     setTitle(latest.data.title);
@@ -112,7 +179,23 @@ export function ChapterEditor({ projectId, chapterId }: Readonly<ChapterEditorPr
     setRowVersion(latest.data.rowVersion);
     setDirty(false);
     setSaveMessage("Đã tải phiên bản mới nhất từ server.");
+    setAnalysisMessage(null);
+    setAnalysisJobId(null);
   };
+
+  const analyzeDisabled =
+    dirty ||
+    !sourceText.trim() ||
+    updateChapter.isPending ||
+    analyzeChapter.isPending ||
+    analysisActive;
+  const analyzeTitle = dirty
+    ? "Bạn cần lưu Chapter trước khi phân tích"
+    : !sourceText.trim()
+      ? "Chapter cần có nội dung trước khi phân tích"
+      : analysisActive
+        ? "Chapter đang được phân tích"
+        : "Phân tích Chapter đã lưu bằng AI";
 
   return (
     <div className="space-y-5">
@@ -120,37 +203,114 @@ export function ChapterEditor({ projectId, chapterId }: Readonly<ChapterEditorPr
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-[11px] uppercase tracking-[0.2em] text-purple-300">Chapter source</p>
-            <p className="mt-1 text-xs text-slate-500">Chapter #{numericChapterId} · row version {rowVersion}</p>
+            <p className="mt-1 text-xs text-slate-500">
+              Chapter #{numericChapterId} · row version {rowVersion}
+            </p>
           </div>
-          <span className={`rounded-full border px-3 py-1 text-xs ${dirty ? "border-amber-500/30 text-amber-300" : "border-emerald-500/30 text-emerald-300"}`}>
+          <span
+            className={`rounded-full border px-3 py-1 text-xs ${
+              dirty
+                ? "border-amber-500/30 text-amber-300"
+                : "border-emerald-500/30 text-emerald-300"
+            }`}
+          >
             {dirty ? "Chưa lưu" : "Đã đồng bộ"}
           </span>
         </div>
 
         <label className="mt-5 block space-y-2">
           <span className="text-xs font-medium text-slate-300">Tiêu đề Chapter</span>
-          <input value={title} maxLength={200} onChange={(event) => { setTitle(event.target.value); markDirty(); }} className="w-full rounded-xl border border-slate-700 bg-[#090e18] px-4 py-3 text-sm text-white outline-none focus:border-purple-500" />
+          <input
+            value={title}
+            maxLength={200}
+            onChange={(event) => {
+              setTitle(event.target.value);
+              markDirty();
+            }}
+            className="w-full rounded-xl border border-slate-700 bg-[#090e18] px-4 py-3 text-sm text-white outline-none focus:border-purple-500"
+          />
         </label>
 
         <label className="mt-4 block space-y-2">
           <span className="text-xs font-medium text-slate-300">Nội dung truyện</span>
-          <textarea value={sourceText} onChange={(event) => { setSourceText(event.target.value); markDirty(); }} rows={24} className="min-h-[420px] w-full resize-y rounded-xl border border-slate-700 bg-[#090e18] px-4 py-4 font-mono text-sm leading-6 text-slate-200 outline-none focus:border-purple-500" />
+          <textarea
+            value={sourceText}
+            onChange={(event) => {
+              setSourceText(event.target.value);
+              markDirty();
+            }}
+            rows={24}
+            className="min-h-[420px] w-full resize-y rounded-xl border border-slate-700 bg-[#090e18] px-4 py-4 font-mono text-sm leading-6 text-slate-200 outline-none focus:border-purple-500"
+          />
         </label>
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="text-xs text-slate-500">{Array.from(sourceText).length.toLocaleString()} ký tự · SHA-256 được backend tính khi lưu</div>
+          <div className="text-xs text-slate-500">
+            {Array.from(sourceText).length.toLocaleString()} ký tự · SHA-256 được backend tính khi lưu
+          </div>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={reloadLatest} disabled={chapterQuery.isFetching || updateChapter.isPending} className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800 disabled:opacity-50">Tải bản mới nhất</button>
-            <button type="button" onClick={() => updateChapter.mutate()} disabled={!dirty || !title.trim() || updateChapter.isPending} className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-500 disabled:cursor-not-allowed disabled:opacity-50">{updateChapter.isPending ? "Đang lưu…" : "Lưu Chapter"}</button>
+            <button
+              type="button"
+              onClick={reloadLatest}
+              disabled={chapterQuery.isFetching || updateChapter.isPending || analysisActive}
+              className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+            >
+              Tải bản mới nhất
+            </button>
+            <button
+              type="button"
+              onClick={() => updateChapter.mutate()}
+              disabled={!dirty || !title.trim() || updateChapter.isPending || analysisActive}
+              className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-500 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {updateChapter.isPending ? "Đang lưu…" : "Lưu Chapter"}
+            </button>
+            <button
+              type="button"
+              title={analyzeTitle}
+              onClick={() => analyzeChapter.mutate()}
+              disabled={analyzeDisabled}
+              className="rounded-lg border border-purple-400/40 bg-purple-500/10 px-4 py-2 text-sm font-semibold text-purple-200 hover:bg-purple-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {analysisActive ? "✨ Đang phân tích…" : "✨ Analyze"}
+            </button>
           </div>
         </div>
 
-        {saveMessage && <p className="mt-4 rounded-lg border border-slate-700 bg-slate-950/50 px-3 py-2 text-xs text-slate-300">{saveMessage}</p>}
+        {dirty && (
+          <p className="mt-3 text-xs text-amber-300">Bạn cần lưu Chapter trước khi phân tích.</p>
+        )}
+
+        {saveMessage && (
+          <p className="mt-4 rounded-lg border border-slate-700 bg-slate-950/50 px-3 py-2 text-xs text-slate-300">
+            {saveMessage}
+          </p>
+        )}
+
+        {(analysisMessage || analysisJob) && (
+          <div className="mt-4 rounded-lg border border-purple-500/20 bg-purple-950/20 px-3 py-3 text-xs text-slate-300">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span>{analysisMessage ?? "Đang theo dõi analysis job…"}</span>
+              {analysisJob && (
+                <span className="font-mono text-purple-300">
+                  {analysisJob.status} · {analysisJob.progress}%
+                </span>
+              )}
+            </div>
+            {analysisJob?.currentStep && (
+              <p className="mt-1 text-slate-500">Bước hiện tại: {analysisJob.currentStep}</p>
+            )}
+          </div>
+        )}
       </section>
     </div>
   );
 }
 
 function EditorMessage({ children }: { children: React.ReactNode }) {
-  return <div className="rounded-2xl border border-slate-800/80 bg-[#0d1420]/50 p-8 text-sm text-slate-300">{children}</div>;
+  return (
+    <div className="rounded-2xl border border-slate-800/80 bg-[#0d1420]/50 p-8 text-sm text-slate-300">
+      {children}
+    </div>
+  );
 }

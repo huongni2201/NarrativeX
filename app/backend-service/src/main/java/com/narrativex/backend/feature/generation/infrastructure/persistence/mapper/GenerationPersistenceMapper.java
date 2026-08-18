@@ -22,7 +22,14 @@ public final class GenerationPersistenceMapper {
         entity.getCurrentStep(),
         entity.getErrorCode(),
         entity.getRequestedByUserId(),
-        entity.getBilledToUserId());
+        entity.getBilledToUserId(),
+        entity.getStoryVersionId(),
+        entity.getChapterId(),
+        entity.getChapterRowVersion(),
+        entity.getSourceHash(),
+        entity.getSourceText(),
+        entity.getSourceLanguage(),
+        entity.getIdempotencyKey());
   }
 
   public static OperationPlan toDomain(OperationPlanJpaEntity entity) {

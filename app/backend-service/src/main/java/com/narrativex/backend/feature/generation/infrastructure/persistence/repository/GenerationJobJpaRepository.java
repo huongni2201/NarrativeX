@@ -15,4 +15,6 @@ public interface GenerationJobJpaRepository extends JpaRepository<GenerationJobJ
       nativeQuery = true)
   Optional<GenerationJobJpaEntity> findByJobIdAndOwner(
       @Param("jobId") String jobId, @Param("ownerId") String ownerId);
+
+  Optional<GenerationJobJpaEntity> findByIdempotencyKey(String idempotencyKey);
 }

@@ -48,6 +48,13 @@ public class GenerationJobPersistenceAdapter implements GenerationJobRepository 
         .errorCode(job.getErrorCode())
         .requestedByUserId(job.getRequestedByUserId())
         .billedToUserId(job.getBilledToUserId())
+        .storyVersionId(job.getStoryVersionId())
+        .chapterId(job.getChapterId())
+        .chapterRowVersion(job.getChapterRowVersion())
+        .sourceHash(job.getSourceHash())
+        .sourceText(job.getSourceText())
+        .sourceLanguage(job.getSourceLanguage())
+        .idempotencyKey(job.getIdempotencyKey())
         .build();
   }
 
@@ -56,5 +63,10 @@ public class GenerationJobPersistenceAdapter implements GenerationJobRepository 
     return repository
         .findByJobIdAndOwner(jobId, ownerId)
         .map(GenerationPersistenceMapper::toDomain);
+  }
+
+  @Override
+  public Optional<GenerationJob> findByIdempotencyKey(String idempotencyKey) {
+    return repository.findByIdempotencyKey(idempotencyKey).map(GenerationPersistenceMapper::toDomain);
   }
 }

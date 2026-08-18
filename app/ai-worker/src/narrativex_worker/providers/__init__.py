@@ -1,7 +1,13 @@
-"""Provider ports and safe disabled adapters."""
+"""Provider ports and concrete adapters."""
 
 from narrativex_worker.providers.disabled import DisabledProvider, ProviderNotConfiguredError
-from narrativex_worker.providers.ports import LlmProvider, ProviderCapabilities, ProviderEstimate
+from narrativex_worker.providers.ports import (
+    LlmProvider,
+    ProviderCapabilities,
+    ProviderEstimate,
+    ProviderOperation,
+)
+from narrativex_worker.providers.vertex import VertexGeminiProvider, VertexProviderError
 
 __all__ = [
     "DisabledProvider",
@@ -9,4 +15,7 @@ __all__ = [
     "ProviderCapabilities",
     "ProviderEstimate",
     "ProviderNotConfiguredError",
+    "ProviderOperation",
+    "VertexGeminiProvider",
+    "VertexProviderError",
 ]

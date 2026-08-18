@@ -7,4 +7,6 @@ public interface GenerationJobRepository {
   GenerationJob save(GenerationJob job);
 
   Optional<GenerationJob> findByJobIdAndOwner(String jobId, String ownerId);
+
+  Optional<GenerationJob> findByIdempotencyKey(String idempotencyKey);
 }
