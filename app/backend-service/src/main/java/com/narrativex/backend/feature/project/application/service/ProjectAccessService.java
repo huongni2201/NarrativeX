@@ -1,6 +1,5 @@
 package com.narrativex.backend.feature.project.application.service;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.project.application.port.out.ProjectRepository;
@@ -12,18 +11,16 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ProjectAccessService implements ProjectAccess {
   private final ProjectRepository projectRepository;
-  private final CurrentUserId currentUserId;
 
-  public ProjectAccessService(ProjectRepository projectRepository, CurrentUserId currentUserId) {
+  public ProjectAccessService(ProjectRepository projectRepository) {
     this.projectRepository = projectRepository;
-    this.currentUserId = currentUserId;
   }
 
   @Override
   @Transactional(readOnly = true)
   public Project findOwnedProject(Long projectId, String ownerId) {
     return projectRepository
-        .findOwnedById(projectId, currentUserId.get())
+        .findOwnedById(projectId, ownerId)
         .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
   }
 
@@ -31,7 +28,7 @@ public class ProjectAccessService implements ProjectAccess {
   @Transactional
   public Project findOwnedProjectForUpdate(Long projectId, String ownerId) {
     return projectRepository
-        .findOwnedByIdForUpdate(projectId, currentUserId.get())
+        .findOwnedByIdForUpdate(projectId, ownerId)
         .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
   }
 }
