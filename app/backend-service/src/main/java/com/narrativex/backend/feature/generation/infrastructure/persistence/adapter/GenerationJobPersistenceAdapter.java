@@ -6,6 +6,7 @@ import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.entity.GenerationJobJpaEntity;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mapper.GenerationPersistenceMapper;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.repository.GenerationJobJpaRepository;
+import jakarta.persistence.EntityManager;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Component;
 public class GenerationJobPersistenceAdapter implements GenerationJobRepository {
 
   private final GenerationJobJpaRepository repository;
+  private final EntityManager entityManager;
 
   @Override
   public GenerationJob save(GenerationJob job) {
@@ -68,5 +70,13 @@ public class GenerationJobPersistenceAdapter implements GenerationJobRepository 
   @Override
   public Optional<GenerationJob> findByIdempotencyKey(String idempotencyKey) {
     return repository.findByIdempotencyKey(idempotencyKey).map(GenerationPersistenceMapper::toDomain);
+  }
+
+  @Override
+  public void acquireIdempotencyLock(String idempotencyKey) {
+    entityManager
+        .createNativeQuery("SELECT pg_advisory_xact_lock(hashtextextended(:idempotencyKey, 0))")
+        .setParameter("idempotencyKey", idempotencyKey)
+        .getSingleResult();
   }
 }
