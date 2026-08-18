@@ -11,6 +11,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -24,23 +25,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
+@RequiredArgsConstructor
 @RequestMapping("/api/auth")
 public class PasswordAuthController {
   private final AuthenticationManager authenticationManager;
   private final SecurityContextRepository securityContextRepository;
   private final RegisterAuthAccountService registrationService;
   private final GetCurrentUserUseCase getCurrentUserUseCase;
-
-  public PasswordAuthController(
-      AuthenticationManager authenticationManager,
-      SecurityContextRepository securityContextRepository,
-      RegisterAuthAccountService registrationService,
-      GetCurrentUserUseCase getCurrentUserUseCase) {
-    this.authenticationManager = authenticationManager;
-    this.securityContextRepository = securityContextRepository;
-    this.registrationService = registrationService;
-    this.getCurrentUserUseCase = getCurrentUserUseCase;
-  }
 
   @PostMapping("/login")
   public ResponseEntity<ApiResponse<CurrentUserResponse>> login(

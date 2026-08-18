@@ -9,29 +9,18 @@ import com.narrativex.backend.feature.character.domain.aggregate.ProjectCharacte
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class AssignCharacterToProjectUseCase {
   private final CharacterRepository characterRepository;
   private final CharacterVersionRepository versionRepository;
   private final ProjectCharacterRepository projectCharacterRepository;
   private final ProjectAccess projectAccess;
   private final CurrentUserId currentUserId;
-
-  public AssignCharacterToProjectUseCase(
-      CharacterRepository characterRepository,
-      CharacterVersionRepository versionRepository,
-      ProjectCharacterRepository projectCharacterRepository,
-      ProjectAccess projectAccess,
-      CurrentUserId currentUserId) {
-    this.characterRepository = characterRepository;
-    this.versionRepository = versionRepository;
-    this.projectCharacterRepository = projectCharacterRepository;
-    this.projectAccess = projectAccess;
-    this.currentUserId = currentUserId;
-  }
 
   @Transactional
   public ApiResponse<ProjectCharacter> execute(AssignCharacterToProjectCommand command) {

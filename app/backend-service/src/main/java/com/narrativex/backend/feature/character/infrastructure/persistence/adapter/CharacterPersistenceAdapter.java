@@ -6,15 +6,14 @@ import com.narrativex.backend.feature.character.domain.enums.CharacterStatus;
 import com.narrativex.backend.feature.character.infrastructure.persistence.entity.CharacterJpaEntity;
 import com.narrativex.backend.feature.character.infrastructure.persistence.mapper.CharacterPersistenceMapper;
 import com.narrativex.backend.feature.character.infrastructure.persistence.repository.CharacterJpaRepository;
+import java.util.ArrayList;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class CharacterPersistenceAdapter implements CharacterRepository {
   private final CharacterJpaRepository repository;
-
-  public CharacterPersistenceAdapter(CharacterJpaRepository repository) {
-    this.repository = repository;
-  }
 
   @Override
   public java.util.Optional<Character> findOwnedById(Long id, String ownerId) {
@@ -34,11 +33,24 @@ public class CharacterPersistenceAdapter implements CharacterRepository {
   public Character save(Character character) {
     CharacterJpaEntity entity =
         character.getId() == null
-            ? new CharacterJpaEntity(character)
+            ? buildJpaEntity(character)
             : repository
                 .findById(character.getId())
-                .orElseGet(() -> new CharacterJpaEntity(character));
-    entity.apply(character);
+                .map(existing -> {
+                  existing.apply(character);
+                  return existing;
+                })
+                .orElseGet(() -> buildJpaEntity(character));
     return CharacterPersistenceMapper.toDomain(repository.save(entity));
+  }
+
+  private static CharacterJpaEntity buildJpaEntity(Character character) {
+    return CharacterJpaEntity.builder()
+        .ownerId(character.getOwnerId())
+        .workspaceId(character.getWorkspaceId())
+        .canonicalName(character.getCanonicalName())
+        .aliases(new ArrayList<>(character.getAliases()))
+        .status(character.getStatus())
+        .build();
   }
 }

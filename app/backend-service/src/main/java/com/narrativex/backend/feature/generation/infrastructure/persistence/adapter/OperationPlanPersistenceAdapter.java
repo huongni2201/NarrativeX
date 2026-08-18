@@ -5,26 +5,38 @@ import com.narrativex.backend.feature.generation.domain.aggregate.OperationPlan;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.entity.OperationPlanJpaEntity;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mapper.GenerationPersistenceMapper;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.repository.OperationPlanJpaRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class OperationPlanPersistenceAdapter implements OperationPlanRepository {
 
   private final OperationPlanJpaRepository repository;
-
-  public OperationPlanPersistenceAdapter(OperationPlanJpaRepository repository) {
-    this.repository = repository;
-  }
 
   @Override
   public OperationPlan save(OperationPlan operationPlan) {
     OperationPlanJpaEntity entity =
         operationPlan.getId() == null
-            ? new OperationPlanJpaEntity(operationPlan)
+            ? buildJpaEntity(operationPlan)
             : repository
                 .findById(operationPlan.getId())
-                .orElseGet(() -> new OperationPlanJpaEntity(operationPlan));
-    entity.apply(operationPlan);
+                .map(existing -> {
+                  existing.apply(operationPlan);
+                  return existing;
+                })
+                .orElseGet(() -> buildJpaEntity(operationPlan));
     return GenerationPersistenceMapper.toDomain(repository.save(entity));
+  }
+
+  private static OperationPlanJpaEntity buildJpaEntity(OperationPlan operationPlan) {
+    return OperationPlanJpaEntity.builder()
+        .projectId(operationPlan.getProjectId())
+        .operationType(operationPlan.getOperationType())
+        .estimateMin(operationPlan.getEstimateMin())
+        .estimateMax(operationPlan.getEstimateMax())
+        .maxAuthorizedCost(operationPlan.getMaxAuthorizedCost())
+        .confidence(operationPlan.getConfidence())
+        .build();
   }
 }

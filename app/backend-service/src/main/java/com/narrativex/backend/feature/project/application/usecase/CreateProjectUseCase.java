@@ -8,18 +8,15 @@ import com.narrativex.backend.feature.project.application.port.out.ProjectReposi
 import com.narrativex.backend.feature.project.domain.aggregate.Project;
 import com.narrativex.backend.feature.project.domain.enums.AspectRatio;
 import com.narrativex.backend.feature.project.domain.enums.ImageQualityTier;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class CreateProjectUseCase {
   private final ProjectRepository projectRepository;
   private final CurrentUserId currentUserId;
-
-  public CreateProjectUseCase(ProjectRepository projectRepository, CurrentUserId currentUserId) {
-    this.projectRepository = projectRepository;
-    this.currentUserId = currentUserId;
-  }
 
   @Transactional
   public ApiResponse<ProjectResponse> execute(CreateProjectCommand command) {

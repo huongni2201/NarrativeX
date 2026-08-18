@@ -3,11 +3,25 @@ package com.narrativex.backend.feature.generation.infrastructure.persistence.ent
 import com.narrativex.backend.feature.common.infrastructure.persistence.JpaAuditedEntity;
 import com.narrativex.backend.feature.generation.domain.aggregate.OperationPlan;
 import com.narrativex.backend.feature.generation.domain.enums.EstimateConfidence;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Table;
 import java.math.BigDecimal;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
 @Table(name = "operation_plans")
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class OperationPlanJpaEntity extends JpaAuditedEntity {
   @Column(name = "project_id", nullable = false)
   private Long projectId;
@@ -28,11 +42,6 @@ public class OperationPlanJpaEntity extends JpaAuditedEntity {
   @Column(name = "confidence", nullable = false, length = 16)
   private EstimateConfidence confidence;
 
-  protected OperationPlanJpaEntity() {}
-
-  public OperationPlanJpaEntity(OperationPlan p) {
-    apply(p);
-  }
 
   public void apply(OperationPlan p) {
     projectId = p.getProjectId();
@@ -42,28 +51,5 @@ public class OperationPlanJpaEntity extends JpaAuditedEntity {
     maxAuthorizedCost = p.getMaxAuthorizedCost();
     confidence = p.getConfidence();
   }
-
-  public Long getProjectId() {
-    return projectId;
-  }
-
-  public String getOperationType() {
-    return operationType;
-  }
-
-  public BigDecimal getEstimateMin() {
-    return estimateMin;
-  }
-
-  public BigDecimal getEstimateMax() {
-    return estimateMax;
-  }
-
-  public BigDecimal getMaxAuthorizedCost() {
-    return maxAuthorizedCost;
-  }
-
-  public EstimateConfidence getConfidence() {
-    return confidence;
-  }
 }
+

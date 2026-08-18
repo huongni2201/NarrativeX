@@ -10,10 +10,14 @@ import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Version;
 import java.time.Instant;
 import java.util.Objects;
+import lombok.Getter;
+import lombok.Setter;
 import org.hibernate.proxy.HibernateProxy;
 
 /** Common JPA audit mapping kept outside domain packages. */
 @MappedSuperclass
+@Getter
+@Setter
 public abstract class JpaAuditedEntity {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -42,22 +46,6 @@ public abstract class JpaAuditedEntity {
     updatedAt = Instant.now();
   }
 
-  public Long getId() {
-    return id;
-  }
-
-  public long getRowVersion() {
-    return rowVersion;
-  }
-
-  public Instant getCreatedAt() {
-    return createdAt;
-  }
-
-  public Instant getUpdatedAt() {
-    return updatedAt;
-  }
-
   @Override
   public final boolean equals(Object other) {
     if (this == other) return true;
@@ -80,3 +68,4 @@ public abstract class JpaAuditedEntity {
         : value.getClass();
   }
 }
+

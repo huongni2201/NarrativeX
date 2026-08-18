@@ -12,11 +12,21 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
 @Table(
     name = "projects",
     indexes = @Index(name = "idx_projects_owner_status", columnList = "owner_id,status"))
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class ProjectJpaEntity extends JpaAuditedEntity {
   @Column(name = "name", nullable = false, length = 160)
   private String name;
@@ -48,11 +58,6 @@ public class ProjectJpaEntity extends JpaAuditedEntity {
   @Column(name = "archived_at")
   private Instant archivedAt;
 
-  protected ProjectJpaEntity() {}
-
-  public ProjectJpaEntity(Project project) {
-    apply(project);
-  }
 
   public void apply(Project project) {
     name = project.getName();
@@ -65,40 +70,5 @@ public class ProjectJpaEntity extends JpaAuditedEntity {
     imageQualityTier = project.getImageQualityTier();
     archivedAt = project.getArchivedAt();
   }
-
-  public String getName() {
-    return name;
-  }
-
-  public String getOwnerId() {
-    return ownerId;
-  }
-
-  public ProjectStatus getStatus() {
-    return status;
-  }
-
-  public String getSourceLanguage() {
-    return sourceLanguage;
-  }
-
-  public String getNarrationLanguage() {
-    return narrationLanguage;
-  }
-
-  public String getMetadataLanguage() {
-    return metadataLanguage;
-  }
-
-  public AspectRatio getImageAspectRatio() {
-    return imageAspectRatio;
-  }
-
-  public ImageQualityTier getImageQualityTier() {
-    return imageQualityTier;
-  }
-
-  public Instant getArchivedAt() {
-    return archivedAt;
-  }
 }
+

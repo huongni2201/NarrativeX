@@ -130,6 +130,16 @@ Potential optimization is measurement-driven: if version creation becomes a lock
 
 Project list retrieval uses a composite keyset index and avoids offset scans/count queries. Provider calls remain outside database transactions.
 
+## Code conventions and Lombok usage
+
+- **JPA Entities (`infrastructure/persistence/entity/`)**:
+  - Annotated with Lombok `@Getter`, `@Setter`, `@Builder`, `@NoArgsConstructor`, `@AllArgsConstructor`.
+  - Initialized collection fields (such as aliases and group lists) must be marked with `@Builder.Default` to prevent builders from overriding default instances.
+  - Entities do not maintain public domain-accepting constructors; mapping from domain models is performed explicitly via `.builder()...build()` and state mutation via `apply(domainModel)`.
+- **Services, Use Cases, Adapters and Controllers**:
+  - Use Lombok `@RequiredArgsConstructor` for constructor-based dependency injection on final fields, eliminating verbose manual constructor boilerplate.
+  - Logging is standardized via `@Slf4j`.
+
 ## Architecture enforcement
 
 `ArchitectureRulesTest` rejects:

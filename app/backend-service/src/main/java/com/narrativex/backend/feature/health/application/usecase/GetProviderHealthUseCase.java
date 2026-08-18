@@ -4,15 +4,13 @@ import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.health.api.response.ProviderHealthResponse;
 import com.narrativex.backend.feature.health.application.port.out.ProviderHealthSettings;
 import com.narrativex.backend.feature.health.application.query.ProviderHealthQuery;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 @Service
+@RequiredArgsConstructor
 public class GetProviderHealthUseCase {
   private final ProviderHealthSettings settings;
-
-  public GetProviderHealthUseCase(ProviderHealthSettings settings) {
-    this.settings = settings;
-  }
 
   public ApiResponse<ProviderHealthResponse> execute(ProviderHealthQuery query) {
     ProviderHealthResponse response =

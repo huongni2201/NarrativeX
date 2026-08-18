@@ -3,18 +3,16 @@ package com.narrativex.backend.feature.auth.infrastructure.security;
 import com.narrativex.backend.feature.auth.application.service.RegisterAuthAccountService;
 import com.narrativex.backend.feature.auth.infrastructure.persistence.entity.AuthUserJpaEntity;
 import com.narrativex.backend.feature.auth.infrastructure.persistence.repository.AuthUserJpaRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 @Service
+@RequiredArgsConstructor
 public class DatabaseUserDetailsService implements UserDetailsService {
   private final AuthUserJpaRepository repository;
-
-  public DatabaseUserDetailsService(AuthUserJpaRepository repository) {
-    this.repository = repository;
-  }
 
   @Override
   public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {

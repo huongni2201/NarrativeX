@@ -8,6 +8,11 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
 @Table(
@@ -16,6 +21,11 @@ import jakarta.persistence.UniqueConstraint;
         @UniqueConstraint(
             name = "uk_scenes_chapter_order",
             columnNames = {"chapter_id", "order_index"}))
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class SceneJpaEntity extends JpaAuditedEntity {
   @Column(name = "chapter_id", nullable = false)
   private Long chapterId;
@@ -35,6 +45,5 @@ public class SceneJpaEntity extends JpaAuditedEntity {
   @Enumerated(EnumType.STRING)
   @Column(name = "status", nullable = false, length = 24)
   private SceneStatus status;
-
-  protected SceneJpaEntity() {}
 }
+

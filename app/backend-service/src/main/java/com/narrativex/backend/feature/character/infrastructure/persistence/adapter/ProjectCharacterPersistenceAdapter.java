@@ -5,25 +5,41 @@ import com.narrativex.backend.feature.character.domain.aggregate.ProjectCharacte
 import com.narrativex.backend.feature.character.infrastructure.persistence.entity.ProjectCharacterJpaEntity;
 import com.narrativex.backend.feature.character.infrastructure.persistence.mapper.CharacterPersistenceMapper;
 import com.narrativex.backend.feature.character.infrastructure.persistence.repository.ProjectCharacterJpaRepository;
+import java.util.ArrayList;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class ProjectCharacterPersistenceAdapter implements ProjectCharacterRepository {
   private final ProjectCharacterJpaRepository repository;
-
-  public ProjectCharacterPersistenceAdapter(ProjectCharacterJpaRepository repository) {
-    this.repository = repository;
-  }
 
   @Override
   public ProjectCharacter save(ProjectCharacter assignment) {
     ProjectCharacterJpaEntity entity =
         assignment.getId() == null
-            ? new ProjectCharacterJpaEntity(assignment)
+            ? buildJpaEntity(assignment)
             : repository
                 .findById(assignment.getId())
-                .orElseGet(() -> new ProjectCharacterJpaEntity(assignment));
-    entity.apply(assignment);
+                .map(existing -> {
+                  existing.apply(assignment);
+                  return existing;
+                })
+                .orElseGet(() -> buildJpaEntity(assignment));
     return CharacterPersistenceMapper.toDomain(repository.save(entity));
+  }
+
+  private static ProjectCharacterJpaEntity buildJpaEntity(ProjectCharacter assignment) {
+    return ProjectCharacterJpaEntity.builder()
+        .projectId(assignment.getProjectId())
+        .characterId(assignment.getCharacterId())
+        .role(assignment.getRole())
+        .importance(assignment.getImportance())
+        .projectAliases(new ArrayList<>(assignment.getProjectAliases()))
+        .storyMetadata(assignment.getStoryMetadata())
+        .groups(new ArrayList<>(assignment.getGroups()))
+        .pinnedCharacterVersionId(assignment.getPinnedCharacterVersionId())
+        .status(assignment.getStatus())
+        .build();
   }
 }

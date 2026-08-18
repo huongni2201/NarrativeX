@@ -6,25 +6,43 @@ import com.narrativex.backend.feature.generation.infrastructure.persistence.enti
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mapper.GenerationPersistenceMapper;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.repository.GenerationJobJpaRepository;
 import java.util.Optional;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class GenerationJobPersistenceAdapter implements GenerationJobRepository {
 
   private final GenerationJobJpaRepository repository;
-
-  public GenerationJobPersistenceAdapter(GenerationJobJpaRepository repository) {
-    this.repository = repository;
-  }
 
   @Override
   public GenerationJob save(GenerationJob job) {
     GenerationJobJpaEntity entity =
         job.getId() == null
-            ? new GenerationJobJpaEntity(job)
-            : repository.findById(job.getId()).orElseGet(() -> new GenerationJobJpaEntity(job));
-    entity.apply(job);
+            ? buildJpaEntity(job)
+            : repository
+                .findById(job.getId())
+                .map(existing -> {
+                  existing.apply(job);
+                  return existing;
+                })
+                .orElseGet(() -> buildJpaEntity(job));
     return GenerationPersistenceMapper.toDomain(repository.save(entity));
+  }
+
+  private static GenerationJobJpaEntity buildJpaEntity(GenerationJob job) {
+    return GenerationJobJpaEntity.builder()
+        .jobId(job.getJobId())
+        .projectId(job.getProjectId())
+        .type(job.getType())
+        .status(job.getStatus())
+        .resourceClass(job.getResourceClass())
+        .progress(job.getProgress())
+        .currentStep(job.getCurrentStep())
+        .errorCode(job.getErrorCode())
+        .requestedByUserId(job.getRequestedByUserId())
+        .billedToUserId(job.getBilledToUserId())
+        .build();
   }
 
   @Override

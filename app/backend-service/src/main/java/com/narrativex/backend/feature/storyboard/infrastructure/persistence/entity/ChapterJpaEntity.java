@@ -5,6 +5,11 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
 @Table(
@@ -13,6 +18,11 @@ import jakarta.persistence.UniqueConstraint;
         @UniqueConstraint(
             name = "uk_chapters_story_order",
             columnNames = {"story_version_id", "order_index"}))
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class ChapterJpaEntity extends JpaAuditedEntity {
   @Column(name = "story_version_id", nullable = false)
   private Long storyVersionId;
@@ -40,6 +50,5 @@ public class ChapterJpaEntity extends JpaAuditedEntity {
 
   @Column(name = "inherited_snapshot_hash", length = 128)
   private String inheritedSnapshotHash;
-
-  protected ChapterJpaEntity() {}
 }
+

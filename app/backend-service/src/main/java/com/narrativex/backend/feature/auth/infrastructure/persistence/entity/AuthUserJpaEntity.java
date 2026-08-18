@@ -5,9 +5,19 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
 @Table(name = "auth_users")
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class AuthUserJpaEntity {
   @Id
   @Column(length = 128, nullable = false)
@@ -37,27 +47,6 @@ public class AuthUserJpaEntity {
   @Column(name = "updated_at", nullable = false)
   private Instant updatedAt;
 
-  protected AuthUserJpaEntity() {}
-
-  public AuthUserJpaEntity(
-      String id,
-      String email,
-      String displayName,
-      String avatarUrl,
-      String passwordHash,
-      String googleSubject,
-      boolean enabled) {
-    Instant now = Instant.now();
-    this.id = id;
-    this.email = email;
-    this.displayName = displayName;
-    this.avatarUrl = avatarUrl;
-    this.passwordHash = passwordHash;
-    this.googleSubject = googleSubject;
-    this.enabled = enabled;
-    this.createdAt = now;
-    this.updatedAt = now;
-  }
 
   public void linkGoogle(String subject, String displayName, String avatarUrl) {
     this.googleSubject = subject;
@@ -69,32 +58,5 @@ public class AuthUserJpaEntity {
     }
     this.updatedAt = Instant.now();
   }
-
-  public String getId() {
-    return id;
-  }
-
-  public String getEmail() {
-    return email;
-  }
-
-  public String getDisplayName() {
-    return displayName;
-  }
-
-  public String getAvatarUrl() {
-    return avatarUrl;
-  }
-
-  public String getPasswordHash() {
-    return passwordHash;
-  }
-
-  public String getGoogleSubject() {
-    return googleSubject;
-  }
-
-  public boolean isEnabled() {
-    return enabled;
-  }
 }
+

@@ -2,10 +2,22 @@ package com.narrativex.backend.feature.character.infrastructure.persistence.enti
 
 import com.narrativex.backend.feature.character.domain.entity.CharacterAppearance;
 import com.narrativex.backend.feature.common.infrastructure.persistence.JpaAuditedEntity;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
 @Table(name = "character_appearances")
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class CharacterAppearanceJpaEntity extends JpaAuditedEntity {
   @Column(name = "character_id", nullable = false)
   private Long characterId;
@@ -34,11 +46,6 @@ public class CharacterAppearanceJpaEntity extends JpaAuditedEntity {
   @Column(name = "outfit_version_id")
   private Long outfitVersionId;
 
-  protected CharacterAppearanceJpaEntity() {}
-
-  public CharacterAppearanceJpaEntity(CharacterAppearance a) {
-    apply(a);
-  }
 
   public void apply(CharacterAppearance a) {
     characterId = a.getCharacterId();
@@ -51,40 +58,5 @@ public class CharacterAppearanceJpaEntity extends JpaAuditedEntity {
     appearancePrompt = a.getAppearancePrompt();
     outfitVersionId = a.getOutfitVersionId();
   }
-
-  public Long getCharacterId() {
-    return characterId;
-  }
-
-  public Long getProjectId() {
-    return projectId;
-  }
-
-  public String getTimelineKey() {
-    return timelineKey;
-  }
-
-  public String getAgeState() {
-    return ageState;
-  }
-
-  public String getHairstyle() {
-    return hairstyle;
-  }
-
-  public String getInjury() {
-    return injury;
-  }
-
-  public String getWardrobeContext() {
-    return wardrobeContext;
-  }
-
-  public String getAppearancePrompt() {
-    return appearancePrompt;
-  }
-
-  public Long getOutfitVersionId() {
-    return outfitVersionId;
-  }
 }
+

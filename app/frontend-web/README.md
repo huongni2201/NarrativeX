@@ -8,20 +8,19 @@ The Frontend Web application provides the NarrativeX web client for project crea
 - **UI Runtime**: React 19
 - **Language**: TypeScript (strict mode)
 - **Server State**: TanStack Query
-- **Client State**: Zustand for transient cross-screen/editor state only
+- **Client State**: Zustand for transient editor/UI state only
 - **Styling**: Tailwind CSS
-- **Linting**: ESLint
+- **Images**: `next/image` for local/trusted imagery; arbitrary environment-specific backend media remains native lazy-loaded until a stable trusted media hostname is part of the storage contract
+- **Linting**: ESLint + architecture checks
+- **Tests**: Node.js built-in test runner for zero-dependency architecture regression tests
 - **Runtime / CI**: Node.js 22
-
-## Local Prerequisites
-- Node.js 22
-- npm compatible with the checked-in lockfile
 
 ## Development Commands
 
 ```bash
 npm ci
 npm run dev
+npm test
 npm run lint
 npm run type-check
 npm run build
@@ -30,16 +29,9 @@ npm start
 
 Local dev is available at `http://localhost:3000` by default.
 
-## Docker
-
-```bash
-docker build -t narrativex-frontend-web .
-docker run -p 3000:3000 narrativex-frontend-web
-```
-
 ## Canonical routes
 
-- `/` — redirect to `/projects` until a distinct backend-backed overview dashboard exists
+- `/` — redirect to `/projects` until a distinct backend-backed overview exists
 - `/projects` — canonical project list
 - `/projects/[projectId]` — project workspace
 - `/characters` — character library
@@ -48,60 +40,68 @@ docker run -p 3000:3000 narrativex-frontend-web
 - `/auth` — auth entry
 - `/dashboard` — legacy redirect to `/projects`
 
-Do not expose two navigation entries that render the same project-list screen. Project identity comes from the URL. The workspace must not depend on a selected-project value in Zustand.
+Project identity comes from the URL. Navigable chapter, scene and workspace-tab state must use URL/search params when those backend-backed surfaces are introduced. The current Zustand chapter/scene/tab state belongs only to `ProductionDemoWorkspace` and is not the production routing contract.
 
-## Application Boundaries
+## API boundary
 
-The frontend owns UI composition, presentation logic, route/search-param state, transient client/editor state, client validation, and rendering backend contracts.
+`src/shared/api/client.ts` owns HTTP transport, envelope parsing, CSRF and typed transport errors. Feature code imports its domain API directly, for example:
 
-The frontend must not own direct AI-provider communication, direct database access, background job execution, secret storage, or fake persisted account/business data.
+```text
+features/auth/api/auth.api.ts
+features/projects/api/projects.api.ts
+```
+
+`src/lib/api.ts` remains a temporary compatibility facade for non-feature legacy callers only. `scripts/check-architecture.mjs` rejects `@/lib/api` imports from `src/features/**`.
 
 ## Data mode and fixture policy
 
 API mode is the runtime source of truth. `NEXT_PUBLIC_NX_DATA_MODE=mock` is reserved for test/Storybook-style demo runtimes allowed by `src/lib/data-mode.ts`.
 
-Mock modules must be lazy-loaded behind demo boundaries. Production/API-mode entry paths must not statically import fixture modules such as project, production, asset, character, preset, job, entitlement, or account fixtures.
+Fixture modules must live behind a demo/test lazy boundary. Production/API-mode modules must not statically import `mock-data`, `*-mock` or `production-mock`. `Step4Results` dynamically loads `Step4DemoResults` only in mock mode; there is no production-component whitelist in the architecture checker.
 
-When a backend feature is not available yet, the API-mode UI must show an explicit unavailable/coming-soon state rather than silently using local fake data. In particular, story file import remains disabled until the backend exposes a document-upload/extraction/storage contract; the UI must not present a fake drag-and-drop uploader.
+When a backend feature is unavailable, API mode shows an explicit unavailable state. Story file import remains disabled until upload/storage/document-extraction contracts exist.
+
+## Feature ownership
+
+Domain UI implementations are colocated with their owning feature:
+
+```text
+src/features/assets/components/*
+src/features/presets/components/*
+src/features/production/components/*
+```
+
+`src/components/ui` is reserved for generic UI primitives and `src/components/layout` for application-shell components. Existing `src/components/assets`, `src/components/presets` and `src/components/production` files are compatibility re-exports only so older demo imports continue to work during migration. The architecture checker rejects any implementation added back to those legacy paths.
 
 ## Project creation workflow safety
 
-Project creation currently spans two persisted resources: the Project and its initial StoryVersion. The frontend may reuse the already-created Project after a definitive HTTP error from StoryVersion creation, but it must not blindly retry after an ambiguous transport/protocol failure because the backend may already have committed the StoryVersion.
+Project creation currently spans Project + initial StoryVersion mutations. After ambiguous transport/protocol failure, the wizard blocks blind StoryVersion retry because the backend may already have committed the write. While the workflow is pending, modal close/back/step navigation is locked.
 
-When StoryVersion commit state is uncertain, the wizard blocks retry and directs the user to inspect the created project first. This is a client-side safety guard, not a substitute for backend idempotency. The long-term backend contract should provide an idempotent or transactional orchestration endpoint for creating a project together with its initial story.
+The long-term backend contract should provide an idempotent or transactional orchestration endpoint.
 
-While the create workflow is pending, the wizard must not close via the close button, backdrop, Escape, step navigation, or back actions. Local workflow/error state must be reset when the wizard closes after the request is no longer pending.
+## Accessibility and performance baseline
 
-## State ownership
+- Shared dialogs have an accessible name through `title` or `ariaLabel`.
+- Modal focus is trapped/restored and Escape/backdrop closing can be disabled during persisted mutations.
+- Labels are programmatically associated with form controls.
+- Validation errors use `aria-invalid`/`aria-describedby` through shared form controls.
+- Mutually exclusive options expose radio-group semantics.
+- Non-essential animation uses reduced-motion-aware `motion-safe` utilities.
+- Local branding, trusted remote images and demo imagery use `next/image`, explicit layout dimensions and responsive `sizes`.
+- Above-the-fold hero/brand assets may use `priority`; card/grid media stays lazy by default.
+- `next.config.mjs` only whitelists trusted image origins; NarrativeX does not use broad wildcard image origins.
+- Asset URLs returned by backend storage may vary across MinIO/S3/CDN environments. Until a stable media hostname is defined by configuration, dynamic asset thumbnails use native `<img loading="lazy" decoding="async">`. Once the storage hostname is stable, whitelist that narrow origin and migrate the media path to `next/image`.
 
-Use this order:
+## Quality gates
 
-1. component state for ephemeral interaction;
-2. URL/search params for navigable/shareable state and filters;
-3. TanStack Query for server entities and collections;
-4. Zustand only for transient cross-screen state that does not naturally belong to the URL or Query cache.
-
-Do not copy persisted API entities into Zustand simply for rendering. Project collections use cursor pagination and project workspaces load the project directly by ID.
-
-## HTTP/auth boundary
-
-`src/shared/api/client.ts` is transport infrastructure only. It owns request/envelope/CSRF/error mechanics and must not import Zustand or feature state. App-level session reactions to HTTP 401 are wired at the provider boundary.
-
-New feature code should import domain APIs (`features/<feature>/api`) rather than adding new dependencies on the compatibility facade in `src/lib/api.ts`.
-
-## Accessibility baseline
-
-Shared form controls expose field errors through ARIA relationships. Tabs support keyboard navigation. Modals trap and restore focus. Mobile uses a dedicated bottom navigation below the desktop breakpoint. User-visible plan, credit, notification and entitlement values are hidden until backed by an API contract.
-
-## CI quality gates
-
-Frontend CI runs:
+Frontend changes must pass:
 
 ```bash
 npm ci
+npm test
 npm run lint
 npm run type-check
 npm run build
 ```
 
-All four gates must pass before merging frontend architecture/refactor changes.
+`npm run lint` also executes `scripts/check-architecture.mjs`. `npm test` contains an architecture regression test so CI detects accidental removal or bypass of these boundaries.

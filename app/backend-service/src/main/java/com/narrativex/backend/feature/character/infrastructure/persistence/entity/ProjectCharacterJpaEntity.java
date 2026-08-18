@@ -3,9 +3,19 @@ package com.narrativex.backend.feature.character.infrastructure.persistence.enti
 import com.narrativex.backend.feature.character.domain.aggregate.ProjectCharacter;
 import com.narrativex.backend.feature.character.domain.enums.ProjectCharacterStatus;
 import com.narrativex.backend.feature.common.infrastructure.persistence.JpaAuditedEntity;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.util.ArrayList;
 import java.util.List;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -16,6 +26,11 @@ import org.hibernate.type.SqlTypes;
         @UniqueConstraint(
             name = "uk_project_characters_project_character",
             columnNames = {"project_id", "character_id"}))
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class ProjectCharacterJpaEntity extends JpaAuditedEntity {
   @Column(name = "project_id", nullable = false)
   private Long projectId;
@@ -29,6 +44,7 @@ public class ProjectCharacterJpaEntity extends JpaAuditedEntity {
   @Column(name = "importance", nullable = false)
   private int importance;
 
+  @Builder.Default
   @JdbcTypeCode(SqlTypes.JSON)
   @Column(name = "project_aliases", nullable = false, columnDefinition = "jsonb")
   private List<String> projectAliases = new ArrayList<>();
@@ -36,6 +52,7 @@ public class ProjectCharacterJpaEntity extends JpaAuditedEntity {
   @Column(name = "story_metadata", columnDefinition = "TEXT")
   private String storyMetadata;
 
+  @Builder.Default
   @JdbcTypeCode(SqlTypes.JSON)
   @Column(name = "groups_json", nullable = false, columnDefinition = "jsonb")
   private List<String> groups = new ArrayList<>();
@@ -47,11 +64,6 @@ public class ProjectCharacterJpaEntity extends JpaAuditedEntity {
   @Column(name = "status", nullable = false, length = 24)
   private ProjectCharacterStatus status;
 
-  protected ProjectCharacterJpaEntity() {}
-
-  public ProjectCharacterJpaEntity(ProjectCharacter a) {
-    apply(a);
-  }
 
   public void apply(ProjectCharacter a) {
     projectId = a.getProjectId();
@@ -64,40 +76,5 @@ public class ProjectCharacterJpaEntity extends JpaAuditedEntity {
     pinnedCharacterVersionId = a.getPinnedCharacterVersionId();
     status = a.getStatus();
   }
-
-  public Long getProjectId() {
-    return projectId;
-  }
-
-  public Long getCharacterId() {
-    return characterId;
-  }
-
-  public String getRole() {
-    return role;
-  }
-
-  public int getImportance() {
-    return importance;
-  }
-
-  public List<String> getProjectAliases() {
-    return projectAliases;
-  }
-
-  public String getStoryMetadata() {
-    return storyMetadata;
-  }
-
-  public List<String> getGroups() {
-    return groups;
-  }
-
-  public Long getPinnedCharacterVersionId() {
-    return pinnedCharacterVersionId;
-  }
-
-  public ProjectCharacterStatus getStatus() {
-    return status;
-  }
 }
+

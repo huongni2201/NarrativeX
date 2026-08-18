@@ -2,11 +2,25 @@ package com.narrativex.backend.feature.generation.infrastructure.persistence.ent
 
 import com.narrativex.backend.feature.common.infrastructure.persistence.JpaAuditedEntity;
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Table;
 import java.time.Instant;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
 @Table(name = "provider_operations")
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class ProviderOperationJpaEntity extends JpaAuditedEntity {
   @Column(name = "stage_attempt_id", nullable = false)
   private Long stageAttemptId;
@@ -23,6 +37,5 @@ public class ProviderOperationJpaEntity extends JpaAuditedEntity {
 
   @Column(name = "reserved_at", nullable = false)
   private Instant reservedAt;
-
-  protected ProviderOperationJpaEntity() {}
 }
+

@@ -10,6 +10,11 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
 @Table(
@@ -18,6 +23,11 @@ import jakarta.persistence.UniqueConstraint;
         @UniqueConstraint(
             name = "uk_story_versions_project_version",
             columnNames = {"project_id", "version_number"}))
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class StoryVersionJpaEntity extends JpaAuditedEntity {
   @Column(name = "project_id", nullable = false)
   private Long projectId;
@@ -39,12 +49,6 @@ public class StoryVersionJpaEntity extends JpaAuditedEntity {
   @Column(name = "moderation_decision", nullable = false, length = 16)
   private ModerationDecision moderationDecision;
 
-  protected StoryVersionJpaEntity() {}
-
-  public StoryVersionJpaEntity(StoryVersion storyVersion) {
-    apply(storyVersion);
-  }
-
   public void apply(StoryVersion storyVersion) {
     projectId = storyVersion.getProjectId();
     versionNumber = storyVersion.getVersionNumber();
@@ -52,29 +56,5 @@ public class StoryVersionJpaEntity extends JpaAuditedEntity {
     sourceLanguage = storyVersion.getSourceLanguage();
     status = storyVersion.getStatus();
     moderationDecision = storyVersion.getModerationDecision();
-  }
-
-  public Long getProjectId() {
-    return projectId;
-  }
-
-  public int getVersionNumber() {
-    return versionNumber;
-  }
-
-  public String getContent() {
-    return content;
-  }
-
-  public String getSourceLanguage() {
-    return sourceLanguage;
-  }
-
-  public StoryVersionStatus getStatus() {
-    return status;
-  }
-
-  public ModerationDecision getModerationDecision() {
-    return moderationDecision;
   }
 }

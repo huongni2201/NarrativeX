@@ -10,16 +10,14 @@ import com.narrativex.backend.feature.project.infrastructure.persistence.mapper.
 import com.narrativex.backend.feature.project.infrastructure.persistence.repository.ProjectJpaRepository;
 import java.util.List;
 import java.util.Optional;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class ProjectPersistenceAdapter implements ProjectRepository {
   private final ProjectJpaRepository repository;
-
-  public ProjectPersistenceAdapter(ProjectJpaRepository repository) {
-    this.repository = repository;
-  }
 
   @Override
   public CursorPage<Project> findActiveByOwnerId(String ownerId, String cursor, int limit) {
@@ -59,10 +57,29 @@ public class ProjectPersistenceAdapter implements ProjectRepository {
   public Project save(Project project) {
     ProjectJpaEntity entity =
         project.getId() == null
-            ? new ProjectJpaEntity(project)
-            : repository.findById(project.getId()).orElseGet(() -> new ProjectJpaEntity(project));
-    entity.apply(project);
+            ? buildJpaEntity(project)
+            : repository
+                .findById(project.getId())
+                .map(existing -> {
+                  existing.apply(project);
+                  return existing;
+                })
+                .orElseGet(() -> buildJpaEntity(project));
     return ProjectPersistenceMapper.toDomain(repository.save(entity));
+  }
+
+  private static ProjectJpaEntity buildJpaEntity(Project project) {
+    return ProjectJpaEntity.builder()
+        .name(project.getName())
+        .ownerId(project.getOwnerId())
+        .status(project.getStatus())
+        .sourceLanguage(project.getSourceLanguage())
+        .narrationLanguage(project.getNarrationLanguage())
+        .metadataLanguage(project.getMetadataLanguage())
+        .imageAspectRatio(project.getImageAspectRatio())
+        .imageQualityTier(project.getImageQualityTier())
+        .archivedAt(project.getArchivedAt())
+        .build();
   }
 
   private static String cursorFor(ProjectJpaEntity entity) {
