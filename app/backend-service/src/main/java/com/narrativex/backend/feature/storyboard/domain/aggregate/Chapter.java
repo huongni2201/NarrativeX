@@ -1,32 +1,61 @@
 package com.narrativex.backend.feature.storyboard.domain.aggregate;
 
 import com.narrativex.backend.feature.common.domain.AggregateRoot;
+import java.util.Objects;
+import java.util.regex.Pattern;
 
 /** Storyboard chapter aggregate tied to a story-version snapshot. */
 public final class Chapter extends AggregateRoot {
+  private static final Pattern SHA_256_HEX = Pattern.compile("[0-9a-f]{64}");
+
   private final Long storyVersionId;
   private int orderIndex;
   private String title;
+  private String sourceText;
+  private String sourceHash;
 
-  public Chapter(Long storyVersionId, int orderIndex, String title) {
-    this(null, 0L, storyVersionId, orderIndex, title);
+  public Chapter(
+      Long storyVersionId, int orderIndex, String title, String sourceText, String sourceHash) {
+    this(null, 0L, storyVersionId, orderIndex, title, sourceText, sourceHash);
   }
 
-  private Chapter(Long id, long rowVersion, Long storyVersionId, int orderIndex, String title) {
+  private Chapter(
+      Long id,
+      long rowVersion,
+      Long storyVersionId,
+      int orderIndex,
+      String title,
+      String sourceText,
+      String sourceHash) {
     super(id, rowVersion);
     this.storyVersionId = positiveId(storyVersionId, "storyVersionId");
     this.orderIndex = validOrderIndex(orderIndex);
     this.title = requiredTitle(title);
+    this.sourceText = Objects.requireNonNull(sourceText, "sourceText");
+    this.sourceHash = requiredSourceHash(sourceHash);
   }
 
   public static Chapter rehydrate(
-      Long id, long rowVersion, Long storyVersionId, int orderIndex, String title) {
-    return new Chapter(id, rowVersion, storyVersionId, orderIndex, title);
+      Long id,
+      long rowVersion,
+      Long storyVersionId,
+      int orderIndex,
+      String title,
+      String sourceText,
+      String sourceHash) {
+    return new Chapter(
+        id, rowVersion, storyVersionId, orderIndex, title, sourceText, sourceHash);
   }
 
   /** Rename this chapter while preserving the chapter identity and story-version boundary. */
   public void rename(String newTitle) {
     title = requiredTitle(newTitle);
+  }
+
+  /** Replace persisted Chapter source using a server-computed fingerprint. */
+  public void updateSource(String newSourceText, String newSourceHash) {
+    sourceText = Objects.requireNonNull(newSourceText, "sourceText");
+    sourceHash = requiredSourceHash(newSourceHash);
   }
 
   /** Change chapter ordering. Cross-chapter uniqueness is enforced by the repository/database. */
@@ -44,6 +73,14 @@ public final class Chapter extends AggregateRoot {
 
   public String getTitle() {
     return title;
+  }
+
+  public String getSourceText() {
+    return sourceText;
+  }
+
+  public String getSourceHash() {
+    return sourceHash;
   }
 
   private static Long positiveId(Long value, String field) {
@@ -66,6 +103,13 @@ public final class Chapter extends AggregateRoot {
     }
     if (value.length() > 200) {
       throw new IllegalArgumentException("title exceeds the maximum length");
+    }
+    return value;
+  }
+
+  private static String requiredSourceHash(String value) {
+    if (value == null || !SHA_256_HEX.matcher(value).matches()) {
+      throw new IllegalArgumentException("sourceHash must be a lowercase SHA-256 hex value");
     }
     return value;
   }
