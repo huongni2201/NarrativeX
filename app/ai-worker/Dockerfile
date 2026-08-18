@@ -11,10 +11,8 @@ RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
 
 # Install package dependencies
 COPY pyproject.toml README.md ./
-RUN pip install --no-cache-dir .
-
-# Copy application source code
 COPY src/ ./src/
+RUN pip install --no-cache-dir .
 
 USER appuser
 

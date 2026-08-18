@@ -88,6 +88,8 @@ services:
       VERTEX_TIMEOUT_SECONDS: ${VERTEX_TIMEOUT_SECONDS:-120}
       GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-}
     depends_on:
+      backend:
+        condition: service_healthy
       postgres:
         condition: service_healthy
     restart: unless-stopped

@@ -11,7 +11,7 @@ NarrativeX is an image-first AI Story Video Studio for turning flexible-length s
 | `app/frontend-web` | Next.js/TypeScript storyboard, review, cost and notification UI |
 | `documentation` | Product, domain, architecture, workflows, codebase notes and ADRs |
 | `contracts` | Versioned backend ↔ worker payload contracts |
-| `docker-compose.yml` | Local PostgreSQL 18, Redis 8, MinIO and backend service |
+| `docker-compose.yml` | Local PostgreSQL 18, Redis 8, MinIO, backend and AI worker services |
 
 ## Start the local stack
 
@@ -20,7 +20,9 @@ Copy-Item .env.example .env
 docker compose up -d --build
 ```
 
-This starts PostgreSQL 18, Redis 8, MinIO and the Spring Boot backend. The backend is available at `http://localhost:8080`; Actuator health is at `http://localhost:8080/actuator/health`.
+This starts PostgreSQL 18, Redis 8, MinIO, the Spring Boot backend and the AI worker. The worker waits for the backend to become healthy so Flyway can apply the PostgreSQL schema first. The backend is available at `http://localhost:8080`; Actuator health is at `http://localhost:8080/actuator/health`.
+
+The worker uses PostgreSQL as its durable work queue. Its safe local default is `AI_PROVIDER_MODE=disabled`, so queued AI jobs fail explicitly until a provider is configured; it never reports fake provider success.
 
 To start only infrastructure dependencies:
 
