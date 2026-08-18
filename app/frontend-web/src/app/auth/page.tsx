@@ -1,5 +1,5 @@
-import { StudioAppShell } from "@/components/layout/StudioAppShell";
+import { AuthEntry } from "@/features/auth/AuthEntry";
 
 export default function AuthPage() {
-  return <StudioAppShell screen="overview" />;
+  return <AuthEntry />;
 }
