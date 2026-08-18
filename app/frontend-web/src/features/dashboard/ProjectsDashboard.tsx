@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useStudioStore } from "@/store/useStudioStore";
@@ -16,6 +16,7 @@ import type { ApiProject } from "@/types/api";
 
 const completedStatuses = new Set(["COMPLETED", "ARCHIVED"]);
 const PROJECT_PAGE_SIZE = 20;
+const SEARCH_DEBOUNCE_MS = 300;
 type ProjectFilterTab = "all" | "in_progress" | "completed";
 
 function projectFilterFrom(value: string | null): ProjectFilterTab {
@@ -29,8 +30,13 @@ export const ProjectsDashboard: React.FC = () => {
   const openWizard = useStudioStore((state) => state.openWizard);
   const projectFilterTab = projectFilterFrom(searchParams.get("status"));
   const projectSearchQuery = searchParams.get("q") ?? "";
+  const [searchInput, setSearchInput] = useState(projectSearchQuery);
 
-  const updateSearchParams = (updates: { status?: ProjectFilterTab; q?: string }) => {
+  useEffect(() => {
+    setSearchInput(projectSearchQuery);
+  }, [projectSearchQuery]);
+
+  const updateSearchParams = useCallback((updates: { status?: ProjectFilterTab; q?: string }) => {
     const params = new URLSearchParams(searchParams.toString());
     if (updates.status !== undefined) {
       if (updates.status === "all") params.delete("status");
@@ -43,7 +49,15 @@ export const ProjectsDashboard: React.FC = () => {
     }
     const queryString = params.toString();
     router.replace(queryString ? `${pathname}?${queryString}` : pathname, { scroll: false });
-  };
+  }, [pathname, router, searchParams]);
+
+  useEffect(() => {
+    if (searchInput === projectSearchQuery) return;
+    const timeoutId = window.setTimeout(() => {
+      updateSearchParams({ q: searchInput });
+    }, SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(timeoutId);
+  }, [projectSearchQuery, searchInput, updateSearchParams]);
 
   const projectsQuery = useInfiniteQuery({
     queryKey: queryKeys.projects,
@@ -66,7 +80,7 @@ export const ProjectsDashboard: React.FC = () => {
     [projects],
   );
 
-  const normalizedSearch = projectSearchQuery.trim().toLocaleLowerCase("vi");
+  const normalizedSearch = searchInput.trim().toLocaleLowerCase("vi");
   const filteredProjects = useMemo(
     () => projects.filter((project) => {
       const matchesSearch = !normalizedSearch || project.name.toLocaleLowerCase("vi").includes(normalizedSearch);
@@ -95,7 +109,7 @@ export const ProjectsDashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <Tabs
           tabs={filterTabs}
           activeTab={projectFilterTab}
@@ -105,24 +119,34 @@ export const ProjectsDashboard: React.FC = () => {
         />
 
         <div className="flex items-center gap-3">
-          <div className="w-60 hidden md:block">
+          <div className="hidden w-60 md:block">
             <Input
               aria-label="Tìm kiếm dự án đã tải"
               placeholder="Tìm kiếm dự án đã tải..."
-              value={projectSearchQuery}
-              onChange={(event) => updateSearchParams({ q: event.target.value })}
-              icon={<Search className="w-4 h-4" />}
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              icon={<Search className="h-4 w-4" />}
             />
           </div>
           <Button onClick={() => openWizard(1)} variant="primary" className="flex items-center gap-2 font-semibold">
-            <Plus className="w-4 h-4" /><span>Dự án mới</span>
+            <Plus className="h-4 w-4" /><span>Dự án mới</span>
           </Button>
         </div>
       </div>
 
+      <div className="md:hidden">
+        <Input
+          aria-label="Tìm kiếm dự án đã tải"
+          placeholder="Tìm kiếm dự án đã tải..."
+          value={searchInput}
+          onChange={(event) => setSearchInput(event.target.value)}
+          icon={<Search className="h-4 w-4" />}
+        />
+      </div>
+
       {filteredProjects.length > 0 ? (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
             {filteredProjects.map((project) => <ProjectCard key={project.id} project={project} onClick={handleCardClick} />)}
           </div>
           {projectsQuery.hasNextPage && (
@@ -132,16 +156,16 @@ export const ProjectsDashboard: React.FC = () => {
           )}
         </>
       ) : (
-        <div className="py-20 text-center bg-[#0d1420]/50 rounded-2xl border border-slate-800/80 p-8 space-y-4">
-          <div className="w-14 h-14 mx-auto rounded-2xl bg-purple-950/60 border border-purple-800/60 flex items-center justify-center text-purple-400"><FolderKanban className="w-7 h-7" /></div>
+        <div className="space-y-4 rounded-2xl border border-slate-800/80 bg-[#0d1420]/50 p-8 py-20 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-purple-800/60 bg-purple-950/60 text-purple-400"><FolderKanban className="h-7 w-7" /></div>
           <div className="space-y-1">
             <h3 className="text-base font-semibold text-slate-200">Không tìm thấy dự án phù hợp</h3>
-            <p className="text-xs text-slate-400 max-w-sm mx-auto">Hãy thử thay đổi bộ lọc/tìm kiếm hoặc tải thêm dự án.</p>
+            <p className="mx-auto max-w-sm text-xs text-slate-400">Hãy thử thay đổi bộ lọc/tìm kiếm hoặc tải thêm dự án.</p>
           </div>
           {projectsQuery.hasNextPage ? (
             <Button onClick={() => projectsQuery.fetchNextPage()} variant="secondary" size="sm" isLoading={projectsQuery.isFetchingNextPage}>Tải thêm dự án để tìm tiếp</Button>
           ) : (
-            <Button onClick={() => openWizard(1)} variant="primary" size="sm"><Plus className="w-3.5 h-3.5" /> Tạo dự án mới</Button>
+            <Button onClick={() => openWizard(1)} variant="primary" size="sm"><Plus className="h-3.5 w-3.5" /> Tạo dự án mới</Button>
           )}
         </div>
       )}

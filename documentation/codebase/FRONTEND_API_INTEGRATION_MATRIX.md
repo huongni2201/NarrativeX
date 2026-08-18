@@ -4,14 +4,15 @@ This matrix records the current UI-to-backend wiring and the next backend contra
 
 | Screen/Feature | Route | Current Data Source | State | Existing Client Function | Required / Current Backend API | Missing Work |
 |---|---|---|---|---|---|---|
-| Auth | `/auth`, app shell | server session bootstrap + Google OIDC + logout | API FOUNDATION | `authApi.getCurrentUser`, `authApi.logout`, `authApi.googleLoginUrl` | `GET /api/auth/me`, `/oauth2/authorization/google`, `POST /logout` | server-side bootstrap can be considered later to reduce auth hydration wait |
+| Auth | `/auth`, app shell | session bootstrap + password auth + Google OIDC + logout; authenticated `/auth` replaces to `/projects` | API FOUNDATION | `authApi.getCurrentUser`, `authApi.login`, `authApi.register`, `authApi.logout`, `authApi.googleLoginUrl` | `GET /api/auth/me`, `POST /api/auth/login`, `POST /api/auth/register`, `/oauth2/authorization/google`, `POST /logout` | server-side bootstrap can be considered later to reduce auth hydration wait |
 | Project list | `/projects` and overview entry | TanStack Query cursor pages | API | `projectsApi.list` | `GET /api/v1/projects?limit=<n>&cursor=<opaque>` | backend search/status query if filters must cover the entire unbounded collection |
+| Project filters/search | `/projects?status=...&q=...` | URL-owned filter state; responsive local text input with 300 ms URL debounce | CLIENT/URL | `projectsApi.list` supplies loaded pages | same project-list API today | server-side `q`/`status` query contract for filtering the full collection |
 | Project detail/workspace | `/projects/[projectId]` | direct entity query by route ID | API FOUNDATION | `projectsApi.getById` | `GET /api/v1/projects/{projectId}` | richer project/story/chapter DTOs as production workspace expands |
-| Create project | project wizard | TanStack Query mutation | API | `projectsApi.create` | `POST /api/v1/projects` | idempotency contract remains recommended |
+| Create project | project wizard | TanStack Query mutation; wizard modal mounted only while open | API | `projectsApi.create` | `POST /api/v1/projects` | idempotency contract remains recommended |
 | Story input | project wizard | Zustand draft until submit, then backend create | API FOUNDATION | `projectsApi.createStoryVersion` | `POST /api/v1/projects/{id}/stories` | read/update/version conflict contract |
 | AI analysis start | wizard/workspace | disabled production capability | NOT AVAILABLE | `projectsApi.enqueueAnalysis` exists but normal create flow does not call it | `POST /api/v1/projects/{id}/analysis-jobs`, feature-gated off by default | enable only after durable enqueue/outbox/stage/worker/reconciliation invariant exists |
 | Analysis progress/result | workspace | explicit pending/unavailable state | PENDING API | none | job query/event replay + result resources | polling/SSE/reconnect/UNKNOWN/failed UI and result mapping |
-| Characters | `/characters` | explicit API-not-connected state | PENDING API | none | character/version/reference/lock APIs | query/mutations and canonical identity/project-usage mapping |
+| Characters | `/characters` | explicit API-not-connected state; Character Bible overlay mounted only when selected | PENDING API | none | character/version/reference/lock APIs | query/mutations and canonical identity/project-usage mapping |
 | Chapter/storyboard | project workspace | explicit pending state in API runtime | PENDING API | none | chapter/scene/visual-beat resources and commands | URL-owned chapter/scene deep links once backend IDs/contracts exist |
 | Render/export | project workspace | explicit API-not-connected state | PENDING API | none | render job create/status/events + signed artifact URL | mutation/job/download flow |
 | Assets | `/assets` | explicit API-not-connected state; demo fixtures lazy in mock runtime | PENDING API | none | asset list/detail/upload/delete/review APIs | replace demo store with Query/mutations when contract lands |
@@ -21,15 +22,25 @@ This matrix records the current UI-to-backend wiring and the next backend contra
 ## Route and state rules
 
 - `/projects` is the canonical project-list route; `/dashboard` only redirects to `/projects`.
+- `/auth` is not an alternate project-list URL. When the session bootstrap resolves authenticated, `AuthEntry` uses route replacement to `/projects`.
 - `/projects/[projectId]` owns project identity. The workspace never discovers a project by loading a collection and calling `.find()`.
-- Navigable project-list filters live in URL search params (`status`, `q`). They currently filter loaded cursor pages only; server-wide filtering requires a backend query contract.
+- Navigable project-list filters live in URL search params (`status`, `q`). Search typing is kept in local component state and URL synchronization is debounced by 300 ms to avoid one App Router navigation per keystroke.
+- Current filtering applies to cursor pages already loaded by the client; server-wide filtering requires a backend query contract.
 - TanStack Query owns persisted server state. Zustand is reserved for transient wizard/editor/demo state.
 
 ## Transport rules
 
 - `src/shared/api/client.ts` owns request transport, credentials, CSRF, envelope validation and typed errors.
+- A successful HTTP response with an invalid/empty JSON payload is surfaced as `ApiProtocolError`, keeping transport failures inside the typed API error model.
 - Shared transport has no dependency on Zustand or feature/app state. A 401 is surfaced to the app boundary, where `AppProviders` updates session UI.
-- New feature code imports domain APIs directly instead of extending the compatibility facade in `src/lib/api.ts`.
+- Foundation utilities and new feature code import the canonical shared client/domain API directly instead of extending or depending on the compatibility facade in `src/lib/api.ts`.
+
+## Same-origin proxy contract
+
+- Browser API/auth paths remain same-origin by default so session cookies, CSRF and OAuth navigation share the frontend origin.
+- Next.js rewrites proxy `/api`, `/oauth2`, `/login` and `/logout` to `BACKEND_INTERNAL_URL` (or the configured fallback).
+- The current standalone Docker image resolves this rewrite configuration during `next build`. Container/image builds must therefore supply the correct backend network destination when `http://localhost:8080` is not valid.
+- If one immutable frontend image must be promoted between environments with different backend hosts, adopt a runtime reverse proxy/BFF destination instead of environment-specific build-time routing.
 
 ## Runtime safety rules
 
@@ -37,3 +48,18 @@ This matrix records the current UI-to-backend wiring and the next backend contra
 - `POST /api/v1/projects/{id}/analysis-jobs` remains feature-gated off by default and must not persist queued work while disabled.
 - API mode must never show fake analysis progress/results, fake notification counts, fake credits/plan data or fixture-backed persisted entities.
 - Mock modules are lazy-loaded only in validated test/Storybook-style mock runtimes.
+- Dynamically imported modal/overlay components are mounted only while their state is active so closed overlays do not eagerly fetch their chunks.
+
+## Frontend verification gate
+
+Frontend CI must run:
+
+```bash
+npm ci
+npm test
+npm run lint
+npm run type-check
+npm run build
+```
+
+The current `npm test` suite protects architecture/tooling regressions. It is not yet a substitute for behavioral component and end-to-end tests.

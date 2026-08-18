@@ -7,27 +7,35 @@ This matrix distinguishes the V1.8 product/domain intent from the implementation
 | Product scope, actors, functional requirements | attached `NARRATIVEX_PROJECT_SPEC_V1_8.md`, `documentation/product/PRODUCT_SPEC.md`, `FEATURE_CATALOG.md` | V1.8 contract; production gates remain explicit |
 | Business rules and state transitions | `documentation/domain/BUSINESS_RULES.md`, `DOMAIN_MODEL.md` | Documented; per-story copyright/rights attestation is no longer an Analyze/Generate prerequisite |
 | Terms and stable domain codes | `documentation/domain/GLOSSARY.md` | Documented |
-| System topology and deployment | `documentation/architecture/SYSTEM_ARCHITECTURE.md`, `TECHNOLOGY_STACK.md` | Documented |
+| System topology and deployment | `documentation/architecture/SYSTEM_ARCHITECTURE.md`, `TECHNOLOGY_STACK.md` | Documented; frontend same-origin proxy/build-time routing contract is explicit |
 | Data flow and service/module boundaries | `documentation/architecture/DATA_FLOW.md`, `SERVICE_BOUNDARIES.md` | Target durable flow documented; runtime implementation remains incomplete |
-| Authentication/runtime security | `documentation/decisions/ADR-0004-authentication-and-frontend-runtime-security.md` | Fail-closed profile guard: OIDC may be disabled only for explicit `local`/`test`; shared config has no local default profile |
+| Authentication/runtime security | `documentation/decisions/ADR-0004-authentication-and-frontend-runtime-security.md` | Fail-closed profile guard plus canonical frontend auth routing, URL-owned navigable state and explicit proxy contract |
+| Frontend implementation/runtime map | `documentation/codebase/FRONTEND_CODEBASE.md`, `FRONTEND_API_INTEGRATION_MATRIX.md`, `app/frontend-web/README.md` | Current route/state/API/lazy-loading/CI behavior documented against implementation |
 | Durable generation execution | `documentation/decisions/ADR-0001-system-topology-and-durable-execution.md` | Production contract documented; story-analysis enqueue endpoint is feature-gated until durable enqueue/worker execution exists |
 | Source layout and module responsibilities | `documentation/codebase/*`, `app/*/README.md` | Base project map maintained with the code skeleton |
 | Backend ↔ worker payloads | `contracts/*` | Versioned schema exists; durable intake/lease/reconciliation integration remains a release gate |
-| Local infrastructure | `docker-compose.yml`, root/module READMEs | PostgreSQL, Redis and MinIO local baseline |
+| Local infrastructure | `docker-compose.yml`, root/module READMEs | PostgreSQL, Redis and MinIO local baseline; frontend image is separately buildable and requires an explicit backend destination when containerized |
 
 ## Deliberate non-claims
 
 The repository is a runnable foundation, not yet a public-production implementation. Real Vertex/Gemini, image, TTS, video, object-storage, moderation, billing, durable worker dispatch and email integrations require environment credentials and contract/E2E verification. A deterministic fake provider is suitable for tests only and must not be reported as production health.
 
+The frontend quality gate now includes `npm test`, but the current Node test suite primarily protects architecture/tooling regressions. It must not be interpreted as complete behavioral component, accessibility or end-to-end coverage.
+
 The backend must not report work as accepted/queued unless that work has a durable execution path. Until the transaction `OperationPlan/authorization-reservation → GenerationJob → StageAttempt(s) → OutboxEvent` and post-commit dispatch/worker lease path are implemented and tested, `POST /api/v1/projects/{projectId}/analysis-jobs` remains disabled by default and returns `FEATURE_NOT_AVAILABLE` without creating queued rows.
 
-Before public beta, the release gate must still prove ownership/authentication, account abuse limits before provider work, input/output moderation, real-person consent where applicable, prompt-injection fixtures, server-side entitlement, cost reservation/reconciliation, chapter resume/incremental scope, notification/outbox delivery, deletion lifecycle, backup/restore, observability, and no P0/P1 security or safety blockers.
+Before public beta, the release gate must still prove ownership/authentication, account abuse limits before provider work, input/output moderation, real-person consent where applicable, prompt-injection fixtures, server-side entitlement, cost reservation/reconciliation, chapter resume/incremental scope, notification/outbox delivery, deletion lifecycle, backup/restore, observability, frontend behavioral/E2E coverage, and no P0/P1 security or safety blockers.
 
 ## V1.8 implementation boundary
 
 | V1.8 area | Repository evidence | Status |
 |---|---|---|
 | Project list/create and cursor pagination | Project controller/use cases, `CursorPage`, consolidated V1 baseline and frontend Query integration | IMPLEMENTED foundation |
+| Project search/filter UX | `ProjectsDashboard`, URL `status`/`q`, 300 ms search URL debounce | IMPLEMENTED client boundary; full-collection server-side filtering still requires backend query support |
+| Frontend canonical auth routing | `AuthEntry`, `/auth`, `/projects` | IMPLEMENTED boundary; authenticated `/auth` replaces to `/projects` |
+| Frontend transport/proxy | `src/shared/api/client.ts`, `next.config.mjs`, frontend Dockerfile | IMPLEMENTED foundation; typed protocol errors and explicit Docker build-time backend destination; runtime-neutral proxy remains future option for single-image promotion |
+| Frontend lazy overlay loading | `StudioAppShell`, dynamic wizard/Character Bible imports | IMPLEMENTED boundary; heavy overlays mount only while active |
+| Frontend quality gate | `.github/workflows/frontend-ci.yml`, `package.json`, architecture tests | IMPLEMENTED foundation; `npm test`, lint/architecture, type-check and build run in CI; behavioral/E2E suite remains pending |
 | StoryVersion create | Project story command/persistence and frontend create flow | IMPLEMENTED foundation; per-story rights checkbox removed; legacy rights columns may remain for compatibility but are not a prerequisite |
 | Analysis enqueue | Generation controller/use case/domain scaffold | **DISABLED BY DEFAULT**; returns `FEATURE_NOT_AVAILABLE` until durable transaction, stage/outbox dispatch, worker claim/lease and reconciliation exist |
 | Generation job read | Generation job query/controller | Scaffold/read contract exists; meaningful runtime progress requires durable worker updates |
@@ -41,6 +49,8 @@ Before public beta, the release gate must still prove ownership/authentication, 
 
 1. The shared backend artifact has no `spring.profiles.default=local`.
 2. With OIDC disabled, only explicit active profiles made exclusively of `local` and/or `test` may start.
-3. No profile, `prod`, `production`, `staging`, `qa`, `uat`, preview or any unknown profile must fail startup when OIDC is disabled.
+3. No active profile, `prod`, `production`, `staging`, `qa`, `uat`, preview or any unknown profile must fail startup when OIDC is disabled.
 4. Story analysis must not return `202 QUEUED` while there is no durable worker execution path.
 5. Provider submission must eventually use a dedicated `ProviderOperationStatus` lifecycle with `RESERVED`, `SUBMITTED`, `RUNNING`, `COMPLETED`, `FAILED`, `UNKNOWN`; `UNKNOWN` reconciles before resubmission.
+6. A containerized frontend must not rely on its own `localhost:8080` as the backend service address; the proxy destination must match the deployment topology.
+7. Authenticated application content must not be served under the canonical `/auth` entry URL.
