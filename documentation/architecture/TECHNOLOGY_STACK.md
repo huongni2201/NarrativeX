@@ -6,7 +6,7 @@ This page separates technology visible in the repository from the V1.8 target co
 
 | Layer | Current repository evidence | V1.8 role |
 |---|---|---|
-| Web | Next.js `^16.3.1`, React `19.2.8`, TypeScript, Tailwind CSS | Story/project UI, visual review, cost confirmation, SSE progress and notifications |
+| Web | Next.js `^16.3.1`, React `^19.2.8`, TypeScript `^5.8.2`, Tailwind CSS, TanStack Query, Zustand; Node.js 22 CI/runtime baseline | Route-driven story/project UI, visual review, cost confirmation, SSE progress and notifications as backend contracts become available |
 | Backend | Java `25`, Spring Boot `4.1.0`, Web, Validation, JPA, Security, Actuator | Modular monolith, API, ownership, durable orchestration and business rules |
 | Persistence | PostgreSQL driver, Flyway, Spring Data JPA; baseline migration only today | Authoritative transactional domain/job/cost/safety state |
 | Queue/cache | Spring Data Redis dependency | Delivery, cache, progress acceleration and scheduling hints; not source of truth |
@@ -14,10 +14,18 @@ This page separates technology visible in the repository from the V1.8 target co
 | Media | FFmpeg, Pillow/OpenCV and optional PyTorch/Diffusers in target | TTS/audio assembly, image pre/post-processing, deterministic motion and render |
 | Object storage | MinIO local/dev; S3-compatible private storage target | Images, audio, video and derivative media; versioning for critical media |
 | AI | Vertex AI Gemini through server-side ADC/workload identity; provider ports | Story/scene/visual/prompt/highlight planning; optional image/video providers |
-| Auth | Spring Security dependency; current config is permissive scaffold | Google OIDC with server-side Secure/HttpOnly/SameSite session |
-| Migrations | Flyway consolidated baseline `V1__initial_schema.sql` | PostgreSQL schema bootstrap; future changes must use new forward migrations |
+| Auth | Spring Security + Google OIDC/session foundation | Server-side Secure/HttpOnly/SameSite session; provider tokens never reach browser |
+| Migrations | Flyway consolidated baseline `V1__initial_schema.sql` | PostgreSQL schema bootstrap; future changes use forward migrations |
 | Observability | Spring Boot Actuator foundation | Correlated logs/metrics/traces across request -> job -> worker -> provider/storage |
-| Testing | JUnit/Spring Boot/Testcontainers; Pytest/pytest-asyncio; frontend lint/type-check | Contract, idempotency, provider reconciliation, safety, restore and E2E gates |
+| Testing/quality | Backend JUnit/Spring/Testcontainers; worker Pytest; frontend ESLint + TypeScript + Next build + architecture-boundary check in CI | Contract, idempotency, provider reconciliation, safety, restore, accessibility and E2E gates |
+
+## Frontend runtime contract
+
+- Next.js App Router is route-driven. `/projects` is the project collection and `/projects/[projectId]` is the project workspace; `/dashboard` is legacy redirect-only.
+- TanStack Query owns backend state and cursor pagination. URL/search params own navigable identity and shareable filters. Zustand is limited to transient editor/wizard/demo state that cannot naturally live in URL or Query cache.
+- `src/shared/api/client.ts` is framework/state-agnostic transport infrastructure. It may expose typed errors/events but does not import Zustand or feature state.
+- Production/API mode never substitutes persisted business data with fixture data. Mock modules stay behind lazy test/Storybook boundaries.
+- Frontend CI uses Node.js 22 and runs `npm ci`, `npm run lint`, `npm run type-check`, and `npm run build`. The lint command also enforces architecture boundaries.
 
 ## Provider and media contract
 
@@ -52,4 +60,4 @@ PostgreSQL uses automated backups/WAL/PITR, >=30-day retention and quarterly res
 
 ## Version drift note
 
-The frontend README mentions Next.js 15, but `package.json` currently declares Next.js 16.3.1; this document follows the build file. The backend POM currently uses Java 25, while the specification's general Java baseline is Java 21+.
+The frontend README, package manifest and this document now agree on Next.js 16.3.1 and the Node.js 22 CI/runtime baseline. The backend POM currently uses Java 25, while the specification's general Java baseline is Java 21+.
