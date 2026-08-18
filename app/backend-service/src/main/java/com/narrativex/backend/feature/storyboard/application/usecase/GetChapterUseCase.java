@@ -1,0 +1,30 @@
+package com.narrativex.backend.feature.storyboard.application.usecase;
+
+import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
+import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
+import com.narrativex.backend.feature.common.response.ApiResponse;
+import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
+import com.narrativex.backend.feature.storyboard.api.response.ChapterResponse;
+import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@RequiredArgsConstructor
+public class GetChapterUseCase {
+  private final CurrentUserId currentUserId;
+  private final StoryVersionAccess storyVersionAccess;
+  private final ChapterRepository chapterRepository;
+
+  @Transactional(readOnly = true)
+  public ApiResponse<ChapterResponse> execute(Long projectId, Long chapterId) {
+    var chapter =
+        chapterRepository
+            .findById(chapterId)
+            .orElseThrow(() -> new ResourceNotFoundException("Chapter not found"));
+    storyVersionAccess.requireOwnedStoryVersion(
+        projectId, chapter.getStoryVersionId(), currentUserId.get());
+    return ApiResponse.success(ChapterResponse.from(chapter));
+  }
+}
