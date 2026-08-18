@@ -18,6 +18,8 @@ export type { ProjectListParams } from "@/features/projects/api/projects.api";
  */
 export const api = {
   getCurrentUser: authApi.getCurrentUser,
+  login: authApi.login,
+  register: authApi.register,
   logout: authApi.logout,
   googleLoginUrl: authApi.googleLoginUrl,
   listProjects: projectsApi.list,
