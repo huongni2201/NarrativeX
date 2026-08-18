@@ -4,10 +4,17 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.narrativex.backend.feature.project.domain.aggregate.Project;
+import com.narrativex.backend.feature.project.infrastructure.persistence.entity.ProjectJpaEntity;
+import com.narrativex.backend.feature.project.infrastructure.persistence.mapper.ProjectPersistenceMapper;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityManagerFactory;
+import jakarta.persistence.RollbackException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,6 +48,7 @@ class PostgreSqlMigrationIntegrationTest {
   }
 
   @Autowired private DataSource dataSource;
+  @Autowired private EntityManagerFactory entityManagerFactory;
 
   @Test
   void emptyPostgresMigratesAndHibernateValidates() throws SQLException {
@@ -72,6 +80,61 @@ class PostgreSqlMigrationIntegrationTest {
               () -> insertStoryVersion(connection, Long.MAX_VALUE, 3, "DRAFT"));
       assertEquals("23503", missingProject.getSQLState());
       connection.rollback();
+    }
+  }
+
+  @Test
+  void hibernateVersionColumnRejectsStaleProjectUpdate() throws SQLException {
+    long projectId;
+    try (Connection connection = dataSource.getConnection()) {
+      projectId = insertProject(connection);
+    }
+
+    EntityManager first = entityManagerFactory.createEntityManager();
+    EntityManager stale = entityManagerFactory.createEntityManager();
+    try {
+      first.getTransaction().begin();
+      stale.getTransaction().begin();
+      ProjectJpaEntity firstEntity = first.find(ProjectJpaEntity.class, projectId);
+      ProjectJpaEntity staleEntity = stale.find(ProjectJpaEntity.class, projectId);
+
+      Project firstDomain = ProjectPersistenceMapper.toDomain(firstEntity);
+      firstDomain.archive();
+      firstEntity.apply(firstDomain);
+      first.getTransaction().commit();
+
+      Project staleDomain = ProjectPersistenceMapper.toDomain(staleEntity);
+      staleDomain.archive();
+      staleEntity.apply(staleDomain);
+      assertThrows(RollbackException.class, stale.getTransaction()::commit);
+    } finally {
+      if (first.getTransaction().isActive()) first.getTransaction().rollback();
+      if (stale.getTransaction().isActive()) stale.getTransaction().rollback();
+      first.close();
+      stale.close();
+    }
+  }
+
+  @Test
+  void postgresForUpdateLockSerializesProjectMutation() throws SQLException {
+    long projectId;
+    try (Connection seed = dataSource.getConnection()) {
+      projectId = insertProject(seed);
+    }
+
+    try (Connection holder = dataSource.getConnection(); Connection contender = dataSource.getConnection()) {
+      holder.setAutoCommit(false);
+      contender.setAutoCommit(false);
+      lockProject(holder, projectId);
+      try (Statement timeout = contender.createStatement()) {
+        timeout.execute("set local lock_timeout = '200ms'");
+      }
+
+      SQLException lockTimeout =
+          assertThrows(SQLException.class, () -> lockProject(contender, projectId));
+      assertEquals("55P03", lockTimeout.getSQLState());
+      contender.rollback();
+      holder.rollback();
     }
   }
 
@@ -139,6 +202,16 @@ class PostgreSqlMigrationIntegrationTest {
       statement.setInt(2, versionNumber);
       statement.setString(3, status);
       statement.executeUpdate();
+    }
+  }
+
+  private static void lockProject(Connection connection, long projectId) throws SQLException {
+    try (PreparedStatement statement =
+        connection.prepareStatement("select id from projects where id = ? for update")) {
+      statement.setLong(1, projectId);
+      try (ResultSet result = statement.executeQuery()) {
+        assertTrue(result.next());
+      }
     }
   }
 }
