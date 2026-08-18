@@ -23,7 +23,9 @@ public class CharacterController {
       @RequestParam(required = false) String cursor,
       @RequestParam(defaultValue = "20") int limit) {
     CursorPage<CharacterSummaryResponse> page =
-        listCharactersUseCase.execute(new CharacterListQuery(cursor, limit)).map(CharacterSummaryResponse::from);
+        listCharactersUseCase
+            .execute(new CharacterListQuery(cursor, limit))
+            .map(CharacterSummaryResponse::from);
     return ResponseEntity.ok(ApiResponse.success("Characters retrieved successfully", page));
   }
 }
