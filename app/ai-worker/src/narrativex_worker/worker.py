@@ -90,7 +90,10 @@ class NarrativeXWorker:
         heartbeat_task = asyncio.create_task(self._heartbeat_loop(claimed.stage_attempt_id))
         try:
             operation = await self.service.submit_chapter_analysis(claimed.request)
-            if operation.status is not ProviderOperationStatus.COMPLETED or operation.result is None:
+            if (
+                operation.status is not ProviderOperationStatus.COMPLETED
+                or operation.result is None
+            ):
                 raise RuntimeError(
                     f"Chapter analysis provider returned non-terminal status {operation.status}"
                 )
