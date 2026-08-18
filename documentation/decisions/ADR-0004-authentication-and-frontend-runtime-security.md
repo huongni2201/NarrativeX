@@ -9,10 +9,16 @@
 
 Credentialed browser requests require session and CSRF protection. NarrativeX supports both first-party email/password login and Google login, while business ownership must always use an internal identity rather than credentials controlled by a client or external provider. The frontend also contains prototype screens whose local fixture state must never be mistaken for canonical business data in development, staging or production. A shared backend artifact must also never silently start under a developer identity when deployment configuration is incomplete.
 
+Password login and registration are public credential-entry endpoints and therefore require application-layer abuse protection in addition to any edge/gateway controls. Redis is already available as shared infrastructure, but an outage of Redis must not become a total authentication outage.
+
+A JWT/access-token/refresh-token migration is intentionally outside this decision's current implementation scope. Introducing token authentication would change browser storage/cookie strategy, CSRF implications, logout/revocation semantics, provider-login handoff and frontend transport behavior, so it must be handled as a separate migration rather than mixed into unrelated bug fixes.
+
 ## Decision
 
 - NarrativeX owns a stable internal user identifier stored in PostgreSQL. Business tables use that internal identifier, not an email address or an external provider subject.
 - Email/password authentication and Google OIDC both create a server-managed Spring Security session and resolve application identity to a NarrativeX user ID.
+- The current browser authentication contract remains **server-managed session + CSRF**. No JWT access token, refresh token, refresh-token persistence, rotation or revocation flow is part of the current implementation.
+- Any future JWT/token migration requires a separate accepted design covering access-token TTL/signing, refresh-token storage, rotation/reuse detection, revocation/logout, cookie-versus-browser-storage policy, OIDC callback exchange and frontend compatibility.
 - Passwords are stored only as one-way hashes produced by Spring Security `PasswordEncoder`; raw passwords are never persisted.
 - Google login requires a verified Google email and persists the Google `sub` claim as the external-provider identity key.
 - A Google identity is not implicitly attached to an existing password account merely because the email strings match. Password registration does not yet verify mailbox ownership, so implicit email-based provider linking would create an account-takeover path. Cross-provider linking requires a future authenticated linking or verified-email flow.
@@ -22,7 +28,13 @@ Credentialed browser requests require session and CSRF protection. NarrativeX su
 - `local` and `test` may opt into a configured developer identity fallback through `narrativex.security.local-dev-identity-enabled`; the fallback is disabled by default. All other environments fail closed instead of assigning `local-dev-user`.
 - Application identity is resolved from Spring Security `SecurityContextHolder`. Client-controlled headers such as `X-User-Id` are not trusted browser identity sources.
 - Credentialed mutations use the CSRF token from `GET /api/v1/auth/csrf`; CORS uses an explicit credentialed origin allowlist without wildcard production origins.
+- Password login/registration remain under `/api/auth/*` for the current session-based contract. Route-version normalization is deferred to the separate auth/API migration rather than mixed into this bug-fix branch.
 - Unauthenticated access is limited to health, CSRF bootstrap, password login/registration, and the OAuth2/OIDC authorization/callback endpoints.
+- Password login and registration are protected by Redis-backed fixed-window abuse limits before authentication/account creation.
+- The limiter maintains separate IP and identity+IP buckets and stores SHA-256-derived bucket subjects rather than raw email/IP values in Redis keys.
+- The Redis increment+expiry operation is atomic. When a bucket is exceeded, the API returns `429 Too Many Requests` with `Retry-After` and the standard structured error envelope.
+- The auth limiter fails open on Redis data-access failure so Redis downtime does not deny all authentication. Shared environments still require monitoring and may layer stricter edge/gateway protection independently.
+- Rate-limit thresholds are configuration, not domain invariants. The current defaults are login 30/IP/5m and 10/identity+IP/5m; register 10/IP/hour and 5/identity+IP/hour.
 - API is the default frontend runtime mode. `mock` is allowed only in tests or Storybook; unsupported API capabilities render an explicit disconnected/coming-soon state.
 - TanStack Query owns persisted server state. Zustand owns navigation, filters, selection, modal/editor and transient UI state. Fixture-backed business data is isolated behind the test/Storybook boundary.
 
@@ -46,13 +58,18 @@ With `narrativex.security.oidc-enabled=false`:
 
 With OIDC enabled, this developer-identity guard does not apply; normal OIDC/client-registration validation remains responsible for the shared environment.
 
+The PostgreSQL Testcontainers migration suite runs with explicit `test` profile so the startup invariant remains active in CI while datasource/dialect settings are overridden back to PostgreSQL for authoritative migration validation.
+
 ## Consequences
 
 - Users can authenticate with either email/password or Google while project ownership remains based on an internal NarrativeX user ID.
+- Password credential endpoints now have application-layer brute-force/account-creation abuse throttling without changing their success response/session contract.
+- A Redis outage temporarily removes this application-layer throttle rather than causing a total login outage; observability/edge controls are therefore still important in production.
 - Cross-provider account linking is intentionally deferred until it can prove control of both sides; conflicting identities fail closed.
 - Shared environments cannot silently fall back to a common local identity.
 - A missing `SPRING_PROFILES_ACTIVE` no longer makes production behave as local development.
 - The central frontend transport owns credentials, CSRF bootstrap, envelope parsing and error handling.
+- JWT/access-token/refresh-token migration remains a separate future compatibility/security change; this ADR must not be read as implying that token auth already exists.
 - Character, storyboard, render, asset and other screens remain visibly incomplete until their backend contracts exist, rather than reporting fake success.
 
 ## Consolidation note
