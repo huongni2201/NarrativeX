@@ -238,7 +238,7 @@ class NarrativeXWorker:
         durable_id: int,
         operation: ProviderOperation,
     ) -> None:
-        if operation.provider_key == "vertex" and operation.status in (
+        if self.settings.provider_mode == "vertex" and operation.status in (
             ProviderOperationStatus.COMPLETED,
             ProviderOperationStatus.FAILED,
         ):
