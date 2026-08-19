@@ -119,6 +119,7 @@ export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
   }
 
   const overview = overviewQuery.data;
+  const project = projectQuery.data;
   const continueChapter =
     chapters.find((chapter) => chapter.status !== "RENDERED") ?? chapters.at(-1) ?? null;
 
@@ -162,7 +163,7 @@ export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
               <button
                 type="button"
                 onClick={() => {
-                  alert("Tính năng Import nhiều chapter từ file văn bản / kịch bản đang trong lộ trình backend.");
+                  alert("Backend đã hỗ trợ batch import; UI chọn file sẽ được nối ở bước tích hợp tiếp theo.");
                 }}
                 className="flex items-center gap-2 rounded-lg border border-slate-700/80 bg-[#0d1420] px-4 py-3 text-sm font-semibold text-slate-300 transition-colors hover:bg-slate-800"
               >
@@ -179,7 +180,7 @@ export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
           </div>
         )}
 
-        {activeTab === "info" && <ProjectInfoTab project={overview} />}
+        {activeTab === "info" && <ProjectInfoTab project={project} />}
         {activeTab === "characters" && (
           <ProjectResourcesTab kind="characters" onOpenLibrary={() => router.push("/characters")} />
         )}
@@ -218,4 +219,3 @@ function WorkspaceMessage({ children }: Readonly<{ children: React.ReactNode }>)
     </div>
   );
 }
-
