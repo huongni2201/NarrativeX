@@ -663,7 +663,7 @@ function ChapterRow({
         {String(displayNumber).padStart(2, "0")}
       </td>
       <td className="py-5 px-4 text-sm font-semibold text-slate-200 group-hover:text-purple-300 transition-colors">
-        {chapter.title}
+        {"Chương " + (chapter.orderIndex + 1) + ": " + chapter.title}
       </td>
       <td className="py-5 px-4">
         <OverviewStatusBadge status={chapter.status} />
