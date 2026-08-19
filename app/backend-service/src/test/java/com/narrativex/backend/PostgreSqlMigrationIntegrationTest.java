@@ -57,7 +57,7 @@ class PostgreSqlMigrationIntegrationTest {
   @Test
   void emptyPostgresMigratesAndHibernateValidates() throws SQLException {
     try (Connection connection = dataSource.getConnection()) {
-      assertEquals(4, latestFlywayVersion(connection));
+      assertEquals(5, latestFlywayVersion(connection));
       assertEquals("jsonb", columnType(connection, "moderation_decisions", "categories_json"));
       assertTrue(indexExists(connection, "uq_story_versions_one_active_per_project"));
       assertTrue(indexExists(connection, "idx_projects_active_owner_updated_id"));
@@ -94,6 +94,131 @@ class PostgreSqlMigrationIntegrationTest {
       assertTrue(columnExists(connection, "provider_operations", "request_fingerprint"));
       assertTrue(indexExists(connection, "uq_provider_operation_fingerprint"));
       assertTrue(columnExists(connection, "plan_entitlements", "monthly_credits"));
+      assertTrue(constraintExists(connection, "generation_jobs", "ck_generation_jobs_progress"));
+      assertTrue(constraintExists(connection, "generation_jobs", "ck_generation_jobs_status"));
+      assertTrue(constraintExists(connection, "generation_jobs", "ck_generation_jobs_job_type"));
+      assertTrue(
+          constraintExists(connection, "generation_jobs", "ck_generation_jobs_resource_class"));
+      assertTrue(constraintExists(connection, "stage_attempts", "ck_stage_attempts_status"));
+      assertTrue(
+          constraintExists(connection, "provider_operations", "ck_provider_operations_status"));
+    }
+  }
+
+  @Test
+  void postgresEnforcesCanonicalExecutionContract() throws SQLException {
+    try (Connection connection = dataSource.getConnection()) {
+      long projectId = insertProject(connection);
+
+      SQLException negativeProgress =
+          assertThrows(
+              SQLException.class,
+              () ->
+                  insertGenerationJob(
+                      connection,
+                      projectId,
+                      "negative-progress",
+                      "CHAPTER_ANALYZE",
+                      "QUEUED",
+                      "PROVIDER_INTERACTIVE",
+                      -1));
+      assertEquals("23514", negativeProgress.getSQLState());
+
+      SQLException excessiveProgress =
+          assertThrows(
+              SQLException.class,
+              () ->
+                  insertGenerationJob(
+                      connection,
+                      projectId,
+                      "excessive-progress",
+                      "CHAPTER_ANALYZE",
+                      "QUEUED",
+                      "PROVIDER_INTERACTIVE",
+                      101));
+      assertEquals("23514", excessiveProgress.getSQLState());
+
+      SQLException invalidJobStatus =
+          assertThrows(
+              SQLException.class,
+              () ->
+                  insertGenerationJob(
+                      connection,
+                      projectId,
+                      "invalid-job-status",
+                      "CHAPTER_ANALYZE",
+                      "SUCCEEDED",
+                      "PROVIDER_INTERACTIVE",
+                      0));
+      assertEquals("23514", invalidJobStatus.getSQLState());
+
+      SQLException invalidJobType =
+          assertThrows(
+              SQLException.class,
+              () ->
+                  insertGenerationJob(
+                      connection,
+                      projectId,
+                      "invalid-job-type",
+                      "UNKNOWN_JOB",
+                      "QUEUED",
+                      "PROVIDER_INTERACTIVE",
+                      0));
+      assertEquals("23514", invalidJobType.getSQLState());
+
+      SQLException invalidResourceClass =
+          assertThrows(
+              SQLException.class,
+              () ->
+                  insertGenerationJob(
+                      connection,
+                      projectId,
+                      "invalid-resource",
+                      "CHAPTER_ANALYZE",
+                      "QUEUED",
+                      "UNKNOWN_RESOURCE",
+                      0));
+      assertEquals("23514", invalidResourceClass.getSQLState());
+
+      long jobId =
+          insertGenerationJob(
+              connection,
+              projectId,
+              "valid-execution",
+              "CHAPTER_ANALYZE",
+              "QUEUED",
+              "PROVIDER_INTERACTIVE",
+              0);
+      long stageAttemptId = insertStageAttempt(connection, jobId, "valid-stage", "QUEUED");
+
+      SQLException invalidStageStatus =
+          assertThrows(
+              SQLException.class,
+              () -> insertStageAttempt(connection, jobId, "invalid-stage", "SUCCEEDED"));
+      assertEquals("23514", invalidStageStatus.getSQLState());
+
+      SQLException invalidProviderStatus =
+          assertThrows(
+              SQLException.class,
+              () -> insertProviderOperation(connection, stageAttemptId, "DONE"));
+      assertEquals("23514", invalidProviderStatus.getSQLState());
+
+      updateJobStatus(connection, jobId, "RUNNING", 5);
+      updateJobStatus(connection, jobId, "UNKNOWN", 5);
+      updateJobStatus(connection, jobId, "STALLED", 5);
+      updateJobStatus(connection, jobId, "PAUSED_COST_LIMIT", 5);
+      updateJobStatus(connection, jobId, "FAILED", 100);
+      updateStageStatus(connection, stageAttemptId, "RUNNING");
+      updateStageStatus(connection, stageAttemptId, "UNKNOWN");
+      updateStageStatus(connection, stageAttemptId, "STALLED");
+      updateStageStatus(connection, stageAttemptId, "PAUSED_COST_LIMIT");
+      updateStageStatus(connection, stageAttemptId, "FAILED");
+
+      long providerOperationId = insertProviderOperation(connection, stageAttemptId, "RESERVED");
+      updateProviderStatus(connection, providerOperationId, "SUBMITTED");
+      updateProviderStatus(connection, providerOperationId, "RUNNING");
+      updateProviderStatus(connection, providerOperationId, "UNKNOWN");
+      updateProviderStatus(connection, providerOperationId, "FAILED");
     }
   }
 
@@ -101,31 +226,23 @@ class PostgreSqlMigrationIntegrationTest {
   void visualBeatMotionMigrationPreservesLegacySemanticsAndRejectsInvalidValues()
       throws SQLException {
     try (Connection connection = dataSource.getConnection()) {
-      assertEquals(
-          "BASIC_MOTION/PAN", visualBeatMotion(connection, 5001L));
-      assertEquals(
-          "BASIC_MOTION/TILT", visualBeatMotion(connection, 5005L));
-      assertEquals(
-          "STILL/NONE", visualBeatMotion(connection, 5004L));
-      assertEquals(
-          "BASIC_MOTION/PARALLAX", visualBeatMotion(connection, 5006L));
+      assertEquals("BASIC_MOTION/PAN", visualBeatMotion(connection, 5001L));
+      assertEquals("BASIC_MOTION/TILT", visualBeatMotion(connection, 5005L));
+      assertEquals("STILL/NONE", visualBeatMotion(connection, 5004L));
+      assertEquals("BASIC_MOTION/PARALLAX", visualBeatMotion(connection, 5006L));
 
       connection.setAutoCommit(false);
       SQLException invalidMotionMode =
           assertThrows(
               SQLException.class,
-              () ->
-                  insertVisualBeatWithMotion(
-                      connection, 99, "INVALID_MODE", "NONE"));
+              () -> insertVisualBeatWithMotion(connection, 99, "INVALID_MODE", "NONE"));
       assertEquals("23514", invalidMotionMode.getSQLState());
       connection.rollback();
 
       SQLException invalidCameraMovement =
           assertThrows(
               SQLException.class,
-              () ->
-                  insertVisualBeatWithMotion(
-                      connection, 99, "STILL", "INVALID_CAMERA"));
+              () -> insertVisualBeatWithMotion(connection, 99, "STILL", "INVALID_CAMERA"));
       assertEquals("23514", invalidCameraMovement.getSQLState());
       connection.rollback();
     }
@@ -289,11 +406,28 @@ class PostgreSqlMigrationIntegrationTest {
     }
   }
 
+  private static boolean constraintExists(Connection connection, String table, String constraint)
+      throws SQLException {
+    try (PreparedStatement statement =
+        connection.prepareStatement(
+            "select exists(select 1 from pg_constraint c "
+                + "join pg_class t on t.oid = c.conrelid "
+                + "join pg_namespace n on n.oid = t.relnamespace "
+                + "where n.nspname = 'public' and t.relname = ? and c.conname = ?)")) {
+      statement.setString(1, table);
+      statement.setString(2, constraint);
+      try (ResultSet result = statement.executeQuery()) {
+        result.next();
+        return result.getBoolean(1);
+      }
+    }
+  }
+
   private static String visualBeatMotion(Connection connection, long visualBeatId)
       throws SQLException {
     try (PreparedStatement statement =
-            connection.prepareStatement(
-                "select motion_mode, camera_movement from visual_beats where id = ?")) {
+        connection.prepareStatement(
+            "select motion_mode, camera_movement from visual_beats where id = ?")) {
       statement.setLong(1, visualBeatId);
       try (ResultSet result = statement.executeQuery()) {
         assertTrue(result.next());
@@ -343,6 +477,102 @@ class PostgreSqlMigrationIntegrationTest {
       statement.setInt(2, versionNumber);
       statement.setString(3, status);
       statement.executeUpdate();
+    }
+  }
+
+  private static long insertGenerationJob(
+      Connection connection,
+      long projectId,
+      String suffix,
+      String jobType,
+      String status,
+      String resourceClass,
+      int progress)
+      throws SQLException {
+    try (PreparedStatement statement =
+        connection.prepareStatement(
+            "insert into generation_jobs "
+                + "(job_id, project_id, job_type, status, resource_class, progress, "
+                + "requested_by_user_id, billed_to_user_id) "
+                + "values (?, ?, ?, ?, ?, ?, 'migration-test-user', 'migration-test-user') "
+                + "returning id")) {
+      statement.setString(1, "migration-test-" + suffix);
+      statement.setLong(2, projectId);
+      statement.setString(3, jobType);
+      statement.setString(4, status);
+      statement.setString(5, resourceClass);
+      statement.setInt(6, progress);
+      try (ResultSet result = statement.executeQuery()) {
+        result.next();
+        return result.getLong(1);
+      }
+    }
+  }
+
+  private static long insertStageAttempt(
+      Connection connection, long generationJobId, String stageName, String status)
+      throws SQLException {
+    try (PreparedStatement statement =
+        connection.prepareStatement(
+            "insert into stage_attempts "
+                + "(generation_job_id, stage_name, attempt_number, status) "
+                + "values (?, ?, 1, ?) returning id")) {
+      statement.setLong(1, generationJobId);
+      statement.setString(2, stageName);
+      statement.setString(3, status);
+      try (ResultSet result = statement.executeQuery()) {
+        result.next();
+        return result.getLong(1);
+      }
+    }
+  }
+
+  private static long insertProviderOperation(
+      Connection connection, long stageAttemptId, String status) throws SQLException {
+    try (PreparedStatement statement =
+        connection.prepareStatement(
+            "insert into provider_operations "
+                + "(stage_attempt_id, provider_key, provider_operation_id, status) "
+                + "values (?, 'migration-test-provider', ?, ?) returning id")) {
+      statement.setLong(1, stageAttemptId);
+      statement.setString(2, "migration-test-operation-" + status);
+      statement.setString(3, status);
+      try (ResultSet result = statement.executeQuery()) {
+        result.next();
+        return result.getLong(1);
+      }
+    }
+  }
+
+  private static void updateJobStatus(
+      Connection connection, long jobId, String status, int progress) throws SQLException {
+    try (PreparedStatement statement =
+        connection.prepareStatement(
+            "update generation_jobs set status = ?, progress = ? where id = ?")) {
+      statement.setString(1, status);
+      statement.setInt(2, progress);
+      statement.setLong(3, jobId);
+      assertEquals(1, statement.executeUpdate());
+    }
+  }
+
+  private static void updateStageStatus(Connection connection, long stageId, String status)
+      throws SQLException {
+    try (PreparedStatement statement =
+        connection.prepareStatement("update stage_attempts set status = ? where id = ?")) {
+      statement.setString(1, status);
+      statement.setLong(2, stageId);
+      assertEquals(1, statement.executeUpdate());
+    }
+  }
+
+  private static void updateProviderStatus(Connection connection, long operationId, String status)
+      throws SQLException {
+    try (PreparedStatement statement =
+        connection.prepareStatement("update provider_operations set status = ? where id = ?")) {
+      statement.setString(1, status);
+      statement.setLong(2, operationId);
+      assertEquals(1, statement.executeUpdate());
     }
   }
 
