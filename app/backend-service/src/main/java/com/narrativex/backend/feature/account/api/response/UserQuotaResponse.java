@@ -45,8 +45,5 @@ public record UserQuotaResponse(
       String featureFlagsJson) {}
 
   public record Usage(
-      int longformExports,
-      int shortExports,
-      int expensiveJobsActive,
-      BigDecimal creditsUsed) {}
+      int longformExports, int shortExports, int expensiveJobsActive, BigDecimal creditsUsed) {}
 }
