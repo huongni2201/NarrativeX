@@ -57,7 +57,7 @@ class PostgreSqlMigrationIntegrationTest {
   @Test
   void emptyPostgresMigratesAndHibernateValidates() throws SQLException {
     try (Connection connection = dataSource.getConnection()) {
-      assertEquals(4, latestFlywayVersion(connection));
+      assertEquals(5, latestFlywayVersion(connection));
       assertEquals("jsonb", columnType(connection, "moderation_decisions", "categories_json"));
       assertTrue(indexExists(connection, "uq_story_versions_one_active_per_project"));
       assertTrue(indexExists(connection, "idx_projects_active_owner_updated_id"));
@@ -97,6 +97,8 @@ class PostgreSqlMigrationIntegrationTest {
       assertTrue(columnExists(connection, "provider_operations", "request_fingerprint"));
       assertTrue(indexExists(connection, "uq_provider_operation_fingerprint"));
       assertTrue(columnExists(connection, "plan_entitlements", "monthly_credits"));
+      assertTrue(tableExists(connection, "quota_reservations"));
+      assertTrue(indexExists(connection, "idx_quota_reservations_active_user"));
       assertTrue(constraintExists(connection, "generation_jobs", "ck_generation_jobs_progress"));
       assertTrue(constraintExists(connection, "generation_jobs", "ck_generation_jobs_status"));
       assertTrue(constraintExists(connection, "generation_jobs", "ck_generation_jobs_job_type"));
@@ -105,6 +107,8 @@ class PostgreSqlMigrationIntegrationTest {
       assertTrue(constraintExists(connection, "stage_attempts", "ck_stage_attempts_status"));
       assertTrue(
           constraintExists(connection, "provider_operations", "ck_provider_operations_status"));
+      assertTrue(
+          constraintExists(connection, "quota_reservations", "ck_quota_reservations_status"));
     }
   }
 
