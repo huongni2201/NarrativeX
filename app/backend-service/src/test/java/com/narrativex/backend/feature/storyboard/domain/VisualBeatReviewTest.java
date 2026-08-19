@@ -23,10 +23,8 @@ class VisualBeatReviewTest {
   @Test
   void beatRejectsBlankOrOversizedUserFacingFields() {
     assertThrows(
-        IllegalArgumentException.class,
-        () -> new VisualBeat(1L, 0, " ", "Wide cinematic shot"));
+        IllegalArgumentException.class, () -> new VisualBeat(1L, 0, " ", "Wide cinematic shot"));
     assertThrows(
-        IllegalArgumentException.class,
-        () -> new VisualBeat(1L, 0, "Title", "x".repeat(8001)));
+        IllegalArgumentException.class, () -> new VisualBeat(1L, 0, "Title", "x".repeat(8001)));
   }
 }
