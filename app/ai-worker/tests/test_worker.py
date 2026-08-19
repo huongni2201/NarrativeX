@@ -234,16 +234,25 @@ def completed_result() -> ChapterAnalysisResult:
 
 
 class DurableRepositorySpy:
-    def __init__(self, status: ProviderOperationStatus | None = None) -> None:
+    def __init__(
+        self,
+        status: ProviderOperationStatus | None = None,
+        normalized_result: ChapterAnalysisResult | None = None,
+        *,
+        fail_complete_once: bool = False,
+    ) -> None:
         self.status = status
+        self.normalized_result = normalized_result
         self.submit_id = "vertex-op-1"
-        self.complete_called = False
+        self.complete_calls = 0
         self.status_history: list[ProviderOperationStatus] = []
+        self.fail_complete_once = fail_complete_once
 
     async def reserve_provider_operation(
         self, claimed: ClaimedChapterAnalysisJob, provider_key: str, fingerprint: str
     ) -> DurableProviderOperation:
         del claimed, provider_key
+        created = self.status is None
         return DurableProviderOperation(
             id=100,
             stage_attempt_id=10,
@@ -251,16 +260,44 @@ class DurableRepositorySpy:
             provider_operation_id=self.submit_id if self.status else None,
             status=self.status or ProviderOperationStatus.RESERVED,
             request_fingerprint=fingerprint,
-            created=self.status is None,
+            normalized_result=self.normalized_result,
+            created=created,
         )
 
     async def mark_provider_operation_submitted(
         self, operation_id: int, provider_operation_id: str | None
     ) -> DurableProviderOperation:
         del operation_id
-        self.status_history.append(ProviderOperationStatus.SUBMITTED)
+        self.status = ProviderOperationStatus.SUBMITTED
+        self.status_history.append(self.status)
         return DurableProviderOperation(
-            100, 10, "vertex", provider_operation_id, ProviderOperationStatus.SUBMITTED, "f"
+            100,
+            10,
+            "vertex",
+            provider_operation_id,
+            self.status,
+            "f",
+            self.normalized_result,
+        )
+
+    async def persist_provider_result(
+        self,
+        operation_id: int,
+        provider_operation_id: str | None,
+        result: ChapterAnalysisResult,
+    ) -> DurableProviderOperation:
+        del operation_id
+        self.status = ProviderOperationStatus.COMPLETED
+        self.normalized_result = result
+        self.status_history.append(self.status)
+        return DurableProviderOperation(
+            100,
+            10,
+            "vertex",
+            provider_operation_id,
+            self.status,
+            "f",
+            result,
         )
 
     async def mark_provider_operation_status(
@@ -270,12 +307,24 @@ class DurableRepositorySpy:
         provider_operation_id: str | None = None,
     ) -> DurableProviderOperation:
         del operation_id
+        self.status = status
         self.status_history.append(status)
-        return DurableProviderOperation(100, 10, "vertex", provider_operation_id, status, "f")
+        return DurableProviderOperation(
+            100,
+            10,
+            "vertex",
+            provider_operation_id,
+            status,
+            "f",
+            self.normalized_result,
+        )
 
     async def complete(self, *args: object) -> None:
         del args
-        self.complete_called = True
+        self.complete_calls += 1
+        if self.fail_complete_once:
+            self.fail_complete_once = False
+            raise RuntimeError("simulated crash before materialization commit")
 
 
 class ProviderSpy:
@@ -326,7 +375,7 @@ async def test_reserved_restart_reconciles_without_resubmitting() -> None:
 
     assert provider.submit_calls == 0
     assert provider.reconcile_calls == 1
-    assert repository.complete_called
+    assert repository.complete_calls == 1
 
 
 @pytest.mark.asyncio
@@ -342,7 +391,36 @@ async def test_submitted_restart_reconciles_without_resubmitting() -> None:
 
     assert provider.submit_calls == 0
     assert provider.reconcile_calls == 1
-    assert repository.complete_called
+    assert repository.complete_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_crash_after_provider_result_persist_replays_without_provider_call() -> None:
+    worker = NarrativeXWorker(settings=WorkerSettings(worker_env="test"))
+    repository = DurableRepositorySpy(fail_complete_once=True)
+    provider = ProviderSpy()
+    worker.repository = repository  # type: ignore[assignment]
+    worker.service = WorkerService(provider)
+    claimed = ClaimedChapterAnalysisJob(10, 20, "job-1", "user-1", chapter_request())
+
+    with pytest.raises(RuntimeError, match="simulated crash"):
+        await worker._execute_claimed(claimed)
+
+    assert repository.status is ProviderOperationStatus.COMPLETED
+    assert repository.normalized_result == completed_result()
+    assert provider.submit_calls == 1
+    assert provider.reconcile_calls == 0
+    assert repository.complete_calls == 1
+
+    restarted = NarrativeXWorker(settings=WorkerSettings(worker_env="test"))
+    restarted.repository = repository  # type: ignore[assignment]
+    restarted.service = WorkerService(provider)
+
+    await restarted._execute_claimed(claimed)
+
+    assert provider.submit_calls == 1
+    assert provider.reconcile_calls == 0
+    assert repository.complete_calls == 2
 
 
 @pytest.mark.asyncio
@@ -358,8 +436,11 @@ async def test_timeout_transitions_to_unknown_and_never_blind_retries() -> None:
         await worker._execute_claimed(claimed)
 
     assert provider.submit_calls == 1
-    assert repository.status_history == [ProviderOperationStatus.UNKNOWN]
-    assert not repository.complete_called
+    assert repository.status_history == [
+        ProviderOperationStatus.SUBMITTED,
+        ProviderOperationStatus.UNKNOWN,
+    ]
+    assert repository.complete_calls == 0
 
 
 @pytest.mark.asyncio
