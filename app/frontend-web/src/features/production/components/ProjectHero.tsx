@@ -25,24 +25,14 @@ export function ProjectHero({
     <div className="flex flex-col gap-6 p-6 md:flex-row">
       <div className="relative aspect-[3/4] w-full shrink-0 overflow-hidden rounded-xl border border-purple-500/30 bg-slate-950 shadow-[0_0_25px_rgba(124,58,237,0.25)] md:w-56">
         <ProjectCover name={project.name} coverImageUrl={project.coverImageUrl ?? null} />
-        <div className="absolute left-3 top-3 z-10">
-          <span className="rounded border border-purple-400/40 bg-purple-600/90 px-2 py-0.5 text-[11px] font-bold text-white shadow-sm">
-            PRO
-          </span>
-        </div>
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col justify-between space-y-4">
         <div>
           <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <h1 className="truncate text-3xl font-extrabold tracking-tight text-white md:text-4xl">
-                {project.name}
-              </h1>
-              <span className="rounded border border-purple-700/60 bg-purple-950/90 px-2.5 py-1 font-mono text-xs font-bold text-purple-300">
-                PRO
-              </span>
-            </div>
+            <h1 className="truncate text-3xl font-extrabold tracking-tight text-white md:text-4xl">
+              {project.name}
+            </h1>
 
             <div className="flex items-center gap-2.5">
               <button

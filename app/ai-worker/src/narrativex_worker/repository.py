@@ -518,9 +518,7 @@ class WorkerRepository:
         return self._pool
 
 
-def provider_request_fingerprint(
-    claimed: ClaimedChapterAnalysisJob, provider_key: str
-) -> str:
+def provider_request_fingerprint(claimed: ClaimedChapterAnalysisJob, provider_key: str) -> str:
     payload = "|".join(
         (
             provider_key,

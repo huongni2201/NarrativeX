@@ -261,9 +261,7 @@ class DurableRepositorySpy:
     ) -> DurableProviderOperation:
         del operation_id
         self.status_history.append(status)
-        return DurableProviderOperation(
-            100, 10, "vertex", provider_operation_id, status, "f"
-        )
+        return DurableProviderOperation(100, 10, "vertex", provider_operation_id, status, "f")
 
     async def complete(self, *args: object) -> None:
         del args
