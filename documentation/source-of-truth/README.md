@@ -2,37 +2,48 @@
 
 ## Canonical baseline
 
-The canonical baseline for the current repository state is:
+Current canonical repository baseline:
 
 - Version: `V1.10`
-- Repository snapshot: `main@193e602c5f1671ad3280f8952206535aa8f29bb4`
-- Effective date: `19/08/2026`
+- Repository: `huongni2201/NarrativeX`
+- Baseline: latest merged main after durable provider/admission implementation
 
-The complete specification should live in:
+Canonical specification:
 
 ```text
 documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_10.md
 ```
 
-## V1.10 important updates
+## Current implemented foundations
 
-- Project Overview API/read model is implemented.
-- Chapter import (`txt`, `docx`, `pdf`) is implemented.
-- Storyboard/VisualBeat read and review flows are implemented foundations.
-- Worker bounded concurrency is implemented.
-- Job History, Quota and Notification read surfaces exist.
-- Flyway development baseline is consolidated around V1/V2/V3.
+- Project Overview read model.
+- Chapter CRUD and batch import.
+- Explicit Chapter Analyze flow.
+- Durable GenerationJob / StageAttempt execution.
+- Worker bounded concurrency.
+- Storyboard and VisualBeat review foundation.
+- Character library read API.
+- Job history, quota and notification read surfaces.
+- Durable ProviderOperation reservation/submission/reconciliation foundation.
+- Chapter analysis admission checks for safety, entitlement, quota and estimated cost reservation.
 
-## Current known gaps
+## Remaining product gaps
 
-The following are intentionally not marked complete:
+- Complete Location materialization from analysis output.
+- Scene -> Character and Scene -> Location continuity persistence.
+- Full character version/reference management workflow.
+- Approved storyboard reset/versioning workflow.
+- Image/TTS/video/render/export pipeline.
+- Full billing ledger, reconciliation and production observability.
 
-- Durable ProviderOperation submit/reconcile lifecycle.
-- Real cost/quota/admission enforcement before billable provider execution.
-- AI Location materialization and Scene -> Character/Location continuity relations.
-- Non-destructive approved storyboard reset/versioning workflow.
-- Full image/TTS/video/render/export pipeline.
+## Documentation rules
 
-## Documentation rule
+Derived documents are implementation views. They must not redefine domain invariants independently.
 
-Derived documentation files describe implementation views. They must link back to this baseline and must not redefine product invariants independently.
+When code, migration, ADR and documentation disagree:
+
+1. Product/domain invariants decide intended behavior.
+2. Current code/tests/migrations decide AS-IS implementation claims.
+3. Historical audit documents remain evidence only.
+
+Every capability must clearly state IMPLEMENTED, PARTIAL, PENDING, TARGET or PROTOTYPE.
