@@ -50,9 +50,7 @@ async def materialize_characters(
         project_id,
         keys,
     )
-    existing_by_key = {
-        row["ai_key"]: row["project_character_id"] for row in identity_rows
-    }
+    existing_by_key = {row["ai_key"]: row["project_character_id"] for row in identity_rows}
 
     candidate_rows = await connection.fetch(
         """
@@ -233,9 +231,7 @@ async def materialize_locations(
         project_id,
         keys,
     )
-    existing_by_key = {
-        row["ai_key"]: row["project_location_id"] for row in identity_rows
-    }
+    existing_by_key = {row["ai_key"]: row["project_location_id"] for row in identity_rows}
 
     candidate_rows = await connection.fetch(
         """
