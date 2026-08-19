@@ -3,6 +3,7 @@ package com.narrativex.backend.feature.storyboard.application.usecase;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.response.ApiResponse;
+import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterResponse;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterWorkspaceResponse;
@@ -81,7 +82,9 @@ public class GetChapterWorkspaceUseCase {
         analysis.sourceHash() != null && !analysis.sourceHash().equals(chapter.getSourceHash());
     String analysisStatus = analysis.status() == null ? "NOT_STARTED" : analysis.status();
     String planningStatus =
-        hasStoryboard && "COMPLETED".equals(analysisStatus) ? "COMPLETED" : "NOT_STARTED";
+        hasStoryboard && !sourceOutdated && "COMPLETED".equals(analysisStatus)
+            ? "COMPLETED"
+            : "NOT_STARTED";
 
     var response =
         new ChapterWorkspaceResponse(
@@ -147,10 +150,11 @@ public class GetChapterWorkspaceUseCase {
   }
 
   private static boolean isActive(String status) {
-    return "QUEUED".equals(status)
-        || "RUNNING".equals(status)
-        || "STALLED".equals(status)
-        || "UNKNOWN".equals(status);
+    try {
+      return JobStatus.valueOf(status).isActive();
+    } catch (IllegalArgumentException exception) {
+      return false;
+    }
   }
 
   private record AnalysisProjection(String status, String sourceHash, Instant completedAt) {}
