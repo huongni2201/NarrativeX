@@ -33,7 +33,8 @@ public class GetChapterWorkspaceUseCase {
     var analysis = snapshot.analysis();
     boolean hasStoryboard = snapshot.sceneCount() > 0 && snapshot.visualBeatCount() > 0;
     boolean sourceOutdated =
-        analysis.sourceHash() != null && !analysis.sourceHash().equals(chapter.getSourceHash());
+        snapshot.storyboardSourceHash() != null
+            && !snapshot.storyboardSourceHash().equals(chapter.getSourceHash());
     String analysisStatus = analysis.status() == null ? "NOT_STARTED" : analysis.status();
     String planningStatus =
         hasStoryboard && !sourceOutdated && "COMPLETED".equals(analysisStatus)
@@ -54,6 +55,11 @@ public class GetChapterWorkspaceUseCase {
                         scene.previewImageUrl()))
             .toList();
 
+    boolean canAnalyze =
+        !chapter.getSourceText().isBlank()
+            && !isActive(analysisStatus)
+            && !(snapshot.hasApprovedOutput() && !sourceOutdated);
+
     var response =
         new ChapterWorkspaceResponse(
             ChapterResponse.from(chapter),
@@ -70,11 +76,7 @@ public class GetChapterWorkspaceUseCase {
                 new ChapterWorkspaceResponse.PipelineStep("NOT_STARTED", null),
                 sourceOutdated),
             previewScenes,
-            new ChapterWorkspaceResponse.Capabilities(
-                !chapter.getSourceText().isBlank() && !isActive(analysisStatus),
-                false,
-                false,
-                false));
+            new ChapterWorkspaceResponse.Capabilities(canAnalyze, false, false, false));
 
     return ApiResponse.success(response);
   }
