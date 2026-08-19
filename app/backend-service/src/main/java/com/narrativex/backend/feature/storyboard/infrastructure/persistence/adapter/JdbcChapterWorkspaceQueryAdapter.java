@@ -28,7 +28,10 @@ public class JdbcChapterWorkspaceQueryAdapter implements ChapterWorkspaceReadRep
         aggregate.estimatedDurationSeconds(),
         aggregate.storyboardSourceHash(),
         aggregate.hasApprovedOutput(),
-        new Analysis(aggregate.analysisStatus(), aggregate.analysisSourceHash(), aggregate.analysisCompletedAt()));
+        new Analysis(
+            aggregate.analysisStatus(),
+            aggregate.analysisSourceHash(),
+            aggregate.analysisCompletedAt()));
   }
 
   private AggregateRow loadAggregate(Long projectId, Long chapterId) {
@@ -134,8 +137,13 @@ public class JdbcChapterWorkspaceQueryAdapter implements ChapterWorkspaceReadRep
     int duration = rs.getInt("duration_seconds");
     Integer durationSeconds = rs.wasNull() ? null : duration;
     return new PreviewScene(
-        rs.getLong("id"), rs.getInt("order_index"), rs.getString("title"), durationSeconds,
-        rs.getString("status"), rs.getInt("visual_beat_count"), null);
+        rs.getLong("id"),
+        rs.getInt("order_index"),
+        rs.getString("title"),
+        durationSeconds,
+        rs.getString("status"),
+        rs.getInt("visual_beat_count"),
+        null);
   }
 
   private static Instant toInstant(Timestamp value) {
