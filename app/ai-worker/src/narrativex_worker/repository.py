@@ -327,7 +327,8 @@ class WorkerRepository:
         )
         if protected_storyboard:
             raise RuntimeError(
-                "Chapter storyboard contains approved output; explicit reset is required before re-analysis"
+                "Chapter storyboard contains approved output; explicit reset is required "
+                "before re-analysis"
             )
 
         await connection.execute(
