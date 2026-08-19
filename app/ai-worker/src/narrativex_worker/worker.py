@@ -26,6 +26,7 @@ class NarrativeXWorker:
         self.repository = WorkerRepository(
             database_url=self.settings.database_url,
             lease_seconds=self.settings.lease_seconds,
+            pool_size=max(5, self.settings.worker_concurrency * 2 + 1),
         )
         provider = (
             VertexGeminiProvider(self.settings)
