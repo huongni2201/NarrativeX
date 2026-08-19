@@ -6,7 +6,6 @@ import com.narrativex.backend.feature.generation.application.port.out.ChapterAna
 import com.narrativex.backend.feature.generation.application.port.out.QuotaReservation;
 import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSource;
-import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -18,8 +17,7 @@ public class ChapterAnalysisAdmissionService {
   private final ChapterAnalysisCostEstimator costEstimator;
   private final ChapterAnalysisSafetyGate safetyGate;
 
-  public ChapterAnalysisCostEstimate admit(
-      String userId, Long projectId, ChapterAnalysisSource source) {
+  public Admission admit(String userId, Long projectId, ChapterAnalysisSource source) {
     safetyGate.requireAllowed(projectId, source);
     ChapterAnalysisCostEstimate estimate = costEstimator.estimate(source.sourceText());
     UserQuotaAccess.QuotaSnapshot quota =
@@ -28,28 +26,20 @@ public class ChapterAnalysisAdmissionService {
             .orElseThrow(
                 () -> new GenerationAdmissionDeniedException("COST_LIMIT", "No active plan."));
 
-    requireEntitled(quota, estimate.maxAuthorizedCost());
-    if (!quotaReservation.reserve(
-        userId, estimate.maxAuthorizedCost(), quota.maxConcurrentExpensiveJobs())) {
-      throw new GenerationAdmissionDeniedException(
-          "COST_LIMIT", "The story-analysis quota is exhausted.");
-    }
-    return estimate;
+    requireEntitled(quota);
+    QuotaReservation.Reservation reservation =
+        quotaReservation
+            .reserve(userId, estimate.maxAuthorizedCost(), quota.maxConcurrentExpensiveJobs())
+            .orElseThrow(
+                () ->
+                    new GenerationAdmissionDeniedException(
+                        "COST_LIMIT", "The story-analysis quota is exhausted."));
+    return new Admission(estimate, reservation);
   }
 
-  private static void requireEntitled(
-      UserQuotaAccess.QuotaSnapshot quota, BigDecimal authorizedCost) {
+  private static void requireEntitled(UserQuotaAccess.QuotaSnapshot quota) {
     if (!featureEnabled(quota.featureFlagsJson(), "storyAnalysis")) {
       throw new FeatureNotAvailableException("Story analysis is not enabled for this plan.");
-    }
-    if (quota.expensiveJobsActive() >= quota.maxConcurrentExpensiveJobs()) {
-      throw new GenerationAdmissionDeniedException(
-          "COST_LIMIT", "The maximum number of concurrent expensive jobs is active.");
-    }
-    if (quota.totalCredits() == null
-        || quota.creditsUsed().add(authorizedCost).compareTo(quota.totalCredits()) > 0) {
-      throw new GenerationAdmissionDeniedException(
-          "COST_LIMIT", "The story-analysis credit quota is exhausted.");
     }
   }
 
@@ -57,4 +47,7 @@ public class ChapterAnalysisAdmissionService {
     return json != null
         && json.replace("\\\"", "\"").matches(".*\\\"" + feature + "\\\"\\s*:\\s*true.*");
   }
+
+  public record Admission(
+      ChapterAnalysisCostEstimate estimate, QuotaReservation.Reservation reservation) {}
 }

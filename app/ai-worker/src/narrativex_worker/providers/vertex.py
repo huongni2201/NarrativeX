@@ -3,6 +3,7 @@
 import asyncio
 import json
 import uuid
+from decimal import Decimal
 
 import google.auth
 import httpx
@@ -13,10 +14,13 @@ from narrativex_worker.config import WorkerSettings
 from narrativex_worker.prompting import build_chapter_analysis_prompt
 from narrativex_worker.providers.ports import (
     LlmProvider,
+    ProviderBilling,
     ProviderCapabilities,
     ProviderEstimate,
     ProviderOperation,
+    ProviderPricingSnapshot,
     ProviderSubmissionUnknownError,
+    ProviderTokenUsage,
 )
 from narrativex_worker.schema import (
     ChapterAnalysisRequest,
@@ -34,9 +38,21 @@ class VertexSubmissionUnknownError(VertexProviderError, ProviderSubmissionUnknow
 
 
 class VertexGeminiProvider(LlmProvider):
+    _MILLION = Decimal("1000000")
+    _FLASH_25_INPUT = Decimal("0.15")
+    _FLASH_25_CACHED_INPUT = Decimal("0.0375")
+    _FLASH_25_OUTPUT = Decimal("0.60")
+    _FLASH_25_THINKING_OUTPUT = Decimal("3.50")
+    _PRICING_CATALOG_VERSION = "vertex-public-2026-08-19"
+
     def __init__(self, settings: WorkerSettings) -> None:
         if not settings.vertex_project_id:
             raise VertexProviderError("VERTEX_PROJECT_ID is required when provider_mode=vertex")
+        if settings.vertex_model != "gemini-2.5-flash":
+            raise VertexProviderError(
+                "Actual-cost reconciliation currently requires a pricing rule for the configured "
+                f"model; unsupported model={settings.vertex_model}"
+            )
         self.settings = settings
         credentials, _ = google.auth.default(
             scopes=["https://www.googleapis.com/auth/cloud-platform"]
@@ -47,8 +63,6 @@ class VertexGeminiProvider(LlmProvider):
         return ProviderCapabilities(provider_key="vertex", supports_story_analysis=True)
 
     def estimate(self, request: ChapterAnalysisRequest) -> ProviderEstimate:
-        # Cost policy belongs to the backend OperationPlan. This adapter exposes a conservative
-        # provider-neutral placeholder until token pricing is wired into the planning service.
         del request
         return ProviderEstimate(min_cost=0.0, max_cost=0.0)
 
@@ -56,7 +70,6 @@ class VertexGeminiProvider(LlmProvider):
         try:
             token = await self._access_token()
         except VertexProviderError:
-            # Authentication failed before any generation request crossed the provider boundary.
             return ProviderOperation(
                 provider_key="vertex",
                 operation_id=None,
@@ -108,26 +121,28 @@ class VertexGeminiProvider(LlmProvider):
                 provider_key="vertex",
                 operation_id=response_id,
                 status=ProviderOperationStatus.FAILED,
+                billing=self._zero_billing(),
             )
 
+        billing = self._billing(raw)
         text = self._candidate_text(raw)
         if text is None:
             return ProviderOperation(
                 provider_key="vertex",
                 operation_id=response_id,
                 status=ProviderOperationStatus.FAILED,
+                billing=billing,
             )
 
         try:
             parsed = json.loads(text)
             result = ChapterAnalysisResult.model_validate(parsed)
         except (TypeError, ValueError, json.JSONDecodeError):
-            # A successful HTTP response means the provider call already executed. Treat schema
-            # failure as terminal instead of retrying and potentially paying for the same work.
             return ProviderOperation(
                 provider_key="vertex",
                 operation_id=response_id,
                 status=ProviderOperationStatus.FAILED,
+                billing=billing,
             )
 
         return ProviderOperation(
@@ -135,15 +150,70 @@ class VertexGeminiProvider(LlmProvider):
             operation_id=response_id,
             status=ProviderOperationStatus.COMPLETED,
             result=result,
+            billing=billing,
         )
 
     async def get_status(self, operation: ProviderOperation) -> ProviderOperation:
         return operation
 
     async def reconcile(self, operation: ProviderOperation) -> ProviderOperation:
-        # generateContent is synchronous and currently exposes no operation lookup contract that
-        # can reconstruct a lost response. Preserve UNKNOWN rather than resubmitting blindly.
         return operation
+
+    def _billing(self, raw: dict[str, object]) -> ProviderBilling:
+        usage_raw = raw.get("usageMetadata")
+        if not isinstance(usage_raw, dict):
+            raise VertexProviderError("Successful Vertex response did not include usageMetadata")
+
+        usage = ProviderTokenUsage(
+            prompt_tokens=self._int_field(usage_raw, "promptTokenCount"),
+            candidate_tokens=self._int_field(usage_raw, "candidatesTokenCount"),
+            thought_tokens=self._int_field(usage_raw, "thoughtsTokenCount"),
+            cached_input_tokens=self._int_field(usage_raw, "cachedContentTokenCount"),
+            tool_input_tokens=self._int_field(usage_raw, "toolUsePromptTokenCount"),
+            total_tokens=self._int_field(usage_raw, "totalTokenCount"),
+            traffic_type=self._string_field(usage_raw, "trafficType"),
+        )
+        uncached_prompt = max(0, usage.prompt_tokens - usage.cached_input_tokens)
+        output_rate = (
+            self._FLASH_25_THINKING_OUTPUT if usage.thought_tokens > 0 else self._FLASH_25_OUTPUT
+        )
+        output_tokens = usage.candidate_tokens + usage.thought_tokens
+        actual_cost = (
+            Decimal(uncached_prompt + usage.tool_input_tokens) * self._FLASH_25_INPUT
+            + Decimal(usage.cached_input_tokens) * self._FLASH_25_CACHED_INPUT
+            + Decimal(output_tokens) * output_rate
+        ) / self._MILLION
+        pricing = ProviderPricingSnapshot(
+            catalog_version=self._PRICING_CATALOG_VERSION,
+            model_key=self.settings.vertex_model,
+            location=self.settings.vertex_location,
+            pricing_mode="STANDARD_THINKING" if usage.thought_tokens > 0 else "STANDARD",
+            input_usd_per_million=self._FLASH_25_INPUT,
+            cached_input_usd_per_million=self._FLASH_25_CACHED_INPUT,
+            output_usd_per_million=output_rate,
+        )
+        return ProviderBilling(
+            actual_cost=actual_cost.quantize(Decimal("0.000000001")),
+            currency="USD",
+            usage=usage,
+            pricing=pricing,
+        )
+
+    def _zero_billing(self) -> ProviderBilling:
+        return ProviderBilling(
+            actual_cost=Decimal("0.000000000"),
+            currency="USD",
+            usage=ProviderTokenUsage(prompt_tokens=0, candidate_tokens=0),
+            pricing=ProviderPricingSnapshot(
+                catalog_version=self._PRICING_CATALOG_VERSION,
+                model_key=self.settings.vertex_model,
+                location=self.settings.vertex_location,
+                pricing_mode="NOT_CHARGED_NON_200",
+                input_usd_per_million=self._FLASH_25_INPUT,
+                cached_input_usd_per_million=self._FLASH_25_CACHED_INPUT,
+                output_usd_per_million=self._FLASH_25_OUTPUT,
+            ),
+        )
 
     async def _access_token(self) -> str:
         if self._credentials.valid and isinstance(self._credentials.token, str):
@@ -157,7 +227,7 @@ class VertexGeminiProvider(LlmProvider):
                 if isinstance(token, str) and token:
                     return token
                 last_exception = VertexProviderError("ADC returned an empty access token")
-            except Exception as exception:  # google-auth exposes multiple transport/auth errors
+            except Exception as exception:
                 last_exception = exception
             if attempt < 2:
                 await asyncio.sleep(0.25 * (2**attempt))
@@ -200,3 +270,13 @@ class VertexGeminiProvider(LlmProvider):
     def _response_id(raw: dict[str, object]) -> str:
         response_id = raw.get("responseId")
         return response_id if isinstance(response_id, str) and response_id else str(uuid.uuid4())
+
+    @staticmethod
+    def _int_field(raw: dict[str, object], key: str) -> int:
+        value = raw.get(key, 0)
+        return value if isinstance(value, int) and value >= 0 else 0
+
+    @staticmethod
+    def _string_field(raw: dict[str, object], key: str) -> str | None:
+        value = raw.get(key)
+        return value if isinstance(value, str) and value else None

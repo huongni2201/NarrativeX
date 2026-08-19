@@ -7,7 +7,6 @@ import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
-import java.time.YearMonth;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -20,7 +19,8 @@ public class JdbcUserQuotaQueryAdapter implements UserQuotaQueryRepository, User
 
   @Override
   public Optional<UserQuotaView> findCurrent(String userId) {
-    String periodKey = YearMonth.now().toString();
+    String periodKey =
+        jdbcTemplate.queryForObject("SELECT to_char(CURRENT_DATE, 'YYYY-MM')", String.class);
     return jdbcTemplate
         .query(
             """
@@ -37,8 +37,20 @@ public class JdbcUserQuotaQueryAdapter implements UserQuotaQueryRepository, User
                    pe.feature_flags_json::text AS feature_flags_json,
                    COALESCE(uw.longform_exports, 0) AS longform_exports,
                    COALESCE(uw.short_exports, 0) AS short_exports,
-                   COALESCE(uw.expensive_jobs_active, 0) AS expensive_jobs_active,
-                   COALESCE(uw.credits_used, 0) AS credits_used
+                   COALESCE((
+                       SELECT COUNT(*)
+                         FROM quota_reservations qr
+                        WHERE qr.user_id = upa.user_id
+                          AND qr.status = 'RESERVED'
+                   ), 0)::integer AS expensive_jobs_active,
+                   COALESCE(uw.credits_used, 0) AS credits_used,
+                   COALESCE((
+                       SELECT SUM(qr.estimated_cost)
+                         FROM quota_reservations qr
+                        WHERE qr.user_id = upa.user_id
+                          AND qr.period_key = ?
+                          AND qr.status = 'RESERVED'
+                   ), 0) AS credits_reserved
               FROM user_plan_assignments upa
               JOIN plan_entitlements pe
                 ON pe.plan_key = upa.plan_key
@@ -54,6 +66,7 @@ public class JdbcUserQuotaQueryAdapter implements UserQuotaQueryRepository, User
              LIMIT 1
             """,
             (rs, rowNum) -> map(rs),
+            periodKey,
             periodKey,
             userId)
         .stream()
@@ -74,6 +87,11 @@ public class JdbcUserQuotaQueryAdapter implements UserQuotaQueryRepository, User
   }
 
   private static UserQuotaView map(ResultSet rs) throws SQLException {
+    BigDecimal monthlyCredits = defaultZero(rs.getBigDecimal("monthly_credits"));
+    BigDecimal creditsUsed = defaultZero(rs.getBigDecimal("credits_used"));
+    BigDecimal creditsReserved = defaultZero(rs.getBigDecimal("credits_reserved"));
+    BigDecimal remainingCredits =
+        monthlyCredits.subtract(creditsUsed).subtract(creditsReserved).max(BigDecimal.ZERO);
     return new UserQuotaView(
         rs.getString("plan_key"),
         rs.getString("status"),
@@ -88,10 +106,9 @@ public class JdbcUserQuotaQueryAdapter implements UserQuotaQueryRepository, User
         rs.getInt("longform_exports"),
         rs.getInt("short_exports"),
         rs.getInt("expensive_jobs_active"),
-        defaultZero(rs.getBigDecimal("credits_used")),
-        defaultZero(rs.getBigDecimal("monthly_credits")),
-        defaultZero(rs.getBigDecimal("monthly_credits"))
-            .subtract(defaultZero(rs.getBigDecimal("credits_used"))));
+        creditsUsed,
+        monthlyCredits,
+        remainingCredits);
   }
 
   private static LocalDate localDate(ResultSet rs, String column) throws SQLException {

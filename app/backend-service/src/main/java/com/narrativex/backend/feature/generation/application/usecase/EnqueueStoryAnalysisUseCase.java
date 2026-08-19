@@ -5,6 +5,7 @@ import com.narrativex.backend.feature.generation.application.command.EnqueueStor
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationOutboxRepository;
 import com.narrativex.backend.feature.generation.application.port.out.OperationPlanRepository;
+import com.narrativex.backend.feature.generation.application.port.out.QuotaReservation;
 import com.narrativex.backend.feature.generation.application.port.out.StageAttemptRepository;
 import com.narrativex.backend.feature.generation.application.service.ChapterAnalysisAdmissionService;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
@@ -31,6 +32,7 @@ public class EnqueueStoryAnalysisUseCase {
   private final StageAttemptRepository stageAttemptRepository;
   private final GenerationOutboxRepository generationOutboxRepository;
   private final ChapterAnalysisAdmissionService admissionService;
+  private final QuotaReservation quotaReservation;
 
   /**
    * Creates the complete durable boundary before any worker/provider submission can happen. The
@@ -65,7 +67,8 @@ public class EnqueueStoryAnalysisUseCase {
       return existing.get();
     }
 
-    var estimate = admissionService.admit(userId, command.projectId(), chapter);
+    var admission = admissionService.admit(userId, command.projectId(), chapter);
+    var estimate = admission.estimate();
     OperationPlan operationPlan =
         operationPlanRepository.save(
             OperationPlan.create(
@@ -88,6 +91,7 @@ public class EnqueueStoryAnalysisUseCase {
                 idempotencyKey,
                 userId));
 
+    quotaReservation.bindToGenerationJob(admission.reservation().id(), job.getId());
     operationPlanRepository.save(operationPlan.withGenerationJobId(job.getId()));
 
     stageAttemptRepository.save(StageAttempt.create(job.getId(), STAGE_NAME, 1));
