@@ -20,8 +20,7 @@ public class JdbcUserQuotaQueryAdapter implements UserQuotaQueryRepository, User
   @Override
   public Optional<UserQuotaView> findCurrent(String userId) {
     String periodKey =
-        jdbcTemplate.queryForObject(
-            "SELECT to_char(CURRENT_DATE, 'YYYY-MM')", String.class);
+        jdbcTemplate.queryForObject("SELECT to_char(CURRENT_DATE, 'YYYY-MM')", String.class);
     return jdbcTemplate
         .query(
             """
