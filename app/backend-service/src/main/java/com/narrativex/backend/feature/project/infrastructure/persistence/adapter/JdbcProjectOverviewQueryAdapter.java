@@ -37,7 +37,10 @@ public class JdbcProjectOverviewQueryAdapter implements ProjectOverviewQueryRepo
                       SELECT id, content
                         FROM story_versions
                        WHERE project_id = p.id
-                       ORDER BY version_number DESC, id DESC
+                         AND status IN ('ACTIVE', 'DRAFT')
+                       ORDER BY CASE WHEN status = 'ACTIVE' THEN 0 ELSE 1 END,
+                                version_number DESC,
+                                id DESC
                        LIMIT 1
                   ) sv ON TRUE
                  WHERE p.id = ?
