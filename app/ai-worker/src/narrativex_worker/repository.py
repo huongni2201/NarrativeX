@@ -1,4 +1,4 @@
-"""PostgreSQL source-of-truth repository for worker claim/lease and analysis materialization."""
+"""PostgreSQL source-of-truth repository for worker claim, lease, and lifecycle state."""
 
 import hashlib
 import json
@@ -6,6 +6,11 @@ from dataclasses import dataclass
 
 import asyncpg  # type: ignore[import-untyped]
 
+from narrativex_worker.materialization import (
+    materialize_characters,
+    materialize_locations,
+    materialize_storyboard,
+)
 from narrativex_worker.schema import (
     ChapterAnalysisRequest,
     ChapterAnalysisResult,
@@ -152,7 +157,6 @@ class WorkerRepository:
         provider_key: str,
         request_fingerprint: str,
     ) -> DurableProviderOperation:
-        """Commit a provider reservation before crossing the external-provider boundary."""
         pool = self._require_pool()
         async with pool.acquire() as connection:
             async with connection.transaction():
@@ -199,7 +203,6 @@ class WorkerRepository:
         provider_operation_id: str | None,
         result: ChapterAnalysisResult,
     ) -> DurableProviderOperation:
-        """Atomically persist the normalized provider result and terminal provider status."""
         pool = self._require_pool()
         serialized = result.model_dump_json()
         async with pool.acquire() as connection:
@@ -343,15 +346,16 @@ class WorkerRepository:
                     "SELECT pg_advisory_xact_lock($1)",
                     claimed.request.project_id,
                 )
-                project_characters = await self._materialize_characters(connection, claimed, result)
-                project_locations = await self._materialize_locations(connection, claimed, result)
-                await self._materialize_storyboard(
+                project_characters = await materialize_characters(connection, claimed, result)
+                project_locations = await materialize_locations(connection, claimed, result)
+                await materialize_storyboard(
                     connection,
                     claimed,
                     result,
                     project_characters,
                     project_locations,
                 )
+
                 stage_update = await connection.execute(
                     """
                     UPDATE stage_attempts
@@ -407,140 +411,6 @@ class WorkerRepository:
                     claimed.generation_job_id,
                     error_code[:80],
                 )
-
-    @staticmethod
-    async def _materialize_characters(
-        connection: asyncpg.Connection,
-        claimed: ClaimedChapterAnalysisJob,
-        result: ChapterAnalysisResult,
-    ) -> dict[str, int]:
-        """Resolve character keys through durable project identity, never through display name."""
-        from narrativex_worker.identity_repository import IdentityAwareWorkerRepository
-
-        return await IdentityAwareWorkerRepository._materialize_characters(
-            connection,
-            claimed,
-            result,
-        )
-
-    @staticmethod
-    async def _materialize_locations(
-        connection: asyncpg.Connection,
-        claimed: ClaimedChapterAnalysisJob,
-        result: ChapterAnalysisResult,
-    ) -> dict[str, int]:
-        """Resolve location keys through durable project identity, never through display name."""
-        from narrativex_worker.identity_repository import IdentityAwareWorkerRepository
-
-        return await IdentityAwareWorkerRepository._materialize_locations(
-            connection,
-            claimed,
-            result,
-        )
-
-    @staticmethod
-    async def _materialize_storyboard(
-        connection: asyncpg.Connection,
-        claimed: ClaimedChapterAnalysisJob,
-        result: ChapterAnalysisResult,
-        project_characters: dict[str, int],
-        project_locations: dict[str, int],
-    ) -> None:
-        protected_storyboard = await connection.fetchval(
-            """
-            SELECT EXISTS(
-                SELECT 1
-                  FROM scenes s
-                  LEFT JOIN visual_beats vb ON vb.scene_id = s.id
-                 WHERE s.chapter_id = $1
-                   AND (s.status = 'APPROVED' OR vb.review_status = 'APPROVED')
-            )
-            """,
-            claimed.request.chapter_id,
-        )
-        if protected_storyboard:
-            raise RuntimeError(
-                "Chapter storyboard contains approved output; explicit reset is required "
-                "before re-analysis"
-            )
-
-        await connection.execute(
-            """
-            DELETE FROM visual_beats
-             WHERE scene_id IN (SELECT id FROM scenes WHERE chapter_id = $1)
-            """,
-            claimed.request.chapter_id,
-        )
-        await connection.execute(
-            "DELETE FROM scenes WHERE chapter_id = $1",
-            claimed.request.chapter_id,
-        )
-
-        if not result.scenes:
-            return
-
-        location_ids = [
-            project_locations[scene.location_key] if scene.location_key is not None else None
-            for scene in result.scenes
-        ]
-        scene_rows = await connection.fetch(
-            """
-            INSERT INTO scenes
-              (chapter_id, order_index, title, narration, project_location_id, status)
-            SELECT $1, source.order_index, source.title, source.narration,
-                   source.project_location_id, 'DRAFT'
-              FROM UNNEST($2::int[], $3::text[], $4::text[], $5::bigint[])
-                   AS source(order_index, title, narration, project_location_id)
-             ORDER BY source.order_index
-            RETURNING id, order_index
-            """,
-            claimed.request.chapter_id,
-            list(range(len(result.scenes))),
-            [scene.title for scene in result.scenes],
-            [scene.narration or "" for scene in result.scenes],
-            location_ids,
-        )
-        scene_ids = {row["order_index"]: row["id"] for row in scene_rows}
-
-        scene_character_rows = [
-            (
-                scene_ids[scene_index],
-                character_index,
-                project_characters[character.character_key],
-            )
-            for scene_index, scene in enumerate(result.scenes)
-            for character_index, character in enumerate(scene.characters)
-        ]
-        if scene_character_rows:
-            await connection.executemany(
-                """
-                INSERT INTO scene_characters
-                  (scene_id, order_index, project_character_id)
-                VALUES ($1, $2, $3)
-                """,
-                scene_character_rows,
-            )
-
-        beat_rows = [
-            (
-                scene_ids[scene_index],
-                beat_index,
-                beat.title,
-                beat.visual_intent,
-            )
-            for scene_index, scene in enumerate(result.scenes)
-            for beat_index, beat in enumerate(scene.visual_beats)
-        ]
-        if beat_rows:
-            await connection.executemany(
-                """
-                INSERT INTO visual_beats
-                  (scene_id, order_index, title, visual_intent, motion_mode,
-                   camera_movement, review_status)
-                VALUES ($1, $2, $3, $4, 'STILL', 'NONE', 'NEEDS_REVIEW')
-                """,
-                beat_rows,
-            )
 
     def _require_pool(self) -> asyncpg.Pool:
         if self._pool is None:
