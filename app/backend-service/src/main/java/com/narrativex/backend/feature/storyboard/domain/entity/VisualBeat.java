@@ -59,8 +59,7 @@ public final class VisualBeat extends DomainEntity {
     this.sceneId = sceneId;
     this.orderIndex = orderIndex;
     this.title = requiredText(title, "title", MAX_TITLE_LENGTH);
-    this.visualIntent =
-        requiredText(visualIntent, "visualIntent", MAX_VISUAL_INTENT_LENGTH);
+    this.visualIntent = requiredText(visualIntent, "visualIntent", MAX_VISUAL_INTENT_LENGTH);
     this.motionAction = Objects.requireNonNull(motionAction, "motionAction");
     this.aspectRatioOverride = aspectRatioOverride;
     this.qualityTierOverride = qualityTierOverride;
