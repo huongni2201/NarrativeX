@@ -1,6 +1,6 @@
 package com.narrativex.backend.feature.storyboard.infrastructure.persistence.adapter;
 
-import com.narrativex.backend.feature.storyboard.application.port.out.ChapterWorkspaceQuery;
+import com.narrativex.backend.feature.storyboard.application.port.out.ChapterWorkspaceReadRepository;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
 /** PostgreSQL read adapter for the Chapter Workspace projection. */
 @Component
 @RequiredArgsConstructor
-public class JdbcChapterWorkspaceQueryAdapter implements ChapterWorkspaceQuery {
+public class JdbcChapterWorkspaceQueryAdapter implements ChapterWorkspaceReadRepository {
   private final JdbcTemplate jdbcTemplate;
 
   @Override
