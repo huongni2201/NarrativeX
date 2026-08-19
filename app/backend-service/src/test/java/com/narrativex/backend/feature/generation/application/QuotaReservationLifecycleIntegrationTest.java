@@ -175,9 +175,7 @@ class QuotaReservationLifecycleIntegrationTest {
 
   private String reservationStatus(long jobId) {
     return jdbcTemplate.queryForObject(
-        "SELECT status FROM quota_reservations WHERE generation_job_id = ?",
-        String.class,
-        jobId);
+        "SELECT status FROM quota_reservations WHERE generation_job_id = ?", String.class, jobId);
   }
 
   private int activeReservations() {
@@ -192,9 +190,7 @@ class QuotaReservationLifecycleIntegrationTest {
   private BigDecimal creditsUsed() {
     BigDecimal value =
         jdbcTemplate.queryForObject(
-            "SELECT credits_used FROM usage_windows WHERE user_id = ?",
-            BigDecimal.class,
-            USER_ID);
+            "SELECT credits_used FROM usage_windows WHERE user_id = ?", BigDecimal.class, USER_ID);
     return value == null ? BigDecimal.ZERO : value;
   }
 }
