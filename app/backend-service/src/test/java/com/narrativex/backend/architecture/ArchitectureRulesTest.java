@@ -86,7 +86,8 @@ class ArchitectureRulesTest {
     if (packageName.contains(".application")
         && source.lines().anyMatch(line -> isForbiddenApplicationImport(feature, line))) {
       violations.add(
-          relative + ": application imports a forbidden feature/API/infrastructure/framework package");
+          relative
+              + ": application imports a forbidden feature/API/infrastructure/framework package");
     }
     if (isApiPackage(packageName)
         && source.lines().anyMatch(ArchitectureRulesTest::isForbiddenApiImport)) {
