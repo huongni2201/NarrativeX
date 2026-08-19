@@ -1,16 +1,19 @@
 """Character and location materialization for Chapter analysis."""
 
 import json
+from typing import TYPE_CHECKING
 
 import asyncpg  # type: ignore[import-untyped]
 
-from narrativex_worker.repository import ClaimedChapterAnalysisJob
 from narrativex_worker.schema import ChapterAnalysisResult
+
+if TYPE_CHECKING:
+    from narrativex_worker.repository import ClaimedChapterAnalysisJob
 
 
 async def materialize_characters(
     connection: asyncpg.Connection,
-    claimed: ClaimedChapterAnalysisJob,
+    claimed: "ClaimedChapterAnalysisJob",
     result: ChapterAnalysisResult,
 ) -> dict[str, int]:
     if not result.characters:
@@ -96,7 +99,7 @@ async def materialize_characters(
 
 async def materialize_locations(
     connection: asyncpg.Connection,
-    claimed: ClaimedChapterAnalysisJob,
+    claimed: "ClaimedChapterAnalysisJob",
     result: ChapterAnalysisResult,
 ) -> dict[str, int]:
     if not result.locations:
