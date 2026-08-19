@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element -- Asset URLs may use environment-specific MinIO/S3/CDN hosts. */
 import React from "react";
 import type { MediaAsset } from "@/types/assets";
 import { Download, Play, Volume2 } from "lucide-react";

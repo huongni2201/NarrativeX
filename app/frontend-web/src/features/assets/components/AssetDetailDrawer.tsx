@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element -- Asset URLs may use environment-specific MinIO/S3/CDN hosts. */
 import React, { useState } from "react";
 import type { MediaAsset } from "@/types/assets";
 import { Button } from "@/components/ui/Button";
@@ -14,7 +15,7 @@ interface AssetDetailDrawerProps {
   onToggleLock?: (id: string) => void;
 }
 
-export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = ({ asset, onClose, onDelete, onApprove, onReject, onToggleLock }) => {
+export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = ({ asset, onClose, onDelete, onApprove, onReject: _onReject, onToggleLock }) => {
   const [confirmDelete, setConfirmDelete] = useState(false);
   if (!asset) return null;
 

@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element -- User avatar URLs are backend/CDN-owned runtime values. */
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";

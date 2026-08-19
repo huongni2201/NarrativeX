@@ -10,10 +10,8 @@ import {
   Search,
   SlidersHorizontal,
   Palette,
-  Sparkles,
-  Layers,
 } from "lucide-react";
-import { PresetCategory, StylePreset } from "@/types/presets";
+import { PresetCategory } from "@/types/presets";
 import { cn } from "@/lib/utils";
 import { isMockDataMode } from "@/lib/data-mode";
 

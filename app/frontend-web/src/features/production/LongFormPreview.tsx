@@ -1,3 +1,4 @@
+import Image from "next/image";
 import React, { useState } from "react";
 import { useProductionStore } from "@/store/useProductionStore";
 import { ChapterTimeline } from "@/components/production/ChapterTimeline";
@@ -14,7 +15,7 @@ import {
 import { Chapter } from "@/types/domain";
 
 export const LongFormPreview: React.FC = () => {
-  const { project, activeChapterId, setActiveChapter, setView } =
+  const { project, setActiveChapter, setView } =
     useProductionStore();
 
   const [isPlaying, setIsPlaying] = useState(false);
@@ -59,9 +60,11 @@ export const LongFormPreview: React.FC = () => {
       {/* Large 16:9 Video Player Box matching Screen 07 */}
       <div className="relative aspect-video w-full rounded-2xl overflow-hidden bg-black border border-purple-500/30 shadow-[0_0_50px_rgba(0,0,0,0.8)] group select-none">
         {/* Cinematic Video Background Frame */}
-        <img
+        <Image
           src="https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1600&auto=format&fit=crop"
           alt="Video preview frame"
+          fill
+          sizes="100vw"
           className="w-full h-full object-cover opacity-90"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/30" />
@@ -151,9 +154,11 @@ export const LongFormPreview: React.FC = () => {
             >
               {/* Thumbnail */}
               <div className="aspect-[16/10] w-full overflow-hidden bg-slate-900 relative">
-                <img
+                <Image
                   src="https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=300&auto=format&fit=crop"
                   alt={ch.title}
+                  fill
+                  sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 16vw"
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                 />
                 <div className="absolute top-1 left-1 px-1 rounded bg-black/70 text-[9px] font-mono font-bold text-white">

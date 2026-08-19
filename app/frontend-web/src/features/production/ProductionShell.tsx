@@ -5,9 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
-  Clock3,
   FileText,
-  ImageIcon,
   MoreVertical,
   Play,
   Plus,
@@ -15,9 +13,6 @@ import {
   ShieldCheck,
   Sparkles,
   UploadCloud,
-  Users,
-  MapPin,
-  FolderKanban,
   ExternalLink,
 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";

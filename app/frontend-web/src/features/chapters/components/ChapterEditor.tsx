@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   CheckCircle2,
   ChevronRight,
-  Circle,
   Clock,
   Film,
   Image as ImageIcon,
@@ -168,7 +167,6 @@ export function ChapterEditor({ projectId, chapterId }: Readonly<ChapterEditorPr
   });
 
   const analysisJob = analysisJobQuery.data ?? analyzeChapter.data;
-  const analysisStatus = analysisJob?.status ?? workspaceQuery.data?.pipeline.analysis.status ?? null;
   const analysisActive = Boolean(
     analysisJob?.status && ACTIVE_JOB_STATUSES.has(analysisJob.status),
   );
@@ -197,7 +195,7 @@ export function ChapterEditor({ projectId, chapterId }: Readonly<ChapterEditorPr
     } else if (job.status === "PAUSED_COST_LIMIT") {
       setAnalysisMessage("Phân tích đang tạm dừng do giới hạn chi phí.");
     }
-  }, [analysisJobId, analysisJobQuery.data, numericProjectId, queryClient]);
+  }, [analysisJobId, analysisJobQuery.data, numericChapterId, numericProjectId, queryClient]);
 
   useEffect(() => {
     const saveShortcut = (event: KeyboardEvent) => {
@@ -741,27 +739,6 @@ function ContentEditor({
           {saveMessage}
         </p>
       )}
-    </section>
-  );
-}
-
-function StoryboardPreview({ workspace }: { workspace: ApiChapterWorkspace }) {
-  return (
-    <section className="rounded-2xl border border-slate-800/90 bg-[#0b111c]/90 p-4 sm:p-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-base font-semibold text-slate-100">Storyboard</h2>
-          <p className="mt-1 text-sm text-slate-400">
-            {workspace.summary.sceneCount} scenes · {workspace.summary.visualBeatCount} visual beats từ lần phân tích hiện tại.
-          </p>
-        </div>
-        {workspace.summary.sceneCount > workspace.previewScenes.length && (
-          <p className="text-xs text-slate-500">
-            Overview API chỉ trả {workspace.previewScenes.length} scene đầu để giữ payload gọn.
-          </p>
-        )}
-      </div>
-      <SceneGrid scenes={workspace.previewScenes} expanded />
     </section>
   );
 }

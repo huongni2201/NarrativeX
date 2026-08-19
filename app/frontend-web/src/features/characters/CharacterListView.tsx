@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element -- Character media URLs are backend/CDN-owned runtime values. */
 import React, { useMemo } from "react";
 import { Character, ProjectCharacter, Project } from "@/types/studio";
 import { Lock, Eye, Folder } from "lucide-react";

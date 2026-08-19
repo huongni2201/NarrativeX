@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element -- User avatar URLs are backend/CDN-owned runtime values. */
 "use client";
 
 import Link from "next/link";
@@ -6,7 +7,6 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   FolderKanban,
-  Clapperboard,
   Users,
   Image as ImageIcon,
   Palette,

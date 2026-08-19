@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+/* eslint-disable @next/next/no-img-element -- Visual beat URLs are backend/CDN-owned runtime values. */
+import React from "react";
 import { useProductionStore } from "@/store/useProductionStore";
 import { VisualStatusBadge } from "@/components/production/VisualStatusBadge";
 import { BatchReviewToolbar } from "@/components/production/BatchReviewToolbar";
-import { Button } from "@/components/ui/Button";
 import {
   ArrowLeft,
   Check,

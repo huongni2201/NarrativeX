@@ -3,8 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Check,
-  Clock3,
   ImageIcon,
   LoaderCircle,
   Plus,
@@ -12,7 +10,6 @@ import {
   Search,
   X,
 } from "lucide-react";
-import type { ApiChapterSummary } from "@/types/api";
 import { queryKeys } from "@/lib/query-keys";
 import { apiErrorMessage } from "@/shared/api/client";
 import {

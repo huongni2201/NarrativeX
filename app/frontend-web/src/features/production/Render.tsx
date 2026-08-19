@@ -1,3 +1,5 @@
+/* eslint-disable @next/next/no-img-element -- Project cover URLs are backend/CDN-owned runtime values. */
+import Image from "next/image";
 import React, { useState } from "react";
 import { useProductionStore } from "@/store/useProductionStore";
 import { Button } from "@/components/ui/Button";
@@ -81,9 +83,11 @@ export const Render: React.FC = () => {
             <div className="p-5 rounded-2xl bg-[#0d1420] border border-purple-500/40 flex flex-col sm:flex-row items-center justify-between gap-5 shadow-xl">
               <div className="flex items-center gap-4 w-full sm:w-auto">
                 <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-900 border border-purple-500/40 shrink-0">
-                  <img
+                  <Image
                     src="https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=300&auto=format&fit=crop"
                     alt={chapter.title}
+                    width={64}
+                    height={64}
                     className="w-full h-full object-cover"
                   />
                 </div>

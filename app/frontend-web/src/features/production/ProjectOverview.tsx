@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element -- Project cover URLs are backend/CDN-owned runtime values. */
 import React, { useState } from "react";
 import { useProductionStore } from "@/store/useProductionStore";
 import { ChapterStatusBadge } from "@/components/production/ChapterStatusBadge";
@@ -5,19 +6,11 @@ import { Button } from "@/components/ui/Button";
 import { Progress } from "@/components/ui/Progress";
 import { Tabs } from "@/components/ui/Tabs";
 import {
-  Sparkles,
   Plus,
   Play,
   Settings,
   MoreVertical,
   UploadCloud,
-  FileSpreadsheet,
-  Film,
-  Users,
-  MapPin,
-  Image as ImageIcon,
-  Clock,
-  Layers,
 } from "lucide-react";
 import { Chapter } from "@/types/domain";
 
