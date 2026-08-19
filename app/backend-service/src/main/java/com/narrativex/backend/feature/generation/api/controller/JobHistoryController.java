@@ -18,8 +18,7 @@ public class JobHistoryController {
 
   @GetMapping
   public ResponseEntity<ApiResponse<JobHistoryResponse.Page>> list(
-      @RequestParam(required = false) String cursor,
-      @RequestParam(defaultValue = "20") int limit) {
+      @RequestParam(required = false) String cursor, @RequestParam(defaultValue = "20") int limit) {
     return ResponseEntity.ok(
         ApiResponse.success(
             "Job history retrieved successfully",
