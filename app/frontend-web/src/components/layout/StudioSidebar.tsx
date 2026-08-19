@@ -11,7 +11,6 @@ import {
   History,
   Bell,
   Settings,
-  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -20,7 +19,8 @@ export const StudioSidebar = () => {
   const pathname = usePathname();
   const user = useAuthStore((state) => state.user);
 
-  const displayName = user?.displayName || "Ngọc Bùi";
+  const displayName = user?.displayName?.trim() || user?.email || "Người dùng";
+  const secondaryIdentity = user?.displayName?.trim() ? user.email : null;
   const initials = displayName.slice(0, 1).toUpperCase();
 
   const navItems = [
@@ -72,7 +72,6 @@ export const StudioSidebar = () => {
       label: "Thông báo",
       icon: Bell,
       href: "#",
-      badge: "3",
       disabled: true,
       tooltip: "Hệ thống thông báo đang chờ API backend",
     },
@@ -89,7 +88,6 @@ export const StudioSidebar = () => {
   return (
     <aside className="w-64 bg-[#090e17] border-r border-slate-800/80 flex flex-col justify-between shrink-0 h-screen sticky top-0 select-none z-20 overflow-y-auto">
       <div>
-        {/* Logo Banner */}
         <div className="p-4 px-5 border-b border-slate-800/60 flex items-center justify-between">
           <Link
             href="/projects"
@@ -110,7 +108,6 @@ export const StudioSidebar = () => {
           </Link>
         </div>
 
-        {/* User Profile Card matching top sidebar mockup */}
         <div className="p-3.5 mx-3 mt-3 rounded-xl bg-[#0d1420]/80 border border-slate-800/80 flex items-center gap-3">
           <div className="w-10 h-10 rounded-full overflow-hidden border border-purple-500/40 ring-2 ring-purple-600/20 shrink-0 bg-slate-900">
             {user?.avatarUrl ? (
@@ -123,14 +120,12 @@ export const StudioSidebar = () => {
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-xs font-bold text-slate-100 truncate">{displayName}</p>
-            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-purple-400">
-              <Sparkles className="w-2.5 h-2.5 text-purple-400" />
-              Creator Pro
-            </span>
+            {secondaryIdentity && (
+              <p className="mt-0.5 truncate text-[10px] text-slate-500">{secondaryIdentity}</p>
+            )}
           </div>
         </div>
 
-        {/* Navigation Menu */}
         <nav className="p-3 space-y-1" aria-label="Điều hướng studio">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -142,15 +137,10 @@ export const StudioSidebar = () => {
                   type="button"
                   disabled
                   title={item.tooltip}
-                  className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-300 hover:bg-slate-800/30 transition-colors opacity-80 cursor-not-allowed group text-left"
+                  className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-xs font-medium text-slate-400 transition-colors opacity-80 cursor-not-allowed group text-left"
                 >
-                  <Icon className="w-4 h-4 text-slate-400 group-hover:text-slate-300 shrink-0" />
+                  <Icon className="w-4 h-4 text-slate-400 shrink-0" />
                   <span className="flex-1">{item.label}</span>
-                  {item.badge && (
-                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-purple-600 text-white min-w-4 text-center">
-                      {item.badge}
-                    </span>
-                  )}
                 </button>
               );
             }
@@ -177,43 +167,29 @@ export const StudioSidebar = () => {
         </nav>
       </div>
 
-      {/* Usage / Quota Widget matching mockup bottom */}
       <div className="p-3.5 m-3 rounded-2xl bg-[#0d1420] border border-slate-800 space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">
             Usage / Quota
           </span>
+          <span className="rounded-full border border-slate-700 bg-slate-900 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+            Chưa có API
+          </span>
         </div>
 
-        <div>
-          <span className="text-[10px] font-medium text-slate-400 block">Credit còn lại</span>
-          <div className="text-xl font-extrabold text-white font-mono tracking-tight mt-0.5">
-            12,450
-          </div>
-        </div>
+        <p className="text-[11px] leading-5 text-slate-500">
+          Credit, gói dịch vụ và ngày hết hạn sẽ được hiển thị khi backend cung cấp API quota.
+        </p>
 
         <button
           type="button"
-          onClick={() => {
-            alert("Hệ thống nâng cấp gói cước & nạp Credit đang trong lộ trình phát triển backend.");
-          }}
-          className="w-full py-2 px-3 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-xs font-bold text-white shadow-[0_0_15px_rgba(124,58,237,0.35)] transition-all flex items-center justify-center gap-1.5"
+          disabled
+          title="Tính năng nâng cấp gói cước đang chờ backend"
+          className="w-full cursor-not-allowed rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-semibold text-slate-500"
         >
-          <span>Nâng cấp</span>
+          Nâng cấp — chưa khả dụng
         </button>
-
-        <div className="pt-2 border-t border-slate-800/80 space-y-0.5 text-[11px] text-slate-400">
-          <div className="flex items-center justify-between">
-            <span>Gói:</span>
-            <span className="font-semibold text-purple-300">Creator Pro</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span>Hết hạn:</span>
-            <span className="font-mono text-slate-300">15/09/2026</span>
-          </div>
-        </div>
       </div>
     </aside>
   );
 };
-
