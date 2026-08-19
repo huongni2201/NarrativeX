@@ -49,9 +49,7 @@ public class GetChapterStoryboardUseCase {
                       (int)
                           beats.stream()
                               .filter(
-                                  beat ->
-                                      beat.getReviewStatus()
-                                          == VisualBeatReviewStatus.APPROVED)
+                                  beat -> beat.getReviewStatus() == VisualBeatReviewStatus.APPROVED)
                               .count();
                   return new ChapterStoryboardResponse.SceneItem(
                       scene.getId(),
