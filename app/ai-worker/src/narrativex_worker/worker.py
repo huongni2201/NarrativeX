@@ -8,6 +8,7 @@ import sys
 import uuid
 from typing import Any
 
+from narrativex_worker.billing_repository import ProviderBillingRepository
 from narrativex_worker.config import WorkerSettings, get_settings
 from narrativex_worker.providers import DisabledProvider, VertexGeminiProvider
 from narrativex_worker.providers.ports import ProviderOperation
@@ -34,6 +35,7 @@ class NarrativeXWorker:
             lease_seconds=self.settings.lease_seconds,
             pool_size=max(5, self.settings.worker_concurrency * 2 + 1),
         )
+        self.billing_repository = ProviderBillingRepository(self.settings.database_url)
         provider = (
             VertexGeminiProvider(self.settings)
             if self.settings.provider_mode == "vertex"
@@ -165,8 +167,6 @@ class NarrativeXWorker:
                     await task
 
     async def _execute_claimed(self, claimed: ClaimedChapterAnalysisJob) -> None:
-        # Narrow lifecycle tests may provide a service spy without a provider attribute. The
-        # production WorkerService always has one and therefore always uses the durable path.
         if not hasattr(self.service, "provider"):
             operation = await self.service.submit_chapter_analysis(claimed.request)
             if (
@@ -189,9 +189,6 @@ class NarrativeXWorker:
             await self._recover_provider_operation(claimed, durable)
             return
 
-        # Persist that the provider boundary is about to be crossed. For synchronous providers
-        # there may be no provider operation id yet, but a crash after this point must never turn
-        # into a blind resubmission.
         await self.repository.mark_provider_operation_submitted(durable.id, None)
         try:
             operation = await self.service.submit_chapter_analysis(claimed.request)
@@ -241,14 +238,33 @@ class NarrativeXWorker:
         durable_id: int,
         operation: ProviderOperation,
     ) -> None:
+        if operation.provider_key == "vertex" and operation.status in (
+            ProviderOperationStatus.COMPLETED,
+            ProviderOperationStatus.FAILED,
+        ):
+            if operation.billing is None:
+                await self.repository.mark_provider_operation_status(
+                    durable_id, ProviderOperationStatus.UNKNOWN, operation.operation_id
+                )
+                raise ProviderOperationUnknownError(
+                    "Terminal Vertex operation has no durable billing metadata"
+                )
+            try:
+                await self.billing_repository.persist(durable_id, operation.billing)
+            except Exception as exception:
+                await self.repository.mark_provider_operation_status(
+                    durable_id, ProviderOperationStatus.UNKNOWN, operation.operation_id
+                )
+                raise ProviderOperationUnknownError(
+                    f"Provider billing persistence outcome is unknown: {type(exception).__name__}"
+                ) from exception
+
         if operation.status is ProviderOperationStatus.COMPLETED and operation.result is not None:
             try:
                 durable = await self.repository.persist_provider_result(
                     durable_id, operation.operation_id, operation.result
                 )
             except Exception as exception:
-                # The DB commit outcome itself may be ambiguous. Do not overwrite it with FAILED
-                # or resubmit the provider call; recovery will inspect the durable row.
                 raise ProviderOperationUnknownError(
                     f"Provider result persistence outcome is unknown: {type(exception).__name__}"
                 ) from exception
@@ -292,6 +308,9 @@ class NarrativeXWorker:
                 reconciled = await self.service.reconcile_chapter_analysis(operation)
             except Exception:
                 continue
+            if reconciled.billing is not None:
+                with contextlib.suppress(Exception):
+                    await self.billing_repository.persist(durable.id, reconciled.billing)
             if (
                 reconciled.status is ProviderOperationStatus.COMPLETED
                 and reconciled.result is not None
