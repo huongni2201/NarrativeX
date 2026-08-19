@@ -26,6 +26,10 @@ spring:
       redis:
         namespace: ${NARRATIVEX_SESSION_REDIS_NAMESPACE:narrativex:session}
         flush-mode: on-save
+  servlet:
+    multipart:
+      max-file-size: ${NARRATIVEX_MAX_IMPORT_FILE_SIZE:10MB}
+      max-request-size: ${NARRATIVEX_MAX_IMPORT_REQUEST_SIZE:11MB}
   flyway:
     enabled: true
     locations: classpath:db/migration
