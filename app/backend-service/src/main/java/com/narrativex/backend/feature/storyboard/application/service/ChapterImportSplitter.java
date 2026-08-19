@@ -17,7 +17,8 @@ public class ChapterImportSplitter {
 
     Matcher matcher = HEADER.matcher(text);
     List<Header> headers = new ArrayList<>();
-    while (matcher.find()) headers.add(new Header(matcher.start(), matcher.end(), matcher.group(1).trim()));
+    while (matcher.find())
+      headers.add(new Header(matcher.start(), matcher.end(), matcher.group(1).trim()));
 
     if (headers.isEmpty()) {
       return List.of(new Draft(defaultTitle(fileName), text.trim()));
@@ -30,7 +31,8 @@ public class ChapterImportSplitter {
       String body = text.substring(header.end(), bodyEnd).trim();
       if (!body.isBlank()) drafts.add(new Draft(limitTitle(header.title()), body));
     }
-    if (drafts.isEmpty()) throw new IllegalArgumentException("No chapter content was found after chapter headings");
+    if (drafts.isEmpty())
+      throw new IllegalArgumentException("No chapter content was found after chapter headings");
     return List.copyOf(drafts);
   }
 
