@@ -22,6 +22,7 @@ The maintained development chain is:
 - V2 `seed_demo_data`
 - V3 `split_visual_beat_motion_fields`
 - V4 `durable_provider_operations_and_admission_limits`
+- V5 `harden_generation_execution_constraints`
 
 V4 links OperationPlan to GenerationJob, adds ProviderOperation request fingerprint/status constraints and adds plan monthly credits. Released migration history must remain forward-only.
 
