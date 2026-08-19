@@ -33,6 +33,7 @@ class NarrativeXWorker:
             else DisabledProvider()
         )
         self.service = WorkerService(provider)
+        self._in_flight: set[asyncio.Task[None]] = set()
 
     def _setup_logging(self) -> None:
         numeric_level = getattr(logging, self.settings.log_level.upper(), logging.INFO)
@@ -47,11 +48,12 @@ class NarrativeXWorker:
     async def start(self, *, dry_run: bool = False) -> None:
         """Start worker, verify configuration, then poll PostgreSQL for durable work."""
         self.logger.info(
-            "Starting %s in %s mode (provider=%s, log_level=%s)",
+            "Starting %s in %s mode (provider=%s, log_level=%s, concurrency=%s)",
             self.settings.worker_name,
             self.settings.worker_env,
             self.settings.provider_mode,
             self.settings.log_level,
+            self.settings.worker_concurrency,
         )
 
         if dry_run:
@@ -68,17 +70,45 @@ class NarrativeXWorker:
 
         try:
             while self._running:
+                self._reap_finished_tasks()
+                if len(self._in_flight) >= self.settings.worker_concurrency:
+                    await asyncio.wait(self._in_flight, return_when=asyncio.FIRST_COMPLETED)
+                    continue
+
                 claimed = await self.repository.claim_next(self.worker_id)
                 if claimed is None:
-                    await asyncio.sleep(self.settings.poll_interval_seconds)
+                    if self._in_flight:
+                        done, _ = await asyncio.wait(
+                            self._in_flight,
+                            timeout=self.settings.poll_interval_seconds,
+                            return_when=asyncio.FIRST_COMPLETED,
+                        )
+                        if done:
+                            self._reap_finished_tasks()
+                    else:
+                        await asyncio.sleep(self.settings.poll_interval_seconds)
                     continue
-                await self._process(claimed)
+
+                task = asyncio.create_task(self._process(claimed))
+                self._in_flight.add(task)
         except asyncio.CancelledError:
             self.logger.info("Worker received cancellation. Shutting down.")
             raise
         finally:
+            if self._in_flight:
+                await asyncio.gather(*self._in_flight, return_exceptions=True)
+                self._in_flight.clear()
             await self.repository.close()
             self.logger.info("Worker stopped cleanly.")
+
+    def _reap_finished_tasks(self) -> None:
+        finished = {task for task in self._in_flight if task.done()}
+        for task in finished:
+            self._in_flight.remove(task)
+            with contextlib.suppress(asyncio.CancelledError):
+                exception = task.exception()
+                if exception is not None:
+                    self.logger.error("Worker task ended unexpectedly", exc_info=exception)
 
     async def _process(self, claimed: ClaimedChapterAnalysisJob) -> None:
         self.logger.info(
@@ -138,7 +168,7 @@ class NarrativeXWorker:
                 raise RuntimeError("Worker lost its StageAttempt lease")
 
     def stop(self, *args: Any) -> None:
-        """Signal worker to stop gracefully."""
+        """Signal worker to stop gracefully after current jobs finish."""
         del args
         self.logger.info("Shutdown signal received.")
         self._running = False
