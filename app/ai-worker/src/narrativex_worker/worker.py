@@ -189,6 +189,10 @@ class NarrativeXWorker:
             await self._recover_provider_operation(claimed, durable)
             return
 
+        # Persist that the provider boundary is about to be crossed. For synchronous providers
+        # there may be no provider operation id yet, but a crash after this point must never turn
+        # into a blind resubmission.
+        await self.repository.mark_provider_operation_submitted(durable.id, None)
         try:
             operation = await self.service.submit_chapter_analysis(claimed.request)
         except Exception as exception:
@@ -199,12 +203,22 @@ class NarrativeXWorker:
                 f"Provider submission outcome is unknown: {type(exception).__name__}"
             ) from exception
 
-        await self.repository.mark_provider_operation_submitted(durable.id, operation.operation_id)
         await self._finish_provider_operation(claimed, durable.id, operation)
 
     async def _recover_provider_operation(
         self, claimed: ClaimedChapterAnalysisJob, durable: DurableProviderOperation
     ) -> None:
+        if durable.status is ProviderOperationStatus.COMPLETED:
+            if durable.normalized_result is None:
+                raise ProviderOperationUnknownError(
+                    "Completed provider operation has no durable normalized result"
+                )
+            await self.repository.complete(claimed, self.worker_id, durable.normalized_result)
+            self.logger.info(
+                "Replayed durable provider result for Chapter analysis job=%s", claimed.job_id
+            )
+            return
+
         operation = ProviderOperation(
             provider_key=durable.provider_key,
             operation_id=durable.provider_operation_id,
@@ -228,10 +242,19 @@ class NarrativeXWorker:
         operation: ProviderOperation,
     ) -> None:
         if operation.status is ProviderOperationStatus.COMPLETED and operation.result is not None:
-            await self.repository.mark_provider_operation_status(
-                durable_id, ProviderOperationStatus.COMPLETED, operation.operation_id
-            )
-            await self.repository.complete(claimed, self.worker_id, operation.result)
+            try:
+                durable = await self.repository.persist_provider_result(
+                    durable_id, operation.operation_id, operation.result
+                )
+            except Exception as exception:
+                # The DB commit outcome itself may be ambiguous. Do not overwrite it with FAILED
+                # or resubmit the provider call; recovery will inspect the durable row.
+                raise ProviderOperationUnknownError(
+                    f"Provider result persistence outcome is unknown: {type(exception).__name__}"
+                ) from exception
+            if durable.normalized_result is None:
+                raise RuntimeError("Persisted provider result could not be reconstructed")
+            await self.repository.complete(claimed, self.worker_id, durable.normalized_result)
             self.logger.info("Completed Chapter analysis job=%s", claimed.job_id)
             return
         if operation.status is ProviderOperationStatus.FAILED:
@@ -269,12 +292,17 @@ class NarrativeXWorker:
                 reconciled = await self.service.reconcile_chapter_analysis(operation)
             except Exception:
                 continue
-            if reconciled.status in (
-                ProviderOperationStatus.COMPLETED,
-                ProviderOperationStatus.FAILED,
+            if (
+                reconciled.status is ProviderOperationStatus.COMPLETED
+                and reconciled.result is not None
             ):
+                with contextlib.suppress(Exception):
+                    await self.repository.persist_provider_result(
+                        durable.id, reconciled.operation_id, reconciled.result
+                    )
+            elif reconciled.status is ProviderOperationStatus.FAILED:
                 await self.repository.mark_provider_operation_status(
-                    durable.id, reconciled.status, reconciled.operation_id
+                    durable.id, ProviderOperationStatus.FAILED, reconciled.operation_id
                 )
 
     async def _heartbeat_loop(self, stage_attempt_id: int) -> None:
