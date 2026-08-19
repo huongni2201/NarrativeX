@@ -1,14 +1,18 @@
 -- Durable project-scoped identity for AI continuity mentions.
 -- Names remain descriptive attributes/evidence and are never relational identity keys.
 
+CREATE UNIQUE INDEX uq_project_characters_project_id_id
+    ON project_characters (project_id, id);
+
+CREATE UNIQUE INDEX uq_project_locations_project_id_id
+    ON project_locations (project_id, id);
+
 CREATE TABLE project_character_ai_identities (
     project_id BIGINT NOT NULL
         REFERENCES projects(id)
         ON DELETE CASCADE,
     ai_key VARCHAR(64) NOT NULL,
-    project_character_id BIGINT NOT NULL
-        REFERENCES project_characters(id)
-        ON DELETE CASCADE,
+    project_character_id BIGINT NOT NULL,
     aliases JSONB NOT NULL DEFAULT '[]'::jsonb,
     observations JSONB NOT NULL DEFAULT '[]'::jsonb,
     first_seen_chapter_id BIGINT
@@ -22,6 +26,10 @@ CREATE TABLE project_character_ai_identities (
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT pk_project_character_ai_identities PRIMARY KEY (project_id, ai_key),
+    CONSTRAINT fk_project_character_ai_identity_entity
+        FOREIGN KEY (project_id, project_character_id)
+        REFERENCES project_characters(project_id, id)
+        ON DELETE CASCADE,
     CONSTRAINT ck_project_character_ai_identity_key
         CHECK (ai_key ~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$'),
     CONSTRAINT ck_project_character_ai_identity_match_basis
@@ -38,9 +46,7 @@ CREATE TABLE project_location_ai_identities (
         REFERENCES projects(id)
         ON DELETE CASCADE,
     ai_key VARCHAR(64) NOT NULL,
-    project_location_id BIGINT NOT NULL
-        REFERENCES project_locations(id)
-        ON DELETE CASCADE,
+    project_location_id BIGINT NOT NULL,
     aliases JSONB NOT NULL DEFAULT '[]'::jsonb,
     observations JSONB NOT NULL DEFAULT '[]'::jsonb,
     first_seen_chapter_id BIGINT
@@ -54,6 +60,10 @@ CREATE TABLE project_location_ai_identities (
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT pk_project_location_ai_identities PRIMARY KEY (project_id, ai_key),
+    CONSTRAINT fk_project_location_ai_identity_entity
+        FOREIGN KEY (project_id, project_location_id)
+        REFERENCES project_locations(project_id, id)
+        ON DELETE CASCADE,
     CONSTRAINT ck_project_location_ai_identity_key
         CHECK (ai_key ~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$'),
     CONSTRAINT ck_project_location_ai_identity_match_basis
