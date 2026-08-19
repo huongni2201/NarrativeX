@@ -297,8 +297,19 @@ class WorkerRepository:
                 if not snapshot_matches:
                     raise RuntimeError("Chapter changed while analysis was running")
 
-                await self._materialize_characters(connection, claimed, result)
-                await self._materialize_storyboard(connection, claimed, result)
+                await connection.execute(
+                    "SELECT pg_advisory_xact_lock($1)",
+                    claimed.request.project_id,
+                )
+                project_characters = await self._materialize_characters(connection, claimed, result)
+                project_locations = await self._materialize_locations(connection, claimed, result)
+                await self._materialize_storyboard(
+                    connection,
+                    claimed,
+                    result,
+                    project_characters,
+                    project_locations,
+                )
                 stage_update = await connection.execute(
                     """
                     UPDATE stage_attempts
@@ -360,14 +371,14 @@ class WorkerRepository:
         connection: asyncpg.Connection,
         claimed: ClaimedChapterAnalysisJob,
         result: ChapterAnalysisResult,
-    ) -> None:
+    ) -> dict[str, int]:
         if not result.characters:
-            return
+            return {}
 
-        names = [character.name for character in result.characters]
         existing_rows = await connection.fetch(
             """
-            SELECT c.id, lower(c.canonical_name) AS canonical_name
+            SELECT pc.id AS project_character_id,
+                   lower(c.canonical_name) AS canonical_name
               FROM project_characters pc
               JOIN characters c ON c.id = pc.character_id
              WHERE pc.project_id = $1
@@ -375,14 +386,16 @@ class WorkerRepository:
                AND lower(c.canonical_name) = ANY($2::text[])
             """,
             claimed.request.project_id,
-            [name.lower() for name in names],
+            [character.name.lower() for character in result.characters],
         )
-        existing = {row["canonical_name"]: row["id"] for row in existing_rows}
+        existing = {row["canonical_name"]: row["project_character_id"] for row in existing_rows}
+        materialized: dict[str, int] = {}
         updates: list[tuple[int, int, str | None]] = []
 
         for character in result.characters:
-            character_id = existing.get(character.name.lower())
-            if character_id is None:
+            normalized_name = character.name.lower()
+            project_character_id = existing.get(normalized_name)
+            if project_character_id is None:
                 character_id = await connection.fetchval(
                     """
                     INSERT INTO characters (owner_id, canonical_name, aliases, status)
@@ -403,28 +416,29 @@ class WorkerRepository:
                     character_id,
                     character.description or character.name,
                 )
-                await connection.execute(
+                project_character_id = await connection.fetchval(
                     """
                     INSERT INTO project_characters
                       (project_id, character_id, role, importance, story_metadata,
                        pinned_character_version_id, status)
                     VALUES ($1, $2, 'SUPPORTING', 0, $3, $4, 'ACTIVE')
-                    ON CONFLICT (project_id, character_id) DO NOTHING
+                    RETURNING id
                     """,
                     claimed.request.project_id,
                     character_id,
                     character.description or None,
                     version_id,
                 )
-                existing[character.name.lower()] = character_id
+                existing[normalized_name] = project_character_id
             else:
                 updates.append(
                     (
                         claimed.request.project_id,
-                        character_id,
+                        project_character_id,
                         character.description or None,
                     )
                 )
+            materialized[character.key] = project_character_id
 
         if updates:
             await connection.executemany(
@@ -432,16 +446,82 @@ class WorkerRepository:
                 UPDATE project_characters
                    SET story_metadata = $3, updated_at = CURRENT_TIMESTAMP,
                        row_version = row_version + 1
-                 WHERE project_id = $1 AND character_id = $2
+                 WHERE project_id = $1 AND id = $2
                 """,
                 updates,
             )
+        return materialized
+
+    @staticmethod
+    async def _materialize_locations(
+        connection: asyncpg.Connection,
+        claimed: ClaimedChapterAnalysisJob,
+        result: ChapterAnalysisResult,
+    ) -> dict[str, int]:
+        if not result.locations:
+            return {}
+
+        existing_rows = await connection.fetch(
+            """
+            SELECT id, lower(name) AS normalized_name
+              FROM project_locations
+             WHERE project_id = $1
+               AND status = 'ACTIVE'
+               AND lower(name) = ANY($2::text[])
+            """,
+            claimed.request.project_id,
+            [location.name.lower() for location in result.locations],
+        )
+        existing = {row["normalized_name"]: row["id"] for row in existing_rows}
+        materialized: dict[str, int] = {}
+        updates: list[tuple[int, int, str | None, str | None]] = []
+
+        for location in result.locations:
+            normalized_name = location.name.lower()
+            project_location_id = existing.get(normalized_name)
+            if project_location_id is None:
+                project_location_id = await connection.fetchval(
+                    """
+                    INSERT INTO project_locations
+                      (project_id, name, description, visual_prompt, status)
+                    VALUES ($1, $2, $3, $3, 'ACTIVE')
+                    RETURNING id
+                    """,
+                    claimed.request.project_id,
+                    location.name,
+                    location.description or None,
+                )
+                existing[normalized_name] = project_location_id
+            else:
+                updates.append(
+                    (
+                        claimed.request.project_id,
+                        project_location_id,
+                        location.description or None,
+                        location.description or None,
+                    )
+                )
+            materialized[location.key] = project_location_id
+
+        if updates:
+            await connection.executemany(
+                """
+                UPDATE project_locations
+                   SET description = $3, visual_prompt = $4,
+                       updated_at = CURRENT_TIMESTAMP, row_version = row_version + 1
+                 WHERE project_id = $1 AND id = $2 AND status = 'ACTIVE'
+                """,
+                updates,
+            )
+        return materialized
 
     @staticmethod
     async def _materialize_storyboard(
         connection: asyncpg.Connection,
         claimed: ClaimedChapterAnalysisJob,
         result: ChapterAnalysisResult,
+        project_characters: dict[str, int],
+        project_locations: dict[str, int],
     ) -> None:
         protected_storyboard = await connection.fetchval(
             """
@@ -476,12 +556,18 @@ class WorkerRepository:
         if not result.scenes:
             return
 
+        location_ids = [
+            project_locations[scene.location_key] if scene.location_key is not None else None
+            for scene in result.scenes
+        ]
         scene_rows = await connection.fetch(
             """
-            INSERT INTO scenes (chapter_id, order_index, title, narration, status)
-            SELECT $1, source.order_index, source.title, source.narration, 'DRAFT'
-              FROM UNNEST($2::int[], $3::text[], $4::text[])
-                   AS source(order_index, title, narration)
+            INSERT INTO scenes
+              (chapter_id, order_index, title, narration, project_location_id, status)
+            SELECT $1, source.order_index, source.title, source.narration,
+                   source.project_location_id, 'DRAFT'
+              FROM UNNEST($2::int[], $3::text[], $4::text[], $5::bigint[])
+                   AS source(order_index, title, narration, project_location_id)
              ORDER BY source.order_index
             RETURNING id, order_index
             """,
@@ -489,8 +575,29 @@ class WorkerRepository:
             list(range(len(result.scenes))),
             [scene.title for scene in result.scenes],
             [scene.narration or "" for scene in result.scenes],
+            location_ids,
         )
         scene_ids = {row["order_index"]: row["id"] for row in scene_rows}
+
+        scene_character_rows = [
+            (
+                scene_ids[scene_index],
+                character_index,
+                project_characters[character.character_key],
+            )
+            for scene_index, scene in enumerate(result.scenes)
+            for character_index, character in enumerate(scene.characters)
+        ]
+        if scene_character_rows:
+            await connection.executemany(
+                """
+                INSERT INTO scene_characters
+                  (scene_id, order_index, project_character_id)
+                VALUES ($1, $2, $3)
+                """,
+                scene_character_rows,
+            )
+
         beat_rows = [
             (
                 scene_ids[scene_index],

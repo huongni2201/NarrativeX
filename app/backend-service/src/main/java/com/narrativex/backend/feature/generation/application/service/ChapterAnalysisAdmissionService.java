@@ -29,7 +29,8 @@ public class ChapterAnalysisAdmissionService {
                 () -> new GenerationAdmissionDeniedException("COST_LIMIT", "No active plan."));
 
     requireEntitled(quota, estimate.maxAuthorizedCost());
-    if (!quotaReservation.reserve(userId, estimate.maxAuthorizedCost(), quota.maxConcurrentExpensiveJobs())) {
+    if (!quotaReservation.reserve(
+        userId, estimate.maxAuthorizedCost(), quota.maxConcurrentExpensiveJobs())) {
       throw new GenerationAdmissionDeniedException(
           "COST_LIMIT", "The story-analysis quota is exhausted.");
     }
@@ -53,6 +54,7 @@ public class ChapterAnalysisAdmissionService {
   }
 
   private static boolean featureEnabled(String json, String feature) {
-    return json != null && json.replace("\\\"", "\"").matches(".*\\\"" + feature + "\\\"\\s*:\\s*true.*");
+    return json != null
+        && json.replace("\\\"", "\"").matches(".*\\\"" + feature + "\\\"\\s*:\\s*true.*");
   }
 }

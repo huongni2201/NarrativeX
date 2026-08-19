@@ -48,9 +48,7 @@ public class ProviderOperationPersistenceAdapter implements ProviderOperationRep
 
   @Override
   public List<ProviderOperation> findByStatus(ProviderOperationStatus status, int limit) {
-    return repository
-        .findByStatus(status, PageRequest.of(0, Math.max(1, limit)))
-        .stream()
+    return repository.findByStatus(status, PageRequest.of(0, Math.max(1, limit))).stream()
         .map(ProviderOperationPersistenceAdapter::toDomain)
         .toList();
   }
@@ -66,8 +64,7 @@ public class ProviderOperationPersistenceAdapter implements ProviderOperationRep
         .build();
   }
 
-  private static void apply(
-      ProviderOperationJpaEntity entity, ProviderOperation operation) {
+  private static void apply(ProviderOperationJpaEntity entity, ProviderOperation operation) {
     entity.setStageAttemptId(operation.getStageAttemptId());
     entity.setProviderKey(operation.getProviderKey());
     entity.setProviderOperationId(operation.getProviderOperationId());

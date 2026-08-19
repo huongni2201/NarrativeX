@@ -2,8 +2,8 @@ package com.narrativex.backend.feature.storyboard.infrastructure.persistence.ent
 
 import com.narrativex.backend.feature.common.infrastructure.persistence.JpaAuditedEntity;
 import com.narrativex.backend.feature.storyboard.domain.enums.AspectRatio;
-import com.narrativex.backend.feature.storyboard.domain.enums.ImageQualityTier;
 import com.narrativex.backend.feature.storyboard.domain.enums.CameraMovement;
+import com.narrativex.backend.feature.storyboard.domain.enums.ImageQualityTier;
 import com.narrativex.backend.feature.storyboard.domain.enums.MotionMode;
 import com.narrativex.backend.feature.storyboard.domain.enums.VisualBeatReviewStatus;
 import jakarta.persistence.Column;

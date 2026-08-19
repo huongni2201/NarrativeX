@@ -23,8 +23,7 @@ class ChapterAnalysisAdmissionServiceTest {
   void freePlanWithoutStoryAnalysisFeatureIsRejected() {
     var service = service(quota("{}", 0, 10));
 
-    assertThrows(
-        FeatureNotAvailableException.class, () -> service.admit("user-1", 7L, SOURCE));
+    assertThrows(FeatureNotAvailableException.class, () -> service.admit("user-1", 7L, SOURCE));
   }
 
   @Test
@@ -33,8 +32,7 @@ class ChapterAnalysisAdmissionServiceTest {
 
     var exception =
         assertThrows(
-            GenerationAdmissionDeniedException.class,
-            () -> service.admit("user-1", 7L, SOURCE));
+            GenerationAdmissionDeniedException.class, () -> service.admit("user-1", 7L, SOURCE));
     assertEquals("COST_LIMIT", exception.getCode());
   }
 
@@ -50,8 +48,7 @@ class ChapterAnalysisAdmissionServiceTest {
     assertEquals(0, new BigDecimal("0.020032").compareTo(reservation.cost));
   }
 
-  private static ChapterAnalysisAdmissionService service(
-      UserQuotaAccess.QuotaSnapshot quota) {
+  private static ChapterAnalysisAdmissionService service(UserQuotaAccess.QuotaSnapshot quota) {
     return service(quota, new ReservationSpy());
   }
 
@@ -60,27 +57,21 @@ class ChapterAnalysisAdmissionServiceTest {
     UserQuotaAccess quotaAccess = userId -> Optional.of(quota);
     ChapterAnalysisSafetyGate safetyGate = (projectId, source) -> {};
     return new ChapterAnalysisAdmissionService(
-        quotaAccess,
-        reservation,
-        new ChapterAnalysisCostEstimator(),
-        safetyGate);
+        quotaAccess, reservation, new ChapterAnalysisCostEstimator(), safetyGate);
   }
 
   private static UserQuotaAccess.QuotaSnapshot quota(
       String flags, int activeJobs, double totalCredits) {
     return new UserQuotaAccess.QuotaSnapshot(
-        flags,
-        1,
-        activeJobs,
-        BigDecimal.ZERO,
-        BigDecimal.valueOf(totalCredits));
+        flags, 1, activeJobs, BigDecimal.ZERO, BigDecimal.valueOf(totalCredits));
   }
 
   private static final class ReservationSpy implements QuotaReservation {
     private BigDecimal cost;
 
     @Override
-    public boolean reserve(String userId, BigDecimal estimatedCost, int maxConcurrentExpensiveJobs) {
+    public boolean reserve(
+        String userId, BigDecimal estimatedCost, int maxConcurrentExpensiveJobs) {
       cost = estimatedCost;
       return true;
     }
