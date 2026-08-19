@@ -18,16 +18,16 @@ ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO auth_users (id, email, display_name, avatar_url, password_hash, enabled)
 VALUES
-    ('seed-user-01', 'huongnn2201@gmail.com', 'Huong Nguyen', 'https://i.pravatar.cc/160?u=huongnn2201', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', TRUE),
-    ('seed-user-02', 'seed.user02@example.com', 'Demo User 02', 'https://i.pravatar.cc/160?u=seed02', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', TRUE),
-    ('seed-user-03', 'seed.user03@example.com', 'Demo User 03', 'https://i.pravatar.cc/160?u=seed03', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', TRUE),
-    ('seed-user-04', 'seed.user04@example.com', 'Demo User 04', 'https://i.pravatar.cc/160?u=seed04', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', TRUE),
-    ('seed-user-05', 'seed.user05@example.com', 'Demo User 05', 'https://i.pravatar.cc/160?u=seed05', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', TRUE),
-    ('seed-user-06', 'seed.user06@example.com', 'Demo User 06', 'https://i.pravatar.cc/160?u=seed06', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', TRUE),
-    ('seed-user-07', 'seed.user07@example.com', 'Demo User 07', 'https://i.pravatar.cc/160?u=seed07', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', TRUE),
-    ('seed-user-08', 'seed.user08@example.com', 'Demo User 08', 'https://i.pravatar.cc/160?u=seed08', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', TRUE),
-    ('seed-user-09', 'seed.user09@example.com', 'Demo User 09', 'https://i.pravatar.cc/160?u=seed09', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', TRUE),
-    ('seed-user-10', 'seed.user10@example.com', 'Demo User 10', 'https://i.pravatar.cc/160?u=seed10', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', TRUE)
+    ('seed-user-01', 'huongnn2201@gmail.com', 'Huong Nguyen', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=256&auto=format&fit=crop', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', TRUE),
+    ('seed-user-02', 'seed.user02@example.com', 'Demo User 02', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=256&auto=format&fit=crop', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', TRUE),
+    ('seed-user-03', 'seed.user03@example.com', 'Demo User 03', 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=256&auto=format&fit=crop', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', TRUE),
+    ('seed-user-04', 'seed.user04@example.com', 'Demo User 04', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=256&auto=format&fit=crop', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', TRUE),
+    ('seed-user-05', 'seed.user05@example.com', 'Demo User 05', 'https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=256&auto=format&fit=crop', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', TRUE),
+    ('seed-user-06', 'seed.user06@example.com', 'Demo User 06', 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=256&auto=format&fit=crop', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', TRUE),
+    ('seed-user-07', 'seed.user07@example.com', 'Demo User 07', 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?q=80&w=256&auto=format&fit=crop', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', TRUE),
+    ('seed-user-08', 'seed.user08@example.com', 'Demo User 08', 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=256&auto=format&fit=crop', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', TRUE),
+    ('seed-user-09', 'seed.user09@example.com', 'Demo User 09', 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?q=80&w=256&auto=format&fit=crop', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', TRUE),
+    ('seed-user-10', 'seed.user10@example.com', 'Demo User 10', 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=256&auto=format&fit=crop', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', TRUE)
 ON CONFLICT DO NOTHING;
 
 INSERT INTO projects (id, name, owner_id, status, source_language, narration_language, metadata_language, image_aspect_ratio, image_quality_tier)
