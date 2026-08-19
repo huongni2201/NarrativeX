@@ -88,3 +88,48 @@ UPDATE usage_windows
 
 COMMENT ON COLUMN usage_windows.expensive_jobs_active IS
     'Deprecated projection. Active expensive jobs are derived from quota_reservations status RESERVED.';
+
+-- Keep quota finalization in the exact transaction that makes a GenerationJob terminal. This
+-- covers worker completion/failure, future backend cancellation, process retries and every runtime
+-- that writes the authoritative PostgreSQL job state.
+CREATE OR REPLACE FUNCTION finalize_quota_reservation_on_job_terminal()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF NEW.status = 'COMPLETED' AND OLD.status IS DISTINCT FROM 'COMPLETED' THEN
+        WITH consumed AS (
+            UPDATE quota_reservations
+               SET status = 'CONSUMED',
+                   finalized_at = CURRENT_TIMESTAMP,
+                   updated_at = CURRENT_TIMESTAMP,
+                   row_version = row_version + 1
+             WHERE generation_job_id = NEW.id
+               AND status = 'RESERVED'
+             RETURNING user_id, period_key, estimated_cost
+        )
+        UPDATE usage_windows uw
+           SET credits_used = uw.credits_used + consumed.estimated_cost,
+               row_version = uw.row_version + 1
+          FROM consumed
+         WHERE uw.user_id = consumed.user_id
+           AND uw.period_key = consumed.period_key;
+    ELSIF NEW.status IN ('FAILED', 'CANCELED')
+          AND OLD.status IS DISTINCT FROM NEW.status THEN
+        UPDATE quota_reservations
+           SET status = 'RELEASED',
+               finalized_at = CURRENT_TIMESTAMP,
+               updated_at = CURRENT_TIMESTAMP,
+               row_version = row_version + 1
+         WHERE generation_job_id = NEW.id
+           AND status = 'RESERVED';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_generation_jobs_finalize_quota
+AFTER UPDATE OF status ON generation_jobs
+FOR EACH ROW
+WHEN (NEW.status IN ('COMPLETED', 'FAILED', 'CANCELED'))
+EXECUTE FUNCTION finalize_quota_reservation_on_job_terminal();
