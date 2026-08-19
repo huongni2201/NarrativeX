@@ -8,7 +8,13 @@ import asyncpg  # type: ignore[import-untyped]
 import pytest
 
 from narrativex_worker.repository import ClaimedChapterAnalysisJob, WorkerRepository
-from narrativex_worker.schema import ChapterAnalysisRequest
+from narrativex_worker.schema import (
+    ChapterAnalysisRequest,
+    ChapterAnalysisResult,
+    ProviderOperationStatus,
+    SceneAnalysis,
+    VisualBeatAnalysis,
+)
 
 TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")
 SOURCE_HASH = "b" * 64
@@ -69,10 +75,13 @@ async def postgres_database() -> AsyncIterator[str]:
                 request_fingerprint TEXT NOT NULL,
                 provider_operation_id TEXT,
                 status TEXT NOT NULL,
+                normalized_result_json JSONB,
+                completed_at TIMESTAMPTZ,
                 reserved_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 row_version BIGINT NOT NULL DEFAULT 0,
-                UNIQUE (provider_key, request_fingerprint)
+                UNIQUE (provider_key, request_fingerprint),
+                CHECK (status <> 'COMPLETED' OR normalized_result_json IS NOT NULL)
             );
             """
         )
@@ -119,6 +128,18 @@ async def seed_job(database_url: str, *, stage_status: str = "QUEUED") -> tuple[
         return int(generation_job_id), int(stage_attempt_id)
     finally:
         await connection.close()
+
+
+def chapter_result() -> ChapterAnalysisResult:
+    return ChapterAnalysisResult(
+        scenes=[
+            SceneAnalysis(
+                title="Opening",
+                narration="A door opens.",
+                visual_beats=[VisualBeatAnalysis(title="Door", visual_intent="Warm light")],
+            )
+        ]
+    )
 
 
 @pytest.mark.asyncio
@@ -201,3 +222,44 @@ async def test_provider_reservation_is_unique_across_workers(postgres_database: 
 
     assert reservations[0].id == reservations[1].id
     assert sum(1 for reservation in reservations if reservation.created) == 1
+
+
+@pytest.mark.asyncio
+async def test_provider_result_and_completed_status_persist_atomically(postgres_database: str) -> None:
+    generation_job_id, stage_attempt_id = await seed_job(postgres_database)
+    claimed = ClaimedChapterAnalysisJob(
+        stage_attempt_id=stage_attempt_id,
+        generation_job_id=generation_job_id,
+        job_id="job-1",
+        requested_by_user_id="user-1",
+        request=ChapterAnalysisRequest(
+            project_id=1,
+            story_version_id=2,
+            chapter_id=3,
+            chapter_row_version=4,
+            source_hash=SOURCE_HASH,
+            source_text="PostgreSQL integration story",
+        ),
+    )
+
+    repository = WorkerRepository(postgres_database, lease_seconds=30)
+    await repository.connect()
+    try:
+        reserved = await repository.reserve_provider_operation(
+            claimed, "vertex", "durable-result-fingerprint"
+        )
+        await repository.mark_provider_operation_submitted(reserved.id, None)
+        persisted = await repository.persist_provider_result(
+            reserved.id, "vertex-response-1", chapter_result()
+        )
+        reloaded = await repository.reserve_provider_operation(
+            claimed, "vertex", "durable-result-fingerprint"
+        )
+    finally:
+        await repository.close()
+
+    assert persisted.status is ProviderOperationStatus.COMPLETED
+    assert persisted.normalized_result == chapter_result()
+    assert reloaded.status is ProviderOperationStatus.COMPLETED
+    assert reloaded.normalized_result == chapter_result()
+    assert not reloaded.created
