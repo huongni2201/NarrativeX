@@ -9,6 +9,7 @@ import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterResponse;
 import com.narrativex.backend.feature.storyboard.application.command.UpdateChapterCommand;
+import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardRevisionAccess;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
 import com.narrativex.backend.feature.storyboard.application.service.ChapterSourceHasher;
 import lombok.RequiredArgsConstructor;
@@ -21,14 +22,16 @@ public class UpdateChapterUseCase {
   private final CurrentUserId currentUserId;
   private final StoryVersionAccess storyVersionAccess;
   private final ChapterRepository chapterRepository;
+  private final StoryboardRevisionAccess storyboardRevisionAccess;
   private final ChapterSourceHasher sourceHasher;
   private final NarrativeXLimitsProperties limits;
 
   @Transactional
   public ApiResponse<ChapterResponse> execute(UpdateChapterCommand command) {
+    storyboardRevisionAccess.lockChapter(command.chapterId());
+
     var chapter =
-        chapterRepository
-            .findById(command.chapterId())
+        chapterRepository.findById(command.chapterId())
             .orElseThrow(() -> new ResourceNotFoundException("Chapter not found"));
     storyVersionAccess.requireOwnedStoryVersion(
         command.projectId(), chapter.getStoryVersionId(), currentUserId.get());
