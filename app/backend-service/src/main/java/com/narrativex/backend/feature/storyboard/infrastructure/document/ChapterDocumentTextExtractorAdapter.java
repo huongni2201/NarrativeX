@@ -2,7 +2,6 @@ package com.narrativex.backend.feature.storyboard.infrastructure.document;
 
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterDocumentTextExtractor;
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.zip.ZipEntry;
@@ -30,21 +29,20 @@ public class ChapterDocumentTextExtractorAdapter implements ChapterDocumentTextE
         case "pdf" -> extractPdf(content);
         default -> throw new IllegalArgumentException("Only .txt, .docx and .pdf files are supported");
       };
-    } catch (IOException exception) {
+    } catch (IllegalArgumentException exception) {
+      throw exception;
+    } catch (Exception exception) {
       throw new IllegalArgumentException("Unable to read import document", exception);
-    } catch (ReflectiveOperationException exception) {
-      throw new IllegalStateException("Unable to configure secure DOCX parser", exception);
     }
   }
 
-  private static String extractPdf(byte[] content) throws IOException {
+  private static String extractPdf(byte[] content) throws Exception {
     try (var document = Loader.loadPDF(content)) {
       return new PDFTextStripper().getText(document);
     }
   }
 
-  private static String extractDocx(byte[] content)
-      throws IOException, ReflectiveOperationException {
+  private static String extractDocx(byte[] content) throws Exception {
     byte[] documentXml = null;
     try (var zip = new ZipInputStream(new ByteArrayInputStream(content))) {
       ZipEntry entry;
