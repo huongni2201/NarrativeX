@@ -19,6 +19,7 @@ public class UserQuotaController {
   public ResponseEntity<ApiResponse<UserQuotaResponse>> get() {
     return ResponseEntity.ok(
         ApiResponse.success(
-            "User quota retrieved successfully", UserQuotaResponse.from(getUserQuotaUseCase.execute())));
+            "User quota retrieved successfully",
+            UserQuotaResponse.from(getUserQuotaUseCase.execute())));
   }
 }
