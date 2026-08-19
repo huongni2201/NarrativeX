@@ -30,7 +30,8 @@ public record JobHistoryResponse(
         view.completedAt());
   }
 
-  public record Page(List<JobHistoryResponse> content, String nextCursor, int limit, boolean hasNext) {
+  public record Page(
+      List<JobHistoryResponse> content, String nextCursor, int limit, boolean hasNext) {
     public static Page from(CursorPage<JobHistoryView> page) {
       return new Page(
           page.content().stream().map(JobHistoryResponse::from).toList(),
