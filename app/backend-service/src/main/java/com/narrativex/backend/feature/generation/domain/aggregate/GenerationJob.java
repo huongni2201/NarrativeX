@@ -7,11 +7,7 @@ import com.narrativex.backend.feature.generation.domain.enums.ResourceClass;
 import java.util.Objects;
 import java.util.UUID;
 
-/**
- * Durable generation job aggregate; project ownership is represented by an ID, not a cross-module
- * entity link. Chapter analysis jobs carry the immutable Chapter snapshot that was persisted before
- * enqueue so workers never analyze arbitrary client text.
- */
+/** Durable generation job aggregate. */
 public final class GenerationJob extends AggregateRoot {
   private final String jobId;
   private final Long projectId;
@@ -25,6 +21,7 @@ public final class GenerationJob extends AggregateRoot {
   private final String billedToUserId;
   private final Long storyVersionId;
   private final Long chapterId;
+  private final Long storyboardRevisionId;
   private final Long chapterRowVersion;
   private final String sourceHash;
   private final String sourceText;
@@ -46,6 +43,7 @@ public final class GenerationJob extends AggregateRoot {
       String billedToUserId,
       Long storyVersionId,
       Long chapterId,
+      Long storyboardRevisionId,
       Long chapterRowVersion,
       String sourceHash,
       String sourceText,
@@ -53,14 +51,16 @@ public final class GenerationJob extends AggregateRoot {
       String idempotencyKey) {
     super(id, rowVersion);
     this.jobId = required(jobId, "jobId");
-    if (projectId == null || projectId <= 0)
+    if (projectId == null || projectId <= 0) {
       throw new IllegalArgumentException("projectId must be positive");
+    }
     this.projectId = projectId;
     this.type = Objects.requireNonNull(type, "type");
     this.status = Objects.requireNonNull(status, "status");
     this.resourceClass = Objects.requireNonNull(resourceClass, "resourceClass");
-    if (progress < 0 || progress > 100)
+    if (progress < 0 || progress > 100) {
       throw new IllegalArgumentException("progress must be between 0 and 100");
+    }
     this.progress = progress;
     this.currentStep = currentStep;
     this.errorCode = errorCode;
@@ -68,6 +68,7 @@ public final class GenerationJob extends AggregateRoot {
     this.billedToUserId = required(billedToUserId, "billedToUserId");
     this.storyVersionId = storyVersionId;
     this.chapterId = chapterId;
+    this.storyboardRevisionId = storyboardRevisionId;
     this.chapterRowVersion = chapterRowVersion;
     this.sourceHash = sourceHash;
     this.sourceText = sourceText;
@@ -96,6 +97,7 @@ public final class GenerationJob extends AggregateRoot {
         null,
         null,
         null,
+        null,
         null);
   }
 
@@ -103,18 +105,25 @@ public final class GenerationJob extends AggregateRoot {
       Long projectId,
       Long storyVersionId,
       Long chapterId,
+      Long storyboardRevisionId,
       long chapterRowVersion,
       String sourceHash,
       String sourceText,
       String sourceLanguage,
       String idempotencyKey,
       String userId) {
-    if (storyVersionId == null || storyVersionId <= 0)
+    if (storyVersionId == null || storyVersionId <= 0) {
       throw new IllegalArgumentException("storyVersionId must be positive");
-    if (chapterId == null || chapterId <= 0)
+    }
+    if (chapterId == null || chapterId <= 0) {
       throw new IllegalArgumentException("chapterId must be positive");
-    if (chapterRowVersion < 0)
+    }
+    if (storyboardRevisionId == null || storyboardRevisionId <= 0) {
+      throw new IllegalArgumentException("storyboardRevisionId must be positive");
+    }
+    if (chapterRowVersion < 0) {
       throw new IllegalArgumentException("chapterRowVersion must not be negative");
+    }
     return new GenerationJob(
         null,
         0L,
@@ -130,6 +139,7 @@ public final class GenerationJob extends AggregateRoot {
         userId,
         storyVersionId,
         chapterId,
+        storyboardRevisionId,
         chapterRowVersion,
         required(sourceHash, "sourceHash"),
         required(sourceText, "sourceText"),
@@ -149,44 +159,10 @@ public final class GenerationJob extends AggregateRoot {
       String currentStep,
       String errorCode,
       String requestedByUserId,
-      String billedToUserId) {
-    return rehydrate(
-        id,
-        rowVersion,
-        jobId,
-        projectId,
-        type,
-        status,
-        resourceClass,
-        progress,
-        currentStep,
-        errorCode,
-        requestedByUserId,
-        billedToUserId,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null);
-  }
-
-  public static GenerationJob rehydrate(
-      Long id,
-      long rowVersion,
-      String jobId,
-      Long projectId,
-      JobType type,
-      JobStatus status,
-      ResourceClass resourceClass,
-      int progress,
-      String currentStep,
-      String errorCode,
-      String requestedByUserId,
       String billedToUserId,
       Long storyVersionId,
       Long chapterId,
+      Long storyboardRevisionId,
       Long chapterRowVersion,
       String sourceHash,
       String sourceText,
@@ -207,6 +183,7 @@ public final class GenerationJob extends AggregateRoot {
         billedToUserId,
         storyVersionId,
         chapterId,
+        storyboardRevisionId,
         chapterRowVersion,
         sourceHash,
         sourceText,
@@ -262,6 +239,10 @@ public final class GenerationJob extends AggregateRoot {
     return chapterId;
   }
 
+  public Long getStoryboardRevisionId() {
+    return storyboardRevisionId;
+  }
+
   public Long getChapterRowVersion() {
     return chapterRowVersion;
   }
@@ -283,8 +264,9 @@ public final class GenerationJob extends AggregateRoot {
   }
 
   private static String required(String value, String field) {
-    if (value == null || value.isBlank())
+    if (value == null || value.isBlank()) {
       throw new IllegalArgumentException(field + " must not be blank");
+    }
     return value;
   }
 }
