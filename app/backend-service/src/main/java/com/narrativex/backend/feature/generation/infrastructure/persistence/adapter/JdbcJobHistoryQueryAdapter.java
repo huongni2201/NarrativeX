@@ -50,7 +50,7 @@ public class JdbcJobHistoryQueryAdapter implements JobHistoryQueryRepository {
                j.current_step,
                j.error_code,
                j.created_at,
-               CASE WHEN j.status IN ('COMPLETED', 'FAILED', 'CANCELLED') THEN j.updated_at END AS completed_at
+               CASE WHEN j.status IN ('COMPLETED', 'FAILED', 'CANCELED') THEN j.updated_at END AS completed_at
           FROM generation_jobs j
           JOIN projects p ON p.id = j.project_id
          WHERE j.requested_by_user_id = ?
