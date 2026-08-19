@@ -21,14 +21,14 @@ class ChapterAnalysisAdmissionServiceTest {
 
   @Test
   void freePlanWithoutStoryAnalysisFeatureIsRejected() {
-    var service = service(quota("{}", 0, 10));
+    var service = service(quota("{}"), new ReservationSpy(true));
 
     assertThrows(FeatureNotAvailableException.class, () -> service.admit("user-1", 7L, SOURCE));
   }
 
   @Test
-  void exhaustedCreditQuotaIsRejectedBeforeReservation() {
-    var service = service(quota("{\"storyAnalysis\":true}", 1, 0.05));
+  void atomicReservationDenialBecomesCostLimit() {
+    var service = service(quota("{\"storyAnalysis\":true}"), new ReservationSpy(false));
 
     var exception =
         assertThrows(
@@ -37,19 +37,16 @@ class ChapterAnalysisAdmissionServiceTest {
   }
 
   @Test
-  void entitledRequestProducesNonZeroOperationEstimate() {
-    var reservation = new ReservationSpy();
-    var service = service(quota("{\"storyAnalysis\":true}", 0, 10), reservation);
+  void entitledRequestReturnsEstimateAndDurableReservation() {
+    var reservation = new ReservationSpy(true);
+    var service = service(quota("{\"storyAnalysis\":true}"), reservation);
 
-    var estimate = service.admit("user-1", 7L, SOURCE);
+    var admission = service.admit("user-1", 7L, SOURCE);
 
-    assertEquals(new BigDecimal("0.010000"), estimate.estimateMin());
-    assertEquals(new BigDecimal("0.010016"), estimate.estimateMax());
+    assertEquals(new BigDecimal("0.010000"), admission.estimate().estimateMin());
+    assertEquals(new BigDecimal("0.010016"), admission.estimate().estimateMax());
     assertEquals(0, new BigDecimal("0.020032").compareTo(reservation.cost));
-  }
-
-  private static ChapterAnalysisAdmissionService service(UserQuotaAccess.QuotaSnapshot quota) {
-    return service(quota, new ReservationSpy());
+    assertEquals(41L, admission.reservation().id());
   }
 
   private static ChapterAnalysisAdmissionService service(
@@ -60,20 +57,40 @@ class ChapterAnalysisAdmissionServiceTest {
         quotaAccess, reservation, new ChapterAnalysisCostEstimator(), safetyGate);
   }
 
-  private static UserQuotaAccess.QuotaSnapshot quota(
-      String flags, int activeJobs, double totalCredits) {
+  private static UserQuotaAccess.QuotaSnapshot quota(String flags) {
     return new UserQuotaAccess.QuotaSnapshot(
-        flags, 1, activeJobs, BigDecimal.ZERO, BigDecimal.valueOf(totalCredits));
+        flags, 4, 0, BigDecimal.ZERO, BigDecimal.valueOf(10));
   }
 
   private static final class ReservationSpy implements QuotaReservation {
+    private final boolean allowed;
     private BigDecimal cost;
 
+    private ReservationSpy(boolean allowed) {
+      this.allowed = allowed;
+    }
+
     @Override
-    public boolean reserve(
+    public Optional<Reservation> reserve(
         String userId, BigDecimal estimatedCost, int maxConcurrentExpensiveJobs) {
       cost = estimatedCost;
-      return true;
+      if (!allowed) {
+        return Optional.empty();
+      }
+      return Optional.of(new Reservation(41L, userId, "2026-08", estimatedCost));
+    }
+
+    @Override
+    public void bindToGenerationJob(long reservationId, long generationJobId) {}
+
+    @Override
+    public boolean consumeForJob(long generationJobId) {
+      return false;
+    }
+
+    @Override
+    public boolean releaseForJob(long generationJobId) {
+      return false;
     }
   }
 }
