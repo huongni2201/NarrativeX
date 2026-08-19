@@ -1,6 +1,6 @@
 """Regression coverage for project-scoped AI continuity identity."""
 
-from narrativex_worker.identity_repository import (
+from narrativex_worker.materialization.identity import (
     _Candidate,
     _identity_similarity,
     _unique_candidate_match,
