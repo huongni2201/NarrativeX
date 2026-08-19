@@ -225,7 +225,9 @@ async def test_provider_reservation_is_unique_across_workers(postgres_database: 
 
 
 @pytest.mark.asyncio
-async def test_provider_result_and_completed_status_persist_atomically(postgres_database: str) -> None:
+async def test_provider_result_and_completed_status_persist_atomically(
+    postgres_database: str,
+) -> None:
     generation_job_id, stage_attempt_id = await seed_job(postgres_database)
     claimed = ClaimedChapterAnalysisJob(
         stage_attempt_id=stage_attempt_id,
