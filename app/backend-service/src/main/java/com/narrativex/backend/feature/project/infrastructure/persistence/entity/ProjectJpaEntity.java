@@ -31,6 +31,12 @@ public class ProjectJpaEntity extends JpaAuditedEntity {
   @Column(name = "name", nullable = false, length = 160)
   private String name;
 
+  @Column(name = "description", columnDefinition = "TEXT")
+  private String description;
+
+  @Column(name = "cover_image_url", length = 1024)
+  private String coverImageUrl;
+
   @Column(name = "owner_id", nullable = false, length = 128)
   private String ownerId;
 
@@ -60,6 +66,8 @@ public class ProjectJpaEntity extends JpaAuditedEntity {
 
   public void apply(Project project) {
     name = project.getName();
+    description = project.getDescription();
+    coverImageUrl = project.getCoverImageUrl();
     ownerId = project.getOwnerId();
     status = project.getStatus();
     sourceLanguage = project.getSourceLanguage();

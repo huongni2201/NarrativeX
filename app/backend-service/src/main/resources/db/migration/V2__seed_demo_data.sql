@@ -30,18 +30,18 @@ VALUES
     ('seed-user-10', 'seed.user10@example.com', 'Demo User 10', 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=256&auto=format&fit=crop', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', TRUE)
 ON CONFLICT DO NOTHING;
 
-INSERT INTO projects (id, name, owner_id, status, source_language, narration_language, metadata_language, image_aspect_ratio, image_quality_tier)
+INSERT INTO projects (id, name, description, cover_image_url, owner_id, status, source_language, narration_language, metadata_language, image_aspect_ratio, image_quality_tier)
 VALUES
-    (1001, 'Lanterns of the Old Quarter', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD'),
-    (1002, 'The Clockmaker''s Map', (SELECT id FROM auth_users WHERE email = 'seed.user02@example.com'), 'ACTIVE', 'en-US', 'en-US', 'en-US', 'RATIO_16_9', 'HIGH'),
-    (1003, 'Mekong Moonlight', (SELECT id FROM auth_users WHERE email = 'seed.user03@example.com'), 'ACTIVE', 'vi-VN', 'en-US', 'en-US', 'RATIO_9_16', 'STANDARD'),
-    (1004, 'A House Made of Rain', (SELECT id FROM auth_users WHERE email = 'seed.user04@example.com'), 'DRAFT', 'en-US', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD'),
-    (1005, 'The Paper Dragon', (SELECT id FROM auth_users WHERE email = 'seed.user05@example.com'), 'ACTIVE', 'zh-CN', 'en-US', 'en-US', 'RATIO_1_1', 'HIGH'),
-    (1006, 'Whispers Beneath the Pines', (SELECT id FROM auth_users WHERE email = 'seed.user06@example.com'), 'ACTIVE', 'en-US', 'en-US', 'en-US', 'RATIO_16_9', 'ULTRA'),
-    (1007, 'Seven Seeds', (SELECT id FROM auth_users WHERE email = 'seed.user07@example.com'), 'ARCHIVED', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_9_16', 'STANDARD'),
-    (1008, 'The Blue Kite', (SELECT id FROM auth_users WHERE email = 'seed.user08@example.com'), 'ACTIVE', 'en-US', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'HIGH'),
-    (1009, 'River of Small Stars', (SELECT id FROM auth_users WHERE email = 'seed.user09@example.com'), 'DRAFT', 'en-US', 'en-US', 'en-US', 'RATIO_1_1', 'STANDARD'),
-    (1010, 'The Last Seed Keeper', (SELECT id FROM auth_users WHERE email = 'seed.user10@example.com'), 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'HIGH')
+    (1001, 'Lanterns of the Old Quarter', 'A story about a traditional artisan creating amber lanterns across historic Hanoi streets.', 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD'),
+    (1002, 'The Clockmaker''s Map', 'An apprentice unravels secret maps hidden inside Victorian pocket watches.', 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'seed.user02@example.com'), 'ACTIVE', 'en-US', 'en-US', 'en-US', 'RATIO_16_9', 'HIGH'),
+    (1003, 'Mekong Moonlight', 'A midnight boat journey along the mystical waters of the Mekong river.', 'https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'seed.user03@example.com'), 'ACTIVE', 'vi-VN', 'en-US', 'en-US', 'RATIO_9_16', 'STANDARD'),
+    (1004, 'A House Made of Rain', 'Reflections of family memories resonating through seasonal summer showers.', 'https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'seed.user04@example.com'), 'DRAFT', 'en-US', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD'),
+    (1005, 'The Paper Dragon', 'An origami dragon comes alive at dusk to protect a sleeping town.', 'https://images.unsplash.com/photo-1563089145-599997674d42?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'seed.user05@example.com'), 'ACTIVE', 'zh-CN', 'en-US', 'en-US', 'RATIO_1_1', 'HIGH'),
+    (1006, 'Whispers Beneath the Pines', 'Two travelers discover a forest choir protecting an ancient sacred tree.', 'https://images.unsplash.com/photo-1448375240586-882707db888b?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'seed.user06@example.com'), 'ACTIVE', 'en-US', 'en-US', 'en-US', 'RATIO_16_9', 'ULTRA'),
+    (1007, 'Seven Seeds', 'Generational wisdom passed through heirloom seeds and changing seasons.', 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'seed.user07@example.com'), 'ARCHIVED', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_9_16', 'STANDARD'),
+    (1008, 'The Blue Kite', 'A message of hope flies above city rooftops tied to a vibrant blue kite.', 'https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'seed.user08@example.com'), 'ACTIVE', 'en-US', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'HIGH'),
+    (1009, 'River of Small Stars', 'Mapping celestial constellations mirrored in the ripples of a quiet river.', 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'seed.user09@example.com'), 'DRAFT', 'en-US', 'en-US', 'en-US', 'RATIO_1_1', 'STANDARD'),
+    (1010, 'The Last Seed Keeper', 'A solitary guardian traverses barren valleys to plant the last memory of green.', 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'seed.user10@example.com'), 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'HIGH')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO story_versions (id, project_id, version_number, content, source_language, status, moderation_decision)
@@ -407,4 +407,21 @@ VALUES
     (19009, (SELECT id FROM auth_users WHERE email = 'seed.user09@example.com'), 'seed-ip-hash-09', 'seed-session-09', '/api/v1/analysis-jobs', 'ANOMALY', 'REVIEW', 'abuse-v1'),
     (19010, (SELECT id FROM auth_users WHERE email = 'seed.user10@example.com'), 'seed-ip-hash-10', 'seed-session-10', '/api/v1/generation', 'RATE_OK', 'ALLOW', 'abuse-v1')
 ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO project_locations (id, project_id, name, description, visual_prompt, reference_image_url, status)
+VALUES
+    (25001, 1001, 'Hanoi Old Quarter Night Market', 'Lively ancient stone streets lined with glowing amber silk lanterns.', 'Cinematic night scene of Old Quarter Hanoi, red and gold lanterns, wet cobblestones reflecting warm light.', 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?q=80&w=800&auto=format&fit=crop', 'ACTIVE'),
+    (25002, 1001, 'Traditional Lantern Workshop', 'Artisan workshop filled with bamboo frames, silk fabrics, and glowing lamps.', 'Warm intimate lantern craftsman workshop, soft shadows, ambient lighting.', 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=800&auto=format&fit=crop', 'ACTIVE'),
+    (25003, 1002, 'Brass Clockmaker Workshop', 'Victorian style workshop with intricate gears, pendulum clocks, and brass tools.', 'Steampunk Victorian watchmaker workshop, dusty sunbeams through arched windows, brass machinery.', 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?q=80&w=800&auto=format&fit=crop', 'ACTIVE'),
+    (25004, 1003, 'Mekong River at Midnight', 'Misty river bank with calm silver water reflecting full moonlight.', 'Atmospheric nighttime riverbank, wooden boat on water, glowing ripples under moonlight.', 'https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=800&auto=format&fit=crop', 'ACTIVE')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO project_assets (id, project_id, name, asset_type, storage_key, url, mime_type, status, metadata_json)
+VALUES
+    (26001, 1001, 'old_quarter_lantern_master.png', 'IMAGE', 'projects/1001/assets/lantern_master.png', 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1200&auto=format&fit=crop', 'image/png', 'ACTIVE', '{"width":1920,"height":1080,"source":"reference"}'::jsonb),
+    (26002, 1001, 'lantern_maker_portrait.png', 'IMAGE', 'projects/1001/assets/artisan_portrait.png', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=1200&auto=format&fit=crop', 'image/png', 'ACTIVE', '{"width":1024,"height":1024,"source":"character_master"}'::jsonb),
+    (26003, 1002, 'brass_gears_blueprint.png', 'IMAGE', 'projects/1002/assets/brass_gears.png', 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?q=80&w=1200&auto=format&fit=crop', 'image/png', 'ACTIVE', '{"width":1920,"height":1080,"source":"reference"}'::jsonb),
+    (26004, 1003, 'moonlit_water_concept.png', 'IMAGE', 'projects/1003/assets/mekong_moonlight.png', 'https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=1200&auto=format&fit=crop', 'image/png', 'ACTIVE', '{"width":1080,"height":1920,"source":"concept_art"}'::jsonb)
+ON CONFLICT (id) DO NOTHING;
+
 
