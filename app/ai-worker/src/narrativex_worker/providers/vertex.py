@@ -110,11 +110,18 @@ class VertexGeminiProvider(LlmProvider):
                 status=ProviderOperationStatus.FAILED,
             )
 
+        text = self._candidate_text(raw)
+        if text is None:
+            return ProviderOperation(
+                provider_key="vertex",
+                operation_id=response_id,
+                status=ProviderOperationStatus.FAILED,
+            )
+
         try:
-            text = raw["candidates"][0]["content"]["parts"][0]["text"]
             parsed = json.loads(text)
             result = ChapterAnalysisResult.model_validate(parsed)
-        except (KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError):
+        except (TypeError, ValueError, json.JSONDecodeError):
             # A successful HTTP response means the provider call already executed. Treat schema
             # failure as terminal instead of retrying and potentially paying for the same work.
             return ProviderOperation(
@@ -165,7 +172,29 @@ class VertexGeminiProvider(LlmProvider):
             value = response.json()
         except ValueError:
             return {}
-        return value if isinstance(value, dict) else {}
+        if not isinstance(value, dict):
+            return {}
+        return {str(key): item for key, item in value.items()}
+
+    @staticmethod
+    def _candidate_text(raw: dict[str, object]) -> str | None:
+        candidates = raw.get("candidates")
+        if not isinstance(candidates, list) or not candidates:
+            return None
+        candidate = candidates[0]
+        if not isinstance(candidate, dict):
+            return None
+        content = candidate.get("content")
+        if not isinstance(content, dict):
+            return None
+        parts = content.get("parts")
+        if not isinstance(parts, list) or not parts:
+            return None
+        part = parts[0]
+        if not isinstance(part, dict):
+            return None
+        text = part.get("text")
+        return text if isinstance(text, str) else None
 
     @staticmethod
     def _response_id(raw: dict[str, object]) -> str:
