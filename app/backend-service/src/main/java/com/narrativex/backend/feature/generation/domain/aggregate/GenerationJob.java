@@ -77,6 +77,31 @@ public final class GenerationJob extends AggregateRoot {
         resourceClass, 0, "QUEUED", null, userId, userId, null, null, null, null, null, null, null, null);
   }
 
+  /** Backward-compatible factory for legacy callers that do not create revisioned analysis jobs. */
+  public static GenerationJob createChapterAnalysis(
+      Long projectId,
+      Long storyVersionId,
+      Long chapterId,
+      long chapterRowVersion,
+      String sourceHash,
+      String sourceText,
+      String sourceLanguage,
+      String idempotencyKey,
+      String userId) {
+    return createChapterAnalysis(
+        projectId,
+        storyVersionId,
+        chapterId,
+        null,
+        chapterRowVersion,
+        sourceHash,
+        sourceText,
+        sourceLanguage,
+        idempotencyKey,
+        userId,
+        false);
+  }
+
   public static GenerationJob createChapterAnalysis(
       Long projectId,
       Long storyVersionId,
@@ -88,9 +113,37 @@ public final class GenerationJob extends AggregateRoot {
       String sourceLanguage,
       String idempotencyKey,
       String userId) {
+    return createChapterAnalysis(
+        projectId,
+        storyVersionId,
+        chapterId,
+        storyboardRevisionId,
+        chapterRowVersion,
+        sourceHash,
+        sourceText,
+        sourceLanguage,
+        idempotencyKey,
+        userId,
+        true);
+  }
+
+  private static GenerationJob createChapterAnalysis(
+      Long projectId,
+      Long storyVersionId,
+      Long chapterId,
+      Long storyboardRevisionId,
+      long chapterRowVersion,
+      String sourceHash,
+      String sourceText,
+      String sourceLanguage,
+      String idempotencyKey,
+      String userId,
+      boolean requireRevision) {
     if (storyVersionId == null || storyVersionId <= 0) throw new IllegalArgumentException("storyVersionId must be positive");
     if (chapterId == null || chapterId <= 0) throw new IllegalArgumentException("chapterId must be positive");
-    if (storyboardRevisionId == null || storyboardRevisionId <= 0) throw new IllegalArgumentException("storyboardRevisionId must be positive");
+    if (requireRevision && (storyboardRevisionId == null || storyboardRevisionId <= 0)) {
+      throw new IllegalArgumentException("storyboardRevisionId must be positive");
+    }
     if (chapterRowVersion < 0) throw new IllegalArgumentException("chapterRowVersion must not be negative");
     return new GenerationJob(null, 0L, UUID.randomUUID().toString(), projectId, JobType.CHAPTER_ANALYZE,
         JobStatus.QUEUED, ResourceClass.PROVIDER_INTERACTIVE, 0, "QUEUED", null, userId, userId,
@@ -104,6 +157,19 @@ public final class GenerationJob extends AggregateRoot {
       String requestedByUserId, String billedToUserId) {
     return rehydrate(id, rowVersion, jobId, projectId, type, status, resourceClass, progress, currentStep,
         errorCode, requestedByUserId, billedToUserId, null, null, null, null, null, null, null, null);
+  }
+
+  /** Backward-compatible rehydration signature used by pre-revision callers/tests. */
+  public static GenerationJob rehydrate(
+      Long id, long rowVersion, String jobId, Long projectId, JobType type, JobStatus status,
+      ResourceClass resourceClass, int progress, String currentStep, String errorCode,
+      String requestedByUserId, String billedToUserId, Long storyVersionId, Long chapterId,
+      Long chapterRowVersion, String sourceHash, String sourceText, String sourceLanguage,
+      String idempotencyKey) {
+    return rehydrate(
+        id, rowVersion, jobId, projectId, type, status, resourceClass, progress, currentStep,
+        errorCode, requestedByUserId, billedToUserId, storyVersionId, chapterId, null,
+        chapterRowVersion, sourceHash, sourceText, sourceLanguage, idempotencyKey);
   }
 
   public static GenerationJob rehydrate(
