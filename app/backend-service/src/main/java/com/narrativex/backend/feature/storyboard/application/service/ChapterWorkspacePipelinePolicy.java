@@ -1,7 +1,5 @@
 package com.narrativex.backend.feature.storyboard.application.service;
 
-import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
-
 /** Pure policy for deriving Chapter Workspace analysis/planning state from persisted job state. */
 public final class ChapterWorkspacePipelinePolicy {
   private ChapterWorkspacePipelinePolicy() {}
@@ -26,11 +24,10 @@ public final class ChapterWorkspacePipelinePolicy {
   }
 
   private static boolean isActive(String status) {
-    try {
-      return JobStatus.valueOf(status).isActive();
-    } catch (IllegalArgumentException exception) {
-      return false;
-    }
+    return switch (status) {
+      case "QUEUED", "RUNNING", "STALLED", "UNKNOWN", "PAUSED_COST_LIMIT" -> true;
+      default -> false;
+    };
   }
 
   public record PipelineState(
