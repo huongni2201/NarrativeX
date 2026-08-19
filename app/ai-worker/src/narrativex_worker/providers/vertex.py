@@ -175,9 +175,7 @@ class VertexGeminiProvider(LlmProvider):
         )
         uncached_prompt = max(0, usage.prompt_tokens - usage.cached_input_tokens)
         output_rate = (
-            self._FLASH_25_THINKING_OUTPUT
-            if usage.thought_tokens > 0
-            else self._FLASH_25_OUTPUT
+            self._FLASH_25_THINKING_OUTPUT if usage.thought_tokens > 0 else self._FLASH_25_OUTPUT
         )
         output_tokens = usage.candidate_tokens + usage.thought_tokens
         actual_cost = (
