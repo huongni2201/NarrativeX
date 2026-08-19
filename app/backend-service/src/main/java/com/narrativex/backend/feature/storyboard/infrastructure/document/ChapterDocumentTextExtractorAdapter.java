@@ -54,8 +54,7 @@ public class ChapterDocumentTextExtractorAdapter implements ChapterDocumentTextE
         }
       }
     }
-    if (documentXml == null)
-      throw new IllegalArgumentException("DOCX document.xml was not found");
+    if (documentXml == null) throw new IllegalArgumentException("DOCX document.xml was not found");
 
     DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
     factory.setNamespaceAware(true);
