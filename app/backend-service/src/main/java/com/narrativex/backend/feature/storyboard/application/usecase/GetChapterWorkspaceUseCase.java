@@ -3,7 +3,6 @@ package com.narrativex.backend.feature.storyboard.application.usecase;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.response.ApiResponse;
-import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterResponse;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterWorkspaceResponse;
@@ -150,11 +149,10 @@ public class GetChapterWorkspaceUseCase {
   }
 
   private static boolean isActive(String status) {
-    try {
-      return JobStatus.valueOf(status).isActive();
-    } catch (IllegalArgumentException exception) {
-      return false;
-    }
+    return switch (status) {
+      case "QUEUED", "RUNNING", "STALLED", "UNKNOWN", "PAUSED_COST_LIMIT" -> true;
+      default -> false;
+    };
   }
 
   private record AnalysisProjection(String status, String sourceHash, Instant completedAt) {}
