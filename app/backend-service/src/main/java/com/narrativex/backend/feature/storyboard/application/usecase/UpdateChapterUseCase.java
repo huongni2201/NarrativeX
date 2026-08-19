@@ -31,7 +31,8 @@ public class UpdateChapterUseCase {
     storyboardRevisionAccess.lockChapter(command.chapterId());
 
     var chapter =
-        chapterRepository.findById(command.chapterId())
+        chapterRepository
+            .findById(command.chapterId())
             .orElseThrow(() -> new ResourceNotFoundException("Chapter not found"));
     storyVersionAccess.requireOwnedStoryVersion(
         command.projectId(), chapter.getStoryVersionId(), currentUserId.get());
@@ -47,7 +48,9 @@ public class UpdateChapterUseCase {
   }
 
   private void validateSourceSize(String sourceText) {
-    if (sourceText == null) throw new IllegalArgumentException("sourceText must not be null");
+    if (sourceText == null) {
+      throw new IllegalArgumentException("sourceText must not be null");
+    }
     int characterCount = sourceText.codePointCount(0, sourceText.length());
     int estimatedTokens = TextInputEstimator.estimateTokensConservatively(sourceText);
     if (characterCount > limits.getMaxStoryCharacters()) {
