@@ -55,7 +55,7 @@ def test_worker_settings_accepts_canonical_provider_mode_env(
     monkeypatch.setenv("AI_PROVIDER_MODE", "vertex")
     monkeypatch.delenv("PROVIDER_MODE", raising=False)
 
-    settings = WorkerSettings(_env_file=None)
+    settings = WorkerSettings(_env_file=None)  # type: ignore[call-arg]
 
     assert settings.provider_mode == "vertex"
 
@@ -66,7 +66,7 @@ def test_worker_settings_prefers_canonical_provider_mode_env(
     monkeypatch.setenv("AI_PROVIDER_MODE", "disabled")
     monkeypatch.setenv("PROVIDER_MODE", "vertex")
 
-    settings = WorkerSettings(_env_file=None)
+    settings = WorkerSettings(_env_file=None)  # type: ignore[call-arg]
 
     assert settings.provider_mode == "disabled"
 
@@ -77,7 +77,7 @@ def test_worker_settings_defaults_provider_to_disabled_when_unset(
     monkeypatch.delenv("AI_PROVIDER_MODE", raising=False)
     monkeypatch.delenv("PROVIDER_MODE", raising=False)
 
-    settings = WorkerSettings(_env_file=None)
+    settings = WorkerSettings(_env_file=None)  # type: ignore[call-arg]
 
     assert settings.provider_mode == "disabled"
 
@@ -86,7 +86,7 @@ def test_worker_settings_accepts_legacy_provider_mode_env(monkeypatch: pytest.Mo
     monkeypatch.delenv("AI_PROVIDER_MODE", raising=False)
     monkeypatch.setenv("PROVIDER_MODE", "vertex")
 
-    settings = WorkerSettings(_env_file=None)
+    settings = WorkerSettings(_env_file=None)  # type: ignore[call-arg]
 
     assert settings.provider_mode == "vertex"
 
@@ -95,7 +95,7 @@ def test_worker_settings_rejects_invalid_provider_mode(monkeypatch: pytest.Monke
     monkeypatch.setenv("AI_PROVIDER_MODE", "foo")
 
     with pytest.raises(ValidationError):
-        WorkerSettings(_env_file=None)
+        WorkerSettings(_env_file=None)  # type: ignore[call-arg]
 
 
 @pytest.mark.parametrize("concurrency", [1, 32])
@@ -105,7 +105,7 @@ def test_worker_settings_accepts_concurrency_boundaries(
 ) -> None:
     monkeypatch.setenv("WORKER_CONCURRENCY", str(concurrency))
 
-    settings = WorkerSettings(_env_file=None)
+    settings = WorkerSettings(_env_file=None)  # type: ignore[call-arg]
 
     assert settings.worker_concurrency == concurrency
 
@@ -118,7 +118,7 @@ def test_worker_settings_rejects_concurrency_outside_contract(
     monkeypatch.setenv("WORKER_CONCURRENCY", str(concurrency))
 
     with pytest.raises(ValidationError):
-        WorkerSettings(_env_file=None)
+        WorkerSettings(_env_file=None)  # type: ignore[call-arg]
 
 
 def test_vertex_provider_fails_fast_without_project() -> None:
@@ -212,14 +212,16 @@ async def test_disabled_provider_never_fakes_success() -> None:
 
 
 def completed_result() -> ChapterAnalysisResult:
-    return ChapterAnalysisResult(
-        scenes=[
-            {
-                "title": "Opening",
-                "narration": "A door opens.",
-                "visual_beats": [{"title": "Door", "visual_intent": "Warm light"}],
-            }
-        ]
+    return ChapterAnalysisResult.model_validate(
+        {
+            "scenes": [
+                {
+                    "title": "Opening",
+                    "narration": "A door opens.",
+                    "visual_beats": [{"title": "Door", "visual_intent": "Warm light"}],
+                }
+            ]
+        }
     )
 
 
@@ -261,9 +263,7 @@ class DurableRepositorySpy:
     ) -> DurableProviderOperation:
         del operation_id
         self.status_history.append(status)
-        return DurableProviderOperation(
-            100, 10, "vertex", provider_operation_id, status, "f"
-        )
+        return DurableProviderOperation(100, 10, "vertex", provider_operation_id, status, "f")
 
     async def complete(self, *args: object) -> None:
         del args
@@ -279,7 +279,7 @@ class ProviderSpy:
     def get_capabilities(self) -> ProviderCapabilities:
         return ProviderCapabilities("vertex", supports_story_analysis=True)
 
-    def estimate(self, request: ChapterAnalysisRequest):
+    def estimate(self, request: ChapterAnalysisRequest) -> None:
         del request
         return None
 

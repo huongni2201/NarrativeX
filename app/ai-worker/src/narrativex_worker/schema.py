@@ -1,8 +1,11 @@
 """Durable worker payloads shared with the backend contract."""
 
 from enum import StrEnum
+from typing import Self
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+ENTITY_KEY_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
 
 
 class ResourceClass(StrEnum):
@@ -64,6 +67,7 @@ class ImageGenerationSettings(BaseModel):
 class CharacterAnalysis(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    key: str = Field(pattern=ENTITY_KEY_PATTERN)
     name: str = Field(min_length=1, max_length=160)
     aliases: list[str] = Field(default_factory=list)
     description: str = Field(default="", max_length=4000)
@@ -72,7 +76,8 @@ class CharacterAnalysis(BaseModel):
 class LocationAnalysis(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    name: str = Field(min_length=1, max_length=200)
+    key: str = Field(pattern=ENTITY_KEY_PATTERN)
+    name: str = Field(min_length=1, max_length=160)
     description: str = Field(default="", max_length=4000)
 
 
@@ -83,13 +88,19 @@ class VisualBeatAnalysis(BaseModel):
     visual_intent: str = Field(min_length=1, max_length=8000)
 
 
+class SceneCharacterRef(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    character_key: str = Field(pattern=ENTITY_KEY_PATTERN)
+
+
 class SceneAnalysis(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     title: str = Field(min_length=1, max_length=200)
     narration: str = Field(default="", max_length=50_000)
-    characters: list[str] = Field(default_factory=list)
-    location: str | None = Field(default=None, max_length=200)
+    characters: list[SceneCharacterRef] = Field(default_factory=list)
+    location_key: str | None = Field(default=None, pattern=ENTITY_KEY_PATTERN)
     visual_beats: list[VisualBeatAnalysis] = Field(min_length=1)
 
 
@@ -99,6 +110,32 @@ class ChapterAnalysisResult(BaseModel):
     characters: list[CharacterAnalysis] = Field(default_factory=list)
     locations: list[LocationAnalysis] = Field(default_factory=list)
     scenes: list[SceneAnalysis] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_scene_references(self) -> Self:
+        character_keys = [character.key for character in self.characters]
+        location_keys = [location.key for location in self.locations]
+        if len(character_keys) != len(set(character_keys)):
+            raise ValueError("character keys must be unique")
+        if len(location_keys) != len(set(location_keys)):
+            raise ValueError("location keys must be unique")
+
+        known_character_keys = set(character_keys)
+        known_location_keys = set(location_keys)
+        for scene_index, scene in enumerate(self.scenes):
+            scene_character_keys = [ref.character_key for ref in scene.characters]
+            if len(scene_character_keys) != len(set(scene_character_keys)):
+                raise ValueError(f"scene {scene_index} contains duplicate character references")
+            for character_key in scene_character_keys:
+                if character_key not in known_character_keys:
+                    raise ValueError(
+                        f"scene {scene_index} references unknown character_key {character_key!r}"
+                    )
+            if scene.location_key is not None and scene.location_key not in known_location_keys:
+                raise ValueError(
+                    f"scene {scene_index} references unknown location_key {scene.location_key!r}"
+                )
+        return self
 
 
 class ChapterAnalysisRequest(BaseModel):

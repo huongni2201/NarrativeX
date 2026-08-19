@@ -199,9 +199,7 @@ class NarrativeXWorker:
                 f"Provider submission outcome is unknown: {type(exception).__name__}"
             ) from exception
 
-        await self.repository.mark_provider_operation_submitted(
-            durable.id, operation.operation_id
-        )
+        await self.repository.mark_provider_operation_submitted(durable.id, operation.operation_id)
         await self._finish_provider_operation(claimed, durable.id, operation)
 
     async def _recover_provider_operation(
