@@ -1,7 +1,7 @@
 package com.narrativex.backend.feature.account.infrastructure.persistence.adapter;
 
-import com.narrativex.backend.feature.account.application.port.out.UserQuotaQueryRepository;
 import com.narrativex.backend.feature.account.application.port.in.UserQuotaAccess;
+import com.narrativex.backend.feature.account.application.port.out.UserQuotaQueryRepository;
 import com.narrativex.backend.feature.account.application.query.UserQuotaView;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
