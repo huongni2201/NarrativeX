@@ -1,6 +1,5 @@
 """Worker-side orchestration boundary for durable jobs."""
 
-from narrativex_worker.prompting import build_chapter_analysis_prompt
 from narrativex_worker.providers.ports import LlmProvider, ProviderOperation
 from narrativex_worker.schema import ChapterAnalysisRequest, ProviderOperationStatus
 
@@ -10,8 +9,6 @@ class WorkerService:
         self.provider = provider
 
     async def submit_chapter_analysis(self, request: ChapterAnalysisRequest) -> ProviderOperation:
-        # Building the prompt is deterministic and testable; submission remains adapter-owned.
-        build_chapter_analysis_prompt(request)
         return await self.provider.submit(request)
 
     async def reconcile_chapter_analysis(self, operation: ProviderOperation) -> ProviderOperation:
