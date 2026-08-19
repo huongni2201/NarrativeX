@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FileText, ShieldCheck, CheckCircle2 } from "lucide-react";
+import { FileText, Info } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 
 export interface CreateChapterInput {
@@ -16,14 +16,6 @@ interface CreateChapterModalProps {
   onClose: () => void;
   onSubmit: (input: CreateChapterInput) => void;
 }
-
-const inheritedContexts = [
-  "Character Bible & Locked Versions",
-  "Địa điểm & Bối cảnh",
-  "Outfit & Style Bible",
-  "Cài đặt Visual & Motion",
-  "Giọng đọc & Ngôn ngữ",
-];
 
 export function CreateChapterModal({
   isOpen,
@@ -62,7 +54,7 @@ export function CreateChapterModal({
       isOpen={isOpen}
       onClose={() => !isSubmitting && onClose()}
       title="Thêm Chapter mới"
-      subtitle="Chapter mới sẽ dùng cấu hình và context hiện có của project."
+      subtitle="Chapter mới được tạo trong cùng Project và dùng cấu hình Project hiện tại."
       maxWidth="2xl"
       closeDisabled={isSubmitting}
     >
@@ -121,17 +113,13 @@ export function CreateChapterModal({
         </div>
 
         <div className="rounded-xl border border-slate-800 bg-[#090e18] p-4">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-emerald-400" />
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-200">Kế thừa từ dự án</h3>
-          </div>
-          <div className="mt-3 space-y-2">
-            {inheritedContexts.map((item) => (
-              <div key={item} className="flex items-center gap-2 text-xs text-slate-400">
-                <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
-                {item}
-              </div>
-            ))}
+          <div className="flex items-start gap-2 text-xs leading-5 text-slate-400">
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-sky-400" />
+            <p>
+              Character, Location, Outfit, Voice và các context chuyên biệt chỉ được áp dụng khi
+              workflow backend tương ứng cung cấp capability đó. Màn hình này không giả định hoặc
+              xác nhận việc snapshot/kế thừa các context chưa được backend bảo đảm.
+            </p>
           </div>
         </div>
 
