@@ -12,11 +12,8 @@
 
 | Migration | Purpose | Current state |
 |---|---|---|
-| V1 `initial_schema` | Auth, project/story/chapter foundations, generation tables, storyboard, reusable character foundations and control-plane schema | Implemented baseline |
-| V2 `seed_demo_data` | Deterministic development/demo seed | Development only |
-| V3 `split_visual_beat_motion_fields` | Separates `motion_mode` and `camera_movement` in VisualBeat | Implemented |
-| V4 `durable_provider_operations_and_admission_limits` | ProviderOperation fingerprint/status lifecycle, OperationPlan ↔ GenerationJob link, monthly credits/admission fields | Implemented |
-| V5 `harden_generation_execution_constraints` | Canonical execution values, progress bounds and DB CHECK constraints | Implemented |
+| V1 `initial_schema` | Auth, project/story/chapter foundations, generation tables, storyboard (split motion/camera), durable provider operations & admission limits, canonical execution constraints and control plane | Consolidated baseline |
+| V2 `seed_demo_data` | Deterministic development/demo seed with canonical execution enums and valid plan credits | Development only |
 
 Migration history is forward-only. Development re-baselines must not be treated as a production migration rewrite strategy.
 
@@ -37,11 +34,10 @@ Migration history is forward-only. Development re-baselines must not be treated 
 
 ## Durable execution persistence
 
-The V5 persisted execution contract is documented in
+The persisted execution contract is documented in
 [`ADR-0012`](../decisions/ADR-0012-canonical-execution-persistence-contract.md).
 Java and Python mirrors must be updated with every new persisted execution
-value. Known V2 demo aliases are migrated explicitly; invalid progress is never
-clamped during migration.
+value. Canonical execution values and bounds are validated via PostgreSQL CHECK constraints in V1.
 
 The database contract for expensive work is:
 

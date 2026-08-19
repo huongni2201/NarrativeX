@@ -21,13 +21,12 @@ incompatible schema.
 - Keep exactly two migrations under
   `app/backend-service/src/main/resources/db/migration/`:
   `V1__initial_schema.sql` and `V2__seed_demo_data.sql`.
-- `V1__initial_schema.sql` contains the final development schema, including the
-  chapter source hash contract, project/story-version checks, generation-job
-  snapshot columns, project overview fields, and all indexes formerly added by
-  V3–V8.
-- `V2__seed_demo_data.sql` contains only deterministic local/demo data and uses
-  the current enum values (`ACTIVE`, `SUPERSEDED`, `SAFE`) plus valid chapter
-  source hashes.
+- `V1__initial_schema.sql` contains the final consolidated schema, including
+  split motion fields (`motion_mode`, `camera_movement`), durable provider operations,
+  `operation_plans.generation_job_id`, `plan_entitlements.monthly_credits`,
+  canonical execution check constraints, and all baseline indexes.
+- `V2__seed_demo_data.sql` contains only deterministic local/demo data using
+  canonical enum values and valid plan credits.
 - Keep `spring.flyway.baseline-on-migrate=false`. No `ignore-migration-patterns`
   or checksum bypass is added to hide an old migration history.
 - Existing databases created with the former V3–V8 history require an

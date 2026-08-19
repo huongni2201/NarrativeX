@@ -18,13 +18,10 @@ This page records the current repository stack and its V1.10 role. Canonical aut
 
 The maintained development chain is:
 
-- V1 `initial_schema`
-- V2 `seed_demo_data`
-- V3 `split_visual_beat_motion_fields`
-- V4 `durable_provider_operations_and_admission_limits`
-- V5 `harden_generation_execution_constraints`
+- V1 `initial_schema` (consolidated complete schema)
+- V2 `seed_demo_data` (deterministic local/demo dataset)
 
-V4 links OperationPlan to GenerationJob, adds ProviderOperation request fingerprint/status constraints and adds plan monthly credits. Released migration history must remain forward-only.
+V1 includes complete schema foundations, split motion fields, OperationPlan to GenerationJob link, ProviderOperation request fingerprint/status constraints, plan monthly credits and canonical execution constraints. Released migration history must remain forward-only.
 
 ## Durable Chapter Analyze
 

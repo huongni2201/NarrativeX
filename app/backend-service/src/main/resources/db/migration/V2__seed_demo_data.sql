@@ -28,7 +28,7 @@ VALUES
     ('seed-user-08', 'seed.user08@example.com', 'Demo User 08', 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=256&auto=format&fit=crop', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', TRUE),
     ('seed-user-09', 'seed.user09@example.com', 'Demo User 09', 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?q=80&w=256&auto=format&fit=crop', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', TRUE),
     ('seed-user-10', 'seed.user10@example.com', 'Demo User 10', 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=256&auto=format&fit=crop', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', TRUE)
-ON CONFLICT DO NOTHING;
+ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO projects (id, name, description, cover_image_url, owner_id, status, source_language, narration_language, metadata_language, image_aspect_ratio, image_quality_tier)
 VALUES
@@ -82,78 +82,78 @@ VALUES
     (4006, 3006, 1, 'Pine Choir', 'The trees turn wind into a layered song.', 44, 'APPROVED'),
     (4007, 3007, 1, 'Garden Hands', 'Careful hands place a seed in dark soil.', 34, 'OUTDATED'),
     (4008, 3008, 1, 'Rooftop Wind', 'The kite crosses a row of sunlit roofs.', 39, 'APPROVED'),
-    (4009, 3009, 1, 'River Sky', 'Stars tremble in the current below.', 41, 'DRAFT'),
+    (4009, 3009, 1, 'River Sky', 'Stars average and ripple in the current below.', 41, 'DRAFT'),
     (4010, 3010, 1, 'Valley Footpath', 'A narrow path leads toward a green horizon.', 47, 'APPROVED')
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO visual_beats (id, scene_id, order_index, title, visual_intent, review_status, motion_action, aspect_ratio_override, quality_tier_override)
+INSERT INTO visual_beats (id, scene_id, order_index, title, visual_intent, review_status, motion_mode, camera_movement, aspect_ratio_override, quality_tier_override)
 VALUES
-    (5001, 4001, 1, 'Lanterns at dawn', 'Warm lanterns form a river of light through quiet stone streets.', 'APPROVED', 'PAN', 'RATIO_16_9', 'STANDARD'),
-    (5002, 4002, 1, 'Brass gears mechanism', 'Brass gears rotate around a miniature hand-drawn city.', 'APPROVED', 'PUSH_IN', 'RATIO_16_9', 'HIGH'),
-    (5003, 4003, 1, 'River moonlight crossing', 'A small boat cuts a silver path across the river.', 'APPROVED', 'TRACK', 'RATIO_9_16', 'STANDARD'),
-    (5004, 4004, 1, 'Rain window reflection', 'Raindrops merge into soft reflections of a family room.', 'NEEDS_REVIEW', 'STATIC', 'RATIO_16_9', 'STANDARD'),
-    (5005, 4005, 1, 'Paper dragon silhouette', 'An origami dragon opens paper wings above a sleeping town.', 'APPROVED', 'RISE', 'RATIO_1_1', 'HIGH'),
-    (5006, 4006, 1, 'Pine forest choir', 'Pine branches sway in rhythmic layers beneath a deep sky.', 'APPROVED', 'PARALLAX', 'RATIO_16_9', 'ULTRA'),
-    (5007, 4007, 1, 'Garden seed timelapse', 'A seed settles into soil while seasons pass in a time-lapse.', 'APPROVED', 'DISSOLVE', 'RATIO_9_16', 'STANDARD'),
-    (5008, 4008, 1, 'Blue kite rooftop breeze', 'A bright blue kite pulls a red thread across rooftops.', 'APPROVED', 'TRACK', 'RATIO_16_9', 'HIGH'),
-    (5009, 4009, 1, 'Star reflection current', 'Constellations ripple and reform in the moving river.', 'NEEDS_REVIEW', 'ZOOM_OUT', 'RATIO_1_1', 'STANDARD'),
-    (5010, 4010, 1, 'Green shoot in the valley', 'A single green shoot appears at the end of the dry path.', 'APPROVED', 'PUSH_IN', 'RATIO_16_9', 'HIGH')
+    (5001, 4001, 1, 'Lanterns at dawn', 'Warm lanterns form a river of light through quiet stone streets.', 'APPROVED', 'BASIC_MOTION', 'PAN', 'RATIO_16_9', 'STANDARD'),
+    (5002, 4002, 1, 'Brass gears mechanism', 'Brass gears rotate around a miniature hand-drawn city.', 'APPROVED', 'BASIC_MOTION', 'PUSH_IN', 'RATIO_16_9', 'HIGH'),
+    (5003, 4003, 1, 'River moonlight crossing', 'A small boat cuts a silver path across the river.', 'APPROVED', 'BASIC_MOTION', 'TRACK', 'RATIO_9_16', 'STANDARD'),
+    (5004, 4004, 1, 'Rain window reflection', 'Raindrops merge into soft reflections of a family room.', 'NEEDS_REVIEW', 'STILL', 'NONE', 'RATIO_16_9', 'STANDARD'),
+    (5005, 4005, 1, 'Paper dragon silhouette', 'An origami dragon opens paper wings above a sleeping town.', 'APPROVED', 'BASIC_MOTION', 'TILT', 'RATIO_1_1', 'HIGH'),
+    (5006, 4006, 1, 'Pine forest choir', 'Pine branches sway in rhythmic layers beneath a deep sky.', 'APPROVED', 'BASIC_MOTION', 'PARALLAX', 'RATIO_16_9', 'ULTRA'),
+    (5007, 4007, 1, 'Garden seed timelapse', 'A seed settles into soil while seasons pass in a time-lapse.', 'APPROVED', 'STILL', 'NONE', 'RATIO_9_16', 'STANDARD'),
+    (5008, 4008, 1, 'Blue kite rooftop breeze', 'A bright blue kite pulls a red thread across rooftops.', 'APPROVED', 'BASIC_MOTION', 'TRACK', 'RATIO_16_9', 'HIGH'),
+    (5009, 4009, 1, 'Star reflection current', 'Constellations ripple and reform in the moving river.', 'NEEDS_REVIEW', 'BASIC_MOTION', 'ZOOM_OUT', 'RATIO_1_1', 'STANDARD'),
+    (5010, 4010, 1, 'Green shoot in the valley', 'A single green shoot appears at the end of the dry path.', 'APPROVED', 'BASIC_MOTION', 'PUSH_IN', 'RATIO_16_9', 'HIGH')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO generation_jobs (id, job_id, project_id, job_type, status, resource_class, progress, current_step, requested_by_user_id, billed_to_user_id)
 VALUES
-    (6001, '00000000-0000-4000-8000-000000000001', 1001, 'STORY_ANALYSIS', 'COMPLETED', 'STANDARD', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com')),
-    (6002, '00000000-0000-4000-8000-000000000002', 1002, 'IMAGE_GENERATION', 'COMPLETED', 'GPU', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'seed.user02@example.com'), (SELECT id FROM auth_users WHERE email = 'seed.user02@example.com')),
-    (6003, '00000000-0000-4000-8000-000000000003', 1003, 'IMAGE_GENERATION', 'RUNNING', 'GPU', 64, 'rendering_visual_beats', (SELECT id FROM auth_users WHERE email = 'seed.user03@example.com'), (SELECT id FROM auth_users WHERE email = 'seed.user03@example.com')),
-    (6004, '00000000-0000-4000-8000-000000000004', 1004, 'STORY_ANALYSIS', 'QUEUED', 'STANDARD', 0, 'queued', (SELECT id FROM auth_users WHERE email = 'seed.user04@example.com'), (SELECT id FROM auth_users WHERE email = 'seed.user04@example.com')),
-    (6005, '00000000-0000-4000-8000-000000000005', 1005, 'VIDEO_RENDER', 'COMPLETED', 'GPU', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'seed.user05@example.com'), (SELECT id FROM auth_users WHERE email = 'seed.user05@example.com')),
-    (6006, '00000000-0000-4000-8000-000000000006', 1006, 'VIDEO_RENDER', 'FAILED', 'GPU', 72, 'provider_output_review', (SELECT id FROM auth_users WHERE email = 'seed.user06@example.com'), (SELECT id FROM auth_users WHERE email = 'seed.user06@example.com')),
-    (6007, '00000000-0000-4000-8000-000000000007', 1007, 'SHORT_EXPORT', 'COMPLETED', 'GPU', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'seed.user07@example.com'), (SELECT id FROM auth_users WHERE email = 'seed.user07@example.com')),
-    (6008, '00000000-0000-4000-8000-000000000008', 1008, 'IMAGE_GENERATION', 'COMPLETED', 'GPU', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'seed.user08@example.com'), (SELECT id FROM auth_users WHERE email = 'seed.user08@example.com')),
-    (6009, '00000000-0000-4000-8000-000000000009', 1009, 'STORY_ANALYSIS', 'QUEUED', 'STANDARD', 0, 'queued', (SELECT id FROM auth_users WHERE email = 'seed.user09@example.com'), (SELECT id FROM auth_users WHERE email = 'seed.user09@example.com')),
-    (6010, '00000000-0000-4000-8000-000000000010', 1010, 'VIDEO_RENDER', 'COMPLETED', 'GPU', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'seed.user10@example.com'), (SELECT id FROM auth_users WHERE email = 'seed.user10@example.com'))
+    (6001, '00000000-0000-4000-8000-000000000001', 1001, 'STORY_ANALYZE', 'COMPLETED', 'CPU_LIGHT', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com')),
+    (6002, '00000000-0000-4000-8000-000000000002', 1002, 'IMAGE_GENERATE', 'COMPLETED', 'GPU_HEAVY', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'seed.user02@example.com'), (SELECT id FROM auth_users WHERE email = 'seed.user02@example.com')),
+    (6003, '00000000-0000-4000-8000-000000000003', 1003, 'IMAGE_GENERATE', 'RUNNING', 'GPU_HEAVY', 64, 'rendering_visual_beats', (SELECT id FROM auth_users WHERE email = 'seed.user03@example.com'), (SELECT id FROM auth_users WHERE email = 'seed.user03@example.com')),
+    (6004, '00000000-0000-4000-8000-000000000004', 1004, 'STORY_ANALYZE', 'QUEUED', 'CPU_LIGHT', 0, 'queued', (SELECT id FROM auth_users WHERE email = 'seed.user04@example.com'), (SELECT id FROM auth_users WHERE email = 'seed.user04@example.com')),
+    (6005, '00000000-0000-4000-8000-000000000005', 1005, 'RENDER_PROJECT', 'COMPLETED', 'GPU_HEAVY', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'seed.user05@example.com'), (SELECT id FROM auth_users WHERE email = 'seed.user05@example.com')),
+    (6006, '00000000-0000-4000-8000-000000000006', 1006, 'RENDER_PROJECT', 'FAILED', 'GPU_HEAVY', 72, 'provider_output_review', (SELECT id FROM auth_users WHERE email = 'seed.user06@example.com'), (SELECT id FROM auth_users WHERE email = 'seed.user06@example.com')),
+    (6007, '00000000-0000-4000-8000-000000000007', 1007, 'RENDER_SHORT', 'COMPLETED', 'GPU_HEAVY', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'seed.user07@example.com'), (SELECT id FROM auth_users WHERE email = 'seed.user07@example.com')),
+    (6008, '00000000-0000-4000-8000-000000000008', 1008, 'IMAGE_GENERATE', 'COMPLETED', 'GPU_HEAVY', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'seed.user08@example.com'), (SELECT id FROM auth_users WHERE email = 'seed.user08@example.com')),
+    (6009, '00000000-0000-4000-8000-000000000009', 1009, 'STORY_ANALYZE', 'QUEUED', 'CPU_LIGHT', 0, 'queued', (SELECT id FROM auth_users WHERE email = 'seed.user09@example.com'), (SELECT id FROM auth_users WHERE email = 'seed.user09@example.com')),
+    (6010, '00000000-0000-4000-8000-000000000010', 1010, 'RENDER_PROJECT', 'COMPLETED', 'GPU_HEAVY', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'seed.user10@example.com'), (SELECT id FROM auth_users WHERE email = 'seed.user10@example.com'))
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO stage_attempts (id, generation_job_id, stage_name, attempt_number, status, worker_id, heartbeat_at)
 VALUES
-    (7001, 6001, 'ANALYZE', 1, 'SUCCEEDED', 'seed-worker-01', CURRENT_TIMESTAMP),
-    (7002, 6002, 'IMAGE', 1, 'SUCCEEDED', 'seed-worker-02', CURRENT_TIMESTAMP),
+    (7001, 6001, 'ANALYZE', 1, 'COMPLETED', 'seed-worker-01', CURRENT_TIMESTAMP),
+    (7002, 6002, 'IMAGE', 1, 'COMPLETED', 'seed-worker-02', CURRENT_TIMESTAMP),
     (7003, 6003, 'IMAGE', 1, 'RUNNING', 'seed-worker-03', CURRENT_TIMESTAMP),
-    (7004, 6004, 'ANALYZE', 1, 'PENDING', NULL, NULL),
-    (7005, 6005, 'VIDEO', 1, 'SUCCEEDED', 'seed-worker-05', CURRENT_TIMESTAMP),
+    (7004, 6004, 'ANALYZE', 1, 'QUEUED', NULL, NULL),
+    (7005, 6005, 'VIDEO', 1, 'COMPLETED', 'seed-worker-05', CURRENT_TIMESTAMP),
     (7006, 6006, 'VIDEO', 1, 'FAILED', 'seed-worker-06', CURRENT_TIMESTAMP),
-    (7007, 6007, 'SHORT', 1, 'SUCCEEDED', 'seed-worker-07', CURRENT_TIMESTAMP),
-    (7008, 6008, 'IMAGE', 1, 'SUCCEEDED', 'seed-worker-08', CURRENT_TIMESTAMP),
-    (7009, 6009, 'ANALYZE', 1, 'PENDING', NULL, NULL),
-    (7010, 6010, 'VIDEO', 1, 'SUCCEEDED', 'seed-worker-10', CURRENT_TIMESTAMP)
+    (7007, 6007, 'SHORT', 1, 'COMPLETED', 'seed-worker-07', CURRENT_TIMESTAMP),
+    (7008, 6008, 'IMAGE', 1, 'COMPLETED', 'seed-worker-08', CURRENT_TIMESTAMP),
+    (7009, 6009, 'ANALYZE', 1, 'QUEUED', NULL, NULL),
+    (7010, 6010, 'VIDEO', 1, 'COMPLETED', 'seed-worker-10', CURRENT_TIMESTAMP)
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO provider_operations (id, stage_attempt_id, provider_key, provider_operation_id, status)
+INSERT INTO provider_operations (id, stage_attempt_id, provider_key, provider_operation_id, status, request_fingerprint)
 VALUES
-    (8001, 7001, 'demo.analysis', 'demo-op-0001', 'SUCCEEDED'),
-    (8002, 7002, 'demo.image', 'demo-op-0002', 'SUCCEEDED'),
-    (8003, 7003, 'demo.image', 'demo-op-0003', 'RUNNING'),
-    (8004, 7004, 'demo.analysis', NULL, 'RESERVED'),
-    (8005, 7005, 'demo.video', 'demo-op-0005', 'SUCCEEDED'),
-    (8006, 7006, 'demo.video', 'demo-op-0006', 'FAILED'),
-    (8007, 7007, 'demo.short', 'demo-op-0007', 'SUCCEEDED'),
-    (8008, 7008, 'demo.image', 'demo-op-0008', 'SUCCEEDED'),
-    (8009, 7009, 'demo.analysis', NULL, 'RESERVED'),
-    (8010, 7010, 'demo.video', 'demo-op-0010', 'SUCCEEDED')
+    (8001, 7001, 'demo.analysis', 'demo-op-0001', 'COMPLETED', 'seed-fp-8001'),
+    (8002, 7002, 'demo.image', 'demo-op-0002', 'COMPLETED', 'seed-fp-8002'),
+    (8003, 7003, 'demo.image', 'demo-op-0003', 'RUNNING', 'seed-fp-8003'),
+    (8004, 7004, 'demo.analysis', NULL, 'RESERVED', 'seed-fp-8004'),
+    (8005, 7005, 'demo.video', 'demo-op-0005', 'COMPLETED', 'seed-fp-8005'),
+    (8006, 7006, 'demo.video', 'demo-op-0006', 'FAILED', 'seed-fp-8006'),
+    (8007, 7007, 'demo.short', 'demo-op-0007', 'COMPLETED', 'seed-fp-8007'),
+    (8008, 7008, 'demo.image', 'demo-op-0008', 'COMPLETED', 'seed-fp-8008'),
+    (8009, 7009, 'demo.analysis', NULL, 'RESERVED', 'seed-fp-8009'),
+    (8010, 7010, 'demo.video', 'demo-op-0010', 'COMPLETED', 'seed-fp-8010')
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO operation_plans (id, project_id, operation_type, estimate_min, estimate_max, max_authorized_cost, confidence)
+INSERT INTO operation_plans (id, project_id, generation_job_id, operation_type, estimate_min, estimate_max, max_authorized_cost, confidence)
 VALUES
-    (9001, 1001, 'STORY_ANALYSIS', 0.010000, 0.020000, 0.025000, 'HIGH'),
-    (9002, 1002, 'IMAGE_GENERATION', 0.100000, 0.180000, 0.200000, 'HIGH'),
-    (9003, 1003, 'IMAGE_GENERATION', 0.120000, 0.220000, 0.250000, 'MEDIUM'),
-    (9004, 1004, 'STORY_ANALYSIS', 0.010000, 0.030000, 0.035000, 'LOW'),
-    (9005, 1005, 'VIDEO_RENDER', 0.500000, 0.800000, 1.000000, 'MEDIUM'),
-    (9006, 1006, 'VIDEO_RENDER', 0.600000, 1.100000, 1.250000, 'MEDIUM'),
-    (9007, 1007, 'SHORT_EXPORT', 0.200000, 0.350000, 0.400000, 'HIGH'),
-    (9008, 1008, 'IMAGE_GENERATION', 0.100000, 0.160000, 0.180000, 'HIGH'),
-    (9009, 1009, 'STORY_ANALYSIS', 0.010000, 0.030000, 0.035000, 'LOW'),
-    (9010, 1010, 'VIDEO_RENDER', 0.450000, 0.700000, 0.850000, 'HIGH')
+    (9001, 1001, 6001, 'STORY_ANALYSIS', 0.010000, 0.020000, 0.025000, 'HIGH'),
+    (9002, 1002, 6002, 'IMAGE_GENERATION', 0.100000, 0.180000, 0.200000, 'HIGH'),
+    (9003, 1003, 6003, 'IMAGE_GENERATION', 0.120000, 0.220000, 0.250000, 'MEDIUM'),
+    (9004, 1004, 6004, 'STORY_ANALYSIS', 0.010000, 0.030000, 0.035000, 'LOW'),
+    (9005, 1005, 6005, 'VIDEO_RENDER', 0.500000, 0.800000, 1.000000, 'MEDIUM'),
+    (9006, 1006, 6006, 'VIDEO_RENDER', 0.600000, 1.100000, 1.250000, 'MEDIUM'),
+    (9007, 1007, 6007, 'SHORT_EXPORT', 0.200000, 0.350000, 0.400000, 'HIGH'),
+    (9008, 1008, 6008, 'IMAGE_GENERATION', 0.100000, 0.160000, 0.180000, 'HIGH'),
+    (9009, 1009, 6009, 'STORY_ANALYSIS', 0.010000, 0.030000, 0.035000, 'LOW'),
+    (9010, 1010, 6010, 'VIDEO_RENDER', 0.450000, 0.700000, 0.850000, 'HIGH')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO moderation_decisions (id, user_id, project_id, entity_type, entity_id, direction, result, categories_json, provider_signal_json, policy_version, reviewer_id, resolved_at)
@@ -212,18 +212,18 @@ VALUES
     (12010, 'GenerationJob', '6010', 'RENDER_COMPLETED', 'seed-outbox-10', '{"jobId":"6010","source":"seed"}'::jsonb, 'PUBLISHED', 1)
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO plan_entitlements (id, plan_key, version, watermark_required, max_video_quality, max_longform_exports_month, max_short_exports_month, max_concurrent_expensive_jobs, feature_flags_json, active_from)
+INSERT INTO plan_entitlements (id, plan_key, version, watermark_required, max_video_quality, max_longform_exports_month, max_short_exports_month, max_concurrent_expensive_jobs, feature_flags_json, monthly_credits, active_from)
 VALUES
-    (13001, 'DEMO_FREE_01', 1, TRUE, 'STANDARD', 2, 5, 1, '{"storyAnalysis":true}'::jsonb, CURRENT_TIMESTAMP),
-    (13002, 'DEMO_FREE_02', 1, TRUE, 'STANDARD', 2, 5, 1, '{"storyAnalysis":true}'::jsonb, CURRENT_TIMESTAMP),
-    (13003, 'DEMO_CREATOR_01', 1, FALSE, 'HIGH', 10, 20, 2, '{"storyAnalysis":true,"shorts":true}'::jsonb, CURRENT_TIMESTAMP),
-    (13004, 'DEMO_CREATOR_02', 1, FALSE, 'HIGH', 10, 20, 2, '{"storyAnalysis":true,"shorts":true}'::jsonb, CURRENT_TIMESTAMP),
-    (13005, 'DEMO_PRO_01', 1, FALSE, 'ULTRA', 30, 60, 4, '{"storyAnalysis":true,"shorts":true,"batchReview":true}'::jsonb, CURRENT_TIMESTAMP),
-    (13006, 'DEMO_PRO_02', 1, FALSE, 'ULTRA', 30, 60, 4, '{"storyAnalysis":true,"shorts":true,"batchReview":true}'::jsonb, CURRENT_TIMESTAMP),
-    (13007, 'DEMO_TEAM_01', 1, FALSE, 'HIGH', 50, 100, 6, '{"storyAnalysis":true,"shorts":true,"team":true}'::jsonb, CURRENT_TIMESTAMP),
-    (13008, 'DEMO_TEAM_02', 1, FALSE, 'HIGH', 50, 100, 6, '{"storyAnalysis":true,"shorts":true,"team":true}'::jsonb, CURRENT_TIMESTAMP),
-    (13009, 'DEMO_ENTERPRISE_01', 1, FALSE, 'ULTRA', NULL, NULL, 10, '{"storyAnalysis":true,"shorts":true,"priority":true}'::jsonb, CURRENT_TIMESTAMP),
-    (13010, 'DEMO_ENTERPRISE_02', 1, FALSE, 'ULTRA', NULL, NULL, 10, '{"storyAnalysis":true,"shorts":true,"priority":true}'::jsonb, CURRENT_TIMESTAMP)
+    (13001, 'DEMO_FREE_01', 1, TRUE, 'STANDARD', 2, 5, 1, '{"storyAnalysis":true}'::jsonb, 2.000000, CURRENT_TIMESTAMP),
+    (13002, 'DEMO_FREE_02', 1, TRUE, 'STANDARD', 2, 5, 1, '{"storyAnalysis":true}'::jsonb, 2.000000, CURRENT_TIMESTAMP),
+    (13003, 'DEMO_CREATOR_01', 1, FALSE, 'HIGH', 10, 20, 2, '{"storyAnalysis":true,"shorts":true}'::jsonb, 10.000000, CURRENT_TIMESTAMP),
+    (13004, 'DEMO_CREATOR_02', 1, FALSE, 'HIGH', 10, 20, 2, '{"storyAnalysis":true,"shorts":true}'::jsonb, 10.000000, CURRENT_TIMESTAMP),
+    (13005, 'DEMO_PRO_01', 1, FALSE, 'ULTRA', 30, 60, 4, '{"storyAnalysis":true,"shorts":true,"batchReview":true}'::jsonb, 50.000000, CURRENT_TIMESTAMP),
+    (13006, 'DEMO_PRO_02', 1, FALSE, 'ULTRA', 30, 60, 4, '{"storyAnalysis":true,"shorts":true,"batchReview":true}'::jsonb, 50.000000, CURRENT_TIMESTAMP),
+    (13007, 'DEMO_TEAM_01', 1, FALSE, 'HIGH', 50, 100, 6, '{"storyAnalysis":true,"shorts":true,"team":true}'::jsonb, 100.000000, CURRENT_TIMESTAMP),
+    (13008, 'DEMO_TEAM_02', 1, FALSE, 'HIGH', 50, 100, 6, '{"storyAnalysis":true,"shorts":true,"team":true}'::jsonb, 100.000000, CURRENT_TIMESTAMP),
+    (13009, 'DEMO_ENTERPRISE_01', 1, FALSE, 'ULTRA', NULL, NULL, 10, '{"storyAnalysis":true,"shorts":true,"priority":true}'::jsonb, 1000.000000, CURRENT_TIMESTAMP),
+    (13010, 'DEMO_ENTERPRISE_02', 1, FALSE, 'ULTRA', NULL, NULL, 10, '{"storyAnalysis":true,"shorts":true,"priority":true}'::jsonb, 1000.000000, CURRENT_TIMESTAMP)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO user_plan_assignments (user_id, plan_key, entitlement_version, status, period_start, period_end)
@@ -354,16 +354,16 @@ ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO ai_audit_events (id, user_id, project_id, job_id, capability, provider, model_key, prompt_version, schema_version, safety_policy_version, input_fingerprint, usage_json, generation_params_json)
 VALUES
-    (17001, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1001, 6001, 'STORY_ANALYSIS', 'demo-provider', 'demo-text-v1', 'prompt-v1', 'story-analysis-v1', 'safety-v1', 'seed-fingerprint-01', '{"inputTokens":1200,"outputTokens":400}'::jsonb, '{"temperature":0.2}'::jsonb),
-    (17002, (SELECT id FROM auth_users WHERE email = 'seed.user02@example.com'), 1002, 6002, 'IMAGE_GENERATION', 'demo-provider', 'demo-image-v1', 'prompt-v1', 'image-plan-v1', 'safety-v1', 'seed-fingerprint-02', '{"images":4}'::jsonb, '{"aspectRatio":"16:9"}'::jsonb),
-    (17003, (SELECT id FROM auth_users WHERE email = 'seed.user03@example.com'), 1003, 6003, 'IMAGE_GENERATION', 'demo-provider', 'demo-image-v1', 'prompt-v1', 'image-plan-v1', 'safety-v1', 'seed-fingerprint-03', '{"images":3}'::jsonb, '{"aspectRatio":"9:16"}'::jsonb),
-    (17004, (SELECT id FROM auth_users WHERE email = 'seed.user04@example.com'), 1004, 6004, 'STORY_ANALYSIS', 'demo-provider', 'demo-text-v1', 'prompt-v1', 'story-analysis-v1', 'safety-v1', 'seed-fingerprint-04', '{"inputTokens":800}'::jsonb, '{"temperature":0.3}'::jsonb),
-    (17005, (SELECT id FROM auth_users WHERE email = 'seed.user05@example.com'), 1005, 6005, 'VIDEO_RENDER', 'demo-provider', 'demo-video-v1', 'prompt-v1', 'render-v1', 'safety-v1', 'seed-fingerprint-05', '{"durationSeconds":87}'::jsonb, '{"quality":"HIGH"}'::jsonb),
-    (17006, (SELECT id FROM auth_users WHERE email = 'seed.user06@example.com'), 1006, 6006, 'VIDEO_RENDER', 'demo-provider', 'demo-video-v1', 'prompt-v1', 'render-v1', 'safety-v1', 'seed-fingerprint-06', '{"durationSeconds":93}'::jsonb, '{"quality":"ULTRA"}'::jsonb),
-    (17007, (SELECT id FROM auth_users WHERE email = 'seed.user07@example.com'), 1007, 6007, 'SHORT_EXPORT', 'demo-provider', 'demo-short-v1', 'prompt-v1', 'short-v1', 'safety-v1', 'seed-fingerprint-07', '{"durationSeconds":34}'::jsonb, '{"aspectRatio":"9:16"}'::jsonb),
-    (17008, (SELECT id FROM auth_users WHERE email = 'seed.user08@example.com'), 1008, 6008, 'IMAGE_GENERATION', 'demo-provider', 'demo-image-v1', 'prompt-v1', 'image-plan-v1', 'safety-v1', 'seed-fingerprint-08', '{"images":5}'::jsonb, '{"aspectRatio":"16:9"}'::jsonb),
-    (17009, (SELECT id FROM auth_users WHERE email = 'seed.user09@example.com'), 1009, 6009, 'STORY_ANALYSIS', 'demo-provider', 'demo-text-v1', 'prompt-v1', 'story-analysis-v1', 'safety-v1', 'seed-fingerprint-09', '{"inputTokens":900}'::jsonb, '{"temperature":0.3}'::jsonb),
-    (17010, (SELECT id FROM auth_users WHERE email = 'seed.user10@example.com'), 1010, 6010, 'VIDEO_RENDER', 'demo-provider', 'demo-video-v1', 'prompt-v1', 'render-v1', 'safety-v1', 'seed-fingerprint-10', '{"durationSeconds":102}'::jsonb, '{"quality":"HIGH"}'::jsonb)
+    (17001, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1001, 6001, 'STORY_ANALYZE', 'demo-provider', 'demo-text-v1', 'prompt-v1', 'story-analysis-v1', 'safety-v1', 'seed-fingerprint-01', '{"inputTokens":1200,"outputTokens":400}'::jsonb, '{"temperature":0.2}'::jsonb),
+    (17002, (SELECT id FROM auth_users WHERE email = 'seed.user02@example.com'), 1002, 6002, 'IMAGE_GENERATE', 'demo-provider', 'demo-image-v1', 'prompt-v1', 'image-plan-v1', 'safety-v1', 'seed-fingerprint-02', '{"images":4}'::jsonb, '{"aspectRatio":"16:9"}'::jsonb),
+    (17003, (SELECT id FROM auth_users WHERE email = 'seed.user03@example.com'), 1003, 6003, 'IMAGE_GENERATE', 'demo-provider', 'demo-image-v1', 'prompt-v1', 'image-plan-v1', 'safety-v1', 'seed-fingerprint-03', '{"images":3}'::jsonb, '{"aspectRatio":"9:16"}'::jsonb),
+    (17004, (SELECT id FROM auth_users WHERE email = 'seed.user04@example.com'), 1004, 6004, 'STORY_ANALYZE', 'demo-provider', 'demo-text-v1', 'prompt-v1', 'story-analysis-v1', 'safety-v1', 'seed-fingerprint-04', '{"inputTokens":800}'::jsonb, '{"temperature":0.3}'::jsonb),
+    (17005, (SELECT id FROM auth_users WHERE email = 'seed.user05@example.com'), 1005, 6005, 'RENDER_PROJECT', 'demo-provider', 'demo-video-v1', 'prompt-v1', 'render-v1', 'safety-v1', 'seed-fingerprint-05', '{"durationSeconds":87}'::jsonb, '{"quality":"HIGH"}'::jsonb),
+    (17006, (SELECT id FROM auth_users WHERE email = 'seed.user06@example.com'), 1006, 6006, 'RENDER_PROJECT', 'demo-provider', 'demo-video-v1', 'prompt-v1', 'render-v1', 'safety-v1', 'seed-fingerprint-06', '{"durationSeconds":93}'::jsonb, '{"quality":"ULTRA"}'::jsonb),
+    (17007, (SELECT id FROM auth_users WHERE email = 'seed.user07@example.com'), 1007, 6007, 'RENDER_SHORT', 'demo-provider', 'demo-short-v1', 'prompt-v1', 'short-v1', 'safety-v1', 'seed-fingerprint-07', '{"durationSeconds":34}'::jsonb, '{"aspectRatio":"9:16"}'::jsonb),
+    (17008, (SELECT id FROM auth_users WHERE email = 'seed.user08@example.com'), 1008, 6008, 'IMAGE_GENERATE', 'demo-provider', 'demo-image-v1', 'prompt-v1', 'image-plan-v1', 'safety-v1', 'seed-fingerprint-08', '{"images":5}'::jsonb, '{"aspectRatio":"16:9"}'::jsonb),
+    (17009, (SELECT id FROM auth_users WHERE email = 'seed.user09@example.com'), 1009, 6009, 'STORY_ANALYZE', 'demo-provider', 'demo-text-v1', 'prompt-v1', 'story-analysis-v1', 'safety-v1', 'seed-fingerprint-09', '{"inputTokens":900}'::jsonb, '{"temperature":0.3}'::jsonb),
+    (17010, (SELECT id FROM auth_users WHERE email = 'seed.user10@example.com'), 1010, 6010, 'RENDER_PROJECT', 'demo-provider', 'demo-video-v1', 'prompt-v1', 'render-v1', 'safety-v1', 'seed-fingerprint-10', '{"durationSeconds":102}'::jsonb, '{"quality":"HIGH"}'::jsonb)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO data_deletion_requests (id, user_id, scope, scope_id, status, started_at, completed_at, retention_deadline)
@@ -423,5 +423,3 @@ VALUES
     (26003, 1002, 'brass_gears_blueprint.png', 'IMAGE', 'projects/1002/assets/brass_gears.png', 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?q=80&w=1200&auto=format&fit=crop', 'image/png', 'ACTIVE', '{"width":1920,"height":1080,"source":"reference"}'::jsonb),
     (26004, 1003, 'moonlit_water_concept.png', 'IMAGE', 'projects/1003/assets/mekong_moonlight.png', 'https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=1200&auto=format&fit=crop', 'image/png', 'ACTIVE', '{"width":1080,"height":1920,"source":"concept_art"}'::jsonb)
 ON CONFLICT (id) DO NOTHING;
-
-

@@ -78,7 +78,7 @@ Limits are configuration, not domain invariants, and may be changed under `narra
 
 ## Database migration invariant
 
-Flyway migrations are forward-only once shared. The active branch currently contains the consolidated `V1__initial_schema.sql` baseline plus `V3__optimize_active_project_listing.sql`, which adds the partial index used by active-project keyset pagination. See `documentation/codebase/DATABASE_BASELINE.md` for the current migration matrix.
+Flyway migrations are forward-only once shared. The active branch currently contains the consolidated two-file baseline (`V1__initial_schema.sql` and `V2__seed_demo_data.sql`). See `documentation/codebase/DATABASE_BASELINE.md` for the current migration matrix.
 
 The consolidated baseline does not contain the retired StoryVersion copyright/rights-attestation columns or the legacy `content_rights_attestations` table. Those names belong to historical migration context only and are not active schema compatibility requirements. The active product/domain contract has no blanket per-story copyright/rights-attestation prerequisite for Analyze/Generate; moderation, report/review/takedown and real-person consent remain independent concerns.
 

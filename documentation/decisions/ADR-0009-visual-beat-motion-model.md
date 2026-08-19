@@ -17,11 +17,11 @@ Persist and expose two independent fields:
 
 `reviewStatus` remains a separate review concern. Generation state is not duplicated on `VisualBeat`; it remains owned by `GenerationJob`/`StageAttempt`/`ProviderOperation`.
 
-Flyway V3 adds and backfills `motion_mode` and `camera_movement`, normalizes known legacy values, enforces database checks, and removes `motion_action`. `RISE` maps to `TILT`; `STATIC` and `DISSOLVE` map to `STILL` + `NONE`. The worker writes the new columns directly, and the storyboard API returns both fields for frontend rendering.
+The consolidated Flyway V1 baseline includes `motion_mode` and `camera_movement`, enforces database checks, and does not include legacy `motion_action`. The worker writes the new columns directly, and the storyboard API returns both fields for frontend rendering.
 
 ## Consequences
 
 - Runtime code can choose rendering strategy independently from camera direction.
 - Database and API contracts reject unknown values instead of allowing JPA enum hydration to fail later.
 - The MVP camera vocabulary stays compact; directional variants such as `PAN_LEFT`/`PAN_RIGHT` can be added only when a real UI/provider contract requires them.
-- Existing legacy databases must apply V3 before running the updated backend or worker.
+- Fresh database installations apply both fields directly as part of the V1 baseline.
