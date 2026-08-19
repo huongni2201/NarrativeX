@@ -24,6 +24,7 @@ A destructive `reset` endpoint would remove the dead end but would violate Narra
 - `sourceOutdated` is derived from the current storyboard revision source hash, not from the latest GenerationJob. A failed newer job therefore cannot make an older current storyboard appear synchronized.
 - Analyze and VisualBeat approval acquire the same chapter-scoped PostgreSQL advisory transaction lock so approval cannot race between admission and revision creation.
 - Normal storyboard read repositories must scope Scene reads to `current_storyboard_revision_id`; historical revisions are not mixed into the existing UI/API response.
+- Worker materialization uses composition: `WorkerRepository` owns the durable transaction boundary and delegates identity and storyboard writes to focused functions under `narrativex_worker.materialization`. Feature-specific repository subclasses are not part of the production design.
 
 ## Invariants
 
@@ -41,7 +42,7 @@ A destructive `reset` endpoint would remove the dead end but would violate Narra
 - The Chapter Workspace UI does not need a destructive Reset Storyboard button or a new mandatory revision-management surface.
 - Historical storyboard rows remain durable and can support a future revision-history UI without another destructive migration.
 - Storage grows with successful re-analysis revisions; retention/archival policy can be added later without changing the correctness model.
-- The worker production entry point uses revision-aware materialization while the base repository remains available for focused legacy tests and utilities.
+- Worker persistence stays simple: one `WorkerRepository` plus focused materialization modules, without `IdentityAware`, `RevisionAware`, or other feature-specific inheritance layers.
 - All new code must treat `DELETE ... WHERE chapter_id = ?` for storyboard replacement as invalid. Replacement, replay, and cleanup must always be scoped by `storyboard_revision_id`.
 
 ## Verification
