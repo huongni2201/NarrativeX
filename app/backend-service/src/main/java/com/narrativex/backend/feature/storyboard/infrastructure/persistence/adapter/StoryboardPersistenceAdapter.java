@@ -53,9 +53,7 @@ public class StoryboardPersistenceAdapter implements StoryboardRepository {
 
   @Override
   public Optional<VisualBeat> findVisualBeatById(Long visualBeatId) {
-    return visualBeatRepository
-        .findById(visualBeatId)
-        .map(StoryboardPersistenceAdapter::toDomain);
+    return visualBeatRepository.findById(visualBeatId).map(StoryboardPersistenceAdapter::toDomain);
   }
 
   @Override
