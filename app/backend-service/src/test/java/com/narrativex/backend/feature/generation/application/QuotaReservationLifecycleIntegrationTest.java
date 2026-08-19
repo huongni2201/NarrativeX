@@ -52,7 +52,7 @@ class QuotaReservationLifecycleIntegrationTest {
   @Autowired private JdbcTemplate jdbcTemplate;
 
   @Test
-  void completedJobConsumesReservationAndImmediatelyFreesConcurrentCapacity() {
+  void completedJobConsumesActualCostAndImmediatelyFreesConcurrentCapacity() {
     seedEntitlement();
     long projectId = insertProject();
     List<Long> jobIds = new ArrayList<>();
@@ -69,13 +69,15 @@ class QuotaReservationLifecycleIntegrationTest {
         quotaReservation.reserve(USER_ID, new BigDecimal("1.000000"), 4).isEmpty(),
         "The fifth active expensive job must be rejected while four reservations are RESERVED");
 
+    persistProviderBilling(jobIds.getFirst(), new BigDecimal("0.123456789"));
     jdbcTemplate.update(
         "UPDATE generation_jobs SET status = 'COMPLETED', progress = 100 WHERE id = ?",
         jobIds.getFirst());
 
     assertEquals("CONSUMED", reservationStatus(jobIds.getFirst()));
+    assertEquals(0, new BigDecimal("0.123456789").compareTo(reservationActualCost(jobIds.getFirst())));
     assertEquals(3, activeReservations());
-    assertEquals(0, new BigDecimal("1.000000").compareTo(creditsUsed()));
+    assertEquals(0, new BigDecimal("0.123456789").compareTo(creditsUsed()));
 
     assertTrue(
         quotaReservation.reserve(USER_ID, new BigDecimal("1.000000"), 4).isPresent(),
@@ -94,6 +96,7 @@ class QuotaReservationLifecycleIntegrationTest {
     jdbcTemplate.update("UPDATE generation_jobs SET status = 'FAILED' WHERE id = ?", jobId);
 
     assertEquals("RELEASED", reservationStatus(jobId));
+    assertEquals(0, BigDecimal.ZERO.compareTo(reservationActualCost(jobId)));
     assertEquals(0, activeReservations());
     assertEquals(0, BigDecimal.ZERO.compareTo(creditsUsed()));
 
@@ -103,6 +106,44 @@ class QuotaReservationLifecycleIntegrationTest {
     assertEquals(0, activeReservations());
     assertEquals(0, BigDecimal.ZERO.compareTo(creditsUsed()));
     assertFalse(quotaReservation.releaseForJob(jobId));
+  }
+
+  @Test
+  void failedBillableProviderOperationConsumesActualCostExactlyOnce() {
+    seedEntitlement();
+    long projectId = insertProject();
+    var reservation =
+        quotaReservation.reserve(USER_ID, new BigDecimal("2.500000"), 4).orElseThrow();
+    long jobId = insertJob(projectId, "failed-billable");
+    quotaReservation.bindToGenerationJob(reservation.id(), jobId);
+    persistProviderBilling(jobId, new BigDecimal("0.031250000"));
+
+    jdbcTemplate.update("UPDATE generation_jobs SET status = 'FAILED' WHERE id = ?", jobId);
+
+    assertEquals("CONSUMED", reservationStatus(jobId));
+    assertEquals(0, new BigDecimal("0.031250000").compareTo(reservationActualCost(jobId)));
+    assertEquals(0, new BigDecimal("0.031250000").compareTo(creditsUsed()));
+
+    jdbcTemplate.update("UPDATE generation_jobs SET status = 'FAILED' WHERE id = ?", jobId);
+
+    assertEquals(0, new BigDecimal("0.031250000").compareTo(creditsUsed()));
+    assertFalse(quotaReservation.consumeForJob(jobId));
+  }
+
+  @Test
+  void zeroCostProviderFailureReleasesReservation() {
+    seedEntitlement();
+    long projectId = insertProject();
+    var reservation =
+        quotaReservation.reserve(USER_ID, new BigDecimal("1.000000"), 4).orElseThrow();
+    long jobId = insertJob(projectId, "failed-zero-cost");
+    quotaReservation.bindToGenerationJob(reservation.id(), jobId);
+    persistProviderBilling(jobId, BigDecimal.ZERO.setScale(9));
+
+    jdbcTemplate.update("UPDATE generation_jobs SET status = 'FAILED' WHERE id = ?", jobId);
+
+    assertEquals("RELEASED", reservationStatus(jobId));
+    assertEquals(0, BigDecimal.ZERO.compareTo(creditsUsed()));
   }
 
   private void seedEntitlement() {
@@ -173,9 +214,43 @@ class QuotaReservationLifecycleIntegrationTest {
         USER_ID);
   }
 
+  private void persistProviderBilling(long jobId, BigDecimal actualCost) {
+    Long stageAttemptId =
+        jdbcTemplate.queryForObject(
+            """
+            INSERT INTO stage_attempts (generation_job_id, stage_name, attempt_number, status)
+            VALUES (?, 'CHAPTER_ANALYSIS', 1, 'RUNNING')
+            RETURNING id
+            """,
+            Long.class,
+            jobId);
+    jdbcTemplate.update(
+        """
+        INSERT INTO provider_operations
+          (stage_attempt_id, provider_key, provider_operation_id, status, request_fingerprint,
+           actual_cost, billing_currency, usage_json, pricing_snapshot_json)
+        VALUES (?, 'vertex', ?, 'FAILED', ?, ?, 'USD',
+                '{"prompt_tokens":100}'::jsonb,
+                '{"catalog_version":"test"}'::jsonb)
+        """,
+        stageAttemptId,
+        "provider-op-" + jobId,
+        "fingerprint-" + jobId,
+        actualCost);
+  }
+
   private String reservationStatus(long jobId) {
     return jdbcTemplate.queryForObject(
         "SELECT status FROM quota_reservations WHERE generation_job_id = ?", String.class, jobId);
+  }
+
+  private BigDecimal reservationActualCost(long jobId) {
+    BigDecimal value =
+        jdbcTemplate.queryForObject(
+            "SELECT actual_cost FROM quota_reservations WHERE generation_job_id = ?",
+            BigDecimal.class,
+            jobId);
+    return value == null ? BigDecimal.ZERO : value;
   }
 
   private int activeReservations() {
