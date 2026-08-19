@@ -22,9 +22,15 @@ import {
   type VisualBeatReviewStatus,
 } from "./api/storyboard.api";
 
+export interface StoryboardChapterItem {
+  id: number;
+  orderIndex: number;
+  title: string;
+}
+
 interface StoryboardScreenProps {
   projectId: number;
-  chapters: ApiChapterSummary[];
+  chapters: StoryboardChapterItem[];
   initialChapterId?: number | null;
   hideChapterSelector?: boolean;
 }

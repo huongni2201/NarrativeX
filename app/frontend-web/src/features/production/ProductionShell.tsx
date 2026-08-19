@@ -23,6 +23,7 @@ import {
 import { Modal } from "@/components/ui/Modal";
 import { chaptersApi } from "@/features/chapters/api/chapters.api";
 import { projectsApi } from "@/features/projects/api/projects.api";
+import { StoryboardScreen } from "@/features/storyboard/StoryboardScreen";
 import type { ApiProjectOverviewChapter } from "@/features/projects/api/project-overview.types";
 import { queryKeys } from "@/lib/query-keys";
 import { ApiClientError, apiErrorMessage } from "@/shared/api/client";
@@ -48,7 +49,9 @@ export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
   const [sourceText, setSourceText] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"chapters" | "info" | "characters" | "locations" | "assets" | "settings">("chapters");
+  const [activeTab, setActiveTab] = useState<
+    "chapters" | "storyboard" | "info" | "characters" | "locations" | "assets" | "settings"
+  >("chapters");
 
   const overviewQuery = useQuery({
     queryKey: hasValidProjectId
@@ -279,6 +282,11 @@ export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
               onClick={() => setActiveTab("chapters")}
             />
             <TabButton
+              label="Storyboard"
+              active={activeTab === "storyboard"}
+              onClick={() => setActiveTab("storyboard")}
+            />
+            <TabButton
               label="Thông tin dự án"
               active={activeTab === "info"}
               onClick={() => setActiveTab("info")}
@@ -369,6 +377,16 @@ export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
                 <span>Import nhiều chapter</span>
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Storyboard Tab */}
+        {activeTab === "storyboard" && (
+          <div className="border-t border-slate-800/80 p-4 sm:p-6">
+            <StoryboardScreen
+              projectId={numericProjectId}
+              chapters={chapters}
+            />
           </div>
         )}
 

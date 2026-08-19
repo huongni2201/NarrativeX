@@ -346,11 +346,8 @@ export function ChapterEditor({ projectId, chapterId }: Readonly<ChapterEditorPr
             chapters={[
               {
                 id: workspace.chapter.id,
-                storyVersionId: workspace.chapter.storyVersionId,
                 orderIndex: workspace.chapter.orderIndex,
                 title: workspace.chapter.title,
-                sourceHash: workspace.chapter.sourceHash,
-                rowVersion: workspace.chapter.rowVersion,
               },
             ]}
             initialChapterId={workspace.chapter.id}
