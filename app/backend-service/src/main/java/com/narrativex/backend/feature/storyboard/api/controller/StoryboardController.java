@@ -72,12 +72,7 @@ public class StoryboardController {
     long expectedRowVersion = parseExpectedVersion(ifMatch);
     ApiResponse<VisualBeatResponse> response =
         updateVisualBeatReviewStatusUseCase.execute(
-            projectId,
-            chapterId,
-            sceneId,
-            visualBeatId,
-            expectedRowVersion,
-            request.status());
+            projectId, chapterId, sceneId, visualBeatId, expectedRowVersion, request.status());
     return ResponseEntity.ok()
         .header(HttpHeaders.ETAG, quotedVersion(response.data().rowVersion()))
         .body(response);
