@@ -27,7 +27,8 @@ public class ChapterDocumentTextExtractorAdapter implements ChapterDocumentTextE
         case "txt" -> new String(content, StandardCharsets.UTF_8);
         case "docx" -> extractDocx(content);
         case "pdf" -> extractPdf(content);
-        default -> throw new IllegalArgumentException("Only .txt, .docx and .pdf files are supported");
+        default ->
+            throw new IllegalArgumentException("Only .txt, .docx and .pdf files are supported");
       };
     } catch (IllegalArgumentException exception) {
       throw exception;
@@ -53,7 +54,8 @@ public class ChapterDocumentTextExtractorAdapter implements ChapterDocumentTextE
         }
       }
     }
-    if (documentXml == null) throw new IllegalArgumentException("DOCX document.xml was not found");
+    if (documentXml == null)
+      throw new IllegalArgumentException("DOCX document.xml was not found");
 
     DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
     factory.setNamespaceAware(true);
