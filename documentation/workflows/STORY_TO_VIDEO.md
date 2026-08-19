@@ -17,7 +17,67 @@ Authenticated owner
 
 A later Chapter is analyzed incrementally with reusable Project/Character/Location/Style context; unrelated completed Chapters are not reprocessed by default.
 
-## End-to-end stages
+## Current MVP analysis path
+
+The canonical analysis request is Chapter-scoped and implemented:
+
+```http
+POST /api/v1/projects/{projectId}/chapters/{chapterId}/analysis-jobs
+```
+
+The backend returns `202 Accepted` after validating ownership and the persisted Chapter snapshot and durably enqueueing the job. Creating a Project or saving a Chapter never implicitly triggers this endpoint.
+
+For the current MVP vertical slice:
+
+```text
+saved Chapter sourceText/sourceHash/rowVersion
+  -> POST analysis-jobs
+  -> OperationPlan + GenerationJob + StageAttempt + OutboxEvent
+  -> COMMIT
+  -> best-effort Redis delivery hint
+  -> PostgreSQL worker claim/lease/heartbeat
+  -> configured LLM provider
+  -> structured Chapter analysis
+  -> Character / ProjectCharacter / CharacterVersion
+  -> Scene / VisualBeat
+  -> COMPLETED
+```
+
+PostgreSQL is authoritative. Redis is a non-authoritative wake-up/delivery hint; workers can discover queued work by polling even when Redis is unavailable.
+
+## Worker throughput and materialization
+
+A worker process supports configurable bounded concurrency with `WORKER_CONCURRENCY` (default `4`, allowed range `1..32`). Multiple Chapter analysis jobs may therefore be in flight in one process while PostgreSQL `FOR UPDATE ... SKIP LOCKED`, per-job StageAttempt leases and heartbeats prevent duplicate ownership.
+
+The worker sizes its asyncpg pool from configured concurrency and batches materialization where practical: existing Character lookup/update, Scene insertion and VisualBeat insertion avoid the previous row-by-row round-trip pattern.
+
+Graceful shutdown stops claiming new work and waits for current in-flight tasks to finish before closing the database pool.
+
+## Re-analysis safety
+
+Before replacing generated storyboard rows, the worker verifies that the persisted Chapter snapshot still matches the job's `chapterId + storyVersionId + rowVersion + sourceHash`.
+
+Re-analysis also refuses destructive replacement when an existing Scene or VisualBeat is already approved. An explicit reset/versioning workflow is required before approved storyboard output can be replaced. This prevents a later analysis run from silently deleting approved work.
+
+## Chapter Workspace read path
+
+The Chapter Workspace application use case depends on an outbound `ChapterWorkspaceReadRepository` port rather than `JdbcTemplate`. PostgreSQL-specific SQL and mapping live in the infrastructure adapter.
+
+The workspace projection uses one aggregate CTE query for project name, scene count, visual-beat count, estimated duration and latest Chapter analysis, plus one bounded query for preview scenes. This replaces the previous chatty multi-query application-layer implementation.
+
+The workspace reports `sourceOutdated=true` when the latest analysis source hash differs from the current Chapter source hash. Planning is `COMPLETED` only when the latest analysis is completed for the current source and storyboard rows exist.
+
+## Durable outbox behavior
+
+The enqueue transaction persists durable job state and outbox intent before any Redis hint.
+
+The dispatcher reserves up to 50 eligible PENDING outbox rows inside a short PostgreSQL transaction using `FOR UPDATE SKIP LOCKED`, moves `available_at` forward for a short reservation lease, and commits before calling Redis. Redis network latency therefore does not hold PostgreSQL row locks or an open dispatcher transaction.
+
+After publish succeeds the row is marked `PUBLISHED`. On Redis failure it is rescheduled for retry. If a dispatcher process dies after reservation, the still-PENDING row becomes eligible again after the reservation lease. Duplicate Redis hints are acceptable because PostgreSQL job state is authoritative.
+
+## End-to-end target stages
+
+The broader product target extends the implemented Chapter-analysis slice:
 
 ```text
 Google OIDC/session + ownership
@@ -25,42 +85,24 @@ Google OIDC/session + ownership
   -> account/API abuse gate
   -> input moderation + applicable real-person consent
   -> prompt-injection defense
-  -> CHAPTER_ANALYZE (Vertex AI Gemini when production adapter is enabled)
+  -> CHAPTER_ANALYZE
   -> detected character identities / Locations / Scenes for affected Chapter scope
   -> Character identity matching / deduplication
-  -> create or reuse Character
-  -> create/update ProjectCharacter assignments
   -> Character Bible + CharacterVersion review/lock
   -> CharacterAppearance planning
-  -> VISUAL_BEAT_PLAN (semantic timing and adaptive density)
+  -> VISUAL_BEAT_PLAN
   -> OperationPlan + reuse/delta + cost confirmation/reservation
-  -> Scene / VisualBeat
-  -> SceneCharacter / VisualBeatCharacter
-  -> ProjectCharacter
-  -> Character
-  -> locked/pinned CharacterVersion
-  -> CharacterAppearance / OutfitVersion
   -> required ReferenceAssets only
   -> image generation + Identity QA + visual review
   -> TTS narration + subtitle timing
   -> browser animatic review
   -> selected basic motion or VIDEO_MOTION_GENERATE
-  -> parallel scene render / chapter render
-  -> project finalization and FinalArtifact validation
+  -> bounded parallel scene/chapter render
+  -> FinalArtifact validation
   -> long-form export + notification
 ```
 
 Ordinary story/chapter analysis does **not** require a blanket per-story copyright/rights-attestation checkbox. Input moderation, real-person consent where applicable, report/review/takedown and other policy controls remain separate gates.
-
-## Analysis API and current execution gate
-
-The canonical analysis request is Chapter-scoped:
-
-```http
-POST /api/v1/projects/{projectId}/chapters/{chapterId}/analysis-jobs
-```
-
-The endpoint remains disabled until the durable enqueue transaction and worker execution path are implemented and integration-tested. While disabled it returns `FEATURE_NOT_AVAILABLE` and must not create `QUEUED` work.
 
 ## Stage gates
 
@@ -76,9 +118,7 @@ The endpoint remains disabled until the durable enqueue transaction and worker e
 
 ## Durable operation behavior
 
-Each expensive user operation has an `OperationPlan` with affected scope, estimate range/confidence, expected visual/motion actions, provider/model snapshots and `max_authorized_cost`. User confirmation atomically creates a `CostReservation` when required; no billable provider/GPU stage can claim without authorization. Edits resolve only changed chapters/scenes/beats and reuse unchanged approved snapshots.
-
-For Chapter analysis specifically, the minimum path is:
+For Chapter analysis, the durable boundary is:
 
 ```text
 request
@@ -86,28 +126,29 @@ request
   -> idempotency
   -> persisted/current Chapter source snapshot
   -> StoryVersion validation where required
-  -> abuse + safety/moderation
-  -> entitlement/quota
-  -> affected scope + estimate/authorization
+  -> current implemented policy gates
   -> one DB transaction:
-       OperationPlan/CostReservation
+       OperationPlan
        GenerationJob
        StageAttempt(s)
        OutboxEvent
   -> COMMIT
-  -> dispatcher
+  -> dispatcher reservation transaction
+  -> COMMIT
+  -> Redis hint outside DB transaction
   -> worker claim/lease/heartbeat
-  -> ProviderOperation RESERVED before external submit
+  -> provider execution
+  -> transactional result materialization
 ```
 
-Every stage has a persisted `StageAttempt`, lease and heartbeat. Every external call has a `ProviderOperation` reserved before submission. `UNKNOWN` on an ambiguous submit or timeout schedules reconciliation and blocks blind resubmit. Retry policy is stage-aware: transient 408/5xx/429 or local I/O may retry with caps; auth/IAM/billing/content rejection does not loop.
+Every claimed stage has persisted lease/heartbeat state. The target architecture still requires durable ProviderOperation persistence/reconciliation before production-grade ambiguous-submit recovery is complete. `UNKNOWN` must reconcile before blind resubmit once that lifecycle is fully wired.
 
 ## Planning and rendering details
 
 Gemini analyzes semantic boundaries within the affected Chapter context. Scene guardrails are roughly 8–10 seconds minimum, 18–30 seconds ideal and 40–45 seconds maximum before merge/split; these are planner guardrails, not hard story limits. A long-form prior of approximately 2.5 visuals/minute is only a starting prior. Complexity, narration pace, motion need, reuse and delta determine actual visual budget.
 
-The default path uses approved keyframes plus pan/zoom/fade, subtitles, narration and music. Selected beats may use a `MotionAsset` from Veo/Kling, but final composition still uses keyframe/motion assets and FFmpeg. Scene clips render in bounded parallelism with normalized codec/fps/resolution/audio; finalization promotes only validated immutable output.
+The default future media path uses approved keyframes plus pan/zoom/fade, subtitles, narration and music. Selected beats may use a `MotionAsset` from Veo/Kling, but final composition still uses keyframe/motion assets and FFmpeg. Scene clips render in bounded parallelism with normalized codec/fps/resolution/audio; finalization promotes only validated immutable output.
 
-## Completion and notifications
+## Current production gaps
 
-The parent job is complete only when required stages and required result/artifact state are committed. Usage and reservation reconciliation are recorded in PostgreSQL. A transactional outbox event then drives in-app notification and optional email; the user does not need to keep the tab open or poll continuously. Backup/DR protects PostgreSQL metadata and critical Character Master/Approved/Final media according to the architecture RPO/RTO targets.
+The Chapter-analysis vertical slice is implemented, but public-production readiness still requires the incomplete gates already tracked elsewhere: verified entitlement/quota and cost reservation/reconciliation, complete moderation/safety enforcement, durable ProviderOperation persistence and `UNKNOWN` reconciliation, notification delivery, broader observability/DR, and real-provider E2E verification.
