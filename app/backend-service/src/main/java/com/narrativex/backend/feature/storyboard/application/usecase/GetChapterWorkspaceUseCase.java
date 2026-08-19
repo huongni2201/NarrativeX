@@ -7,6 +7,7 @@ import com.narrativex.backend.feature.project.application.port.in.StoryVersionAc
 import com.narrativex.backend.feature.storyboard.api.response.ChapterResponse;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterWorkspaceResponse;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
+import com.narrativex.backend.feature.storyboard.application.service.ChapterWorkspacePipelinePolicy;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -77,13 +78,9 @@ public class GetChapterWorkspaceUseCase {
     AnalysisProjection analysis = latestAnalysis(chapterId);
     boolean hasStoryboard =
         sceneCount != null && sceneCount > 0 && visualBeatCount != null && visualBeatCount > 0;
-    boolean sourceOutdated =
-        analysis.sourceHash() != null && !analysis.sourceHash().equals(chapter.getSourceHash());
-    String analysisStatus = analysis.status() == null ? "NOT_STARTED" : analysis.status();
-    String planningStatus =
-        hasStoryboard && !sourceOutdated && "COMPLETED".equals(analysisStatus)
-            ? "COMPLETED"
-            : "NOT_STARTED";
+    var pipelineState =
+        ChapterWorkspacePipelinePolicy.resolve(
+            chapter.getSourceHash(), analysis.status(), analysis.sourceHash(), hasStoryboard);
 
     var response =
         new ChapterWorkspaceResponse(
@@ -94,15 +91,17 @@ public class GetChapterWorkspaceUseCase {
                 visualBeatCount == null ? 0 : visualBeatCount,
                 estimatedDurationSeconds == null ? 0 : estimatedDurationSeconds),
             new ChapterWorkspaceResponse.Pipeline(
-                new ChapterWorkspaceResponse.PipelineStep(analysisStatus, analysis.completedAt()),
-                new ChapterWorkspaceResponse.PipelineStep(planningStatus, analysis.completedAt()),
+                new ChapterWorkspaceResponse.PipelineStep(
+                    pipelineState.analysisStatus(), analysis.completedAt()),
+                new ChapterWorkspaceResponse.PipelineStep(
+                    pipelineState.planningStatus(), analysis.completedAt()),
                 new ChapterWorkspaceResponse.ProgressStep("NOT_STARTED", 0, 0, 0),
                 new ChapterWorkspaceResponse.PipelineStep("NOT_STARTED", null),
                 new ChapterWorkspaceResponse.PipelineStep("NOT_STARTED", null),
-                sourceOutdated),
+                pipelineState.sourceOutdated()),
             previewScenes,
             new ChapterWorkspaceResponse.Capabilities(
-                !chapter.getSourceText().isBlank() && !isActive(analysisStatus),
+                !chapter.getSourceText().isBlank() && !pipelineState.analysisActive(),
                 false,
                 false,
                 false));
@@ -146,13 +145,6 @@ public class GetChapterWorkspaceUseCase {
 
   private static Instant toInstant(Timestamp value) {
     return value == null ? null : value.toInstant();
-  }
-
-  private static boolean isActive(String status) {
-    return switch (status) {
-      case "QUEUED", "RUNNING", "STALLED", "UNKNOWN", "PAUSED_COST_LIMIT" -> true;
-      default -> false;
-    };
   }
 
   private record AnalysisProjection(String status, String sourceHash, Instant completedAt) {}
