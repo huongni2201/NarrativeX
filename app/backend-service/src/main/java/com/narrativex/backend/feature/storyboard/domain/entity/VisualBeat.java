@@ -3,7 +3,8 @@ package com.narrativex.backend.feature.storyboard.domain.entity;
 import com.narrativex.backend.feature.common.domain.DomainEntity;
 import com.narrativex.backend.feature.storyboard.domain.enums.AspectRatio;
 import com.narrativex.backend.feature.storyboard.domain.enums.ImageQualityTier;
-import com.narrativex.backend.feature.storyboard.domain.enums.MotionAction;
+import com.narrativex.backend.feature.storyboard.domain.enums.CameraMovement;
+import com.narrativex.backend.feature.storyboard.domain.enums.MotionMode;
 import com.narrativex.backend.feature.storyboard.domain.enums.VisualBeatReviewStatus;
 import java.util.Objects;
 
@@ -15,7 +16,8 @@ public final class VisualBeat extends DomainEntity {
   private final int orderIndex;
   private final String title;
   private final String visualIntent;
-  private final MotionAction motionAction;
+  private final MotionMode motionMode;
+  private final CameraMovement cameraMovement;
   private final AspectRatio aspectRatioOverride;
   private final ImageQualityTier qualityTierOverride;
   private VisualBeatReviewStatus reviewStatus;
@@ -32,7 +34,8 @@ public final class VisualBeat extends DomainEntity {
         orderIndex,
         title,
         visualIntent,
-        MotionAction.STILL,
+        MotionMode.STILL,
+        CameraMovement.NONE,
         null,
         null,
         VisualBeatReviewStatus.NEEDS_REVIEW);
@@ -45,7 +48,8 @@ public final class VisualBeat extends DomainEntity {
       int orderIndex,
       String title,
       String visualIntent,
-      MotionAction motionAction,
+      MotionMode motionMode,
+      CameraMovement cameraMovement,
       AspectRatio aspectRatioOverride,
       ImageQualityTier qualityTierOverride,
       VisualBeatReviewStatus reviewStatus) {
@@ -60,7 +64,8 @@ public final class VisualBeat extends DomainEntity {
     this.orderIndex = orderIndex;
     this.title = requiredText(title, "title", MAX_TITLE_LENGTH);
     this.visualIntent = requiredText(visualIntent, "visualIntent", MAX_VISUAL_INTENT_LENGTH);
-    this.motionAction = Objects.requireNonNull(motionAction, "motionAction");
+    this.motionMode = Objects.requireNonNull(motionMode, "motionMode");
+    this.cameraMovement = Objects.requireNonNull(cameraMovement, "cameraMovement");
     this.aspectRatioOverride = aspectRatioOverride;
     this.qualityTierOverride = qualityTierOverride;
     this.reviewStatus = Objects.requireNonNull(reviewStatus, "reviewStatus");
@@ -72,7 +77,8 @@ public final class VisualBeat extends DomainEntity {
       Long sceneId,
       int orderIndex,
       String visualIntent,
-      MotionAction motionAction,
+      MotionMode motionMode,
+      CameraMovement cameraMovement,
       AspectRatio aspectRatioOverride,
       ImageQualityTier qualityTierOverride) {
     return new VisualBeat(
@@ -82,7 +88,8 @@ public final class VisualBeat extends DomainEntity {
         orderIndex,
         defaultTitle(visualIntent),
         visualIntent,
-        motionAction,
+        motionMode,
+        cameraMovement,
         aspectRatioOverride,
         qualityTierOverride,
         VisualBeatReviewStatus.NEEDS_REVIEW);
@@ -95,7 +102,8 @@ public final class VisualBeat extends DomainEntity {
       int orderIndex,
       String title,
       String visualIntent,
-      MotionAction motionAction,
+      MotionMode motionMode,
+      CameraMovement cameraMovement,
       AspectRatio aspectRatioOverride,
       ImageQualityTier qualityTierOverride,
       VisualBeatReviewStatus reviewStatus) {
@@ -106,7 +114,8 @@ public final class VisualBeat extends DomainEntity {
         orderIndex,
         title,
         visualIntent,
-        motionAction,
+        motionMode,
+        cameraMovement,
         aspectRatioOverride,
         qualityTierOverride,
         reviewStatus);
@@ -132,8 +141,12 @@ public final class VisualBeat extends DomainEntity {
     return visualIntent;
   }
 
-  public MotionAction getMotionAction() {
-    return motionAction;
+  public MotionMode getMotionMode() {
+    return motionMode;
+  }
+
+  public CameraMovement getCameraMovement() {
+    return cameraMovement;
   }
 
   public AspectRatio getAspectRatioOverride() {

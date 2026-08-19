@@ -24,7 +24,7 @@ Core business chạy trong Spring Boot Modular Monolith; Python 3.12 AI/Media Wo
 | Chapter | durable analyze/generate/render scope; StoryVersion relation, order/title; source persistence/snapshot alignment is required before production analysis |
 | Scene | chapter, order, narration, duration, row_version, status |
 | Shot | Optional finer-grained camera/timeline concept; V1.8 does not require duplicating VisualBeat semantics |
-| VisualBeat | scene timeline, narration segment, visual intent, location, row_version; generation unit |
+| VisualBeat | scene timeline, narration segment, visual intent, location, independent motion mode/camera movement, review status, row_version; generation unit |
 | VisualBeatCharacter | beat + CharacterVersion + OutfitVersion + role in frame |
 | Asset | storage metadata/type/checksum/dimensions/duration/status; binary ngoài DB |
 | GenerationJob | parent async job, requested/billed user, operation plan, resource class, status/progress |

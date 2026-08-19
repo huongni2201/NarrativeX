@@ -17,8 +17,10 @@ import { queryKeys } from "@/lib/query-keys";
 import { apiErrorMessage } from "@/shared/api/client";
 import {
   storyboardApi,
+  type CameraMovement,
   type ApiStoryboardScene,
   type ApiStoryboardVisualBeat,
+  type MotionMode,
   type VisualBeatReviewStatus,
 } from "./api/storyboard.api";
 
@@ -506,9 +508,9 @@ function VisualBeatCard({
 
         {/* Top Badges & Actions */}
         <div className="absolute inset-x-2.5 top-2.5 flex items-center justify-between">
-          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-black/60 text-xs font-semibold text-slate-300 backdrop-blur-md">
-            🏃
-          </span>
+          <div className="flex items-center gap-1.5">
+            <MotionBadge mode={beat.motionMode} movement={beat.cameraMovement} />
+          </div>
           <button
             type="button"
             className="flex h-6 w-6 items-center justify-center rounded-md bg-black/60 text-slate-300 backdrop-blur-md transition hover:bg-black/80 hover:text-white"
@@ -549,6 +551,18 @@ function VisualBeatCard({
         </div>
       </div>
     </article>
+  );
+}
+
+function MotionBadge({ mode, movement }: Readonly<{ mode: MotionMode; movement: CameraMovement }>) {
+  const label = movement === "NONE" ? mode : `${mode} · ${movement}`;
+  return (
+    <span
+      className="rounded-md bg-black/65 px-2 py-1 text-[9px] font-semibold tracking-wide text-slate-300 backdrop-blur-md"
+      title={`Render: ${mode}; camera: ${movement}`}
+    >
+      {label}
+    </span>
   );
 }
 

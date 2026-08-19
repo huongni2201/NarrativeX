@@ -2,7 +2,7 @@
 
 This matrix records the current UI-to-backend wiring and the next backend contracts needed. API mode is authoritative; unavailable backend capabilities must remain explicit rather than falling back to fixture data.
 
-> Chapter Analyze is implemented on PR #38 as an MVP foundation. The UI can create and poll analysis jobs, but Character/Storyboard public read APIs remain pending, so completion of a job does not yet mean every materialized result is browsable from the frontend.
+> Chapter Analyze and the chapter Storyboard read/review surface are implemented foundations. Character public read APIs remain pending, so completion of a job does not yet mean every materialized result is browsable from the frontend.
 
 | Screen/Feature | Route | Current Data Source | State | Existing Client Function | Required / Current Backend API | Missing Work |
 |---|---|---|---|---|---|---|
@@ -18,7 +18,7 @@ This matrix records the current UI-to-backend wiring and the next backend contra
 | Analysis editor safety | Chapter editor | local `dirty` state + persisted Chapter rowVersion/sourceHash from backend | IMPLEMENTED FOUNDATION | Analyze button state in `ChapterEditor` | saved Chapter is loaded by backend when enqueueing | Analyze remains disabled for dirty/empty Chapter; stale source must require save/re-analyze |
 | Analysis result materialization | backend/worker PostgreSQL state | Character/ProjectCharacter/CharacterVersion + Scene/VisualBeat rows materialized by worker | BACKEND FOUNDATION | none directly exposed to UI yet | worker writes canonical DB rows before GenerationJob COMPLETED | public read contracts and query hooks for Character/Storyboard |
 | Characters | `/characters` / project character views | explicit API-not-connected state | PENDING READ API | none | character/version/reference/lock APIs | add project-scoped list/detail/read first, then edit/approve/lock mutations |
-| Chapter storyboard | chapter child routes defined by ADR-0002 | explicit pending state in API runtime | PENDING READ API | none | Scene/VisualBeat list/detail resources and commands | expose persisted AI Scene/VisualBeat output and URL-owned deep links |
+| Chapter storyboard | chapter child routes defined by ADR-0002 | TanStack Query server state with typed response validation | API FOUNDATION | `storyboardApi.get`, `storyboardApi.createVisualBeat`, `storyboardApi.updateReviewStatus` | `GET /api/v1/projects/{projectId}/chapters/{chapterId}/storyboard`; VisualBeat response includes `motionMode`, `cameraMovement`, `reviewStatus`, visual metadata and rowVersion | URL-owned deep links and broader Scene/VisualBeat editing can evolve independently |
 | Render/export | project workspace | explicit API-not-connected state | PENDING API | none | render job create/status/events + signed artifact URL | mutation/job/download flow after analysis/image/TTS path lands |
 | Assets | `/assets` | explicit API-not-connected state | PENDING API | none | asset list/detail/upload/delete/review APIs | replace pending state with Query/mutations when contract lands |
 | Presets | `/presets` | explicit API-not-connected state | PENDING API | none | preset CRUD APIs | replace pending state with Query/mutations when contract lands |
@@ -53,7 +53,7 @@ Rules:
 - The backend reloads the persisted Chapter and snapshots `chapterId`, `storyVersionId`, `rowVersion`, `sourceHash`, `sourceText` and source language into the durable job.
 - Editing after save makes the local editor dirty again and disables a new Analyze action until another save.
 - API mode must not synthesize fake progress or fake results.
-- On `COMPLETED`, project-scoped queries can be invalidated, but Character/Storyboard result screens must remain explicit until their read APIs are implemented.
+- On `COMPLETED`, project-scoped queries can be invalidated; Storyboard can then load persisted Scene/VisualBeat output through its chapter API.
 
 ## Route and state rules
 

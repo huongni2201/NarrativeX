@@ -3,7 +3,8 @@ package com.narrativex.backend.feature.storyboard.infrastructure.persistence.ent
 import com.narrativex.backend.feature.common.infrastructure.persistence.JpaAuditedEntity;
 import com.narrativex.backend.feature.storyboard.domain.enums.AspectRatio;
 import com.narrativex.backend.feature.storyboard.domain.enums.ImageQualityTier;
-import com.narrativex.backend.feature.storyboard.domain.enums.MotionAction;
+import com.narrativex.backend.feature.storyboard.domain.enums.CameraMovement;
+import com.narrativex.backend.feature.storyboard.domain.enums.MotionMode;
 import com.narrativex.backend.feature.storyboard.domain.enums.VisualBeatReviewStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -47,8 +48,12 @@ public class VisualBeatJpaEntity extends JpaAuditedEntity {
   private VisualBeatReviewStatus reviewStatus;
 
   @Enumerated(EnumType.STRING)
-  @Column(name = "motion_action", nullable = false, length = 24)
-  private MotionAction motionAction;
+  @Column(name = "motion_mode", nullable = false, length = 24)
+  private MotionMode motionMode;
+
+  @Enumerated(EnumType.STRING)
+  @Column(name = "camera_movement", nullable = false, length = 32)
+  private CameraMovement cameraMovement;
 
   @Enumerated(EnumType.STRING)
   @Column(name = "aspect_ratio_override", length = 16)

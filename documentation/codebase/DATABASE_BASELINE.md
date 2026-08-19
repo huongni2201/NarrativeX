@@ -14,8 +14,9 @@
 |---|---|---|---|
 | V1 `initial_schema` | Final consolidated schema: auth, project/storyboard/generation tables, control-plane tables, reusable character/appearance tables, read-model fields and project access paths | FKs, enum checks, source-hash/idempotency constraints, appearance/outfit invariants and all baseline indexes | backend/platform plus auth, project, storyboard, generation and character features |
 | V2 `seed_demo_data` | Deterministic local/demo rows for the V1 schema | Idempotent seed inserts using stable identifiers | local development and integration fixtures |
+| V3 `split_visual_beat_motion_fields` | `visual_beats.motion_mode`, `visual_beats.camera_movement`; legacy `motion_action` normalization/removal | Motion-mode and camera-movement check constraints | backend/storyboard plus worker contract |
 
-The active branch intentionally contains exactly two Flyway migrations. V1 is the complete schema baseline; V2 is the deterministic local/demo seed. This is a development re-baseline, not a recipe for rewriting a released migration history. Existing databases with the former V3–V8 history require a reviewed database recreation or explicit operator-managed re-baselining before using the two-file path.
+V1 is the complete schema baseline, V2 is the deterministic local/demo seed, and V3 is the first forward change to the consolidated baseline. This is a development re-baseline, not a recipe for rewriting a released migration history. Existing databases with the former V3–V8 history require a reviewed database recreation or explicit operator-managed re-baselining before using this migration path.
 
 ## Entity/schema matrix
 
@@ -53,6 +54,7 @@ VisualBeat child entity
 - `Scene.status` uses `@Enumerated(EnumType.STRING)` so database values remain stable domain codes rather than enum ordinals.
 - Scene lifecycle values are `DRAFT`, `READY_FOR_VISUAL`, `GENERATING`, `REVIEW`, `APPROVED`, `FAILED`, `OUTDATED`.
 - Ordered uniqueness (`Scene` within Chapter, `VisualBeat` within Scene) remains protected by database unique constraints in addition to domain/application validation.
+- `VisualBeat.motion_mode` stores render strategy (`STILL`, `BASIC_MOTION`, `AI_VIDEO`); `VisualBeat.camera_movement` stores camera movement (`NONE`, `PAN`, `TILT`, `PUSH_IN`, `PULL_OUT`, `TRACK`, `ZOOM_IN`, `ZOOM_OUT`, `PARALLAX`). These fields are intentionally independent.
 
 ## Optimistic write contract
 

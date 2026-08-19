@@ -57,7 +57,7 @@ class PostgreSqlMigrationIntegrationTest {
   @Test
   void emptyPostgresMigratesAndHibernateValidates() throws SQLException {
     try (Connection connection = dataSource.getConnection()) {
-      assertEquals(2, latestFlywayVersion(connection));
+      assertEquals(3, latestFlywayVersion(connection));
       assertEquals("jsonb", columnType(connection, "moderation_decisions", "categories_json"));
       assertTrue(indexExists(connection, "uq_story_versions_one_active_per_project"));
       assertTrue(indexExists(connection, "idx_projects_active_owner_updated_id"));
@@ -70,6 +70,11 @@ class PostgreSqlMigrationIntegrationTest {
       assertEquals("NO", columnNullable(connection, "visual_beats", "title"));
       assertTrue(columnExists(connection, "visual_beats", "review_status"));
       assertEquals("NO", columnNullable(connection, "visual_beats", "review_status"));
+      assertTrue(columnExists(connection, "visual_beats", "motion_mode"));
+      assertEquals("NO", columnNullable(connection, "visual_beats", "motion_mode"));
+      assertTrue(columnExists(connection, "visual_beats", "camera_movement"));
+      assertEquals("NO", columnNullable(connection, "visual_beats", "camera_movement"));
+      assertFalse(columnExists(connection, "visual_beats", "motion_action"));
       assertTrue(indexExists(connection, "idx_visual_beats_scene_review_order"));
       assertTrue(indexExists(connection, "idx_generation_jobs_project_status"));
       assertTrue(indexExists(connection, "idx_scenes_chapter_status"));
@@ -85,6 +90,40 @@ class PostgreSqlMigrationIntegrationTest {
       assertFalse(columnExists(connection, "story_versions", "rights_attested_at"));
       assertFalse(columnExists(connection, "story_versions", "rights_attested_by"));
       assertFalse(tableExists(connection, "content_rights_attestations"));
+    }
+  }
+
+  @Test
+  void visualBeatMotionMigrationPreservesLegacySemanticsAndRejectsInvalidValues()
+      throws SQLException {
+    try (Connection connection = dataSource.getConnection()) {
+      assertEquals(
+          "BASIC_MOTION/PAN", visualBeatMotion(connection, 5001L));
+      assertEquals(
+          "BASIC_MOTION/TILT", visualBeatMotion(connection, 5005L));
+      assertEquals(
+          "STILL/NONE", visualBeatMotion(connection, 5004L));
+      assertEquals(
+          "BASIC_MOTION/PARALLAX", visualBeatMotion(connection, 5006L));
+
+      connection.setAutoCommit(false);
+      SQLException invalidMotionMode =
+          assertThrows(
+              SQLException.class,
+              () ->
+                  insertVisualBeatWithMotion(
+                      connection, 99, "INVALID_MODE", "NONE"));
+      assertEquals("23514", invalidMotionMode.getSQLState());
+      connection.rollback();
+
+      SQLException invalidCameraMovement =
+          assertThrows(
+              SQLException.class,
+              () ->
+                  insertVisualBeatWithMotion(
+                      connection, 99, "STILL", "INVALID_CAMERA"));
+      assertEquals("23514", invalidCameraMovement.getSQLState());
+      connection.rollback();
     }
   }
 
@@ -243,6 +282,34 @@ class PostgreSqlMigrationIntegrationTest {
         result.next();
         return result.getBoolean(1);
       }
+    }
+  }
+
+  private static String visualBeatMotion(Connection connection, long visualBeatId)
+      throws SQLException {
+    try (PreparedStatement statement =
+            connection.prepareStatement(
+                "select motion_mode, camera_movement from visual_beats where id = ?")) {
+      statement.setLong(1, visualBeatId);
+      try (ResultSet result = statement.executeQuery()) {
+        assertTrue(result.next());
+        return result.getString(1) + "/" + result.getString(2);
+      }
+    }
+  }
+
+  private static void insertVisualBeatWithMotion(
+      Connection connection, int orderIndex, String motionMode, String cameraMovement)
+      throws SQLException {
+    try (PreparedStatement statement =
+        connection.prepareStatement(
+            "insert into visual_beats "
+                + "(scene_id, order_index, title, visual_intent, review_status, motion_mode, camera_movement) "
+                + "values (4001, ?, 'Migration test', 'Migration test intent', 'NEEDS_REVIEW', ?, ?)")) {
+      statement.setInt(1, orderIndex);
+      statement.setString(2, motionMode);
+      statement.setString(3, cameraMovement);
+      statement.executeUpdate();
     }
   }
 

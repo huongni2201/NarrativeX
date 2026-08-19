@@ -1,6 +1,17 @@
 import { apiRequest } from "@/shared/api/client";
 
 export type VisualBeatReviewStatus = "NEEDS_REVIEW" | "APPROVED";
+export type MotionMode = "STILL" | "BASIC_MOTION" | "AI_VIDEO";
+export type CameraMovement =
+  | "NONE"
+  | "PAN"
+  | "TILT"
+  | "PUSH_IN"
+  | "PULL_OUT"
+  | "TRACK"
+  | "ZOOM_IN"
+  | "ZOOM_OUT"
+  | "PARALLAX";
 
 export interface ApiStoryboardVisualBeat {
   id: number;
@@ -8,8 +19,9 @@ export interface ApiStoryboardVisualBeat {
   orderIndex: number;
   title: string;
   visualIntent: string;
+  motionMode: MotionMode;
+  cameraMovement: CameraMovement;
   reviewStatus: VisualBeatReviewStatus;
-  motionAction: string;
   aspectRatioOverride: string | null;
   qualityTierOverride: string | null;
   rowVersion: number;
@@ -59,6 +71,24 @@ function isReviewStatus(value: unknown): value is VisualBeatReviewStatus {
   return value === "NEEDS_REVIEW" || value === "APPROVED";
 }
 
+function isMotionMode(value: unknown): value is MotionMode {
+  return value === "STILL" || value === "BASIC_MOTION" || value === "AI_VIDEO";
+}
+
+function isCameraMovement(value: unknown): value is CameraMovement {
+  return (
+    value === "NONE" ||
+    value === "PAN" ||
+    value === "TILT" ||
+    value === "PUSH_IN" ||
+    value === "PULL_OUT" ||
+    value === "TRACK" ||
+    value === "ZOOM_IN" ||
+    value === "ZOOM_OUT" ||
+    value === "PARALLAX"
+  );
+}
+
 export function isApiStoryboardVisualBeat(value: unknown): value is ApiStoryboardVisualBeat {
   return (
     isRecord(value) &&
@@ -67,8 +97,9 @@ export function isApiStoryboardVisualBeat(value: unknown): value is ApiStoryboar
     isNumber(value.orderIndex) &&
     isString(value.title) &&
     isString(value.visualIntent) &&
+    isMotionMode(value.motionMode) &&
+    isCameraMovement(value.cameraMovement) &&
     isReviewStatus(value.reviewStatus) &&
-    isString(value.motionAction) &&
     isNullableString(value.aspectRatioOverride) &&
     isNullableString(value.qualityTierOverride) &&
     isNumber(value.rowVersion)

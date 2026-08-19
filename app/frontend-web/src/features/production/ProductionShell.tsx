@@ -292,7 +292,7 @@ export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
               onClick={() => setActiveTab("info")}
             />
             <TabButton
-              label={`Nhân vật${overview.counts.characters ? ` (${overview.counts.characters})` : ""}`}
+              label="Nhân vật"
               active={activeTab === "characters"}
               onClick={() => setActiveTab("characters")}
             />

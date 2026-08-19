@@ -375,8 +375,9 @@ class WorkerRepository:
             await connection.executemany(
                 """
                 INSERT INTO visual_beats
-                  (scene_id, order_index, title, visual_intent, motion_action, review_status)
-                VALUES ($1, $2, $3, $4, 'STILL', 'NEEDS_REVIEW')
+                  (scene_id, order_index, title, visual_intent, motion_mode,
+                   camera_movement, review_status)
+                VALUES ($1, $2, $3, $4, 'STILL', 'NONE', 'NEEDS_REVIEW')
                 """,
                 beat_rows,
             )

@@ -76,7 +76,8 @@ public class StoryboardPersistenceAdapter implements StoryboardRepository {
               .title(visualBeat.getTitle())
               .visualIntent(visualBeat.getVisualIntent())
               .reviewStatus(visualBeat.getReviewStatus())
-              .motionAction(visualBeat.getMotionAction())
+              .motionMode(visualBeat.getMotionMode())
+              .cameraMovement(visualBeat.getCameraMovement())
               .aspectRatioOverride(visualBeat.getAspectRatioOverride())
               .qualityTierOverride(visualBeat.getQualityTierOverride())
               .build();
@@ -93,7 +94,8 @@ public class StoryboardPersistenceAdapter implements StoryboardRepository {
       entity.setTitle(visualBeat.getTitle());
       entity.setVisualIntent(visualBeat.getVisualIntent());
       entity.setReviewStatus(visualBeat.getReviewStatus());
-      entity.setMotionAction(visualBeat.getMotionAction());
+      entity.setMotionMode(visualBeat.getMotionMode());
+      entity.setCameraMovement(visualBeat.getCameraMovement());
       entity.setAspectRatioOverride(visualBeat.getAspectRatioOverride());
       entity.setQualityTierOverride(visualBeat.getQualityTierOverride());
     }
@@ -120,7 +122,8 @@ public class StoryboardPersistenceAdapter implements StoryboardRepository {
         entity.getOrderIndex(),
         entity.getTitle(),
         entity.getVisualIntent(),
-        entity.getMotionAction(),
+        entity.getMotionMode(),
+        entity.getCameraMovement(),
         entity.getAspectRatioOverride(),
         entity.getQualityTierOverride(),
         entity.getReviewStatus());

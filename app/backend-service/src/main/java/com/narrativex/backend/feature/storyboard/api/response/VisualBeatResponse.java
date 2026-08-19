@@ -3,7 +3,8 @@ package com.narrativex.backend.feature.storyboard.api.response;
 import com.narrativex.backend.feature.storyboard.domain.entity.VisualBeat;
 import com.narrativex.backend.feature.storyboard.domain.enums.AspectRatio;
 import com.narrativex.backend.feature.storyboard.domain.enums.ImageQualityTier;
-import com.narrativex.backend.feature.storyboard.domain.enums.MotionAction;
+import com.narrativex.backend.feature.storyboard.domain.enums.CameraMovement;
+import com.narrativex.backend.feature.storyboard.domain.enums.MotionMode;
 import com.narrativex.backend.feature.storyboard.domain.enums.VisualBeatReviewStatus;
 
 public record VisualBeatResponse(
@@ -12,8 +13,9 @@ public record VisualBeatResponse(
     int orderIndex,
     String title,
     String visualIntent,
+    MotionMode motionMode,
+    CameraMovement cameraMovement,
     VisualBeatReviewStatus reviewStatus,
-    MotionAction motionAction,
     AspectRatio aspectRatioOverride,
     ImageQualityTier qualityTierOverride,
     long rowVersion) {
@@ -24,8 +26,9 @@ public record VisualBeatResponse(
         beat.getOrderIndex(),
         beat.getTitle(),
         beat.getVisualIntent(),
+        beat.getMotionMode(),
+        beat.getCameraMovement(),
         beat.getReviewStatus(),
-        beat.getMotionAction(),
         beat.getAspectRatioOverride(),
         beat.getQualityTierOverride(),
         beat.getRowVersion());
