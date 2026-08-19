@@ -153,7 +153,7 @@ async def materialize_characters(
                 raise RuntimeError(
                     f"Character identity mapping disappeared for key {character.key!r}"
                 )
-            project_character_id = durable_entity_id
+            project_character_id = int(durable_entity_id)
 
         owner_key = assigned_in_response.get(project_character_id)
         if owner_key is not None and owner_key != character.key:
@@ -332,7 +332,7 @@ async def materialize_locations(
                 raise RuntimeError(
                     f"Location identity mapping disappeared for key {location.key!r}"
                 )
-            project_location_id = durable_entity_id
+            project_location_id = int(durable_entity_id)
 
         owner_key = assigned_in_response.get(project_location_id)
         if owner_key is not None and owner_key != location.key:
@@ -406,7 +406,7 @@ async def _create_character(
         character_id,
         description or name,
     )
-    return await connection.fetchval(
+    project_character_id = await connection.fetchval(
         """
         INSERT INTO project_characters
           (project_id, character_id, role, importance, story_metadata,
@@ -419,6 +419,9 @@ async def _create_character(
         description or None,
         version_id,
     )
+    if project_character_id is None:
+        raise RuntimeError("Failed to create project character")
+    return int(project_character_id)
 
 
 def _json_string_list(value: object) -> tuple[str, ...]:
@@ -469,21 +472,21 @@ def _unique_candidate_match(
     for candidate in candidates:
         if candidate.entity_id in excluded_entity_ids:
             continue
-        best = 0.0
+        best_score = 0.0
         for mention in mention_names:
             for candidate_name in candidate.names:
-                best = max(best, _identity_similarity(mention, candidate_name))
-        if best >= 0.84:
-            basis = "ALIAS" if best >= 0.99 else "CANDIDATE"
-            scored.append(_Match(candidate.entity_id, basis, best))
+                best_score = max(best_score, _identity_similarity(mention, candidate_name))
+        if best_score >= 0.84:
+            basis = "ALIAS" if best_score >= 0.99 else "CANDIDATE"
+            scored.append(_Match(candidate.entity_id, basis, best_score))
 
     if not scored:
         return None
     scored.sort(key=lambda match: (-match.confidence, match.entity_id))
-    best = scored[0]
-    if len(scored) > 1 and scored[1].confidence >= best.confidence - 0.05:
+    best_match = scored[0]
+    if len(scored) > 1 and scored[1].confidence >= best_match.confidence - 0.05:
         return None
-    return best
+    return best_match
 
 
 def _identity_similarity(left: str, right: str) -> float:
