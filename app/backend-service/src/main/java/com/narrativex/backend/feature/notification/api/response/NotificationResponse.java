@@ -26,7 +26,8 @@ public record NotificationResponse(
 
   public record Feed(int unreadCount, List<NotificationResponse> items) {
     public static Feed from(NotificationFeed feed) {
-      return new Feed(feed.unreadCount(), feed.items().stream().map(NotificationResponse::from).toList());
+      return new Feed(
+          feed.unreadCount(), feed.items().stream().map(NotificationResponse::from).toList());
     }
   }
 
