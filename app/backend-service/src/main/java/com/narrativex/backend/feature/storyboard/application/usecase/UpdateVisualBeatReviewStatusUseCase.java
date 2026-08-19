@@ -34,25 +34,31 @@ public class UpdateVisualBeatReviewStatusUseCase {
     storyboardRevisionAccess.lockChapter(chapterId);
 
     var chapter =
-        chapterRepository.findById(chapterId)
+        chapterRepository
+            .findById(chapterId)
             .orElseThrow(() -> new ResourceNotFoundException("Chapter not found"));
-    storyVersionAccess.requireOwnedStoryVersion(projectId, chapter.getStoryVersionId(), currentUserId.get());
+    storyVersionAccess.requireOwnedStoryVersion(
+        projectId, chapter.getStoryVersionId(), currentUserId.get());
 
     var scene =
-        storyboardRepository.findSceneById(sceneId)
+        storyboardRepository
+            .findSceneById(sceneId)
             .filter(candidate -> chapterId.equals(candidate.getChapterId()))
             .orElseThrow(() -> new ResourceNotFoundException("Scene not found"));
     var visualBeat =
-        storyboardRepository.findVisualBeatById(visualBeatId)
+        storyboardRepository
+            .findVisualBeatById(visualBeatId)
             .filter(candidate -> scene.getId().equals(candidate.getSceneId()))
             .orElseThrow(() -> new ResourceNotFoundException("Visual beat not found"));
 
     if (visualBeat.getRowVersion() != expectedRowVersion) {
-      throw new ResourceConflictException("Visual beat was changed by another request; refresh and try again");
+      throw new ResourceConflictException(
+          "Visual beat was changed by another request; refresh and try again");
     }
 
     visualBeat.changeReviewStatus(status);
     var saved = storyboardRepository.saveVisualBeat(visualBeat);
-    return ApiResponse.success("Visual beat review status updated successfully", VisualBeatResponse.from(saved));
+    return ApiResponse.success(
+        "Visual beat review status updated successfully", VisualBeatResponse.from(saved));
   }
 }
