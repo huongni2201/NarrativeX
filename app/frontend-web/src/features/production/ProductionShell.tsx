@@ -176,10 +176,10 @@ export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
             <div>
               <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
                 <div className="flex items-center gap-3">
-                  <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight truncate">
+                  <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight truncate">
                     {overview.name}
                   </h1>
-                  <span className="px-2 py-0.5 rounded text-xs font-bold bg-purple-950/90 text-purple-300 border border-purple-700/60 font-mono">
+                  <span className="px-2.5 py-1 rounded text-xs font-bold bg-purple-950/90 text-purple-300 border border-purple-700/60 font-mono">
                     PRO
                   </span>
                 </div>
@@ -189,28 +189,28 @@ export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
                   <button
                     type="button"
                     onClick={() => setActiveTab("info")}
-                    className="px-3.5 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 text-xs font-semibold text-slate-300 border border-slate-700 transition-colors flex items-center gap-1.5"
+                    className="px-4 py-2.5 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 text-sm font-semibold text-slate-200 border border-slate-700 transition-colors flex items-center gap-2"
                   >
-                    <Settings className="w-3.5 h-3.5 text-slate-400" />
+                    <Settings className="w-4 h-4 text-slate-300" />
                     <span>Chi tiết dự án</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={continueProject}
-                    className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-xs font-semibold text-white shadow-[0_0_20px_rgba(124,58,237,0.5)] transition-all flex items-center gap-2"
+                    className="px-5 py-2.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-sm font-semibold text-white shadow-[0_0_20px_rgba(124,58,237,0.5)] transition-all flex items-center gap-2 shrink-0 whitespace-nowrap"
                   >
-                    <Play className="w-3.5 h-3.5 fill-white" />
+                    <Play className="w-4 h-4 fill-white" />
                     <span>Continue Project</span>
                   </button>
                 </div>
               </div>
 
-              <p className="text-xs text-slate-300 leading-relaxed max-w-2xl">
+              <p className="text-sm sm:text-base text-slate-200 leading-relaxed max-w-3xl">
                 {overview.description || "Hành trình sáng tạo video tự động từ kịch bản phân cảnh AI."}
               </p>
 
-              <div className="flex items-center gap-4 text-xs text-slate-400 mt-2 font-mono">
+              <div className="flex items-center gap-4 text-xs sm:text-sm text-slate-300 mt-2.5 font-mono">
                 <span>Tạo: {formatDate(overview.createdAt)}</span>
                 <span>•</span>
                 <span>Cập nhật: {formatDate(overview.updatedAt)}</span>
@@ -218,54 +218,54 @@ export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
             </div>
 
             {/* 4 Project Stats Summary */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 py-3 border-y border-slate-800/80">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 py-4 border-y border-slate-800/80">
               <div>
-                <div className="text-xl font-extrabold text-white font-mono">
+                <div className="text-2xl font-extrabold text-white font-mono">
                   {metrics.totalChapters}
                 </div>
-                <div className="text-xs text-slate-400 font-medium">Chapters</div>
+                <div className="text-sm text-slate-300 font-medium">Chapters</div>
               </div>
               <div>
-                <div className="text-xl font-extrabold text-white font-mono">
+                <div className="text-2xl font-extrabold text-white font-mono">
                   {formatDuration(metrics.estimatedDurationSeconds)}
                 </div>
-                <div className="text-xs text-slate-400 font-medium">Estimated</div>
+                <div className="text-sm text-slate-300 font-medium">Estimated</div>
               </div>
               <div>
-                <div className="text-xl font-extrabold text-white font-mono">
+                <div className="text-2xl font-extrabold text-white font-mono">
                   {metrics.totalScenes}
                 </div>
-                <div className="text-xs text-slate-400 font-medium">Scenes</div>
+                <div className="text-sm text-slate-300 font-medium">Scenes</div>
               </div>
               <div>
-                <div className="text-xl font-extrabold text-white font-mono text-purple-300">
+                <div className="text-2xl font-extrabold text-white font-mono text-purple-300">
                   {metrics.approvedVisuals}
                 </div>
-                <div className="text-xs text-purple-400 font-medium">Approved Visuals</div>
+                <div className="text-sm text-purple-400 font-medium">Approved Visuals</div>
               </div>
             </div>
 
             {/* Overall Progress with Sub-metrics matching Screen 01 */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs font-mono">
-                <span className="text-slate-300 font-semibold">Tiến độ tổng thể</span>
-                <span className="text-purple-300 font-bold text-sm">
+              <div className="flex items-center justify-between text-sm font-mono">
+                <span className="text-slate-200 font-bold">Tiến độ tổng thể</span>
+                <span className="text-purple-300 font-extrabold text-base">
                   {metrics.overallProgress}%
                 </span>
               </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
+              <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-800">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-violet-600 to-purple-400 transition-[width] duration-500"
                   style={{ width: `${Math.max(0, Math.min(metrics.overallProgress, 100))}%` }}
                 />
               </div>
 
-              <div className="flex flex-wrap items-center justify-between text-xs text-slate-400 pt-1 font-mono gap-2">
+              <div className="flex flex-wrap items-center justify-between text-xs sm:text-sm text-slate-300 pt-1 font-mono gap-2">
                 <span>{metrics.readyChapters}/{metrics.totalChapters} Chapters ready</span>
                 <span>•</span>
                 <span>{metrics.renderedChapters}/{metrics.totalChapters} Chapters rendered</span>
                 <span>•</span>
-                <span className="text-purple-400 font-semibold">{metrics.processingJobs} Đang xử lý</span>
+                <span className="text-purple-400 font-bold">{metrics.processingJobs} Đang xử lý</span>
                 <span>•</span>
                 <span>~{formatMinutes(metrics.estimatedDurationSeconds)} Thời lượng dự kiến</span>
               </div>
@@ -274,8 +274,8 @@ export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
         </div>
 
         {/* Tabs Navigation matching Screen 01 */}
-        <div className="border-t border-slate-800 px-6">
-          <nav className="flex min-w-max gap-8 overflow-x-auto text-sm" aria-label="Project tabs">
+        <div className="border-t border-slate-800 px-6 pt-4 mt-2">
+          <nav className="flex min-w-max gap-8 overflow-x-auto text-base" aria-label="Project tabs">
             <TabButton
               label="Chapters"
               active={activeTab === "chapters"}
@@ -327,16 +327,16 @@ export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[820px] text-left text-xs">
-                  <thead className="bg-[#090e18] text-slate-400 uppercase tracking-wider font-semibold border-b border-slate-800">
+                <table className="w-full min-w-[820px] text-left text-sm">
+                  <thead className="bg-[#090e18] text-slate-200 uppercase tracking-wide font-bold border-b border-slate-800">
                     <tr>
-                      <th className="py-3 px-4 w-12 text-center">#</th>
-                      <th className="py-3 px-4">Chapter</th>
-                      <th className="py-3 px-4">Trạng thái</th>
-                      <th className="py-3 px-4 text-center">Scenes</th>
-                      <th className="py-3 px-4">Thời lượng</th>
-                      <th className="py-3 px-4">Cập nhật lần cuối</th>
-                      <th className="py-3 px-4 text-right"></th>
+                      <th className="py-4 px-4 w-12 text-center">#</th>
+                      <th className="py-4 px-4">Chapter</th>
+                      <th className="py-4 px-4">Trạng thái</th>
+                      <th className="py-4 px-4 text-center">Scenes</th>
+                      <th className="py-4 px-4">Thời lượng</th>
+                      <th className="py-4 px-4">Cập nhật lần cuối</th>
+                      <th className="py-4 px-4 text-right"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60 font-medium">
@@ -360,7 +360,7 @@ export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
               <button
                 type="button"
                 onClick={() => setFormOpen(true)}
-                className="px-5 py-2.5 rounded-lg border border-dashed border-purple-500/60 bg-purple-950/20 hover:bg-purple-900/30 text-xs font-semibold text-purple-200 shadow-[0_0_20px_rgba(124,58,237,0.2)] transition-all flex items-center gap-2"
+                className="px-5 py-3 rounded-lg border border-dashed border-purple-500/60 bg-purple-950/20 hover:bg-purple-900/30 text-sm font-semibold text-purple-200 shadow-[0_0_20px_rgba(124,58,237,0.2)] transition-all flex items-center gap-2"
               >
                 <Plus className="w-4 h-4 text-purple-400" />
                 <span>+ Add Chapter</span>
@@ -371,7 +371,7 @@ export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
                 onClick={() => {
                   alert("Tính năng Import nhiều chapter từ file văn bản / kịch bản đang trong lộ trình backend.");
                 }}
-                className="px-4 py-2.5 rounded-lg bg-[#0d1420] hover:bg-slate-800 text-xs font-semibold text-slate-300 border border-slate-700/80 flex items-center gap-2 transition-colors"
+                className="px-4 py-3 rounded-lg bg-[#0d1420] hover:bg-slate-800 text-sm font-semibold text-slate-300 border border-slate-700/80 flex items-center gap-2 transition-colors"
               >
                 <UploadCloud className="w-4 h-4 text-purple-400" />
                 <span>Import nhiều chapter</span>
@@ -635,11 +635,10 @@ function TabButton({
     <button
       type="button"
       onClick={onClick}
-      className={`border-b-2 py-3.5 text-xs font-semibold transition-all ${
-        active
-          ? "border-purple-500 text-purple-300 font-bold"
-          : "border-transparent text-slate-400 hover:text-slate-200"
-      }`}
+      className={`border-b-2 py-4 text-base font-bold transition-all ${active
+        ? "border-purple-500 text-purple-200"
+        : "border-transparent text-slate-400 hover:text-slate-200 font-semibold"
+        }`}
     >
       {label}
     </button>
@@ -658,27 +657,27 @@ function ChapterRow({
   return (
     <tr
       onClick={onOpen}
-      className="cursor-pointer bg-[#0d1420] text-slate-300 transition hover:bg-[#111a29] group"
+      className="cursor-pointer bg-[#0d1420] text-slate-200 transition hover:bg-[#111a29] group font-medium"
     >
-      <td className="py-3.5 px-4 text-center font-mono text-slate-400">
+      <td className="py-5 px-4 text-center font-mono text-slate-300">
         {String(displayNumber).padStart(2, "0")}
       </td>
-      <td className="py-3.5 px-4 font-semibold text-slate-200 group-hover:text-purple-300 transition-colors">
+      <td className="py-5 px-4 text-sm font-semibold text-slate-200 group-hover:text-purple-300 transition-colors">
         {chapter.title}
       </td>
-      <td className="py-3.5 px-4">
+      <td className="py-5 px-4">
         <OverviewStatusBadge status={chapter.status} />
       </td>
-      <td className="py-3.5 px-4 text-center font-mono text-slate-300">
+      <td className="py-5 px-4 text-center font-mono text-slate-200">
         {chapter.sceneCount}
       </td>
-      <td className="py-3.5 px-4 font-mono text-slate-400">
+      <td className="py-5 px-4 font-mono text-slate-300">
         {formatDuration(chapter.durationSeconds)}
       </td>
-      <td className="py-3.5 px-4 text-slate-400 font-mono text-[11px]">
+      <td className="py-5 px-4 text-slate-300 font-mono text-sm">
         {formatDateTime(chapter.updatedAt)}
       </td>
-      <td className="py-3.5 px-4 text-right">
+      <td className="py-5 px-4 text-right">
         <button
           type="button"
           aria-label={`Mở Chapter ${chapter.title}`}
@@ -699,48 +698,48 @@ function OverviewStatusBadge({ status }: { status: string }) {
   const normalized = status.toUpperCase();
   if (normalized === "RENDERED") {
     return (
-      <span className="inline-flex rounded px-2 py-0.5 text-[11px] font-bold border border-emerald-600/50 bg-emerald-950/80 text-emerald-300">
+      <span className="inline-flex rounded px-2.5 py-1 text-xs font-bold border border-emerald-600/50 bg-emerald-950/80 text-emerald-300">
         Rendered
       </span>
     );
   }
   if (normalized === "VISUAL_REVIEW" || normalized === "IN_REVIEW") {
     return (
-      <span className="inline-flex rounded px-2 py-0.5 text-[11px] font-bold border border-purple-600/50 bg-purple-950/80 text-purple-300">
+      <span className="inline-flex rounded px-2.5 py-1 text-xs font-bold border border-purple-600/50 bg-purple-950/80 text-purple-300">
         Visual Review
       </span>
     );
   }
   if (normalized === "ANALYZED") {
     return (
-      <span className="inline-flex rounded px-2 py-0.5 text-[11px] font-bold border border-blue-600/50 bg-blue-950/80 text-blue-300">
+      <span className="inline-flex rounded px-2.5 py-1 text-xs font-bold border border-blue-600/50 bg-blue-950/80 text-blue-300">
         Analyzed
       </span>
     );
   }
   if (normalized === "ANALYZING" || normalized === "IN_PROGRESS") {
     return (
-      <span className="inline-flex rounded px-2 py-0.5 text-[11px] font-bold border border-purple-500 bg-purple-950/90 text-purple-200 animate-pulse">
+      <span className="inline-flex rounded px-2.5 py-1 text-xs font-bold border border-purple-500 bg-purple-950/90 text-purple-200 animate-pulse">
         Analyzing
       </span>
     );
   }
   if (normalized === "DRAFT") {
     return (
-      <span className="inline-flex rounded px-2 py-0.5 text-[11px] font-bold border border-amber-600/50 bg-amber-950/80 text-amber-300">
+      <span className="inline-flex rounded px-2.5 py-1 text-xs font-bold border border-amber-600/50 bg-amber-950/80 text-amber-300">
         Draft
       </span>
     );
   }
   if (normalized === "FAILED") {
     return (
-      <span className="inline-flex rounded px-2 py-0.5 text-[11px] font-bold border border-rose-600/50 bg-rose-950/80 text-rose-300">
+      <span className="inline-flex rounded px-2.5 py-1 text-xs font-bold border border-rose-600/50 bg-rose-950/80 text-rose-300">
         Failed
       </span>
     );
   }
   return (
-    <span className="inline-flex rounded px-2 py-0.5 text-[11px] font-bold border border-slate-700 bg-slate-900 text-slate-400">
+    <span className="inline-flex rounded px-2.5 py-1 text-xs font-bold border border-slate-700 bg-slate-900 text-slate-400">
       {status.replaceAll("_", " ")}
     </span>
   );
