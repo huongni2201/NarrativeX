@@ -47,8 +47,5 @@ jobs:
       - name: Make Maven wrapper executable
         run: chmod +x mvnw
 
-      - name: Generate Spotless diff
-        run: |
-          ./mvnw --batch-mode --no-transfer-progress spotless:apply
-          git diff -- .
-          exit 1
+      - name: Verify backend
+        run: ./mvnw --batch-mode --no-transfer-progress clean verify
