@@ -1,25 +1,27 @@
 # NarrativeX documentation map
 
-The canonical product and architecture baseline is the attached `NARRATIVEX_PROJECT_SPEC_V1_8.md` (effective 18/08/2026). This repository does not duplicate that specification; the remaining Markdown files are implementation-facing views of the V1.8 contract and the current codebase.
+The canonical product and architecture baseline is **`NARRATIVEX_PROJECT_SPEC_V1_10.md`** (effective 19/08/2026, aligned with `main@193e602c5f1671ad3280f8952206535aa8f29bb4`). Older V1.8/V1.9 documents are historical references only and must not override the current baseline.
 
 ## Navigation
 
 | Area | Purpose |
 | --- | --- |
-| [`product/`](./product/) | Product scope, feature catalog, roadmap, and delivery timeline |
-| [`domain/`](./domain/) | Domain model, business rules, and glossary |
-| [`architecture/`](./architecture/) | System architecture, service boundaries, data flow, and technology stack |
+| [`source-of-truth/`](./source-of-truth/) | Canonical product/domain/architecture baseline |
+| [`product/`](./product/) | Product scope, feature catalog, roadmap, delivery timeline |
+| [`domain/`](./domain/) | Domain model, invariants, glossary and business rules |
+| [`architecture/`](./architecture/) | System architecture, boundaries, data flow and technology stack |
 | [`workflows/`](./workflows/) | End-to-end application workflows |
 | [`decisions/`](./decisions/) | Accepted architecture decision records (ADRs) |
 | [`plans/`](./plans/) | Time-boxed implementation plans |
-| [`audits/`](./audits/) | Baselines, security/technical-debt audits, and command evidence |
+| [`audits/`](./audits/) | Historical baselines, security audits and command evidence |
 | [`codebase/`](./codebase/) | Current implementation maps and integration matrices |
-| [`TRACEABILITY.md`](./TRACEABILITY.md) | Links between specification, implementation, and evidence |
+| [`TRACEABILITY.md`](./TRACEABILITY.md) | Links between specification, implementation and evidence |
 
 ## Maintenance rules
 
-1. Product/domain/architecture invariants override stale implementation notes.
-2. Current code is authoritative for factual current-state claims; update stale Markdown instead of changing working code to match old notes.
-3. Keep historical audit/evidence files historical; put current navigation and status in maintained README/index files.
-4. Record cross-cutting architecture changes in an ADR before implementation.
-5. Avoid duplicate source-of-truth documents. Compatibility files should point to the maintained document rather than copy it.
+1. The current source-of-truth document defines product/domain/architecture invariants.
+2. Current code, migrations, tests and accepted ADRs define factual AS-IS implementation claims.
+3. Historical audit/evidence files remain historical; do not rewrite evidence to match current status.
+4. Cross-cutting architecture changes require an ADR before implementation.
+5. Avoid duplicate source-of-truth documents. Derived Markdown files should link back to the maintained baseline.
+6. Implementation status must distinguish IMPLEMENTED, PARTIAL, PENDING, PROTOTYPE and TARGET.
