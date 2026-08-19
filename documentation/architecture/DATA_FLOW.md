@@ -164,8 +164,8 @@ The Chapter-analysis MVP satisfies the first durable enqueue/claim boundary, but
 1. The API resolves owner, Project and persisted/current Chapter snapshot.
 2. Idempotency prevents duplicate active work for the same request/source identity.
 3. Production abuse, moderation, entitlement/quota and real-person consent gates run where applicable.
-4. `OperationPlan` records planned work. Full production cost estimate/reservation/reconciliation still needs completion.
-5. One transaction persists `OperationPlan`, `GenerationJob`, required `StageAttempt` rows and unique outbox intent.
+4. `OperationPlan` records a bounded non-zero estimate and authorization cap; the enqueue path enforces server-side entitlement and atomically reserves the estimated quota before persistence.
+5. One transaction persists and links `OperationPlan`, `GenerationJob`, required `StageAttempt` rows and unique outbox intent; the worker commits `ProviderOperation(RESERVED)` before any provider call.
 6. Only after commit may Redis or another dispatcher publish a delivery hint.
 7. A worker claims a queued stage with a durable lease and heartbeat.
 8. Before any ambiguous/billable external submission, a dedicated `ProviderOperation` is persisted in `RESERVED`.

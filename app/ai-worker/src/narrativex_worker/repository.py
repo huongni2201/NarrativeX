@@ -1,11 +1,27 @@
 """PostgreSQL source-of-truth repository for worker claim/lease and analysis materialization."""
 
+import hashlib
 import json
 from dataclasses import dataclass
 
 import asyncpg  # type: ignore[import-untyped]
 
-from narrativex_worker.schema import ChapterAnalysisRequest, ChapterAnalysisResult
+from narrativex_worker.schema import (
+    ChapterAnalysisRequest,
+    ChapterAnalysisResult,
+    ProviderOperationStatus,
+)
+
+
+@dataclass(frozen=True)
+class DurableProviderOperation:
+    id: int
+    stage_attempt_id: int
+    provider_key: str
+    provider_operation_id: str | None
+    status: ProviderOperationStatus
+    request_fingerprint: str
+    created: bool = False
 
 
 @dataclass(frozen=True)
@@ -128,6 +144,120 @@ class WorkerRepository:
             worker_id,
         )
         return str(result) == "UPDATE 1"
+
+    async def reserve_provider_operation(
+        self,
+        claimed: ClaimedChapterAnalysisJob,
+        provider_key: str,
+        request_fingerprint: str,
+    ) -> DurableProviderOperation:
+        """Commit a provider reservation before crossing the external-provider boundary."""
+        pool = self._require_pool()
+        async with pool.acquire() as connection:
+            async with connection.transaction():
+                row = await connection.fetchrow(
+                    """
+                    INSERT INTO provider_operations
+                      (stage_attempt_id, provider_key, request_fingerprint, status)
+                    VALUES ($1, $2, $3, 'RESERVED')
+                    ON CONFLICT (provider_key, request_fingerprint) DO NOTHING
+                    RETURNING id, stage_attempt_id, provider_key, provider_operation_id,
+                              status, request_fingerprint
+                    """,
+                    claimed.stage_attempt_id,
+                    provider_key,
+                    request_fingerprint,
+                )
+                created = row is not None
+                if row is None:
+                    row = await connection.fetchrow(
+                        """
+                        SELECT id, stage_attempt_id, provider_key, provider_operation_id,
+                               status, request_fingerprint
+                          FROM provider_operations
+                         WHERE provider_key = $1 AND request_fingerprint = $2
+                         FOR UPDATE
+                        """,
+                        provider_key,
+                        request_fingerprint,
+                    )
+                if row is None:
+                    raise RuntimeError("Provider operation reservation disappeared")
+                return self._provider_operation(row, created=created)
+
+    async def mark_provider_operation_submitted(
+        self, operation_id: int, provider_operation_id: str | None
+    ) -> DurableProviderOperation:
+        return await self._update_provider_operation(
+            operation_id, ProviderOperationStatus.SUBMITTED, provider_operation_id
+        )
+
+    async def mark_provider_operation_status(
+        self,
+        operation_id: int,
+        status: ProviderOperationStatus,
+        provider_operation_id: str | None = None,
+    ) -> DurableProviderOperation:
+        return await self._update_provider_operation(operation_id, status, provider_operation_id)
+
+    async def list_provider_operations(
+        self, statuses: tuple[ProviderOperationStatus, ...], limit: int = 50
+    ) -> list[DurableProviderOperation]:
+        pool = self._require_pool()
+        rows = await pool.fetch(
+            """
+            SELECT id, stage_attempt_id, provider_key, provider_operation_id,
+                   status, request_fingerprint
+              FROM provider_operations
+             WHERE status = ANY($1::text[])
+             ORDER BY reserved_at, id
+             LIMIT $2
+            """,
+            [status.value for status in statuses],
+            limit,
+        )
+        return [self._provider_operation(row) for row in rows]
+
+    async def _update_provider_operation(
+        self,
+        operation_id: int,
+        status: ProviderOperationStatus,
+        provider_operation_id: str | None = None,
+    ) -> DurableProviderOperation:
+        pool = self._require_pool()
+        async with pool.acquire() as connection:
+            row = await connection.fetchrow(
+                """
+                UPDATE provider_operations
+                   SET status = $2,
+                       provider_operation_id = COALESCE($3, provider_operation_id),
+                       updated_at = CURRENT_TIMESTAMP,
+                       row_version = row_version + 1
+                 WHERE id = $1
+                 RETURNING id, stage_attempt_id, provider_key, provider_operation_id,
+                           status, request_fingerprint
+                """,
+                operation_id,
+                status.value,
+                provider_operation_id,
+            )
+        if row is None:
+            raise RuntimeError(f"Provider operation {operation_id} not found")
+        return self._provider_operation(row)
+
+    @staticmethod
+    def _provider_operation(
+        row: asyncpg.Record, *, created: bool = False
+    ) -> DurableProviderOperation:
+        return DurableProviderOperation(
+            id=row["id"],
+            stage_attempt_id=row["stage_attempt_id"],
+            provider_key=row["provider_key"],
+            provider_operation_id=row["provider_operation_id"],
+            status=ProviderOperationStatus(row["status"]),
+            request_fingerprint=row["request_fingerprint"],
+            created=created,
+        )
 
     async def complete(
         self,
@@ -386,3 +516,18 @@ class WorkerRepository:
         if self._pool is None:
             raise RuntimeError("WorkerRepository.connect() must be called before use")
         return self._pool
+
+
+def provider_request_fingerprint(
+    claimed: ClaimedChapterAnalysisJob, provider_key: str
+) -> str:
+    payload = "|".join(
+        (
+            provider_key,
+            "CHAPTER_ANALYZE",
+            str(claimed.generation_job_id),
+            str(claimed.request.chapter_id),
+            claimed.request.source_hash,
+        )
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()

@@ -2,7 +2,7 @@
 
 from narrativex_worker.prompting import build_chapter_analysis_prompt
 from narrativex_worker.providers.ports import LlmProvider, ProviderOperation
-from narrativex_worker.schema import ChapterAnalysisRequest
+from narrativex_worker.schema import ChapterAnalysisRequest, ProviderOperationStatus
 
 
 class WorkerService:
@@ -13,3 +13,9 @@ class WorkerService:
         # Building the prompt is deterministic and testable; submission remains adapter-owned.
         build_chapter_analysis_prompt(request)
         return await self.provider.submit(request)
+
+    async def reconcile_chapter_analysis(self, operation: ProviderOperation) -> ProviderOperation:
+        status = await self.provider.get_status(operation)
+        if status.status is not ProviderOperationStatus.UNKNOWN and status.result is not None:
+            return status
+        return await self.provider.reconcile(status)

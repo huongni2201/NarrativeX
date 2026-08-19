@@ -6,13 +6,13 @@ import com.narrativex.backend.feature.generation.application.port.out.Generation
 import com.narrativex.backend.feature.generation.application.port.out.GenerationOutboxRepository;
 import com.narrativex.backend.feature.generation.application.port.out.OperationPlanRepository;
 import com.narrativex.backend.feature.generation.application.port.out.StageAttemptRepository;
+import com.narrativex.backend.feature.generation.application.service.ChapterAnalysisAdmissionService;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.aggregate.OperationPlan;
 import com.narrativex.backend.feature.generation.domain.entity.StageAttempt;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
-import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +30,7 @@ public class EnqueueStoryAnalysisUseCase {
   private final GenerationJobRepository generationJobRepository;
   private final StageAttemptRepository stageAttemptRepository;
   private final GenerationOutboxRepository generationOutboxRepository;
+  private final ChapterAnalysisAdmissionService admissionService;
 
   /**
    * Creates the complete durable boundary before any worker/provider submission can happen. The
@@ -64,15 +65,15 @@ public class EnqueueStoryAnalysisUseCase {
       return existing.get();
     }
 
-    // The real provider adapter will own estimation. Zero is an explicit MVP placeholder, not a
-    // billing decision, and the plan still establishes the required durable authorization boundary.
-    operationPlanRepository.save(
-        OperationPlan.create(
-            command.projectId(),
-            "CHAPTER_ANALYZE",
-            BigDecimal.ZERO,
-            BigDecimal.ZERO,
-            BigDecimal.ZERO));
+    var estimate = admissionService.admit(userId, command.projectId(), chapter);
+    OperationPlan operationPlan =
+        operationPlanRepository.save(
+            OperationPlan.create(
+                command.projectId(),
+                "CHAPTER_ANALYZE",
+                estimate.estimateMin(),
+                estimate.estimateMax(),
+                estimate.maxAuthorizedCost()));
 
     GenerationJob job =
         generationJobRepository.save(
@@ -86,6 +87,8 @@ public class EnqueueStoryAnalysisUseCase {
                 project.getSourceLanguage(),
                 idempotencyKey,
                 userId));
+
+    operationPlanRepository.save(operationPlan.withGenerationJobId(job.getId()));
 
     stageAttemptRepository.save(StageAttempt.create(job.getId(), STAGE_NAME, 1));
     generationOutboxRepository.enqueue(job);

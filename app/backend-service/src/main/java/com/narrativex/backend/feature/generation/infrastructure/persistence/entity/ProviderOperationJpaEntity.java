@@ -1,7 +1,7 @@
 package com.narrativex.backend.feature.generation.infrastructure.persistence.entity;
 
 import com.narrativex.backend.feature.common.infrastructure.persistence.JpaAuditedEntity;
-import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
+import com.narrativex.backend.feature.generation.domain.enums.ProviderOperationStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -33,7 +33,10 @@ public class ProviderOperationJpaEntity extends JpaAuditedEntity {
 
   @Enumerated(EnumType.STRING)
   @Column(name = "status", nullable = false, length = 32)
-  private JobStatus status;
+  private ProviderOperationStatus status;
+
+  @Column(name = "request_fingerprint", length = 128)
+  private String requestFingerprint;
 
   @Column(name = "reserved_at", nullable = false)
   private Instant reservedAt;

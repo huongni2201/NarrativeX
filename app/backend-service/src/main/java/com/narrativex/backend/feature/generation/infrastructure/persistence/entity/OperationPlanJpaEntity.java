@@ -26,6 +26,9 @@ public class OperationPlanJpaEntity extends JpaAuditedEntity {
   @Column(name = "project_id", nullable = false)
   private Long projectId;
 
+  @Column(name = "generation_job_id")
+  private Long generationJobId;
+
   @Column(name = "operation_type", nullable = false, length = 40)
   private String operationType;
 
@@ -44,6 +47,7 @@ public class OperationPlanJpaEntity extends JpaAuditedEntity {
 
   public void apply(OperationPlan p) {
     projectId = p.getProjectId();
+    generationJobId = p.getGenerationJobId();
     operationType = p.getOperationType();
     estimateMin = p.getEstimateMin();
     estimateMax = p.getEstimateMax();

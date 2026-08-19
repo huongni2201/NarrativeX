@@ -19,7 +19,7 @@ This matrix distinguishes the product/domain source of truth from the implementa
 
 ## Deliberate non-claims
 
-The repository is not yet a public-production implementation. The Chapter-analysis foundation crosses the real durability boundary, but production readiness still requires verified entitlement/quota and cost reservation/reconciliation, complete moderation/safety enforcement, durable ProviderOperation persistence and `UNKNOWN` reconciliation, notification delivery, backup/restore, observability and full real-provider E2E coverage.
+The repository is not yet a public-production implementation. The Chapter-analysis foundation now enforces the MVP entitlement/quota and cost reservation boundary and persists ProviderOperation state with `UNKNOWN` reconciliation. Production readiness still requires complete moderation/safety coverage, notification delivery, backup/restore, observability, billing-ledger reconciliation and full real-provider E2E coverage.
 
 The Vertex Gemini adapter is a real adapter, but its presence in source does not prove production provider health. `provider_mode=disabled` remains the safe default and must never fake successful AI output.
 

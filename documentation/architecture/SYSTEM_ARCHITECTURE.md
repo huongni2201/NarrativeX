@@ -236,7 +236,7 @@ Before worker materialization, the live Chapter must still match the snapshotted
 
 1. **Chapter analysis orchestration — implemented foundation:** persisted Chapter -> OperationPlan -> GenerationJob -> StageAttempt -> worker -> materialized analysis.
 2. **Provider durability — partial:** provider port and terminal contract exist; dedicated persistent ProviderOperation and `UNKNOWN` reconciliation remain pending.
-3. **Cost/entitlement — production target:** OperationPlan exists, but full estimate/reservation/reconciliation and billable-provider enforcement remain release gates.
+3. **Cost/entitlement — implemented MVP:** Chapter analysis runs a safety, entitlement and atomic quota reservation gate with a bounded non-zero cost estimate before OperationPlan/GenerationJob creation. Provider submission uses durable fingerprinted ProviderOperation rows and UNKNOWN reconciliation; provider-specific billing ledger enforcement remains a release gate.
 4. **Trust & Safety — production target:** no blanket per-story copyright attestation; moderation, consent where applicable, abuse controls and output review remain separate gates.
 5. **Notification — future production path:** terminal state and notification intent should eventually be committed durably and delivered asynchronously.
 6. **Media pipeline — next milestones:** approved analysis -> image -> TTS -> FFmpeg, each with durable stages/assets/validation.

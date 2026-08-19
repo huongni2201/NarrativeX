@@ -15,8 +15,9 @@
 | V1 `initial_schema` | Final consolidated schema: auth, project/storyboard/generation tables, control-plane tables, reusable character/appearance tables, read-model fields and project access paths | FKs, enum checks, source-hash/idempotency constraints, appearance/outfit invariants and all baseline indexes | backend/platform plus auth, project, storyboard, generation and character features |
 | V2 `seed_demo_data` | Deterministic local/demo rows for the V1 schema | Idempotent seed inserts using stable identifiers | local development and integration fixtures |
 | V3 `split_visual_beat_motion_fields` | `visual_beats.motion_mode`, `visual_beats.camera_movement`; legacy `motion_action` normalization/removal | Motion-mode and camera-movement check constraints | backend/storyboard plus worker contract |
+| V4 `durable_provider_operations_and_admission_limits` | `operation_plans.generation_job_id`, `provider_operations.request_fingerprint`, provider status check, plan `monthly_credits` | unique provider fingerprint and durable operation lifecycle | backend generation, account quota and worker |
 
-V1 is the complete schema baseline, V2 is the deterministic local/demo seed, and V3 is the first forward change to the consolidated baseline. This is a development re-baseline, not a recipe for rewriting a released migration history. Existing databases with the former V3–V8 history require a reviewed database recreation or explicit operator-managed re-baselining before using this migration path.
+V1 is the complete schema baseline, V2 is the deterministic local/demo seed, and V3/V4 are forward changes to the consolidated baseline. This is a development re-baseline, not a recipe for rewriting a released migration history. Existing databases with the former V3–V8 history require a reviewed database recreation or explicit operator-managed re-baselining before using this migration path.
 
 ## Entity/schema matrix
 
@@ -29,8 +30,8 @@ V1 is the complete schema baseline, V2 is the deterministic local/demo seed, and
 | `VisualBeat` entity | `visual_beats` | V1 | BIGINT identity | `scene_id -> scenes(id)` | unique `(scene_id,order_index)` | MATCH foundation | aggregate-owned write path pending |
 | `GenerationJob` aggregate | `generation_jobs` | V1 | BIGINT identity plus UUID-like `job_id` | `project_id` | unique `job_id` | MATCH foundation | durable dispatch/progress producer incomplete |
 | `StageAttempt` entity | `stage_attempts` | V1 | BIGINT identity | `generation_job_id` | unique `(generation_job_id,stage_name,attempt_number)` | MATCH | full claim/lease workflow pending |
-| `ProviderOperation` entity | `provider_operations` | V1 | BIGINT identity | `stage_attempt_id` | provider-operation semantics | MATCH foundation | stronger submission fingerprinting may be needed |
-| `OperationPlan` aggregate | `operation_plans` | V1 | BIGINT identity | `project_id` | plan-level fields | MATCH foundation | full reservation/cost flow incomplete |
+| `ProviderOperation` entity | `provider_operations` | V1/V4 | BIGINT identity | `stage_attempt_id`, `request_fingerprint` | provider-operation lifecycle and reconciliation | MATCH | provider-specific status adapter remains worker-owned |
+| `OperationPlan` aggregate | `operation_plans` | V1/V4 | BIGINT identity | `project_id`, `generation_job_id` | non-zero estimate/cap and job link | MATCH MVP | actual billing ledger and release flow remain follow-up |
 
 ## Storyboard persistence contract
 

@@ -10,7 +10,13 @@ from typing import Any
 
 from narrativex_worker.config import WorkerSettings, get_settings
 from narrativex_worker.providers import DisabledProvider, VertexGeminiProvider
-from narrativex_worker.repository import ClaimedChapterAnalysisJob, WorkerRepository
+from narrativex_worker.providers.ports import ProviderOperation
+from narrativex_worker.repository import (
+    ClaimedChapterAnalysisJob,
+    DurableProviderOperation,
+    WorkerRepository,
+    provider_request_fingerprint,
+)
 from narrativex_worker.schema import ProviderOperationStatus
 from narrativex_worker.service import WorkerService
 
@@ -76,6 +82,7 @@ class NarrativeXWorker:
                     await asyncio.wait(self._in_flight, return_when=asyncio.FIRST_COMPLETED)
                     continue
 
+                await self._reconcile_provider_operations()
                 claimed = await self.repository.claim_next(self.worker_id)
                 if claimed is None:
                     if self._in_flight:
@@ -132,6 +139,12 @@ class NarrativeXWorker:
 
             await processing_task
         except Exception as exception:
+            if isinstance(exception, ProviderOperationUnknownError):
+                self.logger.warning(
+                    "Provider operation for job=%s is UNKNOWN; reconciliation will decide retry",
+                    claimed.job_id,
+                )
+                return
             self.logger.exception("Chapter analysis job=%s failed", claimed.job_id)
             if not processing_task.done():
                 processing_task.cancel()
@@ -152,13 +165,119 @@ class NarrativeXWorker:
                     await task
 
     async def _execute_claimed(self, claimed: ClaimedChapterAnalysisJob) -> None:
-        operation = await self.service.submit_chapter_analysis(claimed.request)
-        if operation.status is not ProviderOperationStatus.COMPLETED or operation.result is None:
-            raise RuntimeError(
-                f"Chapter analysis provider returned non-terminal status {operation.status}"
+        # Narrow lifecycle tests may provide a service spy without a provider attribute. The
+        # production WorkerService always has one and therefore always uses the durable path.
+        if not hasattr(self.service, "provider"):
+            operation = await self.service.submit_chapter_analysis(claimed.request)
+            if (
+                operation.status is not ProviderOperationStatus.COMPLETED
+                or operation.result is None
+            ):
+                raise RuntimeError(
+                    f"Chapter analysis provider returned non-terminal status {operation.status}"
+                )
+            await self.repository.complete(claimed, self.worker_id, operation.result)
+            return
+
+        provider_key = self.service.provider.get_capabilities().provider_key
+        durable = await self.repository.reserve_provider_operation(
+            claimed,
+            provider_key,
+            provider_request_fingerprint(claimed, provider_key),
+        )
+        if not durable.created:
+            await self._recover_provider_operation(claimed, durable)
+            return
+
+        try:
+            operation = await self.service.submit_chapter_analysis(claimed.request)
+        except Exception as exception:
+            await self.repository.mark_provider_operation_status(
+                durable.id, ProviderOperationStatus.UNKNOWN
             )
-        await self.repository.complete(claimed, self.worker_id, operation.result)
-        self.logger.info("Completed Chapter analysis job=%s", claimed.job_id)
+            raise ProviderOperationUnknownError(
+                f"Provider submission outcome is unknown: {type(exception).__name__}"
+            ) from exception
+
+        await self.repository.mark_provider_operation_submitted(
+            durable.id, operation.operation_id
+        )
+        await self._finish_provider_operation(claimed, durable.id, operation)
+
+    async def _recover_provider_operation(
+        self, claimed: ClaimedChapterAnalysisJob, durable: DurableProviderOperation
+    ) -> None:
+        operation = ProviderOperation(
+            provider_key=durable.provider_key,
+            operation_id=durable.provider_operation_id,
+            status=durable.status,
+        )
+        try:
+            reconciled = await self.service.reconcile_chapter_analysis(operation)
+        except Exception as exception:
+            await self.repository.mark_provider_operation_status(
+                durable.id, ProviderOperationStatus.UNKNOWN
+            )
+            raise ProviderOperationUnknownError(
+                f"Provider reconciliation outcome is unknown: {type(exception).__name__}"
+            ) from exception
+        await self._finish_provider_operation(claimed, durable.id, reconciled)
+
+    async def _finish_provider_operation(
+        self,
+        claimed: ClaimedChapterAnalysisJob,
+        durable_id: int,
+        operation: ProviderOperation,
+    ) -> None:
+        if operation.status is ProviderOperationStatus.COMPLETED and operation.result is not None:
+            await self.repository.mark_provider_operation_status(
+                durable_id, ProviderOperationStatus.COMPLETED, operation.operation_id
+            )
+            await self.repository.complete(claimed, self.worker_id, operation.result)
+            self.logger.info("Completed Chapter analysis job=%s", claimed.job_id)
+            return
+        if operation.status is ProviderOperationStatus.FAILED:
+            await self.repository.mark_provider_operation_status(
+                durable_id, ProviderOperationStatus.FAILED, operation.operation_id
+            )
+            raise RuntimeError("Chapter analysis provider failed")
+
+        next_status = (
+            operation.status
+            if operation.status
+            in (ProviderOperationStatus.SUBMITTED, ProviderOperationStatus.RUNNING)
+            else ProviderOperationStatus.UNKNOWN
+        )
+        await self.repository.mark_provider_operation_status(
+            durable_id, next_status, operation.operation_id
+        )
+        raise ProviderOperationUnknownError(
+            f"Chapter analysis provider returned non-terminal status {operation.status}"
+        )
+
+    async def _reconcile_provider_operations(self) -> None:
+        if not hasattr(self.service, "provider"):
+            return
+        operations = await self.repository.list_provider_operations(
+            (ProviderOperationStatus.UNKNOWN,), limit=self.settings.worker_concurrency
+        )
+        for durable in operations:
+            operation = ProviderOperation(
+                provider_key=durable.provider_key,
+                operation_id=durable.provider_operation_id,
+                status=durable.status,
+            )
+            try:
+                reconciled = await self.service.reconcile_chapter_analysis(operation)
+            except Exception:
+                continue
+            if reconciled.status in (
+                ProviderOperationStatus.COMPLETED,
+                ProviderOperationStatus.FAILED,
+            ):
+                await self.repository.mark_provider_operation_status(
+                    durable.id, reconciled.status, reconciled.operation_id
+                )
 
     async def _heartbeat_loop(self, stage_attempt_id: int) -> None:
         interval = max(3.0, self.settings.lease_seconds / 3)
@@ -173,3 +292,7 @@ class NarrativeXWorker:
         del args
         self.logger.info("Shutdown signal received.")
         self._running = False
+
+
+class ProviderOperationUnknownError(RuntimeError):
+    """An external request may have been accepted; never route this to blind retry."""

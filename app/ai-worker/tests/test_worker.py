@@ -7,15 +7,21 @@ import pytest
 from narrativex_worker.config import WorkerSettings, get_settings
 from narrativex_worker.prompting import build_chapter_analysis_prompt
 from narrativex_worker.providers.disabled import DisabledProvider, ProviderNotConfiguredError
-from narrativex_worker.repository import ClaimedChapterAnalysisJob
+from narrativex_worker.providers.ports import ProviderCapabilities, ProviderOperation
+from narrativex_worker.repository import (
+    ClaimedChapterAnalysisJob,
+    DurableProviderOperation,
+    provider_request_fingerprint,
+)
 from narrativex_worker.schema import (
     ChapterAnalysisRequest,
+    ChapterAnalysisResult,
     ImageAspectRatio,
     ImageGenerationSettings,
     ProviderOperationStatus,
 )
 from narrativex_worker.service import WorkerService
-from narrativex_worker.worker import NarrativeXWorker
+from narrativex_worker.worker import NarrativeXWorker, ProviderOperationUnknownError
 
 SOURCE_HASH = "a" * 64
 
@@ -102,10 +108,169 @@ def test_provider_terminal_status_is_completed() -> None:
     assert "SUCCEEDED" not in {status.value for status in ProviderOperationStatus}
 
 
+def test_provider_request_fingerprint_is_restart_stable() -> None:
+    claimed = ClaimedChapterAnalysisJob(
+        stage_attempt_id=10,
+        generation_job_id=20,
+        job_id="job-1",
+        requested_by_user_id="user-1",
+        request=chapter_request(),
+    )
+    assert provider_request_fingerprint(claimed, "vertex") == provider_request_fingerprint(
+        claimed, "vertex"
+    )
+    assert provider_request_fingerprint(claimed, "vertex") != provider_request_fingerprint(
+        claimed, "other"
+    )
+
+
 @pytest.mark.asyncio
 async def test_disabled_provider_never_fakes_success() -> None:
     with pytest.raises(ProviderNotConfiguredError):
         await WorkerService(DisabledProvider()).submit_chapter_analysis(chapter_request())
+
+
+def completed_result() -> ChapterAnalysisResult:
+    return ChapterAnalysisResult(
+        scenes=[
+            {
+                "title": "Opening",
+                "narration": "A door opens.",
+                "visual_beats": [{"title": "Door", "visual_intent": "Warm light"}],
+            }
+        ]
+    )
+
+
+class DurableRepositorySpy:
+    def __init__(self, status: ProviderOperationStatus | None = None) -> None:
+        self.status = status
+        self.submit_id = "vertex-op-1"
+        self.complete_called = False
+        self.status_history: list[ProviderOperationStatus] = []
+
+    async def reserve_provider_operation(
+        self, claimed: ClaimedChapterAnalysisJob, provider_key: str, fingerprint: str
+    ) -> DurableProviderOperation:
+        del claimed, provider_key
+        return DurableProviderOperation(
+            id=100,
+            stage_attempt_id=10,
+            provider_key="vertex",
+            provider_operation_id=self.submit_id if self.status else None,
+            status=self.status or ProviderOperationStatus.RESERVED,
+            request_fingerprint=fingerprint,
+            created=self.status is None,
+        )
+
+    async def mark_provider_operation_submitted(
+        self, operation_id: int, provider_operation_id: str | None
+    ) -> DurableProviderOperation:
+        del operation_id
+        self.status_history.append(ProviderOperationStatus.SUBMITTED)
+        return DurableProviderOperation(
+            100, 10, "vertex", provider_operation_id, ProviderOperationStatus.SUBMITTED, "f"
+        )
+
+    async def mark_provider_operation_status(
+        self,
+        operation_id: int,
+        status: ProviderOperationStatus,
+        provider_operation_id: str | None = None,
+    ) -> DurableProviderOperation:
+        del operation_id
+        self.status_history.append(status)
+        return DurableProviderOperation(
+            100, 10, "vertex", provider_operation_id, status, "f"
+        )
+
+    async def complete(self, *args: object) -> None:
+        del args
+        self.complete_called = True
+
+
+class ProviderSpy:
+    def __init__(self, submit_error: Exception | None = None) -> None:
+        self.submit_calls = 0
+        self.reconcile_calls = 0
+        self.submit_error = submit_error
+
+    def get_capabilities(self) -> ProviderCapabilities:
+        return ProviderCapabilities("vertex", supports_story_analysis=True)
+
+    def estimate(self, request: ChapterAnalysisRequest):
+        del request
+        return None
+
+    async def submit(self, request: ChapterAnalysisRequest) -> ProviderOperation:
+        del request
+        self.submit_calls += 1
+        if self.submit_error:
+            raise self.submit_error
+        return ProviderOperation(
+            "vertex", "vertex-op-1", ProviderOperationStatus.COMPLETED, completed_result()
+        )
+
+    async def get_status(self, operation: ProviderOperation) -> ProviderOperation:
+        return operation
+
+    async def reconcile(self, operation: ProviderOperation) -> ProviderOperation:
+        self.reconcile_calls += 1
+        return ProviderOperation(
+            "vertex",
+            operation.operation_id or "vertex-op-1",
+            ProviderOperationStatus.COMPLETED,
+            completed_result(),
+        )
+
+
+@pytest.mark.asyncio
+async def test_reserved_restart_reconciles_without_resubmitting() -> None:
+    worker = NarrativeXWorker(settings=WorkerSettings(worker_env="test"))
+    repository = DurableRepositorySpy(ProviderOperationStatus.RESERVED)
+    provider = ProviderSpy()
+    worker.repository = repository  # type: ignore[assignment]
+    worker.service = WorkerService(provider)
+    claimed = ClaimedChapterAnalysisJob(10, 20, "job-1", "user-1", chapter_request())
+
+    await worker._execute_claimed(claimed)
+
+    assert provider.submit_calls == 0
+    assert provider.reconcile_calls == 1
+    assert repository.complete_called
+
+
+@pytest.mark.asyncio
+async def test_submitted_restart_reconciles_without_resubmitting() -> None:
+    worker = NarrativeXWorker(settings=WorkerSettings(worker_env="test"))
+    repository = DurableRepositorySpy(ProviderOperationStatus.SUBMITTED)
+    provider = ProviderSpy()
+    worker.repository = repository  # type: ignore[assignment]
+    worker.service = WorkerService(provider)
+    claimed = ClaimedChapterAnalysisJob(10, 20, "job-1", "user-1", chapter_request())
+
+    await worker._execute_claimed(claimed)
+
+    assert provider.submit_calls == 0
+    assert provider.reconcile_calls == 1
+    assert repository.complete_called
+
+
+@pytest.mark.asyncio
+async def test_timeout_transitions_to_unknown_and_never_blind_retries() -> None:
+    worker = NarrativeXWorker(settings=WorkerSettings(worker_env="test"))
+    repository = DurableRepositorySpy()
+    provider = ProviderSpy(TimeoutError("provider timed out"))
+    worker.repository = repository  # type: ignore[assignment]
+    worker.service = WorkerService(provider)
+    claimed = ClaimedChapterAnalysisJob(10, 20, "job-1", "user-1", chapter_request())
+
+    with pytest.raises(ProviderOperationUnknownError):
+        await worker._execute_claimed(claimed)
+
+    assert provider.submit_calls == 1
+    assert repository.status_history == [ProviderOperationStatus.UNKNOWN]
+    assert not repository.complete_called
 
 
 @pytest.mark.asyncio

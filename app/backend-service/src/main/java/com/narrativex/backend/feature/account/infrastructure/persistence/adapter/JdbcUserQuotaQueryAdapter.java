@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.account.infrastructure.persistence.adapter;
 
 import com.narrativex.backend.feature.account.application.port.out.UserQuotaQueryRepository;
+import com.narrativex.backend.feature.account.application.port.in.UserQuotaAccess;
 import com.narrativex.backend.feature.account.application.query.UserQuotaView;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
@@ -14,7 +15,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
-public class JdbcUserQuotaQueryAdapter implements UserQuotaQueryRepository {
+public class JdbcUserQuotaQueryAdapter implements UserQuotaQueryRepository, UserQuotaAccess {
   private final JdbcTemplate jdbcTemplate;
 
   @Override
@@ -32,6 +33,7 @@ public class JdbcUserQuotaQueryAdapter implements UserQuotaQueryRepository {
                    pe.max_longform_exports_month,
                    pe.max_short_exports_month,
                    pe.max_concurrent_expensive_jobs,
+                   pe.monthly_credits,
                    pe.feature_flags_json::text AS feature_flags_json,
                    COALESCE(uw.longform_exports, 0) AS longform_exports,
                    COALESCE(uw.short_exports, 0) AS short_exports,
@@ -58,6 +60,19 @@ public class JdbcUserQuotaQueryAdapter implements UserQuotaQueryRepository {
         .findFirst();
   }
 
+  @Override
+  public Optional<UserQuotaAccess.QuotaSnapshot> findCurrentQuota(String userId) {
+    return findCurrent(userId)
+        .map(
+            quota ->
+                new UserQuotaAccess.QuotaSnapshot(
+                    quota.featureFlagsJson(),
+                    quota.maxConcurrentExpensiveJobs(),
+                    quota.expensiveJobsActive(),
+                    quota.creditsUsed(),
+                    quota.totalCredits()));
+  }
+
   private static UserQuotaView map(ResultSet rs) throws SQLException {
     return new UserQuotaView(
         rs.getString("plan_key"),
@@ -74,8 +89,9 @@ public class JdbcUserQuotaQueryAdapter implements UserQuotaQueryRepository {
         rs.getInt("short_exports"),
         rs.getInt("expensive_jobs_active"),
         defaultZero(rs.getBigDecimal("credits_used")),
-        null,
-        null);
+        defaultZero(rs.getBigDecimal("monthly_credits")),
+        defaultZero(rs.getBigDecimal("monthly_credits"))
+            .subtract(defaultZero(rs.getBigDecimal("credits_used"))));
   }
 
   private static LocalDate localDate(ResultSet rs, String column) throws SQLException {

@@ -37,6 +37,7 @@ public final class GenerationPersistenceMapper {
         entity.getId(),
         entity.getRowVersion(),
         entity.getProjectId(),
+        entity.getGenerationJobId(),
         entity.getOperationType(),
         entity.getEstimateMin(),
         entity.getEstimateMax(),

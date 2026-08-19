@@ -8,6 +8,7 @@ import java.util.Objects;
 /** Cost/authorization plan aggregate persisted before expensive work is submitted. */
 public final class OperationPlan extends AggregateRoot {
   private final Long projectId;
+  private final Long generationJobId;
   private final String operationType;
   private final BigDecimal estimateMin;
   private final BigDecimal estimateMax;
@@ -18,6 +19,7 @@ public final class OperationPlan extends AggregateRoot {
       Long id,
       long rowVersion,
       Long projectId,
+      Long generationJobId,
       String operationType,
       BigDecimal estimateMin,
       BigDecimal estimateMax,
@@ -27,6 +29,7 @@ public final class OperationPlan extends AggregateRoot {
     if (projectId == null || projectId <= 0)
       throw new IllegalArgumentException("projectId must be positive");
     this.projectId = projectId;
+    this.generationJobId = generationJobId;
     if (operationType == null || operationType.isBlank())
       throw new IllegalArgumentException("operationType must not be blank");
     this.operationType = operationType;
@@ -48,6 +51,7 @@ public final class OperationPlan extends AggregateRoot {
         null,
         0L,
         projectId,
+        null,
         operationType,
         estimateMin,
         estimateMax,
@@ -64,10 +68,46 @@ public final class OperationPlan extends AggregateRoot {
       BigDecimal estimateMax,
       BigDecimal maxAuthorizedCost,
       EstimateConfidence confidence) {
+    return rehydrate(
+        id,
+        rowVersion,
+        projectId,
+        null,
+        operationType,
+        estimateMin,
+        estimateMax,
+        maxAuthorizedCost,
+        confidence);
+  }
+
+  public static OperationPlan rehydrate(
+      Long id,
+      long rowVersion,
+      Long projectId,
+      Long generationJobId,
+      String operationType,
+      BigDecimal estimateMin,
+      BigDecimal estimateMax,
+      BigDecimal maxAuthorizedCost,
+      EstimateConfidence confidence) {
     return new OperationPlan(
         id,
         rowVersion,
         projectId,
+        generationJobId,
+        operationType,
+        estimateMin,
+        estimateMax,
+        maxAuthorizedCost,
+        confidence);
+  }
+
+  public OperationPlan withGenerationJobId(Long jobId) {
+    return new OperationPlan(
+        getId(),
+        getRowVersion(),
+        projectId,
+        Objects.requireNonNull(jobId, "jobId"),
         operationType,
         estimateMin,
         estimateMax,
@@ -77,6 +117,10 @@ public final class OperationPlan extends AggregateRoot {
 
   public Long getProjectId() {
     return projectId;
+  }
+
+  public Long getGenerationJobId() {
+    return generationJobId;
   }
 
   public String getOperationType() {

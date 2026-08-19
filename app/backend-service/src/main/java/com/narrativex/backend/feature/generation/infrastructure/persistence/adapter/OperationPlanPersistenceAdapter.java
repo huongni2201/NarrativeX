@@ -39,6 +39,7 @@ public class OperationPlanPersistenceAdapter implements OperationPlanRepository 
   private static OperationPlanJpaEntity buildJpaEntity(OperationPlan operationPlan) {
     return OperationPlanJpaEntity.builder()
         .projectId(operationPlan.getProjectId())
+        .generationJobId(operationPlan.getGenerationJobId())
         .operationType(operationPlan.getOperationType())
         .estimateMin(operationPlan.getEstimateMin())
         .estimateMax(operationPlan.getEstimateMax())
