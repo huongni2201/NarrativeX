@@ -13,6 +13,8 @@ public interface ChapterWorkspaceReadRepository {
       int sceneCount,
       int visualBeatCount,
       long estimatedDurationSeconds,
+      String storyboardSourceHash,
+      boolean hasApprovedOutput,
       Analysis analysis) {}
 
   record PreviewScene(
