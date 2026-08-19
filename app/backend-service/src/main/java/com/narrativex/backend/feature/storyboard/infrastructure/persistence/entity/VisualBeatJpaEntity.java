@@ -4,6 +4,7 @@ import com.narrativex.backend.feature.common.infrastructure.persistence.JpaAudit
 import com.narrativex.backend.feature.storyboard.domain.enums.AspectRatio;
 import com.narrativex.backend.feature.storyboard.domain.enums.ImageQualityTier;
 import com.narrativex.backend.feature.storyboard.domain.enums.MotionAction;
+import com.narrativex.backend.feature.storyboard.domain.enums.VisualBeatReviewStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -35,8 +36,15 @@ public class VisualBeatJpaEntity extends JpaAuditedEntity {
   @Column(name = "order_index", nullable = false)
   private int orderIndex;
 
+  @Column(name = "title", nullable = false, length = 200)
+  private String title;
+
   @Column(name = "visual_intent", nullable = false, columnDefinition = "TEXT")
   private String visualIntent;
+
+  @Enumerated(EnumType.STRING)
+  @Column(name = "review_status", nullable = false, length = 24)
+  private VisualBeatReviewStatus reviewStatus;
 
   @Enumerated(EnumType.STRING)
   @Column(name = "motion_action", nullable = false, length = 24)

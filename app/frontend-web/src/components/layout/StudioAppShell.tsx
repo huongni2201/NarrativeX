@@ -18,6 +18,11 @@ const ProductionShell = dynamic(() =>
 const ChapterEditor = dynamic(() =>
   import("@/features/chapters/components/ChapterEditor").then((module) => module.ChapterEditor),
 );
+const ProjectStoryboardScreen = dynamic(() =>
+  import("@/features/storyboard/ProjectStoryboardScreen").then(
+    (module) => module.ProjectStoryboardScreen,
+  ),
+);
 const CharacterLibrary = dynamic(() =>
   import("@/features/characters/CharacterLibrary").then((module) => module.CharacterLibrary),
 );
@@ -40,6 +45,7 @@ type StudioRouteScreen = Extract<
   | "dashboard"
   | "project-workspace"
   | "chapter-workspace"
+  | "storyboard"
   | "characters"
   | "assets"
   | "presets"
@@ -56,6 +62,7 @@ const screenTitles: Record<StudioRouteScreen, string> = {
   dashboard: "01. Project Overview (Quản lý dự án)",
   "project-workspace": "01. Project Overview (Quản lý dự án)",
   "chapter-workspace": "Chapter Workspace",
+  storyboard: "04. Storyboard – Chọn Chapter",
   characters: "Thư viện nhân vật",
   assets: "Thư viện tài sản (Asset Library)",
   presets: "Mẫu & Phong cách (Style & Presets)",
@@ -112,6 +119,9 @@ export function StudioAppShell({
           )}
           {screen === "chapter-workspace" && projectId && chapterId && (
             <ChapterEditor projectId={projectId} chapterId={chapterId} />
+          )}
+          {screen === "storyboard" && projectId && (
+            <ProjectStoryboardScreen projectId={projectId} />
           )}
           {screen === "characters" && <CharacterLibrary />}
           {screen === "assets" && <AssetLibraryScreen />}

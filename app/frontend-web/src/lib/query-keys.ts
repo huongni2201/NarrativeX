@@ -11,6 +11,8 @@ export const queryKeys = {
     ["projects", projectId, "chapters", chapterId] as const,
   chapterWorkspace: (projectId: number, chapterId: number) =>
     ["projects", projectId, "chapters", chapterId, "workspace"] as const,
+  storyboard: (projectId: number, chapterId: number) =>
+    ["projects", projectId, "chapters", chapterId, "storyboard"] as const,
   characters: ["characters"] as const,
   job: (jobId: string) => ["jobs", jobId] as const,
 };
