@@ -30,7 +30,8 @@ public class NotificationController {
   }
 
   @PatchMapping("/{notificationId}/read")
-  public ResponseEntity<ApiResponse<NotificationResponse>> markRead(@PathVariable Long notificationId) {
+  public ResponseEntity<ApiResponse<NotificationResponse>> markRead(
+      @PathVariable Long notificationId) {
     return ResponseEntity.ok(
         ApiResponse.success(
             "Notification marked as read",
