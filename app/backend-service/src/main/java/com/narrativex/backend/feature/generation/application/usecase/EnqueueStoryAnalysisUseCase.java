@@ -13,6 +13,7 @@ import com.narrativex.backend.feature.generation.domain.entity.StageAttempt;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
+import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardRevisionAccess;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,23 +27,19 @@ public class EnqueueStoryAnalysisUseCase {
   private final StoryVersionAccess storyVersionAccess;
   private final ProjectAccess projectAccess;
   private final ChapterAnalysisSourceAccess chapterAnalysisSourceAccess;
+  private final StoryboardRevisionAccess storyboardRevisionAccess;
   private final OperationPlanRepository operationPlanRepository;
   private final GenerationJobRepository generationJobRepository;
   private final StageAttemptRepository stageAttemptRepository;
   private final GenerationOutboxRepository generationOutboxRepository;
   private final ChapterAnalysisAdmissionService admissionService;
 
-  /**
-   * Creates the complete durable boundary before any worker/provider submission can happen. The
-   * Chapter source comes exclusively from PostgreSQL; the client never supplies analysis text.
-   */
   @Transactional
   public GenerationJob execute(EnqueueStoryAnalysisCommand command) {
     String userId = currentUserId.get();
     var chapter = chapterAnalysisSourceAccess.requireById(command.chapterId());
 
-    storyVersionAccess.requireOwnedStoryVersion(
-        command.projectId(), chapter.storyVersionId(), userId);
+    storyVersionAccess.requireOwnedStoryVersion(command.projectId(), chapter.storyVersionId(), userId);
     var project = projectAccess.findOwnedProject(command.projectId(), userId);
 
     if (chapter.sourceText().isBlank()) {
@@ -50,22 +47,28 @@ public class EnqueueStoryAnalysisUseCase {
     }
 
     String idempotencyKey =
-        "chapter-analysis:"
-            + command.projectId()
-            + ":"
-            + command.chapterId()
-            + ":"
-            + chapter.sourceHash();
+        "chapter-analysis:" + command.projectId() + ":" + command.chapterId() + ":" + chapter.sourceHash();
 
-    // Serialize identical requests inside this PostgreSQL transaction. A concurrent request waits
-    // for the first transaction to commit, then observes and returns the already-created job.
     generationJobRepository.acquireIdempotencyLock(idempotencyKey);
     var existing = generationJobRepository.findByIdempotencyKey(idempotencyKey);
     if (existing.isPresent()) {
       return existing.get();
     }
 
+    // Serialize Analyze with review/approval mutations for this chapter. The lock is held until the
+    // transaction commits, so an approval cannot race between admission and revision creation.
+    storyboardRevisionAccess.lockChapter(command.chapterId());
+
+    // Admission happens before any durable external execution intent and before the worker can see
+    // this job. Same-source approved storyboards are rejected here before quota reservation.
     var estimate = admissionService.admit(userId, command.projectId(), chapter);
+
+    // Every paid analysis targets a fresh, isolated revision. The current storyboard pointer is not
+    // changed here; the worker switches it only after successful materialization.
+    Long storyboardRevisionId =
+        storyboardRevisionAccess.createDraft(
+            command.chapterId(), chapter.sourceHash(), chapter.rowVersion());
+
     OperationPlan operationPlan =
         operationPlanRepository.save(
             OperationPlan.create(
@@ -81,6 +84,7 @@ public class EnqueueStoryAnalysisUseCase {
                 command.projectId(),
                 chapter.storyVersionId(),
                 command.chapterId(),
+                storyboardRevisionId,
                 chapter.rowVersion(),
                 chapter.sourceHash(),
                 chapter.sourceText(),
@@ -89,7 +93,6 @@ public class EnqueueStoryAnalysisUseCase {
                 userId));
 
     operationPlanRepository.save(operationPlan.withGenerationJobId(job.getId()));
-
     stageAttemptRepository.save(StageAttempt.create(job.getId(), STAGE_NAME, 1));
     generationOutboxRepository.enqueue(job);
     return job;
