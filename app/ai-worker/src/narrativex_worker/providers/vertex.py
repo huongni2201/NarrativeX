@@ -16,6 +16,7 @@ from narrativex_worker.providers.ports import (
     ProviderCapabilities,
     ProviderEstimate,
     ProviderOperation,
+    ProviderSubmissionUnknownError,
 )
 from narrativex_worker.schema import (
     ChapterAnalysisRequest,
@@ -28,7 +29,7 @@ class VertexProviderError(RuntimeError):
     """Raised when Vertex cannot produce a valid structured Chapter analysis."""
 
 
-class VertexSubmissionUnknownError(VertexProviderError):
+class VertexSubmissionUnknownError(VertexProviderError, ProviderSubmissionUnknownError):
     """The request may have crossed the provider boundary; never blind-retry it."""
 
 
@@ -52,7 +53,16 @@ class VertexGeminiProvider(LlmProvider):
         return ProviderEstimate(min_cost=0.0, max_cost=0.0)
 
     async def submit(self, request: ChapterAnalysisRequest) -> ProviderOperation:
-        token = await self._access_token()
+        try:
+            token = await self._access_token()
+        except VertexProviderError:
+            # Authentication failed before any generation request crossed the provider boundary.
+            return ProviderOperation(
+                provider_key="vertex",
+                operation_id=None,
+                status=ProviderOperationStatus.FAILED,
+            )
+
         endpoint = (
             f"https://{self.settings.vertex_location}-aiplatform.googleapis.com/v1/projects/"
             f"{self.settings.vertex_project_id}/locations/{self.settings.vertex_location}/"
