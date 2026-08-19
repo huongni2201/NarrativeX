@@ -9,12 +9,12 @@ import uuid
 from typing import Any
 
 from narrativex_worker.config import WorkerSettings, get_settings
-from narrativex_worker.production_repository import ProductionWorkerRepository
 from narrativex_worker.providers import DisabledProvider, VertexGeminiProvider
 from narrativex_worker.providers.ports import ProviderOperation
 from narrativex_worker.repository import (
     ClaimedChapterAnalysisJob,
     DurableProviderOperation,
+    WorkerRepository,
     provider_request_fingerprint,
 )
 from narrativex_worker.schema import ProviderOperationStatus
@@ -29,7 +29,7 @@ class NarrativeXWorker:
         self._setup_logging()
         self._running = False
         self.worker_id = f"{self.settings.worker_name}-{uuid.uuid4()}"
-        self.repository = ProductionWorkerRepository(
+        self.repository = WorkerRepository(
             database_url=self.settings.database_url,
             lease_seconds=self.settings.lease_seconds,
             pool_size=max(5, self.settings.worker_concurrency * 2 + 1),
@@ -165,8 +165,6 @@ class NarrativeXWorker:
                     await task
 
     async def _execute_claimed(self, claimed: ClaimedChapterAnalysisJob) -> None:
-        # Narrow lifecycle tests may provide a service spy without a provider attribute. The
-        # production WorkerService always has one and therefore always uses the durable path.
         if not hasattr(self.service, "provider"):
             operation = await self.service.submit_chapter_analysis(claimed.request)
             if (
@@ -189,9 +187,6 @@ class NarrativeXWorker:
             await self._recover_provider_operation(claimed, durable)
             return
 
-        # Persist that the provider boundary is about to be crossed. For synchronous providers
-        # there may be no provider operation id yet, but a crash after this point must never turn
-        # into a blind resubmission.
         await self.repository.mark_provider_operation_submitted(durable.id, None)
         try:
             operation = await self.service.submit_chapter_analysis(claimed.request)
@@ -247,8 +242,6 @@ class NarrativeXWorker:
                     durable_id, operation.operation_id, operation.result
                 )
             except Exception as exception:
-                # The DB commit outcome itself may be ambiguous. Do not overwrite it with FAILED
-                # or resubmit the provider call; recovery will inspect the durable row.
                 raise ProviderOperationUnknownError(
                     f"Provider result persistence outcome is unknown: {type(exception).__name__}"
                 ) from exception
