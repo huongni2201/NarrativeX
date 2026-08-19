@@ -8,7 +8,7 @@ from pydantic import ValidationError
 from narrativex_worker.config import WorkerSettings, get_settings
 from narrativex_worker.prompting import build_chapter_analysis_prompt
 from narrativex_worker.providers.disabled import DisabledProvider, ProviderNotConfiguredError
-from narrativex_worker.providers.ports import ProviderCapabilities, ProviderOperation
+from narrativex_worker.providers.ports import ProviderCapabilities, ProviderEstimate, ProviderOperation
 from narrativex_worker.providers.vertex import VertexProviderError
 from narrativex_worker.repository import (
     ClaimedChapterAnalysisJob,
@@ -279,9 +279,9 @@ class ProviderSpy:
     def get_capabilities(self) -> ProviderCapabilities:
         return ProviderCapabilities("vertex", supports_story_analysis=True)
 
-    def estimate(self, request: ChapterAnalysisRequest) -> None:
+    def estimate(self, request: ChapterAnalysisRequest) -> ProviderEstimate:
         del request
-        return None
+        return ProviderEstimate(min_cost=0.0, max_cost=0.0)
 
     async def submit(self, request: ChapterAnalysisRequest) -> ProviderOperation:
         del request
