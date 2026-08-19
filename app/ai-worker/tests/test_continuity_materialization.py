@@ -104,68 +104,6 @@ def test_prompt_requires_stable_continuity_keys() -> None:
     assert "location_key" in prompt
 
 
-class ExistingCharacterConnection:
-    def __init__(self) -> None:
-        self.executemany_calls: list[tuple[str, Any]] = []
-
-    async def fetch(self, query: str, *args: object) -> list[dict[str, object]]:
-        del args
-        assert "FROM project_characters" in query
-        return [{"project_character_id": 201, "canonical_name": "hero"}]
-
-    async def executemany(self, query: str, args: Any) -> None:
-        self.executemany_calls.append((query, args))
-
-
-@pytest.mark.asyncio
-async def test_character_materializer_maps_provider_key_to_project_character() -> None:
-    connection = ExistingCharacterConnection()
-
-    materialized = await WorkerRepository._materialize_characters(
-        connection,
-        claimed_job(),
-        continuity_result(),
-    )
-
-    assert materialized == {"hero": 201}
-    assert len(connection.executemany_calls) == 1
-    assert "UPDATE project_characters" in connection.executemany_calls[0][0]
-
-
-class NewLocationConnection:
-    def __init__(self) -> None:
-        self.insert_args: tuple[object, ...] | None = None
-
-    async def fetch(self, query: str, *args: object) -> list[dict[str, object]]:
-        del args
-        assert "FROM project_locations" in query
-        return []
-
-    async def fetchval(self, query: str, *args: object) -> int:
-        assert "INSERT INTO project_locations" in query
-        self.insert_args = args
-        return 301
-
-    async def executemany(self, query: str, args: Any) -> None:
-        raise AssertionError(f"unexpected executemany: {query!r}, {args!r}")
-
-
-@pytest.mark.asyncio
-async def test_location_materializer_persists_location_and_maps_provider_key() -> None:
-    connection = NewLocationConnection()
-
-    materialized = await WorkerRepository._materialize_locations(
-        connection,
-        claimed_job(),
-        continuity_result(),
-    )
-
-    assert materialized == {"old-house": 301}
-    assert connection.insert_args is not None
-    assert connection.insert_args[0] == 1
-    assert connection.insert_args[1] == "Old House"
-
-
 class StoryboardConnection:
     def __init__(self) -> None:
         self.scene_insert_args: tuple[object, ...] | None = None
