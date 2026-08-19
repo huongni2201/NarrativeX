@@ -21,6 +21,7 @@ class ProjectGenerationControllerContractTest {
             7L,
             9L,
             11L,
+            13L,
             2L,
             "a".repeat(64),
             "Chapter source",

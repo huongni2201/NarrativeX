@@ -5,8 +5,9 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
+from narrativex_worker.materialization.storyboard import materialize_storyboard
 from narrativex_worker.prompting import build_chapter_analysis_prompt
-from narrativex_worker.repository import ClaimedChapterAnalysisJob, WorkerRepository
+from narrativex_worker.repository import ClaimedChapterAnalysisJob
 from narrativex_worker.schema import ChapterAnalysisRequest, ChapterAnalysisResult
 
 SOURCE_HASH = "b" * 64
@@ -109,14 +110,22 @@ class StoryboardConnection:
         self.scene_insert_args: tuple[object, ...] | None = None
         self.executemany_calls: list[tuple[str, Any]] = []
 
-    async def fetchval(self, query: str, *args: object) -> bool:
-        del args
-        assert "SELECT EXISTS" in query
-        return False
+    async def fetchrow(self, query: str, *args: object) -> dict[str, object]:
+        assert "storyboard_revisions" in query
+        assert args == (20, 3)
+        return {
+            "id": 501,
+            "source_hash": SOURCE_HASH,
+            "source_row_version": 4,
+            "status": "DRAFT",
+        }
 
     async def execute(self, query: str, *args: object) -> str:
-        del args
+        if "UPDATE chapters" in query:
+            assert args == (3, 501, 4, SOURCE_HASH)
+            return "UPDATE 1"
         assert "DELETE FROM" in query
+        assert args == (501,)
         return "DELETE 0"
 
     async def fetch(self, query: str, *args: object) -> list[dict[str, int]]:
@@ -132,7 +141,7 @@ class StoryboardConnection:
 async def test_storyboard_materializer_persists_scene_character_and_location_links() -> None:
     connection = StoryboardConnection()
 
-    await WorkerRepository._materialize_storyboard(
+    await materialize_storyboard(
         connection,
         claimed_job(),
         continuity_result(),
@@ -141,7 +150,8 @@ async def test_storyboard_materializer_persists_scene_character_and_location_lin
     )
 
     assert connection.scene_insert_args is not None
-    assert connection.scene_insert_args[4] == [301]
+    assert connection.scene_insert_args[1] == 501
+    assert connection.scene_insert_args[5] == [301]
 
     scene_character_call = next(
         call for call in connection.executemany_calls if "INSERT INTO scene_characters" in call[0]

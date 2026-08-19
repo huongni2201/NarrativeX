@@ -35,7 +35,15 @@ class GenerationJobControllerContractTest {
             "ANALYZING",
             null,
             "owner",
-            "owner");
+            "owner",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null);
     when(useCase.execute(any(GetGenerationJobQuery.class))).thenReturn(job);
 
     var responseEntity = controller.get("job-1");

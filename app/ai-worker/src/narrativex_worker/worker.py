@@ -10,12 +10,12 @@ from typing import Any
 
 from narrativex_worker.billing_repository import ProviderBillingRepository
 from narrativex_worker.config import WorkerSettings, get_settings
-from narrativex_worker.identity_repository import IdentityAwareWorkerRepository
 from narrativex_worker.providers import DisabledProvider, VertexGeminiProvider
 from narrativex_worker.providers.ports import ProviderOperation
 from narrativex_worker.repository import (
     ClaimedChapterAnalysisJob,
     DurableProviderOperation,
+    WorkerRepository,
     provider_request_fingerprint,
 )
 from narrativex_worker.schema import ProviderOperationStatus
@@ -30,7 +30,7 @@ class NarrativeXWorker:
         self._setup_logging()
         self._running = False
         self.worker_id = f"{self.settings.worker_name}-{uuid.uuid4()}"
-        self.repository = IdentityAwareWorkerRepository(
+        self.repository = WorkerRepository(
             database_url=self.settings.database_url,
             lease_seconds=self.settings.lease_seconds,
             pool_size=max(5, self.settings.worker_concurrency * 2 + 1),

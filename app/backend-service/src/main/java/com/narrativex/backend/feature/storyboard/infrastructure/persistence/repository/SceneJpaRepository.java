@@ -10,7 +10,18 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface SceneJpaRepository extends JpaRepository<SceneJpaEntity, Long> {
-  List<SceneJpaEntity> findAllByChapterIdOrderByOrderIndexAscIdAsc(Long chapterId);
+  @Query(
+      value =
+          """
+          SELECT s.*
+            FROM scenes s
+            JOIN chapters c ON c.id = s.chapter_id
+           WHERE c.id = :chapterId
+             AND s.storyboard_revision_id = c.current_storyboard_revision_id
+           ORDER BY s.order_index ASC, s.id ASC
+          """,
+      nativeQuery = true)
+  List<SceneJpaEntity> findCurrentByChapterId(@Param("chapterId") Long chapterId);
 
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @Query(

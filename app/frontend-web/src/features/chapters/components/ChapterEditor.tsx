@@ -308,9 +308,11 @@ export function ChapterEditor({ projectId, chapterId }: Readonly<ChapterEditorPr
         <div className="flex items-start gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm text-amber-200">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
-            <p className="font-medium">Nội dung đã thay đổi sau lần phân tích gần nhất.</p>
+            <p className="font-medium">
+              Nội dung Chapter đã thay đổi kể từ lần tạo storyboard gần nhất.
+            </p>
             <p className="mt-0.5 text-xs text-amber-200/80">
-              Storyboard hiện tại có thể đã cũ. Phân tích lại sau khi xác nhận nội dung Chapter.
+              Hãy phân tích lại để cập nhật storyboard. Storyboard hiện tại vẫn được giữ cho đến khi phiên bản mới hoàn tất.
             </p>
           </div>
         </div>
@@ -494,6 +496,14 @@ function Overview({
   onEdit: () => void;
   onOpenStoryboard: () => void;
 }) {
+  const analyzeLabel = analysisActive
+    ? workspace.pipeline.sourceOutdated
+      ? "Đang phân tích lại…"
+      : "Đang phân tích…"
+    : workspace.pipeline.sourceOutdated
+      ? "Phân tích lại"
+      : "Phân tích";
+
   return (
     <div className="grid gap-4 lg:grid-cols-[330px_minmax(0,1fr)] xl:grid-cols-[350px_minmax(0,1fr)]">
       <aside className="rounded-2xl border border-slate-800/90 bg-[#0b111c]/90 p-4 sm:p-5">
@@ -560,9 +570,7 @@ function Overview({
               ) : (
                 <RefreshCw className="h-4 w-4" />
               )}
-              {workspace.pipeline.analysis.status === "COMPLETED"
-                ? "Phân tích Chapter lại"
-                : "Phân tích Chapter"}
+              {analyzeLabel}
             </button>
             <QuickAction label="Review Visuals" enabled={workspace.capabilities.canGenerateVisuals} />
             <QuickAction label="Tạo Audio" enabled={workspace.capabilities.canGenerateAudio} />
