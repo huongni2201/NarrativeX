@@ -155,7 +155,9 @@ class VertexGeminiProvider(LlmProvider):
             if attempt < 2:
                 await asyncio.sleep(0.25 * (2**attempt))
 
-        raise VertexProviderError("Unable to acquire Vertex access token from ADC") from last_exception
+        raise VertexProviderError(
+            "Unable to acquire Vertex access token from ADC"
+        ) from last_exception
 
     @staticmethod
     def _response_json(response: httpx.Response) -> dict[str, object]:
