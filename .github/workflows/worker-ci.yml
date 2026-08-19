@@ -28,6 +28,24 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: narrativex_test
+          POSTGRES_USER: narrativex
+          POSTGRES_PASSWORD: narrativex
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U narrativex -d narrativex_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      TEST_DATABASE_URL: postgresql://narrativex:narrativex@127.0.0.1:5432/narrativex_test
+
     defaults:
       run:
         working-directory: app/ai-worker
