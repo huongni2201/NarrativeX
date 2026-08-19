@@ -3,11 +3,13 @@
 import asyncio
 
 import pytest
+from pydantic import ValidationError
 
 from narrativex_worker.config import WorkerSettings, get_settings
 from narrativex_worker.prompting import build_chapter_analysis_prompt
 from narrativex_worker.providers.disabled import DisabledProvider, ProviderNotConfiguredError
 from narrativex_worker.providers.ports import ProviderCapabilities, ProviderOperation
+from narrativex_worker.providers.vertex import VertexProviderError
 from narrativex_worker.repository import (
     ClaimedChapterAnalysisJob,
     DurableProviderOperation,
@@ -45,6 +47,85 @@ def test_worker_settings_defaults() -> None:
     assert settings.backend_url == "http://localhost:8080"
     assert settings.provider_mode == "disabled"
     assert settings.worker_concurrency == 4
+
+
+def test_worker_settings_accepts_canonical_provider_mode_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("AI_PROVIDER_MODE", "vertex")
+    monkeypatch.delenv("PROVIDER_MODE", raising=False)
+
+    settings = WorkerSettings(_env_file=None)
+
+    assert settings.provider_mode == "vertex"
+
+
+def test_worker_settings_prefers_canonical_provider_mode_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("AI_PROVIDER_MODE", "disabled")
+    monkeypatch.setenv("PROVIDER_MODE", "vertex")
+
+    settings = WorkerSettings(_env_file=None)
+
+    assert settings.provider_mode == "disabled"
+
+
+def test_worker_settings_defaults_provider_to_disabled_when_unset(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("AI_PROVIDER_MODE", raising=False)
+    monkeypatch.delenv("PROVIDER_MODE", raising=False)
+
+    settings = WorkerSettings(_env_file=None)
+
+    assert settings.provider_mode == "disabled"
+
+
+def test_worker_settings_accepts_legacy_provider_mode_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("AI_PROVIDER_MODE", raising=False)
+    monkeypatch.setenv("PROVIDER_MODE", "vertex")
+
+    settings = WorkerSettings(_env_file=None)
+
+    assert settings.provider_mode == "vertex"
+
+
+def test_worker_settings_rejects_invalid_provider_mode(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AI_PROVIDER_MODE", "foo")
+
+    with pytest.raises(ValidationError):
+        WorkerSettings(_env_file=None)
+
+
+@pytest.mark.parametrize("concurrency", [1, 32])
+def test_worker_settings_accepts_concurrency_boundaries(
+    monkeypatch: pytest.MonkeyPatch,
+    concurrency: int,
+) -> None:
+    monkeypatch.setenv("WORKER_CONCURRENCY", str(concurrency))
+
+    settings = WorkerSettings(_env_file=None)
+
+    assert settings.worker_concurrency == concurrency
+
+
+@pytest.mark.parametrize("concurrency", [0, 33])
+def test_worker_settings_rejects_concurrency_outside_contract(
+    monkeypatch: pytest.MonkeyPatch,
+    concurrency: int,
+) -> None:
+    monkeypatch.setenv("WORKER_CONCURRENCY", str(concurrency))
+
+    with pytest.raises(ValidationError):
+        WorkerSettings(_env_file=None)
+
+
+def test_vertex_provider_fails_fast_without_project() -> None:
+    settings = WorkerSettings(provider_mode="vertex", vertex_project_id=None)
+
+    with pytest.raises(VertexProviderError, match="VERTEX_PROJECT_ID is required"):
+        NarrativeXWorker(settings=settings)
 
 
 def test_worker_custom_settings() -> None:

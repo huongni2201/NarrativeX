@@ -68,7 +68,7 @@ scenes[]
 ### Disabled — safe default
 
 ```env
-PROVIDER_MODE=disabled
+AI_PROVIDER_MODE=disabled
 ```
 
 The disabled provider fails explicitly. It never returns fake successful AI output in normal runtime.
@@ -76,7 +76,7 @@ The disabled provider fails explicitly. It never returns fake successful AI outp
 ### Vertex Gemini
 
 ```env
-PROVIDER_MODE=vertex
+AI_PROVIDER_MODE=vertex
 VERTEX_PROJECT_ID=<gcp-project>
 VERTEX_LOCATION=us-central1
 VERTEX_MODEL=gemini-2.5-flash
@@ -138,7 +138,7 @@ For the MVP, no `ChapterVersion`, `ChapterRevision` or `ChapterSnapshot` aggrega
 - Python 3.12+
 - PostgreSQL with NarrativeX Flyway schema applied
 - virtual environment tool (`venv` or `uv`)
-- Google ADC credentials only when `PROVIDER_MODE=vertex`
+- Google ADC credentials only when `AI_PROVIDER_MODE=vertex`
 
 ## Environment
 
@@ -151,7 +151,8 @@ LOG_LEVEL=INFO
 DATABASE_URL=postgresql://narrativex:password@localhost:5432/narrativex
 POLL_INTERVAL_SECONDS=2
 LEASE_SECONDS=60
-PROVIDER_MODE=disabled
+WORKER_CONCURRENCY=4
+AI_PROVIDER_MODE=disabled
 VERTEX_PROJECT_ID=
 VERTEX_LOCATION=us-central1
 VERTEX_MODEL=gemini-2.5-flash

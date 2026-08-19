@@ -243,7 +243,7 @@ Before worker materialization, the live Chapter must still match the snapshotted
 
 ## Deployment and isolation
 
-Local/dev Docker Compose includes PostgreSQL, Redis, MinIO, backend and AI worker. The AI worker defaults to disabled provider mode. Vertex execution requires explicit ADC/workload-identity credentials and project/location/model configuration.
+Local/dev Docker Compose includes PostgreSQL, Redis, MinIO, backend and AI worker. The worker deployment contract uses `AI_PROVIDER_MODE` and `WORKER_CONCURRENCY`; `PROVIDER_MODE` remains a temporary legacy input for standalone compatibility. `VERTEX_GEMINI_ENABLED` belongs to backend configuration and does not select the worker adapter. The AI worker defaults to disabled provider mode. Vertex execution requires explicit ADC/workload-identity credentials and project/location/model configuration.
 
 Do not bake local developer credentials into the worker image.
 

@@ -6,7 +6,7 @@ are never copied into durable job payloads.
 
 from typing import Literal
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -17,6 +17,7 @@ class WorkerSettings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
+        populate_by_name=True,
     )
 
     worker_name: str = Field(default="narrativex-worker", description="Identifier of the worker")
@@ -37,7 +38,9 @@ class WorkerSettings(BaseSettings):
         description="Maximum Chapter analysis jobs processed concurrently by one worker process",
     )
     provider_mode: Literal["disabled", "vertex"] = Field(
-        default="disabled", description="Provider adapter mode; disabled is safe by default"
+        default="disabled",
+        validation_alias=AliasChoices("AI_PROVIDER_MODE", "PROVIDER_MODE"),
+        description="Provider adapter mode; disabled is safe by default",
     )
     vertex_project_id: str | None = Field(
         default=None, description="Google Cloud project for Vertex AI"
