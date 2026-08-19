@@ -3,8 +3,8 @@
 import json
 import re
 import unicodedata
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
 
 import asyncpg  # type: ignore[import-untyped]
 
@@ -134,7 +134,10 @@ class IdentityAwareWorkerRepository(WorkerRepository):
                     character.key,
                     project_character_id,
                     json.dumps(character.aliases, ensure_ascii=False),
-                    json.dumps(_observation_values(character.name, character.aliases), ensure_ascii=False),
+                    json.dumps(
+                        _observation_values(character.name, character.aliases),
+                        ensure_ascii=False,
+                    ),
                     chapter_id,
                     basis,
                     confidence,
@@ -187,7 +190,10 @@ class IdentityAwareWorkerRepository(WorkerRepository):
                 project_id,
                 character.key,
                 json.dumps(character.aliases, ensure_ascii=False),
-                json.dumps(_observation_values(character.name, character.aliases), ensure_ascii=False),
+                json.dumps(
+                    _observation_values(character.name, character.aliases),
+                    ensure_ascii=False,
+                ),
                 chapter_id,
             )
             await connection.execute(
