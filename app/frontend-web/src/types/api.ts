@@ -1,5 +1,32 @@
 export type ProjectStatus = "DRAFT" | "ACTIVE" | "ARCHIVED";
 
+export const JOB_STATUSES = [
+  "QUEUED",
+  "RUNNING",
+  "COMPLETED",
+  "FAILED",
+  "CANCELED",
+  "UNKNOWN",
+  "STALLED",
+  "PAUSED_COST_LIMIT",
+] as const;
+
+export type JobStatus = (typeof JOB_STATUSES)[number];
+
+export const TERMINAL_JOB_STATUSES: ReadonlySet<JobStatus> = new Set([
+  "COMPLETED",
+  "FAILED",
+  "CANCELED",
+]);
+
+export const ACTIVE_JOB_STATUSES: ReadonlySet<JobStatus> = new Set([
+  "QUEUED",
+  "RUNNING",
+  "STALLED",
+  "UNKNOWN",
+  "PAUSED_COST_LIMIT",
+]);
+
 export interface ApiProject {
   id: number;
   name: string;
@@ -86,7 +113,7 @@ export interface ApiChapterWorkspace {
 export interface ApiGenerationJob {
   jobId: string;
   type: string;
-  status: string;
+  status: JobStatus;
   progress: number;
   currentStep: string;
   entityType: string;
@@ -187,6 +214,10 @@ function isNullableNumber(value: unknown): value is number | null {
 
 function isProjectStatus(value: unknown): value is ProjectStatus {
   return value === "DRAFT" || value === "ACTIVE" || value === "ARCHIVED";
+}
+
+export function isJobStatus(value: unknown): value is JobStatus {
+  return isString(value) && JOB_STATUSES.some((status) => status === value);
 }
 
 export function isApiResponse<T = unknown>(
@@ -336,7 +367,7 @@ export function isApiGenerationJob(value: unknown): value is ApiGenerationJob {
     isRecord(value) &&
     isString(value.jobId) &&
     isString(value.type) &&
-    isString(value.status) &&
+    isJobStatus(value.status) &&
     isNumber(value.progress) &&
     isString(value.currentStep) &&
     isString(value.entityType) &&

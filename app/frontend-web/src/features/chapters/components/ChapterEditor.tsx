@@ -22,10 +22,12 @@ import {
 import { chaptersApi } from "@/features/chapters/api/chapters.api";
 import { queryKeys } from "@/lib/query-keys";
 import { ApiClientError, apiErrorMessage } from "@/shared/api/client";
+import { ACTIVE_JOB_STATUSES, TERMINAL_JOB_STATUSES } from "@/types/api";
 import type {
   ApiChapterWorkspace,
   ApiChapterWorkspacePipelineStep,
   ApiChapterWorkspacePreviewScene,
+  JobStatus,
 } from "@/types/api";
 
 interface ChapterEditorProps {
@@ -34,9 +36,6 @@ interface ChapterEditorProps {
 }
 
 type WorkspaceTab = "overview" | "content" | "storyboard" | "visuals" | "audio" | "render";
-
-const TERMINAL_JOB_STATUSES = new Set(["COMPLETED", "FAILED", "CANCELLED"]);
-const ACTIVE_JOB_STATUSES = new Set(["QUEUED", "RUNNING", "STALLED", "UNKNOWN"]);
 
 const TABS: Array<{ id: WorkspaceTab; label: string; available: boolean }> = [
   { id: "overview", label: "Tổng quan", available: true },
@@ -169,7 +168,9 @@ export function ChapterEditor({ projectId, chapterId }: Readonly<ChapterEditorPr
 
   const analysisJob = analysisJobQuery.data ?? analyzeChapter.data;
   const analysisStatus = analysisJob?.status ?? workspaceQuery.data?.pipeline.analysis.status ?? null;
-  const analysisActive = Boolean(analysisStatus && ACTIVE_JOB_STATUSES.has(analysisStatus));
+  const analysisActive = Boolean(
+    analysisJob?.status && ACTIVE_JOB_STATUSES.has(analysisJob.status),
+  );
 
   useEffect(() => {
     if (!analysisJobId || !analysisJobQuery.data) return;
@@ -187,6 +188,13 @@ export function ChapterEditor({ projectId, chapterId }: Readonly<ChapterEditorPr
       void queryClient.invalidateQueries({
         queryKey: queryKeys.chapterWorkspace(numericProjectId, numericChapterId),
       });
+    } else if (job.status === "CANCELED") {
+      setAnalysisMessage("Phân tích đã bị hủy.");
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.chapterWorkspace(numericProjectId, numericChapterId),
+      });
+    } else if (job.status === "PAUSED_COST_LIMIT") {
+      setAnalysisMessage("Phân tích đang tạm dừng do giới hạn chi phí.");
     }
   }, [analysisJobId, analysisJobQuery.data, numericProjectId, queryClient]);
 
@@ -465,7 +473,7 @@ function Overview({
   onOpenStoryboard,
 }: {
   workspace: ApiChapterWorkspace;
-  analysisJobStatus: string | null;
+  analysisJobStatus: JobStatus | null;
   analysisJobProgress: number | null;
   analysisMessage: string | null;
   analyzeDisabled: boolean;
