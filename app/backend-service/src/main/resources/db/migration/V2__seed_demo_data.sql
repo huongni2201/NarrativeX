@@ -86,18 +86,18 @@ VALUES
     (4010, 3010, 1, 'Valley Footpath', 'A narrow path leads toward a green horizon.', 47, 'APPROVED')
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO visual_beats (id, scene_id, order_index, visual_intent, motion_action, aspect_ratio_override, quality_tier_override)
+INSERT INTO visual_beats (id, scene_id, order_index, title, visual_intent, review_status, motion_action, aspect_ratio_override, quality_tier_override)
 VALUES
-    (5001, 4001, 1, 'Warm lanterns form a river of light through quiet stone streets.', 'PAN', 'RATIO_16_9', 'STANDARD'),
-    (5002, 4002, 1, 'Brass gears rotate around a miniature hand-drawn city.', 'PUSH_IN', 'RATIO_16_9', 'HIGH'),
-    (5003, 4003, 1, 'A small boat cuts a silver path across the river.', 'TRACK', 'RATIO_9_16', 'STANDARD'),
-    (5004, 4004, 1, 'Raindrops merge into soft reflections of a family room.', 'STATIC', 'RATIO_16_9', 'STANDARD'),
-    (5005, 4005, 1, 'An origami dragon opens paper wings above a sleeping town.', 'RISE', 'RATIO_1_1', 'HIGH'),
-    (5006, 4006, 1, 'Pine branches sway in rhythmic layers beneath a deep sky.', 'PARALLAX', 'RATIO_16_9', 'ULTRA'),
-    (5007, 4007, 1, 'A seed settles into soil while seasons pass in a time-lapse.', 'DISSOLVE', 'RATIO_9_16', 'STANDARD'),
-    (5008, 4008, 1, 'A bright blue kite pulls a red thread across rooftops.', 'TRACK', 'RATIO_16_9', 'HIGH'),
-    (5009, 4009, 1, 'Constellations ripple and reform in the moving river.', 'ZOOM_OUT', 'RATIO_1_1', 'STANDARD'),
-    (5010, 4010, 1, 'A single green shoot appears at the end of the dry path.', 'PUSH_IN', 'RATIO_16_9', 'HIGH')
+    (5001, 4001, 1, 'Lanterns at dawn', 'Warm lanterns form a river of light through quiet stone streets.', 'APPROVED', 'PAN', 'RATIO_16_9', 'STANDARD'),
+    (5002, 4002, 1, 'Brass gears mechanism', 'Brass gears rotate around a miniature hand-drawn city.', 'APPROVED', 'PUSH_IN', 'RATIO_16_9', 'HIGH'),
+    (5003, 4003, 1, 'River moonlight crossing', 'A small boat cuts a silver path across the river.', 'APPROVED', 'TRACK', 'RATIO_9_16', 'STANDARD'),
+    (5004, 4004, 1, 'Rain window reflection', 'Raindrops merge into soft reflections of a family room.', 'NEEDS_REVIEW', 'STATIC', 'RATIO_16_9', 'STANDARD'),
+    (5005, 4005, 1, 'Paper dragon silhouette', 'An origami dragon opens paper wings above a sleeping town.', 'APPROVED', 'RISE', 'RATIO_1_1', 'HIGH'),
+    (5006, 4006, 1, 'Pine forest choir', 'Pine branches sway in rhythmic layers beneath a deep sky.', 'APPROVED', 'PARALLAX', 'RATIO_16_9', 'ULTRA'),
+    (5007, 4007, 1, 'Garden seed timelapse', 'A seed settles into soil while seasons pass in a time-lapse.', 'APPROVED', 'DISSOLVE', 'RATIO_9_16', 'STANDARD'),
+    (5008, 4008, 1, 'Blue kite rooftop breeze', 'A bright blue kite pulls a red thread across rooftops.', 'APPROVED', 'TRACK', 'RATIO_16_9', 'HIGH'),
+    (5009, 4009, 1, 'Star reflection current', 'Constellations ripple and reform in the moving river.', 'NEEDS_REVIEW', 'ZOOM_OUT', 'RATIO_1_1', 'STANDARD'),
+    (5010, 4010, 1, 'Green shoot in the valley', 'A single green shoot appears at the end of the dry path.', 'APPROVED', 'PUSH_IN', 'RATIO_16_9', 'HIGH')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO generation_jobs (id, job_id, project_id, job_type, status, resource_class, progress, current_step, requested_by_user_id, billed_to_user_id)
