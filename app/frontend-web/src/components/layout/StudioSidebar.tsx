@@ -44,17 +44,6 @@ export const StudioSidebar = () => {
         pathname === "/projects" ||
         (Boolean(activeProjectId) && pathname === `/projects/${activeProjectId}`),
     },
-    ...(activeProjectId
-      ? [
-          {
-            id: "storyboard",
-            label: "Storyboard",
-            icon: Clapperboard,
-            href: `/projects/${activeProjectId}/storyboard`,
-            active: pathname === `/projects/${activeProjectId}/storyboard`,
-          },
-        ]
-      : []),
     {
       id: "characters",
       label: "Thư viện nhân vật",
