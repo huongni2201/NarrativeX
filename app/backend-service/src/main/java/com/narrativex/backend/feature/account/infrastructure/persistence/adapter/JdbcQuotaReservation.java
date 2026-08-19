@@ -45,8 +45,7 @@ public class JdbcQuotaReservation implements QuotaReservation {
     }
 
     String periodKey =
-        jdbcTemplate.queryForObject(
-            "SELECT to_char(CURRENT_DATE, 'YYYY-MM')", String.class);
+        jdbcTemplate.queryForObject("SELECT to_char(CURRENT_DATE, 'YYYY-MM')", String.class);
     if (periodKey == null) {
       throw new IllegalStateException("Could not resolve the current quota period");
     }
