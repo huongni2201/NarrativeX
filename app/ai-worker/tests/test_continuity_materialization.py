@@ -142,7 +142,7 @@ async def test_storyboard_materializer_persists_scene_character_and_location_lin
     connection = StoryboardConnection()
 
     await materialize_storyboard(
-        connection,  # type: ignore[arg-type]
+        connection,
         claimed_job(),
         continuity_result(),
         {"hero": 201},
