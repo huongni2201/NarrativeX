@@ -408,3 +408,20 @@ VALUES
     (19010, (SELECT id FROM auth_users WHERE email = 'seed.user10@example.com'), 'seed-ip-hash-10', 'seed-session-10', '/api/v1/generation', 'RATE_OK', 'ALLOW', 'abuse-v1')
 ON CONFLICT (id) DO NOTHING;
 
+INSERT INTO project_locations (id, project_id, name, description, visual_prompt, reference_image_url, status)
+VALUES
+    (25001, 1001, 'Hanoi Old Quarter Night Market', 'Lively ancient stone streets lined with glowing amber silk lanterns.', 'Cinematic night scene of Old Quarter Hanoi, red and gold lanterns, wet cobblestones reflecting warm light.', 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?q=80&w=800&auto=format&fit=crop', 'ACTIVE'),
+    (25002, 1001, 'Traditional Lantern Workshop', 'Artisan workshop filled with bamboo frames, silk fabrics, and glowing lamps.', 'Warm intimate lantern craftsman workshop, soft shadows, ambient lighting.', 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=800&auto=format&fit=crop', 'ACTIVE'),
+    (25003, 1002, 'Brass Clockmaker Workshop', 'Victorian style workshop with intricate gears, pendulum clocks, and brass tools.', 'Steampunk Victorian watchmaker workshop, dusty sunbeams through arched windows, brass machinery.', 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?q=80&w=800&auto=format&fit=crop', 'ACTIVE'),
+    (25004, 1003, 'Mekong River at Midnight', 'Misty river bank with calm silver water reflecting full moonlight.', 'Atmospheric nighttime riverbank, wooden boat on water, glowing ripples under moonlight.', 'https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=800&auto=format&fit=crop', 'ACTIVE')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO project_assets (id, project_id, name, asset_type, storage_key, url, mime_type, status, metadata_json)
+VALUES
+    (26001, 1001, 'old_quarter_lantern_master.png', 'IMAGE', 'projects/1001/assets/lantern_master.png', 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1200&auto=format&fit=crop', 'image/png', 'ACTIVE', '{"width":1920,"height":1080,"source":"reference"}'::jsonb),
+    (26002, 1001, 'lantern_maker_portrait.png', 'IMAGE', 'projects/1001/assets/artisan_portrait.png', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=1200&auto=format&fit=crop', 'image/png', 'ACTIVE', '{"width":1024,"height":1024,"source":"character_master"}'::jsonb),
+    (26003, 1002, 'brass_gears_blueprint.png', 'IMAGE', 'projects/1002/assets/brass_gears.png', 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?q=80&w=1200&auto=format&fit=crop', 'image/png', 'ACTIVE', '{"width":1920,"height":1080,"source":"reference"}'::jsonb),
+    (26004, 1003, 'moonlit_water_concept.png', 'IMAGE', 'projects/1003/assets/mekong_moonlight.png', 'https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=1200&auto=format&fit=crop', 'image/png', 'ACTIVE', '{"width":1080,"height":1920,"source":"concept_art"}'::jsonb)
+ON CONFLICT (id) DO NOTHING;
+
+
