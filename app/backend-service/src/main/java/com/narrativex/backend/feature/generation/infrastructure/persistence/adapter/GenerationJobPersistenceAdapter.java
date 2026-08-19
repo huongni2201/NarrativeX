@@ -64,12 +64,16 @@ public class GenerationJobPersistenceAdapter implements GenerationJobRepository 
 
   @Override
   public Optional<GenerationJob> findByJobIdAndOwner(String jobId, String ownerId) {
-    return repository.findByJobIdAndOwner(jobId, ownerId).map(GenerationPersistenceMapper::toDomain);
+    return repository
+        .findByJobIdAndOwner(jobId, ownerId)
+        .map(GenerationPersistenceMapper::toDomain);
   }
 
   @Override
   public Optional<GenerationJob> findByIdempotencyKey(String idempotencyKey) {
-    return repository.findByIdempotencyKey(idempotencyKey).map(GenerationPersistenceMapper::toDomain);
+    return repository
+        .findByIdempotencyKey(idempotencyKey)
+        .map(GenerationPersistenceMapper::toDomain);
   }
 
   @Override
