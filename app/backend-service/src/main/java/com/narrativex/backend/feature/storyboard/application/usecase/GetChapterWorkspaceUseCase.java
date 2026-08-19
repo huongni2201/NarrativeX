@@ -7,7 +7,7 @@ import com.narrativex.backend.feature.project.application.port.in.StoryVersionAc
 import com.narrativex.backend.feature.storyboard.api.response.ChapterResponse;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterWorkspaceResponse;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
-import com.narrativex.backend.feature.storyboard.application.port.out.ChapterWorkspaceQuery;
+import com.narrativex.backend.feature.storyboard.application.port.out.ChapterWorkspaceReadRepository;
 import com.narrativex.backend.feature.storyboard.application.service.ChapterWorkspacePipelinePolicy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -19,7 +19,7 @@ public class GetChapterWorkspaceUseCase {
   private final CurrentUserId currentUserId;
   private final StoryVersionAccess storyVersionAccess;
   private final ChapterRepository chapterRepository;
-  private final ChapterWorkspaceQuery chapterWorkspaceQuery;
+  private final ChapterWorkspaceReadRepository chapterWorkspaceReadRepository;
 
   @Transactional(readOnly = true)
   public ApiResponse<ChapterWorkspaceResponse> execute(Long projectId, Long chapterId) {
@@ -30,7 +30,7 @@ public class GetChapterWorkspaceUseCase {
     storyVersionAccess.requireOwnedStoryVersion(
         projectId, chapter.getStoryVersionId(), currentUserId.get());
 
-    var snapshot = chapterWorkspaceQuery.get(projectId, chapterId);
+    var snapshot = chapterWorkspaceReadRepository.get(projectId, chapterId);
     var analysis = snapshot.analysis();
     boolean hasStoryboard = snapshot.sceneCount() > 0 && snapshot.visualBeatCount() > 0;
     var pipelineState =
