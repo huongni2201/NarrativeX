@@ -21,6 +21,7 @@ class DurableProviderOperation:
     provider_operation_id: str | None
     status: ProviderOperationStatus
     request_fingerprint: str
+    normalized_result: ChapterAnalysisResult | None = None
     created: bool = False
 
 
@@ -162,7 +163,7 @@ class WorkerRepository:
                     VALUES ($1, $2, $3, 'RESERVED')
                     ON CONFLICT (provider_key, request_fingerprint) DO NOTHING
                     RETURNING id, stage_attempt_id, provider_key, provider_operation_id,
-                              status, request_fingerprint
+                              status, request_fingerprint, normalized_result_json
                     """,
                     claimed.stage_attempt_id,
                     provider_key,
@@ -173,7 +174,7 @@ class WorkerRepository:
                     row = await connection.fetchrow(
                         """
                         SELECT id, stage_attempt_id, provider_key, provider_operation_id,
-                               status, request_fingerprint
+                               status, request_fingerprint, normalized_result_json
                           FROM provider_operations
                          WHERE provider_key = $1 AND request_fingerprint = $2
                          FOR UPDATE
@@ -192,12 +193,47 @@ class WorkerRepository:
             operation_id, ProviderOperationStatus.SUBMITTED, provider_operation_id
         )
 
+    async def persist_provider_result(
+        self,
+        operation_id: int,
+        provider_operation_id: str | None,
+        result: ChapterAnalysisResult,
+    ) -> DurableProviderOperation:
+        """Atomically persist the normalized provider result and terminal provider status."""
+        pool = self._require_pool()
+        serialized = result.model_dump_json()
+        async with pool.acquire() as connection:
+            async with connection.transaction():
+                row = await connection.fetchrow(
+                    """
+                    UPDATE provider_operations
+                       SET status = 'COMPLETED',
+                           provider_operation_id = COALESCE($2, provider_operation_id),
+                           normalized_result_json = $3::jsonb,
+                           completed_at = COALESCE(completed_at, CURRENT_TIMESTAMP),
+                           updated_at = CURRENT_TIMESTAMP,
+                           row_version = row_version + 1
+                     WHERE id = $1
+                       AND status <> 'FAILED'
+                     RETURNING id, stage_attempt_id, provider_key, provider_operation_id,
+                               status, request_fingerprint, normalized_result_json
+                    """,
+                    operation_id,
+                    provider_operation_id,
+                    serialized,
+                )
+        if row is None:
+            raise RuntimeError(f"Provider operation {operation_id} cannot persist a result")
+        return self._provider_operation(row)
+
     async def mark_provider_operation_status(
         self,
         operation_id: int,
         status: ProviderOperationStatus,
         provider_operation_id: str | None = None,
     ) -> DurableProviderOperation:
+        if status is ProviderOperationStatus.COMPLETED:
+            raise ValueError("COMPLETED requires persist_provider_result() with a durable result")
         return await self._update_provider_operation(operation_id, status, provider_operation_id)
 
     async def list_provider_operations(
@@ -207,7 +243,7 @@ class WorkerRepository:
         rows = await pool.fetch(
             """
             SELECT id, stage_attempt_id, provider_key, provider_operation_id,
-                   status, request_fingerprint
+                   status, request_fingerprint, normalized_result_json
               FROM provider_operations
              WHERE status = ANY($1::text[])
              ORDER BY reserved_at, id
@@ -235,7 +271,7 @@ class WorkerRepository:
                        row_version = row_version + 1
                  WHERE id = $1
                  RETURNING id, stage_attempt_id, provider_key, provider_operation_id,
-                           status, request_fingerprint
+                           status, request_fingerprint, normalized_result_json
                 """,
                 operation_id,
                 status.value,
@@ -249,6 +285,11 @@ class WorkerRepository:
     def _provider_operation(
         row: asyncpg.Record, *, created: bool = False
     ) -> DurableProviderOperation:
+        raw_result = row["normalized_result_json"]
+        normalized_result: ChapterAnalysisResult | None = None
+        if raw_result is not None:
+            parsed_result = json.loads(raw_result) if isinstance(raw_result, str) else raw_result
+            normalized_result = ChapterAnalysisResult.model_validate(parsed_result)
         return DurableProviderOperation(
             id=row["id"],
             stage_attempt_id=row["stage_attempt_id"],
@@ -256,6 +297,7 @@ class WorkerRepository:
             provider_operation_id=row["provider_operation_id"],
             status=ProviderOperationStatus(row["status"]),
             request_fingerprint=row["request_fingerprint"],
+            normalized_result=normalized_result,
             created=created,
         )
 
