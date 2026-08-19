@@ -58,8 +58,7 @@ class ChapterAnalysisAdmissionServiceTest {
   }
 
   private static UserQuotaAccess.QuotaSnapshot quota(String flags) {
-    return new UserQuotaAccess.QuotaSnapshot(
-        flags, 4, 0, BigDecimal.ZERO, BigDecimal.valueOf(10));
+    return new UserQuotaAccess.QuotaSnapshot(flags, 4, 0, BigDecimal.ZERO, BigDecimal.valueOf(10));
   }
 
   private static final class ReservationSpy implements QuotaReservation {
