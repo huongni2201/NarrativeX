@@ -202,7 +202,9 @@ public class JdbcProjectOverviewQueryAdapter implements ProjectOverviewQueryRepo
     }
     Integer value =
         jdbcTemplate.queryForObject(
-            "SELECT COUNT(*)::int FROM " + tableName + " WHERE project_id = ? AND status = 'ACTIVE'",
+            "SELECT COUNT(*)::int FROM "
+                + tableName
+                + " WHERE project_id = ? AND status = 'ACTIVE'",
             Integer.class,
             projectId);
     return value == null ? 0 : value;
