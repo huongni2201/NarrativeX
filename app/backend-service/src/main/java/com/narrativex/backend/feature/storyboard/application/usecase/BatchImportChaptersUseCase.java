@@ -34,8 +34,10 @@ public class BatchImportChaptersUseCase {
   @Transactional
   public List<ChapterResponse> execute(
       Long projectId, Long storyVersionId, String fileName, String contentType, byte[] content) {
-    if (content == null || content.length == 0) throw new IllegalArgumentException("Import file must not be empty");
-    if (content.length > MAX_FILE_BYTES) throw new IllegalArgumentException("Import file exceeds 10 MB limit");
+    if (content == null || content.length == 0)
+      throw new IllegalArgumentException("Import file must not be empty");
+    if (content.length > MAX_FILE_BYTES)
+      throw new IllegalArgumentException("Import file exceeds 10 MB limit");
 
     storyVersionAccess.requireOwnedStoryVersion(projectId, storyVersionId, currentUserId.get());
     String extracted = documentTextExtractor.extract(fileName, contentType, content);
@@ -46,13 +48,18 @@ public class BatchImportChaptersUseCase {
 
     List<Chapter> existing = chapterRepository.findAllByStoryVersionId(storyVersionId);
     int nextOrderIndex =
-        existing.stream().max(Comparator.comparingInt(Chapter::getOrderIndex)).map(Chapter::getOrderIndex).orElse(-1) + 1;
+        existing.stream()
+                .max(Comparator.comparingInt(Chapter::getOrderIndex))
+                .map(Chapter::getOrderIndex)
+                .orElse(-1)
+            + 1;
 
     List<ChapterResponse> imported = new ArrayList<>(drafts.size());
     for (var draft : drafts) {
       validateSourceSize(draft.sourceText());
       if (chapterRepository.existsByStoryVersionIdAndOrderIndex(storyVersionId, nextOrderIndex)) {
-        throw new IllegalStateException("Chapter order changed during batch import; retry the request");
+        throw new IllegalStateException(
+            "Chapter order changed during batch import; retry the request");
       }
       var normalized = sourceHasher.normalizeAndHash(draft.sourceText());
       Chapter saved =
@@ -73,10 +80,12 @@ public class BatchImportChaptersUseCase {
     int characterCount = sourceText.codePointCount(0, sourceText.length());
     int estimatedTokens = TextInputEstimator.estimateTokensConservatively(sourceText);
     if (characterCount > limits.getMaxStoryCharacters()) {
-      throw new IllegalArgumentException("Imported chapter exceeds the configured Unicode character limit");
+      throw new IllegalArgumentException(
+          "Imported chapter exceeds the configured Unicode character limit");
     }
     if (estimatedTokens > limits.getMaxEstimatedInputTokens()) {
-      throw new IllegalArgumentException("Imported chapter exceeds the configured estimated token limit");
+      throw new IllegalArgumentException(
+          "Imported chapter exceeds the configured estimated token limit");
     }
   }
 }
