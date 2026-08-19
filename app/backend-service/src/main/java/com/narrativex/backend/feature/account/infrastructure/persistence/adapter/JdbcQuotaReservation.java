@@ -146,25 +146,56 @@ public class JdbcQuotaReservation implements QuotaReservation {
   @Override
   @Transactional
   public boolean consumeForJob(long generationJobId) {
+    Integer billedOperations =
+        jdbcTemplate.queryForObject(
+            """
+            SELECT count(*)
+              FROM provider_operations po
+              JOIN stage_attempts sa ON sa.id = po.stage_attempt_id
+             WHERE sa.generation_job_id = ?
+               AND po.actual_cost IS NOT NULL
+            """,
+            Integer.class,
+            generationJobId);
+    if (billedOperations == null || billedOperations == 0) {
+      return false;
+    }
+
     return jdbcTemplate.update(
             """
-            WITH consumed AS (
-                UPDATE quota_reservations
+            WITH reconciled AS (
+                SELECT SUM(po.actual_cost) AS actual_cost,
+                       CASE
+                           WHEN COUNT(DISTINCT po.billing_currency) = 1
+                               THEN MAX(po.billing_currency)
+                           ELSE NULL
+                       END AS billing_currency
+                  FROM provider_operations po
+                  JOIN stage_attempts sa ON sa.id = po.stage_attempt_id
+                 WHERE sa.generation_job_id = ?
+                   AND po.actual_cost IS NOT NULL
+            ), consumed AS (
+                UPDATE quota_reservations qr
                    SET status = 'CONSUMED',
+                       actual_cost = reconciled.actual_cost,
+                       billing_currency = reconciled.billing_currency,
                        finalized_at = CURRENT_TIMESTAMP,
                        updated_at = CURRENT_TIMESTAMP,
-                       row_version = row_version + 1
-                 WHERE generation_job_id = ?
-                   AND status = 'RESERVED'
-                 RETURNING user_id, period_key, estimated_cost
+                       row_version = qr.row_version + 1
+                  FROM reconciled
+                 WHERE qr.generation_job_id = ?
+                   AND qr.status = 'RESERVED'
+                   AND reconciled.billing_currency IS NOT NULL
+                 RETURNING qr.user_id, qr.period_key, qr.actual_cost
             )
             UPDATE usage_windows uw
-               SET credits_used = uw.credits_used + consumed.estimated_cost,
+               SET credits_used = uw.credits_used + consumed.actual_cost,
                    row_version = uw.row_version + 1
               FROM consumed
              WHERE uw.user_id = consumed.user_id
                AND uw.period_key = consumed.period_key
             """,
+            generationJobId,
             generationJobId)
         == 1;
   }
@@ -176,6 +207,8 @@ public class JdbcQuotaReservation implements QuotaReservation {
             """
             UPDATE quota_reservations
                SET status = 'RELEASED',
+                   actual_cost = 0,
+                   billing_currency = COALESCE(billing_currency, 'USD'),
                    finalized_at = CURRENT_TIMESTAMP,
                    updated_at = CURRENT_TIMESTAMP,
                    row_version = row_version + 1
