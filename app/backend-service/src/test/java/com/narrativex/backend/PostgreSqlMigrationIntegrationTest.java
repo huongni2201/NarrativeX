@@ -57,7 +57,7 @@ class PostgreSqlMigrationIntegrationTest {
   @Test
   void emptyPostgresMigratesAndHibernateValidates() throws SQLException {
     try (Connection connection = dataSource.getConnection()) {
-      assertEquals(2, latestFlywayVersion(connection));
+      assertEquals(3, latestFlywayVersion(connection));
       assertEquals("jsonb", columnType(connection, "moderation_decisions", "categories_json"));
       assertTrue(indexExists(connection, "uq_story_versions_one_active_per_project"));
       assertTrue(indexExists(connection, "idx_projects_active_owner_updated_id"));
@@ -78,6 +78,9 @@ class PostgreSqlMigrationIntegrationTest {
       assertTrue(indexExists(connection, "idx_visual_beats_scene_review_order"));
       assertTrue(indexExists(connection, "idx_generation_jobs_project_status"));
       assertTrue(indexExists(connection, "idx_scenes_chapter_status"));
+      assertTrue(columnExists(connection, "scenes", "project_location_id"));
+      assertTrue(tableExists(connection, "scene_characters"));
+      assertTrue(indexExists(connection, "idx_scene_characters_project_character"));
       assertTrue(tableExists(connection, "project_locations"));
       assertTrue(tableExists(connection, "project_assets"));
       assertTrue(indexExists(connection, "idx_project_locations_active_project"));
