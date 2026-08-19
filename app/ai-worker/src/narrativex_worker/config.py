@@ -30,6 +30,12 @@ class WorkerSettings(BaseSettings):
     )
     poll_interval_seconds: float = Field(default=1.0, gt=0, le=60)
     lease_seconds: int = Field(default=60, ge=10, le=3600)
+    worker_concurrency: int = Field(
+        default=4,
+        ge=1,
+        le=32,
+        description="Maximum Chapter analysis jobs processed concurrently by one worker process",
+    )
     provider_mode: Literal["disabled", "vertex"] = Field(
         default="disabled", description="Provider adapter mode; disabled is safe by default"
     )

@@ -38,6 +38,7 @@ def test_worker_settings_defaults() -> None:
     assert settings.log_level == "INFO"
     assert settings.backend_url == "http://localhost:8080"
     assert settings.provider_mode == "disabled"
+    assert settings.worker_concurrency == 4
 
 
 def test_worker_custom_settings() -> None:
@@ -46,11 +47,18 @@ def test_worker_custom_settings() -> None:
         worker_env="test",
         log_level="DEBUG",
         backend_url="http://backend:8080",
+        worker_concurrency=7,
     )
     assert custom.worker_name == "custom-worker"
     assert custom.worker_env == "test"
     assert custom.log_level == "DEBUG"
     assert custom.backend_url == "http://backend:8080"
+    assert custom.worker_concurrency == 7
+
+
+def test_worker_sizes_database_pool_for_concurrency() -> None:
+    worker = NarrativeXWorker(settings=WorkerSettings(worker_env="test", worker_concurrency=4))
+    assert worker.repository.pool_size == 9
 
 
 @pytest.mark.asyncio

@@ -18,14 +18,19 @@ class ClaimedChapterAnalysisJob:
 
 
 class WorkerRepository:
-    def __init__(self, database_url: str, lease_seconds: int) -> None:
+    def __init__(self, database_url: str, lease_seconds: int, pool_size: int = 5) -> None:
         self.database_url = database_url
         self.lease_seconds = lease_seconds
+        self.pool_size = pool_size
         self._pool: asyncpg.Pool | None = None
 
     async def connect(self) -> None:
         if self._pool is None:
-            self._pool = await asyncpg.create_pool(self.database_url, min_size=1, max_size=5)
+            self._pool = await asyncpg.create_pool(
+                self.database_url,
+                min_size=1,
+                max_size=self.pool_size,
+            )
 
     async def close(self) -> None:
         if self._pool is not None:
@@ -226,20 +231,27 @@ class WorkerRepository:
         claimed: ClaimedChapterAnalysisJob,
         result: ChapterAnalysisResult,
     ) -> None:
+        if not result.characters:
+            return
+
+        names = [character.name for character in result.characters]
+        existing_rows = await connection.fetch(
+            """
+            SELECT c.id, lower(c.canonical_name) AS canonical_name
+              FROM project_characters pc
+              JOIN characters c ON c.id = pc.character_id
+             WHERE pc.project_id = $1
+               AND pc.status = 'ACTIVE'
+               AND lower(c.canonical_name) = ANY($2::text[])
+            """,
+            claimed.request.project_id,
+            [name.lower() for name in names],
+        )
+        existing = {row["canonical_name"]: row["id"] for row in existing_rows}
+        updates: list[tuple[int, int, str | None]] = []
+
         for character in result.characters:
-            character_id = await connection.fetchval(
-                """
-                SELECT c.id
-                  FROM project_characters pc
-                  JOIN characters c ON c.id = pc.character_id
-                 WHERE pc.project_id = $1
-                   AND lower(c.canonical_name) = lower($2)
-                   AND pc.status = 'ACTIVE'
-                 LIMIT 1
-                """,
-                claimed.request.project_id,
-                character.name,
-            )
+            character_id = existing.get(character.name.lower())
             if character_id is None:
                 character_id = await connection.fetchval(
                     """
@@ -274,18 +286,26 @@ class WorkerRepository:
                     character.description or None,
                     version_id,
                 )
+                existing[character.name.lower()] = character_id
             else:
-                await connection.execute(
-                    """
-                    UPDATE project_characters
-                       SET story_metadata = $3, updated_at = CURRENT_TIMESTAMP,
-                           row_version = row_version + 1
-                     WHERE project_id = $1 AND character_id = $2
-                    """,
-                    claimed.request.project_id,
-                    character_id,
-                    character.description or None,
+                updates.append(
+                    (
+                        claimed.request.project_id,
+                        character_id,
+                        character.description or None,
+                    )
                 )
+
+        if updates:
+            await connection.executemany(
+                """
+                UPDATE project_characters
+                   SET story_metadata = $3, updated_at = CURRENT_TIMESTAMP,
+                       row_version = row_version + 1
+                 WHERE project_id = $1 AND character_id = $2
+                """,
+                updates,
+            )
 
     @staticmethod
     async def _materialize_storyboard(
@@ -293,8 +313,24 @@ class WorkerRepository:
         claimed: ClaimedChapterAnalysisJob,
         result: ChapterAnalysisResult,
     ) -> None:
-        # Analysis is the only storyboard producer in the current MVP. Later visual-generation
-        # work should transition approved outputs to OUTDATED instead of deleting them.
+        protected_storyboard = await connection.fetchval(
+            """
+            SELECT EXISTS(
+                SELECT 1
+                  FROM scenes s
+                  LEFT JOIN visual_beats vb ON vb.scene_id = s.id
+                 WHERE s.chapter_id = $1
+                   AND (s.status = 'APPROVED' OR vb.review_status = 'APPROVED')
+            )
+            """,
+            claimed.request.chapter_id,
+        )
+        if protected_storyboard:
+            raise RuntimeError(
+                "Chapter storyboard contains approved output; explicit reset is required "
+                "before re-analysis"
+            )
+
         await connection.execute(
             """
             DELETE FROM visual_beats
@@ -306,31 +342,44 @@ class WorkerRepository:
             "DELETE FROM scenes WHERE chapter_id = $1",
             claimed.request.chapter_id,
         )
-        for scene_index, scene in enumerate(result.scenes):
-            scene_id = await connection.fetchval(
-                """
-                INSERT INTO scenes
-                  (chapter_id, order_index, title, narration, status)
-                VALUES ($1, $2, $3, $4, 'DRAFT')
-                RETURNING id
-                """,
-                claimed.request.chapter_id,
-                scene_index,
-                scene.title,
-                scene.narration or None,
+
+        if not result.scenes:
+            return
+
+        scene_rows = await connection.fetch(
+            """
+            INSERT INTO scenes (chapter_id, order_index, title, narration, status)
+            SELECT $1, source.order_index, source.title, source.narration, 'DRAFT'
+              FROM UNNEST($2::int[], $3::text[], $4::text[])
+                   AS source(order_index, title, narration)
+             ORDER BY source.order_index
+            RETURNING id, order_index
+            """,
+            claimed.request.chapter_id,
+            list(range(len(result.scenes))),
+            [scene.title for scene in result.scenes],
+            [scene.narration or "" for scene in result.scenes],
+        )
+        scene_ids = {row["order_index"]: row["id"] for row in scene_rows}
+        beat_rows = [
+            (
+                scene_ids[scene_index],
+                beat_index,
+                beat.title,
+                beat.visual_intent,
             )
-            for beat_index, beat in enumerate(scene.visual_beats):
-                await connection.execute(
-                    """
-                    INSERT INTO visual_beats
-                      (scene_id, order_index, title, visual_intent, motion_action, review_status)
-                    VALUES ($1, $2, $3, $4, 'STILL', 'NEEDS_REVIEW')
-                    """,
-                    scene_id,
-                    beat_index,
-                    beat.title,
-                    beat.visual_intent,
-                )
+            for scene_index, scene in enumerate(result.scenes)
+            for beat_index, beat in enumerate(scene.visual_beats)
+        ]
+        if beat_rows:
+            await connection.executemany(
+                """
+                INSERT INTO visual_beats
+                  (scene_id, order_index, title, visual_intent, motion_action, review_status)
+                VALUES ($1, $2, $3, $4, 'STILL', 'NEEDS_REVIEW')
+                """,
+                beat_rows,
+            )
 
     def _require_pool(self) -> asyncpg.Pool:
         if self._pool is None:
