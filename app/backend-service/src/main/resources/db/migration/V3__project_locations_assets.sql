@@ -40,3 +40,9 @@ CREATE INDEX idx_project_assets_project_updated
 CREATE INDEX idx_project_assets_active_project
     ON project_assets (project_id, id)
     WHERE status = 'ACTIVE';
+
+-- Feed indexes for the new account-scoped APIs.
+CREATE INDEX idx_generation_jobs_requester_created_id
+    ON generation_jobs (requested_by_user_id, created_at DESC, id DESC);
+CREATE INDEX idx_notifications_user_created_id
+    ON notifications (user_id, created_at DESC, id DESC);
