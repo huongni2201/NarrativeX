@@ -30,18 +30,18 @@ VALUES
     ('seed-user-10', 'seed.user10@example.com', 'Demo User 10', 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=256&auto=format&fit=crop', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', TRUE)
 ON CONFLICT DO NOTHING;
 
-INSERT INTO projects (id, name, owner_id, status, source_language, narration_language, metadata_language, image_aspect_ratio, image_quality_tier)
+INSERT INTO projects (id, name, description, cover_image_url, owner_id, status, source_language, narration_language, metadata_language, image_aspect_ratio, image_quality_tier)
 VALUES
-    (1001, 'Lanterns of the Old Quarter', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD'),
-    (1002, 'The Clockmaker''s Map', (SELECT id FROM auth_users WHERE email = 'seed.user02@example.com'), 'ACTIVE', 'en-US', 'en-US', 'en-US', 'RATIO_16_9', 'HIGH'),
-    (1003, 'Mekong Moonlight', (SELECT id FROM auth_users WHERE email = 'seed.user03@example.com'), 'ACTIVE', 'vi-VN', 'en-US', 'en-US', 'RATIO_9_16', 'STANDARD'),
-    (1004, 'A House Made of Rain', (SELECT id FROM auth_users WHERE email = 'seed.user04@example.com'), 'DRAFT', 'en-US', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD'),
-    (1005, 'The Paper Dragon', (SELECT id FROM auth_users WHERE email = 'seed.user05@example.com'), 'ACTIVE', 'zh-CN', 'en-US', 'en-US', 'RATIO_1_1', 'HIGH'),
-    (1006, 'Whispers Beneath the Pines', (SELECT id FROM auth_users WHERE email = 'seed.user06@example.com'), 'ACTIVE', 'en-US', 'en-US', 'en-US', 'RATIO_16_9', 'ULTRA'),
-    (1007, 'Seven Seeds', (SELECT id FROM auth_users WHERE email = 'seed.user07@example.com'), 'ARCHIVED', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_9_16', 'STANDARD'),
-    (1008, 'The Blue Kite', (SELECT id FROM auth_users WHERE email = 'seed.user08@example.com'), 'ACTIVE', 'en-US', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'HIGH'),
-    (1009, 'River of Small Stars', (SELECT id FROM auth_users WHERE email = 'seed.user09@example.com'), 'DRAFT', 'en-US', 'en-US', 'en-US', 'RATIO_1_1', 'STANDARD'),
-    (1010, 'The Last Seed Keeper', (SELECT id FROM auth_users WHERE email = 'seed.user10@example.com'), 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'HIGH')
+    (1001, 'Lanterns of the Old Quarter', 'A story about a traditional artisan creating amber lanterns across historic Hanoi streets.', 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD'),
+    (1002, 'The Clockmaker''s Map', 'An apprentice unravels secret maps hidden inside Victorian pocket watches.', 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'seed.user02@example.com'), 'ACTIVE', 'en-US', 'en-US', 'en-US', 'RATIO_16_9', 'HIGH'),
+    (1003, 'Mekong Moonlight', 'A midnight boat journey along the mystical waters of the Mekong river.', 'https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'seed.user03@example.com'), 'ACTIVE', 'vi-VN', 'en-US', 'en-US', 'RATIO_9_16', 'STANDARD'),
+    (1004, 'A House Made of Rain', 'Reflections of family memories resonating through seasonal summer showers.', 'https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'seed.user04@example.com'), 'DRAFT', 'en-US', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD'),
+    (1005, 'The Paper Dragon', 'An origami dragon comes alive at dusk to protect a sleeping town.', 'https://images.unsplash.com/photo-1563089145-599997674d42?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'seed.user05@example.com'), 'ACTIVE', 'zh-CN', 'en-US', 'en-US', 'RATIO_1_1', 'HIGH'),
+    (1006, 'Whispers Beneath the Pines', 'Two travelers discover a forest choir protecting an ancient sacred tree.', 'https://images.unsplash.com/photo-1448375240586-882707db888b?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'seed.user06@example.com'), 'ACTIVE', 'en-US', 'en-US', 'en-US', 'RATIO_16_9', 'ULTRA'),
+    (1007, 'Seven Seeds', 'Generational wisdom passed through heirloom seeds and changing seasons.', 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'seed.user07@example.com'), 'ARCHIVED', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_9_16', 'STANDARD'),
+    (1008, 'The Blue Kite', 'A message of hope flies above city rooftops tied to a vibrant blue kite.', 'https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'seed.user08@example.com'), 'ACTIVE', 'en-US', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'HIGH'),
+    (1009, 'River of Small Stars', 'Mapping celestial constellations mirrored in the ripples of a quiet river.', 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'seed.user09@example.com'), 'DRAFT', 'en-US', 'en-US', 'en-US', 'RATIO_1_1', 'STANDARD'),
+    (1010, 'The Last Seed Keeper', 'A solitary guardian traverses barren valleys to plant the last memory of green.', 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'seed.user10@example.com'), 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'HIGH')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO story_versions (id, project_id, version_number, content, source_language, status, moderation_decision)

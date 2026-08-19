@@ -30,6 +30,8 @@ export const ACTIVE_JOB_STATUSES: ReadonlySet<JobStatus> = new Set([
 export interface ApiProject {
   id: number;
   name: string;
+  description?: string | null;
+  coverImageUrl?: string | null;
   status: ProjectStatus;
   sourceLanguage: string;
   narrationLanguage: string;
@@ -260,6 +262,8 @@ export function isApiProject(value: unknown): value is ApiProject {
     isRecord(value) &&
     isNumber(value.id) &&
     isString(value.name) &&
+    (value.description === undefined || isNullableString(value.description)) &&
+    (value.coverImageUrl === undefined || isNullableString(value.coverImageUrl)) &&
     isProjectStatus(value.status) &&
     isString(value.sourceLanguage) &&
     isString(value.narrationLanguage) &&

@@ -14,6 +14,8 @@ import java.util.Objects;
 /** Project aggregate root; child story versions are created and activated through this boundary. */
 public final class Project extends AggregateRoot {
   private final String name;
+  private final String description;
+  private final String coverImageUrl;
   private final String ownerId;
   private ProjectStatus status;
   private final String sourceLanguage;
@@ -27,6 +29,8 @@ public final class Project extends AggregateRoot {
       Long id,
       long rowVersion,
       String name,
+      String description,
+      String coverImageUrl,
       String ownerId,
       ProjectStatus status,
       String sourceLanguage,
@@ -37,6 +41,8 @@ public final class Project extends AggregateRoot {
       Instant archivedAt) {
     super(id, rowVersion);
     this.name = required(name, "name", 160);
+    this.description = description;
+    this.coverImageUrl = coverImageUrl;
     this.ownerId = required(ownerId, "ownerId", 128);
     this.status = Objects.requireNonNull(status, "status");
     this.sourceLanguage = required(sourceLanguage, "sourceLanguage", 16);
@@ -59,6 +65,8 @@ public final class Project extends AggregateRoot {
         null,
         0L,
         name,
+        null,
+        null,
         ownerId,
         ProjectStatus.DRAFT,
         sourceLanguage,
@@ -85,6 +93,38 @@ public final class Project extends AggregateRoot {
         id,
         rowVersion,
         name,
+        null,
+        null,
+        ownerId,
+        status,
+        sourceLanguage,
+        narrationLanguage,
+        metadataLanguage,
+        imageAspectRatio,
+        imageQualityTier,
+        archivedAt);
+  }
+
+  public static Project rehydrate(
+      Long id,
+      long rowVersion,
+      String name,
+      String description,
+      String coverImageUrl,
+      String ownerId,
+      ProjectStatus status,
+      String sourceLanguage,
+      String narrationLanguage,
+      String metadataLanguage,
+      AspectRatio imageAspectRatio,
+      ImageQualityTier imageQualityTier,
+      Instant archivedAt) {
+    return new Project(
+        id,
+        rowVersion,
+        name,
+        description,
+        coverImageUrl,
         ownerId,
         status,
         sourceLanguage,
@@ -162,6 +202,14 @@ public final class Project extends AggregateRoot {
 
   public String getName() {
     return name;
+  }
+
+  public String getDescription() {
+    return description;
+  }
+
+  public String getCoverImageUrl() {
+    return coverImageUrl;
   }
 
   public String getOwnerId() {

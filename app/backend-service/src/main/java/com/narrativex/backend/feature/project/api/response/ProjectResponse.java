@@ -5,6 +5,8 @@ import com.narrativex.backend.feature.project.domain.aggregate.Project;
 public record ProjectResponse(
     Long id,
     String name,
+    String description,
+    String coverImageUrl,
     String status,
     String sourceLanguage,
     String narrationLanguage,
@@ -16,6 +18,8 @@ public record ProjectResponse(
     return new ProjectResponse(
         project.getId(),
         project.getName(),
+        project.getDescription(),
+        project.getCoverImageUrl(),
         project.getStatus().name(),
         project.getSourceLanguage(),
         project.getNarrationLanguage(),

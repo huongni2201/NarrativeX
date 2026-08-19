@@ -13,6 +13,8 @@ public final class ProjectPersistenceMapper {
         entity.getId(),
         entity.getRowVersion(),
         entity.getName(),
+        entity.getDescription(),
+        entity.getCoverImageUrl(),
         entity.getOwnerId(),
         entity.getStatus(),
         entity.getSourceLanguage(),
