@@ -3,6 +3,8 @@ package com.narrativex.backend.feature.generation.infrastructure.persistence.ada
 import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisSafetyGate;
 import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSource;
+import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardRevisionAccess;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
@@ -11,9 +13,19 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class JdbcChapterAnalysisSafetyGate implements ChapterAnalysisSafetyGate {
   private final JdbcTemplate jdbcTemplate;
+  private final StoryboardRevisionAccess storyboardRevisionAccess;
 
   @Override
   public void requireAllowed(Long projectId, ChapterAnalysisSource source) {
+    var currentRevision = storyboardRevisionAccess.current(source.chapterId());
+    if (currentRevision.hasApprovedOutput()
+        && Objects.equals(currentRevision.sourceHash(), source.sourceHash())) {
+      throw new GenerationAdmissionDeniedException(
+          "APPROVED_STORYBOARD_PROTECTED",
+          "The current storyboard contains approved output for this exact chapter source. "
+              + "Edit the chapter before requesting a new analysis revision.");
+    }
+
     String result =
         jdbcTemplate
             .query(
