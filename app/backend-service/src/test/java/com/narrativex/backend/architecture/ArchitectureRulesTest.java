@@ -42,6 +42,14 @@ class ArchitectureRulesTest {
             "project",
             "import com.narrativex.backend.feature.project.infrastructure.persistence.adapter.ProjectPersistenceAdapter;"));
     assertTrue(
+        isForbiddenApplicationImport(
+            "storyboard", "import org.springframework.jdbc.core.JdbcTemplate;"));
+    assertTrue(
+        isForbiddenApplicationImport(
+            "storyboard", "import org.springframework.data.jpa.repository.JpaRepository;"));
+    assertTrue(
+        isForbiddenApplicationImport("storyboard", "import jakarta.persistence.EntityManager;"));
+    assertTrue(
         isForbiddenApiImport(
             "import com.narrativex.backend.feature.project.application.port.out.ProjectRepository;"));
     assertTrue(
@@ -78,7 +86,7 @@ class ArchitectureRulesTest {
     if (packageName.contains(".application")
         && source.lines().anyMatch(line -> isForbiddenApplicationImport(feature, line))) {
       violations.add(
-          relative + ": application imports a forbidden feature/API/infrastructure package");
+          relative + ": application imports a forbidden feature/API/infrastructure/framework package");
     }
     if (isApiPackage(packageName)
         && source.lines().anyMatch(ArchitectureRulesTest::isForbiddenApiImport)) {
@@ -154,6 +162,11 @@ class ArchitectureRulesTest {
   }
 
   private static boolean isForbiddenApplicationImport(String feature, String line) {
+    if (line.startsWith("import org.springframework.jdbc.")
+        || line.startsWith("import org.springframework.data.jpa.")
+        || line.startsWith("import jakarta.persistence.")) {
+      return true;
+    }
     if (!line.startsWith("import " + ROOT_PACKAGE)) {
       return false;
     }
