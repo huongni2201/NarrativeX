@@ -20,6 +20,7 @@ import {
   X,
 } from "lucide-react";
 import { chaptersApi } from "@/features/chapters/api/chapters.api";
+import { StoryboardScreen } from "@/features/storyboard/StoryboardScreen";
 import { queryKeys } from "@/lib/query-keys";
 import { ApiClientError, apiErrorMessage } from "@/shared/api/client";
 import { ACTIVE_JOB_STATUSES, TERMINAL_JOB_STATUSES } from "@/types/api";
@@ -288,12 +289,12 @@ export function ChapterEditor({ projectId, chapterId }: Readonly<ChapterEditorPr
             type="button"
             disabled={!tab.available}
             onClick={() => tab.available && setActiveTab(tab.id)}
-            className={`relative whitespace-nowrap px-3 py-3 text-xs font-medium transition sm:px-4 ${
+            className={`relative whitespace-nowrap px-3.5 py-3 text-sm font-medium transition sm:px-4 ${
               activeTab === tab.id
-                ? "text-purple-300"
+                ? "text-purple-300 font-semibold"
                 : tab.available
-                  ? "text-slate-400 hover:text-slate-200"
-                  : "cursor-not-allowed text-slate-600"
+                  ? "text-slate-300 hover:text-white"
+                  : "cursor-not-allowed text-slate-500"
             }`}
             title={tab.available ? undefined : "Tính năng này chưa có API runtime"}
           >
@@ -310,7 +311,7 @@ export function ChapterEditor({ projectId, chapterId }: Readonly<ChapterEditorPr
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
             <p className="font-medium">Nội dung đã thay đổi sau lần phân tích gần nhất.</p>
-            <p className="mt-0.5 text-xs text-amber-200/70">
+            <p className="mt-0.5 text-xs text-amber-200/80">
               Storyboard hiện tại có thể đã cũ. Phân tích lại sau khi xác nhận nội dung Chapter.
             </p>
           </div>
@@ -339,7 +340,23 @@ export function ChapterEditor({ projectId, chapterId }: Readonly<ChapterEditorPr
           onReload={reloadWorkspace}
         />
       ) : activeTab === "storyboard" ? (
-        <StoryboardPreview workspace={workspace} />
+        <div className="space-y-4">
+          <StoryboardScreen
+            projectId={numericProjectId}
+            chapters={[
+              {
+                id: workspace.chapter.id,
+                storyVersionId: workspace.chapter.storyVersionId,
+                orderIndex: workspace.chapter.orderIndex,
+                title: workspace.chapter.title,
+                sourceHash: workspace.chapter.sourceHash,
+                rowVersion: workspace.chapter.rowVersion,
+              },
+            ]}
+            initialChapterId={workspace.chapter.id}
+            hideChapterSelector
+          />
+        </div>
       ) : (
         <Overview
           workspace={workspace}
@@ -365,12 +382,12 @@ function Breadcrumb({
   chapterNumber: string;
 }) {
   return (
-    <div className="flex min-w-0 items-center gap-1.5 overflow-hidden text-[11px] text-slate-500">
+    <div className="flex min-w-0 items-center gap-1.5 overflow-hidden text-xs text-slate-400">
       <span>Dự án</span>
-      <ChevronRight className="h-3 w-3 shrink-0" />
-      <span className="truncate text-purple-300/80">{workspace.projectName}</span>
-      <ChevronRight className="h-3 w-3 shrink-0" />
-      <span className="truncate text-slate-400">
+      <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-500" />
+      <span className="truncate text-purple-300 font-medium">{workspace.projectName}</span>
+      <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-500" />
+      <span className="truncate text-slate-200">
         Chapter {chapterNumber} – {workspace.chapter.title}
       </span>
     </div>
@@ -404,41 +421,41 @@ function ChapterHero({
                 role="img"
               />
             ) : (
-              <div className="flex flex-col items-center gap-2 text-slate-600">
-                <ImageIcon className="h-7 w-7" />
-                <span className="text-[10px]">Chưa có visual</span>
+              <div className="flex flex-col items-center gap-2 text-slate-400">
+                <ImageIcon className="h-7 w-7 text-slate-500" />
+                <span className="text-xs">Chưa có visual</span>
               </div>
             )}
           </div>
 
           <div className="min-w-0 py-1">
-            <p className="text-[11px] font-medium text-slate-500">Chapter {chapterNumber}</p>
+            <p className="text-xs font-medium text-slate-400">Chapter {chapterNumber}</p>
             <div className="mt-1 flex items-start gap-2">
-              <h1 className="min-w-0 text-lg font-semibold text-slate-100 sm:text-xl">
+              <h1 className="min-w-0 text-xl font-bold text-slate-100 sm:text-2xl">
                 {workspace.chapter.title}
               </h1>
               <button
                 type="button"
                 onClick={onEdit}
-                className="mt-0.5 rounded-md p-1 text-slate-500 transition hover:bg-slate-800 hover:text-slate-200"
+                className="mt-0.5 rounded-md p-1 text-slate-400 transition hover:bg-slate-800 hover:text-slate-100"
                 aria-label="Chỉnh sửa Chapter"
               >
-                <Pencil className="h-3.5 w-3.5" />
+                <Pencil className="h-4 w-4" />
               </button>
             </div>
-            <div className="mt-4 flex flex-wrap items-center gap-1.5 text-[10px]">
+            <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
               <PipelineBadge label="Draft" status="completed" />
-              <ChevronRight className="h-3 w-3 text-slate-700" />
+              <ChevronRight className="h-3.5 w-3.5 text-slate-600" />
               <PipelineBadge label="Analyzed" status={pipelineBadge.analysis} />
-              <ChevronRight className="h-3 w-3 text-slate-700" />
+              <ChevronRight className="h-3.5 w-3.5 text-slate-600" />
               <PipelineBadge label="Visual Ready" status={pipelineBadge.visual} />
-              <ChevronRight className="h-3 w-3 text-slate-700" />
+              <ChevronRight className="h-3.5 w-3.5 text-slate-600" />
               <PipelineBadge label="Rendered" status={pipelineBadge.render} />
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 sm:min-w-[350px]">
+        <div className="grid grid-cols-3 gap-2.5 sm:min-w-[370px]">
           <StatCard label="Scenes" value={String(workspace.summary.sceneCount)} />
           <StatCard label="Visual Beats" value={String(workspace.summary.visualBeatCount)} />
           <StatCard
@@ -450,10 +467,10 @@ function ChapterHero({
         <button
           type="button"
           disabled={!workspace.capabilities.canRender}
-          className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-purple-600 px-4 text-xs font-semibold text-white transition hover:bg-purple-500 disabled:cursor-not-allowed disabled:bg-purple-900/40 disabled:text-purple-300/50"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-purple-600 px-5 text-sm font-semibold text-white transition hover:bg-purple-500 disabled:cursor-not-allowed disabled:bg-purple-900/40 disabled:text-purple-300/50"
           title={workspace.capabilities.canRender ? "Render Chapter" : "Render chưa khả dụng"}
         >
-          <Film className="h-3.5 w-3.5" />
+          <Film className="h-4 w-4" />
           Render Chapter
         </button>
       </div>
@@ -483,23 +500,23 @@ function Overview({
   onOpenStoryboard: () => void;
 }) {
   return (
-    <div className="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[340px_minmax(0,1fr)]">
-      <aside className="rounded-2xl border border-slate-800/90 bg-[#0b111c]/90 p-4">
-        <h2 className="text-xs font-semibold text-slate-200">Tiến trình</h2>
-        <div className="mt-4 space-y-1">
+    <div className="grid gap-4 lg:grid-cols-[330px_minmax(0,1fr)] xl:grid-cols-[350px_minmax(0,1fr)]">
+      <aside className="rounded-2xl border border-slate-800/90 bg-[#0b111c]/90 p-4 sm:p-5">
+        <h2 className="text-sm font-semibold text-slate-100">Tiến trình</h2>
+        <div className="mt-4 space-y-1.5">
           <ProgressItem
-            icon={<Sparkles className="h-3.5 w-3.5" />}
+            icon={<Sparkles className="h-4 w-4" />}
             label="Phân tích Chapter"
             step={workspace.pipeline.analysis}
             active={analysisActive}
           />
           <ProgressItem
-            icon={<Layers className="h-3.5 w-3.5" />}
+            icon={<Layers className="h-4 w-4" />}
             label="Lập kế hoạch Visual Beats"
             step={workspace.pipeline.visualPlanning}
           />
           <ProgressItem
-            icon={<ImageIcon className="h-3.5 w-3.5" />}
+            icon={<ImageIcon className="h-4 w-4" />}
             label="Generate Visuals"
             step={workspace.pipeline.visualGeneration}
             progressLabel={
@@ -509,23 +526,23 @@ function Overview({
             }
           />
           <ProgressItem
-            icon={<Volume2 className="h-3.5 w-3.5" />}
+            icon={<Volume2 className="h-4 w-4" />}
             label="Audio (TTS & Subtitle)"
             step={workspace.pipeline.audio}
           />
           <ProgressItem
-            icon={<Film className="h-3.5 w-3.5" />}
+            icon={<Film className="h-4 w-4" />}
             label="Render Chapter"
             step={workspace.pipeline.render}
           />
         </div>
 
         {(analysisMessage || analysisJobStatus) && (
-          <div className="mt-4 rounded-lg border border-purple-500/20 bg-purple-500/5 p-3 text-[11px] text-slate-400">
+          <div className="mt-4 rounded-lg border border-purple-500/20 bg-purple-500/5 p-3 text-xs text-slate-300">
             <div className="flex items-center justify-between gap-2">
               <span className="truncate">{analysisMessage ?? "Đang theo dõi analysis job…"}</span>
               {analysisJobStatus && (
-                <span className="shrink-0 font-mono text-purple-300">
+                <span className="shrink-0 font-mono font-medium text-purple-300">
                   {analysisJobStatus}
                   {analysisJobProgress !== null ? ` · ${analysisJobProgress}%` : ""}
                 </span>
@@ -535,18 +552,18 @@ function Overview({
         )}
 
         <div className="mt-5 border-t border-slate-800 pt-4">
-          <h3 className="text-[11px] font-semibold text-slate-400">Hành động nhanh</h3>
-          <div className="mt-2 space-y-2">
+          <h3 className="text-xs font-semibold text-slate-300">Hành động nhanh</h3>
+          <div className="mt-3 space-y-2">
             <button
               type="button"
               onClick={onAnalyze}
               disabled={analyzeDisabled}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-purple-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-purple-500 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-purple-600 px-3.5 py-2.5 text-sm font-semibold text-white transition hover:bg-purple-500 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500"
             >
               {analysisActive ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <RefreshCw className="h-3.5 w-3.5" />
+                <RefreshCw className="h-4 w-4" />
               )}
               {workspace.pipeline.analysis.status === "COMPLETED"
                 ? "Phân tích Chapter lại"
@@ -561,31 +578,31 @@ function Overview({
       <div className="min-w-0 space-y-4">
         <section className="rounded-2xl border border-slate-800/90 bg-[#0b111c]/90 p-4 sm:p-5">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-xs font-semibold text-slate-200">Nội dung Chapter</h2>
+            <h2 className="text-sm font-semibold text-slate-100">Nội dung Chapter</h2>
             <button
               type="button"
               onClick={onEdit}
-              className="inline-flex items-center gap-1.5 rounded-md border border-slate-700/80 px-2.5 py-1.5 text-[11px] text-slate-400 transition hover:bg-slate-800 hover:text-slate-200"
+              className="inline-flex items-center gap-1.5 rounded-md border border-slate-700/80 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-slate-800 hover:text-white"
             >
-              <Pencil className="h-3 w-3" />
+              <Pencil className="h-3.5 w-3.5" />
               Chỉnh sửa
             </button>
           </div>
-          <p className="mt-3 max-h-32 overflow-hidden whitespace-pre-wrap rounded-xl border border-slate-800 bg-[#080d16] px-4 py-3 text-sm leading-6 text-slate-400">
+          <p className="mt-3 max-h-36 overflow-hidden whitespace-pre-wrap rounded-xl border border-slate-800 bg-[#080d16] px-4 py-3.5 text-base leading-7 text-slate-300">
             {workspace.chapter.sourceText || "Chapter chưa có nội dung."}
           </p>
         </section>
 
         <section className="rounded-2xl border border-slate-800/90 bg-[#0b111c]/90 p-4 sm:p-5">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-xs font-semibold text-slate-200">
+            <h2 className="text-sm font-semibold text-slate-100">
               Scenes ({workspace.summary.sceneCount})
             </h2>
             {workspace.summary.sceneCount > 0 && (
               <button
                 type="button"
                 onClick={onOpenStoryboard}
-                className="text-[11px] font-medium text-purple-300 transition hover:text-purple-200"
+                className="text-xs font-medium text-purple-300 transition hover:text-purple-200"
               >
                 Xem tất cả
               </button>
@@ -736,13 +753,13 @@ function StoryboardPreview({ workspace }: { workspace: ApiChapterWorkspace }) {
     <section className="rounded-2xl border border-slate-800/90 bg-[#0b111c]/90 p-4 sm:p-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold text-slate-100">Storyboard</h2>
-          <p className="mt-1 text-xs text-slate-500">
+          <h2 className="text-base font-semibold text-slate-100">Storyboard</h2>
+          <p className="mt-1 text-sm text-slate-400">
             {workspace.summary.sceneCount} scenes · {workspace.summary.visualBeatCount} visual beats từ lần phân tích hiện tại.
           </p>
         </div>
         {workspace.summary.sceneCount > workspace.previewScenes.length && (
-          <p className="text-[11px] text-slate-600">
+          <p className="text-xs text-slate-500">
             Overview API chỉ trả {workspace.previewScenes.length} scene đầu để giữ payload gọn.
           </p>
         )}
@@ -762,9 +779,9 @@ function SceneGrid({
   if (scenes.length === 0) {
     return (
       <div className="mt-4 flex min-h-40 flex-col items-center justify-center rounded-xl border border-dashed border-slate-800 bg-[#080d16] px-6 text-center">
-        <Layers className="h-7 w-7 text-slate-700" />
-        <p className="mt-3 text-xs font-medium text-slate-400">Chưa có Scene</p>
-        <p className="mt-1 max-w-sm text-[11px] leading-5 text-slate-600">
+        <Layers className="h-8 w-8 text-slate-600" />
+        <p className="mt-3 text-sm font-medium text-slate-300">Chưa có Scene</p>
+        <p className="mt-1 max-w-sm text-xs leading-5 text-slate-500">
           Phân tích Chapter để backend tạo Scene và Visual Beat. UI không dùng dữ liệu mock.
         </p>
       </div>
@@ -793,25 +810,25 @@ function SceneCard({ scene }: { scene: ApiChapterWorkspacePreviewScene }) {
             aria-label={`Preview ${scene.title}`}
           />
         ) : (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-slate-700">
-            <ImageIcon className="h-8 w-8" />
-            <span className="text-[10px]">Visual chưa được generate</span>
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-slate-500">
+            <ImageIcon className="h-8 w-8 text-slate-600" />
+            <span className="text-xs">Visual chưa được generate</span>
           </div>
         )}
-        <span className="absolute left-2 top-2 rounded-md border border-white/10 bg-black/50 px-1.5 py-0.5 text-[10px] font-medium text-slate-200 backdrop-blur">
+        <span className="absolute left-2.5 top-2.5 rounded-md border border-white/10 bg-black/60 px-2 py-0.5 text-xs font-semibold text-slate-200 backdrop-blur">
           {sceneNumber}
         </span>
       </div>
-      <div className="p-3">
-        <p className="line-clamp-2 min-h-9 text-xs font-medium leading-4 text-slate-200">{scene.title}</p>
-        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-600">
-          <span className="inline-flex items-center gap-1">
-            <Layers className="h-3 w-3" />
+      <div className="p-3.5">
+        <p className="line-clamp-2 min-h-10 text-sm font-semibold leading-5 text-slate-100">{scene.title}</p>
+        <div className="mt-2.5 flex flex-wrap gap-x-3.5 gap-y-1 text-xs text-slate-400">
+          <span className="inline-flex items-center gap-1.5 font-medium">
+            <Layers className="h-3.5 w-3.5 text-purple-400" />
             {scene.visualBeatCount} beats
           </span>
           {scene.durationSeconds !== null && (
-            <span className="inline-flex items-center gap-1">
-              <Clock className="h-3 w-3" />
+            <span className="inline-flex items-center gap-1.5 font-medium">
+              <Clock className="h-3.5 w-3.5 text-slate-400" />
               {formatDuration(scene.durationSeconds)}
             </span>
           )}
@@ -848,30 +865,30 @@ function ProgressItem({
   const completedAt = "completedAt" in step ? step.completedAt : null;
 
   return (
-    <div className="group flex gap-3 rounded-xl px-2 py-2.5 hover:bg-slate-900/60">
+    <div className="group flex gap-3 rounded-xl px-2.5 py-2.5 transition hover:bg-slate-900/60">
       <div
-        className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
+        className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border ${
           completed
             ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
             : active
               ? "border-purple-500/30 bg-purple-500/10 text-purple-300"
               : failed
                 ? "border-rose-500/30 bg-rose-500/10 text-rose-300"
-                : "border-slate-700 bg-slate-900 text-slate-600"
+                : "border-slate-700 bg-slate-900 text-slate-500"
         }`}
       >
-        {active ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : completed ? <CheckCircle2 className="h-3.5 w-3.5" /> : icon}
+        {active ? <Loader2 className="h-4 w-4 animate-spin" /> : completed ? <CheckCircle2 className="h-4 w-4" /> : icon}
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <p className="truncate text-xs font-medium text-slate-300">{label}</p>
+          <p className="truncate text-sm font-medium text-slate-200">{label}</p>
           {completed ? (
-            <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
           ) : (
-            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-700" />
+            <ChevronRight className="h-4 w-4 shrink-0 text-slate-600" />
           )}
         </div>
-        <p className="mt-0.5 text-[10px] text-slate-600">
+        <p className="mt-0.5 text-xs text-slate-400">
           {statusText}
           {completedAt ? ` · ${formatCompletedAt(completedAt)}` : ""}
         </p>
@@ -885,7 +902,7 @@ function QuickAction({ label, enabled }: { label: string; enabled: boolean }) {
     <button
       type="button"
       disabled={!enabled}
-      className="flex w-full items-center justify-center rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-xs text-slate-400 transition hover:border-slate-700 hover:bg-slate-900 disabled:cursor-not-allowed disabled:text-slate-700"
+      className="flex w-full items-center justify-center rounded-lg border border-slate-800 bg-slate-950/40 px-3.5 py-2 text-xs font-medium text-slate-300 transition hover:border-slate-700 hover:bg-slate-900 disabled:cursor-not-allowed disabled:text-slate-600"
       title={enabled ? undefined : "Backend capability chưa khả dụng"}
     >
       {label}
@@ -902,12 +919,12 @@ function PipelineBadge({
 }) {
   return (
     <span
-      className={`rounded-full border px-2 py-1 ${
+      className={`rounded-full border px-2.5 py-1 text-xs font-medium ${
         status === "completed"
           ? "border-purple-500/30 bg-purple-500/10 text-purple-300"
           : status === "active"
             ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-            : "border-slate-700 bg-slate-900/70 text-slate-600"
+            : "border-slate-700 bg-slate-900/70 text-slate-400"
       }`}
     >
       {label}
@@ -917,9 +934,9 @@ function PipelineBadge({
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-[#080d16] px-3 py-2.5">
-      <p className="truncate text-[9px] uppercase tracking-wide text-slate-600">{label}</p>
-      <p className="mt-1 text-sm font-semibold text-slate-200">{value}</p>
+    <div className="rounded-xl border border-slate-800 bg-[#080d16] px-3.5 py-2.5">
+      <p className="truncate text-[10px] font-semibold uppercase tracking-wider text-slate-400">{label}</p>
+      <p className="mt-1 text-base font-bold text-slate-100">{value}</p>
     </div>
   );
 }

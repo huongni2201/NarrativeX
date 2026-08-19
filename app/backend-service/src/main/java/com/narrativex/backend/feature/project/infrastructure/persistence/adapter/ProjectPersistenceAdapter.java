@@ -79,6 +79,8 @@ public class ProjectPersistenceAdapter implements ProjectRepository {
   private static ProjectJpaEntity buildJpaEntity(Project project) {
     return ProjectJpaEntity.builder()
         .name(project.getName())
+        .description(project.getDescription())
+        .coverImageUrl(project.getCoverImageUrl())
         .ownerId(project.getOwnerId())
         .status(project.getStatus())
         .sourceLanguage(project.getSourceLanguage())

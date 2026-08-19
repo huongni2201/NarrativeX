@@ -25,18 +25,25 @@ import {
 interface StoryboardScreenProps {
   projectId: number;
   chapters: ApiChapterSummary[];
+  initialChapterId?: number | null;
+  hideChapterSelector?: boolean;
 }
 
 type StatusFilter = "ALL" | VisualBeatReviewStatus;
 
-export function StoryboardScreen({ projectId, chapters }: Readonly<StoryboardScreenProps>) {
+export function StoryboardScreen({
+  projectId,
+  chapters,
+  initialChapterId,
+  hideChapterSelector = false,
+}: Readonly<StoryboardScreenProps>) {
   const queryClient = useQueryClient();
   const orderedChapters = useMemo(
     () => [...chapters].sort((a, b) => a.orderIndex - b.orderIndex || a.id - b.id),
     [chapters],
   );
   const [chapterId, setChapterId] = useState<number | null>(
-    orderedChapters.at(-1)?.id ?? null,
+    initialChapterId ?? orderedChapters.at(-1)?.id ?? null,
   );
   const [sceneId, setSceneId] = useState<number | null>(null);
   const [status, setStatus] = useState<StatusFilter>("ALL");
@@ -48,6 +55,10 @@ export function StoryboardScreen({ projectId, chapters }: Readonly<StoryboardScr
   const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (initialChapterId !== undefined && initialChapterId !== null) {
+      setChapterId(initialChapterId);
+      return;
+    }
     if (orderedChapters.length === 0) {
       setChapterId(null);
       return;
@@ -55,7 +66,7 @@ export function StoryboardScreen({ projectId, chapters }: Readonly<StoryboardScr
     if (chapterId === null || !orderedChapters.some((chapter) => chapter.id === chapterId)) {
       setChapterId(orderedChapters.at(-1)!.id);
     }
-  }, [chapterId, orderedChapters]);
+  }, [chapterId, orderedChapters, initialChapterId]);
 
   useEffect(() => {
     setSceneId(null);
@@ -165,18 +176,20 @@ export function StoryboardScreen({ projectId, chapters }: Readonly<StoryboardScr
     <section className="overflow-hidden rounded-xl border border-[#163047] bg-[#06101a] shadow-2xl shadow-black/20">
       <div className="border-b border-[#142637] px-4 py-3 sm:px-5">
         <div className="flex flex-wrap items-center gap-2">
-          <SelectControl
-            ariaLabel="Chọn Chapter"
-            value={chapterId?.toString() ?? ""}
-            onChange={(value) => setChapterId(Number(value))}
-            className="min-w-[230px]"
-          >
-            {orderedChapters.map((chapter) => (
-              <option key={chapter.id} value={chapter.id}>
-                Chapter {String(chapter.orderIndex + 1).padStart(2, "0")} — {chapter.title}
-              </option>
-            ))}
-          </SelectControl>
+          {!hideChapterSelector && (
+            <SelectControl
+              ariaLabel="Chọn Chapter"
+              value={chapterId?.toString() ?? ""}
+              onChange={(value) => setChapterId(Number(value))}
+              className="min-w-[230px]"
+            >
+              {orderedChapters.map((chapter) => (
+                <option key={chapter.id} value={chapter.id}>
+                  Chapter {String(chapter.orderIndex + 1).padStart(2, "0")} — {chapter.title}
+                </option>
+              ))}
+            </SelectControl>
+          )}
 
           <SelectControl
             ariaLabel="Lọc theo Scene"
@@ -445,21 +458,21 @@ function SceneRailItem({
     <button
       type="button"
       onClick={onClick}
-      className={`w-full rounded-md border px-2.5 py-2.5 text-left transition ${
+      className={`group relative w-full rounded-xl border p-3 text-left transition ${
         active
-          ? "border-purple-500/40 bg-[#102235]"
-          : "border-transparent bg-[#081522] hover:border-[#1c3449] hover:bg-[#0b1a29]"
+          ? "border-purple-500/50 bg-[#122135] shadow-lg shadow-purple-950/20"
+          : "border-[#152738] bg-[#091522] hover:border-[#1e384e] hover:bg-[#0c1a29]"
       }`}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] font-semibold text-slate-200">
+        <span className="text-xs font-bold text-slate-100">
           Scene {String(scene.orderIndex + 1).padStart(2, "0")}
         </span>
-        {active && <span className="h-1.5 w-1.5 rounded-full bg-purple-400" />}
+        <span className="text-[11px] text-slate-500 group-hover:text-slate-400">✕</span>
       </div>
-      <p className="mt-1 line-clamp-2 text-[10px] leading-4 text-slate-500">{scene.title}</p>
-      <p className="mt-1 text-[10px] text-slate-600">
-        {scene.approvedBeatCount}/{scene.totalBeatCount} beats
+      <p className="mt-1 line-clamp-1 text-xs text-slate-400">{scene.title}</p>
+      <p className="mt-1.5 text-[11px] font-medium text-slate-500">
+        {scene.totalBeatCount}/{scene.totalBeatCount} beats
       </p>
     </button>
   );
@@ -473,42 +486,57 @@ function VisualBeatCard({
   beat: ApiStoryboardVisualBeat;
   updating: boolean;
   onReview: (status: VisualBeatReviewStatus) => void;
+  index?: number;
 }>) {
   const approved = beat.reviewStatus === "APPROVED";
   return (
-    <article className="group overflow-hidden rounded-lg border border-[#17334a] bg-[#081522] transition hover:border-[#2d5675]">
-      <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden border-b border-[#173047] bg-[radial-gradient(circle_at_50%_25%,rgba(67,92,124,0.18),transparent_48%),linear-gradient(160deg,#0c1a28,#07111b)]">
-        <span className="absolute left-2 top-2 rounded bg-black/40 px-1.5 py-0.5 text-[9px] font-semibold text-slate-300">
-          Beat {beat.orderIndex + 1}
-        </span>
-        <div className="text-center text-slate-600">
-          <ImageIcon className="mx-auto h-6 w-6" />
-          <p className="mt-1 text-[9px]">Chưa có ảnh</p>
+    <article className="group relative flex flex-col overflow-hidden rounded-2xl border border-[#1b344b] bg-[#071421] shadow-lg transition duration-200 hover:-translate-y-0.5 hover:border-purple-500/60 hover:shadow-purple-950/30">
+      {/* Visual Image / Frame Area */}
+      <div className="relative aspect-[3/4] w-full overflow-hidden bg-gradient-to-b from-slate-800/80 via-[#0a1826] to-[#06101a]">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-3 text-slate-600">
+          <ImageIcon className="h-8 w-8 text-slate-600 transition group-hover:text-purple-400" />
+          <span className="text-center text-[10px] text-slate-500">Visual frame render</span>
+        </div>
+
+        {/* Top Badges & Actions */}
+        <div className="absolute inset-x-2.5 top-2.5 flex items-center justify-between">
+          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-black/60 text-xs font-semibold text-slate-300 backdrop-blur-md">
+            🏃
+          </span>
+          <button
+            type="button"
+            className="flex h-6 w-6 items-center justify-center rounded-md bg-black/60 text-slate-300 backdrop-blur-md transition hover:bg-black/80 hover:text-white"
+            title="Đổi góc quay / action"
+          >
+            ⤢
+          </button>
         </div>
       </div>
-      <div className="p-2.5">
-        <h4 className="line-clamp-2 min-h-8 text-[10px] font-semibold uppercase leading-4 text-slate-200">
-          {beat.title}
-        </h4>
-        <p className="mt-1 line-clamp-2 min-h-7 text-[9px] leading-3.5 text-slate-600" title={beat.visualIntent}>
-          {beat.visualIntent}
-        </p>
-        <div className="mt-2 flex items-center justify-between gap-1">
+
+      {/* Card Body */}
+      <div className="flex flex-1 flex-col justify-between p-3.5">
+        <div>
+          <p className="text-xs font-semibold text-slate-400">Beat {beat.orderIndex + 1}</p>
+          <h4 className="mt-1 line-clamp-2 min-h-10 text-xs font-bold uppercase leading-5 text-slate-100">
+            {beat.title}
+          </h4>
+        </div>
+
+        <div className="mt-3 flex items-center justify-between gap-2 border-t border-[#122434] pt-2.5">
           <span
-            className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[8px] font-bold ${
+            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-bold tracking-wider ${
               approved
                 ? "border-emerald-500/40 bg-emerald-950/40 text-emerald-400"
-                : "border-amber-500/40 bg-amber-950/30 text-amber-400"
+                : "border-amber-500/40 bg-amber-950/40 text-amber-400"
             }`}
           >
-            {approved ? <Check className="h-2.5 w-2.5" /> : <Clock3 className="h-2.5 w-2.5" />}
             {approved ? "APPROVED" : "NEEDS REVIEW"}
           </span>
           <button
             type="button"
             disabled={updating}
             onClick={() => onReview(approved ? "NEEDS_REVIEW" : "APPROVED")}
-            className="rounded px-1.5 py-1 text-[8px] font-semibold text-purple-300 opacity-0 transition hover:bg-purple-950/50 disabled:opacity-40 group-hover:opacity-100 focus:opacity-100"
+            className="rounded-md px-2 py-1 text-xs font-medium text-purple-300 transition hover:bg-purple-950/60 disabled:opacity-40"
           >
             {updating ? "…" : approved ? "Review lại" : "Duyệt"}
           </button>
@@ -520,11 +548,11 @@ function VisualBeatCard({
 
 function EmptyBoard({ title, description }: Readonly<{ title: string; description: string }>) {
   return (
-    <div className="flex min-h-[330px] items-center justify-center rounded-lg border border-dashed border-[#1c3448] bg-[#07131f] px-6 text-center">
+    <div className="flex min-h-[330px] items-center justify-center rounded-xl border border-dashed border-[#1c3448] bg-[#07131f] px-6 text-center">
       <div>
-        <ImageIcon className="mx-auto h-8 w-8 text-slate-700" />
+        <ImageIcon className="mx-auto h-9 w-9 text-slate-700" />
         <h3 className="mt-3 text-sm font-semibold text-slate-300">{title}</h3>
-        <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-slate-600">{description}</p>
+        <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-slate-500">{description}</p>
       </div>
     </div>
   );
