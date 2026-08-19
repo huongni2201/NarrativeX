@@ -7,13 +7,8 @@ import com.narrativex.backend.feature.project.application.port.in.StoryVersionAc
 import com.narrativex.backend.feature.storyboard.api.response.ChapterResponse;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterWorkspaceResponse;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Timestamp;
-import java.time.Instant;
-import java.util.List;
+import com.narrativex.backend.feature.storyboard.application.port.out.ChapterWorkspaceReadRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,7 +18,7 @@ public class GetChapterWorkspaceUseCase {
   private final CurrentUserId currentUserId;
   private final StoryVersionAccess storyVersionAccess;
   private final ChapterRepository chapterRepository;
-  private final JdbcTemplate jdbcTemplate;
+  private final ChapterWorkspaceReadRepository chapterWorkspaceReadRepository;
 
   @Transactional(readOnly = true)
   public ApiResponse<ChapterWorkspaceResponse> execute(Long projectId, Long chapterId) {
@@ -34,19 +29,30 @@ public class GetChapterWorkspaceUseCase {
     storyVersionAccess.requireOwnedStoryVersion(
         projectId, chapter.getStoryVersionId(), currentUserId.get());
 
-    WorkspaceSnapshot snapshot = loadSnapshot(projectId, chapterId);
-    List<ChapterWorkspaceResponse.PreviewScene> previewScenes = loadPreviewScenes(chapterId);
-
+    var snapshot = chapterWorkspaceReadRepository.get(projectId, chapterId);
+    var analysis = snapshot.analysis();
     boolean hasStoryboard = snapshot.sceneCount() > 0 && snapshot.visualBeatCount() > 0;
     boolean sourceOutdated =
-        snapshot.analysisSourceHash() != null
-            && !snapshot.analysisSourceHash().equals(chapter.getSourceHash());
-    String analysisStatus =
-        snapshot.analysisStatus() == null ? "NOT_STARTED" : snapshot.analysisStatus();
+        analysis.sourceHash() != null && !analysis.sourceHash().equals(chapter.getSourceHash());
+    String analysisStatus = analysis.status() == null ? "NOT_STARTED" : analysis.status();
     String planningStatus =
         hasStoryboard && !sourceOutdated && "COMPLETED".equals(analysisStatus)
             ? "COMPLETED"
             : "NOT_STARTED";
+
+    var previewScenes =
+        snapshot.previewScenes().stream()
+            .map(
+                scene ->
+                    new ChapterWorkspaceResponse.PreviewScene(
+                        scene.id(),
+                        scene.orderIndex(),
+                        scene.title(),
+                        scene.durationSeconds(),
+                        scene.status(),
+                        scene.visualBeatCount(),
+                        scene.previewImageUrl()))
+            .toList();
 
     var response =
         new ChapterWorkspaceResponse(
@@ -57,10 +63,8 @@ public class GetChapterWorkspaceUseCase {
                 snapshot.visualBeatCount(),
                 snapshot.estimatedDurationSeconds()),
             new ChapterWorkspaceResponse.Pipeline(
-                new ChapterWorkspaceResponse.PipelineStep(
-                    analysisStatus, snapshot.analysisCompletedAt()),
-                new ChapterWorkspaceResponse.PipelineStep(
-                    planningStatus, snapshot.analysisCompletedAt()),
+                new ChapterWorkspaceResponse.PipelineStep(analysisStatus, analysis.completedAt()),
+                new ChapterWorkspaceResponse.PipelineStep(planningStatus, analysis.completedAt()),
                 new ChapterWorkspaceResponse.ProgressStep("NOT_STARTED", 0, 0, 0),
                 new ChapterWorkspaceResponse.PipelineStep("NOT_STARTED", null),
                 new ChapterWorkspaceResponse.PipelineStep("NOT_STARTED", null),
@@ -75,112 +79,10 @@ public class GetChapterWorkspaceUseCase {
     return ApiResponse.success(response);
   }
 
-  private WorkspaceSnapshot loadSnapshot(Long projectId, Long chapterId) {
-    return jdbcTemplate
-        .query(
-            """
-            WITH scene_stats AS (
-                SELECT COUNT(*)::int AS scene_count,
-                       COALESCE(SUM(duration_seconds), 0)::bigint AS duration_seconds
-                  FROM scenes
-                 WHERE chapter_id = ? AND status <> 'OUTDATED'
-            ),
-            beat_stats AS (
-                SELECT COUNT(vb.id)::int AS visual_beat_count
-                  FROM visual_beats vb
-                  JOIN scenes s ON s.id = vb.scene_id
-                 WHERE s.chapter_id = ? AND s.status <> 'OUTDATED'
-            ),
-            latest_analysis AS (
-                SELECT status,
-                       source_hash,
-                       CASE WHEN status = 'COMPLETED' THEN updated_at ELSE NULL END AS completed_at
-                  FROM generation_jobs
-                 WHERE chapter_id = ? AND job_type = 'CHAPTER_ANALYZE'
-                 ORDER BY created_at DESC, id DESC
-                 LIMIT 1
-            )
-            SELECT p.name AS project_name,
-                   ss.scene_count,
-                   bs.visual_beat_count,
-                   ss.duration_seconds,
-                   la.status AS analysis_status,
-                   la.source_hash AS analysis_source_hash,
-                   la.completed_at AS analysis_completed_at
-              FROM projects p
-              CROSS JOIN scene_stats ss
-              CROSS JOIN beat_stats bs
-              LEFT JOIN latest_analysis la ON TRUE
-             WHERE p.id = ?
-            """,
-            (rs, rowNum) -> mapSnapshot(rs),
-            chapterId,
-            chapterId,
-            chapterId,
-            projectId)
-        .stream()
-        .findFirst()
-        .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
-  }
-
-  private List<ChapterWorkspaceResponse.PreviewScene> loadPreviewScenes(Long chapterId) {
-    return jdbcTemplate.query(
-        """
-        SELECT s.id, s.order_index, s.title, s.duration_seconds, s.status,
-               COUNT(vb.id)::int AS visual_beat_count
-          FROM scenes s
-          LEFT JOIN visual_beats vb ON vb.scene_id = s.id
-         WHERE s.chapter_id = ? AND s.status <> 'OUTDATED'
-         GROUP BY s.id, s.order_index, s.title, s.duration_seconds, s.status
-         ORDER BY s.order_index ASC, s.id ASC
-         LIMIT 4
-        """,
-        (rs, rowNum) -> mapPreviewScene(rs),
-        chapterId);
-  }
-
-  private static WorkspaceSnapshot mapSnapshot(ResultSet rs) throws SQLException {
-    return new WorkspaceSnapshot(
-        rs.getString("project_name"),
-        rs.getInt("scene_count"),
-        rs.getInt("visual_beat_count"),
-        rs.getLong("duration_seconds"),
-        rs.getString("analysis_status"),
-        rs.getString("analysis_source_hash"),
-        toInstant(rs.getTimestamp("analysis_completed_at")));
-  }
-
-  private static ChapterWorkspaceResponse.PreviewScene mapPreviewScene(ResultSet rs)
-      throws SQLException {
-    int duration = rs.getInt("duration_seconds");
-    Integer durationSeconds = rs.wasNull() ? null : duration;
-    return new ChapterWorkspaceResponse.PreviewScene(
-        rs.getLong("id"),
-        rs.getInt("order_index"),
-        rs.getString("title"),
-        durationSeconds,
-        rs.getString("status"),
-        rs.getInt("visual_beat_count"),
-        null);
-  }
-
-  private static Instant toInstant(Timestamp value) {
-    return value == null ? null : value.toInstant();
-  }
-
   private static boolean isActive(String status) {
     return switch (status) {
       case "QUEUED", "RUNNING", "STALLED", "UNKNOWN", "PAUSED_COST_LIMIT" -> true;
       default -> false;
     };
   }
-
-  private record WorkspaceSnapshot(
-      String projectName,
-      int sceneCount,
-      int visualBeatCount,
-      long estimatedDurationSeconds,
-      String analysisStatus,
-      String analysisSourceHash,
-      Instant analysisCompletedAt) {}
 }
