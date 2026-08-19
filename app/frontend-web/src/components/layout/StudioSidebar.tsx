@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   FolderKanban,
+  Clapperboard,
   Users,
   Image as ImageIcon,
   Palette,
@@ -19,6 +20,8 @@ import { useAuthStore } from "@/store/useAuthStore";
 export const StudioSidebar = () => {
   const pathname = usePathname();
   const user = useAuthStore((state) => state.user);
+  const projectMatch = pathname.match(/^\/projects\/(\d+)/);
+  const activeProjectId = projectMatch?.[1];
 
   const displayName = user?.displayName?.trim() || user?.email || "Người dùng";
   const secondaryIdentity = user?.displayName?.trim() ? user.email : null;
@@ -37,8 +40,21 @@ export const StudioSidebar = () => {
       label: "Dự án của tôi",
       icon: FolderKanban,
       href: "/projects",
-      active: pathname === "/projects" || pathname.startsWith("/projects/"),
+      active:
+        pathname === "/projects" ||
+        (Boolean(activeProjectId) && pathname === `/projects/${activeProjectId}`),
     },
+    ...(activeProjectId
+      ? [
+          {
+            id: "storyboard",
+            label: "Storyboard",
+            icon: Clapperboard,
+            href: `/projects/${activeProjectId}/storyboard`,
+            active: pathname === `/projects/${activeProjectId}/storyboard`,
+          },
+        ]
+      : []),
     {
       id: "characters",
       label: "Thư viện nhân vật",

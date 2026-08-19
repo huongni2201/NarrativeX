@@ -8,17 +8,20 @@ import com.narrativex.backend.feature.storyboard.api.response.ChapterSummaryResp
 import com.narrativex.backend.feature.storyboard.api.response.ChapterWorkspaceResponse;
 import com.narrativex.backend.feature.storyboard.application.command.CreateChapterCommand;
 import com.narrativex.backend.feature.storyboard.application.command.UpdateChapterCommand;
+import com.narrativex.backend.feature.storyboard.application.usecase.BatchImportChaptersUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.CreateChapterUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.GetChapterUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.GetChapterWorkspaceUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.ListChaptersUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.UpdateChapterUseCase;
 import jakarta.validation.Valid;
+import java.io.IOException;
 import java.net.URI;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -29,12 +32,14 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/projects/{projectId}/chapters")
 public class ChapterController {
   private final CreateChapterUseCase createChapterUseCase;
+  private final BatchImportChaptersUseCase batchImportChaptersUseCase;
   private final GetChapterUseCase getChapterUseCase;
   private final GetChapterWorkspaceUseCase getChapterWorkspaceUseCase;
   private final ListChaptersUseCase listChaptersUseCase;
@@ -56,6 +61,23 @@ public class ChapterController {
         .location(URI.create("/api/v1/projects/" + projectId + "/chapters/" + chapter.id()))
         .header(HttpHeaders.ETAG, quotedVersion(chapter.rowVersion()))
         .body(response);
+  }
+
+  @PostMapping(value = "/batch-import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  public ResponseEntity<ApiResponse<List<ChapterResponse>>> batchImport(
+      @PathVariable Long projectId,
+      @RequestParam Long storyVersionId,
+      @RequestParam("file") MultipartFile file)
+      throws IOException {
+    List<ChapterResponse> imported =
+        batchImportChaptersUseCase.execute(
+            projectId,
+            storyVersionId,
+            file.getOriginalFilename(),
+            file.getContentType(),
+            file.getBytes());
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .body(ApiResponse.success("Chapters imported successfully", imported));
   }
 
   @GetMapping

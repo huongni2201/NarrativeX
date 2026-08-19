@@ -81,7 +81,9 @@ public class GetChapterWorkspaceUseCase {
         analysis.sourceHash() != null && !analysis.sourceHash().equals(chapter.getSourceHash());
     String analysisStatus = analysis.status() == null ? "NOT_STARTED" : analysis.status();
     String planningStatus =
-        hasStoryboard && "COMPLETED".equals(analysisStatus) ? "COMPLETED" : "NOT_STARTED";
+        hasStoryboard && !sourceOutdated && "COMPLETED".equals(analysisStatus)
+            ? "COMPLETED"
+            : "NOT_STARTED";
 
     var response =
         new ChapterWorkspaceResponse(
@@ -147,10 +149,10 @@ public class GetChapterWorkspaceUseCase {
   }
 
   private static boolean isActive(String status) {
-    return "QUEUED".equals(status)
-        || "RUNNING".equals(status)
-        || "STALLED".equals(status)
-        || "UNKNOWN".equals(status);
+    return switch (status) {
+      case "QUEUED", "RUNNING", "STALLED", "UNKNOWN", "PAUSED_COST_LIMIT" -> true;
+      default -> false;
+    };
   }
 
   private record AnalysisProjection(String status, String sourceHash, Instant completedAt) {}

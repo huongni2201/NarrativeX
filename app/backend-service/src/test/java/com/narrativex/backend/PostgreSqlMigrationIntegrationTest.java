@@ -57,7 +57,7 @@ class PostgreSqlMigrationIntegrationTest {
   @Test
   void emptyPostgresMigratesAndHibernateValidates() throws SQLException {
     try (Connection connection = dataSource.getConnection()) {
-      assertEquals(2, latestFlywayVersion(connection));
+      assertEquals(8, latestFlywayVersion(connection));
       assertEquals("jsonb", columnType(connection, "moderation_decisions", "categories_json"));
       assertTrue(indexExists(connection, "uq_story_versions_one_active_per_project"));
       assertTrue(indexExists(connection, "idx_projects_active_owner_updated_id"));
@@ -66,8 +66,17 @@ class PostgreSqlMigrationIntegrationTest {
       assertEquals("NO", columnNullable(connection, "chapters", "source_hash"));
       assertTrue(columnExists(connection, "projects", "description"));
       assertTrue(columnExists(connection, "projects", "cover_image_url"));
+      assertTrue(columnExists(connection, "visual_beats", "title"));
+      assertEquals("NO", columnNullable(connection, "visual_beats", "title"));
+      assertTrue(columnExists(connection, "visual_beats", "review_status"));
+      assertEquals("NO", columnNullable(connection, "visual_beats", "review_status"));
+      assertTrue(indexExists(connection, "idx_visual_beats_scene_review_order"));
       assertTrue(indexExists(connection, "idx_generation_jobs_project_status"));
       assertTrue(indexExists(connection, "idx_scenes_chapter_status"));
+      assertTrue(tableExists(connection, "project_locations"));
+      assertTrue(tableExists(connection, "project_assets"));
+      assertTrue(indexExists(connection, "idx_project_locations_active_project"));
+      assertTrue(indexExists(connection, "idx_project_assets_active_project"));
       assertFalse(indexExists(connection, "idx_auth_users_email"));
       assertFalse(indexExists(connection, "idx_auth_users_google_subject"));
       assertFalse(columnExists(connection, "story_versions", "rights_attested"));

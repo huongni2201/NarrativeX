@@ -37,7 +37,10 @@ public class JdbcProjectOverviewQueryAdapter implements ProjectOverviewQueryRepo
                       SELECT id, content
                         FROM story_versions
                        WHERE project_id = p.id
-                       ORDER BY version_number DESC, id DESC
+                         AND status IN ('ACTIVE', 'DRAFT')
+                       ORDER BY CASE WHEN status = 'ACTIVE' THEN 0 ELSE 1 END,
+                                version_number DESC,
+                                id DESC
                        LIMIT 1
                   ) sv ON TRUE
                  WHERE p.id = ?
@@ -63,6 +66,8 @@ public class JdbcProjectOverviewQueryAdapter implements ProjectOverviewQueryRepo
     int processingJobs = processingJobs(projectId);
     int overallProgress = calculateProgress(chapters);
     int characters = activeCharacterCount(projectId);
+    int locations = activeProjectResourceCount("project_locations", projectId);
+    int assets = activeProjectResourceCount("project_assets", projectId);
 
     return new ProjectOverviewView(
         project.id(),
@@ -81,8 +86,7 @@ public class JdbcProjectOverviewQueryAdapter implements ProjectOverviewQueryRepo
             approvedVisuals,
             processingJobs,
             overallProgress),
-        // Location and Asset bounded contexts do not expose persisted project counts yet.
-        new ProjectOverviewView.Counts(characters, 0, 0),
+        new ProjectOverviewView.Counts(characters, locations, assets),
         chapters);
   }
 
@@ -190,6 +194,20 @@ public class JdbcProjectOverviewQueryAdapter implements ProjectOverviewQueryRepo
     Integer value =
         jdbcTemplate.queryForObject(
             "SELECT COUNT(*)::int FROM project_characters WHERE project_id = ? AND status = 'ACTIVE'",
+            Integer.class,
+            projectId);
+    return value == null ? 0 : value;
+  }
+
+  private int activeProjectResourceCount(String tableName, Long projectId) {
+    if (!"project_locations".equals(tableName) && !"project_assets".equals(tableName)) {
+      throw new IllegalArgumentException("Unsupported project resource table");
+    }
+    Integer value =
+        jdbcTemplate.queryForObject(
+            "SELECT COUNT(*)::int FROM "
+                + tableName
+                + " WHERE project_id = ? AND status = 'ACTIVE'",
             Integer.class,
             projectId);
     return value == null ? 0 : value;

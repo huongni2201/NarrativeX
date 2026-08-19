@@ -75,6 +75,7 @@ class LocationAnalysis(BaseModel):
 class VisualBeatAnalysis(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    title: str = Field(min_length=1, max_length=200)
     visual_intent: str = Field(min_length=1, max_length=8000)
 
 
