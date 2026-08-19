@@ -40,6 +40,16 @@ export const chaptersApi = {
       { method: "POST", json: input },
       isApiChapter,
     ),
+  batchImport: (projectId: number, storyVersionId: number, file: File) => {
+    const form = new FormData();
+    form.set("storyVersionId", String(storyVersionId));
+    form.set("file", file);
+    return apiRequest<ApiChapter[]>(
+      `/api/v1/projects/${projectId}/chapters/batch-import`,
+      { method: "POST", body: form },
+      (value): value is ApiChapter[] => Array.isArray(value) && value.every(isApiChapter),
+    );
+  },
   update: (
     projectId: number,
     chapterId: number,
