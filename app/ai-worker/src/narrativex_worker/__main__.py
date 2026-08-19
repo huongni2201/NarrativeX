@@ -5,7 +5,7 @@ import asyncio
 import sys
 
 from narrativex_worker.config import get_settings
-from narrativex_worker.worker import NarrativeXWorker
+from narrativex_worker.revision_worker import RevisionAwareNarrativeXWorker
 
 
 def parse_args() -> argparse.Namespace:
@@ -23,7 +23,7 @@ def main() -> None:
     """Execute main worker process."""
     args = parse_args()
     settings = get_settings()
-    worker = NarrativeXWorker(settings=settings)
+    worker = RevisionAwareNarrativeXWorker(settings=settings)
 
     try:
         asyncio.run(worker.start(dry_run=args.dry_run))
