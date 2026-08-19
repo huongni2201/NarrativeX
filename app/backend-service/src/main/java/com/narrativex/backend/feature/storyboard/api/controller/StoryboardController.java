@@ -83,9 +83,7 @@ public class StoryboardController {
     if (normalized.startsWith("W/")) {
       normalized = normalized.substring(2).trim();
     }
-    if (normalized.startsWith("\"")
-        && normalized.endsWith("\"")
-        && normalized.length() >= 2) {
+    if (normalized.startsWith("\"") && normalized.endsWith("\"") && normalized.length() >= 2) {
       normalized = normalized.substring(1, normalized.length() - 1);
     }
     try {
