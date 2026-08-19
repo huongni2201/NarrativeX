@@ -146,7 +146,6 @@ class WorkerRepository:
                 if not lease_owned:
                     raise RuntimeError("Worker no longer owns the analysis lease")
 
-                # Reject results when the Chapter changed after this snapshot was persisted.
                 snapshot_matches = await connection.fetchval(
                     """
                     SELECT EXISTS(
@@ -324,11 +323,12 @@ class WorkerRepository:
                 await connection.execute(
                     """
                     INSERT INTO visual_beats
-                      (scene_id, order_index, visual_intent, motion_action)
-                    VALUES ($1, $2, $3, 'STILL')
+                      (scene_id, order_index, title, visual_intent, motion_action, review_status)
+                    VALUES ($1, $2, $3, $4, 'STILL', 'NEEDS_REVIEW')
                     """,
                     scene_id,
                     beat_index,
+                    beat.title,
                     beat.visual_intent,
                 )
 
