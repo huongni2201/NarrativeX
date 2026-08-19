@@ -40,7 +40,7 @@ AS $$
 DECLARE
     reconciled_cost NUMERIC(19, 9);
     reconciled_currency VARCHAR(3);
-    billable_operation_count INTEGER;
+    billed_operation_count INTEGER;
 BEGIN
     SELECT COALESCE(SUM(po.actual_cost), 0),
            CASE WHEN COUNT(DISTINCT po.billing_currency) FILTER (WHERE po.actual_cost IS NOT NULL) = 1
@@ -48,13 +48,13 @@ BEGIN
                 ELSE NULL
            END,
            COUNT(*) FILTER (WHERE po.actual_cost IS NOT NULL)
-      INTO reconciled_cost, reconciled_currency, billable_operation_count
+      INTO reconciled_cost, reconciled_currency, billed_operation_count
       FROM provider_operations po
       JOIN stage_attempts sa ON sa.id = po.stage_attempt_id
      WHERE sa.generation_job_id = NEW.id;
 
     IF NEW.status = 'COMPLETED' AND OLD.status IS DISTINCT FROM 'COMPLETED' THEN
-        IF billable_operation_count = 0 OR reconciled_currency IS NULL THEN
+        IF billed_operation_count = 0 OR reconciled_currency IS NULL THEN
             RAISE EXCEPTION 'Cannot complete generation job % without reconciled provider billing', NEW.id;
         END IF;
 
@@ -78,7 +78,9 @@ BEGIN
            AND uw.period_key = consumed.period_key;
     ELSIF NEW.status IN ('FAILED', 'CANCELED')
           AND OLD.status IS DISTINCT FROM NEW.status THEN
-        IF billable_operation_count > 0 AND reconciled_currency IS NOT NULL THEN
+        IF billed_operation_count > 0
+           AND reconciled_currency IS NOT NULL
+           AND reconciled_cost > 0 THEN
             WITH consumed AS (
                 UPDATE quota_reservations
                    SET status = 'CONSUMED',
@@ -101,7 +103,7 @@ BEGIN
             UPDATE quota_reservations
                SET status = 'RELEASED',
                    actual_cost = 0,
-                   billing_currency = 'USD',
+                   billing_currency = COALESCE(reconciled_currency, 'USD'),
                    finalized_at = CURRENT_TIMESTAMP,
                    updated_at = CURRENT_TIMESTAMP,
                    row_version = row_version + 1
