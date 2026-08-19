@@ -14,6 +14,7 @@ import com.narrativex.backend.feature.generation.domain.entity.StageAttempt;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
+import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardRevisionAccess;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +28,7 @@ public class EnqueueStoryAnalysisUseCase {
   private final StoryVersionAccess storyVersionAccess;
   private final ProjectAccess projectAccess;
   private final ChapterAnalysisSourceAccess chapterAnalysisSourceAccess;
+  private final StoryboardRevisionAccess storyboardRevisionAccess;
   private final OperationPlanRepository operationPlanRepository;
   private final GenerationJobRepository generationJobRepository;
   private final StageAttemptRepository stageAttemptRepository;
@@ -59,16 +61,24 @@ public class EnqueueStoryAnalysisUseCase {
             + ":"
             + chapter.sourceHash();
 
-    // Serialize identical requests inside this PostgreSQL transaction. A concurrent request waits
-    // for the first transaction to commit, then observes and returns the already-created job.
     generationJobRepository.acquireIdempotencyLock(idempotencyKey);
     var existing = generationJobRepository.findByIdempotencyKey(idempotencyKey);
     if (existing.isPresent()) {
       return existing.get();
     }
 
+    // Serialize source edits, approval changes, admission, and revision creation for this Chapter.
+    storyboardRevisionAccess.lockChapter(command.chapterId());
+
+    // The admission safety gate runs before quota reservation. Approved output for the same source
+    // therefore cannot consume quota or reach the provider.
     var admission = admissionService.admit(userId, command.projectId(), chapter);
     var estimate = admission.estimate();
+
+    Long storyboardRevisionId =
+        storyboardRevisionAccess.createDraft(
+            command.chapterId(), chapter.sourceHash(), chapter.rowVersion());
+
     OperationPlan operationPlan =
         operationPlanRepository.save(
             OperationPlan.create(
@@ -84,6 +94,7 @@ public class EnqueueStoryAnalysisUseCase {
                 command.projectId(),
                 chapter.storyVersionId(),
                 command.chapterId(),
+                storyboardRevisionId,
                 chapter.rowVersion(),
                 chapter.sourceHash(),
                 chapter.sourceText(),
@@ -93,7 +104,6 @@ public class EnqueueStoryAnalysisUseCase {
 
     quotaReservation.bindToGenerationJob(admission.reservation().id(), job.getId());
     operationPlanRepository.save(operationPlan.withGenerationJobId(job.getId()));
-
     stageAttemptRepository.save(StageAttempt.create(job.getId(), STAGE_NAME, 1));
     generationOutboxRepository.enqueue(job);
     return job;
