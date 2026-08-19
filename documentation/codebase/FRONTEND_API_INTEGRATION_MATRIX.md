@@ -1,97 +1,84 @@
 # NarrativeX Frontend API Integration Matrix
 
-This matrix records the current UI-to-backend wiring and the next backend contracts needed. API mode is authoritative; unavailable backend capabilities must remain explicit rather than falling back to fixture data.
+This matrix records **frontend wiring** separately from **backend API availability**. API mode is authoritative; the UI must not fall back to fixture data when a backend capability is unavailable or not yet connected.
 
-> Chapter Analyze and the chapter Storyboard read/review surface are implemented foundations. Character public read APIs remain pending, so completion of a job does not yet mean every materialized result is browsable from the frontend.
+> V1.10 note: Chapter Analyze, Storyboard read/review, Project Overview and core Chapter APIs are connected foundations. Character, Location, Asset, Job History, Quota and Notification backend APIs exist, but several corresponding frontend surfaces are still pending wiring.
 
-| Screen/Feature | Route | Current Data Source | State | Existing Client Function | Required / Current Backend API | Missing Work |
-|---|---|---|---|---|---|---|
-| Auth | `/auth`, app shell | session bootstrap + password auth + Google OIDC + logout; authenticated `/auth` replaces to `/projects` | API FOUNDATION | `authApi.getCurrentUser`, `authApi.login`, `authApi.register`, `authApi.logout`, `authApi.googleLoginUrl` | `GET /api/auth/me`, `POST /api/auth/login`, `POST /api/auth/register`, `/oauth2/authorization/google`, `POST /logout` | server-side bootstrap can be considered later to reduce auth hydration wait |
-| Project list | `/projects` and overview entry | TanStack Query cursor pages | API | `projectsApi.list` | `GET /api/v1/projects?limit=<n>&cursor=<opaque>` | backend search/status query if filters must cover the entire unbounded collection |
-| Project filters/search | `/projects?status=...&q=...` | URL-owned filter state; responsive local text input with 300 ms URL debounce | CLIENT/URL | `projectsApi.list` supplies loaded pages | same project-list API today | server-side `q`/`status` query contract for filtering the full collection |
-| Project detail/workspace | `/projects/[projectId]` | direct entity query by route ID | API FOUNDATION | `projectsApi.getById` | `GET /api/v1/projects/{projectId}` | richer project/story/chapter DTOs as production workspace expands |
-| Create project | project wizard | TanStack Query mutation; wizard modal mounted only while open | API | `projectsApi.create` | `POST /api/v1/projects` | metadata-only creation; idempotency contract remains recommended |
-| Story input | project/chapter workflow | Zustand draft until submit, then StoryVersion + first Chapter persisted through backend APIs | API | `projectsApi.createStoryVersion`, `chaptersApi.create` | `POST /api/v1/projects/{id}/stories`, `POST /api/v1/projects/{projectId}/chapters` | richer import/chapter-splitting workflow can evolve independently of persistence contract |
-| Chapter source | `/projects/[projectId]/chapters/[chapterId]` | TanStack Query server state + local dirty editor draft | API | `chaptersApi.list`, `chaptersApi.getById`, `chaptersApi.create`, `chaptersApi.update` | `GET/POST /api/v1/projects/{projectId}/chapters`, `GET/PUT /api/v1/projects/{projectId}/chapters/{chapterId}` with `ETag`/`If-Match` | delete/reorder and Scene/VisualBeat editing remain separate follow-up contracts |
-| AI analysis start | Chapter editor/workspace | explicit Analyze action on a saved persisted Chapter | API FOUNDATION | `chaptersApi.analyze` | `POST /api/v1/projects/{projectId}/chapters/{chapterId}/analysis-jobs` | production entitlement/cost/safety gates and dedicated ProviderOperation durability remain follow-up work |
-| Analysis progress | Chapter editor/workspace | TanStack Query polling of GenerationJob | API FOUNDATION | `chaptersApi.getAnalysisJob` / generation-job query helper | `GET /api/v1/generation-jobs/{jobId}`; legacy `/api/v1/jobs/{jobId}` remains compatibility alias | SSE/reconnect/history/job-list can follow after polling path is stable |
-| Analysis editor safety | Chapter editor | local `dirty` state + persisted Chapter rowVersion/sourceHash from backend | IMPLEMENTED FOUNDATION | Analyze button state in `ChapterEditor` | saved Chapter is loaded by backend when enqueueing | Analyze remains disabled for dirty/empty Chapter; stale source must require save/re-analyze |
-| Analysis result materialization | backend/worker PostgreSQL state | Character/ProjectCharacter/CharacterVersion + Scene/VisualBeat rows materialized by worker | BACKEND FOUNDATION | none directly exposed to UI yet | worker writes canonical DB rows before GenerationJob COMPLETED | public read contracts and query hooks for Character/Storyboard |
-| Characters | `/characters` / project character views | explicit API-not-connected state | PENDING READ API | none | character/version/reference/lock APIs | add project-scoped list/detail/read first, then edit/approve/lock mutations |
-| Chapter storyboard | chapter child routes defined by ADR-0002 | TanStack Query server state with typed response validation | API FOUNDATION | `storyboardApi.get`, `storyboardApi.createVisualBeat`, `storyboardApi.updateReviewStatus` | `GET /api/v1/projects/{projectId}/chapters/{chapterId}/storyboard`; VisualBeat response includes `motionMode`, `cameraMovement`, `reviewStatus`, visual metadata and rowVersion | URL-owned deep links and broader Scene/VisualBeat editing can evolve independently |
-| Render/export | project workspace | explicit API-not-connected state | PENDING API | none | render job create/status/events + signed artifact URL | mutation/job/download flow after analysis/image/TTS path lands |
-| Assets | `/assets` | explicit API-not-connected state | PENDING API | none | asset list/detail/upload/delete/review APIs | replace pending state with Query/mutations when contract lands |
-| Presets | `/presets` | explicit API-not-connected state | PENDING API | none | preset CRUD APIs | replace pending state with Query/mutations when contract lands |
-| Notifications / credits / plan / settings / jobs | shell | hidden/disabled until real contract exists | PENDING API | none | notification, entitlement/usage and settings/job-list APIs | render real values only after contracts exist |
+| Screen/Feature | Route | Frontend state | Existing client wiring | Backend API availability | Missing work |
+|---|---|---|---|---|---|
+| Auth | `/auth`, app shell | CONNECTED FOUNDATION | `authApi.getCurrentUser`, `login`, `register`, `logout`, Google login URL | current-user/password/OIDC/logout APIs exist | optional server bootstrap improvements |
+| Project list | `/projects` | CONNECTED | `projectsApi.list` | `GET /api/v1/projects` | server-side `q`/`status` filtering for unbounded collection |
+| Project detail | `/projects/[projectId]` | CONNECTED FOUNDATION | `projectsApi.getById` | `GET /api/v1/projects/{projectId}` | richer workspace DTOs as needed |
+| Project Overview | `/projects/[projectId]` | CONNECTED FOUNDATION | `projectsApi.getOverview` | `GET /api/v1/projects/{projectId}/overview` | keep UI derived only from response metrics |
+| Create Project | project wizard | CONNECTED | `projectsApi.create` | `POST /api/v1/projects` | metadata-only by contract; no implicit Analyze |
+| StoryVersion | project/chapter flow | CONNECTED FOUNDATION | `projectsApi.createStoryVersion`, latest-story query | create/latest StoryVersion APIs exist | broader version-management UI |
+| Chapter source | `/projects/[projectId]/chapters/[chapterId]` | CONNECTED | `chaptersApi.list/getById/create/update/getWorkspace` | Chapter list/create/get/workspace/update with ETag/If-Match | delete/reorder and broader mutations |
+| Chapter batch import | project workflow | BACKEND AVAILABLE / FE PENDING | not verified in current FE | multipart `POST /api/v1/projects/{projectId}/chapters/batch-import`; `.txt/.docx/.pdf` | upload UI, progress and import error UX |
+| AI analysis start | Chapter editor/workspace | CONNECTED FOUNDATION | `chaptersApi.analyze` | `POST /api/v1/projects/{projectId}/chapters/{chapterId}/analysis-jobs` | full production billing/safety hardening only; admission/provider durability already exist |
+| Analysis progress | Chapter editor/workspace | CONNECTED FOUNDATION | `chaptersApi.getAnalysisJob` | `GET /api/v1/generation-jobs/{jobId}`; compatibility `/api/v1/jobs/{jobId}` | optional SSE/reconnect UX |
+| Chapter Storyboard | Chapter workspace | CONNECTED FOUNDATION | `storyboardApi.get/createVisualBeat/updateReviewStatus` | Storyboard GET + VisualBeat create/review-status APIs exist | broader Scene/VisualBeat editing and deep-linking |
+| Analysis materialization | backend/worker | BACKEND FOUNDATION | Storyboard can read Scene/VisualBeat output | Character/ProjectCharacter/CharacterVersion + Scene/VisualBeat persisted | Location and Scene continuity relations still missing |
+| Characters | `/characters`, project character views | FE PENDING | no verified client wiring | `GET /api/v1/characters?cursor=&limit=` exists | connect list UI; detail/version/reference/edit/lock APIs remain follow-up |
+| Project Locations | project `locations` tab | FE PENDING | current UI still shows API-in-progress state | `GET /api/v1/projects/{projectId}/locations` exists | connect Query/UI; AI Location auto-materialization still missing |
+| Project Assets | `/assets`, project assets tab | FE PENDING | no verified production wiring | `GET /api/v1/projects/{projectId}/assets` exists | connect read UI; upload/finalize/delete/review contracts remain |
+| Job History | jobs/history surface | FE PENDING | none verified | `GET /api/v1/jobs/history` exists | add cursor/list UI and filters |
+| User Quota | shell/account surface | FE PENDING | none verified | `GET /api/v1/users/me/quota` exists; Chapter Analyze admission also enforces quota server-side | render real quota/credit data |
+| Notifications | shell/notification center | FE PENDING | none verified | `GET /api/v1/notifications`, `PATCH /{id}/read`, `POST /read-all` exist | notification center wiring; broader delivery/email lifecycle remains |
+| Presets | `/presets` | PENDING | none | preset CRUD not established in current baseline | backend contract + FE integration |
+| Render/export | project workspace | PENDING | none | media/render pipeline not in current vertical slice | image/TTS/render/export implementation |
+| Settings | project/account settings | PARTIAL/PENDING | local/project settings only where already available | no complete settings contract verified | define persisted settings boundaries |
 
 ## Chapter Analyze UI contract
 
-The Chapter editor uses a saved-source boundary:
-
 ```text
-editing Chapter
+edit Chapter
   -> dirty=true
   -> Analyze disabled
 
-Save Chapter
+Save
   -> backend persists sourceText
   -> backend calculates sourceHash
-  -> new rowVersion returned
+  -> rowVersion returned
   -> dirty=false
-  -> Analyze enabled
 
 Analyze
-  -> POST analysis-jobs
-  -> receive GenerationJob
-  -> poll GET /api/v1/generation-jobs/{jobId}
-  -> QUEUED -> RUNNING -> COMPLETED / FAILED
+  -> backend reloads persisted Chapter
+  -> admission: safety + entitlement + quota + cost
+  -> durable enqueue
+  -> poll GenerationJob
+  -> QUEUED/RUNNING/... -> COMPLETED | FAILED | CANCELED
 ```
 
 Rules:
 
-- The client does not send `sourceText` as the authoritative analysis payload.
-- The backend reloads the persisted Chapter and snapshots `chapterId`, `storyVersionId`, `rowVersion`, `sourceHash`, `sourceText` and source language into the durable job.
-- Editing after save makes the local editor dirty again and disables a new Analyze action until another save.
-- API mode must not synthesize fake progress or fake results.
-- On `COMPLETED`, project-scoped queries can be invalidated; Storyboard can then load persisted Scene/VisualBeat output through its chapter API.
+- The client does not send arbitrary current `sourceText` as analysis authority.
+- API runtime must not synthesize fake progress/results, credits, notifications or persisted resources.
+- `COMPLETED`, `FAILED`, `CANCELED` are terminal.
+- `QUEUED`, `RUNNING`, `UNKNOWN`, `STALLED`, `PAUSED_COST_LIMIT` are non-terminal for polling behavior.
+- On completion, Storyboard can load persisted Scene/VisualBeat rows; completion does not imply every backend resource has already been connected to frontend UI.
 
-## Route and state rules
+## Backend available does not mean frontend connected
 
-- `/projects` is the canonical project-list route; `/dashboard` only redirects to `/projects`.
-- `/auth` is not an alternate project-list URL. When the session bootstrap resolves authenticated, `AuthEntry` uses route replacement to `/projects`.
-- `/projects/[projectId]` owns project identity. The workspace never discovers a project by loading a collection and calling `.find()`.
-- `/projects/[projectId]/chapters/[chapterId]` is the persisted Chapter source editor route. It loads Chapter detail by route ID, keeps unsaved text local, and saves with the server `rowVersion` through `If-Match`.
-- Target Chapter child routes continue to follow ADR-0002 as Scene/VisualBeat read/edit APIs land.
-- Navigable project-list filters live in URL search params (`status`, `q`). Search typing is kept in local component state and URL synchronization is debounced by 300 ms.
-- Current filtering applies to cursor pages already loaded by the client; server-wide filtering requires a backend query contract.
-- TanStack Query owns persisted server state. Zustand is reserved for transient wizard/editor state.
+The matrix intentionally distinguishes three states:
 
-## Transport rules
+- **CONNECTED**: a current FE client/query/mutation consumes the backend contract.
+- **BACKEND AVAILABLE / FE PENDING**: endpoint exists, but no production FE wiring is verified.
+- **PENDING**: required backend capability itself is not complete.
 
-- `src/shared/api/client.ts` owns request transport, credentials, CSRF, envelope validation and typed errors.
-- A successful HTTP response with an invalid/empty JSON payload is surfaced as `ApiProtocolError`.
-- Shared transport has no dependency on Zustand or feature/app state. A 401 is surfaced to the app boundary, where `AppProviders` updates session UI.
-- Foundation utilities and new feature code import the canonical shared client/domain API directly instead of extending or depending on the compatibility facade in `src/lib/api.ts`.
+This prevents documentation from overstating frontend readiness merely because a controller exists.
 
-## Same-origin proxy contract
+## Continuity limitation visible to FE
 
-- Browser API/auth paths remain same-origin by default so session cookies, CSRF and OAuth navigation share the frontend origin.
-- Next.js rewrites proxy `/api`, `/oauth2`, `/login` and `/logout` to `BACKEND_INTERNAL_URL` or the configured fallback.
-- The current standalone Docker image resolves this rewrite configuration during `next build`. Container/image builds must therefore supply the correct backend network destination when `http://localhost:8080` is not valid.
-- If one immutable frontend image must be promoted between environments with different backend hosts, adopt a runtime reverse proxy/BFF destination instead of environment-specific build-time routing.
+The AI schema can return Locations and per-Scene character/location references, but current worker persistence drops those continuity fields. Until the P1 continuity slice is implemented, FE must not imply that Scene character/location assignments are durable just because analysis completed.
 
-## Runtime safety rules
+## State ownership
 
-- Creating a Project is metadata-only. `POST /api/v1/projects` must not create AI/media work.
-- Saving Chapter source never triggers analysis. Analysis is an explicit Chapter action after persisted source exists.
-- Analyze must be disabled while the editor is dirty or while the source is empty.
-- Chapter analysis authority is the backend-loaded persisted Chapter snapshot, not arbitrary current browser text.
-- API mode must never show fake analysis progress/results, fake notification counts, fake credits/plan data or fixture-backed persisted entities.
-- `COMPLETED` means the backend/worker durable job completed; it does not imply every result resource already has a public frontend read API.
+- URL/search params own navigable filters and route identity.
+- TanStack Query owns persisted server state.
+- Zustand is reserved for transient editor/wizard state.
+- Shared HTTP transport remains independent from Zustand and feature state.
 
 ## Frontend verification gate
-
-Frontend CI must run:
 
 ```bash
 npm ci
@@ -101,15 +88,4 @@ npm run type-check
 npm run build
 ```
 
-The current `npm test` suite protects architecture/tooling regressions. It is not yet a substitute for behavioral component and end-to-end tests.
-
-The Chapter Analyze vertical slice additionally needs a browser/integration test covering:
-
-```text
-load saved Chapter
-  -> edit => Analyze disabled
-  -> save => Analyze enabled
-  -> click Analyze
-  -> observe QUEUED/RUNNING
-  -> observe COMPLETED or FAILED
-```
+Behavioral browser verification should additionally cover saved-source Analyze, job polling and Storyboard refresh with real backend data.
