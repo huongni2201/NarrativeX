@@ -16,6 +16,7 @@ from narrativex_worker.providers.ports import (
     ProviderCapabilities,
     ProviderEstimate,
     ProviderOperation,
+    ProviderSubmissionUnknownError,
 )
 from narrativex_worker.schema import (
     ChapterAnalysisRequest,
@@ -26,6 +27,10 @@ from narrativex_worker.schema import (
 
 class VertexProviderError(RuntimeError):
     """Raised when Vertex cannot produce a valid structured Chapter analysis."""
+
+
+class VertexSubmissionUnknownError(VertexProviderError, ProviderSubmissionUnknownError):
+    """The request may have crossed the provider boundary; never blind-retry it."""
 
 
 class VertexGeminiProvider(LlmProvider):
@@ -48,7 +53,16 @@ class VertexGeminiProvider(LlmProvider):
         return ProviderEstimate(min_cost=0.0, max_cost=0.0)
 
     async def submit(self, request: ChapterAnalysisRequest) -> ProviderOperation:
-        token = await self._access_token()
+        try:
+            token = await self._access_token()
+        except VertexProviderError:
+            # Authentication failed before any generation request crossed the provider boundary.
+            return ProviderOperation(
+                provider_key="vertex",
+                operation_id=None,
+                status=ProviderOperationStatus.FAILED,
+            )
+
         endpoint = (
             f"https://{self.settings.vertex_location}-aiplatform.googleapis.com/v1/projects/"
             f"{self.settings.vertex_project_id}/locations/{self.settings.vertex_location}/"
@@ -68,31 +82,57 @@ class VertexGeminiProvider(LlmProvider):
                 "responseJsonSchema": response_schema,
             },
         }
-        async with httpx.AsyncClient(timeout=self.settings.vertex_timeout_seconds) as client:
-            response = await client.post(
-                endpoint,
-                headers={"Authorization": f"Bearer {token}"},
-                json=body,
-            )
-        if response.is_error:
-            raise VertexProviderError(
-                f"Vertex generateContent failed with HTTP {response.status_code}: "
-                f"{response.text[:1000]}"
+
+        try:
+            async with httpx.AsyncClient(timeout=self.settings.vertex_timeout_seconds) as client:
+                response = await client.post(
+                    endpoint,
+                    headers={"Authorization": f"Bearer {token}"},
+                    json=body,
+                )
+        except (httpx.TimeoutException, httpx.NetworkError) as exception:
+            raise VertexSubmissionUnknownError(
+                f"Vertex submission outcome is unknown: {type(exception).__name__}"
+            ) from exception
+
+        raw = self._response_json(response)
+        response_id = self._response_id(raw)
+
+        if response.status_code >= 500:
+            raise VertexSubmissionUnknownError(
+                f"Vertex returned HTTP {response.status_code}; execution outcome is unknown"
             )
 
-        raw = response.json()
+        if response.is_error:
+            return ProviderOperation(
+                provider_key="vertex",
+                operation_id=response_id,
+                status=ProviderOperationStatus.FAILED,
+            )
+
+        text = self._candidate_text(raw)
+        if text is None:
+            return ProviderOperation(
+                provider_key="vertex",
+                operation_id=response_id,
+                status=ProviderOperationStatus.FAILED,
+            )
+
         try:
-            text = raw["candidates"][0]["content"]["parts"][0]["text"]
             parsed = json.loads(text)
             result = ChapterAnalysisResult.model_validate(parsed)
-        except (KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError) as exception:
-            raise VertexProviderError(
-                "Vertex returned an invalid Chapter analysis payload"
-            ) from exception
+        except (TypeError, ValueError, json.JSONDecodeError):
+            # A successful HTTP response means the provider call already executed. Treat schema
+            # failure as terminal instead of retrying and potentially paying for the same work.
+            return ProviderOperation(
+                provider_key="vertex",
+                operation_id=response_id,
+                status=ProviderOperationStatus.FAILED,
+            )
 
         return ProviderOperation(
             provider_key="vertex",
-            operation_id=raw.get("responseId") or str(uuid.uuid4()),
+            operation_id=response_id,
             status=ProviderOperationStatus.COMPLETED,
             result=result,
         )
@@ -101,12 +141,62 @@ class VertexGeminiProvider(LlmProvider):
         return operation
 
     async def reconcile(self, operation: ProviderOperation) -> ProviderOperation:
+        # generateContent is synchronous and currently exposes no operation lookup contract that
+        # can reconstruct a lost response. Preserve UNKNOWN rather than resubmitting blindly.
         return operation
 
     async def _access_token(self) -> str:
-        if not self._credentials.valid or not self._credentials.token:
-            await asyncio.to_thread(self._credentials.refresh, Request())
-        token = self._credentials.token
-        if not isinstance(token, str) or not token:
-            raise VertexProviderError("Unable to acquire Vertex access token from ADC")
-        return token
+        if self._credentials.valid and isinstance(self._credentials.token, str):
+            return self._credentials.token
+
+        last_exception: Exception | None = None
+        for attempt in range(3):
+            try:
+                await asyncio.to_thread(self._credentials.refresh, Request())
+                token = self._credentials.token
+                if isinstance(token, str) and token:
+                    return token
+                last_exception = VertexProviderError("ADC returned an empty access token")
+            except Exception as exception:  # google-auth exposes multiple transport/auth errors
+                last_exception = exception
+            if attempt < 2:
+                await asyncio.sleep(0.25 * (2**attempt))
+
+        raise VertexProviderError(
+            "Unable to acquire Vertex access token from ADC"
+        ) from last_exception
+
+    @staticmethod
+    def _response_json(response: httpx.Response) -> dict[str, object]:
+        try:
+            value = response.json()
+        except ValueError:
+            return {}
+        if not isinstance(value, dict):
+            return {}
+        return {str(key): item for key, item in value.items()}
+
+    @staticmethod
+    def _candidate_text(raw: dict[str, object]) -> str | None:
+        candidates = raw.get("candidates")
+        if not isinstance(candidates, list) or not candidates:
+            return None
+        candidate = candidates[0]
+        if not isinstance(candidate, dict):
+            return None
+        content = candidate.get("content")
+        if not isinstance(content, dict):
+            return None
+        parts = content.get("parts")
+        if not isinstance(parts, list) or not parts:
+            return None
+        part = parts[0]
+        if not isinstance(part, dict):
+            return None
+        text = part.get("text")
+        return text if isinstance(text, str) else None
+
+    @staticmethod
+    def _response_id(raw: dict[str, object]) -> str:
+        response_id = raw.get("responseId")
+        return response_id if isinstance(response_id, str) and response_id else str(uuid.uuid4())

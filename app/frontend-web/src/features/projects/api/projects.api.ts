@@ -15,6 +15,8 @@ import {
 import { apiRequest } from "@/shared/api/client";
 import type { ApiProjectOverview } from "./project-overview.types";
 import { isApiProjectOverview } from "./project-overview.types";
+import type { ApiProjectAsset, ApiProjectLocation } from "./project-resources.types";
+import { isApiProjectAsset, isApiProjectLocation } from "./project-resources.types";
 
 const DEFAULT_PROJECT_PAGE_SIZE = 20;
 
@@ -46,6 +48,19 @@ export const projectsApi = {
       `/api/v1/projects/${projectId}/overview`,
       {},
       isApiProjectOverview,
+    ),
+  getLocations: (projectId: number) =>
+    apiRequest<ApiProjectLocation[]>(
+      `/api/v1/projects/${projectId}/locations`,
+      {},
+      (value): value is ApiProjectLocation[] =>
+        Array.isArray(value) && value.every(isApiProjectLocation),
+    ),
+  getAssets: (projectId: number) =>
+    apiRequest<ApiProjectAsset[]>(
+      `/api/v1/projects/${projectId}/assets`,
+      {},
+      (value): value is ApiProjectAsset[] => Array.isArray(value) && value.every(isApiProjectAsset),
     ),
   create: (input: CreateProjectApiInput) =>
     apiRequest<ApiProject>("/api/v1/projects", { method: "POST", json: input }, isApiProject),

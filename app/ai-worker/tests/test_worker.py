@@ -8,7 +8,11 @@ from pydantic import ValidationError
 from narrativex_worker.config import WorkerSettings, get_settings
 from narrativex_worker.prompting import build_chapter_analysis_prompt
 from narrativex_worker.providers.disabled import DisabledProvider, ProviderNotConfiguredError
-from narrativex_worker.providers.ports import ProviderCapabilities, ProviderOperation
+from narrativex_worker.providers.ports import (
+    ProviderCapabilities,
+    ProviderEstimate,
+    ProviderOperation,
+)
 from narrativex_worker.providers.vertex import VertexProviderError
 from narrativex_worker.repository import (
     ClaimedChapterAnalysisJob,
@@ -21,6 +25,8 @@ from narrativex_worker.schema import (
     ImageAspectRatio,
     ImageGenerationSettings,
     ProviderOperationStatus,
+    SceneAnalysis,
+    VisualBeatAnalysis,
 )
 from narrativex_worker.service import WorkerService
 from narrativex_worker.worker import NarrativeXWorker, ProviderOperationUnknownError
@@ -39,6 +45,10 @@ def chapter_request(source_text: str = "A short story.") -> ChapterAnalysisReque
     )
 
 
+def worker_settings_without_env_file() -> WorkerSettings:
+    return WorkerSettings(_env_file=None)  # type: ignore[call-arg]
+
+
 def test_worker_settings_defaults() -> None:
     settings = get_settings()
     assert settings.worker_name == "narrativex-worker"
@@ -55,7 +65,7 @@ def test_worker_settings_accepts_canonical_provider_mode_env(
     monkeypatch.setenv("AI_PROVIDER_MODE", "vertex")
     monkeypatch.delenv("PROVIDER_MODE", raising=False)
 
-    settings = WorkerSettings(_env_file=None)
+    settings = worker_settings_without_env_file()
 
     assert settings.provider_mode == "vertex"
 
@@ -66,7 +76,7 @@ def test_worker_settings_prefers_canonical_provider_mode_env(
     monkeypatch.setenv("AI_PROVIDER_MODE", "disabled")
     monkeypatch.setenv("PROVIDER_MODE", "vertex")
 
-    settings = WorkerSettings(_env_file=None)
+    settings = worker_settings_without_env_file()
 
     assert settings.provider_mode == "disabled"
 
@@ -77,7 +87,7 @@ def test_worker_settings_defaults_provider_to_disabled_when_unset(
     monkeypatch.delenv("AI_PROVIDER_MODE", raising=False)
     monkeypatch.delenv("PROVIDER_MODE", raising=False)
 
-    settings = WorkerSettings(_env_file=None)
+    settings = worker_settings_without_env_file()
 
     assert settings.provider_mode == "disabled"
 
@@ -86,7 +96,7 @@ def test_worker_settings_accepts_legacy_provider_mode_env(monkeypatch: pytest.Mo
     monkeypatch.delenv("AI_PROVIDER_MODE", raising=False)
     monkeypatch.setenv("PROVIDER_MODE", "vertex")
 
-    settings = WorkerSettings(_env_file=None)
+    settings = worker_settings_without_env_file()
 
     assert settings.provider_mode == "vertex"
 
@@ -95,7 +105,7 @@ def test_worker_settings_rejects_invalid_provider_mode(monkeypatch: pytest.Monke
     monkeypatch.setenv("AI_PROVIDER_MODE", "foo")
 
     with pytest.raises(ValidationError):
-        WorkerSettings(_env_file=None)
+        worker_settings_without_env_file()
 
 
 @pytest.mark.parametrize("concurrency", [1, 32])
@@ -105,7 +115,7 @@ def test_worker_settings_accepts_concurrency_boundaries(
 ) -> None:
     monkeypatch.setenv("WORKER_CONCURRENCY", str(concurrency))
 
-    settings = WorkerSettings(_env_file=None)
+    settings = worker_settings_without_env_file()
 
     assert settings.worker_concurrency == concurrency
 
@@ -118,7 +128,7 @@ def test_worker_settings_rejects_concurrency_outside_contract(
     monkeypatch.setenv("WORKER_CONCURRENCY", str(concurrency))
 
     with pytest.raises(ValidationError):
-        WorkerSettings(_env_file=None)
+        worker_settings_without_env_file()
 
 
 def test_vertex_provider_fails_fast_without_project() -> None:
@@ -214,11 +224,11 @@ async def test_disabled_provider_never_fakes_success() -> None:
 def completed_result() -> ChapterAnalysisResult:
     return ChapterAnalysisResult(
         scenes=[
-            {
-                "title": "Opening",
-                "narration": "A door opens.",
-                "visual_beats": [{"title": "Door", "visual_intent": "Warm light"}],
-            }
+            SceneAnalysis(
+                title="Opening",
+                narration="A door opens.",
+                visual_beats=[VisualBeatAnalysis(title="Door", visual_intent="Warm light")],
+            )
         ]
     )
 
@@ -277,9 +287,9 @@ class ProviderSpy:
     def get_capabilities(self) -> ProviderCapabilities:
         return ProviderCapabilities("vertex", supports_story_analysis=True)
 
-    def estimate(self, request: ChapterAnalysisRequest):
+    def estimate(self, request: ChapterAnalysisRequest) -> ProviderEstimate:
         del request
-        return None
+        return ProviderEstimate(0.0, 0.0)
 
     async def submit(self, request: ChapterAnalysisRequest) -> ProviderOperation:
         del request

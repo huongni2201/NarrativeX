@@ -5,6 +5,7 @@ export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
 interface ApiRequestInit extends Omit<RequestInit, "body"> {
   json?: unknown;
+  body?: BodyInit;
   parseJson?: boolean;
   notifyUnauthorized?: boolean;
 }
@@ -137,11 +138,16 @@ export async function apiRequest<T>(
 ): Promise<T> {
   const {
     json,
+    body,
     parseJson = true,
     notifyUnauthorized: notifyUnauthorizedOn401 = true,
     headers: initialHeaders,
     ...requestInit
   } = init;
+  if (json !== undefined && body !== undefined) {
+    throw new Error("apiRequest accepts either json or body, not both.");
+  }
+
   const headers = new Headers(initialHeaders);
   headers.set("Accept", "application/json");
 
@@ -159,7 +165,7 @@ export async function apiRequest<T>(
 
   return sendRequest<T>(
     path,
-    requestInit,
+    { ...requestInit, body },
     headers,
     parseJson,
     notifyUnauthorizedOn401,
