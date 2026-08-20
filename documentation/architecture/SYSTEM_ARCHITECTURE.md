@@ -17,7 +17,9 @@ Browser
   -> Spring Boot API
        -> PostgreSQL (authoritative)
        -> Redis (session + transient hints/counters)
-       -> MinIO/S3-compatible binary boundary
+       -> object-storage boundary
+            -> Cloudflare R2 for durable production generated images
+            -> MinIO-compatible endpoint for local development
 
 PostgreSQL durable work
   -> Python 3.12 worker
@@ -110,14 +112,18 @@ TanStack Query owns persisted server state. URL/search params own navigable stat
 
 ## Media/storage boundary
 
-MinIO/S3-compatible object storage is the binary boundary for future generated media. Image generation, TTS/subtitles and FFmpeg render/export are not implemented end-to-end yet and remain downstream of reviewed analysis/storyboard state.
+The production durability target for generated images is Cloudflare R2 through the S3-compatible object-storage boundary. MinIO may remain the local-development implementation of that boundary.
+
+Worker-local image files are ephemeral scratch/cache only. A generated image is not durable merely because it exists on a worker filesystem. The target completion boundary is: validate the generated payload, upload it to R2, persist the corresponding Asset/MediaAsset metadata in PostgreSQL, then mark the image-generation stage complete and clean local scratch when safe. Retry/reclaim paths should reuse a valid existing R2 object rather than regenerate because local files disappeared.
+
+Image generation and its R2 persistence path, TTS/subtitles and FFmpeg render/export are not implemented end-to-end yet and remain downstream of reviewed analysis/storyboard state.
 
 ## Production gaps
 
 - Full Character editing/version-lock/reference workflow.
 - Approved storyboard reset/versioning UX/contract.
 - Complete actual provider usage/billing reconciliation.
-- Image generation and generated-asset lifecycle.
+- Image generation, Cloudflare R2 persistence and generated-asset lifecycle.
 - TTS/subtitles.
 - Render/export/FinalArtifact validation.
 - Broader moderation/consent/abuse coverage.
