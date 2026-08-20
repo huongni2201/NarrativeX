@@ -10,7 +10,7 @@ import com.narrativex.backend.feature.generation.domain.entity.ProviderOperation
 import com.narrativex.backend.feature.generation.domain.enums.ProviderOperationStatus;
 import com.narrativex.backend.feature.generation.domain.exception.InvalidProviderOperationTransitionException;
 import com.narrativex.backend.feature.generation.domain.exception.ProviderOperationResultConflictException;
-import java.sql.SQLException;
+import com.narrativex.backend.support.PostgreSqlIntegrationTestSupport;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -27,37 +27,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
-@Testcontainers(disabledWithoutDocker = true)
-@SpringBootTest
+@SpringBootTest(properties = "narrativex.persistence.provider-operation=mybatis")
 @ActiveProfiles("test")
-class ProviderOperationRepositoryIntegrationTest {
-  @Container
-  static final PostgreSQLContainer<?> POSTGRES =
-      new PostgreSQLContainer<>("postgres:17-alpine")
-          .withDatabaseName("narrativex_provider_operation_test")
-          .withUsername("narrativex")
-          .withPassword("narrativex");
-
-  @DynamicPropertySource
-  static void postgresProperties(DynamicPropertyRegistry registry) {
-    registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
-    registry.add("spring.datasource.username", POSTGRES::getUsername);
-    registry.add("spring.datasource.password", POSTGRES::getPassword);
-    registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
-    registry.add("spring.jpa.hibernate.ddl-auto", () -> "validate");
-    registry.add("spring.jpa.database-platform", () -> "org.hibernate.dialect.PostgreSQLDialect");
-    registry.add("spring.flyway.enabled", () -> true);
-    registry.add("spring.flyway.baseline-on-migrate", () -> false);
-    registry.add("spring.data.redis.repositories.enabled", () -> false);
-    registry.add("narrativex.persistence.provider-operation", () -> "mybatis");
-  }
-
+class ProviderOperationRepositoryIntegrationTest extends PostgreSqlIntegrationTestSupport {
   @Autowired private ProviderOperationRepository repository;
   @Autowired private JdbcTemplate jdbcTemplate;
   private ExecutorService executor;
@@ -92,24 +65,26 @@ class ProviderOperationRepositoryIntegrationTest {
             reserved.getId(), reserved.getRowVersion(), Instant.now().plusSeconds(30));
     ProviderOperation submitted =
         repository.transition(
-            unknown.getId(), unknown.getRowVersion(), ProviderOperationStatus.SUBMITTED, "provider-1");
+            unknown.getId(),
+            unknown.getRowVersion(),
+            ProviderOperationStatus.SUBMITTED,
+            "provider-1");
     ProviderOperation running =
         repository.transition(
             submitted.getId(), submitted.getRowVersion(), ProviderOperationStatus.RUNNING, null);
     ProviderOperation completed =
         repository.persistResult(
-            running.getId(),
-            running.getRowVersion(),
-            null,
-            "{\"answer\":\"ok\"}",
-            "result-a");
+            running.getId(), running.getRowVersion(), null, "{\"answer\":\"ok\"}", "result-a");
 
     assertEquals(ProviderOperationStatus.COMPLETED, completed.getStatus());
     assertThrows(
         InvalidProviderOperationTransitionException.class,
         () ->
             repository.transition(
-                completed.getId(), completed.getRowVersion(), ProviderOperationStatus.RUNNING, null));
+                completed.getId(),
+                completed.getRowVersion(),
+                ProviderOperationStatus.RUNNING,
+                null));
   }
 
   @Test
@@ -149,7 +124,8 @@ class ProviderOperationRepositoryIntegrationTest {
 
     Future<Object> first =
         executor.submit(
-            () -> transitionAfterBarrier(snapshotA, ProviderOperationStatus.SUBMITTED, ready, start));
+            () ->
+                transitionAfterBarrier(snapshotA, ProviderOperationStatus.SUBMITTED, ready, start));
     Future<Object> second =
         executor.submit(
             () -> transitionAfterBarrier(snapshotB, ProviderOperationStatus.RUNNING, ready, start));
@@ -161,11 +137,14 @@ class ProviderOperationRepositoryIntegrationTest {
     List<Object> results = List.of(firstResult, secondResult);
 
     assertEquals(1, results.stream().filter(ProviderOperation.class::isInstance).count());
-    assertEquals(1, results.stream().filter(ObjectOptimisticLockingFailureException.class::isInstance).count());
+    assertEquals(
+        1,
+        results.stream().filter(ObjectOptimisticLockingFailureException.class::isInstance).count());
     assertEquals(
         1,
         Stream.of(ProviderOperationStatus.SUBMITTED, ProviderOperationStatus.RUNNING)
-            .filter(status -> repository.findById(unknown.getId()).orElseThrow().getStatus() == status)
+            .filter(
+                status -> repository.findById(unknown.getId()).orElseThrow().getStatus() == status)
             .count());
   }
 
@@ -193,7 +172,8 @@ class ProviderOperationRepositoryIntegrationTest {
   }
 
   private ProviderOperation reserve(String suffix) {
-    return repository.save(ProviderOperation.create(insertStageAttempt(), "vertex", unique(suffix)));
+    return repository.save(
+        ProviderOperation.create(insertStageAttempt(), "vertex", unique(suffix)));
   }
 
   private ProviderOperation complete(ProviderOperation reserved) {
