@@ -14,7 +14,11 @@ public class StageAttemptPersistenceAdapter implements StageAttemptRepository {
   private final StageAttemptJpaRepository repository;
 
   @Override
-  public StageAttempt save(StageAttempt stageAttempt) {
+  public StageAttempt create(StageAttempt stageAttempt) {
+    if (stageAttempt.getId() != null) {
+      throw new IllegalArgumentException(
+          "StageAttempt.create requires a new StageAttempt without an id");
+    }
     StageAttemptJpaEntity entity =
         StageAttemptJpaEntity.builder()
             .generationJobId(stageAttempt.getGenerationJobId())

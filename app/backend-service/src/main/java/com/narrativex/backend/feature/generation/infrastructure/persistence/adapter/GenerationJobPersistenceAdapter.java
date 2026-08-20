@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.generation.infrastructure.persistence.adapter;
 
+import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.infrastructure.persistence.OptimisticConcurrency;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
@@ -20,23 +21,27 @@ public class GenerationJobPersistenceAdapter implements GenerationJobRepository 
 
   @Override
   public GenerationJob save(GenerationJob job) {
-    GenerationJobJpaEntity entity =
-        job.getId() == null
-            ? buildJpaEntity(job)
-            : repository
-                .findById(job.getId())
-                .map(
-                    existing -> {
-                      OptimisticConcurrency.requireVersion(
-                          job.getRowVersion(),
-                          existing.getRowVersion(),
-                          GenerationJobJpaEntity.class,
-                          job.getId());
-                      existing.apply(job);
-                      return existing;
-                    })
-                .orElseGet(() -> buildJpaEntity(job));
-    return GenerationPersistenceMapper.toDomain(repository.save(entity));
+    return job.getId() == null ? create(job) : update(job);
+  }
+
+  private GenerationJob create(GenerationJob job) {
+    return GenerationPersistenceMapper.toDomain(repository.save(buildJpaEntity(job)));
+  }
+
+  private GenerationJob update(GenerationJob job) {
+    GenerationJobJpaEntity existing =
+        repository
+            .findById(job.getId())
+            .orElseThrow(
+                () ->
+                    new ResourceNotFoundException(
+                        "GenerationJob "
+                            + job.getId()
+                            + " no longer exists while applying an update"));
+    OptimisticConcurrency.requireVersion(
+        job.getRowVersion(), existing.getRowVersion(), GenerationJobJpaEntity.class, job.getId());
+    existing.apply(job);
+    return GenerationPersistenceMapper.toDomain(repository.save(existing));
   }
 
   private static GenerationJobJpaEntity buildJpaEntity(GenerationJob job) {

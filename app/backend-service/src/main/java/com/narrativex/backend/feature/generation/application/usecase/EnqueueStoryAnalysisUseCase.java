@@ -104,7 +104,7 @@ public class EnqueueStoryAnalysisUseCase {
 
     quotaReservation.bindToGenerationJob(admission.reservation().id(), job.getId());
     operationPlanRepository.save(operationPlan.withGenerationJobId(job.getId()));
-    stageAttemptRepository.save(StageAttempt.create(job.getId(), STAGE_NAME, 1));
+    stageAttemptRepository.create(StageAttempt.create(job.getId(), STAGE_NAME, 1));
     generationOutboxRepository.enqueue(job);
     return job;
   }

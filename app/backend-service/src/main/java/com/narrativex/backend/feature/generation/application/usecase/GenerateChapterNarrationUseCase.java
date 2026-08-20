@@ -128,7 +128,7 @@ public class GenerateChapterNarrationUseCase {
     quotaReservation.bindToGenerationJob(admission.reservation().id(), job.getId());
     operationPlanRepository.save(operationPlan.withGenerationJobId(job.getId()));
     StageAttempt stageAttempt =
-        stageAttemptRepository.save(StageAttempt.create(job.getId(), STAGE_NAME, 1));
+        stageAttemptRepository.create(StageAttempt.create(job.getId(), STAGE_NAME, 1));
     narrationOperationRepository.save(
         new NarrationOperation(
             UUID.randomUUID(), narrationRequest.id(), job.getId(), stageAttempt.getId()));
