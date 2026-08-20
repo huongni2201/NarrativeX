@@ -197,6 +197,112 @@ class WorkerRepository:
             operation_id, ProviderOperationStatus.SUBMITTED, provider_operation_id
         )
 
+    async def mark_provider_operation_submission_unknown(
+        self, operation_id: int, reconcile_after_seconds: float
+    ) -> DurableProviderOperation:
+        """Persist the external-call fence before submission can cross the provider boundary."""
+        pool = self._require_pool()
+        async with pool.acquire() as connection:
+            row = await connection.fetchrow(
+                """
+                UPDATE provider_operations
+                   SET status = 'UNKNOWN',
+                       next_reconcile_at = CURRENT_TIMESTAMP + ($2 * INTERVAL '1 second'),
+                       last_reconcile_error = NULL,
+                       updated_at = CURRENT_TIMESTAMP,
+                       row_version = row_version + 1
+                 WHERE id = $1
+                   AND status = 'RESERVED'
+                 RETURNING id, stage_attempt_id, provider_key, provider_operation_id,
+                           status, request_fingerprint, normalized_result_json
+                """,
+                operation_id,
+                reconcile_after_seconds,
+            )
+        if row is None:
+            raise RuntimeError(
+                f"Provider operation {operation_id} cannot enter submission UNKNOWN state"
+            )
+        return self._provider_operation(row)
+
+    async def schedule_provider_operation_reconciliation(
+        self,
+        operation_id: int,
+        status: ProviderOperationStatus,
+        provider_operation_id: str,
+        *,
+        error: str | None = None,
+    ) -> DurableProviderOperation:
+        if status not in (
+            ProviderOperationStatus.UNKNOWN,
+            ProviderOperationStatus.SUBMITTED,
+            ProviderOperationStatus.RUNNING,
+        ):
+            raise ValueError(
+                "Only non-terminal provider states can be scheduled for reconciliation"
+            )
+        pool = self._require_pool()
+        async with pool.acquire() as connection:
+            row = await connection.fetchrow(
+                """
+                UPDATE provider_operations
+                   SET status = $2,
+                       provider_operation_id = $3,
+                       reconcile_attempts = reconcile_attempts + 1,
+                       next_reconcile_at = CURRENT_TIMESTAMP + INTERVAL '15 seconds',
+                       last_reconcile_error = $4,
+                       updated_at = CURRENT_TIMESTAMP,
+                       row_version = row_version + 1
+                 WHERE id = $1
+                   AND status <> 'COMPLETED'
+                   AND status <> 'FAILED'
+                 RETURNING id, stage_attempt_id, provider_key, provider_operation_id,
+                           status, request_fingerprint, normalized_result_json
+                """,
+                operation_id,
+                status.value,
+                provider_operation_id,
+                error[:2000] if error is not None else None,
+            )
+        if row is None:
+            raise RuntimeError(f"Provider operation {operation_id} cannot be reconciled")
+        return self._provider_operation(row)
+
+    async def record_provider_reconcile_error(self, operation_id: int, error: str) -> None:
+        pool = self._require_pool()
+        await pool.execute(
+            """
+            UPDATE provider_operations
+               SET reconcile_attempts = reconcile_attempts + 1,
+                   next_reconcile_at = CURRENT_TIMESTAMP + INTERVAL '15 seconds',
+                   last_reconcile_error = $2,
+                   updated_at = CURRENT_TIMESTAMP,
+                   row_version = row_version + 1
+             WHERE id = $1
+               AND status IN ('UNKNOWN', 'SUBMITTED', 'RUNNING')
+            """,
+            operation_id,
+            error[:2000],
+        )
+
+    async def suspend_provider_reconciliation(self, operation_id: int, error: str) -> None:
+        """Keep the provider outcome UNKNOWN but stop unsafe/hot reconciliation attempts."""
+        pool = self._require_pool()
+        await pool.execute(
+            """
+            UPDATE provider_operations
+               SET reconcile_attempts = reconcile_attempts + 1,
+                   next_reconcile_at = NULL,
+                   last_reconcile_error = $2,
+                   updated_at = CURRENT_TIMESTAMP,
+                   row_version = row_version + 1
+             WHERE id = $1
+               AND status IN ('UNKNOWN', 'SUBMITTED', 'RUNNING')
+            """,
+            operation_id,
+            error[:2000],
+        )
+
     async def persist_provider_result(
         self,
         operation_id: int,
@@ -245,11 +351,15 @@ class WorkerRepository:
         pool = self._require_pool()
         rows = await pool.fetch(
             """
-            SELECT id, stage_attempt_id, provider_key, provider_operation_id,
-                   status, request_fingerprint, normalized_result_json
-              FROM provider_operations
-             WHERE status = ANY($1::text[])
-             ORDER BY reserved_at, id
+            SELECT po.id, po.stage_attempt_id, po.provider_key, po.provider_operation_id,
+                   po.status, po.request_fingerprint, po.normalized_result_json
+              FROM provider_operations po
+              JOIN stage_attempts sa ON sa.id = po.stage_attempt_id
+             WHERE po.status = ANY($1::text[])
+               AND po.next_reconcile_at IS NOT NULL
+               AND po.next_reconcile_at <= CURRENT_TIMESTAMP
+               AND sa.status IN ('RUNNING', 'STALLED', 'UNKNOWN')
+             ORDER BY po.next_reconcile_at, po.reserved_at, po.id
              LIMIT $2
             """,
             [status.value for status in statuses],
