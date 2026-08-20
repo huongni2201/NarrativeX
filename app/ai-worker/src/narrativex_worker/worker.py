@@ -296,8 +296,7 @@ class NarrativeXWorker:
                 await self.billing_repository.persist(durable_id, operation.billing)
             except Exception as exception:
                 error = (
-                    "Provider billing persistence outcome is unknown: "
-                    f"{type(exception).__name__}"
+                    f"Provider billing persistence outcome is unknown: {type(exception).__name__}"
                 )
                 await self.repository.suspend_provider_reconciliation(durable_id, error)
                 raise ProviderOperationUnreconcilableError(error) from exception

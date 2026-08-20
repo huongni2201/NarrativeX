@@ -363,12 +363,8 @@ async def test_concurrent_conflicting_completions_have_one_winner(
         )
         await first.mark_provider_operation_submitted(reserved.id, "vertex-op-1")
         outcomes = await asyncio.gather(
-            first.persist_provider_result(
-                reserved.id, "vertex-op-1", chapter_result("Result A")
-            ),
-            second.persist_provider_result(
-                reserved.id, "vertex-op-2", chapter_result("Result B")
-            ),
+            first.persist_provider_result(reserved.id, "vertex-op-1", chapter_result("Result A")),
+            second.persist_provider_result(reserved.id, "vertex-op-2", chapter_result("Result B")),
             return_exceptions=True,
         )
         row = await provider_row(postgres_database, reserved.id)
@@ -376,9 +372,7 @@ async def test_concurrent_conflicting_completions_have_one_winner(
         await first.close()
         await second.close()
 
-    successes = [
-        outcome for outcome in outcomes if isinstance(outcome, DurableProviderOperation)
-    ]
+    successes = [outcome for outcome in outcomes if isinstance(outcome, DurableProviderOperation)]
     conflicts = [
         outcome for outcome in outcomes if isinstance(outcome, ProviderResultConflictError)
     ]

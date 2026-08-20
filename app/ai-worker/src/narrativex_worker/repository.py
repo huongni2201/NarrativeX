@@ -389,9 +389,7 @@ class WorkerRepository:
                             f"Provider operation {operation_id} is COMPLETED without "
                             "a durable result"
                         )
-                    _, persisted_fingerprint = _canonical_provider_result(
-                        durable.normalized_result
-                    )
+                    _, persisted_fingerprint = _canonical_provider_result(durable.normalized_result)
                     if persisted_fingerprint == incoming_fingerprint:
                         backfilled = await connection.fetchrow(
                             """
