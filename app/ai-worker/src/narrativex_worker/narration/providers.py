@@ -23,7 +23,8 @@ class FakeTtsProvider:
     """Deterministic 16-bit PCM provider for unit and acceptance tests."""
 
     async def synthesize(self, request: TtsRequest) -> SynthesizedSegment:
-        duration_ms = max(120, min(6000, (request.segment.text_end - request.segment.text_start) * 45))
+        text_units = request.segment.text_end - request.segment.text_start
+        duration_ms = max(120, min(6000, text_units * 45))
         samples = round(request.sample_rate_hz * duration_ms / 1000)
         pcm_bytes = b"\x00\x00" * samples * request.channels
         return SynthesizedSegment(

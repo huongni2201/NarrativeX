@@ -5,7 +5,11 @@ from narrativex_worker.narration.models import AlignmentSpan, NarrationSegment, 
 from narrativex_worker.narration.providers import FakeTtsProvider, TtsProvider, TtsRequest
 from narrativex_worker.narration.segmenter import NarrationSegmenter, utf16_length
 from narrativex_worker.narration.service import FullChapterNarrationService, NarrationResult
-from narrativex_worker.narration.storage import MediaAssetConflictError, MediaStorage, StoredMediaAsset
+from narrativex_worker.narration.storage import (
+    MediaAssetConflictError,
+    MediaStorage,
+    StoredMediaAsset,
+)
 
 __all__ = [
     "AlignmentSpan",

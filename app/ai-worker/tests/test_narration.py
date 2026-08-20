@@ -15,7 +15,9 @@ def test_segmenter_preserves_utf16_offsets_for_unicode() -> None:
     assert segments[0].text_start == 0
     assert segments[-1].text_end == utf16_length(text)
     assert "".join(segment.text for segment in segments) == text
-    assert all(a.text_end <= b.text_start for a, b in zip(segments, segments[1:]))
+    assert all(
+        a.text_end <= b.text_start for a, b in zip(segments, segments[1:], strict=False)
+    )
 
 
 def test_alignment_validator_rejects_overlap() -> None:
@@ -42,7 +44,10 @@ def test_alignment_validator_rejects_duration_drift() -> None:
 
 
 def test_full_chapter_fake_tts_acceptance() -> None:
-    paragraph = "Một câu chuyện dài bắt đầu ở đây. Nhân vật bước qua cánh cửa và nhìn ra thành phố. "
+    paragraph = (
+        "Một câu chuyện dài bắt đầu ở đây. "
+        "Nhân vật bước qua cánh cửa và nhìn ra thành phố. "
+    )
     source = paragraph * 120
     service = FullChapterNarrationService(FakeTtsProvider())
     result = asyncio.run(
