@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""Fail CI on high-confidence NarrativeX documentation drift.
-
-This intentionally checks only current-state documentation. Historical ADR text and stable
-requirement identifiers may mention older versions without being factual current-state claims.
-"""
+"""Fail CI on high-confidence NarrativeX current-documentation drift."""
 
 from __future__ import annotations
 
@@ -15,7 +11,6 @@ ROOT = Path(__file__).resolve().parents[1]
 
 CURRENT_FILES = [
     ROOT / "documentation" / "README.md",
-    ROOT / "documentation" / "TRACEABILITY.md",
     ROOT / "documentation" / "source-of-truth" / "README.md",
     ROOT / "documentation" / "source-of-truth" / "NARRATIVEX_PROJECT_SPEC_V1_10.md",
     ROOT / "documentation" / "codebase" / "CODEBASE_MAP.md",
@@ -35,24 +30,26 @@ CURRENT_FILES = [
     ROOT / "app" / "ai-worker" / "README.md",
 ]
 
+# TRACEABILITY intentionally explains which historical claims became obsolete, so it is
+# validated for existence but excluded from literal stale-phrase scanning.
+REQUIRED_PATHS = [
+    ROOT / "documentation" / "source-of-truth" / "NARRATIVEX_PROJECT_SPEC_V1_10.md",
+    ROOT / "documentation" / "TRACEABILITY.md",
+]
+
 FORBIDDEN = {
-    "obsolete Analyze scaffold": re.compile(r"FEATURE_NOT_AVAILABLE"),
+    "obsolete Analyze scaffold token": re.compile(r"FEATURE_NOT_AVAILABLE"),
     "obsolete provider durability claim": re.compile(
         r"dedicated durable [`']?ProviderOperation[`']? (?:persistence|durability).*"
         r"(?:required|pending|not yet complete)",
         re.IGNORECASE,
     ),
     "obsolete continuity claim": re.compile(
-        r"(?:drops?|does not yet materialize|pending).*"
-        r"(?:Location|Scene.{0,20}(?:Character|Location)).*continuity",
+        r"(?:does not yet materialize|currently drops|Location materialization\s*\|\s*PENDING|"
+        r"Scene character/location continuity materialization\s*\|\s*PENDING)",
         re.IGNORECASE,
     ),
 }
-
-REQUIRED_PATHS = [
-    ROOT / "documentation" / "source-of-truth" / "NARRATIVEX_PROJECT_SPEC_V1_10.md",
-    ROOT / "documentation" / "TRACEABILITY.md",
-]
 
 
 def main() -> int:
