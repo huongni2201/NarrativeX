@@ -1,50 +1,134 @@
-# NarrativeX W1-D1 AI Worker Baseline
+# NarrativeX AI Worker Codebase
 
-## Runtime and entry points
+## Authority and role
 
-- Python runtime verified: `3.12.10`.
-- Package: `narrativex-worker 0.1.0`, Hatchling build, Pydantic v2, HTTPX, pytest/pytest-asyncio, Ruff and strict mypy configured in `pyproject.toml`.
+This document describes the current Python worker implementation for the V1.10 baseline. Product and architecture authority remains `../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_10.md`.
+
+The worker is the asynchronous execution runtime for AI/media workloads. It is not a browser-facing API and it is not canonical product/domain authority. Spring Boot owns client APIs, authorization and durable orchestration policy; PostgreSQL owns durable execution state.
+
+## Runtime and dependencies
+
+- Python `>=3.12`.
+- Package: `narrativex-worker 0.1.0`, built with Hatchling.
+- Configuration/validation: Pydantic v2 + Pydantic Settings.
+- PostgreSQL client: asyncpg.
+- HTTP client: HTTPX.
+- Google authentication: `google-auth` / ADC or workload identity.
+- Quality: Ruff, strict mypy, pytest and pytest-asyncio.
 - Entry points: `python -m narrativex_worker` and `narrativex-worker`.
-- `--dry-run` initializes settings, logs readiness and exits. Normal start enters an idle `asyncio.sleep(1)` loop.
 
-## Current capability classification
+The current dependency manifest does **not** include FastAPI, Starlette or Uvicorn. The worker is not an HTTP API service.
 
-| Capability | Classification | Evidence |
-|---|---|---|
-| Provider-neutral request/schema types | `PORT_ONLY` | `src/narrativex_worker/schema.py`, `providers/ports.py` |
-| Safe disabled provider | `DETERMINISTIC_FAKE` | `providers/disabled.py:16-34`; every estimate/submit/status/reconcile call raises `ProviderNotConfiguredError` |
-| Rights/prompt boundary | `PORT_ONLY` | `service.py:12-17`, `prompting.py:8-16` |
-| Real provider adapter | `UNIMPLEMENTED` | no provider SDK or adapter package found |
-| Durable job intake/claim | `UNIMPLEMENTED` | no queue, HTTP consumer, Redis client or backend client |
-| Media/object-storage execution | `UNIMPLEMENTED` | no storage/media/FFmpeg client |
+## Current Chapter Analyze flow
 
-## Lifecycle audit
+```text
+Backend admission + durable enqueue
+  -> OperationPlan + GenerationJob + StageAttempt
+  -> optional Redis delivery hint
+  -> worker polls PostgreSQL
+  -> FOR UPDATE ... SKIP LOCKED claim
+  -> lease owner + heartbeat
+  -> persisted Chapter snapshot request
+  -> provider port
+  -> Vertex Gemini when configured
+  -> Pydantic structured-result validation
+  -> Chapter rowVersion/sourceHash validation
+  -> Character / ProjectCharacter / CharacterVersion materialization
+  -> Scene / VisualBeat materialization
+  -> terminal StageAttempt + GenerationJob state
+```
 
-| Concern | Current state | Week 2 foundation gap |
-|---|---|---|
-| Job intake | none; process only | consume a versioned backend delivery contract |
-| Claim/lease | none | claim `StageAttempt` with lease token and durable owner |
-| Heartbeat | none | heartbeat and stale lease detection |
-| Retry/timeout | none | classify local retryable failures vs external reconcile; explicit timeouts |
-| Cancellation/shutdown | process signal handling on non-Windows; `CancelledError` is logged and re-raised | cooperative job cancellation and claim release |
-| Idempotency | provider port has no idempotency key field; schema has a job-event idempotency key only | persist and enforce operation/stage idempotency end-to-end |
-| UNKNOWN/reconciliation | enum and port method exist, no implementation/state transition | ambiguous submit must persist `UNKNOWN` and reconcile before retry |
-| Storage | none | private object-store adapter and immutable asset metadata |
-| Logging | basic process-level log format, no job/stage/provider correlation fields | structured correlation without raw story/prompt/secret leakage |
-| Testing | 7 unit tests, no queue/provider integration | deterministic fake integration path and recovery tests |
+A dropped Redis delivery hint must not lose queued work. PostgreSQL remains authoritative.
 
-## Provider boundary and untrusted input
+## Capability classification
 
-The worker follows the intended boundary: `WorkerService` checks rights attestation, `build_story_analysis_prompt` wraps story content in an explicit untrusted-data marker, and `DisabledProvider` refuses to fake success. No real paid provider was called during D1. The current `ProviderOperation` dataclass has `operation_id` and `UNKNOWN`, but there is no durable reservation or reconciliation storage behind it.
+| Capability | Current state |
+|---|---|
+| Provider-neutral schemas/ports | IMPLEMENTED |
+| Disabled safe provider | IMPLEMENTED; fails explicitly and never fakes successful production output |
+| PostgreSQL durable job polling | IMPLEMENTED |
+| Claim with `FOR UPDATE ... SKIP LOCKED` | IMPLEMENTED |
+| StageAttempt lease/heartbeat/stale recovery foundation | IMPLEMENTED |
+| Bounded worker concurrency | IMPLEMENTED; configured by `WORKER_CONCURRENCY` |
+| Chapter snapshot protection | IMPLEMENTED using `rowVersion` + `sourceHash` checks |
+| Vertex Gemini structured Chapter analysis | IMPLEMENTED foundation |
+| Character/Scene/VisualBeat result materialization | IMPLEMENTED foundation |
+| ProviderOperation durable lifecycle | IMPLEMENTED foundation in the V1.10 execution model; complete reconciliation/usage hardening remains ongoing |
+| Location materialization | PENDING |
+| Scene character/location continuity materialization | PENDING |
+| Image generation | PENDING |
+| TTS/subtitle generation | PENDING |
+| FFmpeg render/export | PENDING |
 
-## Verification
+## Chapter analysis contract
 
-- `./.venv/Scripts/python.exe -m pytest`: 7 passed.
-- `./.venv/Scripts/python.exe -m ruff check .`: pass.
-- `./.venv/Scripts/python.exe -m mypy src`: pass with strict configuration.
-- `./.venv/Scripts/python.exe -m narrativex_worker --dry-run`: pass; output explicitly says dry run completed and exits.
-- The first system-Python pytest/mypy attempts were blocked by missing `pydantic`/`pydantic-settings`; the ignored `.venv` install resolved the environment prerequisite without changing production source.
+The worker executes against persisted Chapter identity/state rather than arbitrary browser text. The request includes the project/story/chapter identity plus the Chapter snapshot fields required to reject stale results.
 
-## Missing Week 2 foundation
+Before materialization the worker verifies that the persisted Chapter still matches the execution snapshot. If the Chapter changed while AI was executing, the old result must not be applied to the newer source.
 
-Implement only after D1/D2 decisions: backend contract client, durable claim/lease protocol, heartbeat/recovery, fake provider integration, provider-operation reservation and reconciliation, usage reporting, storage adapter, and structured observability. Do not add them as part of this audit.
+The provider result is validated with Pydantic before persistence. Current analysis output supports Characters, Locations in the schema, Scenes and VisualBeats; however Location and Scene continuity persistence are still incomplete and must not be advertised as durable simply because the provider returned them.
+
+## Provider modes
+
+### Disabled
+
+`AI_PROVIDER_MODE=disabled` is the safe default. It fails explicitly instead of synthesizing successful AI output.
+
+### Vertex Gemini
+
+`AI_PROVIDER_MODE=vertex` enables the Vertex Gemini adapter. Authentication uses Google Application Default Credentials/workload identity. Provider credentials must never come from the browser or be baked into the image.
+
+External provider execution must follow the durable ProviderOperation lifecycle. Ambiguous external submission/result states must be reconciled rather than blindly retried.
+
+## Claim, lease and concurrency
+
+Workers claim eligible durable attempts with PostgreSQL row locking and `SKIP LOCKED`. A running attempt records worker ownership and heartbeat state. Stale attempts can be recovered according to lease policy.
+
+`WORKER_CONCURRENCY` defaults to 4 and is bounded by configuration. Database pool sizing follows configured concurrency. Graceful shutdown stops new claims and waits for in-flight work according to the worker runtime contract.
+
+## Application boundaries
+
+### Worker owns
+
+- durable AI/media stage execution;
+- claim/lease/heartbeat execution mechanics;
+- provider invocation through provider-neutral ports;
+- prompt/schema boundary and structured validation;
+- stale Chapter protection;
+- current Chapter-analysis result materialization;
+- future media execution once those stages are implemented.
+
+### Worker does not own
+
+- browser authentication/authorization;
+- user/project ownership decisions;
+- HTTP session management;
+- public product APIs;
+- entitlement/billing policy authority;
+- Flyway schema ownership;
+- arbitrary direct mutation of domain state outside defined durable execution/materialization contracts.
+
+## Current gaps
+
+- AI Location materialization.
+- Durable Scene -> ProjectCharacter and Scene -> Location continuity relations.
+- Complete provider actual-usage reconciliation across all operation types.
+- Image generation and asset production.
+- TTS/subtitle generation.
+- Render/export/final artifact validation.
+- Broader production observability, recovery and provider integration evidence.
+
+## Verification expectations
+
+Worker CI must continue to run Ruff, mypy and pytest. Integration/E2E verification should prove the durable path:
+
+```text
+saved Chapter
+  -> durable queued work
+  -> worker claim + heartbeat
+  -> provider execution
+  -> validated materialization
+  -> durable terminal state
+```
+
+It should additionally cover stale Chapter rejection, stale lease recovery, disabled-provider fail-closed behavior and real-provider structured-output compatibility.
