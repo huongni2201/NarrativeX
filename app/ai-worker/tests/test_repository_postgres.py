@@ -81,6 +81,7 @@ async def postgres_database() -> AsyncIterator[str]:
                 provider_operation_id TEXT,
                 status TEXT NOT NULL,
                 normalized_result_json JSONB,
+                result_fingerprint TEXT,
                 completed_at TIMESTAMPTZ,
                 reserved_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
