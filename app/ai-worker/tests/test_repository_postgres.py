@@ -7,7 +7,11 @@ from collections.abc import AsyncIterator
 import asyncpg  # type: ignore[import-untyped]
 import pytest
 
-from narrativex_worker.repository import ClaimedChapterAnalysisJob, WorkerRepository
+from narrativex_worker.repository import (
+    ClaimedChapterAnalysisJob,
+    ProviderResultConflictError,
+    WorkerRepository,
+)
 from narrativex_worker.schema import (
     ChapterAnalysisRequest,
     ChapterAnalysisResult,
@@ -76,12 +80,16 @@ async def postgres_database() -> AsyncIterator[str]:
                 provider_operation_id TEXT,
                 status TEXT NOT NULL,
                 normalized_result_json JSONB,
+                result_fingerprint VARCHAR(64),
                 completed_at TIMESTAMPTZ,
                 reserved_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 row_version BIGINT NOT NULL DEFAULT 0,
                 UNIQUE (provider_key, request_fingerprint),
-                CHECK (status <> 'COMPLETED' OR normalized_result_json IS NOT NULL)
+                CHECK (
+                    status <> 'COMPLETED'
+                    OR (normalized_result_json IS NOT NULL AND result_fingerprint IS NOT NULL)
+                )
             );
             """
         )
@@ -130,16 +138,51 @@ async def seed_job(database_url: str, *, stage_status: str = "QUEUED") -> tuple[
         await connection.close()
 
 
-def chapter_result() -> ChapterAnalysisResult:
+def claimed_job(generation_job_id: int, stage_attempt_id: int) -> ClaimedChapterAnalysisJob:
+    return ClaimedChapterAnalysisJob(
+        stage_attempt_id=stage_attempt_id,
+        generation_job_id=generation_job_id,
+        job_id="job-1",
+        requested_by_user_id="user-1",
+        request=ChapterAnalysisRequest(
+            project_id=1,
+            story_version_id=2,
+            chapter_id=3,
+            chapter_row_version=4,
+            source_hash=SOURCE_HASH,
+            source_text="PostgreSQL integration story",
+        ),
+    )
+
+
+def chapter_result(narration: str = "A door opens.") -> ChapterAnalysisResult:
     return ChapterAnalysisResult(
         scenes=[
             SceneAnalysis(
                 title="Opening",
-                narration="A door opens.",
+                narration=narration,
                 visual_beats=[VisualBeatAnalysis(title="Door", visual_intent="Warm light")],
             )
         ]
     )
+
+
+async def provider_row(database_url: str, operation_id: int) -> asyncpg.Record:
+    connection = await asyncpg.connect(database_url)
+    try:
+        row = await connection.fetchrow(
+            """
+            SELECT status, normalized_result_json, result_fingerprint,
+                   completed_at, updated_at, row_version
+              FROM provider_operations
+             WHERE id = $1
+            """,
+            operation_id,
+        )
+        assert row is not None
+        return row
+    finally:
+        await connection.close()
 
 
 @pytest.mark.asyncio
@@ -192,20 +235,7 @@ async def test_stale_running_lease_is_reclaimed(postgres_database: str) -> None:
 @pytest.mark.asyncio
 async def test_provider_reservation_is_unique_across_workers(postgres_database: str) -> None:
     generation_job_id, stage_attempt_id = await seed_job(postgres_database)
-    claimed = ClaimedChapterAnalysisJob(
-        stage_attempt_id=stage_attempt_id,
-        generation_job_id=generation_job_id,
-        job_id="job-1",
-        requested_by_user_id="user-1",
-        request=ChapterAnalysisRequest(
-            project_id=1,
-            story_version_id=2,
-            chapter_id=3,
-            chapter_row_version=4,
-            source_hash=SOURCE_HASH,
-            source_text="PostgreSQL integration story",
-        ),
-    )
+    claimed = claimed_job(generation_job_id, stage_attempt_id)
 
     first = WorkerRepository(postgres_database, lease_seconds=30)
     second = WorkerRepository(postgres_database, lease_seconds=30)
@@ -229,20 +259,7 @@ async def test_provider_result_and_completed_status_persist_atomically(
     postgres_database: str,
 ) -> None:
     generation_job_id, stage_attempt_id = await seed_job(postgres_database)
-    claimed = ClaimedChapterAnalysisJob(
-        stage_attempt_id=stage_attempt_id,
-        generation_job_id=generation_job_id,
-        job_id="job-1",
-        requested_by_user_id="user-1",
-        request=ChapterAnalysisRequest(
-            project_id=1,
-            story_version_id=2,
-            chapter_id=3,
-            chapter_row_version=4,
-            source_hash=SOURCE_HASH,
-            source_text="PostgreSQL integration story",
-        ),
-    )
+    claimed = claimed_job(generation_job_id, stage_attempt_id)
 
     repository = WorkerRepository(postgres_database, lease_seconds=30)
     await repository.connect()
@@ -262,6 +279,106 @@ async def test_provider_result_and_completed_status_persist_atomically(
 
     assert persisted.status is ProviderOperationStatus.COMPLETED
     assert persisted.normalized_result == chapter_result()
+    assert persisted.result_fingerprint is not None
     assert reloaded.status is ProviderOperationStatus.COMPLETED
     assert reloaded.normalized_result == chapter_result()
+    assert reloaded.result_fingerprint == persisted.result_fingerprint
     assert not reloaded.created
+
+
+@pytest.mark.asyncio
+async def test_duplicate_completed_result_is_idempotent_without_mutation(
+    postgres_database: str,
+) -> None:
+    generation_job_id, stage_attempt_id = await seed_job(postgres_database)
+    claimed = claimed_job(generation_job_id, stage_attempt_id)
+    repository = WorkerRepository(postgres_database, lease_seconds=30)
+    await repository.connect()
+    try:
+        reserved = await repository.reserve_provider_operation(
+            claimed, "vertex", "same-result-fingerprint"
+        )
+        await repository.mark_provider_operation_submitted(reserved.id, "vertex-op-1")
+        first = await repository.persist_provider_result(
+            reserved.id, "vertex-op-1", chapter_result()
+        )
+        before = await provider_row(postgres_database, reserved.id)
+        second = await repository.persist_provider_result(
+            reserved.id, "vertex-op-duplicate", chapter_result()
+        )
+        after = await provider_row(postgres_database, reserved.id)
+    finally:
+        await repository.close()
+
+    assert first.result_fingerprint == second.result_fingerprint
+    assert first.normalized_result == second.normalized_result == chapter_result()
+    assert after["row_version"] == before["row_version"]
+    assert after["completed_at"] == before["completed_at"]
+    assert after["updated_at"] == before["updated_at"]
+
+
+@pytest.mark.asyncio
+async def test_completed_result_conflict_preserves_first_result(postgres_database: str) -> None:
+    generation_job_id, stage_attempt_id = await seed_job(postgres_database)
+    claimed = claimed_job(generation_job_id, stage_attempt_id)
+    repository = WorkerRepository(postgres_database, lease_seconds=30)
+    await repository.connect()
+    try:
+        reserved = await repository.reserve_provider_operation(
+            claimed, "vertex", "conflicting-result-fingerprint"
+        )
+        await repository.mark_provider_operation_submitted(reserved.id, "vertex-op-1")
+        first = await repository.persist_provider_result(
+            reserved.id, "vertex-op-1", chapter_result("Result A")
+        )
+        before = await provider_row(postgres_database, reserved.id)
+        with pytest.raises(ProviderResultConflictError):
+            await repository.persist_provider_result(
+                reserved.id, "vertex-op-2", chapter_result("Result B")
+            )
+        after = await provider_row(postgres_database, reserved.id)
+    finally:
+        await repository.close()
+
+    assert first.normalized_result == chapter_result("Result A")
+    assert after["normalized_result_json"] == before["normalized_result_json"]
+    assert after["result_fingerprint"] == before["result_fingerprint"]
+    assert after["row_version"] == before["row_version"]
+
+
+@pytest.mark.asyncio
+async def test_concurrent_conflicting_completions_have_one_winner(
+    postgres_database: str,
+) -> None:
+    generation_job_id, stage_attempt_id = await seed_job(postgres_database)
+    claimed = claimed_job(generation_job_id, stage_attempt_id)
+    first = WorkerRepository(postgres_database, lease_seconds=30)
+    second = WorkerRepository(postgres_database, lease_seconds=30)
+    await first.connect()
+    await second.connect()
+    try:
+        reserved = await first.reserve_provider_operation(
+            claimed, "vertex", "concurrent-result-fingerprint"
+        )
+        await first.mark_provider_operation_submitted(reserved.id, "vertex-op-1")
+        outcomes = await asyncio.gather(
+            first.persist_provider_result(
+                reserved.id, "vertex-op-1", chapter_result("Result A")
+            ),
+            second.persist_provider_result(
+                reserved.id, "vertex-op-2", chapter_result("Result B")
+            ),
+            return_exceptions=True,
+        )
+        row = await provider_row(postgres_database, reserved.id)
+    finally:
+        await first.close()
+        await second.close()
+
+    successes = [outcome for outcome in outcomes if not isinstance(outcome, BaseException)]
+    conflicts = [outcome for outcome in outcomes if isinstance(outcome, ProviderResultConflictError)]
+    assert len(successes) == 1
+    assert len(conflicts) == 1
+    assert row["status"] == "COMPLETED"
+    assert row["row_version"] == 2
+    assert row["result_fingerprint"] == successes[0].result_fingerprint
