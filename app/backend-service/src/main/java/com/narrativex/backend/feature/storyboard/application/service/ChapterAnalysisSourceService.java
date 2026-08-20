@@ -1,28 +1,27 @@
 package com.narrativex.backend.feature.storyboard.application.service;
 
-import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSource;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
-import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
+import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardRevisionAccess;
+import com.narrativex.backend.feature.storyboard.application.port.out.ChapterAnalysisSnapshotRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
 public class ChapterAnalysisSourceService implements ChapterAnalysisSourceAccess {
-  private final ChapterRepository chapterRepository;
+  private final StoryboardRevisionAccess storyboardRevisionAccess;
+  private final ChapterAnalysisSnapshotRepository chapterAnalysisSnapshotRepository;
 
   @Override
-  public ChapterAnalysisSource requireById(Long chapterId) {
-    var chapter =
-        chapterRepository
-            .findById(chapterId)
-            .orElseThrow(() -> new ResourceNotFoundException("Chapter not found"));
-    return new ChapterAnalysisSource(
-        chapter.getId(),
-        chapter.getStoryVersionId(),
-        chapter.getRowVersion(),
-        chapter.getSourceHash(),
-        chapter.getSourceText());
+  @Transactional(propagation = Propagation.MANDATORY)
+  public ChapterAnalysisSource requireForAnalysisLocked(Long chapterId) {
+    // The advisory transaction lock must be acquired before the authoritative PostgreSQL read.
+    // MANDATORY ensures this lock is owned by the outer admission transaction and remains held
+    // through quota reservation, revision creation, durable job creation, and outbox enqueue.
+    storyboardRevisionAccess.lockChapter(chapterId);
+    return chapterAnalysisSnapshotRepository.requireById(chapterId);
   }
 }
