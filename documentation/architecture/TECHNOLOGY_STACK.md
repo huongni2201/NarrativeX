@@ -8,7 +8,7 @@ This page records the current repository stack and its V1.10 role. Canonical aut
 |---|---|---|
 | Web | Next.js `^16.3.1`, React `^19.2.8`, TypeScript `^5.8.2`, TanStack Query `^5.101.4`, Zustand `^5.0.15`, Node.js 22 | Project/Chapter UI and review workflows |
 | Backend | Java 25, Spring Boot 4.1.0, JPA, Security/OAuth2, Spring Session Redis, Actuator, PDFBox 3.0.8 | Modular monolith, ownership, durable orchestration and admission controls |
-| Persistence | PostgreSQL 18 target, Flyway, Spring Data JPA, MyBatis 4.1 for ProviderOperation | Authoritative domain/job/quota/safety state; SQL-first CAS for the ProviderOperation hot path |
+| Persistence | PostgreSQL 18 target, Flyway, Spring Data JPA, MyBatis 4.1 for ProviderOperation and Chapter | Authoritative domain/job/quota/safety state; SQL-first CAS for migrated persistence boundaries |
 | Redis | Spring Data Redis + Spring Session Redis | Session storage plus non-authoritative delivery/progress hints |
 | Worker | Python >=3.12, Pydantic, HTTPX, asyncpg, google-auth, Pytest/Ruff/mypy | Async AI execution, provider reconciliation and materialization |
 | AI | Vertex AI Gemini adapter; provider ports; safe default `provider_mode=disabled` | Structured Chapter analysis |
@@ -21,7 +21,8 @@ The maintained development chain is:
 - V1 `initial_schema` (consolidated complete schema)
 - V2 `seed_demo_data` (deterministic local/demo dataset)
 - V3–V8 forward migrations (continuity, durable results, quota, identities, revisions and reconciliation)
-- V9 `provider_operation_result_fingerprint` (same-result idempotency evidence)
+- V9 `index_running_stage_attempt_claims` (worker claim index)
+- V10 `provider_operation_result_fingerprint` (same-result idempotency evidence)
 
 V1 includes complete schema foundations, split motion fields, OperationPlan to GenerationJob link, ProviderOperation request fingerprint/status constraints, plan monthly credits and canonical execution constraints. Released migration history must remain forward-only.
 
@@ -42,17 +43,19 @@ persisted Chapter
 
 PostgreSQL is authoritative. Redis is not the source of truth for GenerationJob execution.
 
-ProviderOperation persistence is MyBatis-backed by default. The JPA adapter is
-retained as a configuration-selected rollback path while other aggregates
-continue to use Spring Data JPA.
+ProviderOperation and Chapter persistence are MyBatis-backed. The JPA adapter
+for ProviderOperation is retained as a configuration-selected rollback path
+while other aggregates continue to use Spring Data JPA. Chapter has no legacy
+adapter after its cutover.
 
 MyBatis mapper registration is shared through a marker interface rather than a
 package-wide interface scan. Mappers use explicit XML result maps, dedicated
 row models and SQL-level CAS predicates with affected-row validation. The
 application DataSource and Spring transaction boundary are shared with JPA;
 PostgreSQL Testcontainers is required for persistence and concurrency evidence.
-The migration tracker and repository contract template live in
-[`../codebase/PERSISTENCE_MIGRATION.md`](../codebase/PERSISTENCE_MIGRATION.md).
+The accepted decisions are recorded in
+[`ADR-0014`](../decisions/ADR-0014-provider-operation-mybatis-migration.md) and
+[`ADR-0017`](../decisions/ADR-0017-chapter-mybatis-persistence.md).
 
 Current admission checks the latest persisted Chapter safety decision, `storyAnalysis` entitlement, concurrent expensive-job capacity and monthly credits, then reserves usage atomically in PostgreSQL. OperationPlan stores non-zero estimate/cap values for Chapter Analyze. Full actual-usage reconciliation and unused-reservation release remain follow-up work.
 
