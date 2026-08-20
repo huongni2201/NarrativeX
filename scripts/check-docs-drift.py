@@ -30,8 +30,6 @@ CURRENT_FILES = [
     ROOT / "app" / "ai-worker" / "README.md",
 ]
 
-# TRACEABILITY intentionally explains which historical claims became obsolete, so it is
-# validated for existence but excluded from literal stale-phrase scanning.
 REQUIRED_PATHS = [
     ROOT / "documentation" / "source-of-truth" / "NARRATIVEX_PROJECT_SPEC_V1_10.md",
     ROOT / "documentation" / "TRACEABILITY.md",
@@ -57,6 +55,8 @@ R2_ONLY_FILES = [
     ROOT / "docker-compose.yml",
     ROOT / "app" / "ai-worker" / ".env.example",
     ROOT / "app" / "ai-worker" / "README.md",
+    ROOT / "app" / "ai-worker" / "src" / "narrativex_worker" / "config.py",
+    ROOT / "app" / "ai-worker" / "src" / "narrativex_worker" / "narration" / "storage.py",
     ROOT / "documentation" / "source-of-truth" / "NARRATIVEX_PROJECT_SPEC_V1_10.md",
     ROOT / "documentation" / "source-of-truth" / "README.md",
     ROOT / "documentation" / "architecture" / "SYSTEM_ARCHITECTURE.md",
@@ -65,8 +65,13 @@ R2_ONLY_FILES = [
     ROOT / "documentation" / "architecture" / "TECHNOLOGY_STACK.md",
     ROOT / "documentation" / "codebase" / "CODEBASE_MAP.md",
     ROOT / "documentation" / "decisions" / "ADR-0016-cloudflare-r2-generated-image-durability.md",
+    ROOT / "documentation" / "decisions" / "ADR-0018-full-chapter-narration-and-alignment.md",
     ROOT / "documentation" / "decisions" / "README.md",
 ]
+
+LEGACY_STORAGE_ENV = re.compile(
+    r"\b(?:S3_ENDPOINT_URL|S3_BUCKET|S3_REGION|S3_ACCESS_KEY|S3_SECRET_KEY|MINIO_CONSOLE_PORT)\b"
+)
 
 
 def main() -> int:
@@ -94,8 +99,11 @@ def main() -> int:
         if not path.exists():
             errors.append(f"missing R2-only contract file: {path.relative_to(ROOT)}")
             continue
-        if re.search(r"\bminio\b", path.read_text(encoding="utf-8"), re.IGNORECASE):
+        text = path.read_text(encoding="utf-8")
+        if re.search(r"\bminio\b", text, re.IGNORECASE):
             errors.append(f"{path.relative_to(ROOT)}: MinIO is not part of the R2-only storage contract")
+        if LEGACY_STORAGE_ENV.search(text):
+            errors.append(f"{path.relative_to(ROOT)}: legacy S3/MinIO environment contract is forbidden")
 
     compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
     if "R2_ACCOUNT_ID" not in compose or "R2_BUCKET" not in compose:

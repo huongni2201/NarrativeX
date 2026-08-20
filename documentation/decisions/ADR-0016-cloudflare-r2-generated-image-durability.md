@@ -55,9 +55,9 @@ generate/download/render
 
 ## Scope and non-goals
 
-This ADR selects the durability boundary for all media. It does not claim that the R2 adapter, image-generation provider, TTS provider, candidate-retention policy, CDN/download delivery or final-video pipeline are already implemented. Those remain implementation work under this accepted storage contract.
+This ADR selects the durability boundary for all media. Full-chapter narration now has an R2-backed durable storage adapter through R2's S3-compatible API. Image generation, candidate-retention policy, CDN/download delivery, motion-video persistence and final-video export remain separate implementation work unless covered by another accepted decision.
 
-The current change establishes configuration and architecture contracts without adding an unused R2 SDK dependency before a media stage can execute it. The first durable image/TTS/render vertical slice should implement the storage adapter behind the existing provider/storage boundary.
+The object-storage port remains provider-neutral at the application boundary, but production/runtime configuration selects Cloudflare R2 only. `boto3` is an implementation dependency for the current narration R2 adapter because R2 exposes an S3-compatible API; it does not imply support for another durable storage provider.
 
 ## Verification target
 

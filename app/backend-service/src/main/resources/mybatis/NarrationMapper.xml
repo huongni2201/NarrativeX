@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.NarrationMapper">
+    <resultMap id="narrationRequestRow" type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.NarrationRequestRow">
+        <constructor>
+            <arg column="id" javaType="java.util.UUID" />
+            <arg column="project_id" javaType="java.lang.Long" />
+            <arg column="chapter_id" javaType="java.lang.Long" />
+            <arg column="chapter_row_version" javaType="long" />
+            <arg column="source_hash" javaType="java.lang.String" />
+            <arg column="source_text" javaType="java.lang.String" />
+            <arg column="voice_id" javaType="java.lang.String" />
+            <arg column="language" javaType="java.lang.String" />
+            <arg column="speaking_rate" javaType="java.math.BigDecimal" />
+            <arg column="segmentation_version" javaType="java.lang.String" />
+            <arg column="request_fingerprint" javaType="java.lang.String" />
+        </constructor>
+    </resultMap>
+
+    <insert id="insertRequest">
+        INSERT INTO narration_requests
+            (id, project_id, chapter_id, chapter_row_version, source_hash, source_text,
+             voice_id, language, speaking_rate, segmentation_version, request_fingerprint)
+        VALUES
+            (#{id}, #{projectId}, #{chapterId}, #{chapterRowVersion}, #{sourceHash}, #{sourceText},
+             #{voiceId}, #{language}, #{speakingRate}, #{segmentationVersion}, #{requestFingerprint})
+        ON CONFLICT (request_fingerprint) DO NOTHING
+    </insert>
+
+    <select id="findRequestByFingerprint" resultMap="narrationRequestRow">
+        SELECT id, project_id, chapter_id, chapter_row_version, source_hash, source_text,
+               voice_id, language, speaking_rate, segmentation_version, request_fingerprint
+          FROM narration_requests
+         WHERE request_fingerprint = #{requestFingerprint}
+    </select>
+
+    <insert id="insertOperation">
+        INSERT INTO narration_operations
+            (id, narration_request_id, generation_job_id, stage_attempt_id)
+        VALUES
+            (#{id}, #{narrationRequestId}, #{generationJobId}, #{stageAttemptId})
+    </insert>
+</mapper>

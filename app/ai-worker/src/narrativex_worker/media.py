@@ -85,4 +85,3 @@ class VisualScenePlan(BaseModel):
                 raise ValueError("BASIC_IMAGE_MOTION cannot reserve I2V seconds or resolution")
 
         return self
-

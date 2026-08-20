@@ -13,6 +13,7 @@ on:
       - 'app/ai-worker/README.md'
       - 'app/ai-worker/.env.example'
       - 'app/ai-worker/src/narrativex_worker/config.py'
+      - 'app/ai-worker/src/narrativex_worker/narration/storage.py'
       - 'scripts/check-docs-drift.py'
       - '.github/workflows/docs-ci.yml'
   pull_request:
@@ -27,6 +28,7 @@ on:
       - 'app/ai-worker/README.md'
       - 'app/ai-worker/.env.example'
       - 'app/ai-worker/src/narrativex_worker/config.py'
+      - 'app/ai-worker/src/narrativex_worker/narration/storage.py'
       - 'scripts/check-docs-drift.py'
       - '.github/workflows/docs-ci.yml'
   workflow_dispatch:

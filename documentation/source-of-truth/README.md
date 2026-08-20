@@ -27,13 +27,15 @@ documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_10.md
 - Job history, quota and notification read surfaces.
 - Durable ProviderOperation reservation/submission/UNKNOWN-reconciliation foundation.
 - Chapter analysis admission checks for safety, entitlement, quota and estimated cost reservation.
+- Full-chapter narration/TTS, immutable R2-backed narration media and alignment foundation.
 
 ## Remaining product gaps
 
 - Full character version/reference/lock workflow.
 - Approved storyboard reset/versioning workflow.
 - Production hardening of provider reconciliation and actual-usage accounting.
-- R2-backed durable media pipeline for image generation, TTS/audio, scene video and render/export.
+- R2-backed image generation, scene/motion video and render/export pipeline.
+- Subtitle/timing refinement beyond the current narration alignment foundation.
 - Full billing ledger/reconciliation and unused reservation release.
 - Broader moderation/consent/abuse coverage, observability, backup/restore and deletion lifecycle evidence.
 

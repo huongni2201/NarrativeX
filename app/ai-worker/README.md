@@ -2,9 +2,9 @@
 
 ## Purpose
 
-The AI Worker is the asynchronous execution runtime for NarrativeX AI/media workloads. The current vertical slice executes persisted Chapter analysis. Image generation, TTS and FFmpeg rendering remain later stages.
+The AI Worker is the asynchronous execution runtime for NarrativeX AI/media workloads. The current vertical slices execute persisted Chapter analysis and full-chapter narration/TTS with alignment. Image generation and FFmpeg render/export remain later stages.
 
-The worker is not an HTTP API service. It claims durable PostgreSQL work created by the backend and executes against a persisted Chapter snapshot.
+The worker is not an HTTP API service. It claims durable PostgreSQL work created by the backend and executes against persisted source snapshots.
 
 ## Runtime
 
@@ -13,6 +13,7 @@ The worker is not an HTTP API service. It claims durable PostgreSQL work created
 - asyncpg
 - HTTPX
 - google-auth / ADC
+- boto3 for Cloudflare R2's S3-compatible API
 - Ruff, strict mypy, pytest/pytest-asyncio
 
 The current package does not depend on FastAPI/Starlette/Uvicorn.
@@ -81,6 +82,18 @@ VERTEX_TIMEOUT_SECONDS=120
 
 Authentication uses ADC/workload identity. Credentials never come from the browser.
 
+## Full-chapter narration
+
+Narration/TTS is an implemented worker foundation. When enabled, the worker snapshots the Chapter source, segments provider work for retry safety, synthesizes audio, assembles the chapter MP3, validates alignment, and persists immutable narration media to R2.
+
+```env
+TTS_PROVIDER_MODE=google
+GOOGLE_TTS_PROJECT_ID=<gcp-project>
+MEDIA_STORAGE_MODE=r2
+```
+
+Google TTS uses ADC/workload identity. TTS cannot be enabled without durable R2 configuration.
+
 ## Durable media storage
 
 Cloudflare R2 is the only supported durable media object store across development, staging and production. Use separate buckets per environment (for example `narrativex-dev` and `narrativex-prod`).
@@ -96,7 +109,7 @@ R2_ENDPOINT=
 
 Durable generated/reference images, narration audio, subtitles/manifests, scene/motion video, final exports and thumbnails belong in R2. PostgreSQL stores the durable object key plus metadata, checksums and lineage. Worker-local files are ephemeral scratch/cache/FFmpeg workspace only and must never become authoritative asset locations.
 
-The R2 configuration contract is present before the media vertical slice so image/TTS/render execution can share one storage boundary. The actual upload/download adapter is implemented with the first durable media stage rather than adding an unused storage SDK ahead of execution wiring.
+The application-facing `MediaStorage` port stays provider-neutral, while the current narration runtime uses an R2-only implementation through R2's S3-compatible API. No local object-storage service is part of the runtime topology.
 
 ## Durable ProviderOperation lifecycle
 
@@ -108,7 +121,7 @@ RESERVED -> SUBMITTED -> RUNNING/COMPLETED
 ambiguity/timeout -> UNKNOWN -> reconcile
 ```
 
-Restart recovery reconciles persisted `RESERVED`/`SUBMITTED` operations instead of blindly submitting another provider request. A persisted completed normalized result can be replayed into materialization after a process crash without another provider call.
+Restart recovery reconciles persisted operations instead of blindly submitting another provider request. A persisted completed normalized result can be replayed into materialization after a process crash without another provider call.
 
 This is an implemented durability foundation, not a claim that every provider failure/reconciliation/actual-usage scenario is production-hardened.
 
@@ -160,6 +173,6 @@ It does not own browser authentication/authorization, project ownership, public 
 - Production hardening for all provider reconciliation/recovery cases and actual provider usage accounting.
 - Full Character review/version-lock/reference workflow is owned across backend/product boundaries, not solved by analysis materialization alone.
 - Image generation and generated-asset lifecycle.
-- TTS/subtitles.
+- Subtitle refinement beyond current narration alignment foundations.
 - Render/export/final artifact validation.
 - Broader production observability and real-provider E2E evidence.

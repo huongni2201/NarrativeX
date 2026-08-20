@@ -1,8 +1,8 @@
 # NarrativeX — Project Source of Truth V1.10
 
-**Status:** Canonical code-aligned engineering baseline
-**Effective date:** 19/08/2026
-**Last code verification:** 20/08/2026
+**Status:** Canonical code-aligned engineering baseline  
+**Effective date:** 19/08/2026  
+**Last code verification:** 21/08/2026
 
 ## Authority
 
@@ -20,7 +20,7 @@ NarrativeX is an AI-assisted long-form story video studio. It transforms persist
 
 The product is chapter-first, review-first and durable by design.
 
-Create Project only creates metadata. Saving Chapter only persists source. AI analysis is an explicit action.
+Create Project only creates metadata. Saving Chapter only persists source. AI analysis and media generation are explicit actions.
 
 ## Implemented V1.10 baseline
 
@@ -37,6 +37,8 @@ Create Project only creates metadata. Saving Chapter only persists source. AI an
 | Job history/quota/notification reads | IMPLEMENTED |
 | ProviderOperation lifecycle + reconciliation foundation | IMPLEMENTED |
 | Admission safety/quota/cost reservation foundation | IMPLEMENTED |
+| Full-chapter narration/TTS + alignment foundation | IMPLEMENTED |
+| R2-backed immutable narration media | IMPLEMENTED |
 
 ## Current generation model
 
@@ -51,6 +53,8 @@ PostgreSQL is authoritative. Redis is delivery/progress infrastructure and never
 
 Chapter Analyze currently persists stable AI continuity keys for Character and Location identities, materializes project-scoped Character/Location records, and persists Scene character/location relations. These are implementation foundations; downstream image generation still needs reviewed/locked continuity snapshots before production media generation.
 
+Full-chapter narration snapshots the Chapter source identity, performs durable provider execution, persists immutable narration segments/final chapter audio, and materializes alignment spans for downstream timing.
+
 ## Durable media storage contract
 
 Cloudflare R2 is the sole durable object store for NarrativeX media across development, staging and production.
@@ -64,7 +68,7 @@ Cloudflare R2 is the sole durable object store for NarrativeX media across devel
 - Retry/reclaim paths must reuse an existing valid R2 asset when one already exists instead of regenerating merely because a worker-local workspace disappeared.
 - R2 objects are private by default; client access must flow through backend-authorized access/presigned delivery rather than persistent public object URLs.
 
-This is a `TARGET` execution contract until the media-generation and asset-persistence pipeline is implemented end to end. The R2 configuration boundary is established first; provider-specific upload/download code lands with the first durable media vertical slice.
+The storage contract is now executable for the full-chapter narration path. Image generation, motion-video persistence and final render/export still need their own media-stage implementations behind the same R2 boundary.
 
 ## Remaining gaps
 
@@ -72,7 +76,7 @@ This is a `TARGET` execution contract until the media-generation and asset-persi
 - Approved storyboard reset/versioning workflow.
 - Production hardening for provider recovery/reconciliation and complete actual-usage accounting.
 - Image generation, Cloudflare R2 persistence and immutable generated-asset lifecycle.
-- TTS/subtitle generation with R2-backed narration artifacts.
+- Subtitle/timing refinement beyond current narration alignment.
 - Render/export/final artifact pipeline with R2-backed durable outputs.
 - Complete billing ledger reconciliation and unused-reservation release.
 - Broader moderation/consent/abuse coverage, observability, backup/restore and deletion lifecycle evidence.
