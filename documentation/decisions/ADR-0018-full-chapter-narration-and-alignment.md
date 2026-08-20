@@ -1,4 +1,4 @@
-# ADR-0017: Full-chapter narration and alignment
+# ADR-0018: Full-chapter narration and alignment
 
 ## Status
 
