@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Protocol
 
+from narrativex_worker.media import I2vResolution
 from narrativex_worker.schema import (
     ChapterAnalysisRequest,
     ChapterAnalysisResult,
@@ -74,6 +75,27 @@ class ProviderOperation:
     billing: ProviderBilling | None = None
 
 
+@dataclass(frozen=True)
+class VideoGenerationRequest:
+    """Resolved I2V request. Credentials and raw story text never belong in this payload."""
+
+    request_id: str
+    image_url: str
+    prompt: str
+    duration_seconds: int
+    resolution: I2vResolution
+    negative_prompt: str | None = None
+
+
+@dataclass(frozen=True)
+class VideoProviderOperation:
+    provider_key: str
+    operation_id: str | None
+    status: ProviderOperationStatus
+    output_url: str | None = None
+    error_code: str | None = None
+
+
 class LlmProvider(Protocol):
     """Port used by orchestration; no vendor SDK leaks into worker schemas."""
 
@@ -86,3 +108,15 @@ class LlmProvider(Protocol):
     async def get_status(self, operation: ProviderOperation) -> ProviderOperation: ...
 
     async def reconcile(self, operation: ProviderOperation) -> ProviderOperation: ...
+
+
+class VideoGenerationProvider(Protocol):
+    """Asynchronous image-to-video port used by HYBRID_LOCAL_I2V orchestration."""
+
+    def get_capabilities(self) -> ProviderCapabilities: ...
+
+    async def submit(self, request: VideoGenerationRequest) -> VideoProviderOperation: ...
+
+    async def get_status(self, operation: VideoProviderOperation) -> VideoProviderOperation: ...
+
+    async def reconcile(self, operation: VideoProviderOperation) -> VideoProviderOperation: ...
