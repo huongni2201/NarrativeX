@@ -1,7 +1,7 @@
 # NarrativeX — Project Source of Truth V1.10
 
-**Status:** Canonical code-aligned engineering baseline  
-**Effective date:** 19/08/2026  
+**Status:** Canonical code-aligned engineering baseline
+**Effective date:** 19/08/2026
 **Last code verification:** 20/08/2026
 
 ## Authority

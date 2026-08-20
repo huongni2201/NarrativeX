@@ -86,7 +86,8 @@ NarrativeX is not yet public-production complete. Remaining release work include
 4. Redis generation delivery/progress is non-authoritative.
 5. External provider work has durable lifecycle state before submission.
 6. `UNKNOWN` is a reconciliation state, not a blind-retry trigger.
-7. Worker materialization re-checks Chapter snapshot identity.
-8. Approved/locked history is not destructively overwritten.
-9. Current-state docs use `IMPLEMENTED`, `PARTIAL`, `PENDING`, `PROTOTYPE` or `TARGET`.
-10. Historical V1.8/V1.9 labels must be explicitly historical, never the current repository baseline.
+7. Provider-operation mutations require the caller's expected status and `row_version`; `COMPLETED` and `FAILED` are terminal.
+8. Worker materialization re-checks Chapter snapshot identity.
+9. Approved/locked history is not destructively overwritten.
+10. Current-state docs use `IMPLEMENTED`, `PARTIAL`, `PENDING`, `PROTOTYPE` or `TARGET`.
+11. Historical V1.8/V1.9 labels must be explicitly historical, never the current repository baseline.

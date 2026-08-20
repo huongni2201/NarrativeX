@@ -18,7 +18,7 @@ NarrativeX combines transaction-heavy project/story/character state with Python 
 - Creating a Project is metadata-only and never creates an AI/media job. Story analysis is a Chapter-scoped operation requested only after the Chapter source/snapshot has been persisted.
 - A generation-create endpoint must remain feature-gated until the durable enqueue transaction and worker path are implemented. A scaffold that only writes an `OperationPlan` and a `GenerationJob=QUEUED` must not be exposed as a working production capability.
 - Durable enqueue must persist, in one business transaction, the operation plan/authorization or cost reservation, generation job, required stage attempts and outbox/delivery intent. Dispatch occurs only after commit.
-- Before an external submission, persist `ProviderOperation` in a provider-specific `RESERVED` state together with idempotency/fingerprint evidence. A known submit progresses through `SUBMITTED`/`RUNNING`; an ambiguous outcome becomes `UNKNOWN` and must reconcile before resubmission.
+- Before an external submission, persist `ProviderOperation` in a provider-specific `RESERVED` state together with idempotency/fingerprint evidence, then CAS-fence it to `UNKNOWN` before the call. `UNKNOWN` may reconcile to `SUBMITTED`/`RUNNING` or a terminal state; stale provider responses must lose on `row_version` conflict.
 - `ProviderOperation` uses its own lifecycle enum and must not reuse parent `JobStatus`.
 - Stage attempts require claim/lease/heartbeat semantics and an explicit stalled/recovery path.
 - Expensive work requires authorization, affected-scope planning, estimate/reservation, entitlement and abuse checks, usage attribution and a spending cap before billable execution.

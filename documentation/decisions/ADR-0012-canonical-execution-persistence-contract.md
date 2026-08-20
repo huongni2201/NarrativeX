@@ -23,7 +23,7 @@ and `SUCCEEDED`.
   `NOTIFICATION`, `FAST_CPU`, `CPU_HEAVY` and `MEDIA_IO`.
 - Job and stage statuses are `QUEUED`, `RUNNING`, `COMPLETED`, `FAILED`,
   `CANCELED`, `UNKNOWN`, `STALLED` and `PAUSED_COST_LIMIT`.
-- Provider operation statuses are `RESERVED`, `SUBMITTED`, `RUNNING`,
+- Provider operation statuses are `RESERVED`, `UNKNOWN`, `SUBMITTED`, `RUNNING`,
   `COMPLETED`, `FAILED` and `UNKNOWN`.
 - V2 demo seed uses canonical execution values and valid progress bounds directly.
 - New values require a forward migration and matching Java/Python contract

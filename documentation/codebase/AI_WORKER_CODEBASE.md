@@ -54,8 +54,8 @@ A dropped Redis delivery hint must not lose queued work. PostgreSQL remains auth
 | Vertex Gemini structured Chapter analysis | IMPLEMENTED foundation |
 | Character/Scene/VisualBeat result materialization | IMPLEMENTED foundation |
 | ProviderOperation durable lifecycle | IMPLEMENTED foundation with fail-closed ambiguous-submission recovery and paced reconciliation metadata |
-| Location materialization | PENDING |
-| Scene character/location continuity materialization | PENDING |
+| Location materialization | IMPLEMENTED foundation |
+| Scene character/location continuity materialization | IMPLEMENTED foundation |
 | Image generation | PENDING |
 | TTS/subtitle generation | PENDING |
 | FFmpeg render/export | PENDING |
@@ -66,7 +66,7 @@ The worker executes against persisted Chapter identity/state rather than arbitra
 
 Before materialization the worker verifies that the persisted Chapter still matches the execution snapshot. If the Chapter changed while AI was executing, the old result must not be applied to the newer source.
 
-The provider result is validated with Pydantic before persistence. Current analysis output supports Characters, Locations in the schema, Scenes and VisualBeats; however Location and Scene continuity persistence are still incomplete and must not be advertised as durable simply because the provider returned them.
+The provider result is validated with Pydantic before persistence. Current analysis output supports Characters, Locations, Scenes and VisualBeats, and the worker materializes the project-scoped location identities plus scene character/location references under the same transaction.
 
 ## Provider modes
 
@@ -88,6 +88,8 @@ RESERVED
 ```
 
 `RESERVED` is the only state that proves the external-call fence was not crossed and is therefore the only state that can be safely submitted after restart. `UNKNOWN`, `SUBMITTED` and `RUNNING` are never blindly resubmitted.
+
+Every provider-operation mutation carries the loaded snapshot and uses optimistic CAS on both status and `row_version`. `COMPLETED` and `FAILED` are terminal; a stale reconciliation response is discarded after reloading the latest durable state.
 
 Provider capabilities explicitly declare whether durable operation reconciliation is supported. The current synchronous Vertex `generateContent` adapter does not expose a pollable durable operation id. If submission times out, the process dies after the UNKNOWN fence, or a non-terminal state lacks a durable operation id, the worker fails the StageAttempt closed rather than risking a duplicate provider request or charge.
 
@@ -123,8 +125,6 @@ Workers claim eligible durable attempts with PostgreSQL row locking and `SKIP LO
 
 ## Current gaps
 
-- AI Location materialization.
-- Durable Scene -> ProjectCharacter and Scene -> Location continuity relations.
 - Complete provider actual-usage reconciliation across all operation types.
 - Image generation and asset production.
 - TTS/subtitle generation.

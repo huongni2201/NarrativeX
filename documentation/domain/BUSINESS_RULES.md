@@ -1,6 +1,6 @@
 # NarrativeX V1.10 — Business Rules
 
-**Canonical source:** `../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_10.md`  
+**Canonical source:** `../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_10.md`
 **Rule-ID note:** existing BR identifiers are retained for traceability even when they originated in earlier specifications.
 
 ## Core lifecycle

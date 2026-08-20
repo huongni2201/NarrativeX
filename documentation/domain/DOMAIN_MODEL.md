@@ -59,8 +59,10 @@ GenerationJob:
 QUEUED -> RUNNING -> COMPLETED | FAILED | CANCELED
 
 ProviderOperation:
-RESERVED -> SUBMITTED -> RUNNING -> COMPLETED | FAILED
-ambiguity -> UNKNOWN -> reconcile
+RESERVED -> UNKNOWN -> SUBMITTED | RUNNING | COMPLETED | FAILED
+SUBMITTED -> RUNNING | UNKNOWN | COMPLETED | FAILED
+RUNNING -> UNKNOWN | COMPLETED | FAILED
+COMPLETED | FAILED -> terminal
 ```
 
 `UNKNOWN` is a reconciliation state, not permission to blind-resubmit.

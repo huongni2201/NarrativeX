@@ -60,9 +60,11 @@ POST /api/v1/projects/{projectId}/chapters/{chapterId}/analysis-jobs
 ## Provider lifecycle
 
 ```text
-RESERVED -> SUBMITTED -> RUNNING -> COMPLETED
-                         \-> FAILED
-ambiguous/timeout -> UNKNOWN -> reconcile
+RESERVED -> UNKNOWN -> SUBMITTED -> RUNNING -> COMPLETED
+                    \-> RUNNING | COMPLETED | FAILED
+SUBMITTED -> UNKNOWN | COMPLETED | FAILED
+RUNNING -> UNKNOWN | COMPLETED | FAILED
+COMPLETED | FAILED -> terminal
 ```
 
 Current worker recovery tests prove that persisted `RESERVED`/`SUBMITTED` work is reconciled after restart without blind resubmission, timeouts become `UNKNOWN`, and a persisted completed result can be replayed after a crash without another provider call.
