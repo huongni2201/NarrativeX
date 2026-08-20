@@ -28,6 +28,8 @@ This matrix maps the maintained V1.10 contract to current repository evidence. T
 | Job history/quota/notification reads | account/generation/notification features | backend tests/contracts | IMPLEMENTED |
 | Frontend Chapter Analyze/job polling | Chapter frontend API/query flow | frontend contract tests/build | IMPLEMENTED |
 | Frontend Storyboard foundation | Storyboard API/query flow | frontend contract/build gates | IMPLEMENTED |
+| Dual media planning contracts | `media.py` production/motion/asset strategy contracts | `test_media_planning.py`; not wired to persisted media plans yet | PROTOTYPE |
+| Local Wan I2V adapter | `providers/wan.py`, `VideoGenerationProvider`, Wan settings | deterministic adapter tests; not wired to durable media jobs yet | PROTOTYPE |
 | Image/TTS/render/export | no complete production vertical slice | N/A | PENDING |
 | Full Character version/reference/lock workflow | partial domain/API foundation | incomplete end-to-end review workflow | PARTIAL |
 | Approved storyboard reset/versioning | protection exists; complete user workflow not established | re-analysis safety tests | PARTIAL |
@@ -58,7 +60,7 @@ persisted Chapter
 
 ## Provider recovery evidence
 
-The current worker tests establish important lifecycle behavior:
+The current Chapter-analysis worker tests establish important lifecycle behavior:
 
 - persisted `RESERVED` work is reconciled after restart without another submit;
 - persisted `SUBMITTED` work is reconciled after restart without another submit;
@@ -66,17 +68,17 @@ The current worker tests establish important lifecycle behavior:
 - a provider result persisted before a process crash can be replayed into materialization without another provider call;
 - losing the StageAttempt lease cancels in-flight execution and prevents successful finalization by the old owner.
 
-This supports `ProviderOperation lifecycle foundation = IMPLEMENTED`. It does **not** mean every provider-specific recovery, billing or observability scenario is production-complete.
+The local Wan adapter follows the same boundary semantics at the adapter level: an ambiguous submit raises an unknown-outcome error and reconciliation can query by operation id or stable request id. Durable `GenerationJob`/`StageAttempt`/`ProviderOperation` wiring for media jobs is not yet implemented, so local I2V remains `PROTOTYPE`, not `IMPLEMENTED` end to end.
 
 ## Continuity evidence
 
-The current worker uses stable AI keys and validates references before persistence. Materialization now creates/reuses project-scoped Locations, maintains Character/Location identity mappings and writes Scene continuity relations. Therefore older documentation claiming that the worker drops Location or Scene character/location continuity is obsolete.
+The current worker uses stable AI keys and validates references before persistence. Materialization creates/reuses project-scoped Locations, maintains Character/Location identity mappings and writes Scene continuity relations. Therefore older documentation claiming that the worker drops Location or Scene character/location continuity is obsolete.
 
 Downstream media generation must still resolve reviewed/versioned Character/reference state; analysis-time continuity persistence is not equivalent to a complete Character lock/reference workflow.
 
 ## Production non-claims
 
-NarrativeX is not yet public-production complete. Remaining release work includes complete billing reconciliation, broader moderation/consent/abuse coverage, deletion/retention, backup/restore evidence, observability, real-provider E2E coverage and the image/TTS/render/export pipeline.
+NarrativeX is not yet public-production complete. The new production-mode contracts and local Wan adapter are foundations only. Remaining release work includes full-Chapter TTS/alignment, reuse-first image generation/editing, deterministic motion rendering, durable media-job wiring, backend media workload/cost authority, GPU benchmark/actual usage accounting, broader moderation/consent/abuse coverage, deletion/retention, backup/restore evidence, observability, real-runtime E2E coverage and final export validation.
 
 ## Documentation invariants
 
@@ -91,3 +93,4 @@ NarrativeX is not yet public-production complete. Remaining release work include
 9. Approved/locked history is not destructively overwritten.
 10. Current-state docs use `IMPLEMENTED`, `PARTIAL`, `PENDING`, `PROTOTYPE` or `TARGET`.
 11. Historical V1.8/V1.9 labels must be explicitly historical, never the current repository baseline.
+12. `IMAGE_MOTION` never authorizes I2V; `HYBRID_LOCAL_I2V` remains image-first and authorizes only planned selected-beat I2V.
