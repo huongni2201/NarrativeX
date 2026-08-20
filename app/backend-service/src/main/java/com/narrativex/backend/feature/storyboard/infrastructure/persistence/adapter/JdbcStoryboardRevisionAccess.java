@@ -70,7 +70,8 @@ public class JdbcStoryboardRevisionAccess implements StoryboardRevisionAccess {
             sourceRowVersion,
             chapterId);
     if (revisionId == null) {
-      throw new IllegalStateException("Failed to create storyboard revision for chapter " + chapterId);
+      throw new IllegalStateException(
+          "Failed to create storyboard revision for chapter " + chapterId);
     }
     return revisionId;
   }

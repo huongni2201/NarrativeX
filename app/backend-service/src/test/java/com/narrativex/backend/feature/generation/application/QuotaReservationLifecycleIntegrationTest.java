@@ -75,7 +75,8 @@ class QuotaReservationLifecycleIntegrationTest {
         jobIds.getFirst());
 
     assertEquals("CONSUMED", reservationStatus(jobIds.getFirst()));
-    assertEquals(0, new BigDecimal("0.123456789").compareTo(reservationActualCost(jobIds.getFirst())));
+    assertEquals(
+        0, new BigDecimal("0.123456789").compareTo(reservationActualCost(jobIds.getFirst())));
     assertEquals(3, activeReservations());
     assertEquals(0, new BigDecimal("0.123456789").compareTo(creditsUsed()));
 

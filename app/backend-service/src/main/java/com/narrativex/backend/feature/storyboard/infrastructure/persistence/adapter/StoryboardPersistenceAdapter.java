@@ -69,22 +69,28 @@ public class StoryboardPersistenceAdapter implements StoryboardRepository {
   public VisualBeat saveVisualBeat(VisualBeat visualBeat) {
     VisualBeatJpaEntity entity;
     if (visualBeat.getId() == null) {
-      entity = VisualBeatJpaEntity.builder()
-          .sceneId(visualBeat.getSceneId())
-          .orderIndex(visualBeat.getOrderIndex())
-          .title(visualBeat.getTitle())
-          .visualIntent(visualBeat.getVisualIntent())
-          .reviewStatus(visualBeat.getReviewStatus())
-          .motionMode(visualBeat.getMotionMode())
-          .cameraMovement(visualBeat.getCameraMovement())
-          .aspectRatioOverride(visualBeat.getAspectRatioOverride())
-          .qualityTierOverride(visualBeat.getQualityTierOverride())
-          .build();
+      entity =
+          VisualBeatJpaEntity.builder()
+              .sceneId(visualBeat.getSceneId())
+              .orderIndex(visualBeat.getOrderIndex())
+              .title(visualBeat.getTitle())
+              .visualIntent(visualBeat.getVisualIntent())
+              .reviewStatus(visualBeat.getReviewStatus())
+              .motionMode(visualBeat.getMotionMode())
+              .cameraMovement(visualBeat.getCameraMovement())
+              .aspectRatioOverride(visualBeat.getAspectRatioOverride())
+              .qualityTierOverride(visualBeat.getQualityTierOverride())
+              .build();
     } else {
-      entity = visualBeatRepository.findById(visualBeat.getId())
-          .orElseThrow(() -> new ResourceNotFoundException("Visual beat not found"));
+      entity =
+          visualBeatRepository
+              .findById(visualBeat.getId())
+              .orElseThrow(() -> new ResourceNotFoundException("Visual beat not found"));
       OptimisticConcurrency.requireVersion(
-          visualBeat.getRowVersion(), entity.getRowVersion(), VisualBeatJpaEntity.class, visualBeat.getId());
+          visualBeat.getRowVersion(),
+          entity.getRowVersion(),
+          VisualBeatJpaEntity.class,
+          visualBeat.getId());
       entity.setTitle(visualBeat.getTitle());
       entity.setVisualIntent(visualBeat.getVisualIntent());
       entity.setReviewStatus(visualBeat.getReviewStatus());
@@ -98,14 +104,28 @@ public class StoryboardPersistenceAdapter implements StoryboardRepository {
 
   private static Scene toDomain(SceneJpaEntity entity) {
     return Scene.rehydrate(
-        entity.getId(), entity.getRowVersion(), entity.getChapterId(), entity.getOrderIndex(),
-        entity.getTitle(), entity.getNarration(), entity.getDurationSeconds(), entity.getStatus());
+        entity.getId(),
+        entity.getRowVersion(),
+        entity.getChapterId(),
+        entity.getOrderIndex(),
+        entity.getTitle(),
+        entity.getNarration(),
+        entity.getDurationSeconds(),
+        entity.getStatus());
   }
 
   private static VisualBeat toDomain(VisualBeatJpaEntity entity) {
     return VisualBeat.rehydrate(
-        entity.getId(), entity.getRowVersion(), entity.getSceneId(), entity.getOrderIndex(),
-        entity.getTitle(), entity.getVisualIntent(), entity.getMotionMode(), entity.getCameraMovement(),
-        entity.getAspectRatioOverride(), entity.getQualityTierOverride(), entity.getReviewStatus());
+        entity.getId(),
+        entity.getRowVersion(),
+        entity.getSceneId(),
+        entity.getOrderIndex(),
+        entity.getTitle(),
+        entity.getVisualIntent(),
+        entity.getMotionMode(),
+        entity.getCameraMovement(),
+        entity.getAspectRatioOverride(),
+        entity.getQualityTierOverride(),
+        entity.getReviewStatus());
   }
 }
