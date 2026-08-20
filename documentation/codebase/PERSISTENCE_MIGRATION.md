@@ -1,23 +1,42 @@
 # Persistence migration tracker
 
 This tracker records persistence boundaries audited from the current backend
-source. It is intentionally boundary-oriented: a port may have JPA, JDBC and
-MyBatis implementations during incremental migration, but only one default
-implementation is selected at runtime.
+source. The repository is still in an incremental migration state. A port may
+have JPA, JDBC and MyBatis implementations during migration, but only one
+default implementation is selected at runtime. The final MyBatis-only gate is
+not yet passed.
 
 | Boundary | Current implementation | Default | Rollback/configuration | Risk | Target |
 |---|---|---|---|---|---|
-| ProviderOperation | MyBatis + JPA | MyBatis | `narrativex.persistence.provider-operation=jpa` | High: lifecycle/CAS/provider ambiguity | Done / foundation proof |
-| Chapter | MyBatis | MyBatis | Not available | Medium: row version and aggregate writes | Done / foundation proof |
-| Scene / VisualBeat | JPA | JPA | Not available | Medium: ordering and review state | Later |
-| Project | MyBatis | MyBatis | Not available | Medium: ownership, cursor ordering and versioning | Done / Project boundary |
-| StoryVersion | JPA | JPA | Not available | Medium: append-only versioning and activation | Next PR |
-| Character / versions / appearances | JPA | JPA | Not available | High: reusable identity and immutable versions | Later |
-| GenerationJob / StageAttempt / OperationPlan | JPA | JPA | Not available | High: leases, admission and concurrency | Later |
-| Generation outbox | JDBC adapter | JDBC | Not available | High: durable enqueue and dispatch | Later |
-| AuthUser | JPA | JPA | Not available | High: authentication data | Later |
-| Quota reservation and query boundaries | JDBC adapters | JDBC | Not available | High: atomic billing/admission | Later |
-| Read/query ports | JDBC adapters and feature-specific queries | Existing adapter | Not available | Varies by query contract | Audit per boundary |
+| ProviderOperation | MyBatis + JPA | MyBatis | `narrativex.persistence.provider-operation=jpa` | High: lifecycle/CAS/provider ambiguity | Foundation proof; remove JPA rollback after all consumers migrate |
+| Chapter | MyBatis | MyBatis | Not available | Medium: row version and aggregate writes | Foundation proof |
+| Scene / VisualBeat | JPA | JPA | Not available | Medium: ordering and review state | Not started |
+| Project | MyBatis | MyBatis | Not available | Medium: ownership, cursor ordering and versioning | Boundary migrated |
+| StoryVersion | JPA | JPA | Not available | Medium: append-only versioning and activation | Not started |
+| Character / versions / appearances | JPA | JPA | Not available | High: reusable identity and immutable versions | Not started |
+| GenerationJob / StageAttempt / OperationPlan | JPA | JPA | Not available | High: leases, admission and concurrency | Not started |
+| Generation outbox | JDBC adapter | JDBC | Not available | High: durable enqueue and dispatch | Not started |
+| AuthUser | JPA | JPA | Not available | High: authentication data | Not started |
+| Quota reservation and query boundaries | JDBC adapters | JDBC | Not available | High: atomic billing/admission | Not started |
+| Read/query ports | JDBC adapters and feature-specific queries | Existing adapter | Not available | Varies by query contract | Not started |
+
+The current source inventory is intentionally visible through:
+
+```powershell
+./scripts/check-persistence-migration.ps1
+```
+
+Use `-IncludeTests` when auditing test-only persistence APIs. Use
+`-Strict` as the CI completion gate only after every boundary in the table is
+migrated and the JPA rollback paths are removed. The script is report-only by
+default so it can be introduced before the migration is complete without
+making the current branch falsely green or blocking unrelated development.
+
+At the time of this tracker update, the backend still contains JPA entities and
+repositories for authentication, characters, StoryVersion, Scene/VisualBeat
+and generation admission entities, plus JDBC adapters for quota, outbox,
+media-plan, notification and storyboard query boundaries. Therefore removing
+`spring-boot-starter-data-jpa` now would break the application and its tests.
 
 ## Migration recipe
 

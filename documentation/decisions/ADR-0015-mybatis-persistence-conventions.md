@@ -83,3 +83,6 @@ JPA/H2, generalize JSONB handling or add generic repository abstractions.
   switch and exactly one adapter.
 - `JpaMyBatisTransactionIntegrationTest` proves JPA-first and MyBatis-first
   writes roll back together through the shared Spring transaction boundary.
+- `scripts/check-persistence-migration.ps1 -Strict` is the final anti-regression
+  gate. It must be enabled in CI only after all boundary rows in the migration
+  tracker are complete; report-only mode is used during the coexistence period.
