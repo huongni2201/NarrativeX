@@ -1,50 +1,52 @@
 # NarrativeX Current Codebase Map
 
-## Audit scope and status
+## Authority and scope
 
-- Baseline: V1.8 cut, 2026-08-18.
-- Status: `PARTIAL`. This map records the current implementation boundary; historical audit evidence remains under `documentation/audits/`.
-- Active refactor branch for the current storyboard decision: `agent/storyboard-aggregate-boundaries`.
-- “Target” below is a later integration shape, not a claim that the capability already exists.
+- Canonical product/architecture baseline: `documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_10.md`.
+- This file describes the current implementation on `main`; code, migrations and tests win when a derived document drifts.
+- Historical V1.8/V1.9 audit evidence remains historical and must not be used as current implementation status.
 
 ## Repository layout
 
 ```text
-app/backend-service/   Spring Boot modular monolith: API, feature slices, persistence adapters, Flyway, security
-app/frontend-web/      Next.js App Router / React / TypeScript studio UI
-app/ai-worker/         Python 3.12 worker foundation and provider ports
-contracts/             versioned backend-to-worker JSON schema
-docker-compose.yml     local PostgreSQL, Redis, MinIO and backend service
-documentation/         architecture, domain, workflows, plans, ADRs and audit outputs
+app/backend-service/   Java 25 / Spring Boot 4 modular monolith, API and durable control plane
+app/frontend-web/      Next.js 16 / React 19 / TypeScript studio UI
+app/ai-worker/         Python 3.12 asynchronous AI execution worker
+contracts/             versioned cross-runtime contracts
+docker-compose.yml     local PostgreSQL, Redis, MinIO, backend, frontend and worker topology
+documentation/         source of truth, architecture, domain, workflows, ADRs and codebase maps
 ```
 
 ## Runtime architecture
 
 ```mermaid
 flowchart LR
-  FE[Next.js studio UI] -->|HTTP JSON, credentials include| BE[Spring Boot API]
+  FE[Next.js studio UI] -->|HTTP JSON + server session/CSRF| BE[Spring Boot API]
   BE --> PG[(PostgreSQL)]
-  BE -. queue/cache/progress .-> R[(Redis)]
-  BE -. target binary boundary .-> S[(MinIO / S3)]
-  BE -. target delivery contract .-> W[Python worker]
-  W -. target provider ports .-> P[External AI/media providers]
+  BE -. session + delivery/progress hints .-> R[(Redis)]
+  BE -. binary storage boundary .-> S[(MinIO / S3)]
+  PG -->|durable GenerationJob / StageAttempt| W[Python worker]
+  W -->|structured provider request| P[Vertex Gemini / provider ports]
+  W -->|validated materialization| PG
 ```
 
-PostgreSQL is canonical application state. Redis is acceleration/delivery infrastructure. MinIO/S3 holds binary media once the storage adapter is implemented.
+PostgreSQL is authoritative for durable application and execution state. Redis is non-authoritative for job correctness, although Redis-backed HTTP sessions are an availability dependency for authenticated sessions. The worker is an execution runtime, not a second product/domain authority.
 
-## Backend features (current)
+## Backend features
 
-| Feature | Current responsibility | Runtime status |
-|---|---|---|
-| `project` | Project aggregate, StoryVersion creation/versioning, commands, ports and JPA adapters | real API/persistence foundation; incomplete CRUD |
-| `character` | reusable Character identity, ProjectCharacter assignments, CharacterVersion lifecycle, appearance/outfit state and JPA adapters | domain/application/persistence slice; public REST incomplete |
-| `generation` | GenerationJob/OperationPlan aggregates, enqueue/read use cases, ports and JPA adapters | real persistence scaffold; worker execution incomplete |
-| `storyboard` | `Chapter` and `Scene` aggregate roots, `VisualBeat` child entity, Scene lifecycle, JPA mappings | domain/persistence foundation; repositories/use cases/public API pending |
-| `health` | provider/configuration status response | diagnostic/configuration only |
-| `common` | DDD primitives, API response/error/correlation helpers and generic pagination | shared kernel; no business policy |
-| `auth` | current-user/CSRF endpoints, SecurityContext identity, OIDC/local security chains and CORS | foundation implemented |
+| Area | Current implementation |
+|---|---|
+| Project | Project list/create/detail, StoryVersion foundation and Project Overview APIs are implemented. Project creation is metadata-only. |
+| Chapter | Persisted Chapter CRUD/import foundation, workspace/read/update contracts and explicit Chapter Analyze entry point are implemented. |
+| Generation | `OperationPlan -> GenerationJob -> StageAttempt -> ProviderOperation` durable execution model, admission checks and job reads are implemented foundations. |
+| Storyboard | Chapter/Scene aggregate boundaries and VisualBeat foundation are implemented; Storyboard read/review foundations exist. Broader editing/version-reset workflows remain incomplete. |
+| Character | Character library read/API foundation and ProjectCharacter/CharacterVersion persistence exist; full editing/version-lock/reference workflow remains incomplete. |
+| Location | Read foundation exists, but AI Location materialization and durable Scene-location continuity are not complete. |
+| Asset/media | Metadata/API foundations exist where documented, but image generation, TTS/subtitles, render/export and final artifact validation are not implemented end-to-end. |
+| Auth | Spring Security server session + CSRF, password auth, Google OIDC and Redis-backed Spring Session are the browser contract. JWT is not the current browser contract. |
+| Quota/notifications | Backend read foundations exist; complete billing reconciliation and broader delivery lifecycle remain follow-up work. |
 
-### Storyboard aggregate map
+## Storyboard aggregate map
 
 ```text
 StoryVersion (project feature)
@@ -61,100 +63,100 @@ Scene (AggregateRoot)
 VisualBeat (DomainEntity)
 ```
 
-`Chapter` owns chapter title/order behavior. `Scene` is independent because scene edits and AI generation are scene-granular and may execute concurrently. `Scene` owns its canonical lifecycle. Cross-feature/provider/storage orchestration remains outside the aggregates. See ADR-0007.
+`Chapter` owns chapter-level source/title/order behavior. `Scene` is independent because scene edits and generation are scene-granular. `VisualBeat` is owned by Scene. Cross-feature orchestration and provider/storage calls stay outside domain aggregates. See ADR-0007.
 
-## Scene lifecycle implemented in domain
+## Durable Chapter Analyze
 
 ```text
-DRAFT
-  -> READY_FOR_VISUAL
-  -> GENERATING
-  -> REVIEW
-  -> APPROVED
-
-GENERATING -> FAILED
-APPROVED + edit -> OUTDATED
+persisted Chapter
+  -> safety / entitlement / quota / cost admission
+  -> OperationPlan + GenerationJob + StageAttempt + OutboxEvent
+  -> commit
+  -> optional Redis delivery hint
+  -> worker PostgreSQL claim/lease/heartbeat
+  -> ProviderOperation RESERVED before external submission
+  -> provider execution / reconciliation
+  -> validated Character + Scene + VisualBeat materialization
+  -> terminal durable job state
 ```
 
-- Invalid predecessor transitions throw `InvalidSceneTransitionException`.
-- Edits are rejected while `GENERATING` or `REVIEW`.
-- Editing an approved scene marks mutable scene state `OUTDATED`; historical outputs are not overwritten.
-- `SceneStatus` is persisted as an enum string.
+The client does not provide arbitrary unsaved story text as analysis authority. The backend reloads persisted Chapter state, and the worker validates the Chapter snapshot (`rowVersion`/`sourceHash`) before materializing results.
 
-## Frontend routes and visible features (current)
+## Worker architecture
 
-| Route/surface | Current state |
-|---|---|
-| project list/create/story/analysis flow | API-backed foundation |
-| `/characters` | API surface still incomplete; fixture/test UI may exist |
-| storyboard/chapters/visual review | visible/prototype surfaces; backend write/read API still pending |
-| assets/presets/render | partial/prototype or unsupported until backend contracts exist |
+The Python 3.12 worker is a real asynchronous execution runtime, not the earlier idle-loop scaffold.
 
-Frontend feature/page boundaries do not define backend aggregate or feature boundaries.
+- Claims durable work from PostgreSQL with `FOR UPDATE ... SKIP LOCKED`.
+- Uses StageAttempt lease ownership and heartbeats; stale work can be reclaimed.
+- Uses bounded `WORKER_CONCURRENCY` (default 4, bounded by worker configuration).
+- Uses Pydantic for request/result validation, asyncpg for PostgreSQL, HTTPX for HTTP and google-auth for Vertex credentials.
+- Safe default provider mode is `disabled`; the configured real adapter is Vertex Gemini.
+- Validates the Chapter snapshot before result materialization.
+- Persists current Chapter-analysis Character/ProjectCharacter/CharacterVersion and Scene/VisualBeat results.
+- Location materialization and Scene character/location continuity relations remain incomplete.
+- Image generation, TTS/subtitles and render/export remain future execution stages.
 
-## Worker architecture (current)
+There is no FastAPI service in the current worker dependency/runtime contract. Browser/client APIs remain owned by Spring Boot.
 
-- Python 3.12 worker has typed/provider-neutral execution boundaries.
-- Worker is execution infrastructure, not canonical domain authority.
-- It must not mutate arbitrary Scene state directly; results are applied through backend contracts/use cases.
-- Durable intake/lease/storage/media/provider integration remains incomplete.
+## Frontend integration state
 
-## Database ownership and schema
+The frontend uses Next.js App Router, TanStack Query for server state and Zustand only for transient editor/wizard state.
 
-- Backend owns Flyway and JPA mappings.
-- `V1__initial_schema.sql` is the complete consolidated schema baseline.
-- `V2__seed_demo_data.sql` contains deterministic local/demo rows for the V1 schema.
-- `chapters` and `scenes` remain separate relational tables with unique order constraints.
-- Independent tables/FKs do not by themselves define DDD aggregate ownership.
-- Binary storage remains outside PostgreSQL.
+Current connected foundations include project list/detail/create, Project Overview, StoryVersion/Chapter flows, Chapter Analyze/job polling, Storyboard foundations and Character/Location/Asset client foundations as recorded in `FRONTEND_API_INTEGRATION_MATRIX.md`.
 
-## Redis and object storage
+Backend availability must not be confused with frontend wiring: Job History, Quota and Notifications have backend foundations but still require complete production UI integration. Presets and render/export remain pending capabilities.
 
-Redis is not source of truth. Queue/progress delivery must be reconstructable from durable database/job state. MinIO/S3 is the target binary store; PostgreSQL owns Asset metadata/storage keys/checksums once the Asset feature is implemented.
+API mode must never silently substitute fixtures for unavailable production data.
 
-## Current vs target
+## Database and infrastructure ownership
 
-| Capability | Current | Target |
+- Backend owns Flyway and JPA schema mappings.
+- `V1__initial_schema.sql` is the consolidated development schema baseline.
+- `V2__seed_demo_data.sql` contains deterministic local/demo data.
+- PostgreSQL owns durable domain/job/quota/safety state.
+- Redis owns Spring Session state and may carry non-authoritative delivery/progress hints.
+- Binary media belongs in MinIO/S3-compatible storage; PostgreSQL owns durable metadata/keys/checksums when the relevant Asset workflow is implemented.
+
+## Current vs remaining work
+
+| Capability | Current V1.10 state | Remaining work |
 |---|---|---|
-| Project list/create | backend/API real | broader project fields and remaining CRUD |
-| Story persistence | create foundation | read/update/version/If-Match semantics |
-| Storyboard domain | Chapter + Scene aggregates and lifecycle implemented | aggregate repositories, commands/queries/controllers, read projections |
-| Upload/assets | UI/storage infrastructure foundation only | upload intent, signed/direct upload, validation and Asset metadata |
-| Async analysis | persisted generation foundation | reservation, idempotency, delivery, worker claim and recovery |
-| Progress | partial | durable job state + SSE/replay path |
-| Scene generation | domain lifecycle exists | `Scene -> GenerationJob -> Asset` orchestration through application ports |
-| Auth/ownership | SecurityContext/OIDC foundation | broader workspace membership and full production rollout |
+| Project Overview | IMPLEMENTED | richer product metrics only as contracts require |
+| Chapter CRUD/import | IMPLEMENTED foundation | delete/reorder and broader UX where not yet wired |
+| Chapter Analyze | IMPLEMENTED durable pipeline | production hardening and complete actual-cost reconciliation |
+| Worker claim/lease | IMPLEMENTED | broader recovery/observability evidence |
+| Provider lifecycle | IMPLEMENTED foundation | complete reconciliation/usage hardening for all future provider operations |
+| Storyboard/VisualBeat | IMPLEMENTED foundation | broader editing, approved reset/versioning and continuity |
+| Character library | IMPLEMENTED read/API foundation | editing/version locking/reference assets |
+| Location | PARTIAL | AI materialization + Scene continuity relation |
+| Assets | PARTIAL foundation | upload/finalize/review plus generated media lifecycle |
+| Image/TTS/render/export | PENDING | implementation and FinalArtifact validation |
+| Billing | PARTIAL | actual-usage reconciliation and unused reservation release |
 
-## Critical dependency graph
+## Critical dependency direction
 
 ```text
-FE action
-  -> owning feature API
+Frontend action
+  -> owning Spring feature API
   -> application command/query/use case
-  -> aggregate business method
-  -> application outbound port
-  -> infrastructure adapter
-  -> PostgreSQL / external system
+  -> domain aggregate behavior
+  -> outbound port / persistence adapter
+  -> PostgreSQL or external infrastructure
+
+Durable AI work
+  -> backend admission + durable execution rows
+  -> worker claim/lease
+  -> provider port
+  -> validated materialization
+  -> durable terminal state
 ```
 
-For Scene generation specifically:
+Domain aggregates do not call Redis, provider SDKs, object storage or worker runtimes directly.
 
-```text
-GenerateScene use case
-  -> load Scene aggregate
-  -> Scene.startGeneration()
-  -> save Scene
-  -> create/enqueue GenerationJob
-  -> worker/provider
-  -> Asset/output validation
-  -> application command updates Scene lifecycle
-```
-
-The Scene aggregate never calls Redis, provider SDKs or MinIO/S3 directly.
-
-## Existing decisions validated
+## Maintained decisions
 
 - ADR-0001: modular monolith, worker boundary, PostgreSQL authority and durable execution.
-- ADR-0002: chapter-first workflow/navigation and incremental affected scope.
+- ADR-0002: chapter-first workflow/navigation and affected-scope processing.
 - ADR-0003: DDD feature/package/API contracts.
 - ADR-0007: Chapter/Scene independent storyboard aggregate boundaries.
+- ADR-0008: Redis-backed HTTP sessions.
