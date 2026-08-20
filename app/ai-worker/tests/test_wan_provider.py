@@ -1,5 +1,6 @@
 import httpx
 import pytest
+from pydantic import SecretStr
 
 from narrativex_worker.config import WorkerSettings
 from narrativex_worker.media import I2vResolution
@@ -16,7 +17,7 @@ def _settings() -> WorkerSettings:
     return WorkerSettings(
         wan_video_enabled=True,
         wan_endpoint_url="https://wan.internal",
-        wan_api_token="test-token",
+        wan_api_token=SecretStr("test-token"),
     )
 
 
