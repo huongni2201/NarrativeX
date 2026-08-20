@@ -6,7 +6,7 @@ are never copied into durable job payloads.
 
 from typing import Literal
 
-from pydantic import AliasChoices, Field, SecretStr, model_validator
+from pydantic import AliasChoices, Field, SecretStr, computed_field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -31,7 +31,12 @@ class WorkerSettings(BaseSettings):
     )
     poll_interval_seconds: float = Field(default=1.0, gt=0, le=60)
     lease_seconds: int = Field(default=60, ge=10, le=3600)
-    worker_concurrency: int = Field(default=4, ge=1, le=32)
+    worker_concurrency: int = Field(
+        default=4,
+        ge=1,
+        le=32,
+        description="Maximum jobs processed concurrently by one worker process",
+    )
 
     provider_mode: Literal["disabled", "vertex"] = Field(
         default="disabled",
@@ -52,12 +57,37 @@ class WorkerSettings(BaseSettings):
     google_tts_timeout_seconds: float = Field(default=120.0, gt=1, le=600)
     tts_pricing_catalog_version: str = "google-tts-2026-08-20"
 
-    media_storage_mode: Literal["disabled", "s3"] = "disabled"
-    s3_endpoint_url: str | None = None
-    s3_bucket: str | None = None
-    s3_region: str = "auto"
-    s3_access_key: SecretStr | None = None
-    s3_secret_key: SecretStr | None = None
+    media_storage_mode: Literal["disabled", "r2"] = Field(
+        default="disabled",
+        validation_alias=AliasChoices("MEDIA_STORAGE_MODE"),
+        description="Durable media storage mode; Cloudflare R2 is the only object-store runtime",
+    )
+    r2_account_id: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("R2_ACCOUNT_ID"),
+        description="Cloudflare account ID used to derive the R2 S3-compatible endpoint",
+    )
+    r2_access_key_id: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices("R2_ACCESS_KEY_ID"),
+        description="Cloudflare R2 API access key ID",
+    )
+    r2_secret_access_key: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices("R2_SECRET_ACCESS_KEY"),
+        description="Cloudflare R2 API secret access key",
+    )
+    r2_bucket: str = Field(
+        default="narrativex-dev",
+        min_length=1,
+        validation_alias=AliasChoices("R2_BUCKET", "R2_BUCKET_NAME"),
+        description="R2 bucket that owns durable generated media for this environment",
+    )
+    r2_endpoint: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("R2_ENDPOINT", "R2_ENDPOINT_URL"),
+        description="Optional R2 endpoint override; normally derived from r2_account_id",
+    )
 
     wan_video_enabled: bool = False
     wan_endpoint_url: str | None = None
@@ -65,24 +95,43 @@ class WorkerSettings(BaseSettings):
     wan_api_token: SecretStr | None = None
     wan_request_timeout_seconds: float = Field(default=30.0, gt=1, le=300)
 
+    @computed_field
+    @property
+    def resolved_r2_endpoint(self) -> str | None:
+        """Return the explicit R2 endpoint or derive the canonical Cloudflare endpoint."""
+        if self.r2_endpoint and self.r2_endpoint.strip():
+            return self.r2_endpoint.strip().rstrip("/")
+        if self.r2_account_id and self.r2_account_id.strip():
+            return f"https://{self.r2_account_id.strip()}.r2.cloudflarestorage.com"
+        return None
+
     @model_validator(mode="after")
     def validate_narration_runtime(self) -> "WorkerSettings":
         if self.tts_provider_mode == "google" and not self.google_tts_project_id:
             raise ValueError("GOOGLE_TTS_PROJECT_ID is required when TTS_PROVIDER_MODE=google")
-        if self.media_storage_mode == "s3":
-            required = {
-                "S3_ENDPOINT_URL": self.s3_endpoint_url,
-                "S3_BUCKET": self.s3_bucket,
-                "S3_ACCESS_KEY": self.s3_access_key,
-                "S3_SECRET_KEY": self.s3_secret_key,
-            }
-            missing = [name for name, value in required.items() if value is None]
+        if self.media_storage_mode == "r2":
+            missing: list[str] = []
+            if not self.resolved_r2_endpoint:
+                missing.append("R2_ACCOUNT_ID or R2_ENDPOINT")
+            if (
+                self.r2_access_key_id is None
+                or not self.r2_access_key_id.get_secret_value().strip()
+            ):
+                missing.append("R2_ACCESS_KEY_ID")
+            if (
+                self.r2_secret_access_key is None
+                or not self.r2_secret_access_key.get_secret_value().strip()
+            ):
+                missing.append("R2_SECRET_ACCESS_KEY")
+            if not self.r2_bucket.strip():
+                missing.append("R2_BUCKET")
             if missing:
-                raise ValueError("Missing S3 settings: " + ", ".join(missing))
-        if self.tts_provider_mode != "disabled" and self.media_storage_mode == "disabled":
-            raise ValueError("Narration TTS requires durable MEDIA_STORAGE_MODE=s3")
+                raise ValueError("Missing R2 settings: " + ", ".join(missing))
+        if self.tts_provider_mode != "disabled" and self.media_storage_mode != "r2":
+            raise ValueError("Narration TTS requires durable MEDIA_STORAGE_MODE=r2")
         return self
 
 
 def get_settings() -> WorkerSettings:
+    """Return an initialized instance of WorkerSettings."""
     return WorkerSettings()

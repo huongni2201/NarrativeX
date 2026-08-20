@@ -5,18 +5,30 @@ on:
     branches:
       - main
     paths:
+      - 'README.md'
+      - '.env.example'
+      - 'docker-compose.yml'
       - 'documentation/**'
       - 'app/backend-service/README.md'
       - 'app/ai-worker/README.md'
+      - 'app/ai-worker/.env.example'
+      - 'app/ai-worker/src/narrativex_worker/config.py'
+      - 'app/ai-worker/src/narrativex_worker/narration/storage.py'
       - 'scripts/check-docs-drift.py'
       - '.github/workflows/docs-ci.yml'
   pull_request:
     branches:
       - main
     paths:
+      - 'README.md'
+      - '.env.example'
+      - 'docker-compose.yml'
       - 'documentation/**'
       - 'app/backend-service/README.md'
       - 'app/ai-worker/README.md'
+      - 'app/ai-worker/.env.example'
+      - 'app/ai-worker/src/narrativex_worker/config.py'
+      - 'app/ai-worker/src/narrativex_worker/narration/storage.py'
       - 'scripts/check-docs-drift.py'
       - '.github/workflows/docs-ci.yml'
   workflow_dispatch:

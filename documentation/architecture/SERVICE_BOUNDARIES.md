@@ -106,7 +106,7 @@ Future image/video/TTS providers must reuse this durability principle rather tha
 | AI/media providers | durable request/operation state, policy and reconciliation | provider execution |
 | PostgreSQL | schema/contracts and canonical state | database mechanics |
 | Redis | session namespace and transient delivery/counters | in-memory mechanics |
-| MinIO/S3 | storage keys/metadata/validation/lifecycle contract | object durability mechanics |
+| Cloudflare R2 | storage keys/metadata/validation/lifecycle contract and access policy | durable object-storage mechanics |
 | Email/push | notification intent/state | channel delivery outcome |
 
 ## Architecture enforcement

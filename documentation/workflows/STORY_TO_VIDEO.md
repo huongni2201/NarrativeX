@@ -103,12 +103,13 @@ For source-preserving narration, persisted Chapter source remains narration cont
 ```text
 persisted Chapter sourceText
   -> TTS full Chapter text without rewriting
-  -> Chapter narration asset
+  -> Chapter narration asset -> Cloudflare R2
   -> word/sentence alignment timestamps
   -> adaptive VisualScenePlan[] against narration spans
-  -> reuse/reframe/edit/new-keyframe planning
+  -> reuse/reframe/edit/new-keyframe planning -> durable assets in R2
   -> production-mode routing
   -> bounded Chapter render
+  -> final validated export -> Cloudflare R2
 ```
 
 The narration timeline is visual timing authority. Visual scenes are adaptive: a reaction can be short while exposition or inner monologue can hold a compatible visual longer. A generated motion clip can also be shorter than its narration span and be extended using deterministic composition.
@@ -183,7 +184,7 @@ session + ownership
   -> bounded scene/chapter render
   -> merge Chapters + subtitle/BGM/SFX
   -> FinalArtifact validation
-  -> export + notification
+  -> R2 durable export + notification
 ```
 
 ## Current production gaps
@@ -195,6 +196,6 @@ Public-production readiness still requires:
 3. Full pricing/actual-provider-and-internal-resource usage accounting, unused reservation release and billing-ledger reconciliation.
 4. Broader automated moderation, consent and abuse-policy coverage.
 5. Full-Chapter TTS/alignment, reuse-first image pipeline, deterministic motion render and FinalArtifact validation.
-6. Durable media-stage wiring around the local I2V adapter plus real GPU benchmark/usage capture.
+6. Durable R2-backed media-stage wiring around image/TTS/render and the local I2V adapter plus real GPU benchmark/usage capture.
 7. Real-provider/runtime failure/restart/reconciliation E2E coverage.
 8. Production observability, backup/restore and deletion lifecycle evidence.

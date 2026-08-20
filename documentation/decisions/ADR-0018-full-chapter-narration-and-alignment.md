@@ -15,6 +15,7 @@ NarrativeX needs narration timing before visual planning can become duration-aut
 - Full-chapter narration is one logical asset. Provider calls may be segmented internally for provider limits and retry safety; segmentation is sentence/paragraph oriented, never visual-scene oriented.
 - Alignment offsets use UTF-16 code-unit text positions and millisecond audio positions. Spans are ordered and must not overlap. `audioStartMs < audioEndMs`, `textStart <= textEnd`, and the final audio end must remain within 250ms of measured asset duration.
 - `NarrationAsset` is immutable and references `project_assets` as the minimum MediaAsset/storage abstraction. A provider response URL is never the authoritative artifact.
+- Durable narration segments and final chapter audio are stored in private Cloudflare R2 through its S3-compatible API. Worker-local files remain scratch/cache only.
 - Worker TTS contracts are provider-neutral. Deterministic fake providers are the acceptance-test default. Provider-specific adapters stay under worker infrastructure.
 - Ambiguous external submission follows the existing durable provider-operation rule: fence before crossing the provider boundary and never blind-resubmit an outcome that may already have been charged.
 
@@ -24,4 +25,4 @@ Fallback decisions are backend policy, not Wan-provider behavior. The backend vo
 
 ## Consequences
 
-Visual planning can consume one immutable narration timeline without owning TTS semantics. Later subtitle/word-level alignment may refine the spans without changing the public span contract. Storage backends can move from local MinIO to Cloudflare R2 or another S3-compatible store without changing `NarrationAsset` identity.
+Visual planning can consume one immutable narration timeline without owning TTS semantics. Later subtitle/word-level alignment may refine the spans without changing the public span contract. Narration durability follows the same R2-only storage contract as generated images, motion assets and final exports; storage implementation details do not change `NarrationAsset` identity.

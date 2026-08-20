@@ -81,21 +81,22 @@ class InMemoryMediaStorage:
 
 
 class S3MediaStorage:
-    """S3-compatible immutable storage for MinIO, R2, or S3."""
+    """Cloudflare R2 immutable media storage through its S3-compatible API."""
 
     def __init__(self, settings: WorkerSettings) -> None:
-        if settings.media_storage_mode != "s3":
-            raise ValueError("S3MediaStorage requires MEDIA_STORAGE_MODE=s3")
-        assert settings.s3_access_key is not None
-        assert settings.s3_secret_key is not None
-        assert settings.s3_bucket is not None
-        self.bucket = settings.s3_bucket
+        if settings.media_storage_mode != "r2":
+            raise ValueError("S3MediaStorage is R2-only and requires MEDIA_STORAGE_MODE=r2")
+        endpoint = settings.resolved_r2_endpoint
+        assert endpoint is not None
+        assert settings.r2_access_key_id is not None
+        assert settings.r2_secret_access_key is not None
+        self.bucket = settings.r2_bucket
         self.client = boto3.client(
             "s3",
-            endpoint_url=settings.s3_endpoint_url,
-            region_name=settings.s3_region,
-            aws_access_key_id=settings.s3_access_key.get_secret_value(),
-            aws_secret_access_key=settings.s3_secret_key.get_secret_value(),
+            endpoint_url=endpoint,
+            region_name="auto",
+            aws_access_key_id=settings.r2_access_key_id.get_secret_value(),
+            aws_secret_access_key=settings.r2_secret_access_key.get_secret_value(),
         )
 
     async def put_immutable(

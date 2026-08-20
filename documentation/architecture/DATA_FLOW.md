@@ -12,9 +12,8 @@ PostgreSQL state, not Redis messages or process memory, determines what Narrativ
 | Chapter continuity identities/relations | PostgreSQL | AI keys resolve to durable project Character/Location identities |
 | Usage/admission | PostgreSQL | current reservation foundation; complete billing reconciliation remains partial |
 | Browser session | Redis via Spring Session | session loss may sign users out; business state remains PostgreSQL |
-| Generated image bytes | Cloudflare R2 in production | durable image payloads; DB owns metadata/contracts; MinIO may emulate the S3 boundary locally |
-| Worker-local image workspace | Local filesystem | ephemeral scratch/cache only; never an authoritative asset location |
-| Other binary media | S3-compatible object-storage boundary | audio/video finalization remains downstream work; DB owns metadata/contracts |
+| Durable binary media | Cloudflare R2 | generated/reference images, narration, subtitles/manifests, scene/motion video, final exports and thumbnails; DB owns metadata/contracts |
+| Worker-local media workspace | Local filesystem | ephemeral scratch/cache/FFmpeg workspace only; never an authoritative asset location |
 
 ## Trigger boundary
 
@@ -130,19 +129,19 @@ API mode must not synthesize progress or continuity state from fixtures.
 
 Image generation, TTS/subtitles and FFmpeg render/export are downstream stages and remain `PENDING`. They must consume reviewed/versioned continuity/storyboard state and use durable ProviderOperation/Asset/FinalArtifact contracts rather than calling providers directly from UI/backend request threads.
 
-Generated-image durability follows this target flow:
+Durable media follows this target flow:
 
 ```text
-provider result/download
+provider/render result
   -> worker local scratch
-  -> validate image payload
+  -> validate media payload
   -> upload immutable object to Cloudflare R2
   -> persist Asset/MediaAsset metadata in PostgreSQL
-  -> mark image-generation stage complete
+  -> mark producing stage complete
   -> delete local scratch when safe
 ```
 
-The R2 object, not a worker-local path, is the durable image payload. A retry or reclaimed job should reuse a valid already-persisted R2 image rather than regenerate it solely because local scratch was lost. MinIO may be used as the S3-compatible local-development implementation of this boundary.
+The R2 object, not a worker-local path, is the durable media payload. A retry or reclaimed job should reuse a valid already-persisted R2 object rather than regenerate it solely because local scratch was lost. Development, staging and production use environment-isolated R2 buckets rather than a local object-storage implementation.
 
 ## Remaining durability/release work
 

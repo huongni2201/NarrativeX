@@ -30,6 +30,7 @@ This matrix maps the maintained V1.10 contract to current repository evidence. T
 | Frontend Storyboard foundation | Storyboard API/query flow | frontend contract/build gates | IMPLEMENTED |
 | Dual media planning contracts | `media.py` production/motion/asset strategy contracts | `test_media_planning.py`; not wired to persisted media plans yet | PROTOTYPE |
 | Local Wan I2V adapter | `providers/wan.py`, `VideoGenerationProvider`, Wan settings | deterministic adapter tests; not wired to durable media jobs yet | PROTOTYPE |
+| R2 durable-media configuration contract | `WorkerSettings` R2 settings + Compose/env configuration | `test_config.py`; upload/download adapter not wired yet | PARTIAL |
 | Image/TTS/render/export | no complete production vertical slice | N/A | PENDING |
 | Full Character version/reference/lock workflow | partial domain/API foundation | incomplete end-to-end review workflow | PARTIAL |
 | Approved storyboard reset/versioning | protection exists; complete user workflow not established | re-analysis safety tests | PARTIAL |
@@ -78,7 +79,7 @@ Downstream media generation must still resolve reviewed/versioned Character/refe
 
 ## Production non-claims
 
-NarrativeX is not yet public-production complete. The new production-mode contracts and local Wan adapter are foundations only. Remaining release work includes full-Chapter TTS/alignment, reuse-first image generation/editing, deterministic motion rendering, durable media-job wiring, backend media workload/cost authority, GPU benchmark/actual usage accounting, broader moderation/consent/abuse coverage, deletion/retention, backup/restore evidence, observability, real-runtime E2E coverage and final export validation.
+NarrativeX is not yet public-production complete. The new production-mode contracts, local Wan adapter and R2 configuration contract are foundations only. Remaining release work includes full-Chapter TTS/alignment, reuse-first image generation/editing, deterministic motion rendering, durable media-job wiring and R2 upload/download execution, backend media workload/cost authority, GPU benchmark/actual usage accounting, broader moderation/consent/abuse coverage, deletion/retention, backup/restore evidence, observability, real-runtime E2E coverage and final export validation.
 
 ## Documentation invariants
 
@@ -94,3 +95,4 @@ NarrativeX is not yet public-production complete. The new production-mode contra
 10. Current-state docs use `IMPLEMENTED`, `PARTIAL`, `PENDING`, `PROTOTYPE` or `TARGET`.
 11. Historical V1.8/V1.9 labels must be explicitly historical, never the current repository baseline.
 12. `IMAGE_MOTION` never authorizes I2V; `HYBRID_LOCAL_I2V` remains image-first and authorizes only planned selected-beat I2V.
+13. Cloudflare R2 is the sole durable media object store; worker-local media files are scratch/cache only.

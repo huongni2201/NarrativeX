@@ -13,7 +13,7 @@ app/backend-service/   Java 25 / Spring Boot 4 modular monolith, API and durable
 app/frontend-web/      Next.js 16 / React 19 / TypeScript studio UI
 app/ai-worker/         Python 3.12 asynchronous AI execution worker
 contracts/             versioned cross-runtime contracts
-docker-compose.yml     local PostgreSQL, Redis, MinIO, backend, frontend and worker topology
+docker-compose.yml     local PostgreSQL, Redis, backend, frontend and worker topology; R2 is external managed media storage
 documentation/         source of truth, architecture, domain, workflows, ADRs and codebase maps
 ```
 
@@ -24,13 +24,14 @@ flowchart LR
   FE[Next.js studio UI] -->|HTTP JSON + server session/CSRF| BE[Spring Boot API]
   BE --> PG[(PostgreSQL)]
   BE -. session + delivery/progress hints .-> R[(Redis)]
-  BE -. binary storage boundary .-> S[(MinIO / S3)]
+  BE -. authorized media contract .-> S[(Cloudflare R2)]
   PG -->|durable GenerationJob / StageAttempt| W[Python worker]
   W -->|structured provider request| P[Vertex Gemini / provider ports]
+  W -->|durable media outputs| S
   W -->|validated materialization| PG
 ```
 
-PostgreSQL is authoritative for durable application and execution state. Redis is non-authoritative for job correctness, although Redis-backed HTTP sessions are an availability dependency for authenticated sessions. The worker is an execution runtime, not a second product/domain authority.
+PostgreSQL is authoritative for durable application and execution state. Redis is non-authoritative for job correctness, although Redis-backed HTTP sessions are an availability dependency for authenticated sessions. The worker is an execution runtime, not a second product/domain authority. Cloudflare R2 is the sole durable binary-media object store; local worker disk is scratch/cache only.
 
 ## Backend features
 
@@ -94,7 +95,7 @@ The Python 3.12 worker is a real asynchronous execution runtime, not the earlier
 - Validates the Chapter snapshot before result materialization.
 - Persists current Chapter-analysis Character/ProjectCharacter/CharacterVersion and Scene/VisualBeat results.
 - Location materialization and Scene character/location continuity relations remain incomplete.
-- Image generation, TTS/subtitles and render/export remain future execution stages.
+- Image generation, TTS/subtitles and render/export remain future execution stages under the R2-only durable media contract.
 
 There is no FastAPI service in the current worker dependency/runtime contract. Browser/client APIs remain owned by Spring Boot.
 
@@ -115,7 +116,7 @@ API mode must never silently substitute fixtures for unavailable production data
 - `V2__seed_demo_data.sql` contains deterministic local/demo data.
 - PostgreSQL owns durable domain/job/quota/safety state.
 - Redis owns Spring Session state and may carry non-authoritative delivery/progress hints.
-- Binary media belongs in MinIO/S3-compatible storage; PostgreSQL owns durable metadata/keys/checksums when the relevant Asset workflow is implemented.
+- Cloudflare R2 owns durable binary media across environments; PostgreSQL owns metadata/keys/checksums/lineage. Worker-local media paths are transient only.
 
 ## Current vs remaining work
 
@@ -130,7 +131,7 @@ API mode must never silently substitute fixtures for unavailable production data
 | Character library | IMPLEMENTED read/API foundation | editing/version locking/reference assets |
 | Location | PARTIAL | AI materialization + Scene continuity relation |
 | Assets | PARTIAL foundation | upload/finalize/review plus generated media lifecycle |
-| Image/TTS/render/export | PENDING | implementation and FinalArtifact validation |
+| Image/TTS/render/export | PENDING | R2-backed implementation and FinalArtifact validation |
 | Billing | PARTIAL | actual-usage reconciliation and unused reservation release |
 
 ## Critical dependency direction

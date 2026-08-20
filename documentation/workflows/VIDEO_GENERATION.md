@@ -26,7 +26,7 @@ Approved VisualBeat + KeyframeAsset
   -> CostReservation
   -> VIDEO_MOTION_GENERATE StageAttempt
   -> VideoGenerationProvider adapter (Wan-local/future adapters)
-  -> MotionAsset validation + output moderation
+  -> MotionAsset validation + R2 persistence + output moderation
   -> Identity QA / human review
   -> approve MotionAsset or fallback to keyframe/basic motion
   -> usage reconciliation + render dependency update
@@ -53,7 +53,7 @@ If the submission request times out or receives an ambiguous server failure afte
 
 ## Output and fallback gates
 
-The output is written to temporary storage and validated for MIME, dimensions, duration, aspect ratio, checksum, manifest and provider response schema before immutable promotion. Output moderation and identity QA run before human approval. `REVIEW` is not publishable. A failed/blocked/too-expensive/unavailable motion stage can fall back to the approved keyframe with deterministic pan/zoom/parallax/fade if policy and render plan allow; fallback is recorded and does not delete the failed attempt.
+Provider output is downloaded/written to worker-local scratch and validated for MIME, dimensions, duration, aspect ratio, checksum, manifest and provider response schema. The validated immutable motion object is uploaded to Cloudflare R2 and its Asset/MediaAsset metadata is committed before the producing stage can complete. Output moderation and identity QA then run before human approval. `REVIEW` is not publishable. A failed/blocked/too-expensive/unavailable motion stage can fall back to the approved keyframe with deterministic pan/zoom/parallax/fade if policy and render plan allow; fallback is recorded and does not delete the failed attempt.
 
 Generated I2V duration and narration-span duration are intentionally separate. For example, a five-second generated motion asset can be deterministically extended inside an eight-second narration span; only five generated seconds belong to the I2V workload.
 
@@ -74,4 +74,4 @@ expectedI2vCost
 
 Reservation uses p90/bounded benchmark data and maximum authorized attempts. Actual resource usage is reconciled separately. Changing production mode or local-I2V quality re-plans/re-prices the same valid semantic analysis snapshot instead of re-running story analysis.
 
-Usage records capture actual internal GPU/compute cost, motion seconds, storage/egress and `billed_to_user_id`. The reservation is consumed/released and the parent render dependency is updated transactionally. Final MP4 readiness still requires the normal FFmpeg/FinalArtifact validation gates.
+Usage records capture actual internal GPU/compute cost, motion seconds, storage/egress and `billed_to_user_id`. The reservation is consumed/released and the parent render dependency is updated transactionally. Final MP4 readiness still requires the normal FFmpeg/FinalArtifact validation gates, after which the durable final artifact is persisted to R2.

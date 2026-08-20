@@ -11,7 +11,7 @@ NarrativeX is an image-first AI Story Video Studio for turning flexible-length s
 | `app/frontend-web` | Next.js/TypeScript storyboard, review, cost and notification UI |
 | `documentation` | Product, domain, architecture, workflows, codebase notes and ADRs |
 | `contracts` | Versioned backend ↔ worker payload contracts |
-| `docker-compose.yml` | Local PostgreSQL 18, Redis 8, MinIO, backend and AI worker services |
+| `docker-compose.yml` | Local PostgreSQL 18, Redis 8, backend and AI worker services; durable media uses external Cloudflare R2 |
 
 ## Start the local stack
 
@@ -20,17 +20,17 @@ Copy-Item .env.example .env
 docker compose up -d --build
 ```
 
-This starts PostgreSQL 18, Redis 8, MinIO, the Spring Boot backend and the AI worker. The worker waits for the backend to become healthy so Flyway can apply the PostgreSQL schema first. The backend is available at `http://localhost:8080`; Actuator health is at `http://localhost:8080/actuator/health`.
+This starts PostgreSQL 18, Redis 8, the Spring Boot backend and the AI worker. Cloudflare R2 is external managed object storage and is not emulated by a local object-storage container. The worker waits for the backend to become healthy so Flyway can apply the PostgreSQL schema first. The backend is available at `http://localhost:8080`; Actuator health is at `http://localhost:8080/actuator/health`.
 
 The worker uses PostgreSQL as its durable work queue. Its safe local default is `AI_PROVIDER_MODE=disabled`, so queued AI jobs fail explicitly until a provider is configured; it never reports fake provider success.
 
 To start only infrastructure dependencies:
 
 ```powershell
-docker compose up -d postgres redis minio
+docker compose up -d postgres redis
 ```
 
-The backend container uses `postgres` and `redis` as service hostnames. Host-run backend development should continue using `localhost` from `app/backend-service/.env.example`.
+The backend container uses `postgres` and `redis` as service hostnames. Host-run backend development should continue using `localhost` from `app/backend-service/.env.example`. Media workers use the configured R2 bucket directly for durable media in every environment; worker-local files are scratch/cache only.
 
 PostgreSQL 18 uses a new data directory layout. Do not point it directly at an existing PostgreSQL 16 data volume; migrate retained data with a tested dump/restore or PostgreSQL upgrade procedure first.
 
