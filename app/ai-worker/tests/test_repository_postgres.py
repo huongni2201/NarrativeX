@@ -198,6 +198,63 @@ async def test_stale_running_lease_is_reclaimed(postgres_database: str) -> None:
 
 
 @pytest.mark.asyncio
+async def test_running_lease_without_heartbeat_is_reclaimed(postgres_database: str) -> None:
+    _, stage_attempt_id = await seed_job(postgres_database, stage_status="RUNNING")
+    connection = await asyncpg.connect(postgres_database)
+    try:
+        await connection.execute(
+            """
+            UPDATE stage_attempts
+               SET worker_id = 'dead-worker',
+                   heartbeat_at = NULL
+             WHERE id = $1
+            """,
+            stage_attempt_id,
+        )
+        await connection.execute("UPDATE generation_jobs SET status = 'RUNNING'")
+    finally:
+        await connection.close()
+
+    repository = WorkerRepository(postgres_database, lease_seconds=30)
+    await repository.connect()
+    try:
+        claimed = await repository.claim_next("replacement-worker")
+    finally:
+        await repository.close()
+
+    assert claimed is not None
+    assert claimed.stage_attempt_id == stage_attempt_id
+
+
+@pytest.mark.asyncio
+async def test_fresh_running_lease_is_not_reclaimed(postgres_database: str) -> None:
+    _, stage_attempt_id = await seed_job(postgres_database, stage_status="RUNNING")
+    connection = await asyncpg.connect(postgres_database)
+    try:
+        await connection.execute(
+            """
+            UPDATE stage_attempts
+               SET worker_id = 'healthy-worker',
+                   heartbeat_at = CURRENT_TIMESTAMP
+             WHERE id = $1
+            """,
+            stage_attempt_id,
+        )
+        await connection.execute("UPDATE generation_jobs SET status = 'RUNNING'")
+    finally:
+        await connection.close()
+
+    repository = WorkerRepository(postgres_database, lease_seconds=30)
+    await repository.connect()
+    try:
+        claimed = await repository.claim_next("other-worker")
+    finally:
+        await repository.close()
+
+    assert claimed is None
+
+
+@pytest.mark.asyncio
 async def test_provider_reservation_is_unique_across_workers(postgres_database: str) -> None:
     generation_job_id, stage_attempt_id = await seed_job(postgres_database)
     claimed = ClaimedChapterAnalysisJob(
@@ -258,7 +315,7 @@ async def test_provider_result_and_completed_status_persist_atomically(
         reserved = await repository.reserve_provider_operation(
             claimed, "vertex", "durable-result-fingerprint"
         )
-        unknown = await repository.mark_provider_operation_submission_unknown(reserved)
+        unknown = await repository.mark_provider_operation_submission_unknown(reserved, 30.0)
         persisted = await repository.persist_provider_result(
             unknown, "vertex-response-1", chapter_result()
         )
@@ -298,7 +355,7 @@ async def test_provider_operation_state_machine_and_terminal_rows_are_immutable(
     await repository.connect()
     try:
         reserved = await repository.reserve_provider_operation(claimed, "vertex", "matrix")
-        unknown = await repository.mark_provider_operation_submission_unknown(reserved)
+        unknown = await repository.mark_provider_operation_submission_unknown(reserved, 30.0)
         submitted = await repository.mark_provider_operation_submitted(unknown, "provider-1")
         running = await repository.mark_provider_operation_status(
             submitted, ProviderOperationStatus.RUNNING
@@ -318,7 +375,7 @@ async def test_provider_operation_state_machine_and_terminal_rows_are_immutable(
             claimed, "vertex", "matrix-failed"
         )
         failed_unknown = await repository.mark_provider_operation_submission_unknown(
-            failed_reserved
+            failed_reserved, 30.0
         )
         failed = await repository.mark_provider_operation_status(
             failed_unknown, ProviderOperationStatus.FAILED
@@ -361,11 +418,11 @@ async def test_stale_provider_operation_snapshot_cannot_overwrite_newer_state(
     await second.connect()
     try:
         reserved = await first.reserve_provider_operation(claimed, "vertex", "stale")
-        unknown = await first.mark_provider_operation_submission_unknown(reserved)
+        unknown = await first.mark_provider_operation_submission_unknown(reserved, 30.0)
         stale = await second.get_provider_operation(unknown.id)
         await first.mark_provider_operation_status(unknown, ProviderOperationStatus.RUNNING)
         with pytest.raises(ProviderOperationStateConflictError):
-            await second.mark_provider_operation_status(stale, ProviderOperationStatus.UNKNOWN)
+            await second.mark_provider_operation_status(stale, ProviderOperationStatus.FAILED)
         latest = await second.get_provider_operation(stale.id)
     finally:
         await first.close()
