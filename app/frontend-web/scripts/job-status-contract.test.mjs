@@ -3,8 +3,8 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const apiSource = await readFile(new URL("../src/types/api.ts", import.meta.url), "utf8");
-const chapterEditorSource = await readFile(
-  new URL("../src/features/chapters/components/ChapterEditor.tsx", import.meta.url),
+const chapterStateSource = await readFile(
+  new URL("../src/features/chapters/hooks/useChapterWorkspaceState.ts", import.meta.url),
   "utf8",
 );
 
@@ -28,13 +28,13 @@ test("frontend JobStatus contract matches backend spelling and states", () => {
   assert.match(apiSource, /ACTIVE_JOB_STATUSES[\s\S]*"PAUSED_COST_LIMIT"/);
 });
 
-test("ChapterEditor stops polling terminal jobs", () => {
+test("Chapter workspace hook stops polling terminal jobs", () => {
   assert.match(
-    chapterEditorSource,
+    chapterStateSource,
     /TERMINAL_JOB_STATUSES\.has\(status\)\s*\?\s*false\s*:\s*1500/,
   );
 });
 
-test("ChapterEditor derives active UI state from typed active statuses", () => {
-  assert.match(chapterEditorSource, /ACTIVE_JOB_STATUSES\.has\(analysisJob\.status\)/);
+test("Chapter workspace hook derives active UI state from typed active statuses", () => {
+  assert.match(chapterStateSource, /ACTIVE_JOB_STATUSES\.has\(\s*analysisJob\.status\s*\)/);
 });

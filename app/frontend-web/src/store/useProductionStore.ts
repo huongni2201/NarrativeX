@@ -18,8 +18,6 @@ interface ProductionStore {
   isAddChapterModalOpen: boolean;
   activeReviewTab: "all" | "approved" | "needs_review" | "rejected";
 
-  /** Demo-only hydration retained for legacy visual prototypes. Never use for persisted backend entities. */
-  hydrateDemoProduction: (project: ProjectProductionDetail, visualBeats: VisualBeat[]) => void;
   setView: (view: ProductionViewMode) => void;
   setActiveWorkspaceTab: (tab: string) => void;
   setActiveChapter: (chapterId: string) => void;
@@ -47,19 +45,6 @@ export const useProductionStore = create<ProductionStore>((set, get) => ({
   selectedVisualBeatIds: [],
   isAddChapterModalOpen: false,
   activeReviewTab: "all",
-
-  hydrateDemoProduction: (project, visualBeats) =>
-    set((state) =>
-      state.project
-        ? state
-        : {
-            project,
-            visualBeats,
-            activeChapterId: project.chapters[0]?.id ?? "",
-            activeSceneId: project.chapters[0]?.scenes[0]?.id ?? "",
-            selectedVisualBeatIds: visualBeats.slice(0, 3).map((beat) => beat.id),
-          },
-    ),
 
   setView: (view) => {
     if (view === "storyboard") set({ currentView: "workspace", activeWorkspaceTab: "storyboard" });

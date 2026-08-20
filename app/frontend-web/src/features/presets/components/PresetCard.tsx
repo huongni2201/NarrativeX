@@ -13,8 +13,8 @@ interface PresetCardProps {
 }
 
 export const PresetCard: React.FC<PresetCardProps> = ({ preset, isSelected = false, onClick }) => (
-  <article className={cn("group overflow-hidden rounded-2xl border bg-[#0d1420] shadow-md transition-all", isSelected ? "border-purple-500 ring-2 ring-purple-500/50" : "border-slate-800/90 hover:border-slate-700")}>
-    <button type="button" onClick={onClick} className="block w-full text-left">
+  <article className={cn("group overflow-hidden rounded-2xl border bg-[#0d1420] shadow-md transition-colors", isSelected ? "border-purple-500 ring-2 ring-purple-500/50" : "border-slate-800/90 hover:border-slate-700")}>
+    <button type="button" onClick={onClick} className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500">
       <div className="relative aspect-[16/10] overflow-hidden bg-slate-950">
         <Image
           src={preset.coverImage}

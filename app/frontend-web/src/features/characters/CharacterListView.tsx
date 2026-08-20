@@ -60,6 +60,8 @@ export const CharacterListView: React.FC<CharacterListViewProps> = ({
                       <img
                         src={character.avatarUrl}
                         alt={character.name}
+                        width={40}
+                        height={40}
                         loading="lazy"
                         className="w-full h-full object-cover"
                       />

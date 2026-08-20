@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.storyboard.api.controller;
 
+import com.narrativex.backend.feature.common.pagination.CursorPage;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.storyboard.api.request.CreateChapterRequest;
 import com.narrativex.backend.feature.storyboard.api.request.UpdateChapterRequest;
@@ -81,9 +82,13 @@ public class ChapterController {
   }
 
   @GetMapping
-  public ResponseEntity<ApiResponse<List<ChapterSummaryResponse>>> list(
-      @PathVariable Long projectId, @RequestParam Long storyVersionId) {
-    return ResponseEntity.ok(listChaptersUseCase.execute(projectId, storyVersionId));
+  public ResponseEntity<ApiResponse<CursorPage<ChapterSummaryResponse>>> list(
+      @PathVariable Long projectId,
+      @RequestParam Long storyVersionId,
+      @RequestParam(required = false) String cursor,
+      @RequestParam(defaultValue = "50") int limit) {
+    return ResponseEntity.ok(
+        listChaptersUseCase.execute(projectId, storyVersionId, cursor, limit));
   }
 
   @GetMapping("/{chapterId}")

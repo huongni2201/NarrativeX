@@ -115,7 +115,7 @@ export const StylePresetsScreen: React.FC = () => {
                   key={tab.id}
                   onClick={() => setActiveCategory(tab.id)}
                   className={cn(
-                    "px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap flex items-center gap-1.5",
+                    "px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 whitespace-nowrap flex items-center gap-1.5",
                     isActive
                       ? "bg-purple-600 text-white font-semibold shadow-[0_0_12px_rgba(124,58,237,0.4)]"
                       : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"

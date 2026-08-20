@@ -31,7 +31,7 @@ export const Progress: React.FC<ProgressProps> = ({
     >
       <div
         className={cn(
-          "h-full rounded-full transition-all duration-500 ease-out relative",
+          "h-full rounded-full transition-[width] duration-500 ease-out relative",
           colorGradients[color],
           showGlow && "shadow-[0_0_12px_rgba(124,58,237,0.7)]"
         )}

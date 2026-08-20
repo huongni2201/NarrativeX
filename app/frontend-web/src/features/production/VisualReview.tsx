@@ -89,7 +89,7 @@ export const VisualReview: React.FC = () => {
           <button
             onClick={() => setActiveReviewTab("all")}
             className={cn(
-              "px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all border flex items-center gap-2",
+              "px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 border flex items-center gap-2",
               activeReviewTab === "all"
                 ? "bg-purple-600 text-white border-purple-500 shadow-[0_0_12px_rgba(124,58,237,0.4)]"
                 : "bg-[#090e18] text-slate-400 border-slate-800 hover:text-slate-200"
@@ -102,7 +102,7 @@ export const VisualReview: React.FC = () => {
           <button
             onClick={() => setActiveReviewTab("approved")}
             className={cn(
-              "px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all border flex items-center gap-2",
+              "px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 border flex items-center gap-2",
               activeReviewTab === "approved"
                 ? "bg-emerald-950/90 text-emerald-300 border-emerald-500 shadow-[0_0_12px_rgba(34,197,94,0.3)]"
                 : "bg-[#090e18] text-emerald-400/80 border-slate-800 hover:text-emerald-300"
@@ -115,7 +115,7 @@ export const VisualReview: React.FC = () => {
           <button
             onClick={() => setActiveReviewTab("needs_review")}
             className={cn(
-              "px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all border flex items-center gap-2",
+              "px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 border flex items-center gap-2",
               activeReviewTab === "needs_review"
                 ? "bg-amber-950/90 text-amber-300 border-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.3)]"
                 : "bg-[#090e18] text-amber-400/80 border-slate-800 hover:text-amber-300"
@@ -128,7 +128,7 @@ export const VisualReview: React.FC = () => {
           <button
             onClick={() => setActiveReviewTab("rejected")}
             className={cn(
-              "px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all border flex items-center gap-2",
+              "px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 border flex items-center gap-2",
               activeReviewTab === "rejected"
                 ? "bg-rose-950/90 text-rose-300 border-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.3)]"
                 : "bg-[#090e18] text-rose-400/80 border-slate-800 hover:text-rose-300"
@@ -163,8 +163,8 @@ export const VisualReview: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Grid: 8 Dense Visual Review Cards matching Screen 05 */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-5">
+      {/* Beats Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5">
         {filteredBeats.map((beat) => {
           const isSelected = selectedVisualBeatIds.includes(beat.id);
 
@@ -173,9 +173,9 @@ export const VisualReview: React.FC = () => {
               key={beat.id}
               onClick={() => toggleSelectVisualBeat(beat.id)}
               className={cn(
-                "group relative bg-[#0d1420] rounded-xl overflow-hidden cursor-pointer transition-all duration-200 border flex flex-col justify-between shadow-lg select-none",
+                "group relative bg-[#0d1420] rounded-xl overflow-hidden cursor-pointer transition-colors duration-200 border flex flex-col justify-between shadow-lg select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500",
                 isSelected
-                  ? "border-purple-500 ring-2 ring-purple-500/50 shadow-[0_0_20px_rgba(124,58,237,0.35)] scale-[1.01]"
+                  ? "border-purple-500 ring-2 ring-purple-500/50 shadow-[0_0_20px_rgba(124,58,237,0.35)]"
                   : "border-slate-800/90 hover:border-slate-700 hover:bg-[#111a29]"
               )}
             >
@@ -184,6 +184,8 @@ export const VisualReview: React.FC = () => {
                 <img
                   src={beat.imageUrl}
                   alt={beat.description}
+                  width={300}
+                  height={400}
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                   loading="lazy"
                 />
@@ -193,7 +195,7 @@ export const VisualReview: React.FC = () => {
                 <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between">
                   <div
                     className={cn(
-                      "w-5 h-5 rounded-md border flex items-center justify-center transition-all",
+                      "w-5 h-5 rounded-md border flex items-center justify-center transition-colors",
                       isSelected
                         ? "bg-purple-600 border-purple-400 text-white shadow-[0_0_8px_rgba(124,58,237,0.8)]"
                         : "bg-black/60 border-white/20 text-transparent hover:border-purple-400"

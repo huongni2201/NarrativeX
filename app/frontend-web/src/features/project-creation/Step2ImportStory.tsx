@@ -86,7 +86,7 @@ export const Step2ImportStory: React.FC<Step2Props> = ({ validationErrors = [] }
           </ul>
 
           <div className="pt-2 border-t border-slate-800/80">
-            <button type="button" onClick={loadSampleStory} className="w-full py-2 px-3 rounded-lg bg-purple-950/60 hover:bg-purple-900/60 border border-purple-800/60 text-purple-300 text-xs font-semibold flex items-center justify-center gap-2 transition-all">
+            <button type="button" onClick={loadSampleStory} className="w-full py-2 px-3 rounded-lg bg-purple-950/60 hover:bg-purple-900/60 border border-purple-800/60 text-purple-300 text-xs font-semibold flex items-center justify-center gap-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500">
               <Sparkles className="w-3.5 h-3.5 text-purple-400" />
               <span>Điền truyện mẫu</span>
             </button>

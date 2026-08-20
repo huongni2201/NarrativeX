@@ -63,6 +63,14 @@ for (const file of files) {
       add(file, "domain-component-ownership", "legacy domain component paths may contain compatibility re-exports only; implementation belongs in features/<domain>/components");
     }
   }
+
+  // Ensure new files avoid ad-hoc inline hex color classes when standard design tokens exist
+  if (rel.startsWith("src/features/chapters/components/") || rel.startsWith("src/features/storyboard/components/")) {
+    const adhocHexMatch = source.match(/(?:bg|border|text)-\[#[0-9a-fA-F]{3,8}\]/);
+    if (adhocHexMatch) {
+      add(file, "global-color-tokens", `use semantic design tokens from globals.css / tailwind.config.ts instead of ad-hoc hex class ${adhocHexMatch[0]}`);
+    }
+  }
 }
 
 if (violations.length > 0) {

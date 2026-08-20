@@ -10,7 +10,7 @@ import {
   VolumeX,
   Maximize2,
   Subtitles,
-  Sliders,
+  SlidersHorizontal,
 } from "lucide-react";
 import { Chapter } from "@/types/domain";
 
@@ -71,8 +71,10 @@ export const LongFormPreview: React.FC = () => {
 
         {/* Center Play/Pause Floating Icon Button */}
         <button
+          type="button"
           onClick={() => setIsPlaying(!isPlaying)}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 rounded-full bg-purple-600/80 hover:bg-purple-500 backdrop-blur-md border border-purple-400/60 text-white flex items-center justify-center shadow-[0_0_30px_rgba(124,58,237,0.8)] transition-all hover:scale-110 active:scale-95"
+          aria-label={isPlaying ? "Tạm dừng phát video" : "Bắt đầu phát video"}
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 rounded-full bg-purple-600/80 hover:bg-purple-500 backdrop-blur-md border border-purple-400/60 text-white flex items-center justify-center shadow-[0_0_30px_rgba(124,58,237,0.8)] transition-transform hover:scale-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
         >
           {isPlaying ? (
             <Pause className="w-7 h-7 fill-white" />
@@ -83,46 +85,76 @@ export const LongFormPreview: React.FC = () => {
 
         {/* Bottom Video Controls Bar matching Screen 07 */}
         <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black via-black/80 to-transparent flex items-center justify-between gap-4 text-white text-xs">
-          {/* Play/Pause & Time */}
-          <div className="flex items-center gap-3 font-mono">
+          {/* Left: Play/Pause, Duration */}
+          <div className="flex items-center gap-3">
             <button
+              type="button"
               onClick={() => setIsPlaying(!isPlaying)}
-              className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+              aria-label={isPlaying ? "Tạm dừng" : "Phát"}
+              className="text-slate-300 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded p-0.5"
             >
-              {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+              {isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current" />}
             </button>
-
-            <span className="font-semibold text-slate-200">
-              00:23:15 <span className="text-slate-500">/</span> 00:58:42
+            <span className="font-mono text-xs text-slate-300">
+              00:23:15 / 00:58:42
             </span>
           </div>
 
-          {/* Right Controls */}
-          <div className="flex items-center gap-2">
+          {/* Right: Volume, Subtitles, Quality, Fullscreen */}
+          <div className="flex items-center gap-3">
             <button
+              type="button"
               onClick={() => setIsMuted(!isMuted)}
-              className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-slate-300"
+              aria-label={isMuted ? "Bật âm thanh" : "Tắt âm thanh"}
+              className="text-slate-300 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded p-0.5"
             >
-              {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+              {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4" />}
             </button>
-            <button className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-slate-300">
+            <button
+              type="button"
+              aria-label="Phụ đề"
+              className="text-slate-300 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded p-0.5"
+            >
               <Subtitles className="w-4 h-4" />
             </button>
-            <button className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-slate-300">
+            <span className="font-mono text-[10px] bg-purple-950/80 border border-purple-500/40 text-purple-300 px-1.5 py-0.5 rounded">
+              1080P
+            </span>
+            <button
+              type="button"
+              aria-label="Toàn màn hình"
+              className="text-slate-300 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded p-0.5"
+            >
               <Maximize2 className="w-4 h-4" />
             </button>
           </div>
         </div>
       </div>
 
-      {/* Chapter Timeline with Marker Buttons matching Screen 07 */}
-      <div className="p-4 rounded-xl bg-[#0d1420] border border-slate-800/90 shadow-md">
-        <ChapterTimeline
-          chapters={project.chapters}
-          activeChapterNumber={activeChapterNumber}
-          onSelectChapter={handleSelectChapter}
-          progressPercent={40}
-        />
+      {/* Chapter Track Timeline */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+            Timeline Chapters ({readyChapters.length}/{project.chapters.length} ready)
+          </h3>
+          <button
+            type="button"
+            onClick={() => setView("overview")}
+            className="text-xs text-purple-400 hover:text-purple-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded"
+          >
+            Mở Chapter Workspace →
+          </button>
+        </div>
+
+        {/* Chapter Timeline with Marker Buttons matching Screen 07 */}
+        <div className="p-4 rounded-xl bg-[#0d1420] border border-slate-800/90 shadow-md">
+          <ChapterTimeline
+            chapters={project.chapters}
+            activeChapterNumber={activeChapterNumber}
+            onSelectChapter={handleSelectChapter}
+            progressPercent={40}
+          />
+        </div>
       </div>
 
       {/* Chapters trong video Horizontal Reel matching Screen 07 */}
@@ -135,7 +167,7 @@ export const LongFormPreview: React.FC = () => {
             type="button"
             className="text-xs text-purple-400 hover:text-purple-300 font-semibold transition-colors flex items-center gap-1.5"
           >
-            <Sliders className="w-3.5 h-3.5" />
+            <SlidersHorizontal className="w-3.5 h-3.5" />
             <span>Tùy chỉnh thứ tự</span>
           </button>
         </div>
@@ -146,7 +178,8 @@ export const LongFormPreview: React.FC = () => {
             <div
               key={ch.id}
               onClick={() => handleSelectChapter(ch)}
-              className={`group bg-[#090e18] hover:bg-[#111a29] border rounded-xl overflow-hidden cursor-pointer transition-all duration-200 ${
+              tabIndex={0}
+              className={`group bg-[#090e18] hover:bg-[#111a29] border rounded-xl overflow-hidden cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 ${
                 ch.number === activeChapterNumber
                   ? "border-purple-500 shadow-[0_0_15px_rgba(124,58,237,0.3)] ring-1 ring-purple-500/50"
                   : "border-slate-800 hover:border-slate-700"

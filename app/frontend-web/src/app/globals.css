@@ -4,23 +4,46 @@
 
 @layer base {
   :root {
+    /* App Core */
     --background: #070b14;
     --foreground: #f8fafc;
+
+    /* Surfaces */
     --surface: #0d1420;
     --surface-2: #111a29;
     --surface-3: #182234;
+    --surface-dark: #060a12;
+    --surface-card: #0b111c;
+    --surface-panel: #090e18;
+    --surface-elevated: #101c2b;
+    --surface-input: #07111c;
+
+    /* Borders */
     --border: #1e293b;
     --border-subtle: rgba(255, 255, 255, 0.08);
+    --border-dark: #142637;
+    --border-darker: #102235;
     --border-glow: rgba(124, 58, 237, 0.35);
+
+    /* Brand & Accents */
     --primary: #7c3aed;
     --primary-hover: #8b5cf6;
     --primary-light: rgba(124, 58, 237, 0.15);
+    --primary-muted: rgba(124, 58, 237, 0.10);
+
+    /* Status Colors */
     --success: #22c55e;
+    --success-bg: rgba(34, 197, 94, 0.12);
     --warning: #f59e0b;
+    --warning-bg: rgba(245, 158, 11, 0.12);
     --danger: #ef4444;
+    --danger-bg: rgba(239, 68, 68, 0.12);
+
+    /* Typography */
     --text-primary: #f8fafc;
     --text-secondary: #94a3b8;
-    --text-muted: #94a3b8;
+    --text-muted: #64748b;
+    --text-dim: #475569;
   }
 
   body {

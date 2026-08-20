@@ -52,7 +52,7 @@ export function ProjectStoryboardScreen({ projectId }: Readonly<ProjectStoryboar
     return <StoryboardError error={chaptersQuery.error} fallback="Không tải được danh sách Chapter." />;
   }
 
-  return <StoryboardScreen projectId={numericProjectId} chapters={chaptersQuery.data ?? []} />;
+  return <StoryboardScreen projectId={numericProjectId} chapters={chaptersQuery.data?.content ?? []} />;
 }
 
 function StoryboardMessage({ children }: Readonly<{ children: React.ReactNode }>) {

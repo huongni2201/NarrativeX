@@ -17,7 +17,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
     <button
       type="button"
       onClick={() => onClick(project)}
-      className="group relative w-full bg-[#0d1420] hover:bg-[#111a29] border border-slate-800/90 hover:border-purple-500/50 rounded-xl overflow-hidden cursor-pointer text-left transition-all duration-200 hover:shadow-[0_0_25px_rgba(124,58,237,0.2)] flex flex-col"
+      className="group relative w-full bg-[#0d1420] hover:bg-[#111a29] border border-slate-800/90 hover:border-purple-500/50 rounded-xl overflow-hidden cursor-pointer text-left transition-colors duration-200 hover:shadow-[0_0_25px_rgba(124,58,237,0.2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 flex flex-col"
     >
       <div className="relative flex aspect-[16/10] w-full items-center justify-center overflow-hidden bg-gradient-to-br from-[#171434] via-[#10172b] to-[#09111d]">
         {project.coverImageUrl ? (

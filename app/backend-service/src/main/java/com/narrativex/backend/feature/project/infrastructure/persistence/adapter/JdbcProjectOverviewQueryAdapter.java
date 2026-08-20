@@ -31,7 +31,12 @@ public class JdbcProjectOverviewQueryAdapter implements ProjectOverviewQueryRepo
                        p.status,
                        p.created_at,
                        p.updated_at,
-                       sv.id AS story_version_id
+                       sv.id AS story_version_id,
+                       COALESCE(appr_vis.cnt, 0) AS approved_visuals_count,
+                       COALESCE(proc_jobs.cnt, 0) AS processing_jobs_count,
+                       COALESCE(chars.cnt, 0) AS characters_count,
+                       COALESCE(locs.cnt, 0) AS locations_count,
+                       COALESCE(asts.cnt, 0) AS assets_count
                   FROM projects p
                   LEFT JOIN LATERAL (
                       SELECT id, content
@@ -43,6 +48,37 @@ public class JdbcProjectOverviewQueryAdapter implements ProjectOverviewQueryRepo
                                 id DESC
                        LIMIT 1
                   ) sv ON TRUE
+                  LEFT JOIN LATERAL (
+                      SELECT COUNT(vb.id)::int AS cnt
+                        FROM chapters c
+                        JOIN scenes s ON s.chapter_id = c.id AND s.status = 'APPROVED'
+                        JOIN visual_beats vb ON vb.scene_id = s.id
+                       WHERE c.story_version_id = sv.id
+                  ) appr_vis ON TRUE
+                  LEFT JOIN LATERAL (
+                      SELECT COUNT(*)::int AS cnt
+                        FROM generation_jobs
+                       WHERE project_id = p.id
+                         AND status IN ('QUEUED', 'RUNNING', 'STALLED', 'PAUSED_COST_LIMIT')
+                  ) proc_jobs ON TRUE
+                  LEFT JOIN LATERAL (
+                      SELECT COUNT(*)::int AS cnt
+                        FROM project_characters
+                       WHERE project_id = p.id
+                         AND status = 'ACTIVE'
+                  ) chars ON TRUE
+                  LEFT JOIN LATERAL (
+                      SELECT COUNT(*)::int AS cnt
+                        FROM project_locations
+                       WHERE project_id = p.id
+                         AND status = 'ACTIVE'
+                  ) locs ON TRUE
+                  LEFT JOIN LATERAL (
+                      SELECT COUNT(*)::int AS cnt
+                        FROM project_assets
+                       WHERE project_id = p.id
+                         AND status = 'ACTIVE'
+                  ) asts ON TRUE
                  WHERE p.id = ?
                 """,
                 (rs, rowNum) -> mapProject(rs),
@@ -62,12 +98,7 @@ public class JdbcProjectOverviewQueryAdapter implements ProjectOverviewQueryRepo
     int totalScenes = chapters.stream().mapToInt(ProjectOverviewView.Chapter::sceneCount).sum();
     long estimatedDurationSeconds =
         chapters.stream().mapToLong(ProjectOverviewView.Chapter::durationSeconds).sum();
-    int approvedVisuals = approvedVisuals(project.storyVersionId());
-    int processingJobs = processingJobs(projectId);
     int overallProgress = calculateProgress(chapters);
-    int characters = activeCharacterCount(projectId);
-    int locations = activeProjectResourceCount("project_locations", projectId);
-    int assets = activeProjectResourceCount("project_assets", projectId);
 
     return new ProjectOverviewView(
         project.id(),
@@ -83,10 +114,13 @@ public class JdbcProjectOverviewQueryAdapter implements ProjectOverviewQueryRepo
             renderedChapters,
             totalScenes,
             estimatedDurationSeconds,
-            approvedVisuals,
-            processingJobs,
+            project.approvedVisualsCount(),
+            project.processingJobsCount(),
             overallProgress),
-        new ProjectOverviewView.Counts(characters, locations, assets),
+        new ProjectOverviewView.Counts(
+            project.charactersCount(),
+            project.locationsCount(),
+            project.assetsCount()),
         chapters);
   }
 
@@ -160,59 +194,6 @@ public class JdbcProjectOverviewQueryAdapter implements ProjectOverviewQueryRepo
         storyVersionId);
   }
 
-  private int approvedVisuals(Long storyVersionId) {
-    if (storyVersionId == null) return 0;
-    Integer value =
-        jdbcTemplate.queryForObject(
-            """
-            SELECT COUNT(vb.id)::int
-              FROM chapters c
-              JOIN scenes s ON s.chapter_id = c.id AND s.status = 'APPROVED'
-              JOIN visual_beats vb ON vb.scene_id = s.id
-             WHERE c.story_version_id = ?
-            """,
-            Integer.class,
-            storyVersionId);
-    return value == null ? 0 : value;
-  }
-
-  private int processingJobs(Long projectId) {
-    Integer value =
-        jdbcTemplate.queryForObject(
-            """
-            SELECT COUNT(*)::int
-              FROM generation_jobs
-             WHERE project_id = ?
-               AND status IN ('QUEUED', 'RUNNING', 'STALLED', 'PAUSED_COST_LIMIT')
-            """,
-            Integer.class,
-            projectId);
-    return value == null ? 0 : value;
-  }
-
-  private int activeCharacterCount(Long projectId) {
-    Integer value =
-        jdbcTemplate.queryForObject(
-            "SELECT COUNT(*)::int FROM project_characters WHERE project_id = ? AND status = 'ACTIVE'",
-            Integer.class,
-            projectId);
-    return value == null ? 0 : value;
-  }
-
-  private int activeProjectResourceCount(String tableName, Long projectId) {
-    if (!"project_locations".equals(tableName) && !"project_assets".equals(tableName)) {
-      throw new IllegalArgumentException("Unsupported project resource table");
-    }
-    Integer value =
-        jdbcTemplate.queryForObject(
-            "SELECT COUNT(*)::int FROM "
-                + tableName
-                + " WHERE project_id = ? AND status = 'ACTIVE'",
-            Integer.class,
-            projectId);
-    return value == null ? 0 : value;
-  }
-
   private static int calculateProgress(List<ProjectOverviewView.Chapter> chapters) {
     if (chapters.isEmpty()) return 0;
     int total = chapters.stream().mapToInt(chapter -> statusProgress(chapter.status())).sum();
@@ -251,7 +232,12 @@ public class JdbcProjectOverviewQueryAdapter implements ProjectOverviewQueryRepo
         rs.getString("status"),
         instant(rs, "created_at"),
         instant(rs, "updated_at"),
-        missingStoryVersion ? null : storyVersionId);
+        missingStoryVersion ? null : storyVersionId,
+        rs.getInt("approved_visuals_count"),
+        rs.getInt("processing_jobs_count"),
+        rs.getInt("characters_count"),
+        rs.getInt("locations_count"),
+        rs.getInt("assets_count"));
   }
 
   private static Instant instant(ResultSet rs, String column) throws SQLException {
@@ -267,5 +253,10 @@ public class JdbcProjectOverviewQueryAdapter implements ProjectOverviewQueryRepo
       String status,
       Instant createdAt,
       Instant updatedAt,
-      Long storyVersionId) {}
+      Long storyVersionId,
+      int approvedVisualsCount,
+      int processingJobsCount,
+      int charactersCount,
+      int locationsCount,
+      int assetsCount) {}
 }

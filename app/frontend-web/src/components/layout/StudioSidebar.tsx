@@ -164,7 +164,7 @@ export const StudioSidebar = () => {
                 href={item.href}
                 aria-current={item.active ? "page" : undefined}
                 className={cn(
-                  "w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500",
+                  "w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500",
                   item.active
                     ? "bg-purple-900/40 text-purple-200 border border-purple-800/60 font-semibold shadow-sm"
                     : "text-slate-300 hover:text-white hover:bg-slate-800/40",

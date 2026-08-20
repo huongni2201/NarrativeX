@@ -11,6 +11,7 @@
 # ==========================================
 node_modules/
 .next/
+.next_dev/
 app/frontend-web/out/
 .turbo/
 .pnpm-store/

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Tabs } from "@/components/ui/Tabs";
 import {
   ArrowLeft,
+  Info,
   Video,
 } from "lucide-react";
 
@@ -17,7 +18,6 @@ export const Render: React.FC = () => {
   const [aspectRatio, setAspectRatio] = useState("16:9");
   const [quality, setQuality] = useState("standard");
   const [addWatermark, setAddWatermark] = useState(true);
-  const [isRendering, setIsRendering] = useState(false);
 
   if (!project) return null;
 
@@ -25,14 +25,6 @@ export const Render: React.FC = () => {
     project.chapters.find((c) => c.id === activeChapterId) ||
     project.chapters.find((c) => c.number === "06") ||
     project.chapters[0];
-
-  const handleRender = () => {
-    setIsRendering(true);
-    setTimeout(() => {
-      setIsRendering(false);
-      setView("preview");
-    }, 1200);
-  };
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -55,6 +47,14 @@ export const Render: React.FC = () => {
         <span>/</span>
         <span className="text-purple-300 font-semibold truncate">
           Render Chapter / Full Project
+        </span>
+      </div>
+
+      {/* Notice regarding Render Pipeline Availability */}
+      <div className="flex items-center gap-3 rounded-xl border border-purple-500/30 bg-purple-950/20 px-4 py-3 text-xs text-purple-200">
+        <Info className="h-4 w-4 shrink-0 text-purple-400" />
+        <span>
+          Pipeline Render &amp; Export đang được hoàn thiện ở backend AI worker. Giao diện dưới đây hiển thị cấu hình xuất video.
         </span>
       </div>
 
@@ -103,14 +103,14 @@ export const Render: React.FC = () => {
               </div>
 
               <Button
-                onClick={handleRender}
                 variant="gradient"
                 size="md"
-                isLoading={isRendering}
-                className="shadow-[0_0_20px_rgba(124,58,237,0.5)] font-semibold shrink-0 w-full sm:w-auto"
+                disabled
+                className="font-semibold shrink-0 w-full sm:w-auto opacity-75 cursor-not-allowed"
                 leftIcon={<Video className="w-4 h-4 mr-1.5" />}
+                title="Tính năng Render sẽ khả dụng khi kết nối backend worker"
               >
-                Render Now
+                Render Sắp Khả Dụng
               </Button>
             </div>
           </div>
@@ -146,14 +146,14 @@ export const Render: React.FC = () => {
               </div>
 
               <Button
-                onClick={handleRender}
                 variant="gradient"
                 size="md"
-                isLoading={isRendering}
-                className="shadow-[0_0_20px_rgba(124,58,237,0.5)] font-semibold shrink-0 w-full sm:w-auto"
+                disabled
+                className="font-semibold shrink-0 w-full sm:w-auto opacity-75 cursor-not-allowed"
                 leftIcon={<Video className="w-4 h-4 mr-1.5" />}
+                title="Tính năng Render sẽ khả dụng khi kết nối backend worker"
               >
-                Render Full Project
+                Render Sắp Khả Dụng
               </Button>
             </div>
           </div>

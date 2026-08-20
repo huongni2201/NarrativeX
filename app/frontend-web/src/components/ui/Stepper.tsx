@@ -47,7 +47,7 @@ export const Stepper: React.FC<StepperProps> = ({
             key={step.id}
             onClick={handleClick}
             className={cn(
-              "flex items-center gap-3 text-sm font-medium transition-all py-1 select-none",
+              "flex items-center gap-3 text-sm font-medium transition-colors py-1 select-none",
               isClickable ? "cursor-pointer" : "cursor-not-allowed opacity-40",
               isActive && "text-purple-400 font-semibold opacity-100",
               isCompleted && "text-slate-300 hover:text-white opacity-100",
@@ -57,7 +57,7 @@ export const Stepper: React.FC<StepperProps> = ({
           >
             <div
               className={cn(
-                "w-6 h-6 rounded-full flex items-center justify-center text-xs transition-all duration-200 shrink-0",
+                "w-6 h-6 rounded-full flex items-center justify-center text-xs transition-colors duration-200 shrink-0",
                 isActive &&
                   "bg-purple-600 text-white ring-4 ring-purple-600/20 shadow-[0_0_12px_rgba(124,58,237,0.5)] font-bold",
                 isCompleted && "bg-purple-900/60 text-purple-300 border border-purple-700/60 font-semibold",

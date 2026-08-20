@@ -162,7 +162,7 @@ export const AssetLibraryScreen: React.FC = () => {
             {typeTabs.map((tab) => {
               const isActive = filterType === tab.id;
               return (
-                <button key={tab.id} type="button" aria-pressed={isActive} onClick={() => setFilterType(tab.id)} className={cn("px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap flex items-center gap-1.5", isActive ? "bg-purple-600 text-white font-semibold" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40")}>
+                <button key={tab.id} type="button" aria-pressed={isActive} onClick={() => setFilterType(tab.id)} className={cn("px-3 py-1.5 rounded-lg text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 whitespace-nowrap flex items-center gap-1.5", isActive ? "bg-purple-600 text-white font-semibold" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40")}>
                   <span>{tab.label}</span>
                   <span className={cn("px-1.5 py-0.5 rounded-full text-[10px] font-mono", isActive ? "bg-purple-900/60 text-white" : "bg-slate-800 text-slate-400")}>{tab.count}</span>
                 </button>

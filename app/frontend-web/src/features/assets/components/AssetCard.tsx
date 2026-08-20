@@ -14,8 +14,8 @@ interface AssetCardProps {
 }
 
 export const AssetCard: React.FC<AssetCardProps> = ({ asset, isSelected = false, onClick, onDownload }) => (
-  <article className={cn("group overflow-hidden rounded-xl border bg-[#0d1420] shadow-md transition-all", isSelected ? "border-purple-500 ring-2 ring-purple-500/50" : "border-slate-800/90 hover:border-slate-700")}>
-    <button type="button" onClick={onClick} className="block w-full text-left">
+  <article className={cn("group overflow-hidden rounded-xl border bg-[#0d1420] shadow-md transition-colors", isSelected ? "border-purple-500 ring-2 ring-purple-500/50" : "border-slate-800/90 hover:border-slate-700")}>
+    <button type="button" onClick={onClick} className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500">
       <div className="relative aspect-[16/10] overflow-hidden bg-slate-950">
         {asset.type === "AUDIO" ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 bg-[#090e18] text-purple-300"><Volume2 className="h-8 w-8" /><span className="text-xs">{asset.duration ?? "Audio"}</span></div>
@@ -24,6 +24,8 @@ export const AssetCard: React.FC<AssetCardProps> = ({ asset, isSelected = false,
           <img
             src={asset.thumbnailUrl}
             alt={asset.filename}
+            width={320}
+            height={200}
             loading="lazy"
             decoding="async"
             className="h-full w-full object-cover transition-transform motion-safe:group-hover:scale-105"
@@ -34,6 +36,6 @@ export const AssetCard: React.FC<AssetCardProps> = ({ asset, isSelected = false,
       </div>
       <div className="space-y-1 p-3"><p className="truncate font-mono text-xs font-bold text-slate-200">{asset.filename}</p><p className="truncate text-[11px] text-slate-400">{asset.projectTitle}</p></div>
     </button>
-    <div className="flex items-center justify-between border-t border-slate-800/80 px-3 py-2 text-[10px] text-slate-500"><span>{asset.fileSize}</span><button type="button" aria-label={`Tải xuống ${asset.filename}`} onClick={(event) => { event.stopPropagation(); onDownload?.(event); }} className="rounded p-1 hover:bg-slate-800 hover:text-slate-200"><Download className="h-3 w-3" /></button></div>
+    <div className="flex items-center justify-between border-t border-slate-800/80 px-3 py-2 text-[10px] text-slate-500"><span>{asset.fileSize}</span><button type="button" aria-label={`Tải xuống ${asset.filename}`} onClick={(event) => { event.stopPropagation(); onDownload?.(event); }} className="rounded p-1 transition-colors hover:bg-slate-800 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"><Download className="h-3 w-3" /></button></div>
   </article>
 );

@@ -202,7 +202,7 @@ export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
                 <button
                   type="button"
                   onClick={() => setFormOpen(true)}
-                  className="flex items-center gap-2 rounded-lg border border-dashed border-purple-500/60 bg-purple-950/20 px-5 py-3 text-sm font-semibold text-purple-200 shadow-[0_0_20px_rgba(124,58,237,0.2)] transition-all hover:bg-purple-900/30"
+                  className="flex items-center gap-2 rounded-lg border border-dashed border-purple-500/60 bg-purple-950/20 px-5 py-3 text-sm font-semibold text-purple-200 shadow-[0_0_20px_rgba(124,58,237,0.2)] transition-colors hover:bg-purple-900/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
                 >
                   <Plus className="h-4 w-4 text-purple-400" />
                   <span>+ Add Chapter</span>
@@ -251,7 +251,7 @@ export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
         {activeTab === "locations" && (
           <ProjectResourcesTab
             kind="locations"
-            locations={locationsQuery.data}
+            locations={locationsQuery.data?.content}
             isLoading={locationsQuery.isPending}
             errorMessage={
               locationsQuery.isError
@@ -263,7 +263,7 @@ export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
         {activeTab === "assets" && (
           <ProjectResourcesTab
             kind="assets"
-            assets={assetsQuery.data}
+            assets={assetsQuery.data?.content}
             isLoading={assetsQuery.isPending}
             errorMessage={
               assetsQuery.isError ? apiErrorMessage(assetsQuery.error, "Không tải được Assets.") : null

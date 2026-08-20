@@ -4,6 +4,7 @@ import type {
   ApiChapterWorkspace,
   ApiGenerationJob,
   CreateChapterApiInput,
+  CursorPage,
   UpdateChapterApiInput,
 } from "@/types/api";
 import {
@@ -11,16 +12,35 @@ import {
   isApiChapterSummary,
   isApiChapterWorkspace,
   isApiGenerationJob,
+  isCursorPage,
 } from "@/types/api";
 import { apiRequest } from "@/shared/api/client";
 
+export interface ChapterListParams {
+  cursor?: string;
+  limit?: number;
+}
+
+function chapterListPath(
+  projectId: number,
+  storyVersionId: number,
+  { cursor, limit = 50 }: ChapterListParams = {},
+): string {
+  const params = new URLSearchParams({
+    storyVersionId: String(storyVersionId),
+    limit: String(limit),
+  });
+  if (cursor) params.set("cursor", cursor);
+  return `/api/v1/projects/${projectId}/chapters?${params.toString()}`;
+}
+
 export const chaptersApi = {
-  list: (projectId: number, storyVersionId: number) =>
-    apiRequest<ApiChapterSummary[]>(
-      `/api/v1/projects/${projectId}/chapters?storyVersionId=${storyVersionId}`,
+  list: (projectId: number, storyVersionId: number, params: ChapterListParams = {}) =>
+    apiRequest<CursorPage<ApiChapterSummary>>(
+      chapterListPath(projectId, storyVersionId, params),
       {},
-      (value): value is ApiChapterSummary[] =>
-        Array.isArray(value) && value.every(isApiChapterSummary),
+      (value): value is CursorPage<ApiChapterSummary> =>
+        isCursorPage(value, isApiChapterSummary),
     ),
   getById: (projectId: number, chapterId: number) =>
     apiRequest<ApiChapter>(

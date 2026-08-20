@@ -72,7 +72,7 @@ export const Step1BasicInfo: React.FC<Step1Props> = ({ validationErrors = [] }) 
             {aspectRatios.map((ratio) => {
               const isActive = wizardDraft.aspectRatio === ratio;
               return (
-                <button type="button" role="radio" aria-checked={isActive} key={ratio} onClick={() => updateWizardDraft({ aspectRatio: ratio })} className={cn("rounded-lg border px-4 py-1.5 text-xs font-semibold transition-all", isActive ? "border-purple-500 bg-purple-600 text-white" : "border-slate-800 bg-[#0a0f1d] text-slate-400 hover:text-slate-200")}>{ratio}</button>
+                <button type="button" role="radio" aria-checked={isActive} key={ratio} onClick={() => updateWizardDraft({ aspectRatio: ratio })} className={cn("rounded-lg border px-4 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500", isActive ? "border-purple-500 bg-purple-600 text-white" : "border-slate-800 bg-[#0a0f1d] text-slate-400 hover:text-slate-200")}>{ratio}</button>
               );
             })}
           </div>
@@ -84,7 +84,7 @@ export const Step1BasicInfo: React.FC<Step1Props> = ({ validationErrors = [] }) 
             {qualities.map((quality) => {
               const isActive = wizardDraft.quality === quality;
               return (
-                <button type="button" role="radio" aria-checked={isActive} key={quality} onClick={() => updateWizardDraft({ quality })} className={cn("rounded-lg border px-4 py-1.5 text-xs font-semibold transition-all", isActive ? "border-purple-500 bg-purple-600 text-white" : "border-slate-800 bg-[#0a0f1d] text-slate-400 hover:text-slate-200")}>{quality}</button>
+                <button type="button" role="radio" aria-checked={isActive} key={quality} onClick={() => updateWizardDraft({ quality })} className={cn("rounded-lg border px-4 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500", isActive ? "border-purple-500 bg-purple-600 text-white" : "border-slate-800 bg-[#0a0f1d] text-slate-400 hover:text-slate-200")}>{quality}</button>
               );
             })}
           </div>

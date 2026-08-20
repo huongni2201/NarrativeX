@@ -5,6 +5,7 @@ const backendUrl =
   'http://localhost:8080';
 
 const nextConfig = {
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   output: 'standalone',
   reactStrictMode: true,
   images: {

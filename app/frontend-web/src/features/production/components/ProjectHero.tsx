@@ -48,7 +48,7 @@ export function ProjectHero({
                 type="button"
                 onClick={onContinue}
                 aria-label={continueChapter ? "Tiếp tục Chapter hiện tại" : "Tạo Chapter đầu tiên"}
-                className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg bg-purple-600 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_0_20px_rgba(124,58,237,0.5)] transition-all hover:bg-purple-500"
+                className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg bg-purple-600 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_0_20px_rgba(124,58,237,0.5)] transition-colors hover:bg-purple-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
               >
                 <Play className="h-4 w-4 fill-white" />
                 <span>Continue Project</span>

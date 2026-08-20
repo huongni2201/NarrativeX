@@ -34,6 +34,15 @@ function projectListPath({
   return `/api/v1/projects?${params.toString()}`;
 }
 
+function resourceListPath(
+  basePath: string,
+  { cursor, limit = DEFAULT_PROJECT_PAGE_SIZE }: ProjectListParams = {},
+): string {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (cursor) params.set("cursor", cursor);
+  return `${basePath}?${params.toString()}`;
+}
+
 export const projectsApi = {
   list: (params: ProjectListParams = {}) =>
     apiRequest<CursorPage<ApiProject>>(
@@ -49,18 +58,18 @@ export const projectsApi = {
       {},
       isApiProjectOverview,
     ),
-  getLocations: (projectId: number) =>
-    apiRequest<ApiProjectLocation[]>(
-      `/api/v1/projects/${projectId}/locations`,
+  getLocations: (projectId: number, params: ProjectListParams = {}) =>
+    apiRequest<CursorPage<ApiProjectLocation>>(
+      resourceListPath(`/api/v1/projects/${projectId}/locations`, params),
       {},
-      (value): value is ApiProjectLocation[] =>
-        Array.isArray(value) && value.every(isApiProjectLocation),
+      (value): value is CursorPage<ApiProjectLocation> =>
+        isCursorPage(value, isApiProjectLocation),
     ),
-  getAssets: (projectId: number) =>
-    apiRequest<ApiProjectAsset[]>(
-      `/api/v1/projects/${projectId}/assets`,
+  getAssets: (projectId: number, params: ProjectListParams = {}) =>
+    apiRequest<CursorPage<ApiProjectAsset>>(
+      resourceListPath(`/api/v1/projects/${projectId}/assets`, params),
       {},
-      (value): value is ApiProjectAsset[] => Array.isArray(value) && value.every(isApiProjectAsset),
+      (value): value is CursorPage<ApiProjectAsset> => isCursorPage(value, isApiProjectAsset),
     ),
   create: (input: CreateProjectApiInput) =>
     apiRequest<ApiProject>("/api/v1/projects", { method: "POST", json: input }, isApiProject),

@@ -59,7 +59,7 @@ export const Tabs: React.FC<TabsProps> = ({ tabs, activeTab, onChange, className
             onKeyDown={(event) => handleKeyDown(event, index)}
             onClick={() => onChange(tab.id)}
             className={cn(
-              "relative flex items-center gap-2 font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500",
+              "relative flex items-center gap-2 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500",
               variant === "underlined" ? "pb-3 text-sm" : "px-3 py-1.5 text-xs rounded-md",
               isActive
                 ? variant === "underlined" ? "text-purple-400 font-semibold" : "bg-purple-600 text-white font-semibold"

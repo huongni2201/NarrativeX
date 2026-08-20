@@ -18,7 +18,7 @@ export const Card: React.FC<CardProps> = ({
     "surface-2": "bg-[#111a29] border border-slate-800/80",
     glass: "bg-[#0d1420]/80 backdrop-blur-md border border-white/5",
     interactive:
-      "bg-[#0d1420] border border-slate-800/80 hover:border-purple-500/50 hover:bg-[#111a29] transition-all duration-200 cursor-pointer",
+      "bg-[#0d1420] border border-slate-800/80 hover:border-purple-500/50 hover:bg-[#111a29] transition-colors duration-200 cursor-pointer",
   };
 
   return (

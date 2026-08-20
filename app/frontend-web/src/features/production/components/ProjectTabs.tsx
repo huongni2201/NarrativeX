@@ -46,7 +46,7 @@ function TabButton({
     <button
       type="button"
       onClick={onClick}
-      className={`border-b-2 py-4 text-base font-bold transition-all ${active
+      className={`border-b-2 py-4 text-base font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 ${active
         ? "border-purple-500 text-purple-200"
         : "border-transparent font-semibold text-slate-400 hover:text-slate-200"
         }`}
