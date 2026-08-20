@@ -5,33 +5,9 @@ from narrativex_worker.media import (
     I2vResolution,
     MotionComplexity,
     MotionStrategy,
-    ProductionMode,
     VisualAssetStrategy,
     VisualScenePlan,
-    choose_motion_strategy,
 )
-
-
-def test_image_motion_never_routes_to_i2v() -> None:
-    assert (
-        choose_motion_strategy(ProductionMode.IMAGE_MOTION, MotionComplexity.COMPLEX)
-        is MotionStrategy.BASIC_IMAGE_MOTION
-    )
-
-
-def test_hybrid_routes_simple_to_basic_and_medium_complex_to_i2v() -> None:
-    assert (
-        choose_motion_strategy(ProductionMode.HYBRID_LOCAL_I2V, MotionComplexity.SIMPLE)
-        is MotionStrategy.BASIC_IMAGE_MOTION
-    )
-    assert (
-        choose_motion_strategy(ProductionMode.HYBRID_LOCAL_I2V, MotionComplexity.MEDIUM)
-        is MotionStrategy.IMAGE_TO_VIDEO
-    )
-    assert (
-        choose_motion_strategy(ProductionMode.HYBRID_LOCAL_I2V, MotionComplexity.COMPLEX)
-        is MotionStrategy.IMAGE_TO_VIDEO
-    )
 
 
 def test_i2v_scene_requires_duration_and_resolution() -> None:

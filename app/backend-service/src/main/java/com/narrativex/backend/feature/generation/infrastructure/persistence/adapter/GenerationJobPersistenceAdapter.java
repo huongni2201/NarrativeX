@@ -59,6 +59,9 @@ public class GenerationJobPersistenceAdapter implements GenerationJobRepository 
         .sourceText(job.getSourceText())
         .sourceLanguage(job.getSourceLanguage())
         .idempotencyKey(job.getIdempotencyKey())
+        .mediaPlanId(job.getMediaPlanId())
+        .mediaPlanRevision(job.getMediaPlanRevision())
+        .productionMode(job.getProductionMode())
         .build();
   }
 

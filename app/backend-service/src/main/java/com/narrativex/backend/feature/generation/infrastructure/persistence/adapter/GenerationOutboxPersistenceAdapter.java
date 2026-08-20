@@ -31,7 +31,10 @@ public class GenerationOutboxPersistenceAdapter implements GenerationOutboxRepos
               'storyVersionId', ?,
               'chapterId', ?,
               'chapterRowVersion', ?,
-              'sourceHash', ?
+              'sourceHash', ?,
+              'mediaPlanId', ?,
+              'mediaPlanRevision', ?,
+              'productionMode', ?
             ),
             'PENDING'
           )
@@ -45,6 +48,9 @@ public class GenerationOutboxPersistenceAdapter implements GenerationOutboxRepos
         job.getStoryVersionId(),
         job.getChapterId(),
         job.getChapterRowVersion(),
-        job.getSourceHash());
+        job.getSourceHash(),
+        job.getMediaPlanId(),
+        job.getMediaPlanRevision(),
+        job.getProductionMode() == null ? null : job.getProductionMode().name());
   }
 }

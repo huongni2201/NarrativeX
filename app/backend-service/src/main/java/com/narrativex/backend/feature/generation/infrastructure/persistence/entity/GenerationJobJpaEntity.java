@@ -4,12 +4,14 @@ import com.narrativex.backend.feature.common.infrastructure.persistence.JpaAudit
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
+import com.narrativex.backend.feature.generation.domain.enums.ProductionMode;
 import com.narrativex.backend.feature.generation.domain.enums.ResourceClass;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -81,6 +83,16 @@ public class GenerationJobJpaEntity extends JpaAuditedEntity {
   @Column(name = "idempotency_key", length = 200)
   private String idempotencyKey;
 
+  @Column(name = "media_plan_id")
+  private UUID mediaPlanId;
+
+  @Column(name = "media_plan_revision")
+  private Integer mediaPlanRevision;
+
+  @Enumerated(EnumType.STRING)
+  @Column(name = "production_mode", length = 32)
+  private ProductionMode productionMode;
+
   public void apply(GenerationJob job) {
     jobId = job.getJobId();
     projectId = job.getProjectId();
@@ -100,5 +112,8 @@ public class GenerationJobJpaEntity extends JpaAuditedEntity {
     sourceText = job.getSourceText();
     sourceLanguage = job.getSourceLanguage();
     idempotencyKey = job.getIdempotencyKey();
+    mediaPlanId = job.getMediaPlanId();
+    mediaPlanRevision = job.getMediaPlanRevision();
+    productionMode = job.getProductionMode();
   }
 }
