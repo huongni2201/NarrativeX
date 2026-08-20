@@ -315,7 +315,7 @@ async def test_provider_result_and_completed_status_persist_atomically(
         reserved = await repository.reserve_provider_operation(
             claimed, "vertex", "durable-result-fingerprint"
         )
-        unknown = await repository.mark_provider_operation_submission_unknown(reserved)
+        unknown = await repository.mark_provider_operation_submission_unknown(reserved, 30.0)
         persisted = await repository.persist_provider_result(
             unknown, "vertex-response-1", chapter_result()
         )
@@ -355,7 +355,7 @@ async def test_provider_operation_state_machine_and_terminal_rows_are_immutable(
     await repository.connect()
     try:
         reserved = await repository.reserve_provider_operation(claimed, "vertex", "matrix")
-        unknown = await repository.mark_provider_operation_submission_unknown(reserved)
+        unknown = await repository.mark_provider_operation_submission_unknown(reserved, 30.0)
         submitted = await repository.mark_provider_operation_submitted(unknown, "provider-1")
         running = await repository.mark_provider_operation_status(
             submitted, ProviderOperationStatus.RUNNING
@@ -375,7 +375,7 @@ async def test_provider_operation_state_machine_and_terminal_rows_are_immutable(
             claimed, "vertex", "matrix-failed"
         )
         failed_unknown = await repository.mark_provider_operation_submission_unknown(
-            failed_reserved
+            failed_reserved, 30.0
         )
         failed = await repository.mark_provider_operation_status(
             failed_unknown, ProviderOperationStatus.FAILED
@@ -418,7 +418,7 @@ async def test_stale_provider_operation_snapshot_cannot_overwrite_newer_state(
     await second.connect()
     try:
         reserved = await first.reserve_provider_operation(claimed, "vertex", "stale")
-        unknown = await first.mark_provider_operation_submission_unknown(reserved)
+        unknown = await first.mark_provider_operation_submission_unknown(reserved, 30.0)
         stale = await second.get_provider_operation(unknown.id)
         await first.mark_provider_operation_status(unknown, ProviderOperationStatus.RUNNING)
         with pytest.raises(ProviderOperationStateConflictError):
