@@ -1,7 +1,8 @@
 # NarrativeX — Project Source of Truth V1.10
 
-**Status:** Canonical code-aligned engineering baseline
-**Effective date:** 19/08/2026
+**Status:** Canonical code-aligned engineering baseline  
+**Effective date:** 19/08/2026  
+**Last code verification:** 20/08/2026
 
 ## Authority
 
@@ -31,8 +32,10 @@ Create Project only creates metadata. Saving Chapter only persists source. AI an
 | Worker bounded concurrency | IMPLEMENTED |
 | Storyboard/VisualBeat foundation | IMPLEMENTED |
 | Character library read API | IMPLEMENTED |
+| AI Character/Location continuity materialization foundation | IMPLEMENTED |
+| Scene -> ProjectCharacter / Location continuity persistence foundation | IMPLEMENTED |
 | Job history/quota/notification reads | IMPLEMENTED |
-| ProviderOperation lifecycle foundation | IMPLEMENTED |
+| ProviderOperation lifecycle + reconciliation foundation | IMPLEMENTED |
 | Admission safety/quota/cost reservation foundation | IMPLEMENTED |
 
 ## Current generation model
@@ -44,23 +47,26 @@ OperationPlan
             -> ProviderOperation
 ```
 
-PostgreSQL is authoritative. Redis is delivery/progress infrastructure and never replaces durable state.
+PostgreSQL is authoritative. Redis is delivery/progress infrastructure and never replaces durable execution state.
+
+Chapter Analyze currently persists stable AI continuity keys for Character and Location identities, materializes project-scoped Character/Location records, and persists Scene character/location relations. These are implementation foundations; downstream image generation still needs reviewed/locked continuity snapshots before production media generation.
 
 ## Remaining gaps
 
-- Location materialization.
-- Scene character/location continuity relations.
-- Full character editing/version locking workflow.
-- Approved storyboard reset/versioning.
-- Image generation.
+- Full character editing/version locking/reference workflow.
+- Approved storyboard reset/versioning workflow.
+- Production hardening for provider recovery/reconciliation and complete actual-usage accounting.
+- Image generation and immutable generated-asset lifecycle.
 - TTS/subtitle generation.
 - Render/export/final artifact pipeline.
-- Complete billing ledger reconciliation.
+- Complete billing ledger reconciliation and unused-reservation release.
+- Broader moderation/consent/abuse coverage, observability, backup/restore and deletion lifecycle evidence.
 
 ## AI coding rules
 
 - Do not use mock data as production state.
 - Do not submit provider requests without durable lifecycle state.
+- `UNKNOWN` external outcomes must reconcile before blind resubmission.
 - Do not overwrite approved/locked history.
 - Prefer affected-scope regeneration.
 - Update docs and ADRs when invariants change.
