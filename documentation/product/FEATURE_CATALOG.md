@@ -114,4 +114,4 @@
 
  ## Non-functional release expectations
 
- PostgreSQL authoritative state; Redis queue/cache/progress/scheduling và transient abuse-control counters; MinIO/S3 binary; async workers; production real adapters; backup/PITR/restore drill; structured observability; no shared lower/prod secrets/data; P0/P1 safety/security blockers block public launch.
+ PostgreSQL authoritative state; Redis queue/cache/progress/scheduling và transient abuse-control counters; Cloudflare R2 binary object storage; async workers; production real adapters; backup/PITR/restore drill; structured observability; no shared lower/prod secrets/data; P0/P1 safety/security blockers block public launch.

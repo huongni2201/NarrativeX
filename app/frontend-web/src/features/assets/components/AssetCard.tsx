@@ -1,4 +1,4 @@
-/* eslint-disable @next/next/no-img-element -- Asset URLs may use environment-specific MinIO/S3/CDN hosts. */
+/* eslint-disable @next/next/no-img-element -- Asset URLs may use environment-specific Cloudflare R2/CDN hosts. */
 import React from "react";
 import type { MediaAsset } from "@/types/assets";
 import { Download, Play, Volume2 } from "lucide-react";
@@ -20,7 +20,7 @@ export const AssetCard: React.FC<AssetCardProps> = ({ asset, isSelected = false,
         {asset.type === "AUDIO" ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 bg-[#090e18] text-purple-300"><Volume2 className="h-8 w-8" /><span className="text-xs">{asset.duration ?? "Audio"}</span></div>
         ) : (
-          // Backend media may come from environment-specific MinIO/S3/CDN hosts. Keep native image loading until the storage contract exposes a stable trusted hostname for next/image remotePatterns.
+          // Backend media may come from environment-specific Cloudflare R2/CDN hosts. Keep native image loading until the storage contract exposes a stable trusted hostname for next/image remotePatterns.
           <img
             src={asset.thumbnailUrl}
             alt={asset.filename}

@@ -20,7 +20,7 @@ The V1.8 domain model also gives Scene its own mutable lifecycle: `DRAFT -> READ
 - Scene lifecycle transitions are expressed as intent-based domain methods, not arbitrary setters.
 - Editing an `APPROVED` Scene invalidates the approved scene snapshot and moves the Scene to `OUTDATED`; immutable generated assets/renders are not deleted or overwritten.
 - Edits are rejected while Scene is `GENERATING` or `REVIEW` unless a future explicit workflow defines a safe transition.
-- Cross-aggregate orchestration remains in the application layer. Scene/Chapter aggregates must not call Redis, MinIO/S3, provider SDKs, repositories or worker runtimes directly.
+- Cross-aggregate orchestration remains in the application layer. Scene/Chapter aggregates must not call Redis, Cloudflare R2 / object storage, provider SDKs, repositories or worker runtimes directly.
 - PostgreSQL `row_version`/JPA `@Version` remains the optimistic-concurrency guard for mutable aggregate writes.
 - Scene status is persisted as a string enum in the consolidated Flyway V1 baseline.
 

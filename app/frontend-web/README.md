@@ -105,7 +105,7 @@ The long-term backend contract should provide an idempotent or transactional orc
 - Local branding, trusted remote images and demo imagery use `next/image`, explicit layout dimensions and responsive `sizes`.
 - Above-the-fold hero/brand assets may use `priority`; card/grid media stays lazy by default.
 - `next.config.mjs` only whitelists trusted image origins; NarrativeX does not use broad wildcard image origins.
-- Asset URLs returned by backend storage may vary across MinIO/S3/CDN environments. Until a stable media hostname is defined by configuration, dynamic asset thumbnails use native `<img loading="lazy" decoding="async">`. Once the storage hostname is stable, whitelist that narrow origin and migrate the media path to `next/image`.
+- Asset URLs returned by backend storage may vary across Cloudflare R2/CDN environments. Until a stable media hostname is defined by configuration, dynamic asset thumbnails use native `<img loading="lazy" decoding="async">`. Once the storage hostname is stable, whitelist that narrow origin and migrate the media path to `next/image`.
 
 ## Quality gates
 

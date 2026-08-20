@@ -77,7 +77,7 @@ Next.js frontend
 PostgreSQL durable work
   -> Python worker
        -> provider adapters
-       -> MinIO/S3-compatible media storage (future media stages)
+       -> Cloudflare R2 media storage (future media stages)
 ```
 
 Do not use Node.js as a backend alternative, RabbitMQ as an assumed queue authority, or OpenAI/Runway/Pika as current provider claims unless those technologies are actually introduced by a later accepted implementation decision.

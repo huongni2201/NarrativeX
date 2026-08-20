@@ -1,4 +1,4 @@
-/* eslint-disable @next/next/no-img-element -- Asset URLs may use environment-specific MinIO/S3/CDN hosts. */
+/* eslint-disable @next/next/no-img-element -- Asset URLs may use environment-specific Cloudflare R2/CDN hosts. */
 import React, { useState } from "react";
 import type { MediaAsset } from "@/types/assets";
 import { Button } from "@/components/ui/Button";
