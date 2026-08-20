@@ -108,7 +108,10 @@ async def immutable_result_database() -> AsyncIterator[str]:
         await connection.close()
 
 
-async def seed_operation(database_url: str, fingerprint: str) -> tuple[WorkerRepository, DurableProviderOperation]:
+async def seed_operation(
+    database_url: str,
+    fingerprint: str,
+) -> tuple[WorkerRepository, DurableProviderOperation]:
     connection = await asyncpg.connect(database_url)
     try:
         job_id = await connection.fetchval(
@@ -126,7 +129,11 @@ async def seed_operation(database_url: str, fingerprint: str) -> tuple[WorkerRep
             SOURCE_HASH,
         )
         stage_id = await connection.fetchval(
-            "INSERT INTO stage_attempts (generation_job_id, status) VALUES ($1, 'QUEUED') RETURNING id",
+            """
+            INSERT INTO stage_attempts (generation_job_id, status)
+            VALUES ($1, 'QUEUED')
+            RETURNING id
+            """,
             job_id,
         )
     finally:
