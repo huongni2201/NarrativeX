@@ -3,6 +3,7 @@
 import hashlib
 import json
 from dataclasses import dataclass
+from typing import NoReturn
 
 import asyncpg  # type: ignore[import-untyped]
 
@@ -421,7 +422,7 @@ class WorkerRepository:
             )
 
     @staticmethod
-    def _raise_state_conflict(operation: DurableProviderOperation) -> None:
+    def _raise_state_conflict(operation: DurableProviderOperation) -> NoReturn:
         raise ProviderOperationStateConflictError(operation.id, operation.row_version)
 
     async def suspend_provider_reconciliation(
