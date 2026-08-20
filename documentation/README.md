@@ -1,30 +1,31 @@
 # NarrativeX documentation map
 
-The canonical product and architecture baseline is [`source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_10.md`](./source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_10.md). Current code, migrations and tests define factual implementation state when derived documentation drifts.
+The canonical product and architecture baseline is [`source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](./source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md). V1.10 is retained only as historical baseline material.
 
-Older V1.8/V1.9 labels may remain only where a document is explicitly historical or where a stable requirement ID originated in that catalog. They must not be presented as the current repository baseline.
+Current code, migrations and tests define factual implementation state when a derived document drifts. Accepted ADRs explain important implementation decisions and deliberate deviations.
 
 ## Navigation
 
 | Area | Purpose |
 | --- | --- |
-| [`source-of-truth/`](./source-of-truth/) | Canonical product/domain/architecture baseline |
-| [`product/`](./product/) | Maintained product contract, feature inventory and roadmap |
+| [`source-of-truth/`](./source-of-truth/) | Canonical V1.11 product/domain/architecture direction |
+| [`product/`](./product/) | Maintained product contract, feature inventory and dependency-ordered roadmap |
 | [`domain/`](./domain/) | Domain model, invariants, glossary and business rules |
 | [`architecture/`](./architecture/) | System architecture, boundaries, data flow and technology stack |
-| [`workflows/`](./workflows/) | End-to-end application workflows |
+| [`workflows/`](./workflows/) | End-to-end workflows, including generated and user-provided narration |
 | [`decisions/`](./decisions/) | Accepted architecture decision records (ADRs) |
-| [`codebase/`](./codebase/) | Current implementation maps and integration matrices |
-| [`TRACEABILITY.md`](./TRACEABILITY.md) | Requirement/capability to implementation and evidence mapping |
+| [`codebase/`](./codebase/) | Current implementation maps, persistence migration and integration matrices |
+| [`TRACEABILITY.md`](./TRACEABILITY.md) | V1.11 capability-to-code/test evidence |
 
-`plans/` and `audits/` are not current repository directories and therefore are not part of this navigation map.
+## V1.11 maintenance rules
 
-## Maintenance rules
-
-1. The current source-of-truth document defines maintained product/domain/architecture invariants.
-2. Current code, migrations, tests and accepted ADRs define factual AS-IS implementation claims.
-3. Historical evidence must be labeled historical rather than silently reused as current status.
-4. Cross-cutting architecture/invariant changes require an ADR when they change an accepted decision.
-5. Avoid duplicate source-of-truth documents. Derived Markdown files link back to the maintained baseline.
-6. Current implementation status uses only `IMPLEMENTED`, `PARTIAL`, `PENDING`, `PROTOTYPE` and `TARGET`.
-7. Do not encode a branch/commit SHA in the documentation map as permanent authority; verify factual status against the current repository revision.
+1. V1.11 is the maintained planning baseline; V1.10 must not be linked as current authority.
+2. Code, migrations, tests and accepted ADRs decide factual AS-IS claims.
+3. Keep `IMPLEMENTED`, `PARTIAL`, `TARGET` and `DEFERRED` distinct; do not report roadmap intent as merged code.
+4. PostgreSQL is authoritative for durable application/execution state; Redis is non-authoritative for generation correctness.
+5. Cloudflare R2 is the only durable media object store; worker-local files are scratch/cache only.
+6. Backend-authorized `MediaPlan`/execution policy is authoritative; workers execute persisted policy rather than inventing paid work.
+7. Narration is not synonymous with TTS. `NarrationStrategy.USER_PROVIDED_AUDIO` bypasses TTS for the covered scope.
+8. New persistence-heavy backend work converges on MyBatis + explicit SQL + PostgreSQL. JPA/JDBC are migration-era surfaces.
+9. Cross-cutting invariant changes require an ADR when they change an accepted decision.
+10. Update `scripts/check-docs-drift.py` whenever the canonical baseline or current-state document set changes.

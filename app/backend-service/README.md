@@ -2,130 +2,48 @@
 
 ## Purpose
 
-The Backend Service is the core application and domain authority of NarrativeX. It coordinates business workflows, owns authorization and persistence contracts, and serves as the client API boundary. Long-running AI/media work executes asynchronously through durable PostgreSQL execution state and the Python worker.
+The Spring Boot backend is NarrativeX's product/domain and durable execution-policy authority. Heavy AI/media execution is asynchronous in the Python worker.
 
-Creating a Project is metadata-only. Saving a Chapter only persists source. AI analysis is an explicit action scoped to a persisted Chapter.
+Project creation is metadata-only. Chapter save persists source only. Analysis/narration/media generation are explicit operations.
 
-## Technology Stack
+## Technology stack
 
-- **Language:** Java 25
-- **Framework:** Spring Boot 4.1.0
-- **Persistence:** Spring Data JPA, PostgreSQL, Flyway
-- **Redis:** Spring Data Redis for transient infrastructure and Spring Session Data Redis for shared HTTP sessions
-- **Security:** Spring Security + email/password + Google OIDC + CSRF + server-managed session
-- **Observability:** Spring Boot Actuator
-- **Document import:** Apache PDFBox for PDF extraction
-- **Build:** Maven Wrapper
-- **Testing:** JUnit 5, Spring Boot Test, Testcontainers, JaCoCo
+- Java 25 / Spring Boot 4.1
+- PostgreSQL + Flyway
+- **MyBatis is the strategic persistence direction**; ProviderOperation, Chapter and Project are already MyBatis-backed
+- remaining Spring Data JPA/JDBC boundaries are migration-era surfaces
+- Spring Security + server session/CSRF + Google OIDC/password auth
+- Redis for Spring Session and transient/non-authoritative hints
+- Testcontainers/JUnit/JaCoCo
 
-## Runtime authority
+## Durable authority
 
-PostgreSQL is authoritative for durable product and generation state. Redis may store authenticated sessions and non-authoritative delivery/progress/abuse-control state; Redis generation hints never replace durable jobs.
+PostgreSQL owns authoritative domain/job/plan/usage metadata. Redis generation messages are hints only. Cloudflare R2 owns durable media bytes.
 
-The browser authentication contract is Spring Security server-side session + CSRF. JWT access/refresh tokens are not the current browser contract.
+## MediaPlan authority
 
-## Chapter Analyze
+The backend creates/version-controls the authorized MediaPlan and resolves MotionStrategy under the selected ProductionMode. Workers execute the pinned plan and do not independently upgrade deterministic scenes to I2V.
 
-The implemented Chapter-scoped entry point is:
-
-```http
-POST /api/v1/projects/{projectId}/chapters/{chapterId}/analysis-jobs
-```
-
-The backend reloads the persisted Chapter and performs ownership, snapshot, admission and durable-enqueue work before returning `202 Accepted`.
-
-Current durable path:
+## Narration strategies
 
 ```text
-persisted Chapter
-  -> ownership + persisted snapshot validation
-  -> safety / entitlement / quota / estimated-cost admission
-  -> atomic usage reservation
-  -> OperationPlan
-  -> GenerationJob
-  -> StageAttempt
-  -> OutboxEvent
-  -> COMMIT
-  -> optional Redis delivery hint
-  -> Python worker claim/lease/heartbeat
-  -> ProviderOperation lifecycle
-  -> validated result materialization
+NarrationStrategy
+  TTS
+  USER_PROVIDED_AUDIO
 ```
 
-Project creation never invokes this endpoint or enqueues equivalent AI/media work as a side effect.
+Current foundations include full-chapter TTS/alignment and user-provided-audio planning/timeline logic. User audio may contain one or multiple ordered parts spanning multiple Chapters. `USER_PROVIDED_AUDIO` plans omit the TTS stage.
 
-## Provider durability
+Production upload/finalize/alignment integration remains a hardening target.
 
-Provider work follows a durable operation lifecycle. A `ProviderOperation` is reserved before external submission and ambiguous external outcomes use `UNKNOWN` plus reconciliation instead of blind resubmission. This is an implemented foundation; broader production recovery/usage reconciliation remains a hardening concern.
+## Persistence migration
 
-## Current Chapter-analysis materialization
+Follow `documentation/codebase/PERSISTENCE_MIGRATION.md` and ADR-0015 conventions: explicit row models/result maps/SQL, CAS predicates, affected-row validation and PostgreSQL integration tests. New persistence-heavy features should not deepen JPA/JDBC without a documented exception.
 
-The worker currently materializes the structured Chapter analysis into project continuity and storyboard state, including:
-
-- Character / ProjectCharacter / CharacterVersion foundations;
-- project-scoped Location identity/materialization;
-- Scene / VisualBeat;
-- Scene -> ProjectCharacter relations;
-- Scene -> Location continuity references.
-
-Full Character review/version locking/reference management and downstream image/TTS/render workflows remain separate product milestones.
-
-## Security profile invariant
-
-Shared configuration does not silently enable a local development identity. When OIDC is disabled, local/test identity behavior requires an explicit `local` or `test` profile. Shared/unknown profiles must fail closed rather than treating requests as a development user.
-
-Password login/register has a separate Redis-backed abuse limiter. Its fail-open behavior on Redis data-access failure does not apply to Spring Session availability.
-
-## Database migration invariant
-
-Flyway migrations are forward-only once shared. The current consolidated development baseline is:
-
-```text
-V1__initial_schema.sql
-V2__seed_demo_data.sql
-```
-
-The active schema does not use the retired StoryVersion rights-attestation columns/table as Analyze/Generate prerequisites.
-
-## Optimistic concurrency
-
-Mutable aggregate persistence uses JPA `@Version` and explicit stale-domain guards where implemented. Public mutable APIs use ETag/`If-Match` where exposed; stale writes must fail instead of silently overwriting newer state.
-
-## Development
-
-Run locally with the explicit local profile:
+## Development / verification
 
 ```bash
-./mvnw spring-boot:run -Dspring-boot.run.profiles=local
-```
-
-Windows:
-
-```powershell
-.\mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=local
-```
-
-Run tests/quality gates:
-
-```bash
-./mvnw test
 ./mvnw clean verify
 ```
 
-`clean verify` runs tests, architecture checks, Spotless and JaCoCo. The coverage threshold is a bootstrap gate, not a claim of comprehensive behavioral coverage.
-
-## Docker
-
-From the repository root, Compose is the preferred local topology:
-
-```bash
-docker compose up -d --build backend
-```
-
-Compose supplies the explicit local profile and connects the backend to PostgreSQL and Redis. A standalone container must be given reachable database/Redis hosts explicitly.
-
-## Application boundaries
-
-The backend owns domain/business rules, authorization, client API contracts, Flyway migrations and durable generation control-plane state.
-
-It does not own browser rendering or execute heavy AI/media/FFmpeg workloads inside HTTP request threads. Those workloads belong to the asynchronous worker behind durable execution contracts.
+The backend does not execute heavy AI/media/FFmpeg workloads inside HTTP request threads.
