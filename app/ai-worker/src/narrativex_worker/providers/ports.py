@@ -90,6 +90,7 @@ class VideoGenerationRequest:
 @dataclass(frozen=True)
 class VideoProviderOperation:
     provider_key: str
+    request_id: str
     operation_id: str | None
     status: ProviderOperationStatus
     output_url: str | None = None
