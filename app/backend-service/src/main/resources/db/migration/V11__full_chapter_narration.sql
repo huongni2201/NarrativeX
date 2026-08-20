@@ -1,4 +1,11 @@
 -- Full-chapter narration snapshots, durable media assets and segment-level alignment.
+ALTER TABLE generation_jobs DROP CONSTRAINT ck_generation_jobs_job_type;
+ALTER TABLE generation_jobs ADD CONSTRAINT ck_generation_jobs_job_type CHECK (job_type IN (
+    'STORY_ANALYZE', 'CHAPTER_ANALYZE', 'NARRATION_GENERATE', 'IMAGE_GENERATE',
+    'CHAPTER_GENERATE', 'CHAPTER_RENDER', 'PROJECT_CONTINUE', 'VISUAL_BEAT_PLAN',
+    'SHOT_IMAGE_GENERATE', 'RENDER_PROJECT', 'RENDER_SHORT'
+));
+
 CREATE TABLE narration_requests (
     id UUID PRIMARY KEY,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -18,6 +25,15 @@ CREATE TABLE narration_requests (
 );
 CREATE INDEX idx_narration_requests_chapter_created
     ON narration_requests (chapter_id, created_at DESC);
+
+CREATE TABLE narration_operations (
+    id UUID PRIMARY KEY,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    narration_request_id UUID NOT NULL REFERENCES narration_requests(id),
+    generation_job_id BIGINT NOT NULL UNIQUE REFERENCES generation_jobs(id),
+    stage_attempt_id BIGINT NOT NULL UNIQUE REFERENCES stage_attempts(id),
+    CONSTRAINT uk_narration_operations_request_job UNIQUE (narration_request_id, generation_job_id)
+);
 
 CREATE TABLE narration_assets (
     id UUID PRIMARY KEY,
@@ -52,6 +68,8 @@ CREATE TABLE narration_alignments (
 
 COMMENT ON COLUMN narration_requests.source_text IS
     'Immutable chapter text snapshot bound to chapter_row_version/source_hash at narration admission.';
+COMMENT ON TABLE narration_operations IS
+    'Domain grouping only. Provider lifecycle remains authoritative in provider_operations.';
 COMMENT ON COLUMN narration_assets.project_asset_id IS
     'Durable MediaAsset/storage indirection. Provider URLs are never authoritative narration assets.';
 COMMENT ON COLUMN narration_alignments.spans_json IS
