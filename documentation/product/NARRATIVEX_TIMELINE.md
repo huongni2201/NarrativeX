@@ -1,93 +1,45 @@
-# NarrativeX — Implementation Timeline
+# NarrativeX — V1.11 Implementation Timeline
 
-This file is a dependency-ordered planning view. It does not promise fixed calendar dates. Current status is derived from V1.10 source-of-truth plus repository evidence.
+This is dependency-ordered planning, not a calendar promise. Current status is derived from the V1.11 source of truth plus repository evidence.
 
-## Current checkpoint
-
-### Foundation — IMPLEMENTED
+## Implemented foundation
 
 - Spring Boot modular monolith + Next.js frontend + Python worker.
-- PostgreSQL authoritative state.
-- Redis-backed browser sessions plus non-authoritative generation hints.
-- Project/StoryVersion/Chapter foundations.
-- Chapter batch import.
-- Explicit durable Chapter Analyze.
+- PostgreSQL authoritative state; Redis sessions/transient hints.
+- R2-only durable media storage.
+- Project/Chapter/Analyze foundations.
+- ProviderOperation durability/reconciliation and immutable completed-result fingerprint.
 - Worker claim/lease/heartbeat and bounded concurrency.
-- ProviderOperation durability/reconciliation foundation.
 - Character + Location analysis continuity and Scene relations.
-- Storyboard/VisualBeat read/review foundations.
+- Backend-authoritative MediaPlan foundation.
+- Full-chapter TTS narration + alignment + R2 media.
+- `NarrationStrategy.USER_PROVIDED_AUDIO` foundation: ordered parts, logical global timeline, multi-Chapter coverage and TTS-bypass planning.
+- MyBatis persistence for ProviderOperation, Chapter and Project.
 
-## Next phase — Review completion
+## Immediate workstream 1 — MyBatis convergence
 
-### Character review — PARTIAL
+1. StoryVersion.
+2. GenerationJob / StageAttempt / OperationPlan/MediaPlan legacy boundaries.
+3. Outbox and quota/billing JDBC boundaries.
+4. Storyboard and continuity repositories.
+5. Remaining low-risk CRUD/query boundaries.
+6. Remove unused JPA/JDBC infrastructure only after PostgreSQL evidence.
 
-- version editing/diff;
-- approve/lock semantics;
-- reference asset workflow;
-- deterministic reviewed snapshot resolution.
+## Immediate workstream 2 — First complete media loop
 
-### Storyboard review — PARTIAL
+1. Harden user-audio upload/finalize and alignment execution.
+2. Build narration-driven VisualScenePlanner.
+3. Add one production image-generation provider path.
+4. Persist immutable image MediaAssets to R2.
+5. Implement deterministic IMAGE_MOTION FFmpeg rendering.
+6. Validate/persist FinalArtifact and expose preview/download.
 
-- broader Scene/VisualBeat editing;
-- ordering/deep links;
-- approved reset/versioning workflow.
+## Fast-follow
 
-## Media phase
+- reuse/reframe/edit AssetResolver;
+- Character/reference locking and storyboard versioning completion;
+- HYBRID_LOCAL_I2V runtime hardening;
+- full actual-cost/ledger reconciliation;
+- moderation/SSRF/retention/observability/DR production evidence.
 
-### Image generation — PENDING
-
-- one provider adapter;
-- durable stage + ProviderOperation;
-- private object storage;
-- Asset metadata/checksum/dimensions;
-- review/regenerate.
-
-### TTS/subtitles — PENDING
-
-- one TTS adapter;
-- narration audio asset;
-- timing/subtitle metadata;
-- output validation.
-
-### Render/export — PENDING
-
-- deterministic FFmpeg baseline;
-- RenderVersion;
-- FinalArtifact validation;
-- preview/download.
-
-## Production-hardening phase — PARTIAL
-
-- actual provider usage and billing reconciliation;
-- unused reservation release/refund;
-- broader provider resilience/observability;
-- complete moderation/consent/abuse coverage;
-- deletion/retention;
-- backup/restore drills;
-- real-provider E2E/load/recovery testing.
-
-## Architecture baseline
-
-```text
-Next.js frontend
-  -> Spring Boot API
-       -> PostgreSQL
-       -> Redis session/transient hints
-
-PostgreSQL durable work
-  -> Python worker
-       -> provider adapters
-       -> Cloudflare R2 media storage (future media stages)
-```
-
-Do not use Node.js as a backend alternative, RabbitMQ as an assumed queue authority, or OpenAI/Runway/Pika as current provider claims unless those technologies are actually introduced by a later accepted implementation decision.
-
-## Planning principles
-
-- PostgreSQL remains durable authority.
-- Project/Chapter save does not auto-run AI.
-- Provider work requires durable lifecycle state.
-- `UNKNOWN` reconciles before resubmit.
-- Media generation comes after reviewable continuity/storyboard state.
-- Fixed video duration/image-count/"5–15 minute generation" numbers are product hypotheses, not architecture invariants.
-- Public launch is blocked by unresolved P0/P1 integrity/security/safety issues and missing production evidence.
+The low-cost image-motion path is intentionally completed before advanced I2V optimization.

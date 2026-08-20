@@ -1,88 +1,59 @@
-# NarrativeX V1.10 — Business Rules
+# NarrativeX V1.11 — Business Rules
 
-**Canonical source:** `../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_10.md`
-**Rule-ID note:** existing BR identifiers are retained for traceability even when they originated in earlier specifications.
+**Canonical source:** `../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`
 
 ## Core lifecycle
 
-- **BR-01** Project creation is metadata-only; it never implicitly enqueues Analyze/Image/TTS/Render work.
-- **BR-02** Chapter source is persisted before Analyze. Unsaved browser text is not AI authority.
-- **BR-03** Analyze is an explicit Chapter action and uses a persisted `chapterId + rowVersion + sourceHash` snapshot.
-- **BR-04** PostgreSQL is authoritative for durable business/generation state.
-- **BR-05** Redis generation delivery/progress is non-authoritative; lost hints must not lose durable work.
-- **BR-06** Long-running AI/media work is asynchronous.
+- **BR-01** Project creation is metadata-only and never implicitly enqueues AI/media work.
+- **BR-02** Chapter source is persisted before Analyze; unsaved browser text is not execution authority.
+- **BR-03** Expensive workflows pin durable source identity (`chapterId`, `rowVersion`, `sourceHash`).
+- **BR-04** PostgreSQL is authoritative for durable state; Redis generation hints are non-authoritative.
+- **BR-05** Long-running AI/media work is asynchronous and recoverable from durable state.
 
-## Character and continuity
+## Narration
 
-- **BR-20** Character is reusable identity; Project participation is represented by ProjectCharacter.
-- **BR-21** Visual appearance/outfit changes do not create a new Character identity.
-- **BR-22** Analysis continuity uses stable AI keys and durable IDs, never display names as foreign-key semantics.
-- **BR-23** AI-returned Locations are materialized/reused as project-scoped Location identities.
-- **BR-24** Scene character participation is persisted as Scene -> ProjectCharacter relations.
-- **BR-25** Scene Location continuity is persisted as a durable Location reference.
-- **BR-26** Distinct AI identity keys must not silently collapse to one project identity in a single response.
-- **BR-27** Downstream media generation must resolve reviewed/versioned Character/reference snapshots; analysis-time identity matching alone is insufficient for deterministic generation.
-
-## Storyboard/history
-
-- **BR-30** Chapter and Scene are independent aggregate roots.
-- **BR-31** VisualBeat is a Scene-owned child entity/generation planning unit.
-- **BR-32** Re-analysis must not destructively replace approved Scene/VisualBeat history without an explicit reset/versioning workflow.
-- **BR-33** Regeneration creates new attempts/artifacts rather than overwriting immutable approved history.
-- **BR-34** When source-preserving narration is selected, persisted Chapter source is narration content authority and TTS must not rewrite it.
-- **BR-35** Narration/alignment timing is visual-timeline authority; visual-scene duration is adaptive rather than a fixed sentence/image duration.
-- **BR-36** Media planning supports `IMAGE_MOTION` and `HYBRID_LOCAL_I2V`; production-mode changes reuse a still-valid semantic analysis snapshot when analysis inputs are unchanged.
-- **BR-37** Visual asset planning prefers compatible approved reuse, reframe and edit before new generation and preserves derivation lineage.
+- **BR-34** Source-preserving TTS narrates the exact persisted Chapter text; it does not rewrite source.
+- **BR-35** Narration alignment is visual-timeline duration authority.
+- **BR-38** Narration supports `TTS` and `USER_PROVIDED_AUDIO` strategies.
+- **BR-39** User-provided audio may be one file for many Chapters or multiple ordered files for the same Chapter scope; file boundaries are not Chapter boundaries.
+- **BR-40** A `USER_PROVIDED_AUDIO` plan omits TTS generation and must not reserve/charge TTS workload for the covered scope.
+- **BR-41** User-provided audio that fails alignment acceptance must stop for review/fix rather than silently fall back to replacement TTS.
+- **BR-42** Narration document/audio fingerprints are immutable inputs to planning and rendering.
 
 ## Provider durability
 
-- **BR-46** Persist ProviderOperation in `RESERVED` before external provider submission.
-- **BR-47** Ambiguous outcome or timeout becomes `UNKNOWN`; do not blind-resubmit before reconciliation.
-- **BR-48** Provider operation IDs/fingerprints are namespaced/idempotent according to the provider contract.
-- **BR-49** Persisted `RESERVED`/`SUBMITTED` operations are recovered by reconciliation after restart rather than duplicate submit.
-- **BR-50** A completed normalized provider result persisted before a process crash may be replayed into materialization without another provider call.
-- **BR-51** A worker that loses its StageAttempt lease must not finalize successful output for that lease.
-- **BR-52** A local/self-hosted GPU inference endpoint is still an external execution boundary for durability purposes; ambiguous submissions reconcile by operation ID or stable request identity before retry.
+- **BR-46** Persist ProviderOperation intent before crossing an external/provider boundary.
+- **BR-47** Ambiguous outcomes become `UNKNOWN`; reconcile before resubmission.
+- **BR-48** Provider mutations use expected-state/version predicates; terminal states do not reopen.
+- **BR-49** `COMPLETED + same result_fingerprint` is idempotent; a different fingerprint is an invariant conflict.
+- **BR-50** Losing local scratch is not a reason to repeat paid work if a valid durable result already exists.
 
-## Admission, quota and cost
+## Media planning and production modes
 
-- **BR-65** Server-side entitlement/quota/cost admission occurs before expensive Chapter Analyze work.
-- **BR-66** Current reservation state is PostgreSQL-backed and atomic for the implemented Analyze foundation.
-- **BR-67** Estimate is not invoice; actual usage/billing reconciliation is separate.
-- **BR-68** Complete billing must release/refund unused reservation and preserve append-only accounting/audit evidence.
-- **BR-69** Client feature flags/credit displays never grant server authority.
-- **BR-70** Post-analysis media cost is calculated from planned billable workload plus versioned pricing/benchmark snapshots, not a hardcoded cost per scene.
-- **BR-71** `expectedCost`, `reservationCeiling` and reconciled `actualCost` are distinct values.
-- **BR-72** Self-hosted I2V cost is estimated from measured GPU compute for a versioned model/hardware/resolution/inference profile; benchmark data must not be presented as universal model pricing.
-- **BR-73** Workers may not upgrade deterministic motion to GPU-heavy I2V outside the authorized `OperationPlan` and reservation.
+- **BR-70** Media workload is priced from versioned pricing/benchmark data, not hardcoded dollars per scene.
+- **BR-71** `expectedCost`, `reservationCeiling` and `actualCost` are distinct.
+- **BR-73** Workers may not upgrade motion outside the authorized MediaPlan.
+- **BR-115** `IMAGE_MOTION` permits deterministic motion only; `HYBRID_LOCAL_I2V` may authorize selected I2V.
+- **BR-118** The backend is MediaPlan/motion-policy authority; the worker executes the pinned plan revision.
+- **BR-119** For the first vertical slice, image execution may use `GENERATE_NEW` only; this does not revoke the long-term reuse-first architecture.
 
-## Concurrency
-
-- **BR-75** Mutable state uses optimistic concurrency where exposed; stale expected version must fail rather than silently overwrite.
-- **BR-76** Worker concurrency is bounded/configured, not unbounded task creation.
-- **BR-77** StageAttempt lease/heartbeat state is durable; process memory is not authority.
-- **BR-78** Provider/network calls do not hold long business database transactions open.
-
-## Trust, safety and privacy
-
-- **BR-98** Safety/abuse checks run before paid work where possible.
-- **BR-99** Story/chapter/character/prompt/provider output are untrusted data and cannot redefine ownership, billing, storage, tool or policy authority.
-- **BR-100** Story Analyze/Generate does not require a blanket per-story copyright/rights-attestation checkbox.
-- **BR-101** Copyright report/review/takedown and real-person consent are separate policy concerns.
-- **BR-102** Provider safety signals are defense-in-depth; application policy is canonical.
-- **BR-103** Sensitive identity/reference data must remain tenant-scoped/private and obey retention/deletion policy.
-
-## Media target rules
+## Durable media
 
 - **BR-110** Binary media is not stored in PostgreSQL.
-- **BR-111** Image/TTS/render/provider work must reuse the durable StageAttempt/ProviderOperation principles rather than direct SDK calls from UI/domain code.
-- **BR-112** FinalArtifact can become READY only after immutable object/metadata/checksum/MIME/dimension validation.
-- **BR-113** Output ratio/quality are explicit settings/capabilities; silent stretch is prohibited.
-- **BR-114** Visual count/duration budgets are planning policy, not fixed domain constants such as "one sentence = one image".
-- **BR-115** `IMAGE_MOTION` authorizes deterministic image motion only; `HYBRID_LOCAL_I2V` may authorize selected-beat I2V according to motion value, capability, entitlement and cost policy.
-- **BR-116** I2V generation resolution and final export resolution are independent planning choices; lower-resolution I2V may be upscaled during bounded render when quality policy allows.
-- **BR-117** Generated I2V duration may be shorter than its narration span; deterministic composition may extend the approved motion asset without another I2V generation.
+- **BR-111** Cloudflare R2 is the only durable media object store.
+- **BR-112** A media stage is not complete until bytes validate, immutable R2 persistence succeeds and authoritative metadata commits.
+- **BR-113** Worker-local media paths are scratch/cache only.
+- **BR-114** FinalArtifact becomes ready only after checksum/MIME/dimensions/duration/manifest validation.
 
-## Status interpretation
+## Persistence
 
-These are maintained product/domain rules. A rule may describe a `TARGET` capability even when the current implementation is incomplete. Use `../TRACEABILITY.md` to determine factual implementation status; do not infer implementation solely from a BR identifier.
+- **BR-120** New persistence-heavy backend work converges on MyBatis + explicit SQL + PostgreSQL unless an ADR records an exception.
+- **BR-121** SQL concurrency/state transitions use CAS/allowed-previous predicates and affected-row validation.
+- **BR-122** JPA/JDBC are migration-era surfaces and must not be treated as the strategic final persistence model.
+
+## History and continuity
+
+- **BR-20** Character identity is reusable; appearance/outfit changes do not create a new Character identity.
+- **BR-22** Continuity uses stable durable IDs/AI keys rather than display names.
+- **BR-32** Re-analysis does not destructively overwrite approved history without explicit revision/reset behavior.
+- **BR-33** Regeneration creates new attempts/assets rather than overwriting immutable approved outputs.

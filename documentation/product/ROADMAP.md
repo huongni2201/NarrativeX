@@ -1,131 +1,88 @@
-# NarrativeX — V1.10 Roadmap
+# NarrativeX — V1.11 Roadmap
 
-**Canonical baseline:** `../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_10.md`
-**Planning rule:** milestones are dependency order, not fixed-date commitments.
+**Canonical baseline:** `../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`  
+**Planning rule:** dependency order, not fixed-date commitment.
 
-## Current checkpoint
-
-The current codebase has an implemented Chapter Analysis foundation:
+## Current checkpoint — IMPLEMENTED foundations
 
 ```text
-Create Project
-  -> Save Chapter
-  -> Analyze
-  -> durable admission/enqueue
-  -> worker claim/lease/heartbeat
-  -> durable ProviderOperation lifecycle
-  -> structured analysis
-  -> Character + Location continuity
-  -> Scene + VisualBeat + Scene relations
-  -> COMPLETED
+Create/Edit Chapter
+  -> durable Analyze
+  -> Character/Location + Scene/VisualBeat continuity
+  -> TTS narration + alignment OR USER_PROVIDED_AUDIO logical timeline
+  -> backend-authoritative MediaPlan foundation
 ```
 
-Project/Chapter/Analyze, worker concurrency, provider durability, analysis continuity and Storyboard/Character read foundations are no longer roadmap-only items.
+Also implemented: ProviderOperation/Chapter/Project MyBatis persistence foundations, R2-only durable media topology, worker claim/lease/heartbeat, and user-provided-audio TTS-bypass planning.
 
-## Next milestones
+## Track A — Finish persistence simplification
 
-### M1 — Character review and locking
+### A1 — StoryVersion MyBatis — NEXT
+- explicit row/resultMap/SQL;
+- append/activation/version invariants;
+- PostgreSQL contract tests;
+- remove active JPA adapter after cutover.
 
-**Status:** PARTIAL
+### A2 — Generation execution persistence — TARGET
+- GenerationJob / StageAttempt claim, lease, heartbeat and CAS paths;
+- OperationPlan / MediaPlan where legacy adapters remain.
 
-- CharacterVersion view/edit workflow.
-- explicit review/approve/lock semantics.
-- reference asset management.
-- deterministic resolution of reviewed CharacterVersion/reference snapshots for future generation.
-- UI consumes backend state only.
+### A3 — Outbox + quota/billing — TARGET
+- replace remaining direct JDBC boundaries with semantic MyBatis mappers;
+- preserve atomic enqueue/reservation behavior.
 
-### M2 — Storyboard review completion
+### A4 — Storyboard/continuity + low-risk CRUD — TARGET
+- Scene/VisualBeat/revisions;
+- Character/Location continuity;
+- remaining read/query boundaries;
+- remove unused JPA infrastructure only after evidence is complete.
 
-**Status:** PARTIAL
+## Track B — First durable MP4
 
-- broader Scene/VisualBeat editing and ordering.
-- explicit approved-output reset/versioning workflow.
-- deep-link/navigation improvements.
-- preserve approved/history semantics during re-analysis.
+### B1 — Narration strategy/timeline — IMPLEMENTED foundation
+- `TTS` and `USER_PROVIDED_AUDIO`;
+- ordered audio parts;
+- one logical global clock;
+- one file may cover multiple Chapters;
+- uploaded-audio plan does not contain `TTS_GENERATE`.
 
-### M3 — Image generation
+### B2 — Production user-audio ingestion/alignment — PARTIAL → TARGET
+- authorized private R2 upload/finalize;
+- MIME/decode/duration/checksum validation;
+- real alignment provider/runtime;
+- coverage/confidence thresholds and review path.
 
-**Status:** PENDING
+### B3 — VisualScenePlanner — TARGET
+- narration timing is duration authority;
+- pin source/analysis/narration identities together;
+- adaptive source/audio spans.
 
-```text
-reviewed VisualBeat
-  -> durable image stage
-  -> ProviderOperation
-  -> Cloudflare R2
-  -> Asset metadata/checksum/dimensions
-  -> review/regenerate
-```
+### B4 — Image generation execution — TARGET
+- one real provider adapter;
+- durable ProviderOperation;
+- first vertical slice may use `GENERATE_NEW` only;
+- validate → R2 → immutable MediaAsset.
 
-Start with one real provider path. Multi-provider routing is not required to prove the product loop. Durable image bytes use the environment R2 bucket; worker-local files are temporary scratch only.
+### B5 — IMAGE_MOTION renderer — TARGET
+- pan/zoom/fade/overlay;
+- render against narration spans;
+- bounded/incremental FFmpeg workspaces.
 
-### M4 — Narration / TTS / subtitle timing
+### B6 — FinalArtifact — TARGET
+- merge/validate MP4;
+- checksum/MIME/dimensions/duration manifest;
+- private R2 persistence;
+- preview/download through backend-authorized access.
 
-**Status:** PENDING
+## Fast-follow after first durable MP4
 
-- one TTS adapter;
-- narration audio Asset persisted to R2;
-- duration/timing metadata;
-- subtitle segmentation/timing with durable R2 artifacts where applicable;
-- durable provider/output validation.
+- Character review/version/reference locking completion.
+- Approved storyboard revision/reset workflow.
+- Reuse → reframe → edit → new AssetResolver.
+- HYBRID_LOCAL_I2V/Wan runtime hardening and GPU usage reconciliation.
+- Full actual-cost ledger/release/refund.
+- Output moderation, SSRF-safe media ingestion, retention/deletion, observability and backup/restore evidence.
 
-### M5 — FFmpeg render/export
+## First-video acceptance scenario
 
-**Status:** PENDING
-
-- reviewed image/visual assets;
-- narration/subtitle timeline;
-- basic pan/zoom/fade;
-- immutable RenderVersion/FinalArtifact uploaded to R2;
-- checksum/MIME/dimensions/manifest validation before READY.
-
-### M6 — Billing and production hardening
-
-**Status:** PARTIAL
-
-- actual provider usage reconciliation;
-- append-only billing/resource ledger completion;
-- unused reservation release/refund;
-- broader provider recovery/observability;
-- moderation/consent/abuse coverage;
-- deletion/retention;
-- backup/restore drills;
-- real-provider E2E/load/recovery evidence.
-
-## Product loop target
-
-```text
-Login
-  -> Create Project
-  -> Create/Edit Chapter
-  -> Analyze
-  -> Review Character/Continuity
-  -> Review Storyboard
-  -> Generate Images
-  -> Generate Narration
-  -> Render MP4
-  -> Preview/Download
-```
-
-## Not required before the core creator loop
-
-- multiple LLM providers;
-- complex provider-routing optimization;
-- BYOK;
-- LoRA/adapter training;
-- collaboration/sharing;
-- CapCut-style full timeline editor;
-- cinematic lip-sync;
-- multi-region/GPU orchestration;
-- premature microservice extraction.
-
-## Release blockers for public beta
-
-- no real-provider E2E/recovery evidence;
-- incomplete moderation/consent/abuse coverage;
-- incomplete billing/usage reconciliation;
-- deletion/retention not verified end-to-end;
-- backup/restore/observability insufficient;
-- media outputs not validated atomically before READY;
-- unresolved P0/P1 security or data-integrity issues.
-
-Historical V1.8 milestone text should be treated as historical planning only; it is not the current implementation status.
+Given 10 selected Chapters and one or several valid user-provided audio files, NarrativeX can align one logical narration timeline, skip TTS, generate durable images, render `IMAGE_MOTION`, validate the final MP4 and persist it to R2 without relying on worker-local paths.

@@ -1,95 +1,35 @@
-# NarrativeX Technology Stack
+# NarrativeX Technology Stack — V1.11
 
-This page records the current repository stack and its V1.10 role. Canonical authority: [`../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_10.md`](../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_10.md).
+Canonical authority: [`../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md).
 
-## Application stack
-
-| Layer | Current repository evidence | Role |
+| Layer | Current stack | V1.11 role |
 |---|---|---|
-| Web | Next.js `^16.3.1`, React `^19.2.8`, TypeScript `^5.8.2`, TanStack Query `^5.101.4`, Zustand `^5.0.15`, Node.js 22 | Project/Chapter UI and review workflows |
-| Backend | Java 25, Spring Boot 4.1.0, JPA, Security/OAuth2, Spring Session Redis, Actuator, PDFBox 3.0.8 | Modular monolith, ownership, durable orchestration and admission controls |
-| Persistence | PostgreSQL 18 target, Flyway, Spring Data JPA, MyBatis 4.1 for ProviderOperation and Chapter | Authoritative domain/job/quota/safety state; SQL-first CAS for migrated persistence boundaries |
-| Redis | Spring Data Redis + Spring Session Redis | Session storage plus non-authoritative delivery/progress hints |
-| Worker | Python >=3.12, Pydantic, HTTPX, asyncpg, google-auth, Pytest/Ruff/mypy | Async AI execution, provider reconciliation and materialization |
-| AI | Vertex AI Gemini adapter; provider ports; safe default `provider_mode=disabled` | Structured Chapter analysis |
-| Storage/media | Cloudflare R2 is the sole durable media object store across environments; worker local disk is scratch/cache/FFmpeg workspace; FFmpeg-oriented media foundations | Durable generated/reference images, narration, subtitles, scene video, final exports and thumbnails live in R2 while PostgreSQL owns metadata/contracts |
+| Web | Next.js 16, React 19, TypeScript, TanStack Query, Zustand | Studio UI and review workflows |
+| Backend | Java 25, Spring Boot 4.1, Security/OAuth2, Spring Session Redis, Actuator | modular monolith, policy, durable orchestration, MediaPlan authority |
+| Persistence | PostgreSQL 18 target, Flyway, MyBatis + remaining migration-era JPA/JDBC | authoritative state; explicit SQL/CAS direction |
+| Redis | Spring Data Redis + Spring Session Redis | sessions and transient hints only |
+| Worker | Python 3.12+, Pydantic, HTTPX, asyncpg, google-auth, boto3 | async provider/media execution, alignment, reconciliation, FFmpeg workspace |
+| AI | Vertex Gemini analysis adapter + provider-neutral ports | structured Chapter analysis |
+| Narration | Google TTS foundation + user-provided audio timeline/alignment contracts | two narration strategies feeding one timeline model |
+| Storage | Cloudflare R2 only | durable private media; PostgreSQL owns metadata/lineage |
+| Media | FFmpeg-oriented deterministic render foundation; Wan-compatible I2V adapter foundation | first complete target is IMAGE_MOTION, I2V fast-follow |
 
-## Flyway baseline
+## Persistence status
 
-The maintained development chain is:
+MyBatis-backed production boundaries include:
 
-- V1 `initial_schema` (consolidated complete schema)
-- V2 `seed_demo_data` (deterministic local/demo dataset)
-- V3–V8 forward migrations (continuity, durable results, quota, identities, revisions and reconciliation)
-- V9 `index_running_stage_attempt_claims` (worker claim index)
-- V10 `provider_operation_result_fingerprint` (same-result idempotency evidence)
+- ProviderOperation;
+- Chapter;
+- Project command/query persistence.
 
-V1 includes complete schema foundations, split motion fields, OperationPlan to GenerationJob link, ProviderOperation request fingerprint/status constraints, plan monthly credits and canonical execution constraints. Released migration history must remain forward-only.
+Next migration priority starts with StoryVersion, then high-concurrency generation/outbox/quota paths. Do not deepen JPA/JDBC for new persistence-heavy features without a documented exception.
 
-## Durable Chapter Analyze
+## Narration status
 
-```text
-persisted Chapter
-  -> safety / entitlement / quota / cost admission
-  -> OperationPlan + GenerationJob + StageAttempt + OutboxEvent
-  -> commit
-  -> best-effort Redis hint
-  -> worker claim/lease/heartbeat
-  -> ProviderOperation RESERVED before external submit
-  -> SUBMITTED/RUNNING/COMPLETED | FAILED | UNKNOWN
-  -> UNKNOWN reconciliation
-  -> transactional result materialization
-```
+Full-chapter TTS and R2-backed narration/alignment foundations are implemented. `NarrationStrategy.USER_PROVIDED_AUDIO` is also implemented as a planning/timeline foundation: ordered variable-count parts, fingerprints, global timeline mapping, alignment status and TTS-bypass operation planning.
 
-PostgreSQL is authoritative. Redis is not the source of truth for GenerationJob execution.
+Production upload/finalize and real alignment integration still require hardening before claiming the complete user-facing uploaded-audio workflow.
 
-ProviderOperation and Chapter persistence are MyBatis-backed. The JPA adapter
-for ProviderOperation is retained as a configuration-selected rollback path
-while other aggregates continue to use Spring Data JPA. Chapter has no legacy
-adapter after its cutover.
+## Durable media rule
 
-MyBatis mapper registration is shared through a marker interface rather than a
-package-wide interface scan. Mappers use explicit XML result maps, dedicated
-row models and SQL-level CAS predicates with affected-row validation. The
-application DataSource and Spring transaction boundary are shared with JPA;
-PostgreSQL Testcontainers is required for persistence and concurrency evidence.
-The accepted decisions are recorded in
-[`ADR-0014`](../decisions/ADR-0014-provider-operation-mybatis-migration.md) and
-[`ADR-0017`](../decisions/ADR-0017-chapter-mybatis-persistence.md).
-
-Current admission checks the latest persisted Chapter safety decision, `storyAnalysis` entitlement, concurrent expensive-job capacity and monthly credits, then reserves usage atomically in PostgreSQL. OperationPlan stores non-zero estimate/cap values for Chapter Analyze. Full actual-usage reconciliation and unused-reservation release remain follow-up work.
-
-## Worker runtime
-
-- `WORKER_CONCURRENCY` defaults to 4 and is bounded to 1..32.
-- Claims use PostgreSQL `FOR UPDATE ... SKIP LOCKED` plus StageAttempt leases/heartbeats.
-- asyncpg pool sizing follows configured concurrency.
-- Graceful shutdown stops new claims and waits for in-flight jobs.
-- Character/Scene/VisualBeat writes are batched where practical.
-
-## Chapter import
-
-Backend batch import supports `.txt`, `.docx` and `.pdf`; PDF extraction uses Apache PDFBox.
-
-## Frontend runtime
-
-- Next.js App Router owns navigation.
-- TanStack Query owns persisted server state.
-- URL/search params own navigable filters.
-- Zustand is reserved for transient editor/wizard state.
-- API mode does not silently substitute fixture data.
-- Frontend CI runs `npm ci`, `npm test`, `npm run lint`, `npm run type-check`, `npm run build` on Node.js 22.
-
-## Authentication
-
-Browser auth uses Spring Security server sessions + CSRF with Spring Session Redis. Password login/register and Google OIDC are supported. JWT access/refresh tokens are not the current browser contract.
-
-## Remaining implementation gaps
-
-- AI Location materialization.
-- Scene -> ProjectCharacter relation materialization.
-- Scene -> Location relation materialization.
-- Explicit approved-storyboard reset/versioning.
-- Complete actual-cost/usage reconciliation.
-- Image generation, TTS/subtitles and render/export with Cloudflare R2 durable persistence plus FinalArtifact validation.
-- Broader production moderation/consent/abuse coverage, observability and DR evidence.
+R2 is the only durable media store. Worker-local files are scratch/cache only. A provider URL or local path is never an authoritative asset reference.

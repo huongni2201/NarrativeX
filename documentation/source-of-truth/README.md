@@ -1,52 +1,33 @@
-# NarrativeX Source of Truth V1.10
+# NarrativeX Source of Truth V1.11
 
 ## Canonical baseline
 
-Current canonical repository baseline:
-
-- Version: `V1.10`
+- Version: `V1.11`
 - Repository: `huongni2201/NarrativeX`
-- Baseline: current code-aligned engineering baseline; factual implementation claims are verified against code/tests/migrations.
-
-Canonical specification:
-
-```text
-documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_10.md
-```
+- Docs-sync base: `e47dccee4aa35450f3902a55311d5d83632cb5a6`
+- Canonical specification: `documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`
+- Historical baseline: `NARRATIVEX_PROJECT_SPEC_V1_10.md` (superseded; do not use as current authority)
 
 ## Current implemented foundations
 
-- Project Overview read model.
-- Chapter CRUD and batch import.
-- Explicit durable Chapter Analyze flow.
-- Durable GenerationJob / StageAttempt execution.
-- Worker bounded concurrency and claim/lease/heartbeat recovery.
-- Storyboard and VisualBeat review foundation.
-- Character library read API.
-- AI Character/Location continuity materialization and Scene relation persistence foundation.
-- Job history, quota and notification read surfaces.
-- Durable ProviderOperation reservation/submission/UNKNOWN-reconciliation foundation.
-- Chapter analysis admission checks for safety, entitlement, quota and estimated cost reservation.
-- Full-chapter narration/TTS, immutable R2-backed narration media and alignment foundation.
+- Project overview and Project persistence, including MyBatis-backed Project command/query persistence.
+- Chapter CRUD/import with MyBatis Chapter persistence.
+- Explicit durable Chapter Analyze admission/enqueue and worker claim/lease/heartbeat execution.
+- Durable ProviderOperation lifecycle, CAS-style transition foundation and immutable completed-result fingerprint behavior.
+- Backend-authoritative, versioned MediaPlan foundation and job pinning.
+- Character/Location continuity plus Scene/VisualBeat and Scene relation materialization foundations.
+- Full-chapter TTS narration, alignment and immutable R2-backed narration media.
+- User-provided narration foundation: `NarrationStrategy.USER_PROVIDED_AUDIO`, ordered variable-count audio parts, one logical global audio clock, fingerprints/alignment status and TTS-bypass operation planning.
+- Cloudflare R2-only durable media topology.
 
-## Remaining product gaps
+## Primary V1.11 targets
 
-- Full character version/reference/lock workflow.
-- Approved storyboard reset/versioning workflow.
-- Production hardening of provider reconciliation and actual-usage accounting.
-- R2-backed image generation, scene/motion video and render/export pipeline.
-- Subtitle/timing refinement beyond the current narration alignment foundation.
-- Full billing ledger/reconciliation and unused reservation release.
-- Broader moderation/consent/abuse coverage, observability, backup/restore and deletion lifecycle evidence.
+- Finish MyBatis migration for StoryVersion, generation execution, outbox, quota/billing, storyboard/continuity and remaining boundaries.
+- Harden the production user-audio upload/finalize/alignment path.
+- Build alignment-driven `VisualScenePlanner`.
+- Implement the first production image-generation slice; `GENERATE_NEW` is allowed for the first vertical slice.
+- Persist minimal immutable image `MediaAsset` before render completion.
+- Deliver `IMAGE_MOTION` → validated R2-backed MP4 as the first complete long-form media path.
+- Add reuse/reframe/edit resolution and `HYBRID_LOCAL_I2V` as fast-follow optimizations after the first durable MP4.
 
-## Documentation rules
-
-Derived documents are implementation views. They must not redefine domain invariants independently.
-
-When code, migration, ADR and documentation disagree:
-
-1. Product/domain invariants decide intended behavior.
-2. Current code/tests/migrations decide AS-IS implementation claims.
-3. Historical audit documents remain evidence only.
-
-Every current-state capability must clearly use the canonical documentation status vocabulary: `IMPLEMENTED`, `PARTIAL`, `PENDING`, `PROTOTYPE` or `TARGET`.
+Derived documents are implementation views and must not redefine these invariants independently.

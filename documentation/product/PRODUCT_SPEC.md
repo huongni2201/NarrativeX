@@ -1,75 +1,75 @@
-# NarrativeX — Product Specification V1.10
+# NarrativeX — Product Specification V1.11
 
-**Status:** maintained product contract
-**Canonical source:** [`../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_10.md`](../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_10.md)  
+**Status:** maintained product contract  
+**Canonical source:** [`../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md)  
 **Implementation evidence:** [`../TRACEABILITY.md`](../TRACEABILITY.md)
 
 ## Product definition
 
-NarrativeX is an AI-assisted long-form story video studio. The product is chapter-first, review-first and durable: Project creation is metadata-only, Chapter save persists source, and Analyze is an explicit action.
+NarrativeX is an AI-assisted long-form story-video studio. It is chapter-first, review-first, audio-timeline-first, image-first, backend-authorized and durable-by-design.
+
+Project creation is metadata-only. Saving Chapter source does not implicitly run AI. Analysis, narration selection/processing, image generation and rendering are explicit operations.
 
 ## Current implementation snapshot
 
-Current repository foundations include:
+Implemented foundations now include:
 
-- Project Overview;
-- StoryVersion and Chapter CRUD/import with source hash and optimistic concurrency;
-- explicit durable Chapter Analyze;
-- safety/entitlement/quota/estimated-cost admission and atomic reservation foundation;
-- PostgreSQL outbox plus worker claim/lease/heartbeat/bounded concurrency;
-- durable ProviderOperation reservation/submission/UNKNOWN-reconciliation foundation;
-- Character/ProjectCharacter/CharacterVersion materialization;
-- project-scoped AI Location materialization;
-- stable Character/Location AI identity mappings;
-- Scene/VisualBeat materialization;
-- Scene -> ProjectCharacter and Scene -> Location continuity persistence;
-- Storyboard read/review foundations;
-- Character, Location, Asset, Job History, Quota and Notification read/API foundations.
+- Project, StoryVersion and Chapter authoring foundations;
+- MyBatis persistence for ProviderOperation, Chapter and Project boundaries;
+- durable Chapter Analyze admission, reservation, enqueue and worker execution;
+- ProviderOperation reconciliation/result-fingerprint invariants;
+- Character/Location continuity and Scene/VisualBeat materialization;
+- backend-authoritative immutable/versioned MediaPlan foundation;
+- full-chapter TTS narration, alignment and R2 persistence;
+- user-provided narration planning/timeline foundation with ordered multi-file audio and TTS bypass;
+- job history/quota/notification and frontend studio foundations;
+- R2-only durable media storage contract.
 
-Image generation, TTS/subtitles and render/export remain outside the current implemented vertical slice.
+## Narration contract
 
-## Chapter Analyze contract
+Narration has two product strategies:
 
 ```text
-persisted Chapter
-  -> ownership/snapshot validation
-  -> safety + entitlement + quota + cost admission
-  -> atomic usage reservation
-  -> OperationPlan + GenerationJob + StageAttempt + OutboxEvent
-  -> worker claim/lease/heartbeat
-  -> ProviderOperation lifecycle
-  -> structured analysis
-  -> stale Chapter check
-  -> Character + Location continuity
-  -> Scene + VisualBeat + Scene relations
-  -> terminal durable job state
+NarrationStrategy
+  TTS
+  USER_PROVIDED_AUDIO
 ```
 
-The browser never supplies arbitrary unsaved text as the analysis authority.
+`USER_PROVIDED_AUDIO` is not one-file-per-Chapter. One file may cover many Chapters, or several ordered files may cover the same selected Chapter range. NarrativeX builds one logical audio clock and aligns source spans to that timeline. For the covered scope, TTS generation and TTS reservation are omitted.
 
-## Character and continuity model
+A production-ready upload path must validate/finalize immutable R2-backed audio assets before they can drive alignment/rendering.
 
-Character is reusable identity at its ownership boundary. Projects use ProjectCharacter assignments. Analysis uses stable AI keys and persists mappings to durable project identities; Scene continuity uses durable IDs rather than display names.
+## Media planning contract
 
-The implemented analysis-time continuity foundation does **not** replace the remaining review/version-lock/reference workflow. Downstream media generation must use reviewed/versioned identity/reference snapshots.
+The backend owns the authorized immutable `MediaPlan` and resolved `MotionStrategy`. The worker executes the persisted plan and may only fall back within authorized policy.
 
-## Provider durability
+```text
+ProductionMode
+  IMAGE_MOTION
+  HYBRID_LOCAL_I2V
 
-External provider execution requires durable operation state. Current Chapter analysis implements a ProviderOperation foundation with `RESERVED`, `SUBMITTED`, terminal states and `UNKNOWN` reconciliation/restart behavior. Blind resubmission after ambiguous outcome is prohibited.
+MotionStrategy
+  BASIC_IMAGE_MOTION
+  IMAGE_TO_VIDEO
+```
 
-Complete provider-specific recovery, actual-usage reconciliation and production observability remain hardening work.
+`IMAGE_MOTION` never schedules I2V. `HYBRID_LOCAL_I2V` may authorize selected I2V scenes but remains image-first.
 
-## Cost/admission
+## V1.11 delivery order
 
-Current Chapter Analyze admission checks persisted safety state, `storyAnalysis` entitlement, concurrent expensive-job capacity and monthly credits, then reserves estimated usage atomically in PostgreSQL before durable enqueue.
+The first complete media loop prioritizes correctness and time-to-first-video:
 
-This is not final billing. Remaining target work includes pricing-version snapshots, append-only ledger completion, actual provider usage, unused authorization release/refund and reconfirmation after material scope changes.
+```text
+Chapter source / reviewed analysis
+  -> TTS or USER_PROVIDED_AUDIO narration timeline
+  -> VisualScenePlanner
+  -> GENERATE_NEW image execution for MVP
+  -> immutable R2 MediaAsset
+  -> deterministic IMAGE_MOTION render
+  -> validated FinalArtifact in R2
+```
 
-## Trust and safety
-
-No blanket per-story rights-attestation checkbox is required for Analyze/Generate. Moderation, copyright report/review/takedown, real-person consent, abuse protection and deletion are separate concerns.
-
-Current admission safety is a foundation, not complete public-production moderation/consent coverage.
+Reuse/reframe/edit asset resolution remains the long-term cost/consistency strategy, but it is a fast-follow after the first reliable MP4.
 
 ## Current versus target media scope
 
@@ -77,28 +77,33 @@ Current admission safety is a foundation, not complete public-production moderat
 |---|---|
 | Chapter analysis | IMPLEMENTED |
 | Character/Location analysis continuity | IMPLEMENTED foundation |
-| Storyboard/VisualBeat | IMPLEMENTED foundation |
+| Backend-authoritative MediaPlan | IMPLEMENTED foundation |
+| TTS narration + alignment + R2 media | IMPLEMENTED foundation |
+| User-provided narration plan/timeline + TTS bypass | IMPLEMENTED foundation |
+| Production upload/finalize + real uploaded-audio alignment path | PARTIAL |
 | Character version/reference/lock review | PARTIAL |
 | Approved storyboard reset/versioning | PARTIAL |
-| Image generation | PENDING |
-| TTS/subtitles | PENDING |
-| Render/export/FinalArtifact | PENDING |
-| Complete billing reconciliation | PARTIAL |
+| VisualScenePlanner | TARGET |
+| Production image generation | TARGET |
+| Minimal immutable image MediaAsset lifecycle | TARGET |
+| IMAGE_MOTION render/export | TARGET |
+| Reuse/reframe/edit AssetResolver | DEFERRED fast-follow |
+| HYBRID_LOCAL_I2V end-to-end | DEFERRED fast-follow |
+| Complete billing/actual-usage reconciliation | PARTIAL |
 
-## Product acceptance direction
+## Acceptance direction
 
 ```text
-Chapter Persisted
-  -> Analysis Complete
-  -> Characters/Continuity Reviewed
-  -> Storyboard Approved
-  -> Visual Ready
-  -> Audio Ready
-  -> Render Ready
-  -> Final Artifact Valid
+Persisted Chapter scope
+  -> analysis/review state
+  -> narration strategy + aligned timeline
+  -> authorized MediaPlan
+  -> durable visual assets
+  -> deterministic motion/video execution
+  -> validated immutable FinalArtifact
 ```
 
-Before public beta, NarrativeX still needs the downstream media pipeline plus complete billing reconciliation, broader moderation/consent/abuse coverage, deletion/retention, backup/restore, observability and real-provider E2E/recovery evidence.
+A provider success response alone never makes a media stage complete. Durable bytes must be validated and persisted to R2 and authoritative metadata must be committed to PostgreSQL.
 
-Detailed feature inventory: [FEATURE_CATALOG.md](FEATURE_CATALOG.md).
-Business invariants: [../domain/BUSINESS_RULES.md](../domain/BUSINESS_RULES.md).
+Detailed V1.11 feature/status inventory: [FEATURE_CATALOG_V1_11.md](FEATURE_CATALOG_V1_11.md).
+Historical requirement IDs remain in [FEATURE_CATALOG.md](FEATURE_CATALOG.md).
