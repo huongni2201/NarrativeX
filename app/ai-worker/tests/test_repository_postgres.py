@@ -422,7 +422,7 @@ async def test_stale_provider_operation_snapshot_cannot_overwrite_newer_state(
         stale = await second.get_provider_operation(unknown.id)
         await first.mark_provider_operation_status(unknown, ProviderOperationStatus.RUNNING)
         with pytest.raises(ProviderOperationStateConflictError):
-            await second.mark_provider_operation_status(stale, ProviderOperationStatus.UNKNOWN)
+            await second.mark_provider_operation_status(stale, ProviderOperationStatus.FAILED)
         latest = await second.get_provider_operation(stale.id)
     finally:
         await first.close()
