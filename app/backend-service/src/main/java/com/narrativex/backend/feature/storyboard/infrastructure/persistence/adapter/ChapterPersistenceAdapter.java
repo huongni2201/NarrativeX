@@ -94,7 +94,10 @@ public class ChapterPersistenceAdapter implements ChapterRepository {
             .findById(chapter.getId())
             .orElseThrow(() -> new ResourceNotFoundException("Chapter was not found"));
     OptimisticConcurrency.requireVersion(
-        chapter.getRowVersion(), existing.getRowVersion(), ChapterJpaEntity.class, chapter.getId());
+        chapter.getRowVersion(),
+        existing.getRowVersion(),
+        ChapterJpaEntity.class,
+        chapter.getId());
     ChapterPersistenceMapper.apply(chapter, existing);
     return existing;
   }
