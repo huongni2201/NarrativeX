@@ -51,12 +51,25 @@ PostgreSQL is authoritative. Redis is delivery/progress infrastructure and never
 
 Chapter Analyze currently persists stable AI continuity keys for Character and Location identities, materializes project-scoped Character/Location records, and persists Scene character/location relations. These are implementation foundations; downstream image generation still needs reviewed/locked continuity snapshots before production media generation.
 
+## Generated image storage contract
+
+Cloudflare R2 is the production durable object store for generated image assets.
+
+- Worker-local files are ephemeral scratch/cache only and are never authoritative asset references.
+- Generated image bytes are validated and uploaded to R2 before the image-generation stage may be marked complete.
+- PostgreSQL stores durable image metadata/contracts such as the R2 object key, content hash, MIME type, size and lineage/provider references; image binaries do not belong in PostgreSQL.
+- After durable R2 persistence and metadata commit succeed, local temporary image files may be deleted.
+- Retry/reclaim paths must reuse an existing valid R2 asset when one already exists instead of regenerating merely because a worker-local workspace disappeared.
+- MinIO may remain an S3-compatible local-development implementation, but it does not replace the production R2 durability contract.
+
+This is a `TARGET` contract until the image-generation and asset-persistence pipeline is implemented end to end.
+
 ## Remaining gaps
 
 - Full character editing/version locking/reference workflow.
 - Approved storyboard reset/versioning workflow.
 - Production hardening for provider recovery/reconciliation and complete actual-usage accounting.
-- Image generation and immutable generated-asset lifecycle.
+- Image generation, Cloudflare R2 persistence and immutable generated-asset lifecycle.
 - TTS/subtitle generation.
 - Render/export/final artifact pipeline.
 - Complete billing ledger reconciliation and unused-reservation release.
@@ -69,4 +82,5 @@ Chapter Analyze currently persists stable AI continuity keys for Character and L
 - `UNKNOWN` external outcomes must reconcile before blind resubmission.
 - Do not overwrite approved/locked history.
 - Prefer affected-scope regeneration.
+- Do not treat worker-local image paths as durable generated assets.
 - Update docs and ADRs when invariants change.

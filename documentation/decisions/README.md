@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-This directory records decisions that affect more than one feature or change a production safety boundary. The attached V1.8 specification remains the product authority; ADRs explain implementation choices and deliberate deviations.
+This directory records decisions that affect more than one feature or change a production safety boundary. The maintained V1.10 source-of-truth specification remains the product/architecture authority; ADRs explain implementation choices and deliberate deviations.
 
 ## Canonical ADRs
 
@@ -16,5 +16,6 @@ This directory records decisions that affect more than one feature or change a p
 - [ADR-0010: Durable provider operations and admission](./ADR-0010-durable-provider-operation-and-admission.md)
 - [ADR-0014: SQL-first ProviderOperation persistence](./ADR-0014-provider-operation-mybatis-migration.md)
 - [ADR-0015: Shared MyBatis persistence conventions](./ADR-0015-mybatis-persistence-conventions.md)
+- [ADR-0016: Cloudflare R2 generated-image durability](./ADR-0016-cloudflare-r2-generated-image-durability.md)
 
 The previous ADR records were consolidated into the canonical files above. Use a new sequential ADR for a new cross-cutting decision.

@@ -12,7 +12,7 @@ This page records the current repository stack and its V1.10 role. Canonical aut
 | Redis | Spring Data Redis + Spring Session Redis | Session storage plus non-authoritative delivery/progress hints |
 | Worker | Python >=3.12, Pydantic, HTTPX, asyncpg, google-auth, Pytest/Ruff/mypy | Async AI execution, provider reconciliation and materialization |
 | AI | Vertex AI Gemini adapter; provider ports; safe default `provider_mode=disabled` | Structured Chapter analysis |
-| Storage/media | MinIO/S3-compatible storage and FFmpeg-oriented media foundations | Future image/audio/video artifacts and render/export |
+| Storage/media | S3-compatible object-storage boundary; MinIO for local development; Cloudflare R2 selected for durable production generated images; FFmpeg-oriented media foundations | Generated-image bytes become durable in R2 while PostgreSQL owns metadata/contracts; other media/render work remains downstream |
 
 ## Flyway baseline
 
@@ -88,5 +88,5 @@ Browser auth uses Spring Security server sessions + CSRF with Spring Session Red
 - Scene -> Location relation materialization.
 - Explicit approved-storyboard reset/versioning.
 - Complete actual-cost/usage reconciliation.
-- Image generation, TTS/subtitles, render/export and FinalArtifact validation.
+- Image generation with Cloudflare R2 persistence, TTS/subtitles, render/export and FinalArtifact validation.
 - Broader production moderation/consent/abuse coverage, observability and DR evidence.
