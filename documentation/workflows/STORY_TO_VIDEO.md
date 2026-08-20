@@ -42,29 +42,26 @@ saved Chapter
   -> provider SUBMITTED/RUNNING/COMPLETED | FAILED | UNKNOWN
   -> UNKNOWN reconciliation before blind resubmit
   -> structured Chapter analysis
-  -> transactional materialization
+  -> transactional Character + Location + Scene continuity materialization
   -> GenerationJob COMPLETED
 ```
 
 PostgreSQL is authoritative. Redis is only a non-authoritative wake-up/delivery hint.
 
-## Materialization boundary
+## Current continuity materialization
 
-Currently materialized:
+Current worker materialization creates/reuses:
 
-- `Character`
-- `CharacterVersion`
-- `ProjectCharacter`
-- `Scene`
-- `VisualBeat`
-
-The structured AI result also contains Locations and per-Scene character/location references, but current materialization does **not** yet persist:
-
-- AI-returned Locations;
+- `Character`;
+- `CharacterVersion`;
+- `ProjectCharacter`;
+- project-scoped Locations;
+- `Scene`;
+- `VisualBeat`;
 - Scene -> ProjectCharacter relations;
-- Scene -> Location relation.
+- Scene -> Location references.
 
-This continuity gap is P1 because downstream visual generation cannot reliably reconstruct which approved character identity and environment belong to each Scene.
+Downstream media generation still requires reviewed/versioned Character/reference resolution; analysis-time continuity is not a complete Character lock/reference workflow. See `TRACEABILITY.md` for current implementation status.
 
 ## Worker throughput
 
@@ -85,19 +82,11 @@ Before materialization the worker verifies that persisted Chapter identity still
 chapterId + storyVersionId + rowVersion + sourceHash
 ```
 
-Unapproved generated Storyboard rows may currently be replaced destructively on re-analysis. If an existing Scene or VisualBeat is already approved, replacement is rejected. An explicit reset/versioning workflow is still required to evolve approved output safely.
+Unapproved generated Storyboard rows may currently be replaced on re-analysis. Approved Scene/VisualBeat history is protected; a complete explicit reset/versioning user workflow remains partial.
 
-## Chapter Workspace read path
+## Durable provider behavior
 
-Chapter Workspace uses an outbound read repository instead of application-layer JDBC. Its PostgreSQL adapter uses an aggregate query plus a bounded preview query. `sourceOutdated=true` when the latest analysis source hash differs from the current Chapter source.
-
-## Durable outbox behavior
-
-The enqueue transaction persists durable job state and outbox intent before any Redis call. The dispatcher reserves eligible PENDING outbox rows in a short PostgreSQL transaction, commits, then publishes to Redis. Redis latency therefore does not hold database row locks. Failed publishes are retried; duplicate hints are harmless because PostgreSQL job state is authoritative.
-
-## Provider durability
-
-Chapter Analyze already persists ProviderOperation state. A stable request fingerprint is reserved before the external provider boundary. Supported lifecycle states are:
+The enqueue transaction persists durable job/outbox state before Redis. Provider intent is durable before external submission. A stable request fingerprint is reserved before the provider boundary.
 
 ```text
 RESERVED -> SUBMITTED -> RUNNING -> COMPLETED
@@ -109,7 +98,7 @@ RESERVED -> SUBMITTED -> RUNNING -> COMPLETED
 
 ## Target audio-first media workflow
 
-For source-preserving narration, the persisted Chapter source remains narration content authority. Do not split and independently rewrite/synthesize every visual scene by default.
+For source-preserving narration, persisted Chapter source remains narration content authority. Do not rewrite the Chapter or synthesize every visual scene as an independent TTS request by default.
 
 ```text
 persisted Chapter sourceText
@@ -126,8 +115,6 @@ The narration timeline is visual timing authority. Visual scenes are adaptive: a
 
 ## Two production modes
 
-NarrativeX target media planning supports:
-
 ```text
 IMAGE_MOTION
   -> reuse/reframe/edit/generate keyframes
@@ -143,7 +130,7 @@ HYBRID_LOCAL_I2V
 
 Production mode is provider-neutral. The first worker adapter targets a Wan2.2-compatible endpoint, but model/vendor identity does not belong in story-domain branching. See `LOCAL_I2V.md` and ADR-0012.
 
-The reuse order is:
+Reuse order:
 
 ```text
 REUSE_APPROVED
@@ -152,13 +139,13 @@ REUSE_APPROVED
   -> GENERATE_NEW
 ```
 
-Only billable/new work contributes provider cost; reuse and deterministic derivation reduce the workload and improve continuity.
+Only billable/new work contributes provider cost; reuse and deterministic derivation reduce workload and improve continuity.
 
 ## Post-analysis cost planning
 
 Semantic analysis produces workload metrics, not a hardcoded video price. A valid analysis snapshot can be re-planned for both production modes without another story-analysis provider call when only production policy changes.
 
-Example workload dimensions include:
+Example workload dimensions:
 
 ```text
 chapterCount
@@ -175,18 +162,16 @@ finalRenderSeconds
 storage/egress estimates
 ```
 
-The backend cost authority combines these units with versioned `PricingSnapshot` and, for self-hosted I2V, versioned GPU benchmark snapshots. `expectedCost`, `reservationCeiling` and reconciled `actualCost` are separate values. Do not hardcode a Wan dollars-per-scene constant: local I2V cost depends on measured GPU seconds for the selected hardware/model/resolution/inference profile.
+The backend cost authority combines these units with versioned pricing snapshots and, for self-hosted I2V, versioned GPU benchmark snapshots. `expectedCost`, `reservationCeiling` and reconciled `actualCost` are separate values. Do not hardcode a Wan dollars-per-scene constant: local I2V cost depends on measured GPU seconds for the selected hardware/model/resolution/inference profile.
 
 ## End-to-end product target
-
-The broader V1.10 target extends the implemented analysis slice:
 
 ```text
 session + ownership
   -> Chapter source
   -> safety/consent/injection defenses
   -> CHAPTER_ANALYZE
-  -> durable characters + locations + scene continuity
+  -> durable characters + locations + Scene continuity
   -> Character review/lock
   -> TTS preserved Chapter source + narration alignment
   -> VisualScene plan
@@ -205,8 +190,8 @@ session + ownership
 
 Public-production readiness still requires:
 
-1. Location and Scene continuity materialization.
-2. Explicit approved-storyboard reset/versioning.
+1. Full Character version/reference/lock review workflow.
+2. Complete approved-storyboard reset/versioning workflow.
 3. Full pricing/actual-provider-and-internal-resource usage accounting, unused reservation release and billing-ledger reconciliation.
 4. Broader automated moderation, consent and abuse-policy coverage.
 5. Full-Chapter TTS/alignment, reuse-first image pipeline, deterministic motion render and FinalArtifact validation.
