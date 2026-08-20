@@ -1,3 +1,4 @@
+import React, { useState } from "react";
 import {
   CheckCircle2,
   Clock,
@@ -17,8 +18,10 @@ import type {
   JobStatus,
 } from "@/types/api";
 import { ChapterSceneGrid } from "./ChapterSceneGrid";
+import { GenerateNarrationModal } from "@/features/generation/components/GenerateNarrationModal";
 
 interface ChapterOverviewTabProps {
+  projectId: number;
   workspace: ApiChapterWorkspace;
   analysisJobStatus: JobStatus | null;
   analysisJobProgress: number | null;
@@ -31,6 +34,7 @@ interface ChapterOverviewTabProps {
 }
 
 export function ChapterOverviewTab({
+  projectId,
   workspace,
   analysisJobStatus,
   analysisJobProgress,
@@ -41,6 +45,7 @@ export function ChapterOverviewTab({
   onEdit,
   onOpenStoryboard,
 }: Readonly<ChapterOverviewTabProps>) {
+  const [isNarrationOpen, setIsNarrationOpen] = useState(false);
   const analyzeLabel = analysisActive
     ? workspace.pipeline.sourceOutdated
       ? "Đang phân tích lại…"
@@ -117,8 +122,12 @@ export function ChapterOverviewTab({
               )}
               {analyzeLabel}
             </button>
-            <QuickAction label="Review Visuals" enabled={workspace.capabilities.canGenerateVisuals} />
-            <QuickAction label="Tạo Audio" enabled={workspace.capabilities.canGenerateAudio} />
+            <QuickAction label="Review Visuals" enabled={workspace.capabilities.canGenerateVisuals} onClick={onOpenStoryboard} />
+            <QuickAction
+              label="Tạo Audio"
+              enabled={workspace.capabilities.canGenerateAudio}
+              onClick={() => setIsNarrationOpen(true)}
+            />
           </div>
         </div>
       </aside>
@@ -159,6 +168,14 @@ export function ChapterOverviewTab({
           <ChapterSceneGrid scenes={workspace.previewScenes} />
         </section>
       </div>
+
+      <GenerateNarrationModal
+        isOpen={isNarrationOpen}
+        onClose={() => setIsNarrationOpen(false)}
+        projectId={projectId}
+        chapterId={workspace.chapter.id}
+        chapterTitle={workspace.chapter.title}
+      />
     </div>
   );
 }
@@ -217,11 +234,20 @@ function ProgressItem({
   );
 }
 
-function QuickAction({ label, enabled }: { label: string; enabled: boolean }) {
+function QuickAction({
+  label,
+  enabled,
+  onClick,
+}: {
+  label: string;
+  enabled: boolean;
+  onClick?: () => void;
+}) {
   return (
     <button
       type="button"
       disabled={!enabled}
+      onClick={onClick}
       className={`w-full rounded-lg border px-3 py-2 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 ${
         enabled
           ? "border-border-dark bg-slate-900/60 text-slate-200 hover:bg-slate-800"

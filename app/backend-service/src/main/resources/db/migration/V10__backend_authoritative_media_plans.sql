@@ -91,3 +91,12 @@ ALTER TABLE generation_jobs
 CREATE INDEX idx_generation_jobs_media_plan_id
   ON generation_jobs(media_plan_id)
   WHERE media_plan_id IS NOT NULL;
+
+-- Keep a stable fingerprint alongside normalized provider output so a repeated
+-- callback can be accepted only when it proves the same result.
+ALTER TABLE provider_operations
+    ADD COLUMN result_fingerprint VARCHAR(128);
+
+CREATE INDEX idx_provider_operations_result_fingerprint
+    ON provider_operations (result_fingerprint)
+    WHERE result_fingerprint IS NOT NULL;

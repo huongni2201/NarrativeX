@@ -4,19 +4,17 @@
     "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.NarrationMapper">
     <resultMap id="narrationRequestRow" type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.NarrationRequestRow">
-        <constructor>
-            <arg column="id" javaType="java.util.UUID" />
-            <arg column="project_id" javaType="java.lang.Long" />
-            <arg column="chapter_id" javaType="java.lang.Long" />
-            <arg column="chapter_row_version" javaType="long" />
-            <arg column="source_hash" javaType="java.lang.String" />
-            <arg column="source_text" javaType="java.lang.String" />
-            <arg column="voice_id" javaType="java.lang.String" />
-            <arg column="language" javaType="java.lang.String" />
-            <arg column="speaking_rate" javaType="java.math.BigDecimal" />
-            <arg column="segmentation_version" javaType="java.lang.String" />
-            <arg column="request_fingerprint" javaType="java.lang.String" />
-        </constructor>
+        <result property="id" column="id" javaType="java.util.UUID" typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
+        <result property="projectId" column="project_id" />
+        <result property="chapterId" column="chapter_id" />
+        <result property="chapterRowVersion" column="chapter_row_version" />
+        <result property="sourceHash" column="source_hash" />
+        <result property="sourceText" column="source_text" />
+        <result property="voiceId" column="voice_id" />
+        <result property="language" column="language" />
+        <result property="speakingRate" column="speaking_rate" />
+        <result property="segmentationVersion" column="segmentation_version" />
+        <result property="requestFingerprint" column="request_fingerprint" />
     </resultMap>
 
     <insert id="insertRequest">

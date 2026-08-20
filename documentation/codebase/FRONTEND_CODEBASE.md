@@ -25,12 +25,12 @@ Canonical routes include `/auth`, `/projects`, `/projects/[projectId]`, `/charac
 | Storyboard/VisualBeat | IMPLEMENTED foundation |
 | Character library/project characters | IMPLEMENTED foundation |
 | Project Locations | IMPLEMENTED foundation |
-| Project Assets | IMPLEMENTED foundation |
-| Job History UI | PENDING |
-| Quota UI | PENDING |
-| Notification center | PENDING |
+| Job History UI | IMPLEMENTED foundation |
+| Quota details UI | IMPLEMENTED foundation |
+| Notification center | IMPLEMENTED foundation |
+| Chapter Narration TTS | IMPLEMENTED foundation |
 | Presets persisted backend workflow | PENDING |
-| Image/TTS/render/export | PENDING |
+| Image/render/export | PENDING |
 
 See `FRONTEND_API_INTEGRATION_MATRIX.md` for the backend-available versus frontend-connected distinction.
 

@@ -5,10 +5,13 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.narrativex.backend.feature.generation.application.port.out.ProviderOperationRepository;
 import com.narrativex.backend.feature.generation.domain.entity.ProviderOperation;
+import com.narrativex.backend.feature.project.application.port.out.ProjectRepository;
+import com.narrativex.backend.feature.project.domain.aggregate.Project;
 import com.narrativex.backend.feature.project.domain.enums.AspectRatio;
 import com.narrativex.backend.feature.project.domain.enums.ImageQualityTier;
-import com.narrativex.backend.feature.project.domain.enums.ProjectStatus;
-import com.narrativex.backend.feature.project.infrastructure.persistence.entity.ProjectJpaEntity;
+import com.narrativex.backend.feature.project.domain.enums.ModerationDecision;
+import com.narrativex.backend.feature.project.domain.enums.StoryVersionStatus;
+import com.narrativex.backend.feature.project.infrastructure.persistence.entity.StoryVersionJpaEntity;
 import com.narrativex.backend.support.PostgreSqlIntegrationTestSupport;
 import jakarta.persistence.EntityManager;
 import java.util.UUID;
@@ -23,18 +26,19 @@ import org.springframework.transaction.support.TransactionTemplate;
 @SpringBootTest(properties = "narrativex.persistence.provider-operation=mybatis")
 @ActiveProfiles("test")
 class JpaMyBatisTransactionIntegrationTest extends PostgreSqlIntegrationTestSupport {
-  @Autowired private EntityManager entityManager;
+  @Autowired private ProjectRepository projectRepository;
   @Autowired private ProviderOperationRepository providerOperationRepository;
   @Autowired private JdbcTemplate jdbcTemplate;
   @Autowired private PlatformTransactionManager transactionManager;
+  @Autowired private EntityManager entityManager;
 
   @Test
-  void jpaAndMyBatisWritesRollbackTogetherWhenJpaWriteComesFirst() {
+  void projectMyBatisAndStoryVersionJpaWritesRollbackTogetherWhenProviderComesAfter() {
     assertBothWritesRollback(false);
   }
 
   @Test
-  void jpaAndMyBatisWritesRollbackTogetherWhenMyBatisWriteComesFirst() {
+  void projectMyBatisAndStoryVersionJpaWritesRollbackTogetherWhenProviderComesFirst() {
     assertBothWritesRollback(true);
   }
 
@@ -53,10 +57,10 @@ class JpaMyBatisTransactionIntegrationTest extends PostgreSqlIntegrationTestSupp
                         providerOperationRepository.save(
                             ProviderOperation.create(stageAttemptId, "vertex", fingerprint));
                       }
-                      ProjectJpaEntity project = newProject();
-                      entityManager.persist(project);
-                      entityManager.flush();
+                      Project project = projectRepository.save(newProject());
                       projectId[0] = project.getId();
+                      entityManager.persist(newStoryVersion(project.getId()));
+                      entityManager.flush();
                       if (!myBatisFirst) {
                         providerOperationRepository.save(
                             ProviderOperation.create(stageAttemptId, "vertex", fingerprint));
@@ -74,18 +78,33 @@ class JpaMyBatisTransactionIntegrationTest extends PostgreSqlIntegrationTestSupp
             "SELECT COUNT(*) FROM provider_operations WHERE request_fingerprint = ?",
             Integer.class,
             fingerprint));
+    assertEquals(
+        0,
+        jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM story_versions WHERE project_id = ?",
+            Integer.class,
+            projectId[0]));
   }
 
-  private ProjectJpaEntity newProject() {
-    return ProjectJpaEntity.builder()
-        .name("transaction-test-" + UUID.randomUUID())
-        .ownerId("transaction-test")
-        .status(ProjectStatus.DRAFT)
+  private Project newProject() {
+    return Project.create(
+        "transaction-test-" + UUID.randomUUID(),
+        "transaction-test",
+        "en-US",
+        "en-US",
+        "en-US",
+        AspectRatio.RATIO_16_9,
+        ImageQualityTier.STANDARD);
+  }
+
+  private StoryVersionJpaEntity newStoryVersion(long projectId) {
+    return StoryVersionJpaEntity.builder()
+        .projectId(projectId)
+        .versionNumber(1)
+        .content("transaction story")
         .sourceLanguage("en-US")
-        .narrationLanguage("en-US")
-        .metadataLanguage("en-US")
-        .imageAspectRatio(AspectRatio.RATIO_16_9)
-        .imageQualityTier(ImageQualityTier.STANDARD)
+        .status(StoryVersionStatus.DRAFT)
+        .moderationDecision(ModerationDecision.PENDING)
         .build();
   }
 
