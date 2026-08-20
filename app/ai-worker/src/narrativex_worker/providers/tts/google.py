@@ -3,12 +3,10 @@ import base64
 import io
 import wave
 
-import google.auth  # type: ignore[import-untyped]
+import google.auth
 import httpx
-from google.auth.credentials import Credentials  # type: ignore[import-untyped]
-from google.auth.transport.requests import (
-    Request as GoogleAuthRequest,  # type: ignore[import-untyped]
-)
+from google.auth.credentials import Credentials
+from google.auth.transport.requests import Request as GoogleAuthRequest
 
 from narrativex_worker.config import WorkerSettings
 from narrativex_worker.narration.models import SynthesizedSegment
@@ -89,7 +87,7 @@ class GoogleCloudTtsProvider:
 
     def _access_token(self) -> str:
         if not self._credentials.valid or not self._credentials.token:
-            self._credentials.refresh(GoogleAuthRequest())
+            self._credentials.refresh(GoogleAuthRequest())  # type: ignore[no-untyped-call]
         if not self._credentials.token:
             raise RuntimeError("Google ADC did not provide an access token")
         return str(self._credentials.token)
