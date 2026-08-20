@@ -3,6 +3,7 @@ package com.narrativex.backend.feature.generation.domain.aggregate;
 import com.narrativex.backend.feature.common.domain.AggregateRoot;
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
+import com.narrativex.backend.feature.generation.domain.enums.ProductionMode;
 import com.narrativex.backend.feature.generation.domain.enums.ResourceClass;
 import java.util.Objects;
 import java.util.UUID;
@@ -27,6 +28,9 @@ public final class GenerationJob extends AggregateRoot {
   private final String sourceText;
   private final String sourceLanguage;
   private final String idempotencyKey;
+  private final UUID mediaPlanId;
+  private final Integer mediaPlanRevision;
+  private final ProductionMode productionMode;
 
   private GenerationJob(
       Long id,
@@ -48,7 +52,10 @@ public final class GenerationJob extends AggregateRoot {
       String sourceHash,
       String sourceText,
       String sourceLanguage,
-      String idempotencyKey) {
+      String idempotencyKey,
+      UUID mediaPlanId,
+      Integer mediaPlanRevision,
+      ProductionMode productionMode) {
     super(id, rowVersion);
     this.jobId = required(jobId, "jobId");
     if (projectId == null || projectId <= 0) {
@@ -74,6 +81,10 @@ public final class GenerationJob extends AggregateRoot {
     this.sourceText = sourceText;
     this.sourceLanguage = sourceLanguage;
     this.idempotencyKey = idempotencyKey;
+    requireCompleteMediaPlanPointer(mediaPlanId, mediaPlanRevision, productionMode);
+    this.mediaPlanId = mediaPlanId;
+    this.mediaPlanRevision = mediaPlanRevision;
+    this.productionMode = productionMode;
   }
 
   public static GenerationJob create(
@@ -91,6 +102,9 @@ public final class GenerationJob extends AggregateRoot {
         null,
         userId,
         userId,
+        null,
+        null,
+        null,
         null,
         null,
         null,
@@ -144,7 +158,49 @@ public final class GenerationJob extends AggregateRoot {
         required(sourceHash, "sourceHash"),
         required(sourceText, "sourceText"),
         required(sourceLanguage, "sourceLanguage"),
-        required(idempotencyKey, "idempotencyKey"));
+        required(idempotencyKey, "idempotencyKey"),
+        null,
+        null,
+        null);
+  }
+
+  /** Creates a media job that can only execute the exact persisted media-plan revision supplied. */
+  public static GenerationJob createChapterGeneration(
+      Long projectId,
+      Long storyVersionId,
+      MediaPlan mediaPlan,
+      ResourceClass resourceClass,
+      String sourceLanguage,
+      String idempotencyKey,
+      String userId) {
+    Objects.requireNonNull(mediaPlan, "mediaPlan");
+    if (storyVersionId == null || storyVersionId <= 0) {
+      throw new IllegalArgumentException("storyVersionId must be positive");
+    }
+    return new GenerationJob(
+        null,
+        0L,
+        UUID.randomUUID().toString(),
+        projectId,
+        JobType.CHAPTER_GENERATE,
+        JobStatus.QUEUED,
+        Objects.requireNonNull(resourceClass, "resourceClass"),
+        0,
+        "QUEUED",
+        null,
+        userId,
+        userId,
+        storyVersionId,
+        mediaPlan.chapterId(),
+        null,
+        mediaPlan.chapterRowVersion(),
+        mediaPlan.sourceHash(),
+        null,
+        required(sourceLanguage, "sourceLanguage"),
+        required(idempotencyKey, "idempotencyKey"),
+        mediaPlan.id(),
+        mediaPlan.revision(),
+        mediaPlan.productionMode());
   }
 
   public static GenerationJob rehydrate(
@@ -168,6 +224,56 @@ public final class GenerationJob extends AggregateRoot {
       String sourceText,
       String sourceLanguage,
       String idempotencyKey) {
+    return rehydrate(
+        id,
+        rowVersion,
+        jobId,
+        projectId,
+        type,
+        status,
+        resourceClass,
+        progress,
+        currentStep,
+        errorCode,
+        requestedByUserId,
+        billedToUserId,
+        storyVersionId,
+        chapterId,
+        storyboardRevisionId,
+        chapterRowVersion,
+        sourceHash,
+        sourceText,
+        sourceLanguage,
+        idempotencyKey,
+        null,
+        null,
+        null);
+  }
+
+  public static GenerationJob rehydrate(
+      Long id,
+      long rowVersion,
+      String jobId,
+      Long projectId,
+      JobType type,
+      JobStatus status,
+      ResourceClass resourceClass,
+      int progress,
+      String currentStep,
+      String errorCode,
+      String requestedByUserId,
+      String billedToUserId,
+      Long storyVersionId,
+      Long chapterId,
+      Long storyboardRevisionId,
+      Long chapterRowVersion,
+      String sourceHash,
+      String sourceText,
+      String sourceLanguage,
+      String idempotencyKey,
+      UUID mediaPlanId,
+      Integer mediaPlanRevision,
+      ProductionMode productionMode) {
     return new GenerationJob(
         id,
         rowVersion,
@@ -188,7 +294,10 @@ public final class GenerationJob extends AggregateRoot {
         sourceHash,
         sourceText,
         sourceLanguage,
-        idempotencyKey);
+        idempotencyKey,
+        mediaPlanId,
+        mediaPlanRevision,
+        productionMode);
   }
 
   public String getJobId() {
@@ -261,6 +370,31 @@ public final class GenerationJob extends AggregateRoot {
 
   public String getIdempotencyKey() {
     return idempotencyKey;
+  }
+
+  public UUID getMediaPlanId() {
+    return mediaPlanId;
+  }
+
+  public Integer getMediaPlanRevision() {
+    return mediaPlanRevision;
+  }
+
+  public ProductionMode getProductionMode() {
+    return productionMode;
+  }
+
+  private static void requireCompleteMediaPlanPointer(
+      UUID mediaPlanId, Integer mediaPlanRevision, ProductionMode productionMode) {
+    boolean allNull = mediaPlanId == null && mediaPlanRevision == null && productionMode == null;
+    boolean allPresent = mediaPlanId != null && mediaPlanRevision != null && productionMode != null;
+    if (!allNull && !allPresent) {
+      throw new IllegalArgumentException(
+          "mediaPlanId, mediaPlanRevision, and productionMode must be set together");
+    }
+    if (mediaPlanRevision != null && mediaPlanRevision <= 0) {
+      throw new IllegalArgumentException("mediaPlanRevision must be positive");
+    }
   }
 
   private static String required(String value, String field) {
