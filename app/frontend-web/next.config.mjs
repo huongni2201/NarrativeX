@@ -4,9 +4,11 @@ const backendUrl =
   process.env.NEXT_PUBLIC_API_BASE_URL ||
   'http://localhost:8080';
 
+const isDev = process.env.NODE_ENV !== 'production';
+
 const nextConfig = {
-  distDir: process.env.NEXT_DIST_DIR || '.next',
-  output: 'standalone',
+  distDir: process.env.NEXT_DIST_DIR || (isDev ? '.next_dev' : '.next'),
+  ...(isDev ? {} : { output: 'standalone' }),
   reactStrictMode: true,
   images: {
     remotePatterns: [
