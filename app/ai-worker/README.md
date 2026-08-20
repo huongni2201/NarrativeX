@@ -81,6 +81,23 @@ VERTEX_TIMEOUT_SECONDS=120
 
 Authentication uses ADC/workload identity. Credentials never come from the browser.
 
+## Durable media storage
+
+Cloudflare R2 is the only supported durable media object store across development, staging and production. Use separate buckets per environment (for example `narrativex-dev` and `narrativex-prod`).
+
+```env
+R2_ACCOUNT_ID=<cloudflare-account-id>
+R2_ACCESS_KEY_ID=<r2-access-key-id>
+R2_SECRET_ACCESS_KEY=<r2-secret-access-key>
+R2_BUCKET=narrativex-dev
+# Optional; otherwise derived from R2_ACCOUNT_ID.
+R2_ENDPOINT=
+```
+
+Durable generated/reference images, narration audio, subtitles/manifests, scene/motion video, final exports and thumbnails belong in R2. PostgreSQL stores the durable object key plus metadata, checksums and lineage. Worker-local files are ephemeral scratch/cache/FFmpeg workspace only and must never become authoritative asset locations.
+
+The R2 configuration contract is present before the media vertical slice so image/TTS/render execution can share one storage boundary. The actual upload/download adapter is implemented with the first durable media stage rather than adding an unused storage SDK ahead of execution wiring.
+
 ## Durable ProviderOperation lifecycle
 
 The worker persists provider-operation state around external execution. Current lifecycle foundation includes:

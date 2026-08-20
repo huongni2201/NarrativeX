@@ -51,6 +51,23 @@ FORBIDDEN = {
     ),
 }
 
+R2_ONLY_FILES = [
+    ROOT / "README.md",
+    ROOT / ".env.example",
+    ROOT / "docker-compose.yml",
+    ROOT / "app" / "ai-worker" / ".env.example",
+    ROOT / "app" / "ai-worker" / "README.md",
+    ROOT / "documentation" / "source-of-truth" / "NARRATIVEX_PROJECT_SPEC_V1_10.md",
+    ROOT / "documentation" / "source-of-truth" / "README.md",
+    ROOT / "documentation" / "architecture" / "SYSTEM_ARCHITECTURE.md",
+    ROOT / "documentation" / "architecture" / "DATA_FLOW.md",
+    ROOT / "documentation" / "architecture" / "SERVICE_BOUNDARIES.md",
+    ROOT / "documentation" / "architecture" / "TECHNOLOGY_STACK.md",
+    ROOT / "documentation" / "codebase" / "CODEBASE_MAP.md",
+    ROOT / "documentation" / "decisions" / "ADR-0016-cloudflare-r2-generated-image-durability.md",
+    ROOT / "documentation" / "decisions" / "README.md",
+]
+
 
 def main() -> int:
     errors: list[str] = []
@@ -72,6 +89,27 @@ def main() -> int:
     for removed_dir in ("./plans/", "./audits/"):
         if removed_dir in navigation:
             errors.append(f"documentation/README.md links removed directory {removed_dir}")
+
+    for path in R2_ONLY_FILES:
+        if not path.exists():
+            errors.append(f"missing R2-only contract file: {path.relative_to(ROOT)}")
+            continue
+        if re.search(r"\bminio\b", path.read_text(encoding="utf-8"), re.IGNORECASE):
+            errors.append(f"{path.relative_to(ROOT)}: MinIO is not part of the R2-only storage contract")
+
+    compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
+    if "R2_ACCOUNT_ID" not in compose or "R2_BUCKET" not in compose:
+        errors.append("docker-compose.yml: worker R2 configuration is missing")
+
+    root_env = (ROOT / ".env.example").read_text(encoding="utf-8")
+    for required_r2_env in (
+        "R2_ACCOUNT_ID",
+        "R2_ACCESS_KEY_ID",
+        "R2_SECRET_ACCESS_KEY",
+        "R2_BUCKET",
+    ):
+        if required_r2_env not in root_env:
+            errors.append(f".env.example: missing {required_r2_env}")
 
     if errors:
         print("Documentation drift check failed:")

@@ -33,7 +33,7 @@ documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_10.md
 - Full character version/reference/lock workflow.
 - Approved storyboard reset/versioning workflow.
 - Production hardening of provider reconciliation and actual-usage accounting.
-- Image generation with Cloudflare R2 durable asset persistence, plus TTS/video/render/export pipeline.
+- R2-backed durable media pipeline for image generation, TTS/audio, scene video and render/export.
 - Full billing ledger/reconciliation and unused reservation release.
 - Broader moderation/consent/abuse coverage, observability, backup/restore and deletion lifecycle evidence.
 

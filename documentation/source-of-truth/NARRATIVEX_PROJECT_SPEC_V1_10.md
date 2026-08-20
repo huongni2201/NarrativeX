@@ -51,18 +51,20 @@ PostgreSQL is authoritative. Redis is delivery/progress infrastructure and never
 
 Chapter Analyze currently persists stable AI continuity keys for Character and Location identities, materializes project-scoped Character/Location records, and persists Scene character/location relations. These are implementation foundations; downstream image generation still needs reviewed/locked continuity snapshots before production media generation.
 
-## Generated image storage contract
+## Durable media storage contract
 
-Cloudflare R2 is the production durable object store for generated image assets.
+Cloudflare R2 is the sole durable object store for NarrativeX media across development, staging and production.
 
-- Worker-local files are ephemeral scratch/cache only and are never authoritative asset references.
-- Generated image bytes are validated and uploaded to R2 before the image-generation stage may be marked complete.
-- PostgreSQL stores durable image metadata/contracts such as the R2 object key, content hash, MIME type, size and lineage/provider references; image binaries do not belong in PostgreSQL.
-- After durable R2 persistence and metadata commit succeed, local temporary image files may be deleted.
+- Use environment-isolated R2 buckets (for example `narrativex-dev` and `narrativex-prod`) rather than a local object-storage implementation.
+- Worker-local files are ephemeral scratch/cache/FFmpeg workspace only and are never authoritative asset references.
+- Durable media includes generated/reference images, narration audio, subtitles/manifests, scene/motion video, final exports and thumbnails.
+- Media bytes are validated and uploaded to R2 before the producing stage may be marked complete.
+- PostgreSQL stores durable media metadata/contracts such as the R2 object key, content hash, MIME type, size, duration/dimensions and lineage/provider references; binary media does not belong in PostgreSQL.
+- After durable R2 persistence and metadata commit succeed, local temporary files may be deleted.
 - Retry/reclaim paths must reuse an existing valid R2 asset when one already exists instead of regenerating merely because a worker-local workspace disappeared.
-- MinIO may remain an S3-compatible local-development implementation, but it does not replace the production R2 durability contract.
+- R2 objects are private by default; client access must flow through backend-authorized access/presigned delivery rather than persistent public object URLs.
 
-This is a `TARGET` contract until the image-generation and asset-persistence pipeline is implemented end to end.
+This is a `TARGET` execution contract until the media-generation and asset-persistence pipeline is implemented end to end. The R2 configuration boundary is established first; provider-specific upload/download code lands with the first durable media vertical slice.
 
 ## Remaining gaps
 
@@ -70,8 +72,8 @@ This is a `TARGET` contract until the image-generation and asset-persistence pip
 - Approved storyboard reset/versioning workflow.
 - Production hardening for provider recovery/reconciliation and complete actual-usage accounting.
 - Image generation, Cloudflare R2 persistence and immutable generated-asset lifecycle.
-- TTS/subtitle generation.
-- Render/export/final artifact pipeline.
+- TTS/subtitle generation with R2-backed narration artifacts.
+- Render/export/final artifact pipeline with R2-backed durable outputs.
 - Complete billing ledger reconciliation and unused-reservation release.
 - Broader moderation/consent/abuse coverage, observability, backup/restore and deletion lifecycle evidence.
 
@@ -82,5 +84,6 @@ This is a `TARGET` contract until the image-generation and asset-persistence pip
 - `UNKNOWN` external outcomes must reconcile before blind resubmission.
 - Do not overwrite approved/locked history.
 - Prefer affected-scope regeneration.
-- Do not treat worker-local image paths as durable generated assets.
+- Do not treat worker-local media paths as durable assets.
+- R2 is the only durable media object-store target; keep environment isolation at the bucket/configuration boundary.
 - Update docs and ADRs when invariants change.

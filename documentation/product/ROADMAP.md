@@ -51,21 +51,21 @@ Project/Chapter/Analyze, worker concurrency, provider durability, analysis conti
 reviewed VisualBeat
   -> durable image stage
   -> ProviderOperation
-  -> private object storage
+  -> Cloudflare R2
   -> Asset metadata/checksum/dimensions
   -> review/regenerate
 ```
 
-Start with one real provider path. Multi-provider routing is not required to prove the product loop.
+Start with one real provider path. Multi-provider routing is not required to prove the product loop. Durable image bytes use the environment R2 bucket; worker-local files are temporary scratch only.
 
 ### M4 — Narration / TTS / subtitle timing
 
 **Status:** PENDING
 
 - one TTS adapter;
-- narration audio Asset;
+- narration audio Asset persisted to R2;
 - duration/timing metadata;
-- subtitle segmentation/timing;
+- subtitle segmentation/timing with durable R2 artifacts where applicable;
 - durable provider/output validation.
 
 ### M5 — FFmpeg render/export
@@ -75,7 +75,7 @@ Start with one real provider path. Multi-provider routing is not required to pro
 - reviewed image/visual assets;
 - narration/subtitle timeline;
 - basic pan/zoom/fade;
-- immutable RenderVersion/FinalArtifact;
+- immutable RenderVersion/FinalArtifact uploaded to R2;
 - checksum/MIME/dimensions/manifest validation before READY.
 
 ### M6 — Billing and production hardening

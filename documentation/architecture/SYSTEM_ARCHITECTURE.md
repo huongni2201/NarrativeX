@@ -17,14 +17,13 @@ Browser
   -> Spring Boot API
        -> PostgreSQL (authoritative)
        -> Redis (session + transient hints/counters)
-       -> object-storage boundary
-            -> Cloudflare R2 for durable production generated images
-            -> MinIO-compatible endpoint for local development
+       -> Cloudflare R2 (durable media object storage)
 
 PostgreSQL durable work
   -> Python 3.12 worker
        -> provider ports
        -> Vertex Gemini for current Chapter analysis
+       -> Cloudflare R2 for durable media stage outputs
        -> validated continuity/storyboard materialization
 ```
 
@@ -112,9 +111,11 @@ TanStack Query owns persisted server state. URL/search params own navigable stat
 
 ## Media/storage boundary
 
-The production durability target for generated images is Cloudflare R2 through the S3-compatible object-storage boundary. MinIO may remain the local-development implementation of that boundary.
+Cloudflare R2 is the sole durable media object store across development, staging and production. Environment isolation is handled with separate R2 buckets/configuration rather than a local object-storage service.
 
-Worker-local image files are ephemeral scratch/cache only. A generated image is not durable merely because it exists on a worker filesystem. The target completion boundary is: validate the generated payload, upload it to R2, persist the corresponding Asset/MediaAsset metadata in PostgreSQL, then mark the image-generation stage complete and clean local scratch when safe. Retry/reclaim paths should reuse a valid existing R2 object rather than regenerate because local files disappeared.
+Worker-local media files are ephemeral scratch/cache/FFmpeg workspace only. A generated image, narration file or video is not durable merely because it exists on a worker filesystem. The target completion boundary is: validate the media payload, upload it to R2, persist the corresponding Asset/MediaAsset metadata in PostgreSQL, then mark the producing stage complete and clean local scratch when safe. Retry/reclaim paths should reuse a valid existing R2 object rather than regenerate because local files disappeared.
+
+Durable R2 payloads include generated/reference images, narration audio, subtitles/manifests, scene/motion video, final exports and thumbnails. R2 objects remain private by default and access should be backend-authorized.
 
 Image generation and its R2 persistence path, TTS/subtitles and FFmpeg render/export are not implemented end-to-end yet and remain downstream of reviewed analysis/storyboard state.
 
@@ -123,9 +124,9 @@ Image generation and its R2 persistence path, TTS/subtitles and FFmpeg render/ex
 - Full Character editing/version-lock/reference workflow.
 - Approved storyboard reset/versioning UX/contract.
 - Complete actual provider usage/billing reconciliation.
-- Image generation, Cloudflare R2 persistence and generated-asset lifecycle.
-- TTS/subtitles.
-- Render/export/FinalArtifact validation.
+- Image generation and R2-backed generated-asset lifecycle.
+- TTS/subtitles with R2-backed narration artifacts.
+- Render/export/FinalArtifact validation with R2-backed outputs.
 - Broader moderation/consent/abuse coverage.
 - Production observability, deletion/retention and backup/restore evidence.
 - Full real-provider E2E/load/recovery verification.

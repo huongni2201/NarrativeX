@@ -16,7 +16,7 @@ This directory records decisions that affect more than one feature or change a p
 - [ADR-0010: Durable provider operations and admission](./ADR-0010-durable-provider-operation-and-admission.md)
 - [ADR-0014: SQL-first ProviderOperation persistence](./ADR-0014-provider-operation-mybatis-migration.md)
 - [ADR-0015: Shared MyBatis persistence conventions](./ADR-0015-mybatis-persistence-conventions.md)
-- [ADR-0016: Cloudflare R2 generated-image durability](./ADR-0016-cloudflare-r2-generated-image-durability.md)
+- [ADR-0016: Cloudflare R2 durable media storage](./ADR-0016-cloudflare-r2-generated-image-durability.md)
 - [ADR-0017: SQL-first Chapter persistence](./ADR-0017-chapter-mybatis-persistence.md)
 
 The previous ADR records were consolidated into the canonical files above. Use a new sequential ADR for a new cross-cutting decision.

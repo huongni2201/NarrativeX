@@ -6,7 +6,7 @@ are never copied into durable job payloads.
 
 from typing import Literal
 
-from pydantic import AliasChoices, Field, SecretStr
+from pydantic import AliasChoices, Field, SecretStr, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -49,6 +49,28 @@ class WorkerSettings(BaseSettings):
     vertex_model: str = Field(default="gemini-2.5-flash", description="Configured Gemini model key")
     vertex_timeout_seconds: float = Field(default=120.0, gt=1, le=600)
 
+    r2_account_id: str | None = Field(
+        default=None,
+        description="Cloudflare account ID used to derive the R2 S3-compatible endpoint",
+    )
+    r2_access_key_id: SecretStr | None = Field(
+        default=None,
+        description="Cloudflare R2 API access key ID",
+    )
+    r2_secret_access_key: SecretStr | None = Field(
+        default=None,
+        description="Cloudflare R2 API secret access key",
+    )
+    r2_bucket: str = Field(
+        default="narrativex-dev",
+        min_length=1,
+        description="R2 bucket that owns durable generated media for this environment",
+    )
+    r2_endpoint: str | None = Field(
+        default=None,
+        description="Optional R2 endpoint override; normally derived from r2_account_id",
+    )
+
     wan_video_enabled: bool = Field(
         default=False,
         description="Enable HYBRID_LOCAL_I2V submission to a configured Wan inference endpoint",
@@ -68,6 +90,16 @@ class WorkerSettings(BaseSettings):
         description="Optional bearer token for the private Wan inference endpoint",
     )
     wan_request_timeout_seconds: float = Field(default=30.0, gt=1, le=300)
+
+    @computed_field
+    @property
+    def resolved_r2_endpoint(self) -> str | None:
+        """Return the explicit R2 endpoint or derive the canonical Cloudflare endpoint."""
+        if self.r2_endpoint and self.r2_endpoint.strip():
+            return self.r2_endpoint.strip().rstrip("/")
+        if self.r2_account_id and self.r2_account_id.strip():
+            return f"https://{self.r2_account_id.strip()}.r2.cloudflarestorage.com"
+        return None
 
 
 def get_settings() -> WorkerSettings:
