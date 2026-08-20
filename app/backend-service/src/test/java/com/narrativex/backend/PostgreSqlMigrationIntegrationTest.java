@@ -5,12 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.narrativex.backend.feature.project.domain.aggregate.Project;
-import com.narrativex.backend.feature.project.infrastructure.persistence.entity.ProjectJpaEntity;
-import com.narrativex.backend.feature.project.infrastructure.persistence.mapper.ProjectPersistenceMapper;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.EntityManagerFactory;
-import jakarta.persistence.RollbackException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -52,12 +46,11 @@ class PostgreSqlMigrationIntegrationTest {
   }
 
   @Autowired private DataSource dataSource;
-  @Autowired private EntityManagerFactory entityManagerFactory;
 
   @Test
-  void emptyPostgresMigratesAndHibernateValidates() throws SQLException {
+  void emptyPostgresMigratesAndApplicationContextStarts() throws SQLException {
     try (Connection connection = dataSource.getConnection()) {
-      assertEquals(11, latestFlywayVersion(connection));
+      assertEquals(12, latestFlywayVersion(connection));
       assertEquals("jsonb", columnType(connection, "moderation_decisions", "categories_json"));
       assertTrue(indexExists(connection, "uq_story_versions_one_active_per_project"));
       assertTrue(indexExists(connection, "idx_projects_active_owner_updated_id"));
@@ -110,6 +103,12 @@ class PostgreSqlMigrationIntegrationTest {
       assertTrue(tableExists(connection, "narration_operations"));
       assertTrue(tableExists(connection, "narration_assets"));
       assertTrue(tableExists(connection, "narration_alignments"));
+      assertTrue(tableExists(connection, "media_assets"));
+      assertTrue(tableExists(connection, "narration_sets"));
+      assertTrue(tableExists(connection, "narration_parts"));
+      assertTrue(tableExists(connection, "narration_documents"));
+      assertTrue(tableExists(connection, "narration_document_chapters"));
+      assertTrue(tableExists(connection, "narration_alignment_runs"));
       assertTrue(constraintExists(connection, "generation_jobs", "ck_generation_jobs_progress"));
       assertTrue(constraintExists(connection, "generation_jobs", "ck_generation_jobs_status"));
       assertTrue(constraintExists(connection, "generation_jobs", "ck_generation_jobs_job_type"));
@@ -289,38 +288,6 @@ class PostgreSqlMigrationIntegrationTest {
   }
 
   @Test
-  void hibernateVersionColumnRejectsStaleProjectUpdate() throws SQLException {
-    long projectId;
-    try (Connection connection = dataSource.getConnection()) {
-      projectId = insertProject(connection);
-    }
-
-    EntityManager first = entityManagerFactory.createEntityManager();
-    EntityManager stale = entityManagerFactory.createEntityManager();
-    try {
-      first.getTransaction().begin();
-      stale.getTransaction().begin();
-      ProjectJpaEntity firstEntity = first.find(ProjectJpaEntity.class, projectId);
-      ProjectJpaEntity staleEntity = stale.find(ProjectJpaEntity.class, projectId);
-
-      Project firstDomain = ProjectPersistenceMapper.toDomain(firstEntity);
-      firstDomain.archive();
-      firstEntity.apply(firstDomain);
-      first.getTransaction().commit();
-
-      Project staleDomain = ProjectPersistenceMapper.toDomain(staleEntity);
-      staleDomain.archive();
-      staleEntity.apply(staleDomain);
-      assertThrows(RollbackException.class, stale.getTransaction()::commit);
-    } finally {
-      if (first.getTransaction().isActive()) first.getTransaction().rollback();
-      if (stale.getTransaction().isActive()) stale.getTransaction().rollback();
-      first.close();
-      stale.close();
-    }
-  }
-
-  @Test
   void postgresForUpdateLockSerializesProjectMutation() throws SQLException {
     long projectId;
     try (Connection seed = dataSource.getConnection()) {
@@ -347,7 +314,8 @@ class PostgreSqlMigrationIntegrationTest {
   private static int latestFlywayVersion(Connection connection) throws SQLException {
     try (PreparedStatement statement =
             connection.prepareStatement(
-                "select max(cast(version as integer)) from flyway_schema_history where success = true");
+                "select max(cast(version as integer)) from flyway_schema_history where success ="
+                    + " true");
         ResultSet result = statement.executeQuery()) {
       result.next();
       return result.getInt(1);
@@ -415,7 +383,8 @@ class PostgreSqlMigrationIntegrationTest {
   private static boolean indexExists(Connection connection, String indexName) throws SQLException {
     try (PreparedStatement statement =
         connection.prepareStatement(
-            "select exists(select 1 from pg_indexes where schemaname = 'public' and indexname = ?)")) {
+            "select exists(select 1 from pg_indexes where schemaname = 'public' and indexname ="
+                + " ?)")) {
       statement.setString(1, indexName);
       try (ResultSet result = statement.executeQuery()) {
         result.next();
@@ -459,9 +428,9 @@ class PostgreSqlMigrationIntegrationTest {
       throws SQLException {
     try (PreparedStatement statement =
         connection.prepareStatement(
-            "insert into visual_beats "
-                + "(scene_id, order_index, title, visual_intent, review_status, motion_mode, camera_movement) "
-                + "values (4001, ?, 'Migration test', 'Migration test intent', 'NEEDS_REVIEW', ?, ?)")) {
+            "insert into visual_beats (scene_id, order_index, title, visual_intent, review_status,"
+                + " motion_mode, camera_movement) values (4001, ?, 'Migration test', 'Migration"
+                + " test intent', 'NEEDS_REVIEW', ?, ?)")) {
       statement.setInt(1, orderIndex);
       statement.setString(2, motionMode);
       statement.setString(3, cameraMovement);
@@ -472,11 +441,10 @@ class PostgreSqlMigrationIntegrationTest {
   private static long insertProject(Connection connection) throws SQLException {
     try (PreparedStatement statement =
         connection.prepareStatement(
-            "insert into projects "
-                + "(name, owner_id, status, source_language, narration_language, metadata_language, "
-                + "image_aspect_ratio, image_quality_tier) "
-                + "values ('Project', 'owner', 'DRAFT', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD') "
-                + "returning id")) {
+            "insert into projects (name, owner_id, status, source_language, narration_language,"
+                + " metadata_language, image_aspect_ratio, image_quality_tier) values ('Project',"
+                + " 'owner', 'DRAFT', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD')"
+                + " returning id")) {
       try (ResultSet result = statement.executeQuery()) {
         result.next();
         return result.getLong(1);
@@ -488,9 +456,8 @@ class PostgreSqlMigrationIntegrationTest {
       Connection connection, long projectId, int versionNumber, String status) throws SQLException {
     try (PreparedStatement statement =
         connection.prepareStatement(
-            "insert into story_versions "
-                + "(project_id, version_number, content, source_language, status, moderation_decision) "
-                + "values (?, ?, 'story', 'vi-VN', ?, 'PENDING')")) {
+            "insert into story_versions (project_id, version_number, content, source_language,"
+                + " status, moderation_decision) values (?, ?, 'story', 'vi-VN', ?, 'PENDING')")) {
       statement.setLong(1, projectId);
       statement.setInt(2, versionNumber);
       statement.setString(3, status);

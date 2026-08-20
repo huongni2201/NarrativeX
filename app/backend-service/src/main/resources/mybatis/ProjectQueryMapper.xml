@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ProjectQueryMapper">
+    <resultMap id="projectOverviewRow" type="com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ProjectOverviewRow">
+        <id property="id" column="id" />
+        <result property="name" column="name" />
+        <result property="description" column="description" />
+        <result property="coverImageUrl" column="cover_image_url" />
+        <result property="status" column="status" />
+        <result property="createdAt" column="created_at" />
+        <result property="updatedAt" column="updated_at" />
+        <result property="storyVersionId" column="story_version_id" />
+        <result property="approvedVisualsCount" column="approved_visuals_count" />
+        <result property="processingJobsCount" column="processing_jobs_count" />
+        <result property="charactersCount" column="characters_count" />
+        <result property="locationsCount" column="locations_count" />
+        <result property="assetsCount" column="assets_count" />
+    </resultMap>
+
+    <resultMap id="projectOverviewChapterRow" type="com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ProjectOverviewChapterRow">
+        <id property="id" column="id" />
+        <result property="orderIndex" column="order_index" />
+        <result property="title" column="title" />
+        <result property="status" column="overview_status" />
+        <result property="sceneCount" column="scene_count" />
+        <result property="durationSeconds" column="duration_seconds" />
+        <result property="updatedAt" column="updated_at" />
+    </resultMap>
+
+    <resultMap id="projectLocationRow" type="com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ProjectLocationRow">
+        <id property="id" column="id" />
+        <result property="name" column="name" />
+        <result property="description" column="description" />
+        <result property="visualPrompt" column="visual_prompt" />
+        <result property="referenceImageUrl" column="reference_image_url" />
+        <result property="status" column="status" />
+        <result property="updatedAt" column="updated_at" />
+    </resultMap>
+
+    <resultMap id="projectAssetRow" type="com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ProjectAssetRow">
+        <id property="id" column="id" />
+        <result property="name" column="name" />
+        <result property="assetType" column="asset_type" />
+        <result property="storageKey" column="storage_key" />
+        <result property="url" column="url" />
+        <result property="mimeType" column="mime_type" />
+        <result property="status" column="status" />
+        <result property="metadataJson" column="metadata_json" />
+        <result property="updatedAt" column="updated_at" />
+    </resultMap>
+
+    <select id="findOverview" resultMap="projectOverviewRow">
+        SELECT p.id,
+               p.name,
+               COALESCE(NULLIF(p.description, ''), LEFT(sv.content, 320)) AS description,
+               p.cover_image_url,
+               p.status,
+               p.created_at,
+               p.updated_at,
+               sv.id AS story_version_id,
+               COALESCE(appr_vis.cnt, 0) AS approved_visuals_count,
+               COALESCE(proc_jobs.cnt, 0) AS processing_jobs_count,
+               COALESCE(chars.cnt, 0) AS characters_count,
+               COALESCE(locs.cnt, 0) AS locations_count,
+               COALESCE(asts.cnt, 0) AS assets_count
+          FROM projects p
+          LEFT JOIN LATERAL (
+              SELECT id, content
+                FROM story_versions
+               WHERE project_id = p.id
+                 AND status IN ('ACTIVE', 'DRAFT')
+               ORDER BY CASE WHEN status = 'ACTIVE' THEN 0 ELSE 1 END,
+                        version_number DESC,
+                        id DESC
+               LIMIT 1
+          ) sv ON TRUE
+          LEFT JOIN LATERAL (
+              SELECT COUNT(vb.id)::int AS cnt
+                FROM chapters c
+                JOIN scenes s ON s.chapter_id = c.id AND s.status = 'APPROVED'
+                JOIN visual_beats vb ON vb.scene_id = s.id
+               WHERE c.story_version_id = sv.id
+          ) appr_vis ON TRUE
+          LEFT JOIN LATERAL (
+              SELECT COUNT(*)::int AS cnt
+                FROM generation_jobs
+               WHERE project_id = p.id
+                 AND status IN ('QUEUED', 'RUNNING', 'STALLED', 'PAUSED_COST_LIMIT')
+          ) proc_jobs ON TRUE
+          LEFT JOIN LATERAL (
+              SELECT COUNT(*)::int AS cnt
+                FROM project_characters
+               WHERE project_id = p.id
+                 AND status = 'ACTIVE'
+          ) chars ON TRUE
+          LEFT JOIN LATERAL (
+              SELECT COUNT(*)::int AS cnt
+                FROM project_locations
+               WHERE project_id = p.id
+                 AND status = 'ACTIVE'
+          ) locs ON TRUE
+          LEFT JOIN LATERAL (
+              SELECT COUNT(*)::int AS cnt
+                FROM project_assets
+               WHERE project_id = p.id
+                 AND status = 'ACTIVE'
+          ) asts ON TRUE
+         WHERE p.id = #{projectId}
+    </select>
+
+    <select id="findOverviewChapters" resultMap="projectOverviewChapterRow">
+        SELECT c.id,
+               c.order_index,
+               c.title,
+               CASE
+                 WHEN latest_job.status IN ('QUEUED', 'RUNNING', 'STALLED', 'PAUSED_COST_LIMIT')
+                      AND latest_job.source_hash = c.source_hash
+                   THEN 'ANALYZING'
+                 WHEN latest_job.status = 'FAILED'
+                      AND latest_job.source_hash = c.source_hash
+                   THEN 'FAILED'
+                 WHEN latest_job.status = 'COMPLETED'
+                      AND latest_job.source_hash = c.source_hash
+                   THEN 'ANALYZED'
+                 WHEN c.status IN ('ANALYZED', 'GENERATING_VISUALS', 'VISUAL_REVIEW', 'VISUAL_READY',
+                                   'GENERATING_AUDIO', 'AUDIO_READY', 'RENDERING', 'RENDERED', 'FAILED')
+                   THEN c.status
+                 WHEN c.status = 'READY' THEN 'ANALYZED'
+                 ELSE 'DRAFT'
+               END AS overview_status,
+               CASE
+                 WHEN (latest_job.status = 'COMPLETED' AND latest_job.source_hash = c.source_hash)
+                      OR c.status = 'READY'
+                      OR c.status IN ('ANALYZED', 'GENERATING_VISUALS', 'VISUAL_REVIEW', 'VISUAL_READY',
+                                      'GENERATING_AUDIO', 'AUDIO_READY', 'RENDERING', 'RENDERED')
+                   THEN COUNT(s.id)::int
+                 ELSE 0
+               END AS scene_count,
+               CASE
+                 WHEN (latest_job.status = 'COMPLETED' AND latest_job.source_hash = c.source_hash)
+                      OR c.status = 'READY'
+                      OR c.status IN ('ANALYZED', 'GENERATING_VISUALS', 'VISUAL_REVIEW', 'VISUAL_READY',
+                                      'GENERATING_AUDIO', 'AUDIO_READY', 'RENDERING', 'RENDERED')
+                   THEN CASE
+                          WHEN COALESCE(SUM(s.duration_seconds), 0) > 0
+                            THEN COALESCE(SUM(s.duration_seconds), 0)
+                          ELSE COALESCE(c.estimated_duration_ms / 1000, 0)
+                        END
+                 ELSE 0
+               END AS duration_seconds,
+               c.updated_at
+          FROM chapters c
+          LEFT JOIN scenes s ON s.chapter_id = c.id
+          LEFT JOIN LATERAL (
+              SELECT status, source_hash
+                FROM generation_jobs
+               WHERE chapter_id = c.id
+                 AND job_type = 'CHAPTER_ANALYZE'
+               ORDER BY created_at DESC, id DESC
+               LIMIT 1
+          ) latest_job ON TRUE
+         WHERE c.story_version_id = #{storyVersionId}
+         GROUP BY c.id, c.order_index, c.title, c.status, c.source_hash, c.estimated_duration_ms,
+                  c.updated_at, latest_job.status, latest_job.source_hash
+         ORDER BY c.order_index ASC, c.id ASC
+    </select>
+
+    <sql id="locationColumns">
+        id, name, description, visual_prompt, reference_image_url, status, updated_at
+    </sql>
+
+    <select id="findActiveLocationsFirstPage" resultMap="projectLocationRow">
+        SELECT <include refid="locationColumns" />
+          FROM project_locations
+         WHERE project_id = #{projectId}
+           AND status = 'ACTIVE'
+         ORDER BY updated_at DESC, id DESC
+         LIMIT #{limit}
+    </select>
+
+    <select id="findActiveLocationsAfter" resultMap="projectLocationRow">
+        SELECT <include refid="locationColumns" />
+          FROM project_locations
+         WHERE project_id = #{projectId}
+           AND status = 'ACTIVE'
+           AND (updated_at &lt; #{updatedAt}
+                OR (updated_at = #{updatedAt} AND id &lt; #{id}))
+         ORDER BY updated_at DESC, id DESC
+         LIMIT #{limit}
+    </select>
+
+    <sql id="assetColumns">
+        id, name, asset_type, storage_key, url, mime_type, status,
+        metadata_json::text AS metadata_json, updated_at
+    </sql>
+
+    <select id="findActiveAssetsFirstPage" resultMap="projectAssetRow">
+        SELECT <include refid="assetColumns" />
+          FROM project_assets
+         WHERE project_id = #{projectId}
+           AND status = 'ACTIVE'
+         ORDER BY updated_at DESC, id DESC
+         LIMIT #{limit}
+    </select>
+
+    <select id="findActiveAssetsAfter" resultMap="projectAssetRow">
+        SELECT <include refid="assetColumns" />
+          FROM project_assets
+         WHERE project_id = #{projectId}
+           AND status = 'ACTIVE'
+           AND (updated_at &lt; #{updatedAt}
+                OR (updated_at = #{updatedAt} AND id &lt; #{id}))
+         ORDER BY updated_at DESC, id DESC
+         LIMIT #{limit}
+    </select>
+</mapper>

@@ -1,6 +1,7 @@
 /* eslint-disable @next/next/no-img-element -- User avatar URLs are backend/CDN-owned runtime values. */
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -13,17 +14,27 @@ import {
   History,
   Bell,
   Settings,
+  Sparkles,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/useAuthStore";
-
 import { useUserQuota } from "@/features/account/hooks/useUserQuota";
-import { Sparkles, Zap } from "lucide-react";
+import { useNotifications } from "@/features/notifications/hooks/useNotifications";
+import { NotificationDrawer } from "@/features/notifications/components/NotificationDrawer";
+import { QuotaDetailModal } from "@/features/account/components/QuotaDetailModal";
+import { ProviderHealthIndicator } from "@/features/health/components/ProviderHealthIndicator";
 
 export const StudioSidebar = () => {
   const pathname = usePathname();
   const user = useAuthStore((state) => state.user);
   const { data: quota, isLoading: isQuotaLoading, isError: isQuotaError } = useUserQuota();
+  const { data: notificationsData } = useNotifications({ limit: 1, unreadOnly: true });
+  const unreadCount = notificationsData?.unreadCount ?? 0;
+
+  const [isNotificationDrawerOpen, setIsNotificationDrawerOpen] = useState(false);
+  const [isQuotaModalOpen, setIsQuotaModalOpen] = useState(false);
+
   const projectMatch = pathname.match(/^\/projects\/(\d+)/);
   const activeProjectId = projectMatch?.[1];
 
@@ -80,17 +91,17 @@ export const StudioSidebar = () => {
       id: "history",
       label: "Lịch sử công việc",
       icon: History,
-      href: "#",
-      disabled: true,
-      tooltip: "Lịch sử công việc đang chờ API backend",
+      href: "/history",
+      active: pathname === "/history" || pathname.startsWith("/history/"),
     },
     {
       id: "notifications",
       label: "Thông báo",
       icon: Bell,
-      href: "#",
-      disabled: true,
-      tooltip: "Hệ thống thông báo đang chờ API backend",
+      href: "/notifications",
+      active: pathname === "/notifications" || pathname.startsWith("/notifications/"),
+      badge: unreadCount > 0 ? unreadCount : undefined,
+      onOpenDrawer: () => setIsNotificationDrawerOpen(true),
     },
     {
       id: "settings",
@@ -98,7 +109,7 @@ export const StudioSidebar = () => {
       icon: Settings,
       href: "#",
       disabled: true,
-      tooltip: "Cài đặt hệ thống đang chờ API backend",
+      tooltip: "Cài đặt hệ thống đang được phát triển",
     },
   ];
 
@@ -170,113 +181,135 @@ export const StudioSidebar = () => {
             }
 
             return (
-              <Link
-                key={item.id}
-                href={item.href}
-                aria-current={item.active ? "page" : undefined}
-                className={cn(
-                  "w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500",
-                  item.active
-                    ? "bg-purple-900/40 text-purple-200 border border-purple-800/60 font-semibold shadow-sm"
-                    : "text-slate-300 hover:text-white hover:bg-slate-800/40",
-                )}
-              >
-                <Icon
-                  className={cn("w-5 h-5 shrink-0", item.active ? "text-purple-400" : "text-slate-400")}
-                />
-                <span>{item.label}</span>
-              </Link>
+              <div key={item.id} className="relative">
+                <Link
+                  href={item.href}
+                  onClick={(e) => {
+                    if (item.onOpenDrawer) {
+                      e.preventDefault();
+                      item.onOpenDrawer();
+                    }
+                  }}
+                  aria-current={item.active ? "page" : undefined}
+                  className={cn(
+                    "w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500",
+                    item.active
+                      ? "bg-purple-900/40 text-purple-200 border border-purple-800/60 font-semibold shadow-sm"
+                      : "text-slate-300 hover:text-white hover:bg-slate-800/40",
+                  )}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Icon
+                      className={cn("w-5 h-5 shrink-0", item.active ? "text-purple-400" : "text-slate-400")}
+                    />
+                    <span className="truncate">{item.label}</span>
+                  </div>
+
+                  {item.badge !== undefined && item.badge > 0 && (
+                    <span className="ml-2 rounded-full bg-purple-600 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm animate-pulse">
+                      {item.badge}
+                    </span>
+                  )}
+                </Link>
+              </div>
             );
           })}
         </nav>
       </div>
 
-      <div className="p-3.5 m-3 rounded-2xl bg-[#0d1420] border border-slate-800 space-y-3">
-        {isQuotaLoading ? (
-          <div className="space-y-2.5 animate-pulse py-1">
-            <div className="flex justify-between items-center">
-              <div className="h-3 w-20 bg-slate-800 rounded" />
-              <div className="h-4 w-12 bg-slate-800 rounded-full" />
+      <div className="space-y-3">
+        <div className="p-3.5 mx-3 rounded-2xl bg-[#0d1420] border border-slate-800 space-y-3">
+          {isQuotaLoading ? (
+            <div className="space-y-2.5 animate-pulse py-1">
+              <div className="flex justify-between items-center">
+                <div className="h-3 w-20 bg-slate-800 rounded" />
+                <div className="h-4 w-12 bg-slate-800 rounded-full" />
+              </div>
+              <div className="h-2.5 w-full bg-slate-800 rounded" />
+              <div className="h-1.5 w-full bg-slate-800 rounded-full" />
+              <div className="h-8 w-full bg-slate-800/60 rounded-lg mt-2" />
             </div>
-            <div className="h-2.5 w-full bg-slate-800 rounded" />
-            <div className="h-1.5 w-full bg-slate-800 rounded-full" />
-            <div className="h-8 w-full bg-slate-800/60 rounded-lg mt-2" />
-          </div>
-        ) : quota ? (
-          <>
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5 min-w-0">
-                <Zap className="w-3.5 h-3.5 text-purple-400 shrink-0" />
-                <span className="text-xs font-semibold text-slate-200 uppercase tracking-wider truncate">
+          ) : quota ? (
+            <>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <Zap className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                  <span className="text-xs font-semibold text-slate-200 uppercase tracking-wider truncate">
+                    Usage / Quota
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsQuotaModalOpen(true)}
+                  className="shrink-0 rounded-full border border-purple-500/30 bg-purple-950/40 px-2 py-0.5 text-[10px] font-bold tracking-wide text-purple-300 uppercase hover:bg-purple-900/60 transition-colors"
+                  title="Xem chi tiết hạn mức"
+                >
+                  {quota.tier || "Free"}
+                </button>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">Credits khả dụng</span>
+                  <span className="font-semibold text-slate-200">
+                    {remainingCredits.toLocaleString()}{" "}
+                    <span className="text-slate-500 font-normal">/ {totalCredits.toLocaleString()}</span>
+                  </span>
+                </div>
+                <div className="w-full bg-slate-800/80 rounded-full h-1.5 overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-purple-500 to-indigo-500 h-full rounded-full transition-all duration-300"
+                    style={{ width: `${creditPercent}%` }}
+                  />
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsQuotaModalOpen(true)}
+                className="w-full rounded-lg border border-slate-800 bg-slate-900/80 px-3 py-2 text-xs font-semibold text-purple-300 hover:bg-slate-800 hover:text-white flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                <span>Chi tiết hạn mức & gói</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
                   Usage / Quota
                 </span>
-              </div>
-              <span className="shrink-0 rounded-full border border-purple-500/30 bg-purple-950/40 px-2 py-0.5 text-[10px] font-bold tracking-wide text-purple-300 uppercase">
-                {quota.tier || "Free"}
-              </span>
-            </div>
-
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-400">Credits khả dụng</span>
-                <span className="font-semibold text-slate-200">
-                  {remainingCredits.toLocaleString()}{" "}
-                  <span className="text-slate-500 font-normal">/ {totalCredits.toLocaleString()}</span>
+                <span className="rounded-full border border-slate-700 bg-slate-900 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                  {isQuotaError ? "Lỗi tải" : "Free"}
                 </span>
               </div>
-              <div className="w-full bg-slate-800/80 rounded-full h-1.5 overflow-hidden">
-                <div
-                  className="bg-gradient-to-r from-purple-500 to-indigo-500 h-full rounded-full transition-all duration-300"
-                  style={{ width: `${creditPercent}%` }}
-                />
-              </div>
-            </div>
 
-            {quota.periodEnd && (
-              <div className="flex items-center justify-between text-[11px] text-slate-500">
-                <span>Chu kỳ đến</span>
-                <span className="text-slate-400 font-medium">{quota.periodEnd}</span>
-              </div>
-            )}
+              <p className="text-xs leading-5 text-slate-400">
+                {isQuotaError
+                  ? "Không thể tải thông tin hạn mức lúc này."
+                  : "Đăng nhập để xem hạn mức và số credits khả dụng."}
+              </p>
+            </>
+          )}
+        </div>
 
-            <button
-              type="button"
-              disabled
-              title="Cổng thanh toán & nâng cấp gói cước sẽ sớm được tích hợp"
-              className="w-full cursor-not-allowed rounded-lg border border-slate-800 bg-slate-900/80 px-3 py-2 text-xs font-semibold text-slate-400 flex items-center justify-center gap-1.5 transition-colors"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-purple-400/70" />
-              <span>Nâng cấp — sắp ra mắt</span>
-            </button>
-          </>
-        ) : (
-          <>
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-                Usage / Quota
-              </span>
-              <span className="rounded-full border border-slate-700 bg-slate-900 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                {isQuotaError ? "Lỗi tải" : "Free"}
-              </span>
-            </div>
-
-            <p className="text-xs leading-5 text-slate-400">
-              {isQuotaError
-                ? "Không thể tải thông tin hạn mức lúc này."
-                : "Đăng nhập để xem hạn mức và số credits khả dụng."}
-            </p>
-
-            <button
-              type="button"
-              disabled
-              title="Tính năng nâng cấp gói cước đang chờ tích hợp cổng thanh toán"
-              className="w-full cursor-not-allowed rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-semibold text-slate-500"
-            >
-              Nâng cấp — chưa khả dụng
-            </button>
-          </>
-        )}
+        {/* Footer info & Health Indicator */}
+        <div className="px-5 pb-4 flex items-center justify-between">
+          <ProviderHealthIndicator />
+          <span className="text-[10px] text-slate-500 font-mono">v1.10</span>
+        </div>
       </div>
+
+      {/* Modals & Drawers */}
+      <NotificationDrawer
+        isOpen={isNotificationDrawerOpen}
+        onClose={() => setIsNotificationDrawerOpen(false)}
+      />
+
+      <QuotaDetailModal
+        isOpen={isQuotaModalOpen}
+        onClose={() => setIsQuotaModalOpen(false)}
+      />
     </aside>
   );
 };

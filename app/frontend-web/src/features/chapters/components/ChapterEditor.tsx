@@ -132,6 +132,7 @@ export function ChapterEditor({ projectId, chapterId }: Readonly<ChapterEditorPr
         </div>
       ) : (
         <ChapterOverviewTab
+          projectId={numericProjectId}
           workspace={workspace}
           analysisJobStatus={analysisJob?.status ?? null}
           analysisJobProgress={analysisJob?.progress ?? null}

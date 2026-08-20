@@ -8,9 +8,10 @@ implementation is selected at runtime.
 | Boundary | Current implementation | Default | Rollback/configuration | Risk | Target |
 |---|---|---|---|---|---|
 | ProviderOperation | MyBatis + JPA | MyBatis | `narrativex.persistence.provider-operation=jpa` | High: lifecycle/CAS/provider ambiguity | Done / foundation proof |
-| Chapter | JPA | JPA | Not available | Medium: row version and aggregate writes | PR #83/#84 candidate |
+| Chapter | MyBatis | MyBatis | Not available | Medium: row version and aggregate writes | Done / foundation proof |
 | Scene / VisualBeat | JPA | JPA | Not available | Medium: ordering and review state | Later |
-| Project / StoryVersion | JPA | JPA | Not available | Medium: ownership and versioning | Later |
+| Project | MyBatis | MyBatis | Not available | Medium: ownership, cursor ordering and versioning | Done / Project boundary |
+| StoryVersion | JPA | JPA | Not available | Medium: append-only versioning and activation | Next PR |
 | Character / versions / appearances | JPA | JPA | Not available | High: reusable identity and immutable versions | Later |
 | GenerationJob / StageAttempt / OperationPlan | JPA | JPA | Not available | High: leases, admission and concurrency | Later |
 | Generation outbox | JDBC adapter | JDBC | Not available | High: durable enqueue and dispatch | Later |
@@ -60,4 +61,6 @@ nulls, enums and timestamps.
 
 This foundation does not change tables, indexes or Flyway migrations. It does
 not introduce a generic repository, custom DataSource, custom connection pool,
-second `SqlSessionFactory` or a global JSONB type handler.
+second `SqlSessionFactory` or a global JSONB type handler. Project query
+projections are also mapped through XML so no business `JdbcTemplate` adapter
+remains in the Project boundary.

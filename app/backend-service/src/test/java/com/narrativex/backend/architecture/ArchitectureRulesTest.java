@@ -28,6 +28,27 @@ class ArchitectureRulesTest {
   }
 
   @Test
+  void migratedProjectAdaptersDoNotDependOnJpaOrJdbc() throws IOException {
+    List<String> files =
+        List.of(
+            "feature/project/infrastructure/persistence/adapter/MyBatisProjectRepository.java",
+            "feature/project/infrastructure/persistence/adapter/MyBatisProjectOverviewQueryAdapter.java",
+            "feature/project/infrastructure/persistence/adapter/MyBatisProjectResourceQueryAdapter.java",
+            "feature/project/infrastructure/persistence/mybatis/ProjectMapper.java",
+            "feature/project/infrastructure/persistence/mybatis/ProjectQueryMapper.java");
+
+    for (String file : files) {
+      String source = Files.readString(SOURCE_ROOT.resolve(file));
+      assertTrue(!source.contains("jakarta.persistence"), () -> file + " imports JPA");
+      assertTrue(!source.contains("JpaRepository"), () -> file + " imports Spring Data JPA");
+      assertTrue(!source.contains("JdbcTemplate"), () -> file + " imports JdbcTemplate");
+      assertTrue(
+          !source.contains("NamedParameterJdbcTemplate"),
+          () -> file + " imports NamedParameterJdbcTemplate");
+    }
+  }
+
+  @Test
   void rulesDetectRepresentativeInvalidDependencies() {
     assertTrue(
         isForbiddenApplicationImport(
@@ -40,7 +61,8 @@ class ArchitectureRulesTest {
     assertTrue(
         isForbiddenApplicationImport(
             "project",
-            "import com.narrativex.backend.feature.project.infrastructure.persistence.adapter.ProjectPersistenceAdapter;"));
+            "import"
+                + " com.narrativex.backend.feature.project.infrastructure.persistence.adapter.MyBatisProjectRepository;"));
     assertTrue(
         isForbiddenApplicationImport(
             "storyboard", "import org.springframework.jdbc.core.JdbcTemplate;"));
@@ -51,7 +73,8 @@ class ArchitectureRulesTest {
         isForbiddenApplicationImport("storyboard", "import jakarta.persistence.EntityManager;"));
     assertTrue(
         isForbiddenApiImport(
-            "import com.narrativex.backend.feature.project.application.port.out.ProjectRepository;"));
+            "import"
+                + " com.narrativex.backend.feature.project.application.port.out.ProjectRepository;"));
     assertTrue(
         isForbiddenDomainImport(
             "storyboard",
