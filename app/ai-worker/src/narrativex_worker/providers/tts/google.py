@@ -6,7 +6,9 @@ import wave
 import google.auth  # type: ignore[import-untyped]
 import httpx
 from google.auth.credentials import Credentials  # type: ignore[import-untyped]
-from google.auth.transport.requests import Request as GoogleAuthRequest  # type: ignore[import-untyped]
+from google.auth.transport.requests import (
+    Request as GoogleAuthRequest,  # type: ignore[import-untyped]
+)
 
 from narrativex_worker.config import WorkerSettings
 from narrativex_worker.narration.models import SynthesizedSegment
@@ -45,7 +47,8 @@ class GoogleCloudTtsProvider:
             "x-goog-user-project": str(self.settings.google_tts_project_id),
         }
         try:
-            async with httpx.AsyncClient(timeout=self.settings.google_tts_timeout_seconds) as client:
+            timeout = self.settings.google_tts_timeout_seconds
+            async with httpx.AsyncClient(timeout=timeout) as client:
                 response = await client.post(
                     self.settings.google_tts_endpoint.rstrip("/") + "/v1/text:synthesize",
                     json=payload,

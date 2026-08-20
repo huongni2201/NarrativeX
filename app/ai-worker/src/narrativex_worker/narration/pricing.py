@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from decimal import Decimal, ROUND_UP
+from decimal import ROUND_UP, Decimal
 
 
 @dataclass(frozen=True)

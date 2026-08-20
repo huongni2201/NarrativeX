@@ -2,7 +2,6 @@ import hashlib
 import json
 import uuid
 from dataclasses import dataclass
-from decimal import Decimal
 from typing import Any
 
 import asyncpg  # type: ignore[import-untyped]
@@ -198,7 +197,9 @@ class NarrationWorkerRepository:
         self, operation: DurableNarrationProviderOperation
     ) -> DurableNarrationProviderOperation:
         if operation.status is not ProviderOperationStatus.RESERVED:
-            raise ValueError("Only RESERVED narration provider operations may cross the submit fence")
+            raise ValueError(
+                "Only RESERVED narration provider operations may cross the submit fence"
+            )
         row = await self._require_pool().fetchrow(
             """
             UPDATE provider_operations

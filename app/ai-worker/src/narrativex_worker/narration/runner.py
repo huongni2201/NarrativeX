@@ -72,7 +72,9 @@ class NarrationWorkerRunner:
         processing = asyncio.create_task(self._execute(claimed))
         heartbeat = asyncio.create_task(self._heartbeat_loop(claimed.stage_attempt_id))
         try:
-            done, _ = await asyncio.wait({processing, heartbeat}, return_when=asyncio.FIRST_COMPLETED)
+            done, _ = await asyncio.wait(
+                {processing, heartbeat}, return_when=asyncio.FIRST_COMPLETED
+            )
             if heartbeat in done:
                 await heartbeat
                 raise RuntimeError("Narration heartbeat stopped unexpectedly")
@@ -258,7 +260,9 @@ class NarrationWorkerRunner:
             sample_rate_hz = int(stored.metadata["sample-rate-hz"])
             channels = int(stored.metadata["channels"])
         except (KeyError, ValueError) as exception:
-            raise RuntimeError("Stored narration segment audio metadata is incomplete") from exception
+            raise RuntimeError(
+                "Stored narration segment audio metadata is incomplete"
+            ) from exception
         return SynthesizedSegment(segment, pcm_bytes, sample_rate_hz, channels)
 
     async def _heartbeat_loop(self, stage_attempt_id: int) -> None:
