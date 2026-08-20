@@ -32,6 +32,7 @@ public class CreateProjectUseCase {
     return projectRepository.save(
         Project.create(
             command.name(),
+            command.description(),
             currentUserId.get(),
             sourceLanguage,
             narrationLanguage,

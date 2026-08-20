@@ -132,6 +132,7 @@ export interface ApiAuthUser {
 
 export interface CreateProjectApiInput {
   name: string;
+  description?: string | null;
   sourceLanguage?: string;
   narrationLanguage?: string;
   metadataLanguage?: string;

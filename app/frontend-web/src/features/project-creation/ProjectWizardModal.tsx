@@ -33,6 +33,7 @@ export const ProjectWizardModal: React.FC = () => {
       const language = languageCodes[draft.language] ?? "vi-VN";
       return projectsApi.create({
         name: draft.title.trim(),
+        description: draft.description?.trim() || null,
         sourceLanguage: language,
         narrationLanguage: language,
         metadataLanguage: language,

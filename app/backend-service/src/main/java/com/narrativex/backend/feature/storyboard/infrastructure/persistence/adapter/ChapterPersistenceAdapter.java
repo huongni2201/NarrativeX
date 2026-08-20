@@ -6,7 +6,7 @@ import com.narrativex.backend.feature.common.pagination.CursorCodec;
 import com.narrativex.backend.feature.common.pagination.CursorPage;
 import com.narrativex.backend.feature.common.pagination.OrderIndexCursorKey;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
-import com.narrativex.backend.feature.storyboard.domain.Chapter;
+import com.narrativex.backend.feature.storyboard.domain.aggregate.Chapter;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.entity.ChapterJpaEntity;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mapper.ChapterPersistenceMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.repository.ChapterJpaRepository;

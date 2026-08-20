@@ -84,6 +84,7 @@ public class ProjectController {
     var command =
         new CreateProjectCommand(
             request.name(),
+            request.description(),
             request.sourceLanguage(),
             request.narrationLanguage(),
             request.metadataLanguage(),

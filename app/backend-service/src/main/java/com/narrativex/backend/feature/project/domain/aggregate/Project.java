@@ -61,11 +61,31 @@ public final class Project extends AggregateRoot {
       String metadataLanguage,
       AspectRatio imageAspectRatio,
       ImageQualityTier imageQualityTier) {
+    return create(
+        name,
+        null,
+        ownerId,
+        sourceLanguage,
+        narrationLanguage,
+        metadataLanguage,
+        imageAspectRatio,
+        imageQualityTier);
+  }
+
+  public static Project create(
+      String name,
+      String description,
+      String ownerId,
+      String sourceLanguage,
+      String narrationLanguage,
+      String metadataLanguage,
+      AspectRatio imageAspectRatio,
+      ImageQualityTier imageQualityTier) {
     return new Project(
         null,
         0L,
         name,
-        null,
+        description,
         null,
         ownerId,
         ProjectStatus.DRAFT,

@@ -96,7 +96,7 @@ class ProjectControllerContractTest {
     when(createProjectUseCase.execute(any(CreateProjectCommand.class))).thenReturn(project(7L, 0L));
 
     var responseEntity =
-        controller.create(new CreateProjectRequest("Story", null, null, null, null, null));
+        controller.create(new CreateProjectRequest("Story", "Description", null, null, null, null, null));
 
     assertEquals(HttpStatus.CREATED, responseEntity.getStatusCode());
     assertEquals(7L, responseEntity.getBody().data().id());

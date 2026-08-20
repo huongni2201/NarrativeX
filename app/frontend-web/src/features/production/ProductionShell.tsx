@@ -211,7 +211,7 @@ export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
                 <input
                   ref={batchImportInputRef}
                   type="file"
-                  accept=".txt,.md,text/plain,text/markdown"
+                  accept=".txt,.md,.docx,.pdf,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                   className="hidden"
                   onChange={(event) => {
                     const file = event.target.files?.[0];
