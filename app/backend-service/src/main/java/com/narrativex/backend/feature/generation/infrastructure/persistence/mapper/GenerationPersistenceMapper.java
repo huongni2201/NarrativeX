@@ -29,7 +29,10 @@ public final class GenerationPersistenceMapper {
         entity.getSourceHash(),
         entity.getSourceText(),
         entity.getSourceLanguage(),
-        entity.getIdempotencyKey());
+        entity.getIdempotencyKey(),
+        entity.getMediaPlanId(),
+        entity.getMediaPlanRevision(),
+        entity.getProductionMode());
   }
 
   public static OperationPlan toDomain(OperationPlanJpaEntity entity) {

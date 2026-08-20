@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ProductionMode(StrEnum):
-    """User-selectable production policy, independent from any vendor/model."""
+    """Transport vocabulary for the production policy already authorized by the backend."""
 
     IMAGE_MOTION = "IMAGE_MOTION"
     HYBRID_LOCAL_I2V = "HYBRID_LOCAL_I2V"
@@ -27,6 +27,8 @@ class VisualAssetStrategy(StrEnum):
 
 
 class MotionStrategy(StrEnum):
+    """Execution decision supplied by the backend MediaPlan; the worker must not re-resolve it."""
+
     BASIC_IMAGE_MOTION = "BASIC_IMAGE_MOTION"
     IMAGE_TO_VIDEO = "IMAGE_TO_VIDEO"
 
@@ -84,15 +86,3 @@ class VisualScenePlan(BaseModel):
 
         return self
 
-
-def choose_motion_strategy(
-    production_mode: ProductionMode,
-    complexity: MotionComplexity,
-) -> MotionStrategy:
-    """Default routing policy; authorization/cost policy may still downgrade I2V to basic motion."""
-
-    if production_mode is ProductionMode.IMAGE_MOTION:
-        return MotionStrategy.BASIC_IMAGE_MOTION
-    if complexity is MotionComplexity.SIMPLE:
-        return MotionStrategy.BASIC_IMAGE_MOTION
-    return MotionStrategy.IMAGE_TO_VIDEO
