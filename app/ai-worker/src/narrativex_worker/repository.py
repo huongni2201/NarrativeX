@@ -501,9 +501,7 @@ class WorkerRepository:
                 if row is not None:
                     return self._provider_operation(row)
 
-                current = await self._load_provider_operation_for_update(
-                    connection, operation.id
-                )
+                current = await self._load_provider_operation_for_update(connection, operation.id)
                 if current.status is ProviderOperationStatus.COMPLETED:
                     return await self._resolve_completed_provider_result(
                         connection, current, incoming_fingerprint
