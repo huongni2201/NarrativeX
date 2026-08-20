@@ -25,6 +25,7 @@ class ProviderCapabilities:
     supports_story_analysis: bool
     supports_image_generation: bool = False
     supports_video_generation: bool = False
+    supports_operation_reconciliation: bool = False
 
 
 @dataclass(frozen=True)
