@@ -32,8 +32,10 @@ Backend admission + durable enqueue
   -> provider port
   -> Vertex Gemini when configured
   -> Pydantic structured-result validation
+  -> durable normalized provider result + immutable result fingerprint
   -> Chapter rowVersion/sourceHash validation
   -> Character / ProjectCharacter / CharacterVersion materialization
+  -> Location + Scene continuity materialization
   -> Scene / VisualBeat materialization
   -> terminal StageAttempt + GenerationJob state
 ```
@@ -53,9 +55,9 @@ A dropped Redis delivery hint must not lose queued work. PostgreSQL remains auth
 | Chapter snapshot protection | IMPLEMENTED using `rowVersion` + `sourceHash` checks |
 | Vertex Gemini structured Chapter analysis | IMPLEMENTED foundation |
 | Character/Scene/VisualBeat result materialization | IMPLEMENTED foundation |
-| ProviderOperation durable lifecycle | IMPLEMENTED foundation with fail-closed ambiguous-submission recovery and paced reconciliation metadata |
-| Location materialization | PENDING |
-| Scene character/location continuity materialization | PENDING |
+| ProviderOperation durable lifecycle | IMPLEMENTED foundation with fail-closed ambiguous-submission recovery, paced reconciliation metadata, and immutable completed-result fingerprints |
+| Location materialization | IMPLEMENTED foundation |
+| Scene character/location continuity materialization | IMPLEMENTED foundation |
 | Image generation | PENDING |
 | TTS/subtitle generation | PENDING |
 | FFmpeg render/export | PENDING |
@@ -66,7 +68,9 @@ The worker executes against persisted Chapter identity/state rather than arbitra
 
 Before materialization the worker verifies that the persisted Chapter still matches the execution snapshot. If the Chapter changed while AI was executing, the old result must not be applied to the newer source.
 
-The provider result is validated with Pydantic before persistence. Current analysis output supports Characters, Locations in the schema, Scenes and VisualBeats; however Location and Scene continuity persistence are still incomplete and must not be advertised as durable simply because the provider returned them.
+The provider result is validated with Pydantic before persistence. Current analysis output supports Characters, Locations, Scenes and VisualBeats, and the materialization layer persists the supported Character, Location and Scene continuity associations before terminalizing the job.
+
+A `COMPLETED` provider operation owns one durable normalized result. The worker fingerprints canonical provider-neutral result JSON with SHA-256. Repeated completion with the same fingerprint is idempotent; a different fingerprint is an invariant violation and cannot overwrite the first durable result.
 
 ## Provider modes
 
@@ -123,8 +127,6 @@ Workers claim eligible durable attempts with PostgreSQL row locking and `SKIP LO
 
 ## Current gaps
 
-- AI Location materialization.
-- Durable Scene -> ProjectCharacter and Scene -> Location continuity relations.
 - Complete provider actual-usage reconciliation across all operation types.
 - Image generation and asset production.
 - TTS/subtitle generation.
