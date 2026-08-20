@@ -18,7 +18,8 @@ public class ListProjectResourcesUseCase {
   private final ProjectResourceQueryRepository repository;
 
   @Transactional(readOnly = true)
-  public CursorPage<ProjectResourceView.Location> locations(Long projectId, String cursor, int limit) {
+  public CursorPage<ProjectResourceView.Location> locations(
+      Long projectId, String cursor, int limit) {
     validateLimit(limit);
     projectAccess.findOwnedProject(projectId, currentUserId.get());
     return repository.listLocations(projectId, cursor, limit);

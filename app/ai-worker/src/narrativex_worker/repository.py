@@ -246,13 +246,185 @@ class WorkerRepository:
         )
 
     async def mark_provider_operation_submission_unknown(
+        self, operation: DurableProviderOperation, reconcile_after_seconds: float
+    ) -> DurableProviderOperation:
+        """Persist the external-call fence before submission can cross the provider boundary."""
+        self._assert_transition_allowed(operation, ProviderOperationStatus.UNKNOWN)
+        pool = self._require_pool()
+        async with pool.acquire() as connection:
+            row = await connection.fetchrow(
+                """
+                UPDATE provider_operations
+                   SET status = 'UNKNOWN',
+                       next_reconcile_at = CURRENT_TIMESTAMP + ($2 * INTERVAL '1 second'),
+                       last_reconcile_error = NULL,
+                       updated_at = CURRENT_TIMESTAMP,
+                       row_version = row_version + 1
+                  WHERE id = $1
+                    AND status = $3
+                    AND row_version = $4
+                  RETURNING id, stage_attempt_id, provider_key, provider_operation_id,
+                            status, row_version, request_fingerprint, normalized_result_json
+                """,
+                operation.id,
+                reconcile_after_seconds,
+                operation.status.value,
+                operation.row_version,
+            )
+        if row is None:
+            self._raise_state_conflict(operation)
+        return self._provider_operation(row)
+
+    async def schedule_provider_operation_reconciliation(
         self,
         operation: DurableProviderOperation,
-        provider_operation_id: str | None = None,
+        status: ProviderOperationStatus,
+        provider_operation_id: str,
+        *,
+        error: str | None = None,
     ) -> DurableProviderOperation:
-        return await self._transition_provider_operation(
-            operation, ProviderOperationStatus.UNKNOWN, provider_operation_id
+        if status not in (
+            ProviderOperationStatus.UNKNOWN,
+            ProviderOperationStatus.SUBMITTED,
+            ProviderOperationStatus.RUNNING,
+        ):
+            raise ValueError(
+                "Only non-terminal provider states can be scheduled for reconciliation"
+            )
+        if status is operation.status:
+            return await self._update_reconciliation_metadata(
+                operation, provider_operation_id, error
+            )
+        self._assert_transition_allowed(operation, status)
+        pool = self._require_pool()
+        async with pool.acquire() as connection:
+            row = await connection.fetchrow(
+                """
+                UPDATE provider_operations
+                   SET status = $2,
+                       provider_operation_id = $3,
+                       reconcile_attempts = reconcile_attempts + 1,
+                       next_reconcile_at = CURRENT_TIMESTAMP + INTERVAL '15 seconds',
+                       last_reconcile_error = $4,
+                       updated_at = CURRENT_TIMESTAMP,
+                       row_version = row_version + 1
+                  WHERE id = $1
+                    AND status = $5
+                    AND row_version = $6
+                  RETURNING id, stage_attempt_id, provider_key, provider_operation_id,
+                            status, row_version, request_fingerprint, normalized_result_json
+                """,
+                operation.id,
+                status.value,
+                provider_operation_id,
+                error[:2000] if error is not None else None,
+                operation.status.value,
+                operation.row_version,
+            )
+        if row is None:
+            self._raise_state_conflict(operation)
+        return self._provider_operation(row)
+
+    async def record_provider_reconcile_error(
+        self, operation: DurableProviderOperation, error: str
+    ) -> DurableProviderOperation:
+        pool = self._require_pool()
+        row = await pool.fetchrow(
+            """
+            UPDATE provider_operations
+               SET reconcile_attempts = reconcile_attempts + 1,
+                   next_reconcile_at = CURRENT_TIMESTAMP + INTERVAL '15 seconds',
+                   last_reconcile_error = $2,
+                   updated_at = CURRENT_TIMESTAMP,
+                   row_version = row_version + 1
+             WHERE id = $1
+               AND status = $3
+               AND row_version = $4
+             RETURNING id, stage_attempt_id, provider_key, provider_operation_id,
+                       status, row_version, request_fingerprint, normalized_result_json
+            """,
+            operation.id,
+            error[:2000],
+            operation.status.value,
+            operation.row_version,
         )
+        if row is None:
+            self._raise_state_conflict(operation)
+        return self._provider_operation(row)
+
+    async def _update_reconciliation_metadata(
+        self,
+        operation: DurableProviderOperation,
+        provider_operation_id: str,
+        error: str | None,
+    ) -> DurableProviderOperation:
+        pool = self._require_pool()
+        row = await pool.fetchrow(
+            """
+            UPDATE provider_operations
+               SET provider_operation_id = $2,
+                   reconcile_attempts = reconcile_attempts + 1,
+                   next_reconcile_at = CURRENT_TIMESTAMP + INTERVAL '15 seconds',
+                   last_reconcile_error = $3,
+                   updated_at = CURRENT_TIMESTAMP,
+                   row_version = row_version + 1
+             WHERE id = $1
+               AND status = $4
+               AND row_version = $5
+             RETURNING id, stage_attempt_id, provider_key, provider_operation_id,
+                       status, row_version, request_fingerprint, normalized_result_json
+            """,
+            operation.id,
+            provider_operation_id,
+            error[:2000] if error is not None else None,
+            operation.status.value,
+            operation.row_version,
+        )
+        if row is None:
+            self._raise_state_conflict(operation)
+        return self._provider_operation(row)
+
+    @staticmethod
+    def _assert_transition_allowed(
+        operation: DurableProviderOperation, next_status: ProviderOperationStatus
+    ) -> None:
+        if next_status not in ALLOWED_PROVIDER_TRANSITIONS[operation.status]:
+            raise ProviderOperationInvalidTransitionError(
+                f"Provider operation {operation.id} cannot transition "
+                f"from {operation.status.value} to {next_status.value}"
+            )
+
+    @staticmethod
+    def _raise_state_conflict(operation: DurableProviderOperation) -> None:
+        raise ProviderOperationStateConflictError(operation.id, operation.row_version)
+
+    async def suspend_provider_reconciliation(
+        self, operation: DurableProviderOperation, error: str
+    ) -> DurableProviderOperation:
+        """Keep the provider outcome UNKNOWN but stop unsafe/hot reconciliation attempts."""
+        pool = self._require_pool()
+        row = await pool.fetchrow(
+            """
+            UPDATE provider_operations
+               SET reconcile_attempts = reconcile_attempts + 1,
+                   next_reconcile_at = NULL,
+                   last_reconcile_error = $2,
+                   updated_at = CURRENT_TIMESTAMP,
+                   row_version = row_version + 1
+             WHERE id = $1
+               AND status = $3
+               AND row_version = $4
+             RETURNING id, stage_attempt_id, provider_key, provider_operation_id,
+                       status, row_version, request_fingerprint, normalized_result_json
+            """,
+            operation.id,
+            error[:2000],
+            operation.status.value,
+            operation.row_version,
+        )
+        if row is None:
+            self._raise_state_conflict(operation)
+        return self._provider_operation(row)
 
     async def persist_provider_result(
         self,
@@ -322,11 +494,15 @@ class WorkerRepository:
         pool = self._require_pool()
         rows = await pool.fetch(
             """
-            SELECT id, stage_attempt_id, provider_key, provider_operation_id,
-                   status, row_version, request_fingerprint, normalized_result_json
-              FROM provider_operations
-             WHERE status = ANY($1::text[])
-             ORDER BY reserved_at, id
+            SELECT po.id, po.stage_attempt_id, po.provider_key, po.provider_operation_id,
+                   po.status, po.row_version, po.request_fingerprint, po.normalized_result_json
+              FROM provider_operations po
+              JOIN stage_attempts sa ON sa.id = po.stage_attempt_id
+             WHERE po.status = ANY($1::text[])
+               AND po.next_reconcile_at IS NOT NULL
+               AND po.next_reconcile_at <= CURRENT_TIMESTAMP
+               AND sa.status IN ('RUNNING', 'STALLED', 'UNKNOWN')
+             ORDER BY po.next_reconcile_at, po.reserved_at, po.id
              LIMIT $2
             """,
             [status.value for status in statuses],
@@ -365,19 +541,6 @@ class WorkerRepository:
         if row is None:
             self._raise_state_conflict(operation)
         return self._provider_operation(row)
-
-    @staticmethod
-    def _assert_transition_allowed(
-        operation: DurableProviderOperation, next_status: ProviderOperationStatus
-    ) -> None:
-        if next_status not in ALLOWED_PROVIDER_TRANSITIONS[operation.status]:
-            raise ProviderOperationInvalidTransitionError(
-                f"Provider operation {operation.id} cannot transition "
-                f"from {operation.status.value} to {next_status.value}"
-            )
-
-    def _raise_state_conflict(self, operation: DurableProviderOperation) -> None:
-        raise ProviderOperationStateConflictError(operation.id, operation.row_version)
 
     @staticmethod
     def _provider_operation(

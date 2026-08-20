@@ -20,7 +20,6 @@ from narrativex_worker.repository import (
     ClaimedChapterAnalysisJob,
     DurableProviderOperation,
     ProviderOperationInvalidTransitionError,
-    ProviderOperationStateConflictError,
     WorkerRepository,
     provider_request_fingerprint,
 )
@@ -34,7 +33,10 @@ from narrativex_worker.schema import (
     VisualBeatAnalysis,
 )
 from narrativex_worker.service import WorkerService
-from narrativex_worker.worker import NarrativeXWorker, ProviderOperationUnknownError
+from narrativex_worker.worker import (
+    NarrativeXWorker,
+    ProviderOperationUnreconcilableError,
+)
 
 SOURCE_HASH = "a" * 64
 
@@ -204,7 +206,7 @@ def test_provider_terminal_status_is_completed() -> None:
     assert "SUCCEEDED" not in {status.value for status in ProviderOperationStatus}
 
 
-def test_provider_operation_state_graph_rejects_terminal_and_illegal_transitions() -> None:
+def test_provider_operation_state_graph_rejects_illegal_transitions() -> None:
     for current_status, allowed_next in ALLOWED_PROVIDER_TRANSITIONS.items():
         operation = DurableProviderOperation(
             id=1,
@@ -270,9 +272,11 @@ class DurableRepositorySpy:
         self.complete_calls = 0
         self.status_history: list[ProviderOperationStatus] = []
         self.fail_complete_once = fail_complete_once
+        self.suspended_errors: list[str] = []
+        self.reconcile_errors: list[str] = []
+        self.reconcile_statuses: tuple[ProviderOperationStatus, ...] | None = None
+        self.listed_operations: list[DurableProviderOperation] = []
         self.row_version = 0
-        self.conflict_on_result = False
-        self.latest_after_conflict: ProviderOperationStatus | None = None
 
     def operation(self, provider_operation_id: str | None = None) -> DurableProviderOperation:
         return DurableProviderOperation(
@@ -291,8 +295,11 @@ class DurableRepositorySpy:
     ) -> DurableProviderOperation:
         del claimed, provider_key
         created = self.status is None
-        result = self.operation(self.submit_id if self.status else None)
-        return replace(result, request_fingerprint=fingerprint, created=created)
+        return replace(
+            self.operation(self.submit_id if self.status else None),
+            request_fingerprint=fingerprint,
+            created=created,
+        )
 
     async def mark_provider_operation_submitted(
         self, operation: DurableProviderOperation, provider_operation_id: str | None
@@ -303,12 +310,49 @@ class DurableRepositorySpy:
         return self.operation(provider_operation_id)
 
     async def mark_provider_operation_submission_unknown(
-        self, operation: DurableProviderOperation, provider_operation_id: str | None = None
+        self, operation: DurableProviderOperation, reconcile_after_seconds: float
     ) -> DurableProviderOperation:
+        del reconcile_after_seconds
         self.row_version = operation.row_version + 1
         self.status = ProviderOperationStatus.UNKNOWN
         self.status_history.append(self.status)
+        return self.operation(None)
+
+    async def schedule_provider_operation_reconciliation(
+        self,
+        operation: DurableProviderOperation,
+        status: ProviderOperationStatus,
+        provider_operation_id: str,
+        *,
+        error: str | None = None,
+    ) -> DurableProviderOperation:
+        del error
+        self.row_version = operation.row_version + 1
+        self.status = status
+        self.submit_id = provider_operation_id
+        self.status_history.append(status)
         return self.operation(provider_operation_id)
+
+    async def record_provider_reconcile_error(
+        self, operation: DurableProviderOperation, error: str
+    ) -> DurableProviderOperation:
+        self.row_version = operation.row_version + 1
+        self.reconcile_errors.append(error)
+        return self.operation()
+
+    async def suspend_provider_reconciliation(
+        self, operation: DurableProviderOperation, error: str
+    ) -> DurableProviderOperation:
+        self.row_version = operation.row_version + 1
+        self.suspended_errors.append(error)
+        return self.operation()
+
+    async def list_provider_operations(
+        self, statuses: tuple[ProviderOperationStatus, ...], limit: int = 50
+    ) -> list[DurableProviderOperation]:
+        del limit
+        self.reconcile_statuses = statuses
+        return self.listed_operations
 
     async def persist_provider_result(
         self,
@@ -316,8 +360,6 @@ class DurableRepositorySpy:
         provider_operation_id: str | None,
         result: ChapterAnalysisResult,
     ) -> DurableProviderOperation:
-        if self.conflict_on_result:
-            raise ProviderOperationStateConflictError(operation.id, operation.row_version)
         self.row_version = operation.row_version + 1
         self.status = ProviderOperationStatus.COMPLETED
         self.normalized_result = result
@@ -337,17 +379,6 @@ class DurableRepositorySpy:
 
     async def get_provider_operation(self, operation_id: int) -> DurableProviderOperation:
         del operation_id
-        if self.latest_after_conflict is not None:
-            return replace(
-                self.operation(),
-                status=self.latest_after_conflict,
-                row_version=self.row_version + 1,
-                normalized_result=(
-                    completed_result()
-                    if self.latest_after_conflict is ProviderOperationStatus.COMPLETED
-                    else None
-                ),
-            )
         return self.operation()
 
     async def complete(self, *args: object) -> None:
@@ -359,13 +390,23 @@ class DurableRepositorySpy:
 
 
 class ProviderSpy:
-    def __init__(self, submit_error: Exception | None = None) -> None:
+    def __init__(
+        self,
+        submit_error: Exception | None = None,
+        *,
+        supports_reconciliation: bool = True,
+    ) -> None:
         self.submit_calls = 0
         self.reconcile_calls = 0
         self.submit_error = submit_error
+        self.supports_reconciliation = supports_reconciliation
 
     def get_capabilities(self) -> ProviderCapabilities:
-        return ProviderCapabilities("vertex", supports_story_analysis=True)
+        return ProviderCapabilities(
+            "vertex",
+            supports_story_analysis=True,
+            supports_operation_reconciliation=self.supports_reconciliation,
+        )
 
     def estimate(self, request: ChapterAnalysisRequest) -> ProviderEstimate:
         del request
@@ -394,7 +435,7 @@ class ProviderSpy:
 
 
 @pytest.mark.asyncio
-async def test_reserved_restart_reconciles_without_resubmitting() -> None:
+async def test_reserved_restart_resubmits_after_safe_submission_fence() -> None:
     worker = NarrativeXWorker(settings=WorkerSettings(worker_env="test"))
     repository = DurableRepositorySpy(ProviderOperationStatus.RESERVED)
     provider = ProviderSpy()
@@ -404,8 +445,12 @@ async def test_reserved_restart_reconciles_without_resubmitting() -> None:
 
     await worker._execute_claimed(claimed)
 
-    assert provider.submit_calls == 0
-    assert provider.reconcile_calls == 1
+    assert provider.submit_calls == 1
+    assert provider.reconcile_calls == 0
+    assert repository.status_history == [
+        ProviderOperationStatus.UNKNOWN,
+        ProviderOperationStatus.COMPLETED,
+    ]
     assert repository.complete_calls == 1
 
 
@@ -423,6 +468,50 @@ async def test_submitted_restart_reconciles_without_resubmitting() -> None:
     assert provider.submit_calls == 0
     assert provider.reconcile_calls == 1
     assert repository.complete_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_unknown_restart_without_provider_operation_id_fails_closed() -> None:
+    worker = NarrativeXWorker(settings=WorkerSettings(worker_env="test"))
+    repository = DurableRepositorySpy(ProviderOperationStatus.UNKNOWN)
+    repository.submit_id = ""
+    provider = ProviderSpy()
+    worker.repository = repository  # type: ignore[assignment]
+    worker.service = WorkerService(provider)
+    claimed = ClaimedChapterAnalysisJob(10, 20, "job-1", "user-1", chapter_request())
+
+    durable = DurableProviderOperation(
+        id=100,
+        stage_attempt_id=10,
+        provider_key="vertex",
+        provider_operation_id=None,
+        status=ProviderOperationStatus.UNKNOWN,
+        row_version=0,
+        request_fingerprint="f",
+    )
+    with pytest.raises(ProviderOperationUnreconcilableError, match="refusing blind"):
+        await worker._recover_provider_operation(claimed, durable)
+
+    assert provider.submit_calls == 0
+    assert provider.reconcile_calls == 0
+    assert repository.suspended_errors
+
+
+@pytest.mark.asyncio
+async def test_unreconcilable_provider_with_durable_id_fails_closed() -> None:
+    worker = NarrativeXWorker(settings=WorkerSettings(worker_env="test"))
+    repository = DurableRepositorySpy(ProviderOperationStatus.SUBMITTED)
+    provider = ProviderSpy(supports_reconciliation=False)
+    worker.repository = repository  # type: ignore[assignment]
+    worker.service = WorkerService(provider)
+    claimed = ClaimedChapterAnalysisJob(10, 20, "job-1", "user-1", chapter_request())
+
+    with pytest.raises(ProviderOperationUnreconcilableError, match="does not support"):
+        await worker._execute_claimed(claimed)
+
+    assert provider.submit_calls == 0
+    assert provider.reconcile_calls == 0
+    assert repository.suspended_errors
 
 
 @pytest.mark.asyncio
@@ -455,25 +544,7 @@ async def test_crash_after_provider_result_persist_replays_without_provider_call
 
 
 @pytest.mark.asyncio
-async def test_foreground_stale_result_replays_latest_completed_operation() -> None:
-    worker = NarrativeXWorker(settings=WorkerSettings(worker_env="test"))
-    repository = DurableRepositorySpy()
-    repository.conflict_on_result = True
-    repository.latest_after_conflict = ProviderOperationStatus.COMPLETED
-    provider = ProviderSpy()
-    worker.repository = repository  # type: ignore[assignment]
-    worker.service = WorkerService(provider)
-    claimed = ClaimedChapterAnalysisJob(10, 20, "job-1", "user-1", chapter_request())
-
-    await worker._execute_claimed(claimed)
-
-    assert repository.status is ProviderOperationStatus.UNKNOWN
-    assert repository.complete_calls == 1
-    assert provider.submit_calls == 1
-
-
-@pytest.mark.asyncio
-async def test_timeout_transitions_to_unknown_and_never_blind_retries() -> None:
+async def test_timeout_fails_closed_and_never_blind_retries() -> None:
     worker = NarrativeXWorker(settings=WorkerSettings(worker_env="test"))
     repository = DurableRepositorySpy()
     provider = ProviderSpy(TimeoutError("provider timed out"))
@@ -481,14 +552,55 @@ async def test_timeout_transitions_to_unknown_and_never_blind_retries() -> None:
     worker.service = WorkerService(provider)
     claimed = ClaimedChapterAnalysisJob(10, 20, "job-1", "user-1", chapter_request())
 
-    with pytest.raises(ProviderOperationUnknownError):
+    with pytest.raises(ProviderOperationUnreconcilableError):
         await worker._execute_claimed(claimed)
 
     assert provider.submit_calls == 1
-    assert repository.status_history == [
-        ProviderOperationStatus.UNKNOWN,
-    ]
+    assert repository.status_history == [ProviderOperationStatus.UNKNOWN]
+    assert repository.suspended_errors
     assert repository.complete_calls == 0
+
+
+@pytest.mark.asyncio
+async def test_background_reconciler_scans_all_reconcilable_non_terminal_states() -> None:
+    worker = NarrativeXWorker(settings=WorkerSettings(worker_env="test"))
+    repository = DurableRepositorySpy()
+    provider = ProviderSpy()
+    worker.repository = repository  # type: ignore[assignment]
+    worker.service = WorkerService(provider)
+
+    await worker._reconcile_provider_operations()
+
+    assert repository.reconcile_statuses == (
+        ProviderOperationStatus.UNKNOWN,
+        ProviderOperationStatus.SUBMITTED,
+        ProviderOperationStatus.RUNNING,
+    )
+
+
+@pytest.mark.asyncio
+async def test_background_reconciler_suspends_provider_without_reconciliation() -> None:
+    worker = NarrativeXWorker(settings=WorkerSettings(worker_env="test"))
+    repository = DurableRepositorySpy()
+    repository.listed_operations = [
+        DurableProviderOperation(
+            id=100,
+            stage_attempt_id=10,
+            provider_key="vertex",
+            provider_operation_id="vertex-op-1",
+            status=ProviderOperationStatus.SUBMITTED,
+            row_version=0,
+            request_fingerprint="f",
+        )
+    ]
+    provider = ProviderSpy(supports_reconciliation=False)
+    worker.repository = repository  # type: ignore[assignment]
+    worker.service = WorkerService(provider)
+
+    await worker._reconcile_provider_operations()
+
+    assert provider.reconcile_calls == 0
+    assert repository.suspended_errors
 
 
 @pytest.mark.asyncio

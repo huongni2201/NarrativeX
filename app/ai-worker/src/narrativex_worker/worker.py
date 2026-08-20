@@ -191,25 +191,37 @@ class NarrativeXWorker:
             await self._recover_provider_operation(claimed, durable)
             return
 
-        durable = await self.repository.mark_provider_operation_submission_unknown(durable)
+        await self._submit_reserved_provider_operation(claimed, durable)
+
+    async def _submit_reserved_provider_operation(
+        self, claimed: ClaimedChapterAnalysisJob, durable: DurableProviderOperation
+    ) -> None:
+        # UNKNOWN is intentionally persisted before the external call. If the process dies after
+        # this fence, recovery must assume the provider may have accepted the request.
+        reconcile_delay = max(
+            float(self.settings.lease_seconds),
+            self.settings.vertex_timeout_seconds
+            if self.settings.provider_mode == "vertex"
+            else float(self.settings.lease_seconds),
+        )
+        fenced = await self.repository.mark_provider_operation_submission_unknown(
+            durable, reconcile_delay
+        )
         try:
             operation = await self.service.submit_chapter_analysis(claimed.request)
         except Exception as exception:
-            raise ProviderOperationUnknownError(
-                f"Provider submission outcome is unknown: {type(exception).__name__}"
+            error = f"Provider submission outcome is unknown: {type(exception).__name__}"
+            with contextlib.suppress(ProviderOperationStateConflictError):
+                await self.repository.suspend_provider_reconciliation(fenced, error)
+            raise ProviderOperationUnreconcilableError(
+                f"{error}; no durable provider operation id was returned, refusing blind retry"
             ) from exception
 
-        await self._finish_provider_operation(claimed, durable, operation)
+        await self._finish_provider_operation(claimed, fenced, operation)
 
     async def _recover_provider_operation(
         self, claimed: ClaimedChapterAnalysisJob, durable: DurableProviderOperation
     ) -> None:
-        if durable.status is ProviderOperationStatus.RESERVED:
-            try:
-                durable = await self.repository.mark_provider_operation_submission_unknown(durable)
-            except ProviderOperationStateConflictError:
-                durable = await self.repository.get_provider_operation(durable.id)
-
         if durable.status is ProviderOperationStatus.COMPLETED:
             if durable.normalized_result is None:
                 raise ProviderOperationUnknownError(
@@ -220,8 +232,37 @@ class NarrativeXWorker:
                 "Replayed durable provider result for Chapter analysis job=%s", claimed.job_id
             )
             return
+
         if durable.status is ProviderOperationStatus.FAILED:
+            raise RuntimeError("Chapter analysis provider previously failed")
+
+        if durable.status is ProviderOperationStatus.RESERVED:
+            # RESERVED is the only state that proves the external-call fence was never crossed.
+            await self._submit_reserved_provider_operation(claimed, durable)
             return
+
+        capabilities = self.service.provider.get_capabilities()
+        if durable.provider_key != capabilities.provider_key:
+            error = (
+                f"Configured provider {capabilities.provider_key} cannot reconcile "
+                f"operation owned by {durable.provider_key}"
+            )
+            await self.repository.suspend_provider_reconciliation(durable, error)
+            raise ProviderOperationUnreconcilableError(error)
+        if durable.provider_operation_id is None:
+            error = (
+                f"Provider operation {durable.id} is {durable.status.value} without a durable "
+                "provider operation id; refusing blind resubmission"
+            )
+            await self.repository.suspend_provider_reconciliation(durable, error)
+            raise ProviderOperationUnreconcilableError(error)
+        if not capabilities.supports_operation_reconciliation:
+            error = (
+                f"Provider {durable.provider_key} does not support durable operation "
+                f"reconciliation for status {durable.status.value}"
+            )
+            await self.repository.suspend_provider_reconciliation(durable, error)
+            raise ProviderOperationUnreconcilableError(error)
 
         operation = ProviderOperation(
             provider_key=durable.provider_key,
@@ -231,9 +272,12 @@ class NarrativeXWorker:
         try:
             reconciled = await self.service.reconcile_chapter_analysis(operation)
         except Exception as exception:
-            raise ProviderOperationUnknownError(
-                f"Provider reconciliation outcome is unknown: {type(exception).__name__}"
-            ) from exception
+            error = f"Provider reconciliation failed: {type(exception).__name__}"
+            try:
+                await self.repository.record_provider_reconcile_error(durable, error)
+            except ProviderOperationStateConflictError:
+                await self._resolve_provider_operation_conflict(claimed, durable)
+            raise ProviderOperationUnknownError(error) from exception
         await self._finish_provider_operation(claimed, durable, reconciled)
 
     async def _finish_provider_operation(
@@ -247,15 +291,12 @@ class NarrativeXWorker:
             ProviderOperationStatus.FAILED,
         ):
             if operation.billing is None:
-                if durable.status is not ProviderOperationStatus.UNKNOWN:
-                    try:
-                        await self.repository.mark_provider_operation_status(
-                            durable, ProviderOperationStatus.UNKNOWN, operation.operation_id
-                        )
-                    except ProviderOperationStateConflictError:
-                        await self._resolve_provider_operation_conflict(claimed, durable)
-                        return
-                raise ProviderOperationUnknownError(
+                with contextlib.suppress(ProviderOperationStateConflictError):
+                    await self.repository.suspend_provider_reconciliation(
+                        durable,
+                        "Terminal Vertex operation has no durable billing metadata",
+                    )
+                raise ProviderOperationUnreconcilableError(
                     "Terminal Vertex operation has no durable billing metadata"
                 )
             try:
@@ -265,9 +306,12 @@ class NarrativeXWorker:
                 await self._resolve_provider_operation_conflict(claimed, durable)
                 return
             except Exception as exception:
-                raise ProviderOperationUnknownError(
+                error = (
                     f"Provider billing persistence outcome is unknown: {type(exception).__name__}"
-                ) from exception
+                )
+                with contextlib.suppress(ProviderOperationStateConflictError):
+                    await self.repository.suspend_provider_reconciliation(durable, error)
+                raise ProviderOperationUnreconcilableError(error) from exception
 
         if operation.status is ProviderOperationStatus.COMPLETED and operation.result is not None:
             try:
@@ -302,13 +346,36 @@ class NarrativeXWorker:
             in (ProviderOperationStatus.SUBMITTED, ProviderOperationStatus.RUNNING)
             else ProviderOperationStatus.UNKNOWN
         )
-        if next_status is durable.status:
-            raise ProviderOperationUnknownError(
-                f"Chapter analysis provider remains in {operation.status.value}"
+        if operation.operation_id is None:
+            error = (
+                f"Chapter analysis provider returned non-terminal status {operation.status} "
+                "without a durable operation id"
             )
+            try:
+                await self.repository.suspend_provider_reconciliation(durable, error)
+            except ProviderOperationStateConflictError:
+                await self._resolve_provider_operation_conflict(claimed, durable)
+                return
+            raise ProviderOperationUnreconcilableError(error)
+
+        capabilities = self.service.provider.get_capabilities()
+        if not capabilities.supports_operation_reconciliation:
+            error = (
+                f"Provider {operation.provider_key} returned non-terminal status "
+                f"{operation.status} but does not support durable reconciliation"
+            )
+            try:
+                await self.repository.suspend_provider_reconciliation(durable, error)
+            except ProviderOperationStateConflictError:
+                await self._resolve_provider_operation_conflict(claimed, durable)
+                return
+            raise ProviderOperationUnreconcilableError(error)
+
         try:
-            await self.repository.mark_provider_operation_status(
-                durable, next_status, operation.operation_id
+            await self.repository.schedule_provider_operation_reconciliation(
+                durable,
+                next_status,
+                operation.operation_id,
             )
         except ProviderOperationStateConflictError:
             await self._resolve_provider_operation_conflict(claimed, durable)
@@ -353,7 +420,28 @@ class NarrativeXWorker:
             ),
             limit=self.settings.worker_concurrency,
         )
+        capabilities = self.service.provider.get_capabilities()
         for durable in operations:
+            if durable.provider_key != capabilities.provider_key:
+                await self.repository.suspend_provider_reconciliation(
+                    durable,
+                    f"Configured provider {capabilities.provider_key} cannot reconcile "
+                    f"operation owned by {durable.provider_key}",
+                )
+                continue
+            if durable.provider_operation_id is None:
+                await self.repository.suspend_provider_reconciliation(
+                    durable,
+                    "Provider operation has no durable provider operation id",
+                )
+                continue
+            if not capabilities.supports_operation_reconciliation:
+                await self.repository.suspend_provider_reconciliation(
+                    durable,
+                    f"Provider {durable.provider_key} does not support durable reconciliation",
+                )
+                continue
+
             operation = ProviderOperation(
                 provider_key=durable.provider_key,
                 operation_id=durable.provider_operation_id,
@@ -361,7 +449,11 @@ class NarrativeXWorker:
             )
             try:
                 reconciled = await self.service.reconcile_chapter_analysis(operation)
-            except Exception:
+            except Exception as exception:
+                await self.repository.record_provider_reconcile_error(
+                    durable,
+                    f"Provider reconciliation failed: {type(exception).__name__}",
+                )
                 continue
             try:
                 if reconciled.billing is not None:
@@ -378,15 +470,23 @@ class NarrativeXWorker:
                     await self.repository.mark_provider_operation_status(
                         durable, ProviderOperationStatus.FAILED, reconciled.operation_id
                     )
-                elif reconciled.status is not durable.status:
+                elif reconciled.operation_id is not None:
                     next_status = (
                         reconciled.status
                         if reconciled.status
                         in (ProviderOperationStatus.SUBMITTED, ProviderOperationStatus.RUNNING)
                         else ProviderOperationStatus.UNKNOWN
                     )
-                    await self.repository.mark_provider_operation_status(
-                        durable, next_status, reconciled.operation_id
+                    await self.repository.schedule_provider_operation_reconciliation(
+                        durable,
+                        next_status,
+                        reconciled.operation_id,
+                    )
+                else:
+                    await self.repository.suspend_provider_reconciliation(
+                        durable,
+                        "Provider reconciliation returned a non-terminal state "
+                        "without an operation id",
                     )
             except ProviderOperationStateConflictError:
                 with contextlib.suppress(Exception):
@@ -415,4 +515,8 @@ class NarrativeXWorker:
 
 
 class ProviderOperationUnknownError(RuntimeError):
-    """An external request may have been accepted; never route this to blind retry."""
+    """A durable provider operation exists and must reconcile before retry."""
+
+
+class ProviderOperationUnreconcilableError(RuntimeError):
+    """Provider outcome is ambiguous but cannot be safely reconciled or resubmitted."""

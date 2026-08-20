@@ -20,7 +20,8 @@ public class JdbcProjectResourceQueryAdapter implements ProjectResourceQueryRepo
   private final JdbcTemplate jdbcTemplate;
 
   @Override
-  public CursorPage<ProjectResourceView.Location> listLocations(Long projectId, String cursor, int limit) {
+  public CursorPage<ProjectResourceView.Location> listLocations(
+      Long projectId, String cursor, int limit) {
     CursorKey cursorKey = CursorCodec.decode(cursor);
     List<ProjectResourceView.Location> entities;
     if (cursorKey == null) {
@@ -56,17 +57,20 @@ public class JdbcProjectResourceQueryAdapter implements ProjectResourceQueryRepo
     }
 
     boolean hasNext = entities.size() > limit;
-    List<ProjectResourceView.Location> visibleEntities = entities.subList(0, Math.min(limit, entities.size()));
+    List<ProjectResourceView.Location> visibleEntities =
+        entities.subList(0, Math.min(limit, entities.size()));
     String nextCursor =
         hasNext && !visibleEntities.isEmpty()
-            ? CursorCodec.encode(visibleEntities.getLast().updatedAt(), visibleEntities.getLast().id())
+            ? CursorCodec.encode(
+                visibleEntities.getLast().updatedAt(), visibleEntities.getLast().id())
             : null;
 
     return new CursorPage<>(visibleEntities, nextCursor, limit, hasNext);
   }
 
   @Override
-  public CursorPage<ProjectResourceView.Asset> listAssets(Long projectId, String cursor, int limit) {
+  public CursorPage<ProjectResourceView.Asset> listAssets(
+      Long projectId, String cursor, int limit) {
     CursorKey cursorKey = CursorCodec.decode(cursor);
     List<ProjectResourceView.Asset> entities;
     if (cursorKey == null) {
@@ -104,10 +108,12 @@ public class JdbcProjectResourceQueryAdapter implements ProjectResourceQueryRepo
     }
 
     boolean hasNext = entities.size() > limit;
-    List<ProjectResourceView.Asset> visibleEntities = entities.subList(0, Math.min(limit, entities.size()));
+    List<ProjectResourceView.Asset> visibleEntities =
+        entities.subList(0, Math.min(limit, entities.size()));
     String nextCursor =
         hasNext && !visibleEntities.isEmpty()
-            ? CursorCodec.encode(visibleEntities.getLast().updatedAt(), visibleEntities.getLast().id())
+            ? CursorCodec.encode(
+                visibleEntities.getLast().updatedAt(), visibleEntities.getLast().id())
             : null;
 
     return new CursorPage<>(visibleEntities, nextCursor, limit, hasNext);

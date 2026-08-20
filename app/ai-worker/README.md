@@ -2,76 +2,72 @@
 
 ## Purpose
 
-The AI Worker is the asynchronous execution runtime for NarrativeX AI/media workloads. In the current MVP slice it executes **persisted Chapter analysis**. Image generation, TTS and FFmpeg rendering remain later stages.
+The AI Worker is the asynchronous execution runtime for NarrativeX AI/media workloads. The current vertical slice executes persisted Chapter analysis. Image generation, TTS and FFmpeg rendering remain later stages.
 
-The worker does not accept arbitrary browser story text as its authority. It claims durable PostgreSQL work created by the backend and receives a persisted Chapter snapshot identity.
+The worker is not an HTTP API service. It claims durable PostgreSQL work created by the backend and executes against a persisted Chapter snapshot.
+
+## Runtime
+
+- Python 3.12+
+- Pydantic / Pydantic Settings
+- asyncpg
+- HTTPX
+- google-auth / ADC
+- Ruff, strict mypy, pytest/pytest-asyncio
+
+The current package does not depend on FastAPI/Starlette/Uvicorn.
 
 ## Current Chapter Analysis Flow
 
 ```text
 Backend durable enqueue
-  -> GenerationJob + StageAttempt in PostgreSQL
-  -> optional Redis delivery hint
+  -> GenerationJob + StageAttempt
+  -> optional Redis hint
   -> worker polls PostgreSQL
-  -> claim with FOR UPDATE ... SKIP LOCKED
+  -> FOR UPDATE ... SKIP LOCKED claim
   -> lease owner + heartbeat
-  -> ChapterAnalysisRequest
-  -> configured LLM provider
+  -> reserve durable ProviderOperation
+  -> configured provider
   -> structured ChapterAnalysisResult
-  -> verify Chapter rowVersion/sourceHash snapshot
-  -> persist Character / ProjectCharacter / CharacterVersion
-  -> persist Scene / VisualBeat
-  -> StageAttempt COMPLETED
-  -> GenerationJob COMPLETED
+  -> persist provider result/reconciliation state
+  -> verify Chapter rowVersion/sourceHash
+  -> materialize Character + Location continuity
+  -> materialize Scene + VisualBeat + Scene relations
+  -> terminal StageAttempt + GenerationJob
 ```
 
-PostgreSQL is the source of truth. Redis is not required for correctness and a dropped Redis message must not lose queued work.
+PostgreSQL is authoritative. Redis is not required for generation correctness.
 
 ## Chapter Analysis Contract
 
-`ChapterAnalysisRequest` contains:
+`ChapterAnalysisRequest` is scoped to persisted project/story/chapter identity and includes the Chapter snapshot (`chapterRowVersion`, `sourceHash`, persisted `sourceText`). The browser does not supply arbitrary unsaved text as execution authority.
 
-```text
-projectId
-storyVersionId
-chapterId
-chapterRowVersion
-sourceHash
-sourceText
-sourceLanguage
-```
+The structured result uses stable AI keys for Character/Location identity and Scene references. Schema validation rejects dangling continuity references before persistence.
 
-The obsolete per-story rights-attestation fields are intentionally absent:
+The prompt treats Chapter source text as untrusted data. Story content cannot redefine system/tool/ownership/billing instructions.
 
-```text
-rights_attested
-rights_policy_version
-rights_basis
-```
+## Continuity materialization
 
-The prompt treats Chapter source text as untrusted story data. Instructions embedded in the story must not become system/tool instructions.
+Current worker materialization persists:
 
-The provider result is validated with Pydantic before persistence and contains the MVP analysis structure:
+- reusable Character / ProjectCharacter / CharacterVersion foundations;
+- stable project Character AI-key mappings;
+- project-scoped Locations and stable Location AI-key mappings;
+- Scene / VisualBeat rows;
+- Scene -> ProjectCharacter relations;
+- Scene -> Location continuity references.
 
-```text
-characters[]
-locations[]
-scenes[]
-  narration
-  characters[]
-  location
-  visual_beats[]
-```
+Continuity matching uses durable keys first and controlled candidate matching where required. Distinct response identities must not silently collapse into one project identity.
 
-## Provider Modes
+## Provider modes
 
-### Disabled — safe default
+### Disabled
 
 ```env
 AI_PROVIDER_MODE=disabled
 ```
 
-The disabled provider fails explicitly. It never returns fake successful AI output in normal runtime.
+Safe default. It fails explicitly and never fakes a successful AI result.
 
 ### Vertex Gemini
 
@@ -83,33 +79,31 @@ VERTEX_MODEL=gemini-2.5-flash
 VERTEX_TIMEOUT_SECONDS=120
 ```
 
-Authentication uses Google Application Default Credentials / workload identity. Provider credentials must not be passed from the browser.
+Authentication uses ADC/workload identity. Credentials never come from the browser.
 
-The Vertex adapter requests structured JSON and validates the result with `ChapterAnalysisResult` before materialization.
+## Durable ProviderOperation lifecycle
 
-Current limitation: dedicated durable `ProviderOperation` persistence and `UNKNOWN` reconciliation are still required before production readiness. The current synchronous Vertex Chapter-analysis adapter is an MVP foundation, not the final external-operation recovery model.
-
-## Durable Claim and Lease
-
-The worker claims work directly from PostgreSQL with row locking:
+The worker persists provider-operation state around external execution. Current lifecycle foundation includes:
 
 ```text
-FOR UPDATE ... SKIP LOCKED
+RESERVED -> SUBMITTED -> RUNNING/COMPLETED
+                      \-> FAILED
+ambiguity/timeout -> UNKNOWN -> reconcile
 ```
 
-A claimed `StageAttempt` records:
+Restart recovery reconciles persisted `RESERVED`/`SUBMITTED` operations instead of blindly submitting another provider request. A persisted completed normalized result can be replayed into materialization after a process crash without another provider call.
 
-- `worker_id`
-- `status = RUNNING`
-- `heartbeat_at`
+This is an implemented durability foundation, not a claim that every provider failure/reconciliation/actual-usage scenario is production-hardened.
 
-The worker periodically updates the heartbeat. A stale running attempt can be reclaimed after the configured lease timeout.
+## Claim, lease and concurrency
 
-Before committing analysis output, the worker verifies that it still owns the StageAttempt lease.
+Worker claims use PostgreSQL row locking with `FOR UPDATE ... SKIP LOCKED`. Running attempts carry persisted worker ownership/heartbeat state and stale work can be reclaimed according to lease policy.
 
-## Stale Chapter Protection
+`WORKER_CONCURRENCY` defaults to 4 and is bounded by configuration. Graceful shutdown stops new claims and waits for in-flight work according to the runtime contract.
 
-Before result materialization, the worker checks:
+## Stale Chapter protection
+
+Before result materialization, the live Chapter must still match the job snapshot:
 
 ```text
 chapter.id == request.chapterId
@@ -118,153 +112,37 @@ chapter.rowVersion == request.chapterRowVersion
 chapter.sourceHash == request.sourceHash
 ```
 
-If the Chapter changed while AI was executing, the old result is rejected rather than applied to the newer Chapter source.
+A stale result is rejected rather than applied to a newer Chapter source.
 
-For the MVP, no `ChapterVersion`, `ChapterRevision` or `ChapterSnapshot` aggregate is required. The saved Chapter `rowVersion/sourceHash` and the GenerationJob snapshot form the analysis boundary.
-
-## Technology Stack
-
-- **Language:** Python 3.12
-- **Configuration & Validation:** Pydantic v2, Pydantic Settings
-- **Database client:** asyncpg
-- **HTTP client:** HTTPX
-- **Google authentication:** google-auth / ADC
-- **Code Quality:** Ruff, Mypy
-- **Testing:** Pytest, Pytest-asyncio
-- **Packaging:** `pyproject.toml` with Hatchling
-
-## Local Prerequisites
-
-- Python 3.12+
-- PostgreSQL with NarrativeX Flyway schema applied
-- virtual environment tool (`venv` or `uv`)
-- Google ADC credentials only when `AI_PROVIDER_MODE=vertex`
-
-## Environment
-
-See `.env.example`. Important worker settings include:
-
-```env
-WORKER_NAME=narrativex-worker
-WORKER_ENV=development
-LOG_LEVEL=INFO
-DATABASE_URL=postgresql://narrativex:password@localhost:5432/narrativex
-POLL_INTERVAL_SECONDS=2
-LEASE_SECONDS=60
-WORKER_CONCURRENCY=4
-AI_PROVIDER_MODE=disabled
-VERTEX_PROJECT_ID=
-VERTEX_LOCATION=us-central1
-VERTEX_MODEL=gemini-2.5-flash
-VERTEX_TIMEOUT_SECONDS=120
-```
-
-## Development Commands
-
-### Set Up Virtual Environment & Install Dependencies
+## Local development
 
 ```bash
 python -m venv .venv
-
-# Windows PowerShell
-.venv\Scripts\Activate.ps1
-
-# Unix
-source .venv/bin/activate
-
 pip install -e ".[dev]"
-```
-
-### Run Worker Locally
-
-```bash
+python -m narrativex_worker --dry-run
 python -m narrativex_worker
 ```
 
-### Verification / Dry Run
-
-Dry run validates worker construction/configuration without connecting to PostgreSQL or executing a job:
-
-```bash
-python -m narrativex_worker --dry-run
-```
-
-### Run Tests
+Quality gates:
 
 ```bash
 pytest
-```
-
-### Linting & Formatting
-
-```bash
 ruff check .
 ruff format --check .
-ruff format .
-```
-
-### Type Checking
-
-CI checks both source and tests:
-
-```bash
 mypy src tests
 ```
 
-## Docker Compose
+## Application boundaries
 
-The root `docker-compose.yml` includes an `ai-worker` service. The worker depends on the PostgreSQL schema owned/migrated by the backend.
+The worker owns durable AI/media execution mechanics, provider invocation, schema validation, lease/heartbeat behavior and result materialization.
 
-The safe local default remains:
+It does not own browser authentication/authorization, project ownership, public APIs, product entitlement/billing policy authority or Flyway schema ownership.
 
-```env
-AI_PROVIDER_MODE=disabled
-```
+## Remaining worker/media gaps
 
-To run Vertex from a container, ADC/workload-identity credentials must be made available explicitly. Do not bake developer credentials into the image.
-
-## Application Boundaries
-
-### Worker owns
-
-- claiming durable AI/media stages;
-- lease/heartbeat while executing a stage;
-- provider invocation through provider ports;
-- prompt/schema boundary;
-- provider result validation;
-- current Chapter-analysis result materialization;
-- later media-processing execution such as image/TTS/FFmpeg when those stages land.
-
-### Worker must not own
-
-- browser authentication/authorization;
-- deciding whether a user owns a Project;
-- accepting arbitrary browser source text as canonical Chapter state;
-- HTTP session management;
-- product entitlement/billing policy authority;
-- Flyway schema ownership;
-- direct browser communication.
-
-The backend remains the canonical orchestration and authorization boundary even though the worker reads/writes PostgreSQL durable execution state.
-
-## Current MVP Definition of Done
-
-The Chapter-analysis worker portion is complete only when CI and integration/E2E verification prove:
-
-```text
-saved Chapter
-  -> durable queued job
-  -> worker claim
-  -> heartbeat
-  -> structured provider result
-  -> Character + Scene + VisualBeat persistence
-  -> COMPLETED
-```
-
-Also required:
-
-- stale Chapter snapshot is rejected;
-- worker restart/stale lease recovery does not duplicate materialization;
-- disabled provider never fakes success;
-- real Vertex smoke test validates the structured output contract;
-- dedicated ProviderOperation durability/reconciliation is completed before production-grade external retry claims are made.
+- Production hardening for all provider reconciliation/recovery cases and actual provider usage accounting.
+- Full Character review/version-lock/reference workflow is owned across backend/product boundaries, not solved by analysis materialization alone.
+- Image generation and generated-asset lifecycle.
+- TTS/subtitles.
+- Render/export/final artifact validation.
+- Broader production observability and real-provider E2E evidence.

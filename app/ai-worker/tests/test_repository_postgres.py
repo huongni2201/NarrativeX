@@ -85,6 +85,9 @@ async def postgres_database() -> AsyncIterator[str]:
                 reserved_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 row_version BIGINT NOT NULL DEFAULT 0,
+                next_reconcile_at TIMESTAMPTZ,
+                reconcile_attempts INTEGER NOT NULL DEFAULT 0,
+                last_reconcile_error TEXT,
                 UNIQUE (provider_key, request_fingerprint),
                 CHECK (status <> 'COMPLETED' OR normalized_result_json IS NOT NULL)
             );

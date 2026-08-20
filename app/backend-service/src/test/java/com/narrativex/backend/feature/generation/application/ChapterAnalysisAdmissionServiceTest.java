@@ -3,6 +3,7 @@ package com.narrativex.backend.feature.generation.application;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.narrativex.backend.feature.account.application.port.in.PlanFeatures;
 import com.narrativex.backend.feature.account.application.port.in.UserQuotaAccess;
 import com.narrativex.backend.feature.common.exception.FeatureNotAvailableException;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisSafetyGate;
@@ -21,14 +22,14 @@ class ChapterAnalysisAdmissionServiceTest {
 
   @Test
   void freePlanWithoutStoryAnalysisFeatureIsRejected() {
-    var service = service(quota("{}"), new ReservationSpy(true));
+    var service = service(quota(false), new ReservationSpy(true));
 
     assertThrows(FeatureNotAvailableException.class, () -> service.admit("user-1", 7L, SOURCE));
   }
 
   @Test
   void atomicReservationDenialBecomesCostLimit() {
-    var service = service(quota("{\"storyAnalysis\":true}"), new ReservationSpy(false));
+    var service = service(quota(true), new ReservationSpy(false));
 
     var exception =
         assertThrows(
@@ -39,7 +40,7 @@ class ChapterAnalysisAdmissionServiceTest {
   @Test
   void entitledRequestReturnsEstimateAndDurableReservation() {
     var reservation = new ReservationSpy(true);
-    var service = service(quota("{\"storyAnalysis\":true}"), reservation);
+    var service = service(quota(true), reservation);
 
     var admission = service.admit("user-1", 7L, SOURCE);
 
@@ -57,8 +58,9 @@ class ChapterAnalysisAdmissionServiceTest {
         quotaAccess, reservation, new ChapterAnalysisCostEstimator(), safetyGate);
   }
 
-  private static UserQuotaAccess.QuotaSnapshot quota(String flags) {
-    return new UserQuotaAccess.QuotaSnapshot(flags, 4, 0, BigDecimal.ZERO, BigDecimal.valueOf(10));
+  private static UserQuotaAccess.QuotaSnapshot quota(boolean storyAnalysis) {
+    return new UserQuotaAccess.QuotaSnapshot(
+        new PlanFeatures(storyAnalysis), 4, 0, BigDecimal.ZERO, BigDecimal.valueOf(10));
   }
 
   private static final class ReservationSpy implements QuotaReservation {
