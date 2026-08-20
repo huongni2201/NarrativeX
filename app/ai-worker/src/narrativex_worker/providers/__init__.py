@@ -6,8 +6,12 @@ from narrativex_worker.providers.ports import (
     ProviderCapabilities,
     ProviderEstimate,
     ProviderOperation,
+    VideoGenerationProvider,
+    VideoGenerationRequest,
+    VideoProviderOperation,
 )
 from narrativex_worker.providers.vertex import VertexGeminiProvider, VertexProviderError
+from narrativex_worker.providers.wan import WanProviderError, WanVideoProvider
 
 __all__ = [
     "DisabledProvider",
@@ -16,6 +20,11 @@ __all__ = [
     "ProviderEstimate",
     "ProviderNotConfiguredError",
     "ProviderOperation",
+    "VideoGenerationProvider",
+    "VideoGenerationRequest",
+    "VideoProviderOperation",
     "VertexGeminiProvider",
     "VertexProviderError",
+    "WanProviderError",
+    "WanVideoProvider",
 ]

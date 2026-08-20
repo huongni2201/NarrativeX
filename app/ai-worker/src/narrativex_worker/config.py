@@ -6,7 +6,7 @@ are never copied into durable job payloads.
 
 from typing import Literal
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -40,7 +40,7 @@ class WorkerSettings(BaseSettings):
     provider_mode: Literal["disabled", "vertex"] = Field(
         default="disabled",
         validation_alias=AliasChoices("AI_PROVIDER_MODE", "PROVIDER_MODE"),
-        description="Provider adapter mode; disabled is safe by default",
+        description="Story-analysis provider adapter mode; disabled is safe by default",
     )
     vertex_project_id: str | None = Field(
         default=None, description="Google Cloud project for Vertex AI"
@@ -48,6 +48,26 @@ class WorkerSettings(BaseSettings):
     vertex_location: str = Field(default="us-central1", description="Vertex AI region")
     vertex_model: str = Field(default="gemini-2.5-flash", description="Configured Gemini model key")
     vertex_timeout_seconds: float = Field(default=120.0, gt=1, le=600)
+
+    wan_video_enabled: bool = Field(
+        default=False,
+        description="Enable HYBRID_LOCAL_I2V submission to a configured Wan inference endpoint",
+    )
+    wan_endpoint_url: str | None = Field(
+        default=None,
+        description="Base URL of the private/self-hosted Wan-compatible inference endpoint",
+    )
+    wan_model: str = Field(
+        default="Wan2.2-TI2V-5B",
+        min_length=1,
+        max_length=128,
+        description="Configured local Wan model key",
+    )
+    wan_api_token: SecretStr | None = Field(
+        default=None,
+        description="Optional bearer token for the private Wan inference endpoint",
+    )
+    wan_request_timeout_seconds: float = Field(default=30.0, gt=1, le=300)
 
 
 def get_settings() -> WorkerSettings:
