@@ -31,7 +31,7 @@ class GenerationJobMediaPlanTest {
             1L,
             2L,
             plan,
-            ResourceClass.LOCAL_GPU,
+            ResourceClass.GPU_HEAVY,
             "en",
             "chapter-generate:10:4",
             "user-1");
