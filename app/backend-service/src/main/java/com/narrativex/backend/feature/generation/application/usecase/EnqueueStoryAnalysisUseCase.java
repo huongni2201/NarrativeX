@@ -43,7 +43,10 @@ public class EnqueueStoryAnalysisUseCase {
   @Transactional
   public GenerationJob execute(EnqueueStoryAnalysisCommand command) {
     String userId = currentUserId.get();
-    var chapter = chapterAnalysisSourceAccess.requireById(command.chapterId());
+
+    // Serialize source edits before taking the authoritative Chapter snapshot. The lock is held by
+    // this transaction through admission, quota reservation, revision/job creation, and outbox.
+    var chapter = chapterAnalysisSourceAccess.requireForAnalysisLocked(command.chapterId());
 
     storyVersionAccess.requireOwnedStoryVersion(
         command.projectId(), chapter.storyVersionId(), userId);
@@ -66,9 +69,6 @@ public class EnqueueStoryAnalysisUseCase {
     if (existing.isPresent()) {
       return existing.get();
     }
-
-    // Serialize source edits, approval changes, admission, and revision creation for this Chapter.
-    storyboardRevisionAccess.lockChapter(command.chapterId());
 
     // The admission safety gate runs before quota reservation. Approved output for the same source
     // therefore cannot consume quota or reach the provider.

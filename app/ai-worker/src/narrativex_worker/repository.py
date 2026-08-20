@@ -29,6 +29,25 @@ class ProviderOperationStateConflictError(RuntimeError):
         self.expected_version = expected_version
 
 
+class ProviderResultConflictError(RuntimeError):
+    """A completed provider operation received a different immutable result."""
+
+    def __init__(
+        self,
+        operation_id: int,
+        persisted_fingerprint: str | None,
+        incoming_fingerprint: str,
+    ) -> None:
+        self.operation_id = operation_id
+        self.persisted_fingerprint = persisted_fingerprint
+        self.incoming_fingerprint = incoming_fingerprint
+        super().__init__(
+            f"Provider operation {operation_id} is already COMPLETED with result fingerprint "
+            f"{persisted_fingerprint or '<missing>'}; incoming fingerprint "
+            f"{incoming_fingerprint} conflicts"
+        )
+
+
 class ProviderOperationInvalidTransitionError(RuntimeError):
     """The requested provider-operation transition violates the canonical state graph."""
 
@@ -74,6 +93,7 @@ class DurableProviderOperation:
     request_fingerprint: str
     normalized_result: ChapterAnalysisResult | None = None
     created: bool = False
+    result_fingerprint: str | None = None
 
 
 @dataclass(frozen=True)
@@ -213,7 +233,8 @@ class WorkerRepository:
                     VALUES ($1, $2, $3, 'RESERVED')
                     ON CONFLICT (provider_key, request_fingerprint) DO NOTHING
                     RETURNING id, stage_attempt_id, provider_key, provider_operation_id,
-                              status, row_version, request_fingerprint, normalized_result_json
+                              status, row_version, request_fingerprint, result_fingerprint,
+                              normalized_result_json
                     """,
                     claimed.stage_attempt_id,
                     provider_key,
@@ -224,7 +245,8 @@ class WorkerRepository:
                     row = await connection.fetchrow(
                         """
                         SELECT id, stage_attempt_id, provider_key, provider_operation_id,
-                               status, row_version, request_fingerprint, normalized_result_json
+                               status, row_version, request_fingerprint, result_fingerprint,
+                               normalized_result_json
                           FROM provider_operations
                          WHERE provider_key = $1 AND request_fingerprint = $2
                          FOR UPDATE
@@ -264,7 +286,8 @@ class WorkerRepository:
                     AND status = $3
                     AND row_version = $4
                   RETURNING id, stage_attempt_id, provider_key, provider_operation_id,
-                            status, row_version, request_fingerprint, normalized_result_json
+                            status, row_version, request_fingerprint, result_fingerprint,
+                            normalized_result_json
                 """,
                 operation.id,
                 reconcile_after_seconds,
@@ -312,7 +335,8 @@ class WorkerRepository:
                     AND status = $5
                     AND row_version = $6
                   RETURNING id, stage_attempt_id, provider_key, provider_operation_id,
-                            status, row_version, request_fingerprint, normalized_result_json
+                            status, row_version, request_fingerprint, result_fingerprint,
+                            normalized_result_json
                 """,
                 operation.id,
                 status.value,
@@ -341,7 +365,8 @@ class WorkerRepository:
                AND status = $3
                AND row_version = $4
              RETURNING id, stage_attempt_id, provider_key, provider_operation_id,
-                       status, row_version, request_fingerprint, normalized_result_json
+                       status, row_version, request_fingerprint, result_fingerprint,
+                       normalized_result_json
             """,
             operation.id,
             error[:2000],
@@ -372,7 +397,8 @@ class WorkerRepository:
                AND status = $4
                AND row_version = $5
              RETURNING id, stage_attempt_id, provider_key, provider_operation_id,
-                       status, row_version, request_fingerprint, normalized_result_json
+                       status, row_version, request_fingerprint, result_fingerprint,
+                       normalized_result_json
             """,
             operation.id,
             provider_operation_id,
@@ -415,7 +441,8 @@ class WorkerRepository:
                AND status = $3
                AND row_version = $4
              RETURNING id, stage_attempt_id, provider_key, provider_operation_id,
-                       status, row_version, request_fingerprint, normalized_result_json
+                       status, row_version, request_fingerprint, result_fingerprint,
+                       normalized_result_json
             """,
             operation.id,
             error[:2000],
@@ -432,35 +459,119 @@ class WorkerRepository:
         provider_operation_id: str | None,
         result: ChapterAnalysisResult,
     ) -> DurableProviderOperation:
-        self._assert_transition_allowed(operation, ProviderOperationStatus.COMPLETED)
+        serialized, incoming_fingerprint = _canonical_provider_result(result)
         pool = self._require_pool()
-        serialized = result.model_dump_json()
         async with pool.acquire() as connection:
             async with connection.transaction():
+                if operation.status is ProviderOperationStatus.COMPLETED:
+                    current = await self._load_provider_operation_for_update(
+                        connection, operation.id
+                    )
+                    if current.status is not ProviderOperationStatus.COMPLETED:
+                        self._raise_state_conflict(operation)
+                    return await self._resolve_completed_provider_result(
+                        connection, current, incoming_fingerprint
+                    )
+
+                self._assert_transition_allowed(operation, ProviderOperationStatus.COMPLETED)
                 row = await connection.fetchrow(
                     """
                     UPDATE provider_operations
                        SET status = 'COMPLETED',
                            provider_operation_id = COALESCE($2, provider_operation_id),
                            normalized_result_json = $3::jsonb,
+                           result_fingerprint = $4,
                            completed_at = COALESCE(completed_at, CURRENT_TIMESTAMP),
                            updated_at = CURRENT_TIMESTAMP,
                            row_version = row_version + 1
                      WHERE id = $1
-                       AND status = $4
-                       AND row_version = $5
+                       AND status = $5
+                       AND row_version = $6
                      RETURNING id, stage_attempt_id, provider_key, provider_operation_id,
-                               status, row_version, request_fingerprint, normalized_result_json
+                               status, row_version, request_fingerprint, result_fingerprint,
+                               normalized_result_json
                     """,
                     operation.id,
                     provider_operation_id,
                     serialized,
+                    incoming_fingerprint,
                     operation.status.value,
                     operation.row_version,
                 )
+                if row is not None:
+                    return self._provider_operation(row)
+
+                current = await self._load_provider_operation_for_update(
+                    connection, operation.id
+                )
+                if current.status is ProviderOperationStatus.COMPLETED:
+                    return await self._resolve_completed_provider_result(
+                        connection, current, incoming_fingerprint
+                    )
+                self._raise_state_conflict(operation)
+
+    async def _load_provider_operation_for_update(
+        self, connection: asyncpg.Connection, operation_id: int
+    ) -> DurableProviderOperation:
+        row = await connection.fetchrow(
+            """
+            SELECT id, stage_attempt_id, provider_key, provider_operation_id,
+                   status, row_version, request_fingerprint, result_fingerprint,
+                   normalized_result_json
+              FROM provider_operations
+             WHERE id = $1
+             FOR UPDATE
+            """,
+            operation_id,
+        )
         if row is None:
-            self._raise_state_conflict(operation)
+            raise RuntimeError(f"Provider operation {operation_id} not found")
         return self._provider_operation(row)
+
+    async def _resolve_completed_provider_result(
+        self,
+        connection: asyncpg.Connection,
+        durable: DurableProviderOperation,
+        incoming_fingerprint: str,
+    ) -> DurableProviderOperation:
+        persisted_fingerprint = durable.result_fingerprint
+        if persisted_fingerprint is None:
+            if durable.normalized_result is None:
+                raise RuntimeError(
+                    f"Provider operation {durable.id} is COMPLETED without a durable result"
+                )
+            _, persisted_fingerprint = _canonical_provider_result(durable.normalized_result)
+            if persisted_fingerprint == incoming_fingerprint:
+                row = await connection.fetchrow(
+                    """
+                    UPDATE provider_operations
+                       SET result_fingerprint = $2,
+                           updated_at = CURRENT_TIMESTAMP,
+                           row_version = row_version + 1
+                     WHERE id = $1
+                       AND status = 'COMPLETED'
+                       AND row_version = $3
+                       AND result_fingerprint IS NULL
+                     RETURNING id, stage_attempt_id, provider_key, provider_operation_id,
+                               status, row_version, request_fingerprint, result_fingerprint,
+                               normalized_result_json
+                    """,
+                    durable.id,
+                    persisted_fingerprint,
+                    durable.row_version,
+                )
+                if row is None:
+                    self._raise_state_conflict(durable)
+                return self._provider_operation(row)
+
+        if persisted_fingerprint == incoming_fingerprint:
+            return durable
+
+        raise ProviderResultConflictError(
+            durable.id,
+            persisted_fingerprint,
+            incoming_fingerprint,
+        )
 
     async def mark_provider_operation_status(
         self,
@@ -478,7 +589,8 @@ class WorkerRepository:
         row = await pool.fetchrow(
             """
             SELECT id, stage_attempt_id, provider_key, provider_operation_id,
-                   status, row_version, request_fingerprint, normalized_result_json
+                   status, row_version, request_fingerprint, result_fingerprint,
+                   normalized_result_json
               FROM provider_operations
              WHERE id = $1
             """,
@@ -495,7 +607,8 @@ class WorkerRepository:
         rows = await pool.fetch(
             """
             SELECT po.id, po.stage_attempt_id, po.provider_key, po.provider_operation_id,
-                   po.status, po.row_version, po.request_fingerprint, po.normalized_result_json
+                   po.status, po.row_version, po.request_fingerprint, po.result_fingerprint,
+                   po.normalized_result_json
               FROM provider_operations po
               JOIN stage_attempts sa ON sa.id = po.stage_attempt_id
              WHERE po.status = ANY($1::text[])
@@ -530,7 +643,8 @@ class WorkerRepository:
                    AND status = $4
                    AND row_version = $5
                  RETURNING id, stage_attempt_id, provider_key, provider_operation_id,
-                           status, row_version, request_fingerprint, normalized_result_json
+                           status, row_version, request_fingerprint, result_fingerprint,
+                           normalized_result_json
                 """,
                 operation.id,
                 next_status.value,
@@ -561,6 +675,7 @@ class WorkerRepository:
             request_fingerprint=row["request_fingerprint"],
             normalized_result=normalized_result,
             created=created,
+            result_fingerprint=row["result_fingerprint"],
         )
 
     async def complete(
@@ -675,6 +790,16 @@ class WorkerRepository:
         if self._pool is None:
             raise RuntimeError("WorkerRepository.connect() must be called before use")
         return self._pool
+
+
+def _canonical_provider_result(result: ChapterAnalysisResult) -> tuple[str, str]:
+    serialized = json.dumps(
+        result.model_dump(mode="json"),
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return serialized, hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
 
 def provider_request_fingerprint(claimed: ClaimedChapterAnalysisJob, provider_key: str) -> str:

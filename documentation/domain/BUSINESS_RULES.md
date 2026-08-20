@@ -29,6 +29,10 @@
 - **BR-31** VisualBeat is a Scene-owned child entity/generation planning unit.
 - **BR-32** Re-analysis must not destructively replace approved Scene/VisualBeat history without an explicit reset/versioning workflow.
 - **BR-33** Regeneration creates new attempts/artifacts rather than overwriting immutable approved history.
+- **BR-34** When source-preserving narration is selected, persisted Chapter source is narration content authority and TTS must not rewrite it.
+- **BR-35** Narration/alignment timing is visual-timeline authority; visual-scene duration is adaptive rather than a fixed sentence/image duration.
+- **BR-36** Media planning supports `IMAGE_MOTION` and `HYBRID_LOCAL_I2V`; production-mode changes reuse a still-valid semantic analysis snapshot when analysis inputs are unchanged.
+- **BR-37** Visual asset planning prefers compatible approved reuse, reframe and edit before new generation and preserves derivation lineage.
 
 ## Provider durability
 
@@ -38,6 +42,7 @@
 - **BR-49** Persisted `RESERVED`/`SUBMITTED` operations are recovered by reconciliation after restart rather than duplicate submit.
 - **BR-50** A completed normalized provider result persisted before a process crash may be replayed into materialization without another provider call.
 - **BR-51** A worker that loses its StageAttempt lease must not finalize successful output for that lease.
+- **BR-52** A local/self-hosted GPU inference endpoint is still an external execution boundary for durability purposes; ambiguous submissions reconcile by operation ID or stable request identity before retry.
 
 ## Admission, quota and cost
 
@@ -46,6 +51,10 @@
 - **BR-67** Estimate is not invoice; actual usage/billing reconciliation is separate.
 - **BR-68** Complete billing must release/refund unused reservation and preserve append-only accounting/audit evidence.
 - **BR-69** Client feature flags/credit displays never grant server authority.
+- **BR-70** Post-analysis media cost is calculated from planned billable workload plus versioned pricing/benchmark snapshots, not a hardcoded cost per scene.
+- **BR-71** `expectedCost`, `reservationCeiling` and reconciled `actualCost` are distinct values.
+- **BR-72** Self-hosted I2V cost is estimated from measured GPU compute for a versioned model/hardware/resolution/inference profile; benchmark data must not be presented as universal model pricing.
+- **BR-73** Workers may not upgrade deterministic motion to GPU-heavy I2V outside the authorized `OperationPlan` and reservation.
 
 ## Concurrency
 
@@ -66,10 +75,13 @@
 ## Media target rules
 
 - **BR-110** Binary media is not stored in PostgreSQL.
-- **BR-111** Image/TTS/render provider work must reuse the durable StageAttempt/ProviderOperation principles rather than direct SDK calls from UI/domain code.
+- **BR-111** Image/TTS/render/provider work must reuse the durable StageAttempt/ProviderOperation principles rather than direct SDK calls from UI/domain code.
 - **BR-112** FinalArtifact can become READY only after immutable object/metadata/checksum/MIME/dimension validation.
 - **BR-113** Output ratio/quality are explicit settings/capabilities; silent stretch is prohibited.
 - **BR-114** Visual count/duration budgets are planning policy, not fixed domain constants such as "one sentence = one image".
+- **BR-115** `IMAGE_MOTION` authorizes deterministic image motion only; `HYBRID_LOCAL_I2V` may authorize selected-beat I2V according to motion value, capability, entitlement and cost policy.
+- **BR-116** I2V generation resolution and final export resolution are independent planning choices; lower-resolution I2V may be upscaled during bounded render when quality policy allows.
+- **BR-117** Generated I2V duration may be shorter than its narration span; deterministic composition may extend the approved motion asset without another I2V generation.
 
 ## Status interpretation
 
