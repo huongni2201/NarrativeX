@@ -46,6 +46,14 @@ ProviderOperation persistence is MyBatis-backed by default. The JPA adapter is
 retained as a configuration-selected rollback path while other aggregates
 continue to use Spring Data JPA.
 
+MyBatis mapper registration is shared through a marker interface rather than a
+package-wide interface scan. Mappers use explicit XML result maps, dedicated
+row models and SQL-level CAS predicates with affected-row validation. The
+application DataSource and Spring transaction boundary are shared with JPA;
+PostgreSQL Testcontainers is required for persistence and concurrency evidence.
+The migration tracker and repository contract template live in
+[`../codebase/PERSISTENCE_MIGRATION.md`](../codebase/PERSISTENCE_MIGRATION.md).
+
 Current admission checks the latest persisted Chapter safety decision, `storyAnalysis` entitlement, concurrent expensive-job capacity and monthly credits, then reserves usage atomically in PostgreSQL. OperationPlan stores non-zero estimate/cap values for Chapter Analyze. Full actual-usage reconciliation and unused-reservation release remain follow-up work.
 
 ## Worker runtime

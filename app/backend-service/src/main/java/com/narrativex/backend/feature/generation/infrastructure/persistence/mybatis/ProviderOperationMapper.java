@@ -1,13 +1,12 @@
 package com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis;
 
+import com.narrativex.backend.feature.common.infrastructure.persistence.mybatis.NarrativeXMyBatisMapper;
 import com.narrativex.backend.feature.generation.domain.enums.ProviderOperationStatus;
 import java.time.Instant;
 import java.util.List;
-import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
-@Mapper
-public interface ProviderOperationMapper {
+public interface ProviderOperationMapper extends NarrativeXMyBatisMapper {
   Long insert(ProviderOperationRow row);
 
   int update(ProviderOperationRow row);
@@ -15,7 +14,8 @@ public interface ProviderOperationMapper {
   ProviderOperationRow findById(@Param("id") Long id);
 
   ProviderOperationRow findByFingerprint(
-      @Param("providerKey") String providerKey, @Param("requestFingerprint") String requestFingerprint);
+      @Param("providerKey") String providerKey,
+      @Param("requestFingerprint") String requestFingerprint);
 
   List<ProviderOperationRow> findByStatus(
       @Param("status") ProviderOperationStatus status, @Param("limit") int limit);

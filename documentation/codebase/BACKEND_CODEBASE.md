@@ -53,6 +53,15 @@ persistence-technology-neutral; the JPA adapter remains available with
 dedicated row model and PostgreSQL CAS predicates for allowed status plus
 `row_version`.
 
+Future MyBatis boundaries must extend
+`NarrativeXMyBatisMapper` so the shared configuration can register only
+explicitly opted-in mapper interfaces. XML uses explicit result maps and keeps
+SQL-specific JSONB/enum/timestamp mappings visible. Adapters validate affected
+rows for every CAS update; they do not read a Java version and then issue an
+unconditional update. See
+[`PERSISTENCE_MIGRATION.md`](./PERSISTENCE_MIGRATION.md) for the migration
+recipe, contract-test template and audited tracker.
+
 ## Current continuity materialization
 
 Chapter analysis currently materializes/reuses:
