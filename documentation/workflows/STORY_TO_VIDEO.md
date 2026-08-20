@@ -107,6 +107,76 @@ RESERVED -> SUBMITTED -> RUNNING -> COMPLETED
 
 `UNKNOWN` is an ambiguity state, not permission to submit again blindly.
 
+## Target audio-first media workflow
+
+For source-preserving narration, the persisted Chapter source remains narration content authority. Do not split and independently rewrite/synthesize every visual scene by default.
+
+```text
+persisted Chapter sourceText
+  -> TTS full Chapter text without rewriting
+  -> Chapter narration asset
+  -> word/sentence alignment timestamps
+  -> adaptive VisualScenePlan[] against narration spans
+  -> reuse/reframe/edit/new-keyframe planning
+  -> production-mode routing
+  -> bounded Chapter render
+```
+
+The narration timeline is visual timing authority. Visual scenes are adaptive: a reaction can be short while exposition or inner monologue can hold a compatible visual longer. A generated motion clip can also be shorter than its narration span and be extended using deterministic composition.
+
+## Two production modes
+
+NarrativeX target media planning supports:
+
+```text
+IMAGE_MOTION
+  -> reuse/reframe/edit/generate keyframes
+  -> deterministic pan/zoom/parallax/effects only
+  -> zero I2V operations
+
+HYBRID_LOCAL_I2V
+  -> same image-first/reuse-first workflow
+  -> SIMPLE scenes use deterministic motion
+  -> selected MEDIUM/COMPLEX scenes may use private/self-hosted I2V
+  -> deterministic fallback when authorized
+```
+
+Production mode is provider-neutral. The first worker adapter targets a Wan2.2-compatible endpoint, but model/vendor identity does not belong in story-domain branching. See `LOCAL_I2V.md` and ADR-0012.
+
+The reuse order is:
+
+```text
+REUSE_APPROVED
+  -> REFRAME_DERIVED
+  -> EDIT_EXISTING
+  -> GENERATE_NEW
+```
+
+Only billable/new work contributes provider cost; reuse and deterministic derivation reduce the workload and improve continuity.
+
+## Post-analysis cost planning
+
+Semantic analysis produces workload metrics, not a hardcoded video price. A valid analysis snapshot can be re-planned for both production modes without another story-analysis provider call when only production policy changes.
+
+Example workload dimensions include:
+
+```text
+chapterCount
+sourceCharacters / ttsCharacters
+narrationSeconds
+visualSceneCount
+newImageCount
+imageEditCount
+reuseOrReframeCount
+basicMotionSceneCount
+plannedI2vSceneCount
+plannedI2vOutputSecondsByResolution
+finalRenderSeconds
+storage/egress estimates
+```
+
+The backend cost authority combines these units with versioned `PricingSnapshot` and, for self-hosted I2V, versioned GPU benchmark snapshots. `expectedCost`, `reservationCeiling` and reconciled `actualCost` are separate values. Do not hardcode a Wan dollars-per-scene constant: local I2V cost depends on measured GPU seconds for the selected hardware/model/resolution/inference profile.
+
 ## End-to-end product target
 
 The broader V1.10 target extends the implemented analysis slice:
@@ -118,14 +188,15 @@ session + ownership
   -> CHAPTER_ANALYZE
   -> durable characters + locations + scene continuity
   -> Character review/lock
-  -> VisualBeat plan
-  -> full operation/cost planning
-  -> approved reference assets
-  -> image generation + identity QA + visual review
-  -> TTS narration + subtitle timing
-  -> animatic review
-  -> optional basic/AI motion
+  -> TTS preserved Chapter source + narration alignment
+  -> VisualScene plan
+  -> production-mode + full operation/cost planning
+  -> approved reference/keyframe assets + reuse lineage
+  -> IMAGE_MOTION deterministic motion
+     or HYBRID_LOCAL_I2V selected-beat local I2V
+  -> identity/output QA + visual review
   -> bounded scene/chapter render
+  -> merge Chapters + subtitle/BGM/SFX
   -> FinalArtifact validation
   -> export + notification
 ```
@@ -136,8 +207,9 @@ Public-production readiness still requires:
 
 1. Location and Scene continuity materialization.
 2. Explicit approved-storyboard reset/versioning.
-3. Full pricing/actual-provider-usage accounting, unused reservation release and billing-ledger reconciliation.
+3. Full pricing/actual-provider-and-internal-resource usage accounting, unused reservation release and billing-ledger reconciliation.
 4. Broader automated moderation, consent and abuse-policy coverage.
-5. Image/TTS/render/export pipeline and FinalArtifact validation.
-6. Real-provider failure/restart/reconciliation E2E coverage.
-7. Production observability, backup/restore and deletion lifecycle evidence.
+5. Full-Chapter TTS/alignment, reuse-first image pipeline, deterministic motion render and FinalArtifact validation.
+6. Durable media-stage wiring around the local I2V adapter plus real GPU benchmark/usage capture.
+7. Real-provider/runtime failure/restart/reconciliation E2E coverage.
+8. Production observability, backup/restore and deletion lifecycle evidence.
