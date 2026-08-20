@@ -5,7 +5,7 @@
 - Entry point: `com.narrativex.backend.NarrativeXBackendApplication`.
 - Build: Maven under `app/backend-service`.
 - Runtime: Java 25, Spring Boot 4.1.0.
-- Persistence: Spring Data JPA plus MyBatis SQL-first persistence for ProviderOperation, backed by PostgreSQL and Flyway. PostgreSQL remains authoritative for durable business and execution state.
+- Persistence: Spring Data JPA plus MyBatis SQL-first persistence for ProviderOperation and Chapter, backed by PostgreSQL and Flyway. PostgreSQL remains authoritative for durable business and execution state.
 - Redis: Spring Data Redis provides non-authoritative abuse-control/delivery/cache/progress infrastructure, while Spring Session Data Redis stores authenticated HTTP session state.
 - Architecture: modular monolith with extraction-oriented feature boundaries plus a separate Python asynchronous AI/media worker.
 
@@ -47,11 +47,11 @@ OperationPlan
 
 Provider requests require durable lifecycle state. Ambiguous external state uses `UNKNOWN` reconciliation instead of blind retry/resubmit. Full actual-usage reconciliation and unused-reservation release remain follow-up work.
 
-ProviderOperation uses the MyBatis adapter by default. Its application port is
-persistence-technology-neutral; the JPA adapter remains available with
-`narrativex.persistence.provider-operation=jpa` during rollout. MyBatis uses a
-dedicated row model and PostgreSQL CAS predicates for allowed status plus
-`row_version`.
+ProviderOperation and Chapter use MyBatis adapters. Their application ports are
+persistence-technology-neutral; the ProviderOperation JPA adapter remains
+available with `narrativex.persistence.provider-operation=jpa` during rollout.
+Both MyBatis boundaries use dedicated row models and explicit PostgreSQL
+predicates, including `row_version` CAS for mutable writes.
 
 Future MyBatis boundaries must extend
 `NarrativeXMyBatisMapper` so the shared configuration can register only
@@ -59,8 +59,8 @@ explicitly opted-in mapper interfaces. XML uses explicit result maps and keeps
 SQL-specific JSONB/enum/timestamp mappings visible. Adapters validate affected
 rows for every CAS update; they do not read a Java version and then issue an
 unconditional update. See
-[`PERSISTENCE_MIGRATION.md`](./PERSISTENCE_MIGRATION.md) for the migration
-recipe, contract-test template and audited tracker.
+  ADR-0014 and ADR-0017 for the accepted SQL-first persistence decisions and
+  their verification boundaries.
 
 ## Current continuity materialization
 
