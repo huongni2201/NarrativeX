@@ -76,7 +76,9 @@ async def narration_provider_database() -> AsyncIterator[str]:
 async def seed_stage(database_url: str) -> int:
     connection = await asyncpg.connect(database_url)
     try:
-        job_id = await connection.fetchval("INSERT INTO generation_jobs DEFAULT VALUES RETURNING id")
+        job_id = await connection.fetchval(
+            "INSERT INTO generation_jobs DEFAULT VALUES RETURNING id"
+        )
         stage_id = await connection.fetchval(
             "INSERT INTO stage_attempts (generation_job_id) VALUES ($1) RETURNING id", job_id
         )
@@ -93,7 +95,9 @@ async def test_segment_provider_operation_is_idempotent_and_billing_is_snapshott
     repository = NarrationWorkerRepository(narration_provider_database, lease_seconds=30)
     await repository.connect()
     try:
-        first = await repository.reserve_provider_operation(stage_id, "google-cloud-tts", "fingerprint")
+        first = await repository.reserve_provider_operation(
+            stage_id, "google-cloud-tts", "fingerprint"
+        )
         duplicate = await repository.reserve_provider_operation(
             stage_id, "google-cloud-tts", "fingerprint"
         )
@@ -153,7 +157,9 @@ async def test_completed_segment_result_cannot_be_overwritten(
     await repository.connect()
     pricing = GoogleTtsPricingCatalog("v1").resolve("en-US-Neural2-A")
     try:
-        reserved = await repository.reserve_provider_operation(stage_id, "google-cloud-tts", "immutable")
+        reserved = await repository.reserve_provider_operation(
+            stage_id, "google-cloud-tts", "immutable"
+        )
         unknown = await repository.fence_submission_unknown(reserved)
         completed = await repository.complete_provider_operation(
             unknown,
