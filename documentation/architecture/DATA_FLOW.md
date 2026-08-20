@@ -168,8 +168,8 @@ The Chapter-analysis MVP satisfies the first durable enqueue/claim boundary, but
 5. One transaction persists and links `OperationPlan`, `GenerationJob`, required `StageAttempt` rows and unique outbox intent; the worker commits `ProviderOperation(RESERVED)` before any provider call.
 6. Only after commit may Redis or another dispatcher publish a delivery hint.
 7. A worker claims a queued stage with a durable lease and heartbeat.
-8. Before any ambiguous/billable external submission, a dedicated `ProviderOperation` is persisted in `RESERVED`.
-9. Provider state advances through `SUBMITTED` / `RUNNING` / terminal state.
+8. Before any ambiguous/billable external submission, a dedicated `ProviderOperation` is persisted in `RESERVED`, then CAS-fenced to `UNKNOWN` before the external call.
+9. Provider state advances through the canonical `UNKNOWN` / `SUBMITTED` / `RUNNING` graph; all mutations require matching status and `row_version`.
 10. A timeout or ambiguous external outcome becomes `UNKNOWN`; reconciliation checks provider/storage evidence before resubmission.
 11. Outputs are validated before promotion/materialization.
 12. Usage/cost is reconciled and reservations are consumed/released.
@@ -181,14 +181,16 @@ The Chapter-analysis MVP satisfies the first durable enqueue/claim boundary, but
 Canonical provider state is distinct from parent job state:
 
 ```text
-RESERVED -> SUBMITTED -> RUNNING -> COMPLETED
-                         \-> FAILED
-SUBMITTED/RUNNING/submit ambiguity -> UNKNOWN -> reconcile -> terminal/known state
+RESERVED -> UNKNOWN -> SUBMITTED -> RUNNING -> COMPLETED
+                    \-> RUNNING / COMPLETED / FAILED
+SUBMITTED -> UNKNOWN / COMPLETED / FAILED
+RUNNING   -> UNKNOWN / COMPLETED / FAILED
+COMPLETED / FAILED -> terminal
 ```
 
 The worker contract uses `COMPLETED`, not `SUCCEEDED`, as the canonical successful terminal provider state.
 
-The current Vertex Chapter-analysis adapter performs a synchronous `generateContent` call and validates the returned structured result, but dedicated durable `ProviderOperation` persistence and `UNKNOWN` reconciliation are not yet complete. Therefore this part remains a production release gate.
+The current Vertex Chapter-analysis adapter performs a synchronous `generateContent` call and validates the returned structured result. The worker persists the durable operation and reconciles `UNKNOWN`, `SUBMITTED`, and `RUNNING` states; real-provider E2E and operational reconciliation monitoring remain production release gates.
 
 ## Stage lease lifecycle
 

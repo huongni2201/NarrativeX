@@ -13,7 +13,7 @@ This matrix distinguishes the product/domain source of truth from the implementa
 | Data flow and service/module boundaries | `documentation/architecture/DATA_FLOW.md`, `SERVICE_BOUNDARIES.md` | Chapter-first durable analysis path is implemented as an MVP foundation; production cost/safety/provider-reconciliation gates remain incomplete |
 | Authentication/runtime security | `documentation/decisions/ADR-0004-authentication-and-frontend-runtime-security.md`, `ADR-0008-redis-backed-http-sessions.md` | Spring Security session/CSRF, Google OIDC/password auth, Redis-backed session and abuse-control foundations are implemented |
 | Frontend implementation/runtime map | `documentation/codebase/FRONTEND_CODEBASE.md`, `FRONTEND_API_INTEGRATION_MATRIX.md`, `app/frontend-web/README.md` | Chapter source editor, Analyze/job polling and current Storyboard workspace integration use backend runtime data; legacy production workspace mocks are removed by PR #54 |
-| Durable generation execution | `documentation/decisions/ADR-0001-system-topology-and-durable-execution.md`, `ADR-0002-chapter-first-workflow-and-routes.md` | MVP enqueue, persisted snapshot, StageAttempt, outbox intent, PostgreSQL worker claim/lease/heartbeat and terminal updates are implemented; durable ProviderOperation reconciliation remains pending |
+| Durable generation execution | `documentation/decisions/ADR-0001-system-topology-and-durable-execution.md`, `ADR-0002-chapter-first-workflow-and-routes.md` | MVP enqueue, persisted snapshot, StageAttempt, outbox intent, PostgreSQL worker claim/lease/heartbeat and ProviderOperation CAS/reconciliation foundation are implemented |
 | Backend ↔ worker Chapter analysis contract | backend generation snapshot columns, `app/ai-worker/src/narrativex_worker/schema.py` | Snapshot-scoped by project/story/chapter/rowVersion/sourceHash/sourceText; worker concurrency is configurable; shared versioned cross-language schema remains recommended |
 | Local infrastructure | `docker-compose.yml`, root/module READMEs | PostgreSQL, Redis, MinIO and AI worker local baseline; worker defaults to disabled provider and can use Vertex mode with ADC credentials |
 
@@ -45,7 +45,7 @@ Creating a Project is metadata-only and must not enqueue analysis. Saving a Chap
 | Chapter Workspace read model | `ChapterWorkspaceReadRepository`, `JdbcChapterWorkspaceQueryAdapter` | P2 IMPLEMENTED in PR #54; application layer no longer owns JDBC/SQL and workspace projection is reduced to one aggregate CTE + one bounded preview query |
 | Architecture enforcement | `ArchitectureRulesTest` | P2 IMPLEMENTED in PR #54; application code is prevented from importing Spring JDBC, Spring Data JPA or Jakarta Persistence |
 | AI result materialization | worker repository + Character/ProjectCharacter/CharacterVersion + Scene/VisualBeat | IMPLEMENTED foundation; worker validates Chapter snapshot before transactional materialization |
-| Durable ProviderOperation lifecycle | Generation domain/provider lifecycle target | PARTIAL; dedicated durable persistence/reconciliation is still required before production |
+| Durable ProviderOperation lifecycle | Generation domain/provider lifecycle target | IMPLEMENTED foundation; reconciliation leasing, billing observability and real-provider operations remain production hardening |
 | Frontend JobStatus contract | `src/types/api.ts`, `scripts/job-status-contract.test.mjs` | IMPLEMENTED; backend spelling is canonical, `CANCELED` is terminal and `PAUSED_COST_LIMIT` remains active |
 | Legacy production mock workspace | `features/production/ChapterWorkspace.tsx`, `Storyboard.tsx` | REMOVED by PR #54; current Chapter/Storyboard surfaces must use real runtime data |
 | Image/TTS/render | provider/domain foundations | OUT OF CURRENT VERTICAL SLICE |
@@ -86,6 +86,6 @@ Required production-level verification still includes real-provider smoke/E2E, r
 13. Application-layer imports of Spring JDBC, Spring Data JPA and Jakarta Persistence are architecture violations.
 14. Backend/FE JobStatus spelling must remain aligned; `COMPLETED`, `FAILED`, `CANCELED` are terminal statuses.
 15. `PAUSED_COST_LIMIT`, `QUEUED`, `RUNNING`, `STALLED` and `UNKNOWN` must not be treated as terminal by FE polling.
-16. Provider submission target lifecycle remains `RESERVED -> SUBMITTED -> RUNNING -> COMPLETED/FAILED/UNKNOWN`; `UNKNOWN` must reconcile before blind resubmit once durable persistence is complete.
+16. Provider submission target lifecycle is `RESERVED -> UNKNOWN -> SUBMITTED/RUNNING/COMPLETED/FAILED` with `SUBMITTED`/`RUNNING` reconciliation branches; `COMPLETED`/`FAILED` are terminal and every worker mutation uses status + `row_version` CAS.
 17. Mutable persistence adapters must reject stale detached-domain `rowVersion` rather than overwriting newer rows.
 18. Backend `clean verify` must pass tests, architecture checks, coverage and formatting; worker CI must pass Ruff, format, mypy and pytest; frontend CI must pass tests, lint, type-check and build.

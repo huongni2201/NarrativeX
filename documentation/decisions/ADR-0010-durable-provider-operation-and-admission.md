@@ -2,11 +2,13 @@
 
 ## Status
 
-Accepted — 2026-08-19
+Accepted — 2026-08-19; amended 2026-08-20 for optimistic provider-operation CAS
 
 ## Decision
 
-Chapter analysis crosses the external-provider boundary only after PostgreSQL commits the complete admission boundary. The worker creates a `provider_operations` row with a stable `(provider_key, request_fingerprint)` unique key and status `RESERVED`, then persists `SUBMITTED` immediately before invoking the external provider. Provider outcomes are `RESERVED`, `SUBMITTED`, `RUNNING`, `COMPLETED`, `FAILED` or `UNKNOWN`.
+Chapter analysis crosses the external-provider boundary only after PostgreSQL commits the complete admission boundary. The worker creates a `provider_operations` row with a stable `(provider_key, request_fingerprint)` unique key and status `RESERVED`, then crosses a pre-submit fence by CAS-transitioning it to `UNKNOWN` before invoking the external provider. Provider outcomes are `RESERVED`, `UNKNOWN`, `SUBMITTED`, `RUNNING`, `COMPLETED`, or `FAILED`.
+
+The canonical provider-operation graph is `RESERVED -> UNKNOWN`; `UNKNOWN` may become `SUBMITTED`, `RUNNING`, `COMPLETED`, or `FAILED`; `SUBMITTED` may become `RUNNING`, `UNKNOWN`, `COMPLETED`, or `FAILED`; and `RUNNING` may become `UNKNOWN`, `COMPLETED`, or `FAILED`. `COMPLETED` and `FAILED` are terminal. Every worker mutation carries the loaded operation snapshot and requires both the expected status and `row_version` to match; a stale update is a concurrency conflict, not a provider failure.
 
 A provider operation may become `COMPLETED` only when its validated, provider-neutral Chapter analysis result is durably stored in `provider_operations.normalized_result_json`. Persisting `normalized_result_json`, the provider response/operation identifier, `completed_at`, and `status = COMPLETED` is one PostgreSQL transaction. Domain materialization happens only after that transaction commits.
 
@@ -31,6 +33,8 @@ Quota finalization is idempotent because every terminal mutation is conditional 
 ## Invariants
 
 - `ProviderOperation.status = COMPLETED` implies `normalized_result_json IS NOT NULL` for all new or updated rows.
+- `COMPLETED` and `FAILED` provider operations cannot transition or receive metadata writes through the worker repository.
+- Every provider-operation mutation uses the caller's expected `row_version`; stale responses are discarded after reloading the latest durable state.
 - A durable `COMPLETED` provider operation is replayed from PostgreSQL and never resubmitted to the provider.
 - Domain materialization never runs from an in-memory-only provider result.
 - `GenerationJob = COMPLETED` means the durable provider result has been materialized successfully.

@@ -108,7 +108,7 @@ Job/Render terminal transition → OutboxEvent → Notification → optional ema
 | VisualBeat | PROPOSED → READY_FOR_VISUAL → GENERATING → REVIEW → APPROVED / REJECTED / OUTDATED |
 | GenerationJob | QUEUED → RUNNING → COMPLETED / FAILED / CANCELED |
 | StageAttempt | QUEUED → RUNNING → COMPLETED / FAILED / CANCELED; mất lease → STALLED |
-| ProviderOperation | RESERVED → SUBMITTED → RUNNING → COMPLETED / FAILED / UNKNOWN |
+| ProviderOperation | RESERVED → UNKNOWN → SUBMITTED / RUNNING / COMPLETED / FAILED; SUBMITTED → RUNNING / UNKNOWN / COMPLETED / FAILED; RUNNING → UNKNOWN / COMPLETED / FAILED; COMPLETED / FAILED terminal |
 | RenderVersion | QUEUED → PREPARING → RENDERING → UPLOADING → COMPLETED / FAILED |
 | FinalArtifact | PENDING → VALIDATING → READY / INVALID |
 | ShortClip | DRAFT → PLANNING → READY → RENDERING → REVIEW → APPROVED / FAILED / OUTDATED |
@@ -117,7 +117,7 @@ Job/Render terminal transition → OutboxEvent → Notification → optional ema
 
 `ProjectStatus` represents only the durable lifecycle of the Project itself. `ANALYZING`, visual/storyboard readiness, generation and rendering are not Project states: Chapter/Scene state describes content readiness and `GenerationJob`/`StageAttempt` describes transient execution. This allows different Chapters in one active Project to be edited, analyzed or rendered independently without forcing one contradictory Project status.
 
-`ProviderOperation` must use a dedicated provider-operation status type rather than `JobStatus`. `UNKNOWN` is a reconciliation state, not a retry trigger. StageAttempt must support worker claim, lease expiry, heartbeat and STALLED recovery semantics.
+`ProviderOperation` must use a dedicated provider-operation status type rather than `JobStatus`. `UNKNOWN` is a reconciliation state, not a retry trigger. The worker crosses a pre-submit fence from `RESERVED` to `UNKNOWN`, and all provider-operation mutations use optimistic `row_version` CAS. StageAttempt must support worker claim, lease expiry, heartbeat and STALLED recovery semantics.
 
 State transitions must be auditable, idempotent and guarded by ownership, policy, row_version and required predecessor state.
 
@@ -144,7 +144,7 @@ request
   -> commit
   -> dispatcher
   -> worker claim/lease/heartbeat
-  -> ProviderOperation RESERVED before external submit
+  -> ProviderOperation RESERVED, then UNKNOWN fence before external submit
 ```
 
 Nếu path này chưa tồn tại thì `POST /api/v1/projects/{projectId}/chapters/{chapterId}/analysis-jobs` phải feature-gated và không được tạo `QUEUED` row giả.

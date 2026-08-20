@@ -18,6 +18,51 @@ from narrativex_worker.schema import (
 )
 
 
+class ProviderOperationStateConflictError(RuntimeError):
+    """The durable operation changed after the caller loaded its snapshot."""
+
+    def __init__(self, operation_id: int, expected_version: int) -> None:
+        super().__init__(
+            f"Provider operation {operation_id} changed after row_version={expected_version}"
+        )
+        self.operation_id = operation_id
+        self.expected_version = expected_version
+
+
+class ProviderOperationInvalidTransitionError(RuntimeError):
+    """The requested provider-operation transition violates the canonical state graph."""
+
+
+ALLOWED_PROVIDER_TRANSITIONS: dict[ProviderOperationStatus, frozenset[ProviderOperationStatus]] = {
+    ProviderOperationStatus.RESERVED: frozenset({ProviderOperationStatus.UNKNOWN}),
+    ProviderOperationStatus.UNKNOWN: frozenset(
+        {
+            ProviderOperationStatus.SUBMITTED,
+            ProviderOperationStatus.RUNNING,
+            ProviderOperationStatus.COMPLETED,
+            ProviderOperationStatus.FAILED,
+        }
+    ),
+    ProviderOperationStatus.SUBMITTED: frozenset(
+        {
+            ProviderOperationStatus.RUNNING,
+            ProviderOperationStatus.UNKNOWN,
+            ProviderOperationStatus.COMPLETED,
+            ProviderOperationStatus.FAILED,
+        }
+    ),
+    ProviderOperationStatus.RUNNING: frozenset(
+        {
+            ProviderOperationStatus.UNKNOWN,
+            ProviderOperationStatus.COMPLETED,
+            ProviderOperationStatus.FAILED,
+        }
+    ),
+    ProviderOperationStatus.COMPLETED: frozenset(),
+    ProviderOperationStatus.FAILED: frozenset(),
+}
+
+
 @dataclass(frozen=True)
 class DurableProviderOperation:
     id: int
@@ -25,6 +70,7 @@ class DurableProviderOperation:
     provider_key: str
     provider_operation_id: str | None
     status: ProviderOperationStatus
+    row_version: int
     request_fingerprint: str
     normalized_result: ChapterAnalysisResult | None = None
     created: bool = False
@@ -167,7 +213,7 @@ class WorkerRepository:
                     VALUES ($1, $2, $3, 'RESERVED')
                     ON CONFLICT (provider_key, request_fingerprint) DO NOTHING
                     RETURNING id, stage_attempt_id, provider_key, provider_operation_id,
-                              status, request_fingerprint, normalized_result_json
+                              status, row_version, request_fingerprint, normalized_result_json
                     """,
                     claimed.stage_attempt_id,
                     provider_key,
@@ -178,7 +224,7 @@ class WorkerRepository:
                     row = await connection.fetchrow(
                         """
                         SELECT id, stage_attempt_id, provider_key, provider_operation_id,
-                               status, request_fingerprint, normalized_result_json
+                               status, row_version, request_fingerprint, normalized_result_json
                           FROM provider_operations
                          WHERE provider_key = $1 AND request_fingerprint = $2
                          FOR UPDATE
@@ -191,18 +237,30 @@ class WorkerRepository:
                 return self._provider_operation(row, created=created)
 
     async def mark_provider_operation_submitted(
-        self, operation_id: int, provider_operation_id: str | None
+        self,
+        operation: DurableProviderOperation,
+        provider_operation_id: str | None,
     ) -> DurableProviderOperation:
-        return await self._update_provider_operation(
-            operation_id, ProviderOperationStatus.SUBMITTED, provider_operation_id
+        return await self._transition_provider_operation(
+            operation, ProviderOperationStatus.SUBMITTED, provider_operation_id
+        )
+
+    async def mark_provider_operation_submission_unknown(
+        self,
+        operation: DurableProviderOperation,
+        provider_operation_id: str | None = None,
+    ) -> DurableProviderOperation:
+        return await self._transition_provider_operation(
+            operation, ProviderOperationStatus.UNKNOWN, provider_operation_id
         )
 
     async def persist_provider_result(
         self,
-        operation_id: int,
+        operation: DurableProviderOperation,
         provider_operation_id: str | None,
         result: ChapterAnalysisResult,
     ) -> DurableProviderOperation:
+        self._assert_transition_allowed(operation, ProviderOperationStatus.COMPLETED)
         pool = self._require_pool()
         serialized = result.model_dump_json()
         async with pool.acquire() as connection:
@@ -217,27 +275,46 @@ class WorkerRepository:
                            updated_at = CURRENT_TIMESTAMP,
                            row_version = row_version + 1
                      WHERE id = $1
-                       AND status <> 'FAILED'
+                       AND status = $4
+                       AND row_version = $5
                      RETURNING id, stage_attempt_id, provider_key, provider_operation_id,
-                               status, request_fingerprint, normalized_result_json
+                               status, row_version, request_fingerprint, normalized_result_json
                     """,
-                    operation_id,
+                    operation.id,
                     provider_operation_id,
                     serialized,
+                    operation.status.value,
+                    operation.row_version,
                 )
         if row is None:
-            raise RuntimeError(f"Provider operation {operation_id} cannot persist a result")
+            self._raise_state_conflict(operation)
         return self._provider_operation(row)
 
     async def mark_provider_operation_status(
         self,
-        operation_id: int,
+        operation: DurableProviderOperation,
         status: ProviderOperationStatus,
         provider_operation_id: str | None = None,
     ) -> DurableProviderOperation:
+        self._assert_transition_allowed(operation, status)
         if status is ProviderOperationStatus.COMPLETED:
             raise ValueError("COMPLETED requires persist_provider_result() with a durable result")
-        return await self._update_provider_operation(operation_id, status, provider_operation_id)
+        return await self._transition_provider_operation(operation, status, provider_operation_id)
+
+    async def get_provider_operation(self, operation_id: int) -> DurableProviderOperation:
+        pool = self._require_pool()
+        row = await pool.fetchrow(
+            """
+            SELECT id, stage_attempt_id, provider_key, provider_operation_id,
+                   status, row_version, request_fingerprint, normalized_result_json
+              FROM provider_operations
+             WHERE id = $1
+            """,
+            operation_id,
+        )
+        if row is None:
+            raise RuntimeError(f"Provider operation {operation_id} not found")
+        return self._provider_operation(row)
 
     async def list_provider_operations(
         self, statuses: tuple[ProviderOperationStatus, ...], limit: int = 50
@@ -246,7 +323,7 @@ class WorkerRepository:
         rows = await pool.fetch(
             """
             SELECT id, stage_attempt_id, provider_key, provider_operation_id,
-                   status, request_fingerprint, normalized_result_json
+                   status, row_version, request_fingerprint, normalized_result_json
               FROM provider_operations
              WHERE status = ANY($1::text[])
              ORDER BY reserved_at, id
@@ -257,12 +334,13 @@ class WorkerRepository:
         )
         return [self._provider_operation(row) for row in rows]
 
-    async def _update_provider_operation(
+    async def _transition_provider_operation(
         self,
-        operation_id: int,
-        status: ProviderOperationStatus,
+        operation: DurableProviderOperation,
+        next_status: ProviderOperationStatus,
         provider_operation_id: str | None = None,
     ) -> DurableProviderOperation:
+        self._assert_transition_allowed(operation, next_status)
         pool = self._require_pool()
         async with pool.acquire() as connection:
             row = await connection.fetchrow(
@@ -273,16 +351,33 @@ class WorkerRepository:
                        updated_at = CURRENT_TIMESTAMP,
                        row_version = row_version + 1
                  WHERE id = $1
+                   AND status = $4
+                   AND row_version = $5
                  RETURNING id, stage_attempt_id, provider_key, provider_operation_id,
-                           status, request_fingerprint, normalized_result_json
+                           status, row_version, request_fingerprint, normalized_result_json
                 """,
-                operation_id,
-                status.value,
+                operation.id,
+                next_status.value,
                 provider_operation_id,
+                operation.status.value,
+                operation.row_version,
             )
         if row is None:
-            raise RuntimeError(f"Provider operation {operation_id} not found")
+            self._raise_state_conflict(operation)
         return self._provider_operation(row)
+
+    @staticmethod
+    def _assert_transition_allowed(
+        operation: DurableProviderOperation, next_status: ProviderOperationStatus
+    ) -> None:
+        if next_status not in ALLOWED_PROVIDER_TRANSITIONS[operation.status]:
+            raise ProviderOperationInvalidTransitionError(
+                f"Provider operation {operation.id} cannot transition "
+                f"from {operation.status.value} to {next_status.value}"
+            )
+
+    def _raise_state_conflict(self, operation: DurableProviderOperation) -> None:
+        raise ProviderOperationStateConflictError(operation.id, operation.row_version)
 
     @staticmethod
     def _provider_operation(
@@ -299,6 +394,7 @@ class WorkerRepository:
             provider_key=row["provider_key"],
             provider_operation_id=row["provider_operation_id"],
             status=ProviderOperationStatus(row["status"]),
+            row_version=row["row_version"],
             request_fingerprint=row["request_fingerprint"],
             normalized_result=normalized_result,
             created=created,

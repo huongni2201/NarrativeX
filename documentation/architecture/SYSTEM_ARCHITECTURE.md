@@ -17,7 +17,7 @@ Core invariants:
 - Every external provider result is validated before domain materialization.
 - A worker must own the persisted StageAttempt lease before committing its result.
 - A stale Chapter analysis result must not materialize if the Chapter `rowVersion/sourceHash` changed while the job was running.
-- Dedicated durable `ProviderOperation` persistence and `UNKNOWN` reconciliation remain part of the production target even though the current synchronous Vertex Chapter-analysis adapter already performs real provider invocation.
+- Dedicated durable `ProviderOperation` persistence, pre-submit `UNKNOWN` fencing and optimistic reconciliation CAS are implemented foundations; real-provider operations and monitoring remain production gates even though the current synchronous Vertex Chapter-analysis adapter performs real provider invocation.
 - MinIO/S3-compatible storage remains the binary-media authority boundary for later image/TTS/render stages; Chapter analysis itself does not require media storage.
 
 ## Logical topology
@@ -169,9 +169,11 @@ This adapter is intentionally the only real LLM adapter needed for the current M
 The current call is synchronous from the worker's perspective. Production-grade ambiguity handling still requires durable `ProviderOperation` state:
 
 ```text
-RESERVED -> SUBMITTED -> RUNNING -> COMPLETED
-                         \-> FAILED
-ambiguity -> UNKNOWN -> reconcile
+RESERVED -> UNKNOWN -> SUBMITTED -> RUNNING -> COMPLETED
+                    \-> RUNNING / COMPLETED / FAILED
+SUBMITTED -> UNKNOWN / COMPLETED / FAILED
+RUNNING   -> UNKNOWN / COMPLETED / FAILED
+COMPLETED / FAILED -> terminal
 ```
 
 `COMPLETED`, not `SUCCEEDED`, is the canonical successful provider terminal status.
@@ -235,7 +237,7 @@ Before worker materialization, the live Chapter must still match the snapshotted
 ## Control planes
 
 1. **Chapter analysis orchestration — implemented foundation:** persisted Chapter -> OperationPlan -> GenerationJob -> StageAttempt -> worker -> materialized analysis.
-2. **Provider durability — partial:** provider port and terminal contract exist; dedicated persistent ProviderOperation and `UNKNOWN` reconciliation remain pending.
+2. **Provider durability — implemented foundation:** provider port, persistent ProviderOperation, pre-submit `UNKNOWN` fence, status graph and optimistic `row_version` reconciliation CAS exist; leasing and production monitoring remain pending.
 3. **Cost/entitlement — implemented MVP:** Chapter analysis runs a safety, entitlement and atomic quota reservation gate with a bounded non-zero cost estimate before OperationPlan/GenerationJob creation. Provider submission uses durable fingerprinted ProviderOperation rows and UNKNOWN reconciliation; provider-specific billing ledger enforcement remains a release gate.
 4. **Trust & Safety — production target:** no blanket per-story copyright attestation; moderation, consent where applicable, abuse controls and output review remain separate gates.
 5. **Notification — future production path:** terminal state and notification intent should eventually be committed durably and delivered asynchronously.

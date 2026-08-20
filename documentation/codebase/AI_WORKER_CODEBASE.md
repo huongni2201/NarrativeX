@@ -78,7 +78,7 @@ The provider result is validated with Pydantic before persistence. Current analy
 
 `AI_PROVIDER_MODE=vertex` enables the Vertex Gemini adapter. Authentication uses Google Application Default Credentials/workload identity. Provider credentials must never come from the browser or be baked into the image.
 
-External provider execution must follow the durable ProviderOperation lifecycle. Ambiguous external submission/result states must be reconciled rather than blindly retried.
+External provider execution must follow the durable ProviderOperation lifecycle: `RESERVED` is CAS-fenced to `UNKNOWN` before the external call, then `UNKNOWN`/`SUBMITTED`/`RUNNING` outcomes are reconciled rather than blindly retried. Worker mutations use the loaded operation snapshot and status + `row_version` CAS; `COMPLETED` and `FAILED` are terminal.
 
 ## Claim, lease and concurrency
 

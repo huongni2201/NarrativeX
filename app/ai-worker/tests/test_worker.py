@@ -1,6 +1,7 @@
 """Tests for the NarrativeX Chapter analysis worker."""
 
 import asyncio
+from dataclasses import replace
 
 import pytest
 from pydantic import ValidationError
@@ -15,8 +16,12 @@ from narrativex_worker.providers.ports import (
 )
 from narrativex_worker.providers.vertex import VertexProviderError
 from narrativex_worker.repository import (
+    ALLOWED_PROVIDER_TRANSITIONS,
     ClaimedChapterAnalysisJob,
     DurableProviderOperation,
+    ProviderOperationInvalidTransitionError,
+    ProviderOperationStateConflictError,
+    WorkerRepository,
     provider_request_fingerprint,
 )
 from narrativex_worker.schema import (
@@ -199,6 +204,24 @@ def test_provider_terminal_status_is_completed() -> None:
     assert "SUCCEEDED" not in {status.value for status in ProviderOperationStatus}
 
 
+def test_provider_operation_state_graph_rejects_terminal_and_illegal_transitions() -> None:
+    for current_status, allowed_next in ALLOWED_PROVIDER_TRANSITIONS.items():
+        operation = DurableProviderOperation(
+            id=1,
+            stage_attempt_id=2,
+            provider_key="vertex",
+            provider_operation_id=None,
+            status=current_status,
+            row_version=5,
+            request_fingerprint="fingerprint",
+        )
+        for next_status in ProviderOperationStatus:
+            if next_status in allowed_next:
+                continue
+            with pytest.raises(ProviderOperationInvalidTransitionError):
+                WorkerRepository._assert_transition_allowed(operation, next_status)
+
+
 def test_provider_request_fingerprint_is_restart_stable() -> None:
     claimed = ClaimedChapterAnalysisJob(
         stage_attempt_id=10,
@@ -247,77 +270,85 @@ class DurableRepositorySpy:
         self.complete_calls = 0
         self.status_history: list[ProviderOperationStatus] = []
         self.fail_complete_once = fail_complete_once
+        self.row_version = 0
+        self.conflict_on_result = False
+        self.latest_after_conflict: ProviderOperationStatus | None = None
+
+    def operation(self, provider_operation_id: str | None = None) -> DurableProviderOperation:
+        return DurableProviderOperation(
+            id=100,
+            stage_attempt_id=10,
+            provider_key="vertex",
+            provider_operation_id=provider_operation_id or self.submit_id,
+            status=self.status or ProviderOperationStatus.RESERVED,
+            row_version=self.row_version,
+            request_fingerprint="f",
+            normalized_result=self.normalized_result,
+        )
 
     async def reserve_provider_operation(
         self, claimed: ClaimedChapterAnalysisJob, provider_key: str, fingerprint: str
     ) -> DurableProviderOperation:
         del claimed, provider_key
         created = self.status is None
-        return DurableProviderOperation(
-            id=100,
-            stage_attempt_id=10,
-            provider_key="vertex",
-            provider_operation_id=self.submit_id if self.status else None,
-            status=self.status or ProviderOperationStatus.RESERVED,
-            request_fingerprint=fingerprint,
-            normalized_result=self.normalized_result,
-            created=created,
-        )
+        result = self.operation(self.submit_id if self.status else None)
+        return replace(result, request_fingerprint=fingerprint, created=created)
 
     async def mark_provider_operation_submitted(
-        self, operation_id: int, provider_operation_id: str | None
+        self, operation: DurableProviderOperation, provider_operation_id: str | None
     ) -> DurableProviderOperation:
-        del operation_id
+        self.row_version = operation.row_version + 1
         self.status = ProviderOperationStatus.SUBMITTED
         self.status_history.append(self.status)
-        return DurableProviderOperation(
-            100,
-            10,
-            "vertex",
-            provider_operation_id,
-            self.status,
-            "f",
-            self.normalized_result,
-        )
+        return self.operation(provider_operation_id)
+
+    async def mark_provider_operation_submission_unknown(
+        self, operation: DurableProviderOperation, provider_operation_id: str | None = None
+    ) -> DurableProviderOperation:
+        self.row_version = operation.row_version + 1
+        self.status = ProviderOperationStatus.UNKNOWN
+        self.status_history.append(self.status)
+        return self.operation(provider_operation_id)
 
     async def persist_provider_result(
         self,
-        operation_id: int,
+        operation: DurableProviderOperation,
         provider_operation_id: str | None,
         result: ChapterAnalysisResult,
     ) -> DurableProviderOperation:
-        del operation_id
+        if self.conflict_on_result:
+            raise ProviderOperationStateConflictError(operation.id, operation.row_version)
+        self.row_version = operation.row_version + 1
         self.status = ProviderOperationStatus.COMPLETED
         self.normalized_result = result
         self.status_history.append(self.status)
-        return DurableProviderOperation(
-            100,
-            10,
-            "vertex",
-            provider_operation_id,
-            self.status,
-            "f",
-            result,
-        )
+        return self.operation(provider_operation_id)
 
     async def mark_provider_operation_status(
         self,
-        operation_id: int,
+        operation: DurableProviderOperation,
         status: ProviderOperationStatus,
         provider_operation_id: str | None = None,
     ) -> DurableProviderOperation:
-        del operation_id
+        self.row_version = operation.row_version + 1
         self.status = status
         self.status_history.append(status)
-        return DurableProviderOperation(
-            100,
-            10,
-            "vertex",
-            provider_operation_id,
-            status,
-            "f",
-            self.normalized_result,
-        )
+        return self.operation(provider_operation_id)
+
+    async def get_provider_operation(self, operation_id: int) -> DurableProviderOperation:
+        del operation_id
+        if self.latest_after_conflict is not None:
+            return replace(
+                self.operation(),
+                status=self.latest_after_conflict,
+                row_version=self.row_version + 1,
+                normalized_result=(
+                    completed_result()
+                    if self.latest_after_conflict is ProviderOperationStatus.COMPLETED
+                    else None
+                ),
+            )
+        return self.operation()
 
     async def complete(self, *args: object) -> None:
         del args
@@ -424,6 +455,24 @@ async def test_crash_after_provider_result_persist_replays_without_provider_call
 
 
 @pytest.mark.asyncio
+async def test_foreground_stale_result_replays_latest_completed_operation() -> None:
+    worker = NarrativeXWorker(settings=WorkerSettings(worker_env="test"))
+    repository = DurableRepositorySpy()
+    repository.conflict_on_result = True
+    repository.latest_after_conflict = ProviderOperationStatus.COMPLETED
+    provider = ProviderSpy()
+    worker.repository = repository  # type: ignore[assignment]
+    worker.service = WorkerService(provider)
+    claimed = ClaimedChapterAnalysisJob(10, 20, "job-1", "user-1", chapter_request())
+
+    await worker._execute_claimed(claimed)
+
+    assert repository.status is ProviderOperationStatus.UNKNOWN
+    assert repository.complete_calls == 1
+    assert provider.submit_calls == 1
+
+
+@pytest.mark.asyncio
 async def test_timeout_transitions_to_unknown_and_never_blind_retries() -> None:
     worker = NarrativeXWorker(settings=WorkerSettings(worker_env="test"))
     repository = DurableRepositorySpy()
@@ -437,7 +486,6 @@ async def test_timeout_transitions_to_unknown_and_never_blind_retries() -> None:
 
     assert provider.submit_calls == 1
     assert repository.status_history == [
-        ProviderOperationStatus.SUBMITTED,
         ProviderOperationStatus.UNKNOWN,
     ]
     assert repository.complete_calls == 0
