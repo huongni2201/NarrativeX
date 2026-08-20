@@ -9,6 +9,7 @@ import pytest
 
 from narrativex_worker.repository import (
     ClaimedChapterAnalysisJob,
+    DurableProviderOperation,
     ProviderResultConflictError,
     WorkerRepository,
 )
@@ -375,8 +376,12 @@ async def test_concurrent_conflicting_completions_have_one_winner(
         await first.close()
         await second.close()
 
-    successes = [outcome for outcome in outcomes if not isinstance(outcome, BaseException)]
-    conflicts = [outcome for outcome in outcomes if isinstance(outcome, ProviderResultConflictError)]
+    successes = [
+        outcome for outcome in outcomes if isinstance(outcome, DurableProviderOperation)
+    ]
+    conflicts = [
+        outcome for outcome in outcomes if isinstance(outcome, ProviderResultConflictError)
+    ]
     assert len(successes) == 1
     assert len(conflicts) == 1
     assert row["status"] == "COMPLETED"

@@ -45,9 +45,9 @@ class DurableProviderOperation:
     provider_operation_id: str | None
     status: ProviderOperationStatus
     request_fingerprint: str
-    result_fingerprint: str | None = None
     normalized_result: ChapterAnalysisResult | None = None
     created: bool = False
+    result_fingerprint: str | None = None
 
 
 @dataclass(frozen=True)
@@ -386,9 +386,12 @@ class WorkerRepository:
                 if persisted_fingerprint is None:
                     if durable.normalized_result is None:
                         raise RuntimeError(
-                            f"Provider operation {operation_id} is COMPLETED without a durable result"
+                            f"Provider operation {operation_id} is COMPLETED without "
+                            "a durable result"
                         )
-                    _, persisted_fingerprint = _canonical_provider_result(durable.normalized_result)
+                    _, persisted_fingerprint = _canonical_provider_result(
+                        durable.normalized_result
+                    )
                     if persisted_fingerprint == incoming_fingerprint:
                         backfilled = await connection.fetchrow(
                             """
@@ -498,9 +501,9 @@ class WorkerRepository:
             provider_operation_id=row["provider_operation_id"],
             status=ProviderOperationStatus(row["status"]),
             request_fingerprint=row["request_fingerprint"],
-            result_fingerprint=row["result_fingerprint"],
             normalized_result=normalized_result,
             created=created,
+            result_fingerprint=row["result_fingerprint"],
         )
 
     async def complete(
