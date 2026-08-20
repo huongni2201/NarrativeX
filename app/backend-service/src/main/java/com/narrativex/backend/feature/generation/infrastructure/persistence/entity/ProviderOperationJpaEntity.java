@@ -13,6 +13,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "provider_operations")
@@ -40,4 +42,23 @@ public class ProviderOperationJpaEntity extends JpaAuditedEntity {
 
   @Column(name = "reserved_at", nullable = false)
   private Instant reservedAt;
+
+  @JdbcTypeCode(SqlTypes.JSON)
+  @Column(name = "normalized_result_json", columnDefinition = "jsonb")
+  private String normalizedResultJson;
+
+  @Column(name = "result_fingerprint", length = 128)
+  private String resultFingerprint;
+
+  @Column(name = "completed_at")
+  private Instant completedAt;
+
+  @Column(name = "next_reconcile_at")
+  private Instant nextReconcileAt;
+
+  @Column(name = "reconcile_attempts", nullable = false)
+  private int reconcileAttempts;
+
+  @Column(name = "last_reconcile_error", columnDefinition = "TEXT")
+  private String lastReconcileError;
 }

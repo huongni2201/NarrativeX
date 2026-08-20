@@ -100,7 +100,9 @@ class PostgreSqlMigrationIntegrationTest {
       assertFalse(tableExists(connection, "content_rights_attestations"));
       assertTrue(columnExists(connection, "operation_plans", "generation_job_id"));
       assertTrue(columnExists(connection, "provider_operations", "request_fingerprint"));
+      assertTrue(columnExists(connection, "provider_operations", "result_fingerprint"));
       assertTrue(indexExists(connection, "uq_provider_operation_fingerprint"));
+      assertTrue(indexExists(connection, "idx_provider_operations_result_fingerprint"));
       assertTrue(columnExists(connection, "plan_entitlements", "monthly_credits"));
       assertTrue(tableExists(connection, "quota_reservations"));
       assertTrue(indexExists(connection, "idx_quota_reservations_active_user"));

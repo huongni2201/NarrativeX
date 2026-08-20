@@ -3,7 +3,9 @@ package com.narrativex.backend.feature.generation.domain.entity;
 import com.narrativex.backend.feature.common.domain.DomainEntity;
 import com.narrativex.backend.feature.generation.domain.enums.ProviderOperationStatus;
 import java.time.Instant;
+import java.util.EnumSet;
 import java.util.Objects;
+import java.util.Set;
 
 public final class ProviderOperation extends DomainEntity {
   private final Long stageAttemptId;
@@ -12,6 +14,12 @@ public final class ProviderOperation extends DomainEntity {
   private final ProviderOperationStatus status;
   private final Instant reservedAt;
   private final String requestFingerprint;
+  private final String normalizedResultJson;
+  private final String resultFingerprint;
+  private final Instant completedAt;
+  private final Instant nextReconcileAt;
+  private final int reconcileAttempts;
+  private final String lastReconcileError;
 
   private ProviderOperation(
       Long id,
@@ -21,7 +29,13 @@ public final class ProviderOperation extends DomainEntity {
       String providerOperationId,
       ProviderOperationStatus status,
       Instant reservedAt,
-      String requestFingerprint) {
+      String requestFingerprint,
+      String normalizedResultJson,
+      String resultFingerprint,
+      Instant completedAt,
+      Instant nextReconcileAt,
+      int reconcileAttempts,
+      String lastReconcileError) {
     super(id, rowVersion);
     if (stageAttemptId == null || stageAttemptId <= 0)
       throw new IllegalArgumentException("stageAttemptId must be positive");
@@ -33,6 +47,13 @@ public final class ProviderOperation extends DomainEntity {
     this.status = Objects.requireNonNull(status, "status");
     this.reservedAt = Objects.requireNonNull(reservedAt, "reservedAt");
     this.requestFingerprint = requestFingerprint;
+    this.normalizedResultJson = normalizedResultJson;
+    this.resultFingerprint = resultFingerprint;
+    this.completedAt = completedAt;
+    this.nextReconcileAt = nextReconcileAt;
+    if (reconcileAttempts < 0) throw new IllegalArgumentException("reconcileAttempts must be nonnegative");
+    this.reconcileAttempts = reconcileAttempts;
+    this.lastReconcileError = lastReconcileError;
   }
 
   public static ProviderOperation create(Long stageAttemptId, String providerKey) {
@@ -49,7 +70,13 @@ public final class ProviderOperation extends DomainEntity {
         null,
         ProviderOperationStatus.RESERVED,
         Instant.now(),
-        requestFingerprint);
+        requestFingerprint,
+        null,
+        null,
+        null,
+        null,
+        0,
+        null);
   }
 
   public static ProviderOperation rehydrate(
@@ -61,7 +88,20 @@ public final class ProviderOperation extends DomainEntity {
       ProviderOperationStatus status,
       Instant reservedAt) {
     return new ProviderOperation(
-        id, rowVersion, stageAttemptId, providerKey, providerOperationId, status, reservedAt, null);
+        id,
+        rowVersion,
+        stageAttemptId,
+        providerKey,
+        providerOperationId,
+        status,
+        reservedAt,
+        null,
+        null,
+        null,
+        null,
+        null,
+        0,
+        null);
   }
 
   public static ProviderOperation rehydrate(
@@ -73,6 +113,38 @@ public final class ProviderOperation extends DomainEntity {
       ProviderOperationStatus status,
       Instant reservedAt,
       String requestFingerprint) {
+    return rehydrate(
+        id,
+        rowVersion,
+        stageAttemptId,
+        providerKey,
+        providerOperationId,
+        status,
+        reservedAt,
+        requestFingerprint,
+        null,
+        null,
+        null,
+        null,
+        0,
+        null);
+  }
+
+  public static ProviderOperation rehydrate(
+      Long id,
+      long rowVersion,
+      Long stageAttemptId,
+      String providerKey,
+      String providerOperationId,
+      ProviderOperationStatus status,
+      Instant reservedAt,
+      String requestFingerprint,
+      String normalizedResultJson,
+      String resultFingerprint,
+      Instant completedAt,
+      Instant nextReconcileAt,
+      int reconcileAttempts,
+      String lastReconcileError) {
     return new ProviderOperation(
         id,
         rowVersion,
@@ -81,7 +153,13 @@ public final class ProviderOperation extends DomainEntity {
         providerOperationId,
         status,
         reservedAt,
-        requestFingerprint);
+        requestFingerprint,
+        normalizedResultJson,
+        resultFingerprint,
+        completedAt,
+        nextReconcileAt,
+        reconcileAttempts,
+        lastReconcileError);
   }
 
   public Long getStageAttemptId() {
@@ -106,5 +184,54 @@ public final class ProviderOperation extends DomainEntity {
 
   public String getRequestFingerprint() {
     return requestFingerprint;
+  }
+
+  public String getNormalizedResultJson() {
+    return normalizedResultJson;
+  }
+
+  public String getResultFingerprint() {
+    return resultFingerprint;
+  }
+
+  public Instant getCompletedAt() {
+    return completedAt;
+  }
+
+  public Instant getNextReconcileAt() {
+    return nextReconcileAt;
+  }
+
+  public int getReconcileAttempts() {
+    return reconcileAttempts;
+  }
+
+  public String getLastReconcileError() {
+    return lastReconcileError;
+  }
+
+  public boolean canTransitionTo(ProviderOperationStatus nextStatus) {
+    return allowedPreviousStatuses(nextStatus).contains(status);
+  }
+
+  public static Set<ProviderOperationStatus> allowedPreviousStatuses(
+      ProviderOperationStatus nextStatus) {
+    return switch (Objects.requireNonNull(nextStatus, "nextStatus")) {
+      case UNKNOWN -> EnumSet.of(
+          ProviderOperationStatus.RESERVED,
+          ProviderOperationStatus.SUBMITTED,
+          ProviderOperationStatus.RUNNING);
+      case SUBMITTED -> EnumSet.of(ProviderOperationStatus.UNKNOWN);
+      case RUNNING -> EnumSet.of(ProviderOperationStatus.UNKNOWN, ProviderOperationStatus.SUBMITTED);
+      case COMPLETED -> EnumSet.of(
+          ProviderOperationStatus.UNKNOWN,
+          ProviderOperationStatus.SUBMITTED,
+          ProviderOperationStatus.RUNNING);
+      case FAILED -> EnumSet.of(
+          ProviderOperationStatus.UNKNOWN,
+          ProviderOperationStatus.SUBMITTED,
+          ProviderOperationStatus.RUNNING);
+      case RESERVED -> EnumSet.noneOf(ProviderOperationStatus.class);
+    };
   }
 }

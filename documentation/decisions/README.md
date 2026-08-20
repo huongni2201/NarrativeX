@@ -14,5 +14,6 @@ This directory records decisions that affect more than one feature or change a p
 - [ADR-0008: Redis-backed HTTP sessions](./ADR-0008-redis-backed-http-sessions.md)
 - [ADR-0009: Separate VisualBeat motion mode and camera movement](./ADR-0009-visual-beat-motion-model.md)
 - [ADR-0010: Durable provider operations and admission](./ADR-0010-durable-provider-operation-and-admission.md)
+- [ADR-0014: SQL-first ProviderOperation persistence](./ADR-0014-provider-operation-mybatis-migration.md)
 
 The previous ADR records were consolidated into the canonical files above. Use a new sequential ADR for a new cross-cutting decision.

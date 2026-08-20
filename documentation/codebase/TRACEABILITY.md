@@ -23,7 +23,7 @@ Production readiness gaps remain explicitly tracked.
 | Project/Chapter lifecycle | IMPLEMENTED foundation |
 | Chapter Analyze enqueue | IMPLEMENTED |
 | Safety/entitlement/quota/cost admission | IMPLEMENTED MVP foundation |
-| ProviderOperation durability | IMPLEMENTED foundation; reconciliation workflow continues to mature |
+| ProviderOperation durability | IMPLEMENTED SQL-first slice; reconciliation and billing workflow continues to mature |
 | Worker concurrency | IMPLEMENTED bounded concurrency |
 | Storyboard persistence | IMPLEMENTED foundation |
 | Character continuity | PARTIAL: Character entities exist, Scene relations still incomplete |
