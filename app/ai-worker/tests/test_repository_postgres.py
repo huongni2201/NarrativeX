@@ -198,6 +198,63 @@ async def test_stale_running_lease_is_reclaimed(postgres_database: str) -> None:
 
 
 @pytest.mark.asyncio
+async def test_running_lease_without_heartbeat_is_reclaimed(postgres_database: str) -> None:
+    _, stage_attempt_id = await seed_job(postgres_database, stage_status="RUNNING")
+    connection = await asyncpg.connect(postgres_database)
+    try:
+        await connection.execute(
+            """
+            UPDATE stage_attempts
+               SET worker_id = 'dead-worker',
+                   heartbeat_at = NULL
+             WHERE id = $1
+            """,
+            stage_attempt_id,
+        )
+        await connection.execute("UPDATE generation_jobs SET status = 'RUNNING'")
+    finally:
+        await connection.close()
+
+    repository = WorkerRepository(postgres_database, lease_seconds=30)
+    await repository.connect()
+    try:
+        claimed = await repository.claim_next("replacement-worker")
+    finally:
+        await repository.close()
+
+    assert claimed is not None
+    assert claimed.stage_attempt_id == stage_attempt_id
+
+
+@pytest.mark.asyncio
+async def test_fresh_running_lease_is_not_reclaimed(postgres_database: str) -> None:
+    _, stage_attempt_id = await seed_job(postgres_database, stage_status="RUNNING")
+    connection = await asyncpg.connect(postgres_database)
+    try:
+        await connection.execute(
+            """
+            UPDATE stage_attempts
+               SET worker_id = 'healthy-worker',
+                   heartbeat_at = CURRENT_TIMESTAMP
+             WHERE id = $1
+            """,
+            stage_attempt_id,
+        )
+        await connection.execute("UPDATE generation_jobs SET status = 'RUNNING'")
+    finally:
+        await connection.close()
+
+    repository = WorkerRepository(postgres_database, lease_seconds=30)
+    await repository.connect()
+    try:
+        claimed = await repository.claim_next("other-worker")
+    finally:
+        await repository.close()
+
+    assert claimed is None
+
+
+@pytest.mark.asyncio
 async def test_provider_reservation_is_unique_across_workers(postgres_database: str) -> None:
     generation_job_id, stage_attempt_id = await seed_job(postgres_database)
     claimed = ClaimedChapterAnalysisJob(
