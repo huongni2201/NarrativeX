@@ -118,9 +118,7 @@ public class JdbcProjectOverviewQueryAdapter implements ProjectOverviewQueryRepo
             project.processingJobsCount(),
             overallProgress),
         new ProjectOverviewView.Counts(
-            project.charactersCount(),
-            project.locationsCount(),
-            project.assetsCount()),
+            project.charactersCount(), project.locationsCount(), project.assetsCount()),
         chapters);
   }
 

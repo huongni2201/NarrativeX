@@ -116,7 +116,11 @@ public class ChapterController {
     ApiResponse<ChapterResponse> response =
         updateChapterUseCase.execute(
             new UpdateChapterCommand(
-                projectId, chapterId, expectedRowVersion, request.title(), request.sourceText()));
+                projectId,
+                chapterId,
+                expectedRowVersion,
+                request.title(),
+                request.sourceText()));
     return ResponseEntity.ok()
         .header(HttpHeaders.ETAG, quotedVersion(response.data().rowVersion()))
         .body(response);
