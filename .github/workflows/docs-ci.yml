@@ -1,0 +1,47 @@
+name: Documentation CI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'documentation/**'
+      - 'app/backend-service/README.md'
+      - 'app/ai-worker/README.md'
+      - 'scripts/check-docs-drift.py'
+      - '.github/workflows/docs-ci.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'documentation/**'
+      - 'app/backend-service/README.md'
+      - 'app/ai-worker/README.md'
+      - 'scripts/check-docs-drift.py'
+      - '.github/workflows/docs-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docs-drift:
+    name: Documentation drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Check documentation drift
+        run: python scripts/check-docs-drift.py
