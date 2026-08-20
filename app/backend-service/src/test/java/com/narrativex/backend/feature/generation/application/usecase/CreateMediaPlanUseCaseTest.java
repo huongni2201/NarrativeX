@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.generation.application.command.CreateMediaPlanCommand;
 import com.narrativex.backend.feature.generation.application.port.out.MediaPlanRepository;
+import com.narrativex.backend.feature.generation.application.service.DefaultMotionExecutionPolicy;
 import com.narrativex.backend.feature.generation.application.service.MotionStrategyResolver;
 import com.narrativex.backend.feature.generation.domain.aggregate.MediaPlan;
 import com.narrativex.backend.feature.generation.domain.enums.MotionStrategy;
@@ -34,7 +35,7 @@ class CreateMediaPlanUseCaseTest {
     var chapterSourceAccess = mock(ChapterAnalysisSourceAccess.class);
     var mediaPlanningSourceAccess = mock(MediaPlanningSourceAccess.class);
     var mediaPlanRepository = mock(MediaPlanRepository.class);
-    var resolver = new MotionStrategyResolver();
+    var resolver = new MotionStrategyResolver(new DefaultMotionExecutionPolicy());
     var useCase =
         new CreateMediaPlanUseCase(
             currentUserId,
@@ -58,7 +59,7 @@ class CreateMediaPlanUseCaseTest {
                         8,
                         List.of(
                             new BeatSnapshot(
-                                40L, 0, "Character runs", MotionIntent.AI_VIDEO)))))));
+                                40L, 0, "Character runs", MotionIntent.AI_VIDEO))))));
     when(mediaPlanRepository.nextRevision(10L)).thenReturn(3);
     when(mediaPlanRepository.save(any(MediaPlan.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));

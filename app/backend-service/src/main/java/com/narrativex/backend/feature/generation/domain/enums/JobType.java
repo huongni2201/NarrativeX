@@ -3,6 +3,7 @@ package com.narrativex.backend.feature.generation.domain.enums;
 public enum JobType {
   STORY_ANALYZE,
   CHAPTER_ANALYZE,
+  NARRATION_GENERATE,
   IMAGE_GENERATE,
   CHAPTER_GENERATE,
   CHAPTER_RENDER,
