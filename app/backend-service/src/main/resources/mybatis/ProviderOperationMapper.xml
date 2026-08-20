@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ProviderOperationMapper">
+    <resultMap id="providerOperationRow" type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ProviderOperationRow">
+        <id property="id" column="id" />
+        <result property="rowVersion" column="row_version" />
+        <result property="stageAttemptId" column="stage_attempt_id" />
+        <result property="providerKey" column="provider_key" />
+        <result property="providerOperationId" column="provider_operation_id" />
+        <result property="status" column="status" />
+        <result property="requestFingerprint" column="request_fingerprint" />
+        <result property="normalizedResultJson" column="normalized_result_json" />
+        <result property="resultFingerprint" column="result_fingerprint" />
+        <result property="reservedAt" column="reserved_at" />
+        <result property="completedAt" column="completed_at" />
+        <result property="nextReconcileAt" column="next_reconcile_at" />
+        <result property="reconcileAttempts" column="reconcile_attempts" />
+        <result property="lastReconcileError" column="last_reconcile_error" />
+    </resultMap>
+
+    <sql id="columns">
+        id, row_version, stage_attempt_id, provider_key, provider_operation_id,
+        status, request_fingerprint, normalized_result_json::text AS normalized_result_json,
+        result_fingerprint, reserved_at, completed_at, next_reconcile_at,
+        reconcile_attempts, last_reconcile_error
+    </sql>
+
+    <sql id="dueColumns">
+        po.id, po.row_version, po.stage_attempt_id, po.provider_key, po.provider_operation_id,
+        po.status, po.request_fingerprint,
+        po.normalized_result_json::text AS normalized_result_json,
+        po.result_fingerprint, po.reserved_at, po.completed_at, po.next_reconcile_at,
+        po.reconcile_attempts, po.last_reconcile_error
+    </sql>
+
+    <select id="insert" parameterType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ProviderOperationRow" resultType="long" affectData="true">
+        INSERT INTO provider_operations
+            (stage_attempt_id, provider_key, provider_operation_id, status,
+             request_fingerprint, normalized_result_json, result_fingerprint,
+             reserved_at, completed_at, next_reconcile_at, reconcile_attempts,
+             last_reconcile_error)
+        VALUES
+            (#{stageAttemptId}, #{providerKey}, #{providerOperationId}, #{status},
+             #{requestFingerprint}, CAST(#{normalizedResultJson} AS jsonb), #{resultFingerprint},
+             COALESCE(#{reservedAt}, CURRENT_TIMESTAMP), #{completedAt}, #{nextReconcileAt},
+             #{reconcileAttempts}, #{lastReconcileError})
+        ON CONFLICT (provider_key, request_fingerprint) DO NOTHING
+        RETURNING id
+    </select>
+
+    <update id="update" parameterType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ProviderOperationRow">
+        UPDATE provider_operations
+           SET stage_attempt_id = #{stageAttemptId},
+               provider_key = #{providerKey},
+               provider_operation_id = #{providerOperationId},
+               status = #{status},
+               request_fingerprint = #{requestFingerprint},
+               normalized_result_json = CAST(#{normalizedResultJson} AS jsonb),
+               result_fingerprint = #{resultFingerprint},
+               reserved_at = #{reservedAt},
+               completed_at = #{completedAt},
+               next_reconcile_at = #{nextReconcileAt},
+               reconcile_attempts = #{reconcileAttempts},
+               last_reconcile_error = #{lastReconcileError},
+               updated_at = CURRENT_TIMESTAMP,
+               row_version = row_version + 1
+         WHERE id = #{id}
+           AND row_version = #{rowVersion}
+    </update>
+
+    <select id="findById" resultMap="providerOperationRow">
+        SELECT <include refid="columns" />
+          FROM provider_operations
+         WHERE id = #{id}
+    </select>
+
+    <select id="findByFingerprint" resultMap="providerOperationRow">
+        SELECT <include refid="columns" />
+          FROM provider_operations
+         WHERE provider_key = #{providerKey}
+           AND request_fingerprint = #{requestFingerprint}
+    </select>
+
+    <select id="findByStatus" resultMap="providerOperationRow">
+        SELECT <include refid="columns" />
+          FROM provider_operations
+         WHERE status = #{status}
+         ORDER BY reserved_at, id
+         LIMIT #{limit}
+    </select>
+
+    <select id="findDue" resultMap="providerOperationRow">
+        SELECT <include refid="dueColumns" />
+          FROM provider_operations po
+          JOIN stage_attempts sa ON sa.id = po.stage_attempt_id
+         WHERE po.status IN
+        <foreach collection="statuses" item="status" open="(" separator="," close=")">
+            #{status}
+        </foreach>
+           AND po.next_reconcile_at IS NOT NULL
+           AND po.next_reconcile_at &lt;= CURRENT_TIMESTAMP
+           AND sa.status IN ('RUNNING', 'STALLED', 'UNKNOWN')
+         ORDER BY po.next_reconcile_at, po.reserved_at, po.id
+         LIMIT #{limit}
+    </select>
+
+    <update id="transition">
+        UPDATE provider_operations
+           SET status = #{nextStatus},
+               provider_operation_id = COALESCE(#{providerOperationId}, provider_operation_id),
+               updated_at = CURRENT_TIMESTAMP,
+               row_version = row_version + 1
+         WHERE id = #{id}
+           AND status IN
+        <foreach collection="allowedPrevious" item="status" open="(" separator="," close=")">
+            #{status}
+        </foreach>
+           AND row_version = #{expectedVersion}
+    </update>
+
+    <update id="markSubmissionUnknown">
+        UPDATE provider_operations
+           SET status = 'UNKNOWN',
+               next_reconcile_at = #{nextReconcileAt},
+               last_reconcile_error = NULL,
+               updated_at = CURRENT_TIMESTAMP,
+               row_version = row_version + 1
+         WHERE id = #{id}
+           AND status IN ('RESERVED', 'SUBMITTED', 'RUNNING')
+           AND row_version = #{expectedVersion}
+    </update>
+
+    <update id="persistResult">
+        UPDATE provider_operations
+           SET status = 'COMPLETED',
+               provider_operation_id = COALESCE(#{providerOperationId}, provider_operation_id),
+               normalized_result_json = CAST(#{normalizedResultJson} AS jsonb),
+               result_fingerprint = #{resultFingerprint},
+               completed_at = COALESCE(completed_at, CURRENT_TIMESTAMP),
+               next_reconcile_at = NULL,
+               updated_at = CURRENT_TIMESTAMP,
+               row_version = row_version + 1
+         WHERE id = #{id}
+           AND status IN ('UNKNOWN', 'SUBMITTED', 'RUNNING')
+           AND row_version = #{expectedVersion}
+    </update>
+
+    <update id="recordReconciliationError">
+        UPDATE provider_operations
+           SET reconcile_attempts = reconcile_attempts + 1,
+               next_reconcile_at = #{nextReconcileAt},
+               last_reconcile_error = #{error},
+               updated_at = CURRENT_TIMESTAMP,
+               row_version = row_version + 1
+         WHERE id = #{id}
+           AND status IN ('UNKNOWN', 'SUBMITTED', 'RUNNING')
+           AND row_version = #{expectedVersion}
+    </update>
+</mapper>

@@ -1,0 +1,236 @@
+package com.narrativex.backend.feature.generation.infrastructure.persistence.adapter;
+
+import com.narrativex.backend.feature.generation.application.port.out.ProviderOperationRepository;
+import com.narrativex.backend.feature.generation.domain.entity.ProviderOperation;
+import com.narrativex.backend.feature.generation.domain.enums.ProviderOperationStatus;
+import com.narrativex.backend.feature.generation.domain.exception.InvalidProviderOperationTransitionException;
+import com.narrativex.backend.feature.generation.domain.exception.ProviderOperationResultConflictException;
+import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ProviderOperationMapper;
+import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ProviderOperationRow;
+import io.micrometer.core.instrument.MeterRegistry;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+@Component
+@RequiredArgsConstructor
+@ConditionalOnProperty(
+    name = "narrativex.persistence.provider-operation", havingValue = "mybatis", matchIfMissing = true)
+public class MyBatisProviderOperationPersistenceAdapter implements ProviderOperationRepository {
+  private final ProviderOperationMapper mapper;
+  private final MeterRegistry meterRegistry;
+
+  @Override
+  @Transactional
+  public ProviderOperation save(ProviderOperation operation) {
+    if (operation.getId() == null) {
+      Long insertedId = mapper.insert(toRow(operation));
+      if (insertedId == null) {
+        return findByFingerprint(operation.getProviderKey(), operation.getRequestFingerprint())
+            .orElseThrow(() -> new IllegalStateException("Provider operation reservation disappeared"));
+      }
+      return findById(insertedId)
+          .orElseThrow(() -> new IllegalStateException("Inserted provider operation disappeared"));
+    }
+
+    if (mapper.update(toRow(operation)) != 1) {
+      throw optimisticConflict(operation.getId());
+    }
+    return findById(operation.getId()).orElseThrow(() -> optimisticConflict(operation.getId()));
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public Optional<ProviderOperation> findById(Long id) {
+    return Optional.ofNullable(mapper.findById(id)).map(MyBatisProviderOperationPersistenceAdapter::toDomain);
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public Optional<ProviderOperation> findByFingerprint(
+      String providerKey, String requestFingerprint) {
+    return Optional.ofNullable(mapper.findByFingerprint(providerKey, requestFingerprint))
+        .map(MyBatisProviderOperationPersistenceAdapter::toDomain);
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public List<ProviderOperation> findByStatus(ProviderOperationStatus status, int limit) {
+    return mapper.findByStatus(status, Math.max(1, limit)).stream()
+        .map(MyBatisProviderOperationPersistenceAdapter::toDomain)
+        .toList();
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public List<ProviderOperation> findDueForReconciliation(
+      List<ProviderOperationStatus> statuses, int limit) {
+    if (statuses == null || statuses.isEmpty()) return List.of();
+    return mapper.findDue(statuses, Math.max(1, limit)).stream()
+        .map(MyBatisProviderOperationPersistenceAdapter::toDomain)
+        .toList();
+  }
+
+  @Override
+  @Transactional
+  public ProviderOperation transition(
+      Long id, long expectedVersion, ProviderOperationStatus nextStatus, String providerOperationId) {
+    ProviderOperation current = require(id);
+    requireTransition(current, nextStatus);
+    int affected =
+        mapper.transition(
+            id,
+            List.copyOf(ProviderOperation.allowedPreviousStatuses(nextStatus)),
+            nextStatus,
+            providerOperationId,
+            expectedVersion);
+    if (affected != 1) {
+      increment("provider_operation.transition.conflict");
+      throw optimisticConflict(id);
+    }
+    increment("provider_operation.transition.success");
+    return require(id);
+  }
+
+  @Override
+  @Transactional
+  public ProviderOperation markSubmissionUnknown(
+      Long id, long expectedVersion, Instant nextReconcileAt) {
+    ProviderOperation current = require(id);
+    requireTransition(current, ProviderOperationStatus.UNKNOWN);
+    if (mapper.markSubmissionUnknown(id, expectedVersion, nextReconcileAt) != 1) {
+      increment("provider_operation.transition.conflict");
+      throw optimisticConflict(id);
+    }
+    increment("provider_operation.transition.success");
+    return require(id);
+  }
+
+  @Override
+  @Transactional
+  public ProviderOperation persistResult(
+      Long id,
+      long expectedVersion,
+      String providerOperationId,
+      String normalizedResultJson,
+      String resultFingerprint) {
+    if (normalizedResultJson == null || normalizedResultJson.isBlank()) {
+      throw new IllegalArgumentException("normalizedResultJson must not be blank");
+    }
+    if (resultFingerprint == null || resultFingerprint.isBlank()) {
+      throw new IllegalArgumentException("resultFingerprint must not be blank");
+    }
+
+    ProviderOperation current = require(id);
+    if (current.getStatus() == ProviderOperationStatus.COMPLETED) {
+      return resolveCompletedResult(current, resultFingerprint);
+    }
+    requireTransition(current, ProviderOperationStatus.COMPLETED);
+    int affected =
+        mapper.persistResult(
+            id, expectedVersion, providerOperationId, normalizedResultJson, resultFingerprint);
+    if (affected != 1) {
+      ProviderOperation latest = require(id);
+      if (latest.getStatus() == ProviderOperationStatus.COMPLETED) {
+        return resolveCompletedResult(latest, resultFingerprint);
+      }
+      increment("provider_operation.transition.conflict");
+      throw optimisticConflict(id);
+    }
+    increment("provider_operation.transition.success");
+    return require(id);
+  }
+
+  @Override
+  @Transactional
+  public ProviderOperation recordReconciliationError(
+      Long id, long expectedVersion, String error, Instant nextReconcileAt) {
+    if (require(id).getStatus().isTerminal()) {
+      throw new InvalidProviderOperationTransitionException(
+          "Provider operation " + id + " cannot record reconciliation metadata after termination");
+    }
+    if (mapper.recordReconciliationError(id, expectedVersion, error, nextReconcileAt) != 1) {
+      increment("provider_operation.transition.conflict");
+      throw optimisticConflict(id);
+    }
+    increment("provider_operation.transition.success");
+    return require(id);
+  }
+
+  private ProviderOperation require(Long id) {
+    return findById(id).orElseThrow(() -> optimisticConflict(id));
+  }
+
+  private static void requireTransition(
+      ProviderOperation current, ProviderOperationStatus nextStatus) {
+    if (!current.canTransitionTo(nextStatus)) {
+      throw new InvalidProviderOperationTransitionException(
+          "Provider operation "
+              + current.getId()
+              + " cannot transition from "
+              + current.getStatus()
+              + " to "
+              + nextStatus);
+    }
+  }
+
+  private ProviderOperation resolveCompletedResult(
+      ProviderOperation current, String resultFingerprint) {
+    if (resultFingerprint.equals(current.getResultFingerprint())) {
+      increment("provider_operation.result.idempotent");
+      return current;
+    }
+    increment("provider_operation.result.conflict");
+    throw new ProviderOperationResultConflictException(
+        "Provider operation " + current.getId() + " already has a different result");
+  }
+
+  private void increment(String metricName) {
+    meterRegistry.counter(metricName).increment();
+  }
+
+  private static ObjectOptimisticLockingFailureException optimisticConflict(Long id) {
+    return new ObjectOptimisticLockingFailureException(ProviderOperation.class, id);
+  }
+
+  private static ProviderOperationRow toRow(ProviderOperation operation) {
+    return new ProviderOperationRow(
+        operation.getId(),
+        operation.getRowVersion(),
+        operation.getStageAttemptId(),
+        operation.getProviderKey(),
+        operation.getProviderOperationId(),
+        operation.getStatus(),
+        operation.getRequestFingerprint(),
+        operation.getNormalizedResultJson(),
+        operation.getResultFingerprint(),
+        operation.getReservedAt(),
+        operation.getCompletedAt(),
+        operation.getNextReconcileAt(),
+        operation.getReconcileAttempts(),
+        operation.getLastReconcileError());
+  }
+
+  private static ProviderOperation toDomain(ProviderOperationRow row) {
+    return ProviderOperation.rehydrate(
+        row.getId(),
+        row.getRowVersion(),
+        row.getStageAttemptId(),
+        row.getProviderKey(),
+        row.getProviderOperationId(),
+        row.getStatus(),
+        row.getReservedAt(),
+        row.getRequestFingerprint(),
+        row.getNormalizedResultJson(),
+        row.getResultFingerprint(),
+        row.getCompletedAt(),
+        row.getNextReconcileAt(),
+        row.getReconcileAttempts(),
+        row.getLastReconcileError());
+  }
+}

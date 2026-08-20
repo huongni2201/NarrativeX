@@ -35,6 +35,11 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: false
 
+mybatis:
+  mapper-locations: classpath*:mybatis/*.xml
+  configuration:
+    map-underscore-to-camel-case: false
+
 server:
   port: ${PORT:8080}
   forward-headers-strategy: framework
@@ -47,6 +52,8 @@ server:
         same-site: lax
 
 narrativex:
+  persistence:
+    provider-operation: ${NARRATIVEX_PROVIDER_OPERATION_PERSISTENCE:mybatis}
   limits:
     max-story-characters: ${NARRATIVEX_MAX_STORY_CHARACTERS:500000}
     max-estimated-input-tokens: ${NARRATIVEX_MAX_ESTIMATED_INPUT_TOKENS:120000}

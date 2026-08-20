@@ -14,6 +14,8 @@
 |---|---|---|
 | V1 `initial_schema` | Auth, project/story/chapter foundations, generation tables, storyboard (split motion/camera), durable provider operations & admission limits, canonical execution constraints and control plane | Consolidated baseline |
 | V2 `seed_demo_data` | Deterministic development/demo seed with canonical execution enums and valid plan credits | Development only |
+| V3–V8 | Continuity, durable provider results, quota lifecycle, project-scoped identities, storyboard revisions and provider reconciliation | Forward migrations |
+| V9 `provider_operation_result_fingerprint` | Fingerprint evidence for idempotent terminal provider results | Implemented |
 
 Migration history is forward-only. Development re-baselines must not be treated as a production migration rewrite strategy.
 
@@ -28,7 +30,7 @@ Migration history is forward-only. Development re-baselines must not be treated 
 | VisualBeat | `visual_beats` | IMPLEMENTED FOUNDATION | motion/camera split |
 | GenerationJob | `generation_jobs` | IMPLEMENTED FOUNDATION | durable async execution state |
 | StageAttempt | `stage_attempts` | IMPLEMENTED FOUNDATION | lease/attempt model |
-| ProviderOperation | `provider_operations` | IMPLEMENTED FOUNDATION | durable provider boundary before external submit |
+| ProviderOperation | `provider_operations` | IMPLEMENTED SQL-FIRST SLICE | durable provider boundary, CAS lifecycle, reconciliation and result fingerprint |
 | OperationPlan | `operation_plans` | IMPLEMENTED MVP FOUNDATION | estimate/cap/admission link; not complete billing ledger |
 | Usage reservation | `usage_windows` / related quota state | IMPLEMENTED MVP FOUNDATION | atomic admission reservation |
 
@@ -94,6 +96,7 @@ Mutable entities use row version protection:
 
 - JPA `@Version` protects persistence writes.
 - Domain adapters compare expected row version before applying detached changes.
+- The ProviderOperation MyBatis adapter enforces allowed status plus expected `row_version` in SQL; zero affected rows are conflicts.
 - Public mutable APIs should expose ETag / `If-Match` semantics.
 - Stale writes must return conflict, not last-write-wins.
 

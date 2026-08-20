@@ -26,6 +26,7 @@
         <jacoco.version>0.8.14</jacoco.version>
         <pdfbox.version>3.0.8</pdfbox.version>
         <jacoco.minimum.line.coverage>0.15</jacoco.minimum.line.coverage>
+        <mybatis-spring-boot.version>4.1.0</mybatis-spring-boot.version>
     </properties>
 
     <dependencies>
@@ -40,6 +41,11 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.mybatis.spring.boot</groupId>
+            <artifactId>mybatis-spring-boot-starter</artifactId>
+            <version>${mybatis-spring-boot.version}</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
