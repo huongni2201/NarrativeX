@@ -1,6 +1,6 @@
 # NarrativeX System Architecture
 
-**Status:** V1.10 current architecture and implementation boundary.  
+**Status:** V1.10 current architecture and implementation boundary.
 **Canonical source:** `../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_10.md`.
 
 ## Architectural stance
@@ -83,9 +83,11 @@ The worker is not a public HTTP/FastAPI service and does not own browser authori
 Current provider lifecycle foundation:
 
 ```text
-RESERVED -> SUBMITTED -> RUNNING -> COMPLETED
-                         \-> FAILED
-ambiguity/timeout -> UNKNOWN -> reconcile
+RESERVED -> UNKNOWN -> SUBMITTED -> RUNNING -> COMPLETED
+                    \-> RUNNING | COMPLETED | FAILED
+SUBMITTED -> UNKNOWN | COMPLETED | FAILED
+RUNNING -> UNKNOWN | COMPLETED | FAILED
+COMPLETED | FAILED -> terminal
 ```
 
 Tests cover restart reconciliation for persisted `RESERVED`/`SUBMITTED`, timeout-to-`UNKNOWN`, completed-result replay after a crash and lease-loss cancellation. Production hardening still requires broader provider-specific recovery/usage/observability evidence.

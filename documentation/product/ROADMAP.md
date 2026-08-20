@@ -1,6 +1,6 @@
 # NarrativeX — V1.10 Roadmap
 
-**Canonical baseline:** `../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_10.md`  
+**Canonical baseline:** `../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_10.md`
 **Planning rule:** milestones are dependency order, not fixed-date commitments.
 
 ## Current checkpoint

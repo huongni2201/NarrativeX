@@ -1,6 +1,6 @@
 # NarrativeX — Product Specification V1.10
 
-**Status:** maintained product contract  
+**Status:** maintained product contract
 **Canonical source:** [`../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_10.md`](../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_10.md)  
 **Implementation evidence:** [`../TRACEABILITY.md`](../TRACEABILITY.md)
 
@@ -100,5 +100,5 @@ Chapter Persisted
 
 Before public beta, NarrativeX still needs the downstream media pipeline plus complete billing reconciliation, broader moderation/consent/abuse coverage, deletion/retention, backup/restore, observability and real-provider E2E/recovery evidence.
 
-Detailed feature inventory: [FEATURE_CATALOG.md](FEATURE_CATALOG.md).  
+Detailed feature inventory: [FEATURE_CATALOG.md](FEATURE_CATALOG.md).
 Business invariants: [../domain/BUSINESS_RULES.md](../domain/BUSINESS_RULES.md).

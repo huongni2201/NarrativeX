@@ -77,6 +77,7 @@ class PostgreSqlMigrationIntegrationTest {
       assertFalse(columnExists(connection, "visual_beats", "motion_action"));
       assertTrue(indexExists(connection, "idx_visual_beats_scene_review_order"));
       assertTrue(indexExists(connection, "idx_generation_jobs_project_status"));
+      assertTrue(indexExists(connection, "idx_stage_attempts_running_heartbeat"));
       assertTrue(indexExists(connection, "idx_scenes_chapter_status"));
       assertTrue(columnExists(connection, "scenes", "project_location_id"));
       assertTrue(tableExists(connection, "scene_characters"));
@@ -99,13 +100,7 @@ class PostgreSqlMigrationIntegrationTest {
       assertFalse(tableExists(connection, "content_rights_attestations"));
       assertTrue(columnExists(connection, "operation_plans", "generation_job_id"));
       assertTrue(columnExists(connection, "provider_operations", "request_fingerprint"));
-      assertTrue(columnExists(connection, "provider_operations", "result_fingerprint"));
       assertTrue(indexExists(connection, "uq_provider_operation_fingerprint"));
-      assertTrue(
-          constraintExists(
-              connection,
-              "provider_operations",
-              "ck_provider_operations_completed_has_fingerprint"));
       assertTrue(columnExists(connection, "plan_entitlements", "monthly_credits"));
       assertTrue(tableExists(connection, "quota_reservations"));
       assertTrue(indexExists(connection, "idx_quota_reservations_active_user"));

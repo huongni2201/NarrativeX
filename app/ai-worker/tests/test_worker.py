@@ -1,6 +1,7 @@
 """Tests for the NarrativeX Chapter analysis worker."""
 
 import asyncio
+from dataclasses import replace
 
 import pytest
 from pydantic import ValidationError
@@ -15,8 +16,11 @@ from narrativex_worker.providers.ports import (
 )
 from narrativex_worker.providers.vertex import VertexProviderError
 from narrativex_worker.repository import (
+    ALLOWED_PROVIDER_TRANSITIONS,
     ClaimedChapterAnalysisJob,
     DurableProviderOperation,
+    ProviderOperationInvalidTransitionError,
+    WorkerRepository,
     provider_request_fingerprint,
 )
 from narrativex_worker.schema import (
@@ -202,6 +206,24 @@ def test_provider_terminal_status_is_completed() -> None:
     assert "SUCCEEDED" not in {status.value for status in ProviderOperationStatus}
 
 
+def test_provider_operation_state_graph_rejects_illegal_transitions() -> None:
+    for current_status, allowed_next in ALLOWED_PROVIDER_TRANSITIONS.items():
+        operation = DurableProviderOperation(
+            id=1,
+            stage_attempt_id=2,
+            provider_key="vertex",
+            provider_operation_id=None,
+            status=current_status,
+            row_version=5,
+            request_fingerprint="fingerprint",
+        )
+        for next_status in ProviderOperationStatus:
+            if next_status in allowed_next:
+                continue
+            with pytest.raises(ProviderOperationInvalidTransitionError):
+                WorkerRepository._assert_transition_allowed(operation, next_status)
+
+
 def test_provider_request_fingerprint_is_restart_stable() -> None:
     claimed = ClaimedChapterAnalysisJob(
         stage_attempt_id=10,
@@ -254,84 +276,76 @@ class DurableRepositorySpy:
         self.reconcile_errors: list[str] = []
         self.reconcile_statuses: tuple[ProviderOperationStatus, ...] | None = None
         self.listed_operations: list[DurableProviderOperation] = []
+        self.row_version = 0
+
+    def operation(self, provider_operation_id: str | None = None) -> DurableProviderOperation:
+        return DurableProviderOperation(
+            id=100,
+            stage_attempt_id=10,
+            provider_key="vertex",
+            provider_operation_id=provider_operation_id or self.submit_id,
+            status=self.status or ProviderOperationStatus.RESERVED,
+            row_version=self.row_version,
+            request_fingerprint="f",
+            normalized_result=self.normalized_result,
+        )
 
     async def reserve_provider_operation(
         self, claimed: ClaimedChapterAnalysisJob, provider_key: str, fingerprint: str
     ) -> DurableProviderOperation:
         del claimed, provider_key
         created = self.status is None
-        return DurableProviderOperation(
-            id=100,
-            stage_attempt_id=10,
-            provider_key="vertex",
-            provider_operation_id=self.submit_id if self.status else None,
-            status=self.status or ProviderOperationStatus.RESERVED,
+        return replace(
+            self.operation(self.submit_id if self.status else None),
             request_fingerprint=fingerprint,
-            normalized_result=self.normalized_result,
             created=created,
         )
 
     async def mark_provider_operation_submitted(
-        self, operation_id: int, provider_operation_id: str | None
+        self, operation: DurableProviderOperation, provider_operation_id: str | None
     ) -> DurableProviderOperation:
-        del operation_id
+        self.row_version = operation.row_version + 1
         self.status = ProviderOperationStatus.SUBMITTED
         self.status_history.append(self.status)
-        return DurableProviderOperation(
-            100,
-            10,
-            "vertex",
-            provider_operation_id,
-            self.status,
-            "f",
-            self.normalized_result,
-        )
+        return self.operation(provider_operation_id)
 
     async def mark_provider_operation_submission_unknown(
-        self, operation_id: int, reconcile_after_seconds: float
+        self, operation: DurableProviderOperation, reconcile_after_seconds: float
     ) -> DurableProviderOperation:
-        del operation_id, reconcile_after_seconds
+        del reconcile_after_seconds
+        self.row_version = operation.row_version + 1
         self.status = ProviderOperationStatus.UNKNOWN
         self.status_history.append(self.status)
-        return DurableProviderOperation(
-            100,
-            10,
-            "vertex",
-            None,
-            self.status,
-            "f",
-            self.normalized_result,
-        )
+        return self.operation(None)
 
     async def schedule_provider_operation_reconciliation(
         self,
-        operation_id: int,
+        operation: DurableProviderOperation,
         status: ProviderOperationStatus,
         provider_operation_id: str,
         *,
         error: str | None = None,
     ) -> DurableProviderOperation:
-        del operation_id, error
+        del error
+        self.row_version = operation.row_version + 1
         self.status = status
         self.submit_id = provider_operation_id
         self.status_history.append(status)
-        return DurableProviderOperation(
-            100,
-            10,
-            "vertex",
-            provider_operation_id,
-            status,
-            "f",
-            self.normalized_result,
-        )
+        return self.operation(provider_operation_id)
 
-    async def record_provider_reconcile_error(self, operation_id: int, error: str) -> None:
-        del operation_id
+    async def record_provider_reconcile_error(
+        self, operation: DurableProviderOperation, error: str
+    ) -> DurableProviderOperation:
+        self.row_version = operation.row_version + 1
         self.reconcile_errors.append(error)
+        return self.operation()
 
-    async def suspend_provider_reconciliation(self, operation_id: int, error: str) -> None:
-        del operation_id
+    async def suspend_provider_reconciliation(
+        self, operation: DurableProviderOperation, error: str
+    ) -> DurableProviderOperation:
+        self.row_version = operation.row_version + 1
         self.suspended_errors.append(error)
+        return self.operation()
 
     async def list_provider_operations(
         self, statuses: tuple[ProviderOperationStatus, ...], limit: int = 50
@@ -342,42 +356,30 @@ class DurableRepositorySpy:
 
     async def persist_provider_result(
         self,
-        operation_id: int,
+        operation: DurableProviderOperation,
         provider_operation_id: str | None,
         result: ChapterAnalysisResult,
     ) -> DurableProviderOperation:
-        del operation_id
+        self.row_version = operation.row_version + 1
         self.status = ProviderOperationStatus.COMPLETED
         self.normalized_result = result
         self.status_history.append(self.status)
-        return DurableProviderOperation(
-            100,
-            10,
-            "vertex",
-            provider_operation_id,
-            self.status,
-            "f",
-            result,
-        )
+        return self.operation(provider_operation_id)
 
     async def mark_provider_operation_status(
         self,
-        operation_id: int,
+        operation: DurableProviderOperation,
         status: ProviderOperationStatus,
         provider_operation_id: str | None = None,
     ) -> DurableProviderOperation:
-        del operation_id
+        self.row_version = operation.row_version + 1
         self.status = status
         self.status_history.append(status)
-        return DurableProviderOperation(
-            100,
-            10,
-            "vertex",
-            provider_operation_id,
-            status,
-            "f",
-            self.normalized_result,
-        )
+        return self.operation(provider_operation_id)
+
+    async def get_provider_operation(self, operation_id: int) -> DurableProviderOperation:
+        del operation_id
+        return self.operation()
 
     async def complete(self, *args: object) -> None:
         del args
@@ -484,6 +486,7 @@ async def test_unknown_restart_without_provider_operation_id_fails_closed() -> N
         provider_key="vertex",
         provider_operation_id=None,
         status=ProviderOperationStatus.UNKNOWN,
+        row_version=0,
         request_fingerprint="f",
     )
     with pytest.raises(ProviderOperationUnreconcilableError, match="refusing blind"):
@@ -586,6 +589,7 @@ async def test_background_reconciler_suspends_provider_without_reconciliation() 
             provider_key="vertex",
             provider_operation_id="vertex-op-1",
             status=ProviderOperationStatus.SUBMITTED,
+            row_version=0,
             request_fingerprint="f",
         )
     ]
