@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.generation.infrastructure.persistence.adapter;
 
+import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.infrastructure.persistence.OptimisticConcurrency;
 import com.narrativex.backend.feature.generation.application.port.out.ProviderOperationRepository;
 import com.narrativex.backend.feature.generation.domain.entity.ProviderOperation;
@@ -31,22 +32,26 @@ public class ProviderOperationPersistenceAdapter implements ProviderOperationRep
           findByFingerprint(operation.getProviderKey(), operation.getRequestFingerprint());
       if (existing.isPresent()) return existing.get();
     }
-    ProviderOperationJpaEntity entity =
-        operation.getId() == null
-            ? build(operation)
-            : repository
-                .findById(operation.getId())
-                .map(
-                    existing -> {
-                      OptimisticConcurrency.requireVersion(
-                          operation.getRowVersion(),
-                          existing.getRowVersion(),
-                          ProviderOperationJpaEntity.class,
-                          operation.getId());
-                      apply(existing, operation);
-                      return existing;
-                    })
-                .orElseGet(() -> build(operation));
+    ProviderOperationJpaEntity entity;
+    if (operation.getId() == null) {
+      entity = build(operation);
+    } else {
+      entity =
+          repository
+              .findById(operation.getId())
+              .orElseThrow(
+                  () ->
+                      new ResourceNotFoundException(
+                          "ProviderOperation "
+                              + operation.getId()
+                              + " no longer exists while applying an update"));
+      OptimisticConcurrency.requireVersion(
+          operation.getRowVersion(),
+          entity.getRowVersion(),
+          ProviderOperationJpaEntity.class,
+          operation.getId());
+      apply(entity, operation);
+    }
     return toDomain(repository.saveAndFlush(entity));
   }
 

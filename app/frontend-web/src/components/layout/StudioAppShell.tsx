@@ -38,6 +38,12 @@ const AssetLibraryScreen = dynamic(() =>
 const StylePresetsScreen = dynamic(() =>
   import("@/features/presets/StylePresetsScreen").then((module) => module.StylePresetsScreen),
 );
+const JobHistoryScreen = dynamic(() =>
+  import("@/features/history/JobHistoryScreen").then((module) => module.JobHistoryScreen),
+);
+const NotificationScreen = dynamic(() =>
+  import("@/features/notifications/NotificationScreen").then((module) => module.NotificationScreen),
+);
 
 type StudioRouteScreen = Extract<
   ScreenType,
@@ -49,6 +55,8 @@ type StudioRouteScreen = Extract<
   | "characters"
   | "assets"
   | "presets"
+  | "history"
+  | "notifications"
 >;
 
 interface StudioAppShellProps {
@@ -66,6 +74,8 @@ const screenTitles: Record<StudioRouteScreen, string> = {
   characters: "Thư viện nhân vật",
   assets: "Thư viện tài sản (Asset Library)",
   presets: "Mẫu & Phong cách (Style & Presets)",
+  history: "Lịch sử công việc",
+  notifications: "Trung tâm thông báo",
 };
 
 export function StudioAppShell({
@@ -126,6 +136,8 @@ export function StudioAppShell({
           {screen === "characters" && <CharacterLibrary />}
           {screen === "assets" && <AssetLibraryScreen />}
           {screen === "presets" && <StylePresetsScreen />}
+          {screen === "history" && <JobHistoryScreen />}
+          {screen === "notifications" && <NotificationScreen />}
         </main>
       </div>
 

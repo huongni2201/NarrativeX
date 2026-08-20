@@ -17,9 +17,11 @@ This matrix records frontend wiring separately from backend/API availability. AP
 | Characters | IMPLEMENTED foundation | Character/project-character APIs | version diff/lock/reference management |
 | Project Locations | IMPLEMENTED foundation | Location read API + AI Location materialization | richer edit/reference workflows |
 | Project Assets | IMPLEMENTED foundation | Asset read/create foundations | upload/finalize/delete/review lifecycle |
-| Job History | PENDING frontend | backend read exists | history UI/filters |
-| User Quota | PENDING frontend | backend read/admission exists | render real quota/credit state |
-| Notifications | PENDING frontend | backend read/mark-read exists | notification-center wiring + delivery lifecycle |
+| Job History | IMPLEMENTED foundation | backend read (`/api/v1/jobs/history`) | history table/filters/pagination |
+| User Quota | IMPLEMENTED foundation | backend read (`/api/v1/users/me/quota`) | quota details modal & usage breakdown |
+| Notifications | IMPLEMENTED foundation | backend read/mark-read (`/api/v1/notifications`) | notification drawer, page & unread badges |
+| Chapter Narration | IMPLEMENTED foundation | backend narration jobs (`/narration-jobs`) | voice catalog modal & TTS generation |
+| Provider Health | IMPLEMENTED foundation | backend read (`/api/v1/provider-health`) | status indicator badge & model info |
 | Presets | PENDING | complete backend CRUD not established | backend contract + integration |
 | Render/export | PENDING | media pipeline not implemented end-to-end | image/TTS/render/export |
 | Settings | PARTIAL | partial/local contracts | define persisted settings boundaries |
