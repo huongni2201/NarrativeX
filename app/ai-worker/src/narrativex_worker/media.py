@@ -62,11 +62,15 @@ class VisualScenePlan(BaseModel):
         if self.source_text_end < self.source_text_start:
             raise ValueError("source_text_end must be greater than or equal to source_text_start")
 
-        if self.asset_strategy in {
-            VisualAssetStrategy.REUSE_APPROVED,
-            VisualAssetStrategy.REFRAME_DERIVED,
-            VisualAssetStrategy.EDIT_EXISTING,
-        } and not self.source_asset_id:
+        if (
+            self.asset_strategy
+            in {
+                VisualAssetStrategy.REUSE_APPROVED,
+                VisualAssetStrategy.REFRAME_DERIVED,
+                VisualAssetStrategy.EDIT_EXISTING,
+            }
+            and not self.source_asset_id
+        ):
             raise ValueError(f"{self.asset_strategy} requires source_asset_id")
 
         if self.motion_strategy is MotionStrategy.IMAGE_TO_VIDEO:
