@@ -4,12 +4,12 @@ import argparse
 import asyncio
 import sys
 
-from narrativex_worker.config import get_settings
+from narrativex_worker.config import WorkerSettings, get_settings
+from narrativex_worker.narration.runner import NarrationWorkerRunner
 from narrativex_worker.worker import NarrativeXWorker
 
 
 def parse_args() -> argparse.Namespace:
-    """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="NarrativeX AI Worker")
     parser.add_argument(
         "--dry-run",
@@ -19,14 +19,42 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+async def run_workers(settings: WorkerSettings, *, dry_run: bool) -> None:
+    analysis_worker = NarrativeXWorker(settings=settings)
+    narration_worker = NarrationWorkerRunner(settings=settings)
+    if dry_run:
+        await analysis_worker.start(dry_run=True)
+        await narration_worker.start(dry_run=True)
+        return
+
+    analysis_task = asyncio.create_task(analysis_worker.start())
+    if not narration_worker.enabled:
+        await analysis_task
+        return
+
+    narration_task = asyncio.create_task(narration_worker.start())
+    try:
+        done, _ = await asyncio.wait(
+            {analysis_task, narration_task}, return_when=asyncio.FIRST_COMPLETED
+        )
+        for task in done:
+            await task
+        if narration_task in done and analysis_worker._running:
+            raise RuntimeError("Narration worker stopped unexpectedly")
+    finally:
+        analysis_worker.stop()
+        narration_worker.stop()
+        for task in (analysis_task, narration_task):
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(analysis_task, narration_task, return_exceptions=True)
+
+
 def main() -> None:
-    """Execute main worker process."""
     args = parse_args()
     settings = get_settings()
-    worker = NarrativeXWorker(settings=settings)
-
     try:
-        asyncio.run(worker.start(dry_run=args.dry_run))
+        asyncio.run(run_workers(settings, dry_run=args.dry_run))
     except KeyboardInterrupt:
         pass
     sys.exit(0)

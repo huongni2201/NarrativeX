@@ -4,6 +4,14 @@ from typing import Protocol
 from narrativex_worker.narration.models import NarrationSegment, SynthesizedSegment
 
 
+class TtsProviderRejectedError(RuntimeError):
+    """Provider rejected the request before producing billable audio."""
+
+
+class TtsProviderUnknownError(RuntimeError):
+    """Provider outcome may have been accepted; never blind-resubmit."""
+
+
 @dataclass(frozen=True)
 class TtsRequest:
     request_id: str
@@ -16,11 +24,18 @@ class TtsRequest:
 
 
 class TtsProvider(Protocol):
+    @property
+    def provider_key(self) -> str: ...
+
     async def synthesize(self, request: TtsRequest) -> SynthesizedSegment: ...
 
 
 class FakeTtsProvider:
     """Deterministic 16-bit PCM provider for unit and acceptance tests."""
+
+    @property
+    def provider_key(self) -> str:
+        return "fake-tts"
 
     async def synthesize(self, request: TtsRequest) -> SynthesizedSegment:
         text_units = request.segment.text_end - request.segment.text_start

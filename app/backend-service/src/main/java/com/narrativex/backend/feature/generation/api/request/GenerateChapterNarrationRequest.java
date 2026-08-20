@@ -7,7 +7,7 @@ import java.math.BigDecimal;
 
 public record GenerateChapterNarrationRequest(
     @NotBlank String voiceId,
-    @DecimalMin("0.25") @DecimalMax("4.0") BigDecimal speakingRate) {
+    @DecimalMin("0.25") @DecimalMax("2.0") BigDecimal speakingRate) {
   public BigDecimal effectiveSpeakingRate() {
     return speakingRate == null ? BigDecimal.ONE : speakingRate;
   }

@@ -7,7 +7,9 @@ import org.springframework.stereotype.Component;
 /** Admission-only conservative ceiling. Actual provider usage remains authoritative for settlement. */
 @Component
 public class NarrationCostEstimator {
-  private static final BigDecimal AUTHORIZATION_USD_PER_1K_CHARACTERS = new BigDecimal("0.040000");
+  // Covers the most expensive currently supported Google legacy voice tier (Studio) without
+  // teaching the backend which provider/voice will execute the request.
+  private static final BigDecimal AUTHORIZATION_USD_PER_1K_CHARACTERS = new BigDecimal("0.160000");
   private static final BigDecimal AUTHORIZATION_MULTIPLIER = new BigDecimal("1.250000");
 
   public NarrationCostEstimate estimate(String sourceText) {
@@ -22,6 +24,7 @@ public class NarrationCostEstimator {
             .setScale(6, RoundingMode.UP);
     BigDecimal maxAuthorized =
         estimateMax.multiply(AUTHORIZATION_MULTIPLIER).setScale(6, RoundingMode.UP);
-    return new NarrationCostEstimate(characters, BigDecimal.ZERO.setScale(6), estimateMax, maxAuthorized);
+    return new NarrationCostEstimate(
+        characters, BigDecimal.ZERO.setScale(6), estimateMax, maxAuthorized);
   }
 }
