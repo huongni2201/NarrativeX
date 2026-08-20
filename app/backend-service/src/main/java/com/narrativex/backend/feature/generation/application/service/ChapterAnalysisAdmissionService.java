@@ -38,7 +38,7 @@ public class ChapterAnalysisAdmissionService {
   }
 
   private static void requireEntitled(UserQuotaAccess.QuotaSnapshot quota) {
-    if (!quota.features().storyAnalysis()) {
+    if (!quota.features().storyAnalysisEnabled()) {
       throw new FeatureNotAvailableException("Story analysis is not enabled for this plan.");
     }
   }

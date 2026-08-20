@@ -23,7 +23,21 @@ class PlanFeaturesTest {
             """,
             PlanFeatures.class);
 
-    assertTrue(features.storyAnalysis());
+    assertTrue(features.storyAnalysisEnabled());
+  }
+
+  @Test
+  void missingStoryAnalysisDefaultsToFalse() throws JacksonException {
+    PlanFeatures features = jsonMapper.readValue("{}", PlanFeatures.class);
+
+    assertFalse(features.storyAnalysisEnabled());
+  }
+
+  @Test
+  void explicitNullStoryAnalysisDefaultsToFalse() throws JacksonException {
+    PlanFeatures features = jsonMapper.readValue("{\"storyAnalysis\":null}", PlanFeatures.class);
+
+    assertFalse(features.storyAnalysisEnabled());
   }
 
   @Test
@@ -39,6 +53,6 @@ class PlanFeaturesTest {
             """,
             PlanFeatures.class);
 
-    assertFalse(features.storyAnalysis());
+    assertFalse(features.storyAnalysisEnabled());
   }
 }
