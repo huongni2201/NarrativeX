@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.account.infrastructure.persistence.adapter;
 
+import com.narrativex.backend.feature.account.application.port.in.PlanFeatures;
 import com.narrativex.backend.feature.account.application.port.in.UserQuotaAccess;
 import com.narrativex.backend.feature.account.application.port.out.UserQuotaQueryRepository;
 import com.narrativex.backend.feature.account.application.query.UserQuotaView;
@@ -9,13 +10,17 @@ import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataRetrievalFailureException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.json.JsonMapper;
 
 @Component
 @RequiredArgsConstructor
 public class JdbcUserQuotaQueryAdapter implements UserQuotaQueryRepository, UserQuotaAccess {
   private final JdbcTemplate jdbcTemplate;
+  private final JsonMapper jsonMapper;
 
   @Override
   public Optional<UserQuotaView> findCurrent(String userId) {
@@ -79,11 +84,23 @@ public class JdbcUserQuotaQueryAdapter implements UserQuotaQueryRepository, User
         .map(
             quota ->
                 new UserQuotaAccess.QuotaSnapshot(
-                    quota.featureFlagsJson(),
+                    parseFeatures(quota.featureFlagsJson()),
                     quota.maxConcurrentExpensiveJobs(),
                     quota.expensiveJobsActive(),
                     quota.creditsUsed(),
                     quota.totalCredits()));
+  }
+
+  private PlanFeatures parseFeatures(String json) {
+    if (json == null || json.isBlank()) {
+      return PlanFeatures.none();
+    }
+    try {
+      return jsonMapper.readValue(json, PlanFeatures.class);
+    } catch (JacksonException exception) {
+      throw new DataRetrievalFailureException(
+          "Invalid feature_flags_json for active plan entitlement", exception);
+    }
   }
 
   private static UserQuotaView map(ResultSet rs) throws SQLException {

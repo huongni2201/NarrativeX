@@ -38,14 +38,9 @@ public class ChapterAnalysisAdmissionService {
   }
 
   private static void requireEntitled(UserQuotaAccess.QuotaSnapshot quota) {
-    if (!featureEnabled(quota.featureFlagsJson(), "storyAnalysis")) {
+    if (!quota.features().storyAnalysis()) {
       throw new FeatureNotAvailableException("Story analysis is not enabled for this plan.");
     }
-  }
-
-  private static boolean featureEnabled(String json, String feature) {
-    return json != null
-        && json.replace("\\\"", "\"").matches(".*\\\"" + feature + "\\\"\\s*:\\s*true.*");
   }
 
   public record Admission(

@@ -8,7 +8,7 @@ public interface UserQuotaAccess {
   Optional<QuotaSnapshot> findCurrentQuota(String userId);
 
   record QuotaSnapshot(
-      String featureFlagsJson,
+      PlanFeatures features,
       int maxConcurrentExpensiveJobs,
       int expensiveJobsActive,
       BigDecimal creditsUsed,
