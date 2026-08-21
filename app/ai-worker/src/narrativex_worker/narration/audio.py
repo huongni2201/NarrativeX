@@ -92,21 +92,25 @@ class FfmpegAudioAssembler:
                     path = handle.name
                 temporary_path = True
 
-            result = subprocess.run(
-                [
-                    "ffprobe",
-                    "-v",
-                    "error",
-                    "-show_entries",
-                    "format=duration",
-                    "-of",
-                    "default=noprint_wrappers=1:nokey=1",
-                    path,
-                ],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
+            try:
+                result = subprocess.run(
+                    [
+                        "ffprobe",
+                        "-v",
+                        "error",
+                        "-show_entries",
+                        "format=duration",
+                        "-of",
+                        "default=noprint_wrappers=1:nokey=1",
+                        path,
+                    ],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+            except subprocess.TimeoutExpired as exception:
+                raise RuntimeError("ffprobe duration probe timed out") from exception
             duration_seconds = float(result.stdout.strip())
             if duration_seconds <= 0:
                 raise RuntimeError("ffprobe returned non-positive duration")

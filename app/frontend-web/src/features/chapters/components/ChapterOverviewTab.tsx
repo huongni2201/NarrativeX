@@ -135,6 +135,15 @@ export function ChapterOverviewTab({
               )}
               <span>{analyzeLabel}</span>
             </button>
+            {!analyzeDisabled || analysisActive ? null : (
+              <p className="px-1 text-[11px] leading-5 text-slate-500">
+                {workspace.summary.sceneCount > 0 &&
+                workspace.summary.visualBeatCount > 0 &&
+                !workspace.pipeline.sourceOutdated
+                  ? "Chapter đã có Scene/Visual Beat được duyệt. Hãy chỉnh sửa và lưu nội dung Chapter trước khi phân tích lại."
+                  : "Phân tích hiện chưa khả dụng; hãy lưu nội dung Chapter và kiểm tra trạng thái quyền sử dụng."}
+              </p>
+            )}
             <QuickAction label="Review Visuals" enabled={workspace.capabilities.canGenerateVisuals} onClick={onOpenStoryboard} />
             <QuickAction
               label="Tạo Audio"

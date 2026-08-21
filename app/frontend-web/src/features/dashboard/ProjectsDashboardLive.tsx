@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { BookOpen, Clock, Film, Loader2, Search, Star } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { queryKeys } from "@/lib/query-keys";
 import { apiErrorMessage } from "@/shared/api/client";
 import { projectDashboardApi } from "@/features/projects/api/project-dashboard.api";
 import type {
@@ -46,7 +47,7 @@ function ProjectCard({ project }: Readonly<{ project: ApiProjectDashboardItem }>
       project.isStarred
         ? projectDashboardApi.unfavorite(project.id)
         : projectDashboardApi.favorite(project.id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project-dashboard"] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.projectDashboard }),
   });
 
   return (
@@ -108,7 +109,7 @@ export function ProjectsDashboardLive() {
   }, [searchInput]);
 
   const dashboardQuery = useInfiniteQuery({
-    queryKey: ["project-dashboard", filter, sort, query],
+    queryKey: queryKeys.projectDashboardFiltered(filter, sort, query),
     queryFn: ({ pageParam }) =>
       projectDashboardApi.list({
         cursor: pageParam ?? undefined,

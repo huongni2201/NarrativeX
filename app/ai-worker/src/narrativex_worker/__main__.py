@@ -20,8 +20,11 @@ def parse_args() -> argparse.Namespace:
 
 
 async def run_workers(settings: WorkerSettings, *, dry_run: bool) -> None:
-    analysis_worker = NarrativeXWorker(settings=settings)
-    narration_worker = NarrationWorkerRunner(settings=settings)
+    # Both runners share one process-wide provider budget. Without this gate each runner could
+    # independently consume max_concurrent_jobs, doubling provider pressure and DB work.
+    concurrency_gate = asyncio.Semaphore(settings.worker_concurrency)
+    analysis_worker = NarrativeXWorker(settings=settings, concurrency_gate=concurrency_gate)
+    narration_worker = NarrationWorkerRunner(settings=settings, concurrency_gate=concurrency_gate)
     if dry_run:
         await analysis_worker.start(dry_run=True)
         await narration_worker.start(dry_run=True)

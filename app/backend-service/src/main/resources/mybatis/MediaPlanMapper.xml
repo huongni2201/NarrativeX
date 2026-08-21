@@ -9,6 +9,21 @@
          WHERE chapter_id = #{chapterId}
     </select>
 
+    <select id="existsOwnedForChapter" resultType="boolean">
+        SELECT EXISTS (
+          SELECT 1
+            FROM media_plans mp
+            JOIN chapters c ON c.id = mp.chapter_id
+            JOIN story_versions sv ON sv.id = c.story_version_id
+            JOIN projects p ON p.id = sv.project_id
+           WHERE mp.id = #{mediaPlanId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+             AND mp.revision = #{revision}
+             AND mp.chapter_id = #{chapterId}
+             AND p.owner_id = #{ownerId}
+             AND p.archived_at IS NULL
+        )
+    </select>
+
     <insert id="insertPlan"
             parameterType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.MediaPlanRow">
         INSERT INTO media_plans (

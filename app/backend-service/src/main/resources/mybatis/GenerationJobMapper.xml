@@ -111,12 +111,20 @@
 
     <select id="findByIdempotencyKey" resultMap="generationJobRow">
         SELECT <include refid="columns" />
-          FROM generation_jobs
+         FROM generation_jobs
          WHERE idempotency_key = #{idempotencyKey}
+        <if test="ownerId != null">
+           AND requested_by_user_id = #{ownerId}
+        </if>
     </select>
 
     <select id="acquireIdempotencyLock" resultType="int">
         SELECT 1
-          FROM pg_advisory_xact_lock(hashtextextended(#{idempotencyKey}, 0))
+          FROM pg_advisory_xact_lock(
+            hashtextextended(
+              <choose>
+                <when test="ownerId != null">CONCAT(#{ownerId}, ':', #{idempotencyKey})</when>
+                <otherwise>#{idempotencyKey}</otherwise>
+              </choose>, 0))
     </select>
 </mapper>

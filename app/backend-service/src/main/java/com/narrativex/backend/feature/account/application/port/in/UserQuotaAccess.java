@@ -12,5 +12,21 @@ public interface UserQuotaAccess {
       int maxConcurrentExpensiveJobs,
       int expensiveJobsActive,
       BigDecimal creditsUsed,
-      BigDecimal totalCredits) {}
+      BigDecimal totalCredits,
+      boolean watermarkRequired,
+      String maxVideoQuality,
+      Integer maxLongformExportsMonth,
+      Integer maxShortExportsMonth,
+      int longformExportsUsed,
+      int shortExportsUsed) {
+    public QuotaSnapshot(
+        PlanFeatures features,
+        int maxConcurrentExpensiveJobs,
+        int expensiveJobsActive,
+        BigDecimal creditsUsed,
+        BigDecimal totalCredits) {
+      this(features, maxConcurrentExpensiveJobs, expensiveJobsActive, creditsUsed, totalCredits,
+          true, "ULTRA", null, null, 0, 0);
+    }
+  }
 }

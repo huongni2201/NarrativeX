@@ -52,7 +52,7 @@ class PostgreSqlMigrationIntegrationTest {
   @Test
   void emptyPostgresMigratesAndApplicationContextStarts() throws SQLException {
     try (Connection connection = dataSource.getConnection()) {
-      assertEquals(7, latestFlywayVersion(connection));
+      assertEquals(3, latestFlywayVersion(connection));
       assertEquals(11, rowCount(connection, "generation_jobs"));
       assertEquals(10, rowCount(connection, "scene_characters"));
       assertFalse(columnExists(connection, "generation_jobs", "references"));

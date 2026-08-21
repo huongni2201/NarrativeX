@@ -14,6 +14,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -35,13 +36,16 @@ public class R2ObjectStorageAdapter implements ObjectStoragePort {
   private static final String REGION = "auto";
   private static final String SERVICE = "s3";
   private static final String UNSIGNED_PAYLOAD = "UNSIGNED-PAYLOAD";
+  private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
+  private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(15);
   private static final DateTimeFormatter AMZ_DATE =
       DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'").withZone(ZoneOffset.UTC);
   private static final DateTimeFormatter SHORT_DATE =
       DateTimeFormatter.ofPattern("yyyyMMdd").withZone(ZoneOffset.UTC);
 
   private final R2StorageProperties properties;
-  private final HttpClient httpClient = HttpClient.newHttpClient();
+  private final HttpClient httpClient =
+      HttpClient.newBuilder().connectTimeout(CONNECT_TIMEOUT).version(HttpClient.Version.HTTP_1_1).build();
   private final Clock clock = Clock.systemUTC();
 
   @Override
@@ -51,7 +55,8 @@ public class R2ObjectStorageAdapter implements ObjectStoragePort {
     String amzDate = AMZ_DATE.format(now);
     String shortDate = SHORT_DATE.format(now);
     String credential = properties.accessKeyId().trim() + "/" + shortDate + "/" + REGION + "/" + SERVICE + "/aws4_request";
-    String signedHeaders = "host;x-amz-meta-sha256";
+    String checksumHeader = base64Checksum(command.checksumSha256());
+    String signedHeaders = "host;x-amz-checksum-sha256";
     Map<String, String> query =
         new TreeMap<>(
             Map.of(
@@ -67,7 +72,7 @@ public class R2ObjectStorageAdapter implements ObjectStoragePort {
             + canonicalPath(objectUri) + "\n"
             + canonicalQuery + "\n"
             + "host:" + host(objectUri) + "\n"
-            + "x-amz-meta-sha256:" + command.checksumSha256() + "\n\n"
+            + "x-amz-checksum-sha256:" + checksumHeader + "\n\n"
             + signedHeaders + "\n"
             + UNSIGNED_PAYLOAD;
     String scope = shortDate + "/" + REGION + "/" + SERVICE + "/aws4_request";
@@ -78,7 +83,7 @@ public class R2ObjectStorageAdapter implements ObjectStoragePort {
         command.storageKey(),
         withQuery(objectUri, query),
         command.expiresAt(),
-        Map.of("x-amz-meta-sha256", command.checksumSha256()));
+        Map.of("x-amz-checksum-sha256", checksumHeader));
   }
 
   @Override
@@ -92,7 +97,6 @@ public class R2ObjectStorageAdapter implements ObjectStoragePort {
     String contentType = response.headers().firstValue("content-type").orElse("");
     String checksum = response.headers().firstValue("x-amz-checksum-sha256").orElse(null);
     if (checksum != null) checksum = decodeChecksum(checksum);
-    if (checksum == null) checksum = response.headers().firstValue("x-amz-meta-sha256").orElse(null);
     return new StoredObject(storageKey, size, contentType, checksum);
   }
 
@@ -131,6 +135,7 @@ public class R2ObjectStorageAdapter implements ObjectStoragePort {
             + hex(hmac(signingKey(shortDate), "AWS4-HMAC-SHA256\n" + amzDate + "\n" + scope + "\n" + sha256(canonicalRequest)));
     HttpRequest request =
         HttpRequest.newBuilder(uri)
+            .timeout(REQUEST_TIMEOUT)
             .header("Host", host(uri))
             .header("x-amz-date", amzDate)
             .header("x-amz-content-sha256", payloadHash)
@@ -199,6 +204,14 @@ public class R2ObjectStorageAdapter implements ObjectStoragePort {
       return HexFormat.of().formatHex(Base64.getDecoder().decode(checksum));
     } catch (IllegalArgumentException ignored) {
       return checksum;
+    }
+  }
+
+  private static String base64Checksum(String checksumHex) {
+    try {
+      return Base64.getEncoder().encodeToString(HexFormat.of().parseHex(checksumHex));
+    } catch (IllegalArgumentException exception) {
+      throw new IllegalArgumentException("checksumSha256 must be a 64-character hexadecimal SHA-256", exception);
     }
   }
 

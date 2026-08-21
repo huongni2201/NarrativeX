@@ -1,7 +1,7 @@
 package com.narrativex.backend.feature.generation.api.controller;
 
+import com.narrativex.backend.feature.common.exception.FeatureNotAvailableException;
 import com.narrativex.backend.feature.common.response.ApiResponse;
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.generation.api.request.CreateMediaJobRequest;
 import com.narrativex.backend.feature.generation.api.request.ReviewMediaGenerationItemRequest;
 import com.narrativex.backend.feature.generation.api.response.JobResponse;
@@ -13,6 +13,7 @@ import com.narrativex.backend.feature.generation.application.usecase.ReviewMedia
 import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,6 +31,8 @@ public class MediaGenerationController {
   private final CreateMediaJobUseCase createMediaJobUseCase;
   private final GetMediaJobDetailsUseCase getMediaJobDetailsUseCase;
   private final ReviewMediaGenerationItemUseCase reviewMediaGenerationItemUseCase;
+  @Value("${narrativex.generation.media-enabled:false}")
+  private boolean mediaGenerationEnabled;
 
   @PostMapping("/projects/{projectId}/chapters/{chapterId}/media-jobs")
   public ResponseEntity<ApiResponse<JobResponse>> create(
@@ -37,8 +40,15 @@ public class MediaGenerationController {
       @PathVariable Long chapterId,
       @Valid @RequestBody CreateMediaJobRequest request,
       @RequestHeader("Idempotency-Key") String idempotencyKey) {
+    requireMediaGenerationEnabled();
     var job = createMediaJobUseCase.execute(new CreateMediaJobCommand(projectId, chapterId, idempotencyKey, request.productionMode(), request.aspectRatio(), request.qualityTier(), request.maxAuthorizedCost()));
     return ResponseEntity.status(HttpStatus.ACCEPTED).body(ApiResponse.success("Media job queued", JobResponse.from(job)));
+  }
+
+  private void requireMediaGenerationEnabled() {
+    if (!mediaGenerationEnabled) {
+      throw new FeatureNotAvailableException("Media generation is temporarily unavailable until its worker is enabled.");
+    }
   }
 
   @GetMapping("/media-jobs/{jobId}")

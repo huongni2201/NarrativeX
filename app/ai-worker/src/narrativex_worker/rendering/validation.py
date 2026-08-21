@@ -20,7 +20,12 @@ async def probe_mp4(path: Path, *, ffprobe_binary: str = "ffprobe") -> dict[str,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
-    stdout, stderr = await process.communicate()
+    try:
+        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=30.0)
+    except TimeoutError as exception:
+        process.kill()
+        await process.wait()
+        raise RenderValidationError("ffprobe validation timed out") from exception
     if process.returncode != 0:
         raise RenderValidationError(stderr.decode("utf-8", errors="replace")[-2000:])
     try:

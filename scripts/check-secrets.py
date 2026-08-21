@@ -17,6 +17,7 @@ NUMERIC_PASSWORD_PATTERN = re.compile(
 )
 PRIVATE_KEY_PATTERN = re.compile(r"-----BEGIN [A-Z ]+ PRIVATE KEY-----")
 TOKEN_PATTERN = re.compile(r"\b(?:ghp|github_pat|xox[baprs])-?[A-Za-z0-9_-]{16,}\b")
+E2E_ASSIGNMENT_PATTERN = re.compile(r"(?im)^[ \t]*E2E_TEST_(EMAIL|PASSWORD)[ \t]*=[ \t]*([^\r\n]*)[ \t]*$")
 
 GUIDANCE_FILES = {Path("AGENTS.md"), Path(".agents/rules/test-credentials.md")}
 PLACEHOLDERS = {
@@ -42,12 +43,20 @@ def tracked_files() -> list[Path]:
 def main() -> int:
     violations: list[str] = []
     for path in tracked_files():
-        if not path.is_file() or path in {Path(".env.e2e.example")}:
+        if not path.is_file():
             continue
         try:
             text = path.read_text(encoding="utf-8")
         except (UnicodeDecodeError, OSError):
             continue
+
+        if path == Path(".env.e2e.example"):
+            for match in E2E_ASSIGNMENT_PATTERN.finditer(text):
+                value = match.group(2).strip().strip('`\"\'')
+                if value not in PLACEHOLDERS and not value.startswith("${"):
+                    violations.append(
+                        f"{path}: E2E_TEST_{match.group(1)} must remain an empty placeholder"
+                    )
 
         if path in GUIDANCE_FILES:
             if EMAIL_PATTERN.search(text):

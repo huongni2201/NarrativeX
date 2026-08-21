@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.generation.api.controller;
 
+import com.narrativex.backend.feature.common.exception.FeatureNotAvailableException;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.generation.api.request.CreateChapterRenderRequest;
 import com.narrativex.backend.feature.generation.api.response.JobResponse;
@@ -7,6 +8,7 @@ import com.narrativex.backend.feature.generation.application.command.CreateChapt
 import com.narrativex.backend.feature.generation.application.usecase.CreateChapterRenderUseCase;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -20,6 +22,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/projects/{projectId}/chapters/{chapterId}")
 public class RenderController {
   private final CreateChapterRenderUseCase createChapterRenderUseCase;
+  @Value("${narrativex.generation.media-enabled:false}")
+  private boolean mediaGenerationEnabled;
 
   @PostMapping("/render")
   public ResponseEntity<ApiResponse<JobResponse>> render(
@@ -27,6 +31,9 @@ public class RenderController {
       @PathVariable Long chapterId,
       @Valid @RequestBody CreateChapterRenderRequest request,
       @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
+    if (!mediaGenerationEnabled) {
+      throw new FeatureNotAvailableException("Chapter rendering is temporarily unavailable until its worker is enabled.");
+    }
     var job =
         createChapterRenderUseCase.execute(
             new CreateChapterRenderCommand(projectId, chapterId, request.resolution(), request.format(), request.mediaPlanId(), request.mediaPlanRevision(), request.maxAuthorizedCost(), idempotencyKey));

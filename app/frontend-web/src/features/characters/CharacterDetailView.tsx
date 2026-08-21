@@ -128,9 +128,9 @@ export function CharacterDetailView({
     enabled: Boolean(projectId),
   });
 
-  const globalCharactersQuery = useQuery({
-    queryKey: queryKeys.characters,
-    queryFn: () => charactersApi.list({ limit: 100 }),
+  const globalCharacterQuery = useQuery({
+    queryKey: ["characters", "detail", characterId],
+    queryFn: () => charactersApi.get(characterId),
     enabled: !projectId,
   });
 
@@ -157,8 +157,8 @@ export function CharacterDetailView({
   }
 
   if (!projectId) {
-    if (globalCharactersQuery.isPending) return <CharacterDetailSkeleton />;
-    if (globalCharactersQuery.isError) {
+    if (globalCharacterQuery.isPending) return <CharacterDetailSkeleton />;
+    if (globalCharacterQuery.isError) {
       return (
         <div className="rounded-2xl border border-danger/40 bg-danger-bg p-8 text-danger">
           Không tải được nhân vật từ Thư viện chung.
@@ -166,9 +166,7 @@ export function CharacterDetailView({
       );
     }
 
-    const globalCharacter = globalCharactersQuery.data?.content.find(
-      (character) => character.id === characterId,
-    );
+    const globalCharacter = globalCharacterQuery.data;
     if (!globalCharacter) {
       return (
         <div className="rounded-2xl border border-border bg-surface-card p-8 text-text-muted">

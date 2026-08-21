@@ -13,15 +13,17 @@
 | Migration | Purpose | Current state |
 |---|---|---|
 | V1 `initial_schema` | Auth, project/story/chapter foundations, storyboard revisions, split motion/camera visual beats, preview-asset links, character/location AI identities, backend-authoritative media plans, generation execution/review and lineage, durable provider operations, quota reservation lifecycle, chapter-level TTS, uploaded narration, upload sessions, media lifecycle hardening, style presets and voice catalog, render ownership pins | Consolidated baseline |
-| V2 `seed_demo_data` | Deterministic development/demo seed with canonical execution enums, storyboard revisions, character bibles, plan assignments and valid credits | Development only |
+| V2 `scope_generation_idempotency` | Production-safe owner-scoped idempotency and expired-upload cleanup indexes | Production migration |
+| V3 `seed_demo_data` | Deterministic development/demo seed with canonical execution enums, storyboard revisions, character bibles, plan assignments and valid credits | Local profile only |
 
-The active migration set is the V1/V2 baseline (schema plus development seed).
-The former V3–V7 feature migrations were folded into V1 because this is still
-the development baseline. Comment-only V3–V7 tombstones remain temporarily so
-Flyway does not execute their old DDL; existing databases created from the
-former split require operator-reviewed recreation or explicit re-baselining.
+The production migration set is V1 (schema) plus production-safe V2 hardening.
+V3 is an opt-in local-profile
+fixture under `db/local-migration`, not a production migration.
+The former V4–V7 feature migrations were folded into V1 because this is still
+the development baseline. Existing databases created from the former split
+require operator-reviewed recreation or explicit re-baselining.
 
-The V2 fixture covers the supported demo paths. In addition to the core
+The local V3 fixture covers the supported demo paths. In addition to the core
 project/story rows, it includes scene and visual-beat continuity links, AI
 identity mappings, favorites, media plans, quota reservations, TTS
 requests/assets/alignments, uploaded narration sets/parts/documents/alignment

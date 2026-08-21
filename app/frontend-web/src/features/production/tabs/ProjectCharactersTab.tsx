@@ -95,16 +95,16 @@ export function ProjectCharactersTab({
     queryFn: () => charactersApi.listProject(projectId, { limit: 100 }),
   });
 
-  const globalCharactersQuery = useQuery({
-    queryKey: queryKeys.characters,
-    queryFn: () => charactersApi.list({ limit: 100 }),
+  const globalCharacterCountQuery = useQuery({
+    queryKey: ["characters", "count"],
+    queryFn: () => charactersApi.count(),
   });
 
   const rawCharacters = useMemo(
     () => projectCharactersQuery.data?.content ?? [],
     [projectCharactersQuery.data?.content],
   );
-  const globalCount = globalCharactersQuery.data?.content.length ?? 0;
+  const globalCount = globalCharacterCountQuery.data ?? 0;
 
   // Real-time statistics from real API data
   const totalCount = rawCharacters.length;

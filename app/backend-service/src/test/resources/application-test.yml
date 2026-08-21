@@ -13,6 +13,9 @@ spring:
     database-platform: org.hibernate.dialect.H2Dialect
   flyway:
     enabled: false
+    locations:
+      - classpath:db/migration
+      - classpath:db/local-migration
   data:
     redis:
       repositories:

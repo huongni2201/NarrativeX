@@ -159,6 +159,16 @@ export const charactersApi = {
         isCursorPage(value, isApiCharacterSummary),
     ),
 
+  get: (characterId: number) =>
+    apiRequest<ApiCharacterSummary>(
+      `/api/v1/characters/${encodeURIComponent(characterId)}`,
+      {},
+      isApiCharacterSummary,
+    ),
+
+  count: () =>
+    apiRequest<number>("/api/v1/characters/count", {}, (value): value is number => typeof value === "number" && Number.isSafeInteger(value) && value >= 0),
+
   listProject: (projectId: number, params: CharacterListParams = {}) =>
     apiRequest<CursorPage<ApiProjectCharacterSummary>>(
       listPath(`/api/v1/projects/${projectId}/characters`, params),

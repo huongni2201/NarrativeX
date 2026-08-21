@@ -99,7 +99,16 @@ public class AuthRateLimiter implements AuthRateLimitPolicy {
 
   private boolean consumeFallback(String key, int limit, long windowSeconds) {
     long now = System.currentTimeMillis();
-    fallbackBuckets.entrySet().removeIf(entry -> entry.getValue().expiresAtMillis <= now);
+    // Redis outage is an attackable path. Bound cleanup work per request instead of scanning the
+    // entire fallback map (which can otherwise turn a 10k-bucket outage into a CPU DoS).
+    int cleaned = 0;
+    var iterator = fallbackBuckets.entrySet().iterator();
+    while (iterator.hasNext() && cleaned < 64) {
+      var entry = iterator.next();
+      if (entry.getValue().expiresAtMillis <= now && fallbackBuckets.remove(entry.getKey(), entry.getValue())) {
+        cleaned++;
+      }
+    }
     if (!fallbackBuckets.containsKey(key) && fallbackBuckets.size() >= MAX_FALLBACK_BUCKETS) {
       // Capacity exhaustion is handled conservatively: authentication remains available for
       // existing buckets, but unknown subjects are rate-limited until a bucket expires.

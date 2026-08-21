@@ -45,9 +45,19 @@ function isApiMediaAsset(value: unknown): value is ApiMediaAsset {
   const candidate = value as Partial<ApiMediaAsset>;
   return (
     typeof candidate.id === "string" &&
-    typeof candidate.type === "string" &&
+    (candidate.type === "AUDIO" || candidate.type === "IMAGE" || candidate.type === "VIDEO") &&
+    typeof candidate.origin === "string" &&
+    typeof candidate.storageKey === "string" &&
     typeof candidate.originalFilename === "string" &&
-    typeof candidate.status === "string"
+    typeof candidate.contentType === "string" &&
+    typeof candidate.sizeBytes === "number" &&
+    Number.isSafeInteger(candidate.sizeBytes) &&
+    candidate.sizeBytes >= 0 &&
+    typeof candidate.sha256 === "string" &&
+    /^[0-9a-f]{64}$/i.test(candidate.sha256) &&
+    (typeof candidate.durationMs === "number" || candidate.durationMs === null) &&
+    typeof candidate.status === "string" &&
+    typeof candidate.createdAt === "string"
   );
 }
 
@@ -66,12 +76,16 @@ function isApiUploadIntent(value: unknown): value is ApiUploadIntent {
   const candidate = value as Partial<ApiUploadIntent>;
   return (
     typeof candidate.id === "string" &&
-    typeof candidate.type === "string" &&
+    (candidate.type === "AUDIO" || candidate.type === "IMAGE" || candidate.type === "VIDEO") &&
     typeof candidate.originalFilename === "string" &&
     typeof candidate.contentType === "string" &&
     typeof candidate.expectedSizeBytes === "number" &&
+    Number.isSafeInteger(candidate.expectedSizeBytes) &&
+    candidate.expectedSizeBytes > 0 &&
     typeof candidate.expectedSha256 === "string" &&
-    typeof candidate.uploadUrl === "string" &&
+    /^[0-9a-f]{64}$/i.test(candidate.expectedSha256) &&
+    typeof candidate.storageKey === "string" &&
+    isHttpUrl(candidate.uploadUrl) &&
     typeof candidate.uploadHeaders === "object" &&
     candidate.uploadHeaders !== null &&
     Object.values(candidate.uploadHeaders as Record<string, unknown>).every(
@@ -80,6 +94,16 @@ function isApiUploadIntent(value: unknown): value is ApiUploadIntent {
     typeof candidate.status === "string" &&
     typeof candidate.expiresAt === "string"
   );
+}
+
+function isHttpUrl(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:";
+  } catch {
+    return false;
+  }
 }
 
 function isApiUploadFinalizeResult(value: unknown): value is ApiUploadFinalizeResult {

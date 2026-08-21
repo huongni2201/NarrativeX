@@ -5,5 +5,5 @@ import org.apache.ibatis.annotations.Param;
 
 public interface ChapterAnalysisSafetyMapper extends NarrativeXMyBatisMapper {
   String findLatestModerationResult(
-      @Param("projectId") Long projectId, @Param("chapterId") String chapterId);
+      @Param("projectId") Long projectId, @Param("chapterId") Long chapterId);
 }

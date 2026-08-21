@@ -28,7 +28,9 @@ from narrativex_worker.task_runtime import reap_finished_tasks
 class NarrativeXWorker:
     """Durable worker runner using PostgreSQL as source of truth."""
 
-    def __init__(self, settings: WorkerSettings | None = None) -> None:
+    def __init__(
+        self, settings: WorkerSettings | None = None, concurrency_gate: asyncio.Semaphore | None = None
+    ) -> None:
         self.settings = settings or get_settings()
         self._setup_logging()
         self._running = False
@@ -46,6 +48,7 @@ class NarrativeXWorker:
         )
         self.service = WorkerService(provider)
         self._in_flight: set[asyncio.Task[None]] = set()
+        self._concurrency_gate = concurrency_gate or asyncio.Semaphore(self.settings.worker_concurrency)
 
     def _setup_logging(self) -> None:
         numeric_level = getattr(logging, self.settings.log_level.upper(), logging.INFO)
@@ -129,7 +132,7 @@ class NarrativeXWorker:
             claimed.request.chapter_id,
             claimed.request.source_hash,
         )
-        processing_task = asyncio.create_task(self._execute_claimed(claimed))
+        processing_task = asyncio.create_task(self._execute_with_budget(claimed))
         heartbeat_task = asyncio.create_task(self._heartbeat_loop(claimed.stage_attempt_id))
         try:
             done, _ = await asyncio.wait(
@@ -167,6 +170,10 @@ class NarrativeXWorker:
             for task in (processing_task, heartbeat_task):
                 with contextlib.suppress(asyncio.CancelledError, Exception):
                     await task
+
+    async def _execute_with_budget(self, claimed: ClaimedChapterAnalysisJob) -> None:
+        async with self._concurrency_gate:
+            await self._execute_claimed(claimed)
 
     async def _execute_claimed(self, claimed: ClaimedChapterAnalysisJob) -> None:
         if not hasattr(self.service, "provider"):

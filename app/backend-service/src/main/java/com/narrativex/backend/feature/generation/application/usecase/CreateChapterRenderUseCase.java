@@ -6,6 +6,7 @@ import com.narrativex.backend.feature.generation.application.command.CreateChapt
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationOutboxRepository;
 import com.narrativex.backend.feature.generation.application.port.out.OperationPlanRepository;
+import com.narrativex.backend.feature.generation.application.port.out.MediaPlanRepository;
 import com.narrativex.backend.feature.generation.application.port.out.QuotaReservation;
 import com.narrativex.backend.feature.generation.application.port.out.StageAttemptRepository;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
@@ -32,6 +33,7 @@ public class CreateChapterRenderUseCase {
   private final GenerationJobRepository generationJobRepository;
   private final GenerationOutboxRepository generationOutboxRepository;
   private final OperationPlanRepository operationPlanRepository;
+  private final MediaPlanRepository mediaPlanRepository;
   private final StageAttemptRepository stageAttemptRepository;
   private final QuotaReservation quotaReservation;
   private final UserQuotaAccess userQuotaAccess;
@@ -43,8 +45,22 @@ public class CreateChapterRenderUseCase {
         chapterSourceAccess.requireOwnedForAnalysisLocked(command.projectId(), command.chapterId(), userId);
     var project = projectAccess.findOwnedProject(command.projectId(), userId);
     var workspace = workspaceRepository.get(command.projectId(), command.chapterId());
+    if (command.mediaPlanId() == null || command.mediaPlanRevision() == null || command.mediaPlanRevision() <= 0) {
+      throw new GenerationAdmissionDeniedException(
+          "MEDIA_PLAN_REQUIRED", "Rendering requires an approved media plan revision.");
+    }
+    if (!mediaPlanRepository.existsOwnedForChapter(
+        command.mediaPlanId(), command.mediaPlanRevision(), command.chapterId(), userId)) {
+      throw new GenerationAdmissionDeniedException(
+          "MEDIA_PLAN_NOT_FOUND", "The requested media plan revision is not owned by this project.");
+    }
     if (!"COMPLETED".equals(workspace.analysis().status())) {
       throw new IllegalStateException("Chapter analysis must be completed before rendering");
+    }
+    var quota = userQuotaAccess.findCurrentQuota(userId)
+        .orElseThrow(() -> new GenerationAdmissionDeniedException("ENTITLEMENT_DENIED", "No active plan."));
+    if (!qualityAllowed(command.resolution(), quota.maxVideoQuality())) {
+      throw new GenerationAdmissionDeniedException("ENTITLEMENT_DENIED", "The requested resolution exceeds the active plan entitlement.");
     }
     if (!"COMPLETED".equals(workspace.projection().visualGeneration().status())
         || !"READY".equals(workspace.projection().audio().status())) {
@@ -69,14 +85,10 @@ public class CreateChapterRenderUseCase {
             + command.resolution()
             + ":"
             + command.format();
-    generationJobRepository.acquireIdempotencyLock(idempotencyKey);
-    var existing = generationJobRepository.findByIdempotencyKey(idempotencyKey);
+    generationJobRepository.acquireIdempotencyLock(idempotencyKey, userId);
+    var existing = generationJobRepository.findByIdempotencyKey(idempotencyKey, userId);
     if (existing.isPresent()) return existing.get();
 
-    var quota =
-        userQuotaAccess
-            .findCurrentQuota(userId)
-            .orElseThrow(() -> new GenerationAdmissionDeniedException("COST_LIMIT", "No active plan."));
     var reservation =
         quotaReservation
             .reserve(userId, renderCost, quota.maxConcurrentExpensiveJobs())
@@ -93,6 +105,8 @@ public class CreateChapterRenderUseCase {
                 chapter.sourceText(),
                 project.getSourceLanguage(),
                 idempotencyKey,
+                command.mediaPlanId(),
+                command.mediaPlanRevision(),
                 userId));
     OperationPlan plan =
         operationPlanRepository.save(
@@ -104,5 +118,18 @@ public class CreateChapterRenderUseCase {
     stageAttemptRepository.create(StageAttempt.create(job.getId(), STAGE_NAME, 1));
     generationOutboxRepository.enqueue(job);
     return job;
+  }
+
+  private static boolean qualityAllowed(String requestedResolution, String maximumQuality) {
+    if (maximumQuality == null || maximumQuality.isBlank()) return false;
+    int requested = "1080p".equalsIgnoreCase(requestedResolution) ? 3 : 1;
+    int maximum = switch (maximumQuality.toUpperCase()) {
+      case "DRAFT", "720P" -> 1;
+      case "STANDARD" -> 2;
+      case "HIGH", "1080P" -> 3;
+      case "ULTRA" -> 4;
+      default -> 0;
+    };
+    return maximum >= requested;
   }
 }

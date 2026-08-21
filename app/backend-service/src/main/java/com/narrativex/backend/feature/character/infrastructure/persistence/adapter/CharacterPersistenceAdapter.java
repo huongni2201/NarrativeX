@@ -43,6 +43,11 @@ public class CharacterPersistenceAdapter implements CharacterRepository {
   }
 
   @Override
+  public long countActiveByOwnerId(String ownerId) {
+    return repository.countByOwnerIdAndStatus(ownerId, CharacterStatus.ACTIVE);
+  }
+
+  @Override
   public java.util.Optional<Character> findOwnedById(Long id, String ownerId) {
     return repository
         .findByIdAndOwnerIdAndStatusNot(id, ownerId, CharacterStatus.ARCHIVED)

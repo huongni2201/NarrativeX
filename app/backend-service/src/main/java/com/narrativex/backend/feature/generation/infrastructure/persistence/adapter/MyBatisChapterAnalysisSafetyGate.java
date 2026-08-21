@@ -26,10 +26,12 @@ public class MyBatisChapterAnalysisSafetyGate implements ChapterAnalysisSafetyGa
               + "Edit the chapter before requesting a new analysis revision.");
     }
 
-    String result = mapper.findLatestModerationResult(projectId, source.chapterId().toString());
-    if ("BLOCK".equalsIgnoreCase(result) || "REVIEW".equalsIgnoreCase(result)) {
+    String result = mapper.findLatestModerationResult(projectId, source.chapterId());
+    // Story text is untrusted. Only an explicit current ALLOW decision may reach a paid provider;
+    // missing, pending, review, and unknown decisions fail closed.
+    if (!"ALLOW".equalsIgnoreCase(result)) {
       throw new GenerationAdmissionDeniedException(
-          "SAFETY_BLOCKED", "Chapter analysis is not allowed by the current safety decision.");
+          "SAFETY_REVIEW_REQUIRED", "Chapter analysis requires an explicit safety allow decision.");
     }
   }
 }

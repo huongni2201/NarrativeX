@@ -38,6 +38,8 @@ public interface CharacterJpaRepository extends JpaRepository<CharacterJpaEntity
   Optional<CharacterJpaEntity> findByIdAndOwnerIdAndStatusNot(
       Long id, String ownerId, CharacterStatus status);
 
+  long countByOwnerIdAndStatus(String ownerId, CharacterStatus status);
+
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @Query(
       "select character from CharacterJpaEntity character where character.id = :characterId and character.ownerId = :ownerId and character.status <> :archivedStatus")

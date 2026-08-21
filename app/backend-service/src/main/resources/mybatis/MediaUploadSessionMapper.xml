@@ -61,4 +61,13 @@
            AND account_id = #{accountId}
            AND status = 'PENDING_UPLOAD'
     </update>
+
+    <select id="findExpiredPending" resultType="com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.ExpiredUploadRow">
+        SELECT id, account_id AS accountId, storage_key AS storageKey
+          FROM media_upload_sessions
+         WHERE status = 'PENDING_UPLOAD'
+           AND expires_at &lt; CURRENT_TIMESTAMP
+         ORDER BY expires_at ASC, id ASC
+         LIMIT #{limit}
+    </select>
 </mapper>

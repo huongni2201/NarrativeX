@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.assets.application.port.out;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -14,6 +15,10 @@ public interface MediaUploadSessionRepository {
   boolean markReady(String accountId, UUID id, UUID mediaAssetId);
 
   boolean markRejected(String accountId, UUID id);
+
+  List<ExpiredUpload> findExpiredPending(int limit);
+
+  record ExpiredUpload(UUID id, String accountId, String storageKey) {}
 
   record CreateUploadSession(
       UUID id,

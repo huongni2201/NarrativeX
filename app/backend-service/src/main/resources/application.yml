@@ -52,6 +52,8 @@ server:
         same-site: lax
 
 narrativex:
+  generation:
+    media-enabled: ${NARRATIVEX_MEDIA_GENERATION_ENABLED:false}
   limits:
     max-story-characters: ${NARRATIVEX_MAX_STORY_CHARACTERS:500000}
     max-estimated-input-tokens: ${NARRATIVEX_MAX_ESTIMATED_INPUT_TOKENS:120000}

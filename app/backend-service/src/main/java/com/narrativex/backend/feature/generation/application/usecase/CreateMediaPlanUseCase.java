@@ -56,6 +56,12 @@ public class CreateMediaPlanUseCase {
       throw new GenerationAdmissionDeniedException(
           "STORYBOARD_NOT_READY", "Every visual beat must be approved before image generation.");
     }
+    if (command.productionMode().name().equals("IMAGE_MOTION")
+        && (planningSource.narrationSetId() == null
+            || planningSource.narrationAlignmentRunId() == null)) {
+      throw new GenerationAdmissionDeniedException(
+          "NARRATION_NOT_READY", "Image-motion planning requires a pinned narration timeline.");
+    }
     var workload = calculateWorkload(scenes);
     int revision = mediaPlanRepository.nextRevision(command.chapterId());
 

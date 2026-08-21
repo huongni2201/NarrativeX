@@ -55,8 +55,8 @@ public class CreateMediaJobUseCase {
       throw new GenerationAdmissionDeniedException("IDEMPOTENCY_CONFLICT", "Idempotency-Key is required.");
     }
     String requestFingerprint = fingerprint(command);
-    generationJobRepository.acquireIdempotencyLock(command.idempotencyKey());
-    var existing = generationJobRepository.findByIdempotencyKey(command.idempotencyKey());
+    generationJobRepository.acquireIdempotencyLock(command.idempotencyKey(), userId);
+    var existing = generationJobRepository.findByIdempotencyKey(command.idempotencyKey(), userId);
     if (existing.isPresent()) {
       var existingItems = mediaGenerationItemRepository.findByJobOwned(userId, existing.get().getId());
       if (!existingItems.isEmpty()
@@ -74,13 +74,17 @@ public class CreateMediaJobUseCase {
     if (expectedCost.compareTo(command.maxAuthorizedCost()) > 0) {
       throw new GenerationAdmissionDeniedException("COST_LIMIT", "The requested authorization cap is below the server estimate.");
     }
+    var quota = userQuotaAccess.findCurrentQuota(userId).orElseThrow(
+        () -> new GenerationAdmissionDeniedException("ENTITLEMENT_DENIED", "No active plan is available."));
+    if (!qualityAllowed(command.qualityTier(), quota.maxVideoQuality())) {
+      throw new GenerationAdmissionDeniedException(
+          "ENTITLEMENT_DENIED", "The requested quality exceeds the active plan entitlement.");
+    }
     var plan = createMediaPlanUseCase.execute(new CreateMediaPlanCommand(
         command.projectId(), command.chapterId(), ProductionMode.IMAGE_MOTION, expectedCost,
         command.aspectRatio(), command.qualityTier(), "vertex", "imagen-3.0-generate-002",
         "{\"catalogVersion\":\"" + PRICING_VERSION + "\",\"tier\":\"" + command.qualityTier() + "\"}",
         sha256(PRICING_VERSION + ":" + command.qualityTier())));
-    var quota = userQuotaAccess.findCurrentQuota(userId).orElseThrow(
-        () -> new GenerationAdmissionDeniedException("ENTITLEMENT_DENIED", "No active plan is available."));
     var reservation = quotaReservation.reserve(userId, command.maxAuthorizedCost(), quota.maxConcurrentExpensiveJobs())
         .orElseThrow(() -> new GenerationAdmissionDeniedException("COST_LIMIT", "Media generation quota is exhausted."));
 
@@ -125,5 +129,20 @@ public class CreateMediaJobUseCase {
     } catch (java.security.NoSuchAlgorithmException exception) {
       throw new IllegalStateException("SHA-256 is unavailable", exception);
     }
+  }
+
+  private static boolean qualityAllowed(String requested, String maximum) {
+    if (maximum == null || maximum.isBlank()) return false;
+    return qualityRank(requested) <= qualityRank(maximum);
+  }
+
+  private static int qualityRank(String value) {
+    return switch (value == null ? "" : value.toUpperCase()) {
+      case "DRAFT", "720P" -> 1;
+      case "STANDARD" -> 2;
+      case "HIGH", "1080P" -> 3;
+      case "ULTRA" -> 4;
+      default -> 0;
+    };
   }
 }

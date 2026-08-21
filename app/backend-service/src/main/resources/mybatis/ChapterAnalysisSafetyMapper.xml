@@ -5,11 +5,31 @@
 <mapper namespace="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ChapterAnalysisSafetyMapper">
     <select id="findLatestModerationResult" resultType="string">
         SELECT result
-          FROM moderation_decisions
-         WHERE project_id = #{projectId}
-           AND entity_type = 'CHAPTER'
-           AND entity_id = #{chapterId}
-         ORDER BY created_at DESC, id DESC
+          FROM (
+                SELECT result, created_at, id, 0 AS precedence
+                  FROM moderation_decisions
+                 WHERE project_id = #{projectId}
+                   AND entity_type = 'CHAPTER'
+                   AND entity_id = CAST(#{chapterId} AS text)
+                UNION ALL
+                SELECT md.result, md.created_at, md.id, 1 AS precedence
+                  FROM moderation_decisions md
+                  JOIN chapters c ON c.id = #{chapterId}
+                  JOIN story_versions sv ON sv.id = c.story_version_id
+                 WHERE md.project_id = #{projectId}
+                   AND md.entity_type = 'STORY_VERSION'
+                   AND md.entity_id = sv.id::text
+                UNION ALL
+                SELECT CASE WHEN sv.moderation_decision = 'SAFE' THEN 'ALLOW' ELSE sv.moderation_decision END,
+                       CURRENT_TIMESTAMP,
+                       sv.id,
+                       2 AS precedence
+                  FROM chapters c
+                  JOIN story_versions sv ON sv.id = c.story_version_id
+                 WHERE c.id = #{chapterId}
+                   AND sv.project_id = #{projectId}
+               ) decisions
+         ORDER BY precedence ASC, created_at DESC, id DESC
          LIMIT 1
     </select>
 </mapper>

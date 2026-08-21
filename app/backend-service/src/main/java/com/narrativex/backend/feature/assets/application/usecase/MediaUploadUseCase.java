@@ -16,6 +16,9 @@ import com.narrativex.backend.feature.common.exception.ResourceNotFoundException
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -25,6 +28,13 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class MediaUploadUseCase {
   private static final Duration INTENT_TTL = Duration.ofMinutes(15);
+  private static final Map<String, Long> MAX_BYTES_BY_TYPE =
+      Map.of("AUDIO", 100L * 1024 * 1024, "IMAGE", 100L * 1024 * 1024, "VIDEO", 1_024L * 1024 * 1024);
+  private static final Map<String, Set<String>> CONTENT_TYPES_BY_TYPE =
+      Map.of(
+          "AUDIO", Set.of("audio/mpeg", "audio/wav", "audio/x-wav", "audio/ogg", "audio/mp4", "audio/webm"),
+          "IMAGE", Set.of("image/jpeg", "image/png", "image/webp", "image/gif"),
+          "VIDEO", Set.of("video/mp4", "video/webm", "video/quicktime"));
 
   private final CurrentUserId currentUserId;
   private final MediaUploadSessionRepository sessions;
@@ -36,6 +46,7 @@ public class MediaUploadUseCase {
   public UploadIntentView createIntent(
       CreateUploadIntentCommand request, String requestedIdempotencyKey) {
     String accountId = currentUserId.get();
+    validateRequest(request);
     String idempotencyKey = normalizeIdempotencyKey(requestedIdempotencyKey);
     if (idempotencyKey != null) {
       UploadSession existing =
@@ -67,7 +78,6 @@ public class MediaUploadUseCase {
     return intentResponse(session);
   }
 
-  @Transactional
   public UploadFinalizeView finalizeUpload(UUID id) {
     String accountId = currentUserId.get();
     UploadSession session =
@@ -82,7 +92,9 @@ public class MediaUploadUseCase {
       return new UploadFinalizeView(session.id(), session.status(), null);
     }
     if (session.expiresAt().isBefore(Instant.now(clock))) {
-      sessions.markRejected(accountId, id);
+      if (sessions.markRejected(accountId, id)) {
+        deleteQuietly(session.storageKey());
+      }
       return new UploadFinalizeView(session.id(), "REJECTED", null);
     }
 
@@ -95,7 +107,9 @@ public class MediaUploadUseCase {
     }
 
     if (!matches(session, object)) {
-      sessions.markRejected(accountId, id);
+      if (sessions.markRejected(accountId, id)) {
+        deleteQuietly(session.storageKey());
+      }
       return new UploadFinalizeView(session.id(), "REJECTED", null);
     }
 
@@ -113,9 +127,46 @@ public class MediaUploadUseCase {
     var asset = assets.create(accountId, command);
     assets.markReady(accountId, asset.id());
     if (!sessions.markReady(accountId, id, asset.id())) {
+      // Another finalizer won the session transition. Remove only this duplicate
+      // metadata row; the shared object may already be referenced by the winner.
+      try {
+        assets.delete(accountId, asset.id());
+      } catch (RuntimeException ignored) {
+        // Reconciliation can remove an orphaned duplicate without touching the object.
+      }
       throw new ResourceConflictException("Upload finalization raced with another request");
     }
     return new UploadFinalizeView(session.id(), "READY", asset.id());
+  }
+
+  private void deleteQuietly(String storageKey) {
+    try {
+      objectStorage.delete(storageKey);
+    } catch (RuntimeException ignored) {
+      // Cleanup is retried by the storage reconciliation job; rejection must remain durable.
+    }
+  }
+
+  private static void validateRequest(CreateUploadIntentCommand request) {
+    String type = request.assetType() == null ? "" : request.assetType().trim().toUpperCase(Locale.ROOT);
+    String contentType = normalize(request.contentType());
+    if (!MAX_BYTES_BY_TYPE.containsKey(type)) {
+      throw new IllegalArgumentException("Unsupported asset type");
+    }
+    if (request.expectedSizeBytes() <= 0 || request.expectedSizeBytes() > MAX_BYTES_BY_TYPE.get(type)) {
+      throw new IllegalArgumentException("Upload exceeds the server-authorized size limit");
+    }
+    if (!CONTENT_TYPES_BY_TYPE.get(type).contains(contentType)) {
+      throw new IllegalArgumentException("Content type is not allowed for this asset type");
+    }
+    String filename = request.originalFilename() == null ? "" : request.originalFilename().trim();
+    if (filename.isBlank() || filename.contains("/") || filename.contains("\\") || filename.indexOf('\0') >= 0) {
+      throw new IllegalArgumentException("Filename is invalid");
+    }
+  }
+
+  private static String normalize(String value) {
+    return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
   }
 
   private UploadIntentView intentResponse(UploadSession session) {

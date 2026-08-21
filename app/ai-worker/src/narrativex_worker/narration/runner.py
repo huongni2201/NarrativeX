@@ -54,12 +54,15 @@ __all__ = [
 
 
 class NarrationWorkerRunner:
-    def __init__(self, settings: WorkerSettings) -> None:
+    def __init__(
+        self, settings: WorkerSettings, concurrency_gate: asyncio.Semaphore | None = None
+    ) -> None:
         self.settings = settings
         self.logger = logging.getLogger("narrativex.worker.narration")
         self.worker_id = f"{settings.worker_name}-narration-{uuid.uuid4()}"
         self._running = False
         self._in_flight: set[asyncio.Task[None]] = set()
+        self._concurrency_gate = concurrency_gate or asyncio.Semaphore(settings.worker_concurrency)
         self.enabled = settings.tts_provider_mode != "disabled"
         self.repository = NarrationWorkerRepository(
             settings.database_url,
@@ -159,7 +162,7 @@ class NarrationWorkerRunner:
 
     async def _process(self, claimed: ClaimedNarrationJob) -> None:
         started_at = time.monotonic()
-        processing = asyncio.create_task(self._execute(claimed))
+        processing = asyncio.create_task(self._execute_with_budget(claimed))
         heartbeat = asyncio.create_task(self._heartbeat_loop(claimed.stage_attempt_id))
         try:
             done, _ = await asyncio.wait(
@@ -182,6 +185,7 @@ class NarrationWorkerRunner:
                 processing.cancel()
                 with contextlib.suppress(asyncio.CancelledError):
                     await processing
+
         except NarrationOutcomeUnknownError as exception:
             self.logger.warning(
                 "Narration job=%s stageAttemptId=%s narrationRequestId=%s "
@@ -261,6 +265,10 @@ class NarrationWorkerRunner:
                 time.monotonic() - started_at,
                 len(self._in_flight),
             )
+
+    async def _execute_with_budget(self, claimed: ClaimedNarrationJob) -> None:
+        async with self._concurrency_gate:
+            await self._execute(claimed)
 
     async def _execute(self, claimed: ClaimedNarrationJob) -> None:
         assert self.provider is not None

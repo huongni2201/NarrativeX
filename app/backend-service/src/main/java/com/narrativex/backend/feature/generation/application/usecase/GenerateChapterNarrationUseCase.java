@@ -68,8 +68,8 @@ public class GenerateChapterNarrationUseCase {
             SEGMENTATION_VERSION);
     String idempotencyKey = "chapter-narration:" + fingerprint;
 
-    generationJobRepository.acquireIdempotencyLock(idempotencyKey);
-    var existing = generationJobRepository.findByIdempotencyKey(idempotencyKey);
+    generationJobRepository.acquireIdempotencyLock(idempotencyKey, userId);
+    var existing = generationJobRepository.findByIdempotencyKey(idempotencyKey, userId);
     if (existing.isPresent()) {
       return existing.get();
     }

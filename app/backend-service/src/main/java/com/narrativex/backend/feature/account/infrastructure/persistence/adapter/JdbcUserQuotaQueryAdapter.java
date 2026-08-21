@@ -88,7 +88,13 @@ public class JdbcUserQuotaQueryAdapter implements UserQuotaQueryRepository, User
                     quota.maxConcurrentExpensiveJobs(),
                     quota.expensiveJobsActive(),
                     quota.creditsUsed(),
-                    quota.totalCredits()));
+                    quota.totalCredits(),
+                    quota.watermarkRequired(),
+                    quota.maxVideoQuality(),
+                    quota.maxLongformExportsMonth(),
+                    quota.maxShortExportsMonth(),
+                    quota.longformExportsUsed(),
+                    quota.shortExportsUsed()));
   }
 
   private PlanFeatures parseFeatures(String json) {

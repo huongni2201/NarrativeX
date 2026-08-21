@@ -8,7 +8,19 @@ public interface GenerationJobRepository {
 
   Optional<GenerationJob> findByJobIdAndOwner(String jobId, String ownerId);
 
-  Optional<GenerationJob> findByIdempotencyKey(String idempotencyKey);
+  Optional<GenerationJob> findByIdempotencyKey(String idempotencyKey, String ownerId);
 
-  void acquireIdempotencyLock(String idempotencyKey);
+  /** @deprecated use the owner-scoped overload; retained only for legacy migration tests. */
+  @Deprecated
+  default Optional<GenerationJob> findByIdempotencyKey(String idempotencyKey) {
+    return findByIdempotencyKey(idempotencyKey, null);
+  }
+
+  void acquireIdempotencyLock(String idempotencyKey, String ownerId);
+
+  /** @deprecated use the owner-scoped overload. */
+  @Deprecated
+  default void acquireIdempotencyLock(String idempotencyKey) {
+    acquireIdempotencyLock(idempotencyKey, null);
+  }
 }

@@ -61,8 +61,8 @@ public class EnqueueStoryAnalysisUseCase {
             + ":"
             + chapter.sourceHash();
 
-    generationJobRepository.acquireIdempotencyLock(idempotencyKey);
-    var existing = generationJobRepository.findByIdempotencyKey(idempotencyKey);
+    generationJobRepository.acquireIdempotencyLock(idempotencyKey, userId);
+    var existing = generationJobRepository.findByIdempotencyKey(idempotencyKey, userId);
     if (existing.isPresent()) {
       return existing.get();
     }

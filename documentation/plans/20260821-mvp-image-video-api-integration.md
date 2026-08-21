@@ -216,7 +216,7 @@ Keep the existing endpoint:
 ## 8. Persistence contract — consolidated Flyway V1
 
 The repository is still on the development baseline. Fold the persistence
-contract into `V1__initial_schema.sql`; keep `V2__seed_demo_data.sql` limited
+contract into `V1__initial_schema.sql`; keep local-only `V3__seed_demo_data.sql` limited
 to deterministic development fixtures. Do not leave a parallel feature migration
 in the Flyway location.
 
@@ -312,7 +312,7 @@ Dependencies are sequential unless a task explicitly states otherwise. Complete 
 
 - Create: `documentation/decisions/ADR-0017-mvp-image-review-render-boundary.md`
 - Modify: `app/backend-service/src/main/resources/db/migration/V1__initial_schema.sql`
-- Modify: `app/backend-service/src/main/resources/db/migration/V2__seed_demo_data.sql`
+- Modify: `app/backend-service/src/main/resources/db/local-migration/V3__seed_demo_data.sql`
 - Modify if payload changes are required: `contracts/job-event.v1.schema.json`
 - Modify: `documentation/workflows/IMAGE_GENERATION.md`
 - Modify: `documentation/workflows/STORY_TO_VIDEO.md`

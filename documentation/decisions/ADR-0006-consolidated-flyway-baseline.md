@@ -1,4 +1,4 @@
-# ADR-0006: Two-file Flyway PostgreSQL baseline
+# ADR-0006: Production-safe Flyway PostgreSQL baseline with local seed
 
 - Status: Accepted
 - Date: 2026-08-19
@@ -6,11 +6,9 @@
 
 ## Context
 
-The repository is still using a development database baseline. The schema had
-grown into one consolidated schema file, one deterministic seed file, and
-several forward-only feature migrations. That split made the fresh-database path
-harder to inspect and caused the implementation-facing migration documentation
-to drift.
+The repository uses one consolidated schema baseline and a deterministic local
+seed. The seed must not be reachable from a production bootstrap, while schema
+hardening must remain a normal forward-only production migration.
 
 PostgreSQL remains the authoritative business-state store and the backend
 remains the only Flyway/schema owner. Flyway must still fail on an unknown
@@ -19,11 +17,13 @@ incompatible schema.
 
 ## Decision
 
-- Keep the consolidated baseline in two active migrations under
-  `app/backend-service/src/main/resources/db/migration/`:
-  `V1__initial_schema.sql` and `V2__seed_demo_data.sql`. Retired V3–V7
-  tombstones remain comment-only until the workspace can remove those legacy
-  directory entries; they contain no executable SQL.
+- Keep the production baseline under
+  `app/backend-service/src/main/resources/db/migration/` with `V1__initial_schema.sql`.
+  Development-only seed data lives under
+  `app/backend-service/src/main/resources/db/local-migration/` and is enabled only
+  by `application-local.yml`. Retired V3–V7 tombstones remain comment-only until
+  the workspace can remove those legacy directory entries; they contain no
+  executable SQL.
 - `V1__initial_schema.sql` contains the final consolidated schema, including
   split motion fields (`motion_mode`, `camera_movement`), storyboard revisions (`storyboard_revisions`),
   scene & location continuity identities (`scene_characters`, `project_character_ai_identities`, `project_location_ai_identities`),
@@ -37,10 +37,10 @@ incompatible schema.
   media upload sessions, style/voice catalogs, media lifecycle hardening,
   generation-item review state, asset lineage, render ownership pins,
   canonical execution check constraints, and all baseline indexes.
-- `V2__seed_demo_data.sql` contains deterministic local/demo data for the
-  supported development fixtures, including continuity, media plans, quota
-  reservations, narration, uploaded audio, favorites, final artifacts, and
-  catalog entries.
+- `db/local-migration/V3__seed_demo_data.sql` contains deterministic local/demo
+  data for supported development fixtures, including continuity, media plans,
+  quota reservations, narration, uploaded audio, favorites, final artifacts,
+  and catalog entries. It must never run as part of a production bootstrap.
 - Keep `spring.flyway.baseline-on-migrate=false`. No `ignore-migration-patterns`
   or checksum bypass is added to hide an old migration history.
 - Existing databases created with any former migration split require an
@@ -49,24 +49,23 @@ incompatible schema.
 
 ## Consequences
 
-- A fresh supported PostgreSQL database starts with a concise, deterministic
-  two-step baseline path: schema V1, then seed V2. The former V3–V7 feature
-  migrations are folded into this development baseline.
+- A fresh production PostgreSQL database starts with schema V1 plus production
+  hardening V2. A local profile additionally applies seed V3 from the local-only
+  migration location.
 - The final schema is easier to compare with JPA validation and implementation
   documentation.
 - Existing development databases are not transparently compatible with the
   rewritten migration set. This is intentional: silently ignoring missing or
   changed migrations could accept a partially migrated schema and lose durable
   business-state guarantees.
-- Future shared/released databases must use forward-only migrations. This
-  two-file consolidation must not be repeated after the baseline is released.
+- Future shared/released databases must use forward-only migrations. Local seed
+  data must never be introduced into the production migration location.
 
 ## Verification
 
-- Apply V1 and V2 to an empty PostgreSQL instance to verify the baseline. In
-  the current checkout Flyway also records the comment-only V3–V7 tombstones,
-  so the migration integration test verifies latest version 7 and the active
-  schema is still supplied entirely by V1/V2.
+- Apply production V1 and V2 to an empty PostgreSQL instance and verify that no
+  seeded account or demo business rows exist. Apply the `local` profile and
+  verify that local V3 adds only the development fixture.
 - Start the backend with Hibernate `ddl-auto=validate`.
 - Verify JSONB columns, foreign keys, enum checks, partial indexes, chapter
   source hashes, generation-job snapshot columns, and project overview fields.

@@ -7,6 +7,8 @@ import java.util.Optional;
 public interface CharacterRepository {
   CursorPage<Character> findActiveByOwnerId(String ownerId, String cursor, int limit);
 
+  long countActiveByOwnerId(String ownerId);
+
   Character save(Character character);
 
   Optional<Character> findOwnedById(Long characterId, String ownerId);

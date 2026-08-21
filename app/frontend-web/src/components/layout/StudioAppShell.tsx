@@ -32,9 +32,6 @@ const CharacterDetailView = dynamic(() =>
 const ProjectWizardModal = dynamic(() =>
   import("@/features/project-creation/ProjectWizardModal").then((module) => module.ProjectWizardModal),
 );
-const CharacterBibleModal = dynamic(() =>
-  import("@/features/characters/CharacterBibleModal").then((module) => module.CharacterBibleModal),
-);
 const AssetLibraryScreen = dynamic(() =>
   import("@/features/assets/AssetLibraryScreen").then((module) => module.AssetLibraryScreen),
 );
@@ -95,7 +92,6 @@ export function StudioAppShell({
   const status = useAuthStore((state) => state.status);
   const error = useAuthStore((state) => state.error);
   const isWizardOpen = useStudioStore((state) => state.isWizardOpen);
-  const selectedCharacterId = useStudioStore((state) => state.selectedCharacterId);
 
   if (status === "bootstrapping") {
     return <AuthLoadingScreen message="Đang kiểm tra phiên đăng nhập…" />;
@@ -158,7 +154,7 @@ export function StudioAppShell({
 
       <StudioMobileNav />
       {isWizardOpen && <ProjectWizardModal />}
-      {selectedCharacterId && <CharacterBibleModal />}
     </div>
   );
 }
+
