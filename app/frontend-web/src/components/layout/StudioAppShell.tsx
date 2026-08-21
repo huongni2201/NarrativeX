@@ -68,6 +68,7 @@ interface StudioAppShellProps {
   projectId?: string;
   chapterId?: string;
   characterId?: string;
+  initialTab?: "chapters" | "storyboard" | "characters" | "locations" | "assets" | "settings";
 }
 
 const screenTitles: Record<StudioRouteScreen, string> = {
@@ -89,6 +90,7 @@ export function StudioAppShell({
   projectId,
   chapterId,
   characterId,
+  initialTab,
 }: Readonly<StudioAppShellProps>) {
   const status = useAuthStore((state) => state.status);
   const error = useAuthStore((state) => state.error);
@@ -132,7 +134,7 @@ export function StudioAppShell({
         <main className="mx-auto w-full max-w-[1700px] flex-1 p-4 pb-24 sm:p-5 sm:pb-24 lg:p-8 lg:pb-16">
           {screen === "overview" && <ProjectsDashboard />}
           {(screen === "project-workspace" || screen === "dashboard") && (
-            <ProductionShell projectId={projectId} />
+            <ProductionShell projectId={projectId} initialTab={initialTab} />
           )}
           {screen === "chapter-workspace" && projectId && chapterId && (
             <ChapterEditor projectId={projectId} chapterId={chapterId} />

@@ -40,6 +40,26 @@
     --danger: #ef4444;
     --danger-bg: rgba(239, 68, 68, 0.12);
 
+    /* Role & Badge Accents */
+    --badge-purple: #a855f7;
+    --badge-purple-bg: rgba(168, 85, 247, 0.14);
+    --badge-purple-border: rgba(168, 85, 247, 0.35);
+    --badge-blue: #3b82f6;
+    --badge-blue-bg: rgba(59, 130, 246, 0.14);
+    --badge-blue-border: rgba(59, 130, 246, 0.35);
+    --badge-orange: #f97316;
+    --badge-orange-bg: rgba(249, 115, 22, 0.14);
+    --badge-orange-border: rgba(249, 115, 22, 0.35);
+    --badge-green: #22c55e;
+    --badge-green-bg: rgba(34, 197, 94, 0.14);
+    --badge-green-border: rgba(34, 197, 94, 0.35);
+    --badge-amber: #eab308;
+    --badge-amber-bg: rgba(234, 179, 8, 0.14);
+    --badge-amber-border: rgba(234, 179, 8, 0.35);
+    --badge-slate: #94a3b8;
+    --badge-slate-bg: rgba(148, 163, 184, 0.12);
+    --badge-slate-border: rgba(148, 163, 184, 0.25);
+
     /* Typography */
     --text-primary: #f8fafc;
     --text-secondary: #94a3b8;

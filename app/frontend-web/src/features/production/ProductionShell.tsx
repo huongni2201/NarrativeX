@@ -23,9 +23,10 @@ import type { ProductionTab } from "./production.types";
 
 interface ProductionShellProps {
   projectId?: string;
+  initialTab?: ProductionTab;
 }
 
-export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
+export function ProductionShell({ projectId, initialTab = "chapters" }: Readonly<ProductionShellProps>) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const batchImportInputRef = useRef<HTMLInputElement>(null);
@@ -35,7 +36,7 @@ export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
   const [formError, setFormError] = useState<string | null>(null);
   const [batchImportError, setBatchImportError] = useState<string | null>(null);
   const [formResetKey, setFormResetKey] = useState(0);
-  const [activeTab, setActiveTab] = useState<ProductionTab>("chapters");
+  const [activeTab, setActiveTab] = useState<ProductionTab>(initialTab);
 
   const overviewQuery = useQuery({
     queryKey: hasValidProjectId

@@ -24,6 +24,7 @@ The repository itself is the current implementation source of truth. Keep archit
 - Browser authentication currently uses Spring Security server-managed sessions + CSRF for password and Google OIDC flows. Spring Session persists the opaque `NX_SESSION` in Redis; JWT/access/refresh tokens are not part of the current runtime contract.
 - Test authentication credentials are supplied out-of-band through `E2E_TEST_EMAIL` and `E2E_TEST_PASSWORD`; never store or print their values in repository guidance, source, logs, or test artifacts. See `.agents/rules/test-credentials.md`.
 - Frontend styling MUST use centralized design tokens and semantic CSS variables defined in global CSS (`globals.css` / `tailwind.config.ts`). Ad-hoc, hardcoded hex values in component JSX/TSX are strictly prohibited; define new semantic tokens in `globals.css` if a needed design token does not exist.
+- Playwright testing and browser verification MUST avoid arbitrary sleep/delays (`waitForTimeout`), relying on auto-waiting locators, web-first assertions, and event-driven waits to minimize step latency. See `.agents/rules/playwright-testing.md`.
 
 ## Change discipline
 
