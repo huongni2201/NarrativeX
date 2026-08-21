@@ -52,9 +52,15 @@ Current foundations include full-chapter TTS and user-provided audio planning/ti
 
 ## Persistence direction
 
-ProviderOperation, Chapter and Project boundaries are MyBatis-backed. New persistence-heavy work converges on explicit MyBatis SQL and PostgreSQL; remaining JPA/JDBC adapters are migration-era surfaces.
+MyBatis/explicit-SQL production paths now cover ProviderOperation, Chapter, Project, GenerationJob, StageAttempt, OperationPlan, MediaPlan, generation outbox enqueue, Job History and the Chapter Analyze safety gate. The outbox dispatcher still uses JDBC for its short-lived operational claim/lease query.
+
+New persistence-heavy work converges on explicit MyBatis SQL and PostgreSQL; remaining JPA/JDBC adapters are migration-era surfaces. The next major persistence targets are StoryVersion, quota/billing, storyboard/continuity and remaining low-risk CRUD/query boundaries.
 
 Shared rules: explicit row models/result maps, SQL CAS/allowed-state predicates, affected-row validation, shared Spring DataSource/transaction boundary, PostgreSQL Testcontainers evidence.
+
+## Frontend read-model authority
+
+Project Character list/detail is now a real project-scoped vertical slice. The backend authorizes project ownership and exposes read projections for canonical/project aliases, role, importance, groups, pinned version, appearance and scene usage. The frontend consumes those projections and intentionally leaves unsupported fields unavailable rather than fabricating them.
 
 ## Durable media boundary
 

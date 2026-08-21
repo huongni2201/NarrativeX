@@ -7,23 +7,26 @@ This is dependency-ordered planning, not a calendar promise. Current status is d
 - Spring Boot modular monolith + Next.js frontend + Python worker.
 - PostgreSQL authoritative state; Redis sessions/transient hints.
 - R2-only durable media storage.
-- Project/Chapter/Analyze foundations.
+- Project/Chapter/Analyze foundations plus project dashboard/favorite reads.
 - ProviderOperation durability/reconciliation and immutable completed-result fingerprint.
 - Worker claim/lease/heartbeat and bounded concurrency.
 - Character + Location analysis continuity and Scene relations.
+- Project-scoped Character list/detail read models wired to authoritative frontend views.
 - Backend-authoritative MediaPlan foundation.
 - Full-chapter TTS narration + alignment + R2 media.
 - `NarrationStrategy.USER_PROVIDED_AUDIO` foundation: ordered parts, logical global timeline, multi-Chapter coverage and TTS-bypass planning.
-- MyBatis persistence for ProviderOperation, Chapter and Project.
+- MyBatis/explicit-SQL production paths for ProviderOperation, Chapter, Project, GenerationJob, StageAttempt, OperationPlan, MediaPlan, generation outbox enqueue, Job History and the Chapter Analyze safety gate.
+- The outbox dispatcher retains a deliberate JDBC claim/lease query for its short-lived operational lease concern.
 
 ## Immediate workstream 1 — MyBatis convergence
 
 1. StoryVersion.
-2. GenerationJob / StageAttempt / OperationPlan/MediaPlan legacy boundaries.
-3. Outbox and quota/billing JDBC boundaries.
-4. Storyboard and continuity repositories.
-5. Remaining low-risk CRUD/query boundaries.
-6. Remove unused JPA/JDBC infrastructure only after PostgreSQL evidence.
+2. Quota reservation / usage / billing boundaries.
+3. Storyboard and continuity persistence.
+4. Remaining low-risk CRUD/query boundaries.
+5. Remove unused JPA/JDBC infrastructure only after PostgreSQL and architecture evidence.
+
+Generation execution persistence is already cut over for the covered durability boundaries and should not be listed as future work.
 
 ## Immediate workstream 2 — First complete media loop
 

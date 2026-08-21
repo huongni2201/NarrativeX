@@ -7,9 +7,9 @@ NarrativeX remains one deployable Spring Boot modular monolith plus one separate
 | Feature / area | V1.11 responsibility |
 |---|---|
 | auth/account | identity, session/CSRF, account/quota reads |
-| project | Project/StoryVersion ownership and project lifecycle |
+| project | Project/StoryVersion ownership, dashboard/favorite reads and project lifecycle |
 | storyboard | Chapter, Scene, VisualBeat and review/source semantics |
-| character | Character/ProjectCharacter/CharacterVersion continuity/reference state |
+| character | Character/ProjectCharacter/CharacterVersion continuity/reference state and project-scoped Character read models |
 | generation | OperationPlan/MediaPlan, GenerationJob, StageAttempt, ProviderOperation, narration planning and durable orchestration |
 | notification | durable notification state/read surfaces |
 | common | small shared primitives only; not a policy dumping ground |
@@ -39,9 +39,17 @@ The backend is authoritative for `ProductionMode` and resolved `MotionStrategy`.
 
 `NarrationStrategy.TTS` and `NarrationStrategy.USER_PROVIDED_AUDIO` are generation-domain policy vocabulary. Audio processing/alignment mechanics remain worker-owned, while selection, fingerprints, authorization and durable metadata are backend/domain concerns.
 
+## Character read boundary
+
+Project Character list/detail APIs authorize project ownership before returning project-scoped Character data. Their MyBatis read projections expose only authoritative fields. Frontend runtime code must not backfill missing avatar, relationship, asset or scene-detail values with production-looking fixtures.
+
 ## Persistence boundary
 
-Application/domain repository ports remain persistence-neutral. Infrastructure converges on MyBatis + explicit SQL + PostgreSQL. ProviderOperation, Chapter and Project are already MyBatis-backed; remaining JPA/JDBC adapters are incremental migration surfaces.
+Application/domain repository ports remain persistence-neutral. Infrastructure converges on MyBatis + explicit SQL + PostgreSQL.
+
+MyBatis/explicit-SQL production paths now cover ProviderOperation, Chapter, Project, GenerationJob, StageAttempt, OperationPlan, MediaPlan, generation outbox enqueue, Job History and the Chapter Analyze safety gate. The outbox dispatcher retains a deliberate JDBC claim/lease query for its short-lived operational lease concern.
+
+Remaining migration-era JPA/JDBC surfaces include StoryVersion, quota/billing, storyboard/continuity persistence and other low-risk CRUD/query boundaries.
 
 ## Dependency direction
 
