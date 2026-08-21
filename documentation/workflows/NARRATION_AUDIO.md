@@ -23,6 +23,23 @@ persisted Chapter source snapshot
   -> alignment spans
 ```
 
+Generated full-chapter narration uses an ephemeral per-job scratch workspace:
+
+```text
+TTS response (one segment)
+  -> segment PCM scratch file + immutable R2 segment
+  -> chunked file concatenation
+  -> FFmpeg input/output scratch files
+  -> streaming SHA-256
+  -> file-backed immutable R2 upload
+  -> PostgreSQL NarrationAsset
+  -> workspace cleanup
+```
+
+The production path does not aggregate chapter PCM or MP3 into Python `bytes`; local files are
+ephemeral and never authoritative. Recovery downloads durable segment objects to scratch files and
+rebuilds the final asset without invoking TTS again.
+
 ## User-provided audio path — implemented planning/timeline foundation
 
 ```text

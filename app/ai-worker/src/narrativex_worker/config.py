@@ -95,7 +95,7 @@ class WorkerSettings(BaseSettings):
     wan_api_token: SecretStr | None = None
     wan_request_timeout_seconds: float = Field(default=30.0, gt=1, le=300)
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def resolved_r2_endpoint(self) -> str | None:
         """Return the explicit R2 endpoint or derive the canonical Cloudflare endpoint."""

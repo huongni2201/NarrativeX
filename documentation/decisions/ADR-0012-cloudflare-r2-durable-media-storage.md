@@ -29,6 +29,12 @@ The durable completion pipeline for any media stage is strictly ordered:
 5. Mark the stage attempt as `COMPLETED`.
 6. Purge local scratch files when safe.
 
+For large worker media, the storage boundary is file-based: `download_to_file` reads object bodies
+in bounded chunks and verifies both `ContentLength` and SHA-256 metadata; `put_file_immutable`
+streams a scratch file to R2 after a streaming checksum. Immutable uploads use the conditional
+create path and verify the existing object's checksum on a precondition conflict. The byte APIs
+remain available for small-object compatibility but are not used for production chapter assembly.
+
 ### 3. Access Control & Storage Security
 
 - All R2 buckets and media objects are private by default.

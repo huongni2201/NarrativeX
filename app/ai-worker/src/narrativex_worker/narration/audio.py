@@ -1,15 +1,36 @@
 import asyncio
 import os
+import subprocess
 import tempfile
+from pathlib import Path
 
 
 class FfmpegAudioAssembler:
-    async def encode_mp3(self, pcm_bytes: bytes, *, sample_rate_hz: int, channels: int) -> bytes:
+    async def concatenate_files(self, input_paths: list[Path], output_path: Path) -> None:
+        await asyncio.to_thread(self._concatenate_files_sync, input_paths, output_path)
+
+    @staticmethod
+    def _concatenate_files_sync(input_paths: list[Path], output_path: Path) -> None:
+        with output_path.open("wb") as output:
+            for input_path in input_paths:
+                with input_path.open("rb") as source:
+                    while chunk := source.read(1024 * 1024):
+                        output.write(chunk)
+
+    async def encode_mp3_file(
+        self,
+        input_path: Path,
+        output_path: Path,
+        *,
+        sample_rate_hz: int,
+        channels: int,
+    ) -> None:
         process = await asyncio.create_subprocess_exec(
             "ffmpeg",
             "-hide_banner",
             "-loglevel",
             "error",
+            "-y",
             "-f",
             "s16le",
             "-ar",
@@ -17,36 +38,59 @@ class FfmpegAudioAssembler:
             "-ac",
             str(channels),
             "-i",
-            "pipe:0",
+            str(input_path),
             "-c:a",
             "libmp3lame",
             "-b:a",
             "128k",
             "-f",
             "mp3",
-            "pipe:1",
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
+            str(output_path),
+            stdout=asyncio.subprocess.DEVNULL,
             stderr=asyncio.subprocess.PIPE,
         )
-        stdout, stderr = await process.communicate(pcm_bytes)
+        try:
+            _, stderr = await process.communicate()
+        except asyncio.CancelledError:
+            process.kill()
+            await process.wait()
+            raise
         if process.returncode != 0:
             raise RuntimeError(f"ffmpeg failed: {stderr.decode('utf-8', errors='replace')[:1000]}")
-        if not stdout:
+        if not output_path.is_file() or output_path.stat().st_size == 0:
             raise RuntimeError("ffmpeg returned empty MP3 output")
-        return stdout
+
+    async def encode_mp3(self, pcm_bytes: bytes, *, sample_rate_hz: int, channels: int) -> bytes:
+        with tempfile.TemporaryDirectory() as directory:
+            input_path = Path(directory) / "input.pcm"
+            output_path = Path(directory) / "output.mp3"
+            input_path.write_bytes(pcm_bytes)
+            await self.encode_mp3_file(
+                input_path,
+                output_path,
+                sample_rate_hz=sample_rate_hz,
+                channels=channels,
+            )
+            return output_path.read_bytes()
+
+    async def probe_duration_ms_file(self, path: Path) -> int:
+        return await asyncio.to_thread(self._probe_duration_ms_sync, path)
 
     async def probe_duration_ms(self, mp3_bytes: bytes) -> int:
         return await asyncio.to_thread(self._probe_duration_ms_sync, mp3_bytes)
 
     @staticmethod
-    def _probe_duration_ms_sync(mp3_bytes: bytes) -> int:
+    def _probe_duration_ms_sync(media: Path | bytes) -> int:
         path = ""
+        temporary_path = False
         try:
-            with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as handle:
-                handle.write(mp3_bytes)
-                path = handle.name
-            import subprocess
+            if isinstance(media, Path):
+                path = str(media)
+            else:
+                with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as handle:
+                    handle.write(media)
+                    path = handle.name
+                temporary_path = True
 
             result = subprocess.run(
                 [
@@ -68,7 +112,7 @@ class FfmpegAudioAssembler:
                 raise RuntimeError("ffprobe returned non-positive duration")
             return round(duration_seconds * 1000)
         finally:
-            if path:
+            if path and temporary_path:
                 try:
                     os.unlink(path)
                 except FileNotFoundError:

@@ -1,4 +1,10 @@
-from narrativex_worker.narration.models import AlignmentSpan, SynthesizedSegment
+from collections.abc import Sequence
+
+from narrativex_worker.narration.models import (
+    AlignmentSpan,
+    MaterializedAudioSegment,
+    SynthesizedSegment,
+)
 
 
 class NarrationAlignmentValidator:
@@ -37,7 +43,9 @@ class NarrationAlignmentValidator:
             raise ValueError(f"alignment duration drift {drift}ms exceeds tolerance")
 
 
-def build_alignment(segments: list[SynthesizedSegment]) -> list[AlignmentSpan]:
+def build_alignment(
+    segments: Sequence[SynthesizedSegment | MaterializedAudioSegment],
+) -> list[AlignmentSpan]:
     cursor = 0
     spans: list[AlignmentSpan] = []
     for synthesized in segments:

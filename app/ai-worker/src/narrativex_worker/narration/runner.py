@@ -1,14 +1,18 @@
 import asyncio
 import contextlib
-import hashlib
 import logging
 import time
 import uuid
+from pathlib import Path
 
 from narrativex_worker.config import WorkerSettings
 from narrativex_worker.narration.alignment import NarrationAlignmentValidator, build_alignment
 from narrativex_worker.narration.audio import FfmpegAudioAssembler
-from narrativex_worker.narration.models import NarrationSegment, SynthesizedSegment
+from narrativex_worker.narration.models import (
+    MaterializedAudioSegment,
+    NarrationSegment,
+    SynthesizedSegment,
+)
 from narrativex_worker.narration.pricing import GoogleTtsPricingCatalog, TtsPricingSnapshot
 from narrativex_worker.narration.providers import (
     TtsProvider,
@@ -27,6 +31,7 @@ from narrativex_worker.narration.storage import MediaStorage, S3MediaStorage
 from narrativex_worker.providers.tts import GoogleCloudTtsProvider
 from narrativex_worker.schema import ProviderOperationStatus
 from narrativex_worker.task_runtime import reap_finished_tasks
+from narrativex_worker.workspace import WorkerWorkspace, sha256_file
 
 
 class NarrationWorkerRunner:
@@ -52,6 +57,7 @@ class NarrationWorkerRunner:
         self.segmenter = NarrationSegmenter()
         self.validator = NarrationAlignmentValidator()
         self.audio = FfmpegAudioAssembler()
+        self.workspace = WorkerWorkspace()
 
     async def start(self, *, dry_run: bool = False) -> None:
         if not self.enabled:
@@ -198,51 +204,73 @@ class NarrationWorkerRunner:
         assert self.storage is not None
         assert self.pricing is not None
         pricing = self.pricing.resolve(claimed.voice_id)
-        segments = self.segmenter.segment(claimed.source_text)
-        synthesized: list[SynthesizedSegment] = []
-        for segment in segments:
-            synthesized.append(await self._materialize_segment(claimed, segment, pricing))
+        async with self.workspace.create_job_dir(str(claimed.narration_request_id)) as job_dir:
+            self.logger.debug(
+                "Narration workspace created job=%s request=%s",
+                claimed.job_id,
+                claimed.narration_request_id,
+            )
+            segments = self.segmenter.segment(claimed.source_text)
+            materialized: list[MaterializedAudioSegment] = []
+            for segment in segments:
+                materialized.append(
+                    await self._materialize_segment(claimed, segment, pricing, job_dir)
+                )
 
-        pcm_bytes = b"".join(item.pcm_bytes for item in synthesized)
-        mp3_bytes = await self.audio.encode_mp3(pcm_bytes, sample_rate_hz=48000, channels=1)
-        actual_duration_ms = await self.audio.probe_duration_ms(mp3_bytes)
-        spans = build_alignment(synthesized)
-        self.validator.validate(
-            spans,
-            source_utf16_length=utf16_length(claimed.source_text),
-            audio_duration_ms=actual_duration_ms,
-        )
-        checksum = hashlib.sha256(mp3_bytes).hexdigest()
-        final_key = f"narration/{claimed.narration_request_id}/chapter.mp3"
-        media_asset = await self.storage.put_immutable(
-            storage_key=final_key,
-            content=mp3_bytes,
-            checksum=checksum,
-            mime_type="audio/mpeg",
-            metadata={"duration-ms": str(actual_duration_ms)},
-        )
-        await self.repository.complete(
-            claimed,
-            self.worker_id,
-            media_asset,
-            duration_ms=actual_duration_ms,
-            sample_rate_hz=48000,
-            channels=1,
-            spans=spans,
-        )
-        self.logger.info(
-            "Completed narration job=%s request=%s durationMs=%s",
-            claimed.job_id,
-            claimed.narration_request_id,
-            actual_duration_ms,
-        )
+            pcm_path = job_dir / "chapter.pcm"
+            await self.audio.concatenate_files(
+                [item.file_path for item in materialized], pcm_path
+            )
+            mp3_path = job_dir / "chapter.mp3"
+            await self.audio.encode_mp3_file(
+                pcm_path, mp3_path, sample_rate_hz=48000, channels=1
+            )
+            actual_duration_ms = await self.audio.probe_duration_ms_file(mp3_path)
+            spans = build_alignment(materialized)
+            self.validator.validate(
+                spans,
+                source_utf16_length=utf16_length(claimed.source_text),
+                audio_duration_ms=actual_duration_ms,
+            )
+            checksum = await asyncio.to_thread(sha256_file, mp3_path)
+            final_key = f"narration/{claimed.narration_request_id}/chapter.mp3"
+            media_asset = await self.storage.put_file_immutable(
+                storage_key=final_key,
+                file_path=mp3_path,
+                checksum=checksum,
+                mime_type="audio/mpeg",
+                metadata={"duration-ms": str(actual_duration_ms)},
+            )
+            self.logger.debug(
+                "Narration upload completed request=%s sizeBytes=%s checksum=%s",
+                claimed.narration_request_id,
+                mp3_path.stat().st_size,
+                checksum,
+            )
+            await self.repository.complete(
+                claimed,
+                self.worker_id,
+                media_asset,
+                duration_ms=actual_duration_ms,
+                sample_rate_hz=48000,
+                channels=1,
+                spans=spans,
+            )
+            self.logger.info(
+                "Completed narration job=%s request=%s durationMs=%s finalSizeBytes=%s",
+                claimed.job_id,
+                claimed.narration_request_id,
+                actual_duration_ms,
+                mp3_path.stat().st_size,
+            )
 
     async def _materialize_segment(
         self,
         claimed: ClaimedNarrationJob,
         segment: NarrationSegment,
         pricing: TtsPricingSnapshot,
-    ) -> SynthesizedSegment:
+        job_dir: Path,
+    ) -> MaterializedAudioSegment:
         assert self.provider is not None
         assert self.storage is not None
         storage_key = f"narration/{claimed.narration_request_id}/segments/{segment.index:04d}.pcm"
@@ -253,7 +281,7 @@ class NarrationWorkerRunner:
             claimed.stage_attempt_id, self.provider.provider_key, fingerprint
         )
         if durable.status is ProviderOperationStatus.COMPLETED:
-            return await self._load_completed_segment(durable, segment)
+            return await self._load_completed_segment(durable, segment, job_dir)
         if durable.status is ProviderOperationStatus.FAILED:
             raise RuntimeError(f"Narration segment {segment.index} previously failed")
         if durable.status is ProviderOperationStatus.UNKNOWN:
@@ -262,7 +290,7 @@ class NarrationWorkerRunner:
                 raise NarrationOutcomeUnknownError(
                     f"Segment {segment.index} may have been accepted but has no durable audio"
                 )
-            recovered = await self._segment_from_storage(segment, stored.storage_key)
+            recovered = await self._segment_from_storage(segment, stored.storage_key, job_dir)
             return await self._persist_segment_completion(
                 durable, recovered, storage_key, stored.checksum, stored.size_bytes, pricing
             )
@@ -288,31 +316,51 @@ class NarrationWorkerRunner:
         except TtsProviderUnknownError as exception:
             raise NarrationOutcomeUnknownError(str(exception)) from exception
 
-        checksum = hashlib.sha256(synthesized.pcm_bytes).hexdigest()
-        stored = await self.storage.put_immutable(
+        self._validate_audio_format(synthesized)
+        sample_rate_hz = synthesized.sample_rate_hz
+        channels = synthesized.channels
+        duration_ms = synthesized.duration_ms
+        segment_path = job_dir / f"segment-{segment.index:04d}.pcm"
+        with segment_path.open("wb") as output:
+            output.write(synthesized.pcm_bytes)
+        del synthesized
+        checksum = await asyncio.to_thread(sha256_file, segment_path)
+        stored = await self.storage.put_file_immutable(
             storage_key=storage_key,
-            content=synthesized.pcm_bytes,
+            file_path=segment_path,
             checksum=checksum,
             mime_type="audio/L16",
             metadata={
-                "sample-rate-hz": str(synthesized.sample_rate_hz),
-                "channels": str(synthesized.channels),
-                "duration-ms": str(synthesized.duration_ms),
+                "sample-rate-hz": str(sample_rate_hz),
+                "channels": str(channels),
+                "duration-ms": str(duration_ms),
             },
         )
         return await self._persist_segment_completion(
-            durable, synthesized, storage_key, stored.checksum, stored.size_bytes, pricing
+            durable,
+            MaterializedAudioSegment(
+                segment=segment,
+                file_path=segment_path,
+                sample_rate_hz=sample_rate_hz,
+                channels=channels,
+                duration_ms=duration_ms,
+                checksum=stored.checksum,
+            ),
+            storage_key,
+            stored.checksum,
+            stored.size_bytes,
+            pricing,
         )
 
     async def _persist_segment_completion(
         self,
         durable: DurableNarrationProviderOperation,
-        synthesized: SynthesizedSegment,
+        synthesized: MaterializedAudioSegment,
         storage_key: str,
         checksum: str,
         size_bytes: int,
         pricing: TtsPricingSnapshot,
-    ) -> SynthesizedSegment:
+    ) -> MaterializedAudioSegment:
         result = {
             "storageKey": storage_key,
             "checksum": checksum,
@@ -330,36 +378,59 @@ class NarrationWorkerRunner:
         return synthesized
 
     async def _load_completed_segment(
-        self, durable: DurableNarrationProviderOperation, segment: NarrationSegment
-    ) -> SynthesizedSegment:
+        self,
+        durable: DurableNarrationProviderOperation,
+        segment: NarrationSegment,
+        job_dir: Path,
+    ) -> MaterializedAudioSegment:
         if durable.result is None:
             raise RuntimeError("Completed narration provider operation has no durable result")
         storage_key = str(durable.result["storageKey"])
-        synthesized = await self._segment_from_storage(segment, storage_key)
-        checksum = hashlib.sha256(synthesized.pcm_bytes).hexdigest()
-        if checksum != str(durable.result["checksum"]):
+        synthesized = await self._segment_from_storage(segment, storage_key, job_dir)
+        if synthesized.checksum != str(durable.result["checksum"]):
             raise RuntimeError("Durable narration segment checksum mismatch")
         return synthesized
 
     async def _segment_from_storage(
-        self, segment: NarrationSegment, storage_key: str
-    ) -> SynthesizedSegment:
+        self, segment: NarrationSegment, storage_key: str, job_dir: Path
+    ) -> MaterializedAudioSegment:
         assert self.storage is not None
         stored = await self.storage.find(storage_key)
         if stored is None:
             raise RuntimeError(f"Durable narration segment {storage_key} is missing")
-        pcm_bytes = await self.storage.get_bytes(storage_key)
-        checksum = hashlib.sha256(pcm_bytes).hexdigest()
-        if checksum != stored.checksum:
+        segment_path = job_dir / f"segment-{segment.index:04d}.pcm"
+        downloaded = await self.storage.download_to_file(storage_key, segment_path)
+        if downloaded.checksum != stored.checksum:
             raise RuntimeError("Stored narration segment checksum mismatch")
+        self.logger.debug(
+            "Narration segment downloaded request=%s segment=%s sizeBytes=%s",
+            storage_key.split("/")[1],
+            segment.index,
+            downloaded.size_bytes,
+        )
         try:
             sample_rate_hz = int(stored.metadata["sample-rate-hz"])
             channels = int(stored.metadata["channels"])
+            duration_ms = int(stored.metadata["duration-ms"])
         except (KeyError, ValueError) as exception:
             raise RuntimeError(
                 "Stored narration segment audio metadata is incomplete"
             ) from exception
-        return SynthesizedSegment(segment, pcm_bytes, sample_rate_hz, channels)
+        if sample_rate_hz != 48000 or channels != 1:
+            raise RuntimeError("Stored narration segment audio format is not 48kHz mono PCM")
+        return MaterializedAudioSegment(
+            segment=segment,
+            file_path=segment_path,
+            sample_rate_hz=sample_rate_hz,
+            channels=channels,
+            duration_ms=duration_ms,
+            checksum=downloaded.checksum,
+        )
+
+    @staticmethod
+    def _validate_audio_format(synthesized: SynthesizedSegment) -> None:
+        if synthesized.sample_rate_hz != 48000 or synthesized.channels != 1:
+            raise ValueError("narration segments must be 48kHz mono PCM")
 
     async def _heartbeat_loop(self, stage_attempt_id: int) -> None:
         interval = max(3.0, self.settings.lease_seconds / 3)

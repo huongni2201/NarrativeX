@@ -40,12 +40,27 @@ Furthermore, users may provide uploaded audio split across multiple files, where
 - **Graceful Shutdown:** On SIGTERM/SIGINT, the worker stops claiming new jobs, drains in-flight tasks, and releases database connections cleanly.
 - **Connection Pool Sizing:** PostgreSQL connection pool is sized dynamically as `max(5, WORKER_CONCURRENCY + 2)`.
 
+### 4. Bounded-memory chapter assembly
+
+- Provider PCM responses are written immediately to the per-job worker scratch workspace. The
+  execution pipeline retains segment metadata and file paths, not aggregate PCM bytes.
+- Segment files are concatenated in chunks, FFmpeg reads the chapter PCM file and writes an MP3
+  scratch file, and SHA-256 is computed by streaming that file.
+- Durable media storage exposes file boundaries for large objects: downloads stream to a file and
+  uploads pass a file object to the S3-compatible adapter. Existing byte APIs remain only for
+  small-object compatibility and are not used by the production narration runner.
+- Scratch workspaces are context-managed and removed on success, provider failure, storage failure,
+  database failure, lease loss, and task cancellation. Scratch paths are never authoritative media
+  references.
+
 ## Invariants
 
 1. Narration duration drives visual planning durations; visual beats never use arbitrary hardcoded lengths.
 2. Uploaded audio parts produce one unified `NarrationTimeline` without physical file concatenation.
 3. Durable audio files are stored in private Cloudflare R2; worker local disk is scratch only.
 4. The worker never exceeds `WORKER_CONCURRENCY` simultaneous in-flight narration jobs.
+5. Production chapter assembly does not create aggregate PCM or MP3 `bytes` proportional to chapter
+   duration.
 
 ## Consequences
 
