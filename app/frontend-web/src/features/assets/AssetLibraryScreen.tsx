@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useAssetStore } from "@/store/useAssetStore";
 import { AssetCard } from "@/components/assets/AssetCard";
 import { AssetDetailDrawer } from "@/components/assets/AssetDetailDrawer";
@@ -68,38 +68,68 @@ export const AssetLibraryScreen: React.FC = () => {
     rejectAsset,
     toggleLockAsset,
   } = useAssetStore();
-  const hydrateAssets = useAssetStore((state) => state.hydrateAssets);
+  const replaceAssets = useAssetStore((state) => state.replaceAssets);
   const [apiState, setApiState] = useState<"loading" | "ready" | "error">(
     isMockDataMode ? "ready" : "loading",
   );
   const [apiError, setApiError] = useState<string | null>(null);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
-  useEffect(() => {
+  const loadAssets = useCallback(async () => {
     if (isMockDataMode) return;
-    assetsApi
-      .list()
-      .then((items) => {
-        hydrateAssets(
-          items.map((asset) => ({
-            id: asset.id,
-            filename: asset.originalFilename,
-            type: asset.type,
-            status: asset.status as MediaAsset["status"],
-            thumbnailUrl: "",
-            fileSize: `${Math.max(1, Math.round(asset.sizeBytes / 1024))} KB`,
-            duration: asset.durationMs ? `${Math.round(asset.durationMs / 1000)}s` : undefined,
-            createdAt: asset.createdAt,
-            projectTitle: "Global media library",
-          })),
-        );
-        setApiState("ready");
-      })
-      .catch((error) => {
-        setApiState("error");
-        setApiError(apiErrorMessage(error, "Không thể tải thư viện tài sản."));
-      });
-  }, [hydrateAssets]);
+    try {
+      const page = await assetsApi.list();
+      replaceAssets(
+        page.items.map((asset) => ({
+          id: asset.id,
+          filename: asset.originalFilename,
+          type: asset.type,
+          status: asset.status as MediaAsset["status"],
+          thumbnailUrl: "",
+          fileSize: formatFileSize(asset.sizeBytes),
+          duration: asset.durationMs ? `${Math.round(asset.durationMs / 1000)}s` : undefined,
+          createdAt: asset.createdAt,
+          projectTitle: "Global media library",
+        })),
+      );
+      setApiState("ready");
+      setApiError(null);
+    } catch (error) {
+      setApiState("error");
+      setApiError(apiErrorMessage(error, "Không thể tải thư viện tài sản."));
+    }
+  }, [replaceAssets]);
+
+  useEffect(() => {
+    void loadAssets();
+  }, [loadAssets]);
+
+  const handleDelete = useCallback(async (id: string) => {
+    if (isMockDataMode) {
+      deleteAsset(id);
+      return;
+    }
+    try {
+      await assetsApi.delete(id);
+      closeDetailDrawer();
+      await loadAssets();
+    } catch (error) {
+      setApiError(apiErrorMessage(error, "Không thể xóa tài sản."));
+    }
+  }, [closeDetailDrawer, deleteAsset, loadAssets]);
+
+  const handleApprove = useCallback(async (id: string) => {
+    if (isMockDataMode) {
+      approveAsset(id);
+      return;
+    }
+    try {
+      await assetsApi.approve(id);
+      await loadAssets();
+    } catch (error) {
+      setApiError(apiErrorMessage(error, "Không thể approve tài sản."));
+    }
+  }, [approveAsset, loadAssets]);
 
   const typeTabs = useMemo(
     () => assetTypes.map((tab) => ({
@@ -161,7 +191,7 @@ export const AssetLibraryScreen: React.FC = () => {
             <h1 className="text-xl font-bold tracking-tight text-white md:text-2xl">Thư viện tài sản</h1>
             <p className="text-xs text-slate-400 mt-0.5">Quản lý tất cả tài sản media trong dự án</p>
           </div>
-          {isMockDataMode && <Button onClick={openUploadModal} variant="primary" size="md" className="font-semibold shrink-0" leftIcon={<Plus className="w-4 h-4 mr-1.5" />}>Upload tài sản</Button>}
+          <Button onClick={openUploadModal} variant="primary" size="md" className="font-semibold shrink-0" leftIcon={<Plus className="w-4 h-4 mr-1.5" />}>Upload tài sản</Button>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2.5 p-3 rounded-xl bg-surface border border-slate-800/90 shadow-md">
@@ -182,7 +212,7 @@ export const AssetLibraryScreen: React.FC = () => {
 
             <SelectField label="Lọc theo trạng thái" value={filterStatus} onChange={setFilterStatus}>
               <option value="all">Trạng thái: Tất cả</option>
-              {['APPROVED', 'NEEDS_REVIEW', 'LOCKED', 'GENERATED', 'PROCESSING', 'FAILED', 'COMPLETED'].map((status) => <option key={status} value={status}>{status}</option>)}
+              {['PENDING_UPLOAD', 'UPLOADING', 'VALIDATING', 'READY', 'REJECTED', 'APPROVED', 'NEEDS_REVIEW', 'LOCKED', 'GENERATED', 'PROCESSING', 'FAILED', 'COMPLETED'].map((status) => <option key={status} value={status}>{status}</option>)}
             </SelectField>
 
             <SelectField label="Lọc theo tỷ lệ" value={filterAspectRatio} onChange={setFilterAspectRatio}>
@@ -238,8 +268,8 @@ export const AssetLibraryScreen: React.FC = () => {
         )}
       </div>
 
-      {isDetailDrawerOpen && selectedAsset && isMockDataMode && <AssetDetailDrawer asset={selectedAsset} onClose={closeDetailDrawer} onDelete={deleteAsset} onApprove={approveAsset} onReject={rejectAsset} onToggleLock={toggleLockAsset} />}
-      {isMockDataMode && <AssetUploadModal isOpen={isUploadModalOpen} onClose={closeUploadModal} />}
+      {isDetailDrawerOpen && selectedAsset && <AssetDetailDrawer asset={selectedAsset} onClose={closeDetailDrawer} onDelete={handleDelete} onApprove={canApprove(selectedAsset.status) ? handleApprove : undefined} onReject={isMockDataMode ? rejectAsset : undefined} onToggleLock={isMockDataMode ? toggleLockAsset : undefined} />}
+      <AssetUploadModal isOpen={isUploadModalOpen} onClose={closeUploadModal} onUploaded={loadAssets} />
     </div>
   );
 };
@@ -253,4 +283,14 @@ function SelectField({ label, value, onChange, children, compact = false }: Read
       <ChevronDown className="w-3 h-3 text-slate-400 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
     </div>
   );
+}
+
+function formatFileSize(sizeBytes: number) {
+  if (sizeBytes < 1024) return `${sizeBytes} B`;
+  if (sizeBytes < 1024 ** 2) return `${Math.max(1, Math.round(sizeBytes / 1024))} KB`;
+  return `${(sizeBytes / 1024 ** 2).toFixed(1)} MB`;
+}
+
+function canApprove(status: MediaAsset["status"]) {
+  return status === "PENDING_UPLOAD" || status === "UPLOADING" || status === "VALIDATING";
 }

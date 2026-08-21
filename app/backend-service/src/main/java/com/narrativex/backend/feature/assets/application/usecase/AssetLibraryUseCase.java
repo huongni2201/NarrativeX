@@ -3,7 +3,7 @@ package com.narrativex.backend.feature.assets.application.usecase;
 import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository;
 import com.narrativex.backend.feature.assets.application.query.MediaAssetView;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
-import java.util.List;
+import com.narrativex.backend.feature.common.pagination.CursorPage;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,18 +16,29 @@ public class AssetLibraryUseCase {
   private final MediaAssetRepository repository;
 
   @Transactional(readOnly = true)
-  public List<MediaAssetView> list(String type, String status, String search) {
-    return repository.list(currentUserId.get(), type, status, search);
+  public CursorPage<MediaAssetView> list(
+      String type, String status, String search, String cursor, int limit) {
+    return repository.list(currentUserId.get(), type, status, search, cursor, limit);
   }
 
   @Transactional
-  public MediaAssetView upload(MediaAssetRepository.CreateMediaAsset command) {
-    return repository.create(currentUserId.get(), command);
+  public MediaAssetView startUpload(UUID id) {
+    return repository.startUpload(currentUserId.get(), id);
+  }
+
+  @Transactional
+  public MediaAssetView startValidation(UUID id) {
+    return repository.startValidation(currentUserId.get(), id);
   }
 
   @Transactional
   public MediaAssetView approve(UUID id) {
     return repository.approve(currentUserId.get(), id);
+  }
+
+  @Transactional
+  public MediaAssetView reject(UUID id) {
+    return repository.reject(currentUserId.get(), id);
   }
 
   @Transactional

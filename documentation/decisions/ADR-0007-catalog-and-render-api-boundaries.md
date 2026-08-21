@@ -14,6 +14,9 @@ client-controlled identity would make those surfaces diverge from PostgreSQL sta
 
 - Persist style presets and enabled voices in PostgreSQL and expose read-only catalog endpoints under
   `/api/v1/style-presets` and `/api/v1/voices`.
+- The public style preset response contains only the display contract (`name`, `description`,
+  `thumbnail`, and `tags`). Generation policy fields remain available only through internal
+  application views and ports; they are not serialized by the catalog controller.
 - Expose account-scoped media metadata under `/api/v1/assets`; metadata registration starts at
   `PENDING_UPLOAD`, approval is allowed only after storage validation marks the row `UPLOADED` or
   `VALIDATING`, and referenced narration media cannot be deleted.

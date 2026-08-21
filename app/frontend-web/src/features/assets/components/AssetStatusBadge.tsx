@@ -7,6 +7,7 @@ interface AssetStatusBadgeProps { status: AssetStatus; progressPercent?: number;
 
 export const AssetStatusBadge: React.FC<AssetStatusBadgeProps> = ({ status, progressPercent, className }) => {
   const configs: Record<AssetStatus, { label: string; icon: React.ElementType; className: string }> = {
+    PENDING_UPLOAD: { label: "PENDING UPLOAD", icon: Clock, className: "bg-badge-amber-bg text-badge-amber border-badge-amber-border" },
     APPROVED: { label: "APPROVED", icon: Check, className: "bg-badge-green-bg text-badge-green border-badge-green-border" },
     LOCKED: { label: "LOCKED", icon: Lock, className: "bg-badge-blue-bg text-badge-blue border-badge-blue-border" },
     NEEDS_REVIEW: { label: "NEEDS REVIEW", icon: Clock, className: "bg-badge-amber-bg text-badge-amber border-badge-amber-border" },
@@ -14,12 +15,14 @@ export const AssetStatusBadge: React.FC<AssetStatusBadgeProps> = ({ status, prog
     READY: { label: "READY", icon: Check, className: "bg-badge-green-bg text-badge-green border-badge-green-border" },
     PROCESSING: { label: progressPercent ? `${progressPercent}%` : "PROCESSING", icon: Loader2, className: "bg-badge-blue-bg text-badge-blue border-badge-blue-border" },
     UPLOADING: { label: "UPLOADING", icon: Loader2, className: "bg-badge-blue-bg text-badge-blue border-badge-blue-border" },
+    VALIDATING: { label: "VALIDATING", icon: Loader2, className: "bg-badge-blue-bg text-badge-blue border-badge-blue-border" },
     FAILED: { label: "FAILED", icon: AlertTriangle, className: "bg-badge-red-bg text-badge-red border-badge-red-border" },
     REJECTED: { label: "REJECTED", icon: AlertTriangle, className: "bg-badge-red-bg text-badge-red border-badge-red-border" },
     COMPLETED: { label: "COMPLETED", icon: CheckCircle2, className: "bg-badge-green-bg text-badge-green border-badge-green-border" },
+    DELETED: { label: "DELETED", icon: AlertTriangle, className: "bg-badge-red-bg text-badge-red border-badge-red-border" },
   };
   const item = configs[status];
   const Icon = item.icon;
-  const moving = status === "PROCESSING" || status === "UPLOADING";
+  const moving = status === "PROCESSING" || status === "UPLOADING" || status === "VALIDATING";
   return <span className={cn("inline-flex items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-wider", item.className, className)}><Icon className={cn("h-3 w-3", moving && "motion-safe:animate-spin")} /><span>{item.label}</span></span>;
 };

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaUploadSessionMapper">
+    <resultMap id="mediaUploadSessionRow" type="com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaUploadSessionRow">
+        <id property="id" column="id" javaType="java.util.UUID"
+            typeHandler="com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler" />
+        <result property="assetType" column="asset_type" />
+        <result property="originalFilename" column="filename" />
+        <result property="contentType" column="content_type" />
+        <result property="expectedSize" column="expected_size" />
+        <result property="expectedSha256" column="expected_sha256" />
+        <result property="storageKey" column="storage_key" />
+        <result property="idempotencyKey" column="idempotency_key" />
+        <result property="status" column="status" />
+        <result property="expiresAt" column="expires_at" />
+        <result property="createdAt" column="created_at" />
+        <result property="mediaAssetId" column="media_asset_id" javaType="java.util.UUID"
+            typeHandler="com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler" />
+    </resultMap>
+
+    <insert id="insert" parameterType="com.narrativex.backend.feature.assets.application.port.out.MediaUploadSessionRepository$CreateUploadSession">
+        INSERT INTO media_upload_sessions
+            (id, account_id, asset_type, filename, content_type, expected_size,
+             expected_sha256, storage_key, idempotency_key, status, expires_at)
+        VALUES
+            (#{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}, #{accountId}, #{assetType}, #{originalFilename}, #{contentType}, #{expectedSize},
+             #{expectedSha256}, #{storageKey}, #{idempotencyKey}, 'PENDING_UPLOAD', #{expiresAt})
+    </insert>
+
+    <select id="findOwned" resultMap="mediaUploadSessionRow">
+        SELECT id, asset_type, filename, content_type, expected_size, expected_sha256,
+               storage_key, idempotency_key, status, expires_at, created_at, media_asset_id
+          FROM media_upload_sessions
+         WHERE id = #{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
+           AND account_id = #{accountId}
+         FOR UPDATE
+    </select>
+
+    <select id="findByIdempotencyKey" resultMap="mediaUploadSessionRow">
+        SELECT id, asset_type, filename, content_type, expected_size, expected_sha256,
+               storage_key, idempotency_key, status, expires_at, created_at, media_asset_id
+          FROM media_upload_sessions
+         WHERE account_id = #{accountId}
+           AND idempotency_key = #{idempotencyKey}
+    </select>
+
+    <update id="markReady">
+        UPDATE media_upload_sessions
+           SET status = 'READY', media_asset_id = #{mediaAssetId,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
+         WHERE id = #{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
+           AND account_id = #{accountId}
+           AND status = 'PENDING_UPLOAD'
+    </update>
+
+    <update id="markRejected">
+        UPDATE media_upload_sessions
+           SET status = 'REJECTED'
+         WHERE id = #{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
+           AND account_id = #{accountId}
+           AND status = 'PENDING_UPLOAD'
+    </update>
+</mapper>

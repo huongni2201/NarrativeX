@@ -4,19 +4,87 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useAssetStore } from "@/store/useAssetStore";
 import type { AssetType, MediaAsset } from "@/types/assets";
+import { isMockDataMode } from "@/lib/data-mode";
+import { apiErrorMessage } from "@/shared/api/client";
+import { assetsApi } from "../api/assets.api";
 
-interface AssetUploadModalProps { isOpen: boolean; onClose: () => void }
+interface AssetUploadModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onUploaded?: () => void;
+}
 
-export const AssetUploadModal: React.FC<AssetUploadModalProps> = ({ isOpen, onClose }) => {
+const apiAssetTypes: Array<Extract<AssetType, "AUDIO" | "IMAGE" | "VIDEO">> = ["IMAGE", "VIDEO", "AUDIO"];
+
+async function sha256(file: File) {
+  const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+export const AssetUploadModal: React.FC<AssetUploadModalProps> = ({ isOpen, onClose, onUploaded }) => {
   const addAsset = useAssetStore((state) => state.addAsset);
   const [selectedType, setSelectedType] = useState<AssetType>("IMAGE");
   const [filename, setFilename] = useState("");
   const [projectTitle, setProjectTitle] = useState("Demo Project");
+  const [file, setFile] = useState<File | null>(null);
+  const [uploadIdempotencyKey, setUploadIdempotencyKey] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const filenameId = useId();
   const projectId = useId();
+  const fileId = useId();
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const resetForm = () => {
+    setFilename("");
+    setFile(null);
+    setUploadIdempotencyKey(null);
+    setError(null);
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    setError(null);
+
+    if (!isMockDataMode) {
+      if (!file || !apiAssetTypes.includes(selectedType as Extract<AssetType, "AUDIO" | "IMAGE" | "VIDEO">)) {
+        setError("Hãy chọn một file media hợp lệ.");
+        return;
+      }
+
+      setIsSubmitting(true);
+      try {
+        const expectedSha256 = await sha256(file);
+        const intent = await assetsApi.createUploadIntent({
+          type: selectedType as Extract<AssetType, "AUDIO" | "IMAGE" | "VIDEO">,
+          originalFilename: file.name,
+          contentType: file.type || "application/octet-stream",
+          expectedSizeBytes: file.size,
+          expectedSha256,
+        }, uploadIdempotencyKey ?? crypto.randomUUID());
+        const uploadResponse = await fetch(intent.uploadUrl, {
+          method: "PUT",
+          headers: {
+            "Content-Type": file.type || "application/octet-stream",
+            ...intent.uploadHeaders,
+          },
+          body: file,
+          credentials: "omit",
+        });
+        if (!uploadResponse.ok) throw new Error(`Upload object thất bại (${uploadResponse.status}).`);
+
+        const finalized = await assetsApi.finalizeUpload(intent.id);
+        if (finalized.status !== "READY") throw new Error("Backend từ chối media upload sau khi verify.");
+        onUploaded?.();
+        resetForm();
+        onClose();
+      } catch (uploadError) {
+        setError(apiErrorMessage(uploadError, "Không thể upload tài sản."));
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
     const now = Date.now();
     const asset: MediaAsset = {
       id: `ast-${now}`,
@@ -35,18 +103,26 @@ export const AssetUploadModal: React.FC<AssetUploadModalProps> = ({ isOpen, onCl
       usedIn: [],
     };
     addAsset(asset);
-    setFilename("");
+    resetForm();
     onClose();
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} ariaLabel="Upload tài sản demo" maxWidth="lg">
+    <Modal isOpen={isOpen} onClose={onClose} ariaLabel={isMockDataMode ? "Upload tài sản demo" : "Upload tài sản"} maxWidth="lg">
       <form onSubmit={handleSubmit} className="space-y-5 p-6">
-        <div><h2 className="text-lg font-bold text-white">Upload tài sản demo</h2><p className="mt-1 text-xs text-slate-400">Chỉ dùng trong mock runtime. API mode không hiển thị modal này.</p></div>
-        <div className="space-y-1.5"><label htmlFor={filenameId} className="text-xs font-semibold text-slate-300">Tên file</label><Input id={filenameId} value={filename} onChange={(event) => setFilename(event.target.value)} placeholder="asset.png" /></div>
-        <fieldset className="space-y-2"><legend className="text-xs font-semibold text-slate-300">Loại tài sản</legend><div className="grid grid-cols-3 gap-2" role="radiogroup">{(["IMAGE", "VIDEO", "AUDIO", "REFERENCE", "MOTION", "FINAL_OUTPUT"] as AssetType[]).map((type) => <button key={type} type="button" role="radio" aria-checked={selectedType === type} onClick={() => setSelectedType(type)} className={`rounded-lg border p-2 text-xs ${selectedType === type ? "border-purple-500 bg-purple-950/80 text-white" : "border-slate-800 bg-surface-panel text-slate-400"}`}>{type}</button>)}</div></fieldset>
-        <div className="space-y-1.5"><label htmlFor={projectId} className="text-xs font-semibold text-slate-300">Dự án demo</label><Input id={projectId} value={projectTitle} onChange={(event) => setProjectTitle(event.target.value)} /></div>
-        <div className="flex justify-end gap-2 border-t border-slate-800 pt-4"><Button type="button" variant="secondary" onClick={onClose}>Hủy</Button><Button type="submit" variant="primary">Thêm tài sản demo</Button></div>
+        <div>
+          <h2 className="text-lg font-bold text-text-primary">{isMockDataMode ? "Upload tài sản demo" : "Upload tài sản"}</h2>
+          <p className="mt-1 text-xs text-text-secondary">{isMockDataMode ? "Chỉ dùng trong mock runtime." : "File sẽ được upload trực tiếp lên object storage và backend sẽ verify trước khi READY."}</p>
+        </div>
+        {isMockDataMode ? (
+          <div className="space-y-1.5"><label htmlFor={filenameId} className="text-xs font-semibold text-text-secondary">Tên file</label><Input id={filenameId} value={filename} onChange={(event) => setFilename(event.target.value)} placeholder="asset.png" /></div>
+        ) : (
+          <div className="space-y-1.5"><label htmlFor={fileId} className="text-xs font-semibold text-text-secondary">File media</label><input id={fileId} type="file" accept="image/*,video/*,audio/*" required onChange={(event) => { setFile(event.target.files?.[0] ?? null); setUploadIdempotencyKey(crypto.randomUUID()); }} className="block w-full rounded-lg border border-border bg-surface-panel px-3 py-2 text-xs text-text-secondary file:mr-3 file:rounded file:border-0 file:bg-primary file:px-2 file:py-1 file:text-xs file:font-semibold file:text-white" /></div>
+        )}
+        <fieldset className="space-y-2"><legend className="text-xs font-semibold text-text-secondary">Loại tài sản</legend><div className="grid grid-cols-3 gap-2" role="radiogroup">{(isMockDataMode ? (["IMAGE", "VIDEO", "AUDIO", "REFERENCE", "MOTION", "FINAL_OUTPUT"] as AssetType[]) : apiAssetTypes).map((type) => <button key={type} type="button" role="radio" aria-checked={selectedType === type} onClick={() => setSelectedType(type)} className={`rounded-lg border p-2 text-xs ${selectedType === type ? "border-primary bg-primary-muted text-text-primary" : "border-border bg-surface-panel text-text-secondary"}`}>{type}</button>)}</div></fieldset>
+        {isMockDataMode && <div className="space-y-1.5"><label htmlFor={projectId} className="text-xs font-semibold text-text-secondary">Dự án demo</label><Input id={projectId} value={projectTitle} onChange={(event) => setProjectTitle(event.target.value)} /></div>}
+        {error && <p role="alert" className="rounded-lg border border-danger/40 bg-danger-bg/20 p-3 text-xs text-danger">{error}</p>}
+        <div className="flex justify-end gap-2 border-t border-border pt-4"><Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>Hủy</Button><Button type="submit" variant="primary" disabled={isSubmitting}>{isSubmitting ? "Đang upload…" : isMockDataMode ? "Thêm tài sản demo" : "Upload tài sản"}</Button></div>
       </form>
     </Modal>
   );

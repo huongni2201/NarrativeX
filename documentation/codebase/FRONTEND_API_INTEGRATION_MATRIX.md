@@ -20,7 +20,7 @@ This matrix records frontend wiring separately from backend/API availability. AP
 | Global Character library | IMPLEMENTED foundation | Character library APIs | richer global-library management |
 | Project Locations | IMPLEMENTED foundation | Location read API + AI Location materialization | richer edit/reference workflows |
 | Project Assets | IMPLEMENTED foundation | Asset read/create foundations | upload/finalize/delete/review lifecycle |
-| Asset Library | IMPLEMENTED foundation | account-scoped media metadata lifecycle at `/api/v1/assets` | binary storage upload/finalize and signed downloads |
+| Asset Library | IMPLEMENTED foundation | account-scoped verified media lifecycle at `/api/v1/assets`, cursor page `{items,nextCursor}`, and upload intents/finalize | signed downloads and richer upload UX |
 | Job History | IMPLEMENTED foundation | backend read (`/api/v1/jobs/history`) | history table/filters/pagination |
 | User Quota | IMPLEMENTED foundation | backend read (`/api/v1/users/me/quota`) | quota details modal & usage breakdown |
 | Notifications | IMPLEMENTED foundation | backend read/mark-read (`/api/v1/notifications`) | notification drawer, page & unread badges |

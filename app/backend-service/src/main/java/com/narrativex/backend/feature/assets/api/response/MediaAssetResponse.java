@@ -2,6 +2,7 @@ package com.narrativex.backend.feature.assets.api.response;
 
 import com.narrativex.backend.feature.assets.application.query.MediaAssetView;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 public record MediaAssetResponse(
@@ -29,5 +30,13 @@ public record MediaAssetResponse(
         view.durationMs(),
         view.status(),
         view.createdAt());
+  }
+
+  public record Page(List<MediaAssetResponse> items, String nextCursor) {
+    public static Page from(
+        com.narrativex.backend.feature.common.pagination.CursorPage<MediaAssetView> page) {
+      return new Page(
+          page.content().stream().map(MediaAssetResponse::from).toList(), page.nextCursor());
+    }
   }
 }

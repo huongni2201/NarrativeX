@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetMapper">
+    <resultMap id="mediaAssetRow" type="com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetRow">
+        <id property="id" column="id" javaType="java.util.UUID"
+            typeHandler="com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler" />
+        <result property="accountId" column="account_id" />
+        <result property="assetType" column="asset_type" />
+        <result property="origin" column="origin" />
+        <result property="storageKey" column="storage_key" />
+        <result property="originalFilename" column="original_filename" />
+        <result property="contentType" column="content_type" />
+        <result property="sizeBytes" column="size_bytes" />
+        <result property="sha256" column="sha256" />
+        <result property="durationMs" column="duration_ms" />
+        <result property="status" column="status" />
+        <result property="createdAt" column="created_at" />
+        <result property="deletedAt" column="deleted_at" />
+        <result property="checksumVerifiedAt" column="checksum_verified_at" />
+    </resultMap>
+
+    <sql id="columns">
+        id, account_id, asset_type, origin, storage_key, original_filename, content_type,
+        size_bytes, sha256, duration_ms, status, created_at, deleted_at, checksum_verified_at
+    </sql>
+
+    <sql id="visiblePredicate">
+        account_id = #{accountId}
+        AND status &lt;&gt; 'DELETED'
+        AND deleted_at IS NULL
+    </sql>
+
+    <select id="insert" parameterType="com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetRow" resultType="java.util.UUID" affectData="true">
+        INSERT INTO media_assets
+            (id, account_id, asset_type, origin, storage_key, original_filename, content_type,
+             size_bytes, sha256, duration_ms, status)
+        VALUES
+            (#{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}, #{accountId}, #{assetType}, #{origin}, #{storageKey}, #{originalFilename}, #{contentType},
+             #{sizeBytes}, #{sha256}, #{durationMs}, 'PENDING_UPLOAD')
+        RETURNING id
+    </select>
+
+    <select id="findPage" resultMap="mediaAssetRow">
+        SELECT <include refid="columns" />
+          FROM media_assets
+         WHERE <include refid="visiblePredicate" />
+        <if test="type != null and type != ''">
+           AND asset_type = #{type}
+        </if>
+        <if test="status != null and status != ''">
+           AND status = #{status}
+        </if>
+        <if test="search != null and search != ''">
+           AND (LOWER(original_filename) LIKE LOWER(CONCAT('%', #{search}, '%'))
+                OR LOWER(storage_key) LIKE LOWER(CONCAT('%', #{search}, '%')))
+        </if>
+        <if test="cursorCreatedAt != null and cursorId != null">
+           AND (created_at &lt; #{cursorCreatedAt}
+                OR (created_at = #{cursorCreatedAt} AND id &lt; #{cursorId,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}))
+        </if>
+         ORDER BY created_at DESC, id DESC
+         LIMIT #{limit}
+    </select>
+
+    <select id="findOwned" resultMap="mediaAssetRow">
+        SELECT <include refid="columns" />
+          FROM media_assets
+         WHERE <include refid="visiblePredicate" />
+           AND id = #{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
+    </select>
+
+    <select id="findVerifiedByChecksum" resultMap="mediaAssetRow">
+        SELECT <include refid="columns" />
+          FROM media_assets
+         WHERE <include refid="visiblePredicate" />
+           AND checksum_verified_at IS NOT NULL
+           AND sha256 = #{sha256}
+         ORDER BY created_at ASC, id ASC
+         LIMIT 1
+    </select>
+
+    <update id="markUploading">
+        UPDATE media_assets
+           SET status = 'UPLOADING'
+         WHERE account_id = #{accountId}
+           AND id = #{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
+           AND status = 'PENDING_UPLOAD'
+           AND deleted_at IS NULL
+    </update>
+
+    <update id="markValidating">
+        UPDATE media_assets
+           SET status = 'VALIDATING'
+         WHERE account_id = #{accountId}
+           AND id = #{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
+           AND status = 'UPLOADING'
+           AND deleted_at IS NULL
+    </update>
+
+    <update id="approve">
+        UPDATE media_assets
+           SET status = 'READY',
+               checksum_verified_at = CURRENT_TIMESTAMP
+         WHERE account_id = #{accountId}
+           AND id = #{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
+           AND status = 'VALIDATING'
+           AND deleted_at IS NULL
+    </update>
+
+    <update id="reject">
+        UPDATE media_assets
+           SET status = 'REJECTED'
+         WHERE account_id = #{accountId}
+           AND id = #{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
+           AND status = 'VALIDATING'
+           AND deleted_at IS NULL
+    </update>
+
+    <update id="softDelete">
+        UPDATE media_assets m
+           SET status = 'DELETED',
+               deleted_at = CURRENT_TIMESTAMP
+         WHERE m.account_id = #{accountId}
+           AND m.id = #{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
+           AND m.status = 'READY'
+           AND m.deleted_at IS NULL
+           AND NOT EXISTS (
+                 SELECT 1
+                   FROM narration_parts p
+                  WHERE p.media_asset_id = m.id
+           )
+    </update>
+</mapper>

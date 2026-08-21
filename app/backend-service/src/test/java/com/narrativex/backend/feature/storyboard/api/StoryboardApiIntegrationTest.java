@@ -111,8 +111,8 @@ class StoryboardApiIntegrationTest {
     mockMvc
         .perform(get("/api/v1/assets?type=AUDIO"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.data[0].status").value("READY"))
-        .andExpect(jsonPath("$.data[0].originalFilename").value("river-intro.wav"));
+        .andExpect(jsonPath("$.data.items[0].status").value("READY"))
+        .andExpect(jsonPath("$.data.items[0].originalFilename").value("river-intro.wav"));
 
     mockMvc
         .perform(get("/api/v1/artifacts/28001/download"))

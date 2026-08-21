@@ -59,7 +59,6 @@ export const StylePresetsScreen: React.FC = () => {
             coverImage: preset.thumbnailUrl ?? "",
             tags: preset.tags,
             usedInProjectsCount: 0,
-            negativeRules: preset.negativePrompt ?? undefined,
           })),
         );
         setApiState("ready");

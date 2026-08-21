@@ -7,7 +7,9 @@ export type AssetType =
   | "FINAL_OUTPUT";
 
 export type AssetStatus =
+  | "PENDING_UPLOAD"
   | "UPLOADING"
+  | "VALIDATING"
   | "PROCESSING"
   | "GENERATED"
   | "NEEDS_REVIEW"
@@ -16,7 +18,8 @@ export type AssetStatus =
   | "LOCKED"
   | "READY"
   | "FAILED"
-  | "COMPLETED";
+  | "COMPLETED"
+  | "DELETED";
 
 export interface AssetUsedIn {
   type: "scene_beat" | "character" | "location" | "chapter" | "project";

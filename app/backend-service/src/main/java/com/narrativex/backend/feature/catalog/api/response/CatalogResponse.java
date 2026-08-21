@@ -9,28 +9,16 @@ public final class CatalogResponse {
   private CatalogResponse() {}
 
   public record StylePreset(
-      Long id,
       String name,
-      String category,
       String description,
-      String thumbnailUrl,
-      String promptSuffix,
-      String negativePrompt,
-      List<String> tags,
-      String configJson,
-      Instant createdAt) {
+      String thumbnail,
+      List<String> tags) {
     public static StylePreset from(StylePresetView view) {
       return new StylePreset(
-          view.id(),
           view.name(),
-          view.category(),
           view.description(),
           view.thumbnailUrl(),
-          view.promptSuffix(),
-          view.negativePrompt(),
-          view.tags(),
-          view.configJson(),
-          view.createdAt());
+          view.tags());
     }
   }
 

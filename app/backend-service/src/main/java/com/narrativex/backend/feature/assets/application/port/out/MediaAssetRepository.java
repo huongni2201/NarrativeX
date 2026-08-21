@@ -1,15 +1,26 @@
 package com.narrativex.backend.feature.assets.application.port.out;
 
 import com.narrativex.backend.feature.assets.application.query.MediaAssetView;
-import java.util.List;
+import com.narrativex.backend.feature.common.pagination.CursorPage;
 import java.util.UUID;
 
 public interface MediaAssetRepository {
-  List<MediaAssetView> list(String accountId, String type, String status, String search);
+  CursorPage<MediaAssetView> list(
+      String accountId, String type, String status, String search, String cursor, int limit);
 
   MediaAssetView create(String accountId, CreateMediaAsset command);
 
+  MediaAssetView findOwned(String accountId, UUID id);
+
+  MediaAssetView markReady(String accountId, UUID id);
+
+  MediaAssetView startUpload(String accountId, UUID id);
+
+  MediaAssetView startValidation(String accountId, UUID id);
+
   MediaAssetView approve(String accountId, UUID id);
+
+  MediaAssetView reject(String accountId, UUID id);
 
   void delete(String accountId, UUID id);
 
