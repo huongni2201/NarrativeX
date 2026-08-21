@@ -47,3 +47,7 @@ Follow `documentation/codebase/PERSISTENCE_MIGRATION.md` and ADR-0015 convention
 ```
 
 The backend does not execute heavy AI/media/FFmpeg workloads inside HTTP request threads.
+
+Coverage policy, the measured baseline, critical-path expectations, and CI
+artifact locations are documented in
+`documentation/codebase/BACKEND_COVERAGE.md`.

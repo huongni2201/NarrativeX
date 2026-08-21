@@ -49,3 +49,14 @@ jobs:
 
       - name: Verify backend
         run: ./mvnw --batch-mode --no-transfer-progress clean verify
+
+      - name: Upload backend verification reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-verification-reports
+          path: |
+            app/backend-service/target/site/jacoco/
+            app/backend-service/target/surefire-reports/
+          if-no-files-found: warn
+          retention-days: 14

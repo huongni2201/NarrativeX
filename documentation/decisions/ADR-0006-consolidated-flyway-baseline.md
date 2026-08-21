@@ -18,9 +18,11 @@ incompatible schema.
 
 ## Decision
 
-- Keep exactly two migrations under
+- Keep the consolidated baseline in exactly two migrations under
   `app/backend-service/src/main/resources/db/migration/`:
-  `V1__initial_schema.sql` and `V2__seed_demo_data.sql`.
+  `V1__initial_schema.sql` and `V2__seed_demo_data.sql`. Later schema cleanup
+  must use forward-only migrations; the deprecated quota projection is removed
+  by V3.
 - `V1__initial_schema.sql` contains the final consolidated schema, including
   split motion fields (`motion_mode`, `camera_movement`), storyboard revisions (`storyboard_revisions`),
   scene & location continuity identities (`scene_characters`, `project_character_ai_identities`, `project_location_ai_identities`),
@@ -43,8 +45,9 @@ incompatible schema.
 
 ## Consequences
 
-- A fresh supported PostgreSQL database has a concise, deterministic two-step
-  path: schema V1, then seed V2.
+- A fresh supported PostgreSQL database starts with a concise, deterministic
+  two-step baseline path: schema V1, then seed V2. Forward-only cleanup
+  migrations may run after that baseline.
 - The final schema is easier to compare with JPA validation and implementation
   documentation.
 - Existing development databases are not transparently compatible with the
@@ -56,8 +59,9 @@ incompatible schema.
 
 ## Verification
 
-- Apply V1 and V2 to an empty PostgreSQL instance and verify Flyway latest
-  version is 2.
+- Apply V1 and V2 to an empty PostgreSQL instance to verify the baseline; the
+  current migration integration test applies the complete set and verifies
+  Flyway latest version is 3.
 - Start the backend with Hibernate `ddl-auto=validate`.
 - Verify JSONB columns, foreign keys, enum checks, partial indexes, chapter
   source hashes, generation-job snapshot columns, and project overview fields.
