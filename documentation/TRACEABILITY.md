@@ -1,18 +1,21 @@
 # NarrativeX V1.11 Current Implementation Traceability
 
-This matrix maps the V1.11 contract to repository evidence at the docs-sync base `e47dccee4aa35450f3902a55311d5d83632cb5a6`.
+This matrix maps the V1.11 contract to repository evidence at the docs-sync base `29122c51a6d113ed7fd4026f7de3f5df75771153`.
 
 | Capability / invariant | Evidence | Status |
 |---|---|---|
 | Project creation metadata-only | backend Project commands/APIs | IMPLEMENTED |
+| Project dashboard/favorite read model | Project dashboard/favorite use cases, MyBatis query adapter, frontend live dashboard | IMPLEMENTED foundation |
 | Project MyBatis persistence | MyBatis Project adapters/mappers/query mapping | IMPLEMENTED |
 | Chapter source snapshot + MyBatis persistence | Chapter domain/repository + rowVersion/sourceHash tests | IMPLEMENTED |
 | Explicit durable Chapter Analyze | generation API/use case | IMPLEMENTED |
 | Durable enqueue + outbox | OperationPlan/GenerationJob/StageAttempt/Outbox | IMPLEMENTED foundation |
+| Generation durable persistence cutover | GenerationJob/StageAttempt/OperationPlan/MediaPlan/outbox/job-history/safety-gate MyBatis mappers + architecture/integration tests | IMPLEMENTED for covered execution boundaries |
 | Worker claim/lease/heartbeat | PostgreSQL claim/recovery tests | IMPLEMENTED |
 | ProviderOperation durable lifecycle | repository/worker lifecycle + reconciliation tests | IMPLEMENTED foundation |
 | Completed-result fingerprint immutability | result fingerprint schema/tests | IMPLEMENTED |
 | Character + Location continuity and Scene relations | worker materialization/tests | IMPLEMENTED foundation |
+| Project-scoped Character list/detail read model | controller/use cases/MyBatis projection + frontend tab/detail wiring + authorization tests | IMPLEMENTED foundation |
 | Backend-authoritative MediaPlan | MediaPlan use case, immutable revision/job pointer, motion resolver | IMPLEMENTED foundation |
 | Full-chapter TTS narration + alignment | narration request/assets/alignment + worker execution/tests | IMPLEMENTED foundation |
 | R2-backed narration durability | R2 media storage path/config/tests | IMPLEMENTED foundation |
@@ -27,12 +30,18 @@ This matrix maps the V1.11 contract to repository evidence at the docs-sync base
 | IMAGE_MOTION render/export | no complete production MP4 vertical slice | TARGET |
 | Reuse/reframe/edit AssetResolver | architecture defined; intentionally postponed | DEFERRED |
 | HYBRID_LOCAL_I2V end-to-end | Wan adapter/planning foundation only | DEFERRED fast-follow |
-| Complete MyBatis migration | ProviderOperation/Chapter/Project done; other JPA/JDBC boundaries remain | PARTIAL |
+| Complete MyBatis migration | generation execution durability plus ProviderOperation/Chapter/Project migrated; StoryVersion, quota/billing, storyboard/continuity and other JPA/JDBC boundaries remain | PARTIAL |
 | Complete actual usage/billing reconciliation | reservation foundation exists | PARTIAL |
 
 ## Current non-claims
 
 NarrativeX does not yet claim a complete Story/Chapter → production MP4 loop. The next release-critical chain is production user-audio/TTS timeline → VisualScenePlanner → production image generation → immutable MediaAssets → IMAGE_MOTION FFmpeg → validated R2 FinalArtifact.
+
+Project Character list/detail is now real-API-backed, but this does **not** mean full Character reference locking, relationship graphs, asset aggregation or detailed scene read models are complete.
+
+## Persistence caveat
+
+The durable generation enqueue/execution boundaries listed above use MyBatis/explicit SQL. The outbox dispatcher still deliberately uses `JdbcTemplate` for its short-lived claim/lease query; that residual operational query is not evidence that the durable enqueue boundary remains JDBC-owned.
 
 ## Documentation invariants
 
@@ -46,3 +55,4 @@ NarrativeX does not yet claim a complete Story/Chapter → production MP4 loop. 
 8. `IMAGE_MOTION` never authorizes I2V.
 9. New persistence-heavy backend work converges on MyBatis.
 10. Provider `UNKNOWN` reconciles before resubmission and completed results are immutable by fingerprint.
+11. Project Character runtime UI uses authoritative project-scoped reads and does not replace unavailable business fields with fixtures.

@@ -14,16 +14,19 @@ Project creation is metadata-only. Saving Chapter source does not implicitly run
 
 Implemented foundations now include:
 
-- Project, StoryVersion and Chapter authoring foundations;
-- MyBatis persistence for ProviderOperation, Chapter and Project boundaries;
+- Project, StoryVersion and Chapter authoring foundations plus project dashboard/favorite reads;
+- MyBatis/explicit-SQL persistence for ProviderOperation, Chapter, Project and covered generation durability boundaries: GenerationJob, StageAttempt, OperationPlan, MediaPlan, generation outbox enqueue, Job History and the Chapter Analyze safety gate;
 - durable Chapter Analyze admission, reservation, enqueue and worker execution;
 - ProviderOperation reconciliation/result-fingerprint invariants;
 - Character/Location continuity and Scene/VisualBeat materialization;
+- project-scoped Character list/detail reads wired end to end without fabricated runtime business fields for covered data;
 - backend-authoritative immutable/versioned MediaPlan foundation;
 - full-chapter TTS narration, alignment and R2 persistence;
 - user-provided narration planning/timeline foundation with ordered multi-file audio and TTS bypass;
 - job history/quota/notification and frontend studio foundations;
 - R2-only durable media storage contract.
+
+The outbox dispatcher retains a deliberate JDBC query for its short-lived claim/lease concern. Remaining persistence convergence work is primarily StoryVersion, quota/billing, storyboard/continuity and other migration-era CRUD/query boundaries.
 
 ## Narration contract
 
@@ -77,6 +80,7 @@ Reuse/reframe/edit asset resolution remains the long-term cost/consistency strat
 |---|---|
 | Chapter analysis | IMPLEMENTED |
 | Character/Location analysis continuity | IMPLEMENTED foundation |
+| Project Character list/detail read model | IMPLEMENTED foundation |
 | Backend-authoritative MediaPlan | IMPLEMENTED foundation |
 | TTS narration + alignment + R2 media | IMPLEMENTED foundation |
 | User-provided narration plan/timeline + TTS bypass | IMPLEMENTED foundation |
