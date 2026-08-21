@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ProjectDashboardMapper">
+    <resultMap id="projectDashboardRow" type="com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ProjectDashboardRow">
+        <constructor>
+            <arg column="id" javaType="java.lang.Long" />
+            <arg column="name" javaType="java.lang.String" />
+            <arg column="description" javaType="java.lang.String" />
+            <arg column="cover_image_url" javaType="java.lang.String" />
+            <arg column="status" javaType="java.lang.String" />
+            <arg column="created_at" javaType="java.time.Instant" />
+            <arg column="updated_at" javaType="java.time.Instant" />
+            <arg column="starred" javaType="boolean" />
+            <arg column="total_chapters" javaType="int" />
+            <arg column="total_scenes" javaType="int" />
+            <arg column="estimated_duration_seconds" javaType="long" />
+        </constructor>
+    </resultMap>
+
+    <resultMap id="projectDashboardCountsRow" type="com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ProjectDashboardCountsRow">
+        <constructor>
+            <arg column="all_count" javaType="long" />
+            <arg column="active_count" javaType="long" />
+            <arg column="draft_count" javaType="long" />
+        </constructor>
+    </resultMap>
+
+    <sql id="baseDashboardFilter">
+        p.owner_id = #{userId}
+        AND p.archived_at IS NULL
+        <if test="query != null and query != ''">
+            AND LOWER(p.name) LIKE '%' || LOWER(#{query}) || '%'
+        </if>
+    </sql>
+
+    <select id="findDashboardPage" resultMap="projectDashboardRow">
+        WITH page_projects AS (
+            SELECT p.*
+              FROM projects p
+             WHERE <include refid="baseDashboardFilter" />
+               <if test="status != null and status != ''">
+                   AND p.status = #{status}
+               </if>
+             <choose>
+                 <when test="sort == 'OLDEST'">ORDER BY p.created_at ASC, p.id ASC</when>
+                 <when test="sort == 'NAME'">ORDER BY LOWER(p.name) ASC, p.id ASC</when>
+                 <otherwise>ORDER BY p.updated_at DESC, p.id DESC</otherwise>
+             </choose>
+             OFFSET #{offset}
+             LIMIT #{limit}
+        )
+        SELECT p.id,
+               p.name,
+               p.description,
+               p.cover_image_url,
+               p.status,
+               p.created_at,
+               p.updated_at,
+               EXISTS (
+                   SELECT 1 FROM project_favorites pf
+                    WHERE pf.user_id = #{userId} AND pf.project_id = p.id
+               ) AS starred,
+               COALESCE(metrics.total_chapters, 0) AS total_chapters,
+               COALESCE(metrics.total_scenes, 0) AS total_scenes,
+               COALESCE(metrics.estimated_duration_seconds, 0) AS estimated_duration_seconds
+          FROM page_projects p
+          LEFT JOIN LATERAL (
+              SELECT sv.id
+                FROM story_versions sv
+               WHERE sv.project_id = p.id
+                 AND sv.status IN ('ACTIVE', 'DRAFT')
+               ORDER BY CASE WHEN sv.status = 'ACTIVE' THEN 0 ELSE 1 END,
+                        sv.version_number DESC,
+                        sv.id DESC
+               LIMIT 1
+          ) latest_story ON TRUE
+          LEFT JOIN LATERAL (
+              SELECT COUNT(DISTINCT c.id)::int AS total_chapters,
+                     COUNT(DISTINCT s.id)::int AS total_scenes,
+                     COALESCE(SUM(s.duration_seconds), 0)::bigint AS estimated_duration_seconds
+                FROM chapters c
+                LEFT JOIN scenes s ON s.chapter_id = c.id
+               WHERE c.story_version_id = latest_story.id
+          ) metrics ON TRUE
+         <choose>
+             <when test="sort == 'OLDEST'">ORDER BY p.created_at ASC, p.id ASC</when>
+             <when test="sort == 'NAME'">ORDER BY LOWER(p.name) ASC, p.id ASC</when>
+             <otherwise>ORDER BY p.updated_at DESC, p.id DESC</otherwise>
+         </choose>
+    </select>
+
+    <select id="findDashboardCounts" resultMap="projectDashboardCountsRow">
+        SELECT COUNT(*)::bigint AS all_count,
+               COUNT(*) FILTER (WHERE p.status = 'ACTIVE')::bigint AS active_count,
+               COUNT(*) FILTER (WHERE p.status = 'DRAFT')::bigint AS draft_count
+          FROM projects p
+         WHERE <include refid="baseDashboardFilter" />
+    </select>
+
+    <insert id="addFavorite">
+        INSERT INTO project_favorites (user_id, project_id)
+        SELECT #{userId}, p.id
+          FROM projects p
+         WHERE p.id = #{projectId}
+           AND p.owner_id = #{userId}
+           AND p.archived_at IS NULL
+        ON CONFLICT (user_id, project_id) DO NOTHING
+    </insert>
+
+    <delete id="removeFavorite">
+        DELETE FROM project_favorites pf
+         WHERE pf.user_id = #{userId}
+           AND pf.project_id = #{projectId}
+           AND EXISTS (
+               SELECT 1 FROM projects p
+                WHERE p.id = pf.project_id
+                  AND p.owner_id = #{userId}
+           )
+    </delete>
+</mapper>

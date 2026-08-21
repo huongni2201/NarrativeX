@@ -4,6 +4,7 @@ import com.narrativex.backend.feature.common.pagination.CursorPage;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.project.api.request.CreateProjectRequest;
 import com.narrativex.backend.feature.project.api.request.CreateStoryVersionRequest;
+import com.narrativex.backend.feature.project.api.response.ProjectDashboardResponse;
 import com.narrativex.backend.feature.project.api.response.ProjectOverviewResponse;
 import com.narrativex.backend.feature.project.api.response.ProjectResponse;
 import com.narrativex.backend.feature.project.api.response.StoryVersionResponse;
@@ -14,17 +15,21 @@ import com.narrativex.backend.feature.project.application.query.ProjectListQuery
 import com.narrativex.backend.feature.project.application.usecase.CreateProjectUseCase;
 import com.narrativex.backend.feature.project.application.usecase.CreateStoryVersionUseCase;
 import com.narrativex.backend.feature.project.application.usecase.GetLatestStoryVersionUseCase;
+import com.narrativex.backend.feature.project.application.usecase.GetProjectDashboardUseCase;
 import com.narrativex.backend.feature.project.application.usecase.GetProjectOverviewUseCase;
 import com.narrativex.backend.feature.project.application.usecase.GetProjectUseCase;
 import com.narrativex.backend.feature.project.application.usecase.ListProjectsUseCase;
+import com.narrativex.backend.feature.project.application.usecase.SetProjectFavoriteUseCase;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -38,6 +43,8 @@ public class ProjectController {
   private final ListProjectsUseCase listProjectsUseCase;
   private final GetProjectUseCase getProjectUseCase;
   private final GetProjectOverviewUseCase getProjectOverviewUseCase;
+  private final GetProjectDashboardUseCase getProjectDashboardUseCase;
+  private final SetProjectFavoriteUseCase setProjectFavoriteUseCase;
   private final CreateProjectUseCase createProjectUseCase;
   private final CreateStoryVersionUseCase createStoryVersionUseCase;
   private final GetLatestStoryVersionUseCase getLatestStoryVersionUseCase;
@@ -50,6 +57,31 @@ public class ProjectController {
             .execute(new ProjectListQuery(null, cursor, limit))
             .map(ProjectResponse::from);
     return ResponseEntity.ok(ApiResponse.success("Projects retrieved successfully", page));
+  }
+
+  @GetMapping("/dashboard")
+  public ResponseEntity<ApiResponse<ProjectDashboardResponse>> dashboard(
+      @RequestParam(required = false) String status,
+      @RequestParam(required = false, name = "q") String query,
+      @RequestParam(defaultValue = "NEWEST") String sort,
+      @RequestParam(required = false) String cursor,
+      @RequestParam(defaultValue = "20") int limit) {
+    return ResponseEntity.ok(
+        ApiResponse.success(
+            "Project dashboard retrieved successfully",
+            getProjectDashboardUseCase.execute(status, query, sort, cursor, limit)));
+  }
+
+  @PutMapping("/{projectId}/favorite")
+  public ResponseEntity<Void> addFavorite(@PathVariable Long projectId) {
+    setProjectFavoriteUseCase.add(projectId);
+    return ResponseEntity.noContent().build();
+  }
+
+  @DeleteMapping("/{projectId}/favorite")
+  public ResponseEntity<Void> removeFavorite(@PathVariable Long projectId) {
+    setProjectFavoriteUseCase.remove(projectId);
+    return ResponseEntity.noContent().build();
   }
 
   @GetMapping("/{projectId}")
