@@ -7,7 +7,6 @@ import {
   ChevronRight,
   ExternalLink,
   Film,
-  Image as ImageIcon,
   Loader2,
   MoreHorizontal,
   Plus,
@@ -325,15 +324,15 @@ export function ProjectCharactersTab({
             Đang tải nhân vật từ backend…
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {pagedCharacters.map((character) => (
               <article
                 key={character.id}
-                className="group relative flex flex-col justify-between rounded-2xl border border-slate-800/90 bg-[#0d1420] p-3.5 transition-all duration-200 hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-950/20"
+                className="group relative flex flex-col justify-between rounded-2xl border border-slate-800/90 bg-[#0d1420] p-4 transition-all duration-200 hover:border-purple-500/50 hover:shadow-xl hover:shadow-purple-950/20"
               >
-                <div className="flex gap-3">
+                <div className="flex gap-3.5 items-start">
                   {/* Portrait Avatar */}
-                  <div className="relative h-24 w-18 shrink-0 overflow-hidden rounded-xl border border-slate-800 bg-slate-900 shadow-inner">
+                  <div className="relative h-28 w-24 shrink-0 overflow-hidden rounded-xl border border-slate-800/90 bg-slate-900 shadow-md">
                     <img
                       src={character.avatarUrl}
                       alt={character.name}
@@ -342,35 +341,52 @@ export function ProjectCharactersTab({
                   </div>
 
                   {/* Character Info */}
-                  <div className="min-w-0 flex-1 space-y-1.5">
-                    <div className="flex items-center justify-between gap-1">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <h4 className="truncate text-sm font-bold text-slate-100 group-hover:text-purple-300 transition-colors">
-                          {character.name}
-                        </h4>
-                        <span
-                          className={`rounded-md border px-1.5 py-0.5 text-[10px] font-bold shrink-0 ${character.roleColorClass}`}
-                        >
-                          {character.roleLabel}
-                        </span>
-                      </div>
+                  <div className="min-w-0 flex-1 space-y-2">
+                    {/* Top Row: Name and ... button */}
+                    <div className="flex items-start justify-between gap-1">
+                      <h4 className="truncate text-base font-bold text-slate-100 group-hover:text-purple-300 transition-colors">
+                        {character.name}
+                      </h4>
 
                       <button
                         type="button"
                         aria-label="Tùy chọn nhân vật"
-                        className="rounded p-0.5 text-slate-500 hover:text-slate-200 transition-colors"
+                        className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-800/50 text-slate-400 hover:bg-slate-700 hover:text-slate-100 transition-colors shrink-0"
                       >
                         <MoreHorizontal className="h-4 w-4" />
                       </button>
                     </div>
 
-                    <p className="text-xs leading-relaxed text-slate-300/90 line-clamp-2">
+                    {/* Role Badge under Name */}
+                    <div>
+                      <span
+                        className={`inline-block rounded-lg px-2.5 py-0.5 text-xs font-semibold ${
+                          character.role === "main"
+                            ? "bg-purple-950/90 text-purple-300 border border-purple-700/60"
+                            : character.role === "antagonist"
+                              ? "bg-amber-950/90 text-amber-400 border border-amber-700/60"
+                              : "bg-blue-950/90 text-blue-300 border border-blue-700/60"
+                        }`}
+                      >
+                        {character.roleLabel}
+                      </span>
+                    </div>
+
+                    {/* Bio Description */}
+                    <p className="text-xs leading-relaxed text-slate-400 line-clamp-2">
                       {character.bio}
                     </p>
 
-                    <div>
+                    {/* Completion Status Badge */}
+                    <div className="pt-0.5">
                       <span
-                        className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-semibold ${character.completionColorClass}`}
+                        className={`inline-block rounded-lg px-3 py-1 text-xs font-semibold ${
+                          character.completionStatus === "completed"
+                            ? "bg-emerald-950/80 text-emerald-400 border border-emerald-500/30"
+                            : character.completionStatus === "writing"
+                              ? "bg-amber-950/80 text-amber-400 border border-amber-500/30"
+                              : "bg-slate-800/90 text-slate-400 border border-slate-700"
+                        }`}
                       >
                         {character.completionLabel}
                       </span>
@@ -379,13 +395,13 @@ export function ProjectCharactersTab({
                 </div>
 
                 {/* Card Footer: Scenes & Assets count */}
-                <div className="mt-3 flex items-center justify-between border-t border-slate-800/80 pt-2.5 text-xs text-slate-300 font-medium">
-                  <div className="flex items-center gap-1.5">
-                    <Film className="h-3.5 w-3.5 text-slate-400" />
+                <div className="mt-3.5 flex items-center gap-6 border-t border-slate-800/80 pt-3 text-xs text-slate-400 font-medium">
+                  <div className="flex items-center gap-2">
+                    <Film className="h-4 w-4 text-slate-500" />
                     <span>{character.scenesCount} Scenes</span>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <ImageIcon className="h-3.5 w-3.5 text-slate-400" />
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-slate-500" />
                     <span>{character.assetsCount} Assets</span>
                   </div>
                 </div>
