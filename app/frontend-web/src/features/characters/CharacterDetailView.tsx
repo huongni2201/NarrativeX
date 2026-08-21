@@ -14,7 +14,6 @@ import {
   History,
   Image as ImageIcon,
   LayoutDashboard,
-  Share2,
   SlidersHorizontal,
   Sparkles,
   User,
@@ -141,9 +140,9 @@ export function CharacterDetailView({
       </nav>
 
       {/* 2. Top Hero Card Banner */}
-      <section className="flex flex-col lg:flex-row gap-6 p-6 rounded-2xl bg-[#0d1420] border border-slate-800/90 shadow-2xl">
+      <section className="flex flex-col md:flex-row gap-5 p-5 rounded-2xl bg-[#0d1420] border border-slate-800/90 shadow-2xl items-stretch">
         {/* Large Portrait Image */}
-        <div className="relative w-full sm:w-64 md:w-72 lg:w-80 aspect-[3/4] rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 shrink-0 shadow-xl group">
+        <div className="relative w-full sm:w-48 md:w-52 lg:w-56 h-60 sm:h-auto sm:aspect-[4/5] rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 shrink-0 shadow-xl group">
           <img
             src={DEMO_VISUAL_REFERENCES[0]}
             alt={characterName}
@@ -153,18 +152,18 @@ export function CharacterDetailView({
         </div>
 
         {/* Info & Metrics */}
-        <div className="flex min-w-0 flex-1 flex-col justify-between space-y-4">
-          <div>
+        <div className="flex min-w-0 flex-1 flex-col justify-between space-y-3">
+          <div className="space-y-2">
             {/* Top Row: Name, Badges & Action Buttons */}
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-2.5 min-w-0">
-                <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
+                <h1 className="text-xl md:text-2xl font-extrabold text-white tracking-tight">
                   {characterName}
                 </h1>
-                <span className="rounded-md border border-purple-700/60 bg-purple-950/80 px-2.5 py-0.5 text-xs font-bold text-purple-300">
+                <span className="rounded-md border border-purple-700/60 bg-purple-950/80 px-2 py-0.5 text-xs font-bold text-purple-300">
                   Chính
                 </span>
-                <span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-950/80 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
+                <span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-950/80 px-2 py-0.5 text-xs font-semibold text-emerald-400">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                   Hoàn thiện
                 </span>
@@ -175,89 +174,70 @@ export function CharacterDetailView({
                   type="button"
                   className="flex items-center gap-1.5 rounded-xl border border-slate-700/80 bg-slate-800/60 hover:bg-slate-700 px-3.5 py-2 text-xs font-semibold text-slate-200 transition-colors"
                 >
-                  <Share2 className="h-3.5 w-3.5" />
-                  <span>Chia sẻ nhân vật</span>
+                  <SlidersHorizontal className="h-3.5 w-3.5 text-slate-400" />
+                  <span>Chỉnh sửa nhân vật</span>
                 </button>
 
                 <button
                   type="button"
-                  className="flex items-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 px-4 py-2 text-xs font-bold text-white shadow-md shadow-purple-950/60 transition-colors"
+                  className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 px-4 py-2 text-xs font-bold text-white shadow-md shadow-purple-950/60 transition-all"
                 >
-                  <SlidersHorizontal className="h-3.5 w-3.5" />
-                  <span>Chỉnh sửa nhân vật</span>
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span>Tạo visual</span>
                 </button>
               </div>
             </div>
 
             {/* Description */}
-            <p className="mt-3 text-xs sm:text-sm text-slate-300/90 leading-relaxed max-w-3xl">
+            <p className="text-xs text-slate-300/90 leading-relaxed max-w-3xl line-clamp-2">
               Một nghệ nhân chế tác đèn lồng trẻ của phố cổ. Mang trong mình khát vọng khôi phục ánh sáng truyền thống giữa thời cuộc đổi thay, anh âm thầm theo đuổi công lý cho sự thật về quá khứ gia đình.
             </p>
 
             {/* Date Meta */}
-            <div className="mt-2.5 flex flex-wrap items-center gap-4 text-xs font-mono text-slate-400">
+            <div className="flex flex-wrap items-center gap-3 pt-0.5 text-[11px] font-mono text-slate-400">
               <span>Tạo ngày: 18/08/2026</span>
               <span>•</span>
               <span>Cập nhật: 21/08/2026 • 08:26</span>
             </div>
-
-            {/* Quick Action Buttons */}
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-purple-950/60 hover:from-purple-500 hover:to-indigo-500 transition-all"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                <span>Tạo visual</span>
-              </button>
-
-              <button
-                type="button"
-                className="flex items-center gap-2 rounded-xl border border-slate-700/80 bg-slate-800/60 hover:bg-slate-700 px-4 py-2 text-xs font-semibold text-slate-200 transition-colors"
-              >
-                <Edit3 className="h-3.5 w-3.5" />
-                <span>Chỉnh sửa nhân vật</span>
-              </button>
-            </div>
           </div>
 
           {/* 3 Metric Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
             {/* Metric 1 */}
-            <div className="flex items-center gap-3.5 rounded-xl border border-slate-800/80 bg-[#090e18]/80 p-3.5 shadow-inner">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400">
-                <BookOpen className="h-5 w-5" />
+            <div className="flex items-center gap-3 rounded-xl border border-slate-800/80 bg-[#090e18]/80 p-2.5 px-3.5 shadow-inner">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400">
+                <BookOpen className="h-4 w-4" />
               </div>
               <div>
-                <span className="block font-mono text-xl font-bold text-white leading-tight">8</span>
+                <span className="block font-mono text-lg font-bold text-white leading-tight">8</span>
                 <span className="text-[11px] text-slate-400">Scene xuất hiện</span>
               </div>
             </div>
 
             {/* Metric 2 */}
-            <div className="flex items-center gap-3.5 rounded-xl border border-slate-800/80 bg-[#090e18]/80 p-3.5 shadow-inner">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
-                <ImageIcon className="h-5 w-5" />
+            <div className="flex items-center gap-3 rounded-xl border border-slate-800/80 bg-[#090e18]/80 p-2.5 px-3.5 shadow-inner">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+                <ImageIcon className="h-4 w-4" />
               </div>
               <div>
-                <span className="block font-mono text-xl font-bold text-white leading-tight">16</span>
+                <span className="block font-mono text-lg font-bold text-white leading-tight">16</span>
                 <span className="text-[11px] text-slate-400">Visual assets</span>
               </div>
             </div>
 
             {/* Metric 3: Circular Completion Progress */}
-            <div className="flex items-center justify-between rounded-xl border border-slate-800/80 bg-[#090e18]/80 p-3.5 shadow-inner">
+            <div className="flex items-center justify-between rounded-xl border border-slate-800/80 bg-[#090e18]/80 p-2.5 px-3.5 shadow-inner">
               <div>
-                <span className="block font-mono text-xl font-bold text-purple-300 leading-tight">92%</span>
+                <span className="block font-mono text-lg font-bold text-purple-300 leading-tight">92%</span>
                 <span className="text-[11px] text-slate-400">Hoàn thiện hồ sơ</span>
               </div>
 
               {/* Circular Ring */}
-              <div className="relative flex h-10 w-10 items-center justify-center">
-                <svg className="h-10 w-10 -rotate-90 transform" viewBox="0 0 36 36">
+              <div className="relative flex h-8 w-8 items-center justify-center">
+                <svg className="h-8 w-8 -rotate-90 transform" viewBox="0 0 36 36">
                   <path
                     className="text-slate-800"
-                    strokeWidth="3"
+                    strokeWidth="3.5"
                     stroke="currentColor"
                     fill="none"
                     d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
@@ -265,7 +245,7 @@ export function CharacterDetailView({
                   <path
                     className="text-purple-500"
                     strokeDasharray="92, 100"
-                    strokeWidth="3"
+                    strokeWidth="3.5"
                     strokeLinecap="round"
                     stroke="currentColor"
                     fill="none"
