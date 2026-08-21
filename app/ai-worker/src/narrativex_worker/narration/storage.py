@@ -39,9 +39,7 @@ class MediaStorage(Protocol):
 
     async def get_bytes(self, storage_key: str) -> bytes: ...
 
-    async def download_to_file(
-        self, storage_key: str, destination: Path
-    ) -> StoredMediaAsset: ...
+    async def download_to_file(self, storage_key: str, destination: Path) -> StoredMediaAsset: ...
 
     async def put_file_immutable(
         self,
@@ -120,9 +118,7 @@ class InMemoryMediaStorage:
             metadata=metadata,
         )
 
-    async def download_to_file(
-        self, storage_key: str, destination: Path
-    ) -> StoredMediaAsset:
+    async def download_to_file(self, storage_key: str, destination: Path) -> StoredMediaAsset:
         value = self._objects.get(storage_key)
         if value is None:
             raise FileNotFoundError(storage_key)
@@ -286,9 +282,7 @@ class S3MediaStorage:
                 IfNoneMatch="*",
             )
 
-    async def download_to_file(
-        self, storage_key: str, destination: Path
-    ) -> StoredMediaAsset:
+    async def download_to_file(self, storage_key: str, destination: Path) -> StoredMediaAsset:
         return await asyncio.to_thread(self._download_to_file_sync, storage_key, destination)
 
     def _download_to_file_sync(self, storage_key: str, destination: Path) -> StoredMediaAsset:

@@ -218,13 +218,9 @@ class NarrationWorkerRunner:
                 )
 
             pcm_path = job_dir / "chapter.pcm"
-            await self.audio.concatenate_files(
-                [item.file_path for item in materialized], pcm_path
-            )
+            await self.audio.concatenate_files([item.file_path for item in materialized], pcm_path)
             mp3_path = job_dir / "chapter.mp3"
-            await self.audio.encode_mp3_file(
-                pcm_path, mp3_path, sample_rate_hz=48000, channels=1
-            )
+            await self.audio.encode_mp3_file(pcm_path, mp3_path, sample_rate_hz=48000, channels=1)
             actual_duration_ms = await self.audio.probe_duration_ms_file(mp3_path)
             spans = build_alignment(materialized)
             self.validator.validate(

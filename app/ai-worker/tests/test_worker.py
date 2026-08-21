@@ -53,7 +53,7 @@ def chapter_request(source_text: str = "A short story.") -> ChapterAnalysisReque
 
 
 def worker_settings_without_env_file() -> WorkerSettings:
-    return WorkerSettings(_env_file=None)  # type: ignore[call-arg]
+    return WorkerSettings()
 
 
 def test_worker_settings_defaults() -> None:

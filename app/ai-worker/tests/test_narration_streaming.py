@@ -7,15 +7,16 @@ from types import SimpleNamespace
 import pytest
 
 from narrativex_worker.config import WorkerSettings
-from narrativex_worker.narration import audio as audio_module
-from narrativex_worker.narration.models import MaterializedAudioSegment
-from narrativex_worker.narration.pricing import GoogleTtsPricingCatalog
+from narrativex_worker.narration.audio import FfmpegAudioAssembler
+from narrativex_worker.narration.models import MaterializedAudioSegment, NarrationSegment
+from narrativex_worker.narration.pricing import GoogleTtsPricingCatalog, TtsPricingSnapshot
 from narrativex_worker.narration.repository import ClaimedNarrationJob
 from narrativex_worker.narration.runner import NarrationWorkerRunner
 from narrativex_worker.narration.storage import (
     InMemoryMediaStorage,
     MediaAssetConflictError,
     S3MediaStorage,
+    StoredMediaAsset,
 )
 from narrativex_worker.workspace import WorkerWorkspace
 
@@ -81,22 +82,37 @@ class _FileOnlyStorage(InMemoryMediaStorage):
         super().__init__()
         self.file_uploads: list[Path] = []
 
-    async def put_immutable(self, **kwargs: object) -> object:
+    async def put_immutable(
+        self,
+        *,
+        storage_key: str,
+        content: bytes,
+        checksum: str,
+        mime_type: str,
+        metadata: dict[str, str] | None = None,
+    ) -> StoredMediaAsset:
+        del storage_key, content, checksum, mime_type, metadata
         raise AssertionError("production narration must not upload chapter bytes")
 
-    async def put_file_immutable(self, **kwargs: object):  # type: ignore[no-untyped-def]
-        self.file_uploads.append(kwargs["file_path"])
-        file_path = kwargs["file_path"]
-        assert isinstance(file_path, Path)
+    async def put_file_immutable(
+        self,
+        *,
+        storage_key: str,
+        file_path: Path,
+        checksum: str,
+        mime_type: str,
+        metadata: dict[str, str] | None = None,
+    ) -> StoredMediaAsset:
+        self.file_uploads.append(file_path)
         content = file_path.read_bytes()
         return await InMemoryMediaStorage.put_immutable(
             self,
-            storage_key=kwargs["storage_key"],
+            storage_key=storage_key,
             content=content,
-            checksum=kwargs["checksum"],
-            mime_type=kwargs["mime_type"],
-            metadata=kwargs.get("metadata"),
-        )  # type: ignore[arg-type]
+            checksum=checksum,
+            mime_type=mime_type,
+            metadata=metadata,
+        )
 
 
 class _FileAudio:
@@ -149,29 +165,32 @@ def _claimed_job() -> ClaimedNarrationJob:
 
 
 @pytest.mark.asyncio
-async def test_runner_uses_file_pipeline_and_cleans_workspace(tmp_path: Path) -> None:
-    runner = NarrationWorkerRunner(
-        WorkerSettings(_env_file=None, worker_env="test")  # type: ignore[call-arg]
-    )
+async def test_runner_uses_file_pipeline_and_cleans_workspace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runner = NarrationWorkerRunner(WorkerSettings(worker_env="test"))
     runner.provider = object()  # type: ignore[assignment]
     runner.storage = _FileOnlyStorage()
     runner.pricing = GoogleTtsPricingCatalog("test")
     runner.audio = _FileAudio()  # type: ignore[assignment]
     runner.repository = _CompleteRepository()  # type: ignore[assignment]
     runner.workspace = WorkerWorkspace(root=tmp_path)
-    segment = runner.segmenter.segment("A chapter.")[0]
 
-    async def materialize(*args: object) -> MaterializedAudioSegment:
-        job_dir = args[-1]
-        assert isinstance(job_dir, Path)
+    async def materialize(
+        claimed: ClaimedNarrationJob,
+        current_segment: NarrationSegment,
+        pricing: TtsPricingSnapshot,
+        job_dir: Path,
+    ) -> MaterializedAudioSegment:
+        del claimed, pricing
         path = job_dir / "segment-0000.pcm"
         path.write_bytes(b"pcm")
-        return MaterializedAudioSegment(segment, path, 48000, 1, 100, "a" * 64)
+        return MaterializedAudioSegment(current_segment, path, 48000, 1, 100, "a" * 64)
 
-    runner._materialize_segment = materialize  # type: ignore[method-assign]
+    monkeypatch.setattr(runner, "_materialize_segment", materialize)
     await runner._execute(_claimed_job())
 
-    assert len(runner.storage.file_uploads) == 1  # type: ignore[union-attr]
+    assert len(runner.storage.file_uploads) == 1
     assert runner.repository.completed  # type: ignore[attr-defined]
     assert list(tmp_path.iterdir()) == []
 
@@ -248,10 +267,9 @@ def test_file_duration_probe_does_not_delete_workspace_output(
     output_path.write_bytes(b"mp3")
 
     monkeypatch.setattr(
-        audio_module.subprocess,
-        "run",
+        "narrativex_worker.narration.audio.subprocess.run",
         lambda *args, **kwargs: SimpleNamespace(stdout="1.0"),
     )
 
-    assert audio_module.FfmpegAudioAssembler._probe_duration_ms_sync(output_path) == 1000
+    assert FfmpegAudioAssembler._probe_duration_ms_sync(output_path) == 1000
     assert output_path.is_file()

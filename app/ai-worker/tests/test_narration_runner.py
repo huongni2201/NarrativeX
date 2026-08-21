@@ -66,7 +66,6 @@ def runner_with_repository(
     concurrency: int, repository: FakeNarrationRepository
 ) -> NarrationWorkerRunner:
     settings = WorkerSettings(
-        _env_file=None,  # type: ignore[call-arg]
         worker_env="test",
         worker_concurrency=concurrency,
         poll_interval_seconds=0.001,
@@ -168,8 +167,6 @@ async def test_lease_loss_cancels_processing_without_marking_failed() -> None:
 
 
 def test_narration_pool_size_is_derived_from_worker_concurrency() -> None:
-    runner = NarrationWorkerRunner(
-        WorkerSettings(_env_file=None, worker_env="test", worker_concurrency=4)  # type: ignore[call-arg]
-    )
+    runner = NarrationWorkerRunner(WorkerSettings(worker_env="test", worker_concurrency=4))
 
     assert runner.repository.pool_size == 6
