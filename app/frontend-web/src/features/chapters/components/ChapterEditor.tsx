@@ -9,6 +9,8 @@ import { ChapterContentEditor } from "./ChapterContentEditor";
 import { ChapterHero } from "./ChapterHero";
 import { ChapterOverviewTab } from "./ChapterOverviewTab";
 import { ChapterWorkspaceTabs } from "./ChapterWorkspaceTabs";
+import { ChapterVisualsTab } from "./ChapterVisualsTab";
+import { ChapterRenderTab } from "./ChapterRenderTab";
 
 interface ChapterEditorProps {
   projectId: string;
@@ -72,7 +74,15 @@ export function ChapterEditor({ projectId, chapterId }: Readonly<ChapterEditorPr
         onEdit={startEditing}
       />
 
-      <ChapterWorkspaceTabs activeTab={activeTab} onTabChange={setActiveTab} />
+      <ChapterWorkspaceTabs
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        availableTabs={{
+          visuals: workspace.capabilities.canGenerateVisuals,
+          audio: workspace.capabilities.canGenerateAudio,
+          render: workspace.capabilities.canRender,
+        }}
+      />
 
       {workspace.pipeline.sourceOutdated && (
         <div className="flex items-start gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm text-amber-200">
@@ -130,6 +140,10 @@ export function ChapterEditor({ projectId, chapterId }: Readonly<ChapterEditorPr
             hideChapterSelector
           />
         </div>
+      ) : activeTab === "visuals" ? (
+        <ChapterVisualsTab projectId={numericProjectId} chapterId={workspace.chapter.id} />
+      ) : activeTab === "render" ? (
+        <ChapterRenderTab projectId={numericProjectId} chapterId={workspace.chapter.id} />
       ) : (
         <ChapterOverviewTab
           projectId={numericProjectId}

@@ -6,7 +6,31 @@ import java.util.Objects;
 
 /** Internal command for creating one authorized immutable media-plan revision. */
 public record CreateMediaPlanCommand(
-    Long projectId, Long chapterId, ProductionMode productionMode, BigDecimal estimatedCost) {
+    Long projectId,
+    Long chapterId,
+    ProductionMode productionMode,
+    BigDecimal estimatedCost,
+    String imageAspectRatio,
+    String imageQualityTier,
+    String imageProviderKey,
+    String imageModelKey,
+    String pricingSnapshotJson,
+    String pricingFingerprint) {
+  public CreateMediaPlanCommand(
+      Long projectId, Long chapterId, ProductionMode productionMode, BigDecimal estimatedCost) {
+    this(
+        projectId,
+        chapterId,
+        productionMode,
+        estimatedCost,
+        "16:9",
+        "STANDARD",
+        "vertex",
+        "imagen-3.0-generate-002",
+        null,
+        null);
+  }
+
   public CreateMediaPlanCommand {
     if (projectId == null || projectId <= 0) {
       throw new IllegalArgumentException("projectId must be positive");

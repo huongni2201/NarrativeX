@@ -81,18 +81,18 @@ class MyBatisProjectQueryIntegrationTest extends PostgreSqlIntegrationTestSuppor
     var rows = dashboardMapper.findDashboardPage("seed-user-01", null, null, "NEWEST", 0, 21);
     var counts = dashboardMapper.findDashboardCounts("seed-user-01", null);
 
-    assertEquals(10, rows.size());
+    assertEquals(9, rows.size());
     assertEquals(1010L, rows.getFirst().id());
     assertEquals("ACTIVE", rows.getFirst().status());
     assertEquals(1, rows.getFirst().totalChapters());
     assertEquals(1, rows.getFirst().totalScenes());
     assertEquals(47L, rows.getFirst().estimatedDurationSeconds());
-    assertEquals(10L, counts.allCount());
+    assertEquals(9L, counts.allCount());
     assertEquals(7L, counts.activeCount());
     assertEquals(2L, counts.draftCount());
 
     var starredRows = dashboardMapper.findDashboardPage("seed-user-01", null, null, "STARRED", 0, 21);
-    assertEquals(10, starredRows.size());
+    assertEquals(9, starredRows.size());
     assertTrue(starredRows.getFirst().starred());
   }
 

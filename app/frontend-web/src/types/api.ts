@@ -121,6 +121,15 @@ export interface ApiGenerationJob {
   entityType: string;
   entityId: number;
   errorCode: string | null;
+  mediaPlanId?: string | null;
+  mediaPlanRevision?: number | null;
+  estimate?: {
+    currency: string;
+    minimum: string;
+    expected: string;
+    maximum: string;
+    maxAuthorized: string;
+  } | null;
 }
 
 export interface ApiAuthUser {
@@ -377,7 +386,9 @@ export function isApiGenerationJob(value: unknown): value is ApiGenerationJob {
     isString(value.currentStep) &&
     isString(value.entityType) &&
     isNumber(value.entityId) &&
-    (value.errorCode === null || isString(value.errorCode))
+    (value.errorCode === null || isString(value.errorCode)) &&
+    (value.mediaPlanId === undefined || value.mediaPlanId === null || isString(value.mediaPlanId)) &&
+    (value.mediaPlanRevision === undefined || value.mediaPlanRevision === null || isNumber(value.mediaPlanRevision))
   );
 }
 

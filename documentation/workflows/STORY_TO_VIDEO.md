@@ -80,3 +80,14 @@ After the first durable MP4:
 - HYBRID_LOCAL_I2V/Wan hardening;
 - full cost/usage ledger reconciliation;
 - moderation/SSRF/retention/observability/DR evidence.
+# Story to video workflow
+
+For the MVP, the flow is intentionally split:
+
+`approved storyboard + READY narration/alignment -> CHAPTER_GENERATE -> keyframe review -> CHAPTER_RENDER -> artifact`
+
+`CHAPTER_RENDER` pins the exact approved image asset IDs/checksums and ordered narration spans in an
+immutable manifest. `IMAGE_MOTION` uses deterministic FFmpeg pan/zoom/hold/fade transforms; narration
+timing is the duration authority. The worker must not add I2V work, switch provider/model, or replace
+manifest inputs with newer chapter data. Final artifacts are private and are delivered only through
+owner-authorized signed URLs.

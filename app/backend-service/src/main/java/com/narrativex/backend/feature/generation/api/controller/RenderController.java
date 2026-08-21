@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -24,10 +25,11 @@ public class RenderController {
   public ResponseEntity<ApiResponse<JobResponse>> render(
       @PathVariable Long projectId,
       @PathVariable Long chapterId,
-      @Valid @RequestBody CreateChapterRenderRequest request) {
+      @Valid @RequestBody CreateChapterRenderRequest request,
+      @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
     var job =
         createChapterRenderUseCase.execute(
-            new CreateChapterRenderCommand(projectId, chapterId, request.resolution(), request.format()));
+            new CreateChapterRenderCommand(projectId, chapterId, request.resolution(), request.format(), request.mediaPlanId(), request.mediaPlanRevision(), request.maxAuthorizedCost(), idempotencyKey));
     return ResponseEntity.accepted()
         .body(ApiResponse.success("Chapter render queued", JobResponse.from(job)));
   }

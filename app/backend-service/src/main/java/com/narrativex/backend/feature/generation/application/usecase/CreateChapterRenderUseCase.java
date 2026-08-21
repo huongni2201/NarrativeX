@@ -14,7 +14,7 @@ import com.narrativex.backend.feature.generation.domain.entity.StageAttempt;
 import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
-import com.narrativex.backend.feature.storyboard.application.port.out.ChapterWorkspaceReadRepository;
+import com.narrativex.backend.feature.storyboard.application.port.in.ChapterWorkspaceAccess;
 import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -23,13 +23,12 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class CreateChapterRenderUseCase {
-  private static final BigDecimal ESTIMATED_COST = BigDecimal.valueOf(0.15);
   private static final String STAGE_NAME = "CHAPTER_RENDER";
 
   private final CurrentUserId currentUserId;
   private final ProjectAccess projectAccess;
   private final ChapterAnalysisSourceAccess chapterSourceAccess;
-  private final ChapterWorkspaceReadRepository workspaceRepository;
+  private final ChapterWorkspaceAccess workspaceRepository;
   private final GenerationJobRepository generationJobRepository;
   private final GenerationOutboxRepository generationOutboxRepository;
   private final OperationPlanRepository operationPlanRepository;
@@ -52,8 +51,15 @@ public class CreateChapterRenderUseCase {
       throw new IllegalStateException("Visuals and narration must be ready before rendering");
     }
 
+    BigDecimal renderCost =
+        "1080p".equals(command.resolution()) ? BigDecimal.valueOf(0.50) : BigDecimal.valueOf(0.25);
+    if (command.maxAuthorizedCost() != null && renderCost.compareTo(command.maxAuthorizedCost()) > 0) {
+      throw new GenerationAdmissionDeniedException("COST_LIMIT", "The requested render authorization cap is below the server estimate.");
+    }
     String idempotencyKey =
-        "chapter-render:"
+        command.idempotencyKey() != null && !command.idempotencyKey().isBlank()
+            ? command.idempotencyKey()
+            : "chapter-render:"
             + command.projectId()
             + ":"
             + command.chapterId()
@@ -73,7 +79,7 @@ public class CreateChapterRenderUseCase {
             .orElseThrow(() -> new GenerationAdmissionDeniedException("COST_LIMIT", "No active plan."));
     var reservation =
         quotaReservation
-            .reserve(userId, ESTIMATED_COST, quota.maxConcurrentExpensiveJobs())
+            .reserve(userId, renderCost, quota.maxConcurrentExpensiveJobs())
             .orElseThrow(
                 () -> new GenerationAdmissionDeniedException("COST_LIMIT", "Render quota is exhausted."));
     GenerationJob job =
@@ -91,7 +97,8 @@ public class CreateChapterRenderUseCase {
     OperationPlan plan =
         operationPlanRepository.save(
             OperationPlan.create(
-                command.projectId(), STAGE_NAME, ESTIMATED_COST, ESTIMATED_COST, ESTIMATED_COST));
+                command.projectId(), STAGE_NAME, renderCost.multiply(BigDecimal.valueOf(0.8)), renderCost,
+                command.maxAuthorizedCost() == null ? renderCost : command.maxAuthorizedCost()));
     quotaReservation.bindToGenerationJob(reservation.id(), job.getId());
     operationPlanRepository.save(plan.withGenerationJobId(job.getId()));
     stageAttemptRepository.create(StageAttempt.create(job.getId(), STAGE_NAME, 1));

@@ -135,10 +135,19 @@ Database pool sizing follows configured concurrency. The narration repository re
 ## Current gaps
 
 - Complete provider actual-usage reconciliation across all operation types.
-- Image generation and asset production.
+- Full provider-backed image generation dispatch and durable DB materialization wiring.
 - TTS/subtitle generation.
 - Render/export/final artifact validation.
 - Broader production observability, recovery and provider integration evidence.
+
+## MVP image execution contract
+
+The worker now has provider-neutral image request/result contracts, a fail-closed Vertex Imagen adapter,
+bounded PNG/JPEG/WEBP validation, and an image runner that writes immutable private R2 result keys only
+after checksum validation. Provider submission timeouts and transport/5xx failures become `UNKNOWN`; the
+runner never blind-resubmits an ambiguous operation. Deterministic `IMAGE_MOTION` FFmpeg argument and
+output-validation modules are also present. The remaining integration work is wiring these modules into
+the durable job dispatcher and concrete PostgreSQL materialization adapter.
 
 ## Verification expectations
 

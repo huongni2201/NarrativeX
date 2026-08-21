@@ -78,6 +78,14 @@ This does not imply that Character version locking/reference management is compl
 - Zustand is reserved for transient editor/wizard state.
 - Shared HTTP transport remains independent from Zustand and feature state.
 
+## Chapter media MVP
+
+The Chapter workspace now exposes capability-driven Visuals and Render tabs. Visual generation uses the
+real `POST /api/v1/projects/{projectId}/chapters/{chapterId}/media-jobs` contract with an
+`Idempotency-Key`, polls the durable job/item status, and submits explicit human review decisions.
+Render is enabled only after all items are ready and approved, and sends the pinned media-plan revision
+to the existing render endpoint. No runtime mock-data path is used.
+
 ## Verification gate
 
 ```bash

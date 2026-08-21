@@ -4,9 +4,21 @@ import java.util.List;
 import java.util.Objects;
 
 /** Cross-feature immutable projection of the current storyboard used for media planning. */
-public record MediaPlanningSource(List<SceneSnapshot> scenes) {
+public record MediaPlanningSource(
+    List<SceneSnapshot> scenes,
+    Long storyboardRevisionId,
+    String sourceHash,
+    String narrationSetId,
+    String narrationAlignmentRunId) {
+  public MediaPlanningSource(List<SceneSnapshot> scenes) {
+    this(scenes, null, null, null, null);
+  }
+
   public MediaPlanningSource {
     scenes = List.copyOf(Objects.requireNonNull(scenes, "scenes"));
+    if (storyboardRevisionId != null && storyboardRevisionId <= 0) {
+      throw new IllegalArgumentException("storyboardRevisionId must be positive");
+    }
   }
 
   public record SceneSnapshot(
@@ -30,7 +42,21 @@ public record MediaPlanningSource(List<SceneSnapshot> scenes) {
   }
 
   public record BeatSnapshot(
-      Long visualBeatId, int orderIndex, String visualIntent, MotionIntent motionIntent) {
+      Long visualBeatId,
+      int orderIndex,
+      String visualIntent,
+      MotionIntent motionIntent,
+      String reviewStatus,
+      String cameraMovement,
+      String aspectRatioOverride,
+      String qualityTierOverride,
+      Long audioStartMs,
+      Long audioEndMs) {
+    public BeatSnapshot(
+        Long visualBeatId, int orderIndex, String visualIntent, MotionIntent motionIntent) {
+      this(visualBeatId, orderIndex, visualIntent, motionIntent, "APPROVED", "NONE", null, null, null, null);
+    }
+
     public BeatSnapshot {
       if (visualBeatId == null || visualBeatId <= 0) {
         throw new IllegalArgumentException("visualBeatId must be positive");

@@ -23,7 +23,51 @@ public record MediaPlan(
     List<MediaScenePlan> scenes,
     MediaWorkload workload,
     BigDecimal estimatedCost,
-    Instant createdAt) {
+    Instant createdAt,
+    Long storyboardRevisionId,
+    String workflowVersion,
+    String imageAspectRatio,
+    String imageQualityTier,
+    String imageProviderKey,
+    String imageModelKey,
+    String pricingSnapshotJson,
+    String pricingFingerprint,
+    String narrationSetId,
+    String narrationAlignmentRunId) {
+
+  public MediaPlan(
+      UUID id,
+      Long chapterId,
+      long chapterRowVersion,
+      String sourceHash,
+      ProductionMode productionMode,
+      int revision,
+      List<MediaScenePlan> scenes,
+      MediaWorkload workload,
+      BigDecimal estimatedCost,
+      Instant createdAt) {
+    this(
+        id,
+        chapterId,
+        chapterRowVersion,
+        sourceHash,
+        productionMode,
+        revision,
+        scenes,
+        workload,
+        estimatedCost,
+        createdAt,
+        null,
+        "media-mvp-v1",
+        "16:9",
+        "STANDARD",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null);
+  }
 
   public MediaPlan {
     Objects.requireNonNull(id, "id");
@@ -45,6 +89,12 @@ public record MediaPlan(
       throw new IllegalArgumentException("estimatedCost must not be negative");
     }
     Objects.requireNonNull(createdAt, "createdAt");
+    if (storyboardRevisionId != null && storyboardRevisionId <= 0) {
+      throw new IllegalArgumentException("storyboardRevisionId must be positive");
+    }
+    if (workflowVersion != null && workflowVersion.isBlank()) {
+      throw new IllegalArgumentException("workflowVersion must not be blank");
+    }
   }
 
   public static MediaPlan create(
@@ -68,6 +118,48 @@ public record MediaPlan(
         workload,
         estimatedCost,
         createdAt);
+  }
+
+  public static MediaPlan createExecutable(
+      Long chapterId,
+      long chapterRowVersion,
+      String sourceHash,
+      ProductionMode productionMode,
+      int revision,
+      List<MediaScenePlan> scenes,
+      MediaWorkload workload,
+      BigDecimal estimatedCost,
+      Instant createdAt,
+      Long storyboardRevisionId,
+      String imageAspectRatio,
+      String imageQualityTier,
+      String imageProviderKey,
+      String imageModelKey,
+      String pricingSnapshotJson,
+      String pricingFingerprint,
+      String narrationSetId,
+      String narrationAlignmentRunId) {
+    return new MediaPlan(
+        UUID.randomUUID(),
+        chapterId,
+        chapterRowVersion,
+        sourceHash,
+        productionMode,
+        revision,
+        scenes,
+        workload,
+        estimatedCost,
+        createdAt,
+        storyboardRevisionId,
+        "media-mvp-v1",
+        imageAspectRatio,
+        imageQualityTier,
+        imageProviderKey,
+        imageModelKey,
+        pricingSnapshotJson,
+        pricingFingerprint,
+        narrationSetId,
+        narrationAlignmentRunId);
   }
 
   private static String required(String value, String field) {

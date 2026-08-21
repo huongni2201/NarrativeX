@@ -5,6 +5,7 @@ import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanni
 import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSource.MotionIntent;
 import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSource.SceneSnapshot;
 import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSourceAccess;
+import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardRevisionAccess;
 import com.narrativex.backend.feature.storyboard.application.port.out.StoryboardRepository;
 import com.narrativex.backend.feature.storyboard.domain.entity.VisualBeat;
 import java.util.ArrayList;
@@ -21,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class MediaPlanningSourceService implements MediaPlanningSourceAccess {
   private final StoryboardRepository storyboardRepository;
+  private final StoryboardRevisionAccess storyboardRevisionAccess;
 
   @Override
   @Transactional(propagation = Propagation.MANDATORY, readOnly = true)
@@ -52,10 +54,22 @@ public class MediaPlanningSourceService implements MediaPlanningSourceAccess {
                                         beat.getId(),
                                         beat.getOrderIndex(),
                                         beat.getVisualIntent(),
-                                        MotionIntent.valueOf(beat.getMotionMode().name())))
+                                        MotionIntent.valueOf(beat.getMotionMode().name()),
+                                        beat.getReviewStatus().name(),
+                                        beat.getCameraMovement().name(),
+                                        beat.getAspectRatioOverride() == null
+                                            ? null
+                                            : beat.getAspectRatioOverride().getCode(),
+                                        beat.getQualityTierOverride() == null
+                                            ? null
+                                            : beat.getQualityTierOverride().name(),
+                                        null,
+                                        null))
                             .toList()))
             .toList();
 
-    return new MediaPlanningSource(snapshots);
+    var revision = storyboardRevisionAccess.current(chapterId);
+    return new MediaPlanningSource(
+        snapshots, revision.revisionId(), revision.sourceHash(), null, null);
   }
 }

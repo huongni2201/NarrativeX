@@ -9,6 +9,7 @@ import com.narrativex.backend.feature.generation.domain.enums.MotionStrategy;
 import com.narrativex.backend.feature.generation.domain.value.MediaBeatPlan;
 import com.narrativex.backend.feature.generation.domain.value.MediaScenePlan;
 import com.narrativex.backend.feature.generation.domain.value.MediaWorkload;
+import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSource;
 import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSourceAccess;
@@ -38,12 +39,28 @@ public class CreateMediaPlanUseCase {
             command.projectId(), command.chapterId(), userId);
 
     var planningSource = mediaPlanningSourceAccess.requireCurrent(command.chapterId());
+    if (planningSource.sourceHash() != null
+        && !planningSource.sourceHash().equals(chapter.sourceHash())) {
+      throw new GenerationAdmissionDeniedException(
+          "SOURCE_STALE", "The storyboard source is stale; refresh the chapter before generating.");
+    }
     var scenes = resolveScenes(command, planningSource);
+    if (scenes.isEmpty() || scenes.stream().allMatch(scene -> scene.beats().isEmpty())) {
+      throw new GenerationAdmissionDeniedException(
+          "STORYBOARD_NOT_READY", "The current storyboard has no visual beats ready for generation.");
+    }
+    if (command.productionMode().name().equals("IMAGE_MOTION")
+        && planningSource.scenes().stream()
+            .flatMap(scene -> scene.beats().stream())
+            .anyMatch(beat -> !"APPROVED".equals(beat.reviewStatus()))) {
+      throw new GenerationAdmissionDeniedException(
+          "STORYBOARD_NOT_READY", "Every visual beat must be approved before image generation.");
+    }
     var workload = calculateWorkload(scenes);
     int revision = mediaPlanRepository.nextRevision(command.chapterId());
 
     return mediaPlanRepository.save(
-        MediaPlan.create(
+        MediaPlan.createExecutable(
             command.chapterId(),
             chapter.rowVersion(),
             chapter.sourceHash(),
@@ -52,7 +69,16 @@ public class CreateMediaPlanUseCase {
             scenes,
             workload,
             command.estimatedCost(),
-            java.time.Instant.now()));
+            java.time.Instant.now(),
+            planningSource.storyboardRevisionId(),
+            command.imageAspectRatio(),
+            command.imageQualityTier(),
+            command.imageProviderKey(),
+            command.imageModelKey(),
+            command.pricingSnapshotJson(),
+            command.pricingFingerprint(),
+            planningSource.narrationSetId(),
+            planningSource.narrationAlignmentRunId()));
   }
 
   private List<MediaScenePlan> resolveScenes(
@@ -74,7 +100,28 @@ public class CreateMediaPlanUseCase {
                                     beat.visualIntent(),
                                     beat.motionIntent().name(),
                                     motionStrategyResolver.resolve(
-                                        command.productionMode(), beat.motionIntent())))
+                                        command.productionMode(), beat.motionIntent()),
+                                    "GENERATE_NEW",
+                                    "prompt-v1",
+                                    beat.visualIntent(),
+                                    null,
+                                    beat.audioStartMs(),
+                                    beat.audioEndMs(),
+                                    beat.audioStartMs() != null && beat.audioEndMs() != null
+                                        ? beat.audioEndMs() - beat.audioStartMs()
+                                        : null,
+                                    beat.cameraMovement(),
+                                    "{\"aspectRatio\":\""
+                                        + (beat.aspectRatioOverride() == null
+                                            ? command.imageAspectRatio()
+                                            : beat.aspectRatioOverride())
+                                        + "\",\"qualityTier\":\""
+                                        + (beat.qualityTierOverride() == null
+                                            ? command.imageQualityTier()
+                                            : beat.qualityTierOverride())
+                                        + "\"}",
+                                    "{}",
+                                    null))
                         .toList()))
         .toList();
   }

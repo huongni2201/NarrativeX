@@ -40,7 +40,17 @@ public class MyBatisMediaPlanPersistenceAdapter implements MediaPlanRepository {
             plan.workload().basicMotionSeconds(),
             plan.workload().plannedI2vSeconds(),
             plan.estimatedCost(),
-            plan.createdAt()));
+            plan.createdAt(),
+            plan.storyboardRevisionId(),
+            plan.workflowVersion(),
+            plan.imageAspectRatio(),
+            plan.imageQualityTier(),
+            plan.imageProviderKey(),
+            plan.imageModelKey(),
+            plan.pricingSnapshotJson(),
+            plan.pricingFingerprint(),
+            plan.narrationSetId(),
+            plan.narrationAlignmentRunId()));
     for (int sceneIndex = 0; sceneIndex < plan.scenes().size(); sceneIndex++) {
       var scene = plan.scenes().get(sceneIndex);
       mapper.insertScene(
@@ -62,7 +72,18 @@ public class MyBatisMediaPlanPersistenceAdapter implements MediaPlanRepository {
                 beat.orderIndex(),
                 beat.visualIntent(),
                 beat.motionMode(),
-                beat.motionStrategy()));
+                beat.motionStrategy(),
+                beat.assetStrategy(),
+                beat.promptTemplateVersion(),
+                beat.promptSnapshot(),
+                beat.negativePrompt(),
+                beat.audioStartMs(),
+                beat.audioEndMs(),
+                beat.audioDurationMs(),
+                beat.cameraMovement(),
+                beat.imageSettingsJson(),
+                beat.characterSnapshotJson(),
+                beat.snapshotFingerprint()));
       }
     }
     return plan;

@@ -20,4 +20,5 @@ export const queryKeys = {
     ["projects", projectId, "chapters", chapterId, "storyboard"] as const,
   characters: ["characters"] as const,
   job: (jobId: string) => ["jobs", jobId] as const,
+  mediaJob: (jobId: string) => ["media-jobs", jobId] as const,
 };

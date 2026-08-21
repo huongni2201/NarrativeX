@@ -52,3 +52,18 @@ At minimum:
 - PostgreSQL MediaAsset metadata commits.
 
 Identity/moderation/review gates may then decide approval/regeneration without overwriting historical attempts.
+# Image generation workflow
+
+The MVP image workflow is a backend-authorized `CHAPTER_GENERATE` job. The backend snapshots the
+current approved storyboard, READY narration/alignment identity, safe character context, image
+settings, provider/model/pricing version, and exact source revision into an immutable `MediaPlan`.
+
+The worker creates at most one provider operation for each stable beat request fingerprint. A
+timeout, network failure, or ambiguous provider response is persisted as `UNKNOWN`; it is reconciled
+when the provider supports reconciliation and is never automatically blind-resubmitted otherwise.
+Provider bytes are acquired into private R2 result objects before durable completion is recorded.
+
+Validated output creates/reuses a READY `MediaAsset` and an insert-only lineage row. Review is a
+separate state machine: `NEEDS_REVIEW` must become `APPROVED` before the asset can enter a render
+manifest. Rejection does not mutate or delete the generated asset; regeneration is a new explicit
+paid attempt.

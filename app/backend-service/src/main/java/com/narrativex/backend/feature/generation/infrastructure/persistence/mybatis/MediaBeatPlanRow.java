@@ -20,4 +20,15 @@ public class MediaBeatPlanRow {
   private String visualIntent;
   private String semanticMotionMode;
   private MotionStrategy motionStrategy;
+  private String assetStrategy;
+  private String promptTemplateVersion;
+  private String promptSnapshot;
+  private String negativePrompt;
+  private Long audioStartMs;
+  private Long audioEndMs;
+  private Long audioDurationMs;
+  private String cameraMovement;
+  private String imageSettingsJson;
+  private String characterSnapshotJson;
+  private String snapshotFingerprint;
 }

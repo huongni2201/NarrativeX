@@ -47,6 +47,13 @@ class WorkerSettings(BaseSettings):
     vertex_location: str = "us-central1"
     vertex_model: str = "gemini-2.5-flash"
     vertex_timeout_seconds: float = Field(default=120.0, gt=1, le=600)
+    image_provider_mode: Literal["disabled", "vertex"] = Field(
+        default="disabled", validation_alias=AliasChoices("IMAGE_PROVIDER_MODE")
+    )
+    vertex_image_model: str = "imagen-3.0-generate-002"
+    vertex_image_location: str = "us-central1"
+    vertex_image_timeout_seconds: float = Field(default=120.0, gt=1, le=600)
+    image_max_output_bytes: int = Field(default=15_000_000, ge=1024, le=50_000_000)
 
     tts_provider_mode: Literal["disabled", "google"] = Field(
         default="disabled",
@@ -107,6 +114,8 @@ class WorkerSettings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_narration_runtime(self) -> "WorkerSettings":
+        if self.image_provider_mode == "vertex" and not self.vertex_project_id:
+            raise ValueError("VERTEX_PROJECT_ID is required when IMAGE_PROVIDER_MODE=vertex")
         if self.tts_provider_mode == "google" and not self.google_tts_project_id:
             raise ValueError("GOOGLE_TTS_PROJECT_ID is required when TTS_PROVIDER_MODE=google")
         if self.media_storage_mode == "r2":
