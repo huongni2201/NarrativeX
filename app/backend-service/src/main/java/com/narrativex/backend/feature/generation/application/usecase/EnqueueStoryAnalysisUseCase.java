@@ -12,7 +12,6 @@ import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.aggregate.OperationPlan;
 import com.narrativex.backend.feature.generation.domain.entity.StageAttempt;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
-import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardRevisionAccess;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +24,6 @@ public class EnqueueStoryAnalysisUseCase {
   private static final String STAGE_NAME = "CHAPTER_ANALYSIS";
 
   private final CurrentUserId currentUserId;
-  private final StoryVersionAccess storyVersionAccess;
   private final ProjectAccess projectAccess;
   private final ChapterAnalysisSourceAccess chapterAnalysisSourceAccess;
   private final StoryboardRevisionAccess storyboardRevisionAccess;
@@ -44,12 +42,11 @@ public class EnqueueStoryAnalysisUseCase {
   public GenerationJob execute(EnqueueStoryAnalysisCommand command) {
     String userId = currentUserId.get();
 
-    // Serialize source edits before taking the authoritative Chapter snapshot. The lock is held by
-    // this transaction through admission, quota reservation, revision/job creation, and outbox.
-    var chapter = chapterAnalysisSourceAccess.requireForAnalysisLocked(command.chapterId());
-
-    storyVersionAccess.requireOwnedStoryVersion(
-        command.projectId(), chapter.storyVersionId(), userId);
+    // Authorize the project/chapter scope before acquiring the Chapter advisory lock. The lock is
+    // then held through admission, quota reservation, revision/job creation, and outbox.
+    var chapter =
+        chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(
+            command.projectId(), command.chapterId(), userId);
     var project = projectAccess.findOwnedProject(command.projectId(), userId);
 
     if (chapter.sourceText().isBlank()) {

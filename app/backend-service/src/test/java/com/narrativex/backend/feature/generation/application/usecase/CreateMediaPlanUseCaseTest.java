@@ -14,7 +14,6 @@ import com.narrativex.backend.feature.generation.application.service.MotionStrat
 import com.narrativex.backend.feature.generation.domain.aggregate.MediaPlan;
 import com.narrativex.backend.feature.generation.domain.enums.MotionStrategy;
 import com.narrativex.backend.feature.generation.domain.enums.ProductionMode;
-import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSource;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSource;
@@ -31,7 +30,6 @@ class CreateMediaPlanUseCaseTest {
   @Test
   void pinsLockedChapterSnapshotAndResolvesExecutionStrategy() {
     var currentUserId = mock(CurrentUserId.class);
-    var storyVersionAccess = mock(StoryVersionAccess.class);
     var chapterSourceAccess = mock(ChapterAnalysisSourceAccess.class);
     var mediaPlanningSourceAccess = mock(MediaPlanningSourceAccess.class);
     var mediaPlanRepository = mock(MediaPlanRepository.class);
@@ -39,14 +37,13 @@ class CreateMediaPlanUseCaseTest {
     var useCase =
         new CreateMediaPlanUseCase(
             currentUserId,
-            storyVersionAccess,
             chapterSourceAccess,
             mediaPlanningSourceAccess,
             mediaPlanRepository,
             resolver);
 
     when(currentUserId.get()).thenReturn("user-1");
-    when(chapterSourceAccess.requireForAnalysisLocked(10L))
+    when(chapterSourceAccess.requireOwnedForAnalysisLocked(1L, 10L, "user-1"))
         .thenReturn(new ChapterAnalysisSource(10L, 20L, 7L, "source-hash", "source text"));
     when(mediaPlanningSourceAccess.requireCurrent(10L))
         .thenReturn(
@@ -69,7 +66,6 @@ class CreateMediaPlanUseCaseTest {
             new CreateMediaPlanCommand(
                 1L, 10L, ProductionMode.HYBRID_LOCAL_I2V, new BigDecimal("1.25")));
 
-    verify(storyVersionAccess).requireOwnedStoryVersion(1L, 20L, "user-1");
     assertThat(plan.chapterId()).isEqualTo(10L);
     assertThat(plan.chapterRowVersion()).isEqualTo(7L);
     assertThat(plan.sourceHash()).isEqualTo("source-hash");

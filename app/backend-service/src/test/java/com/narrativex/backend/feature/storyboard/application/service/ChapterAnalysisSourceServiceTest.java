@@ -28,23 +28,28 @@ class ChapterAnalysisSourceServiceTest {
   @InjectMocks private ChapterAnalysisSourceService service;
 
   @Test
-  void locksChapterBeforeReadingAuthoritativeSnapshot() {
+  void authorizesBeforeLockingAndReadsAuthoritativeSnapshotAfterLock() {
     var snapshot = new ChapterAnalysisSource(11L, 9L, 2L, SOURCE_HASH, "latest source");
-    when(chapterAnalysisSnapshotRepository.requireById(11L)).thenReturn(snapshot);
+    when(chapterAnalysisSnapshotRepository.requireOwnedByProject(7L, 11L, "user-1"))
+        .thenReturn(snapshot);
 
-    var result = service.requireForAnalysisLocked(11L);
+    var result = service.requireOwnedForAnalysisLocked(7L, 11L, "user-1");
 
     assertSame(snapshot, result);
     InOrder order = inOrder(storyboardRevisionAccess, chapterAnalysisSnapshotRepository);
+    order.verify(chapterAnalysisSnapshotRepository)
+        .requireOwnedByProject(7L, 11L, "user-1");
     order.verify(storyboardRevisionAccess).lockChapter(11L);
-    order.verify(chapterAnalysisSnapshotRepository).requireById(11L);
+    order.verify(chapterAnalysisSnapshotRepository)
+        .requireOwnedByProject(7L, 11L, "user-1");
   }
 
   @Test
   void requiresAnExistingOuterTransactionSoTheAdvisoryLockCannotBeReleasedEarly()
       throws NoSuchMethodException {
     var method =
-        ChapterAnalysisSourceService.class.getMethod("requireForAnalysisLocked", Long.class);
+        ChapterAnalysisSourceService.class.getMethod(
+            "requireOwnedForAnalysisLocked", Long.class, Long.class, String.class);
     var transactional = method.getAnnotation(Transactional.class);
 
     assertNotNull(transactional);

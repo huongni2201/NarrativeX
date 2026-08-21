@@ -28,14 +28,22 @@ public class UpdateChapterUseCase {
 
   @Transactional
   public ApiResponse<ChapterResponse> execute(UpdateChapterCommand command) {
-    storyboardRevisionAccess.lockChapter(command.chapterId());
-
+    String userId = currentUserId.get();
     var chapter =
         chapterRepository
             .findById(command.chapterId())
             .orElseThrow(() -> new ResourceNotFoundException("Chapter not found"));
     storyVersionAccess.requireOwnedStoryVersion(
-        command.projectId(), chapter.getStoryVersionId(), currentUserId.get());
+        command.projectId(), chapter.getStoryVersionId(), userId);
+
+    // Do not acquire the Chapter serialization lock until the caller's project scope is known.
+    storyboardRevisionAccess.lockChapter(command.chapterId());
+    chapter =
+        chapterRepository
+            .findById(command.chapterId())
+            .orElseThrow(() -> new ResourceNotFoundException("Chapter not found"));
+    storyVersionAccess.requireOwnedStoryVersion(
+        command.projectId(), chapter.getStoryVersionId(), userId);
     if (chapter.getRowVersion() != command.expectedRowVersion()) {
       throw new ResourceConflictException("Chapter changed since it was loaded");
     }

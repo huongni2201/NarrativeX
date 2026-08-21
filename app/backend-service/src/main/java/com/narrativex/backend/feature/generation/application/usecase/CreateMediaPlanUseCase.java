@@ -9,7 +9,6 @@ import com.narrativex.backend.feature.generation.domain.enums.MotionStrategy;
 import com.narrativex.backend.feature.generation.domain.value.MediaBeatPlan;
 import com.narrativex.backend.feature.generation.domain.value.MediaScenePlan;
 import com.narrativex.backend.feature.generation.domain.value.MediaWorkload;
-import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSource;
 import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSourceAccess;
@@ -23,7 +22,6 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class CreateMediaPlanUseCase {
   private final CurrentUserId currentUserId;
-  private final StoryVersionAccess storyVersionAccess;
   private final ChapterAnalysisSourceAccess chapterAnalysisSourceAccess;
   private final MediaPlanningSourceAccess mediaPlanningSourceAccess;
   private final MediaPlanRepository mediaPlanRepository;
@@ -33,11 +31,11 @@ public class CreateMediaPlanUseCase {
   public MediaPlan execute(CreateMediaPlanCommand command) {
     String userId = currentUserId.get();
 
-    // Reuse the chapter serialization boundary: lock first, then read the authoritative source.
-    // The lock stays held while the current storyboard is snapshotted and the revision is allocated.
-    var chapter = chapterAnalysisSourceAccess.requireForAnalysisLocked(command.chapterId());
-    storyVersionAccess.requireOwnedStoryVersion(
-        command.projectId(), chapter.storyVersionId(), userId);
+    // Reuse the ownership-scoped Chapter serialization boundary. The lock stays held while the
+    // current storyboard is snapshotted and the revision is allocated.
+    var chapter =
+        chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(
+            command.projectId(), command.chapterId(), userId);
 
     var planningSource = mediaPlanningSourceAccess.requireCurrent(command.chapterId());
     var scenes = resolveScenes(command, planningSource);

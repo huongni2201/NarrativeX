@@ -1,11 +1,11 @@
 package com.narrativex.backend.feature.storyboard.application.port.in;
 
 /**
- * Cross-feature contract for obtaining the authoritative Chapter snapshot used by analysis.
- * Implementations must acquire the Chapter serialization lock before reading the snapshot and must
- * participate in the caller's transaction so the lock remains held for the complete admission
- * boundary.
+ * Cross-feature contract for obtaining an ownership-scoped authoritative Chapter snapshot.
+ * Implementations authorize the requested project/chapter scope before acquiring the Chapter
+ * serialization lock, then re-read the same scope after locking before returning the snapshot.
  */
 public interface ChapterAnalysisSourceAccess {
-  ChapterAnalysisSource requireForAnalysisLocked(Long chapterId);
+  ChapterAnalysisSource requireOwnedForAnalysisLocked(
+      Long projectId, Long chapterId, String userId);
 }

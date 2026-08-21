@@ -26,5 +26,6 @@ This directory records decisions that affect more than one feature or change a p
 - [ADR-0018: Full-chapter narration and alignment](./ADR-0018-full-chapter-narration-and-alignment.md)
 - [ADR-0019: Uploaded narration as logical multi-part input](./ADR-0019-uploaded-narration-as-logical-multi-part-input.md)
 - [ADR-0020: SQL-first Project persistence](./ADR-0020-project-mybatis-persistence.md)
+- [ADR-0021: Authorize ownership before Chapter serialization locks](./ADR-0021-ownership-before-chapter-lock.md)
 
 The previous ADR records were consolidated into the canonical files above. Use a new sequential ADR for a new cross-cutting decision.
