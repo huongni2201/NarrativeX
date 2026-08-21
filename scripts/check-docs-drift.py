@@ -18,6 +18,7 @@ CURRENT_FILES = [
     ROOT / "documentation" / "source-of-truth" / "README.md",
     ROOT / "documentation" / "source-of-truth" / "NARRATIVEX_PROJECT_SPEC_V1_11.md",
     ROOT / "documentation" / "codebase" / "CODEBASE_MAP.md",
+    ROOT / "documentation" / "codebase" / "TRACEABILITY.md",
     ROOT / "documentation" / "codebase" / "BACKEND_CODEBASE.md",
     ROOT / "documentation" / "codebase" / "FRONTEND_API_INTEGRATION_MATRIX.md",
     ROOT / "documentation" / "codebase" / "PERSISTENCE_MIGRATION.md",
