@@ -10,12 +10,19 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 
 CURRENT_FILES = [
+    ROOT / "README.md",
+    ROOT / "AI_CONTEXT.md",
     ROOT / "documentation" / "README.md",
+    ROOT / "documentation" / "TRACEABILITY.md",
+    ROOT / "documentation" / "PROJECT_OVERVIEW_API_REPORT.md",
     ROOT / "documentation" / "source-of-truth" / "README.md",
     ROOT / "documentation" / "source-of-truth" / "NARRATIVEX_PROJECT_SPEC_V1_11.md",
     ROOT / "documentation" / "codebase" / "CODEBASE_MAP.md",
+    ROOT / "documentation" / "codebase" / "BACKEND_CODEBASE.md",
+    ROOT / "documentation" / "codebase" / "FRONTEND_API_INTEGRATION_MATRIX.md",
     ROOT / "documentation" / "codebase" / "PERSISTENCE_MIGRATION.md",
     ROOT / "documentation" / "architecture" / "SYSTEM_ARCHITECTURE.md",
+    ROOT / "documentation" / "architecture" / "SERVICE_BOUNDARIES.md",
     ROOT / "documentation" / "architecture" / "DATA_FLOW.md",
     ROOT / "documentation" / "architecture" / "TECHNOLOGY_STACK.md",
     ROOT / "documentation" / "product" / "PRODUCT_SPEC.md",
@@ -35,7 +42,11 @@ REQUIRED_PATHS = [
 ]
 
 FORBIDDEN = {
-    "obsolete current V1.10 authority": re.compile(r"(?:canonical|current)\s+(?:source|baseline).*NARRATIVEX_PROJECT_SPEC_V1_10\.md", re.IGNORECASE),
+    "obsolete current V1.10 authority": re.compile(
+        r"(?:canonical|current)\s+(?:source|baseline).*NARRATIVEX_PROJECT_SPEC_V1_10\.md",
+        re.IGNORECASE,
+    ),
+    "obsolete V1.8 current baseline": re.compile(r"\bV1\.8\b", re.IGNORECASE),
     "obsolete Analyze scaffold token": re.compile(r"FEATURE_NOT_AVAILABLE"),
     "obsolete media status claim": re.compile(
         r"(?:image generation,?\s*TTS/subtitles\s*(?:and|,)\s*render/export|Image/TTS/render/export)\s+(?:remain|\|)\s*PENDING",
@@ -43,6 +54,18 @@ FORBIDDEN = {
     ),
     "obsolete uploaded-audio target-only claim": re.compile(
         r"uploaded/(?:external )?narration audio\s*\|\s*TARGET", re.IGNORECASE
+    ),
+    "obsolete three-boundary MyBatis summary": re.compile(
+        r"(?:Current MyBatis-backed boundaries include ProviderOperation, Chapter and Project command/query persistence\.|MyBatis persistence for ProviderOperation, Chapter and Project\.|ProviderOperation/Chapter/Project done; other boundaries remain)",
+        re.IGNORECASE,
+    ),
+    "obsolete generation-persistence target": re.compile(
+        r"(?:Generation execution persistence|GenerationJob\s*/\s*StageAttempt(?:\s*/\s*OperationPlan\s*/\s*MediaPlan)?[^\n]*)\s*(?:—|\|)\s*TARGET",
+        re.IGNORECASE,
+    ),
+    "obsolete continuity future-gap": re.compile(
+        r"location materialization and scene-to-character/location continuity persistence in worker output",
+        re.IGNORECASE,
     ),
 }
 
@@ -69,6 +92,17 @@ LEGACY_STORAGE_ENV = re.compile(
     r"\b(?:S3_ENDPOINT_URL|S3_BUCKET|S3_REGION|S3_ACCESS_KEY|S3_SECRET_KEY|MINIO_CONSOLE_PORT)\b"
 )
 
+DOCS_SYNC_PATTERNS = {
+    "spec": re.compile(r"Docs-sync base:\*\* `main` at `([0-9a-f]{40})`"),
+    "readme": re.compile(r"Docs-sync base: `([0-9a-f]{40})`"),
+    "traceability": re.compile(r"docs-sync base `([0-9a-f]{40})`"),
+}
+
+
+def docs_sync_sha(path: Path, pattern: re.Pattern[str]) -> str | None:
+    match = pattern.search(path.read_text(encoding="utf-8"))
+    return match.group(1) if match else None
+
 
 def main() -> int:
     errors: list[str] = []
@@ -85,6 +119,25 @@ def main() -> int:
         for label, pattern in FORBIDDEN.items():
             if pattern.search(text):
                 errors.append(f"{path.relative_to(ROOT)}: {label}")
+
+    spec_path = ROOT / "documentation" / "source-of-truth" / "NARRATIVEX_PROJECT_SPEC_V1_11.md"
+    source_readme_path = ROOT / "documentation" / "source-of-truth" / "README.md"
+    traceability_path = ROOT / "documentation" / "TRACEABILITY.md"
+    docs_sync_values = {
+        "spec": docs_sync_sha(spec_path, DOCS_SYNC_PATTERNS["spec"]),
+        "readme": docs_sync_sha(source_readme_path, DOCS_SYNC_PATTERNS["readme"]),
+        "traceability": docs_sync_sha(traceability_path, DOCS_SYNC_PATTERNS["traceability"]),
+    }
+    missing_sync = [name for name, value in docs_sync_values.items() if value is None]
+    if missing_sync:
+        errors.append(
+            "missing docs-sync checkpoint in: " + ", ".join(sorted(missing_sync))
+        )
+    elif len(set(docs_sync_values.values())) != 1:
+        errors.append(
+            "V1.11 docs-sync checkpoints disagree: "
+            + ", ".join(f"{name}={value}" for name, value in docs_sync_values.items())
+        )
 
     navigation = (ROOT / "documentation" / "README.md").read_text(encoding="utf-8")
     for removed_dir in ("./plans/", "./audits/"):
