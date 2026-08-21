@@ -16,19 +16,32 @@ Canonical authority: [`../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](../
 
 ## Persistence status
 
-MyBatis-backed production boundaries include:
+MyBatis/explicit-SQL production boundaries include:
 
 - ProviderOperation;
 - Chapter;
-- Project command/query persistence.
+- Project command/query persistence;
+- GenerationJob;
+- StageAttempt;
+- OperationPlan;
+- MediaPlan;
+- generation outbox enqueue persistence;
+- Job History;
+- Chapter Analyze safety gate.
 
-Next migration priority starts with StoryVersion, then high-concurrency generation/outbox/quota paths. Do not deepen JPA/JDBC for new persistence-heavy features without a documented exception.
+The outbox dispatcher still uses `JdbcTemplate` for its short-lived operational claim/lease query. This is deliberate residual JDBC, not the durable enqueue authority.
+
+Next migration priority starts with StoryVersion and quota/billing, then storyboard/continuity and remaining low-risk CRUD/query boundaries. Do not deepen JPA/JDBC for new persistence-heavy features without a documented exception.
 
 ## Narration status
 
 Full-chapter TTS and R2-backed narration/alignment foundations are implemented. `NarrationStrategy.USER_PROVIDED_AUDIO` is also implemented as a planning/timeline foundation: ordered variable-count parts, fingerprints, global timeline mapping, alignment status and TTS-bypass operation planning.
 
 Production upload/finalize and real alignment integration still require hardening before claiming the complete user-facing uploaded-audio workflow.
+
+## Frontend data authority
+
+Project Character list/detail screens now consume project-scoped backend read models for role, importance, aliases/groups, pinned version, appearance and scene count. Runtime UI must leave unsupported fields unavailable instead of substituting fabricated business data.
 
 ## Durable media rule
 
