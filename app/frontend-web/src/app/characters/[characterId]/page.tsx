@@ -1,21 +1,12 @@
-"use client";
-
-import { use } from "react";
-import { CharacterDetailView } from "@/features/characters/CharacterDetailView";
+import { StudioAppShell } from "@/components/layout/StudioAppShell";
 
 interface GlobalCharacterDetailPageProps {
   params: Promise<{ characterId: string }>;
 }
 
-export default function GlobalCharacterDetailPage({
+export default async function GlobalCharacterDetailPage({
   params,
 }: Readonly<GlobalCharacterDetailPageProps>) {
-  const resolvedParams = use(params);
-  const characterId = Number(resolvedParams.characterId);
-
-  return (
-    <div className="p-6">
-      <CharacterDetailView characterId={characterId} />
-    </div>
-  );
+  const { characterId } = await params;
+  return <StudioAppShell screen="character-detail" characterId={characterId} />;
 }

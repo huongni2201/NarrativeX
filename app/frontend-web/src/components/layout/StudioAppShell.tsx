@@ -26,6 +26,9 @@ const ProjectStoryboardScreen = dynamic(() =>
 const CharacterLibrary = dynamic(() =>
   import("@/features/characters/CharacterLibrary").then((module) => module.CharacterLibrary),
 );
+const CharacterDetailView = dynamic(() =>
+  import("@/features/characters/CharacterDetailView").then((module) => module.CharacterDetailView),
+);
 const ProjectWizardModal = dynamic(() =>
   import("@/features/project-creation/ProjectWizardModal").then((module) => module.ProjectWizardModal),
 );
@@ -53,6 +56,7 @@ type StudioRouteScreen = Extract<
   | "chapter-workspace"
   | "storyboard"
   | "characters"
+  | "character-detail"
   | "assets"
   | "presets"
   | "history"
@@ -63,6 +67,7 @@ interface StudioAppShellProps {
   screen: StudioRouteScreen;
   projectId?: string;
   chapterId?: string;
+  characterId?: string;
 }
 
 const screenTitles: Record<StudioRouteScreen, string> = {
@@ -72,6 +77,7 @@ const screenTitles: Record<StudioRouteScreen, string> = {
   "chapter-workspace": "Chapter Workspace",
   storyboard: "Storyboard",
   characters: "Thư viện nhân vật",
+  "character-detail": "Chi tiết nhân vật",
   assets: "Thư viện tài sản",
   presets: "Mẫu & phong cách",
   history: "Lịch sử công việc",
@@ -82,6 +88,7 @@ export function StudioAppShell({
   screen,
   projectId,
   chapterId,
+  characterId,
 }: Readonly<StudioAppShellProps>) {
   const status = useAuthStore((state) => state.status);
   const error = useAuthStore((state) => state.error);
@@ -134,6 +141,12 @@ export function StudioAppShell({
             <ProjectStoryboardScreen projectId={projectId} />
           )}
           {screen === "characters" && <CharacterLibrary />}
+          {screen === "character-detail" && characterId && (
+            <CharacterDetailView
+              characterId={Number(characterId)}
+              projectId={projectId ? Number(projectId) : undefined}
+            />
+          )}
           {screen === "assets" && <AssetLibraryScreen />}
           {screen === "presets" && <StylePresetsScreen />}
           {screen === "history" && <JobHistoryScreen />}

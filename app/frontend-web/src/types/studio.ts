@@ -7,6 +7,7 @@ export type ScreenType =
   | "dashboard"
   | "wizard"
   | "characters"
+  | "character-detail"
   | "character-bible"
   | "assets"
   | "presets"

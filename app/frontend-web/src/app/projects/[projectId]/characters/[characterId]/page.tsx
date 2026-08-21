@@ -1,22 +1,18 @@
-"use client";
-
-import { use } from "react";
-import { CharacterDetailView } from "@/features/characters/CharacterDetailView";
+import { StudioAppShell } from "@/components/layout/StudioAppShell";
 
 interface ProjectCharacterDetailPageProps {
   params: Promise<{ projectId: string; characterId: string }>;
 }
 
-export default function ProjectCharacterDetailPage({
+export default async function ProjectCharacterDetailPage({
   params,
 }: Readonly<ProjectCharacterDetailPageProps>) {
-  const resolvedParams = use(params);
-  const projectId = Number(resolvedParams.projectId);
-  const characterId = Number(resolvedParams.characterId);
-
+  const { projectId, characterId } = await params;
   return (
-    <div className="p-6">
-      <CharacterDetailView characterId={characterId} projectId={projectId} />
-    </div>
+    <StudioAppShell
+      screen="character-detail"
+      projectId={projectId}
+      characterId={characterId}
+    />
   );
 }
