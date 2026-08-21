@@ -20,6 +20,7 @@ export const PresetCard: React.FC<PresetCardProps> = ({ preset, isSelected = fal
           src={preset.coverImage}
           alt={preset.name}
           fill
+          priority={isSelected}
           sizes="(min-width: 1280px) 20vw, (min-width: 768px) 33vw, (min-width: 640px) 50vw, 100vw"
           className="object-cover transition-transform motion-safe:group-hover:scale-105"
         />

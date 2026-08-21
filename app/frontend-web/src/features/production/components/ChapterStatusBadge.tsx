@@ -8,7 +8,7 @@ interface ChapterStatusBadgeProps {
 }
 
 export const ChapterStatusBadge: React.FC<ChapterStatusBadgeProps> = ({ status, className }) => {
-  const base = `inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${className ?? ""}`;
+  const base = `inline-flex items-center gap-1.5 rounded-md border px-2.5 py-0.5 text-xs font-semibold ${className ?? ""}`;
   if (status === "RENDERED") return <span className={`${base} border-badge-green-border bg-badge-green-bg text-badge-green`}>Rendered</span>;
   if (status === "VISUAL_READY") return <span className={`${base} border-badge-blue-border bg-badge-blue-bg text-badge-blue`}>Visual Ready</span>;
   if (status === "VISUAL_REVIEW") return <span className={`${base} border-badge-amber-border bg-badge-amber-bg text-badge-amber`}><Eye className="h-3 w-3" />Visual Review</span>;

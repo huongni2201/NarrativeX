@@ -60,10 +60,10 @@ export const Tabs: React.FC<TabsProps> = ({ tabs, activeTab, onChange, className
             onClick={() => onChange(tab.id)}
             className={cn(
               "relative flex items-center gap-2 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-              variant === "underlined" ? "pb-3 text-sm" : "px-3 py-1.5 text-xs rounded-md",
+              variant === "underlined" ? "rounded-t-lg px-3 pt-2 pb-3 text-sm" : "px-3 py-1.5 text-xs rounded-md",
               isActive
-                ? variant === "underlined" ? "text-primary-light font-semibold" : "bg-primary text-white font-semibold"
-                : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50",
+                ? variant === "underlined" ? "bg-primary-muted-strong text-primary-light font-semibold" : "bg-primary text-white font-semibold"
+                : "text-text-muted hover:text-text-primary hover:bg-surface-2",
             )}
           >
             {tab.icon}

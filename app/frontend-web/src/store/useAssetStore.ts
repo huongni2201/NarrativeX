@@ -14,7 +14,7 @@ interface AssetStore {
   isDetailDrawerOpen: boolean;
   isUploadModalOpen: boolean;
 
-  hydrateDemoAssets: (assets: MediaAsset[]) => void;
+  hydrateAssets: (assets: MediaAsset[]) => void;
   selectAsset: (id: string | null) => void;
   closeDetailDrawer: () => void;
   setFilterType: (type: AssetFilterType) => void;
@@ -46,7 +46,7 @@ export const useAssetStore = create<AssetStore>((set, get) => ({
   isDetailDrawerOpen: false,
   isUploadModalOpen: false,
 
-  hydrateDemoAssets: (assets) =>
+  hydrateAssets: (assets) =>
     set((state) =>
       state.assets.length > 0
         ? state

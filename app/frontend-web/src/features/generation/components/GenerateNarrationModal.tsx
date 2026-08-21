@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Volume2, X, Sparkles, Check, AlertCircle, Loader2 } from "lucide-react";
-import { PRESET_VOICES } from "../types/narration.types";
+import { PRESET_VOICES, type VoiceOption } from "../types/narration.types";
 import { useGenerateNarration } from "../hooks/useGenerateNarration";
 import { apiErrorMessage } from "@/shared/api/client";
 import type { ApiGenerationJob } from "@/types/api";
+import { voicesApi } from "../api/voices.api";
+import { isMockDataMode } from "@/lib/data-mode";
 
 interface GenerateNarrationModalProps {
   isOpen: boolean;
@@ -24,16 +26,36 @@ export function GenerateNarrationModal({
   chapterTitle,
   onJobStarted,
 }: Readonly<GenerateNarrationModalProps>) {
-  const [selectedVoice, setSelectedVoice] = useState<string>("vi-VN-Standard-A");
+  const [selectedVoice, setSelectedVoice] = useState<string>("narrativex-vi-vn-female-1");
   const [speakingRate, setSpeakingRate] = useState<number>(1.0);
   const [languageFilter, setLanguageFilter] = useState<string>("vi-VN");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [voices, setVoices] = useState<VoiceOption[]>(isMockDataMode ? PRESET_VOICES : []);
+
+  useEffect(() => {
+    if (isMockDataMode || !isOpen) return;
+    voicesApi
+      .list(languageFilter)
+      .then((items) => {
+        const mapped: VoiceOption[] = items.map((voice) => ({
+          id: voice.id,
+          name: voice.name,
+          language: voice.language,
+          gender: voice.gender === "MALE" ? "MALE" : "FEMALE",
+          style: "Standard" as const,
+          description: `${voice.provider} · ${voice.language}`,
+        }));
+        setVoices(mapped);
+        setSelectedVoice(mapped[0]?.id ?? "");
+      })
+      .catch((error) => setErrorMessage(apiErrorMessage(error, "Không thể tải voice catalog.")));
+  }, [isOpen, languageFilter]);
 
   const generateMutation = useGenerateNarration();
 
   if (!isOpen) return null;
 
-  const filteredVoices = PRESET_VOICES.filter((v) => v.language === languageFilter);
+  const filteredVoices = voices.filter((v) => v.language === languageFilter);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,7 +128,7 @@ export function GenerateNarrationModal({
                 type="button"
                 onClick={() => {
                   setLanguageFilter("vi-VN");
-                  setSelectedVoice("vi-VN-Standard-A");
+                  setSelectedVoice(isMockDataMode ? "vi-VN-Standard-A" : "narrativex-vi-vn-female-1");
                 }}
                 className={`rounded-lg px-3.5 py-1.5 text-xs font-medium transition-colors ${
                   languageFilter === "vi-VN"
@@ -120,7 +142,7 @@ export function GenerateNarrationModal({
                 type="button"
                 onClick={() => {
                   setLanguageFilter("en-US");
-                  setSelectedVoice("en-US-Standard-C");
+                  setSelectedVoice(isMockDataMode ? "en-US-Standard-C" : "narrativex-en-us-female-1");
                 }}
                 className={`rounded-lg px-3.5 py-1.5 text-xs font-medium transition-colors ${
                   languageFilter === "en-US"

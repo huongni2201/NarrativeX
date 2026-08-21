@@ -20,13 +20,15 @@ This matrix records frontend wiring separately from backend/API availability. AP
 | Global Character library | IMPLEMENTED foundation | Character library APIs | richer global-library management |
 | Project Locations | IMPLEMENTED foundation | Location read API + AI Location materialization | richer edit/reference workflows |
 | Project Assets | IMPLEMENTED foundation | Asset read/create foundations | upload/finalize/delete/review lifecycle |
+| Asset Library | IMPLEMENTED foundation | account-scoped media metadata lifecycle at `/api/v1/assets` | binary storage upload/finalize and signed downloads |
 | Job History | IMPLEMENTED foundation | backend read (`/api/v1/jobs/history`) | history table/filters/pagination |
 | User Quota | IMPLEMENTED foundation | backend read (`/api/v1/users/me/quota`) | quota details modal & usage breakdown |
 | Notifications | IMPLEMENTED foundation | backend read/mark-read (`/api/v1/notifications`) | notification drawer, page & unread badges |
 | Chapter Narration | IMPLEMENTED foundation | backend narration jobs (`/narration-jobs`) | voice catalog modal & TTS generation UX |
 | Provider Health | IMPLEMENTED foundation | backend read (`/api/v1/provider-health`) | status indicator badge & model info |
-| Presets | PENDING | complete backend CRUD not established | backend contract + integration |
-| Render/export | PENDING | media pipeline not implemented end-to-end | image generation/VisualScenePlanner/render/export |
+| Presets | IMPLEMENTED foundation | `/api/v1/style-presets` reads PostgreSQL catalog | custom preset CRUD and project assignment |
+| Voice catalog | IMPLEMENTED foundation | `/api/v1/voices` reads enabled PostgreSQL catalog | provider sample playback and voice administration |
+| Render/export | IMPLEMENTED foundation | chapter render admission, job status and artifact metadata APIs | image materialization, worker render and signed download |
 | Settings | PARTIAL | partial/local contracts | define persisted settings boundaries |
 
 ## Chapter Analyze UI contract

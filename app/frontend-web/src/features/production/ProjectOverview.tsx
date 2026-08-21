@@ -149,6 +149,7 @@ export const ProjectOverview: React.FC = () => {
             </div>
             <Progress value={project.overallProgress} color="orange" />
 
+
             <div className="flex flex-wrap items-center justify-between text-xs text-slate-400 pt-1 font-mono gap-2">
               <span>{project.readyChapters}/{project.totalChapters} Chapters ready</span>
               <span>•</span>
@@ -176,8 +177,8 @@ export const ProjectOverview: React.FC = () => {
       {activeTab === "chapters" && (
         <div className="space-y-4">
           <div className="rounded-xl border border-border-dark overflow-hidden bg-surface">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-surface-panel text-slate-400 uppercase tracking-wider font-semibold border-b border-border-dark">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-surface-panel text-slate-400 uppercase tracking-wider font-semibold border-b border-border-dark text-sm">
                 <tr>
                   <th className="py-3 px-4 w-12 text-center">#</th>
                   <th className="py-3 px-4">Chapter</th>

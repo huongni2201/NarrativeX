@@ -43,13 +43,13 @@ export function ProjectTabs({ activeTab, onChange }: Readonly<ProjectTabsProps>)
             role="tab"
             aria-selected={isActive}
             onClick={() => onChange(tab.id)}
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-colors whitespace-nowrap ${
+            className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors whitespace-nowrap ${
               isActive
-                ? "border border-primary/70 bg-primary-muted text-primary-hover shadow-sm"
-                : "border border-border-dark bg-surface/60 text-slate-400 hover:border-border hover:text-slate-200"
+                ? "border border-primary/70 bg-primary-muted text-primary-light shadow-sm"
+                : "border border-border-dark bg-surface/60 text-text-secondary hover:border-border hover:text-text-primary"
             }`}
           >
-            <span className={isActive ? "text-primary-hover" : "text-slate-500"}>
+            <span className={isActive ? "text-primary-light" : "text-text-muted"}>
               {tab.icon}
             </span>
             <span>{tab.label}</span>

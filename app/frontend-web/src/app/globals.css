@@ -6,26 +6,26 @@
   :root {
     color-scheme: dark;
     /* App Core */
-    --background: #0b0e12;
+    --background: #080b10;
     --foreground: #f8fafc;
 
     /* Surfaces */
-    --surface: #12161c;
-    --surface-2: #171c24;
-    --surface-3: #202832;
-    --surface-dark: #080a0d;
-    --surface-card: #11151a;
-    --surface-panel: #0e1116;
-    --surface-elevated: #1a2028;
-    --surface-input: #0c1218;
+    --surface: #0d131b;
+    --surface-2: #131b26;
+    --surface-3: #1a2430;
+    --surface-dark: #070a0f;
+    --surface-card: #111720;
+    --surface-panel: #0a1017;
+    --surface-elevated: #151c26;
+    --surface-input: #0a1119;
     --surface-storyboard: var(--surface-panel);
     --surface-storyboard-card: var(--surface-card);
 
     /* Borders */
-    --border: #29323d;
-    --border-subtle: rgba(255, 255, 255, 0.14);
-    --border-dark: #202832;
-    --border-darker: #1a222b;
+    --border: rgba(255, 255, 255, 0.1);
+    --border-subtle: rgba(255, 255, 255, 0.08);
+    --border-dark: rgba(255, 255, 255, 0.06);
+    --border-darker: rgba(255, 255, 255, 0.04);
     --border-storyboard: var(--border-dark);
     --border-storyboard-strong: var(--border);
     --border-glow: rgba(194, 65, 12, 0.2);
@@ -35,6 +35,7 @@
     --primary-hover: #9a3412;
     --primary-light: #fb923c;
     --primary-muted: rgba(194, 65, 12, 0.12);
+    --primary-muted-strong: rgba(194, 65, 12, 0.18);
 
     /* Status Colors */
     --success: #22c55e;
@@ -71,7 +72,7 @@
     --text-primary: #f8fafc;
     --text-secondary: #c3ccd6;
     --text-muted: #a5b0bc;
-    --text-dim: #7f8b99;
+    --text-dim: #94a3b8;
 
     /* Tailwind palette aliases: component code stays token-driven. */
     --palette-slate-100: 232 238 244;

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { usePresetStore } from "@/store/usePresetStore";
 import { PresetCard } from "@/components/presets/PresetCard";
 import { PresetDetailDrawer } from "@/components/presets/PresetDetailDrawer";
@@ -14,6 +14,8 @@ import {
 import { PresetCategory } from "@/types/presets";
 import { cn } from "@/lib/utils";
 import { isMockDataMode } from "@/lib/data-mode";
+import { presetsApi } from "./api/presets.api";
+import { apiErrorMessage } from "@/shared/api/client";
 
 export const StylePresetsScreen: React.FC = () => {
   const {
@@ -35,28 +37,66 @@ export const StylePresetsScreen: React.FC = () => {
     duplicatePreset,
     deletePreset,
   } = usePresetStore();
+  const hydratePresets = usePresetStore((state) => state.hydratePresets);
+  const [apiState, setApiState] = useState<"loading" | "ready" | "error">(
+    isMockDataMode ? "ready" : "loading",
+  );
+  const [apiError, setApiError] = useState<string | null>(null);
 
   const [showFilters, setShowFilters] = useState(false);
 
-  if (!isMockDataMode) {
+  useEffect(() => {
+    if (isMockDataMode) return;
+    presetsApi
+      .list()
+      .then((items) => {
+        hydratePresets(
+          items.map((preset) => ({
+            id: String(preset.id),
+            name: preset.name,
+            category: preset.category,
+            description: preset.description,
+            coverImage: preset.thumbnailUrl ?? "",
+            tags: preset.tags,
+            usedInProjectsCount: 0,
+            negativeRules: preset.negativePrompt ?? undefined,
+          })),
+        );
+        setApiState("ready");
+      })
+      .catch((error) => {
+        setApiState("error");
+        setApiError(apiErrorMessage(error, "Không thể tải style presets."));
+      });
+  }, [hydratePresets]);
+
+  if (!isMockDataMode && apiState === "loading") {
     return (
       <div className="rounded-2xl border border-dashed border-slate-700 bg-surface/40 p-8">
         <p className="text-[11px] uppercase tracking-[0.2em] text-purple-300">Style &amp; Presets</p>
-        <h2 className="mt-2 text-lg font-semibold text-slate-200">Preset API chưa sẵn sàng</h2>
+        <h2 className="mt-2 text-lg font-semibold text-slate-200">Đang tải style presets…</h2>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-          Tạo, sửa và xoá preset sẽ được bật khi backend có contract lưu trữ. Không ghi dữ liệu cục bộ giả trong API mode.
+          Đang đọc catalog phong cách từ backend.
         </p>
       </div>
     );
   }
 
-  // Category Tabs with computed dynamic counts matching Mockup 09
+  if (!isMockDataMode && apiState === "error") {
+    return (
+      <div className="rounded-2xl border border-dashed border-danger/40 bg-danger-bg/20 p-8">
+        <h2 className="text-lg font-semibold text-text-primary">Không thể tải style presets</h2>
+        <p className="mt-2 text-sm text-text-secondary">{apiError}</p>
+      </div>
+    );
+  }
+
   const categoryTabs: { id: PresetCategory; label: string; count: number }[] = [
-    { id: "VISUAL_STYLE", label: "Visual Styles", count: 12 },
-    { id: "IMAGE", label: "Image Presets", count: 15 },
-    { id: "MOTION", label: "Motion Presets", count: 8 },
-    { id: "OUTFIT", label: "Outfit Presets", count: 9 },
-    { id: "RENDER", label: "Render Presets", count: 6 },
+    { id: "VISUAL_STYLE", label: "Visual Styles", count: presets.filter((p) => p.category === "VISUAL_STYLE").length },
+    { id: "IMAGE", label: "Image Presets", count: presets.filter((p) => p.category === "IMAGE").length },
+    { id: "MOTION", label: "Motion Presets", count: presets.filter((p) => p.category === "MOTION").length },
+    { id: "OUTFIT", label: "Outfit Presets", count: presets.filter((p) => p.category === "OUTFIT").length },
+    { id: "RENDER", label: "Render Presets", count: presets.filter((p) => p.category === "RENDER").length },
   ];
 
   // Filtering
@@ -93,7 +133,7 @@ export const StylePresetsScreen: React.FC = () => {
             </p>
           </div>
 
-          <Button
+          {isMockDataMode && <Button
             onClick={openCreateModal}
             variant="primary"
             size="md"
@@ -101,7 +141,7 @@ export const StylePresetsScreen: React.FC = () => {
             leftIcon={<Plus className="w-4 h-4 mr-1.5" />}
           >
             + Tạo mới
-          </Button>
+          </Button>}
         </div>
 
         {/* Category Tabs & Search Bar matching Screen 09 */}
@@ -195,7 +235,7 @@ export const StylePresetsScreen: React.FC = () => {
       </div>
 
       {/* Right-Side Preset Detail Drawer matching Screen 09 */}
-      {isDetailDrawerOpen && selectedPreset && (
+      {isDetailDrawerOpen && selectedPreset && isMockDataMode && (
         <PresetDetailDrawer
           preset={selectedPreset}
           onClose={closeDetailDrawer}
@@ -206,12 +246,12 @@ export const StylePresetsScreen: React.FC = () => {
       )}
 
       {/* Create / Edit Preset Modal */}
-      <PresetEditorModal
+      {isMockDataMode && <PresetEditorModal
         isOpen={isEditorModalOpen}
         onClose={closeEditorModal}
         preset={editingPreset}
         onSave={savePreset}
-      />
+      />}
     </div>
   );
 };

@@ -69,6 +69,7 @@ const config: Config = {
           hover: "var(--primary-hover)",
           light: "var(--primary-light)",
           muted: "var(--primary-muted)",
+          "muted-strong": "var(--primary-muted-strong)",
         },
         success: {
           DEFAULT: "var(--success)",

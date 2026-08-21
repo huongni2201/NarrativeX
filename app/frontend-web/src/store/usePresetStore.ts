@@ -10,7 +10,7 @@ interface PresetStore {
   isEditorModalOpen: boolean;
   editingPreset: StylePreset | null;
 
-  hydrateDemoPresets: (presets: StylePreset[]) => void;
+  hydratePresets: (presets: StylePreset[]) => void;
   selectPreset: (id: string | null) => void;
   closeDetailDrawer: () => void;
   setActiveCategory: (category: PresetCategory) => void;
@@ -32,7 +32,7 @@ export const usePresetStore = create<PresetStore>((set, get) => ({
   isEditorModalOpen: false,
   editingPreset: null,
 
-  hydrateDemoPresets: (presets) =>
+  hydratePresets: (presets) =>
     set((state) =>
       state.presets.length > 0
         ? state

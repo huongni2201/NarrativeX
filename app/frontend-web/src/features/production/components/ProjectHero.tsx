@@ -93,7 +93,7 @@ export function ProjectHero({
                 type="button"
                 aria-label={isStarred ? "Bỏ yêu thích" : "Yêu thích dự án"}
                 onClick={() => setIsStarred(!isStarred)}
-                 className="text-slate-400 hover:text-warning transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-card rounded-sm"
+                className="text-slate-400 hover:text-warning transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-card rounded-sm"
               >
                 <Star className={`h-5 w-5 ${isStarred ? "fill-amber-400 text-amber-400" : ""}`} />
               </button>
@@ -138,22 +138,22 @@ export function ProjectHero({
         {/* 4 Stat Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatCard
-             icon={<BookOpen className="h-4 w-4 text-primary-hover" />}
+            icon={<BookOpen className="h-4 w-4 text-primary-hover" />}
             value={metrics.totalChapters}
             label="Chapters"
           />
           <StatCard
-             icon={<Film className="h-4 w-4 text-text-secondary" />}
+            icon={<Film className="h-4 w-4 text-text-secondary" />}
             value={metrics.totalScenes}
             label="Scene"
           />
           <StatCard
-             icon={<Clock className="h-4 w-4 text-text-secondary" />}
+            icon={<Clock className="h-4 w-4 text-text-secondary" />}
             value={formatDuration(metrics.estimatedDurationSeconds)}
             label="Thời lượng"
           />
           <StatCard
-             icon={<Sparkles className="h-4 w-4 text-text-secondary" />}
+            icon={<Sparkles className="h-4 w-4 text-text-secondary" />}
             value={metrics.approvedVisuals}
             label="Visual đã duyệt"
           />
@@ -169,23 +169,23 @@ export function ProjectHero({
                 style={{ width: `${Math.max(0, Math.min(metrics.overallProgress, 100))}%` }}
               />
             </div>
-             <span className="font-mono text-xs font-bold text-primary-hover shrink-0">
+            <span className="font-mono text-xs font-bold text-primary-hover shrink-0">
               {metrics.overallProgress}%
             </span>
           </div>
 
-          {/* 4 Progress Badges */}
+          {/* 4 Progress Badges with rectangular rounded-lg corners */}
           <div className="flex flex-wrap items-center gap-2.5 pt-1">
-            <span className="rounded-xl border border-emerald-500/20 bg-emerald-950/40 px-3 py-1 text-xs font-medium text-emerald-400">
+            <span className="rounded-lg border border-emerald-500/20 bg-emerald-950/40 px-3 py-1 text-xs font-medium text-emerald-400">
               <span className="font-bold">{metrics.readyChapters}/{metrics.totalChapters}</span> Chapters ready
             </span>
-            <span className="rounded-xl border border-amber-500/20 bg-amber-950/40 px-3 py-1 text-xs font-medium text-amber-400">
+            <span className="rounded-lg border border-amber-500/20 bg-amber-950/40 px-3 py-1 text-xs font-medium text-amber-400">
               <span className="font-bold">{metrics.renderedChapters}/{metrics.totalChapters}</span> Chapters rendered
             </span>
-            <span className="rounded-xl border border-blue-500/20 bg-blue-950/40 px-3 py-1 text-xs font-medium text-blue-400">
+            <span className="rounded-lg border border-blue-500/20 bg-blue-950/40 px-3 py-1 text-xs font-medium text-blue-400">
               <span className="font-bold">{metrics.processingJobs}</span> Đang xử lý
             </span>
-            <span className="rounded-xl border border-primary/30 bg-primary-muted px-3 py-1 text-xs font-medium text-primary-light">
+            <span className="rounded-lg border border-primary/30 bg-primary-muted px-3 py-1 text-xs font-medium text-primary-light">
               ~{formatMinutes(metrics.estimatedDurationSeconds)} Thời lượng dự kiến
             </span>
           </div>

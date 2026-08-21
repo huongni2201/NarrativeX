@@ -93,4 +93,32 @@ class StoryboardApiIntegrationTest {
         .andExpect(jsonPath("$.data.pipeline.audio.status").value("NOT_STARTED"))
         .andExpect(jsonPath("$.data.pipeline.render.status").value("NOT_STARTED"));
   }
+
+  @Test
+  void catalogsAndArtifactMetadataComeFromPostgres() throws Exception {
+    mockMvc
+        .perform(get("/api/v1/style-presets?category=VISUAL_STYLE"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data[0].name").value("Cinematic Warmth"))
+        .andExpect(jsonPath("$.data[0].tags[0]").value("cinematic"));
+
+    mockMvc
+        .perform(get("/api/v1/voices?language=vi-VN"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.length()").value(2))
+        .andExpect(jsonPath("$.data[0].language").value("vi-VN"));
+
+    mockMvc
+        .perform(get("/api/v1/assets?type=AUDIO"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data[0].status").value("READY"))
+        .andExpect(jsonPath("$.data[0].originalFilename").value("river-intro.wav"));
+
+    mockMvc
+        .perform(get("/api/v1/artifacts/28001/download"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.status").value("READY"))
+        .andExpect(jsonPath("$.data.downloadAvailable").value(false))
+        .andExpect(jsonPath("$.data.downloadUrl").doesNotExist());
+  }
 }

@@ -203,6 +203,51 @@ public final class GenerationJob extends AggregateRoot {
         mediaPlan.productionMode());
   }
 
+  public static GenerationJob createChapterRender(
+      Long projectId,
+      Long storyVersionId,
+      Long chapterId,
+      long chapterRowVersion,
+      String sourceHash,
+      String sourceText,
+      String sourceLanguage,
+      String idempotencyKey,
+      String userId) {
+    if (storyVersionId == null || storyVersionId <= 0) {
+      throw new IllegalArgumentException("storyVersionId must be positive");
+    }
+    if (chapterId == null || chapterId <= 0) {
+      throw new IllegalArgumentException("chapterId must be positive");
+    }
+    if (chapterRowVersion < 0) {
+      throw new IllegalArgumentException("chapterRowVersion must not be negative");
+    }
+    return new GenerationJob(
+        null,
+        0L,
+        UUID.randomUUID().toString(),
+        projectId,
+        JobType.CHAPTER_RENDER,
+        JobStatus.QUEUED,
+        ResourceClass.CPU_RENDER,
+        0,
+        "QUEUED",
+        null,
+        userId,
+        userId,
+        storyVersionId,
+        chapterId,
+        null,
+        chapterRowVersion,
+        required(sourceHash, "sourceHash"),
+        required(sourceText, "sourceText"),
+        required(sourceLanguage, "sourceLanguage"),
+        required(idempotencyKey, "idempotencyKey"),
+        null,
+        null,
+        null);
+  }
+
   public static GenerationJob rehydrate(
       Long id,
       long rowVersion,

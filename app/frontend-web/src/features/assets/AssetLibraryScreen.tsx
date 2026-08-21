@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useAssetStore } from "@/store/useAssetStore";
 import { AssetCard } from "@/components/assets/AssetCard";
 import { AssetDetailDrawer } from "@/components/assets/AssetDetailDrawer";
@@ -9,6 +9,8 @@ import { Plus, Search, SlidersHorizontal, ChevronDown, LayoutGrid, List, FolderK
 import type { AssetFilterType, AssetSortOption, MediaAsset } from "@/types/assets";
 import { cn } from "@/lib/utils";
 import { isMockDataMode } from "@/lib/data-mode";
+import { assetsApi } from "./api/assets.api";
+import { apiErrorMessage } from "@/shared/api/client";
 
 const assetTypes: Array<{ id: AssetFilterType; label: string }> = [
   { id: "all", label: "Tất cả" },
@@ -66,7 +68,38 @@ export const AssetLibraryScreen: React.FC = () => {
     rejectAsset,
     toggleLockAsset,
   } = useAssetStore();
+  const hydrateAssets = useAssetStore((state) => state.hydrateAssets);
+  const [apiState, setApiState] = useState<"loading" | "ready" | "error">(
+    isMockDataMode ? "ready" : "loading",
+  );
+  const [apiError, setApiError] = useState<string | null>(null);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+
+  useEffect(() => {
+    if (isMockDataMode) return;
+    assetsApi
+      .list()
+      .then((items) => {
+        hydrateAssets(
+          items.map((asset) => ({
+            id: asset.id,
+            filename: asset.originalFilename,
+            type: asset.type,
+            status: asset.status as MediaAsset["status"],
+            thumbnailUrl: "",
+            fileSize: `${Math.max(1, Math.round(asset.sizeBytes / 1024))} KB`,
+            duration: asset.durationMs ? `${Math.round(asset.durationMs / 1000)}s` : undefined,
+            createdAt: asset.createdAt,
+            projectTitle: "Global media library",
+          })),
+        );
+        setApiState("ready");
+      })
+      .catch((error) => {
+        setApiState("error");
+        setApiError(apiErrorMessage(error, "Không thể tải thư viện tài sản."));
+      });
+  }, [hydrateAssets]);
 
   const typeTabs = useMemo(
     () => assetTypes.map((tab) => ({
@@ -99,14 +132,23 @@ export const AssetLibraryScreen: React.FC = () => {
 
   const selectedAsset = assets.find((asset) => asset.id === selectedAssetId) ?? null;
 
-  if (!isMockDataMode) {
+  if (!isMockDataMode && apiState === "loading") {
     return (
       <div className="rounded-2xl border border-dashed border-slate-700 bg-surface/40 p-8">
         <p className="text-[11px] uppercase tracking-[0.2em] text-purple-300">Asset Library</p>
-        <h2 className="mt-2 text-lg font-semibold text-slate-200">Asset API chưa sẵn sàng</h2>
+        <h2 className="mt-2 text-lg font-semibold text-slate-200">Đang tải thư viện tài sản…</h2>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-          Upload, duyệt và xoá tài sản sẽ được bật khi backend có contract lưu trữ. API mode không hiển thị dữ liệu fixture.
+          Đang đọc metadata media từ backend.
         </p>
+      </div>
+    );
+  }
+
+  if (!isMockDataMode && apiState === "error") {
+    return (
+      <div className="rounded-2xl border border-dashed border-danger/40 bg-danger-bg/20 p-8">
+        <h2 className="text-lg font-semibold text-text-primary">Không thể tải thư viện tài sản</h2>
+        <p className="mt-2 text-sm text-text-secondary">{apiError}</p>
       </div>
     );
   }
@@ -119,9 +161,7 @@ export const AssetLibraryScreen: React.FC = () => {
             <h1 className="text-xl font-bold tracking-tight text-white md:text-2xl">Thư viện tài sản</h1>
             <p className="text-xs text-slate-400 mt-0.5">Quản lý tất cả tài sản media trong dự án</p>
           </div>
-          <Button onClick={openUploadModal} variant="primary" size="md" className="font-semibold shrink-0" leftIcon={<Plus className="w-4 h-4 mr-1.5" />}>
-            Upload tài sản
-          </Button>
+          {isMockDataMode && <Button onClick={openUploadModal} variant="primary" size="md" className="font-semibold shrink-0" leftIcon={<Plus className="w-4 h-4 mr-1.5" />}>Upload tài sản</Button>}
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2.5 p-3 rounded-xl bg-surface border border-slate-800/90 shadow-md">
@@ -198,8 +238,8 @@ export const AssetLibraryScreen: React.FC = () => {
         )}
       </div>
 
-      {isDetailDrawerOpen && selectedAsset && <AssetDetailDrawer asset={selectedAsset} onClose={closeDetailDrawer} onDelete={deleteAsset} onApprove={approveAsset} onReject={rejectAsset} onToggleLock={toggleLockAsset} />}
-      <AssetUploadModal isOpen={isUploadModalOpen} onClose={closeUploadModal} />
+      {isDetailDrawerOpen && selectedAsset && isMockDataMode && <AssetDetailDrawer asset={selectedAsset} onClose={closeDetailDrawer} onDelete={deleteAsset} onApprove={approveAsset} onReject={rejectAsset} onToggleLock={toggleLockAsset} />}
+      {isMockDataMode && <AssetUploadModal isOpen={isUploadModalOpen} onClose={closeUploadModal} />}
     </div>
   );
 };

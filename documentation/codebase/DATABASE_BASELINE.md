@@ -15,6 +15,7 @@
 | V1 `initial_schema` | Auth, project/story/chapter foundations, storyboard revisions, split motion/camera visual beats, character/location AI identities, backend-authoritative media plans, generation execution pipeline, durable provider operations, quota reservation lifecycle, chapter-level TTS and multi-part uploaded narration pipeline | Consolidated baseline |
 | V2 `seed_demo_data` | Deterministic development/demo seed with canonical execution enums, storyboard revisions, character bibles, plan assignments and valid credits | Development only |
 | V3 `link_visual_beat_preview_assets` | Adds the nullable `visual_beats.preview_asset_id` link to project-scoped image assets used by Chapter Workspace previews | Forward-only feature migration |
+| V4 `add_style_presets_and_voice_catalog` | Adds durable style preset and enabled voice catalog read models | Forward-only feature migration |
 
 The migration set starts with the V1/V2 baseline (schema plus development seed), followed by forward-only feature migrations for databases that already applied that baseline.
 
