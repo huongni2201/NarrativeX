@@ -112,7 +112,7 @@ export function CreateChapterModal({
           <p className="mt-1 text-right text-[11px] text-slate-500">{sourceText.length.toLocaleString("vi-VN")} ký tự</p>
         </div>
 
-        <div className="rounded-xl border border-slate-800 bg-[#090e18] p-4">
+        <div className="rounded-xl border border-slate-800 bg-surface-panel p-4">
           <div className="flex items-start gap-2 text-xs leading-5 text-slate-400">
             <Info className="mt-0.5 h-4 w-4 shrink-0 text-sky-400" />
             <p>

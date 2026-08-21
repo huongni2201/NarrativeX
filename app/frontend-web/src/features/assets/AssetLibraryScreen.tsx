@@ -101,7 +101,7 @@ export const AssetLibraryScreen: React.FC = () => {
 
   if (!isMockDataMode) {
     return (
-      <div className="rounded-2xl border border-dashed border-slate-700 bg-[#0d1420]/40 p-8">
+      <div className="rounded-2xl border border-dashed border-slate-700 bg-surface/40 p-8">
         <p className="text-[11px] uppercase tracking-[0.2em] text-purple-300">Asset Library</p>
         <h2 className="mt-2 text-lg font-semibold text-slate-200">Asset API chưa sẵn sàng</h2>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
@@ -124,7 +124,7 @@ export const AssetLibraryScreen: React.FC = () => {
           </Button>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2.5 p-3 rounded-xl bg-[#0d1420] border border-slate-800/90 shadow-md">
+        <div className="flex flex-wrap items-center justify-between gap-2.5 p-3 rounded-xl bg-surface border border-slate-800/90 shadow-md">
           <div className="flex flex-wrap items-center gap-2.5 flex-1">
             <div className="w-48 sm:w-56">
               <Input aria-label="Tìm kiếm tài sản" placeholder="Tìm kiếm tài sản…" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} icon={<Search className="w-3.5 h-3.5" />} />
@@ -177,7 +177,7 @@ export const AssetLibraryScreen: React.FC = () => {
               <option value="name">Sắp xếp: Tên</option>
               <option value="size">Sắp xếp: Dung lượng</option>
             </SelectField>
-            <div className="flex items-center bg-[#090e18] border border-slate-800 rounded-lg p-0.5" aria-label="Kiểu hiển thị">
+            <div className="flex items-center bg-surface-panel border border-slate-800 rounded-lg p-0.5" aria-label="Kiểu hiển thị">
               <button type="button" aria-label="Hiển thị dạng lưới" aria-pressed={viewMode === "grid"} onClick={() => setViewMode("grid")} className={cn("p-1 rounded transition-colors", viewMode === "grid" ? "bg-purple-600 text-white" : "text-slate-400 hover:text-slate-200")}><LayoutGrid className="w-3.5 h-3.5" /></button>
               <button type="button" aria-label="Hiển thị dạng danh sách" aria-pressed={viewMode === "list"} onClick={() => setViewMode("list")} className={cn("p-1 rounded transition-colors", viewMode === "list" ? "bg-purple-600 text-white" : "text-slate-400 hover:text-slate-200")}><List className="w-3.5 h-3.5" /></button>
             </div>
@@ -189,7 +189,7 @@ export const AssetLibraryScreen: React.FC = () => {
             {filteredAssets.map((asset) => <AssetCard key={asset.id} asset={asset} isSelected={asset.id === selectedAssetId} onClick={() => selectAsset(asset.id)} />)}
           </div>
         ) : (
-          <div className="py-20 text-center bg-[#0d1420]/50 rounded-2xl border border-slate-800/80 p-8 space-y-3">
+          <div className="py-20 text-center bg-surface/50 rounded-2xl border border-slate-800/80 p-8 space-y-3">
             <div className="w-12 h-12 mx-auto rounded-xl bg-purple-950/60 border border-purple-800/60 flex items-center justify-center text-purple-400"><FolderKanban className="w-6 h-6" /></div>
             <h3 className="text-sm font-semibold text-slate-200">Không tìm thấy tài sản phù hợp</h3>
             <p className="text-xs text-slate-400 max-w-sm mx-auto">Hãy thử thay đổi bộ lọc hoặc upload thêm tài sản media mới.</p>
@@ -207,7 +207,7 @@ export const AssetLibraryScreen: React.FC = () => {
 function SelectField({ label, value, onChange, children, compact = false }: Readonly<{ label: string; value: string; onChange: (value: string) => void; children: React.ReactNode; compact?: boolean }>) {
   return (
     <div className="relative">
-      <select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} className={cn("bg-[#090e18] border border-slate-800 rounded-lg text-xs text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 appearance-none cursor-pointer", compact ? "px-2.5 py-1 pr-6" : "px-3 py-1.5 pr-7")}>
+      <select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} className={cn("bg-surface-panel border border-slate-800 rounded-lg text-xs text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 appearance-none cursor-pointer", compact ? "px-2.5 py-1 pr-6" : "px-3 py-1.5 pr-7")}>
         {children}
       </select>
       <ChevronDown className="w-3 h-3 text-slate-400 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />

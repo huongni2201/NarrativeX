@@ -99,7 +99,7 @@ export const StudioSidebar = () => {
   ];
 
   return (
-    <aside className="w-64 bg-surface-panel border-r border-border flex flex-col justify-between shrink-0 h-screen sticky top-0 select-none z-20 overflow-y-auto">
+    <aside className="w-64 bg-surface-panel border-r border-border flex flex-col justify-between shrink-0 h-dvh sticky top-0 select-none z-20 overflow-y-auto">
       <div>
         <div className="p-4 px-5 border-b border-slate-800/60 flex items-center justify-between">
           <Link
@@ -119,7 +119,7 @@ export const StudioSidebar = () => {
             </div>
             <div>
               <span className="text-[17px] font-extrabold tracking-tight text-white flex items-center gap-1 leading-tight">
-                Narrative<span className="text-purple-400">X</span>
+                Narrative<span className="text-primary-hover">X</span>
               </span>
               <span className="text-xs block font-medium text-slate-400 mt-0.5 tracking-wider uppercase">
                 AI Story Video Studio
@@ -129,11 +129,11 @@ export const StudioSidebar = () => {
         </div>
 
         <div className="p-3.5 mx-3 mt-3 rounded-xl bg-surface border border-border flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full overflow-hidden border border-purple-500/40 ring-2 ring-purple-600/20 shrink-0 bg-slate-900">
+          <div className="w-10 h-10 rounded-full overflow-hidden border border-primary/40 ring-2 ring-primary/20 shrink-0 bg-slate-900">
             {user?.avatarUrl ? (
               <img src={user.avatarUrl} alt={displayName} className="w-full h-full object-cover" />
             ) : (
-              <span className="w-full h-full flex items-center justify-center bg-purple-700 text-sm font-bold text-white">
+                <span className="w-full h-full flex items-center justify-center bg-primary text-sm font-bold text-white">
                 {initials}
               </span>
             )}
@@ -171,15 +171,15 @@ export const StudioSidebar = () => {
                   href={item.href}
                   aria-current={item.active ? "page" : undefined}
                   className={cn(
-                    "w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500",
+                    "w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
                     item.active
-                      ? "bg-purple-900/40 text-purple-200 border border-purple-800/60 font-semibold shadow-sm"
+                      ? "bg-primary-muted text-primary-hover border border-primary/50 font-semibold shadow-sm"
                       : "text-slate-300 hover:text-white hover:bg-slate-800/40",
                   )}
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <Icon
-                      className={cn("w-5 h-5 shrink-0", item.active ? "text-purple-400" : "text-slate-400")}
+                      className={cn("w-5 h-5 shrink-0", item.active ? "text-primary-hover" : "text-slate-400")}
                     />
                     <span className="truncate">{item.label}</span>
                   </div>
@@ -206,7 +206,7 @@ export const StudioSidebar = () => {
             <>
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-1.5 min-w-0">
-                  <Zap className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                  <Zap className="w-3.5 h-3.5 text-primary-hover shrink-0" />
                   <span className="text-xs font-semibold text-slate-200 uppercase tracking-wider truncate">
                     Sử dụng / Hạn mức
                   </span>
@@ -214,7 +214,7 @@ export const StudioSidebar = () => {
                 <button
                   type="button"
                   onClick={() => setIsQuotaModalOpen(true)}
-                  className="shrink-0 rounded-full border border-purple-500/30 bg-purple-950/40 px-2 py-0.5 text-[10px] font-bold tracking-wide text-purple-300 uppercase hover:bg-purple-900/60 transition-colors"
+                  className="shrink-0 rounded-full border border-primary/40 bg-primary-muted px-2 py-0.5 text-[10px] font-bold tracking-wide text-primary-hover uppercase hover:bg-primary-muted transition-colors"
                   title="Xem chi tiết hạn mức"
                 >
                   {quota.tier || "Miễn phí"}
@@ -224,7 +224,7 @@ export const StudioSidebar = () => {
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-slate-400">Credits khả dụng</span>
-                  <span className="font-semibold text-slate-200">
+                  <span className="font-semibold text-slate-200 tabular-nums">
                     {remainingCredits.toLocaleString()}{" "}
                     <span className="text-slate-500 font-normal">/ {totalCredits.toLocaleString()}</span>
                   </span>
@@ -240,9 +240,9 @@ export const StudioSidebar = () => {
               <button
                 type="button"
                 onClick={() => setIsQuotaModalOpen(true)}
-                className="w-full rounded-lg border border-slate-800 bg-slate-900/80 px-3 py-2 text-xs font-semibold text-purple-300 hover:bg-slate-800 hover:text-white flex items-center justify-center gap-1.5 transition-colors"
+                className="w-full rounded-lg border border-border-dark bg-surface-dark px-3 py-2 text-xs font-semibold text-primary-hover hover:bg-surface-3 hover:text-white flex items-center justify-center gap-1.5 transition-colors"
               >
-                <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                <Sparkles className="w-3.5 h-3.5 text-primary-hover" />
                 <span>Chi tiết hạn mức & gói</span>
               </button>
             </>
@@ -267,9 +267,9 @@ export const StudioSidebar = () => {
         </div>
 
         {/* Footer info & Health Indicator */}
-      <div className="px-5 pb-4 flex items-center justify-between">
+        <div className="px-5 pb-4 flex items-center justify-between">
           <ProviderHealthIndicator />
-      </div>
+        </div>
       </div>
 
       {/* Modals & Drawers */}

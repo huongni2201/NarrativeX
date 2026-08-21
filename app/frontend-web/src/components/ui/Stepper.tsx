@@ -42,25 +42,28 @@ export const Stepper: React.FC<StepperProps> = ({
           }
         };
 
-        return (
-          <div
+          return (
+          <button
+            type="button"
             key={step.id}
             onClick={handleClick}
+            disabled={!isClickable}
+            aria-current={isActive ? "step" : undefined}
             className={cn(
-              "flex items-center gap-3 text-sm font-medium transition-colors py-1 select-none",
+              "flex w-full items-center gap-3 py-1 text-left text-sm font-medium transition-colors select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
               isClickable ? "cursor-pointer" : "cursor-not-allowed opacity-40",
-              isActive && "text-purple-400 font-semibold opacity-100",
+              isActive && "text-primary-hover font-semibold opacity-100",
               isCompleted && "text-slate-300 hover:text-white opacity-100",
               !isActive && !isCompleted && isClickable && "text-slate-400 hover:text-slate-200",
               !isActive && !isCompleted && !isClickable && "text-slate-600"
             )}
           >
-            <div
+            <span
               className={cn(
                 "w-6 h-6 rounded-full flex items-center justify-center text-xs transition-colors duration-200 shrink-0",
                 isActive &&
                   "bg-primary text-white ring-4 ring-primary/20 font-bold",
-                isCompleted && "bg-purple-900/60 text-purple-300 border border-purple-700/60 font-semibold",
+                isCompleted && "bg-primary-muted text-primary-hover border border-primary/60 font-semibold",
                 !isActive &&
                   !isCompleted &&
                   isClickable &&
@@ -72,13 +75,13 @@ export const Stepper: React.FC<StepperProps> = ({
               )}
             >
               {isCompleted ? (
-                <Check className="w-3.5 h-3.5 text-purple-300 stroke-[2.5]" />
+                <Check className="w-3.5 h-3.5 text-primary-hover stroke-[2.5]" aria-hidden="true" />
               ) : (
                 step.id
               )}
-            </div>
+            </span>
             <span className="truncate">{step.label}</span>
-          </div>
+          </button>
         );
       })}
     </div>

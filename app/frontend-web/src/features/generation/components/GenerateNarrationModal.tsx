@@ -69,7 +69,7 @@ export function GenerateNarrationModal({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border p-5">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-light text-primary">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-muted text-primary">
               <Volume2 className="h-5 w-5" />
             </div>
             <div>

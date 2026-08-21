@@ -2,6 +2,7 @@ package com.narrativex.backend.feature.project.infrastructure.persistence;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.narrativex.backend.feature.common.pagination.CursorPage;
 import com.narrativex.backend.feature.project.application.port.out.ProjectOverviewQueryRepository;
@@ -89,6 +90,10 @@ class MyBatisProjectQueryIntegrationTest extends PostgreSqlIntegrationTestSuppor
     assertEquals(10L, counts.allCount());
     assertEquals(7L, counts.activeCount());
     assertEquals(2L, counts.draftCount());
+
+    var starredRows = dashboardMapper.findDashboardPage("seed-user-01", null, null, "STARRED", 0, 21);
+    assertEquals(10, starredRows.size());
+    assertTrue(starredRows.getFirst().starred());
   }
 
   private Project newProject() {

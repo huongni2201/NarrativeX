@@ -78,7 +78,7 @@ export function JobHistoryTable({ jobs, isLoading }: Readonly<JobHistoryTablePro
                     </div>
                     <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-3">
                       <div
-                        className={`h-full transition-all duration-300 ${
+                        className={`h-full transition-[width] duration-300 ${
                           job.status === "FAILED"
                             ? "bg-danger"
                             : job.status === "COMPLETED"
@@ -126,7 +126,7 @@ function JobStatusBadge({ status }: { status: string }) {
       );
     case "RUNNING":
       return (
-        <span className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary-light px-2.5 py-0.5 text-[11px] font-medium text-primary-hover animate-pulse">
+        <span className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary-muted px-2.5 py-0.5 text-[11px] font-medium text-primary-hover animate-pulse">
           <RotateCcw className="h-3 w-3 animate-spin" />
           Đang chạy
         </span>

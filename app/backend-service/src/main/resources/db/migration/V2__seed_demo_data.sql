@@ -2,37 +2,37 @@
 -- This migration is intentionally idempotent so it is safe to apply to a local
 -- database more than once. The first account is the requested user account.
 
-INSERT INTO schema_baseline (id, description)
+INSERT INTO schema_baseline (id, initialized_at, description)
 VALUES
-    ('seed_marker_01', 'Demo seed marker 01'),
-    ('seed_marker_02', 'Demo seed marker 02'),
-    ('seed_marker_03', 'Demo seed marker 03'),
-    ('seed_marker_04', 'Demo seed marker 04'),
-    ('seed_marker_05', 'Demo seed marker 05'),
-    ('seed_marker_06', 'Demo seed marker 06'),
-    ('seed_marker_07', 'Demo seed marker 07'),
-    ('seed_marker_08', 'Demo seed marker 08'),
-    ('seed_marker_09', 'Demo seed marker 09'),
-    ('seed_marker_10', 'Demo seed marker 10')
+    ('seed_marker_01', CURRENT_TIMESTAMP, 'Demo seed marker 01'),
+    ('seed_marker_02', CURRENT_TIMESTAMP, 'Demo seed marker 02'),
+    ('seed_marker_03', CURRENT_TIMESTAMP, 'Demo seed marker 03'),
+    ('seed_marker_04', CURRENT_TIMESTAMP, 'Demo seed marker 04'),
+    ('seed_marker_05', CURRENT_TIMESTAMP, 'Demo seed marker 05'),
+    ('seed_marker_06', CURRENT_TIMESTAMP, 'Demo seed marker 06'),
+    ('seed_marker_07', CURRENT_TIMESTAMP, 'Demo seed marker 07'),
+    ('seed_marker_08', CURRENT_TIMESTAMP, 'Demo seed marker 08'),
+    ('seed_marker_09', CURRENT_TIMESTAMP, 'Demo seed marker 09'),
+    ('seed_marker_10', CURRENT_TIMESTAMP, 'Demo seed marker 10')
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO auth_users (id, email, display_name, avatar_url, password_hash, enabled)
+INSERT INTO auth_users (id, email, display_name, avatar_url, password_hash, google_subject, enabled)
 VALUES
-    ('seed-user-01', 'huongnn2201@gmail.com', 'Huong Nguyen', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=256&auto=format&fit=crop', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', TRUE)
+    ('seed-user-01', 'huongnn2201@gmail.com', 'Huong Nguyen', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=256&auto=format&fit=crop', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', 'seed-google-sub-01', TRUE)
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO projects (id, name, description, cover_image_url, owner_id, status, source_language, narration_language, metadata_language, image_aspect_ratio, image_quality_tier)
+INSERT INTO projects (id, name, description, cover_image_url, owner_id, status, source_language, narration_language, metadata_language, image_aspect_ratio, image_quality_tier, archived_at)
 VALUES
-    (1001, 'Lanterns of the Old Quarter', 'A story about a traditional artisan creating amber lanterns across historic Hanoi streets.', 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD'),
-    (1002, 'The Clockmaker''s Map', 'An apprentice unravels secret maps hidden inside Victorian pocket watches.', 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ACTIVE', 'en-US', 'en-US', 'en-US', 'RATIO_16_9', 'HIGH'),
-    (1003, 'Mekong Moonlight', 'A midnight boat journey along the mystical waters of the Mekong river.', 'https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ACTIVE', 'vi-VN', 'en-US', 'en-US', 'RATIO_9_16', 'STANDARD'),
-    (1004, 'A House Made of Rain', 'Reflections of family memories resonating through seasonal summer showers.', 'https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'DRAFT', 'en-US', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD'),
-    (1005, 'The Paper Dragon', 'An origami dragon comes alive at dusk to protect a sleeping town.', 'https://images.unsplash.com/photo-1563089145-599997674d42?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ACTIVE', 'zh-CN', 'en-US', 'en-US', 'RATIO_1_1', 'HIGH'),
-    (1006, 'Whispers Beneath the Pines', 'Two travelers discover a forest choir protecting an ancient sacred tree.', 'https://images.unsplash.com/photo-1448375240586-882707db888b?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ACTIVE', 'en-US', 'en-US', 'en-US', 'RATIO_16_9', 'ULTRA'),
-    (1007, 'Seven Seeds', 'Generational wisdom passed through heirloom seeds and changing seasons.', 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ARCHIVED', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_9_16', 'STANDARD'),
-    (1008, 'The Blue Kite', 'A message of hope flies above city rooftops tied to a vibrant blue kite.', 'https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ACTIVE', 'en-US', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'HIGH'),
-    (1009, 'River of Small Stars', 'Mapping celestial constellations mirrored in the ripples of a quiet river.', 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'DRAFT', 'en-US', 'en-US', 'en-US', 'RATIO_1_1', 'STANDARD'),
-    (1010, 'The Last Seed Keeper', 'A solitary guardian traverses barren valleys to plant the last memory of green.', 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'HIGH')
+    (1001, 'Lanterns of the Old Quarter', 'A story about a traditional artisan creating amber lanterns across historic Hanoi streets.', 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD', NULL),
+    (1002, 'The Clockmaker''s Map', 'An apprentice unravels secret maps hidden inside Victorian pocket watches.', 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ACTIVE', 'en-US', 'en-US', 'en-US', 'RATIO_16_9', 'HIGH', NULL),
+    (1003, 'Mekong Moonlight', 'A midnight boat journey along the mystical waters of the Mekong river.', 'https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ACTIVE', 'vi-VN', 'en-US', 'en-US', 'RATIO_9_16', 'STANDARD', NULL),
+    (1004, 'A House Made of Rain', 'Reflections of family memories resonating through seasonal summer showers.', 'https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'DRAFT', 'en-US', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD', NULL),
+    (1005, 'The Paper Dragon', 'An origami dragon comes alive at dusk to protect a sleeping town.', 'https://images.unsplash.com/photo-1563089145-599997674d42?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ACTIVE', 'zh-CN', 'en-US', 'en-US', 'RATIO_1_1', 'HIGH', NULL),
+    (1006, 'Whispers Beneath the Pines', 'Two travelers discover a forest choir protecting an ancient sacred tree.', 'https://images.unsplash.com/photo-1448375240586-882707db888b?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ACTIVE', 'en-US', 'en-US', 'en-US', 'RATIO_16_9', 'ULTRA', NULL),
+    (1007, 'Seven Seeds', 'Generational wisdom passed through heirloom seeds and changing seasons.', 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ARCHIVED', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_9_16', 'STANDARD', CURRENT_TIMESTAMP),
+    (1008, 'The Blue Kite', 'A message of hope flies above city rooftops tied to a vibrant blue kite.', 'https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ACTIVE', 'en-US', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'HIGH', NULL),
+    (1009, 'River of Small Stars', 'Mapping celestial constellations mirrored in the ripples of a quiet river.', 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'DRAFT', 'en-US', 'en-US', 'en-US', 'RATIO_1_1', 'STANDARD', NULL),
+    (1010, 'The Last Seed Keeper', 'A solitary guardian traverses barren valleys to plant the last memory of green.', 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'HIGH', NULL)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO story_versions (id, project_id, version_number, content, source_language, status, moderation_decision)
@@ -49,32 +49,32 @@ VALUES
     (2010, 1010, 1, 'The last seed keeper crosses a dry valley to return one green memory to the earth.', 'vi-VN', 'ACTIVE', 'SAFE')
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO chapters (id, story_version_id, order_index, title, source_text, source_hash, status, estimated_duration_ms, generation_progress, source_story_version_id)
+INSERT INTO chapters (id, story_version_id, order_index, title, source_text, source_hash, status, estimated_duration_ms, generation_progress, source_story_version_id, inherited_snapshot_hash, current_storyboard_revision_id)
 VALUES
-    (3001, 2001, 1, 'The First Lantern', 'The first lantern flickered before the street woke.', encode(sha256(convert_to('The first lantern flickered before the street woke.', 'UTF8')), 'hex'), 'READY', 90000, 100, 2001),
-    (3002, 2002, 1, 'A Map in Brass', 'The map was hidden inside a brass clock.', encode(sha256(convert_to('The map was hidden inside a brass clock.', 'UTF8')), 'hex'), 'READY', 96000, 100, 2002),
-    (3003, 2003, 1, 'The Midnight Crossing', 'The river opened beneath the moon.', encode(sha256(convert_to('The river opened beneath the moon.', 'UTF8')), 'hex'), 'READY', 84000, 100, 2003),
-    (3004, 2004, 1, 'Rain at the Window', 'The rain arrived with a familiar voice.', encode(sha256(convert_to('The rain arrived with a familiar voice.', 'UTF8')), 'hex'), 'DRAFT', 78000, 20, 2004),
-    (3005, 2005, 1, 'Folded Wings', 'The paper dragon unfolded its first wing.', encode(sha256(convert_to('The paper dragon unfolded its first wing.', 'UTF8')), 'hex'), 'READY', 87000, 100, 2005),
-    (3006, 2006, 1, 'The Listening Pines', 'The hikers stopped where the forest began to sing.', encode(sha256(convert_to('The hikers stopped where the forest began to sing.', 'UTF8')), 'hex'), 'READY', 93000, 100, 2006),
-    (3007, 2007, 1, 'The First Seed', 'The grandmother planted the first seed.', encode(sha256(convert_to('The grandmother planted the first seed.', 'UTF8')), 'hex'), 'ARCHIVED', 72000, 100, 2007),
-    (3008, 2008, 1, 'The Blue Thread', 'A blue kite pulled against the morning wind.', encode(sha256(convert_to('A blue kite pulled against the morning wind.', 'UTF8')), 'hex'), 'READY', 81000, 100, 2008),
-    (3009, 2009, 1, 'Water Constellations', 'The river held a second sky.', encode(sha256(convert_to('The river held a second sky.', 'UTF8')), 'hex'), 'DRAFT', 75000, 20, 2009),
-    (3010, 2010, 1, 'The Dry Valley', 'The seed keeper entered the valley alone.', encode(sha256(convert_to('The seed keeper entered the valley alone.', 'UTF8')), 'hex'), 'READY', 102000, 100, 2010)
+    (3001, 2001, 1, 'The First Lantern', 'The first lantern flickered before the street woke.', encode(sha256(convert_to('The first lantern flickered before the street woke.', 'UTF8')), 'hex'), 'READY', 90000, 100, 2001, NULL, NULL),
+    (3002, 2002, 1, 'A Map in Brass', 'The map was hidden inside a brass clock.', encode(sha256(convert_to('The map was hidden inside a brass clock.', 'UTF8')), 'hex'), 'READY', 96000, 100, 2002, NULL, NULL),
+    (3003, 2003, 1, 'The Midnight Crossing', 'The river opened beneath the moon.', encode(sha256(convert_to('The river opened beneath the moon.', 'UTF8')), 'hex'), 'READY', 84000, 100, 2003, NULL, NULL),
+    (3004, 2004, 1, 'Rain at the Window', 'The rain arrived with a familiar voice.', encode(sha256(convert_to('The rain arrived with a familiar voice.', 'UTF8')), 'hex'), 'DRAFT', 78000, 20, 2004, NULL, NULL),
+    (3005, 2005, 1, 'Folded Wings', 'The paper dragon unfolded its first wing.', encode(sha256(convert_to('The paper dragon unfolded its first wing.', 'UTF8')), 'hex'), 'READY', 87000, 100, 2005, NULL, NULL),
+    (3006, 2006, 1, 'The Listening Pines', 'The hikers stopped where the forest began to sing.', encode(sha256(convert_to('The hikers stopped where the forest began to sing.', 'UTF8')), 'hex'), 'READY', 93000, 100, 2006, NULL, NULL),
+    (3007, 2007, 1, 'The First Seed', 'The grandmother planted the first seed.', encode(sha256(convert_to('The grandmother planted the first seed.', 'UTF8')), 'hex'), 'ARCHIVED', 72000, 100, 2007, NULL, NULL),
+    (3008, 2008, 1, 'The Blue Thread', 'A blue kite pulled against the morning wind.', encode(sha256(convert_to('A blue kite pulled against the morning wind.', 'UTF8')), 'hex'), 'READY', 81000, 100, 2008, NULL, NULL),
+    (3009, 2009, 1, 'Water Constellations', 'The river held a second sky.', encode(sha256(convert_to('The river held a second sky.', 'UTF8')), 'hex'), 'DRAFT', 75000, 20, 2009, NULL, NULL),
+    (3010, 2010, 1, 'The Dry Valley', 'The seed keeper entered the valley alone.', encode(sha256(convert_to('The seed keeper entered the valley alone.', 'UTF8')), 'hex'), 'READY', 102000, 100, 2010, NULL, NULL)
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO storyboard_revisions (id, chapter_id, revision_number, source_hash, source_row_version, status)
+INSERT INTO storyboard_revisions (id, chapter_id, revision_number, source_hash, source_row_version, status, based_on_revision_id)
 VALUES
-    (3501, 3001, 1, encode(sha256(convert_to('The first lantern flickered before the street woke.', 'UTF8')), 'hex'), 0, 'DRAFT'),
-    (3502, 3002, 1, encode(sha256(convert_to('The map was hidden inside a brass clock.', 'UTF8')), 'hex'), 0, 'DRAFT'),
-    (3503, 3003, 1, encode(sha256(convert_to('The river opened beneath the moon.', 'UTF8')), 'hex'), 0, 'DRAFT'),
-    (3504, 3004, 1, encode(sha256(convert_to('The rain arrived with a familiar voice.', 'UTF8')), 'hex'), 0, 'DRAFT'),
-    (3505, 3005, 1, encode(sha256(convert_to('The paper dragon unfolded its first wing.', 'UTF8')), 'hex'), 0, 'DRAFT'),
-    (3506, 3006, 1, encode(sha256(convert_to('The hikers stopped where the forest began to sing.', 'UTF8')), 'hex'), 0, 'DRAFT'),
-    (3507, 3007, 1, encode(sha256(convert_to('The grandmother planted the first seed.', 'UTF8')), 'hex'), 0, 'DRAFT'),
-    (3508, 3008, 1, encode(sha256(convert_to('A blue kite pulled against the morning wind.', 'UTF8')), 'hex'), 0, 'DRAFT'),
-    (3509, 3009, 1, encode(sha256(convert_to('The river held a second sky.', 'UTF8')), 'hex'), 0, 'DRAFT'),
-    (3510, 3010, 1, encode(sha256(convert_to('The seed keeper entered the valley alone.', 'UTF8')), 'hex'), 0, 'DRAFT')
+    (3501, 3001, 1, encode(sha256(convert_to('The first lantern flickered before the street woke.', 'UTF8')), 'hex'), 0, 'DRAFT', NULL),
+    (3502, 3002, 1, encode(sha256(convert_to('The map was hidden inside a brass clock.', 'UTF8')), 'hex'), 0, 'DRAFT', NULL),
+    (3503, 3003, 1, encode(sha256(convert_to('The river opened beneath the moon.', 'UTF8')), 'hex'), 0, 'DRAFT', NULL),
+    (3504, 3004, 1, encode(sha256(convert_to('The rain arrived with a familiar voice.', 'UTF8')), 'hex'), 0, 'DRAFT', NULL),
+    (3505, 3005, 1, encode(sha256(convert_to('The paper dragon unfolded its first wing.', 'UTF8')), 'hex'), 0, 'DRAFT', NULL),
+    (3506, 3006, 1, encode(sha256(convert_to('The hikers stopped where the forest began to sing.', 'UTF8')), 'hex'), 0, 'DRAFT', NULL),
+    (3507, 3007, 1, encode(sha256(convert_to('The grandmother planted the first seed.', 'UTF8')), 'hex'), 0, 'DRAFT', NULL),
+    (3508, 3008, 1, encode(sha256(convert_to('A blue kite pulled against the morning wind.', 'UTF8')), 'hex'), 0, 'DRAFT', NULL),
+    (3509, 3009, 1, encode(sha256(convert_to('The river held a second sky.', 'UTF8')), 'hex'), 0, 'DRAFT', NULL),
+    (3510, 3010, 1, encode(sha256(convert_to('The seed keeper entered the valley alone.', 'UTF8')), 'hex'), 0, 'DRAFT', NULL)
 ON CONFLICT (id) DO NOTHING;
 
 UPDATE chapters SET current_storyboard_revision_id = 3501 WHERE id = 3001;
@@ -88,18 +88,18 @@ UPDATE chapters SET current_storyboard_revision_id = 3508 WHERE id = 3008;
 UPDATE chapters SET current_storyboard_revision_id = 3509 WHERE id = 3009;
 UPDATE chapters SET current_storyboard_revision_id = 3510 WHERE id = 3010;
 
-INSERT INTO scenes (id, chapter_id, storyboard_revision_id, order_index, title, narration, duration_seconds, status)
+INSERT INTO scenes (id, chapter_id, storyboard_revision_id, order_index, title, narration, duration_seconds, status, project_location_id)
 VALUES
-    (4001, 3001, 3501, 1, 'Street Before Dawn', 'The old quarter breathes before sunrise.', 42, 'APPROVED'),
-    (4002, 3002, 3502, 1, 'Brass Mechanism', 'Tiny gears reveal a hidden coastline.', 45, 'APPROVED'),
-    (4003, 3003, 3503, 1, 'Moonlit Water', 'The boat glides between silver reflections.', 38, 'REVIEW'),
-    (4004, 3004, 3504, 1, 'Rainy Room', 'Rain taps a pattern on the glass.', 36, 'DRAFT'),
-    (4005, 3005, 3505, 1, 'Origami Dragon', 'Folded paper lifts into a living silhouette.', 40, 'APPROVED'),
-    (4006, 3006, 3506, 1, 'Pine Choir', 'The trees turn wind into a layered song.', 44, 'APPROVED'),
-    (4007, 3007, 3507, 1, 'Garden Hands', 'Careful hands place a seed in dark soil.', 34, 'OUTDATED'),
-    (4008, 3008, 3508, 1, 'Rooftop Wind', 'The kite crosses a row of sunlit roofs.', 39, 'APPROVED'),
-    (4009, 3009, 3509, 1, 'River Sky', 'Stars average and ripple in the current below.', 41, 'DRAFT'),
-    (4010, 3010, 3510, 1, 'Valley Footpath', 'A narrow path leads toward a green horizon.', 47, 'APPROVED')
+    (4001, 3001, 3501, 1, 'Street Before Dawn', 'The old quarter breathes before sunrise.', 42, 'APPROVED', NULL),
+    (4002, 3002, 3502, 1, 'Brass Mechanism', 'Tiny gears reveal a hidden coastline.', 45, 'APPROVED', NULL),
+    (4003, 3003, 3503, 1, 'Moonlit Water', 'The boat glides between silver reflections.', 38, 'REVIEW', NULL),
+    (4004, 3004, 3504, 1, 'Rainy Room', 'Rain taps a pattern on the glass.', 36, 'DRAFT', NULL),
+    (4005, 3005, 3505, 1, 'Origami Dragon', 'Folded paper lifts into a living silhouette.', 40, 'APPROVED', NULL),
+    (4006, 3006, 3506, 1, 'Pine Choir', 'The trees turn wind into a layered song.', 44, 'APPROVED', NULL),
+    (4007, 3007, 3507, 1, 'Garden Hands', 'Careful hands place a seed in dark soil.', 34, 'OUTDATED', NULL),
+    (4008, 3008, 3508, 1, 'Rooftop Wind', 'The kite crosses a row of sunlit roofs.', 39, 'APPROVED', NULL),
+    (4009, 3009, 3509, 1, 'River Sky', 'Stars average and ripple in the current below.', 41, 'DRAFT', NULL),
+    (4010, 3010, 3510, 1, 'Valley Footpath', 'A narrow path leads toward a green horizon.', 47, 'APPROVED', NULL)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO visual_beats (id, scene_id, order_index, title, visual_intent, review_status, motion_mode, camera_movement, aspect_ratio_override, quality_tier_override, text_start, text_end, audio_start_ms, audio_end_ms, camera_angle)
@@ -116,18 +116,18 @@ VALUES
     (5010, 4010, 1, 'Green shoot in the valley', 'A single green shoot appears at the end of the dry path.', 'APPROVED', 'BASIC_MOTION', 'PUSH_IN', 'RATIO_16_9', 'HIGH', 0, 47, 0, 47000, 'MEDIUM')
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO generation_jobs (id, job_id, project_id, job_type, status, resource_class, progress, current_step, requested_by_user_id, billed_to_user_id)
+INSERT INTO generation_jobs (id, job_id, project_id, job_type, status, resource_class, progress, current_step, requested_by_user_id, billed_to_user_id, error_code, production_mode, storyboard_revision_id, media_plan_id, media_plan_revision, "references")
 VALUES
-    (6001, '00000000-0000-4000-8000-000000000001', 1001, 'STORY_ANALYZE', 'COMPLETED', 'CPU_LIGHT', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com')),
-    (6002, '00000000-0000-4000-8000-000000000002', 1002, 'IMAGE_GENERATE', 'COMPLETED', 'GPU_HEAVY', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com')),
-    (6003, '00000000-0000-4000-8000-000000000003', 1003, 'IMAGE_GENERATE', 'RUNNING', 'GPU_HEAVY', 64, 'rendering_visual_beats', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com')),
-    (6004, '00000000-0000-4000-8000-000000000004', 1004, 'STORY_ANALYZE', 'QUEUED', 'CPU_LIGHT', 0, 'queued', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com')),
-    (6005, '00000000-0000-4000-8000-000000000005', 1005, 'RENDER_PROJECT', 'COMPLETED', 'GPU_HEAVY', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com')),
-    (6006, '00000000-0000-4000-8000-000000000006', 1006, 'RENDER_PROJECT', 'FAILED', 'GPU_HEAVY', 72, 'provider_output_review', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com')),
-    (6007, '00000000-0000-4000-8000-000000000007', 1007, 'RENDER_SHORT', 'COMPLETED', 'GPU_HEAVY', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com')),
-    (6008, '00000000-0000-4000-8000-000000000008', 1008, 'IMAGE_GENERATE', 'COMPLETED', 'GPU_HEAVY', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com')),
-    (6009, '00000000-0000-4000-8000-000000000009', 1009, 'STORY_ANALYZE', 'QUEUED', 'CPU_LIGHT', 0, 'queued', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com')),
-    (6010, '00000000-0000-4000-8000-000000000010', 1010, 'RENDER_PROJECT', 'COMPLETED', 'GPU_HEAVY', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'))
+    (6001, '00000000-0000-4000-8000-000000000001', 1001, 'STORY_ANALYZE', 'COMPLETED', 'CPU_LIGHT', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), NULL, NULL, NULL, NULL, NULL, NULL),
+    (6002, '00000000-0000-4000-8000-000000000002', 1002, 'IMAGE_GENERATE', 'COMPLETED', 'GPU_HEAVY', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), NULL, NULL, NULL, NULL, NULL, NULL),
+    (6003, '00000000-0000-4000-8000-000000000003', 1003, 'IMAGE_GENERATE', 'RUNNING', 'GPU_HEAVY', 64, 'rendering_visual_beats', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), NULL, NULL, NULL, NULL, NULL, NULL),
+    (6004, '00000000-0000-4000-8000-000000000004', 1004, 'STORY_ANALYZE', 'QUEUED', 'CPU_LIGHT', 0, 'queued', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), NULL, NULL, NULL, NULL, NULL, NULL),
+    (6005, '00000000-0000-4000-8000-000000000005', 1005, 'RENDER_PROJECT', 'COMPLETED', 'GPU_HEAVY', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), NULL, NULL, NULL, NULL, NULL, NULL),
+    (6006, '00000000-0000-4000-8000-000000000006', 1006, 'RENDER_PROJECT', 'FAILED', 'GPU_HEAVY', 72, 'provider_output_review', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), NULL, NULL, NULL, NULL, NULL, NULL),
+    (6007, '00000000-0000-4000-8000-000000000007', 1007, 'RENDER_SHORT', 'COMPLETED', 'GPU_HEAVY', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), NULL, NULL, NULL, NULL, NULL, NULL),
+    (6008, '00000000-0000-4000-8000-000000000008', 1008, 'IMAGE_GENERATE', 'COMPLETED', 'GPU_HEAVY', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), NULL, NULL, NULL, NULL, NULL, NULL),
+    (6009, '00000000-0000-4000-8000-000000000009', 1009, 'STORY_ANALYZE', 'QUEUED', 'CPU_LIGHT', 0, 'queued', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), NULL, NULL, NULL, NULL, NULL, NULL),
+    (6010, '00000000-0000-4000-8000-000000000010', 1010, 'RENDER_PROJECT', 'COMPLETED', 'GPU_HEAVY', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), NULL, NULL, NULL, NULL, NULL, NULL)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO stage_attempts (id, generation_job_id, stage_name, attempt_number, status, worker_id, heartbeat_at)
@@ -144,18 +144,18 @@ VALUES
     (7010, 6010, 'VIDEO', 1, 'COMPLETED', 'seed-worker-10', CURRENT_TIMESTAMP)
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO provider_operations (id, stage_attempt_id, provider_key, provider_operation_id, status, request_fingerprint, result_fingerprint, normalized_result_json, actual_cost, billing_currency, usage_json, pricing_snapshot_json)
+INSERT INTO provider_operations (id, stage_attempt_id, provider_key, provider_operation_id, status, request_fingerprint, result_fingerprint, normalized_result_json, actual_cost, billing_currency, usage_json, pricing_snapshot_json, last_reconcile_error, reconcile_attempts, completed_at, next_reconcile_at, reserved_at)
 VALUES
-    (8001, 7001, 'demo.analysis', 'demo-op-0001', 'COMPLETED', 'seed-fp-8001', encode(sha256(convert_to('seed-rfp-8001', 'UTF8')), 'hex'), '{"scenes":1}'::jsonb, 0.015000000, 'USD', '{"tokens":1600}'::jsonb, '{"unitCost":0.00001}'::jsonb),
-    (8002, 7002, 'demo.image', 'demo-op-0002', 'COMPLETED', 'seed-fp-8002', encode(sha256(convert_to('seed-rfp-8002', 'UTF8')), 'hex'), '{"images":4}'::jsonb, 0.150000000, 'USD', '{"images":4}'::jsonb, '{"unitCost":0.0375}'::jsonb),
-    (8003, 7003, 'demo.image', 'demo-op-0003', 'RUNNING', 'seed-fp-8003', NULL, NULL, NULL, NULL, NULL, NULL),
-    (8004, 7004, 'demo.analysis', NULL, 'RESERVED', 'seed-fp-8004', NULL, NULL, NULL, NULL, NULL, NULL),
-    (8005, 7005, 'demo.video', 'demo-op-0005', 'COMPLETED', 'seed-fp-8005', encode(sha256(convert_to('seed-rfp-8005', 'UTF8')), 'hex'), '{"video":"demo.mp4"}'::jsonb, 0.650000000, 'USD', '{"seconds":87}'::jsonb, '{"unitCost":0.0075}'::jsonb),
-    (8006, 7006, 'demo.video', 'demo-op-0006', 'FAILED', 'seed-fp-8006', NULL, NULL, NULL, NULL, NULL, NULL),
-    (8007, 7007, 'demo.short', 'demo-op-0007', 'COMPLETED', 'seed-fp-8007', encode(sha256(convert_to('seed-rfp-8007', 'UTF8')), 'hex'), '{"short":"demo.mp4"}'::jsonb, 0.280000000, 'USD', '{"seconds":34}'::jsonb, '{"unitCost":0.0082}'::jsonb),
-    (8008, 7008, 'demo.image', 'demo-op-0008', 'COMPLETED', 'seed-fp-8008', encode(sha256(convert_to('seed-rfp-8008', 'UTF8')), 'hex'), '{"images":5}'::jsonb, 0.120000000, 'USD', '{"images":5}'::jsonb, '{"unitCost":0.024}'::jsonb),
-    (8009, 7009, 'demo.analysis', NULL, 'RESERVED', 'seed-fp-8009', NULL, NULL, NULL, NULL, NULL, NULL),
-    (8010, 7010, 'demo.video', 'demo-op-0010', 'COMPLETED', 'seed-fp-8010', encode(sha256(convert_to('seed-rfp-8010', 'UTF8')), 'hex'), '{"video":"demo.mp4"}'::jsonb, 0.550000000, 'USD', '{"seconds":102}'::jsonb, '{"unitCost":0.0054}'::jsonb)
+    (8001, 7001, 'demo.analysis', 'demo-op-0001', 'COMPLETED', 'seed-fp-8001', encode(sha256(convert_to('seed-rfp-8001', 'UTF8')), 'hex'), '{"scenes":1}'::jsonb, 0.015000000, 'USD', '{"tokens":1600}'::jsonb, '{"unitCost":0.00001}'::jsonb, NULL, NULL, NULL, NULL, NULL),
+    (8002, 7002, 'demo.image', 'demo-op-0002', 'COMPLETED', 'seed-fp-8002', encode(sha256(convert_to('seed-rfp-8002', 'UTF8')), 'hex'), '{"images":4}'::jsonb, 0.150000000, 'USD', '{"images":4}'::jsonb, '{"unitCost":0.0375}'::jsonb, NULL, NULL, NULL, NULL, NULL),
+    (8003, 7003, 'demo.image', 'demo-op-0003', 'RUNNING', 'seed-fp-8003', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+    (8004, 7004, 'demo.analysis', NULL, 'RESERVED', 'seed-fp-8004', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+    (8005, 7005, 'demo.video', 'demo-op-0005', 'COMPLETED', 'seed-fp-8005', encode(sha256(convert_to('seed-rfp-8005', 'UTF8')), 'hex'), '{"video":"demo.mp4"}'::jsonb, 0.650000000, 'USD', '{"seconds":87}'::jsonb, '{"unitCost":0.0075}'::jsonb, NULL, NULL, NULL, NULL, NULL),
+    (8006, 7006, 'demo.video', 'demo-op-0006', 'FAILED', 'seed-fp-8006', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+    (8007, 7007, 'demo.short', 'demo-op-0007', 'COMPLETED', 'seed-fp-8007', encode(sha256(convert_to('seed-rfp-8007', 'UTF8')), 'hex'), '{"short":"demo.mp4"}'::jsonb, 0.280000000, 'USD', '{"seconds":34}'::jsonb, '{"unitCost":0.0082}'::jsonb, NULL, NULL, NULL, NULL, NULL),
+    (8008, 7008, 'demo.image', 'demo-op-0008', 'COMPLETED', 'seed-fp-8008', encode(sha256(convert_to('seed-rfp-8008', 'UTF8')), 'hex'), '{"images":5}'::jsonb, 0.120000000, 'USD', '{"images":5}'::jsonb, '{"unitCost":0.024}'::jsonb, NULL, NULL, NULL, NULL, NULL),
+    (8009, 7009, 'demo.analysis', NULL, 'RESERVED', 'seed-fp-8009', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+    (8010, 7010, 'demo.video', 'demo-op-0010', 'COMPLETED', 'seed-fp-8010', encode(sha256(convert_to('seed-rfp-8010', 'UTF8')), 'hex'), '{"video":"demo.mp4"}'::jsonb, 0.550000000, 'USD', '{"seconds":102}'::jsonb, '{"unitCost":0.0054}'::jsonb, NULL, NULL, NULL, NULL, NULL)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO operation_plans (id, project_id, generation_job_id, operation_type, estimate_min, estimate_max, max_authorized_cost, confidence)
@@ -205,18 +205,18 @@ VALUES
     (11010, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1010, 'seed-event-10', 'RENDER_COMPLETE', '{"in_app":"READ","email":"DELIVERED"}'::jsonb, 'render.complete.title', 'render.complete.message', CURRENT_TIMESTAMP)
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO outbox_events (id, aggregate_type, aggregate_id, event_type, event_key, payload_json, status, attempts)
+INSERT INTO outbox_events (id, aggregate_type, aggregate_id, event_type, event_key, payload_json, status, attempts, available_at)
 VALUES
-    (12001, 'GenerationJob', '6001', 'RENDER_COMPLETED', 'seed-outbox-01', '{"jobId":"6001","source":"seed"}'::jsonb, 'PUBLISHED', 1),
-    (12002, 'GenerationJob', '6002', 'RENDER_COMPLETED', 'seed-outbox-02', '{"jobId":"6002","source":"seed"}'::jsonb, 'PUBLISHED', 1),
-    (12003, 'GenerationJob', '6003', 'JOB_PROGRESS', 'seed-outbox-03', '{"jobId":"6003","progress":64}'::jsonb, 'PENDING', 0),
-    (12004, 'GenerationJob', '6004', 'JOB_QUEUED', 'seed-outbox-04', '{"jobId":"6004","source":"seed"}'::jsonb, 'PENDING', 0),
-    (12005, 'GenerationJob', '6005', 'RENDER_COMPLETED', 'seed-outbox-05', '{"jobId":"6005","source":"seed"}'::jsonb, 'PUBLISHED', 1),
-    (12006, 'GenerationJob', '6006', 'RENDER_FAILED', 'seed-outbox-06', '{"jobId":"6006","source":"seed"}'::jsonb, 'PUBLISHED', 2),
-    (12007, 'GenerationJob', '6007', 'SHORT_COMPLETED', 'seed-outbox-07', '{"jobId":"6007","source":"seed"}'::jsonb, 'PUBLISHED', 1),
-    (12008, 'GenerationJob', '6008', 'RENDER_COMPLETED', 'seed-outbox-08', '{"jobId":"6008","source":"seed"}'::jsonb, 'PUBLISHED', 1),
-    (12009, 'GenerationJob', '6009', 'JOB_QUEUED', 'seed-outbox-09', '{"jobId":"6009","source":"seed"}'::jsonb, 'PENDING', 0),
-    (12010, 'GenerationJob', '6010', 'RENDER_COMPLETED', 'seed-outbox-10', '{"jobId":"6010","source":"seed"}'::jsonb, 'PUBLISHED', 1)
+    (12001, 'GenerationJob', '6001', 'RENDER_COMPLETED', 'seed-outbox-01', '{"jobId":"6001","source":"seed"}'::jsonb, 'PUBLISHED', 1, NULL),
+    (12002, 'GenerationJob', '6002', 'RENDER_COMPLETED', 'seed-outbox-02', '{"jobId":"6002","source":"seed"}'::jsonb, 'PUBLISHED', 1, NULL),
+    (12003, 'GenerationJob', '6003', 'JOB_PROGRESS', 'seed-outbox-03', '{"jobId":"6003","progress":64}'::jsonb, 'PENDING', 0, NULL),
+    (12004, 'GenerationJob', '6004', 'JOB_QUEUED', 'seed-outbox-04', '{"jobId":"6004","source":"seed"}'::jsonb, 'PENDING', 0, NULL),
+    (12005, 'GenerationJob', '6005', 'RENDER_COMPLETED', 'seed-outbox-05', '{"jobId":"6005","source":"seed"}'::jsonb, 'PUBLISHED', 1, NULL),
+    (12006, 'GenerationJob', '6006', 'RENDER_FAILED', 'seed-outbox-06', '{"jobId":"6006","source":"seed"}'::jsonb, 'PUBLISHED', 2, NULL),
+    (12007, 'GenerationJob', '6007', 'SHORT_COMPLETED', 'seed-outbox-07', '{"jobId":"6007","source":"seed"}'::jsonb, 'PUBLISHED', 1, NULL),
+    (12008, 'GenerationJob', '6008', 'RENDER_COMPLETED', 'seed-outbox-08', '{"jobId":"6008","source":"seed"}'::jsonb, 'PUBLISHED', 1, NULL),
+    (12009, 'GenerationJob', '6009', 'JOB_QUEUED', 'seed-outbox-09', '{"jobId":"6009","source":"seed"}'::jsonb, 'PENDING', 0, NULL),
+    (12010, 'GenerationJob', '6010', 'RENDER_COMPLETED', 'seed-outbox-10', '{"jobId":"6010","source":"seed"}'::jsonb, 'PUBLISHED', 1, NULL)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO plan_entitlements (id, plan_key, version, watermark_required, max_video_quality, max_longform_exports_month, max_short_exports_month, max_concurrent_expensive_jobs, feature_flags_json, monthly_credits, active_from)
@@ -285,18 +285,18 @@ VALUES
     (21010, 16010, 1, 'Seed Keeper Pack', 'Dusty travel clothes and a protected seed pack.', 'Travel clothes, seed pack, dry valley, hopeful green accent.', 'APPROVED')
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO character_appearances (id, character_id, project_id, timeline_key, age_state, hairstyle, injury, wardrobe_context, appearance_prompt, outfit_version_id)
+INSERT INTO character_appearances (id, character_id, project_id, timeline_key, age_state, hairstyle, injury, wardrobe_context, appearance_prompt, outfit_version_id, "references")
 VALUES
-    (22001, 16001, 1001, 'chapter-01', 'adult', 'Shoulder-length black hair', NULL, 'At the lantern workshop', 'Warm amber rim light, focused expression.', 21001),
-    (22002, 16002, 1002, 'chapter-01', 'middle-aged', 'Short silver-streaked hair', NULL, 'Inside the brass workshop', 'Brass reflections, precise hands, thoughtful eyes.', 21002),
-    (22003, 16003, 1003, 'chapter-01', 'adult', 'Short dark hair', NULL, 'On a moonlit boat', 'Cool moonlight, calm posture, river mist.', 21003),
-    (22004, 16004, 1004, 'chapter-01', 'young adult', 'Loose wavy hair', NULL, 'By a rainy window', 'Soft window light, reflective mood.', 21004),
-    (22005, 16005, 1005, 'chapter-01', 'child', 'Short bob haircut', NULL, 'At a paper-covered desk', 'Bright paper colors, curious gaze, safe storybook style.', 21005),
-    (22006, 16006, 1006, 'chapter-01', 'adult', 'Long braided hair', NULL, 'Among the pines', 'Green forest light, protective stance.', 21006),
-    (22007, 16007, 1007, 'chapter-01', 'elder', 'Silver hair in a bun', NULL, 'In the seed garden', 'Golden-hour garden light, welcoming smile.', 21007),
-    (22008, 16008, 1008, 'chapter-01', 'child', 'Short dark hair', NULL, 'On a city rooftop', 'Clear sky, blue kite, light wind.', 21008),
-    (22009, 16009, 1009, 'chapter-01', 'child', 'Curly dark hair', NULL, 'Beside the river', 'Star reflections, blue hour, curious expression.', 21009),
-    (22010, 16010, 1010, 'chapter-01', 'adult', 'Long windblown hair', NULL, 'Crossing the dry valley', 'Dusty horizon with one hopeful green shoot.', 21010)
+    (22001, 16001, 1001, 'chapter-01', 'adult', 'Shoulder-length black hair', NULL, 'At the lantern workshop', 'Warm amber rim light, focused expression.', 21001, NULL),
+    (22002, 16002, 1002, 'chapter-01', 'middle-aged', 'Short silver-streaked hair', NULL, 'Inside the brass workshop', 'Brass reflections, precise hands, thoughtful eyes.', 21002, NULL),
+    (22003, 16003, 1003, 'chapter-01', 'adult', 'Short dark hair', NULL, 'On a moonlit boat', 'Cool moonlight, calm posture, river mist.', 21003, NULL),
+    (22004, 16004, 1004, 'chapter-01', 'young adult', 'Loose wavy hair', NULL, 'By a rainy window', 'Soft window light, reflective mood.', 21004, NULL),
+    (22005, 16005, 1005, 'chapter-01', 'child', 'Short bob haircut', NULL, 'At a paper-covered desk', 'Bright paper colors, curious gaze, safe storybook style.', 21005, NULL),
+    (22006, 16006, 1006, 'chapter-01', 'adult', 'Long braided hair', NULL, 'Among the pines', 'Green forest light, protective stance.', 21006, NULL),
+    (22007, 16007, 1007, 'chapter-01', 'elder', 'Silver hair in a bun', NULL, 'In the seed garden', 'Golden-hour garden light, welcoming smile.', 21007, NULL),
+    (22008, 16008, 1008, 'chapter-01', 'child', 'Short dark hair', NULL, 'On a city rooftop', 'Clear sky, blue kite, light wind.', 21008, NULL),
+    (22009, 16009, 1009, 'chapter-01', 'child', 'Curly dark hair', NULL, 'Beside the river', 'Star reflections, blue hour, curious expression.', 21009, NULL),
+    (22010, 16010, 1010, 'chapter-01', 'adult', 'Long windblown hair', NULL, 'Crossing the dry valley', 'Dusty horizon with one hopeful green shoot.', 21010, NULL)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO project_characters (id, project_id, character_id, role, importance, project_aliases, story_metadata, groups_json, pinned_character_version_id, status)
@@ -355,18 +355,18 @@ VALUES
     (17010, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1010, 6010, 'RENDER_PROJECT', 'demo-provider', 'demo-video-v1', 'prompt-v1', 'render-v1', 'safety-v1', 'seed-fingerprint-10', '{"durationSeconds":102}'::jsonb, '{"quality":"HIGH"}'::jsonb)
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO data_deletion_requests (id, user_id, scope, scope_id, status, started_at, completed_at, retention_deadline)
+INSERT INTO data_deletion_requests (id, user_id, scope, scope_id, status, started_at, completed_at, retention_deadline, requested_at, error_code)
 VALUES
-    (18001, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'PROJECT', '1001', 'REQUESTED', NULL, NULL, CURRENT_TIMESTAMP + INTERVAL '30 days'),
-    (18002, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'PROJECT', '1002', 'IN_PROGRESS', CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP + INTERVAL '30 days'),
-    (18003, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ASSET', 'asset-seed-03', 'COMPLETED', CURRENT_TIMESTAMP - INTERVAL '2 days', CURRENT_TIMESTAMP - INTERVAL '1 day', CURRENT_TIMESTAMP + INTERVAL '29 days'),
-    (18004, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ACCOUNT', 'seed-user-01', 'REQUESTED', NULL, NULL, CURRENT_TIMESTAMP + INTERVAL '30 days'),
-    (18005, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'PROJECT', '1005', 'COMPLETED', CURRENT_TIMESTAMP - INTERVAL '4 days', CURRENT_TIMESTAMP - INTERVAL '3 days', CURRENT_TIMESTAMP + INTERVAL '27 days'),
-    (18006, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'PROJECT', '1006', 'FAILED', CURRENT_TIMESTAMP - INTERVAL '3 days', NULL, CURRENT_TIMESTAMP + INTERVAL '30 days'),
-    (18007, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ASSET', 'asset-seed-07', 'REQUESTED', NULL, NULL, CURRENT_TIMESTAMP + INTERVAL '30 days'),
-    (18008, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'PROJECT', '1008', 'IN_PROGRESS', CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP + INTERVAL '30 days'),
-    (18009, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ACCOUNT', 'seed-user-01', 'COMPLETED', CURRENT_TIMESTAMP - INTERVAL '5 days', CURRENT_TIMESTAMP - INTERVAL '4 days', CURRENT_TIMESTAMP + INTERVAL '26 days'),
-    (18010, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'PROJECT', '1010', 'REQUESTED', NULL, NULL, CURRENT_TIMESTAMP + INTERVAL '30 days')
+    (18001, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'PROJECT', '1001', 'REQUESTED', NULL, NULL, CURRENT_TIMESTAMP + INTERVAL '30 days', NULL, NULL),
+    (18002, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'PROJECT', '1002', 'IN_PROGRESS', CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP + INTERVAL '30 days', NULL, NULL),
+    (18003, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ASSET', 'asset-seed-03', 'COMPLETED', CURRENT_TIMESTAMP - INTERVAL '2 days', CURRENT_TIMESTAMP - INTERVAL '1 day', CURRENT_TIMESTAMP + INTERVAL '29 days', NULL, NULL),
+    (18004, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ACCOUNT', 'seed-user-01', 'REQUESTED', NULL, NULL, CURRENT_TIMESTAMP + INTERVAL '30 days', NULL, NULL),
+    (18005, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'PROJECT', '1005', 'COMPLETED', CURRENT_TIMESTAMP - INTERVAL '4 days', CURRENT_TIMESTAMP - INTERVAL '3 days', CURRENT_TIMESTAMP + INTERVAL '27 days', NULL, NULL),
+    (18006, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'PROJECT', '1006', 'FAILED', CURRENT_TIMESTAMP - INTERVAL '3 days', NULL, CURRENT_TIMESTAMP + INTERVAL '30 days', NULL, NULL),
+    (18007, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ASSET', 'asset-seed-07', 'REQUESTED', NULL, NULL, CURRENT_TIMESTAMP + INTERVAL '30 days', NULL, NULL),
+    (18008, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'PROJECT', '1008', 'IN_PROGRESS', CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP + INTERVAL '30 days', NULL, NULL),
+    (18009, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ACCOUNT', 'seed-user-01', 'COMPLETED', CURRENT_TIMESTAMP - INTERVAL '5 days', CURRENT_TIMESTAMP - INTERVAL '4 days', CURRENT_TIMESTAMP + INTERVAL '26 days', NULL, NULL),
+    (18010, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'PROJECT', '1010', 'REQUESTED', NULL, NULL, CURRENT_TIMESTAMP + INTERVAL '30 days', NULL, NULL)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO user_preferences (user_id, preferred_locale, timezone, default_narration_language, default_metadata_language)
@@ -408,18 +408,18 @@ ON CONFLICT (id) DO NOTHING;
 -- Continuity and storyboard relationship fixtures
 -- -----------------------------------------------------------------------------
 
-INSERT INTO scene_characters (scene_id, order_index, project_character_id)
+INSERT INTO scene_characters (scene_id, order_index, project_character_id, "references")
 VALUES
-    (4001, 0, 23001),
-    (4002, 0, 23002),
-    (4003, 0, 23003),
-    (4004, 0, 23004),
-    (4005, 0, 23005),
-    (4006, 0, 23006),
-    (4007, 0, 23007),
-    (4008, 0, 23008),
-    (4009, 0, 23009),
-    (4010, 0, 23010)
+    (4001, 0, 23001, NULL),
+    (4002, 0, 23002, NULL),
+    (4003, 0, 23003, NULL),
+    (4004, 0, 23004, NULL),
+    (4005, 0, 23005, NULL),
+    (4006, 0, 23006, NULL),
+    (4007, 0, 23007, NULL),
+    (4008, 0, 23008, NULL),
+    (4009, 0, 23009, NULL),
+    (4010, 0, 23010, NULL)
 ON CONFLICT DO NOTHING;
 
 INSERT INTO visual_beat_characters (visual_beat_id, project_character_id, role)
@@ -439,17 +439,17 @@ ON CONFLICT DO NOTHING;
 INSERT INTO project_character_ai_identities
     (project_id, ai_key, project_character_id, aliases, observations, first_seen_chapter_id, last_seen_chapter_id, match_basis, confidence)
 VALUES
-    (1001, 'mai-lantern-maker', 23001, '["Mai","lantern maker"]'::jsonb, '["amber workshop","red silk lantern"]'::jsonb, 3001, 3001, 'CREATED', 1.000),
-    (1002, 'theo-clockmaker', 23002, '["Theo","clockmaker"]'::jsonb, '["brass workshop","pocket watch"]'::jsonb, 3002, 3002, 'CREATED', 1.000),
-    (1003, 'bao-boatman', 23003, '["Bao","boatman"]'::jsonb, '["wooden boat","moonlit river"]'::jsonb, 3003, 3003, 'CREATED', 1.000)
+    (1001, 'mai-lantern-maker', 23001, '["Mai","lantern maker"]'::jsonb, '["amber workshop","red silk lantern"]'::jsonb, 3001, 3001, 'CREATED', 1.000, NULL),
+    (1002, 'theo-clockmaker', 23002, '["Theo","clockmaker"]'::jsonb, '["brass workshop","pocket watch"]'::jsonb, 3002, 3002, 'CREATED', 1.000, NULL),
+    (1003, 'bao-boatman', 23003, '["Bao","boatman"]'::jsonb, '["wooden boat","moonlit river"]'::jsonb, 3003, 3003, 'CREATED', 1.000, NULL)
 ON CONFLICT (project_id, ai_key) DO NOTHING;
 
 INSERT INTO project_location_ai_identities
     (project_id, ai_key, project_location_id, aliases, observations, first_seen_chapter_id, last_seen_chapter_id, match_basis, confidence)
 VALUES
-    (1001, 'old-quarter-market', 25001, '["old quarter","night market"]'::jsonb, '["wet cobblestones","amber lanterns"]'::jsonb, 3001, 3001, 'CREATED', 1.000),
-    (1001, 'lantern-workshop', 25002, '["workshop","lantern studio"]'::jsonb, '["bamboo frames","silk fabric"]'::jsonb, 3001, 3001, 'CREATED', 1.000),
-    (1002, 'brass-workshop', 25003, '["clockmaker workshop"]'::jsonb, '["brass gears","dusty sunbeams"]'::jsonb, 3002, 3002, 'CREATED', 1.000)
+    (1001, 'old-quarter-market', 25001, '["old quarter","night market"]'::jsonb, '["wet cobblestones","amber lanterns"]'::jsonb, 3001, 3001, 'CREATED', 1.000, NULL),
+    (1001, 'lantern-workshop', 25002, '["workshop","lantern studio"]'::jsonb, '["bamboo frames","silk fabric"]'::jsonb, 3001, 3001, 'CREATED', 1.000, NULL),
+    (1002, 'brass-workshop', 25003, '["clockmaker workshop"]'::jsonb, '["brass gears","dusty sunbeams"]'::jsonb, 3002, 3002, 'CREATED', 1.000, NULL)
 ON CONFLICT (project_id, ai_key) DO NOTHING;
 
 INSERT INTO project_favorites (user_id, project_id)
@@ -481,7 +481,7 @@ INSERT INTO media_beat_plans
     (media_plan_id, scene_index, beat_index, visual_beat_id, visual_beat_order_index, visual_intent, semantic_motion_mode, motion_strategy)
 VALUES
     ('00000000-0000-4000-8000-000000001001', 0, 0, 5001, 1,
-     'Warm lanterns form a river of light through quiet stone streets.', 'BASIC_MOTION', 'BASIC_IMAGE_MOTION')
+     'Warm lanterns form a river of light through quiet stone streets.', 'BASIC_MOTION', 'BASIC_IMAGE_MOTION', NULL)
 ON CONFLICT (media_plan_id, scene_index, beat_index) DO NOTHING;
 
 UPDATE generation_jobs

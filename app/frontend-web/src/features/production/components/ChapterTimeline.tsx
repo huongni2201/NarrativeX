@@ -19,7 +19,7 @@ export const ChapterTimeline: React.FC<ChapterTimelineProps> = ({ chapters, acti
         const active = chapter.number === activeChapterNumber;
         const ready = chapter.status === "RENDERED" || chapter.status === "VISUAL_READY";
         return (
-          <button key={chapter.id} type="button" aria-pressed={active} onClick={() => onSelectChapter(chapter)} className={cn("min-w-[54px] flex-1 rounded-lg border px-2 py-1 text-center font-mono text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500", active ? "border-purple-400 bg-purple-600 font-bold text-white" : ready ? "border-slate-800 bg-[#0d1420] text-slate-300 hover:border-purple-500/50" : "border-slate-900 bg-slate-950/60 text-slate-500")}>Ch {chapter.number}</button>
+          <button key={chapter.id} type="button" aria-pressed={active} onClick={() => onSelectChapter(chapter)} className={cn("min-w-[54px] flex-1 rounded-lg border px-2 py-1 text-center font-mono text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500", active ? "border-purple-400 bg-purple-600 font-bold text-white" : ready ? "border-slate-800 bg-surface text-slate-300 hover:border-purple-500/50" : "border-slate-900 bg-slate-950/60 text-slate-500")}>Ch {chapter.number}</button>
         );
       })}
     </div>

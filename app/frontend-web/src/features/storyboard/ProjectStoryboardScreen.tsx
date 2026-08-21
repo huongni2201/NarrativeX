@@ -57,7 +57,7 @@ export function ProjectStoryboardScreen({ projectId }: Readonly<ProjectStoryboar
 
 function StoryboardMessage({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-[#07111c] p-8 text-sm text-slate-400">
+    <div className="rounded-xl border border-slate-800 bg-surface-input p-8 text-sm text-slate-400">
       {children}
     </div>
   );

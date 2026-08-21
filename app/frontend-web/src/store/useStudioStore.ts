@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import type { ProjectWizardDraft, ScreenType } from "@/types/studio";
-import { SAMPLE_STORY_PRESET } from "@/features/project-creation/model/sample-story";
 
 interface StudioStore {
   currentScreen: ScreenType;
@@ -17,7 +16,6 @@ interface StudioStore {
   closeWizard: () => void;
   setWizardStep: (step: 1 | 2 | 3 | 4) => void;
   updateWizardDraft: (data: Partial<ProjectWizardDraft>) => void;
-  loadSampleStory: () => void;
   resetSessionState: () => void;
 }
 
@@ -62,10 +60,6 @@ export const useStudioStore = create<StudioStore>((set) => ({
   setWizardStep: (step) => set((state) => ({ wizardDraft: { ...state.wizardDraft, step } })),
   updateWizardDraft: (data) =>
     set((state) => ({ wizardDraft: { ...state.wizardDraft, ...data } })),
-  loadSampleStory: () =>
-    set((state) => ({
-      wizardDraft: { ...state.wizardDraft, storyText: SAMPLE_STORY_PRESET },
-    })),
   resetSessionState: () =>
     set({
       currentScreen: "overview",

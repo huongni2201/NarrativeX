@@ -86,7 +86,7 @@ export const Modal: React.FC<ModalProps> = ({
 
   if (!isOpen) return null;
 
-  const maxWidthStyles = { sm: "max-w-sm", md: "max-w-md", lg: "max-w-lg", xl: "max-w-xl", "2xl": "max-w-2xl", "4xl": "max-w-4xl", "5xl": "max-w-5xl", "6xl": "max-w-6xl", full: "max-w-[96vw] h-[92vh]" };
+  const maxWidthStyles = { sm: "max-w-sm", md: "max-w-md", lg: "max-w-lg", xl: "max-w-xl", "2xl": "max-w-2xl", "4xl": "max-w-4xl", "5xl": "max-w-5xl", "6xl": "max-w-6xl", full: "max-w-[96vw] h-[92dvh]" };
   const accessibleLabel = title ? undefined : ariaLabel;
 
   return (
@@ -106,20 +106,20 @@ export const Modal: React.FC<ModalProps> = ({
       <div
         ref={contentRef}
         tabIndex={-1}
-        className={cn("relative z-10 flex w-full max-h-[calc(100vh-2rem)] flex-col overflow-hidden rounded-2xl border border-slate-800/90 bg-[#0d1420] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] motion-safe:animate-in motion-safe:zoom-in-95 motion-safe:duration-200", maxWidthStyles[maxWidth], className)}
+        className={cn("relative z-10 flex w-full max-h-[calc(100dvh-2rem)] flex-col overflow-hidden overscroll-contain rounded-2xl border border-border-dark bg-surface shadow-2xl motion-safe:animate-in motion-safe:zoom-in-95 motion-safe:duration-200", maxWidthStyles[maxWidth], className)}
       >
         {(title || subtitle) && (
-          <div className="flex shrink-0 items-center justify-between border-b border-slate-800/80 bg-[#090e18]/80 px-6 py-4">
+          <div className="flex shrink-0 items-center justify-between border-b border-border-dark bg-surface-panel/80 px-6 py-4">
             <div>
               {title && <h3 id={titleId} className="text-lg font-bold text-slate-100">{title}</h3>}
               {subtitle && <p id={descId} className="mt-0.5 text-xs text-slate-400">{subtitle}</p>}
             </div>
-            <button type="button" onClick={onClose} disabled={closeDisabled} aria-label="Đóng hộp thoại" className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-800/80 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 disabled:cursor-not-allowed disabled:opacity-40">
+            <button type="button" onClick={onClose} disabled={closeDisabled} aria-label="Đóng hộp thoại" className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-surface-3 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-40">
               <X className="h-5 w-5" />
             </button>
           </div>
         )}
-        <div className="flex-1 overflow-y-auto">{children}</div>
+        <div className="flex-1 overflow-y-auto overscroll-contain">{children}</div>
       </div>
     </div>
   );

@@ -40,7 +40,7 @@ export const StylePresetsScreen: React.FC = () => {
 
   if (!isMockDataMode) {
     return (
-      <div className="rounded-2xl border border-dashed border-slate-700 bg-[#0d1420]/40 p-8">
+      <div className="rounded-2xl border border-dashed border-slate-700 bg-surface/40 p-8">
         <p className="text-[11px] uppercase tracking-[0.2em] text-purple-300">Style &amp; Presets</p>
         <h2 className="mt-2 text-lg font-semibold text-slate-200">Preset API chưa sẵn sàng</h2>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
@@ -155,7 +155,7 @@ export const StylePresetsScreen: React.FC = () => {
                 "px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors",
                 showFilters
                   ? "bg-purple-950/80 border-purple-600 text-purple-300"
-                  : "bg-[#0d1420] border-slate-800 text-slate-300 hover:text-white"
+                  : "bg-surface border-slate-800 text-slate-300 hover:text-white"
               )}
             >
               <SlidersHorizontal className="w-3.5 h-3.5" />
@@ -177,7 +177,7 @@ export const StylePresetsScreen: React.FC = () => {
             ))}
           </div>
         ) : (
-          <div className="py-20 text-center bg-[#0d1420]/50 rounded-2xl border border-slate-800/80 p-8 space-y-3">
+          <div className="py-20 text-center bg-surface/50 rounded-2xl border border-slate-800/80 p-8 space-y-3">
             <div className="w-12 h-12 mx-auto rounded-xl bg-purple-950/60 border border-purple-800/60 flex items-center justify-center text-purple-400">
               <Palette className="w-6 h-6" />
             </div>

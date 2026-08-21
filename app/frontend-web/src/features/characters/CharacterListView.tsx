@@ -27,9 +27,9 @@ export const CharacterListView: React.FC<CharacterListViewProps> = ({
   );
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-slate-800/80 bg-[#090e18]/80 shadow-xl">
+    <div className="overflow-x-auto rounded-2xl border border-slate-800/80 bg-surface-panel/80 shadow-xl">
       <table className="w-full text-left text-xs text-slate-300">
-        <thead className="bg-[#0f1728]/80 text-[11px] font-semibold uppercase tracking-wider text-slate-400 border-b border-slate-800">
+        <thead className="bg-surface-2/80 text-[11px] font-semibold uppercase tracking-wider text-slate-400 border-b border-slate-800">
           <tr>
             <th className="py-3.5 px-4">Nhân vật</th>
             <th className="py-3.5 px-4">Vai trò / Nhóm</th>

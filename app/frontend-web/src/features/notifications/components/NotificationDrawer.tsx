@@ -50,7 +50,7 @@ export function NotificationDrawer({ isOpen, onClose }: Readonly<NotificationDra
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border p-4 sm:p-5">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-light text-primary">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-muted text-primary">
               <Bell className="h-4 w-4" />
             </div>
             <div>
@@ -217,7 +217,7 @@ function NotificationIcon({ type }: { type: string }) {
   }
   if (type.includes("AI") || type.includes("GENERATE") || type.includes("ANALYZE")) {
     return (
-      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-light text-primary">
+      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-muted text-primary">
         <Sparkles className="h-3.5 w-3.5" />
       </div>
     );

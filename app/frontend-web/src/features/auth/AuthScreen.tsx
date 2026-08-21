@@ -68,7 +68,7 @@ export const AuthScreen: React.FC = () => {
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-background text-text-primary md:flex-row">
-      <section className="relative flex min-h-[40vh] flex-col justify-between overflow-hidden bg-slate-950 p-8 md:min-h-screen md:w-1/2 md:p-12 lg:w-3/5">
+      <section className="relative flex min-h-[40vh] flex-col justify-between overflow-hidden bg-surface-dark p-8 md:min-h-screen md:w-1/2 md:p-12 lg:w-3/5">
         <Image
           src="https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1600&auto=format&fit=crop"
           alt=""
@@ -91,7 +91,7 @@ export const AuthScreen: React.FC = () => {
         />
 
         <div className="relative z-10 max-w-lg space-y-3">
-          <div className="inline-flex items-center rounded-md border border-purple-400/30 bg-purple-950/70 px-3 py-1 text-xs font-semibold tracking-wide text-purple-200">
+          <div className="inline-flex items-center rounded-md border border-primary/40 bg-primary-muted px-3 py-1 text-xs font-semibold tracking-wide text-primary-hover">
             NARRATIVE WORKSPACE
           </div>
           <h2 className="text-3xl font-extrabold leading-tight text-white md:text-4xl">
@@ -118,14 +118,14 @@ export const AuthScreen: React.FC = () => {
           </div>
 
           <div
-            className="grid grid-cols-2 rounded-lg bg-slate-950/70 p-1 text-sm"
+            className="grid grid-cols-2 rounded-lg bg-surface-dark p-1 text-sm"
             aria-label="Chế độ xác thực"
           >
             <button
               type="button"
               aria-pressed={mode === "login"}
               onClick={() => switchMode("login")}
-              className={`rounded-md px-3 py-2 transition-colors ${mode === "login" ? "bg-primary text-white" : "text-slate-400 hover:text-white"}`}
+                className={`rounded-md px-3 py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${mode === "login" ? "bg-primary text-white" : "text-slate-400 hover:text-white"}`}
             >
               Đăng nhập
             </button>
@@ -133,7 +133,7 @@ export const AuthScreen: React.FC = () => {
               type="button"
               aria-pressed={mode === "register"}
               onClick={() => switchMode("register")}
-              className={`rounded-md px-3 py-2 transition-colors ${mode === "register" ? "bg-primary text-white" : "text-slate-400 hover:text-white"}`}
+                className={`rounded-md px-3 py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${mode === "register" ? "bg-primary text-white" : "text-slate-400 hover:text-white"}`}
             >
               Đăng ký
             </button>

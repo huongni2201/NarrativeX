@@ -241,7 +241,7 @@ export function ProductionShell({ projectId, initialTab = "chapters" }: Readonly
       {activeTab === "chapters" && (
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_360px] gap-6 items-start">
           {/* Left Column: Chapters Table Card */}
-          <div className="rounded-2xl border border-slate-800/90 bg-[#0d1420] shadow-xl overflow-hidden">
+          <div className="rounded-2xl border border-slate-800/90 bg-surface shadow-xl overflow-hidden">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 p-5">
               <h2 className="text-base font-bold text-slate-100">Danh sách chapter</h2>
 
@@ -297,7 +297,7 @@ export function ProductionShell({ projectId, initialTab = "chapters" }: Readonly
       )}
 
       {activeTab === "storyboard" && (
-        <div className="rounded-2xl border border-slate-800/90 bg-[#0d1420] p-4 sm:p-6 shadow-xl">
+        <div className="rounded-2xl border border-slate-800/90 bg-surface p-4 sm:p-6 shadow-xl">
           <StoryboardScreen projectId={numericProjectId} chapters={chapters} />
         </div>
       )}
@@ -357,7 +357,7 @@ function WorkspaceError({ error, fallback }: Readonly<{ error: unknown; fallback
 
 function WorkspaceMessage({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <div className="rounded-2xl border border-slate-800/80 bg-[#0d1420]/50 p-8 text-sm text-slate-300">
+    <div className="rounded-2xl border border-slate-800/80 bg-surface/50 p-8 text-sm text-slate-300">
       {children}
     </div>
   );

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { History, RefreshCw, CheckCircle2, Clock, AlertCircle } from "lucide-react";
 import { useJobHistory } from "./hooks/useJobHistory";
 import { JobHistoryTable } from "./components/JobHistoryTable";
+import { ACTIVE_JOB_STATUSES, type JobStatus } from "@/types/api";
 
 export function JobHistoryScreen() {
   const [limit] = useState(20);
@@ -18,16 +19,17 @@ export function JobHistoryScreen() {
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
 
   const jobs = data?.content ?? [];
+  const isActiveJob = (status: string) => ACTIVE_JOB_STATUSES.has(status as JobStatus);
   const filteredJobs =
     statusFilter === "ALL"
       ? jobs
       : jobs.filter((j) => {
-          if (statusFilter === "RUNNING") return ["QUEUED", "RUNNING"].includes(j.status);
+          if (statusFilter === "RUNNING") return isActiveJob(j.status);
           return j.status === statusFilter;
         });
 
   const totalCount = jobs.length;
-  const runningCount = jobs.filter((j) => ["QUEUED", "RUNNING"].includes(j.status)).length;
+  const runningCount = jobs.filter((j) => isActiveJob(j.status)).length;
   const completedCount = jobs.filter((j) => j.status === "COMPLETED").length;
   const failedCount = jobs.filter((j) => j.status === "FAILED").length;
 
@@ -46,7 +48,7 @@ export function JobHistoryScreen() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-light text-primary">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-muted text-primary">
             <History className="h-5 w-5" />
           </div>
           <div>

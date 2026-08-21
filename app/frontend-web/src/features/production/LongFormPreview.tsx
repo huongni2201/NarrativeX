@@ -40,25 +40,25 @@ export const LongFormPreview: React.FC = () => {
         <div className="flex items-center gap-3">
           <button
             onClick={() => setView("overview")}
-            className="px-3 py-1.5 rounded-lg bg-[#0d1420] hover:bg-slate-800 border border-slate-800 text-xs font-semibold text-slate-300 flex items-center gap-1.5 transition-colors"
+            className="px-3 py-1.5 rounded-lg bg-surface hover:bg-surface-3 border border-border-dark text-xs font-semibold text-slate-300 flex items-center gap-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Quay lại</span>
           </button>
           <h1 className="text-base font-bold text-white tracking-wide">
-            Preview – {project.title}
+            Preview: {project.title}
           </h1>
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-purple-950/80 text-purple-300 border border-purple-700/60">
-            1080P • 58:42
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-primary-muted text-primary-light border border-primary/40">
+            1080P · 58:42
           </span>
         </div>
       </div>
 
       {/* Large 16:9 Video Player Box matching Screen 07 */}
-      <div className="relative aspect-video w-full rounded-2xl overflow-hidden bg-black border border-purple-500/30 shadow-[0_0_50px_rgba(0,0,0,0.8)] group select-none">
+      <div className="relative aspect-video w-full rounded-2xl overflow-hidden bg-black border border-border-dark shadow-2xl group select-none">
         {/* Cinematic Video Background Frame */}
         <Image
           src="https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1600&auto=format&fit=crop"
@@ -74,7 +74,7 @@ export const LongFormPreview: React.FC = () => {
           type="button"
           onClick={() => setIsPlaying(!isPlaying)}
           aria-label={isPlaying ? "Tạm dừng phát video" : "Bắt đầu phát video"}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 rounded-full bg-purple-600/80 hover:bg-purple-500 backdrop-blur-md border border-purple-400/60 text-white flex items-center justify-center shadow-[0_0_30px_rgba(124,58,237,0.8)] transition-transform hover:scale-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 rounded-full bg-primary hover:bg-primary-hover border border-primary text-white flex items-center justify-center shadow-xl transition-transform hover:scale-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           {isPlaying ? (
             <Pause className="w-7 h-7 fill-white" />
@@ -91,7 +91,7 @@ export const LongFormPreview: React.FC = () => {
               type="button"
               onClick={() => setIsPlaying(!isPlaying)}
               aria-label={isPlaying ? "Tạm dừng" : "Phát"}
-              className="text-slate-300 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded p-0.5"
+              className="text-slate-300 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded p-0.5"
             >
               {isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current" />}
             </button>
@@ -106,24 +106,24 @@ export const LongFormPreview: React.FC = () => {
               type="button"
               onClick={() => setIsMuted(!isMuted)}
               aria-label={isMuted ? "Bật âm thanh" : "Tắt âm thanh"}
-              className="text-slate-300 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded p-0.5"
+              className="text-slate-300 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded p-0.5"
             >
               {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4" />}
             </button>
             <button
               type="button"
               aria-label="Phụ đề"
-              className="text-slate-300 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded p-0.5"
+              className="text-slate-300 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded p-0.5"
             >
               <Subtitles className="w-4 h-4" />
             </button>
-            <span className="font-mono text-[10px] bg-purple-950/80 border border-purple-500/40 text-purple-300 px-1.5 py-0.5 rounded">
+            <span className="font-mono text-[10px] bg-primary-muted border border-primary/40 text-primary-light px-1.5 py-0.5 rounded">
               1080P
             </span>
             <button
               type="button"
               aria-label="Toàn màn hình"
-              className="text-slate-300 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded p-0.5"
+              className="text-slate-300 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded p-0.5"
             >
               <Maximize2 className="w-4 h-4" />
             </button>
@@ -140,14 +140,14 @@ export const LongFormPreview: React.FC = () => {
           <button
             type="button"
             onClick={() => setView("overview")}
-            className="text-xs text-purple-400 hover:text-purple-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded"
+            className="text-xs text-primary-light hover:text-primary-light transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
           >
             Mở Chapter Workspace →
           </button>
         </div>
 
         {/* Chapter Timeline with Marker Buttons matching Screen 07 */}
-        <div className="p-4 rounded-xl bg-[#0d1420] border border-slate-800/90 shadow-md">
+        <div className="p-4 rounded-xl bg-surface border border-border-dark shadow-md">
           <ChapterTimeline
             chapters={project.chapters}
             activeChapterNumber={activeChapterNumber}
@@ -158,14 +158,14 @@ export const LongFormPreview: React.FC = () => {
       </div>
 
       {/* Chapters trong video Horizontal Reel matching Screen 07 */}
-      <div className="p-5 rounded-2xl bg-[#0d1420] border border-slate-800/90 space-y-3.5 shadow-md">
+      <div className="p-5 rounded-2xl bg-surface border border-border-dark space-y-3.5 shadow-md">
         <div className="flex items-center justify-between">
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-200">
             Chapters trong video
           </h3>
           <button
             type="button"
-            className="text-xs text-purple-400 hover:text-purple-300 font-semibold transition-colors flex items-center gap-1.5"
+            className="text-xs text-primary-light hover:text-primary-light font-semibold transition-colors flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
           >
             <SlidersHorizontal className="w-3.5 h-3.5" />
             <span>Tùy chỉnh thứ tự</span>
@@ -175,14 +175,15 @@ export const LongFormPreview: React.FC = () => {
         {/* Horizontal Cards Reel */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
           {readyChapters.slice(0, 6).map((ch) => (
-            <div
+            <button
+              type="button"
               key={ch.id}
               onClick={() => handleSelectChapter(ch)}
-              tabIndex={0}
-              className={`group bg-[#090e18] hover:bg-[#111a29] border rounded-xl overflow-hidden cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 ${
+              aria-pressed={ch.number === activeChapterNumber}
+              className={`group w-full text-left bg-surface-panel hover:bg-surface-2 border rounded-xl overflow-hidden transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                 ch.number === activeChapterNumber
-                  ? "border-purple-500 shadow-[0_0_15px_rgba(124,58,237,0.3)] ring-1 ring-purple-500/50"
-                  : "border-slate-800 hover:border-slate-700"
+                  ? "border-primary ring-1 ring-primary/50"
+                  : "border-border-dark hover:border-surface-3"
               }`}
             >
               {/* Thumbnail */}
@@ -201,12 +202,12 @@ export const LongFormPreview: React.FC = () => {
 
               {/* Info */}
               <div className="p-2 space-y-0.5">
-                <h4 className="text-[11px] font-semibold text-slate-200 truncate group-hover:text-purple-300 transition-colors">
+                <h4 className="text-[11px] font-semibold text-slate-200 truncate group-hover:text-primary-light transition-colors">
                   {ch.title}
                 </h4>
                 <p className="text-[10px] text-slate-500 font-mono">{ch.duration}</p>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       </div>

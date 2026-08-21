@@ -171,7 +171,7 @@ export function ProjectCharactersTab({
           <button
             type="button"
             onClick={onOpenLibrary}
-            className="flex items-center gap-2 rounded-xl border border-primary/50 bg-primary-muted px-4 py-2.5 text-xs font-bold text-primary-light transition hover:bg-primary-light hover:text-white"
+            className="flex items-center gap-2 rounded-xl border border-primary/50 bg-primary-muted px-4 py-2.5 text-xs font-bold text-primary-light transition hover:bg-primary-muted hover:text-white"
           >
             <Plus className="h-3.5 w-3.5" />
             <span>Thêm từ thư viện chung</span>
@@ -209,7 +209,7 @@ export function ProjectCharactersTab({
             onClick={() => setActiveFilter("ALL")}
             className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
               activeFilter === "ALL"
-                ? "border border-primary bg-primary-light text-primary-light"
+                ? "border border-primary bg-primary-muted text-primary-light"
                 : "border border-border bg-surface-card text-text-muted hover:border-border-subtle hover:text-text-primary"
             }`}
           >
@@ -220,7 +220,7 @@ export function ProjectCharactersTab({
             onClick={() => setActiveFilter("MAIN")}
             className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
               activeFilter === "MAIN"
-                ? "border border-primary bg-primary-light text-primary-light"
+                ? "border border-primary bg-primary-muted text-primary-light"
                 : "border border-border bg-surface-card text-text-muted hover:border-border-subtle hover:text-text-primary"
             }`}
           >
@@ -231,7 +231,7 @@ export function ProjectCharactersTab({
             onClick={() => setActiveFilter("SUPPORTING")}
             className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
               activeFilter === "SUPPORTING"
-                ? "border border-primary bg-primary-light text-primary-light"
+                ? "border border-primary bg-primary-muted text-primary-light"
                 : "border border-border bg-surface-card text-text-muted hover:border-border-subtle hover:text-text-primary"
             }`}
           >
@@ -242,7 +242,7 @@ export function ProjectCharactersTab({
             onClick={() => setActiveFilter("ANTAGONIST")}
             className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
               activeFilter === "ANTAGONIST"
-                ? "border border-primary bg-primary-light text-primary-light"
+                ? "border border-primary bg-primary-muted text-primary-light"
                 : "border border-border bg-surface-card text-text-muted hover:border-border-subtle hover:text-text-primary"
             }`}
           >
@@ -253,7 +253,7 @@ export function ProjectCharactersTab({
             onClick={() => setActiveFilter("INCOMPLETE")}
             className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
               activeFilter === "INCOMPLETE"
-                ? "border border-primary bg-primary-light text-primary-light"
+                ? "border border-primary bg-primary-muted text-primary-light"
                 : "border border-border bg-surface-card text-text-muted hover:border-border-subtle hover:text-text-primary"
             }`}
           >
@@ -334,7 +334,7 @@ export function ProjectCharactersTab({
                   <Link
                     key={character.assignmentId}
                     href={`/projects/${projectId}/characters/${character.id}`}
-                    className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-border bg-surface-card p-4 transition-all duration-200 hover:border-primary/60 hover:bg-surface-2"
+                    className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-border bg-surface-card p-4 transition-[background-color,border-color] duration-200 hover:border-primary/60 hover:bg-surface-2"
                   >
                     <div>
                       <div className="flex items-start gap-3">
@@ -424,7 +424,7 @@ export function ProjectCharactersTab({
                 >
                   &lt;
                 </button>
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg border border-primary/50 bg-primary-light font-bold text-primary-light">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg border border-primary/50 bg-primary-muted font-bold text-primary-light">
                   1
                 </span>
                 <button
@@ -447,7 +447,7 @@ export function ProjectCharactersTab({
             <h3 className="text-sm font-bold text-text-primary">Liên kết với thư viện chung</h3>
 
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-primary/40 bg-primary-light text-primary">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-primary/40 bg-primary-muted text-primary">
                 <Library className="h-6 w-6" />
               </div>
               <div>

@@ -159,6 +159,7 @@ export function ProjectsDashboardLive() {
           <div className="w-64"><Input value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="Tìm kiếm dự án…" icon={<Search className="h-4 w-4" />} /></div>
           <select value={sort} onChange={(event) => setSort(event.target.value as ProjectDashboardSort)} className="rounded-lg border border-border bg-surface-2 px-3 text-xs text-text-secondary">
             <option value="NEWEST">Mới nhất</option>
+            <option value="STARRED">Yêu thích nhất</option>
             <option value="OLDEST">Cũ nhất</option>
             <option value="NAME">Tên (A-Z)</option>
           </select>

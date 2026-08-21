@@ -40,13 +40,13 @@ export function QuotaDetailModal({ isOpen, onClose }: Readonly<QuotaDetailModalP
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border p-5">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-light text-primary">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-muted text-primary">
               <CreditCard className="h-5 w-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-bold text-text-primary">Hạn mức & Gói tài khoản</h2>
-                <span className="rounded-full border border-primary/40 bg-primary-light px-2.5 py-0.5 font-mono text-[10px] font-bold text-primary-hover uppercase">
+                <span className="rounded-full border border-primary/40 bg-primary-muted px-2.5 py-0.5 font-mono text-[10px] font-bold text-primary-hover uppercase">
                   {quota?.tier ?? "STARTER"}
                 </span>
               </div>
@@ -86,7 +86,7 @@ export function QuotaDetailModal({ isOpen, onClose }: Readonly<QuotaDetailModalP
                 {/* Progress bar */}
                 <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-surface-3">
                   <div
-                    className="h-full bg-gradient-to-r from-primary to-purple-400 transition-all duration-500"
+                    className="h-full bg-gradient-to-r from-primary to-purple-400 transition-[width] duration-500"
                     style={{ width: `${Math.max(5, 100 - usedPercent)}%` }}
                   />
                 </div>

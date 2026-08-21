@@ -33,7 +33,7 @@ interface ProjectTabsProps {
 
 export function ProjectTabs({ activeTab, onChange }: Readonly<ProjectTabsProps>) {
   return (
-    <div className="flex items-center gap-2 overflow-x-auto border-b border-slate-800/80 pb-3" role="tablist" aria-label="Project tabs">
+      <div className="flex items-center gap-2 overflow-x-auto border-b border-border-dark pb-3" role="tablist" aria-label="Các khu vực của dự án">
       {projectTabConfig.map((tab) => {
         const isActive = activeTab === tab.id;
         return (
@@ -45,11 +45,11 @@ export function ProjectTabs({ activeTab, onChange }: Readonly<ProjectTabsProps>)
             onClick={() => onChange(tab.id)}
             className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-colors whitespace-nowrap ${
               isActive
-                ? "border border-purple-600/70 bg-purple-950/40 text-purple-200 shadow-md shadow-purple-950/50"
-                : "border border-slate-800/80 bg-[#0d1420]/60 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+                ? "border border-primary/70 bg-primary-muted text-primary-hover shadow-sm"
+                : "border border-border-dark bg-surface/60 text-slate-400 hover:border-border hover:text-slate-200"
             }`}
           >
-            <span className={isActive ? "text-purple-300" : "text-slate-500"}>
+            <span className={isActive ? "text-primary-hover" : "text-slate-500"}>
               {tab.icon}
             </span>
             <span>{tab.label}</span>

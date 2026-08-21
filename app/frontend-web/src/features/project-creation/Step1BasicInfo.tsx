@@ -54,13 +54,13 @@ export const Step1BasicInfo: React.FC<Step1Props> = ({ validationErrors = [] }) 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <label htmlFor={genreId} className="text-xs font-medium text-slate-300">Thể loại</label>
-            <select id={genreId} value={wizardDraft.genre} onChange={(event) => updateWizardDraft({ genre: event.target.value })} className="w-full rounded-lg border border-slate-800 bg-[#0a0f1d] px-3.5 py-2 text-sm text-slate-100 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500/50">
+            <select id={genreId} value={wizardDraft.genre} onChange={(event) => updateWizardDraft({ genre: event.target.value })} className="w-full rounded-lg border border-border-dark bg-surface-input px-3.5 py-2 text-sm text-slate-100 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/50">
               {genres.map((genre) => <option key={genre} value={genre}>{genre}</option>)}
             </select>
           </div>
           <div className="space-y-1.5">
             <label htmlFor={languageId} className="text-xs font-medium text-slate-300">Ngôn ngữ truyện</label>
-            <select id={languageId} value={wizardDraft.language} onChange={(event) => updateWizardDraft({ language: event.target.value })} className="w-full rounded-lg border border-slate-800 bg-[#0a0f1d] px-3.5 py-2 text-sm text-slate-100 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500/50">
+            <select id={languageId} value={wizardDraft.language} onChange={(event) => updateWizardDraft({ language: event.target.value })} className="w-full rounded-lg border border-border-dark bg-surface-input px-3.5 py-2 text-sm text-slate-100 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/50">
               {languages.map((language) => <option key={language} value={language}>{language}</option>)}
             </select>
           </div>
@@ -72,7 +72,7 @@ export const Step1BasicInfo: React.FC<Step1Props> = ({ validationErrors = [] }) 
             {aspectRatios.map((ratio) => {
               const isActive = wizardDraft.aspectRatio === ratio;
               return (
-                <button type="button" role="radio" aria-checked={isActive} key={ratio} onClick={() => updateWizardDraft({ aspectRatio: ratio })} className={cn("rounded-lg border px-4 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500", isActive ? "border-purple-500 bg-purple-600 text-white" : "border-slate-800 bg-[#0a0f1d] text-slate-400 hover:text-slate-200")}>{ratio}</button>
+                <button type="button" role="radio" aria-checked={isActive} key={ratio} onClick={() => updateWizardDraft({ aspectRatio: ratio })} className={cn("rounded-lg border px-4 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary", isActive ? "border-primary bg-primary text-white" : "border-border-dark bg-surface-input text-slate-400 hover:text-slate-200")}>{ratio}</button>
               );
             })}
           </div>
@@ -84,7 +84,7 @@ export const Step1BasicInfo: React.FC<Step1Props> = ({ validationErrors = [] }) 
             {qualities.map((quality) => {
               const isActive = wizardDraft.quality === quality;
               return (
-                <button type="button" role="radio" aria-checked={isActive} key={quality} onClick={() => updateWizardDraft({ quality })} className={cn("rounded-lg border px-4 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500", isActive ? "border-purple-500 bg-purple-600 text-white" : "border-slate-800 bg-[#0a0f1d] text-slate-400 hover:text-slate-200")}>{quality}</button>
+                <button type="button" role="radio" aria-checked={isActive} key={quality} onClick={() => updateWizardDraft({ quality })} className={cn("rounded-lg border px-4 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary", isActive ? "border-primary bg-primary text-white" : "border-border-dark bg-surface-input text-slate-400 hover:text-slate-200")}>{quality}</button>
               );
             })}
           </div>
@@ -92,10 +92,10 @@ export const Step1BasicInfo: React.FC<Step1Props> = ({ validationErrors = [] }) 
       </div>
 
       <aside className="w-full shrink-0 space-y-4 md:w-64">
-        <div className="space-y-3 rounded-xl border border-slate-800/80 bg-[#090e18] p-4">
-          <div className="flex items-center gap-2 text-xs font-semibold text-slate-300"><Info className="h-4 w-4 text-purple-400" /><span>Gợi ý</span></div>
+        <div className="space-y-3 rounded-xl border border-border-dark bg-surface-panel p-4">
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-300"><Info className="h-4 w-4 text-primary-light" /><span>Gợi ý</span></div>
           <p className="text-xs leading-relaxed text-slate-400">Bạn có thể thay đổi các cài đặt này sau trong quá trình thực hiện dự án.</p>
-          <div className="flex items-start gap-2.5 rounded-lg border border-purple-800/40 bg-purple-950/40 p-3 text-xs text-purple-300"><Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-purple-400" /><span>Tỉ lệ 9:16 phù hợp để tạo Short / Reel / TikTok.</span></div>
+          <div className="flex items-start gap-2.5 rounded-lg border border-primary/30 bg-primary-muted p-3 text-xs text-primary-light"><Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-primary-light" /><span>Tỉ lệ 9:16 phù hợp để tạo Short / Reel / TikTok.</span></div>
         </div>
       </aside>
     </div>

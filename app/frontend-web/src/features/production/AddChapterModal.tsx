@@ -41,10 +41,10 @@ export const AddChapterModal: React.FC = () => {
       isOpen={isAddChapterModalOpen}
       onClose={closeAddChapterModal}
       maxWidth="2xl"
-      className="p-0 bg-[#0d1420] border border-slate-800"
+      className="p-0 bg-surface border border-slate-800"
     >
       {/* Modal Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800/80 bg-[#090e18]">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800/80 bg-surface-panel">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-lg bg-purple-950/80 border border-purple-700/60 flex items-center justify-center text-purple-400">
             <Sparkles className="w-4 h-4" />
@@ -131,7 +131,7 @@ export const AddChapterModal: React.FC = () => {
         </div>
 
         {/* Kế thừa từ dự án (Project Inheritance Principle) */}
-        <div className="p-4 rounded-xl bg-[#090e18] border border-slate-800/80 space-y-3">
+        <div className="p-4 rounded-xl bg-surface-panel border border-slate-800/80 space-y-3">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-200">

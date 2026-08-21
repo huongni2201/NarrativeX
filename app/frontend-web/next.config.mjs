@@ -28,6 +28,10 @@ const nextConfig = {
         source: '/logout',
         destination: `${backendUrl}/logout`,
       },
+      {
+        source: '/oauth2/:path*',
+        destination: `${backendUrl}/oauth2/:path*`,
+      },
     ];
   },
 };

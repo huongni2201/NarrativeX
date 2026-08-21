@@ -103,7 +103,7 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({ title, actions }) =>
           type="button"
           aria-label="Trợ giúp & Hướng dẫn"
           title="Trợ giúp & Hướng dẫn"
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-transparent text-slate-400 transition-colors hover:border-slate-800 hover:bg-slate-800/60 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-transparent text-slate-400 transition-colors hover:border-border hover:bg-surface-3 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           <HelpCircle className="h-4.5 w-4.5" />
         </button>
@@ -114,12 +114,12 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({ title, actions }) =>
           aria-label={`Thông báo (${unreadCount} chưa đọc)`}
           title="Trung tâm thông báo"
           onClick={() => setIsNotificationDrawerOpen(true)}
-          className="relative flex h-9 w-9 items-center justify-center rounded-full border border-transparent text-slate-400 transition-colors hover:border-slate-800 hover:bg-slate-800/60 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+          className="relative flex h-10 w-10 items-center justify-center rounded-full border border-transparent text-slate-400 transition-colors hover:border-border hover:bg-surface-3 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           <Bell className="h-4.5 w-4.5" />
           {unreadCount > 0 && (
             <span
-              className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-purple-600 px-1 text-[10px] font-bold text-white shadow-md shadow-purple-950/80 ring-2 ring-[#070b14]"
+              className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-white shadow-md ring-2 ring-background"
             >
               {unreadCount > 99 ? "99+" : unreadCount}
             </span>
@@ -135,13 +135,13 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({ title, actions }) =>
             aria-expanded={isProfileMenuOpen}
             aria-haspopup="menu"
             aria-label={`Mở menu tài khoản của ${displayName}`}
-            className="flex items-center gap-2 p-1 rounded-full sm:rounded-lg hover:bg-slate-800/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+            className="flex items-center gap-2 p-1 rounded-full sm:rounded-lg hover:bg-surface-3 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
-            <div className="w-8 h-8 rounded-full overflow-hidden border border-purple-500/40 ring-2 ring-purple-600/20 shrink-0 bg-slate-900 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full overflow-hidden border border-primary/40 ring-2 ring-primary/20 shrink-0 bg-slate-900 flex items-center justify-center">
               {user?.avatarUrl ? (
                 <img src={user.avatarUrl} alt="" className="w-full h-full object-cover" />
               ) : (
-                <span className="w-full h-full flex items-center justify-center bg-purple-700 text-sm font-bold text-white">
+                <span className="w-full h-full flex items-center justify-center bg-primary text-sm font-bold text-white">
                   {initials}
                 </span>
               )}
@@ -176,7 +176,7 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({ title, actions }) =>
                     setIsProfileMenuOpen(false);
                     router.push("/");
                   }}
-                  className="w-full text-left px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-slate-800 hover:text-white flex items-center gap-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+                  className="w-full text-left px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-surface-3 hover:text-white flex items-center gap-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   <User className="w-3.5 h-3.5 text-slate-400" />
                   <span>Tổng quan Studio</span>

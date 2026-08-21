@@ -7,6 +7,10 @@ const chapterStateSource = await readFile(
   new URL("../src/features/chapters/hooks/useChapterWorkspaceState.ts", import.meta.url),
   "utf8",
 );
+const historyScreenSource = await readFile(
+  new URL("../src/features/history/JobHistoryScreen.tsx", import.meta.url),
+  "utf8",
+);
 
 const backendStatuses = [
   "QUEUED",
@@ -37,4 +41,10 @@ test("Chapter workspace hook stops polling terminal jobs", () => {
 
 test("Chapter workspace hook derives active UI state from typed active statuses", () => {
   assert.match(chapterStateSource, /ACTIVE_JOB_STATUSES\.has\(\s*analysisJob\.status\s*\)/);
+});
+
+test("Job history uses the shared active-status contract for filtering and metrics", () => {
+  assert.match(historyScreenSource, /ACTIVE_JOB_STATUSES/);
+  assert.match(historyScreenSource, /ACTIVE_JOB_STATUSES\.has\(status as JobStatus\)/);
+  assert.doesNotMatch(historyScreenSource, /\[\s*"QUEUED",\s*"RUNNING"\s*\]/);
 });

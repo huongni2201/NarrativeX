@@ -35,7 +35,7 @@ export function ChapterTable({ chapters, onOpenChapter }: Readonly<ChapterTableP
     <div className="flex flex-col">
       <div className="overflow-x-auto">
         <table className="w-full min-w-[700px] text-left text-xs">
-          <thead className="border-b border-slate-800 bg-[#090e18]/80 font-semibold text-slate-400">
+          <thead className="border-b border-slate-800 bg-surface-panel/80 font-semibold text-slate-400">
             <tr>
               <th className="w-12 px-4 py-3.5 text-center font-mono">#</th>
               <th className="px-4 py-3.5">Tên chapter</th>
@@ -103,7 +103,7 @@ function ChapterRow({
   return (
     <tr
       onClick={onOpen}
-      className="group cursor-pointer bg-[#0d1420]/70 text-slate-200 transition-colors hover:bg-[#111a29]"
+      className="group cursor-pointer bg-surface/70 text-slate-200 transition-colors hover:bg-surface-2"
     >
       <td className="px-4 py-4 text-center font-mono text-slate-400 font-bold">
         {String(displayNumber).padStart(2, "0")}

@@ -11,13 +11,12 @@ export interface RegisterInput extends LoginInput {
   displayName: string;
 }
 
-const AUTH_BASE_URL =
-  process.env.NEXT_PUBLIC_AUTH_BASE_URL ??
-  process.env.NEXT_PUBLIC_API_BASE_URL ??
-  "http://localhost:8080";
+// Start authentication on the browser-visible origin by default. Deployments
+// with a separate Spring Security origin can opt in through this override.
+const AUTH_BASE_URL = process.env.NEXT_PUBLIC_AUTH_BASE_URL?.trim();
 
 function authUrl(path: string) {
-  return `${AUTH_BASE_URL.replace(/\/$/, "")}${path}`;
+  return AUTH_BASE_URL ? `${AUTH_BASE_URL.replace(/\/$/, "")}${path}` : path;
 }
 
 export const authApi = {

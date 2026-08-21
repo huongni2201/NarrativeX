@@ -14,11 +14,11 @@ interface AssetCardProps {
 }
 
 export const AssetCard: React.FC<AssetCardProps> = ({ asset, isSelected = false, onClick, onDownload }) => (
-  <article className={cn("group overflow-hidden rounded-xl border bg-[#0d1420] shadow-md transition-colors", isSelected ? "border-purple-500 ring-2 ring-purple-500/50" : "border-slate-800/90 hover:border-slate-700")}>
+  <article className={cn("group overflow-hidden rounded-xl border bg-surface shadow-md transition-colors", isSelected ? "border-purple-500 ring-2 ring-purple-500/50" : "border-slate-800/90 hover:border-slate-700")}>
     <button type="button" onClick={onClick} className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500">
       <div className="relative aspect-[16/10] overflow-hidden bg-slate-950">
         {asset.type === "AUDIO" ? (
-          <div className="flex h-full flex-col items-center justify-center gap-2 bg-[#090e18] text-purple-300"><Volume2 className="h-8 w-8" /><span className="text-xs">{asset.duration ?? "Audio"}</span></div>
+          <div className="flex h-full flex-col items-center justify-center gap-2 bg-surface-panel text-purple-300"><Volume2 className="h-8 w-8" /><span className="text-xs">{asset.duration ?? "Audio"}</span></div>
         ) : (
           // Backend media may come from environment-specific Cloudflare R2/CDN hosts. Keep native image loading until the storage contract exposes a stable trusted hostname for next/image remotePatterns.
           <img

@@ -93,7 +93,7 @@ export function ProjectHero({
                 type="button"
                 aria-label={isStarred ? "Bỏ yêu thích" : "Yêu thích dự án"}
                 onClick={() => setIsStarred(!isStarred)}
-                className="text-slate-400 hover:text-amber-400 transition-colors shrink-0"
+                 className="text-slate-400 hover:text-warning transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-card rounded-sm"
               >
                 <Star className={`h-5 w-5 ${isStarred ? "fill-amber-400 text-amber-400" : ""}`} />
               </button>
@@ -138,22 +138,22 @@ export function ProjectHero({
         {/* 4 Stat Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatCard
-            icon={<BookOpen className="h-4 w-4 text-purple-400" />}
+             icon={<BookOpen className="h-4 w-4 text-primary-hover" />}
             value={metrics.totalChapters}
             label="Chapters"
           />
           <StatCard
-            icon={<Film className="h-4 w-4 text-indigo-400" />}
+             icon={<Film className="h-4 w-4 text-text-secondary" />}
             value={metrics.totalScenes}
             label="Scene"
           />
           <StatCard
-            icon={<Clock className="h-4 w-4 text-cyan-400" />}
+             icon={<Clock className="h-4 w-4 text-text-secondary" />}
             value={formatDuration(metrics.estimatedDurationSeconds)}
             label="Thời lượng"
           />
           <StatCard
-            icon={<Sparkles className="h-4 w-4 text-pink-400" />}
+             icon={<Sparkles className="h-4 w-4 text-text-secondary" />}
             value={metrics.approvedVisuals}
             label="Visual đã duyệt"
           />
@@ -169,7 +169,7 @@ export function ProjectHero({
                 style={{ width: `${Math.max(0, Math.min(metrics.overallProgress, 100))}%` }}
               />
             </div>
-            <span className="font-mono text-xs font-bold text-purple-300 shrink-0">
+             <span className="font-mono text-xs font-bold text-primary-hover shrink-0">
               {metrics.overallProgress}%
             </span>
           </div>
@@ -185,7 +185,7 @@ export function ProjectHero({
             <span className="rounded-xl border border-blue-500/20 bg-blue-950/40 px-3 py-1 text-xs font-medium text-blue-400">
               <span className="font-bold">{metrics.processingJobs}</span> Đang xử lý
             </span>
-            <span className="rounded-xl border border-purple-500/20 bg-purple-950/40 px-3 py-1 text-xs font-medium text-purple-300">
+            <span className="rounded-xl border border-primary/30 bg-primary-muted px-3 py-1 text-xs font-medium text-primary-light">
               ~{formatMinutes(metrics.estimatedDurationSeconds)} Thời lượng dự kiến
             </span>
           </div>

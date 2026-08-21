@@ -57,7 +57,7 @@ export function StoryboardScreen({
 
   if (orderedChapters.length === 0) {
     return (
-      <section className="rounded-xl border border-slate-800 bg-[#07111c] p-10 text-center">
+      <section className="rounded-xl border border-slate-800 bg-surface-input p-10 text-center">
         <h2 className="text-lg font-semibold text-slate-100">Storyboard chưa có Chapter</h2>
         <p className="mt-2 text-sm text-slate-500">
           Tạo Chapter và chạy Analyze để backend sinh Scene và Visual Beat thật.
@@ -67,7 +67,7 @@ export function StoryboardScreen({
   }
 
   return (
-    <section className="overflow-hidden rounded-xl border border-[#163047] bg-[#06101a] shadow-2xl shadow-black/20">
+    <section className="overflow-hidden rounded-xl border border-storyboard bg-surface-storyboard shadow-2xl shadow-black/20">
       <StoryboardHeader
         hideChapterSelector={hideChapterSelector}
         orderedChapters={orderedChapters}
@@ -157,7 +157,7 @@ export function StoryboardScreen({
                           type="button"
                           onClick={() => openAddVisualBeat(scene.id)}
                           aria-label={`Thêm visual beat vào Scene ${scene.orderIndex + 1}`}
-                          className="flex min-h-[222px] flex-col items-center justify-center rounded-lg border border-dashed border-[#26425a] bg-[#07131f] text-purple-400 transition-colors hover:border-purple-500/60 hover:bg-purple-950/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+                          className="flex min-h-[222px] flex-col items-center justify-center rounded-lg border border-dashed border-storyboard-strong bg-surface-storyboard-card text-purple-400 transition-colors hover:border-purple-500/60 hover:bg-purple-950/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
                         >
                           <Plus className="h-5 w-5" />
                           <span className="mt-2 text-[11px]">Thêm visual beat</span>

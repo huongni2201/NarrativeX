@@ -441,7 +441,7 @@ export function CharacterDetailView({
                     d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                   />
                   <path
-                    className="text-primary transition-all duration-1000 ease-out"
+                    className="text-primary transition-colors duration-1000 ease-out"
                     strokeDasharray={`${completionPercentage}, 100`}
                     strokeWidth="3.5"
                     strokeLinecap="round"
@@ -946,7 +946,7 @@ function TabButton({
       onClick={() => onClick(id)}
       className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold whitespace-nowrap transition ${
         isActive
-          ? "border border-primary bg-primary-light text-primary-light shadow-md shadow-primary/20"
+          ? "border border-primary bg-primary-muted text-primary-light shadow-md shadow-primary/20"
           : "border border-border bg-surface-card text-text-muted hover:border-border-subtle hover:text-text-primary"
       }`}
     >

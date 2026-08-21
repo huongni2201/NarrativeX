@@ -1,6 +1,6 @@
 import React from "react";
 import { useStudioStore } from "@/store/useStudioStore";
-import { FileText, UploadCloud, Sparkles, Info } from "lucide-react";
+import { FileText, UploadCloud, Info } from "lucide-react";
 import type { ApiFieldError } from "@/types/api";
 
 interface Step2Props {
@@ -12,7 +12,6 @@ interface Step2Props {
 export const Step2ImportStory: React.FC<Step2Props> = ({ validationErrors = [] }) => {
   const wizardDraft = useStudioStore((state) => state.wizardDraft);
   const updateWizardDraft = useStudioStore((state) => state.updateWizardDraft);
-  const loadSampleStory = useStudioStore((state) => state.loadSampleStory);
   const contentError = validationErrors.find((error) => ["content", "storyText"].includes(error.field));
   const characterCount = wizardDraft.storyText.length;
 
@@ -31,7 +30,7 @@ export const Step2ImportStory: React.FC<Step2Props> = ({ validationErrors = [] }
           Nhập văn bản
         </div>
 
-        <div className="flex-1 flex flex-col relative rounded-xl border border-slate-800 bg-[#0a0f1d] overflow-hidden focus-within:border-purple-500 transition-colors min-h-[320px]">
+        <div className="flex-1 flex flex-col relative rounded-xl border border-slate-800 bg-surface-dark overflow-hidden focus-within:border-purple-500 transition-colors min-h-[320px]">
           <textarea
             rows={12}
             value={wizardDraft.storyText}
@@ -41,7 +40,7 @@ export const Step2ImportStory: React.FC<Step2Props> = ({ validationErrors = [] }
             aria-describedby={contentError ? "story-content-error" : undefined}
             className="w-full flex-1 p-4 bg-transparent text-slate-100 placeholder:text-slate-500 focus:outline-none text-sm leading-relaxed resize-none font-sans"
           />
-          <div className="px-4 py-2 bg-[#090e18] border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+          <div className="px-4 py-2 bg-surface-panel border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
             <span className="font-mono">
               Số ký tự: <strong className="text-purple-300">{characterCount.toLocaleString()}</strong>
             </span>
@@ -54,7 +53,7 @@ export const Step2ImportStory: React.FC<Step2Props> = ({ validationErrors = [] }
           )}
         </div>
 
-        <div className="rounded-xl border border-dashed border-slate-700 bg-[#090e18]/70 p-5" aria-disabled="true">
+        <div className="rounded-xl border border-dashed border-slate-700 bg-surface-panel/70 p-5" aria-disabled="true">
           <div className="flex items-start gap-3">
             <div className="w-10 h-10 rounded-lg bg-slate-900 border border-slate-700 flex items-center justify-center text-slate-500 shrink-0">
               <UploadCloud className="w-5 h-5" />
@@ -73,7 +72,7 @@ export const Step2ImportStory: React.FC<Step2Props> = ({ validationErrors = [] }
       </div>
 
       <div className="w-full md:w-64 shrink-0 space-y-4">
-        <div className="p-4 rounded-xl bg-[#090e18] border border-slate-800/80 space-y-4">
+        <div className="p-4 rounded-xl bg-surface-panel border border-slate-800/80 space-y-4">
           <div className="flex items-center gap-2 text-slate-300 font-semibold text-xs">
             <Info className="w-4 h-4 text-purple-400" />
             <span>Gợi ý</span>
@@ -85,12 +84,6 @@ export const Step2ImportStory: React.FC<Step2Props> = ({ validationErrors = [] }
             <li className="flex items-start gap-2"><span className="text-purple-400 font-bold">•</span><span>File import sẽ được bật sau khi backend hỗ trợ extraction và storage.</span></li>
           </ul>
 
-          <div className="pt-2 border-t border-slate-800/80">
-            <button type="button" onClick={loadSampleStory} className="w-full py-2 px-3 rounded-lg bg-purple-950/60 hover:bg-purple-900/60 border border-purple-800/60 text-purple-300 text-xs font-semibold flex items-center justify-center gap-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500">
-              <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-              <span>Điền truyện mẫu</span>
-            </button>
-          </div>
         </div>
       </div>
     </div>

@@ -28,7 +28,7 @@ export function AuthEntry() {
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className="text-sm text-purple-300 hover:text-purple-200"
+            className="text-sm text-primary-light hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
           >
             Thử lại
           </button>

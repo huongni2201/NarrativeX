@@ -1,4 +1,4 @@
-import { ImageIcon } from "lucide-react";
+import { ImageIcon, Maximize2 } from "lucide-react";
 import type {
   ApiStoryboardVisualBeat,
   CameraMovement,
@@ -20,11 +20,11 @@ export function VisualBeatCard({
   const approved = beat.reviewStatus === "APPROVED";
 
   return (
-    <article className="group relative flex flex-col overflow-hidden rounded-2xl border border-border-dark bg-surface-card shadow-lg transition-transform duration-200 hover:-translate-y-0.5 hover:border-purple-500/60 hover:shadow-purple-950/30">
+    <article className="group relative flex flex-col overflow-hidden rounded-2xl border border-border-dark bg-surface-card shadow-lg transition-transform duration-200 hover:-translate-y-0.5 hover:border-primary/60">
       {/* Visual Image / Frame Area */}
-      <div className="relative aspect-[3/4] w-full overflow-hidden bg-gradient-to-b from-slate-800/80 via-surface-dark to-black">
+      <div className="relative aspect-[3/4] w-full overflow-hidden bg-surface-dark">
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-3 text-slate-600">
-          <ImageIcon className="h-8 w-8 text-slate-600 transition-colors group-hover:text-purple-400" />
+          <ImageIcon className="h-8 w-8 text-slate-600 transition-colors group-hover:text-primary-hover" />
           <span className="text-center text-[10px] text-slate-500">Visual frame render</span>
         </div>
 
@@ -35,11 +35,11 @@ export function VisualBeatCard({
           </div>
           <button
             type="button"
-            className="flex h-6 w-6 items-center justify-center rounded-md bg-black/60 text-slate-300 backdrop-blur-md transition-colors hover:bg-black/80 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+            className="flex h-10 w-10 items-center justify-center rounded-md bg-black/60 text-slate-300 transition-colors hover:bg-black/80 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             title="Đổi góc quay / action"
             aria-label="Đổi góc quay / action"
           >
-            ⤢
+            <Maximize2 className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -67,7 +67,7 @@ export function VisualBeatCard({
             type="button"
             disabled={updating}
             onClick={() => onReview(approved ? "NEEDS_REVIEW" : "APPROVED")}
-            className="rounded-md px-2 py-1 text-xs font-medium text-purple-300 transition-colors hover:bg-purple-950/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 disabled:opacity-40"
+            className="rounded-md px-2 py-1 text-xs font-medium text-primary-hover transition-colors hover:bg-primary-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-40"
           >
             {updating ? "…" : approved ? "Review lại" : "Duyệt"}
           </button>
@@ -80,8 +80,8 @@ export function VisualBeatCard({
 function MotionBadge({ mode, movement }: Readonly<{ mode: MotionMode; movement: CameraMovement }>) {
   const label = movement === "NONE" ? mode : `${mode} · ${movement}`;
   return (
-    <span
-      className="rounded-md bg-black/65 px-2 py-1 text-[9px] font-semibold tracking-wide text-slate-300 backdrop-blur-md"
+      <span
+      className="rounded-md bg-black/65 px-2 py-1 text-[9px] font-semibold tracking-wide text-slate-300"
       title={`Render: ${mode}; camera: ${movement}`}
     >
       {label}

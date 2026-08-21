@@ -80,7 +80,7 @@ export const Render: React.FC = () => {
               Render Chapter hiện tại
             </h3>
 
-            <div className="p-5 rounded-2xl bg-[#0d1420] border border-purple-500/40 flex flex-col sm:flex-row items-center justify-between gap-5 shadow-xl">
+            <div className="p-5 rounded-2xl bg-surface border border-purple-500/40 flex flex-col sm:flex-row items-center justify-between gap-5 shadow-xl">
               <div className="flex items-center gap-4 w-full sm:w-auto">
                 <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-900 border border-purple-500/40 shrink-0">
                   <Image
@@ -125,7 +125,7 @@ export const Render: React.FC = () => {
               Render toàn bộ Project (các chapter đã sẵn sàng)
             </h3>
 
-            <div className="p-5 rounded-2xl bg-[#0d1420] border border-purple-500/40 flex flex-col sm:flex-row items-center justify-between gap-5 shadow-xl">
+            <div className="p-5 rounded-2xl bg-surface border border-purple-500/40 flex flex-col sm:flex-row items-center justify-between gap-5 shadow-xl">
               <div className="flex items-center gap-4 w-full sm:w-auto">
                 <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-900 border border-purple-500/40 shrink-0">
                   <img
@@ -161,7 +161,7 @@ export const Render: React.FC = () => {
       )}
 
       {/* Cài đặt xuất (Render Settings) matching Screen 06 */}
-      <div className="p-6 rounded-2xl bg-[#0d1420] border border-slate-800/90 space-y-5">
+      <div className="p-6 rounded-2xl bg-surface border border-slate-800/90 space-y-5">
         <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200">
           Cài đặt xuất
         </h3>
@@ -175,7 +175,7 @@ export const Render: React.FC = () => {
             <select
               value={resolution}
               onChange={(e) => setResolution(e.target.value)}
-              className="w-full bg-[#090e18] border border-slate-800 rounded-lg px-3.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-purple-500 cursor-pointer"
+              className="w-full bg-surface-panel border border-slate-800 rounded-lg px-3.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-purple-500 cursor-pointer"
             >
               <option value="1080p">1080P (Full HD)</option>
               <option value="720p">720P (Standard HD)</option>
@@ -191,7 +191,7 @@ export const Render: React.FC = () => {
             <select
               value={aspectRatio}
               onChange={(e) => setAspectRatio(e.target.value)}
-              className="w-full bg-[#090e18] border border-slate-800 rounded-lg px-3.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-purple-500 cursor-pointer"
+              className="w-full bg-surface-panel border border-slate-800 rounded-lg px-3.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-purple-500 cursor-pointer"
             >
               <option value="16:9">16 : 9 (Landscape / YouTube)</option>
               <option value="9:16">9 : 16 (Shorts / Reels / TikTok)</option>
@@ -208,7 +208,7 @@ export const Render: React.FC = () => {
             <select
               value={quality}
               onChange={(e) => setQuality(e.target.value)}
-              className="w-full bg-[#090e18] border border-slate-800 rounded-lg px-3.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-purple-500 cursor-pointer"
+              className="w-full bg-surface-panel border border-slate-800 rounded-lg px-3.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-purple-500 cursor-pointer"
             >
               <option value="standard">Standard</option>
               <option value="high">High Bitrate</option>
@@ -224,7 +224,7 @@ export const Render: React.FC = () => {
             id="watermark-cb"
             checked={addWatermark}
             onChange={(e) => setAddWatermark(e.target.checked)}
-            className="w-4 h-4 rounded bg-[#090e18] border-slate-700 text-purple-600 focus:ring-purple-500 focus:ring-offset-[#0d1420] cursor-pointer"
+            className="w-4 h-4 rounded bg-surface-panel border-slate-700 text-purple-600 focus:ring-purple-500 focus:ring-offset-surface cursor-pointer"
           />
           <label htmlFor="watermark-cb" className="text-xs text-slate-300 select-none cursor-pointer">
             Thêm watermark <span className="text-slate-500 font-mono">(Tắt tự động cho gói Pro)</span>

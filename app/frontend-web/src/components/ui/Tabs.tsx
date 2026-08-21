@@ -41,8 +41,8 @@ export const Tabs: React.FC<TabsProps> = ({ tabs, activeTab, onChange, className
       aria-label={ariaLabel}
       className={cn(
         variant === "underlined"
-          ? "flex items-center gap-6 border-b border-slate-800"
-          : "flex items-center gap-1.5 p-1 bg-[#090e18] border border-slate-800/80 rounded-lg",
+          ? "flex items-center gap-6 border-b border-border-dark"
+          : "flex items-center gap-1.5 p-1 bg-surface-panel border border-border-dark rounded-lg",
         className,
       )}
     >
@@ -59,19 +59,19 @@ export const Tabs: React.FC<TabsProps> = ({ tabs, activeTab, onChange, className
             onKeyDown={(event) => handleKeyDown(event, index)}
             onClick={() => onChange(tab.id)}
             className={cn(
-              "relative flex items-center gap-2 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500",
+              "relative flex items-center gap-2 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
               variant === "underlined" ? "pb-3 text-sm" : "px-3 py-1.5 text-xs rounded-md",
               isActive
-                ? variant === "underlined" ? "text-purple-400 font-semibold" : "bg-purple-600 text-white font-semibold"
+                ? variant === "underlined" ? "text-primary-light font-semibold" : "bg-primary text-white font-semibold"
                 : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50",
             )}
           >
             {tab.icon}
             {tab.label}
             {tab.count !== undefined && (
-              <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-mono", isActive ? "bg-purple-700 text-white" : "bg-slate-800 text-slate-400")}>{tab.count}</span>
+              <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-mono", isActive ? "bg-primary-hover text-white" : "bg-surface-3 text-slate-400")}>{tab.count}</span>
             )}
-            {variant === "underlined" && isActive && <span aria-hidden="true" className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-500" />}
+            {variant === "underlined" && isActive && <span aria-hidden="true" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
           </button>
         );
       })}

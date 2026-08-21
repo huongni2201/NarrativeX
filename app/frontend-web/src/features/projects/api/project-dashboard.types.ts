@@ -1,5 +1,5 @@
 export type ProjectDashboardStatus = "ACTIVE" | "DRAFT";
-export type ProjectDashboardSort = "NEWEST" | "OLDEST" | "NAME";
+export type ProjectDashboardSort = "NEWEST" | "STARRED" | "OLDEST" | "NAME";
 
 export interface ApiProjectDashboardItem {
   id: number;

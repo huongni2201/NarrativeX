@@ -29,8 +29,8 @@ export function StudioMobileNav() {
             href={href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "flex min-w-0 flex-col items-center gap-1 rounded-lg px-1 py-1.5 text-[10px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500",
-              active ? "text-purple-300" : "text-slate-500 hover:text-slate-300",
+              "flex min-w-0 flex-col items-center gap-1 rounded-lg px-1 py-2 text-[10px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+              active ? "text-primary-hover" : "text-slate-500 hover:text-slate-300",
             )}
           >
             <Icon className="h-4 w-4" />

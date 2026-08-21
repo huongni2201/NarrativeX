@@ -126,7 +126,7 @@ export function ChapterOverviewTab({
               type="button"
               onClick={onAnalyze}
               disabled={analyzeDisabled}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-950/50 transition-all hover:from-purple-500 hover:to-indigo-500 hover:shadow-purple-700/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 disabled:cursor-not-allowed disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 disabled:shadow-none"
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-950/50 transition-[background-color,box-shadow,color] hover:from-purple-500 hover:to-indigo-500 hover:shadow-purple-700/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 disabled:cursor-not-allowed disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 disabled:shadow-none"
             >
               {analysisActive ? (
                 <Loader2 className="h-4 w-4 animate-spin text-white" />
@@ -220,7 +220,7 @@ function ProgressItem({
 
   const content = (
     <div
-      className={`group flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-xs transition-all ${
+      className={`group flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-xs transition-[background-color,border-color,color] ${
         isRunning
           ? "border-purple-500/50 bg-purple-500/10 text-purple-200 shadow-sm shadow-purple-900/20"
           : isCompleted

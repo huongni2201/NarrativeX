@@ -69,13 +69,13 @@ export function CharacterLibrary() {
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Tìm theo tên hoặc alias…"
-            className="h-10 w-full rounded-xl border border-slate-800 bg-[#0b101b] pl-9 pr-3 text-sm text-slate-100 outline-none transition focus:border-purple-500"
+            className="h-10 w-full rounded-xl border border-slate-800 bg-surface-card pl-9 pr-3 text-sm text-slate-100 outline-none transition focus:border-purple-500"
           />
         </label>
       </div>
 
       {visibleCharacters.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-800 bg-[#0b101b]/60 px-6 py-16 text-center">
+        <div className="rounded-2xl border border-dashed border-slate-800 bg-surface-card/60 px-6 py-16 text-center">
           <Users className="mx-auto h-10 w-10 text-slate-600" />
           <h2 className="mt-4 font-medium text-slate-200">
             {characters.length === 0 ? "Chưa có nhân vật" : "Không tìm thấy nhân vật"}
@@ -91,7 +91,7 @@ export function CharacterLibrary() {
           {visibleCharacters.map((character) => (
             <article
               key={character.id}
-              className="rounded-2xl border border-slate-800/80 bg-[#0b101b] p-5 shadow-lg transition hover:border-purple-500/50"
+              className="rounded-2xl border border-slate-800/80 bg-surface-card p-5 shadow-lg transition hover:border-purple-500/50"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">

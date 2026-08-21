@@ -44,6 +44,14 @@
                    AND p.status = #{status}
                </if>
              <choose>
+                 <when test="sort == 'STARRED' or sort == 'FAVORITE'">
+                     ORDER BY (
+                         EXISTS (
+                             SELECT 1 FROM project_favorites pf
+                              WHERE pf.user_id = #{userId} AND pf.project_id = p.id
+                         )
+                     ) DESC, p.updated_at DESC, p.id DESC
+                 </when>
                  <when test="sort == 'OLDEST'">ORDER BY p.created_at ASC, p.id ASC</when>
                  <when test="sort == 'NAME'">ORDER BY LOWER(p.name) ASC, p.id ASC</when>
                  <otherwise>ORDER BY p.updated_at DESC, p.id DESC</otherwise>
@@ -85,6 +93,9 @@
                WHERE c.story_version_id = latest_story.id
           ) metrics ON TRUE
          <choose>
+             <when test="sort == 'STARRED' or sort == 'FAVORITE'">
+                 ORDER BY starred DESC, p.updated_at DESC, p.id DESC
+             </when>
              <when test="sort == 'OLDEST'">ORDER BY p.created_at ASC, p.id ASC</when>
              <when test="sort == 'NAME'">ORDER BY LOWER(p.name) ASC, p.id ASC</when>
              <otherwise>ORDER BY p.updated_at DESC, p.id DESC</otherwise>

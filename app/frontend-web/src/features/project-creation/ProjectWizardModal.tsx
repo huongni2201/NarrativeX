@@ -88,9 +88,9 @@ export const ProjectWizardModal: React.FC = () => {
       ariaLabel="Tạo dự án NarrativeX"
       closeDisabled={createProject.isPending}
       maxWidth="5xl"
-      className="border border-slate-800 bg-[#0d1420] p-0"
+      className="border border-border-dark bg-surface p-0"
     >
-      <div className="flex items-center justify-between border-b border-slate-800/80 bg-[#090e18] px-6 py-4">
+      <div className="flex items-center justify-between border-b border-border-dark bg-surface-panel px-6 py-4">
         <div>
           <span className="text-base font-bold tracking-wide text-white">Tạo dự án mới</span>
           <p className="mt-1 text-xs text-slate-500">
@@ -116,7 +116,7 @@ export const ProjectWizardModal: React.FC = () => {
         />
       </div>
 
-      <div className="flex items-center justify-between border-t border-slate-800/80 bg-[#090e18] px-8 py-4">
+      <div className="flex items-center justify-between border-t border-border-dark bg-surface-panel px-8 py-4">
         <Button variant="secondary" onClick={handleCloseWizard} disabled={createProject.isPending}>
           Hủy
         </Button>

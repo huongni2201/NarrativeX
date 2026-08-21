@@ -26,7 +26,7 @@ export function ProjectSummaryWidget({ metrics }: Readonly<ProjectSummaryWidgetP
   const storagePercent = 6;
 
   return (
-    <aside className="flex flex-col justify-between rounded-2xl border border-slate-800/90 bg-[#0d1420] p-5 shadow-xl">
+    <aside className="flex flex-col justify-between rounded-2xl border border-slate-800/90 bg-surface p-5 shadow-xl">
       <div>
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-800/80 pb-3.5">
@@ -37,7 +37,7 @@ export function ProjectSummaryWidget({ metrics }: Readonly<ProjectSummaryWidgetP
               value={timeRange}
               onChange={(e) => setTimeRange(e.target.value)}
               aria-label="Khoảng thời gian thống kê"
-              className="appearance-none cursor-pointer rounded-lg border border-slate-800 bg-[#090e18] px-2.5 py-1 pr-6 text-xs text-slate-400 hover:text-slate-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+              className="appearance-none cursor-pointer rounded-lg border border-slate-800 bg-surface-panel px-2.5 py-1 pr-6 text-xs text-slate-400 hover:text-slate-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
             >
               <option value="7d">7 ngày qua</option>
               <option value="30d">30 ngày qua</option>
@@ -83,7 +83,7 @@ export function ProjectSummaryWidget({ metrics }: Readonly<ProjectSummaryWidgetP
                   d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                 />
                 <path
-                  className="text-purple-500 transition-all duration-500"
+                  className="text-purple-500 transition-colors duration-500"
                   strokeDasharray={`${overallProgress}, 100`}
                   strokeWidth="3"
                   strokeLinecap="round"

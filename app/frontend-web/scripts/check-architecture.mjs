@@ -64,12 +64,10 @@ for (const file of files) {
     }
   }
 
-  // Ensure new files avoid ad-hoc inline hex color classes when standard design tokens exist
-  if (rel.startsWith("src/features/chapters/components/") || rel.startsWith("src/features/storyboard/components/")) {
-    const adhocHexMatch = source.match(/(?:bg|border|text)-\[#[0-9a-fA-F]{3,8}\]/);
-    if (adhocHexMatch) {
-      add(file, "global-color-tokens", `use semantic design tokens from globals.css / tailwind.config.ts instead of ad-hoc hex class ${adhocHexMatch[0]}`);
-    }
+  // Component and runtime TS/TSX must consume semantic tokens from globals.css.
+  const adhocHexMatch = source.match(/#[0-9a-fA-F]{3,8}\b/);
+  if (adhocHexMatch) {
+    add(file, "global-color-tokens", `use semantic design tokens from globals.css / tailwind.config.ts instead of hardcoded hex ${adhocHexMatch[0]}`);
   }
 }
 

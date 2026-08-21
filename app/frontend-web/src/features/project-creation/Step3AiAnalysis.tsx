@@ -40,7 +40,7 @@ export const Step3AiAnalysis: React.FC<Step3Props> = () => {
           </div>
         </div>
 
-        <div className="p-4 rounded-xl bg-[#090e18] border border-slate-800/80 space-y-2">
+        <div className="p-4 rounded-xl bg-surface-panel border border-slate-800/80 space-y-2">
           <div className="flex items-center justify-between text-xs font-mono">
             <span className="text-amber-300 font-medium">Tạm thời chưa khả dụng</span>
             <span className="text-slate-500 font-bold text-sm">—</span>
@@ -53,7 +53,7 @@ export const Step3AiAnalysis: React.FC<Step3Props> = () => {
         {metrics.map((metric) => {
           const Icon = metric.icon;
           return (
-            <div key={metric.id} className="p-3.5 rounded-xl bg-[#0d1420] border border-slate-800/90 flex flex-col items-center justify-center text-center space-y-1">
+            <div key={metric.id} className="p-3.5 rounded-xl bg-surface border border-slate-800/90 flex flex-col items-center justify-center text-center space-y-1">
               <div className="w-8 h-8 rounded-lg bg-purple-950/60 flex items-center justify-center text-purple-400 mb-1">
                 <Icon className="w-4 h-4" />
               </div>
@@ -65,11 +65,11 @@ export const Step3AiAnalysis: React.FC<Step3Props> = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 p-5 rounded-xl bg-[#0a0f1d] border border-slate-800/80 space-y-3.5">
+        <div className="md:col-span-2 p-5 rounded-xl bg-surface-dark border border-slate-800/80 space-y-3.5">
           <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Phân tích chi tiết</h3>
           <div className="space-y-3">
             {checklist.map((title) => (
-              <div key={title} className="flex items-center justify-between py-2 px-3 rounded-lg bg-[#0d1420]/80 border border-slate-800/60">
+              <div key={title} className="flex items-center justify-between py-2 px-3 rounded-lg bg-surface/80 border border-slate-800/60">
                 <div className="flex items-center gap-3">
                   <div className="w-4 h-4 rounded-full border border-slate-600" />
                   <span className="text-xs font-medium text-slate-500">{title}</span>
@@ -80,8 +80,8 @@ export const Step3AiAnalysis: React.FC<Step3Props> = () => {
           </div>
         </div>
 
-        <div className="p-5 rounded-xl bg-[#0a0f1d] border border-slate-800/80 flex flex-col items-center justify-center text-center space-y-4">
-          <div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-purple-900/60 via-indigo-900/60 to-purple-600/30 border border-purple-500/40 flex items-center justify-center shadow-[0_0_35px_rgba(124,58,237,0.35)]">
+        <div className="p-5 rounded-xl bg-surface-dark border border-slate-800/80 flex flex-col items-center justify-center text-center space-y-4">
+          <div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-purple-900/60 via-indigo-900/60 to-purple-600/30 border border-purple-500/40 flex items-center justify-center shadow-xl">
             <span className="font-extrabold text-2xl tracking-tight text-white font-mono">AI</span>
           </div>
           <div className="space-y-1">

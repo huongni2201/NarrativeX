@@ -10,6 +10,37 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        slate: {
+          100: "rgb(var(--palette-slate-100) / <alpha-value>)",
+          200: "rgb(var(--palette-slate-200) / <alpha-value>)",
+          300: "rgb(var(--palette-slate-300) / <alpha-value>)",
+          400: "rgb(var(--palette-slate-400) / <alpha-value>)",
+          500: "rgb(var(--palette-slate-500) / <alpha-value>)",
+          600: "rgb(var(--palette-slate-600) / <alpha-value>)",
+          700: "rgb(var(--palette-slate-700) / <alpha-value>)",
+          800: "rgb(var(--palette-slate-800) / <alpha-value>)",
+          900: "rgb(var(--palette-slate-900) / <alpha-value>)",
+          950: "rgb(var(--palette-slate-950) / <alpha-value>)",
+        },
+        purple: {
+          200: "rgb(var(--palette-orange-200) / <alpha-value>)",
+          300: "rgb(var(--palette-orange-300) / <alpha-value>)",
+          400: "rgb(var(--palette-orange-400) / <alpha-value>)",
+          500: "rgb(var(--palette-orange-500) / <alpha-value>)",
+          600: "rgb(var(--palette-orange-600) / <alpha-value>)",
+          700: "rgb(var(--palette-orange-700) / <alpha-value>)",
+          800: "rgb(var(--palette-orange-800) / <alpha-value>)",
+          900: "rgb(var(--palette-orange-900) / <alpha-value>)",
+          950: "rgb(var(--palette-orange-950) / <alpha-value>)",
+        },
+        indigo: {
+          400: "rgb(var(--palette-orange-400) / <alpha-value>)",
+          500: "rgb(var(--palette-orange-500) / <alpha-value>)",
+          600: "rgb(var(--palette-orange-600) / <alpha-value>)",
+          700: "rgb(var(--palette-orange-700) / <alpha-value>)",
+          800: "rgb(var(--palette-orange-800) / <alpha-value>)",
+          900: "rgb(var(--palette-orange-900) / <alpha-value>)",
+        },
         background: "var(--background)",
         foreground: "var(--foreground)",
         surface: {
@@ -21,12 +52,16 @@ const config: Config = {
           panel: "var(--surface-panel)",
           elevated: "var(--surface-elevated)",
           input: "var(--surface-input)",
+          storyboard: "var(--surface-storyboard)",
+          "storyboard-card": "var(--surface-storyboard-card)",
         },
         border: {
           DEFAULT: "var(--border)",
           subtle: "var(--border-subtle)",
           dark: "var(--border-dark)",
           darker: "var(--border-darker)",
+          storyboard: "var(--border-storyboard)",
+          "storyboard-strong": "var(--border-storyboard-strong)",
           glow: "var(--border-glow)",
         },
         primary: {

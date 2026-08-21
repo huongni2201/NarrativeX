@@ -18,7 +18,7 @@ export function ChapterHero({
   const coverScene = workspace.previewScenes.find((scene) => scene.previewImageUrl);
 
   return (
-    <section className="rounded-2xl border border-border bg-surface-card/95 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.18)] sm:p-5">
+    <section className="rounded-2xl border border-border bg-surface-card/95 p-4 shadow-lg sm:p-5">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center">
         <div className="flex min-w-0 flex-1 gap-4">
           <div className="relative flex h-24 w-32 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border-dark bg-gradient-to-br from-slate-800 to-slate-950 sm:h-28 sm:w-36">

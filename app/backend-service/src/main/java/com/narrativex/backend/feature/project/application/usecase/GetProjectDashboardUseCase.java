@@ -59,8 +59,10 @@ public class GetProjectDashboardUseCase {
     String normalized = value.trim().toUpperCase();
     if (!normalized.equals("NEWEST")
         && !normalized.equals("OLDEST")
-        && !normalized.equals("NAME")) {
-      throw new DomainValidationException("sort must be NEWEST, OLDEST, or NAME");
+        && !normalized.equals("NAME")
+        && !normalized.equals("STARRED")
+        && !normalized.equals("FAVORITE")) {
+      throw new DomainValidationException("sort must be NEWEST, STARRED, OLDEST, or NAME");
     }
     return normalized;
   }
