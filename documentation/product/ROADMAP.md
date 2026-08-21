@@ -13,7 +13,9 @@ Create/Edit Chapter
   -> backend-authoritative MediaPlan foundation
 ```
 
-Also implemented: ProviderOperation/Chapter/Project MyBatis persistence foundations, R2-only durable media topology, worker claim/lease/heartbeat, and user-provided-audio TTS-bypass planning.
+Also implemented as foundations: R2-only durable media topology, worker claim/lease/heartbeat, user-provided-audio TTS-bypass planning, project-scoped Character list/detail read models wired end to end, and MyBatis/explicit-SQL durability for ProviderOperation, Chapter, Project plus the covered generation execution boundaries.
+
+GenerationJob, StageAttempt, OperationPlan, MediaPlan, generation outbox enqueue, Job History and the Chapter Analyze safety gate are no longer future migration items. The outbox dispatcher's short-lived JDBC claim/lease query remains a deliberate operational exception.
 
 ## Track A — Finish persistence simplification
 
@@ -23,19 +25,19 @@ Also implemented: ProviderOperation/Chapter/Project MyBatis persistence foundati
 - PostgreSQL contract tests;
 - remove active JPA adapter after cutover.
 
-### A2 — Generation execution persistence — TARGET
-- GenerationJob / StageAttempt claim, lease, heartbeat and CAS paths;
-- OperationPlan / MediaPlan where legacy adapters remain.
+### A2 — Quota / reservation / usage — TARGET
+- migrate remaining JDBC/mixed billing and reservation boundaries behind semantic MyBatis mappers;
+- preserve atomic admission/reservation behavior;
+- add guarded settlement/release queries and PostgreSQL evidence.
 
-### A3 — Outbox + quota/billing — TARGET
-- replace remaining direct JDBC boundaries with semantic MyBatis mappers;
-- preserve atomic enqueue/reservation behavior.
-
-### A4 — Storyboard/continuity + low-risk CRUD — TARGET
+### A3 — Storyboard / continuity persistence — TARGET
 - Scene/VisualBeat/revisions;
-- Character/Location continuity;
-- remaining read/query boundaries;
-- remove unused JPA infrastructure only after evidence is complete.
+- Character/ProjectCharacter/Location continuity write paths;
+- preserve review/version/invalidation semantics while cutting over.
+
+### A4 — Remaining CRUD/query cleanup — TARGET
+- migrate remaining low-risk JPA/JDBC adapters by value/risk;
+- remove unused JPA infrastructure only after architecture and PostgreSQL tests prove no active boundary depends on it.
 
 ## Track B — First durable MP4
 
