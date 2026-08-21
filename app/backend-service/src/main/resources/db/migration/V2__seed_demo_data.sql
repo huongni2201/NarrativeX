@@ -111,18 +111,18 @@ VALUES
     (4010, 3010, 3510, 1, 'Valley Footpath', 'A narrow path leads toward a green horizon.', 47, 'APPROVED')
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO visual_beats (id, scene_id, order_index, title, visual_intent, review_status, motion_mode, camera_movement, aspect_ratio_override, quality_tier_override)
+INSERT INTO visual_beats (id, scene_id, order_index, title, visual_intent, review_status, motion_mode, camera_movement, aspect_ratio_override, quality_tier_override, text_start, text_end, audio_start_ms, audio_end_ms, camera_angle)
 VALUES
-    (5001, 4001, 1, 'Lanterns at dawn', 'Warm lanterns form a river of light through quiet stone streets.', 'APPROVED', 'BASIC_MOTION', 'PAN', 'RATIO_16_9', 'STANDARD'),
-    (5002, 4002, 1, 'Brass gears mechanism', 'Brass gears rotate around a miniature hand-drawn city.', 'APPROVED', 'BASIC_MOTION', 'PUSH_IN', 'RATIO_16_9', 'HIGH'),
-    (5003, 4003, 1, 'River moonlight crossing', 'A small boat cuts a silver path across the river.', 'APPROVED', 'BASIC_MOTION', 'TRACK', 'RATIO_9_16', 'STANDARD'),
-    (5004, 4004, 1, 'Rain window reflection', 'Raindrops merge into soft reflections of a family room.', 'NEEDS_REVIEW', 'STILL', 'NONE', 'RATIO_16_9', 'STANDARD'),
-    (5005, 4005, 1, 'Paper dragon silhouette', 'An origami dragon opens paper wings above a sleeping town.', 'APPROVED', 'BASIC_MOTION', 'TILT', 'RATIO_1_1', 'HIGH'),
-    (5006, 4006, 1, 'Pine forest choir', 'Pine branches sway in rhythmic layers beneath a deep sky.', 'APPROVED', 'BASIC_MOTION', 'PARALLAX', 'RATIO_16_9', 'ULTRA'),
-    (5007, 4007, 1, 'Garden seed timelapse', 'A seed settles into soil while seasons pass in a time-lapse.', 'APPROVED', 'STILL', 'NONE', 'RATIO_9_16', 'STANDARD'),
-    (5008, 4008, 1, 'Blue kite rooftop breeze', 'A bright blue kite pulls a red thread across rooftops.', 'APPROVED', 'BASIC_MOTION', 'TRACK', 'RATIO_16_9', 'HIGH'),
-    (5009, 4009, 1, 'Star reflection current', 'Constellations ripple and reform in the moving river.', 'NEEDS_REVIEW', 'BASIC_MOTION', 'ZOOM_OUT', 'RATIO_1_1', 'STANDARD'),
-    (5010, 4010, 1, 'Green shoot in the valley', 'A single green shoot appears at the end of the dry path.', 'APPROVED', 'BASIC_MOTION', 'PUSH_IN', 'RATIO_16_9', 'HIGH')
+    (5001, 4001, 1, 'Lanterns at dawn', 'Warm lanterns form a river of light through quiet stone streets.', 'APPROVED', 'BASIC_MOTION', 'PAN', 'RATIO_16_9', 'STANDARD', 0, 46, 0, 42000, 'WIDE'),
+    (5002, 4002, 1, 'Brass gears mechanism', 'Brass gears rotate around a miniature hand-drawn city.', 'APPROVED', 'BASIC_MOTION', 'PUSH_IN', 'RATIO_16_9', 'HIGH', 0, 38, 0, 45000, 'CLOSE_UP'),
+    (5003, 4003, 1, 'River moonlight crossing', 'A small boat cuts a silver path across the river.', 'APPROVED', 'BASIC_MOTION', 'TRACK', 'RATIO_9_16', 'STANDARD', 0, 39, 0, 38000, 'WIDE'),
+    (5004, 4004, 1, 'Rain window reflection', 'Raindrops merge into soft reflections of a family room.', 'NEEDS_REVIEW', 'STILL', 'NONE', 'RATIO_16_9', 'STANDARD', 0, 42, 0, 36000, 'MEDIUM'),
+    (5005, 4005, 1, 'Paper dragon silhouette', 'An origami dragon opens paper wings above a sleeping town.', 'APPROVED', 'BASIC_MOTION', 'TILT', 'RATIO_1_1', 'HIGH', 0, 44, 0, 40000, 'LOW_ANGLE'),
+    (5006, 4006, 1, 'Pine forest choir', 'Pine branches sway in rhythmic layers beneath a deep sky.', 'APPROVED', 'BASIC_MOTION', 'PARALLAX', 'RATIO_16_9', 'ULTRA', 0, 46, 0, 44000, 'WIDE'),
+    (5007, 4007, 1, 'Garden seed timelapse', 'A seed settles into soil while seasons pass in a time-lapse.', 'APPROVED', 'STILL', 'NONE', 'RATIO_9_16', 'STANDARD', 0, 48, 0, 34000, 'CLOSE_UP'),
+    (5008, 4008, 1, 'Blue kite rooftop breeze', 'A bright blue kite pulls a red thread across rooftops.', 'APPROVED', 'BASIC_MOTION', 'TRACK', 'RATIO_16_9', 'HIGH', 0, 48, 0, 39000, 'HIGH_ANGLE'),
+    (5009, 4009, 1, 'Star reflection current', 'Constellations ripple and reform in the moving river.', 'NEEDS_REVIEW', 'BASIC_MOTION', 'ZOOM_OUT', 'RATIO_1_1', 'STANDARD', 0, 48, 0, 41000, 'POV'),
+    (5010, 4010, 1, 'Green shoot in the valley', 'A single green shoot appears at the end of the dry path.', 'APPROVED', 'BASIC_MOTION', 'PUSH_IN', 'RATIO_16_9', 'HIGH', 0, 47, 0, 47000, 'MEDIUM')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO generation_jobs (id, job_id, project_id, job_type, status, resource_class, progress, current_step, requested_by_user_id, billed_to_user_id)
@@ -447,4 +447,237 @@ VALUES
     (26002, 1001, 'lantern_maker_portrait.png', 'IMAGE', 'projects/1001/assets/artisan_portrait.png', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=1200&auto=format&fit=crop', 'image/png', 'ACTIVE', '{"width":1024,"height":1024,"source":"character_master"}'::jsonb),
     (26003, 1002, 'brass_gears_blueprint.png', 'IMAGE', 'projects/1002/assets/brass_gears.png', 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?q=80&w=1200&auto=format&fit=crop', 'image/png', 'ACTIVE', '{"width":1920,"height":1080,"source":"reference"}'::jsonb),
     (26004, 1003, 'moonlit_water_concept.png', 'IMAGE', 'projects/1003/assets/mekong_moonlight.png', 'https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=1200&auto=format&fit=crop', 'image/png', 'ACTIVE', '{"width":1080,"height":1920,"source":"concept_art"}'::jsonb)
+ON CONFLICT (id) DO NOTHING;
+
+-- -----------------------------------------------------------------------------
+-- Continuity and storyboard relationship fixtures
+-- -----------------------------------------------------------------------------
+
+INSERT INTO scene_characters (scene_id, order_index, project_character_id)
+VALUES
+    (4001, 0, 23001),
+    (4002, 0, 23002),
+    (4003, 0, 23003),
+    (4004, 0, 23004),
+    (4005, 0, 23005),
+    (4006, 0, 23006),
+    (4007, 0, 23007),
+    (4008, 0, 23008),
+    (4009, 0, 23009),
+    (4010, 0, 23010)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO visual_beat_characters (visual_beat_id, project_character_id, role)
+VALUES
+    (5001, 23001, 'PRIMARY'),
+    (5002, 23002, 'PRIMARY'),
+    (5003, 23003, 'PRIMARY'),
+    (5004, 23004, 'PRIMARY'),
+    (5005, 23005, 'PRIMARY'),
+    (5006, 23006, 'PRIMARY'),
+    (5007, 23007, 'PRIMARY'),
+    (5008, 23008, 'PRIMARY'),
+    (5009, 23009, 'PRIMARY'),
+    (5010, 23010, 'PRIMARY')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO project_character_ai_identities
+    (project_id, ai_key, project_character_id, aliases, observations, first_seen_chapter_id, last_seen_chapter_id, match_basis, confidence)
+VALUES
+    (1001, 'mai-lantern-maker', 23001, '["Mai","lantern maker"]'::jsonb, '["amber workshop","red silk lantern"]'::jsonb, 3001, 3001, 'CREATED', 1.000),
+    (1002, 'theo-clockmaker', 23002, '["Theo","clockmaker"]'::jsonb, '["brass workshop","pocket watch"]'::jsonb, 3002, 3002, 'CREATED', 1.000),
+    (1003, 'bao-boatman', 23003, '["Bao","boatman"]'::jsonb, '["wooden boat","moonlit river"]'::jsonb, 3003, 3003, 'CREATED', 1.000)
+ON CONFLICT (project_id, ai_key) DO NOTHING;
+
+INSERT INTO project_location_ai_identities
+    (project_id, ai_key, project_location_id, aliases, observations, first_seen_chapter_id, last_seen_chapter_id, match_basis, confidence)
+VALUES
+    (1001, 'old-quarter-market', 25001, '["old quarter","night market"]'::jsonb, '["wet cobblestones","amber lanterns"]'::jsonb, 3001, 3001, 'CREATED', 1.000),
+    (1001, 'lantern-workshop', 25002, '["workshop","lantern studio"]'::jsonb, '["bamboo frames","silk fabric"]'::jsonb, 3001, 3001, 'CREATED', 1.000),
+    (1002, 'brass-workshop', 25003, '["clockmaker workshop"]'::jsonb, '["brass gears","dusty sunbeams"]'::jsonb, 3002, 3002, 'CREATED', 1.000)
+ON CONFLICT (project_id, ai_key) DO NOTHING;
+
+INSERT INTO project_favorites (user_id, project_id)
+VALUES
+    ((SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1001),
+    ((SELECT id FROM auth_users WHERE email = 'seed.user02@example.com'), 1002),
+    ((SELECT id FROM auth_users WHERE email = 'seed.user03@example.com'), 1003)
+ON CONFLICT (user_id, project_id) DO NOTHING;
+
+-- -----------------------------------------------------------------------------
+-- Backend-authoritative media plan fixtures
+-- -----------------------------------------------------------------------------
+
+INSERT INTO media_plans
+    (id, chapter_id, chapter_row_version, source_hash, production_mode, revision, narration_characters, image_generate_count, image_edit_count, basic_motion_seconds, planned_i2v_seconds, estimated_cost, created_at)
+VALUES
+    ('00000000-0000-4000-8000-000000001001', 3001, 0,
+     encode(sha256(convert_to('The first lantern flickered before the street woke.', 'UTF8')), 'hex'),
+     'IMAGE_MOTION', 1, 54, 1, 0, 42, 0, 0.025000, CURRENT_TIMESTAMP)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO media_scene_plans
+    (media_plan_id, scene_index, scene_id, scene_order_index, narration, duration_seconds)
+VALUES
+    ('00000000-0000-4000-8000-000000001001', 0, 4001, 1, 'The old quarter breathes before sunrise.', 42)
+ON CONFLICT (media_plan_id, scene_index) DO NOTHING;
+
+INSERT INTO media_beat_plans
+    (media_plan_id, scene_index, beat_index, visual_beat_id, visual_beat_order_index, visual_intent, semantic_motion_mode, motion_strategy)
+VALUES
+    ('00000000-0000-4000-8000-000000001001', 0, 0, 5001, 1,
+     'Warm lanterns form a river of light through quiet stone streets.', 'BASIC_MOTION', 'BASIC_IMAGE_MOTION')
+ON CONFLICT (media_plan_id, scene_index, beat_index) DO NOTHING;
+
+UPDATE generation_jobs
+SET media_plan_id = '00000000-0000-4000-8000-000000001001',
+    media_plan_revision = 1,
+    production_mode = 'IMAGE_MOTION'
+WHERE id = 6005;
+
+-- -----------------------------------------------------------------------------
+-- Quota reservation lifecycle fixtures
+-- -----------------------------------------------------------------------------
+
+INSERT INTO quota_reservations
+    (id, user_id, period_key, generation_job_id, estimated_cost, actual_cost, billing_currency, status, finalized_at)
+VALUES
+    (6101, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), '2026-08', 6001, 0.025000, 0.015000000, 'USD', 'CONSUMED', CURRENT_TIMESTAMP),
+    (6102, (SELECT id FROM auth_users WHERE email = 'seed.user02@example.com'), '2026-08', 6002, 0.200000, 0.150000000, 'USD', 'CONSUMED', CURRENT_TIMESTAMP),
+    (6103, (SELECT id FROM auth_users WHERE email = 'seed.user03@example.com'), '2026-08', 6003, 0.250000, NULL, NULL, 'RESERVED', NULL),
+    (6104, (SELECT id FROM auth_users WHERE email = 'seed.user04@example.com'), '2026-08', 6004, 0.035000, NULL, NULL, 'RESERVED', NULL),
+    (6105, (SELECT id FROM auth_users WHERE email = 'seed.user05@example.com'), '2026-08', 6005, 1.000000, 0.650000000, 'USD', 'CONSUMED', CURRENT_TIMESTAMP),
+    (6106, (SELECT id FROM auth_users WHERE email = 'seed.user06@example.com'), '2026-08', 6006, 1.250000, 0.000000000, 'USD', 'RELEASED', CURRENT_TIMESTAMP),
+    (6107, (SELECT id FROM auth_users WHERE email = 'seed.user07@example.com'), '2026-08', 6007, 0.400000, 0.280000000, 'USD', 'CONSUMED', CURRENT_TIMESTAMP),
+    (6108, (SELECT id FROM auth_users WHERE email = 'seed.user08@example.com'), '2026-08', 6008, 0.180000, 0.120000000, 'USD', 'CONSUMED', CURRENT_TIMESTAMP),
+    (6109, (SELECT id FROM auth_users WHERE email = 'seed.user09@example.com'), '2026-08', 6009, 0.035000, NULL, NULL, 'RESERVED', NULL),
+    (6110, (SELECT id FROM auth_users WHERE email = 'seed.user10@example.com'), '2026-08', 6010, 0.850000, 0.550000000, 'USD', 'CONSUMED', CURRENT_TIMESTAMP)
+ON CONFLICT (id) DO NOTHING;
+
+-- -----------------------------------------------------------------------------
+-- Full-chapter TTS and uploaded narration fixtures
+-- -----------------------------------------------------------------------------
+
+INSERT INTO generation_jobs
+    (id, job_id, project_id, job_type, status, resource_class, progress, current_step, requested_by_user_id, billed_to_user_id, story_version_id, chapter_id, chapter_row_version, source_hash, source_text, source_language, idempotency_key)
+VALUES
+    (6020, '00000000-0000-4000-8000-000000000020', 1001, 'NARRATION_GENERATE', 'QUEUED', 'PROVIDER_INTERACTIVE', 0, 'queued',
+     (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'),
+     (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'),
+     2001, 3001, 0,
+     encode(sha256(convert_to('The first lantern flickered before the street woke.', 'UTF8')), 'hex'),
+     'The first lantern flickered before the street woke.', 'vi-VN', 'seed-narration-job-6020')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO stage_attempts (id, generation_job_id, stage_name, attempt_number, status, worker_id, heartbeat_at)
+VALUES (7020, 6020, 'NARRATION', 1, 'QUEUED', NULL, NULL)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO provider_operations
+    (id, stage_attempt_id, provider_key, provider_operation_id, status, request_fingerprint)
+VALUES (8020, 7020, 'demo.tts', NULL, 'RESERVED', 'seed-tts-request-8020')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO operation_plans
+    (id, project_id, generation_job_id, operation_type, estimate_min, estimate_max, max_authorized_cost, confidence)
+VALUES (9020, 1001, 6020, 'NARRATION_GENERATE', 0.010000, 0.030000, 0.040000, 'MEDIUM')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO quota_reservations
+    (id, user_id, period_key, generation_job_id, estimated_cost, actual_cost, billing_currency, status, finalized_at)
+VALUES (6111, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), '2026-08', 6020, 0.040000, NULL, NULL, 'RESERVED', NULL)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO project_assets
+    (id, project_id, name, asset_type, storage_key, url, mime_type, status, metadata_json)
+VALUES
+    (26005, 1001, 'first_lantern_narration.wav', 'AUDIO', 'projects/1001/assets/first_lantern_narration.wav', NULL, 'audio/wav', 'ACTIVE',
+     '{"durationMs":42000,"source":"tts","sampleRateHz":48000,"channels":2}'::jsonb)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO narration_requests
+    (id, project_id, chapter_id, chapter_row_version, source_hash, source_text, voice_id, language, speaking_rate, segmentation_version, request_fingerprint)
+VALUES
+    ('00000000-0000-4000-8000-000000002001', 1001, 3001, 0,
+     encode(sha256(convert_to('The first lantern flickered before the street woke.', 'UTF8')), 'hex'),
+     'The first lantern flickered before the street woke.', 'demo-vi-female-01', 'vi-VN', 1.0000, 'sentence-v1', repeat('1', 64))
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO narration_operations (id, narration_request_id, generation_job_id, stage_attempt_id)
+VALUES
+    ('00000000-0000-4000-8000-000000002002', '00000000-0000-4000-8000-000000002001', 6020, 7020)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO narration_assets
+    (id, narration_request_id, project_asset_id, duration_ms, size_bytes, codec, sample_rate_hz, channels, checksum)
+VALUES
+    ('00000000-0000-4000-8000-000000002003', '00000000-0000-4000-8000-000000002001', 26005, 42000, 840000, 'PCM_S16LE', 48000, 2, repeat('2', 64))
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO narration_alignments
+    (id, narration_asset_id, source_hash, alignment_version, spans_json)
+VALUES
+    ('00000000-0000-4000-8000-000000002004', '00000000-0000-4000-8000-000000002003',
+     encode(sha256(convert_to('The first lantern flickered before the street woke.', 'UTF8')), 'hex'),
+     'demo-align-v1', '[{"textStart":0,"textEnd":54,"audioStartMs":0,"audioEndMs":42000}]'::jsonb)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO media_assets
+    (id, account_id, asset_type, origin, storage_key, original_filename, content_type, size_bytes, sha256, duration_ms, status)
+VALUES
+    ('00000000-0000-4000-8000-000000004001', 'seed-user-01', 'AUDIO', 'USER_UPLOAD',
+     'accounts/seed-user-01/uploads/river-intro.wav', 'river-intro.wav', 'audio/wav', 1200000, repeat('3', 64), 60000, 'READY')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO narration_sets
+    (id, story_id, source, status, narration_fingerprint, total_duration_ms)
+VALUES
+    ('00000000-0000-4000-8000-000000005001', '00000000-0000-4000-8000-000000005101', 'USER_PROVIDED_AUDIO', 'READY', repeat('4', 64), 60000)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO narration_parts
+    (id, narration_set_id, media_asset_id, sequence, duration_ms, sha256)
+VALUES
+    ('00000000-0000-4000-8000-000000005002', '00000000-0000-4000-8000-000000005001', '00000000-0000-4000-8000-000000004001', 0, 60000, repeat('3', 64))
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO narration_documents
+    (id, story_id, document_fingerprint)
+VALUES
+    ('00000000-0000-4000-8000-000000006001', '00000000-0000-4000-8000-000000005101', repeat('5', 64))
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO narration_document_chapters
+    (narration_document_id, chapter_id, chapter_revision_id, sequence, global_text_start, global_text_end, source_hash, row_version)
+VALUES
+    ('00000000-0000-4000-8000-000000006001', '00000000-0000-4000-8000-000000006101', '00000000-0000-4000-8000-000000006201', 0, 0, 54,
+     encode(sha256(convert_to('The first lantern flickered before the street woke.', 'UTF8')), 'hex'), 0)
+ON CONFLICT (narration_document_id, sequence) DO NOTHING;
+
+INSERT INTO narration_alignment_runs
+    (id, narration_document_id, narration_set_id, document_fingerprint, narration_fingerprint, provider, provider_version, status, coverage, confidence, spans_json)
+VALUES
+    ('00000000-0000-4000-8000-000000006002', '00000000-0000-4000-8000-000000006001', '00000000-0000-4000-8000-000000005001',
+     repeat('5', 64), repeat('4', 64), 'demo-aligner', 'demo-aligner-v1', 'READY', 1.00000, 0.98000,
+     '[{"chapterSequence":0,"audioStartMs":0,"audioEndMs":60000}]'::jsonb)
+ON CONFLICT (id) DO NOTHING;
+
+-- -----------------------------------------------------------------------------
+-- Immutable render input and output fixtures
+-- -----------------------------------------------------------------------------
+
+INSERT INTO render_manifests
+    (id, project_id, chapter_id, media_plan_id, chapter_row_version, source_hash, render_fingerprint, manifest_json)
+VALUES
+    (27001, 1001, 3001, '00000000-0000-4000-8000-000000001001', 0,
+     encode(sha256(convert_to('The first lantern flickered before the street woke.', 'UTF8')), 'hex'),
+     repeat('6', 64),
+     '{"productionMode":"IMAGE_MOTION","sceneCount":1,"beatCount":1,"watermark":true}'::jsonb)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO final_artifacts
+    (id, project_id, chapter_id, generation_job_id, render_manifest_id, artifact_type, render_fingerprint, storage_key, mime_type, size_bytes, checksum_sha256, duration_ms, width, height, fps, status)
+VALUES
+    (28001, 1001, 3001, 6005, 27001, 'CHAPTER_VIDEO', repeat('6', 64),
+     'projects/1001/chapters/3001/final/demo-render.mp4', 'video/mp4', 24800000, repeat('7', 64), 42000, 1920, 1080, 24.000, 'READY')
 ON CONFLICT (id) DO NOTHING;

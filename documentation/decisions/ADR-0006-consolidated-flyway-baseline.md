@@ -7,7 +7,7 @@
 ## Context
 
 The repository is still using a development database baseline. The schema had
-grown into one consolidated schema file, one deterministic seed file, and six
+grown into one consolidated schema file, one deterministic seed file, and three
 small follow-up migrations. That split made the fresh-database path harder to
 inspect and caused the implementation-facing migration documentation to drift.
 
@@ -24,13 +24,17 @@ incompatible schema.
 - `V1__initial_schema.sql` contains the final consolidated schema, including
   split motion fields (`motion_mode`, `camera_movement`), storyboard revisions (`storyboard_revisions`),
   scene & location continuity identities (`scene_characters`, `project_character_ai_identities`, `project_location_ai_identities`),
+  project dashboard favorites (`project_favorites`), visual-beat character links
+  (`visual_beat_characters`), immutable render inputs/outputs
+  (`render_manifests`, `final_artifacts`),
   backend-authoritative media plans (`media_plans`, `media_scene_plans`, `media_beat_plans`),
   durable provider operations with billing reconciliation & result fingerprints,
   quota reservation lifecycle (`quota_reservations`), full-chapter TTS narration (`narration_requests`, `narration_assets`, `narration_alignments`),
   multi-part uploaded narration pipeline (`media_assets`, `narration_sets`, `narration_parts`, `narration_documents`, `narration_alignment_runs`),
   canonical execution check constraints, and all baseline indexes.
-- `V2__seed_demo_data.sql` contains only deterministic local/demo data using
-  canonical enum values, storyboard revisions, character bibles, and valid plan credits.
+- `V2__seed_demo_data.sql` contains deterministic local/demo data for every table
+  in V1, including required columns for continuity, media plans, quota
+  reservations, narration, uploaded audio, favorites, and final artifacts.
 - Keep `spring.flyway.baseline-on-migrate=false`. No `ignore-migration-patterns`
   or checksum bypass is added to hide an old migration history.
 - Existing databases created with any former migration split require an

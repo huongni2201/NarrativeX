@@ -1,4 +1,4 @@
-# NarrativeX Database Baseline V1.10
+# NarrativeX Database Baseline V1.11
 
 ## Authority and validation
 
@@ -17,6 +17,13 @@
 
 The migration set is consolidated into a clean two-step baseline (V1 schema, V2 seed).
 
+The V2 fixture covers every V1 table. In addition to the core project/story
+rows, it includes scene and visual-beat continuity links, AI identity mappings,
+favorites, media plans, quota reservations, TTS requests/assets/alignments,
+uploaded narration sets/parts/documents/alignment runs, render manifests and
+final artifacts. Seed statements use explicit column lists and provide all
+non-default required columns.
+
 ## Entity/schema matrix
 
 | Domain | Table | Status | Notes |
@@ -28,7 +35,9 @@ The migration set is consolidated into a clean two-step baseline (V1 schema, V2 
 | Scene | `scenes` | IMPLEMENTED FOUNDATION | storyboard scene persistence, location association |
 | SceneCharacter | `scene_characters` | IMPLEMENTED | ordered scene-to-character continuity associations |
 | VisualBeat | `visual_beats` | IMPLEMENTED FOUNDATION | motion/camera split |
+| VisualBeatCharacter | `visual_beat_characters` | IMPLEMENTED | ordered beat-to-character continuity |
 | MediaPlan | `media_plans` / `media_scene_plans` / `media_beat_plans` | IMPLEMENTED | backend-authoritative execution and cost plan |
+| ProjectFavorite | `project_favorites` | IMPLEMENTED | per-user dashboard favorites |
 | GenerationJob | `generation_jobs` | IMPLEMENTED FOUNDATION | durable async execution state with plan & revision pinning |
 | StageAttempt | `stage_attempts` | IMPLEMENTED FOUNDATION | lease/attempt model with heartbeat claims |
 | ProviderOperation | `provider_operations` | IMPLEMENTED SQL-FIRST SLICE | durable provider boundary, CAS lifecycle, reconciliation, billing evidence & result fingerprint |
@@ -38,6 +47,7 @@ The migration set is consolidated into a clean two-step baseline (V1 schema, V2 
 | Narration (Upload) | `media_assets` / `narration_sets` / `narration_parts` / `narration_documents` / `narration_alignment_runs` | IMPLEMENTED FOUNDATION | multi-part logical narration upload pipeline & alignment cache |
 | Character & Identity | `characters` / `character_versions` / `outfit_versions` / `character_appearances` / `project_characters` / `project_character_ai_identities` | IMPLEMENTED FOUNDATION | reusable character identity, appearance timelines & AI continuity matching |
 | Location | `project_locations` / `project_location_ai_identities` | IMPLEMENTED FOUNDATION | project locations and AI continuity key mapping |
+| Render artifact | `render_manifests` / `final_artifacts` | IMPLEMENTED | immutable render inputs and durable output metadata |
 
 ## Durable execution persistence
 
@@ -87,13 +97,9 @@ Scene
 VisualBeat
 ```
 
-Current continuity gap:
-
-- AI-returned Locations are not yet fully materialized.
-- Scene -> ProjectCharacter relation is not yet durable.
-- Scene -> Location relation is not yet durable.
-
-These relations should be added as explicit domain references. Character names must not be used as historical continuity keys.
+AI-returned locations and scene-to-character continuity are materialized as
+explicit durable relations. Character names must not be used as historical
+continuity keys.
 
 ## Optimistic concurrency
 
@@ -131,11 +137,9 @@ The partial predicate avoids archived rows polluting the common active-project p
 
 ## Remaining database work
 
-1. Add durable Scene continuity relation tables/columns after the continuity domain decision.
-2. Add full billing ledger, actual provider usage and reservation release accounting.
-3. Add media artifact/render/export persistence when the media pipeline lands.
-4. Add complete deletion/retention lifecycle schema and backup verification.
-5. Add indexes from measured production query plans instead of speculative indexing.
+1. Add full billing ledger, actual provider usage and reservation release accounting.
+2. Add complete deletion/retention lifecycle schema and backup verification.
+3. Add indexes from measured production query plans instead of speculative indexing.
 
 ## Schema verification gate
 

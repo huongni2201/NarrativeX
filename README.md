@@ -34,7 +34,7 @@ The backend container uses `postgres` and `redis` as service hostnames. Host-run
 
 PostgreSQL 18 uses a new data directory layout. Do not point it directly at an existing PostgreSQL 16 data volume; migrate retained data with a tested dump/restore or PostgreSQL upgrade procedure first.
 
-The repository uses Flyway versioned migrations (`V1` through `V7`) and repeatable migrations (`R__actual_billing_precision.sql`). When starting with a fresh database or test container, Flyway automatically applies all migrations in sequence. If upgrading from an older volume snapshot, ensure migrations run smoothly or re-initialize the disposable development volume.
+The repository uses exactly two Flyway versioned migrations: `V1__initial_schema.sql` for the complete PostgreSQL schema and `V2__seed_demo_data.sql` for deterministic development data. When starting with a fresh database or test container, Flyway applies both in sequence. Existing databases created from an older migration history require operator-reviewed recreation or explicit re-baselining; the application does not rewrite `flyway_schema_history` automatically.
 
 Then follow the module READMEs and `CONTRIBUTING.md` for backend, worker, and frontend checks.
 
