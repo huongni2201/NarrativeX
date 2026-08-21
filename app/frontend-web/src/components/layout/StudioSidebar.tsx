@@ -208,7 +208,7 @@ export const StudioSidebar = () => {
                 <div className="flex items-center gap-1.5 min-w-0">
                   <Zap className="w-3.5 h-3.5 text-purple-400 shrink-0" />
                   <span className="text-xs font-semibold text-slate-200 uppercase tracking-wider truncate">
-                    Usage / Quota
+                    Sử dụng / Hạn mức
                   </span>
                 </div>
                 <button
@@ -217,7 +217,7 @@ export const StudioSidebar = () => {
                   className="shrink-0 rounded-full border border-purple-500/30 bg-purple-950/40 px-2 py-0.5 text-[10px] font-bold tracking-wide text-purple-300 uppercase hover:bg-purple-900/60 transition-colors"
                   title="Xem chi tiết hạn mức"
                 >
-                  {quota.tier || "Free"}
+                  {quota.tier || "Miễn phí"}
                 </button>
               </div>
 
@@ -250,10 +250,10 @@ export const StudioSidebar = () => {
             <>
               <div className="flex items-center justify-between gap-3">
                 <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-                  Usage / Quota
+                  Sử dụng / Hạn mức
                 </span>
                 <span className="rounded-full border border-slate-700 bg-slate-900 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                  {isQuotaError ? "Lỗi tải" : "Free"}
+                  {isQuotaError ? "Lỗi tải" : "Miễn phí"}
                 </span>
               </div>
 

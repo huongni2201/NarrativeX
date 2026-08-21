@@ -9,7 +9,7 @@ const navItems = [
   { href: "/projects", label: "Dự án", icon: FolderKanban },
   { href: "/characters", label: "Nhân vật", icon: Users },
   { href: "/assets", label: "Tài sản", icon: ImageIcon },
-  { href: "/presets", label: "Preset", icon: Palette },
+  { href: "/presets", label: "Phong cách", icon: Palette },
 ] as const;
 
 export function StudioMobileNav() {
