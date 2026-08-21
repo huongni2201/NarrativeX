@@ -47,14 +47,21 @@ class DurableNarrationProviderOperation:
 
 
 class NarrationWorkerRepository:
-    def __init__(self, database_url: str, lease_seconds: int) -> None:
+    def __init__(self, database_url: str, lease_seconds: int, *, pool_size: int = 5) -> None:
         self.database_url = database_url
         self.lease_seconds = lease_seconds
+        if pool_size < 1:
+            raise ValueError("Narration repository pool_size must be positive")
+        self.pool_size = pool_size
         self._pool: asyncpg.Pool | None = None
 
     async def connect(self) -> None:
         if self._pool is None:
-            self._pool = await asyncpg.create_pool(self.database_url, min_size=1, max_size=5)
+            self._pool = await asyncpg.create_pool(
+                self.database_url,
+                min_size=1,
+                max_size=self.pool_size,
+            )
 
     async def close(self) -> None:
         if self._pool is not None:

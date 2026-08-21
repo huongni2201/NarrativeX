@@ -72,18 +72,43 @@ VALUES
     (3010, 2010, 1, 'The Dry Valley', 'The seed keeper entered the valley alone.', encode(sha256(convert_to('The seed keeper entered the valley alone.', 'UTF8')), 'hex'), 'READY', 102000, 100, 2010)
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO scenes (id, chapter_id, order_index, title, narration, duration_seconds, status)
+INSERT INTO storyboard_revisions (id, chapter_id, revision_number, source_hash, source_row_version, status)
 VALUES
-    (4001, 3001, 1, 'Street Before Dawn', 'The old quarter breathes before sunrise.', 42, 'APPROVED'),
-    (4002, 3002, 1, 'Brass Mechanism', 'Tiny gears reveal a hidden coastline.', 45, 'APPROVED'),
-    (4003, 3003, 1, 'Moonlit Water', 'The boat glides between silver reflections.', 38, 'REVIEW'),
-    (4004, 3004, 1, 'Rainy Room', 'Rain taps a pattern on the glass.', 36, 'DRAFT'),
-    (4005, 3005, 1, 'Origami Dragon', 'Folded paper lifts into a living silhouette.', 40, 'APPROVED'),
-    (4006, 3006, 1, 'Pine Choir', 'The trees turn wind into a layered song.', 44, 'APPROVED'),
-    (4007, 3007, 1, 'Garden Hands', 'Careful hands place a seed in dark soil.', 34, 'OUTDATED'),
-    (4008, 3008, 1, 'Rooftop Wind', 'The kite crosses a row of sunlit roofs.', 39, 'APPROVED'),
-    (4009, 3009, 1, 'River Sky', 'Stars average and ripple in the current below.', 41, 'DRAFT'),
-    (4010, 3010, 1, 'Valley Footpath', 'A narrow path leads toward a green horizon.', 47, 'APPROVED')
+    (3501, 3001, 1, encode(sha256(convert_to('The first lantern flickered before the street woke.', 'UTF8')), 'hex'), 0, 'DRAFT'),
+    (3502, 3002, 1, encode(sha256(convert_to('The map was hidden inside a brass clock.', 'UTF8')), 'hex'), 0, 'DRAFT'),
+    (3503, 3003, 1, encode(sha256(convert_to('The river opened beneath the moon.', 'UTF8')), 'hex'), 0, 'DRAFT'),
+    (3504, 3004, 1, encode(sha256(convert_to('The rain arrived with a familiar voice.', 'UTF8')), 'hex'), 0, 'DRAFT'),
+    (3505, 3005, 1, encode(sha256(convert_to('The paper dragon unfolded its first wing.', 'UTF8')), 'hex'), 0, 'DRAFT'),
+    (3506, 3006, 1, encode(sha256(convert_to('The hikers stopped where the forest began to sing.', 'UTF8')), 'hex'), 0, 'DRAFT'),
+    (3507, 3007, 1, encode(sha256(convert_to('The grandmother planted the first seed.', 'UTF8')), 'hex'), 0, 'DRAFT'),
+    (3508, 3008, 1, encode(sha256(convert_to('A blue kite pulled against the morning wind.', 'UTF8')), 'hex'), 0, 'DRAFT'),
+    (3509, 3009, 1, encode(sha256(convert_to('The river held a second sky.', 'UTF8')), 'hex'), 0, 'DRAFT'),
+    (3510, 3010, 1, encode(sha256(convert_to('The seed keeper entered the valley alone.', 'UTF8')), 'hex'), 0, 'DRAFT')
+ON CONFLICT (id) DO NOTHING;
+
+UPDATE chapters SET current_storyboard_revision_id = 3501 WHERE id = 3001;
+UPDATE chapters SET current_storyboard_revision_id = 3502 WHERE id = 3002;
+UPDATE chapters SET current_storyboard_revision_id = 3503 WHERE id = 3003;
+UPDATE chapters SET current_storyboard_revision_id = 3504 WHERE id = 3004;
+UPDATE chapters SET current_storyboard_revision_id = 3505 WHERE id = 3005;
+UPDATE chapters SET current_storyboard_revision_id = 3506 WHERE id = 3006;
+UPDATE chapters SET current_storyboard_revision_id = 3507 WHERE id = 3007;
+UPDATE chapters SET current_storyboard_revision_id = 3508 WHERE id = 3008;
+UPDATE chapters SET current_storyboard_revision_id = 3509 WHERE id = 3009;
+UPDATE chapters SET current_storyboard_revision_id = 3510 WHERE id = 3010;
+
+INSERT INTO scenes (id, chapter_id, storyboard_revision_id, order_index, title, narration, duration_seconds, status)
+VALUES
+    (4001, 3001, 3501, 1, 'Street Before Dawn', 'The old quarter breathes before sunrise.', 42, 'APPROVED'),
+    (4002, 3002, 3502, 1, 'Brass Mechanism', 'Tiny gears reveal a hidden coastline.', 45, 'APPROVED'),
+    (4003, 3003, 3503, 1, 'Moonlit Water', 'The boat glides between silver reflections.', 38, 'REVIEW'),
+    (4004, 3004, 3504, 1, 'Rainy Room', 'Rain taps a pattern on the glass.', 36, 'DRAFT'),
+    (4005, 3005, 3505, 1, 'Origami Dragon', 'Folded paper lifts into a living silhouette.', 40, 'APPROVED'),
+    (4006, 3006, 3506, 1, 'Pine Choir', 'The trees turn wind into a layered song.', 44, 'APPROVED'),
+    (4007, 3007, 3507, 1, 'Garden Hands', 'Careful hands place a seed in dark soil.', 34, 'OUTDATED'),
+    (4008, 3008, 3508, 1, 'Rooftop Wind', 'The kite crosses a row of sunlit roofs.', 39, 'APPROVED'),
+    (4009, 3009, 3509, 1, 'River Sky', 'Stars average and ripple in the current below.', 41, 'DRAFT'),
+    (4010, 3010, 3510, 1, 'Valley Footpath', 'A narrow path leads toward a green horizon.', 47, 'APPROVED')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO visual_beats (id, scene_id, order_index, title, visual_intent, review_status, motion_mode, camera_movement, aspect_ratio_override, quality_tier_override)
@@ -128,18 +153,18 @@ VALUES
     (7010, 6010, 'VIDEO', 1, 'COMPLETED', 'seed-worker-10', CURRENT_TIMESTAMP)
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO provider_operations (id, stage_attempt_id, provider_key, provider_operation_id, status, request_fingerprint)
+INSERT INTO provider_operations (id, stage_attempt_id, provider_key, provider_operation_id, status, request_fingerprint, result_fingerprint, normalized_result_json, actual_cost, billing_currency, usage_json, pricing_snapshot_json)
 VALUES
-    (8001, 7001, 'demo.analysis', 'demo-op-0001', 'COMPLETED', 'seed-fp-8001'),
-    (8002, 7002, 'demo.image', 'demo-op-0002', 'COMPLETED', 'seed-fp-8002'),
-    (8003, 7003, 'demo.image', 'demo-op-0003', 'RUNNING', 'seed-fp-8003'),
-    (8004, 7004, 'demo.analysis', NULL, 'RESERVED', 'seed-fp-8004'),
-    (8005, 7005, 'demo.video', 'demo-op-0005', 'COMPLETED', 'seed-fp-8005'),
-    (8006, 7006, 'demo.video', 'demo-op-0006', 'FAILED', 'seed-fp-8006'),
-    (8007, 7007, 'demo.short', 'demo-op-0007', 'COMPLETED', 'seed-fp-8007'),
-    (8008, 7008, 'demo.image', 'demo-op-0008', 'COMPLETED', 'seed-fp-8008'),
-    (8009, 7009, 'demo.analysis', NULL, 'RESERVED', 'seed-fp-8009'),
-    (8010, 7010, 'demo.video', 'demo-op-0010', 'COMPLETED', 'seed-fp-8010')
+    (8001, 7001, 'demo.analysis', 'demo-op-0001', 'COMPLETED', 'seed-fp-8001', encode(sha256(convert_to('seed-rfp-8001', 'UTF8')), 'hex'), '{"scenes":1}'::jsonb, 0.015000000, 'USD', '{"tokens":1600}'::jsonb, '{"unitCost":0.00001}'::jsonb),
+    (8002, 7002, 'demo.image', 'demo-op-0002', 'COMPLETED', 'seed-fp-8002', encode(sha256(convert_to('seed-rfp-8002', 'UTF8')), 'hex'), '{"images":4}'::jsonb, 0.150000000, 'USD', '{"images":4}'::jsonb, '{"unitCost":0.0375}'::jsonb),
+    (8003, 7003, 'demo.image', 'demo-op-0003', 'RUNNING', 'seed-fp-8003', NULL, NULL, NULL, NULL, NULL, NULL),
+    (8004, 7004, 'demo.analysis', NULL, 'RESERVED', 'seed-fp-8004', NULL, NULL, NULL, NULL, NULL, NULL),
+    (8005, 7005, 'demo.video', 'demo-op-0005', 'COMPLETED', 'seed-fp-8005', encode(sha256(convert_to('seed-rfp-8005', 'UTF8')), 'hex'), '{"video":"demo.mp4"}'::jsonb, 0.650000000, 'USD', '{"seconds":87}'::jsonb, '{"unitCost":0.0075}'::jsonb),
+    (8006, 7006, 'demo.video', 'demo-op-0006', 'FAILED', 'seed-fp-8006', NULL, NULL, NULL, NULL, NULL, NULL),
+    (8007, 7007, 'demo.short', 'demo-op-0007', 'COMPLETED', 'seed-fp-8007', encode(sha256(convert_to('seed-rfp-8007', 'UTF8')), 'hex'), '{"short":"demo.mp4"}'::jsonb, 0.280000000, 'USD', '{"seconds":34}'::jsonb, '{"unitCost":0.0082}'::jsonb),
+    (8008, 7008, 'demo.image', 'demo-op-0008', 'COMPLETED', 'seed-fp-8008', encode(sha256(convert_to('seed-rfp-8008', 'UTF8')), 'hex'), '{"images":5}'::jsonb, 0.120000000, 'USD', '{"images":5}'::jsonb, '{"unitCost":0.024}'::jsonb),
+    (8009, 7009, 'demo.analysis', NULL, 'RESERVED', 'seed-fp-8009', NULL, NULL, NULL, NULL, NULL, NULL),
+    (8010, 7010, 'demo.video', 'demo-op-0010', 'COMPLETED', 'seed-fp-8010', encode(sha256(convert_to('seed-rfp-8010', 'UTF8')), 'hex'), '{"video":"demo.mp4"}'::jsonb, 0.550000000, 'USD', '{"seconds":102}'::jsonb, '{"unitCost":0.0054}'::jsonb)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO operation_plans (id, project_id, generation_job_id, operation_type, estimate_min, estimate_max, max_authorized_cost, confidence)

@@ -99,7 +99,9 @@ Reconciliation candidates are limited to `UNKNOWN`, `SUBMITTED` and `RUNNING` ro
 
 Workers claim eligible durable attempts with PostgreSQL row locking and `SKIP LOCKED`. A running attempt records worker ownership and heartbeat state. Stale attempts can be recovered according to lease policy.
 
-`WORKER_CONCURRENCY` defaults to 4 and is bounded by configuration. Database pool sizing follows configured concurrency. Graceful shutdown stops new claims and waits for in-flight work according to the worker runtime contract.
+`WORKER_CONCURRENCY` defaults to 4 and is bounded by configuration. Both Chapter analysis and full-chapter narration use it as the maximum number of active jobs in one worker process. Narration keeps segments within one chapter sequential, so concurrency is applied between independent chapter jobs rather than multiplying TTS requests without a bound.
+
+Database pool sizing follows configured concurrency. The narration repository receives `max(5, WORKER_CONCURRENCY + 2)` as its pool limit so task concurrency is not silently throttled by the former fixed `max_size=5` pool. Graceful shutdown stops new claims, lets in-flight narration retain its heartbeat and finish, then closes the repository pool. A lease-loss path cancels processing without claiming authority to mark the job failed; durable provider-operation UNKNOWN semantics remain the recovery boundary.
 
 ## Application boundaries
 

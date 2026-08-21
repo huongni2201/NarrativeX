@@ -5,7 +5,7 @@
 - Entry point: `com.narrativex.backend.NarrativeXBackendApplication`.
 - Build: Maven under `app/backend-service`.
 - Runtime: Java 25, Spring Boot 4.1.0.
-- Persistence: Spring Data JPA plus MyBatis SQL-first persistence for migrated boundaries such as ProviderOperation and Chapter, backed by PostgreSQL and Flyway. PostgreSQL remains authoritative for durable business and execution state.
+- Persistence: Spring Data JPA plus MyBatis SQL-first persistence for migrated boundaries such as ProviderOperation, Chapter, and Project, backed by PostgreSQL and Flyway. PostgreSQL remains authoritative for durable business and execution state.
 - Redis: Spring Data Redis provides non-authoritative abuse-control/delivery/cache/progress infrastructure, while Spring Session Data Redis stores authenticated HTTP session state.
 - Architecture: modular monolith with extraction-oriented feature boundaries plus a separate Python asynchronous AI/media worker.
 
@@ -47,18 +47,9 @@ OperationPlan
 
 Provider requests require durable lifecycle state. Ambiguous external state uses `UNKNOWN` reconciliation instead of blind retry/resubmit. Full actual-usage reconciliation and unused-reservation release remain follow-up work.
 
-ProviderOperation and Chapter use MyBatis adapters. Their application ports are
-persistence-technology-neutral. Both MyBatis boundaries use dedicated row models and explicit PostgreSQL
-predicates, including `row_version` CAS for mutable writes.
+ProviderOperation, Chapter, and Project use MyBatis adapters. Their application ports are persistence-technology-neutral. MyBatis boundaries use dedicated row models and explicit PostgreSQL predicates, including `row_version` CAS for mutable writes.
 
-Future MyBatis boundaries must extend
-`NarrativeXMyBatisMapper` so the shared configuration can register only
-explicitly opted-in mapper interfaces. XML uses explicit result maps and keeps
-SQL-specific JSONB/enum/timestamp mappings visible. Adapters validate affected
-rows for every CAS update; they do not read a Java version and then issue an
-unconditional update. See
-  ADR-0014 and ADR-0017 for the accepted SQL-first persistence decisions and
-  their verification boundaries.
+Future MyBatis boundaries must extend `NarrativeXMyBatisMapper` so the shared configuration can register only explicitly opted-in mapper interfaces. XML uses explicit result maps and keeps SQL-specific JSONB/enum/timestamp mappings visible. Adapters validate affected rows for every CAS update; they do not read a Java version and then issue an unconditional update. See [ADR-0010](../decisions/ADR-0010-sql-first-mybatis-persistence-architecture.md) for the accepted SQL-first persistence decisions and their verification boundaries.
 
 ## Current continuity materialization
 
@@ -92,29 +83,3 @@ Backend endpoint availability does not imply every frontend surface is wired. Se
 - Aggregate invariants are enforced by domain factories/intent methods; application services coordinate authorization, persistence and external systems.
 - Mutable aggregate writes use optimistic `row_version`/JPA `@Version` plus stale-version guards where implemented.
 - Provider calls stay outside long database transactions.
-
-## Authentication/session infrastructure
-
-The browser contract is Spring Security server-managed session + CSRF for password and Google OIDC authentication. Spring Session Data Redis stores authenticated sessions. JWT access/refresh tokens are not the current browser contract.
-
-Session loss can sign users out but must not lose PostgreSQL business state. Password login/register abuse limiting is separate Redis infrastructure.
-
-## Database ownership
-
-- Backend owns Flyway and JPA mappings.
-- `V1__initial_schema.sql` is the consolidated development schema baseline.
-- `V2__seed_demo_data.sql` contains deterministic local/demo rows.
-- Released/shared migration history is forward-only.
-- PostgreSQL is authoritative for durable domain/job/quota/safety state.
-
-## Remaining backend gaps
-
-- Full Character editing/version-lock/reference workflow.
-- Approved Storyboard reset/versioning workflow.
-- Complete actual-cost/usage reconciliation and unused reservation release.
-- Image generation, TTS/subtitles, render/export and FinalArtifact validation.
-- Broader production moderation/consent/abuse, observability and disaster-recovery evidence.
-
-## Architecture enforcement and CI
-
-Architecture tests enforce package/dependency direction and storyboard aggregate boundaries. Backend CI runs Maven `clean verify`, including tests, Spotless and JaCoCo. The current coverage threshold is a bootstrap quality gate, not evidence of comprehensive behavior coverage.

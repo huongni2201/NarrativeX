@@ -22,14 +22,18 @@ incompatible schema.
   `app/backend-service/src/main/resources/db/migration/`:
   `V1__initial_schema.sql` and `V2__seed_demo_data.sql`.
 - `V1__initial_schema.sql` contains the final consolidated schema, including
-  split motion fields (`motion_mode`, `camera_movement`), durable provider operations,
-  `operation_plans.generation_job_id`, `plan_entitlements.monthly_credits`,
+  split motion fields (`motion_mode`, `camera_movement`), storyboard revisions (`storyboard_revisions`),
+  scene & location continuity identities (`scene_characters`, `project_character_ai_identities`, `project_location_ai_identities`),
+  backend-authoritative media plans (`media_plans`, `media_scene_plans`, `media_beat_plans`),
+  durable provider operations with billing reconciliation & result fingerprints,
+  quota reservation lifecycle (`quota_reservations`), full-chapter TTS narration (`narration_requests`, `narration_assets`, `narration_alignments`),
+  multi-part uploaded narration pipeline (`media_assets`, `narration_sets`, `narration_parts`, `narration_documents`, `narration_alignment_runs`),
   canonical execution check constraints, and all baseline indexes.
 - `V2__seed_demo_data.sql` contains only deterministic local/demo data using
-  canonical enum values and valid plan credits.
+  canonical enum values, storyboard revisions, character bibles, and valid plan credits.
 - Keep `spring.flyway.baseline-on-migrate=false`. No `ignore-migration-patterns`
   or checksum bypass is added to hide an old migration history.
-- Existing databases created with the former V3–V8 history require an
+- Existing databases created with any former migration split require an
   operator-reviewed recreation or explicit re-baselining. The application must
   not delete a PostgreSQL volume or rewrite `flyway_schema_history` at startup.
 

@@ -36,7 +36,7 @@ Approved VisualBeat + KeyframeAsset
 
 `VideoGenerationProvider` exposes capability, submit, status and reconcile behavior. Domain code uses production/motion capability, never `if provider == ...` business branches. Provider/model names, endpoint/model versions, request options and operation IDs are durable snapshots at the execution/accounting boundary.
 
-The initial `WanVideoProvider` calls a configured private Wan-compatible HTTP endpoint. NarrativeX does not embed Wan runtime dependencies into the backend domain and does not introduce a new domain service. See `LOCAL_I2V.md` and ADR-0012.
+The initial `WanVideoProvider` calls a configured private Wan-compatible HTTP endpoint. NarrativeX does not embed Wan runtime dependencies into the backend domain and does not introduce a new domain service. See `LOCAL_I2V.md` and [ADR-0009](../decisions/ADR-0009-visual-beat-motion-and-production-modes.md).
 
 ## Durable and idempotent execution
 

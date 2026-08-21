@@ -22,6 +22,7 @@ from narrativex_worker.repository import (
 )
 from narrativex_worker.schema import ProviderOperationStatus
 from narrativex_worker.service import WorkerService
+from narrativex_worker.task_runtime import reap_finished_tasks
 
 
 class NarrativeXWorker:
@@ -114,13 +115,12 @@ class NarrativeXWorker:
             self.logger.info("Worker stopped cleanly.")
 
     def _reap_finished_tasks(self) -> None:
-        finished = {task for task in self._in_flight if task.done()}
-        for task in finished:
-            self._in_flight.remove(task)
-            with contextlib.suppress(asyncio.CancelledError):
-                exception = task.exception()
-                if exception is not None:
-                    self.logger.error("Worker task ended unexpectedly", exc_info=exception)
+        reap_finished_tasks(
+            self._in_flight,
+            self.logger,
+            worker_id=self.worker_id,
+            task_label="Worker",
+        )
 
     async def _process(self, claimed: ClaimedChapterAnalysisJob) -> None:
         self.logger.info(

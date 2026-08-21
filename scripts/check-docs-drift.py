@@ -60,8 +60,8 @@ R2_ONLY_FILES = [
     ROOT / "documentation" / "architecture" / "DATA_FLOW.md",
     ROOT / "documentation" / "architecture" / "TECHNOLOGY_STACK.md",
     ROOT / "documentation" / "codebase" / "CODEBASE_MAP.md",
-    ROOT / "documentation" / "decisions" / "ADR-0016-cloudflare-r2-generated-image-durability.md",
-    ROOT / "documentation" / "decisions" / "ADR-0018-full-chapter-narration-and-alignment.md",
+    ROOT / "documentation" / "decisions" / "ADR-0012-cloudflare-r2-durable-media-storage.md",
+    ROOT / "documentation" / "decisions" / "ADR-0011-narration-pipeline-and-worker-runtime.md",
     ROOT / "documentation" / "decisions" / "README.md",
 ]
 

@@ -2,6 +2,7 @@ import asyncio
 import contextlib
 import hashlib
 import logging
+import time
 import uuid
 
 from narrativex_worker.config import WorkerSettings
@@ -25,6 +26,7 @@ from narrativex_worker.narration.segmenter import NarrationSegmenter, utf16_leng
 from narrativex_worker.narration.storage import MediaStorage, S3MediaStorage
 from narrativex_worker.providers.tts import GoogleCloudTtsProvider
 from narrativex_worker.schema import ProviderOperationStatus
+from narrativex_worker.task_runtime import reap_finished_tasks
 
 
 class NarrationWorkerRunner:
@@ -33,8 +35,13 @@ class NarrationWorkerRunner:
         self.logger = logging.getLogger("narrativex.worker.narration")
         self.worker_id = f"{settings.worker_name}-narration-{uuid.uuid4()}"
         self._running = False
+        self._in_flight: set[asyncio.Task[None]] = set()
         self.enabled = settings.tts_provider_mode != "disabled"
-        self.repository = NarrationWorkerRepository(settings.database_url, settings.lease_seconds)
+        self.repository = NarrationWorkerRepository(
+            settings.database_url,
+            settings.lease_seconds,
+            pool_size=max(5, settings.worker_concurrency + 2),
+        )
         self.provider: TtsProvider | None = None
         self.storage: MediaStorage | None = None
         self.pricing: GoogleTtsPricingCatalog | None = None
@@ -57,18 +64,74 @@ class NarrationWorkerRunner:
         self._running = True
         try:
             while self._running:
-                claimed = await self.repository.claim_next(self.worker_id)
-                if claimed is None:
-                    await asyncio.sleep(self.settings.poll_interval_seconds)
+                self._reap_finished_tasks()
+                if len(self._in_flight) >= self.settings.worker_concurrency:
+                    await asyncio.wait(self._in_flight, return_when=asyncio.FIRST_COMPLETED)
                     continue
-                await self._process(claimed)
+
+                claim_started = time.monotonic()
+                claimed = await self.repository.claim_next(self.worker_id)
+                claim_latency = time.monotonic() - claim_started
+                self.logger.debug(
+                    "narration_claim_latency=%s narration_jobs_in_flight=%s",
+                    claim_latency,
+                    len(self._in_flight),
+                )
+                if claimed is None:
+                    if self._in_flight:
+                        done, _ = await asyncio.wait(
+                            self._in_flight,
+                            timeout=self.settings.poll_interval_seconds,
+                            return_when=asyncio.FIRST_COMPLETED,
+                        )
+                        if done:
+                            self._reap_finished_tasks()
+                    else:
+                        await asyncio.sleep(self.settings.poll_interval_seconds)
+                    continue
+
+                self.logger.info(
+                    "Claimed narration job=%s stageAttemptId=%s narrationRequestId=%s "
+                    "workerId=%s narration_worker_concurrency_limit=%s",
+                    claimed.job_id,
+                    claimed.stage_attempt_id,
+                    claimed.narration_request_id,
+                    self.worker_id,
+                    self.settings.worker_concurrency,
+                )
+                task = asyncio.create_task(
+                    self._process(claimed),
+                    name=f"narration-job-{claimed.job_id}",
+                )
+                self._in_flight.add(task)
+                self.logger.debug(
+                    "narration_jobs_in_flight=%s workerId=%s",
+                    len(self._in_flight),
+                    self.worker_id,
+                )
         finally:
+            # stop() only stops new claims. Existing jobs retain their lease/heartbeat and
+            # are allowed to finish before the repository pool is closed.
+            if self._in_flight:
+                await asyncio.gather(*self._in_flight, return_exceptions=True)
+                self._in_flight.clear()
             await self.repository.close()
 
-    def stop(self) -> None:
+    def _reap_finished_tasks(self) -> None:
+        reap_finished_tasks(
+            self._in_flight,
+            self.logger,
+            worker_id=self.worker_id,
+            task_label="Narration",
+        )
+
+    def stop(self, *args: object) -> None:
+        del args
+        self.logger.info("Narration worker shutdown requested workerId=%s", self.worker_id)
         self._running = False
 
     async def _process(self, claimed: ClaimedNarrationJob) -> None:
+        started_at = time.monotonic()
         processing = asyncio.create_task(self._execute(claimed))
         heartbeat = asyncio.create_task(self._heartbeat_loop(claimed.stage_attempt_id))
         try:
@@ -77,14 +140,38 @@ class NarrationWorkerRunner:
             )
             if heartbeat in done:
                 await heartbeat
-                raise RuntimeError("Narration heartbeat stopped unexpectedly")
+                raise NarrationLeaseLostError("Narration heartbeat stopped unexpectedly")
             await processing
+        except NarrationLeaseLostError:
+            self.logger.error(
+                "Narration lease lost workerId=%s jobId=%s stageAttemptId=%s "
+                "narrationRequestId=%s narration_lease_lost_total=1",
+                self.worker_id,
+                claimed.job_id,
+                claimed.stage_attempt_id,
+                claimed.narration_request_id,
+            )
+            if not processing.done():
+                processing.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await processing
         except NarrationOutcomeUnknownError:
-            self.logger.warning("Narration job=%s has an UNKNOWN provider outcome", claimed.job_id)
+            self.logger.warning(
+                "Narration job=%s stageAttemptId=%s narrationRequestId=%s "
+                "has an UNKNOWN provider outcome",
+                claimed.job_id,
+                claimed.stage_attempt_id,
+                claimed.narration_request_id,
+            )
             with contextlib.suppress(Exception):
                 await self.repository.mark_unknown(claimed, self.worker_id)
         except Exception as exception:
-            self.logger.exception("Narration job=%s failed", claimed.job_id)
+            self.logger.exception(
+                "Narration job=%s stageAttemptId=%s narrationRequestId=%s failed",
+                claimed.job_id,
+                claimed.stage_attempt_id,
+                claimed.narration_request_id,
+            )
             with contextlib.suppress(Exception):
                 await self.repository.fail(
                     claimed, self.worker_id, type(exception).__name__.upper()[:80]
@@ -96,6 +183,15 @@ class NarrationWorkerRunner:
             for task in (processing, heartbeat):
                 with contextlib.suppress(asyncio.CancelledError, Exception):
                     await task
+            self.logger.debug(
+                "Finished narration job=%s stageAttemptId=%s narrationRequestId=%s "
+                "narration_job_duration=%s narration_jobs_in_flight=%s",
+                claimed.job_id,
+                claimed.stage_attempt_id,
+                claimed.narration_request_id,
+                time.monotonic() - started_at,
+                len(self._in_flight),
+            )
 
     async def _execute(self, claimed: ClaimedNarrationJob) -> None:
         assert self.provider is not None
@@ -270,8 +366,12 @@ class NarrationWorkerRunner:
         while True:
             await asyncio.sleep(interval)
             if not await self.repository.heartbeat(stage_attempt_id, self.worker_id):
-                raise RuntimeError("Worker lost its narration StageAttempt lease")
+                raise NarrationLeaseLostError("Worker lost its narration StageAttempt lease")
 
 
 class NarrationOutcomeUnknownError(RuntimeError):
+    pass
+
+
+class NarrationLeaseLostError(RuntimeError):
     pass

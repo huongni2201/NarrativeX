@@ -27,8 +27,8 @@ def test_sentence_crossing_file_boundary_keeps_global_continuity() -> None:
     spans = translate_to_global_audio(
         timeline,
         [
-            LocalAlignmentSpan(0, 0, 10, 9_500, 10_000),
-            LocalAlignmentSpan(1, 10, 20, 0, 500),
+            LocalAlignmentSpan(0, 0, 10, 9_500, 10_000, 1.0),
+            LocalAlignmentSpan(1, 10, 20, 0, 500, 1.0),
         ],
     )
 

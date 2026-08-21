@@ -12,12 +12,10 @@
 
 | Migration | Purpose | Current state |
 |---|---|---|
-| V1 `initial_schema` | Auth, project/story/chapter foundations, generation tables, storyboard (split motion/camera), durable provider operations & admission limits, canonical execution constraints and control plane | Consolidated baseline |
-| V2 `seed_demo_data` | Deterministic development/demo seed with canonical execution enums and valid plan credits | Development only |
-| V3–V8 | Continuity, durable provider results, quota lifecycle, project-scoped identities, storyboard revisions and provider reconciliation | Forward migrations |
-| V9 `provider_operation_result_fingerprint` | Fingerprint evidence for idempotent terminal provider results | Implemented |
+| V1 `initial_schema` | Auth, project/story/chapter foundations, storyboard revisions, split motion/camera visual beats, character/location AI identities, backend-authoritative media plans, generation execution pipeline, durable provider operations, quota reservation lifecycle, chapter-level TTS and multi-part uploaded narration pipeline | Consolidated baseline |
+| V2 `seed_demo_data` | Deterministic development/demo seed with canonical execution enums, storyboard revisions, character bibles, plan assignments and valid credits | Development only |
 
-Migration history is forward-only. Development re-baselines must not be treated as a production migration rewrite strategy.
+The migration set is consolidated into a clean two-step baseline (V1 schema, V2 seed).
 
 ## Entity/schema matrix
 
@@ -26,18 +24,25 @@ Migration history is forward-only. Development re-baselines must not be treated 
 | Project | `projects` | IMPLEMENTED | ownership, active query index and cursor pagination foundation |
 | StoryVersion | `story_versions` | IMPLEMENTED FOUNDATION | version/source boundary |
 | Chapter | `chapters` | IMPLEMENTED FOUNDATION | sourceText/sourceHash/rowVersion contract |
-| Scene | `scenes` | IMPLEMENTED FOUNDATION | storyboard scene persistence |
+| StoryboardRevision | `storyboard_revisions` | IMPLEMENTED | immutable revision boundary for safe re-analysis |
+| Scene | `scenes` | IMPLEMENTED FOUNDATION | storyboard scene persistence, location association |
+| SceneCharacter | `scene_characters` | IMPLEMENTED | ordered scene-to-character continuity associations |
 | VisualBeat | `visual_beats` | IMPLEMENTED FOUNDATION | motion/camera split |
-| GenerationJob | `generation_jobs` | IMPLEMENTED FOUNDATION | durable async execution state |
-| StageAttempt | `stage_attempts` | IMPLEMENTED FOUNDATION | lease/attempt model |
-| ProviderOperation | `provider_operations` | IMPLEMENTED SQL-FIRST SLICE | durable provider boundary, CAS lifecycle, reconciliation and result fingerprint |
-| OperationPlan | `operation_plans` | IMPLEMENTED MVP FOUNDATION | estimate/cap/admission link; not complete billing ledger |
-| Usage reservation | `usage_windows` / related quota state | IMPLEMENTED MVP FOUNDATION | atomic admission reservation |
+| MediaPlan | `media_plans` / `media_scene_plans` / `media_beat_plans` | IMPLEMENTED | backend-authoritative execution and cost plan |
+| GenerationJob | `generation_jobs` | IMPLEMENTED FOUNDATION | durable async execution state with plan & revision pinning |
+| StageAttempt | `stage_attempts` | IMPLEMENTED FOUNDATION | lease/attempt model with heartbeat claims |
+| ProviderOperation | `provider_operations` | IMPLEMENTED SQL-FIRST SLICE | durable provider boundary, CAS lifecycle, reconciliation, billing evidence & result fingerprint |
+| OperationPlan | `operation_plans` | IMPLEMENTED MVP FOUNDATION | estimate/cap/admission link |
+| QuotaReservation | `quota_reservations` / `usage_windows` | IMPLEMENTED | atomic admission reservation and terminal provider cost settlement |
+| Narration (TTS) | `narration_requests` / `narration_operations` / `narration_assets` / `narration_alignments` | IMPLEMENTED FOUNDATION | immutable full-chapter TTS snapshots and segment alignment |
+| Narration (Upload) | `media_assets` / `narration_sets` / `narration_parts` / `narration_documents` / `narration_alignment_runs` | IMPLEMENTED FOUNDATION | multi-part logical narration upload pipeline & alignment cache |
+| Character & Identity | `characters` / `character_versions` / `outfit_versions` / `character_appearances` / `project_characters` / `project_character_ai_identities` | IMPLEMENTED FOUNDATION | reusable character identity, appearance timelines & AI continuity matching |
+| Location | `project_locations` / `project_location_ai_identities` | IMPLEMENTED FOUNDATION | project locations and AI continuity key mapping |
 
 ## Durable execution persistence
 
 The persisted execution contract is documented in
-[`ADR-0012`](../decisions/ADR-0012-canonical-execution-persistence-contract.md).
+[`ADR-0008`](../decisions/ADR-0008-durable-provider-operations-and-execution-lifecycle.md).
 Java and Python mirrors must be updated with every new persisted execution
 value. Canonical execution values and bounds are validated via PostgreSQL CHECK constraints in V1.
 
