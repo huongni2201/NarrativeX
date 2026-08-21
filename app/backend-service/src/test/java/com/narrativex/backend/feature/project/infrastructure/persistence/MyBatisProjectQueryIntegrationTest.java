@@ -12,6 +12,7 @@ import com.narrativex.backend.feature.project.application.query.ProjectResourceV
 import com.narrativex.backend.feature.project.domain.aggregate.Project;
 import com.narrativex.backend.feature.project.domain.enums.AspectRatio;
 import com.narrativex.backend.feature.project.domain.enums.ImageQualityTier;
+import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ProjectDashboardMapper;
 import com.narrativex.backend.support.PostgreSqlIntegrationTestSupport;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -28,6 +29,7 @@ class MyBatisProjectQueryIntegrationTest extends PostgreSqlIntegrationTestSuppor
   @Autowired private ProjectRepository projectRepository;
   @Autowired private ProjectOverviewQueryRepository overviewRepository;
   @Autowired private ProjectResourceQueryRepository resourceRepository;
+  @Autowired private ProjectDashboardMapper dashboardMapper;
   @Autowired private JdbcTemplate jdbcTemplate;
 
   @Test
@@ -71,6 +73,22 @@ class MyBatisProjectQueryIntegrationTest extends PostgreSqlIntegrationTestSuppor
     assertEquals("ACTIVE", locations.content().getFirst().status());
     assertEquals(1, assets.content().size());
     assertEquals("{}", assets.content().getFirst().metadataJson());
+  }
+
+  @Test
+  void mapsDashboardPageAndCountsForAuthenticatedOwner() {
+    var rows = dashboardMapper.findDashboardPage("seed-user-01", null, null, "NEWEST", 0, 21);
+    var counts = dashboardMapper.findDashboardCounts("seed-user-01", null);
+
+    assertEquals(1, rows.size());
+    assertEquals(1001L, rows.getFirst().id());
+    assertEquals("ACTIVE", rows.getFirst().status());
+    assertEquals(1, rows.getFirst().totalChapters());
+    assertEquals(1, rows.getFirst().totalScenes());
+    assertEquals(42L, rows.getFirst().estimatedDurationSeconds());
+    assertEquals(1L, counts.allCount());
+    assertEquals(1L, counts.activeCount());
+    assertEquals(0L, counts.draftCount());
   }
 
   private Project newProject() {

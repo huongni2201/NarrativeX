@@ -12,18 +12,18 @@
             <arg column="status" javaType="java.lang.String" />
             <arg column="created_at" javaType="java.time.Instant" />
             <arg column="updated_at" javaType="java.time.Instant" />
-            <arg column="starred" javaType="boolean" />
-            <arg column="total_chapters" javaType="int" />
-            <arg column="total_scenes" javaType="int" />
-            <arg column="estimated_duration_seconds" javaType="long" />
+            <arg column="starred" javaType="_boolean" />
+            <arg column="total_chapters" javaType="_int" />
+            <arg column="total_scenes" javaType="_int" />
+            <arg column="estimated_duration_seconds" javaType="_long" />
         </constructor>
     </resultMap>
 
     <resultMap id="projectDashboardCountsRow" type="com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ProjectDashboardCountsRow">
         <constructor>
-            <arg column="all_count" javaType="long" />
-            <arg column="active_count" javaType="long" />
-            <arg column="draft_count" javaType="long" />
+            <arg column="all_count" javaType="_long" />
+            <arg column="active_count" javaType="_long" />
+            <arg column="draft_count" javaType="_long" />
         </constructor>
     </resultMap>
 

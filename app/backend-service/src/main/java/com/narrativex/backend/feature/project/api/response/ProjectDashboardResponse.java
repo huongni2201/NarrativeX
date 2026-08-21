@@ -1,7 +1,6 @@
 package com.narrativex.backend.feature.project.api.response;
 
-import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ProjectDashboardCountsRow;
-import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ProjectDashboardRow;
+import com.narrativex.backend.feature.project.application.query.ProjectDashboardView;
 import java.time.Instant;
 import java.util.List;
 
@@ -16,7 +15,7 @@ public record ProjectDashboardResponse(
     content = List.copyOf(content);
   }
 
-  public static ProjectDashboardItem item(ProjectDashboardRow row) {
+  public static ProjectDashboardItem item(ProjectDashboardView.Item row) {
     return new ProjectDashboardItem(
         row.id(),
         row.name(),
@@ -30,8 +29,8 @@ public record ProjectDashboardResponse(
             row.totalChapters(), row.totalScenes(), row.estimatedDurationSeconds()));
   }
 
-  public static ProjectDashboardCounts counts(ProjectDashboardCountsRow row) {
-    return new ProjectDashboardCounts(row.allCount(), row.activeCount(), row.draftCount());
+  public static ProjectDashboardCounts counts(ProjectDashboardView.Counts row) {
+    return new ProjectDashboardCounts(row.all(), row.active(), row.draft());
   }
 
   public record ProjectDashboardItem(

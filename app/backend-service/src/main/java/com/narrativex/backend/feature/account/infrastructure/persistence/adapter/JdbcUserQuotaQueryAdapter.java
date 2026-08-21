@@ -47,7 +47,7 @@ public class JdbcUserQuotaQueryAdapter implements UserQuotaQueryRepository, User
                          FROM quota_reservations qr
                         WHERE qr.user_id = upa.user_id
                           AND qr.status = 'RESERVED'
-                   ), 0)::integer AS expensive_jobs_active,
+                   ), 0)::integer AS active_reserved_jobs,
                    COALESCE(uw.credits_used, 0) AS credits_used,
                    COALESCE((
                        SELECT SUM(qr.estimated_cost)
@@ -122,7 +122,7 @@ public class JdbcUserQuotaQueryAdapter implements UserQuotaQueryRepository, User
         rs.getString("feature_flags_json"),
         rs.getInt("longform_exports"),
         rs.getInt("short_exports"),
-        rs.getInt("expensive_jobs_active"),
+        rs.getInt("active_reserved_jobs"),
         creditsUsed,
         monthlyCredits,
         remainingCredits);

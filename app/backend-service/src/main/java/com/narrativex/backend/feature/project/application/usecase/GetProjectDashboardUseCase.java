@@ -3,7 +3,7 @@ package com.narrativex.backend.feature.project.application.usecase;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.domain.exception.DomainValidationException;
 import com.narrativex.backend.feature.project.api.response.ProjectDashboardResponse;
-import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ProjectDashboardMapper;
+import com.narrativex.backend.feature.project.application.port.out.ProjectDashboardQueryRepository;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import lombok.RequiredArgsConstructor;
@@ -13,7 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class GetProjectDashboardUseCase {
-  private final ProjectDashboardMapper mapper;
+  private final ProjectDashboardQueryRepository dashboardQuery;
   private final CurrentUserId currentUserId;
 
   @Transactional(readOnly = true)
@@ -30,12 +30,12 @@ public class GetProjectDashboardUseCase {
     String userId = currentUserId.get();
 
     var rows =
-        mapper.findDashboardPage(
+        dashboardQuery.findPage(
             userId, normalizedStatus, normalizedQuery, normalizedSort, offset, limit + 1);
     boolean hasNext = rows.size() > limit;
     var visibleRows = hasNext ? rows.subList(0, limit) : rows;
     String nextCursor = hasNext ? encodeOffset(offset + limit) : null;
-    var counts = mapper.findDashboardCounts(userId, normalizedQuery);
+    var counts = dashboardQuery.findCounts(userId, normalizedQuery);
 
     return new ProjectDashboardResponse(
         visibleRows.stream().map(ProjectDashboardResponse::item).toList(),

@@ -16,9 +16,11 @@ import com.narrativex.backend.feature.project.application.query.ProjectOverviewV
 import com.narrativex.backend.feature.project.application.usecase.CreateProjectUseCase;
 import com.narrativex.backend.feature.project.application.usecase.CreateStoryVersionUseCase;
 import com.narrativex.backend.feature.project.application.usecase.GetLatestStoryVersionUseCase;
+import com.narrativex.backend.feature.project.application.usecase.GetProjectDashboardUseCase;
 import com.narrativex.backend.feature.project.application.usecase.GetProjectOverviewUseCase;
 import com.narrativex.backend.feature.project.application.usecase.GetProjectUseCase;
 import com.narrativex.backend.feature.project.application.usecase.ListProjectsUseCase;
+import com.narrativex.backend.feature.project.application.usecase.SetProjectFavoriteUseCase;
 import com.narrativex.backend.feature.project.domain.aggregate.Project;
 import com.narrativex.backend.feature.project.domain.enums.AspectRatio;
 import com.narrativex.backend.feature.project.domain.enums.ImageQualityTier;
@@ -34,6 +36,10 @@ class ProjectControllerContractTest {
   private final GetProjectUseCase getProjectUseCase = mock(GetProjectUseCase.class);
   private final GetProjectOverviewUseCase getProjectOverviewUseCase =
       mock(GetProjectOverviewUseCase.class);
+  private final GetProjectDashboardUseCase getProjectDashboardUseCase =
+      mock(GetProjectDashboardUseCase.class);
+  private final SetProjectFavoriteUseCase setProjectFavoriteUseCase =
+      mock(SetProjectFavoriteUseCase.class);
   private final CreateProjectUseCase createProjectUseCase = mock(CreateProjectUseCase.class);
   private final CreateStoryVersionUseCase createStoryVersionUseCase =
       mock(CreateStoryVersionUseCase.class);
@@ -48,6 +54,8 @@ class ProjectControllerContractTest {
             listProjectsUseCase,
             getProjectUseCase,
             getProjectOverviewUseCase,
+            getProjectDashboardUseCase,
+            setProjectFavoriteUseCase,
             createProjectUseCase,
             createStoryVersionUseCase,
             getLatestStoryVersionUseCase);

@@ -52,7 +52,7 @@ class PostgreSqlMigrationIntegrationTest {
   @Test
   void emptyPostgresMigratesAndApplicationContextStarts() throws SQLException {
     try (Connection connection = dataSource.getConnection()) {
-      assertEquals(2, latestFlywayVersion(connection));
+      assertEquals(3, latestFlywayVersion(connection));
       assertEquals("jsonb", columnType(connection, "moderation_decisions", "categories_json"));
       assertTrue(indexExists(connection, "uq_story_versions_one_active_per_project"));
       assertTrue(indexExists(connection, "idx_projects_active_owner_updated_id"));
@@ -99,6 +99,7 @@ class PostgreSqlMigrationIntegrationTest {
       assertTrue(indexExists(connection, "uq_provider_operation_fingerprint"));
       assertTrue(indexExists(connection, "idx_provider_operations_result_fingerprint"));
       assertTrue(columnExists(connection, "plan_entitlements", "monthly_credits"));
+      assertFalse(columnExists(connection, "usage_windows", "expensive_jobs_active"));
       assertTrue(tableExists(connection, "quota_reservations"));
       assertTrue(indexExists(connection, "idx_quota_reservations_active_user"));
       assertTrue(tableExists(connection, "narration_requests"));

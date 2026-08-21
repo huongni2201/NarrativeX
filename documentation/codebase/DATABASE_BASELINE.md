@@ -14,8 +14,9 @@
 |---|---|---|
 | V1 `initial_schema` | Auth, project/story/chapter foundations, storyboard revisions, split motion/camera visual beats, character/location AI identities, backend-authoritative media plans, generation execution pipeline, durable provider operations, quota reservation lifecycle, chapter-level TTS and multi-part uploaded narration pipeline | Consolidated baseline |
 | V2 `seed_demo_data` | Deterministic development/demo seed with canonical execution enums, storyboard revisions, character bibles, plan assignments and valid credits | Development only |
+| V3 `drop_deprecated_expensive_jobs_active` | Removes the unused `usage_windows.expensive_jobs_active` projection; active expensive jobs are derived from `quota_reservations` rows with `RESERVED` status | Forward-only cleanup |
 
-The migration set is consolidated into a clean two-step baseline (V1 schema, V2 seed).
+The migration set starts with the V1/V2 baseline (schema plus development seed), followed by forward-only cleanup migrations for databases that already applied that baseline.
 
 The V2 fixture covers every V1 table. In addition to the core project/story
 rows, it includes scene and visual-beat continuity links, AI identity mappings,
