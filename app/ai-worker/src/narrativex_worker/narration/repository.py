@@ -489,6 +489,38 @@ class NarrationWorkerRepository:
                 )
                 return True
 
+    async def mark_reconciliation_exhausted(
+        self, claimed: ClaimedNarrationJob, worker_id: str, error_code: str
+    ) -> bool:
+        """Keep the operation UNKNOWN and expose that automatic reconciliation is exhausted."""
+        pool = self._require_pool()
+        async with pool.acquire() as connection:
+            async with connection.transaction():
+                stage = await connection.execute(
+                    """
+                    UPDATE stage_attempts
+                       SET status = 'UNKNOWN', updated_at = CURRENT_TIMESTAMP,
+                           row_version = row_version + 1
+                     WHERE id = $1 AND worker_id = $2 AND status = 'RUNNING'
+                    """,
+                    claimed.stage_attempt_id,
+                    worker_id,
+                )
+                if stage != "UPDATE 1":
+                    return False
+                await connection.execute(
+                    """
+                    UPDATE generation_jobs
+                       SET status = 'UNKNOWN', current_step = 'NARRATION_REQUIRES_ATTENTION',
+                           error_code = $2, updated_at = CURRENT_TIMESTAMP,
+                           row_version = row_version + 1
+                     WHERE id = $1 AND status = 'RUNNING'
+                    """,
+                    claimed.generation_job_id,
+                    error_code[:80],
+                )
+                return True
+
     async def mark_stalled(
         self, claimed: ClaimedNarrationJob, worker_id: str, error_code: str
     ) -> bool:

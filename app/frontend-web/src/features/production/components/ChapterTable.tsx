@@ -1,4 +1,7 @@
-import { FileText, MoreVertical } from "lucide-react";
+"use client";
+
+import { useState } from "react";
+import { ChevronLeft, ChevronRight, FileText, MoreHorizontal } from "lucide-react";
 import type { ProductionChapter } from "../production.types";
 import { formatDateTime, formatDuration } from "./production-formatters";
 
@@ -8,43 +11,86 @@ interface ChapterTableProps {
 }
 
 export function ChapterTable({ chapters, onOpenChapter }: Readonly<ChapterTableProps>) {
-  if (chapters.length === 0) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+  const totalChapters = chapters.length;
+  const totalPages = Math.max(1, Math.ceil(totalChapters / pageSize));
+
+  const startIndex = (currentPage - 1) * pageSize;
+  const currentChapters = chapters.slice(startIndex, startIndex + pageSize);
+
+  if (totalChapters === 0) {
     return (
       <div className="p-12 text-center">
         <FileText className="mx-auto h-10 w-10 text-slate-600" />
-        <h2 className="mt-3 text-sm font-semibold text-slate-200">Chưa có Chapter</h2>
-        <p className="mt-1 text-xs text-slate-500">
-          Thêm Chapter đầu tiên để bắt đầu nhập nội dung truyện và tạo storyboard.
+        <h3 className="mt-3 text-sm font-semibold text-slate-200">Chưa có Chapter</h3>
+        <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto">
+          Thêm Chapter đầu tiên hoặc import từ file văn bản để bắt đầu.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[820px] text-left text-sm">
-        <thead className="border-b border-slate-800 bg-[#090e18] font-bold uppercase tracking-wide text-slate-200">
-          <tr>
-            <th className="w-12 px-4 py-4 text-center">#</th>
-            <th className="px-4 py-4">Chapter</th>
-            <th className="px-4 py-4">Trạng thái</th>
-            <th className="px-4 py-4 text-center">Scenes</th>
-            <th className="px-4 py-4">Thời lượng</th>
-            <th className="px-4 py-4">Cập nhật lần cuối</th>
-            <th className="px-4 py-4 text-right"></th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-800/60 font-medium">
-          {chapters.map((chapter, index) => (
-            <ChapterRow
-              key={chapter.id}
-              chapter={chapter}
-              displayNumber={index + 1}
-              onOpen={() => onOpenChapter(chapter)}
-            />
-          ))}
-        </tbody>
-      </table>
+    <div className="flex flex-col">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[700px] text-left text-xs">
+          <thead className="border-b border-slate-800 bg-[#090e18]/80 font-semibold text-slate-400">
+            <tr>
+              <th className="w-12 px-4 py-3.5 text-center font-mono">#</th>
+              <th className="px-4 py-3.5">Tên chapter</th>
+              <th className="px-4 py-3.5">Trạng thái</th>
+              <th className="px-4 py-3.5 text-center">Scenes</th>
+              <th className="px-4 py-3.5">Thời lượng</th>
+              <th className="px-4 py-3.5">Cập nhật lần cuối</th>
+              <th className="w-16 px-4 py-3.5 text-center">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-800/60 font-medium">
+            {currentChapters.map((chapter, index) => (
+              <ChapterRow
+                key={chapter.id}
+                chapter={chapter}
+                displayNumber={startIndex + index + 1}
+                onOpen={() => onOpenChapter(chapter)}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination Footer */}
+      <div className="flex items-center justify-between border-t border-slate-800/80 px-4 py-3 text-xs text-slate-400">
+        <span>
+          Hiển thị {startIndex + 1}–{Math.min(startIndex + pageSize, totalChapters)} của {totalChapters} chapter
+        </span>
+
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            aria-label="Trang trước"
+            disabled={currentPage <= 1}
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-800 bg-slate-900/80 text-slate-400 hover:border-slate-700 hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </button>
+
+          <span className="flex h-7 min-w-[28px] items-center justify-center rounded-lg bg-purple-600 px-2 font-mono text-xs font-bold text-white shadow-sm">
+            {currentPage}
+          </span>
+
+          <button
+            type="button"
+            aria-label="Trang sau"
+            disabled={currentPage >= totalPages}
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-800 bg-slate-900/80 text-slate-400 hover:border-slate-700 hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -57,61 +103,77 @@ function ChapterRow({
   return (
     <tr
       onClick={onOpen}
-      className="group cursor-pointer bg-[#0d1420] font-medium text-slate-200 transition hover:bg-[#111a29]"
+      className="group cursor-pointer bg-[#0d1420]/70 text-slate-200 transition-colors hover:bg-[#111a29]"
     >
-      <td className="px-4 py-5 text-center font-mono text-slate-300">{String(displayNumber).padStart(2, "0")}</td>
-      <td className="px-4 py-5 text-sm font-semibold text-slate-200 transition-colors group-hover:text-purple-300">
+      <td className="px-4 py-4 text-center font-mono text-slate-400 font-bold">
+        {String(displayNumber).padStart(2, "0")}
+      </td>
+      <td className="px-4 py-4 text-sm font-semibold text-slate-100 transition-colors group-hover:text-purple-300">
         {"Chương " + (chapter.orderIndex + 1) + ": " + chapter.title}
       </td>
-      <td className="px-4 py-5"><OverviewStatusBadge status={chapter.status} /></td>
-      <td className="px-4 py-5 text-center font-mono text-slate-200">{chapter.sceneCount}</td>
-      <td className="px-4 py-5 font-mono text-slate-300">{formatDuration(chapter.durationSeconds)}</td>
-      <td className="px-4 py-5 font-mono text-sm text-slate-300">{formatDateTime(chapter.updatedAt)}</td>
-      <td className="px-4 py-5 text-right">
+      <td className="px-4 py-4">
+        <ChapterStatusBadge status={chapter.status} />
+      </td>
+      <td className="px-4 py-4 text-center font-mono font-bold text-slate-300">
+        {chapter.sceneCount}
+      </td>
+      <td className="px-4 py-4 font-mono text-slate-300">
+        {formatDuration(chapter.durationSeconds)}
+      </td>
+      <td className="px-4 py-4 font-mono text-slate-400">
+        {formatDateTime(chapter.updatedAt)}
+      </td>
+      <td className="px-4 py-4 text-center">
         <button
           type="button"
-          aria-label={`Mở Chapter ${chapter.title}`}
+          aria-label={`Tùy chọn Chapter ${chapter.title}`}
           onClick={(event) => {
             event.stopPropagation();
             onOpen();
           }}
-          className="rounded p-1 text-slate-400 transition-colors hover:text-slate-200"
+          className="flex h-7 w-7 mx-auto items-center justify-center rounded-lg border border-slate-800 bg-slate-900/80 text-slate-400 transition-colors hover:border-slate-700 hover:text-slate-200"
         >
-          <MoreVertical className="h-4 w-4" />
+          <MoreHorizontal className="h-4 w-4" />
         </button>
       </td>
     </tr>
   );
 }
 
-function OverviewStatusBadge({ status }: Readonly<{ status: string }>) {
+function ChapterStatusBadge({ status }: Readonly<{ status: string }>) {
   const normalized = status.toUpperCase();
-  const styles = {
-    RENDERED: "border-emerald-600/50 bg-emerald-950/80 text-emerald-300",
-    VISUAL_REVIEW: "border-purple-600/50 bg-purple-950/80 text-purple-300",
-    IN_REVIEW: "border-purple-600/50 bg-purple-950/80 text-purple-300",
-    ANALYZED: "border-blue-600/50 bg-blue-950/80 text-blue-300",
-    ANALYZING: "animate-pulse border-purple-500 bg-purple-950/90 text-purple-200",
-    IN_PROGRESS: "animate-pulse border-purple-500 bg-purple-950/90 text-purple-200",
-    DRAFT: "border-amber-600/50 bg-amber-950/80 text-amber-300",
-    FAILED: "border-rose-600/50 bg-rose-950/80 text-rose-300",
-  } as const;
-  const style = styles[normalized as keyof typeof styles] ?? "border-slate-700 bg-slate-900 text-slate-400";
+
+  if (normalized === "ANALYZED" || normalized === "VISUAL_READY") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-950/70 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-300">
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+        Analyzed
+      </span>
+    );
+  }
+
+  if (normalized === "RENDERED" || normalized === "COMPLETED") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-purple-500/30 bg-purple-950/70 px-2.5 py-0.5 text-[11px] font-semibold text-purple-300">
+        <span className="h-1.5 w-1.5 rounded-full bg-purple-400" />
+        Rendered
+      </span>
+    );
+  }
+
+  if (normalized === "ANALYZING" || normalized === "IN_PROGRESS") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-500/30 bg-indigo-950/70 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-300">
+        <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-ping" />
+        Analyzing
+      </span>
+    );
+  }
+
   return (
-    <span className={`inline-flex rounded border px-2.5 py-1 text-xs font-bold ${style}`}>
-      {normalized === "RENDERED"
-        ? "Rendered"
-        : normalized === "VISUAL_REVIEW" || normalized === "IN_REVIEW"
-          ? "Visual Review"
-          : normalized === "ANALYZED"
-            ? "Analyzed"
-            : normalized === "ANALYZING" || normalized === "IN_PROGRESS"
-              ? "Analyzing"
-              : normalized === "DRAFT"
-                ? "Draft"
-                : normalized === "FAILED"
-                  ? "Failed"
-                  : status.replaceAll("_", " ")}
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/30 bg-blue-950/70 px-2.5 py-0.5 text-[11px] font-semibold text-blue-300">
+      <span className="h-1.5 w-1.5 rounded-full bg-blue-400" />
+      Draft
     </span>
   );
 }

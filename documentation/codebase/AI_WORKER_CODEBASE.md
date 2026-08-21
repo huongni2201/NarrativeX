@@ -93,7 +93,7 @@ Every provider-operation mutation carries the loaded snapshot and uses optimisti
 
 Provider capabilities explicitly declare whether durable operation reconciliation is supported. The current synchronous Vertex `generateContent` adapter does not expose a pollable durable operation id. If submission times out, the process dies after the UNKNOWN fence, or a non-terminal state lacks a durable operation id, the worker preserves the ambiguous operation and schedules reconciliation (or explicit manual attention when reconciliation is unsafe) rather than risking a duplicate provider request or charge.
 
-Reconciliation candidates are limited to `UNKNOWN`, `SUBMITTED` and `RUNNING` rows whose `next_reconcile_at` is due and whose StageAttempt is still non-terminal. The database records `reconcile_attempts` and `last_reconcile_error`; unsupported or unsafe reconciliation is suspended by clearing `next_reconcile_at` while preserving the ambiguous provider status.
+Reconciliation candidates are limited to `UNKNOWN`, `SUBMITTED` and `RUNNING` rows whose `next_reconcile_at` is due and whose StageAttempt is still non-terminal. Narration claims due reconciliation before ordinary queued work. The database records `reconcile_attempts` and `last_reconcile_error`; unsupported or unsafe reconciliation is suspended by clearing `next_reconcile_at` while preserving the ambiguous provider status and exposing `NARRATION_REQUIRES_ATTENTION` at job level.
 
 Narration follows the same fence with additional recovery rules: storage/DB failures after TTS
 submission keep the provider operation `UNKNOWN`, immutable R2 objects are reused after checksum

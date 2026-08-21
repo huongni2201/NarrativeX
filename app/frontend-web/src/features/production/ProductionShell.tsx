@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { Plus, UploadCloud } from "lucide-react";
@@ -13,6 +14,8 @@ import { ChapterTable } from "./components/ChapterTable";
 import { CreateChapterModal, type CreateChapterInput } from "./components/CreateChapterModal";
 import { ProjectHero } from "./components/ProjectHero";
 import { ProjectTabs } from "./components/ProjectTabs";
+import { ProjectSummaryWidget } from "./components/ProjectSummaryWidget";
+import { ProjectCharactersTab } from "./tabs/ProjectCharactersTab";
 import { ProjectInfoTab } from "./tabs/ProjectInfoTab";
 import { ProjectResourcesTab } from "./tabs/ProjectResourcesTab";
 import { ProjectSettingsTab } from "./tabs/ProjectSettingsTab";
@@ -107,46 +110,47 @@ export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
         sourceText: normalizedSource,
       });
     },
-    onSuccess: (chapter) => {
+    onSuccess: (createdChapter) => {
       setFormError(null);
       setFormOpen(false);
       setFormResetKey((key) => key + 1);
-      queryClient.setQueryData(queryKeys.chapter(numericProjectId, chapter.id), chapter);
-      void queryClient.invalidateQueries({ queryKey: queryKeys.projectOverview(numericProjectId) });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.story(numericProjectId) });
-      router.push(`/projects/${numericProjectId}/chapters/${chapter.id}`);
+      queryClient.invalidateQueries({ queryKey: queryKeys.projectOverview(numericProjectId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects });
+      router.push(`/projects/${numericProjectId}/chapters/${createdChapter.id}`);
     },
-    onError: (error) => setFormError(apiErrorMessage(error, "Không thể tạo Chapter.")),
+    onError: (error) => {
+      setFormError(apiErrorMessage(error, "Không thể tạo Chapter."));
+    },
   });
 
   const batchImport = useMutation({
     mutationFn: async (file: File) => {
-      const storyVersion = storyQuery.data;
+      let storyVersion = storyQuery.data;
       if (!storyVersion) {
-        throw new Error("Hãy tạo Story Version trước khi import nhiều chapter.");
+        const project = projectQuery.data;
+        if (!project) throw new Error("Project chưa sẵn sàng.");
+        storyVersion = await projectsApi.createStoryVersion(numericProjectId, {
+          content: "Batch imported chapters",
+          sourceLanguage: project.sourceLanguage,
+        });
+        queryClient.setQueryData(queryKeys.story(numericProjectId), storyVersion);
       }
       return chaptersApi.batchImport(numericProjectId, storyVersion.id, file);
     },
-    onSuccess: (importedChapters) => {
+    onSuccess: () => {
       setBatchImportError(null);
-      void queryClient.invalidateQueries({ queryKey: queryKeys.projectOverview(numericProjectId) });
-      if (storyQuery.data) {
-        void queryClient.invalidateQueries({
-          queryKey: queryKeys.chapters(numericProjectId, storyQuery.data.id),
-        });
-      }
-      if (importedChapters.length > 0) {
-        router.push(`/projects/${numericProjectId}/chapters/${importedChapters[0].id}`);
-      }
+      queryClient.invalidateQueries({ queryKey: queryKeys.projectOverview(numericProjectId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects });
     },
-    onError: (error) =>
-      setBatchImportError(apiErrorMessage(error, "Không thể import chapter từ file.")),
+    onError: (error) => {
+      setBatchImportError(apiErrorMessage(error, "Không thể batch import file."));
+    },
   });
 
-  if (!projectId) {
-    return <WorkspaceMessage>Chọn một project từ danh sách dự án để mở workspace.</WorkspaceMessage>;
+  if (!hasValidProjectId) {
+    return <WorkspaceError error={new Error("ID dự án không hợp lệ.")} fallback="ID dự án không hợp lệ." />;
   }
-  if (!hasValidProjectId) return <WorkspaceMessage>Project ID không hợp lệ.</WorkspaceMessage>;
+
   if (overviewQuery.isPending || projectQuery.isPending || storyQuery.isPending) {
     return <WorkspaceMessage>Đang tải dữ liệu project từ backend…</WorkspaceMessage>;
   }
@@ -182,32 +186,65 @@ export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
     batchImportInputRef.current?.click();
   };
 
+  const tabBreadcrumbLabel =
+    activeTab === "characters"
+      ? "Nhân vật"
+      : activeTab === "storyboard"
+        ? "Storyboard"
+        : activeTab === "locations"
+          ? "Địa điểm"
+          : activeTab === "assets"
+            ? "Tài sản"
+            : activeTab === "settings"
+              ? "Cài đặt"
+              : null;
+
   return (
     <div className="space-y-6">
-      <section className="overflow-hidden rounded-2xl border border-slate-800/90 bg-[#0d1420] shadow-[0_22px_60px_rgba(0,0,0,0.35)]">
-        <ProjectHero
-          project={overview}
-          metrics={overview.metrics}
-          continueChapter={continueChapter}
-          onContinue={continueProject}
-          onOpenInfo={() => setActiveTab("info")}
-        />
-        <ProjectTabs activeTab={activeTab} onChange={setActiveTab} />
+      {/* Breadcrumbs Navigation */}
+      <div className="flex items-center gap-2 text-xs text-slate-400">
+        <Link href="/projects" className="hover:text-purple-300 transition-colors font-medium">
+          Dự án
+        </Link>
+        <span className="text-slate-600">/</span>
+        <button
+          type="button"
+          onClick={() => setActiveTab("chapters")}
+          className={`hover:text-purple-300 transition-colors font-semibold ${
+            tabBreadcrumbLabel ? "text-slate-400" : "text-slate-200"
+          }`}
+        >
+          {project.name}
+        </button>
+        {tabBreadcrumbLabel && (
+          <>
+            <span className="text-slate-600">/</span>
+            <span className="text-slate-200 font-semibold">{tabBreadcrumbLabel}</span>
+          </>
+        )}
+      </div>
 
-        {activeTab === "chapters" && (
-          <div className="border-t border-slate-800/80">
-            <ChapterTable chapters={chapters} onOpenChapter={(chapter) => openChapter(chapter.id)} />
-            <div className="space-y-3 border-t border-slate-800/70 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <button
-                  type="button"
-                  onClick={() => setFormOpen(true)}
-                  className="flex items-center gap-2 rounded-lg border border-dashed border-purple-500/60 bg-purple-950/20 px-5 py-3 text-sm font-semibold text-purple-200 shadow-[0_0_20px_rgba(124,58,237,0.2)] transition-colors hover:bg-purple-900/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
-                >
-                  <Plus className="h-4 w-4 text-purple-400" />
-                  <span>+ Add Chapter</span>
-                </button>
+      {/* Top Project Hero Banner */}
+      <ProjectHero
+        project={overview}
+        metrics={overview.metrics}
+        continueChapter={continueChapter}
+        onContinue={continueProject}
+        onOpenInfo={() => setActiveTab("info")}
+      />
 
+      {/* Project Navigation Tabs */}
+      <ProjectTabs activeTab={activeTab} onChange={setActiveTab} />
+
+      {/* Main Tab Content */}
+      {activeTab === "chapters" && (
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_360px] gap-6 items-start">
+          {/* Left Column: Chapters Table Card */}
+          <div className="rounded-2xl border border-slate-800/90 bg-[#0d1420] shadow-xl overflow-hidden">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 p-5">
+              <h2 className="text-base font-bold text-slate-100">Danh sách chapter</h2>
+
+              <div className="flex items-center gap-2.5">
                 <input
                   ref={batchImportInputRef}
                   type="file"
@@ -219,59 +256,82 @@ export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
                     if (file) batchImport.mutate(file);
                   }}
                 />
+
                 <button
                   type="button"
                   onClick={selectBatchImportFile}
                   disabled={batchImport.isPending}
-                  className="flex items-center gap-2 rounded-lg border border-slate-700/80 bg-[#0d1420] px-4 py-3 text-sm font-semibold text-slate-300 transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex items-center gap-1.5 rounded-xl border border-slate-700/80 bg-slate-900/90 px-3.5 py-2 text-xs font-semibold text-slate-300 transition-colors hover:bg-slate-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <UploadCloud className="h-4 w-4 text-purple-400" />
+                  <UploadCloud className="h-3.5 w-3.5 text-purple-400" />
                   <span>{batchImport.isPending ? "Đang import…" : "Import nhiều chapter"}</span>
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => setFormOpen(true)}
+                  className="flex items-center gap-1.5 rounded-xl bg-purple-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-purple-950/60 transition-colors hover:bg-purple-500"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Add Chapter</span>
+                </button>
               </div>
-              {batchImportError && (
-                <div className="rounded-lg border border-rose-500/30 bg-rose-950/20 p-3 text-xs text-rose-200">
-                  {batchImportError}
-                </div>
-              )}
             </div>
-          </div>
-        )}
 
-        {activeTab === "storyboard" && (
-          <div className="border-t border-slate-800/80 p-4 sm:p-6">
-            <StoryboardScreen projectId={numericProjectId} chapters={chapters} />
-          </div>
-        )}
+            {batchImportError && (
+              <div className="m-4 rounded-xl border border-rose-500/30 bg-rose-950/20 p-3 text-xs text-rose-200">
+                {batchImportError}
+              </div>
+            )}
 
-        {activeTab === "info" && <ProjectInfoTab project={project} />}
-        {activeTab === "characters" && (
-          <ProjectResourcesTab kind="characters" onOpenLibrary={() => router.push("/characters")} />
-        )}
-        {activeTab === "locations" && (
-          <ProjectResourcesTab
-            kind="locations"
-            locations={locationsQuery.data?.content}
-            isLoading={locationsQuery.isPending}
-            errorMessage={
-              locationsQuery.isError
-                ? apiErrorMessage(locationsQuery.error, "Không tải được Locations.")
-                : null
-            }
-          />
-        )}
-        {activeTab === "assets" && (
-          <ProjectResourcesTab
-            kind="assets"
-            assets={assetsQuery.data?.content}
-            isLoading={assetsQuery.isPending}
-            errorMessage={
-              assetsQuery.isError ? apiErrorMessage(assetsQuery.error, "Không tải được Assets.") : null
-            }
-          />
-        )}
-        {activeTab === "settings" && <ProjectSettingsTab />}
-      </section>
+            <ChapterTable
+              chapters={chapters}
+              onOpenChapter={(chapter) => openChapter(chapter.id)}
+            />
+          </div>
+
+          {/* Right Column: Project Summary Widget */}
+          <ProjectSummaryWidget metrics={overview.metrics} />
+        </div>
+      )}
+
+      {activeTab === "storyboard" && (
+        <div className="rounded-2xl border border-slate-800/90 bg-[#0d1420] p-4 sm:p-6 shadow-xl">
+          <StoryboardScreen projectId={numericProjectId} chapters={chapters} />
+        </div>
+      )}
+
+      {activeTab === "characters" && (
+        <ProjectCharactersTab
+          projectId={numericProjectId}
+          onOpenLibrary={() => router.push("/characters")}
+        />
+      )}
+
+      {activeTab === "info" && <ProjectInfoTab project={project} />}
+      {activeTab === "locations" && (
+        <ProjectResourcesTab
+          kind="locations"
+          locations={locationsQuery.data?.content}
+          isLoading={locationsQuery.isPending}
+          errorMessage={
+            locationsQuery.isError
+              ? apiErrorMessage(locationsQuery.error, "Không tải được Locations.")
+              : null
+          }
+        />
+      )}
+      {activeTab === "assets" && (
+        <ProjectResourcesTab
+          kind="assets"
+          assets={assetsQuery.data?.content}
+          isLoading={assetsQuery.isPending}
+          errorMessage={
+            assetsQuery.isError ? apiErrorMessage(assetsQuery.error, "Không tải được Assets.") : null
+          }
+        />
+      )}
+      {activeTab === "settings" && <ProjectSettingsTab />}
 
       <CreateChapterModal
         isOpen={formOpen}

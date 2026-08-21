@@ -12,7 +12,6 @@ import {
   Image as ImageIcon,
   Palette,
   History,
-  Bell,
   Settings,
   Sparkles,
   Zap,
@@ -20,8 +19,6 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useUserQuota } from "@/features/account/hooks/useUserQuota";
-import { useNotifications } from "@/features/notifications/hooks/useNotifications";
-import { NotificationDrawer } from "@/features/notifications/components/NotificationDrawer";
 import { QuotaDetailModal } from "@/features/account/components/QuotaDetailModal";
 import { ProviderHealthIndicator } from "@/features/health/components/ProviderHealthIndicator";
 
@@ -29,10 +26,7 @@ export const StudioSidebar = () => {
   const pathname = usePathname();
   const user = useAuthStore((state) => state.user);
   const { data: quota, isLoading: isQuotaLoading, isError: isQuotaError } = useUserQuota();
-  const { data: notificationsData } = useNotifications({ limit: 1, unreadOnly: true });
-  const unreadCount = notificationsData?.unreadCount ?? 0;
 
-  const [isNotificationDrawerOpen, setIsNotificationDrawerOpen] = useState(false);
   const [isQuotaModalOpen, setIsQuotaModalOpen] = useState(false);
 
   const projectMatch = pathname.match(/^\/projects\/(\d+)/);
@@ -93,15 +87,6 @@ export const StudioSidebar = () => {
       icon: History,
       href: "/history",
       active: pathname === "/history" || pathname.startsWith("/history/"),
-    },
-    {
-      id: "notifications",
-      label: "Thông báo",
-      icon: Bell,
-      href: "/notifications",
-      active: pathname === "/notifications" || pathname.startsWith("/notifications/"),
-      badge: unreadCount > 0 ? unreadCount : undefined,
-      onOpenDrawer: () => setIsNotificationDrawerOpen(true),
     },
     {
       id: "settings",
@@ -184,12 +169,6 @@ export const StudioSidebar = () => {
               <div key={item.id} className="relative">
                 <Link
                   href={item.href}
-                  onClick={(e) => {
-                    if (item.onOpenDrawer) {
-                      e.preventDefault();
-                      item.onOpenDrawer();
-                    }
-                  }}
                   aria-current={item.active ? "page" : undefined}
                   className={cn(
                     "w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500",
@@ -204,12 +183,6 @@ export const StudioSidebar = () => {
                     />
                     <span className="truncate">{item.label}</span>
                   </div>
-
-                  {item.badge !== undefined && item.badge > 0 && (
-                    <span className="ml-2 rounded-full bg-purple-600 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm animate-pulse">
-                      {item.badge}
-                    </span>
-                  )}
                 </Link>
               </div>
             );
@@ -301,11 +274,6 @@ export const StudioSidebar = () => {
       </div>
 
       {/* Modals & Drawers */}
-      <NotificationDrawer
-        isOpen={isNotificationDrawerOpen}
-        onClose={() => setIsNotificationDrawerOpen(false)}
-      />
-
       <QuotaDetailModal
         isOpen={isQuotaModalOpen}
         onClose={() => setIsQuotaModalOpen(false)}
