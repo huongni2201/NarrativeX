@@ -3,7 +3,7 @@
 **Status:** Canonical engineering direction and code-aligned baseline  
 **Effective date:** 21/08/2026  
 **Repository:** `huongni2201/NarrativeX`  
-**Docs-sync base:** `main` at `e47dccee4aa35450f3902a55311d5d83632cb5a6`  
+**Docs-sync base:** `main` at `29122c51a6d113ed7fd4026f7de3f5df75771153`  
 **Supersedes:** V1.10 as the planning baseline for new work
 
 ---
@@ -95,7 +95,7 @@ technology-neutral application/domain ports
   -> PostgreSQL
 ```
 
-Remaining JPA/JDBC adapters are migration-era surfaces. New persistence-heavy work should not deepen those surfaces without an ADR-recorded exception.
+Remaining JPA/JDBC adapters are migration-era surfaces or explicitly documented operational exceptions. New persistence-heavy work should not deepen those surfaces without an ADR-recorded exception.
 
 ---
 
@@ -104,10 +104,13 @@ Remaining JPA/JDBC adapters are migration-era surfaces. New persistence-heavy wo
 | Capability | V1.11 state | Notes |
 |---|---|---|
 | Project/Chapter authoring | IMPLEMENTED foundation | Project and Chapter persistence are MyBatis-backed |
+| Project dashboard/favorite | IMPLEMENTED foundation | backend dashboard/favorite contracts and live frontend wiring exist |
 | Chapter Analyze | IMPLEMENTED | durable admission/enqueue and worker execution |
 | Worker claim/lease/heartbeat | IMPLEMENTED | PostgreSQL-backed and bounded |
 | ProviderOperation durability | IMPLEMENTED foundation | reconciliation/result immutability foundation exists |
+| Generation execution persistence | IMPLEMENTED for covered durability boundaries | GenerationJob, StageAttempt, OperationPlan, MediaPlan, outbox enqueue, Job History and safety gate use MyBatis/explicit SQL |
 | Character + Location continuity | IMPLEMENTED foundation | full human review/reference lock remains partial |
+| Project Character list/detail | IMPLEMENTED foundation | project-scoped authoritative read model is wired end to end; richer relationships/assets/scene detail remain partial |
 | Scene + VisualBeat | IMPLEMENTED foundation | broader edit/version-reset remains partial |
 | Backend-authoritative MediaPlan | IMPLEMENTED foundation | immutable revision and job pinning exist |
 | Motion execution policy | IMPLEMENTED foundation | worker does not own strategy selection |
@@ -117,7 +120,7 @@ Remaining JPA/JDBC adapters are migration-era surfaces. New persistence-heavy wo
 | `USER_PROVIDED_AUDIO` strategy | IMPLEMENTED foundation | ordered parts, fingerprints, global clock, TTS bypass |
 | Multi-file / multi-Chapter logical timeline | IMPLEMENTED foundation | file boundaries do not define Chapters |
 | Production upload/finalize + real user-audio alignment path | PARTIAL | foundation exists; user-facing durable flow needs hardening |
-| Full MyBatis migration | PARTIAL | ProviderOperation/Chapter/Project done; other boundaries remain |
+| Full MyBatis migration | PARTIAL | generation durability + ProviderOperation/Chapter/Project migrated; StoryVersion, quota/billing, storyboard/continuity and other boundaries remain |
 | VisualScenePlanner | TARGET | narration-driven adaptive visual planning |
 | Production image generation | TARGET | first slice may use `GENERATE_NEW` only |
 | Minimal immutable image MediaAsset lifecycle | TARGET | required before renderer completion |
@@ -125,6 +128,8 @@ Remaining JPA/JDBC adapters are migration-era surfaces. New persistence-heavy wo
 | Reuse/reframe/edit AssetResolver | DEFERRED fast-follow | optimize after first reliable MP4 |
 | HYBRID_LOCAL_I2V end-to-end | DEFERRED fast-follow | selected-beat private I2V |
 | Complete actual-cost reconciliation | PARTIAL | reservation exists; full ledger/release remains |
+
+The outbox dispatcher's short-lived `JdbcTemplate` claim/lease query remains a deliberate operational exception; it does not make durable enqueue JDBC-owned.
 
 ---
 
@@ -404,6 +409,8 @@ After execution, append actual usage and consume/release unused reservation acco
 
 Character is reusable identity; ProjectCharacter is project participation/context. Appearance/outfit changes do not create a new Character identity. Downstream media should resolve reviewed/versioned Character/reference snapshots.
 
+Project-scoped Character list/detail reads are now authoritative for their exposed fields. This read-model completion must not be confused with full Character version locking/reference approval: relationship graphs, asset aggregation and detailed scene participation remain incomplete until backed by explicit contracts.
+
 Re-analysis must not destructively replace approved Storyboard history. Regeneration creates new attempts/assets and preserves previous durable outputs for audit/review.
 
 When source/character/location/storyboard inputs change, prefer affected-scope invalidation/regeneration rather than rebuilding unrelated work.
@@ -429,19 +436,29 @@ Provider output and uploaded/user content are untrusted data until application v
 
 ## 18. MyBatis migration direction
 
-Current MyBatis-backed boundaries include ProviderOperation, Chapter and Project command/query persistence.
+Current MyBatis/explicit-SQL production boundaries include:
+
+- ProviderOperation;
+- Chapter;
+- Project command/query persistence;
+- GenerationJob;
+- StageAttempt;
+- OperationPlan;
+- MediaPlan;
+- generation outbox enqueue persistence;
+- Job History;
+- Chapter Analyze safety gate.
+
+The outbox dispatcher still uses `JdbcTemplate` for its short-lived claim/lease query. This remains a deliberate operational boundary, not the durable enqueue architecture.
 
 Preferred remaining order:
 
 1. StoryVersion.
-2. GenerationJob / StageAttempt claim, lease and CAS paths.
-3. Durable outbox/event persistence.
-4. OperationPlan / MediaPlan legacy persistence where old adapters remain.
-5. Reservation / usage / billing boundaries.
-6. Scene / VisualBeat / revision persistence.
-7. Character / ProjectCharacter / Location continuity persistence.
-8. Remaining low-risk CRUD/read-query boundaries.
-9. Remove unused JPA entities/repositories/config and residual direct JDBC wrappers after evidence.
+2. Reservation / usage / billing boundaries.
+3. Scene / VisualBeat / revision persistence.
+4. Character / ProjectCharacter / Location continuity write persistence.
+5. Remaining low-risk CRUD/read-query boundaries.
+6. Remove unused JPA entities/repositories/config and residual direct JDBC wrappers after evidence.
 
 Migration rules:
 
@@ -462,15 +479,25 @@ Two workstreams proceed together.
 
 ### Track A — platform simplification
 
+Completed checkpoint:
+
+```text
+DONE ProviderOperation MyBatis
+DONE Chapter MyBatis
+DONE Project command/query MyBatis
+DONE GenerationJob / StageAttempt / OperationPlan / MediaPlan durable persistence
+DONE generation outbox enqueue / Job History / Chapter Analyze safety gate migration
+```
+
+Remaining order:
+
 ```text
 A1 StoryVersion MyBatis
-A2 GenerationJob / StageAttempt MyBatis
-A3 Outbox MyBatis
-A4 OperationPlan / MediaPlan + reservation/usage migration
-A5 Storyboard/continuity persistence migration
-A6 remaining CRUD/query migration
-A7 remove unused JPA/JDBC infrastructure after tests prove cutover
-A8 keep docs-drift/architecture tests synchronized
+A2 reservation / usage / billing migration
+A3 Storyboard / continuity persistence migration
+A4 remaining CRUD/query migration
+A5 remove unused JPA/JDBC infrastructure after tests prove cutover
+A6 keep docs-drift/architecture tests synchronized
 ```
 
 ### Track B — first complete creator loop
@@ -563,6 +590,7 @@ A retry/reclaim path should reuse an already-valid R2 asset rather than regenera
 | `UNKNOWN` can be blindly resubmitted | Forbidden |
 | New persistence should expand JPA/JDBC | Converge on MyBatis |
 | Vendor prices belong in Source of Truth | Use versioned pricing/benchmark data |
+| Project Character UI may fabricate missing backend fields | Forbidden; render unavailable state until an authoritative read model exists |
 
 ---
 
@@ -570,22 +598,26 @@ A retry/reclaim path should reuse an already-valid R2 asset rather than regenera
 
 Current-state docs and CI should detect at least:
 
-- stale links presenting V1.10 as current authority;
+- stale links presenting V1.10 or older baselines as current authority;
 - stale TTS-only narration assumptions;
 - claims that uploaded narration is target-only after the foundation merged;
 - stale worker-owned production-mode resolution;
 - contradictory `IMAGE_MOTION` / `HYBRID_LOCAL_I2V` vocabulary;
 - stale persistence status after MyBatis migrations;
+- stale claims that generation execution persistence is still a future migration;
 - reintroduction of non-R2 durable-media assumptions;
+- runtime Character fixtures presented as authoritative project data;
 - roadmap statuses that no longer match merged code.
 
 ---
 
 ## 24. V1.10 → V1.11 direction summary
 
-V1.11 promotes backend-authoritative MediaPlan, full-chapter narration/alignment, R2-only durable narration, ProviderOperation/Chapter/Project MyBatis foundations and stronger provider-result invariants into the maintained baseline.
+V1.11 promotes backend-authoritative MediaPlan, full-chapter narration/alignment, R2-only durable narration, ProviderOperation/Chapter/Project plus generation-execution MyBatis foundations and stronger provider-result invariants into the maintained baseline.
 
 It adds first-class `USER_PROVIDED_AUDIO`, variable-count audio bundles across arbitrary selected Chapter scopes, TTS bypass for covered user-audio scopes, alignment-driven visual timing, full MyBatis convergence and a first durable `IMAGE_MOTION` MP4 vertical slice.
+
+The current checkpoint additionally includes project-scoped Character list/detail read models wired end to end, while full Character reference locking/relationship/asset-detail workflows remain follow-up work.
 
 Full reuse/reframe/edit optimization and HYBRID_LOCAL_I2V are fast-follow rather than blockers for the first playable long-form video.
 
@@ -604,6 +636,7 @@ Prefer the **smallest correct vertical slice** that reaches a real durable video
 - no TTS for accepted user-provided narration scope;
 - explicit SQL/CAS concurrency semantics;
 - PostgreSQL-backed recoverability;
-- no silent paid-work escalation.
+- no silent paid-work escalation;
+- no fabricated runtime business data where an authoritative backend read model is absent.
 
 Richer reuse, advanced I2V, multi-provider optimization, full timeline editing and other improvements are layered on after the core creator loop is reliable.
