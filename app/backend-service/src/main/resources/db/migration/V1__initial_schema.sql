@@ -395,6 +395,7 @@ CREATE TABLE visual_beats (
     audio_start_ms BIGINT,
     audio_end_ms BIGINT,
     camera_angle VARCHAR(40),
+    preview_asset_id BIGINT REFERENCES project_assets(id) ON DELETE SET NULL,
     CONSTRAINT uk_visual_beats_scene_order UNIQUE (scene_id, order_index),
     CONSTRAINT ck_visual_beats_review_status CHECK (review_status IN ('NEEDS_REVIEW', 'APPROVED')),
     CONSTRAINT ck_visual_beats_motion_mode CHECK (motion_mode IN ('STILL', 'BASIC_MOTION', 'AI_VIDEO')),
@@ -413,6 +414,9 @@ CREATE INDEX idx_visual_beats_scene_review_order
 CREATE INDEX idx_visual_beats_audio_range
     ON visual_beats (scene_id, audio_start_ms, audio_end_ms, order_index)
     WHERE audio_start_ms IS NOT NULL;
+CREATE INDEX idx_visual_beats_preview_asset
+    ON visual_beats (preview_asset_id)
+    WHERE preview_asset_id IS NOT NULL;
 
 CREATE TABLE visual_beat_characters (
     visual_beat_id BIGINT NOT NULL REFERENCES visual_beats(id) ON DELETE CASCADE,
@@ -444,9 +448,29 @@ CREATE TABLE media_plans (
     basic_motion_seconds INTEGER NOT NULL CHECK (basic_motion_seconds >= 0),
     planned_i2v_seconds INTEGER NOT NULL CHECK (planned_i2v_seconds >= 0),
     estimated_cost NUMERIC(19, 6) NOT NULL CHECK (estimated_cost >= 0),
+    storyboard_revision_id BIGINT REFERENCES storyboard_revisions(id),
+    workflow_version VARCHAR(64),
+    image_aspect_ratio VARCHAR(16),
+    image_quality_tier VARCHAR(16),
+    image_provider_key VARCHAR(64),
+    image_model_key VARCHAR(128),
+    pricing_snapshot_json JSONB,
+    pricing_fingerprint VARCHAR(128),
+    narration_set_id UUID,
+    narration_alignment_run_id UUID,
     created_at TIMESTAMPTZ NOT NULL,
     CONSTRAINT uq_media_plans_chapter_revision UNIQUE (chapter_id, revision),
-    CONSTRAINT uq_media_plans_job_pointer UNIQUE (id, revision, production_mode)
+    CONSTRAINT uq_media_plans_job_pointer UNIQUE (id, revision, production_mode),
+    CONSTRAINT ck_media_plans_workflow_version
+        CHECK (workflow_version IS NULL OR length(workflow_version) BETWEEN 1 AND 64),
+    CONSTRAINT ck_media_plans_image_aspect_ratio
+        CHECK (image_aspect_ratio IS NULL OR image_aspect_ratio IN ('16:9', '9:16', '1:1', '4:3', '3:4')),
+    CONSTRAINT ck_media_plans_image_quality_tier
+        CHECK (image_quality_tier IS NULL OR image_quality_tier IN ('DRAFT', 'STANDARD', 'HIGH')),
+    CONSTRAINT ck_media_plans_pricing_snapshot_object
+        CHECK (pricing_snapshot_json IS NULL OR jsonb_typeof(pricing_snapshot_json) = 'object'),
+    CONSTRAINT ck_media_plans_pricing_fingerprint
+        CHECK (pricing_fingerprint IS NULL OR pricing_fingerprint ~ '^[0-9a-f]{64,128}$')
 );
 CREATE INDEX idx_media_plans_chapter_created
     ON media_plans (chapter_id, created_at DESC);
@@ -472,11 +496,36 @@ CREATE TABLE media_beat_plans (
         CHECK (semantic_motion_mode IN ('STILL', 'BASIC_MOTION', 'AI_VIDEO')),
     motion_strategy VARCHAR(32) NOT NULL
         CHECK (motion_strategy IN ('BASIC_IMAGE_MOTION', 'IMAGE_TO_VIDEO')),
+    asset_strategy VARCHAR(32),
+    prompt_template_version VARCHAR(64),
+    prompt_snapshot TEXT,
+    negative_prompt TEXT,
+    audio_start_ms BIGINT,
+    audio_end_ms BIGINT,
+    audio_duration_ms BIGINT,
+    camera_movement VARCHAR(32),
+    image_settings_json JSONB,
+    character_snapshot_json JSONB,
+    snapshot_fingerprint VARCHAR(128),
     PRIMARY KEY (media_plan_id, scene_index, beat_index),
     CONSTRAINT fk_media_beat_plan_scene
         FOREIGN KEY (media_plan_id, scene_index)
         REFERENCES media_scene_plans(media_plan_id, scene_index)
-        ON DELETE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT ck_media_beat_plans_asset_strategy
+        CHECK (asset_strategy IS NULL OR asset_strategy IN ('GENERATE_NEW', 'REUSE_APPROVED', 'REFRAME_DERIVED', 'EDIT_EXISTING')),
+    CONSTRAINT ck_media_beat_plans_prompt_snapshot_size
+        CHECK (prompt_snapshot IS NULL OR length(prompt_snapshot) <= 16000),
+    CONSTRAINT ck_media_beat_plans_audio_range
+        CHECK (audio_start_ms IS NULL OR (audio_end_ms IS NOT NULL AND audio_start_ms >= 0 AND audio_end_ms > audio_start_ms)),
+    CONSTRAINT ck_media_beat_plans_audio_duration
+        CHECK (audio_duration_ms IS NULL OR audio_duration_ms > 0),
+    CONSTRAINT ck_media_beat_plans_image_settings_object
+        CHECK (image_settings_json IS NULL OR jsonb_typeof(image_settings_json) = 'object'),
+    CONSTRAINT ck_media_beat_plans_character_snapshot_object
+        CHECK (character_snapshot_json IS NULL OR jsonb_typeof(character_snapshot_json) = 'object'),
+    CONSTRAINT ck_media_beat_plans_snapshot_fingerprint
+        CHECK (snapshot_fingerprint IS NULL OR snapshot_fingerprint ~ '^[0-9a-f]{64,128}$')
 );
 
 CREATE OR REPLACE FUNCTION reject_media_plan_update()
@@ -916,16 +965,24 @@ CREATE TABLE media_assets (
     sha256 VARCHAR(64) NOT NULL,
     duration_ms BIGINT,
     status VARCHAR(24) NOT NULL,
+    deleted_at TIMESTAMP WITH TIME ZONE,
+    checksum_verified_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT ck_media_assets_type CHECK (asset_type IN ('AUDIO', 'IMAGE', 'VIDEO')),
     CONSTRAINT ck_media_assets_origin CHECK (origin IN ('USER_UPLOAD', 'TTS_GENERATED', 'IMAGE_GENERATED', 'VIDEO_GENERATED')),
-    CONSTRAINT ck_media_assets_status CHECK (status IN ('PENDING_UPLOAD', 'UPLOADED', 'VALIDATING', 'READY', 'REJECTED')),
+    CONSTRAINT ck_media_assets_status CHECK (status IN ('PENDING_UPLOAD', 'UPLOADING', 'VALIDATING', 'READY', 'REJECTED', 'DELETED')),
     CONSTRAINT ck_media_assets_size CHECK (size_bytes > 0),
     CONSTRAINT ck_media_assets_sha256 CHECK (sha256 ~ '^[0-9a-f]{64}$'),
     CONSTRAINT ck_media_assets_duration CHECK (duration_ms IS NULL OR duration_ms > 0),
     CONSTRAINT uk_media_assets_account_storage_key UNIQUE (account_id, storage_key)
 );
 CREATE INDEX idx_media_assets_account_status ON media_assets (account_id, status, created_at DESC);
+CREATE UNIQUE INDEX uq_media_assets_account_sha256_verified
+    ON media_assets (account_id, sha256)
+    WHERE checksum_verified_at IS NOT NULL AND status <> 'DELETED' AND deleted_at IS NULL;
+CREATE INDEX idx_media_assets_account_created_visible
+    ON media_assets (account_id, created_at DESC, id DESC)
+    WHERE status <> 'DELETED' AND deleted_at IS NULL;
 
 CREATE TABLE narration_sets (
     id UUID PRIMARY KEY,
@@ -1166,15 +1223,29 @@ CREATE TABLE render_manifests (
     source_hash VARCHAR(64) NOT NULL,
     render_fingerprint VARCHAR(64) NOT NULL,
     manifest_json JSONB NOT NULL,
+    media_plan_revision INTEGER,
+    narration_set_id UUID REFERENCES narration_sets(id),
+    narration_alignment_run_id UUID REFERENCES narration_alignment_runs(id),
+    project_owner_id VARCHAR(128),
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uq_render_manifests_fingerprint UNIQUE (render_fingerprint),
     CONSTRAINT ck_render_manifests_source_hash
         CHECK (source_hash ~ '^[0-9a-f]{64}$'),
     CONSTRAINT ck_render_manifests_fingerprint
-        CHECK (render_fingerprint ~ '^[0-9a-f]{64}$')
+        CHECK (render_fingerprint ~ '^[0-9a-f]{64}$'),
+    CONSTRAINT ck_render_manifests_media_plan_revision
+        CHECK (media_plan_revision IS NULL OR media_plan_revision > 0)
 );
 CREATE INDEX idx_render_manifests_chapter_created
     ON render_manifests (chapter_id, created_at DESC, id DESC);
+CREATE INDEX idx_render_manifests_project_created
+    ON render_manifests (project_id, created_at DESC, id DESC);
+
+ALTER TABLE media_plans
+    ADD CONSTRAINT fk_media_plans_narration_set
+        FOREIGN KEY (narration_set_id) REFERENCES narration_sets(id),
+    ADD CONSTRAINT fk_media_plans_narration_alignment_run
+        FOREIGN KEY (narration_alignment_run_id) REFERENCES narration_alignment_runs(id);
 
 CREATE TABLE final_artifacts (
     id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
@@ -1220,3 +1291,180 @@ CREATE INDEX idx_final_artifacts_project_created
 CREATE INDEX idx_final_artifacts_chapter_created
     ON final_artifacts (chapter_id, created_at DESC, id DESC)
     WHERE chapter_id IS NOT NULL;
+
+-- -----------------------------------------------------------------------------
+-- Catalog read models
+-- -----------------------------------------------------------------------------
+
+CREATE TABLE style_presets (
+    id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    name VARCHAR(160) NOT NULL,
+    category VARCHAR(32) NOT NULL,
+    description TEXT NOT NULL,
+    thumbnail_url TEXT,
+    prompt_suffix TEXT,
+    negative_prompt TEXT,
+    tags_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+    config_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_by VARCHAR(128) REFERENCES auth_users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(24) NOT NULL DEFAULT 'ACTIVE',
+    CONSTRAINT ck_style_presets_category CHECK (category IN ('VISUAL_STYLE', 'IMAGE', 'MOTION', 'OUTFIT', 'RENDER')),
+    CONSTRAINT ck_style_presets_status CHECK (status IN ('ACTIVE', 'ARCHIVED')),
+    CONSTRAINT ck_style_presets_tags_array CHECK (jsonb_typeof(tags_json) = 'array'),
+    CONSTRAINT ck_style_presets_config_object CHECK (jsonb_typeof(config_json) = 'object')
+);
+CREATE INDEX idx_style_presets_active_category_name
+    ON style_presets (category, LOWER(name), id)
+    WHERE status = 'ACTIVE';
+
+CREATE TABLE voice_catalog (
+    id VARCHAR(160) PRIMARY KEY,
+    provider VARCHAR(64) NOT NULL,
+    name VARCHAR(160) NOT NULL,
+    language VARCHAR(32) NOT NULL,
+    gender VARCHAR(24),
+    sample_url TEXT,
+    metadata_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT ck_voice_catalog_metadata_object CHECK (jsonb_typeof(metadata_json) = 'object')
+);
+CREATE INDEX idx_voice_catalog_enabled_language_name
+    ON voice_catalog (language, LOWER(name), id)
+    WHERE enabled = TRUE;
+
+-- -----------------------------------------------------------------------------
+-- Media upload sessions
+-- -----------------------------------------------------------------------------
+
+CREATE TABLE media_upload_sessions (
+    id UUID PRIMARY KEY,
+    account_id VARCHAR(128) NOT NULL,
+    asset_type VARCHAR(16) NOT NULL,
+    filename VARCHAR(255) NOT NULL,
+    content_type VARCHAR(160) NOT NULL,
+    expected_size BIGINT NOT NULL,
+    expected_sha256 VARCHAR(64) NOT NULL,
+    storage_key VARCHAR(512) NOT NULL,
+    idempotency_key VARCHAR(255),
+    status VARCHAR(24) NOT NULL DEFAULT 'PENDING_UPLOAD',
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    media_asset_id UUID REFERENCES media_assets(id),
+    CONSTRAINT ck_media_upload_sessions_type CHECK (asset_type IN ('AUDIO', 'IMAGE', 'VIDEO')),
+    CONSTRAINT ck_media_upload_sessions_size CHECK (expected_size > 0),
+    CONSTRAINT ck_media_upload_sessions_sha256 CHECK (expected_sha256 ~ '^[0-9a-f]{64}$'),
+    CONSTRAINT ck_media_upload_sessions_status CHECK (status IN ('PENDING_UPLOAD', 'READY', 'REJECTED')),
+    CONSTRAINT uk_media_upload_sessions_storage_key UNIQUE (storage_key),
+    CONSTRAINT uk_media_upload_sessions_idempotency UNIQUE (account_id, idempotency_key)
+);
+CREATE INDEX idx_media_upload_sessions_account_status
+    ON media_upload_sessions (account_id, status, created_at DESC);
+
+-- -----------------------------------------------------------------------------
+-- Media generation execution, review and lineage
+-- -----------------------------------------------------------------------------
+
+CREATE TABLE media_generation_items (
+    id UUID PRIMARY KEY,
+    generation_job_id BIGINT NOT NULL REFERENCES generation_jobs(id) ON DELETE CASCADE,
+    media_plan_id UUID NOT NULL REFERENCES media_plans(id),
+    visual_beat_id BIGINT NOT NULL REFERENCES visual_beats(id),
+    item_key VARCHAR(160) NOT NULL,
+    attempt_number INTEGER NOT NULL,
+    execution_status VARCHAR(24) NOT NULL,
+    provider_operation_id BIGINT REFERENCES provider_operations(id),
+    media_asset_id UUID REFERENCES media_assets(id),
+    request_fingerprint VARCHAR(128) NOT NULL,
+    error_code VARCHAR(80),
+    error_detail_ref VARCHAR(160),
+    review_status VARCHAR(24) NOT NULL DEFAULT 'NOT_READY',
+    reviewed_by_user_id VARCHAR(128),
+    reviewed_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    row_version BIGINT NOT NULL DEFAULT 0,
+    CONSTRAINT uq_media_generation_items_attempt UNIQUE (generation_job_id, item_key, attempt_number),
+    CONSTRAINT ck_media_generation_items_attempt CHECK (attempt_number > 0),
+    CONSTRAINT ck_media_generation_items_execution_status CHECK (execution_status IN ('QUEUED', 'RUNNING', 'VALIDATING', 'READY', 'FAILED', 'UNKNOWN')),
+    CONSTRAINT ck_media_generation_items_review_status CHECK (review_status IN ('NOT_READY', 'NEEDS_REVIEW', 'APPROVED', 'REJECTED')),
+    CONSTRAINT ck_media_generation_items_fingerprint CHECK (request_fingerprint ~ '^[0-9a-f]{64,128}$'),
+    CONSTRAINT ck_media_generation_items_review_fields CHECK (
+        (review_status IN ('NOT_READY', 'NEEDS_REVIEW') AND reviewed_by_user_id IS NULL AND reviewed_at IS NULL)
+        OR (review_status IN ('APPROVED', 'REJECTED') AND reviewed_by_user_id IS NOT NULL AND reviewed_at IS NOT NULL)
+    )
+);
+CREATE UNIQUE INDEX uq_media_generation_items_active
+    ON media_generation_items (generation_job_id, item_key)
+    WHERE execution_status IN ('QUEUED', 'RUNNING', 'VALIDATING', 'READY', 'UNKNOWN');
+CREATE INDEX idx_media_generation_items_job_status
+    ON media_generation_items (generation_job_id, execution_status, item_key);
+CREATE INDEX idx_media_generation_items_beat_newest
+    ON media_generation_items (visual_beat_id, attempt_number DESC, created_at DESC);
+CREATE INDEX idx_media_generation_items_review_queue
+    ON media_generation_items (generation_job_id, review_status, item_key)
+    WHERE review_status = 'NEEDS_REVIEW';
+CREATE INDEX idx_media_generation_items_provider_operation
+    ON media_generation_items (provider_operation_id)
+    WHERE provider_operation_id IS NOT NULL;
+
+CREATE TABLE media_asset_lineage (
+    id UUID PRIMARY KEY,
+    media_asset_id UUID NOT NULL REFERENCES media_assets(id),
+    account_id VARCHAR(128) NOT NULL,
+    project_id BIGINT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    chapter_id BIGINT NOT NULL REFERENCES chapters(id) ON DELETE CASCADE,
+    visual_beat_id BIGINT NOT NULL REFERENCES visual_beats(id),
+    generation_job_id BIGINT NOT NULL REFERENCES generation_jobs(id),
+    media_plan_id UUID NOT NULL REFERENCES media_plans(id),
+    generation_item_id UUID NOT NULL REFERENCES media_generation_items(id),
+    source_asset_id UUID REFERENCES media_assets(id),
+    relation_type VARCHAR(32) NOT NULL,
+    request_fingerprint VARCHAR(128) NOT NULL,
+    result_fingerprint VARCHAR(128),
+    prompt_snapshot TEXT,
+    provider_snapshot_json JSONB,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_media_asset_lineage_logical UNIQUE (generation_item_id, relation_type),
+    CONSTRAINT ck_media_asset_lineage_relation CHECK (relation_type IN ('GENERATED_KEYFRAME', 'DERIVED_KEYFRAME', 'RENDER_INPUT')),
+    CONSTRAINT ck_media_asset_lineage_request_fingerprint CHECK (request_fingerprint ~ '^[0-9a-f]{64,128}$'),
+    CONSTRAINT ck_media_asset_lineage_result_fingerprint CHECK (result_fingerprint IS NULL OR result_fingerprint ~ '^[0-9a-f]{64,128}$'),
+    CONSTRAINT ck_media_asset_lineage_provider_snapshot_object CHECK (provider_snapshot_json IS NULL OR jsonb_typeof(provider_snapshot_json) = 'object'),
+    CONSTRAINT ck_media_asset_lineage_prompt_snapshot_size CHECK (prompt_snapshot IS NULL OR length(prompt_snapshot) <= 16000)
+);
+CREATE INDEX idx_media_asset_lineage_asset ON media_asset_lineage (media_asset_id, created_at DESC);
+CREATE INDEX idx_media_asset_lineage_project_chapter ON media_asset_lineage (project_id, chapter_id, created_at DESC);
+CREATE INDEX idx_media_asset_lineage_beat ON media_asset_lineage (visual_beat_id, created_at DESC);
+
+CREATE OR REPLACE FUNCTION reject_media_asset_lineage_update()
+RETURNS TRIGGER AS $$
+BEGIN
+    RAISE EXCEPTION 'media_asset_lineage is immutable; insert a new lineage row';
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_media_asset_lineage_immutable
+BEFORE UPDATE OR DELETE ON media_asset_lineage
+FOR EACH ROW EXECUTE FUNCTION reject_media_asset_lineage_update();
+
+CREATE OR REPLACE FUNCTION reject_media_generation_item_snapshot_update()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF OLD.generation_job_id <> NEW.generation_job_id
+       OR OLD.media_plan_id <> NEW.media_plan_id
+       OR OLD.visual_beat_id <> NEW.visual_beat_id
+       OR OLD.item_key <> NEW.item_key
+       OR OLD.attempt_number <> NEW.attempt_number
+       OR OLD.request_fingerprint <> NEW.request_fingerprint THEN
+        RAISE EXCEPTION 'media_generation_items immutable request identity cannot change';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_media_generation_items_identity_immutable
+BEFORE UPDATE ON media_generation_items
+FOR EACH ROW EXECUTE FUNCTION reject_media_generation_item_snapshot_update();

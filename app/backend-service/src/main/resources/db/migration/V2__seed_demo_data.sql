@@ -578,10 +578,10 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO media_assets
-    (id, account_id, asset_type, origin, storage_key, original_filename, content_type, size_bytes, sha256, duration_ms, status)
+    (id, account_id, asset_type, origin, storage_key, original_filename, content_type, size_bytes, sha256, duration_ms, status, checksum_verified_at)
 VALUES
     ('00000000-0000-4000-8000-000000004001', 'seed-user-01', 'AUDIO', 'USER_UPLOAD',
-     'accounts/seed-user-01/uploads/river-intro.wav', 'river-intro.wav', 'audio/wav', 1200000, repeat('3', 64), 60000, 'READY')
+     'accounts/seed-user-01/uploads/river-intro.wav', 'river-intro.wav', 'audio/wav', 1200000, repeat('3', 64), 60000, 'READY', CURRENT_TIMESTAMP)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO narration_sets
@@ -635,4 +635,34 @@ INSERT INTO final_artifacts
 VALUES
     (28001, 1001, 3001, 6005, 27001, 'CHAPTER_VIDEO', repeat('6', 64),
      'projects/1001/chapters/3001/final/demo-render.mp4', 'video/mp4', 24800000, repeat('7', 64), 42000, 1920, 1080, 24.000, 'READY')
+ON CONFLICT (id) DO NOTHING;
+
+-- -----------------------------------------------------------------------------
+-- Catalog fixtures
+-- -----------------------------------------------------------------------------
+
+INSERT INTO style_presets
+    (id, name, category, description, thumbnail_url, prompt_suffix, negative_prompt, tags_json, config_json)
+VALUES
+    (1, 'Cinematic Warmth', 'VISUAL_STYLE', 'Warm cinematic lighting with grounded texture.',
+     'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee',
+     'cinematic composition, warm practical light, subtle film grain',
+     'blurry, distorted anatomy, text, watermark',
+     '["cinematic", "warm", "story"]'::jsonb,
+     '{"defaultAspectRatio":"16:9","defaultQuality":"Standard","lighting":"warm practical","atmosphere":"intimate"}'::jsonb),
+    (2, 'Storybook Watercolor', 'IMAGE', 'Soft illustrated treatment for intimate story moments.',
+     'https://images.unsplash.com/photo-1549490349-8643362247b5',
+     'storybook watercolor illustration, soft edges, expressive silhouettes',
+     'photorealistic, harsh contrast, text, watermark',
+     '["illustration", "watercolor", "soft"]'::jsonb,
+     '{"defaultAspectRatio":"16:9","defaultQuality":"Standard","lighting":"diffused","atmosphere":"dreamy"}'::jsonb)
+ON CONFLICT (id) DO NOTHING;
+
+SELECT setval('style_presets_id_seq', COALESCE((SELECT MAX(id) FROM style_presets), 1), true);
+
+INSERT INTO voice_catalog (id, provider, name, language, gender, sample_url, metadata_json)
+VALUES
+    ('narrativex-en-us-female-1', 'NARRATIVEX', 'Clara', 'en-US', 'FEMALE', NULL, '{"style":"warm"}'::jsonb),
+    ('narrativex-vi-vn-female-1', 'NARRATIVEX', 'Mai', 'vi-VN', 'FEMALE', NULL, '{"style":"natural"}'::jsonb),
+    ('narrativex-vi-vn-male-1', 'NARRATIVEX', 'An', 'vi-VN', 'MALE', NULL, '{"style":"calm"}'::jsonb)
 ON CONFLICT (id) DO NOTHING;

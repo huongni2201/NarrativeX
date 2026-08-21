@@ -57,7 +57,7 @@ Fast-follow work không có checkbox trong plan MVP này để tránh bị hiể
 | --- | --- | --- |
 | Backend execution | `GenerationJob`, `StageAttempt`, `OperationPlan`, quota reservation, generation outbox, `ProviderOperation` | No media admission command or per-beat execution record |
 | Media planning | `CreateMediaPlanUseCase`, immutable `MediaPlan`, `MediaScenePlan`, `MediaBeatPlan` | Snapshot lacks storyboard revision, narration/alignment identity, safe prompt context, image settings and beat timing |
-| Persistence | Flyway V1–V6, `media_assets`, `render_manifests`, `final_artifacts`, immutable media-plan triggers | No generation-item table or generated-asset lineage; render manifest does not pin every input explicitly in queryable columns |
+| Persistence | Consolidated Flyway V1/V2, `media_assets`, `render_manifests`, `final_artifacts`, immutable media-plan triggers | Generation-item/review and generated-asset lineage are now part of the development baseline; render manifest pins queryable ownership and narration identities |
 | Worker | PostgreSQL lease/heartbeat, pre-submit `UNKNOWN` fence, Vertex analysis adapter, R2 storage, Wan contract foundation | Main worker only claims `CHAPTER_ANALYZE`; durable provider result is typed to `ChapterAnalysisResult`; no image/render handler |
 | Asset APIs | Upload/list/approve/delete under `/api/v1/assets`; private R2 foundation | No single generated-asset metadata/download endpoint and no generated-lineage query |
 | Render APIs | Existing `POST .../render`, `/api/v1/artifacts/{id}`, render manifest/final artifact schema | Render admission uses fixed cost and workspace projection, worker does not render, download signing is unfinished |
@@ -213,9 +213,12 @@ Keep the existing endpoint:
 - Keep existing `GET /api/v1/artifacts/{artifactId}` and `/download`; finish private R2 signing there instead of introducing `/render-artifacts` aliases.
 - Review and download authorization uses server identity plus asset account/project lineage; URL TTL is bounded and storage key is never serialized.
 
-## 8. Persistence contract — Flyway V7
+## 8. Persistence contract — consolidated Flyway V1
 
-Create `V7__add_media_generation_execution_contract.sql`; do not edit V1–V6.
+The repository is still on the development baseline. Fold the persistence
+contract into `V1__initial_schema.sql`; keep `V2__seed_demo_data.sql` limited
+to deterministic development fixtures. Do not leave a parallel feature migration
+in the Flyway location.
 
 ### 8.1 Extend immutable plan snapshot
 
@@ -263,8 +266,11 @@ Lineage is insert-only. Multiple lineage rows may reference one deduplicated `me
 
 ### 8.5 Migration safety tests
 
-- Fresh database applies V1–V7.
-- Upgrade fixture applies V7 over V6 data without rewriting existing immutable rows.
+- Fresh database applies the active V1/V2 baseline; comment-only legacy
+  tombstones may still be recorded as V3–V7 in the current checkout.
+- Existing databases from the former split migration history require operator-reviewed
+  recreation or explicit re-baselining; the application must not rewrite
+  `flyway_schema_history` automatically.
 - FK/check/partial unique/index behavior is covered in PostgreSQL integration tests.
 - Immutability triggers cover new snapshot/lineage rows.
 - Document roll-forward recovery; Flyway migration is not rolled back destructively in production.
@@ -305,7 +311,8 @@ Dependencies are sequential unless a task explicitly states otherwise. Complete 
 **Files:**
 
 - Create: `documentation/decisions/ADR-0017-mvp-image-review-render-boundary.md`
-- Create: `app/backend-service/src/main/resources/db/migration/V7__add_media_generation_execution_contract.sql`
+- Modify: `app/backend-service/src/main/resources/db/migration/V1__initial_schema.sql`
+- Modify: `app/backend-service/src/main/resources/db/migration/V2__seed_demo_data.sql`
 - Modify if payload changes are required: `contracts/job-event.v1.schema.json`
 - Modify: `documentation/workflows/IMAGE_GENERATION.md`
 - Modify: `documentation/workflows/STORY_TO_VIDEO.md`
@@ -313,7 +320,7 @@ Dependencies are sequential unless a task explicitly states otherwise. Complete 
 
 - [ ] record the two-command boundary, execution/review split, lineage/dedup behavior and provider capability gate in ADR-0017
 - [ ] confirm canonical enum values against existing SQL/Java; do not add aliases such as `CANCELLED`
-- [ ] implement additive V7 migration with constraints, partial indexes and immutability rules
+- [ ] fold the additive execution/review contract into V1 with constraints, partial indexes and immutability rules
 - [ ] update job-event payload only if the dispatcher consumes new plan/item identifiers; existing job/resource enums already include the required values
 - [ ] add fresh/upgrade/constraint/immutability PostgreSQL tests
 - [ ] run the focused migration tests; all must pass before Task 2
@@ -687,7 +694,7 @@ Create a separate plan after this Definition of Done is met:
 
 ### 2026-08-21 implementation update
 
-- `[x]` V7 persistence contract, executable MediaPlan snapshots, media-generation items and asset-lineage schema.
+- `[x]` Consolidated persistence contract, executable MediaPlan snapshots, media-generation items and asset-lineage schema.
 - `[x]` Backend `CHAPTER_GENERATE` admission, cost/quota reservation, idempotency conflict handling, status/review APIs and pinned render inputs.
 - `[x]` Provider-neutral worker image contracts, Vertex capability gate, bounded image validation, UNKNOWN/no-blind-resubmit runner contract and deterministic IMAGE_MOTION FFmpeg modules.
 - `[x]` Frontend Visuals/Render tabs, real API polling, review actions and capability-driven rendering controls.

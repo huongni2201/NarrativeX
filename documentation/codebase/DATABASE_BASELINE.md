@@ -12,20 +12,22 @@
 
 | Migration | Purpose | Current state |
 |---|---|---|
-| V1 `initial_schema` | Auth, project/story/chapter foundations, storyboard revisions, split motion/camera visual beats, character/location AI identities, backend-authoritative media plans, generation execution pipeline, durable provider operations, quota reservation lifecycle, chapter-level TTS and multi-part uploaded narration pipeline | Consolidated baseline |
+| V1 `initial_schema` | Auth, project/story/chapter foundations, storyboard revisions, split motion/camera visual beats, preview-asset links, character/location AI identities, backend-authoritative media plans, generation execution/review and lineage, durable provider operations, quota reservation lifecycle, chapter-level TTS, uploaded narration, upload sessions, media lifecycle hardening, style presets and voice catalog, render ownership pins | Consolidated baseline |
 | V2 `seed_demo_data` | Deterministic development/demo seed with canonical execution enums, storyboard revisions, character bibles, plan assignments and valid credits | Development only |
-| V3 `link_visual_beat_preview_assets` | Adds the nullable `visual_beats.preview_asset_id` link to project-scoped image assets used by Chapter Workspace previews | Forward-only feature migration |
-| V4 `add_style_presets_and_voice_catalog` | Adds durable style preset and enabled voice catalog read models | Forward-only feature migration |
 
-The migration set starts with the V1/V2 baseline (schema plus development seed), followed by forward-only feature migrations for databases that already applied that baseline.
+The active migration set is the V1/V2 baseline (schema plus development seed).
+The former V3–V7 feature migrations were folded into V1 because this is still
+the development baseline. Comment-only V3–V7 tombstones remain temporarily so
+Flyway does not execute their old DDL; existing databases created from the
+former split require operator-reviewed recreation or explicit re-baselining.
 
-The V2 fixture covers every V1 table. In addition to the core project/story
-rows, it includes scene and visual-beat continuity links, AI identity mappings,
-favorites, media plans, quota reservations, TTS requests/assets/alignments,
-uploaded narration sets/parts/documents/alignment runs, render manifests and
-final artifacts. Seed statements use explicit column lists, do not seed
-columns absent from V1, and provide valid values for every non-default required
-column (including columns with defaults that are explicitly listed).
+The V2 fixture covers the supported demo paths. In addition to the core
+project/story rows, it includes scene and visual-beat continuity links, AI
+identity mappings, favorites, media plans, quota reservations, TTS
+requests/assets/alignments, uploaded narration sets/parts/documents/alignment
+runs, render manifests, final artifacts, and catalog entries. Seed statements
+use explicit column lists and provide valid values for every non-default
+required column used by a fixture.
 
 ## Entity/schema matrix
 

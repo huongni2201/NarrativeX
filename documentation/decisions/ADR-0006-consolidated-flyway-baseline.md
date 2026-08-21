@@ -7,9 +7,10 @@
 ## Context
 
 The repository is still using a development database baseline. The schema had
-grown into one consolidated schema file, one deterministic seed file, and a
-forward-only follow-up migration. That split made the fresh-database path harder to
-inspect and caused the implementation-facing migration documentation to drift.
+grown into one consolidated schema file, one deterministic seed file, and
+several forward-only feature migrations. That split made the fresh-database path
+harder to inspect and caused the implementation-facing migration documentation
+to drift.
 
 PostgreSQL remains the authoritative business-state store and the backend
 remains the only Flyway/schema owner. Flyway must still fail on an unknown
@@ -18,11 +19,11 @@ incompatible schema.
 
 ## Decision
 
-- Keep the consolidated baseline in exactly two migrations under
+- Keep the consolidated baseline in two active migrations under
   `app/backend-service/src/main/resources/db/migration/`:
-  `V1__initial_schema.sql` and `V2__seed_demo_data.sql`. Later schema cleanup
-  and feature changes must use forward-only migrations; V3 links visual-beat
-  previews to project-scoped image assets.
+  `V1__initial_schema.sql` and `V2__seed_demo_data.sql`. Retired V3–V7
+  tombstones remain comment-only until the workspace can remove those legacy
+  directory entries; they contain no executable SQL.
 - `V1__initial_schema.sql` contains the final consolidated schema, including
   split motion fields (`motion_mode`, `camera_movement`), storyboard revisions (`storyboard_revisions`),
   scene & location continuity identities (`scene_characters`, `project_character_ai_identities`, `project_location_ai_identities`),
@@ -33,10 +34,13 @@ incompatible schema.
   durable provider operations with billing reconciliation & result fingerprints,
   quota reservation lifecycle (`quota_reservations`), full-chapter TTS narration (`narration_requests`, `narration_assets`, `narration_alignments`),
   multi-part uploaded narration pipeline (`media_assets`, `narration_sets`, `narration_parts`, `narration_documents`, `narration_alignment_runs`),
+  media upload sessions, style/voice catalogs, media lifecycle hardening,
+  generation-item review state, asset lineage, render ownership pins,
   canonical execution check constraints, and all baseline indexes.
-- `V2__seed_demo_data.sql` contains deterministic local/demo data for every table
-  in V1, including required columns for continuity, media plans, quota
-  reservations, narration, uploaded audio, favorites, and final artifacts.
+- `V2__seed_demo_data.sql` contains deterministic local/demo data for the
+  supported development fixtures, including continuity, media plans, quota
+  reservations, narration, uploaded audio, favorites, final artifacts, and
+  catalog entries.
 - Keep `spring.flyway.baseline-on-migrate=false`. No `ignore-migration-patterns`
   or checksum bypass is added to hide an old migration history.
 - Existing databases created with any former migration split require an
@@ -46,8 +50,8 @@ incompatible schema.
 ## Consequences
 
 - A fresh supported PostgreSQL database starts with a concise, deterministic
-  two-step baseline path: schema V1, then seed V2. Forward-only feature
-  migrations may run after that baseline.
+  two-step baseline path: schema V1, then seed V2. The former V3–V7 feature
+  migrations are folded into this development baseline.
 - The final schema is easier to compare with JPA validation and implementation
   documentation.
 - Existing development databases are not transparently compatible with the
@@ -59,9 +63,10 @@ incompatible schema.
 
 ## Verification
 
-- Apply V1 and V2 to an empty PostgreSQL instance to verify the baseline; the
-  current migration integration test applies the complete set and verifies
-  Flyway latest version is 3.
+- Apply V1 and V2 to an empty PostgreSQL instance to verify the baseline. In
+  the current checkout Flyway also records the comment-only V3–V7 tombstones,
+  so the migration integration test verifies latest version 7 and the active
+  schema is still supplied entirely by V1/V2.
 - Start the backend with Hibernate `ddl-auto=validate`.
 - Verify JSONB columns, foreign keys, enum checks, partial indexes, chapter
   source hashes, generation-job snapshot columns, and project overview fields.

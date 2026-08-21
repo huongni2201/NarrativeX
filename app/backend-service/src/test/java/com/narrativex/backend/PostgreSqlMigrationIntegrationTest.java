@@ -121,6 +121,13 @@ class PostgreSqlMigrationIntegrationTest {
       assertTrue(tableExists(connection, "voice_catalog"));
       assertTrue(indexExists(connection, "idx_style_presets_active_category_name"));
       assertTrue(indexExists(connection, "idx_voice_catalog_enabled_language_name"));
+      assertTrue(tableExists(connection, "media_generation_items"));
+      assertTrue(tableExists(connection, "media_asset_lineage"));
+      assertTrue(columnExists(connection, "media_plans", "workflow_version"));
+      assertTrue(columnExists(connection, "media_beat_plans", "asset_strategy"));
+      assertTrue(columnExists(connection, "render_manifests", "project_owner_id"));
+      assertTrue(indexExists(connection, "uq_media_generation_items_active"));
+      assertTrue(indexExists(connection, "idx_media_asset_lineage_project_chapter"));
       assertTrue(tableExists(connection, "narration_sets"));
       assertTrue(tableExists(connection, "narration_parts"));
       assertTrue(tableExists(connection, "narration_documents"));

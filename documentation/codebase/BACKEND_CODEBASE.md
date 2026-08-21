@@ -95,5 +95,5 @@ Backend endpoint availability does not imply every frontend surface is wired. Pr
 `CHAPTER_GENERATE` creates an executable, revision-pinned `MediaPlan` and one
 `MediaGenerationItem` per reviewed VisualBeat. Each item carries a request fingerprint and separate
 execution/review status. `CHAPTER_RENDER` remains a separate command and must consume the pinned plan
-revision. V7 adds the execution-item and append-only asset-lineage persistence contract; provider SDKs
+revision. The consolidated V1 baseline includes the execution-item and append-only asset-lineage persistence contract; provider SDKs
 remain worker/infrastructure concerns and are not imported by backend domain code.
