@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.GenerationJobMapper">
+    <resultMap id="generationJobRow" type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.GenerationJobRow">
+        <id property="id" column="id" />
+        <result property="rowVersion" column="row_version" />
+        <result property="createdAt" column="created_at" />
+        <result property="updatedAt" column="updated_at" />
+        <result property="jobId" column="job_id" />
+        <result property="projectId" column="project_id" />
+        <result property="type" column="job_type" />
+        <result property="status" column="status" />
+        <result property="resourceClass" column="resource_class" />
+        <result property="progress" column="progress" />
+        <result property="currentStep" column="current_step" />
+        <result property="errorCode" column="error_code" />
+        <result property="requestedByUserId" column="requested_by_user_id" />
+        <result property="billedToUserId" column="billed_to_user_id" />
+        <result property="storyVersionId" column="story_version_id" />
+        <result property="chapterId" column="chapter_id" />
+        <result property="chapterRowVersion" column="chapter_row_version" />
+        <result property="sourceHash" column="source_hash" />
+        <result property="sourceText" column="source_text" />
+        <result property="sourceLanguage" column="source_language" />
+        <result property="idempotencyKey" column="idempotency_key" />
+        <result property="storyboardRevisionId" column="storyboard_revision_id" />
+        <result property="mediaPlanId" column="media_plan_id"
+                typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
+        <result property="mediaPlanRevision" column="media_plan_revision" />
+        <result property="productionMode" column="production_mode" />
+    </resultMap>
+
+    <sql id="columns">
+        id, row_version, created_at, updated_at, job_id, project_id, job_type, status,
+        resource_class, progress, current_step, error_code, requested_by_user_id,
+        billed_to_user_id, story_version_id, chapter_id, chapter_row_version, source_hash,
+        source_text, source_language, idempotency_key, storyboard_revision_id, media_plan_id,
+        media_plan_revision, production_mode
+    </sql>
+
+    <select id="insert"
+            parameterType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.GenerationJobRow"
+            resultType="long" affectData="true">
+        INSERT INTO generation_jobs
+            (job_id, project_id, job_type, status, resource_class, progress, current_step,
+             error_code, requested_by_user_id, billed_to_user_id, story_version_id, chapter_id,
+             chapter_row_version, source_hash, source_text, source_language, idempotency_key,
+             storyboard_revision_id, media_plan_id, media_plan_revision, production_mode)
+        VALUES
+            (#{jobId}, #{projectId}, #{type}, #{status}, #{resourceClass}, #{progress}, #{currentStep},
+             #{errorCode}, #{requestedByUserId}, #{billedToUserId}, #{storyVersionId}, #{chapterId},
+             #{chapterRowVersion}, #{sourceHash}, #{sourceText}, #{sourceLanguage}, #{idempotencyKey},
+             #{storyboardRevisionId},
+             #{mediaPlanId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+             #{mediaPlanRevision}, #{productionMode})
+        RETURNING id
+    </select>
+
+    <update id="updateCas"
+            parameterType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.GenerationJobRow">
+        UPDATE generation_jobs
+           SET job_id = #{jobId},
+               project_id = #{projectId},
+               job_type = #{type},
+               status = #{status},
+               resource_class = #{resourceClass},
+               progress = #{progress},
+               current_step = #{currentStep},
+               error_code = #{errorCode},
+               requested_by_user_id = #{requestedByUserId},
+               billed_to_user_id = #{billedToUserId},
+               story_version_id = #{storyVersionId},
+               chapter_id = #{chapterId},
+               chapter_row_version = #{chapterRowVersion},
+               source_hash = #{sourceHash},
+               source_text = #{sourceText},
+               source_language = #{sourceLanguage},
+               idempotency_key = #{idempotencyKey},
+               storyboard_revision_id = #{storyboardRevisionId},
+               media_plan_id = #{mediaPlanId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+               media_plan_revision = #{mediaPlanRevision},
+               production_mode = #{productionMode},
+               updated_at = CURRENT_TIMESTAMP,
+               row_version = row_version + 1
+         WHERE id = #{id}
+           AND row_version = #{rowVersion}
+    </update>
+
+    <select id="findById" resultMap="generationJobRow">
+        SELECT <include refid="columns" />
+          FROM generation_jobs
+         WHERE id = #{id}
+    </select>
+
+    <select id="findByJobIdAndOwner" resultMap="generationJobRow">
+        SELECT
+            j.id, j.row_version, j.created_at, j.updated_at, j.job_id, j.project_id,
+            j.job_type, j.status, j.resource_class, j.progress, j.current_step, j.error_code,
+            j.requested_by_user_id, j.billed_to_user_id, j.story_version_id, j.chapter_id,
+            j.chapter_row_version, j.source_hash, j.source_text, j.source_language,
+            j.idempotency_key, j.storyboard_revision_id, j.media_plan_id,
+            j.media_plan_revision, j.production_mode
+          FROM generation_jobs j
+          JOIN projects p ON p.id = j.project_id
+         WHERE j.job_id = #{jobId}
+           AND p.owner_id = #{ownerId}
+           AND p.archived_at IS NULL
+    </select>
+
+    <select id="findByIdempotencyKey" resultMap="generationJobRow">
+        SELECT <include refid="columns" />
+          FROM generation_jobs
+         WHERE idempotency_key = #{idempotencyKey}
+    </select>
+
+    <select id="acquireIdempotencyLock" resultType="int">
+        SELECT 1
+          FROM pg_advisory_xact_lock(hashtextextended(#{idempotencyKey}, 0))
+    </select>
+</mapper>
