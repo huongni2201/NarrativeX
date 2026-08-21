@@ -331,7 +331,7 @@ export const StudioSidebar = () => {
                 <div className="flex items-center gap-1.5 min-w-0">
                   <Zap className="w-3.5 h-3.5 text-primary-hover shrink-0" />
                   <span className="text-xs font-semibold text-slate-200 uppercase tracking-wider truncate">
-                    Sử dụng / Hạn mức
+                    LIMIT / QUOTA
                   </span>
                 </div>
                 <button

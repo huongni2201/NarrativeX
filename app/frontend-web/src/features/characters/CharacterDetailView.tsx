@@ -322,14 +322,14 @@ export function CharacterDetailView({
         <div className="flex items-center gap-2.5">
           <button
             type="button"
-            className="flex items-center gap-1.5 rounded-xl border border-border bg-surface-2 px-3.5 py-2 text-xs font-semibold text-text-primary transition hover:bg-surface-3"
+            className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-3.5 py-2 text-sm font-semibold text-text-primary transition hover:bg-surface-3"
           >
             <Share2 className="h-3.5 w-3.5 text-text-muted" />
             <span>Chia sẻ nhân vật</span>
           </button>
           <button
             type="button"
-            className="flex items-center gap-1.5 rounded-xl border border-primary bg-primary px-3.5 py-2 text-xs font-bold text-white transition hover:bg-primary-hover shadow-lg shadow-primary/20"
+            className="flex items-center gap-1.5 rounded-lg border border-primary bg-primary px-3.5 py-2 text-sm font-bold text-white transition hover:bg-primary-hover shadow-lg shadow-primary/20"
           >
             <Edit3 className="h-3.5 w-3.5" />
             <span>Chỉnh sửa nhân vật</span>
@@ -341,7 +341,7 @@ export function CharacterDetailView({
       <div className="relative overflow-hidden rounded-2xl border border-border bg-surface-card p-6 shadow-xl">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_380px] xl:grid-cols-[minmax(0,1fr)_420px] items-start">
           {/* Hero Left: Portrait & Character Details */}
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-stretch">
             {/* Cinematic Portrait */}
             <div className="relative h-44 w-36 sm:h-48 sm:w-40 shrink-0 overflow-hidden rounded-2xl border border-border bg-surface-elevated shadow-lg">
               <div className="flex h-full w-full items-center justify-center bg-gradient-to-b from-surface-3/60 via-surface-card to-background text-3xl font-black text-primary-light">
@@ -351,59 +351,54 @@ export function CharacterDetailView({
             </div>
 
             {/* Profile Info */}
-            <div className="min-w-0 flex-1 space-y-3">
-              <div className="flex flex-wrap items-center gap-2.5">
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-text-primary">
-                  {character.canonicalName}
-                </h1>
-                <span
-                  className={`inline-block rounded-md border px-2.5 py-0.5 text-xs font-bold ${roleBadge.className}`}
-                >
-                  {roleBadge.label}
-                </span>
-                <span
-                  className={`inline-block rounded-md border px-2.5 py-0.5 text-xs font-semibold ${
-                    isComplete
-                      ? "border-badge-green-border bg-badge-green-bg text-badge-green"
-                      : "border-badge-amber-border bg-badge-amber-bg text-badge-amber"
-                  }`}
-                >
-                  {isComplete ? "Hoàn thiện" : "Đang phát triển"}
-                </span>
+            <div className="flex min-w-0 flex-1 flex-col justify-between space-y-3">
+              <div>
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <h1 className="text-2xl sm:text-3xl font-extrabold text-text-primary">
+                    {character.canonicalName}
+                  </h1>
+                  <span
+                    className={`inline-block rounded-md border px-2.5 py-0.5 text-xs font-bold ${roleBadge.className}`}
+                  >
+                    {roleBadge.label}
+                  </span>
+                  <span
+                    className={`inline-block rounded-md border px-2.5 py-0.5 text-xs font-semibold ${
+                      isComplete
+                        ? "border-badge-green-border bg-badge-green-bg text-badge-green"
+                        : "border-badge-amber-border bg-badge-amber-bg text-badge-amber"
+                    }`}
+                  >
+                    {isComplete ? "Hoàn thiện" : "Đang phát triển"}
+                  </span>
+                </div>
+
+                {/* Bio snippet */}
+                <p className="mt-2 text-sm sm:text-base leading-relaxed text-text-secondary line-clamp-3">
+                  {shortDescription}
+                </p>
+
+                {/* Dates */}
+                <div className="mt-2.5 flex flex-wrap items-center gap-4 text-xs sm:text-sm text-text-muted">
+                  <span className="flex items-center gap-1.5">
+                    <Calendar className="h-3.5 w-3.5 text-text-dim" />
+                    <span>Tạo ngày: {formatDateOnly(character.createdAt)}</span>
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <Clock className="h-3.5 w-3.5 text-text-dim" />
+                    <span>Cập nhật: {formatDateTime(character.updatedAt)}</span>
+                  </span>
+                </div>
               </div>
 
-              {/* Bio snippet */}
-              <p className="text-xs leading-relaxed text-text-secondary line-clamp-3">
-                {shortDescription}
-              </p>
-
-              {/* Dates */}
-              <div className="flex flex-wrap items-center gap-4 text-[11px] text-text-muted pt-1">
-                <span className="flex items-center gap-1.5">
-                  <Calendar className="h-3.5 w-3.5 text-text-dim" />
-                  <span>Tạo ngày: {formatDateOnly(character.createdAt)}</span>
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5 text-text-dim" />
-                  <span>Cập nhật: {formatDateTime(character.updatedAt)}</span>
-                </span>
-              </div>
-
-              {/* Quick Actions */}
-              <div className="flex flex-wrap items-center gap-2.5 pt-2">
+              {/* Quick Actions (Aligned to bottom) */}
+              <div className="mt-auto flex flex-wrap items-center gap-2.5 pt-4">
                 <button
                   type="button"
-                  className="flex items-center gap-1.5 rounded-xl border border-primary bg-primary px-4 py-2 text-xs font-bold text-white transition hover:bg-primary-hover shadow-md shadow-primary/20"
+                  className="flex items-center gap-1.5 rounded-lg border border-primary bg-primary px-4 py-2 text-sm font-bold text-white transition hover:bg-primary-hover shadow-md shadow-primary/20"
                 >
                   <Sparkles className="h-3.5 w-3.5" />
                   <span>Tạo visual</span>
-                </button>
-                <button
-                  type="button"
-                  className="flex items-center gap-1.5 rounded-xl border border-border bg-surface-2 px-4 py-2 text-xs font-semibold text-text-primary transition hover:bg-surface-3"
-                >
-                  <Edit3 className="h-3.5 w-3.5 text-text-muted" />
-                  <span>Chỉnh sửa nhân vật</span>
                 </button>
               </div>
             </div>
@@ -412,25 +407,25 @@ export function CharacterDetailView({
           {/* Hero Right: 3 Stats Widgets */}
           <div className="grid grid-cols-3 gap-3">
             {/* Stat 1: Scenes */}
-            <div className="flex flex-col items-center justify-center rounded-2xl border border-border bg-surface-2 p-3.5 text-center">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-primary/30 bg-primary-muted text-primary-light">
+            <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-surface-2 p-3.5 text-center">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-primary/30 bg-primary-muted text-primary-light">
                 <BookOpen className="h-4 w-4" />
               </div>
               <div className="mt-2 text-xl font-extrabold text-text-primary">{character.sceneCount}</div>
-              <div className="text-[10px] font-medium text-text-muted">Scene xuất hiện</div>
+              <div className="text-xs font-medium text-text-muted">Scene xuất hiện</div>
             </div>
 
             {/* Stat 2: Assets */}
-            <div className="flex flex-col items-center justify-center rounded-2xl border border-border bg-surface-2 p-3.5 text-center">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-badge-purple-border bg-badge-purple-bg text-badge-purple">
+            <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-surface-2 p-3.5 text-center">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-badge-purple-border bg-badge-purple-bg text-badge-purple">
                 <ImageIcon className="h-4 w-4" />
               </div>
               <div className="mt-2 text-xl font-extrabold text-text-primary">{assetCount}</div>
-              <div className="text-[10px] font-medium text-text-muted">Visual assets</div>
+              <div className="text-xs font-medium text-text-muted">Visual assets</div>
             </div>
 
             {/* Stat 3: Circular Radial Gauge */}
-            <div className="flex flex-col items-center justify-center rounded-2xl border border-border bg-surface-2 p-3.5 text-center">
+            <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-surface-2 p-3.5 text-center">
               <div className="relative flex h-11 w-11 items-center justify-center">
                 <svg className="h-full w-full -rotate-90" viewBox="0 0 36 36">
                   <path
@@ -450,11 +445,11 @@ export function CharacterDetailView({
                     d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                   />
                 </svg>
-                <span className="absolute text-[11px] font-black text-text-primary">
+                <span className="absolute text-xs font-black text-text-primary">
                   {completionPercentage}%
                 </span>
               </div>
-              <div className="mt-1 text-[10px] font-medium text-text-muted">Hoàn thiện hồ sơ</div>
+              <div className="mt-1 text-xs font-medium text-text-muted">Hoàn thiện hồ sơ</div>
             </div>
           </div>
         </div>
@@ -512,11 +507,11 @@ export function CharacterDetailView({
           {/* Card 1: Thông tin cơ bản */}
           <div className="flex flex-col justify-between rounded-2xl border border-border bg-surface-card p-5 shadow-lg">
             <div>
-              <div className="flex items-center gap-2 border-b border-border/80 pb-3 text-xs font-bold text-text-primary">
+              <div className="flex items-center gap-2 border-b border-border/80 pb-3 text-sm font-bold text-text-primary">
                 <User className="h-4 w-4 text-primary-light" />
                 <span>Thông tin cơ bản</span>
               </div>
-              <div className="divide-y divide-border/60 text-xs">
+              <div className="divide-y divide-border/60 text-sm">
                 <div className="flex items-center justify-between py-2.5">
                   <span className="text-text-muted">Tên đầy đủ</span>
                   <span className="font-semibold text-text-primary">{character.canonicalName}</span>
@@ -545,9 +540,9 @@ export function CharacterDetailView({
                 </div>
               </div>
             </div>
-            <div className="flex items-center justify-between border-t border-border/80 pt-3 text-xs">
+            <div className="flex items-center justify-between border-t border-border/80 pt-3 text-sm">
               <span className="text-text-muted">Trạng thái</span>
-              <span className="flex items-center gap-1.5 rounded-full border border-badge-green-border bg-badge-green-bg px-2.5 py-0.5 text-[11px] font-bold text-badge-green">
+              <span className="flex items-center gap-1.5 rounded-md border border-badge-green-border bg-badge-green-bg px-2.5 py-0.5 text-xs font-bold text-badge-green">
                 <span className="h-1.5 w-1.5 rounded-full bg-badge-green" />
                 <span>Hoàn thiện</span>
               </span>
@@ -557,22 +552,22 @@ export function CharacterDetailView({
           {/* Card 2: Mô tả nhân vật */}
           <div className="flex flex-col justify-between rounded-2xl border border-border bg-surface-card p-5 shadow-lg">
             <div>
-              <div className="flex items-center gap-2 border-b border-border/80 pb-3 text-xs font-bold text-text-primary">
+              <div className="flex items-center gap-2 border-b border-border/80 pb-3 text-sm font-bold text-text-primary">
                 <FileText className="h-4 w-4 text-badge-purple" />
                 <span>Mô tả nhân vật</span>
               </div>
-              <p className="mt-3 text-xs leading-relaxed text-text-secondary min-h-[90px]">
+              <p className="mt-3 text-sm leading-relaxed text-text-secondary min-h-[90px]">
                 {shortDescription}
               </p>
             </div>
 
             <div className="border-t border-border/80 pt-3">
-              <div className="text-[11px] font-bold text-text-muted mb-2">Từ khóa tính cách</div>
+              <div className="text-xs font-bold text-text-muted mb-2">Từ khóa tính cách</div>
               <div className="flex flex-wrap gap-1.5">
                 {displayKeywords.map((tag, idx) => (
                   <span
                     key={idx}
-                    className="rounded-md border border-badge-purple-border bg-badge-purple-bg px-2 py-0.5 text-[11px] font-medium text-badge-purple"
+                    className="rounded-md border border-badge-purple-border bg-badge-purple-bg px-2.5 py-0.5 text-xs font-semibold text-badge-purple"
                   >
                     {tag}
                   </span>
@@ -584,7 +579,7 @@ export function CharacterDetailView({
           {/* Card 3: Quan hệ nhân vật */}
           <div className="flex flex-col justify-between rounded-2xl border border-border bg-surface-card p-5 shadow-lg">
             <div>
-              <div className="flex items-center gap-2 border-b border-border/80 pb-3 text-xs font-bold text-text-primary">
+              <div className="flex items-center gap-2 border-b border-border/80 pb-3 text-sm font-bold text-text-primary">
                 <Users className="h-4 w-4 text-badge-blue" />
                 <span>Quan hệ nhân vật</span>
               </div>
@@ -601,23 +596,23 @@ export function CharacterDetailView({
                     return (
                       <div
                         key={coChar.assignmentId}
-                        className="flex items-center justify-between rounded-xl border border-border/70 bg-surface-2 p-2.5"
+                        className="flex items-center justify-between rounded-lg border border-border/70 bg-surface-2 p-2.5"
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-elevated text-xs font-bold text-primary-light">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-elevated text-sm font-bold text-primary-light">
                             {coChar.canonicalName.slice(0, 1).toLocaleUpperCase("vi")}
                           </div>
                           <div className="min-w-0">
-                            <div className="truncate text-xs font-bold text-text-primary">
+                            <div className="truncate text-sm font-bold text-text-primary">
                               {coChar.canonicalName}
                             </div>
-                            <div className="text-[10px] text-text-muted truncate">
+                            <div className="text-xs text-text-muted truncate">
                               ({coChar.role || "Đồng hành"})
                             </div>
                           </div>
                         </div>
                         <span
-                          className={`rounded-md border px-2 py-0.5 text-[10px] font-bold shrink-0 ${relationTag.badgeClass}`}
+                          className={`rounded-md border px-2 py-0.5 text-xs font-bold shrink-0 ${relationTag.badgeClass}`}
                         >
                           {relationTag.label}
                         </span>
@@ -625,7 +620,7 @@ export function CharacterDetailView({
                     );
                   })
                 ) : (
-                  <div className="py-6 text-center text-xs text-text-muted">
+                  <div className="py-6 text-center text-sm text-text-muted">
                     Chưa có liên kết mối quan hệ với nhân vật khác.
                   </div>
                 )}
@@ -635,7 +630,7 @@ export function CharacterDetailView({
             <button
               type="button"
               onClick={() => setActiveTab("appearances")}
-              className="mt-3 flex items-center justify-between border-t border-border/80 pt-3 text-xs font-semibold text-primary-light hover:text-primary transition-colors"
+              className="mt-3 flex items-center justify-between border-t border-border/80 pt-3 text-sm font-semibold text-primary-light hover:text-primary transition-colors"
             >
               <span>Xem tất cả mối quan hệ</span>
               <ChevronRight className="h-3.5 w-3.5" />
@@ -645,7 +640,7 @@ export function CharacterDetailView({
           {/* Card 4: Visual references */}
           <div className="flex flex-col justify-between rounded-2xl border border-border bg-surface-card p-5 shadow-lg">
             <div>
-              <div className="flex items-center gap-2 border-b border-border/80 pb-3 text-xs font-bold text-text-primary">
+              <div className="flex items-center gap-2 border-b border-border/80 pb-3 text-sm font-bold text-text-primary">
                 <Camera className="h-4 w-4 text-badge-orange" />
                 <span>Visual references</span>
               </div>
@@ -653,11 +648,11 @@ export function CharacterDetailView({
                 {[1, 2, 3, 4].map((item) => (
                   <div
                     key={item}
-                    className="relative aspect-[3/4] overflow-hidden rounded-xl border border-border bg-surface-elevated flex items-center justify-center text-text-dim hover:border-primary/50 transition-colors"
+                    className="relative aspect-[3/4] overflow-hidden rounded-lg border border-border bg-surface-elevated flex items-center justify-center text-text-dim hover:border-primary/50 transition-colors"
                   >
                     <div className="text-center">
                       <ImageIcon className="mx-auto h-4 w-4 text-text-dim" />
-                      <span className="text-[9px] text-text-dim block mt-0.5">#{item}</span>
+                      <span className="text-xs text-text-dim block mt-0.5">#{item}</span>
                     </div>
                   </div>
                 ))}
@@ -667,7 +662,7 @@ export function CharacterDetailView({
             <button
               type="button"
               onClick={() => setActiveTab("visuals")}
-              className="mt-3 flex items-center justify-between border-t border-border/80 pt-3 text-xs font-semibold text-primary-light hover:text-primary transition-colors"
+              className="mt-3 flex items-center justify-between border-t border-border/80 pt-3 text-sm font-semibold text-primary-light hover:text-primary transition-colors"
             >
               <span>Xem tất cả visual</span>
               <ChevronRight className="h-3.5 w-3.5" />
@@ -677,7 +672,7 @@ export function CharacterDetailView({
           {/* Card 5: Xuất hiện trong scene */}
           <div className="flex flex-col justify-between rounded-2xl border border-border bg-surface-card p-5 shadow-lg">
             <div>
-              <div className="flex items-center gap-2 border-b border-border/80 pb-3 text-xs font-bold text-text-primary">
+              <div className="flex items-center gap-2 border-b border-border/80 pb-3 text-sm font-bold text-text-primary">
                 <Clapperboard className="h-4 w-4 text-badge-purple" />
                 <span>Xuất hiện trong scene</span>
               </div>
@@ -686,24 +681,24 @@ export function CharacterDetailView({
                   chapters.slice(0, 4).map((chapter, idx) => (
                     <div
                       key={chapter.id}
-                      className="flex items-center justify-between rounded-xl border border-border/70 bg-surface-2 px-3 py-2 text-xs"
+                      className="flex items-center justify-between rounded-lg border border-border/70 bg-surface-2 px-3 py-2 text-sm"
                     >
                       <div className="flex items-center gap-2 min-w-0">
                         <Clapperboard className="h-3.5 w-3.5 shrink-0 text-text-dim" />
                         <span className="truncate font-medium text-text-primary">{chapter.title}</span>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="rounded border border-badge-purple-border bg-badge-purple-bg px-1.5 py-0.5 text-[10px] font-bold text-badge-purple">
+                        <span className="rounded-md border border-badge-purple-border bg-badge-purple-bg px-2 py-0.5 text-xs font-bold text-badge-purple">
                           {roleBadge.label}
                         </span>
-                        <span className="font-mono text-[10px] text-text-muted">
+                        <span className="font-mono text-xs text-text-muted">
                           00:0{idx + 1}:{10 * (idx + 1)}
                         </span>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <div className="py-6 text-center text-xs text-text-muted">
+                  <div className="py-6 text-center text-sm text-text-muted">
                     Chưa có scene nào được liên kết trong dự án.
                   </div>
                 )}
@@ -713,7 +708,7 @@ export function CharacterDetailView({
             <button
               type="button"
               onClick={() => setActiveTab("appearances")}
-              className="mt-3 flex items-center justify-between border-t border-border/80 pt-3 text-xs font-semibold text-primary-light hover:text-primary transition-colors"
+              className="mt-3 flex items-center justify-between border-t border-border/80 pt-3 text-sm font-semibold text-primary-light hover:text-primary transition-colors"
             >
               <span>Xem tất cả scene</span>
               <ChevronRight className="h-3.5 w-3.5" />
@@ -723,11 +718,11 @@ export function CharacterDetailView({
           {/* Card 6: Prompt gợi ý / Ghi chú sáng tạo */}
           <div className="flex flex-col justify-between rounded-2xl border border-border bg-surface-card p-5 shadow-lg">
             <div>
-              <div className="flex items-center gap-2 border-b border-border/80 pb-3 text-xs font-bold text-text-primary">
+              <div className="flex items-center gap-2 border-b border-border/80 pb-3 text-sm font-bold text-text-primary">
                 <Lightbulb className="h-4 w-4 text-badge-amber" />
                 <span>Prompt gợi ý / ghi chú sáng tạo</span>
               </div>
-              <ul className="mt-3 space-y-2 text-xs leading-relaxed text-text-secondary list-disc list-inside">
+              <ul className="mt-3 space-y-2 text-sm leading-relaxed text-text-secondary list-disc list-inside">
                 {promptLines.slice(0, 4).map((line, idx) => (
                   <li key={idx} className="line-clamp-2">
                     {line}
@@ -739,7 +734,7 @@ export function CharacterDetailView({
             <button
               type="button"
               onClick={() => setActiveTab("notes")}
-              className="mt-3 flex items-center gap-1.5 border-t border-border/80 pt-3 text-xs font-semibold text-primary-light hover:text-primary transition-colors"
+              className="mt-3 flex items-center gap-1.5 border-t border-border/80 pt-3 text-sm font-semibold text-primary-light hover:text-primary transition-colors"
             >
               <Edit3 className="h-3.5 w-3.5" />
               <span>Chỉnh sửa ghi chú</span>
@@ -944,7 +939,7 @@ function TabButton({
       role="tab"
       aria-selected={isActive}
       onClick={() => onClick(id)}
-      className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold whitespace-nowrap transition ${
+      className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold whitespace-nowrap transition ${
         isActive
           ? "border border-primary bg-primary-muted text-primary-light shadow-md shadow-primary/20"
           : "border border-border bg-surface-card text-text-muted hover:border-border-subtle hover:text-text-primary"
