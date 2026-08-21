@@ -261,7 +261,7 @@ export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
                   type="button"
                   onClick={selectBatchImportFile}
                   disabled={batchImport.isPending}
-                  className="flex items-center gap-1.5 rounded-xl border border-slate-700/80 bg-slate-900/90 px-3.5 py-2 text-xs font-semibold text-slate-300 transition-colors hover:bg-slate-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-3.5 py-2 text-xs font-semibold text-text-secondary transition-colors hover:bg-surface-3 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <UploadCloud className="h-3.5 w-3.5 text-purple-400" />
                   <span>{batchImport.isPending ? "Đang import…" : "Import nhiều chapter"}</span>
@@ -270,7 +270,7 @@ export function ProductionShell({ projectId }: Readonly<ProductionShellProps>) {
                 <button
                   type="button"
                   onClick={() => setFormOpen(true)}
-                  className="flex items-center gap-1.5 rounded-xl bg-purple-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-purple-950/60 transition-colors hover:bg-purple-500"
+                  className="flex items-center gap-1.5 rounded-lg border border-primary bg-primary px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-primary-hover"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   <span>Add Chapter</span>

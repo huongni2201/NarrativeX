@@ -77,7 +77,7 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({ title, actions }) =>
   }, [isProfileMenuOpen]);
 
   return (
-    <header className="h-16 bg-[#070b14]/90 backdrop-blur-md border-b border-slate-800/80 px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30">
+    <header className="h-16 bg-background border-b border-border px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30">
       <div className="flex min-w-0 items-center gap-4">
         {title && (
           <h1 className="truncate text-base sm:text-lg md:text-xl font-bold text-slate-100">
@@ -160,7 +160,7 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({ title, actions }) =>
           {isProfileMenuOpen && (
             <div
               role="menu"
-              className="absolute right-0 mt-2 w-52 rounded-xl bg-[#0d1420] border border-slate-800 shadow-2xl py-1 z-50"
+              className="absolute right-0 mt-2 w-52 rounded-xl bg-surface border border-border shadow-2xl py-1 z-50"
             >
               <div className="px-3.5 py-2.5 border-b border-slate-800/80">
                 <p className="text-xs font-bold text-white">{displayName}</p>

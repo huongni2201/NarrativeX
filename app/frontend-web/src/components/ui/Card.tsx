@@ -14,11 +14,11 @@ export const Card: React.FC<CardProps> = ({
   ...props
 }) => {
   const variantStyles = {
-    surface: "bg-[#0d1420] border border-slate-800/80",
-    "surface-2": "bg-[#111a29] border border-slate-800/80",
-    glass: "bg-[#0d1420]/80 backdrop-blur-md border border-white/5",
+    surface: "bg-surface border border-border",
+    "surface-2": "bg-surface-2 border border-border",
+    glass: "bg-surface border border-border-subtle",
     interactive:
-      "bg-[#0d1420] border border-slate-800/80 hover:border-purple-500/50 hover:bg-[#111a29] transition-colors duration-200 cursor-pointer",
+      "bg-surface border border-border hover:border-primary hover:bg-surface-2 transition-colors duration-200 cursor-pointer",
   };
 
   return (
@@ -26,7 +26,7 @@ export const Card: React.FC<CardProps> = ({
       className={cn(
         "rounded-xl overflow-hidden text-slate-100",
         variantStyles[variant],
-        glowing && "shadow-[0_0_30px_rgba(124,58,237,0.25)] border-purple-500/50",
+        glowing && "border-primary",
         className
       )}
       {...props}

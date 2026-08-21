@@ -32,7 +32,7 @@ export function StoryboardSceneRail({
             key={scene.id}
             type="button"
             onClick={() => onSelectScene(scene.id)}
-            className={`group relative w-full rounded-xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 ${
+            className={`group relative w-full rounded-lg border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 ${
               sceneId === scene.id
                 ? "border-purple-500/50 bg-surface-elevated shadow-lg shadow-purple-950/20"
                 : "border-border-dark bg-surface-input hover:border-border hover:bg-surface-2"

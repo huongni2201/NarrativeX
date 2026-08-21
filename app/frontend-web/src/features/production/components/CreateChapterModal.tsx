@@ -80,7 +80,7 @@ export function CreateChapterModal({
               setTitle(event.target.value);
               setValidationError(null);
             }}
-            placeholder="Nhập tiêu đề chapter..."
+            placeholder="Nhập tiêu đề chapter…"
             maxLength={200}
             autoComplete="off"
             required
@@ -104,7 +104,7 @@ export function CreateChapterModal({
               setSourceText(event.target.value);
               setValidationError(null);
             }}
-            placeholder="Dán nội dung chương truyện vào đây..."
+            placeholder="Dán nội dung chương truyện vào đây…"
             rows={8}
             required
             className="mt-2 w-full resize-y rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-sm leading-6 text-slate-200 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"
@@ -141,7 +141,7 @@ export function CreateChapterModal({
           <button
             type="submit"
             disabled={isSubmitting || !title.trim() || !sourceText.trim()}
-            className="rounded-lg bg-purple-600 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_0_18px_rgba(124,58,237,0.3)] transition hover:bg-purple-500 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSubmitting ? "Đang thêm…" : "Thêm Chapter"}
           </button>

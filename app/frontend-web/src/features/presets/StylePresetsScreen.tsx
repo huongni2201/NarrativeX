@@ -86,7 +86,7 @@ export const StylePresetsScreen: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight">
-              09. Mẫu &amp; Phong cách (Style &amp; Presets)
+              Mẫu &amp; phong cách
             </h1>
             <p className="text-xs text-slate-400 mt-0.5">
               Quản lý phong cách, preset và cấu hình sáng tạo
@@ -97,7 +97,7 @@ export const StylePresetsScreen: React.FC = () => {
             onClick={openCreateModal}
             variant="primary"
             size="md"
-            className="shadow-[0_0_20px_rgba(124,58,237,0.4)] font-semibold shrink-0"
+            className="font-semibold shrink-0"
             leftIcon={<Plus className="w-4 h-4 mr-1.5" />}
           >
             + Tạo mới
@@ -117,7 +117,7 @@ export const StylePresetsScreen: React.FC = () => {
                   className={cn(
                     "px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 whitespace-nowrap flex items-center gap-1.5",
                     isActive
-                      ? "bg-purple-600 text-white font-semibold shadow-[0_0_12px_rgba(124,58,237,0.4)]"
+                      ? "bg-primary text-white font-semibold"
                       : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
                   )}
                 >
@@ -141,7 +141,7 @@ export const StylePresetsScreen: React.FC = () => {
           <div className="flex items-center gap-2.5 shrink-0">
             <div className="w-48 sm:w-56">
               <Input
-                placeholder="Tìm kiếm preset..."
+                placeholder="Tìm kiếm preset…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 icon={<Search className="w-3.5 h-3.5" />}

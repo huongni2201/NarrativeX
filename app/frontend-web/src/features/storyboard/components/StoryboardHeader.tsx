@@ -80,7 +80,7 @@ export function StoryboardHeader({
             type="search"
             value={search}
             onChange={(event) => onSearchChange(event.target.value)}
-            placeholder="Tìm kiếm scene/visual beat..."
+            placeholder="Tìm kiếm scene/visual beat…"
             className="h-9 w-full rounded-md border border-border-darker bg-surface-input pl-9 pr-3 text-xs text-slate-200 outline-none placeholder:text-slate-600 transition-colors focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
           />
         </label>

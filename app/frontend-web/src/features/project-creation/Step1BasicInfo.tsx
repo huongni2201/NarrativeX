@@ -41,14 +41,14 @@ export const Step1BasicInfo: React.FC<Step1Props> = ({ validationErrors = [] }) 
             id={nameId}
             value={wizardDraft.title}
             onChange={(event) => updateWizardDraft({ title: event.target.value })}
-            placeholder="Nhập tên dự án..."
+            placeholder="Nhập tên dự án…"
             error={nameError?.message || nameError?.code}
           />
         </div>
 
         <div className="space-y-1.5">
           <label htmlFor={descriptionId} className="text-xs font-medium text-slate-300">Mô tả</label>
-          <Textarea id={descriptionId} rows={3} value={wizardDraft.description} onChange={(event) => updateWizardDraft({ description: event.target.value })} placeholder="Mô tả tóm tắt về câu chuyện..." />
+          <Textarea id={descriptionId} rows={3} value={wizardDraft.description} onChange={(event) => updateWizardDraft({ description: event.target.value })} placeholder="Mô tả tóm tắt về câu chuyện…" />
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

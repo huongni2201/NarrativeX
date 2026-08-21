@@ -99,7 +99,7 @@ export const StudioSidebar = () => {
   ];
 
   return (
-    <aside className="w-64 bg-[#090e17] border-r border-slate-800/80 flex flex-col justify-between shrink-0 h-screen sticky top-0 select-none z-20 overflow-y-auto">
+    <aside className="w-64 bg-surface-panel border-r border-border flex flex-col justify-between shrink-0 h-screen sticky top-0 select-none z-20 overflow-y-auto">
       <div>
         <div className="p-4 px-5 border-b border-slate-800/60 flex items-center justify-between">
           <Link
@@ -113,7 +113,7 @@ export const StudioSidebar = () => {
                 alt="NarrativeX Logo"
                 width={36}
                 height={36}
-                className="w-9 h-9 object-contain drop-shadow-[0_0_12px_rgba(124,58,237,0.5)] transition-transform duration-200 group-hover:scale-105"
+                className="w-9 h-9 object-contain transition-transform duration-200 group-hover:scale-105"
                 priority
               />
             </div>
@@ -128,7 +128,7 @@ export const StudioSidebar = () => {
           </Link>
         </div>
 
-        <div className="p-3.5 mx-3 mt-3 rounded-xl bg-[#0d1420]/80 border border-slate-800/80 flex items-center gap-3">
+        <div className="p-3.5 mx-3 mt-3 rounded-xl bg-surface border border-border flex items-center gap-3">
           <div className="w-10 h-10 rounded-full overflow-hidden border border-purple-500/40 ring-2 ring-purple-600/20 shrink-0 bg-slate-900">
             {user?.avatarUrl ? (
               <img src={user.avatarUrl} alt={displayName} className="w-full h-full object-cover" />
@@ -191,7 +191,7 @@ export const StudioSidebar = () => {
       </div>
 
       <div className="space-y-3">
-        <div className="p-3.5 mx-3 rounded-2xl bg-[#0d1420] border border-slate-800 space-y-3">
+        <div className="p-3.5 mx-3 rounded-xl bg-surface border border-border space-y-3">
           {isQuotaLoading ? (
             <div className="space-y-2.5 animate-pulse py-1">
               <div className="flex justify-between items-center">
@@ -231,7 +231,7 @@ export const StudioSidebar = () => {
                 </div>
                 <div className="w-full bg-slate-800/80 rounded-full h-1.5 overflow-hidden">
                   <div
-                    className="bg-gradient-to-r from-purple-500 to-indigo-500 h-full rounded-full transition-all duration-300"
+                    className="bg-primary h-full rounded-full transition-[width] duration-300"
                     style={{ width: `${creditPercent}%` }}
                   />
                 </div>
@@ -267,10 +267,9 @@ export const StudioSidebar = () => {
         </div>
 
         {/* Footer info & Health Indicator */}
-        <div className="px-5 pb-4 flex items-center justify-between">
+      <div className="px-5 pb-4 flex items-center justify-between">
           <ProviderHealthIndicator />
-          <span className="text-[10px] text-slate-500 font-mono">v1.10</span>
-        </div>
+      </div>
       </div>
 
       {/* Modals & Drawers */}

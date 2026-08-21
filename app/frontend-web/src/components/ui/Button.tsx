@@ -27,22 +27,22 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ) => {
     const baseStyles =
       "inline-flex items-center justify-center font-medium rounded-lg transition-colors duration-200 select-none " +
-      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#070b14] " +
+      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background " +
       "disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none active:scale-[0.98]";
 
     const variantStyles = {
       primary:
-        "bg-purple-600 hover:bg-purple-500 text-white shadow-[0_0_20px_rgba(124,58,237,0.35)] hover:shadow-[0_0_25px_rgba(124,58,237,0.5)] border border-purple-400/30",
+        "bg-primary hover:bg-primary-hover text-white border border-primary",
       gradient:
-        "bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-[0_0_25px_rgba(124,58,237,0.4)] border border-purple-400/30",
+        "bg-primary hover:bg-primary-hover text-white border border-primary",
       secondary:
-        "bg-slate-800/90 hover:bg-slate-700/90 text-slate-100 border border-slate-700/80 hover:border-slate-600 shadow-sm",
+        "bg-surface-2 hover:bg-surface-3 text-text-primary border border-border hover:border-border-dark shadow-sm",
       outline:
-        "bg-transparent hover:bg-slate-800/60 text-slate-200 border border-slate-700/80 hover:border-purple-500/50",
+        "bg-transparent hover:bg-surface-2 text-text-primary border border-border hover:border-primary",
       ghost:
-        "bg-transparent hover:bg-slate-800/60 text-slate-400 hover:text-slate-200 border border-transparent",
+        "bg-transparent hover:bg-surface-2 text-text-secondary hover:text-text-primary border border-transparent",
       danger:
-        "bg-rose-600/90 hover:bg-rose-500 text-white shadow-[0_0_20px_rgba(225,29,72,0.3)] border border-rose-500/30",
+        "bg-rose-600/90 hover:bg-rose-500 text-white border border-rose-500/30",
     };
 
     const sizeStyles = {

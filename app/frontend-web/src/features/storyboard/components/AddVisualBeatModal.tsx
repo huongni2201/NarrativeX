@@ -81,7 +81,7 @@ export function AddVisualBeatModal({
               onChange={(event) => onIntentChange(event.target.value)}
               maxLength={8000}
               rows={5}
-              placeholder="Mô tả khung hình, hành động, bối cảnh..."
+              placeholder="Mô tả khung hình, hành động, bối cảnh…"
               className="mt-1.5 w-full resize-y rounded-lg border border-border-dark bg-surface-input px-3 py-2.5 text-sm text-slate-100 outline-none placeholder:text-slate-600 transition-colors focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
             />
           </label>

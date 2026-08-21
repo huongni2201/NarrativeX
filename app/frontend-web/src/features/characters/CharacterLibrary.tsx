@@ -68,7 +68,7 @@ export function CharacterLibrary() {
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Tìm theo tên hoặc alias..."
+            placeholder="Tìm theo tên hoặc alias…"
             className="h-10 w-full rounded-xl border border-slate-800 bg-[#0b101b] pl-9 pr-3 text-sm text-slate-100 outline-none transition focus:border-purple-500"
           />
         </label>

@@ -257,7 +257,7 @@ function ProgressItem({
       <button
         type="button"
         onClick={onClick}
-        className="w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded-xl"
+        className="w-full rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
       >
         {content}
       </button>

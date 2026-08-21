@@ -166,7 +166,7 @@ export const AddChapterModal: React.FC = () => {
             type="submit"
             variant="gradient"
             size="md"
-            className="shadow-[0_0_20px_rgba(124,58,237,0.4)] font-semibold"
+            className="font-semibold"
           >
             Thêm Chapter
           </Button>

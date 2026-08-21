@@ -21,26 +21,28 @@ interface ProjectCardProps {
 }
 
 function formatDuration(totalSeconds: number): string {
-  if (!totalSeconds || totalSeconds <= 0) return "00:00";
+  if (!totalSeconds || totalSeconds <= 0) return "-";
   const mins = Math.floor(totalSeconds / 60);
   const secs = totalSeconds % 60;
   return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 }
 
 function formatDate(dateString?: string | null): string {
-  if (!dateString) return "21/08/2026 • 08:26";
+  if (!dateString) return "Chưa cập nhật";
   try {
     const date = new Date(dateString);
-    if (isNaN(date.getTime())) return "21/08/2026 • 08:26";
-    const day = String(date.getDate()).padStart(2, "0");
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const year = date.getFullYear();
-    const hours = String(date.getHours()).padStart(2, "0");
-    const minutes = String(date.getMinutes()).padStart(2, "0");
-    return `${day}/${month}/${year} • ${hours}:${minutes}`;
+    if (isNaN(date.getTime())) return "Chưa cập nhật";
+    return new Intl.DateTimeFormat("vi-VN", {
+      dateStyle: "short",
+      timeStyle: "short",
+    }).format(date);
   } catch {
-    return "21/08/2026 • 08:26";
+    return "Chưa cập nhật";
   }
+}
+
+function formatMetric(value?: number | null): string {
+  return value == null ? "-" : String(value);
 }
 
 export const ProjectCard: React.FC<ProjectCardProps> = ({
@@ -58,19 +60,31 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
     staleTime: 30000,
   });
 
-  const totalChapters = overview?.metrics.totalChapters ?? (isActive ? 2 : 0);
-  const totalScenes = overview?.metrics.totalScenes ?? (isActive ? 1 : 0);
-  const durationSeconds = overview?.metrics.estimatedDurationSeconds ?? (isActive ? 42 : 0);
+  const totalChapters = overview?.metrics.totalChapters;
+  const totalScenes = overview?.metrics.totalScenes;
+  const durationSeconds = overview?.metrics.estimatedDurationSeconds;
   const updatedAt = overview?.updatedAt ?? null;
+
+  const handleCardKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
+    if (event.target !== event.currentTarget) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onClick(project);
+    }
+  };
 
   if (viewMode === "list") {
     return (
       <div
         onClick={() => onClick(project)}
-        className="group relative flex flex-col sm:flex-row items-center justify-between gap-4 rounded-2xl border border-slate-800/90 bg-[#0b111c] p-4 transition-all duration-300 hover:border-purple-500/50 hover:bg-[#0e1626] cursor-pointer shadow-md"
+        onKeyDown={handleCardKeyDown}
+        role="link"
+        tabIndex={0}
+        aria-label={`Mở dự án ${project.name}`}
+        className="group relative flex cursor-pointer flex-col items-center justify-between gap-4 rounded-2xl border border-border bg-surface-card p-4 shadow-md transition-colors duration-200 hover:border-primary/60 hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:flex-row"
       >
         <div className="flex items-center gap-4 min-w-0 w-full sm:w-auto">
-          <div className="relative h-16 w-28 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-950 border border-slate-800">
+          <div className="relative h-16 w-28 shrink-0 overflow-hidden rounded-xl border border-border bg-surface-2">
             {project.coverImageUrl ? (
               <div
                 className="absolute inset-0 bg-cover bg-center transition-transform duration-300 group-hover:scale-105"
@@ -80,7 +94,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center">
-                <Clapperboard className="h-6 w-6 text-purple-400/80" />
+                <Clapperboard className="h-6 w-6 text-text-muted" aria-hidden="true" />
               </div>
             )}
           </div>
@@ -88,40 +102,40 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <span
-                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium backdrop-blur-md ${
+                className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium ${
                   isActive
-                    ? "bg-emerald-950/70 border border-emerald-500/30 text-emerald-400"
-                    : "bg-slate-900/70 border border-slate-700/50 text-slate-400"
+                    ? "border-success/40 bg-success-bg text-success"
+                    : "border-border bg-surface-2 text-text-muted"
                 }`}
               >
-                <span className={`h-1.5 w-1.5 rounded-full ${isActive ? "bg-emerald-400 animate-pulse" : "bg-slate-400"}`} />
+                <span className={`h-1.5 w-1.5 rounded-full ${isActive ? "bg-success" : "bg-text-muted"}`} />
                 {isActive ? "Đang hoạt động" : "Bản nháp"}
               </span>
-              <h3 className="truncate text-sm font-bold text-slate-100 transition-colors group-hover:text-purple-300">
+              <h3 className="truncate text-sm font-bold text-text-primary transition-colors group-hover:text-primary-light">
                 {project.name}
               </h3>
             </div>
-            <p className="mt-1 line-clamp-1 text-xs text-slate-400">
+            <p className="mt-1 line-clamp-1 text-xs text-text-secondary">
               {project.description || "Dự án mới chưa có mô tả."}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-6 shrink-0 w-full sm:w-auto justify-between sm:justify-end border-t sm:border-t-0 border-slate-800/80 pt-3 sm:pt-0">
-          <div className="flex items-center gap-4 text-xs text-slate-300">
+        <div className="flex w-full shrink-0 items-center justify-between gap-6 border-t border-border pt-3 sm:w-auto sm:justify-end sm:border-t-0 sm:pt-0">
+          <div className="flex items-center gap-4 text-xs text-text-secondary">
             <div className="flex items-center gap-1.5">
-              <BookOpen className="h-3.5 w-3.5 text-slate-400" />
-              <span className="font-bold">{totalChapters}</span>
-              <span className="text-slate-500 text-[11px]">Chapters</span>
+              <BookOpen className="h-3.5 w-3.5 text-text-muted" />
+              <span className="font-bold">{formatMetric(totalChapters)}</span>
+              <span className="text-text-muted text-[11px]">Chapters</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <Film className="h-3.5 w-3.5 text-slate-400" />
-              <span className="font-bold">{totalScenes}</span>
-              <span className="text-slate-500 text-[11px]">Scenes</span>
+              <Film className="h-3.5 w-3.5 text-text-muted" />
+              <span className="font-bold">{formatMetric(totalScenes)}</span>
+              <span className="text-text-muted text-[11px]">Scenes</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <Clock className="h-3.5 w-3.5 text-slate-400" />
-              <span className="font-mono font-bold">{formatDuration(durationSeconds)}</span>
+              <Clock className="h-3.5 w-3.5 text-text-muted" />
+              <span className="font-mono font-bold">{formatDuration(durationSeconds ?? 0)}</span>
             </div>
           </div>
 
@@ -133,7 +147,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
                   e.stopPropagation();
                   onClick(project);
                 }}
-                className="flex items-center gap-1.5 rounded-xl bg-purple-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-md shadow-purple-950/50 hover:bg-purple-500 transition-colors"
+                className="flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary-hover"
               >
                 <span>Tiếp tục</span>
                 <ArrowRight className="h-3.5 w-3.5" />
@@ -145,7 +159,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
                   e.stopPropagation();
                   onClick(project);
                 }}
-                className="rounded-xl border border-slate-700 bg-slate-900/90 px-3.5 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-800 transition-colors"
+                className="rounded-lg border border-border bg-surface-2 px-3.5 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-3"
               >
                 Chỉnh sửa
               </button>
@@ -154,7 +168,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
               type="button"
               aria-label="Tùy chọn khác"
               onClick={(e) => e.stopPropagation()}
-              className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-800 bg-slate-900/80 text-slate-400 hover:border-slate-700 hover:text-slate-200 transition-colors"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-surface-2 text-text-muted transition-colors hover:border-border-subtle hover:text-text-primary"
             >
               <MoreHorizontal className="h-4 w-4" />
             </button>
@@ -167,10 +181,14 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
   return (
     <article
       onClick={() => onClick(project)}
-      className="group relative flex w-full flex-col overflow-hidden rounded-2xl border border-slate-800/90 bg-[#0b111c] text-left transition-all duration-300 hover:border-purple-500/60 hover:shadow-xl hover:shadow-purple-950/20 cursor-pointer"
+      onKeyDown={handleCardKeyDown}
+      role="link"
+      tabIndex={0}
+      aria-label={`Mở dự án ${project.name}`}
+      className="group relative flex w-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-border bg-surface-card text-left transition-colors duration-200 hover:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
       {/* Thumbnail or Empty Clapperboard */}
-      <div className="relative aspect-[16/9] w-full overflow-hidden bg-gradient-to-br from-[#0e1628] via-[#09101d] to-[#060a12]">
+      <div className="relative aspect-[16/9] w-full overflow-hidden bg-surface-2">
         {project.coverImageUrl ? (
           <div
             className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
@@ -180,32 +198,22 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
           />
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center select-none">
-            {/* Clapperboard Illustration */}
-            <div className="relative flex h-14 w-16 rotate-[-4deg] flex-col items-center justify-between rounded-xl border border-purple-400/40 bg-gradient-to-br from-indigo-600 via-purple-600 to-slate-900 p-1.5 shadow-xl shadow-purple-950/80 transition-transform duration-300 group-hover:rotate-0 group-hover:scale-105">
-              <div className="flex h-3 w-full items-center justify-around overflow-hidden rounded-t border-b border-purple-300/30 bg-slate-950/80">
-                <div className="h-full w-1.5 -skew-x-12 bg-purple-200/90" />
-                <div className="h-full w-1.5 -skew-x-12 bg-purple-200/90" />
-                <div className="h-full w-1.5 -skew-x-12 bg-purple-200/90" />
-              </div>
-              <div className="my-auto flex h-6 w-6 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm shadow-inner">
-                <div className="ml-0.5 h-0 w-0 border-y-[4px] border-y-transparent border-l-[7px] border-l-white" />
-              </div>
-            </div>
+            <Clapperboard className="h-10 w-10 text-text-muted transition-transform duration-200 group-hover:scale-105" aria-hidden="true" />
           </div>
         )}
 
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0b111c] via-transparent to-transparent opacity-60" />
+        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-surface-card to-transparent opacity-80" />
 
         {/* Status Badge (Top-Left) */}
         <div className="absolute left-3 top-3">
           <span
-            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium backdrop-blur-md shadow-sm ${
+            className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium ${
               isActive
-                ? "bg-emerald-950/80 border border-emerald-500/30 text-emerald-400"
-                : "bg-slate-900/80 border border-slate-700/50 text-slate-400"
+                ? "border-success/40 bg-success-bg text-success"
+                : "border-border bg-surface-card text-text-muted"
             }`}
           >
-            <span className={`h-1.5 w-1.5 rounded-full ${isActive ? "bg-emerald-400 animate-pulse" : "bg-slate-400"}`} />
+            <span className={`h-1.5 w-1.5 rounded-full ${isActive ? "bg-success" : "bg-text-muted"}`} />
             {isActive ? "Đang hoạt động" : "Bản nháp"}
           </span>
         </div>
@@ -218,7 +226,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
             e.stopPropagation();
             setIsStarred(!isStarred);
           }}
-          className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/40 border border-white/10 text-slate-300 backdrop-blur-md transition-colors hover:text-amber-400 hover:border-amber-400/30"
+          className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-surface-card text-text-secondary transition-colors hover:border-warning/50 hover:text-warning"
         >
           <Star className={`h-4 w-4 ${isStarred ? "fill-amber-400 text-amber-400" : ""}`} />
         </button>
@@ -227,39 +235,39 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
       {/* Main Info Section */}
       <div className="flex flex-1 flex-col justify-between p-3.5 pb-0">
         <div>
-          <h3 className="truncate text-sm font-bold text-slate-100 transition-colors group-hover:text-purple-300">
+          <h3 className="truncate text-sm font-bold text-text-primary transition-colors group-hover:text-primary-light">
             {project.name}
           </h3>
-          <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-slate-400 min-h-[32px]">
+          <p className="mt-1 line-clamp-2 min-h-[32px] text-xs leading-relaxed text-text-secondary">
             {project.description || "Dự án mới chưa có mô tả."}
           </p>
         </div>
 
         {/* 3-Column Metrics Statistics Bar */}
-        <div className="mt-3 border-y border-slate-800/80 py-2 px-1 flex items-center justify-between text-xs text-slate-300 bg-[#090e18]/40">
+        <div className="mt-3 flex items-center justify-between border-y border-border bg-surface-panel px-1 py-2 text-xs text-text-secondary">
           <div className="flex items-center gap-1.5 min-w-0">
-            <BookOpen className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+            <BookOpen className="h-3.5 w-3.5 shrink-0 text-text-muted" />
             <div className="truncate">
-              <span className="font-bold text-slate-200 block text-xs leading-tight">{totalChapters}</span>
-              <span className="text-[10px] text-slate-500 block truncate">Chapters</span>
+              <span className="block text-xs font-bold leading-tight text-text-primary">{formatMetric(totalChapters)}</span>
+              <span className="block truncate text-[10px] text-text-muted">Chapters</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 border-l border-slate-800/80 pl-2 min-w-0">
-            <Film className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+          <div className="flex min-w-0 items-center gap-1.5 border-l border-border pl-2">
+            <Film className="h-3.5 w-3.5 shrink-0 text-text-muted" />
             <div className="truncate">
-              <span className="font-bold text-slate-200 block text-xs leading-tight">{totalScenes}</span>
-              <span className="text-[10px] text-slate-500 block truncate">Scenes</span>
+              <span className="block text-xs font-bold leading-tight text-text-primary">{formatMetric(totalScenes)}</span>
+              <span className="block truncate text-[10px] text-text-muted">Scenes</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 border-l border-slate-800/80 pl-2 min-w-0">
-            <Clock className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+          <div className="flex min-w-0 items-center gap-1.5 border-l border-border pl-2">
+            <Clock className="h-3.5 w-3.5 shrink-0 text-text-muted" />
             <div className="truncate">
-              <span className="font-mono font-bold text-slate-200 block text-xs leading-tight">
-                {formatDuration(durationSeconds)}
+              <span className="block text-xs font-mono font-bold leading-tight text-text-primary">
+                {formatDuration(durationSeconds ?? 0)}
               </span>
-              <span className="text-[10px] text-slate-500 block truncate">Ước tính</span>
+              <span className="block truncate text-[10px] text-text-muted">Ước tính</span>
             </div>
           </div>
         </div>
@@ -267,7 +275,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
 
       {/* Footer Bar */}
       <div className="flex items-center justify-between p-3.5 pt-2.5">
-        <span className="text-[10px] text-slate-500 font-mono truncate max-w-[100px] sm:max-w-none">
+        <span className="max-w-[100px] truncate font-mono text-[10px] text-text-muted sm:max-w-none">
           {formatDate(updatedAt)}
         </span>
 
@@ -279,7 +287,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
                 e.stopPropagation();
                 onClick(project);
               }}
-              className="flex items-center gap-1 rounded-xl bg-purple-600 px-3 py-1.5 text-xs font-semibold text-white shadow-md shadow-purple-950/60 hover:bg-purple-500 transition-colors"
+              className="flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary-hover"
             >
               <span>Tiếp tục</span>
               <ArrowRight className="h-3.5 w-3.5" />
@@ -291,7 +299,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
                 e.stopPropagation();
                 onClick(project);
               }}
-              className="rounded-xl border border-slate-700/80 bg-slate-900/90 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-800 transition-colors"
+              className="rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-3"
             >
               Chỉnh sửa
             </button>
@@ -301,7 +309,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
             type="button"
             aria-label="Tùy chọn dự án"
             onClick={(e) => e.stopPropagation()}
-            className="flex h-7 w-7 items-center justify-center rounded-xl border border-slate-800 bg-slate-900/80 text-slate-400 hover:border-slate-700 hover:text-slate-200 transition-colors"
+            className="flex h-7 w-7 items-center justify-center rounded-lg border border-border bg-surface-2 text-text-muted transition-colors hover:border-border-subtle hover:text-text-primary"
           >
             <MoreHorizontal className="h-3.5 w-3.5" />
           </button>

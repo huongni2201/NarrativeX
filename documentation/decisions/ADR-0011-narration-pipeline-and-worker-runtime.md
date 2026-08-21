@@ -37,6 +37,7 @@ Furthermore, users may provide uploaded audio split across multiple files, where
   - `NarrationWorkerRunner` maintains an in-flight asyncio task set, claiming at most `WORKER_CONCURRENCY` independent chapter jobs via `FOR UPDATE SKIP LOCKED`.
   - Each task maintains an independent `StageAttempt` heartbeat. Lease loss immediately cancels the task.
   - Sequential internal synthesis: Within a single chapter, TTS segments are processed sequentially to avoid memory and provider bursts.
+- **Claim state fencing:** Narration claims carry the observed `status` and `row_version` of both the parent `GenerationJob` and its `StageAttempt`. The transaction compare-and-sets the parent first and the stage second, requiring exactly one affected row for each update. A parent conflict returns no claim; a stage conflict rolls back the parent transition. Claim transitions must not use broad status predicates such as `status <> 'COMPLETED'`.
 - **Graceful Shutdown:** On SIGTERM/SIGINT, the worker stops claiming new jobs, drains in-flight tasks, and releases database connections cleanly.
 - **Connection Pool Sizing:** PostgreSQL connection pool is sized dynamically as `max(5, WORKER_CONCURRENCY + 2)`.
 

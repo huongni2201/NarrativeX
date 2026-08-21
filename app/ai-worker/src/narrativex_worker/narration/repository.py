@@ -21,6 +21,10 @@ class NarrationProviderStateConflictError(RuntimeError):
     pass
 
 
+class NarrationClaimStateConflictError(RuntimeError):
+    pass
+
+
 @dataclass(frozen=True)
 class ClaimedNarrationJob:
     stage_attempt_id: int
@@ -83,7 +87,11 @@ class NarrationWorkerRepository:
                 row = await connection.fetchrow(
                     """
                     SELECT sa.id AS stage_attempt_id,
+                           sa.status AS stage_attempt_status,
+                           sa.row_version AS stage_attempt_row_version,
                            gj.id AS generation_job_id,
+                           gj.status AS generation_job_status,
+                           gj.row_version AS generation_job_row_version,
                            gj.job_id,
                            nr.id AS narration_request_id,
                            nr.project_id,
@@ -121,40 +129,11 @@ class NarrationWorkerRepository:
                 )
                 if row is None:
                     return None
-                await connection.execute(
-                    """
-                    UPDATE stage_attempts
-                       SET status = 'RUNNING', worker_id = $1, heartbeat_at = CURRENT_TIMESTAMP,
-                           updated_at = CURRENT_TIMESTAMP, row_version = row_version + 1
-                     WHERE id = $2
-                    """,
+                return await self._claim_candidate(
+                    connection,
+                    row,
                     worker_id,
-                    row["stage_attempt_id"],
-                )
-                await connection.execute(
-                    """
-                    UPDATE generation_jobs
-                       SET status = 'RUNNING', progress = GREATEST(progress, 5),
-                           current_step = 'NARRATION_TTS', updated_at = CURRENT_TIMESTAMP,
-                           row_version = row_version + 1
-                     WHERE id = $1 AND status <> 'COMPLETED'
-                    """,
-                    row["generation_job_id"],
-                )
-                return ClaimedNarrationJob(
-                    stage_attempt_id=int(row["stage_attempt_id"]),
-                    generation_job_id=int(row["generation_job_id"]),
-                    job_id=str(row["job_id"]),
-                    narration_request_id=row["narration_request_id"],
-                    project_id=int(row["project_id"]),
-                    chapter_id=int(row["chapter_id"]),
-                    chapter_row_version=int(row["chapter_row_version"]),
-                    source_hash=str(row["source_hash"]),
-                    source_text=str(row["source_text"]),
-                    voice_id=str(row["voice_id"]),
-                    language=str(row["language"]),
-                    speaking_rate=float(row["speaking_rate"]),
-                    request_fingerprint=str(row["request_fingerprint"]),
+                    current_step="NARRATION_TTS",
                 )
 
     async def claim_due_reconciliation(self, worker_id: str) -> ClaimedNarrationJob | None:
@@ -165,7 +144,11 @@ class NarrationWorkerRepository:
                 row = await connection.fetchrow(
                     """
                     SELECT sa.id AS stage_attempt_id,
+                           sa.status AS stage_attempt_status,
+                           sa.row_version AS stage_attempt_row_version,
                            gj.id AS generation_job_id,
+                           gj.status AS generation_job_status,
+                           gj.row_version AS generation_job_row_version,
                            gj.job_id,
                            nr.id AS narration_request_id,
                            nr.project_id,
@@ -196,42 +179,72 @@ class NarrationWorkerRepository:
                 )
                 if row is None:
                     return None
-                await connection.execute(
-                    """
-                    UPDATE stage_attempts
-                       SET status = 'RUNNING', worker_id = $1,
-                           heartbeat_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP,
-                           row_version = row_version + 1
-                     WHERE id = $2 AND status = 'UNKNOWN'
-                    """,
+                return await self._claim_candidate(
+                    connection,
+                    row,
                     worker_id,
-                    row["stage_attempt_id"],
+                    current_step="NARRATION_TTS_RECONCILE",
                 )
-                await connection.execute(
-                    """
-                    UPDATE generation_jobs
-                       SET status = 'RUNNING', progress = GREATEST(progress, 5),
-                           current_step = 'NARRATION_TTS_RECONCILE',
-                           updated_at = CURRENT_TIMESTAMP, row_version = row_version + 1
-                     WHERE id = $1 AND status = 'UNKNOWN'
-                    """,
-                    row["generation_job_id"],
-                )
-                return ClaimedNarrationJob(
-                    stage_attempt_id=int(row["stage_attempt_id"]),
-                    generation_job_id=int(row["generation_job_id"]),
-                    job_id=str(row["job_id"]),
-                    narration_request_id=row["narration_request_id"],
-                    project_id=int(row["project_id"]),
-                    chapter_id=int(row["chapter_id"]),
-                    chapter_row_version=int(row["chapter_row_version"]),
-                    source_hash=str(row["source_hash"]),
-                    source_text=str(row["source_text"]),
-                    voice_id=str(row["voice_id"]),
-                    language=str(row["language"]),
-                    speaking_rate=float(row["speaking_rate"]),
-                    request_fingerprint=str(row["request_fingerprint"]),
-                )
+
+    async def _claim_candidate(
+        self,
+        connection: asyncpg.Connection,
+        row: asyncpg.Record,
+        worker_id: str,
+        *,
+        current_step: str,
+    ) -> ClaimedNarrationJob | None:
+        parent_result = await connection.execute(
+            """
+            UPDATE generation_jobs
+               SET status = 'RUNNING', progress = GREATEST(progress, 5),
+                   current_step = $1, updated_at = CURRENT_TIMESTAMP,
+                   row_version = row_version + 1
+             WHERE id = $2
+               AND status = $3
+               AND row_version = $4
+            """,
+            current_step,
+            row["generation_job_id"],
+            row["generation_job_status"],
+            row["generation_job_row_version"],
+        )
+        if parent_result != "UPDATE 1":
+            return None
+
+        stage_result = await connection.execute(
+            """
+            UPDATE stage_attempts
+               SET status = 'RUNNING', worker_id = $1,
+                   heartbeat_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP,
+                   row_version = row_version + 1
+             WHERE id = $2
+               AND status = $3
+               AND row_version = $4
+            """,
+            worker_id,
+            row["stage_attempt_id"],
+            row["stage_attempt_status"],
+            row["stage_attempt_row_version"],
+        )
+        if stage_result != "UPDATE 1":
+            raise NarrationClaimStateConflictError(f"stage_attempt_id={row['stage_attempt_id']}")
+
+        return ClaimedNarrationJob(
+            stage_attempt_id=int(row["stage_attempt_id"]),
+            generation_job_id=int(row["generation_job_id"]),
+            job_id=str(row["job_id"]),
+            narration_request_id=row["narration_request_id"],
+            project_id=int(row["project_id"]),
+            chapter_id=int(row["chapter_id"]),
+            chapter_row_version=int(row["chapter_row_version"]),
+            source_hash=str(row["source_hash"]),
+            source_text=str(row["source_text"]),
+            voice_id=str(row["voice_id"]),
+            language=str(row["language"]),
+            speaking_rate=float(row["speaking_rate"]),
+            request_fingerprint=str(row["request_fingerprint"]),
+        )
 
     async def heartbeat(self, stage_attempt_id: int, worker_id: str) -> bool:
         result = await self._require_pool().execute(

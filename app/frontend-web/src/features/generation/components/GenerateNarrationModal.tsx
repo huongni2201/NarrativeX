@@ -144,7 +144,7 @@ export function GenerateNarrationModal({
                     key={voice.id}
                     type="button"
                     onClick={() => setSelectedVoice(voice.id)}
-                    className={`flex flex-col text-left rounded-xl border p-3 transition-all ${
+                    className={`flex flex-col rounded-lg border p-3 text-left transition-colors ${
                       isSelected
                         ? "border-primary bg-primary-muted/20 ring-2 ring-primary/40"
                         : "border-border bg-surface-panel hover:border-border-glow hover:bg-surface-2/40"

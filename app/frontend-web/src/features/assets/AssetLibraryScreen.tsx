@@ -116,7 +116,7 @@ export const AssetLibraryScreen: React.FC = () => {
       <div className="flex-1 flex flex-col space-y-4 w-full min-w-0 h-full overflow-y-auto pr-1">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight">08. Thư viện tài sản (Asset Library)</h1>
+            <h1 className="text-xl font-bold tracking-tight text-white md:text-2xl">Thư viện tài sản</h1>
             <p className="text-xs text-slate-400 mt-0.5">Quản lý tất cả tài sản media trong dự án</p>
           </div>
           <Button onClick={openUploadModal} variant="primary" size="md" className="font-semibold shrink-0" leftIcon={<Plus className="w-4 h-4 mr-1.5" />}>
@@ -127,7 +127,7 @@ export const AssetLibraryScreen: React.FC = () => {
         <div className="flex flex-wrap items-center justify-between gap-2.5 p-3 rounded-xl bg-[#0d1420] border border-slate-800/90 shadow-md">
           <div className="flex flex-wrap items-center gap-2.5 flex-1">
             <div className="w-48 sm:w-56">
-              <Input aria-label="Tìm kiếm tài sản" placeholder="Tìm kiếm tài sản..." value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} icon={<Search className="w-3.5 h-3.5" />} />
+              <Input aria-label="Tìm kiếm tài sản" placeholder="Tìm kiếm tài sản…" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} icon={<Search className="w-3.5 h-3.5" />} />
             </div>
 
             <SelectField label="Lọc theo dự án" value={filterProject} onChange={setFilterProject}>
@@ -151,7 +151,7 @@ export const AssetLibraryScreen: React.FC = () => {
             </SelectField>
           </div>
 
-          <button type="button" aria-pressed={showAdvancedFilters} onClick={() => setShowAdvancedFilters((value) => !value)} className={cn("px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors", showAdvancedFilters ? "bg-purple-950/80 border-purple-600 text-purple-300" : "bg-[#090e18] border-slate-800 text-slate-300 hover:text-white")}>
+          <button type="button" aria-pressed={showAdvancedFilters} onClick={() => setShowAdvancedFilters((value) => !value)} className={cn("flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors", showAdvancedFilters ? "border-primary bg-primary-muted text-primary-light" : "border-border bg-surface-2 text-text-secondary hover:text-text-primary")}>
             <SlidersHorizontal className="w-3.5 h-3.5" />
             <span>Bộ lọc</span>
           </button>

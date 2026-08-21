@@ -104,7 +104,7 @@ worker still owns the running stage.
 
 ## Claim, lease and concurrency
 
-Workers claim eligible durable attempts with PostgreSQL row locking and `SKIP LOCKED`. A running attempt records worker ownership and heartbeat state. Stale attempts can be recovered according to lease policy.
+Workers claim eligible durable attempts with PostgreSQL row locking and `SKIP LOCKED`. The claim query carries the observed `status` and `row_version` for both `GenerationJob` and `StageAttempt`. It compare-and-sets the parent first, then the stage, requiring exactly one affected row at each step; a conflict returns no claim or rolls the transaction back. This prevents a concurrent cancellation/failure or metadata update from resurrecting a parent job, and prevents returning a claim when parent and stage did not transition together. Broad predicates such as `status <> 'COMPLETED'` are not valid claim transitions. A running attempt records worker ownership and heartbeat state. Stale attempts can be recovered according to lease policy.
 
 `WORKER_CONCURRENCY` defaults to 4 and is bounded by configuration. Both Chapter analysis and full-chapter narration use it as the maximum number of active jobs in one worker process. Narration keeps segments within one chapter sequential, so concurrency is applied between independent chapter jobs rather than multiplying TTS requests without a bound.
 

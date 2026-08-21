@@ -59,7 +59,7 @@ export const Stepper: React.FC<StepperProps> = ({
               className={cn(
                 "w-6 h-6 rounded-full flex items-center justify-center text-xs transition-colors duration-200 shrink-0",
                 isActive &&
-                  "bg-purple-600 text-white ring-4 ring-purple-600/20 shadow-[0_0_12px_rgba(124,58,237,0.5)] font-bold",
+                  "bg-primary text-white ring-4 ring-primary/20 font-bold",
                 isCompleted && "bg-purple-900/60 text-purple-300 border border-purple-700/60 font-semibold",
                 !isActive &&
                   !isCompleted &&
@@ -68,7 +68,7 @@ export const Stepper: React.FC<StepperProps> = ({
                 !isActive &&
                   !isCompleted &&
                   !isClickable &&
-                  "bg-[#090e18] text-slate-600 border border-slate-800/80"
+                  "bg-surface-panel text-text-muted border border-border"
               )}
             >
               {isCompleted ? (

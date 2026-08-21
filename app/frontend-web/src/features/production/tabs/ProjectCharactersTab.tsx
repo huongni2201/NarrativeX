@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element -- Character media URLs are backend/CDN-owned runtime values. */
+
 import { useMemo, useState } from "react";
 import {
   BookOpen,
@@ -247,7 +249,7 @@ export function ProjectCharactersTab({
             <button
               type="button"
               onClick={onOpenLibrary}
-              className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900/90 hover:bg-slate-800 px-3.5 py-2 text-xs font-semibold text-slate-200 transition-colors"
+              className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900/90 px-3.5 py-2 text-xs font-semibold text-slate-200 transition-colors hover:bg-slate-800"
             >
               <Plus className="h-3.5 w-3.5" />
               <span>Thêm từ thư viện chung</span>
@@ -256,7 +258,7 @@ export function ProjectCharactersTab({
             <button
               type="button"
               onClick={onOpenLibrary}
-              className="flex items-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 px-4 py-2 text-xs font-bold text-white shadow-md shadow-purple-950/60 transition-colors"
+              className="flex items-center gap-1.5 rounded-lg border border-primary bg-primary px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-primary-hover"
             >
               <Plus className="h-3.5 w-3.5" />
               <span>Tạo nhân vật mới</span>
@@ -311,7 +313,7 @@ export function ProjectCharactersTab({
           <button
             type="button"
             aria-label="Bộ lọc nâng cao"
-            className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-800 bg-[#090e18] text-slate-400 hover:text-slate-200 transition-colors"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-800 bg-[#090e18] text-slate-400 transition-colors hover:text-slate-200"
           >
             <SlidersHorizontal className="h-3.5 w-3.5" />
           </button>
@@ -465,7 +467,7 @@ export function ProjectCharactersTab({
           <button
             type="button"
             onClick={onOpenLibrary}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-purple-800/40 bg-purple-950/30 py-2.5 text-xs font-semibold text-purple-300 hover:bg-purple-900/40 hover:text-purple-200 transition-colors"
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-primary/40 bg-primary-muted py-2.5 text-xs font-semibold text-primary-light transition-colors hover:bg-primary-light"
           >
             <ExternalLink className="h-3.5 w-3.5" />
             <span>Mở thư viện chung</span>
@@ -520,7 +522,7 @@ export function ProjectCharactersTab({
 
           <button
             type="button"
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-800 bg-[#090e18] py-2.5 text-xs font-semibold text-slate-400 hover:text-slate-200 transition-colors"
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-surface-2 py-2.5 text-xs font-semibold text-text-muted transition-colors hover:text-text-primary"
           >
             <span>Xem báo cáo chi tiết</span>
             <ChevronRight className="h-3.5 w-3.5" />
@@ -544,7 +546,7 @@ function RoleFilterButton({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-xl px-3 py-1.5 font-semibold transition-all ${
+            className={`rounded-lg px-3 py-1.5 font-semibold transition-colors ${
         active
           ? "border border-purple-600/70 bg-purple-950/40 text-purple-200 shadow-sm"
           : "border border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"

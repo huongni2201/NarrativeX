@@ -134,7 +134,7 @@ export function StoryboardScreen({
                       {sceneId === null && (
                         <div className="mb-2 flex items-center justify-between">
                           <p className="text-[11px] font-semibold text-slate-400">
-                            Scene {String(scene.orderIndex + 1).padStart(2, "0")} · {scene.title}
+                            Scene {String(scene.orderIndex + 1).padStart(2, "0")}: {scene.title}
                           </p>
                           <span className="text-[10px] text-slate-600">
                             {scene.approvedBeatCount}/{scene.totalBeatCount} approved

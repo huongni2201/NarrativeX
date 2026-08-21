@@ -43,7 +43,7 @@ export function ProjectTabs({ activeTab, onChange }: Readonly<ProjectTabsProps>)
             role="tab"
             aria-selected={isActive}
             onClick={() => onChange(tab.id)}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition-all whitespace-nowrap ${
+            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-colors whitespace-nowrap ${
               isActive
                 ? "border border-purple-600/70 bg-purple-950/40 text-purple-200 shadow-md shadow-purple-950/50"
                 : "border border-slate-800/80 bg-[#0d1420]/60 text-slate-400 hover:border-slate-700 hover:text-slate-200"

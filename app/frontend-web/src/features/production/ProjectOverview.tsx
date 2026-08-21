@@ -50,7 +50,7 @@ export const ProjectOverview: React.FC = () => {
       {/* Top Project Hero Banner matching Screen 01 */}
       <div className="flex flex-col md:flex-row gap-6 p-6 rounded-2xl bg-[#0d1420] border border-slate-800/90 shadow-xl">
         {/* Cover Hero Thumbnail */}
-        <div className="relative w-full md:w-56 aspect-[3/4] rounded-xl overflow-hidden bg-slate-950 border border-purple-500/30 shrink-0 shadow-[0_0_25px_rgba(124,58,237,0.2)]">
+        <div className="relative aspect-[3/4] w-full shrink-0 overflow-hidden rounded-xl border border-border bg-surface-2 md:w-56">
           <img
             src={project.coverImage}
             alt={project.title}
@@ -92,10 +92,10 @@ export const ProjectOverview: React.FC = () => {
                   onClick={continueProject}
                   variant="gradient"
                   size="md"
-                  className="shadow-[0_0_20px_rgba(124,58,237,0.5)] font-semibold"
+                  className="font-semibold"
                   leftIcon={<Play className="w-3.5 h-3.5 mr-1 fill-white" />}
                 >
-                  Continue Project
+                  Tiếp tục dự án
                 </Button>
               </div>
             </div>
@@ -123,7 +123,7 @@ export const ProjectOverview: React.FC = () => {
               <div className="text-xl font-extrabold text-white font-mono">
                 {project.estimatedDuration}
               </div>
-              <div className="text-xs text-slate-400 font-medium">Estimated</div>
+              <div className="text-xs font-medium text-slate-400">Thời lượng dự kiến</div>
             </div>
             <div>
               <div className="text-xl font-extrabold text-white font-mono">
@@ -135,7 +135,7 @@ export const ProjectOverview: React.FC = () => {
               <div className="text-xl font-extrabold text-white font-mono text-purple-300">
                 {project.approvedVisuals}
               </div>
-              <div className="text-xs text-purple-400 font-medium">Approved Visuals</div>
+              <div className="text-xs font-medium text-purple-400">Visual đã duyệt</div>
             </div>
           </div>
 
@@ -235,9 +235,8 @@ export const ProjectOverview: React.FC = () => {
               variant="primary"
               size="md"
               leftIcon={<Plus className="w-4 h-4 mr-1.5" />}
-              className="shadow-[0_0_20px_rgba(124,58,237,0.35)]"
             >
-              + Add Chapter
+              + Thêm Chapter
             </Button>
 
             <button

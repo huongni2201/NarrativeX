@@ -134,7 +134,7 @@ export function ProjectSummaryWidget({ metrics }: Readonly<ProjectSummaryWidgetP
       {/* Bottom Button */}
       <button
         type="button"
-        className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-purple-800/40 bg-purple-950/20 py-2.5 text-xs font-semibold text-purple-300 transition-colors hover:bg-purple-900/30 hover:text-purple-200"
+        className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-surface-2 py-2.5 text-xs font-semibold text-text-secondary transition-colors hover:bg-surface-3 hover:text-text-primary"
       >
         <BarChart2 className="h-4 w-4" />
         <span>Xem báo cáo chi tiết</span>

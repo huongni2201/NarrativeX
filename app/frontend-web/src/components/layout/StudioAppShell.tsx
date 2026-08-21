@@ -67,13 +67,13 @@ interface StudioAppShellProps {
 
 const screenTitles: Record<StudioRouteScreen, string> = {
   overview: "Dự án của tôi",
-  dashboard: "01. Project Overview (Quản lý dự án)",
-  "project-workspace": "01. Project Overview (Quản lý dự án)",
+  dashboard: "Quản lý dự án",
+  "project-workspace": "Quản lý dự án",
   "chapter-workspace": "Chapter Workspace",
-  storyboard: "04. Storyboard – Chọn Chapter",
+  storyboard: "Storyboard",
   characters: "Thư viện nhân vật",
-  assets: "Thư viện tài sản (Asset Library)",
-  presets: "Mẫu & Phong cách (Style & Presets)",
+  assets: "Thư viện tài sản",
+  presets: "Mẫu & phong cách",
   history: "Lịch sử công việc",
   notifications: "Trung tâm thông báo",
 };
@@ -114,7 +114,7 @@ export function StudioAppShell({
   }
 
   return (
-    <div className="flex min-h-screen bg-[#070b14] text-slate-100">
+    <div className="flex min-h-screen bg-background text-text-primary">
       <div className="hidden lg:block">
         <StudioSidebar />
       </div>

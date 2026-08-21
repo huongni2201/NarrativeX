@@ -16,10 +16,10 @@ export const Progress: React.FC<ProgressProps> = ({
 }) => {
   const clampedValue = Math.min(100, Math.max(0, value));
 
-  const colorGradients = {
-    purple: "bg-gradient-to-r from-indigo-500 via-purple-500 to-purple-400",
-    blue: "bg-gradient-to-r from-cyan-500 to-blue-500",
-    green: "bg-gradient-to-r from-emerald-500 to-teal-400",
+  const colorStyles = {
+    purple: "bg-primary",
+    blue: "bg-blue-500",
+    green: "bg-emerald-500",
   };
 
   return (
@@ -32,8 +32,8 @@ export const Progress: React.FC<ProgressProps> = ({
       <div
         className={cn(
           "h-full rounded-full transition-[width] duration-500 ease-out relative",
-          colorGradients[color],
-          showGlow && "shadow-[0_0_12px_rgba(124,58,237,0.7)]"
+          colorStyles[color],
+          showGlow && "shadow-sm"
         )}
         style={{ width: `${clampedValue}%` }}
       />

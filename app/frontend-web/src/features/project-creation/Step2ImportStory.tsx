@@ -36,7 +36,7 @@ export const Step2ImportStory: React.FC<Step2Props> = ({ validationErrors = [] }
             rows={12}
             value={wizardDraft.storyText}
             onChange={(event) => updateWizardDraft({ storyText: event.target.value })}
-            placeholder="Dán nội dung truyện của bạn vào đây (tiểu thuyết, truyện ngắn, kịch bản)..."
+            placeholder="Dán nội dung truyện của bạn vào đây (tiểu thuyết, truyện ngắn, kịch bản)…"
             aria-invalid={contentError ? "true" : undefined}
             aria-describedby={contentError ? "story-content-error" : undefined}
             className="w-full flex-1 p-4 bg-transparent text-slate-100 placeholder:text-slate-500 focus:outline-none text-sm leading-relaxed resize-none font-sans"

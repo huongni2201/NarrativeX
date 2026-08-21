@@ -18,7 +18,7 @@ export function StudioMobileNav() {
   return (
     <nav
       aria-label="Điều hướng studio trên di động"
-      className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-slate-800/90 bg-[#090e17]/95 px-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-lg lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-border bg-surface-panel px-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 lg:hidden"
     >
       {navItems.map(({ href, label, icon: Icon }) => {
         const active = pathname === href || pathname.startsWith(`${href}/`);

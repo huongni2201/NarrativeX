@@ -37,9 +37,9 @@ export function ProjectHero({
   const isActive = project.status === "ACTIVE";
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 p-6 rounded-2xl bg-[#0d1420] border border-slate-800/90 shadow-2xl">
+    <div className="flex flex-col gap-6 rounded-2xl border border-border bg-surface-card p-6 shadow-2xl lg:flex-row">
       {/* Left: Project Cover Thumbnail */}
-      <div className="relative w-full lg:w-80 xl:w-96 aspect-[16/11] lg:aspect-[4/3] rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 shrink-0 shadow-xl group">
+      <div className="group relative aspect-[16/11] w-full shrink-0 overflow-hidden rounded-2xl border border-border bg-surface-2 shadow-xl lg:aspect-[4/3] lg:w-80 xl:w-96">
         {project.coverImageUrl ? (
           <div
             className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
@@ -48,8 +48,8 @@ export function ProjectHero({
             aria-label={project.name}
           />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-950">
-            <Film className="h-16 w-16 text-purple-400/40" />
+          <div className="absolute inset-0 flex items-center justify-center bg-surface-2">
+            <Film className="h-16 w-16 text-text-muted" aria-hidden="true" />
           </div>
         )}
 
@@ -58,13 +58,13 @@ export function ProjectHero({
         {/* Status Badge (Top-Left) */}
         <div className="absolute top-3 left-3">
           <span
-            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium backdrop-blur-md shadow-sm ${
+            className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium ${
               isActive
-                ? "bg-emerald-950/80 border border-emerald-500/30 text-emerald-400"
-                : "bg-slate-900/80 border border-slate-700/50 text-slate-400"
+                ? "border-success/40 bg-success-bg text-success"
+                : "border-border bg-surface-card text-text-muted"
             }`}
           >
-            <span className={`h-1.5 w-1.5 rounded-full ${isActive ? "bg-emerald-400 animate-pulse" : "bg-slate-400"}`} />
+            <span className={`h-1.5 w-1.5 rounded-full ${isActive ? "bg-success" : "bg-text-muted"}`} />
             {isActive ? "Đang hoạt động" : "Bản nháp"}
           </span>
         </div>
@@ -73,7 +73,7 @@ export function ProjectHero({
         <button
           type="button"
           onClick={onOpenInfo}
-          className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-xl border border-white/10 bg-black/60 px-3 py-1.5 text-xs font-medium text-slate-200 backdrop-blur-md transition-colors hover:bg-black/80 hover:text-white"
+          className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-lg border border-border bg-surface-card px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-3 hover:text-text-primary"
         >
           <ImageIcon className="h-3.5 w-3.5" />
           <span>Đổi ảnh bìa</span>
@@ -104,7 +104,7 @@ export function ProjectHero({
               <button
                 type="button"
                 onClick={onOpenInfo}
-                className="flex items-center gap-2 rounded-xl border border-slate-700/80 bg-slate-800/60 hover:bg-slate-700/80 px-4 py-2 text-xs font-semibold text-slate-200 transition-colors"
+                className="flex items-center gap-2 rounded-lg border border-border bg-surface-2 px-4 py-2 text-xs font-semibold text-text-secondary transition-colors hover:bg-surface-3 hover:text-text-primary"
               >
                 <Info className="h-4 w-4 text-slate-400" />
                 <span>Chi tiết dự án</span>
@@ -114,10 +114,10 @@ export function ProjectHero({
                 type="button"
                 onClick={onContinue}
                 aria-label={continueChapter ? "Tiếp tục Chapter hiện tại" : "Tạo Chapter đầu tiên"}
-                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-purple-950/60 transition-all hover:from-purple-500 hover:to-indigo-500 hover:shadow-purple-700/30"
+                className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-xs font-bold text-white transition-colors hover:bg-primary-hover"
               >
                 <Play className="h-3.5 w-3.5 fill-white" />
-                <span>Continue Project</span>
+                <span>Tiếp tục dự án</span>
               </button>
             </div>
           </div>
@@ -165,7 +165,7 @@ export function ProjectHero({
             <span className="text-xs font-semibold text-slate-300 shrink-0">Tiến độ tổng thể</span>
             <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-800/90">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-purple-600 to-indigo-400 transition-all duration-500 shadow-sm shadow-purple-500/50"
+                className="h-full rounded-full bg-primary transition-[width] duration-500"
                 style={{ width: `${Math.max(0, Math.min(metrics.overallProgress, 100))}%` }}
               />
             </div>
@@ -205,8 +205,8 @@ function StatCard({
   label: string;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-slate-800/80 bg-[#090e18]/80 p-3 shadow-inner">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-purple-500/10 border border-purple-500/20">
+    <div className="flex items-center gap-3 rounded-xl border border-border bg-surface-panel p-3 shadow-inner">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-primary-muted">
         {icon}
       </div>
       <div className="min-w-0">
