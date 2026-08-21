@@ -18,7 +18,6 @@ import com.narrativex.backend.feature.generation.application.service.ChapterAnal
 import com.narrativex.backend.feature.generation.application.usecase.EnqueueStoryAnalysisUseCase;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
-import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSource;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardRevisionAccess;
@@ -35,7 +34,6 @@ class EnqueueStoryAnalysisUseCaseTest {
       "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
 
   @Mock private CurrentUserId currentUserId;
-  @Mock private StoryVersionAccess storyVersionAccess;
   @Mock private ProjectAccess projectAccess;
   @Mock private ChapterAnalysisSourceAccess chapterAnalysisSourceAccess;
   @Mock private StoryboardRevisionAccess storyboardRevisionAccess;
@@ -66,7 +64,8 @@ class EnqueueStoryAnalysisUseCaseTest {
     String expectedIdempotencyKey = "chapter-analysis:7:11:" + SOURCE_HASH;
     RuntimeException stop = new RuntimeException("stop after idempotency derivation");
     when(currentUserId.get()).thenReturn("user-1");
-    when(chapterAnalysisSourceAccess.requireForAnalysisLocked(11L)).thenReturn(snapshot);
+    when(chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(7L, 11L, "user-1"))
+        .thenReturn(snapshot);
     doThrow(stop).when(generationJobRepository).acquireIdempotencyLock(expectedIdempotencyKey);
 
     var thrown =
@@ -76,7 +75,8 @@ class EnqueueStoryAnalysisUseCaseTest {
 
     assertSame(stop, thrown);
     InOrder order = inOrder(chapterAnalysisSourceAccess, generationJobRepository);
-    order.verify(chapterAnalysisSourceAccess).requireForAnalysisLocked(11L);
+    order.verify(chapterAnalysisSourceAccess)
+        .requireOwnedForAnalysisLocked(7L, 11L, "user-1");
     order.verify(generationJobRepository).acquireIdempotencyLock(expectedIdempotencyKey);
   }
 }

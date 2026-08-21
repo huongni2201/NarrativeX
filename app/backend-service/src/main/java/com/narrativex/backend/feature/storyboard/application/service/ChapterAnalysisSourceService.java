@@ -17,11 +17,15 @@ public class ChapterAnalysisSourceService implements ChapterAnalysisSourceAccess
 
   @Override
   @Transactional(propagation = Propagation.MANDATORY)
-  public ChapterAnalysisSource requireForAnalysisLocked(Long chapterId) {
-    // The advisory transaction lock must be acquired before the authoritative PostgreSQL read.
-    // MANDATORY ensures this lock is owned by the outer admission transaction and remains held
-    // through quota reservation, revision creation, durable job creation, and outbox enqueue.
+  public ChapterAnalysisSource requireOwnedForAnalysisLocked(
+      Long projectId, Long chapterId, String userId) {
+    // The first ownership-scoped read is deliberately unlocked. It prevents a caller from
+    // acquiring an advisory lock for a Chapter outside its requested project scope.
+    chapterAnalysisSnapshotRepository.requireOwnedByProject(projectId, chapterId, userId);
+
+    // The advisory transaction lock is held by the outer admission transaction. Re-reading the
+    // same ownership scope after the lock closes the gap between authorization and snapshotting.
     storyboardRevisionAccess.lockChapter(chapterId);
-    return chapterAnalysisSnapshotRepository.requireById(chapterId);
+    return chapterAnalysisSnapshotRepository.requireOwnedByProject(projectId, chapterId, userId);
   }
 }

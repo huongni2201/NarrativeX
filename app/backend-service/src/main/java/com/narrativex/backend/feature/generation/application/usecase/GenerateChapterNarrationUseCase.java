@@ -20,7 +20,6 @@ import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
 import com.narrativex.backend.feature.generation.domain.enums.ResourceClass;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
-import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -34,7 +33,6 @@ public class GenerateChapterNarrationUseCase {
   private static final String SEGMENTATION_VERSION = "sentence-v1";
 
   private final CurrentUserId currentUserId;
-  private final StoryVersionAccess storyVersionAccess;
   private final ProjectAccess projectAccess;
   private final ChapterAnalysisSourceAccess chapterSourceAccess;
   private final GenerationJobRepository generationJobRepository;
@@ -50,9 +48,9 @@ public class GenerateChapterNarrationUseCase {
   @Transactional
   public GenerationJob execute(GenerateChapterNarrationCommand command) {
     String userId = currentUserId.get();
-    var chapter = chapterSourceAccess.requireForAnalysisLocked(command.chapterId());
-    storyVersionAccess.requireOwnedStoryVersion(
-        command.projectId(), chapter.storyVersionId(), userId);
+    var chapter =
+        chapterSourceAccess.requireOwnedForAnalysisLocked(
+            command.projectId(), command.chapterId(), userId);
     var project = projectAccess.findOwnedProject(command.projectId(), userId);
 
     if (chapter.sourceText().isBlank()) {
