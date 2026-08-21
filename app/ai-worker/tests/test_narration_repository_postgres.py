@@ -1,4 +1,5 @@
 import os
+import uuid
 from collections.abc import AsyncIterator
 
 import asyncpg  # type: ignore[import-untyped]
@@ -6,6 +7,7 @@ import pytest
 
 from narrativex_worker.narration.pricing import GoogleTtsPricingCatalog
 from narrativex_worker.narration.repository import (
+    ClaimedNarrationJob,
     NarrationProviderStateConflictError,
     NarrationWorkerRepository,
 )
@@ -32,12 +34,17 @@ async def narration_provider_database() -> AsyncIterator[str]:
 
             CREATE TABLE generation_jobs (
                 id BIGSERIAL PRIMARY KEY,
-                status TEXT NOT NULL DEFAULT 'QUEUED'
+                status TEXT NOT NULL DEFAULT 'QUEUED',
+                current_step TEXT,
+                error_code TEXT,
+                row_version BIGINT NOT NULL DEFAULT 0
             );
             CREATE TABLE stage_attempts (
                 id BIGSERIAL PRIMARY KEY,
                 generation_job_id BIGINT NOT NULL REFERENCES generation_jobs(id),
-                status TEXT NOT NULL DEFAULT 'QUEUED'
+                status TEXT NOT NULL DEFAULT 'QUEUED',
+                worker_id TEXT,
+                row_version BIGINT NOT NULL DEFAULT 0
             );
             CREATE TABLE provider_operations (
                 id BIGSERIAL PRIMARY KEY,
@@ -57,6 +64,8 @@ async def narration_provider_database() -> AsyncIterator[str]:
                 usage_json JSONB,
                 pricing_snapshot_json JSONB,
                 next_reconcile_at TIMESTAMPTZ,
+                reconcile_attempts INTEGER NOT NULL DEFAULT 0,
+                last_reconcile_error TEXT,
                 UNIQUE (provider_key, request_fingerprint)
             );
             """
@@ -106,6 +115,8 @@ async def test_segment_provider_operation_is_idempotent_and_billing_is_snapshott
         assert duplicate.created is False
 
         unknown = await repository.fence_submission_unknown(first)
+        assert unknown.next_reconcile_at is not None
+        assert unknown.reconcile_attempts == 0
         pricing = GoogleTtsPricingCatalog("google-tts-2026-08-20").resolve(
             "vi-VN-Chirp3-HD-Achernar"
         )
@@ -149,6 +160,54 @@ async def test_segment_provider_operation_is_idempotent_and_billing_is_snapshott
 
 
 @pytest.mark.asyncio
+async def test_provider_operation_is_reused_by_a_retry_stage(
+    narration_provider_database: str,
+) -> None:
+    first_stage_id = await seed_stage(narration_provider_database)
+    second_stage_id = await seed_stage(narration_provider_database)
+    repository = NarrationWorkerRepository(narration_provider_database, lease_seconds=30)
+    await repository.connect()
+    try:
+        first = await repository.reserve_provider_operation(
+            first_stage_id, "google-cloud-tts", "same-logical-request"
+        )
+        retry = await repository.reserve_provider_operation(
+            second_stage_id, "google-cloud-tts", "same-logical-request"
+        )
+    finally:
+        await repository.close()
+
+    assert retry.id == first.id
+    assert retry.stage_attempt_id == first.stage_attempt_id
+    assert retry.created is False
+
+
+@pytest.mark.asyncio
+async def test_reconciliation_backoff_update_is_cas_fenced(
+    narration_provider_database: str,
+) -> None:
+    stage_id = await seed_stage(narration_provider_database)
+    repository = NarrationWorkerRepository(narration_provider_database, lease_seconds=30)
+    await repository.connect()
+    try:
+        reserved = await repository.reserve_provider_operation(
+            stage_id, "google-cloud-tts", "reconcile-cas"
+        )
+        unknown = await repository.fence_submission_unknown(reserved)
+        scheduled = await repository.schedule_provider_reconciliation(
+            unknown, error="temporary R2 timeout"
+        )
+        with pytest.raises(NarrationProviderStateConflictError):
+            await repository.schedule_provider_reconciliation(unknown, error="stale worker update")
+    finally:
+        await repository.close()
+
+    assert scheduled.reconcile_attempts == 1
+    assert scheduled.next_reconcile_at is not None
+    assert scheduled.last_reconcile_error == "temporary R2 timeout"
+
+
+@pytest.mark.asyncio
 async def test_completed_segment_result_cannot_be_overwritten(
     narration_provider_database: str,
 ) -> None:
@@ -176,3 +235,63 @@ async def test_completed_segment_result_cannot_be_overwritten(
             )
     finally:
         await repository.close()
+
+
+@pytest.mark.asyncio
+async def test_mark_unknown_requires_owned_running_stage(
+    narration_provider_database: str,
+) -> None:
+    stage_id = await seed_stage(narration_provider_database)
+    connection = await asyncpg.connect(narration_provider_database)
+    try:
+        job_id = await connection.fetchval(
+            "SELECT generation_job_id FROM stage_attempts WHERE id = $1", stage_id
+        )
+        await connection.execute(
+            "UPDATE generation_jobs SET status = 'RUNNING' WHERE id = $1", job_id
+        )
+        await connection.execute(
+            "UPDATE stage_attempts SET status = 'RUNNING', worker_id = 'worker-a' WHERE id = $1",
+            stage_id,
+        )
+    finally:
+        await connection.close()
+
+    claimed = ClaimedNarrationJob(
+        stage_attempt_id=stage_id,
+        generation_job_id=int(job_id),
+        job_id="job",
+        narration_request_id=uuid.uuid4(),
+        project_id=1,
+        chapter_id=1,
+        chapter_row_version=1,
+        source_hash="a" * 64,
+        source_text="text",
+        voice_id="voice",
+        language="en-US",
+        speaking_rate=1.0,
+        request_fingerprint="request",
+    )
+    repository = NarrationWorkerRepository(narration_provider_database, lease_seconds=30)
+    await repository.connect()
+    try:
+        assert await repository.mark_unknown(claimed, "worker-b") is False
+        assert await repository.mark_unknown(claimed, "worker-a") is True
+    finally:
+        await repository.close()
+
+    connection = await asyncpg.connect(narration_provider_database)
+    try:
+        stage_status, job_status = await connection.fetchrow(
+            """
+            SELECT sa.status AS stage_status, gj.status AS job_status
+              FROM stage_attempts sa
+              JOIN generation_jobs gj ON gj.id = sa.generation_job_id
+             WHERE sa.id = $1
+            """,
+            stage_id,
+        )
+    finally:
+        await connection.close()
+    assert stage_status == "UNKNOWN"
+    assert job_status == "UNKNOWN"

@@ -8,8 +8,10 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { authApi } from "@/features/auth/api/auth.api";
 import { useAuthSessionLifecycle } from "@/features/auth/hooks/useAuthSessionLifecycle";
 import { ApiClientError } from "@/shared/api/client";
-import { ChevronDown, LogOut, Plus, User } from "lucide-react";
+import { Bell, ChevronDown, HelpCircle, LogOut, Plus, User } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { useNotifications } from "@/features/notifications/hooks/useNotifications";
+import { NotificationDrawer } from "@/features/notifications/components/NotificationDrawer";
 
 interface StudioHeaderProps {
   title?: string;
@@ -21,6 +23,10 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({ title, actions }) =>
   const openWizard = useStudioStore((state) => state.openWizard);
   const user = useAuthStore((state) => state.user);
   const { clearAuthenticatedSession } = useAuthSessionLifecycle();
+  const { data: notificationsData } = useNotifications({ limit: 1, unreadOnly: true });
+  const unreadCount = notificationsData?.unreadCount ?? 0;
+
+  const [isNotificationDrawerOpen, setIsNotificationDrawerOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
@@ -80,7 +86,7 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({ title, actions }) =>
         )}
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
         {actions}
         <Button
           onClick={() => openWizard(1)}
@@ -92,7 +98,36 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({ title, actions }) =>
           Dự án mới
         </Button>
 
-        <div className="relative pl-3 border-l border-slate-800" ref={menuRef}>
+        {/* Nút Trợ giúp */}
+        <button
+          type="button"
+          aria-label="Trợ giúp & Hướng dẫn"
+          title="Trợ giúp & Hướng dẫn"
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-transparent text-slate-400 transition-colors hover:border-slate-800 hover:bg-slate-800/60 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+        >
+          <HelpCircle className="h-4.5 w-4.5" />
+        </button>
+
+        {/* Nút Chuông Thông báo */}
+        <button
+          type="button"
+          aria-label={`Thông báo (${unreadCount} chưa đọc)`}
+          title="Trung tâm thông báo"
+          onClick={() => setIsNotificationDrawerOpen(true)}
+          className="relative flex h-9 w-9 items-center justify-center rounded-full border border-transparent text-slate-400 transition-colors hover:border-slate-800 hover:bg-slate-800/60 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+        >
+          <Bell className="h-4.5 w-4.5" />
+          {unreadCount > 0 && (
+            <span
+              className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-purple-600 px-1 text-[10px] font-bold text-white shadow-md shadow-purple-950/80 ring-2 ring-[#070b14]"
+            >
+              {unreadCount > 99 ? "99+" : unreadCount}
+            </span>
+          )}
+        </button>
+
+        {/* Profile Menu */}
+        <div className="relative pl-1 sm:pl-2" ref={menuRef}>
           <button
             ref={menuButtonRef}
             type="button"
@@ -100,13 +135,13 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({ title, actions }) =>
             aria-expanded={isProfileMenuOpen}
             aria-haspopup="menu"
             aria-label={`Mở menu tài khoản của ${displayName}`}
-            className="flex items-center gap-2 p-1 rounded-lg hover:bg-slate-800/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+            className="flex items-center gap-2 p-1 rounded-full sm:rounded-lg hover:bg-slate-800/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
           >
-            <div className="w-8 h-8 rounded-full overflow-hidden border border-purple-500/40 ring-2 ring-purple-600/20 shrink-0">
+            <div className="w-8 h-8 rounded-full overflow-hidden border border-purple-500/40 ring-2 ring-purple-600/20 shrink-0 bg-slate-900 flex items-center justify-center">
               {user?.avatarUrl ? (
                 <img src={user.avatarUrl} alt="" className="w-full h-full object-cover" />
               ) : (
-                <span className="w-full h-full flex items-center justify-center bg-purple-700 text-sm font-bold">
+                <span className="w-full h-full flex items-center justify-center bg-purple-700 text-sm font-bold text-white">
                   {initials}
                 </span>
               )}
@@ -119,7 +154,7 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({ title, actions }) =>
                 </p>
               )}
             </div>
-            <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden sm:block" />
           </button>
 
           {isProfileMenuOpen && (
@@ -167,6 +202,11 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({ title, actions }) =>
           )}
         </div>
       </div>
+
+      <NotificationDrawer
+        isOpen={isNotificationDrawerOpen}
+        onClose={() => setIsNotificationDrawerOpen(false)}
+      />
     </header>
   );
 };

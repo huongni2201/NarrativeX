@@ -24,6 +24,7 @@ To ensure strict billing accuracy, eliminate duplicate charges, and enable deter
   - `RUNNING -> UNKNOWN | COMPLETED | FAILED`
   - `COMPLETED` and `FAILED` are strictly terminal.
 - **Optimistic Concurrency:** Every mutation requires matching the expected `row_version` and valid previous status. Conflicting updates result in a concurrency conflict rather than a provider failure.
+- **Narration-specific reconciliation:** Narration `UNKNOWN` rows always receive a due time unless explicitly suspended for manual attention. Reconciliation metadata is updated with a row-version CAS and deterministic bounded backoff; a retry stage may reuse the logical operation by provider key and request fingerprint while retaining the original stage as audit provenance.
 
 ### 2. Completed Result Immutability & SHA-256 Fingerprint
 
@@ -59,6 +60,8 @@ To ensure strict billing accuracy, eliminate duplicate charges, and enable deter
 3. Ambiguous outcomes (`UNKNOWN`) trigger reconciliation, never blind automatic re-submissions.
 4. Quota transitions out of `RESERVED` at most once via database triggers.
 5. All execution types and statuses conform to the canonical SQL CHECK constraints.
+6. After the external-call fence, transient storage/database failures remain recoverable and never
+   trigger blind provider resubmission.
 
 ## Consequences
 

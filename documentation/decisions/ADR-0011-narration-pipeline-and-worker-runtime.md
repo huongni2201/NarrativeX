@@ -53,6 +53,15 @@ Furthermore, users may provide uploaded audio split across multiple files, where
   database failure, lease loss, and task cancellation. Scratch paths are never authoritative media
   references.
 
+### 5. Durable failure taxonomy and crash recovery
+
+- The narration runner uses typed outcomes: permanent request/provider rejection, retryable infrastructure failure, ambiguous provider outcome, and lease loss.
+- Once a `ProviderOperation` crosses `RESERVED -> UNKNOWN`, no automatic retry invokes TTS again. The operation receives an initial `next_reconcile_at`; later reconciliation uses deterministic bounded backoff (`5, 10, 20, 40, 80, 160, 300` seconds) and CAS-fenced `reconcile_attempts`/`last_reconcile_error` updates.
+- Existing immutable R2 segment objects are recovered and checksum-validated before the provider operation is completed. R2 or PostgreSQL failures after provider submission keep the operation `UNKNOWN`; finalization-only failures move the stage/job to `STALLED` for a safe retry.
+- `mark_unknown` and `mark_stalled` update the parent `GenerationJob` only when the owned `RUNNING` `StageAttempt` transition affects exactly one row. A worker that loses its lease has no authority to mutate the parent job.
+- Provider operations are reused by `(provider_key, request_fingerprint)` across retry `StageAttempt` rows. The original `stage_attempt_id` remains audit provenance and is not a retry identity constraint.
+- Reconciliation exhaustion is explicit suspension/manual attention while preserving `ProviderOperation = UNKNOWN`; it is never an automatic `FAILED` or provider resubmission.
+
 ## Invariants
 
 1. Narration duration drives visual planning durations; visual beats never use arbitrary hardcoded lengths.
@@ -61,6 +70,9 @@ Furthermore, users may provide uploaded audio split across multiple files, where
 4. The worker never exceeds `WORKER_CONCURRENCY` simultaneous in-flight narration jobs.
 5. Production chapter assembly does not create aggregate PCM or MP3 `bytes` proportional to chapter
    duration.
+6. A known transient infrastructure failure cannot terminalize a post-fence narration operation as
+   `FAILED` or cause a second TTS submission.
+7. An unowned narration lease cannot mutate its parent `GenerationJob`.
 
 ## Consequences
 

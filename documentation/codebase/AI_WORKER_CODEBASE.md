@@ -91,9 +91,16 @@ RESERVED
 
 Every provider-operation mutation carries the loaded snapshot and uses optimistic CAS on both status and `row_version`. `COMPLETED` and `FAILED` are terminal; a stale reconciliation response is discarded after reloading the latest durable state.
 
-Provider capabilities explicitly declare whether durable operation reconciliation is supported. The current synchronous Vertex `generateContent` adapter does not expose a pollable durable operation id. If submission times out, the process dies after the UNKNOWN fence, or a non-terminal state lacks a durable operation id, the worker fails the StageAttempt closed rather than risking a duplicate provider request or charge.
+Provider capabilities explicitly declare whether durable operation reconciliation is supported. The current synchronous Vertex `generateContent` adapter does not expose a pollable durable operation id. If submission times out, the process dies after the UNKNOWN fence, or a non-terminal state lacks a durable operation id, the worker preserves the ambiguous operation and schedules reconciliation (or explicit manual attention when reconciliation is unsafe) rather than risking a duplicate provider request or charge.
 
 Reconciliation candidates are limited to `UNKNOWN`, `SUBMITTED` and `RUNNING` rows whose `next_reconcile_at` is due and whose StageAttempt is still non-terminal. The database records `reconcile_attempts` and `last_reconcile_error`; unsupported or unsafe reconciliation is suspended by clearing `next_reconcile_at` while preserving the ambiguous provider status.
+
+Narration follows the same fence with additional recovery rules: storage/DB failures after TTS
+submission keep the provider operation `UNKNOWN`, immutable R2 objects are reused after checksum
+validation, and finalization-only infrastructure failures move the stage/job to `STALLED`. Retry
+stages reuse the logical narration operation by `(provider_key, request_fingerprint)`; the original
+stage id is audit provenance only. Lease-safe stage transitions update the parent job only when the
+worker still owns the running stage.
 
 ## Claim, lease and concurrency
 

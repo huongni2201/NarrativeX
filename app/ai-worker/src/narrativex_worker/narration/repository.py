@@ -2,10 +2,15 @@ import hashlib
 import json
 import uuid
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import asyncpg  # type: ignore[import-untyped]
 
+from narrativex_worker.narration.errors import (
+    NarrationLeaseLostError,
+    narration_reconcile_delay_seconds,
+)
 from narrativex_worker.narration.models import AlignmentSpan
 from narrativex_worker.narration.pricing import TtsPricingSnapshot
 from narrativex_worker.narration.storage import StoredMediaAsset
@@ -43,6 +48,9 @@ class DurableNarrationProviderOperation:
     request_fingerprint: str
     result: dict[str, Any] | None
     result_fingerprint: str | None
+    next_reconcile_at: datetime | None = None
+    reconcile_attempts: int = 0
+    last_reconcile_error: str | None = None
     created: bool = False
 
 
@@ -149,6 +157,82 @@ class NarrationWorkerRepository:
                     request_fingerprint=str(row["request_fingerprint"]),
                 )
 
+    async def claim_due_reconciliation(self, worker_id: str) -> ClaimedNarrationJob | None:
+        """Claim one due UNKNOWN narration operation without allowing a hot loop."""
+        pool = self._require_pool()
+        async with pool.acquire() as connection:
+            async with connection.transaction():
+                row = await connection.fetchrow(
+                    """
+                    SELECT sa.id AS stage_attempt_id,
+                           gj.id AS generation_job_id,
+                           gj.job_id,
+                           nr.id AS narration_request_id,
+                           nr.project_id,
+                           nr.chapter_id,
+                           nr.chapter_row_version,
+                           nr.source_hash,
+                           nr.source_text,
+                           nr.voice_id,
+                           nr.language,
+                           nr.speaking_rate,
+                           nr.request_fingerprint
+                      FROM provider_operations po
+                      JOIN stage_attempts sa ON sa.id = po.stage_attempt_id
+                      JOIN generation_jobs gj ON gj.id = sa.generation_job_id
+                      JOIN narration_operations no ON no.stage_attempt_id = sa.id
+                      JOIN narration_requests nr ON nr.id = no.narration_request_id
+                     WHERE po.status = 'UNKNOWN'
+                       AND po.next_reconcile_at IS NOT NULL
+                       AND po.next_reconcile_at <= CURRENT_TIMESTAMP
+                       AND gj.job_type = 'NARRATION_GENERATE'
+                       AND gj.status = 'UNKNOWN'
+                       AND sa.stage_name = 'NARRATION_TTS'
+                       AND sa.status = 'UNKNOWN'
+                     ORDER BY po.next_reconcile_at, po.id
+                     FOR UPDATE OF sa SKIP LOCKED
+                     LIMIT 1
+                    """
+                )
+                if row is None:
+                    return None
+                await connection.execute(
+                    """
+                    UPDATE stage_attempts
+                       SET status = 'RUNNING', worker_id = $1,
+                           heartbeat_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP,
+                           row_version = row_version + 1
+                     WHERE id = $2 AND status = 'UNKNOWN'
+                    """,
+                    worker_id,
+                    row["stage_attempt_id"],
+                )
+                await connection.execute(
+                    """
+                    UPDATE generation_jobs
+                       SET status = 'RUNNING', progress = GREATEST(progress, 5),
+                           current_step = 'NARRATION_TTS_RECONCILE',
+                           updated_at = CURRENT_TIMESTAMP, row_version = row_version + 1
+                     WHERE id = $1 AND status = 'UNKNOWN'
+                    """,
+                    row["generation_job_id"],
+                )
+                return ClaimedNarrationJob(
+                    stage_attempt_id=int(row["stage_attempt_id"]),
+                    generation_job_id=int(row["generation_job_id"]),
+                    job_id=str(row["job_id"]),
+                    narration_request_id=row["narration_request_id"],
+                    project_id=int(row["project_id"]),
+                    chapter_id=int(row["chapter_id"]),
+                    chapter_row_version=int(row["chapter_row_version"]),
+                    source_hash=str(row["source_hash"]),
+                    source_text=str(row["source_text"]),
+                    voice_id=str(row["voice_id"]),
+                    language=str(row["language"]),
+                    speaking_rate=float(row["speaking_rate"]),
+                    request_fingerprint=str(row["request_fingerprint"]),
+                )
+
     async def heartbeat(self, stage_attempt_id: int, worker_id: str) -> bool:
         result = await self._require_pool().execute(
             """
@@ -174,7 +258,8 @@ class NarrationWorkerRepository:
                     VALUES ($1, $2, $3, 'RESERVED')
                     ON CONFLICT (provider_key, request_fingerprint) DO NOTHING
                     RETURNING id, stage_attempt_id, provider_key, status, row_version,
-                              request_fingerprint, normalized_result_json, result_fingerprint
+                              request_fingerprint, normalized_result_json, result_fingerprint,
+                              next_reconcile_at, reconcile_attempts, last_reconcile_error
                     """,
                     stage_attempt_id,
                     provider_key,
@@ -185,7 +270,8 @@ class NarrationWorkerRepository:
                     row = await connection.fetchrow(
                         """
                         SELECT id, stage_attempt_id, provider_key, status, row_version,
-                               request_fingerprint, normalized_result_json, result_fingerprint
+                               request_fingerprint, normalized_result_json, result_fingerprint,
+                               next_reconcile_at, reconcile_attempts, last_reconcile_error
                           FROM provider_operations
                          WHERE provider_key = $1 AND request_fingerprint = $2
                          FOR UPDATE
@@ -196,12 +282,12 @@ class NarrationWorkerRepository:
                 if row is None:
                     raise RuntimeError("Narration provider operation reservation disappeared")
                 operation = self._operation(row, created=created)
-                if operation.stage_attempt_id != stage_attempt_id:
-                    raise RuntimeError("Narration provider operation belongs to a different stage")
                 return operation
 
     async def fence_submission_unknown(
-        self, operation: DurableNarrationProviderOperation
+        self,
+        operation: DurableNarrationProviderOperation,
+        reconcile_after_seconds: float = 15,
     ) -> DurableNarrationProviderOperation:
         if operation.status is not ProviderOperationStatus.RESERVED:
             raise ValueError(
@@ -210,14 +296,18 @@ class NarrationWorkerRepository:
         row = await self._require_pool().fetchrow(
             """
             UPDATE provider_operations
-               SET status = 'UNKNOWN', next_reconcile_at = NULL,
+               SET status = 'UNKNOWN',
+                   next_reconcile_at = CURRENT_TIMESTAMP + ($3 * INTERVAL '1 second'),
+                   reconcile_attempts = 0, last_reconcile_error = NULL,
                    updated_at = CURRENT_TIMESTAMP, row_version = row_version + 1
              WHERE id = $1 AND status = 'RESERVED' AND row_version = $2
              RETURNING id, stage_attempt_id, provider_key, status, row_version,
-                       request_fingerprint, normalized_result_json, result_fingerprint
+                       request_fingerprint, normalized_result_json, result_fingerprint,
+                       next_reconcile_at, reconcile_attempts, last_reconcile_error
             """,
             operation.id,
             operation.row_version,
+            reconcile_after_seconds,
         )
         if row is None:
             raise NarrationProviderStateConflictError(str(operation.id))
@@ -251,10 +341,12 @@ class NarrationWorkerRepository:
                    result_fingerprint = $3, actual_cost = $4, billing_currency = 'USD',
                    usage_json = $5::jsonb, pricing_snapshot_json = $6::jsonb,
                    completed_at = COALESCE(completed_at, CURRENT_TIMESTAMP),
+                   next_reconcile_at = NULL, last_reconcile_error = NULL,
                    updated_at = CURRENT_TIMESTAMP, row_version = row_version + 1
              WHERE id = $1 AND status = 'UNKNOWN' AND row_version = $7
              RETURNING id, stage_attempt_id, provider_key, status, row_version,
-                       request_fingerprint, normalized_result_json, result_fingerprint
+                       request_fingerprint, normalized_result_json, result_fingerprint,
+                       next_reconcile_at, reconcile_attempts, last_reconcile_error
             """,
             operation.id,
             serialized,
@@ -280,11 +372,12 @@ class NarrationWorkerRepository:
         row = await self._require_pool().fetchrow(
             """
             UPDATE provider_operations
-               SET status = 'FAILED', next_reconcile_at = NULL,
+               SET status = 'FAILED', next_reconcile_at = NULL, last_reconcile_error = NULL,
                    updated_at = CURRENT_TIMESTAMP, row_version = row_version + 1
              WHERE id = $1 AND status = 'UNKNOWN' AND row_version = $2
              RETURNING id, stage_attempt_id, provider_key, status, row_version,
-                       request_fingerprint, normalized_result_json, result_fingerprint
+                       request_fingerprint, normalized_result_json, result_fingerprint,
+                       next_reconcile_at, reconcile_attempts, last_reconcile_error
             """,
             operation.id,
             operation.row_version,
@@ -297,7 +390,8 @@ class NarrationWorkerRepository:
         row = await self._require_pool().fetchrow(
             """
             SELECT id, stage_attempt_id, provider_key, status, row_version,
-                   request_fingerprint, normalized_result_json, result_fingerprint
+                   request_fingerprint, normalized_result_json, result_fingerprint,
+                   next_reconcile_at, reconcile_attempts, last_reconcile_error
               FROM provider_operations
              WHERE id = $1
             """,
@@ -307,11 +401,72 @@ class NarrationWorkerRepository:
             raise RuntimeError(f"Narration provider operation {operation_id} not found")
         return self._operation(row)
 
-    async def mark_unknown(self, claimed: ClaimedNarrationJob, worker_id: str) -> None:
+    async def schedule_provider_reconciliation(
+        self,
+        operation: DurableNarrationProviderOperation,
+        *,
+        error: str,
+        next_reconcile_at: datetime | None = None,
+    ) -> DurableNarrationProviderOperation:
+        """CAS-update UNKNOWN reconciliation metadata and retain the ambiguous outcome."""
+        if operation.status is not ProviderOperationStatus.UNKNOWN:
+            raise ValueError("Only UNKNOWN narration operations can be reconciled")
+        next_at = next_reconcile_at or (
+            datetime.now(UTC)
+            + timedelta(seconds=narration_reconcile_delay_seconds(operation.reconcile_attempts))
+        )
+        row = await self._require_pool().fetchrow(
+            """
+            UPDATE provider_operations
+               SET next_reconcile_at = $2,
+                   reconcile_attempts = reconcile_attempts + 1,
+                   last_reconcile_error = $3,
+                   updated_at = CURRENT_TIMESTAMP,
+                   row_version = row_version + 1
+             WHERE id = $1 AND status = 'UNKNOWN' AND row_version = $4
+             RETURNING id, stage_attempt_id, provider_key, status, row_version,
+                       request_fingerprint, normalized_result_json, result_fingerprint,
+                       next_reconcile_at, reconcile_attempts, last_reconcile_error
+            """,
+            operation.id,
+            next_at,
+            error[:2000],
+            operation.row_version,
+        )
+        if row is None:
+            raise NarrationProviderStateConflictError(str(operation.id))
+        return self._operation(row)
+
+    async def exhaust_provider_reconciliation(
+        self, operation: DurableNarrationProviderOperation, error: str
+    ) -> DurableNarrationProviderOperation:
+        """Suspend UNKNOWN for explicit/manual attention without converting it to FAILED."""
+        row = await self._require_pool().fetchrow(
+            """
+            UPDATE provider_operations
+               SET next_reconcile_at = NULL,
+                   reconcile_attempts = reconcile_attempts + 1,
+                   last_reconcile_error = $2,
+                   updated_at = CURRENT_TIMESTAMP,
+                   row_version = row_version + 1
+             WHERE id = $1 AND status = 'UNKNOWN' AND row_version = $3
+             RETURNING id, stage_attempt_id, provider_key, status, row_version,
+                       request_fingerprint, normalized_result_json, result_fingerprint,
+                       next_reconcile_at, reconcile_attempts, last_reconcile_error
+            """,
+            operation.id,
+            f"RECONCILIATION_EXHAUSTED: {error}"[:2000],
+            operation.row_version,
+        )
+        if row is None:
+            raise NarrationProviderStateConflictError(str(operation.id))
+        return self._operation(row)
+
+    async def mark_unknown(self, claimed: ClaimedNarrationJob, worker_id: str) -> bool:
         pool = self._require_pool()
         async with pool.acquire() as connection:
             async with connection.transaction():
-                await connection.execute(
+                stage = await connection.execute(
                     """
                     UPDATE stage_attempts
                        SET status = 'UNKNOWN', updated_at = CURRENT_TIMESTAMP,
@@ -321,6 +476,8 @@ class NarrationWorkerRepository:
                     claimed.stage_attempt_id,
                     worker_id,
                 )
+                if stage != "UPDATE 1":
+                    return False
                 await connection.execute(
                     """
                     UPDATE generation_jobs
@@ -330,6 +487,38 @@ class NarrationWorkerRepository:
                     """,
                     claimed.generation_job_id,
                 )
+                return True
+
+    async def mark_stalled(
+        self, claimed: ClaimedNarrationJob, worker_id: str, error_code: str
+    ) -> bool:
+        pool = self._require_pool()
+        async with pool.acquire() as connection:
+            async with connection.transaction():
+                stage = await connection.execute(
+                    """
+                    UPDATE stage_attempts
+                       SET status = 'STALLED', updated_at = CURRENT_TIMESTAMP,
+                           row_version = row_version + 1
+                     WHERE id = $1 AND worker_id = $2 AND status = 'RUNNING'
+                    """,
+                    claimed.stage_attempt_id,
+                    worker_id,
+                )
+                if stage != "UPDATE 1":
+                    return False
+                await connection.execute(
+                    """
+                    UPDATE generation_jobs
+                       SET status = 'STALLED', current_step = 'NARRATION_RETRY',
+                           error_code = $2, updated_at = CURRENT_TIMESTAMP,
+                           row_version = row_version + 1
+                     WHERE id = $1 AND status = 'RUNNING'
+                    """,
+                    claimed.generation_job_id,
+                    error_code[:80],
+                )
+                return True
 
     async def fail(self, claimed: ClaimedNarrationJob, worker_id: str, error_code: str) -> None:
         pool = self._require_pool()
@@ -383,7 +572,49 @@ class NarrationWorkerRepository:
                     worker_id,
                 )
                 if not lease_owned:
-                    raise RuntimeError("Worker no longer owns the narration lease")
+                    raise NarrationLeaseLostError("Worker no longer owns the narration lease")
+                existing = await connection.fetchrow(
+                    """
+                    SELECT na.checksum, pa.storage_key
+                      FROM narration_assets na
+                      JOIN project_assets pa ON pa.id = na.project_asset_id
+                     WHERE na.narration_request_id = $1
+                    """,
+                    claimed.narration_request_id,
+                )
+                if existing is not None:
+                    if (
+                        str(existing["checksum"]) != media_asset.checksum
+                        or str(existing["storage_key"]) != media_asset.storage_key
+                    ):
+                        raise NarrationProviderStateConflictError(
+                            "Narration final asset is immutable and differs from the retry result"
+                        )
+                    stage = await connection.execute(
+                        """
+                        UPDATE stage_attempts
+                           SET status = 'COMPLETED', heartbeat_at = CURRENT_TIMESTAMP,
+                               updated_at = CURRENT_TIMESTAMP, row_version = row_version + 1
+                         WHERE id = $1 AND worker_id = $2 AND status = 'RUNNING'
+                        """,
+                        claimed.stage_attempt_id,
+                        worker_id,
+                    )
+                    if stage != "UPDATE 1":
+                        raise NarrationLeaseLostError(
+                            "Worker lost the narration lease before idempotent completion"
+                        )
+                    await connection.execute(
+                        """
+                        UPDATE generation_jobs
+                           SET status = 'COMPLETED', progress = 100, current_step = 'COMPLETED',
+                               error_code = NULL, updated_at = CURRENT_TIMESTAMP,
+                               row_version = row_version + 1
+                         WHERE id = $1 AND status = 'RUNNING'
+                        """,
+                        claimed.generation_job_id,
+                    )
+                    return
                 project_asset_id = await connection.fetchval(
                     """
                     INSERT INTO project_assets
@@ -452,7 +683,9 @@ class NarrationWorkerRepository:
                     worker_id,
                 )
                 if stage != "UPDATE 1":
-                    raise RuntimeError("Worker lost the narration lease before completion")
+                    raise NarrationLeaseLostError(
+                        "Worker lost the narration lease before completion"
+                    )
                 await connection.execute(
                     """
                     UPDATE generation_jobs
@@ -487,6 +720,9 @@ class NarrationWorkerRepository:
             request_fingerprint=str(row["request_fingerprint"]),
             result=result,
             result_fingerprint=row["result_fingerprint"],
+            next_reconcile_at=row["next_reconcile_at"],
+            reconcile_attempts=int(row["reconcile_attempts"]),
+            last_reconcile_error=row["last_reconcile_error"],
             created=created,
         )
 

@@ -7,6 +7,7 @@ from typing import Any, cast
 import pytest
 
 from narrativex_worker.config import WorkerSettings
+from narrativex_worker.narration.errors import NarrationRetryableInfrastructureError
 from narrativex_worker.narration.repository import ClaimedNarrationJob, NarrationWorkerRepository
 from narrativex_worker.narration.runner import NarrationLeaseLostError, NarrationWorkerRunner
 
@@ -37,6 +38,8 @@ class FakeNarrationRepository:
         self.connected = False
         self.closed = False
         self.fail_calls: list[tuple[Any, ...]] = []
+        self.stalled_calls: list[tuple[Any, ...]] = []
+        self.unknown_calls: list[tuple[Any, ...]] = []
 
     async def connect(self) -> None:
         self.connected = True
@@ -54,12 +57,24 @@ class FakeNarrationRepository:
         self.claimed.append(job)
         return job
 
+    async def claim_due_reconciliation(self, worker_id: str) -> ClaimedNarrationJob | None:
+        del worker_id
+        return None
+
     async def heartbeat(self, stage_attempt_id: int, worker_id: str) -> bool:
         del stage_attempt_id, worker_id
         return True
 
     async def fail(self, *args: Any) -> None:
         self.fail_calls.append(args)
+
+    async def mark_stalled(self, *args: Any, **kwargs: Any) -> bool:
+        self.stalled_calls.append((*args, kwargs))
+        return True
+
+    async def mark_unknown(self, *args: Any, **kwargs: Any) -> bool:
+        self.unknown_calls.append((*args, kwargs))
+        return True
 
 
 def runner_with_repository(
@@ -163,6 +178,23 @@ async def test_lease_loss_cancels_processing_without_marking_failed() -> None:
     await runner._process(claimed_job(0))
 
     assert cancelled.is_set()
+    assert not repository.fail_calls
+
+
+@pytest.mark.asyncio
+async def test_retryable_infrastructure_failure_stalls_without_failing() -> None:
+    repository = FakeNarrationRepository([])
+    runner = runner_with_repository(1, repository)
+
+    async def transient_failure(claimed: ClaimedNarrationJob) -> None:
+        del claimed
+        raise NarrationRetryableInfrastructureError("temporary R2 outage")
+
+    runner._execute = transient_failure  # type: ignore[method-assign]
+
+    await runner._process(claimed_job(0))
+
+    assert repository.stalled_calls
     assert not repository.fail_calls
 
 

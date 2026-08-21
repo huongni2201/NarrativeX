@@ -8,6 +8,14 @@ from pathlib import Path
 from narrativex_worker.config import WorkerSettings
 from narrativex_worker.narration.alignment import NarrationAlignmentValidator, build_alignment
 from narrativex_worker.narration.audio import FfmpegAudioAssembler
+from narrativex_worker.narration.errors import (
+    NarrationLeaseLostError,
+    NarrationOutcomeUnknownError,
+    NarrationPermanentError,
+    NarrationRetryableInfrastructureError,
+    is_transient_infrastructure_error,
+    retry_local_io,
+)
 from narrativex_worker.narration.models import (
     MaterializedAudioSegment,
     NarrationSegment,
@@ -27,11 +35,21 @@ from narrativex_worker.narration.repository import (
     segment_request_fingerprint,
 )
 from narrativex_worker.narration.segmenter import NarrationSegmenter, utf16_length
-from narrativex_worker.narration.storage import MediaStorage, S3MediaStorage
+from narrativex_worker.narration.storage import (
+    MediaAssetConflictError,
+    MediaStorage,
+    S3MediaStorage,
+)
 from narrativex_worker.providers.tts import GoogleCloudTtsProvider
 from narrativex_worker.schema import ProviderOperationStatus
 from narrativex_worker.task_runtime import reap_finished_tasks
 from narrativex_worker.workspace import WorkerWorkspace, sha256_file
+
+__all__ = [
+    "NarrationLeaseLostError",
+    "NarrationOutcomeUnknownError",
+    "NarrationWorkerRunner",
+]
 
 
 class NarrationWorkerRunner:
@@ -77,6 +95,8 @@ class NarrationWorkerRunner:
 
                 claim_started = time.monotonic()
                 claimed = await self.repository.claim_next(self.worker_id)
+                if claimed is None:
+                    claimed = await self.repository.claim_due_reconciliation(self.worker_id)
                 claim_latency = time.monotonic() - claim_started
                 self.logger.debug(
                     "narration_claim_latency=%s narration_jobs_in_flight=%s",
@@ -161,7 +181,7 @@ class NarrationWorkerRunner:
                 processing.cancel()
                 with contextlib.suppress(asyncio.CancelledError):
                     await processing
-        except NarrationOutcomeUnknownError:
+        except NarrationOutcomeUnknownError as exception:
             self.logger.warning(
                 "Narration job=%s stageAttemptId=%s narrationRequestId=%s "
                 "has an UNKNOWN provider outcome",
@@ -170,7 +190,44 @@ class NarrationWorkerRunner:
                 claimed.narration_request_id,
             )
             with contextlib.suppress(Exception):
-                await self.repository.mark_unknown(claimed, self.worker_id)
+                marked = await self.repository.mark_unknown(claimed, self.worker_id)
+                if not marked:
+                    self.logger.info(
+                        "Narration UNKNOWN transition skipped after lease loss jobId=%s",
+                        claimed.job_id,
+                    )
+            if exception.provider_operation_id is not None:
+                self.logger.warning(
+                    "narration_outcome_unknown_total=1 providerOperationId=%s storageKey=%s",
+                    exception.provider_operation_id,
+                    exception.storage_key,
+                )
+        except NarrationRetryableInfrastructureError as exception:
+            self.logger.warning(
+                "narration_retryable_failure_total=1 jobId=%s stageAttemptId=%s error=%s",
+                claimed.job_id,
+                claimed.stage_attempt_id,
+                type(exception).__name__,
+            )
+            with contextlib.suppress(Exception):
+                marked = await self.repository.mark_stalled(
+                    claimed, self.worker_id, type(exception).__name__.upper()[:80]
+                )
+                if not marked:
+                    self.logger.info(
+                        "Narration STALLED transition skipped after lease loss jobId=%s",
+                        claimed.job_id,
+                    )
+        except NarrationPermanentError as exception:
+            self.logger.warning(
+                "Narration permanent failure jobId=%s error=%s",
+                claimed.job_id,
+                type(exception).__name__,
+            )
+            with contextlib.suppress(Exception):
+                await self.repository.fail(
+                    claimed, self.worker_id, type(exception).__name__.upper()[:80]
+                )
         except Exception as exception:
             self.logger.exception(
                 "Narration job=%s stageAttemptId=%s narrationRequestId=%s failed",
@@ -203,6 +260,7 @@ class NarrationWorkerRunner:
         assert self.provider is not None
         assert self.storage is not None
         assert self.pricing is not None
+        storage = self.storage
         pricing = self.pricing.resolve(claimed.voice_id)
         async with self.workspace.create_job_dir(str(claimed.narration_request_id)) as job_dir:
             self.logger.debug(
@@ -230,28 +288,50 @@ class NarrationWorkerRunner:
             )
             checksum = await asyncio.to_thread(sha256_file, mp3_path)
             final_key = f"narration/{claimed.narration_request_id}/chapter.mp3"
-            media_asset = await self.storage.put_file_immutable(
-                storage_key=final_key,
-                file_path=mp3_path,
-                checksum=checksum,
-                mime_type="audio/mpeg",
-                metadata={"duration-ms": str(actual_duration_ms)},
-            )
+            try:
+                media_asset = await retry_local_io(
+                    lambda: storage.put_file_immutable(
+                        storage_key=final_key,
+                        file_path=mp3_path,
+                        checksum=checksum,
+                        mime_type="audio/mpeg",
+                        metadata={"duration-ms": str(actual_duration_ms)},
+                    )
+                )
+            except MediaAssetConflictError as exception:
+                raise NarrationPermanentError(str(exception)) from exception
+            except Exception as exception:
+                if is_transient_infrastructure_error(exception):
+                    raise NarrationRetryableInfrastructureError(
+                        "Final narration storage is temporarily unavailable"
+                    ) from exception
+                raise NarrationPermanentError(str(exception)) from exception
             self.logger.debug(
                 "Narration upload completed request=%s sizeBytes=%s checksum=%s",
                 claimed.narration_request_id,
                 mp3_path.stat().st_size,
                 checksum,
             )
-            await self.repository.complete(
-                claimed,
-                self.worker_id,
-                media_asset,
-                duration_ms=actual_duration_ms,
-                sample_rate_hz=48000,
-                channels=1,
-                spans=spans,
-            )
+            try:
+                await retry_local_io(
+                    lambda: self.repository.complete(
+                        claimed,
+                        self.worker_id,
+                        media_asset,
+                        duration_ms=actual_duration_ms,
+                        sample_rate_hz=48000,
+                        channels=1,
+                        spans=spans,
+                    )
+                )
+            except NarrationLeaseLostError:
+                raise
+            except Exception as exception:
+                if is_transient_infrastructure_error(exception):
+                    raise NarrationRetryableInfrastructureError(
+                        "Narration completion is temporarily unavailable"
+                    ) from exception
+                raise NarrationPermanentError(str(exception)) from exception
             self.logger.info(
                 "Completed narration job=%s request=%s durationMs=%s finalSizeBytes=%s",
                 claimed.job_id,
@@ -270,21 +350,45 @@ class NarrationWorkerRunner:
         assert self.provider is not None
         assert self.storage is not None
         storage_key = f"narration/{claimed.narration_request_id}/segments/{segment.index:04d}.pcm"
+        storage = self.storage
         fingerprint = segment_request_fingerprint(
             claimed, self.provider.provider_key, segment.index, segment.text
         )
-        durable = await self.repository.reserve_provider_operation(
-            claimed.stage_attempt_id, self.provider.provider_key, fingerprint
-        )
+        try:
+            durable = await self.repository.reserve_provider_operation(
+                claimed.stage_attempt_id, self.provider.provider_key, fingerprint
+            )
+        except Exception as exception:
+            if is_transient_infrastructure_error(exception):
+                raise NarrationRetryableInfrastructureError(
+                    "Narration provider reservation is temporarily unavailable"
+                ) from exception
+            raise
         if durable.status is ProviderOperationStatus.COMPLETED:
             return await self._load_completed_segment(durable, segment, job_dir)
         if durable.status is ProviderOperationStatus.FAILED:
-            raise RuntimeError(f"Narration segment {segment.index} previously failed")
+            raise NarrationPermanentError(f"Narration segment {segment.index} previously failed")
         if durable.status is ProviderOperationStatus.UNKNOWN:
-            stored = await self.storage.find(storage_key)
-            if stored is None:
+            try:
+                stored = await retry_local_io(lambda: storage.find(storage_key))
+            except Exception as exception:
+                if not is_transient_infrastructure_error(exception):
+                    raise NarrationPermanentError(str(exception)) from exception
+                await self._schedule_reconciliation(durable, str(exception))
                 raise NarrationOutcomeUnknownError(
-                    f"Segment {segment.index} may have been accepted but has no durable audio"
+                    "Narration segment storage lookup is temporarily unavailable",
+                    provider_operation_id=durable.id,
+                    storage_key=storage_key,
+                ) from exception
+            if stored is None:
+                await self._schedule_reconciliation(
+                    durable,
+                    f"segment {segment.index} durable audio is not visible in storage",
+                )
+                raise NarrationOutcomeUnknownError(
+                    f"Segment {segment.index} may have been accepted but has no durable audio",
+                    provider_operation_id=durable.id,
+                    storage_key=storage_key,
                 )
             recovered = await self._segment_from_storage(segment, stored.storage_key, job_dir)
             return await self._persist_segment_completion(
@@ -292,10 +396,19 @@ class NarrationWorkerRunner:
             )
         if durable.status is not ProviderOperationStatus.RESERVED:
             raise NarrationOutcomeUnknownError(
-                f"Unsupported narration provider state {durable.status.value}"
+                f"Unsupported narration provider state {durable.status.value}",
+                provider_operation_id=durable.id,
+                storage_key=storage_key,
             )
 
-        durable = await self.repository.fence_submission_unknown(durable)
+        try:
+            durable = await self.repository.fence_submission_unknown(durable)
+        except Exception as exception:
+            if is_transient_infrastructure_error(exception):
+                raise NarrationRetryableInfrastructureError(
+                    "Narration submission fence is temporarily unavailable"
+                ) from exception
+            raise
         try:
             synthesized = await self.provider.synthesize(
                 TtsRequest(
@@ -306,13 +419,40 @@ class NarrationWorkerRunner:
                     speaking_rate=claimed.speaking_rate,
                 )
             )
-        except TtsProviderRejectedError:
-            await self.repository.fail_provider_operation(durable)
-            raise
+        except TtsProviderRejectedError as exception:
+            try:
+                await self.repository.fail_provider_operation(durable)
+            except Exception as persistence_exception:
+                if is_transient_infrastructure_error(persistence_exception):
+                    await self._schedule_reconciliation(
+                        durable, f"provider rejection persistence failed: {persistence_exception}"
+                    )
+                    raise NarrationOutcomeUnknownError(
+                        "Provider rejection could not be durably recorded",
+                        provider_operation_id=durable.id,
+                        storage_key=storage_key,
+                    ) from persistence_exception
+                raise
+            raise NarrationPermanentError(str(exception)) from exception
         except TtsProviderUnknownError as exception:
-            raise NarrationOutcomeUnknownError(str(exception)) from exception
+            await self._schedule_reconciliation(durable, str(exception))
+            raise NarrationOutcomeUnknownError(
+                str(exception), provider_operation_id=durable.id, storage_key=storage_key
+            ) from exception
+        except Exception as exception:
+            if is_transient_infrastructure_error(exception):
+                await self._schedule_reconciliation(durable, str(exception))
+                raise NarrationOutcomeUnknownError(
+                    "Narration provider outcome is ambiguous",
+                    provider_operation_id=durable.id,
+                    storage_key=storage_key,
+                ) from exception
+            raise NarrationPermanentError(str(exception)) from exception
 
-        self._validate_audio_format(synthesized)
+        try:
+            self._validate_audio_format(synthesized)
+        except (TypeError, ValueError) as exception:
+            raise NarrationPermanentError(str(exception)) from exception
         sample_rate_hz = synthesized.sample_rate_hz
         channels = synthesized.channels
         duration_ms = synthesized.duration_ms
@@ -321,17 +461,29 @@ class NarrationWorkerRunner:
             output.write(synthesized.pcm_bytes)
         del synthesized
         checksum = await asyncio.to_thread(sha256_file, segment_path)
-        stored = await self.storage.put_file_immutable(
-            storage_key=storage_key,
-            file_path=segment_path,
-            checksum=checksum,
-            mime_type="audio/L16",
-            metadata={
-                "sample-rate-hz": str(sample_rate_hz),
-                "channels": str(channels),
-                "duration-ms": str(duration_ms),
-            },
-        )
+        try:
+            stored = await retry_local_io(
+                lambda: storage.put_file_immutable(
+                    storage_key=storage_key,
+                    file_path=segment_path,
+                    checksum=checksum,
+                    mime_type="audio/L16",
+                    metadata={
+                        "sample-rate-hz": str(sample_rate_hz),
+                        "channels": str(channels),
+                        "duration-ms": str(duration_ms),
+                    },
+                )
+            )
+        except Exception as exception:
+            if not is_transient_infrastructure_error(exception):
+                raise NarrationPermanentError(str(exception)) from exception
+            await self._schedule_reconciliation(durable, str(exception))
+            raise NarrationOutcomeUnknownError(
+                "Narration segment storage is temporarily unavailable",
+                provider_operation_id=durable.id,
+                storage_key=storage_key,
+            ) from exception
         return await self._persist_segment_completion(
             durable,
             MaterializedAudioSegment(
@@ -365,13 +517,53 @@ class NarrationWorkerRunner:
             "sampleRateHz": synthesized.sample_rate_hz,
             "channels": synthesized.channels,
         }
-        await self.repository.complete_provider_operation(
-            durable,
-            result,
-            character_count=len(synthesized.segment.text),
-            pricing=pricing,
-        )
+        try:
+            await retry_local_io(
+                lambda: self.repository.complete_provider_operation(
+                    durable,
+                    result,
+                    character_count=len(synthesized.segment.text),
+                    pricing=pricing,
+                )
+            )
+        except Exception as exception:
+            if not is_transient_infrastructure_error(exception):
+                raise NarrationPermanentError(str(exception)) from exception
+            await self._schedule_reconciliation(durable, str(exception))
+            raise NarrationOutcomeUnknownError(
+                "Narration provider completion is not durable yet",
+                provider_operation_id=durable.id,
+                storage_key=storage_key,
+            ) from exception
         return synthesized
+
+    async def _schedule_reconciliation(
+        self, durable: DurableNarrationProviderOperation, error: str
+    ) -> None:
+        try:
+            if durable.reconcile_attempts >= 8:
+                await self.repository.exhaust_provider_reconciliation(durable, error)
+                self.logger.error(
+                    "narration_reconciliation_exhausted_total=1 providerOperationId=%s",
+                    durable.id,
+                )
+            else:
+                scheduled = await self.repository.schedule_provider_reconciliation(
+                    durable, error=error
+                )
+                self.logger.info(
+                    "narration_reconciliation_attempt_total=1 providerOperationId=%s "
+                    "reconcileAttempt=%s nextReconcileAt=%s",
+                    durable.id,
+                    scheduled.reconcile_attempts,
+                    scheduled.next_reconcile_at,
+                )
+        except Exception as exception:
+            if is_transient_infrastructure_error(exception):
+                raise NarrationRetryableInfrastructureError(
+                    "Unable to schedule narration reconciliation"
+                ) from exception
+            raise
 
     async def _load_completed_segment(
         self,
@@ -434,11 +626,3 @@ class NarrationWorkerRunner:
             await asyncio.sleep(interval)
             if not await self.repository.heartbeat(stage_attempt_id, self.worker_id):
                 raise NarrationLeaseLostError("Worker lost its narration StageAttempt lease")
-
-
-class NarrationOutcomeUnknownError(RuntimeError):
-    pass
-
-
-class NarrationLeaseLostError(RuntimeError):
-    pass

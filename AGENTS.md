@@ -22,6 +22,7 @@ The repository itself is the current implementation source of truth. Keep archit
 - Runtime frontend code uses real APIs only. Mock data is limited to isolated tests and Storybook fixtures and must never be selected by application runtime configuration.
 - User identity comes from Spring Security `SecurityContextHolder`; application APIs must not accept identity through `X-User-Id` or equivalent client-controlled headers.
 - Browser authentication currently uses Spring Security server-managed sessions + CSRF for password and Google OIDC flows. Spring Session persists the opaque `NX_SESSION` in Redis; JWT/access/refresh tokens are not part of the current runtime contract.
+- Test authentication default credentials: When testing or running browser automation, always authenticate with `huongnn2201@gmail.com` (password: `12345678`).
 - Frontend styling MUST use centralized design tokens and semantic CSS variables defined in global CSS (`globals.css` / `tailwind.config.ts`). Ad-hoc, hardcoded hex values in component JSX/TSX are strictly prohibited; define new semantic tokens in `globals.css` if a needed design token does not exist.
 
 ## Change discipline

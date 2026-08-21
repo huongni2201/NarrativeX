@@ -1,13 +1,12 @@
 import React, { useState } from "react";
 import {
   CheckCircle2,
-  Clock,
+  ChevronRight,
   Film,
   Image as ImageIcon,
   Layers,
   Loader2,
   Pencil,
-  RefreshCw,
   Sparkles,
   Volume2,
 } from "lucide-react";
@@ -58,20 +57,36 @@ export function ChapterOverviewTab({
     <div className="grid gap-4 lg:grid-cols-[330px_minmax(0,1fr)] xl:grid-cols-[350px_minmax(0,1fr)]">
       <aside className="rounded-2xl border border-border bg-surface-card/90 p-4 sm:p-5">
         <h2 className="text-sm font-semibold text-slate-100">Tiến trình</h2>
-        <div className="mt-4 space-y-1.5">
+        <div className="mt-4 space-y-2">
           <ProgressItem
+            stepNumber={1}
             icon={<Sparkles className="h-4 w-4" />}
+            iconColorClass="bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"
             label="Phân tích Chapter"
             step={workspace.pipeline.analysis}
             active={analysisActive}
+            onClick={workspace.capabilities.canAnalyze ? onAnalyze : undefined}
           />
           <ProgressItem
+            stepNumber={2}
+            icon={<Volume2 className="h-4 w-4" />}
+            iconColorClass="bg-amber-500/15 text-amber-400 border border-amber-500/20"
+            label="Audio (TTS & Subtitle)"
+            step={workspace.pipeline.audio}
+            onClick={workspace.capabilities.canGenerateAudio ? () => setIsNarrationOpen(true) : undefined}
+          />
+          <ProgressItem
+            stepNumber={3}
             icon={<Layers className="h-4 w-4" />}
+            iconColorClass="bg-cyan-500/15 text-cyan-400 border border-cyan-500/20"
             label="Lập kế hoạch Visual Beats"
             step={workspace.pipeline.visualPlanning}
+            onClick={onOpenStoryboard}
           />
           <ProgressItem
+            stepNumber={4}
             icon={<ImageIcon className="h-4 w-4" />}
+            iconColorClass="bg-purple-500/15 text-purple-400 border border-purple-500/20"
             label="Generate Visuals"
             step={workspace.pipeline.visualGeneration}
             progressLabel={
@@ -79,14 +94,12 @@ export function ChapterOverviewTab({
                 ? `${workspace.pipeline.visualGeneration.completed}/${workspace.pipeline.visualGeneration.total}`
                 : undefined
             }
+            onClick={workspace.capabilities.canGenerateVisuals ? onOpenStoryboard : undefined}
           />
           <ProgressItem
-            icon={<Volume2 className="h-4 w-4" />}
-            label="Audio (TTS & Subtitle)"
-            step={workspace.pipeline.audio}
-          />
-          <ProgressItem
+            stepNumber={5}
             icon={<Film className="h-4 w-4" />}
+            iconColorClass="bg-rose-500/15 text-rose-400 border border-rose-500/20"
             label="Render Chapter"
             step={workspace.pipeline.render}
           />
@@ -108,19 +121,19 @@ export function ChapterOverviewTab({
 
         <div className="mt-5 border-t border-border pt-4">
           <h3 className="text-xs font-semibold text-slate-300">Hành động nhanh</h3>
-          <div className="mt-3 space-y-2">
+          <div className="mt-3 space-y-2.5">
             <button
               type="button"
               onClick={onAnalyze}
               disabled={analyzeDisabled}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-purple-600 px-3.5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-purple-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500"
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-950/50 transition-all hover:from-purple-500 hover:to-indigo-500 hover:shadow-purple-700/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 disabled:cursor-not-allowed disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 disabled:shadow-none"
             >
               {analysisActive ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin text-white" />
               ) : (
-                <RefreshCw className="h-4 w-4" />
+                <Sparkles className="h-4 w-4 text-purple-200" />
               )}
-              {analyzeLabel}
+              <span>{analyzeLabel}</span>
             </button>
             <QuickAction label="Review Visuals" enabled={workspace.capabilities.canGenerateVisuals} onClick={onOpenStoryboard} />
             <QuickAction
@@ -181,17 +194,23 @@ export function ChapterOverviewTab({
 }
 
 function ProgressItem({
+  stepNumber,
   icon,
+  iconColorClass,
   label,
   step,
   active = false,
   progressLabel,
+  onClick,
 }: {
+  stepNumber: number;
   icon: React.ReactNode;
+  iconColorClass: string;
   label: string;
   step: ApiChapterWorkspacePipelineStep | ApiChapterWorkspaceProgressStep;
   active?: boolean;
   progressLabel?: string;
+  onClick?: () => void;
 }) {
   const isRunning = active || ("status" in step && step.status === "RUNNING");
   const isCompleted =
@@ -199,39 +218,53 @@ function ProgressItem({
     (("status" in step && step.status === "COMPLETED") ||
       ("completed" in step && step.completed > 0 && step.completed === step.total));
 
-  return (
+  const content = (
     <div
-      className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-xs transition-colors ${
+      className={`group flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-xs transition-all ${
         isRunning
-          ? "border-purple-500/40 bg-purple-500/10 text-purple-200"
+          ? "border-purple-500/50 bg-purple-500/10 text-purple-200 shadow-sm shadow-purple-900/20"
           : isCompleted
-            ? "border-border bg-surface-panel text-slate-300"
-            : "border-border/50 bg-surface-dark text-slate-500"
-      }`}
+            ? "border-border bg-surface-panel/90 text-slate-200 hover:border-slate-700"
+            : "border-border/60 bg-surface-dark/90 text-slate-400 hover:border-slate-700/80"
+      } ${onClick ? "cursor-pointer hover:bg-slate-900/80 hover:text-slate-100" : ""}`}
     >
-      <div className="flex min-w-0 items-center gap-2.5">
-        <span
-          className={
-            isRunning ? "text-purple-400" : isCompleted ? "text-emerald-400" : "text-slate-600"
-          }
-        >
+      <div className="flex min-w-0 items-center gap-3">
+        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${iconColorClass}`}>
           {icon}
         </span>
-        <span className="truncate font-medium">{label}</span>
+        <span className="truncate font-medium text-slate-200">
+          {stepNumber}. {label}
+        </span>
       </div>
 
       <div className="flex shrink-0 items-center gap-2 font-mono text-[11px]">
-        {progressLabel && <span className="text-slate-400">{progressLabel}</span>}
+        {progressLabel && (
+          <span className="rounded bg-purple-500/10 px-1.5 py-0.5 text-purple-300">{progressLabel}</span>
+        )}
         {isRunning ? (
           <Loader2 className="h-3.5 w-3.5 animate-spin text-purple-400" />
         ) : isCompleted ? (
           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
         ) : (
-          <Clock className="h-3.5 w-3.5 text-slate-600" />
+          <ChevronRight className="h-3.5 w-3.5 text-slate-500 transition-transform group-hover:translate-x-0.5 group-hover:text-slate-300" />
         )}
       </div>
     </div>
   );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded-xl"
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return content;
 }
 
 function QuickAction({
