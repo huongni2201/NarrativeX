@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element -- Character media URLs are backend/CDN-owned runtime values. */
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   BookOpen,
   ChevronLeft,
@@ -67,6 +68,7 @@ export function ProjectCharactersTab({
   projectId,
   onOpenLibrary,
 }: Readonly<ProjectCharactersTabProps>) {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<CharacterRoleFilter>("all");
   const [currentPage, setCurrentPage] = useState(1);
@@ -330,7 +332,8 @@ export function ProjectCharactersTab({
             {pagedCharacters.map((character) => (
               <article
                 key={character.id}
-                className="group relative flex flex-col justify-between rounded-2xl border border-slate-800/90 bg-[#0d1420] p-4 transition-all duration-200 hover:border-purple-500/50 hover:shadow-xl hover:shadow-purple-950/20"
+                onClick={() => router.push(`/projects/${projectId}/characters/${character.id}`)}
+                className="group relative flex flex-col justify-between rounded-2xl border border-slate-800/90 bg-[#0d1420] p-4 transition-all duration-200 hover:border-purple-500/50 hover:shadow-xl hover:shadow-purple-950/20 cursor-pointer"
               >
                 <div className="flex gap-3.5 items-start">
                   {/* Portrait Avatar */}
