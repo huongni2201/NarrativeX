@@ -58,9 +58,11 @@ Furthermore, users may provide uploaded audio split across multiple files, where
 - The narration runner uses typed outcomes: permanent request/provider rejection, retryable infrastructure failure, ambiguous provider outcome, and lease loss.
 - Once a `ProviderOperation` crosses `RESERVED -> UNKNOWN`, no automatic retry invokes TTS again. The operation receives an initial `next_reconcile_at`; later reconciliation uses deterministic bounded backoff (`5, 10, 20, 40, 80, 160, 300` seconds) and CAS-fenced `reconcile_attempts`/`last_reconcile_error` updates.
 - Existing immutable R2 segment objects are recovered and checksum-validated before the provider operation is completed. R2 or PostgreSQL failures after provider submission keep the operation `UNKNOWN`; finalization-only failures move the stage/job to `STALLED` for a safe retry.
+- Due provider-operation reconciliation is claimed before ordinary narration work, so a continuously replenished normal queue cannot starve an ambiguous operation that may already have incurred provider cost.
+- Scratch-file writes, checksum calculation, and recovery downloads after the submission fence are classified as `UNKNOWN` on transient `OSError`/storage failures and never invoke TTS a second time. Deterministic post-fence failures first transition the provider operation `UNKNOWN -> FAILED` before the stage/job is failed.
 - `mark_unknown` and `mark_stalled` update the parent `GenerationJob` only when the owned `RUNNING` `StageAttempt` transition affects exactly one row. A worker that loses its lease has no authority to mutate the parent job.
 - Provider operations are reused by `(provider_key, request_fingerprint)` across retry `StageAttempt` rows. The original `stage_attempt_id` remains audit provenance and is not a retry identity constraint.
-- Reconciliation exhaustion is explicit suspension/manual attention while preserving `ProviderOperation = UNKNOWN`; it is never an automatic `FAILED` or provider resubmission.
+- Reconciliation exhaustion is explicit suspension/manual attention while preserving `ProviderOperation = UNKNOWN`; it is never an automatic `FAILED` or provider resubmission. The job exposes `current_step = NARRATION_REQUIRES_ATTENTION` so operators can distinguish exhausted ambiguity from scheduled retry.
 
 ## Invariants
 
@@ -73,6 +75,7 @@ Furthermore, users may provide uploaded audio split across multiple files, where
 6. A known transient infrastructure failure cannot terminalize a post-fence narration operation as
    `FAILED` or cause a second TTS submission.
 7. An unowned narration lease cannot mutate its parent `GenerationJob`.
+8. A failed narration job cannot leave a recoverable post-fence provider operation orphaned in `UNKNOWN`; deterministic failures finalize the operation first, while ambiguous failures retain a due reconciliation or explicit attention state.
 
 ## Consequences
 

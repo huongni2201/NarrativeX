@@ -24,10 +24,12 @@ class NarrationOutcomeUnknownError(NarrationError):
         *,
         provider_operation_id: int | None = None,
         storage_key: str | None = None,
+        reconciliation_exhausted: bool = False,
     ) -> None:
         super().__init__(message)
         self.provider_operation_id = provider_operation_id
         self.storage_key = storage_key
+        self.reconciliation_exhausted = reconciliation_exhausted
 
 
 class NarrationRetryableInfrastructureError(NarrationError):

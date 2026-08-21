@@ -5,6 +5,7 @@
 .env.*
 !.env.example
 !**/.env.example
+!.env.e2e.example
 
 # ==========================================
 # Node / Frontend (Next.js)

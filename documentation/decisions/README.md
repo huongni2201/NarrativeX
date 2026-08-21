@@ -16,5 +16,6 @@ This directory records decisions that affect more than one feature or change a p
 - [ADR-0010: SQL-first MyBatis persistence architecture and aggregate boundaries](./ADR-0010-sql-first-mybatis-persistence-architecture.md)
 - [ADR-0011: Narration audio pipeline, multi-part alignment and worker concurrency](./ADR-0011-narration-pipeline-and-worker-runtime.md)
 - [ADR-0012: Cloudflare R2 durable media storage](./ADR-0012-cloudflare-r2-durable-media-storage.md)
+- [ADR-0013: Out-of-band E2E credentials and repository secret scanning](./ADR-0013-test-credential-handling-and-secret-scanning.md)
 
-The previous granular/transitional ADR records were consolidated into the 12 canonical files above. Use a new sequential ADR (`ADR-0013+`) for any new cross-cutting architecture decisions.
+The previous granular/transitional ADR records were consolidated into the canonical files above. Use a new sequential ADR (`ADR-0014+`) for any new cross-cutting architecture decisions.

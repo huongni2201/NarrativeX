@@ -31,10 +31,16 @@ def claimed_job(index: int) -> ClaimedNarrationJob:
 
 
 class FakeNarrationRepository:
-    def __init__(self, jobs: list[ClaimedNarrationJob]) -> None:
+    def __init__(
+        self,
+        jobs: list[ClaimedNarrationJob],
+        due_reconciliations: list[ClaimedNarrationJob] | None = None,
+    ) -> None:
         self.jobs = deque(jobs)
+        self.due_reconciliations = deque(due_reconciliations or [])
         self.on_empty: Callable[[], None] | None = None
         self.claimed: list[ClaimedNarrationJob] = []
+        self.claim_order: list[str] = []
         self.connected = False
         self.closed = False
         self.fail_calls: list[tuple[Any, ...]] = []
@@ -55,11 +61,17 @@ class FakeNarrationRepository:
             return None
         job = self.jobs.popleft()
         self.claimed.append(job)
+        self.claim_order.append(job.job_id)
         return job
 
     async def claim_due_reconciliation(self, worker_id: str) -> ClaimedNarrationJob | None:
         del worker_id
-        return None
+        if not self.due_reconciliations:
+            return None
+        job = self.due_reconciliations.popleft()
+        self.claimed.append(job)
+        self.claim_order.append(job.job_id)
+        return job
 
     async def heartbeat(self, stage_attempt_id: int, worker_id: str) -> bool:
         del stage_attempt_id, worker_id
@@ -73,6 +85,10 @@ class FakeNarrationRepository:
         return True
 
     async def mark_unknown(self, *args: Any, **kwargs: Any) -> bool:
+        self.unknown_calls.append((*args, kwargs))
+        return True
+
+    async def mark_reconciliation_exhausted(self, *args: Any, **kwargs: Any) -> bool:
         self.unknown_calls.append((*args, kwargs))
         return True
 
@@ -117,6 +133,23 @@ async def test_narration_runner_limits_active_jobs_and_reaps_all_claims() -> Non
     assert repository.connected
     assert repository.closed
     assert not runner._in_flight
+
+
+@pytest.mark.asyncio
+async def test_due_reconciliation_is_claimed_before_normal_queue() -> None:
+    due = claimed_job(999)
+    normal = [claimed_job(index) for index in range(100)]
+    repository = FakeNarrationRepository(normal, [due])
+    runner = runner_with_repository(1, repository)
+    repository.on_empty = runner.stop
+
+    async def process(claimed: ClaimedNarrationJob) -> None:
+        del claimed
+
+    runner._process = process  # type: ignore[method-assign]
+    await runner.start()
+
+    assert repository.claim_order[0] == due.job_id
 
 
 @pytest.mark.asyncio
@@ -196,6 +229,26 @@ async def test_retryable_infrastructure_failure_stalls_without_failing() -> None
 
     assert repository.stalled_calls
     assert not repository.fail_calls
+
+
+@pytest.mark.asyncio
+async def test_reconciliation_exhaustion_is_surfaced_as_manual_attention() -> None:
+    repository = FakeNarrationRepository([])
+    runner = runner_with_repository(1, repository)
+
+    async def exhausted(claimed: ClaimedNarrationJob) -> None:
+        del claimed
+        from narrativex_worker.narration.runner import NarrationOutcomeUnknownError
+
+        raise NarrationOutcomeUnknownError(
+            "reconciliation exhausted", reconciliation_exhausted=True
+        )
+
+    runner._execute = exhausted  # type: ignore[method-assign]
+    await runner._process(claimed_job(0))
+
+    assert repository.unknown_calls
+    assert repository.unknown_calls[0][2] == "RECONCILIATION_EXHAUSTED"
 
 
 def test_narration_pool_size_is_derived_from_worker_concurrency() -> None:
