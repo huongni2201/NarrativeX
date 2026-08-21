@@ -5,7 +5,7 @@
 - Entry point: `com.narrativex.backend.NarrativeXBackendApplication`.
 - Build: Maven under `app/backend-service`.
 - Runtime: Java 25, Spring Boot 4.1.0.
-- Persistence: Spring Data JPA plus MyBatis SQL-first persistence for ProviderOperation and Chapter, backed by PostgreSQL and Flyway. PostgreSQL remains authoritative for durable business and execution state.
+- Persistence: Spring Data JPA plus MyBatis SQL-first persistence for migrated boundaries such as ProviderOperation and Chapter, backed by PostgreSQL and Flyway. PostgreSQL remains authoritative for durable business and execution state.
 - Redis: Spring Data Redis provides non-authoritative abuse-control/delivery/cache/progress infrastructure, while Spring Session Data Redis stores authenticated HTTP session state.
 - Architecture: modular monolith with extraction-oriented feature boundaries plus a separate Python asynchronous AI/media worker.
 
@@ -48,9 +48,7 @@ OperationPlan
 Provider requests require durable lifecycle state. Ambiguous external state uses `UNKNOWN` reconciliation instead of blind retry/resubmit. Full actual-usage reconciliation and unused-reservation release remain follow-up work.
 
 ProviderOperation and Chapter use MyBatis adapters. Their application ports are
-persistence-technology-neutral; the ProviderOperation JPA adapter remains
-available with `narrativex.persistence.provider-operation=jpa` during rollout.
-Both MyBatis boundaries use dedicated row models and explicit PostgreSQL
+persistence-technology-neutral. Both MyBatis boundaries use dedicated row models and explicit PostgreSQL
 predicates, including `row_version` CAS for mutable writes.
 
 Future MyBatis boundaries must extend

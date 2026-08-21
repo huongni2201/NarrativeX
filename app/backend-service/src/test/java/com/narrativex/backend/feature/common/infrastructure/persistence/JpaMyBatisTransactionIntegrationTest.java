@@ -23,7 +23,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-@SpringBootTest(properties = "narrativex.persistence.provider-operation=mybatis")
+@SpringBootTest
 @ActiveProfiles("test")
 class JpaMyBatisTransactionIntegrationTest extends PostgreSqlIntegrationTestSupport {
   @Autowired private ProjectRepository projectRepository;

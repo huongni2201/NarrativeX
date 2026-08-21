@@ -12,15 +12,12 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 @Component
 @RequiredArgsConstructor
-@ConditionalOnProperty(
-    name = "narrativex.persistence.provider-operation", havingValue = "mybatis", matchIfMissing = true)
 public class MyBatisProviderOperationPersistenceAdapter implements ProviderOperationRepository {
   private final ProviderOperationMapper mapper;
   private final MeterRegistry meterRegistry;

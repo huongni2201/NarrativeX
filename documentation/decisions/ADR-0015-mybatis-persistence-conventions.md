@@ -45,10 +45,11 @@ setup or PostgreSQL integration-test infrastructure.
 - Use PostgreSQL Testcontainers for persistence, concurrency, locking, JSONB
   and PostgreSQL-specific SQL evidence. H2 remains available for lightweight
   tests but is not compatibility evidence for MyBatis SQL.
-- Keep JPA and MyBatis adapter selection per persistence boundary using
-  `narrativex.persistence.<boundary>=mybatis|jpa`. The default adapter must be
-  explicit in tests, and a rollback selection test must prove exactly one
-  implementation is active.
+- During coexistence, a boundary may use an explicit
+  `narrativex.persistence.<boundary>=mybatis|jpa` selector. Once a boundary is
+  retired from JPA, remove its selector and keep exactly one adapter. The
+  ProviderOperation boundary is the first completed example; its default
+  selection test proves exactly one MyBatis implementation is active.
 
 ## Consequences
 
@@ -64,7 +65,8 @@ setup or PostgreSQL integration-test infrastructure.
 ### Negative
 
 - XML and row mapping are more verbose than convention-based mapping.
-- JPA and MyBatis adapters may temporarily coexist for one boundary.
+- JPA and MyBatis adapters may temporarily coexist for boundaries still in
+  migration.
 - Each migrated boundary still owns its semantic SQL and contract tests.
 
 ## Scope and non-goals
@@ -79,8 +81,8 @@ JPA/H2, generalize JSONB handling or add generic repository abstractions.
   idempotency and concurrency assertions.
 - `ProviderOperationDefaultPersistenceSelectionTest` proves the absent-property
   default and exactly one MyBatis adapter.
-- `ProviderOperationPersistenceSelectionTest` proves the explicit JPA rollback
-  switch and exactly one adapter.
+- `ProviderOperationDefaultPersistenceSelectionTest` proves exactly one
+  ProviderOperation MyBatis adapter is active after JPA retirement.
 - `JpaMyBatisTransactionIntegrationTest` proves JPA-first and MyBatis-first
   writes roll back together through the shared Spring transaction boundary.
 - `scripts/check-persistence-migration.ps1 -Strict` is the final anti-regression

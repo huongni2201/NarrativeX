@@ -1,5 +1,6 @@
 package com.narrativex.backend.support;
 
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -8,6 +9,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 /** Shared PostgreSQL-only infrastructure for persistence integration tests. */
 @Testcontainers(disabledWithoutDocker = true)
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 public abstract class PostgreSqlIntegrationTestSupport {
   @Container
   protected static final PostgreSQLContainer<?> POSTGRES =

@@ -52,8 +52,6 @@ server:
         same-site: lax
 
 narrativex:
-  persistence:
-    provider-operation: ${NARRATIVEX_PROVIDER_OPERATION_PERSISTENCE:mybatis}
   limits:
     max-story-characters: ${NARRATIVEX_MAX_STORY_CHARACTERS:500000}
     max-estimated-input-tokens: ${NARRATIVEX_MAX_ESTIMATED_INPUT_TOKENS:120000}

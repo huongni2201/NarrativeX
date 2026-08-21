@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted — 2026-08-20
+Accepted — 2026-08-20; completed — 2026-08-21
 
 ## Context
 
@@ -17,9 +17,8 @@ implementation and made the two runtime contracts harder to compare.
 
 - Keep `ProviderOperationRepository` as the application-facing port. Use cases
   do not import JPA or MyBatis types.
-- Make MyBatis the default backend adapter for `provider_operations`.
-- Keep the JPA adapter behind
-  `narrativex.persistence.provider-operation=jpa` as a rollback path.
+- Make MyBatis the only backend adapter for `provider_operations` after the
+  staged parity and PostgreSQL integration evidence in this repository.
 - Use the existing application `DataSource` and Spring transaction strategy;
   MyBatis does not create a second connection pool or database.
 - Keep SQL in `ProviderOperationMapper.xml` and map rows through a dedicated
@@ -48,7 +47,9 @@ implementation and made the two runtime contracts harder to compare.
 
 ### Negative
 
-- The backend now maintains two implementations temporarily.
+- ProviderOperation no longer maintains a second persistence implementation;
+  rollback requires restoring code from version control and must not be done by
+  blind external resubmission.
 - ProviderOperation row mapping and SQL must be kept aligned with the Python
   worker's persisted contract.
 - PostgreSQL is required for the migrated integration path; H2 is not evidence
@@ -59,16 +60,16 @@ implementation and made the two runtime contracts harder to compare.
 1. Run the MyBatis contract and PostgreSQL concurrency suite in CI.
 2. Enable the default MyBatis adapter in staging and compare transition
    conflicts, transaction duration and reconciliation behavior.
-3. Roll back with `NARRATIVEX_PROVIDER_OPERATION_PERSISTENCE=jpa` if required;
-   do not blindly resubmit ambiguous provider operations.
-4. Remove the JPA ProviderOperation adapter only after staged parity evidence.
+3. If a rollback is required, restore the prior version of the adapter through
+   the normal deployment process; do not blindly resubmit ambiguous provider
+   operations.
 
 ## Verification
 
 - `ProviderOperationRepositoryIntegrationTest` runs against PostgreSQL 17 in
   Testcontainers.
-- `ProviderOperationPersistenceSelectionTest` verifies the explicit JPA
-  rollback switch.
+- `ProviderOperationDefaultPersistenceSelectionTest` verifies that exactly one
+  MyBatis adapter is active without a persistence-selection switch.
 - Critical provider-operation queries should be checked with
   `EXPLAIN (ANALYZE, BUFFERS)` against representative production-like data
   before rollout.

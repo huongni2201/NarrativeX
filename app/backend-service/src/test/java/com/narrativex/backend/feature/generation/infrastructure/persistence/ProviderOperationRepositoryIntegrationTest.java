@@ -28,9 +28,14 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.test.context.ActiveProfiles;
 
-@SpringBootTest(properties = "narrativex.persistence.provider-operation=mybatis")
+@SpringBootTest
 @ActiveProfiles("test")
 class ProviderOperationRepositoryIntegrationTest extends PostgreSqlIntegrationTestSupport {
+  private static final String RESULT_FINGERPRINT_A =
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+  private static final String RESULT_FINGERPRINT_B =
+      "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
   @Autowired private ProviderOperationRepository repository;
   @Autowired private JdbcTemplate jdbcTemplate;
   private ExecutorService executor;
@@ -74,7 +79,11 @@ class ProviderOperationRepositoryIntegrationTest extends PostgreSqlIntegrationTe
             submitted.getId(), submitted.getRowVersion(), ProviderOperationStatus.RUNNING, null);
     ProviderOperation completed =
         repository.persistResult(
-            running.getId(), running.getRowVersion(), null, "{\"answer\":\"ok\"}", "result-a");
+            running.getId(),
+            running.getRowVersion(),
+            null,
+            "{\"answer\":\"ok\"}",
+            RESULT_FINGERPRINT_A);
 
     assertEquals(ProviderOperationStatus.COMPLETED, completed.getStatus());
     assertThrows(
@@ -97,7 +106,7 @@ class ProviderOperationRepositoryIntegrationTest extends PostgreSqlIntegrationTe
             completed.getRowVersion() - 1,
             null,
             "{\"answer\":\"ok\"}",
-            "result-a");
+            RESULT_FINGERPRINT_A);
 
     assertEquals(completed.getId(), repeated.getId());
     assertThrows(
@@ -108,7 +117,7 @@ class ProviderOperationRepositoryIntegrationTest extends PostgreSqlIntegrationTe
                 completed.getRowVersion(),
                 null,
                 "{\"answer\":\"different\"}",
-                "result-b"));
+                RESULT_FINGERPRINT_B));
   }
 
   @Test
@@ -181,7 +190,11 @@ class ProviderOperationRepositoryIntegrationTest extends PostgreSqlIntegrationTe
         repository.markSubmissionUnknown(
             reserved.getId(), reserved.getRowVersion(), Instant.now().plusSeconds(30));
     return repository.persistResult(
-        unknown.getId(), unknown.getRowVersion(), "provider-result", "{\"ok\":true}", "result-a");
+        unknown.getId(),
+        unknown.getRowVersion(),
+        "provider-result",
+        "{\"ok\":true}",
+        RESULT_FINGERPRINT_A);
   }
 
   private Object transitionAfterBarrier(
