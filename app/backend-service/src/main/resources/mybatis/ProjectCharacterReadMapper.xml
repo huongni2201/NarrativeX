@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.ProjectCharacterReadMapper">
+    <resultMap id="projectCharacterReadRow" type="com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.ProjectCharacterReadRow">
+        <id property="assignmentId" column="assignment_id" />
+        <result property="characterId" column="character_id" />
+        <result property="projectId" column="project_id" />
+        <result property="workspaceId" column="workspace_id" />
+        <result property="canonicalName" column="canonical_name" />
+        <result property="aliasesJson" column="aliases_json" />
+        <result property="projectAliasesJson" column="project_aliases_json" />
+        <result property="role" column="role" />
+        <result property="importance" column="importance" />
+        <result property="groupsJson" column="groups_json" />
+        <result property="pinnedCharacterVersionId" column="pinned_character_version_id" />
+        <result property="status" column="status" />
+        <result property="sceneCount" column="scene_count" />
+        <result property="rowVersion" column="row_version" />
+        <result property="createdAt" column="created_at" />
+        <result property="updatedAt" column="updated_at" />
+        <result property="versionNumber" column="version_number" />
+        <result property="versionStatus" column="version_status" />
+        <result property="bible" column="bible" />
+        <result property="visualPrompt" column="visual_prompt" />
+        <result property="masterAssetId" column="master_asset_id" />
+        <result property="ageState" column="age_state" />
+        <result property="hairstyle" column="hairstyle" />
+        <result property="injury" column="injury" />
+        <result property="wardrobeContext" column="wardrobe_context" />
+        <result property="appearancePrompt" column="appearance_prompt" />
+    </resultMap>
+
+    <select id="projectOwnedBy" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1 FROM projects
+             WHERE id = #{projectId}
+               AND owner_id = #{ownerId}
+               AND archived_at IS NULL
+        )
+    </select>
+
+    <sql id="baseColumns">
+        pc.id AS assignment_id,
+        c.id AS character_id,
+        pc.project_id,
+        c.workspace_id,
+        c.canonical_name,
+        c.aliases::text AS aliases_json,
+        pc.project_aliases::text AS project_aliases_json,
+        pc.role,
+        pc.importance,
+        pc.groups_json::text AS groups_json,
+        pc.pinned_character_version_id,
+        pc.status,
+        COALESCE(scene_usage.scene_count, 0)::int AS scene_count,
+        pc.row_version,
+        pc.created_at,
+        pc.updated_at,
+        cv.version_number,
+        cv.status AS version_status,
+        cv.bible,
+        cv.visual_prompt,
+        cv.master_asset_id,
+        appearance.age_state,
+        appearance.hairstyle,
+        appearance.injury,
+        appearance.wardrobe_context,
+        appearance.appearance_prompt
+    </sql>
+
+    <sql id="joins">
+        FROM project_characters pc
+        JOIN projects p ON p.id = pc.project_id
+        JOIN characters c ON c.id = pc.character_id
+        LEFT JOIN character_versions cv ON cv.id = pc.pinned_character_version_id
+        LEFT JOIN LATERAL (
+            SELECT COUNT(DISTINCT sc.scene_id) AS scene_count
+              FROM scene_characters sc
+             WHERE sc.project_character_id = pc.id
+        ) scene_usage ON TRUE
+        LEFT JOIN LATERAL (
+            SELECT ca.age_state,
+                   ca.hairstyle,
+                   ca.injury,
+                   ca.wardrobe_context,
+                   ca.appearance_prompt
+              FROM character_appearances ca
+             WHERE ca.character_id = c.id
+               AND (ca.project_id = pc.project_id OR ca.project_id IS NULL)
+             ORDER BY CASE WHEN ca.project_id = pc.project_id THEN 0 ELSE 1 END,
+                      ca.updated_at DESC,
+                      ca.id DESC
+             LIMIT 1
+        ) appearance ON TRUE
+    </sql>
+
+    <select id="findFirstPage" resultMap="projectCharacterReadRow">
+        SELECT <include refid="baseColumns" />
+        <include refid="joins" />
+         WHERE pc.project_id = #{projectId}
+           AND p.owner_id = #{ownerId}
+           AND p.archived_at IS NULL
+           AND pc.status = 'ACTIVE'
+           AND c.status = 'ACTIVE'
+         ORDER BY pc.updated_at DESC, pc.id DESC
+         LIMIT #{limit}
+    </select>
+
+    <select id="findAfter" resultMap="projectCharacterReadRow">
+        SELECT <include refid="baseColumns" />
+        <include refid="joins" />
+         WHERE pc.project_id = #{projectId}
+           AND p.owner_id = #{ownerId}
+           AND p.archived_at IS NULL
+           AND pc.status = 'ACTIVE'
+           AND c.status = 'ACTIVE'
+           AND (pc.updated_at &lt; #{updatedAt}
+                OR (pc.updated_at = #{updatedAt} AND pc.id &lt; #{id}))
+         ORDER BY pc.updated_at DESC, pc.id DESC
+         LIMIT #{limit}
+    </select>
+
+    <select id="findDetail" resultMap="projectCharacterReadRow">
+        SELECT <include refid="baseColumns" />
+        <include refid="joins" />
+         WHERE pc.project_id = #{projectId}
+           AND c.id = #{characterId}
+           AND p.owner_id = #{ownerId}
+           AND p.archived_at IS NULL
+           AND pc.status = 'ACTIVE'
+           AND c.status = 'ACTIVE'
+         LIMIT 1
+    </select>
+</mapper>
