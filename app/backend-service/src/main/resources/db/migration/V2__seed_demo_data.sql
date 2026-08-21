@@ -116,18 +116,18 @@ VALUES
     (5010, 4010, 1, 'Green shoot in the valley', 'A single green shoot appears at the end of the dry path.', 'APPROVED', 'BASIC_MOTION', 'PUSH_IN', 'RATIO_16_9', 'HIGH', 0, 47, 0, 47000, 'MEDIUM')
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO generation_jobs (id, job_id, project_id, job_type, status, resource_class, progress, current_step, requested_by_user_id, billed_to_user_id, error_code, production_mode, storyboard_revision_id, media_plan_id, media_plan_revision, "references")
+INSERT INTO generation_jobs (id, job_id, project_id, job_type, status, resource_class, progress, current_step, requested_by_user_id, billed_to_user_id, error_code, production_mode, storyboard_revision_id, media_plan_id, media_plan_revision)
 VALUES
-    (6001, '00000000-0000-4000-8000-000000000001', 1001, 'STORY_ANALYZE', 'COMPLETED', 'CPU_LIGHT', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), NULL, NULL, NULL, NULL, NULL, NULL),
-    (6002, '00000000-0000-4000-8000-000000000002', 1002, 'IMAGE_GENERATE', 'COMPLETED', 'GPU_HEAVY', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), NULL, NULL, NULL, NULL, NULL, NULL),
-    (6003, '00000000-0000-4000-8000-000000000003', 1003, 'IMAGE_GENERATE', 'RUNNING', 'GPU_HEAVY', 64, 'rendering_visual_beats', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), NULL, NULL, NULL, NULL, NULL, NULL),
-    (6004, '00000000-0000-4000-8000-000000000004', 1004, 'STORY_ANALYZE', 'QUEUED', 'CPU_LIGHT', 0, 'queued', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), NULL, NULL, NULL, NULL, NULL, NULL),
-    (6005, '00000000-0000-4000-8000-000000000005', 1005, 'RENDER_PROJECT', 'COMPLETED', 'GPU_HEAVY', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), NULL, NULL, NULL, NULL, NULL, NULL),
-    (6006, '00000000-0000-4000-8000-000000000006', 1006, 'RENDER_PROJECT', 'FAILED', 'GPU_HEAVY', 72, 'provider_output_review', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), NULL, NULL, NULL, NULL, NULL, NULL),
-    (6007, '00000000-0000-4000-8000-000000000007', 1007, 'RENDER_SHORT', 'COMPLETED', 'GPU_HEAVY', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), NULL, NULL, NULL, NULL, NULL, NULL),
-    (6008, '00000000-0000-4000-8000-000000000008', 1008, 'IMAGE_GENERATE', 'COMPLETED', 'GPU_HEAVY', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), NULL, NULL, NULL, NULL, NULL, NULL),
-    (6009, '00000000-0000-4000-8000-000000000009', 1009, 'STORY_ANALYZE', 'QUEUED', 'CPU_LIGHT', 0, 'queued', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), NULL, NULL, NULL, NULL, NULL, NULL),
-    (6010, '00000000-0000-4000-8000-000000000010', 1010, 'RENDER_PROJECT', 'COMPLETED', 'GPU_HEAVY', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), NULL, NULL, NULL, NULL, NULL, NULL)
+    (6001, '00000000-0000-4000-8000-000000000001', 1001, 'STORY_ANALYZE', 'COMPLETED', 'CPU_LIGHT', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), NULL, NULL, NULL, NULL, NULL),
+    (6002, '00000000-0000-4000-8000-000000000002', 1002, 'IMAGE_GENERATE', 'COMPLETED', 'GPU_HEAVY', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), NULL, NULL, NULL, NULL, NULL),
+    (6003, '00000000-0000-4000-8000-000000000003', 1003, 'IMAGE_GENERATE', 'RUNNING', 'GPU_HEAVY', 64, 'rendering_visual_beats', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), NULL, NULL, NULL, NULL, NULL),
+    (6004, '00000000-0000-4000-8000-000000000004', 1004, 'STORY_ANALYZE', 'QUEUED', 'CPU_LIGHT', 0, 'queued', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), NULL, NULL, NULL, NULL, NULL),
+    (6005, '00000000-0000-4000-8000-000000000005', 1005, 'RENDER_PROJECT', 'COMPLETED', 'GPU_HEAVY', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), NULL, NULL, NULL, NULL, NULL),
+    (6006, '00000000-0000-4000-8000-000000000006', 1006, 'RENDER_PROJECT', 'FAILED', 'GPU_HEAVY', 72, 'provider_output_review', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), NULL, NULL, NULL, NULL, NULL),
+    (6007, '00000000-0000-4000-8000-000000000007', 1007, 'RENDER_SHORT', 'COMPLETED', 'GPU_HEAVY', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), NULL, NULL, NULL, NULL, NULL),
+    (6008, '00000000-0000-4000-8000-000000000008', 1008, 'IMAGE_GENERATE', 'COMPLETED', 'GPU_HEAVY', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), NULL, NULL, NULL, NULL, NULL),
+    (6009, '00000000-0000-4000-8000-000000000009', 1009, 'STORY_ANALYZE', 'QUEUED', 'CPU_LIGHT', 0, 'queued', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), NULL, NULL, NULL, NULL, NULL),
+    (6010, '00000000-0000-4000-8000-000000000010', 1010, 'RENDER_PROJECT', 'COMPLETED', 'GPU_HEAVY', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), NULL, NULL, NULL, NULL, NULL)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO stage_attempts (id, generation_job_id, stage_name, attempt_number, status, worker_id, heartbeat_at)
@@ -146,16 +146,16 @@ ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO provider_operations (id, stage_attempt_id, provider_key, provider_operation_id, status, request_fingerprint, result_fingerprint, normalized_result_json, actual_cost, billing_currency, usage_json, pricing_snapshot_json, last_reconcile_error, reconcile_attempts, completed_at, next_reconcile_at, reserved_at)
 VALUES
-    (8001, 7001, 'demo.analysis', 'demo-op-0001', 'COMPLETED', 'seed-fp-8001', encode(sha256(convert_to('seed-rfp-8001', 'UTF8')), 'hex'), '{"scenes":1}'::jsonb, 0.015000000, 'USD', '{"tokens":1600}'::jsonb, '{"unitCost":0.00001}'::jsonb, NULL, NULL, NULL, NULL, NULL),
-    (8002, 7002, 'demo.image', 'demo-op-0002', 'COMPLETED', 'seed-fp-8002', encode(sha256(convert_to('seed-rfp-8002', 'UTF8')), 'hex'), '{"images":4}'::jsonb, 0.150000000, 'USD', '{"images":4}'::jsonb, '{"unitCost":0.0375}'::jsonb, NULL, NULL, NULL, NULL, NULL),
-    (8003, 7003, 'demo.image', 'demo-op-0003', 'RUNNING', 'seed-fp-8003', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-    (8004, 7004, 'demo.analysis', NULL, 'RESERVED', 'seed-fp-8004', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-    (8005, 7005, 'demo.video', 'demo-op-0005', 'COMPLETED', 'seed-fp-8005', encode(sha256(convert_to('seed-rfp-8005', 'UTF8')), 'hex'), '{"video":"demo.mp4"}'::jsonb, 0.650000000, 'USD', '{"seconds":87}'::jsonb, '{"unitCost":0.0075}'::jsonb, NULL, NULL, NULL, NULL, NULL),
-    (8006, 7006, 'demo.video', 'demo-op-0006', 'FAILED', 'seed-fp-8006', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-    (8007, 7007, 'demo.short', 'demo-op-0007', 'COMPLETED', 'seed-fp-8007', encode(sha256(convert_to('seed-rfp-8007', 'UTF8')), 'hex'), '{"short":"demo.mp4"}'::jsonb, 0.280000000, 'USD', '{"seconds":34}'::jsonb, '{"unitCost":0.0082}'::jsonb, NULL, NULL, NULL, NULL, NULL),
-    (8008, 7008, 'demo.image', 'demo-op-0008', 'COMPLETED', 'seed-fp-8008', encode(sha256(convert_to('seed-rfp-8008', 'UTF8')), 'hex'), '{"images":5}'::jsonb, 0.120000000, 'USD', '{"images":5}'::jsonb, '{"unitCost":0.024}'::jsonb, NULL, NULL, NULL, NULL, NULL),
-    (8009, 7009, 'demo.analysis', NULL, 'RESERVED', 'seed-fp-8009', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-    (8010, 7010, 'demo.video', 'demo-op-0010', 'COMPLETED', 'seed-fp-8010', encode(sha256(convert_to('seed-rfp-8010', 'UTF8')), 'hex'), '{"video":"demo.mp4"}'::jsonb, 0.550000000, 'USD', '{"seconds":102}'::jsonb, '{"unitCost":0.0054}'::jsonb, NULL, NULL, NULL, NULL, NULL)
+    (8001, 7001, 'demo.analysis', 'demo-op-0001', 'COMPLETED', 'seed-fp-8001', encode(sha256(convert_to('seed-rfp-8001', 'UTF8')), 'hex'), '{"scenes":1}'::jsonb, 0.015000000, 'USD', '{"tokens":1600}'::jsonb, '{"unitCost":0.00001}'::jsonb, NULL, 0, NULL, NULL, CURRENT_TIMESTAMP),
+    (8002, 7002, 'demo.image', 'demo-op-0002', 'COMPLETED', 'seed-fp-8002', encode(sha256(convert_to('seed-rfp-8002', 'UTF8')), 'hex'), '{"images":4}'::jsonb, 0.150000000, 'USD', '{"images":4}'::jsonb, '{"unitCost":0.0375}'::jsonb, NULL, 0, NULL, NULL, CURRENT_TIMESTAMP),
+    (8003, 7003, 'demo.image', 'demo-op-0003', 'RUNNING', 'seed-fp-8003', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, CURRENT_TIMESTAMP),
+    (8004, 7004, 'demo.analysis', NULL, 'RESERVED', 'seed-fp-8004', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, CURRENT_TIMESTAMP),
+    (8005, 7005, 'demo.video', 'demo-op-0005', 'COMPLETED', 'seed-fp-8005', encode(sha256(convert_to('seed-rfp-8005', 'UTF8')), 'hex'), '{"video":"demo.mp4"}'::jsonb, 0.650000000, 'USD', '{"seconds":87}'::jsonb, '{"unitCost":0.0075}'::jsonb, NULL, 0, NULL, NULL, CURRENT_TIMESTAMP),
+    (8006, 7006, 'demo.video', 'demo-op-0006', 'FAILED', 'seed-fp-8006', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, CURRENT_TIMESTAMP),
+    (8007, 7007, 'demo.short', 'demo-op-0007', 'COMPLETED', 'seed-fp-8007', encode(sha256(convert_to('seed-rfp-8007', 'UTF8')), 'hex'), '{"short":"demo.mp4"}'::jsonb, 0.280000000, 'USD', '{"seconds":34}'::jsonb, '{"unitCost":0.0082}'::jsonb, NULL, 0, NULL, NULL, CURRENT_TIMESTAMP),
+    (8008, 7008, 'demo.image', 'demo-op-0008', 'COMPLETED', 'seed-fp-8008', encode(sha256(convert_to('seed-rfp-8008', 'UTF8')), 'hex'), '{"images":5}'::jsonb, 0.120000000, 'USD', '{"images":5}'::jsonb, '{"unitCost":0.024}'::jsonb, NULL, 0, NULL, NULL, CURRENT_TIMESTAMP),
+    (8009, 7009, 'demo.analysis', NULL, 'RESERVED', 'seed-fp-8009', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, CURRENT_TIMESTAMP),
+    (8010, 7010, 'demo.video', 'demo-op-0010', 'COMPLETED', 'seed-fp-8010', encode(sha256(convert_to('seed-rfp-8010', 'UTF8')), 'hex'), '{"video":"demo.mp4"}'::jsonb, 0.550000000, 'USD', '{"seconds":102}'::jsonb, '{"unitCost":0.0054}'::jsonb, NULL, 0, NULL, NULL, CURRENT_TIMESTAMP)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO operation_plans (id, project_id, generation_job_id, operation_type, estimate_min, estimate_max, max_authorized_cost, confidence)
@@ -207,35 +207,35 @@ ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO outbox_events (id, aggregate_type, aggregate_id, event_type, event_key, payload_json, status, attempts, available_at)
 VALUES
-    (12001, 'GenerationJob', '6001', 'RENDER_COMPLETED', 'seed-outbox-01', '{"jobId":"6001","source":"seed"}'::jsonb, 'PUBLISHED', 1, NULL),
-    (12002, 'GenerationJob', '6002', 'RENDER_COMPLETED', 'seed-outbox-02', '{"jobId":"6002","source":"seed"}'::jsonb, 'PUBLISHED', 1, NULL),
-    (12003, 'GenerationJob', '6003', 'JOB_PROGRESS', 'seed-outbox-03', '{"jobId":"6003","progress":64}'::jsonb, 'PENDING', 0, NULL),
-    (12004, 'GenerationJob', '6004', 'JOB_QUEUED', 'seed-outbox-04', '{"jobId":"6004","source":"seed"}'::jsonb, 'PENDING', 0, NULL),
-    (12005, 'GenerationJob', '6005', 'RENDER_COMPLETED', 'seed-outbox-05', '{"jobId":"6005","source":"seed"}'::jsonb, 'PUBLISHED', 1, NULL),
-    (12006, 'GenerationJob', '6006', 'RENDER_FAILED', 'seed-outbox-06', '{"jobId":"6006","source":"seed"}'::jsonb, 'PUBLISHED', 2, NULL),
-    (12007, 'GenerationJob', '6007', 'SHORT_COMPLETED', 'seed-outbox-07', '{"jobId":"6007","source":"seed"}'::jsonb, 'PUBLISHED', 1, NULL),
-    (12008, 'GenerationJob', '6008', 'RENDER_COMPLETED', 'seed-outbox-08', '{"jobId":"6008","source":"seed"}'::jsonb, 'PUBLISHED', 1, NULL),
-    (12009, 'GenerationJob', '6009', 'JOB_QUEUED', 'seed-outbox-09', '{"jobId":"6009","source":"seed"}'::jsonb, 'PENDING', 0, NULL),
-    (12010, 'GenerationJob', '6010', 'RENDER_COMPLETED', 'seed-outbox-10', '{"jobId":"6010","source":"seed"}'::jsonb, 'PUBLISHED', 1, NULL)
+    (12001, 'GenerationJob', '6001', 'RENDER_COMPLETED', 'seed-outbox-01', '{"jobId":"6001","source":"seed"}'::jsonb, 'PUBLISHED', 1, CURRENT_TIMESTAMP),
+    (12002, 'GenerationJob', '6002', 'RENDER_COMPLETED', 'seed-outbox-02', '{"jobId":"6002","source":"seed"}'::jsonb, 'PUBLISHED', 1, CURRENT_TIMESTAMP),
+    (12003, 'GenerationJob', '6003', 'JOB_PROGRESS', 'seed-outbox-03', '{"jobId":"6003","progress":64}'::jsonb, 'PENDING', 0, CURRENT_TIMESTAMP),
+    (12004, 'GenerationJob', '6004', 'JOB_QUEUED', 'seed-outbox-04', '{"jobId":"6004","source":"seed"}'::jsonb, 'PENDING', 0, CURRENT_TIMESTAMP),
+    (12005, 'GenerationJob', '6005', 'RENDER_COMPLETED', 'seed-outbox-05', '{"jobId":"6005","source":"seed"}'::jsonb, 'PUBLISHED', 1, CURRENT_TIMESTAMP),
+    (12006, 'GenerationJob', '6006', 'RENDER_FAILED', 'seed-outbox-06', '{"jobId":"6006","source":"seed"}'::jsonb, 'PUBLISHED', 2, CURRENT_TIMESTAMP),
+    (12007, 'GenerationJob', '6007', 'SHORT_COMPLETED', 'seed-outbox-07', '{"jobId":"6007","source":"seed"}'::jsonb, 'PUBLISHED', 1, CURRENT_TIMESTAMP),
+    (12008, 'GenerationJob', '6008', 'RENDER_COMPLETED', 'seed-outbox-08', '{"jobId":"6008","source":"seed"}'::jsonb, 'PUBLISHED', 1, CURRENT_TIMESTAMP),
+    (12009, 'GenerationJob', '6009', 'JOB_QUEUED', 'seed-outbox-09', '{"jobId":"6009","source":"seed"}'::jsonb, 'PENDING', 0, CURRENT_TIMESTAMP),
+    (12010, 'GenerationJob', '6010', 'RENDER_COMPLETED', 'seed-outbox-10', '{"jobId":"6010","source":"seed"}'::jsonb, 'PUBLISHED', 1, CURRENT_TIMESTAMP)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO plan_entitlements (id, plan_key, version, watermark_required, max_video_quality, max_longform_exports_month, max_short_exports_month, max_concurrent_expensive_jobs, feature_flags_json, monthly_credits, active_from)
 VALUES
-    (13001, 'DEMO_FREE_01', 1, TRUE, 'STANDARD', 2, 5, 1, '{"storyAnalysis":true}'::jsonb, 2.000000, CURRENT_TIMESTAMP),
-    (13002, 'DEMO_FREE_02', 1, TRUE, 'STANDARD', 2, 5, 1, '{"storyAnalysis":true}'::jsonb, 2.000000, CURRENT_TIMESTAMP),
-    (13003, 'DEMO_CREATOR_01', 1, FALSE, 'HIGH', 10, 20, 2, '{"storyAnalysis":true,"shorts":true}'::jsonb, 10.000000, CURRENT_TIMESTAMP),
-    (13004, 'DEMO_CREATOR_02', 1, FALSE, 'HIGH', 10, 20, 2, '{"storyAnalysis":true,"shorts":true}'::jsonb, 10.000000, CURRENT_TIMESTAMP),
-    (13005, 'DEMO_PRO_01', 1, FALSE, 'ULTRA', 30, 60, 4, '{"storyAnalysis":true,"shorts":true,"batchReview":true}'::jsonb, 50.000000, CURRENT_TIMESTAMP),
-    (13006, 'DEMO_PRO_02', 1, FALSE, 'ULTRA', 30, 60, 4, '{"storyAnalysis":true,"shorts":true,"batchReview":true}'::jsonb, 50.000000, CURRENT_TIMESTAMP),
-    (13007, 'DEMO_TEAM_01', 1, FALSE, 'HIGH', 50, 100, 6, '{"storyAnalysis":true,"shorts":true,"team":true}'::jsonb, 100.000000, CURRENT_TIMESTAMP),
-    (13008, 'DEMO_TEAM_02', 1, FALSE, 'HIGH', 50, 100, 6, '{"storyAnalysis":true,"shorts":true,"team":true}'::jsonb, 100.000000, CURRENT_TIMESTAMP),
-    (13009, 'DEMO_ENTERPRISE_01', 1, FALSE, 'ULTRA', NULL, NULL, 10, '{"storyAnalysis":true,"shorts":true,"priority":true}'::jsonb, 1000.000000, CURRENT_TIMESTAMP),
-    (13010, 'DEMO_ENTERPRISE_02', 1, FALSE, 'ULTRA', NULL, NULL, 10, '{"storyAnalysis":true,"shorts":true,"priority":true}'::jsonb, 1000.000000, CURRENT_TIMESTAMP)
+    (13001, 'NORMAL', 1, TRUE, 'STANDARD', 2, 5, 1, '{"storyAnalysis":true}'::jsonb, 2.000000, CURRENT_TIMESTAMP),
+    (13002, 'STANDARD', 1, TRUE, 'STANDARD', 2, 5, 1, '{"storyAnalysis":true}'::jsonb, 2.000000, CURRENT_TIMESTAMP),
+    (13003, 'PRO', 1, FALSE, 'HIGH', 10, 20, 2, '{"storyAnalysis":true,"shorts":true}'::jsonb, 10.000000, CURRENT_TIMESTAMP),
+    (13004, 'STANDARD', 2, FALSE, 'HIGH', 10, 20, 2, '{"storyAnalysis":true,"shorts":true}'::jsonb, 10.000000, CURRENT_TIMESTAMP),
+    (13005, 'STANDARD', 3, FALSE, 'ULTRA', 30, 60, 4, '{"storyAnalysis":true,"shorts":true,"batchReview":true}'::jsonb, 50.000000, CURRENT_TIMESTAMP),
+    (13006, 'PRO', 2, FALSE, 'ULTRA', 30, 60, 4, '{"storyAnalysis":true,"shorts":true,"batchReview":true}'::jsonb, 50.000000, CURRENT_TIMESTAMP),
+    (13007, 'PRO', 3, FALSE, 'HIGH', 50, 100, 6, '{"storyAnalysis":true,"shorts":true,"team":true}'::jsonb, 100.000000, CURRENT_TIMESTAMP),
+    (13008, 'PRO', 4, FALSE, 'HIGH', 50, 100, 6, '{"storyAnalysis":true,"shorts":true,"team":true}'::jsonb, 100.000000, CURRENT_TIMESTAMP),
+    (13009, 'PRO', 5, FALSE, 'ULTRA', NULL, NULL, 10, '{"storyAnalysis":true,"shorts":true,"priority":true}'::jsonb, 1000.000000, CURRENT_TIMESTAMP),
+    (13010, 'PRO', 6, FALSE, 'ULTRA', NULL, NULL, 10, '{"storyAnalysis":true,"shorts":true,"priority":true}'::jsonb, 1000.000000, CURRENT_TIMESTAMP)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO user_plan_assignments (user_id, plan_key, entitlement_version, status, period_start, period_end)
 VALUES
-    ((SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'DEMO_PRO_01', 1, 'ACTIVE', DATE '2026-08-01', DATE '2026-09-01')
+    ((SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'PRO', 1, 'ACTIVE', DATE '2026-08-01', DATE '2026-09-01')
 ON CONFLICT (user_id) DO NOTHING;
 
 INSERT INTO usage_windows (user_id, period_key, longform_exports, short_exports, credits_used)
@@ -285,18 +285,18 @@ VALUES
     (21010, 16010, 1, 'Seed Keeper Pack', 'Dusty travel clothes and a protected seed pack.', 'Travel clothes, seed pack, dry valley, hopeful green accent.', 'APPROVED')
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO character_appearances (id, character_id, project_id, timeline_key, age_state, hairstyle, injury, wardrobe_context, appearance_prompt, outfit_version_id, "references")
+INSERT INTO character_appearances (id, character_id, project_id, timeline_key, age_state, hairstyle, injury, wardrobe_context, appearance_prompt, outfit_version_id)
 VALUES
-    (22001, 16001, 1001, 'chapter-01', 'adult', 'Shoulder-length black hair', NULL, 'At the lantern workshop', 'Warm amber rim light, focused expression.', 21001, NULL),
-    (22002, 16002, 1002, 'chapter-01', 'middle-aged', 'Short silver-streaked hair', NULL, 'Inside the brass workshop', 'Brass reflections, precise hands, thoughtful eyes.', 21002, NULL),
-    (22003, 16003, 1003, 'chapter-01', 'adult', 'Short dark hair', NULL, 'On a moonlit boat', 'Cool moonlight, calm posture, river mist.', 21003, NULL),
-    (22004, 16004, 1004, 'chapter-01', 'young adult', 'Loose wavy hair', NULL, 'By a rainy window', 'Soft window light, reflective mood.', 21004, NULL),
-    (22005, 16005, 1005, 'chapter-01', 'child', 'Short bob haircut', NULL, 'At a paper-covered desk', 'Bright paper colors, curious gaze, safe storybook style.', 21005, NULL),
-    (22006, 16006, 1006, 'chapter-01', 'adult', 'Long braided hair', NULL, 'Among the pines', 'Green forest light, protective stance.', 21006, NULL),
-    (22007, 16007, 1007, 'chapter-01', 'elder', 'Silver hair in a bun', NULL, 'In the seed garden', 'Golden-hour garden light, welcoming smile.', 21007, NULL),
-    (22008, 16008, 1008, 'chapter-01', 'child', 'Short dark hair', NULL, 'On a city rooftop', 'Clear sky, blue kite, light wind.', 21008, NULL),
-    (22009, 16009, 1009, 'chapter-01', 'child', 'Curly dark hair', NULL, 'Beside the river', 'Star reflections, blue hour, curious expression.', 21009, NULL),
-    (22010, 16010, 1010, 'chapter-01', 'adult', 'Long windblown hair', NULL, 'Crossing the dry valley', 'Dusty horizon with one hopeful green shoot.', 21010, NULL)
+    (22001, 16001, 1001, 'chapter-01', 'adult', 'Shoulder-length black hair', NULL, 'At the lantern workshop', 'Warm amber rim light, focused expression.', 21001),
+    (22002, 16002, 1002, 'chapter-01', 'middle-aged', 'Short silver-streaked hair', NULL, 'Inside the brass workshop', 'Brass reflections, precise hands, thoughtful eyes.', 21002),
+    (22003, 16003, 1003, 'chapter-01', 'adult', 'Short dark hair', NULL, 'On a moonlit boat', 'Cool moonlight, calm posture, river mist.', 21003),
+    (22004, 16004, 1004, 'chapter-01', 'young adult', 'Loose wavy hair', NULL, 'By a rainy window', 'Soft window light, reflective mood.', 21004),
+    (22005, 16005, 1005, 'chapter-01', 'child', 'Short bob haircut', NULL, 'At a paper-covered desk', 'Bright paper colors, curious gaze, safe storybook style.', 21005),
+    (22006, 16006, 1006, 'chapter-01', 'adult', 'Long braided hair', NULL, 'Among the pines', 'Green forest light, protective stance.', 21006),
+    (22007, 16007, 1007, 'chapter-01', 'elder', 'Silver hair in a bun', NULL, 'In the seed garden', 'Golden-hour garden light, welcoming smile.', 21007),
+    (22008, 16008, 1008, 'chapter-01', 'child', 'Short dark hair', NULL, 'On a city rooftop', 'Clear sky, blue kite, light wind.', 21008),
+    (22009, 16009, 1009, 'chapter-01', 'child', 'Curly dark hair', NULL, 'Beside the river', 'Star reflections, blue hour, curious expression.', 21009),
+    (22010, 16010, 1010, 'chapter-01', 'adult', 'Long windblown hair', NULL, 'Crossing the dry valley', 'Dusty horizon with one hopeful green shoot.', 21010)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO project_characters (id, project_id, character_id, role, importance, project_aliases, story_metadata, groups_json, pinned_character_version_id, status)
@@ -357,16 +357,16 @@ ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO data_deletion_requests (id, user_id, scope, scope_id, status, started_at, completed_at, retention_deadline, requested_at, error_code)
 VALUES
-    (18001, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'PROJECT', '1001', 'REQUESTED', NULL, NULL, CURRENT_TIMESTAMP + INTERVAL '30 days', NULL, NULL),
-    (18002, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'PROJECT', '1002', 'IN_PROGRESS', CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP + INTERVAL '30 days', NULL, NULL),
-    (18003, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ASSET', 'asset-seed-03', 'COMPLETED', CURRENT_TIMESTAMP - INTERVAL '2 days', CURRENT_TIMESTAMP - INTERVAL '1 day', CURRENT_TIMESTAMP + INTERVAL '29 days', NULL, NULL),
-    (18004, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ACCOUNT', 'seed-user-01', 'REQUESTED', NULL, NULL, CURRENT_TIMESTAMP + INTERVAL '30 days', NULL, NULL),
-    (18005, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'PROJECT', '1005', 'COMPLETED', CURRENT_TIMESTAMP - INTERVAL '4 days', CURRENT_TIMESTAMP - INTERVAL '3 days', CURRENT_TIMESTAMP + INTERVAL '27 days', NULL, NULL),
-    (18006, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'PROJECT', '1006', 'FAILED', CURRENT_TIMESTAMP - INTERVAL '3 days', NULL, CURRENT_TIMESTAMP + INTERVAL '30 days', NULL, NULL),
-    (18007, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ASSET', 'asset-seed-07', 'REQUESTED', NULL, NULL, CURRENT_TIMESTAMP + INTERVAL '30 days', NULL, NULL),
-    (18008, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'PROJECT', '1008', 'IN_PROGRESS', CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP + INTERVAL '30 days', NULL, NULL),
-    (18009, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ACCOUNT', 'seed-user-01', 'COMPLETED', CURRENT_TIMESTAMP - INTERVAL '5 days', CURRENT_TIMESTAMP - INTERVAL '4 days', CURRENT_TIMESTAMP + INTERVAL '26 days', NULL, NULL),
-    (18010, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'PROJECT', '1010', 'REQUESTED', NULL, NULL, CURRENT_TIMESTAMP + INTERVAL '30 days', NULL, NULL)
+    (18001, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'PROJECT', '1001', 'REQUESTED', NULL, NULL, CURRENT_TIMESTAMP + INTERVAL '30 days', CURRENT_TIMESTAMP, NULL),
+    (18002, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'PROJECT', '1002', 'IN_PROGRESS', CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP + INTERVAL '30 days', CURRENT_TIMESTAMP, NULL),
+    (18003, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ASSET', 'asset-seed-03', 'COMPLETED', CURRENT_TIMESTAMP - INTERVAL '2 days', CURRENT_TIMESTAMP - INTERVAL '1 day', CURRENT_TIMESTAMP + INTERVAL '29 days', CURRENT_TIMESTAMP - INTERVAL '2 days', NULL),
+    (18004, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ACCOUNT', 'seed-user-01', 'REQUESTED', NULL, NULL, CURRENT_TIMESTAMP + INTERVAL '30 days', CURRENT_TIMESTAMP, NULL),
+    (18005, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'PROJECT', '1005', 'COMPLETED', CURRENT_TIMESTAMP - INTERVAL '4 days', CURRENT_TIMESTAMP - INTERVAL '3 days', CURRENT_TIMESTAMP + INTERVAL '27 days', CURRENT_TIMESTAMP - INTERVAL '4 days', NULL),
+    (18006, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'PROJECT', '1006', 'FAILED', CURRENT_TIMESTAMP - INTERVAL '3 days', NULL, CURRENT_TIMESTAMP + INTERVAL '30 days', CURRENT_TIMESTAMP - INTERVAL '3 days', NULL),
+    (18007, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ASSET', 'asset-seed-07', 'REQUESTED', NULL, NULL, CURRENT_TIMESTAMP + INTERVAL '30 days', CURRENT_TIMESTAMP, NULL),
+    (18008, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'PROJECT', '1008', 'IN_PROGRESS', CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP + INTERVAL '30 days', CURRENT_TIMESTAMP, NULL),
+    (18009, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ACCOUNT', 'seed-user-01', 'COMPLETED', CURRENT_TIMESTAMP - INTERVAL '5 days', CURRENT_TIMESTAMP - INTERVAL '4 days', CURRENT_TIMESTAMP + INTERVAL '26 days', CURRENT_TIMESTAMP - INTERVAL '5 days', NULL),
+    (18010, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'PROJECT', '1010', 'REQUESTED', NULL, NULL, CURRENT_TIMESTAMP + INTERVAL '30 days', CURRENT_TIMESTAMP, NULL)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO user_preferences (user_id, preferred_locale, timezone, default_narration_language, default_metadata_language)
@@ -408,18 +408,18 @@ ON CONFLICT (id) DO NOTHING;
 -- Continuity and storyboard relationship fixtures
 -- -----------------------------------------------------------------------------
 
-INSERT INTO scene_characters (scene_id, order_index, project_character_id, "references")
+INSERT INTO scene_characters (scene_id, order_index, project_character_id)
 VALUES
-    (4001, 0, 23001, NULL),
-    (4002, 0, 23002, NULL),
-    (4003, 0, 23003, NULL),
-    (4004, 0, 23004, NULL),
-    (4005, 0, 23005, NULL),
-    (4006, 0, 23006, NULL),
-    (4007, 0, 23007, NULL),
-    (4008, 0, 23008, NULL),
-    (4009, 0, 23009, NULL),
-    (4010, 0, 23010, NULL)
+    (4001, 0, 23001),
+    (4002, 0, 23002),
+    (4003, 0, 23003),
+    (4004, 0, 23004),
+    (4005, 0, 23005),
+    (4006, 0, 23006),
+    (4007, 0, 23007),
+    (4008, 0, 23008),
+    (4009, 0, 23009),
+    (4010, 0, 23010)
 ON CONFLICT DO NOTHING;
 
 INSERT INTO visual_beat_characters (visual_beat_id, project_character_id, role)
@@ -439,17 +439,17 @@ ON CONFLICT DO NOTHING;
 INSERT INTO project_character_ai_identities
     (project_id, ai_key, project_character_id, aliases, observations, first_seen_chapter_id, last_seen_chapter_id, match_basis, confidence)
 VALUES
-    (1001, 'mai-lantern-maker', 23001, '["Mai","lantern maker"]'::jsonb, '["amber workshop","red silk lantern"]'::jsonb, 3001, 3001, 'CREATED', 1.000, NULL),
-    (1002, 'theo-clockmaker', 23002, '["Theo","clockmaker"]'::jsonb, '["brass workshop","pocket watch"]'::jsonb, 3002, 3002, 'CREATED', 1.000, NULL),
-    (1003, 'bao-boatman', 23003, '["Bao","boatman"]'::jsonb, '["wooden boat","moonlit river"]'::jsonb, 3003, 3003, 'CREATED', 1.000, NULL)
+    (1001, 'mai-lantern-maker', 23001, '["Mai","lantern maker"]'::jsonb, '["amber workshop","red silk lantern"]'::jsonb, 3001, 3001, 'CREATED', 1.000),
+    (1002, 'theo-clockmaker', 23002, '["Theo","clockmaker"]'::jsonb, '["brass workshop","pocket watch"]'::jsonb, 3002, 3002, 'CREATED', 1.000),
+    (1003, 'bao-boatman', 23003, '["Bao","boatman"]'::jsonb, '["wooden boat","moonlit river"]'::jsonb, 3003, 3003, 'CREATED', 1.000)
 ON CONFLICT (project_id, ai_key) DO NOTHING;
 
 INSERT INTO project_location_ai_identities
     (project_id, ai_key, project_location_id, aliases, observations, first_seen_chapter_id, last_seen_chapter_id, match_basis, confidence)
 VALUES
-    (1001, 'old-quarter-market', 25001, '["old quarter","night market"]'::jsonb, '["wet cobblestones","amber lanterns"]'::jsonb, 3001, 3001, 'CREATED', 1.000, NULL),
-    (1001, 'lantern-workshop', 25002, '["workshop","lantern studio"]'::jsonb, '["bamboo frames","silk fabric"]'::jsonb, 3001, 3001, 'CREATED', 1.000, NULL),
-    (1002, 'brass-workshop', 25003, '["clockmaker workshop"]'::jsonb, '["brass gears","dusty sunbeams"]'::jsonb, 3002, 3002, 'CREATED', 1.000, NULL)
+    (1001, 'old-quarter-market', 25001, '["old quarter","night market"]'::jsonb, '["wet cobblestones","amber lanterns"]'::jsonb, 3001, 3001, 'CREATED', 1.000),
+    (1001, 'lantern-workshop', 25002, '["workshop","lantern studio"]'::jsonb, '["bamboo frames","silk fabric"]'::jsonb, 3001, 3001, 'CREATED', 1.000),
+    (1002, 'brass-workshop', 25003, '["clockmaker workshop"]'::jsonb, '["brass gears","dusty sunbeams"]'::jsonb, 3002, 3002, 'CREATED', 1.000)
 ON CONFLICT (project_id, ai_key) DO NOTHING;
 
 INSERT INTO project_favorites (user_id, project_id)
@@ -481,7 +481,7 @@ INSERT INTO media_beat_plans
     (media_plan_id, scene_index, beat_index, visual_beat_id, visual_beat_order_index, visual_intent, semantic_motion_mode, motion_strategy)
 VALUES
     ('00000000-0000-4000-8000-000000001001', 0, 0, 5001, 1,
-     'Warm lanterns form a river of light through quiet stone streets.', 'BASIC_MOTION', 'BASIC_IMAGE_MOTION', NULL)
+     'Warm lanterns form a river of light through quiet stone streets.', 'BASIC_MOTION', 'BASIC_IMAGE_MOTION')
 ON CONFLICT (media_plan_id, scene_index, beat_index) DO NOTHING;
 
 UPDATE generation_jobs

@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.generation.api.controller.GenerationJobController;
+import com.narrativex.backend.feature.generation.api.response.JobResponse;
 import com.narrativex.backend.feature.generation.application.query.GetGenerationJobQuery;
 import com.narrativex.backend.feature.generation.application.usecase.GetGenerationJobUseCase;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
@@ -51,5 +52,37 @@ class GenerationJobControllerContractTest {
     assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
     assertEquals("job-1", responseEntity.getBody().data().jobId());
     verify(useCase).execute(new GetGenerationJobQuery("job-1", null));
+  }
+
+  @Test
+  void responseTargetsChapterWhenJobHasChapterScope() {
+    GenerationJob job =
+        GenerationJob.rehydrate(
+            2L,
+            0L,
+            "chapter-job",
+            7L,
+            JobType.NARRATION_GENERATE,
+            JobStatus.QUEUED,
+            ResourceClass.PROVIDER_INTERACTIVE,
+            0,
+            "QUEUED",
+            null,
+            "owner",
+            "owner",
+            9L,
+            11L,
+            null,
+            0L,
+            null,
+            null,
+            null,
+            null);
+
+    JobResponse response = JobResponse.from(job);
+
+    assertEquals("CHAPTER", response.entityType());
+    assertEquals(11L, response.entityId());
+    assertEquals(new JobResponse.JobTarget("CHAPTER", 11L), response.target());
   }
 }

@@ -4,7 +4,36 @@ import { authApi } from "@/features/auth/api/auth.api";
 import { useAuthSessionLifecycle } from "@/features/auth/hooks/useAuthSessionLifecycle";
 import { apiErrorMessage } from "@/shared/api/client";
 
-const LOGO_SRC = "/branding/narrativex-logo-dark.png";
+const ICON_SRC = "/branding/narrativex-icon-orange-v2.png";
+
+const BrandLogo: React.FC<{ size?: "sm" | "lg"; className?: string }> = ({
+  size = "sm",
+  className,
+}) => {
+  const isLarge = size === "lg";
+
+  return (
+    <div
+      className={`flex items-center gap-2.5 ${className ?? ""}`}
+      role="img"
+      aria-label="NarrativeX"
+    >
+      <Image
+        src={ICON_SRC}
+        alt=""
+        width={isLarge ? 56 : 40}
+        height={isLarge ? 56 : 40}
+        className={`object-contain ${isLarge ? "h-14 w-14" : "h-10 w-10"}`}
+        priority
+      />
+      <span
+        className={`font-extrabold tracking-tight text-white ${isLarge ? "text-3xl" : "text-xl"}`}
+      >
+        Narrative<span className="text-primary-light">X</span>
+      </span>
+    </div>
+  );
+};
 
 export const AuthLoadingScreen: React.FC<{ message: string; action?: React.ReactNode }> = ({
   message,
@@ -12,14 +41,7 @@ export const AuthLoadingScreen: React.FC<{ message: string; action?: React.React
 }) => (
   <div className="flex min-h-screen w-full items-center justify-center bg-background p-6 text-text-primary">
     <div className="space-y-3 text-center">
-      <Image
-        src={LOGO_SRC}
-        alt="NarrativeX"
-        width={240}
-        height={64}
-        priority
-        className="mx-auto h-12 w-auto"
-      />
+      <BrandLogo className="mx-auto" />
       <p className="text-sm text-slate-300">{message}</p>
       {action}
     </div>
@@ -67,31 +89,28 @@ export const AuthScreen: React.FC = () => {
   };
 
   return (
-    <div className="flex min-h-screen w-full flex-col bg-background text-text-primary md:flex-row">
-      <section className="relative flex min-h-[40vh] flex-col justify-between overflow-hidden bg-surface-dark p-8 md:min-h-screen md:w-1/2 md:p-12 lg:w-3/5">
-        <Image
-          src="https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1600&auto=format&fit=crop"
-          alt=""
-          fill
-          priority
-          sizes="(min-width: 1024px) 60vw, (min-width: 768px) 50vw, 100vw"
-          className="object-cover"
-          aria-hidden="true"
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-950/40 to-slate-950" />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-black/60" />
+    <div className="relative flex min-h-screen w-full flex-col bg-background text-text-primary md:flex-row overflow-hidden">
+      {/* Full-width wide-angle background image */}
+      <Image
+        src="/branding/auth-bg-wide.jpg"
+        alt=""
+        fill
+        priority
+        sizes="100vw"
+        className="object-cover pointer-events-none select-none"
+        aria-hidden="true"
+      />
+      {/* Dark overlay & gradients for seamless atmosphere and text readability */}
+      <div className="absolute inset-0 bg-slate-950/40 pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-r from-slate-950/80 via-slate-950/30 to-slate-950/70 pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-black/40 pointer-events-none" />
 
-        <Image
-          src={LOGO_SRC}
-          alt="NarrativeX"
-          width={280}
-          height={72}
-          priority
-          className="relative z-10 h-14 w-auto self-start object-contain"
-        />
+      {/* Left section: Logo & Hero messaging */}
+      <section className="relative z-10 flex min-h-[40vh] flex-col justify-between p-8 md:min-h-screen md:w-1/2 lg:w-[52%] md:p-12 xl:p-16">
+        <BrandLogo size="lg" className="self-start" />
 
-        <div className="relative z-10 max-w-lg space-y-3">
-          <div className="inline-flex items-center rounded-md border border-primary/40 bg-primary-muted px-3 py-1 text-xs font-semibold tracking-wide text-primary-hover">
+        <div className="max-w-lg space-y-3">
+          <div className="inline-flex items-center rounded-md border border-primary/40 bg-primary-muted/90 backdrop-blur-sm px-3 py-1 text-xs font-semibold tracking-wide text-primary-hover">
             NARRATIVE WORKSPACE
           </div>
           <h2 className="text-3xl font-extrabold leading-tight text-white md:text-4xl">
@@ -103,14 +122,15 @@ export const AuthScreen: React.FC = () => {
         </div>
       </section>
 
-      <main className="relative z-10 flex flex-1 items-center justify-center p-6 md:p-12">
-        <div className="w-full max-w-md space-y-6 rounded-2xl border border-border bg-surface p-8 shadow-2xl">
+      {/* Right section: Auth Card enlarged and shifted slightly rightward */}
+      <main className="relative z-10 flex flex-1 items-center justify-center lg:justify-start p-6 md:p-10 lg:p-12 lg:pl-16 xl:pl-28">
+        <div className="w-full max-w-lg space-y-7 rounded-2xl border border-border/80 bg-surface/95 backdrop-blur-xl p-8 sm:p-10 shadow-2xl">
           <div className="space-y-2 text-center">
-            <Image src={LOGO_SRC} alt="NarrativeX" width={240} height={64} className="mx-auto h-12 w-auto" />
-            <h1 className="text-xl font-bold text-white">
+            <BrandLogo className="mx-auto" />
+            <h1 className="text-2xl font-bold text-white">
               {mode === "login" ? "Đăng nhập NarrativeX" : "Tạo tài khoản NarrativeX"}
             </h1>
-            <p className="text-xs text-slate-400">
+            <p className="text-sm text-slate-400">
               {mode === "login"
                 ? "Tiếp tục dự án của bạn bằng email hoặc Google."
                 : "Tạo tài khoản để bắt đầu xây dựng câu chuyện đầu tiên."}
@@ -118,14 +138,14 @@ export const AuthScreen: React.FC = () => {
           </div>
 
           <div
-            className="grid grid-cols-2 rounded-lg bg-surface-dark p-1 text-sm"
+            className="grid grid-cols-2 rounded-lg bg-surface-dark p-1 text-sm font-medium"
             aria-label="Chế độ xác thực"
           >
             <button
               type="button"
               aria-pressed={mode === "login"}
               onClick={() => switchMode("login")}
-                className={`rounded-md px-3 py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${mode === "login" ? "bg-primary text-white" : "text-slate-400 hover:text-white"}`}
+              className={`rounded-md px-4 py-2.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${mode === "login" ? "bg-primary text-white font-semibold" : "text-slate-400 hover:text-white"}`}
             >
               Đăng nhập
             </button>
@@ -133,7 +153,7 @@ export const AuthScreen: React.FC = () => {
               type="button"
               aria-pressed={mode === "register"}
               onClick={() => switchMode("register")}
-                className={`rounded-md px-3 py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${mode === "register" ? "bg-primary text-white" : "text-slate-400 hover:text-white"}`}
+              className={`rounded-md px-4 py-2.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${mode === "register" ? "bg-primary text-white font-semibold" : "text-slate-400 hover:text-white"}`}
             >
               Đăng ký
             </button>
@@ -141,12 +161,12 @@ export const AuthScreen: React.FC = () => {
 
           <form
             onSubmit={handleSubmit}
-            className="space-y-4"
+            className="space-y-5"
             aria-describedby={error ? "auth-error" : undefined}
           >
             {mode === "register" && (
               <label className="block space-y-1.5 text-sm">
-                <span className="text-slate-300">Tên hiển thị</span>
+                <span className="text-slate-300 font-medium">Tên hiển thị</span>
                 <input
                   name="displayName"
                   value={displayName}
@@ -155,12 +175,12 @@ export const AuthScreen: React.FC = () => {
                   maxLength={160}
                   required
                   autoComplete="name"
-                  className="w-full rounded-lg border border-border bg-surface-input px-3 py-2.5 text-white outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary"
+                  className="w-full rounded-xl border border-border bg-surface-input px-4 py-3 text-white text-base outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary"
                 />
               </label>
             )}
             <label className="block space-y-1.5 text-sm">
-              <span className="text-slate-300">Email</span>
+              <span className="text-slate-300 font-medium">Email</span>
               <input
                 type="email"
                 name="email"
@@ -170,11 +190,11 @@ export const AuthScreen: React.FC = () => {
                 required
                 autoComplete="email"
                 spellCheck={false}
-                className="w-full rounded-lg border border-border bg-surface-input px-3 py-2.5 text-white outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary"
+                className="w-full rounded-xl border border-border bg-surface-input px-4 py-3 text-white text-base outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary"
               />
             </label>
             <label className="block space-y-1.5 text-sm">
-              <span className="text-slate-300">Mật khẩu</span>
+              <span className="text-slate-300 font-medium">Mật khẩu</span>
               <input
                 type="password"
                 name="password"
@@ -184,7 +204,7 @@ export const AuthScreen: React.FC = () => {
                 maxLength={128}
                 required
                 autoComplete={mode === "login" ? "current-password" : "new-password"}
-                className="w-full rounded-lg border border-border bg-surface-input px-3 py-2.5 text-white outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary"
+                className="w-full rounded-xl border border-border bg-surface-input px-4 py-3 text-white text-base outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary"
               />
             </label>
 
@@ -192,7 +212,7 @@ export const AuthScreen: React.FC = () => {
               <div
                 id="auth-error"
                 role="alert"
-                className="rounded-lg border border-danger/50 bg-danger-bg px-3 py-2 text-sm text-red-200"
+                className="rounded-lg border border-danger/50 bg-danger-bg px-3.5 py-2.5 text-sm text-red-200"
               >
                 {error}
               </div>
@@ -201,7 +221,7 @@ export const AuthScreen: React.FC = () => {
             <button
               type="submit"
               disabled={isSubmitting || isRedirecting}
-              className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-7 w-full rounded-xl bg-primary px-4 py-3.5 text-base font-semibold text-white transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60 shadow-lg shadow-primary/20"
             >
               {isSubmitting ? "Đang xử lý…" : mode === "login" ? "Đăng nhập" : "Tạo tài khoản"}
             </button>
@@ -216,7 +236,7 @@ export const AuthScreen: React.FC = () => {
             type="button"
             onClick={handleGoogleLogin}
             disabled={isRedirecting || isSubmitting}
-            className="w-full rounded-lg border border-border bg-surface-3 px-4 py-2.5 text-sm font-semibold text-text-primary transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full rounded-xl border border-border bg-surface-3 px-4 py-3.5 text-base font-semibold text-text-primary transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isRedirecting ? "Đang chuyển đến Google…" : "Tiếp tục với Google"}
           </button>

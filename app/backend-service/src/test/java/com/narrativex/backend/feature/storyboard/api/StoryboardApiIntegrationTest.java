@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.annotation.DirtiesContext;
@@ -46,6 +47,7 @@ class StoryboardApiIntegrationTest {
   }
 
   @Autowired private MockMvc mockMvc;
+  @Autowired private JdbcTemplate jdbcTemplate;
 
   @Test
   void storyboardResponseContainsSplitMotionFieldsAndRenderableMetadata() throws Exception {
@@ -62,5 +64,33 @@ class StoryboardApiIntegrationTest {
         .andExpect(jsonPath("$.data.scenes[0].visualBeats[0].cameraMovement").value("PAN"))
         .andExpect(jsonPath("$.data.scenes[0].visualBeats[0].reviewStatus").value("APPROVED"))
         .andExpect(jsonPath("$.data.scenes[0].visualBeats[0].rowVersion").isNumber());
+  }
+
+  @Test
+  void chapterWorkspaceProjectsNarrationAndRenderStateFromDurableRows() throws Exception {
+    jdbcTemplate.update("UPDATE visual_beats SET preview_asset_id = ? WHERE id = ?", 26001, 5001);
+
+    mockMvc
+        .perform(get("/api/v1/projects/1001/chapters/3001/workspace"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.data.pipeline.visualGeneration.status").value("NOT_STARTED"))
+        .andExpect(jsonPath("$.data.pipeline.visualGeneration.total").value(0))
+        .andExpect(jsonPath("$.data.pipeline.audio.status").value("READY"))
+        .andExpect(jsonPath("$.data.pipeline.audio.completedAt").isNotEmpty())
+        .andExpect(jsonPath("$.data.pipeline.render.status").value("COMPLETED"))
+        .andExpect(jsonPath("$.data.pipeline.render.completedAt").isNotEmpty())
+        .andExpect(
+            jsonPath("$.data.previewScenes[0].previewImageUrl")
+                .value("https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1200&auto=format&fit=crop"))
+        .andExpect(jsonPath("$.data.capabilities.canGenerateVisuals").value(false))
+        .andExpect(jsonPath("$.data.capabilities.canGenerateAudio").value(false))
+        .andExpect(jsonPath("$.data.capabilities.canRender").value(false));
+
+    mockMvc
+        .perform(get("/api/v1/projects/1002/chapters/3002/workspace"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.pipeline.audio.status").value("NOT_STARTED"))
+        .andExpect(jsonPath("$.data.pipeline.render.status").value("NOT_STARTED"));
   }
 }

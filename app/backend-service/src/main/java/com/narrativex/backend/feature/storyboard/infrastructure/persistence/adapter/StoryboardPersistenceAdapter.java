@@ -80,6 +80,7 @@ public class StoryboardPersistenceAdapter implements StoryboardRepository {
               .cameraMovement(visualBeat.getCameraMovement())
               .aspectRatioOverride(visualBeat.getAspectRatioOverride())
               .qualityTierOverride(visualBeat.getQualityTierOverride())
+              .previewAssetId(visualBeat.getPreviewAssetId())
               .build();
     } else {
       entity =
@@ -115,17 +116,20 @@ public class StoryboardPersistenceAdapter implements StoryboardRepository {
   }
 
   private static VisualBeat toDomain(VisualBeatJpaEntity entity) {
-    return VisualBeat.rehydrate(
-        entity.getId(),
-        entity.getRowVersion(),
-        entity.getSceneId(),
-        entity.getOrderIndex(),
-        entity.getTitle(),
-        entity.getVisualIntent(),
-        entity.getMotionMode(),
-        entity.getCameraMovement(),
-        entity.getAspectRatioOverride(),
-        entity.getQualityTierOverride(),
-        entity.getReviewStatus());
+    VisualBeat beat =
+        VisualBeat.rehydrate(
+            entity.getId(),
+            entity.getRowVersion(),
+            entity.getSceneId(),
+            entity.getOrderIndex(),
+            entity.getTitle(),
+            entity.getVisualIntent(),
+            entity.getMotionMode(),
+            entity.getCameraMovement(),
+            entity.getAspectRatioOverride(),
+            entity.getQualityTierOverride(),
+            entity.getReviewStatus());
+    beat.attachPreviewAsset(entity.getPreviewAssetId());
+    return beat;
   }
 }

@@ -52,7 +52,12 @@ class PostgreSqlMigrationIntegrationTest {
   @Test
   void emptyPostgresMigratesAndApplicationContextStarts() throws SQLException {
     try (Connection connection = dataSource.getConnection()) {
-      assertEquals(2, latestFlywayVersion(connection));
+      assertEquals(3, latestFlywayVersion(connection));
+      assertEquals(11, rowCount(connection, "generation_jobs"));
+      assertEquals(10, rowCount(connection, "scene_characters"));
+      assertFalse(columnExists(connection, "generation_jobs", "references"));
+      assertFalse(columnExists(connection, "character_appearances", "references"));
+      assertFalse(columnExists(connection, "scene_characters", "references"));
       assertEquals("jsonb", columnType(connection, "moderation_decisions", "categories_json"));
       assertTrue(indexExists(connection, "uq_story_versions_one_active_per_project"));
       assertTrue(indexExists(connection, "idx_projects_active_owner_updated_id"));
@@ -69,6 +74,8 @@ class PostgreSqlMigrationIntegrationTest {
       assertEquals("NO", columnNullable(connection, "visual_beats", "motion_mode"));
       assertTrue(columnExists(connection, "visual_beats", "camera_movement"));
       assertEquals("NO", columnNullable(connection, "visual_beats", "camera_movement"));
+      assertTrue(columnExists(connection, "visual_beats", "preview_asset_id"));
+      assertTrue(indexExists(connection, "idx_visual_beats_preview_asset"));
       assertFalse(columnExists(connection, "visual_beats", "motion_action"));
       assertTrue(indexExists(connection, "idx_visual_beats_scene_review_order"));
       assertTrue(indexExists(connection, "idx_generation_jobs_project_status"));
@@ -319,6 +326,15 @@ class PostgreSqlMigrationIntegrationTest {
             connection.prepareStatement(
                 "select max(cast(version as integer)) from flyway_schema_history where success ="
                     + " true");
+        ResultSet result = statement.executeQuery()) {
+      result.next();
+      return result.getInt(1);
+    }
+  }
+
+  private static int rowCount(Connection connection, String table) throws SQLException {
+    try (PreparedStatement statement =
+        connection.prepareStatement("select count(*) from " + table);
         ResultSet result = statement.executeQuery()) {
       result.next();
       return result.getInt(1);

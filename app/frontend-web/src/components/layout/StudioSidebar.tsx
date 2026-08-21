@@ -1,10 +1,10 @@
 /* eslint-disable @next/next/no-img-element -- User avatar URLs are backend/CDN-owned runtime values. */
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   FolderKanban,
@@ -15,19 +15,32 @@ import {
   Settings,
   Sparkles,
   Zap,
+  ChevronDown,
+  LogOut,
+  User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/useAuthStore";
+import { authApi } from "@/features/auth/api/auth.api";
+import { useAuthSessionLifecycle } from "@/features/auth/hooks/useAuthSessionLifecycle";
+import { ApiClientError } from "@/shared/api/client";
 import { useUserQuota } from "@/features/account/hooks/useUserQuota";
 import { QuotaDetailModal } from "@/features/account/components/QuotaDetailModal";
 import { ProviderHealthIndicator } from "@/features/health/components/ProviderHealthIndicator";
 
 export const StudioSidebar = () => {
   const pathname = usePathname();
+  const router = useRouter();
   const user = useAuthStore((state) => state.user);
+  const { clearAuthenticatedSession } = useAuthSessionLifecycle();
   const { data: quota, isLoading: isQuotaLoading, isError: isQuotaError } = useUserQuota();
 
   const [isQuotaModalOpen, setIsQuotaModalOpen] = useState(false);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+  const profileButtonRef = useRef<HTMLButtonElement>(null);
 
   const projectMatch = pathname.match(/^\/projects\/(\d+)/);
   const activeProjectId = projectMatch?.[1];
@@ -35,6 +48,45 @@ export const StudioSidebar = () => {
   const displayName = user?.displayName?.trim() || user?.email || "Người dùng";
   const secondaryIdentity = user?.displayName?.trim() ? user.email : null;
   const initials = displayName.slice(0, 1).toUpperCase();
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    setLogoutError(null);
+    try {
+      await authApi.logout();
+      clearAuthenticatedSession();
+    } catch (error) {
+      if (error instanceof ApiClientError && error.status === 401) {
+        clearAuthenticatedSession();
+      } else {
+        setLogoutError("Không thể đăng xuất. Vui lòng thử lại.");
+        setIsProfileMenuOpen(true);
+      }
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isProfileMenuOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+        setIsProfileMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsProfileMenuOpen(false);
+        profileButtonRef.current?.focus();
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isProfileMenuOpen]);
 
   const totalCredits = quota ? Number(quota.totalCredits) || 0 : 0;
   const remainingCredits = quota ? Number(quota.remainingCredits) || 0 : 0;
@@ -109,7 +161,7 @@ export const StudioSidebar = () => {
           >
             <div className="relative w-9 h-9 shrink-0 flex items-center justify-center">
               <Image
-                src="/branding/narrativex-icon.png"
+                src="/branding/narrativex-icon-orange-v2.png"
                 alt="NarrativeX Logo"
                 width={36}
                 height={36}
@@ -128,22 +180,93 @@ export const StudioSidebar = () => {
           </Link>
         </div>
 
-        <div className="p-3.5 mx-3 mt-3 rounded-xl bg-surface border border-border flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full overflow-hidden border border-primary/40 ring-2 ring-primary/20 shrink-0 bg-slate-900">
-            {user?.avatarUrl ? (
-              <img src={user.avatarUrl} alt={displayName} className="w-full h-full object-cover" />
-            ) : (
-                <span className="w-full h-full flex items-center justify-center bg-primary text-sm font-bold text-white">
-                {initials}
-              </span>
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-slate-100 truncate">{displayName}</p>
-            {secondaryIdentity && (
-              <p className="mt-0.5 truncate text-xs text-slate-400">{secondaryIdentity}</p>
-            )}
-          </div>
+        {/* Profile / Account Dropdown Trigger */}
+        <div className="relative mx-3 mt-3" ref={profileMenuRef}>
+          <button
+            ref={profileButtonRef}
+            type="button"
+            onClick={() => setIsProfileMenuOpen((open) => !open)}
+            aria-expanded={isProfileMenuOpen}
+            aria-haspopup="menu"
+            aria-label={`Mở menu tài khoản của ${displayName}`}
+            className="w-full p-2.5 rounded-xl bg-surface border border-border flex items-center gap-3 hover:bg-surface-3 hover:border-slate-700 transition-all text-left group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            <div className="w-9 h-9 rounded-full overflow-hidden border border-primary/40 ring-2 ring-primary/20 shrink-0 bg-slate-900 flex items-center justify-center">
+              {user?.avatarUrl ? (
+                <img src={user.avatarUrl} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <span className="w-full h-full flex items-center justify-center bg-primary text-xs font-bold text-white">
+                  {initials}
+                </span>
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-slate-100 truncate group-hover:text-white transition-colors">
+                {displayName}
+              </p>
+              {secondaryIdentity && (
+                <p className="mt-0.5 truncate text-[11px] text-slate-400 font-mono">
+                  {secondaryIdentity}
+                </p>
+              )}
+            </div>
+            <ChevronDown
+              className={cn(
+                "w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0",
+                isProfileMenuOpen && "rotate-180 text-primary-light"
+              )}
+            />
+          </button>
+
+          {isProfileMenuOpen && (
+            <div
+              role="menu"
+              className="absolute left-0 right-0 top-full mt-1.5 rounded-xl bg-surface border border-border shadow-2xl py-1 z-50 animate-in fade-in zoom-in-95 duration-100"
+            >
+              <div className="px-3.5 py-2.5 border-b border-slate-800/80">
+                <p className="text-xs font-bold text-white truncate">{displayName}</p>
+                {secondaryIdentity && (
+                  <p className="truncate text-[11px] text-slate-400 font-mono mt-0.5">
+                    {secondaryIdentity}
+                  </p>
+                )}
+              </div>
+
+              <div className="p-1 space-y-0.5">
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setIsProfileMenuOpen(false);
+                    router.push("/projects");
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-lg text-xs text-slate-300 hover:bg-surface-3 hover:text-white flex items-center gap-2.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  <User className="w-4 h-4 text-slate-400" />
+                  <span>Tổng quan Studio</span>
+                </button>
+
+                <div className="border-t border-slate-800/80 my-1" />
+
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={handleLogout}
+                  disabled={isLoggingOut}
+                  className="w-full text-left px-3 py-2 rounded-lg text-xs text-rose-400 hover:bg-rose-950/40 hover:text-rose-300 flex items-center gap-2.5 transition-colors font-medium disabled:cursor-wait disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>{isLoggingOut ? "Đang đăng xuất…" : "Đăng xuất"}</span>
+                </button>
+
+                {logoutError && (
+                  <p role="alert" className="px-3 py-1 text-[11px] text-rose-400">
+                    {logoutError}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         <nav className="p-3 space-y-1.5" aria-label="Điều hướng studio">
@@ -173,7 +296,7 @@ export const StudioSidebar = () => {
                   className={cn(
                     "w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
                     item.active
-                      ? "bg-primary-muted text-primary-hover border border-primary/50 font-semibold shadow-sm"
+                      ? "border-l-2 border-primary bg-primary-muted/70 pl-3 text-primary-light font-semibold"
                       : "text-slate-300 hover:text-white hover:bg-slate-800/40",
                   )}
                 >
@@ -240,9 +363,9 @@ export const StudioSidebar = () => {
               <button
                 type="button"
                 onClick={() => setIsQuotaModalOpen(true)}
-                className="w-full rounded-lg border border-border-dark bg-surface-dark px-3 py-2 text-xs font-semibold text-primary-hover hover:bg-surface-3 hover:text-white flex items-center justify-center gap-1.5 transition-colors"
+                className="w-full rounded-lg border border-border-dark bg-surface-dark px-3 py-2 text-xs font-semibold text-text-secondary hover:border-primary/50 hover:bg-surface-3 hover:text-text-primary flex items-center justify-center gap-1.5 transition-colors"
               >
-                <Sparkles className="w-3.5 h-3.5 text-primary-hover" />
+                <Sparkles className="w-3.5 h-3.5 text-text-muted" />
                 <span>Chi tiết hạn mức & gói</span>
               </button>
             </>

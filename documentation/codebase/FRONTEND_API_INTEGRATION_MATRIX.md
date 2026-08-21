@@ -10,6 +10,7 @@ This matrix records frontend wiring separately from backend/API availability. AP
 | Project Overview | IMPLEMENTED | overview API | richer metrics only when contracts require |
 | StoryVersion | IMPLEMENTED foundation | create/latest contracts | broader version-management UI |
 | Chapter source | IMPLEMENTED | list/get/create/update/workspace + ETag/If-Match | delete/reorder and broader commands |
+| Chapter Workspace pipeline | IMPLEMENTED foundation | workspace projection maps analysis, image jobs, narration assets and render artifacts | visual-beat image asset linkage and complete render commands |
 | Chapter batch import | IMPLEMENTED foundation | multipart `.txt/.docx/.pdf` import | progress/granular import UX |
 | Chapter Analyze | IMPLEMENTED foundation | durable admission/enqueue/provider pipeline | production hardening, real-provider E2E |
 | Analysis progress | IMPLEMENTED foundation | GenerationJob read API | optional SSE/reconnect UX |

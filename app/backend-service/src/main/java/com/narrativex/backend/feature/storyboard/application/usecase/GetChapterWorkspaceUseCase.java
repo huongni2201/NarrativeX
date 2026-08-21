@@ -40,6 +40,10 @@ public class GetChapterWorkspaceUseCase {
         hasStoryboard && !sourceOutdated && "COMPLETED".equals(analysisStatus)
             ? "COMPLETED"
             : "NOT_STARTED";
+    var projection = snapshot.projection();
+    var visualGeneration = projection.visualGeneration();
+    var audio = projection.audio();
+    var render = projection.render();
 
     var previewScenes =
         snapshot.previewScenes().stream()
@@ -59,6 +63,13 @@ public class GetChapterWorkspaceUseCase {
         !chapter.getSourceText().isBlank()
             && !isActive(analysisStatus)
             && !(snapshot.hasApprovedOutput() && !sourceOutdated);
+    boolean chapterAnalysisCompleted = "COMPLETED".equals(analysisStatus) && !sourceOutdated;
+    boolean visualJobRunning = isActive(visualGeneration.status());
+    boolean canGenerateVisuals = chapterAnalysisCompleted && !visualJobRunning;
+    boolean canGenerateAudio =
+        chapterAnalysisCompleted && !"READY".equals(audio.status()) && !isActive(audio.status());
+    boolean canRender =
+        "COMPLETED".equals(visualGeneration.status()) && "READY".equals(audio.status());
 
     var response =
         new ChapterWorkspaceResponse(
@@ -71,19 +82,27 @@ public class GetChapterWorkspaceUseCase {
             new ChapterWorkspaceResponse.Pipeline(
                 new ChapterWorkspaceResponse.PipelineStep(analysisStatus, analysis.completedAt()),
                 new ChapterWorkspaceResponse.PipelineStep(planningStatus, analysis.completedAt()),
-                new ChapterWorkspaceResponse.ProgressStep("NOT_STARTED", 0, 0, 0),
-                new ChapterWorkspaceResponse.PipelineStep("NOT_STARTED", null),
-                new ChapterWorkspaceResponse.PipelineStep("NOT_STARTED", null),
+                new ChapterWorkspaceResponse.ProgressStep(
+                    visualGeneration.status(),
+                    visualGeneration.total(),
+                    visualGeneration.completed(),
+                    visualGeneration.failed()),
+                new ChapterWorkspaceResponse.PipelineStep(audio.status(), audio.completedAt()),
+                new ChapterWorkspaceResponse.PipelineStep(render.status(), render.completedAt()),
                 sourceOutdated),
             previewScenes,
-            new ChapterWorkspaceResponse.Capabilities(canAnalyze, false, false, false));
+            new ChapterWorkspaceResponse.Capabilities(
+                canAnalyze, canGenerateVisuals, canGenerateAudio, canRender));
 
     return ApiResponse.success(response);
   }
 
   private static boolean isActive(String status) {
+    if (status == null) {
+      return false;
+    }
     return switch (status) {
-      case "QUEUED", "RUNNING", "STALLED", "UNKNOWN", "PAUSED_COST_LIMIT" -> true;
+      case "QUEUED", "RUNNING", "GENERATING", "STALLED", "UNKNOWN", "PAUSED_COST_LIMIT" -> true;
       default -> false;
     };
   }

@@ -4,28 +4,29 @@ import { cn } from "@/lib/utils";
 interface ProgressProps {
   value: number; // 0 - 100
   className?: string;
-  color?: "purple" | "blue" | "green";
+  color?: "orange" | "purple" | "blue" | "green";
   showGlow?: boolean;
 }
 
 export const Progress: React.FC<ProgressProps> = ({
   value,
   className,
-  color = "purple",
+  color = "orange",
   showGlow = true,
 }) => {
   const clampedValue = Math.min(100, Math.max(0, value));
 
   const colorStyles = {
-    purple: "bg-primary",
-    blue: "bg-blue-500",
-    green: "bg-emerald-500",
+    orange: "bg-primary",
+    purple: "bg-badge-purple",
+    blue: "bg-badge-blue",
+    green: "bg-badge-green",
   };
 
   return (
     <div
       className={cn(
-        "relative w-full h-1.5 bg-slate-900/90 rounded-full overflow-hidden border border-slate-800/60",
+        "relative w-full h-1.5 bg-surface-dark rounded-full overflow-hidden border border-border-dark",
         className
       )}
     >

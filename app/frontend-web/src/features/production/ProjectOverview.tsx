@@ -147,7 +147,7 @@ export const ProjectOverview: React.FC = () => {
                 {project.overallProgress}%
               </span>
             </div>
-            <Progress value={project.overallProgress} color="purple" />
+            <Progress value={project.overallProgress} color="orange" />
 
             <div className="flex flex-wrap items-center justify-between text-xs text-slate-400 pt-1 font-mono gap-2">
               <span>{project.readyChapters}/{project.totalChapters} Chapters ready</span>

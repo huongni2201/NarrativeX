@@ -31,4 +31,14 @@ class VisualBeatReviewTest {
     assertThrows(
         IllegalArgumentException.class, () -> new VisualBeat(1L, 0, "Title", "x".repeat(8001)));
   }
+
+  @Test
+  void previewAssetLinkMustBePositiveWhenPresent() {
+    VisualBeat beat = new VisualBeat(1L, 0, "Đội quân xuất phát", "Wide cinematic shot");
+
+    beat.attachPreviewAsset(42L);
+
+    assertEquals(42L, beat.getPreviewAssetId());
+    assertThrows(IllegalArgumentException.class, () -> beat.attachPreviewAsset(0L));
+  }
 }

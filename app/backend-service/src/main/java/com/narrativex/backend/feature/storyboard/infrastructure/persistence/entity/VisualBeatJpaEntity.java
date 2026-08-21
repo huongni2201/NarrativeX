@@ -62,4 +62,7 @@ public class VisualBeatJpaEntity extends JpaAuditedEntity {
   @Enumerated(EnumType.STRING)
   @Column(name = "quality_tier_override", length = 16)
   private ImageQualityTier qualityTierOverride;
+
+  @Column(name = "preview_asset_id")
+  private Long previewAssetId;
 }

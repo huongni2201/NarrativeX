@@ -44,10 +44,10 @@
     --danger: #ef4444;
     --danger-bg: rgba(239, 68, 68, 0.12);
 
-    /* Role & Badge Accents */
-    --badge-purple: var(--primary-light);
-    --badge-purple-bg: var(--primary-muted);
-    --badge-purple-border: rgb(var(--palette-orange-400) / 0.4);
+    /* Semantic status accents */
+    --badge-purple: #c084fc;
+    --badge-purple-bg: rgba(126, 34, 206, 0.16);
+    --badge-purple-border: rgba(168, 85, 247, 0.4);
     --badge-blue: #3b82f6;
     --badge-blue-bg: rgba(59, 130, 246, 0.14);
     --badge-blue-border: rgba(59, 130, 246, 0.35);
@@ -60,6 +60,9 @@
     --badge-amber: #eab308;
     --badge-amber-bg: rgba(234, 179, 8, 0.14);
     --badge-amber-border: rgba(234, 179, 8, 0.35);
+    --badge-red: #f87171;
+    --badge-red-bg: rgba(220, 38, 38, 0.14);
+    --badge-red-border: rgba(248, 113, 113, 0.35);
     --badge-slate: #94a3b8;
     --badge-slate-bg: rgba(148, 163, 184, 0.12);
     --badge-slate-border: rgba(148, 163, 184, 0.25);

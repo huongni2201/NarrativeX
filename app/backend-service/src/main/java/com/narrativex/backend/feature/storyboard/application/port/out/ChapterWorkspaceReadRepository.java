@@ -15,7 +15,16 @@ public interface ChapterWorkspaceReadRepository {
       long estimatedDurationSeconds,
       String storyboardSourceHash,
       boolean hasApprovedOutput,
-      Analysis analysis) {}
+      Analysis analysis,
+      ChapterWorkspaceProjection projection) {}
+
+  /** Query-owned pipeline projection assembled from durable generation data. */
+  record ChapterWorkspaceProjection(
+      ProgressStep visualGeneration, PipelineStep audio, PipelineStep render) {}
+
+  record ProgressStep(String status, int total, int completed, int failed) {}
+
+  record PipelineStep(String status, Instant completedAt) {}
 
   record PreviewScene(
       long id,

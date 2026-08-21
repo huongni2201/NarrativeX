@@ -7,8 +7,8 @@
 ## Context
 
 The repository is still using a development database baseline. The schema had
-grown into one consolidated schema file, one deterministic seed file, and three
-small follow-up migrations. That split made the fresh-database path harder to
+grown into one consolidated schema file, one deterministic seed file, and a
+forward-only follow-up migration. That split made the fresh-database path harder to
 inspect and caused the implementation-facing migration documentation to drift.
 
 PostgreSQL remains the authoritative business-state store and the backend
@@ -21,8 +21,8 @@ incompatible schema.
 - Keep the consolidated baseline in exactly two migrations under
   `app/backend-service/src/main/resources/db/migration/`:
   `V1__initial_schema.sql` and `V2__seed_demo_data.sql`. Later schema cleanup
-  must use forward-only migrations; the deprecated quota projection is removed
-  by V3.
+  and feature changes must use forward-only migrations; V3 links visual-beat
+  previews to project-scoped image assets.
 - `V1__initial_schema.sql` contains the final consolidated schema, including
   split motion fields (`motion_mode`, `camera_movement`), storyboard revisions (`storyboard_revisions`),
   scene & location continuity identities (`scene_characters`, `project_character_ai_identities`, `project_location_ai_identities`),
@@ -46,7 +46,7 @@ incompatible schema.
 ## Consequences
 
 - A fresh supported PostgreSQL database starts with a concise, deterministic
-  two-step baseline path: schema V1, then seed V2. Forward-only cleanup
+  two-step baseline path: schema V1, then seed V2. Forward-only feature
   migrations may run after that baseline.
 - The final schema is easier to compare with JPA validation and implementation
   documentation.

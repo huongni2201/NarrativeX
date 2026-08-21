@@ -21,6 +21,7 @@ public final class VisualBeat extends DomainEntity {
   private final AspectRatio aspectRatioOverride;
   private final ImageQualityTier qualityTierOverride;
   private VisualBeatReviewStatus reviewStatus;
+  private Long previewAssetId;
 
   public VisualBeat(Long sceneId, int orderIndex, String visualIntent) {
     this(sceneId, orderIndex, defaultTitle(visualIntent), visualIntent);
@@ -159,6 +160,17 @@ public final class VisualBeat extends DomainEntity {
 
   public VisualBeatReviewStatus getReviewStatus() {
     return reviewStatus;
+  }
+
+  public Long getPreviewAssetId() {
+    return previewAssetId;
+  }
+
+  public void attachPreviewAsset(Long previewAssetId) {
+    if (previewAssetId != null && previewAssetId <= 0) {
+      throw new IllegalArgumentException("previewAssetId must be positive");
+    }
+    this.previewAssetId = previewAssetId;
   }
 
   private static String requiredText(String value, String field, int maxLength) {
