@@ -13,7 +13,8 @@ public class JdbcChapterAnalysisSnapshotRepository implements ChapterAnalysisSna
   private final JdbcTemplate jdbcTemplate;
 
   @Override
-  public ChapterAnalysisSource requireOwnedByProject(Long projectId, Long chapterId, String userId) {
+  public ChapterAnalysisSource requireOwnedByProject(
+      Long projectId, Long chapterId, String userId) {
     return jdbcTemplate
         .query(
             """

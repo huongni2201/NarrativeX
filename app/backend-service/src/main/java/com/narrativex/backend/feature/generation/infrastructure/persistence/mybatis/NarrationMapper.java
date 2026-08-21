@@ -6,7 +6,8 @@ import org.apache.ibatis.annotations.Param;
 public interface NarrationMapper extends NarrativeXMyBatisMapper {
   int insertRequest(NarrationRequestRow row);
 
-  NarrationRequestRow findRequestByFingerprint(@Param("requestFingerprint") String requestFingerprint);
+  NarrationRequestRow findRequestByFingerprint(
+      @Param("requestFingerprint") String requestFingerprint);
 
   int insertOperation(NarrationOperationRow row);
 }

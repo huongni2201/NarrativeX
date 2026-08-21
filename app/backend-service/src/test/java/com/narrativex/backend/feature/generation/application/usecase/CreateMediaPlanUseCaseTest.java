@@ -3,7 +3,6 @@ package com.narrativex.backend.feature.generation.application.usecase;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
@@ -55,8 +54,7 @@ class CreateMediaPlanUseCaseTest {
                         "Hello",
                         8,
                         List.of(
-                            new BeatSnapshot(
-                                40L, 0, "Character runs", MotionIntent.AI_VIDEO))))));
+                            new BeatSnapshot(40L, 0, "Character runs", MotionIntent.AI_VIDEO))))));
     when(mediaPlanRepository.nextRevision(10L)).thenReturn(3);
     when(mediaPlanRepository.save(any(MediaPlan.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));

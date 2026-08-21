@@ -34,10 +34,13 @@ class NarrationPipelineContractTest {
   @Test
   void changingChapterRevisionChangesDocumentFingerprint() {
     NarrationFingerprintService service = new NarrationFingerprintService();
-    var first = List.of(chapter(0, UUID.fromString("00000000-0000-0000-0000-000000000010"), HASH_A, 0, 4));
-    var edited = List.of(chapter(0, UUID.fromString("00000000-0000-0000-0000-000000000011"), HASH_A, 0, 4));
+    var first =
+        List.of(chapter(0, UUID.fromString("00000000-0000-0000-0000-000000000010"), HASH_A, 0, 4));
+    var edited =
+        List.of(chapter(0, UUID.fromString("00000000-0000-0000-0000-000000000011"), HASH_A, 0, 4));
 
-    assertThat(service.documentFingerprint(first)).isNotEqualTo(service.documentFingerprint(edited));
+    assertThat(service.documentFingerprint(first))
+        .isNotEqualTo(service.documentFingerprint(edited));
   }
 
   @Test
@@ -68,16 +71,20 @@ class NarrationPipelineContractTest {
                 List.of(part),
                 List.of(
                     span(document.chapters().get(0).chapterRevisionId(), 0, 4, 0, 4, 0, 4_000),
-                    span(document.chapters().get(1).chapterRevisionId(), 0, 4, 4, 8, 4_000, 10_000)),
+                    span(
+                        document.chapters().get(1).chapterRevisionId(), 0, 4, 4, 8, 4_000, 10_000)),
                 0.99,
                 0.97,
                 0.90);
 
     assertThat(timeline.status()).isEqualTo(AlignmentStatus.READY);
-    assertThat(timeline.parts()).singleElement().satisfies(p -> {
-      assertThat(p.globalStartMs()).isZero();
-      assertThat(p.globalEndMs()).isEqualTo(10_000);
-    });
+    assertThat(timeline.parts())
+        .singleElement()
+        .satisfies(
+            p -> {
+              assertThat(p.globalStartMs()).isZero();
+              assertThat(p.globalEndMs()).isEqualTo(10_000);
+            });
   }
 
   @Test

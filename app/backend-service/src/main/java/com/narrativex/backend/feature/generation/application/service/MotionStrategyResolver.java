@@ -26,8 +26,7 @@ public class MotionStrategyResolver {
     Objects.requireNonNull(context, "context");
 
     boolean imageToVideoEligible = motionIntent == MotionIntent.AI_VIDEO;
-    var resolved =
-        executionPolicy.authorizeMotion(imageToVideoEligible, productionMode, context);
+    var resolved = executionPolicy.authorizeMotion(imageToVideoEligible, productionMode, context);
     return resolved.decision() == MotionExecutionDecision.IMAGE_TO_VIDEO
         ? MotionStrategy.IMAGE_TO_VIDEO
         : MotionStrategy.BASIC_IMAGE_MOTION;

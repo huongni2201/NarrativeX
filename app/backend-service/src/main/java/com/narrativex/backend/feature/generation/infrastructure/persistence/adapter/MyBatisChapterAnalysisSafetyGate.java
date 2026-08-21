@@ -2,17 +2,17 @@ package com.narrativex.backend.feature.generation.infrastructure.persistence.ada
 
 import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisSafetyGate;
 import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
+import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ChapterAnalysisSafetyMapper;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSource;
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardRevisionAccess;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
-public class JdbcChapterAnalysisSafetyGate implements ChapterAnalysisSafetyGate {
-  private final JdbcTemplate jdbcTemplate;
+public class MyBatisChapterAnalysisSafetyGate implements ChapterAnalysisSafetyGate {
+  private final ChapterAnalysisSafetyMapper mapper;
   private final StoryboardRevisionAccess storyboardRevisionAccess;
 
   @Override
@@ -26,24 +26,7 @@ public class JdbcChapterAnalysisSafetyGate implements ChapterAnalysisSafetyGate 
               + "Edit the chapter before requesting a new analysis revision.");
     }
 
-    String result =
-        jdbcTemplate
-            .query(
-                """
-                SELECT result
-                  FROM moderation_decisions
-                 WHERE project_id = ?
-                   AND entity_type = 'CHAPTER'
-                   AND entity_id = ?
-                 ORDER BY created_at DESC, id DESC
-                 LIMIT 1
-                """,
-                (rs, rowNum) -> rs.getString("result"),
-                projectId,
-                source.chapterId().toString())
-            .stream()
-            .findFirst()
-            .orElse(null);
+    String result = mapper.findLatestModerationResult(projectId, source.chapterId().toString());
     if ("BLOCK".equalsIgnoreCase(result) || "REVIEW".equalsIgnoreCase(result)) {
       throw new GenerationAdmissionDeniedException(
           "SAFETY_BLOCKED", "Chapter analysis is not allowed by the current safety decision.");

@@ -4,7 +4,9 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import org.springframework.stereotype.Component;
 
-/** Admission-only conservative ceiling. Actual provider usage remains authoritative for settlement. */
+/**
+ * Admission-only conservative ceiling. Actual provider usage remains authoritative for settlement.
+ */
 @Component
 public class NarrationCostEstimator {
   // Covers the most expensive currently supported Google legacy voice tier (Studio) without

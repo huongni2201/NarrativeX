@@ -59,8 +59,7 @@ class MyBatisChapterRepositoryTest {
     when(mapper.findById(11L)).thenReturn(null);
 
     assertThrows(
-        ResourceNotFoundException.class,
-        () -> new MyBatisChapterRepository(mapper).save(chapter));
+        ResourceNotFoundException.class, () -> new MyBatisChapterRepository(mapper).save(chapter));
 
     verify(mapper, never()).update(any(ChapterRow.class));
   }

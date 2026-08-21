@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.StageAttemptMapper">
+    <resultMap id="stageAttemptRow" type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.StageAttemptRow">
+        <id property="id" column="id" />
+        <result property="rowVersion" column="row_version" />
+        <result property="generationJobId" column="generation_job_id" />
+        <result property="stageName" column="stage_name" />
+        <result property="attemptNumber" column="attempt_number" />
+        <result property="status" column="status" />
+        <result property="workerId" column="worker_id" />
+        <result property="heartbeatAt" column="heartbeat_at" />
+    </resultMap>
+
+    <sql id="columns">
+        id, row_version, generation_job_id, stage_name, attempt_number, status, worker_id, heartbeat_at
+    </sql>
+
+    <select id="insert"
+            parameterType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.StageAttemptRow"
+            resultType="long" affectData="true">
+        INSERT INTO stage_attempts
+            (generation_job_id, stage_name, attempt_number, status, worker_id, heartbeat_at)
+        VALUES
+            (#{generationJobId}, #{stageName}, #{attemptNumber}, #{status}, #{workerId}, #{heartbeatAt})
+        RETURNING id
+    </select>
+
+    <select id="findById" resultMap="stageAttemptRow">
+        SELECT <include refid="columns" />
+          FROM stage_attempts
+         WHERE id = #{id}
+    </select>
+</mapper>

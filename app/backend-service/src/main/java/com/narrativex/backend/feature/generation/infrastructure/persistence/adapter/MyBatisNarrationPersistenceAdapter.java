@@ -40,7 +40,8 @@ public class MyBatisNarrationPersistenceAdapter
                 operation.generationJobId(),
                 operation.stageAttemptId()))
         != 1) {
-      throw new IllegalStateException("Narration operation already exists for job or stage attempt");
+      throw new IllegalStateException(
+          "Narration operation already exists for job or stage attempt");
     }
     return operation;
   }

@@ -29,7 +29,8 @@ public class MyBatisProviderOperationPersistenceAdapter implements ProviderOpera
       Long insertedId = mapper.insert(toRow(operation));
       if (insertedId == null) {
         return findByFingerprint(operation.getProviderKey(), operation.getRequestFingerprint())
-            .orElseThrow(() -> new IllegalStateException("Provider operation reservation disappeared"));
+            .orElseThrow(
+                () -> new IllegalStateException("Provider operation reservation disappeared"));
       }
       return findById(insertedId)
           .orElseThrow(() -> new IllegalStateException("Inserted provider operation disappeared"));
@@ -44,7 +45,8 @@ public class MyBatisProviderOperationPersistenceAdapter implements ProviderOpera
   @Override
   @Transactional(readOnly = true)
   public Optional<ProviderOperation> findById(Long id) {
-    return Optional.ofNullable(mapper.findById(id)).map(MyBatisProviderOperationPersistenceAdapter::toDomain);
+    return Optional.ofNullable(mapper.findById(id))
+        .map(MyBatisProviderOperationPersistenceAdapter::toDomain);
   }
 
   @Override
@@ -76,7 +78,10 @@ public class MyBatisProviderOperationPersistenceAdapter implements ProviderOpera
   @Override
   @Transactional
   public ProviderOperation transition(
-      Long id, long expectedVersion, ProviderOperationStatus nextStatus, String providerOperationId) {
+      Long id,
+      long expectedVersion,
+      ProviderOperationStatus nextStatus,
+      String providerOperationId) {
     ProviderOperation current = require(id);
     requireTransition(current, nextStatus);
     int affected =

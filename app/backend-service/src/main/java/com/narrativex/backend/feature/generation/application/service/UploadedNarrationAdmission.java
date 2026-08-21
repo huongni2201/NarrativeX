@@ -20,11 +20,14 @@ public class UploadedNarrationAdmission {
     UserQuotaAccess.QuotaSnapshot quota =
         quotaQuery
             .findCurrentQuota(userId)
-            .orElseThrow(() -> new GenerationAdmissionDeniedException("COST_LIMIT", "No active plan."));
+            .orElseThrow(
+                () -> new GenerationAdmissionDeniedException("COST_LIMIT", "No active plan."));
     if (!quota.features().narrationEnabled()) {
       throw new FeatureNotAvailableException("Narration is not enabled for this plan.");
     }
-    return new Admission(new NarrationCostEstimate(0, java.math.BigDecimal.ZERO, java.math.BigDecimal.ZERO, java.math.BigDecimal.ZERO));
+    return new Admission(
+        new NarrationCostEstimate(
+            0, java.math.BigDecimal.ZERO, java.math.BigDecimal.ZERO, java.math.BigDecimal.ZERO));
   }
 
   public record Admission(NarrationCostEstimate ttsEstimate) {

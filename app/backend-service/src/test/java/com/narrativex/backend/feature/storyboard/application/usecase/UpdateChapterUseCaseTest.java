@@ -9,12 +9,12 @@ import static org.mockito.Mockito.when;
 import com.narrativex.backend.configuration.NarrativeXLimitsProperties;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
+import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
 import com.narrativex.backend.feature.storyboard.application.command.UpdateChapterCommand;
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardRevisionAccess;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
-import com.narrativex.backend.feature.storyboard.domain.aggregate.Chapter;
-import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
 import com.narrativex.backend.feature.storyboard.application.service.ChapterSourceHasher;
+import com.narrativex.backend.feature.storyboard.domain.aggregate.Chapter;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -47,9 +47,7 @@ class UpdateChapterUseCaseTest {
 
     assertThrows(
         ResourceNotFoundException.class,
-        () ->
-            useCase.execute(
-                new UpdateChapterCommand(7L, 11L, 2L, "Updated", "updated source")));
+        () -> useCase.execute(new UpdateChapterCommand(7L, 11L, 2L, "Updated", "updated source")));
 
     verify(storyboardRevisionAccess, never()).lockChapter(11L);
   }

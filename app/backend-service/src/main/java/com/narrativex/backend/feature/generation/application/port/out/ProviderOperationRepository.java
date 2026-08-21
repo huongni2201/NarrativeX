@@ -19,10 +19,12 @@ public interface ProviderOperationRepository {
       List<ProviderOperationStatus> statuses, int limit);
 
   ProviderOperation transition(
-      Long id, long expectedVersion, ProviderOperationStatus nextStatus, String providerOperationId);
+      Long id,
+      long expectedVersion,
+      ProviderOperationStatus nextStatus,
+      String providerOperationId);
 
-  ProviderOperation markSubmissionUnknown(
-      Long id, long expectedVersion, Instant nextReconcileAt);
+  ProviderOperation markSubmissionUnknown(Long id, long expectedVersion, Instant nextReconcileAt);
 
   ProviderOperation persistResult(
       Long id,

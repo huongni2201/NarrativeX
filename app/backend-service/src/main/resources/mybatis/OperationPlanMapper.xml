@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.OperationPlanMapper">
+    <resultMap id="operationPlanRow" type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.OperationPlanRow">
+        <id property="id" column="id" />
+        <result property="rowVersion" column="row_version" />
+        <result property="projectId" column="project_id" />
+        <result property="generationJobId" column="generation_job_id" />
+        <result property="operationType" column="operation_type" />
+        <result property="estimateMin" column="estimate_min" />
+        <result property="estimateMax" column="estimate_max" />
+        <result property="maxAuthorizedCost" column="max_authorized_cost" />
+        <result property="confidence" column="confidence" />
+    </resultMap>
+
+    <sql id="columns">
+        id, row_version, project_id, generation_job_id, operation_type,
+        estimate_min, estimate_max, max_authorized_cost, confidence
+    </sql>
+
+    <select id="insert"
+            parameterType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.OperationPlanRow"
+            resultType="long" affectData="true">
+        INSERT INTO operation_plans
+            (project_id, generation_job_id, operation_type, estimate_min, estimate_max,
+             max_authorized_cost, confidence)
+        VALUES
+            (#{projectId}, #{generationJobId}, #{operationType}, #{estimateMin}, #{estimateMax},
+             #{maxAuthorizedCost}, #{confidence})
+        RETURNING id
+    </select>
+
+    <update id="updateCas"
+            parameterType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.OperationPlanRow">
+        UPDATE operation_plans
+           SET project_id = #{projectId},
+               generation_job_id = #{generationJobId},
+               operation_type = #{operationType},
+               estimate_min = #{estimateMin},
+               estimate_max = #{estimateMax},
+               max_authorized_cost = #{maxAuthorizedCost},
+               confidence = #{confidence},
+               updated_at = CURRENT_TIMESTAMP,
+               row_version = row_version + 1
+         WHERE id = #{id}
+           AND row_version = #{rowVersion}
+    </update>
+
+    <select id="findById" resultMap="operationPlanRow">
+        SELECT <include refid="columns" />
+          FROM operation_plans
+         WHERE id = #{id}
+    </select>
+</mapper>

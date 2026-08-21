@@ -9,7 +9,8 @@ public record ExecutionContext(
     int previousAttempts,
     int maxAttempts) {
   public ExecutionContext {
-    if (previousAttempts < 0) throw new IllegalArgumentException("previousAttempts must not be negative");
+    if (previousAttempts < 0)
+      throw new IllegalArgumentException("previousAttempts must not be negative");
     if (maxAttempts < 0) throw new IllegalArgumentException("maxAttempts must not be negative");
   }
 

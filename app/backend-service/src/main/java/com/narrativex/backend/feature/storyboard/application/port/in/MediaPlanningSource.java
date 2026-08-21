@@ -30,10 +30,7 @@ public record MediaPlanningSource(List<SceneSnapshot> scenes) {
   }
 
   public record BeatSnapshot(
-      Long visualBeatId,
-      int orderIndex,
-      String visualIntent,
-      MotionIntent motionIntent) {
+      Long visualBeatId, int orderIndex, String visualIntent, MotionIntent motionIntent) {
     public BeatSnapshot {
       if (visualBeatId == null || visualBeatId <= 0) {
         throw new IllegalArgumentException("visualBeatId must be positive");

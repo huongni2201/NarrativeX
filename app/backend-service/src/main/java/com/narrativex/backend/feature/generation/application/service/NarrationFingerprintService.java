@@ -40,7 +40,8 @@ public class NarrationFingerprintService {
     try {
       return HexFormat.of()
           .formatHex(
-              MessageDigest.getInstance("SHA-256").digest(payload.getBytes(StandardCharsets.UTF_8)));
+              MessageDigest.getInstance("SHA-256")
+                  .digest(payload.getBytes(StandardCharsets.UTF_8)));
     } catch (NoSuchAlgorithmException exception) {
       throw new IllegalStateException("SHA-256 must be available in the JDK", exception);
     }

@@ -39,9 +39,7 @@ class MotionStrategyResolverTest {
 
     assertThat(
             resolver.resolve(
-                ProductionMode.HYBRID_LOCAL_I2V,
-                MotionIntent.AI_VIDEO,
-                unavailableProvider))
+                ProductionMode.HYBRID_LOCAL_I2V, MotionIntent.AI_VIDEO, unavailableProvider))
         .isEqualTo(MotionStrategy.BASIC_IMAGE_MOTION);
   }
 }

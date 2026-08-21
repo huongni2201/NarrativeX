@@ -2,17 +2,21 @@ package com.narrativex.backend.feature.auth.infrastructure.security;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 
+import com.narrativex.backend.feature.auth.application.exception.AuthRateLimitExceededException;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 
@@ -44,5 +48,21 @@ class AuthRateLimiterTest {
 
     assertNotEquals(firstIpKey, secondIpKey);
     assertEquals(firstIdentityKey, secondIdentityKey);
+  }
+
+  @Test
+  @SuppressWarnings({"rawtypes", "unchecked"})
+  void redisFailureUsesBoundedFallbackInsteadOfAllowingUnlimitedRequests() {
+    doThrow(new DataAccessResourceFailureException("redis unavailable"))
+        .when(redisTemplate)
+        .execute(any(DefaultRedisScript.class), anyList(), any(String.class));
+
+    AuthRateLimiter limiter = new AuthRateLimiter(redisTemplate, true, 30, 1, 300, 10, 5, 3600);
+
+    limiter.checkLogin("user@example.com", "10.0.0.1");
+
+    assertThrows(
+        AuthRateLimitExceededException.class,
+        () -> limiter.checkLogin("user@example.com", "10.0.0.1"));
   }
 }

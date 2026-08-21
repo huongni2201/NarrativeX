@@ -28,13 +28,7 @@ class GenerationJobMediaPlanTest {
 
     var job =
         GenerationJob.createChapterGeneration(
-            1L,
-            2L,
-            plan,
-            ResourceClass.GPU_HEAVY,
-            "en",
-            "chapter-generate:10:4",
-            "user-1");
+            1L, 2L, plan, ResourceClass.GPU_HEAVY, "en", "chapter-generate:10:4", "user-1");
 
     assertThat(job.getChapterId()).isEqualTo(10L);
     assertThat(job.getChapterRowVersion()).isEqualTo(8L);

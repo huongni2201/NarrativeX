@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.MediaPlanMapper">
+    <select id="nextRevision" resultType="int">
+        SELECT COALESCE(MAX(revision), 0) + 1
+          FROM media_plans
+         WHERE chapter_id = #{chapterId}
+    </select>
+
+    <insert id="insertPlan"
+            parameterType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.MediaPlanRow">
+        INSERT INTO media_plans (
+          id, chapter_id, chapter_row_version, source_hash, production_mode, revision,
+          narration_characters, image_generate_count, image_edit_count, basic_motion_seconds,
+          planned_i2v_seconds, estimated_cost, created_at
+        ) VALUES (
+          #{id,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+          #{chapterId}, #{chapterRowVersion}, #{sourceHash}, #{productionMode}, #{revision},
+          #{narrationCharacters}, #{imageGenerateCount}, #{imageEditCount}, #{basicMotionSeconds},
+          #{plannedI2vSeconds}, #{estimatedCost}, #{createdAt}
+        )
+    </insert>
+
+    <insert id="insertScene"
+            parameterType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.MediaScenePlanRow">
+        INSERT INTO media_scene_plans (
+          media_plan_id, scene_index, scene_id, scene_order_index, narration, duration_seconds
+        ) VALUES (
+          #{mediaPlanId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+          #{sceneIndex}, #{sceneId}, #{sceneOrderIndex}, #{narration}, #{durationSeconds}
+        )
+    </insert>
+
+    <insert id="insertBeat"
+            parameterType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.MediaBeatPlanRow">
+        INSERT INTO media_beat_plans (
+          media_plan_id, scene_index, beat_index, visual_beat_id, visual_beat_order_index,
+          visual_intent, semantic_motion_mode, motion_strategy
+        ) VALUES (
+          #{mediaPlanId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+          #{sceneIndex}, #{beatIndex}, #{visualBeatId}, #{visualBeatOrderIndex},
+          #{visualIntent}, #{semanticMotionMode}, #{motionStrategy}
+        )
+    </insert>
+</mapper>

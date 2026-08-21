@@ -59,7 +59,10 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
   @Test
   void insertsAndRoundTripsGeneratedIdentityAndOptionalFields() {
     long projectId = insertProject("owner-a");
-    GenerationJob saved = repository.save(GenerationJob.create(projectId, JobType.STORY_ANALYZE, ResourceClass.CPU_LIGHT, "owner-a"));
+    GenerationJob saved =
+        repository.save(
+            GenerationJob.create(
+                projectId, JobType.STORY_ANALYZE, ResourceClass.CPU_LIGHT, "owner-a"));
 
     assertNotNull(saved.getId());
     assertEquals(0L, saved.getRowVersion());
@@ -72,7 +75,10 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
   @Test
   void updatesWithCompareAndSetAndRejectsStaleVersion() {
     long projectId = insertProject("owner-b");
-    GenerationJob saved = repository.save(GenerationJob.create(projectId, JobType.STORY_ANALYZE, ResourceClass.CPU_LIGHT, "owner-b"));
+    GenerationJob saved =
+        repository.save(
+            GenerationJob.create(
+                projectId, JobType.STORY_ANALYZE, ResourceClass.CPU_LIGHT, "owner-b"));
     GenerationJob running = copyWithStatus(saved, JobStatus.RUNNING);
 
     GenerationJob updated = repository.save(running);
@@ -85,10 +91,28 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
   @Test
   void distinguishesMissingUpdateFromStaleVersion() {
     long projectId = insertProject("owner-c");
-    GenerationJob missing = GenerationJob.rehydrate(
-        999_999_999L, 0L, UUID.randomUUID().toString(), projectId, JobType.STORY_ANALYZE,
-        JobStatus.QUEUED, ResourceClass.CPU_LIGHT, 0, "QUEUED", null, "owner-c", "owner-c",
-        null, null, null, null, null, null, null, null);
+    GenerationJob missing =
+        GenerationJob.rehydrate(
+            999_999_999L,
+            0L,
+            UUID.randomUUID().toString(),
+            projectId,
+            JobType.STORY_ANALYZE,
+            JobStatus.QUEUED,
+            ResourceClass.CPU_LIGHT,
+            0,
+            "QUEUED",
+            null,
+            "owner-c",
+            "owner-c",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null);
 
     assertThrows(ResourceNotFoundException.class, () -> repository.save(missing));
   }
@@ -96,12 +120,16 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
   @Test
   void preservesOwnerIsolationAndArchivedProjectVisibility() {
     long projectId = insertProject("owner-d");
-    GenerationJob saved = repository.save(GenerationJob.create(projectId, JobType.STORY_ANALYZE, ResourceClass.CPU_LIGHT, "owner-d"));
+    GenerationJob saved =
+        repository.save(
+            GenerationJob.create(
+                projectId, JobType.STORY_ANALYZE, ResourceClass.CPU_LIGHT, "owner-d"));
 
     assertTrue(repository.findByJobIdAndOwner(saved.getJobId(), "owner-d").isPresent());
     assertTrue(repository.findByJobIdAndOwner(saved.getJobId(), "other-owner").isEmpty());
 
-    jdbcTemplate.update("UPDATE projects SET archived_at = CURRENT_TIMESTAMP WHERE id = ?", projectId);
+    jdbcTemplate.update(
+        "UPDATE projects SET archived_at = CURRENT_TIMESTAMP WHERE id = ?", projectId);
     assertTrue(repository.findByJobIdAndOwner(saved.getJobId(), "owner-d").isEmpty());
   }
 
@@ -112,18 +140,40 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
     GenerationJob first = repository.save(jobWithIdempotency(projectId, key, "owner-e"));
 
     assertEquals(first.getId(), repository.findByIdempotencyKey(key).orElseThrow().getId());
-    assertThrows(DuplicateKeyException.class, () -> repository.save(jobWithIdempotency(projectId, key, "owner-e")));
+    assertThrows(
+        DuplicateKeyException.class,
+        () -> repository.save(jobWithIdempotency(projectId, key, "owner-e")));
   }
 
   @Test
   void mediaPlanPointerRoundTripsExactly() {
     long projectId = insertProject("owner-f");
     MediaFixture media = insertMediaPlan(projectId);
-    GenerationJob job = GenerationJob.rehydrate(
-        null, 0L, UUID.randomUUID().toString(), projectId, JobType.CHAPTER_GENERATE,
-        JobStatus.QUEUED, ResourceClass.CPU_RENDER, 0, "QUEUED", null, "owner-f", "owner-f",
-        media.storyVersionId(), media.chapterId(), null, 0L, media.sourceHash(), null, "vi-VN",
-        "media-job-" + UUID.randomUUID(), media.mediaPlanId(), 1, ProductionMode.IMAGE_MOTION);
+    GenerationJob job =
+        GenerationJob.rehydrate(
+            null,
+            0L,
+            UUID.randomUUID().toString(),
+            projectId,
+            JobType.CHAPTER_GENERATE,
+            JobStatus.QUEUED,
+            ResourceClass.CPU_RENDER,
+            0,
+            "QUEUED",
+            null,
+            "owner-f",
+            "owner-f",
+            media.storyVersionId(),
+            media.chapterId(),
+            null,
+            0L,
+            media.sourceHash(),
+            null,
+            "vi-VN",
+            "media-job-" + UUID.randomUUID(),
+            media.mediaPlanId(),
+            1,
+            ProductionMode.IMAGE_MOTION);
 
     GenerationJob saved = repository.save(job);
 
@@ -141,17 +191,25 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
     executor = Executors.newFixedThreadPool(2);
     TransactionTemplate transactions = new TransactionTemplate(transactionManager);
 
-    Future<?> first = executor.submit(() -> transactions.executeWithoutResult(status -> {
-      repository.acquireIdempotencyLock(key);
-      firstLocked.countDown();
-      await(releaseFirst);
-    }));
+    Future<?> first =
+        executor.submit(
+            () ->
+                transactions.executeWithoutResult(
+                    status -> {
+                      repository.acquireIdempotencyLock(key);
+                      firstLocked.countDown();
+                      await(releaseFirst);
+                    }));
     assertTrue(firstLocked.await(5, TimeUnit.SECONDS));
 
-    Future<?> second = executor.submit(() -> transactions.executeWithoutResult(status -> {
-      repository.acquireIdempotencyLock(key);
-      secondAcquired.countDown();
-    }));
+    Future<?> second =
+        executor.submit(
+            () ->
+                transactions.executeWithoutResult(
+                    status -> {
+                      repository.acquireIdempotencyLock(key);
+                      secondAcquired.countDown();
+                    }));
 
     assertFalse(secondAcquired.await(250, TimeUnit.MILLISECONDS));
     releaseFirst.countDown();
@@ -175,25 +233,27 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
   }
 
   private MediaFixture insertMediaPlan(long projectId) {
-    long storyVersionId = jdbcTemplate.queryForObject(
-        """
+    long storyVersionId =
+        jdbcTemplate.queryForObject(
+            """
         INSERT INTO story_versions
           (project_id, version_number, content, source_language, status, moderation_decision)
         VALUES (?, 1, 'story', 'vi-VN', 'DRAFT', 'PENDING')
         RETURNING id
         """,
-        Long.class,
-        projectId);
+            Long.class,
+            projectId);
     String sourceHash = "a".repeat(64);
-    long chapterId = jdbcTemplate.queryForObject(
-        """
+    long chapterId =
+        jdbcTemplate.queryForObject(
+            """
         INSERT INTO chapters (story_version_id, order_index, title, source_text, source_hash)
         VALUES (?, 0, 'Chapter', 'source', ?)
         RETURNING id
         """,
-        Long.class,
-        storyVersionId,
-        sourceHash);
+            Long.class,
+            storyVersionId,
+            sourceHash);
     UUID mediaPlanId = UUID.randomUUID();
     jdbcTemplate.update(
         """
@@ -212,18 +272,52 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
 
   private static GenerationJob jobWithIdempotency(long projectId, String key, String userId) {
     return GenerationJob.rehydrate(
-        null, 0L, UUID.randomUUID().toString(), projectId, JobType.STORY_ANALYZE,
-        JobStatus.QUEUED, ResourceClass.CPU_LIGHT, 0, "QUEUED", null, userId, userId,
-        null, null, null, null, null, null, null, key);
+        null,
+        0L,
+        UUID.randomUUID().toString(),
+        projectId,
+        JobType.STORY_ANALYZE,
+        JobStatus.QUEUED,
+        ResourceClass.CPU_LIGHT,
+        0,
+        "QUEUED",
+        null,
+        userId,
+        userId,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        key);
   }
 
   private static GenerationJob copyWithStatus(GenerationJob job, JobStatus status) {
     return GenerationJob.rehydrate(
-        job.getId(), job.getRowVersion(), job.getJobId(), job.getProjectId(), job.getType(), status,
-        job.getResourceClass(), job.getProgress(), job.getCurrentStep(), job.getErrorCode(),
-        job.getRequestedByUserId(), job.getBilledToUserId(), job.getStoryVersionId(), job.getChapterId(),
-        job.getStoryboardRevisionId(), job.getChapterRowVersion(), job.getSourceHash(), job.getSourceText(),
-        job.getSourceLanguage(), job.getIdempotencyKey(), job.getMediaPlanId(), job.getMediaPlanRevision(),
+        job.getId(),
+        job.getRowVersion(),
+        job.getJobId(),
+        job.getProjectId(),
+        job.getType(),
+        status,
+        job.getResourceClass(),
+        job.getProgress(),
+        job.getCurrentStep(),
+        job.getErrorCode(),
+        job.getRequestedByUserId(),
+        job.getBilledToUserId(),
+        job.getStoryVersionId(),
+        job.getChapterId(),
+        job.getStoryboardRevisionId(),
+        job.getChapterRowVersion(),
+        job.getSourceHash(),
+        job.getSourceText(),
+        job.getSourceLanguage(),
+        job.getIdempotencyKey(),
+        job.getMediaPlanId(),
+        job.getMediaPlanRevision(),
         job.getProductionMode());
   }
 
@@ -238,5 +332,6 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
     }
   }
 
-  private record MediaFixture(long storyVersionId, long chapterId, String sourceHash, UUID mediaPlanId) {}
+  private record MediaFixture(
+      long storyVersionId, long chapterId, String sourceHash, UUID mediaPlanId) {}
 }

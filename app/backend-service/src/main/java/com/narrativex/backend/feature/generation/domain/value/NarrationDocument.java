@@ -15,11 +15,14 @@ public record NarrationDocument(
     chapters = List.copyOf(Objects.requireNonNull(chapters, "chapters"));
     if (chapters.isEmpty()) throw new IllegalArgumentException("at least one chapter is required");
     for (int index = 0; index < chapters.size(); index++) {
-      if (chapters.get(index).sequence() != index) throw new IllegalArgumentException("chapter sequences must be contiguous from zero");
+      if (chapters.get(index).sequence() != index)
+        throw new IllegalArgumentException("chapter sequences must be contiguous from zero");
     }
   }
 
   public int selectedTextLength() {
-    return chapters.stream().mapToInt(chapter -> chapter.globalTextEnd() - chapter.globalTextStart()).sum();
+    return chapters.stream()
+        .mapToInt(chapter -> chapter.globalTextEnd() - chapter.globalTextStart())
+        .sum();
   }
 }

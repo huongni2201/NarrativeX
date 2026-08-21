@@ -5,10 +5,7 @@ import java.util.UUID;
 
 /** Domain grouping only; provider lifecycle remains in ProviderOperation. */
 public record NarrationOperation(
-    UUID id,
-    UUID narrationRequestId,
-    Long generationJobId,
-    Long stageAttemptId) {
+    UUID id, UUID narrationRequestId, Long generationJobId, Long stageAttemptId) {
   public NarrationOperation {
     Objects.requireNonNull(id, "id");
     Objects.requireNonNull(narrationRequestId, "narrationRequestId");

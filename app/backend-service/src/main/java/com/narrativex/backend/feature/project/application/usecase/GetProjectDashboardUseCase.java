@@ -68,8 +68,7 @@ public class GetProjectDashboardUseCase {
   private static int decodeOffset(String cursor) {
     if (cursor == null || cursor.isBlank()) return 0;
     try {
-      String decoded =
-          new String(Base64.getUrlDecoder().decode(cursor), StandardCharsets.UTF_8);
+      String decoded = new String(Base64.getUrlDecoder().decode(cursor), StandardCharsets.UTF_8);
       int offset = Integer.parseInt(decoded);
       if (offset < 0) throw new NumberFormatException("negative offset");
       return offset;

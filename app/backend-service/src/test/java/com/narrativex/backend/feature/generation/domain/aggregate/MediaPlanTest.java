@@ -22,13 +22,8 @@ class MediaPlanTest {
         new ArrayList<>(
             List.of(
                 new MediaBeatPlan(
-                    11L,
-                    0,
-                    "Character enters",
-                    "AI_VIDEO",
-                    MotionStrategy.IMAGE_TO_VIDEO)));
-    var scenes =
-        new ArrayList<>(List.of(new MediaScenePlan(7L, 0, "Narration", 5, beats)));
+                    11L, 0, "Character enters", "AI_VIDEO", MotionStrategy.IMAGE_TO_VIDEO)));
+    var scenes = new ArrayList<>(List.of(new MediaScenePlan(7L, 0, "Narration", 5, beats)));
 
     var plan =
         MediaPlan.create(
@@ -47,6 +42,7 @@ class MediaPlanTest {
 
     assertThat(plan.scenes()).hasSize(1);
     assertThat(plan.scenes().getFirst().beats()).hasSize(1);
-    assertThatThrownBy(() -> plan.scenes().clear()).isInstanceOf(UnsupportedOperationException.class);
+    assertThatThrownBy(() -> plan.scenes().clear())
+        .isInstanceOf(UnsupportedOperationException.class);
   }
 }

@@ -49,6 +49,46 @@ class ArchitectureRulesTest {
   }
 
   @Test
+  void generationDurableAdaptersUseMyBatisOnly() throws IOException {
+    List<String> files =
+        List.of(
+            "feature/generation/infrastructure/persistence/adapter/MyBatisGenerationJobPersistenceAdapter.java",
+            "feature/generation/infrastructure/persistence/adapter/StageAttemptPersistenceAdapter.java",
+            "feature/generation/infrastructure/persistence/adapter/OperationPlanPersistenceAdapter.java",
+            "feature/generation/infrastructure/persistence/adapter/GenerationOutboxPersistenceAdapter.java",
+            "feature/generation/infrastructure/persistence/adapter/MyBatisJobHistoryQueryAdapter.java",
+            "feature/generation/infrastructure/persistence/adapter/MyBatisChapterAnalysisSafetyGate.java",
+            "feature/generation/infrastructure/persistence/adapter/MyBatisMediaPlanPersistenceAdapter.java");
+
+    for (String file : files) {
+      String source = Files.readString(SOURCE_ROOT.resolve(file));
+      assertTrue(!source.contains("jakarta.persistence"), () -> file + " imports JPA");
+      assertTrue(!source.contains("JpaRepository"), () -> file + " imports Spring Data JPA");
+      assertTrue(!source.contains("JdbcTemplate"), () -> file + " imports JdbcTemplate");
+      assertTrue(
+          source.contains("infrastructure.persistence.mybatis"),
+          () -> file + " does not use a dedicated MyBatis mapper/row");
+    }
+
+    assertTrue(
+        !Files.exists(
+            SOURCE_ROOT.resolve(
+                "feature/generation/infrastructure/persistence/entity/StageAttemptJpaEntity.java")));
+    assertTrue(
+        !Files.exists(
+            SOURCE_ROOT.resolve(
+                "feature/generation/infrastructure/persistence/entity/OperationPlanJpaEntity.java")));
+    assertTrue(
+        !Files.exists(
+            SOURCE_ROOT.resolve(
+                "feature/generation/infrastructure/persistence/repository/StageAttemptJpaRepository.java")));
+    assertTrue(
+        !Files.exists(
+            SOURCE_ROOT.resolve(
+                "feature/generation/infrastructure/persistence/repository/OperationPlanJpaRepository.java")));
+  }
+
+  @Test
   void rulesDetectRepresentativeInvalidDependencies() {
     assertTrue(
         isForbiddenApplicationImport(

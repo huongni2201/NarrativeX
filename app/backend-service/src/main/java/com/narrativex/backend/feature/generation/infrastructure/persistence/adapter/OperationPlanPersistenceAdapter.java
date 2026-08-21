@@ -1,20 +1,19 @@
 package com.narrativex.backend.feature.generation.infrastructure.persistence.adapter;
 
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
-import com.narrativex.backend.feature.common.infrastructure.persistence.OptimisticConcurrency;
 import com.narrativex.backend.feature.generation.application.port.out.OperationPlanRepository;
 import com.narrativex.backend.feature.generation.domain.aggregate.OperationPlan;
-import com.narrativex.backend.feature.generation.infrastructure.persistence.entity.OperationPlanJpaEntity;
-import com.narrativex.backend.feature.generation.infrastructure.persistence.mapper.GenerationPersistenceMapper;
-import com.narrativex.backend.feature.generation.infrastructure.persistence.repository.OperationPlanJpaRepository;
+import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.OperationPlanMapper;
+import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.OperationPlanRow;
 import lombok.RequiredArgsConstructor;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
 public class OperationPlanPersistenceAdapter implements OperationPlanRepository {
 
-  private final OperationPlanJpaRepository repository;
+  private final OperationPlanMapper mapper;
 
   @Override
   public OperationPlan save(OperationPlan operationPlan) {
@@ -22,37 +21,59 @@ public class OperationPlanPersistenceAdapter implements OperationPlanRepository 
   }
 
   private OperationPlan create(OperationPlan operationPlan) {
-    return GenerationPersistenceMapper.toDomain(repository.save(buildJpaEntity(operationPlan)));
+    Long id = mapper.insert(toRow(operationPlan));
+    if (id == null) {
+      throw new IllegalStateException("Inserted operation plan did not return an id");
+    }
+    OperationPlanRow inserted = mapper.findById(id);
+    if (inserted == null) {
+      throw new IllegalStateException("Inserted operation plan " + id + " disappeared");
+    }
+    return toDomain(inserted);
   }
 
   private OperationPlan update(OperationPlan operationPlan) {
-    OperationPlanJpaEntity existing =
-        repository
-            .findById(operationPlan.getId())
-            .orElseThrow(
-                () ->
-                    new ResourceNotFoundException(
-                        "OperationPlan "
-                            + operationPlan.getId()
-                            + " no longer exists while applying an update"));
-    OptimisticConcurrency.requireVersion(
-        operationPlan.getRowVersion(),
-        existing.getRowVersion(),
-        OperationPlanJpaEntity.class,
-        operationPlan.getId());
-    existing.apply(operationPlan);
-    return GenerationPersistenceMapper.toDomain(repository.save(existing));
+    if (mapper.updateCas(toRow(operationPlan)) != 1) {
+      OperationPlanRow current = mapper.findById(operationPlan.getId());
+      if (current == null) {
+        throw new ResourceNotFoundException(
+            "OperationPlan "
+                + operationPlan.getId()
+                + " no longer exists while applying an update");
+      }
+      throw new ObjectOptimisticLockingFailureException(OperationPlan.class, operationPlan.getId());
+    }
+    OperationPlanRow updated = mapper.findById(operationPlan.getId());
+    if (updated == null) {
+      throw new ResourceNotFoundException(
+          "OperationPlan " + operationPlan.getId() + " disappeared after applying an update");
+    }
+    return toDomain(updated);
   }
 
-  private static OperationPlanJpaEntity buildJpaEntity(OperationPlan operationPlan) {
-    return OperationPlanJpaEntity.builder()
-        .projectId(operationPlan.getProjectId())
-        .generationJobId(operationPlan.getGenerationJobId())
-        .operationType(operationPlan.getOperationType())
-        .estimateMin(operationPlan.getEstimateMin())
-        .estimateMax(operationPlan.getEstimateMax())
-        .maxAuthorizedCost(operationPlan.getMaxAuthorizedCost())
-        .confidence(operationPlan.getConfidence())
-        .build();
+  private static OperationPlanRow toRow(OperationPlan plan) {
+    return new OperationPlanRow(
+        plan.getId(),
+        plan.getRowVersion(),
+        plan.getProjectId(),
+        plan.getGenerationJobId(),
+        plan.getOperationType(),
+        plan.getEstimateMin(),
+        plan.getEstimateMax(),
+        plan.getMaxAuthorizedCost(),
+        plan.getConfidence());
+  }
+
+  private static OperationPlan toDomain(OperationPlanRow row) {
+    return OperationPlan.rehydrate(
+        row.getId(),
+        row.getRowVersion(),
+        row.getProjectId(),
+        row.getGenerationJobId(),
+        row.getOperationType(),
+        row.getEstimateMin(),
+        row.getEstimateMax(),
+        row.getMaxAuthorizedCost(),
+        row.getConfidence());
   }
 }

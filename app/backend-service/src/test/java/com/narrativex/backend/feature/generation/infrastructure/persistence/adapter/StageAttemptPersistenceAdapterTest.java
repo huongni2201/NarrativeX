@@ -8,8 +8,8 @@ import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.generation.domain.entity.StageAttempt;
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
-import com.narrativex.backend.feature.generation.infrastructure.persistence.entity.StageAttemptJpaEntity;
-import com.narrativex.backend.feature.generation.infrastructure.persistence.repository.StageAttemptJpaRepository;
+import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.StageAttemptMapper;
+import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.StageAttemptRow;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -17,33 +17,30 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class StageAttemptPersistenceAdapterTest {
-  @Mock private StageAttemptJpaRepository repository;
+  @Mock private StageAttemptMapper mapper;
 
   @Test
   void createsOnlyNewStageAttempts() {
     StageAttempt attempt = StageAttempt.create(7L, "CHAPTER_ANALYSIS", 1);
-    when(repository.save(any(StageAttemptJpaEntity.class)))
-        .thenAnswer(
-            invocation -> {
-              StageAttemptJpaEntity entity = invocation.getArgument(0);
-              entity.setId(11L);
-              return entity;
-            });
-    StageAttemptPersistenceAdapter adapter = new StageAttemptPersistenceAdapter(repository);
+    when(mapper.insert(any(StageAttemptRow.class))).thenReturn(11L);
+    when(mapper.findById(11L))
+        .thenReturn(
+            new StageAttemptRow(11L, 0L, 7L, "CHAPTER_ANALYSIS", 1, JobStatus.QUEUED, null, null));
+    StageAttemptPersistenceAdapter adapter = new StageAttemptPersistenceAdapter(mapper);
 
     adapter.create(attempt);
 
-    verify(repository).save(any(StageAttemptJpaEntity.class));
+    verify(mapper).insert(any(StageAttemptRow.class));
   }
 
   @Test
   void rejectsStageAttemptWithExistingIdBeforeWriting() {
     StageAttempt attempt =
         StageAttempt.rehydrate(11L, 0L, 7L, "CHAPTER_ANALYSIS", 1, JobStatus.QUEUED, null, null);
-    StageAttemptPersistenceAdapter adapter = new StageAttemptPersistenceAdapter(repository);
+    StageAttemptPersistenceAdapter adapter = new StageAttemptPersistenceAdapter(mapper);
 
     assertThrows(IllegalArgumentException.class, () -> adapter.create(attempt));
 
-    verify(repository, never()).save(any(StageAttemptJpaEntity.class));
+    verify(mapper, never()).insert(any(StageAttemptRow.class));
   }
 }

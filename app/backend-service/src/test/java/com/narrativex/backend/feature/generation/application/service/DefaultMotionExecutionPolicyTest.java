@@ -13,7 +13,8 @@ class DefaultMotionExecutionPolicyTest {
 
   @Test
   void imageMotionAlwaysAuthorizesBasicMotion() {
-    var resolved = policy.authorizeMotion(true, ProductionMode.IMAGE_MOTION, ExecutionContext.mvp());
+    var resolved =
+        policy.authorizeMotion(true, ProductionMode.IMAGE_MOTION, ExecutionContext.mvp());
 
     assertThat(resolved.decision()).isEqualTo(MotionExecutionDecision.BASIC_IMAGE_MOTION);
     assertThat(resolved.fallbackReason()).isNull();

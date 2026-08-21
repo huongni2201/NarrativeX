@@ -16,8 +16,10 @@ public record NarrationPlan(
     Objects.requireNonNull(strategy, "strategy");
     Objects.requireNonNull(narrationDocumentId, "narrationDocumentId");
     Objects.requireNonNull(narrationSetId, "narrationSetId");
-    if (documentFingerprint == null || !documentFingerprint.matches("^[0-9a-f]{64}$")) throw new IllegalArgumentException("documentFingerprint must be sha256 hex");
-    if (narrationFingerprint == null || !narrationFingerprint.matches("^[0-9a-f]{64}$")) throw new IllegalArgumentException("narrationFingerprint must be sha256 hex");
+    if (documentFingerprint == null || !documentFingerprint.matches("^[0-9a-f]{64}$"))
+      throw new IllegalArgumentException("documentFingerprint must be sha256 hex");
+    if (narrationFingerprint == null || !narrationFingerprint.matches("^[0-9a-f]{64}$"))
+      throw new IllegalArgumentException("narrationFingerprint must be sha256 hex");
     parts = List.copyOf(Objects.requireNonNull(parts, "parts"));
   }
 

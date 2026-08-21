@@ -51,7 +51,8 @@ public final class ProviderOperation extends DomainEntity {
     this.resultFingerprint = resultFingerprint;
     this.completedAt = completedAt;
     this.nextReconcileAt = nextReconcileAt;
-    if (reconcileAttempts < 0) throw new IllegalArgumentException("reconcileAttempts must be nonnegative");
+    if (reconcileAttempts < 0)
+      throw new IllegalArgumentException("reconcileAttempts must be nonnegative");
     this.reconcileAttempts = reconcileAttempts;
     this.lastReconcileError = lastReconcileError;
   }
@@ -217,20 +218,24 @@ public final class ProviderOperation extends DomainEntity {
   public static Set<ProviderOperationStatus> allowedPreviousStatuses(
       ProviderOperationStatus nextStatus) {
     return switch (Objects.requireNonNull(nextStatus, "nextStatus")) {
-      case UNKNOWN -> EnumSet.of(
-          ProviderOperationStatus.RESERVED,
-          ProviderOperationStatus.SUBMITTED,
-          ProviderOperationStatus.RUNNING);
+      case UNKNOWN ->
+          EnumSet.of(
+              ProviderOperationStatus.RESERVED,
+              ProviderOperationStatus.SUBMITTED,
+              ProviderOperationStatus.RUNNING);
       case SUBMITTED -> EnumSet.of(ProviderOperationStatus.UNKNOWN);
-      case RUNNING -> EnumSet.of(ProviderOperationStatus.UNKNOWN, ProviderOperationStatus.SUBMITTED);
-      case COMPLETED -> EnumSet.of(
-          ProviderOperationStatus.UNKNOWN,
-          ProviderOperationStatus.SUBMITTED,
-          ProviderOperationStatus.RUNNING);
-      case FAILED -> EnumSet.of(
-          ProviderOperationStatus.UNKNOWN,
-          ProviderOperationStatus.SUBMITTED,
-          ProviderOperationStatus.RUNNING);
+      case RUNNING ->
+          EnumSet.of(ProviderOperationStatus.UNKNOWN, ProviderOperationStatus.SUBMITTED);
+      case COMPLETED ->
+          EnumSet.of(
+              ProviderOperationStatus.UNKNOWN,
+              ProviderOperationStatus.SUBMITTED,
+              ProviderOperationStatus.RUNNING);
+      case FAILED ->
+          EnumSet.of(
+              ProviderOperationStatus.UNKNOWN,
+              ProviderOperationStatus.SUBMITTED,
+              ProviderOperationStatus.RUNNING);
       case RESERVED -> EnumSet.noneOf(ProviderOperationStatus.class);
     };
   }

@@ -2,7 +2,6 @@ package com.narrativex.backend.feature.generation.infrastructure.persistence.myb
 
 import java.math.BigDecimal;
 import java.util.UUID;
-
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -25,15 +24,47 @@ public class NarrationRequestRow {
   private String segmentationVersion;
   private String requestFingerprint;
 
-  public UUID id() { return id; }
-  public Long projectId() { return projectId; }
-  public Long chapterId() { return chapterId; }
-  public long chapterRowVersion() { return chapterRowVersion; }
-  public String sourceHash() { return sourceHash; }
-  public String sourceText() { return sourceText; }
-  public String voiceId() { return voiceId; }
-  public String language() { return language; }
-  public BigDecimal speakingRate() { return speakingRate; }
-  public String segmentationVersion() { return segmentationVersion; }
-  public String requestFingerprint() { return requestFingerprint; }
+  public UUID id() {
+    return id;
+  }
+
+  public Long projectId() {
+    return projectId;
+  }
+
+  public Long chapterId() {
+    return chapterId;
+  }
+
+  public long chapterRowVersion() {
+    return chapterRowVersion;
+  }
+
+  public String sourceHash() {
+    return sourceHash;
+  }
+
+  public String sourceText() {
+    return sourceText;
+  }
+
+  public String voiceId() {
+    return voiceId;
+  }
+
+  public String language() {
+    return language;
+  }
+
+  public BigDecimal speakingRate() {
+    return speakingRate;
+  }
+
+  public String segmentationVersion() {
+    return segmentationVersion;
+  }
+
+  public String requestFingerprint() {
+    return requestFingerprint;
+  }
 }

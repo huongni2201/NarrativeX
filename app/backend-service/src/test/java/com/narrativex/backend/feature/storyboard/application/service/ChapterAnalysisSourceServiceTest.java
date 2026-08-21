@@ -37,11 +37,9 @@ class ChapterAnalysisSourceServiceTest {
 
     assertSame(snapshot, result);
     InOrder order = inOrder(storyboardRevisionAccess, chapterAnalysisSnapshotRepository);
-    order.verify(chapterAnalysisSnapshotRepository)
-        .requireOwnedByProject(7L, 11L, "user-1");
+    order.verify(chapterAnalysisSnapshotRepository).requireOwnedByProject(7L, 11L, "user-1");
     order.verify(storyboardRevisionAccess).lockChapter(11L);
-    order.verify(chapterAnalysisSnapshotRepository)
-        .requireOwnedByProject(7L, 11L, "user-1");
+    order.verify(chapterAnalysisSnapshotRepository).requireOwnedByProject(7L, 11L, "user-1");
   }
 
   @Test

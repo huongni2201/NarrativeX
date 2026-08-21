@@ -2,55 +2,31 @@ package com.narrativex.backend.feature.generation.infrastructure.persistence.ada
 
 import com.narrativex.backend.feature.generation.application.port.out.GenerationOutboxRepository;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
+import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.GenerationOutboxMapper;
+import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.GenerationOutboxRow;
 import lombok.RequiredArgsConstructor;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
 public class GenerationOutboxPersistenceAdapter implements GenerationOutboxRepository {
 
-  private final JdbcTemplate jdbcTemplate;
+  private final GenerationOutboxMapper mapper;
 
   @Override
   public void enqueue(GenerationJob job) {
-    jdbcTemplate.update(
-        """
-        INSERT INTO outbox_events
-          (aggregate_type, aggregate_id, event_type, event_key, payload_json, status)
-        VALUES
-          (
-            'GENERATION_JOB',
-            ?,
-            'GENERATION_JOB_QUEUED',
-            ?,
-            jsonb_build_object(
-              'jobId', ?,
-              'jobType', ?,
-              'projectId', ?,
-              'storyVersionId', ?,
-              'chapterId', ?,
-              'chapterRowVersion', ?,
-              'sourceHash', ?,
-              'mediaPlanId', ?,
-              'mediaPlanRevision', ?,
-              'productionMode', ?
-            ),
-            'PENDING'
-          )
-        ON CONFLICT (event_key) DO NOTHING
-        """,
-        job.getJobId(),
-        "generation-job:" + job.getJobId() + ":queued",
-        job.getJobId(),
-        job.getType().name(),
-        job.getProjectId(),
-        job.getStoryVersionId(),
-        job.getChapterId(),
-        job.getChapterRowVersion(),
-        job.getSourceHash(),
-        job.getMediaPlanId(),
-        job.getMediaPlanRevision(),
-        job.getProductionMode() == null ? null : job.getProductionMode().name());
+    mapper.enqueue(
+        new GenerationOutboxRow(
+            job.getJobId(),
+            "generation-job:" + job.getJobId() + ":queued",
+            job.getType(),
+            job.getProjectId(),
+            job.getStoryVersionId(),
+            job.getChapterId(),
+            job.getChapterRowVersion(),
+            job.getSourceHash(),
+            job.getMediaPlanId(),
+            job.getMediaPlanRevision(),
+            job.getProductionMode()));
   }
 }

@@ -8,8 +8,9 @@ Strategic target: **MyBatis + explicit SQL + PostgreSQL**. JPA/JDBC coexist only
 | Chapter | MyBatis only | DONE |
 | Project command/query persistence | MyBatis | DONE |
 | StoryVersion | JPA | NEXT |
-| GenerationJob / StageAttempt / OperationPlan / MediaPlan legacy persistence | JPA/mixed | HIGH |
-| Generation outbox | JDBC | HIGH |
+| GenerationJob / StageAttempt / OperationPlan / MediaPlan legacy persistence | MyBatis + explicit SQL | DONE for generation execution boundaries |
+| Generation outbox | MyBatis + explicit SQL; dispatcher JDBC lease remains deliberate | DONE for enqueue boundary |
+| Job history / chapter-analysis safety gate | MyBatis + explicit SQL | DONE |
 | Quota reservation / usage queries | JDBC/mixed | HIGH |
 | Scene / VisualBeat / revisions | JPA | MEDIUM-HIGH |
 | Character / ProjectCharacter / Location continuity | JPA/mixed | MEDIUM-HIGH |
@@ -42,3 +43,12 @@ application port stays unchanged
 ## Completion condition
 
 JPA can be removed only when repository-bean selection/architecture tests and PostgreSQL integration tests prove no active production boundary still depends on it.
+
+## Generation execution migration status
+
+The generation execution persistence cutover is now protected by `ArchitectureRulesTest` and
+`GenerationDurablePersistenceIntegrationTest`. The active adapters for GenerationJob,
+StageAttempt, OperationPlan, GenerationOutbox, JobHistory, ChapterAnalysisSafetyGate, and
+MediaPlan use dedicated MyBatis rows and XML mappers. The outbox dispatcher still uses
+`JdbcTemplate` for its short-lived claim/lease query; that is a dispatch concern, not the
+durable enqueue boundary, and remains governed by the outbox dispatcher transaction tests.

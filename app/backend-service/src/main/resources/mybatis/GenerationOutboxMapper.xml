@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.GenerationOutboxMapper">
+    <insert id="enqueue"
+            parameterType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.GenerationOutboxRow">
+        INSERT INTO outbox_events
+          (aggregate_type, aggregate_id, event_type, event_key, payload_json, status)
+        VALUES
+          (
+            'GENERATION_JOB',
+            #{aggregateId},
+            'GENERATION_JOB_QUEUED',
+            #{eventKey},
+            jsonb_build_object(
+              'jobId', #{aggregateId},
+              'jobType', #{jobType},
+              'projectId', #{projectId},
+              'storyVersionId', CAST(#{storyVersionId,jdbcType=BIGINT} AS BIGINT),
+              'chapterId', CAST(#{chapterId,jdbcType=BIGINT} AS BIGINT),
+              'chapterRowVersion', CAST(#{chapterRowVersion,jdbcType=BIGINT} AS BIGINT),
+              'sourceHash', #{sourceHash,jdbcType=VARCHAR},
+              'mediaPlanId', CAST(#{mediaPlanId,jdbcType=OTHER,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler} AS UUID),
+              'mediaPlanRevision', CAST(#{mediaPlanRevision,jdbcType=INTEGER} AS INTEGER),
+              'productionMode', CAST(#{productionMode,jdbcType=VARCHAR} AS TEXT)
+            ),
+            'PENDING'
+          )
+        ON CONFLICT (event_key) DO NOTHING
+    </insert>
+</mapper>

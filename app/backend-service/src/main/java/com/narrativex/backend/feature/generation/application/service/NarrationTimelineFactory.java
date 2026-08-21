@@ -28,25 +28,38 @@ public class NarrationTimelineFactory {
     Objects.requireNonNull(narrationFingerprint, "narrationFingerprint");
     parts = List.copyOf(Objects.requireNonNull(parts, "parts"));
     spans = List.copyOf(Objects.requireNonNull(spans, "spans"));
-    if (readyCoverageThreshold < 0 || readyCoverageThreshold > 1) throw new IllegalArgumentException("invalid coverage threshold");
-    if (readyConfidenceThreshold < 0 || readyConfidenceThreshold > 1) throw new IllegalArgumentException("invalid confidence threshold");
+    if (readyCoverageThreshold < 0 || readyCoverageThreshold > 1)
+      throw new IllegalArgumentException("invalid coverage threshold");
+    if (readyConfidenceThreshold < 0 || readyConfidenceThreshold > 1)
+      throw new IllegalArgumentException("invalid confidence threshold");
 
     long cursor = 0;
     List<NarrationPartTimeline> partTimeline = new java.util.ArrayList<>();
     for (int index = 0; index < parts.size(); index++) {
       NarrationPartSnapshot part = parts.get(index);
-      if (part.sequence() != index) throw new IllegalArgumentException("part sequences must be contiguous from zero");
+      if (part.sequence() != index)
+        throw new IllegalArgumentException("part sequences must be contiguous from zero");
       long end = cursor + part.durationMs();
-      partTimeline.add(new NarrationPartTimeline(part.mediaAssetId(), index, cursor, end, part.durationMs()));
+      partTimeline.add(
+          new NarrationPartTimeline(part.mediaAssetId(), index, cursor, end, part.durationMs()));
       cursor = end;
     }
     if (cursor <= 0) throw new IllegalArgumentException("at least one audio part is required");
 
     validateSpans(spans, cursor);
     int selectedLength = document.selectedTextLength();
-    int alignedLength = spans.stream().mapToInt(span -> span.globalTextEnd() - span.globalTextStart()).sum();
-    double coverage = selectedLength == 0 ? 0 : Math.min(1d, (double) alignedLength / selectedLength);
-    AlignmentStatus status = classify(spans, document, coverage, confidence, readyCoverageThreshold, readyConfidenceThreshold);
+    int alignedLength =
+        spans.stream().mapToInt(span -> span.globalTextEnd() - span.globalTextStart()).sum();
+    double coverage =
+        selectedLength == 0 ? 0 : Math.min(1d, (double) alignedLength / selectedLength);
+    AlignmentStatus status =
+        classify(
+            spans,
+            document,
+            coverage,
+            confidence,
+            readyCoverageThreshold,
+            readyConfidenceThreshold);
     return new NarrationTimeline(
         document.id(),
         narrationSetId,
@@ -91,9 +104,12 @@ public class NarrationTimelineFactory {
     long previousAudioEnd = 0;
     int previousTextEnd = 0;
     for (NarrationSpan span : spans) {
-      if (span.globalAudioStartMs() < previousAudioEnd) throw new IllegalArgumentException("audio spans overlap");
-      if (span.globalTextStart() < previousTextEnd) throw new IllegalArgumentException("text spans overlap");
-      if (span.globalAudioEndMs() > totalDurationMs) throw new IllegalArgumentException("audio span exceeds narration duration");
+      if (span.globalAudioStartMs() < previousAudioEnd)
+        throw new IllegalArgumentException("audio spans overlap");
+      if (span.globalTextStart() < previousTextEnd)
+        throw new IllegalArgumentException("text spans overlap");
+      if (span.globalAudioEndMs() > totalDurationMs)
+        throw new IllegalArgumentException("audio span exceeds narration duration");
       previousAudioEnd = span.globalAudioEndMs();
       previousTextEnd = span.globalTextEnd();
     }

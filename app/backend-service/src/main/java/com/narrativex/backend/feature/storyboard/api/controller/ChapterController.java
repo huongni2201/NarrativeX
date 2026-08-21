@@ -87,8 +87,7 @@ public class ChapterController {
       @RequestParam Long storyVersionId,
       @RequestParam(required = false) String cursor,
       @RequestParam(defaultValue = "50") int limit) {
-    return ResponseEntity.ok(
-        listChaptersUseCase.execute(projectId, storyVersionId, cursor, limit));
+    return ResponseEntity.ok(listChaptersUseCase.execute(projectId, storyVersionId, cursor, limit));
   }
 
   @GetMapping("/{chapterId}")
@@ -116,11 +115,7 @@ public class ChapterController {
     ApiResponse<ChapterResponse> response =
         updateChapterUseCase.execute(
             new UpdateChapterCommand(
-                projectId,
-                chapterId,
-                expectedRowVersion,
-                request.title(),
-                request.sourceText()));
+                projectId, chapterId, expectedRowVersion, request.title(), request.sourceText()));
     return ResponseEntity.ok()
         .header(HttpHeaders.ETAG, quotedVersion(response.data().rowVersion()))
         .body(response);

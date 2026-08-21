@@ -88,9 +88,7 @@ class ProjectControllerContractTest {
             now,
             new ProjectOverviewView.Metrics(1, 1, 0, 2, 90, 0, 1, 35),
             new ProjectOverviewView.Counts(3, 0, 0),
-            List.of(
-                new ProjectOverviewView.Chapter(
-                    9L, 0, "Chapter 1", "ANALYZED", 2, 90, now)));
+            List.of(new ProjectOverviewView.Chapter(9L, 0, "Chapter 1", "ANALYZED", 2, 90, now)));
     when(getProjectOverviewUseCase.execute(7L)).thenReturn(view);
 
     var responseEntity = controller.overview(7L);
@@ -103,8 +101,7 @@ class ProjectControllerContractTest {
 
   @Test
   void createMapsRequestToCommandAndKeeps201() {
-    when(createProjectUseCase.execute(any(CreateProjectCommand.class)))
-        .thenReturn(project(7L, 0L));
+    when(createProjectUseCase.execute(any(CreateProjectCommand.class))).thenReturn(project(7L, 0L));
 
     var responseEntity =
         controller.create(

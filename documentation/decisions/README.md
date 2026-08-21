@@ -18,5 +18,6 @@ This directory records decisions that affect more than one feature or change a p
 - [ADR-0012: Cloudflare R2 durable media storage](./ADR-0012-cloudflare-r2-durable-media-storage.md)
 - [ADR-0013: Out-of-band E2E credentials and repository secret scanning](./ADR-0013-test-credential-handling-and-secret-scanning.md)
 - [ADR-0014: Drop the deprecated expensive-jobs projection](./ADR-0014-drop-deprecated-expensive-jobs-projection.md)
+- [ADR-0015: Generation durable persistence migration](./ADR-0015-generation-durable-persistence-migration.md)
 
 The previous granular/transitional ADR records were consolidated into the canonical files above. Use a new sequential ADR (`ADR-0014+`) for any new cross-cutting architecture decisions.

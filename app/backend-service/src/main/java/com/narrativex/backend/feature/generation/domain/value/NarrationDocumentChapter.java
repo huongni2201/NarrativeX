@@ -15,8 +15,10 @@ public record NarrationDocumentChapter(
     Objects.requireNonNull(chapterId, "chapterId");
     Objects.requireNonNull(chapterRevisionId, "chapterRevisionId");
     if (sequence < 0) throw new IllegalArgumentException("sequence must not be negative");
-    if (globalTextStart < 0 || globalTextEnd < globalTextStart) throw new IllegalArgumentException("invalid global text offsets");
-    if (sourceHash == null || !sourceHash.matches("^[0-9a-f]{64}$")) throw new IllegalArgumentException("sourceHash must be sha256 hex");
+    if (globalTextStart < 0 || globalTextEnd < globalTextStart)
+      throw new IllegalArgumentException("invalid global text offsets");
+    if (sourceHash == null || !sourceHash.matches("^[0-9a-f]{64}$"))
+      throw new IllegalArgumentException("sourceHash must be sha256 hex");
     if (rowVersion < 0) throw new IllegalArgumentException("rowVersion must not be negative");
   }
 }

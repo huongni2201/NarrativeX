@@ -6,9 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.narrativex.backend.feature.common.pagination.CursorPage;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
 import com.narrativex.backend.feature.storyboard.domain.aggregate.Chapter;
-import com.narrativex.backend.feature.common.pagination.CursorPage;
 import com.narrativex.backend.support.PostgreSqlIntegrationTestSupport;
 import java.util.List;
 import java.util.UUID;
@@ -39,7 +39,9 @@ class MyBatisChapterRepositoryIntegrationTest extends PostgreSqlIntegrationTestS
     long storyVersionId = insertStoryVersion();
     String sourceText = "Xin chào NarrativeX — \"quote\"\nEnglish line\n🙂";
 
-    Chapter saved = repository.saveAndFlush(new Chapter(storyVersionId, 2, "Chương Một", sourceText, HASH_HELLO));
+    Chapter saved =
+        repository.saveAndFlush(
+            new Chapter(storyVersionId, 2, "Chương Một", sourceText, HASH_HELLO));
     Chapter reloaded = repository.findById(saved.getId()).orElseThrow();
 
     assertEquals(saved.getId(), reloaded.getId());
@@ -47,8 +49,13 @@ class MyBatisChapterRepositoryIntegrationTest extends PostgreSqlIntegrationTestS
     assertEquals(sourceText, reloaded.getSourceText());
     assertEquals(HASH_HELLO, reloaded.getSourceHash());
     assertEquals(0L, reloaded.getRowVersion());
-    assertNotNull(jdbcTemplate.queryForObject("SELECT created_at FROM chapters WHERE id = ?", Object.class, saved.getId()));
-    assertEquals(0L, jdbcTemplate.queryForObject("SELECT row_version FROM chapters WHERE id = ?", Long.class, saved.getId()));
+    assertNotNull(
+        jdbcTemplate.queryForObject(
+            "SELECT created_at FROM chapters WHERE id = ?", Object.class, saved.getId()));
+    assertEquals(
+        0L,
+        jdbcTemplate.queryForObject(
+            "SELECT row_version FROM chapters WHERE id = ?", Long.class, saved.getId()));
   }
 
   @Test
@@ -73,7 +80,8 @@ class MyBatisChapterRepositoryIntegrationTest extends PostgreSqlIntegrationTestS
   @Test
   void incrementsVersionAndRejectsStaleSourceUpdate() {
     long storyVersionId = insertStoryVersion();
-    Chapter created = repository.save(new Chapter(storyVersionId, 0, "Original", "hello", HASH_HELLO));
+    Chapter created =
+        repository.save(new Chapter(storyVersionId, 0, "Original", "hello", HASH_HELLO));
     Chapter stale = repository.findById(created.getId()).orElseThrow();
     Chapter current = repository.findById(created.getId()).orElseThrow();
 
@@ -92,7 +100,8 @@ class MyBatisChapterRepositoryIntegrationTest extends PostgreSqlIntegrationTestS
   @Test
   void rollsBackChapterUpdateWithTheSpringTransaction() {
     long storyVersionId = insertStoryVersion();
-    Chapter created = repository.save(new Chapter(storyVersionId, 0, "Original", "hello", HASH_HELLO));
+    Chapter created =
+        repository.save(new Chapter(storyVersionId, 0, "Original", "hello", HASH_HELLO));
 
     assertThrows(
         IllegalStateException.class,

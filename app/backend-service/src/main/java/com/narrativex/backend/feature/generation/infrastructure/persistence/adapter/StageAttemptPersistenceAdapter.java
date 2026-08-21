@@ -2,8 +2,8 @@ package com.narrativex.backend.feature.generation.infrastructure.persistence.ada
 
 import com.narrativex.backend.feature.generation.application.port.out.StageAttemptRepository;
 import com.narrativex.backend.feature.generation.domain.entity.StageAttempt;
-import com.narrativex.backend.feature.generation.infrastructure.persistence.entity.StageAttemptJpaEntity;
-import com.narrativex.backend.feature.generation.infrastructure.persistence.repository.StageAttemptJpaRepository;
+import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.StageAttemptMapper;
+import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.StageAttemptRow;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class StageAttemptPersistenceAdapter implements StageAttemptRepository {
 
-  private final StageAttemptJpaRepository repository;
+  private final StageAttemptMapper mapper;
 
   @Override
   public StageAttempt create(StageAttempt stageAttempt) {
@@ -19,24 +19,38 @@ public class StageAttemptPersistenceAdapter implements StageAttemptRepository {
       throw new IllegalArgumentException(
           "StageAttempt.create requires a new StageAttempt without an id");
     }
-    StageAttemptJpaEntity entity =
-        StageAttemptJpaEntity.builder()
-            .generationJobId(stageAttempt.getGenerationJobId())
-            .stageName(stageAttempt.getStageName())
-            .attemptNumber(stageAttempt.getAttemptNumber())
-            .status(stageAttempt.getStatus())
-            .workerId(stageAttempt.getWorkerId())
-            .heartbeatAt(stageAttempt.getHeartbeatAt())
-            .build();
-    StageAttemptJpaEntity saved = repository.save(entity);
+    Long id = mapper.insert(toRow(stageAttempt));
+    if (id == null) {
+      throw new IllegalStateException("Inserted stage attempt did not return an id");
+    }
+    StageAttemptRow saved = mapper.findById(id);
+    if (saved == null) {
+      throw new IllegalStateException("Inserted stage attempt " + id + " disappeared");
+    }
+    return toDomain(saved);
+  }
+
+  private static StageAttemptRow toRow(StageAttempt attempt) {
+    return new StageAttemptRow(
+        null,
+        0L,
+        attempt.getGenerationJobId(),
+        attempt.getStageName(),
+        attempt.getAttemptNumber(),
+        attempt.getStatus(),
+        attempt.getWorkerId(),
+        attempt.getHeartbeatAt());
+  }
+
+  private static StageAttempt toDomain(StageAttemptRow row) {
     return StageAttempt.rehydrate(
-        saved.getId(),
-        saved.getRowVersion(),
-        saved.getGenerationJobId(),
-        saved.getStageName(),
-        saved.getAttemptNumber(),
-        saved.getStatus(),
-        saved.getWorkerId(),
-        saved.getHeartbeatAt());
+        row.getId(),
+        row.getRowVersion(),
+        row.getGenerationJobId(),
+        row.getStageName(),
+        row.getAttemptNumber(),
+        row.getStatus(),
+        row.getWorkerId(),
+        row.getHeartbeatAt());
   }
 }

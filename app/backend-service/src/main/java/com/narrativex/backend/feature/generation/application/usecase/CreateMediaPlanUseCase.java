@@ -81,9 +81,9 @@ public class CreateMediaPlanUseCase {
 
   /**
    * Phase-1 workload accounting intentionally uses only information already authoritative in the
-   * storyboard snapshot. Image edits remain zero until edit operations become first-class plans.
-   * A scene's duration is attributed to I2V when any beat in that scene requires I2V; otherwise it
-   * is attributed to basic image motion.
+   * storyboard snapshot. Image edits remain zero until edit operations become first-class plans. A
+   * scene's duration is attributed to I2V when any beat in that scene requires I2V; otherwise it is
+   * attributed to basic image motion.
    */
   private static MediaWorkload calculateWorkload(List<MediaScenePlan> scenes) {
     long narrationCharacters = 0L;
@@ -109,10 +109,6 @@ public class CreateMediaPlanUseCase {
     }
 
     return new MediaWorkload(
-        narrationCharacters,
-        imageGenerateCount,
-        0,
-        basicMotionSeconds,
-        plannedI2vSeconds);
+        narrationCharacters, imageGenerateCount, 0, basicMotionSeconds, plannedI2vSeconds);
   }
 }

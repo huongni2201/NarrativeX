@@ -8,6 +8,8 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataAccessException;
@@ -18,6 +20,7 @@ import org.springframework.stereotype.Service;
 @Service
 @Slf4j
 public class AuthRateLimiter implements AuthRateLimitPolicy {
+  private static final int MAX_FALLBACK_BUCKETS = 10_000;
   private static final DefaultRedisScript<Long> INCREMENT_WITH_EXPIRY =
       new DefaultRedisScript<>(
           "local current = redis.call('INCR', KEYS[1]); "
@@ -33,6 +36,7 @@ public class AuthRateLimiter implements AuthRateLimitPolicy {
   private final int registerIpLimit;
   private final int registerIdentityLimit;
   private final long registerWindowSeconds;
+  private final Map<String, FallbackWindow> fallbackBuckets = new ConcurrentHashMap<>();
 
   public AuthRateLimiter(
       StringRedisTemplate redisTemplate,
@@ -86,9 +90,41 @@ public class AuthRateLimiter implements AuthRateLimitPolicy {
     } catch (AuthRateLimitExceededException exception) {
       throw exception;
     } catch (DataAccessException exception) {
-      log.warn(
-          "Auth rate limiter unavailable; allowing request to preserve authentication availability",
-          exception);
+      log.warn("Auth rate limiter unavailable; using bounded in-memory fallback");
+      if (consumeFallback(key, limit, windowSeconds)) {
+        throw new AuthRateLimitExceededException(windowSeconds);
+      }
+    }
+  }
+
+  private boolean consumeFallback(String key, int limit, long windowSeconds) {
+    long now = System.currentTimeMillis();
+    fallbackBuckets.entrySet().removeIf(entry -> entry.getValue().expiresAtMillis <= now);
+    if (!fallbackBuckets.containsKey(key) && fallbackBuckets.size() >= MAX_FALLBACK_BUCKETS) {
+      // Capacity exhaustion is handled conservatively: authentication remains available for
+      // existing buckets, but unknown subjects are rate-limited until a bucket expires.
+      return true;
+    }
+    FallbackWindow window =
+        fallbackBuckets.compute(
+            key,
+            (ignored, current) -> {
+              if (current == null || current.expiresAtMillis <= now) {
+                return new FallbackWindow(now + windowSeconds * 1000L, 1);
+              }
+              current.count++;
+              return current;
+            });
+    return window.count > limit;
+  }
+
+  private static final class FallbackWindow {
+    private final long expiresAtMillis;
+    private int count;
+
+    private FallbackWindow(long expiresAtMillis, int count) {
+      this.expiresAtMillis = expiresAtMillis;
+      this.count = count;
     }
   }
 

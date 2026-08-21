@@ -1,8 +1,5 @@
 package com.narrativex.backend.feature.character.infrastructure.persistence.adapter;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.narrativex.backend.feature.character.application.port.out.ProjectCharacterReadRepository;
 import com.narrativex.backend.feature.character.application.query.ProjectCharacterReadModel;
 import com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.ProjectCharacterReadMapper;
@@ -15,6 +12,9 @@ import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 @Repository
 @RequiredArgsConstructor
@@ -116,7 +116,7 @@ public class ProjectCharacterReadPersistenceAdapter implements ProjectCharacterR
     }
     try {
       return objectMapper.readValue(json, STRING_LIST);
-    } catch (JsonProcessingException exception) {
+    } catch (JacksonException exception) {
       throw new IllegalStateException("Invalid character JSON projection", exception);
     }
   }

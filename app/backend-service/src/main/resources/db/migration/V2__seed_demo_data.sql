@@ -18,30 +18,21 @@ ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO auth_users (id, email, display_name, avatar_url, password_hash, enabled)
 VALUES
-    ('seed-user-01', 'huongnn2201@gmail.com', 'Huong Nguyen', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=256&auto=format&fit=crop', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', TRUE),
-    ('seed-user-02', 'seed.user02@example.com', 'Demo User 02', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=256&auto=format&fit=crop', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', TRUE),
-    ('seed-user-03', 'seed.user03@example.com', 'Demo User 03', 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=256&auto=format&fit=crop', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', TRUE),
-    ('seed-user-04', 'seed.user04@example.com', 'Demo User 04', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=256&auto=format&fit=crop', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', TRUE),
-    ('seed-user-05', 'seed.user05@example.com', 'Demo User 05', 'https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=256&auto=format&fit=crop', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', TRUE),
-    ('seed-user-06', 'seed.user06@example.com', 'Demo User 06', 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=256&auto=format&fit=crop', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', TRUE),
-    ('seed-user-07', 'seed.user07@example.com', 'Demo User 07', 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?q=80&w=256&auto=format&fit=crop', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', TRUE),
-    ('seed-user-08', 'seed.user08@example.com', 'Demo User 08', 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=256&auto=format&fit=crop', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', TRUE),
-    ('seed-user-09', 'seed.user09@example.com', 'Demo User 09', 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?q=80&w=256&auto=format&fit=crop', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', TRUE),
-    ('seed-user-10', 'seed.user10@example.com', 'Demo User 10', 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=256&auto=format&fit=crop', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', TRUE)
+    ('seed-user-01', 'huongnn2201@gmail.com', 'Huong Nguyen', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=256&auto=format&fit=crop', '{bcrypt}$2a$10$lmmtKjv3TmMUiNC7mOb2DOMPpRDonZsOj7YGLAzNbNHfF1oZimBtm', TRUE)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO projects (id, name, description, cover_image_url, owner_id, status, source_language, narration_language, metadata_language, image_aspect_ratio, image_quality_tier)
 VALUES
     (1001, 'Lanterns of the Old Quarter', 'A story about a traditional artisan creating amber lanterns across historic Hanoi streets.', 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD'),
-    (1002, 'The Clockmaker''s Map', 'An apprentice unravels secret maps hidden inside Victorian pocket watches.', 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'seed.user02@example.com'), 'ACTIVE', 'en-US', 'en-US', 'en-US', 'RATIO_16_9', 'HIGH'),
-    (1003, 'Mekong Moonlight', 'A midnight boat journey along the mystical waters of the Mekong river.', 'https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'seed.user03@example.com'), 'ACTIVE', 'vi-VN', 'en-US', 'en-US', 'RATIO_9_16', 'STANDARD'),
-    (1004, 'A House Made of Rain', 'Reflections of family memories resonating through seasonal summer showers.', 'https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'seed.user04@example.com'), 'DRAFT', 'en-US', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD'),
-    (1005, 'The Paper Dragon', 'An origami dragon comes alive at dusk to protect a sleeping town.', 'https://images.unsplash.com/photo-1563089145-599997674d42?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'seed.user05@example.com'), 'ACTIVE', 'zh-CN', 'en-US', 'en-US', 'RATIO_1_1', 'HIGH'),
-    (1006, 'Whispers Beneath the Pines', 'Two travelers discover a forest choir protecting an ancient sacred tree.', 'https://images.unsplash.com/photo-1448375240586-882707db888b?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'seed.user06@example.com'), 'ACTIVE', 'en-US', 'en-US', 'en-US', 'RATIO_16_9', 'ULTRA'),
-    (1007, 'Seven Seeds', 'Generational wisdom passed through heirloom seeds and changing seasons.', 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'seed.user07@example.com'), 'ARCHIVED', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_9_16', 'STANDARD'),
-    (1008, 'The Blue Kite', 'A message of hope flies above city rooftops tied to a vibrant blue kite.', 'https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'seed.user08@example.com'), 'ACTIVE', 'en-US', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'HIGH'),
-    (1009, 'River of Small Stars', 'Mapping celestial constellations mirrored in the ripples of a quiet river.', 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'seed.user09@example.com'), 'DRAFT', 'en-US', 'en-US', 'en-US', 'RATIO_1_1', 'STANDARD'),
-    (1010, 'The Last Seed Keeper', 'A solitary guardian traverses barren valleys to plant the last memory of green.', 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'seed.user10@example.com'), 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'HIGH')
+    (1002, 'The Clockmaker''s Map', 'An apprentice unravels secret maps hidden inside Victorian pocket watches.', 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ACTIVE', 'en-US', 'en-US', 'en-US', 'RATIO_16_9', 'HIGH'),
+    (1003, 'Mekong Moonlight', 'A midnight boat journey along the mystical waters of the Mekong river.', 'https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ACTIVE', 'vi-VN', 'en-US', 'en-US', 'RATIO_9_16', 'STANDARD'),
+    (1004, 'A House Made of Rain', 'Reflections of family memories resonating through seasonal summer showers.', 'https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'DRAFT', 'en-US', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD'),
+    (1005, 'The Paper Dragon', 'An origami dragon comes alive at dusk to protect a sleeping town.', 'https://images.unsplash.com/photo-1563089145-599997674d42?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ACTIVE', 'zh-CN', 'en-US', 'en-US', 'RATIO_1_1', 'HIGH'),
+    (1006, 'Whispers Beneath the Pines', 'Two travelers discover a forest choir protecting an ancient sacred tree.', 'https://images.unsplash.com/photo-1448375240586-882707db888b?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ACTIVE', 'en-US', 'en-US', 'en-US', 'RATIO_16_9', 'ULTRA'),
+    (1007, 'Seven Seeds', 'Generational wisdom passed through heirloom seeds and changing seasons.', 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ARCHIVED', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_9_16', 'STANDARD'),
+    (1008, 'The Blue Kite', 'A message of hope flies above city rooftops tied to a vibrant blue kite.', 'https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ACTIVE', 'en-US', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'HIGH'),
+    (1009, 'River of Small Stars', 'Mapping celestial constellations mirrored in the ripples of a quiet river.', 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'DRAFT', 'en-US', 'en-US', 'en-US', 'RATIO_1_1', 'STANDARD'),
+    (1010, 'The Last Seed Keeper', 'A solitary guardian traverses barren valleys to plant the last memory of green.', 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=800&auto=format&fit=crop', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'HIGH')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO story_versions (id, project_id, version_number, content, source_language, status, moderation_decision)
@@ -128,15 +119,15 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO generation_jobs (id, job_id, project_id, job_type, status, resource_class, progress, current_step, requested_by_user_id, billed_to_user_id)
 VALUES
     (6001, '00000000-0000-4000-8000-000000000001', 1001, 'STORY_ANALYZE', 'COMPLETED', 'CPU_LIGHT', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com')),
-    (6002, '00000000-0000-4000-8000-000000000002', 1002, 'IMAGE_GENERATE', 'COMPLETED', 'GPU_HEAVY', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'seed.user02@example.com'), (SELECT id FROM auth_users WHERE email = 'seed.user02@example.com')),
-    (6003, '00000000-0000-4000-8000-000000000003', 1003, 'IMAGE_GENERATE', 'RUNNING', 'GPU_HEAVY', 64, 'rendering_visual_beats', (SELECT id FROM auth_users WHERE email = 'seed.user03@example.com'), (SELECT id FROM auth_users WHERE email = 'seed.user03@example.com')),
-    (6004, '00000000-0000-4000-8000-000000000004', 1004, 'STORY_ANALYZE', 'QUEUED', 'CPU_LIGHT', 0, 'queued', (SELECT id FROM auth_users WHERE email = 'seed.user04@example.com'), (SELECT id FROM auth_users WHERE email = 'seed.user04@example.com')),
-    (6005, '00000000-0000-4000-8000-000000000005', 1005, 'RENDER_PROJECT', 'COMPLETED', 'GPU_HEAVY', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'seed.user05@example.com'), (SELECT id FROM auth_users WHERE email = 'seed.user05@example.com')),
-    (6006, '00000000-0000-4000-8000-000000000006', 1006, 'RENDER_PROJECT', 'FAILED', 'GPU_HEAVY', 72, 'provider_output_review', (SELECT id FROM auth_users WHERE email = 'seed.user06@example.com'), (SELECT id FROM auth_users WHERE email = 'seed.user06@example.com')),
-    (6007, '00000000-0000-4000-8000-000000000007', 1007, 'RENDER_SHORT', 'COMPLETED', 'GPU_HEAVY', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'seed.user07@example.com'), (SELECT id FROM auth_users WHERE email = 'seed.user07@example.com')),
-    (6008, '00000000-0000-4000-8000-000000000008', 1008, 'IMAGE_GENERATE', 'COMPLETED', 'GPU_HEAVY', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'seed.user08@example.com'), (SELECT id FROM auth_users WHERE email = 'seed.user08@example.com')),
-    (6009, '00000000-0000-4000-8000-000000000009', 1009, 'STORY_ANALYZE', 'QUEUED', 'CPU_LIGHT', 0, 'queued', (SELECT id FROM auth_users WHERE email = 'seed.user09@example.com'), (SELECT id FROM auth_users WHERE email = 'seed.user09@example.com')),
-    (6010, '00000000-0000-4000-8000-000000000010', 1010, 'RENDER_PROJECT', 'COMPLETED', 'GPU_HEAVY', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'seed.user10@example.com'), (SELECT id FROM auth_users WHERE email = 'seed.user10@example.com'))
+    (6002, '00000000-0000-4000-8000-000000000002', 1002, 'IMAGE_GENERATE', 'COMPLETED', 'GPU_HEAVY', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com')),
+    (6003, '00000000-0000-4000-8000-000000000003', 1003, 'IMAGE_GENERATE', 'RUNNING', 'GPU_HEAVY', 64, 'rendering_visual_beats', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com')),
+    (6004, '00000000-0000-4000-8000-000000000004', 1004, 'STORY_ANALYZE', 'QUEUED', 'CPU_LIGHT', 0, 'queued', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com')),
+    (6005, '00000000-0000-4000-8000-000000000005', 1005, 'RENDER_PROJECT', 'COMPLETED', 'GPU_HEAVY', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com')),
+    (6006, '00000000-0000-4000-8000-000000000006', 1006, 'RENDER_PROJECT', 'FAILED', 'GPU_HEAVY', 72, 'provider_output_review', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com')),
+    (6007, '00000000-0000-4000-8000-000000000007', 1007, 'RENDER_SHORT', 'COMPLETED', 'GPU_HEAVY', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com')),
+    (6008, '00000000-0000-4000-8000-000000000008', 1008, 'IMAGE_GENERATE', 'COMPLETED', 'GPU_HEAVY', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com')),
+    (6009, '00000000-0000-4000-8000-000000000009', 1009, 'STORY_ANALYZE', 'QUEUED', 'CPU_LIGHT', 0, 'queued', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com')),
+    (6010, '00000000-0000-4000-8000-000000000010', 1010, 'RENDER_PROJECT', 'COMPLETED', 'GPU_HEAVY', 100, 'completed', (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'))
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO stage_attempts (id, generation_job_id, stage_name, attempt_number, status, worker_id, heartbeat_at)
@@ -184,43 +175,34 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO moderation_decisions (id, user_id, project_id, entity_type, entity_id, direction, result, categories_json, provider_signal_json, policy_version, reviewer_id, resolved_at)
 VALUES
     (10001, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1001, 'STORY_VERSION', '2001', 'INPUT', 'ALLOW', '{"violence":0,"adult":0}'::jsonb, '{"provider":"demo-moderator","score":0.01}'::jsonb, 'moderation-v1', NULL, CURRENT_TIMESTAMP),
-    (10002, (SELECT id FROM auth_users WHERE email = 'seed.user02@example.com'), 1002, 'STORY_VERSION', '2002', 'INPUT', 'ALLOW', '{"violence":0,"adult":0}'::jsonb, '{"provider":"demo-moderator","score":0.02}'::jsonb, 'moderation-v1', NULL, CURRENT_TIMESTAMP),
-    (10003, (SELECT id FROM auth_users WHERE email = 'seed.user03@example.com'), 1003, 'VISUAL_BEAT', '5003', 'OUTPUT', 'ALLOW', '{"violence":0,"adult":0}'::jsonb, '{"provider":"demo-moderator","score":0.03}'::jsonb, 'moderation-v1', NULL, CURRENT_TIMESTAMP),
-    (10004, (SELECT id FROM auth_users WHERE email = 'seed.user04@example.com'), 1004, 'STORY_VERSION', '2004', 'INPUT', 'REVIEW', '{"violence":0,"adult":0}'::jsonb, '{"provider":"demo-moderator","score":0.14}'::jsonb, 'moderation-v1', 'seed-reviewer-04', NULL),
-    (10005, (SELECT id FROM auth_users WHERE email = 'seed.user05@example.com'), 1005, 'VISUAL_BEAT', '5005', 'OUTPUT', 'ALLOW', '{"violence":0,"adult":0}'::jsonb, '{"provider":"demo-moderator","score":0.01}'::jsonb, 'moderation-v1', NULL, CURRENT_TIMESTAMP),
-    (10006, (SELECT id FROM auth_users WHERE email = 'seed.user06@example.com'), 1006, 'VISUAL_BEAT', '5006', 'OUTPUT', 'BLOCK', '{"violence":0,"adult":1}'::jsonb, '{"provider":"demo-moderator","score":0.92}'::jsonb, 'moderation-v1', 'seed-reviewer-06', CURRENT_TIMESTAMP),
-    (10007, (SELECT id FROM auth_users WHERE email = 'seed.user07@example.com'), 1007, 'STORY_VERSION', '2007', 'INPUT', 'ALLOW', '{"violence":0,"adult":0}'::jsonb, '{"provider":"demo-moderator","score":0.01}'::jsonb, 'moderation-v1', NULL, CURRENT_TIMESTAMP),
-    (10008, (SELECT id FROM auth_users WHERE email = 'seed.user08@example.com'), 1008, 'VISUAL_BEAT', '5008', 'OUTPUT', 'ALLOW', '{"violence":0,"adult":0}'::jsonb, '{"provider":"demo-moderator","score":0.02}'::jsonb, 'moderation-v1', NULL, CURRENT_TIMESTAMP),
-    (10009, (SELECT id FROM auth_users WHERE email = 'seed.user09@example.com'), 1009, 'STORY_VERSION', '2009', 'INPUT', 'REVIEW', '{"violence":0,"adult":0}'::jsonb, '{"provider":"demo-moderator","score":0.12}'::jsonb, 'moderation-v1', 'seed-reviewer-09', NULL),
-    (10010, (SELECT id FROM auth_users WHERE email = 'seed.user10@example.com'), 1010, 'VISUAL_BEAT', '5010', 'OUTPUT', 'ALLOW', '{"violence":0,"adult":0}'::jsonb, '{"provider":"demo-moderator","score":0.01}'::jsonb, 'moderation-v1', NULL, CURRENT_TIMESTAMP)
+    (10002, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1002, 'STORY_VERSION', '2002', 'INPUT', 'ALLOW', '{"violence":0,"adult":0}'::jsonb, '{"provider":"demo-moderator","score":0.02}'::jsonb, 'moderation-v1', NULL, CURRENT_TIMESTAMP),
+    (10003, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1003, 'VISUAL_BEAT', '5003', 'OUTPUT', 'ALLOW', '{"violence":0,"adult":0}'::jsonb, '{"provider":"demo-moderator","score":0.03}'::jsonb, 'moderation-v1', NULL, CURRENT_TIMESTAMP),
+    (10004, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1004, 'STORY_VERSION', '2004', 'INPUT', 'REVIEW', '{"violence":0,"adult":0}'::jsonb, '{"provider":"demo-moderator","score":0.14}'::jsonb, 'moderation-v1', 'seed-reviewer-04', NULL),
+    (10005, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1005, 'VISUAL_BEAT', '5005', 'OUTPUT', 'ALLOW', '{"violence":0,"adult":0}'::jsonb, '{"provider":"demo-moderator","score":0.01}'::jsonb, 'moderation-v1', NULL, CURRENT_TIMESTAMP),
+    (10006, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1006, 'VISUAL_BEAT', '5006', 'OUTPUT', 'BLOCK', '{"violence":0,"adult":1}'::jsonb, '{"provider":"demo-moderator","score":0.92}'::jsonb, 'moderation-v1', 'seed-reviewer-06', CURRENT_TIMESTAMP),
+    (10007, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1007, 'STORY_VERSION', '2007', 'INPUT', 'ALLOW', '{"violence":0,"adult":0}'::jsonb, '{"provider":"demo-moderator","score":0.01}'::jsonb, 'moderation-v1', NULL, CURRENT_TIMESTAMP),
+    (10008, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1008, 'VISUAL_BEAT', '5008', 'OUTPUT', 'ALLOW', '{"violence":0,"adult":0}'::jsonb, '{"provider":"demo-moderator","score":0.02}'::jsonb, 'moderation-v1', NULL, CURRENT_TIMESTAMP),
+    (10009, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1009, 'STORY_VERSION', '2009', 'INPUT', 'REVIEW', '{"violence":0,"adult":0}'::jsonb, '{"provider":"demo-moderator","score":0.12}'::jsonb, 'moderation-v1', 'seed-reviewer-09', NULL),
+    (10010, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1010, 'VISUAL_BEAT', '5010', 'OUTPUT', 'ALLOW', '{"violence":0,"adult":0}'::jsonb, '{"provider":"demo-moderator","score":0.01}'::jsonb, 'moderation-v1', NULL, CURRENT_TIMESTAMP)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO notification_preferences (user_id, render_complete_email, render_failed_email, short_complete_email, web_push_enabled)
 VALUES
-    ((SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), TRUE, TRUE, TRUE, TRUE),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user02@example.com'), TRUE, TRUE, FALSE, FALSE),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user03@example.com'), TRUE, FALSE, TRUE, TRUE),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user04@example.com'), FALSE, TRUE, FALSE, FALSE),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user05@example.com'), TRUE, TRUE, TRUE, FALSE),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user06@example.com'), FALSE, TRUE, TRUE, TRUE),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user07@example.com'), TRUE, FALSE, FALSE, FALSE),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user08@example.com'), TRUE, TRUE, TRUE, TRUE),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user09@example.com'), FALSE, FALSE, FALSE, FALSE),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user10@example.com'), TRUE, TRUE, TRUE, TRUE)
+    ((SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), TRUE, TRUE, TRUE, TRUE)
 ON CONFLICT (user_id) DO NOTHING;
 
 INSERT INTO notifications (id, user_id, project_id, event_key, type, channel_state_json, title_key, message_key, read_at)
 VALUES
     (11001, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1001, 'seed-event-01', 'RENDER_COMPLETE', '{"in_app":"DELIVERED","email":"DELIVERED"}'::jsonb, 'render.complete.title', 'render.complete.message', NULL),
-    (11002, (SELECT id FROM auth_users WHERE email = 'seed.user02@example.com'), 1002, 'seed-event-02', 'RENDER_COMPLETE', '{"in_app":"READ"}'::jsonb, 'render.complete.title', 'render.complete.message', CURRENT_TIMESTAMP),
-    (11003, (SELECT id FROM auth_users WHERE email = 'seed.user03@example.com'), 1003, 'seed-event-03', 'JOB_PROGRESS', '{"in_app":"DELIVERED"}'::jsonb, 'job.progress.title', 'job.progress.message', NULL),
-    (11004, (SELECT id FROM auth_users WHERE email = 'seed.user04@example.com'), 1004, 'seed-event-04', 'REVIEW_REQUIRED', '{"in_app":"DELIVERED"}'::jsonb, 'review.required.title', 'review.required.message', NULL),
-    (11005, (SELECT id FROM auth_users WHERE email = 'seed.user05@example.com'), 1005, 'seed-event-05', 'RENDER_COMPLETE', '{"in_app":"READ","email":"DELIVERED"}'::jsonb, 'render.complete.title', 'render.complete.message', CURRENT_TIMESTAMP),
-    (11006, (SELECT id FROM auth_users WHERE email = 'seed.user06@example.com'), 1006, 'seed-event-06', 'RENDER_FAILED', '{"in_app":"DELIVERED","email":"FAILED"}'::jsonb, 'render.failed.title', 'render.failed.message', NULL),
-    (11007, (SELECT id FROM auth_users WHERE email = 'seed.user07@example.com'), 1007, 'seed-event-07', 'SHORT_COMPLETE', '{"in_app":"READ","email":"DELIVERED"}'::jsonb, 'short.complete.title', 'short.complete.message', CURRENT_TIMESTAMP),
-    (11008, (SELECT id FROM auth_users WHERE email = 'seed.user08@example.com'), 1008, 'seed-event-08', 'RENDER_COMPLETE', '{"in_app":"DELIVERED"}'::jsonb, 'render.complete.title', 'render.complete.message', NULL),
-    (11009, (SELECT id FROM auth_users WHERE email = 'seed.user09@example.com'), 1009, 'seed-event-09', 'REVIEW_REQUIRED', '{"in_app":"DELIVERED"}'::jsonb, 'review.required.title', 'review.required.message', NULL),
-    (11010, (SELECT id FROM auth_users WHERE email = 'seed.user10@example.com'), 1010, 'seed-event-10', 'RENDER_COMPLETE', '{"in_app":"READ","email":"DELIVERED"}'::jsonb, 'render.complete.title', 'render.complete.message', CURRENT_TIMESTAMP)
+    (11002, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1002, 'seed-event-02', 'RENDER_COMPLETE', '{"in_app":"READ"}'::jsonb, 'render.complete.title', 'render.complete.message', CURRENT_TIMESTAMP),
+    (11003, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1003, 'seed-event-03', 'JOB_PROGRESS', '{"in_app":"DELIVERED"}'::jsonb, 'job.progress.title', 'job.progress.message', NULL),
+    (11004, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1004, 'seed-event-04', 'REVIEW_REQUIRED', '{"in_app":"DELIVERED"}'::jsonb, 'review.required.title', 'review.required.message', NULL),
+    (11005, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1005, 'seed-event-05', 'RENDER_COMPLETE', '{"in_app":"READ","email":"DELIVERED"}'::jsonb, 'render.complete.title', 'render.complete.message', CURRENT_TIMESTAMP),
+    (11006, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1006, 'seed-event-06', 'RENDER_FAILED', '{"in_app":"DELIVERED","email":"FAILED"}'::jsonb, 'render.failed.title', 'render.failed.message', NULL),
+    (11007, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1007, 'seed-event-07', 'SHORT_COMPLETE', '{"in_app":"READ","email":"DELIVERED"}'::jsonb, 'short.complete.title', 'short.complete.message', CURRENT_TIMESTAMP),
+    (11008, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1008, 'seed-event-08', 'RENDER_COMPLETE', '{"in_app":"DELIVERED"}'::jsonb, 'render.complete.title', 'render.complete.message', NULL),
+    (11009, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1009, 'seed-event-09', 'REVIEW_REQUIRED', '{"in_app":"DELIVERED"}'::jsonb, 'review.required.title', 'review.required.message', NULL),
+    (11010, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1010, 'seed-event-10', 'RENDER_COMPLETE', '{"in_app":"READ","email":"DELIVERED"}'::jsonb, 'render.complete.title', 'render.complete.message', CURRENT_TIMESTAMP)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO outbox_events (id, aggregate_type, aggregate_id, event_type, event_key, payload_json, status, attempts)
@@ -253,58 +235,40 @@ ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO user_plan_assignments (user_id, plan_key, entitlement_version, status, period_start, period_end)
 VALUES
-    ((SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'DEMO_PRO_01', 1, 'ACTIVE', DATE '2026-08-01', DATE '2026-09-01'),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user02@example.com'), 'DEMO_FREE_02', 1, 'ACTIVE', DATE '2026-08-01', DATE '2026-09-01'),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user03@example.com'), 'DEMO_CREATOR_01', 1, 'ACTIVE', DATE '2026-08-01', DATE '2026-09-01'),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user04@example.com'), 'DEMO_FREE_01', 1, 'ACTIVE', DATE '2026-08-01', DATE '2026-09-01'),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user05@example.com'), 'DEMO_PRO_02', 1, 'ACTIVE', DATE '2026-08-01', DATE '2026-09-01'),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user06@example.com'), 'DEMO_TEAM_01', 1, 'ACTIVE', DATE '2026-08-01', DATE '2026-09-01'),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user07@example.com'), 'DEMO_CREATOR_02', 1, 'ACTIVE', DATE '2026-08-01', DATE '2026-09-01'),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user08@example.com'), 'DEMO_TEAM_02', 1, 'ACTIVE', DATE '2026-08-01', DATE '2026-09-01'),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user09@example.com'), 'DEMO_ENTERPRISE_01', 1, 'ACTIVE', DATE '2026-08-01', DATE '2026-09-01'),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user10@example.com'), 'DEMO_ENTERPRISE_02', 1, 'ACTIVE', DATE '2026-08-01', DATE '2026-09-01')
+    ((SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'DEMO_PRO_01', 1, 'ACTIVE', DATE '2026-08-01', DATE '2026-09-01')
 ON CONFLICT (user_id) DO NOTHING;
 
-INSERT INTO usage_windows (user_id, period_key, longform_exports, short_exports, expensive_jobs_active, credits_used)
+INSERT INTO usage_windows (user_id, period_key, longform_exports, short_exports, credits_used)
 VALUES
-    ((SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), '2026-08', 3, 4, 0, 1.250000),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user02@example.com'), '2026-08', 1, 2, 0, 0.180000),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user03@example.com'), '2026-08', 4, 8, 1, 2.450000),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user04@example.com'), '2026-08', 0, 0, 1, 0.000000),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user05@example.com'), '2026-08', 8, 12, 0, 5.800000),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user06@example.com'), '2026-08', 12, 20, 2, 9.100000),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user07@example.com'), '2026-08', 5, 6, 0, 2.750000),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user08@example.com'), '2026-08', 6, 11, 0, 4.250000),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user09@example.com'), '2026-08', 1, 1, 1, 0.350000),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user10@example.com'), '2026-08', 10, 18, 0, 7.600000)
+    ((SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), '2026-08', 3, 4, 1.250000)
 ON CONFLICT (user_id, period_key) DO NOTHING;
 
 INSERT INTO characters (id, owner_id, workspace_id, canonical_name, aliases, status)
 VALUES
     (16001, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'workspace-seed-01', 'Mai the Lantern Maker', '["Mai","Lantern Maker"]'::jsonb, 'ACTIVE'),
-    (16002, (SELECT id FROM auth_users WHERE email = 'seed.user02@example.com'), 'workspace-seed-02', 'Theo Clockmaker', '["Theo"]'::jsonb, 'ACTIVE'),
-    (16003, (SELECT id FROM auth_users WHERE email = 'seed.user03@example.com'), 'workspace-seed-03', 'Bao the Boatman', '["Bao","River Guide"]'::jsonb, 'ACTIVE'),
-    (16004, (SELECT id FROM auth_users WHERE email = 'seed.user04@example.com'), 'workspace-seed-04', 'An Rain Listener', '["An"]'::jsonb, 'ACTIVE'),
-    (16005, (SELECT id FROM auth_users WHERE email = 'seed.user05@example.com'), 'workspace-seed-05', 'Lian Paper Dragon', '["Lian"]'::jsonb, 'ACTIVE'),
-    (16006, (SELECT id FROM auth_users WHERE email = 'seed.user06@example.com'), 'workspace-seed-06', 'Pine Keeper', '["The Keeper"]'::jsonb, 'ACTIVE'),
-    (16007, (SELECT id FROM auth_users WHERE email = 'seed.user07@example.com'), 'workspace-seed-07', 'Grandmother Minh', '["Minh","Grandmother"]'::jsonb, 'ACTIVE'),
-    (16008, (SELECT id FROM auth_users WHERE email = 'seed.user08@example.com'), 'workspace-seed-08', 'The Kite Child', '["Kite Child"]'::jsonb, 'ACTIVE'),
-    (16009, (SELECT id FROM auth_users WHERE email = 'seed.user09@example.com'), 'workspace-seed-09', 'Nhi Star Mapper', '["Nhi"]'::jsonb, 'ACTIVE'),
-    (16010, (SELECT id FROM auth_users WHERE email = 'seed.user10@example.com'), 'workspace-seed-10', 'The Seed Keeper', '["Keeper"]'::jsonb, 'ACTIVE')
+    (16002, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'workspace-seed-02', 'Theo Clockmaker', '["Theo"]'::jsonb, 'ACTIVE'),
+    (16003, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'workspace-seed-03', 'Bao the Boatman', '["Bao","River Guide"]'::jsonb, 'ACTIVE'),
+    (16004, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'workspace-seed-04', 'An Rain Listener', '["An"]'::jsonb, 'ACTIVE'),
+    (16005, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'workspace-seed-05', 'Lian Paper Dragon', '["Lian"]'::jsonb, 'ACTIVE'),
+    (16006, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'workspace-seed-06', 'Pine Keeper', '["The Keeper"]'::jsonb, 'ACTIVE'),
+    (16007, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'workspace-seed-07', 'Grandmother Minh', '["Minh","Grandmother"]'::jsonb, 'ACTIVE'),
+    (16008, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'workspace-seed-08', 'The Kite Child', '["Kite Child"]'::jsonb, 'ACTIVE'),
+    (16009, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'workspace-seed-09', 'Nhi Star Mapper', '["Nhi"]'::jsonb, 'ACTIVE'),
+    (16010, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'workspace-seed-10', 'The Seed Keeper', '["Keeper"]'::jsonb, 'ACTIVE')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO character_versions (id, character_id, version_number, bible, visual_prompt, master_asset_id, reference_asset_ids, status, locked_at, locked_by)
 VALUES
     (20001, 16001, 1, 'Patient artisan with observant eyes and a brave heart.', 'Cinematic portrait of a Vietnamese lantern maker, warm amber light, consistent face.', NULL, '["seed-ref-16001"]'::jsonb, 'LOCKED', CURRENT_TIMESTAMP, 'seed-user-01'),
-    (20002, 16002, 1, 'Inventive clockmaker who hides maps inside mechanisms.', 'Cinematic portrait of a thoughtful clockmaker, brass workshop, soft rim light.', NULL, '["seed-ref-16002"]'::jsonb, 'LOCKED', CURRENT_TIMESTAMP, 'seed-user-02'),
+    (20002, 16002, 1, 'Inventive clockmaker who hides maps inside mechanisms.', 'Cinematic portrait of a thoughtful clockmaker, brass workshop, soft rim light.', NULL, '["seed-ref-16002"]'::jsonb, 'LOCKED', CURRENT_TIMESTAMP, 'seed-user-01'),
     (20003, 16003, 1, 'A calm boatman who reads water like a book.', 'Cinematic portrait of a river boatman under moonlight, misty river, natural colors.', NULL, '["seed-ref-16003"]'::jsonb, 'APPROVED', NULL, NULL),
     (20004, 16004, 1, 'A listener who hears memories in rainfall.', 'Cinematic portrait of a young listener by a rainy window, reflective mood.', NULL, '["seed-ref-16004"]'::jsonb, 'DRAFT', NULL, NULL),
-    (20005, 16005, 1, 'A child with paper-folding talent and a strong sense of direction.', 'Cinematic portrait of a child with paper dragon, dawn light, storybook realism.', NULL, '["seed-ref-16005"]'::jsonb, 'LOCKED', CURRENT_TIMESTAMP, 'seed-user-05'),
+    (20005, 16005, 1, 'A child with paper-folding talent and a strong sense of direction.', 'Cinematic portrait of a child with paper dragon, dawn light, storybook realism.', NULL, '["seed-ref-16005"]'::jsonb, 'LOCKED', CURRENT_TIMESTAMP, 'seed-user-01'),
     (20006, 16006, 1, 'Guardian of a singing forest and its oldest pine.', 'Cinematic portrait of a forest keeper among tall pines, cool green palette.', NULL, '["seed-ref-16006"]'::jsonb, 'APPROVED', NULL, NULL),
-    (20007, 16007, 1, 'A grandmother whose patience carries a family through seasons.', 'Cinematic portrait of a Vietnamese grandmother in a seed garden, golden hour.', NULL, '["seed-ref-16007"]'::jsonb, 'LOCKED', CURRENT_TIMESTAMP, 'seed-user-07'),
+    (20007, 16007, 1, 'A grandmother whose patience carries a family through seasons.', 'Cinematic portrait of a Vietnamese grandmother in a seed garden, golden hour.', NULL, '["seed-ref-16007"]'::jsonb, 'LOCKED', CURRENT_TIMESTAMP, 'seed-user-01'),
     (20008, 16008, 1, 'A quiet child who communicates through a blue kite.', 'Cinematic portrait of a child on a rooftop with blue kite, bright sky.', NULL, '["seed-ref-16008"]'::jsonb, 'APPROVED', NULL, NULL),
     (20009, 16009, 1, 'A curious mapper who turns reflections into constellations.', 'Cinematic portrait of a child beside a star-reflecting river, dreamy realism.', NULL, '["seed-ref-16009"]'::jsonb, 'DRAFT', NULL, NULL),
-    (20010, 16010, 1, 'A determined keeper carrying the final green memory of a valley.', 'Cinematic portrait of a seed keeper crossing a dry valley, hopeful green accent.', NULL, '["seed-ref-16010"]'::jsonb, 'LOCKED', CURRENT_TIMESTAMP, 'seed-user-10')
+    (20010, 16010, 1, 'A determined keeper carrying the final green memory of a valley.', 'Cinematic portrait of a seed keeper crossing a dry valley, hopeful green accent.', NULL, '["seed-ref-16010"]'::jsonb, 'LOCKED', CURRENT_TIMESTAMP, 'seed-user-01')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO outfit_versions (id, character_id, version_number, name, description, prompt, status)
@@ -352,85 +316,76 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO identity_consents (id, user_id, character_id, reference_asset_id, reference_type, consent_basis, policy_version, accepted_at, revoked_at)
 VALUES
     (15001, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 16001, NULL, 'SYNTHETIC', 'DEMO_FIXTURE', 'identity-v1', CURRENT_TIMESTAMP, NULL),
-    (15002, (SELECT id FROM auth_users WHERE email = 'seed.user02@example.com'), 16002, NULL, 'SYNTHETIC', 'DEMO_FIXTURE', 'identity-v1', CURRENT_TIMESTAMP, NULL),
-    (15003, (SELECT id FROM auth_users WHERE email = 'seed.user03@example.com'), 16003, NULL, 'SYNTHETIC', 'DEMO_FIXTURE', 'identity-v1', CURRENT_TIMESTAMP, NULL),
-    (15004, (SELECT id FROM auth_users WHERE email = 'seed.user04@example.com'), 16004, NULL, 'SYNTHETIC', 'DEMO_FIXTURE', 'identity-v1', CURRENT_TIMESTAMP, NULL),
-    (15005, (SELECT id FROM auth_users WHERE email = 'seed.user05@example.com'), 16005, NULL, 'SYNTHETIC', 'DEMO_FIXTURE', 'identity-v1', CURRENT_TIMESTAMP, NULL),
-    (15006, (SELECT id FROM auth_users WHERE email = 'seed.user06@example.com'), 16006, NULL, 'SYNTHETIC', 'DEMO_FIXTURE', 'identity-v1', CURRENT_TIMESTAMP, NULL),
-    (15007, (SELECT id FROM auth_users WHERE email = 'seed.user07@example.com'), 16007, NULL, 'SYNTHETIC', 'DEMO_FIXTURE', 'identity-v1', CURRENT_TIMESTAMP, NULL),
-    (15008, (SELECT id FROM auth_users WHERE email = 'seed.user08@example.com'), 16008, NULL, 'SYNTHETIC', 'DEMO_FIXTURE', 'identity-v1', CURRENT_TIMESTAMP, NULL),
-    (15009, (SELECT id FROM auth_users WHERE email = 'seed.user09@example.com'), 16009, NULL, 'SYNTHETIC', 'DEMO_FIXTURE', 'identity-v1', CURRENT_TIMESTAMP, NULL),
-    (15010, (SELECT id FROM auth_users WHERE email = 'seed.user10@example.com'), 16010, NULL, 'SYNTHETIC', 'DEMO_FIXTURE', 'identity-v1', CURRENT_TIMESTAMP, NULL)
+    (15002, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 16002, NULL, 'SYNTHETIC', 'DEMO_FIXTURE', 'identity-v1', CURRENT_TIMESTAMP, NULL),
+    (15003, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 16003, NULL, 'SYNTHETIC', 'DEMO_FIXTURE', 'identity-v1', CURRENT_TIMESTAMP, NULL),
+    (15004, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 16004, NULL, 'SYNTHETIC', 'DEMO_FIXTURE', 'identity-v1', CURRENT_TIMESTAMP, NULL),
+    (15005, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 16005, NULL, 'SYNTHETIC', 'DEMO_FIXTURE', 'identity-v1', CURRENT_TIMESTAMP, NULL),
+    (15006, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 16006, NULL, 'SYNTHETIC', 'DEMO_FIXTURE', 'identity-v1', CURRENT_TIMESTAMP, NULL),
+    (15007, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 16007, NULL, 'SYNTHETIC', 'DEMO_FIXTURE', 'identity-v1', CURRENT_TIMESTAMP, NULL),
+    (15008, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 16008, NULL, 'SYNTHETIC', 'DEMO_FIXTURE', 'identity-v1', CURRENT_TIMESTAMP, NULL),
+    (15009, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 16009, NULL, 'SYNTHETIC', 'DEMO_FIXTURE', 'identity-v1', CURRENT_TIMESTAMP, NULL),
+    (15010, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 16010, NULL, 'SYNTHETIC', 'DEMO_FIXTURE', 'identity-v1', CURRENT_TIMESTAMP, NULL)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO identity_profiles (id, user_id, project_id, character_id, private_template_ref, algorithm_version, retention_class, expires_at, deleted_at)
 VALUES
     (24001, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1001, 16001, 'demo://identity-template/01', 'demo-identity-v1', 'STANDARD', CURRENT_TIMESTAMP + INTERVAL '365 days', NULL),
-    (24002, (SELECT id FROM auth_users WHERE email = 'seed.user02@example.com'), 1002, 16002, 'demo://identity-template/02', 'demo-identity-v1', 'STANDARD', CURRENT_TIMESTAMP + INTERVAL '365 days', NULL),
-    (24003, (SELECT id FROM auth_users WHERE email = 'seed.user03@example.com'), 1003, 16003, 'demo://identity-template/03', 'demo-identity-v1', 'STANDARD', CURRENT_TIMESTAMP + INTERVAL '365 days', NULL),
-    (24004, (SELECT id FROM auth_users WHERE email = 'seed.user04@example.com'), 1004, 16004, 'demo://identity-template/04', 'demo-identity-v1', 'STANDARD', CURRENT_TIMESTAMP + INTERVAL '365 days', NULL),
-    (24005, (SELECT id FROM auth_users WHERE email = 'seed.user05@example.com'), 1005, 16005, 'demo://identity-template/05', 'demo-identity-v1', 'STANDARD', CURRENT_TIMESTAMP + INTERVAL '365 days', NULL),
-    (24006, (SELECT id FROM auth_users WHERE email = 'seed.user06@example.com'), 1006, 16006, 'demo://identity-template/06', 'demo-identity-v1', 'STANDARD', CURRENT_TIMESTAMP + INTERVAL '365 days', NULL),
-    (24007, (SELECT id FROM auth_users WHERE email = 'seed.user07@example.com'), 1007, 16007, 'demo://identity-template/07', 'demo-identity-v1', 'STANDARD', CURRENT_TIMESTAMP + INTERVAL '365 days', NULL),
-    (24008, (SELECT id FROM auth_users WHERE email = 'seed.user08@example.com'), 1008, 16008, 'demo://identity-template/08', 'demo-identity-v1', 'STANDARD', CURRENT_TIMESTAMP + INTERVAL '365 days', NULL),
-    (24009, (SELECT id FROM auth_users WHERE email = 'seed.user09@example.com'), 1009, 16009, 'demo://identity-template/09', 'demo-identity-v1', 'STANDARD', CURRENT_TIMESTAMP + INTERVAL '365 days', NULL),
-    (24010, (SELECT id FROM auth_users WHERE email = 'seed.user10@example.com'), 1010, 16010, 'demo://identity-template/10', 'demo-identity-v1', 'STANDARD', CURRENT_TIMESTAMP + INTERVAL '365 days', NULL)
+    (24002, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1002, 16002, 'demo://identity-template/02', 'demo-identity-v1', 'STANDARD', CURRENT_TIMESTAMP + INTERVAL '365 days', NULL),
+    (24003, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1003, 16003, 'demo://identity-template/03', 'demo-identity-v1', 'STANDARD', CURRENT_TIMESTAMP + INTERVAL '365 days', NULL),
+    (24004, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1004, 16004, 'demo://identity-template/04', 'demo-identity-v1', 'STANDARD', CURRENT_TIMESTAMP + INTERVAL '365 days', NULL),
+    (24005, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1005, 16005, 'demo://identity-template/05', 'demo-identity-v1', 'STANDARD', CURRENT_TIMESTAMP + INTERVAL '365 days', NULL),
+    (24006, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1006, 16006, 'demo://identity-template/06', 'demo-identity-v1', 'STANDARD', CURRENT_TIMESTAMP + INTERVAL '365 days', NULL),
+    (24007, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1007, 16007, 'demo://identity-template/07', 'demo-identity-v1', 'STANDARD', CURRENT_TIMESTAMP + INTERVAL '365 days', NULL),
+    (24008, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1008, 16008, 'demo://identity-template/08', 'demo-identity-v1', 'STANDARD', CURRENT_TIMESTAMP + INTERVAL '365 days', NULL),
+    (24009, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1009, 16009, 'demo://identity-template/09', 'demo-identity-v1', 'STANDARD', CURRENT_TIMESTAMP + INTERVAL '365 days', NULL),
+    (24010, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1010, 16010, 'demo://identity-template/10', 'demo-identity-v1', 'STANDARD', CURRENT_TIMESTAMP + INTERVAL '365 days', NULL)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO ai_audit_events (id, user_id, project_id, job_id, capability, provider, model_key, prompt_version, schema_version, safety_policy_version, input_fingerprint, usage_json, generation_params_json)
 VALUES
     (17001, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1001, 6001, 'STORY_ANALYZE', 'demo-provider', 'demo-text-v1', 'prompt-v1', 'story-analysis-v1', 'safety-v1', 'seed-fingerprint-01', '{"inputTokens":1200,"outputTokens":400}'::jsonb, '{"temperature":0.2}'::jsonb),
-    (17002, (SELECT id FROM auth_users WHERE email = 'seed.user02@example.com'), 1002, 6002, 'IMAGE_GENERATE', 'demo-provider', 'demo-image-v1', 'prompt-v1', 'image-plan-v1', 'safety-v1', 'seed-fingerprint-02', '{"images":4}'::jsonb, '{"aspectRatio":"16:9"}'::jsonb),
-    (17003, (SELECT id FROM auth_users WHERE email = 'seed.user03@example.com'), 1003, 6003, 'IMAGE_GENERATE', 'demo-provider', 'demo-image-v1', 'prompt-v1', 'image-plan-v1', 'safety-v1', 'seed-fingerprint-03', '{"images":3}'::jsonb, '{"aspectRatio":"9:16"}'::jsonb),
-    (17004, (SELECT id FROM auth_users WHERE email = 'seed.user04@example.com'), 1004, 6004, 'STORY_ANALYZE', 'demo-provider', 'demo-text-v1', 'prompt-v1', 'story-analysis-v1', 'safety-v1', 'seed-fingerprint-04', '{"inputTokens":800}'::jsonb, '{"temperature":0.3}'::jsonb),
-    (17005, (SELECT id FROM auth_users WHERE email = 'seed.user05@example.com'), 1005, 6005, 'RENDER_PROJECT', 'demo-provider', 'demo-video-v1', 'prompt-v1', 'render-v1', 'safety-v1', 'seed-fingerprint-05', '{"durationSeconds":87}'::jsonb, '{"quality":"HIGH"}'::jsonb),
-    (17006, (SELECT id FROM auth_users WHERE email = 'seed.user06@example.com'), 1006, 6006, 'RENDER_PROJECT', 'demo-provider', 'demo-video-v1', 'prompt-v1', 'render-v1', 'safety-v1', 'seed-fingerprint-06', '{"durationSeconds":93}'::jsonb, '{"quality":"ULTRA"}'::jsonb),
-    (17007, (SELECT id FROM auth_users WHERE email = 'seed.user07@example.com'), 1007, 6007, 'RENDER_SHORT', 'demo-provider', 'demo-short-v1', 'prompt-v1', 'short-v1', 'safety-v1', 'seed-fingerprint-07', '{"durationSeconds":34}'::jsonb, '{"aspectRatio":"9:16"}'::jsonb),
-    (17008, (SELECT id FROM auth_users WHERE email = 'seed.user08@example.com'), 1008, 6008, 'IMAGE_GENERATE', 'demo-provider', 'demo-image-v1', 'prompt-v1', 'image-plan-v1', 'safety-v1', 'seed-fingerprint-08', '{"images":5}'::jsonb, '{"aspectRatio":"16:9"}'::jsonb),
-    (17009, (SELECT id FROM auth_users WHERE email = 'seed.user09@example.com'), 1009, 6009, 'STORY_ANALYZE', 'demo-provider', 'demo-text-v1', 'prompt-v1', 'story-analysis-v1', 'safety-v1', 'seed-fingerprint-09', '{"inputTokens":900}'::jsonb, '{"temperature":0.3}'::jsonb),
-    (17010, (SELECT id FROM auth_users WHERE email = 'seed.user10@example.com'), 1010, 6010, 'RENDER_PROJECT', 'demo-provider', 'demo-video-v1', 'prompt-v1', 'render-v1', 'safety-v1', 'seed-fingerprint-10', '{"durationSeconds":102}'::jsonb, '{"quality":"HIGH"}'::jsonb)
+    (17002, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1002, 6002, 'IMAGE_GENERATE', 'demo-provider', 'demo-image-v1', 'prompt-v1', 'image-plan-v1', 'safety-v1', 'seed-fingerprint-02', '{"images":4}'::jsonb, '{"aspectRatio":"16:9"}'::jsonb),
+    (17003, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1003, 6003, 'IMAGE_GENERATE', 'demo-provider', 'demo-image-v1', 'prompt-v1', 'image-plan-v1', 'safety-v1', 'seed-fingerprint-03', '{"images":3}'::jsonb, '{"aspectRatio":"9:16"}'::jsonb),
+    (17004, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1004, 6004, 'STORY_ANALYZE', 'demo-provider', 'demo-text-v1', 'prompt-v1', 'story-analysis-v1', 'safety-v1', 'seed-fingerprint-04', '{"inputTokens":800}'::jsonb, '{"temperature":0.3}'::jsonb),
+    (17005, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1005, 6005, 'RENDER_PROJECT', 'demo-provider', 'demo-video-v1', 'prompt-v1', 'render-v1', 'safety-v1', 'seed-fingerprint-05', '{"durationSeconds":87}'::jsonb, '{"quality":"HIGH"}'::jsonb),
+    (17006, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1006, 6006, 'RENDER_PROJECT', 'demo-provider', 'demo-video-v1', 'prompt-v1', 'render-v1', 'safety-v1', 'seed-fingerprint-06', '{"durationSeconds":93}'::jsonb, '{"quality":"ULTRA"}'::jsonb),
+    (17007, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1007, 6007, 'RENDER_SHORT', 'demo-provider', 'demo-short-v1', 'prompt-v1', 'short-v1', 'safety-v1', 'seed-fingerprint-07', '{"durationSeconds":34}'::jsonb, '{"aspectRatio":"9:16"}'::jsonb),
+    (17008, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1008, 6008, 'IMAGE_GENERATE', 'demo-provider', 'demo-image-v1', 'prompt-v1', 'image-plan-v1', 'safety-v1', 'seed-fingerprint-08', '{"images":5}'::jsonb, '{"aspectRatio":"16:9"}'::jsonb),
+    (17009, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1009, 6009, 'STORY_ANALYZE', 'demo-provider', 'demo-text-v1', 'prompt-v1', 'story-analysis-v1', 'safety-v1', 'seed-fingerprint-09', '{"inputTokens":900}'::jsonb, '{"temperature":0.3}'::jsonb),
+    (17010, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1010, 6010, 'RENDER_PROJECT', 'demo-provider', 'demo-video-v1', 'prompt-v1', 'render-v1', 'safety-v1', 'seed-fingerprint-10', '{"durationSeconds":102}'::jsonb, '{"quality":"HIGH"}'::jsonb)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO data_deletion_requests (id, user_id, scope, scope_id, status, started_at, completed_at, retention_deadline)
 VALUES
     (18001, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'PROJECT', '1001', 'REQUESTED', NULL, NULL, CURRENT_TIMESTAMP + INTERVAL '30 days'),
-    (18002, (SELECT id FROM auth_users WHERE email = 'seed.user02@example.com'), 'PROJECT', '1002', 'IN_PROGRESS', CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP + INTERVAL '30 days'),
-    (18003, (SELECT id FROM auth_users WHERE email = 'seed.user03@example.com'), 'ASSET', 'asset-seed-03', 'COMPLETED', CURRENT_TIMESTAMP - INTERVAL '2 days', CURRENT_TIMESTAMP - INTERVAL '1 day', CURRENT_TIMESTAMP + INTERVAL '29 days'),
-    (18004, (SELECT id FROM auth_users WHERE email = 'seed.user04@example.com'), 'ACCOUNT', 'seed-user-04', 'REQUESTED', NULL, NULL, CURRENT_TIMESTAMP + INTERVAL '30 days'),
-    (18005, (SELECT id FROM auth_users WHERE email = 'seed.user05@example.com'), 'PROJECT', '1005', 'COMPLETED', CURRENT_TIMESTAMP - INTERVAL '4 days', CURRENT_TIMESTAMP - INTERVAL '3 days', CURRENT_TIMESTAMP + INTERVAL '27 days'),
-    (18006, (SELECT id FROM auth_users WHERE email = 'seed.user06@example.com'), 'PROJECT', '1006', 'FAILED', CURRENT_TIMESTAMP - INTERVAL '3 days', NULL, CURRENT_TIMESTAMP + INTERVAL '30 days'),
-    (18007, (SELECT id FROM auth_users WHERE email = 'seed.user07@example.com'), 'ASSET', 'asset-seed-07', 'REQUESTED', NULL, NULL, CURRENT_TIMESTAMP + INTERVAL '30 days'),
-    (18008, (SELECT id FROM auth_users WHERE email = 'seed.user08@example.com'), 'PROJECT', '1008', 'IN_PROGRESS', CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP + INTERVAL '30 days'),
-    (18009, (SELECT id FROM auth_users WHERE email = 'seed.user09@example.com'), 'ACCOUNT', 'seed-user-09', 'COMPLETED', CURRENT_TIMESTAMP - INTERVAL '5 days', CURRENT_TIMESTAMP - INTERVAL '4 days', CURRENT_TIMESTAMP + INTERVAL '26 days'),
-    (18010, (SELECT id FROM auth_users WHERE email = 'seed.user10@example.com'), 'PROJECT', '1010', 'REQUESTED', NULL, NULL, CURRENT_TIMESTAMP + INTERVAL '30 days')
+    (18002, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'PROJECT', '1002', 'IN_PROGRESS', CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP + INTERVAL '30 days'),
+    (18003, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ASSET', 'asset-seed-03', 'COMPLETED', CURRENT_TIMESTAMP - INTERVAL '2 days', CURRENT_TIMESTAMP - INTERVAL '1 day', CURRENT_TIMESTAMP + INTERVAL '29 days'),
+    (18004, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ACCOUNT', 'seed-user-01', 'REQUESTED', NULL, NULL, CURRENT_TIMESTAMP + INTERVAL '30 days'),
+    (18005, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'PROJECT', '1005', 'COMPLETED', CURRENT_TIMESTAMP - INTERVAL '4 days', CURRENT_TIMESTAMP - INTERVAL '3 days', CURRENT_TIMESTAMP + INTERVAL '27 days'),
+    (18006, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'PROJECT', '1006', 'FAILED', CURRENT_TIMESTAMP - INTERVAL '3 days', NULL, CURRENT_TIMESTAMP + INTERVAL '30 days'),
+    (18007, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ASSET', 'asset-seed-07', 'REQUESTED', NULL, NULL, CURRENT_TIMESTAMP + INTERVAL '30 days'),
+    (18008, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'PROJECT', '1008', 'IN_PROGRESS', CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP + INTERVAL '30 days'),
+    (18009, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'ACCOUNT', 'seed-user-01', 'COMPLETED', CURRENT_TIMESTAMP - INTERVAL '5 days', CURRENT_TIMESTAMP - INTERVAL '4 days', CURRENT_TIMESTAMP + INTERVAL '26 days'),
+    (18010, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'PROJECT', '1010', 'REQUESTED', NULL, NULL, CURRENT_TIMESTAMP + INTERVAL '30 days')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO user_preferences (user_id, preferred_locale, timezone, default_narration_language, default_metadata_language)
 VALUES
-    ((SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'vi-VN', 'Asia/Ho_Chi_Minh', 'vi-VN', 'vi-VN'),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user02@example.com'), 'en-US', 'America/New_York', 'en-US', 'en-US'),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user03@example.com'), 'vi-VN', 'Asia/Ho_Chi_Minh', 'en-US', 'en-US'),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user04@example.com'), 'en-US', 'Europe/London', 'vi-VN', 'vi-VN'),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user05@example.com'), 'zh-CN', 'Asia/Shanghai', 'en-US', 'en-US'),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user06@example.com'), 'en-US', 'America/Los_Angeles', 'en-US', 'en-US'),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user07@example.com'), 'vi-VN', 'Asia/Ho_Chi_Minh', 'vi-VN', 'vi-VN'),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user08@example.com'), 'en-US', 'America/New_York', 'vi-VN', 'vi-VN'),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user09@example.com'), 'en-US', 'Europe/Paris', 'en-US', 'en-US'),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user10@example.com'), 'vi-VN', 'Asia/Ho_Chi_Minh', 'vi-VN', 'vi-VN')
+    ((SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'vi-VN', 'Asia/Ho_Chi_Minh', 'vi-VN', 'vi-VN')
 ON CONFLICT (user_id) DO NOTHING;
 
 INSERT INTO abuse_events (id, user_id, ip_hash, session_id, route_key, signal_type, action, policy_version)
 VALUES
     (19001, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'seed-ip-hash-01', 'seed-session-01', '/api/v1/projects', 'RATE_OK', 'ALLOW', 'abuse-v1'),
-    (19002, (SELECT id FROM auth_users WHERE email = 'seed.user02@example.com'), 'seed-ip-hash-02', 'seed-session-02', '/api/v1/projects', 'RATE_OK', 'ALLOW', 'abuse-v1'),
-    (19003, (SELECT id FROM auth_users WHERE email = 'seed.user03@example.com'), 'seed-ip-hash-03', 'seed-session-03', '/api/v1/generation', 'BURST', 'THROTTLE', 'abuse-v1'),
-    (19004, (SELECT id FROM auth_users WHERE email = 'seed.user04@example.com'), 'seed-ip-hash-04', 'seed-session-04', '/api/v1/analysis-jobs', 'RATE_OK', 'ALLOW', 'abuse-v1'),
-    (19005, (SELECT id FROM auth_users WHERE email = 'seed.user05@example.com'), 'seed-ip-hash-05', 'seed-session-05', '/api/v1/generation', 'RATE_OK', 'ALLOW', 'abuse-v1'),
-    (19006, (SELECT id FROM auth_users WHERE email = 'seed.user06@example.com'), 'seed-ip-hash-06', 'seed-session-06', '/api/v1/generation', 'CONCURRENCY', 'THROTTLE', 'abuse-v1'),
-    (19007, (SELECT id FROM auth_users WHERE email = 'seed.user07@example.com'), 'seed-ip-hash-07', 'seed-session-07', '/api/v1/shorts', 'RATE_OK', 'ALLOW', 'abuse-v1'),
-    (19008, (SELECT id FROM auth_users WHERE email = 'seed.user08@example.com'), 'seed-ip-hash-08', 'seed-session-08', '/api/v1/assets', 'RATE_OK', 'ALLOW', 'abuse-v1'),
-    (19009, (SELECT id FROM auth_users WHERE email = 'seed.user09@example.com'), 'seed-ip-hash-09', 'seed-session-09', '/api/v1/analysis-jobs', 'ANOMALY', 'REVIEW', 'abuse-v1'),
-    (19010, (SELECT id FROM auth_users WHERE email = 'seed.user10@example.com'), 'seed-ip-hash-10', 'seed-session-10', '/api/v1/generation', 'RATE_OK', 'ALLOW', 'abuse-v1')
+    (19002, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'seed-ip-hash-02', 'seed-session-02', '/api/v1/projects', 'RATE_OK', 'ALLOW', 'abuse-v1'),
+    (19003, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'seed-ip-hash-03', 'seed-session-03', '/api/v1/generation', 'BURST', 'THROTTLE', 'abuse-v1'),
+    (19004, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'seed-ip-hash-04', 'seed-session-04', '/api/v1/analysis-jobs', 'RATE_OK', 'ALLOW', 'abuse-v1'),
+    (19005, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'seed-ip-hash-05', 'seed-session-05', '/api/v1/generation', 'RATE_OK', 'ALLOW', 'abuse-v1'),
+    (19006, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'seed-ip-hash-06', 'seed-session-06', '/api/v1/generation', 'CONCURRENCY', 'THROTTLE', 'abuse-v1'),
+    (19007, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'seed-ip-hash-07', 'seed-session-07', '/api/v1/shorts', 'RATE_OK', 'ALLOW', 'abuse-v1'),
+    (19008, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'seed-ip-hash-08', 'seed-session-08', '/api/v1/assets', 'RATE_OK', 'ALLOW', 'abuse-v1'),
+    (19009, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'seed-ip-hash-09', 'seed-session-09', '/api/v1/analysis-jobs', 'ANOMALY', 'REVIEW', 'abuse-v1'),
+    (19010, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 'seed-ip-hash-10', 'seed-session-10', '/api/v1/generation', 'RATE_OK', 'ALLOW', 'abuse-v1')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO project_locations (id, project_id, name, description, visual_prompt, reference_image_url, status)
@@ -500,8 +455,8 @@ ON CONFLICT (project_id, ai_key) DO NOTHING;
 INSERT INTO project_favorites (user_id, project_id)
 VALUES
     ((SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1001),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user02@example.com'), 1002),
-    ((SELECT id FROM auth_users WHERE email = 'seed.user03@example.com'), 1003)
+    ((SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1002),
+    ((SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), 1003)
 ON CONFLICT (user_id, project_id) DO NOTHING;
 
 -- -----------------------------------------------------------------------------
@@ -543,15 +498,15 @@ INSERT INTO quota_reservations
     (id, user_id, period_key, generation_job_id, estimated_cost, actual_cost, billing_currency, status, finalized_at)
 VALUES
     (6101, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), '2026-08', 6001, 0.025000, 0.015000000, 'USD', 'CONSUMED', CURRENT_TIMESTAMP),
-    (6102, (SELECT id FROM auth_users WHERE email = 'seed.user02@example.com'), '2026-08', 6002, 0.200000, 0.150000000, 'USD', 'CONSUMED', CURRENT_TIMESTAMP),
-    (6103, (SELECT id FROM auth_users WHERE email = 'seed.user03@example.com'), '2026-08', 6003, 0.250000, NULL, NULL, 'RESERVED', NULL),
-    (6104, (SELECT id FROM auth_users WHERE email = 'seed.user04@example.com'), '2026-08', 6004, 0.035000, NULL, NULL, 'RESERVED', NULL),
-    (6105, (SELECT id FROM auth_users WHERE email = 'seed.user05@example.com'), '2026-08', 6005, 1.000000, 0.650000000, 'USD', 'CONSUMED', CURRENT_TIMESTAMP),
-    (6106, (SELECT id FROM auth_users WHERE email = 'seed.user06@example.com'), '2026-08', 6006, 1.250000, 0.000000000, 'USD', 'RELEASED', CURRENT_TIMESTAMP),
-    (6107, (SELECT id FROM auth_users WHERE email = 'seed.user07@example.com'), '2026-08', 6007, 0.400000, 0.280000000, 'USD', 'CONSUMED', CURRENT_TIMESTAMP),
-    (6108, (SELECT id FROM auth_users WHERE email = 'seed.user08@example.com'), '2026-08', 6008, 0.180000, 0.120000000, 'USD', 'CONSUMED', CURRENT_TIMESTAMP),
-    (6109, (SELECT id FROM auth_users WHERE email = 'seed.user09@example.com'), '2026-08', 6009, 0.035000, NULL, NULL, 'RESERVED', NULL),
-    (6110, (SELECT id FROM auth_users WHERE email = 'seed.user10@example.com'), '2026-08', 6010, 0.850000, 0.550000000, 'USD', 'CONSUMED', CURRENT_TIMESTAMP)
+    (6102, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), '2026-08', 6002, 0.200000, 0.150000000, 'USD', 'CONSUMED', CURRENT_TIMESTAMP),
+    (6103, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), '2026-08', 6003, 0.250000, NULL, NULL, 'RESERVED', NULL),
+    (6104, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), '2026-08', 6004, 0.035000, NULL, NULL, 'RESERVED', NULL),
+    (6105, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), '2026-08', 6005, 1.000000, 0.650000000, 'USD', 'CONSUMED', CURRENT_TIMESTAMP),
+    (6106, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), '2026-08', 6006, 1.250000, 0.000000000, 'USD', 'RELEASED', CURRENT_TIMESTAMP),
+    (6107, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), '2026-08', 6007, 0.400000, 0.280000000, 'USD', 'CONSUMED', CURRENT_TIMESTAMP),
+    (6108, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), '2026-08', 6008, 0.180000, 0.120000000, 'USD', 'CONSUMED', CURRENT_TIMESTAMP),
+    (6109, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), '2026-08', 6009, 0.035000, NULL, NULL, 'RESERVED', NULL),
+    (6110, (SELECT id FROM auth_users WHERE email = 'huongnn2201@gmail.com'), '2026-08', 6010, 0.850000, 0.550000000, 'USD', 'CONSUMED', CURRENT_TIMESTAMP)
 ON CONFLICT (id) DO NOTHING;
 
 -- -----------------------------------------------------------------------------
