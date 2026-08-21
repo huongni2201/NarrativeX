@@ -6,6 +6,9 @@ export const queryKeys = {
   projectOverview: (projectId: number) => ["projects", projectId, "overview"] as const,
   projectLocations: (projectId: number) => ["projects", projectId, "locations"] as const,
   projectAssets: (projectId: number) => ["projects", projectId, "assets"] as const,
+  projectCharacters: (projectId: number) => ["projects", projectId, "characters"] as const,
+  projectCharacter: (projectId: number, characterId: number) =>
+    ["projects", projectId, "characters", characterId] as const,
   story: (projectId: number) => ["projects", projectId, "story"] as const,
   chapters: (projectId: number, storyVersionId: number) =>
     ["projects", projectId, "storyVersions", storyVersionId, "chapters"] as const,
