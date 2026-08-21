@@ -21,10 +21,3 @@ CREATE INDEX idx_projects_owner_created_active
 CREATE INDEX idx_projects_owner_lower_name_active
     ON projects (owner_id, LOWER(name), id)
     WHERE archived_at IS NULL;
-
--- Enable efficient case-insensitive contains search on project names.
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
-
-CREATE INDEX idx_projects_lower_name_trgm_active
-    ON projects USING gin (LOWER(name) gin_trgm_ops)
-    WHERE archived_at IS NULL;
