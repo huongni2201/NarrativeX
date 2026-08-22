@@ -12,7 +12,7 @@ NarrativeX is an image-first AI Story Video Studio for turning flexible-length s
 | `documentation` | Product, domain, architecture, workflows, codebase notes and ADRs |
 | `contracts` | Versioned backend ↔ worker payload contracts |
 | `docker-compose.yml` | Safe local PostgreSQL 18, Redis 8, backend and AI worker stack |
-| `docker-compose.prod.yml` | Production stack with frontend, split AI/narration workers and Caddy TLS termination |
+| `docker-compose.prod.yml` | Production stack with frontend, split AI/narration/render workers and Caddy TLS termination |
 | `Caddyfile.prod` | Production HTTPS reverse-proxy configuration |
 
 ## Start the local stack
@@ -32,7 +32,7 @@ To start only infrastructure dependencies:
 docker compose up -d postgres redis
 ```
 
-The backend container uses `postgres` and `redis` as service hostnames. Host-run backend development should continue using `localhost` from `app/backend-service/.env.example`. Media workers use the configured R2 bucket for durable generated/source assets. Worker-local files are scratch/cache/FFmpeg workspace only. Final rendered MP4 files are intended to be promoted through the `FinalVideoStorage` boundary to Google Drive after local validation and durable metadata commit.
+The backend container uses `postgres` and `redis` as service hostnames. Host-run backend development should continue using `localhost` from `app/backend-service/.env.example`. Media workers use the configured R2 bucket for generated images and narration audio. Worker-local files are scratch/cache/FFmpeg workspace only. After FFmpeg validation, final rendered MP4 files are uploaded directly to the configured Google Drive folder and are not persisted to R2.
 
 PostgreSQL 18 uses a new data directory layout. Do not point it directly at an existing PostgreSQL 16 data volume; migrate retained data with a tested dump/restore or PostgreSQL upgrade procedure first.
 
@@ -55,7 +55,9 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml config
 docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
 ```
 
-The production stack forces the Spring `prod` profile, uses Caddy for HTTPS, runs the general AI worker separately from the VieNeu narration worker, enables Vertex analysis/image generation, and uses R2 for durable generated media. The production template defaults VieNeu to the CPU/ONNX backend; GPU/PyTorch deployment requires a GPU-capable image/runtime rather than only changing `VIENEU_BACKEND`.
+The production stack forces the Spring `prod` profile, uses Caddy for HTTPS, runs the general AI worker separately from the VieNeu narration worker and render worker, enables Vertex analysis/image generation, keeps generated images and narration audio in R2, and stores final rendered MP4 files in Google Drive.
+
+For final-video storage, create a Google OAuth refresh token for the Drive account that owns the target folder with the `https://www.googleapis.com/auth/drive` scope, then configure `GOOGLE_DRIVE_CLIENT_ID`, `GOOGLE_DRIVE_CLIENT_SECRET`, `GOOGLE_DRIVE_REFRESH_TOKEN`, and `GOOGLE_DRIVE_FOLDER_ID` in `.env.prod`. The render worker uses resumable uploads and stores the Drive file ID plus view link in `final_artifacts`. The production template defaults VieNeu to the CPU/ONNX backend; GPU/PyTorch deployment requires a GPU-capable image/runtime rather than only changing `VIENEU_BACKEND`.
 
 ## Product guardrails
 

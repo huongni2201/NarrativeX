@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 import asyncpg  # type: ignore[import-untyped]
 
-from narrativex_worker.narration.storage import StoredMediaAsset
+from narrativex_worker.rendering.final_storage import FinalVideoAsset
 
 
 class RenderLeaseLostError(RuntimeError):
@@ -295,7 +295,7 @@ class RenderRepository:
         *,
         render_fingerprint: str,
         manifest: dict[str, object],
-        media_asset: StoredMediaAsset,
+        media_asset: FinalVideoAsset,
         duration_ms: int,
         width: int,
         height: int,
@@ -349,7 +349,7 @@ class RenderRepository:
 
                 existing = await connection.fetchrow(
                     """
-                    SELECT storage_key, checksum_sha256
+                    SELECT storage_key, storage_provider, external_file_id, checksum_sha256
                       FROM final_artifacts
                      WHERE chapter_id = $1 AND render_fingerprint = $2 AND status <> 'ARCHIVED'
                      LIMIT 1
@@ -360,6 +360,8 @@ class RenderRepository:
                 if existing is not None:
                     if (
                         str(existing["storage_key"]) != media_asset.storage_key
+                        or str(existing["storage_provider"]) != media_asset.storage_provider
+                        or str(existing["external_file_id"]) != media_asset.external_file_id
                         or str(existing["checksum_sha256"]) != media_asset.checksum
                     ):
                         raise RenderStateConflictError(
@@ -370,10 +372,11 @@ class RenderRepository:
                         """
                         INSERT INTO final_artifacts
                             (project_id, chapter_id, generation_job_id, render_manifest_id,
-                             artifact_type, render_fingerprint, storage_key, mime_type,
-                             size_bytes, checksum_sha256, duration_ms, width, height, fps, status)
-                        VALUES ($1, $2, $3, $4, 'CHAPTER_VIDEO', $5, $6, 'video/mp4',
-                                $7, $8, $9, $10, $11, $12, 'READY')
+                             artifact_type, render_fingerprint, storage_key, storage_provider,
+                             external_file_id, web_view_link, mime_type, size_bytes,
+                             checksum_sha256, duration_ms, width, height, fps, status)
+                        VALUES ($1, $2, $3, $4, 'CHAPTER_VIDEO', $5, $6, $7, $8, $9,
+                                'video/mp4', $10, $11, $12, $13, $14, $15, 'READY')
                         """,
                         claimed.project_id,
                         claimed.chapter_id,
@@ -381,6 +384,9 @@ class RenderRepository:
                         manifest_id,
                         render_fingerprint,
                         media_asset.storage_key,
+                        media_asset.storage_provider,
+                        media_asset.external_file_id,
+                        media_asset.web_view_link,
                         media_asset.size_bytes,
                         media_asset.checksum,
                         duration_ms,

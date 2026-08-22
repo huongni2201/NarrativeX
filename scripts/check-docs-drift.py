@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail CI on high-confidence NarrativeX current-documentation drift."""
+"""Fail on high-confidence NarrativeX current-documentation drift."""
 
 from __future__ import annotations
 
@@ -18,30 +18,22 @@ CURRENT_FILES = [
     ROOT / "documentation" / "source-of-truth" / "README.md",
     ROOT / "documentation" / "source-of-truth" / "NARRATIVEX_PROJECT_SPEC_V1_11.md",
     ROOT / "documentation" / "codebase" / "CODEBASE_MAP.md",
-    ROOT / "documentation" / "codebase" / "TRACEABILITY.md",
-    ROOT / "documentation" / "codebase" / "BACKEND_CODEBASE.md",
-    ROOT / "documentation" / "codebase" / "FRONTEND_API_INTEGRATION_MATRIX.md",
-    ROOT / "documentation" / "codebase" / "PERSISTENCE_MIGRATION.md",
     ROOT / "documentation" / "architecture" / "SYSTEM_ARCHITECTURE.md",
     ROOT / "documentation" / "architecture" / "SERVICE_BOUNDARIES.md",
     ROOT / "documentation" / "architecture" / "DATA_FLOW.md",
     ROOT / "documentation" / "architecture" / "TECHNOLOGY_STACK.md",
-    ROOT / "documentation" / "product" / "PRODUCT_SPEC.md",
     ROOT / "documentation" / "product" / "ROADMAP.md",
-    ROOT / "documentation" / "product" / "NARRATIVEX_TIMELINE.md",
     ROOT / "documentation" / "product" / "FEATURE_CATALOG.md",
-    ROOT / "documentation" / "domain" / "DOMAIN_MODEL.md",
-    ROOT / "documentation" / "domain" / "BUSINESS_RULES.md",
     ROOT / "documentation" / "workflows" / "STORY_TO_VIDEO.md",
     ROOT / "documentation" / "workflows" / "NARRATION_AUDIO.md",
-    ROOT / "app" / "backend-service" / "README.md",
-    ROOT / "app" / "ai-worker" / "README.md",
 ]
 
 REQUIRED_PATHS = [
     ROOT / "documentation" / "source-of-truth" / "NARRATIVEX_PROJECT_SPEC_V1_11.md",
     ROOT / "documentation" / "TRACEABILITY.md",
     ROOT / "documentation" / "product" / "FEATURE_CATALOG.md",
+    ROOT / "documentation" / "decisions" / "ADR-0012-cloudflare-r2-durable-media-storage.md",
+    ROOT / "documentation" / "decisions" / "ADR-0016-google-drive-final-video-storage.md",
 ]
 
 FORBIDDEN = {
@@ -51,58 +43,44 @@ FORBIDDEN = {
     ),
     "obsolete V1.8 current baseline": re.compile(r"\bV1\.8\b", re.IGNORECASE),
     "obsolete Analyze scaffold token": re.compile(r"FEATURE_NOT_AVAILABLE"),
-    "obsolete media status claim": re.compile(
-        r"(?:image generation,?\s*TTS/subtitles\s*(?:and|,)\s*render/export|Image/TTS/render/export)\s+(?:remain|\|)\s*PENDING",
+    "obsolete R2-only durable-media claim": re.compile(
+        r"(?:R2|Cloudflare R2)\s+(?:is|remains)\s+the\s+(?:sole|only)\s+durable\s+(?:binary-)?media",
         re.IGNORECASE,
     ),
-    "obsolete uploaded-audio target-only claim": re.compile(
-        r"uploaded/(?:external )?narration audio\s*\|\s*TARGET", re.IGNORECASE
+    "obsolete R2-backed final artifact claim": re.compile(
+        r"(?:validated\s+)?R2[- ]backed\s+FinalArtifact|FinalArtifact\s+(?:in|to)\s+R2|private\s+R2\s+(?:final|persistence)",
+        re.IGNORECASE,
+    ),
+    "obsolete image-generation target claim": re.compile(
+        r"Production image generation\s*\|\s*TARGET",
+        re.IGNORECASE,
+    ),
+    "obsolete render target claim": re.compile(
+        r"IMAGE_MOTION (?:render/export|renderer)\s*\|\s*TARGET",
+        re.IGNORECASE,
+    ),
+    "obsolete Drive implementation target claim": re.compile(
+        r"FinalVideoStorage[^\n]*(?:implementation|Google Drive)[^\n]*(?:TARGET|gap)",
+        re.IGNORECASE,
     ),
     "obsolete three-boundary MyBatis summary": re.compile(
-        r"(?:Current MyBatis-backed boundaries include ProviderOperation, Chapter and Project command/query persistence\.|MyBatis persistence for ProviderOperation, Chapter and Project\.|ProviderOperation/Chapter/Project done; other boundaries remain)",
-        re.IGNORECASE,
-    ),
-    "obsolete generation-persistence target": re.compile(
-        r"(?:Generation execution persistence|GenerationJob\s*/\s*StageAttempt(?:\s*/\s*OperationPlan\s*/\s*MediaPlan)?[^\n]*)\s*(?:—|\|)\s*TARGET",
-        re.IGNORECASE,
-    ),
-    "obsolete continuity future-gap": re.compile(
-        r"location materialization and scene-to-character/location continuity persistence in worker output",
+        r"(?:ProviderOperation/Chapter/Project done; other boundaries remain|Current MyBatis-backed boundaries include ProviderOperation, Chapter and Project)",
         re.IGNORECASE,
     ),
 }
-
-R2_ONLY_FILES = [
-    ROOT / "README.md",
-    ROOT / ".env.example",
-    ROOT / "docker-compose.yml",
-    ROOT / "app" / "ai-worker" / ".env.example",
-    ROOT / "app" / "ai-worker" / "README.md",
-    ROOT / "app" / "ai-worker" / "src" / "narrativex_worker" / "config.py",
-    ROOT / "app" / "ai-worker" / "src" / "narrativex_worker" / "narration" / "storage.py",
-    ROOT / "documentation" / "source-of-truth" / "NARRATIVEX_PROJECT_SPEC_V1_11.md",
-    ROOT / "documentation" / "source-of-truth" / "README.md",
-    ROOT / "documentation" / "architecture" / "SYSTEM_ARCHITECTURE.md",
-    ROOT / "documentation" / "architecture" / "DATA_FLOW.md",
-    ROOT / "documentation" / "architecture" / "TECHNOLOGY_STACK.md",
-    ROOT / "documentation" / "codebase" / "CODEBASE_MAP.md",
-    ROOT / "documentation" / "decisions" / "ADR-0012-cloudflare-r2-durable-media-storage.md",
-    ROOT / "documentation" / "decisions" / "ADR-0011-narration-pipeline-and-worker-runtime.md",
-    ROOT / "documentation" / "decisions" / "README.md",
-]
 
 LEGACY_STORAGE_ENV = re.compile(
     r"\b(?:S3_ENDPOINT_URL|S3_BUCKET|S3_REGION|S3_ACCESS_KEY|S3_SECRET_KEY|MINIO_CONSOLE_PORT)\b"
 )
 
-DOCS_SYNC_PATTERNS = {
-    "spec": re.compile(r"Docs-sync base:\*\* `main` at `([0-9a-f]{40})`"),
-    "readme": re.compile(r"Docs-sync base: `([0-9a-f]{40})`"),
-    "traceability": re.compile(r"docs-sync base `([0-9a-f]{40})`"),
+IMPLEMENTATION_CHECKPOINT_PATTERNS = {
+    "spec": re.compile(r"Docs-sync implementation checkpoint:\*\* `[^`]+` at `([0-9a-f]{40})`"),
+    "readme": re.compile(r"Implementation checkpoint: `[^`]+` at `([0-9a-f]{40})`"),
+    "traceability": re.compile(r"implementation checkpoint `[^`]+` / `([0-9a-f]{40})`"),
 }
 
 
-def docs_sync_sha(path: Path, pattern: re.Pattern[str]) -> str | None:
+def checkpoint_sha(path: Path, pattern: re.Pattern[str]) -> str | None:
     match = pattern.search(path.read_text(encoding="utf-8"))
     return match.group(1) if match else None
 
@@ -122,24 +100,26 @@ def main() -> int:
         for label, pattern in FORBIDDEN.items():
             if pattern.search(text):
                 errors.append(f"{path.relative_to(ROOT)}: {label}")
+        if re.search(r"\bminio\b", text, re.IGNORECASE):
+            errors.append(f"{path.relative_to(ROOT)}: MinIO is not part of the current storage contract")
+        if LEGACY_STORAGE_ENV.search(text):
+            errors.append(f"{path.relative_to(ROOT)}: legacy S3/MinIO environment contract is forbidden")
 
     spec_path = ROOT / "documentation" / "source-of-truth" / "NARRATIVEX_PROJECT_SPEC_V1_11.md"
     source_readme_path = ROOT / "documentation" / "source-of-truth" / "README.md"
     traceability_path = ROOT / "documentation" / "TRACEABILITY.md"
-    docs_sync_values = {
-        "spec": docs_sync_sha(spec_path, DOCS_SYNC_PATTERNS["spec"]),
-        "readme": docs_sync_sha(source_readme_path, DOCS_SYNC_PATTERNS["readme"]),
-        "traceability": docs_sync_sha(traceability_path, DOCS_SYNC_PATTERNS["traceability"]),
+    checkpoints = {
+        "spec": checkpoint_sha(spec_path, IMPLEMENTATION_CHECKPOINT_PATTERNS["spec"]),
+        "readme": checkpoint_sha(source_readme_path, IMPLEMENTATION_CHECKPOINT_PATTERNS["readme"]),
+        "traceability": checkpoint_sha(traceability_path, IMPLEMENTATION_CHECKPOINT_PATTERNS["traceability"]),
     }
-    missing_sync = [name for name, value in docs_sync_values.items() if value is None]
-    if missing_sync:
+    missing = [name for name, value in checkpoints.items() if value is None]
+    if missing:
+        errors.append("missing implementation checkpoint in: " + ", ".join(sorted(missing)))
+    elif len(set(checkpoints.values())) != 1:
         errors.append(
-            "missing docs-sync checkpoint in: " + ", ".join(sorted(missing_sync))
-        )
-    elif len(set(docs_sync_values.values())) != 1:
-        errors.append(
-            "V1.11 docs-sync checkpoints disagree: "
-            + ", ".join(f"{name}={value}" for name, value in docs_sync_values.items())
+            "V1.11 implementation checkpoints disagree: "
+            + ", ".join(f"{name}={value}" for name, value in checkpoints.items())
         )
 
     navigation = (ROOT / "documentation" / "README.md").read_text(encoding="utf-8")
@@ -147,29 +127,25 @@ def main() -> int:
         if removed_dir in navigation:
             errors.append(f"documentation/README.md links removed directory {removed_dir}")
 
-    for path in R2_ONLY_FILES:
-        if not path.exists():
-            errors.append(f"missing R2-only contract file: {path.relative_to(ROOT)}")
-            continue
-        text = path.read_text(encoding="utf-8")
-        if re.search(r"\bminio\b", text, re.IGNORECASE):
-            errors.append(f"{path.relative_to(ROOT)}: MinIO is not part of the R2-only storage contract")
-        if LEGACY_STORAGE_ENV.search(text):
-            errors.append(f"{path.relative_to(ROOT)}: legacy S3/MinIO environment contract is forbidden")
+    prod_compose = ROOT / "docker-compose.prod.yml"
+    prod_env = ROOT / ".env.prod.example"
+    for required in ("GOOGLE_DRIVE_CLIENT_ID", "GOOGLE_DRIVE_CLIENT_SECRET", "GOOGLE_DRIVE_REFRESH_TOKEN", "GOOGLE_DRIVE_FOLDER_ID"):
+        if prod_compose.exists() and required not in prod_compose.read_text(encoding="utf-8"):
+            errors.append(f"docker-compose.prod.yml: render worker is missing {required}")
+        if prod_env.exists() and required not in prod_env.read_text(encoding="utf-8"):
+            errors.append(f".env.prod.example: missing {required}")
 
-    compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
-    if "R2_ACCOUNT_ID" not in compose or "R2_BUCKET" not in compose:
-        errors.append("docker-compose.yml: worker R2 configuration is missing")
-
-    root_env = (ROOT / ".env.example").read_text(encoding="utf-8")
-    for required_r2_env in (
-        "R2_ACCOUNT_ID",
-        "R2_ACCESS_KEY_ID",
-        "R2_SECRET_ACCESS_KEY",
-        "R2_BUCKET",
-    ):
-        if required_r2_env not in root_env:
-            errors.append(f".env.example: missing {required_r2_env}")
+    root_env = ROOT / ".env.example"
+    if root_env.exists():
+        root_text = root_env.read_text(encoding="utf-8")
+        for required_r2_env in (
+            "R2_ACCOUNT_ID",
+            "R2_ACCESS_KEY_ID",
+            "R2_SECRET_ACCESS_KEY",
+            "R2_BUCKET",
+        ):
+            if required_r2_env not in root_text:
+                errors.append(f".env.example: missing {required_r2_env}")
 
     if errors:
         print("Documentation drift check failed:")

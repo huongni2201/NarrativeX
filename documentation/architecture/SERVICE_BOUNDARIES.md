@@ -1,6 +1,6 @@
 # NarrativeX Service and Module Boundaries — V1.11
 
-NarrativeX remains one deployable Spring Boot modular monolith plus one separately deployed Python AI/media worker. Feature boundaries are ownership boundaries, not microservices.
+NarrativeX remains one Spring Boot modular monolith plus separately deployed Python worker roles. Feature boundaries are ownership boundaries, not microservices.
 
 ## Backend ownership
 
@@ -11,26 +11,26 @@ NarrativeX remains one deployable Spring Boot modular monolith plus one separate
 | storyboard | Chapter, Scene, VisualBeat and review/source semantics |
 | character | Character/ProjectCharacter/CharacterVersion continuity/reference state and project-scoped Character read models |
 | generation | OperationPlan/MediaPlan, GenerationJob, StageAttempt, ProviderOperation, narration planning and durable orchestration |
+| render | FinalArtifact read metadata and render-domain contracts |
 | notification | durable notification state/read surfaces |
 | common | small shared primitives only; not a policy dumping ground |
 
-Asset/render capabilities may become concrete feature slices as their production workflows land, but current ownership still follows explicit application ports and generation/media contracts.
-
 ## Worker boundary
 
-The Python worker owns execution mechanics:
+Python worker roles own execution mechanics:
 
 - durable claim/lease/heartbeat;
 - provider calls and reconciliation;
 - structured analysis materialization;
-- TTS and narration media execution;
-- user-provided audio part/timeline processing and alignment execution boundary;
-- future image generation and FFmpeg render execution;
-- R2 upload/download through provider-neutral pipeline-media storage ports;
-- final rendered MP4 upload through the provider-neutral `FinalVideoStorage` port, with Google Drive as the target adapter;
-- validation of external/provider media results and final video artifacts.
+- Google TTS/local VieNeu narration execution;
+- user-provided audio timeline/alignment execution foundations;
+- Vertex image generation and R2 image materialization;
+- R2 upload/download for source/generated/reusable pipeline media;
+- deterministic FFmpeg IMAGE_MOTION chapter rendering;
+- ffprobe/final-video validation;
+- Google Drive resumable final-MP4 upload through the final-video storage adapter.
 
-The worker does **not** own browser authorization, entitlement/quota policy, MediaPlan authorization, Flyway migrations or public HTTP APIs.
+The worker does **not** own browser authorization, entitlement/quota admission policy, MediaPlan authorization, Flyway migrations or public HTTP APIs.
 
 ## MediaPlan policy boundary
 
@@ -40,19 +40,30 @@ The backend is authoritative for `ProductionMode` and resolved `MotionStrategy`.
 
 `NarrationStrategy.TTS` and `NarrationStrategy.USER_PROVIDED_AUDIO` are generation-domain policy vocabulary. Audio processing/alignment mechanics remain worker-owned, while selection, fingerprints, authorization and durable metadata are backend/domain concerns.
 
-## Final video storage boundary
+The current render worker can consume generated narration matching the pinned Chapter source identity. It does not yet slice/stitch aligned multi-part uploaded narration into chapter-local render input.
 
-Render policy must not depend on Google Drive-specific APIs or identifiers.
+## Pipeline media storage boundary
 
 ```text
-render/application logic
-  -> FinalVideoStorage port
-  -> GoogleDriveFinalVideoStorage adapter
+Generated images / narration / accepted uploaded audio / reusable media
+  -> Cloudflare R2
 ```
 
-The adapter owns Drive OAuth/API calls, resumable-upload mechanics, remote verification and provider-specific identifiers. Domain/application state stores provider-neutral storage metadata (`storageProvider`, `storageObjectId`, checksum/size/video metadata).
+R2 credentials and object-key behavior remain infrastructure concerns. Local paths are scratch only.
 
-Render and upload are separate retry boundaries. A Drive upload failure must retry upload of the already-validated local MP4 rather than rerendering while that file remains available.
+## Final video storage boundary
+
+Render/domain policy must not depend on Google Drive-specific identifiers.
+
+```text
+render worker
+  -> final-video storage abstraction
+  -> GoogleDriveFinalVideoStorage
+```
+
+The current adapter owns Drive OAuth/API calls, resumable upload, render-fingerprint lookup, remote file ID/size verification and Drive-specific identifiers. PostgreSQL stores provider-aware FinalArtifact metadata such as `storageProvider`, external file ID, checksum, size and video metadata.
+
+The adapter can resume upload within one attempt and can reuse an already-uploaded matching Drive file by render fingerprint. Because the rendered file currently lives in an ephemeral job workspace, cross-attempt upload-only retry without rerender remains a target hardening item.
 
 ## Character read boundary
 
@@ -60,11 +71,7 @@ Project Character list/detail APIs authorize project ownership before returning 
 
 ## Persistence boundary
 
-Application/domain repository ports remain persistence-neutral. Infrastructure converges on MyBatis + explicit SQL + PostgreSQL.
-
-All production persistence uses MyBatis + explicit SQL, including generation outbox enqueue and dispatcher claim/lease.
-
-The backend build has no JPA dependency and production source has no `JdbcTemplate`; application/domain ports remain persistence-neutral.
+Application/domain repository ports remain persistence-neutral. Production infrastructure uses MyBatis + explicit SQL + PostgreSQL. The backend build has no JPA dependency and production source has no direct `JdbcTemplate` persistence.
 
 ## Dependency direction
 
@@ -75,4 +82,4 @@ infrastructure -> application/domain contracts
 worker -> persisted execution/media contracts + provider/storage adapters
 ```
 
-Provider/vendor/storage SDK branches stay in adapters, not domain code.
+Provider/vendor/storage branches stay in adapters, not domain policy.

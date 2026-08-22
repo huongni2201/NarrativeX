@@ -9,70 +9,87 @@
 Create/Edit Chapter
   -> durable Analyze
   -> Character/Location + Scene/VisualBeat continuity
-  -> TTS narration + alignment OR USER_PROVIDED_AUDIO logical timeline
-  -> backend-authoritative MediaPlan foundation
+  -> TTS/VieNeu narration + alignment
+  -> backend-authoritative MediaPlan
+  -> Vertex image generation -> R2 image assets
+  -> IMAGE_MOTION chapter render
+  -> Google Drive final MP4
 ```
 
-Also implemented as foundations: R2-only durable media topology, worker claim/lease/heartbeat, user-provided-audio TTS-bypass planning, project-scoped Character list/detail read models wired end to end, and MyBatis/explicit-SQL durability for ProviderOperation, Chapter, Project plus the covered generation execution boundaries.
-
-GenerationJob, StageAttempt, OperationPlan, MediaPlan, generation outbox enqueue and Job History are no longer future migration items. Chapter Analyze has no application-owned pre-moderation gate. The outbox dispatcher's short-lived JDBC claim/lease query remains a deliberate operational exception.
+Also implemented as foundations: worker claim/lease/heartbeat, user-provided-audio TTS-bypass planning, project-scoped Character list/detail reads, MyBatis-only production persistence, local render quota settlement, and provider-aware FinalArtifact metadata.
 
 ## Track A — Preserve persistence architecture — IMPLEMENTED
 
-### A1 — MyBatis-only production boundary — IMPLEMENTED
-- StoryVersion, quota/billing, storyboard/continuity, auth and other CRUD/query adapters use MyBatis + explicit SQL;
-- generation outbox enqueue and dispatcher claim/lease use dedicated MyBatis mappers;
-- the backend build has no JPA dependency and production code has no `JdbcTemplate`;
-- architecture and PostgreSQL integration tests are the regression gate.
+Production persistence is MyBatis + explicit SQL. Further work here is maintenance, query optimization and regression prevention rather than framework migration.
 
-Further work in this track is maintenance and query optimization, not framework migration.
+## Track B — Finish the complete creator loop
 
-## Track B — First durable MP4
+### B1 — Generated narration path — IMPLEMENTED foundation
+- Google TTS/local VieNeu execution;
+- R2-backed narration media;
+- alignment/timing foundation;
+- render worker can load generated narration matching the pinned Chapter snapshot.
 
-### B1 — Narration strategy/timeline — IMPLEMENTED foundation
-- `TTS` and `USER_PROVIDED_AUDIO`;
-- ordered audio parts;
-- one logical global clock;
-- one file may cover multiple Chapters;
-- uploaded-audio plan does not contain `TTS_GENERATE`.
-
-### B2 — Production user-audio ingestion/alignment — PARTIAL → TARGET
+### B2 — User-provided narration E2E — PARTIAL → TARGET
 - authorized private R2 upload/finalize;
 - MIME/decode/duration/checksum validation;
-- real alignment provider/runtime;
-- coverage/confidence thresholds and review path.
+- ordered multi-file logical timeline;
+- alignment coverage/confidence/review hardening;
+- **remaining render gap:** slice/stitch aligned narration parts for chapter-local render input.
 
 ### B3 — VisualScenePlanner — TARGET
 - narration timing is duration authority;
 - pin source/analysis/narration identities together;
-- adaptive source/audio spans.
+- adaptive source/audio spans and reviewable scene plan.
 
-### B4 — Image generation execution — TARGET
-- one real provider adapter;
-- durable ProviderOperation;
-- first vertical slice may use `GENERATE_NEW` only;
-- validate → R2 → immutable MediaAsset.
+### B4 — Image generation execution — IMPLEMENTED foundation
+- Vertex image provider/batch path exists;
+- generated images are validated and persisted to R2;
+- renderer consumes READY image assets;
+- remaining work is richer review/reuse/reframe/edit lineage and affected-scope regeneration.
 
-### B5 — IMAGE_MOTION renderer — TARGET
-- pan/zoom/fade/overlay;
-- render against narration spans;
-- bounded/incremental FFmpeg workspaces.
+### B5 — IMAGE_MOTION renderer — IMPLEMENTED foundation
+- dedicated render worker exists;
+- pinned MediaPlan/image assets + narration snapshot;
+- deterministic FFmpeg image motion;
+- ffprobe validation and SHA-256;
+- local render quota settlement.
 
-### B6 — FinalArtifact — TARGET
-- merge/validate MP4;
-- checksum/MIME/dimensions/duration manifest;
-- private R2 persistence;
-- preview/download through backend-authorized access.
+### B6 — Google Drive FinalArtifact — IMPLEMENTED foundation
+- final MP4 is uploaded directly from local render workspace to Google Drive;
+- resumable chunk upload;
+- render-fingerprint lookup for idempotency;
+- remote size verification;
+- `storageProvider`, Drive file ID and optional web-view link are persisted;
+- final MP4 is not duplicated into R2 by default.
 
-## Fast-follow after first durable MP4
+### B7 — Final video delivery — TARGET hardening
+- owner-authorized preview/download/streaming from Drive;
+- provider-neutral read/stream contract for future YouTube/Facebook/TikTok publishing;
+- production storage health/config checks.
+
+### B8 — Drive retry durability — TARGET hardening
+The current Drive upload resumes within a worker attempt and detects an already-uploaded render by fingerprint. The rendered MP4 itself lives in an ephemeral job workspace, so a failed attempt may rerender after the job is reclaimed. Add a durable upload-stage/checkpoint or bounded retained render artifact if upload-only retry across attempts is required.
+
+## Fast-follow after creator-loop reliability
 
 - Character review/version/reference locking completion.
 - Approved storyboard revision/reset workflow.
 - Reuse → reframe → edit → new AssetResolver.
 - HYBRID_LOCAL_I2V/Wan runtime hardening and GPU usage reconciliation.
 - Full actual-cost ledger/release/refund.
-- Output moderation, SSRF-safe media ingestion, retention/deletion, observability and backup/restore evidence.
+- Output moderation, SSRF-safe ingestion, retention/deletion, observability and backup/restore evidence.
 
-## First-video acceptance scenario
+## Storage checkpoint
 
-Given 10 selected Chapters and one or several valid user-provided audio files, NarrativeX can align one logical narration timeline, skip TTS, generate durable images, render `IMAGE_MOTION`, validate the final MP4 and persist it to R2 without relying on worker-local paths.
+```text
+Images / narration / uploaded audio / reusable media -> R2
+Final rendered MP4                              -> Google Drive
+Metadata / lineage / job state                  -> PostgreSQL
+```
+
+## Current acceptance scenarios
+
+**Generated narration path:** a pinned Chapter with READY R2 images and matching generated narration can render `IMAGE_MOTION`, validate the MP4 and persist the final video to Google Drive.
+
+**User-provided narration path:** planning/timeline/TTS bypass foundations exist, but do not claim complete multi-Chapter audio → render until aligned parts are sliced/stitched into render input.

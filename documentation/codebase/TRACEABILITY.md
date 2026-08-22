@@ -1,67 +1,68 @@
 # Current implementation traceability — V1.11
 
-This codebase-level matrix is a compact implementation view. The canonical contract is `../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`; the primary capability/evidence matrix is `../TRACEABILITY.md`. Code, migrations, contracts, tests and accepted ADRs are authoritative for AS-IS status.
+This codebase-level matrix is a compact implementation view. The canonical contract is `../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`; the primary capability/evidence matrix is `../TRACEABILITY.md`.
 
 ## High-level status
 
-The Chapter Analysis vertical slice is an implemented foundation:
-
-- Project metadata creation plus dashboard/favorite reads.
-- Chapter persistence and source snapshots.
-- Explicit Chapter Analyze.
-- Admission controls.
-- Durable GenerationJob / StageAttempt / OperationPlan / outbox pipeline.
-- Worker claim/lease/heartbeat.
-- Durable ProviderOperation lifecycle foundation.
-- Character/Location/Scene/VisualBeat materialization and Scene continuity relations.
-- Project-scoped Character list/detail read models wired to the frontend.
-
-Production media readiness gaps remain explicitly tracked.
+Core authoring/analyze/generation durability is implemented as a foundation, and the repository now also contains real image-generation, deterministic chapter-render and Google Drive final-video storage paths.
 
 | Area | Current status |
 |---|---|
-| Authentication | IMPLEMENTED foundation: Spring Security session, CSRF, password auth and Google OIDC |
+| Authentication | IMPLEMENTED foundation |
 | Project/Chapter lifecycle | IMPLEMENTED foundation |
 | Project dashboard/favorite | IMPLEMENTED foundation |
-| Chapter Analyze enqueue | IMPLEMENTED |
+| Chapter Analyze enqueue/execution | IMPLEMENTED |
 | Safety/entitlement/quota/cost admission | IMPLEMENTED MVP foundation |
-| ProviderOperation durability | IMPLEMENTED foundation with SQL/CAS/reconciliation/result-fingerprint invariants |
-| Generation persistence | IMPLEMENTED for covered durability boundaries: GenerationJob/StageAttempt/OperationPlan/MediaPlan/outbox enqueue/Job History on MyBatis/explicit SQL; Chapter Analyze has no internal pre-moderation gate |
-| Worker concurrency | IMPLEMENTED bounded concurrency |
-| Storyboard persistence | IMPLEMENTED foundation; broader approved reset/version editing remains partial |
-| Character continuity | IMPLEMENTED foundation: Character/ProjectCharacter/CharacterVersion + Scene relations; full reference locking/review remains partial |
-| Location continuity | IMPLEMENTED foundation: project Location materialization + Scene references; richer review/reference workflow remains partial |
-| Frontend API integration | IMPLEMENTED foundation across core project/chapter/storyboard flows; project Character list/detail is real-API-backed |
-| TTS narration/alignment | IMPLEMENTED foundation with R2-backed durable narration |
-| User-provided narration | IMPLEMENTED planning/timeline foundation; production upload/finalize/alignment hardening remains partial |
-| Image generation / render / export | TARGET for first complete durable MP4 vertical slice |
-| MyBatis-only production persistence | IMPLEMENTED: all production adapters use MyBatis + explicit SQL |
+| ProviderOperation durability | IMPLEMENTED foundation with CAS/reconciliation/result-fingerprint invariants |
+| Generation persistence | IMPLEMENTED across covered durable execution boundaries |
+| Worker concurrency/lease | IMPLEMENTED bounded concurrency |
+| Storyboard persistence | IMPLEMENTED foundation; richer approved reset/version editing remains partial |
+| Character continuity | IMPLEMENTED foundation; full reference locking/review remains partial |
+| Location continuity | IMPLEMENTED foundation; richer review/reference workflow remains partial |
+| Frontend API integration | IMPLEMENTED foundation across core project/chapter/Character reads |
+| Generated narration | IMPLEMENTED foundation with R2-backed durable audio |
+| User-provided narration | IMPLEMENTED planning/timeline foundation; production E2E remains PARTIAL |
+| Vertex image generation | IMPLEMENTED foundation; validated outputs persist to R2 |
+| IMAGE_MOTION chapter render | IMPLEMENTED foundation; dedicated FFmpeg/ffprobe render worker |
+| Google Drive final MP4 storage | IMPLEMENTED foundation; resumable upload + provider-aware FinalArtifact metadata |
+| Uploaded multi-part audio -> render | PARTIAL; slicing/stitching from alignment is missing |
+| Drive preview/download/streaming | PARTIAL/TARGET |
+| Cross-attempt upload-only retry | TARGET hardening |
+| MyBatis-only production persistence | IMPLEMENTED |
 
-## Durable generation contract
+## Durable media/storage contract
 
 ```text
-request
- -> ownership + locked authoritative snapshot
- -> admission
- -> OperationPlan
- -> GenerationJob
- -> StageAttempt
- -> OutboxEvent
- -> worker claim
- -> ProviderOperation
- -> provider/local execution
- -> validated materialization
+Generated images / narration / accepted uploaded audio -> Cloudflare R2
+Final rendered MP4                                  -> Google Drive
+Authoritative metadata/state/lineage                -> PostgreSQL
+Worker scratch                                      -> local ephemeral filesystem
 ```
 
-All durable production boundaries, including outbox claim/lease, use MyBatis + explicit SQL.
+## Current generated-narration render path
+
+```text
+CHAPTER_RENDER
+ -> pinned MediaPlan revision
+ -> READY R2 images
+ -> matching generated R2 narration
+ -> FFmpeg IMAGE_MOTION
+ -> ffprobe/checksum validation
+ -> Google Drive resumable upload
+ -> remote file verification
+ -> render_manifest + FinalArtifact metadata
+ -> COMPLETED
+```
+
+The final MP4 is not retained in R2 by default.
 
 ## Remaining production gaps
 
-1. Production user-audio upload/finalize and alignment hardening.
-2. Narration-driven VisualScenePlanner.
-3. Production image generation plus immutable R2 image MediaAsset lifecycle.
-4. IMAGE_MOTION render/export plus validated R2 FinalArtifact.
-5. Approved storyboard reset/versioning and full Character reference-lock/review workflows.
-6. Complete billing ledger and actual provider/GPU usage reconciliation.
-7. Preserve the MyBatis-only production boundary with architecture and PostgreSQL integration tests.
-8. Production moderation/SSRF/retention/observability/restore evidence.
+1. Harden user-audio upload/finalize/alignment and connect aligned multi-part audio to render slicing/stitching.
+2. Complete narration-driven VisualScenePlanner/review workflow.
+3. Harden image approval/reuse/reframe/edit lineage.
+4. Add owner-authorized Drive final-video preview/download/streaming.
+5. Add cross-attempt upload-only retry without rerender if required.
+6. Complete billing ledger/actual usage reconciliation.
+7. Complete Character reference locking/storyboard review flows.
+8. Complete moderation/SSRF/retention/observability/restore evidence.

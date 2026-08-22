@@ -11,8 +11,8 @@ PostgreSQL state, not Redis messages or process memory, determines what Narrativ
 | MediaPlan / production policy | PostgreSQL | worker executes the persisted authorized revision |
 | Narration document/set/timeline metadata | PostgreSQL | source and narration fingerprints pin immutable inputs |
 | Durable source/generated/reusable media bytes | Cloudflare R2 | private by default; DB owns metadata/lineage |
-| Durable final rendered MP4 bytes | Google Drive | private by default; DB stores provider-neutral storage identity |
-| Worker render/media workspace | Local filesystem | ephemeral only; may retain a validated final MP4 across bounded upload retries |
+| Durable final rendered MP4 bytes | Google Drive | private by default; DB stores provider/external file identity |
+| Worker render/media workspace | Local filesystem | ephemeral only; current render output does not survive a completed/stalled worker attempt |
 | Browser session | Redis via Spring Session | availability dependency, not business-state authority |
 
 ## Chapter Analyze
@@ -43,52 +43,72 @@ NarrationStrategy.USER_PROVIDED_AUDIO
 
 User-provided parts are ordered and mapped onto one logical global audio clock. One part can cover multiple Chapters; Chapter boundaries come from source/alignment, not file boundaries.
 
-## Media execution
+Generated narration and accepted uploaded audio remain R2-backed pipeline media.
+
+## Image execution
 
 ```text
-valid analysis/review + narration timeline
-  -> backend creates immutable MediaPlan revision
-  -> job pins exact plan revision
-  -> worker executes resolved strategies
-  -> provider/local result
-  -> validate bytes
-  -> R2
-  -> PostgreSQL MediaAsset metadata
-  -> downstream render
+pinned media-generation work
+  -> Vertex image execution
+  -> validate image bytes
+  -> immutable R2 image object
+  -> MediaAsset / media-generation metadata
+  -> READY input for render
 ```
 
-A retry/reclaimed job must reuse an already-valid R2 asset when possible instead of regenerating merely because local scratch disappeared.
+This production foundation exists. Richer approval/reuse/reframe/edit lineage remains incomplete.
 
-## Final video render and storage
+## Current chapter render flow
 
 ```text
-READY R2 image/audio/media inputs
-  -> FFmpeg render in worker-local scratch
-  -> final.mp4
-  -> validate container/video/audio/duration/dimensions/checksum
-  -> UPLOADING
-  -> FinalVideoStorage
+CHAPTER_RENDER job
+  -> load pinned MediaPlan revision
+  -> load READY R2 images
+  -> load generated narration matching chapterRowVersion + sourceHash
+  -> normalize visual timing to narration duration
+  -> FFmpeg IMAGE_MOTION in local workspace
+  -> ffprobe validation + SHA-256
   -> Google Drive resumable upload
-  -> VERIFYING
-  -> verify remote file identity + expected size/metadata
-  -> persist storageProvider + storageObjectId + checksum + video metadata
-  -> READY
-  -> delete local final.mp4 when safe
+  -> fetch/verify Drive file identity + size
+  -> persist render_manifest + FinalArtifact Drive metadata
+  -> mark stage/job COMPLETED
 ```
 
-The render and upload boundaries are separate. If upload fails after a valid render, NarrativeX retries `UPLOADING`; it does not return to `RENDERING` while the valid local MP4 remains available.
+The current render worker does not yet resolve aligned multi-part `USER_PROVIDED_AUDIO` into a chapter-local audio file. That path remains partial.
 
-Google Drive-specific identifiers and APIs stay behind the final-video storage adapter. FinalArtifact/domain logic uses provider-neutral storage identity.
+## Google Drive upload semantics
+
+Inside one render attempt, Drive upload uses resumable chunks. If a chunk request becomes ambiguous, the adapter queries the resumable session offset and continues from the confirmed byte range.
+
+Before creating a final file, the adapter searches the configured Drive folder by `renderFingerprint`. If an earlier attempt already completed the remote upload, a retry can reuse that Drive file when its size matches instead of creating another copy.
+
+The current local `final.mp4` lives in an ephemeral job workspace. Therefore an upload/storage failure that causes the job to become `STALLED` may lead to a rerender on the next claim. Cross-attempt upload-only retry is a TARGET hardening item, not a current guarantee.
+
+## FinalArtifact storage metadata
+
+```text
+storageProvider = GOOGLE_DRIVE
+storageKey = gdrive:<driveFileId>
+externalFileId = <driveFileId>
+webViewLink = <optional UI convenience link>
+checksumSha256
+sizeBytes
+durationMs
+width
+height
+fps
+```
+
+The Drive file ID/provider metadata is the durable remote identity. A public/share link is not required for correctness.
 
 ## Current gaps
 
-- production user-audio upload/finalize and real alignment runtime hardening;
-- VisualScenePlanner;
-- production image-generation vertical slice;
-- immutable image asset approval/lineage lifecycle;
-- IMAGE_MOTION render/final export;
-- `FinalVideoStorage` + Google Drive resumable upload/verification implementation;
-- complete actual-usage/billing reconciliation and release;
-- MyBatis-only persistence regression protection;
+- production user-audio upload/finalize/alignment hardening;
+- aligned multi-part uploaded-audio slicing/stitching for render;
+- complete narration-driven VisualScenePlanner/review loop;
+- richer image approval/reuse/reframe/edit lineage;
+- owner-authorized preview/download/streaming for Drive FinalArtifacts;
+- cross-attempt Drive upload-only retry without rerender;
+- complete actual-usage/billing reconciliation and release/refund behavior;
 - full Character/reference and approved-storyboard workflows;
 - broader moderation/SSRF/retention/observability/DR evidence.

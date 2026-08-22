@@ -2,41 +2,59 @@
 
 This is dependency-ordered planning, not a calendar promise. Current status is derived from the V1.11 source of truth plus repository evidence.
 
-## Implemented foundation
+## Implemented foundations
 
-- Spring Boot modular monolith + Next.js frontend + Python worker.
+- Spring Boot modular monolith + Next.js frontend + Python worker roles.
 - PostgreSQL authoritative state; Redis sessions/transient hints.
-- R2-only durable media storage.
-- Project/Chapter/Analyze foundations plus project dashboard/favorite reads.
+- Split durable storage: R2 for pipeline media, Google Drive for final rendered MP4.
+- Project/Chapter/Analyze foundations plus dashboard/favorite reads.
 - ProviderOperation durability/reconciliation and immutable completed-result fingerprint.
 - Worker claim/lease/heartbeat and bounded concurrency.
 - Character + Location analysis continuity and Scene relations.
-- Project-scoped Character list/detail read models wired to authoritative frontend views.
+- Project-scoped Character list/detail read models.
 - Backend-authoritative MediaPlan foundation.
-- Full-chapter TTS narration + alignment + R2 media.
-- `NarrationStrategy.USER_PROVIDED_AUDIO` foundation: ordered parts, logical global timeline, multi-Chapter coverage and TTS-bypass planning.
-- MyBatis/explicit-SQL production paths for ProviderOperation, Chapter, Project, GenerationJob, StageAttempt, OperationPlan, MediaPlan, generation outbox enqueue and Job History; Chapter Analyze has no application-owned pre-moderation gate.
-- The outbox dispatcher claim/lease path uses a dedicated MyBatis mapper.
+- Google TTS/local VieNeu narration + alignment + R2 final narration media.
+- `USER_PROVIDED_AUDIO` planning: ordered parts, logical global timeline, multi-Chapter coverage and TTS bypass.
+- Real Vertex image generation with validated R2 image materialization.
+- Dedicated deterministic `IMAGE_MOTION` chapter render using FFmpeg + ffprobe.
+- Google Drive resumable final-MP4 upload and provider-aware FinalArtifact metadata.
+- MyBatis + explicit SQL production persistence across backend features.
 
 ## Completed workstream — MyBatis convergence
 
-All production persistence boundaries now use MyBatis + explicit SQL, including StoryVersion, quota/billing, storyboard/continuity, auth, catalog, notifications and generation outbox dispatch. The JPA dependency and production `JdbcTemplate` adapters have been removed. Architecture and PostgreSQL integration tests guard the boundary.
+Production persistence uses MyBatis + explicit SQL. Further work here is maintenance, regression prevention and query optimization rather than framework migration.
 
-## Immediate workstream — First complete media loop
+## Completed foundation — generated-narration media loop
+
+```text
+Chapter / MediaPlan
+  -> generated narration in R2
+  -> READY images in R2
+  -> CHAPTER_RENDER
+  -> FFmpeg IMAGE_MOTION
+  -> validation/checksum
+  -> Google Drive final MP4
+  -> FinalArtifact metadata
+```
+
+This is a working foundation, not yet the complete product creator loop.
+
+## Immediate workstream — complete creator loop
 
 1. Harden user-audio upload/finalize and alignment execution.
-2. Build narration-driven VisualScenePlanner.
-3. Add one production image-generation provider path.
-4. Persist immutable image MediaAssets to R2.
-5. Implement deterministic IMAGE_MOTION FFmpeg rendering.
-6. Validate/persist FinalArtifact and expose preview/download.
+2. Slice/stitch aligned multi-part uploaded audio into chapter-local render input.
+3. Complete narration-driven `VisualScenePlanner` and review flow.
+4. Harden image approval/reuse/reframe/edit lineage and affected-scope regeneration.
+5. Expose owner-authorized preview/download/streaming for Drive-backed FinalArtifacts.
+6. Add cross-attempt upload-only retry without rerender if required.
+7. Complete actual-cost/ledger reconciliation and production safety/observability evidence.
 
 ## Fast-follow
 
-- reuse/reframe/edit AssetResolver;
 - Character/reference locking and storyboard versioning completion;
+- reuse/reframe/edit AssetResolver optimization;
 - HYBRID_LOCAL_I2V runtime hardening;
-- full actual-cost/ledger reconciliation;
+- social publishing through a provider-neutral final-video read/stream boundary;
 - moderation/SSRF/retention/observability/DR production evidence.
 
-The low-cost image-motion path is intentionally completed before advanced I2V optimization.
+The low-cost IMAGE_MOTION path now exists as a production foundation; advanced I2V remains intentionally later.
