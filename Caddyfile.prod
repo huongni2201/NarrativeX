@@ -2,7 +2,7 @@
     email {$ACME_EMAIL}
 }
 
-{$APP_DOMAIN} {
+http://{$APP_DOMAIN} {
     encode zstd gzip
 
     header {
