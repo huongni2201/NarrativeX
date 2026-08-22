@@ -41,6 +41,14 @@ remain available for small-object compatibility but are not used for production 
 - Client applications access media via authorized backend endpoints or short-lived signed URLs.
 - Workers access R2 through its S3-compatible API using standard credentials (`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`).
 
+### 4. Client Presigned Uploads, Verification & Asset Lifecycle Hardening
+
+- **Upload Intent Lifecycle:** Clients initiate an upload intent (`/api/v1/assets/upload-intents`); the backend assigns a storage key and returns a presigned R2 upload URL.
+- **Strict Storage Metadata Validation:** Finalization reads object metadata directly from R2. A `READY` `media_assets` record is persisted only after MIME, size, and SHA-256 strictly match the intent. Mismatched uploads transition to `REJECTED`.
+- **Durable Upload Sessions:** Tracked in `media_upload_sessions` with owner-scoped idempotency.
+- **Guarded Asset Transitions:** Asset status changes use an explicit transition service. Deletions set `DELETED` and record `deleted_at`; active queries exclude deleted rows.
+- **Asynchronous Storage Cleanup:** Background jobs clean up expired pending upload sessions and schedule cleanup tasks for deleted media objects (`media_storage_cleanup_tasks`).
+
 ## Invariants
 
 1. A media generation stage is never marked `COMPLETED` before both R2 upload and PostgreSQL metadata persistence succeed.

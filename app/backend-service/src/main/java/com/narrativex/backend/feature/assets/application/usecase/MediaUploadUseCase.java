@@ -1,16 +1,15 @@
 package com.narrativex.backend.feature.assets.application.usecase;
 
 import com.narrativex.backend.feature.assets.application.command.CreateUploadIntentCommand;
-import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository;
 import com.narrativex.backend.feature.assets.application.port.out.MediaUploadSessionRepository;
 import com.narrativex.backend.feature.assets.application.port.out.MediaUploadSessionRepository.CreateUploadSession;
 import com.narrativex.backend.feature.assets.application.port.out.MediaUploadSessionRepository.UploadSession;
 import com.narrativex.backend.feature.assets.application.port.out.ObjectStoragePort;
 import com.narrativex.backend.feature.assets.application.port.out.ObjectStoragePort.CreateUpload;
 import com.narrativex.backend.feature.assets.application.port.out.ObjectStoragePort.PresignedUpload;
-import com.narrativex.backend.feature.assets.application.query.MediaAssetView;
 import com.narrativex.backend.feature.assets.application.query.UploadFinalizeView;
 import com.narrativex.backend.feature.assets.application.query.UploadIntentView;
+import com.narrativex.backend.feature.assets.application.service.MediaUploadFinalizationService;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
@@ -39,8 +38,8 @@ public class MediaUploadUseCase {
 
   private final CurrentUserId currentUserId;
   private final MediaUploadSessionRepository sessions;
-  private final MediaAssetRepository assets;
   private final ObjectStoragePort objectStorage;
+  private final MediaUploadFinalizationService finalization;
   private final Clock clock = Clock.systemUTC();
 
   @Transactional
@@ -83,78 +82,23 @@ public class MediaUploadUseCase {
     String accountId = currentUserId.get();
     UploadSession session =
         sessions
-            .findOwned(accountId, id)
+            .findOwnedSnapshot(accountId, id)
             .orElseThrow(() -> new ResourceNotFoundException("Upload session not found"));
 
     if ("READY".equals(session.status())) {
-      return new UploadFinalizeView(session.id(), session.status(), session.mediaAssetId());
+      return finalization.returnAuthoritativeResult(accountId, id);
     }
     if ("REJECTED".equals(session.status())) {
-      return new UploadFinalizeView(session.id(), session.status(), null);
-    }
-    if (session.expiresAt().isBefore(Instant.now(clock))) {
-      if (sessions.markRejected(accountId, id)) {
-        deleteQuietly(session.storageKey());
-      }
-      return new UploadFinalizeView(session.id(), "REJECTED", null);
+      return finalization.returnAuthoritativeResult(accountId, id);
     }
 
     ObjectStoragePort.StoredObject object;
     try {
       object = objectStorage.head(session.storageKey());
     } catch (ObjectStoragePort.ObjectNotFoundException exception) {
-      sessions.markRejected(accountId, id);
-      return new UploadFinalizeView(session.id(), "REJECTED", null);
+      return finalization.finalizeMissingObject(accountId, id);
     }
-
-    if (!matches(session, object)) {
-      if (sessions.markRejected(accountId, id)) {
-        deleteQuietly(session.storageKey());
-      }
-      return new UploadFinalizeView(session.id(), "REJECTED", null);
-    }
-
-    MediaAssetView existing = assets.findVerifiedByChecksum(accountId, object.sha256());
-    if (existing != null) {
-      if (!sessions.markReady(accountId, id, existing.id())) {
-        throw new ResourceConflictException("Upload finalization raced with another request");
-      }
-      deleteQuietly(session.storageKey());
-      return new UploadFinalizeView(session.id(), "READY", existing.id());
-    }
-
-    MediaAssetRepository.CreateMediaAsset command =
-        new MediaAssetRepository.CreateMediaAsset(
-            UUID.randomUUID(),
-            session.assetType(),
-            "USER_UPLOAD",
-            session.storageKey(),
-            session.originalFilename(),
-            normalizeContentType(object.contentType()),
-            object.sizeBytes(),
-            object.sha256(),
-            null);
-    var asset = assets.create(accountId, command);
-    assets.markReady(accountId, asset.id());
-    if (!sessions.markReady(accountId, id, asset.id())) {
-      // Another finalizer won the session transition. Remove only this duplicate
-      // metadata row; the shared object may already be referenced by the winner.
-      try {
-        assets.delete(accountId, asset.id());
-      } catch (RuntimeException ignored) {
-        // Reconciliation can remove an orphaned duplicate without touching the object.
-      }
-      throw new ResourceConflictException("Upload finalization raced with another request");
-    }
-    return new UploadFinalizeView(session.id(), "READY", asset.id());
-  }
-
-  private void deleteQuietly(String storageKey) {
-    try {
-      objectStorage.delete(storageKey);
-    } catch (RuntimeException ignored) {
-      // Cleanup is retried by the storage reconciliation job; rejection must remain durable.
-    }
+    return finalization.finalizeVerifiedObject(accountId, id, object);
   }
 
   private static void validateRequest(CreateUploadIntentCommand request) {
@@ -208,21 +152,6 @@ public class MediaUploadUseCase {
         && session.contentType().equals(request.contentType().trim().toLowerCase())
         && session.expectedSize() == request.expectedSizeBytes()
         && session.expectedSha256().equals(request.expectedSha256());
-  }
-
-  private static boolean matches(
-      UploadSession session, ObjectStoragePort.StoredObject object) {
-    return session.expectedSize() == object.sizeBytes()
-        && normalizeContentType(session.contentType())
-            .equals(normalizeContentType(object.contentType()))
-        && session.expectedSha256().equalsIgnoreCase(object.sha256());
-  }
-
-  private static String normalizeContentType(String value) {
-    if (value == null) return "";
-    int parametersStart = value.indexOf(';');
-    String mediaType = parametersStart >= 0 ? value.substring(0, parametersStart) : value;
-    return mediaType.trim().toLowerCase(Locale.ROOT);
   }
 
   private static String normalizeIdempotencyKey(String key) {

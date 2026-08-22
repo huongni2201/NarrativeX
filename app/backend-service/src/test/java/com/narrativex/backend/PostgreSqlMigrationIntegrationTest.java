@@ -52,7 +52,7 @@ class PostgreSqlMigrationIntegrationTest {
   @Test
   void emptyPostgresMigratesAndApplicationContextStarts() throws SQLException {
     try (Connection connection = dataSource.getConnection()) {
-      assertEquals(6, latestFlywayVersion(connection));
+      assertEquals(2, latestFlywayVersion(connection));
       assertEquals(11, rowCount(connection, "generation_jobs"));
       assertEquals(10, rowCount(connection, "scene_characters"));
       assertFalse(columnExists(connection, "generation_jobs", "references"));
@@ -110,11 +110,18 @@ class PostgreSqlMigrationIntegrationTest {
       assertTrue(tableExists(connection, "quota_reservations"));
       assertTrue(indexExists(connection, "idx_quota_reservations_active_user"));
       assertTrue(tableExists(connection, "narration_requests"));
+      assertTrue(columnExists(connection, "narration_requests", "voice_reference_asset_id"));
+      assertTrue(indexExists(connection, "idx_narration_requests_voice_reference_asset"));
+      assertTrue(indexExists(connection, "uq_generation_jobs_owner_idempotency_key"));
       assertTrue(tableExists(connection, "narration_operations"));
       assertTrue(tableExists(connection, "narration_assets"));
       assertTrue(tableExists(connection, "narration_alignments"));
       assertTrue(tableExists(connection, "media_assets"));
       assertTrue(tableExists(connection, "media_upload_sessions"));
+      assertTrue(indexExists(connection, "idx_media_upload_sessions_expired_pending"));
+      assertTrue(tableExists(connection, "media_storage_cleanup_tasks"));
+      assertTrue(indexExists(connection, "uq_media_storage_cleanup_active_key"));
+      assertTrue(indexExists(connection, "idx_media_storage_cleanup_due"));
       assertTrue(columnExists(connection, "media_assets", "deleted_at"));
       assertTrue(columnExists(connection, "media_assets", "checksum_verified_at"));
       assertTrue(tableExists(connection, "style_presets"));

@@ -15,15 +15,18 @@ remains the only Flyway/schema owner. Flyway must still fail on an unknown
 non-empty database; `baseline-on-migrate` must not be used to silently accept an
 incompatible schema.
 
+PostgreSQL remains the authoritative business-state store and the backend
+remains the only Flyway/schema owner. Flyway must still fail on an unknown
+non-empty database; `baseline-on-migrate` must not be used to silently accept an
+incompatible schema.
+
 ## Decision
 
 - Keep the production baseline under
   `app/backend-service/src/main/resources/db/migration/` with `V1__initial_schema.sql`.
   Development-only seed data lives under
-  `app/backend-service/src/main/resources/db/local-migration/` and is enabled only
-  by `application-local.yml`. Retired V3–V7 tombstones remain comment-only until
-  the workspace can remove those legacy directory entries; they contain no
-  executable SQL.
+  `app/backend-service/src/main/resources/db/local-migration/` with `V2__seed_demo_data.sql` and is enabled only
+  by `application-local.yml`.
 - `V1__initial_schema.sql` contains the final consolidated schema, including
   split motion fields (`motion_mode`, `camera_movement`), storyboard revisions (`storyboard_revisions`),
   scene & location continuity identities (`scene_characters`, `project_character_ai_identities`, `project_location_ai_identities`),
@@ -34,16 +37,13 @@ incompatible schema.
   durable provider operations with billing reconciliation & result fingerprints,
   quota reservation lifecycle (`quota_reservations`), full-chapter TTS narration (`narration_requests`, `narration_assets`, `narration_alignments`),
   multi-part uploaded narration pipeline (`media_assets`, `narration_sets`, `narration_parts`, `narration_documents`, `narration_alignment_runs`),
-  media upload sessions, style/voice catalogs, media lifecycle hardening,
-  generation-item review state, asset lineage, render ownership pins,
+  media upload sessions, media storage cleanup tasks (`media_storage_cleanup_tasks`), style/voice catalogs, media lifecycle hardening,
+  generation-item review state, asset lineage, render ownership pins, owner-scoped generation idempotency,
   canonical execution check constraints, and all baseline indexes.
-- `db/local-migration/V3__seed_demo_data.sql` contains deterministic local/demo
+- `db/local-migration/V2__seed_demo_data.sql` contains deterministic local/demo
   data for supported development fixtures, including continuity, media plans,
   quota reservations, narration, uploaded audio, favorites, final artifacts,
   and catalog entries. It must never run as part of a production bootstrap.
-- `db/local-migration/V4__release_demo_quota_reservations.sql` repairs the local
-  fixture by releasing seeded example reservations; it is not a production
-  quota change.
 - Keep `spring.flyway.baseline-on-migrate=false`. No `ignore-migration-patterns`
   or checksum bypass is added to hide an old migration history.
 - Existing databases created with any former migration split require an
@@ -52,9 +52,7 @@ incompatible schema.
 
 ## Consequences
 
-- A fresh production PostgreSQL database starts with schema V1 plus production
-  hardening V2. A local profile additionally applies seed V3 and the V4 fixture
-  repair from the local-only migration location.
+- A fresh production PostgreSQL database starts with schema V1. A local profile additionally applies seed V2 from the local-only migration location.
 - The final schema is easier to compare with JPA validation and implementation
   documentation.
 - Existing development databases are not transparently compatible with the
@@ -66,9 +64,9 @@ incompatible schema.
 
 ## Verification
 
-- Apply production V1 and V2 to an empty PostgreSQL instance and verify that no
+- Apply production V1 to an empty PostgreSQL instance and verify that no
   seeded account or demo business rows exist. Apply the `local` profile and
-  verify that local V3/V4 adds only the development fixture and its quota repair.
+  verify that local V2 adds only the development fixture and its quota repair.
 - Start the backend with Hibernate `ddl-auto=validate`.
 - Verify JSONB columns, foreign keys, enum checks, partial indexes, chapter
   source hashes, generation-job snapshot columns, and project overview fields.

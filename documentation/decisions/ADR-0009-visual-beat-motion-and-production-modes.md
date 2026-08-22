@@ -43,7 +43,23 @@ Before generating a new image, the visual planner resolves assets in priority or
 3. `EDIT_EXISTING`
 4. `GENERATE_NEW`
 
-### 4. GPU Compute Cost Estimation
+### 4. Style Preset and Voice Catalog Boundaries
+
+- Style presets and voice catalog entries are persisted in PostgreSQL and exposed via read-only endpoints (`/api/v1/style-presets`, `/api/v1/voices`).
+- Public catalog responses serialize display fields only (`name`, `description`, `thumbnail`, `tags`). Prompt templates, provider parameters, and internal generation policies remain internal application data.
+
+### 5. Two-Command Media Boundary & Execution vs Review Separation
+
+The MVP media pipeline enforces two distinct commands:
+1. `CHAPTER_GENERATE`: Creates keyframe generation items per approved `VisualBeat` in an immutable `MediaPlan` revision. Execution status is tracked per beat in `media_generation_items`.
+2. `CHAPTER_RENDER`: Admitted only after all required visual items are explicitly `APPROVED` and narration is ready. It creates an immutable `render_manifests` record containing exact asset IDs and audio alignment, producing `final_artifacts`. The worker executes deterministic `IMAGE_MOTION` FFmpeg rendering.
+
+Execution and human review are strictly separate state machines:
+- Validated byte uploads produce `READY` in `media_assets` while the associated `media_generation_items` row remains `NEEDS_REVIEW`.
+- Only `APPROVED` items can be included in a render manifest.
+- Checksum deduplication may reuse canonical `media_assets` rows, but each logical beat maintains its own insert-only `media_asset_lineage` record.
+
+### 6. GPU Compute Cost Estimation & Provider Capability Gates
 
 For local I2V, cost estimation is derived from empirical GPU execution benchmarks rather than arbitrary per-scene pricing:
 
@@ -54,15 +70,20 @@ expectedI2vCost    = (expectedGpuSeconds / 3600) * gpuUsdPerHour
 
 The reservation ceiling uses a p90 benchmark with maximum allowed attempts.
 
+External provider adapters (e.g. Vertex image generation) require verified endpoint configuration, pricing snapshots, safety signal handling, and operation reconciliation support before activation. Ambiguous provider network outcomes transition to `UNKNOWN` and are never automatically resubmitted.
+
 ## Invariants
 
 1. `motion_mode` and `camera_movement` are distinct enum fields validated in SQL.
 2. In `IMAGE_MOTION` mode, no generative I2V provider calls are ever initiated.
-3. Local Wan endpoints are treated as external execution boundaries requiring PostgreSQL pre-submit reservation and CAS status transitions.
-4. Changing production modes re-prices and re-plans the storyboard without requiring story text re-analysis.
+3. Image generation never implicitly triggers video rendering; human review and explicit render admission are required.
+4. Render manifests and final artifacts are immutable once created.
+5. Local Wan endpoints are treated as external execution boundaries requiring PostgreSQL pre-submit reservation and CAS status transitions.
+6. Changing production modes re-prices and re-plans the storyboard without requiring story text re-analysis.
 
 ## Consequences
 
 - Cost-effective long-form production with deterministic budgeting.
 - High-impact scenes leverage generative video while maintaining low average cost per minute.
+- Worker restarts replay durable provider results without initiating redundant paid provider calls.
 - Private Wan2.2 deployment serves as an infrastructure adapter behind `VideoGenerationProvider`.

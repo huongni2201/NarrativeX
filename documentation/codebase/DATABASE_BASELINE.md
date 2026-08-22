@@ -2,6 +2,10 @@
 
 ## Authority and validation
 
+# NarrativeX Database Baseline V1.11
+
+## Authority and validation
+
 - PostgreSQL is the authoritative business-state store.
 - Redis is not authoritative GenerationJob state; it is used for sessions and non-authoritative delivery/progress hints.
 - Backend is the Flyway/schema owner.
@@ -12,20 +16,15 @@
 
 | Migration | Purpose | Current state |
 |---|---|---|
-| V1 `initial_schema` | Auth, project/story/chapter foundations, storyboard revisions, split motion/camera visual beats, preview-asset links, character/location AI identities, backend-authoritative media plans, generation execution/review and lineage, durable provider operations, quota reservation lifecycle, chapter-level TTS, uploaded narration, upload sessions, media lifecycle hardening, style presets and voice catalog, render ownership pins | Consolidated baseline |
-| V2 `scope_generation_idempotency` | Production-safe owner-scoped idempotency and expired-upload cleanup indexes | Production migration |
-| V3 `seed_demo_data` | Deterministic development/demo seed with canonical execution enums, storyboard revisions, character bibles, plan assignments and valid credits | Local profile only |
-| V4 `release_demo_quota_reservations` | Releases seeded example reservations so they do not consume the interactive demo quota | Local profile only |
-| V5 `seed_vieneu_voice_catalog` | Adds the local VieNeu Ngọc Huyền v2 catalog entry; the reference WAV remains runtime-only | Local profile only |
+| V1 `initial_schema` | Auth, project/story/chapter foundations, storyboard revisions, split motion/camera visual beats, preview-asset links, character/location AI identities, backend-authoritative media plans, generation execution/review and lineage, durable provider operations, quota reservation lifecycle, chapter-level TTS, uploaded narration, upload sessions, media lifecycle hardening, style presets and voice catalog, render ownership pins, owner-scoped idempotency, voice reference asset, cleanup tasks | Consolidated baseline |
+| V2 `seed_demo_data` | Deterministic development/demo seed with canonical execution enums, storyboard revisions, character bibles, plan assignments, released reservations, VieNeu catalog, and valid credits | Local profile only |
 
-The production migration set is V1 (schema) plus production-safe V2 hardening.
-V3 is an opt-in local-profile
-fixture under `db/local-migration`, not a production migration.
-The former V4–V7 feature migrations were folded into V1 because this is still
-the development baseline. Existing databases created from the former split
-require operator-reviewed recreation or explicit re-baselining.
+The production migration set is V1 (consolidated schema baseline).
+V2 is an opt-in local-profile fixture under `db/local-migration`, not a production migration.
+Former feature and fixture migrations were folded into V1 and V2 because this is the development baseline.
+Existing databases created from any former migration split require operator-reviewed recreation or explicit re-baselining.
 
-The local V3–V5 fixtures cover the supported demo paths. In addition to the core
+The local V2 fixture covers all supported demo paths. In addition to the core
 project/story rows, it includes scene and visual-beat continuity links, AI
 identity mappings, favorites, media plans, quota reservations, TTS
 requests/assets/alignments, uploaded narration sets/parts/documents/alignment

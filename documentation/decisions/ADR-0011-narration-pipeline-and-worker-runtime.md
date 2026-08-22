@@ -82,6 +82,13 @@ Furthermore, users may provide uploaded audio split across multiple files, where
 - Real-person voice references require explicit consent and the existing restricted-retention and
   deletion controls.
 
+### 7. Per-Request Voice Reference Upload
+
+- Narration requests support an optional `voiceReferenceAssetId` referencing an account-owned `READY` audio asset.
+- The asset is uploaded through the private R2 upload pipeline and linked to `narration_requests.voice_reference_asset_id`.
+- The AI worker streams the reference audio, enforces 3–8 second clipping, converts to mono WAV via FFmpeg/pydub, and passes it to VieNeu via `ref_audio`.
+- Temporary reference audio is excluded from job payloads and persistent profile directories to prevent cross-tenant voice leakage.
+
 ## Invariants
 
 1. Narration duration drives visual planning durations; visual beats never use arbitrary hardcoded lengths.

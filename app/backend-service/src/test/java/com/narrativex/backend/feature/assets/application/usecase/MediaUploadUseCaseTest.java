@@ -4,11 +4,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.assets.application.command.CreateUploadIntentCommand;
 import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository;
+import com.narrativex.backend.feature.assets.application.port.out.MediaStorageCleanupTaskRepository;
 import com.narrativex.backend.feature.assets.application.port.out.MediaUploadSessionRepository;
 import com.narrativex.backend.feature.assets.application.port.out.MediaUploadSessionRepository.CreateUploadSession;
 import com.narrativex.backend.feature.assets.application.port.out.MediaUploadSessionRepository.UploadSession;
@@ -17,6 +19,7 @@ import com.narrativex.backend.feature.assets.application.port.out.ObjectStorageP
 import com.narrativex.backend.feature.assets.application.port.out.ObjectStoragePort.StoredObject;
 import com.narrativex.backend.feature.assets.application.query.UploadFinalizeView;
 import com.narrativex.backend.feature.assets.application.query.UploadIntentView;
+import com.narrativex.backend.feature.assets.application.service.MediaUploadFinalizationService;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import java.net.URI;
@@ -38,6 +41,7 @@ class MediaUploadUseCaseTest {
   @Mock private CurrentUserId currentUserId;
   @Mock private MediaUploadSessionRepository sessions;
   @Mock private MediaAssetRepository assets;
+  @Mock private MediaStorageCleanupTaskRepository cleanupTasks;
   @Mock private ObjectStoragePort objectStorage;
 
   private MediaUploadUseCase useCase;
@@ -45,7 +49,28 @@ class MediaUploadUseCaseTest {
   @BeforeEach
   void setUp() {
     when(currentUserId.get()).thenReturn(ACCOUNT);
-    useCase = new MediaUploadUseCase(currentUserId, sessions, assets, objectStorage);
+    useCase =
+        new MediaUploadUseCase(
+            currentUserId,
+            sessions,
+            objectStorage,
+            new MediaUploadFinalizationService(sessions, assets, cleanupTasks));
+    lenient()
+        .when(assets.markReady(any(), any()))
+        .thenAnswer(
+            invocation ->
+                new com.narrativex.backend.feature.assets.application.query.MediaAssetView(
+                    invocation.getArgument(1),
+                    "AUDIO",
+                    "USER_UPLOAD",
+                    "storage",
+                    "voice.wav",
+                    "audio/wav",
+                    128,
+                    SHA,
+                    null,
+                    "READY",
+                    Instant.now()));
   }
 
   @Test
@@ -87,7 +112,8 @@ class MediaUploadUseCaseTest {
   void finalizeCreatesReadyAssetOnlyAfterStorageMetadataMatches() {
     UUID sessionId = UUID.randomUUID();
     UploadSession session = session(sessionId, "PENDING_UPLOAD", null);
-    when(sessions.findOwned(ACCOUNT, sessionId)).thenReturn(Optional.of(session));
+    when(sessions.findOwnedSnapshot(ACCOUNT, sessionId)).thenReturn(Optional.of(session));
+    when(sessions.findOwnedForUpdate(ACCOUNT, sessionId)).thenReturn(Optional.of(session));
     when(objectStorage.head(session.storageKey()))
         .thenReturn(new StoredObject(session.storageKey(), session.expectedSize(), session.contentType(), SHA));
     UUID assetId = UUID.randomUUID();
@@ -120,7 +146,8 @@ class MediaUploadUseCaseTest {
     UUID sessionId = UUID.randomUUID();
     UploadSession session = session(sessionId, "PENDING_UPLOAD", null);
     UUID existingAssetId = UUID.randomUUID();
-    when(sessions.findOwned(ACCOUNT, sessionId)).thenReturn(Optional.of(session));
+    when(sessions.findOwnedSnapshot(ACCOUNT, sessionId)).thenReturn(Optional.of(session));
+    when(sessions.findOwnedForUpdate(ACCOUNT, sessionId)).thenReturn(Optional.of(session));
     when(objectStorage.head(session.storageKey()))
         .thenReturn(new StoredObject(session.storageKey(), session.expectedSize(), session.contentType(), SHA));
     when(assets.findVerifiedByChecksum(ACCOUNT, SHA))
@@ -144,14 +171,16 @@ class MediaUploadUseCaseTest {
     assertThat(response.status()).isEqualTo("READY");
     assertThat(response.mediaAssetId()).isEqualTo(existingAssetId);
     verify(assets, never()).create(any(), any());
-    verify(objectStorage).delete(session.storageKey());
+    verify(cleanupTasks)
+        .enqueue(any(), org.mockito.ArgumentMatchers.eq("DUPLICATE_UPLOAD"), any());
   }
 
   @Test
   void finalizeAcceptsStorageContentTypeWithParameters() {
     UUID sessionId = UUID.randomUUID();
     UploadSession session = session(sessionId, "PENDING_UPLOAD", null);
-    when(sessions.findOwned(ACCOUNT, sessionId)).thenReturn(Optional.of(session));
+    when(sessions.findOwnedSnapshot(ACCOUNT, sessionId)).thenReturn(Optional.of(session));
+    when(sessions.findOwnedForUpdate(ACCOUNT, sessionId)).thenReturn(Optional.of(session));
     when(objectStorage.head(session.storageKey()))
         .thenReturn(
             new StoredObject(
@@ -175,7 +204,6 @@ class MediaUploadUseCaseTest {
                 "PENDING_UPLOAD",
                 Instant.now()));
     when(sessions.markReady(ACCOUNT, sessionId, assetId)).thenReturn(true);
-
     UploadFinalizeView response = useCase.finalizeUpload(sessionId);
 
     assertThat(response.status()).isEqualTo("READY");
@@ -185,21 +213,25 @@ class MediaUploadUseCaseTest {
   void finalizeRejectsChecksumMismatchWithoutPersistingAsset() {
     UUID sessionId = UUID.randomUUID();
     UploadSession session = session(sessionId, "PENDING_UPLOAD", null);
-    when(sessions.findOwned(ACCOUNT, sessionId)).thenReturn(Optional.of(session));
+    when(sessions.findOwnedSnapshot(ACCOUNT, sessionId)).thenReturn(Optional.of(session));
+    when(sessions.findOwnedForUpdate(ACCOUNT, sessionId)).thenReturn(Optional.of(session));
     when(objectStorage.head(session.storageKey()))
         .thenReturn(new StoredObject(session.storageKey(), session.expectedSize(), session.contentType(), "b".repeat(64)));
+    when(sessions.markRejected(ACCOUNT, sessionId)).thenReturn(true);
 
     UploadFinalizeView response = useCase.finalizeUpload(sessionId);
 
     assertThat(response.status()).isEqualTo("REJECTED");
     verify(sessions).markRejected(ACCOUNT, sessionId);
+    verify(cleanupTasks)
+        .enqueue(any(), org.mockito.ArgumentMatchers.eq("UPLOAD_VERIFICATION_FAILED"), any());
     verify(assets, never()).create(any(), any());
   }
 
   @Test
   void finalizeDoesNotAllowAnotherAccountToSeeTheSession() {
     UUID sessionId = UUID.randomUUID();
-    when(sessions.findOwned(ACCOUNT, sessionId)).thenReturn(Optional.empty());
+    when(sessions.findOwnedSnapshot(ACCOUNT, sessionId)).thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> useCase.finalizeUpload(sessionId))
         .isInstanceOf(ResourceNotFoundException.class);

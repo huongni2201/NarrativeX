@@ -1,7 +1,7 @@
 # Local narration setup
 
 The local demo account is assigned to `PRO` entitlement version `1`. The local
-Flyway migration `V4__enable_local_narration.sql` enables the `narration` feature
+Flyway migration `V2__seed_demo_data.sql` enables the `narration` feature
 flag for that seeded plan without changing production entitlement data.
 
 The local `.env` uses `TTS_PROVIDER_MODE=vieneu` and `MEDIA_STORAGE_MODE=r2`.

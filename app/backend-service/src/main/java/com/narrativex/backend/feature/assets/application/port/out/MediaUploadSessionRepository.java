@@ -8,7 +8,9 @@ import java.util.UUID;
 public interface MediaUploadSessionRepository {
   UploadSession create(CreateUploadSession command);
 
-  Optional<UploadSession> findOwned(String accountId, UUID id);
+  Optional<UploadSession> findOwnedSnapshot(String accountId, UUID id);
+
+  Optional<UploadSession> findOwnedForUpdate(String accountId, UUID id);
 
   Optional<UploadSession> findByIdempotencyKey(String accountId, String idempotencyKey);
 

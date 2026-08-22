@@ -605,9 +605,9 @@ CREATE TABLE generation_jobs (
         FOREIGN KEY (media_plan_id, media_plan_revision, production_mode)
         REFERENCES media_plans(id, revision, production_mode)
 );
-CREATE UNIQUE INDEX uq_generation_jobs_idempotency_key
-    ON generation_jobs (idempotency_key)
-    WHERE idempotency_key IS NOT NULL;
+CREATE UNIQUE INDEX uq_generation_jobs_owner_idempotency_key
+    ON generation_jobs (requested_by_user_id, idempotency_key)
+    WHERE requested_by_user_id IS NOT NULL AND idempotency_key IS NOT NULL;
 CREATE INDEX idx_generation_jobs_chapter_created
     ON generation_jobs (chapter_id, created_at DESC)
     WHERE chapter_id IS NOT NULL;
@@ -877,6 +877,41 @@ WHEN (NEW.status IN ('COMPLETED', 'FAILED', 'CANCELED'))
 EXECUTE FUNCTION finalize_quota_reservation_on_job_terminal();
 
 -- -----------------------------------------------------------------------------
+-- Media Assets
+-- -----------------------------------------------------------------------------
+
+CREATE TABLE media_assets (
+    id UUID PRIMARY KEY,
+    account_id VARCHAR(128) NOT NULL,
+    asset_type VARCHAR(16) NOT NULL,
+    origin VARCHAR(24) NOT NULL,
+    storage_key VARCHAR(512) NOT NULL,
+    original_filename VARCHAR(255) NOT NULL,
+    content_type VARCHAR(160) NOT NULL,
+    size_bytes BIGINT NOT NULL,
+    sha256 VARCHAR(64) NOT NULL,
+    duration_ms BIGINT,
+    status VARCHAR(24) NOT NULL,
+    deleted_at TIMESTAMP WITH TIME ZONE,
+    checksum_verified_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT ck_media_assets_type CHECK (asset_type IN ('AUDIO', 'IMAGE', 'VIDEO')),
+    CONSTRAINT ck_media_assets_origin CHECK (origin IN ('USER_UPLOAD', 'TTS_GENERATED', 'IMAGE_GENERATED', 'VIDEO_GENERATED')),
+    CONSTRAINT ck_media_assets_status CHECK (status IN ('PENDING_UPLOAD', 'UPLOADING', 'VALIDATING', 'READY', 'REJECTED', 'DELETED')),
+    CONSTRAINT ck_media_assets_size CHECK (size_bytes > 0),
+    CONSTRAINT ck_media_assets_sha256 CHECK (sha256 ~ '^[0-9a-f]{64}$'),
+    CONSTRAINT ck_media_assets_duration CHECK (duration_ms IS NULL OR duration_ms > 0),
+    CONSTRAINT uk_media_assets_account_storage_key UNIQUE (account_id, storage_key)
+);
+CREATE INDEX idx_media_assets_account_status ON media_assets (account_id, status, created_at DESC);
+CREATE UNIQUE INDEX uq_media_assets_account_sha256_verified
+    ON media_assets (account_id, sha256)
+    WHERE checksum_verified_at IS NOT NULL AND status <> 'DELETED' AND deleted_at IS NULL;
+CREATE INDEX idx_media_assets_account_created_visible
+    ON media_assets (account_id, created_at DESC, id DESC)
+    WHERE status <> 'DELETED' AND deleted_at IS NULL;
+
+-- -----------------------------------------------------------------------------
 -- Narration Requests, Assets & Alignment (Chapter-level TTS)
 -- -----------------------------------------------------------------------------
 
@@ -893,12 +928,16 @@ CREATE TABLE narration_requests (
     speaking_rate NUMERIC(8, 4) NOT NULL,
     segmentation_version VARCHAR(64) NOT NULL,
     request_fingerprint VARCHAR(64) NOT NULL,
+    voice_reference_asset_id UUID REFERENCES media_assets(id),
     CONSTRAINT uk_narration_requests_fingerprint UNIQUE (request_fingerprint),
     CONSTRAINT ck_narration_requests_source_hash CHECK (source_hash ~ '^[0-9a-f]{64}$'),
     CONSTRAINT ck_narration_requests_speaking_rate CHECK (speaking_rate > 0)
 );
 CREATE INDEX idx_narration_requests_chapter_created
     ON narration_requests (chapter_id, created_at DESC);
+CREATE INDEX idx_narration_requests_voice_reference_asset
+    ON narration_requests (voice_reference_asset_id)
+    WHERE voice_reference_asset_id IS NOT NULL;
 
 CREATE TABLE narration_operations (
     id UUID PRIMARY KEY,
@@ -950,39 +989,8 @@ COMMENT ON COLUMN narration_alignments.spans_json IS
     'Ordered segment-level spans with UTF-16 text offsets and millisecond audio offsets.';
 
 -- -----------------------------------------------------------------------------
--- Multi-Part / Uploaded Narration & Media Assets
+-- Multi-Part / Uploaded Narration
 -- -----------------------------------------------------------------------------
-
-CREATE TABLE media_assets (
-    id UUID PRIMARY KEY,
-    account_id VARCHAR(128) NOT NULL,
-    asset_type VARCHAR(16) NOT NULL,
-    origin VARCHAR(24) NOT NULL,
-    storage_key VARCHAR(512) NOT NULL,
-    original_filename VARCHAR(255) NOT NULL,
-    content_type VARCHAR(160) NOT NULL,
-    size_bytes BIGINT NOT NULL,
-    sha256 VARCHAR(64) NOT NULL,
-    duration_ms BIGINT,
-    status VARCHAR(24) NOT NULL,
-    deleted_at TIMESTAMP WITH TIME ZONE,
-    checksum_verified_at TIMESTAMP WITH TIME ZONE,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT ck_media_assets_type CHECK (asset_type IN ('AUDIO', 'IMAGE', 'VIDEO')),
-    CONSTRAINT ck_media_assets_origin CHECK (origin IN ('USER_UPLOAD', 'TTS_GENERATED', 'IMAGE_GENERATED', 'VIDEO_GENERATED')),
-    CONSTRAINT ck_media_assets_status CHECK (status IN ('PENDING_UPLOAD', 'UPLOADING', 'VALIDATING', 'READY', 'REJECTED', 'DELETED')),
-    CONSTRAINT ck_media_assets_size CHECK (size_bytes > 0),
-    CONSTRAINT ck_media_assets_sha256 CHECK (sha256 ~ '^[0-9a-f]{64}$'),
-    CONSTRAINT ck_media_assets_duration CHECK (duration_ms IS NULL OR duration_ms > 0),
-    CONSTRAINT uk_media_assets_account_storage_key UNIQUE (account_id, storage_key)
-);
-CREATE INDEX idx_media_assets_account_status ON media_assets (account_id, status, created_at DESC);
-CREATE UNIQUE INDEX uq_media_assets_account_sha256_verified
-    ON media_assets (account_id, sha256)
-    WHERE checksum_verified_at IS NOT NULL AND status <> 'DELETED' AND deleted_at IS NULL;
-CREATE INDEX idx_media_assets_account_created_visible
-    ON media_assets (account_id, created_at DESC, id DESC)
-    WHERE status <> 'DELETED' AND deleted_at IS NULL;
 
 CREATE TABLE narration_sets (
     id UUID PRIMARY KEY,
@@ -1363,6 +1371,35 @@ CREATE TABLE media_upload_sessions (
 );
 CREATE INDEX idx_media_upload_sessions_account_status
     ON media_upload_sessions (account_id, status, created_at DESC);
+CREATE INDEX idx_media_upload_sessions_expired_pending
+    ON media_upload_sessions (expires_at, id)
+    WHERE status = 'PENDING_UPLOAD';
+
+-- -----------------------------------------------------------------------------
+-- Media storage cleanup tasks
+-- -----------------------------------------------------------------------------
+
+CREATE TABLE media_storage_cleanup_tasks (
+    id UUID PRIMARY KEY,
+    storage_key VARCHAR(512) NOT NULL,
+    reason VARCHAR(64) NOT NULL,
+    status VARCHAR(16) NOT NULL,
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    next_attempt_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    last_error VARCHAR(1000),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP WITH TIME ZONE,
+    CONSTRAINT ck_media_storage_cleanup_status CHECK (status IN ('PENDING', 'RUNNING', 'COMPLETED')),
+    CONSTRAINT ck_media_storage_cleanup_attempts CHECK (attempt_count >= 0)
+);
+
+CREATE UNIQUE INDEX uq_media_storage_cleanup_active_key
+    ON media_storage_cleanup_tasks (storage_key)
+    WHERE status IN ('PENDING', 'RUNNING');
+
+CREATE INDEX idx_media_storage_cleanup_due
+    ON media_storage_cleanup_tasks (status, next_attempt_at, id)
+    WHERE status IN ('PENDING', 'RUNNING');
 
 -- -----------------------------------------------------------------------------
 -- Media generation execution, review and lineage

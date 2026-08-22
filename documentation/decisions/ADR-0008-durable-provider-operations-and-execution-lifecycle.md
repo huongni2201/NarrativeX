@@ -53,6 +53,13 @@ To ensure strict billing accuracy, eliminate duplicate charges, and enable deter
   - `FAILED` / `CANCELED` with positive incurred cost -> Settles the incurred amount.
   - `FAILED` / `CANCELED` with zero cost -> Releases the reservation.
 
+### 5. Durable Generation Persistence & MyBatis Adapters
+
+- Generation execution persistence boundaries use dedicated MyBatis row models and explicit XML mappers: `StageAttempt`, `OperationPlan`, `GenerationOutbox`, `JobHistory`, `ChapterAnalysisSafetyGate`, and `MediaPlan`.
+- `OperationPlan` updates use an explicit `row_version` compare-and-set and translate zero affected rows into not-found or optimistic-lock conflicts.
+- `GenerationOutbox` enqueue remains idempotent on `event_key`; the durable insert is decoupled from the dispatcher lease query.
+- Architecture tests reject direct JPA/JdbcTemplate imports in these durable generation adapters.
+
 ## Invariants
 
 1. `ProviderOperation.status = COMPLETED` strictly requires non-null `normalized_result_json` and matching `result_fingerprint`.

@@ -11,6 +11,7 @@ import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Component
@@ -22,14 +23,20 @@ public class MyBatisMediaUploadSessionRepository implements MediaUploadSessionRe
   @Transactional
   public UploadSession create(CreateUploadSession command) {
     mapper.insert(command);
-    return findOwned(command.accountId(), command.id())
+    return findOwnedSnapshot(command.accountId(), command.id())
         .orElseThrow(() -> new IllegalStateException("Upload session disappeared after insert"));
   }
 
   @Override
-  @Transactional
-  public Optional<UploadSession> findOwned(String accountId, UUID id) {
-    return Optional.ofNullable(mapper.findOwned(accountId, id)).map(this::toSession);
+  @Transactional(readOnly = true)
+  public Optional<UploadSession> findOwnedSnapshot(String accountId, UUID id) {
+    return Optional.ofNullable(mapper.findOwnedSnapshot(accountId, id)).map(this::toSession);
+  }
+
+  @Override
+  @Transactional(propagation = Propagation.MANDATORY)
+  public Optional<UploadSession> findOwnedForUpdate(String accountId, UUID id) {
+    return Optional.ofNullable(mapper.findOwnedForUpdate(accountId, id)).map(this::toSession);
   }
 
   @Override

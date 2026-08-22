@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaStorageCleanupTaskMapper">
+    <resultMap id="cleanupTaskRow" type="com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaStorageCleanupTaskRow">
+        <id property="id" column="id" javaType="java.util.UUID"
+            typeHandler="com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler" />
+        <result property="storageKey" column="storage_key" />
+        <result property="reason" column="reason" />
+        <result property="status" column="status" />
+        <result property="attemptCount" column="attempt_count" />
+        <result property="nextAttemptAt" column="next_attempt_at" />
+    </resultMap>
+
+    <insert id="enqueue">
+        INSERT INTO media_storage_cleanup_tasks
+            (id, storage_key, reason, status, attempt_count, next_attempt_at)
+        VALUES
+            (#{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}, #{storageKey}, #{reason}, 'PENDING', 0, #{nextAttemptAt})
+        ON CONFLICT (storage_key) WHERE status IN ('PENDING', 'RUNNING') DO NOTHING
+    </insert>
+
+    <select id="claimDue" resultMap="cleanupTaskRow">
+        WITH candidates AS (
+            SELECT id
+              FROM media_storage_cleanup_tasks
+             WHERE (status = 'PENDING'
+                    OR (status = 'RUNNING' AND next_attempt_at &lt;= #{now}))
+               AND next_attempt_at &lt;= #{now}
+             ORDER BY next_attempt_at ASC, id ASC
+             FOR UPDATE SKIP LOCKED
+             LIMIT #{limit}
+        )
+        UPDATE media_storage_cleanup_tasks task
+           SET status = 'RUNNING',
+               attempt_count = task.attempt_count + 1,
+               next_attempt_at = #{leaseUntil}
+          FROM candidates
+         WHERE task.id = candidates.id
+        RETURNING task.id, task.storage_key, task.reason, task.status,
+                  task.attempt_count, task.next_attempt_at
+    </select>
+
+    <update id="markCompleted">
+        UPDATE media_storage_cleanup_tasks
+           SET status = 'COMPLETED', completed_at = #{completedAt}, last_error = NULL
+         WHERE id = #{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
+           AND status = 'RUNNING'
+    </update>
+
+    <update id="markFailed">
+        UPDATE media_storage_cleanup_tasks
+           SET status = 'PENDING', next_attempt_at = #{nextAttemptAt}, last_error = #{lastError}
+         WHERE id = #{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
+           AND status = 'RUNNING'
+    </update>
+</mapper>

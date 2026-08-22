@@ -29,7 +29,15 @@
              #{expectedSha256}, #{storageKey}, #{idempotencyKey}, 'PENDING_UPLOAD', #{expiresAt})
     </insert>
 
-    <select id="findOwned" resultMap="mediaUploadSessionRow">
+    <select id="findOwnedSnapshot" resultMap="mediaUploadSessionRow">
+        SELECT id, asset_type, filename, content_type, expected_size, expected_sha256,
+               storage_key, idempotency_key, status, expires_at, created_at, media_asset_id
+          FROM media_upload_sessions
+         WHERE id = #{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
+           AND account_id = #{accountId}
+    </select>
+
+    <select id="findOwnedForUpdate" resultMap="mediaUploadSessionRow">
         SELECT id, asset_type, filename, content_type, expected_size, expected_sha256,
                storage_key, idempotency_key, status, expires_at, created_at, media_asset_id
           FROM media_upload_sessions

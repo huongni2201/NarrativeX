@@ -2,6 +2,7 @@ package com.narrativex.backend.feature.assets.infrastructure.storage;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.narrativex.backend.feature.assets.application.port.out.ObjectStoragePort;
 import com.sun.net.httpserver.HttpServer;
 import java.net.InetSocketAddress;
 import java.time.Duration;
