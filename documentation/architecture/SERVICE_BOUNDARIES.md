@@ -26,8 +26,9 @@ The Python worker owns execution mechanics:
 - TTS and narration media execution;
 - user-provided audio part/timeline processing and alignment execution boundary;
 - future image generation and FFmpeg render execution;
-- R2 upload/download through provider-neutral storage ports;
-- validation of external/provider media results.
+- R2 upload/download through provider-neutral pipeline-media storage ports;
+- final rendered MP4 upload through the provider-neutral `FinalVideoStorage` port, with Google Drive as the target adapter;
+- validation of external/provider media results and final video artifacts.
 
 The worker does **not** own browser authorization, entitlement/quota policy, MediaPlan authorization, Flyway migrations or public HTTP APIs.
 
@@ -38,6 +39,20 @@ The backend is authoritative for `ProductionMode` and resolved `MotionStrategy`.
 ## Narration boundary
 
 `NarrationStrategy.TTS` and `NarrationStrategy.USER_PROVIDED_AUDIO` are generation-domain policy vocabulary. Audio processing/alignment mechanics remain worker-owned, while selection, fingerprints, authorization and durable metadata are backend/domain concerns.
+
+## Final video storage boundary
+
+Render policy must not depend on Google Drive-specific APIs or identifiers.
+
+```text
+render/application logic
+  -> FinalVideoStorage port
+  -> GoogleDriveFinalVideoStorage adapter
+```
+
+The adapter owns Drive OAuth/API calls, resumable-upload mechanics, remote verification and provider-specific identifiers. Domain/application state stores provider-neutral storage metadata (`storageProvider`, `storageObjectId`, checksum/size/video metadata).
+
+Render and upload are separate retry boundaries. A Drive upload failure must retry upload of the already-validated local MP4 rather than rerendering while that file remains available.
 
 ## Character read boundary
 
