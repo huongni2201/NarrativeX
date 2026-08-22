@@ -32,8 +32,10 @@ REQUIRED_PATHS = [
     ROOT / "documentation" / "source-of-truth" / "NARRATIVEX_PROJECT_SPEC_V1_11.md",
     ROOT / "documentation" / "TRACEABILITY.md",
     ROOT / "documentation" / "product" / "FEATURE_CATALOG.md",
-    ROOT / "documentation" / "decisions" / "ADR-0012-cloudflare-r2-durable-media-storage.md",
-    ROOT / "documentation" / "decisions" / "ADR-0016-google-drive-final-video-storage.md",
+    ROOT / "documentation" / "decisions" / "ADR-0001-system-topology-execution-and-persistence.md",
+    ROOT / "documentation" / "decisions" / "ADR-0002-storyboard-character-continuity-and-production-workflows.md",
+    ROOT / "documentation" / "decisions" / "ADR-0003-media-storage-generation-pipelines-and-external-integrations.md",
+    ROOT / "documentation" / "decisions" / "ADR-0004-authentication-runtime-security-and-test-credentials.md",
 ]
 
 FORBIDDEN = {

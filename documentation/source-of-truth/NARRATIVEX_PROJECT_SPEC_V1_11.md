@@ -365,7 +365,7 @@ PostgreSQL                -> metadata, lineage, provider/external IDs, checksums
 Worker local filesystem   -> ephemeral scratch only
 ```
 
-This split is the current storage direction and replaces any older statement that R2 is the sole durable media store.
+This split is the current storage direction and supersedes earlier single-store R2 assumptions.
 
 ---
 

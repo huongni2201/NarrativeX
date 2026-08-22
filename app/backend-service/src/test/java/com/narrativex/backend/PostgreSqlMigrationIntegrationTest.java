@@ -50,12 +50,19 @@ class PostgreSqlMigrationIntegrationTest {
   @Test
   void emptyPostgresMigratesAndApplicationContextStarts() throws SQLException {
     try (Connection connection = dataSource.getConnection()) {
-      assertEquals(5, latestFlywayVersion(connection));
+      assertEquals(1, latestFlywayVersion(connection));
       assertEquals(0, rowCount(connection, "generation_jobs"));
       assertEquals(0, rowCount(connection, "projects"));
       assertEquals(11, rowCount(connection, "plan_entitlements"));
       assertEquals(2, rowCount(connection, "style_presets"));
       assertEquals(20, rowCount(connection, "voice_catalog"));
+      assertTrue(tableExists(connection, "chapter_content_variants"));
+      assertTrue(tableExists(connection, "language_detections"));
+      assertTrue(tableExists(connection, "short_clip_requests"));
+      assertTrue(columnExists(connection, "stage_attempts", "lease_token"));
+      assertTrue(columnExists(connection, "final_artifacts", "storage_provider"));
+      assertTrue(columnExists(connection, "final_artifacts", "external_file_id"));
+      assertTrue(columnExists(connection, "final_artifacts", "web_view_link"));
       assertFalse(columnExists(connection, "generation_jobs", "references"));
       assertFalse(columnExists(connection, "character_appearances", "references"));
       assertFalse(columnExists(connection, "scene_characters", "references"));
