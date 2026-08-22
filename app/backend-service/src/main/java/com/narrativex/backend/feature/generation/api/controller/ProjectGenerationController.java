@@ -45,7 +45,11 @@ public class ProjectGenerationController {
     var job =
         generateChapterNarrationUseCase.execute(
             new GenerateChapterNarrationCommand(
-                projectId, chapterId, request.voiceId(), request.effectiveSpeakingRate()));
+                projectId,
+                chapterId,
+                request.voiceId(),
+                request.effectiveSpeakingRate(),
+                request.voiceReferenceAssetId()));
     return ResponseEntity.status(HttpStatus.ACCEPTED)
         .body(ApiResponse.success("Narration job accepted", JobResponse.from(job)));
   }

@@ -9,6 +9,7 @@ import com.narrativex.backend.feature.generation.application.port.out.NarrationR
 import com.narrativex.backend.feature.generation.application.port.out.OperationPlanRepository;
 import com.narrativex.backend.feature.generation.application.port.out.QuotaReservation;
 import com.narrativex.backend.feature.generation.application.port.out.StageAttemptRepository;
+import com.narrativex.backend.feature.generation.application.port.out.VoiceReferenceAssetAccess;
 import com.narrativex.backend.feature.generation.application.service.NarrationAdmissionService;
 import com.narrativex.backend.feature.generation.application.service.NarrationRequestFingerprint;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
@@ -44,6 +45,7 @@ public class GenerateChapterNarrationUseCase {
   private final NarrationAdmissionService admissionService;
   private final NarrationRequestFingerprint fingerprintService;
   private final QuotaReservation quotaReservation;
+  private final VoiceReferenceAssetAccess voiceReferenceAssetAccess;
 
   @Transactional
   public GenerationJob execute(GenerateChapterNarrationCommand command) {
@@ -56,6 +58,7 @@ public class GenerateChapterNarrationUseCase {
     if (chapter.sourceText().isBlank()) {
       throw new IllegalArgumentException("Chapter source must be saved before narration");
     }
+    validateVoiceReferenceAsset(userId, command);
 
     String fingerprint =
         fingerprintService.calculate(
@@ -65,7 +68,8 @@ public class GenerateChapterNarrationUseCase {
             command.voiceId(),
             project.getSourceLanguage(),
             command.speakingRate(),
-            SEGMENTATION_VERSION);
+            SEGMENTATION_VERSION,
+            command.voiceReferenceAssetId());
     String idempotencyKey = "chapter-narration:" + fingerprint;
 
     generationJobRepository.acquireIdempotencyLock(idempotencyKey, userId);
@@ -88,7 +92,8 @@ public class GenerateChapterNarrationUseCase {
                 project.getSourceLanguage(),
                 command.speakingRate(),
                 SEGMENTATION_VERSION,
-                fingerprint));
+                fingerprint,
+                command.voiceReferenceAssetId()));
 
     OperationPlan operationPlan =
         operationPlanRepository.save(
@@ -132,5 +137,22 @@ public class GenerateChapterNarrationUseCase {
             UUID.randomUUID(), narrationRequest.id(), job.getId(), stageAttempt.getId()));
     generationOutboxRepository.enqueue(job);
     return job;
+  }
+
+  private void validateVoiceReferenceAsset(
+      String userId, GenerateChapterNarrationCommand command) {
+    if (command.voiceReferenceAssetId() == null) return;
+    if (!command.voiceId().startsWith("vieneu-")) {
+      throw new IllegalArgumentException(
+          "A voice reference upload can only be used with a VieNeu voice");
+    }
+    var asset = voiceReferenceAssetAccess.findOwned(userId, command.voiceReferenceAssetId());
+    if (!"AUDIO".equals(asset.type()) || !"READY".equals(asset.status())) {
+      throw new IllegalArgumentException("Voice reference asset must be a READY audio asset");
+    }
+    if (!"audio/mpeg".equalsIgnoreCase(asset.contentType())
+        && !"audio/mp3".equalsIgnoreCase(asset.contentType())) {
+      throw new IllegalArgumentException("Voice reference upload must be an MP3 file");
+    }
   }
 }

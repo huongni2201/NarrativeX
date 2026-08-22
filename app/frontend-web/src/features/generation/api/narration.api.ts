@@ -15,6 +15,7 @@ export const narrationApi = {
         json: {
           voiceId: input.voiceId,
           speakingRate: input.speakingRate ?? 1.0,
+          voiceReferenceAssetId: input.voiceReferenceAssetId ?? null,
         },
       },
       isApiGenerationJob,

@@ -32,6 +32,7 @@ async def narration_provider_database() -> AsyncIterator[str]:
             """
             DROP TABLE IF EXISTS narration_operations;
             DROP TABLE IF EXISTS narration_requests;
+            DROP TABLE IF EXISTS media_assets;
             DROP TABLE IF EXISTS provider_operations;
             DROP TABLE IF EXISTS stage_attempts;
             DROP TABLE IF EXISTS generation_jobs;
@@ -72,6 +73,10 @@ async def narration_provider_database() -> AsyncIterator[str]:
                 speaking_rate DOUBLE PRECISION NOT NULL DEFAULT 1.0,
                 request_fingerprint TEXT NOT NULL UNIQUE
             );
+            CREATE TABLE media_assets (
+                id UUID PRIMARY KEY,
+                storage_key TEXT NOT NULL
+            );
             CREATE TABLE narration_operations (
                 stage_attempt_id BIGINT PRIMARY KEY REFERENCES stage_attempts(id),
                 narration_request_id UUID NOT NULL REFERENCES narration_requests(id)
@@ -106,6 +111,7 @@ async def narration_provider_database() -> AsyncIterator[str]:
             """
             DROP TABLE IF EXISTS narration_operations;
             DROP TABLE IF EXISTS narration_requests;
+            DROP TABLE IF EXISTS media_assets;
             DROP TABLE IF EXISTS provider_operations;
             DROP TABLE IF EXISTS stage_attempts;
             DROP TABLE IF EXISTS generation_jobs;

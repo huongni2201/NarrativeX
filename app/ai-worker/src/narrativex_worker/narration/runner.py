@@ -22,7 +22,11 @@ from narrativex_worker.narration.models import (
     NarrationSegment,
     SynthesizedSegment,
 )
-from narrativex_worker.narration.pricing import GoogleTtsPricingCatalog, TtsPricingSnapshot
+from narrativex_worker.narration.pricing import (
+    GoogleTtsPricingCatalog,
+    TtsPricingSnapshot,
+    VieneuTtsPricingCatalog,
+)
 from narrativex_worker.narration.providers import (
     TtsProvider,
     TtsProviderRejectedError,
@@ -41,7 +45,12 @@ from narrativex_worker.narration.storage import (
     MediaStorage,
     S3MediaStorage,
 )
+from narrativex_worker.narration.voice_reference import (
+    VoiceReferenceAudioError,
+    prepare_mp3_reference,
+)
 from narrativex_worker.providers.tts import GoogleCloudTtsProvider
+from narrativex_worker.providers.tts.vieneu import VieneuTtsProvider
 from narrativex_worker.schema import ProviderOperationStatus
 from narrativex_worker.task_runtime import reap_finished_tasks
 from narrativex_worker.workspace import WorkerWorkspace, sha256_file
@@ -71,11 +80,17 @@ class NarrationWorkerRunner:
         )
         self.provider: TtsProvider | None = None
         self.storage: MediaStorage | None = None
-        self.pricing: GoogleTtsPricingCatalog | None = None
+        self.pricing: GoogleTtsPricingCatalog | VieneuTtsPricingCatalog | None = None
         if self.enabled:
-            self.provider = GoogleCloudTtsProvider(settings)
+            if settings.tts_provider_mode == "google":
+                self.provider = GoogleCloudTtsProvider(settings)
+                self.pricing = GoogleTtsPricingCatalog(settings.tts_pricing_catalog_version)
+            elif settings.tts_provider_mode == "vieneu":
+                self.provider = VieneuTtsProvider(settings)
+                self.pricing = VieneuTtsPricingCatalog(settings.tts_pricing_catalog_version)
+            else:
+                raise RuntimeError(f"Unsupported TTS provider mode: {settings.tts_provider_mode}")
             self.storage = S3MediaStorage(settings)
-            self.pricing = GoogleTtsPricingCatalog(settings.tts_pricing_catalog_version)
         self.segmenter = NarrationSegmenter()
         self.validator = NarrationAlignmentValidator()
         self.audio = FfmpegAudioAssembler()
@@ -282,12 +297,41 @@ class NarrationWorkerRunner:
                 claimed.job_id,
                 claimed.narration_request_id,
             )
+            reference_audio_path: Path | None = None
+            if claimed.voice_reference_storage_key is not None:
+                source_path = job_dir / "voice-reference.mp3"
+                reference_audio_path = job_dir / "voice-reference.wav"
+                try:
+                    await retry_local_io(
+                        lambda: storage.download_to_file(
+                            claimed.voice_reference_storage_key or "", source_path
+                        )
+                    )
+                except Exception as exception:
+                    if is_transient_infrastructure_error(exception):
+                        raise NarrationRetryableInfrastructureError(
+                            "Voice reference storage is temporarily unavailable"
+                        ) from exception
+                    raise NarrationPermanentError(
+                        "Voice reference audio could not be downloaded"
+                    ) from exception
+                try:
+                    prepare_mp3_reference(source_path, reference_audio_path)
+                except VoiceReferenceAudioError as exception:
+                    raise NarrationPermanentError(str(exception)) from exception
             segments = self.segmenter.segment(claimed.source_text)
             materialized: list[MaterializedAudioSegment] = []
             for segment in segments:
-                materialized.append(
-                    await self._materialize_segment(claimed, segment, pricing, job_dir)
-                )
+                if reference_audio_path is None:
+                    materialized.append(
+                        await self._materialize_segment(claimed, segment, pricing, job_dir)
+                    )
+                else:
+                    materialized.append(
+                        await self._materialize_segment(
+                            claimed, segment, pricing, job_dir, reference_audio_path
+                        )
+                    )
 
             pcm_path = job_dir / "chapter.pcm"
             await self.audio.concatenate_files([item.file_path for item in materialized], pcm_path)
@@ -360,6 +404,7 @@ class NarrationWorkerRunner:
         segment: NarrationSegment,
         pricing: TtsPricingSnapshot,
         job_dir: Path,
+        reference_audio_path: Path | None = None,
     ) -> MaterializedAudioSegment:
         assert self.provider is not None
         assert self.storage is not None
@@ -447,6 +492,7 @@ class NarrationWorkerRunner:
                     voice_id=claimed.voice_id,
                     language=claimed.language,
                     speaking_rate=claimed.speaking_rate,
+                    reference_audio_path=reference_audio_path,
                 )
             )
         except TtsProviderRejectedError as exception:

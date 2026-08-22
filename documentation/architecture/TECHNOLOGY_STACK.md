@@ -10,7 +10,7 @@ Canonical authority: [`../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](../
 | Redis | Spring Data Redis + Spring Session Redis | sessions and transient hints only |
 | Worker | Python 3.12+, Pydantic, HTTPX, asyncpg, google-auth, boto3 | async provider/media execution, alignment, reconciliation, FFmpeg workspace |
 | AI | Vertex Gemini analysis adapter + provider-neutral ports | structured Chapter analysis |
-| Narration | Google TTS foundation + user-provided audio timeline/alignment contracts | two narration strategies feeding one timeline model |
+| Narration | Google TTS + local VieNeu-TTS v3 Turbo adapter + user-provided audio timeline/alignment contracts | two narration strategies feeding one timeline model; VieNeu supports configured instant voice cloning |
 | Storage | Cloudflare R2 only | durable private media; PostgreSQL owns metadata/lineage |
 | Media | FFmpeg-oriented deterministic render foundation; Wan-compatible I2V adapter foundation | first complete target is IMAGE_MOTION, I2V fast-follow |
 

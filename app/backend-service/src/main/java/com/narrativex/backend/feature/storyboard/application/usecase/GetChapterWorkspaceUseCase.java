@@ -9,12 +9,16 @@ import com.narrativex.backend.feature.storyboard.api.response.ChapterWorkspaceRe
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterWorkspaceReadRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
 public class GetChapterWorkspaceUseCase {
+  @Value("${narrativex.generation.media-enabled:false}")
+  private boolean mediaGenerationEnabled;
+
   private final CurrentUserId currentUserId;
   private final StoryVersionAccess storyVersionAccess;
   private final ChapterRepository chapterRepository;
@@ -65,11 +69,13 @@ public class GetChapterWorkspaceUseCase {
             && !(snapshot.hasApprovedOutput() && !sourceOutdated);
     boolean chapterAnalysisCompleted = "COMPLETED".equals(analysisStatus) && !sourceOutdated;
     boolean visualJobRunning = isActive(visualGeneration.status());
-    boolean canGenerateVisuals = chapterAnalysisCompleted && !visualJobRunning;
+    boolean canGenerateVisuals = mediaGenerationEnabled && chapterAnalysisCompleted && !visualJobRunning;
     boolean canGenerateAudio =
         chapterAnalysisCompleted && !"READY".equals(audio.status()) && !isActive(audio.status());
     boolean canRender =
-        "COMPLETED".equals(visualGeneration.status()) && "READY".equals(audio.status());
+        mediaGenerationEnabled
+            && "COMPLETED".equals(visualGeneration.status())
+            && "READY".equals(audio.status());
 
     var response =
         new ChapterWorkspaceResponse(

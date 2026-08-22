@@ -40,6 +40,7 @@ class ClaimedNarrationJob:
     language: str
     speaking_rate: float
     request_fingerprint: str
+    voice_reference_storage_key: str | None = None
 
 
 @dataclass(frozen=True)
@@ -102,11 +103,13 @@ class NarrationWorkerRepository:
                            nr.voice_id,
                            nr.language,
                            nr.speaking_rate,
-                           nr.request_fingerprint
+                           nr.request_fingerprint,
+                           ma.storage_key AS voice_reference_storage_key
                       FROM stage_attempts sa
                       JOIN generation_jobs gj ON gj.id = sa.generation_job_id
                       JOIN narration_operations no ON no.stage_attempt_id = sa.id
                       JOIN narration_requests nr ON nr.id = no.narration_request_id
+                      LEFT JOIN media_assets ma ON ma.id = nr.voice_reference_asset_id
                      WHERE gj.job_type = 'NARRATION_GENERATE'
                        AND gj.status IN ('QUEUED', 'RUNNING', 'STALLED')
                        AND sa.stage_name = 'NARRATION_TTS'
@@ -159,12 +162,14 @@ class NarrationWorkerRepository:
                            nr.voice_id,
                            nr.language,
                            nr.speaking_rate,
-                           nr.request_fingerprint
+                           nr.request_fingerprint,
+                           ma.storage_key AS voice_reference_storage_key
                       FROM provider_operations po
                       JOIN stage_attempts sa ON sa.id = po.stage_attempt_id
                       JOIN generation_jobs gj ON gj.id = sa.generation_job_id
                       JOIN narration_operations no ON no.stage_attempt_id = sa.id
                       JOIN narration_requests nr ON nr.id = no.narration_request_id
+                      LEFT JOIN media_assets ma ON ma.id = nr.voice_reference_asset_id
                      WHERE po.status = 'UNKNOWN'
                        AND po.next_reconcile_at IS NOT NULL
                        AND po.next_reconcile_at <= CURRENT_TIMESTAMP
@@ -244,6 +249,11 @@ class NarrationWorkerRepository:
             language=str(row["language"]),
             speaking_rate=float(row["speaking_rate"]),
             request_fingerprint=str(row["request_fingerprint"]),
+            voice_reference_storage_key=(
+                str(row["voice_reference_storage_key"])
+                if row["voice_reference_storage_key"] is not None
+                else None
+            ),
         )
 
     async def heartbeat(self, stage_attempt_id: int, worker_id: str) -> bool:

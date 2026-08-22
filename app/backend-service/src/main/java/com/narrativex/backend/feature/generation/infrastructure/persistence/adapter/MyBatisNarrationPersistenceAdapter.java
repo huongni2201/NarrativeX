@@ -58,7 +58,8 @@ public class MyBatisNarrationPersistenceAdapter
         request.language(),
         request.speakingRate(),
         request.segmentationVersion(),
-        request.requestFingerprint());
+        request.requestFingerprint(),
+        request.voiceReferenceAssetId());
   }
 
   private static NarrationRequest toDomain(NarrationRequestRow row) {
@@ -73,6 +74,7 @@ public class MyBatisNarrationPersistenceAdapter
         row.language(),
         row.speakingRate(),
         row.segmentationVersion(),
-        row.requestFingerprint());
+        row.requestFingerprint(),
+        row.voiceReferenceAssetId());
   }
 }

@@ -33,3 +33,19 @@ class GoogleTtsPricingCatalog:
 
     def _snapshot(self, tier: str, sku: str, rate: str) -> TtsPricingSnapshot:
         return TtsPricingSnapshot(self.catalog_version, tier, sku, Decimal(rate))
+
+
+class VieneuTtsPricingCatalog:
+    """Zero external-provider cost snapshot for on-device VieNeu execution."""
+
+    def __init__(self, catalog_version: str) -> None:
+        self.catalog_version = catalog_version
+
+    def resolve(self, voice_id: str) -> TtsPricingSnapshot:
+        del voice_id
+        return TtsPricingSnapshot(
+            catalog_version=self.catalog_version,
+            voice_tier="VIENEU_LOCAL",
+            sku="VIENEU-LOCAL-EXECUTION",
+            usd_per_million_characters=Decimal("0"),
+        )

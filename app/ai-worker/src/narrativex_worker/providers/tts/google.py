@@ -30,6 +30,10 @@ class GoogleCloudTtsProvider:
         return "google-cloud-tts"
 
     async def synthesize(self, request: TtsRequest) -> SynthesizedSegment:
+        if request.reference_audio_path is not None:
+            raise TtsProviderRejectedError(
+                "Uploaded voice references are supported only by the VieNeu provider"
+            )
         token = await asyncio.to_thread(self._access_token)
         payload = {
             "input": {"text": request.segment.text},

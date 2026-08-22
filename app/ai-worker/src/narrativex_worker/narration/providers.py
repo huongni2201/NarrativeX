@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Protocol
 
 from narrativex_worker.narration.models import NarrationSegment, SynthesizedSegment
@@ -19,6 +20,7 @@ class TtsRequest:
     voice_id: str
     language: str
     speaking_rate: float
+    reference_audio_path: Path | None = None
     sample_rate_hz: int = 48000
     channels: int = 1
 

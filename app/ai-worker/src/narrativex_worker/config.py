@@ -55,7 +55,7 @@ class WorkerSettings(BaseSettings):
     vertex_image_timeout_seconds: float = Field(default=120.0, gt=1, le=600)
     image_max_output_bytes: int = Field(default=15_000_000, ge=1024, le=50_000_000)
 
-    tts_provider_mode: Literal["disabled", "google"] = Field(
+    tts_provider_mode: Literal["disabled", "google", "vieneu"] = Field(
         default="disabled",
         validation_alias=AliasChoices("TTS_PROVIDER_MODE", "NARRATION_PROVIDER_MODE"),
     )
@@ -63,6 +63,16 @@ class WorkerSettings(BaseSettings):
     google_tts_endpoint: str = "https://texttospeech.googleapis.com"
     google_tts_timeout_seconds: float = Field(default=120.0, gt=1, le=600)
     tts_pricing_catalog_version: str = "google-tts-2026-08-20"
+    vieneu_voice_id: str = "vieneu-ngoc-huyen-v2"
+    vieneu_voice_name: str = "Ngọc Huyền v2"
+    vieneu_reference_audio_path: str | None = None
+    vieneu_backend: Literal["auto", "onnx", "pytorch"] = "auto"
+    vieneu_precision: Literal["int8", "fp32"] = "int8"
+    vieneu_threads: int = Field(default=0, ge=0, le=64)
+    vieneu_denoise_reference: bool = True
+    vieneu_save_voice_profile: bool = True
+    vieneu_force_reenroll: bool = False
+    vieneu_apply_watermark: bool = False
 
     media_storage_mode: Literal["disabled", "r2"] = Field(
         default="disabled",
@@ -118,6 +128,11 @@ class WorkerSettings(BaseSettings):
             raise ValueError("VERTEX_PROJECT_ID is required when IMAGE_PROVIDER_MODE=vertex")
         if self.tts_provider_mode == "google" and not self.google_tts_project_id:
             raise ValueError("GOOGLE_TTS_PROJECT_ID is required when TTS_PROVIDER_MODE=google")
+        if self.tts_provider_mode == "vieneu":
+            if not self.vieneu_voice_id.strip():
+                raise ValueError("VIENEU_VOICE_ID must not be blank")
+            if not self.vieneu_voice_name.strip():
+                raise ValueError("VIENEU_VOICE_NAME must not be blank")
         if self.media_storage_mode == "r2":
             missing: list[str] = []
             if not self.resolved_r2_endpoint:

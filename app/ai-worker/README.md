@@ -24,6 +24,30 @@ USER_PROVIDED_AUDIO
   -> no TTS_GENERATE stage
 ```
 
+### VieNeu-TTS voice cloning
+
+Install the worker dependencies, prepare a clean 3–8 second `.wav` sample outside the repository,
+then configure:
+
+```text
+TTS_PROVIDER_MODE=vieneu
+MEDIA_STORAGE_MODE=r2
+VIENEU_REFERENCE_AUDIO_PATH=/runtime/voice/ngoc_huyen_sample.wav
+VIENEU_VOICE_ID=vieneu-ngoc-huyen-v2
+VIENEU_VOICE_NAME=Ngọc Huyền v2
+```
+
+The worker enrolls the profile once with `add_voice(..., denoise=True)`, calls `save_voices()`, and
+reuses it for each narration segment. `VIENEU_BACKEND=auto` selects the v3 Turbo ONNX CPU path on
+CPU; set `VIENEU_BACKEND=pytorch` only when the runtime has the corresponding GPU stack. The sample
+is never copied into a durable job payload. Real-person samples require explicit consent.
+
+The narration UI can also attach a user-owned MP3 reference to a VieNeu narration request. The
+worker downloads that READY audio asset into the ephemeral job directory, validates the 3–8 second
+rule, runs `pydub.AudioSegment.from_mp3(...).set_channels(1).export(..., format="wav")`, and passes
+the temporary WAV through `ref_audio`. This per-request path does not modify the shared persisted
+voice profile. The worker image includes FFmpeg for MP3 decoding.
+
 One audio part may cover multiple Chapters. The worker can translate per-part timestamps into one global audio timeline; physical concatenation is not required just to define timeline continuity.
 
 Production upload/finalize and real alignment runtime still need end-to-end hardening.

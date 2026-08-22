@@ -29,7 +29,9 @@ class NarrativeXWorker:
     """Durable worker runner using PostgreSQL as source of truth."""
 
     def __init__(
-        self, settings: WorkerSettings | None = None, concurrency_gate: asyncio.Semaphore | None = None
+        self,
+        settings: WorkerSettings | None = None,
+        concurrency_gate: asyncio.Semaphore | None = None,
     ) -> None:
         self.settings = settings or get_settings()
         self._setup_logging()
@@ -48,7 +50,9 @@ class NarrativeXWorker:
         )
         self.service = WorkerService(provider)
         self._in_flight: set[asyncio.Task[None]] = set()
-        self._concurrency_gate = concurrency_gate or asyncio.Semaphore(self.settings.worker_concurrency)
+        self._concurrency_gate = concurrency_gate or asyncio.Semaphore(
+            self.settings.worker_concurrency
+        )
 
     def _setup_logging(self) -> None:
         numeric_level = getattr(logging, self.settings.log_level.upper(), logging.INFO)

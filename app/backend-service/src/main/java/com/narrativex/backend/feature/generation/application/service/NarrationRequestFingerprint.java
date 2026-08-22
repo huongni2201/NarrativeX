@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.UUID;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -17,6 +18,26 @@ public class NarrationRequestFingerprint {
       String language,
       BigDecimal speakingRate,
       String segmentationVersion) {
+    return calculate(
+        chapterId,
+        chapterRowVersion,
+        sourceHash,
+        voiceId,
+        language,
+        speakingRate,
+        segmentationVersion,
+        null);
+  }
+
+  public String calculate(
+      Long chapterId,
+      long chapterRowVersion,
+      String sourceHash,
+      String voiceId,
+      String language,
+      BigDecimal speakingRate,
+      String segmentationVersion,
+      UUID voiceReferenceAssetId) {
     String payload =
         String.join(
             "|",
@@ -26,7 +47,8 @@ public class NarrationRequestFingerprint {
             voiceId,
             language,
             speakingRate.stripTrailingZeros().toPlainString(),
-            segmentationVersion);
+            segmentationVersion,
+            voiceReferenceAssetId == null ? "" : voiceReferenceAssetId.toString());
     try {
       byte[] digest =
           MessageDigest.getInstance("SHA-256").digest(payload.getBytes(StandardCharsets.UTF_8));

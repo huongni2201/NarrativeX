@@ -19,5 +19,7 @@ This directory records decisions that affect more than one feature or change a p
 - [ADR-0013: Out-of-band E2E credentials and repository secret scanning](./ADR-0013-test-credential-handling-and-secret-scanning.md)
 - [ADR-0014: Drop the deprecated expensive-jobs projection](./ADR-0014-drop-deprecated-expensive-jobs-projection.md)
 - [ADR-0015: Generation durable persistence migration](./ADR-0015-generation-durable-persistence-migration.md)
+- [ADR-0018: VieNeu-TTS local voice-cloning integration](./ADR-0018-vieneu-local-tts-integration.md)
+- [ADR-0019: Per-request VieNeu voice-reference upload](./ADR-0019-vieneu-user-reference-upload.md)
 
 The previous granular/transitional ADR records were consolidated into the canonical files above. Use a new sequential ADR (`ADR-0014+`) for any new cross-cutting architecture decisions.

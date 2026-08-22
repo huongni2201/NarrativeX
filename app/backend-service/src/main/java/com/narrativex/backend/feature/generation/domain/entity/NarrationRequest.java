@@ -15,7 +15,8 @@ public record NarrationRequest(
     String language,
     BigDecimal speakingRate,
     String segmentationVersion,
-    String requestFingerprint) {
+    String requestFingerprint,
+    UUID voiceReferenceAssetId) {
   public NarrationRequest {
     Objects.requireNonNull(id, "id");
     if (projectId == null || projectId <= 0)

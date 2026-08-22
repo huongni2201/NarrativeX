@@ -1,4 +1,7 @@
 spring:
+  task:
+    scheduling:
+      enabled: false
   autoconfigure:
     exclude:
       - org.springframework.boot.session.data.redis.autoconfigure.SessionDataRedisAutoConfiguration
@@ -28,6 +31,8 @@ server:
         secure: false
 
 narrativex:
+  storage:
+    upload-cleanup-enabled: false
   generation:
     outbox-dispatch-enabled: false
   security:

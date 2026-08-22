@@ -154,4 +154,37 @@ export const assetsApi = {
       { method: "POST" },
       isApiUploadFinalizeResult,
     ),
+  uploadVoiceReference: async (file: File, idempotencyKey = crypto.randomUUID()) => {
+    const expectedSha256 = await sha256(file);
+    const intent = await assetsApi.createUploadIntent(
+      {
+        type: "AUDIO",
+        originalFilename: file.name,
+        contentType: "audio/mpeg",
+        expectedSizeBytes: file.size,
+        expectedSha256,
+      },
+      idempotencyKey,
+    );
+    const uploadResponse = await fetch(intent.uploadUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "audio/mpeg",
+        ...intent.uploadHeaders,
+      },
+      body: file,
+      credentials: "omit",
+    });
+    if (!uploadResponse.ok) throw new Error(`Upload mẫu giọng thất bại (${uploadResponse.status}).`);
+    const finalized = await assetsApi.finalizeUpload(intent.id);
+    if (finalized.status !== "READY" || !finalized.mediaAssetId) {
+      throw new Error("Backend từ chối mẫu giọng sau khi verify.");
+    }
+    return finalized.mediaAssetId;
+  },
 };
+
+async function sha256(file: File) {
+  const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}

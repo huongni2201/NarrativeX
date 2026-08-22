@@ -40,6 +40,52 @@ The production path does not aggregate chapter PCM or MP3 into Python `bytes`; l
 ephemeral and never authoritative. Recovery downloads durable segment objects to scratch files and
 rebuilds the final asset without invoking TTS again.
 
+## VieNeu-TTS local provider
+
+The worker supports a local VieNeu-TTS v3 Turbo adapter through `TTS_PROVIDER_MODE=vieneu`:
+
+```text
+configured 3–8 second .wav reference
+  -> Vieneu.add_voice("Ngọc Huyền v2", reference, denoise=true)
+  -> Vieneu.save_voices()
+  -> Vieneu.infer(text, voice="Ngọc Huyền v2")
+  -> float waveform -> 16-bit mono PCM @ 48 kHz
+  -> existing durable segment/recovery pipeline
+```
+
+`VIENEU_REFERENCE_AUDIO_PATH` is a runtime-only path. The sample and the SDK-generated voice
+profile must not be committed to git or placed in a client-controlled job payload. The local
+provider maps catalog id `vieneu-ngoc-huyen-v2` to the SDK voice name `Ngọc Huyền v2`; built-in
+VieNeu voices may also be selected when their SDK name is present in the loaded profile.
+
+VieNeu v3 Turbo does not expose NarrativeX's `speakingRate` setting, so requests for this provider
+must use `speakingRate=1.0`. Emotion cues such as `[cười]` remain in the trusted narration input
+boundary and are forwarded to VieNeu. Local execution has no external provider character charge;
+durable storage and product quota policy remain authoritative in the backend.
+
+### User-provided VieNeu reference
+
+The Generate Narration modal also allows a user to attach an MP3 sample when a VieNeu catalog voice
+is selected:
+
+```text
+browser checks duration 3–8 seconds and accepts .mp3
+  -> existing AUDIO upload intent -> private R2 -> READY media asset
+  -> narration request stores voice_reference_asset_id
+  -> worker downloads to ephemeral job workspace
+  -> pydub AudioSegment.from_mp3(...)
+  -> clip to at most 8 seconds -> set_channels(1) -> export WAV
+  -> Vieneu.infer(..., ref_audio=temporary_wav)
+```
+
+The browser check is only user feedback. The worker re-validates the MP3, rejects samples shorter
+than 3 seconds, and performs the conversion with FFmpeg available in the worker image. The uploaded
+sample is never copied into a job payload, never registered in a shared worker voice profile, and is
+removed with the ephemeral workspace after the job. Only the owning user may attach the READY asset.
+
+When the reference is a real person's voice, explicit consent, tenant isolation, restricted
+retention and deletion handling are required before enabling the profile.
+
 ## User-provided audio path — implemented planning/timeline foundation
 
 ```text

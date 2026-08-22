@@ -23,6 +23,7 @@ public class NarrationRequestRow {
   private BigDecimal speakingRate;
   private String segmentationVersion;
   private String requestFingerprint;
+  private UUID voiceReferenceAssetId;
 
   public UUID id() {
     return id;
@@ -66,5 +67,9 @@ public class NarrationRequestRow {
 
   public String requestFingerprint() {
     return requestFingerprint;
+  }
+
+  public UUID voiceReferenceAssetId() {
+    return voiceReferenceAssetId;
   }
 }

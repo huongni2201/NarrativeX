@@ -25,5 +25,15 @@ def isolate_settings_environment(
         "R2_ENDPOINT",
         "R2_ENDPOINT_URL",
         "WORKER_CONCURRENCY",
+        "VIENEU_VOICE_ID",
+        "VIENEU_VOICE_NAME",
+        "VIENEU_REFERENCE_AUDIO_PATH",
+        "VIENEU_BACKEND",
+        "VIENEU_PRECISION",
+        "VIENEU_THREADS",
+        "VIENEU_DENOISE_REFERENCE",
+        "VIENEU_SAVE_VOICE_PROFILE",
+        "VIENEU_FORCE_REENROLL",
+        "VIENEU_APPLY_WATERMARK",
     ):
         monkeypatch.delenv(key, raising=False)

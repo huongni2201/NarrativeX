@@ -1,6 +1,7 @@
 export interface GenerateNarrationInput {
   voiceId: string;
   speakingRate?: number;
+  voiceReferenceAssetId?: string | null;
 }
 
 export interface VoiceOption {
@@ -10,6 +11,7 @@ export interface VoiceOption {
   gender: "FEMALE" | "MALE";
   style: "Standard" | "Neural" | "Wavenet" | "Studio";
   description: string;
+  provider?: string;
 }
 
 export const PRESET_VOICES: VoiceOption[] = [

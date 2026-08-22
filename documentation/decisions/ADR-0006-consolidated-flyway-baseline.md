@@ -41,6 +41,9 @@ incompatible schema.
   data for supported development fixtures, including continuity, media plans,
   quota reservations, narration, uploaded audio, favorites, final artifacts,
   and catalog entries. It must never run as part of a production bootstrap.
+- `db/local-migration/V4__release_demo_quota_reservations.sql` repairs the local
+  fixture by releasing seeded example reservations; it is not a production
+  quota change.
 - Keep `spring.flyway.baseline-on-migrate=false`. No `ignore-migration-patterns`
   or checksum bypass is added to hide an old migration history.
 - Existing databases created with any former migration split require an
@@ -50,8 +53,8 @@ incompatible schema.
 ## Consequences
 
 - A fresh production PostgreSQL database starts with schema V1 plus production
-  hardening V2. A local profile additionally applies seed V3 from the local-only
-  migration location.
+  hardening V2. A local profile additionally applies seed V3 and the V4 fixture
+  repair from the local-only migration location.
 - The final schema is easier to compare with JPA validation and implementation
   documentation.
 - Existing development databases are not transparently compatible with the
@@ -65,7 +68,7 @@ incompatible schema.
 
 - Apply production V1 and V2 to an empty PostgreSQL instance and verify that no
   seeded account or demo business rows exist. Apply the `local` profile and
-  verify that local V3 adds only the development fixture.
+  verify that local V3/V4 adds only the development fixture and its quota repair.
 - Start the backend with Hibernate `ddl-auto=validate`.
 - Verify JSONB columns, foreign keys, enum checks, partial indexes, chapter
   source hashes, generation-job snapshot columns, and project overview fields.

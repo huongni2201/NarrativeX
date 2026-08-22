@@ -56,3 +56,15 @@ def test_tts_requires_r2_storage(monkeypatch: pytest.MonkeyPatch) -> None:
 
     with pytest.raises(ValidationError, match="MEDIA_STORAGE_MODE=r2"):
         WorkerSettings()
+
+
+def test_vieneu_voice_settings_are_available_without_provider_credentials() -> None:
+    settings = WorkerSettings(
+        worker_env="test",
+        vieneu_voice_id="vieneu-ngoc-huyen-v2",
+        vieneu_voice_name="Ngọc Huyền v2",
+    )
+
+    assert settings.vieneu_backend == "auto"
+    assert settings.vieneu_precision == "int8"
+    assert settings.vieneu_apply_watermark is False

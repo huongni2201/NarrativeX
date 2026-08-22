@@ -120,6 +120,10 @@ export interface ApiGenerationJob {
   currentStep: string;
   entityType: string;
   entityId: number;
+  target: {
+    type: string;
+    id: number;
+  };
   errorCode: string | null;
   mediaPlanId?: string | null;
   mediaPlanRevision?: number | null;
@@ -377,6 +381,7 @@ export function isApiChapterWorkspace(value: unknown): value is ApiChapterWorksp
 }
 
 export function isApiGenerationJob(value: unknown): value is ApiGenerationJob {
+  const target = isRecord(value) && isRecord(value.target) ? value.target : null;
   return (
     isRecord(value) &&
     isString(value.jobId) &&
@@ -386,6 +391,9 @@ export function isApiGenerationJob(value: unknown): value is ApiGenerationJob {
     isString(value.currentStep) &&
     isString(value.entityType) &&
     isNumber(value.entityId) &&
+    target !== null &&
+    isString(target.type) &&
+    isNumber(target.id) &&
     (value.errorCode === null || isString(value.errorCode)) &&
     (value.mediaPlanId === undefined || value.mediaPlanId === null || isString(value.mediaPlanId)) &&
     (value.mediaPlanRevision === undefined || value.mediaPlanRevision === null || isNumber(value.mediaPlanRevision))

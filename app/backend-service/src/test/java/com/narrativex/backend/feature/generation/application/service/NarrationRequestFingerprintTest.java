@@ -3,6 +3,7 @@ package com.narrativex.backend.feature.generation.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class NarrationRequestFingerprintTest {
@@ -31,8 +32,19 @@ class NarrationRequestFingerprintTest {
     String otherVoice =
         fingerprint.calculate(
             10L, 4L, "a".repeat(64), "voice-2", "vi-VN", BigDecimal.ONE, "sentence-v1");
+    String reference =
+        fingerprint.calculate(
+            10L,
+            4L,
+            "a".repeat(64),
+            "voice-1",
+            "vi-VN",
+            BigDecimal.ONE,
+            "sentence-v1",
+            UUID.randomUUID());
 
     assertThat(edited).isNotEqualTo(base);
     assertThat(otherVoice).isNotEqualTo(base);
+    assertThat(reference).isNotEqualTo(base);
   }
 }

@@ -34,9 +34,17 @@ The backend container uses `postgres` and `redis` as service hostnames. Host-run
 
 PostgreSQL 18 uses a new data directory layout. Do not point it directly at an existing PostgreSQL 16 data volume; migrate retained data with a tested dump/restore or PostgreSQL upgrade procedure first.
 
-The repository uses `V1__initial_schema.sql` as the production Flyway baseline. Deterministic development data lives in `db/local-migration/V3__seed_demo_data.sql` and is loaded only when the `local` Spring profile is enabled after the production V2 hardening migration. A fresh production database therefore receives schema plus production-safe hardening only; a local development database also receives the opt-in demo seed. Existing databases created from an older migration history require operator-reviewed recreation or explicit re-baselining; the application does not rewrite `flyway_schema_history` automatically.
+The repository uses `V1__initial_schema.sql` as the production Flyway baseline. Deterministic development data lives in `db/local-migration/V3__seed_demo_data.sql`; local-only V4 repairs demo quota reservations so they do not block interactive analysis. These migrations are loaded only when the `local` Spring profile is enabled after the production V2 hardening migration. A fresh production database therefore receives schema plus production-safe hardening only; a local development database also receives the opt-in demo seed and fixture repair. Existing databases created from an older migration history require operator-reviewed recreation or explicit re-baselining; the application does not rewrite `flyway_schema_history` automatically.
 
 Then follow the module READMEs and `CONTRIBUTING.md` for backend, worker, and frontend checks.
+
+### Local Vertex credentials
+
+When `AI_PROVIDER_MODE=vertex`, the worker needs Google Application Default Credentials. Run
+`gcloud auth application-default login` once, set `GOOGLE_CLOUD_PROJECT`, and set
+`GOOGLE_CLOUD_CONFIG_HOST` in the untracked root `.env` to the host gcloud directory (for example,
+`C:/Users/<user>/AppData/Roaming/gcloud`). Compose mounts that directory read-only at the worker's
+`GOOGLE_APPLICATION_CREDENTIALS` path. Do not commit credential files.
 
 ## Product guardrails
 

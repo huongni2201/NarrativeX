@@ -5,6 +5,7 @@ import com.narrativex.backend.feature.assets.application.port.out.ObjectStorageP
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -12,6 +13,8 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 @Slf4j
+@ConditionalOnProperty(
+    name = "narrativex.storage.upload-cleanup-enabled", havingValue = "true", matchIfMissing = true)
 public class ExpiredUploadCleanupJob {
   private final MediaUploadSessionRepository sessions;
   private final ObjectStoragePort objectStorage;

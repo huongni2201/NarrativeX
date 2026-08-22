@@ -65,6 +65,23 @@ Furthermore, users may provide uploaded audio split across multiple files, where
 - Provider operations are reused by `(provider_key, request_fingerprint)` across retry `StageAttempt` rows. The original `stage_attempt_id` remains audit provenance and is not a retry identity constraint.
 - Reconciliation exhaustion is explicit suspension/manual attention while preserving `ProviderOperation = UNKNOWN`; it is never an automatic `FAILED` or provider resubmission. The job exposes `current_step = NARRATION_REQUIRES_ATTENTION` so operators can distinguish exhausted ambiguity from scheduled retry.
 
+### 6. Local VieNeu-TTS adapter
+
+- VieNeu-TTS v3 Turbo is integrated only through the worker's existing `TtsProvider` port. The
+  backend and narration domain do not import the VieNeu SDK.
+- The worker registers the configured voice profile from `VIENEU_REFERENCE_AUDIO_PATH` using
+  `add_voice(name, reference, denoise=true)` and persists it with `save_voices()`. The reference
+  audio and generated profile remain runtime-managed data, outside source control and job payloads.
+- VieNeu's 48 kHz waveform is converted to 16-bit mono PCM before the existing segment storage,
+  checksum, assembly and recovery path. No provider output becomes authoritative until R2 and
+  PostgreSQL completion succeeds.
+- The local provider is priced as zero external-provider cost in billing snapshots. Backend
+  entitlement, quota, abuse checks, idempotency and durable operation fencing still apply.
+- Because v3 Turbo has no speaking-rate parameter, the adapter accepts only `speakingRate=1.0`;
+  unsupported provider-specific requests fail explicitly rather than being silently ignored.
+- Real-person voice references require explicit consent and the existing restricted-retention and
+  deletion controls.
+
 ## Invariants
 
 1. Narration duration drives visual planning durations; visual beats never use arbitrary hardcoded lengths.
