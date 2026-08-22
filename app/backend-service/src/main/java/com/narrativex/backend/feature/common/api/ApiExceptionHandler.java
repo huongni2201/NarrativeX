@@ -39,6 +39,13 @@ public class ApiExceptionHandler {
   @ExceptionHandler(IllegalArgumentException.class)
   ResponseEntity<ErrorResponse> handleIllegalArgument(
       IllegalArgumentException exception, HttpServletRequest request) {
+    log.warn(
+        "Illegal argument at API boundary correlationId={} method={} path={} exceptionType={} message={}",
+        CorrelationIdFilter.correlationId(request),
+        request.getMethod(),
+        request.getRequestURI(),
+        exception.getClass().getSimpleName(),
+        exception.getMessage());
     return error(
         HttpStatus.BAD_REQUEST, ApiErrorCode.INVALID_REQUEST, "The request is invalid.", request);
   }

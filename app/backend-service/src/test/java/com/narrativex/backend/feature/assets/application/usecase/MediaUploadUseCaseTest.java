@@ -116,6 +116,72 @@ class MediaUploadUseCaseTest {
   }
 
   @Test
+  void finalizeReusesExistingVerifiedAssetForDuplicateChecksum() {
+    UUID sessionId = UUID.randomUUID();
+    UploadSession session = session(sessionId, "PENDING_UPLOAD", null);
+    UUID existingAssetId = UUID.randomUUID();
+    when(sessions.findOwned(ACCOUNT, sessionId)).thenReturn(Optional.of(session));
+    when(objectStorage.head(session.storageKey()))
+        .thenReturn(new StoredObject(session.storageKey(), session.expectedSize(), session.contentType(), SHA));
+    when(assets.findVerifiedByChecksum(ACCOUNT, SHA))
+        .thenReturn(
+            new com.narrativex.backend.feature.assets.application.query.MediaAssetView(
+                existingAssetId,
+                session.assetType(),
+                "USER_UPLOAD",
+                "media/existing",
+                session.originalFilename(),
+                session.contentType(),
+                session.expectedSize(),
+                SHA,
+                null,
+                "READY",
+                Instant.now()));
+    when(sessions.markReady(ACCOUNT, sessionId, existingAssetId)).thenReturn(true);
+
+    UploadFinalizeView response = useCase.finalizeUpload(sessionId);
+
+    assertThat(response.status()).isEqualTo("READY");
+    assertThat(response.mediaAssetId()).isEqualTo(existingAssetId);
+    verify(assets, never()).create(any(), any());
+    verify(objectStorage).delete(session.storageKey());
+  }
+
+  @Test
+  void finalizeAcceptsStorageContentTypeWithParameters() {
+    UUID sessionId = UUID.randomUUID();
+    UploadSession session = session(sessionId, "PENDING_UPLOAD", null);
+    when(sessions.findOwned(ACCOUNT, sessionId)).thenReturn(Optional.of(session));
+    when(objectStorage.head(session.storageKey()))
+        .thenReturn(
+            new StoredObject(
+                session.storageKey(),
+                session.expectedSize(),
+                "audio/wav; charset=binary",
+                SHA));
+    UUID assetId = UUID.randomUUID();
+    when(assets.create(any(), any()))
+        .thenReturn(
+            new com.narrativex.backend.feature.assets.application.query.MediaAssetView(
+                assetId,
+                session.assetType(),
+                "USER_UPLOAD",
+                session.storageKey(),
+                session.originalFilename(),
+                session.contentType(),
+                session.expectedSize(),
+                SHA,
+                null,
+                "PENDING_UPLOAD",
+                Instant.now()));
+    when(sessions.markReady(ACCOUNT, sessionId, assetId)).thenReturn(true);
+
+    UploadFinalizeView response = useCase.finalizeUpload(sessionId);
+
+    assertThat(response.status()).isEqualTo("READY");
+  }
+
+  @Test
   void finalizeRejectsChecksumMismatchWithoutPersistingAsset() {
     UUID sessionId = UUID.randomUUID();
     UploadSession session = session(sessionId, "PENDING_UPLOAD", null);

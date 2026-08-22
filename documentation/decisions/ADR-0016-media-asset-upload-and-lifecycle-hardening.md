@@ -7,8 +7,13 @@
 ## Decision
 
 - Clients create an upload intent; the backend generates the storage key and presigned R2 URL.
+- Browser presigned uploads require a bucket CORS policy for each allowed frontend origin,
+  including `Content-Type` and `x-amz-checksum-sha256`; the local policy is documented in
+  `documentation/workflows/R2_BROWSER_UPLOAD_CORS.md`.
 - Finalization reads object metadata from R2 and persists a `READY` asset only after size, MIME,
-  and SHA-256 match the intent. Missing or mismatched objects become `REJECTED`.
+  and SHA-256 match the intent. Provider MIME parameters are normalized, while checksum
+  verification accepts the provider's base64 or hex representation. Missing or mismatched
+  objects become `REJECTED`.
 - Media upload sessions are durable PostgreSQL rows. `Idempotency-Key` retries reuse the same
   session when the request is equivalent.
 - MediaAsset lifecycle changes are guarded by an explicit transition service. Deletion is a

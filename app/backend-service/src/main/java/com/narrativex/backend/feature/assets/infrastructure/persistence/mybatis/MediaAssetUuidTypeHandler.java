@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis;
 
+import java.nio.ByteBuffer;
 import java.sql.CallableStatement;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -33,6 +34,15 @@ public class MediaAssetUuidTypeHandler extends BaseTypeHandler<UUID> {
   }
 
   private static UUID parse(Object value) {
-    return value == null ? null : UUID.fromString(value.toString());
+    if (value == null) return null;
+    if (value instanceof UUID uuid) return uuid;
+    if (value instanceof byte[] bytes) {
+      if (bytes.length == 16) {
+        ByteBuffer buffer = ByteBuffer.wrap(bytes);
+        return new UUID(buffer.getLong(), buffer.getLong());
+      }
+      return UUID.fromString(new String(bytes, java.nio.charset.StandardCharsets.UTF_8));
+    }
+    return UUID.fromString(value.toString());
   }
 }

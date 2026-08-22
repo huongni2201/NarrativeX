@@ -12,6 +12,8 @@ public interface MediaAssetRepository {
 
   MediaAssetView findOwned(String accountId, UUID id);
 
+  MediaAssetView findVerifiedByChecksum(String accountId, String sha256);
+
   MediaAssetView markReady(String accountId, UUID id);
 
   MediaAssetView startUpload(String accountId, UUID id);

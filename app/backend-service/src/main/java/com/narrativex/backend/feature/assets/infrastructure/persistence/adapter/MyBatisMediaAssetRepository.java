@@ -119,20 +119,25 @@ public class MyBatisMediaAssetRepository implements MediaAssetRepository {
   }
 
   @Override
+  @Transactional(readOnly = true)
+  public MediaAssetView findVerifiedByChecksum(String accountId, String sha256) {
+    MediaAssetRow row = mapper.findVerifiedByChecksum(accountId, sha256);
+    return row == null ? null : toView(row);
+  }
+
+  @Override
   @Transactional
   public MediaAssetView approve(String accountId, UUID id) {
     MediaAssetRow current = requireOwnedRow(accountId, id);
     transitionService.requireAllowed(statusOf(current), MediaAssetStatus.READY);
-    try {
-      if (mapper.approve(accountId, id) != 1) {
-        throw optimisticConflict(id);
-      }
-      return requireOwned(accountId, id);
-    } catch (DataIntegrityViolationException exception) {
-      MediaAssetRow existing = mapper.findVerifiedByChecksum(accountId, current.getSha256());
-      if (existing != null && !existing.getId().equals(id)) return toView(existing);
-      throw exception;
+    MediaAssetRow existing = mapper.findVerifiedByChecksum(accountId, current.getSha256());
+    if (existing != null && !existing.getId().equals(id)) {
+      return toView(existing);
     }
+    if (mapper.approve(accountId, id) != 1) {
+      throw optimisticConflict(id);
+    }
+    return requireOwned(accountId, id);
   }
 
   @Override

@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis;
 
+import java.nio.ByteBuffer;
 import java.sql.CallableStatement;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -18,19 +19,29 @@ public class UuidTypeHandler extends BaseTypeHandler<UUID> {
 
   @Override
   public UUID getNullableResult(ResultSet rs, String columnName) throws SQLException {
-    Object value = rs.getObject(columnName);
-    return value == null ? null : UUID.fromString(value.toString());
+    return parse(rs.getObject(columnName));
   }
 
   @Override
   public UUID getNullableResult(ResultSet rs, int columnIndex) throws SQLException {
-    Object value = rs.getObject(columnIndex);
-    return value == null ? null : UUID.fromString(value.toString());
+    return parse(rs.getObject(columnIndex));
   }
 
   @Override
   public UUID getNullableResult(CallableStatement cs, int columnIndex) throws SQLException {
-    Object value = cs.getObject(columnIndex);
-    return value == null ? null : UUID.fromString(value.toString());
+    return parse(cs.getObject(columnIndex));
+  }
+
+  private static UUID parse(Object value) {
+    if (value == null) return null;
+    if (value instanceof UUID uuid) return uuid;
+    if (value instanceof byte[] bytes) {
+      if (bytes.length == 16) {
+        ByteBuffer buffer = ByteBuffer.wrap(bytes);
+        return new UUID(buffer.getLong(), buffer.getLong());
+      }
+      return UUID.fromString(new String(bytes, java.nio.charset.StandardCharsets.UTF_8));
+    }
+    return UUID.fromString(value.toString());
   }
 }

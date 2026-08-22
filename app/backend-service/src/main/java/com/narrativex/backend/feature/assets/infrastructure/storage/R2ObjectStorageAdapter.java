@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 import javax.crypto.Mac;
@@ -93,8 +94,12 @@ public class R2ObjectStorageAdapter implements ObjectStoragePort {
     if (response.statusCode() < 200 || response.statusCode() >= 300) {
       throw new IllegalStateException("Object storage HEAD request failed with status " + response.statusCode());
     }
-    long size = response.headers().firstValue("content-length").map(Long::parseLong).orElse(-1L);
-    String contentType = response.headers().firstValue("content-type").orElse("");
+    long size =
+        response.headers().firstValue("content-length")
+            .map(R2ObjectStorageAdapter::parseSize)
+            .orElse(-1L);
+    String contentType =
+        normalizeContentType(response.headers().firstValue("content-type").orElse(""));
     String checksum = response.headers().firstValue("x-amz-checksum-sha256").orElse(null);
     if (checksum != null) checksum = decodeChecksum(checksum);
     return new StoredObject(storageKey, size, contentType, checksum);
@@ -133,10 +138,10 @@ public class R2ObjectStorageAdapter implements ObjectStoragePort {
             + ", SignedHeaders=" + signedHeaders
             + ", Signature="
             + hex(hmac(signingKey(shortDate), "AWS4-HMAC-SHA256\n" + amzDate + "\n" + scope + "\n" + sha256(canonicalRequest)));
+    // java.net.http derives the restricted Host header from the request URI.
     HttpRequest request =
         HttpRequest.newBuilder(uri)
             .timeout(REQUEST_TIMEOUT)
-            .header("Host", host(uri))
             .header("x-amz-date", amzDate)
             .header("x-amz-content-sha256", payloadHash)
             .header("Authorization", authorization)
@@ -200,11 +205,31 @@ public class R2ObjectStorageAdapter implements ObjectStoragePort {
   }
 
   private static String decodeChecksum(String checksum) {
+    String normalized = checksum.trim();
+    if (normalized.matches("^[0-9a-fA-F]{64}$")) return normalized.toLowerCase(Locale.ROOT);
     try {
-      return HexFormat.of().formatHex(Base64.getDecoder().decode(checksum));
+      byte[] decoded = Base64.getDecoder().decode(normalized);
+      if (decoded.length != 32) return normalized;
+      return HexFormat.of().formatHex(decoded);
     } catch (IllegalArgumentException ignored) {
-      return checksum;
+      return normalized;
     }
+  }
+
+  private static long parseSize(String value) {
+    try {
+      long size = Long.parseLong(value.trim());
+      return size >= 0 ? size : -1L;
+    } catch (NumberFormatException ignored) {
+      return -1L;
+    }
+  }
+
+  private static String normalizeContentType(String contentType) {
+    int parametersStart = contentType.indexOf(';');
+    String mediaType =
+        parametersStart >= 0 ? contentType.substring(0, parametersStart) : contentType;
+    return mediaType.trim().toLowerCase(Locale.ROOT);
   }
 
   private static String base64Checksum(String checksumHex) {

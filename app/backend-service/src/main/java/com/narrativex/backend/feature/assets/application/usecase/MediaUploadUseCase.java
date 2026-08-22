@@ -8,6 +8,7 @@ import com.narrativex.backend.feature.assets.application.port.out.MediaUploadSes
 import com.narrativex.backend.feature.assets.application.port.out.ObjectStoragePort;
 import com.narrativex.backend.feature.assets.application.port.out.ObjectStoragePort.CreateUpload;
 import com.narrativex.backend.feature.assets.application.port.out.ObjectStoragePort.PresignedUpload;
+import com.narrativex.backend.feature.assets.application.query.MediaAssetView;
 import com.narrativex.backend.feature.assets.application.query.UploadFinalizeView;
 import com.narrativex.backend.feature.assets.application.query.UploadIntentView;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
@@ -113,6 +114,15 @@ public class MediaUploadUseCase {
       return new UploadFinalizeView(session.id(), "REJECTED", null);
     }
 
+    MediaAssetView existing = assets.findVerifiedByChecksum(accountId, object.sha256());
+    if (existing != null) {
+      if (!sessions.markReady(accountId, id, existing.id())) {
+        throw new ResourceConflictException("Upload finalization raced with another request");
+      }
+      deleteQuietly(session.storageKey());
+      return new UploadFinalizeView(session.id(), "READY", existing.id());
+    }
+
     MediaAssetRepository.CreateMediaAsset command =
         new MediaAssetRepository.CreateMediaAsset(
             UUID.randomUUID(),
@@ -120,7 +130,7 @@ public class MediaUploadUseCase {
             "USER_UPLOAD",
             session.storageKey(),
             session.originalFilename(),
-            object.contentType(),
+            normalizeContentType(object.contentType()),
             object.sizeBytes(),
             object.sha256(),
             null);
@@ -203,8 +213,16 @@ public class MediaUploadUseCase {
   private static boolean matches(
       UploadSession session, ObjectStoragePort.StoredObject object) {
     return session.expectedSize() == object.sizeBytes()
-        && session.contentType().equalsIgnoreCase(object.contentType())
+        && normalizeContentType(session.contentType())
+            .equals(normalizeContentType(object.contentType()))
         && session.expectedSha256().equalsIgnoreCase(object.sha256());
+  }
+
+  private static String normalizeContentType(String value) {
+    if (value == null) return "";
+    int parametersStart = value.indexOf(';');
+    String mediaType = parametersStart >= 0 ? value.substring(0, parametersStart) : value;
+    return mediaType.trim().toLowerCase(Locale.ROOT);
   }
 
   private static String normalizeIdempotencyKey(String key) {
