@@ -89,6 +89,15 @@ Furthermore, users may provide uploaded audio split across multiple files, where
 - The AI worker streams the reference audio, enforces 3–8 second clipping, converts to mono WAV via FFmpeg/pydub, and passes it to VieNeu via `ref_audio`.
 - Temporary reference audio is excluded from job payloads and persistent profile directories to prevent cross-tenant voice leakage.
 
+### 8. Non-root model-cache home
+
+- The worker container runs as `appuser` with an explicit writable `/home/appuser` home.
+- `HOME`, `XDG_CACHE_HOME`, and `HF_HOME` point to that home and its cache directory so VieNeu and
+  Hugging Face model/profile downloads do not resolve to `/nonexistent`, the default home for a
+  Debian system user.
+- The mounted Google ADC directory remains read-only under `/home/appuser/.config/gcloud`; it is
+  separate from the writable model cache.
+
 ## Invariants
 
 1. Narration duration drives visual planning durations; visual beats never use arbitrary hardcoded lengths.

@@ -7,6 +7,7 @@ import {
   Layers,
   Loader2,
   Pencil,
+  ShieldAlert,
   Sparkles,
   Volume2,
 } from "lucide-react";
@@ -45,6 +46,8 @@ export function ChapterOverviewTab({
   onOpenStoryboard,
 }: Readonly<ChapterOverviewTabProps>) {
   const [isNarrationOpen, setIsNarrationOpen] = useState(false);
+  const safetyDecision = workspace.safety.decision.toUpperCase();
+  const safetyPending = safetyDecision !== "SAFE";
   const analyzeLabel = analysisActive
     ? workspace.pipeline.sourceOutdated
       ? "Đang phân tích lại…"
@@ -119,6 +122,21 @@ export function ChapterOverviewTab({
           </div>
         )}
 
+        {safetyPending && (
+          <div
+            role="status"
+            className="mt-4 flex items-start gap-2.5 rounded-lg border border-amber-500/25 bg-amber-500/5 p-3 text-xs text-amber-200"
+          >
+            <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+            <div>
+              <p className="font-medium">Phân tích đang chờ kiểm duyệt an toàn</p>
+              <p className="mt-1 leading-5 text-amber-200/75">
+                Nội dung mới tạo đang ở trạng thái {safetyDecision}. Hiện phiên bản này chưa có luồng duyệt an toàn, nên hệ thống tạm khóa Phân tích.
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="mt-5 border-t border-border pt-4">
           <h3 className="text-xs font-semibold text-slate-300">Hành động nhanh</h3>
           <div className="mt-3 space-y-2.5">
@@ -141,7 +159,9 @@ export function ChapterOverviewTab({
                 workspace.summary.visualBeatCount > 0 &&
                 !workspace.pipeline.sourceOutdated
                   ? "Chapter đã có Scene/Visual Beat được duyệt. Hãy chỉnh sửa và lưu nội dung Chapter trước khi phân tích lại."
-                  : "Phân tích hiện chưa khả dụng; hãy lưu nội dung Chapter và kiểm tra trạng thái quyền sử dụng."}
+                  : safetyPending
+                    ? "Phân tích sẽ khả dụng sau khi nội dung được kiểm duyệt an toàn."
+                    : "Phân tích hiện chưa khả dụng; hãy lưu nội dung Chapter và kiểm tra trạng thái quyền sử dụng."}
               </p>
             )}
             <QuickAction label="Review Visuals" enabled={workspace.capabilities.canGenerateVisuals} onClick={onOpenStoryboard} />

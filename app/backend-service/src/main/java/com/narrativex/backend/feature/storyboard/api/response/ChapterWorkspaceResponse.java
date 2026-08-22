@@ -6,10 +6,13 @@ import java.util.List;
 public record ChapterWorkspaceResponse(
     ChapterResponse chapter,
     String projectName,
+    Safety safety,
     Summary summary,
     Pipeline pipeline,
     List<PreviewScene> previewScenes,
     Capabilities capabilities) {
+
+  public record Safety(String decision) {}
 
   public record Summary(int sceneCount, int visualBeatCount, long estimatedDurationSeconds) {}
 

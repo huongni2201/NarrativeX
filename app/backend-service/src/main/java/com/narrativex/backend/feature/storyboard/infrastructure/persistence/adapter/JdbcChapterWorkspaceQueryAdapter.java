@@ -22,6 +22,7 @@ public class JdbcChapterWorkspaceQueryAdapter implements ChapterWorkspaceReadRep
     AggregateRow aggregate = loadAggregate(projectId, chapterId);
     return new Snapshot(
         aggregate.projectName(),
+        aggregate.moderationDecision(),
         loadPreviewScenes(projectId, chapterId),
         aggregate.sceneCount(),
         aggregate.visualBeatCount(),
@@ -163,6 +164,7 @@ public class JdbcChapterWorkspaceQueryAdapter implements ChapterWorkspaceReadRep
                  LIMIT 1
             )
             SELECT p.name AS project_name,
+                   sv.moderation_decision,
                    ss.scene_count,
                    bs.visual_beat_count,
                    ss.duration_seconds,
@@ -186,6 +188,9 @@ public class JdbcChapterWorkspaceQueryAdapter implements ChapterWorkspaceReadRep
                    (SELECT job_status FROM latest_render_job) AS render_job_status,
                    (SELECT completed_at FROM latest_render_artifact) AS render_completed_at
               FROM projects p
+              JOIN chapters c ON c.id = ?
+              JOIN story_versions sv ON sv.id = c.story_version_id
+                                      AND sv.project_id = p.id
               CROSS JOIN current_revision cr
               CROSS JOIN scene_stats ss
               CROSS JOIN beat_stats bs
@@ -196,6 +201,7 @@ public class JdbcChapterWorkspaceQueryAdapter implements ChapterWorkspaceReadRep
              WHERE p.id = ?
             """,
             (rs, rowNum) -> mapAggregate(rs),
+            chapterId,
             chapterId,
             chapterId,
             chapterId,
@@ -237,6 +243,7 @@ public class JdbcChapterWorkspaceQueryAdapter implements ChapterWorkspaceReadRep
   private static AggregateRow mapAggregate(ResultSet rs) throws SQLException {
     return new AggregateRow(
         rs.getString("project_name"),
+        rs.getString("moderation_decision"),
         rs.getInt("scene_count"),
         rs.getInt("visual_beat_count"),
         rs.getLong("duration_seconds"),
@@ -346,6 +353,7 @@ public class JdbcChapterWorkspaceQueryAdapter implements ChapterWorkspaceReadRep
 
   private record AggregateRow(
       String projectName,
+      String moderationDecision,
       int sceneCount,
       int visualBeatCount,
       long estimatedDurationSeconds,

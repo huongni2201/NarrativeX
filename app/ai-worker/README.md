@@ -42,6 +42,10 @@ reuses it for each narration segment. `VIENEU_BACKEND=auto` selects the v3 Turbo
 CPU; set `VIENEU_BACKEND=pytorch` only when the runtime has the corresponding GPU stack. The sample
 is never copied into a durable job payload. Real-person samples require explicit consent.
 
+The worker image runs as non-root `appuser` with a writable `/home/appuser` runtime home. VieNeu's
+model and profile caches are stored under `/home/appuser/.cache/huggingface`; this avoids the
+`/nonexistent` home assigned by default to Debian system users.
+
 The narration UI can also attach a user-owned MP3 reference to a VieNeu narration request. The
 worker downloads that READY audio asset into the ephemeral job directory, validates the 3–8 second
 rule, runs `pydub.AudioSegment.from_mp3(...).set_channels(1).export(..., format="wav")`, and passes

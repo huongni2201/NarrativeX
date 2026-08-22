@@ -30,6 +30,7 @@ Chapter and Scene are independent aggregate roots. Chapter owns Chapter-level so
 - Chapter source is persisted before analysis.
 - Analysis is explicitly requested through `POST /api/v1/projects/{projectId}/chapters/{chapterId}/analysis-jobs`.
 - Backend locks/reloads the persisted Chapter state and performs safety/entitlement/quota/estimated-cost admission before durable enqueue.
+- The Chapter Workspace exposes the persisted StoryVersion moderation decision and reports `canAnalyze=false` until the decision is `SAFE`; this keeps the UI aligned with the fail-closed analysis admission gate.
 - Durable enqueue persists `OperationPlan`, `GenerationJob`, `StageAttempt` and outbox state before worker execution.
 - Redis generation hints are non-authoritative.
 - Worker validates the persisted Chapter snapshot before result materialization.
