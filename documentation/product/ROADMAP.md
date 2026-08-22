@@ -17,27 +17,15 @@ Also implemented as foundations: R2-only durable media topology, worker claim/le
 
 GenerationJob, StageAttempt, OperationPlan, MediaPlan, generation outbox enqueue, Job History and the Chapter Analyze safety gate are no longer future migration items. The outbox dispatcher's short-lived JDBC claim/lease query remains a deliberate operational exception.
 
-## Track A — Finish persistence simplification
+## Track A — Preserve persistence architecture — IMPLEMENTED
 
-### A1 — StoryVersion MyBatis — NEXT
-- explicit row/resultMap/SQL;
-- append/activation/version invariants;
-- PostgreSQL contract tests;
-- remove active JPA adapter after cutover.
+### A1 — MyBatis-only production boundary — IMPLEMENTED
+- StoryVersion, quota/billing, storyboard/continuity, auth and other CRUD/query adapters use MyBatis + explicit SQL;
+- generation outbox enqueue and dispatcher claim/lease use dedicated MyBatis mappers;
+- the backend build has no JPA dependency and production code has no `JdbcTemplate`;
+- architecture and PostgreSQL integration tests are the regression gate.
 
-### A2 — Quota / reservation / usage — TARGET
-- migrate remaining JDBC/mixed billing and reservation boundaries behind semantic MyBatis mappers;
-- preserve atomic admission/reservation behavior;
-- add guarded settlement/release queries and PostgreSQL evidence.
-
-### A3 — Storyboard / continuity persistence — TARGET
-- Scene/VisualBeat/revisions;
-- Character/ProjectCharacter/Location continuity write paths;
-- preserve review/version/invalidation semantics while cutting over.
-
-### A4 — Remaining CRUD/query cleanup — TARGET
-- migrate remaining low-risk JPA/JDBC adapters by value/risk;
-- remove unused JPA infrastructure only after architecture and PostgreSQL tests prove no active boundary depends on it.
+Further work in this track is maintenance and query optimization, not framework migration.
 
 ## Track B — First durable MP4
 
