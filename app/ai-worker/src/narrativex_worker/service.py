@@ -21,7 +21,11 @@ class WorkerService:
         return await self.provider.submit(request)
 
     async def reconcile_chapter_analysis(self, operation: ProviderOperation) -> ProviderOperation:
-        logger.info("Reconciling chapter analysis operation=%s", operation.operation_name)
+        logger.info(
+            "Reconciling chapter analysis provider_key=%s, operation_id=%s",
+            operation.provider_key,
+            operation.operation_id,
+        )
         status = await self.provider.get_status(operation)
         if status.status is not ProviderOperationStatus.UNKNOWN and status.result is not None:
             return status
