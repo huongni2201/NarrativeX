@@ -1,0 +1,219 @@
+name: ${COMPOSE_PROJECT_NAME:-narrativex-prod}
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes: [postgres-data:/var/lib/postgresql]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [appnet]
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: [redis-data:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [appnet]
+
+  backend:
+    build: {context: ./app/backend-service, dockerfile: Dockerfile}
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      PORT: 8080
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      NARRATIVEX_SESSION_TIMEOUT: ${NARRATIVEX_SESSION_TIMEOUT}
+      NARRATIVEX_SESSION_REDIS_NAMESPACE: ${NARRATIVEX_SESSION_REDIS_NAMESPACE}
+      NARRATIVEX_OIDC_ENABLED: ${NARRATIVEX_OIDC_ENABLED}
+      NARRATIVEX_LOCAL_DEV_IDENTITY_ENABLED: "false"
+      NARRATIVEX_FRONTEND_BASE_URL: https://${APP_DOMAIN}
+      NARRATIVEX_CORS_ALLOWED_ORIGINS: https://${APP_DOMAIN}
+      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET}
+      NARRATIVEX_MAX_STORY_CHARACTERS: ${NARRATIVEX_MAX_STORY_CHARACTERS}
+      NARRATIVEX_MAX_ESTIMATED_INPUT_TOKENS: ${NARRATIVEX_MAX_ESTIMATED_INPUT_TOKENS}
+      NARRATIVEX_MAX_IMPORT_FILE_SIZE: ${NARRATIVEX_MAX_IMPORT_FILE_SIZE}
+      NARRATIVEX_MAX_IMPORT_REQUEST_SIZE: ${NARRATIVEX_MAX_IMPORT_REQUEST_SIZE}
+      NARRATIVEX_MEDIA_GENERATION_ENABLED: "true"
+      NARRATIVEX_STORAGE_UPLOAD_INTENT_TTL: ${NARRATIVEX_STORAGE_UPLOAD_INTENT_TTL}
+      VERTEX_GEMINI_ENABLED: "true"
+      GOOGLE_CLOUD_PROJECT: ${GOOGLE_CLOUD_PROJECT}
+      VERTEX_LOCATION: ${VERTEX_LOCATION}
+      VERTEX_GEMINI_MODEL: ${VERTEX_GEMINI_MODEL}
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
+      R2_BUCKET: ${R2_BUCKET}
+      R2_ENDPOINT: ${R2_ENDPOINT}
+    expose: ["8080"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    networks: [appnet]
+
+  frontend:
+    build:
+      context: ./app/frontend-web
+      dockerfile: Dockerfile
+      args:
+        BACKEND_INTERNAL_URL: http://backend:8080
+        NEXT_PUBLIC_API_BASE_URL: ""
+        NEXT_PUBLIC_AUTH_BASE_URL: ""
+        NEXT_PUBLIC_NX_DATA_MODE: api
+    restart: unless-stopped
+    environment:
+      BACKEND_INTERNAL_URL: http://backend:8080
+      NODE_ENV: production
+    expose: ["3000"]
+    depends_on:
+      backend: {condition: service_healthy}
+    networks: [appnet]
+
+  ai-worker:
+    build: {context: ./app/ai-worker, dockerfile: Dockerfile}
+    restart: unless-stopped
+    environment:
+      WORKER_NAME: narrativex-prod-ai
+      WORKER_ENV: production
+      WORKER_ROLES: analysis,translation,media-validation,image-generation
+      LOG_LEVEL: ${WORKER_LOG_LEVEL}
+      BACKEND_URL: http://backend:8080
+      DATABASE_URL: postgresql://${DB_USERNAME}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
+      POLL_INTERVAL_SECONDS: ${WORKER_POLL_INTERVAL_SECONDS}
+      LEASE_SECONDS: ${WORKER_LEASE_SECONDS}
+      WORKER_CONCURRENCY: ${GENERAL_WORKER_CONCURRENCY}
+      MEDIA_DOWNLOAD_TIMEOUT_SECONDS: ${MEDIA_DOWNLOAD_TIMEOUT_SECONDS}
+      MEDIA_PROBE_TIMEOUT_SECONDS: ${MEDIA_PROBE_TIMEOUT_SECONDS}
+      MEDIA_MAX_AUDIO_BYTES: ${MEDIA_MAX_AUDIO_BYTES}
+      MEDIA_MAX_IMAGE_BYTES: ${MEDIA_MAX_IMAGE_BYTES}
+      MEDIA_MAX_VIDEO_BYTES: ${MEDIA_MAX_VIDEO_BYTES}
+      AI_PROVIDER_MODE: vertex
+      VERTEX_PROJECT_ID: ${GOOGLE_CLOUD_PROJECT}
+      VERTEX_LOCATION: ${VERTEX_LOCATION}
+      VERTEX_MODEL: ${VERTEX_GEMINI_MODEL}
+      VERTEX_TIMEOUT_SECONDS: ${VERTEX_TIMEOUT_SECONDS}
+      IMAGE_PROVIDER_MODE: vertex
+      VERTEX_IMAGE_MODEL: ${VERTEX_IMAGE_MODEL}
+      VERTEX_IMAGE_LOCATION: ${VERTEX_IMAGE_LOCATION}
+      VERTEX_IMAGE_TIMEOUT_SECONDS: ${VERTEX_IMAGE_TIMEOUT_SECONDS}
+      VERTEX_IMAGE_SERVICE_TIER: standard
+      VERTEX_IMAGE_EXECUTION_MODE: batch
+      VERTEX_IMAGE_BATCH_MAX_ITEMS: ${VERTEX_IMAGE_BATCH_MAX_ITEMS}
+      VERTEX_IMAGE_BATCH_LOCATION: ${VERTEX_IMAGE_BATCH_LOCATION}
+      VERTEX_IMAGE_BATCH_GCS_BUCKET: ${VERTEX_IMAGE_BATCH_GCS_BUCKET}
+      VERTEX_IMAGE_BATCH_GCS_PREFIX: ${VERTEX_IMAGE_BATCH_GCS_PREFIX}
+      VERTEX_IMAGE_BATCH_POLL_SECONDS: ${VERTEX_IMAGE_BATCH_POLL_SECONDS}
+      VERTEX_IMAGE_BATCH_HTTP_TIMEOUT_SECONDS: ${VERTEX_IMAGE_BATCH_HTTP_TIMEOUT_SECONDS}
+      VERTEX_IMAGE_UNKNOWN_MAX_AGE_SECONDS: ${VERTEX_IMAGE_UNKNOWN_MAX_AGE_SECONDS}
+      IMAGE_MAX_OUTPUT_BYTES: ${IMAGE_MAX_OUTPUT_BYTES}
+      TTS_PROVIDER_MODE: disabled
+      MEDIA_STORAGE_MODE: r2
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
+      R2_BUCKET: ${R2_BUCKET}
+      R2_ENDPOINT: ${R2_ENDPOINT}
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/gcp-service-account.json
+    volumes:
+      - type: bind
+        source: ${GCP_SERVICE_ACCOUNT_FILE}
+        target: /run/secrets/gcp-service-account.json
+        read_only: true
+    depends_on:
+      backend: {condition: service_healthy}
+      postgres: {condition: service_healthy}
+    networks: [appnet]
+
+  narration-worker:
+    build: {context: ./app/ai-worker, dockerfile: Dockerfile}
+    restart: unless-stopped
+    environment:
+      WORKER_NAME: narrativex-prod-narration
+      WORKER_ENV: production
+      WORKER_ROLES: narration
+      LOG_LEVEL: ${WORKER_LOG_LEVEL}
+      BACKEND_URL: http://backend:8080
+      DATABASE_URL: postgresql://${DB_USERNAME}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
+      POLL_INTERVAL_SECONDS: ${WORKER_POLL_INTERVAL_SECONDS}
+      LEASE_SECONDS: ${WORKER_LEASE_SECONDS}
+      WORKER_CONCURRENCY: ${NARRATION_WORKER_CONCURRENCY}
+      MEDIA_DOWNLOAD_TIMEOUT_SECONDS: ${MEDIA_DOWNLOAD_TIMEOUT_SECONDS}
+      MEDIA_PROBE_TIMEOUT_SECONDS: ${MEDIA_PROBE_TIMEOUT_SECONDS}
+      MEDIA_MAX_AUDIO_BYTES: ${MEDIA_MAX_AUDIO_BYTES}
+      MEDIA_MAX_IMAGE_BYTES: ${MEDIA_MAX_IMAGE_BYTES}
+      MEDIA_MAX_VIDEO_BYTES: ${MEDIA_MAX_VIDEO_BYTES}
+      AI_PROVIDER_MODE: disabled
+      IMAGE_PROVIDER_MODE: disabled
+      TTS_PROVIDER_MODE: vieneu
+      NARRATION_MP3_BITRATE: ${NARRATION_MP3_BITRATE}
+      VIENEU_VOICE_ID: ${VIENEU_VOICE_ID}
+      VIENEU_VOICE_NAME: ${VIENEU_VOICE_NAME}
+      VIENEU_REFERENCE_AUDIO_PATH: /run/narrativex/voices/reference.wav
+      VIENEU_BACKEND: ${VIENEU_BACKEND}
+      VIENEU_PRECISION: ${VIENEU_PRECISION}
+      VIENEU_THREADS: ${VIENEU_THREADS}
+      VIENEU_BATCH_MAX_SEGMENTS: ${VIENEU_BATCH_MAX_SEGMENTS}
+      VIENEU_MAX_BATCH_SIZE: ${VIENEU_MAX_BATCH_SIZE}
+      VIENEU_INFERENCE_CONCURRENCY: ${VIENEU_INFERENCE_CONCURRENCY}
+      VIENEU_DENOISE_REFERENCE: ${VIENEU_DENOISE_REFERENCE}
+      VIENEU_SAVE_VOICE_PROFILE: ${VIENEU_SAVE_VOICE_PROFILE}
+      VIENEU_FORCE_REENROLL: ${VIENEU_FORCE_REENROLL}
+      VIENEU_APPLY_WATERMARK: ${VIENEU_APPLY_WATERMARK}
+      MEDIA_STORAGE_MODE: r2
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
+      R2_BUCKET: ${R2_BUCKET}
+      R2_ENDPOINT: ${R2_ENDPOINT}
+    volumes:
+      - type: bind
+        source: ${VIENEU_REFERENCE_AUDIO_FILE}
+        target: /run/narrativex/voices/reference.wav
+        read_only: true
+      - vieneu-home:/home/appuser
+    depends_on:
+      backend: {condition: service_healthy}
+      postgres: {condition: service_healthy}
+    networks: [appnet]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    ports: ["80:80", "443:443", "443:443/udp"]
+    volumes:
+      - ./Caddyfile.prod:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on: [frontend, backend]
+    networks: [appnet]
+
+networks:
+  appnet: {driver: bridge}
+volumes:
+  postgres-data:
+  redis-data:
+  vieneu-home:
+  caddy-data:
+  caddy-config:
