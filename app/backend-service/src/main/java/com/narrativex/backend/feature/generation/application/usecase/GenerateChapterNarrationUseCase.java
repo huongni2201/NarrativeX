@@ -22,6 +22,7 @@ import com.narrativex.backend.feature.generation.domain.enums.JobType;
 import com.narrativex.backend.feature.generation.domain.enums.ResourceClass;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
+import java.math.BigDecimal;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -60,6 +61,7 @@ public class GenerateChapterNarrationUseCase {
     if (chapter.sourceText().isBlank()) {
       throw new IllegalArgumentException("Chapter source must be saved before narration");
     }
+    validateVieNeuSpeakingRate(command);
     validateVoiceReferenceAsset(userId, command);
 
     String fingerprint =
@@ -77,11 +79,14 @@ public class GenerateChapterNarrationUseCase {
     generationJobRepository.acquireIdempotencyLock(idempotencyKey, userId);
     var existing = generationJobRepository.findByIdempotencyKey(idempotencyKey, userId);
     if (existing.isPresent()) {
-      log.debug("Found existing narration job id={} for idempotencyKey='{}'", existing.get().getId(), idempotencyKey);
+      log.debug(
+          "Found existing narration job id={} for idempotencyKey='{}'",
+          existing.get().getId(),
+          idempotencyKey);
       return existing.get();
     }
 
-    var admission = admissionService.admit(userId, chapter);
+    var admission = admissionService.admit(userId, chapter, command.voiceId());
     NarrationRequest narrationRequest =
         narrationRequestRepository.save(
             new NarrationRequest(
@@ -147,6 +152,13 @@ public class GenerateChapterNarrationUseCase {
         command.chapterId(),
         command.projectId());
     return job;
+  }
+
+  private void validateVieNeuSpeakingRate(GenerateChapterNarrationCommand command) {
+    if (command.voiceId().startsWith("vieneu-")
+        && command.speakingRate().compareTo(BigDecimal.ONE) != 0) {
+      throw new IllegalArgumentException("VieNeu narration supports speakingRate=1.0 only");
+    }
   }
 
   private void validateVoiceReferenceAsset(
