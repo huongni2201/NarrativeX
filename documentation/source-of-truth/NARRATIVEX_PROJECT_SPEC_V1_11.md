@@ -3,7 +3,7 @@
 **Status:** Canonical engineering direction and code-aligned baseline  
 **Effective date:** 21/08/2026  
 **Repository:** `huongni2201/NarrativeX`  
-**Docs-sync base:** `main` at `29122c51a6d113ed7fd4026f7de3f5df75771153`  
+**Docs-sync base:** `main` at `a614d05101a5992783cbc580668b4ed0927b41d9`  
 **Supersedes:** V1.10 as the planning baseline for new work
 
 ---
@@ -95,7 +95,7 @@ technology-neutral application/domain ports
   -> PostgreSQL
 ```
 
-Remaining JPA/JDBC adapters are migration-era surfaces or explicitly documented operational exceptions. New persistence-heavy work should not deepen those surfaces without an ADR-recorded exception.
+The migration is complete: production persistence uses MyBatis + explicit SQL, the build has no JPA dependency, and production code has no `JdbcTemplate`. Architecture tests prevent regression.
 
 ---
 
@@ -120,7 +120,7 @@ Remaining JPA/JDBC adapters are migration-era surfaces or explicitly documented 
 | `USER_PROVIDED_AUDIO` strategy | IMPLEMENTED foundation | ordered parts, fingerprints, global clock, TTS bypass |
 | Multi-file / multi-Chapter logical timeline | IMPLEMENTED foundation | file boundaries do not define Chapters |
 | Production upload/finalize + real user-audio alignment path | PARTIAL | foundation exists; user-facing durable flow needs hardening |
-| Full MyBatis migration | PARTIAL | generation durability + ProviderOperation/Chapter/Project migrated; StoryVersion, quota/billing, storyboard/continuity and other boundaries remain |
+| MyBatis-only production persistence | IMPLEMENTED | all production adapters use MyBatis + explicit SQL; architecture tests prevent JPA/`JdbcTemplate` regression |
 | VisualScenePlanner | TARGET | narration-driven adaptive visual planning |
 | Production image generation | TARGET | first slice may use `GENERATE_NEW` only |
 | Minimal immutable image MediaAsset lifecycle | TARGET | required before renderer completion |
@@ -129,7 +129,7 @@ Remaining JPA/JDBC adapters are migration-era surfaces or explicitly documented 
 | HYBRID_LOCAL_I2V end-to-end | DEFERRED fast-follow | selected-beat private I2V |
 | Complete actual-cost reconciliation | PARTIAL | reservation exists; full ledger/release remains |
 
-The outbox dispatcher's short-lived `JdbcTemplate` claim/lease query remains a deliberate operational exception; it does not make durable enqueue JDBC-owned.
+The outbox dispatcher claim/lease path uses a dedicated MyBatis mapper.
 
 ---
 
@@ -449,7 +449,7 @@ Current MyBatis/explicit-SQL production boundaries include:
 - Job History;
 - Chapter Analyze safety gate.
 
-The outbox dispatcher still uses `JdbcTemplate` for its short-lived claim/lease query. This remains a deliberate operational boundary, not the durable enqueue architecture.
+The outbox dispatcher claim/lease path uses a dedicated MyBatis mapper.
 
 Preferred remaining order:
 
