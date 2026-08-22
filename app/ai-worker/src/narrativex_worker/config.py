@@ -57,8 +57,8 @@ class WorkerSettings(BaseSettings):
     image_provider_mode: Literal["disabled", "vertex"] = Field(
         default="disabled", validation_alias=AliasChoices("IMAGE_PROVIDER_MODE")
     )
-    vertex_image_model: str = "imagen-3.0-generate-002"
-    vertex_image_location: str = "us-central1"
+    vertex_image_model: str = "gemini-2.5-flash-image"
+    vertex_image_location: str = "global"
     vertex_image_timeout_seconds: float = Field(default=120.0, gt=1, le=600)
     image_max_output_bytes: int = Field(default=15_000_000, ge=1024, le=50_000_000)
 
