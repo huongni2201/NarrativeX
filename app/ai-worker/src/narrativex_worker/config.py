@@ -61,8 +61,8 @@ class WorkerSettings(BaseSettings):
     vertex_image_location: str = "global"
     vertex_image_timeout_seconds: float = Field(default=120.0, gt=1, le=1800)
     vertex_image_service_tier: Literal["standard", "flex"] = "standard"
-    vertex_image_execution_mode: Literal["online", "batch", "auto"] = "auto"
-    vertex_image_batch_min_items: int = Field(default=8, ge=2, le=10_000)
+    vertex_image_execution_mode: Literal["online", "batch", "auto"] = "batch"
+    vertex_image_batch_min_items: int = Field(default=1, ge=1, le=10_000)
     vertex_image_batch_location: str = "global"
     vertex_image_batch_gcs_bucket: str | None = None
     vertex_image_batch_gcs_prefix: str = "narrativex/image-batches"
@@ -154,14 +154,14 @@ class WorkerSettings(BaseSettings):
                     "gemini-2.5-flash-image does not support Flex PayGo; use standard online "
                     "or Vertex batch inference for the 50% discounted rate"
                 )
-        if self.vertex_image_execution_mode == "batch":
+        if self.image_provider_mode == "vertex" and self.vertex_image_execution_mode == "batch":
             if (
                 not self.vertex_image_batch_gcs_bucket
                 or not self.vertex_image_batch_gcs_bucket.strip()
             ):
                 raise ValueError(
                     "VERTEX_IMAGE_BATCH_GCS_BUCKET is required when "
-                    "VERTEX_IMAGE_EXECUTION_MODE=batch"
+                    "IMAGE_PROVIDER_MODE=vertex and VERTEX_IMAGE_EXECUTION_MODE=batch"
                 )
         if self.vertex_image_execution_mode in {"batch", "auto"}:
             if not self.normalized_vertex_image_batch_prefix:
