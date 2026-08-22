@@ -17,6 +17,7 @@ import com.narrativex.backend.feature.generation.domain.entity.StageAttempt;
 import com.narrativex.backend.feature.generation.domain.enums.ProductionMode;
 import com.narrativex.backend.feature.generation.domain.enums.ResourceClass;
 import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
+import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSourceAccess;
 import java.math.BigDecimal;
@@ -39,6 +40,7 @@ public class CreateMediaJobUseCase {
   private static final String IMAGE_MODEL = "gemini-2.5-flash-image";
   private static final String PRICING_VERSION = "gemini-2.5-flash-image-batch-2026-08-22";
   private final CurrentUserId currentUserId;
+  private final ProjectAccess projectAccess;
   private final ChapterAnalysisSourceAccess chapterSourceAccess;
   private final MediaPlanningSourceAccess mediaPlanningSourceAccess;
   private final CreateMediaPlanUseCase createMediaPlanUseCase;
@@ -87,6 +89,7 @@ public class CreateMediaJobUseCase {
     var chapter =
         chapterSourceAccess.requireOwnedForAnalysisLocked(
             command.projectId(), command.chapterId(), userId);
+    var project = projectAccess.findOwnedProject(command.projectId(), userId);
     int beatCount =
         mediaPlanningSourceAccess.requireCurrent(command.chapterId()).scenes().stream()
             .mapToInt(scene -> scene.beats().size())
@@ -141,7 +144,7 @@ public class CreateMediaJobUseCase {
                 chapter.storyVersionId(),
                 plan,
                 ResourceClass.PROVIDER_BATCH,
-                "vi-VN",
+                project.getSourceLanguage(),
                 command.idempotencyKey(),
                 userId));
     OperationPlan operationPlan =
