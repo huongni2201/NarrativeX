@@ -1,4 +1,4 @@
-"""Render vertical Shorts only from an already edited final video artifact."""
+"""Render Shorts only from an already edited final video artifact."""
 
 import asyncio
 from dataclasses import dataclass
@@ -15,14 +15,10 @@ class ShortClipRequest:
     output_path: Path
     start_ms: int
     end_ms: int
-    target_width: int = 1080
-    target_height: int = 1920
 
     def __post_init__(self) -> None:
         if self.start_ms < 0 or self.end_ms <= self.start_ms:
             raise ValueError("short clip range must satisfy 0 <= start_ms < end_ms")
-        if self.target_width != 1080 or self.target_height != 1920:
-            raise ValueError("short clips currently require 1080x1920 output")
 
 
 async def render_short_clip(
@@ -30,36 +26,34 @@ async def render_short_clip(
     *,
     timeout_seconds: float = 300.0,
 ) -> Path:
-    """Trim audio/video from the final MP4 and reframe it to 9:16.
+    """Trim audio and video from the final edited MP4 while preserving source geometry.
 
-    The same start/end range is applied to the muxed final artifact, so audio remains tied to the
-    edited video timeline. This function intentionally has no image-generation or pre-edit input.
+    The same start/end range is applied to the muxed final artifact, so audio stays tied to the
+    edited video timeline. No crop, scale, aspect-ratio conversion, image generation, or pre-edit
+    input is allowed in this path.
     """
 
     duration_seconds = (request.end_ms - request.start_ms) / 1000.0
     start_seconds = request.start_ms / 1000.0
     request.output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Scale to fully cover 9:16, then center-crop. Re-encode rather than stream-copy because crop
-    # changes the frame geometry; audio is copied when compatible to avoid unnecessary degradation.
-    video_filter = (
-        f"scale={request.target_width}:{request.target_height}:"
-        "force_original_aspect_ratio=increase,"
-        f"crop={request.target_width}:{request.target_height}"
-    )
+    # Re-encode for frame-accurate trimming while intentionally applying no video filter. The
+    # source width, height and display aspect ratio are therefore preserved by the short output.
     args = [
         "ffmpeg",
         "-hide_banner",
         "-loglevel",
         "error",
-        "-ss",
-        f"{start_seconds:.3f}",
         "-i",
         str(request.source_path),
+        "-ss",
+        f"{start_seconds:.3f}",
         "-t",
         f"{duration_seconds:.3f}",
-        "-vf",
-        video_filter,
+        "-map",
+        "0:v:0",
+        "-map",
+        "0:a?",
         "-c:v",
         "libx264",
         "-preset",
