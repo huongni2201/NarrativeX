@@ -1,6 +1,6 @@
 from narrativex_worker.config import WorkerSettings
 from narrativex_worker.providers.image import ImageGenerationProvider, ImageProviderOperation
-from narrativex_worker.providers.vertex_image import VertexImageProvider
+from narrativex_worker.providers.vertex_image_batch import VertexBatchImageProvider
 from narrativex_worker.schema import ProviderOperationStatus
 
 
@@ -24,5 +24,5 @@ class DisabledImageProvider:
 
 def create_image_provider(settings: WorkerSettings) -> ImageGenerationProvider:
     if settings.image_provider_mode == "vertex":
-        return VertexImageProvider(settings)
+        return VertexBatchImageProvider(settings)
     return DisabledImageProvider()
