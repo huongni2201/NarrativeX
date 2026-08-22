@@ -4,6 +4,8 @@ from narrativex_worker.providers.vertex_image import (
     _moderation,
     _prediction,
     _request_body,
+    _request_headers,
+    _traffic_type,
     _usage,
 )
 from narrativex_worker.schema import (
@@ -48,6 +50,22 @@ def test_request_body_requests_text_and_image_with_authorized_aspect_ratio() -> 
     assert "text, watermark" in prompt
 
 
+def test_flex_headers_use_vertex_shared_flex_tier() -> None:
+    headers = _request_headers("token-123", "flex")
+
+    assert headers == {
+        "Authorization": "Bearer token-123",
+        "X-Vertex-AI-LLM-Request-Type": "shared",
+        "X-Vertex-AI-LLM-Shared-Request-Type": "flex",
+    }
+
+
+def test_standard_headers_do_not_request_flex() -> None:
+    assert _request_headers("token-123", "standard") == {
+        "Authorization": "Bearer token-123"
+    }
+
+
 def test_prediction_reads_gemini_inline_data() -> None:
     encoded, mime_type = _prediction(
         {
@@ -80,19 +98,20 @@ def test_moderation_blocks_provider_safety_finish_reason() -> None:
     assert _moderation(raw) is ModerationDecision.BLOCK
 
 
-def test_usage_keeps_vertex_token_counts() -> None:
-    usage = _usage(
-        {
-            "usageMetadata": {
-                "promptTokenCount": 10,
-                "candidatesTokenCount": 1290,
-                "totalTokenCount": 1300,
-            }
+def test_usage_keeps_vertex_token_counts_and_traffic_type() -> None:
+    raw = {
+        "usageMetadata": {
+            "promptTokenCount": 10,
+            "candidatesTokenCount": 1290,
+            "totalTokenCount": 1300,
+            "trafficType": "ON_DEMAND_FLEX",
         }
-    )
+    }
 
-    assert usage == {
+    assert _traffic_type(raw) == "ON_DEMAND_FLEX"
+    assert _usage(raw) == {
         "promptTokenCount": 10,
         "candidatesTokenCount": 1290,
         "totalTokenCount": 1300,
+        "trafficType": "ON_DEMAND_FLEX",
     }
