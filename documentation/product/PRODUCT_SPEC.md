@@ -4,6 +4,8 @@
 **Canonical source:** [`../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md)  
 **Implementation evidence:** [`../TRACEABILITY.md`](../TRACEABILITY.md)
 
+Accepted ADRs refine cross-cutting decisions. ADR-0016 supersedes the previous R2-only rule specifically for final rendered MP4 exports.
+
 ## Product definition
 
 NarrativeX is an AI-assisted long-form story-video studio. It is chapter-first, review-first, audio-timeline-first, image-first, backend-authorized and durable-by-design.
@@ -24,7 +26,9 @@ Implemented foundations now include:
 - full-chapter TTS narration, alignment and R2 persistence;
 - user-provided narration planning/timeline foundation with ordered multi-file audio and TTS bypass;
 - job history/quota/notification and frontend studio foundations;
-- R2-only durable media storage contract.
+- R2 durable storage contract for source/generated/reusable pipeline media.
+
+Google Drive final-video storage is the approved target architecture but remains implementation work until the render/export slice lands.
 
 Production persistence is fully MyBatis + explicit SQL, including outbox claim/lease. The JDBC driver and transaction manager remain lower-level infrastructure only.
 
@@ -58,6 +62,25 @@ MotionStrategy
 
 `IMAGE_MOTION` never schedules I2V. `HYBRID_LOCAL_I2V` may authorize selected I2V scenes but remains image-first.
 
+## Storage contract
+
+NarrativeX intentionally separates pipeline media from final-video retention:
+
+```text
+Cloudflare R2
+  -> generated images/keyframes
+  -> narration/audio
+  -> thumbnails
+  -> uploaded/reusable pipeline media
+
+Google Drive via FinalVideoStorage
+  -> final rendered MP4 exports
+```
+
+PostgreSQL owns metadata and logical storage identity. Local paths and public provider URLs are never authoritative asset identities.
+
+The final MP4 is rendered to worker-local scratch, validated, uploaded with resumable semantics, verified remotely, then recorded as `READY`. Local cleanup occurs only after durable remote verification and metadata commit. An upload failure retries upload rather than rerendering an already-valid final file.
+
 ## V1.11 delivery order
 
 The first complete media loop prioritizes correctness and time-to-first-video:
@@ -68,8 +91,10 @@ Chapter source / reviewed analysis
   -> VisualScenePlanner
   -> GENERATE_NEW image execution for MVP
   -> immutable R2 MediaAsset
-  -> deterministic IMAGE_MOTION render
-  -> validated FinalArtifact in R2
+  -> deterministic IMAGE_MOTION render to local scratch
+  -> validate final MP4
+  -> Google Drive FinalVideoStorage upload + verify
+  -> validated FinalArtifact metadata in PostgreSQL
 ```
 
 Reuse/reframe/edit asset resolution remains the long-term cost/consistency strategy, but it is a fast-follow after the first reliable MP4.
@@ -91,6 +116,7 @@ Reuse/reframe/edit asset resolution remains the long-term cost/consistency strat
 | Production image generation | TARGET |
 | Minimal immutable image MediaAsset lifecycle | TARGET |
 | IMAGE_MOTION render/export | TARGET |
+| Google Drive `FinalVideoStorage` resumable upload + verification | TARGET |
 | Reuse/reframe/edit AssetResolver | DEFERRED fast-follow |
 | HYBRID_LOCAL_I2V end-to-end | DEFERRED fast-follow |
 | Complete billing/actual-usage reconciliation | PARTIAL |
@@ -102,11 +128,13 @@ Persisted Chapter scope
   -> analysis/review state
   -> narration strategy + aligned timeline
   -> authorized MediaPlan
-  -> durable visual assets
+  -> durable R2 visual/audio assets
   -> deterministic motion/video execution
-  -> validated immutable FinalArtifact
+  -> validated local final MP4
+  -> Google Drive upload + verification
+  -> immutable READY FinalArtifact metadata
 ```
 
-A provider success response alone never makes a media stage complete. Durable bytes must be validated and persisted to R2 and authoritative metadata must be committed to PostgreSQL.
+A provider success response alone never makes a media stage complete. Pipeline media must be validated and persisted to R2 with authoritative PostgreSQL metadata. Final rendered video must be validated locally, durably stored and verified through `FinalVideoStorage`, then committed to PostgreSQL before it is `READY`.
 
 Detailed V1.11 feature/status inventory: [FEATURE_CATALOG.md](FEATURE_CATALOG.md).

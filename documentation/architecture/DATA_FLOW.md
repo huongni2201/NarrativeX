@@ -10,8 +10,9 @@ PostgreSQL state, not Redis messages or process memory, determines what Narrativ
 | GenerationJob/StageAttempt/ProviderOperation | PostgreSQL | Redis may carry hints only |
 | MediaPlan / production policy | PostgreSQL | worker executes the persisted authorized revision |
 | Narration document/set/timeline metadata | PostgreSQL | source and narration fingerprints pin immutable inputs |
-| Durable audio/image/video/subtitle/final bytes | Cloudflare R2 | private by default; DB owns metadata/lineage |
-| Worker render/media workspace | Local filesystem | ephemeral only |
+| Durable source/generated/reusable media bytes | Cloudflare R2 | private by default; DB owns metadata/lineage |
+| Durable final rendered MP4 bytes | Google Drive | private by default; DB stores provider-neutral storage identity |
+| Worker render/media workspace | Local filesystem | ephemeral only; may retain a validated final MP4 across bounded upload retries |
 | Browser session | Redis via Spring Session | availability dependency, not business-state authority |
 
 ## Chapter Analyze
@@ -58,6 +59,27 @@ valid analysis/review + narration timeline
 
 A retry/reclaimed job must reuse an already-valid R2 asset when possible instead of regenerating merely because local scratch disappeared.
 
+## Final video render and storage
+
+```text
+READY R2 image/audio/media inputs
+  -> FFmpeg render in worker-local scratch
+  -> final.mp4
+  -> validate container/video/audio/duration/dimensions/checksum
+  -> UPLOADING
+  -> FinalVideoStorage
+  -> Google Drive resumable upload
+  -> VERIFYING
+  -> verify remote file identity + expected size/metadata
+  -> persist storageProvider + storageObjectId + checksum + video metadata
+  -> READY
+  -> delete local final.mp4 when safe
+```
+
+The render and upload boundaries are separate. If upload fails after a valid render, NarrativeX retries `UPLOADING`; it does not return to `RENDERING` while the valid local MP4 remains available.
+
+Google Drive-specific identifiers and APIs stay behind the final-video storage adapter. FinalArtifact/domain logic uses provider-neutral storage identity.
+
 ## Current gaps
 
 - production user-audio upload/finalize and real alignment runtime hardening;
@@ -65,6 +87,7 @@ A retry/reclaimed job must reuse an already-valid R2 asset when possible instead
 - production image-generation vertical slice;
 - immutable image asset approval/lineage lifecycle;
 - IMAGE_MOTION render/final export;
+- `FinalVideoStorage` + Google Drive resumable upload/verification implementation;
 - complete actual-usage/billing reconciliation and release;
 - MyBatis-only persistence regression protection;
 - full Character/reference and approved-storyboard workflows;
