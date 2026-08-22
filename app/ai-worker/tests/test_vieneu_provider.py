@@ -82,6 +82,22 @@ def test_vieneu_reuses_persisted_voice_without_reenrollment(tmp_path: Path) -> N
     assert client.save_calls == 0
 
 
+def test_vieneu_preset_voice_does_not_require_reference_file(tmp_path: Path) -> None:
+    client = FakeVieneuClient()
+    client.voices.add("Ngọc Huyền v2")
+    settings = WorkerSettings(
+        worker_env="test",
+        vieneu_reference_audio_path=str(tmp_path / "missing.wav"),
+        vieneu_force_reenroll=True,
+    )
+
+    provider = VieneuTtsProvider(settings, client=client)
+    asyncio.run(provider.synthesize(_request()))
+
+    assert client.add_voice_calls == []
+    assert client.infer_calls == [("Xin chào", "Ngọc Huyền v2", False, None)]
+
+
 def test_vieneu_rejects_non_default_speaking_rate(tmp_path: Path) -> None:
     reference = tmp_path / "ngoc_huyen_sample.wav"
     reference.write_bytes(b"test audio placeholder")

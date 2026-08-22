@@ -7,14 +7,16 @@ import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterContentImportResponse;
 import com.narrativex.backend.feature.storyboard.application.command.ImportChapterContentCommand;
-import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardRevisionAccess;
+import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
 import com.narrativex.backend.feature.storyboard.application.service.ChapterContentImportService;
 import com.narrativex.backend.feature.storyboard.application.service.ChapterSourceHasher;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ImportChapterContentUseCase {
@@ -43,6 +45,12 @@ public class ImportChapterContentUseCase {
     chapterRepository.saveAndFlush(chapter);
     var imported = contentImportService.importOriginal(chapterId, normalized.text(), normalized.hash());
     String status = imported.detection().detectedLanguage();
+    log.info(
+        "Imported chapter content for chapterId={}, variantId={}, detectedLanguage={} for projectId={}",
+        chapterId,
+        imported.variant().id(),
+        status,
+        projectId);
     return ApiResponse.success("Chapter content imported", new ChapterContentImportResponse(
         imported.variant().id(), imported.variant().type().name(), status));
   }

@@ -12,7 +12,6 @@ from google.auth.transport.requests import Request
 
 from narrativex_worker.config import WorkerSettings
 from narrativex_worker.prompting import build_chapter_analysis_prompt
-from narrativex_worker.translation import TranslationRequest, TranslationResult, validate_translation
 from narrativex_worker.providers.ports import (
     LlmProvider,
     ProviderBilling,
@@ -28,6 +27,7 @@ from narrativex_worker.schema import (
     ChapterAnalysisResult,
     ProviderOperationStatus,
 )
+from narrativex_worker.translation import TranslationProviderResponse, TranslationRequest
 
 
 class VertexProviderError(RuntimeError):
@@ -154,7 +154,7 @@ class VertexGeminiProvider(LlmProvider):
             billing=billing,
         )
 
-    async def translate(self, request: TranslationRequest) -> TranslationResult:
+    async def translate(self, request: TranslationRequest) -> TranslationProviderResponse:
         """Translate untrusted story text without granting it tool or policy authority."""
         token = await self._access_token()
         endpoint = (
@@ -193,19 +193,19 @@ class VertexGeminiProvider(LlmProvider):
                 f"Vertex translation returned HTTP {response.status_code}"
             )
         if response.is_error:
-            raise VertexProviderError(f"Vertex translation returned HTTP {response.status_code}")
+            return TranslationProviderResponse(
+                content="",
+                provider="vertex",
+                model=self.settings.vertex_model,
+                billing=self._zero_billing(),
+            )
         translated = self._candidate_text(raw)
-        if translated is None:
-            raise VertexProviderError("Vertex translation response did not contain text")
-        validate_translation(request.source_text, translated)
-        usage = raw.get("usageMetadata")
-        usage = usage if isinstance(usage, dict) else {}
-        return TranslationResult(
-            content=translated.strip(),
+        billing = self._billing(raw)
+        return TranslationProviderResponse(
+            content=translated.strip() if translated is not None else "",
             provider="vertex",
             model=self.settings.vertex_model,
-            input_tokens=self._int_field(usage, "promptTokenCount"),
-            output_tokens=self._int_field(usage, "candidatesTokenCount"),
+            billing=billing,
         )
 
     async def get_status(self, operation: ProviderOperation) -> ProviderOperation:

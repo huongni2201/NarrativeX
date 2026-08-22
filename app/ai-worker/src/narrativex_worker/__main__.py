@@ -2,13 +2,24 @@
 
 import argparse
 import asyncio
+import logging
 import sys
 
 from narrativex_worker.config import WorkerSettings, get_settings
 from narrativex_worker.media_validation_worker import MediaValidationWorkerRunner
 from narrativex_worker.narration.runner import NarrationWorkerRunner
-from narrativex_worker.worker import NarrativeXWorker
 from narrativex_worker.translation_worker import TranslationWorkerRunner
+from narrativex_worker.worker import NarrativeXWorker
+
+
+def setup_logging(level_name: str) -> None:
+    numeric_level = getattr(logging, level_name.upper(), logging.INFO)
+    logging.basicConfig(
+        level=numeric_level,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        stream=sys.stdout,
+        force=True,
+    )
 
 
 def parse_args() -> argparse.Namespace:
@@ -69,6 +80,7 @@ async def run_workers(settings: WorkerSettings, *, dry_run: bool) -> None:
 def main() -> None:
     args = parse_args()
     settings = get_settings()
+    setup_logging(settings.log_level)
     try:
         asyncio.run(run_workers(settings, dry_run=args.dry_run))
     except KeyboardInterrupt:

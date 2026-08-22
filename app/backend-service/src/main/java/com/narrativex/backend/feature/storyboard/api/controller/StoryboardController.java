@@ -11,6 +11,7 @@ import com.narrativex.backend.feature.storyboard.application.usecase.UpdateVisua
 import jakarta.validation.Valid;
 import java.net.URI;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+@Slf4j
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/projects/{projectId}/chapters/{chapterId}")
@@ -43,6 +45,11 @@ public class StoryboardController {
       @PathVariable Long chapterId,
       @PathVariable Long sceneId,
       @Valid @RequestBody CreateVisualBeatRequest request) {
+    log.info(
+        "API POST create visual beat for projectId={}, chapterId={}, sceneId={}",
+        projectId,
+        chapterId,
+        sceneId);
     ApiResponse<VisualBeatResponse> response =
         createVisualBeatUseCase.execute(
             projectId, chapterId, sceneId, request.title(), request.visualIntent());
@@ -69,6 +76,13 @@ public class StoryboardController {
       @PathVariable Long visualBeatId,
       @RequestHeader(value = HttpHeaders.IF_MATCH, required = false) String ifMatch,
       @Valid @RequestBody UpdateVisualBeatReviewStatusRequest request) {
+    log.info(
+        "API PUT update review status to '{}' for visualBeatId={}, sceneId={}, chapterId={}, projectId={}",
+        request.status(),
+        visualBeatId,
+        sceneId,
+        chapterId,
+        projectId);
     long expectedRowVersion = parseExpectedVersion(ifMatch);
     ApiResponse<VisualBeatResponse> response =
         updateVisualBeatReviewStatusUseCase.execute(

@@ -133,11 +133,10 @@ export const chaptersApi = {
     projectId: number,
     chapterId: number,
     input: { sourceVariantId: number; sourceContentHash: string; targetLanguage: string },
-    idempotencyKey = crypto.randomUUID(),
   ) =>
     apiRequest<ApiGenerationJob>(
       `/api/v1/projects/${projectId}/chapters/${chapterId}/translations`,
-      { method: "POST", headers: { "Idempotency-Key": idempotencyKey }, json: input },
+      { method: "POST", json: input },
       isApiGenerationJob,
     ),
   analyze: (projectId: number, chapterId: number, contentVariantId?: number) =>

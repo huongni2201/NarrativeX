@@ -1,13 +1,17 @@
 package com.narrativex.backend.feature.storyboard.application.usecase;
 
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
+import com.narrativex.backend.feature.assets.application.port.out.ObjectStoragePort;
+import com.narrativex.backend.feature.common.exception.FeatureNotAvailableException;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterResponse;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterWorkspaceResponse;
+import com.narrativex.backend.feature.storyboard.application.port.in.ChapterWorkspaceAccess.AudioStep;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterWorkspaceReadRepository;
+import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -23,6 +27,7 @@ public class GetChapterWorkspaceUseCase {
   private final StoryVersionAccess storyVersionAccess;
   private final ChapterRepository chapterRepository;
   private final ChapterWorkspaceReadRepository chapterWorkspaceReadRepository;
+  private final ObjectStoragePort objectStorage;
 
   @Transactional(readOnly = true)
   public ApiResponse<ChapterWorkspaceResponse> execute(Long projectId, Long chapterId) {
@@ -48,6 +53,7 @@ public class GetChapterWorkspaceUseCase {
     var visualGeneration = projection.visualGeneration();
     var audio = projection.audio();
     var render = projection.render();
+    String audioUrl = createAudioUrl(audio);
 
     var previewScenes =
         snapshot.previewScenes().stream()
@@ -71,7 +77,9 @@ public class GetChapterWorkspaceUseCase {
     boolean visualJobRunning = isActive(visualGeneration.status());
     boolean canGenerateVisuals = mediaGenerationEnabled && chapterAnalysisCompleted && !visualJobRunning;
     boolean canGenerateAudio =
-        chapterAnalysisCompleted && !"READY".equals(audio.status()) && !isActive(audio.status());
+        !chapter.getSourceText().isBlank()
+            && !"READY".equals(audio.status())
+            && !isActive(audio.status());
     boolean canRender =
         mediaGenerationEnabled
             && !sourceOutdated
@@ -96,7 +104,8 @@ public class GetChapterWorkspaceUseCase {
                     visualGeneration.total(),
                     visualGeneration.completed(),
                     visualGeneration.failed()),
-                new ChapterWorkspaceResponse.PipelineStep(audio.status(), audio.completedAt()),
+                new ChapterWorkspaceResponse.AudioStep(
+                    audio.status(), audio.completedAt(), audioUrl, audio.durationMs()),
                 new ChapterWorkspaceResponse.PipelineStep(render.status(), render.completedAt()),
                 sourceOutdated),
             previewScenes,
@@ -114,5 +123,17 @@ public class GetChapterWorkspaceUseCase {
       case "QUEUED", "RUNNING", "GENERATING", "STALLED", "UNKNOWN", "PAUSED_COST_LIMIT" -> true;
       default -> false;
     };
+  }
+
+  private String createAudioUrl(AudioStep audio) {
+    if (!"READY".equals(audio.status()) || audio.storageKey() == null) return null;
+    try {
+      return objectStorage
+          .createDownload(audio.storageKey(), Instant.now().plusSeconds(900))
+          .downloadUrl()
+          .toString();
+    } catch (FeatureNotAvailableException | IllegalArgumentException ignored) {
+      return null;
+    }
   }
 }

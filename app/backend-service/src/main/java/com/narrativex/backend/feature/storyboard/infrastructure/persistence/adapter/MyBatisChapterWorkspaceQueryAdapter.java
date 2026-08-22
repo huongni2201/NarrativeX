@@ -34,7 +34,9 @@ public class MyBatisChapterWorkspaceQueryAdapter implements ChapterWorkspaceRead
                     row.getVisualGenerationQueued(), row.getVisualGenerationStalled(),
                     row.getVisualGenerationUnknown(), row.getVisualGenerationPaused()),
                 row.getVisualGenerationTotal(), row.getVisualGenerationCompleted(), row.getVisualGenerationFailed()),
-            new PipelineStep(narrationStatus(row.isNarrationAssetReady(), row.getNarrationJobStatus()), row.getNarrationCompletedAt()),
+            new AudioStep(
+                narrationStatus(row.isNarrationAssetReady(), row.getNarrationJobStatus()),
+                row.getNarrationCompletedAt(), row.getNarrationStorageKey(), row.getNarrationDurationMs()),
             new PipelineStep(renderStatus(row.isRenderManifestCreated(), row.getRenderArtifactStatus(), row.getRenderJobStatus()), row.getRenderCompletedAt())));
   }
 

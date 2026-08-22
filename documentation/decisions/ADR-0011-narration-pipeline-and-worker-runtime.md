@@ -69,9 +69,12 @@ Furthermore, users may provide uploaded audio split across multiple files, where
 
 - VieNeu-TTS v3 Turbo is integrated only through the worker's existing `TtsProvider` port. The
   backend and narration domain do not import the VieNeu SDK.
-- The worker registers the configured voice profile from `VIENEU_REFERENCE_AUDIO_PATH` using
-  `add_voice(name, reference, denoise=true)` and persists it with `save_voices()`. The reference
-  audio and generated profile remain runtime-managed data, outside source control and job payloads.
+- The worker registers the configured system-wide voice profile from `VIENEU_REFERENCE_AUDIO_PATH`
+  using `add_voice(name, reference, denoise=true)` and persists it with `save_voices()`. The global
+  `vieneu-ngoc-huyen-v2` catalog entry maps to the SDK voice name `Ngọc Huyền v2`.
+- The reference WAV remains host-managed and is mounted read-only into Docker; it is never
+  committed to source control or placed in a client-controlled job payload. Per-request MP3
+  references remain a separate, user-owned flow.
 - VieNeu's 48 kHz waveform is converted to 16-bit mono PCM before the existing segment storage,
   checksum, assembly and recovery path. No provider output becomes authoritative until R2 and
   PostgreSQL completion succeeds.
@@ -84,6 +87,9 @@ Furthermore, users may provide uploaded audio split across multiple files, where
 
 ### 7. Per-Request Voice Reference Upload
 
+- Voices exposed by VieNeu's `list_preset_voices()` are selected directly with `voice=` and do
+  not require a reference upload or local enrollment. The reference path below is only for
+  non-preset/custom voice cloning.
 - Narration requests support an optional `voiceReferenceAssetId` referencing an account-owned `READY` audio asset.
 - The asset is uploaded through the private R2 upload pipeline and linked to `narration_requests.voice_reference_asset_id`.
 - The AI worker streams the reference audio, enforces 3–8 second clipping, converts to mono WAV via FFmpeg/pydub, and passes it to VieNeu via `ref_audio`.

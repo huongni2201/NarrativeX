@@ -9,16 +9,16 @@ import com.narrativex.backend.feature.storyboard.api.response.ChapterContentImpo
 import com.narrativex.backend.feature.storyboard.api.response.ChapterContentVariantResponse;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterLanguageStatusResponse;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterResponse;
-import com.narrativex.backend.feature.storyboard.application.command.ImportChapterContentCommand;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterSummaryResponse;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterWorkspaceResponse;
 import com.narrativex.backend.feature.storyboard.application.command.CreateChapterCommand;
+import com.narrativex.backend.feature.storyboard.application.command.ImportChapterContentCommand;
 import com.narrativex.backend.feature.storyboard.application.command.UpdateChapterCommand;
 import com.narrativex.backend.feature.storyboard.application.usecase.BatchImportChaptersUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.CreateChapterUseCase;
+import com.narrativex.backend.feature.storyboard.application.usecase.GetChapterLanguageStatusUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.GetChapterUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.GetChapterWorkspaceUseCase;
-import com.narrativex.backend.feature.storyboard.application.usecase.GetChapterLanguageStatusUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.ImportChapterContentUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.ListChapterContentVariantsUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.ListChaptersUseCase;
@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -43,6 +44,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+@Slf4j
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/projects/{projectId}/chapters")
@@ -60,6 +62,7 @@ public class ChapterController {
   @PostMapping
   public ResponseEntity<ApiResponse<ChapterResponse>> create(
       @PathVariable Long projectId, @Valid @RequestBody CreateChapterRequest request) {
+    log.info("API POST create chapter for projectId={}, storyVersionId={}", projectId, request.storyVersionId());
     ApiResponse<ChapterResponse> response =
         createChapterUseCase.execute(
             new CreateChapterCommand(
@@ -81,6 +84,11 @@ public class ChapterController {
       @RequestParam Long storyVersionId,
       @RequestParam("file") MultipartFile file)
       throws IOException {
+    log.info(
+        "API POST batch-import chapters for projectId={}, storyVersionId={}, filename={}",
+        projectId,
+        storyVersionId,
+        file.getOriginalFilename());
     List<ChapterResponse> imported =
         batchImportChaptersUseCase.execute(
             projectId,
@@ -122,6 +130,7 @@ public class ChapterController {
       @PathVariable Long chapterId,
       @RequestHeader(value = HttpHeaders.IF_MATCH, required = false) String ifMatch,
       @Valid @RequestBody UpdateChapterRequest request) {
+    log.info("API PUT update chapterId={} for projectId={}", chapterId, projectId);
     long expectedRowVersion = parseExpectedVersion(ifMatch);
     ApiResponse<ChapterResponse> response =
         updateChapterUseCase.execute(
@@ -137,6 +146,7 @@ public class ChapterController {
       @PathVariable Long projectId,
       @PathVariable Long chapterId,
       @Valid @RequestBody ImportChapterContentRequest request) {
+    log.info("API POST import chapter content for chapterId={}, projectId={}", chapterId, projectId);
     return ResponseEntity.accepted()
         .body(importChapterContentUseCase.execute(
             new ImportChapterContentCommand(projectId, chapterId, request.content(), request.title())));

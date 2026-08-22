@@ -42,31 +42,37 @@ rebuilds the final asset without invoking TTS again.
 
 ## VieNeu-TTS local provider
 
-The worker supports a local VieNeu-TTS v3 Turbo adapter through `TTS_PROVIDER_MODE=vieneu`:
+The worker supports a local VieNeu-TTS v3 Turbo adapter through `TTS_PROVIDER_MODE=vieneu`.
+Preset voices returned by VieNeu's `list_preset_voices()` are ready to use and do not require a
+reference file. NarrativeX also supports a system-wide configured voice profile, including the
+global Vietnamese `Ngọc Huyền v2` voice:
 
 ```text
-configured 3–8 second .wav reference
+VIENEU_REFERENCE_AUDIO_PATH=/path/to/ngoc_huyen_v2_3_8s.wav
   -> Vieneu.add_voice("Ngọc Huyền v2", reference, denoise=true)
-  -> Vieneu.save_voices()
+  -> save_voices()
   -> Vieneu.infer(text, voice="Ngọc Huyền v2")
   -> float waveform -> 16-bit mono PCM @ 48 kHz
   -> existing durable segment/recovery pipeline
 ```
 
-`VIENEU_REFERENCE_AUDIO_PATH` is a runtime-only path. The sample and the SDK-generated voice
-profile must not be committed to git or placed in a client-controlled job payload. The local
-provider maps catalog id `vieneu-ngoc-huyen-v2` to the SDK voice name `Ngọc Huyền v2`; built-in
-VieNeu voices may also be selected when their SDK name is present in the loaded profile.
+`VIENEU_REFERENCE_AUDIO_PATH` is required when registering a non-preset global voice. The source
+WAV and the SDK-generated voice profile must not be committed to git or placed in a client-
+controlled job payload. For Docker, mount the host-only WAV read-only and set the worker variable
+to the container path. The local provider maps catalog id `vieneu-ngoc-huyen-v2` to the SDK voice
+name `Ngọc Huyền v2`; other built-in VieNeu voices are resolved from `list_preset_voices()` in
+the same way. The web narration modal selects the global catalog voice by default.
 
 VieNeu v3 Turbo does not expose NarrativeX's `speakingRate` setting, so requests for this provider
 must use `speakingRate=1.0`. Emotion cues such as `[cười]` remain in the trusted narration input
 boundary and are forwarded to VieNeu. Local execution has no external provider character charge;
 durable storage and product quota policy remain authoritative in the backend.
 
-### User-provided VieNeu reference
+### Optional user-provided VieNeu reference
 
-The Generate Narration modal also allows a user to attach an MP3 sample when a VieNeu catalog voice
-is selected:
+The backend and worker still support an optional MP3 reference for custom voice-cloning callers.
+The standard Generate Narration modal uses the configured global catalog voice directly and does
+not upload a reference file:
 
 ```text
 browser checks duration 3–8 seconds and accepts .mp3
@@ -146,6 +152,15 @@ coverage/status
 Low confidence, missing text coverage, detected gaps or incompatible source identity must stop execution for review/fix. Do not silently generate replacement TTS.
 
 ## Cost behavior
+
+## Chapter Workspace visibility
+
+Submitting a TTS request returns a durable `QUEUED` generation job. The Chapter Workspace keeps
+the Audio tab available while the job is queued or running, but disables only the action that
+would submit a duplicate generation request. The workspace polls the durable projection until it
+becomes terminal. Once a `NarrationAsset` is materialized, the backend returns a short-lived
+private R2 download URL for the Audio player; the storage key and provider credentials are never
+sent to the browser.
 
 For a `USER_PROVIDED_AUDIO` covered scope:
 

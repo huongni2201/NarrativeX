@@ -15,10 +15,12 @@ import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanni
 import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSourceAccess;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /** Backend authority that snapshots and authorizes one immutable media execution plan. */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CreateMediaPlanUseCase {
@@ -65,26 +67,36 @@ public class CreateMediaPlanUseCase {
     var workload = calculateWorkload(scenes);
     int revision = mediaPlanRepository.nextRevision(command.chapterId());
 
-    return mediaPlanRepository.save(
-        MediaPlan.createExecutable(
-            command.chapterId(),
-            chapter.rowVersion(),
-            chapter.sourceHash(),
-            command.productionMode(),
-            revision,
-            scenes,
-            workload,
-            command.estimatedCost(),
-            java.time.Instant.now(),
-            planningSource.storyboardRevisionId(),
-            command.imageAspectRatio(),
-            command.imageQualityTier(),
-            command.imageProviderKey(),
-            command.imageModelKey(),
-            command.pricingSnapshotJson(),
-            command.pricingFingerprint(),
-            planningSource.narrationSetId(),
-            planningSource.narrationAlignmentRunId()));
+    MediaPlan savedPlan =
+        mediaPlanRepository.save(
+            MediaPlan.createExecutable(
+                command.chapterId(),
+                chapter.rowVersion(),
+                chapter.sourceHash(),
+                command.productionMode(),
+                revision,
+                scenes,
+                workload,
+                command.estimatedCost(),
+                java.time.Instant.now(),
+                planningSource.storyboardRevisionId(),
+                command.imageAspectRatio(),
+                command.imageQualityTier(),
+                command.imageProviderKey(),
+                command.imageModelKey(),
+                command.pricingSnapshotJson(),
+                command.pricingFingerprint(),
+                planningSource.narrationSetId(),
+                planningSource.narrationAlignmentRunId()));
+
+    log.info(
+        "Created media plan id={} (revision={}, mode={}) for chapterId={}, projectId={}",
+        savedPlan.id(),
+        revision,
+        command.productionMode(),
+        command.chapterId(),
+        command.projectId());
+    return savedPlan;
   }
 
   private List<MediaScenePlan> resolveScenes(

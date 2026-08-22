@@ -9,13 +9,15 @@ import com.narrativex.backend.feature.project.application.port.in.StoryVersionAc
 import com.narrativex.backend.feature.storyboard.api.response.ChapterResponse;
 import com.narrativex.backend.feature.storyboard.application.command.CreateChapterCommand;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
-import com.narrativex.backend.feature.storyboard.application.service.ChapterSourceHasher;
 import com.narrativex.backend.feature.storyboard.application.service.ChapterContentImportService;
+import com.narrativex.backend.feature.storyboard.application.service.ChapterSourceHasher;
 import com.narrativex.backend.feature.storyboard.domain.aggregate.Chapter;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CreateChapterUseCase {
@@ -47,6 +49,13 @@ public class CreateChapterUseCase {
             normalized.hash());
     Chapter saved = chapterRepository.saveAndFlush(chapter);
     contentImportService.importOriginal(saved.getId(), saved.getSourceText(), saved.getSourceHash());
+    log.info(
+        "Created chapter id={} (orderIndex={}, title='{}') in storyVersionId={} for projectId={}",
+        saved.getId(),
+        saved.getOrderIndex(),
+        saved.getTitle(),
+        command.storyVersionId(),
+        command.projectId());
     return ApiResponse.success("Chapter created successfully", ChapterResponse.from(saved));
   }
 

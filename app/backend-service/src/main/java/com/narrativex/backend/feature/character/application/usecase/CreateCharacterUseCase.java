@@ -5,9 +5,11 @@ import com.narrativex.backend.feature.character.application.command.CreateCharac
 import com.narrativex.backend.feature.character.application.port.out.CharacterRepository;
 import com.narrativex.backend.feature.character.domain.aggregate.Character;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CreateCharacterUseCase {
@@ -16,11 +18,20 @@ public class CreateCharacterUseCase {
 
   @Transactional
   public Character execute(CreateCharacterCommand command) {
-    return characterRepository.save(
-        Character.create(
-            currentUserId.get(),
-            command.workspaceId(),
-            command.canonicalName(),
-            command.aliases()));
+    String ownerId = currentUserId.get();
+    Character character =
+        characterRepository.save(
+            Character.create(
+                ownerId,
+                command.workspaceId(),
+                command.canonicalName(),
+                command.aliases()));
+    log.info(
+        "Created character id={} (canonicalName='{}', ownerId={}, workspaceId={})",
+        character.getId(),
+        character.getCanonicalName(),
+        ownerId,
+        command.workspaceId());
+    return character;
   }
 }

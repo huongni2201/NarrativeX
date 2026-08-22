@@ -112,6 +112,20 @@ Database pool sizing follows configured concurrency. The narration repository re
 
 Media-validation jobs use a fresh UUID lease token and increment `row_version` on every claim. Heartbeats and terminal transitions require the job id, worker id, lease token, `RUNNING` status, and an unexpired lease. Completion fences the validation job before changing the asset, upload sessions, or cleanup queue, so a reclaimed stale worker can produce no durable side effects.
 
+### Chapter translation execution
+
+Chapter translation is chunked by semantic boundaries. Every provider chunk derives its own
+request fingerprint from the current source lineage, target language, chunk index and chunk hash,
+then owns a separate `provider_operations` fence. Completed chunks are replayed from durable
+normalized results; `UNKNOWN` chunks are never blindly resubmitted. The final immutable translation
+variant is materialized only after every chunk is durably completed.
+
+Vertex translation returns actual usage metadata together with the raw text. The worker persists
+the provider operation as `COMPLETED` with actual billing before running structural translation
+validation, so invalid output still leaves auditable billed cost. A translation stage heartbeat
+runs at most one-third of the lease interval while provider calls are in flight; lease loss
+cancels the work and cannot mark the job completed or failed from the old owner.
+
 ## Application boundaries
 
 ### Worker owns

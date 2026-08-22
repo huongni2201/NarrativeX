@@ -51,7 +51,7 @@ OperationPlan
             -> ProviderOperation
 ```
 
-Provider requests require durable lifecycle state. Ambiguous external state uses `UNKNOWN` reconciliation instead of blind retry/resubmit. Full actual-usage reconciliation and unused-reservation release remain follow-up work.
+Provider requests require durable lifecycle state. Ambiguous external state uses `UNKNOWN` reconciliation instead of blind retry/resubmit. Chapter translation uses one provider operation per chunk and persists Vertex actual usage before output validation; broader actual-usage reconciliation and unused-reservation release remain follow-up work for other provider paths.
 
 The active generation durability path is MyBatis/explicit SQL for ProviderOperation, GenerationJob, StageAttempt, OperationPlan, MediaPlan, generation outbox enqueue/dispatch and Job History. Chapter analysis has no application-owned pre-moderation gate; provider safety/rejection handling remains part of provider/media execution. Chapter, Project, StoryVersion, storyboard, characters, account/quota, auth, catalog, notifications and the account-scoped MediaAsset library are also MyBatis-backed. MediaAsset bytes use verified R2 upload intents/finalization; metadata uses PostgreSQL upload sessions, guarded lifecycle transitions, soft delete, and cursor pagination.
 

@@ -118,6 +118,7 @@ class StoryboardApiIntegrationTest {
         .andExpect(jsonPath("$.data.safety").doesNotExist())
         .andExpect(jsonPath("$.data.capabilities.canAnalyze").value(true))
         .andExpect(jsonPath("$.data.pipeline.audio.status").value("NOT_STARTED"))
+        .andExpect(jsonPath("$.data.capabilities.canGenerateAudio").value(true))
         .andExpect(jsonPath("$.data.pipeline.render.status").value("NOT_STARTED"));
   }
 

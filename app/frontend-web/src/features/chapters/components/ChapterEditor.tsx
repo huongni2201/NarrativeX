@@ -11,6 +11,7 @@ import { ChapterOverviewTab } from "./ChapterOverviewTab";
 import { ChapterWorkspaceTabs } from "./ChapterWorkspaceTabs";
 import { ChapterVisualsTab } from "./ChapterVisualsTab";
 import { ChapterRenderTab } from "./ChapterRenderTab";
+import { ChapterAudioTab } from "./ChapterAudioTab";
 
 interface ChapterEditorProps {
   projectId: string;
@@ -85,7 +86,7 @@ export function ChapterEditor({ projectId, chapterId }: Readonly<ChapterEditorPr
         onTabChange={setActiveTab}
         availableTabs={{
           visuals: workspace.capabilities.canGenerateVisuals,
-          audio: workspace.capabilities.canGenerateAudio,
+          audio: Boolean(workspace.chapter.sourceText.trim()),
           render: workspace.capabilities.canRender,
         }}
       />
@@ -150,6 +151,8 @@ export function ChapterEditor({ projectId, chapterId }: Readonly<ChapterEditorPr
         <ChapterVisualsTab projectId={numericProjectId} chapterId={workspace.chapter.id} />
       ) : activeTab === "render" ? (
         <ChapterRenderTab projectId={numericProjectId} chapterId={workspace.chapter.id} />
+      ) : activeTab === "audio" ? (
+        <ChapterAudioTab workspace={workspace} />
       ) : (
         <ChapterOverviewTab
           projectId={numericProjectId}

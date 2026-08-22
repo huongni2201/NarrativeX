@@ -9,9 +9,11 @@ import com.narrativex.backend.feature.project.domain.aggregate.Project;
 import com.narrativex.backend.feature.project.domain.entity.StoryVersion;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ActivateStoryVersionUseCase {
@@ -33,6 +35,7 @@ public class ActivateStoryVersionUseCase {
     if (currentActive.map(StoryVersion::getId).filter(storyVersionId::equals).isPresent()) {
       project.reconcileActiveStoryVersion(nextVersion);
       projectRepository.save(project);
+      log.debug("Story version id={} is already active for projectId={}", storyVersionId, projectId);
       return nextVersion;
     }
 
@@ -43,6 +46,11 @@ public class ActivateStoryVersionUseCase {
     currentActive.ifPresent(storyVersionRepository::saveAndFlush);
     StoryVersion saved = storyVersionRepository.save(nextVersion);
     projectRepository.save(project);
+    log.info(
+        "Activated story version id={} (versionNumber={}) for projectId={}",
+        saved.getId(),
+        saved.getVersionNumber(),
+        projectId);
     return saved;
   }
 }

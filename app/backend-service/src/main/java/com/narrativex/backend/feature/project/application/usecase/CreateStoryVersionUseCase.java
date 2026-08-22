@@ -11,9 +11,11 @@ import com.narrativex.backend.feature.project.domain.entity.StoryVersion;
 import com.narrativex.backend.feature.project.domain.exception.StoryCharacterLimitExceededException;
 import com.narrativex.backend.feature.project.domain.exception.StoryTokenLimitExceededException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CreateStoryVersionUseCase {
@@ -41,7 +43,13 @@ public class CreateStoryVersionUseCase {
     StoryVersion storyVersion =
         project.createStoryVersion(
             versionNumber, command.content(), defaultValue(command.sourceLanguage(), "vi-VN"));
-    return storyVersionRepository.save(storyVersion);
+    StoryVersion saved = storyVersionRepository.save(storyVersion);
+    log.info(
+        "Created story version id={} (versionNumber={}) for projectId={}",
+        saved.getId(),
+        saved.getVersionNumber(),
+        command.projectId());
+    return saved;
   }
 
   private static String defaultValue(String value, String fallback) {

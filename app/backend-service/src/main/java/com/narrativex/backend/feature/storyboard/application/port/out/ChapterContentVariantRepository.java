@@ -24,12 +24,17 @@ public interface ChapterContentVariantRepository extends ChapterContentVariantAc
       Long projectId, Long chapterId, Long variantId, String userId);
 
   Optional<ChapterContentVariant> findByIdentity(
-      Long chapterId, Long sourceVariantId, String languageCode, String sourceContentHash);
+      Long chapterId, Long sourceVariantId, String languageCode, String sourceContentHash,
+      String contentHash);
 
   Optional<ChapterContentVariant> findLatestOriginal(Long chapterId);
 
   Optional<ChapterContentVariant> findCompletedTranslation(
       Long chapterId, Long sourceVariantId, String languageCode, String sourceContentHash);
+
+  Optional<ChapterContentVariant> findCompletedTranslation(
+      Long chapterId, Long sourceVariantId, String languageCode, String sourceContentHash,
+      String contentHash);
 
   List<ChapterContentVariant> findAllOwned(Long projectId, Long chapterId);
 

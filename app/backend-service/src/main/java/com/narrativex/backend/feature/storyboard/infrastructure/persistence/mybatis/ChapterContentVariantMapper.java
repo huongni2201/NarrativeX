@@ -15,11 +15,17 @@ public interface ChapterContentVariantMapper extends NarrativeXMyBatisMapper {
       @Param("variantId") Long variantId,
       @Param("userId") String userId);
 
+  ChapterContentVariantRow findCurrentOriginalOwned(
+      @Param("projectId") Long projectId,
+      @Param("chapterId") Long chapterId,
+      @Param("userId") String userId);
+
   ChapterContentVariantRow findByIdentity(
       @Param("chapterId") Long chapterId,
       @Param("sourceVariantId") Long sourceVariantId,
       @Param("languageCode") String languageCode,
-      @Param("sourceContentHash") String sourceContentHash);
+      @Param("sourceContentHash") String sourceContentHash,
+      @Param("contentHash") String contentHash);
 
   ChapterContentVariantRow findLatestOriginal(@Param("chapterId") Long chapterId);
 
@@ -28,6 +34,13 @@ public interface ChapterContentVariantMapper extends NarrativeXMyBatisMapper {
       @Param("sourceVariantId") Long sourceVariantId,
       @Param("languageCode") String languageCode,
       @Param("sourceContentHash") String sourceContentHash);
+
+  ChapterContentVariantRow findCompletedTranslationByIdentity(
+      @Param("chapterId") Long chapterId,
+      @Param("sourceVariantId") Long sourceVariantId,
+      @Param("languageCode") String languageCode,
+      @Param("sourceContentHash") String sourceContentHash,
+      @Param("contentHash") String contentHash);
 
   List<ChapterContentVariantRow> findAllOwned(
       @Param("projectId") Long projectId, @Param("chapterId") Long chapterId);

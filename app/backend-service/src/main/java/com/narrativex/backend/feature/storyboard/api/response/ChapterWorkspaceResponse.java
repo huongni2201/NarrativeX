@@ -17,11 +17,14 @@ public record ChapterWorkspaceResponse(
       PipelineStep analysis,
       PipelineStep visualPlanning,
       ProgressStep visualGeneration,
-      PipelineStep audio,
+      AudioStep audio,
       PipelineStep render,
       boolean sourceOutdated) {}
 
   public record PipelineStep(String status, Instant completedAt) {}
+
+  public record AudioStep(
+      String status, Instant completedAt, String audioUrl, Long durationMs) {}
 
   public record ProgressStep(String status, int total, int completed, int failed) {}
 

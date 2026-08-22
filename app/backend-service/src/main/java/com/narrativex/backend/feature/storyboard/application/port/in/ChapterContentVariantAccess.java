@@ -6,4 +6,7 @@ import java.util.Optional;
 public interface ChapterContentVariantAccess {
   Optional<ChapterContentVariant> findByIdOwned(
       Long projectId, Long chapterId, Long variantId, String userId);
+
+  Optional<ChapterContentVariant> findCurrentOriginalOwned(
+      Long projectId, Long chapterId, String userId);
 }

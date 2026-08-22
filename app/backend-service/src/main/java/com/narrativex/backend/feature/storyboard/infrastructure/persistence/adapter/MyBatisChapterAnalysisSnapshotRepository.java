@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.storyboard.infrastructure.persistence.adapter;
 
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
+import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSource;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterAnalysisSnapshotRepository;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterAnalysisSnapshotMapper;
@@ -25,6 +26,10 @@ public class MyBatisChapterAnalysisSnapshotRepository
     ChapterAnalysisSnapshotRow row = mapper.findOwned(projectId, chapterId, userId, contentVariantId);
     if (row == null) {
       throw new ResourceNotFoundException("Chapter not found");
+    }
+    if (row.isStale()) {
+      throw new ResourceConflictException(
+          "Selected content variant is stale; refresh Chapter language state");
     }
     return new ChapterAnalysisSource(
         row.getId(), row.getStoryVersionId(), row.getRowVersion(), row.getSourceHash(), row.getSourceText(),

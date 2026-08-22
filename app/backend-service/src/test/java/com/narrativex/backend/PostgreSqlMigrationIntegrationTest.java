@@ -50,7 +50,7 @@ class PostgreSqlMigrationIntegrationTest {
   @Test
   void emptyPostgresMigratesAndApplicationContextStarts() throws SQLException {
     try (Connection connection = dataSource.getConnection()) {
-      assertEquals(4, latestFlywayVersion(connection));
+      assertEquals(5, latestFlywayVersion(connection));
       assertEquals(0, rowCount(connection, "generation_jobs"));
       assertEquals(0, rowCount(connection, "projects"));
       assertEquals(11, rowCount(connection, "plan_entitlements"));
@@ -116,6 +116,8 @@ class PostgreSqlMigrationIntegrationTest {
       assertTrue(indexExists(connection, "uq_generation_jobs_owner_idempotency_key"));
       assertTrue(tableExists(connection, "narration_operations"));
       assertTrue(tableExists(connection, "narration_assets"));
+      assertTrue(indexExists(connection, "uq_chapter_original_variants_identity"));
+      assertTrue(indexExists(connection, "uq_chapter_translation_variants_lineage"));
       assertTrue(tableExists(connection, "narration_alignments"));
       assertTrue(tableExists(connection, "media_assets"));
       assertTrue(tableExists(connection, "media_asset_checksums"));

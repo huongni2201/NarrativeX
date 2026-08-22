@@ -5,5 +5,4 @@ public record ConfirmChapterTranslationCommand(
     Long chapterId,
     Long sourceVariantId,
     String sourceContentHash,
-    String targetLanguage,
-    String requestKey) {}
+    String targetLanguage) {}

@@ -9,9 +9,11 @@ import com.narrativex.backend.feature.character.domain.aggregate.ProjectCharacte
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AssignCharacterToProjectUseCase {
@@ -44,6 +46,13 @@ public class AssignCharacterToProjectUseCase {
               .findOwnedById(command.pinnedCharacterVersionId(), ownerId)
               .orElseThrow(() -> new ResourceNotFoundException("Character version not found")));
     }
-    return projectCharacterRepository.save(assignment);
+    ProjectCharacter saved = projectCharacterRepository.save(assignment);
+    log.info(
+        "Assigned characterId={} to projectId={} with role='{}', pinnedVersionId={}",
+        command.characterId(),
+        command.projectId(),
+        command.role(),
+        command.pinnedCharacterVersionId());
+    return saved;
   }
 }

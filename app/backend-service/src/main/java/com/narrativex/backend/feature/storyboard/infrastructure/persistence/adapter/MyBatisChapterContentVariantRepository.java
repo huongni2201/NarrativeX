@@ -67,8 +67,9 @@ public class MyBatisChapterContentVariantRepository implements ChapterContentVar
   private ChapterContentVariant save(ChapterContentVariantRow row) {
     Long id = mapper.insert(row);
     if (id == null) {
-      ChapterContentVariantRow existing =
-          mapper.findByIdentity(row.getChapterId(), row.getSourceVariantId(), row.getLanguageCode(), row.getSourceContentHash());
+      ChapterContentVariantRow existing = mapper.findByIdentity(
+          row.getChapterId(), row.getSourceVariantId(), row.getLanguageCode(),
+          row.getSourceContentHash(), row.getContentHash());
       if (existing == null) throw new IllegalStateException("Content variant was not persisted");
       return toDomain(existing);
     }
@@ -83,8 +84,19 @@ public class MyBatisChapterContentVariantRepository implements ChapterContentVar
   }
 
   @Override
-  public Optional<ChapterContentVariant> findByIdentity(Long chapterId, Long sourceVariantId, String languageCode, String sourceContentHash) {
-    return Optional.ofNullable(mapper.findByIdentity(chapterId, sourceVariantId, languageCode, sourceContentHash)).map(MyBatisChapterContentVariantRepository::toDomain);
+  public Optional<ChapterContentVariant> findCurrentOriginalOwned(
+      Long projectId, Long chapterId, String userId) {
+    return Optional.ofNullable(mapper.findCurrentOriginalOwned(projectId, chapterId, userId))
+        .map(MyBatisChapterContentVariantRepository::toDomain);
+  }
+
+  @Override
+  public Optional<ChapterContentVariant> findByIdentity(
+      Long chapterId, Long sourceVariantId, String languageCode, String sourceContentHash,
+      String contentHash) {
+    return Optional.ofNullable(mapper.findByIdentity(
+            chapterId, sourceVariantId, languageCode, sourceContentHash, contentHash))
+        .map(MyBatisChapterContentVariantRepository::toDomain);
   }
 
   @Override
@@ -93,8 +105,20 @@ public class MyBatisChapterContentVariantRepository implements ChapterContentVar
   }
 
   @Override
-  public Optional<ChapterContentVariant> findCompletedTranslation(Long chapterId, Long sourceVariantId, String languageCode, String sourceContentHash) {
-    return Optional.ofNullable(mapper.findCompletedTranslation(chapterId, sourceVariantId, languageCode, sourceContentHash)).map(MyBatisChapterContentVariantRepository::toDomain);
+  public Optional<ChapterContentVariant> findCompletedTranslation(
+      Long chapterId, Long sourceVariantId, String languageCode, String sourceContentHash) {
+    return Optional.ofNullable(mapper.findCompletedTranslation(
+            chapterId, sourceVariantId, languageCode, sourceContentHash))
+        .map(MyBatisChapterContentVariantRepository::toDomain);
+  }
+
+  @Override
+  public Optional<ChapterContentVariant> findCompletedTranslation(
+      Long chapterId, Long sourceVariantId, String languageCode, String sourceContentHash,
+      String contentHash) {
+    return Optional.ofNullable(mapper.findCompletedTranslationByIdentity(
+            chapterId, sourceVariantId, languageCode, sourceContentHash, contentHash))
+        .map(MyBatisChapterContentVariantRepository::toDomain);
   }
 
   @Override

@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+test.use({ storageState: { cookies: [], origins: [] } });
+
 test.describe("authentication smoke flow", () => {
   test.beforeEach(() => {
     test.skip(!process.env.E2E_BASE_URL, "Set E2E_BASE_URL to run browser smoke tests.");

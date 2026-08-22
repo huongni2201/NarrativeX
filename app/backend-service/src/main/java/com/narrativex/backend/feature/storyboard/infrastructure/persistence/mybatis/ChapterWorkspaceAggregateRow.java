@@ -27,6 +27,8 @@ public class ChapterWorkspaceAggregateRow {
   private boolean narrationAssetReady;
   private String narrationJobStatus;
   private Instant narrationCompletedAt;
+  private String narrationStorageKey;
+  private Long narrationDurationMs;
   private boolean renderManifestCreated;
   private String renderArtifactStatus;
   private String renderJobStatus;
