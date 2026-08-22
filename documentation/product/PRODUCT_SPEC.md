@@ -26,7 +26,7 @@ Implemented foundations now include:
 - job history/quota/notification and frontend studio foundations;
 - R2-only durable media storage contract.
 
-The outbox dispatcher retains a deliberate JDBC query for its short-lived claim/lease concern. Remaining persistence convergence work is primarily StoryVersion, quota/billing, storyboard/continuity and other migration-era CRUD/query boundaries.
+Production persistence is fully MyBatis + explicit SQL, including outbox claim/lease. The JDBC driver and transaction manager remain lower-level infrastructure only.
 
 ## Narration contract
 
@@ -109,5 +109,4 @@ Persisted Chapter scope
 
 A provider success response alone never makes a media stage complete. Durable bytes must be validated and persisted to R2 and authoritative metadata must be committed to PostgreSQL.
 
-Detailed V1.11 feature/status inventory: [FEATURE_CATALOG_V1_11.md](FEATURE_CATALOG_V1_11.md).
-Historical requirement IDs remain in [FEATURE_CATALOG.md](FEATURE_CATALOG.md).
+Detailed V1.11 feature/status inventory: [FEATURE_CATALOG.md](FEATURE_CATALOG.md).

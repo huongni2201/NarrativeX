@@ -126,7 +126,7 @@ The following engineering work remains outside this screen:
 - production image generation and immutable image MediaAsset lifecycle;
 - IMAGE_MOTION render/export and validated R2 FinalArtifact;
 - complete actual usage/billing reconciliation;
-- remaining MyBatis migration for StoryVersion, quota/billing, storyboard/continuity and other migration-era boundaries;
+- preservation of the completed MyBatis-only production boundary;
 - larger storyboard pagination/virtualization and performance work.
 
 Location materialization and Scene-to-Character/Location continuity persistence are **not** listed as future work anymore; their foundations are already merged.

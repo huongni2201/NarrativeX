@@ -29,6 +29,7 @@ CURRENT_FILES = [
     ROOT / "documentation" / "product" / "PRODUCT_SPEC.md",
     ROOT / "documentation" / "product" / "ROADMAP.md",
     ROOT / "documentation" / "product" / "NARRATIVEX_TIMELINE.md",
+    ROOT / "documentation" / "product" / "FEATURE_CATALOG.md",
     ROOT / "documentation" / "domain" / "DOMAIN_MODEL.md",
     ROOT / "documentation" / "domain" / "BUSINESS_RULES.md",
     ROOT / "documentation" / "workflows" / "STORY_TO_VIDEO.md",
@@ -40,6 +41,7 @@ CURRENT_FILES = [
 REQUIRED_PATHS = [
     ROOT / "documentation" / "source-of-truth" / "NARRATIVEX_PROJECT_SPEC_V1_11.md",
     ROOT / "documentation" / "TRACEABILITY.md",
+    ROOT / "documentation" / "product" / "FEATURE_CATALOG.md",
 ]
 
 FORBIDDEN = {

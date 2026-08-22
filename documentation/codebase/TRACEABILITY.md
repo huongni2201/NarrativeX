@@ -35,7 +35,7 @@ Production media readiness gaps remain explicitly tracked.
 | TTS narration/alignment | IMPLEMENTED foundation with R2-backed durable narration |
 | User-provided narration | IMPLEMENTED planning/timeline foundation; production upload/finalize/alignment hardening remains partial |
 | Image generation / render / export | TARGET for first complete durable MP4 vertical slice |
-| Complete MyBatis migration | PARTIAL: StoryVersion, quota/billing, storyboard/continuity and other migration-era boundaries remain |
+| MyBatis-only production persistence | IMPLEMENTED: all production adapters use MyBatis + explicit SQL |
 
 ## Durable generation contract
 
@@ -53,7 +53,7 @@ request
  -> validated materialization
 ```
 
-The durable generation boundaries above use MyBatis/explicit SQL where recorded in ADR-0015. The outbox dispatcher retains a deliberate `JdbcTemplate` claim/lease query for its short-lived operational lease concern.
+All durable production boundaries, including outbox claim/lease, use MyBatis + explicit SQL.
 
 ## Remaining production gaps
 
@@ -63,5 +63,5 @@ The durable generation boundaries above use MyBatis/explicit SQL where recorded 
 4. IMAGE_MOTION render/export plus validated R2 FinalArtifact.
 5. Approved storyboard reset/versioning and full Character reference-lock/review workflows.
 6. Complete billing ledger and actual provider/GPU usage reconciliation.
-7. Remaining MyBatis convergence for StoryVersion, quota/billing, storyboard/continuity and low-risk CRUD/query boundaries.
+7. Preserve the MyBatis-only production boundary with architecture and PostgreSQL integration tests.
 8. Production moderation/SSRF/retention/observability/restore evidence.

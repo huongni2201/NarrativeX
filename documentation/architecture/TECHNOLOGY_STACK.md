@@ -6,7 +6,7 @@ Canonical authority: [`../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](../
 |---|---|---|
 | Web | Next.js 16, React 19, TypeScript, TanStack Query, Zustand | Studio UI and review workflows |
 | Backend | Java 25, Spring Boot 4.1, Security/OAuth2, Spring Session Redis, Actuator | modular monolith, policy, durable orchestration, MediaPlan authority |
-| Persistence | PostgreSQL 18 target, Flyway, MyBatis + remaining migration-era JPA/JDBC | authoritative state; explicit SQL/CAS direction |
+| Persistence | PostgreSQL 18 target, Flyway, MyBatis + explicit SQL | sole production persistence path; explicit SQL/CAS |
 | Redis | Spring Data Redis + Spring Session Redis | sessions and transient hints only |
 | Worker | Python 3.12+, Pydantic, HTTPX, asyncpg, google-auth, boto3 | async provider/media execution, alignment, reconciliation, FFmpeg workspace |
 | AI | Vertex Gemini analysis adapter + provider-neutral ports | structured Chapter analysis |
@@ -29,9 +29,9 @@ MyBatis/explicit-SQL production boundaries include:
 - Job History;
 - Chapter Analyze durable admission and enqueue.
 
-The outbox dispatcher still uses `JdbcTemplate` for its short-lived operational claim/lease query. This is deliberate residual JDBC, not the durable enqueue authority.
+The outbox dispatcher uses a dedicated MyBatis mapper for claim/lease operations.
 
-Next migration priority starts with StoryVersion and quota/billing, then storyboard/continuity and remaining low-risk CRUD/query boundaries. Do not deepen JPA/JDBC for new persistence-heavy features without a documented exception.
+The migration is complete. The backend build has no JPA dependency and production source has no `JdbcTemplate`; architecture and PostgreSQL integration tests prevent regression.
 
 ## Narration status
 

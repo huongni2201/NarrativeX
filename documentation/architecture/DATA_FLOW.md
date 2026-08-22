@@ -66,6 +66,6 @@ A retry/reclaimed job must reuse an already-valid R2 asset when possible instead
 - immutable image asset approval/lineage lifecycle;
 - IMAGE_MOTION render/final export;
 - complete actual-usage/billing reconciliation and release;
-- remaining MyBatis migration;
+- MyBatis-only persistence regression protection;
 - full Character/reference and approved-storyboard workflows;
 - broader moderation/SSRF/retention/observability/DR evidence.

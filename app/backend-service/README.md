@@ -12,7 +12,7 @@ Project creation is metadata-only. Chapter save persists source only. Analysis/n
 - PostgreSQL + Flyway
 - **MyBatis is the strategic persistence direction**
 - MyBatis/explicit-SQL production paths now cover ProviderOperation, Chapter, Project, GenerationJob, StageAttempt, OperationPlan, MediaPlan, generation outbox enqueue, Job History, and the Chapter Analyze safety gate
-- remaining Spring Data JPA/JDBC boundaries are migration-era surfaces; the outbox dispatcher still deliberately uses JDBC for its short-lived claim/lease query
+- MyBatis + explicit SQL is the sole production persistence path; JPA and `JdbcTemplate` are absent from production code
 - Spring Security + server session/CSRF + Google OIDC/password auth
 - Redis for Spring Session and transient/non-authoritative hints
 - Testcontainers/JUnit/JaCoCo
@@ -45,7 +45,7 @@ Project Character list/detail reads are exposed through project-scoped APIs and 
 
 Follow `documentation/codebase/PERSISTENCE_MIGRATION.md` and ADR-0015 conventions: explicit row models/result maps/SQL, CAS predicates, affected-row validation and PostgreSQL integration tests. New persistence-heavy features should not deepen JPA/JDBC without a documented exception.
 
-Current high-priority remaining persistence work starts with StoryVersion and quota/billing, then storyboard/continuity and remaining low-risk CRUD/query boundaries.
+Persistence migration is complete. New work must preserve technology-neutral ports, explicit MyBatis mappings and PostgreSQL integration evidence.
 
 ## Development / verification
 
