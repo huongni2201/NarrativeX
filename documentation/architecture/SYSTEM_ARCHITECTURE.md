@@ -2,9 +2,9 @@
 
 **Canonical source:** `../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`
 
-NarrativeX is a Spring Boot modular monolith with a separately deployed Python AI/media worker. The backend owns browser/API authorization, business policy, source snapshots, MediaPlan authorization and durable control-plane state. The worker owns asynchronous execution mechanics.
+NarrativeX is a Spring Boot modular monolith with separately deployed Python worker roles. The backend owns browser/API authorization, business policy, source snapshots, MediaPlan authorization and durable control-plane state. Workers own asynchronous execution mechanics.
 
-Accepted ADRs refine cross-cutting decisions. ADR-0016 supersedes the older R2-only rule specifically for final rendered MP4 exports.
+ADR-0012 governs R2-backed source/generated/reusable pipeline media. ADR-0016 supersedes the old R2-only rule specifically for final rendered MP4 exports.
 
 ## Logical topology
 
@@ -15,111 +15,94 @@ Browser / Next.js Studio
 Spring Boot Backend
   -> PostgreSQL      authoritative domain/job/plan/usage/storage metadata
   -> Redis           Spring Session + transient/non-authoritative hints
-  -> Cloudflare R2   private durable source/generated/reusable media
-  -> Google Drive    private durable final rendered MP4 exports
         |
         v
-Python AI / Media Worker
-  -> provider adapters
-  -> narration/alignment execution
-  -> image/media execution
-  -> optional I2V
-  -> FFmpeg scratch/render
-  -> R2 media validation/promotion
-  -> final-video validation + Google Drive promotion
+Python worker roles
+  -> analysis / translation
+  -> narration / alignment
+  -> Vertex image generation
+  -> media validation
+  -> IMAGE_MOTION FFmpeg render
+        |
+        +--> Cloudflare R2   source/generated/reusable pipeline media
+        +--> Google Drive    final rendered MP4 exports
 ```
 
 ## Backend authority
 
-The backend owns:
+The backend owns session/CSRF and ownership, entitlement/quota admission, persisted Chapter/source identity, durable jobs/outbox, immutable MediaPlan authorization, production mode/MotionStrategy resolution, durable media/final-artifact metadata and Flyway schema ownership.
 
-- session/CSRF, ownership and entitlements;
-- persisted Chapter/source snapshot authority;
-- safety/quota/cost admission;
-- durable job/outbox orchestration;
-- immutable/versioned MediaPlan authorization;
-- production mode and MotionStrategy resolution;
-- durable media metadata/access contracts;
-- final-video storage-provider identity and FinalArtifact state;
-- Flyway schema ownership.
-
-The worker must not invent paid/I2V work outside the persisted plan.
+Workers execute persisted policy and must not invent paid or I2V work outside the authorized plan.
 
 ## Narration architecture
 
 ```text
 selected source scope
-   +--> TTS ------------------+
-   +--> USER_PROVIDED_AUDIO --+--> NarrationTimeline --> alignment --> visual planning
+   +--> generated TTS/VieNeu --------+
+   +--> USER_PROVIDED_AUDIO ---------+--> narration timeline/alignment
 ```
 
-Current foundations include full-chapter TTS and user-provided audio planning/timeline logic. User-provided audio can be one or many ordered parts; file boundaries are not Chapter boundaries. Its operation plan omits TTS generation.
+Generated narration has a working R2-backed execution path and can be consumed by the current render worker when it matches the pinned Chapter row-version/source-hash.
+
+`USER_PROVIDED_AUDIO` has ordered-part/global-clock/TTS-bypass foundations, but aligned multi-part audio is not yet sliced/stitched into the current chapter render input. That E2E path remains partial.
 
 ## Persistence direction
 
-All production persistence uses MyBatis + explicit SQL, including generation outbox enqueue and dispatcher claim/lease.
-
-The backend build has no JPA dependency and production source has no `JdbcTemplate`; architecture and PostgreSQL integration tests protect this boundary.
-
-Shared rules: explicit row models/result maps, SQL CAS/allowed-state predicates, affected-row validation, shared Spring DataSource/transaction boundary, PostgreSQL Testcontainers evidence.
-
-## Frontend read-model authority
-
-Project Character list/detail is now a real project-scoped vertical slice. The backend authorizes project ownership and exposes read projections for canonical/project aliases, role, importance, groups, pinned version, appearance and scene usage. The frontend consumes those projections and intentionally leaves unsupported fields unavailable rather than fabricating them.
+Production persistence uses MyBatis + explicit PostgreSQL SQL. The backend build has no JPA dependency and production source has no direct `JdbcTemplate` persistence.
 
 ## Durable media boundaries
 
-NarrativeX uses two durable binary-media lifecycles:
-
 ```text
-Source/generated/reusable pipeline media
+Generated images / narration / accepted uploaded audio / reusable media
   -> Cloudflare R2
 
-Final rendered MP4 export
-  -> Google Drive through FinalVideoStorage
+Final rendered MP4
+  -> Google Drive
+
+Metadata / state / lineage / storage identity
+  -> PostgreSQL
+
+Worker-local render/media files
+  -> ephemeral scratch only
 ```
 
-Worker-local files are scratch/cache/FFmpeg workspace only and are never authoritative durable references.
+R2-backed pipeline stages complete only after validated bytes are durable in R2 and PostgreSQL metadata is committed.
 
-An R2-backed media-producing stage completes only after:
-
-```text
-execute/fetch
-  -> local scratch
-  -> validate
-  -> upload immutable bytes to R2
-  -> persist MediaAsset metadata in PostgreSQL
-  -> mark stage complete
-```
-
-A final rendered video completes through a separate boundary:
+The current final-video path is:
 
 ```text
-R2-backed inputs
-  -> local FFmpeg final.mp4
-  -> validate
+pinned R2 image + generated narration inputs
+  -> local FFmpeg IMAGE_MOTION
+  -> ffprobe validation + SHA-256
   -> Google Drive resumable upload
-  -> verify remote object
-  -> persist FinalArtifact storage metadata in PostgreSQL
-  -> READY
-  -> delete local final when safe
+  -> remote file ID/size verification
+  -> render_manifest + FinalArtifact metadata
+  -> render stage/job COMPLETED
 ```
 
-If Drive upload fails after a successful render, retry upload from the validated local MP4 instead of rerendering.
+The final MP4 is not uploaded to R2 by default.
 
-## First complete media target
+## Drive retry semantics
 
-```text
-analysis/review state
-  -> TTS or USER_PROVIDED_AUDIO aligned timeline
-  -> VisualScenePlanner
-  -> image generation (MVP may GENERATE_NEW)
-  -> immutable R2 image MediaAsset
-  -> IMAGE_MOTION FFmpeg render to local scratch
-  -> validate final MP4
-  -> Google Drive FinalVideoStorage promotion
-  -> verify + persist FinalArtifact metadata
-  -> READY
-```
+The Drive adapter can resume an interrupted upload inside one worker attempt and can find/reuse an already-uploaded file by `renderFingerprint` on a later retry.
 
-Reuse/reframe/edit and HYBRID_LOCAL_I2V are fast-follow optimizations after the first durable MP4.
+The rendered `final.mp4` itself currently lives in an ephemeral job workspace. If a Drive failure causes the attempt to exit and the job is later reclaimed, the next attempt may rerender. A durable upload-only retry boundary across worker attempts remains a hardening target.
+
+## Current media status
+
+Implemented foundations:
+
+- real Vertex image generation to R2;
+- generated narration to R2;
+- deterministic IMAGE_MOTION chapter render;
+- ffprobe/checksum validation;
+- Google Drive final-video storage and provider-aware FinalArtifact metadata.
+
+Still incomplete:
+
+- complete production user-audio ingestion/alignment/render path;
+- narration-driven `VisualScenePlanner` and review workflow;
+- richer image approval/reuse/reframe/edit lineage;
+- owner-authorized Drive preview/download/streaming;
+- cross-attempt Drive upload-only retry;
+- HYBRID_LOCAL_I2V hardening and broader production safety/observability work.

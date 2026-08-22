@@ -1,58 +1,59 @@
 # NarrativeX V1.11 Current Implementation Traceability
 
-This matrix maps the V1.11 contract to repository evidence at the docs-sync base `69d5ecdeffdb5e01e0631dbdc2709f207f890044`.
+This matrix maps the V1.11 contract to repository evidence at implementation checkpoint `feat/final-video-google-drive` / `b26e4792d933e787526ea1bb6cb85dfcc5d4c87e`.
 
 | Capability / invariant | Evidence | Status |
 |---|---|---|
-| Project creation metadata-only | backend Project commands/APIs | IMPLEMENTED |
-| Project dashboard/favorite read model | Project dashboard/favorite use cases, MyBatis query adapter, frontend live dashboard | IMPLEMENTED foundation |
-| Project MyBatis persistence | MyBatis Project adapters/mappers/query mapping | IMPLEMENTED |
-| Chapter source snapshot + MyBatis persistence | Chapter domain/repository + rowVersion/sourceHash tests | IMPLEMENTED |
-| Explicit durable Chapter Analyze | generation API/use case | IMPLEMENTED |
-| Durable enqueue + outbox | OperationPlan/GenerationJob/StageAttempt/Outbox | IMPLEMENTED foundation |
-| Generation durable persistence cutover | GenerationJob/StageAttempt/OperationPlan/MediaPlan/outbox/job-history/safety-gate MyBatis mappers + architecture/integration tests | IMPLEMENTED for covered execution boundaries |
-| Worker claim/lease/heartbeat | PostgreSQL claim/recovery tests | IMPLEMENTED |
-| ProviderOperation durable lifecycle | repository/worker lifecycle + reconciliation tests | IMPLEMENTED foundation |
-| Completed-result fingerprint immutability | result fingerprint schema/tests | IMPLEMENTED |
-| Character + Location continuity and Scene relations | worker materialization/tests | IMPLEMENTED foundation |
-| Project-scoped Character list/detail read model | controller/use cases/MyBatis projection + frontend tab/detail wiring + authorization tests | IMPLEMENTED foundation |
-| Backend-authoritative MediaPlan | MediaPlan use case, immutable revision/job pointer, motion resolver | IMPLEMENTED foundation |
-| Full-chapter TTS narration + alignment | narration request/assets/alignment + worker execution/tests | IMPLEMENTED foundation |
-| R2-backed narration durability | R2 media storage path/config/tests | IMPLEMENTED foundation |
-| `NarrationStrategy.USER_PROVIDED_AUDIO` | generation domain enum/plan | IMPLEMENTED foundation |
-| Ordered multi-file logical audio clock | narration timeline factory + worker uploaded timeline tests | IMPLEMENTED foundation |
-| One audio part can cover multiple Chapters | narration tests | IMPLEMENTED foundation |
-| User-audio TTS bypass | `NarrationOperationPlanner` test excludes `TTS_GENERATE` | IMPLEMENTED |
-| Production user-audio upload/finalize API + real alignment runtime | foundation exists; complete user-facing durable path not yet proven | PARTIAL |
-| VisualScenePlanner driven by narration alignment | no complete production vertical slice | TARGET |
-| Production image generation | workflow/ports foundation only | TARGET |
-| Immutable image MediaAsset lifecycle | storage/domain foundations; no complete image stage | TARGET |
-| IMAGE_MOTION render/export | no complete production MP4 vertical slice | TARGET |
-| Reuse/reframe/edit AssetResolver | architecture defined; intentionally postponed | DEFERRED |
-| HYBRID_LOCAL_I2V end-to-end | Wan adapter/planning foundation only | DEFERRED fast-follow |
-| MyBatis-only production persistence | all production adapters/mappers + architecture and PostgreSQL integration tests | IMPLEMENTED |
-| Complete actual usage/billing reconciliation | reservation foundation exists | PARTIAL |
+| Project/Chapter authoring and durable Analyze | backend commands/use cases/MyBatis + worker claim lifecycle | IMPLEMENTED |
+| Generation durable persistence | GenerationJob/StageAttempt/OperationPlan/MediaPlan/outbox/job history explicit SQL/MyBatis | IMPLEMENTED |
+| ProviderOperation lifecycle | durable provider/reconciliation/result fingerprint path | IMPLEMENTED foundation |
+| Character + Location continuity and Scene relations | worker materialization + project Character reads | IMPLEMENTED foundation |
+| Backend-authoritative MediaPlan | immutable plan revision + job pointer + motion resolver | IMPLEMENTED foundation |
+| Generated TTS/VieNeu narration | narration worker + R2 storage | IMPLEMENTED foundation |
+| R2-backed generated narration durability | S3-compatible R2 storage adapter | IMPLEMENTED |
+| `USER_PROVIDED_AUDIO` planning/timeline/TTS bypass | narration strategy, ordered parts, timeline/fingerprint model | IMPLEMENTED foundation |
+| Production uploaded-audio E2E | ingestion/alignment foundations exist; complete user-facing path needs hardening | PARTIAL |
+| Vertex image generation | real Vertex image provider/batch execution + R2 materialization | IMPLEMENTED foundation |
+| READY image assets consumed by renderer | media plan/image asset repository queries | IMPLEMENTED foundation |
+| IMAGE_MOTION chapter render | dedicated render role, FFmpeg image motion, ffprobe validation | IMPLEMENTED foundation |
+| Local render quota settlement | V9 local-render quota migration | IMPLEMENTED |
+| Final MP4 in Google Drive | `GoogleDriveFinalVideoStorage`, resumable upload, remote lookup/size verification | IMPLEMENTED foundation |
+| FinalArtifact Drive metadata | V10 + MyBatis final artifact fields `storageProvider`, external file id, web view link | IMPLEMENTED foundation |
+| Final MP4 excluded from R2 | render worker promotes validated local MP4 directly to Drive | IMPLEMENTED |
+| Render with generated narration snapshot | render repository loads matching generated narration by chapter row-version/source-hash | IMPLEMENTED foundation |
+| Render with aligned multi-part uploaded narration | render worker has no slicing/stitching path for narration parts | PARTIAL |
+| Cross-attempt upload retry without rerender | resumable upload works within an attempt; render workspace is ephemeral after stalled attempt | TARGET hardening |
+| Owner-authorized preview/download/stream of Drive final | storage metadata exists; controlled read/stream boundary not complete | PARTIAL/TARGET |
+| MyBatis-only production persistence | production adapters use MyBatis + explicit SQL | IMPLEMENTED |
+| VisualScenePlanner | full narration-driven planner/review vertical slice remains incomplete | TARGET |
+| Reuse/reframe/edit AssetResolver | architecture defined, intentionally postponed | DEFERRED |
+| HYBRID_LOCAL_I2V | adapter/planning foundation only | DEFERRED fast-follow |
+| Complete actual usage/billing reconciliation | reservation/local render foundations exist | PARTIAL |
 
 ## Current non-claims
 
-NarrativeX does not yet claim a complete Story/Chapter → production MP4 loop. The next release-critical chain is production user-audio/TTS timeline → VisualScenePlanner → production image generation → immutable MediaAssets → IMAGE_MOTION FFmpeg → validated R2 FinalArtifact.
+NarrativeX now has real production foundations for image generation, deterministic chapter rendering and Google Drive final-video storage. Documentation must not describe these as unimplemented `TARGET` capabilities.
 
-Project Character list/detail is now real-API-backed, but this does **not** mean full Character reference locking, relationship graphs, asset aggregation or detailed scene read models are complete.
+NarrativeX still does **not** claim the complete multi-Chapter user-provided-audio → final-video loop: the current render worker requires generated narration matching the pinned Chapter snapshot and does not yet slice/stitch aligned narration parts.
 
-## Persistence boundary
+The Drive adapter performs resumable upload and idempotent fingerprint lookup, but the validated local MP4 is stored in an ephemeral worker job directory. Cross-attempt upload-only retry therefore remains a hardening target.
 
-All durable production persistence, including outbox claim/lease, uses MyBatis + explicit SQL. The JDBC driver and `DataSourceTransactionManager` remain infrastructure below the mapper boundary.
+## Storage invariants
 
-## Documentation invariants
+1. PostgreSQL is durable application/execution authority.
+2. R2 stores source/generated/reusable pipeline media, including images and narration audio.
+3. Google Drive stores final rendered MP4 exports.
+4. Final MP4 is not duplicated to R2 by default.
+5. Worker-local paths are never authoritative durable assets.
+6. Drive file ID/provider metadata, not a public/share URL, identifies a final remote object.
+7. Drive files are private by default.
 
-1. V1.11 is current authority; superseded versioned documents are not maintained in parallel.
-2. PostgreSQL is durable authority; Redis generation hints are not.
-3. R2 is the only durable media object store.
-4. Worker-local paths are never durable assets.
-5. `USER_PROVIDED_AUDIO` bypasses TTS for the covered scope.
-6. File boundaries are not Chapter boundaries.
-7. Backend MediaPlan/motion policy is authoritative.
-8. `IMAGE_MOTION` never authorizes I2V.
-9. New persistence-heavy backend work converges on MyBatis.
-10. Provider `UNKNOWN` reconciles before resubmission and completed results are immutable by fingerprint.
-11. Project Character runtime UI uses authoritative project-scoped reads and does not replace unavailable business fields with fixtures.
+## Execution invariants
+
+1. `USER_PROVIDED_AUDIO` bypasses TTS for its covered scope.
+2. Audio file boundaries are not Chapter boundaries.
+3. Backend MediaPlan/motion policy is authoritative.
+4. `IMAGE_MOTION` never authorizes I2V.
+5. Provider `UNKNOWN` reconciles before resubmission.
+6. Completed provider results are immutable by fingerprint.
+7. A render is not completed before FFmpeg validation, Drive durability/verification and PostgreSQL FinalArtifact metadata commit.

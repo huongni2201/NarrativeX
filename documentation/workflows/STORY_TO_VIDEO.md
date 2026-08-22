@@ -25,98 +25,118 @@ persisted Chapter
 
 ## Narration selection
 
-After current analysis/review state is available:
-
 ```text
-TTS
-  -> exact source-preserving narration
+GENERATED NARRATION
+  -> Google TTS or local VieNeu
+  -> validate/normalize
   -> R2
   -> alignment
 
 USER_PROVIDED_AUDIO
-  -> ordered 1..N audio parts
+  -> ordered 1..N R2-backed audio parts
   -> one logical global audio clock
   -> alignment
   -> no TTS_GENERATE stage
 ```
 
-One user audio file may cover 10+ Chapters; several files may cover the same range. Alignment, not file boundaries, assigns source spans to audio time.
+One user audio file may cover many Chapters and several files may cover the same selected range. Alignment, not file boundaries, assigns source spans to audio time.
 
-## Media planning
+## Media planning and images
 
-```text
-source + analysis/storyboard/continuity
-        + narration timeline
-        -> VisualScenePlanner
-        -> backend-authorized immutable MediaPlan
-        -> GenerationJob pinned to plan revision
-```
-
-The worker executes the resolved plan; it does not independently choose I2V or paid work.
-
-## First complete V1.11 path
+The backend owns MediaPlan authorization and the worker executes the pinned plan. Real Vertex image generation now exists as a production foundation:
 
 ```text
-aligned narration timeline
-  -> VisualScenePlan[]
-  -> image generation (MVP may use GENERATE_NEW only)
-  -> validate + R2 immutable MediaAsset
-  -> IMAGE_MOTION deterministic pan/zoom/fade/overlay
-  -> bounded FFmpeg render to local scratch
-  -> validate final.mp4
-  -> Google Drive resumable upload through FinalVideoStorage
-  -> verify remote file
-  -> persist FinalArtifact storage metadata
-  -> READY
-  -> preview/download
+pinned image-generation work
+  -> Vertex image execution
+  -> validate
+  -> immutable R2 image asset
+  -> READY media input
 ```
 
-The renderer uses audio spans as duration authority. Valid R2 assets are reused across retries instead of regenerated because a worker-local file disappeared.
+`VisualScenePlanner` remains incomplete as the richer narration-driven adaptive planning/review layer. Existing persisted media beat plans can already feed the current renderer.
 
-Final-video upload is a separate retry boundary from render. If Drive upload fails after a successful render, the validated local MP4 is retained for bounded upload retries. NarrativeX must not rerender solely because the remote upload failed.
-
-Final rendered MP4 is not duplicated into R2 by default. R2 remains the durable source/generated/reusable pipeline-media store; Google Drive is the durable final-video target defined by ADR-0016.
-
-## Final video state flow
+## Current generated-narration render path — implemented foundation
 
 ```text
-QUEUED
-  -> PREPARING
-  -> RENDERING
-  -> VALIDATING
-  -> UPLOADING
-  -> VERIFYING
-  -> READY
+CHAPTER_RENDER
+  -> load exact MediaPlan revision
+  -> load READY R2 image assets
+  -> load generated narration matching chapterRowVersion + sourceHash
+  -> normalize beat durations to narration duration
+  -> FFmpeg IMAGE_MOTION in local scratch
+  -> ffprobe validation + SHA-256
+  -> Google Drive resumable upload
+  -> verify Drive file ID + size
+  -> persist render_manifest + FinalArtifact Drive metadata
+  -> mark stage/job COMPLETED
 ```
 
-Failure semantics:
+The final rendered MP4 is not duplicated into R2 by default.
+
+## User-provided narration render path — partial
+
+The planning/timeline/TTS-bypass model exists, but the current render repository loads generated narration rather than resolving aligned `narration_parts` for a selected Chapter range.
+
+Before claiming this path complete, the renderer must:
 
 ```text
-RENDERING failure -> RENDER_FAILED
-UPLOADING failure -> UPLOAD_FAILED -> retry UPLOADING
-VERIFYING failure -> VERIFY_FAILED -> reconcile/retry verification or upload as appropriate
+alignment spans
+  -> locate relevant ordered uploaded-audio parts
+  -> slice chapter/global timeline ranges
+  -> concatenate/stitch where necessary
+  -> create one validated chapter-local render audio input
+  -> IMAGE_MOTION render
 ```
 
-Local `final.mp4` may be removed only after remote verification and authoritative PostgreSQL metadata commit succeed.
+Until then, do not describe the full multi-Chapter uploaded-audio → final-video loop as implemented.
+
+## Current render job state semantics
+
+The current implementation uses one durable `CHAPTER_RENDER` stage rather than separate durable PREPARING/RENDERING/UPLOADING/VERIFYING stages.
+
+```text
+GenerationJob / StageAttempt
+  QUEUED or STALLED
+    -> RUNNING / CHAPTER_RENDER
+    -> render + validate + Drive upload + DB materialization
+    -> COMPLETED
+
+retryable infrastructure/Drive failure
+    -> STALLED
+
+invalid input / FFmpeg / validation failure
+    -> FAILED
+```
+
+Sub-stage progress such as RENDERING/UPLOADING/VERIFYING may be added later, but must not be documented as current persisted state until implemented.
+
+## Drive retry behavior
+
+Within one attempt, Drive uses resumable chunk upload and can query the confirmed byte offset after timeout/network ambiguity.
+
+Before creating a file, the adapter searches by `renderFingerprint`; if an earlier upload already completed, a retry can reuse the matching Drive object rather than create a duplicate.
+
+The rendered local MP4 is currently in an ephemeral job workspace. If an upload failure causes the attempt to exit as `STALLED`, a later claim may rerender. Cross-attempt upload-only retry without rerender is a hardening target.
+
+## Storage contract
+
+```text
+Images / narration / accepted uploaded audio / reusable media -> R2
+Final rendered MP4                                       -> Google Drive
+Metadata / lineage / provider identity                   -> PostgreSQL
+```
+
+Final artifacts are private. The durable remote identity is the Drive provider/file ID stored by the application; a public/share URL is not the correctness boundary.
 
 ## Fast-follow
 
-After the first durable MP4:
-
+- complete multi-part user-audio render integration;
+- narration-driven VisualScenePlanner/review;
 - reuse/reframe/edit AssetResolver;
-- Character/reference lock workflow;
-- approved storyboard revisions;
+- Character/reference locking and approved storyboard revisions;
+- owner-authorized final-video preview/download/streaming;
+- durable upload-only retry across attempts;
 - HYBRID_LOCAL_I2V/Wan hardening;
-- full cost/usage ledger reconciliation;
-- moderation/SSRF/retention/observability/DR evidence;
-- social publishing adapters consuming `FinalVideoStorage` without coupling render policy to Google Drive.
-
-## MVP render contract
-
-For the MVP, the flow is intentionally split:
-
-`approved storyboard + READY narration/alignment -> CHAPTER_GENERATE -> keyframe review -> CHAPTER_RENDER -> artifact`
-
-`CHAPTER_RENDER` pins the exact approved image asset IDs/checksums and ordered narration spans in an immutable manifest. `IMAGE_MOTION` uses deterministic FFmpeg pan/zoom/hold/fade transforms; narration timing is the duration authority. The worker must not add I2V work, switch provider/model, or replace manifest inputs with newer chapter data.
-
-Final artifacts are private. Their durable identity is provider-neutral (`storageProvider`, `storageObjectId`) and delivery remains owner-authorized. Google Drive share/public URLs are not the correctness boundary.
+- full cost/usage reconciliation;
+- moderation/SSRF/retention/observability/DR;
+- social publishing through a provider-neutral final-video stream boundary.

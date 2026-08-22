@@ -1,63 +1,61 @@
 # NarrativeX Technology Stack — V1.11
 
-Canonical authority: [`../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md). Accepted ADRs refine cross-cutting decisions; ADR-0016 supersedes the R2-only rule for final rendered MP4 storage.
+Canonical authority: [`../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md). ADR-0012 governs R2 pipeline media; ADR-0016 governs final rendered MP4 storage.
 
 | Layer | Current stack | V1.11 role |
 |---|---|---|
 | Web | Next.js 16, React 19, TypeScript, TanStack Query, Zustand | Studio UI and review workflows |
 | Backend | Java 25, Spring Boot 4.1, Security/OAuth2, Spring Session Redis, Actuator | modular monolith, policy, durable orchestration, MediaPlan authority |
-| Persistence | PostgreSQL 18 target, Flyway, MyBatis + explicit SQL | sole production persistence path; explicit SQL/CAS |
+| Persistence | PostgreSQL 18 target, Flyway, MyBatis + explicit SQL | sole production persistence path |
 | Redis | Spring Data Redis + Spring Session Redis | sessions and transient hints only |
-| Worker | Python 3.12+, Pydantic, HTTPX, asyncpg, google-auth, boto3 | async provider/media execution, alignment, reconciliation, FFmpeg workspace |
-| AI | Vertex Gemini analysis adapter + provider-neutral ports | structured Chapter analysis |
-| Narration | Google TTS + local VieNeu-TTS v3 Turbo adapter + user-provided audio timeline/alignment contracts | two narration strategies feeding one timeline model; VieNeu supports configured instant voice cloning |
-| Pipeline storage | Cloudflare R2 | durable private source/generated/reusable media; PostgreSQL owns metadata/lineage |
-| Final video storage | Google Drive behind `FinalVideoStorage` | durable private final rendered MP4 exports; resumable upload + verification before READY |
-| Media | FFmpeg-oriented deterministic render foundation; Wan-compatible I2V adapter foundation | first complete target is IMAGE_MOTION, I2V fast-follow |
+| Worker | Python 3.12+, Pydantic, HTTPX, asyncpg, google-auth, boto3 | async provider/media execution, narration, image generation, FFmpeg render, storage adapters |
+| AI analysis | Vertex Gemini | structured Chapter analysis |
+| Image generation | Vertex Gemini image execution | real production foundation; validated image outputs persist to R2 |
+| Narration | Google TTS + local VieNeu + uploaded-audio timeline/alignment contracts | generated narration is R2-backed; uploaded-audio E2E remains partial |
+| Pipeline storage | Cloudflare R2 | durable private source/generated/reusable media |
+| Final video storage | Google Drive | durable private final MP4 through resumable upload and provider-aware FinalArtifact metadata |
+| Deterministic render | FFmpeg + ffprobe | `IMAGE_MOTION` chapter render is implemented foundation |
+| Optional I2V | Wan-compatible adapter foundation | deferred fast-follow/hardening |
 
 ## Persistence status
 
-MyBatis/explicit-SQL production boundaries include:
-
-- ProviderOperation;
-- Chapter;
-- Project command/query persistence;
-- GenerationJob;
-- StageAttempt;
-- OperationPlan;
-- MediaPlan;
-- generation outbox enqueue persistence;
-- Job History;
-- Chapter Analyze durable admission and enqueue.
-
-The outbox dispatcher uses a dedicated MyBatis mapper for claim/lease operations.
-
-The migration is complete. The backend build has no JPA dependency and production source has no `JdbcTemplate`; architecture and PostgreSQL integration tests prevent regression.
+Production persistence uses MyBatis + explicit SQL. The backend build has no JPA dependency and production source has no direct `JdbcTemplate` persistence.
 
 ## Narration status
 
-Full-chapter TTS and R2-backed narration/alignment foundations are implemented. `NarrationStrategy.USER_PROVIDED_AUDIO` is also implemented as a planning/timeline foundation: ordered variable-count parts, fingerprints, global timeline mapping, alignment status and TTS-bypass operation planning.
+Generated narration through Google TTS/local VieNeu is implemented as an R2-backed foundation. `USER_PROVIDED_AUDIO` planning supports ordered variable-count parts, fingerprints, a logical global clock and TTS bypass.
 
-Production upload/finalize and real alignment integration still require hardening before claiming the complete user-facing uploaded-audio workflow.
+The current render worker loads generated narration matching the pinned Chapter source identity. It does not yet slice/stitch aligned multi-part uploaded narration into chapter-local render input.
 
-## Frontend data authority
+## Image/render status
 
-Project Character list/detail screens now consume project-scoped backend read models for role, importance, aliases/groups, pinned version, appearance and scene count. Runtime UI must leave unsupported fields unavailable instead of substituting fabricated business data.
+The worker now has real Vertex image generation and deterministic IMAGE_MOTION render foundations:
+
+```text
+Vertex image output
+  -> validate
+  -> R2 image MediaAsset
+  -> CHAPTER_RENDER
+  -> FFmpeg IMAGE_MOTION
+  -> ffprobe/checksum
+  -> Google Drive final MP4
+```
+
+Do not describe production image generation, deterministic chapter rendering or Google Drive final-video storage as future-only capabilities.
 
 ## Durable media rules
 
-R2 is the durable store for source/generated/reusable media. Final rendered MP4 exports use Google Drive through a provider-neutral `FinalVideoStorage` boundary. Worker-local files are scratch/cache/render workspace only. A provider URL or local path is never an authoritative durable asset reference.
-
-A final video follows:
-
 ```text
-FFmpeg local final.mp4
-  -> validate
-  -> Google Drive resumable upload
-  -> verify
-  -> PostgreSQL FinalArtifact storage metadata
-  -> READY
-  -> local cleanup
+Images / narration / accepted uploaded audio / reusable media -> R2
+Final rendered MP4                                       -> Google Drive
+Metadata / provider identity / lineage                   -> PostgreSQL
+Worker-local files                                       -> ephemeral scratch
 ```
 
-Upload failure retries the upload boundary and does not rerender a valid local final MP4.
+The final Drive object is identified by provider metadata/file ID, not by a public URL.
+
+## Drive retry behavior
+
+Drive upload is resumable within one worker attempt. The adapter also looks up an existing final file by render fingerprint before creating another object.
+
+The local rendered MP4 currently lives in an ephemeral job workspace. If an attempt exits after a Drive failure, a later reclaimed job may rerender. Cross-attempt upload-only retry without rerender is therefore a target hardening item rather than a current guarantee.

@@ -4,33 +4,46 @@
 
 - Version: `V1.11`
 - Repository: `huongni2201/NarrativeX`
-- Docs-sync base: `69d5ecdeffdb5e01e0631dbdc2709f207f890044`
+- Implementation checkpoint: `feat/final-video-google-drive` at `b26e4792d933e787526ea1bb6cb85dfcc5d4c87e`
 - Canonical specification: `documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`
 
-Current code, Flyway migrations and automated tests decide factual AS-IS implementation claims when a derived document drifts from this checkpoint.
+Current code and Flyway migrations decide factual AS-IS implementation claims when a derived document drifts.
 
 ## Current implemented foundations
 
-- Project overview/dashboard/favorite flows and MyBatis-backed Project command/query persistence.
-- Chapter CRUD/import with MyBatis Chapter persistence.
-- Explicit durable Chapter Analyze admission/enqueue and worker claim/lease/heartbeat execution.
-- Durable ProviderOperation lifecycle, CAS-style transition foundation and immutable completed-result fingerprint behavior.
-- Production persistence, including generation enqueue/dispatch and claim/lease, uses MyBatis + explicit SQL; JPA and `JdbcTemplate` are absent from production code.
-- Backend-authoritative, versioned MediaPlan foundation and job pinning.
-- Character/Location continuity plus Scene/VisualBeat and Scene relation materialization foundations.
-- Project-scoped Character list/detail read models are wired end to end and no longer use fabricated runtime Character data for fields covered by the API.
-- Full-chapter TTS narration, alignment and immutable R2-backed narration media.
-- User-provided narration foundation: `NarrationStrategy.USER_PROVIDED_AUDIO`, ordered variable-count audio parts, one logical global audio clock, fingerprints/alignment status and TTS-bypass operation planning.
-- Cloudflare R2-only durable media topology.
+- Project/Chapter authoring, dashboard/favorite, Analyze and durable PostgreSQL worker execution.
+- MyBatis + explicit SQL across production backend persistence; no JPA or direct `JdbcTemplate` persistence in production code.
+- Backend-authoritative MediaPlan, generation job/stage durability and provider-operation reconciliation foundations.
+- Character/Location continuity, Scene/VisualBeat and project-scoped Character reads.
+- Full-chapter generated narration through Google TTS/local VieNeu with R2-backed durable audio.
+- User-provided narration planning/timeline foundation: ordered parts, one logical global audio clock, fingerprints and TTS bypass.
+- Real Vertex image-generation foundation with validated images persisted to R2.
+- Dedicated `IMAGE_MOTION` render worker using FFmpeg/ffprobe against pinned R2 image + generated narration inputs.
+- Final rendered MP4 storage in Google Drive via resumable upload. FinalArtifact stores Drive/provider metadata; final MP4 is not duplicated into R2 by default.
 
-## Primary V1.11 targets
+## Current durable storage split
 
-- Preserve the completed MyBatis-only production boundary with architecture and PostgreSQL integration tests.
-- Harden the production user-audio upload/finalize/alignment path.
-- Build alignment-driven `VisualScenePlanner`.
-- Implement the first production image-generation slice; `GENERATE_NEW` is allowed for the first vertical slice.
-- Persist minimal immutable image `MediaAsset` before render completion.
-- Deliver `IMAGE_MOTION` → validated R2-backed MP4 as the first complete long-form media path.
-- Add reuse/reframe/edit resolution and `HYBRID_LOCAL_I2V` as fast-follow optimizations after the first durable MP4.
+```text
+Generated images          -> Cloudflare R2
+Generated narration       -> Cloudflare R2
+Accepted uploaded audio   -> Cloudflare R2
+Reusable pipeline media   -> Cloudflare R2
+Final rendered MP4        -> Google Drive
+PostgreSQL                -> authoritative metadata/state/lineage
+Worker local filesystem   -> ephemeral scratch only
+```
 
-Derived documents are implementation views and must not redefine these invariants independently.
+ADR-0012 remains authoritative for R2-backed pipeline media. ADR-0016 supersedes ADR-0012 only for final rendered MP4 storage.
+
+## Primary remaining V1.11 work
+
+- Harden production user-audio upload/finalize/alignment.
+- Connect aligned multi-part uploaded narration to chapter render slicing/stitching; the current render worker requires a matching generated narration snapshot.
+- Complete narration-driven `VisualScenePlanner` and review/approval flow.
+- Harden image reuse/reframe/edit/approval lineage after the current generate-new foundation.
+- Add owner-authorized preview/download/streaming for Drive-backed FinalArtifacts.
+- Preserve a validated local MP4 across cross-attempt Drive upload retries if rerender avoidance is required; current resumable upload is robust within an attempt and idempotent by render fingerprint, but the job workspace itself is ephemeral.
+- Complete actual usage/billing reconciliation, moderation, SSRF, retention, observability and DR evidence.
+- Add future social publishing through a provider-neutral final-video read/stream boundary.
+
+Derived documents must distinguish these remaining gaps from already-implemented image, render and Google Drive storage foundations.
