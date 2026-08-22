@@ -15,7 +15,7 @@ Project creation is metadata-only. Saving Chapter source does not implicitly run
 Implemented foundations now include:
 
 - Project, StoryVersion and Chapter authoring foundations plus project dashboard/favorite reads;
-- MyBatis/explicit-SQL persistence for ProviderOperation, Chapter, Project and covered generation durability boundaries: GenerationJob, StageAttempt, OperationPlan, MediaPlan, generation outbox enqueue, Job History and the Chapter Analyze safety gate;
+- MyBatis/explicit-SQL persistence for ProviderOperation, Chapter, Project and covered generation durability boundaries: GenerationJob, StageAttempt, OperationPlan, MediaPlan, generation outbox enqueue and Job History; Chapter Analyze has no application-owned pre-moderation gate;
 - durable Chapter Analyze admission, reservation, enqueue and worker execution;
 - ProviderOperation reconciliation/result-fingerprint invariants;
 - Character/Location continuity and Scene/VisualBeat materialization;

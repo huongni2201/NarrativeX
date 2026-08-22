@@ -96,10 +96,10 @@ export function QuotaDetailModal({ isOpen, onClose }: Readonly<QuotaDetailModalP
                 {/* Progress bar */}
                 <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-surface-3">
                   {isUnlimited ? (
-                    <div className="h-full w-full bg-gradient-to-r from-primary via-purple-500 to-emerald-400" />
+                    <div className="h-full w-full bg-gradient-to-r from-primary via-orange-500 to-emerald-400" />
                   ) : (
                     <div
-                      className="h-full bg-gradient-to-r from-primary to-purple-400 transition-[width] duration-500"
+                      className="h-full bg-gradient-to-r from-primary to-orange-400 transition-[width] duration-500"
                       style={{ width: `${Math.max(5, 100 - usedPercent)}%` }}
                     />
                   )}

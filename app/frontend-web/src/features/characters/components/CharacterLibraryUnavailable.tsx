@@ -1,7 +1,7 @@
 export function CharacterLibraryUnavailable() {
   return (
     <section className="rounded-2xl border border-dashed border-slate-700 bg-surface/50 p-8">
-      <p className="text-[11px] uppercase tracking-[0.2em] text-purple-300">Character API</p>
+      <p className="text-[11px] uppercase tracking-[0.2em] text-orange-300">Character API</p>
       <h1 className="mt-2 text-2xl font-bold text-white">Thư viện nhân vật chưa kết nối</h1>
       <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">
         Backend chưa expose character, project-character và group endpoints. Production UI không dùng fixture để tránh hiển thị dữ liệu giả.

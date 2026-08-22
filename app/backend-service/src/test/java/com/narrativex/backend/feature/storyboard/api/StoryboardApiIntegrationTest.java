@@ -55,7 +55,7 @@ class StoryboardApiIntegrationTest {
     jdbcTemplate.update("INSERT INTO projects (id, name, description, owner_id, status, source_language, narration_language, metadata_language, image_aspect_ratio, image_quality_tier) VALUES (1002, 'P1002', 'Desc', 'seed-user-01', 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD') ON CONFLICT (id) DO NOTHING");
     jdbcTemplate.update("INSERT INTO story_versions (id, project_id, version_number, content, source_language, status, moderation_decision) VALUES (2001, 1001, 1, 'Content', 'vi-VN', 'ACTIVE', 'SAFE') ON CONFLICT (id) DO NOTHING");
     jdbcTemplate.update("INSERT INTO story_versions (id, project_id, version_number, content, source_language, status, moderation_decision) VALUES (2002, 1002, 1, 'Content', 'vi-VN', 'ACTIVE', 'SAFE') ON CONFLICT (id) DO NOTHING");
-    jdbcTemplate.update("UPDATE story_versions SET moderation_decision = 'PENDING' WHERE id = 2002");
+    jdbcTemplate.update("UPDATE story_versions SET moderation_decision = 'NOT_REQUIRED' WHERE id = 2002");
     jdbcTemplate.update("INSERT INTO chapters (id, story_version_id, order_index, title, source_text, source_hash, status, estimated_duration_ms, generation_progress) VALUES (3001, 2001, 1, 'Ch 1', 'Text', repeat('a', 64), 'READY', 42000, 100) ON CONFLICT (id) DO NOTHING");
     jdbcTemplate.update("INSERT INTO chapters (id, story_version_id, order_index, title, source_text, source_hash, status, estimated_duration_ms, generation_progress) VALUES (3002, 2002, 1, 'Ch 2', 'Text', repeat('a', 64), 'READY', 42000, 100) ON CONFLICT (id) DO NOTHING");
     jdbcTemplate.update("INSERT INTO storyboard_revisions (id, chapter_id, revision_number, source_hash, source_row_version, status) VALUES (3501, 3001, 1, repeat('a', 64), 0, 'DRAFT') ON CONFLICT (id) DO NOTHING");
@@ -115,8 +115,8 @@ class StoryboardApiIntegrationTest {
     mockMvc
         .perform(get("/api/v1/projects/1002/chapters/3002/workspace"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.data.safety.decision").value("PENDING"))
-        .andExpect(jsonPath("$.data.capabilities.canAnalyze").value(false))
+        .andExpect(jsonPath("$.data.safety").doesNotExist())
+        .andExpect(jsonPath("$.data.capabilities.canAnalyze").value(true))
         .andExpect(jsonPath("$.data.pipeline.audio.status").value("NOT_STARTED"))
         .andExpect(jsonPath("$.data.pipeline.render.status").value("NOT_STARTED"));
   }

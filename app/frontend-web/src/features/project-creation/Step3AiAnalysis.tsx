@@ -29,7 +29,7 @@ export const Step3AiAnalysis: React.FC<Step3Props> = () => {
     <div className="space-y-8 min-h-[480px]">
       <div className="space-y-4">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-purple-950/80 border border-purple-700/60 flex items-center justify-center text-purple-400">
+          <div className="w-8 h-8 rounded-lg bg-orange-950/80 border border-orange-700/60 flex items-center justify-center text-orange-400">
             <Sparkles className="w-4 h-4" />
           </div>
           <div>
@@ -45,7 +45,7 @@ export const Step3AiAnalysis: React.FC<Step3Props> = () => {
             <span className="text-amber-300 font-medium">Tạm thời chưa khả dụng</span>
             <span className="text-slate-500 font-bold text-sm">—</span>
           </div>
-          <Progress value={0} color="purple" />
+          <Progress value={0} color="orange" />
         </div>
       </div>
 
@@ -54,7 +54,7 @@ export const Step3AiAnalysis: React.FC<Step3Props> = () => {
           const Icon = metric.icon;
           return (
             <div key={metric.id} className="p-3.5 rounded-xl bg-surface border border-slate-800/90 flex flex-col items-center justify-center text-center space-y-1">
-              <div className="w-8 h-8 rounded-lg bg-purple-950/60 flex items-center justify-center text-purple-400 mb-1">
+              <div className="w-8 h-8 rounded-lg bg-orange-950/60 flex items-center justify-center text-orange-400 mb-1">
                 <Icon className="w-4 h-4" />
               </div>
               <span className="text-xl font-extrabold text-white font-mono">{metric.count}</span>
@@ -81,7 +81,7 @@ export const Step3AiAnalysis: React.FC<Step3Props> = () => {
         </div>
 
         <div className="p-5 rounded-xl bg-surface-dark border border-slate-800/80 flex flex-col items-center justify-center text-center space-y-4">
-          <div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-purple-900/60 via-indigo-900/60 to-purple-600/30 border border-purple-500/40 flex items-center justify-center shadow-xl">
+          <div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-orange-900/60 via-orange-900/60 to-orange-600/30 border border-orange-500/40 flex items-center justify-center shadow-xl">
             <span className="font-extrabold text-2xl tracking-tight text-white font-mono">AI</span>
           </div>
           <div className="space-y-1">

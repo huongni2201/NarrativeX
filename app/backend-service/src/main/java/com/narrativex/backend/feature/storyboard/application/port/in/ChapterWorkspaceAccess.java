@@ -9,7 +9,6 @@ public interface ChapterWorkspaceAccess {
 
   record Snapshot(
       String projectName,
-      String moderationDecision,
       List<PreviewScene> previewScenes,
       int sceneCount,
       int visualBeatCount,

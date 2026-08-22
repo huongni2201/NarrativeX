@@ -10,7 +10,7 @@ export function ChapterVisualsTab({ projectId, chapterId }: Readonly<{ projectId
   const media = useMediaGeneration(projectId, chapterId);
   return (
     <section className="space-y-4 rounded-2xl border border-border-dark bg-surface p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-purple-300">Visual review</p><h2 className="mt-1 text-xl font-semibold text-slate-100">Generated keyframes</h2><p className="mt-1 text-sm text-slate-400">Ảnh đã validate vẫn cần review riêng trước khi render.</p></div><Button onClick={() => setModalOpen(true)}>Generate visuals</Button></div>
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-300">Visual review</p><h2 className="mt-1 text-xl font-semibold text-slate-100">Generated keyframes</h2><p className="mt-1 text-sm text-slate-400">Ảnh đã validate vẫn cần review riêng trước khi render.</p></div><Button onClick={() => setModalOpen(true)}>Generate visuals</Button></div>
       {media.message && <p className="rounded-lg border border-border-dark bg-surface-panel px-3 py-2 text-sm text-slate-300">{media.message}</p>}
       {media.job && <div className="rounded-lg border border-border-dark bg-surface-panel p-3 text-sm text-slate-300">Job {media.job.status.toLowerCase()} · {media.job.progress}%{media.job.mediaPlanRevision ? ` · plan revision ${media.job.mediaPlanRevision}` : ""}</div>}
       {!media.details && <p className="rounded-xl border border-dashed border-border-dark px-4 py-10 text-center text-sm text-slate-500">Chưa có media job cho Chapter này.</p>}

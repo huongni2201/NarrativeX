@@ -98,7 +98,7 @@ export function StoryboardScreen({
           <button
             type="button"
             onClick={() => storyboardQuery.refetch()}
-            className="mt-4 inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300 transition-colors hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+            className="mt-4 inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300 transition-colors hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
           >
             <RefreshCw className="h-3.5 w-3.5" />
             Thử lại
@@ -157,7 +157,7 @@ export function StoryboardScreen({
                           type="button"
                           onClick={() => openAddVisualBeat(scene.id)}
                           aria-label={`Thêm visual beat vào Scene ${scene.orderIndex + 1}`}
-                          className="flex min-h-[222px] flex-col items-center justify-center rounded-lg border border-dashed border-storyboard-strong bg-surface-storyboard-card text-purple-400 transition-colors hover:border-purple-500/60 hover:bg-purple-950/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+                          className="flex min-h-[222px] flex-col items-center justify-center rounded-lg border border-dashed border-storyboard-strong bg-surface-storyboard-card text-orange-400 transition-colors hover:border-orange-500/60 hover:bg-orange-950/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
                         >
                           <Plus className="h-5 w-5" />
                           <span className="mt-2 text-[11px]">Thêm visual beat</span>

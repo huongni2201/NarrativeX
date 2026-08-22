@@ -52,7 +52,7 @@ Current foundations include full-chapter TTS and user-provided audio planning/ti
 
 ## Persistence direction
 
-MyBatis/explicit-SQL production paths now cover ProviderOperation, Chapter, Project, GenerationJob, StageAttempt, OperationPlan, MediaPlan, generation outbox enqueue, Job History and the Chapter Analyze safety gate. The outbox dispatcher still uses JDBC for its short-lived operational claim/lease query.
+MyBatis/explicit-SQL production paths now cover ProviderOperation, Chapter, Project, GenerationJob, StageAttempt, OperationPlan, MediaPlan, generation outbox enqueue and Job History. Chapter Analyze has no application-owned pre-moderation gate. The outbox dispatcher still uses JDBC for its short-lived operational claim/lease query.
 
 New persistence-heavy work converges on explicit MyBatis SQL and PostgreSQL; remaining JPA/JDBC adapters are migration-era surfaces. The next major persistence targets are StoryVersion, quota/billing, storyboard/continuity and remaining low-risk CRUD/query boundaries.
 

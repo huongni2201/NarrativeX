@@ -4,7 +4,7 @@
     "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterWorkspaceMapper">
     <resultMap id="chapterWorkspaceAggregateRow" type="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterWorkspaceAggregateRow">
-        <result property="projectName" column="project_name"/><result property="moderationDecision" column="moderation_decision"/>
+        <result property="projectName" column="project_name"/>
         <result property="sceneCount" column="scene_count"/><result property="visualBeatCount" column="visual_beat_count"/><result property="estimatedDurationSeconds" column="duration_seconds"/>
         <result property="storyboardSourceHash" column="storyboard_source_hash"/><result property="hasApprovedOutput" column="has_approved_output"/>
         <result property="analysisStatus" column="analysis_status"/><result property="analysisSourceHash" column="analysis_source_hash"/><result property="analysisCompletedAt" column="analysis_completed_at"/>
@@ -72,7 +72,7 @@
                 OR gj.id = (SELECT generation_job_id FROM latest_render_artifact)
              ORDER BY gj.created_at DESC, gj.id DESC LIMIT 1
         )
-        SELECT p.name AS project_name, sv.moderation_decision, ss.scene_count, bs.visual_beat_count,
+        SELECT p.name AS project_name, ss.scene_count, bs.visual_beat_count,
                ss.duration_seconds, cr.storyboard_source_hash, aps.has_approved_output,
                la.status AS analysis_status, la.source_hash AS analysis_source_hash, la.completed_at AS analysis_completed_at,
                vg.total AS visual_generation_total, vg.completed AS visual_generation_completed,
@@ -89,6 +89,7 @@
           FROM projects p JOIN chapters c ON c.id = #{chapterId}
           JOIN story_versions sv ON sv.id = c.story_version_id AND sv.project_id = p.id
           CROSS JOIN current_revision cr CROSS JOIN scene_stats ss CROSS JOIN beat_stats bs
+          CROSS JOIN visual_generation vg
           CROSS JOIN approval_state aps LEFT JOIN latest_analysis la ON TRUE
           LEFT JOIN latest_visual_generation lvg ON TRUE
          WHERE p.id = #{projectId}

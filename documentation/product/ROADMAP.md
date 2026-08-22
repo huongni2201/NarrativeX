@@ -15,7 +15,7 @@ Create/Edit Chapter
 
 Also implemented as foundations: R2-only durable media topology, worker claim/lease/heartbeat, user-provided-audio TTS-bypass planning, project-scoped Character list/detail read models wired end to end, and MyBatis/explicit-SQL durability for ProviderOperation, Chapter, Project plus the covered generation execution boundaries.
 
-GenerationJob, StageAttempt, OperationPlan, MediaPlan, generation outbox enqueue, Job History and the Chapter Analyze safety gate are no longer future migration items. The outbox dispatcher's short-lived JDBC claim/lease query remains a deliberate operational exception.
+GenerationJob, StageAttempt, OperationPlan, MediaPlan, generation outbox enqueue and Job History are no longer future migration items. Chapter Analyze has no application-owned pre-moderation gate. The outbox dispatcher's short-lived JDBC claim/lease query remains a deliberate operational exception.
 
 ## Track A — Finish persistence simplification
 

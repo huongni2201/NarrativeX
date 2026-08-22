@@ -13,22 +13,22 @@ export function ChapterSceneGrid({ scenes, expanded = false }: Readonly<ChapterS
         {/* Film / Clapperboard Illustration */}
         <div className="relative mx-auto flex h-24 w-28 items-center justify-center select-none">
           {/* Sóng tròn đồng tâm phía dưới */}
-          <div className="absolute -bottom-2 h-7 w-24 rounded-[100%] border border-purple-500/20 bg-purple-500/5 blur-[0.5px]" />
-          <div className="absolute -bottom-3.5 h-9 w-28 rounded-[100%] border border-purple-500/10" />
+          <div className="absolute -bottom-2 h-7 w-24 rounded-[100%] border border-orange-500/20 bg-orange-500/5 blur-[0.5px]" />
+          <div className="absolute -bottom-3.5 h-9 w-28 rounded-[100%] border border-orange-500/10" />
 
           {/* Ngôi sao trang trí lấp lánh xung quanh */}
-          <span className="absolute -top-1 left-2.5 text-xs text-purple-300 animate-pulse">✦</span>
+          <span className="absolute -top-1 left-2.5 text-xs text-orange-300 animate-pulse">✦</span>
           <span className="absolute top-1 right-2 text-sm text-amber-300 animate-pulse">★</span>
           <span className="absolute bottom-2 -left-1 text-base text-amber-400 font-bold">✦</span>
-          <span className="absolute top-0 right-7 text-[10px] text-purple-400">✦</span>
+          <span className="absolute top-0 right-7 text-[10px] text-orange-400">✦</span>
 
           {/* Biểu tượng Clapperboard 3D sắc nét */}
-          <div className="relative flex h-14 w-16 rotate-[-6deg] flex-col items-center justify-between rounded-xl border border-purple-400/40 bg-gradient-to-br from-indigo-600 via-purple-600 to-slate-900 p-1.5 shadow-xl shadow-purple-950/70 transition-transform duration-300 hover:rotate-0 hover:scale-105">
+          <div className="relative flex h-14 w-16 rotate-[-6deg] flex-col items-center justify-between rounded-xl border border-orange-400/40 bg-gradient-to-br from-orange-600 via-orange-600 to-slate-900 p-1.5 shadow-xl shadow-orange-950/70 transition-transform duration-300 hover:rotate-0 hover:scale-105">
             {/* Sọc kẻ clapperboard */}
-            <div className="flex h-3 w-full items-center justify-around overflow-hidden rounded-t border-b border-purple-300/30 bg-slate-950/80">
-              <div className="h-full w-1.5 -skew-x-12 bg-purple-200/90" />
-              <div className="h-full w-1.5 -skew-x-12 bg-purple-200/90" />
-              <div className="h-full w-1.5 -skew-x-12 bg-purple-200/90" />
+            <div className="flex h-3 w-full items-center justify-around overflow-hidden rounded-t border-b border-orange-300/30 bg-slate-950/80">
+              <div className="h-full w-1.5 -skew-x-12 bg-orange-200/90" />
+              <div className="h-full w-1.5 -skew-x-12 bg-orange-200/90" />
+              <div className="h-full w-1.5 -skew-x-12 bg-orange-200/90" />
             </div>
             {/* Nút Play ở giữa */}
             <div className="my-auto flex h-6 w-6 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm shadow-inner">

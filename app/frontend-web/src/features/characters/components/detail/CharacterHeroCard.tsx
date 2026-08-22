@@ -101,7 +101,7 @@ export function CharacterHeroCard({
 
           {/* Stat 2: Assets */}
           <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-surface-2 p-3.5 text-center">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-badge-purple-border bg-badge-purple-bg text-badge-purple">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-badge-orange-border bg-badge-orange-bg text-badge-orange">
               <ImageIcon className="h-4 w-4" />
             </div>
             <div className="mt-2 text-xl font-extrabold text-text-primary">{assetCount}</div>

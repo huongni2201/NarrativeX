@@ -40,7 +40,7 @@ export function ChapterContentEditor({
           <button
             type="button"
             onClick={onStartEditing}
-            className="inline-flex items-center gap-2 rounded-lg border border-border-dark px-3 py-2 text-xs text-slate-300 transition-colors hover:bg-slate-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+            className="inline-flex items-center gap-2 rounded-lg border border-border-dark px-3 py-2 text-xs text-slate-300 transition-colors hover:bg-slate-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
           >
             <Pencil className="h-3.5 w-3.5" />
             Chỉnh sửa
@@ -77,7 +77,7 @@ export function ChapterContentEditor({
           value={title}
           maxLength={200}
           onChange={(event) => onTitleChange(event.target.value)}
-          className="w-full rounded-xl border border-border-dark bg-surface-panel px-4 py-3 text-sm text-white outline-none transition-colors focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+          className="w-full rounded-xl border border-border-dark bg-surface-panel px-4 py-3 text-sm text-white outline-none transition-colors focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
         />
       </label>
 
@@ -87,7 +87,7 @@ export function ChapterContentEditor({
           value={sourceText}
           onChange={(event) => onSourceChange(event.target.value)}
           rows={20}
-          className="min-h-[420px] w-full resize-y rounded-xl border border-border-dark bg-surface-panel px-4 py-4 text-sm leading-7 text-slate-200 outline-none transition-colors focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+          className="min-h-[420px] w-full resize-y rounded-xl border border-border-dark bg-surface-panel px-4 py-4 text-sm leading-7 text-slate-200 outline-none transition-colors focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
         />
       </label>
 
@@ -100,7 +100,7 @@ export function ChapterContentEditor({
             type="button"
             onClick={onReload}
             disabled={saving}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300 transition-colors hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300 transition-colors hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 disabled:opacity-50"
           >
             <RefreshCw className="h-3.5 w-3.5" />
             Tải lại
@@ -109,7 +109,7 @@ export function ChapterContentEditor({
             type="button"
             onClick={onCancel}
             disabled={saving}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300 transition-colors hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300 transition-colors hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 disabled:opacity-50"
           >
             <X className="h-3.5 w-3.5" />
             Hủy
@@ -118,7 +118,7 @@ export function ChapterContentEditor({
             type="button"
             onClick={onSave}
             disabled={!dirty || !title.trim() || saving}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-purple-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-purple-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-orange-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-orange-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
             {saving ? "Đang lưu…" : "Lưu Chapter"}

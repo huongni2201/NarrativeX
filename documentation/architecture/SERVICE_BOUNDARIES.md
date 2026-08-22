@@ -47,7 +47,7 @@ Project Character list/detail APIs authorize project ownership before returning 
 
 Application/domain repository ports remain persistence-neutral. Infrastructure converges on MyBatis + explicit SQL + PostgreSQL.
 
-MyBatis/explicit-SQL production paths now cover ProviderOperation, Chapter, Project, GenerationJob, StageAttempt, OperationPlan, MediaPlan, generation outbox enqueue, Job History and the Chapter Analyze safety gate. The outbox dispatcher retains a deliberate JDBC claim/lease query for its short-lived operational lease concern.
+MyBatis/explicit-SQL production paths now cover ProviderOperation, Chapter, Project, GenerationJob, StageAttempt, OperationPlan, MediaPlan, generation outbox enqueue and Job History. Chapter Analyze has no application-owned pre-moderation gate. The outbox dispatcher retains a deliberate JDBC claim/lease query for its short-lived operational lease concern.
 
 Remaining migration-era JPA/JDBC surfaces include StoryVersion, quota/billing, storyboard/continuity persistence and other low-risk CRUD/query boundaries.
 

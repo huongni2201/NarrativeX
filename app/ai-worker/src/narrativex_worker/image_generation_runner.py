@@ -16,6 +16,12 @@ class ImageGenerationBlockedError(RuntimeError):
     pass
 
 
+class ImageGenerationProviderRejectedError(ImageGenerationBlockedError):
+    """A provider rejected this image request; unrelated scene items may continue."""
+
+    code = "PROVIDER_REJECTED"
+
+
 class ImageGenerationRunner:
     def __init__(
         self,
@@ -35,7 +41,7 @@ class ImageGenerationRunner:
             raise RuntimeError(operation.error_code or "IMAGE_PROVIDER_FAILED")
         result = operation.result
         if result.moderation is ModerationDecision.BLOCK:
-            raise ImageGenerationBlockedError("provider moderation blocked this image")
+            raise ImageGenerationProviderRejectedError("provider moderation rejected this image")
         checksum = result.result_fingerprint
         if checksum != hashlib.sha256(result.content).hexdigest():
             raise ValueError("provider result fingerprint does not match image bytes")

@@ -16,7 +16,7 @@ Current code, Flyway migrations and automated tests decide factual AS-IS impleme
 - Chapter CRUD/import with MyBatis Chapter persistence.
 - Explicit durable Chapter Analyze admission/enqueue and worker claim/lease/heartbeat execution.
 - Durable ProviderOperation lifecycle, CAS-style transition foundation and immutable completed-result fingerprint behavior.
-- Generation execution persistence for GenerationJob, StageAttempt, OperationPlan, MediaPlan, generation outbox enqueue, Job History and the Chapter Analyze safety gate uses MyBatis/explicit SQL; the outbox dispatcher's short-lived claim/lease query remains a deliberate JDBC operational boundary.
+- Generation execution persistence for GenerationJob, StageAttempt, OperationPlan, MediaPlan, generation outbox enqueue and Job History uses MyBatis/explicit SQL; Chapter Analyze has no application-owned pre-moderation gate; the outbox dispatcher's short-lived claim/lease query remains a deliberate JDBC operational boundary.
 - Backend-authoritative, versioned MediaPlan foundation and job pinning.
 - Character/Location continuity plus Scene/VisualBeat and Scene relation materialization foundations.
 - Project-scoped Character list/detail read models are wired end to end and no longer use fabricated runtime Character data for fields covered by the API.

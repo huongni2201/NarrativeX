@@ -53,7 +53,7 @@ export function CharacterLibrary() {
     <section className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <div className="flex items-center gap-2 text-purple-300">
+          <div className="flex items-center gap-2 text-orange-300">
             <Users className="h-5 w-5" />
             <span className="text-sm font-medium">Character Library</span>
           </div>
@@ -69,7 +69,7 @@ export function CharacterLibrary() {
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Tìm theo tên hoặc alias…"
-            className="h-10 w-full rounded-xl border border-slate-800 bg-surface-card pl-9 pr-3 text-sm text-slate-100 outline-none transition focus:border-purple-500"
+            className="h-10 w-full rounded-xl border border-slate-800 bg-surface-card pl-9 pr-3 text-sm text-slate-100 outline-none transition focus:border-orange-500"
           />
         </label>
       </div>
@@ -91,7 +91,7 @@ export function CharacterLibrary() {
           {visibleCharacters.map((character) => (
             <article
               key={character.id}
-              className="rounded-2xl border border-slate-800/80 bg-surface-card p-5 shadow-lg transition hover:border-purple-500/50"
+              className="rounded-2xl border border-slate-800/80 bg-surface-card p-5 shadow-lg transition hover:border-orange-500/50"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -110,7 +110,7 @@ export function CharacterLibrary() {
                     character.aliases.map((alias) => (
                       <span
                         key={alias}
-                        className="rounded-md border border-purple-800/30 bg-purple-950/30 px-2 py-1 text-xs text-purple-300"
+                        className="rounded-md border border-orange-800/30 bg-orange-950/30 px-2 py-1 text-xs text-orange-300"
                       >
                         {alias}
                       </span>

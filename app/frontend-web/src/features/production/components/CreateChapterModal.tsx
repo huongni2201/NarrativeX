@@ -84,7 +84,7 @@ export function CreateChapterModal({
             maxLength={200}
             autoComplete="off"
             required
-            className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"
+            className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
           />
         </div>
 
@@ -93,7 +93,7 @@ export function CreateChapterModal({
             <label htmlFor="chapter-source" className="text-xs font-semibold text-slate-300">
               Nhập nội dung Chapter
             </label>
-            <span className="inline-flex items-center gap-1.5 rounded-md bg-purple-950/50 px-2 py-1 text-[10px] font-medium text-purple-300">
+            <span className="inline-flex items-center gap-1.5 rounded-md bg-orange-950/50 px-2 py-1 text-[10px] font-medium text-orange-300">
               <FileText className="h-3 w-3" /> Nhập văn bản
             </span>
           </div>
@@ -107,7 +107,7 @@ export function CreateChapterModal({
             placeholder="Dán nội dung chương truyện vào đây…"
             rows={8}
             required
-            className="mt-2 w-full resize-y rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-sm leading-6 text-slate-200 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"
+            className="mt-2 w-full resize-y rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-sm leading-6 text-slate-200 outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
           />
           <p className="mt-1 text-right text-[11px] text-slate-500">{sourceText.length.toLocaleString("vi-VN")} ký tự</p>
         </div>

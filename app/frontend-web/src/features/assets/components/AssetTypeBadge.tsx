@@ -8,8 +8,8 @@ interface AssetTypeBadgeProps { type: AssetType; className?: string; showIcon?: 
 const config: Record<AssetType, { label: string; icon: React.ElementType; className: string }> = {
   IMAGE: { label: "IMAGE", icon: ImageIcon, className: "bg-slate-900/80 text-slate-300 border-slate-700/80" },
   VIDEO: { label: "VIDEO", icon: Video, className: "bg-blue-950/80 text-blue-300 border-blue-700/60" },
-  AUDIO: { label: "AUDIO", icon: Volume2, className: "bg-purple-950/80 text-purple-300 border-purple-700/60" },
-  REFERENCE: { label: "REFERENCE", icon: Bookmark, className: "bg-indigo-950/80 text-indigo-300 border-indigo-700/60" },
+  AUDIO: { label: "AUDIO", icon: Volume2, className: "bg-orange-950/80 text-orange-300 border-orange-700/60" },
+  REFERENCE: { label: "REFERENCE", icon: Bookmark, className: "bg-orange-950/80 text-orange-300 border-orange-700/60" },
   MOTION: { label: "MOTION", icon: Activity, className: "bg-cyan-950/80 text-cyan-300 border-cyan-700/60" },
   FINAL_OUTPUT: { label: "FINAL OUTPUT", icon: Film, className: "bg-emerald-950/80 text-emerald-300 border-emerald-700/60" },
 };

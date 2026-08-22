@@ -34,9 +34,6 @@ public class GetChapterWorkspaceUseCase {
         projectId, chapter.getStoryVersionId(), currentUserId.get());
 
     var snapshot = chapterWorkspaceReadRepository.get(projectId, chapterId);
-    String moderationDecision =
-        snapshot.moderationDecision() == null ? "PENDING" : snapshot.moderationDecision();
-    boolean safetyAllowed = "SAFE".equalsIgnoreCase(moderationDecision);
     var analysis = snapshot.analysis();
     boolean hasStoryboard = snapshot.sceneCount() > 0 && snapshot.visualBeatCount() > 0;
     boolean sourceOutdated =
@@ -67,8 +64,7 @@ public class GetChapterWorkspaceUseCase {
             .toList();
 
     boolean canAnalyze =
-        safetyAllowed
-            && !chapter.getSourceText().isBlank()
+        !chapter.getSourceText().isBlank()
             && !isActive(analysisStatus)
             && !(snapshot.hasApprovedOutput() && !sourceOutdated);
     boolean chapterAnalysisCompleted = "COMPLETED".equals(analysisStatus) && !sourceOutdated;
@@ -85,7 +81,6 @@ public class GetChapterWorkspaceUseCase {
         new ChapterWorkspaceResponse(
             ChapterResponse.from(chapter),
             snapshot.projectName(),
-            new ChapterWorkspaceResponse.Safety(moderationDecision),
             new ChapterWorkspaceResponse.Summary(
                 snapshot.sceneCount(),
                 snapshot.visualBeatCount(),

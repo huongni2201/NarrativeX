@@ -19,7 +19,7 @@ Cloudflare R2          external managed durable media storage
 - Project/Chapter/Analyze foundations are implemented.
 - Project dashboard/favorite APIs and frontend dashboard wiring are implemented foundations.
 - ProviderOperation, Chapter and Project persistence are MyBatis-backed.
-- GenerationJob, StageAttempt, OperationPlan, MediaPlan, generation outbox enqueue, Job History and the Chapter Analyze safety gate have MyBatis/explicit-SQL production paths. The outbox dispatcher retains a deliberate JDBC claim/lease query.
+- GenerationJob, StageAttempt, OperationPlan, MediaPlan, generation outbox enqueue and Job History have MyBatis/explicit-SQL production paths. Chapter Analyze has no application-owned pre-moderation gate. The outbox dispatcher retains a deliberate JDBC claim/lease query.
 - Character + Location continuity and Scene relations are materialized by the worker.
 - Project-scoped Character list/detail reads are backed by MyBatis and wired into `ProjectCharactersTab` and `CharacterDetailView`; covered fields no longer come from fabricated runtime data.
 - Backend-authoritative MediaPlan foundation is implemented and generation jobs can be pinned to plan revision/policy.

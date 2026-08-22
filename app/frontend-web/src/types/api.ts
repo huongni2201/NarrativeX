@@ -94,9 +94,6 @@ export interface ApiChapterWorkspacePreviewScene {
 export interface ApiChapterWorkspace {
   chapter: ApiChapter;
   projectName: string;
-  safety: {
-    decision: string;
-  };
   summary: ApiChapterWorkspaceSummary;
   pipeline: {
     analysis: ApiChapterWorkspacePipelineStep;
@@ -357,8 +354,6 @@ export function isApiChapterWorkspace(value: unknown): value is ApiChapterWorksp
     !isRecord(value) ||
     !isApiChapter(value.chapter) ||
     !isString(value.projectName) ||
-    !isRecord(value.safety) ||
-    !isString(value.safety.decision) ||
     !isRecord(value.summary) ||
     !isNumber(value.summary.sceneCount) ||
     !isNumber(value.summary.visualBeatCount) ||

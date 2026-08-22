@@ -567,7 +567,7 @@ class PostgreSqlMigrationIntegrationTest {
     try (PreparedStatement statement =
         connection.prepareStatement(
             "insert into story_versions (project_id, version_number, content, source_language,"
-                + " status, moderation_decision) values (?, ?, 'story', 'vi-VN', ?, 'PENDING')")) {
+                + " status, moderation_decision) values (?, ?, 'story', 'vi-VN', ?, 'NOT_REQUIRED')")) {
       statement.setLong(1, projectId);
       statement.setInt(2, versionNumber);
       statement.setString(3, status);

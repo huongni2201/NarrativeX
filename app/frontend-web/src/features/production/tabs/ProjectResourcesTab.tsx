@@ -87,7 +87,7 @@ export function ProjectResourcesTab({
           {assets.map((asset) => (
             <article key={asset.id} className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
               <div className="flex items-start gap-3">
-                <ImageIcon className="mt-0.5 h-4 w-4 shrink-0 text-purple-400" />
+                <ImageIcon className="mt-0.5 h-4 w-4 shrink-0 text-orange-400" />
                 <div className="min-w-0 space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <h4 className="truncate font-semibold text-white">{asset.name}</h4>
@@ -102,7 +102,7 @@ export function ProjectResourcesTab({
                       href={asset.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-[11px] font-medium text-purple-400 hover:text-purple-300"
+                      className="inline-flex items-center gap-1 text-[11px] font-medium text-orange-400 hover:text-orange-300"
                     >
                       Mở asset <ExternalLink className="h-3 w-3" />
                     </a>
@@ -142,7 +142,7 @@ function ResourceShell({
           <button
             type="button"
             onClick={onOpenLibrary}
-            className="flex items-center gap-1 text-xs font-medium text-purple-400 hover:text-purple-300"
+            className="flex items-center gap-1 text-xs font-medium text-orange-400 hover:text-orange-300"
           >
             <span>{action}</span>
             <ExternalLink className="h-3 w-3" />

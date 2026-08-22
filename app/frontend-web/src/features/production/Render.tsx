@@ -32,7 +32,7 @@ export const Render: React.FC = () => {
       <div className="flex items-center gap-2 text-xs text-slate-400 font-medium">
         <button
           onClick={() => setView("workspace")}
-          className="hover:text-purple-400 flex items-center gap-1 transition-colors"
+          className="hover:text-orange-400 flex items-center gap-1 transition-colors"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           <span>Chapter Workspace</span>
@@ -45,14 +45,14 @@ export const Render: React.FC = () => {
           {project.title}
         </button>
         <span>/</span>
-        <span className="text-purple-300 font-semibold truncate">
+        <span className="text-orange-300 font-semibold truncate">
           Render Chapter / Full Project
         </span>
       </div>
 
       {/* Notice regarding Render Pipeline Availability */}
-      <div className="flex items-center gap-3 rounded-xl border border-purple-500/30 bg-purple-950/20 px-4 py-3 text-xs text-purple-200">
-        <Info className="h-4 w-4 shrink-0 text-purple-400" />
+      <div className="flex items-center gap-3 rounded-xl border border-orange-500/30 bg-orange-950/20 px-4 py-3 text-xs text-orange-200">
+        <Info className="h-4 w-4 shrink-0 text-orange-400" />
         <span>
           Pipeline Render &amp; Export đang được hoàn thiện ở backend AI worker. Giao diện dưới đây hiển thị cấu hình xuất video.
         </span>
@@ -80,9 +80,9 @@ export const Render: React.FC = () => {
               Render Chapter hiện tại
             </h3>
 
-            <div className="p-5 rounded-2xl bg-surface border border-purple-500/40 flex flex-col sm:flex-row items-center justify-between gap-5 shadow-xl">
+            <div className="p-5 rounded-2xl bg-surface border border-orange-500/40 flex flex-col sm:flex-row items-center justify-between gap-5 shadow-xl">
               <div className="flex items-center gap-4 w-full sm:w-auto">
-                <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-900 border border-purple-500/40 shrink-0">
+                <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-900 border border-orange-500/40 shrink-0">
                   <Image
                     src="https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=300&auto=format&fit=crop"
                     alt={chapter.title}
@@ -125,9 +125,9 @@ export const Render: React.FC = () => {
               Render toàn bộ Project (các chapter đã sẵn sàng)
             </h3>
 
-            <div className="p-5 rounded-2xl bg-surface border border-purple-500/40 flex flex-col sm:flex-row items-center justify-between gap-5 shadow-xl">
+            <div className="p-5 rounded-2xl bg-surface border border-orange-500/40 flex flex-col sm:flex-row items-center justify-between gap-5 shadow-xl">
               <div className="flex items-center gap-4 w-full sm:w-auto">
-                <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-900 border border-purple-500/40 shrink-0">
+                <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-900 border border-orange-500/40 shrink-0">
                   <img
                     src={project.coverImage}
                     alt={project.title}
@@ -175,7 +175,7 @@ export const Render: React.FC = () => {
             <select
               value={resolution}
               onChange={(e) => setResolution(e.target.value)}
-              className="w-full bg-surface-panel border border-slate-800 rounded-lg px-3.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-purple-500 cursor-pointer"
+              className="w-full bg-surface-panel border border-slate-800 rounded-lg px-3.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-orange-500 cursor-pointer"
             >
               <option value="1080p">1080P (Full HD)</option>
               <option value="720p">720P (Standard HD)</option>
@@ -191,7 +191,7 @@ export const Render: React.FC = () => {
             <select
               value={aspectRatio}
               onChange={(e) => setAspectRatio(e.target.value)}
-              className="w-full bg-surface-panel border border-slate-800 rounded-lg px-3.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-purple-500 cursor-pointer"
+              className="w-full bg-surface-panel border border-slate-800 rounded-lg px-3.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-orange-500 cursor-pointer"
             >
               <option value="16:9">16 : 9 (Landscape / YouTube)</option>
               <option value="9:16">9 : 16 (Shorts / Reels / TikTok)</option>
@@ -208,7 +208,7 @@ export const Render: React.FC = () => {
             <select
               value={quality}
               onChange={(e) => setQuality(e.target.value)}
-              className="w-full bg-surface-panel border border-slate-800 rounded-lg px-3.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-purple-500 cursor-pointer"
+              className="w-full bg-surface-panel border border-slate-800 rounded-lg px-3.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-orange-500 cursor-pointer"
             >
               <option value="standard">Standard</option>
               <option value="high">High Bitrate</option>
@@ -224,7 +224,7 @@ export const Render: React.FC = () => {
             id="watermark-cb"
             checked={addWatermark}
             onChange={(e) => setAddWatermark(e.target.checked)}
-            className="w-4 h-4 rounded bg-surface-panel border-slate-700 text-purple-600 focus:ring-purple-500 focus:ring-offset-surface cursor-pointer"
+            className="w-4 h-4 rounded bg-surface-panel border-slate-700 text-orange-600 focus:ring-orange-500 focus:ring-offset-surface cursor-pointer"
           />
           <label htmlFor="watermark-cb" className="text-xs text-slate-300 select-none cursor-pointer">
             Thêm watermark <span className="text-slate-500 font-mono">(Tắt tự động cho gói Pro)</span>

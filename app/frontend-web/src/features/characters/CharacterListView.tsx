@@ -52,11 +52,11 @@ export const CharacterListView: React.FC<CharacterListViewProps> = ({
               <tr
                 key={character.id}
                 onClick={() => onSelectCharacter(character.id)}
-                className="hover:bg-purple-950/20 transition-colors cursor-pointer group"
+                className="hover:bg-orange-950/20 transition-colors cursor-pointer group"
               >
                 <td className="py-3 px-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl overflow-hidden bg-slate-900 border border-slate-700/60 shrink-0 group-hover:border-purple-500/50 transition-colors">
+                    <div className="w-10 h-10 rounded-xl overflow-hidden bg-slate-900 border border-slate-700/60 shrink-0 group-hover:border-orange-500/50 transition-colors">
                       <img
                         src={character.avatarUrl}
                         alt={character.name}
@@ -67,7 +67,7 @@ export const CharacterListView: React.FC<CharacterListViewProps> = ({
                       />
                     </div>
                     <div>
-                      <div className="font-semibold text-slate-100 group-hover:text-purple-300 transition-colors flex items-center gap-1.5">
+                      <div className="font-semibold text-slate-100 group-hover:text-orange-300 transition-colors flex items-center gap-1.5">
                         <span>{character.name}</span>
                         {isLocked && <Lock className="w-3 h-3 text-amber-400" />}
                       </div>
@@ -84,7 +84,7 @@ export const CharacterListView: React.FC<CharacterListViewProps> = ({
                       {assignment?.role || character.roleCategory || "Nhân vật"}
                     </span>
                     {character.group && (
-                      <span className="inline-block px-2 py-0.5 rounded bg-purple-950/60 border border-purple-800/40 text-[10px] text-purple-300 font-medium">
+                      <span className="inline-block px-2 py-0.5 rounded bg-orange-950/60 border border-orange-800/40 text-[10px] text-orange-300 font-medium">
                         {character.group}
                       </span>
                     )}
@@ -93,7 +93,7 @@ export const CharacterListView: React.FC<CharacterListViewProps> = ({
 
                 <td className="py-3 px-4">
                   <div className="flex items-center gap-1.5 text-slate-300">
-                    <Folder className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                    <Folder className="w-3.5 h-3.5 text-orange-400 shrink-0" />
                     <span className="truncate max-w-[140px]">
                       {project?.name || project?.title || "Chung / Toàn cục"}
                     </span>
@@ -128,7 +128,7 @@ export const CharacterListView: React.FC<CharacterListViewProps> = ({
                 </td>
 
                 <td className="py-3 px-4">
-                  <span className="font-mono text-purple-400 font-semibold bg-purple-950/40 px-2 py-0.5 rounded border border-purple-800/30 text-[11px]">
+                  <span className="font-mono text-orange-400 font-semibold bg-orange-950/40 px-2 py-0.5 rounded border border-orange-800/30 text-[11px]">
                     v{character.latestVersion.versionNumber}.0
                   </span>
                 </td>
@@ -145,7 +145,7 @@ export const CharacterListView: React.FC<CharacterListViewProps> = ({
                       event.stopPropagation();
                       onSelectCharacter(character.id);
                     }}
-                    className="text-purple-300 hover:text-white hover:bg-purple-900/40 text-xs"
+                    className="text-orange-300 hover:text-white hover:bg-orange-900/40 text-xs"
                   >
                     <Eye className="w-3.5 h-3.5 mr-1" />
                     <span>Chi tiết</span>

@@ -40,7 +40,7 @@ Until durable enqueue/dispatch/worker execution is implemented and integration-t
 
 ## Safety and cost gates
 
-Input moderation, prompt-injection boundaries, account abuse checks, applicable real-person consent, entitlement and `OperationPlan` reservation run before expensive chapter work. Ordinary story/chapter analysis does not require a blanket per-story copyright/rights-attestation checkbox. Cost estimates describe incremental affected scope; they do not charge reused assets as new provider calls. A chapter job with ambiguous external submission is `UNKNOWN` and reconciles before retry.
+Prompt-injection boundaries, account abuse checks, applicable real-person consent, entitlement and `OperationPlan` reservation run before expensive chapter work. Ordinary story/chapter analysis does not wait for an application-owned moderation review or require a blanket per-story copyright/rights-attestation checkbox. Provider safety policy remains in force during provider execution; a rejected image is a scene/item-level failure with an actionable retry/edit path and does not fail unrelated scenes. Cost estimates describe incremental affected scope; they do not charge reused assets as new provider calls. A chapter job with ambiguous external submission is `UNKNOWN` and reconciles before retry.
 
 ## Current foundation status
 

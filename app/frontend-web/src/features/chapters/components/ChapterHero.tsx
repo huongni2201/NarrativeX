@@ -46,7 +46,7 @@ export function ChapterHero({
               <button
                 type="button"
                 onClick={onEdit}
-                className="mt-0.5 rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-800 hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+                className="mt-0.5 rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-800 hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
                 aria-label="Chỉnh sửa Chapter"
               >
                 <Pencil className="h-4 w-4" />
@@ -76,7 +76,7 @@ export function ChapterHero({
         <button
           type="button"
           disabled={!workspace.capabilities.canRender}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-purple-600 px-5 text-sm font-semibold text-white transition-colors hover:bg-purple-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 disabled:cursor-not-allowed disabled:bg-purple-900/40 disabled:text-purple-300/50"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-orange-600 px-5 text-sm font-semibold text-white transition-colors hover:bg-orange-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 disabled:cursor-not-allowed disabled:bg-orange-900/40 disabled:text-orange-300/50"
           title={workspace.capabilities.canRender ? "Render Chapter" : "Render chưa khả dụng"}
           aria-label="Render Chapter"
         >
@@ -97,7 +97,7 @@ function PipelineBadge({
 }) {
   const styles = {
     completed: "bg-emerald-500/10 text-emerald-300 border-emerald-500/30",
-    active: "bg-purple-500/15 text-purple-200 border-purple-500/40 animate-pulse",
+    active: "bg-orange-500/15 text-orange-200 border-orange-500/40 animate-pulse",
     pending: "bg-slate-900 text-slate-500 border-slate-800",
   }[status];
 

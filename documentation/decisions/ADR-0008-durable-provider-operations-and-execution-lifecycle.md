@@ -55,7 +55,7 @@ To ensure strict billing accuracy, eliminate duplicate charges, and enable deter
 
 ### 5. Durable Generation Persistence & MyBatis Adapters
 
-- Generation execution persistence boundaries use dedicated MyBatis row models and explicit XML mappers: `StageAttempt`, `OperationPlan`, `GenerationOutbox`, `JobHistory`, `ChapterAnalysisSafetyGate`, and `MediaPlan`.
+- Generation execution persistence boundaries use dedicated MyBatis row models and explicit XML mappers: `StageAttempt`, `OperationPlan`, `GenerationOutbox`, `JobHistory`, and `MediaPlan`. Chapter analysis has no application-owned pre-moderation persistence gate.
 - `OperationPlan` updates use an explicit `row_version` compare-and-set and translate zero affected rows into not-found or optimistic-lock conflicts.
 - `GenerationOutbox` enqueue remains idempotent on `event_key`; the durable insert is decoupled from the dispatcher lease query.
 - Architecture tests reject direct JPA/JdbcTemplate imports in these durable generation adapters.

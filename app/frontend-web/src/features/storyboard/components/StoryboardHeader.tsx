@@ -39,7 +39,7 @@ export function StoryboardHeader({
             aria-label="Chọn Chapter"
             value={chapterId?.toString() ?? ""}
             onChange={(event) => onChapterChange(Number(event.target.value))}
-            className="h-9 min-w-[230px] rounded-md border border-border-darker bg-surface-input px-2.5 text-xs text-slate-300 outline-none transition-colors focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+            className="h-9 min-w-[230px] rounded-md border border-border-darker bg-surface-input px-2.5 text-xs text-slate-300 outline-none transition-colors focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
           >
             {orderedChapters.map((chapter) => (
               <option key={chapter.id} value={chapter.id}>
@@ -53,7 +53,7 @@ export function StoryboardHeader({
           aria-label="Lọc theo Scene"
           value={sceneId?.toString() ?? "ALL"}
           onChange={(event) => onSceneChange(event.target.value === "ALL" ? null : Number(event.target.value))}
-          className="h-9 rounded-md border border-border-darker bg-surface-input px-2.5 text-xs text-slate-300 outline-none transition-colors focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+          className="h-9 rounded-md border border-border-darker bg-surface-input px-2.5 text-xs text-slate-300 outline-none transition-colors focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
         >
           <option value="ALL">All Scenes</option>
           {(storyboard?.scenes ?? []).map((scene: ApiStoryboardScene) => (
@@ -67,7 +67,7 @@ export function StoryboardHeader({
           aria-label="Lọc theo trạng thái"
           value={status}
           onChange={(event) => onStatusChange(event.target.value as StatusFilter)}
-          className="h-9 rounded-md border border-border-darker bg-surface-input px-2.5 text-xs text-slate-300 outline-none transition-colors focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+          className="h-9 rounded-md border border-border-darker bg-surface-input px-2.5 text-xs text-slate-300 outline-none transition-colors focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
         >
           <option value="ALL">All Status</option>
           <option value="APPROVED">Approved</option>
@@ -81,7 +81,7 @@ export function StoryboardHeader({
             value={search}
             onChange={(event) => onSearchChange(event.target.value)}
             placeholder="Tìm kiếm scene/visual beat…"
-            className="h-9 w-full rounded-md border border-border-darker bg-surface-input pl-9 pr-3 text-xs text-slate-200 outline-none placeholder:text-slate-600 transition-colors focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+            className="h-9 w-full rounded-md border border-border-darker bg-surface-input pl-9 pr-3 text-xs text-slate-200 outline-none placeholder:text-slate-600 transition-colors focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
           />
         </label>
 
@@ -89,7 +89,7 @@ export function StoryboardHeader({
           type="button"
           onClick={onAddVisualBeat}
           disabled={!storyboard?.scenes.length}
-          className="ml-auto inline-flex h-9 items-center gap-1.5 rounded-md bg-purple-600 px-3 text-xs font-semibold text-white shadow-lg shadow-purple-950/30 transition-colors hover:bg-purple-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 disabled:cursor-not-allowed disabled:opacity-40"
+          className="ml-auto inline-flex h-9 items-center gap-1.5 rounded-md bg-orange-600 px-3 text-xs font-semibold text-white shadow-lg shadow-orange-950/30 transition-colors hover:bg-orange-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <Plus className="h-3.5 w-3.5" />
           Thêm Visual Beat

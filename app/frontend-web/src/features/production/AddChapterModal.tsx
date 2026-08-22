@@ -46,7 +46,7 @@ export const AddChapterModal: React.FC = () => {
       {/* Modal Header */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800/80 bg-surface-panel">
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-purple-950/80 border border-purple-700/60 flex items-center justify-center text-purple-400">
+          <div className="w-7 h-7 rounded-lg bg-orange-950/80 border border-orange-700/60 flex items-center justify-center text-orange-400">
             <Sparkles className="w-4 h-4" />
           </div>
           <h2 className="text-base font-bold text-white tracking-wide">

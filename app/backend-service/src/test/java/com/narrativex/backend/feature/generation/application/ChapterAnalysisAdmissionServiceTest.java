@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import com.narrativex.backend.feature.account.application.port.in.PlanFeatures;
 import com.narrativex.backend.feature.account.application.port.in.UserQuotaAccess;
 import com.narrativex.backend.feature.common.exception.FeatureNotAvailableException;
-import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisSafetyGate;
 import com.narrativex.backend.feature.generation.application.port.out.QuotaReservation;
 import com.narrativex.backend.feature.generation.application.service.ChapterAnalysisAdmissionService;
 import com.narrativex.backend.feature.generation.application.service.ChapterAnalysisCostEstimator;
@@ -53,9 +52,8 @@ class ChapterAnalysisAdmissionServiceTest {
   private static ChapterAnalysisAdmissionService service(
       UserQuotaAccess.QuotaSnapshot quota, ReservationSpy reservation) {
     UserQuotaAccess quotaAccess = userId -> Optional.of(quota);
-    ChapterAnalysisSafetyGate safetyGate = (projectId, source) -> {};
     return new ChapterAnalysisAdmissionService(
-        quotaAccess, reservation, new ChapterAnalysisCostEstimator(), safetyGate);
+        quotaAccess, reservation, new ChapterAnalysisCostEstimator());
   }
 
   private static UserQuotaAccess.QuotaSnapshot quota(boolean storyAnalysis) {

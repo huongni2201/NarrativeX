@@ -27,7 +27,7 @@ MyBatis/explicit-SQL production boundaries include:
 - MediaPlan;
 - generation outbox enqueue persistence;
 - Job History;
-- Chapter Analyze safety gate.
+- Chapter Analyze durable admission and enqueue.
 
 The outbox dispatcher still uses `JdbcTemplate` for its short-lived operational claim/lease query. This is deliberate residual JDBC, not the durable enqueue authority.
 
