@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.generation.application.usecase;
 
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
+import com.narrativex.backend.feature.catalog.application.port.in.VoiceCatalogAccess;
 import com.narrativex.backend.feature.generation.application.command.GenerateChapterNarrationCommand;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationOutboxRepository;
@@ -49,6 +50,7 @@ public class GenerateChapterNarrationUseCase {
   private final NarrationRequestFingerprint fingerprintService;
   private final QuotaReservation quotaReservation;
   private final VoiceReferenceAssetAccess voiceReferenceAssetAccess;
+  private final VoiceCatalogAccess voiceCatalogAccess;
 
   @Transactional
   public GenerationJob execute(GenerateChapterNarrationCommand command) {
@@ -61,8 +63,9 @@ public class GenerateChapterNarrationUseCase {
     if (chapter.sourceText().isBlank()) {
       throw new IllegalArgumentException("Chapter source must be saved before narration");
     }
-    validateVieNeuSpeakingRate(command);
-    validateVoiceReferenceAsset(userId, command);
+    var voiceCapabilities = resolveVoiceCapabilities(command.voiceId());
+    validateSpeakingRate(command, voiceCapabilities);
+    validateVoiceReferenceAsset(userId, command, voiceCapabilities);
 
     String fingerprint =
         fingerprintService.calculate(
@@ -86,7 +89,7 @@ public class GenerateChapterNarrationUseCase {
       return existing.get();
     }
 
-    var admission = admissionService.admit(userId, chapter, command.voiceId());
+    var admission = admissionService.admit(userId, chapter, voiceCapabilities.localExecution());
     NarrationRequest narrationRequest =
         narrationRequestRepository.save(
             new NarrationRequest(
@@ -154,19 +157,44 @@ public class GenerateChapterNarrationUseCase {
     return job;
   }
 
-  private void validateVieNeuSpeakingRate(GenerateChapterNarrationCommand command) {
-    if (command.voiceId().startsWith("vieneu-")
+  private VoiceCatalogAccess.VoiceCapabilities resolveVoiceCapabilities(String voiceId) {
+    return voiceCatalogAccess
+        .findVoice(voiceId)
+        .orElseGet(
+            () -> {
+              boolean legacyVieNeu = voiceId.startsWith("vieneu-");
+              log.warn(
+                  "Voice id={} is missing from catalog; using legacy provider fallback",
+                  voiceId);
+              return new VoiceCatalogAccess.VoiceCapabilities(
+                  voiceId,
+                  legacyVieNeu ? "VIENEU" : "UNKNOWN",
+                  !legacyVieNeu,
+                  legacyVieNeu,
+                  legacyVieNeu,
+                  48000,
+                  legacyVieNeu ? "LOCAL_RETRYABLE" : "EXTERNAL_DURABLE");
+            });
+  }
+
+  private void validateSpeakingRate(
+      GenerateChapterNarrationCommand command,
+      VoiceCatalogAccess.VoiceCapabilities voiceCapabilities) {
+    if (!voiceCapabilities.supportsSpeakingRate()
         && command.speakingRate().compareTo(BigDecimal.ONE) != 0) {
-      throw new IllegalArgumentException("VieNeu narration supports speakingRate=1.0 only");
+      throw new IllegalArgumentException(
+          "Selected narration voice supports speakingRate=1.0 only");
     }
   }
 
   private void validateVoiceReferenceAsset(
-      String userId, GenerateChapterNarrationCommand command) {
+      String userId,
+      GenerateChapterNarrationCommand command,
+      VoiceCatalogAccess.VoiceCapabilities voiceCapabilities) {
     if (command.voiceReferenceAssetId() == null) return;
-    if (!command.voiceId().startsWith("vieneu-")) {
+    if (!voiceCapabilities.supportsVoiceClone()) {
       throw new IllegalArgumentException(
-          "A voice reference upload can only be used with a VieNeu voice");
+          "Selected narration voice does not support uploaded voice references");
     }
     var asset = voiceReferenceAssetAccess.findOwned(userId, command.voiceReferenceAssetId());
     if (!"AUDIO".equals(asset.type()) || !"READY".equals(asset.status())) {
