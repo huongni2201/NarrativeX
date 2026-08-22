@@ -75,3 +75,32 @@ def test_image_generation_defaults_to_gemini_flash_image_on_global_vertex() -> N
 
     assert settings.vertex_image_model == "gemini-2.5-flash-image"
     assert settings.vertex_image_location == "global"
+    assert settings.vertex_image_service_tier == "standard"
+    assert settings.vertex_image_execution_mode == "auto"
+    assert settings.vertex_image_batch_min_items == 8
+
+
+def test_gemini_25_flash_image_rejects_flex_paygo() -> None:
+    with pytest.raises(ValidationError, match="does not support Flex PayGo"):
+        WorkerSettings(vertex_image_service_tier="flex")
+
+
+def test_flex_requires_global_endpoint() -> None:
+    with pytest.raises(ValidationError, match="requires VERTEX_IMAGE_LOCATION=global"):
+        WorkerSettings(
+            vertex_image_model="gemini-3.1-flash-image",
+            vertex_image_location="us-central1",
+            vertex_image_service_tier="flex",
+        )
+
+
+def test_explicit_batch_mode_requires_gcs_staging_bucket() -> None:
+    with pytest.raises(ValidationError, match="VERTEX_IMAGE_BATCH_GCS_BUCKET"):
+        WorkerSettings(vertex_image_execution_mode="batch")
+
+
+def test_auto_batch_mode_can_start_without_gcs_and_fall_back_online() -> None:
+    settings = WorkerSettings(vertex_image_execution_mode="auto")
+
+    assert settings.vertex_image_batch_gcs_bucket is None
+    assert settings.normalized_vertex_image_batch_prefix == "narrativex/image-batches"
