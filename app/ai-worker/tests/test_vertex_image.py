@@ -1,0 +1,98 @@
+from narrativex_worker.providers.image import ImageGenerationRequest
+from narrativex_worker.providers.vertex_image import (
+    _endpoint,
+    _moderation,
+    _prediction,
+    _request_body,
+    _usage,
+)
+from narrativex_worker.schema import (
+    ImageAspectRatio,
+    ImageQualityTier,
+    ModerationDecision,
+)
+
+
+def _request() -> ImageGenerationRequest:
+    return ImageGenerationRequest(
+        request_fingerprint="fingerprint",
+        prompt="A cinematic mountain village at dawn",
+        negative_prompt="text, watermark",
+        aspect_ratio=ImageAspectRatio.RATIO_16_9,
+        quality_tier=ImageQualityTier.STANDARD,
+        provider_key="vertex",
+        model_key="gemini-2.5-flash-image",
+        location="global",
+    )
+
+
+def test_global_endpoint_uses_generate_content() -> None:
+    endpoint = _endpoint("project-123", "global", "gemini-2.5-flash-image")
+
+    assert endpoint == (
+        "https://aiplatform.googleapis.com/v1/projects/project-123/locations/global/"
+        "publishers/google/models/gemini-2.5-flash-image:generateContent"
+    )
+
+
+def test_request_body_requests_text_and_image_with_authorized_aspect_ratio() -> None:
+    body = _request_body(_request())
+
+    assert body["generationConfig"] == {
+        "responseModalities": ["TEXT", "IMAGE"],
+        "candidateCount": 1,
+        "imageConfig": {"aspectRatio": "16:9"},
+    }
+    prompt = body["contents"][0]["parts"][0]["text"]  # type: ignore[index]
+    assert "A cinematic mountain village at dawn" in prompt
+    assert "text, watermark" in prompt
+
+
+def test_prediction_reads_gemini_inline_data() -> None:
+    encoded, mime_type = _prediction(
+        {
+            "candidates": [
+                {
+                    "content": {
+                        "parts": [
+                            {"text": "Here is the image."},
+                            {
+                                "inlineData": {
+                                    "mimeType": "image/png",
+                                    "data": "YWJj",
+                                }
+                            },
+                        ]
+                    },
+                    "finishReason": "STOP",
+                }
+            ]
+        }
+    )
+
+    assert encoded == "YWJj"
+    assert mime_type == "image/png"
+
+
+def test_moderation_blocks_provider_safety_finish_reason() -> None:
+    raw = {"candidates": [{"finishReason": "IMAGE_SAFETY"}]}
+
+    assert _moderation(raw) is ModerationDecision.BLOCK
+
+
+def test_usage_keeps_vertex_token_counts() -> None:
+    usage = _usage(
+        {
+            "usageMetadata": {
+                "promptTokenCount": 10,
+                "candidatesTokenCount": 1290,
+                "totalTokenCount": 1300,
+            }
+        }
+    )
+
+    assert usage == {
+        "promptTokenCount": 10,
+        "candidatesTokenCount": 1290,
+        "totalTokenCount": 1300,
+    }
