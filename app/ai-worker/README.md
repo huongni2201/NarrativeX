@@ -69,12 +69,14 @@ then configure:
 ```text
 TTS_PROVIDER_MODE=vieneu
 MEDIA_STORAGE_MODE=r2
-VIENEU_REFERENCE_AUDIO_PATH=/runtime/voice/ngoc_huyen_sample.wav
+VIENEU_REFERENCE_AUDIO_PATH=/run/narrativex/voices/ngoc_huyen_sample.wav
 VIENEU_VOICE_ID=vieneu-ngoc-huyen-v2
 VIENEU_VOICE_NAME=Ngọc Huyền v2
 ```
 
-The worker enrolls the profile once with `add_voice(..., denoise=True)`, calls `save_voices()`, and
+For Docker Compose, set `VIENEU_REFERENCE_AUDIO_HOST_DIR` to the host directory containing the WAV;
+Compose mounts that directory read-only at `/run/narrativex/voices` inside the worker. The worker
+enrolls the profile once with `add_voice(..., denoise=True)`, calls `save_voices()`, and
 reuses it for each narration segment. `VIENEU_BACKEND=auto` selects the v3 Turbo ONNX CPU path on
 CPU; set `VIENEU_BACKEND=pytorch` only when the runtime has the corresponding GPU stack. The sample
 is never copied into a durable job payload. Real-person samples require explicit consent.

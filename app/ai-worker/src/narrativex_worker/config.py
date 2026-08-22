@@ -63,11 +63,13 @@ class WorkerSettings(BaseSettings):
     vertex_image_service_tier: Literal["standard", "flex"] = "standard"
     vertex_image_execution_mode: Literal["online", "batch", "auto"] = "batch"
     vertex_image_batch_min_items: int = Field(default=1, ge=1, le=10_000)
+    vertex_image_batch_max_items: int = Field(default=50, ge=1, le=1000)
     vertex_image_batch_location: str = "global"
     vertex_image_batch_gcs_bucket: str | None = None
     vertex_image_batch_gcs_prefix: str = "narrativex/image-batches"
     vertex_image_batch_poll_seconds: float = Field(default=30.0, ge=5.0, le=300.0)
     vertex_image_batch_http_timeout_seconds: float = Field(default=120.0, gt=1, le=600)
+    vertex_image_unknown_max_age_seconds: int = Field(default=3600, ge=60, le=86_400)
     image_max_output_bytes: int = Field(default=15_000_000, ge=1024, le=50_000_000)
 
     tts_provider_mode: Literal["disabled", "google", "vieneu"] = Field(

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Volume2, X, Sparkles, Check, AlertCircle, Loader2, FileAudio } from "lucide-react";
+import { toast } from "sonner";
 import { PRESET_VOICES, type VoiceOption } from "../types/narration.types";
 import { useGenerateNarration } from "../hooks/useGenerateNarration";
 import { apiErrorMessage } from "@/shared/api/client";
@@ -87,6 +88,10 @@ export function GenerateNarrationModal({
         },
       });
       onJobStarted?.(job);
+      toast.info("Đã xếp hàng tạo Audio", {
+        description:
+          "Hệ thống đang xử lý narration. Bạn có thể tiếp tục làm việc; sẽ có thông báo khi hoàn tất.",
+      });
       onClose();
     } catch (error) {
       setErrorMessage(apiErrorMessage(error, "Không thể bắt đầu tạo giọng đọc. Vui lòng thử lại."));

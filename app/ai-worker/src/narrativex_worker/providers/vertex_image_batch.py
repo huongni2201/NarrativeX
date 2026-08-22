@@ -7,10 +7,12 @@ R2-backed media store.
 """
 
 import base64
-import hashlib
 import json
+import logging
 from collections import defaultdict, deque
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
+from contextlib import asynccontextmanager
+from dataclasses import replace
 from urllib.parse import quote
 
 import httpx
@@ -22,6 +24,7 @@ from narrativex_worker.providers.image import (
     ImageBatchItemResult,
     ImageBatchOperation,
     ImageGenerationResult,
+    batch_fingerprint,
 )
 from narrativex_worker.providers.ports import ProviderCapabilities
 from narrativex_worker.providers.vertex_image import (
@@ -36,7 +39,6 @@ from narrativex_worker.providers.vertex_image import (
 )
 from narrativex_worker.schema import ProviderOperationStatus
 
-
 _TERMINAL_BATCH_STATES = {
     "JOB_STATE_SUCCEEDED",
     "JOB_STATE_FAILED",
@@ -49,8 +51,21 @@ _TERMINAL_BATCH_STATES = {
 class VertexBatchImageProvider(VertexImageProvider):
     """Vertex Gemini image provider with discounted batch execution."""
 
-    def __init__(self, settings: WorkerSettings) -> None:
+    def __init__(self, settings: WorkerSettings, client: httpx.AsyncClient | None = None) -> None:
         super().__init__(settings)
+        self._client = client or httpx.AsyncClient(
+            timeout=settings.vertex_image_batch_http_timeout_seconds
+        )
+        self._owns_client = client is None
+        self.logger = logging.getLogger("narrativex.vertex-image-batch")
+
+    async def aclose(self) -> None:
+        if self._owns_client:
+            await self._client.aclose()
+
+    @asynccontextmanager
+    async def _client_context(self) -> AsyncIterator[httpx.AsyncClient]:
+        yield self._client
 
     def get_capabilities(self) -> ProviderCapabilities:
         return ProviderCapabilities(
@@ -87,7 +102,7 @@ class VertexBatchImageProvider(VertexImageProvider):
             f"publishers/google/models/{model_key}"
         )
         body: dict[str, object] = {
-            "displayName": f"narrativex-image-{batch_fingerprint[:24]}",
+            "displayName": batch_display_name(batch_fingerprint),
             "model": model_name,
             "inputConfig": {
                 "instancesFormat": "jsonl",
@@ -99,9 +114,7 @@ class VertexBatchImageProvider(VertexImageProvider):
             },
         }
         try:
-            async with httpx.AsyncClient(
-                timeout=self.settings.vertex_image_batch_http_timeout_seconds
-            ) as client:
+            async with self._client_context() as client:
                 response = await client.post(endpoint, headers=_auth_headers(token), json=body)
         except (httpx.TimeoutException, httpx.NetworkError) as exception:
             raise VertexImageSubmissionUnknownError(
@@ -153,9 +166,7 @@ class VertexBatchImageProvider(VertexImageProvider):
         batch_location = self.settings.vertex_image_batch_location
         endpoint = f"{_vertex_base_url(batch_location)}/v1/{operation.operation_id}"
         try:
-            async with httpx.AsyncClient(
-                timeout=self.settings.vertex_image_batch_http_timeout_seconds
-            ) as client:
+            async with self._client_context() as client:
                 response = await client.get(endpoint, headers=_auth_headers(token))
         except (httpx.TimeoutException, httpx.NetworkError) as exception:
             raise VertexImageSubmissionUnknownError(
@@ -224,15 +235,79 @@ class VertexBatchImageProvider(VertexImageProvider):
             output_uri=actual_output,
         )
 
+    async def recover_batch(self, operation: ImageBatchOperation) -> ImageBatchOperation:
+        """Recover an ambiguous create without issuing another paid POST."""
+        if operation.operation_id:
+            return await self.reconcile_batch(operation)
+
+        token = await self._access_token()
+        location = self.settings.vertex_image_batch_location
+        endpoint = (
+            f"{_vertex_base_url(location)}/v1/projects/{self.settings.vertex_project_id}/"
+            f"locations/{location}/batchPredictionJobs"
+        )
+        display_name = batch_display_name(_batch_fingerprint(tuple(operation.items)))
+        matches: list[dict[str, object]] = []
+        page_token: str | None = None
+        try:
+            async with self._client_context() as client:
+                while True:
+                    params: dict[str, str] = {"filter": f'displayName="{display_name}"'}
+                    if page_token:
+                        params["pageToken"] = page_token
+                    response = await client.get(
+                        endpoint, params=params, headers=_auth_headers(token)
+                    )
+                    if response.status_code >= 500:
+                        raise VertexImageSubmissionUnknownError(
+                            f"Vertex batch recovery returned HTTP {response.status_code}"
+                        )
+                    raw = _response_json(response)
+                    if response.is_error:
+                        return replace(operation, status=ProviderOperationStatus.UNKNOWN)
+                    values = raw.get("batchPredictionJobs")
+                    if isinstance(values, list):
+                        matches.extend(value for value in values if isinstance(value, dict))
+                    next_page = raw.get("nextPageToken")
+                    if not isinstance(next_page, str) or not next_page:
+                        break
+                    page_token = next_page
+        except (httpx.TimeoutException, httpx.NetworkError) as exception:
+            raise VertexImageSubmissionUnknownError(
+                "Vertex image batch recovery outcome is unknown"
+            ) from exception
+
+        matches = [value for value in matches if value.get("displayName") == display_name]
+        if not matches:
+            return replace(
+                operation,
+                status=ProviderOperationStatus.UNKNOWN,
+                error_code="PROVIDER_SUBMISSION_UNRESOLVED",
+            )
+        matches.sort(key=lambda value: str(value.get("createTime", "")))
+        canonical = matches[0]
+        operation_id = canonical.get("name")
+        if not isinstance(operation_id, str) or not operation_id:
+            return replace(
+                operation,
+                status=ProviderOperationStatus.UNKNOWN,
+                error_code="PROVIDER_SUBMISSION_UNRESOLVED",
+            )
+        if len(matches) > 1:
+            self.logger.critical(
+                "Duplicate Vertex image batch jobs displayName=%s count=%s; using oldest",
+                display_name,
+                len(matches),
+            )
+        return await self.reconcile_batch(replace(operation, operation_id=operation_id))
+
     async def _upload_gcs_object(
         self, token: str, bucket: str, object_name: str, content: bytes
     ) -> None:
         endpoint = f"https://storage.googleapis.com/upload/storage/v1/b/{quote(bucket, safe='')}/o"
         params = {"uploadType": "media", "name": object_name}
         try:
-            async with httpx.AsyncClient(
-                timeout=self.settings.vertex_image_batch_http_timeout_seconds
-            ) as client:
+            async with self._client_context() as client:
                 response = await client.post(
                     endpoint,
                     params=params,
@@ -261,9 +336,7 @@ class VertexBatchImageProvider(VertexImageProvider):
         bucket, prefix = _split_gs_uri(output_uri)
         object_names = await self._list_gcs_objects(token, bucket, prefix)
         result_objects = [
-            name
-            for name in object_names
-            if name.endswith(".jsonl") and "error" not in name.lower()
+            name for name in object_names if name.endswith(".jsonl") and "error" not in name.lower()
         ]
         if not result_objects:
             return tuple(
@@ -293,9 +366,7 @@ class VertexBatchImageProvider(VertexImageProvider):
         endpoint = f"https://storage.googleapis.com/storage/v1/b/{quote(bucket, safe='')}/o"
         object_names: list[str] = []
         page_token: str | None = None
-        async with httpx.AsyncClient(
-            timeout=self.settings.vertex_image_batch_http_timeout_seconds
-        ) as client:
+        async with self._client_context() as client:
             while True:
                 params: dict[str, str] = {"prefix": prefix.strip("/")}
                 if page_token:
@@ -325,9 +396,7 @@ class VertexBatchImageProvider(VertexImageProvider):
             f"https://storage.googleapis.com/download/storage/v1/b/{quote(bucket, safe='')}/o/"
             f"{quote(object_name, safe='')}"
         )
-        async with httpx.AsyncClient(
-            timeout=self.settings.vertex_image_batch_http_timeout_seconds
-        ) as client:
+        async with self._client_context() as client:
             response = await client.get(
                 endpoint,
                 params={"alt": "media"},
@@ -362,13 +431,11 @@ def _jsonl_payload(items: tuple[ImageBatchItem, ...]) -> bytes:
 
 
 def _batch_fingerprint(items: tuple[ImageBatchItem, ...]) -> str:
-    digest = hashlib.sha256()
-    for item in items:
-        digest.update(item.item_key.encode("utf-8"))
-        digest.update(b"\0")
-        digest.update(item.request.request_fingerprint.encode("ascii"))
-        digest.update(b"\n")
-    return digest.hexdigest()
+    return batch_fingerprint(items)
+
+
+def batch_display_name(batch_fingerprint: str) -> str:
+    return f"narrativex-image-{batch_fingerprint[:24]}"
 
 
 def _single_model(items: tuple[ImageBatchItem, ...]) -> str:
@@ -384,15 +451,19 @@ def _materialize_batch_rows(
     by_instance: dict[str, deque[ImageBatchItem]] = defaultdict(deque)
     for item in items:
         by_instance[_canonical_json(_request_body(item.request))].append(item)
+    if any(len(candidates) > 1 for candidates in by_instance.values()):
+        raise BatchItemCorrelationError("BATCH_ITEM_CORRELATION_FAILED: duplicate request bodies")
 
-    remaining = deque(items)
     used_keys: set[str] = set()
     results: list[ImageBatchItemResult] = []
 
     for row in rows:
-        item = _match_row_item(row, by_instance, remaining, used_keys)
-        if item is None:
-            continue
+        matched = _match_row_item(row, by_instance, used_keys)
+        if matched is None:
+            raise BatchItemCorrelationError("BATCH_ITEM_CORRELATION_FAILED")
+        item = matched
+        if item.item_key in used_keys:
+            raise BatchItemCorrelationError("BATCH_ITEM_CORRELATION_FAILED: duplicate output")
         used_keys.add(item.item_key)
         response = _prediction_response(row)
         if response is None:
@@ -407,41 +478,37 @@ def _materialize_batch_rows(
             continue
         results.append(_materialize_batch_result(item, response))
 
-    for item in items:
-        if item.item_key not in used_keys:
-            results.append(
-                ImageBatchItemResult(
-                    item.item_key,
-                    item.request.request_fingerprint,
-                    error_code="BATCH_ITEM_RESULT_MISSING",
-                )
-            )
+    if len(results) != len(items) or len(used_keys) != len(items):
+        raise BatchItemCorrelationError("BATCH_ITEM_CORRELATION_FAILED: cardinality mismatch")
+    if len({result.item_key for result in results}) != len(results):
+        raise BatchItemCorrelationError("BATCH_ITEM_CORRELATION_FAILED: duplicate item key")
+    for result in results:
+        request = next(item.request for item in items if item.item_key == result.item_key)
+        if result.request_fingerprint != request.request_fingerprint:
+            raise BatchItemCorrelationError("BATCH_ITEM_CORRELATION_FAILED: fingerprint mismatch")
     return tuple(results)
 
 
 def _match_row_item(
     row: dict[str, object],
     by_instance: dict[str, deque[ImageBatchItem]],
-    remaining: deque[ImageBatchItem],
     used_keys: set[str],
 ) -> ImageBatchItem | None:
     instance = row.get("instance")
-    if isinstance(instance, dict):
-        candidates = by_instance.get(_canonical_json(instance))
-        while candidates:
-            matched = candidates.popleft()
-            if matched.item_key not in used_keys:
-                return matched
-    while remaining:
-        matched = remaining.popleft()
-        if matched.item_key not in used_keys:
-            return matched
-    return None
+    if not isinstance(instance, dict):
+        return None
+    candidates = by_instance.get(_canonical_json(instance))
+    if not candidates or len(candidates) != 1:
+        return None
+    matched = candidates[0]
+    return None if matched.item_key in used_keys else matched
 
 
-def _materialize_batch_result(
-    item: ImageBatchItem, raw: dict[str, object]
-) -> ImageBatchItemResult:
+class BatchItemCorrelationError(VertexImageProviderError):
+    """Provider output cannot be safely associated with a requested image item."""
+
+
+def _materialize_batch_result(item: ImageBatchItem, raw: dict[str, object]) -> ImageBatchItemResult:
     encoded, mime_type = _prediction(raw)
     if encoded is None:
         moderation = _moderation(raw)
@@ -449,9 +516,7 @@ def _materialize_batch_result(
             item.item_key,
             item.request.request_fingerprint,
             error_code=(
-                "PROVIDER_REJECTED"
-                if moderation.value == "BLOCK"
-                else "INVALID_PROVIDER_RESPONSE"
+                "PROVIDER_REJECTED" if moderation.value == "BLOCK" else "INVALID_PROVIDER_RESPONSE"
             ),
         )
     try:

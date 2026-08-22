@@ -3,6 +3,7 @@
 Vendor SDK response objects are deliberately not allowed across this module boundary.
 """
 
+import hashlib
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal
@@ -100,3 +101,14 @@ class BatchImageGenerationProvider(ImageGenerationProvider, Protocol):
     async def submit_batch(self, items: Sequence[ImageBatchItem]) -> ImageBatchOperation: ...
 
     async def reconcile_batch(self, operation: ImageBatchOperation) -> ImageBatchOperation: ...
+
+
+def batch_fingerprint(items: Sequence[ImageBatchItem]) -> str:
+    """Return the stable identity shared by submission, recovery, and durable persistence."""
+    digest = hashlib.sha256()
+    for item in items:
+        digest.update(item.item_key.encode())
+        digest.update(b"\0")
+        digest.update(item.request.request_fingerprint.encode("ascii"))
+        digest.update(b"\n")
+    return digest.hexdigest()

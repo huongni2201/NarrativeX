@@ -8,14 +8,16 @@ V1.11 intentionally allows the first reliable media slice to skip the full reuse
 
 ```text
 VisualScenePlan
-  -> GENERATE_NEW
-  -> ProviderOperation
-  -> provider output
-  -> worker-local scratch
-  -> validate
-  -> Cloudflare R2
-  -> immutable MediaAsset metadata
-  -> stage complete
+  -> SHOT_IMAGE_GENERATE StageAttempt (lease + SKIP LOCKED)
+  -> queued MediaGenerationItems
+  -> RESERVED ProviderOperation (committed fence)
+  -> Vertex BatchPredictionJob
+  -> reconcile/recover UNKNOWN by deterministic display name
+  -> validate and correlate every output by echoed instance
+  -> Cloudflare R2 immutable object
+  -> one atomic PostgreSQL materialization transaction
+  -> MediaAsset + lineage + item READY
+  -> stage complete only when every item is terminal and no item is UNKNOWN
 ```
 
 This is delivery sequencing, not a change to the long-term reuse-first policy.
@@ -38,6 +40,14 @@ Derived assets preserve lineage and only billable operations contribute provider
 - ambiguous outcome becomes `UNKNOWN` and reconciles before resubmit;
 - completed result is immutable except idempotent same-fingerprint replay;
 - provider URL/local path is never authoritative media identity.
+- the image worker claims `SHOT_IMAGE_GENERATE` directly from PostgreSQL; it does not call the
+  backend over HTTP to claim work;
+- a `RESERVED` operation is fenced to `UNKNOWN` before Vertex submission, so a crash cannot cause
+  a blind second paid POST;
+- batches are capped by `VERTEX_IMAGE_BATCH_MAX_ITEMS` and duplicate request bodies are split into
+  separate batches because positional output matching is forbidden;
+- a missing, unknown, duplicate, or reordered-without-instance provider row fails closed with
+  `BATCH_ITEM_CORRELATION_FAILED`.
 
 ## Validation before completion
 

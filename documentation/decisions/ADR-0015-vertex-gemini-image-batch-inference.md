@@ -43,6 +43,19 @@ Batch therefore must not make Google Cloud Storage authoritative for generated a
    reconciliation. This preserves the Vertex batch job name across crashes/restarts.
 9. Retain the provider batch job name, GCS input/output URI and ordered item fingerprints so a later
    worker can reconcile a submitted batch after a process restart.
+10. Run image generation from the Python worker's PostgreSQL repository. `SHOT_IMAGE_GENERATE`
+    attempts use a persisted lease token and `FOR UPDATE SKIP LOCKED`; the worker shares the
+    process-wide concurrency semaphore with the other workers.
+11. Use `VERTEX_IMAGE_BATCH_MAX_ITEMS=50` by default. Items with identical provider request bodies
+    are placed in different batches, because an echoed JSON instance cannot distinguish them
+    strongly enough for safe lineage assignment.
+12. Recovery for an ambiguous create first lists Vertex batch jobs by the exact deterministic
+    display name (`narrativex-image-{batchFingerprint[:24]}`), chooses the oldest duplicate as
+    canonical, and never issues a second create POST automatically. Unresolved operations remain
+    `UNKNOWN` and stop being scheduled after the configured unknown-age horizon.
+13. R2 upload happens before a single PostgreSQL transaction that idempotently materializes the
+    asset, lineage, item state, and provider completion. Same-checksum replay is accepted; a
+    different checksum for an already READY item is an integrity conflict.
 
 ## Configuration
 
@@ -52,9 +65,11 @@ VERTEX_IMAGE_LOCATION=global
 VERTEX_IMAGE_SERVICE_TIER=standard
 VERTEX_IMAGE_EXECUTION_MODE=batch
 VERTEX_IMAGE_BATCH_MIN_ITEMS=1
+VERTEX_IMAGE_BATCH_MAX_ITEMS=50
 VERTEX_IMAGE_BATCH_LOCATION=global
 VERTEX_IMAGE_BATCH_GCS_BUCKET=<temporary-staging-bucket>
 VERTEX_IMAGE_BATCH_GCS_PREFIX=narrativex/image-batches
+VERTEX_IMAGE_UNKNOWN_MAX_AGE_SECONDS=3600
 ```
 
 The staging bucket should have a lifecycle rule that deletes batch input/output objects after the

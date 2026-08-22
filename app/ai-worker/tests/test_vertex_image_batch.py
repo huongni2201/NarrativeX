@@ -1,11 +1,16 @@
 import json
 
+import pytest
+
 from narrativex_worker.config import WorkerSettings
 from narrativex_worker.providers.image import ImageBatchItem, ImageGenerationRequest
 from narrativex_worker.providers.vertex_image_batch import (
+    BatchItemCorrelationError,
     _batch_fingerprint,
     _batch_status,
     _jsonl_payload,
+    _materialize_batch_rows,
+    _request_body,
     _split_gs_uri,
     should_use_vertex_image_batch,
 )
@@ -106,3 +111,39 @@ def test_gcs_uri_parser_preserves_nested_prefix() -> None:
         "bucket-a",
         "narrativex/image-batches/job/output",
     )
+
+
+def test_batch_correlation_rejects_missing_instance_instead_of_using_position() -> None:
+    with pytest.raises(BatchItemCorrelationError, match="BATCH_ITEM_CORRELATION_FAILED"):
+        _materialize_batch_rows([{"prediction": {}}], _items())
+
+
+def test_batch_correlation_rejects_unknown_instance_instead_of_using_position() -> None:
+    with pytest.raises(BatchItemCorrelationError, match="BATCH_ITEM_CORRELATION_FAILED"):
+        _materialize_batch_rows(
+            [{"instance": _request_body(_request("c" * 64, "Unknown"))}], _items()
+        )
+
+
+def test_batch_correlation_preserves_item_key_when_provider_reorders_rows() -> None:
+    rows = [
+        {"instance": _request_body(_items()[1].request), "error": {"code": "REJECTED"}},
+        {"instance": _request_body(_items()[0].request), "error": {"code": "REJECTED"}},
+    ]
+
+    results = _materialize_batch_rows(rows, _items())
+
+    assert [result.item_key for result in results] == ["beat-2", "beat-1"]
+
+
+def test_batch_correlation_rejects_identical_request_bodies() -> None:
+    duplicate = ImageBatchItem("beat-2", _request("b" * 64, "Scene one"))
+
+    with pytest.raises(BatchItemCorrelationError, match="duplicate request bodies"):
+        _materialize_batch_rows(
+            [
+                {"instance": _request_body(_items()[0].request)},
+                {"instance": _request_body(duplicate.request)},
+            ],
+            (_items()[0], duplicate),
+        )

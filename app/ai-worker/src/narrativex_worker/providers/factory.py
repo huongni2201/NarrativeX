@@ -40,6 +40,9 @@ class DisabledImageProvider:
     async def reconcile_batch(self, operation: ImageBatchOperation) -> ImageBatchOperation:
         return operation
 
+    async def recover_batch(self, operation: ImageBatchOperation) -> ImageBatchOperation:
+        return operation
+
 
 def create_image_provider(settings: WorkerSettings) -> BatchImageGenerationProvider:
     if settings.image_provider_mode == "vertex":

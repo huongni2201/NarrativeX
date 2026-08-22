@@ -7,6 +7,7 @@ from narrativex_worker.image_generation_runner import (
     ImageGenerationPendingError,
     ImageGenerationRunner,
 )
+from narrativex_worker.image_generation_worker import _partition_batches
 from narrativex_worker.media_repository import DurableMediaResult
 from narrativex_worker.narration.storage import InMemoryMediaStorage
 from narrativex_worker.providers.image import (
@@ -151,3 +152,17 @@ async def test_reconcile_materializes_completed_batch_result() -> None:
     assert stored.metadata["request-fingerprint"] == request.request_fingerprint
     assert len(repository.completions) == 1
     assert len(repository.assets) == 1
+
+
+def test_partition_batches_splits_duplicate_provider_bodies() -> None:
+    items = [
+        ImageBatchItem("beat-2", _request()),
+        ImageBatchItem("beat-1", _request()),
+    ]
+
+    batches = _partition_batches(items, max_items=50)
+
+    assert [[item.item_key for item in batch] for batch in batches] == [
+        ["beat-1"],
+        ["beat-2"],
+    ]

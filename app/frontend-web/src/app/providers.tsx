@@ -1,6 +1,7 @@
 "use client";
 
 import { QueryClientProvider } from "@tanstack/react-query";
+import { Toaster } from "sonner";
 import { useEffect, useState } from "react";
 import { createQueryClient } from "@/lib/query-client";
 import { authApi } from "@/features/auth/api/auth.api";
@@ -47,7 +48,10 @@ export function AppProviders({ children }: Readonly<{ children: React.ReactNode 
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthBootstrap>{children}</AuthBootstrap>
+      <AuthBootstrap>
+        {children}
+        <Toaster position="top-right" theme="dark" richColors />
+      </AuthBootstrap>
     </QueryClientProvider>
   );
 }
