@@ -155,7 +155,10 @@ class WorkerSettings(BaseSettings):
                     "or Vertex batch inference for the 50% discounted rate"
                 )
         if self.vertex_image_execution_mode == "batch":
-            if not self.vertex_image_batch_gcs_bucket or not self.vertex_image_batch_gcs_bucket.strip():
+            if (
+                not self.vertex_image_batch_gcs_bucket
+                or not self.vertex_image_batch_gcs_bucket.strip()
+            ):
                 raise ValueError(
                     "VERTEX_IMAGE_BATCH_GCS_BUCKET is required when "
                     "VERTEX_IMAGE_EXECUTION_MODE=batch"
