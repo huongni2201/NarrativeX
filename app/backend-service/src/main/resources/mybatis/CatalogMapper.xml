@@ -14,6 +14,15 @@
         <result property="language" column="language"/><result property="gender" column="gender"/><result property="sampleUrl" column="sample_url"/>
         <result property="metadataJson" column="metadata_json"/><result property="updatedAt" column="updated_at"/>
     </resultMap>
+    <resultMap id="voiceCapabilitiesRow" type="com.narrativex.backend.feature.catalog.infrastructure.persistence.mybatis.VoiceCapabilitiesRow">
+        <id property="id" column="id"/>
+        <result property="provider" column="provider"/>
+        <result property="supportsSpeakingRate" column="supports_speaking_rate"/>
+        <result property="supportsVoiceClone" column="supports_voice_clone"/>
+        <result property="supportsBatch" column="supports_batch"/>
+        <result property="sampleRateHz" column="sample_rate_hz"/>
+        <result property="executionSemantics" column="execution_semantics"/>
+    </resultMap>
     <select id="listStylePresets" resultMap="stylePresetRow">
         SELECT id, name, category, description, thumbnail_url, prompt_suffix,
                negative_prompt, tags_json::text AS tags_json, config_json::text AS config_json,
@@ -30,5 +39,23 @@
          WHERE enabled = TRUE
         <if test="language != null and language != ''">AND language = #{language}</if>
          ORDER BY language, LOWER(name), id
+    </select>
+    <select id="findVoiceCapabilities" resultMap="voiceCapabilitiesRow">
+        SELECT id,
+               provider,
+               COALESCE((metadata_json ->> 'supportsSpeakingRate')::boolean, provider &lt;&gt; 'VIENEU')
+                   AS supports_speaking_rate,
+               COALESCE((metadata_json ->> 'supportsVoiceClone')::boolean, provider = 'VIENEU')
+                   AS supports_voice_clone,
+               COALESCE((metadata_json ->> 'supportsBatch')::boolean, provider = 'VIENEU')
+                   AS supports_batch,
+               COALESCE((metadata_json ->> 'sampleRateHz')::integer, 48000) AS sample_rate_hz,
+               COALESCE(
+                   metadata_json ->> 'executionSemantics',
+                   CASE WHEN provider = 'VIENEU' THEN 'LOCAL_RETRYABLE' ELSE 'EXTERNAL_DURABLE' END
+               ) AS execution_semantics
+          FROM voice_catalog
+         WHERE id = #{voiceId}
+           AND enabled = TRUE
     </select>
 </mapper>
