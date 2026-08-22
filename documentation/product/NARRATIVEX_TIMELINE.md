@@ -16,19 +16,13 @@ This is dependency-ordered planning, not a calendar promise. Current status is d
 - Full-chapter TTS narration + alignment + R2 media.
 - `NarrationStrategy.USER_PROVIDED_AUDIO` foundation: ordered parts, logical global timeline, multi-Chapter coverage and TTS-bypass planning.
 - MyBatis/explicit-SQL production paths for ProviderOperation, Chapter, Project, GenerationJob, StageAttempt, OperationPlan, MediaPlan, generation outbox enqueue, Job History and the Chapter Analyze safety gate.
-- The outbox dispatcher retains a deliberate JDBC claim/lease query for its short-lived operational lease concern.
+- The outbox dispatcher claim/lease path uses a dedicated MyBatis mapper.
 
-## Immediate workstream 1 — MyBatis convergence
+## Completed workstream — MyBatis convergence
 
-1. StoryVersion.
-2. Quota reservation / usage / billing boundaries.
-3. Storyboard and continuity persistence.
-4. Remaining low-risk CRUD/query boundaries.
-5. Remove unused JPA/JDBC infrastructure only after PostgreSQL and architecture evidence.
+All production persistence boundaries now use MyBatis + explicit SQL, including StoryVersion, quota/billing, storyboard/continuity, auth, catalog, notifications and generation outbox dispatch. The JPA dependency and production `JdbcTemplate` adapters have been removed. Architecture and PostgreSQL integration tests guard the boundary.
 
-Generation execution persistence is already cut over for the covered durability boundaries and should not be listed as future work.
-
-## Immediate workstream 2 — First complete media loop
+## Immediate workstream — First complete media loop
 
 1. Harden user-audio upload/finalize and alignment execution.
 2. Build narration-driven VisualScenePlanner.
