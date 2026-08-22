@@ -56,6 +56,11 @@ services:
       GOOGLE_CLOUD_PROJECT: ${GOOGLE_CLOUD_PROJECT:-}
       VERTEX_LOCATION: ${VERTEX_LOCATION:-us-central1}
       VERTEX_GEMINI_MODEL: ${VERTEX_GEMINI_MODEL:-gemini-2.5-flash}
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:-}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
+      R2_BUCKET: ${R2_BUCKET:-narrativex-dev}
+      R2_ENDPOINT: ${R2_ENDPOINT:-}
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     depends_on:

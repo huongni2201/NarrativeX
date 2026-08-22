@@ -15,6 +15,21 @@ interface AssetUploadModalProps {
 }
 
 const apiAssetTypes: Array<Extract<AssetType, "AUDIO" | "IMAGE" | "VIDEO">> = ["IMAGE", "VIDEO", "AUDIO"];
+type ApiAssetType = (typeof apiAssetTypes)[number];
+
+const supportedContentTypesByAssetType: Record<ApiAssetType, ReadonlySet<string>> = {
+  AUDIO: new Set(["audio/mpeg", "audio/wav", "audio/x-wav", "audio/ogg", "audio/mp4", "audio/webm"]),
+  IMAGE: new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]),
+  VIDEO: new Set(["video/mp4", "video/webm", "video/quicktime"]),
+};
+
+const supportedUploadContentTypes = Object.values(supportedContentTypesByAssetType)
+  .flatMap((contentTypes) => [...contentTypes])
+  .join(",");
+
+function assetTypeForContentType(contentType: string): ApiAssetType | null {
+  return apiAssetTypes.find((assetType) => supportedContentTypesByAssetType[assetType].has(contentType)) ?? null;
+}
 
 async function sha256(file: File) {
   const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
@@ -51,20 +66,32 @@ export const AssetUploadModal: React.FC<AssetUploadModalProps> = ({ isOpen, onCl
         return;
       }
 
+      const contentType = file.type.trim().toLowerCase();
+      const detectedType = assetTypeForContentType(contentType);
+      if (!detectedType) {
+        setError("Định dạng file không được hỗ trợ. Hãy chọn MP3/WAV/OGG, JPG/PNG/WEBP/GIF hoặc MP4/WEBM/MOV.");
+        return;
+      }
+      if (detectedType !== selectedType) {
+        setError(`Loại tài sản không khớp với file. Hãy chọn ${detectedType}.`);
+        setSelectedType(detectedType);
+        return;
+      }
+
       setIsSubmitting(true);
       try {
         const expectedSha256 = await sha256(file);
         const intent = await assetsApi.createUploadIntent({
           type: selectedType as Extract<AssetType, "AUDIO" | "IMAGE" | "VIDEO">,
           originalFilename: file.name,
-          contentType: file.type || "application/octet-stream",
+          contentType,
           expectedSizeBytes: file.size,
           expectedSha256,
         }, uploadIdempotencyKey ?? crypto.randomUUID());
         const uploadResponse = await fetch(intent.uploadUrl, {
           method: "PUT",
           headers: {
-            "Content-Type": file.type || "application/octet-stream",
+            "Content-Type": contentType,
             ...intent.uploadHeaders,
           },
           body: file,
@@ -117,7 +144,7 @@ export const AssetUploadModal: React.FC<AssetUploadModalProps> = ({ isOpen, onCl
         {isMockDataMode ? (
           <div className="space-y-1.5"><label htmlFor={filenameId} className="text-xs font-semibold text-text-secondary">Tên file</label><Input id={filenameId} value={filename} onChange={(event) => setFilename(event.target.value)} placeholder="asset.png" /></div>
         ) : (
-          <div className="space-y-1.5"><label htmlFor={fileId} className="text-xs font-semibold text-text-secondary">File media</label><input id={fileId} type="file" accept="image/*,video/*,audio/*" required onChange={(event) => { setFile(event.target.files?.[0] ?? null); setUploadIdempotencyKey(crypto.randomUUID()); }} className="block w-full rounded-lg border border-border bg-surface-panel px-3 py-2 text-xs text-text-secondary file:mr-3 file:rounded file:border-0 file:bg-primary file:px-2 file:py-1 file:text-xs file:font-semibold file:text-white" /></div>
+          <div className="space-y-1.5"><label htmlFor={fileId} className="text-xs font-semibold text-text-secondary">File media</label><input id={fileId} type="file" accept={supportedUploadContentTypes} required onChange={(event) => { const nextFile = event.target.files?.[0] ?? null; setFile(nextFile); setUploadIdempotencyKey(crypto.randomUUID()); const detectedType = nextFile ? assetTypeForContentType(nextFile.type.trim().toLowerCase()) : null; if (detectedType) setSelectedType(detectedType); }} className="block w-full rounded-lg border border-border bg-surface-panel px-3 py-2 text-xs text-text-secondary file:mr-3 file:rounded file:border-0 file:bg-primary file:px-2 file:py-1 file:text-xs file:font-semibold file:text-white" /></div>
         )}
         <fieldset className="space-y-2"><legend className="text-xs font-semibold text-text-secondary">Loại tài sản</legend><div className="grid grid-cols-3 gap-2" role="radiogroup">{(isMockDataMode ? (["IMAGE", "VIDEO", "AUDIO", "REFERENCE", "MOTION", "FINAL_OUTPUT"] as AssetType[]) : apiAssetTypes).map((type) => <button key={type} type="button" role="radio" aria-checked={selectedType === type} onClick={() => setSelectedType(type)} className={`rounded-lg border p-2 text-xs ${selectedType === type ? "border-primary bg-primary-muted text-text-primary" : "border-border bg-surface-panel text-text-secondary"}`}>{type}</button>)}</div></fieldset>
         {isMockDataMode && <div className="space-y-1.5"><label htmlFor={projectId} className="text-xs font-semibold text-text-secondary">Dự án demo</label><Input id={projectId} value={projectTitle} onChange={(event) => setProjectTitle(event.target.value)} /></div>}
