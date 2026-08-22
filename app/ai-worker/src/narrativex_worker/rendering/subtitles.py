@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
+import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -50,40 +52,74 @@ async def load_subtitle_source(
     chapter_id: int,
     chapter_row_version: int,
     source_hash: str,
+    narration_request_id: uuid.UUID | None = None,
+    narration_asset_id: uuid.UUID | None = None,
+    narration_alignment_id: uuid.UUID | None = None,
 ) -> SubtitleSource:
-    """Load the exact narration text/alignment selected by the render input snapshot."""
+    """Load narration text/alignment from one pinned narration asset when provided."""
     connection = await asyncpg.connect(database_url)
     try:
-        row = await connection.fetchrow(
-            """
-            SELECT nr.source_text,
-                   alignment.alignment_version,
-                   alignment.spans_json
-              FROM narration_requests nr
-              JOIN narration_assets na ON na.narration_request_id = nr.id
-              JOIN project_assets pa ON pa.id = na.project_asset_id
-              LEFT JOIN LATERAL (
-                    SELECT nal.alignment_version, nal.spans_json
-                      FROM narration_alignments nal
-                     WHERE nal.narration_asset_id = na.id
-                       AND nal.source_hash = nr.source_hash
-                     ORDER BY nal.created_at DESC
-                     LIMIT 1
-              ) alignment ON TRUE
-             WHERE nr.project_id = $1
-               AND nr.chapter_id = $2
-               AND nr.chapter_row_version = $3
-               AND nr.source_hash = $4
-               AND pa.status = 'ACTIVE'
-               AND pa.storage_key IS NOT NULL
-             ORDER BY nr.created_at DESC
-             LIMIT 1
-            """,
-            project_id,
-            chapter_id,
-            chapter_row_version,
-            source_hash,
-        )
+        if narration_request_id is not None and narration_asset_id is not None:
+            row = await connection.fetchrow(
+                """
+                SELECT nr.source_text,
+                       alignment.alignment_version,
+                       alignment.spans_json
+                  FROM narration_requests nr
+                  JOIN narration_assets na ON na.narration_request_id = nr.id
+                  JOIN project_assets pa ON pa.id = na.project_asset_id
+                  LEFT JOIN narration_alignments alignment
+                    ON alignment.id = $3
+                   AND alignment.narration_asset_id = na.id
+                   AND alignment.source_hash = nr.source_hash
+                 WHERE nr.id = $1
+                   AND na.id = $2
+                   AND nr.project_id = $4
+                   AND nr.chapter_id = $5
+                   AND nr.chapter_row_version = $6
+                   AND nr.source_hash = $7
+                   AND pa.status = 'ACTIVE'
+                   AND pa.storage_key IS NOT NULL
+                """,
+                narration_request_id,
+                narration_asset_id,
+                narration_alignment_id,
+                project_id,
+                chapter_id,
+                chapter_row_version,
+                source_hash,
+            )
+        else:
+            row = await connection.fetchrow(
+                """
+                SELECT nr.source_text,
+                       alignment.alignment_version,
+                       alignment.spans_json
+                  FROM narration_requests nr
+                  JOIN narration_assets na ON na.narration_request_id = nr.id
+                  JOIN project_assets pa ON pa.id = na.project_asset_id
+                  LEFT JOIN LATERAL (
+                        SELECT nal.alignment_version, nal.spans_json
+                          FROM narration_alignments nal
+                         WHERE nal.narration_asset_id = na.id
+                           AND nal.source_hash = nr.source_hash
+                         ORDER BY nal.created_at DESC
+                         LIMIT 1
+                  ) alignment ON TRUE
+                 WHERE nr.project_id = $1
+                   AND nr.chapter_id = $2
+                   AND nr.chapter_row_version = $3
+                   AND nr.source_hash = $4
+                   AND pa.status = 'ACTIVE'
+                   AND pa.storage_key IS NOT NULL
+                 ORDER BY nr.created_at DESC
+                 LIMIT 1
+                """,
+                project_id,
+                chapter_id,
+                chapter_row_version,
+                source_hash,
+            )
     finally:
         await connection.close()
 
@@ -203,11 +239,14 @@ def write_ass_subtitles(
     )
     lines = [header]
     for cue in track.cues:
+        start_cs = _ass_centiseconds(cue.start_ms, round_up=False)
         end_ms = max(cue.end_ms, cue.start_ms + 10)
+        end_cs = max(_ass_centiseconds(end_ms, round_up=True), start_cs + 1)
         text = _escape_ass_text(_wrap_two_lines(cue.text))
         lines.append(
             "Dialogue: 0,"
-            f"{_ass_time(cue.start_ms)},{_ass_time(end_ms)},Default,,0,0,0,,{text}\n"
+            f"{_format_ass_centiseconds(start_cs)},{_format_ass_centiseconds(end_cs)},"
+            f"Default,,0,0,0,,{text}\n"
         )
     path.write_text("".join(lines), encoding="utf-8")
     return path
@@ -300,8 +339,13 @@ def _escape_ass_text(value: str) -> str:
     )
 
 
-def _ass_time(milliseconds: int) -> str:
-    centiseconds = max(0, round(milliseconds / 10))
+def _ass_centiseconds(milliseconds: int, *, round_up: bool) -> int:
+    value = max(0, milliseconds) / 10
+    return math.ceil(value) if round_up else math.floor(value)
+
+
+def _format_ass_centiseconds(centiseconds: int) -> str:
+    centiseconds = max(0, centiseconds)
     hours, remainder = divmod(centiseconds, 360_000)
     minutes, remainder = divmod(remainder, 6_000)
     seconds, centiseconds = divmod(remainder, 100)

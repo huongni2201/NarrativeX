@@ -7,6 +7,8 @@ from narrativex_worker.rendering.image_motion import (
 )
 from narrativex_worker.rendering.subtitles import (
     SubtitleAlignmentSpan,
+    SubtitleCue,
+    SubtitleTrack,
     build_subtitle_track,
     write_ass_subtitles,
 )
@@ -59,6 +61,21 @@ def test_write_ass_subtitles_escapes_override_markup(tmp_path: Path) -> None:
     assert r"\{" in content
     assert r"\}" in content
     assert r"\\" in content
+
+
+def test_write_ass_subtitles_never_rounds_to_zero_duration(tmp_path: Path) -> None:
+    track = SubtitleTrack(
+        cues=(SubtitleCue(start_ms=15, end_ms=25, text="NarrativeX"),),
+        timing_source="test",
+        fingerprint="0" * 64,
+    )
+
+    path = write_ass_subtitles(track, tmp_path / "rounding.ass", width=1920, height=1080)
+    dialogue = next(
+        line for line in path.read_text(encoding="utf-8").splitlines() if line.startswith("Dialogue:")
+    )
+
+    assert ",0:00:00.01,0:00:00.03," in dialogue
 
 
 def test_ffmpeg_args_burn_ass_after_concat(tmp_path: Path) -> None:

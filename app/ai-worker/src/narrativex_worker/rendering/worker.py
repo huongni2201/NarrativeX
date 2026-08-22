@@ -14,6 +14,7 @@ from narrativex_worker.narration.storage import (
     MediaStorage,
     S3MediaStorage,
 )
+from narrativex_worker.rendering.advisory_lock import render_fingerprint_lock
 from narrativex_worker.rendering.ffmpeg import FfmpegError, render_image_motion
 from narrativex_worker.rendering.final_storage import (
     FinalVideoStorageError,
@@ -188,6 +189,9 @@ class RenderWorkerRunner:
                 chapter_id=claimed.chapter_id,
                 chapter_row_version=claimed.chapter_row_version,
                 source_hash=claimed.source_hash,
+                narration_request_id=claimed.narration_request_id,
+                narration_asset_id=claimed.narration_asset_id,
+                narration_alignment_id=claimed.narration_alignment_id,
             )
             subtitle_track = build_subtitle_track(
                 subtitle_source.source_text,
@@ -199,7 +203,7 @@ class RenderWorkerRunner:
             await self.repository.assert_lease(claimed)
             durations_ms = _normalize_durations(beat_assets, audio.duration_ms)
             fingerprint_payload = {
-                "version": "image-motion-render-v3-burned-subtitles-drive",
+                "version": "image-motion-render-v4-pinned-narration-drive-lock",
                 "projectId": claimed.project_id,
                 "chapterId": claimed.chapter_id,
                 "chapterRowVersion": claimed.chapter_row_version,
@@ -210,6 +214,23 @@ class RenderWorkerRunner:
                 "format": render_format,
                 "aspectRatio": claimed.aspect_ratio,
                 "fps": 30,
+                "narration": {
+                    "requestId": (
+                        str(claimed.narration_request_id)
+                        if claimed.narration_request_id is not None
+                        else None
+                    ),
+                    "assetId": (
+                        str(claimed.narration_asset_id)
+                        if claimed.narration_asset_id is not None
+                        else None
+                    ),
+                    "alignmentId": (
+                        str(claimed.narration_alignment_id)
+                        if claimed.narration_alignment_id is not None
+                        else None
+                    ),
+                },
                 "audio": {
                     "storageKey": audio.storage_key,
                     "checksum": audio.checksum,
@@ -284,24 +305,27 @@ class RenderWorkerRunner:
                     tolerance_seconds=max(0.35, len(beat_assets) / 30.0 + 0.1),
                 )
                 checksum = await asyncio.to_thread(sha256_file, output_path)
-                await self.repository.assert_lease(claimed)
-                stored = await self.final_storage.put_immutable(
-                    file_path=output_path,
-                    render_fingerprint=render_fingerprint,
-                    checksum=checksum,
-                    generation_job_id=claimed.generation_job_id,
-                )
-                await self.repository.assert_lease(claimed)
-                await self.repository.complete(
-                    claimed,
-                    render_fingerprint=render_fingerprint,
-                    manifest=fingerprint_payload,
-                    media_asset=stored,
-                    duration_ms=audio.duration_ms,
-                    width=width,
-                    height=height,
-                    fps=30,
-                )
+                async with render_fingerprint_lock(
+                    self.settings.database_url, render_fingerprint
+                ):
+                    await self.repository.assert_lease(claimed)
+                    stored = await self.final_storage.put_immutable(
+                        file_path=output_path,
+                        render_fingerprint=render_fingerprint,
+                        checksum=checksum,
+                        generation_job_id=claimed.generation_job_id,
+                    )
+                    await self.repository.assert_lease(claimed)
+                    await self.repository.complete(
+                        claimed,
+                        render_fingerprint=render_fingerprint,
+                        manifest=fingerprint_payload,
+                        media_asset=stored,
+                        duration_ms=audio.duration_ms,
+                        width=width,
+                        height=height,
+                        fps=30,
+                    )
                 self.logger.info(
                     "Completed chapter render job=%s fingerprint=%s driveFileId=%s sizeBytes=%s subtitleCues=%s",
                     claimed.generation_job_id,
