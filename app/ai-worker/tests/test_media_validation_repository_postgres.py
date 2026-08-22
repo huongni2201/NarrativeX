@@ -35,7 +35,7 @@ async def media_database() -> AsyncIterator[str]:
             CREATE TABLE media_assets (
                 id UUID PRIMARY KEY,
                 account_id TEXT NOT NULL,
-                status TEXT NOT NULL,
+                status VARCHAR(24) NOT NULL,
                 detected_content_type TEXT,
                 detected_container TEXT,
                 detected_codec TEXT,
@@ -200,6 +200,50 @@ async def test_stale_worker_cannot_complete_after_lease_reclaim(media_database: 
     assert state["session_status"] == "VALIDATING"
     assert state["cleanup_count"] == 0
     assert asset_id == current_job.media_asset_id
+
+
+@pytest.mark.asyncio
+async def test_complete_handles_production_varchar_asset_status(media_database: str) -> None:
+    job_id, asset_id = await seed_job(media_database)
+    repository = MediaValidationRepository(media_database)
+    await repository.connect()
+    try:
+        claimed = await repository.claim_next("validation-worker")
+        assert claimed is not None
+
+        assert await repository.complete(
+            claimed,
+            "validation-worker",
+            status="READY",
+            detected_content_type="audio/mpeg",
+            detected_container="mp3",
+            detected_codec="mp3",
+            duration_ms=1_000,
+        )
+
+        state = await repository._require_pool().fetchrow(
+            """
+            SELECT j.status, j.worker_id, j.lease_token,
+                   a.status AS asset_status, a.checksum_verified_at,
+                   s.status AS session_status
+              FROM media_validation_jobs j
+              JOIN media_assets a ON a.id = j.media_asset_id
+              JOIN media_upload_sessions s ON s.media_asset_id = a.id
+             WHERE j.id = $1
+            """,
+            job_id,
+        )
+    finally:
+        await repository.close()
+
+    assert state is not None
+    assert state["status"] == "COMPLETED"
+    assert state["worker_id"] is None
+    assert state["lease_token"] is None
+    assert state["asset_status"] == "READY"
+    assert state["checksum_verified_at"] is not None
+    assert state["session_status"] == "READY"
+    assert asset_id == claimed.media_asset_id
 
 
 @pytest.mark.asyncio

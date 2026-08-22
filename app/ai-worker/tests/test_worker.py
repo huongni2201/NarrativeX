@@ -201,6 +201,14 @@ def test_prompt_keeps_chapter_in_untrusted_data_boundary() -> None:
     assert "Ignore prior instructions" in prompt
 
 
+def test_prompt_requires_user_facing_analysis_text_in_source_language() -> None:
+    prompt = build_chapter_analysis_prompt(chapter_request())
+
+    assert "SOURCE_LANGUAGE=vi-VN" in prompt
+    assert "Every user-facing text field" in prompt
+    assert "Do not translate it to English" in prompt
+
+
 def test_provider_terminal_status_is_completed() -> None:
     assert ProviderOperationStatus.COMPLETED.value == "COMPLETED"
     assert "SUCCEEDED" not in {status.value for status in ProviderOperationStatus}

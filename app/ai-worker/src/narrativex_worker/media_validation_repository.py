@@ -164,7 +164,7 @@ class MediaValidationRepository:
                            validation_error_detail = $11,
                            validated_at = CURRENT_TIMESTAMP,
                            checksum_verified_at = CASE
-                               WHEN $3 = 'READY' THEN COALESCE(
+                               WHEN $3::VARCHAR(24) = 'READY' THEN COALESCE(
                                    checksum_verified_at, CURRENT_TIMESTAMP
                                )
                                ELSE checksum_verified_at

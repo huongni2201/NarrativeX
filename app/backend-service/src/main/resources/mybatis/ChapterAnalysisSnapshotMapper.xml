@@ -22,8 +22,15 @@
           JOIN chapter_content_variants v ON v.chapter_id = c.id
           WHERE c.id = #{chapterId} AND p.id = #{projectId}
            AND p.owner_id = #{userId} AND p.archived_at IS NULL
-           AND (((#{contentVariantId} IS NULL) AND v.variant_type = 'ORIGINAL' AND v.content_hash = c.source_hash)
-                OR v.id = #{contentVariantId})
+           AND
+           <choose>
+               <when test="contentVariantId == null">
+                   v.variant_type = 'ORIGINAL' AND v.content_hash = c.source_hash
+               </when>
+               <otherwise>
+                   v.id = #{contentVariantId,jdbcType=BIGINT}
+               </otherwise>
+           </choose>
          ORDER BY v.created_at DESC, v.id DESC LIMIT 1
     </select>
 </mapper>
