@@ -1,5 +1,6 @@
 -- Shorts are derived only from a completed edited/rendered video artifact.
--- No pre-edit media, image generation, narration source, or intermediate render may be used.
+-- No pre-edit media, image generation, narration source, intermediate render, crop, or aspect-ratio
+-- conversion may be used. The worker preserves the source final video's geometry.
 
 CREATE TABLE short_clip_requests (
     id UUID PRIMARY KEY,
@@ -9,8 +10,6 @@ CREATE TABLE short_clip_requests (
     generation_job_id BIGINT NOT NULL UNIQUE REFERENCES generation_jobs(id) ON DELETE CASCADE,
     start_ms BIGINT NOT NULL,
     end_ms BIGINT NOT NULL,
-    target_width INTEGER NOT NULL DEFAULT 1080,
-    target_height INTEGER NOT NULL DEFAULT 1920,
     status VARCHAR(24) NOT NULL DEFAULT 'QUEUED',
     output_final_artifact_id BIGINT REFERENCES final_artifacts(id),
     request_fingerprint VARCHAR(64) NOT NULL UNIQUE,
@@ -20,7 +19,6 @@ CREATE TABLE short_clip_requests (
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT ck_short_clip_range CHECK (start_ms >= 0 AND end_ms > start_ms),
-    CONSTRAINT ck_short_clip_target CHECK (target_width = 1080 AND target_height = 1920),
     CONSTRAINT ck_short_clip_status CHECK (status IN ('QUEUED', 'RUNNING', 'COMPLETED', 'FAILED')),
     CONSTRAINT ck_short_clip_fingerprint CHECK (request_fingerprint ~ '^[0-9a-f]{64}$'),
     CONSTRAINT ck_short_clip_output_state CHECK (
@@ -36,4 +34,4 @@ CREATE INDEX idx_short_clip_requests_source
     ON short_clip_requests (source_final_artifact_id, created_at DESC);
 
 COMMENT ON TABLE short_clip_requests IS
-    'Durable short-video queue. source_final_artifact_id must reference a READY CHAPTER_VIDEO or PROJECT_VIDEO; worker re-validates this invariant before cutting.';
+    'Durable short-video queue. source_final_artifact_id must reference a READY CHAPTER_VIDEO or PROJECT_VIDEO; worker trims the final video timeline and preserves its source width, height and aspect ratio.';
