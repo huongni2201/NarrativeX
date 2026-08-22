@@ -5,6 +5,7 @@ from pathlib import Path
 
 from narrativex_worker.narration.alignment import build_alignment
 from narrativex_worker.narration.errors import (
+    NarrationLeaseLostError,
     NarrationPermanentError,
     NarrationRetryableInfrastructureError,
     is_transient_infrastructure_error,
@@ -16,20 +17,21 @@ from narrativex_worker.narration.providers import (
     TtsProviderRejectedError,
     TtsRequest,
 )
+from narrativex_worker.narration.repository import ClaimedNarrationJob
 from narrativex_worker.narration.runner import NarrationWorkerRunner
+from narrativex_worker.narration.segmenter import utf16_length
 from narrativex_worker.narration.storage import MediaAssetConflictError
 from narrativex_worker.narration.voice_reference import (
     VoiceReferenceAudioError,
     prepare_mp3_reference,
 )
-from narrativex_worker.narration.segmenter import utf16_length
 from narrativex_worker.workspace import sha256_file
 
 
 class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
     """Use in-process batching for local providers and the original path for external ones."""
 
-    async def _execute(self, claimed):  # type: ignore[no-untyped-def,override]
+    async def _execute(self, claimed: ClaimedNarrationJob) -> None:
         assert self.provider is not None
         if (
             self.provider.capabilities.execution_semantics
@@ -39,7 +41,7 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
             return
         await self._execute_local(claimed)
 
-    async def _execute_local(self, claimed) -> None:  # type: ignore[no-untyped-def]
+    async def _execute_local(self, claimed: ClaimedNarrationJob) -> None:
         assert self.provider is not None
         assert self.storage is not None
         storage = self.storage
@@ -87,8 +89,6 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
                 audio_duration_ms=actual_duration_ms,
             )
             checksum = await asyncio.to_thread(sha256_file, mp3_path)
-            # Local synthesis is stochastic. Content-address the final object so a retry after
-            # an R2-success/DB-failure cannot conflict with a different regenerated waveform.
             final_key = (
                 f"narration/{claimed.narration_request_id}/"
                 f"chapter-{checksum[:16]}.mp3"
@@ -127,11 +127,9 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
                         spans=spans,
                     )
                 )
+            except NarrationLeaseLostError:
+                raise
             except Exception as exception:
-                from narrativex_worker.narration.errors import NarrationLeaseLostError
-
-                if isinstance(exception, NarrationLeaseLostError):
-                    raise
                 if is_transient_infrastructure_error(exception):
                     raise NarrationRetryableInfrastructureError(
                         "Narration completion is temporarily unavailable"
@@ -149,7 +147,9 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
                 // self.settings.vieneu_batch_max_segments,
             )
 
-    async def _prepare_reference(self, claimed, job_dir: Path) -> Path | None:  # type: ignore[no-untyped-def]
+    async def _prepare_reference(
+        self, claimed: ClaimedNarrationJob, job_dir: Path
+    ) -> Path | None:
         assert self.storage is not None
         if claimed.voice_reference_storage_key is None:
             return None
@@ -177,7 +177,7 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
 
     async def _materialize_local_batches(
         self,
-        claimed,  # type: ignore[no-untyped-def]
+        claimed: ClaimedNarrationJob,
         segments: list[NarrationSegment],
         voice_id: str,
         job_dir: Path,
