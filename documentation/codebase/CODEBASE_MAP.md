@@ -1,7 +1,7 @@
 # NarrativeX Current Codebase Map — V1.11
 
 **Canonical baseline:** `documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`
-**Docs-sync checkpoint:** `29122c51a6d113ed7fd4026f7de3f5df75771153`
+**Docs-sync checkpoint:** `a614d05101a5992783cbc580668b4ed0927b41d9`
 
 ## Runtime layout
 
@@ -18,8 +18,8 @@ Cloudflare R2          external managed durable media storage
 
 - Project/Chapter/Analyze foundations are implemented.
 - Project dashboard/favorite APIs and frontend dashboard wiring are implemented foundations.
-- ProviderOperation, Chapter and Project persistence are MyBatis-backed.
-- GenerationJob, StageAttempt, OperationPlan, MediaPlan, generation outbox enqueue, Job History and the Chapter Analyze safety gate have MyBatis/explicit-SQL production paths. The outbox dispatcher retains a deliberate JDBC claim/lease query.
+- All production backend persistence is MyBatis + explicit SQL.
+- GenerationJob, StageAttempt, OperationPlan, MediaPlan, generation outbox enqueue/dispatch, Job History and the Chapter Analyze safety gate use MyBatis/explicit SQL.
 - Character + Location continuity and Scene relations are materialized by the worker.
 - Project-scoped Character list/detail reads are backed by MyBatis and wired into `ProjectCharactersTab` and `CharacterDetailView`; covered fields no longer come from fabricated runtime data.
 - Backend-authoritative MediaPlan foundation is implemented and generation jobs can be pinned to plan revision/policy.
@@ -42,7 +42,7 @@ Reuse/reframe/edit and HYBRID_LOCAL_I2V are fast-follow after the first durable 
 
 ## Persistence direction
 
-Remaining JPA/JDBC boundaries are migration work, not the final architecture. StoryVersion and quota/billing are the highest-priority remaining persistence boundaries, followed by storyboard/continuity and low-risk CRUD/query surfaces. Generation execution persistence is no longer a future migration item except for explicitly documented residual operational JDBC.
+The migration is complete: production source contains no JPA or `JdbcTemplate` persistence. MyBatis row models, mapper interfaces and explicit XML/SQL are guarded by architecture and PostgreSQL integration tests.
 
 ## Worker boundary
 
