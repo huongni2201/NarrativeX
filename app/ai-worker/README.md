@@ -8,10 +8,35 @@ The Python worker executes durable AI/media work authorized by the backend. It i
 
 - Chapter analysis and continuity/storyboard materialization;
 - durable ProviderOperation reconciliation;
+- Gemini 2.5 Flash Image online generation plus discounted Vertex Batch inference foundation;
 - full-chapter TTS narration, alignment and R2 persistence;
 - user-provided narration part/timeline processing foundation;
 - Wan-compatible I2V adapter/planning foundation;
 - bounded PostgreSQL claim/lease/heartbeat runtime.
+
+## Image generation
+
+Interactive/small image sets use synchronous Vertex `generateContent`. Bulk, non-interactive image
+sets can use Vertex Batch inference through the batch-capable provider adapter:
+
+```text
+VisualBeat image requests
+  -> provider reservation/submission fence
+  -> JSONL staging in GCS
+  -> Vertex BatchPredictionJob
+  -> durable reconciliation by provider job name
+  -> validate image bytes
+  -> normal MediaAsset/R2 materialization
+```
+
+`gemini-2.5-flash-image` supports Vertex Batch inference but not Flex PayGo. Keep
+`VERTEX_IMAGE_SERVICE_TIER=standard` for this model and use `VERTEX_IMAGE_EXECUTION_MODE=auto` with
+a configured `VERTEX_IMAGE_BATCH_GCS_BUCKET` to make large eligible sets available to the discounted
+Batch path. The staging bucket is not a product media store; configure a GCS lifecycle rule to remove
+staging input/output after the reconciliation retention window.
+
+A paid batch must never be submitted before the durable provider-operation fence is persisted.
+Ambiguous submission outcomes remain `UNKNOWN` and must reconcile instead of being blindly retried.
 
 ## Narration
 
