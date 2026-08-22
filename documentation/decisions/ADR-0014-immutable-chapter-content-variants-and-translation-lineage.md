@@ -22,12 +22,25 @@ Analysis receives an explicit `contentVariantId` when selected. Its generation j
 revision retain the variant pointer and content hash, so later edits cannot silently change the
 analysis input.
 
+The server treats a client-selected variant as a request, never as authority. Analysis accepts the
+current ORIGINAL only when its hash matches `chapters.source_hash`; a translation additionally must
+be COMPLETED, point to that ORIGINAL, and carry the same source hash. An owned but stale selection
+returns `409 Conflict` before quota or generation rows are created. Translation admission applies
+the same current-ORIGINAL rule and derives its idempotency key on the server.
+
+Translation execution creates one durable `provider_operations` row per provider chunk. Each chunk
+is fenced independently, and actual provider usage/billing is persisted when the response arrives,
+before structural output validation. A validation failure therefore fails the job without erasing
+the provider billing evidence. Migration V5 makes translation uniqueness include source lineage and
+the translated content hash.
+
 ## Consequences
 
 - Original chapter text is never destroyed when a new input is imported.
 - Double confirmation reuses the owner-scoped idempotency key and cannot create a second durable job.
 - Translation execution must validate provider output before inserting the immutable translation row;
-  the worker-side chunking and structural validation helpers live in `app/ai-worker`.
+  the worker-side chunking and structural validation helpers live in `app/ai-worker`. Provider
+  billing is persisted before that validation step.
 - Existing clients remain compatible: the old analysis endpoint still selects the current original
   when no variant is supplied, and `sourceLanguage` remains the public compatibility name for the
   project's analysis language while application code exposes `getProjectLanguage()`.

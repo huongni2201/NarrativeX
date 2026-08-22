@@ -11,12 +11,14 @@ import com.narrativex.backend.feature.storyboard.api.response.ChapterResponse;
 import com.narrativex.backend.feature.storyboard.application.command.UpdateChapterCommand;
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardRevisionAccess;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
-import com.narrativex.backend.feature.storyboard.application.service.ChapterSourceHasher;
 import com.narrativex.backend.feature.storyboard.application.service.ChapterContentImportService;
+import com.narrativex.backend.feature.storyboard.application.service.ChapterSourceHasher;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 public class UpdateChapterUseCase {
   private final CurrentUserId currentUserId;
@@ -85,6 +87,12 @@ public class UpdateChapterUseCase {
     if (contentImportService != null) {
       contentImportService.importOriginal(saved.getId(), saved.getSourceText(), saved.getSourceHash());
     }
+    log.info(
+        "Updated chapter id={} (title='{}', rowVersion={}) for projectId={}",
+        saved.getId(),
+        saved.getTitle(),
+        saved.getRowVersion(),
+        command.projectId());
     return ApiResponse.success("Chapter updated successfully", ChapterResponse.from(saved));
   }
 

@@ -14,4 +14,8 @@ public class ChapterAnalysisSnapshotRow {
   private Long contentVariantId;
   private String language;
   private Long originVariantId;
+  private String chapterSourceHash;
+  private String sourceContentHash;
+  private Long currentOriginalVariantId;
+  private boolean stale;
 }

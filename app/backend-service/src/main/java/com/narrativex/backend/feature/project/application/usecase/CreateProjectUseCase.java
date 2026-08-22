@@ -7,9 +7,11 @@ import com.narrativex.backend.feature.project.domain.aggregate.Project;
 import com.narrativex.backend.feature.project.domain.enums.AspectRatio;
 import com.narrativex.backend.feature.project.domain.enums.ImageQualityTier;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CreateProjectUseCase {
@@ -18,6 +20,7 @@ public class CreateProjectUseCase {
 
   @Transactional
   public Project execute(CreateProjectCommand command) {
+    String ownerId = currentUserId.get();
     String sourceLanguage = defaultValue(command.sourceLanguage(), "vi-VN");
     String narrationLanguage = defaultValue(command.narrationLanguage(), sourceLanguage);
     String metadataLanguage = defaultValue(command.metadataLanguage(), sourceLanguage);
@@ -29,16 +32,24 @@ public class CreateProjectUseCase {
         command.imageQualityTier() == null || command.imageQualityTier().isBlank()
             ? ImageQualityTier.STANDARD
             : ImageQualityTier.valueOf(command.imageQualityTier());
-    return projectRepository.save(
-        Project.create(
-            command.name(),
-            command.description(),
-            currentUserId.get(),
-            sourceLanguage,
-            narrationLanguage,
-            metadataLanguage,
-            ratio,
-            quality));
+    Project project =
+        projectRepository.save(
+            Project.create(
+                command.name(),
+                command.description(),
+                ownerId,
+                sourceLanguage,
+                narrationLanguage,
+                metadataLanguage,
+                ratio,
+                quality));
+    log.info(
+        "Created project id={} (name='{}', ownerId={}, sourceLanguage={})",
+        project.getId(),
+        project.getName(),
+        ownerId,
+        sourceLanguage);
+    return project;
   }
 
   private static String defaultValue(String value, String fallback) {

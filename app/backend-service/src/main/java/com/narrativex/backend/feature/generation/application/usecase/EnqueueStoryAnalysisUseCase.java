@@ -15,9 +15,11 @@ import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardRevisionAccess;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class EnqueueStoryAnalysisUseCase {
@@ -67,6 +69,7 @@ public class EnqueueStoryAnalysisUseCase {
     generationJobRepository.acquireIdempotencyLock(idempotencyKey, userId);
     var existing = generationJobRepository.findByIdempotencyKey(idempotencyKey, userId);
     if (existing.isPresent()) {
+      log.debug("Found existing chapter analysis job id={} for idempotencyKey='{}'", existing.get().getId(), idempotencyKey);
       return existing.get();
     }
 
@@ -110,6 +113,12 @@ public class EnqueueStoryAnalysisUseCase {
     operationPlanRepository.save(operationPlan.withGenerationJobId(job.getId()));
     stageAttemptRepository.create(StageAttempt.create(job.getId(), STAGE_NAME, 1));
     generationOutboxRepository.enqueue(job);
+    log.info(
+        "Enqueued story analysis job id={} for projectId={}, chapterId={}, storyboardRevisionId={}",
+        job.getId(),
+        command.projectId(),
+        command.chapterId(),
+        storyboardRevisionId);
     return job;
   }
 }

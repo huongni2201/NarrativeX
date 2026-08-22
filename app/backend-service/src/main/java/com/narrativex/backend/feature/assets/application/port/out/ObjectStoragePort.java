@@ -8,6 +8,8 @@ import java.util.Map;
 public interface ObjectStoragePort {
   PresignedUpload createUpload(CreateUpload command);
 
+  PresignedDownload createDownload(String storageKey, Instant expiresAt);
+
   StoredObject head(String storageKey);
 
   void delete(String storageKey);
@@ -25,6 +27,8 @@ public interface ObjectStoragePort {
       this(storageKey, uploadUrl, expiresAt, Map.of());
     }
   }
+
+  record PresignedDownload(String storageKey, URI downloadUrl, Instant expiresAt) {}
 
   record StoredObject(String storageKey, long sizeBytes, String contentType, String sha256) {}
 

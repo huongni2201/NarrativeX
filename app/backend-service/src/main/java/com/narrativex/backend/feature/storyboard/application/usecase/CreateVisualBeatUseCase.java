@@ -9,9 +9,11 @@ import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRep
 import com.narrativex.backend.feature.storyboard.application.port.out.StoryboardRepository;
 import com.narrativex.backend.feature.storyboard.domain.entity.VisualBeat;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CreateVisualBeatUseCase {
@@ -39,6 +41,14 @@ public class CreateVisualBeatUseCase {
     VisualBeat saved =
         storyboardRepository.saveVisualBeat(
             new VisualBeat(scene.getId(), orderIndex, title, visualIntent));
+    log.info(
+        "Created visual beat id={} (orderIndex={}, title='{}') in sceneId={}, chapterId={}, projectId={}",
+        saved.getId(),
+        saved.getOrderIndex(),
+        saved.getTitle(),
+        sceneId,
+        chapterId,
+        projectId);
     return ApiResponse.success("Visual beat created successfully", VisualBeatResponse.from(saved));
   }
 }

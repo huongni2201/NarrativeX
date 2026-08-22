@@ -16,15 +16,18 @@ import com.narrativex.backend.feature.generation.domain.entity.StageAttempt;
 import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
-import com.narrativex.backend.feature.storyboard.application.port.in.ChapterContentVariantAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAccess;
+import com.narrativex.backend.feature.storyboard.application.port.in.ChapterContentVariantAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardRevisionAccess;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Locale;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ConfirmChapterTranslationUseCase {
@@ -55,19 +58,34 @@ public class ConfirmChapterTranslationUseCase {
     storyVersionAccess.requireOwnedStoryVersion(projectId, chapter.getStoryVersionId(), userId);
     var source = variantRepository.findByIdOwned(projectId, chapterId, command.sourceVariantId(), userId)
         .orElseThrow(() -> new ResourceNotFoundException("Source content variant not found"));
+    if (source.type() != com.narrativex.backend.feature.storyboard.domain.enums.ContentVariantType.ORIGINAL) {
+      throw new IllegalArgumentException("Translation source must be an ORIGINAL variant");
+    }
+    var currentOriginal = variantRepository.findCurrentOriginalOwned(projectId, chapterId, userId)
+        .orElseThrow(() -> new ResourceConflictException(
+            "Chapter source changed; refresh language status before translating"));
+    if (!source.id().equals(currentOriginal.id())) {
+      throw new ResourceConflictException(
+          "Chapter source changed; refresh language status before translating");
+    }
     if (!source.contentHash().equals(command.sourceContentHash())) {
       throw new ResourceConflictException("Source content changed; refresh language status before translating");
     }
     var project = projectAccess.findOwnedProject(projectId, userId);
-    if (!command.targetLanguage().equalsIgnoreCase(project.getProjectLanguage())) {
+    String targetLanguage = command.targetLanguage().trim();
+    if (!targetLanguage.equalsIgnoreCase(project.getProjectLanguage())) {
       throw new IllegalArgumentException("Target language must match the project language");
     }
-    String idempotencyKey = command.requestKey() == null || command.requestKey().isBlank()
-        ? "chapter-translation:" + chapterId + ":" + source.id() + ":" + source.contentHash() + ":" + command.targetLanguage()
-        : command.requestKey().trim();
+    String normalizedTargetLanguage = targetLanguage.toLowerCase(Locale.ROOT);
+    String idempotencyKey =
+        "chapter-translation:" + chapterId + ":" + source.id() + ":" + source.contentHash()
+            + ":" + normalizedTargetLanguage + ":translation-v1";
     generationJobRepository.acquireIdempotencyLock(idempotencyKey, userId);
     var existing = generationJobRepository.findByIdempotencyKey(idempotencyKey, userId);
-    if (existing.isPresent()) return existing.get();
+    if (existing.isPresent()) {
+      log.debug("Found existing translation job id={} for idempotencyKey='{}'", existing.get().getId(), idempotencyKey);
+      return existing.get();
+    }
 
     var quota = quotaQuery.findCurrentQuota(userId)
         .orElseThrow(() -> new GenerationAdmissionDeniedException("COST_LIMIT", "No active plan."));
@@ -79,11 +97,17 @@ public class ConfirmChapterTranslationUseCase {
         projectId, "TRANSLATION", new BigDecimal("0.010000"), maxAuthorized, maxAuthorized.multiply(BigDecimal.valueOf(2))));
     GenerationJob job = generationJobRepository.save(GenerationJob.createChapterTranslation(
         projectId, chapter.getStoryVersionId(), chapterId, source.id(), chapter.getRowVersion(),
-        source.contentHash(), source.content(), source.languageCode(), command.targetLanguage(), idempotencyKey, userId));
+        source.contentHash(), source.content(), source.languageCode(), project.getProjectLanguage(), idempotencyKey, userId));
     quotaReservation.bindToGenerationJob(reservation.id(), job.getId());
     operationPlanRepository.save(plan.withGenerationJobId(job.getId()));
     stageAttemptRepository.create(StageAttempt.create(job.getId(), STAGE_NAME, 1));
     generationOutboxRepository.enqueue(job);
+    log.info(
+        "Created and enqueued translation job id={} (targetLanguage='{}') for chapterId={}, projectId={}",
+        job.getId(),
+        targetLanguage,
+        chapterId,
+        projectId);
     return job;
   }
 }

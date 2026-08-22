@@ -6,7 +6,7 @@ import { chaptersApi } from "@/features/chapters/api/chapters.api";
 import { queryKeys } from "@/lib/query-keys";
 import { ApiClientError, apiErrorMessage } from "@/shared/api/client";
 import { ACTIVE_JOB_STATUSES, TERMINAL_JOB_STATUSES } from "@/types/api";
-import type { ApiChapterLanguageStatus } from "@/types/api";
+import type { ApiChapterLanguageStatus, JobStatus } from "@/types/api";
 
 export type WorkspaceTab = "overview" | "content" | "storyboard" | "visuals" | "audio" | "render";
 
@@ -21,7 +21,9 @@ export const WORKSPACE_TABS: TabConfig[] = [
   { id: "content", label: "Nội dung", available: true },
   { id: "storyboard", label: "Storyboard", available: true },
   { id: "visuals", label: "Visuals", available: false },
-  { id: "audio", label: "Audio", available: false },
+  // Viewing an existing/queued narration is separate from the capability to start
+  // another generation request. A running job must not hide the Audio workspace.
+  { id: "audio", label: "Audio", available: true },
   { id: "render", label: "Render & Export", available: false },
 ];
 
@@ -46,12 +48,31 @@ export function useChapterWorkspaceState(projectId: string, chapterId: string) {
   const [analysisMessage, setAnalysisMessage] = useState<string | null>(null);
   const [translationPromptOpen, setTranslationPromptOpen] = useState(false);
 
+  const invalidateSourceDependentQueries = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.chapterWorkspace(numericProjectId, numericChapterId),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.chapterLanguageStatus(numericProjectId, numericChapterId),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.chapterContentVariants(numericProjectId, numericChapterId),
+      }),
+    ]);
+  };
+
   const workspaceQuery = useQuery({
     queryKey: validIds
       ? queryKeys.chapterWorkspace(numericProjectId, numericChapterId)
       : ["chapter-workspace", "invalid"],
     queryFn: () => chaptersApi.getWorkspace(numericProjectId, numericChapterId),
     enabled: validIds,
+    refetchInterval: (query) => {
+      const status = query.state.data?.pipeline.audio.status;
+      if (status && ACTIVE_JOB_STATUSES.has(status as JobStatus)) return 1500;
+      return false;
+    },
   });
 
   const languageStatusQuery = useQuery<ApiChapterLanguageStatus>({
@@ -113,9 +134,7 @@ export function useChapterWorkspaceState(projectId: string, chapterId: string) {
       setEditing(false);
       setSaveMessage("Đã lưu Chapter.");
       setAnalysisMessage(null);
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.chapterWorkspace(numericProjectId, numericChapterId),
-      });
+      await invalidateSourceDependentQueries();
     },
     onError: (error) => {
       if (error instanceof ApiClientError && error.status === 409) {
@@ -173,6 +192,16 @@ export function useChapterWorkspaceState(projectId: string, chapterId: string) {
       });
     },
     onError: (error) => setAnalysisMessage(apiErrorMessage(error, "Không thể bắt đầu dịch Chapter.")),
+  });
+
+  const importContentMutation = useMutation({
+    mutationFn: (input: { content: string; title?: string }) =>
+      chaptersApi.importContent(numericProjectId, numericChapterId, input.content, input.title),
+    onSuccess: async () => {
+      await invalidateSourceDependentQueries();
+      setAnalysisJobId(null);
+      setAnalysisMessage(null);
+    },
   });
 
   const analysisJob = analysisJobQuery.data ?? analyzeChapterMutation.data;
@@ -252,6 +281,7 @@ export function useChapterWorkspaceState(projectId: string, chapterId: string) {
     setSaveMessage("Đã tải dữ liệu mới nhất từ server.");
     setAnalysisMessage(null);
     setAnalysisJobId(null);
+    await invalidateSourceDependentQueries();
   };
 
   return {
@@ -286,6 +316,8 @@ export function useChapterWorkspaceState(projectId: string, chapterId: string) {
     },
     confirmTranslation: () => confirmTranslation.mutate(),
     confirmingTranslation: confirmTranslation.isPending,
+    importContent: (input: { content: string; title?: string }) => importContentMutation.mutate(input),
+    importingContent: importContentMutation.isPending,
     languageStatus: languageStatusQuery.data ?? null,
     translationPromptOpen,
     closeTranslationPrompt: () => setTranslationPromptOpen(false),

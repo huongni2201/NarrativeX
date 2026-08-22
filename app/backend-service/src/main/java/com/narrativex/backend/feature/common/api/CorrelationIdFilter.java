@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.UUID;
 import java.util.regex.Pattern;
+import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -23,7 +24,12 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
     String correlationId = sanitize(request.getHeader(HEADER_NAME));
     request.setAttribute(REQUEST_ATTRIBUTE, correlationId);
     response.setHeader(HEADER_NAME, correlationId);
-    filterChain.doFilter(request, response);
+    MDC.put("correlationId", correlationId);
+    try {
+      filterChain.doFilter(request, response);
+    } finally {
+      MDC.remove("correlationId");
+    }
   }
 
   public static String correlationId(HttpServletRequest request) {

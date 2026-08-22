@@ -18,9 +18,11 @@ import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnal
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterWorkspaceAccess;
 import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CreateChapterRenderUseCase {
@@ -87,7 +89,10 @@ public class CreateChapterRenderUseCase {
             + command.format();
     generationJobRepository.acquireIdempotencyLock(idempotencyKey, userId);
     var existing = generationJobRepository.findByIdempotencyKey(idempotencyKey, userId);
-    if (existing.isPresent()) return existing.get();
+    if (existing.isPresent()) {
+      log.debug("Found existing render job id={} for idempotencyKey='{}'", existing.get().getId(), idempotencyKey);
+      return existing.get();
+    }
 
     var reservation =
         quotaReservation
@@ -117,6 +122,13 @@ public class CreateChapterRenderUseCase {
     operationPlanRepository.save(plan.withGenerationJobId(job.getId()));
     stageAttemptRepository.create(StageAttempt.create(job.getId(), STAGE_NAME, 1));
     generationOutboxRepository.enqueue(job);
+    log.info(
+        "Created and enqueued render job id={} (resolution='{}', format='{}') for chapterId={}, projectId={}",
+        job.getId(),
+        command.resolution(),
+        command.format(),
+        command.chapterId(),
+        command.projectId());
     return job;
   }
 

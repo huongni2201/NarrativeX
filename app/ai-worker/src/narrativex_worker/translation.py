@@ -1,8 +1,13 @@
 """Provider-neutral translation chunking and output validation."""
 
-from dataclasses import dataclass
+from __future__ import annotations
+
 import re
-from typing import Protocol
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Protocol
+
+if TYPE_CHECKING:
+    from narrativex_worker.providers.ports import ProviderBilling
 
 
 @dataclass(frozen=True)
@@ -23,10 +28,21 @@ class TranslationResult:
     model: str
     input_tokens: int = 0
     output_tokens: int = 0
+    billing: ProviderBilling | None = None
+
+
+@dataclass(frozen=True)
+class TranslationProviderResponse:
+    """Raw provider output and billing captured before application validation."""
+
+    content: str
+    provider: str
+    model: str
+    billing: ProviderBilling
 
 
 class TranslationProvider(Protocol):
-    async def translate(self, request: TranslationRequest) -> TranslationResult: ...
+    async def translate(self, request: TranslationRequest) -> TranslationProviderResponse: ...
 
 
 class TranslationValidationError(ValueError):
@@ -35,8 +51,8 @@ class TranslationValidationError(ValueError):
 
 def chunk_text(text: str, max_characters: int = 12_000) -> list[str]:
     """Split by paragraphs, then sentences, and only then by a hard limit."""
-    if max_characters < 256:
-        raise ValueError("max_characters must be at least 256")
+    if max_characters < 1:
+        raise ValueError("max_characters must be positive")
     paragraphs = re.split(r"(\n\s*\n)", text)
     chunks: list[str] = []
     current = ""
@@ -66,7 +82,10 @@ def validate_translation(source: str, translated: str) -> None:
         raise TranslationValidationError(f"translation lost markers: {sorted(missing)}")
     source_paragraphs = max(1, len(re.split(r"\n\s*\n", source.strip())))
     translated_paragraphs = max(1, len(re.split(r"\n\s*\n", translated.strip())))
-    if translated_paragraphs > source_paragraphs * 2 or source_paragraphs > translated_paragraphs * 2:
+    if (
+        translated_paragraphs > source_paragraphs * 2
+        or source_paragraphs > translated_paragraphs * 2
+    ):
         raise TranslationValidationError("translation paragraph count changed unexpectedly")
     ratio = len(translated) / max(1, len(source))
     if ratio < 0.25 or ratio > 4.0:
@@ -82,7 +101,10 @@ def _split_sentences(text: str, max_characters: int) -> list[str]:
             if current.strip():
                 result.append(current)
                 current = ""
-            result.extend(sentence[index : index + max_characters] for index in range(0, len(sentence), max_characters))
+            result.extend(
+                sentence[index : index + max_characters]
+                for index in range(0, len(sentence), max_characters)
+            )
         elif len(current) + len(sentence) + 1 <= max_characters:
             current = f"{current} {sentence}".strip()
         else:

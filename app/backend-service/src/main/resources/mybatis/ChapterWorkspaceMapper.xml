@@ -14,6 +14,7 @@
         <result property="visualGenerationUnknown" column="visual_generation_unknown"/><result property="visualGenerationPaused" column="visual_generation_paused"/>
         <result property="narrationAssetReady" column="narration_asset_ready"/>
         <result property="narrationJobStatus" column="narration_job_status"/><result property="narrationCompletedAt" column="narration_completed_at"/>
+        <result property="narrationStorageKey" column="narration_storage_key"/><result property="narrationDurationMs" column="narration_duration_ms"/>
         <result property="renderManifestCreated" column="render_manifest_created"/><result property="renderArtifactStatus" column="render_artifact_status"/>
         <result property="renderJobStatus" column="render_job_status"/><result property="renderCompletedAt" column="render_completed_at"/>
     </resultMap>
@@ -102,7 +103,8 @@
                    COUNT(*) FILTER (WHERE status = 'PAUSED_COST_LIMIT')::int AS paused
               FROM current_visual_jobs
         ), latest_narration AS (
-            SELECT na.id AS narration_asset_id, gj.status AS job_status,
+            SELECT na.id AS narration_asset_id, op.status AS job_status,
+                   pa.storage_key AS narration_storage_key, na.duration_ms AS narration_duration_ms,
                    CASE WHEN na.id IS NOT NULL THEN na.created_at ELSE NULL END AS completed_at
               FROM current_chapter cc
               LEFT JOIN LATERAL (
@@ -114,9 +116,22 @@
                    ORDER BY nr.created_at DESC, nr.id DESC
                    LIMIT 1
               ) nr ON TRUE
-              LEFT JOIN narration_operations no ON no.narration_request_id = nr.id
-              LEFT JOIN generation_jobs gj ON gj.id = no.generation_job_id
-              LEFT JOIN narration_assets na ON na.narration_request_id = nr.id
+              LEFT JOIN LATERAL (
+                  SELECT gj.status AS status
+                    FROM narration_operations no
+                    JOIN generation_jobs gj ON gj.id = no.generation_job_id
+                   WHERE no.narration_request_id = nr.id
+                   ORDER BY no.created_at DESC, no.generation_job_id DESC
+                   LIMIT 1
+              ) op ON TRUE
+              LEFT JOIN LATERAL (
+                  SELECT na.id, na.created_at, na.project_asset_id, na.duration_ms
+                    FROM narration_assets na
+                   WHERE na.narration_request_id = nr.id
+                   ORDER BY na.created_at DESC, na.id DESC
+                   LIMIT 1
+              ) na ON TRUE
+              LEFT JOIN project_assets pa ON pa.id = na.project_asset_id
         ), latest_render_manifest AS (
             SELECT rm.id, rm.created_at
               FROM current_media_plan cmp
@@ -171,6 +186,8 @@
                (SELECT narration_asset_id IS NOT NULL FROM latest_narration) AS narration_asset_ready,
                (SELECT job_status FROM latest_narration) AS narration_job_status,
                (SELECT completed_at FROM latest_narration) AS narration_completed_at,
+               (SELECT narration_storage_key FROM latest_narration) AS narration_storage_key,
+               (SELECT narration_duration_ms FROM latest_narration) AS narration_duration_ms,
                EXISTS (SELECT 1 FROM latest_render_manifest WHERE id IS NOT NULL) AS render_manifest_created,
                (SELECT artifact_status FROM latest_render_artifact) AS render_artifact_status,
                (SELECT job_status FROM latest_render_job) AS render_job_status,

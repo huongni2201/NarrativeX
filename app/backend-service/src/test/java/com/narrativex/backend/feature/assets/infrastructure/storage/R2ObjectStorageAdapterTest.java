@@ -42,6 +42,23 @@ class R2ObjectStorageAdapterTest {
   }
 
   @Test
+  void presignsPrivateDownloadWithGetAndHostOnly() {
+    R2ObjectStorageAdapter adapter =
+        new R2ObjectStorageAdapter(
+            new R2StorageProperties("account", "access", "secret", "bucket", "https://example.com"));
+
+    var download =
+        adapter.createDownload("narration/request/chapter.mp3", Instant.now().plusSeconds(120));
+
+    String query = URI.create(download.downloadUrl().toString()).getQuery();
+    assertThat(query).contains("X-Amz-Algorithm=AWS4-HMAC-SHA256");
+    assertThat(query).contains("X-Amz-SignedHeaders=host");
+    assertThat(query).contains("X-Amz-Signature=");
+    assertThat(download.downloadUrl().getPath())
+        .isEqualTo("/bucket/narration/request/chapter.mp3");
+  }
+
+  @Test
   void headDoesNotSetRestrictedHostHeader() throws Exception {
     HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
     try {

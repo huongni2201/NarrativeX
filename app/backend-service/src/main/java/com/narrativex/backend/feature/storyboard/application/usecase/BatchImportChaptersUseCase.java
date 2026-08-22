@@ -7,17 +7,19 @@ import com.narrativex.backend.feature.project.application.port.in.StoryVersionAc
 import com.narrativex.backend.feature.storyboard.api.response.ChapterResponse;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterDocumentTextExtractor;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
+import com.narrativex.backend.feature.storyboard.application.service.ChapterContentImportService;
 import com.narrativex.backend.feature.storyboard.application.service.ChapterImportSplitter;
 import com.narrativex.backend.feature.storyboard.application.service.ChapterSourceHasher;
-import com.narrativex.backend.feature.storyboard.application.service.ChapterContentImportService;
 import com.narrativex.backend.feature.storyboard.domain.aggregate.Chapter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class BatchImportChaptersUseCase {
@@ -42,6 +44,13 @@ public class BatchImportChaptersUseCase {
       throw new IllegalArgumentException("Import file exceeds 10 MB limit");
 
     storyVersionAccess.requireOwnedStoryVersion(projectId, storyVersionId, currentUserId.get());
+    log.info(
+        "Starting batch import of chapters from file '{}' (size: {} bytes, type: '{}') for storyVersionId={}, projectId={}",
+        fileName,
+        content.length,
+        contentType,
+        storyVersionId,
+        projectId);
     String extracted = documentTextExtractor.extract(fileName, contentType, content);
     var drafts = splitter.split(extracted, fileName);
     if (drafts.size() > MAX_CHAPTERS_PER_IMPORT) {
@@ -76,6 +85,11 @@ public class BatchImportChaptersUseCase {
       imported.add(ChapterResponse.from(saved));
       nextOrderIndex++;
     }
+    log.info(
+        "Successfully batch imported {} chapters for storyVersionId={}, projectId={}",
+        imported.size(),
+        storyVersionId,
+        projectId);
     return List.copyOf(imported);
   }
 

@@ -25,9 +25,11 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.HexFormat;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CreateMediaJobUseCase {
@@ -64,6 +66,7 @@ public class CreateMediaJobUseCase {
         throw new GenerationAdmissionDeniedException(
             "IDEMPOTENCY_CONFLICT", "The Idempotency-Key is already bound to a different request.");
       }
+      log.debug("Found existing media generation job id={} for idempotencyKey='{}'", existing.get().getId(), command.idempotencyKey());
       return existing.get();
     }
 
@@ -106,6 +109,14 @@ public class CreateMediaJobUseCase {
       }
     }
     generationOutboxRepository.enqueue(job);
+    log.info(
+        "Created and enqueued media job id={} (planId={}, beats={}, quality='{}') for projectId={}, chapterId={}",
+        job.getId(),
+        plan.id(),
+        beatCount,
+        command.qualityTier(),
+        command.projectId(),
+        command.chapterId());
     return job;
   }
 

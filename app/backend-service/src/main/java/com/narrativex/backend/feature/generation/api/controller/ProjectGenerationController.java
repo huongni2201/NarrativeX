@@ -20,7 +20,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 @Slf4j
@@ -85,11 +84,10 @@ public class ProjectGenerationController {
   public ResponseEntity<ApiResponse<JobResponse>> translateChapter(
       @PathVariable Long projectId,
       @PathVariable Long chapterId,
-      @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
       @Valid @RequestBody ConfirmChapterTranslationRequest request) {
     var job = confirmChapterTranslationUseCase.execute(new ConfirmChapterTranslationCommand(
         projectId, chapterId, request.sourceVariantId(), request.sourceContentHash(),
-        request.targetLanguage(), idempotencyKey));
+        request.targetLanguage()));
     return ResponseEntity.status(HttpStatus.ACCEPTED)
         .body(ApiResponse.success("Chapter translation job accepted", JobResponse.from(job)));
   }

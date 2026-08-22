@@ -97,6 +97,8 @@ export interface ApiChapterWorkspaceSummary {
 export interface ApiChapterWorkspacePipelineStep {
   status: string;
   completedAt: string | null;
+  audioUrl?: string | null;
+  durationMs?: number | null;
 }
 
 export interface ApiChapterWorkspaceProgressStep {

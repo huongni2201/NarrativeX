@@ -6,6 +6,9 @@
 !.env.example
 !**/.env.example
 !.env.e2e.example
+app/frontend-web/playwright/.auth/
+app/frontend-web/test-results/
+app/frontend-web/playwright-report/
 
 # ==========================================
 # Node / Frontend (Next.js)

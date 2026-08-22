@@ -91,8 +91,11 @@ class VieneuTtsProvider:
 
     def _ensure_configured_voice(self) -> None:
         available = self._available_voice_names()
-        if self.voice_name in available and not self.settings.vieneu_force_reenroll:
-            self.logger.info("Using persisted VieNeu voice profile name=%s", self.voice_name)
+        if self.voice_name in available:
+            self.logger.info(
+                "Using available VieNeu voice profile name=%s",
+                self.voice_name,
+            )
             return
 
         reference_path_value = self.settings.vieneu_reference_audio_path

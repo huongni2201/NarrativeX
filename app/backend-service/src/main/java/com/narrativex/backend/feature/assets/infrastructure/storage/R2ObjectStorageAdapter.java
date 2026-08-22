@@ -2,6 +2,7 @@ package com.narrativex.backend.feature.assets.infrastructure.storage;
 
 import com.narrativex.backend.feature.assets.application.port.out.ObjectStoragePort;
 import com.narrativex.backend.feature.assets.application.port.out.ObjectStoragePort.CreateUpload;
+import com.narrativex.backend.feature.assets.application.port.out.ObjectStoragePort.PresignedDownload;
 import com.narrativex.backend.feature.assets.application.port.out.ObjectStoragePort.PresignedUpload;
 import com.narrativex.backend.feature.assets.application.port.out.ObjectStoragePort.StoredObject;
 import com.narrativex.backend.feature.common.exception.FeatureNotAvailableException;
@@ -117,6 +118,39 @@ public class R2ObjectStorageAdapter implements ObjectStoragePort {
       return readAndHashObject(storageKey, size, contentType);
     }
     return new StoredObject(storageKey, size, contentType, checksum);
+  }
+
+  @Override
+  public PresignedDownload createDownload(String storageKey, Instant expiresAt) {
+    ensureConfigured();
+    Instant now = Instant.now(clock);
+    long expiresSeconds =
+        Duration.between(now, expiresAt).toSeconds() - PRESIGN_SAFETY_MARGIN_SECONDS;
+    if (expiresSeconds <= 0) {
+      throw new IllegalArgumentException("Download URL has no remaining signing lifetime");
+    }
+    String amzDate = AMZ_DATE.format(now);
+    String shortDate = SHORT_DATE.format(now);
+    String scope = shortDate + "/" + REGION + "/" + SERVICE + "/aws4_request";
+    URI objectUri = objectUri(storageKey);
+    Map<String, String> query =
+        new TreeMap<>(
+            Map.of(
+                "X-Amz-Algorithm", "AWS4-HMAC-SHA256",
+                "X-Amz-Credential", properties.accessKeyId().trim() + "/" + scope,
+                "X-Amz-Date", amzDate,
+                "X-Amz-Expires", String.valueOf(expiresSeconds),
+                "X-Amz-SignedHeaders", "host"));
+    String canonicalRequest =
+        "GET\n" + canonicalPath(objectUri) + "\n" + canonicalQuery(query) + "\n"
+            + "host:" + host(objectUri) + "\n\n"
+            + "host\n" + UNSIGNED_PAYLOAD;
+    query.put(
+        "X-Amz-Signature",
+        hex(hmac(signingKey(shortDate),
+            "AWS4-HMAC-SHA256\n" + amzDate + "\n" + scope + "\n"
+                + sha256(canonicalRequest))));
+    return new PresignedDownload(storageKey, withQuery(objectUri, query), expiresAt);
   }
 
   @Override

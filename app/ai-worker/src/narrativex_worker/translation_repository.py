@@ -1,13 +1,12 @@
-"""Durable claim and completion operations for immutable chapter translations."""
+"""Durable claim, chunk-operation, billing, and completion operations for translations."""
 
 import hashlib
 import json
 from dataclasses import dataclass
-from decimal import Decimal
 
 import asyncpg  # type: ignore[import-untyped]
 
-from narrativex_worker.translation import TranslationResult
+from narrativex_worker.translation import TranslationProviderResponse, TranslationResult
 
 
 @dataclass(frozen=True)
@@ -111,18 +110,23 @@ class TranslationWorkerRepository:
         pool = self._require_pool()
         result = await pool.execute(
             """UPDATE stage_attempts SET heartbeat_at = CURRENT_TIMESTAMP,
-              updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND worker_id = $2 AND status = 'RUNNING'""",
+              updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND worker_id = $2
+              AND status = 'RUNNING'""",
             stage_attempt_id,
             worker_id,
         )
         return str(result) == "UPDATE 1"
 
-    async def reserve_operation(
-        self, claimed: ClaimedTranslationJob, provider_key: str
+    async def reserve_chunk_operation(
+        self,
+        claimed: ClaimedTranslationJob,
+        provider_key: str,
+        chunk_index: int,
+        chunk_hash: str,
     ) -> TranslationOperation:
         fingerprint = hashlib.sha256(
             f"chapter-translation:{claimed.source_variant_id}:{claimed.source_content_hash}:"
-            f"{claimed.target_language}".encode()
+            f"{claimed.target_language.strip().lower()}:{chunk_index}:{chunk_hash}:translation-v1".encode()
         ).hexdigest()
         pool = self._require_pool()
         async with pool.acquire() as connection:
@@ -148,14 +152,19 @@ class TranslationWorkerRepository:
                     )
                 if row is None:
                     raise RuntimeError("Translation provider operation reservation disappeared")
-                raw = row["normalized_result_json"]
-                parsed = json.loads(raw) if isinstance(raw, str) else raw
-                return TranslationOperation(
-                    id=row["id"], status=row["status"], row_version=row["row_version"],
-                    content=parsed.get("content") if isinstance(parsed, dict) else None,
-                )
+                return self._operation_from_row(row)
 
-    async def fence_before_provider_call(self, operation: TranslationOperation) -> TranslationOperation:
+    async def reserve_operation(
+        self, claimed: ClaimedTranslationJob, provider_key: str
+    ) -> TranslationOperation:
+        """Compatibility wrapper for callers that model a single translation chunk."""
+        return await self.reserve_chunk_operation(
+            claimed, provider_key, chunk_index=0, chunk_hash=claimed.source_content_hash
+        )
+
+    async def fence_before_provider_call(
+        self, operation: TranslationOperation
+    ) -> TranslationOperation:
         pool = self._require_pool()
         row = await pool.fetchrow(
             """UPDATE provider_operations SET status = 'UNKNOWN',
@@ -169,65 +178,135 @@ class TranslationWorkerRepository:
             raise RuntimeError("Translation provider operation changed before submission")
         return TranslationOperation(row["id"], row["status"], row["row_version"])
 
-    async def complete(
-        self, claimed: ClaimedTranslationJob, worker_id: str,
-        operation: TranslationOperation, result: TranslationResult,
+    async def complete_chunk_operation(
+        self,
+        claimed: ClaimedTranslationJob,
+        worker_id: str,
+        operation: TranslationOperation,
+        response: TranslationProviderResponse,
     ) -> None:
-        content_hash = hashlib.sha256(result.content.encode("utf-8")).hexdigest()
-        normalized = json.dumps({"content": result.content}, ensure_ascii=False, sort_keys=True)
+        billing = response.billing
+        normalized = json.dumps({"content": response.content}, ensure_ascii=False, sort_keys=True)
         result_fingerprint = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
-        input_tokens = max(0, result.input_tokens)
-        output_tokens = max(0, result.output_tokens)
-        actual_cost = (Decimal(input_tokens) * Decimal("0.15") + Decimal(output_tokens) * Decimal("0.60")) / Decimal("1000000")
+        usage = billing.usage
+        usage_json = json.dumps(
+            {
+                "prompt_tokens": usage.prompt_tokens,
+                "candidate_tokens": usage.candidate_tokens,
+                "thought_tokens": usage.thought_tokens,
+                "cached_input_tokens": usage.cached_input_tokens,
+                "tool_input_tokens": usage.tool_input_tokens,
+                "total_tokens": usage.total_tokens,
+                "traffic_type": usage.traffic_type,
+            }
+        )
+        pricing = billing.pricing
+        pricing_json = json.dumps(
+            {
+                "catalog_version": pricing.catalog_version,
+                "model_key": pricing.model_key,
+                "location": pricing.location,
+                "pricing_mode": pricing.pricing_mode,
+                "input_usd_per_million": str(pricing.input_usd_per_million),
+                "cached_input_usd_per_million": str(pricing.cached_input_usd_per_million),
+                "output_usd_per_million": str(pricing.output_usd_per_million),
+            }
+        )
         pool = self._require_pool()
         async with pool.acquire() as connection:
             async with connection.transaction():
-                lease = await connection.fetchval(
-                    "SELECT EXISTS(SELECT 1 FROM stage_attempts WHERE id = $1 AND worker_id = $2 AND status = 'RUNNING')",
-                    claimed.stage_attempt_id, worker_id,
-                )
-                if not lease:
-                    raise RuntimeError("Worker no longer owns the translation lease")
-                if operation.status == "UNKNOWN":
-                    await connection.execute(
-                        """UPDATE provider_operations SET status = 'COMPLETED',
+                await self._require_lease(connection, claimed, worker_id)
+                updated = await connection.execute(
+                    """UPDATE provider_operations SET status = 'COMPLETED',
                           normalized_result_json = $3::jsonb, result_fingerprint = $4,
-                          actual_cost = $5, billing_currency = 'USD',
-                          usage_json = $6::jsonb, pricing_snapshot_json = $7::jsonb,
+                          actual_cost = $5, billing_currency = $6,
+                          usage_json = $7::jsonb, pricing_snapshot_json = $8::jsonb,
                           completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP,
                           row_version = row_version + 1
                           WHERE id = $1 AND status = 'UNKNOWN' AND row_version = $2""",
-                        operation.id, operation.row_version, normalized, result_fingerprint,
-                        actual_cost, json.dumps({"prompt_tokens": input_tokens, "candidate_tokens": output_tokens}),
-                        json.dumps({"catalog_version": "vertex-public-2026-08-19", "model_key": result.model, "pricing_mode": "STANDARD"}),
-                    )
+                    operation.id,
+                    operation.row_version,
+                    normalized,
+                    result_fingerprint,
+                    billing.actual_cost,
+                    billing.currency,
+                    usage_json,
+                    pricing_json,
+                )
+                if updated != "UPDATE 1":
+                    raise RuntimeError("Translation provider operation changed before completion")
+
+    async def complete_translation(
+        self,
+        claimed: ClaimedTranslationJob,
+        worker_id: str,
+        content: str,
+        provider: str,
+        model: str,
+    ) -> None:
+        content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
+        pool = self._require_pool()
+        async with pool.acquire() as connection:
+            async with connection.transaction():
+                await self._require_lease(connection, claimed, worker_id)
                 await connection.execute(
                     """INSERT INTO chapter_content_variants
                       (chapter_id, source_variant_id, variant_type, language_code, content,
                        content_hash, source_content_hash, translation_status,
                        translation_provider, translation_model)
                       VALUES ($1, $2, 'TRANSLATION', $3, $4, $5, $6, 'COMPLETED', $7, $8)
-                      ON CONFLICT (chapter_id, variant_type, language_code, content_hash) DO NOTHING""",
-                    claimed.chapter_id, claimed.source_variant_id, claimed.target_language,
-                    result.content, content_hash, claimed.source_content_hash,
-                    result.provider, result.model,
+                      ON CONFLICT DO NOTHING""",
+                    claimed.chapter_id,
+                    claimed.source_variant_id,
+                    claimed.target_language,
+                    content,
+                    content_hash,
+                    claimed.source_content_hash,
+                    provider,
+                    model,
                 )
                 stage = await connection.execute(
-                    """UPDATE stage_attempts SET status = 'COMPLETED', heartbeat_at = CURRENT_TIMESTAMP,
+                    """UPDATE stage_attempts SET status = 'COMPLETED',
+                      heartbeat_at = CURRENT_TIMESTAMP,
                       updated_at = CURRENT_TIMESTAMP, row_version = row_version + 1
                       WHERE id = $1 AND worker_id = $2 AND status = 'RUNNING'""",
-                    claimed.stage_attempt_id, worker_id,
+                    claimed.stage_attempt_id,
+                    worker_id,
                 )
                 if stage != "UPDATE 1":
                     raise RuntimeError("Worker lost the translation lease before completion")
                 await connection.execute(
                     """UPDATE generation_jobs SET status = 'COMPLETED', progress = 100,
                       current_step = 'COMPLETED', error_code = NULL,
-                      updated_at = CURRENT_TIMESTAMP, row_version = row_version + 1 WHERE id = $1""",
+                      updated_at = CURRENT_TIMESTAMP, row_version = row_version + 1
+                      WHERE id = $1""",
                     claimed.generation_job_id,
                 )
 
-    async def fail(self, claimed: ClaimedTranslationJob, worker_id: str, error_code: str, unknown: bool = False) -> None:
+    async def complete(
+        self,
+        claimed: ClaimedTranslationJob,
+        worker_id: str,
+        operation: TranslationOperation,
+        result: TranslationResult,
+    ) -> None:
+        """Compatibility path for the former single-operation translation flow."""
+        if result.billing is None:
+            raise RuntimeError("Provider billing is required to complete a translation operation")
+        response = TranslationProviderResponse(
+            content=result.content,
+            provider=result.provider,
+            model=result.model,
+            billing=result.billing,
+        )
+        await self.complete_chunk_operation(claimed, worker_id, operation, response)
+        await self.complete_translation(
+            claimed, worker_id, result.content, result.provider, result.model
+        )
+
+    async def fail(
+        self, claimed: ClaimedTranslationJob, worker_id: str, error_code: str, unknown: bool = False
+    ) -> None:
         pool = self._require_pool()
         status = "UNKNOWN" if unknown else "FAILED"
         current_step = "UNKNOWN" if unknown else "FAILED"
@@ -237,14 +316,44 @@ class TranslationWorkerRepository:
                     """UPDATE stage_attempts SET status = $3, heartbeat_at = CURRENT_TIMESTAMP,
                       updated_at = CURRENT_TIMESTAMP, row_version = row_version + 1
                       WHERE id = $1 AND worker_id = $2 AND status = 'RUNNING'""",
-                    claimed.stage_attempt_id, worker_id, status,
+                    claimed.stage_attempt_id,
+                    worker_id,
+                    status,
                 )
                 await connection.execute(
                     """UPDATE generation_jobs SET status = $2, current_step = $3, error_code = $4,
                       updated_at = CURRENT_TIMESTAMP, row_version = row_version + 1
                       WHERE id = $1 AND status = 'RUNNING'""",
-                    claimed.generation_job_id, status, current_step, error_code[:80],
+                    claimed.generation_job_id,
+                    status,
+                    current_step,
+                    error_code[:80],
                 )
+
+    async def _require_lease(
+        self, connection: asyncpg.Connection, claimed: ClaimedTranslationJob, worker_id: str
+    ) -> None:
+        lease = await connection.fetchval(
+            """SELECT EXISTS(
+                SELECT 1 FROM stage_attempts
+                 WHERE id = $1 AND worker_id = $2 AND status = 'RUNNING'
+            )""",
+            claimed.stage_attempt_id,
+            worker_id,
+        )
+        if not lease:
+            raise RuntimeError("Worker no longer owns the translation lease")
+
+    @staticmethod
+    def _operation_from_row(row: asyncpg.Record) -> TranslationOperation:
+        raw = row["normalized_result_json"]
+        parsed = json.loads(raw) if isinstance(raw, str) else raw
+        return TranslationOperation(
+            id=row["id"],
+            status=row["status"],
+            row_version=row["row_version"],
+            content=parsed.get("content") if isinstance(parsed, dict) else None,
+        )
 
     def _require_pool(self) -> asyncpg.Pool:
         if self._pool is None:

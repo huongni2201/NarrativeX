@@ -11,9 +11,11 @@ import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRep
 import com.narrativex.backend.feature.storyboard.application.port.out.StoryboardRepository;
 import com.narrativex.backend.feature.storyboard.domain.enums.VisualBeatReviewStatus;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class UpdateVisualBeatReviewStatusUseCase {
@@ -58,6 +60,14 @@ public class UpdateVisualBeatReviewStatusUseCase {
 
     visualBeat.changeReviewStatus(status);
     var saved = storyboardRepository.saveVisualBeat(visualBeat);
+    log.info(
+        "Updated visual beat id={} review status to '{}' (rowVersion={}) in sceneId={}, chapterId={}, projectId={}",
+        visualBeatId,
+        status,
+        saved.getRowVersion(),
+        sceneId,
+        chapterId,
+        projectId);
     return ApiResponse.success(
         "Visual beat review status updated successfully", VisualBeatResponse.from(saved));
   }

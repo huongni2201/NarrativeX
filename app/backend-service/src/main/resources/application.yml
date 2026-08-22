@@ -81,3 +81,10 @@ management:
   endpoint:
     health:
       show-details: when_authorized
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} [%X{correlationId}] - %msg%n"
+  level:
+    root: INFO
+    com.narrativex.backend: INFO

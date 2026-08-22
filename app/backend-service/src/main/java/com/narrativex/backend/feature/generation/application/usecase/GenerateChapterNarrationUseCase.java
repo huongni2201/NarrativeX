@@ -24,9 +24,11 @@ import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class GenerateChapterNarrationUseCase {
@@ -75,6 +77,7 @@ public class GenerateChapterNarrationUseCase {
     generationJobRepository.acquireIdempotencyLock(idempotencyKey, userId);
     var existing = generationJobRepository.findByIdempotencyKey(idempotencyKey, userId);
     if (existing.isPresent()) {
+      log.debug("Found existing narration job id={} for idempotencyKey='{}'", existing.get().getId(), idempotencyKey);
       return existing.get();
     }
 
@@ -136,6 +139,13 @@ public class GenerateChapterNarrationUseCase {
         new NarrationOperation(
             UUID.randomUUID(), narrationRequest.id(), job.getId(), stageAttempt.getId()));
     generationOutboxRepository.enqueue(job);
+    log.info(
+        "Created and enqueued narration job id={} (voiceId='{}', rate={}) for chapterId={}, projectId={}",
+        job.getId(),
+        command.voiceId(),
+        command.speakingRate(),
+        command.chapterId(),
+        command.projectId());
     return job;
   }
 
