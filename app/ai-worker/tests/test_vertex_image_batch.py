@@ -46,6 +46,14 @@ def test_batch_jsonl_contains_one_generate_content_request_per_line() -> None:
     assert lines[1]["contents"][0]["parts"][0]["text"] == "Scene two"
 
 
+def test_batch_jsonl_supports_single_image_request() -> None:
+    payload = _jsonl_payload((_items()[0],)).decode("utf-8")
+    lines = [json.loads(line) for line in payload.splitlines()]
+
+    assert len(lines) == 1
+    assert lines[0]["contents"][0]["parts"][0]["text"] == "Scene one"
+
+
 def test_batch_fingerprint_is_deterministic_and_order_sensitive() -> None:
     items = _items()
 
@@ -53,9 +61,20 @@ def test_batch_fingerprint_is_deterministic_and_order_sensitive() -> None:
     assert _batch_fingerprint(items) != _batch_fingerprint(tuple(reversed(items)))
 
 
-def test_auto_mode_uses_batch_only_when_bucket_and_threshold_are_ready() -> None:
-    without_bucket = WorkerSettings(vertex_image_batch_min_items=2)
+def test_default_batch_mode_routes_even_single_image() -> None:
+    settings = WorkerSettings()
+
+    assert should_use_vertex_image_batch(settings, 1) is True
+    assert should_use_vertex_image_batch(settings, 100) is True
+
+
+def test_explicit_auto_mode_uses_threshold_when_requested() -> None:
+    without_bucket = WorkerSettings(
+        vertex_image_execution_mode="auto",
+        vertex_image_batch_min_items=2,
+    )
     with_bucket = WorkerSettings(
+        vertex_image_execution_mode="auto",
         vertex_image_batch_min_items=2,
         vertex_image_batch_gcs_bucket="narrativex-vertex-staging",
     )
@@ -69,7 +88,6 @@ def test_online_mode_never_routes_to_batch() -> None:
     settings = WorkerSettings(
         vertex_image_execution_mode="online",
         vertex_image_batch_gcs_bucket="narrativex-vertex-staging",
-        vertex_image_batch_min_items=2,
     )
 
     assert should_use_vertex_image_batch(settings, 100) is False
