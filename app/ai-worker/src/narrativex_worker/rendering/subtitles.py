@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+
+import asyncpg  # type: ignore[import-untyped]
 
 _WHITESPACE = re.compile(r"\s+")
 
@@ -17,6 +20,13 @@ class SubtitleAlignmentSpan:
     text_end: int
     audio_start_ms: int
     audio_end_ms: int
+
+
+@dataclass(frozen=True)
+class SubtitleSource:
+    source_text: str
+    spans: tuple[SubtitleAlignmentSpan, ...]
+    alignment_version: str | None
 
 
 @dataclass(frozen=True)
@@ -31,6 +41,74 @@ class SubtitleTrack:
     cues: tuple[SubtitleCue, ...]
     timing_source: str
     fingerprint: str
+
+
+async def load_subtitle_source(
+    database_url: str,
+    *,
+    project_id: int,
+    chapter_id: int,
+    chapter_row_version: int,
+    source_hash: str,
+) -> SubtitleSource:
+    """Load the exact narration text/alignment selected by the render input snapshot."""
+    connection = await asyncpg.connect(database_url)
+    try:
+        row = await connection.fetchrow(
+            """
+            SELECT nr.source_text,
+                   alignment.alignment_version,
+                   alignment.spans_json
+              FROM narration_requests nr
+              JOIN narration_assets na ON na.narration_request_id = nr.id
+              JOIN project_assets pa ON pa.id = na.project_asset_id
+              LEFT JOIN LATERAL (
+                    SELECT nal.alignment_version, nal.spans_json
+                      FROM narration_alignments nal
+                     WHERE nal.narration_asset_id = na.id
+                       AND nal.source_hash = nr.source_hash
+                     ORDER BY nal.created_at DESC
+                     LIMIT 1
+              ) alignment ON TRUE
+             WHERE nr.project_id = $1
+               AND nr.chapter_id = $2
+               AND nr.chapter_row_version = $3
+               AND nr.source_hash = $4
+               AND pa.status = 'ACTIVE'
+               AND pa.storage_key IS NOT NULL
+             ORDER BY nr.created_at DESC
+             LIMIT 1
+            """,
+            project_id,
+            chapter_id,
+            chapter_row_version,
+            source_hash,
+        )
+    finally:
+        await connection.close()
+
+    if row is None:
+        raise ValueError("No narration source text matches the pinned render snapshot")
+    payload = row["spans_json"]
+    if isinstance(payload, str):
+        payload = json.loads(payload)
+    spans: list[SubtitleAlignmentSpan] = []
+    for item in payload or []:
+        spans.append(
+            SubtitleAlignmentSpan(
+                text_start=int(item["textStart"]),
+                text_end=int(item["textEnd"]),
+                audio_start_ms=int(item["audioStartMs"]),
+                audio_end_ms=int(item["audioEndMs"]),
+            )
+        )
+    return SubtitleSource(
+        source_text=str(row["source_text"]),
+        spans=tuple(spans),
+        alignment_version=(
+            str(row["alignment_version"]) if row["alignment_version"] is not None else None
+        ),
+    )
 
 
 def build_subtitle_track(
