@@ -1,6 +1,6 @@
 # NarrativeX V1.11 Current Implementation Traceability
 
-This matrix maps the V1.11 contract to repository evidence at the docs-sync base `29122c51a6d113ed7fd4026f7de3f5df75771153`.
+This matrix maps the V1.11 contract to repository evidence at the docs-sync base `a614d05101a5992783cbc580668b4ed0927b41d9`.
 
 | Capability / invariant | Evidence | Status |
 |---|---|---|
@@ -30,7 +30,7 @@ This matrix maps the V1.11 contract to repository evidence at the docs-sync base
 | IMAGE_MOTION render/export | no complete production MP4 vertical slice | TARGET |
 | Reuse/reframe/edit AssetResolver | architecture defined; intentionally postponed | DEFERRED |
 | HYBRID_LOCAL_I2V end-to-end | Wan adapter/planning foundation only | DEFERRED fast-follow |
-| Complete MyBatis migration | generation execution durability plus ProviderOperation/Chapter/Project migrated; StoryVersion, quota/billing, storyboard/continuity and other JPA/JDBC boundaries remain | PARTIAL |
+| MyBatis-only production persistence | all production adapters/mappers + architecture and PostgreSQL integration tests | IMPLEMENTED |
 | Complete actual usage/billing reconciliation | reservation foundation exists | PARTIAL |
 
 ## Current non-claims
@@ -39,13 +39,13 @@ NarrativeX does not yet claim a complete Story/Chapter → production MP4 loop. 
 
 Project Character list/detail is now real-API-backed, but this does **not** mean full Character reference locking, relationship graphs, asset aggregation or detailed scene read models are complete.
 
-## Persistence caveat
+## Persistence boundary
 
-The durable generation enqueue/execution boundaries listed above use MyBatis/explicit SQL. The outbox dispatcher still deliberately uses `JdbcTemplate` for its short-lived claim/lease query; that residual operational query is not evidence that the durable enqueue boundary remains JDBC-owned.
+All durable production persistence, including outbox claim/lease, uses MyBatis + explicit SQL. The JDBC driver and `DataSourceTransactionManager` remain infrastructure below the mapper boundary.
 
 ## Documentation invariants
 
-1. V1.11 is current authority; V1.10 is historical.
+1. V1.11 is current authority; superseded versioned documents are not maintained in parallel.
 2. PostgreSQL is durable authority; Redis generation hints are not.
 3. R2 is the only durable media object store.
 4. Worker-local paths are never durable assets.
