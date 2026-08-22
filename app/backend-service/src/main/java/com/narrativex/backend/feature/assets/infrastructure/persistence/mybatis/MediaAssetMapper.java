@@ -7,7 +7,16 @@ import java.util.UUID;
 import org.apache.ibatis.annotations.Param;
 
 public interface MediaAssetMapper extends NarrativeXMyBatisMapper {
-  UUID insert(MediaAssetRow row);
+  UUID claimChecksum(
+      @Param("accountId") String accountId,
+      @Param("sha256") String sha256,
+      @Param("mediaAssetId") UUID mediaAssetId);
+
+  UUID findCanonicalAssetId(@Param("accountId") String accountId, @Param("sha256") String sha256);
+
+  UUID insertVerified(MediaAssetRow row);
+
+  int releaseChecksum(@Param("accountId") String accountId, @Param("id") UUID id);
 
   List<MediaAssetRow> findPage(
       @Param("accountId") String accountId,

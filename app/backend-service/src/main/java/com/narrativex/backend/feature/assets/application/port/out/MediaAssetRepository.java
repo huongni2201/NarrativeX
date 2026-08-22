@@ -8,13 +8,12 @@ public interface MediaAssetRepository {
   CursorPage<MediaAssetView> list(
       String accountId, String type, String status, String search, String cursor, int limit);
 
-  MediaAssetView create(String accountId, CreateMediaAsset command);
+  MediaAssetView createOrReuseVerifiedAsset(
+      String accountId, CreateVerifiedMediaAsset command);
 
   MediaAssetView findOwned(String accountId, UUID id);
 
   MediaAssetView findVerifiedByChecksum(String accountId, String sha256);
-
-  MediaAssetView markReady(String accountId, UUID id);
 
   MediaAssetView startUpload(String accountId, UUID id);
 
@@ -26,8 +25,8 @@ public interface MediaAssetRepository {
 
   void delete(String accountId, UUID id);
 
-  record CreateMediaAsset(
-      UUID id,
+  record CreateVerifiedMediaAsset(
+      UUID proposedId,
       String type,
       String origin,
       String storageKey,

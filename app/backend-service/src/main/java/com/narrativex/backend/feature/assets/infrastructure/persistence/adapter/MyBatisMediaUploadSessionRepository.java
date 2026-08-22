@@ -46,8 +46,8 @@ public class MyBatisMediaUploadSessionRepository implements MediaUploadSessionRe
   }
 
   @Override
-  public boolean markReady(String accountId, UUID id, UUID mediaAssetId) {
-    return mapper.markReady(accountId, id, mediaAssetId) == 1;
+  public boolean markValidating(String accountId, UUID id, UUID mediaAssetId) {
+    return mapper.markValidating(accountId, id, mediaAssetId) == 1;
   }
 
   @Override

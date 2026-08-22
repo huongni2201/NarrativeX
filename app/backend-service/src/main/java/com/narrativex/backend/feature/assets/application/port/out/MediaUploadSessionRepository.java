@@ -14,7 +14,7 @@ public interface MediaUploadSessionRepository {
 
   Optional<UploadSession> findByIdempotencyKey(String accountId, String idempotencyKey);
 
-  boolean markReady(String accountId, UUID id, UUID mediaAssetId);
+  boolean markValidating(String accountId, UUID id, UUID mediaAssetId);
 
   boolean markRejected(String accountId, UUID id);
 

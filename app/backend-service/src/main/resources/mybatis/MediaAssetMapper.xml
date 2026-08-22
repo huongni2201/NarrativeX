@@ -32,13 +32,28 @@
         AND deleted_at IS NULL
     </sql>
 
-    <select id="insert" parameterType="com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetRow" resultType="java.util.UUID" affectData="true">
+    <select id="claimChecksum" resultType="java.util.UUID" affectData="true">
+        INSERT INTO media_asset_checksums (account_id, sha256, media_asset_id)
+        VALUES (#{accountId}, #{sha256}, #{mediaAssetId,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler})
+        ON CONFLICT (account_id, sha256) DO NOTHING
+        RETURNING media_asset_id
+    </select>
+
+    <select id="findCanonicalAssetId" resultType="java.util.UUID">
+        SELECT media_asset_id
+         FROM media_asset_checksums
+         WHERE account_id = #{accountId}
+           AND sha256 = #{sha256}
+         FOR UPDATE
+    </select>
+
+    <select id="insertVerified" parameterType="com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetRow" resultType="java.util.UUID" affectData="true">
         INSERT INTO media_assets
             (id, account_id, asset_type, origin, storage_key, original_filename, content_type,
-             size_bytes, sha256, duration_ms, status)
+             size_bytes, sha256, duration_ms, status, checksum_verified_at)
         VALUES
             (#{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}, #{accountId}, #{assetType}, #{origin}, #{storageKey}, #{originalFilename}, #{contentType},
-             #{sizeBytes}, #{sha256}, #{durationMs}, 'PENDING_UPLOAD')
+             #{sizeBytes}, #{sha256}, #{durationMs}, 'VALIDATING', CURRENT_TIMESTAMP)
         RETURNING id
     </select>
 
@@ -72,14 +87,36 @@
     </select>
 
     <select id="findVerifiedByChecksum" resultMap="mediaAssetRow">
-        SELECT <include refid="columns" />
-          FROM media_assets
-         WHERE <include refid="visiblePredicate" />
-           AND checksum_verified_at IS NOT NULL
-           AND sha256 = #{sha256}
-         ORDER BY created_at ASC, id ASC
+        SELECT asset.id,
+               asset.account_id,
+               asset.asset_type,
+               asset.origin,
+               asset.storage_key,
+               asset.original_filename,
+               asset.content_type,
+               asset.size_bytes,
+               asset.sha256,
+               asset.duration_ms,
+               asset.status,
+               asset.created_at,
+               asset.deleted_at,
+               asset.checksum_verified_at
+          FROM media_assets asset
+          JOIN media_asset_checksums canonical
+            ON canonical.media_asset_id = asset.id
+           AND canonical.account_id = asset.account_id
+         WHERE asset.account_id = #{accountId}
+           AND asset.status = 'READY'
+           AND asset.deleted_at IS NULL
+           AND canonical.sha256 = #{sha256}
          LIMIT 1
     </select>
+
+    <delete id="releaseChecksum">
+        DELETE FROM media_asset_checksums
+         WHERE account_id = #{accountId}
+           AND media_asset_id = #{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
+    </delete>
 
     <update id="markUploading">
         UPDATE media_assets

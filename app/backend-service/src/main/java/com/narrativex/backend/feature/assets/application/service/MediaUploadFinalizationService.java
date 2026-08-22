@@ -1,7 +1,7 @@
 package com.narrativex.backend.feature.assets.application.service;
 
 import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository;
-import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository.CreateMediaAsset;
+import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository.CreateVerifiedMediaAsset;
 import com.narrativex.backend.feature.assets.application.port.out.MediaStorageCleanupTaskRepository;
 import com.narrativex.backend.feature.assets.application.port.out.MediaUploadSessionRepository;
 import com.narrativex.backend.feature.assets.application.port.out.MediaUploadSessionRepository.UploadSession;
@@ -56,7 +56,7 @@ public class MediaUploadFinalizationService {
       String accountId, UUID sessionId, StoredObject storedObject) {
     UploadSession locked = requireOwnedForUpdate(accountId, sessionId);
     return switch (locked.status()) {
-      case "READY" -> readyView(locked);
+      case "READY", "VALIDATING" -> authoritativeView(locked);
       case "REJECTED" -> rejectedView(locked);
       case "PENDING_UPLOAD" -> finalizePending(accountId, locked, storedObject);
       default -> throw new IllegalStateException("Unsupported upload session status: " + locked.status());
@@ -72,17 +72,11 @@ public class MediaUploadFinalizationService {
       return rejectAndScheduleCleanup(accountId, locked, "UPLOAD_VERIFICATION_FAILED");
     }
 
-    MediaAssetView existing = assets.findVerifiedByChecksum(accountId, storedObject.sha256());
-    if (existing != null) {
-      markSessionReady(accountId, locked, existing.id());
-      scheduleCleanup(locked.storageKey(), "DUPLICATE_UPLOAD");
-      return new UploadFinalizeView(locked.id(), "READY", existing.id());
-    }
-
-    MediaAssetView created =
-        assets.create(
+    String checksum = storedObject.sha256().toLowerCase(Locale.ROOT);
+    MediaAssetView canonicalAsset =
+        assets.createOrReuseVerifiedAsset(
             accountId,
-            new CreateMediaAsset(
+            new CreateVerifiedMediaAsset(
                 UUID.randomUUID(),
                 locked.assetType(),
                 "USER_UPLOAD",
@@ -90,14 +84,13 @@ public class MediaUploadFinalizationService {
                 locked.originalFilename(),
                 normalizeContentType(storedObject.contentType()),
                 storedObject.sizeBytes(),
-                storedObject.sha256().toLowerCase(Locale.ROOT),
+                checksum,
                 null));
-    MediaAssetView ready = assets.markReady(accountId, created.id());
-    if (!ready.id().equals(created.id())) {
-      throw new ResourceConflictException("Verified checksum resolved to another canonical asset");
+    if (!canonicalAsset.storageKey().equals(locked.storageKey())) {
+      scheduleCleanup(locked.storageKey(), "DUPLICATE_UPLOAD");
     }
-    markSessionReady(accountId, locked, ready.id());
-    return new UploadFinalizeView(locked.id(), "READY", ready.id());
+    markSessionValidating(accountId, locked, canonicalAsset.id());
+    return new UploadFinalizeView(locked.id(), "VALIDATING", canonicalAsset.id());
   }
 
   private UploadFinalizeView rejectAndScheduleCleanup(
@@ -109,8 +102,8 @@ public class MediaUploadFinalizationService {
     return rejectedView(locked);
   }
 
-  private void markSessionReady(String accountId, UploadSession locked, UUID mediaAssetId) {
-    if (!sessions.markReady(accountId, locked.id(), mediaAssetId)) {
+  private void markSessionValidating(String accountId, UploadSession locked, UUID mediaAssetId) {
+    if (!sessions.markValidating(accountId, locked.id(), mediaAssetId)) {
       throw new ResourceConflictException("Upload finalization state changed unexpectedly");
     }
   }
@@ -125,11 +118,11 @@ public class MediaUploadFinalizationService {
         .orElseThrow(() -> new ResourceNotFoundException("Upload session not found"));
   }
 
-  private static UploadFinalizeView readyView(UploadSession session) {
+  private static UploadFinalizeView authoritativeView(UploadSession session) {
     if (session.mediaAssetId() == null) {
-      throw new IllegalStateException("READY upload session has no media asset");
+      throw new IllegalStateException("Finalized upload session has no media asset");
     }
-    return new UploadFinalizeView(session.id(), "READY", session.mediaAssetId());
+    return new UploadFinalizeView(session.id(), session.status(), session.mediaAssetId());
   }
 
   private static UploadFinalizeView rejectedView(UploadSession session) {

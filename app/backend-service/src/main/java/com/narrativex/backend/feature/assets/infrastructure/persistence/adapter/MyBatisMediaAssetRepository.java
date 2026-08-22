@@ -3,18 +3,18 @@ package com.narrativex.backend.feature.assets.infrastructure.persistence.adapter
 import com.narrativex.backend.feature.assets.application.pagination.MediaAssetCursor;
 import com.narrativex.backend.feature.assets.application.pagination.MediaAssetCursorCodec;
 import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository;
+import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository.CreateVerifiedMediaAsset;
 import com.narrativex.backend.feature.assets.application.query.MediaAssetView;
 import com.narrativex.backend.feature.assets.domain.service.MediaAssetTransitionService;
 import com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetMapper;
 import com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetRow;
-import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.pagination.CursorPage;
 import com.narrativex.backend.feature.assets.domain.enums.MediaAssetStatus;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,32 +57,40 @@ public class MyBatisMediaAssetRepository implements MediaAssetRepository {
 
   @Override
   @Transactional
-  public MediaAssetView create(String accountId, CreateMediaAsset command) {
-    MediaAssetRow row =
-        new MediaAssetRow(
-            command.id(),
-            accountId,
-            command.type(),
-            command.origin(),
-            command.storageKey(),
-            command.originalFilename(),
-            command.contentType(),
-            command.sizeBytes(),
-            command.sha256(),
-            command.durationMs(),
-            MediaAssetStatus.PENDING_UPLOAD.name(),
-            null,
-            null,
-            null);
-    try {
-      UUID insertedId = mapper.insert(row);
-      if (insertedId == null) {
-        throw new ResourceConflictException("Asset metadata conflicts with an existing asset");
-      }
-      return requireOwned(accountId, insertedId);
-    } catch (DataIntegrityViolationException exception) {
-      throw new ResourceConflictException("Asset metadata conflicts with an existing asset");
+  public MediaAssetView createOrReuseVerifiedAsset(
+      String accountId, CreateVerifiedMediaAsset command) {
+    String sha256 = command.sha256().toLowerCase(Locale.ROOT);
+    UUID canonicalId = mapper.claimChecksum(accountId, sha256, command.proposedId());
+    if (canonicalId == null) {
+      canonicalId = mapper.findCanonicalAssetId(accountId, sha256);
     }
+    if (canonicalId == null) {
+      throw new IllegalStateException("Checksum claim disappeared before asset materialization");
+    }
+
+    if (canonicalId.equals(command.proposedId())) {
+      MediaAssetRow row =
+          new MediaAssetRow(
+              command.proposedId(),
+              accountId,
+              command.type(),
+              command.origin(),
+              command.storageKey(),
+              command.originalFilename(),
+              command.contentType(),
+              command.sizeBytes(),
+              sha256,
+              command.durationMs(),
+              MediaAssetStatus.VALIDATING.name(),
+              null,
+              null,
+              null);
+      UUID insertedId = mapper.insertVerified(row);
+      if (insertedId == null || !insertedId.equals(canonicalId)) {
+        throw new IllegalStateException("Canonical checksum claim was not materialized");
+      }
+    }
+    return requireOwned(accountId, canonicalId);
   }
 
   @Override
@@ -95,21 +103,6 @@ public class MyBatisMediaAssetRepository implements MediaAssetRepository {
   @Transactional
   public MediaAssetView startValidation(String accountId, UUID id) {
     return transition(accountId, id, MediaAssetStatus.VALIDATING, mapper::markValidating);
-  }
-
-  @Override
-  @Transactional
-  public MediaAssetView markReady(String accountId, UUID id) {
-    MediaAssetRow current = requireOwnedRow(accountId, id);
-    if (statusOf(current) == MediaAssetStatus.READY) return toView(current);
-    if (statusOf(current) == MediaAssetStatus.PENDING_UPLOAD) {
-      startUpload(accountId, id);
-      current = requireOwnedRow(accountId, id);
-    }
-    if (statusOf(current) == MediaAssetStatus.UPLOADING) {
-      startValidation(accountId, id);
-    }
-    return approve(accountId, id);
   }
 
   @Override
@@ -130,10 +123,6 @@ public class MyBatisMediaAssetRepository implements MediaAssetRepository {
   public MediaAssetView approve(String accountId, UUID id) {
     MediaAssetRow current = requireOwnedRow(accountId, id);
     transitionService.requireAllowed(statusOf(current), MediaAssetStatus.READY);
-    MediaAssetRow existing = mapper.findVerifiedByChecksum(accountId, current.getSha256());
-    if (existing != null && !existing.getId().equals(id)) {
-      return toView(existing);
-    }
     if (mapper.approve(accountId, id) != 1) {
       throw optimisticConflict(id);
     }
@@ -154,6 +143,7 @@ public class MyBatisMediaAssetRepository implements MediaAssetRepository {
     if (mapper.softDelete(accountId, id) != 1) {
       throw optimisticConflict(id);
     }
+    mapper.releaseChecksum(accountId, id);
   }
 
   private MediaAssetView transition(

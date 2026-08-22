@@ -56,7 +56,7 @@ class MediaUploadUseCaseTest {
             objectStorage,
             new MediaUploadFinalizationService(sessions, assets, cleanupTasks));
     lenient()
-        .when(assets.markReady(any(), any()))
+        .when(assets.createOrReuseVerifiedAsset(any(), any()))
         .thenAnswer(
             invocation ->
                 new com.narrativex.backend.feature.assets.application.query.MediaAssetView(
@@ -69,7 +69,7 @@ class MediaUploadUseCaseTest {
                     128,
                     SHA,
                     null,
-                    "READY",
+                    "VALIDATING",
                     Instant.now()));
   }
 
@@ -109,7 +109,7 @@ class MediaUploadUseCaseTest {
   }
 
   @Test
-  void finalizeCreatesReadyAssetOnlyAfterStorageMetadataMatches() {
+  void finalizeCreatesValidatingAssetOnlyAfterStorageMetadataMatches() {
     UUID sessionId = UUID.randomUUID();
     UploadSession session = session(sessionId, "PENDING_UPLOAD", null);
     when(sessions.findOwnedSnapshot(ACCOUNT, sessionId)).thenReturn(Optional.of(session));
@@ -117,7 +117,7 @@ class MediaUploadUseCaseTest {
     when(objectStorage.head(session.storageKey()))
         .thenReturn(new StoredObject(session.storageKey(), session.expectedSize(), session.contentType(), SHA));
     UUID assetId = UUID.randomUUID();
-    when(assets.create(any(), any()))
+    when(assets.createOrReuseVerifiedAsset(any(), any()))
         .thenReturn(
             new com.narrativex.backend.feature.assets.application.query.MediaAssetView(
                 assetId,
@@ -131,14 +131,14 @@ class MediaUploadUseCaseTest {
                 null,
                 "PENDING_UPLOAD",
                 Instant.now()));
-    when(sessions.markReady(ACCOUNT, sessionId, assetId)).thenReturn(true);
+    when(sessions.markValidating(ACCOUNT, sessionId, assetId)).thenReturn(true);
 
     UploadFinalizeView response = useCase.finalizeUpload(sessionId);
 
-    assertThat(response.status()).isEqualTo("READY");
+    assertThat(response.status()).isEqualTo("VALIDATING");
     assertThat(response.mediaAssetId()).isEqualTo(assetId);
-    verify(assets).markReady(ACCOUNT, assetId);
-    verify(sessions).markReady(ACCOUNT, sessionId, assetId);
+    verify(assets).createOrReuseVerifiedAsset(any(), any());
+    verify(sessions).markValidating(ACCOUNT, sessionId, assetId);
   }
 
   @Test
@@ -150,7 +150,7 @@ class MediaUploadUseCaseTest {
     when(sessions.findOwnedForUpdate(ACCOUNT, sessionId)).thenReturn(Optional.of(session));
     when(objectStorage.head(session.storageKey()))
         .thenReturn(new StoredObject(session.storageKey(), session.expectedSize(), session.contentType(), SHA));
-    when(assets.findVerifiedByChecksum(ACCOUNT, SHA))
+    when(assets.createOrReuseVerifiedAsset(any(), any()))
         .thenReturn(
             new com.narrativex.backend.feature.assets.application.query.MediaAssetView(
                 existingAssetId,
@@ -164,13 +164,13 @@ class MediaUploadUseCaseTest {
                 null,
                 "READY",
                 Instant.now()));
-    when(sessions.markReady(ACCOUNT, sessionId, existingAssetId)).thenReturn(true);
+    when(sessions.markValidating(ACCOUNT, sessionId, existingAssetId)).thenReturn(true);
 
     UploadFinalizeView response = useCase.finalizeUpload(sessionId);
 
-    assertThat(response.status()).isEqualTo("READY");
+    assertThat(response.status()).isEqualTo("VALIDATING");
     assertThat(response.mediaAssetId()).isEqualTo(existingAssetId);
-    verify(assets, never()).create(any(), any());
+    verify(assets).createOrReuseVerifiedAsset(any(), any());
     verify(cleanupTasks)
         .enqueue(any(), org.mockito.ArgumentMatchers.eq("DUPLICATE_UPLOAD"), any());
   }
@@ -189,7 +189,7 @@ class MediaUploadUseCaseTest {
                 "audio/wav; charset=binary",
                 SHA));
     UUID assetId = UUID.randomUUID();
-    when(assets.create(any(), any()))
+    when(assets.createOrReuseVerifiedAsset(any(), any()))
         .thenReturn(
             new com.narrativex.backend.feature.assets.application.query.MediaAssetView(
                 assetId,
@@ -201,12 +201,12 @@ class MediaUploadUseCaseTest {
                 session.expectedSize(),
                 SHA,
                 null,
-                "PENDING_UPLOAD",
+                "VALIDATING",
                 Instant.now()));
-    when(sessions.markReady(ACCOUNT, sessionId, assetId)).thenReturn(true);
+    when(sessions.markValidating(ACCOUNT, sessionId, assetId)).thenReturn(true);
     UploadFinalizeView response = useCase.finalizeUpload(sessionId);
 
-    assertThat(response.status()).isEqualTo("READY");
+    assertThat(response.status()).isEqualTo("VALIDATING");
   }
 
   @Test
@@ -225,7 +225,7 @@ class MediaUploadUseCaseTest {
     verify(sessions).markRejected(ACCOUNT, sessionId);
     verify(cleanupTasks)
         .enqueue(any(), org.mockito.ArgumentMatchers.eq("UPLOAD_VERIFICATION_FAILED"), any());
-    verify(assets, never()).create(any(), any());
+    verify(assets, never()).createOrReuseVerifiedAsset(any(), any());
   }
 
   @Test

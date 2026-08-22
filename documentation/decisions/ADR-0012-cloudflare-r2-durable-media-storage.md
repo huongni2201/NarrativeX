@@ -44,7 +44,8 @@ remain available for small-object compatibility but are not used for production 
 ### 4. Client Presigned Uploads, Verification & Asset Lifecycle Hardening
 
 - **Upload Intent Lifecycle:** Clients initiate an upload intent (`/api/v1/assets/upload-intents`); the backend assigns a storage key and returns a presigned R2 upload URL.
-- **Strict Storage Metadata Validation:** Finalization reads object metadata directly from R2. A `READY` `media_assets` record is persisted only after MIME, size, and SHA-256 strictly match the intent. Mismatched uploads transition to `REJECTED`.
+- **Strict Storage Metadata Validation:** Finalization reads object metadata directly from R2. After MIME, size, and SHA-256 strictly match the intent, finalization claims `(account_id, sha256)` through `media_asset_checksums` and persists the canonical `media_assets` row as `VALIDATING`. The later validator owns the `VALIDATING` → `READY` transition; mismatched uploads transition to `REJECTED`.
+- **Canonical Checksum Ownership:** `media_asset_checksums` is the account-scoped canonical owner for each verified checksum. Finalization uses PostgreSQL `INSERT ... ON CONFLICT DO NOTHING` and reloads the canonical ID, so retries and concurrent finalizations never rely on a caught constraint violation or a proposed asset ID.
 - **Durable Upload Sessions:** Tracked in `media_upload_sessions` with owner-scoped idempotency.
 - **Guarded Asset Transitions:** Asset status changes use an explicit transition service. Deletions set `DELETED` and record `deleted_at`; active queries exclude deleted rows.
 - **Asynchronous Storage Cleanup:** Background jobs clean up expired pending upload sessions and schedule cleanup tasks for deleted media objects (`media_storage_cleanup_tasks`).
@@ -52,6 +53,7 @@ remain available for small-object compatibility but are not used for production 
 ## Invariants
 
 1. A media generation stage is never marked `COMPLETED` before both R2 upload and PostgreSQL metadata persistence succeed.
+2. A verified upload session and every retry resolve to the canonical asset ID returned by the checksum claim operation; a duplicate R2 object is cleaned asynchronously only after the database transaction commits.
 2. Local filesystem paths are never stored as authoritative asset locations.
 3. Media recovery and retries reuse existing valid R2 objects whenever available to avoid duplicate provider costs.
 

@@ -54,9 +54,9 @@
            AND idempotency_key = #{idempotencyKey}
     </select>
 
-    <update id="markReady">
+    <update id="markValidating">
         UPDATE media_upload_sessions
-           SET status = 'READY', media_asset_id = #{mediaAssetId,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
+           SET status = 'VALIDATING', media_asset_id = #{mediaAssetId,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
          WHERE id = #{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
            AND account_id = #{accountId}
            AND status = 'PENDING_UPLOAD'

@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.assets.application.pagination.MediaAssetCursorCodec;
+import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository;
 import com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetMapper;
 import com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetRow;
 import com.narrativex.backend.feature.assets.domain.service.MediaAssetTransitionService;
@@ -20,7 +21,6 @@ import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 class MyBatisMediaAssetRepositoryTest {
@@ -64,14 +64,52 @@ class MyBatisMediaAssetRepositoryTest {
   }
 
   @Test
-  void checksumUniqueConflictReturnsTheAlreadyVerifiedAsset() {
+  void checksumClaimReturnsTheCanonicalAssetWhenItAlreadyExists() {
     MediaAssetRow existing = row(UUID.randomUUID(), "READY", Instant.parse("2025-12-01T00:00:00Z"));
-    when(mapper.findOwned(ACCOUNT, firstId)).thenReturn(validating);
-    when(mapper.approve(ACCOUNT, firstId)).thenThrow(new DuplicateKeyException("checksum"));
-    when(mapper.findVerifiedByChecksum(ACCOUNT, HASH)).thenReturn(existing);
+    when(mapper.claimChecksum(ACCOUNT, HASH, firstId)).thenReturn(null);
+    when(mapper.findCanonicalAssetId(ACCOUNT, HASH)).thenReturn(existing.getId());
+    when(mapper.findOwned(ACCOUNT, existing.getId())).thenReturn(existing);
 
-    assertThat(repository.approve(ACCOUNT, firstId).id()).isEqualTo(existing.getId());
-    verify(mapper, never()).approve(ACCOUNT, firstId);
+    assertThat(
+            repository.createOrReuseVerifiedAsset(
+                    ACCOUNT,
+                    new MediaAssetRepository.CreateVerifiedMediaAsset(
+                        firstId,
+                        "AUDIO",
+                        "USER_UPLOAD",
+                        "media/new",
+                        "voice.wav",
+                        "audio/wav",
+                        100,
+                        HASH,
+                        1_000L))
+        .id())
+        .isEqualTo(existing.getId());
+    verify(mapper, never()).insertVerified(any());
+  }
+
+  @Test
+  void checksumClaimMaterializesOneValidatingCandidate() {
+    when(mapper.claimChecksum(ACCOUNT, HASH, firstId)).thenReturn(firstId);
+    when(mapper.insertVerified(any())).thenReturn(firstId);
+    when(mapper.findOwned(ACCOUNT, firstId)).thenReturn(validating);
+
+    assertThat(
+            repository.createOrReuseVerifiedAsset(
+                    ACCOUNT,
+                    new MediaAssetRepository.CreateVerifiedMediaAsset(
+                        firstId,
+                        "AUDIO",
+                        "USER_UPLOAD",
+                        "media/new",
+                        "voice.wav",
+                        "audio/wav",
+                        100,
+                        HASH,
+                        1_000L))
+        .id())
+        .isEqualTo(firstId);
+    verify(mapper).insertVerified(any());
   }
 
   @Test

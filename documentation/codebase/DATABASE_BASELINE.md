@@ -18,9 +18,10 @@
 |---|---|---|
 | V1 `initial_schema` | Auth, project/story/chapter foundations, storyboard revisions, split motion/camera visual beats, preview-asset links, character/location AI identities, backend-authoritative media plans, generation execution/review and lineage, durable provider operations, quota reservation lifecycle, chapter-level TTS, uploaded narration, upload sessions, media lifecycle hardening, style presets and voice catalog, render ownership pins, owner-scoped idempotency, voice reference asset, cleanup tasks | Consolidated baseline |
 | V2 `seed_demo_data` | Deterministic development/demo seed with canonical execution enums, storyboard revisions, character bibles, plan assignments, released reservations, VieNeu catalog, and valid credits | Local profile only |
+| V3 `canonical_media_asset_checksums` | Account-scoped canonical checksum claims, legacy READY backfill, removal of the partial asset checksum index, and `VALIDATING` upload sessions | Production migration |
 
-The production migration set is V1 (consolidated schema baseline).
-V2 is an opt-in local-profile fixture under `db/local-migration`, not a production migration.
+The production migration set is V1 plus V3. V2 is an opt-in local-profile fixture under
+`db/local-migration`, not a production migration.
 Former feature and fixture migrations were folded into V1 and V2 because this is the development baseline.
 Existing databases created from any former migration split require operator-reviewed recreation or explicit re-baselining.
 
@@ -52,7 +53,7 @@ required column used by a fixture.
 | OperationPlan | `operation_plans` | IMPLEMENTED MVP FOUNDATION | estimate/cap/admission link |
 | QuotaReservation | `quota_reservations` / `usage_windows` | IMPLEMENTED | atomic admission reservation and terminal provider cost settlement |
 | Narration (TTS) | `narration_requests` / `narration_operations` / `narration_assets` / `narration_alignments` | IMPLEMENTED FOUNDATION | immutable full-chapter TTS snapshots and segment alignment |
-| Narration (Upload) | `media_assets` / `narration_sets` / `narration_parts` / `narration_documents` / `narration_alignment_runs` | IMPLEMENTED FOUNDATION | multi-part logical narration upload pipeline & alignment cache |
+| Narration (Upload) | `media_assets` / `media_asset_checksums` / `media_upload_sessions` / `narration_sets` / `narration_parts` / `narration_documents` / `narration_alignment_runs` | IMPLEMENTED FOUNDATION | verified upload finalization claims one canonical checksum owner, materializes assets as `VALIDATING`, and queues duplicate-object cleanup transactionally |
 | Character & Identity | `characters` / `character_versions` / `outfit_versions` / `character_appearances` / `project_characters` / `project_character_ai_identities` | IMPLEMENTED FOUNDATION | reusable character identity, appearance timelines & AI continuity matching |
 | Location | `project_locations` / `project_location_ai_identities` | IMPLEMENTED FOUNDATION | project locations and AI continuity key mapping |
 | Render artifact | `render_manifests` / `final_artifacts` | IMPLEMENTED | immutable render inputs and durable output metadata |

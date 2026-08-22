@@ -65,6 +65,7 @@ class MediaUploadFinalizationConcurrencyIntegrationTest {
     JdbcTemplate jdbc = new JdbcTemplate(dataSource);
     jdbc.update("DELETE FROM media_storage_cleanup_tasks");
     jdbc.update("DELETE FROM media_upload_sessions WHERE account_id = ?", ACCOUNT);
+    jdbc.update("DELETE FROM media_asset_checksums WHERE account_id = ?", ACCOUNT);
     jdbc.update("DELETE FROM media_assets WHERE account_id = ?", ACCOUNT);
   }
 
@@ -84,12 +85,12 @@ class MediaUploadFinalizationConcurrencyIntegrationTest {
       UploadFinalizeView first = results.get(0).get();
       UploadFinalizeView second = results.get(1).get();
 
-      assertThat(first.status()).isEqualTo("READY");
-      assertThat(second.status()).isEqualTo("READY");
+      assertThat(first.status()).isEqualTo("VALIDATING");
+      assertThat(second.status()).isEqualTo("VALIDATING");
       assertThat(second.mediaAssetId()).isEqualTo(first.mediaAssetId());
-      assertThat(count("SELECT COUNT(*) FROM media_upload_sessions WHERE id = ? AND status = 'READY'", session.id()))
+      assertThat(count("SELECT COUNT(*) FROM media_upload_sessions WHERE id = ? AND status = 'VALIDATING'", session.id()))
           .isEqualTo(1);
-      assertThat(count("SELECT COUNT(*) FROM media_assets WHERE account_id = ? AND status = 'READY'", ACCOUNT))
+      assertThat(count("SELECT COUNT(*) FROM media_assets WHERE account_id = ? AND status = 'VALIDATING'", ACCOUNT))
           .isEqualTo(1);
       assertThat(
               count(
@@ -112,6 +113,43 @@ class MediaUploadFinalizationConcurrencyIntegrationTest {
     assertThat(retry.mediaAssetId()).isEqualTo(first.mediaAssetId());
     assertThat(count("SELECT COUNT(*) FROM media_assets WHERE account_id = ?", ACCOUNT)).isEqualTo(1);
     assertThat(count("SELECT COUNT(*) FROM media_storage_cleanup_tasks")).isZero();
+  }
+
+  @Test
+  void concurrentFinalizeForDifferentObjectsClaimsOneCanonicalAsset() throws Exception {
+    UploadSession firstSession = createSession();
+    UploadSession secondSession = createSession();
+    CyclicBarrier start = new CyclicBarrier(3);
+    ExecutorService executor = Executors.newFixedThreadPool(2);
+    try {
+      List<Future<UploadFinalizeView>> results =
+          List.of(
+              executor.submit(
+                  () -> finalizeAfter(start, firstSession.id(), storedObject(firstSession))),
+              executor.submit(
+                  () -> finalizeAfter(start, secondSession.id(), storedObject(secondSession))));
+      start.await();
+
+      UploadFinalizeView first = results.get(0).get();
+      UploadFinalizeView second = results.get(1).get();
+
+      assertThat(first.mediaAssetId()).isEqualTo(second.mediaAssetId());
+      assertThat(count("SELECT COUNT(*) FROM media_asset_checksums WHERE account_id = ?", ACCOUNT))
+          .isEqualTo(1);
+      assertThat(count("SELECT COUNT(*) FROM media_assets WHERE account_id = ?", ACCOUNT))
+          .isEqualTo(1);
+      assertThat(
+              count(
+                  "SELECT COUNT(*) FROM media_upload_sessions WHERE account_id = ? AND status = 'VALIDATING'",
+                  ACCOUNT))
+          .isEqualTo(2);
+      assertThat(
+              count(
+                  "SELECT COUNT(*) FROM media_storage_cleanup_tasks WHERE reason = 'DUPLICATE_UPLOAD'"))
+          .isEqualTo(1);
+    } finally {
+      executor.shutdownNow();
+    }
   }
 
   @Test

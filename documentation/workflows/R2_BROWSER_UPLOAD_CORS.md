@@ -37,8 +37,9 @@ the current R2 endpoint and metadata verification code:
 docker compose up -d --build backend
 ```
 
-The finalize request should return HTTP 200 with `status: "READY"`. If it still
-returns HTTP 400, search the backend log using the response `correlationId`; the
+The finalize request should return HTTP 200 with `status: "VALIDATING"`; the
+durable validator later moves the canonical asset to `READY`. If it still returns
+HTTP 400, search the backend log using the response `correlationId`; the
 API logs the exception type and message for this boundary so a storage parsing
 error is not mistaken for a malformed client request.
 

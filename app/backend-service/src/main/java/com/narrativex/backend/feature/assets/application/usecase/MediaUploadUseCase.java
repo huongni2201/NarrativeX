@@ -85,7 +85,7 @@ public class MediaUploadUseCase {
             .findOwnedSnapshot(accountId, id)
             .orElseThrow(() -> new ResourceNotFoundException("Upload session not found"));
 
-    if ("READY".equals(session.status())) {
+    if ("READY".equals(session.status()) || "VALIDATING".equals(session.status())) {
       return finalization.returnAuthoritativeResult(accountId, id);
     }
     if ("REJECTED".equals(session.status())) {
