@@ -74,6 +74,9 @@ public class GetChapterWorkspaceUseCase {
         chapterAnalysisCompleted && !"READY".equals(audio.status()) && !isActive(audio.status());
     boolean canRender =
         mediaGenerationEnabled
+            && !sourceOutdated
+            && chapterAnalysisCompleted
+            && "COMPLETED".equals(planningStatus)
             && "COMPLETED".equals(visualGeneration.status())
             && "READY".equals(audio.status());
 

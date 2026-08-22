@@ -31,8 +31,8 @@ public class MyBatisChapterWorkspaceQueryAdapter implements ChapterWorkspaceRead
             new ProgressStep(
                 progressStatus(row.getVisualGenerationTotal(), row.getVisualGenerationCompleted(),
                     row.getVisualGenerationFailed(), row.getVisualGenerationRunning(),
-                    row.getVisualGenerationQueued(), row.getVisualGenerationActive(),
-                    row.getLatestVisualGenerationStatus()),
+                    row.getVisualGenerationQueued(), row.getVisualGenerationStalled(),
+                    row.getVisualGenerationUnknown(), row.getVisualGenerationPaused()),
                 row.getVisualGenerationTotal(), row.getVisualGenerationCompleted(), row.getVisualGenerationFailed()),
             new PipelineStep(narrationStatus(row.isNarrationAssetReady(), row.getNarrationJobStatus()), row.getNarrationCompletedAt()),
             new PipelineStep(renderStatus(row.isRenderManifestCreated(), row.getRenderArtifactStatus(), row.getRenderJobStatus()), row.getRenderCompletedAt())));
@@ -43,11 +43,17 @@ public class MyBatisChapterWorkspaceQueryAdapter implements ChapterWorkspaceRead
         row.getStatus(), row.getVisualBeatCount(), row.getPreviewImageUrl());
   }
 
-  private static String progressStatus(int total, int completed, int failed, int running, int queued, int active, String latestStatus) {
+  private static String progressStatus(
+      int total, int completed, int failed, int running, int queued,
+      int stalled, int unknown, int paused) {
     if (total == 0) return "NOT_STARTED";
-    if (active > 0) return running > 0 ? "RUNNING" : queued > 0 ? "QUEUED" : latestStatus;
+    if (running > 0) return "RUNNING";
+    if (queued > 0) return "QUEUED";
+    if (paused > 0) return "PAUSED_COST_LIMIT";
+    if (unknown > 0) return "UNKNOWN";
+    if (stalled > 0) return "STALLED";
     if (failed > 0) return "FAILED";
-    return completed == total ? "COMPLETED" : "QUEUED";
+    return completed == total ? "COMPLETED" : "UNKNOWN";
   }
 
   private static String narrationStatus(boolean assetReady, String jobStatus) {

@@ -39,6 +39,16 @@ Additionally, Chapter edits, analysis admission, narration, and media planning s
   3. The ownership-scoped lookup is repeated inside the lock to ensure no race condition invalidated ownership or source state, and that snapshot is returned.
 - **Unauthorized Requests:** Return standard 404 (Not Found) without ever acquiring or waiting on the advisory lock.
 
+### 4. Current Execution Workspace Projection
+
+- Chapter Workspace readiness is projected from the current Chapter snapshot: `chapter_id`,
+  `row_version`, `source_hash`, and `current_storyboard_revision_id`.
+- Analysis, visual jobs, narration requests, render manifests, and final artifacts from older
+  source/revision/media-plan identities remain durable history but cannot satisfy current
+  readiness or capability checks.
+- When present, the current MediaPlan is selected by Chapter snapshot plus storyboard revision;
+  visual and render state is then scoped to that exact MediaPlan revision.
+
 ## Invariants
 
 1. `Chapter` and `Scene` are independent `AggregateRoots`.
@@ -46,6 +56,7 @@ Additionally, Chapter edits, analysis admission, narration, and media planning s
 3. Approved scenes/visual beats are immutable and never overwritten by re-analysis.
 4. `chapters.current_storyboard_revision_id` changes only upon successful completion of a new revision's materialization transaction.
 5. All chapter mutations and analysis admissions verify ownership before acquiring PostgreSQL advisory locks.
+6. Workspace readiness never aggregates durable execution history by `chapter_id` alone.
 
 ## Consequences
 

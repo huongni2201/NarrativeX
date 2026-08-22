@@ -122,6 +122,57 @@ class StoryboardApiIntegrationTest {
   }
 
   @Test
+  void chapterWorkspaceIgnoresHistoricalExecutionStateAfterChapterEdit() throws Exception {
+    jdbcTemplate.update(
+        "INSERT INTO storyboard_revisions (id, chapter_id, revision_number, source_hash, source_row_version, status) "
+            + "VALUES (3503, 3001, 2, repeat('b', 64), 1, 'DRAFT')");
+    jdbcTemplate.update(
+        "INSERT INTO media_plans (id, chapter_id, chapter_row_version, source_hash, production_mode, revision, "
+            + "narration_characters, image_generate_count, image_edit_count, basic_motion_seconds, planned_i2v_seconds, "
+            + "estimated_cost, storyboard_revision_id, created_at) "
+            + "VALUES ('00000000-0000-4000-8000-000000001002', 3001, 1, repeat('b', 64), 'IMAGE_MOTION', 2, "
+            + "100, 3, 0, 10, 0, 0.1, 3503, CURRENT_TIMESTAMP)");
+    jdbcTemplate.update(
+        "UPDATE chapters SET row_version = 1, source_hash = repeat('b', 64), current_storyboard_revision_id = 3503 "
+            + "WHERE id = 3001");
+
+    jdbcTemplate.update(
+        "INSERT INTO generation_jobs (id, job_id, project_id, chapter_id, chapter_row_version, source_hash, "
+            + "storyboard_revision_id, job_type, status, resource_class, progress, requested_by_user_id, billed_to_user_id) "
+            + "VALUES (6009, '00000000-0000-4000-8000-000000000009', 1001, 3001, 0, repeat('a', 64), 3501, "
+            + "'CHAPTER_ANALYZE', 'RUNNING', 'PROVIDER_INTERACTIVE', 5, 'seed-user-01', 'seed-user-01')");
+    jdbcTemplate.update(
+        "INSERT INTO generation_jobs (id, job_id, project_id, chapter_id, chapter_row_version, source_hash, "
+            + "storyboard_revision_id, job_type, status, resource_class, progress, requested_by_user_id, billed_to_user_id) "
+            + "VALUES (6010, '00000000-0000-4000-8000-000000000010', 1001, 3001, 0, repeat('a', 64), 3501, "
+            + "'IMAGE_GENERATE', 'FAILED', 'PROVIDER_INTERACTIVE', 100, 'seed-user-01', 'seed-user-01')");
+    for (int id = 6011; id <= 6013; id++) {
+      jdbcTemplate.update(
+          "INSERT INTO generation_jobs (id, job_id, project_id, chapter_id, chapter_row_version, source_hash, "
+              + "storyboard_revision_id, media_plan_id, media_plan_revision, production_mode, job_type, status, "
+              + "resource_class, progress, requested_by_user_id, billed_to_user_id) "
+              + "VALUES (?, ?, 1001, 3001, 1, repeat('b', 64), 3503, "
+              + "'00000000-0000-4000-8000-000000001002', 2, 'IMAGE_MOTION', 'IMAGE_GENERATE', 'COMPLETED', "
+              + "'PROVIDER_INTERACTIVE', 100, 'seed-user-01', 'seed-user-01')",
+          id,
+          String.format("00000000-0000-4000-8000-%012d", id));
+    }
+
+    mockMvc
+        .perform(get("/api/v1/projects/1001/chapters/3001/workspace"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.pipeline.analysis.status").value("NOT_STARTED"))
+        .andExpect(jsonPath("$.data.capabilities.canAnalyze").value(true))
+        .andExpect(jsonPath("$.data.pipeline.visualGeneration.status").value("COMPLETED"))
+        .andExpect(jsonPath("$.data.pipeline.visualGeneration.total").value(3))
+        .andExpect(jsonPath("$.data.pipeline.visualGeneration.completed").value(3))
+        .andExpect(jsonPath("$.data.pipeline.visualGeneration.failed").value(0))
+        .andExpect(jsonPath("$.data.pipeline.audio.status").value("NOT_STARTED"))
+        .andExpect(jsonPath("$.data.pipeline.render.status").value("NOT_STARTED"))
+        .andExpect(jsonPath("$.data.pipeline.sourceOutdated").value(false));
+  }
+
+  @Test
   void catalogsAndArtifactMetadataComeFromPostgres() throws Exception {
     mockMvc
         .perform(get("/api/v1/style-presets?category=VISUAL_STYLE"))

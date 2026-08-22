@@ -10,8 +10,9 @@
         <result property="analysisStatus" column="analysis_status"/><result property="analysisSourceHash" column="analysis_source_hash"/><result property="analysisCompletedAt" column="analysis_completed_at"/>
         <result property="visualGenerationTotal" column="visual_generation_total"/><result property="visualGenerationCompleted" column="visual_generation_completed"/>
         <result property="visualGenerationFailed" column="visual_generation_failed"/><result property="visualGenerationRunning" column="visual_generation_running"/>
-        <result property="visualGenerationQueued" column="visual_generation_queued"/><result property="visualGenerationActive" column="visual_generation_active"/>
-        <result property="latestVisualGenerationStatus" column="latest_visual_generation_status"/><result property="narrationAssetReady" column="narration_asset_ready"/>
+        <result property="visualGenerationQueued" column="visual_generation_queued"/><result property="visualGenerationStalled" column="visual_generation_stalled"/>
+        <result property="visualGenerationUnknown" column="visual_generation_unknown"/><result property="visualGenerationPaused" column="visual_generation_paused"/>
+        <result property="narrationAssetReady" column="narration_asset_ready"/>
         <result property="narrationJobStatus" column="narration_job_status"/><result property="narrationCompletedAt" column="narration_completed_at"/>
         <result property="renderManifestCreated" column="render_manifest_created"/><result property="renderArtifactStatus" column="render_artifact_status"/>
         <result property="renderJobStatus" column="render_job_status"/><result property="renderCompletedAt" column="render_completed_at"/>
@@ -22,77 +23,161 @@
         <result property="visualBeatCount" column="visual_beat_count"/><result property="previewImageUrl" column="preview_image_url"/>
     </resultMap>
     <select id="aggregate" resultMap="chapterWorkspaceAggregateRow">
-        WITH current_revision AS (
-            SELECT c.current_storyboard_revision_id AS revision_id, sr.source_hash AS storyboard_source_hash
-              FROM chapters c LEFT JOIN storyboard_revisions sr ON sr.id = c.current_storyboard_revision_id
-             WHERE c.id = #{chapterId}
+        WITH current_chapter AS (
+            SELECT c.id AS chapter_id, c.row_version AS chapter_row_version, c.source_hash,
+                   c.current_storyboard_revision_id, p.id AS project_id, p.name AS project_name
+              FROM chapters c JOIN story_versions sv ON sv.id = c.story_version_id
+              JOIN projects p ON p.id = sv.project_id
+             WHERE c.id = #{chapterId} AND p.id = #{projectId}
+        ), current_revision AS (
+            SELECT cc.*, sr.id AS revision_id, sr.source_hash AS storyboard_source_hash
+              FROM current_chapter cc LEFT JOIN storyboard_revisions sr
+                ON sr.id = cc.current_storyboard_revision_id
         ), scene_stats AS (
-            SELECT COUNT(s.id)::int AS scene_count, COALESCE(SUM(s.duration_seconds), 0)::bigint AS duration_seconds
-              FROM current_revision cr LEFT JOIN scenes s ON s.storyboard_revision_id = cr.revision_id AND s.status &lt;&gt; 'OUTDATED'
+            SELECT COUNT(s.id)::int AS scene_count,
+                   COALESCE(SUM(s.duration_seconds), 0)::bigint AS duration_seconds
+              FROM current_revision cr LEFT JOIN scenes s
+                ON s.chapter_id = cr.chapter_id
+               AND s.storyboard_revision_id = cr.revision_id
+               AND s.status &lt;&gt; 'OUTDATED'
         ), beat_stats AS (
             SELECT COUNT(vb.id)::int AS visual_beat_count
-              FROM current_revision cr LEFT JOIN scenes s ON s.storyboard_revision_id = cr.revision_id AND s.status &lt;&gt; 'OUTDATED'
+              FROM current_revision cr LEFT JOIN scenes s
+                ON s.chapter_id = cr.chapter_id
+               AND s.storyboard_revision_id = cr.revision_id
+               AND s.status &lt;&gt; 'OUTDATED'
               LEFT JOIN visual_beats vb ON vb.scene_id = s.id
         ), approval_state AS (
-            SELECT EXISTS (SELECT 1 FROM current_revision cr JOIN scenes s ON s.storyboard_revision_id = cr.revision_id
-                           LEFT JOIN visual_beats vb ON vb.scene_id = s.id
-                           WHERE s.status = 'APPROVED' OR vb.review_status = 'APPROVED') AS has_approved_output
+            SELECT EXISTS (
+                SELECT 1 FROM current_revision cr JOIN scenes s
+                  ON s.chapter_id = cr.chapter_id AND s.storyboard_revision_id = cr.revision_id
+                 WHERE s.status = 'APPROVED'
+                    OR EXISTS (SELECT 1 FROM visual_beats vb WHERE vb.scene_id = s.id AND vb.review_status = 'APPROVED')
+            ) AS has_approved_output
+        ), current_media_plan AS (
+            SELECT cr.*, mp.id AS media_plan_id, mp.revision AS media_plan_revision
+              FROM current_revision cr
+              LEFT JOIN LATERAL (
+                  SELECT mp.id, mp.revision
+                    FROM media_plans mp
+                   WHERE mp.chapter_id = cr.chapter_id
+                     AND mp.chapter_row_version = cr.chapter_row_version
+                     AND mp.source_hash = cr.source_hash
+                     AND mp.storyboard_revision_id = cr.revision_id
+                   ORDER BY mp.revision DESC, mp.created_at DESC
+                   LIMIT 1
+              ) mp ON TRUE
         ), latest_analysis AS (
-            SELECT status, source_hash, CASE WHEN status = 'COMPLETED' THEN updated_at ELSE NULL END AS completed_at
-              FROM generation_jobs WHERE chapter_id = #{chapterId} AND job_type = 'CHAPTER_ANALYZE'
-             ORDER BY created_at DESC, id DESC LIMIT 1
+            SELECT gj.status, gj.source_hash,
+                   CASE WHEN gj.status = 'COMPLETED' THEN gj.updated_at ELSE NULL END AS completed_at
+              FROM current_chapter cc
+              LEFT JOIN LATERAL (
+                  SELECT gj.status, gj.source_hash, gj.updated_at
+                    FROM generation_jobs gj
+                   WHERE gj.chapter_id = cc.chapter_id
+                     AND gj.job_type = 'CHAPTER_ANALYZE'
+                     AND gj.source_hash = cc.source_hash
+                     AND gj.chapter_row_version = cc.chapter_row_version
+                   ORDER BY gj.created_at DESC, gj.id DESC
+                   LIMIT 1
+              ) gj ON TRUE
+        ), current_visual_jobs AS (
+            SELECT gj.*
+              FROM current_media_plan cmp JOIN generation_jobs gj
+                ON gj.chapter_id = cmp.chapter_id
+               AND gj.job_type IN ('IMAGE_GENERATE','SHOT_IMAGE_GENERATE')
+               AND gj.chapter_row_version = cmp.chapter_row_version
+               AND gj.source_hash = cmp.source_hash
+               AND gj.storyboard_revision_id = cmp.revision_id
+               AND (cmp.media_plan_id IS NULL
+                    OR (gj.media_plan_id = cmp.media_plan_id AND gj.media_plan_revision = cmp.media_plan_revision))
         ), visual_generation AS (
-            SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE status = 'COMPLETED')::int AS completed,
+            SELECT COUNT(*)::int AS total,
+                   COUNT(*) FILTER (WHERE status = 'COMPLETED')::int AS completed,
                    COUNT(*) FILTER (WHERE status = 'FAILED')::int AS failed,
                    COUNT(*) FILTER (WHERE status = 'RUNNING')::int AS running,
                    COUNT(*) FILTER (WHERE status = 'QUEUED')::int AS queued,
-                   COUNT(*) FILTER (WHERE status IN ('QUEUED','RUNNING','STALLED','UNKNOWN','PAUSED_COST_LIMIT'))::int AS active
-              FROM generation_jobs WHERE chapter_id = #{chapterId} AND job_type IN ('IMAGE_GENERATE','SHOT_IMAGE_GENERATE')
-        ), latest_visual_generation AS (
-            SELECT status FROM generation_jobs WHERE chapter_id = #{chapterId}
-              AND job_type IN ('IMAGE_GENERATE','SHOT_IMAGE_GENERATE') ORDER BY created_at DESC, id DESC LIMIT 1
+                   COUNT(*) FILTER (WHERE status = 'STALLED')::int AS stalled,
+                   COUNT(*) FILTER (WHERE status = 'UNKNOWN')::int AS unknown,
+                   COUNT(*) FILTER (WHERE status = 'PAUSED_COST_LIMIT')::int AS paused
+              FROM current_visual_jobs
         ), latest_narration AS (
             SELECT na.id AS narration_asset_id, gj.status AS job_status,
                    CASE WHEN na.id IS NOT NULL THEN na.created_at ELSE NULL END AS completed_at
-              FROM narration_requests nr LEFT JOIN narration_operations no ON no.narration_request_id = nr.id
+              FROM current_chapter cc
+              LEFT JOIN LATERAL (
+                  SELECT nr.id
+                    FROM narration_requests nr
+                   WHERE nr.chapter_id = cc.chapter_id
+                     AND nr.chapter_row_version = cc.chapter_row_version
+                     AND nr.source_hash = cc.source_hash
+                   ORDER BY nr.created_at DESC, nr.id DESC
+                   LIMIT 1
+              ) nr ON TRUE
+              LEFT JOIN narration_operations no ON no.narration_request_id = nr.id
               LEFT JOIN generation_jobs gj ON gj.id = no.generation_job_id
               LEFT JOIN narration_assets na ON na.narration_request_id = nr.id
-             WHERE nr.chapter_id = #{chapterId} ORDER BY nr.created_at DESC, nr.id DESC LIMIT 1
         ), latest_render_manifest AS (
-            SELECT id, created_at FROM render_manifests WHERE chapter_id = #{chapterId}
-             ORDER BY created_at DESC, id DESC LIMIT 1
+            SELECT rm.id, rm.created_at
+              FROM current_media_plan cmp
+              LEFT JOIN LATERAL (
+                  SELECT rm.id, rm.created_at
+                    FROM render_manifests rm
+                   WHERE rm.chapter_id = cmp.chapter_id
+                     AND rm.chapter_row_version = cmp.chapter_row_version
+                     AND rm.source_hash = cmp.source_hash
+                     AND (cmp.media_plan_id IS NULL
+                          OR (rm.media_plan_id = cmp.media_plan_id
+                              AND rm.media_plan_revision = cmp.media_plan_revision))
+                   ORDER BY rm.created_at DESC, rm.id DESC
+                   LIMIT 1
+              ) rm ON TRUE
         ), latest_render_artifact AS (
             SELECT fa.generation_job_id, fa.status AS artifact_status,
                    CASE WHEN fa.status = 'READY' THEN COALESCE(fa.updated_at, fa.created_at) ELSE NULL END AS completed_at
-              FROM final_artifacts fa JOIN latest_render_manifest lrm ON lrm.id = fa.render_manifest_id
-             WHERE fa.status &lt;&gt; 'ARCHIVED' ORDER BY fa.created_at DESC, fa.id DESC LIMIT 1
+              FROM latest_render_manifest lrm
+              LEFT JOIN LATERAL (
+                  SELECT fa.generation_job_id, fa.status, fa.updated_at, fa.created_at
+                    FROM final_artifacts fa
+                   WHERE fa.render_manifest_id = lrm.id AND fa.status &lt;&gt; 'ARCHIVED'
+                   ORDER BY fa.created_at DESC, fa.id DESC
+                   LIMIT 1
+              ) fa ON TRUE
         ), latest_render_job AS (
-            SELECT gj.status AS job_status FROM generation_jobs gj
-             WHERE (gj.chapter_id = #{chapterId} AND gj.job_type IN ('CHAPTER_RENDER','RENDER_PROJECT','RENDER_SHORT'))
-                OR gj.id = (SELECT generation_job_id FROM latest_render_artifact)
-             ORDER BY gj.created_at DESC, gj.id DESC LIMIT 1
+            SELECT gj.status AS job_status
+              FROM current_media_plan cmp
+              LEFT JOIN LATERAL (
+                  SELECT gj.status
+                    FROM generation_jobs gj
+                   WHERE gj.id = (SELECT generation_job_id FROM latest_render_artifact)
+                      OR (gj.chapter_id = cmp.chapter_id
+                          AND gj.job_type IN ('CHAPTER_RENDER','RENDER_PROJECT','RENDER_SHORT')
+                          AND gj.chapter_row_version = cmp.chapter_row_version
+                          AND gj.source_hash = cmp.source_hash
+                          AND (cmp.media_plan_id IS NULL
+                               OR (gj.media_plan_id = cmp.media_plan_id AND gj.media_plan_revision = cmp.media_plan_revision)))
+                   ORDER BY CASE WHEN gj.id = (SELECT generation_job_id FROM latest_render_artifact) THEN 0 ELSE 1 END,
+                            gj.created_at DESC, gj.id DESC
+                   LIMIT 1
+              ) gj ON TRUE
         )
-        SELECT p.name AS project_name, ss.scene_count, bs.visual_beat_count,
+        SELECT cc.project_name, ss.scene_count, bs.visual_beat_count,
                ss.duration_seconds, cr.storyboard_source_hash, aps.has_approved_output,
                la.status AS analysis_status, la.source_hash AS analysis_source_hash, la.completed_at AS analysis_completed_at,
                vg.total AS visual_generation_total, vg.completed AS visual_generation_completed,
                vg.failed AS visual_generation_failed, vg.running AS visual_generation_running,
-               vg.queued AS visual_generation_queued, vg.active AS visual_generation_active,
-               lvg.status AS latest_visual_generation_status,
+               vg.queued AS visual_generation_queued, vg.stalled AS visual_generation_stalled,
+               vg.unknown AS visual_generation_unknown, vg.paused AS visual_generation_paused,
                (SELECT narration_asset_id IS NOT NULL FROM latest_narration) AS narration_asset_ready,
                (SELECT job_status FROM latest_narration) AS narration_job_status,
                (SELECT completed_at FROM latest_narration) AS narration_completed_at,
-               EXISTS (SELECT 1 FROM latest_render_manifest) AS render_manifest_created,
+               EXISTS (SELECT 1 FROM latest_render_manifest WHERE id IS NOT NULL) AS render_manifest_created,
                (SELECT artifact_status FROM latest_render_artifact) AS render_artifact_status,
                (SELECT job_status FROM latest_render_job) AS render_job_status,
                (SELECT completed_at FROM latest_render_artifact) AS render_completed_at
-          FROM projects p JOIN chapters c ON c.id = #{chapterId}
-          JOIN story_versions sv ON sv.id = c.story_version_id AND sv.project_id = p.id
-          CROSS JOIN current_revision cr CROSS JOIN scene_stats ss CROSS JOIN beat_stats bs
+          FROM current_chapter cc CROSS JOIN current_revision cr CROSS JOIN scene_stats ss CROSS JOIN beat_stats bs
           CROSS JOIN visual_generation vg
           CROSS JOIN approval_state aps LEFT JOIN latest_analysis la ON TRUE
-          LEFT JOIN latest_visual_generation lvg ON TRUE
-         WHERE p.id = #{projectId}
     </select>
 
     <select id="previewScenes" resultMap="chapterWorkspacePreviewRow">

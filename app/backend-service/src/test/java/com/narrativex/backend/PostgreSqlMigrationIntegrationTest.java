@@ -50,7 +50,7 @@ class PostgreSqlMigrationIntegrationTest {
   @Test
   void emptyPostgresMigratesAndApplicationContextStarts() throws SQLException {
     try (Connection connection = dataSource.getConnection()) {
-      assertEquals(1, latestFlywayVersion(connection));
+      assertEquals(4, latestFlywayVersion(connection));
       assertEquals(0, rowCount(connection, "generation_jobs"));
       assertEquals(0, rowCount(connection, "projects"));
       assertEquals(11, rowCount(connection, "plan_entitlements"));
@@ -280,6 +280,33 @@ class PostgreSqlMigrationIntegrationTest {
       updateProviderStatus(connection, providerOperationId, "RUNNING");
       updateProviderStatus(connection, providerOperationId, "UNKNOWN");
       updateProviderStatus(connection, providerOperationId, "FAILED");
+    }
+  }
+
+  @Test
+  void localJobWithoutQuotaReservationCanComplete() throws SQLException {
+    try (Connection connection = dataSource.getConnection()) {
+      long projectId = insertProject(connection);
+      long jobId =
+          insertGenerationJob(
+              connection,
+              projectId,
+              "local-render-no-reservation",
+              "CHAPTER_RENDER",
+              "RUNNING",
+              "CPU_RENDER",
+              5);
+
+      updateJobStatus(connection, jobId, "COMPLETED", 100);
+
+      try (PreparedStatement statement =
+          connection.prepareStatement("select status from generation_jobs where id = ?")) {
+        statement.setLong(1, jobId);
+        try (ResultSet result = statement.executeQuery()) {
+          assertTrue(result.next());
+          assertEquals("COMPLETED", result.getString(1));
+        }
+      }
     }
   }
 

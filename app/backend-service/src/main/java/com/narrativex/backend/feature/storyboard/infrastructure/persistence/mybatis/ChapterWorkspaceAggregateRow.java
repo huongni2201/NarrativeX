@@ -21,8 +21,9 @@ public class ChapterWorkspaceAggregateRow {
   private int visualGenerationFailed;
   private int visualGenerationRunning;
   private int visualGenerationQueued;
-  private int visualGenerationActive;
-  private String latestVisualGenerationStatus;
+  private int visualGenerationStalled;
+  private int visualGenerationUnknown;
+  private int visualGenerationPaused;
   private boolean narrationAssetReady;
   private String narrationJobStatus;
   private Instant narrationCompletedAt;

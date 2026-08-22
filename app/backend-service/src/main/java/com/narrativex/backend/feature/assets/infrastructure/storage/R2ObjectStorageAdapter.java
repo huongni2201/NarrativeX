@@ -6,6 +6,7 @@ import com.narrativex.backend.feature.assets.application.port.out.ObjectStorageP
 import com.narrativex.backend.feature.assets.application.port.out.ObjectStoragePort.StoredObject;
 import com.narrativex.backend.feature.common.exception.FeatureNotAvailableException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -107,7 +108,14 @@ public class R2ObjectStorageAdapter implements ObjectStoragePort {
     String contentType =
         normalizeContentType(response.headers().firstValue("content-type").orElse(""));
     String checksum = response.headers().firstValue("x-amz-checksum-sha256").orElse(null);
-    if (checksum != null) checksum = decodeChecksum(checksum);
+    if (checksum != null && !checksum.isBlank()) {
+      checksum = decodeChecksum(checksum);
+    } else {
+      // Some R2 S3 HEAD responses omit user-supplied checksum metadata. Download only in
+      // that case so finalization still verifies the actual stored bytes, never just the
+      // client-provided checksum.
+      return readAndHashObject(storageKey, size, contentType);
+    }
     return new StoredObject(storageKey, size, contentType, checksum);
   }
 
@@ -122,6 +130,14 @@ public class R2ObjectStorageAdapter implements ObjectStoragePort {
 
   private HttpResponse<byte[]> sendSigned(
       String method, String storageKey, HttpRequest.BodyPublisher body) {
+    return sendSigned(method, storageKey, body, HttpResponse.BodyHandlers.ofByteArray());
+  }
+
+  private <T> HttpResponse<T> sendSigned(
+      String method,
+      String storageKey,
+      HttpRequest.BodyPublisher body,
+      HttpResponse.BodyHandler<T> bodyHandler) {
     ensureConfigured();
     URI uri = objectUri(storageKey);
     Instant now = Instant.now(clock);
@@ -154,7 +170,7 @@ public class R2ObjectStorageAdapter implements ObjectStoragePort {
             .method(method, body)
             .build();
     try {
-      return httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
+      return httpClient.send(request, bodyHandler);
     } catch (IOException exception) {
       throw new IllegalStateException("Object storage request failed", exception);
     } catch (InterruptedException exception) {
@@ -220,6 +236,53 @@ public class R2ObjectStorageAdapter implements ObjectStoragePort {
     } catch (IllegalArgumentException ignored) {
       return normalized;
     }
+  }
+
+  private StoredObject readAndHashObject(String storageKey, long headSize, String headContentType) {
+    HttpResponse<InputStream> response =
+        sendSigned(
+            "GET",
+            storageKey,
+            HttpRequest.BodyPublishers.noBody(),
+            HttpResponse.BodyHandlers.ofInputStream());
+    if (response.statusCode() == 404) throw new ObjectStoragePort.ObjectNotFoundException(storageKey);
+    if (response.statusCode() < 200 || response.statusCode() >= 300) {
+      throw new IllegalStateException(
+          "Object storage GET request failed while verifying checksum with status "
+              + response.statusCode());
+    }
+
+    MessageDigest digest;
+    try {
+      digest = MessageDigest.getInstance("SHA-256");
+    } catch (Exception exception) {
+      throw new IllegalStateException("SHA-256 is unavailable", exception);
+    }
+
+    long bytesRead = 0L;
+    try (InputStream body = response.body()) {
+      byte[] buffer = new byte[8192];
+      int read;
+      while ((read = body.read(buffer)) != -1) {
+        if (read == 0) continue;
+        digest.update(buffer, 0, read);
+        bytesRead += read;
+      }
+    } catch (IOException exception) {
+      throw new IllegalStateException("Object storage GET response could not be read", exception);
+    }
+
+    if (headSize >= 0 && headSize != bytesRead) {
+      throw new IllegalStateException(
+          "Object storage content length changed during checksum verification");
+    }
+    long size = headSize >= 0 ? headSize : bytesRead;
+    String contentType = headContentType;
+    if (contentType.isBlank()) {
+      contentType =
+          normalizeContentType(response.headers().firstValue("content-type").orElse(""));
+    }
+    return new StoredObject(storageKey, size, contentType, HexFormat.of().formatHex(digest.digest()));
   }
 
   private static long parseSize(String value) {

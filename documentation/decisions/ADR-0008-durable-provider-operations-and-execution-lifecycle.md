@@ -49,6 +49,8 @@ To ensure strict billing accuracy, eliminate duplicate charges, and enable deter
 - **Active Capacity Authority:** Concurrent expensive jobs are counted as active `RESERVED` rows in `quota_reservations`, independent of calendar-month resets.
 - **Durable Billing Metadata:** When an operation completes, immutable provider usage, pricing catalog snapshots, currency, and calculated `actual_cost` are persisted.
 - **Automated Settlement Trigger:** A PostgreSQL trigger runs on `generation_jobs` status updates:
+  - It first checks for an active `RESERVED` quota reservation for the job; jobs without one
+    (for example, local CPU/media jobs) do not require provider billing rows.
   - `COMPLETED` -> Settles reservation using total durable `actual_cost`.
   - `FAILED` / `CANCELED` with positive incurred cost -> Settles the incurred amount.
   - `FAILED` / `CANCELED` with zero cost -> Releases the reservation.
@@ -66,8 +68,9 @@ To ensure strict billing accuracy, eliminate duplicate charges, and enable deter
 2. First completion wins; completed results are immutable.
 3. Ambiguous outcomes (`UNKNOWN`) trigger reconciliation, never blind automatic re-submissions.
 4. Quota transitions out of `RESERVED` at most once via database triggers.
-5. All execution types and statuses conform to the canonical SQL CHECK constraints.
-6. After the external-call fence, transient storage/database failures remain recoverable and never
+5. Provider billing reconciliation is mandatory only while a durable quota reservation is `RESERVED`.
+6. All execution types and statuses conform to the canonical SQL CHECK constraints.
+7. After the external-call fence, transient storage/database failures remain recoverable and never
    trigger blind provider resubmission.
 
 ## Consequences
