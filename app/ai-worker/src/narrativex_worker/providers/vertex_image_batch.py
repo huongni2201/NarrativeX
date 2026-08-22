@@ -21,7 +21,6 @@ from narrativex_worker.providers.image import (
     ImageBatchItem,
     ImageBatchItemResult,
     ImageBatchOperation,
-    ImageGenerationRequest,
     ImageGenerationResult,
 )
 from narrativex_worker.providers.ports import ProviderCapabilities
@@ -83,9 +82,13 @@ class VertexBatchImageProvider(VertexImageProvider):
             f"{_vertex_base_url(batch_location)}/v1/projects/{self.settings.vertex_project_id}/"
             f"locations/{batch_location}/batchPredictionJobs"
         )
+        model_name = (
+            f"projects/{self.settings.vertex_project_id}/locations/{batch_location}/"
+            f"publishers/google/models/{model_key}"
+        )
         body: dict[str, object] = {
             "displayName": f"narrativex-image-{batch_fingerprint[:24]}",
-            "model": f"publishers/google/models/{model_key}",
+            "model": model_name,
             "inputConfig": {
                 "instancesFormat": "jsonl",
                 "gcsSource": {"uris": [input_uri]},
@@ -147,7 +150,8 @@ class VertexBatchImageProvider(VertexImageProvider):
             raise VertexImageProviderError("Cannot reconcile image batch without operation id")
 
         token = await self._access_token()
-        endpoint = f"{_vertex_base_url(self.settings.vertex_image_batch_location)}/v1/{operation.operation_id}"
+        batch_location = self.settings.vertex_image_batch_location
+        endpoint = f"{_vertex_base_url(batch_location)}/v1/{operation.operation_id}"
         try:
             async with httpx.AsyncClient(
                 timeout=self.settings.vertex_image_batch_http_timeout_seconds
@@ -305,8 +309,11 @@ class VertexBatchImageProvider(VertexImageProvider):
                 values = raw.get("items")
                 if isinstance(values, list):
                     for value in values:
-                        if isinstance(value, dict) and isinstance(value.get("name"), str):
-                            object_names.append(value["name"])
+                        if not isinstance(value, dict):
+                            continue
+                        object_name = value.get("name")
+                        if isinstance(object_name, str):
+                            object_names.append(object_name)
                 next_page = raw.get("nextPageToken")
                 if not isinstance(next_page, str) or not next_page:
                     break
@@ -322,7 +329,9 @@ class VertexBatchImageProvider(VertexImageProvider):
             timeout=self.settings.vertex_image_batch_http_timeout_seconds
         ) as client:
             response = await client.get(
-                endpoint, params={"alt": "media"}, headers=_auth_headers(token)
+                endpoint,
+                params={"alt": "media"},
+                headers=_auth_headers(token),
             )
         if response.is_error:
             raise VertexImageProviderError(
@@ -493,17 +502,21 @@ def _prediction_response(row: dict[str, object]) -> dict[str, object] | None:
 
 def _row_error_code(row: dict[str, object]) -> str | None:
     status = row.get("status")
-    if isinstance(status, dict):
-        code = status.get("code")
-        if isinstance(code, int | str):
-            return f"BATCH_ITEM_{code}"
+    if not isinstance(status, dict):
+        return None
+    code = status.get("code")
+    if isinstance(code, int | str):
+        return f"BATCH_ITEM_{code}"
     return None
 
 
 def _row_error_detail(row: dict[str, object]) -> str | None:
     status = row.get("status")
-    if isinstance(status, dict) and isinstance(status.get("message"), str):
-        return status["message"][:1000]
+    if not isinstance(status, dict):
+        return None
+    message = status.get("message")
+    if isinstance(message, str):
+        return message[:1000]
     return None
 
 
@@ -581,7 +594,9 @@ def _response_json(response: httpx.Response) -> dict[str, object]:
 
 def _provider_error(raw: dict[str, object]) -> str | None:
     error = raw.get("error")
-    if isinstance(error, dict) and isinstance(error.get("message"), str):
-        return error["message"][:1000]
+    if isinstance(error, dict):
+        message = error.get("message")
+        if isinstance(message, str):
+            return message[:1000]
     value = raw.get("errorMessage")
     return value[:1000] if isinstance(value, str) else None
