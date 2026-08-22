@@ -6,6 +6,7 @@ import hashlib
 import json
 import math
 import re
+import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -51,40 +52,74 @@ async def load_subtitle_source(
     chapter_id: int,
     chapter_row_version: int,
     source_hash: str,
+    narration_request_id: uuid.UUID | None = None,
+    narration_asset_id: uuid.UUID | None = None,
+    narration_alignment_id: uuid.UUID | None = None,
 ) -> SubtitleSource:
-    """Load the exact narration text/alignment selected by the render input snapshot."""
+    """Load narration text/alignment from one pinned narration asset when provided."""
     connection = await asyncpg.connect(database_url)
     try:
-        row = await connection.fetchrow(
-            """
-            SELECT nr.source_text,
-                   alignment.alignment_version,
-                   alignment.spans_json
-              FROM narration_requests nr
-              JOIN narration_assets na ON na.narration_request_id = nr.id
-              JOIN project_assets pa ON pa.id = na.project_asset_id
-              LEFT JOIN LATERAL (
-                    SELECT nal.alignment_version, nal.spans_json
-                      FROM narration_alignments nal
-                     WHERE nal.narration_asset_id = na.id
-                       AND nal.source_hash = nr.source_hash
-                     ORDER BY nal.created_at DESC
-                     LIMIT 1
-              ) alignment ON TRUE
-             WHERE nr.project_id = $1
-               AND nr.chapter_id = $2
-               AND nr.chapter_row_version = $3
-               AND nr.source_hash = $4
-               AND pa.status = 'ACTIVE'
-               AND pa.storage_key IS NOT NULL
-             ORDER BY nr.created_at DESC
-             LIMIT 1
-            """,
-            project_id,
-            chapter_id,
-            chapter_row_version,
-            source_hash,
-        )
+        if narration_request_id is not None and narration_asset_id is not None:
+            row = await connection.fetchrow(
+                """
+                SELECT nr.source_text,
+                       alignment.alignment_version,
+                       alignment.spans_json
+                  FROM narration_requests nr
+                  JOIN narration_assets na ON na.narration_request_id = nr.id
+                  JOIN project_assets pa ON pa.id = na.project_asset_id
+                  LEFT JOIN narration_alignments alignment
+                    ON alignment.id = $3
+                   AND alignment.narration_asset_id = na.id
+                   AND alignment.source_hash = nr.source_hash
+                 WHERE nr.id = $1
+                   AND na.id = $2
+                   AND nr.project_id = $4
+                   AND nr.chapter_id = $5
+                   AND nr.chapter_row_version = $6
+                   AND nr.source_hash = $7
+                   AND pa.status = 'ACTIVE'
+                   AND pa.storage_key IS NOT NULL
+                """,
+                narration_request_id,
+                narration_asset_id,
+                narration_alignment_id,
+                project_id,
+                chapter_id,
+                chapter_row_version,
+                source_hash,
+            )
+        else:
+            row = await connection.fetchrow(
+                """
+                SELECT nr.source_text,
+                       alignment.alignment_version,
+                       alignment.spans_json
+                  FROM narration_requests nr
+                  JOIN narration_assets na ON na.narration_request_id = nr.id
+                  JOIN project_assets pa ON pa.id = na.project_asset_id
+                  LEFT JOIN LATERAL (
+                        SELECT nal.alignment_version, nal.spans_json
+                          FROM narration_alignments nal
+                         WHERE nal.narration_asset_id = na.id
+                           AND nal.source_hash = nr.source_hash
+                         ORDER BY nal.created_at DESC
+                         LIMIT 1
+                  ) alignment ON TRUE
+                 WHERE nr.project_id = $1
+                   AND nr.chapter_id = $2
+                   AND nr.chapter_row_version = $3
+                   AND nr.source_hash = $4
+                   AND pa.status = 'ACTIVE'
+                   AND pa.storage_key IS NOT NULL
+                 ORDER BY nr.created_at DESC
+                 LIMIT 1
+                """,
+                project_id,
+                chapter_id,
+                chapter_row_version,
+                source_hash,
+            )
     finally:
         await connection.close()
 
