@@ -10,6 +10,7 @@ from narrativex_worker.config import WorkerSettings, get_settings
 from narrativex_worker.image_generation_worker import ImageGenerationWorkerRunner
 from narrativex_worker.media_validation_worker import MediaValidationWorkerRunner
 from narrativex_worker.narration.local_runner import LocalOptimizedNarrationWorkerRunner
+from narrativex_worker.rendering.worker import RenderWorkerRunner
 from narrativex_worker.translation_worker import TranslationWorkerRunner
 from narrativex_worker.worker import NarrativeXWorker
 
@@ -36,8 +37,8 @@ def parse_args() -> argparse.Namespace:
 
 async def run_workers(settings: WorkerSettings, *, dry_run: bool) -> None:
     # Selected workers share one process-wide provider budget. Heavy providers are only
-    # instantiated when their role is hosted by this process, allowing narration to be
-    # deployed/scaled independently without loading VieNeu in general-purpose workers.
+    # instantiated when their role is hosted by this process, allowing narration/rendering to be
+    # deployed and scaled independently from provider-facing AI workers.
     concurrency_gate = asyncio.Semaphore(settings.worker_concurrency)
     workers: dict[str, Any] = {}
 
@@ -67,6 +68,12 @@ async def run_workers(settings: WorkerSettings, *, dry_run: bool) -> None:
         )
         if image_worker.enabled:
             workers["image-generation"] = image_worker
+    if settings.has_worker_role("render"):
+        render_worker = RenderWorkerRunner(
+            settings=settings, concurrency_gate=concurrency_gate
+        )
+        if render_worker.enabled:
+            workers["render"] = render_worker
 
     if not workers:
         raise RuntimeError("No enabled workers remain after applying WORKER_ROLES/provider modes")
