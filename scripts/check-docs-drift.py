@@ -41,6 +41,7 @@ CURRENT_FILES = [
 REQUIRED_PATHS = [
     ROOT / "documentation" / "source-of-truth" / "NARRATIVEX_PROJECT_SPEC_V1_11.md",
     ROOT / "documentation" / "TRACEABILITY.md",
+    ROOT / "documentation" / "product" / "FEATURE_CATALOG.md",
 ]
 
 FORBIDDEN = {
