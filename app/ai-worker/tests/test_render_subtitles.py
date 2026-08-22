@@ -1,6 +1,10 @@
 from pathlib import Path
 
-from narrativex_worker.rendering.image_motion import ImageMotionManifest, MotionBeat, build_ffmpeg_args
+from narrativex_worker.rendering.image_motion import (
+    ImageMotionManifest,
+    MotionBeat,
+    build_ffmpeg_args,
+)
 from narrativex_worker.rendering.subtitles import (
     SubtitleAlignmentSpan,
     build_subtitle_track,
@@ -60,7 +64,10 @@ def test_write_ass_subtitles_escapes_override_markup(tmp_path: Path) -> None:
 def test_ffmpeg_args_burn_ass_after_concat(tmp_path: Path) -> None:
     subtitle_path = tmp_path / "subtitle file.ass"
     manifest = ImageMotionManifest(
-        beats=(MotionBeat(tmp_path / "one.png", 2.0), MotionBeat(tmp_path / "two.png", 3.0)),
+        beats=(
+            MotionBeat(tmp_path / "one.png", 2.0),
+            MotionBeat(tmp_path / "two.png", 3.0),
+        ),
         audio_path=tmp_path / "audio.mp3",
         output_path=tmp_path / "out.mp4",
         width=1920,
