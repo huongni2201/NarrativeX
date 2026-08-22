@@ -13,12 +13,12 @@ public class NarrationCostEstimator {
   private static final BigDecimal AUTHORIZATION_USD_PER_1K_CHARACTERS = new BigDecimal("0.160000");
   private static final BigDecimal AUTHORIZATION_MULTIPLIER = new BigDecimal("1.250000");
 
-  public NarrationCostEstimate estimate(String sourceText, String voiceId) {
+  public NarrationCostEstimate estimate(String sourceText, boolean localExecution) {
     if (sourceText == null || sourceText.isBlank()) {
       throw new IllegalArgumentException("sourceText must not be blank");
     }
     long characters = sourceText.codePointCount(0, sourceText.length());
-    if (isLocalVieNeu(voiceId)) {
+    if (localExecution) {
       BigDecimal zero = BigDecimal.ZERO.setScale(6);
       return new NarrationCostEstimate(characters, zero, zero, zero);
     }
@@ -33,11 +33,11 @@ public class NarrationCostEstimator {
         characters, BigDecimal.ZERO.setScale(6), estimateMax, maxAuthorized);
   }
 
-  public NarrationCostEstimate estimate(String sourceText) {
-    return estimate(sourceText, "");
+  public NarrationCostEstimate estimate(String sourceText, String voiceId) {
+    return estimate(sourceText, voiceId != null && voiceId.startsWith("vieneu-"));
   }
 
-  private boolean isLocalVieNeu(String voiceId) {
-    return voiceId != null && voiceId.startsWith("vieneu-");
+  public NarrationCostEstimate estimate(String sourceText) {
+    return estimate(sourceText, false);
   }
 }
