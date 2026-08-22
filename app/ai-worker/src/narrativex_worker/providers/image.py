@@ -3,9 +3,10 @@
 Vendor SDK response objects are deliberately not allowed across this module boundary.
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Protocol, Sequence
+from typing import Protocol
 
 from narrativex_worker.schema import (
     ImageAspectRatio,
