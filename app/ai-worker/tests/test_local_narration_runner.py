@@ -1,3 +1,4 @@
+import uuid
 from pathlib import Path
 from typing import cast
 
@@ -13,7 +14,24 @@ from narrativex_worker.narration.providers import (
     TtsRequest,
 )
 from narrativex_worker.narration.repository import ClaimedNarrationJob
-from tests.test_narration_runner import claimed_job
+
+
+def claimed_job() -> ClaimedNarrationJob:
+    return ClaimedNarrationJob(
+        stage_attempt_id=1,
+        generation_job_id=100,
+        job_id="job-0",
+        narration_request_id=uuid.uuid4(),
+        project_id=1,
+        chapter_id=1,
+        chapter_row_version=1,
+        source_hash="a" * 64,
+        source_text="A short chapter.",
+        voice_id="local-voice",
+        language="vi-VN",
+        speaking_rate=1.0,
+        request_fingerprint="request-0",
+    )
 
 
 class RecordingLocalProvider:
@@ -58,14 +76,10 @@ class RecordingLocalProvider:
 
 @pytest.mark.asyncio
 async def test_local_runner_batches_segments_without_remote_materialization(tmp_path: Path) -> None:
-    settings = WorkerSettings(
-        worker_env="test",
-        vieneu_batch_max_segments=8,
-    )
+    settings = WorkerSettings(worker_env="test", vieneu_batch_max_segments=8)
     runner = LocalOptimizedNarrationWorkerRunner(settings)
     provider = RecordingLocalProvider()
     runner.provider = cast(TtsProvider, provider)
-    claimed: ClaimedNarrationJob = claimed_job(0)
     segments = [
         NarrationSegment(
             index=index,
@@ -77,7 +91,7 @@ async def test_local_runner_batches_segments_without_remote_materialization(tmp_
     ]
 
     materialized = await runner._materialize_local_batches(
-        claimed, segments, "local-voice", tmp_path
+        claimed_job(), segments, "local-voice", tmp_path
     )
 
     assert provider.batch_sizes == [8, 8, 1]
