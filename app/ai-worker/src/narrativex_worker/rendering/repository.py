@@ -31,6 +31,9 @@ class ClaimedRenderJob:
     media_plan_revision: int
     operation_type: str
     aspect_ratio: str
+    narration_request_id: uuid.UUID | None
+    narration_asset_id: uuid.UUID | None
+    narration_alignment_id: uuid.UUID | None
     worker_id: str
     lease_token: uuid.UUID
 
@@ -96,7 +99,10 @@ class RenderRepository:
                            gj.media_plan_id,
                            gj.media_plan_revision,
                            op.operation_type,
-                           COALESCE(mp.image_aspect_ratio, '16:9') AS aspect_ratio
+                           COALESCE(mp.image_aspect_ratio, '16:9') AS aspect_ratio,
+                           narration.narration_request_id,
+                           narration.narration_asset_id,
+                           narration.narration_alignment_id
                       FROM stage_attempts sa
                       JOIN generation_jobs gj ON gj.id = sa.generation_job_id
                       JOIN projects p ON p.id = gj.project_id
@@ -104,6 +110,30 @@ class RenderRepository:
                         ON mp.id = gj.media_plan_id
                        AND mp.revision = gj.media_plan_revision
                       JOIN operation_plans op ON op.generation_job_id = gj.id
+                      LEFT JOIN LATERAL (
+                            SELECT nr.id AS narration_request_id,
+                                   na.id AS narration_asset_id,
+                                   alignment.id AS narration_alignment_id
+                              FROM narration_requests nr
+                              JOIN narration_assets na ON na.narration_request_id = nr.id
+                              JOIN project_assets pa ON pa.id = na.project_asset_id
+                              LEFT JOIN LATERAL (
+                                    SELECT nal.id
+                                      FROM narration_alignments nal
+                                     WHERE nal.narration_asset_id = na.id
+                                       AND nal.source_hash = nr.source_hash
+                                     ORDER BY nal.created_at DESC, nal.id DESC
+                                     LIMIT 1
+                              ) alignment ON TRUE
+                             WHERE nr.project_id = gj.project_id
+                               AND nr.chapter_id = gj.chapter_id
+                               AND nr.chapter_row_version = gj.chapter_row_version
+                               AND nr.source_hash = gj.source_hash
+                               AND pa.status = 'ACTIVE'
+                               AND pa.storage_key IS NOT NULL
+                             ORDER BY nr.created_at DESC, nr.id DESC
+                             LIMIT 1
+                      ) narration ON TRUE
                      WHERE gj.job_type = 'CHAPTER_RENDER'
                        AND gj.resource_class = 'CPU_RENDER'
                        AND gj.status IN ('QUEUED', 'RUNNING', 'STALLED')
@@ -173,6 +203,9 @@ class RenderRepository:
                     media_plan_revision=int(row["media_plan_revision"]),
                     operation_type=str(row["operation_type"]),
                     aspect_ratio=str(row["aspect_ratio"]),
+                    narration_request_id=row["narration_request_id"],
+                    narration_asset_id=row["narration_asset_id"],
+                    narration_alignment_id=row["narration_alignment_id"],
                     worker_id=worker_id,
                     lease_token=lease_token,
                 )
@@ -257,6 +290,8 @@ class RenderRepository:
         ]
 
     async def load_audio(self, claimed: ClaimedRenderJob) -> RenderAudioAsset | None:
+        if claimed.narration_request_id is None or claimed.narration_asset_id is None:
+            return None
         row = await self._require_pool().fetchrow(
             """
             SELECT pa.storage_key,
@@ -266,15 +301,17 @@ class RenderRepository:
               FROM narration_requests nr
               JOIN narration_assets na ON na.narration_request_id = nr.id
               JOIN project_assets pa ON pa.id = na.project_asset_id
-             WHERE nr.project_id = $1
-               AND nr.chapter_id = $2
-               AND nr.chapter_row_version = $3
-               AND nr.source_hash = $4
+             WHERE nr.id = $1
+               AND na.id = $2
+               AND nr.project_id = $3
+               AND nr.chapter_id = $4
+               AND nr.chapter_row_version = $5
+               AND nr.source_hash = $6
                AND pa.status = 'ACTIVE'
                AND pa.storage_key IS NOT NULL
-             ORDER BY nr.created_at DESC
-             LIMIT 1
             """,
+            claimed.narration_request_id,
+            claimed.narration_asset_id,
             claimed.project_id,
             claimed.chapter_id,
             claimed.chapter_row_version,
