@@ -1,6 +1,6 @@
 # NarrativeX Technology Stack — V1.11
 
-Canonical authority: [`../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md).
+Canonical authority: [`../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md). Accepted ADRs refine cross-cutting decisions; ADR-0016 supersedes the R2-only rule for final rendered MP4 storage.
 
 | Layer | Current stack | V1.11 role |
 |---|---|---|
@@ -11,7 +11,8 @@ Canonical authority: [`../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](../
 | Worker | Python 3.12+, Pydantic, HTTPX, asyncpg, google-auth, boto3 | async provider/media execution, alignment, reconciliation, FFmpeg workspace |
 | AI | Vertex Gemini analysis adapter + provider-neutral ports | structured Chapter analysis |
 | Narration | Google TTS + local VieNeu-TTS v3 Turbo adapter + user-provided audio timeline/alignment contracts | two narration strategies feeding one timeline model; VieNeu supports configured instant voice cloning |
-| Storage | Cloudflare R2 only | durable private media; PostgreSQL owns metadata/lineage |
+| Pipeline storage | Cloudflare R2 | durable private source/generated/reusable media; PostgreSQL owns metadata/lineage |
+| Final video storage | Google Drive behind `FinalVideoStorage` | durable private final rendered MP4 exports; resumable upload + verification before READY |
 | Media | FFmpeg-oriented deterministic render foundation; Wan-compatible I2V adapter foundation | first complete target is IMAGE_MOTION, I2V fast-follow |
 
 ## Persistence status
@@ -43,6 +44,20 @@ Production upload/finalize and real alignment integration still require hardenin
 
 Project Character list/detail screens now consume project-scoped backend read models for role, importance, aliases/groups, pinned version, appearance and scene count. Runtime UI must leave unsupported fields unavailable instead of substituting fabricated business data.
 
-## Durable media rule
+## Durable media rules
 
-R2 is the only durable media store. Worker-local files are scratch/cache only. A provider URL or local path is never an authoritative asset reference.
+R2 is the durable store for source/generated/reusable media. Final rendered MP4 exports use Google Drive through a provider-neutral `FinalVideoStorage` boundary. Worker-local files are scratch/cache/render workspace only. A provider URL or local path is never an authoritative durable asset reference.
+
+A final video follows:
+
+```text
+FFmpeg local final.mp4
+  -> validate
+  -> Google Drive resumable upload
+  -> verify
+  -> PostgreSQL FinalArtifact storage metadata
+  -> READY
+  -> local cleanup
+```
+
+Upload failure retries the upload boundary and does not rerender a valid local final MP4.
