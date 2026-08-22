@@ -62,7 +62,7 @@ class VertexImageProvider(ImageGenerationProvider):
             ) as client:
                 response = await client.post(
                     endpoint,
-                    headers={"Authorization": f"Bearer {token}"},
+                    headers=_request_headers(token, self.settings.vertex_image_service_tier),
                     json=body,
                 )
         except (httpx.TimeoutException, httpx.NetworkError) as exception:
@@ -115,6 +115,7 @@ class VertexImageProvider(ImageGenerationProvider):
                 error_code="INVALID_IMAGE_OUTPUT",
             )
 
+        traffic_type = _traffic_type(raw)
         result = ImageGenerationResult(
             validated.mime_type,
             content,
@@ -125,6 +126,9 @@ class VertexImageProvider(ImageGenerationProvider):
             {
                 "model": request.model_key,
                 "finishReason": _finish_reason(raw) or "UNKNOWN",
+                "serviceTierRequested": self.settings.vertex_image_service_tier,
+                "trafficType": traffic_type or "UNKNOWN",
+                "executionMode": "online",
             },
             _usage(raw),
             None,
@@ -162,6 +166,14 @@ def _endpoint(project_id: str, location: str, model_key: str) -> str:
         f"{base_url}/v1/projects/{project_id}/locations/{location}/publishers/google/models/"
         f"{model_key}:generateContent"
     )
+
+
+def _request_headers(token: str, service_tier: str) -> dict[str, str]:
+    headers = {"Authorization": f"Bearer {token}"}
+    if service_tier == "flex":
+        headers["X-Vertex-AI-LLM-Request-Type"] = "shared"
+        headers["X-Vertex-AI-LLM-Shared-Request-Type"] = "flex"
+    return headers
 
 
 def _request_body(request: ImageGenerationRequest) -> dict[str, object]:
@@ -259,6 +271,13 @@ def _moderation(raw: dict[str, object]) -> ModerationDecision:
     return ModerationDecision.REVIEW
 
 
+def _traffic_type(raw: dict[str, object]) -> str | None:
+    metadata = raw.get("usageMetadata")
+    if not isinstance(metadata, dict):
+        return None
+    return _string(metadata.get("trafficType"))
+
+
 def _usage(raw: dict[str, object]) -> dict[str, int | str]:
     metadata = raw.get("usageMetadata")
     if not isinstance(metadata, dict):
@@ -269,6 +288,7 @@ def _usage(raw: dict[str, object]) -> dict[str, int | str]:
         "candidatesTokenCount",
         "totalTokenCount",
         "thoughtsTokenCount",
+        "trafficType",
     ):
         value = metadata.get(key)
         if isinstance(value, int | str):
