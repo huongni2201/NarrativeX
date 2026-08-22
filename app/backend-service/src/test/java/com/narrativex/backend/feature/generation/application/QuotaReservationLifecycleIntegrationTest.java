@@ -8,6 +8,7 @@ import com.narrativex.backend.feature.generation.application.port.out.QuotaReser
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -83,6 +84,24 @@ class QuotaReservationLifecycleIntegrationTest {
     assertTrue(
         quotaReservation.reserve(USER_ID, new BigDecimal("1.000000"), 4).isPresent(),
         "A completed job must free its concurrent slot");
+  }
+
+  @Test
+  void completedLocalVieNeuNarrationConsumesZeroCostWithoutProviderOperation() {
+    seedEntitlement();
+    long projectId = insertProject();
+    var reservation = quotaReservation.reserve(USER_ID, BigDecimal.ZERO, 4).orElseThrow();
+    long jobId = insertLocalVieNeuNarrationJob(projectId);
+    quotaReservation.bindToGenerationJob(reservation.id(), jobId);
+
+    jdbcTemplate.update(
+        "UPDATE generation_jobs SET status = 'COMPLETED', progress = 100 WHERE id = ?", jobId);
+
+    assertEquals("CONSUMED", reservationStatus(jobId));
+    assertEquals(0, BigDecimal.ZERO.compareTo(reservationActualCost(jobId)));
+    assertEquals("USD", reservationCurrency(jobId));
+    assertEquals(0, activeReservations());
+    assertEquals(0, BigDecimal.ZERO.compareTo(creditsUsed()));
   }
 
   @Test
@@ -269,6 +288,80 @@ class QuotaReservationLifecycleIntegrationTest {
         USER_ID);
   }
 
+  private long insertLocalVieNeuNarrationJob(long projectId) {
+    long storyVersionId =
+        jdbcTemplate.queryForObject(
+            """
+            INSERT INTO story_versions
+              (project_id, version_number, content, source_language, status, moderation_decision)
+            VALUES (?, 1, 'Narration source', 'vi-VN', 'ACTIVE', 'SAFE')
+            RETURNING id
+            """,
+            Long.class,
+            projectId);
+    long chapterId =
+        jdbcTemplate.queryForObject(
+            """
+            INSERT INTO chapters
+              (story_version_id, order_index, title, source_text, source_hash, status)
+            VALUES (?, 0, 'Chapter 1', 'Xin chao', ?, 'DRAFT')
+            RETURNING id
+            """,
+            Long.class,
+            storyVersionId,
+            "a".repeat(64));
+    long jobId =
+        jdbcTemplate.queryForObject(
+            """
+            INSERT INTO generation_jobs
+              (job_id, project_id, job_type, status, resource_class, progress,
+               requested_by_user_id, billed_to_user_id, story_version_id, chapter_id)
+            VALUES (?, ?, 'NARRATION_GENERATE', 'QUEUED', 'PROVIDER_INTERACTIVE', 0, ?, ?, ?, ?)
+            RETURNING id
+            """,
+            Long.class,
+            "quota-lifecycle-vieneu-" + UUID.randomUUID(),
+            projectId,
+            USER_ID,
+            USER_ID,
+            storyVersionId,
+            chapterId);
+    long stageAttemptId =
+        jdbcTemplate.queryForObject(
+            """
+            INSERT INTO stage_attempts (generation_job_id, stage_name, attempt_number, status)
+            VALUES (?, 'NARRATION_TTS', 1, 'RUNNING')
+            RETURNING id
+            """,
+            Long.class,
+            jobId);
+    UUID narrationRequestId = UUID.randomUUID();
+    jdbcTemplate.update(
+        """
+        INSERT INTO narration_requests
+          (id, project_id, chapter_id, chapter_row_version, source_hash, source_text,
+           voice_id, language, speaking_rate, segmentation_version, request_fingerprint)
+        VALUES (?, ?, ?, 0, ?, 'Xin chao', 'vieneu-ngoc-huyen-v2', 'vi-VN', 1.0,
+                'sentence-v1', ?)
+        """,
+        narrationRequestId,
+        projectId,
+        chapterId,
+        "a".repeat(64),
+        "b".repeat(64));
+    jdbcTemplate.update(
+        """
+        INSERT INTO narration_operations
+          (id, narration_request_id, generation_job_id, stage_attempt_id)
+        VALUES (?, ?, ?, ?)
+        """,
+        UUID.randomUUID(),
+        narrationRequestId,
+        jobId,
+        stageAttemptId);
+    return jobId;
+  }
+
   private void persistProviderBilling(long jobId, BigDecimal actualCost) {
     Long stageAttemptId =
         jdbcTemplate.queryForObject(
@@ -306,6 +399,13 @@ class QuotaReservationLifecycleIntegrationTest {
             BigDecimal.class,
             jobId);
     return value == null ? BigDecimal.ZERO : value;
+  }
+
+  private String reservationCurrency(long jobId) {
+    return jdbcTemplate.queryForObject(
+        "SELECT billing_currency FROM quota_reservations WHERE generation_job_id = ?",
+        String.class,
+        jobId);
   }
 
   private int activeReservations() {
