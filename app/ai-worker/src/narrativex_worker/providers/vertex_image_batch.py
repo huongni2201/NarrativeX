@@ -47,7 +47,7 @@ _TERMINAL_BATCH_STATES = {
 
 
 class VertexBatchImageProvider(VertexImageProvider):
-    """Vertex Gemini image provider with online and discounted batch execution paths."""
+    """Vertex Gemini image provider with discounted batch execution."""
 
     def __init__(self, settings: WorkerSettings) -> None:
         super().__init__(settings)
@@ -62,8 +62,8 @@ class VertexBatchImageProvider(VertexImageProvider):
 
     async def submit_batch(self, items: Sequence[ImageBatchItem]) -> ImageBatchOperation:
         batch_items = tuple(items)
-        if len(batch_items) < 2:
-            raise VertexImageProviderError("Vertex image batch requires at least two items")
+        if not batch_items:
+            raise VertexImageProviderError("Vertex image batch requires at least one item")
         bucket = _required_bucket(self.settings)
         model_key = _single_model(batch_items)
         batch_location = self.settings.vertex_image_batch_location
@@ -341,12 +341,12 @@ class VertexBatchImageProvider(VertexImageProvider):
 
 
 def should_use_vertex_image_batch(settings: WorkerSettings, item_count: int) -> bool:
-    """Return whether a non-interactive image set should use discounted batch inference."""
+    """Return whether an image set should use discounted batch inference."""
 
+    if settings.vertex_image_execution_mode == "batch":
+        return item_count >= 1
     if settings.vertex_image_execution_mode == "online":
         return False
-    if settings.vertex_image_execution_mode == "batch":
-        return True
     return bool(
         settings.vertex_image_batch_gcs_bucket
         and item_count >= settings.vertex_image_batch_min_items
@@ -468,20 +468,21 @@ def _materialize_batch_result(
             item.request.request_fingerprint,
             error_code="INVALID_IMAGE_OUTPUT",
         )
+
     result = ImageGenerationResult(
-        mime_type=validated.mime_type,
-        content=content,
-        width=validated.width,
-        height=validated.height,
-        moderation=_moderation(raw),
-        result_fingerprint=validated.sha256,
-        provider_metadata={
+        validated.mime_type,
+        content,
+        validated.width,
+        validated.height,
+        _moderation(raw),
+        validated.sha256,
+        {
             "model": item.request.model_key,
             "finishReason": _finish_reason(raw) or "UNKNOWN",
-            "executionMode": "batch",
+            "executionMode": "BATCH",
         },
-        usage=_usage(raw),
-        actual_cost=None,
+        _usage(raw),
+        None,
     )
     return ImageBatchItemResult(
         item.item_key,
@@ -495,93 +496,85 @@ def _prediction_response(row: dict[str, object]) -> dict[str, object] | None:
         value = row.get(key)
         if isinstance(value, dict):
             return value
-    if isinstance(row.get("candidates"), list):
-        return row
     return None
 
 
 def _row_error_code(row: dict[str, object]) -> str | None:
-    status = row.get("status")
-    if not isinstance(status, dict):
+    error = row.get("error")
+    if not isinstance(error, dict):
         return None
-    code = status.get("code")
-    if isinstance(code, int | str):
-        return f"BATCH_ITEM_{code}"
-    return None
+    code = error.get("code")
+    return str(code) if code is not None else None
 
 
 def _row_error_detail(row: dict[str, object]) -> str | None:
-    status = row.get("status")
-    if not isinstance(status, dict):
+    error = row.get("error")
+    if not isinstance(error, dict):
         return None
-    message = status.get("message")
-    if isinstance(message, str):
-        return message[:1000]
-    return None
-
-
-def _batch_status(value: object) -> ProviderOperationStatus:
-    state = value if isinstance(value, str) else "JOB_STATE_UNSPECIFIED"
-    if state == "JOB_STATE_SUCCEEDED":
-        return ProviderOperationStatus.COMPLETED
-    if state in _TERMINAL_BATCH_STATES:
-        return ProviderOperationStatus.FAILED
-    if state in {"JOB_STATE_RUNNING", "JOB_STATE_CANCELLING"}:
-        return ProviderOperationStatus.RUNNING
-    if state in {"JOB_STATE_PENDING", "JOB_STATE_QUEUED"}:
-        return ProviderOperationStatus.SUBMITTED
-    return ProviderOperationStatus.UNKNOWN
+    message = error.get("message")
+    return message if isinstance(message, str) else None
 
 
 def _batch_output_uri(raw: dict[str, object]) -> str | None:
     output_info = raw.get("outputInfo")
-    if isinstance(output_info, dict):
-        value = output_info.get("gcsOutputDirectory")
+    if not isinstance(output_info, dict):
+        return None
+    for key in ("gcsOutputDirectory", "outputUriPrefix"):
+        value = output_info.get(key)
         if isinstance(value, str) and value:
             return value
-    output_config = raw.get("outputConfig")
-    if isinstance(output_config, dict):
-        destination = output_config.get("gcsDestination")
-        if isinstance(destination, dict):
-            value = destination.get("outputUriPrefix")
-            if isinstance(value, str) and value:
-                return value
     return None
+
+
+def _batch_status(state: object) -> ProviderOperationStatus:
+    if state == "JOB_STATE_SUCCEEDED":
+        return ProviderOperationStatus.COMPLETED
+    if state in {"JOB_STATE_FAILED", "JOB_STATE_CANCELLED", "JOB_STATE_EXPIRED"}:
+        return ProviderOperationStatus.FAILED
+    if state == "JOB_STATE_RUNNING":
+        return ProviderOperationStatus.RUNNING
+    if state in {"JOB_STATE_PENDING", "JOB_STATE_QUEUED", "JOB_STATE_PAUSED"}:
+        return ProviderOperationStatus.SUBMITTED
+    return ProviderOperationStatus.UNKNOWN
+
+
+def _provider_error(raw: dict[str, object]) -> str | None:
+    error = raw.get("error")
+    if not isinstance(error, dict):
+        return None
+    message = error.get("message")
+    return message if isinstance(message, str) else None
+
+
+def _required_bucket(settings: WorkerSettings) -> str:
+    bucket = settings.vertex_image_batch_gcs_bucket
+    if not bucket or not bucket.strip():
+        raise VertexImageProviderError("VERTEX_IMAGE_BATCH_GCS_BUCKET is required for batch")
+    return bucket.strip()
 
 
 def _split_gs_uri(uri: str) -> tuple[str, str]:
     if not uri.startswith("gs://"):
-        raise VertexImageProviderError(f"Expected gs:// URI, got {uri!r}")
-    path = uri[5:]
-    bucket, separator, prefix = path.partition("/")
-    if not bucket or not separator:
-        raise VertexImageProviderError(f"GCS URI must include object prefix: {uri!r}")
-    return bucket, prefix.strip("/")
+        raise VertexImageProviderError(f"Invalid GCS URI: {uri}")
+    remainder = uri[5:]
+    bucket, separator, prefix = remainder.partition("/")
+    if not bucket:
+        raise VertexImageProviderError(f"Invalid GCS URI: {uri}")
+    return bucket, prefix if separator else ""
 
 
-def _required_bucket(settings: WorkerSettings) -> str:
-    value = settings.vertex_image_batch_gcs_bucket
-    if not value or not value.strip():
-        raise VertexImageProviderError(
-            "VERTEX_IMAGE_BATCH_GCS_BUCKET is required for Vertex image batch inference"
-        )
-    return value.strip()
-
-
-def _vertex_base_url(location: str) -> str:
-    return (
-        "https://aiplatform.googleapis.com"
-        if location == "global"
-        else f"https://{location}-aiplatform.googleapis.com"
-    )
+def _canonical_json(value: dict[str, object]) -> str:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
 def _auth_headers(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-def _canonical_json(value: object) -> str:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+def _vertex_base_url(location: str) -> str:
+    if location == "global":
+        return "https://aiplatform.googleapis.com"
+    return f"https://{location}-aiplatform.googleapis.com"
 
 
 def _response_json(response: httpx.Response) -> dict[str, object]:
@@ -590,13 +583,3 @@ def _response_json(response: httpx.Response) -> dict[str, object]:
     except ValueError:
         return {}
     return value if isinstance(value, dict) else {}
-
-
-def _provider_error(raw: dict[str, object]) -> str | None:
-    error = raw.get("error")
-    if isinstance(error, dict):
-        message = error.get("message")
-        if isinstance(message, str):
-            return message[:1000]
-    value = raw.get("errorMessage")
-    return value[:1000] if isinstance(value, str) else None
