@@ -362,12 +362,13 @@ class ImageGenerationRepository:
 
     async def fail_provider_operation(
         self, operation: DurableImageOperation, error_code: str
-    ) -> None:
+    ) -> bool:
         pool = self._require_pool()
         error = error_code[:2000]
+        transitioned = False
         async with pool.acquire() as connection:
             async with connection.transaction():
-                await connection.execute(
+                result = await connection.execute(
                     """
                     UPDATE provider_operations
                        SET status = 'FAILED',
@@ -377,24 +378,44 @@ class ImageGenerationRepository:
                            updated_at = CURRENT_TIMESTAMP,
                            row_version = row_version + 1
                      WHERE id = $1
+                       AND status IN ('RESERVED', 'UNKNOWN', 'SUBMITTED', 'RUNNING')
+                       AND row_version = $3
+                       AND (
+                           ($4::text IS NULL AND $5::uuid IS NULL)
+                           OR EXISTS (
+                               SELECT 1
+                                 FROM stage_attempts sa
+                                WHERE sa.id = provider_operations.stage_attempt_id
+                                  AND sa.worker_id = $4
+                                  AND sa.lease_token = $5::uuid
+                                  AND sa.status = 'RUNNING'
+                           )
+                       )
                     """,
                     operation.id,
                     error,
+                    operation.row_version,
+                    operation.worker_id,
+                    operation.lease_token,
                 )
-                await connection.execute(
-                    """
-                    UPDATE media_generation_items
-                       SET execution_status = 'FAILED',
-                           error_code = $2,
-                           updated_at = CURRENT_TIMESTAMP,
-                           row_version = row_version + 1
-                     WHERE provider_operation_id = $1
-                       AND execution_status NOT IN ('READY', 'FAILED')
-                    """,
-                    operation.id,
-                    error[:80],
-                )
-        await self.aggregate_generation_job(operation.stage_attempt_id)
+                transitioned = str(result) == "UPDATE 1"
+                if transitioned:
+                    await connection.execute(
+                        """
+                        UPDATE media_generation_items
+                           SET execution_status = 'FAILED',
+                               error_code = $2,
+                               updated_at = CURRENT_TIMESTAMP,
+                               row_version = row_version + 1
+                         WHERE provider_operation_id = $1
+                           AND execution_status NOT IN ('READY', 'FAILED')
+                        """,
+                        operation.id,
+                        error[:80],
+                    )
+        if transitioned:
+            await self.aggregate_generation_job(operation.stage_attempt_id)
+        return transitioned
 
     async def mark_unknown(self, operation: DurableImageOperation, error: str) -> bool:
         result = await self._require_pool().execute(

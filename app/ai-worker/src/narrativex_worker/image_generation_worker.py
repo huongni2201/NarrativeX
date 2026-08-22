@@ -159,13 +159,16 @@ class ImageGenerationWorkerRunner:
         except VertexImageProviderError as exception:
             await self.repository.fail_provider_operation(operation, normalize_error(exception))
             return
-        except Exception:
+        except Exception as exception:
             self.logger.exception(
                 "Image batch submission failed without a classified provider outcome "
                 "operation=%s",
                 operation.id,
             )
-            await self.repository.fail_provider_operation(operation, "IMAGE_WORKER_INTERNAL_ERROR")
+            # Once submit_batch has been entered, a generic exception is ambiguous: the provider
+            # may have accepted the request before the client failed. Keep the durable UNKNOWN
+            # fence recoverable instead of creating a false terminal failure.
+            await self.repository.mark_unknown(operation, normalize_error(exception))
             return
         if provider_operation.status is ProviderOperationStatus.FAILED:
             await self.repository.fail_provider_operation(
@@ -177,13 +180,29 @@ class ImageGenerationWorkerRunner:
             await self.repository.mark_submitted(
                 operation, provider_operation.operation_id, provider_operation.status
             )
-        except Exception:
-            self.logger.exception(
-                "Image batch submission persistence failed without a classified provider "
-                "outcome operation=%s",
+        except ImageGenerationLeaseLostError:
+            # A stale worker must never terminalize an operation after the paid boundary. The
+            # already-committed UNKNOWN fence is intentionally left for the active owner/reconciler.
+            self.logger.warning(
+                "Image batch submission returned after lease/state changed; leaving UNKNOWN "
+                "for recovery operation=%s provider_operation_id=%s",
                 operation.id,
+                provider_operation.operation_id,
             )
-            await self.repository.fail_provider_operation(operation, "IMAGE_WORKER_INTERNAL_ERROR")
+        except Exception as exception:
+            self.logger.exception(
+                "Image batch submission persistence failed; leaving provider operation "
+                "recoverable operation=%s provider_operation_id=%s",
+                operation.id,
+                provider_operation.operation_id,
+            )
+            # Best effort only. If this write also fails, prepare_provider_submission already
+            # committed UNKNOWN + item bindings, so reconciliation can still recover by fingerprint.
+            with contextlib.suppress(Exception):
+                await self.repository.mark_unknown(
+                    operation,
+                    f"PROVIDER_SUBMISSION_PERSISTENCE_UNKNOWN:{normalize_error(exception)}",
+                )
 
     async def _fail_batch(self, operation: DurableImageOperation, error: str) -> None:
         await self.repository.fail_provider_operation(operation, error)
@@ -241,15 +260,15 @@ class ImageGenerationWorkerRunner:
                 await self.repository.fail_provider_operation(
                     durable, normalize_error(exception)
                 )
-            except Exception:
+            except Exception as exception:
                 self.logger.exception(
                     "Image batch reconciliation failed without a classified provider outcome "
                     "operation=%s",
                     durable.id,
                 )
-                await self.repository.fail_provider_operation(
-                    durable, "IMAGE_WORKER_INTERNAL_ERROR"
-                )
+                # Reconciliation transport/runtime failures are non-terminal unless the provider
+                # explicitly reports FAILED or output validation rejects a completed result.
+                await self.repository.mark_unknown(durable, normalize_error(exception))
 
     async def _heartbeat(self, job: ClaimedImageGenerationJob) -> None:
         interval = max(3.0, self.settings.lease_seconds / 3)
