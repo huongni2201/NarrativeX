@@ -63,6 +63,31 @@ export interface ApiChapter extends ApiChapterSummary {
   sourceText: string;
 }
 
+export interface ApiChapterContentVariant {
+  id: number;
+  chapterId: number;
+  sourceVariantId: number | null;
+  variantType: "ORIGINAL" | "TRANSLATION";
+  languageCode: string;
+  content: string;
+  contentHash: string;
+  sourceContentHash: string | null;
+  translationProvider: string | null;
+  translationModel: string | null;
+  translationStatus: string;
+  createdAt: string;
+}
+
+export interface ApiChapterLanguageStatus {
+  sourceVariantId: number;
+  detectedLanguage: string | null;
+  confidence: number | null;
+  detector: string | null;
+  projectLanguage: string;
+  translationStatus: string;
+  existingTranslationVariantId: number | null;
+}
+
 export interface ApiChapterWorkspaceSummary {
   sceneCount: number;
   visualBeatCount: number;

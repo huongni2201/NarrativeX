@@ -21,6 +21,9 @@
               'chapterId', CAST(#{chapterId,jdbcType=BIGINT} AS BIGINT),
               'chapterRowVersion', CAST(#{chapterRowVersion,jdbcType=BIGINT} AS BIGINT),
               'sourceHash', #{sourceHash,jdbcType=VARCHAR},
+              'contentVariantId', CAST(#{contentVariantId,jdbcType=BIGINT} AS BIGINT),
+              'sourceVariantId', CAST(#{sourceVariantId,jdbcType=BIGINT} AS BIGINT),
+              'targetLanguage', #{targetLanguage,jdbcType=VARCHAR},
               'mediaPlanId', CAST(#{mediaPlanId,jdbcType=OTHER,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler} AS UUID),
               'mediaPlanRevision', CAST(#{mediaPlanRevision,jdbcType=INTEGER} AS INTEGER),
               'productionMode', CAST(#{productionMode,jdbcType=VARCHAR} AS TEXT)

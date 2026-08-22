@@ -8,4 +8,9 @@ package com.narrativex.backend.feature.storyboard.application.port.in;
 public interface ChapterAnalysisSourceAccess {
   ChapterAnalysisSource requireOwnedForAnalysisLocked(
       Long projectId, Long chapterId, String userId);
+
+  default ChapterAnalysisSource requireOwnedForAnalysisLocked(
+      Long projectId, Long chapterId, String userId, Long contentVariantId) {
+    return requireOwnedForAnalysisLocked(projectId, chapterId, userId);
+  }
 }

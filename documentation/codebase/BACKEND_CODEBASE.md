@@ -26,6 +26,11 @@ Chapter and Scene are independent aggregate roots. Chapter owns Chapter-level so
 
 ## Chapter analysis boundary
 
+- Chapter input is also persisted as immutable `chapter_content_variants` originals. Language
+  detection is hash-bound; a high-confidence mismatch with the project's analysis language is
+  exposed as a user confirmation state. Confirmed translations enter the durable
+  `CHAPTER_TRANSLATE` job/outbox path and analysis snapshots can pin an explicit variant.
+
 - Creating a Project is metadata-only and never implicitly starts AI/media work.
 - Chapter source is persisted before analysis.
 - Analysis is explicitly requested through `POST /api/v1/projects/{projectId}/chapters/{chapterId}/analysis-jobs`.

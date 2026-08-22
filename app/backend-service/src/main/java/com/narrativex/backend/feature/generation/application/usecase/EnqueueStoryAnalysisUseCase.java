@@ -45,8 +45,11 @@ public class EnqueueStoryAnalysisUseCase {
     // Authorize the project/chapter scope before acquiring the Chapter advisory lock. The lock is
     // then held through admission, quota reservation, revision/job creation, and outbox.
     var chapter =
-        chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(
-            command.projectId(), command.chapterId(), userId);
+        command.contentVariantId() == null
+            ? chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(
+                command.projectId(), command.chapterId(), userId)
+            : chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(
+                command.projectId(), command.chapterId(), userId, command.contentVariantId());
     var project = projectAccess.findOwnedProject(command.projectId(), userId);
 
     if (chapter.sourceText().isBlank()) {
@@ -73,8 +76,11 @@ public class EnqueueStoryAnalysisUseCase {
     var estimate = admission.estimate();
 
     Long storyboardRevisionId =
-        storyboardRevisionAccess.createDraft(
-            command.chapterId(), chapter.sourceHash(), chapter.rowVersion());
+        chapter.contentVariantId() == null
+            ? storyboardRevisionAccess.createDraft(
+                command.chapterId(), chapter.sourceHash(), chapter.rowVersion())
+            : storyboardRevisionAccess.createDraft(
+                command.chapterId(), chapter.sourceHash(), chapter.rowVersion(), chapter.contentVariantId());
 
     OperationPlan operationPlan =
         operationPlanRepository.save(
@@ -97,7 +103,8 @@ public class EnqueueStoryAnalysisUseCase {
                 chapter.sourceText(),
                 project.getSourceLanguage(),
                 idempotencyKey,
-                userId));
+                userId,
+                chapter.contentVariantId()));
 
     quotaReservation.bindToGenerationJob(admission.reservation().id(), job.getId());
     operationPlanRepository.save(operationPlan.withGenerationJobId(job.getId()));

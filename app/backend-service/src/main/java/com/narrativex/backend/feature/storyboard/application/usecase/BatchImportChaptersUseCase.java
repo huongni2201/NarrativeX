@@ -9,6 +9,7 @@ import com.narrativex.backend.feature.storyboard.application.port.out.ChapterDoc
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
 import com.narrativex.backend.feature.storyboard.application.service.ChapterImportSplitter;
 import com.narrativex.backend.feature.storyboard.application.service.ChapterSourceHasher;
+import com.narrativex.backend.feature.storyboard.application.service.ChapterContentImportService;
 import com.narrativex.backend.feature.storyboard.domain.aggregate.Chapter;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -30,6 +31,7 @@ public class BatchImportChaptersUseCase {
   private final ChapterImportSplitter splitter;
   private final ChapterSourceHasher sourceHasher;
   private final NarrativeXLimitsProperties limits;
+  private final ChapterContentImportService contentImportService;
 
   @Transactional
   public List<ChapterResponse> execute(
@@ -64,12 +66,13 @@ public class BatchImportChaptersUseCase {
       var normalized = sourceHasher.normalizeAndHash(draft.sourceText());
       Chapter saved =
           chapterRepository.saveAndFlush(
-              new Chapter(
+          new Chapter(
                   storyVersionId,
                   nextOrderIndex,
                   draft.title(),
                   normalized.text(),
                   normalized.hash()));
+      contentImportService.importOriginal(saved.getId(), saved.getSourceText(), saved.getSourceHash());
       imported.add(ChapterResponse.from(saved));
       nextOrderIndex++;
     }

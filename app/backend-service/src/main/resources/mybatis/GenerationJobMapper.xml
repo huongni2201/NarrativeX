@@ -30,6 +30,9 @@
                 typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
         <result property="mediaPlanRevision" column="media_plan_revision" />
         <result property="productionMode" column="production_mode" />
+        <result property="contentVariantId" column="content_variant_id" />
+        <result property="sourceVariantId" column="source_variant_id" />
+        <result property="targetLanguage" column="target_language" />
     </resultMap>
 
     <sql id="columns">
@@ -37,7 +40,7 @@
         resource_class, progress, current_step, error_code, requested_by_user_id,
         billed_to_user_id, story_version_id, chapter_id, chapter_row_version, source_hash,
         source_text, source_language, idempotency_key, storyboard_revision_id, media_plan_id,
-        media_plan_revision, production_mode
+        media_plan_revision, production_mode, content_variant_id, source_variant_id, target_language
     </sql>
 
     <select id="insert"
@@ -47,14 +50,15 @@
             (job_id, project_id, job_type, status, resource_class, progress, current_step,
              error_code, requested_by_user_id, billed_to_user_id, story_version_id, chapter_id,
              chapter_row_version, source_hash, source_text, source_language, idempotency_key,
-             storyboard_revision_id, media_plan_id, media_plan_revision, production_mode)
+             storyboard_revision_id, media_plan_id, media_plan_revision, production_mode,
+             content_variant_id, source_variant_id, target_language)
         VALUES
             (#{jobId}, #{projectId}, #{type}, #{status}, #{resourceClass}, #{progress}, #{currentStep},
              #{errorCode}, #{requestedByUserId}, #{billedToUserId}, #{storyVersionId}, #{chapterId},
              #{chapterRowVersion}, #{sourceHash}, #{sourceText}, #{sourceLanguage}, #{idempotencyKey},
              #{storyboardRevisionId},
              #{mediaPlanId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
-             #{mediaPlanRevision}, #{productionMode})
+             #{mediaPlanRevision}, #{productionMode}, #{contentVariantId}, #{sourceVariantId}, #{targetLanguage})
         RETURNING id
     </select>
 
@@ -82,6 +86,9 @@
                media_plan_id = #{mediaPlanId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
                media_plan_revision = #{mediaPlanRevision},
                production_mode = #{productionMode},
+               content_variant_id = #{contentVariantId},
+               source_variant_id = #{sourceVariantId},
+               target_language = #{targetLanguage},
                updated_at = CURRENT_TIMESTAMP,
                row_version = row_version + 1
          WHERE id = #{id}
@@ -101,7 +108,8 @@
             j.requested_by_user_id, j.billed_to_user_id, j.story_version_id, j.chapter_id,
             j.chapter_row_version, j.source_hash, j.source_text, j.source_language,
             j.idempotency_key, j.storyboard_revision_id, j.media_plan_id,
-            j.media_plan_revision, j.production_mode
+            j.media_plan_revision, j.production_mode, j.content_variant_id, j.source_variant_id,
+            j.target_language
           FROM generation_jobs j
           JOIN projects p ON p.id = j.project_id
          WHERE j.job_id = #{jobId}

@@ -7,5 +7,6 @@ public interface ChapterAnalysisSnapshotMapper extends NarrativeXMyBatisMapper {
   ChapterAnalysisSnapshotRow findOwned(
       @Param("projectId") Long projectId,
       @Param("chapterId") Long chapterId,
-      @Param("userId") String userId);
+      @Param("userId") String userId,
+      @Param("contentVariantId") Long contentVariantId);
 }

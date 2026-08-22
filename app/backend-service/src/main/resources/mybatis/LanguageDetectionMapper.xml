@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.LanguageDetectionMapper">
+    <resultMap id="detectionRow" type="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.LanguageDetectionRow">
+        <id property="id" column="id"/><result property="contentVariantId" column="content_variant_id"/>
+        <result property="detectedLanguage" column="detected_language"/><result property="confidence" column="confidence"/>
+        <result property="detector" column="detector"/><result property="contentHash" column="content_hash"/>
+        <result property="detectedAt" column="created_at"/>
+    </resultMap>
+    <select id="insert" parameterType="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.LanguageDetectionRow" resultType="long" affectData="true">
+        INSERT INTO language_detections (content_variant_id, detected_language, confidence, detector, content_hash)
+        VALUES (#{contentVariantId}, #{detectedLanguage}, #{confidence}, #{detector}, #{contentHash})
+        ON CONFLICT (content_variant_id, content_hash, detector) DO NOTHING
+        RETURNING id
+    </select>
+    <select id="findLatest" resultMap="detectionRow">
+        SELECT * FROM language_detections WHERE content_variant_id = #{contentVariantId} AND content_hash = #{contentHash}
+        ORDER BY created_at DESC, id DESC LIMIT 1
+    </select>
+</mapper>

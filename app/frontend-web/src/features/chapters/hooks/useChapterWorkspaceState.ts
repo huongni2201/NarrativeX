@@ -6,6 +6,7 @@ import { chaptersApi } from "@/features/chapters/api/chapters.api";
 import { queryKeys } from "@/lib/query-keys";
 import { ApiClientError, apiErrorMessage } from "@/shared/api/client";
 import { ACTIVE_JOB_STATUSES, TERMINAL_JOB_STATUSES } from "@/types/api";
+import type { ApiChapterLanguageStatus } from "@/types/api";
 
 export type WorkspaceTab = "overview" | "content" | "storyboard" | "visuals" | "audio" | "render";
 
@@ -43,12 +44,21 @@ export function useChapterWorkspaceState(projectId: string, chapterId: string) {
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [analysisJobId, setAnalysisJobId] = useState<string | null>(null);
   const [analysisMessage, setAnalysisMessage] = useState<string | null>(null);
+  const [translationPromptOpen, setTranslationPromptOpen] = useState(false);
 
   const workspaceQuery = useQuery({
     queryKey: validIds
       ? queryKeys.chapterWorkspace(numericProjectId, numericChapterId)
       : ["chapter-workspace", "invalid"],
     queryFn: () => chaptersApi.getWorkspace(numericProjectId, numericChapterId),
+    enabled: validIds,
+  });
+
+  const languageStatusQuery = useQuery<ApiChapterLanguageStatus>({
+    queryKey: validIds
+      ? queryKeys.chapterLanguageStatus(numericProjectId, numericChapterId)
+      : ["chapter-language-status", "invalid"],
+    queryFn: () => chaptersApi.getLanguageStatus(numericProjectId, numericChapterId),
     enabled: validIds,
   });
 
@@ -118,8 +128,9 @@ export function useChapterWorkspaceState(projectId: string, chapterId: string) {
     },
   });
 
-  const analyzeChapter = useMutation({
-    mutationFn: () => chaptersApi.analyze(numericProjectId, numericChapterId),
+  const analyzeChapterMutation = useMutation({
+    mutationFn: (contentVariantId: number | undefined) =>
+      chaptersApi.analyze(numericProjectId, numericChapterId, contentVariantId),
     onMutate: () => setAnalysisMessage("Đang tạo analysis job…"),
     onSuccess: (job) => {
       setAnalysisJobId(job.jobId);
@@ -144,7 +155,27 @@ export function useChapterWorkspaceState(projectId: string, chapterId: string) {
     },
   });
 
-  const analysisJob = analysisJobQuery.data ?? analyzeChapter.data;
+  const confirmTranslation = useMutation({
+    mutationFn: () => {
+      const status = languageStatusQuery.data;
+      if (!status?.sourceVariantId) throw new Error("Chưa có bản gốc hợp lệ để dịch.");
+      return chaptersApi.confirmTranslation(numericProjectId, numericChapterId, {
+        sourceVariantId: status.sourceVariantId,
+        sourceContentHash: workspaceQuery.data?.chapter.sourceHash ?? "",
+        targetLanguage: status.projectLanguage,
+      });
+    },
+    onSuccess: (job) => {
+      setTranslationPromptOpen(false);
+      setAnalysisMessage(`Đã xếp hàng bản dịch (${job.status.toLowerCase()}).`);
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.chapterLanguageStatus(numericProjectId, numericChapterId),
+      });
+    },
+    onError: (error) => setAnalysisMessage(apiErrorMessage(error, "Không thể bắt đầu dịch Chapter.")),
+  });
+
+  const analysisJob = analysisJobQuery.data ?? analyzeChapterMutation.data;
   const analysisActive = Boolean(
     analysisJob?.status && ACTIVE_JOB_STATUSES.has(analysisJob.status),
   );
@@ -241,7 +272,23 @@ export function useChapterWorkspaceState(projectId: string, chapterId: string) {
     saveMessage,
     saving: updateChapter.isPending,
     saveChapter: () => updateChapter.mutate(),
-    analyzeChapter: () => analyzeChapter.mutate(),
+    analyzeChapter: () => {
+      const status = languageStatusQuery.data;
+      if (status?.translationStatus === "PENDING_CONFIRMATION") {
+        setTranslationPromptOpen(true);
+        return;
+      }
+      analyzeChapterMutation.mutate(status?.existingTranslationVariantId ?? status?.sourceVariantId);
+    },
+    analyzeOriginal: () => {
+      setTranslationPromptOpen(false);
+      analyzeChapterMutation.mutate(languageStatusQuery.data?.sourceVariantId);
+    },
+    confirmTranslation: () => confirmTranslation.mutate(),
+    confirmingTranslation: confirmTranslation.isPending,
+    languageStatus: languageStatusQuery.data ?? null,
+    translationPromptOpen,
+    closeTranslationPrompt: () => setTranslationPromptOpen(false),
     analysisJob,
     analysisActive,
     analysisMessage,

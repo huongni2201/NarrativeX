@@ -1,11 +1,12 @@
 package com.narrativex.backend.feature.storyboard.application.port.out;
 
 import com.narrativex.backend.feature.common.pagination.CursorPage;
+import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAccess;
 import com.narrativex.backend.feature.storyboard.domain.aggregate.Chapter;
 import java.util.List;
 import java.util.Optional;
 
-public interface ChapterRepository {
+public interface ChapterRepository extends ChapterAccess {
   Chapter save(Chapter chapter);
 
   Chapter saveAndFlush(Chapter chapter);

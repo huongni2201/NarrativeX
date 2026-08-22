@@ -25,8 +25,13 @@ public class MyBatisStoryboardRevisionAccess implements StoryboardRevisionAccess
 
   @Override
   public Long createDraft(Long chapterId, String sourceHash, long sourceRowVersion) {
+    return createDraft(chapterId, sourceHash, sourceRowVersion, null);
+  }
+
+  @Override
+  public Long createDraft(Long chapterId, String sourceHash, long sourceRowVersion, Long contentVariantId) {
     Objects.requireNonNull(sourceHash, "sourceHash");
-    Long revisionId = mapper.createDraft(chapterId, sourceHash, sourceRowVersion);
+    Long revisionId = mapper.createDraft(chapterId, sourceHash, sourceRowVersion, contentVariantId);
     if (revisionId == null) {
       throw new IllegalStateException("Failed to create storyboard revision for chapter " + chapterId);
     }

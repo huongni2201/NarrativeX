@@ -35,6 +35,12 @@ export function ChapterEditor({ projectId, chapterId }: Readonly<ChapterEditorPr
     saving,
     saveChapter,
     analyzeChapter,
+    analyzeOriginal,
+    confirmTranslation,
+    confirmingTranslation,
+    languageStatus,
+    translationPromptOpen,
+    closeTranslationPrompt,
     analysisJob,
     analysisActive,
     analysisMessage,
@@ -154,6 +160,12 @@ export function ChapterEditor({ projectId, chapterId }: Readonly<ChapterEditorPr
           analyzeDisabled={analyzeDisabled}
           analysisActive={analysisActive}
           onAnalyze={analyzeChapter}
+          onAnalyzeOriginal={analyzeOriginal}
+          onConfirmTranslation={confirmTranslation}
+          confirmingTranslation={confirmingTranslation}
+          languageStatus={languageStatus}
+          translationPromptOpen={translationPromptOpen}
+          onCloseTranslationPrompt={closeTranslationPrompt}
           onEdit={startEditing}
           onOpenStoryboard={() => setActiveTab("storyboard")}
         />

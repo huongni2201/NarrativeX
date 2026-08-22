@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSource;
+import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardRevisionAccess;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterAnalysisSnapshotMapper;
 import com.narrativex.backend.support.PostgreSqlIntegrationTestSupport;
 import java.util.UUID;
@@ -13,6 +14,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -23,6 +26,16 @@ class MyBatisChapterAnalysisSnapshotRepositoryIntegrationTest
 
   @Autowired private JdbcTemplate jdbcTemplate;
   @Autowired private ChapterAnalysisSnapshotMapper mapper;
+  @Autowired private PlatformTransactionManager transactionManager;
+  @Autowired private StoryboardRevisionAccess storyboardRevisionAccess;
+
+  @Test
+  void chapterAdvisoryLockMapsItsIntegerSentinel() {
+    long chapterId = insertChapter("owner-lock");
+
+    new TransactionTemplate(transactionManager)
+        .executeWithoutResult(status -> storyboardRevisionAccess.lockChapter(chapterId));
+  }
 
   @Test
   void returnsSnapshotOnlyForTheRequestedOwnedProjectScope() {

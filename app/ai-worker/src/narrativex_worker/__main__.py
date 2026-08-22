@@ -8,6 +8,7 @@ from narrativex_worker.config import WorkerSettings, get_settings
 from narrativex_worker.media_validation_worker import MediaValidationWorkerRunner
 from narrativex_worker.narration.runner import NarrationWorkerRunner
 from narrativex_worker.worker import NarrativeXWorker
+from narrativex_worker.translation_worker import TranslationWorkerRunner
 
 
 def parse_args() -> argparse.Namespace:
@@ -25,26 +26,29 @@ async def run_workers(settings: WorkerSettings, *, dry_run: bool) -> None:
     # independently consume max_concurrent_jobs, doubling provider pressure and DB work.
     concurrency_gate = asyncio.Semaphore(settings.worker_concurrency)
     analysis_worker = NarrativeXWorker(settings=settings, concurrency_gate=concurrency_gate)
+    translation_worker = TranslationWorkerRunner(settings=settings, concurrency_gate=concurrency_gate)
     narration_worker = NarrationWorkerRunner(settings=settings, concurrency_gate=concurrency_gate)
     media_validation_worker = MediaValidationWorkerRunner(
         settings=settings, concurrency_gate=concurrency_gate
     )
     if dry_run:
         await analysis_worker.start(dry_run=True)
+        await translation_worker.start(dry_run=True)
         await narration_worker.start(dry_run=True)
         await media_validation_worker.start(dry_run=True)
         return
 
     analysis_task = asyncio.create_task(analysis_worker.start())
+    translation_task = asyncio.create_task(translation_worker.start())
     media_validation_task = asyncio.create_task(media_validation_worker.start())
     if not narration_worker.enabled:
-        await asyncio.gather(analysis_task, media_validation_task)
+        await asyncio.gather(analysis_task, translation_task, media_validation_task)
         return
 
     narration_task = asyncio.create_task(narration_worker.start())
     try:
         done, _ = await asyncio.wait(
-            {analysis_task, narration_task, media_validation_task},
+            {analysis_task, translation_task, narration_task, media_validation_task},
             return_when=asyncio.FIRST_COMPLETED,
         )
         for task in done:
@@ -53,12 +57,13 @@ async def run_workers(settings: WorkerSettings, *, dry_run: bool) -> None:
             raise RuntimeError("Narration worker stopped unexpectedly")
     finally:
         analysis_worker.stop()
+        translation_worker.stop()
         narration_worker.stop()
         media_validation_worker.stop()
-        for task in (analysis_task, narration_task, media_validation_task):
+        for task in (analysis_task, translation_task, narration_task, media_validation_task):
             if not task.done():
                 task.cancel()
-        await asyncio.gather(analysis_task, narration_task, return_exceptions=True)
+        await asyncio.gather(analysis_task, translation_task, narration_task, return_exceptions=True)
 
 
 def main() -> None:

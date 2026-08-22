@@ -94,7 +94,10 @@ public class MyBatisGenerationJobPersistenceAdapter implements GenerationJobRepo
         job.getStoryboardRevisionId(),
         job.getMediaPlanId(),
         job.getMediaPlanRevision(),
-        job.getProductionMode());
+        job.getProductionMode(),
+        job.getContentVariantId(),
+        job.getSourceVariantId(),
+        job.getTargetLanguage());
   }
 
   private static GenerationJob toDomain(GenerationJobRow row) {
@@ -119,6 +122,9 @@ public class MyBatisGenerationJobPersistenceAdapter implements GenerationJobRepo
         row.getSourceText(),
         row.getSourceLanguage(),
         row.getIdempotencyKey(),
+        row.getContentVariantId(),
+        row.getSourceVariantId(),
+        row.getTargetLanguage(),
         row.getMediaPlanId(),
         row.getMediaPlanRevision(),
         row.getProductionMode());

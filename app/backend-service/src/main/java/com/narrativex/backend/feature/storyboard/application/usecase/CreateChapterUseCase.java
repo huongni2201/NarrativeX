@@ -10,6 +10,7 @@ import com.narrativex.backend.feature.storyboard.api.response.ChapterResponse;
 import com.narrativex.backend.feature.storyboard.application.command.CreateChapterCommand;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
 import com.narrativex.backend.feature.storyboard.application.service.ChapterSourceHasher;
+import com.narrativex.backend.feature.storyboard.application.service.ChapterContentImportService;
 import com.narrativex.backend.feature.storyboard.domain.aggregate.Chapter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -22,6 +23,7 @@ public class CreateChapterUseCase {
   private final StoryVersionAccess storyVersionAccess;
   private final ChapterRepository chapterRepository;
   private final ChapterSourceHasher sourceHasher;
+  private final ChapterContentImportService contentImportService;
   private final NarrativeXLimitsProperties limits;
 
   @Transactional
@@ -44,6 +46,7 @@ public class CreateChapterUseCase {
             normalized.text(),
             normalized.hash());
     Chapter saved = chapterRepository.saveAndFlush(chapter);
+    contentImportService.importOriginal(saved.getId(), saved.getSourceText(), saved.getSourceHash());
     return ApiResponse.success("Chapter created successfully", ChapterResponse.from(saved));
   }
 

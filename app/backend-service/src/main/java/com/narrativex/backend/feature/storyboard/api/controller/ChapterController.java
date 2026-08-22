@@ -3,8 +3,13 @@ package com.narrativex.backend.feature.storyboard.api.controller;
 import com.narrativex.backend.feature.common.pagination.CursorPage;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.storyboard.api.request.CreateChapterRequest;
+import com.narrativex.backend.feature.storyboard.api.request.ImportChapterContentRequest;
 import com.narrativex.backend.feature.storyboard.api.request.UpdateChapterRequest;
+import com.narrativex.backend.feature.storyboard.api.response.ChapterContentImportResponse;
+import com.narrativex.backend.feature.storyboard.api.response.ChapterContentVariantResponse;
+import com.narrativex.backend.feature.storyboard.api.response.ChapterLanguageStatusResponse;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterResponse;
+import com.narrativex.backend.feature.storyboard.application.command.ImportChapterContentCommand;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterSummaryResponse;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterWorkspaceResponse;
 import com.narrativex.backend.feature.storyboard.application.command.CreateChapterCommand;
@@ -13,6 +18,9 @@ import com.narrativex.backend.feature.storyboard.application.usecase.BatchImport
 import com.narrativex.backend.feature.storyboard.application.usecase.CreateChapterUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.GetChapterUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.GetChapterWorkspaceUseCase;
+import com.narrativex.backend.feature.storyboard.application.usecase.GetChapterLanguageStatusUseCase;
+import com.narrativex.backend.feature.storyboard.application.usecase.ImportChapterContentUseCase;
+import com.narrativex.backend.feature.storyboard.application.usecase.ListChapterContentVariantsUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.ListChaptersUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.UpdateChapterUseCase;
 import jakarta.validation.Valid;
@@ -45,6 +53,9 @@ public class ChapterController {
   private final GetChapterWorkspaceUseCase getChapterWorkspaceUseCase;
   private final ListChaptersUseCase listChaptersUseCase;
   private final UpdateChapterUseCase updateChapterUseCase;
+  private final ImportChapterContentUseCase importChapterContentUseCase;
+  private final GetChapterLanguageStatusUseCase getChapterLanguageStatusUseCase;
+  private final ListChapterContentVariantsUseCase listChapterContentVariantsUseCase;
 
   @PostMapping
   public ResponseEntity<ApiResponse<ChapterResponse>> create(
@@ -119,6 +130,28 @@ public class ChapterController {
     return ResponseEntity.ok()
         .header(HttpHeaders.ETAG, quotedVersion(response.data().rowVersion()))
         .body(response);
+  }
+
+  @PostMapping("/{chapterId}/content")
+  public ResponseEntity<ApiResponse<ChapterContentImportResponse>> importContent(
+      @PathVariable Long projectId,
+      @PathVariable Long chapterId,
+      @Valid @RequestBody ImportChapterContentRequest request) {
+    return ResponseEntity.accepted()
+        .body(importChapterContentUseCase.execute(
+            new ImportChapterContentCommand(projectId, chapterId, request.content(), request.title())));
+  }
+
+  @GetMapping("/{chapterId}/language-status")
+  public ResponseEntity<ApiResponse<ChapterLanguageStatusResponse>> languageStatus(
+      @PathVariable Long projectId, @PathVariable Long chapterId) {
+    return ResponseEntity.ok(getChapterLanguageStatusUseCase.execute(projectId, chapterId));
+  }
+
+  @GetMapping("/{chapterId}/content-variants")
+  public ResponseEntity<ApiResponse<List<ChapterContentVariantResponse>>> contentVariants(
+      @PathVariable Long projectId, @PathVariable Long chapterId) {
+    return ResponseEntity.ok(listChapterContentVariantsUseCase.execute(projectId, chapterId));
   }
 
   private static long parseExpectedVersion(String value) {

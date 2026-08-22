@@ -31,6 +31,9 @@ public final class GenerationJob extends AggregateRoot {
   private final UUID mediaPlanId;
   private final Integer mediaPlanRevision;
   private final ProductionMode productionMode;
+  private final Long contentVariantId;
+  private final Long sourceVariantId;
+  private final String targetLanguage;
 
   private GenerationJob(
       Long id,
@@ -56,6 +59,39 @@ public final class GenerationJob extends AggregateRoot {
       UUID mediaPlanId,
       Integer mediaPlanRevision,
       ProductionMode productionMode) {
+    this(id, rowVersion, jobId, projectId, type, status, resourceClass, progress, currentStep,
+        errorCode, requestedByUserId, billedToUserId, storyVersionId, chapterId,
+        storyboardRevisionId, chapterRowVersion, sourceHash, sourceText, sourceLanguage,
+        idempotencyKey, mediaPlanId, mediaPlanRevision, productionMode, null, null, null);
+  }
+
+  private GenerationJob(
+      Long id,
+      long rowVersion,
+      String jobId,
+      Long projectId,
+      JobType type,
+      JobStatus status,
+      ResourceClass resourceClass,
+      int progress,
+      String currentStep,
+      String errorCode,
+      String requestedByUserId,
+      String billedToUserId,
+      Long storyVersionId,
+      Long chapterId,
+      Long storyboardRevisionId,
+      Long chapterRowVersion,
+      String sourceHash,
+      String sourceText,
+      String sourceLanguage,
+      String idempotencyKey,
+      UUID mediaPlanId,
+      Integer mediaPlanRevision,
+      ProductionMode productionMode,
+      Long contentVariantId,
+      Long sourceVariantId,
+      String targetLanguage) {
     super(id, rowVersion);
     this.jobId = required(jobId, "jobId");
     if (projectId == null || projectId <= 0) {
@@ -85,6 +121,9 @@ public final class GenerationJob extends AggregateRoot {
     this.mediaPlanId = mediaPlanId;
     this.mediaPlanRevision = mediaPlanRevision;
     this.productionMode = productionMode;
+    this.contentVariantId = contentVariantId;
+    this.sourceVariantId = sourceVariantId;
+    this.targetLanguage = targetLanguage;
   }
 
   public static GenerationJob create(
@@ -126,6 +165,22 @@ public final class GenerationJob extends AggregateRoot {
       String sourceLanguage,
       String idempotencyKey,
       String userId) {
+    return createChapterAnalysis(projectId, storyVersionId, chapterId, storyboardRevisionId,
+        chapterRowVersion, sourceHash, sourceText, sourceLanguage, idempotencyKey, userId, null);
+  }
+
+  public static GenerationJob createChapterAnalysis(
+      Long projectId,
+      Long storyVersionId,
+      Long chapterId,
+      Long storyboardRevisionId,
+      long chapterRowVersion,
+      String sourceHash,
+      String sourceText,
+      String sourceLanguage,
+      String idempotencyKey,
+      String userId,
+      Long contentVariantId) {
     if (storyVersionId == null || storyVersionId <= 0) {
       throw new IllegalArgumentException("storyVersionId must be positive");
     }
@@ -161,7 +216,31 @@ public final class GenerationJob extends AggregateRoot {
         required(idempotencyKey, "idempotencyKey"),
         null,
         null,
+        null,
+        contentVariantId,
+        contentVariantId,
         null);
+  }
+
+  public static GenerationJob createChapterTranslation(
+      Long projectId,
+      Long storyVersionId,
+      Long chapterId,
+      Long sourceVariantId,
+      long chapterRowVersion,
+      String sourceHash,
+      String sourceText,
+      String sourceLanguage,
+      String targetLanguage,
+      String idempotencyKey,
+      String userId) {
+    return new GenerationJob(
+        null, 0L, UUID.randomUUID().toString(), projectId, JobType.CHAPTER_TRANSLATE,
+        JobStatus.QUEUED, ResourceClass.PROVIDER_INTERACTIVE, 0, "QUEUED", null, userId, userId,
+        storyVersionId, chapterId, null, chapterRowVersion, required(sourceHash, "sourceHash"),
+        required(sourceText, "sourceText"), required(sourceLanguage, "sourceLanguage"),
+        required(idempotencyKey, "idempotencyKey"), null, null, null, sourceVariantId,
+        sourceVariantId, required(targetLanguage, "targetLanguage"));
   }
 
   /** Creates a media job that can only execute the exact persisted media-plan revision supplied. */
@@ -301,6 +380,21 @@ public final class GenerationJob extends AggregateRoot {
   }
 
   public static GenerationJob rehydrate(
+      Long id, long rowVersion, String jobId, Long projectId, JobType type, JobStatus status,
+      ResourceClass resourceClass, int progress, String currentStep, String errorCode,
+      String requestedByUserId, String billedToUserId, Long storyVersionId, Long chapterId,
+      Long storyboardRevisionId, Long chapterRowVersion, String sourceHash, String sourceText,
+      String sourceLanguage, String idempotencyKey, Long contentVariantId, Long sourceVariantId,
+      String targetLanguage, UUID mediaPlanId, Integer mediaPlanRevision,
+      ProductionMode productionMode) {
+    return new GenerationJob(id, rowVersion, jobId, projectId, type, status, resourceClass,
+        progress, currentStep, errorCode, requestedByUserId, billedToUserId, storyVersionId,
+        chapterId, storyboardRevisionId, chapterRowVersion, sourceHash, sourceText,
+        sourceLanguage, idempotencyKey, mediaPlanId, mediaPlanRevision, productionMode,
+        contentVariantId, sourceVariantId, targetLanguage);
+  }
+
+  public static GenerationJob rehydrate(
       Long id,
       long rowVersion,
       String jobId,
@@ -420,6 +514,18 @@ public final class GenerationJob extends AggregateRoot {
 
   public String getIdempotencyKey() {
     return idempotencyKey;
+  }
+
+  public Long getContentVariantId() {
+    return contentVariantId;
+  }
+
+  public Long getSourceVariantId() {
+    return sourceVariantId;
+  }
+
+  public String getTargetLanguage() {
+    return targetLanguage;
   }
 
   public UUID getMediaPlanId() {

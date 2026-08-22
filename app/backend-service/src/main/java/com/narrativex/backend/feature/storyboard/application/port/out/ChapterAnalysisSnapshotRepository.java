@@ -5,4 +5,9 @@ import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnal
 /** Fresh PostgreSQL read model for the ownership-scoped Chapter snapshot consumed by admission. */
 public interface ChapterAnalysisSnapshotRepository {
   ChapterAnalysisSource requireOwnedByProject(Long projectId, Long chapterId, String userId);
+
+  default ChapterAnalysisSource requireOwnedByProject(
+      Long projectId, Long chapterId, String userId, Long contentVariantId) {
+    return requireOwnedByProject(projectId, chapterId, userId);
+  }
 }

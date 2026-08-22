@@ -12,19 +12,49 @@ import com.narrativex.backend.feature.storyboard.application.command.UpdateChapt
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardRevisionAccess;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
 import com.narrativex.backend.feature.storyboard.application.service.ChapterSourceHasher;
-import lombok.RequiredArgsConstructor;
+import com.narrativex.backend.feature.storyboard.application.service.ChapterContentImportService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@RequiredArgsConstructor
 public class UpdateChapterUseCase {
   private final CurrentUserId currentUserId;
   private final StoryVersionAccess storyVersionAccess;
   private final ChapterRepository chapterRepository;
   private final StoryboardRevisionAccess storyboardRevisionAccess;
   private final ChapterSourceHasher sourceHasher;
+  private final ChapterContentImportService contentImportService;
   private final NarrativeXLimitsProperties limits;
+
+  @Autowired
+  public UpdateChapterUseCase(
+      CurrentUserId currentUserId,
+      StoryVersionAccess storyVersionAccess,
+      ChapterRepository chapterRepository,
+      StoryboardRevisionAccess storyboardRevisionAccess,
+      ChapterSourceHasher sourceHasher,
+      ChapterContentImportService contentImportService,
+      NarrativeXLimitsProperties limits) {
+    this.currentUserId = currentUserId;
+    this.storyVersionAccess = storyVersionAccess;
+    this.chapterRepository = chapterRepository;
+    this.storyboardRevisionAccess = storyboardRevisionAccess;
+    this.sourceHasher = sourceHasher;
+    this.contentImportService = contentImportService;
+    this.limits = limits;
+  }
+
+  public UpdateChapterUseCase(
+      CurrentUserId currentUserId,
+      StoryVersionAccess storyVersionAccess,
+      ChapterRepository chapterRepository,
+      StoryboardRevisionAccess storyboardRevisionAccess,
+      ChapterSourceHasher sourceHasher,
+      NarrativeXLimitsProperties limits) {
+    this(currentUserId, storyVersionAccess, chapterRepository, storyboardRevisionAccess,
+        sourceHasher, null, limits);
+  }
 
   @Transactional
   public ApiResponse<ChapterResponse> execute(UpdateChapterCommand command) {
@@ -52,6 +82,9 @@ public class UpdateChapterUseCase {
     chapter.rename(command.title());
     chapter.updateSource(normalized.text(), normalized.hash());
     var saved = chapterRepository.saveAndFlush(chapter);
+    if (contentImportService != null) {
+      contentImportService.importOriginal(saved.getId(), saved.getSourceText(), saved.getSourceHash());
+    }
     return ApiResponse.success("Chapter updated successfully", ChapterResponse.from(saved));
   }
 

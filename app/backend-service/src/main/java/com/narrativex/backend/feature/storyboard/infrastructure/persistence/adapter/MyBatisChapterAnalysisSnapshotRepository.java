@@ -16,11 +16,18 @@ public class MyBatisChapterAnalysisSnapshotRepository
 
   @Override
   public ChapterAnalysisSource requireOwnedByProject(Long projectId, Long chapterId, String userId) {
-    ChapterAnalysisSnapshotRow row = mapper.findOwned(projectId, chapterId, userId);
+    return requireOwnedByProject(projectId, chapterId, userId, null);
+  }
+
+  @Override
+  public ChapterAnalysisSource requireOwnedByProject(
+      Long projectId, Long chapterId, String userId, Long contentVariantId) {
+    ChapterAnalysisSnapshotRow row = mapper.findOwned(projectId, chapterId, userId, contentVariantId);
     if (row == null) {
       throw new ResourceNotFoundException("Chapter not found");
     }
     return new ChapterAnalysisSource(
-        row.getId(), row.getStoryVersionId(), row.getRowVersion(), row.getSourceHash(), row.getSourceText());
+        row.getId(), row.getStoryVersionId(), row.getRowVersion(), row.getSourceHash(), row.getSourceText(),
+        row.getContentVariantId(), row.getLanguage(), row.getOriginVariantId());
   }
 }

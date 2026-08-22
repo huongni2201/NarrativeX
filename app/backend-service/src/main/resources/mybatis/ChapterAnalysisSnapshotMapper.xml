@@ -9,13 +9,21 @@
         <result property="rowVersion" column="row_version"/>
         <result property="sourceHash" column="source_hash"/>
         <result property="sourceText" column="source_text"/>
+        <result property="contentVariantId" column="content_variant_id"/>
+        <result property="language" column="language_code"/>
+        <result property="originVariantId" column="source_variant_id"/>
     </resultMap>
     <select id="findOwned" resultMap="chapterAnalysisSnapshotRow">
-        SELECT c.id, c.story_version_id, c.row_version, c.source_hash, c.source_text
+        SELECT c.id, c.story_version_id, c.row_version, v.content_hash AS source_hash, v.content AS source_text,
+               v.id AS content_variant_id, v.language_code, v.source_variant_id
           FROM chapters c
           JOIN story_versions sv ON sv.id = c.story_version_id
           JOIN projects p ON p.id = sv.project_id
-         WHERE c.id = #{chapterId} AND p.id = #{projectId}
+          JOIN chapter_content_variants v ON v.chapter_id = c.id
+          WHERE c.id = #{chapterId} AND p.id = #{projectId}
            AND p.owner_id = #{userId} AND p.archived_at IS NULL
+           AND (((#{contentVariantId} IS NULL) AND v.variant_type = 'ORIGINAL' AND v.content_hash = c.source_hash)
+                OR v.id = #{contentVariantId})
+         ORDER BY v.created_at DESC, v.id DESC LIMIT 1
     </select>
 </mapper>

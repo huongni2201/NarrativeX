@@ -8,6 +8,10 @@ public interface StoryboardRevisionAccess {
 
   Long createDraft(Long chapterId, String sourceHash, long sourceRowVersion);
 
+  default Long createDraft(Long chapterId, String sourceHash, long sourceRowVersion, Long contentVariantId) {
+    return createDraft(chapterId, sourceHash, sourceRowVersion);
+  }
+
   record Snapshot(Long revisionId, String sourceHash, boolean hasApprovedOutput) {
     public static Snapshot empty() {
       return new Snapshot(null, null, false);

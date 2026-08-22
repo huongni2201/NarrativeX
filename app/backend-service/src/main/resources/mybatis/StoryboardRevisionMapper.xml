@@ -17,15 +17,16 @@
          WHERE c.id = #{chapterId}
     </select>
     <select id="lockChapter" resultType="int">
-        SELECT pg_advisory_xact_lock(#{chapterId})
+        SELECT 1
+          FROM pg_advisory_xact_lock(#{chapterId})
     </select>
     <select id="createDraft" resultType="long" affectData="true">
         INSERT INTO storyboard_revisions
-            (chapter_id, revision_number, source_hash, source_row_version, based_on_revision_id, status)
+            (chapter_id, revision_number, source_hash, source_row_version, based_on_revision_id, status, content_variant_id)
         SELECT c.id,
                COALESCE((SELECT MAX(sr.revision_number) + 1 FROM storyboard_revisions sr
                           WHERE sr.chapter_id = c.id), 1),
-               #{sourceHash}, #{sourceRowVersion}, c.current_storyboard_revision_id, 'DRAFT'
+               #{sourceHash}, #{sourceRowVersion}, c.current_storyboard_revision_id, 'DRAFT', #{contentVariantId}
           FROM chapters c
          WHERE c.id = #{chapterId}
         RETURNING id

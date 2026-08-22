@@ -24,4 +24,7 @@ public class GenerationOutboxRow {
   private UUID mediaPlanId;
   private Integer mediaPlanRevision;
   private ProductionMode productionMode;
+  private Long contentVariantId;
+  private Long sourceVariantId;
+  private String targetLanguage;
 }
