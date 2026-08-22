@@ -67,7 +67,24 @@ def test_vieneu_voice_settings_are_available_without_provider_credentials() -> N
 
     assert settings.vieneu_backend == "auto"
     assert settings.vieneu_precision == "int8"
+    assert settings.vieneu_batch_max_segments == 8
+    assert settings.vieneu_max_batch_size == 32
+    assert settings.vieneu_inference_concurrency == 1
+    assert settings.vieneu_save_voice_profile is False
     assert settings.vieneu_apply_watermark is False
+    assert settings.narration_mp3_bitrate == "96k"
+
+
+def test_worker_roles_can_isolate_narration() -> None:
+    settings = WorkerSettings(worker_roles="narration")
+
+    assert settings.has_worker_role("narration")
+    assert not settings.has_worker_role("analysis")
+
+
+def test_unknown_worker_role_is_rejected() -> None:
+    with pytest.raises(ValidationError, match="Unsupported WORKER_ROLES"):
+        WorkerSettings(worker_roles="narration,unknown")
 
 
 def test_image_generation_defaults_to_batch_only_gemini_flash_image() -> None:

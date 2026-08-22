@@ -9,7 +9,7 @@ from typing import Any
 from narrativex_worker.config import WorkerSettings, get_settings
 from narrativex_worker.image_generation_worker import ImageGenerationWorkerRunner
 from narrativex_worker.media_validation_worker import MediaValidationWorkerRunner
-from narrativex_worker.narration.runner import NarrationWorkerRunner
+from narrativex_worker.narration.local_runner import LocalOptimizedNarrationWorkerRunner
 from narrativex_worker.translation_worker import TranslationWorkerRunner
 from narrativex_worker.worker import NarrativeXWorker
 
@@ -35,39 +35,49 @@ def parse_args() -> argparse.Namespace:
 
 
 async def run_workers(settings: WorkerSettings, *, dry_run: bool) -> None:
-    # Both runners share one process-wide provider budget. Without this gate each runner could
-    # independently consume max_concurrent_jobs, doubling provider pressure and DB work.
+    # Selected workers share one process-wide provider budget. Heavy providers are only
+    # instantiated when their role is hosted by this process, allowing narration to be
+    # deployed/scaled independently without loading VieNeu in general-purpose workers.
     concurrency_gate = asyncio.Semaphore(settings.worker_concurrency)
-    analysis_worker = NarrativeXWorker(settings=settings, concurrency_gate=concurrency_gate)
-    translation_worker = TranslationWorkerRunner(
-        settings=settings, concurrency_gate=concurrency_gate
-    )
-    narration_worker = NarrationWorkerRunner(settings=settings, concurrency_gate=concurrency_gate)
-    media_validation_worker = MediaValidationWorkerRunner(
-        settings=settings, concurrency_gate=concurrency_gate
-    )
-    image_worker = ImageGenerationWorkerRunner(settings=settings, concurrency_gate=concurrency_gate)
-    if dry_run:
-        dry_run_workers: list[Any] = [analysis_worker, translation_worker]
+    workers: dict[str, Any] = {}
+
+    if settings.has_worker_role("analysis"):
+        workers["analysis"] = NarrativeXWorker(
+            settings=settings, concurrency_gate=concurrency_gate
+        )
+    if settings.has_worker_role("translation"):
+        workers["translation"] = TranslationWorkerRunner(
+            settings=settings, concurrency_gate=concurrency_gate
+        )
+    if settings.has_worker_role("narration"):
+        narration_worker = LocalOptimizedNarrationWorkerRunner(
+            settings=settings, concurrency_gate=concurrency_gate
+        )
         if narration_worker.enabled:
-            dry_run_workers.append(narration_worker)
+            workers["narration"] = narration_worker
+    if settings.has_worker_role("media-validation"):
+        media_validation_worker = MediaValidationWorkerRunner(
+            settings=settings, concurrency_gate=concurrency_gate
+        )
         if media_validation_worker.enabled:
-            dry_run_workers.append(media_validation_worker)
+            workers["media-validation"] = media_validation_worker
+    if settings.has_worker_role("image-generation"):
+        image_worker = ImageGenerationWorkerRunner(
+            settings=settings, concurrency_gate=concurrency_gate
+        )
         if image_worker.enabled:
-            dry_run_workers.append(image_worker)
-        await asyncio.gather(*(worker.start(dry_run=True) for worker in dry_run_workers))
+            workers["image-generation"] = image_worker
+
+    if not workers:
+        raise RuntimeError("No enabled workers remain after applying WORKER_ROLES/provider modes")
+
+    logging.getLogger("narrativex.worker").info(
+        "Starting worker roles=%s", ",".join(sorted(workers))
+    )
+    if dry_run:
+        await asyncio.gather(*(worker.start(dry_run=True) for worker in workers.values()))
         return
 
-    workers: dict[str, Any] = {
-        "analysis": analysis_worker,
-        "translation": translation_worker,
-    }
-    if narration_worker.enabled:
-        workers["narration"] = narration_worker
-    if media_validation_worker.enabled:
-        workers["media-validation"] = media_validation_worker
-    if image_worker.enabled:
-        workers["image-generation"] = image_worker
     tasks = {name: asyncio.create_task(worker.start()) for name, worker in workers.items()}
     try:
         done, _ = await asyncio.wait(

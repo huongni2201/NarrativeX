@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.catalog.infrastructure.persistence.adapter;
 
+import com.narrativex.backend.feature.catalog.application.port.in.VoiceCatalogAccess;
 import com.narrativex.backend.feature.catalog.application.port.out.CatalogQueryRepository;
 import com.narrativex.backend.feature.catalog.application.query.StylePresetView;
 import com.narrativex.backend.feature.catalog.application.query.VoiceView;
@@ -8,6 +9,7 @@ import com.narrativex.backend.feature.catalog.infrastructure.persistence.mybatis
 import com.narrativex.backend.feature.catalog.infrastructure.persistence.mybatis.VoiceRow;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.type.TypeReference;
@@ -15,7 +17,7 @@ import tools.jackson.databind.ObjectMapper;
 
 @Component
 @RequiredArgsConstructor
-public class MyBatisCatalogQueryAdapter implements CatalogQueryRepository {
+public class MyBatisCatalogQueryAdapter implements CatalogQueryRepository, VoiceCatalogAccess {
   private static final TypeReference<List<String>> TAGS_TYPE = new TypeReference<>() {};
 
   private final CatalogMapper mapper;
@@ -31,17 +33,45 @@ public class MyBatisCatalogQueryAdapter implements CatalogQueryRepository {
     return mapper.listVoices(language).stream().map(this::toVoice).toList();
   }
 
+  @Override
+  public Optional<VoiceCapabilities> findVoice(String voiceId) {
+    return mapper.findVoiceCapabilities(voiceId)
+        .map(
+            row ->
+                new VoiceCapabilities(
+                    row.getId(),
+                    row.getProvider(),
+                    row.isSupportsSpeakingRate(),
+                    row.isSupportsVoiceClone(),
+                    row.isSupportsBatch(),
+                    row.getSampleRateHz(),
+                    row.getExecutionSemantics()));
+  }
+
   private StylePresetView toStylePreset(StylePresetRow row) {
     return new StylePresetView(
-        row.getId(), row.getName(), row.getCategory(), row.getDescription(), row.getThumbnailUrl(),
-        row.getPromptSuffix(), row.getNegativePrompt(), parseTags(row.getTagsJson()),
-        row.getConfigJson(), row.getCreatedAt());
+        row.getId(),
+        row.getName(),
+        row.getCategory(),
+        row.getDescription(),
+        row.getThumbnailUrl(),
+        row.getPromptSuffix(),
+        row.getNegativePrompt(),
+        parseTags(row.getTagsJson()),
+        row.getConfigJson(),
+        row.getCreatedAt());
   }
 
   private VoiceView toVoice(VoiceRow row) {
     return new VoiceView(
-        row.getId(), row.getProvider(), row.getName(), row.getLanguage(), row.getGender(),
-        row.getSampleUrl(), row.getMetadataJson(), row.getUpdatedAt());
+        row.getId(),
+        row.getProvider(),
+        row.getName(),
+        row.getLanguage(),
+        row.getGender(),
+        row.getSampleUrl(),
+        row.getMetadataJson(),
+        row.getUpdatedAt());
   }
 
   private List<String> parseTags(String value) {

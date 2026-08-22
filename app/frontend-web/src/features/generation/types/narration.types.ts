@@ -4,6 +4,10 @@ export interface GenerateNarrationInput {
   voiceReferenceAssetId?: string | null;
 }
 
+export interface GenerateBatchNarrationInput extends GenerateNarrationInput {
+  chapterIds: number[];
+}
+
 export interface VoiceOption {
   id: string;
   name: string;
@@ -12,6 +16,11 @@ export interface VoiceOption {
   style: "Standard" | "Neural" | "Wavenet" | "Studio";
   description: string;
   provider?: string;
+  supportsSpeakingRate?: boolean;
+  supportsVoiceClone?: boolean;
+  supportsBatch?: boolean;
+  sampleRateHz?: number;
+  executionSemantics?: "LOCAL_RETRYABLE" | "EXTERNAL_DURABLE" | string;
 }
 
 export const PRESET_VOICES: VoiceOption[] = [
@@ -22,6 +31,7 @@ export const PRESET_VOICES: VoiceOption[] = [
     gender: "FEMALE",
     style: "Standard",
     description: "Giọng đọc nữ miền Bắc nhẹ nhàng, phù hợp văn xuôi, tản văn, tự sự.",
+    supportsSpeakingRate: true,
   },
   {
     id: "vi-VN-Standard-B",
@@ -30,6 +40,7 @@ export const PRESET_VOICES: VoiceOption[] = [
     gender: "MALE",
     style: "Standard",
     description: "Giọng đọc nam miền Bắc trầm hùng, phù hợp truyện kiếm hiệp, lịch sử, kỳ ảo.",
+    supportsSpeakingRate: true,
   },
   {
     id: "vi-VN-Standard-C",
@@ -38,6 +49,7 @@ export const PRESET_VOICES: VoiceOption[] = [
     gender: "FEMALE",
     style: "Standard",
     description: "Giọng đọc nữ miền Nam tự nhiên, phù hợp truyện ngôn tình, hiện đại.",
+    supportsSpeakingRate: true,
   },
   {
     id: "vi-VN-Standard-D",
@@ -46,6 +58,7 @@ export const PRESET_VOICES: VoiceOption[] = [
     gender: "MALE",
     style: "Standard",
     description: "Giọng đọc nam miền Nam rõ ràng, phù hợp trinh thám, hành động.",
+    supportsSpeakingRate: true,
   },
   {
     id: "vi-VN-Neural2-A",
@@ -54,6 +67,7 @@ export const PRESET_VOICES: VoiceOption[] = [
     gender: "FEMALE",
     style: "Neural",
     description: "Công nghệ Neural biểu cảm cao, ngắt nghỉ theo ngữ cảnh tự nhiên.",
+    supportsSpeakingRate: true,
   },
   {
     id: "en-US-Standard-C",
@@ -62,6 +76,7 @@ export const PRESET_VOICES: VoiceOption[] = [
     gender: "FEMALE",
     style: "Standard",
     description: "Clear and expressive US English female voice.",
+    supportsSpeakingRate: true,
   },
   {
     id: "en-US-Standard-D",
@@ -70,5 +85,6 @@ export const PRESET_VOICES: VoiceOption[] = [
     gender: "MALE",
     style: "Standard",
     description: "Deep cinematic storytelling voice for English stories.",
+    supportsSpeakingRate: true,
   },
 ];

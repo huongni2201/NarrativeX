@@ -15,8 +15,8 @@ public class NarrationAdmissionService {
   private final QuotaReservation quotaReservation;
   private final NarrationCostEstimator costEstimator;
 
-  public Admission admit(String userId, ChapterAnalysisSource source) {
-    NarrationCostEstimate estimate = costEstimator.estimate(source.sourceText());
+  public Admission admit(String userId, ChapterAnalysisSource source, boolean localExecution) {
+    NarrationCostEstimate estimate = costEstimator.estimate(source.sourceText(), localExecution);
     UserQuotaAccess.QuotaSnapshot quota =
         quotaQuery
             .findCurrentQuota(userId)
@@ -33,6 +33,14 @@ public class NarrationAdmissionService {
                     new GenerationAdmissionDeniedException(
                         "COST_LIMIT", "The narration quota is exhausted."));
     return new Admission(estimate, reservation);
+  }
+
+  public Admission admit(String userId, ChapterAnalysisSource source, String voiceId) {
+    return admit(userId, source, voiceId != null && voiceId.startsWith("vieneu-"));
+  }
+
+  public Admission admit(String userId, ChapterAnalysisSource source) {
+    return admit(userId, source, false);
   }
 
   public record Admission(

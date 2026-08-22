@@ -2,6 +2,7 @@ import asyncio
 import base64
 import io
 import wave
+from pathlib import Path
 
 import google.auth
 import httpx
@@ -11,6 +12,8 @@ from google.auth.transport.requests import Request as GoogleAuthRequest
 from narrativex_worker.config import WorkerSettings
 from narrativex_worker.narration.models import SynthesizedSegment
 from narrativex_worker.narration.providers import (
+    TtsExecutionSemantics,
+    TtsProviderCapabilities,
     TtsProviderRejectedError,
     TtsProviderUnknownError,
     TtsRequest,
@@ -28,6 +31,15 @@ class GoogleCloudTtsProvider:
     @property
     def provider_key(self) -> str:
         return "google-cloud-tts"
+
+    @property
+    def capabilities(self) -> TtsProviderCapabilities:
+        return TtsProviderCapabilities(
+            supports_batch=False,
+            supports_speaking_rate=True,
+            supports_voice_reference=False,
+            execution_semantics=TtsExecutionSemantics.EXTERNAL_DURABLE,
+        )
 
     async def synthesize(self, request: TtsRequest) -> SynthesizedSegment:
         if request.reference_audio_path is not None:
@@ -88,6 +100,16 @@ class GoogleCloudTtsProvider:
             sample_rate_hz=request.sample_rate_hz,
             channels=request.channels,
         )
+
+    async def synthesize_batch(self, requests: list[TtsRequest]) -> list[SynthesizedSegment]:
+        return [await self.synthesize(request) for request in requests]
+
+    async def enroll_reference_voice(self, request_id: str, reference_audio_path: Path) -> str:
+        del request_id, reference_audio_path
+        raise TtsProviderRejectedError("Google TTS does not support uploaded voice references")
+
+    async def release_reference_voice(self, voice_id: str) -> None:
+        del voice_id
 
     def _access_token(self) -> str:
         if not self._credentials.valid or not self._credentials.token:

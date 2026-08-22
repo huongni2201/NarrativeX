@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 from typing import Protocol
 
@@ -11,6 +12,21 @@ class TtsProviderRejectedError(RuntimeError):
 
 class TtsProviderUnknownError(RuntimeError):
     """Provider outcome may have been accepted; never blind-resubmit."""
+
+
+class TtsExecutionSemantics(str, Enum):
+    """How the worker must persist/retry a provider submission."""
+
+    LOCAL_RETRYABLE = "local_retryable"
+    EXTERNAL_DURABLE = "external_durable"
+
+
+@dataclass(frozen=True)
+class TtsProviderCapabilities:
+    supports_batch: bool
+    supports_speaking_rate: bool
+    supports_voice_reference: bool
+    execution_semantics: TtsExecutionSemantics
 
 
 @dataclass(frozen=True)
@@ -29,7 +45,16 @@ class TtsProvider(Protocol):
     @property
     def provider_key(self) -> str: ...
 
+    @property
+    def capabilities(self) -> TtsProviderCapabilities: ...
+
     async def synthesize(self, request: TtsRequest) -> SynthesizedSegment: ...
+
+    async def synthesize_batch(self, requests: list[TtsRequest]) -> list[SynthesizedSegment]: ...
+
+    async def enroll_reference_voice(self, request_id: str, reference_audio_path: Path) -> str: ...
+
+    async def release_reference_voice(self, voice_id: str) -> None: ...
 
 
 class FakeTtsProvider:
@@ -38,6 +63,15 @@ class FakeTtsProvider:
     @property
     def provider_key(self) -> str:
         return "fake-tts"
+
+    @property
+    def capabilities(self) -> TtsProviderCapabilities:
+        return TtsProviderCapabilities(
+            supports_batch=True,
+            supports_speaking_rate=True,
+            supports_voice_reference=False,
+            execution_semantics=TtsExecutionSemantics.LOCAL_RETRYABLE,
+        )
 
     async def synthesize(self, request: TtsRequest) -> SynthesizedSegment:
         text_units = request.segment.text_end - request.segment.text_start
@@ -50,3 +84,13 @@ class FakeTtsProvider:
             sample_rate_hz=request.sample_rate_hz,
             channels=request.channels,
         )
+
+    async def synthesize_batch(self, requests: list[TtsRequest]) -> list[SynthesizedSegment]:
+        return [await self.synthesize(request) for request in requests]
+
+    async def enroll_reference_voice(self, request_id: str, reference_audio_path: Path) -> str:
+        del request_id, reference_audio_path
+        raise TtsProviderRejectedError("Fake TTS does not support uploaded voice references")
+
+    async def release_reference_voice(self, voice_id: str) -> None:
+        del voice_id

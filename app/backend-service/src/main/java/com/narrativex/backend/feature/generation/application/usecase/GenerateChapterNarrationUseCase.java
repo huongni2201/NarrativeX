@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.generation.application.usecase;
 
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
+import com.narrativex.backend.feature.catalog.application.port.in.VoiceCatalogAccess;
 import com.narrativex.backend.feature.generation.application.command.GenerateChapterNarrationCommand;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationOutboxRepository;
@@ -22,6 +23,7 @@ import com.narrativex.backend.feature.generation.domain.enums.JobType;
 import com.narrativex.backend.feature.generation.domain.enums.ResourceClass;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
+import java.math.BigDecimal;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,6 +50,7 @@ public class GenerateChapterNarrationUseCase {
   private final NarrationRequestFingerprint fingerprintService;
   private final QuotaReservation quotaReservation;
   private final VoiceReferenceAssetAccess voiceReferenceAssetAccess;
+  private final VoiceCatalogAccess voiceCatalogAccess;
 
   @Transactional
   public GenerationJob execute(GenerateChapterNarrationCommand command) {
@@ -60,7 +63,9 @@ public class GenerateChapterNarrationUseCase {
     if (chapter.sourceText().isBlank()) {
       throw new IllegalArgumentException("Chapter source must be saved before narration");
     }
-    validateVoiceReferenceAsset(userId, command);
+    var voiceCapabilities = resolveVoiceCapabilities(command.voiceId());
+    validateSpeakingRate(command, voiceCapabilities);
+    validateVoiceReferenceAsset(userId, command, voiceCapabilities);
 
     String fingerprint =
         fingerprintService.calculate(
@@ -77,11 +82,14 @@ public class GenerateChapterNarrationUseCase {
     generationJobRepository.acquireIdempotencyLock(idempotencyKey, userId);
     var existing = generationJobRepository.findByIdempotencyKey(idempotencyKey, userId);
     if (existing.isPresent()) {
-      log.debug("Found existing narration job id={} for idempotencyKey='{}'", existing.get().getId(), idempotencyKey);
+      log.debug(
+          "Found existing narration job id={} for idempotencyKey='{}'",
+          existing.get().getId(),
+          idempotencyKey);
       return existing.get();
     }
 
-    var admission = admissionService.admit(userId, chapter);
+    var admission = admissionService.admit(userId, chapter, voiceCapabilities.localExecution());
     NarrationRequest narrationRequest =
         narrationRequestRepository.save(
             new NarrationRequest(
@@ -149,12 +157,44 @@ public class GenerateChapterNarrationUseCase {
     return job;
   }
 
-  private void validateVoiceReferenceAsset(
-      String userId, GenerateChapterNarrationCommand command) {
-    if (command.voiceReferenceAssetId() == null) return;
-    if (!command.voiceId().startsWith("vieneu-")) {
+  private VoiceCatalogAccess.VoiceCapabilities resolveVoiceCapabilities(String voiceId) {
+    return voiceCatalogAccess
+        .findVoice(voiceId)
+        .orElseGet(
+            () -> {
+              boolean legacyVieNeu = voiceId.startsWith("vieneu-");
+              log.warn(
+                  "Voice id={} is missing from catalog; using legacy provider fallback",
+                  voiceId);
+              return new VoiceCatalogAccess.VoiceCapabilities(
+                  voiceId,
+                  legacyVieNeu ? "VIENEU" : "UNKNOWN",
+                  !legacyVieNeu,
+                  legacyVieNeu,
+                  legacyVieNeu,
+                  48000,
+                  legacyVieNeu ? "LOCAL_RETRYABLE" : "EXTERNAL_DURABLE");
+            });
+  }
+
+  private void validateSpeakingRate(
+      GenerateChapterNarrationCommand command,
+      VoiceCatalogAccess.VoiceCapabilities voiceCapabilities) {
+    if (!voiceCapabilities.supportsSpeakingRate()
+        && command.speakingRate().compareTo(BigDecimal.ONE) != 0) {
       throw new IllegalArgumentException(
-          "A voice reference upload can only be used with a VieNeu voice");
+          "Selected narration voice supports speakingRate=1.0 only");
+    }
+  }
+
+  private void validateVoiceReferenceAsset(
+      String userId,
+      GenerateChapterNarrationCommand command,
+      VoiceCatalogAccess.VoiceCapabilities voiceCapabilities) {
+    if (command.voiceReferenceAssetId() == null) return;
+    if (!voiceCapabilities.supportsVoiceClone()) {
+      throw new IllegalArgumentException(
+          "Selected narration voice does not support uploaded voice references");
     }
     var asset = voiceReferenceAssetAccess.findOwned(userId, command.voiceReferenceAssetId());
     if (!"AUDIO".equals(asset.type()) || !"READY".equals(asset.status())) {
