@@ -57,6 +57,25 @@ Provider output is downloaded/written to worker-local scratch and validated for 
 
 Generated I2V duration and narration-span duration are intentionally separate. For example, a five-second generated motion asset can be deterministically extended inside an eight-second narration span; only five generated seconds belong to the I2V workload.
 
+## Final render and storage
+
+Motion assets are pipeline media and remain R2-backed. The final exported MP4 follows a different durable-storage path defined by [ADR-0016](../decisions/ADR-0016-google-drive-final-video-storage.md):
+
+```text
+approved R2 image/motion/audio inputs
+  -> FFmpeg local render
+  -> final.mp4
+  -> validate container/video/audio/duration/dimensions/checksum
+  -> FinalVideoStorage
+  -> Google Drive resumable upload
+  -> verify remote file
+  -> persist storageProvider + storageObjectId + final metadata
+  -> FinalArtifact READY
+  -> delete local final.mp4 when safe
+```
+
+Final MP4 is not uploaded to R2 by default. Render and upload are separate retry boundaries: if the Drive upload fails while the validated local MP4 still exists, retry the upload instead of rerendering.
+
 ## Local GPU cost planning
 
 For local/self-hosted I2V, cost is not a hardcoded vendor price per scene. The planning authority prices the post-analysis I2V workload using a versioned benchmark snapshot for the selected model, GPU, resolution and inference profile:
@@ -74,4 +93,4 @@ expectedI2vCost
 
 Reservation uses p90/bounded benchmark data and maximum authorized attempts. Actual resource usage is reconciled separately. Changing production mode or local-I2V quality re-plans/re-prices the same valid semantic analysis snapshot instead of re-running story analysis.
 
-Usage records capture actual internal GPU/compute cost, motion seconds, storage/egress and `billed_to_user_id`. The reservation is consumed/released and the parent render dependency is updated transactionally. Final MP4 readiness still requires the normal FFmpeg/FinalArtifact validation gates, after which the durable final artifact is persisted to R2.
+Usage records capture actual internal GPU/compute cost, motion seconds, storage/egress and `billed_to_user_id`. The reservation is consumed/released and the parent render dependency is updated transactionally. Final MP4 readiness still requires the normal FFmpeg/FinalArtifact validation gates plus verified durable final-video storage in Google Drive.

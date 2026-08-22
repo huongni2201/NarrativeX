@@ -11,7 +11,7 @@ NarrativeX is an image-first AI Story Video Studio for turning flexible-length s
 | `app/frontend-web` | Next.js/TypeScript storyboard, review, cost and notification UI |
 | `documentation` | Product, domain, architecture, workflows, codebase notes and ADRs |
 | `contracts` | Versioned backend ↔ worker payload contracts |
-| `docker-compose.yml` | Local PostgreSQL 18, Redis 8, backend and AI worker services; durable media uses external Cloudflare R2 |
+| `docker-compose.yml` | Local PostgreSQL 18, Redis 8, backend and AI worker services; durable source/intermediate media uses external Cloudflare R2 and final rendered MP4 exports target Google Drive |
 
 ## Start the local stack
 
@@ -30,7 +30,7 @@ To start only infrastructure dependencies:
 docker compose up -d postgres redis
 ```
 
-The backend container uses `postgres` and `redis` as service hostnames. Host-run backend development should continue using `localhost` from `app/backend-service/.env.example`. Media workers use the configured R2 bucket directly for durable media in every environment; worker-local files are scratch/cache only.
+The backend container uses `postgres` and `redis` as service hostnames. Host-run backend development should continue using `localhost` from `app/backend-service/.env.example`. Media workers use the configured R2 bucket for durable generated/source assets. Worker-local files are scratch/cache/FFmpeg workspace only. Final rendered MP4 files are validated locally and then promoted through the `FinalVideoStorage` boundary to Google Drive; local final files are deleted only after remote verification and durable metadata commit.
 
 PostgreSQL 18 uses a new data directory layout. Do not point it directly at an existing PostgreSQL 16 data volume; migrate retained data with a tested dump/restore or PostgreSQL upgrade procedure first.
 
@@ -50,4 +50,4 @@ When `AI_PROVIDER_MODE=vertex`, the worker needs Google Application Default Cred
 
 V1.11 is not a fixed-duration or fixed-image-count generator. Planning uses semantic scene boundaries, narration timing, complexity, asset reuse, delta scope, provider capability, and cost reservation. Character identity is versioned and reviewed; external provider outcomes are durable and reconciled; chapter continuation, notifications, entitlement, trust & safety, rights/consent, abuse and privacy gates are part of the product contract, while the current repository remains an incremental foundation.
 
-The canonical source of truth is `documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`. Current code, Flyway migrations and automated tests decide factual AS-IS implementation claims when derived documentation drifts.
+The canonical source of truth is `documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`. Accepted ADRs refine cross-cutting decisions; ADR-0016 supersedes the R2-only rule specifically for final rendered video storage. Current code, Flyway migrations and automated tests decide factual AS-IS implementation claims when derived documentation drifts.

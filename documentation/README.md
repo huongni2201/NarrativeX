@@ -2,7 +2,7 @@
 
 The canonical product and architecture baseline is [`source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](./source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md). Superseded versioned documents are removed once unique history is preserved in ADRs.
 
-Current code, migrations and tests define factual implementation state when a derived document drifts. Accepted ADRs explain important implementation decisions and deliberate deviations.
+Current code, migrations and tests define factual implementation state when a derived document drifts. Accepted ADRs explain important implementation decisions and deliberate deviations. ADR-0016 supersedes the earlier R2-only storage rule specifically for final rendered video exports.
 
 ## Navigation
 
@@ -23,9 +23,10 @@ Current code, migrations and tests define factual implementation state when a de
 2. Code, migrations, tests and accepted ADRs decide factual AS-IS claims.
 3. Keep `IMPLEMENTED`, `PARTIAL`, `TARGET` and `DEFERRED` distinct; do not report roadmap intent as merged code.
 4. PostgreSQL is authoritative for durable application/execution state; Redis is non-authoritative for generation correctness.
-5. Cloudflare R2 is the only durable media object store; worker-local files are scratch/cache only.
-6. Backend-authorized `MediaPlan`/execution policy is authoritative; workers execute persisted policy rather than inventing paid work.
-7. Narration is not synonymous with TTS. `NarrationStrategy.USER_PROVIDED_AUDIO` bypasses TTS for the covered scope.
-8. Production persistence is MyBatis + explicit SQL + PostgreSQL. Architecture tests prohibit JPA and direct `JdbcTemplate` persistence.
-9. Cross-cutting invariant changes require an ADR when they change an accepted decision.
-10. Update `scripts/check-docs-drift.py` whenever the canonical baseline or current-state document set changes.
+5. Cloudflare R2 stores durable source/generated media such as images, narration audio, thumbnails and reusable media assets. Final rendered MP4 exports use the provider-neutral `FinalVideoStorage` boundary, with Google Drive as the target durable provider. Worker-local files are scratch/cache/render workspace only.
+6. A final video is not `READY` until local validation succeeds, Google Drive resumable upload completes, the remote object is verified, and authoritative metadata is committed. Only then may the local final file be deleted.
+7. Backend-authorized `MediaPlan`/execution policy is authoritative; workers execute persisted policy rather than inventing paid work.
+8. Narration is not synonymous with TTS. `NarrationStrategy.USER_PROVIDED_AUDIO` bypasses TTS for the covered scope.
+9. Production persistence is MyBatis + explicit SQL + PostgreSQL. Architecture tests prohibit JPA and direct `JdbcTemplate` persistence.
+10. Cross-cutting invariant changes require an ADR when they change an accepted decision.
+11. Update `scripts/check-docs-drift.py` whenever the canonical baseline or current-state document set changes.
