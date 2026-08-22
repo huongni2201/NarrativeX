@@ -15,7 +15,7 @@ from google.oauth2.credentials import Credentials
 _DRIVE_SCOPE = "https://www.googleapis.com/auth/drive"
 _DRIVE_API = "https://www.googleapis.com/drive/v3"
 _DRIVE_UPLOAD_API = "https://www.googleapis.com/upload/drive/v3"
-_CHUNK_SIZE = 8 * 1024 * 1024  # Must be a multiple of 256 KiB for Drive resumable uploads.
+_CHUNK_SIZE = 8 * 1024 * 1024  # Multiple of 256 KiB, as required by Drive.
 
 
 class FinalVideoStorageError(RuntimeError):
@@ -45,8 +45,12 @@ class GoogleDriveSettings:
     def from_env(cls) -> "GoogleDriveSettings":
         required = {
             "GOOGLE_DRIVE_CLIENT_ID": os.getenv("GOOGLE_DRIVE_CLIENT_ID", "").strip(),
-            "GOOGLE_DRIVE_CLIENT_SECRET": os.getenv("GOOGLE_DRIVE_CLIENT_SECRET", "").strip(),
-            "GOOGLE_DRIVE_REFRESH_TOKEN": os.getenv("GOOGLE_DRIVE_REFRESH_TOKEN", "").strip(),
+            "GOOGLE_DRIVE_CLIENT_SECRET": os.getenv(
+                "GOOGLE_DRIVE_CLIENT_SECRET", ""
+            ).strip(),
+            "GOOGLE_DRIVE_REFRESH_TOKEN": os.getenv(
+                "GOOGLE_DRIVE_REFRESH_TOKEN", ""
+            ).strip(),
             "GOOGLE_DRIVE_FOLDER_ID": os.getenv("GOOGLE_DRIVE_FOLDER_ID", "").strip(),
         }
         missing = [name for name, value in required.items() if not value]
@@ -58,7 +62,9 @@ class GoogleDriveSettings:
         try:
             timeout_seconds = float(timeout_raw)
         except ValueError as exception:
-            raise FinalVideoStorageError("GOOGLE_DRIVE_TIMEOUT_SECONDS must be numeric") from exception
+            raise FinalVideoStorageError(
+                "GOOGLE_DRIVE_TIMEOUT_SECONDS must be numeric"
+            ) from exception
         if timeout_seconds <= 0:
             raise FinalVideoStorageError("GOOGLE_DRIVE_TIMEOUT_SECONDS must be positive")
         return cls(
@@ -110,9 +116,8 @@ class GoogleDriveFinalVideoStorage:
                 )
             return self._to_asset(existing, checksum)
 
-        name = f"{render_fingerprint}.mp4"
         metadata = {
-            "name": name,
+            "name": f"{render_fingerprint}.mp4",
             "parents": [self.settings.folder_id],
             "appProperties": {
                 "narrativexRenderFingerprint": render_fingerprint,
@@ -128,7 +133,9 @@ class GoogleDriveFinalVideoStorage:
         file_info = await self._get_file(token, file_id)
         return self._to_asset(file_info, checksum)
 
-    async def _find_existing(self, token: str, fingerprint: str) -> dict[str, object] | None:
+    async def _find_existing(
+        self, token: str, fingerprint: str
+    ) -> dict[str, object] | None:
         escaped_fingerprint = fingerprint.replace("'", "\\'")
         escaped_folder = self.settings.folder_id.replace("'", "\\'")
         query = (
@@ -193,7 +200,8 @@ class GoogleDriveFinalVideoStorage:
             async with httpx.AsyncClient(timeout=self.settings.timeout_seconds) as client:
                 while offset < size_bytes:
                     source.seek(offset)
-                    chunk = await asyncio.to_thread(source.read, min(_CHUNK_SIZE, size_bytes - offset))
+                    read_size = min(_CHUNK_SIZE, size_bytes - offset)
+                    chunk = await asyncio.to_thread(source.read, read_size)
                     if not chunk:
                         raise FinalVideoStorageError("Rendered video ended before expected size")
                     end = offset + len(chunk) - 1
@@ -203,9 +211,20 @@ class GoogleDriveFinalVideoStorage:
                         "Content-Range": f"bytes {offset}-{end}/{size_bytes}",
                     }
                     try:
-                        response = await client.put(session_url, headers=headers, content=chunk)
+                        response = await client.put(
+                            session_url,
+                            headers=headers,
+                            content=chunk,
+                        )
                     except (httpx.TimeoutException, httpx.NetworkError):
-                        offset = await self._query_resume_offset(client, token, session_url, size_bytes)
+                        offset, completed = await self._query_resume_state(
+                            client,
+                            token,
+                            session_url,
+                            size_bytes,
+                        )
+                        if completed is not None:
+                            return completed
                         continue
                     if response.status_code == 308:
                         offset = self._next_offset(response, end + 1)
@@ -213,27 +232,41 @@ class GoogleDriveFinalVideoStorage:
                     self._raise_for_status(response, "upload final-video chunk")
                     payload = response.json()
                     if not isinstance(payload, dict):
-                        raise FinalVideoStorageError("Google Drive returned an invalid upload response")
+                        raise FinalVideoStorageError(
+                            "Google Drive returned an invalid upload response"
+                        )
                     return payload
         raise FinalVideoStorageError("Google Drive resumable upload ended without completion")
 
-    async def _query_resume_offset(
-        self, client: httpx.AsyncClient, token: str, session_url: str, size_bytes: int
-    ) -> int:
-        response = await client.put(
-            session_url,
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Length": "0",
-                "Content-Range": f"bytes */{size_bytes}",
-            },
-        )
+    async def _query_resume_state(
+        self,
+        client: httpx.AsyncClient,
+        token: str,
+        session_url: str,
+        size_bytes: int,
+    ) -> tuple[int, dict[str, object] | None]:
+        try:
+            response = await client.put(
+                session_url,
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Length": "0",
+                    "Content-Range": f"bytes */{size_bytes}",
+                },
+            )
+        except (httpx.TimeoutException, httpx.NetworkError) as exception:
+            raise FinalVideoStorageError(
+                "Could not query Google Drive resumable-upload state"
+            ) from exception
         if response.status_code == 308:
-            return self._next_offset(response, 0)
-        if response.is_success:
-            return size_bytes
+            return self._next_offset(response, 0), None
         self._raise_for_status(response, "resume final-video upload")
-        raise AssertionError("unreachable")
+        payload = response.json()
+        if not isinstance(payload, dict):
+            raise FinalVideoStorageError(
+                "Google Drive returned invalid completed-upload metadata"
+            )
+        return size_bytes, payload
 
     @staticmethod
     def _next_offset(response: httpx.Response, fallback: int) -> int:
@@ -265,9 +298,13 @@ class GoogleDriveFinalVideoStorage:
         try:
             await asyncio.to_thread(self._credentials.refresh, Request())
         except Exception as exception:
-            raise FinalVideoStorageError("Could not refresh Google Drive OAuth token") from exception
+            raise FinalVideoStorageError(
+                "Could not refresh Google Drive OAuth token"
+            ) from exception
         if not self._credentials.token:
-            raise FinalVideoStorageError("Google Drive OAuth refresh returned an empty access token")
+            raise FinalVideoStorageError(
+                "Google Drive OAuth refresh returned an empty access token"
+            )
         return str(self._credentials.token)
 
     @staticmethod
