@@ -3,6 +3,8 @@ import Image from "next/image";
 import { authApi } from "@/features/auth/api/auth.api";
 import { useAuthSessionLifecycle } from "@/features/auth/hooks/useAuthSessionLifecycle";
 import { apiErrorMessage } from "@/shared/api/client";
+import { LoadingState } from "@/components/ui/LoadingState";
+import { LoaderCircle } from "lucide-react";
 
 const ICON_SRC = "/branding/narrativex-icon-orange-v2.png";
 
@@ -42,7 +44,7 @@ export const AuthLoadingScreen: React.FC<{ message: string; action?: React.React
   <div className="flex min-h-screen w-full items-center justify-center bg-background p-6 text-text-primary">
     <div className="space-y-3 text-center">
       <BrandLogo className="mx-auto" />
-      <p className="text-sm text-slate-300">{message}</p>
+      <LoadingState message={message} className="text-slate-300" />
       {action}
     </div>
   </div>
@@ -221,8 +223,10 @@ export const AuthScreen: React.FC = () => {
             <button
               type="submit"
               disabled={isSubmitting || isRedirecting}
+              aria-busy={isSubmitting}
               className="mt-7 w-full rounded-xl bg-primary px-4 py-3.5 text-base font-semibold text-white transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60 shadow-lg shadow-primary/20"
             >
+              {isSubmitting && <LoaderCircle className="mr-2 h-4 w-4 motion-safe:animate-spin" />}
               {isSubmitting ? "Đang xử lý…" : mode === "login" ? "Đăng nhập" : "Tạo tài khoản"}
             </button>
           </form>
@@ -236,8 +240,10 @@ export const AuthScreen: React.FC = () => {
             type="button"
             onClick={handleGoogleLogin}
             disabled={isRedirecting || isSubmitting}
+            aria-busy={isRedirecting}
             className="w-full rounded-xl border border-border bg-surface-3 px-4 py-3.5 text-base font-semibold text-text-primary transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-60"
           >
+            {isRedirecting && <LoaderCircle className="mr-2 inline-block h-4 w-4 motion-safe:animate-spin" />}
             {isRedirecting ? "Đang chuyển đến Google…" : "Tiếp tục với Google"}
           </button>
         </div>

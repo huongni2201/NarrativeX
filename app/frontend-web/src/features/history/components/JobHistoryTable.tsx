@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CheckCircle2, Clock, AlertCircle, XCircle, RotateCcw, ArrowRight } from "lucide-react";
 import type { JobHistoryItem } from "../types/job-history.types";
+import { LoadingState } from "@/components/ui/LoadingState";
 
 interface JobHistoryTableProps {
   jobs: JobHistoryItem[];
@@ -10,10 +11,10 @@ interface JobHistoryTableProps {
 export function JobHistoryTable({ jobs, isLoading }: Readonly<JobHistoryTableProps>) {
   if (isLoading && jobs.length === 0) {
     return (
-      <div className="flex h-64 flex-col items-center justify-center gap-3 rounded-2xl border border-border bg-surface-card p-8">
-        <RotateCcw className="h-6 w-6 animate-spin text-primary" />
-        <p className="text-sm text-text-secondary">Đang tải lịch sử công việc…</p>
-      </div>
+      <LoadingState
+        message="Đang tải lịch sử công việc…"
+        className="h-64 flex-col rounded-2xl border border-border bg-surface-card p-8"
+      />
     );
   }
 
@@ -127,7 +128,7 @@ function JobStatusBadge({ status }: { status: string }) {
     case "RUNNING":
       return (
         <span className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary-muted px-2.5 py-0.5 text-[11px] font-medium text-primary-hover animate-pulse">
-          <RotateCcw className="h-3 w-3 animate-spin" />
+          <RotateCcw className="h-3 w-3 motion-safe:animate-spin" />
           Đang chạy
         </span>
       );

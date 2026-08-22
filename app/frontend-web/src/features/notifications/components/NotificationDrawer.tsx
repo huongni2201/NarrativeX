@@ -11,7 +11,6 @@ import {
   Info,
   CheckCircle2,
   ExternalLink,
-  RotateCcw,
 } from "lucide-react";
 import {
   useNotifications,
@@ -20,6 +19,7 @@ import {
 } from "../hooks/useNotifications";
 import type { NotificationItem } from "../types/notifications.types";
 import { Drawer } from "@/components/ui/Drawer";
+import { LoadingState } from "@/components/ui/LoadingState";
 
 interface NotificationDrawerProps {
   isOpen: boolean;
@@ -102,10 +102,7 @@ export function NotificationDrawer({ isOpen, onClose }: Readonly<NotificationDra
         {/* Items List */}
         <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
           {isLoading && items.length === 0 ? (
-            <div className="flex h-40 flex-col items-center justify-center gap-2 text-text-muted">
-              <RotateCcw className="h-5 w-5 animate-spin text-primary" />
-              <p className="text-xs">Đang tải thông báo…</p>
-            </div>
+            <LoadingState message="Đang tải thông báo…" className="h-40 flex-col text-xs text-text-muted" />
           ) : items.length === 0 ? (
             <div className="flex h-48 flex-col items-center justify-center gap-2 text-center text-text-muted">
               <Bell className="h-8 w-8 opacity-30" />

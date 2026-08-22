@@ -14,17 +14,19 @@ from narrativex_worker.providers.image import (
     ImageGenerationProvider,
     ImageGenerationRequest,
     ImageGenerationResult,
+    ImageProviderError,
     ImageProviderOperation,
+    ImageSubmissionUnknownError,
 )
 from narrativex_worker.providers.ports import ProviderCapabilities
 from narrativex_worker.schema import ModerationDecision, ProviderOperationStatus
 
 
-class VertexImageProviderError(RuntimeError):
+class VertexImageProviderError(ImageProviderError):
     pass
 
 
-class VertexImageSubmissionUnknownError(VertexImageProviderError):
+class VertexImageSubmissionUnknownError(VertexImageProviderError, ImageSubmissionUnknownError):
     pass
 
 

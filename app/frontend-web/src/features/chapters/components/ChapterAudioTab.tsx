@@ -54,7 +54,7 @@ export function ChapterAudioTab({ workspace }: Readonly<ChapterAudioTabProps>) {
         <div className="mt-6 rounded-xl border border-border bg-surface-panel/70 p-4">
           <div className="flex items-start gap-3">
             {isActive ? (
-              <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-amber-300" />
+              <Loader2 className="mt-0.5 h-4 w-4 shrink-0 motion-safe:animate-spin text-amber-300" />
             ) : isFailed ? (
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-300" />
             ) : (

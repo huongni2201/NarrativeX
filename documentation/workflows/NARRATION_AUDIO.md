@@ -63,6 +63,10 @@ to the container path. The local provider maps catalog id `vieneu-ngoc-huyen-v2`
 name `Ngọc Huyền v2`; other built-in VieNeu voices are resolved from `list_preset_voices()` in
 the same way. The web narration modal selects the global catalog voice by default.
 
+VieNeu 3.3's ONNX/CPU backend supports reference enrollment without importing PyTorch or
+TorchAudio. The worker keeps those packages declared for compatibility with the existing runtime;
+they are not required by the CPU enrollment path.
+
 VieNeu v3 Turbo does not expose NarrativeX's `speakingRate` setting, so requests for this provider
 must use `speakingRate=1.0`. Emotion cues such as `[cười]` remain in the trusted narration input
 boundary and are forwarded to VieNeu. Local execution has no external provider character charge;

@@ -77,7 +77,6 @@ def test_image_generation_defaults_to_batch_only_gemini_flash_image() -> None:
     assert settings.vertex_image_location == "global"
     assert settings.vertex_image_service_tier == "standard"
     assert settings.vertex_image_execution_mode == "batch"
-    assert settings.vertex_image_batch_min_items == 1
 
 
 def test_gemini_25_flash_image_rejects_flex_paygo() -> None:
@@ -94,12 +93,32 @@ def test_flex_requires_global_endpoint() -> None:
         )
 
 
-def test_enabled_vertex_batch_requires_gcs_staging_bucket() -> None:
+def test_enabled_vertex_requires_gcs_staging_bucket() -> None:
     with pytest.raises(ValidationError, match="VERTEX_IMAGE_BATCH_GCS_BUCKET"):
         WorkerSettings(
             image_provider_mode="vertex",
             vertex_project_id="project-123",
             vertex_image_execution_mode="batch",
+        )
+
+
+def test_enabled_image_requires_r2_storage() -> None:
+    with pytest.raises(ValidationError, match="Image generation requires MEDIA_STORAGE_MODE=r2"):
+        WorkerSettings(
+            image_provider_mode="vertex",
+            vertex_project_id="project-123",
+            vertex_image_batch_gcs_bucket="image-batches",
+        )
+
+
+def test_enabled_image_requires_r2_credentials() -> None:
+    with pytest.raises(ValidationError, match="R2_ACCESS_KEY_ID"):
+        WorkerSettings(
+            image_provider_mode="vertex",
+            vertex_project_id="project-123",
+            vertex_image_batch_gcs_bucket="image-batches",
+            media_storage_mode="r2",
+            r2_account_id="account-123",
         )
 
 
@@ -111,8 +130,7 @@ def test_disabled_image_provider_does_not_require_batch_bucket() -> None:
     assert settings.vertex_image_batch_gcs_bucket is None
 
 
-def test_explicit_auto_mode_can_fall_back_without_gcs() -> None:
-    settings = WorkerSettings(vertex_image_execution_mode="auto")
-
-    assert settings.vertex_image_batch_gcs_bucket is None
-    assert settings.normalized_vertex_image_batch_prefix == "narrativex/image-batches"
+@pytest.mark.parametrize("execution_mode", ["online", "auto"])
+def test_non_batch_vertex_execution_modes_are_rejected(execution_mode: str) -> None:
+    with pytest.raises(ValidationError, match="batch"):
+        WorkerSettings(vertex_image_execution_mode=execution_mode)  # type: ignore[arg-type]

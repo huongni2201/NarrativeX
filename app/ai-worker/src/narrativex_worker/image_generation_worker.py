@@ -8,12 +8,26 @@ import uuid
 from narrativex_worker.config import WorkerSettings
 from narrativex_worker.image_generation_repository import (
     ClaimedImageGenerationJob,
+    DurableImageOperation,
+    ImageGenerationLeaseLostError,
     ImageGenerationRepository,
 )
-from narrativex_worker.image_generation_runner import ImageGenerationRunner
+from narrativex_worker.image_generation_runner import (
+    ImageGenerationOutputError,
+    ImageGenerationProviderRejectedError,
+    ImageGenerationRunner,
+    ImageGenerationUnknownError,
+)
 from narrativex_worker.narration.storage import MediaStorage, S3MediaStorage
 from narrativex_worker.providers.factory import create_image_provider
-from narrativex_worker.providers.image import ImageBatchItem, ImageBatchOperation
+from narrativex_worker.providers.image import (
+    ImageBatchItem,
+    ImageBatchOperation,
+)
+from narrativex_worker.providers.vertex_image import (
+    VertexImageProviderError,
+    VertexImageSubmissionUnknownError,
+)
 from narrativex_worker.schema import ProviderOperationStatus
 
 
@@ -86,43 +100,93 @@ class ImageGenerationWorkerRunner:
                 await aclose()
 
     async def _process(self, job: ClaimedImageGenerationJob) -> None:
+        processing = asyncio.create_task(self._process_claimed(job))
         heartbeat = asyncio.create_task(self._heartbeat(job))
         try:
-            async with self._concurrency_gate:
-                pending = await self.repository.load_pending_items(job)
-                if not pending:
-                    return
-                items = [ImageBatchItem(item.item_key, item.request) for item in pending]
-                for batch in _partition_batches(items, self.settings.vertex_image_batch_max_items):
-                    await self._submit_batch(job, batch)
+            done, _ = await asyncio.wait(
+                {processing, heartbeat}, return_when=asyncio.FIRST_COMPLETED
+            )
+            if heartbeat in done:
+                await heartbeat
+                raise ImageGenerationLeaseLostError(
+                    "Image generation heartbeat stopped unexpectedly"
+                )
+            await processing
+        except ImageGenerationLeaseLostError:
+            self.logger.warning(
+                "Image generation lease lost; cancelling processing job=%s worker=%s",
+                job.generation_job_id,
+                job.worker_id,
+            )
+            if not processing.done():
+                processing.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await processing
         except asyncio.CancelledError:
             raise
         except Exception:
             self.logger.exception("Image generation job failed job=%s", job.generation_job_id)
-            # A provider exception is deliberately UNKNOWN: the provider may have accepted it.
         finally:
-            heartbeat.cancel()
-            with contextlib.suppress(asyncio.CancelledError, Exception):
-                await heartbeat
+            for task in (processing, heartbeat):
+                if not task.done():
+                    task.cancel()
+            for task in (processing, heartbeat):
+                with contextlib.suppress(asyncio.CancelledError, Exception):
+                    await task
+
+    async def _process_claimed(self, job: ClaimedImageGenerationJob) -> None:
+        async with self._concurrency_gate:
+            pending = await self.repository.load_pending_items(job)
+            if not pending:
+                return
+            items = [ImageBatchItem(item.item_key, item.request) for item in pending]
+            for batch in _partition_batches(items, self.settings.vertex_image_batch_max_items):
+                await self._submit_batch(job, batch)
 
     async def _submit_batch(
         self, job: ClaimedImageGenerationJob, items: tuple[ImageBatchItem, ...]
     ) -> None:
-        operation = await self.repository.reserve_provider_operation(job, items)
+        operation = await self.repository.prepare_provider_submission(job, items)
         if not operation.created:
-            if operation.status is ProviderOperationStatus.RESERVED:
-                await self.repository.mark_submission_unknown(operation)
             return
-        await self.repository.bind_items_to_operation(job, operation)
-        operation = await self.repository.mark_submission_unknown(operation)
+        # This is the final DB-side lease fence before crossing the paid provider boundary.
+        await self.repository.assert_lease(job)
         try:
             provider_operation = await self.provider.submit_batch(items)
-        except Exception as exception:
-            await self.repository.mark_unknown(operation, type(exception).__name__.upper())
+        except VertexImageSubmissionUnknownError as exception:
+            await self.repository.mark_unknown(operation, normalize_error(exception))
             return
-        await self.repository.mark_submitted(
-            operation, provider_operation.operation_id, provider_operation.status
-        )
+        except VertexImageProviderError as exception:
+            await self.repository.fail_provider_operation(operation, normalize_error(exception))
+            return
+        except Exception:
+            self.logger.exception(
+                "Image batch submission failed without a classified provider outcome "
+                "operation=%s",
+                operation.id,
+            )
+            await self.repository.fail_provider_operation(operation, "IMAGE_WORKER_INTERNAL_ERROR")
+            return
+        if provider_operation.status is ProviderOperationStatus.FAILED:
+            await self.repository.fail_provider_operation(
+                operation,
+                provider_operation.error_code or "IMAGE_BATCH_PROVIDER_FAILED",
+            )
+            return
+        try:
+            await self.repository.mark_submitted(
+                operation, provider_operation.operation_id, provider_operation.status
+            )
+        except Exception:
+            self.logger.exception(
+                "Image batch submission persistence failed without a classified provider "
+                "outcome operation=%s",
+                operation.id,
+            )
+            await self.repository.fail_provider_operation(operation, "IMAGE_WORKER_INTERNAL_ERROR")
+
+    async def _fail_batch(self, operation: DurableImageOperation, error: str) -> None:
+        await self.repository.fail_provider_operation(operation, error)
 
     async def _reconcile_due(self) -> None:
         if self.storage is None:
@@ -157,28 +221,42 @@ class ImageGenerationWorkerRunner:
                     )
                     continue
                 if resolved.status is ProviderOperationStatus.FAILED:
-                    for item in durable.items:
-                        await self.repository.mark_failed(
-                            item.item_key,
-                            item.request.request_fingerprint,
-                            resolved.error_code or "IMAGE_BATCH_PROVIDER_FAILED",
-                        )
-                    await self.repository.complete_batch(durable, ())
+                    await self._fail_batch(
+                        durable,
+                        resolved.error_code or "IMAGE_BATCH_PROVIDER_FAILED",
+                    )
                     continue
                 runner = ImageGenerationRunner(self.provider, self.storage, self.repository)
                 materialized = await runner.materialize_batch(
                     resolved, durable_operation_id=durable.id
                 )
-                await self.repository.complete_batch(durable, materialized)
-            except Exception as exception:
-                await self.repository.mark_unknown(durable, type(exception).__name__.upper())
+                await self.repository.complete_provider_operation(durable, materialized)
+            except (VertexImageSubmissionUnknownError, ImageGenerationUnknownError) as exception:
+                await self.repository.mark_unknown(durable, normalize_error(exception))
+            except VertexImageProviderError as exception:
+                await self.repository.fail_provider_operation(
+                    durable, normalize_error(exception)
+                )
+            except (ImageGenerationOutputError, ImageGenerationProviderRejectedError) as exception:
+                await self.repository.fail_provider_operation(
+                    durable, normalize_error(exception)
+                )
+            except Exception:
+                self.logger.exception(
+                    "Image batch reconciliation failed without a classified provider outcome "
+                    "operation=%s",
+                    durable.id,
+                )
+                await self.repository.fail_provider_operation(
+                    durable, "IMAGE_WORKER_INTERNAL_ERROR"
+                )
 
     async def _heartbeat(self, job: ClaimedImageGenerationJob) -> None:
         interval = max(3.0, self.settings.lease_seconds / 3)
         while True:
             await asyncio.sleep(interval)
             if not await self.repository.heartbeat(job):
-                raise RuntimeError("Image generation lease was lost")
+                raise ImageGenerationLeaseLostError("Image generation lease was lost")
 
 
 def _partition_batches(
@@ -216,3 +294,8 @@ def _partition_batches(
     if current:
         batches.append(tuple(current))
     return tuple(batches)
+
+
+def normalize_error(exception: BaseException) -> str:
+    message = str(exception).strip()
+    return (message or type(exception).__name__).upper()[:80]

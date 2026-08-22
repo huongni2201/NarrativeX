@@ -120,8 +120,12 @@ export const ProjectWizardModal: React.FC = () => {
         <Button variant="secondary" onClick={handleCloseWizard} disabled={createProject.isPending}>
           Hủy
         </Button>
-        <Button variant="gradient" onClick={handleConfirm} disabled={createProject.isPending}>
-          <Check className="mr-1.5 h-4 w-4" />
+        <Button
+          variant="gradient"
+          onClick={handleConfirm}
+          isLoading={createProject.isPending}
+          leftIcon={<Check className="h-4 w-4" />}
+        >
           {createProject.isPending ? "Đang tạo dự án…" : "Tạo dự án"}
         </Button>
       </div>

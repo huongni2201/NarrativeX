@@ -1,4 +1,5 @@
 import { ExternalLink, ImageIcon, MapPin } from "lucide-react";
+import { LoadingState } from "@/components/ui/LoadingState";
 import type {
   ApiProjectAsset,
   ApiProjectLocation,
@@ -150,7 +151,13 @@ function ResourceShell({
         )}
       </div>
       <p className="text-xs text-slate-400">{description}</p>
-      {isLoading && <p className="text-xs text-slate-500">Đang tải dữ liệu từ backend…</p>}
+      {isLoading && (
+        <LoadingState
+          message="Đang tải dữ liệu từ backend…"
+          className="justify-start text-xs text-slate-500"
+          iconClassName="h-4 w-4"
+        />
+      )}
       {errorMessage && (
         <div className="rounded-lg border border-rose-500/30 bg-rose-950/20 p-3 text-rose-200">
           {errorMessage}

@@ -160,7 +160,7 @@
 }
 
 .animate-pulse-glow {
-  animation: none;
+  animation: pulseGlow 1.8s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

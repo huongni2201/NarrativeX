@@ -182,7 +182,7 @@ class VertexBatchImageProvider(VertexImageProvider):
             return ImageBatchOperation(
                 provider_key=operation.provider_key,
                 operation_id=operation.operation_id,
-                status=ProviderOperationStatus.UNKNOWN,
+                status=ProviderOperationStatus.FAILED,
                 items=operation.items,
                 input_uri=operation.input_uri,
                 output_uri=operation.output_uri,
@@ -264,7 +264,12 @@ class VertexBatchImageProvider(VertexImageProvider):
                         )
                     raw = _response_json(response)
                     if response.is_error:
-                        return replace(operation, status=ProviderOperationStatus.UNKNOWN)
+                        return replace(
+                            operation,
+                            status=ProviderOperationStatus.FAILED,
+                            error_code=f"HTTP_{response.status_code}",
+                            error_detail=_provider_error(raw),
+                        )
                     values = raw.get("batchPredictionJobs")
                     if isinstance(values, list):
                         matches.extend(value for value in values if isinstance(value, dict))
@@ -409,22 +414,13 @@ class VertexBatchImageProvider(VertexImageProvider):
         return response.content
 
 
-def should_use_vertex_image_batch(settings: WorkerSettings, item_count: int) -> bool:
-    """Return whether an image set should use discounted batch inference."""
-
-    if settings.vertex_image_execution_mode == "batch":
-        return item_count >= 1
-    if settings.vertex_image_execution_mode == "online":
-        return False
-    return bool(
-        settings.vertex_image_batch_gcs_bucket
-        and item_count >= settings.vertex_image_batch_min_items
-    )
-
-
 def _jsonl_payload(items: tuple[ImageBatchItem, ...]) -> bytes:
     lines = [
-        json.dumps(_request_body(item.request), separators=(",", ":"), ensure_ascii=False)
+        json.dumps(
+            {"request": _request_body(item.request)},
+            separators=(",", ":"),
+            ensure_ascii=False,
+        )
         for item in items
     ]
     return ("\n".join(lines) + "\n").encode("utf-8")
@@ -448,17 +444,18 @@ def _single_model(items: tuple[ImageBatchItem, ...]) -> str:
 def _materialize_batch_rows(
     rows: list[dict[str, object]], items: tuple[ImageBatchItem, ...]
 ) -> tuple[ImageBatchItemResult, ...]:
-    by_instance: dict[str, deque[ImageBatchItem]] = defaultdict(deque)
+    by_request: dict[str, deque[ImageBatchItem]] = defaultdict(deque)
     for item in items:
-        by_instance[_canonical_json(_request_body(item.request))].append(item)
-    if any(len(candidates) > 1 for candidates in by_instance.values()):
+        request_json = _canonical_json(_request_body(item.request))
+        by_request[request_json].append(item)
+    if any(len(candidates) > 1 for candidates in by_request.values()):
         raise BatchItemCorrelationError("BATCH_ITEM_CORRELATION_FAILED: duplicate request bodies")
 
     used_keys: set[str] = set()
     results: list[ImageBatchItemResult] = []
 
     for row in rows:
-        matched = _match_row_item(row, by_instance, used_keys)
+        matched = _match_row_item(row, by_request, used_keys)
         if matched is None:
             raise BatchItemCorrelationError("BATCH_ITEM_CORRELATION_FAILED")
         item = matched
@@ -491,13 +488,13 @@ def _materialize_batch_rows(
 
 def _match_row_item(
     row: dict[str, object],
-    by_instance: dict[str, deque[ImageBatchItem]],
+    by_request: dict[str, deque[ImageBatchItem]],
     used_keys: set[str],
 ) -> ImageBatchItem | None:
-    instance = row.get("instance")
-    if not isinstance(instance, dict):
+    request = row.get("request")
+    if not isinstance(request, dict):
         return None
-    candidates = by_instance.get(_canonical_json(instance))
+    candidates = by_request.get(_canonical_json(request))
     if not candidates or len(candidates) != 1:
         return None
     matched = candidates[0]

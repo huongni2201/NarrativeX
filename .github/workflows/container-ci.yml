@@ -1,0 +1,59 @@
+name: Container CI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'app/backend-service/**'
+      - 'app/frontend-web/**'
+      - 'app/ai-worker/**'
+      - 'docker-compose.yml'
+      - '.github/workflows/container-ci.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'app/backend-service/**'
+      - 'app/frontend-web/**'
+      - 'app/ai-worker/**'
+      - 'docker-compose.yml'
+      - '.github/workflows/container-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: container-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build ${{ matrix.service }} image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: backend
+            context: ./app/backend-service
+            dockerfile: ./app/backend-service/Dockerfile
+          - service: frontend
+            context: ./app/frontend-web
+            dockerfile: ./app/frontend-web/Dockerfile
+          - service: ai-worker
+            context: ./app/ai-worker
+            dockerfile: ./app/ai-worker/Dockerfile
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Build image
+        run: >-
+          docker build
+          --file "${{ matrix.dockerfile }}"
+          --tag "narrativex/${{ matrix.service }}:${{ github.sha }}"
+          "${{ matrix.context }}"

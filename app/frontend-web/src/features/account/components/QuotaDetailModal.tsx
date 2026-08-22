@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useUserQuota } from "../hooks/useUserQuota";
 import { Modal } from "@/components/ui/Modal";
+import { LoadingState } from "@/components/ui/LoadingState";
 
 interface QuotaDetailModalProps {
   isOpen: boolean;
@@ -74,9 +75,7 @@ export function QuotaDetailModal({ isOpen, onClose }: Readonly<QuotaDetailModalP
 
         <div className="p-5 space-y-5">
           {isLoading ? (
-            <div className="flex h-40 items-center justify-center text-xs text-text-muted">
-              Đang tải thông tin hạn mức…
-            </div>
+            <LoadingState message="Đang tải thông tin hạn mức…" className="h-40 text-xs" />
           ) : (
             <>
               {/* Credits Usage Bar */}

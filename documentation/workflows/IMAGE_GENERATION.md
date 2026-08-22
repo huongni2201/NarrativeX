@@ -17,7 +17,9 @@ VisualScenePlan
   -> Cloudflare R2 immutable object
   -> one atomic PostgreSQL materialization transaction
   -> MediaAsset + lineage + item READY
-  -> stage complete only when every item is terminal and no item is UNKNOWN
+  -> provider operation complete for the current batch
+  -> stage/job remains RUNNING while any job item is pending
+  -> terminal stage/job is FAILED when any item failed, otherwise COMPLETED when all are READY
 ```
 
 This is delivery sequencing, not a change to the long-term reuse-first policy.
@@ -38,14 +40,25 @@ Derived assets preserve lineage and only billable operations contribute provider
 - persist request identity/ProviderOperation before external submission;
 - use CAS/allowed-state transitions;
 - ambiguous outcome becomes `UNKNOWN` and reconciles before resubmit;
+- deterministic provider failures (`HTTP 4xx`, provider `FAILED`, invalid/correlated output) are
+  persisted as `FAILED`; only timeouts, network failures, HTTP 5xx, and genuinely unresolved
+  outcomes remain `UNKNOWN`; internal worker failures are persisted as `FAILED` with
+  `IMAGE_WORKER_INTERNAL_ERROR`;
 - completed result is immutable except idempotent same-fingerprint replay;
 - provider URL/local path is never authoritative media identity.
 - the image worker claims `SHOT_IMAGE_GENERATE` directly from PostgreSQL; it does not call the
   backend over HTTP to claim work;
 - a `RESERVED` operation is fenced to `UNKNOWN` before Vertex submission, so a crash cannot cause
   a blind second paid POST;
+- the claimed worker's heartbeat and processing task are joined: lease loss cancels processing,
+  and a final `(stage_attempt_id, worker_id, lease_token, status=RUNNING)` fence runs immediately
+  before every new provider submission; claimed-worker DB mutations carry the same lease fence;
 - batches are capped by `VERTEX_IMAGE_BATCH_MAX_ITEMS` and duplicate request bodies are split into
   separate batches because positional output matching is forbidden;
+- completing one provider batch never completes the parent stage/job by itself: the worker
+  aggregates every `media_generation_items` row for the generation job, preserving `RUNNING` for
+  `QUEUED`/`RUNNING`/`VALIDATING`/`UNKNOWN`, setting `FAILED` when no pending items remain and any
+  item failed, and setting `COMPLETED` only when every item is `READY`;
 - a missing, unknown, duplicate, or reordered-without-instance provider row fails closed with
   `BATCH_ITEM_CORRELATION_FAILED`.
 

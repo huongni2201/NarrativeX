@@ -35,9 +35,9 @@ pending durable operation rather than an in-process polling loop, so the Vertex 
 after worker restart.
 
 `gemini-2.5-flash-image` supports Vertex Batch inference but not Flex PayGo. Keep
-`VERTEX_IMAGE_SERVICE_TIER=standard`, `VERTEX_IMAGE_EXECUTION_MODE=batch`, and
-`VERTEX_IMAGE_BATCH_MIN_ITEMS=1`. Enabling `IMAGE_PROVIDER_MODE=vertex` requires a configured
-`VERTEX_IMAGE_BATCH_GCS_BUCKET`; there is no silent online fallback in batch mode.
+`VERTEX_IMAGE_SERVICE_TIER=standard` and `VERTEX_IMAGE_EXECUTION_MODE=batch`. The execution mode
+is intentionally batch-only; `online` and `auto` are not valid production configuration values.
+Enabling `IMAGE_PROVIDER_MODE=vertex` requires a configured `VERTEX_IMAGE_BATCH_GCS_BUCKET`.
 
 The staging bucket is not a product media store. Configure a GCS lifecycle rule to remove staging
 input/output after the reconciliation retention window. Cloudflare R2 remains authoritative for
@@ -78,12 +78,15 @@ For Docker Compose, set `VIENEU_REFERENCE_AUDIO_HOST_DIR` to the host directory 
 Compose mounts that directory read-only at `/run/narrativex/voices` inside the worker. The worker
 enrolls the profile once with `add_voice(..., denoise=True)`, calls `save_voices()`, and
 reuses it for each narration segment. `VIENEU_BACKEND=auto` selects the v3 Turbo ONNX CPU path on
-CPU; set `VIENEU_BACKEND=pytorch` only when the runtime has the corresponding GPU stack. The sample
+CPU; set `VIENEU_BACKEND=pytorch` only when the runtime has the corresponding GPU stack. The worker
+can enroll references through the ONNX/CPU path without importing PyTorch or TorchAudio. The sample
 is never copied into a durable job payload. Real-person samples require explicit consent.
 
-The worker image runs as non-root `appuser` with a writable `/home/appuser` runtime home. VieNeu's
-model and profile caches are stored under `/home/appuser/.cache/huggingface`; this avoids the
-`/nonexistent` home assigned by default to Debian system users.
+The worker image runs as non-root `appuser` with a writable `/home/appuser` runtime home. VieNeu
+3.3's ONNX/CPU voice-cloning path can run without PyTorch/TorchAudio; the worker still declares
+those packages for compatibility with the existing runtime and tests. VieNeu's model and profile
+caches are stored under `/home/appuser/.cache/huggingface`; this avoids the `/nonexistent` home
+assigned by default to Debian system users.
 
 The narration UI can also attach a user-owned MP3 reference to a VieNeu narration request. The
 worker downloads that READY audio asset into the ephemeral job directory, validates the 3–8 second

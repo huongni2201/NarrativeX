@@ -15,8 +15,9 @@ To ensure strict billing accuracy, eliminate duplicate charges, and enable deter
 
 ### 1. Provider Operation State Machine & Pre-Submit Fencing
 
-- **Durable `provider_operations` Record:** Created with a unique key `(provider_key, request_fingerprint)` and initial status `RESERVED`.
-- **Pre-Submit CAS Fence:** Before the worker invokes the external provider API, it performs an optimistic Compare-And-Set (CAS) transition to `UNKNOWN`.
+- **Durable `provider_operations` Record:** Created with a unique key `(provider_key, request_fingerprint)`. Provider paths that need a reservation first may create it as `RESERVED`; the `SHOT_IMAGE_GENERATE` batch path creates it directly as `UNKNOWN` because its reservation, item binding, and submission fence are one transaction.
+- **Pre-Submit Fence:** Before the worker invokes the external provider API, the operation is durably `UNKNOWN` with `next_reconcile_at` set. The image batch path verifies the stage lease and binds all queued items in that same transaction; the provider call begins only after commit. Immediately before a new paid image submission, it performs a second `(stage_attempt_id, worker_id, lease_token, status=RUNNING)` fence.
+- **Lease-loss cancellation:** The image worker joins heartbeat and processing tasks. A failed heartbeat cancels processing, and claimed-worker provider-operation/item/stage mutations require the same lease identity. Reconciliation paths without a stage claim remain guarded by provider-operation CAS and never blindly resubmit `UNKNOWN` work.
 - **State Graph:**
   - `RESERVED -> UNKNOWN`
   - `UNKNOWN -> SUBMITTED | RUNNING | COMPLETED | FAILED`

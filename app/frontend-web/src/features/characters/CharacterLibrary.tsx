@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { LoaderCircle, RefreshCw, Search, Users } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { LoadingState } from "@/components/ui/LoadingState";
 import { apiErrorMessage } from "@/shared/api/client";
 import { useCharactersQuery } from "./hooks/useCharactersQuery";
 
@@ -27,10 +28,7 @@ export function CharacterLibrary() {
 
   if (query.isPending) {
     return (
-      <div className="flex min-h-[420px] items-center justify-center text-slate-400">
-        <LoaderCircle className="mr-2 h-5 w-5 animate-spin" />
-        Đang tải thư viện nhân vật...
-      </div>
+      <LoadingState message="Đang tải thư viện nhân vật…" className="min-h-[420px] text-slate-400" />
     );
   }
 
@@ -137,7 +135,7 @@ export function CharacterLibrary() {
             disabled={query.isFetchingNextPage}
             onClick={() => query.fetchNextPage()}
           >
-            {query.isFetchingNextPage && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
+            {query.isFetchingNextPage && <LoaderCircle className="mr-2 h-4 w-4 motion-safe:animate-spin" />}
             Tải thêm
           </Button>
         </div>

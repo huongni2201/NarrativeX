@@ -5,6 +5,7 @@ import { PresetCard } from "@/components/presets/PresetCard";
 import { PresetDetailDrawer } from "@/components/presets/PresetDetailDrawer";
 import { PresetEditorModal } from "@/components/presets/PresetEditorModal";
 import { Button } from "@/components/ui/Button";
+import { LoadingState } from "@/components/ui/LoadingState";
 import { Input } from "@/components/ui/Input";
 import {
   Plus,
@@ -62,7 +63,10 @@ export const StylePresetsScreen: React.FC = () => {
     return (
       <div className="rounded-2xl border border-dashed border-slate-700 bg-surface/40 p-8">
         <p className="text-[11px] uppercase tracking-[0.2em] text-orange-300">Style &amp; Presets</p>
-        <h2 className="mt-2 text-lg font-semibold text-slate-200">Đang tải style presets…</h2>
+        <LoadingState
+          message="Đang tải style presets…"
+          className="mt-5 justify-start text-slate-200"
+        />
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
           Đang đọc catalog phong cách từ backend.
         </p>

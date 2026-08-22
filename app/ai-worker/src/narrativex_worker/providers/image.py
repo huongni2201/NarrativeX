@@ -17,6 +17,14 @@ from narrativex_worker.schema import (
 )
 
 
+class ImageProviderError(RuntimeError):
+    """A deterministic provider/configuration failure safe to persist as FAILED."""
+
+
+class ImageSubmissionUnknownError(ImageProviderError):
+    """The provider call may have crossed the external boundary but its outcome is unknown."""
+
+
 @dataclass(frozen=True)
 class ImageGenerationRequest:
     request_fingerprint: str

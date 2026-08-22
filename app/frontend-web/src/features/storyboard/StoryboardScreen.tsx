@@ -1,6 +1,7 @@
 "use client";
 
-import { LoaderCircle, Plus, RefreshCw } from "lucide-react";
+import { Plus, RefreshCw } from "lucide-react";
+import { LoadingState } from "@/components/ui/LoadingState";
 import { apiErrorMessage } from "@/shared/api/client";
 import { AddVisualBeatModal } from "./components/AddVisualBeatModal";
 import { StoryboardEmptyState } from "./components/StoryboardEmptyState";
@@ -84,10 +85,11 @@ export function StoryboardScreen({
       />
 
       {storyboardQuery.isPending && (
-        <div className="flex min-h-[360px] items-center justify-center text-sm text-slate-500">
-          <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
-          Đang tải storyboard từ backend…
-        </div>
+        <LoadingState
+          message="Đang tải storyboard từ backend…"
+          className="min-h-[360px] text-sm text-slate-500"
+          iconClassName="h-4 w-4"
+        />
       )}
 
       {storyboardQuery.isError && (

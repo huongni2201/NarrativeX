@@ -89,6 +89,20 @@ RESERVED
 
 `RESERVED` is the only state that proves the external-call fence was not crossed and is therefore the only state that can be safely submitted after restart. `UNKNOWN`, `SUBMITTED` and `RUNNING` are never blindly resubmitted.
 
+The `SHOT_IMAGE_GENERATE` batch path is fenced atomically by
+`prepare_provider_submission`: it verifies the stage lease, creates or locks the deterministic
+provider operation, binds every queued `media_generation_items` row, and sets
+`next_reconcile_at` while the operation is already `UNKNOWN`, all in one PostgreSQL transaction.
+The provider call starts only after that transaction commits. This prevents a crash from leaving
+running items attached to an operation that is absent from the reconciliation queue.
+
+For `SHOT_IMAGE_GENERATE`, the heartbeat and processing task are joined. If the heartbeat loses
+the stage lease, the processing task is cancelled and cannot start another provider submission.
+Immediately before a new paid submission, the worker performs a final
+`(stage_attempt_id, worker_id, lease_token, status=RUNNING)` fence. Mutations made by the claimed
+worker carry that same lease identity; reconciliation without a stage claim remains protected by
+provider-operation compare-and-set state.
+
 Every provider-operation mutation carries the loaded snapshot and uses optimistic CAS on both status and `row_version`. `COMPLETED` and `FAILED` are terminal; a stale reconciliation response is discarded after reloading the latest durable state.
 
 Provider capabilities explicitly declare whether durable operation reconciliation is supported. The current synchronous Vertex `generateContent` adapter does not expose a pollable durable operation id. If submission times out, the process dies after the UNKNOWN fence, or a non-terminal state lacks a durable operation id, the worker preserves the ambiguous operation and schedules reconciliation (or explicit manual attention when reconciliation is unsafe) rather than risking a duplicate provider request or charge.

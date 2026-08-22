@@ -5,6 +5,7 @@ import { chaptersApi } from "@/features/chapters/api/chapters.api";
 import { projectsApi } from "@/features/projects/api/projects.api";
 import { queryKeys } from "@/lib/query-keys";
 import { ApiClientError, apiErrorMessage } from "@/shared/api/client";
+import { LoadingState } from "@/components/ui/LoadingState";
 import { StoryboardScreen } from "./StoryboardScreen";
 
 interface ProjectStoryboardScreenProps {
@@ -41,7 +42,12 @@ export function ProjectStoryboardScreen({ projectId }: Readonly<ProjectStoryboar
     return <StoryboardMessage>Project ID không hợp lệ.</StoryboardMessage>;
   }
   if (storyQuery.isPending || (storyVersionId && chaptersQuery.isPending)) {
-    return <StoryboardMessage>Đang tải dữ liệu Storyboard từ backend…</StoryboardMessage>;
+    return (
+      <LoadingState
+        message="Đang tải dữ liệu Storyboard từ backend…"
+        className="rounded-xl border border-slate-800 bg-surface-input p-8"
+      />
+    );
   }
   if (storyQuery.isError) {
     return (

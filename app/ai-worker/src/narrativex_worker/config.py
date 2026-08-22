@@ -61,8 +61,7 @@ class WorkerSettings(BaseSettings):
     vertex_image_location: str = "global"
     vertex_image_timeout_seconds: float = Field(default=120.0, gt=1, le=1800)
     vertex_image_service_tier: Literal["standard", "flex"] = "standard"
-    vertex_image_execution_mode: Literal["online", "batch", "auto"] = "batch"
-    vertex_image_batch_min_items: int = Field(default=1, ge=1, le=10_000)
+    vertex_image_execution_mode: Literal["batch"] = "batch"
     vertex_image_batch_max_items: int = Field(default=50, ge=1, le=1000)
     vertex_image_batch_location: str = "global"
     vertex_image_batch_gcs_bucket: str | None = None
@@ -153,21 +152,19 @@ class WorkerSettings(BaseSettings):
                 raise ValueError("Vertex image Flex PayGo requires VERTEX_IMAGE_LOCATION=global")
             if self.vertex_image_model == "gemini-2.5-flash-image":
                 raise ValueError(
-                    "gemini-2.5-flash-image does not support Flex PayGo; use standard online "
+                    "gemini-2.5-flash-image does not support Flex PayGo; use the standard tier "
                     "or Vertex batch inference for the 50% discounted rate"
                 )
-        if self.image_provider_mode == "vertex" and self.vertex_image_execution_mode == "batch":
+        if self.image_provider_mode == "vertex":
             if (
                 not self.vertex_image_batch_gcs_bucket
                 or not self.vertex_image_batch_gcs_bucket.strip()
             ):
                 raise ValueError(
-                    "VERTEX_IMAGE_BATCH_GCS_BUCKET is required when "
-                    "IMAGE_PROVIDER_MODE=vertex and VERTEX_IMAGE_EXECUTION_MODE=batch"
+                    "VERTEX_IMAGE_BATCH_GCS_BUCKET is required when IMAGE_PROVIDER_MODE=vertex"
                 )
-        if self.vertex_image_execution_mode in {"batch", "auto"}:
-            if not self.normalized_vertex_image_batch_prefix:
-                raise ValueError("VERTEX_IMAGE_BATCH_GCS_PREFIX must not be blank")
+        if not self.normalized_vertex_image_batch_prefix:
+            raise ValueError("VERTEX_IMAGE_BATCH_GCS_PREFIX must not be blank")
         if self.tts_provider_mode == "google" and not self.google_tts_project_id:
             raise ValueError("GOOGLE_TTS_PROJECT_ID is required when TTS_PROVIDER_MODE=google")
         if self.tts_provider_mode == "vieneu":
@@ -175,6 +172,8 @@ class WorkerSettings(BaseSettings):
                 raise ValueError("VIENEU_VOICE_ID must not be blank")
             if not self.vieneu_voice_name.strip():
                 raise ValueError("VIENEU_VOICE_NAME must not be blank")
+        if self.image_provider_mode != "disabled" and self.media_storage_mode != "r2":
+            raise ValueError("Image generation requires MEDIA_STORAGE_MODE=r2")
         if self.media_storage_mode == "r2":
             missing: list[str] = []
             if not self.resolved_r2_endpoint:

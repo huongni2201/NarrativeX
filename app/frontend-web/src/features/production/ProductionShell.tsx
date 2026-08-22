@@ -4,12 +4,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Plus, UploadCloud } from "lucide-react";
+import { Loader2, Plus, UploadCloud } from "lucide-react";
 import { chaptersApi } from "@/features/chapters/api/chapters.api";
 import { projectsApi } from "@/features/projects/api/projects.api";
 import { StoryboardScreen } from "@/features/storyboard/StoryboardScreen";
 import { queryKeys } from "@/lib/query-keys";
 import { ApiClientError, apiErrorMessage } from "@/shared/api/client";
+import { LoadingState } from "@/components/ui/LoadingState";
 import { ChapterTable } from "./components/ChapterTable";
 import { CreateChapterModal, type CreateChapterInput } from "./components/CreateChapterModal";
 import { ProjectHero } from "./components/ProjectHero";
@@ -173,7 +174,12 @@ export function ProductionShell({ projectId, initialTab = "chapters" }: Readonly
   }
 
   if (overviewQuery.isPending || projectQuery.isPending || storyQuery.isPending) {
-    return <WorkspaceMessage>Đang tải dữ liệu project từ backend…</WorkspaceMessage>;
+    return (
+      <LoadingState
+        message="Đang tải dữ liệu project từ backend…"
+        className="rounded-xl border border-border bg-surface-panel p-8"
+      />
+    );
   }
   if (overviewQuery.isError) {
     return <WorkspaceError error={overviewQuery.error} fallback="Không tải được Project Overview." />;
@@ -284,7 +290,11 @@ export function ProductionShell({ projectId, initialTab = "chapters" }: Readonly
                   disabled={batchImport.isPending}
                   className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-3.5 py-2 text-xs font-semibold text-text-secondary transition-colors hover:bg-surface-3 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <UploadCloud className="h-3.5 w-3.5 text-primary-light" />
+                  {batchImport.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 motion-safe:animate-spin text-primary-light" />
+                  ) : (
+                    <UploadCloud className="h-3.5 w-3.5 text-primary-light" />
+                  )}
                   <span>{batchImport.isPending ? "Đang import…" : "Import nhiều chapter"}</span>
                 </button>
 
@@ -371,14 +381,6 @@ function WorkspaceError({ error, fallback }: Readonly<{ error: unknown; fallback
   return (
     <div className="rounded-2xl border border-rose-500/30 bg-rose-950/20 p-8 text-sm text-rose-200">
       {apiErrorMessage(error, fallback)}
-    </div>
-  );
-}
-
-function WorkspaceMessage({ children }: Readonly<{ children: React.ReactNode }>) {
-  return (
-    <div className="rounded-2xl border border-slate-800/80 bg-surface/50 p-8 text-sm text-slate-300">
-      {children}
     </div>
   );
 }

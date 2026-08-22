@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import type { ApiChapterStoryboard, ApiStoryboardScene } from "../api/storyboard.api";
 
@@ -103,6 +103,7 @@ export function AddVisualBeatModal({
               disabled={isPending || !beatTitle.trim() || !visualIntent.trim() || addSceneId === null}
               className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-orange-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 disabled:cursor-not-allowed disabled:opacity-40"
             >
+              {isPending && <Loader2 className="mr-2 h-3.5 w-3.5 motion-safe:animate-spin" />}
               {isPending ? "Đang lưu…" : "Thêm Visual Beat"}
             </button>
           </div>

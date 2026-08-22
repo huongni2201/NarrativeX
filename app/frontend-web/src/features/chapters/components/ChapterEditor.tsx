@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertTriangle } from "lucide-react";
+import { LoadingState } from "@/components/ui/LoadingState";
 import { StoryboardScreen } from "@/features/storyboard/StoryboardScreen";
 import { apiErrorMessage } from "@/shared/api/client";
 import { useChapterWorkspaceState } from "../hooks/useChapterWorkspaceState";
@@ -52,7 +53,12 @@ export function ChapterEditor({ projectId, chapterId }: Readonly<ChapterEditorPr
 
   if (!validIds) return <WorkspaceMessage>Chapter route không hợp lệ.</WorkspaceMessage>;
   if (workspaceQuery.isPending)
-    return <WorkspaceMessage>Đang tải Chapter Workspace từ backend…</WorkspaceMessage>;
+    return (
+      <LoadingState
+        message="Đang tải Chapter Workspace từ backend…"
+        className="rounded-xl border border-border bg-surface-panel p-8"
+      />
+    );
   if (workspaceQuery.isError) {
     return (
       <WorkspaceMessage>

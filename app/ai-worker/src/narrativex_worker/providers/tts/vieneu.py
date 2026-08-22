@@ -119,8 +119,18 @@ class VieneuTtsProvider:
             if self.settings.vieneu_save_voice_profile:
                 self._client.save_voices()
         except (OSError, TimeoutError) as exception:
+            self.logger.exception(
+                "VieNeu voice profile persistence failed name=%r reference=%s",
+                self.voice_name,
+                reference_path,
+            )
             raise RuntimeError("VieNeu voice profile could not be persisted") from exception
         except Exception as exception:
+            self.logger.exception(
+                "VieNeu voice enrollment failed name=%r reference=%s",
+                self.voice_name,
+                reference_path,
+            )
             raise RuntimeError(
                 f"VieNeu voice enrollment failed for {self.voice_name!r}"
             ) from exception

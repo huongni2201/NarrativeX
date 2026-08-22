@@ -20,6 +20,10 @@ class ImageGenerationUnknownError(RuntimeError):
     pass
 
 
+class ImageGenerationOutputError(RuntimeError):
+    """The provider completed but returned output that cannot be safely materialized."""
+
+
 class ImageGenerationBlockedError(RuntimeError):
     pass
 
@@ -106,17 +110,17 @@ class ImageGenerationRunner:
         self, operation: ImageBatchOperation, *, durable_operation_id: int | None = None
     ) -> tuple[DurableMediaResult, ...]:
         if len(operation.items) != len(operation.results):
-            raise RuntimeError("BATCH_ITEM_CORRELATION_FAILED")
+            raise ImageGenerationOutputError("BATCH_ITEM_CORRELATION_FAILED")
         if len({result.item_key for result in operation.results}) != len(operation.results):
-            raise RuntimeError("BATCH_ITEM_CORRELATION_FAILED")
+            raise ImageGenerationOutputError("BATCH_ITEM_CORRELATION_FAILED")
         by_key = {item.item_key: item for item in operation.items}
         if set(by_key) != {result.item_key for result in operation.results}:
-            raise RuntimeError("BATCH_ITEM_CORRELATION_FAILED")
+            raise ImageGenerationOutputError("BATCH_ITEM_CORRELATION_FAILED")
         materialized: list[DurableMediaResult] = []
         for item_result in operation.results:
             item = by_key[item_result.item_key]
             if item_result.request_fingerprint != item.request.request_fingerprint:
-                raise RuntimeError("BATCH_ITEM_CORRELATION_FAILED")
+                raise ImageGenerationOutputError("BATCH_ITEM_CORRELATION_FAILED")
             if item_result.error_code == ImageGenerationProviderRejectedError.code:
                 mark_failed = getattr(self.repository, "mark_failed", None)
                 if mark_failed is None:
@@ -184,7 +188,7 @@ class ImageGenerationRunner:
             raise ImageGenerationProviderRejectedError("provider moderation rejected this image")
         checksum = result.result_fingerprint
         if checksum != hashlib.sha256(result.content).hexdigest():
-            raise ValueError("provider result fingerprint does not match image bytes")
+            raise ImageGenerationOutputError("PROVIDER_RESULT_FINGERPRINT_MISMATCH")
         storage_key = f"private/provider-results/images/{checksum}"
         stored = await self.storage.put_immutable(
             storage_key=storage_key,

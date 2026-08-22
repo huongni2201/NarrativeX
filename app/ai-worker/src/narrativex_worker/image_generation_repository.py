@@ -1,7 +1,7 @@
 """PostgreSQL repository for the durable SHOT_IMAGE_GENERATE worker.
 
 This repository intentionally owns claim/lease and provider-operation writes. The image provider
-never receives a call until the RESERVED operation and its item bindings have committed.
+never receives a call until the UNKNOWN submission fence and its item bindings have committed.
 """
 
 import hashlib
@@ -35,6 +35,10 @@ class ClaimedImageGenerationJob:
     worker_id: str
 
 
+class ImageGenerationLeaseLostError(RuntimeError):
+    """Raised when a worker no longer owns the image-generation stage lease."""
+
+
 @dataclass(frozen=True)
 class ClaimedImageGenerationItem:
     id: uuid.UUID
@@ -54,6 +58,8 @@ class DurableImageOperation:
     row_version: int
     items: tuple[ImageBatchItem, ...]
     created: bool = False
+    worker_id: str | None = None
+    lease_token: str | None = None
 
 
 class ImageGenerationRepository:
@@ -147,6 +153,20 @@ class ImageGenerationRepository:
         )
         return str(result) == "UPDATE 1"
 
+    async def assert_lease(self, job: ClaimedImageGenerationJob) -> None:
+        row = await self._require_pool().fetchrow(
+            """
+            SELECT 1
+              FROM stage_attempts
+             WHERE id = $1 AND worker_id = $2 AND lease_token = $3::uuid AND status = 'RUNNING'
+            """,
+            job.stage_attempt_id,
+            job.worker_id,
+            job.lease_token,
+        )
+        if row is None:
+            raise ImageGenerationLeaseLostError()
+
     async def load_pending_items(
         self, job: ClaimedImageGenerationJob
     ) -> tuple[ClaimedImageGenerationItem, ...]:
@@ -189,22 +209,42 @@ class ImageGenerationRepository:
             )
         return tuple(items)
 
-    async def reserve_provider_operation(
+    async def prepare_provider_submission(
         self, job: ClaimedImageGenerationJob, items: tuple[ImageBatchItem, ...]
     ) -> DurableImageOperation:
+        if not items:
+            raise ValueError("IMAGE_GENERATION_ITEMS_REQUIRED")
+
         fingerprint = provider_batch_fingerprint(items)
         pool = self._require_pool()
         async with pool.acquire() as connection:
             async with connection.transaction():
+                lease = await connection.fetchrow(
+                    """
+                    SELECT id
+                      FROM stage_attempts
+                     WHERE id = $1
+                       AND worker_id = $2
+                       AND lease_token = $3::uuid
+                       AND status = 'RUNNING'
+                     FOR UPDATE
+                    """,
+                    job.stage_attempt_id,
+                    job.worker_id,
+                    job.lease_token,
+                )
+                if lease is None:
+                    raise ImageGenerationLeaseLostError()
+
                 row = await connection.fetchrow(
                     """
                     INSERT INTO provider_operations
-                        (stage_attempt_id, provider_key, request_fingerprint, status)
-                    VALUES ($1, $2, $3, 'RESERVED')
+                        (stage_attempt_id, provider_key, request_fingerprint, status,
+                         next_reconcile_at)
+                    VALUES ($1, $2, $3, 'UNKNOWN', CURRENT_TIMESTAMP)
                     ON CONFLICT (provider_key, request_fingerprint) DO NOTHING
                     RETURNING id, stage_attempt_id, provider_key, request_fingerprint,
-                              provider_operation_id,
-                              status, row_version
+                              provider_operation_id, status, row_version
                     """,
                     job.stage_attempt_id,
                     items[0].request.provider_key,
@@ -215,8 +255,7 @@ class ImageGenerationRepository:
                     row = await connection.fetchrow(
                         """
                         SELECT id, stage_attempt_id, provider_key, request_fingerprint,
-                               provider_operation_id,
-                               status, row_version
+                               provider_operation_id, status, row_version
                           FROM provider_operations
                          WHERE provider_key = $1 AND request_fingerprint = $2
                          FOR UPDATE
@@ -225,7 +264,42 @@ class ImageGenerationRepository:
                         fingerprint,
                     )
                 if row is None:
-                    raise RuntimeError("Image provider operation reservation disappeared")
+                    raise RuntimeError("Image provider operation disappeared")
+
+                if not created and row["status"] in {"RESERVED", "UNKNOWN"}:
+                    row = await connection.fetchrow(
+                        """
+                        UPDATE provider_operations
+                           SET status = 'UNKNOWN', next_reconcile_at = CURRENT_TIMESTAMP,
+                               last_reconcile_error = NULL, updated_at = CURRENT_TIMESTAMP,
+                               row_version = row_version + 1
+                         WHERE id = $1 AND status IN ('RESERVED', 'UNKNOWN')
+                        RETURNING id, stage_attempt_id, provider_key, request_fingerprint,
+                                  provider_operation_id, status, row_version
+                        """,
+                        row["id"],
+                    )
+                    if row is None:
+                        raise RuntimeError(
+                            "Image provider operation changed before submission fence"
+                        )
+
+                result = await connection.execute(
+                    """
+                    UPDATE media_generation_items
+                       SET provider_operation_id = $1, execution_status = 'RUNNING',
+                           updated_at = CURRENT_TIMESTAMP, row_version = row_version + 1
+                     WHERE generation_job_id = $2 AND item_key = ANY($3::text[])
+                       AND execution_status = 'QUEUED'
+                    """,
+                    row["id"],
+                    job.generation_job_id,
+                    [item.item_key for item in items],
+                )
+                updated_count = int(str(result).rsplit(" ", 1)[-1])
+                if updated_count != len(items):
+                    raise RuntimeError("IMAGE_GENERATION_ITEMS_ALREADY_CLAIMED")
+
                 return DurableImageOperation(
                     id=row["id"],
                     stage_attempt_id=row["stage_attempt_id"],
@@ -236,39 +310,9 @@ class ImageGenerationRepository:
                     row_version=row["row_version"],
                     items=items,
                     created=created,
+                    worker_id=job.worker_id,
+                    lease_token=job.lease_token,
                 )
-
-    async def bind_items_to_operation(
-        self, job: ClaimedImageGenerationJob, operation: DurableImageOperation
-    ) -> None:
-        ids = [
-            row["id"]
-            for row in await self._require_pool().fetch(
-                """
-                SELECT id
-                  FROM media_generation_items
-                 WHERE generation_job_id = $1 AND item_key = ANY($2::text[])
-                """,
-                job.generation_job_id,
-                [item.item_key for item in operation.items],
-            )
-        ]
-        if len(ids) != len(operation.items):
-            raise RuntimeError("Image generation item set changed while claiming")
-        result = await self._require_pool().execute(
-            """
-            UPDATE media_generation_items
-               SET provider_operation_id = $1, execution_status = 'RUNNING',
-                   updated_at = CURRENT_TIMESTAMP, row_version = row_version + 1
-             WHERE generation_job_id = $2 AND item_key = ANY($3::text[])
-               AND execution_status = 'QUEUED'
-            """,
-            operation.id,
-            job.generation_job_id,
-            [item.item_key for item in operation.items],
-        )
-        if str(result) != f"UPDATE {len(operation.items)}":
-            raise RuntimeError("Image generation items were claimed by another worker")
 
     async def mark_submitted(
         self,
@@ -276,11 +320,11 @@ class ImageGenerationRepository:
         provider_operation_id: str | None,
         status: ProviderOperationStatus,
     ) -> DurableImageOperation:
-        safe_status = (
-            status
-            if status in {ProviderOperationStatus.SUBMITTED, ProviderOperationStatus.RUNNING}
-            else ProviderOperationStatus.UNKNOWN
-        )
+        if status not in {
+            ProviderOperationStatus.SUBMITTED,
+            ProviderOperationStatus.RUNNING,
+        }:
+            raise ValueError(f"invalid submitted status: {status}")
         row = await self._require_pool().fetchrow(
             """
             UPDATE provider_operations
@@ -288,42 +332,72 @@ class ImageGenerationRepository:
                    next_reconcile_at = CURRENT_TIMESTAMP + INTERVAL '15 seconds',
                    updated_at = CURRENT_TIMESTAMP, row_version = row_version + 1
              WHERE id = $1 AND status IN ('RESERVED', 'UNKNOWN') AND row_version = $4
+               AND (
+                   ($5::text IS NULL AND $6::uuid IS NULL)
+                   OR EXISTS (
+                       SELECT 1
+                         FROM stage_attempts sa
+                        WHERE sa.id = provider_operations.stage_attempt_id
+                          AND sa.worker_id = $5
+                          AND sa.lease_token = $6::uuid
+                          AND sa.status = 'RUNNING'
+                   )
+               )
               RETURNING id, stage_attempt_id, provider_key, request_fingerprint,
                         provider_operation_id,
                         status, row_version
             """,
             operation.id,
-            safe_status.value,
+            status.value,
             provider_operation_id,
             operation.row_version,
+            operation.worker_id,
+            operation.lease_token,
         )
         if row is None:
-            raise RuntimeError("Image provider operation changed before submission was persisted")
-        return self._operation(row, operation.items)
+            raise ImageGenerationLeaseLostError(
+                "Image provider operation changed or lease was lost before submission was persisted"
+            )
+        return self._operation(row, operation.items, owner=operation)
 
-    async def mark_submission_unknown(
-        self, operation: DurableImageOperation
-    ) -> DurableImageOperation:
-        row = await self._require_pool().fetchrow(
-            """
-            UPDATE provider_operations
-               SET status = 'UNKNOWN', next_reconcile_at = CURRENT_TIMESTAMP,
-                   last_reconcile_error = NULL, updated_at = CURRENT_TIMESTAMP,
-                   row_version = row_version + 1
-             WHERE id = $1 AND status = 'RESERVED' AND row_version = $2
-              RETURNING id, stage_attempt_id, provider_key, request_fingerprint,
-                        provider_operation_id,
-                        status, row_version
-            """,
-            operation.id,
-            operation.row_version,
-        )
-        if row is None:
-            raise RuntimeError("Image provider operation changed before submission fence")
-        return self._operation(row, operation.items)
+    async def fail_provider_operation(
+        self, operation: DurableImageOperation, error_code: str
+    ) -> None:
+        pool = self._require_pool()
+        error = error_code[:2000]
+        async with pool.acquire() as connection:
+            async with connection.transaction():
+                await connection.execute(
+                    """
+                    UPDATE provider_operations
+                       SET status = 'FAILED',
+                           last_reconcile_error = $2,
+                           completed_at = CURRENT_TIMESTAMP,
+                           next_reconcile_at = NULL,
+                           updated_at = CURRENT_TIMESTAMP,
+                           row_version = row_version + 1
+                     WHERE id = $1
+                    """,
+                    operation.id,
+                    error,
+                )
+                await connection.execute(
+                    """
+                    UPDATE media_generation_items
+                       SET execution_status = 'FAILED',
+                           error_code = $2,
+                           updated_at = CURRENT_TIMESTAMP,
+                           row_version = row_version + 1
+                     WHERE provider_operation_id = $1
+                       AND execution_status NOT IN ('READY', 'FAILED')
+                    """,
+                    operation.id,
+                    error[:80],
+                )
+        await self.aggregate_generation_job(operation.stage_attempt_id)
 
-    async def mark_unknown(self, operation: DurableImageOperation, error: str) -> None:
-        await self._require_pool().execute(
+    async def mark_unknown(self, operation: DurableImageOperation, error: str) -> bool:
+        result = await self._require_pool().execute(
             """
             UPDATE provider_operations
                SET status = 'UNKNOWN',
@@ -341,26 +415,64 @@ class ImageGenerationRepository:
                    row_version = row_version + 1
              WHERE id = $1 AND status IN ('RESERVED', 'SUBMITTED', 'RUNNING', 'UNKNOWN')
                AND row_version = $3
+               AND (
+                   ($5::text IS NULL AND $6::uuid IS NULL)
+                   OR EXISTS (
+                       SELECT 1
+                         FROM stage_attempts sa
+                        WHERE sa.id = provider_operations.stage_attempt_id
+                          AND sa.worker_id = $5
+                          AND sa.lease_token = $6::uuid
+                          AND sa.status = 'RUNNING'
+                   )
+               )
             """,
             operation.id,
             error[:2000],
             operation.row_version,
             self.settings.vertex_image_unknown_max_age_seconds,
+            operation.worker_id,
+            operation.lease_token,
         )
+        return str(result) == "UPDATE 1"
 
-    async def mark_failed(self, item_key: str, request_fingerprint: str, error: str) -> None:
-        await self._require_pool().execute(
+    async def mark_failed(
+        self,
+        item_key: str,
+        request_fingerprint: str,
+        error: str,
+        *,
+        operation: DurableImageOperation | None = None,
+    ) -> bool:
+        result = await self._require_pool().execute(
             """
             UPDATE media_generation_items
                SET execution_status = 'FAILED', error_code = $3, updated_at = CURRENT_TIMESTAMP,
                    row_version = row_version + 1
              WHERE item_key = $1 AND request_fingerprint = $2
                AND execution_status IN ('RUNNING', 'VALIDATING', 'UNKNOWN')
+               AND (
+                   ($4::bigint IS NULL AND $5::text IS NULL AND $6::uuid IS NULL)
+                   OR EXISTS (
+                       SELECT 1
+                         FROM provider_operations po
+                         JOIN stage_attempts sa ON sa.id = po.stage_attempt_id
+                        WHERE po.id = media_generation_items.provider_operation_id
+                          AND po.id = $4
+                          AND sa.worker_id = $5
+                          AND sa.lease_token = $6::uuid
+                          AND sa.status = 'RUNNING'
+                   )
+               )
             """,
             item_key,
             request_fingerprint,
             error[:80],
+            operation.id if operation is not None else None,
+            operation.worker_id if operation is not None else None,
+            operation.lease_token if operation is not None else None,
         )
+        return str(result) == "UPDATE 1"
 
     async def due_operations(self, limit: int) -> tuple[DurableImageOperation, ...]:
         rows = await self._require_pool().fetch(
@@ -385,34 +497,20 @@ class ImageGenerationRepository:
             operations.append(self._operation(row, items))
         return tuple(operations)
 
-    async def complete_batch(
+    async def complete_provider_operation(
         self, operation: DurableImageOperation, results: tuple[DurableMediaResult, ...]
     ) -> None:
-        del results
+        summary = json.dumps({"items": len(results)}, separators=(",", ":"))
+        fingerprint = hashlib.sha256(summary.encode()).hexdigest()
         pool = self._require_pool()
         async with pool.acquire() as connection:
             async with connection.transaction():
-                rows = await connection.fetch(
-                    """
-                    SELECT execution_status
-                      FROM media_generation_items
-                     WHERE provider_operation_id = $1
-                     FOR UPDATE
-                    """,
-                    operation.id,
-                )
-                if not rows or any(
-                    row["execution_status"] not in {"READY", "FAILED"} for row in rows
-                ):
-                    return
-                summary = json.dumps({"items": len(rows)}, separators=(",", ":"))
-                fingerprint = hashlib.sha256(summary.encode()).hexdigest()
                 await connection.execute(
                     """
                     UPDATE provider_operations
                        SET status = 'COMPLETED', normalized_result_json = $2::jsonb,
                            result_fingerprint = $3,
-                           completed_at = COALESCE(completed_at, CURRENT_TIMESTAMP),
+                           completed_at = CURRENT_TIMESTAMP,
                            next_reconcile_at = NULL, updated_at = CURRENT_TIMESTAMP,
                            row_version = row_version + 1
                      WHERE id = $1 AND status IN ('UNKNOWN', 'SUBMITTED', 'RUNNING')
@@ -423,32 +521,93 @@ class ImageGenerationRepository:
                     fingerprint,
                     operation.row_version,
                 )
-                stage = await connection.fetchrow(
-                    "SELECT generation_job_id FROM stage_attempts WHERE id = $1 FOR UPDATE",
-                    operation.stage_attempt_id,
-                )
-                failed = any(row["execution_status"] == "FAILED" for row in rows)
-                if stage is not None:
-                    await connection.execute(
-                        """
-                        UPDATE stage_attempts
-                           SET status = 'COMPLETED', heartbeat_at = CURRENT_TIMESTAMP,
-                               updated_at = CURRENT_TIMESTAMP, row_version = row_version + 1
-                         WHERE id = $1 AND status IN ('RUNNING', 'STALLED', 'UNKNOWN')
-                        """,
-                        operation.stage_attempt_id,
-                    )
-                    await connection.execute(
-                        """
-                        UPDATE generation_jobs
-                           SET status = $2, progress = 100, current_step = $3,
-                               updated_at = CURRENT_TIMESTAMP, row_version = row_version + 1
-                         WHERE id = $1 AND status IN ('QUEUED', 'RUNNING', 'STALLED', 'UNKNOWN')
-                        """,
-                        stage["generation_job_id"],
-                        "FAILED" if failed else "COMPLETED",
-                        "SHOT_IMAGE_GENERATE_FAILED" if failed else "SHOT_IMAGE_GENERATE_COMPLETED",
-                    )
+        await self.aggregate_generation_job(operation.stage_attempt_id)
+
+    async def aggregate_generation_job(self, stage_attempt_id: int) -> None:
+        pool = self._require_pool()
+        async with pool.acquire() as connection:
+            async with connection.transaction():
+                await self._aggregate_generation_job(connection, stage_attempt_id)
+
+    async def _aggregate_generation_job(
+        self, connection: asyncpg.Connection, stage_attempt_id: int
+    ) -> None:
+        stage = await connection.fetchrow(
+            """
+            SELECT sa.generation_job_id
+              FROM stage_attempts sa
+             WHERE sa.id = $1
+             FOR UPDATE
+            """,
+            stage_attempt_id,
+        )
+        if stage is None:
+            raise ImageGenerationLeaseLostError(
+                "Image generation stage disappeared while aggregating job status"
+            )
+
+        summary_rows = await connection.fetch(
+            """
+            SELECT COUNT(*) AS total,
+                   COUNT(*) FILTER (WHERE execution_status = 'READY') AS ready,
+                   COUNT(*) FILTER (WHERE execution_status = 'FAILED') AS failed,
+                   COUNT(*) FILTER (
+                       WHERE execution_status IN ('QUEUED', 'RUNNING', 'VALIDATING', 'UNKNOWN')
+                   ) AS pending
+              FROM media_generation_items
+             WHERE generation_job_id = $1
+            """,
+            stage["generation_job_id"],
+        )
+        if not summary_rows:
+            return
+        summary = summary_rows[0]
+
+        total = int(summary["total"] or 0)
+        ready = int(summary["ready"] or 0)
+        failed = int(summary["failed"] or 0)
+        pending = int(summary["pending"] or 0)
+        terminal = ready + failed
+        progress = int(terminal * 100 / total) if total else 0
+
+        if pending > 0:
+            status = "RUNNING"
+            current_step = "SHOT_IMAGE_GENERATE_RUNNING"
+        elif failed > 0:
+            status = "FAILED"
+            current_step = "SHOT_IMAGE_GENERATE_FAILED"
+        elif ready == total:
+            status = "COMPLETED"
+            progress = 100
+            current_step = "SHOT_IMAGE_GENERATE_COMPLETED"
+        else:
+            status = "RUNNING"
+            current_step = "SHOT_IMAGE_GENERATE_RUNNING"
+
+        await connection.execute(
+            """
+            UPDATE stage_attempts
+               SET status = $2, heartbeat_at = CURRENT_TIMESTAMP,
+                   updated_at = CURRENT_TIMESTAMP, row_version = row_version + 1
+             WHERE id = $1
+               AND status IN ('QUEUED', 'RUNNING', 'STALLED', 'UNKNOWN', 'COMPLETED')
+            """,
+            stage_attempt_id,
+            status,
+        )
+        await connection.execute(
+            """
+            UPDATE generation_jobs
+               SET status = $2, progress = $3, current_step = $4,
+                   updated_at = CURRENT_TIMESTAMP, row_version = row_version + 1
+             WHERE id = $1
+               AND status IN ('QUEUED', 'RUNNING', 'STALLED', 'UNKNOWN', 'COMPLETED')
+            """,
+            stage["generation_job_id"],
+            status,
+            progress,
+            current_step,
+        )
 
     async def finalize_image_result(
         self,
@@ -606,7 +765,12 @@ class ImageGenerationRepository:
         return self._pool
 
     @staticmethod
-    def _operation(row: Any, items: tuple[ImageBatchItem, ...]) -> DurableImageOperation:
+    def _operation(
+        row: Any,
+        items: tuple[ImageBatchItem, ...],
+        *,
+        owner: DurableImageOperation | None = None,
+    ) -> DurableImageOperation:
         return DurableImageOperation(
             id=row["id"],
             stage_attempt_id=row["stage_attempt_id"],
@@ -616,4 +780,6 @@ class ImageGenerationRepository:
             status=ProviderOperationStatus(row["status"]),
             row_version=row["row_version"],
             items=items,
+            worker_id=owner.worker_id if owner is not None else None,
+            lease_token=owner.lease_token if owner is not None else None,
         )

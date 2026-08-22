@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { BookOpen, Clock, Film, Loader2, Search, Star } from "lucide-react";
+import { BookOpen, Clock, Film, Search, Star } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { LoadingState } from "@/components/ui/LoadingState";
 import { Input } from "@/components/ui/Input";
 import { queryKeys } from "@/lib/query-keys";
 import { apiErrorMessage } from "@/shared/api/client";
@@ -129,7 +130,7 @@ export function ProjectsDashboardLive() {
   const counts = dashboardQuery.data?.pages[0]?.counts ?? { all: 0, active: 0, draft: 0 };
 
   if (dashboardQuery.isPending) {
-    return <div className="flex min-h-72 items-center justify-center text-slate-400"><Loader2 className="mr-2 h-5 w-5 animate-spin" />Đang tải dự án…</div>;
+    return <LoadingState message="Đang tải dự án…" className="min-h-72 text-slate-400" />;
   }
 
   if (dashboardQuery.isError) {

@@ -143,7 +143,13 @@ export function ChapterOverviewTab({
         </div>
 
         {(analysisMessage || analysisJobStatus) && (
-          <div className="mt-4 rounded-lg border border-orange-500/20 bg-orange-500/5 p-3 text-xs text-slate-300">
+          <div className="relative isolate mt-4 overflow-hidden rounded-lg border border-orange-500/20 bg-orange-500/5 p-3 text-xs text-slate-300">
+            {analysisActive && (
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-y-0 left-0 w-1/3 -translate-x-full bg-gradient-to-r from-transparent via-primary-light/10 to-transparent motion-safe:animate-shimmer"
+              />
+            )}
             <div className="flex items-center justify-between gap-2">
               <span className="truncate">{analysisMessage ?? "Đang theo dõi analysis job…"}</span>
               {analysisJobStatus && (
@@ -166,7 +172,7 @@ export function ChapterOverviewTab({
               className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-orange-600 via-orange-500 to-orange-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-950/50 transition-[background-color,box-shadow,color] hover:from-orange-500 hover:to-orange-500 hover:shadow-orange-700/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 disabled:cursor-not-allowed disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 disabled:shadow-none"
             >
               {analysisActive ? (
-                <Loader2 className="h-4 w-4 animate-spin text-white" />
+                <Loader2 className="h-4 w-4 motion-safe:animate-spin text-white" />
               ) : (
                 <Sparkles className="h-4 w-4 text-orange-200" />
               )}
@@ -276,7 +282,11 @@ function ProgressItem({
       } ${onClick ? "cursor-pointer hover:bg-slate-900/80 hover:text-slate-100" : ""}`}
     >
       <div className="flex min-w-0 items-center gap-3">
-        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${iconColorClass}`}>
+        <span
+          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${iconColorClass} ${
+            isRunning ? "motion-safe:animate-pulse-glow" : ""
+          }`}
+        >
           {icon}
         </span>
         <span className="truncate font-medium text-slate-200">
@@ -289,7 +299,7 @@ function ProgressItem({
           <span className="rounded bg-orange-500/10 px-1.5 py-0.5 text-orange-300">{progressLabel}</span>
         )}
         {isRunning ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin text-orange-400" />
+          <Loader2 className="h-3.5 w-3.5 motion-safe:animate-spin text-orange-400" />
         ) : isCompleted ? (
           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
         ) : (

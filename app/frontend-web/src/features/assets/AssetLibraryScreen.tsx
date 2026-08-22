@@ -5,6 +5,7 @@ import { AssetCard } from "@/components/assets/AssetCard";
 import { AssetDetailDrawer } from "@/components/assets/AssetDetailDrawer";
 import { AssetUploadModal } from "@/components/assets/AssetUploadModal";
 import { Button } from "@/components/ui/Button";
+import { LoadingState } from "@/components/ui/LoadingState";
 import { Input } from "@/components/ui/Input";
 import { Plus, Search, SlidersHorizontal, ChevronDown, LayoutGrid, List, FolderKanban } from "lucide-react";
 import type { AssetFilterType, AssetSortOption, MediaAsset } from "@/types/assets";
@@ -165,7 +166,10 @@ export const AssetLibraryScreen: React.FC = () => {
     return (
       <div className="rounded-2xl border border-dashed border-slate-700 bg-surface/40 p-8">
         <p className="text-[11px] uppercase tracking-[0.2em] text-orange-300">Asset Library</p>
-        <h2 className="mt-2 text-lg font-semibold text-slate-200">Đang tải thư viện tài sản…</h2>
+        <LoadingState
+          message="Đang tải thư viện tài sản…"
+          className="mt-5 justify-start text-slate-200"
+        />
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
           Đang đọc metadata media từ backend.
         </p>
