@@ -6,8 +6,16 @@ are never copied into durable job payloads.
 
 from typing import Literal
 
-from pydantic import AliasChoices, Field, SecretStr, computed_field, model_validator
+from pydantic import AliasChoices, Field, SecretStr, computed_field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+WORKER_ROLE_NAMES = {
+    "analysis",
+    "translation",
+    "narration",
+    "media-validation",
+    "image-generation",
+}
 
 
 class WorkerSettings(BaseSettings):
@@ -22,6 +30,11 @@ class WorkerSettings(BaseSettings):
 
     worker_name: str = Field(default="narrativex-worker", description="Identifier of the worker")
     worker_env: str = Field(default="development", description="Environment stage")
+    worker_roles: str = Field(
+        default="analysis,translation,narration,media-validation,image-generation",
+        validation_alias=AliasChoices("WORKER_ROLES"),
+        description="Comma-separated worker roles hosted by this process",
+    )
     log_level: str = Field(default="INFO", description="Logging level")
     backend_url: str = Field(default="http://localhost:8080", description="Backend service URL")
     health_check_port: int = Field(default=8001, description="Worker health port")
@@ -79,14 +92,18 @@ class WorkerSettings(BaseSettings):
     google_tts_endpoint: str = "https://texttospeech.googleapis.com"
     google_tts_timeout_seconds: float = Field(default=120.0, gt=1, le=600)
     tts_pricing_catalog_version: str = "google-tts-2026-08-20"
+    narration_mp3_bitrate: Literal["64k", "80k", "96k", "112k", "128k", "160k", "192k"] = "96k"
     vieneu_voice_id: str = "vieneu-ngoc-huyen-v2"
     vieneu_voice_name: str = "Ngọc Huyền v2"
     vieneu_reference_audio_path: str | None = None
     vieneu_backend: Literal["auto", "onnx", "pytorch"] = "auto"
     vieneu_precision: Literal["int8", "fp32"] = "int8"
     vieneu_threads: int = Field(default=0, ge=0, le=64)
+    vieneu_batch_max_segments: int = Field(default=8, ge=1, le=64)
+    vieneu_max_batch_size: int = Field(default=32, ge=1, le=128)
+    vieneu_inference_concurrency: int = Field(default=1, ge=1, le=4)
     vieneu_denoise_reference: bool = True
-    vieneu_save_voice_profile: bool = True
+    vieneu_save_voice_profile: bool = False
     vieneu_force_reenroll: bool = False
     vieneu_apply_watermark: bool = False
 
@@ -127,6 +144,20 @@ class WorkerSettings(BaseSettings):
     wan_model: str = "Wan2.2-TI2V-5B"
     wan_api_token: SecretStr | None = None
     wan_request_timeout_seconds: float = Field(default=30.0, gt=1, le=300)
+
+    @field_validator("worker_roles")
+    @classmethod
+    def validate_worker_roles(cls, value: str) -> str:
+        roles = {item.strip() for item in value.split(",") if item.strip()}
+        if not roles:
+            raise ValueError("WORKER_ROLES must include at least one worker role")
+        unknown = roles - WORKER_ROLE_NAMES
+        if unknown:
+            raise ValueError("Unsupported WORKER_ROLES: " + ", ".join(sorted(unknown)))
+        return ",".join(sorted(roles))
+
+    def has_worker_role(self, role: str) -> bool:
+        return role in {item.strip() for item in self.worker_roles.split(",") if item.strip()}
 
     @computed_field  # type: ignore[prop-decorator]
     @property
