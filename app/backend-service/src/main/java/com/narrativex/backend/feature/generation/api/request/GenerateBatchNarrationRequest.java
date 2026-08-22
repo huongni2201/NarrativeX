@@ -1,6 +1,5 @@
 package com.narrativex.backend.feature.generation.api.request;
 
-import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
