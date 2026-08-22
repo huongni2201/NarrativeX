@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import re
 from pathlib import Path
 from typing import Any
 
@@ -10,17 +11,19 @@ import numpy as np
 from narrativex_worker.config import WorkerSettings
 from narrativex_worker.narration.models import SynthesizedSegment
 from narrativex_worker.narration.providers import (
+    TtsExecutionSemantics,
+    TtsProviderCapabilities,
     TtsProviderRejectedError,
-    TtsProviderUnknownError,
     TtsRequest,
 )
 
 
 class VieneuTtsProvider:
-    """Synthesize narration with a locally hosted VieNeu-TTS engine.
+    """Synthesize narration with a locally hosted VieNeu-TTS v3 Turbo engine.
 
-    The vendor SDK is intentionally imported lazily so the worker can remain in its
-    safe ``disabled`` mode without loading model/runtime dependencies.
+    The SDK is imported lazily so deployments that do not enable VieNeu do not load
+    model/runtime dependencies. Local execution is deliberately retryable: there is
+    no external provider side effect that requires UNKNOWN reconciliation.
     """
 
     def __init__(self, settings: WorkerSettings, *, client: Any | None = None) -> None:
@@ -28,6 +31,7 @@ class VieneuTtsProvider:
         self.logger = logging.getLogger("narrativex.worker.narration.vieneu")
         self.voice_name = settings.vieneu_voice_name
         self.voice_catalog_id = settings.vieneu_voice_id
+        self._inference_gate = asyncio.Semaphore(settings.vieneu_inference_concurrency)
 
         if client is None:
             try:
@@ -43,6 +47,7 @@ class VieneuTtsProvider:
                 backend=settings.vieneu_backend,
                 precision=settings.vieneu_precision,
                 threads=settings.vieneu_threads,
+                max_batch_size=settings.vieneu_max_batch_size,
             )
         else:
             self._client = client
@@ -52,58 +57,89 @@ class VieneuTtsProvider:
     def provider_key(self) -> str:
         return "vieneu-v3turbo"
 
-    async def synthesize(self, request: TtsRequest) -> SynthesizedSegment:
-        if abs(request.speaking_rate - 1.0) > 1e-6:
-            raise TtsProviderRejectedError(
-                "VieNeu-TTS v3 Turbo does not expose speaking_rate; use 1.0 for this provider"
-            )
-
-        if request.reference_audio_path is not None:
-            if request.voice_id != self.voice_catalog_id:
-                raise TtsProviderRejectedError(
-                    "Uploaded voice references require the configured VieNeu voice catalog entry"
-                )
-            voice_name = self.voice_name
-        else:
-            voice_name = self._resolve_voice(request.voice_id)
-        try:
-            pcm_bytes, sample_rate_hz, channels = await asyncio.to_thread(
-                self._synthesize_sync,
-                request.segment.text,
-                voice_name,
-                request.reference_audio_path,
-            )
-        except TtsProviderRejectedError:
-            raise
-        except (OSError, TimeoutError) as exception:
-            raise TtsProviderUnknownError(
-                "VieNeu-TTS local synthesis encountered a transient runtime error"
-            ) from exception
-        except Exception as exception:
-            raise TtsProviderRejectedError("VieNeu-TTS synthesis failed") from exception
-
-        return SynthesizedSegment(
-            segment=request.segment,
-            pcm_bytes=pcm_bytes,
-            sample_rate_hz=sample_rate_hz,
-            channels=channels,
+    @property
+    def capabilities(self) -> TtsProviderCapabilities:
+        return TtsProviderCapabilities(
+            supports_batch=True,
+            supports_speaking_rate=False,
+            supports_voice_reference=True,
+            execution_semantics=TtsExecutionSemantics.LOCAL_RETRYABLE,
         )
+
+    async def synthesize(self, request: TtsRequest) -> SynthesizedSegment:
+        results = await self.synthesize_batch([request])
+        return results[0]
+
+    async def synthesize_batch(self, requests: list[TtsRequest]) -> list[SynthesizedSegment]:
+        if not requests:
+            return []
+        self._validate_requests(requests)
+        voice_name = self._resolve_voice(requests[0].voice_id)
+        texts = [request.segment.text for request in requests]
+        try:
+            async with self._inference_gate:
+                audios = await asyncio.to_thread(
+                    self._client.infer_batch,
+                    texts,
+                    voice=voice_name,
+                    batch_size=self.settings.vieneu_max_batch_size,
+                    apply_watermark=self.settings.vieneu_apply_watermark,
+                )
+        except (ValueError, TypeError) as exception:
+            raise TtsProviderRejectedError("VieNeu rejected the narration input") from exception
+
+        if len(audios) != len(requests):
+            raise RuntimeError(
+                f"VieNeu returned {len(audios)} waveforms for {len(requests)} requests"
+            )
+        return [
+            self._waveform_to_segment(request, audio)
+            for request, audio in zip(requests, audios, strict=True)
+        ]
+
+    async def enroll_reference_voice(self, request_id: str, reference_audio_path: Path) -> str:
+        if not reference_audio_path.is_file():
+            raise TtsProviderRejectedError("VieNeu reference audio does not exist")
+        if reference_audio_path.suffix.lower() != ".wav":
+            raise TtsProviderRejectedError("VieNeu reference audio must be a WAV file")
+        safe_request = re.sub(r"[^A-Za-z0-9_-]", "-", request_id)[-80:]
+        temporary_voice = f"__narrativex-{safe_request}"
+        try:
+            async with self._inference_gate:
+                await asyncio.to_thread(
+                    self._client.add_voice,
+                    temporary_voice,
+                    reference_audio_path,
+                    denoise=self.settings.vieneu_denoise_reference,
+                    save=False,
+                )
+        except (ValueError, TypeError) as exception:
+            raise TtsProviderRejectedError("VieNeu rejected the uploaded voice reference") from exception
+        self.logger.info("Enrolled temporary VieNeu voice name=%s", temporary_voice)
+        return temporary_voice
+
+    async def release_reference_voice(self, voice_id: str) -> None:
+        if not voice_id.startswith("__narrativex-"):
+            return
+        try:
+            async with self._inference_gate:
+                await asyncio.to_thread(self._client.remove_voice, voice_id, False)
+        except Exception:
+            self.logger.exception("Failed to release temporary VieNeu voice name=%s", voice_id)
 
     def _ensure_configured_voice(self) -> None:
         available = self._available_voice_names()
-        if self.voice_name in available:
-            self.logger.info(
-                "Using available VieNeu voice profile name=%s",
-                self.voice_name,
-            )
+        reference_path_value = self.settings.vieneu_reference_audio_path
+        should_reenroll = self.settings.vieneu_force_reenroll and bool(reference_path_value)
+        if self.voice_name in available and not should_reenroll:
+            self.logger.info("Using available VieNeu voice profile name=%s", self.voice_name)
             return
 
-        reference_path_value = self.settings.vieneu_reference_audio_path
         if not reference_path_value:
-            self.logger.info(
-                "No static VieNeu voice profile configured; per-request references remain available"
+            raise RuntimeError(
+                f"Configured VieNeu voice {self.voice_name!r} is unavailable and "
+                "VIENEU_REFERENCE_AUDIO_PATH is not configured"
             )
-            return
         reference_path = Path(reference_path_value).expanduser()
         if not reference_path.is_file():
             raise RuntimeError(f"VieNeu reference audio does not exist: {reference_path}")
@@ -115,6 +151,7 @@ class VieneuTtsProvider:
                 self.voice_name,
                 reference_path,
                 denoise=self.settings.vieneu_denoise_reference,
+                save=False,
             )
             if self.settings.vieneu_save_voice_profile:
                 self._client.save_voices()
@@ -136,9 +173,10 @@ class VieneuTtsProvider:
             ) from exception
 
         self.logger.info(
-            "Registered VieNeu voice profile name=%s reference=%s",
+            "Registered VieNeu voice profile name=%s reference=%s persistent=%s",
             self.voice_name,
             reference_path,
+            self.settings.vieneu_save_voice_profile,
         )
 
     def _available_voice_names(self) -> set[str]:
@@ -147,6 +185,10 @@ class VieneuTtsProvider:
     def _resolve_voice(self, requested_voice_id: str) -> str:
         available = self._available_voice_names()
         if requested_voice_id == self.voice_catalog_id:
+            if self.voice_name not in available:
+                raise TtsProviderRejectedError(
+                    f"Configured VieNeu voice {self.voice_name!r} is not enrolled"
+                )
             return self.voice_name
         if requested_voice_id in available:
             return requested_voice_id
@@ -163,31 +205,30 @@ class VieneuTtsProvider:
             f"VieNeu voice {requested_voice_id!r} is not available in the worker profile"
         )
 
-    def _synthesize_sync(
-        self, text: str, voice_name: str, reference_audio_path: Path | None
-    ) -> tuple[bytes, int, int]:
+    def _validate_requests(self, requests: list[TtsRequest]) -> None:
+        first = requests[0]
+        if first.reference_audio_path is not None:
+            raise TtsProviderRejectedError(
+                "Reference audio must be enrolled once before VieNeu batch synthesis"
+            )
+        for request in requests:
+            if abs(request.speaking_rate - 1.0) > 1e-6:
+                raise TtsProviderRejectedError(
+                    "VieNeu-TTS v3 Turbo does not expose speaking_rate; use 1.0 for this provider"
+                )
+            if request.reference_audio_path is not None:
+                raise TtsProviderRejectedError(
+                    "Reference audio must be enrolled once before VieNeu batch synthesis"
+                )
+            if request.voice_id != first.voice_id:
+                raise TtsProviderRejectedError("VieNeu batch synthesis requires one shared voice")
+
+    def _waveform_to_segment(self, request: TtsRequest, audio: Any) -> SynthesizedSegment:
         sample_rate_hz = int(getattr(self._client, "sample_rate", 48_000))
         if sample_rate_hz != 48_000:
             raise TtsProviderRejectedError(
                 f"VieNeu returned unsupported sample rate {sample_rate_hz}Hz"
             )
-
-        try:
-            if reference_audio_path is not None:
-                audio = self._client.infer(
-                    text=text,
-                    ref_audio=reference_audio_path,
-                    apply_watermark=self.settings.vieneu_apply_watermark,
-                )
-            else:
-                audio = self._client.infer(
-                    text=text,
-                    voice=voice_name,
-                    apply_watermark=self.settings.vieneu_apply_watermark,
-                )
-        except (ValueError, TypeError) as exception:
-            raise TtsProviderRejectedError("VieNeu rejected the narration input") from exception
-
         waveform = np.asarray(audio, dtype=np.float32)
         if waveform.ndim == 2:
             axis = 0 if waveform.shape[0] <= 2 else 1
@@ -199,4 +240,9 @@ class VieneuTtsProvider:
 
         pcm = np.clip(waveform, -1.0, 1.0)
         pcm = np.rint(pcm * 32767.0).astype("<i2", copy=False)
-        return pcm.tobytes(), sample_rate_hz, 1
+        return SynthesizedSegment(
+            segment=request.segment,
+            pcm_bytes=pcm.tobytes(),
+            sample_rate_hz=sample_rate_hz,
+            channels=1,
+        )
