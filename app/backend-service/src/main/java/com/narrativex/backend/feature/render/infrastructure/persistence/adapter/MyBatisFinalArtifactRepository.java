@@ -21,7 +21,8 @@ public class MyBatisFinalArtifactRepository implements FinalArtifactRepository {
     }
     return new FinalArtifactView(
         row.getId(), row.getProjectId(), row.getChapterId(), row.getArtifactType(),
-        row.getRenderFingerprint(), row.getStorageKey(), row.getMimeType(), row.getSizeBytes(),
+        row.getRenderFingerprint(), row.getStorageKey(), row.getStorageProvider(),
+        row.getExternalFileId(), row.getWebViewLink(), row.getMimeType(), row.getSizeBytes(),
         row.getChecksumSha256(), row.getDurationMs(), row.getWidth(), row.getHeight(), row.getStatus(),
         row.getCreatedAt(), row.getUpdatedAt());
   }
