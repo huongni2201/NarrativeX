@@ -7,8 +7,8 @@ from narrativex_worker.narration.storage import MediaStorage
 from narrativex_worker.providers.image import (
     BatchImageGenerationProvider,
     ImageBatchItem,
-    ImageBatchOperation,
     ImageBatchItemResult,
+    ImageBatchOperation,
     ImageGenerationRequest,
     ImageGenerationResult,
 )
