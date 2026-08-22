@@ -195,6 +195,38 @@ services:
       postgres: {condition: service_healthy}
     networks: [appnet]
 
+  render-worker:
+    build: {context: ./app/ai-worker, dockerfile: Dockerfile}
+    restart: unless-stopped
+    environment:
+      WORKER_NAME: narrativex-prod-render
+      WORKER_ENV: production
+      WORKER_ROLES: render
+      LOG_LEVEL: ${WORKER_LOG_LEVEL}
+      BACKEND_URL: http://backend:8080
+      DATABASE_URL: postgresql://${DB_USERNAME}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
+      POLL_INTERVAL_SECONDS: ${WORKER_POLL_INTERVAL_SECONDS}
+      LEASE_SECONDS: ${WORKER_LEASE_SECONDS}
+      WORKER_CONCURRENCY: ${RENDER_WORKER_CONCURRENCY}
+      MEDIA_DOWNLOAD_TIMEOUT_SECONDS: ${MEDIA_DOWNLOAD_TIMEOUT_SECONDS}
+      MEDIA_PROBE_TIMEOUT_SECONDS: ${MEDIA_PROBE_TIMEOUT_SECONDS}
+      MEDIA_MAX_AUDIO_BYTES: ${MEDIA_MAX_AUDIO_BYTES}
+      MEDIA_MAX_IMAGE_BYTES: ${MEDIA_MAX_IMAGE_BYTES}
+      MEDIA_MAX_VIDEO_BYTES: ${MEDIA_MAX_VIDEO_BYTES}
+      AI_PROVIDER_MODE: disabled
+      IMAGE_PROVIDER_MODE: disabled
+      TTS_PROVIDER_MODE: disabled
+      MEDIA_STORAGE_MODE: r2
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
+      R2_BUCKET: ${R2_BUCKET}
+      R2_ENDPOINT: ${R2_ENDPOINT}
+    depends_on:
+      backend: {condition: service_healthy}
+      postgres: {condition: service_healthy}
+    networks: [appnet]
+
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
