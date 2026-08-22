@@ -19,10 +19,10 @@ The maintained baseline is `documentation/source-of-truth/NARRATIVEX_PROJECT_SPE
 - build narration-driven `VisualScenePlanner`;
 - implement production image generation with durable immutable R2 media assets;
 - render and validate the first `IMAGE_MOTION` MP4 path;
-- continue MyBatis migration for StoryVersion, quota/billing, storyboard/continuity and remaining CRUD/query boundaries;
+- preserve MyBatis-only production persistence with architecture and PostgreSQL integration tests;
 - complete actual-cost reconciliation, moderation/SSRF/retention/observability/DR evidence as the production path matures.
 
-Generation execution persistence is no longer a JPA-first target: GenerationJob, StageAttempt, OperationPlan, MediaPlan, generation outbox enqueue, job history and the chapter-analysis safety gate have MyBatis/explicit-SQL production paths. The outbox dispatcher's short-lived claim/lease query remains a deliberate JDBC operational boundary.
+Production persistence is MyBatis + explicit SQL across all backend features, including outbox enqueue/dispatch. JPA and direct `JdbcTemplate` persistence are absent from production code and guarded by architecture tests.
 
 ## Important constraints
 
