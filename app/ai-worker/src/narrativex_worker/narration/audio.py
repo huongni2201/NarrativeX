@@ -24,6 +24,7 @@ class FfmpegAudioAssembler:
         *,
         sample_rate_hz: int,
         channels: int,
+        bitrate: str = "96k",
     ) -> None:
         process = await asyncio.create_subprocess_exec(
             "ffmpeg",
@@ -42,7 +43,7 @@ class FfmpegAudioAssembler:
             "-c:a",
             "libmp3lame",
             "-b:a",
-            "128k",
+            bitrate,
             "-f",
             "mp3",
             str(output_path),
@@ -60,7 +61,14 @@ class FfmpegAudioAssembler:
         if not output_path.is_file() or output_path.stat().st_size == 0:
             raise RuntimeError("ffmpeg returned empty MP3 output")
 
-    async def encode_mp3(self, pcm_bytes: bytes, *, sample_rate_hz: int, channels: int) -> bytes:
+    async def encode_mp3(
+        self,
+        pcm_bytes: bytes,
+        *,
+        sample_rate_hz: int,
+        channels: int,
+        bitrate: str = "96k",
+    ) -> bytes:
         with tempfile.TemporaryDirectory() as directory:
             input_path = Path(directory) / "input.pcm"
             output_path = Path(directory) / "output.mp3"
@@ -70,6 +78,7 @@ class FfmpegAudioAssembler:
                 output_path,
                 sample_rate_hz=sample_rate_hz,
                 channels=channels,
+                bitrate=bitrate,
             )
             return output_path.read_bytes()
 
