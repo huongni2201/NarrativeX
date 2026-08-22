@@ -68,3 +68,10 @@ def test_vieneu_voice_settings_are_available_without_provider_credentials() -> N
     assert settings.vieneu_backend == "auto"
     assert settings.vieneu_precision == "int8"
     assert settings.vieneu_apply_watermark is False
+
+
+def test_image_generation_defaults_to_gemini_flash_image_on_global_vertex() -> None:
+    settings = WorkerSettings()
+
+    assert settings.vertex_image_model == "gemini-2.5-flash-image"
+    assert settings.vertex_image_location == "global"
