@@ -110,11 +110,17 @@ class GoogleDriveFinalVideoStorage:
         existing = await self._find_existing(token, render_fingerprint)
         if existing is not None:
             existing_size = int(existing.get("size") or 0)
-            if existing_size != size_bytes:
+            properties = existing.get("appProperties") or {}
+            existing_checksum = (
+                str(properties.get("narrativexSha256") or "")
+                if isinstance(properties, dict)
+                else ""
+            )
+            if existing_size != size_bytes or existing_checksum != checksum:
                 raise FinalVideoStorageError(
-                    "Google Drive already contains the render fingerprint with a different size"
+                    "Google Drive already contains the render fingerprint with different immutable content"
                 )
-            return self._to_asset(existing, checksum)
+            return self._to_asset(existing, existing_checksum)
 
         metadata = {
             "name": f"{render_fingerprint}.mp4",
@@ -131,7 +137,17 @@ class GoogleDriveFinalVideoStorage:
         if not file_id:
             raise FinalVideoStorageError("Google Drive upload completed without a file id")
         file_info = await self._get_file(token, file_id)
-        return self._to_asset(file_info, checksum)
+        properties = file_info.get("appProperties") or {}
+        uploaded_checksum = (
+            str(properties.get("narrativexSha256") or "")
+            if isinstance(properties, dict)
+            else ""
+        )
+        if uploaded_checksum != checksum:
+            raise FinalVideoStorageError(
+                "Google Drive uploaded file metadata does not match the local SHA-256"
+            )
+        return self._to_asset(file_info, uploaded_checksum)
 
     async def _find_existing(
         self, token: str, fingerprint: str
