@@ -11,7 +11,9 @@ NarrativeX is an image-first AI Story Video Studio for turning flexible-length s
 | `app/frontend-web` | Next.js/TypeScript storyboard, review, cost and notification UI |
 | `documentation` | Product, domain, architecture, workflows, codebase notes and ADRs |
 | `contracts` | Versioned backend ↔ worker payload contracts |
-| `docker-compose.yml` | Local PostgreSQL 18, Redis 8, backend and AI worker services; durable source/intermediate media uses external Cloudflare R2 and final rendered MP4 exports target Google Drive |
+| `docker-compose.yml` | Safe local PostgreSQL 18, Redis 8, backend and AI worker stack |
+| `docker-compose.prod.yml` | Production stack with frontend, split AI/narration workers and Caddy TLS termination |
+| `Caddyfile.prod` | Production HTTPS reverse-proxy configuration |
 
 ## Start the local stack
 
@@ -22,7 +24,7 @@ docker compose up -d --build
 
 This starts PostgreSQL 18, Redis 8, the Spring Boot backend and the AI worker. Cloudflare R2 is external managed object storage and is not emulated by a local object-storage container. The worker waits for the backend to become healthy so Flyway can apply the PostgreSQL schema first. The backend is available at `http://localhost:8080`; Actuator health is at `http://localhost:8080/actuator/health`.
 
-The worker uses PostgreSQL as its durable work queue. Its safe local default is `AI_PROVIDER_MODE=disabled`, so queued AI jobs fail explicitly until a provider is configured; it never reports fake provider success.
+The worker uses PostgreSQL as its durable work queue. Its safe local default is `AI_PROVIDER_MODE=disabled`, `IMAGE_PROVIDER_MODE=disabled`, `TTS_PROVIDER_MODE=disabled`, and `MEDIA_STORAGE_MODE=disabled`, so paid/provider work is never enabled accidentally. Configure the corresponding provider and storage settings explicitly before running real generation.
 
 To start only infrastructure dependencies:
 
@@ -30,21 +32,30 @@ To start only infrastructure dependencies:
 docker compose up -d postgres redis
 ```
 
-The backend container uses `postgres` and `redis` as service hostnames. Host-run backend development should continue using `localhost` from `app/backend-service/.env.example`. Media workers use the configured R2 bucket for durable generated/source assets. Worker-local files are scratch/cache/FFmpeg workspace only. Final rendered MP4 files are validated locally and then promoted through the `FinalVideoStorage` boundary to Google Drive; local final files are deleted only after remote verification and durable metadata commit.
+The backend container uses `postgres` and `redis` as service hostnames. Host-run backend development should continue using `localhost` from `app/backend-service/.env.example`. Media workers use the configured R2 bucket for durable generated/source assets. Worker-local files are scratch/cache/FFmpeg workspace only. Final rendered MP4 files are intended to be promoted through the `FinalVideoStorage` boundary to Google Drive after local validation and durable metadata commit.
 
 PostgreSQL 18 uses a new data directory layout. Do not point it directly at an existing PostgreSQL 16 data volume; migrate retained data with a tested dump/restore or PostgreSQL upgrade procedure first.
 
-The repository uses `V1__initial_schema.sql` as the production Flyway baseline. Deterministic development data lives in `db/local-migration/V2__seed_demo_data.sql`. These migrations are loaded only when the `local` Spring profile is enabled. A fresh production database therefore receives schema only; a local development database also receives the opt-in demo seed and fixture fixtures. Existing databases created from an older migration history require operator-reviewed recreation or explicit re-baselining; the application does not rewrite `flyway_schema_history` automatically.
+Flyway migrations in `app/backend-service/src/main/resources/db/migration` are authoritative for both local and production schemas. The `local` Spring profile currently changes local runtime behavior (for example the secure-session-cookie setting) but does not load a separate demo-data migration location. Existing databases created from an older migration history require operator-reviewed migration/recreation; the application does not rewrite `flyway_schema_history` automatically.
 
 Then follow the module READMEs and `CONTRIBUTING.md` for backend, worker, and frontend checks.
 
 ### Local Vertex credentials
 
-When `AI_PROVIDER_MODE=vertex`, the worker needs Google Application Default Credentials. Run
-`gcloud auth application-default login` once, set `GOOGLE_CLOUD_PROJECT`, and set
-`GOOGLE_CLOUD_CONFIG_HOST` in the untracked root `.env` to the host gcloud directory (for example,
-`C:/Users/<user>/AppData/Roaming/gcloud`). Compose mounts that directory read-only at the worker's
-`GOOGLE_APPLICATION_CREDENTIALS` path. Do not commit credential files.
+When `AI_PROVIDER_MODE=vertex` or `IMAGE_PROVIDER_MODE=vertex`, the worker needs Google Application Default Credentials. Run `gcloud auth application-default login` once, set `GOOGLE_CLOUD_PROJECT`, and set `GOOGLE_CLOUD_CONFIG_HOST` in the untracked root `.env` to the host gcloud directory (for example, `C:/Users/<user>/AppData/Roaming/gcloud`). Compose mounts that directory read-only at the worker's `GOOGLE_APPLICATION_CREDENTIALS` path. Do not commit credential files.
+
+## Run the production stack
+
+Production intentionally uses a separate Compose/env contract so local development cannot silently enable paid providers or secure-cookie/domain settings.
+
+```powershell
+Copy-Item .env.prod.example .env.prod
+# Fill every secret/path/domain value in .env.prod before continuing.
+docker compose --env-file .env.prod -f docker-compose.prod.yml config
+docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
+```
+
+The production stack forces the Spring `prod` profile, uses Caddy for HTTPS, runs the general AI worker separately from the VieNeu narration worker, enables Vertex analysis/image generation, and uses R2 for durable generated media. The production template defaults VieNeu to the CPU/ONNX backend; GPU/PyTorch deployment requires a GPU-capable image/runtime rather than only changing `VIENEU_BACKEND`.
 
 ## Product guardrails
 

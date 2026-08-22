@@ -170,7 +170,11 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
                 "Voice reference audio could not be downloaded"
             ) from exception
         try:
-            prepare_mp3_reference(source_path, reference_audio_path)
+            await asyncio.to_thread(
+                prepare_mp3_reference,
+                source_path,
+                reference_audio_path,
+            )
         except VoiceReferenceAudioError as exception:
             raise NarrationPermanentError(str(exception)) from exception
         return reference_audio_path
