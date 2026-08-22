@@ -94,6 +94,26 @@ class _Repository:
         self.aggregate_calls += 1
 
 
+class _PersistenceFailureRepository(_Repository):
+    def __init__(
+        self,
+        operation: DurableImageOperation,
+        exception: Exception,
+    ) -> None:
+        super().__init__(operation)
+        self.exception = exception
+
+    async def mark_submitted(
+        self,
+        operation: DurableImageOperation,
+        provider_operation_id: str | None,
+        status: ProviderOperationStatus,
+    ) -> DurableImageOperation:
+        del operation, provider_operation_id
+        self.mark_submitted_calls.append(status)
+        raise self.exception
+
+
 class _Provider:
     def __init__(self, result: ImageBatchOperation | Exception) -> None:
         self.result = result
@@ -184,6 +204,15 @@ def _failed_operation() -> ImageBatchOperation:
     )
 
 
+def _running_operation() -> ImageBatchOperation:
+    return ImageBatchOperation(
+        provider_key="vertex",
+        operation_id="vertex-operation-20",
+        status=ProviderOperationStatus.RUNNING,
+        items=(_item(),),
+    )
+
+
 @pytest.mark.asyncio
 async def test_submit_batch_persists_provider_failed_and_fails_items() -> None:
     repository = _Repository(_operation())
@@ -223,14 +252,42 @@ async def test_submit_batch_keeps_unknown_for_ambiguous_provider_error() -> None
 
 
 @pytest.mark.asyncio
-async def test_submit_batch_marks_internal_worker_error_as_failed() -> None:
+async def test_submit_batch_keeps_unknown_for_unclassified_exception_after_paid_boundary() -> None:
     repository = _Repository(_operation())
-    runner = _runner(repository, _Provider(RuntimeError("worker bug")))
+    runner = _runner(repository, _Provider(RuntimeError("connection reset")))
 
     await runner._submit_batch(_job(), (_item(),))
 
+    assert repository.mark_unknown_calls == ["CONNECTION RESET"]
+    assert repository.fail_provider_operation_calls == []
+
+
+@pytest.mark.asyncio
+async def test_submit_batch_persistence_failure_stays_recoverable_instead_of_failed() -> None:
+    repository = _PersistenceFailureRepository(_operation(), RuntimeError("db unavailable"))
+    runner = _runner(repository, _Provider(_running_operation()))
+
+    await runner._submit_batch(_job(), (_item(),))
+
+    assert repository.mark_submitted_calls == [ProviderOperationStatus.RUNNING]
+    assert repository.fail_provider_operation_calls == []
+    assert repository.mark_unknown_calls == [
+        "PROVIDER_SUBMISSION_PERSISTENCE_UNKNOWN:DB UNAVAILABLE"
+    ]
+
+
+@pytest.mark.asyncio
+async def test_submit_batch_lease_loss_after_provider_return_does_not_terminalize() -> None:
+    repository = _PersistenceFailureRepository(
+        _operation(), ImageGenerationLeaseLostError("reclaimed")
+    )
+    runner = _runner(repository, _Provider(_running_operation()))
+
+    await runner._submit_batch(_job(), (_item(),))
+
+    assert repository.mark_submitted_calls == [ProviderOperationStatus.RUNNING]
     assert repository.mark_unknown_calls == []
-    assert repository.fail_provider_operation_calls == ["IMAGE_WORKER_INTERNAL_ERROR"]
+    assert repository.fail_provider_operation_calls == []
 
 
 @pytest.mark.asyncio
