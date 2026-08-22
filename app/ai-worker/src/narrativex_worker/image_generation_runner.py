@@ -1,10 +1,17 @@
-"""Crash-replayable per-beat image generation orchestration."""
+"""Crash-replayable batch-only image generation orchestration."""
 
 import hashlib
 
 from narrativex_worker.media_repository import DurableMediaResult, MediaGenerationRepository
 from narrativex_worker.narration.storage import MediaStorage
-from narrativex_worker.providers.image import ImageGenerationProvider, ImageGenerationRequest
+from narrativex_worker.providers.image import (
+    BatchImageGenerationProvider,
+    ImageBatchItem,
+    ImageBatchOperation,
+    ImageBatchItemResult,
+    ImageGenerationRequest,
+    ImageGenerationResult,
+)
 from narrativex_worker.schema import ModerationDecision, ProviderOperationStatus
 
 
@@ -16,6 +23,14 @@ class ImageGenerationBlockedError(RuntimeError):
     pass
 
 
+class ImageGenerationPendingError(RuntimeError):
+    """A batch was submitted and must be persisted/reconciled by the durable caller."""
+
+    def __init__(self, operation: ImageBatchOperation) -> None:
+        super().__init__("image batch is pending provider reconciliation")
+        self.operation = operation
+
+
 class ImageGenerationProviderRejectedError(ImageGenerationBlockedError):
     """A provider rejected this image request; unrelated scene items may continue."""
 
@@ -23,9 +38,17 @@ class ImageGenerationProviderRejectedError(ImageGenerationBlockedError):
 
 
 class ImageGenerationRunner:
+    """Submit and reconcile one image through the asynchronous batch provider path.
+
+    Even a singleton image request is wrapped in ``ImageBatchItem`` and sent through
+    ``submit_batch``. ``run`` intentionally does not poll in memory: if the provider returns a
+    non-terminal batch, the returned operation is attached to ``ImageGenerationPendingError`` so
+    the durable executor can persist the provider job name and reconcile it after a crash/restart.
+    """
+
     def __init__(
         self,
-        provider: ImageGenerationProvider,
+        provider: BatchImageGenerationProvider,
         storage: MediaStorage,
         repository: MediaGenerationRepository,
     ) -> None:
@@ -33,13 +56,57 @@ class ImageGenerationRunner:
         self.storage = storage
         self.repository = repository
 
-    async def run(self, item_key: str, request: ImageGenerationRequest) -> DurableMediaResult:
-        operation = await self.provider.submit(request)
+    async def submit(self, item_key: str, request: ImageGenerationRequest) -> ImageBatchOperation:
+        operation = await self.provider.submit_batch((ImageBatchItem(item_key, request),))
         if operation.status is ProviderOperationStatus.UNKNOWN:
-            raise ImageGenerationUnknownError("image provider submission outcome is unknown")
-        if operation.status is not ProviderOperationStatus.COMPLETED or operation.result is None:
-            raise RuntimeError(operation.error_code or "IMAGE_PROVIDER_FAILED")
-        result = operation.result
+            raise ImageGenerationUnknownError("image batch submission outcome is unknown")
+        if operation.status is ProviderOperationStatus.FAILED:
+            raise RuntimeError(operation.error_code or "IMAGE_BATCH_PROVIDER_FAILED")
+        return operation
+
+    async def reconcile(self, operation: ImageBatchOperation) -> DurableMediaResult | None:
+        resolved = await self.provider.reconcile_batch(operation)
+        if resolved.status is ProviderOperationStatus.UNKNOWN:
+            raise ImageGenerationUnknownError("image batch reconciliation outcome is unknown")
+        if resolved.status in {
+            ProviderOperationStatus.RESERVED,
+            ProviderOperationStatus.SUBMITTED,
+            ProviderOperationStatus.RUNNING,
+        }:
+            return None
+        if resolved.status is ProviderOperationStatus.FAILED:
+            raise RuntimeError(resolved.error_code or "IMAGE_BATCH_PROVIDER_FAILED")
+        if resolved.status is not ProviderOperationStatus.COMPLETED:
+            raise RuntimeError("IMAGE_BATCH_INVALID_STATE")
+        return await self._materialize_completed_batch(resolved)
+
+    async def run(self, item_key: str, request: ImageGenerationRequest) -> DurableMediaResult:
+        operation = await self.submit(item_key, request)
+        if operation.status is ProviderOperationStatus.COMPLETED:
+            return await self._materialize_completed_batch(operation)
+        raise ImageGenerationPendingError(operation)
+
+    async def _materialize_completed_batch(
+        self, operation: ImageBatchOperation
+    ) -> DurableMediaResult:
+        if len(operation.items) != 1:
+            raise ValueError("single-image runner received a multi-item batch")
+        item = operation.items[0]
+        item_result = _find_item_result(operation, item.item_key)
+        if item_result.error_code == ImageGenerationProviderRejectedError.code:
+            raise ImageGenerationProviderRejectedError(
+                item_result.error_detail or "provider moderation rejected this image"
+            )
+        if item_result.result is None:
+            raise RuntimeError(item_result.error_code or "IMAGE_BATCH_ITEM_FAILED")
+        return await self._materialize(item.item_key, item.request, item_result.result)
+
+    async def _materialize(
+        self,
+        item_key: str,
+        request: ImageGenerationRequest,
+        result: ImageGenerationResult,
+    ) -> DurableMediaResult:
         if result.moderation is ModerationDecision.BLOCK:
             raise ImageGenerationProviderRejectedError("provider moderation rejected this image")
         checksum = result.result_fingerprint
@@ -54,6 +121,7 @@ class ImageGenerationRunner:
             metadata={
                 "kind": "provider-result",
                 "request-fingerprint": request.request_fingerprint,
+                "execution-mode": "batch",
             },
         )
         durable = DurableMediaResult(
@@ -66,3 +134,10 @@ class ImageGenerationRunner:
             item_key, request.request_fingerprint, result, durable
         )
         return durable
+
+
+def _find_item_result(operation: ImageBatchOperation, item_key: str) -> ImageBatchItemResult:
+    matches = [result for result in operation.results if result.item_key == item_key]
+    if len(matches) != 1:
+        raise RuntimeError("IMAGE_BATCH_ITEM_RESULT_MISSING")
+    return matches[0]
