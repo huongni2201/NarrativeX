@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -203,11 +204,14 @@ def write_ass_subtitles(
     )
     lines = [header]
     for cue in track.cues:
+        start_cs = _ass_centiseconds(cue.start_ms, round_up=False)
         end_ms = max(cue.end_ms, cue.start_ms + 10)
+        end_cs = max(_ass_centiseconds(end_ms, round_up=True), start_cs + 1)
         text = _escape_ass_text(_wrap_two_lines(cue.text))
         lines.append(
             "Dialogue: 0,"
-            f"{_ass_time(cue.start_ms)},{_ass_time(end_ms)},Default,,0,0,0,,{text}\n"
+            f"{_format_ass_centiseconds(start_cs)},{_format_ass_centiseconds(end_cs)},"
+            f"Default,,0,0,0,,{text}\n"
         )
     path.write_text("".join(lines), encoding="utf-8")
     return path
@@ -300,8 +304,13 @@ def _escape_ass_text(value: str) -> str:
     )
 
 
-def _ass_time(milliseconds: int) -> str:
-    centiseconds = max(0, round(milliseconds / 10))
+def _ass_centiseconds(milliseconds: int, *, round_up: bool) -> int:
+    value = max(0, milliseconds) / 10
+    return math.ceil(value) if round_up else math.floor(value)
+
+
+def _format_ass_centiseconds(centiseconds: int) -> str:
+    centiseconds = max(0, centiseconds)
     hours, remainder = divmod(centiseconds, 360_000)
     minutes, remainder = divmod(remainder, 6_000)
     seconds, centiseconds = divmod(remainder, 100)
