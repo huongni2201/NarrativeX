@@ -4,9 +4,8 @@
 
 - Version: `V1.11`
 - Repository: `huongni2201/NarrativeX`
-- Docs-sync base: `29122c51a6d113ed7fd4026f7de3f5df75771153`
+- Docs-sync base: `a614d05101a5992783cbc580668b4ed0927b41d9`
 - Canonical specification: `documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`
-- Historical baseline: V1.10 is superseded and must not be used as current authority
 
 Current code, Flyway migrations and automated tests decide factual AS-IS implementation claims when a derived document drifts from this checkpoint.
 
@@ -16,7 +15,7 @@ Current code, Flyway migrations and automated tests decide factual AS-IS impleme
 - Chapter CRUD/import with MyBatis Chapter persistence.
 - Explicit durable Chapter Analyze admission/enqueue and worker claim/lease/heartbeat execution.
 - Durable ProviderOperation lifecycle, CAS-style transition foundation and immutable completed-result fingerprint behavior.
-- Generation execution persistence for GenerationJob, StageAttempt, OperationPlan, MediaPlan, generation outbox enqueue, Job History and the Chapter Analyze safety gate uses MyBatis/explicit SQL; the outbox dispatcher's short-lived claim/lease query remains a deliberate JDBC operational boundary.
+- Production persistence, including generation enqueue/dispatch and claim/lease, uses MyBatis + explicit SQL; JPA and `JdbcTemplate` are absent from production code.
 - Backend-authoritative, versioned MediaPlan foundation and job pinning.
 - Character/Location continuity plus Scene/VisualBeat and Scene relation materialization foundations.
 - Project-scoped Character list/detail read models are wired end to end and no longer use fabricated runtime Character data for fields covered by the API.
@@ -26,7 +25,7 @@ Current code, Flyway migrations and automated tests decide factual AS-IS impleme
 
 ## Primary V1.11 targets
 
-- Finish MyBatis migration for StoryVersion, quota/billing, storyboard/continuity and remaining low-risk CRUD/query boundaries.
+- Preserve the completed MyBatis-only production boundary with architecture and PostgreSQL integration tests.
 - Harden the production user-audio upload/finalize/alignment path.
 - Build alignment-driven `VisualScenePlanner`.
 - Implement the first production image-generation slice; `GENERATE_NEW` is allowed for the first vertical slice.
