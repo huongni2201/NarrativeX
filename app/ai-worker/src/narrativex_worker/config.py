@@ -15,6 +15,7 @@ WORKER_ROLE_NAMES = {
     "narration",
     "media-validation",
     "image-generation",
+    "render",
 }
 
 
