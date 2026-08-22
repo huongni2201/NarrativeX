@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.assets.infrastructure.storage;
 
+import java.net.URI;
 import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
@@ -19,7 +20,20 @@ public record R2StorageProperties(
     return notBlank(accountId)
         && notBlank(accessKeyId)
         && notBlank(secretAccessKey)
-        && notBlank(bucket);
+        && notBlank(bucket)
+        && validEndpoint();
+  }
+
+  private boolean validEndpoint() {
+    if (!notBlank(endpoint)) return true;
+    try {
+      URI value = URI.create(endpoint.trim());
+      return ("http".equalsIgnoreCase(value.getScheme())
+              || "https".equalsIgnoreCase(value.getScheme()))
+          && notBlank(value.getRawAuthority());
+    } catch (IllegalArgumentException exception) {
+      return false;
+    }
   }
 
   String effectiveEndpoint() {
