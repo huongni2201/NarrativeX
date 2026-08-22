@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-This directory records decisions that affect more than one feature or change a production safety boundary. The maintained V1.10 source-of-truth specification remains the product/architecture authority; ADRs explain implementation choices and deliberate deviations.
+This directory records decisions that affect more than one feature or change a production safety boundary. The maintained V1.11 source-of-truth specification remains the product/architecture authority; ADRs explain implementation choices and deliberate deviations.
 
 ## Canonical ADRs
 
@@ -19,5 +19,8 @@ This directory records decisions that affect more than one feature or change a p
 - [ADR-0013: Out-of-band E2E credentials and repository secret scanning](./ADR-0013-test-credential-handling-and-secret-scanning.md)
 - [ADR-0014: Immutable chapter content variants and translation lineage](./ADR-0014-immutable-chapter-content-variants-and-translation-lineage.md)
 - [ADR-0015: Vertex Gemini image batch inference](./ADR-0015-vertex-gemini-image-batch-inference.md)
+- [ADR-0016: Google Drive final video storage](./ADR-0016-google-drive-final-video-storage.md)
 
-Granular and transitional ADR notes have been consolidated into the canonical ADRs above. Use sequential ADR numbers (`ADR-0016+`) for new cross-cutting architecture decisions.
+ADR-0016 supersedes ADR-0012 only for final rendered MP4 exports. R2 remains the durable object store for source/generated/reusable pipeline media.
+
+Granular and transitional ADR notes have been consolidated into the canonical ADRs above. Use sequential ADR numbers (`ADR-0017+`) for new cross-cutting architecture decisions.
