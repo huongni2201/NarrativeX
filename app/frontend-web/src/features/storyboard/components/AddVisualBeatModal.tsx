@@ -1,4 +1,5 @@
 import { X } from "lucide-react";
+import { Modal } from "@/components/ui/Modal";
 import type { ApiChapterStoryboard, ApiStoryboardScene } from "../api/storyboard.api";
 
 interface AddVisualBeatModalProps {
@@ -33,8 +34,8 @@ export function AddVisualBeatModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-2xl border border-border-dark bg-surface-card shadow-2xl">
+    <Modal isOpen={isOpen} onClose={onClose} ariaLabel="Thêm Visual Beat" closeDisabled={isPending} maxWidth="lg">
+      <div className="w-full bg-surface-card">
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <div>
             <h3 className="font-semibold text-slate-100">Thêm Visual Beat</h3>
@@ -43,6 +44,7 @@ export function AddVisualBeatModal({
           <button
             type="button"
             onClick={onClose}
+            disabled={isPending}
             aria-label="Đóng"
             className="rounded-md p-1.5 text-slate-500 transition-colors hover:bg-slate-800 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
           >
@@ -90,6 +92,7 @@ export function AddVisualBeatModal({
             <button
               type="button"
               onClick={onClose}
+              disabled={isPending}
               className="rounded-lg border border-border-dark px-4 py-2 text-sm text-slate-300 transition-colors hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
             >
               Hủy
@@ -105,6 +108,6 @@ export function AddVisualBeatModal({
           </div>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

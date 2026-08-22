@@ -1,7 +1,6 @@
 package com.narrativex.backend.feature.assets.infrastructure.storage;
 
 import java.net.URI;
-import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "narrativex.storage.r2")
@@ -10,11 +9,7 @@ public record R2StorageProperties(
     String accessKeyId,
     String secretAccessKey,
     String bucket,
-    String endpoint,
-    Duration presignDuration) {
-  public R2StorageProperties {
-    presignDuration = presignDuration == null ? Duration.ofMinutes(15) : presignDuration;
-  }
+    String endpoint) {
 
   boolean configured() {
     return notBlank(accountId)

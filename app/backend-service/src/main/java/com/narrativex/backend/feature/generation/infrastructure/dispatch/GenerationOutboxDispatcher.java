@@ -25,6 +25,7 @@ import org.springframework.transaction.support.TransactionTemplate;
     matchIfMissing = true)
 public class GenerationOutboxDispatcher {
   static final String CHANNEL = "narrativex:generation:jobs";
+  static final String MEDIA_VALIDATION_CHANNEL = "narrativex:media-validation:jobs";
   private static final long RESERVATION_MILLIS = Duration.ofSeconds(30).toMillis();
   private static final long RETRY_MILLIS = Duration.ofSeconds(5).toMillis();
 
@@ -45,7 +46,7 @@ public class GenerationOutboxDispatcher {
   public void dispatchPending() {
     for (OutboxRow row : reserveBatch()) {
       try {
-        redisTemplate.convertAndSend(CHANNEL, row.payloadJson());
+        redisTemplate.convertAndSend(row.channel(), row.payloadJson());
         jdbcTemplate.update(
             """
             UPDATE outbox_events
@@ -80,7 +81,7 @@ public class GenerationOutboxDispatcher {
                         SELECT id
                           FROM outbox_events
                          WHERE status = 'PENDING'
-                           AND event_type = 'GENERATION_JOB_QUEUED'
+                           AND event_type IN ('GENERATION_JOB_QUEUED', 'MEDIA_VALIDATION_REQUESTED')
                            AND available_at <= CURRENT_TIMESTAMP
                          ORDER BY id
                          LIMIT 50
@@ -90,7 +91,7 @@ public class GenerationOutboxDispatcher {
                        SET available_at = CURRENT_TIMESTAMP + (? * INTERVAL '1 millisecond')
                       FROM candidates
                      WHERE event.id = candidates.id
-                    RETURNING event.id, event.payload_json::text
+                    RETURNING event.id, event.event_type, event.payload_json::text
                     """,
                     GenerationOutboxDispatcher::mapRow,
                     RESERVATION_MILLIS));
@@ -98,8 +99,11 @@ public class GenerationOutboxDispatcher {
   }
 
   private static OutboxRow mapRow(ResultSet resultSet, int rowNum) throws SQLException {
-    return new OutboxRow(resultSet.getLong("id"), resultSet.getString("payload_json"));
+        String eventType = resultSet.getString("event_type");
+        return new OutboxRow(
+            resultSet.getLong("id"), resultSet.getString("payload_json"),
+            "MEDIA_VALIDATION_REQUESTED".equals(eventType) ? MEDIA_VALIDATION_CHANNEL : CHANNEL);
   }
 
-  private record OutboxRow(long id, String payloadJson) {}
+  private record OutboxRow(long id, String payloadJson, String channel) {}
 }

@@ -55,12 +55,12 @@ class MyBatisMediaAssetRepositoryTest {
   }
 
   @Test
-  void concurrentApproveOnTheSameAssetIsAnOptimisticConflict() {
+  void validationCannotBeBypassedByApproveEndpoint() {
     when(mapper.findOwned(ACCOUNT, firstId)).thenReturn(validating);
-    when(mapper.approve(ACCOUNT, firstId)).thenReturn(0);
 
     assertThatThrownBy(() -> repository.approve(ACCOUNT, firstId))
-        .isInstanceOf(ObjectOptimisticLockingFailureException.class);
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("only after media validation");
   }
 
   @Test

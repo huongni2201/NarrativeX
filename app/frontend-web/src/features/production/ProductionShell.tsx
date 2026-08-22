@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Plus, UploadCloud } from "lucide-react";
 import { chaptersApi } from "@/features/chapters/api/chapters.api";
 import { projectsApi } from "@/features/projects/api/projects.api";
@@ -19,7 +19,7 @@ import { ProjectCharactersTab } from "./tabs/ProjectCharactersTab";
 import { ProjectInfoTab } from "./tabs/ProjectInfoTab";
 import { ProjectResourcesTab } from "./tabs/ProjectResourcesTab";
 import { ProjectSettingsTab } from "./tabs/ProjectSettingsTab";
-import type { ProductionTab } from "./production.types";
+import { isProductionTab, type ProductionTab } from "./production.types";
 
 interface ProductionShellProps {
   projectId?: string;
@@ -28,6 +28,8 @@ interface ProductionShellProps {
 
 export function ProductionShell({ projectId, initialTab = "chapters" }: Readonly<ProductionShellProps>) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const batchImportInputRef = useRef<HTMLInputElement>(null);
   const numericProjectId = projectId ? Number(projectId) : Number.NaN;
@@ -36,7 +38,25 @@ export function ProductionShell({ projectId, initialTab = "chapters" }: Readonly
   const [formError, setFormError] = useState<string | null>(null);
   const [batchImportError, setBatchImportError] = useState<string | null>(null);
   const [formResetKey, setFormResetKey] = useState(0);
-  const [activeTab, setActiveTab] = useState<ProductionTab>(initialTab);
+  const requestedTab = searchParams.get("tab");
+  const tabFromUrl = isProductionTab(requestedTab) ? requestedTab : initialTab;
+  const [activeTab, setActiveTab] = useState<ProductionTab>(tabFromUrl);
+
+  useEffect(() => {
+    setActiveTab(tabFromUrl);
+  }, [tabFromUrl]);
+
+  const changeTab = (nextTab: ProductionTab) => {
+    setActiveTab(nextTab);
+    const nextParams = new URLSearchParams(searchParams.toString());
+    if (nextTab === "chapters") {
+      nextParams.delete("tab");
+    } else {
+      nextParams.set("tab", nextTab);
+    }
+    const query = nextParams.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  };
 
   const overviewQuery = useQuery({
     queryKey: hasValidProjectId
@@ -210,7 +230,7 @@ export function ProductionShell({ projectId, initialTab = "chapters" }: Readonly
         <span className="text-slate-600">/</span>
         <button
           type="button"
-          onClick={() => setActiveTab("chapters")}
+          onClick={() => changeTab("chapters")}
           className={`hover:text-primary-light transition-colors font-semibold ${
             tabBreadcrumbLabel ? "text-slate-400" : "text-slate-200"
           }`}
@@ -231,11 +251,11 @@ export function ProductionShell({ projectId, initialTab = "chapters" }: Readonly
         metrics={overview.metrics}
         continueChapter={continueChapter}
         onContinue={continueProject}
-        onOpenInfo={() => setActiveTab("info")}
+        onOpenInfo={() => changeTab("info")}
       />
 
       {/* Project Navigation Tabs */}
-      <ProjectTabs activeTab={activeTab} onChange={setActiveTab} />
+      <ProjectTabs activeTab={activeTab} onChange={changeTab} />
 
       {/* Main Tab Content */}
       {activeTab === "chapters" && (

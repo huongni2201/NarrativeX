@@ -18,7 +18,6 @@ spring:
     enabled: false
     locations:
       - classpath:db/migration
-      - classpath:db/local-migration
   data:
     redis:
       repositories:

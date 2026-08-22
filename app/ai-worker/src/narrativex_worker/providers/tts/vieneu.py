@@ -137,6 +137,15 @@ class VieneuTtsProvider:
             return self.voice_name
         if requested_voice_id in available:
             return requested_voice_id
+
+        req_clean = requested_voice_id.removeprefix("vieneu-").replace("-", " ").strip().lower()
+        for name in available:
+            name_clean = name.strip().lower()
+            if name_clean == req_clean or name_clean == requested_voice_id.strip().lower():
+                return name
+            if name_clean.replace(" ", "") == req_clean.replace(" ", ""):
+                return name
+
         raise TtsProviderRejectedError(
             f"VieNeu voice {requested_voice_id!r} is not available in the worker profile"
         )

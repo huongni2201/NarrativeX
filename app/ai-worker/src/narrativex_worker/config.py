@@ -37,6 +37,13 @@ class WorkerSettings(BaseSettings):
         le=32,
         description="Maximum jobs processed concurrently by one worker process",
     )
+    media_download_timeout_seconds: float = Field(default=120.0, gt=1, le=900)
+    media_probe_timeout_seconds: float = Field(default=30.0, gt=1, le=300)
+    media_max_audio_bytes: int = Field(default=100 * 1024 * 1024, ge=1024, le=500 * 1024 * 1024)
+    media_max_image_bytes: int = Field(default=100 * 1024 * 1024, ge=1024, le=500 * 1024 * 1024)
+    media_max_video_bytes: int = Field(
+        default=1024 * 1024 * 1024, ge=1024, le=2 * 1024 * 1024 * 1024
+    )
 
     provider_mode: Literal["disabled", "vertex"] = Field(
         default="disabled",

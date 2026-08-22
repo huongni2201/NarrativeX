@@ -78,22 +78,82 @@ class MyBatisProjectQueryIntegrationTest extends PostgreSqlIntegrationTestSuppor
 
   @Test
   void mapsDashboardPageAndCountsForAuthenticatedOwner() {
-    var rows = dashboardMapper.findDashboardPage("seed-user-01", null, null, "NEWEST", 0, 21);
-    var counts = dashboardMapper.findDashboardCounts("seed-user-01", null);
+    String ownerId = "dash-owner-" + UUID.randomUUID();
+    Project p1 =
+        projectRepository.save(
+            Project.create(
+                "P1",
+                ownerId,
+                "vi-VN",
+                "vi-VN",
+                "vi-VN",
+                AspectRatio.RATIO_16_9,
+                ImageQualityTier.STANDARD));
+    Project p2 =
+        projectRepository.save(
+            Project.create(
+                "P2",
+                ownerId,
+                "vi-VN",
+                "vi-VN",
+                "vi-VN",
+                AspectRatio.RATIO_16_9,
+                ImageQualityTier.STANDARD));
 
-    assertEquals(9, rows.size());
-    assertEquals(1010L, rows.getFirst().id());
-    assertEquals("ACTIVE", rows.getFirst().status());
-    assertEquals(1, rows.getFirst().totalChapters());
-    assertEquals(1, rows.getFirst().totalScenes());
-    assertEquals(47L, rows.getFirst().estimatedDurationSeconds());
-    assertEquals(9L, counts.allCount());
-    assertEquals(7L, counts.activeCount());
-    assertEquals(2L, counts.draftCount());
+    jdbcTemplate.update(
+        "UPDATE projects SET status = 'ACTIVE' WHERE id IN (?, ?)", p1.getId(), p2.getId());
 
-    var starredRows = dashboardMapper.findDashboardPage("seed-user-01", null, null, "STARRED", 0, 21);
-    assertEquals(9, starredRows.size());
+    jdbcTemplate.update(
+        "INSERT INTO story_versions (project_id, version_number, content, source_language, status, moderation_decision) "
+            + "VALUES (?, 1, 'Content', 'vi-VN', 'ACTIVE', 'SAFE')",
+        p1.getId());
+    Long storyVersionId =
+        jdbcTemplate.queryForObject(
+            "SELECT id FROM story_versions WHERE project_id = ?", Long.class, p1.getId());
+    jdbcTemplate.update(
+        "INSERT INTO chapters (story_version_id, order_index, title, source_text, source_hash, status, estimated_duration_ms, generation_progress) "
+            + "VALUES (?, 1, 'Ch 1', 'Text', repeat('a', 64), 'READY', 47000, 100)",
+        storyVersionId);
+    Long chapterId =
+        jdbcTemplate.queryForObject(
+            "SELECT id FROM chapters WHERE story_version_id = ?", Long.class, storyVersionId);
+    jdbcTemplate.update(
+        "INSERT INTO storyboard_revisions (chapter_id, revision_number, source_hash, source_row_version, status) "
+            + "VALUES (?, 1, repeat('a', 64), 0, 'DRAFT')",
+        chapterId);
+    Long revId =
+        jdbcTemplate.queryForObject(
+            "SELECT id FROM storyboard_revisions WHERE chapter_id = ?", Long.class, chapterId);
+    jdbcTemplate.update(
+        "INSERT INTO scenes (chapter_id, storyboard_revision_id, order_index, title, narration, duration_seconds, status) "
+            + "VALUES (?, ?, 1, 'Scene 1', 'Narration', 47, 'APPROVED')",
+        chapterId,
+        revId);
+
+    jdbcTemplate.update(
+        "INSERT INTO auth_users (id, email, display_name, password_hash, enabled) VALUES (?, ?, ?, 'pass', true) ON CONFLICT (id) DO NOTHING",
+        ownerId,
+        ownerId + "@example.com",
+        ownerId);
+    jdbcTemplate.update(
+        "INSERT INTO project_favorites (user_id, project_id) VALUES (?, ?)", ownerId, p1.getId());
+
+    var rows = dashboardMapper.findDashboardPage(ownerId, null, null, "NEWEST", 0, 21);
+    var counts = dashboardMapper.findDashboardCounts(ownerId, null);
+
+    assertEquals(2, rows.size());
+    assertEquals(p2.getId(), rows.getFirst().id());
+    assertEquals(2L, counts.allCount());
+    assertEquals(2L, counts.activeCount());
+    assertEquals(0L, counts.draftCount());
+
+    var starredRows = dashboardMapper.findDashboardPage(ownerId, null, null, "STARRED", 0, 21);
+    assertEquals(2, starredRows.size());
+    assertEquals(p1.getId(), starredRows.getFirst().id());
     assertTrue(starredRows.getFirst().starred());
+    assertEquals(1, starredRows.getFirst().totalChapters());
+    assertEquals(1, starredRows.getFirst().totalScenes());
+    assertEquals(47L, starredRows.getFirst().estimatedDurationSeconds());
   }
 
   private Project newProject() {

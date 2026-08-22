@@ -32,6 +32,8 @@ public interface MediaAssetMapper extends NarrativeXMyBatisMapper {
   MediaAssetRow findVerifiedByChecksum(
       @Param("accountId") String accountId, @Param("sha256") String sha256);
 
+  boolean isReferencedByReadyAsset(@Param("storageKey") String storageKey);
+
   int markUploading(@Param("accountId") String accountId, @Param("id") UUID id);
 
   int markValidating(@Param("accountId") String accountId, @Param("id") UUID id);

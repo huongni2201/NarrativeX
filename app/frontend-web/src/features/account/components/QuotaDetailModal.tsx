@@ -10,6 +10,7 @@ import {
   Layers,
 } from "lucide-react";
 import { useUserQuota } from "../hooks/useUserQuota";
+import { Modal } from "@/components/ui/Modal";
 
 interface QuotaDetailModalProps {
   isOpen: boolean;
@@ -27,16 +28,8 @@ export function QuotaDetailModal({ isOpen, onClose }: Readonly<QuotaDetailModalP
   const usedPercent = totalCredits > 0 ? Math.min(100, Math.round((creditsUsed / totalCredits) * 100)) : 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-
-      {/* Modal Card */}
-      <div className="relative z-10 w-full max-w-lg overflow-hidden rounded-2xl border border-border bg-surface-card shadow-2xl">
+    <Modal isOpen={isOpen} onClose={onClose} ariaLabel="Chi tiết hạn mức tài khoản" maxWidth="lg">
+      <div className="w-full bg-surface-card">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border p-5">
           <div className="flex items-center gap-3">
@@ -177,6 +170,6 @@ export function QuotaDetailModal({ isOpen, onClose }: Readonly<QuotaDetailModalP
           </div>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

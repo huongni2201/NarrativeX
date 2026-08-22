@@ -21,6 +21,11 @@ public class AssetLibraryUseCase {
     return repository.list(currentUserId.get(), type, status, search, cursor, limit);
   }
 
+  @Transactional(readOnly = true)
+  public MediaAssetView find(UUID id) {
+    return repository.findOwned(currentUserId.get(), id);
+  }
+
   @Transactional
   public MediaAssetView startUpload(UUID id) {
     return repository.startUpload(currentUserId.get(), id);

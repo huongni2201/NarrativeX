@@ -39,6 +39,7 @@ public class R2ObjectStorageAdapter implements ObjectStoragePort {
   private static final String UNSIGNED_PAYLOAD = "UNSIGNED-PAYLOAD";
   private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
   private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(15);
+  private static final long PRESIGN_SAFETY_MARGIN_SECONDS = 5;
   private static final DateTimeFormatter AMZ_DATE =
       DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'").withZone(ZoneOffset.UTC);
   private static final DateTimeFormatter SHORT_DATE =
@@ -53,6 +54,11 @@ public class R2ObjectStorageAdapter implements ObjectStoragePort {
   public PresignedUpload createUpload(CreateUpload command) {
     ensureConfigured();
     Instant now = Instant.now(clock);
+    long expiresSeconds =
+        Duration.between(now, command.expiresAt()).toSeconds() - PRESIGN_SAFETY_MARGIN_SECONDS;
+    if (expiresSeconds <= 0) {
+      throw new IllegalArgumentException("Upload intent has no remaining signing lifetime");
+    }
     String amzDate = AMZ_DATE.format(now);
     String shortDate = SHORT_DATE.format(now);
     String credential = properties.accessKeyId().trim() + "/" + shortDate + "/" + REGION + "/" + SERVICE + "/aws4_request";
@@ -64,7 +70,7 @@ public class R2ObjectStorageAdapter implements ObjectStoragePort {
                 "X-Amz-Algorithm", "AWS4-HMAC-SHA256",
                 "X-Amz-Credential", credential,
                 "X-Amz-Date", amzDate,
-                "X-Amz-Expires", String.valueOf(properties.presignDuration().toSeconds()),
+                "X-Amz-Expires", String.valueOf(expiresSeconds),
                 "X-Amz-SignedHeaders", signedHeaders));
     URI objectUri = objectUri(command.storageKey());
     String canonicalQuery = canonicalQuery(query);

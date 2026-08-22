@@ -19,6 +19,8 @@ export const queryKeys = {
   storyboard: (projectId: number, chapterId: number) =>
     ["projects", projectId, "chapters", chapterId, "storyboard"] as const,
   characters: ["characters"] as const,
+  assets: ["assets"] as const,
+  stylePresets: ["style-presets"] as const,
   projectDashboard: ["project-dashboard"] as const,
   projectDashboardFiltered: (filter?: string, sort?: string, query?: string) =>
     ["project-dashboard", filter ?? "ALL", sort ?? "NEWEST", query ?? ""] as const,

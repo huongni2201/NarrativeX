@@ -22,6 +22,7 @@ import com.narrativex.backend.feature.assets.application.query.UploadIntentView;
 import com.narrativex.backend.feature.assets.application.service.MediaUploadFinalizationService;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
+import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import java.net.URI;
 import java.time.Instant;
 import java.util.Optional;
@@ -109,6 +110,39 @@ class MediaUploadUseCaseTest {
   }
 
   @Test
+  void readyIdempotentSessionReturnsStatusWithoutSigningAnotherUploadUrl() {
+    UploadSession existing = session(UUID.randomUUID(), "READY", UUID.randomUUID());
+    when(sessions.findByIdempotencyKey(ACCOUNT, "retry-1")).thenReturn(Optional.of(existing));
+
+    UploadIntentView response = useCase.createIntent(request(), "retry-1");
+
+    assertThat(response.status()).isEqualTo("READY");
+    assertThat(response.uploadUrl()).isNull();
+    assertThat(response.uploadHeaders()).isEmpty();
+    verify(objectStorage, never()).createUpload(any());
+  }
+
+  @Test
+  void rejectedIdempotentSessionCannotBeSignedAgain() {
+    UploadSession existing = session(UUID.randomUUID(), "REJECTED", null);
+    when(sessions.findByIdempotencyKey(ACCOUNT, "retry-1")).thenReturn(Optional.of(existing));
+
+    assertThatThrownBy(() -> useCase.createIntent(request(), "retry-1"))
+        .isInstanceOf(ResourceConflictException.class);
+    verify(objectStorage, never()).createUpload(any());
+  }
+
+  @Test
+  void expiredIdempotentSessionCannotBeSignedAgain() {
+    UploadSession existing = session(UUID.randomUUID(), "PENDING_UPLOAD", null, Instant.now().minusSeconds(1));
+    when(sessions.findByIdempotencyKey(ACCOUNT, "retry-1")).thenReturn(Optional.of(existing));
+
+    assertThatThrownBy(() -> useCase.createIntent(request(), "retry-1"))
+        .isInstanceOf(ResourceConflictException.class);
+    verify(objectStorage, never()).createUpload(any());
+  }
+
+  @Test
   void finalizeCreatesValidatingAssetOnlyAfterStorageMetadataMatches() {
     UUID sessionId = UUID.randomUUID();
     UploadSession session = session(sessionId, "PENDING_UPLOAD", null);
@@ -164,11 +198,11 @@ class MediaUploadUseCaseTest {
                 null,
                 "READY",
                 Instant.now()));
-    when(sessions.markValidating(ACCOUNT, sessionId, existingAssetId)).thenReturn(true);
+    when(sessions.markReady(ACCOUNT, sessionId, existingAssetId)).thenReturn(true);
 
     UploadFinalizeView response = useCase.finalizeUpload(sessionId);
 
-    assertThat(response.status()).isEqualTo("VALIDATING");
+    assertThat(response.status()).isEqualTo("READY");
     assertThat(response.mediaAssetId()).isEqualTo(existingAssetId);
     verify(assets).createOrReuseVerifiedAsset(any(), any());
     verify(cleanupTasks)
@@ -243,6 +277,10 @@ class MediaUploadUseCaseTest {
   }
 
   private static UploadSession session(UUID id, String status, UUID mediaAssetId) {
+    return session(id, status, mediaAssetId, EXPIRES_AT);
+  }
+
+  private static UploadSession session(UUID id, String status, UUID mediaAssetId, Instant expiresAt) {
     return new UploadSession(
         id,
         "AUDIO",
@@ -253,7 +291,7 @@ class MediaUploadUseCaseTest {
         "media/uploads/" + id,
         "retry-1",
         status,
-        EXPIRES_AT,
+        expiresAt,
         Instant.now(),
         mediaAssetId);
   }

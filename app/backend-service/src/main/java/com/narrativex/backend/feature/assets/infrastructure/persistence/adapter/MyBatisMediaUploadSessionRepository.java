@@ -4,6 +4,7 @@ import com.narrativex.backend.feature.assets.application.port.out.MediaUploadSes
 import com.narrativex.backend.feature.assets.application.port.out.MediaUploadSessionRepository.CreateUploadSession;
 import com.narrativex.backend.feature.assets.application.port.out.MediaUploadSessionRepository.UploadSession;
 import com.narrativex.backend.feature.assets.application.port.out.MediaUploadSessionRepository.ExpiredUpload;
+import com.narrativex.backend.feature.assets.application.port.out.MediaUploadSessionRepository.RejectedUpload;
 import com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaUploadSessionMapper;
 import com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaUploadSessionRow;
 import java.util.List;
@@ -51,6 +52,11 @@ public class MyBatisMediaUploadSessionRepository implements MediaUploadSessionRe
   }
 
   @Override
+  public boolean markReady(String accountId, UUID id, UUID mediaAssetId) {
+    return mapper.markReady(accountId, id, mediaAssetId) == 1;
+  }
+
+  @Override
   public boolean markRejected(String accountId, UUID id) {
     return mapper.markRejected(accountId, id) == 1;
   }
@@ -61,6 +67,15 @@ public class MyBatisMediaUploadSessionRepository implements MediaUploadSessionRe
     if (limit < 1 || limit > 500) throw new IllegalArgumentException("limit must be between 1 and 500");
     return mapper.findExpiredPending(limit).stream()
         .map(row -> new ExpiredUpload(row.getId(), row.getAccountId(), row.getStorageKey()))
+        .toList();
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public List<RejectedUpload> findRejectedForCleanup(int limit) {
+    if (limit < 1 || limit > 500) throw new IllegalArgumentException("limit must be between 1 and 500");
+    return mapper.findRejectedForCleanup(limit).stream()
+        .map(row -> new RejectedUpload(row.getId(), row.getStorageKey()))
         .toList();
   }
 

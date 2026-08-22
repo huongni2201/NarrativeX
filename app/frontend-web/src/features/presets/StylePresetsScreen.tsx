@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { usePresetStore } from "@/store/usePresetStore";
 import { PresetCard } from "@/components/presets/PresetCard";
 import { PresetDetailDrawer } from "@/components/presets/PresetDetailDrawer";
@@ -11,15 +12,16 @@ import {
   SlidersHorizontal,
   Palette,
 } from "lucide-react";
-import { PresetCategory } from "@/types/presets";
+import { PresetCategory, type StylePreset } from "@/types/presets";
 import { cn } from "@/lib/utils";
 import { isMockDataMode } from "@/lib/data-mode";
+import { queryKeys } from "@/lib/query-keys";
 import { presetsApi } from "./api/presets.api";
 import { apiErrorMessage } from "@/shared/api/client";
 
 export const StylePresetsScreen: React.FC = () => {
   const {
-    presets,
+    presets: mockPresets,
     selectedPresetId,
     selectPreset,
     closeDetailDrawer,
@@ -37,39 +39,26 @@ export const StylePresetsScreen: React.FC = () => {
     duplicatePreset,
     deletePreset,
   } = usePresetStore();
-  const hydratePresets = usePresetStore((state) => state.hydratePresets);
-  const [apiState, setApiState] = useState<"loading" | "ready" | "error">(
-    isMockDataMode ? "ready" : "loading",
-  );
-  const [apiError, setApiError] = useState<string | null>(null);
+  const presetsQuery = useQuery({
+    queryKey: queryKeys.stylePresets,
+    queryFn: () => presetsApi.list(),
+    enabled: !isMockDataMode,
+    select: (items): StylePreset[] =>
+      items.map((preset) => ({
+        id: String(preset.id),
+        name: preset.name,
+        category: preset.category,
+        description: preset.description,
+        coverImage: preset.thumbnailUrl ?? "",
+        tags: preset.tags,
+        usedInProjectsCount: 0,
+      })),
+  });
+  const presets = isMockDataMode ? mockPresets : (presetsQuery.data ?? []);
 
   const [showFilters, setShowFilters] = useState(false);
 
-  useEffect(() => {
-    if (isMockDataMode) return;
-    presetsApi
-      .list()
-      .then((items) => {
-        hydratePresets(
-          items.map((preset) => ({
-            id: String(preset.id),
-            name: preset.name,
-            category: preset.category,
-            description: preset.description,
-            coverImage: preset.thumbnailUrl ?? "",
-            tags: preset.tags,
-            usedInProjectsCount: 0,
-          })),
-        );
-        setApiState("ready");
-      })
-      .catch((error) => {
-        setApiState("error");
-        setApiError(apiErrorMessage(error, "Không thể tải style presets."));
-      });
-  }, [hydratePresets]);
-
-  if (!isMockDataMode && apiState === "loading") {
+  if (!isMockDataMode && presetsQuery.isPending) {
     return (
       <div className="rounded-2xl border border-dashed border-slate-700 bg-surface/40 p-8">
         <p className="text-[11px] uppercase tracking-[0.2em] text-purple-300">Style &amp; Presets</p>
@@ -81,11 +70,13 @@ export const StylePresetsScreen: React.FC = () => {
     );
   }
 
-  if (!isMockDataMode && apiState === "error") {
+  if (!isMockDataMode && presetsQuery.isError) {
     return (
       <div className="rounded-2xl border border-dashed border-danger/40 bg-danger-bg/20 p-8">
         <h2 className="text-lg font-semibold text-text-primary">Không thể tải style presets</h2>
-        <p className="mt-2 text-sm text-text-secondary">{apiError}</p>
+        <p className="mt-2 text-sm text-text-secondary">
+          {apiErrorMessage(presetsQuery.error, "Không thể tải style presets.")}
+        </p>
       </div>
     );
   }
@@ -224,11 +215,15 @@ export const StylePresetsScreen: React.FC = () => {
               Không tìm thấy preset phù hợp
             </h3>
             <p className="text-xs text-slate-400 max-w-sm mx-auto">
-              Hãy thử tìm kiếm với từ khóa khác hoặc tạo preset phong cách mới cho riêng bạn.
+              {isMockDataMode
+                ? "Hãy thử tìm kiếm với từ khóa khác hoặc tạo preset phong cách mới cho riêng bạn."
+                : "Catalog phong cách hiện chưa có preset phù hợp với bộ lọc này."}
             </p>
-            <Button onClick={openCreateModal} variant="primary" size="sm">
-              <Plus className="w-3.5 h-3.5" /> Tạo preset mới
-            </Button>
+            {isMockDataMode && (
+              <Button onClick={openCreateModal} variant="primary" size="sm">
+                <Plus className="w-3.5 h-3.5" /> Tạo preset mới
+              </Button>
+            )}
           </div>
         )}
       </div>

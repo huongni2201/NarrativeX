@@ -892,6 +892,14 @@ CREATE TABLE media_assets (
     sha256 VARCHAR(64) NOT NULL,
     duration_ms BIGINT,
     status VARCHAR(24) NOT NULL,
+    detected_content_type VARCHAR(160),
+    detected_container VARCHAR(80),
+    detected_codec VARCHAR(80),
+    width INTEGER,
+    height INTEGER,
+    validation_error_code VARCHAR(80),
+    validation_error_detail VARCHAR(512),
+    validated_at TIMESTAMP WITH TIME ZONE,
     deleted_at TIMESTAMP WITH TIME ZONE,
     checksum_verified_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -904,12 +912,56 @@ CREATE TABLE media_assets (
     CONSTRAINT uk_media_assets_account_storage_key UNIQUE (account_id, storage_key)
 );
 CREATE INDEX idx_media_assets_account_status ON media_assets (account_id, status, created_at DESC);
-CREATE UNIQUE INDEX uq_media_assets_account_sha256_verified
-    ON media_assets (account_id, sha256)
-    WHERE checksum_verified_at IS NOT NULL AND status <> 'DELETED' AND deleted_at IS NULL;
 CREATE INDEX idx_media_assets_account_created_visible
     ON media_assets (account_id, created_at DESC, id DESC)
     WHERE status <> 'DELETED' AND deleted_at IS NULL;
+
+CREATE TABLE media_asset_checksums (
+    account_id VARCHAR(128) NOT NULL,
+    sha256 VARCHAR(64) NOT NULL,
+    media_asset_id UUID NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT pk_media_asset_checksums PRIMARY KEY (account_id, sha256),
+    CONSTRAINT ck_media_asset_checksums_sha256 CHECK (sha256 ~ '^[0-9a-f]{64}$'),
+    CONSTRAINT fk_media_asset_checksums_asset
+        FOREIGN KEY (media_asset_id) REFERENCES media_assets(id)
+        DEFERRABLE INITIALLY DEFERRED
+);
+
+CREATE INDEX idx_media_asset_checksums_asset
+    ON media_asset_checksums (media_asset_id);
+
+CREATE TABLE media_validation_jobs (
+    id UUID PRIMARY KEY,
+    account_id VARCHAR(128) NOT NULL,
+    media_asset_id UUID NOT NULL UNIQUE REFERENCES media_assets(id),
+    storage_key VARCHAR(512) NOT NULL,
+    declared_type VARCHAR(16) NOT NULL,
+    declared_content_type VARCHAR(160) NOT NULL,
+    expected_size_bytes BIGINT NOT NULL,
+    expected_sha256 VARCHAR(64) NOT NULL,
+    status VARCHAR(24) NOT NULL DEFAULT 'QUEUED',
+    attempts INTEGER NOT NULL DEFAULT 0,
+    worker_id VARCHAR(160),
+    lease_until TIMESTAMP WITH TIME ZONE,
+    next_attempt_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_error_code VARCHAR(80),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT ck_media_validation_jobs_type CHECK (declared_type IN ('AUDIO', 'IMAGE', 'VIDEO')),
+    CONSTRAINT ck_media_validation_jobs_size CHECK (expected_size_bytes > 0),
+    CONSTRAINT ck_media_validation_jobs_sha256 CHECK (expected_sha256 ~ '^[0-9a-fA-F]{64}$'),
+    CONSTRAINT ck_media_validation_jobs_status CHECK (status IN ('QUEUED', 'RUNNING', 'RETRYABLE', 'COMPLETED', 'FAILED')),
+    CONSTRAINT ck_media_validation_jobs_attempts CHECK (attempts >= 0)
+);
+CREATE INDEX idx_media_validation_jobs_claimable
+    ON media_validation_jobs (status, next_attempt_at, created_at, id);
+CREATE INDEX idx_media_validation_jobs_expired_leases
+    ON media_validation_jobs (lease_until, id)
+    WHERE status = 'RUNNING';
+
+COMMENT ON TABLE media_validation_jobs IS
+    'Durable media validation queue; PostgreSQL is authoritative and Redis notifications are hints only.';
 
 -- -----------------------------------------------------------------------------
 -- Narration Requests, Assets & Alignment (Chapter-level TTS)
@@ -1365,7 +1417,7 @@ CREATE TABLE media_upload_sessions (
     CONSTRAINT ck_media_upload_sessions_type CHECK (asset_type IN ('AUDIO', 'IMAGE', 'VIDEO')),
     CONSTRAINT ck_media_upload_sessions_size CHECK (expected_size > 0),
     CONSTRAINT ck_media_upload_sessions_sha256 CHECK (expected_sha256 ~ '^[0-9a-f]{64}$'),
-    CONSTRAINT ck_media_upload_sessions_status CHECK (status IN ('PENDING_UPLOAD', 'READY', 'REJECTED')),
+    CONSTRAINT ck_media_upload_sessions_status CHECK (status IN ('PENDING_UPLOAD', 'VALIDATING', 'READY', 'REJECTED')),
     CONSTRAINT uk_media_upload_sessions_storage_key UNIQUE (storage_key),
     CONSTRAINT uk_media_upload_sessions_idempotency UNIQUE (account_id, idempotency_key)
 );

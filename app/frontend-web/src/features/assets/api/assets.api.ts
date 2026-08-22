@@ -28,7 +28,7 @@ export interface ApiUploadIntent {
   expectedSizeBytes: number;
   expectedSha256: string;
   storageKey: string;
-  uploadUrl: string;
+  uploadUrl: string | null;
   uploadHeaders: Record<string, string>;
   status: string;
   expiresAt: string;
@@ -36,7 +36,7 @@ export interface ApiUploadIntent {
 
 export interface ApiUploadFinalizeResult {
   uploadSessionId: string;
-  status: "READY" | "REJECTED";
+  status: "VALIDATING" | "READY" | "REJECTED";
   mediaAssetId: string | null;
 }
 
@@ -85,7 +85,9 @@ function isApiUploadIntent(value: unknown): value is ApiUploadIntent {
     typeof candidate.expectedSha256 === "string" &&
     /^[0-9a-f]{64}$/i.test(candidate.expectedSha256) &&
     typeof candidate.storageKey === "string" &&
-    isHttpUrl(candidate.uploadUrl) &&
+    (candidate.uploadUrl === null
+      ? candidate.status === "READY"
+      : isHttpUrl(candidate.uploadUrl)) &&
     typeof candidate.uploadHeaders === "object" &&
     candidate.uploadHeaders !== null &&
     Object.values(candidate.uploadHeaders as Record<string, unknown>).every(
@@ -111,12 +113,15 @@ function isApiUploadFinalizeResult(value: unknown): value is ApiUploadFinalizeRe
   const candidate = value as Partial<ApiUploadFinalizeResult>;
   return (
     typeof candidate.uploadSessionId === "string" &&
-    (candidate.status === "READY" || candidate.status === "REJECTED") &&
+    (candidate.status === "VALIDATING" || candidate.status === "READY" || candidate.status === "REJECTED") &&
     (typeof candidate.mediaAssetId === "string" || candidate.mediaAssetId === null)
   );
 }
 
 export const assetsApi = {
+  waitForAsset: (id: string, timeoutMs = 30_000) => pollAsset(id, timeoutMs),
+  get: (id: string) =>
+    apiRequest<ApiMediaAsset>(`/api/v1/assets/${encodeURIComponent(id)}`, {}, isApiMediaAsset),
   list: (params: { type?: string; status?: string; search?: string } = {}) => {
     const query = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
@@ -155,21 +160,30 @@ export const assetsApi = {
       isApiUploadFinalizeResult,
     ),
   uploadVoiceReference: async (file: File, idempotencyKey = crypto.randomUUID()) => {
+    const contentType = file.type.trim().toLowerCase();
+    if (!VOICE_REFERENCE_CONTENT_TYPES.has(contentType)) {
+      throw new Error("Mẫu giọng phải là MP3, WAV, OGG, M4A hoặc WEBM hợp lệ.");
+    }
     const expectedSha256 = await sha256(file);
     const intent = await assetsApi.createUploadIntent(
       {
         type: "AUDIO",
         originalFilename: file.name,
-        contentType: "audio/mpeg",
+        contentType,
         expectedSizeBytes: file.size,
         expectedSha256,
       },
       idempotencyKey,
     );
+    if (!intent.uploadUrl) {
+      const settled = await assetsApi.finalizeUpload(intent.id);
+      if (settled.status === "READY" && settled.mediaAssetId) return settled.mediaAssetId;
+      throw new Error("Upload intent này không còn mở để upload.");
+    }
     const uploadResponse = await fetch(intent.uploadUrl, {
       method: "PUT",
       headers: {
-        "Content-Type": "audio/mpeg",
+        "Content-Type": contentType,
         ...intent.uploadHeaders,
       },
       body: file,
@@ -177,12 +191,36 @@ export const assetsApi = {
     });
     if (!uploadResponse.ok) throw new Error(`Upload mẫu giọng thất bại (${uploadResponse.status}).`);
     const finalized = await assetsApi.finalizeUpload(intent.id);
-    if (finalized.status !== "READY" || !finalized.mediaAssetId) {
+    if (finalized.status === "REJECTED" || !finalized.mediaAssetId) {
       throw new Error("Backend từ chối mẫu giọng sau khi verify.");
     }
-    return finalized.mediaAssetId;
+    if (finalized.status === "READY") return finalized.mediaAssetId;
+    const validated = await pollAsset(finalized.mediaAssetId);
+    if (validated.status !== "READY") {
+      throw new Error("Mẫu giọng đang được kiểm tra. Vui lòng thử lại sau.");
+    }
+    return validated.id;
   },
 };
+
+const VOICE_REFERENCE_CONTENT_TYPES = new Set([
+  "audio/mpeg",
+  "audio/wav",
+  "audio/x-wav",
+  "audio/ogg",
+  "audio/mp4",
+  "audio/webm",
+]);
+
+async function pollAsset(id: string, timeoutMs = 30_000): Promise<ApiMediaAsset> {
+  const deadline = Date.now() + timeoutMs;
+  let asset = await assetsApi.get(id);
+  while (asset.status === "VALIDATING" && Date.now() < deadline) {
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 1000));
+    asset = await assetsApi.get(id);
+  }
+  return asset;
+}
 
 async function sha256(file: File) {
   const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());

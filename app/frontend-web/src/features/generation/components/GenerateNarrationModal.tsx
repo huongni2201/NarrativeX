@@ -9,6 +9,7 @@ import type { ApiGenerationJob } from "@/types/api";
 import { voicesApi } from "../api/voices.api";
 import { isMockDataMode } from "@/lib/data-mode";
 import { assetsApi } from "@/features/assets/api/assets.api";
+import { Modal } from "@/components/ui/Modal";
 
 interface GenerateNarrationModalProps {
   isOpen: boolean;
@@ -155,16 +156,14 @@ export function GenerateNarrationModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-
-      {/* Modal Card */}
-      <div className="relative z-10 w-full max-w-2xl overflow-hidden rounded-2xl border border-border bg-surface-card shadow-2xl">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      ariaLabel={`Tạo giọng đọc cho Chapter ${chapterTitle}`}
+      closeDisabled={generateMutation.isPending || isUploadingReference}
+      maxWidth="2xl"
+      className="border-border bg-surface-card"
+    >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border p-5">
           <div className="flex items-center gap-3">
@@ -182,6 +181,7 @@ export function GenerateNarrationModal({
           <button
             type="button"
             onClick={onClose}
+            disabled={generateMutation.isPending || isUploadingReference}
             className="rounded-lg p-1.5 text-text-muted transition-colors hover:bg-surface-2 hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             aria-label="Đóng modal"
           >
@@ -398,7 +398,6 @@ export function GenerateNarrationModal({
             </div>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }

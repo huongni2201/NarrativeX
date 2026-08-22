@@ -45,12 +45,39 @@ class StoryVersionEnumMigrationIntegrationTest {
   }
 
   @Autowired private EntityManagerFactory entityManagerFactory;
+  @Autowired private javax.sql.DataSource dataSource;
+
+  private long createProject() throws Exception {
+    try (var conn = dataSource.getConnection();
+        var stmt = conn.prepareStatement(
+            "insert into projects (name, owner_id, status, source_language, narration_language, metadata_language, image_aspect_ratio, image_quality_tier) "
+                + "values ('Test Project', 'test-owner', 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD') returning id")) {
+      try (var rs = stmt.executeQuery()) {
+        rs.next();
+        return rs.getLong(1);
+      }
+    }
+  }
 
   @Test
-  void legacySeedStoryVersionHydratesWithCurrentEnums() {
+  void legacySeedStoryVersionHydratesWithCurrentEnums() throws Exception {
+    long projectId = createProject();
     EntityManager entityManager = entityManagerFactory.createEntityManager();
     try {
-      StoryVersionJpaEntity storyVersion = entityManager.find(StoryVersionJpaEntity.class, 2001L);
+      entityManager.getTransaction().begin();
+      StoryVersionJpaEntity entity = StoryVersionJpaEntity.builder()
+          .projectId(projectId)
+          .versionNumber(1)
+          .content("Test story content")
+          .sourceLanguage("vi-VN")
+          .status(StoryVersionStatus.ACTIVE)
+          .moderationDecision(ModerationDecision.SAFE)
+          .build();
+      entityManager.persist(entity);
+      entityManager.getTransaction().commit();
+      entityManager.clear();
+
+      StoryVersionJpaEntity storyVersion = entityManager.find(StoryVersionJpaEntity.class, entity.getId());
 
       assertNotNull(storyVersion);
       assertEquals(StoryVersionStatus.ACTIVE, storyVersion.getStatus());
@@ -61,10 +88,24 @@ class StoryVersionEnumMigrationIntegrationTest {
   }
 
   @Test
-  void archivedLegacyStoryVersionHydratesAsSupersededHistory() {
+  void archivedLegacyStoryVersionHydratesAsSupersededHistory() throws Exception {
+    long projectId = createProject();
     EntityManager entityManager = entityManagerFactory.createEntityManager();
     try {
-      StoryVersionJpaEntity storyVersion = entityManager.find(StoryVersionJpaEntity.class, 2007L);
+      entityManager.getTransaction().begin();
+      StoryVersionJpaEntity entity = StoryVersionJpaEntity.builder()
+          .projectId(projectId)
+          .versionNumber(1)
+          .content("Archived story content")
+          .sourceLanguage("vi-VN")
+          .status(StoryVersionStatus.SUPERSEDED)
+          .moderationDecision(ModerationDecision.SAFE)
+          .build();
+      entityManager.persist(entity);
+      entityManager.getTransaction().commit();
+      entityManager.clear();
+
+      StoryVersionJpaEntity storyVersion = entityManager.find(StoryVersionJpaEntity.class, entity.getId());
 
       assertNotNull(storyVersion);
       assertEquals(StoryVersionStatus.SUPERSEDED, storyVersion.getStatus());

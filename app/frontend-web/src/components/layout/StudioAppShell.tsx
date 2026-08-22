@@ -8,6 +8,7 @@ import { AuthLoadingScreen, AuthScreen } from "@/features/auth/AuthScreen";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useStudioStore } from "@/store/useStudioStore";
 import type { ScreenType } from "@/types/studio";
+import type { ProductionTab } from "@/features/production/production.types";
 
 const ProjectsDashboard = dynamic(() =>
   import("@/features/dashboard/ProjectsDashboard").then((module) => module.ProjectsDashboard),
@@ -65,7 +66,7 @@ interface StudioAppShellProps {
   projectId?: string;
   chapterId?: string;
   characterId?: string;
-  initialTab?: "chapters" | "storyboard" | "characters" | "locations" | "assets" | "settings";
+  initialTab?: ProductionTab;
 }
 
 const screenTitles: Record<StudioRouteScreen, string> = {
@@ -120,6 +121,12 @@ export function StudioAppShell({
 
   return (
     <div className="flex min-h-screen bg-background text-text-primary">
+      <a
+        href="#main-content"
+        className="sr-only z-[100] rounded-md bg-surface-card px-4 py-2 text-sm font-semibold text-text-primary focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:outline-none focus:ring-2 focus:ring-primary"
+      >
+        Bỏ qua đến nội dung chính
+      </a>
       <div className="hidden lg:block">
         <StudioSidebar />
       </div>
@@ -127,7 +134,7 @@ export function StudioAppShell({
       <div className="flex min-w-0 flex-1 flex-col">
         <StudioHeader title={screenTitles[screen]} />
 
-        <main className="mx-auto w-full max-w-[1700px] flex-1 p-4 pb-24 sm:p-5 sm:pb-24 lg:p-8 lg:pb-16">
+        <main id="main-content" tabIndex={-1} className="mx-auto w-full max-w-[1700px] flex-1 p-4 pb-24 outline-none sm:p-5 sm:pb-24 lg:p-8 lg:pb-16">
           {screen === "overview" && <ProjectsDashboard />}
           {(screen === "project-workspace" || screen === "dashboard") && (
             <ProductionShell projectId={projectId} initialTab={initialTab} />

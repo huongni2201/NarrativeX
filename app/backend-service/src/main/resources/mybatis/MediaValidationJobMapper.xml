@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaValidationJobMapper">
+    <insert id="insertJob">
+        INSERT INTO media_validation_jobs
+          (id, account_id, media_asset_id, storage_key, declared_type, declared_content_type,
+           expected_size_bytes, expected_sha256)
+        VALUES
+          (#{jobId,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler},
+           #{request.accountId},
+           #{request.mediaAssetId,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler},
+           #{request.storageKey}, #{request.declaredType}, #{request.declaredContentType},
+           #{request.expectedSizeBytes}, #{request.expectedSha256})
+        ON CONFLICT (media_asset_id) DO NOTHING
+    </insert>
+
+    <insert id="insertOutbox">
+        INSERT INTO outbox_events
+          (aggregate_type, aggregate_id, event_type, event_key, payload_json, status)
+        VALUES
+          ('MEDIA_ASSET', CAST(#{request.mediaAssetId,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler} AS TEXT),
+           'MEDIA_VALIDATION_REQUESTED', CONCAT('media-validation:', #{request.mediaAssetId}),
+           jsonb_build_object(
+             'mediaAssetId', CAST(#{request.mediaAssetId,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler} AS UUID),
+             'accountId', #{request.accountId},
+             'storageKey', #{request.storageKey},
+             'declaredType', #{request.declaredType},
+             'declaredContentType', #{request.declaredContentType},
+             'expectedSizeBytes', #{request.expectedSizeBytes},
+             'expectedSha256', #{request.expectedSha256}),
+           'PENDING')
+        ON CONFLICT (event_key) DO NOTHING
+    </insert>
+</mapper>

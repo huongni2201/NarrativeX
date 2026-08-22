@@ -15,6 +15,12 @@ class MediaAssetConflictError(RuntimeError):
     pass
 
 
+class MediaDownloadLimitError(MediaAssetConflictError):
+    """The object exceeded an authorized download bound."""
+
+    pass
+
+
 @dataclass(frozen=True)
 class StoredMediaAsset:
     storage_key: str
@@ -39,7 +45,15 @@ class MediaStorage(Protocol):
 
     async def get_bytes(self, storage_key: str) -> bytes: ...
 
-    async def download_to_file(self, storage_key: str, destination: Path) -> StoredMediaAsset: ...
+    async def download_to_file(
+        self,
+        storage_key: str,
+        destination: Path,
+        *,
+        expected_size: int | None = None,
+        expected_checksum: str | None = None,
+        max_bytes: int | None = None,
+    ) -> StoredMediaAsset: ...
 
     async def put_file_immutable(
         self,
@@ -118,18 +132,44 @@ class InMemoryMediaStorage:
             metadata=metadata,
         )
 
-    async def download_to_file(self, storage_key: str, destination: Path) -> StoredMediaAsset:
+    async def download_to_file(
+        self,
+        storage_key: str,
+        destination: Path,
+        *,
+        expected_size: int | None = None,
+        expected_checksum: str | None = None,
+        max_bytes: int | None = None,
+    ) -> StoredMediaAsset:
         value = self._objects.get(storage_key)
         if value is None:
             raise FileNotFoundError(storage_key)
         asset, content = value
+        if expected_size is not None and asset.size_bytes != expected_size:
+            raise MediaAssetConflictError("object size does not match validation job")
+        if max_bytes is not None and asset.size_bytes > max_bytes:
+            raise MediaDownloadLimitError(
+                "object exceeds the authorized download limit"
+            )
         destination.parent.mkdir(parents=True, exist_ok=True)
+        digest = hashlib.sha256()
+        total = 0
         with destination.open("wb") as output:
             for offset in range(0, len(content), 1024 * 1024):
-                output.write(content[offset : offset + 1024 * 1024])
-        if destination.stat().st_size != asset.size_bytes:
+                chunk = content[offset : offset + 1024 * 1024]
+                total += len(chunk)
+                if max_bytes is not None and total > max_bytes:
+                    raise MediaDownloadLimitError(
+                        "object exceeds the authorized download limit"
+                    )
+                digest.update(chunk)
+                output.write(chunk)
+        if total != asset.size_bytes or (expected_size is not None and total != expected_size):
             raise OSError(f"downloaded object {storage_key} has unexpected size")
-        if sha256_file(destination) != asset.checksum:
+        checksum = digest.hexdigest()
+        if checksum != asset.checksum.lower() or (
+            expected_checksum is not None and checksum != expected_checksum.lower()
+        ):
             raise MediaAssetConflictError(f"downloaded object {storage_key} checksum mismatch")
         return asset
 
@@ -282,10 +322,32 @@ class S3MediaStorage:
                 IfNoneMatch="*",
             )
 
-    async def download_to_file(self, storage_key: str, destination: Path) -> StoredMediaAsset:
-        return await asyncio.to_thread(self._download_to_file_sync, storage_key, destination)
+    async def download_to_file(
+        self,
+        storage_key: str,
+        destination: Path,
+        *,
+        expected_size: int | None = None,
+        expected_checksum: str | None = None,
+        max_bytes: int | None = None,
+    ) -> StoredMediaAsset:
+        return await asyncio.to_thread(
+            self._download_to_file_sync,
+            storage_key,
+            destination,
+            expected_size,
+            expected_checksum,
+            max_bytes,
+        )
 
-    def _download_to_file_sync(self, storage_key: str, destination: Path) -> StoredMediaAsset:
+    def _download_to_file_sync(
+        self,
+        storage_key: str,
+        destination: Path,
+        expected_size: int | None,
+        expected_checksum: str | None,
+        max_bytes: int | None,
+    ) -> StoredMediaAsset:
         response = self.client.get_object(Bucket=self.bucket, Key=storage_key)
         body = response["Body"]
         metadata = {str(key): str(value) for key, value in response.get("Metadata", {}).items()}
@@ -293,22 +355,45 @@ class S3MediaStorage:
         if not checksum:
             body.close()
             raise MediaAssetConflictError(f"stored object {storage_key} has no sha256 metadata")
+        content_length = int(response.get("ContentLength", -1))
+        if content_length < 0:
+            body.close()
+            raise MediaAssetConflictError("object has no valid content length")
+        if expected_size is not None and content_length != expected_size:
+            body.close()
+            raise MediaAssetConflictError("object size does not match validation job")
+        if max_bytes is not None and content_length > max_bytes:
+            body.close()
+            raise MediaDownloadLimitError(
+                "object exceeds the authorized download limit"
+            )
         destination.parent.mkdir(parents=True, exist_ok=True)
+        digest = hashlib.sha256()
+        total = 0
         try:
             with destination.open("wb") as output:
                 while chunk := body.read(1024 * 1024):
+                    total += len(chunk)
+                    if max_bytes is not None and total > max_bytes:
+                        raise MediaDownloadLimitError(
+                            "object exceeds the authorized download limit"
+                        )
+                    digest.update(chunk)
                     output.write(chunk)
         finally:
             body.close()
         asset = StoredMediaAsset(
             storage_key,
             checksum,
-            int(response["ContentLength"]),
+            content_length,
             str(response.get("ContentType") or "application/octet-stream"),
             metadata,
         )
-        if destination.stat().st_size != asset.size_bytes:
+        if total != asset.size_bytes or (expected_size is not None and total != expected_size):
             raise OSError(f"downloaded object {storage_key} has unexpected size")
-        if sha256_file(destination) != checksum:
+        actual_checksum = digest.hexdigest()
+        if actual_checksum != checksum.lower() or (
+            expected_checksum is not None and actual_checksum != expected_checksum.lower()
+        ):
             raise MediaAssetConflictError(f"downloaded object {storage_key} checksum mismatch")
         return asset

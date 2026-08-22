@@ -18,6 +18,7 @@ dependencies = [
     "vieneu==3.2.4",
     "numpy>=1.26.0",
     "pydub>=0.25.1",
+    "Pillow>=10.0.0",
 ]
 
 [project.optional-dependencies]

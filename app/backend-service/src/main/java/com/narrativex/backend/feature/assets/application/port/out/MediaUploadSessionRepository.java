@@ -16,11 +16,17 @@ public interface MediaUploadSessionRepository {
 
   boolean markValidating(String accountId, UUID id, UUID mediaAssetId);
 
+  boolean markReady(String accountId, UUID id, UUID mediaAssetId);
+
   boolean markRejected(String accountId, UUID id);
 
   List<ExpiredUpload> findExpiredPending(int limit);
 
+  List<RejectedUpload> findRejectedForCleanup(int limit);
+
   record ExpiredUpload(UUID id, String accountId, String storageKey) {}
+
+  record RejectedUpload(UUID id, String storageKey) {}
 
   record CreateUploadSession(
       UUID id,

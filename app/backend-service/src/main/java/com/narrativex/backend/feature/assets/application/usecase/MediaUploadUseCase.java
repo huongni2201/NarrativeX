@@ -10,6 +10,7 @@ import com.narrativex.backend.feature.assets.application.port.out.ObjectStorageP
 import com.narrativex.backend.feature.assets.application.query.UploadFinalizeView;
 import com.narrativex.backend.feature.assets.application.query.UploadIntentView;
 import com.narrativex.backend.feature.assets.application.service.MediaUploadFinalizationService;
+import com.narrativex.backend.feature.assets.configuration.StorageUploadProperties;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
@@ -20,14 +21,12 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@RequiredArgsConstructor
 public class MediaUploadUseCase {
-  private static final Duration INTENT_TTL = Duration.ofMinutes(15);
   private static final Map<String, Long> MAX_BYTES_BY_TYPE =
       Map.of("AUDIO", 100L * 1024 * 1024, "IMAGE", 100L * 1024 * 1024, "VIDEO", 1_024L * 1024 * 1024);
   private static final Map<String, Set<String>> CONTENT_TYPES_BY_TYPE =
@@ -40,7 +39,48 @@ public class MediaUploadUseCase {
   private final MediaUploadSessionRepository sessions;
   private final ObjectStoragePort objectStorage;
   private final MediaUploadFinalizationService finalization;
-  private final Clock clock = Clock.systemUTC();
+  private final StorageUploadProperties storageProperties;
+  private final Clock clock;
+
+  @Autowired
+  public MediaUploadUseCase(
+      CurrentUserId currentUserId,
+      MediaUploadSessionRepository sessions,
+      ObjectStoragePort objectStorage,
+      MediaUploadFinalizationService finalization,
+      StorageUploadProperties storageProperties) {
+    this(currentUserId, sessions, objectStorage, finalization, storageProperties, Clock.systemUTC());
+  }
+
+  // Kept for focused unit tests and small embedders that do not load Spring configuration.
+  public MediaUploadUseCase(
+      CurrentUserId currentUserId,
+      MediaUploadSessionRepository sessions,
+      ObjectStoragePort objectStorage,
+      MediaUploadFinalizationService finalization) {
+    this(
+        currentUserId,
+        sessions,
+        objectStorage,
+        finalization,
+        new StorageUploadProperties(Duration.ofMinutes(15)),
+        Clock.systemUTC());
+  }
+
+  MediaUploadUseCase(
+      CurrentUserId currentUserId,
+      MediaUploadSessionRepository sessions,
+      ObjectStoragePort objectStorage,
+      MediaUploadFinalizationService finalization,
+      StorageUploadProperties storageProperties,
+      Clock clock) {
+    this.currentUserId = currentUserId;
+    this.sessions = sessions;
+    this.objectStorage = objectStorage;
+    this.finalization = finalization;
+    this.storageProperties = storageProperties;
+    this.clock = clock;
+  }
 
   @Transactional
   public UploadIntentView createIntent(
@@ -55,11 +95,19 @@ public class MediaUploadUseCase {
         if (!sameRequest(existing, request)) {
           throw new ResourceConflictException("Idempotency key was already used for another upload");
         }
+        Instant now = clock.instant();
+        if ("READY".equals(existing.status())) {
+          return intentResponseWithoutUpload(existing);
+        }
+        if ("REJECTED".equals(existing.status()) || !existing.expiresAt().isAfter(now)) {
+          throw new ResourceConflictException(
+              "The existing upload intent is no longer reusable; create a new idempotency key");
+        }
         return intentResponse(existing);
       }
     }
 
-    Instant expiresAt = Instant.now(clock).plus(INTENT_TTL);
+    Instant expiresAt = clock.instant().plus(storageProperties.uploadIntentTtl());
     UUID id = UUID.randomUUID();
     String storageKey = "media/uploads/" + id;
     UploadSession session =
@@ -142,6 +190,21 @@ public class MediaUploadUseCase {
         session.storageKey(),
         upload.uploadUrl().toString(),
         upload.requiredHeaders(),
+        session.status(),
+        session.expiresAt());
+  }
+
+  private static UploadIntentView intentResponseWithoutUpload(UploadSession session) {
+    return new UploadIntentView(
+        session.id(),
+        session.assetType(),
+        session.originalFilename(),
+        session.contentType(),
+        session.expectedSize(),
+        session.expectedSha256(),
+        session.storageKey(),
+        null,
+        Map.of(),
         session.status(),
         session.expiresAt());
   }

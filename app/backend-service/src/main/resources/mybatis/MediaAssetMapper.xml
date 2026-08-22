@@ -19,11 +19,21 @@
         <result property="createdAt" column="created_at" />
         <result property="deletedAt" column="deleted_at" />
         <result property="checksumVerifiedAt" column="checksum_verified_at" />
+        <result property="detectedContentType" column="detected_content_type" />
+        <result property="detectedContainer" column="detected_container" />
+        <result property="detectedCodec" column="detected_codec" />
+        <result property="width" column="width" />
+        <result property="height" column="height" />
+        <result property="validationErrorCode" column="validation_error_code" />
+        <result property="validationErrorDetail" column="validation_error_detail" />
+        <result property="validatedAt" column="validated_at" />
     </resultMap>
 
     <sql id="columns">
         id, account_id, asset_type, origin, storage_key, original_filename, content_type,
-        size_bytes, sha256, duration_ms, status, created_at, deleted_at, checksum_verified_at
+        size_bytes, sha256, duration_ms, status, created_at, deleted_at, checksum_verified_at,
+        detected_content_type, detected_container, detected_codec, width, height,
+        validation_error_code, validation_error_detail, validated_at
     </sql>
 
     <sql id="visiblePredicate">
@@ -110,6 +120,16 @@
            AND asset.deleted_at IS NULL
            AND canonical.sha256 = #{sha256}
          LIMIT 1
+    </select>
+
+    <select id="isReferencedByReadyAsset" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1
+              FROM media_assets
+             WHERE storage_key = #{storageKey}
+               AND status = 'READY'
+               AND deleted_at IS NULL
+        )
     </select>
 
     <delete id="releaseChecksum">

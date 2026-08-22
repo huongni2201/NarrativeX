@@ -45,6 +45,8 @@ remain available for small-object compatibility but are not used for production 
 
 - **Upload Intent Lifecycle:** Clients initiate an upload intent (`/api/v1/assets/upload-intents`); the backend assigns a storage key and returns a presigned R2 upload URL.
 - **Strict Storage Metadata Validation:** Finalization reads object metadata directly from R2. After MIME, size, and SHA-256 strictly match the intent, finalization claims `(account_id, sha256)` through `media_asset_checksums` and persists the canonical `media_assets` row as `VALIDATING`. The later validator owns the `VALIDATING` → `READY` transition; mismatched uploads transition to `REJECTED`.
+- **Durable Content Validation:** Finalization inserts an idempotent `media_validation_jobs` row and a `MEDIA_VALIDATION_REQUESTED` outbox event in the same PostgreSQL transaction. The worker claims jobs with a lease, downloads into a UUID-only scratch directory with content-length/size/checksum limits, then sniffs and decodes audio, image, or video content. Redis notifications are delivery hints only; expired leases are reclaimable from PostgreSQL.
+- **Compare-and-set result persistence:** The worker can only transition an asset from `VALIDATING` to `READY` or `REJECTED` when the account and current status still match. It stores bounded detected metadata and sanitized stable error codes; raw ffprobe/ffmpeg output is never persisted.
 - **Canonical Checksum Ownership:** `media_asset_checksums` is the account-scoped canonical owner for each verified checksum. Finalization uses PostgreSQL `INSERT ... ON CONFLICT DO NOTHING` and reloads the canonical ID, so retries and concurrent finalizations never rely on a caught constraint violation or a proposed asset ID.
 - **Durable Upload Sessions:** Tracked in `media_upload_sessions` with owner-scoped idempotency.
 - **Guarded Asset Transitions:** Asset status changes use an explicit transition service. Deletions set `DELETED` and record `deleted_at`; active queries exclude deleted rows.
@@ -62,3 +64,5 @@ remain available for small-object compatibility but are not used for production 
 - Zero data loss on worker restarts or pod rescheduling.
 - PostgreSQL database size remains compact and performance-oriented.
 - Unified storage architecture across images, TTS narration, video beats, and final exported movies.
+- Upload intent lifetime has one authoritative setting, `narrativex.storage.upload-intent-ttl` (default 15 minutes), validated between one minute and seven days. R2 presigning derives `X-Amz-Expires` from the persisted session expiry and applies a five-second safety margin.
+- READY idempotent sessions return their state without a new upload URL; REJECTED or expired sessions require a new idempotency key. Rejected-session reconciliation re-enqueues late-arriving objects for idempotent cleanup, while cleanup skips keys referenced by READY assets.

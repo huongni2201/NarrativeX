@@ -88,6 +88,18 @@ export const AssetUploadModal: React.FC<AssetUploadModalProps> = ({ isOpen, onCl
           expectedSizeBytes: file.size,
           expectedSha256,
         }, uploadIdempotencyKey ?? crypto.randomUUID());
+        if (!intent.uploadUrl) {
+          const settled = await assetsApi.finalizeUpload(intent.id);
+          if (settled.status === "REJECTED") throw new Error("Upload intent này đã bị từ chối.");
+          if (settled.status === "VALIDATING" && settled.mediaAssetId) {
+            const validated = await assetsApi.waitForAsset(settled.mediaAssetId);
+            if (validated.status === "REJECTED") throw new Error("Media bị từ chối sau khi kiểm tra nội dung.");
+          }
+          onUploaded?.();
+          resetForm();
+          onClose();
+          return;
+        }
         const uploadResponse = await fetch(intent.uploadUrl, {
           method: "PUT",
           headers: {
@@ -100,7 +112,13 @@ export const AssetUploadModal: React.FC<AssetUploadModalProps> = ({ isOpen, onCl
         if (!uploadResponse.ok) throw new Error(`Upload object thất bại (${uploadResponse.status}).`);
 
         const finalized = await assetsApi.finalizeUpload(intent.id);
-        if (finalized.status !== "READY") throw new Error("Backend từ chối media upload sau khi verify.");
+        if (finalized.status === "REJECTED") throw new Error("Backend từ chối media upload sau khi kiểm tra nội dung.");
+        if (finalized.status === "VALIDATING" && finalized.mediaAssetId) {
+          const settled = await assetsApi.waitForAsset(finalized.mediaAssetId);
+          if (settled.status === "REJECTED") {
+            throw new Error("Media bị từ chối sau khi kiểm tra nội dung.");
+          }
+        }
         onUploaded?.();
         resetForm();
         onClose();

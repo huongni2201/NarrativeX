@@ -2,6 +2,7 @@ package com.narrativex.backend.feature.assets.application.service;
 
 import com.narrativex.backend.feature.assets.application.port.out.MediaStorageCleanupTaskRepository;
 import com.narrativex.backend.feature.assets.application.port.out.MediaStorageCleanupTaskRepository.CleanupTask;
+import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository;
 import com.narrativex.backend.feature.assets.application.port.out.ObjectStoragePort;
 import java.time.Duration;
 import java.time.Instant;
@@ -24,6 +25,7 @@ public class MediaStorageCleanupJob {
 
   private final MediaStorageCleanupTaskRepository tasks;
   private final ObjectStoragePort objectStorage;
+  private final MediaAssetRepository assets;
 
   @Scheduled(fixedDelayString = "${narrativex.storage.upload-cleanup-delay-ms:300000}")
   public void cleanup() {
@@ -31,6 +33,10 @@ public class MediaStorageCleanupJob {
     List<CleanupTask> claimed = tasks.claimDue(BATCH_SIZE, now, now.plus(LEASE));
     for (CleanupTask task : claimed) {
       try {
+        if (assets.isReferencedByReadyAsset(task.storageKey())) {
+          tasks.markCompleted(task.id(), Instant.now());
+          continue;
+        }
         objectStorage.delete(task.storageKey());
         tasks.markCompleted(task.id(), Instant.now());
       } catch (RuntimeException exception) {

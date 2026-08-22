@@ -42,6 +42,12 @@ public class AssetLibraryController {
             MediaAssetResponse.Page.from(useCase.list(type, status, search, cursor, limit))));
   }
 
+  @GetMapping("/{id}")
+  public ResponseEntity<ApiResponse<MediaAssetResponse>> get(@PathVariable UUID id) {
+    return ResponseEntity.ok(
+        ApiResponse.success("Asset retrieved successfully", MediaAssetResponse.from(useCase.find(id))));
+  }
+
   @PostMapping("/upload-intents")
   public ResponseEntity<ApiResponse<UploadIntentResponse>> createUploadIntent(
       @Valid @RequestBody CreateUploadIntentRequest request,

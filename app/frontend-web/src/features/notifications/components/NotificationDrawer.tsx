@@ -19,6 +19,7 @@ import {
   useMarkAllNotificationsRead,
 } from "../hooks/useNotifications";
 import type { NotificationItem } from "../types/notifications.types";
+import { Drawer } from "@/components/ui/Drawer";
 
 interface NotificationDrawerProps {
   isOpen: boolean;
@@ -37,16 +38,7 @@ export function NotificationDrawer({ isOpen, onClose }: Readonly<NotificationDra
   const unreadCount = data?.unreadCount ?? 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-
-      {/* Drawer Panel */}
-      <div className="relative z-10 flex h-full w-full max-w-md flex-col border-l border-border bg-surface-card shadow-2xl transition-transform">
+    <Drawer isOpen={isOpen} onClose={onClose} ariaLabel="Trung tâm thông báo">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border p-4 sm:p-5">
           <div className="flex items-center gap-2.5">
@@ -131,8 +123,7 @@ export function NotificationDrawer({ isOpen, onClose }: Readonly<NotificationDra
             ))
           )}
         </div>
-      </div>
-    </div>
+    </Drawer>
   );
 }
 

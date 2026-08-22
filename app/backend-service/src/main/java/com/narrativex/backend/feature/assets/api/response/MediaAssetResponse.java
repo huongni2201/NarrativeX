@@ -16,7 +16,15 @@ public record MediaAssetResponse(
     String sha256,
     Long durationMs,
     String status,
-    Instant createdAt) {
+    Instant createdAt,
+    String detectedContentType,
+    String detectedContainer,
+    String detectedCodec,
+    Integer width,
+    Integer height,
+    String validationErrorCode,
+    String validationErrorDetail,
+    Instant validatedAt) {
   public static MediaAssetResponse from(MediaAssetView view) {
     return new MediaAssetResponse(
         view.id(),
@@ -29,7 +37,15 @@ public record MediaAssetResponse(
         view.sha256(),
         view.durationMs(),
         view.status(),
-        view.createdAt());
+        view.createdAt(),
+        view.detectedContentType(),
+        view.detectedContainer(),
+        view.detectedCodec(),
+        view.width(),
+        view.height(),
+        view.validationErrorCode(),
+        view.validationErrorDetail(),
+        view.validatedAt());
   }
 
   public record Page(List<MediaAssetResponse> items, String nextCursor) {

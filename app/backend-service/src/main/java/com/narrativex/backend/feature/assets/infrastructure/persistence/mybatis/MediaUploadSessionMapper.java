@@ -21,7 +21,14 @@ public interface MediaUploadSessionMapper extends NarrativeXMyBatisMapper {
       @Param("id") UUID id,
       @Param("mediaAssetId") UUID mediaAssetId);
 
+  int markReady(
+      @Param("accountId") String accountId,
+      @Param("id") UUID id,
+      @Param("mediaAssetId") UUID mediaAssetId);
+
   int markRejected(@Param("accountId") String accountId, @Param("id") UUID id);
 
   List<ExpiredUploadRow> findExpiredPending(@Param("limit") int limit);
+
+  List<RejectedUploadRow> findRejectedForCleanup(@Param("limit") int limit);
 }

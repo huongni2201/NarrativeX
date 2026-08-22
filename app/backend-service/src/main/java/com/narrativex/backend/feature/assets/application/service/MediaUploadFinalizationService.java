@@ -3,6 +3,8 @@ package com.narrativex.backend.feature.assets.application.service;
 import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository;
 import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository.CreateVerifiedMediaAsset;
 import com.narrativex.backend.feature.assets.application.port.out.MediaStorageCleanupTaskRepository;
+import com.narrativex.backend.feature.assets.application.port.out.MediaValidationJobRepository;
+import com.narrativex.backend.feature.assets.application.port.out.MediaValidationJobRepository.ValidationRequest;
 import com.narrativex.backend.feature.assets.application.port.out.MediaUploadSessionRepository;
 import com.narrativex.backend.feature.assets.application.port.out.MediaUploadSessionRepository.UploadSession;
 import com.narrativex.backend.feature.assets.application.port.out.ObjectStoragePort.StoredObject;
@@ -20,12 +22,31 @@ import org.springframework.transaction.annotation.Transactional;
 
 /** Owns the short authoritative transaction after remote object verification. */
 @Service
-@RequiredArgsConstructor
 public class MediaUploadFinalizationService {
   private final MediaUploadSessionRepository sessions;
   private final MediaAssetRepository assets;
   private final MediaStorageCleanupTaskRepository cleanupTasks;
+  private final MediaValidationJobRepository validationJobs;
   private final Clock clock = Clock.systemUTC();
+
+  public MediaUploadFinalizationService(
+      MediaUploadSessionRepository sessions,
+      MediaAssetRepository assets,
+      MediaStorageCleanupTaskRepository cleanupTasks) {
+    this(sessions, assets, cleanupTasks, null);
+  }
+
+  @org.springframework.beans.factory.annotation.Autowired
+  public MediaUploadFinalizationService(
+      MediaUploadSessionRepository sessions,
+      MediaAssetRepository assets,
+      MediaStorageCleanupTaskRepository cleanupTasks,
+      MediaValidationJobRepository validationJobs) {
+    this.sessions = sessions;
+    this.assets = assets;
+    this.cleanupTasks = cleanupTasks;
+    this.validationJobs = validationJobs;
+  }
 
   @Transactional
   public UploadFinalizeView finalizeVerifiedObject(
@@ -89,7 +110,30 @@ public class MediaUploadFinalizationService {
     if (!canonicalAsset.storageKey().equals(locked.storageKey())) {
       scheduleCleanup(locked.storageKey(), "DUPLICATE_UPLOAD");
     }
+    if ("READY".equals(canonicalAsset.status())) {
+      if (!sessions.markReady(accountId, locked.id(), canonicalAsset.id())) {
+        throw new ResourceConflictException("Upload finalization state changed unexpectedly");
+      }
+      return new UploadFinalizeView(locked.id(), "READY", canonicalAsset.id());
+    }
+    if ("REJECTED".equals(canonicalAsset.status())) {
+      if (!sessions.markRejected(accountId, locked.id())) {
+        throw new ResourceConflictException("Upload finalization state changed unexpectedly");
+      }
+      return rejectedView(locked);
+    }
     markSessionValidating(accountId, locked, canonicalAsset.id());
+    if (validationJobs != null) {
+      validationJobs.enqueue(
+          new ValidationRequest(
+              canonicalAsset.id(),
+              accountId,
+              canonicalAsset.storageKey(),
+              canonicalAsset.type(),
+              canonicalAsset.contentType(),
+              canonicalAsset.sizeBytes(),
+              canonicalAsset.sha256()));
+    }
     return new UploadFinalizeView(locked.id(), "VALIDATING", canonicalAsset.id());
   }
 

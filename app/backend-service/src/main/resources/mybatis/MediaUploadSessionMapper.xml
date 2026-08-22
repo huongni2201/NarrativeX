@@ -70,12 +70,28 @@
            AND status = 'PENDING_UPLOAD'
     </update>
 
+    <update id="markReady">
+        UPDATE media_upload_sessions
+           SET status = 'READY', media_asset_id = #{mediaAssetId,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
+         WHERE id = #{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
+           AND account_id = #{accountId}
+           AND status IN ('PENDING_UPLOAD', 'VALIDATING')
+    </update>
+
     <select id="findExpiredPending" resultType="com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.ExpiredUploadRow">
         SELECT id, account_id AS accountId, storage_key AS storageKey
           FROM media_upload_sessions
          WHERE status = 'PENDING_UPLOAD'
            AND expires_at &lt; CURRENT_TIMESTAMP
          ORDER BY expires_at ASC, id ASC
+         LIMIT #{limit}
+    </select>
+
+    <select id="findRejectedForCleanup" resultType="com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.RejectedUploadRow">
+        SELECT id, storage_key AS storageKey
+          FROM media_upload_sessions
+         WHERE status = 'REJECTED'
+         ORDER BY created_at ASC, id ASC
          LIMIT #{limit}
     </select>
 </mapper>

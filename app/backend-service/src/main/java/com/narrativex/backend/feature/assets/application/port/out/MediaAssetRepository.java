@@ -15,6 +15,8 @@ public interface MediaAssetRepository {
 
   MediaAssetView findVerifiedByChecksum(String accountId, String sha256);
 
+  boolean isReferencedByReadyAsset(String storageKey);
+
   MediaAssetView startUpload(String accountId, UUID id);
 
   MediaAssetView startValidation(String accountId, UUID id);

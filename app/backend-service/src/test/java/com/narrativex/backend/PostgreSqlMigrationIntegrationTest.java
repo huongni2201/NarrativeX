@@ -52,9 +52,12 @@ class PostgreSqlMigrationIntegrationTest {
   @Test
   void emptyPostgresMigratesAndApplicationContextStarts() throws SQLException {
     try (Connection connection = dataSource.getConnection()) {
-      assertEquals(3, latestFlywayVersion(connection));
-      assertEquals(11, rowCount(connection, "generation_jobs"));
-      assertEquals(10, rowCount(connection, "scene_characters"));
+      assertEquals(2, latestFlywayVersion(connection));
+      assertEquals(0, rowCount(connection, "generation_jobs"));
+      assertEquals(0, rowCount(connection, "projects"));
+      assertEquals(10, rowCount(connection, "plan_entitlements"));
+      assertEquals(2, rowCount(connection, "style_presets"));
+      assertEquals(20, rowCount(connection, "voice_catalog"));
       assertFalse(columnExists(connection, "generation_jobs", "references"));
       assertFalse(columnExists(connection, "character_appearances", "references"));
       assertFalse(columnExists(connection, "scene_characters", "references"));
@@ -127,6 +130,10 @@ class PostgreSqlMigrationIntegrationTest {
       assertTrue(indexExists(connection, "idx_media_storage_cleanup_due"));
       assertTrue(columnExists(connection, "media_assets", "deleted_at"));
       assertTrue(columnExists(connection, "media_assets", "checksum_verified_at"));
+      assertTrue(columnExists(connection, "media_assets", "detected_content_type"));
+      assertTrue(columnExists(connection, "media_assets", "validation_error_code"));
+      assertTrue(tableExists(connection, "media_validation_jobs"));
+      assertTrue(indexExists(connection, "idx_media_validation_jobs_claimable"));
       assertTrue(tableExists(connection, "style_presets"));
       assertTrue(tableExists(connection, "voice_catalog"));
       assertTrue(indexExists(connection, "idx_style_presets_active_category_name"));
@@ -277,23 +284,29 @@ class PostgreSqlMigrationIntegrationTest {
   void visualBeatMotionMigrationPreservesLegacySemanticsAndRejectsInvalidValues()
       throws SQLException {
     try (Connection connection = dataSource.getConnection()) {
-      assertEquals("BASIC_MOTION/PAN", visualBeatMotion(connection, 5001L));
-      assertEquals("BASIC_MOTION/TILT", visualBeatMotion(connection, 5005L));
-      assertEquals("STILL/NONE", visualBeatMotion(connection, 5004L));
-      assertEquals("BASIC_MOTION/PARALLAX", visualBeatMotion(connection, 5006L));
+      long sceneId = insertScene(connection);
+      long beat1 = insertVisualBeatWithMotion(connection, sceneId, 1, "BASIC_MOTION", "PAN");
+      long beat2 = insertVisualBeatWithMotion(connection, sceneId, 2, "BASIC_MOTION", "TILT");
+      long beat3 = insertVisualBeatWithMotion(connection, sceneId, 3, "STILL", "NONE");
+      long beat4 = insertVisualBeatWithMotion(connection, sceneId, 4, "BASIC_MOTION", "PARALLAX");
+
+      assertEquals("BASIC_MOTION/PAN", visualBeatMotion(connection, beat1));
+      assertEquals("BASIC_MOTION/TILT", visualBeatMotion(connection, beat2));
+      assertEquals("STILL/NONE", visualBeatMotion(connection, beat3));
+      assertEquals("BASIC_MOTION/PARALLAX", visualBeatMotion(connection, beat4));
 
       connection.setAutoCommit(false);
       SQLException invalidMotionMode =
           assertThrows(
               SQLException.class,
-              () -> insertVisualBeatWithMotion(connection, 99, "INVALID_MODE", "NONE"));
+              () -> insertVisualBeatWithMotion(connection, sceneId, 99, "INVALID_MODE", "NONE"));
       assertEquals("23514", invalidMotionMode.getSQLState());
       connection.rollback();
 
       SQLException invalidCameraMovement =
           assertThrows(
               SQLException.class,
-              () -> insertVisualBeatWithMotion(connection, 99, "STILL", "INVALID_CAMERA"));
+              () -> insertVisualBeatWithMotion(connection, sceneId, 99, "STILL", "INVALID_CAMERA"));
       assertEquals("23514", invalidCameraMovement.getSQLState());
       connection.rollback();
     }
@@ -466,18 +479,69 @@ class PostgreSqlMigrationIntegrationTest {
     }
   }
 
-  private static void insertVisualBeatWithMotion(
-      Connection connection, int orderIndex, String motionMode, String cameraMovement)
+  private static long insertVisualBeatWithMotion(
+      Connection connection, long sceneId, int orderIndex, String motionMode, String cameraMovement)
       throws SQLException {
     try (PreparedStatement statement =
         connection.prepareStatement(
             "insert into visual_beats (scene_id, order_index, title, visual_intent, review_status,"
-                + " motion_mode, camera_movement) values (4001, ?, 'Migration test', 'Migration"
-                + " test intent', 'NEEDS_REVIEW', ?, ?)")) {
-      statement.setInt(1, orderIndex);
-      statement.setString(2, motionMode);
-      statement.setString(3, cameraMovement);
-      statement.executeUpdate();
+                + " motion_mode, camera_movement) values (?, ?, 'Migration test', 'Migration"
+                + " test intent', 'NEEDS_REVIEW', ?, ?) returning id")) {
+      statement.setLong(1, sceneId);
+      statement.setInt(2, orderIndex);
+      statement.setString(3, motionMode);
+      statement.setString(4, cameraMovement);
+      try (ResultSet result = statement.executeQuery()) {
+        result.next();
+        return result.getLong(1);
+      }
+    }
+  }
+
+  private static long insertScene(Connection connection) throws SQLException {
+    long projectId = insertProject(connection);
+    insertStoryVersion(connection, projectId, 1, "ACTIVE");
+    long storyVersionId;
+    try (PreparedStatement statement =
+        connection.prepareStatement("select id from story_versions where project_id = ?")) {
+      statement.setLong(1, projectId);
+      try (ResultSet rs = statement.executeQuery()) {
+        rs.next();
+        storyVersionId = rs.getLong(1);
+      }
+    }
+    long chapterId;
+    try (PreparedStatement statement =
+        connection.prepareStatement(
+            "insert into chapters (story_version_id, order_index, title, source_text, source_hash, status, estimated_duration_ms, generation_progress) "
+                + "values (?, 1, 'Ch 1', 'Text', encode(sha256(convert_to('Text', 'UTF8')), 'hex'), 'READY', 1000, 100) returning id")) {
+      statement.setLong(1, storyVersionId);
+      try (ResultSet rs = statement.executeQuery()) {
+        rs.next();
+        chapterId = rs.getLong(1);
+      }
+    }
+    long revisionId;
+    try (PreparedStatement statement =
+        connection.prepareStatement(
+            "insert into storyboard_revisions (chapter_id, revision_number, source_hash, source_row_version, status) "
+                + "values (?, 1, encode(sha256(convert_to('Text', 'UTF8')), 'hex'), 0, 'DRAFT') returning id")) {
+      statement.setLong(1, chapterId);
+      try (ResultSet rs = statement.executeQuery()) {
+        rs.next();
+        revisionId = rs.getLong(1);
+      }
+    }
+    try (PreparedStatement statement =
+        connection.prepareStatement(
+            "insert into scenes (chapter_id, storyboard_revision_id, order_index, title, narration, duration_seconds, status) "
+                + "values (?, ?, 1, 'Scene 1', 'Narration', 10, 'DRAFT') returning id")) {
+      statement.setLong(1, chapterId);
+      statement.setLong(2, revisionId);
+      try (ResultSet rs = statement.executeQuery()) {
+        rs.next();
+        return rs.getLong(1);
+      }
     }
   }
 

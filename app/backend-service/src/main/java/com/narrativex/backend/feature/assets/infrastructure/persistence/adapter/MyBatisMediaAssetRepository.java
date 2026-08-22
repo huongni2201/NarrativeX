@@ -119,14 +119,19 @@ public class MyBatisMediaAssetRepository implements MediaAssetRepository {
   }
 
   @Override
+  @Transactional(readOnly = true)
+  public boolean isReferencedByReadyAsset(String storageKey) {
+    return mapper.isReferencedByReadyAsset(storageKey);
+  }
+
+  @Override
   @Transactional
   public MediaAssetView approve(String accountId, UUID id) {
     MediaAssetRow current = requireOwnedRow(accountId, id);
-    transitionService.requireAllowed(statusOf(current), MediaAssetStatus.READY);
-    if (mapper.approve(accountId, id) != 1) {
-      throw optimisticConflict(id);
+    if (statusOf(current) != MediaAssetStatus.READY) {
+      throw new IllegalStateException("Asset approval is available only after media validation");
     }
-    return requireOwned(accountId, id);
+    return toView(current);
   }
 
   @Override
@@ -185,7 +190,15 @@ public class MyBatisMediaAssetRepository implements MediaAssetRepository {
         row.getSha256(),
         row.getDurationMs(),
         row.getStatus(),
-        row.getCreatedAt());
+        row.getCreatedAt(),
+        row.getDetectedContentType(),
+        row.getDetectedContainer(),
+        row.getDetectedCodec(),
+        row.getWidth(),
+        row.getHeight(),
+        row.getValidationErrorCode(),
+        row.getValidationErrorDetail(),
+        row.getValidatedAt());
   }
 
   private static ObjectOptimisticLockingFailureException optimisticConflict(UUID id) {

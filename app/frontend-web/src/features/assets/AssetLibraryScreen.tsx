@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAssetStore } from "@/store/useAssetStore";
 import { AssetCard } from "@/components/assets/AssetCard";
 import { AssetDetailDrawer } from "@/components/assets/AssetDetailDrawer";
@@ -9,7 +10,8 @@ import { Plus, Search, SlidersHorizontal, ChevronDown, LayoutGrid, List, FolderK
 import type { AssetFilterType, AssetSortOption, MediaAsset } from "@/types/assets";
 import { cn } from "@/lib/utils";
 import { isMockDataMode } from "@/lib/data-mode";
-import { assetsApi } from "./api/assets.api";
+import { queryKeys } from "@/lib/query-keys";
+import { assetsApi, type ApiMediaAsset } from "./api/assets.api";
 import { apiErrorMessage } from "@/shared/api/client";
 
 const assetTypes: Array<{ id: AssetFilterType; label: string }> = [
@@ -39,9 +41,24 @@ function compareAssets(a: MediaAsset, b: MediaAsset, sortOption: AssetSortOption
   return sortOption === "oldest" ? aTime - bTime : bTime - aTime;
 }
 
+function mapApiAsset(asset: ApiMediaAsset): MediaAsset {
+  return {
+    id: asset.id,
+    filename: asset.originalFilename,
+    type: asset.type,
+    status: asset.status as MediaAsset["status"],
+    thumbnailUrl: "",
+    fileSize: formatFileSize(asset.sizeBytes),
+    duration: asset.durationMs ? `${Math.round(asset.durationMs / 1000)}s` : undefined,
+    createdAt: asset.createdAt,
+    projectTitle: "Global media library",
+  };
+}
+
 export const AssetLibraryScreen: React.FC = () => {
+  const queryClient = useQueryClient();
   const {
-    assets,
+    assets: mockAssets,
     selectedAssetId,
     selectAsset,
     closeDetailDrawer,
@@ -68,41 +85,23 @@ export const AssetLibraryScreen: React.FC = () => {
     rejectAsset,
     toggleLockAsset,
   } = useAssetStore();
-  const replaceAssets = useAssetStore((state) => state.replaceAssets);
-  const [apiState, setApiState] = useState<"loading" | "ready" | "error">(
-    isMockDataMode ? "ready" : "loading",
+  const assetsQuery = useQuery({
+    queryKey: queryKeys.assets,
+    queryFn: () => assetsApi.list(),
+    enabled: !isMockDataMode,
+    select: (page) => page.items.map(mapApiAsset),
+  });
+  const assets = useMemo(
+    () => (isMockDataMode ? mockAssets : (assetsQuery.data ?? [])),
+    [assetsQuery.data, mockAssets],
   );
   const [apiError, setApiError] = useState<string | null>(null);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   const loadAssets = useCallback(async () => {
     if (isMockDataMode) return;
-    try {
-      const page = await assetsApi.list();
-      replaceAssets(
-        page.items.map((asset) => ({
-          id: asset.id,
-          filename: asset.originalFilename,
-          type: asset.type,
-          status: asset.status as MediaAsset["status"],
-          thumbnailUrl: "",
-          fileSize: formatFileSize(asset.sizeBytes),
-          duration: asset.durationMs ? `${Math.round(asset.durationMs / 1000)}s` : undefined,
-          createdAt: asset.createdAt,
-          projectTitle: "Global media library",
-        })),
-      );
-      setApiState("ready");
-      setApiError(null);
-    } catch (error) {
-      setApiState("error");
-      setApiError(apiErrorMessage(error, "Không thể tải thư viện tài sản."));
-    }
-  }, [replaceAssets]);
-
-  useEffect(() => {
-    void loadAssets();
-  }, [loadAssets]);
+    await queryClient.invalidateQueries({ queryKey: queryKeys.assets });
+  }, [queryClient]);
 
   const handleDelete = useCallback(async (id: string) => {
     if (isMockDataMode) {
@@ -162,7 +161,7 @@ export const AssetLibraryScreen: React.FC = () => {
 
   const selectedAsset = assets.find((asset) => asset.id === selectedAssetId) ?? null;
 
-  if (!isMockDataMode && apiState === "loading") {
+  if (!isMockDataMode && assetsQuery.isPending) {
     return (
       <div className="rounded-2xl border border-dashed border-slate-700 bg-surface/40 p-8">
         <p className="text-[11px] uppercase tracking-[0.2em] text-purple-300">Asset Library</p>
@@ -174,11 +173,13 @@ export const AssetLibraryScreen: React.FC = () => {
     );
   }
 
-  if (!isMockDataMode && apiState === "error") {
+  if (!isMockDataMode && assetsQuery.isError) {
     return (
       <div className="rounded-2xl border border-dashed border-danger/40 bg-danger-bg/20 p-8">
         <h2 className="text-lg font-semibold text-text-primary">Không thể tải thư viện tài sản</h2>
-        <p className="mt-2 text-sm text-text-secondary">{apiError}</p>
+        <p className="mt-2 text-sm text-text-secondary">
+          {apiErrorMessage(assetsQuery.error, "Không thể tải thư viện tài sản.")}
+        </p>
       </div>
     );
   }
@@ -193,6 +194,7 @@ export const AssetLibraryScreen: React.FC = () => {
           </div>
           <Button onClick={openUploadModal} variant="primary" size="md" className="font-semibold shrink-0" leftIcon={<Plus className="w-4 h-4 mr-1.5" />}>Upload tài sản</Button>
         </div>
+        {apiError && <p role="alert" className="rounded-lg border border-danger/30 bg-danger-bg/20 px-3 py-2 text-xs text-danger">{apiError}</p>}
 
         <div className="flex flex-wrap items-center justify-between gap-2.5 p-3 rounded-xl bg-surface border border-slate-800/90 shadow-md">
           <div className="flex flex-wrap items-center gap-2.5 flex-1">

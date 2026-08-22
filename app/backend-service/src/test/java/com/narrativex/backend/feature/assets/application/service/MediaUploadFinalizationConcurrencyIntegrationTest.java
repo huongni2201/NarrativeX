@@ -16,6 +16,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -39,7 +40,7 @@ class MediaUploadFinalizationConcurrencyIntegrationTest {
   @Container
   static final PostgreSQLContainer<?> POSTGRES =
       new PostgreSQLContainer<>("postgres:17-alpine")
-          .withDatabaseName("narrativex_test")
+          .withDatabaseName("narrativex_media_upload_concurrency_test")
           .withUsername("narrativex")
           .withPassword("narrativex");
 
@@ -60,11 +61,13 @@ class MediaUploadFinalizationConcurrencyIntegrationTest {
   @Autowired private MediaUploadFinalizationService finalization;
   @Autowired private DataSource dataSource;
 
+  @BeforeEach
   @AfterEach
   void cleanRows() {
     JdbcTemplate jdbc = new JdbcTemplate(dataSource);
     jdbc.update("DELETE FROM media_storage_cleanup_tasks");
     jdbc.update("DELETE FROM media_upload_sessions WHERE account_id = ?", ACCOUNT);
+    jdbc.update("DELETE FROM media_validation_jobs WHERE account_id = ?", ACCOUNT);
     jdbc.update("DELETE FROM media_asset_checksums WHERE account_id = ?", ACCOUNT);
     jdbc.update("DELETE FROM media_assets WHERE account_id = ?", ACCOUNT);
   }
@@ -94,7 +97,7 @@ class MediaUploadFinalizationConcurrencyIntegrationTest {
           .isEqualTo(1);
       assertThat(
               count(
-                  "SELECT COUNT(*) FROM media_assets WHERE account_id = ? AND status IN ('PENDING_UPLOAD', 'UPLOADING', 'VALIDATING')",
+                  "SELECT COUNT(*) FROM media_assets WHERE account_id = ? AND status IN ('PENDING_UPLOAD', 'UPLOADING')",
                   ACCOUNT))
           .isZero();
     } finally {
