@@ -29,7 +29,7 @@ services:
     networks: [appnet]
 
   backend:
-    build: {context: ./app/backend-service, dockerfile: Dockerfile}
+    build: { context: ./app/backend-service, dockerfile: Dockerfile }
     restart: unless-stopped
     environment:
       SPRING_PROFILES_ACTIVE: prod
@@ -66,8 +66,8 @@ services:
       R2_ENDPOINT: ${R2_ENDPOINT}
     expose: ["8080"]
     depends_on:
-      postgres: {condition: service_healthy}
-      redis: {condition: service_healthy}
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
     networks: [appnet]
 
   frontend:
@@ -85,11 +85,11 @@ services:
       NODE_ENV: production
     expose: ["3000"]
     depends_on:
-      backend: {condition: service_healthy}
+      backend: { condition: service_healthy }
     networks: [appnet]
 
   ai-worker:
-    build: {context: ./app/ai-worker, dockerfile: Dockerfile}
+    build: { context: ./app/ai-worker, dockerfile: Dockerfile }
     restart: unless-stopped
     environment:
       WORKER_NAME: narrativex-prod-ai
@@ -139,12 +139,12 @@ services:
         target: /run/secrets/gcp-service-account.json
         read_only: true
     depends_on:
-      backend: {condition: service_healthy}
-      postgres: {condition: service_healthy}
+      backend: { condition: service_healthy }
+      postgres: { condition: service_healthy }
     networks: [appnet]
 
   narration-worker:
-    build: {context: ./app/ai-worker, dockerfile: Dockerfile}
+    build: { context: ./app/ai-worker, dockerfile: Dockerfile }
     restart: unless-stopped
     environment:
       WORKER_NAME: narrativex-prod-narration
@@ -191,12 +191,12 @@ services:
         read_only: true
       - vieneu-home:/home/appuser
     depends_on:
-      backend: {condition: service_healthy}
-      postgres: {condition: service_healthy}
+      backend: { condition: service_healthy }
+      postgres: { condition: service_healthy }
     networks: [appnet]
 
   render-worker:
-    build: {context: ./app/ai-worker, dockerfile: Dockerfile}
+    build: { context: ./app/ai-worker, dockerfile: Dockerfile }
     restart: unless-stopped
     environment:
       WORKER_NAME: narrativex-prod-render
@@ -223,8 +223,8 @@ services:
       R2_BUCKET: ${R2_BUCKET}
       R2_ENDPOINT: ${R2_ENDPOINT}
     depends_on:
-      backend: {condition: service_healthy}
-      postgres: {condition: service_healthy}
+      backend: { condition: service_healthy }
+      postgres: { condition: service_healthy }
     networks: [appnet]
 
   caddy:
@@ -242,7 +242,7 @@ services:
     networks: [appnet]
 
 networks:
-  appnet: {driver: bridge}
+  appnet: { driver: bridge }
 volumes:
   postgres-data:
   redis-data:
