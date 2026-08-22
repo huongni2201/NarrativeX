@@ -26,6 +26,11 @@ from narrativex_worker.rendering.repository import (
     RenderLeaseLostError,
     RenderRepository,
 )
+from narrativex_worker.rendering.subtitles import (
+    build_subtitle_track,
+    load_subtitle_source,
+    write_ass_subtitles,
+)
 from narrativex_worker.rendering.validation import (
     RenderValidationError,
     probe_mp4,
@@ -177,11 +182,24 @@ class RenderWorkerRunner:
                 raise ValueError(
                     "No generated narration asset matches the pinned chapter revision/source hash"
                 )
+            subtitle_source = await load_subtitle_source(
+                self.settings.database_url,
+                project_id=claimed.project_id,
+                chapter_id=claimed.chapter_id,
+                chapter_row_version=claimed.chapter_row_version,
+                source_hash=claimed.source_hash,
+            )
+            subtitle_track = build_subtitle_track(
+                subtitle_source.source_text,
+                subtitle_source.spans,
+                audio.duration_ms,
+                alignment_version=subtitle_source.alignment_version,
+            )
 
             await self.repository.assert_lease(claimed)
             durations_ms = _normalize_durations(beat_assets, audio.duration_ms)
             fingerprint_payload = {
-                "version": "image-motion-render-v2-drive",
+                "version": "image-motion-render-v3-burned-subtitles-drive",
                 "projectId": claimed.project_id,
                 "chapterId": claimed.chapter_id,
                 "chapterRowVersion": claimed.chapter_row_version,
@@ -196,6 +214,12 @@ class RenderWorkerRunner:
                     "storageKey": audio.storage_key,
                     "checksum": audio.checksum,
                     "durationMs": audio.duration_ms,
+                },
+                "subtitles": {
+                    "mode": "burned-ass",
+                    "timingSource": subtitle_track.timing_source,
+                    "fingerprint": subtitle_track.fingerprint,
+                    "cueCount": len(subtitle_track.cues),
                 },
                 "beats": [
                     {
@@ -223,6 +247,12 @@ class RenderWorkerRunner:
                     expected_checksum=audio.checksum,
                     max_bytes=self.settings.media_max_audio_bytes,
                 )
+                subtitle_path = write_ass_subtitles(
+                    subtitle_track,
+                    job_dir / "subtitles.ass",
+                    width=width,
+                    height=height,
+                )
                 motion_beats = tuple(
                     MotionBeat(
                         image_path=path,
@@ -241,6 +271,7 @@ class RenderWorkerRunner:
                     width=width,
                     height=height,
                     fps=30,
+                    subtitle_path=subtitle_path,
                 )
                 await self.repository.assert_lease(claimed)
                 await render_image_motion(manifest, timeout_seconds=1800.0)
@@ -272,11 +303,12 @@ class RenderWorkerRunner:
                     fps=30,
                 )
                 self.logger.info(
-                    "Completed chapter render job=%s fingerprint=%s driveFileId=%s sizeBytes=%s",
+                    "Completed chapter render job=%s fingerprint=%s driveFileId=%s sizeBytes=%s subtitleCues=%s",
                     claimed.generation_job_id,
                     render_fingerprint,
                     stored.external_file_id,
                     stored.size_bytes,
+                    len(subtitle_track.cues),
                 )
 
     async def _download_images(
