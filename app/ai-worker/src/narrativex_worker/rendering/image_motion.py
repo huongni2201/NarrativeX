@@ -29,6 +29,7 @@ class ImageMotionManifest:
     width: int
     height: int
     fps: int = 30
+    subtitle_path: Path | None = None
 
 
 def build_ffmpeg_args(manifest: ImageMotionManifest) -> list[str]:
@@ -71,8 +72,13 @@ def build_ffmpeg_args(manifest: ImageMotionManifest) -> list[str]:
             f"[{index}:v]scale={manifest.width}:{manifest.height}:force_original_aspect_ratio=decrease,pad={manifest.width}:{manifest.height}:(ow-iw)/2:(oh-ih)/2,zoompan=z='{zoom}':d={frames}:s={manifest.width}x{manifest.height}:fps={manifest.fps},setsar=1[v{index}]"
         )
     joined = "".join(f"[v{index}]" for index in range(len(manifest.beats)))
-    filters.append(f"{joined}concat=n={len(manifest.beats)}:v=1:a=0[vout]")
-    args.extend(["-filter_complex", ";".join(filters), "-map", "[vout]"])
+    filters.append(f"{joined}concat=n={len(manifest.beats)}:v=1:a=0[vconcat]")
+    video_output_label = "vconcat"
+    if manifest.subtitle_path is not None:
+        escaped = _escape_filter_path(manifest.subtitle_path)
+        filters.append(f"[vconcat]ass=filename='{escaped}'[vout]")
+        video_output_label = "vout"
+    args.extend(["-filter_complex", ";".join(filters), "-map", f"[{video_output_label}]"])
     if manifest.audio_path is not None:
         args.extend(["-map", f"{audio_index}:a:0", "-c:a", "aac"])
     args.extend(
@@ -90,3 +96,16 @@ def build_ffmpeg_args(manifest: ImageMotionManifest) -> list[str]:
         ]
     )
     return args
+
+
+def _escape_filter_path(path: Path) -> str:
+    """Escape a path for use inside a quoted FFmpeg filter option."""
+    value = str(path)
+    return (
+        value.replace("\\", r"\\")
+        .replace(":", r"\:")
+        .replace("'", r"\'")
+        .replace(",", r"\,")
+        .replace("[", r"\[")
+        .replace("]", r"\]")
+    )
