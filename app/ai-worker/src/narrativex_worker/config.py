@@ -57,9 +57,17 @@ class WorkerSettings(BaseSettings):
     image_provider_mode: Literal["disabled", "vertex"] = Field(
         default="disabled", validation_alias=AliasChoices("IMAGE_PROVIDER_MODE")
     )
-    vertex_image_model: str = "imagen-3.0-generate-002"
-    vertex_image_location: str = "us-central1"
-    vertex_image_timeout_seconds: float = Field(default=120.0, gt=1, le=600)
+    vertex_image_model: str = "gemini-2.5-flash-image"
+    vertex_image_location: str = "global"
+    vertex_image_timeout_seconds: float = Field(default=120.0, gt=1, le=1800)
+    vertex_image_service_tier: Literal["standard", "flex"] = "standard"
+    vertex_image_execution_mode: Literal["online", "batch", "auto"] = "batch"
+    vertex_image_batch_min_items: int = Field(default=1, ge=1, le=10_000)
+    vertex_image_batch_location: str = "global"
+    vertex_image_batch_gcs_bucket: str | None = None
+    vertex_image_batch_gcs_prefix: str = "narrativex/image-batches"
+    vertex_image_batch_poll_seconds: float = Field(default=30.0, ge=5.0, le=300.0)
+    vertex_image_batch_http_timeout_seconds: float = Field(default=120.0, gt=1, le=600)
     image_max_output_bytes: int = Field(default=15_000_000, ge=1024, le=50_000_000)
 
     tts_provider_mode: Literal["disabled", "google", "vieneu"] = Field(
@@ -129,10 +137,35 @@ class WorkerSettings(BaseSettings):
             return f"https://{self.r2_account_id.strip()}.r2.cloudflarestorage.com"
         return None
 
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def normalized_vertex_image_batch_prefix(self) -> str:
+        return self.vertex_image_batch_gcs_prefix.strip().strip("/")
+
     @model_validator(mode="after")
     def validate_narration_runtime(self) -> "WorkerSettings":
         if self.image_provider_mode == "vertex" and not self.vertex_project_id:
             raise ValueError("VERTEX_PROJECT_ID is required when IMAGE_PROVIDER_MODE=vertex")
+        if self.vertex_image_service_tier == "flex":
+            if self.vertex_image_location != "global":
+                raise ValueError("Vertex image Flex PayGo requires VERTEX_IMAGE_LOCATION=global")
+            if self.vertex_image_model == "gemini-2.5-flash-image":
+                raise ValueError(
+                    "gemini-2.5-flash-image does not support Flex PayGo; use standard online "
+                    "or Vertex batch inference for the 50% discounted rate"
+                )
+        if self.image_provider_mode == "vertex" and self.vertex_image_execution_mode == "batch":
+            if (
+                not self.vertex_image_batch_gcs_bucket
+                or not self.vertex_image_batch_gcs_bucket.strip()
+            ):
+                raise ValueError(
+                    "VERTEX_IMAGE_BATCH_GCS_BUCKET is required when "
+                    "IMAGE_PROVIDER_MODE=vertex and VERTEX_IMAGE_EXECUTION_MODE=batch"
+                )
+        if self.vertex_image_execution_mode in {"batch", "auto"}:
+            if not self.normalized_vertex_image_batch_prefix:
+                raise ValueError("VERTEX_IMAGE_BATCH_GCS_PREFIX must not be blank")
         if self.tts_provider_mode == "google" and not self.google_tts_project_id:
             raise ValueError("GOOGLE_TTS_PROJECT_ID is required when TTS_PROVIDER_MODE=google")
         if self.tts_provider_mode == "vieneu":

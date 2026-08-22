@@ -17,5 +17,7 @@ This directory records decisions that affect more than one feature or change a p
 - [ADR-0011: Narration audio pipeline, multi-part alignment, worker concurrency, and local voice cloning](./ADR-0011-narration-pipeline-and-worker-runtime.md)
 - [ADR-0012: Cloudflare R2 durable media storage, verified uploads, and asset lifecycle hardening](./ADR-0012-cloudflare-r2-durable-media-storage.md)
 - [ADR-0013: Out-of-band E2E credentials and repository secret scanning](./ADR-0013-test-credential-handling-and-secret-scanning.md)
+- [ADR-0014: Immutable chapter content variants and translation lineage](./ADR-0014-immutable-chapter-content-variants-and-translation-lineage.md)
+- [ADR-0015: Vertex Gemini image batch inference](./ADR-0015-vertex-gemini-image-batch-inference.md)
 
-Granular and transitional ADR notes have been consolidated into the canonical ADRs above. Use sequential ADR numbers (`ADR-0014+`) for new cross-cutting architecture decisions.
+Granular and transitional ADR notes have been consolidated into the canonical ADRs above. Use sequential ADR numbers (`ADR-0016+`) for new cross-cutting architecture decisions.

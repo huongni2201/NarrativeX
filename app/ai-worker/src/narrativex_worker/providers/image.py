@@ -3,6 +3,7 @@
 Vendor SDK response objects are deliberately not allowed across this module boundary.
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Protocol
@@ -51,9 +52,51 @@ class ImageProviderOperation:
     error_detail: str | None = None
 
 
+@dataclass(frozen=True)
+class ImageBatchItem:
+    """One provider-neutral image request inside a paid batch operation."""
+
+    item_key: str
+    request: ImageGenerationRequest
+
+
+@dataclass(frozen=True)
+class ImageBatchItemResult:
+    item_key: str
+    request_fingerprint: str
+    result: ImageGenerationResult | None = None
+    error_code: str | None = None
+    error_detail: str | None = None
+
+
+@dataclass(frozen=True)
+class ImageBatchOperation:
+    """Durable data needed to reconcile an asynchronous image batch job.
+
+    The caller must persist this operation before releasing the job lease. The adapter never
+    blindly re-submits a batch whose submission outcome is ambiguous.
+    """
+
+    provider_key: str
+    operation_id: str | None
+    status: ProviderOperationStatus
+    items: tuple[ImageBatchItem, ...]
+    input_uri: str | None = None
+    output_uri: str | None = None
+    results: tuple[ImageBatchItemResult, ...] = ()
+    error_code: str | None = None
+    error_detail: str | None = None
+
+
 class ImageGenerationProvider(Protocol):
     def get_capabilities(self) -> object: ...
 
     async def submit(self, request: ImageGenerationRequest) -> ImageProviderOperation: ...
 
     async def reconcile(self, operation: ImageProviderOperation) -> ImageProviderOperation: ...
+
+
+class BatchImageGenerationProvider(ImageGenerationProvider, Protocol):
+    async def submit_batch(self, items: Sequence[ImageBatchItem]) -> ImageBatchOperation: ...
+
+    async def reconcile_batch(self, operation: ImageBatchOperation) -> ImageBatchOperation: ...

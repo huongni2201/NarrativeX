@@ -1,6 +1,13 @@
+from collections.abc import Sequence
+
 from narrativex_worker.config import WorkerSettings
-from narrativex_worker.providers.image import ImageGenerationProvider, ImageProviderOperation
-from narrativex_worker.providers.vertex_image import VertexImageProvider
+from narrativex_worker.providers.image import (
+    BatchImageGenerationProvider,
+    ImageBatchItem,
+    ImageBatchOperation,
+    ImageProviderOperation,
+)
+from narrativex_worker.providers.vertex_image_batch import VertexBatchImageProvider
 from narrativex_worker.schema import ProviderOperationStatus
 
 
@@ -21,8 +28,20 @@ class DisabledImageProvider:
     async def reconcile(self, operation: ImageProviderOperation) -> ImageProviderOperation:
         return operation
 
+    async def submit_batch(self, items: Sequence[ImageBatchItem]) -> ImageBatchOperation:
+        return ImageBatchOperation(
+            provider_key="disabled",
+            operation_id=None,
+            status=ProviderOperationStatus.FAILED,
+            items=tuple(items),
+            error_code="PROVIDER_UNAVAILABLE",
+        )
 
-def create_image_provider(settings: WorkerSettings) -> ImageGenerationProvider:
+    async def reconcile_batch(self, operation: ImageBatchOperation) -> ImageBatchOperation:
+        return operation
+
+
+def create_image_provider(settings: WorkerSettings) -> BatchImageGenerationProvider:
     if settings.image_provider_mode == "vertex":
-        return VertexImageProvider(settings)
+        return VertexBatchImageProvider(settings)
     return DisabledImageProvider()
