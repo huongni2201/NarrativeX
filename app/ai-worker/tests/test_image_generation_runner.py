@@ -1,5 +1,5 @@
 import hashlib
-from dataclasses import dataclass
+from collections.abc import Sequence
 
 import pytest
 
@@ -8,12 +8,14 @@ from narrativex_worker.image_generation_runner import (
     ImageGenerationRunner,
 )
 from narrativex_worker.media_repository import DurableMediaResult
+from narrativex_worker.narration.storage import InMemoryMediaStorage
 from narrativex_worker.providers.image import (
     ImageBatchItem,
     ImageBatchItemResult,
     ImageBatchOperation,
     ImageGenerationRequest,
     ImageGenerationResult,
+    ImageProviderOperation,
 )
 from narrativex_worker.schema import (
     ImageAspectRatio,
@@ -21,21 +23,6 @@ from narrativex_worker.schema import (
     ModerationDecision,
     ProviderOperationStatus,
 )
-
-
-@dataclass(frozen=True)
-class _Stored:
-    checksum: str
-    mime_type: str
-
-
-class _Storage:
-    def __init__(self) -> None:
-        self.puts: list[dict[str, object]] = []
-
-    async def put_immutable(self, **kwargs: object) -> _Stored:
-        self.puts.append(kwargs)
-        return _Stored(str(kwargs["checksum"]), str(kwargs["mime_type"]))
 
 
 class _Repository:
@@ -67,13 +54,15 @@ class _BatchProvider:
     def get_capabilities(self) -> object:
         return object()
 
-    async def submit(self, request: object) -> object:
+    async def submit(self, request: ImageGenerationRequest) -> ImageProviderOperation:
+        del request
         raise AssertionError("batch-only runner must never call online submit")
 
-    async def reconcile(self, operation: object) -> object:
+    async def reconcile(self, operation: ImageProviderOperation) -> ImageProviderOperation:
+        del operation
         raise AssertionError("batch-only runner must never call online reconcile")
 
-    async def submit_batch(self, items: tuple[ImageBatchItem, ...]) -> ImageBatchOperation:
+    async def submit_batch(self, items: Sequence[ImageBatchItem]) -> ImageBatchOperation:
         self.submitted = tuple(items)
         return ImageBatchOperation(
             provider_key="vertex",
@@ -105,7 +94,7 @@ def _request() -> ImageGenerationRequest:
 @pytest.mark.asyncio
 async def test_run_submits_single_image_through_batch_only() -> None:
     provider = _BatchProvider()
-    runner = ImageGenerationRunner(provider, _Storage(), _Repository())
+    runner = ImageGenerationRunner(provider, InMemoryMediaStorage(), _Repository())
 
     with pytest.raises(ImageGenerationPendingError) as caught:
         await runner.run("beat-1", _request())
@@ -119,7 +108,7 @@ async def test_run_submits_single_image_through_batch_only() -> None:
 @pytest.mark.asyncio
 async def test_reconcile_materializes_completed_batch_result() -> None:
     provider = _BatchProvider()
-    storage = _Storage()
+    storage = InMemoryMediaStorage()
     repository = _Repository()
     runner = ImageGenerationRunner(provider, storage, repository)
     request = _request()
@@ -156,11 +145,9 @@ async def test_reconcile_materializes_completed_batch_result() -> None:
 
     assert durable is not None
     assert durable.checksum == checksum
-    assert len(storage.puts) == 1
-    assert storage.puts[0]["metadata"] == {
-        "kind": "provider-result",
-        "request-fingerprint": request.request_fingerprint,
-        "execution-mode": "batch",
-    }
+    stored = await storage.find(durable.storage_key)
+    assert stored is not None
+    assert stored.metadata["execution-mode"] == "batch"
+    assert stored.metadata["request-fingerprint"] == request.request_fingerprint
     assert len(repository.completions) == 1
     assert len(repository.assets) == 1
