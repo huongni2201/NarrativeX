@@ -5,8 +5,8 @@ import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.generation.application.command.CreateChapterRenderCommand;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationOutboxRepository;
-import com.narrativex.backend.feature.generation.application.port.out.OperationPlanRepository;
 import com.narrativex.backend.feature.generation.application.port.out.MediaPlanRepository;
+import com.narrativex.backend.feature.generation.application.port.out.OperationPlanRepository;
 import com.narrativex.backend.feature.generation.application.port.out.QuotaReservation;
 import com.narrativex.backend.feature.generation.application.port.out.StageAttemptRepository;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
@@ -17,6 +17,7 @@ import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterWorkspaceAccess;
 import java.math.BigDecimal;
+import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -116,7 +117,10 @@ public class CreateChapterRenderUseCase {
     OperationPlan plan =
         operationPlanRepository.save(
             OperationPlan.create(
-                command.projectId(), STAGE_NAME, renderCost.multiply(BigDecimal.valueOf(0.8)), renderCost,
+                command.projectId(),
+                renderOperationType(command.resolution(), command.format()),
+                renderCost.multiply(BigDecimal.valueOf(0.8)),
+                renderCost,
                 command.maxAuthorizedCost() == null ? renderCost : command.maxAuthorizedCost()));
     quotaReservation.bindToGenerationJob(reservation.id(), job.getId());
     operationPlanRepository.save(plan.withGenerationJobId(job.getId()));
@@ -130,6 +134,14 @@ public class CreateChapterRenderUseCase {
         command.chapterId(),
         command.projectId());
     return job;
+  }
+
+  static String renderOperationType(String resolution, String format) {
+    return STAGE_NAME
+        + "_"
+        + resolution.toUpperCase(Locale.ROOT)
+        + "_"
+        + format.toUpperCase(Locale.ROOT);
   }
 
   private static boolean qualityAllowed(String requestedResolution, String maximumQuality) {
