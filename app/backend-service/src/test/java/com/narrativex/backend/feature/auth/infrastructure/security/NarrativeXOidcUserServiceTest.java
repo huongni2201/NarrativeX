@@ -6,11 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.narrativex.backend.feature.account.application.port.out.UserPlanAssignmentProvisioner;
-import com.narrativex.backend.feature.auth.infrastructure.persistence.entity.AuthUserJpaEntity;
-import com.narrativex.backend.feature.auth.infrastructure.persistence.repository.AuthUserJpaRepository;
+import com.narrativex.backend.feature.auth.infrastructure.persistence.mybatis.AuthUserMapper;
+import com.narrativex.backend.feature.auth.infrastructure.persistence.mybatis.AuthUserRow;
+import com.narrativex.backend.feature.common.application.port.out.UserPlanAssignmentProvisioner;
 import java.time.Instant;
-import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,7 +22,7 @@ import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 
 @ExtendWith(MockitoExtension.class)
 class NarrativeXOidcUserServiceTest {
-  @Mock private AuthUserJpaRepository repository;
+  @Mock private AuthUserMapper mapper;
   @Mock private UserPlanAssignmentProvisioner userPlanAssignmentProvisioner;
   @Mock private OAuth2UserService<OidcUserRequest, OidcUser> delegate;
   @Mock private OidcUserRequest request;
@@ -34,42 +33,41 @@ class NarrativeXOidcUserServiceTest {
   @BeforeEach
   void setUp() {
     service =
-        new NarrativeXOidcUserService(repository, delegate, userPlanAssignmentProvisioner);
+        new NarrativeXOidcUserService(mapper, delegate, userPlanAssignmentProvisioner);
   }
 
   @Test
   void verifiedGoogleEmailLinksExistingPasswordAccount() {
-    AuthUserJpaEntity existing = existingAccount(null, true);
+    AuthUserRow existing = existingAccount(null, true);
     stubGoogleUser("google-subject", "Owner@example.com");
-    when(repository.findByGoogleSubject("google-subject")).thenReturn(Optional.empty());
-    when(repository.findByEmailIgnoreCase("owner@example.com")).thenReturn(Optional.of(existing));
-    when(repository.save(existing)).thenReturn(existing);
+    when(mapper.findByGoogleSubject("google-subject")).thenReturn(null);
+    when(mapper.findByEmail("owner@example.com")).thenReturn(existing);
 
     OidcUser result = service.loadUser(request);
 
     assertNotNull(result);
     assertEquals("google-subject", existing.getGoogleSubject());
     assertEquals("Google Owner", existing.getDisplayName());
-    verify(repository).save(existing);
+    verify(mapper).updateGoogleLink(existing);
     verify(userPlanAssignmentProvisioner).ensureDefaultAssignment("existing-user");
   }
 
   @Test
   void existingAccountLinkedToDifferentGoogleSubjectIsRejected() {
-    AuthUserJpaEntity existing = existingAccount("another-google-subject", true);
+    AuthUserRow existing = existingAccount("another-google-subject", true);
     stubGoogleUser("new-google-subject", "owner@example.com");
-    when(repository.findByGoogleSubject("new-google-subject")).thenReturn(Optional.empty());
-    when(repository.findByEmailIgnoreCase("owner@example.com")).thenReturn(Optional.of(existing));
+    when(mapper.findByGoogleSubject("new-google-subject")).thenReturn(null);
+    when(mapper.findByEmail("owner@example.com")).thenReturn(existing);
 
     assertThrows(OAuth2AuthenticationException.class, () -> service.loadUser(request));
   }
 
   @Test
   void disabledExistingAccountIsNotLinked() {
-    AuthUserJpaEntity existing = existingAccount(null, false);
+    AuthUserRow existing = existingAccount(null, false);
     stubGoogleUser("google-subject", "owner@example.com");
-    when(repository.findByGoogleSubject("google-subject")).thenReturn(Optional.empty());
-    when(repository.findByEmailIgnoreCase("owner@example.com")).thenReturn(Optional.of(existing));
+    when(mapper.findByGoogleSubject("google-subject")).thenReturn(null);
+    when(mapper.findByEmail("owner@example.com")).thenReturn(existing);
 
     assertThrows(OAuth2AuthenticationException.class, () -> service.loadUser(request));
   }
@@ -84,9 +82,9 @@ class NarrativeXOidcUserServiceTest {
     when(oidcUser.getPicture()).thenReturn("https://example.com/avatar.png");
   }
 
-  private static AuthUserJpaEntity existingAccount(String googleSubject, boolean enabled) {
+  private static AuthUserRow existingAccount(String googleSubject, boolean enabled) {
     Instant now = Instant.now();
-    return AuthUserJpaEntity.builder()
+    return AuthUserRow.builder()
         .id("existing-user")
         .email("owner@example.com")
         .displayName("Existing Owner")

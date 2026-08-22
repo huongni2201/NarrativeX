@@ -12,7 +12,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -196,8 +196,8 @@ public class MyBatisProviderOperationPersistenceAdapter implements ProviderOpera
     meterRegistry.counter(metricName).increment();
   }
 
-  private static ObjectOptimisticLockingFailureException optimisticConflict(Long id) {
-    return new ObjectOptimisticLockingFailureException(ProviderOperation.class, id);
+  private static OptimisticLockingFailureException optimisticConflict(Long id) {
+    return new OptimisticLockingFailureException("Provider operation " + id + " was modified concurrently");
   }
 
   private static ProviderOperationRow toRow(ProviderOperation operation) {

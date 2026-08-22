@@ -29,4 +29,30 @@
           )
         ON CONFLICT (event_key) DO NOTHING
     </insert>
+    <select id="reserveBatch" resultType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.OutboxDispatchRow">
+        WITH candidates AS (
+            SELECT id FROM outbox_events
+             WHERE status = 'PENDING'
+               AND event_type IN ('GENERATION_JOB_QUEUED', 'MEDIA_VALIDATION_REQUESTED')
+               AND available_at &lt;= CURRENT_TIMESTAMP
+             ORDER BY id LIMIT 50 FOR UPDATE SKIP LOCKED
+        )
+        UPDATE outbox_events event
+           SET available_at = CURRENT_TIMESTAMP + (#{reservationMillis} * INTERVAL '1 millisecond')
+          FROM candidates
+         WHERE event.id = candidates.id
+        RETURNING event.id, event.event_type, event.payload_json::text AS payload_json
+    </select>
+
+    <update id="markPublished">
+        UPDATE outbox_events SET status = 'PUBLISHED', attempts = attempts + 1
+         WHERE id = #{id} AND status = 'PENDING'
+    </update>
+
+    <update id="scheduleRetry">
+        UPDATE outbox_events
+           SET attempts = attempts + 1,
+               available_at = CURRENT_TIMESTAMP + (#{retryMillis} * INTERVAL '1 millisecond')
+         WHERE id = #{id} AND status = 'PENDING'
+    </update>
 </mapper>

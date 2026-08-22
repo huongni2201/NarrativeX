@@ -21,8 +21,8 @@ export interface ApiUserQuota {
   periodEnd: string;
   limits: UserQuotaLimits;
   usage: UserQuotaUsage;
-  totalCredits: number | string;
-  remainingCredits: number | string;
+  totalCredits: number | string | null;
+  remainingCredits: number | string | null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -43,6 +43,10 @@ function isNumber(value: unknown): value is number {
 
 function isNumericOrString(value: unknown): value is number | string {
   return (typeof value === "number" && Number.isFinite(value)) || typeof value === "string";
+}
+
+function isNullableNumericOrString(value: unknown): value is number | string | null {
+  return value === null || isNumericOrString(value);
 }
 
 function isNullableNumber(value: unknown): value is number | null {
@@ -84,7 +88,7 @@ export function isApiUserQuota(value: unknown): value is ApiUserQuota {
     isString(value.periodEnd) &&
     isUserQuotaLimits(value.limits) &&
     isUserQuotaUsage(value.usage) &&
-    isNumericOrString(value.totalCredits) &&
-    isNumericOrString(value.remainingCredits)
+    isNullableNumericOrString(value.totalCredits) &&
+    isNullableNumericOrString(value.remainingCredits)
   );
 }

@@ -1,8 +1,8 @@
 package com.narrativex.backend.feature.auth.application.service;
 
-import com.narrativex.backend.feature.account.application.port.out.UserPlanAssignmentProvisioner;
 import com.narrativex.backend.feature.auth.application.port.out.AuthAccountRegistration;
 import com.narrativex.backend.feature.auth.application.port.out.PasswordHashing;
+import com.narrativex.backend.feature.common.application.port.out.UserPlanAssignmentProvisioner;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import java.util.Locale;
 import java.util.UUID;

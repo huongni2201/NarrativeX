@@ -21,4 +21,15 @@ VALUES (
     '{"storyAnalysis":true}',
     2.000000,
     CURRENT_TIMESTAMP
+), (
+    'ULTRA',
+    1,
+    FALSE,
+    'ULTRA',
+    NULL,
+    NULL,
+    20,
+    '{"storyAnalysis":true,"shorts":true,"narration":true,"batchReview":true,"team":true,"priority":true,"payAsYouGo":true}',
+    NULL,
+    CURRENT_TIMESTAMP
 );

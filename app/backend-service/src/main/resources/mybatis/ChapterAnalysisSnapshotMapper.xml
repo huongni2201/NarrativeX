@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterAnalysisSnapshotMapper">
+    <resultMap id="chapterAnalysisSnapshotRow" type="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterAnalysisSnapshotRow">
+        <id property="id" column="id"/>
+        <result property="storyVersionId" column="story_version_id"/>
+        <result property="rowVersion" column="row_version"/>
+        <result property="sourceHash" column="source_hash"/>
+        <result property="sourceText" column="source_text"/>
+    </resultMap>
+    <select id="findOwned" resultMap="chapterAnalysisSnapshotRow">
+        SELECT c.id, c.story_version_id, c.row_version, c.source_hash, c.source_text
+          FROM chapters c
+          JOIN story_versions sv ON sv.id = c.story_version_id
+          JOIN projects p ON p.id = sv.project_id
+         WHERE c.id = #{chapterId} AND p.id = #{projectId}
+           AND p.owner_id = #{userId} AND p.archived_at IS NULL
+    </select>
+</mapper>

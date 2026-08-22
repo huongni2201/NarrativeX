@@ -88,8 +88,10 @@ export const StudioSidebar = () => {
     };
   }, [isProfileMenuOpen]);
 
-  const totalCredits = quota ? Number(quota.totalCredits) || 0 : 0;
-  const remainingCredits = quota ? Number(quota.remainingCredits) || 0 : 0;
+  const isUnlimited = quota ? quota.totalCredits === null || quota.tier === "ULTRA" : false;
+  const totalCredits = quota && quota.totalCredits !== null ? Number(quota.totalCredits) || 0 : 0;
+  const remainingCredits = quota && quota.remainingCredits !== null ? Number(quota.remainingCredits) || 0 : 0;
+  const creditsUsed = quota ? Number(quota.usage.creditsUsed) || 0 : 0;
   const creditPercent =
     totalCredits > 0
       ? Math.max(0, Math.min(100, Math.round((remainingCredits / totalCredits) * 100)))
@@ -346,16 +348,27 @@ export const StudioSidebar = () => {
 
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-400">Credits khả dụng</span>
+                  <span className="text-slate-400">{isUnlimited ? "Credits đã dùng" : "Credits khả dụng"}</span>
                   <span className="font-semibold text-slate-200 tabular-nums">
-                    {remainingCredits.toLocaleString()}{" "}
-                    <span className="text-slate-500 font-normal">/ {totalCredits.toLocaleString()}</span>
+                    {isUnlimited ? (
+                      <span>{creditsUsed.toLocaleString()} <span className="text-emerald-400 font-normal">/ ∞</span></span>
+                    ) : (
+                      <>
+                        {remainingCredits.toLocaleString()}{" "}
+                        <span className="text-slate-500 font-normal">/ {totalCredits.toLocaleString()}</span>
+                      </>
+                    )}
                   </span>
                 </div>
                 <div className="w-full bg-slate-800/80 rounded-full h-1.5 overflow-hidden">
                   <div
-                    className="bg-primary h-full rounded-full transition-[width] duration-300"
-                    style={{ width: `${creditPercent}%` }}
+                    className={cn(
+                      "h-full rounded-full transition-[width] duration-300",
+                      isUnlimited
+                        ? "w-full bg-gradient-to-r from-primary via-purple-500 to-emerald-400"
+                        : "bg-primary",
+                    )}
+                    style={isUnlimited ? undefined : { width: `${creditPercent}%` }}
                   />
                 </div>
               </div>

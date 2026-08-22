@@ -30,7 +30,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -85,7 +85,7 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
 
     assertEquals(1L, updated.getRowVersion());
     assertEquals(JobStatus.RUNNING, updated.getStatus());
-    assertThrows(ObjectOptimisticLockingFailureException.class, () -> repository.save(running));
+    assertThrows(OptimisticLockingFailureException.class, () -> repository.save(running));
   }
 
   @Test

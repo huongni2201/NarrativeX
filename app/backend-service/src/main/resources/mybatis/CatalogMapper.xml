@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.catalog.infrastructure.persistence.mybatis.CatalogMapper">
+    <resultMap id="stylePresetRow" type="com.narrativex.backend.feature.catalog.infrastructure.persistence.mybatis.StylePresetRow">
+        <id property="id" column="id"/><result property="name" column="name"/><result property="category" column="category"/>
+        <result property="description" column="description"/><result property="thumbnailUrl" column="thumbnail_url"/>
+        <result property="promptSuffix" column="prompt_suffix"/><result property="negativePrompt" column="negative_prompt"/>
+        <result property="tagsJson" column="tags_json"/><result property="configJson" column="config_json"/><result property="createdAt" column="created_at"/>
+    </resultMap>
+    <resultMap id="voiceRow" type="com.narrativex.backend.feature.catalog.infrastructure.persistence.mybatis.VoiceRow">
+        <id property="id" column="id"/><result property="provider" column="provider"/><result property="name" column="name"/>
+        <result property="language" column="language"/><result property="gender" column="gender"/><result property="sampleUrl" column="sample_url"/>
+        <result property="metadataJson" column="metadata_json"/><result property="updatedAt" column="updated_at"/>
+    </resultMap>
+    <select id="listStylePresets" resultMap="stylePresetRow">
+        SELECT id, name, category, description, thumbnail_url, prompt_suffix,
+               negative_prompt, tags_json::text AS tags_json, config_json::text AS config_json,
+               created_at
+          FROM style_presets
+         WHERE status = 'ACTIVE'
+        <if test="category != null and category != ''">AND category = #{category}</if>
+         ORDER BY category, LOWER(name), id
+    </select>
+    <select id="listVoices" resultMap="voiceRow">
+        SELECT id, provider, name, language, gender, sample_url,
+               metadata_json::text AS metadata_json, updated_at
+          FROM voice_catalog
+         WHERE enabled = TRUE
+        <if test="language != null and language != ''">AND language = #{language}</if>
+         ORDER BY language, LOWER(name), id
+    </select>
+</mapper>

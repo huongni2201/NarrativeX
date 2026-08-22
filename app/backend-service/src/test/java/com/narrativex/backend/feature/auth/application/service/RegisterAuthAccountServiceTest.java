@@ -5,9 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.narrativex.backend.feature.account.application.port.out.UserPlanAssignmentProvisioner;
 import com.narrativex.backend.feature.auth.application.port.out.AuthAccountRegistration;
 import com.narrativex.backend.feature.auth.application.port.out.PasswordHashing;
+import com.narrativex.backend.feature.common.application.port.out.UserPlanAssignmentProvisioner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;

@@ -1,9 +1,9 @@
 package com.narrativex.backend.feature.auth.infrastructure.security;
 
-import com.narrativex.backend.feature.account.application.port.out.UserPlanAssignmentProvisioner;
 import com.narrativex.backend.feature.auth.application.service.RegisterAuthAccountService;
-import com.narrativex.backend.feature.auth.infrastructure.persistence.entity.AuthUserJpaEntity;
-import com.narrativex.backend.feature.auth.infrastructure.persistence.repository.AuthUserJpaRepository;
+import com.narrativex.backend.feature.common.application.port.out.UserPlanAssignmentProvisioner;
+import com.narrativex.backend.feature.auth.infrastructure.persistence.mybatis.AuthUserMapper;
+import com.narrativex.backend.feature.auth.infrastructure.persistence.mybatis.AuthUserRow;
 import java.time.Instant;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -18,14 +18,14 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class NarrativeXOidcUserService implements OAuth2UserService<OidcUserRequest, OidcUser> {
   private final OAuth2UserService<OidcUserRequest, OidcUser> delegate;
-  private final AuthUserJpaRepository repository;
+  private final AuthUserMapper mapper;
   private final UserPlanAssignmentProvisioner userPlanAssignmentProvisioner;
 
   public NarrativeXOidcUserService(
-      AuthUserJpaRepository repository,
+      AuthUserMapper mapper,
       @Qualifier("narrativeXOidcDelegate") OAuth2UserService<OidcUserRequest, OidcUser> delegate,
       UserPlanAssignmentProvisioner userPlanAssignmentProvisioner) {
-    this.repository = repository;
+    this.mapper = mapper;
     this.delegate = delegate;
     this.userPlanAssignmentProvisioner = userPlanAssignmentProvisioner;
   }
@@ -45,9 +45,9 @@ public class NarrativeXOidcUserService implements OAuth2UserService<OidcUserRequ
     String displayName = firstNonBlank(oidcUser.getFullName(), oidcUser.getGivenName(), email);
     String avatarUrl = oidcUser.getPicture();
 
-    AuthUserJpaEntity account = repository.findByGoogleSubject(subject).orElse(null);
+    AuthUserRow account = mapper.findByGoogleSubject(subject);
     if (account == null) {
-      AuthUserJpaEntity existingEmailAccount = repository.findByEmailIgnoreCase(email).orElse(null);
+      AuthUserRow existingEmailAccount = mapper.findByEmail(email);
       if (existingEmailAccount != null) {
         if (!existingEmailAccount.isEnabled()) {
           throw invalidUserInfo("The NarrativeX account is disabled.");
@@ -58,12 +58,12 @@ public class NarrativeXOidcUserService implements OAuth2UserService<OidcUserRequ
               "This NarrativeX account is already linked to another Google account.");
         }
         existingEmailAccount.linkGoogle(subject, displayName, avatarUrl);
-        account = repository.save(existingEmailAccount);
+        mapper.updateGoogleLink(existingEmailAccount);
+        account = existingEmailAccount;
       } else {
         Instant now = Instant.now();
         account =
-            repository.save(
-                AuthUserJpaEntity.builder()
+            AuthUserRow.builder()
                     .id(UUID.randomUUID().toString())
                     .email(email)
                     .displayName(displayName)
@@ -72,14 +72,15 @@ public class NarrativeXOidcUserService implements OAuth2UserService<OidcUserRequ
                     .enabled(true)
                     .createdAt(now)
                     .updatedAt(now)
-                    .build());
+                    .build();
+        mapper.insert(account);
       }
     } else {
       if (!account.isEnabled()) {
         throw invalidUserInfo("The NarrativeX account is disabled.");
       }
       account.linkGoogle(subject, displayName, avatarUrl);
-      account = repository.save(account);
+      mapper.updateGoogleLink(account);
     }
 
     userPlanAssignmentProvisioner.ensureDefaultAssignment(account.getId());

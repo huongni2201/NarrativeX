@@ -22,10 +22,20 @@ export function QuotaDetailModal({ isOpen, onClose }: Readonly<QuotaDetailModalP
 
   if (!isOpen) return null;
 
-  const totalCredits = Number(quota?.totalCredits ?? 0);
-  const remainingCredits = Number(quota?.remainingCredits ?? 0);
+  const isUnlimited = quota?.totalCredits === null || quota?.tier === "ULTRA";
+  const totalCredits =
+    quota?.totalCredits !== null && quota?.totalCredits !== undefined
+      ? Number(quota.totalCredits)
+      : null;
+  const remainingCredits =
+    quota?.remainingCredits !== null && quota?.remainingCredits !== undefined
+      ? Number(quota.remainingCredits)
+      : null;
   const creditsUsed = Number(quota?.usage.creditsUsed ?? 0);
-  const usedPercent = totalCredits > 0 ? Math.min(100, Math.round((creditsUsed / totalCredits) * 100)) : 0;
+  const usedPercent =
+    totalCredits !== null && totalCredits > 0
+      ? Math.min(100, Math.round((creditsUsed / totalCredits) * 100))
+      : 0;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} ariaLabel="Chi tiết hạn mức tài khoản" maxWidth="lg">
@@ -41,9 +51,14 @@ export function QuotaDetailModal({ isOpen, onClose }: Readonly<QuotaDetailModalP
                 <h2 className="text-base font-bold text-text-primary">Hạn mức & Gói tài khoản</h2>
                 <span className="rounded-full border border-primary/40 bg-primary-muted px-2.5 py-0.5 font-mono text-[10px] font-bold text-primary-hover uppercase">
                   {quota?.tier ?? "STARTER"}
+                  {isUnlimited && " (PAY-AS-YOU-GO)"}
                 </span>
               </div>
-              <p className="text-xs text-text-secondary">Chi tiết hạn mức credits, xuất file và năng lực xử lý</p>
+              <p className="text-xs text-text-secondary">
+                {isUnlimited
+                  ? "Tài khoản không giới hạn — Tính phí theo lượng sử dụng thực tế"
+                  : "Chi tiết hạn mức credits, xuất file và năng lực xử lý"}
+              </p>
             </div>
           </div>
 
@@ -72,21 +87,36 @@ export function QuotaDetailModal({ isOpen, onClose }: Readonly<QuotaDetailModalP
                     <span className="text-xs font-semibold text-text-secondary">NarrativeX Credits</span>
                   </div>
                   <span className="font-mono text-sm font-bold text-text-primary">
-                    {remainingCredits.toLocaleString()} / {totalCredits.toLocaleString()}
+                    {isUnlimited
+                      ? "Không giới hạn (Pay-as-you-go)"
+                      : `${(remainingCredits ?? 0).toLocaleString()} / ${(totalCredits ?? 0).toLocaleString()}`}
                   </span>
                 </div>
 
                 {/* Progress bar */}
                 <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-surface-3">
-                  <div
-                    className="h-full bg-gradient-to-r from-primary to-purple-400 transition-[width] duration-500"
-                    style={{ width: `${Math.max(5, 100 - usedPercent)}%` }}
-                  />
+                  {isUnlimited ? (
+                    <div className="h-full w-full bg-gradient-to-r from-primary via-purple-500 to-emerald-400" />
+                  ) : (
+                    <div
+                      className="h-full bg-gradient-to-r from-primary to-purple-400 transition-[width] duration-500"
+                      style={{ width: `${Math.max(5, 100 - usedPercent)}%` }}
+                    />
+                  )}
                 </div>
 
                 <div className="mt-2 flex items-center justify-between text-[11px] text-text-muted">
-                  <span>Đã dùng: {creditsUsed.toLocaleString()} credits ({usedPercent}%)</span>
-                  <span>Còn lại: {remainingCredits.toLocaleString()}</span>
+                  {isUnlimited ? (
+                    <>
+                      <span>Đã sử dụng: {creditsUsed.toLocaleString()} credits (Dùng tới đâu tính tới đó)</span>
+                      <span className="text-success font-medium">Không giới hạn</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Đã dùng: {creditsUsed.toLocaleString()} credits ({usedPercent}%)</span>
+                      <span>Còn lại: {(remainingCredits ?? 0).toLocaleString()}</span>
+                    </>
+                  )}
                 </div>
               </div>
 

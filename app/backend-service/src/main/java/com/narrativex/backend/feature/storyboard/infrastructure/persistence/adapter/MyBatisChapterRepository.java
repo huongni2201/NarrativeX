@@ -12,7 +12,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -93,11 +93,11 @@ public class MyBatisChapterRepository implements ChapterRepository {
       throw new ResourceNotFoundException("Chapter was not found");
     }
     if (mapper.update(toUpdateRow(chapter)) != 1) {
-      throw new ObjectOptimisticLockingFailureException(Chapter.class, chapter.getId());
+      throw new OptimisticLockingFailureException("Chapter was modified concurrently");
     }
     return findById(chapter.getId())
         .orElseThrow(
-            () -> new ObjectOptimisticLockingFailureException(Chapter.class, chapter.getId()));
+            () -> new OptimisticLockingFailureException("Chapter was modified concurrently"));
   }
 
   private static ChapterRow toInsertRow(Chapter chapter) {

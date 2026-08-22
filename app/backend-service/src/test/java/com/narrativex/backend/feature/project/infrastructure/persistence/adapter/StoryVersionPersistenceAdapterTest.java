@@ -9,70 +9,35 @@ import com.narrativex.backend.feature.common.exception.ResourceNotFoundException
 import com.narrativex.backend.feature.project.domain.entity.StoryVersion;
 import com.narrativex.backend.feature.project.domain.enums.ModerationDecision;
 import com.narrativex.backend.feature.project.domain.enums.StoryVersionStatus;
-import com.narrativex.backend.feature.project.infrastructure.persistence.entity.StoryVersionJpaEntity;
-import com.narrativex.backend.feature.project.infrastructure.persistence.repository.StoryVersionJpaRepository;
-import java.util.Optional;
+import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.StoryVersionMapper;
+import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.StoryVersionRow;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.dao.OptimisticLockingFailureException;
 
 @ExtendWith(MockitoExtension.class)
 class StoryVersionPersistenceAdapterTest {
-  @Mock private StoryVersionJpaRepository repository;
+  @Mock private StoryVersionMapper mapper;
 
   @Test
   void rejectsDetachedStoryVersionWhenPersistedVersionMovedForward() {
-    StoryVersion storyVersion =
-        StoryVersion.rehydrate(
-            11L,
-            3L,
-            7L,
-            1,
-            "content",
-            "vi-VN",
-            StoryVersionStatus.DRAFT,
-            ModerationDecision.PENDING);
-    StoryVersionJpaEntity persisted = persistedStoryVersion(4L);
-    when(repository.findById(11L)).thenReturn(Optional.of(persisted));
-    StoryVersionPersistenceAdapter adapter = new StoryVersionPersistenceAdapter(repository);
-
-    assertThrows(ObjectOptimisticLockingFailureException.class, () -> adapter.save(storyVersion));
-
-    verify(repository, never()).save(persisted);
+    StoryVersion value = StoryVersion.rehydrate(11L, 3L, 7L, 1, "content", "vi-VN", StoryVersionStatus.DRAFT, ModerationDecision.PENDING);
+    when(mapper.findById(11L)).thenReturn(row(4L));
+    MyBatisStoryVersionPersistenceAdapter adapter = new MyBatisStoryVersionPersistenceAdapter(mapper);
+    assertThrows(OptimisticLockingFailureException.class, () -> adapter.save(value));
+    verify(mapper, never()).update(org.mockito.ArgumentMatchers.any());
   }
 
   @Test
   void persistedStoryVersionCannotBeSilentlyRecreatedWhenMissing() {
-    StoryVersion storyVersion =
-        StoryVersion.rehydrate(
-            11L,
-            3L,
-            7L,
-            1,
-            "content",
-            "vi-VN",
-            StoryVersionStatus.DRAFT,
-            ModerationDecision.PENDING);
-    when(repository.findById(11L)).thenReturn(Optional.empty());
-    StoryVersionPersistenceAdapter adapter = new StoryVersionPersistenceAdapter(repository);
-
-    assertThrows(ResourceNotFoundException.class, () -> adapter.save(storyVersion));
+    StoryVersion value = StoryVersion.rehydrate(11L, 3L, 7L, 1, "content", "vi-VN", StoryVersionStatus.DRAFT, ModerationDecision.PENDING);
+    when(mapper.findById(11L)).thenReturn(null);
+    assertThrows(ResourceNotFoundException.class, () -> new MyBatisStoryVersionPersistenceAdapter(mapper).save(value));
   }
 
-  private static StoryVersionJpaEntity persistedStoryVersion(long rowVersion) {
-    StoryVersionJpaEntity entity =
-        StoryVersionJpaEntity.builder()
-            .projectId(7L)
-            .versionNumber(1)
-            .content("server")
-            .sourceLanguage("vi-VN")
-            .status(StoryVersionStatus.DRAFT)
-            .moderationDecision(ModerationDecision.PENDING)
-            .build();
-    entity.setId(11L);
-    entity.setRowVersion(rowVersion);
-    return entity;
+  private static StoryVersionRow row(long version) {
+    StoryVersionRow row = new StoryVersionRow(); row.setId(11L); row.setRowVersion(version); row.setProjectId(7L); row.setVersionNumber(1); row.setContent("server"); row.setSourceLanguage("vi-VN"); row.setStatus("DRAFT"); row.setModerationDecision("PENDING"); return row;
   }
 }

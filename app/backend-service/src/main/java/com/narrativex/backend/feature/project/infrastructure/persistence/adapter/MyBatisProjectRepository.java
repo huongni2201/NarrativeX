@@ -12,7 +12,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -68,11 +68,11 @@ public class MyBatisProjectRepository implements ProjectRepository {
       throw new ResourceNotFoundException("Project was not found");
     }
     if (mapper.update(toUpdateRow(project)) != 1) {
-      throw new ObjectOptimisticLockingFailureException(Project.class, project.getId());
+      throw new OptimisticLockingFailureException("Project was modified concurrently");
     }
     return findById(project.getId())
         .orElseThrow(
-            () -> new ObjectOptimisticLockingFailureException(Project.class, project.getId()));
+            () -> new OptimisticLockingFailureException("Project was modified concurrently"));
   }
 
   private Optional<Project> findById(Long projectId) {

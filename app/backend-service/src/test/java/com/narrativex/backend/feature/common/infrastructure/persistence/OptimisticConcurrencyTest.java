@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.dao.OptimisticLockingFailureException;
 
 class OptimisticConcurrencyTest {
   @Test
@@ -15,7 +15,7 @@ class OptimisticConcurrencyTest {
   @Test
   void rejectsStaleVersion() {
     assertThrows(
-        ObjectOptimisticLockingFailureException.class,
+        OptimisticLockingFailureException.class,
         () -> OptimisticConcurrency.requireVersion(3L, 4L, Object.class, 10L));
   }
 }

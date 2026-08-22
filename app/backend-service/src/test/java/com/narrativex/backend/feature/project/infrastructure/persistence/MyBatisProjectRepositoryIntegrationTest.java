@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -61,7 +61,7 @@ class MyBatisProjectRepositoryIntegrationTest extends PostgreSqlIntegrationTestS
     repository.save(first);
 
     stale.archive();
-    assertThrows(ObjectOptimisticLockingFailureException.class, () -> repository.save(stale));
+    assertThrows(OptimisticLockingFailureException.class, () -> repository.save(stale));
   }
 
   @Test

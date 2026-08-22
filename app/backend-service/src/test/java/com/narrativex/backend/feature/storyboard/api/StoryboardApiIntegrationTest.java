@@ -38,8 +38,6 @@ class StoryboardApiIntegrationTest {
     registry.add("spring.datasource.username", POSTGRES::getUsername);
     registry.add("spring.datasource.password", POSTGRES::getPassword);
     registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
-    registry.add("spring.jpa.hibernate.ddl-auto", () -> "validate");
-    registry.add("spring.jpa.database-platform", () -> "org.hibernate.dialect.PostgreSQLDialect");
     registry.add("spring.flyway.enabled", () -> true);
     registry.add("spring.flyway.baseline-on-migrate", () -> false);
     registry.add("spring.data.redis.repositories.enabled", () -> false);

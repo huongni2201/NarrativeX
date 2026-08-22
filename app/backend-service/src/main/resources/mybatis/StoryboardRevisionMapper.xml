@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.StoryboardRevisionMapper">
+    <resultMap id="storyboardRevisionRow" type="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.StoryboardRevisionRow">
+        <id property="id" column="id"/><result property="sourceHash" column="source_hash"/><result property="hasApprovedOutput" column="has_approved_output"/>
+    </resultMap>
+    <select id="current" resultMap="storyboardRevisionRow">
+        SELECT sr.id, sr.source_hash,
+               EXISTS (SELECT 1 FROM scenes s LEFT JOIN visual_beats vb ON vb.scene_id = s.id
+                        WHERE s.storyboard_revision_id = sr.id
+                          AND (s.status = 'APPROVED' OR vb.review_status = 'APPROVED'))
+                   AS has_approved_output
+          FROM chapters c
+          JOIN storyboard_revisions sr ON sr.id = c.current_storyboard_revision_id
+         WHERE c.id = #{chapterId}
+    </select>
+    <select id="lockChapter" resultType="int">
+        SELECT pg_advisory_xact_lock(#{chapterId})
+    </select>
+    <select id="createDraft" resultType="long" affectData="true">
+        INSERT INTO storyboard_revisions
+            (chapter_id, revision_number, source_hash, source_row_version, based_on_revision_id, status)
+        SELECT c.id,
+               COALESCE((SELECT MAX(sr.revision_number) + 1 FROM storyboard_revisions sr
+                          WHERE sr.chapter_id = c.id), 1),
+               #{sourceHash}, #{sourceRowVersion}, c.current_storyboard_revision_id, 'DRAFT'
+          FROM chapters c
+         WHERE c.id = #{chapterId}
+        RETURNING id
+    </select>
+</mapper>

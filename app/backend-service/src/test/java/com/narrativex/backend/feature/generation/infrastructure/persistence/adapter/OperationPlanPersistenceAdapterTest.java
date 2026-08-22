@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.dao.OptimisticLockingFailureException;
 
 @ExtendWith(MockitoExtension.class)
 class OperationPlanPersistenceAdapterTest {
@@ -65,7 +65,7 @@ class OperationPlanPersistenceAdapterTest {
     when(mapper.findById(11L)).thenReturn(row(11L, 4L));
     OperationPlanPersistenceAdapter adapter = new OperationPlanPersistenceAdapter(mapper);
 
-    assertThrows(ObjectOptimisticLockingFailureException.class, () -> adapter.save(plan));
+    assertThrows(OptimisticLockingFailureException.class, () -> adapter.save(plan));
 
     verify(mapper, never()).insert(any(OperationPlanRow.class));
   }

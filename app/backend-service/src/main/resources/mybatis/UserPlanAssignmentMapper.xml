@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.account.infrastructure.persistence.mybatis.UserPlanAssignmentMapper">
+    <select id="assignmentExists" resultType="boolean">
+        SELECT EXISTS (SELECT 1 FROM user_plan_assignments WHERE user_id = #{userId})
+    </select>
+    <insert id="insertDefaultAssignment">
+        INSERT INTO user_plan_assignments
+            (user_id, plan_key, entitlement_version, status, period_start, period_end)
+        SELECT #{userId}, pe.plan_key, pe.version, 'ACTIVE', #{periodStart}, #{periodEnd}
+          FROM plan_entitlements pe
+         WHERE pe.plan_key = 'NORMAL' AND pe.version = 1
+    </insert>
+</mapper>

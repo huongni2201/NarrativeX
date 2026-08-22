@@ -43,8 +43,6 @@ class QuotaReservationLifecycleIntegrationTest {
     registry.add("spring.datasource.username", POSTGRES::getUsername);
     registry.add("spring.datasource.password", POSTGRES::getPassword);
     registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
-    registry.add("spring.jpa.hibernate.ddl-auto", () -> "validate");
-    registry.add("spring.jpa.database-platform", () -> "org.hibernate.dialect.PostgreSQLDialect");
     registry.add("spring.flyway.enabled", () -> true);
     registry.add("spring.flyway.baseline-on-migrate", () -> false);
     registry.add("spring.data.redis.repositories.enabled", () -> false);
@@ -147,6 +145,60 @@ class QuotaReservationLifecycleIntegrationTest {
 
     assertEquals("RELEASED", reservationStatus(jobId));
     assertEquals(0, BigDecimal.ZERO.compareTo(creditsUsed()));
+  }
+
+  @Test
+  void ultraPayAsYouGoAllowsUncappedReservationsAndConsumesActualCost() {
+    seedUltraEntitlement();
+    long projectId = insertProject();
+    var reservation =
+        quotaReservation.reserve(USER_ID, new BigDecimal("500.000000"), 20).orElseThrow();
+    long jobId = insertJob(projectId, "ultra-job-1");
+    quotaReservation.bindToGenerationJob(reservation.id(), jobId);
+    persistProviderBilling(jobId, new BigDecimal("45.500000000"));
+
+    jdbcTemplate.update(
+        "UPDATE generation_jobs SET status = 'COMPLETED', progress = 100 WHERE id = ?", jobId);
+
+    assertEquals("CONSUMED", reservationStatus(jobId));
+    assertEquals(0, new BigDecimal("45.500000000").compareTo(reservationActualCost(jobId)));
+    assertEquals(0, new BigDecimal("45.500000000").compareTo(creditsUsed()));
+  }
+
+  private void seedUltraEntitlement() {
+    jdbcTemplate.update(
+        """
+        INSERT INTO auth_users (id, email, display_name, enabled)
+        VALUES (?, 'quota-lifecycle@example.test', 'Quota lifecycle test', TRUE)
+        ON CONFLICT (id) DO NOTHING
+        """,
+        USER_ID);
+    jdbcTemplate.update(
+        """
+        INSERT INTO plan_entitlements
+          (plan_key, version, watermark_required, max_video_quality,
+           max_longform_exports_month, max_short_exports_month,
+           max_concurrent_expensive_jobs, feature_flags_json, monthly_credits, active_from)
+        VALUES ('ULTRA', 1, FALSE, 'ULTRA', NULL, NULL, 20,
+                '{"storyAnalysis":true,"shorts":true,"narration":true,"payAsYouGo":true}'::jsonb, NULL,
+                CURRENT_TIMESTAMP - INTERVAL '1 day')
+        ON CONFLICT (plan_key, version) DO NOTHING
+        """);
+    jdbcTemplate.update(
+        """
+        INSERT INTO user_plan_assignments
+          (user_id, plan_key, entitlement_version, status, period_start, period_end)
+        VALUES (?, 'ULTRA', 1, 'ACTIVE',
+                CURRENT_TIMESTAMP - INTERVAL '1 day',
+                CURRENT_TIMESTAMP + INTERVAL '1 month')
+        ON CONFLICT (user_id) DO UPDATE
+           SET plan_key = EXCLUDED.plan_key,
+               entitlement_version = EXCLUDED.entitlement_version,
+               status = EXCLUDED.status,
+               period_start = EXCLUDED.period_start,
+               period_end = EXCLUDED.period_end
+        """,
+        USER_ID);
   }
 
   private void seedEntitlement() {

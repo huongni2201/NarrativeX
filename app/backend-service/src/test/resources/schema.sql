@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS plan_entitlements (
     max_short_exports_month INTEGER,
     max_concurrent_expensive_jobs INTEGER NOT NULL,
     feature_flags_json VARCHAR(2000) NOT NULL,
-    monthly_credits DECIMAL(19, 6) NOT NULL,
+    monthly_credits DECIMAL(19, 6),
     active_from TIMESTAMP WITH TIME ZONE NOT NULL,
     UNIQUE (plan_key, version)
 );

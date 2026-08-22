@@ -1,20 +1,22 @@
-# Persistence migration tracker — V1.11
+# Persistence architecture — MyBatis-only production persistence
 
-Strategic target: **MyBatis + explicit SQL + PostgreSQL**. JPA/JDBC coexist only while migration is in progress.
+Production persistence uses **MyBatis + explicit SQL + PostgreSQL**. The PostgreSQL JDBC driver and
+Spring's `DataSourceTransactionManager` remain transport/transaction infrastructure underneath
+MyBatis; application persistence code does not use JPA repositories/entities or `JdbcTemplate`.
 
 | Boundary | Current implementation | Target / priority |
 |---|---|---|
 | ProviderOperation | MyBatis default; rollback adapter may exist where documented | DONE foundation |
 | Chapter | MyBatis only | DONE |
 | Project command/query persistence | MyBatis | DONE |
-| StoryVersion | JPA | NEXT |
+| StoryVersion | MyBatis + explicit SQL | DONE |
 | GenerationJob / StageAttempt / OperationPlan / MediaPlan legacy persistence | MyBatis + explicit SQL | DONE for generation execution boundaries |
-| Generation outbox | MyBatis + explicit SQL; dispatcher JDBC lease remains deliberate | DONE for enqueue boundary |
+| Generation outbox | MyBatis + explicit SQL for enqueue and dispatcher lease | DONE |
 | Job history / chapter-analysis safety gate | MyBatis + explicit SQL | DONE |
-| Quota reservation / usage queries | JDBC/mixed | HIGH |
-| Scene / VisualBeat / revisions | JPA | MEDIUM-HIGH |
-| Character / ProjectCharacter / Location continuity | JPA/mixed | MEDIUM-HIGH |
-| AuthUser and remaining CRUD/query ports | JPA/JDBC | later by risk |
+| Quota reservation / usage queries | MyBatis + explicit SQL | DONE |
+| Scene / VisualBeat / revisions | MyBatis + explicit SQL | DONE |
+| Character / ProjectCharacter / Location continuity | MyBatis + explicit SQL for persistence boundaries | DONE |
+| AuthUser and remaining CRUD/query ports | MyBatis + explicit SQL | DONE |
 
 ## Migration recipe
 
@@ -38,17 +40,17 @@ application port stays unchanged
 - zero affected rows becomes a conflict, not silent success;
 - one shared Spring DataSource/transaction boundary;
 - PostgreSQL Testcontainers for PostgreSQL-specific correctness;
-- do not deepen JPA/JDBC in new persistence-heavy work without an ADR exception.
+- do not reintroduce JPA or direct JDBC-template persistence in new work without an ADR exception.
 
 ## Completion condition
 
-JPA can be removed only when repository-bean selection/architecture tests and PostgreSQL integration tests prove no active production boundary still depends on it.
+The migration is complete when the build contains no JPA dependency, production source has no JPA
+or `JdbcTemplate` references, and architecture tests keep that boundary enforced.
 
 ## Generation execution migration status
 
-The generation execution persistence cutover is now protected by `ArchitectureRulesTest` and
+The generation execution persistence cutover is protected by `ArchitectureRulesTest` and
 `GenerationDurablePersistenceIntegrationTest`. The active adapters for GenerationJob,
 StageAttempt, OperationPlan, GenerationOutbox, JobHistory, ChapterAnalysisSafetyGate, and
-MediaPlan use dedicated MyBatis rows and XML mappers. The outbox dispatcher still uses
-`JdbcTemplate` for its short-lived claim/lease query; that is a dispatch concern, not the
-durable enqueue boundary, and remains governed by the outbox dispatcher transaction tests.
+MediaPlan use dedicated MyBatis rows and XML mappers. The outbox dispatcher also uses its
+dedicated MyBatis mapper for claim/lease operations.

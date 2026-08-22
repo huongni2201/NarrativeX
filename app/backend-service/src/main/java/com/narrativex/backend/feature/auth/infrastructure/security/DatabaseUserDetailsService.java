@@ -1,8 +1,8 @@
 package com.narrativex.backend.feature.auth.infrastructure.security;
 
 import com.narrativex.backend.feature.auth.application.service.RegisterAuthAccountService;
-import com.narrativex.backend.feature.auth.infrastructure.persistence.entity.AuthUserJpaEntity;
-import com.narrativex.backend.feature.auth.infrastructure.persistence.repository.AuthUserJpaRepository;
+import com.narrativex.backend.feature.auth.infrastructure.persistence.mybatis.AuthUserMapper;
+import com.narrativex.backend.feature.auth.infrastructure.persistence.mybatis.AuthUserRow;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class DatabaseUserDetailsService implements UserDetailsService {
-  private final AuthUserJpaRepository repository;
+  private final AuthUserMapper mapper;
 
   @Override
   public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
@@ -20,13 +20,10 @@ public class DatabaseUserDetailsService implements UserDetailsService {
       throw new UsernameNotFoundException("Invalid credentials");
     }
 
-    AuthUserJpaEntity user =
-        repository
-            .findByEmailIgnoreCase(RegisterAuthAccountService.normalizeEmail(email))
-            .filter(
-                candidate ->
-                    candidate.getPasswordHash() != null && !candidate.getPasswordHash().isBlank())
-            .orElseThrow(() -> new UsernameNotFoundException("Invalid credentials"));
+    AuthUserRow user = mapper.findByEmail(RegisterAuthAccountService.normalizeEmail(email));
+    if (user == null || user.getPasswordHash() == null || user.getPasswordHash().isBlank()) {
+      throw new UsernameNotFoundException("Invalid credentials");
+    }
 
     return new NarrativeXUserPrincipal(
         user.getId(),

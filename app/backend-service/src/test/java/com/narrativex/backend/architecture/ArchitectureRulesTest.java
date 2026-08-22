@@ -89,6 +89,34 @@ class ArchitectureRulesTest {
   }
 
   @Test
+  void productionPersistenceDoesNotContainJpaOrJdbcTemplate() throws IOException {
+    List<String> violations = new ArrayList<>();
+    try (Stream<Path> paths = Files.walk(SOURCE_ROOT)) {
+      paths
+          .filter(path -> path.toString().endsWith(".java"))
+          .forEach(
+              path -> {
+                try {
+                  String source = Files.readString(path);
+                  if (source.contains("jakarta.persistence")
+                      || source.contains("org.springframework.data.jpa")
+                      || source.contains("org.springframework.orm")
+                      || source.contains("org.hibernate")
+                      || source.contains("JdbcTemplate")
+                      || source.contains("NamedParameterJdbcTemplate")
+                      || source.contains("JdbcClient")
+                      || source.contains("org.springframework.jdbc.core")) {
+                    violations.add(SOURCE_ROOT.relativize(path).toString());
+                  }
+                } catch (IOException exception) {
+                  throw new IllegalStateException("Unable to inspect " + path, exception);
+                }
+              });
+    }
+    assertTrue(violations.isEmpty(), () -> "Legacy persistence references: " + violations);
+  }
+
+  @Test
   void rulesDetectRepresentativeInvalidDependencies() {
     assertTrue(
         isForbiddenApplicationImport(

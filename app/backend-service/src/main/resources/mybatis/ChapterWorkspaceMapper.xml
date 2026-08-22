@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterWorkspaceMapper">
+    <resultMap id="chapterWorkspaceAggregateRow" type="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterWorkspaceAggregateRow">
+        <result property="projectName" column="project_name"/><result property="moderationDecision" column="moderation_decision"/>
+        <result property="sceneCount" column="scene_count"/><result property="visualBeatCount" column="visual_beat_count"/><result property="estimatedDurationSeconds" column="duration_seconds"/>
+        <result property="storyboardSourceHash" column="storyboard_source_hash"/><result property="hasApprovedOutput" column="has_approved_output"/>
+        <result property="analysisStatus" column="analysis_status"/><result property="analysisSourceHash" column="analysis_source_hash"/><result property="analysisCompletedAt" column="analysis_completed_at"/>
+        <result property="visualGenerationTotal" column="visual_generation_total"/><result property="visualGenerationCompleted" column="visual_generation_completed"/>
+        <result property="visualGenerationFailed" column="visual_generation_failed"/><result property="visualGenerationRunning" column="visual_generation_running"/>
+        <result property="visualGenerationQueued" column="visual_generation_queued"/><result property="visualGenerationActive" column="visual_generation_active"/>
+        <result property="latestVisualGenerationStatus" column="latest_visual_generation_status"/><result property="narrationAssetReady" column="narration_asset_ready"/>
+        <result property="narrationJobStatus" column="narration_job_status"/><result property="narrationCompletedAt" column="narration_completed_at"/>
+        <result property="renderManifestCreated" column="render_manifest_created"/><result property="renderArtifactStatus" column="render_artifact_status"/>
+        <result property="renderJobStatus" column="render_job_status"/><result property="renderCompletedAt" column="render_completed_at"/>
+    </resultMap>
+    <resultMap id="chapterWorkspacePreviewRow" type="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterWorkspacePreviewRow">
+        <id property="id" column="id"/><result property="orderIndex" column="order_index"/><result property="title" column="title"/>
+        <result property="durationSeconds" column="duration_seconds"/><result property="status" column="status"/>
+        <result property="visualBeatCount" column="visual_beat_count"/><result property="previewImageUrl" column="preview_image_url"/>
+    </resultMap>
+    <select id="aggregate" resultMap="chapterWorkspaceAggregateRow">
+        WITH current_revision AS (
+            SELECT c.current_storyboard_revision_id AS revision_id, sr.source_hash AS storyboard_source_hash
+              FROM chapters c LEFT JOIN storyboard_revisions sr ON sr.id = c.current_storyboard_revision_id
+             WHERE c.id = #{chapterId}
+        ), scene_stats AS (
+            SELECT COUNT(s.id)::int AS scene_count, COALESCE(SUM(s.duration_seconds), 0)::bigint AS duration_seconds
+              FROM current_revision cr LEFT JOIN scenes s ON s.storyboard_revision_id = cr.revision_id AND s.status &lt;&gt; 'OUTDATED'
+        ), beat_stats AS (
+            SELECT COUNT(vb.id)::int AS visual_beat_count
+              FROM current_revision cr LEFT JOIN scenes s ON s.storyboard_revision_id = cr.revision_id AND s.status &lt;&gt; 'OUTDATED'
+              LEFT JOIN visual_beats vb ON vb.scene_id = s.id
+        ), approval_state AS (
+            SELECT EXISTS (SELECT 1 FROM current_revision cr JOIN scenes s ON s.storyboard_revision_id = cr.revision_id
+                           LEFT JOIN visual_beats vb ON vb.scene_id = s.id
+                           WHERE s.status = 'APPROVED' OR vb.review_status = 'APPROVED') AS has_approved_output
+        ), latest_analysis AS (
+            SELECT status, source_hash, CASE WHEN status = 'COMPLETED' THEN updated_at ELSE NULL END AS completed_at
+              FROM generation_jobs WHERE chapter_id = #{chapterId} AND job_type = 'CHAPTER_ANALYZE'
+             ORDER BY created_at DESC, id DESC LIMIT 1
+        ), visual_generation AS (
+            SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE status = 'COMPLETED')::int AS completed,
+                   COUNT(*) FILTER (WHERE status = 'FAILED')::int AS failed,
+                   COUNT(*) FILTER (WHERE status = 'RUNNING')::int AS running,
+                   COUNT(*) FILTER (WHERE status = 'QUEUED')::int AS queued,
+                   COUNT(*) FILTER (WHERE status IN ('QUEUED','RUNNING','STALLED','UNKNOWN','PAUSED_COST_LIMIT'))::int AS active
+              FROM generation_jobs WHERE chapter_id = #{chapterId} AND job_type IN ('IMAGE_GENERATE','SHOT_IMAGE_GENERATE')
+        ), latest_visual_generation AS (
+            SELECT status FROM generation_jobs WHERE chapter_id = #{chapterId}
+              AND job_type IN ('IMAGE_GENERATE','SHOT_IMAGE_GENERATE') ORDER BY created_at DESC, id DESC LIMIT 1
+        ), latest_narration AS (
+            SELECT na.id AS narration_asset_id, gj.status AS job_status,
+                   CASE WHEN na.id IS NOT NULL THEN na.created_at ELSE NULL END AS completed_at
+              FROM narration_requests nr LEFT JOIN narration_operations no ON no.narration_request_id = nr.id
+              LEFT JOIN generation_jobs gj ON gj.id = no.generation_job_id
+              LEFT JOIN narration_assets na ON na.narration_request_id = nr.id
+             WHERE nr.chapter_id = #{chapterId} ORDER BY nr.created_at DESC, nr.id DESC LIMIT 1
+        ), latest_render_manifest AS (
+            SELECT id, created_at FROM render_manifests WHERE chapter_id = #{chapterId}
+             ORDER BY created_at DESC, id DESC LIMIT 1
+        ), latest_render_artifact AS (
+            SELECT fa.generation_job_id, fa.status AS artifact_status,
+                   CASE WHEN fa.status = 'READY' THEN COALESCE(fa.updated_at, fa.created_at) ELSE NULL END AS completed_at
+              FROM final_artifacts fa JOIN latest_render_manifest lrm ON lrm.id = fa.render_manifest_id
+             WHERE fa.status &lt;&gt; 'ARCHIVED' ORDER BY fa.created_at DESC, fa.id DESC LIMIT 1
+        ), latest_render_job AS (
+            SELECT gj.status AS job_status FROM generation_jobs gj
+             WHERE (gj.chapter_id = #{chapterId} AND gj.job_type IN ('CHAPTER_RENDER','RENDER_PROJECT','RENDER_SHORT'))
+                OR gj.id = (SELECT generation_job_id FROM latest_render_artifact)
+             ORDER BY gj.created_at DESC, gj.id DESC LIMIT 1
+        )
+        SELECT p.name AS project_name, sv.moderation_decision, ss.scene_count, bs.visual_beat_count,
+               ss.duration_seconds, cr.storyboard_source_hash, aps.has_approved_output,
+               la.status AS analysis_status, la.source_hash AS analysis_source_hash, la.completed_at AS analysis_completed_at,
+               vg.total AS visual_generation_total, vg.completed AS visual_generation_completed,
+               vg.failed AS visual_generation_failed, vg.running AS visual_generation_running,
+               vg.queued AS visual_generation_queued, vg.active AS visual_generation_active,
+               lvg.status AS latest_visual_generation_status,
+               (SELECT narration_asset_id IS NOT NULL FROM latest_narration) AS narration_asset_ready,
+               (SELECT job_status FROM latest_narration) AS narration_job_status,
+               (SELECT completed_at FROM latest_narration) AS narration_completed_at,
+               EXISTS (SELECT 1 FROM latest_render_manifest) AS render_manifest_created,
+               (SELECT artifact_status FROM latest_render_artifact) AS render_artifact_status,
+               (SELECT job_status FROM latest_render_job) AS render_job_status,
+               (SELECT completed_at FROM latest_render_artifact) AS render_completed_at
+          FROM projects p JOIN chapters c ON c.id = #{chapterId}
+          JOIN story_versions sv ON sv.id = c.story_version_id AND sv.project_id = p.id
+          CROSS JOIN current_revision cr CROSS JOIN scene_stats ss CROSS JOIN beat_stats bs
+          CROSS JOIN approval_state aps LEFT JOIN latest_analysis la ON TRUE
+          LEFT JOIN latest_visual_generation lvg ON TRUE
+         WHERE p.id = #{projectId}
+    </select>
+
+    <select id="previewScenes" resultMap="chapterWorkspacePreviewRow">
+        SELECT s.id, s.order_index, s.title, s.duration_seconds, s.status,
+               COUNT(vb.id)::int AS visual_beat_count,
+               (array_agg(pa.url ORDER BY vb.order_index, vb.id) FILTER (WHERE pa.url IS NOT NULL))[1] AS preview_image_url
+          FROM chapters c JOIN scenes s ON s.storyboard_revision_id = c.current_storyboard_revision_id
+          LEFT JOIN visual_beats vb ON vb.scene_id = s.id
+          LEFT JOIN project_assets pa ON pa.id = vb.preview_asset_id AND pa.project_id = #{projectId}
+             AND pa.asset_type = 'IMAGE' AND pa.status = 'ACTIVE'
+         WHERE c.id = #{chapterId} AND s.status &lt;&gt; 'OUTDATED'
+         GROUP BY s.id, s.order_index, s.title, s.duration_seconds, s.status
+         ORDER BY s.order_index ASC, s.id ASC LIMIT 4
+    </select>
+</mapper>

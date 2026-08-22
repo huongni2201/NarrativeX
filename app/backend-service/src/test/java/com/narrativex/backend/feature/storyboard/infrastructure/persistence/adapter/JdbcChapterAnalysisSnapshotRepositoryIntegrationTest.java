@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSource;
+import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterAnalysisSnapshotMapper;
 import com.narrativex.backend.support.PostgreSqlIntegrationTestSupport;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -15,12 +16,13 @@ import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest
 @ActiveProfiles("test")
-class JdbcChapterAnalysisSnapshotRepositoryIntegrationTest
+class MyBatisChapterAnalysisSnapshotRepositoryIntegrationTest
     extends PostgreSqlIntegrationTestSupport {
   private static final String SOURCE_HASH =
       "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
 
   @Autowired private JdbcTemplate jdbcTemplate;
+  @Autowired private ChapterAnalysisSnapshotMapper mapper;
 
   @Test
   void returnsSnapshotOnlyForTheRequestedOwnedProjectScope() {
@@ -30,7 +32,7 @@ class JdbcChapterAnalysisSnapshotRepositoryIntegrationTest
             "SELECT sv.project_id FROM chapters c JOIN story_versions sv ON sv.id = c.story_version_id WHERE c.id = ?",
             Long.class,
             chapterId);
-    var repository = new JdbcChapterAnalysisSnapshotRepository(jdbcTemplate);
+    var repository = new MyBatisChapterAnalysisSnapshotRepository(mapper);
 
     ChapterAnalysisSource snapshot =
         repository.requireOwnedByProject(projectId, chapterId, "owner-a");

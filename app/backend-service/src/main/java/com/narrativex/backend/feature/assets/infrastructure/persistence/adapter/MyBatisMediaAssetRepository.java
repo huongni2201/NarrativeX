@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -201,8 +201,8 @@ public class MyBatisMediaAssetRepository implements MediaAssetRepository {
         row.getValidatedAt());
   }
 
-  private static ObjectOptimisticLockingFailureException optimisticConflict(UUID id) {
-    return new ObjectOptimisticLockingFailureException(MediaAssetView.class, id);
+  private static OptimisticLockingFailureException optimisticConflict(UUID id) {
+    return new OptimisticLockingFailureException("Media asset " + id + " was modified concurrently");
   }
 
   private static String normalizeOptional(String value) {

@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.dao.OptimisticLockingFailureException;
 
 class MyBatisMediaAssetRepositoryTest {
   private static final String ACCOUNT = "account-1";

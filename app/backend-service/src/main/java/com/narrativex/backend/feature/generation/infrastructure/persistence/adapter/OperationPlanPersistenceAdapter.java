@@ -6,7 +6,7 @@ import com.narrativex.backend.feature.generation.domain.aggregate.OperationPlan;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.OperationPlanMapper;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.OperationPlanRow;
 import lombok.RequiredArgsConstructor;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -41,7 +41,7 @@ public class OperationPlanPersistenceAdapter implements OperationPlanRepository 
                 + operationPlan.getId()
                 + " no longer exists while applying an update");
       }
-      throw new ObjectOptimisticLockingFailureException(OperationPlan.class, operationPlan.getId());
+      throw new OptimisticLockingFailureException("Operation plan was modified concurrently");
     }
     OperationPlanRow updated = mapper.findById(operationPlan.getId());
     if (updated == null) {

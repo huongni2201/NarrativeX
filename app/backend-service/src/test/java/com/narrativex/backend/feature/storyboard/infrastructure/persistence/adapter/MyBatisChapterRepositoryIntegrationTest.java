@@ -17,7 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -90,7 +90,7 @@ class MyBatisChapterRepositoryIntegrationTest extends PostgreSqlIntegrationTestS
     Chapter updated = repository.saveAndFlush(current);
 
     assertEquals(1L, updated.getRowVersion());
-    assertThrows(ObjectOptimisticLockingFailureException.class, () -> repository.save(stale));
+    assertThrows(OptimisticLockingFailureException.class, () -> repository.save(stale));
     Chapter stillCurrent = repository.findById(created.getId()).orElseThrow();
     assertEquals("server update", stillCurrent.getSourceText());
     assertEquals(HASH_UPDATED, stillCurrent.getSourceHash());

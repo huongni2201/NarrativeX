@@ -5,7 +5,7 @@
 - Entry point: `com.narrativex.backend.NarrativeXBackendApplication`.
 - Build: Maven under `app/backend-service`.
 - Runtime: Java 25, Spring Boot 4.1.0.
-- Persistence: MyBatis + explicit SQL is the strategic and active path for migrated durability boundaries, backed by PostgreSQL and Flyway. Remaining Spring Data JPA/JDBC code is migration-era or an explicitly documented operational exception.
+- Persistence: MyBatis + explicit SQL is the sole production persistence boundary, backed by PostgreSQL and Flyway. The JDBC driver/DataSource remain underlying infrastructure; JPA and `JdbcTemplate` are not used by production code.
 - Redis: Spring Data Redis provides non-authoritative abuse-control/delivery/cache/progress infrastructure, while Spring Session Data Redis stores authenticated HTTP session state.
 - Architecture: modular monolith with extraction-oriented feature boundaries plus a separate Python asynchronous AI/media worker.
 
@@ -48,7 +48,7 @@ OperationPlan
 
 Provider requests require durable lifecycle state. Ambiguous external state uses `UNKNOWN` reconciliation instead of blind retry/resubmit. Full actual-usage reconciliation and unused-reservation release remain follow-up work.
 
-The active generation durability path is now MyBatis/explicit SQL for ProviderOperation, GenerationJob, StageAttempt, OperationPlan, MediaPlan, generation outbox enqueue, Job History and the Chapter Analyze safety gate. Chapter, Project, and the account-scoped MediaAsset library are also MyBatis-backed. MediaAsset bytes use verified R2 upload intents/finalization; metadata uses PostgreSQL upload sessions, guarded lifecycle transitions, soft delete, and cursor pagination. The outbox dispatcher still uses `JdbcTemplate` for its short-lived claim/lease query; this is a deliberate operational exception rather than the durable enqueue authority.
+The active generation durability path is MyBatis/explicit SQL for ProviderOperation, GenerationJob, StageAttempt, OperationPlan, MediaPlan, generation outbox enqueue/dispatch, Job History and the Chapter Analyze safety gate. Chapter, Project, StoryVersion, storyboard, characters, account/quota, auth, catalog, notifications and the account-scoped MediaAsset library are also MyBatis-backed. MediaAsset bytes use verified R2 upload intents/finalization; metadata uses PostgreSQL upload sessions, guarded lifecycle transitions, soft delete, and cursor pagination.
 
 Application ports remain persistence-technology-neutral. MyBatis boundaries use dedicated row models and explicit PostgreSQL predicates, including `row_version` CAS for mutable writes. Future MyBatis boundaries must extend `NarrativeXMyBatisMapper` so shared configuration registers only explicitly opted-in mapper interfaces. XML uses explicit result maps and keeps SQL-specific JSONB/enum/timestamp mappings visible. Adapters validate affected rows for guarded updates rather than issuing unconditional writes after a Java-side version check. See ADR-0010 and ADR-0015 for the accepted SQL-first persistence and generation-durability migration decisions.
 
@@ -81,7 +81,7 @@ Avatar/asset counts, relationship graphs and detailed scene participation are no
 - Location and Asset read/API foundations where recorded in the integration matrix.
 - Job history, user quota and notification read foundations.
 - Authentication/session endpoints with password auth and Google OIDC.
-- New password and Google accounts receive the default `NORMAL v1` plan assignment transactionally; migration V5 backfills existing accounts without an assignment.
+- New password and Google accounts receive the default `NORMAL v1` plan assignment transactionally; the Flyway baseline also provisions the default assignment for existing accounts that have none.
 
 Backend endpoint availability does not imply every frontend surface is wired. Project Character list/detail is an exception: that vertical slice is wired end to end. See `FRONTEND_API_INTEGRATION_MATRIX.md`.
 
@@ -89,7 +89,7 @@ Backend endpoint availability does not imply every frontend surface is wired. Pr
 
 - Domain code remains framework-free.
 - Aggregate invariants are enforced by domain factories/intent methods; application services coordinate authorization, persistence and external systems.
-- Mutable aggregate writes use guarded `row_version`/JPA `@Version` semantics where the boundary still requires them; migrated SQL paths prefer explicit CAS predicates.
+- Mutable aggregate writes use guarded `row_version` CAS predicates in explicit SQL.
 - Provider calls stay outside long database transactions.
 
 ## MVP media generation boundary

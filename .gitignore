@@ -35,6 +35,7 @@ target/
 *.ear
 hs_err_pid*
 replay_pid*
+.codegraph/
 
 # ==========================================
 # Python (AI Worker)

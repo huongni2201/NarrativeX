@@ -26,7 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest
@@ -60,7 +60,7 @@ class GenerationDurablePersistenceIntegrationTest extends PostgreSqlIntegrationT
         operationPlanRepository.save(persistedPlan.withGenerationJobId(job.getId()));
     assertEquals(1L, boundPlan.getRowVersion());
     assertThrows(
-        ObjectOptimisticLockingFailureException.class,
+        OptimisticLockingFailureException.class,
         () -> operationPlanRepository.save(persistedPlan.withGenerationJobId(job.getId())));
 
     StageAttempt attempt =

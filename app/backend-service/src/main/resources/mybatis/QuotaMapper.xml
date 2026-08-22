@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.account.infrastructure.persistence.mybatis.QuotaMapper">
+    <resultMap id="quotaCurrentRow" type="com.narrativex.backend.feature.account.infrastructure.persistence.mybatis.QuotaCurrentRow">
+        <result property="planKey" column="plan_key" />
+        <result property="status" column="status" />
+        <result property="periodStart" column="period_start" />
+        <result property="periodEnd" column="period_end" />
+        <result property="watermarkRequired" column="watermark_required" />
+        <result property="maxVideoQuality" column="max_video_quality" />
+        <result property="maxLongformExportsMonth" column="max_longform_exports_month" />
+        <result property="maxShortExportsMonth" column="max_short_exports_month" />
+        <result property="maxConcurrentExpensiveJobs" column="max_concurrent_expensive_jobs" />
+        <result property="monthlyCredits" column="monthly_credits" />
+        <result property="featureFlagsJson" column="feature_flags_json" />
+        <result property="longformExports" column="longform_exports" />
+        <result property="shortExports" column="short_exports" />
+        <result property="activeReservedJobs" column="active_reserved_jobs" />
+        <result property="creditsUsed" column="credits_used" />
+        <result property="creditsReserved" column="credits_reserved" />
+    </resultMap>
+
+    <select id="findCurrent" resultMap="quotaCurrentRow">
+        SELECT upa.plan_key,
+               upa.status,
+               upa.period_start::date AS period_start,
+               upa.period_end::date AS period_end,
+               pe.watermark_required,
+               pe.max_video_quality,
+               pe.max_longform_exports_month,
+               pe.max_short_exports_month,
+               pe.max_concurrent_expensive_jobs,
+               pe.monthly_credits,
+               pe.feature_flags_json::text AS feature_flags_json,
+               COALESCE(uw.longform_exports, 0) AS longform_exports,
+               COALESCE(uw.short_exports, 0) AS short_exports,
+               COALESCE((SELECT COUNT(*) FROM quota_reservations qr
+                          WHERE qr.user_id = upa.user_id AND qr.status = 'RESERVED'), 0)::integer
+                   AS active_reserved_jobs,
+               COALESCE(uw.credits_used, 0) AS credits_used,
+               COALESCE((SELECT SUM(qr.estimated_cost) FROM quota_reservations qr
+                          WHERE qr.user_id = upa.user_id AND qr.period_key = #{periodKey}
+                            AND qr.status = 'RESERVED'), 0) AS credits_reserved
+          FROM user_plan_assignments upa
+          JOIN plan_entitlements pe
+            ON pe.plan_key = upa.plan_key AND pe.version = upa.entitlement_version
+          LEFT JOIN usage_windows uw
+            ON uw.user_id = upa.user_id AND uw.period_key = #{periodKey}
+         WHERE upa.user_id = #{userId}
+           AND upa.status = 'ACTIVE'
+           AND (upa.period_start IS NULL OR upa.period_start &lt;= CURRENT_TIMESTAMP)
+           AND (upa.period_end IS NULL OR upa.period_end &gt;= CURRENT_TIMESTAMP)
+         ORDER BY pe.active_from DESC, pe.id DESC
+         LIMIT 1
+    </select>
+
+    <resultMap id="activePlanRow" type="com.narrativex.backend.feature.account.infrastructure.persistence.mybatis.ActivePlanRow">
+        <result property="planKey" column="plan_key" />
+        <result property="monthlyCredits" column="monthly_credits" />
+    </resultMap>
+
+    <select id="findActivePlanForUpdate" resultMap="activePlanRow">
+        SELECT upa.plan_key,
+               pe.monthly_credits
+          FROM user_plan_assignments upa
+          JOIN plan_entitlements pe ON pe.plan_key = upa.plan_key AND pe.version = upa.entitlement_version
+         WHERE upa.user_id = #{userId}
+           AND upa.status = 'ACTIVE'
+           AND (upa.period_start IS NULL OR upa.period_start &lt;= CURRENT_TIMESTAMP)
+           AND (upa.period_end IS NULL OR upa.period_end &gt;= CURRENT_TIMESTAMP)
+         ORDER BY pe.active_from DESC, pe.id DESC
+         LIMIT 1
+         FOR UPDATE OF upa
+    </select>
+
+    <select id="findMonthlyCreditsForUpdate" resultType="java.math.BigDecimal">
+        SELECT pe.monthly_credits
+          FROM user_plan_assignments upa
+          JOIN plan_entitlements pe ON pe.plan_key = upa.plan_key AND pe.version = upa.entitlement_version
+         WHERE upa.user_id = #{userId}
+           AND upa.status = 'ACTIVE'
+           AND (upa.period_start IS NULL OR upa.period_start &lt;= CURRENT_TIMESTAMP)
+           AND (upa.period_end IS NULL OR upa.period_end &gt;= CURRENT_TIMESTAMP)
+         ORDER BY pe.active_from DESC, pe.id DESC
+         LIMIT 1
+         FOR UPDATE OF upa
+    </select>
+
+    <select id="currentPeriodKey" resultType="string">
+        SELECT to_char(CURRENT_DATE, 'YYYY-MM')
+    </select>
+
+    <insert id="ensureUsageWindow">
+        INSERT INTO usage_windows (user_id, period_key)
+        VALUES (#{userId}, #{periodKey})
+        ON CONFLICT (user_id, period_key) DO NOTHING
+    </insert>
+
+    <select id="countActiveReservations" resultType="int">
+        SELECT COUNT(*)::int FROM quota_reservations
+         WHERE user_id = #{userId} AND status = 'RESERVED'
+    </select>
+
+    <select id="findCreditsUsedForUpdate" resultType="java.math.BigDecimal">
+        SELECT credits_used FROM usage_windows
+         WHERE user_id = #{userId} AND period_key = #{periodKey}
+         FOR UPDATE
+    </select>
+
+    <select id="findCreditsReserved" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(estimated_cost), 0) FROM quota_reservations
+         WHERE user_id = #{userId} AND period_key = #{periodKey} AND status = 'RESERVED'
+    </select>
+
+    <select id="insertReservation" parameterType="com.narrativex.backend.feature.account.infrastructure.persistence.mybatis.QuotaReservationRow" resultType="long" affectData="true">
+        INSERT INTO quota_reservations (user_id, period_key, estimated_cost, status)
+        VALUES (#{userId}, #{periodKey}, #{estimatedCost}, 'RESERVED')
+        RETURNING id
+    </select>
+
+    <update id="bindToGenerationJob">
+        UPDATE quota_reservations
+           SET generation_job_id = #{generationJobId}, updated_at = CURRENT_TIMESTAMP,
+               row_version = row_version + 1
+         WHERE id = #{reservationId} AND status = 'RESERVED'
+           AND (generation_job_id IS NULL OR generation_job_id = #{generationJobId})
+    </update>
+
+    <select id="countBilledOperations" resultType="int">
+        SELECT COUNT(*)::int FROM provider_operations po
+        JOIN stage_attempts sa ON sa.id = po.stage_attempt_id
+        WHERE sa.generation_job_id = #{generationJobId} AND po.actual_cost IS NOT NULL
+    </select>
+
+    <update id="consumeForJob">
+        WITH reconciled AS (
+            SELECT SUM(po.actual_cost) AS actual_cost,
+                   CASE WHEN COUNT(DISTINCT po.billing_currency) = 1
+                        THEN MAX(po.billing_currency) ELSE NULL END AS billing_currency
+              FROM provider_operations po
+              JOIN stage_attempts sa ON sa.id = po.stage_attempt_id
+             WHERE sa.generation_job_id = #{generationJobId} AND po.actual_cost IS NOT NULL
+        ), consumed AS (
+            UPDATE quota_reservations qr
+               SET status = 'CONSUMED', actual_cost = reconciled.actual_cost,
+                   billing_currency = reconciled.billing_currency,
+                   finalized_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP,
+                   row_version = qr.row_version + 1
+              FROM reconciled
+             WHERE qr.generation_job_id = #{generationJobId}
+               AND qr.status = 'RESERVED' AND reconciled.billing_currency IS NOT NULL
+             RETURNING qr.user_id, qr.period_key, qr.actual_cost
+        )
+        UPDATE usage_windows uw
+           SET credits_used = uw.credits_used + consumed.actual_cost,
+               row_version = uw.row_version + 1
+          FROM consumed
+         WHERE uw.user_id = consumed.user_id AND uw.period_key = consumed.period_key
+    </update>
+
+    <update id="releaseForJob">
+        UPDATE quota_reservations
+           SET status = 'RELEASED', actual_cost = 0,
+               billing_currency = COALESCE(billing_currency, 'USD'),
+               finalized_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP,
+               row_version = row_version + 1
+         WHERE generation_job_id = #{generationJobId} AND status = 'RESERVED'
+    </update>
+</mapper>

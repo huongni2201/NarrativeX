@@ -7,7 +7,7 @@ import com.narrativex.backend.feature.generation.infrastructure.persistence.myba
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.GenerationJobRow;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -129,7 +129,7 @@ public class MyBatisGenerationJobPersistenceAdapter implements GenerationJobRepo
         "GenerationJob " + id + " no longer exists while applying an update");
   }
 
-  private static ObjectOptimisticLockingFailureException optimisticConflict(Long id) {
-    return new ObjectOptimisticLockingFailureException(GenerationJob.class, id);
+  private static OptimisticLockingFailureException optimisticConflict(Long id) {
+    return new OptimisticLockingFailureException("Generation job " + id + " was modified concurrently");
   }
 }

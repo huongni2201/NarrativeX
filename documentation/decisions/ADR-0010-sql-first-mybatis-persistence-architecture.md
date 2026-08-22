@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-08-20 (consolidated and updated: 2026-08-21)
-- Scope: Standard persistence architecture across backend aggregates, shared MyBatis conventions, optimistic locking, and completed migrations for ProviderOperation, Chapter, and Project boundaries.
+- Scope: Standard persistence architecture across backend aggregates, shared MyBatis conventions, optimistic locking, and the completed production migration from JPA/JdbcTemplate to MyBatis.
 - Consolidated from: former ADR-0014, ADR-0015, ADR-0017, and ADR-0020.
 
 ## Context
@@ -15,10 +15,10 @@ To establish clear, auditable SQL behavior and predictable transaction boundarie
 
 ### 1. Architectural Conventions & Boundary Isolation
 
-- **Technology-Neutral Ports:** Domain and application code interact only with repository interfaces (e.g. `ChapterRepository`, `ProjectRepository`, `ProviderOperationRepository`). They never import JPA, Hibernate, or MyBatis classes.
+- **Technology-Neutral Ports:** Domain and application code interact only with repository interfaces (e.g. `ChapterRepository`, `ProjectRepository`, `ProviderOperationRepository`). They never import JPA, Hibernate, JDBC template, or MyBatis classes.
 - **MyBatis Configuration:** All mappers extend `NarrativeXMyBatisMapper` and are automatically scanned under `com.narrativex.backend.feature`.
 - **Dedicated Row Models:** Each feature keeps dedicated row models (e.g., `ChapterRow`, `ProjectRow`, `ProviderOperationRow`) and XML mappers (e.g., `ChapterMapper.xml`). JPA entities are never reused for MyBatis mapping.
-- **Shared Connection & Transaction:** MyBatis participates directly in the Spring `PlatformTransactionManager` and shares the application HikariCP `DataSource`. It does not create separate connection pools.
+- **Shared Connection & Transaction:** MyBatis participates directly in Spring's JDBC-backed `DataSourceTransactionManager` and shares the application HikariCP `DataSource`. It does not create separate connection pools; the JDBC driver is an implementation detail below the mapper boundary.
 - **Explicit Result Maps:** Global `map-underscore-to-camel-case` is disabled; all column-to-property mappings are declared explicitly in XML.
 
 ### 2. Optimistic Concurrency & CAS Predicates
@@ -43,7 +43,7 @@ To establish clear, auditable SQL behavior and predictable transaction boundarie
 
 1. Domain aggregates never import persistence framework packages.
 2. Updates on mutable state always use explicit `row_version` CAS in SQL.
-3. MyBatis and JPA operations share one PostgreSQL transaction boundary.
+3. All durable application persistence operations use MyBatis within one PostgreSQL transaction boundary.
 4. Database integration tests run against PostgreSQL in Testcontainers (H2 is not accepted as compatibility evidence).
 
 ## Consequences

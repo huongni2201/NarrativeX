@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.dao.OptimisticLockingFailureException;
 
 @ExtendWith(MockitoExtension.class)
 class MyBatisChapterRepositoryTest {
@@ -47,7 +47,7 @@ class MyBatisChapterRepositoryTest {
     when(mapper.update(any(ChapterRow.class))).thenReturn(0);
 
     assertThrows(
-        ObjectOptimisticLockingFailureException.class,
+        OptimisticLockingFailureException.class,
         () -> new MyBatisChapterRepository(mapper).saveAndFlush(chapter));
 
     verify(mapper).update(any(ChapterRow.class));
