@@ -1,6 +1,6 @@
 # NarrativeX V1.11 Current Implementation Traceability
 
-This matrix maps the V1.11 contract to repository evidence at the docs-sync base `a614d05101a5992783cbc580668b4ed0927b41d9`.
+This matrix maps the V1.11 contract to repository evidence at the docs-sync base `69d5ecdeffdb5e01e0631dbdc2709f207f890044`.
 
 | Capability / invariant | Evidence | Status |
 |---|---|---|

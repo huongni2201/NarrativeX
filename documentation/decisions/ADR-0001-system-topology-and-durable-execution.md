@@ -22,7 +22,7 @@ NarrativeX combines transaction-heavy project/story/character state with Python 
 - `ProviderOperation` uses its own lifecycle enum and must not reuse parent `JobStatus`.
 - Stage attempts require claim/lease/heartbeat semantics and an explicit stalled/recovery path.
 - Expensive work requires authorization, affected-scope planning, estimate/reservation, entitlement and abuse checks, usage attribution and a spending cap before billable execution.
-- Story analysis does not require a per-story copyright/rights checkbox. Input safety/moderation and real-person consent where applicable remain independent gates.
+- Story analysis does not require a per-story copyright/rights checkbox or an application-owned pre-moderation review. Real-person consent, abuse controls, entitlement, quota and provider policy enforcement remain independent controls.
 
 ## Minimum production enqueue invariant
 
@@ -32,7 +32,7 @@ request
   -> idempotency
   -> persisted/current Chapter source snapshot
   -> active/current StoryVersion where required by the source model
-  -> abuse + safety/moderation
+  -> abuse + entitlement/quota
   -> entitlement/quota
   -> affected scope + estimate/authorization
   -> DB transaction:
@@ -52,7 +52,7 @@ Until this path exists and is integration-tested, `POST /api/v1/projects/{projec
 
 The backend enforces the fail-closed rule above in `EnqueueStoryAnalysisUseCase`: the analysis-create operation returns `FEATURE_NOT_AVAILABLE` before any `OperationPlan` or `GenerationJob` is persisted. The HTTP scaffold is Chapter-scoped so Project creation cannot be mistaken for an analysis trigger. This closes the unsafe scaffold where rows could remain indefinitely in `QUEUED` while the Python worker had no consumer path.
 
-The Chapter Workspace now exposes the persisted StoryVersion moderation decision and keeps `canAnalyze=false` until the decision is `SAFE`, so the frontend does not present an action that is guaranteed to be rejected by the admission gate. This is a presentation/read-model alignment only; it does not replace the still-missing durable moderation writer and review workflow.
+Chapter analysis no longer waits for an application-owned moderation decision. New and edited Chapter source is admitted after ownership, snapshot, idempotency, entitlement and quota checks. Provider safety policy remains authoritative during provider execution; a provider rejection is recorded at the affected generation item/scene and does not block unrelated scenes.
 
 The durable production path is still intentionally pending. Re-enabling story-analysis enqueue requires all of the following to land together with integration coverage: request idempotency, persisted/current Chapter source validation, StoryVersion validation where required by the source model, safety/abuse checks, entitlement/quota/concurrency checks, non-placeholder cost estimate and authorization/reservation, atomic `GenerationJob + StageAttempt(s) + OutboxEvent` persistence, post-commit dispatch, worker claim/lease/heartbeat/recovery, and `ProviderOperation RESERVED` before any external provider submission.
 
@@ -76,7 +76,7 @@ This does not remove safety or consent obligations that are materially different
 - Worker scaling and GPU/CPU resource classes can evolve independently without moving canonical authority out of PostgreSQL.
 - Retries preserve prior evidence and are policy-driven rather than blind.
 - Cross-runtime contracts must be versioned, tested and unable to bypass ownership, entitlement, safety or reconciliation rules.
-- UI must represent analysis as unavailable/pending integration instead of treating a non-executable queued row as successful submission.
+- UI must represent analysis from the durable analysis/job state and must not expose an internal moderation-pending gate.
 - Unexpected database integrity failures stay observable as server defects rather than being hidden behind a generic client conflict.
 - StoryVersion no longer carries legacy copyright/rights attestation state in API or persistence contracts.
 

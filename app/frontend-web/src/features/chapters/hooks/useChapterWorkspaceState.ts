@@ -130,10 +130,6 @@ export function useChapterWorkspaceState(projectId: string, chapterId: string) {
       });
     },
     onError: (error) => {
-      if (error instanceof ApiClientError && error.code === "SAFETY_REVIEW_REQUIRED") {
-        setAnalysisMessage("Phân tích đang chờ kiểm duyệt an toàn cho nội dung Chapter.");
-        return;
-      }
       setAnalysisMessage(apiErrorMessage(error, "Không thể bắt đầu phân tích Chapter."));
     },
   });

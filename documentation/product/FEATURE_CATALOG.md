@@ -7,7 +7,7 @@ This is the single maintained feature/status view. Historical requirement identi
 | Project/Chapter authoring | IMPLEMENTED foundation | MyBatis Project + Chapter persistence |
 | Project dashboard/favorite | IMPLEMENTED foundation | authoritative dashboard/favorite API + frontend wiring |
 | Chapter Analyze | IMPLEMENTED | durable admission/job/provider/reconciliation |
-| Generation durability persistence | IMPLEMENTED for covered boundaries | GenerationJob/StageAttempt/OperationPlan/MediaPlan/outbox enqueue/Job History/safety gate on MyBatis/explicit SQL |
+| Generation durability persistence | IMPLEMENTED for covered boundaries | GenerationJob/StageAttempt/OperationPlan/MediaPlan/outbox enqueue/Job History on MyBatis/explicit SQL; Chapter Analyze has no internal pre-moderation gate |
 | Character/Location continuity | IMPLEMENTED foundation | complete human review/reference lock still PARTIAL |
 | Project Character list/detail | IMPLEMENTED foundation | project-scoped authoritative read model wired end to end |
 | Storyboard/VisualBeat | IMPLEMENTED foundation | approved revision/reset workflow PARTIAL |

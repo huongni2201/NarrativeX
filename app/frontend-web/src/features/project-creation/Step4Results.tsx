@@ -15,7 +15,7 @@ export const Step4Results: React.FC<Step4Props> = ({ onBack }) => {
         </p>
       </div>
       <div className="rounded-xl border border-dashed border-slate-700 bg-surface-dark p-6 text-center">
-        <Sparkles className="mx-auto h-8 w-8 text-purple-400" />
+        <Sparkles className="mx-auto h-8 w-8 text-orange-400" />
         <p className="mt-3 text-sm font-semibold text-slate-200">Kết quả sẽ xuất hiện sau khi job hoàn tất</p>
         <p className="mt-2 text-xs leading-5 text-slate-400">
           Dữ liệu kịch bản và phân tích sẽ được đồng bộ trực tiếp từ API backend.

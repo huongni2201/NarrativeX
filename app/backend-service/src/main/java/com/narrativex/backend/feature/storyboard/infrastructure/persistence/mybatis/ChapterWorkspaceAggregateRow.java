@@ -8,7 +8,6 @@ import lombok.Setter;
 @Setter
 public class ChapterWorkspaceAggregateRow {
   private String projectName;
-  private String moderationDecision;
   private int sceneCount;
   private int visualBeatCount;
   private long estimatedDurationSeconds;

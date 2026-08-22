@@ -46,7 +46,7 @@ export function AddVisualBeatModal({
             onClick={onClose}
             disabled={isPending}
             aria-label="Đóng"
-            className="rounded-md p-1.5 text-slate-500 transition-colors hover:bg-slate-800 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+            className="rounded-md p-1.5 text-slate-500 transition-colors hover:bg-slate-800 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
           >
             <X className="h-4 w-4" />
           </button>
@@ -57,7 +57,7 @@ export function AddVisualBeatModal({
             <select
               value={addSceneId?.toString() ?? ""}
               onChange={(event) => onSceneChange(Number(event.target.value))}
-              className="mt-1.5 h-10 w-full rounded-lg border border-border-dark bg-surface-input px-3 text-sm text-slate-200 outline-none transition-colors focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+              className="mt-1.5 h-10 w-full rounded-lg border border-border-dark bg-surface-input px-3 text-sm text-slate-200 outline-none transition-colors focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
             >
               {storyboard.scenes.map((scene: ApiStoryboardScene) => (
                 <option key={scene.id} value={scene.id}>
@@ -73,7 +73,7 @@ export function AddVisualBeatModal({
               onChange={(event) => onTitleChange(event.target.value)}
               maxLength={200}
               placeholder="Ví dụ: Đội quân xuất phát"
-              className="mt-1.5 h-10 w-full rounded-lg border border-border-dark bg-surface-input px-3 text-sm text-slate-100 outline-none placeholder:text-slate-600 transition-colors focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+              className="mt-1.5 h-10 w-full rounded-lg border border-border-dark bg-surface-input px-3 text-sm text-slate-100 outline-none placeholder:text-slate-600 transition-colors focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
             />
           </label>
           <label className="block text-xs text-slate-400">
@@ -84,7 +84,7 @@ export function AddVisualBeatModal({
               maxLength={8000}
               rows={5}
               placeholder="Mô tả khung hình, hành động, bối cảnh…"
-              className="mt-1.5 w-full resize-y rounded-lg border border-border-dark bg-surface-input px-3 py-2.5 text-sm text-slate-100 outline-none placeholder:text-slate-600 transition-colors focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+              className="mt-1.5 w-full resize-y rounded-lg border border-border-dark bg-surface-input px-3 py-2.5 text-sm text-slate-100 outline-none placeholder:text-slate-600 transition-colors focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
             />
           </label>
           {actionError && <p role="alert" className="text-xs text-rose-300">{actionError}</p>}
@@ -93,7 +93,7 @@ export function AddVisualBeatModal({
               type="button"
               onClick={onClose}
               disabled={isPending}
-              className="rounded-lg border border-border-dark px-4 py-2 text-sm text-slate-300 transition-colors hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+              className="rounded-lg border border-border-dark px-4 py-2 text-sm text-slate-300 transition-colors hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
             >
               Hủy
             </button>
@@ -101,7 +101,7 @@ export function AddVisualBeatModal({
               type="button"
               onClick={onSubmit}
               disabled={isPending || !beatTitle.trim() || !visualIntent.trim() || addSceneId === null}
-              className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-purple-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-orange-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {isPending ? "Đang lưu…" : "Thêm Visual Beat"}
             </button>

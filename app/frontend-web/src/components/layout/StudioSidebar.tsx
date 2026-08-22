@@ -365,7 +365,7 @@ export const StudioSidebar = () => {
                     className={cn(
                       "h-full rounded-full transition-[width] duration-300",
                       isUnlimited
-                        ? "w-full bg-gradient-to-r from-primary via-purple-500 to-emerald-400"
+                        ? "w-full bg-gradient-to-r from-primary via-orange-500 to-emerald-400"
                         : "bg-primary",
                     )}
                     style={isUnlimited ? undefined : { width: `${creditPercent}%` }}

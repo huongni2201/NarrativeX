@@ -45,7 +45,7 @@ export function CharacterVisualsTab({ character }: Readonly<CharacterVisualsTabP
             </div>
             <div className="mt-3 flex items-center justify-between text-xs">
               <span className="font-semibold text-text-primary">Góc chụp #{item}</span>
-              <span className="rounded border border-badge-purple-border bg-badge-purple-bg px-1.5 py-0.5 text-[10px] font-bold text-badge-purple">
+              <span className="rounded border border-badge-orange-border bg-badge-orange-bg px-1.5 py-0.5 text-[10px] font-bold text-badge-orange">
                 Chính
               </span>
             </div>

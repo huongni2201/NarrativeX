@@ -26,7 +26,7 @@ Production media readiness gaps remain explicitly tracked.
 | Chapter Analyze enqueue | IMPLEMENTED |
 | Safety/entitlement/quota/cost admission | IMPLEMENTED MVP foundation |
 | ProviderOperation durability | IMPLEMENTED foundation with SQL/CAS/reconciliation/result-fingerprint invariants |
-| Generation persistence | IMPLEMENTED for covered durability boundaries: GenerationJob/StageAttempt/OperationPlan/MediaPlan/outbox enqueue/Job History/safety gate on MyBatis/explicit SQL |
+| Generation persistence | IMPLEMENTED for covered durability boundaries: GenerationJob/StageAttempt/OperationPlan/MediaPlan/outbox enqueue/Job History on MyBatis/explicit SQL; Chapter Analyze has no internal pre-moderation gate |
 | Worker concurrency | IMPLEMENTED bounded concurrency |
 | Storyboard persistence | IMPLEMENTED foundation; broader approved reset/version editing remains partial |
 | Character continuity | IMPLEMENTED foundation: Character/ProjectCharacter/CharacterVersion + Scene relations; full reference locking/review remains partial |

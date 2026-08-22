@@ -22,7 +22,7 @@ public class MyBatisChapterWorkspaceQueryAdapter implements ChapterWorkspaceRead
       throw new ResourceNotFoundException("Project not found");
     }
     return new Snapshot(
-        row.getProjectName(), row.getModerationDecision(),
+        row.getProjectName(),
         mapper.previewScenes(projectId, chapterId).stream().map(MyBatisChapterWorkspaceQueryAdapter::toPreview).toList(),
         row.getSceneCount(), row.getVisualBeatCount(), row.getEstimatedDurationSeconds(),
         row.getStoryboardSourceHash(), row.isHasApprovedOutput(),

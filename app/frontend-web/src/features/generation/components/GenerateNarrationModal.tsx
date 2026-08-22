@@ -326,7 +326,7 @@ export function GenerateNarrationModal({
               value={effectiveSpeakingRate}
               disabled={isVieneuVoice}
               onChange={(e) => setSpeakingRate(Number.parseFloat(e.target.value))}
-              className="mt-3 w-full accent-purple-500 disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-3 w-full accent-orange-500 disabled:cursor-not-allowed disabled:opacity-50"
             />
 
             {isVieneuVoice ? (

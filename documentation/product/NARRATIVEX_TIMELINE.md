@@ -15,7 +15,7 @@ This is dependency-ordered planning, not a calendar promise. Current status is d
 - Backend-authoritative MediaPlan foundation.
 - Full-chapter TTS narration + alignment + R2 media.
 - `NarrationStrategy.USER_PROVIDED_AUDIO` foundation: ordered parts, logical global timeline, multi-Chapter coverage and TTS-bypass planning.
-- MyBatis/explicit-SQL production paths for ProviderOperation, Chapter, Project, GenerationJob, StageAttempt, OperationPlan, MediaPlan, generation outbox enqueue, Job History and the Chapter Analyze safety gate.
+- MyBatis/explicit-SQL production paths for ProviderOperation, Chapter, Project, GenerationJob, StageAttempt, OperationPlan, MediaPlan, generation outbox enqueue and Job History; Chapter Analyze has no application-owned pre-moderation gate.
 - The outbox dispatcher claim/lease path uses a dedicated MyBatis mapper.
 
 ## Completed workstream — MyBatis convergence

@@ -12,7 +12,7 @@ MyBatis; application persistence code does not use JPA repositories/entities or 
 | StoryVersion | MyBatis + explicit SQL | DONE |
 | GenerationJob / StageAttempt / OperationPlan / MediaPlan legacy persistence | MyBatis + explicit SQL | DONE for generation execution boundaries |
 | Generation outbox | MyBatis + explicit SQL for enqueue and dispatcher lease | DONE |
-| Job history / chapter-analysis safety gate | MyBatis + explicit SQL | DONE |
+| Job history / chapter-analysis durable enqueue | MyBatis + explicit SQL | DONE |
 | Quota reservation / usage queries | MyBatis + explicit SQL | DONE |
 | Scene / VisualBeat / revisions | MyBatis + explicit SQL | DONE |
 | Character / ProjectCharacter / Location continuity | MyBatis + explicit SQL for persistence boundaries | DONE |
@@ -51,6 +51,6 @@ or `JdbcTemplate` references, and architecture tests keep that boundary enforced
 
 The generation execution persistence cutover is protected by `ArchitectureRulesTest` and
 `GenerationDurablePersistenceIntegrationTest`. The active adapters for GenerationJob,
-StageAttempt, OperationPlan, GenerationOutbox, JobHistory, ChapterAnalysisSafetyGate, and
+StageAttempt, OperationPlan, GenerationOutbox and JobHistory, and
 MediaPlan use dedicated MyBatis rows and XML mappers. The outbox dispatcher also uses its
 dedicated MyBatis mapper for claim/lease operations.

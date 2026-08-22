@@ -7,7 +7,6 @@ import {
   Layers,
   Loader2,
   Pencil,
-  ShieldAlert,
   Sparkles,
   Volume2,
 } from "lucide-react";
@@ -46,8 +45,6 @@ export function ChapterOverviewTab({
   onOpenStoryboard,
 }: Readonly<ChapterOverviewTabProps>) {
   const [isNarrationOpen, setIsNarrationOpen] = useState(false);
-  const safetyDecision = workspace.safety.decision.toUpperCase();
-  const safetyPending = safetyDecision !== "SAFE";
   const analyzeLabel = analysisActive
     ? workspace.pipeline.sourceOutdated
       ? "Đang phân tích lại…"
@@ -89,7 +86,7 @@ export function ChapterOverviewTab({
           <ProgressItem
             stepNumber={4}
             icon={<ImageIcon className="h-4 w-4" />}
-            iconColorClass="bg-purple-500/15 text-purple-400 border border-purple-500/20"
+            iconColorClass="bg-orange-500/15 text-orange-400 border border-orange-500/20"
             label="Generate Visuals"
             step={workspace.pipeline.visualGeneration}
             progressLabel={
@@ -109,30 +106,15 @@ export function ChapterOverviewTab({
         </div>
 
         {(analysisMessage || analysisJobStatus) && (
-          <div className="mt-4 rounded-lg border border-purple-500/20 bg-purple-500/5 p-3 text-xs text-slate-300">
+          <div className="mt-4 rounded-lg border border-orange-500/20 bg-orange-500/5 p-3 text-xs text-slate-300">
             <div className="flex items-center justify-between gap-2">
               <span className="truncate">{analysisMessage ?? "Đang theo dõi analysis job…"}</span>
               {analysisJobStatus && (
-                <span className="shrink-0 font-mono font-medium text-purple-300">
+                <span className="shrink-0 font-mono font-medium text-orange-300">
                   {analysisJobStatus}
                   {analysisJobProgress !== null ? ` · ${analysisJobProgress}%` : ""}
                 </span>
               )}
-            </div>
-          </div>
-        )}
-
-        {safetyPending && (
-          <div
-            role="status"
-            className="mt-4 flex items-start gap-2.5 rounded-lg border border-amber-500/25 bg-amber-500/5 p-3 text-xs text-amber-200"
-          >
-            <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
-            <div>
-              <p className="font-medium">Phân tích đang chờ kiểm duyệt an toàn</p>
-              <p className="mt-1 leading-5 text-amber-200/75">
-                Nội dung mới tạo đang ở trạng thái {safetyDecision}. Hiện phiên bản này chưa có luồng duyệt an toàn, nên hệ thống tạm khóa Phân tích.
-              </p>
             </div>
           </div>
         )}
@@ -144,12 +126,12 @@ export function ChapterOverviewTab({
               type="button"
               onClick={onAnalyze}
               disabled={analyzeDisabled}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-950/50 transition-[background-color,box-shadow,color] hover:from-purple-500 hover:to-indigo-500 hover:shadow-purple-700/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 disabled:cursor-not-allowed disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 disabled:shadow-none"
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-orange-600 via-orange-500 to-orange-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-950/50 transition-[background-color,box-shadow,color] hover:from-orange-500 hover:to-orange-500 hover:shadow-orange-700/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 disabled:cursor-not-allowed disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 disabled:shadow-none"
             >
               {analysisActive ? (
                 <Loader2 className="h-4 w-4 animate-spin text-white" />
               ) : (
-                <Sparkles className="h-4 w-4 text-purple-200" />
+                <Sparkles className="h-4 w-4 text-orange-200" />
               )}
               <span>{analyzeLabel}</span>
             </button>
@@ -159,9 +141,7 @@ export function ChapterOverviewTab({
                 workspace.summary.visualBeatCount > 0 &&
                 !workspace.pipeline.sourceOutdated
                   ? "Chapter đã có Scene/Visual Beat được duyệt. Hãy chỉnh sửa và lưu nội dung Chapter trước khi phân tích lại."
-                  : safetyPending
-                    ? "Phân tích sẽ khả dụng sau khi nội dung được kiểm duyệt an toàn."
-                    : "Phân tích hiện chưa khả dụng; hãy lưu nội dung Chapter và kiểm tra trạng thái quyền sử dụng."}
+                  : "Phân tích hiện chưa khả dụng; hãy lưu nội dung Chapter và kiểm tra trạng thái quyền sử dụng."}
               </p>
             )}
             <QuickAction label="Review Visuals" enabled={workspace.capabilities.canGenerateVisuals} onClick={onOpenStoryboard} />
@@ -181,7 +161,7 @@ export function ChapterOverviewTab({
             <button
               type="button"
               onClick={onEdit}
-              className="inline-flex items-center gap-1.5 rounded-md border border-border-dark px-3 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+              className="inline-flex items-center gap-1.5 rounded-md border border-border-dark px-3 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
             >
               <Pencil className="h-3.5 w-3.5" />
               Chỉnh sửa
@@ -201,7 +181,7 @@ export function ChapterOverviewTab({
               <button
                 type="button"
                 onClick={onOpenStoryboard}
-                className="text-xs font-medium text-purple-300 transition-colors hover:text-purple-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+                className="text-xs font-medium text-orange-300 transition-colors hover:text-orange-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
               >
                 Xem tất cả
               </button>
@@ -251,7 +231,7 @@ function ProgressItem({
     <div
       className={`group flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-xs transition-[background-color,border-color,color] ${
         isRunning
-          ? "border-purple-500/50 bg-purple-500/10 text-purple-200 shadow-sm shadow-purple-900/20"
+          ? "border-orange-500/50 bg-orange-500/10 text-orange-200 shadow-sm shadow-orange-900/20"
           : isCompleted
             ? "border-border bg-surface-panel/90 text-slate-200 hover:border-slate-700"
             : "border-border/60 bg-surface-dark/90 text-slate-400 hover:border-slate-700/80"
@@ -268,10 +248,10 @@ function ProgressItem({
 
       <div className="flex shrink-0 items-center gap-2 font-mono text-[11px]">
         {progressLabel && (
-          <span className="rounded bg-purple-500/10 px-1.5 py-0.5 text-purple-300">{progressLabel}</span>
+          <span className="rounded bg-orange-500/10 px-1.5 py-0.5 text-orange-300">{progressLabel}</span>
         )}
         {isRunning ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin text-purple-400" />
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-orange-400" />
         ) : isCompleted ? (
           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
         ) : (
@@ -286,7 +266,7 @@ function ProgressItem({
       <button
         type="button"
         onClick={onClick}
-        className="w-full rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+        className="w-full rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
       >
         {content}
       </button>
@@ -310,7 +290,7 @@ function QuickAction({
       type="button"
       disabled={!enabled}
       onClick={onClick}
-      className={`w-full rounded-lg border px-3 py-2 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 ${
+      className={`w-full rounded-lg border px-3 py-2 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 ${
         enabled
           ? "border-border-dark bg-slate-900/60 text-slate-200 hover:bg-slate-800"
           : "cursor-not-allowed border-border/50 bg-surface-dark text-slate-600"

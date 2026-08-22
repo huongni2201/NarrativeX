@@ -48,7 +48,7 @@ public final class StoryVersion extends DomainEntity {
         content,
         sourceLanguage,
         StoryVersionStatus.DRAFT,
-        ModerationDecision.PENDING);
+        ModerationDecision.NOT_REQUIRED);
   }
 
   public static StoryVersion rehydrate(

@@ -164,7 +164,7 @@ export const AssetLibraryScreen: React.FC = () => {
   if (!isMockDataMode && assetsQuery.isPending) {
     return (
       <div className="rounded-2xl border border-dashed border-slate-700 bg-surface/40 p-8">
-        <p className="text-[11px] uppercase tracking-[0.2em] text-purple-300">Asset Library</p>
+        <p className="text-[11px] uppercase tracking-[0.2em] text-orange-300">Asset Library</p>
         <h2 className="mt-2 text-lg font-semibold text-slate-200">Đang tải thư viện tài sản…</h2>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
           Đang đọc metadata media từ backend.
@@ -234,9 +234,9 @@ export const AssetLibraryScreen: React.FC = () => {
             {typeTabs.map((tab) => {
               const isActive = filterType === tab.id;
               return (
-                <button key={tab.id} type="button" aria-pressed={isActive} onClick={() => setFilterType(tab.id)} className={cn("px-3 py-1.5 rounded-lg text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 whitespace-nowrap flex items-center gap-1.5", isActive ? "bg-purple-600 text-white font-semibold" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40")}>
+                <button key={tab.id} type="button" aria-pressed={isActive} onClick={() => setFilterType(tab.id)} className={cn("px-3 py-1.5 rounded-lg text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 whitespace-nowrap flex items-center gap-1.5", isActive ? "bg-orange-600 text-white font-semibold" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40")}>
                   <span>{tab.label}</span>
-                  <span className={cn("px-1.5 py-0.5 rounded-full text-[10px] font-mono", isActive ? "bg-purple-900/60 text-white" : "bg-slate-800 text-slate-400")}>{tab.count}</span>
+                  <span className={cn("px-1.5 py-0.5 rounded-full text-[10px] font-mono", isActive ? "bg-orange-900/60 text-white" : "bg-slate-800 text-slate-400")}>{tab.count}</span>
                 </button>
               );
             })}
@@ -250,8 +250,8 @@ export const AssetLibraryScreen: React.FC = () => {
               <option value="size">Sắp xếp: Dung lượng</option>
             </SelectField>
             <div className="flex items-center bg-surface-panel border border-slate-800 rounded-lg p-0.5" aria-label="Kiểu hiển thị">
-              <button type="button" aria-label="Hiển thị dạng lưới" aria-pressed={viewMode === "grid"} onClick={() => setViewMode("grid")} className={cn("p-1 rounded transition-colors", viewMode === "grid" ? "bg-purple-600 text-white" : "text-slate-400 hover:text-slate-200")}><LayoutGrid className="w-3.5 h-3.5" /></button>
-              <button type="button" aria-label="Hiển thị dạng danh sách" aria-pressed={viewMode === "list"} onClick={() => setViewMode("list")} className={cn("p-1 rounded transition-colors", viewMode === "list" ? "bg-purple-600 text-white" : "text-slate-400 hover:text-slate-200")}><List className="w-3.5 h-3.5" /></button>
+              <button type="button" aria-label="Hiển thị dạng lưới" aria-pressed={viewMode === "grid"} onClick={() => setViewMode("grid")} className={cn("p-1 rounded transition-colors", viewMode === "grid" ? "bg-orange-600 text-white" : "text-slate-400 hover:text-slate-200")}><LayoutGrid className="w-3.5 h-3.5" /></button>
+              <button type="button" aria-label="Hiển thị dạng danh sách" aria-pressed={viewMode === "list"} onClick={() => setViewMode("list")} className={cn("p-1 rounded transition-colors", viewMode === "list" ? "bg-orange-600 text-white" : "text-slate-400 hover:text-slate-200")}><List className="w-3.5 h-3.5" /></button>
             </div>
           </div>
         </div>
@@ -262,7 +262,7 @@ export const AssetLibraryScreen: React.FC = () => {
           </div>
         ) : (
           <div className="py-20 text-center bg-surface/50 rounded-2xl border border-slate-800/80 p-8 space-y-3">
-            <div className="w-12 h-12 mx-auto rounded-xl bg-purple-950/60 border border-purple-800/60 flex items-center justify-center text-purple-400"><FolderKanban className="w-6 h-6" /></div>
+            <div className="w-12 h-12 mx-auto rounded-xl bg-orange-950/60 border border-orange-800/60 flex items-center justify-center text-orange-400"><FolderKanban className="w-6 h-6" /></div>
             <h3 className="text-sm font-semibold text-slate-200">Không tìm thấy tài sản phù hợp</h3>
             <p className="text-xs text-slate-400 max-w-sm mx-auto">Hãy thử thay đổi bộ lọc hoặc upload thêm tài sản media mới.</p>
             <Button onClick={openUploadModal} variant="primary" size="sm"><Plus className="w-3.5 h-3.5" /> Upload tài sản</Button>
@@ -279,7 +279,7 @@ export const AssetLibraryScreen: React.FC = () => {
 function SelectField({ label, value, onChange, children, compact = false }: Readonly<{ label: string; value: string; onChange: (value: string) => void; children: React.ReactNode; compact?: boolean }>) {
   return (
     <div className="relative">
-      <select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} className={cn("bg-surface-panel border border-slate-800 rounded-lg text-xs text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 appearance-none cursor-pointer", compact ? "px-2.5 py-1 pr-6" : "px-3 py-1.5 pr-7")}>
+      <select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} className={cn("bg-surface-panel border border-slate-800 rounded-lg text-xs text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 appearance-none cursor-pointer", compact ? "px-2.5 py-1 pr-6" : "px-3 py-1.5 pr-7")}>
         {children}
       </select>
       <ChevronDown className="w-3 h-3 text-slate-400 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />

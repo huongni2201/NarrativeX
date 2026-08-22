@@ -14,11 +14,11 @@ interface AssetCardProps {
 }
 
 export const AssetCard: React.FC<AssetCardProps> = ({ asset, isSelected = false, onClick, onDownload }) => (
-  <article className={cn("group overflow-hidden rounded-xl border bg-surface shadow-md transition-colors", isSelected ? "border-purple-500 ring-2 ring-purple-500/50" : "border-slate-800/90 hover:border-slate-700")}>
-    <button type="button" onClick={onClick} className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500">
+  <article className={cn("group overflow-hidden rounded-xl border bg-surface shadow-md transition-colors", isSelected ? "border-orange-500 ring-2 ring-orange-500/50" : "border-slate-800/90 hover:border-slate-700")}>
+    <button type="button" onClick={onClick} className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500">
       <div className="relative aspect-[16/10] overflow-hidden bg-slate-950">
         {asset.type === "AUDIO" ? (
-          <div className="flex h-full flex-col items-center justify-center gap-2 bg-surface-panel text-purple-300"><Volume2 className="h-8 w-8" /><span className="text-xs">{asset.duration ?? "Audio"}</span></div>
+          <div className="flex h-full flex-col items-center justify-center gap-2 bg-surface-panel text-orange-300"><Volume2 className="h-8 w-8" /><span className="text-xs">{asset.duration ?? "Audio"}</span></div>
         ) : asset.thumbnailUrl ? (
           // Backend media may come from environment-specific Cloudflare R2/CDN hosts. Keep native image loading until the storage contract exposes a stable trusted hostname for next/image remotePatterns.
           <img
@@ -38,6 +38,6 @@ export const AssetCard: React.FC<AssetCardProps> = ({ asset, isSelected = false,
       </div>
       <div className="space-y-1 p-3"><p className="truncate font-mono text-xs font-bold text-slate-200">{asset.filename}</p><p className="truncate text-[11px] text-slate-400">{asset.projectTitle}</p></div>
     </button>
-    <div className="flex items-center justify-between border-t border-slate-800/80 px-3 py-2 text-[10px] text-slate-500"><span>{asset.fileSize}</span>{onDownload && <button type="button" aria-label={`Tải xuống ${asset.filename}`} onClick={(event) => { event.stopPropagation(); onDownload(event); }} className="rounded p-1 transition-colors hover:bg-slate-800 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"><Download className="h-3 w-3" /></button>}</div>
+    <div className="flex items-center justify-between border-t border-slate-800/80 px-3 py-2 text-[10px] text-slate-500"><span>{asset.fileSize}</span>{onDownload && <button type="button" aria-label={`Tải xuống ${asset.filename}`} onClick={(event) => { event.stopPropagation(); onDownload(event); }} className="rounded p-1 transition-colors hover:bg-slate-800 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"><Download className="h-3 w-3" /></button>}</div>
   </article>
 );

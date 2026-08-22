@@ -61,7 +61,7 @@ export const StylePresetsScreen: React.FC = () => {
   if (!isMockDataMode && presetsQuery.isPending) {
     return (
       <div className="rounded-2xl border border-dashed border-slate-700 bg-surface/40 p-8">
-        <p className="text-[11px] uppercase tracking-[0.2em] text-purple-300">Style &amp; Presets</p>
+        <p className="text-[11px] uppercase tracking-[0.2em] text-orange-300">Style &amp; Presets</p>
         <h2 className="mt-2 text-lg font-semibold text-slate-200">Đang tải style presets…</h2>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
           Đang đọc catalog phong cách từ backend.
@@ -145,7 +145,7 @@ export const StylePresetsScreen: React.FC = () => {
                   key={tab.id}
                   onClick={() => setActiveCategory(tab.id)}
                   className={cn(
-                    "px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 whitespace-nowrap flex items-center gap-1.5",
+                    "px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 whitespace-nowrap flex items-center gap-1.5",
                     isActive
                       ? "bg-primary text-white font-semibold"
                       : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
@@ -156,7 +156,7 @@ export const StylePresetsScreen: React.FC = () => {
                     className={cn(
                       "px-1.5 py-0.2 rounded-full text-[10px] font-mono",
                       isActive
-                        ? "bg-purple-900/60 text-white"
+                        ? "bg-orange-900/60 text-white"
                         : "bg-slate-800 text-slate-400"
                     )}
                   >
@@ -184,7 +184,7 @@ export const StylePresetsScreen: React.FC = () => {
               className={cn(
                 "px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors",
                 showFilters
-                  ? "bg-purple-950/80 border-purple-600 text-purple-300"
+                  ? "bg-orange-950/80 border-orange-600 text-orange-300"
                   : "bg-surface border-slate-800 text-slate-300 hover:text-white"
               )}
             >
@@ -208,7 +208,7 @@ export const StylePresetsScreen: React.FC = () => {
           </div>
         ) : (
           <div className="py-20 text-center bg-surface/50 rounded-2xl border border-slate-800/80 p-8 space-y-3">
-            <div className="w-12 h-12 mx-auto rounded-xl bg-purple-950/60 border border-purple-800/60 flex items-center justify-center text-purple-400">
+            <div className="w-12 h-12 mx-auto rounded-xl bg-orange-950/60 border border-orange-800/60 flex items-center justify-center text-orange-400">
               <Palette className="w-6 h-6" />
             </div>
             <h3 className="text-sm font-semibold text-slate-200">

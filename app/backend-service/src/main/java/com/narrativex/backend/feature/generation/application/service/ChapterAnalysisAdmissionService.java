@@ -2,7 +2,6 @@ package com.narrativex.backend.feature.generation.application.service;
 
 import com.narrativex.backend.feature.account.application.port.in.UserQuotaAccess;
 import com.narrativex.backend.feature.common.exception.FeatureNotAvailableException;
-import com.narrativex.backend.feature.generation.application.port.out.ChapterAnalysisSafetyGate;
 import com.narrativex.backend.feature.generation.application.port.out.QuotaReservation;
 import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSource;
@@ -15,10 +14,8 @@ public class ChapterAnalysisAdmissionService {
   private final UserQuotaAccess quotaQuery;
   private final QuotaReservation quotaReservation;
   private final ChapterAnalysisCostEstimator costEstimator;
-  private final ChapterAnalysisSafetyGate safetyGate;
 
   public Admission admit(String userId, Long projectId, ChapterAnalysisSource source) {
-    safetyGate.requireAllowed(projectId, source);
     ChapterAnalysisCostEstimate estimate = costEstimator.estimate(source.sourceText());
     UserQuotaAccess.QuotaSnapshot quota =
         quotaQuery

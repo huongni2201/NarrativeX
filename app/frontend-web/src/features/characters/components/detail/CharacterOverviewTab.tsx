@@ -90,7 +90,7 @@ export function CharacterOverviewTab({
       <div className="flex flex-col justify-between rounded-2xl border border-border bg-surface-card p-5 shadow-lg">
         <div>
           <div className="flex items-center gap-2 border-b border-border/80 pb-3 text-sm font-bold text-text-primary">
-            <FileText className="h-4 w-4 text-badge-purple" />
+            <FileText className="h-4 w-4 text-badge-orange" />
             <span>Mô tả nhân vật</span>
           </div>
           <p className="mt-3 text-sm leading-relaxed text-text-secondary min-h-[90px]">
@@ -104,7 +104,7 @@ export function CharacterOverviewTab({
             {displayKeywords.map((tag, idx) => (
               <span
                 key={idx}
-                className="rounded-md border border-badge-purple-border bg-badge-purple-bg px-2.5 py-0.5 text-xs font-semibold text-badge-purple"
+                className="rounded-md border border-badge-orange-border bg-badge-orange-bg px-2.5 py-0.5 text-xs font-semibold text-badge-orange"
               >
                 {tag}
               </span>
@@ -125,7 +125,7 @@ export function CharacterOverviewTab({
               coCharacters.map((coChar, index) => {
                 const relationTag =
                   index === 0
-                    ? { label: "Thân thiết", badgeClass: "border-badge-purple-border bg-badge-purple-bg text-badge-purple" }
+                    ? { label: "Thân thiết", badgeClass: "border-badge-orange-border bg-badge-orange-bg text-badge-orange" }
                     : index === 1
                       ? { label: "Đồng hành", badgeClass: "border-badge-blue-border bg-badge-blue-bg text-badge-blue" }
                       : { label: "Kính trọng", badgeClass: "border-badge-green-border bg-badge-green-bg text-badge-green" };
@@ -210,7 +210,7 @@ export function CharacterOverviewTab({
       <div className="flex flex-col justify-between rounded-2xl border border-border bg-surface-card p-5 shadow-lg">
         <div>
           <div className="flex items-center gap-2 border-b border-border/80 pb-3 text-sm font-bold text-text-primary">
-            <Clapperboard className="h-4 w-4 text-badge-purple" />
+            <Clapperboard className="h-4 w-4 text-badge-orange" />
             <span>Xuất hiện trong scene</span>
           </div>
           <div className="mt-3 space-y-2">
@@ -225,7 +225,7 @@ export function CharacterOverviewTab({
                     <span className="truncate font-medium text-text-primary">{chapter.title}</span>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="rounded-md border border-badge-purple-border bg-badge-purple-bg px-2 py-0.5 text-xs font-bold text-badge-purple">
+                    <span className="rounded-md border border-badge-orange-border bg-badge-orange-bg px-2 py-0.5 text-xs font-bold text-badge-orange">
                       {roleBadge.label}
                     </span>
                     <span className="font-mono text-xs text-text-muted">

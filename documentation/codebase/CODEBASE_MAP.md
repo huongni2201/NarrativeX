@@ -1,7 +1,7 @@
 # NarrativeX Current Codebase Map — V1.11
 
 **Canonical baseline:** `documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`
-**Docs-sync checkpoint:** `a614d05101a5992783cbc580668b4ed0927b41d9`
+**Docs-sync checkpoint:** `69d5ecdeffdb5e01e0631dbdc2709f207f890044`
 
 ## Runtime layout
 

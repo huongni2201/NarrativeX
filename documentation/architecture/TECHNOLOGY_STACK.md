@@ -27,7 +27,7 @@ MyBatis/explicit-SQL production boundaries include:
 - MediaPlan;
 - generation outbox enqueue persistence;
 - Job History;
-- Chapter Analyze safety gate.
+- Chapter Analyze durable admission and enqueue.
 
 The outbox dispatcher uses a dedicated MyBatis mapper for claim/lease operations.
 

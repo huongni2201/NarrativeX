@@ -46,9 +46,6 @@
     --danger-bg: rgba(239, 68, 68, 0.12);
 
     /* Semantic status accents */
-    --badge-purple: #c084fc;
-    --badge-purple-bg: rgba(126, 34, 206, 0.16);
-    --badge-purple-border: rgba(168, 85, 247, 0.4);
     --badge-blue: #3b82f6;
     --badge-blue-bg: rgba(59, 130, 246, 0.14);
     --badge-blue-border: rgba(59, 130, 246, 0.35);
@@ -95,22 +92,6 @@
     --palette-orange-900: 42 12 5;
     --palette-orange-950: 27 10 5;
 
-    /* Named accent scales stay truthful so utility names match rendered colors. */
-    --palette-purple-200: 233 213 255;
-    --palette-purple-300: 216 180 254;
-    --palette-purple-400: 192 132 252;
-    --palette-purple-500: 168 85 247;
-    --palette-purple-600: 147 51 234;
-    --palette-purple-700: 126 34 206;
-    --palette-purple-800: 107 33 168;
-    --palette-purple-900: 88 28 135;
-    --palette-purple-950: 59 7 100;
-    --palette-indigo-400: 129 140 248;
-    --palette-indigo-500: 99 102 241;
-    --palette-indigo-600: 79 70 229;
-    --palette-indigo-700: 67 56 202;
-    --palette-indigo-800: 55 48 163;
-    --palette-indigo-900: 49 46 129;
   }
 
   body {

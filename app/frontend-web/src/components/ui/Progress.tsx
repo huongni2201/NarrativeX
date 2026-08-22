@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 interface ProgressProps {
   value: number; // 0 - 100
   className?: string;
-  color?: "orange" | "purple" | "blue" | "green";
+  color?: "orange" | "blue" | "green";
   showGlow?: boolean;
 }
 
@@ -18,7 +18,6 @@ export const Progress: React.FC<ProgressProps> = ({
 
   const colorStyles = {
     orange: "bg-primary",
-    purple: "bg-badge-purple",
     blue: "bg-badge-blue",
     green: "bg-badge-green",
   };

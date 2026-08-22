@@ -67,8 +67,8 @@ public class EnqueueStoryAnalysisUseCase {
       return existing.get();
     }
 
-    // The admission safety gate runs before quota reservation. Approved output for the same source
-    // therefore cannot consume quota or reach the provider.
+    // Approved output for the same source is protected by the current storyboard revision; this
+    // check runs before quota reservation so a duplicate analysis cannot consume capacity.
     var admission = admissionService.admit(userId, command.projectId(), chapter);
     var estimate = admission.estimate();
 

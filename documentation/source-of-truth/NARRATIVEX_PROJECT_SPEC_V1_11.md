@@ -3,7 +3,7 @@
 **Status:** Canonical engineering direction and code-aligned baseline  
 **Effective date:** 21/08/2026  
 **Repository:** `huongni2201/NarrativeX`  
-**Docs-sync base:** `main` at `a614d05101a5992783cbc580668b4ed0927b41d9`  
+**Docs-sync base:** `main` at `69d5ecdeffdb5e01e0631dbdc2709f207f890044`  
 **Supersedes:** V1.10 as the planning baseline for new work
 
 ---
@@ -108,7 +108,7 @@ The migration is complete: production persistence uses MyBatis + explicit SQL, t
 | Chapter Analyze | IMPLEMENTED | durable admission/enqueue and worker execution |
 | Worker claim/lease/heartbeat | IMPLEMENTED | PostgreSQL-backed and bounded |
 | ProviderOperation durability | IMPLEMENTED foundation | reconciliation/result immutability foundation exists |
-| Generation execution persistence | IMPLEMENTED for covered durability boundaries | GenerationJob, StageAttempt, OperationPlan, MediaPlan, outbox enqueue, Job History and safety gate use MyBatis/explicit SQL |
+| Generation execution persistence | IMPLEMENTED for covered durability boundaries | GenerationJob, StageAttempt, OperationPlan, MediaPlan, outbox enqueue and Job History use MyBatis/explicit SQL; Chapter Analyze has no internal pre-moderation gate |
 | Character + Location continuity | IMPLEMENTED foundation | full human review/reference lock remains partial |
 | Project Character list/detail | IMPLEMENTED foundation | project-scoped authoritative read model is wired end to end; richer relationships/assets/scene detail remain partial |
 | Scene + VisualBeat | IMPLEMENTED foundation | broader edit/version-reset remains partial |
@@ -447,7 +447,7 @@ Current MyBatis/explicit-SQL production boundaries include:
 - MediaPlan;
 - generation outbox enqueue persistence;
 - Job History;
-- Chapter Analyze safety gate.
+- Chapter Analyze durable admission and enqueue.
 
 The outbox dispatcher claim/lease path uses a dedicated MyBatis mapper.
 
@@ -486,7 +486,7 @@ DONE ProviderOperation MyBatis
 DONE Chapter MyBatis
 DONE Project command/query MyBatis
 DONE GenerationJob / StageAttempt / OperationPlan / MediaPlan durable persistence
-DONE generation outbox enqueue / Job History / Chapter Analyze safety gate migration
+DONE generation outbox enqueue / Job History migration; Chapter Analyze internal pre-moderation gate removed
 ```
 
 Remaining order:

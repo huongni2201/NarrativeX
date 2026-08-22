@@ -57,7 +57,6 @@ class ArchitectureRulesTest {
             "feature/generation/infrastructure/persistence/adapter/OperationPlanPersistenceAdapter.java",
             "feature/generation/infrastructure/persistence/adapter/GenerationOutboxPersistenceAdapter.java",
             "feature/generation/infrastructure/persistence/adapter/MyBatisJobHistoryQueryAdapter.java",
-            "feature/generation/infrastructure/persistence/adapter/MyBatisChapterAnalysisSafetyGate.java",
             "feature/generation/infrastructure/persistence/adapter/MyBatisMediaPlanPersistenceAdapter.java");
 
     for (String file : files) {

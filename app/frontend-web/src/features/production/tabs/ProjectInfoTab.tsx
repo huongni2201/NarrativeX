@@ -40,7 +40,7 @@ function ValueBadge({
       title={label}
       className={
         accent
-          ? "rounded border border-purple-800 bg-purple-950 px-2 py-1 font-mono text-purple-300"
+          ? "rounded border border-orange-800 bg-orange-950 px-2 py-1 font-mono text-orange-300"
           : "rounded bg-slate-800 px-2 py-1 font-mono text-slate-200"
       }
     >

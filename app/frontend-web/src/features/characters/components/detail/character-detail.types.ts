@@ -37,7 +37,7 @@ export function roleBadgeStyle(role: string): { label: string; className: string
   if (norm === "MAIN") {
     return {
       label: "Chính",
-      className: "border-badge-purple-border bg-badge-purple-bg text-badge-purple",
+      className: "border-badge-orange-border bg-badge-orange-bg text-badge-orange",
     };
   }
   if (norm === "SUPPORTING") {

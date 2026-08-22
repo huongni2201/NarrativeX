@@ -18,9 +18,9 @@ export function StoryboardSceneRail({
       <button
         type="button"
         onClick={onSelectAll}
-        className={`mb-1 w-full rounded-md px-2.5 py-2 text-left text-[11px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 ${
+        className={`mb-1 w-full rounded-md px-2.5 py-2 text-left text-[11px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 ${
           sceneId === null
-            ? "bg-surface-elevated text-purple-300 ring-1 ring-purple-500/25"
+            ? "bg-surface-elevated text-orange-300 ring-1 ring-orange-500/25"
             : "text-slate-500 hover:bg-surface-2 hover:text-slate-300"
         }`}
       >
@@ -32,9 +32,9 @@ export function StoryboardSceneRail({
             key={scene.id}
             type="button"
             onClick={() => onSelectScene(scene.id)}
-            className={`group relative w-full rounded-lg border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 ${
+            className={`group relative w-full rounded-lg border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 ${
               sceneId === scene.id
-                ? "border-purple-500/50 bg-surface-elevated shadow-lg shadow-purple-950/20"
+                ? "border-orange-500/50 bg-surface-elevated shadow-lg shadow-orange-950/20"
                 : "border-border-dark bg-surface-input hover:border-border hover:bg-surface-2"
             }`}
           >

@@ -25,12 +25,12 @@ export const Step2ImportStory: React.FC<Step2Props> = ({ validationErrors = [] }
           </p>
         </div>
 
-        <div className="flex items-center gap-2 text-xs font-semibold text-purple-300">
+        <div className="flex items-center gap-2 text-xs font-semibold text-orange-300">
           <FileText className="w-3.5 h-3.5" />
           Nhập văn bản
         </div>
 
-        <div className="flex-1 flex flex-col relative rounded-xl border border-slate-800 bg-surface-dark overflow-hidden focus-within:border-purple-500 transition-colors min-h-[320px]">
+        <div className="flex-1 flex flex-col relative rounded-xl border border-slate-800 bg-surface-dark overflow-hidden focus-within:border-orange-500 transition-colors min-h-[320px]">
           <textarea
             rows={12}
             value={wizardDraft.storyText}
@@ -42,7 +42,7 @@ export const Step2ImportStory: React.FC<Step2Props> = ({ validationErrors = [] }
           />
           <div className="px-4 py-2 bg-surface-panel border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
             <span className="font-mono">
-              Số ký tự: <strong className="text-purple-300">{characterCount.toLocaleString()}</strong>
+              Số ký tự: <strong className="text-orange-300">{characterCount.toLocaleString()}</strong>
             </span>
             <span className="text-[11px] text-slate-500">Dữ liệu sẽ được lưu bằng API thật.</span>
           </div>
@@ -74,14 +74,14 @@ export const Step2ImportStory: React.FC<Step2Props> = ({ validationErrors = [] }
       <div className="w-full md:w-64 shrink-0 space-y-4">
         <div className="p-4 rounded-xl bg-surface-panel border border-slate-800/80 space-y-4">
           <div className="flex items-center gap-2 text-slate-300 font-semibold text-xs">
-            <Info className="w-4 h-4 text-purple-400" />
+            <Info className="w-4 h-4 text-orange-400" />
             <span>Gợi ý</span>
           </div>
 
           <ul className="space-y-2.5 text-xs text-slate-400 leading-relaxed">
-            <li className="flex items-start gap-2"><span className="text-purple-400 font-bold">•</span><span>Dán nội dung truyện hiện có vào ô văn bản.</span></li>
-            <li className="flex items-start gap-2"><span className="text-purple-400 font-bold">•</span><span>Project và StoryVersion chỉ được tạo khi bạn xác nhận ở bước cuối.</span></li>
-            <li className="flex items-start gap-2"><span className="text-purple-400 font-bold">•</span><span>File import sẽ được bật sau khi backend hỗ trợ extraction và storage.</span></li>
+            <li className="flex items-start gap-2"><span className="text-orange-400 font-bold">•</span><span>Dán nội dung truyện hiện có vào ô văn bản.</span></li>
+            <li className="flex items-start gap-2"><span className="text-orange-400 font-bold">•</span><span>Project và StoryVersion chỉ được tạo khi bạn xác nhận ở bước cuối.</span></li>
+            <li className="flex items-start gap-2"><span className="text-orange-400 font-bold">•</span><span>File import sẽ được bật sau khi backend hỗ trợ extraction và storage.</span></li>
           </ul>
 
         </div>

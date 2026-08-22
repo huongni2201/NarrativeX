@@ -4,7 +4,7 @@
 
 - Version: `V1.11`
 - Repository: `huongni2201/NarrativeX`
-- Docs-sync base: `a614d05101a5992783cbc580668b4ed0927b41d9`
+- Docs-sync base: `69d5ecdeffdb5e01e0631dbdc2709f207f890044`
 - Canonical specification: `documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`
 
 Current code, Flyway migrations and automated tests decide factual AS-IS implementation claims when a derived document drifts from this checkpoint.
