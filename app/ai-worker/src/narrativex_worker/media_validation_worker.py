@@ -13,6 +13,7 @@ from narrativex_worker.media_validation import (
 )
 from narrativex_worker.media_validation_repository import (
     ClaimedMediaValidationJob,
+    LeaseLostError,
     MediaValidationRepository,
 )
 from narrativex_worker.narration.storage import (
@@ -92,34 +93,43 @@ class MediaValidationWorkerRunner:
         assert self.storage is not None
         heartbeat = asyncio.create_task(self._heartbeat(job))
         try:
-            async with self._concurrency_gate:
-                await self._validate(job)
-        except MediaProbeTimeout as exception:
-            await self.repository.retry_or_fail(job, self.worker_id, str(exception))
-        except MediaValidationError as exception:
-            await self.repository.complete(
-                job,
+            try:
+                async with self._concurrency_gate:
+                    await self._validate(job)
+            except MediaProbeTimeout as exception:
+                await self.repository.retry_or_fail(job, self.worker_id, str(exception))
+            except MediaValidationError as exception:
+                await self.repository.complete(
+                    job,
+                    self.worker_id,
+                    status="REJECTED",
+                    error_code=str(exception).split(":", 1)[0],
+                    error_detail=str(exception),
+                )
+            except (FileNotFoundError, TimeoutError) as exception:
+                await self.repository.retry_or_fail(
+                    job, self.worker_id, type(exception).__name__.upper()
+                )
+            except (MediaDownloadLimitError, MediaAssetConflictError) as exception:
+                await self.repository.complete(
+                    job,
+                    self.worker_id,
+                    status="REJECTED",
+                    error_code=type(exception).__name__.upper(),
+                    error_detail=str(exception),
+                )
+            except LeaseLostError:
+                raise
+            except Exception:
+                self.logger.exception("Unexpected media validation failure job=%s", job.id)
+                await self.repository.retry_or_fail(
+                    job, self.worker_id, "VALIDATION_INFRASTRUCTURE_ERROR"
+                )
+        except LeaseLostError:
+            self.logger.warning(
+                "Media validation lease lost; discarding result job=%s worker=%s",
+                job.id,
                 self.worker_id,
-                status="REJECTED",
-                error_code=str(exception).split(":", 1)[0],
-                error_detail=str(exception),
-            )
-        except (FileNotFoundError, TimeoutError) as exception:
-            await self.repository.retry_or_fail(
-                job, self.worker_id, type(exception).__name__.upper()
-            )
-        except (MediaDownloadLimitError, MediaAssetConflictError) as exception:
-            await self.repository.complete(
-                job,
-                self.worker_id,
-                status="REJECTED",
-                error_code=type(exception).__name__.upper(),
-                error_detail=str(exception),
-            )
-        except Exception:
-            self.logger.exception("Unexpected media validation failure job=%s", job.id)
-            await self.repository.retry_or_fail(
-                job, self.worker_id, "VALIDATION_INFRASTRUCTURE_ERROR"
             )
         finally:
             if not heartbeat.done():
@@ -164,8 +174,10 @@ class MediaValidationWorkerRunner:
         interval = max(3.0, self.settings.lease_seconds / 3)
         while True:
             await asyncio.sleep(interval)
-            if not await self.repository.heartbeat(job.id, self.worker_id):
-                raise RuntimeError("media validation lease was lost")
+            if not await self.repository.heartbeat(
+                job.id, self.worker_id, job.lease_token
+            ):
+                raise LeaseLostError("media validation lease was lost")
 
     def _max_bytes(self, declared_type: str) -> int:
         limits = {

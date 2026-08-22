@@ -110,6 +110,8 @@ Workers claim eligible durable attempts with PostgreSQL row locking and `SKIP LO
 
 Database pool sizing follows configured concurrency. The narration repository receives `max(5, WORKER_CONCURRENCY + 2)` as its pool limit so task concurrency is not silently throttled by the former fixed `max_size=5` pool. Graceful shutdown stops new claims, lets in-flight narration retain its heartbeat and finish, then closes the repository pool. A lease-loss path cancels processing without claiming authority to mark the job failed; durable provider-operation UNKNOWN semantics remain the recovery boundary.
 
+Media-validation jobs use a fresh UUID lease token and increment `row_version` on every claim. Heartbeats and terminal transitions require the job id, worker id, lease token, `RUNNING` status, and an unexpired lease. Completion fences the validation job before changing the asset, upload sessions, or cleanup queue, so a reclaimed stale worker can produce no durable side effects.
+
 ## Application boundaries
 
 ### Worker owns

@@ -19,8 +19,10 @@
 | V1 `initial_schema` | Auth, project/story/chapter foundations, storyboard revisions, split motion/camera visual beats, preview-asset links, character/location AI identities, backend-authoritative media plans, generation execution/review and lineage, durable provider operations, quota reservation lifecycle, chapter-level TTS, uploaded narration, upload sessions, media lifecycle hardening, durable media validation jobs, detected media metadata, style presets and voice catalog, render ownership pins, owner-scoped idempotency, voice reference asset, cleanup tasks | Consolidated baseline |
 | V2 `seed_demo_data` | Deterministic development/demo seed with canonical execution enums, storyboard revisions, character bibles, plan assignments, released reservations, VieNeu catalog, and valid credits | Local profile only |
 | V3 `canonical_media_asset_checksums` | Account-scoped canonical checksum claims, legacy READY backfill, removal of the partial asset checksum index, and `VALIDATING` upload sessions | Production migration |
+| V4 `media_validation_lease_fencing` | Token-fenced media-validation claims, row versions, and state/lease consistency | Production migration |
+| V5 `provision_default_user_plans` | Creates the default `NORMAL v1` active plan assignment for existing accounts that do not already have an assignment | Production migration |
 
-The production migration set is V1 plus V3. V2 is an opt-in local-profile fixture under
+The production migration set is V1 plus V3 and V4. V2 is an opt-in local-profile fixture under
 `db/local-migration`, not a production migration.
 Former feature and fixture migrations were folded into V1 and V2 because this is the development baseline.
 Existing databases created from any former migration split require operator-reviewed recreation or explicit re-baselining.

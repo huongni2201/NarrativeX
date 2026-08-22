@@ -53,6 +53,11 @@ class PasswordAuthenticationTest {
         .perform(get("/api/auth/me").session(session))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.email").value("narrative.user@example.com"));
+
+    mockMvc
+        .perform(get("/api/v1/users/me/quota").session(session))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.tier").value("NORMAL"));
   }
 
   @Test

@@ -32,8 +32,8 @@ public class JdbcQuotaReservation implements QuotaReservation {
                AND pe.version = upa.entitlement_version
              WHERE upa.user_id = ?
                AND upa.status = 'ACTIVE'
-               AND (upa.period_start IS NULL OR upa.period_start <= CURRENT_DATE)
-               AND (upa.period_end IS NULL OR upa.period_end >= CURRENT_DATE)
+               AND (upa.period_start IS NULL OR upa.period_start <= CURRENT_TIMESTAMP)
+               AND (upa.period_end IS NULL OR upa.period_end >= CURRENT_TIMESTAMP)
              ORDER BY pe.active_from DESC, pe.id DESC
              LIMIT 1
              FOR UPDATE OF upa

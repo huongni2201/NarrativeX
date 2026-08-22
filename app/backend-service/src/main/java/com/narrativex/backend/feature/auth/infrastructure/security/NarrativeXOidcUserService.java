@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.auth.infrastructure.security;
 
+import com.narrativex.backend.feature.account.application.port.out.UserPlanAssignmentProvisioner;
 import com.narrativex.backend.feature.auth.application.service.RegisterAuthAccountService;
 import com.narrativex.backend.feature.auth.infrastructure.persistence.entity.AuthUserJpaEntity;
 import com.narrativex.backend.feature.auth.infrastructure.persistence.repository.AuthUserJpaRepository;
@@ -18,12 +19,15 @@ import org.springframework.transaction.annotation.Transactional;
 public class NarrativeXOidcUserService implements OAuth2UserService<OidcUserRequest, OidcUser> {
   private final OAuth2UserService<OidcUserRequest, OidcUser> delegate;
   private final AuthUserJpaRepository repository;
+  private final UserPlanAssignmentProvisioner userPlanAssignmentProvisioner;
 
   public NarrativeXOidcUserService(
       AuthUserJpaRepository repository,
-      @Qualifier("narrativeXOidcDelegate") OAuth2UserService<OidcUserRequest, OidcUser> delegate) {
+      @Qualifier("narrativeXOidcDelegate") OAuth2UserService<OidcUserRequest, OidcUser> delegate,
+      UserPlanAssignmentProvisioner userPlanAssignmentProvisioner) {
     this.repository = repository;
     this.delegate = delegate;
+    this.userPlanAssignmentProvisioner = userPlanAssignmentProvisioner;
   }
 
   @Override
@@ -77,6 +81,8 @@ public class NarrativeXOidcUserService implements OAuth2UserService<OidcUserRequ
       account.linkGoogle(subject, displayName, avatarUrl);
       account = repository.save(account);
     }
+
+    userPlanAssignmentProvisioner.ensureDefaultAssignment(account.getId());
 
     return new NarrativeXOidcUser(account.getId(), oidcUser);
   }

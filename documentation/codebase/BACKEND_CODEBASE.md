@@ -81,6 +81,7 @@ Avatar/asset counts, relationship graphs and detailed scene participation are no
 - Location and Asset read/API foundations where recorded in the integration matrix.
 - Job history, user quota and notification read foundations.
 - Authentication/session endpoints with password auth and Google OIDC.
+- New password and Google accounts receive the default `NORMAL v1` plan assignment transactionally; migration V5 backfills existing accounts without an assignment.
 
 Backend endpoint availability does not imply every frontend surface is wired. Project Character list/detail is an exception: that vertical slice is wired end to end. See `FRONTEND_API_INTEGRATION_MATRIX.md`.
 

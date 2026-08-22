@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.narrativex.backend.feature.account.application.port.out.UserPlanAssignmentProvisioner;
 import com.narrativex.backend.feature.auth.infrastructure.persistence.entity.AuthUserJpaEntity;
 import com.narrativex.backend.feature.auth.infrastructure.persistence.repository.AuthUserJpaRepository;
 import java.time.Instant;
@@ -23,6 +24,7 @@ import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 @ExtendWith(MockitoExtension.class)
 class NarrativeXOidcUserServiceTest {
   @Mock private AuthUserJpaRepository repository;
+  @Mock private UserPlanAssignmentProvisioner userPlanAssignmentProvisioner;
   @Mock private OAuth2UserService<OidcUserRequest, OidcUser> delegate;
   @Mock private OidcUserRequest request;
   @Mock private OidcUser oidcUser;
@@ -31,7 +33,8 @@ class NarrativeXOidcUserServiceTest {
 
   @BeforeEach
   void setUp() {
-    service = new NarrativeXOidcUserService(repository, delegate);
+    service =
+        new NarrativeXOidcUserService(repository, delegate, userPlanAssignmentProvisioner);
   }
 
   @Test
@@ -48,6 +51,7 @@ class NarrativeXOidcUserServiceTest {
     assertEquals("google-subject", existing.getGoogleSubject());
     assertEquals("Google Owner", existing.getDisplayName());
     verify(repository).save(existing);
+    verify(userPlanAssignmentProvisioner).ensureDefaultAssignment("existing-user");
   }
 
   @Test
