@@ -70,14 +70,14 @@ def test_vieneu_voice_settings_are_available_without_provider_credentials() -> N
     assert settings.vieneu_apply_watermark is False
 
 
-def test_image_generation_defaults_to_gemini_flash_image_on_global_vertex() -> None:
+def test_image_generation_defaults_to_batch_only_gemini_flash_image() -> None:
     settings = WorkerSettings()
 
     assert settings.vertex_image_model == "gemini-2.5-flash-image"
     assert settings.vertex_image_location == "global"
     assert settings.vertex_image_service_tier == "standard"
-    assert settings.vertex_image_execution_mode == "auto"
-    assert settings.vertex_image_batch_min_items == 8
+    assert settings.vertex_image_execution_mode == "batch"
+    assert settings.vertex_image_batch_min_items == 1
 
 
 def test_gemini_25_flash_image_rejects_flex_paygo() -> None:
@@ -94,12 +94,24 @@ def test_flex_requires_global_endpoint() -> None:
         )
 
 
-def test_explicit_batch_mode_requires_gcs_staging_bucket() -> None:
+def test_enabled_vertex_batch_requires_gcs_staging_bucket() -> None:
     with pytest.raises(ValidationError, match="VERTEX_IMAGE_BATCH_GCS_BUCKET"):
-        WorkerSettings(vertex_image_execution_mode="batch")
+        WorkerSettings(
+            image_provider_mode="vertex",
+            vertex_project_id="project-123",
+            vertex_image_execution_mode="batch",
+        )
 
 
-def test_auto_batch_mode_can_start_without_gcs_and_fall_back_online() -> None:
+def test_disabled_image_provider_does_not_require_batch_bucket() -> None:
+    settings = WorkerSettings()
+
+    assert settings.image_provider_mode == "disabled"
+    assert settings.vertex_image_execution_mode == "batch"
+    assert settings.vertex_image_batch_gcs_bucket is None
+
+
+def test_explicit_auto_mode_can_fall_back_without_gcs() -> None:
     settings = WorkerSettings(vertex_image_execution_mode="auto")
 
     assert settings.vertex_image_batch_gcs_bucket is None
