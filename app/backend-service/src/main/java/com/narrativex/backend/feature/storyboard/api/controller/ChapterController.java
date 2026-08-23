@@ -126,7 +126,7 @@ public class ChapterController {
 
   @GetMapping("/{chapterId}/workspace")
   public ResponseEntity<ApiResponse<ChapterWorkspaceResponse>> workspace(
-      @PathVariable UUID projectId, @PathVariable UUID chapterId) {
+      @PathVariable Long projectId, @PathVariable Long chapterId) {
     return ResponseEntity.ok(getChapterWorkspaceUseCase.execute(projectId, chapterId));
   }
 
