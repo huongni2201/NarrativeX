@@ -3,6 +3,9 @@ package com.narrativex.backend.feature.localexecution.api.controller;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.localexecution.application.query.LocalDeviceView;
 import com.narrativex.backend.feature.localexecution.application.usecase.LocalDeviceUseCase;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -41,7 +44,8 @@ public class LocalDeviceController {
   }
 
   @PostMapping("/pair")
-  public ResponseEntity<ApiResponse<PairDeviceResponse>> pair(@RequestBody PairDeviceRequest request) {
+  public ResponseEntity<ApiResponse<PairDeviceResponse>> pair(
+      @Valid @RequestBody PairDeviceRequest request) {
     var paired =
         localDeviceUseCase.pair(
             new LocalDeviceUseCase.PairDeviceCommand(
@@ -59,7 +63,7 @@ public class LocalDeviceController {
   @PostMapping("/heartbeat")
   public ResponseEntity<ApiResponse<Void>> heartbeat(
       @RequestHeader(DEVICE_TOKEN_HEADER) String deviceToken,
-      @RequestBody HeartbeatRequest request) {
+      @Valid @RequestBody HeartbeatRequest request) {
     localDeviceUseCase.heartbeat(
         deviceToken,
         new LocalDeviceUseCase.HeartbeatCommand(request.agentVersion(), request.capabilities()));
@@ -67,13 +71,15 @@ public class LocalDeviceController {
   }
 
   public record PairDeviceRequest(
-      String pairingCode,
-      String name,
-      String platform,
-      String agentVersion,
-      List<String> capabilities) {}
+      @NotBlank @Size(max = 128) String pairingCode,
+      @NotBlank @Size(max = 160) String name,
+      @NotBlank @Size(max = 80) String platform,
+      @NotBlank @Size(max = 64) String agentVersion,
+      @Size(max = 64) List<@NotBlank @Size(max = 64) String> capabilities) {}
 
-  public record HeartbeatRequest(String agentVersion, List<String> capabilities) {}
+  public record HeartbeatRequest(
+      @NotBlank @Size(max = 64) String agentVersion,
+      @Size(max = 64) List<@NotBlank @Size(max = 64) String> capabilities) {}
 
   public record PairingCodeResponse(String code, Instant expiresAt) {}
 
