@@ -12,7 +12,7 @@ public class MyBatisChapterMediaHeadPersistenceAdapter implements ChapterMediaHe
   private final ChapterMediaHeadMapper mapper;
 
   @Override
-  public void setCurrent(Long chapterId, Long generationJobId) {
+  public void setCurrent(UUID chapterId, UUID generationJobId) {
     if (mapper.upsert(chapterId, generationJobId) != 1) {
       throw new IllegalStateException(
           "Could not update current media job for chapter " + chapterId);
@@ -20,7 +20,7 @@ public class MyBatisChapterMediaHeadPersistenceAdapter implements ChapterMediaHe
   }
 
   @Override
-  public boolean matchesCurrentPlan(Long chapterId, UUID mediaPlanId, int mediaPlanRevision) {
+  public boolean matchesCurrentPlan(UUID chapterId, UUID mediaPlanId, int mediaPlanRevision) {
     return mapper.matchesCurrentPlan(chapterId, mediaPlanId, mediaPlanRevision);
   }
 }
