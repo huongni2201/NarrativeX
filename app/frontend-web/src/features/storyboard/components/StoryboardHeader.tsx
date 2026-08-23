@@ -5,12 +5,12 @@ import type { StatusFilter, StoryboardChapterItem } from "../hooks/useStoryboard
 interface StoryboardHeaderProps {
   hideChapterSelector: boolean;
   orderedChapters: StoryboardChapterItem[];
-  chapterId: number | null;
+  chapterId: string | number | null;
   sceneId: number | null;
   status: StatusFilter;
   search: string;
   storyboard: ApiChapterStoryboard | undefined;
-  onChapterChange: (chapterId: number) => void;
+  onChapterChange: (chapterId: string | number) => void;
   onSceneChange: (sceneId: number | null) => void;
   onStatusChange: (status: StatusFilter) => void;
   onSearchChange: (search: string) => void;
@@ -38,7 +38,7 @@ export function StoryboardHeader({
           <select
             aria-label="Chọn Chapter"
             value={chapterId?.toString() ?? ""}
-            onChange={(event) => onChapterChange(Number(event.target.value))}
+            onChange={(event) => onChapterChange(event.target.value)}
             className="h-9 min-w-[230px] rounded-md border border-border-darker bg-surface-input px-2.5 text-xs text-slate-300 outline-none transition-colors focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
           >
             {orderedChapters.map((chapter) => (

@@ -28,7 +28,7 @@ export const ACTIVE_JOB_STATUSES: ReadonlySet<JobStatus> = new Set([
 ]);
 
 export interface ApiProject {
-  id: number;
+  id: string;
   name: string;
   description?: string | null;
   coverImageUrl?: string | null;
@@ -222,6 +222,9 @@ export interface ApiResponse<T> {
   timestamp: string;
 }
 
+/** Project route IDs are UUIDs in the backend API. */
+export type ProjectId = string | number;
+
 export type ApiDataGuard<T> = (value: unknown) => value is T;
 
 export interface CursorPage<T> {
@@ -319,7 +322,7 @@ export function isCursorPage<T = unknown>(
 export function isApiProject(value: unknown): value is ApiProject {
   return (
     isRecord(value) &&
-    isNumber(value.id) &&
+    isString(value.id) &&
     isString(value.name) &&
     (value.description === undefined || isNullableString(value.description)) &&
     (value.coverImageUrl === undefined || isNullableString(value.coverImageUrl)) &&

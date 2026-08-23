@@ -1,5 +1,5 @@
 export interface ApiProjectOverviewChapter {
-  id: number;
+  id: string;
   orderIndex: number;
   title: string;
   status: string;
@@ -9,7 +9,7 @@ export interface ApiProjectOverviewChapter {
 }
 
 export interface ApiProjectOverview {
-  id: number;
+  id: string;
   name: string;
   description: string | null;
   coverImageUrl: string | null;
@@ -58,7 +58,7 @@ export function isApiProjectOverview(value: unknown): value is ApiProjectOvervie
   const metrics = value.metrics;
   const counts = value.counts;
   return (
-    number(value.id) &&
+    string(value.id) &&
     string(value.name) &&
     nullableString(value.description) &&
     nullableString(value.coverImageUrl) &&
@@ -79,7 +79,7 @@ export function isApiProjectOverview(value: unknown): value is ApiProjectOvervie
     value.chapters.every(
       (chapter) =>
         record(chapter) &&
-        number(chapter.id) &&
+        string(chapter.id) &&
         number(chapter.orderIndex) &&
         string(chapter.title) &&
         string(chapter.status) &&

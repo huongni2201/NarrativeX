@@ -8,6 +8,7 @@ import type {
   CreateChapterApiInput,
   CursorPage,
   UpdateChapterApiInput,
+  ProjectId,
 } from "@/types/api";
 import {
   isApiChapter,
@@ -24,7 +25,7 @@ export interface ChapterListParams {
 }
 
 function chapterListPath(
-  projectId: number,
+  projectId: ProjectId,
   storyVersionId: number,
   { cursor, limit = 50 }: ChapterListParams = {},
 ): string {
@@ -37,32 +38,32 @@ function chapterListPath(
 }
 
 export const chaptersApi = {
-  list: (projectId: number, storyVersionId: number, params: ChapterListParams = {}) =>
+  list: (projectId: ProjectId, storyVersionId: number, params: ChapterListParams = {}) =>
     apiRequest<CursorPage<ApiChapterSummary>>(
       chapterListPath(projectId, storyVersionId, params),
       {},
       (value): value is CursorPage<ApiChapterSummary> =>
         isCursorPage(value, isApiChapterSummary),
     ),
-  getById: (projectId: number, chapterId: number) =>
+  getById: (projectId: ProjectId, chapterId: number) =>
     apiRequest<ApiChapter>(
       `/api/v1/projects/${projectId}/chapters/${chapterId}`,
       {},
       isApiChapter,
     ),
-  getWorkspace: (projectId: number, chapterId: number) =>
+  getWorkspace: (projectId: ProjectId, chapterId: number) =>
     apiRequest<ApiChapterWorkspace>(
       `/api/v1/projects/${projectId}/chapters/${chapterId}/workspace`,
       {},
       isApiChapterWorkspace,
     ),
-  create: (projectId: number, input: CreateChapterApiInput, idempotencyKey = crypto.randomUUID()) =>
+  create: (projectId: ProjectId, input: CreateChapterApiInput, idempotencyKey = crypto.randomUUID()) =>
     apiRequest<ApiChapter>(
       `/api/v1/projects/${projectId}/chapters`,
       { method: "POST", headers: { "Idempotency-Key": idempotencyKey }, json: input },
       isApiChapter,
     ),
-  batchImport: (projectId: number, file: File, storyVersionId?: number) => {
+  batchImport: (projectId: ProjectId, file: File, storyVersionId?: number) => {
     const form = new FormData();
     if (storyVersionId !== undefined) form.set("storyVersionId", String(storyVersionId));
     form.set("file", file);
@@ -73,7 +74,7 @@ export const chaptersApi = {
     );
   },
   update: (
-    projectId: number,
+    projectId: ProjectId,
     chapterId: number,
     rowVersion: number,
     input: UpdateChapterApiInput,
@@ -87,7 +88,7 @@ export const chaptersApi = {
       },
       isApiChapter,
     ),
-  importContent: (projectId: number, chapterId: number, content: string, title?: string) =>
+  importContent: (projectId: ProjectId, chapterId: number, content: string, title?: string) =>
     apiRequest<{ variantId: number; variantType: string; languageDetectionStatus: string }>(
       `/api/v1/projects/${projectId}/chapters/${chapterId}/content`,
       { method: "POST", json: { content, title } },

@@ -2,7 +2,7 @@ export type ProjectDashboardStatus = "ACTIVE" | "DRAFT";
 export type ProjectDashboardSort = "NEWEST" | "STARRED" | "OLDEST" | "NAME";
 
 export interface ApiProjectDashboardItem {
-  id: number;
+  id: string;
   name: string;
   description: string | null;
   coverImageUrl: string | null;
@@ -51,7 +51,7 @@ export function isApiProjectDashboardPage(value: unknown): value is ApiProjectDa
   return value.content.every((item) => {
     if (!record(item) || !record(item.metrics)) return false;
     return (
-      number(item.id) &&
+      typeof item.id === "string" &&
       typeof item.name === "string" &&
       (item.description === null || typeof item.description === "string") &&
       (item.coverImageUrl === null || typeof item.coverImageUrl === "string") &&

@@ -1,4 +1,5 @@
 import { apiRequest } from "@/shared/api/client";
+import type { ProjectId } from "@/types/api";
 
 export type VisualBeatReviewStatus = "NEEDS_REVIEW" | "APPROVED";
 export type MotionMode = "STILL" | "BASIC_MOTION" | "AI_VIDEO";
@@ -133,7 +134,7 @@ function isApiChapterStoryboard(value: unknown): value is ApiChapterStoryboard {
 }
 
 export const storyboardApi = {
-  get: (projectId: number, chapterId: number) =>
+  get: (projectId: ProjectId, chapterId: string | number) =>
     apiRequest<ApiChapterStoryboard>(
       `/api/v1/projects/${projectId}/chapters/${chapterId}/storyboard`,
       {},
@@ -141,8 +142,8 @@ export const storyboardApi = {
     ),
 
   createVisualBeat: (
-    projectId: number,
-    chapterId: number,
+    projectId: ProjectId,
+    chapterId: string | number,
     sceneId: number,
     input: CreateVisualBeatInput,
   ) =>
@@ -153,8 +154,8 @@ export const storyboardApi = {
     ),
 
   updateReviewStatus: (
-    projectId: number,
-    chapterId: number,
+    projectId: ProjectId,
+    chapterId: string | number,
     sceneId: number,
     beatId: number,
     rowVersion: number,

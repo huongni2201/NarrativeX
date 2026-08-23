@@ -1,5 +1,5 @@
 import { apiRequest } from "@/shared/api/client";
-import type { CursorPage } from "@/types/api";
+import type { CursorPage, ProjectId } from "@/types/api";
 import { isCursorPage } from "@/types/api";
 
 const DEFAULT_CHARACTER_PAGE_SIZE = 20;
@@ -210,7 +210,7 @@ export const charactersApi = {
   count: () =>
     apiRequest<number>("/api/v1/characters/count", {}, (value): value is number => typeof value === "number" && Number.isSafeInteger(value) && value >= 0),
 
-  listProject: (projectId: number, params: CharacterListParams = {}) =>
+  listProject: (projectId: ProjectId, params: CharacterListParams = {}) =>
     apiRequest<CursorPage<ApiProjectCharacterSummary>>(
       listPath(`/api/v1/projects/${projectId}/characters`, params),
       {},
@@ -218,7 +218,7 @@ export const charactersApi = {
         isCursorPage(value, isApiProjectCharacterSummary),
     ),
 
-  getProjectDetail: (projectId: number, characterId: number) =>
+  getProjectDetail: (projectId: ProjectId, characterId: number) =>
     apiRequest<ApiProjectCharacterDetail>(
       `/api/v1/projects/${projectId}/characters/${characterId}`,
       {},

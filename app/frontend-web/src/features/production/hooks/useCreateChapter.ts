@@ -4,9 +4,10 @@ import { chaptersApi } from "@/features/chapters/api/chapters.api";
 import { queryKeys } from "@/lib/query-keys";
 import { apiErrorMessage } from "@/shared/api/client";
 import type { CreateChapterInput } from "../components/CreateChapterModal";
+import type { ProjectId } from "@/types/api";
 
 export function useCreateChapter(
-  projectId: number,
+  projectId: ProjectId,
   options: Readonly<{ onCreated?: () => void }> = {},
 ) {
   const router = useRouter();

@@ -5,6 +5,7 @@ import type {
   CreateProjectApiInput,
   CreateStoryVersionApiInput,
   CursorPage,
+  ProjectId,
 } from "@/types/api";
 import {
   isApiGenerationJob,
@@ -50,22 +51,22 @@ export const projectsApi = {
       {},
       (value): value is CursorPage<ApiProject> => isCursorPage(value, isApiProject),
     ),
-  getById: (projectId: number) =>
+  getById: (projectId: ProjectId) =>
     apiRequest<ApiProject>(`/api/v1/projects/${projectId}`, {}, isApiProject),
-  getOverview: (projectId: number) =>
+  getOverview: (projectId: ProjectId) =>
     apiRequest<ApiProjectOverview>(
       `/api/v1/projects/${projectId}/overview`,
       {},
       isApiProjectOverview,
     ),
-  getLocations: (projectId: number, params: ProjectListParams = {}) =>
+  getLocations: (projectId: ProjectId, params: ProjectListParams = {}) =>
     apiRequest<CursorPage<ApiProjectLocation>>(
       resourceListPath(`/api/v1/projects/${projectId}/locations`, params),
       {},
       (value): value is CursorPage<ApiProjectLocation> =>
         isCursorPage(value, isApiProjectLocation),
     ),
-  getAssets: (projectId: number, params: ProjectListParams = {}) =>
+  getAssets: (projectId: ProjectId, params: ProjectListParams = {}) =>
     apiRequest<CursorPage<ApiProjectAsset>>(
       resourceListPath(`/api/v1/projects/${projectId}/assets`, params),
       {},
@@ -73,19 +74,19 @@ export const projectsApi = {
     ),
   create: (input: CreateProjectApiInput) =>
     apiRequest<ApiProject>("/api/v1/projects", { method: "POST", json: input }, isApiProject),
-  getLatestStoryVersion: (projectId: number) =>
+  getLatestStoryVersion: (projectId: ProjectId) =>
     apiRequest<ApiStoryVersion>(
       `/api/v1/projects/${projectId}/stories/latest`,
       {},
       isApiStoryVersion,
     ),
-  createStoryVersion: (projectId: number, input: CreateStoryVersionApiInput) =>
+  createStoryVersion: (projectId: ProjectId, input: CreateStoryVersionApiInput) =>
     apiRequest<ApiStoryVersion>(
       `/api/v1/projects/${projectId}/stories`,
       { method: "POST", json: input },
       isApiStoryVersion,
     ),
-  enqueueAnalysis: (projectId: number, chapterId: number) =>
+  enqueueAnalysis: (projectId: ProjectId, chapterId: number) =>
     apiRequest<ApiGenerationJob>(
       `/api/v1/projects/${projectId}/chapters/${chapterId}/analysis-jobs`,
       { method: "POST" },

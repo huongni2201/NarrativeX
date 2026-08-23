@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { projectsApi } from "@/features/projects/api/projects.api";
 import { queryKeys } from "@/lib/query-keys";
+import type { ProjectId } from "@/types/api";
 
-export function useProjectResources(projectId: number, activeTab: string, enabled = true) {
+export function useProjectResources(projectId: ProjectId, activeTab: string, enabled = true) {
   const locationsQuery = useQuery({
     queryKey: queryKeys.projectLocations(projectId),
     queryFn: () => projectsApi.getLocations(projectId),

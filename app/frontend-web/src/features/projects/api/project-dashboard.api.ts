@@ -1,4 +1,5 @@
 import { apiRequest } from "@/shared/api/client";
+import type { ProjectId } from "@/types/api";
 import type {
   ApiProjectDashboardPage,
   ProjectDashboardSort,
@@ -31,8 +32,8 @@ function dashboardPath({
 export const projectDashboardApi = {
   list: (params: ProjectDashboardListParams = {}) =>
     apiRequest<ApiProjectDashboardPage>(dashboardPath(params), {}, isApiProjectDashboardPage),
-  favorite: (projectId: number) =>
+  favorite: (projectId: ProjectId) =>
     apiRequest<void>(`/api/v1/projects/${projectId}/favorite`, { method: "PUT" }),
-  unfavorite: (projectId: number) =>
+  unfavorite: (projectId: ProjectId) =>
     apiRequest<void>(`/api/v1/projects/${projectId}/favorite`, { method: "DELETE" }),
 };

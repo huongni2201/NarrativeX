@@ -1,5 +1,5 @@
 export interface ApiProjectLocation {
-  id: number;
+  id: string;
   name: string;
   description: string | null;
   visualPrompt: string | null;
@@ -9,7 +9,7 @@ export interface ApiProjectLocation {
 }
 
 export interface ApiProjectAsset {
-  id: number;
+  id: string;
   name: string;
   assetType: string;
   storageKey: string;
@@ -28,10 +28,6 @@ function isString(value: unknown): value is string {
   return typeof value === "string";
 }
 
-function isNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value);
-}
-
 function isNullableString(value: unknown): value is string | null {
   return value === null || isString(value);
 }
@@ -39,7 +35,7 @@ function isNullableString(value: unknown): value is string | null {
 export function isApiProjectLocation(value: unknown): value is ApiProjectLocation {
   return (
     isRecord(value) &&
-    isNumber(value.id) &&
+    isString(value.id) &&
     isString(value.name) &&
     isNullableString(value.description) &&
     isNullableString(value.visualPrompt) &&
@@ -52,7 +48,7 @@ export function isApiProjectLocation(value: unknown): value is ApiProjectLocatio
 export function isApiProjectAsset(value: unknown): value is ApiProjectAsset {
   return (
     isRecord(value) &&
-    isNumber(value.id) &&
+    isString(value.id) &&
     isString(value.name) &&
     isString(value.assetType) &&
     isString(value.storageKey) &&

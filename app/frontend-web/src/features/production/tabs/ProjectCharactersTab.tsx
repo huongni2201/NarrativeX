@@ -19,9 +19,10 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { charactersApi } from "@/features/characters/api/characters.api";
 import { queryKeys } from "@/lib/query-keys";
+import type { ProjectId } from "@/types/api";
 
 interface ProjectCharactersTabProps {
-  projectId: number;
+  projectId: ProjectId;
   onOpenLibrary: () => void;
 }
 

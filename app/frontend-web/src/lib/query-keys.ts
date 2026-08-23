@@ -1,26 +1,28 @@
+import type { ProjectId } from "@/types/api";
+
 export const queryKeys = {
   currentUser: ["auth", "current-user"] as const,
   projects: ["projects"] as const,
   projectsPage: (page: number, size: number) => ["projects", page, size] as const,
-  project: (projectId: number) => ["projects", projectId] as const,
-  projectOverview: (projectId: number) => ["projects", projectId, "overview"] as const,
-  projectLocations: (projectId: number) => ["projects", projectId, "locations"] as const,
-  projectAssets: (projectId: number) => ["projects", projectId, "assets"] as const,
-  projectCharacters: (projectId: number) => ["projects", projectId, "characters"] as const,
-  projectCharacter: (projectId: number, characterId: number) =>
+  project: (projectId: ProjectId) => ["projects", projectId] as const,
+  projectOverview: (projectId: ProjectId) => ["projects", projectId, "overview"] as const,
+  projectLocations: (projectId: ProjectId) => ["projects", projectId, "locations"] as const,
+  projectAssets: (projectId: ProjectId) => ["projects", projectId, "assets"] as const,
+  projectCharacters: (projectId: ProjectId) => ["projects", projectId, "characters"] as const,
+  projectCharacter: (projectId: ProjectId, characterId: number) =>
     ["projects", projectId, "characters", characterId] as const,
-  story: (projectId: number) => ["projects", projectId, "story"] as const,
-  chapters: (projectId: number, storyVersionId: number) =>
+  story: (projectId: ProjectId) => ["projects", projectId, "story"] as const,
+  chapters: (projectId: ProjectId, storyVersionId: number) =>
     ["projects", projectId, "storyVersions", storyVersionId, "chapters"] as const,
-  chapter: (projectId: number, chapterId: number) =>
+  chapter: (projectId: ProjectId, chapterId: number) =>
     ["projects", projectId, "chapters", chapterId] as const,
-  chapterWorkspace: (projectId: number, chapterId: number) =>
+  chapterWorkspace: (projectId: ProjectId, chapterId: number) =>
     ["projects", projectId, "chapters", chapterId, "workspace"] as const,
   chapterLanguageStatus: (projectId: number, chapterId: number) =>
     ["projects", projectId, "chapters", chapterId, "language-status"] as const,
   chapterContentVariants: (projectId: number, chapterId: number) =>
     ["projects", projectId, "chapters", chapterId, "content-variants"] as const,
-  storyboard: (projectId: number, chapterId: number) =>
+  storyboard: (projectId: ProjectId, chapterId: string | number) =>
     ["projects", projectId, "chapters", chapterId, "storyboard"] as const,
   characters: ["characters"] as const,
   assets: ["assets"] as const,

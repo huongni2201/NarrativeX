@@ -3,8 +3,9 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { chaptersApi } from "@/features/chapters/api/chapters.api";
 import { queryKeys } from "@/lib/query-keys";
 import { apiErrorMessage } from "@/shared/api/client";
+import type { ProjectId } from "@/types/api";
 
-export function useBatchChapterImport(projectId: number) {
+export function useBatchChapterImport(projectId: ProjectId) {
   const queryClient = useQueryClient();
   const inputRef = useRef<HTMLInputElement>(null);
   const mutation = useMutation({

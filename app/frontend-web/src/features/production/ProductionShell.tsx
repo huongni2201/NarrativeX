@@ -21,6 +21,7 @@ import { useBatchChapterImport } from "./hooks/useBatchChapterImport";
 import { useCreateChapter } from "./hooks/useCreateChapter";
 import { useProjectResources } from "./hooks/useProjectResources";
 import { useProjectWorkspace } from "./hooks/useProjectWorkspace";
+import type { ProjectId } from "@/types/api";
 
 interface ProductionShellProps {
   projectId?: string;
@@ -29,19 +30,19 @@ interface ProductionShellProps {
 
 export function ProductionShell({ projectId, initialTab = "chapters" }: Readonly<ProductionShellProps>) {
   const router = useRouter();
-  const numericProjectId = projectId ? Number(projectId) : Number.NaN;
-  const hasValidProjectId = Number.isSafeInteger(numericProjectId) && numericProjectId > 0;
+  const projectIdentifier: ProjectId = projectId?.trim() ?? "";
+  const hasValidProjectId = projectIdentifier.length > 0;
   const [formOpen, setFormOpen] = useState(false);
   const [formResetKey, setFormResetKey] = useState(0);
-  const workspace = useProjectWorkspace(numericProjectId, initialTab, hasValidProjectId);
-  const resources = useProjectResources(numericProjectId, workspace.activeTab, hasValidProjectId);
-  const createChapter = useCreateChapter(numericProjectId, {
+  const workspace = useProjectWorkspace(projectIdentifier, initialTab, hasValidProjectId);
+  const resources = useProjectResources(projectIdentifier, workspace.activeTab, hasValidProjectId);
+  const createChapter = useCreateChapter(projectIdentifier, {
     onCreated: () => {
       setFormOpen(false);
       setFormResetKey((key) => key + 1);
     },
   });
-  const batchImport = useBatchChapterImport(numericProjectId);
+  const batchImport = useBatchChapterImport(projectIdentifier);
 
   if (!hasValidProjectId) {
     return <WorkspaceError error={new Error("ID dự án không hợp lệ.")} fallback="ID dự án không hợp lệ." />;
@@ -71,7 +72,7 @@ export function ProductionShell({ projectId, initialTab = "chapters" }: Readonly
     else setFormOpen(true);
   };
 
-  const openChapter = (chapterId: number) => {
+  const openChapter = (chapterId: string | number) => {
     workspace.navigateToChapter(chapterId);
   };
 
@@ -193,12 +194,12 @@ export function ProductionShell({ projectId, initialTab = "chapters" }: Readonly
       )}
 
       {activeTab === "storyboard" && (
-        <StoryboardScreen projectId={numericProjectId} chapters={chapters} />
+        <StoryboardScreen projectId={projectIdentifier} chapters={chapters} />
       )}
 
       {activeTab === "characters" && (
         <ProjectCharactersTab
-          projectId={numericProjectId}
+          projectId={projectIdentifier}
           onOpenLibrary={() => router.push("/characters")}
         />
       )}
