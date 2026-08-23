@@ -3,9 +3,10 @@ package com.narrativex.backend.feature.character.api.response;
 import com.narrativex.backend.feature.character.domain.aggregate.Character;
 import com.narrativex.backend.feature.character.domain.enums.CharacterStatus;
 import java.util.List;
+import java.util.UUID;
 
 public record CharacterSummaryResponse(
-    Long id,
+    UUID id,
     String workspaceId,
     String canonicalName,
     List<String> aliases,
