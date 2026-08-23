@@ -5,6 +5,7 @@ import com.narrativex.backend.feature.storyboard.application.port.out.ChapterWor
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterWorkspaceAggregateRow;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterWorkspaceMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterWorkspacePreviewRow;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -14,7 +15,7 @@ public class MyBatisChapterWorkspaceQueryAdapter implements ChapterWorkspaceRead
   private final ChapterWorkspaceMapper mapper;
 
   @Override
-  public Snapshot get(Long projectId, Long chapterId) {
+  public Snapshot get(UUID projectId, UUID chapterId) {
     ChapterWorkspaceAggregateRow row = mapper.aggregate(projectId, chapterId);
     if (row == null) {
       throw new ResourceNotFoundException("Project not found");
