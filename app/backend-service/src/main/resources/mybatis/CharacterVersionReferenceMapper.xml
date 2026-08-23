@@ -5,7 +5,7 @@
 <mapper namespace="com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.CharacterVersionReferenceMapper">
   <resultMap id="referenceRow" type="com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.CharacterVersionReferenceRow">
     <id property="characterVersionId" column="character_version_id"/>
-    <result property="mediaAssetId" column="media_asset_id" javaType="java.util.UUID" typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler"/>
+    <id property="mediaAssetId" column="media_asset_id" javaType="java.util.UUID" typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler"/>
     <result property="referenceRole" column="reference_role"/>
     <result property="priority" column="priority"/>
   </resultMap>
