@@ -6,9 +6,9 @@ import java.time.Instant;
 import java.util.UUID;
 
 public record ChapterContentVariant(
-    Long id,
+    UUID id,
     UUID chapterId,
-    Long sourceVariantId,
+    UUID sourceVariantId,
     ContentVariantType type,
     String languageCode,
     String content,
