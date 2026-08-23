@@ -4,31 +4,32 @@ import com.narrativex.backend.feature.common.domain.AggregateRoot;
 import com.narrativex.backend.feature.storyboard.domain.enums.SceneStatus;
 import com.narrativex.backend.feature.storyboard.domain.exception.InvalidSceneTransitionException;
 import java.util.Objects;
+import java.util.UUID;
 
 /** Scene aggregate optimized for independent editing and AI generation. */
 public final class Scene extends AggregateRoot {
-  private final Long chapterId;
+  private final UUID chapterId;
   private int orderIndex;
   private String title;
   private String narration;
   private Integer durationSeconds;
   private SceneStatus status;
 
-  public Scene(Long chapterId, int orderIndex, String title) {
+  public Scene(UUID chapterId, int orderIndex, String title) {
     this(null, 0L, chapterId, orderIndex, title, null, null, SceneStatus.DRAFT);
   }
 
   private Scene(
-      Long id,
+      UUID id,
       long rowVersion,
-      Long chapterId,
+      UUID chapterId,
       int orderIndex,
       String title,
       String narration,
       Integer durationSeconds,
       SceneStatus status) {
     super(id, rowVersion);
-    this.chapterId = positiveId(chapterId, "chapterId");
+    this.chapterId = Objects.requireNonNull(chapterId, "chapterId");
     this.orderIndex = validOrderIndex(orderIndex);
     this.title = requiredTitle(title);
     this.narration = normalizeOptionalText(narration);
@@ -37,9 +38,9 @@ public final class Scene extends AggregateRoot {
   }
 
   public static Scene rehydrate(
-      Long id,
+      UUID id,
       long rowVersion,
-      Long chapterId,
+      UUID chapterId,
       int orderIndex,
       String title,
       String narration,
@@ -115,7 +116,7 @@ public final class Scene extends AggregateRoot {
     }
   }
 
-  public Long getChapterId() {
+  public UUID getChapterId() {
     return chapterId;
   }
 
@@ -137,13 +138,6 @@ public final class Scene extends AggregateRoot {
 
   public SceneStatus getStatus() {
     return status;
-  }
-
-  private static Long positiveId(Long value, String field) {
-    if (value == null || value <= 0) {
-      throw new IllegalArgumentException(field + " must be positive");
-    }
-    return value;
   }
 
   private static int validOrderIndex(int value) {
