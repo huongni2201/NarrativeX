@@ -1,4 +1,6 @@
 package com.narrativex.backend.feature.storyboard.application.command;
 
+import java.util.UUID;
+
 public record CreateChapterCommand(
-    Long projectId, Long storyVersionId, int orderIndex, String title, String sourceText) {}
+    UUID projectId, UUID storyVersionId, int orderIndex, String title, String sourceText) {}
