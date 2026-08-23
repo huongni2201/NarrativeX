@@ -39,8 +39,6 @@ public class CreateMediaPlanUseCase {
   public MediaPlan execute(CreateMediaPlanCommand command) {
     String userId = currentUserId.get();
 
-    // Reuse the ownership-scoped Chapter serialization boundary. The lock stays held while the
-    // current storyboard is snapshotted and the revision is allocated.
     var chapter =
         chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(
             command.projectId(), command.chapterId(), userId);
@@ -65,11 +63,6 @@ public class CreateMediaPlanUseCase {
           "STORYBOARD_NOT_READY", "Every visual beat must be approved before image generation.");
     }
 
-    // Chapter-level narration is the current executable MVP contract. The legacy/future
-    // narration_sets projection is not populated by MediaPlanningSourceService yet, so requiring
-    // those nullable pointers here made every IMAGE_MOTION plan impossible to create. Render
-    // admission is the authoritative boundary that now requires and snapshots the exact ready
-    // narration asset together with the selected images.
     var workload = calculateWorkload(scenes);
     int revision = mediaPlanRepository.nextRevision(command.chapterId());
 
@@ -112,7 +105,9 @@ public class CreateMediaPlanUseCase {
       var context = visualPromptContextRepository.findForScene(command.projectId(), scene.sceneId());
       List<MediaBeatPlan> beats = new ArrayList<>();
       for (var beat : scene.beats()) {
-        var composed = visualPromptComposer.compose(command.imageStyle(), beat.visualIntent(), context);
+        var composed =
+            visualPromptComposer.compose(
+                command.imageStyle(), beat.visualIntent(), beat.cameraAngle(), context);
         beats.add(
             new MediaBeatPlan(
                 beat.visualBeatId(),
@@ -121,7 +116,7 @@ public class CreateMediaPlanUseCase {
                 beat.motionIntent().name(),
                 motionStrategyResolver.resolve(command.productionMode(), beat.motionIntent()),
                 "GENERATE_NEW",
-                "prompt-v3-" + command.imageStyle().name().toLowerCase(),
+                "prompt-v4-" + command.imageStyle().name().toLowerCase(),
                 composed.prompt(),
                 composed.negativePrompt(),
                 beat.audioStartMs(),
@@ -140,6 +135,8 @@ public class CreateMediaPlanUseCase {
                         : beat.qualityTierOverride())
                     + "\",\"visualStyle\":\""
                     + command.imageStyle().name()
+                    + "\",\"cameraAngle\":\""
+                    + beat.cameraAngle()
                     + "\"}",
                 composed.characterSnapshotJson(),
                 null));
@@ -155,12 +152,6 @@ public class CreateMediaPlanUseCase {
     return List.copyOf(resolved);
   }
 
-  /**
-   * Phase-1 workload accounting intentionally uses only information already authoritative in the
-   * storyboard snapshot. Image edits remain zero until edit operations become first-class plans. A
-   * scene's duration is attributed to I2V when any beat in that scene requires I2V; otherwise it is
-   * attributed to basic image motion.
-   */
   private static MediaWorkload calculateWorkload(List<MediaScenePlan> scenes) {
     long narrationCharacters = 0L;
     int imageGenerateCount = 0;

@@ -7,6 +7,8 @@ from narrativex_worker.visual_prompt.director import (
 def test_visual_direction_instructions_target_still_images() -> None:
     assert "still-image" in VISUAL_DIRECTION_INSTRUCTIONS
     assert "continuity" in VISUAL_DIRECTION_INSTRUCTIONS
+    assert "camera_angle" in VISUAL_DIRECTION_INSTRUCTIONS
+    assert "LOW_ANGLE" in VISUAL_DIRECTION_INSTRUCTIONS
     assert "FFmpeg" in VISUAL_DIRECTION_INSTRUCTIONS
     assert "Seedance" not in VISUAL_DIRECTION_INSTRUCTIONS
 

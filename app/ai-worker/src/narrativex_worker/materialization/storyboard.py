@@ -108,6 +108,7 @@ async def materialize_storyboard(
                 beat.title,
                 beat.visual_intent,
                 choose_ffmpeg_camera_movement(beat.title, beat.visual_intent),
+                beat.camera_angle.value,
             )
             for scene_index, scene in enumerate(result.scenes)
             for beat_index, beat in enumerate(scene.visual_beats)
@@ -117,8 +118,8 @@ async def materialize_storyboard(
                 """
                 INSERT INTO visual_beats
                   (scene_id, order_index, title, visual_intent, motion_mode,
-                   camera_movement, review_status)
-                VALUES ($1, $2, $3, $4, 'STILL', $5, 'NEEDS_REVIEW')
+                   camera_movement, camera_angle, review_status)
+                VALUES ($1, $2, $3, $4, 'STILL', $5, $6, 'NEEDS_REVIEW')
                 """,
                 beat_rows,
             )
