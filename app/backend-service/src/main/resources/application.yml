@@ -45,6 +45,11 @@ server:
 narrativex:
   generation:
     media-enabled: ${NARRATIVEX_MEDIA_GENERATION_ENABLED:false}
+    image:
+      provider-key: ${NARRATIVEX_IMAGE_PROVIDER_KEY:vertex}
+      model: ${NARRATIVEX_IMAGE_MODEL:gemini-2.5-flash-image}
+      pricing-version: ${NARRATIVEX_IMAGE_PRICING_VERSION:gemini-2.5-flash-image-batch-2026-08-22}
+      execution-mode: ${NARRATIVEX_IMAGE_EXECUTION_MODE:BATCH}
   limits:
     max-story-characters: ${NARRATIVEX_MAX_STORY_CHARACTERS:500000}
     max-estimated-input-tokens: ${NARRATIVEX_MAX_ESTIMATED_INPUT_TOKENS:120000}
