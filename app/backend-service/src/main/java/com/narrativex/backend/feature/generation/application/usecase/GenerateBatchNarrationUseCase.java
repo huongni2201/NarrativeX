@@ -5,6 +5,7 @@ import com.narrativex.backend.feature.generation.application.command.GenerateCha
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -34,5 +35,5 @@ public class GenerateBatchNarrationUseCase {
         .toList();
   }
 
-  public record ChapterNarrationJob(Long chapterId, GenerationJob job) {}
+  public record ChapterNarrationJob(UUID chapterId, GenerationJob job) {}
 }

@@ -120,7 +120,7 @@ public class GenerateChapterNarrationUseCase {
             GenerationJob.rehydrate(
                 null,
                 0L,
-                UUID.randomUUID().toString(),
+                UUID.randomUUID(),
                 command.projectId(),
                 JobType.NARRATION_GENERATE,
                 JobStatus.QUEUED,

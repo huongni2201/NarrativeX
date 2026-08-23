@@ -13,8 +13,8 @@ import lombok.Setter;
 @AllArgsConstructor
 public class NarrationRequestRow {
   private UUID id;
-  private Long projectId;
-  private Long chapterId;
+  private UUID projectId;
+  private UUID chapterId;
   private long chapterRowVersion;
   private String sourceHash;
   private String sourceText;
@@ -29,11 +29,11 @@ public class NarrationRequestRow {
     return id;
   }
 
-  public Long projectId() {
+  public UUID projectId() {
     return projectId;
   }
 
-  public Long chapterId() {
+  public UUID chapterId() {
     return chapterId;
   }
 
