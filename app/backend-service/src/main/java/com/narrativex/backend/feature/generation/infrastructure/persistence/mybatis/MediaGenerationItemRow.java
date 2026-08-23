@@ -16,13 +16,13 @@ import lombok.Setter;
 public class MediaGenerationItemRow {
   private UUID id;
   private long rowVersion;
-  private Long generationJobId;
+  private UUID generationJobId;
   private UUID mediaPlanId;
   private Long visualBeatId;
   private String itemKey;
   private int attemptNumber;
   private MediaGenerationExecutionStatus executionStatus;
-  private Long providerOperationId;
+  private UUID providerOperationId;
   private UUID mediaAssetId;
   private String requestFingerprint;
   private String errorCode;

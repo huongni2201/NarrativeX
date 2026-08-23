@@ -6,13 +6,13 @@
   <resultMap id="itemRow" type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.MediaGenerationItemRow">
     <id property="id" column="id" javaType="java.util.UUID" typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler"/>
     <result property="rowVersion" column="row_version"/>
-    <result property="generationJobId" column="generation_job_id"/>
+    <result property="generationJobId" column="generation_job_id" javaType="java.util.UUID" typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler"/>
     <result property="mediaPlanId" column="media_plan_id" javaType="java.util.UUID" typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler"/>
     <result property="visualBeatId" column="visual_beat_id"/>
     <result property="itemKey" column="item_key"/>
     <result property="attemptNumber" column="attempt_number"/>
     <result property="executionStatus" column="execution_status"/>
-    <result property="providerOperationId" column="provider_operation_id"/>
+    <result property="providerOperationId" column="provider_operation_id" javaType="java.util.UUID" typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler"/>
     <result property="mediaAssetId" column="media_asset_id" javaType="java.util.UUID" typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler"/>
     <result property="requestFingerprint" column="request_fingerprint"/>
     <result property="errorCode" column="error_code"/>
@@ -26,7 +26,7 @@
     INSERT INTO media_generation_items
       (id, generation_job_id, media_plan_id, visual_beat_id, item_key, attempt_number, execution_status, provider_operation_id, media_asset_id, request_fingerprint, error_code, error_detail_ref, review_status, reviewed_by_user_id, reviewed_at)
     VALUES
-      (#{id,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}, #{generationJobId}, #{mediaPlanId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}, #{visualBeatId}, #{itemKey}, #{attemptNumber}, #{executionStatus}, #{providerOperationId}, #{mediaAssetId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}, #{requestFingerprint}, #{errorCode}, #{errorDetailRef}, #{reviewStatus}, #{reviewedByUserId}, #{reviewedAt})
+      (#{id,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}, #{generationJobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}, #{mediaPlanId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}, #{visualBeatId}, #{itemKey}, #{attemptNumber}, #{executionStatus}, #{providerOperationId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}, #{mediaAssetId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}, #{requestFingerprint}, #{errorCode}, #{errorDetailRef}, #{reviewStatus}, #{reviewedByUserId}, #{reviewedAt})
     RETURNING id
   </select>
   <select id="findById" resultMap="itemRow">SELECT <include refid="columns"/> FROM media_generation_items WHERE id = #{id,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}</select>
@@ -34,7 +34,7 @@
     SELECT i.* FROM media_generation_items i JOIN generation_jobs j ON j.id = i.generation_job_id JOIN projects p ON p.id = j.project_id WHERE i.id = #{id,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler} AND p.owner_id = #{userId} AND p.archived_at IS NULL
   </select>
   <select id="findByJobOwned" resultMap="itemRow">
-    SELECT i.* FROM media_generation_items i JOIN generation_jobs j ON j.id = i.generation_job_id JOIN projects p ON p.id = j.project_id WHERE i.generation_job_id = #{jobId} AND p.owner_id = #{userId} AND p.archived_at IS NULL ORDER BY i.item_key, i.attempt_number
+    SELECT i.* FROM media_generation_items i JOIN generation_jobs j ON j.id = i.generation_job_id JOIN projects p ON p.id = j.project_id WHERE i.generation_job_id = #{jobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler} AND p.owner_id = #{userId} AND p.archived_at IS NULL ORDER BY i.item_key, i.attempt_number
   </select>
   <update id="review">
     UPDATE media_generation_items i SET review_status = #{decision}, reviewed_by_user_id = #{reviewerId}, reviewed_at = CURRENT_TIMESTAMP, row_version = row_version + 1, updated_at = CURRENT_TIMESTAMP

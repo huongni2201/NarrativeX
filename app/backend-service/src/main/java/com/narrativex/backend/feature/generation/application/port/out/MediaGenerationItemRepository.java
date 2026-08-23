@@ -10,7 +10,7 @@ public interface MediaGenerationItemRepository {
 
   Optional<MediaGenerationItem> findOwned(String userId, UUID itemId);
 
-  List<MediaGenerationItem> findByJobOwned(String userId, Long jobId);
+  List<MediaGenerationItem> findByJobOwned(String userId, UUID jobId);
 
   boolean review(String userId, UUID itemId, long rowVersion, String decision);
 }

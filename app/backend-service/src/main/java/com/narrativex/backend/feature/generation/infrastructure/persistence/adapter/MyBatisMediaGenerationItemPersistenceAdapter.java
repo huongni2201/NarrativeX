@@ -32,7 +32,7 @@ public class MyBatisMediaGenerationItemPersistenceAdapter implements MediaGenera
   }
 
   @Override
-  public List<MediaGenerationItem> findByJobOwned(String userId, Long jobId) {
+  public List<MediaGenerationItem> findByJobOwned(String userId, UUID jobId) {
     return mapper.findByJobOwned(userId, jobId).stream()
         .map(MyBatisMediaGenerationItemPersistenceAdapter::toDomain)
         .toList();

@@ -42,8 +42,8 @@ public class MediaGenerationController {
 
   @PostMapping("/projects/{projectId}/chapters/{chapterId}/media-jobs")
   public ResponseEntity<ApiResponse<JobResponse>> create(
-      @PathVariable Long projectId,
-      @PathVariable Long chapterId,
+      @PathVariable UUID projectId,
+      @PathVariable UUID chapterId,
       @Valid @RequestBody CreateMediaJobRequest request,
       @RequestHeader("Idempotency-Key") String idempotencyKey) {
     requireMediaGenerationEnabled();
@@ -64,8 +64,8 @@ public class MediaGenerationController {
 
   @PostMapping("/projects/{projectId}/chapters/{chapterId}/media-jobs/estimate")
   public ResponseEntity<ApiResponse<MediaCostEstimateResponse>> estimate(
-      @PathVariable Long projectId,
-      @PathVariable Long chapterId,
+      @PathVariable UUID projectId,
+      @PathVariable UUID chapterId,
       @Valid @RequestBody EstimateMediaJobRequest request) {
     requireMediaGenerationEnabled();
     return ResponseEntity.ok(estimateMediaJobUseCase.execute(projectId, chapterId, request));
@@ -79,7 +79,7 @@ public class MediaGenerationController {
   }
 
   @GetMapping("/media-jobs/{jobId}")
-  public ResponseEntity<ApiResponse<MediaJobDetailsResponse>> details(@PathVariable String jobId) {
+  public ResponseEntity<ApiResponse<MediaJobDetailsResponse>> details(@PathVariable UUID jobId) {
     return ResponseEntity.ok(
         ApiResponse.success("Media job details", getMediaJobDetailsUseCase.execute(jobId)));
   }
