@@ -8,12 +8,13 @@ import { Button } from "@/components/ui/Button";
 import { apiErrorMessage } from "@/shared/api/client";
 import { mediaApi } from "../api/media.api";
 import type { CreateMediaJobInput, EstimateMediaJobInput } from "../api/media.api";
+import type { ProjectId } from "@/types/api";
 
 interface GenerateMediaModalProps {
   open: boolean;
   pending: boolean;
-  projectId: number;
-  chapterId: number;
+  projectId: ProjectId;
+  chapterId: string | number;
   visualBeatCount: number;
   onClose: () => void;
   onSubmit: (input: CreateMediaJobInput) => void;

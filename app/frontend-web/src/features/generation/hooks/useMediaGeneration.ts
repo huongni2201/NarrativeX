@@ -8,6 +8,7 @@ import {
   TERMINAL_JOB_STATUSES,
   type ApiChapterWorkspace,
   type ApiChapterWorkspaceProgressStep,
+  type ProjectId,
 } from "@/types/api";
 import { queryKeys } from "@/lib/query-keys";
 import { mediaApi, type CreateMediaJobInput } from "../api/media.api";
@@ -18,8 +19,8 @@ type InitialMediaIdentity = Pick<
 >;
 
 export function useMediaGeneration(
-  projectId: number,
-  chapterId: number,
+  projectId: ProjectId,
+  chapterId: string | number,
   initialMedia: InitialMediaIdentity,
 ) {
   const queryClient = useQueryClient();

@@ -5,7 +5,7 @@ import test from "node:test";
 
 const apiTypesPath = resolve("src/types/api.ts");
 
-test("accepts the UUID project response returned by POST /api/v1/projects", () => {
+test("accepts UUID project and chapter responses from the backend API", () => {
   const result = spawnSync(
     process.execPath,
     [
@@ -13,7 +13,7 @@ test("accepts the UUID project response returned by POST /api/v1/projects", () =
       "--input-type=module",
       "-e",
       `
-        import { isApiProject, isApiResponse } from ${JSON.stringify(`file:///${apiTypesPath.replaceAll("\\", "/")}`)};
+        import { isApiChapter, isApiProject, isApiResponse } from ${JSON.stringify(`file:///${apiTypesPath.replaceAll("\\", "/")}`)};
         const project = {
           id: "01a030f6-d881-7091-a532-27c29a10b65c",
           name: "Sau Khi Tiếng Lòng Của Phản Diện Bị Lộ",
@@ -33,12 +33,37 @@ test("accepts the UUID project response returned by POST /api/v1/projects", () =
           data: project,
           timestamp: "2026-08-23T23:31:18.791125559Z",
         };
-        process.stdout.write(JSON.stringify({ project: isApiProject(project), envelope: isApiResponse(envelope, isApiProject) }));
+        const chapter = {
+          id: "01a03105-f151-72f1-9489-764b06a43bc6",
+          storyVersionId: "01a03105-f143-7ef0-87a2-fe8d113624bf",
+          orderIndex: 0,
+          title: "Xuyên Thành Phản Diện",
+          sourceText: "Chapter source",
+          sourceHash: "d9caffd093df0dd0f1e28e6e0e2afb35a52ea2abea7894571ceb26d6d6a2c2c7",
+          rowVersion: 0,
+        };
+        const chapterEnvelope = {
+          success: true,
+          message: "Chapter created successfully",
+          data: chapter,
+          timestamp: "2026-08-23T23:47:48.195729023Z",
+        };
+        process.stdout.write(JSON.stringify({
+          project: isApiProject(project),
+          envelope: isApiResponse(envelope, isApiProject),
+          chapter: isApiChapter(chapter),
+          chapterEnvelope: isApiResponse(chapterEnvelope, isApiChapter),
+        }));
       `,
     ],
     { cwd: resolve("."), encoding: "utf8" },
   );
 
   assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(JSON.parse(result.stdout), { project: true, envelope: true });
+  assert.deepEqual(JSON.parse(result.stdout), {
+    project: true,
+    envelope: true,
+    chapter: true,
+    chapterEnvelope: true,
+  });
 });

@@ -4,10 +4,10 @@ import { ChapterLanguageCard } from "./ChapterLanguageCard";
 import { ChapterPipelineSummary } from "./ChapterPipelineSummary";
 import { ChapterSceneGrid } from "./ChapterSceneGrid";
 import { GenerateNarrationModal } from "@/features/generation/components/GenerateNarrationModal";
-import type { ApiChapterWorkspace, ApiChapterLanguageStatus, JobStatus } from "@/types/api";
+import type { ApiChapterWorkspace, ApiChapterLanguageStatus, JobStatus, ProjectId } from "@/types/api";
 
 interface ChapterOverviewTabProps {
-  projectId: number;
+  projectId: ProjectId;
   workspace: ApiChapterWorkspace;
   analysisJobStatus: JobStatus | null;
   analysisJobProgress: number | null;

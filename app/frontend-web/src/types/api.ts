@@ -42,8 +42,8 @@ export interface ApiProject {
 }
 
 export interface ApiStoryVersion {
-  id: number;
-  projectId: number;
+  id: string;
+  projectId: string;
   versionNumber: number;
   status: string;
   moderationDecision: string;
@@ -51,8 +51,8 @@ export interface ApiStoryVersion {
 }
 
 export interface ApiChapterSummary {
-  id: number;
-  storyVersionId: number;
+  id: string;
+  storyVersionId: string;
   orderIndex: number;
   title: string;
   sourceHash: string;
@@ -64,9 +64,9 @@ export interface ApiChapter extends ApiChapterSummary {
 }
 
 export interface ApiChapterContentVariant {
-  id: number;
-  chapterId: number;
-  sourceVariantId: number | null;
+  id: string;
+  chapterId: string;
+  sourceVariantId: string | null;
   variantType: "ORIGINAL" | "TRANSLATION";
   languageCode: string;
   content: string;
@@ -79,13 +79,13 @@ export interface ApiChapterContentVariant {
 }
 
 export interface ApiChapterLanguageStatus {
-  sourceVariantId: number;
+  sourceVariantId: string;
   detectedLanguage: string | null;
   confidence: number | null;
   detector: string | null;
   projectLanguage: string;
   translationStatus: string;
-  existingTranslationVariantId: number | null;
+  existingTranslationVariantId: string | null;
 }
 
 export interface ApiChapterWorkspaceSummary {
@@ -119,7 +119,7 @@ export interface ApiChapterWorkspaceProgressStep {
 }
 
 export interface ApiChapterWorkspacePreviewScene {
-  id: number;
+  id: string;
   orderIndex: number;
   title: string;
   durationSeconds: number | null;
@@ -339,8 +339,8 @@ export function isApiProject(value: unknown): value is ApiProject {
 export function isApiStoryVersion(value: unknown): value is ApiStoryVersion {
   return (
     isRecord(value) &&
-    isNumber(value.id) &&
-    isNumber(value.projectId) &&
+    isString(value.id) &&
+    isString(value.projectId) &&
     isNumber(value.versionNumber) &&
     isString(value.status) &&
     isString(value.moderationDecision) &&
@@ -351,8 +351,8 @@ export function isApiStoryVersion(value: unknown): value is ApiStoryVersion {
 export function isApiChapterSummary(value: unknown): value is ApiChapterSummary {
   return (
     isRecord(value) &&
-    isNumber(value.id) &&
-    isNumber(value.storyVersionId) &&
+    isString(value.id) &&
+    isString(value.storyVersionId) &&
     isNumber(value.orderIndex) &&
     isString(value.title) &&
     isString(value.sourceHash) &&

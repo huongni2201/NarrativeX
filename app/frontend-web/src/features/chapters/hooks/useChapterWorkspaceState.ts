@@ -6,7 +6,7 @@ import { chaptersApi } from "@/features/chapters/api/chapters.api";
 import { queryKeys } from "@/lib/query-keys";
 import { ApiClientError, apiErrorMessage } from "@/shared/api/client";
 import { ACTIVE_JOB_STATUSES, TERMINAL_JOB_STATUSES } from "@/types/api";
-import type { ApiChapterLanguageStatus, JobStatus } from "@/types/api";
+import type { ApiChapterLanguageStatus, JobStatus, ProjectId } from "@/types/api";
 
 export type WorkspaceTab = "overview" | "content" | "storyboard" | "visuals" | "audio" | "render";
 
@@ -28,13 +28,9 @@ export const WORKSPACE_TABS: TabConfig[] = [
 ];
 
 export function useChapterWorkspaceState(projectId: string, chapterId: string) {
-  const numericProjectId = Number(projectId);
-  const numericChapterId = Number(chapterId);
-  const validIds =
-    Number.isSafeInteger(numericProjectId) &&
-    numericProjectId > 0 &&
-    Number.isSafeInteger(numericChapterId) &&
-    numericChapterId > 0;
+  const numericProjectId: ProjectId = projectId.trim();
+  const numericChapterId = chapterId.trim();
+  const validIds = numericProjectId.length > 0 && numericChapterId.length > 0;
   const queryClient = useQueryClient();
 
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("overview");
@@ -148,7 +144,7 @@ export function useChapterWorkspaceState(projectId: string, chapterId: string) {
   });
 
   const analyzeChapterMutation = useMutation({
-    mutationFn: (contentVariantId: number | undefined) =>
+    mutationFn: (contentVariantId: string | number | undefined) =>
       chaptersApi.analyze(numericProjectId, numericChapterId, contentVariantId),
     onMutate: () => setAnalysisMessage("Đang tạo analysis job…"),
     onSuccess: (job) => {

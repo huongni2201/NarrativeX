@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { PRESET_VOICES, type VoiceOption } from "../types/narration.types";
 import { useGenerateNarration } from "../hooks/useGenerateNarration";
 import { apiErrorMessage } from "@/shared/api/client";
-import type { ApiGenerationJob } from "@/types/api";
+import type { ApiGenerationJob, ProjectId } from "@/types/api";
 import { voicesApi } from "../api/voices.api";
 import { isMockDataMode } from "@/lib/data-mode";
 import { Modal } from "@/components/ui/Modal";
@@ -24,8 +24,8 @@ import { Modal } from "@/components/ui/Modal";
 interface GenerateNarrationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  projectId: number;
-  chapterId: number;
+  projectId: ProjectId;
+  chapterId: string | number;
   chapterTitle: string;
   onJobStarted?: (job: ApiGenerationJob) => void;
 }

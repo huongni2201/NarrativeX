@@ -1,6 +1,7 @@
 import type { ApiGenerationJob, ApiMediaCostEstimate } from "@/types/api";
 import { isApiGenerationJob } from "@/types/api";
 import { apiRequest } from "@/shared/api/client";
+import type { ProjectId } from "@/types/api";
 
 export interface CreateMediaJobInput {
   productionMode: "IMAGE_MOTION";
@@ -78,18 +79,18 @@ function isMediaJobDetails(value: unknown): value is MediaJobDetails {
 }
 
 export const mediaApi = {
-  estimate: (projectId: number, chapterId: number, input: EstimateMediaJobInput) =>
+  estimate: (projectId: ProjectId, chapterId: string | number, input: EstimateMediaJobInput) =>
     apiRequest<ApiMediaCostEstimate>(
       `/api/v1/projects/${projectId}/chapters/${chapterId}/media-jobs/estimate`,
       { method: "POST", json: input },
       isApiMediaCostEstimate,
     ),
-  createJob: (projectId: number, chapterId: number, input: CreateMediaJobInput, idempotencyKey: string) =>
+  createJob: (projectId: ProjectId, chapterId: string | number, input: CreateMediaJobInput, idempotencyKey: string) =>
     apiRequest<ApiGenerationJob>(`/api/v1/projects/${projectId}/chapters/${chapterId}/media-jobs`, { method: "POST", headers: { "Idempotency-Key": idempotencyKey }, json: input }, isApiGenerationJob),
   getJob: (jobId: string) => apiRequest<ApiGenerationJob>(`/api/v1/generation-jobs/${encodeURIComponent(jobId)}`, {}, isApiGenerationJob),
   getDetails: (jobId: string) => apiRequest<MediaJobDetails>(`/api/v1/media-jobs/${encodeURIComponent(jobId)}`, {}, isMediaJobDetails),
   review: (itemId: string, decision: "APPROVED" | "REJECTED", rowVersion: number) =>
     apiRequest<void>(`/api/v1/media-generation-items/${encodeURIComponent(itemId)}/review`, { method: "POST", json: { decision, rowVersion } }),
-  render: (projectId: number, chapterId: number, input: RenderChapterInput, idempotencyKey: string) =>
+  render: (projectId: ProjectId, chapterId: string | number, input: RenderChapterInput, idempotencyKey: string) =>
     apiRequest<ApiGenerationJob>(`/api/v1/projects/${projectId}/chapters/${chapterId}/render`, { method: "POST", headers: { "Idempotency-Key": idempotencyKey }, json: input }, isApiGenerationJob),
 };

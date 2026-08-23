@@ -13,14 +13,14 @@ interface ProjectStoryboardScreenProps {
 }
 
 export function ProjectStoryboardScreen({ projectId }: Readonly<ProjectStoryboardScreenProps>) {
-  const numericProjectId = Number(projectId);
-  const validProjectId = Number.isSafeInteger(numericProjectId) && numericProjectId > 0;
+  const projectIdentifier = projectId.trim();
+  const validProjectId = projectIdentifier.length > 0;
 
   const storyQuery = useQuery({
-    queryKey: validProjectId ? queryKeys.story(numericProjectId) : ["storyboard", "invalid-project"],
+    queryKey: validProjectId ? queryKeys.story(projectIdentifier) : ["storyboard", "invalid-project"],
     queryFn: async () => {
       try {
-        return await projectsApi.getLatestStoryVersion(numericProjectId);
+        return await projectsApi.getLatestStoryVersion(projectIdentifier);
       } catch (error) {
         if (error instanceof ApiClientError && error.status === 404) return null;
         throw error;
@@ -32,9 +32,9 @@ export function ProjectStoryboardScreen({ projectId }: Readonly<ProjectStoryboar
   const storyVersionId = storyQuery.data?.id;
   const chaptersQuery = useQuery({
     queryKey: storyVersionId
-      ? queryKeys.chapters(numericProjectId, storyVersionId)
-      : ["storyboard", numericProjectId, "chapters", "empty"],
-    queryFn: () => chaptersApi.list(numericProjectId, storyVersionId!),
+      ? queryKeys.chapters(projectIdentifier, storyVersionId)
+      : ["storyboard", projectIdentifier, "chapters", "empty"],
+    queryFn: () => chaptersApi.list(projectIdentifier, storyVersionId!),
     enabled: validProjectId && Boolean(storyVersionId),
   });
 
@@ -58,7 +58,7 @@ export function ProjectStoryboardScreen({ projectId }: Readonly<ProjectStoryboar
     return <StoryboardError error={chaptersQuery.error} fallback="Không tải được danh sách Chapter." />;
   }
 
-  return <StoryboardScreen projectId={numericProjectId} chapters={chaptersQuery.data?.content ?? []} />;
+  return <StoryboardScreen projectId={projectIdentifier} chapters={chaptersQuery.data?.content ?? []} />;
 }
 
 function StoryboardMessage({ children }: Readonly<{ children: React.ReactNode }>) {

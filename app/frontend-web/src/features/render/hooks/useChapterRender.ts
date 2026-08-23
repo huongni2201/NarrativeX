@@ -7,6 +7,7 @@ import {
   TERMINAL_JOB_STATUSES,
   type ApiChapterWorkspaceProgressStep,
   type ApiGenerationJob,
+  type ProjectId,
 } from "@/types/api";
 import { queryKeys } from "@/lib/query-keys";
 import { mediaApi, type RenderChapterInput } from "@/features/generation/api/media.api";
@@ -31,8 +32,8 @@ export type ChapterRenderStatus = (typeof CHAPTER_RENDER_STATUSES)[number];
 type RenderConfig = Pick<RenderChapterInput, "resolution" | "format" | "maxAuthorizedCost">;
 
 interface UseChapterRenderOptions {
-  projectId: number;
-  chapterId: number;
+  projectId: ProjectId;
+  chapterId: string | number;
   initialMedia: ApiChapterWorkspaceProgressStep;
   resolution?: RenderConfig["resolution"];
   format?: RenderConfig["format"];

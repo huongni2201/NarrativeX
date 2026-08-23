@@ -12,15 +12,15 @@ export const queryKeys = {
   projectCharacter: (projectId: ProjectId, characterId: number) =>
     ["projects", projectId, "characters", characterId] as const,
   story: (projectId: ProjectId) => ["projects", projectId, "story"] as const,
-  chapters: (projectId: ProjectId, storyVersionId: number) =>
+  chapters: (projectId: ProjectId, storyVersionId: string | number) =>
     ["projects", projectId, "storyVersions", storyVersionId, "chapters"] as const,
-  chapter: (projectId: ProjectId, chapterId: number) =>
+  chapter: (projectId: ProjectId, chapterId: string | number) =>
     ["projects", projectId, "chapters", chapterId] as const,
-  chapterWorkspace: (projectId: ProjectId, chapterId: number) =>
+  chapterWorkspace: (projectId: ProjectId, chapterId: string | number) =>
     ["projects", projectId, "chapters", chapterId, "workspace"] as const,
-  chapterLanguageStatus: (projectId: number, chapterId: number) =>
+  chapterLanguageStatus: (projectId: ProjectId, chapterId: string | number) =>
     ["projects", projectId, "chapters", chapterId, "language-status"] as const,
-  chapterContentVariants: (projectId: number, chapterId: number) =>
+  chapterContentVariants: (projectId: ProjectId, chapterId: string | number) =>
     ["projects", projectId, "chapters", chapterId, "content-variants"] as const,
   storyboard: (projectId: ProjectId, chapterId: string | number) =>
     ["projects", projectId, "chapters", chapterId, "storyboard"] as const,
