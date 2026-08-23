@@ -6,6 +6,7 @@ import com.narrativex.backend.feature.character.infrastructure.persistence.mappe
 import com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.CharacterAppearanceRow;
 import com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.CharacterMapper;
 import com.narrativex.backend.feature.common.infrastructure.persistence.OptimisticConcurrency;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -21,14 +22,14 @@ public class MyBatisCharacterAppearancePersistenceAdapter implements CharacterAp
     if (value.getId() == null) {
       row.setId(null);
       row.setRowVersion(0);
-      Long id = mapper.insertAppearance(row);
+      UUID id = mapper.insertAppearance(row);
       return rowMapper.toDomain(mapper.findAppearance(id));
     }
     CharacterAppearanceRow existing = mapper.findAppearance(value.getId());
     if (existing == null) {
       row.setId(null);
       row.setRowVersion(0);
-      Long id = mapper.insertAppearance(row);
+      UUID id = mapper.insertAppearance(row);
       return rowMapper.toDomain(mapper.findAppearance(id));
     }
     OptimisticConcurrency.requireVersion(
