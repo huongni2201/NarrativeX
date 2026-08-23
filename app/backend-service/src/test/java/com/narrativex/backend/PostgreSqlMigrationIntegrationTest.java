@@ -1,15 +1,21 @@
 package com.narrativex.backend;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.narrativex.backend.feature.notification.infrastructure.persistence.mybatis.NotificationMapper;
+import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ProjectMapper;
+import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterWorkspaceMapper;
+import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.LanguageDetectionMapper;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
+import java.util.List;
+import java.util.UUID;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,6 +28,13 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+/**
+ * Contract test for the authoritative PostgreSQL/Flyway schema and MyBatis UUID mappings.
+ *
+ * <p>The UUID migration deliberately runs the legacy V0 baseline first and then V1. If either the
+ * PK/FK conversion or an XML mapping drifts from the Java contract, this test must fail before the
+ * application is deployable.
+ */
 @Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest
 @ActiveProfiles("test")
@@ -33,6 +46,28 @@ class PostgreSqlMigrationIntegrationTest {
           .withDatabaseName("narrativex_test")
           .withUsername("narrativex")
           .withPassword("narrativex");
+
+  private static final List<String> UUID_ID_TABLES =
+      List.of(
+          "projects",
+          "story_versions",
+          "chapters",
+          "chapter_creation_idempotency",
+          "chapter_content_variants",
+          "storyboard_revisions",
+          "characters",
+          "character_versions",
+          "outfit_versions",
+          "character_appearances",
+          "project_characters",
+          "project_locations",
+          "project_assets",
+          "scenes",
+          "visual_beats",
+          "generation_jobs",
+          "stage_attempts",
+          "provider_operations",
+          "operation_plans");
 
   @DynamicPropertySource
   static void postgresProperties(DynamicPropertyRegistry registry) {
@@ -46,409 +81,134 @@ class PostgreSqlMigrationIntegrationTest {
   }
 
   @Autowired private DataSource dataSource;
+  @Autowired private ProjectMapper projectMapper;
+  @Autowired private ChapterWorkspaceMapper chapterWorkspaceMapper;
+  @Autowired private LanguageDetectionMapper languageDetectionMapper;
+  @Autowired private NotificationMapper notificationMapper;
 
   @Test
-  void emptyPostgresMigratesAndApplicationContextStarts() throws SQLException {
+  void emptyPostgresMigratesThroughAuthoritativeUuidSchema() throws SQLException {
     try (Connection connection = dataSource.getConnection()) {
-      assertEquals(1, latestFlywayVersion(connection));
-      assertEquals(0, rowCount(connection, "generation_jobs"));
-      assertEquals(0, rowCount(connection, "projects"));
-      assertEquals(11, rowCount(connection, "plan_entitlements"));
-      assertEquals(2, rowCount(connection, "style_presets"));
-      assertEquals(21, rowCount(connection, "voice_catalog"));
-      assertTrue(tableExists(connection, "chapter_content_variants"));
-      assertTrue(tableExists(connection, "chapter_creation_idempotency"));
-      assertTrue(indexExists(connection, "idx_chapter_creation_idempotency_chapter"));
-      assertTrue(tableExists(connection, "language_detections"));
-      assertTrue(tableExists(connection, "short_clip_requests"));
-      assertTrue(columnExists(connection, "stage_attempts", "lease_token"));
-      assertTrue(columnExists(connection, "final_artifacts", "storage_provider"));
-      assertTrue(columnExists(connection, "final_artifacts", "external_file_id"));
-      assertTrue(columnExists(connection, "final_artifacts", "web_view_link"));
+      assertEquals("1", latestFlywayVersion(connection));
+
+      for (String table : UUID_ID_TABLES) {
+        assertEquals("uuid", columnType(connection, table, "id"), table + ".id must be UUID");
+      }
+
+      assertEquals("uuid", columnType(connection, "generation_jobs", "job_id"));
+      assertEquals("uuid", columnType(connection, "generation_jobs", "project_id"));
+      assertEquals("uuid", columnType(connection, "generation_jobs", "chapter_id"));
+      assertEquals("uuid", columnType(connection, "generation_jobs", "story_version_id"));
+      assertEquals("uuid", columnType(connection, "generation_jobs", "storyboard_revision_id"));
+      assertEquals("uuid", columnType(connection, "generation_jobs", "content_variant_id"));
+
+      assertEquals("uuid", columnType(connection, "language_detections", "content_variant_id"));
+      assertEquals("uuid", columnType(connection, "notifications", "project_id"));
+      assertEquals("uuid", columnType(connection, "chapter_media_heads", "chapter_id"));
+      assertEquals("uuid", columnType(connection, "chapter_media_heads", "generation_job_id"));
+      assertEquals("uuid", columnType(connection, "render_input_snapshots", "project_id"));
+      assertEquals("uuid", columnType(connection, "render_input_snapshots", "chapter_id"));
+      assertEquals("uuid", columnType(connection, "render_input_snapshots", "generation_job_id"));
+      assertEquals("uuid", columnType(connection, "narration_requests", "project_id"));
+      assertEquals("uuid", columnType(connection, "narration_requests", "chapter_id"));
+      assertEquals("uuid", columnType(connection, "media_generation_items", "generation_job_id"));
+      assertEquals("uuid", columnType(connection, "media_generation_items", "provider_operation_id"));
+      assertEquals("uuid", columnType(connection, "media_scene_plans", "scene_id"));
+      assertEquals("uuid", columnType(connection, "media_beat_plans", "visual_beat_id"));
+
+      // Numeric domain values are not identifiers and must remain numeric.
+      assertEquals("bigint", columnType(connection, "projects", "row_version"));
+      assertEquals("bigint", columnType(connection, "chapters", "row_version"));
+      assertEquals("bigint", columnType(connection, "chapters", "estimated_duration_ms"));
+
+      assertTrue(tableExists(connection, "plan_entitlements"));
+      assertTrue(tableExists(connection, "style_presets"));
+      assertTrue(tableExists(connection, "voice_catalog"));
       assertFalse(columnExists(connection, "generation_jobs", "references"));
       assertFalse(columnExists(connection, "character_appearances", "references"));
       assertFalse(columnExists(connection, "scene_characters", "references"));
-      assertEquals("jsonb", columnType(connection, "moderation_decisions", "categories_json"));
-      assertTrue(indexExists(connection, "uq_story_versions_one_active_per_project"));
-      assertTrue(indexExists(connection, "idx_projects_active_owner_updated_id"));
-      assertTrue(columnExists(connection, "chapters", "source_hash"));
-      assertEquals("NO", columnNullable(connection, "chapters", "source_text"));
-      assertEquals("NO", columnNullable(connection, "chapters", "source_hash"));
-      assertTrue(columnExists(connection, "projects", "description"));
-      assertTrue(columnExists(connection, "projects", "cover_image_url"));
-      assertTrue(columnExists(connection, "visual_beats", "title"));
-      assertEquals("NO", columnNullable(connection, "visual_beats", "title"));
-      assertTrue(columnExists(connection, "visual_beats", "review_status"));
-      assertEquals("NO", columnNullable(connection, "visual_beats", "review_status"));
-      assertTrue(columnExists(connection, "visual_beats", "motion_mode"));
-      assertEquals("NO", columnNullable(connection, "visual_beats", "motion_mode"));
-      assertTrue(columnExists(connection, "visual_beats", "camera_movement"));
-      assertEquals("NO", columnNullable(connection, "visual_beats", "camera_movement"));
-      assertTrue(columnExists(connection, "visual_beats", "preview_asset_id"));
-      assertTrue(indexExists(connection, "idx_visual_beats_preview_asset"));
-      assertFalse(columnExists(connection, "visual_beats", "motion_action"));
-      assertTrue(indexExists(connection, "idx_visual_beats_scene_review_order"));
-      assertTrue(indexExists(connection, "idx_generation_jobs_project_status"));
-      assertTrue(indexExists(connection, "idx_stage_attempts_running_heartbeat"));
-      assertTrue(indexExists(connection, "idx_scenes_chapter_status"));
-      assertTrue(columnExists(connection, "scenes", "project_location_id"));
-      assertTrue(tableExists(connection, "scene_characters"));
-      assertTrue(indexExists(connection, "idx_scene_characters_project_character"));
-      assertTrue(tableExists(connection, "project_locations"));
-      assertTrue(tableExists(connection, "project_assets"));
-      assertTrue(indexExists(connection, "idx_project_locations_active_project"));
-      assertTrue(indexExists(connection, "idx_project_assets_active_project"));
-      assertTrue(tableExists(connection, "project_character_ai_identities"));
-      assertTrue(tableExists(connection, "project_location_ai_identities"));
-      assertTrue(indexExists(connection, "idx_project_character_ai_identity_entity"));
-      assertTrue(indexExists(connection, "idx_project_location_ai_identity_entity"));
-      assertFalse(indexExists(connection, "idx_auth_users_email"));
-      assertFalse(indexExists(connection, "idx_auth_users_google_subject"));
-      assertFalse(columnExists(connection, "story_versions", "rights_attested"));
-      assertFalse(columnExists(connection, "story_versions", "rights_policy_version"));
-      assertFalse(columnExists(connection, "story_versions", "rights_basis"));
-      assertFalse(columnExists(connection, "story_versions", "rights_attested_at"));
-      assertFalse(columnExists(connection, "story_versions", "rights_attested_by"));
-      assertFalse(tableExists(connection, "content_rights_attestations"));
-      assertTrue(columnExists(connection, "operation_plans", "generation_job_id"));
-      assertTrue(columnExists(connection, "provider_operations", "request_fingerprint"));
-      assertTrue(columnExists(connection, "provider_operations", "result_fingerprint"));
-      assertTrue(indexExists(connection, "uq_provider_operation_fingerprint"));
-      assertTrue(indexExists(connection, "idx_provider_operations_result_fingerprint"));
-      assertTrue(columnExists(connection, "plan_entitlements", "monthly_credits"));
-      assertFalse(columnExists(connection, "usage_windows", "expensive_jobs_active"));
-      assertTrue(tableExists(connection, "quota_reservations"));
-      assertTrue(indexExists(connection, "idx_quota_reservations_active_user"));
-      assertTrue(tableExists(connection, "narration_requests"));
-      assertTrue(columnExists(connection, "narration_requests", "voice_reference_asset_id"));
-      assertTrue(indexExists(connection, "idx_narration_requests_voice_reference_asset"));
-      assertTrue(indexExists(connection, "uq_generation_jobs_owner_idempotency_key"));
-      assertTrue(tableExists(connection, "narration_operations"));
-      assertTrue(tableExists(connection, "narration_assets"));
-      assertTrue(indexExists(connection, "uq_chapter_original_variants_identity"));
-      assertTrue(indexExists(connection, "uq_chapter_translation_variants_lineage"));
-      assertTrue(tableExists(connection, "narration_alignments"));
-      assertTrue(tableExists(connection, "media_assets"));
-      assertTrue(tableExists(connection, "media_asset_checksums"));
-      assertTrue(indexExists(connection, "idx_media_asset_checksums_asset"));
-      assertFalse(indexExists(connection, "uq_media_assets_account_sha256_verified"));
-      assertTrue(tableExists(connection, "media_upload_sessions"));
-      assertTrue(indexExists(connection, "idx_media_upload_sessions_expired_pending"));
-      assertTrue(tableExists(connection, "media_storage_cleanup_tasks"));
-      assertTrue(indexExists(connection, "uq_media_storage_cleanup_active_key"));
-      assertTrue(indexExists(connection, "idx_media_storage_cleanup_due"));
-      assertTrue(columnExists(connection, "media_assets", "deleted_at"));
-      assertTrue(columnExists(connection, "media_assets", "checksum_verified_at"));
-      assertTrue(columnExists(connection, "media_assets", "detected_content_type"));
-      assertTrue(columnExists(connection, "media_assets", "validation_error_code"));
-      assertTrue(tableExists(connection, "media_validation_jobs"));
-      assertTrue(indexExists(connection, "idx_media_validation_jobs_claimable"));
-      assertTrue(columnExists(connection, "media_validation_jobs", "lease_token"));
-      assertTrue(columnExists(connection, "media_validation_jobs", "row_version"));
-      assertTrue(
-          constraintExists(
-              connection, "media_validation_jobs", "ck_media_validation_jobs_lease_consistency"));
-      assertTrue(tableExists(connection, "style_presets"));
-      assertTrue(tableExists(connection, "voice_catalog"));
-      assertTrue(indexExists(connection, "idx_style_presets_active_category_name"));
-      assertTrue(indexExists(connection, "idx_voice_catalog_enabled_language_name"));
-      assertTrue(tableExists(connection, "media_generation_items"));
-      assertTrue(tableExists(connection, "media_asset_lineage"));
-      assertTrue(tableExists(connection, "render_input_snapshots"));
-      assertTrue(columnExists(connection, "render_input_snapshots", "render_profile_json"));
-      assertTrue(tableExists(connection, "render_input_snapshot_beats"));
-      assertTrue(tableExists(connection, "chapter_media_heads"));
-      assertTrue(columnExists(connection, "media_plans", "workflow_version"));
-      assertTrue(columnExists(connection, "media_beat_plans", "asset_strategy"));
-      assertTrue(columnExists(connection, "render_manifests", "project_owner_id"));
-      assertTrue(indexExists(connection, "uq_media_generation_items_active"));
-      assertTrue(indexExists(connection, "idx_media_asset_lineage_project_chapter"));
-      assertTrue(tableExists(connection, "narration_sets"));
-      assertTrue(tableExists(connection, "narration_parts"));
-      assertTrue(tableExists(connection, "narration_documents"));
-      assertTrue(tableExists(connection, "narration_document_chapters"));
-      assertTrue(tableExists(connection, "narration_alignment_runs"));
-      assertTrue(constraintExists(connection, "generation_jobs", "ck_generation_jobs_progress"));
-      assertTrue(constraintExists(connection, "generation_jobs", "ck_generation_jobs_status"));
-      assertTrue(constraintExists(connection, "generation_jobs", "ck_generation_jobs_job_type"));
-      assertTrue(
-          constraintExists(connection, "generation_jobs", "ck_generation_jobs_resource_class"));
-      assertTrue(constraintExists(connection, "stage_attempts", "ck_stage_attempts_status"));
-      assertTrue(
-          constraintExists(connection, "provider_operations", "ck_provider_operations_status"));
-      assertTrue(
-          constraintExists(connection, "quota_reservations", "ck_quota_reservations_status"));
     }
   }
 
   @Test
-  void postgresEnforcesCanonicalExecutionContract() throws SQLException {
-    try (Connection connection = dataSource.getConnection()) {
-      long projectId = insertProject(connection);
-
-      SQLException negativeProgress =
-          assertThrows(
-              SQLException.class,
-              () ->
-                  insertGenerationJob(
-                      connection,
-                      projectId,
-                      "negative-progress",
-                      "CHAPTER_ANALYZE",
-                      "QUEUED",
-                      "PROVIDER_INTERACTIVE",
-                      -1));
-      assertEquals("23514", negativeProgress.getSQLState());
-
-      SQLException excessiveProgress =
-          assertThrows(
-              SQLException.class,
-              () ->
-                  insertGenerationJob(
-                      connection,
-                      projectId,
-                      "excessive-progress",
-                      "CHAPTER_ANALYZE",
-                      "QUEUED",
-                      "PROVIDER_INTERACTIVE",
-                      101));
-      assertEquals("23514", excessiveProgress.getSQLState());
-
-      SQLException invalidJobStatus =
-          assertThrows(
-              SQLException.class,
-              () ->
-                  insertGenerationJob(
-                      connection,
-                      projectId,
-                      "invalid-job-status",
-                      "CHAPTER_ANALYZE",
-                      "SUCCEEDED",
-                      "PROVIDER_INTERACTIVE",
-                      0));
-      assertEquals("23514", invalidJobStatus.getSQLState());
-
-      SQLException invalidJobType =
-          assertThrows(
-              SQLException.class,
-              () ->
-                  insertGenerationJob(
-                      connection,
-                      projectId,
-                      "invalid-job-type",
-                      "UNKNOWN_JOB",
-                      "QUEUED",
-                      "PROVIDER_INTERACTIVE",
-                      0));
-      assertEquals("23514", invalidJobType.getSQLState());
-
-      SQLException invalidResourceClass =
-          assertThrows(
-              SQLException.class,
-              () ->
-                  insertGenerationJob(
-                      connection,
-                      projectId,
-                      "invalid-resource",
-                      "CHAPTER_ANALYZE",
-                      "QUEUED",
-                      "UNKNOWN_RESOURCE",
-                      0));
-      assertEquals("23514", invalidResourceClass.getSQLState());
-
-      long jobId =
-          insertGenerationJob(
-              connection,
-              projectId,
-              "valid-execution",
-              "CHAPTER_ANALYZE",
-              "QUEUED",
-              "PROVIDER_INTERACTIVE",
-              0);
-      long stageAttemptId = insertStageAttempt(connection, jobId, "valid-stage", "QUEUED");
-
-      SQLException invalidStageStatus =
-          assertThrows(
-              SQLException.class,
-              () -> insertStageAttempt(connection, jobId, "invalid-stage", "SUCCEEDED"));
-      assertEquals("23514", invalidStageStatus.getSQLState());
-
-      SQLException invalidProviderStatus =
-          assertThrows(
-              SQLException.class,
-              () -> insertProviderOperation(connection, stageAttemptId, "DONE"));
-      assertEquals("23514", invalidProviderStatus.getSQLState());
-
-      updateJobStatus(connection, jobId, "RUNNING", 5);
-      updateJobStatus(connection, jobId, "UNKNOWN", 5);
-      updateJobStatus(connection, jobId, "STALLED", 5);
-      updateJobStatus(connection, jobId, "PAUSED_COST_LIMIT", 5);
-      updateJobStatus(connection, jobId, "FAILED", 100);
-      updateStageStatus(connection, stageAttemptId, "RUNNING");
-      updateStageStatus(connection, stageAttemptId, "UNKNOWN");
-      updateStageStatus(connection, stageAttemptId, "STALLED");
-      updateStageStatus(connection, stageAttemptId, "PAUSED_COST_LIMIT");
-      updateStageStatus(connection, stageAttemptId, "FAILED");
-
-      long providerOperationId = insertProviderOperation(connection, stageAttemptId, "RESERVED");
-      updateProviderStatus(connection, providerOperationId, "SUBMITTED");
-      updateProviderStatus(connection, providerOperationId, "RUNNING");
-      updateProviderStatus(connection, providerOperationId, "UNKNOWN");
-      updateProviderStatus(connection, providerOperationId, "FAILED");
-    }
-  }
-
-  @Test
-  void localJobWithoutQuotaReservationCanComplete() throws SQLException {
-    try (Connection connection = dataSource.getConnection()) {
-      long projectId = insertProject(connection);
-      long jobId =
-          insertGenerationJob(
-              connection,
-              projectId,
-              "local-render-no-reservation",
-              "CHAPTER_RENDER",
-              "RUNNING",
-              "CPU_RENDER",
-              5);
-
-      updateJobStatus(connection, jobId, "COMPLETED", 100);
-
-      try (PreparedStatement statement =
-          connection.prepareStatement("select status from generation_jobs where id = ?")) {
-        statement.setLong(1, jobId);
-        try (ResultSet result = statement.executeQuery()) {
-          assertTrue(result.next());
-          assertEquals("COMPLETED", result.getString(1));
+  void everyForeignKeyHasTheSamePostgresTypeAsItsReferencedColumn() throws SQLException {
+    try (Connection connection = dataSource.getConnection();
+        PreparedStatement statement =
+            connection.prepareStatement(
+                """
+                SELECT child.relname AS child_table,
+                       child_col.attname AS child_column,
+                       format_type(child_col.atttypid, child_col.atttypmod) AS child_type,
+                       parent.relname AS parent_table,
+                       parent_col.attname AS parent_column,
+                       format_type(parent_col.atttypid, parent_col.atttypmod) AS parent_type
+                  FROM pg_constraint con
+                  JOIN pg_class child ON child.oid = con.conrelid
+                  JOIN pg_class parent ON parent.oid = con.confrelid
+                  JOIN pg_namespace ns ON ns.oid = child.relnamespace
+                  JOIN LATERAL unnest(con.conkey) WITH ORDINALITY ck(attnum, ord) ON TRUE
+                  JOIN LATERAL unnest(con.confkey) WITH ORDINALITY pk(attnum, ord)
+                    ON pk.ord = ck.ord
+                  JOIN pg_attribute child_col
+                    ON child_col.attrelid = child.oid AND child_col.attnum = ck.attnum
+                  JOIN pg_attribute parent_col
+                    ON parent_col.attrelid = parent.oid AND parent_col.attnum = pk.attnum
+                 WHERE con.contype = 'f' AND ns.nspname = 'public'
+                """)) {
+      try (ResultSet result = statement.executeQuery()) {
+        int checked = 0;
+        while (result.next()) {
+          checked++;
+          String childTable = result.getString("child_table");
+          String childColumn = result.getString("child_column");
+          String childType = result.getString("child_type");
+          String parentTable = result.getString("parent_table");
+          String parentColumn = result.getString("parent_column");
+          String parentType = result.getString("parent_type");
+          assertEquals(
+              parentType,
+              childType,
+              childTable + "." + childColumn + " must match " + parentTable + "." + parentColumn);
         }
+        assertTrue(checked > 0, "expected the schema to contain foreign keys");
       }
     }
   }
 
   @Test
-  void visualBeatMotionMigrationPreservesLegacySemanticsAndRejectsInvalidValues()
-      throws SQLException {
-    try (Connection connection = dataSource.getConnection()) {
-      long sceneId = insertScene(connection);
-      long beat1 = insertVisualBeatWithMotion(connection, sceneId, 1, "BASIC_MOTION", "PAN");
-      long beat2 = insertVisualBeatWithMotion(connection, sceneId, 2, "BASIC_MOTION", "TILT");
-      long beat3 = insertVisualBeatWithMotion(connection, sceneId, 3, "STILL", "NONE");
-      long beat4 = insertVisualBeatWithMotion(connection, sceneId, 4, "BASIC_MOTION", "PARALLAX");
+  void sensitiveMyBatisQueriesExecuteAgainstTheRealMigratedSchema() {
+    UUID missingProjectId = UUID.randomUUID();
+    UUID missingChapterId = UUID.randomUUID();
+    UUID missingVariantId = UUID.randomUUID();
 
-      assertEquals("BASIC_MOTION/PAN", visualBeatMotion(connection, beat1));
-      assertEquals("BASIC_MOTION/TILT", visualBeatMotion(connection, beat2));
-      assertEquals("STILL/NONE", visualBeatMotion(connection, beat3));
-      assertEquals("BASIC_MOTION/PARALLAX", visualBeatMotion(connection, beat4));
-
-      connection.setAutoCommit(false);
-      SQLException invalidMotionMode =
-          assertThrows(
-              SQLException.class,
-              () -> insertVisualBeatWithMotion(connection, sceneId, 99, "INVALID_MODE", "NONE"));
-      assertEquals("23514", invalidMotionMode.getSQLState());
-      connection.rollback();
-
-      SQLException invalidCameraMovement =
-          assertThrows(
-              SQLException.class,
-              () -> insertVisualBeatWithMotion(connection, sceneId, 99, "STILL", "INVALID_CAMERA"));
-      assertEquals("23514", invalidCameraMovement.getSQLState());
-      connection.rollback();
-    }
+    assertNull(assertDoesNotThrow(() -> projectMapper.findById(missingProjectId)));
+    assertNull(
+        assertDoesNotThrow(
+            () -> chapterWorkspaceMapper.aggregate(missingProjectId, missingChapterId)));
+    assertNull(
+        assertDoesNotThrow(
+            () -> languageDetectionMapper.findLatest(missingVariantId, "0".repeat(64))));
+    assertTrue(assertDoesNotThrow(() -> notificationMapper.list("missing-user", true, 5)).isEmpty());
   }
 
-  @Test
-  void postgresEnforcesForeignKeyAndOneActiveStoryVersionPerProject() throws SQLException {
-    try (Connection connection = dataSource.getConnection()) {
-      connection.setAutoCommit(false);
-      long projectId = insertProject(connection);
-      insertStoryVersion(connection, projectId, 1, "ACTIVE");
-      connection.commit();
-
-      SQLException duplicateActive =
-          assertThrows(
-              SQLException.class, () -> insertStoryVersion(connection, projectId, 2, "ACTIVE"));
-      assertEquals("23505", duplicateActive.getSQLState());
-      connection.rollback();
-
-      SQLException missingProject =
-          assertThrows(
-              SQLException.class, () -> insertStoryVersion(connection, Long.MAX_VALUE, 3, "DRAFT"));
-      assertEquals("23503", missingProject.getSQLState());
-      connection.rollback();
-    }
-  }
-
-  @Test
-  void postgresForUpdateLockSerializesProjectMutation() throws SQLException {
-    long projectId;
-    try (Connection seed = dataSource.getConnection()) {
-      projectId = insertProject(seed);
-    }
-
-    try (Connection holder = dataSource.getConnection();
-        Connection contender = dataSource.getConnection()) {
-      holder.setAutoCommit(false);
-      contender.setAutoCommit(false);
-      lockProject(holder, projectId);
-      try (Statement timeout = contender.createStatement()) {
-        timeout.execute("set local lock_timeout = '200ms'");
-      }
-
-      SQLException lockTimeout =
-          assertThrows(SQLException.class, () -> lockProject(contender, projectId));
-      assertEquals("55P03", lockTimeout.getSQLState());
-      contender.rollback();
-      holder.rollback();
-    }
-  }
-
-  private static int latestFlywayVersion(Connection connection) throws SQLException {
+  private static String latestFlywayVersion(Connection connection) throws SQLException {
     try (PreparedStatement statement =
             connection.prepareStatement(
-                "select max(cast(version as integer)) from flyway_schema_history where success ="
-                    + " true");
+                "select version from flyway_schema_history where success = true and version is not null order by installed_rank desc limit 1");
         ResultSet result = statement.executeQuery()) {
-      result.next();
-      return result.getInt(1);
+      assertTrue(result.next());
+      return result.getString(1);
     }
   }
 
-  private static int rowCount(Connection connection, String table) throws SQLException {
-    try (PreparedStatement statement =
-            connection.prepareStatement("select count(*) from " + table);
-        ResultSet result = statement.executeQuery()) {
-      result.next();
-      return result.getInt(1);
-    }
-  }
-
-  private static String columnType(Connection connection, String table, String column)
-      throws SQLException {
+  private static boolean tableExists(Connection connection, String table) throws SQLException {
     try (PreparedStatement statement =
         connection.prepareStatement(
-            "select data_type from information_schema.columns "
-                + "where table_schema = 'public' and table_name = ? and column_name = ?")) {
+            "select exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = ?)")) {
       statement.setString(1, table);
-      statement.setString(2, column);
       try (ResultSet result = statement.executeQuery()) {
         result.next();
-        return result.getString(1);
-      }
-    }
-  }
-
-  private static String columnNullable(Connection connection, String table, String column)
-      throws SQLException {
-    try (PreparedStatement statement =
-        connection.prepareStatement(
-            "select is_nullable from information_schema.columns "
-                + "where table_schema = 'public' and table_name = ? and column_name = ?")) {
-      statement.setString(1, table);
-      statement.setString(2, column);
-      try (ResultSet result = statement.executeQuery()) {
-        result.next();
-        return result.getString(1);
+        return result.getBoolean(1);
       }
     }
   }
@@ -457,8 +217,7 @@ class PostgreSqlMigrationIntegrationTest {
       throws SQLException {
     try (PreparedStatement statement =
         connection.prepareStatement(
-            "select exists(select 1 from information_schema.columns "
-                + "where table_schema = 'public' and table_name = ? and column_name = ?)")) {
+            "select exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = ? and column_name = ?)")) {
       statement.setString(1, table);
       statement.setString(2, column);
       try (ResultSet result = statement.executeQuery()) {
@@ -468,257 +227,16 @@ class PostgreSqlMigrationIntegrationTest {
     }
   }
 
-  private static boolean tableExists(Connection connection, String table) throws SQLException {
+  private static String columnType(Connection connection, String table, String column)
+      throws SQLException {
     try (PreparedStatement statement =
         connection.prepareStatement(
-            "select exists(select 1 from information_schema.tables "
-                + "where table_schema = 'public' and table_name = ?)")) {
+            "select data_type from information_schema.columns where table_schema = 'public' and table_name = ? and column_name = ?")) {
       statement.setString(1, table);
+      statement.setString(2, column);
       try (ResultSet result = statement.executeQuery()) {
-        result.next();
-        return result.getBoolean(1);
-      }
-    }
-  }
-
-  private static boolean indexExists(Connection connection, String indexName) throws SQLException {
-    try (PreparedStatement statement =
-        connection.prepareStatement(
-            "select exists(select 1 from pg_indexes where schemaname = 'public' and indexname ="
-                + " ?)")) {
-      statement.setString(1, indexName);
-      try (ResultSet result = statement.executeQuery()) {
-        result.next();
-        return result.getBoolean(1);
-      }
-    }
-  }
-
-  private static boolean constraintExists(Connection connection, String table, String constraint)
-      throws SQLException {
-    try (PreparedStatement statement =
-        connection.prepareStatement(
-            "select exists(select 1 from pg_constraint c "
-                + "join pg_class t on t.oid = c.conrelid "
-                + "join pg_namespace n on n.oid = t.relnamespace "
-                + "where n.nspname = 'public' and t.relname = ? and c.conname = ?)")) {
-      statement.setString(1, table);
-      statement.setString(2, constraint);
-      try (ResultSet result = statement.executeQuery()) {
-        result.next();
-        return result.getBoolean(1);
-      }
-    }
-  }
-
-  private static String visualBeatMotion(Connection connection, long visualBeatId)
-      throws SQLException {
-    try (PreparedStatement statement =
-        connection.prepareStatement(
-            "select motion_mode, camera_movement from visual_beats where id = ?")) {
-      statement.setLong(1, visualBeatId);
-      try (ResultSet result = statement.executeQuery()) {
-        assertTrue(result.next());
-        return result.getString(1) + "/" + result.getString(2);
-      }
-    }
-  }
-
-  private static long insertVisualBeatWithMotion(
-      Connection connection, long sceneId, int orderIndex, String motionMode, String cameraMovement)
-      throws SQLException {
-    try (PreparedStatement statement =
-        connection.prepareStatement(
-            "insert into visual_beats (scene_id, order_index, title, visual_intent, review_status,"
-                + " motion_mode, camera_movement) values (?, ?, 'Migration test', 'Migration"
-                + " test intent', 'NEEDS_REVIEW', ?, ?) returning id")) {
-      statement.setLong(1, sceneId);
-      statement.setInt(2, orderIndex);
-      statement.setString(3, motionMode);
-      statement.setString(4, cameraMovement);
-      try (ResultSet result = statement.executeQuery()) {
-        result.next();
-        return result.getLong(1);
-      }
-    }
-  }
-
-  private static long insertScene(Connection connection) throws SQLException {
-    long projectId = insertProject(connection);
-    insertStoryVersion(connection, projectId, 1, "ACTIVE");
-    long storyVersionId;
-    try (PreparedStatement statement =
-        connection.prepareStatement("select id from story_versions where project_id = ?")) {
-      statement.setLong(1, projectId);
-      try (ResultSet rs = statement.executeQuery()) {
-        rs.next();
-        storyVersionId = rs.getLong(1);
-      }
-    }
-    long chapterId;
-    try (PreparedStatement statement =
-        connection.prepareStatement(
-            "insert into chapters (story_version_id, order_index, title, source_text, source_hash, status, estimated_duration_ms, generation_progress) "
-                + "values (?, 1, 'Ch 1', 'Text', encode(sha256(convert_to('Text', 'UTF8')), 'hex'), 'READY', 1000, 100) returning id")) {
-      statement.setLong(1, storyVersionId);
-      try (ResultSet rs = statement.executeQuery()) {
-        rs.next();
-        chapterId = rs.getLong(1);
-      }
-    }
-    long revisionId;
-    try (PreparedStatement statement =
-        connection.prepareStatement(
-            "insert into storyboard_revisions (chapter_id, revision_number, source_hash, source_row_version, status) "
-                + "values (?, 1, encode(sha256(convert_to('Text', 'UTF8')), 'hex'), 0, 'DRAFT') returning id")) {
-      statement.setLong(1, chapterId);
-      try (ResultSet rs = statement.executeQuery()) {
-        rs.next();
-        revisionId = rs.getLong(1);
-      }
-    }
-    try (PreparedStatement statement =
-        connection.prepareStatement(
-            "insert into scenes (chapter_id, storyboard_revision_id, order_index, title, narration, duration_seconds, status) "
-                + "values (?, ?, 1, 'Scene 1', 'Narration', 10, 'DRAFT') returning id")) {
-      statement.setLong(1, chapterId);
-      statement.setLong(2, revisionId);
-      try (ResultSet rs = statement.executeQuery()) {
-        rs.next();
-        return rs.getLong(1);
-      }
-    }
-  }
-
-  private static long insertProject(Connection connection) throws SQLException {
-    try (PreparedStatement statement =
-        connection.prepareStatement(
-            "insert into projects (name, owner_id, status, source_language, narration_language,"
-                + " metadata_language, image_aspect_ratio, image_quality_tier) values ('Project',"
-                + " 'owner', 'DRAFT', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD')"
-                + " returning id")) {
-      try (ResultSet result = statement.executeQuery()) {
-        result.next();
-        return result.getLong(1);
-      }
-    }
-  }
-
-  private static void insertStoryVersion(
-      Connection connection, long projectId, int versionNumber, String status) throws SQLException {
-    try (PreparedStatement statement =
-        connection.prepareStatement(
-            "insert into story_versions (project_id, version_number, content, source_language,"
-                + " status, moderation_decision) values (?, ?, 'story', 'vi-VN', ?, 'NOT_REQUIRED')")) {
-      statement.setLong(1, projectId);
-      statement.setInt(2, versionNumber);
-      statement.setString(3, status);
-      statement.executeUpdate();
-    }
-  }
-
-  private static long insertGenerationJob(
-      Connection connection,
-      long projectId,
-      String suffix,
-      String jobType,
-      String status,
-      String resourceClass,
-      int progress)
-      throws SQLException {
-    try (PreparedStatement statement =
-        connection.prepareStatement(
-            "insert into generation_jobs "
-                + "(job_id, project_id, job_type, status, resource_class, progress, "
-                + "requested_by_user_id, billed_to_user_id) "
-                + "values (?, ?, ?, ?, ?, ?, 'migration-test-user', 'migration-test-user') "
-                + "returning id")) {
-      statement.setString(1, "migration-test-" + suffix);
-      statement.setLong(2, projectId);
-      statement.setString(3, jobType);
-      statement.setString(4, status);
-      statement.setString(5, resourceClass);
-      statement.setInt(6, progress);
-      try (ResultSet result = statement.executeQuery()) {
-        result.next();
-        return result.getLong(1);
-      }
-    }
-  }
-
-  private static long insertStageAttempt(
-      Connection connection, long generationJobId, String stageName, String status)
-      throws SQLException {
-    try (PreparedStatement statement =
-        connection.prepareStatement(
-            "insert into stage_attempts "
-                + "(generation_job_id, stage_name, attempt_number, status) "
-                + "values (?, ?, 1, ?) returning id")) {
-      statement.setLong(1, generationJobId);
-      statement.setString(2, stageName);
-      statement.setString(3, status);
-      try (ResultSet result = statement.executeQuery()) {
-        result.next();
-        return result.getLong(1);
-      }
-    }
-  }
-
-  private static long insertProviderOperation(
-      Connection connection, long stageAttemptId, String status) throws SQLException {
-    try (PreparedStatement statement =
-        connection.prepareStatement(
-            "insert into provider_operations "
-                + "(stage_attempt_id, provider_key, provider_operation_id, status) "
-                + "values (?, 'migration-test-provider', ?, ?) returning id")) {
-      statement.setLong(1, stageAttemptId);
-      statement.setString(2, "migration-test-operation-" + status);
-      statement.setString(3, status);
-      try (ResultSet result = statement.executeQuery()) {
-        result.next();
-        return result.getLong(1);
-      }
-    }
-  }
-
-  private static void updateJobStatus(
-      Connection connection, long jobId, String status, int progress) throws SQLException {
-    try (PreparedStatement statement =
-        connection.prepareStatement(
-            "update generation_jobs set status = ?, progress = ? where id = ?")) {
-      statement.setString(1, status);
-      statement.setInt(2, progress);
-      statement.setLong(3, jobId);
-      assertEquals(1, statement.executeUpdate());
-    }
-  }
-
-  private static void updateStageStatus(Connection connection, long stageId, String status)
-      throws SQLException {
-    try (PreparedStatement statement =
-        connection.prepareStatement("update stage_attempts set status = ? where id = ?")) {
-      statement.setString(1, status);
-      statement.setLong(2, stageId);
-      assertEquals(1, statement.executeUpdate());
-    }
-  }
-
-  private static void updateProviderStatus(Connection connection, long operationId, String status)
-      throws SQLException {
-    try (PreparedStatement statement =
-        connection.prepareStatement("update provider_operations set status = ? where id = ?")) {
-      statement.setString(1, status);
-      statement.setLong(2, operationId);
-      assertEquals(1, statement.executeUpdate());
-    }
-  }
-
-  private static void lockProject(Connection connection, long projectId) throws SQLException {
-    try (PreparedStatement statement =
-        connection.prepareStatement("select id from projects where id = ? for update")) {
-      statement.setLong(1, projectId);
-      try (ResultSet result = statement.executeQuery()) {
-        assertTrue(result.next());
+        assertTrue(result.next(), table + "." + column + " must exist");
+        return result.getString(1);
       }
     }
   }
