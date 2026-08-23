@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import type {
-  Chapter,
   ProductionViewMode,
   ProjectProductionDetail,
   VisualBeat,
@@ -15,7 +14,6 @@ interface ProductionStore {
   visualBeats: VisualBeat[];
   currentView: ProductionViewMode;
   selectedVisualBeatIds: string[];
-  isAddChapterModalOpen: boolean;
   activeReviewTab: "all" | "approved" | "needs_review" | "rejected";
 
   setView: (view: ProductionViewMode) => void;
@@ -23,10 +21,6 @@ interface ProductionStore {
   setActiveChapter: (chapterId: string) => void;
   setActiveScene: (sceneId: string) => void;
   setActiveReviewTab: (tab: "all" | "approved" | "needs_review" | "rejected") => void;
-  openAddChapterModal: () => void;
-  closeAddChapterModal: () => void;
-  /** @deprecated Production Chapter creation must use features/chapters/api/chapters.api.ts. */
-  addChapter: (data: { title: string; storyText: string; number?: string }) => Chapter;
   toggleSelectVisualBeat: (id: string) => void;
   selectAllVisualBeats: () => void;
   clearSelectedVisualBeats: () => void;
@@ -43,7 +37,6 @@ export const useProductionStore = create<ProductionStore>((set, get) => ({
   visualBeats: [],
   currentView: "workspace",
   selectedVisualBeatIds: [],
-  isAddChapterModalOpen: false,
   activeReviewTab: "all",
 
   setView: (view) => {
@@ -54,12 +47,6 @@ export const useProductionStore = create<ProductionStore>((set, get) => ({
   setActiveChapter: (chapterId) => set({ activeChapterId: chapterId }),
   setActiveScene: (sceneId) => set({ activeSceneId: sceneId }),
   setActiveReviewTab: (tab) => set({ activeReviewTab: tab }),
-  openAddChapterModal: () => set({ isAddChapterModalOpen: true }),
-  closeAddChapterModal: () => set({ isAddChapterModalOpen: false }),
-
-  addChapter: () => {
-    throw new Error("Legacy Zustand Chapter creation has been removed. Use chaptersApi.create instead.");
-  },
 
   toggleSelectVisualBeat: (id) =>
     set((state) => ({
