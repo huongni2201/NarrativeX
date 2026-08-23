@@ -23,7 +23,7 @@ public class MyBatisChapterCreationIdempotencyAdapter
   }
 
   @Override
-  public void complete(Long reservationId, UUID chapterId) {
+  public void complete(UUID reservationId, UUID chapterId) {
     if (mapper.complete(reservationId, chapterId) != 1) {
       throw new IllegalStateException("Chapter creation reservation was modified concurrently");
     }
@@ -31,11 +31,7 @@ public class MyBatisChapterCreationIdempotencyAdapter
 
   private static Reservation toReservation(ChapterCreationIdempotencyRow row) {
     return new Reservation(
-        row.getId(),
-        row.getOwnerId(),
-        row.getProjectId(),
-        row.getIdempotencyKey(),
-        row.getRequestFingerprint(),
-        row.getChapterId());
+        row.getId(), row.getOwnerId(), row.getProjectId(), row.getIdempotencyKey(),
+        row.getRequestFingerprint(), row.getChapterId());
   }
 }
