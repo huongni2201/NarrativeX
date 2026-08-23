@@ -15,7 +15,7 @@ import lombok.Setter;
 @AllArgsConstructor
 public class MediaPlanRow {
   private UUID id;
-  private Long chapterId;
+  private UUID chapterId;
   private long chapterRowVersion;
   private String sourceHash;
   private ProductionMode productionMode;
@@ -27,7 +27,7 @@ public class MediaPlanRow {
   private int plannedI2vSeconds;
   private BigDecimal estimatedCost;
   private Instant createdAt;
-  private Long storyboardRevisionId;
+  private UUID storyboardRevisionId;
   private String workflowVersion;
   private String imageAspectRatio;
   private String imageQualityTier;
@@ -35,6 +35,6 @@ public class MediaPlanRow {
   private String imageModelKey;
   private String pricingSnapshotJson;
   private String pricingFingerprint;
-  private String narrationSetId;
-  private String narrationAlignmentRunId;
+  private UUID narrationSetId;
+  private UUID narrationAlignmentRunId;
 }
