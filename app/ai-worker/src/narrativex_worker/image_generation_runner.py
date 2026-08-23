@@ -179,7 +179,12 @@ class ImageGenerationRunner:
             },
         )
         durable = DurableMediaResult(
-            storage_key, stored.checksum, stored.mime_type, result.width, result.height
+            storage_key,
+            stored.checksum,
+            stored.mime_type,
+            result.width,
+            result.height,
+            item_key,
         )
         finalize = getattr(self.repository, "finalize_image_result", None)
         if finalize is not None:
