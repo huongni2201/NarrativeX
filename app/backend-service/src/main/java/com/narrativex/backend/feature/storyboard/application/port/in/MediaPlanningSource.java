@@ -65,6 +65,32 @@ public record MediaPlanningSource(
           null);
     }
 
+    /** Backward-compatible constructor for callers created before cameraAngle became structured. */
+    public BeatSnapshot(
+        UUID visualBeatId,
+        int orderIndex,
+        String visualIntent,
+        MotionIntent motionIntent,
+        String reviewStatus,
+        String cameraMovement,
+        String aspectRatioOverride,
+        String qualityTierOverride,
+        Long audioStartMs,
+        Long audioEndMs) {
+      this(
+          visualBeatId,
+          orderIndex,
+          visualIntent,
+          motionIntent,
+          reviewStatus,
+          cameraMovement,
+          "MEDIUM",
+          aspectRatioOverride,
+          qualityTierOverride,
+          audioStartMs,
+          audioEndMs);
+    }
+
     public BeatSnapshot {
       Objects.requireNonNull(visualBeatId, "visualBeatId");
       if (orderIndex < 0) {
