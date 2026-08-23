@@ -5,19 +5,20 @@ import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAcce
 import com.narrativex.backend.feature.storyboard.domain.aggregate.Chapter;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public interface ChapterRepository extends ChapterAccess {
   Chapter save(Chapter chapter);
 
   Chapter saveAndFlush(Chapter chapter);
 
-  Optional<Chapter> findById(Long chapterId);
+  Optional<Chapter> findById(UUID chapterId);
 
-  List<Chapter> findAllByStoryVersionId(Long storyVersionId);
+  List<Chapter> findAllByStoryVersionId(UUID storyVersionId);
 
-  int findMaxOrderIndexByStoryVersionId(Long storyVersionId);
+  int findMaxOrderIndexByStoryVersionId(UUID storyVersionId);
 
-  CursorPage<Chapter> findPageByStoryVersionId(Long storyVersionId, String cursor, int limit);
+  CursorPage<Chapter> findPageByStoryVersionId(UUID storyVersionId, String cursor, int limit);
 
-  boolean existsByStoryVersionIdAndOrderIndex(Long storyVersionId, int orderIndex);
+  boolean existsByStoryVersionIdAndOrderIndex(UUID storyVersionId, int orderIndex);
 }
