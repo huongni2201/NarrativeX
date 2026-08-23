@@ -6,11 +6,11 @@ import org.apache.ibatis.annotations.Param;
 
 public interface ChapterMediaHeadMapper extends NarrativeXMyBatisMapper {
   int upsert(
-      @Param("chapterId") Long chapterId,
-      @Param("generationJobId") Long generationJobId);
+      @Param("chapterId") UUID chapterId,
+      @Param("generationJobId") UUID generationJobId);
 
   boolean matchesCurrentPlan(
-      @Param("chapterId") Long chapterId,
+      @Param("chapterId") UUID chapterId,
       @Param("mediaPlanId") UUID mediaPlanId,
       @Param("mediaPlanRevision") int mediaPlanRevision);
 }
