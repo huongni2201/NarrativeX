@@ -1,9 +1,10 @@
 package com.narrativex.backend.feature.project.api.response;
 
 import java.time.Instant;
+import java.util.UUID;
 
 public record ProjectOverviewChapterResponse(
-    Long id,
+    UUID id,
     int orderIndex,
     String title,
     String status,
