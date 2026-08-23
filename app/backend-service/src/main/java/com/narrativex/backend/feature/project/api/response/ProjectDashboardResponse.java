@@ -3,6 +3,7 @@ package com.narrativex.backend.feature.project.api.response;
 import com.narrativex.backend.feature.project.application.query.ProjectDashboardView;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 public record ProjectDashboardResponse(
     List<ProjectDashboardItem> content,
@@ -34,7 +35,7 @@ public record ProjectDashboardResponse(
   }
 
   public record ProjectDashboardItem(
-      Long id,
+      UUID id,
       String name,
       String description,
       String coverImageUrl,
