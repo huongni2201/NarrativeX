@@ -4,7 +4,8 @@ NarrativeX creates short-lived presigned R2 `PUT` URLs for browser uploads. The
 R2 bucket must therefore allow the frontend origin and every request header sent
 with the presigned upload. This is separate from Spring's API CORS policy.
 
-For local development, apply this policy to the `narrativex-dev` bucket in the
+For the machine-local real runtime, apply this policy to the configured production
+bucket in the
 Cloudflare R2 dashboard under **Settings → CORS Policy**:
 
 ```json
@@ -34,7 +35,7 @@ After changing backend source or `.env`, rebuild the backend container so it use
 the current R2 endpoint and metadata verification code:
 
 ```powershell
-docker compose up -d --build backend
+docker compose --env-file .env.prod -f docker-compose.real.yml up -d --build backend
 ```
 
 The finalize request should return HTTP 200 with `status: "VALIDATING"`; the
@@ -62,6 +63,6 @@ For Wrangler, use its `rules` format instead of the dashboard format above:
 ```
 
 ```powershell
-npx wrangler r2 bucket cors set narrativex-dev --file .\r2-cors.json
-npx wrangler r2 bucket cors list narrativex-dev
+npx wrangler r2 bucket cors set narrativex-prod --file .\r2-cors.json
+npx wrangler r2 bucket cors list narrativex-prod
 ```

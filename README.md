@@ -11,28 +11,40 @@ NarrativeX is an image-first AI Story Video Studio for turning flexible-length s
 | `app/frontend-web` | Next.js/TypeScript storyboard, review, cost and notification UI |
 | `documentation` | Product, domain, architecture, workflows, codebase notes and ADRs |
 | `contracts` | Versioned backend ↔ worker payload contracts |
-| `docker-compose.yml` | Safe local PostgreSQL 18, Redis 8, backend and AI worker stack |
+| `docker-compose.real.yml` | Production-profile Docker stack for real local execution and real provider generation |
 | `docker-compose.prod.yml` | Production stack with frontend, split AI/narration/render workers, Caddy origin routing and Cloudflare Tunnel |
 | `Caddyfile.prod` | Private HTTP origin used only inside the Cloudflare Tunnel Docker network |
 
-## Start the local stack
+## Run the real stack in Docker on this PC
+
+The supported machine-local runtime is still the `prod` Spring profile, not the `local` profile. It
+uses the real Vertex image provider, Cloudflare R2, VieNeu narration and Google Drive final-video
+storage; Docker is only the execution environment. Fake providers, local media storage and the
+frontend mock mode remain available only to automated tests and Storybook.
+
+Copy the production template once, fill the provider/storage credentials, and run:
 
 ```powershell
-Copy-Item .env.example .env
-docker compose up -d --build
+Copy-Item .env.example .env.prod
+docker compose --env-file .env.prod -f docker-compose.real.yml config
+docker compose --env-file .env.prod -f docker-compose.real.yml up -d --build
 ```
 
-This starts PostgreSQL 18, Redis 8, the Spring Boot backend and the AI worker. Cloudflare R2 is external managed object storage and is not emulated by a local object-storage container. The worker waits for the backend to become healthy so Flyway can apply the PostgreSQL schema first. The backend is available at `http://localhost:8080`; Actuator health is at `http://localhost:8080/actuator/health`.
+The web app is available at `http://localhost:3000`, the backend at `http://localhost:8080`, and
+Actuator health at `http://localhost:8080/actuator/health`. The local Docker compose binds these
+ports to loopback only. The browser uses server-managed sessions; it does not use a developer
+identity fallback.
 
-The worker uses PostgreSQL as its durable work queue. Its safe local default is `AI_PROVIDER_MODE=disabled`, `IMAGE_PROVIDER_MODE=disabled`, `TTS_PROVIDER_MODE=disabled`, and `MEDIA_STORAGE_MODE=disabled`, so paid/provider work is never enabled accidentally. Configure the corresponding provider and storage settings explicitly before running real generation.
+Required for real image generation:
 
-To start only infrastructure dependencies:
+- Google Application Default Credentials service-account JSON, configured by `GCP_SERVICE_ACCOUNT_FILE`;
+- Vertex project and image batch staging bucket, configured by `GOOGLE_CLOUD_PROJECT` and `VERTEX_IMAGE_BATCH_GCS_BUCKET`;
+- Cloudflare R2 credentials for durable generated images;
+- a VieNeu reference WAV and Google Drive credentials if narration/rendering are enabled.
 
-```powershell
-docker compose up -d postgres redis
-```
-
-The backend container uses `postgres` and `redis` as service hostnames. Host-run backend development should continue using `localhost` from `app/backend-service/.env.example`. Media workers use the configured R2 bucket for generated images and narration audio. Worker-local files are scratch/cache/FFmpeg workspace only. After FFmpeg validation, final rendered MP4 files are uploaded directly to the configured Google Drive folder and are not persisted to R2.
+The worker waits for the backend to become healthy so Flyway can apply the PostgreSQL schema first.
+Worker-local files are scratch/cache/FFmpeg workspace only. Generated images and narration audio go
+to R2; final rendered MP4 files go to the configured Google Drive folder.
 
 PostgreSQL 18 uses a new data directory layout. Do not point it directly at an existing PostgreSQL 16 data volume; migrate retained data with a tested dump/restore or PostgreSQL upgrade procedure first.
 
@@ -42,11 +54,12 @@ Then follow the module READMEs and `CONTRIBUTING.md` for backend, worker, and fr
 
 ### Local Vertex credentials
 
-When `AI_PROVIDER_MODE=vertex` or `IMAGE_PROVIDER_MODE=vertex`, the worker needs Google Application Default Credentials. Run `gcloud auth application-default login` once, set `GOOGLE_CLOUD_PROJECT`, and set `GOOGLE_CLOUD_CONFIG_HOST` in the untracked root `.env` to the host gcloud directory (for example, `C:/Users/<user>/AppData/Roaming/gcloud`). Compose mounts that directory read-only at the worker's `GOOGLE_APPLICATION_CREDENTIALS` path. Do not commit credential files.
+When `AI_PROVIDER_MODE=vertex` or `IMAGE_PROVIDER_MODE=vertex`, the worker needs Google Application Default Credentials. Set `GOOGLE_CLOUD_PROJECT` and point `GCP_SERVICE_ACCOUNT_FILE` to the service-account JSON. Compose mounts that file read-only at the worker's `GOOGLE_APPLICATION_CREDENTIALS` path. Do not commit credential files.
 
 ## Run the production stack
 
-Production intentionally uses a separate Compose/env contract so local development cannot silently enable paid providers or secure-cookie/domain settings.
+The public deployment uses a separate Compose/env contract so the machine-local runtime cannot
+silently become internet-facing.
 
 ```powershell
 Copy-Item .env.example .env.prod
