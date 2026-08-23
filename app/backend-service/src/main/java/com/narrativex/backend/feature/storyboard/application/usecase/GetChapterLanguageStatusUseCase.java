@@ -14,6 +14,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.UUID;
+
 @Service
 @RequiredArgsConstructor
 public class GetChapterLanguageStatusUseCase {
@@ -25,7 +27,7 @@ public class GetChapterLanguageStatusUseCase {
   private final LanguageDetectionRepository detectionRepository;
 
   @Transactional(readOnly = true)
-  public ApiResponse<ChapterLanguageStatusResponse> execute(Long projectId, Long chapterId) {
+  public ApiResponse<ChapterLanguageStatusResponse> execute(UUID projectId, UUID chapterId) {
     var chapter =
         chapterRepository
             .findById(chapterId)
@@ -41,7 +43,7 @@ public class GetChapterLanguageStatusUseCase {
         detectionRepository.findLatest(variant.id(), variant.contentHash()).orElse(null);
     String status =
         ChapterLanguagePolicy.translationStatus(detection, project.getProjectLanguage());
-    Long translationId =
+    UUID translationId =
         detection == null
             ? null
             : variantRepository

@@ -2,11 +2,12 @@ package com.narrativex.backend.feature.storyboard.api.response;
 
 import com.narrativex.backend.feature.storyboard.domain.value.ChapterContentVariant;
 import java.time.Instant;
+import java.util.UUID;
 
 public record ChapterContentVariantResponse(
-    Long id,
-    Long chapterId,
-    Long sourceVariantId,
+    UUID id,
+    UUID chapterId,
+    UUID sourceVariantId,
     String variantType,
     String languageCode,
     String content,

@@ -7,6 +7,7 @@ import com.narrativex.backend.feature.storyboard.application.port.out.ChapterAna
 import com.narrativex.backend.feature.storyboard.domain.exception.ContentVariantNotReadyException;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterAnalysisSnapshotMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterAnalysisSnapshotRow;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -17,13 +18,13 @@ public class MyBatisChapterAnalysisSnapshotRepository implements ChapterAnalysis
 
   @Override
   public ChapterAnalysisSource requireOwnedByProject(
-      Long projectId, Long chapterId, String userId) {
+      UUID projectId, UUID chapterId, String userId) {
     return requireOwnedByProject(projectId, chapterId, userId, null);
   }
 
   @Override
   public ChapterAnalysisSource requireOwnedByProject(
-      Long projectId, Long chapterId, String userId, Long contentVariantId) {
+      UUID projectId, UUID chapterId, String userId, UUID contentVariantId) {
     ChapterAnalysisSnapshotRow row =
         mapper.findOwned(projectId, chapterId, userId, contentVariantId);
     if (row == null) {
@@ -48,7 +49,7 @@ public class MyBatisChapterAnalysisSnapshotRepository implements ChapterAnalysis
   }
 
   @Override
-  public boolean existsReadyOriginalVariant(Long projectId, Long chapterId) {
+  public boolean existsReadyOriginalVariant(UUID projectId, UUID chapterId) {
     return mapper.existsReadyOriginalVariant(projectId, chapterId);
   }
 }

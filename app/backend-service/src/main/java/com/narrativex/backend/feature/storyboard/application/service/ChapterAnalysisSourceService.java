@@ -4,6 +4,7 @@ import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnal
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardRevisionAccess;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterAnalysisSnapshotRepository;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -18,7 +19,7 @@ public class ChapterAnalysisSourceService implements ChapterAnalysisSourceAccess
   @Override
   @Transactional(propagation = Propagation.MANDATORY)
   public ChapterAnalysisSource requireOwnedForAnalysisLocked(
-      Long projectId, Long chapterId, String userId) {
+      UUID projectId, UUID chapterId, String userId) {
     // The first ownership-scoped read is deliberately unlocked. It prevents a caller from
     // acquiring an advisory lock for a Chapter outside its requested project scope.
     chapterAnalysisSnapshotRepository.requireOwnedByProject(projectId, chapterId, userId);
@@ -32,7 +33,7 @@ public class ChapterAnalysisSourceService implements ChapterAnalysisSourceAccess
   @Override
   @Transactional(propagation = Propagation.MANDATORY)
   public ChapterAnalysisSource requireOwnedForAnalysisLocked(
-      Long projectId, Long chapterId, String userId, Long contentVariantId) {
+      UUID projectId, UUID chapterId, String userId, UUID contentVariantId) {
     chapterAnalysisSnapshotRepository.requireOwnedByProject(
         projectId, chapterId, userId, contentVariantId);
     storyboardRevisionAccess.lockChapter(chapterId);

@@ -1,13 +1,15 @@
 package com.narrativex.backend.feature.character.application.command;
 
+import java.util.UUID;
+
 public record CreateCharacterAppearanceCommand(
-    Long characterId,
-    Long projectId,
+    UUID characterId,
+    UUID projectId,
     String timelineKey,
     String ageState,
     String hairstyle,
     String injury,
     String wardrobeContext,
     String appearancePrompt,
-    Long outfitVersionId,
+    UUID outfitVersionId,
     String ownerId) {}

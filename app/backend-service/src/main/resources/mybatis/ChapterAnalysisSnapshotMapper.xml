@@ -53,7 +53,7 @@
                    v.variant_type = 'ORIGINAL' AND v.content_hash = c.source_hash
                </when>
                <otherwise>
-                   v.id = #{contentVariantId,jdbcType=BIGINT}
+                   v.id = #{contentVariantId}
                </otherwise>
            </choose>
          ORDER BY v.created_at DESC, v.id DESC LIMIT 1

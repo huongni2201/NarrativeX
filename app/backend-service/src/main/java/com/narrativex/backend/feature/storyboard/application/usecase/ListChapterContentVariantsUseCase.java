@@ -7,6 +7,7 @@ import com.narrativex.backend.feature.storyboard.api.response.ChapterContentVari
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterContentVariantRepository;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,7 +21,7 @@ public class ListChapterContentVariantsUseCase {
   private final ChapterContentVariantRepository variantRepository;
 
   @Transactional(readOnly = true)
-  public ApiResponse<List<ChapterContentVariantResponse>> execute(Long projectId, Long chapterId) {
+  public ApiResponse<List<ChapterContentVariantResponse>> execute(UUID projectId, UUID chapterId) {
     var chapter =
         chapterRepository
             .findById(chapterId)

@@ -45,7 +45,7 @@ public class BatchImportChaptersUseCase {
 
   @Transactional
   public List<ChapterResponse> execute(
-      Long projectId, Long storyVersionId, String fileName, String contentType, byte[] content) {
+      UUID projectId, UUID storyVersionId, String fileName, String contentType, byte[] content) {
     if (content == null || content.length == 0)
       throw new IllegalArgumentException("Import file must not be empty");
     if (content.length > MAX_FILE_BYTES)

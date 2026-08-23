@@ -1,4 +1,6 @@
 package com.narrativex.backend.feature.storyboard.api.response;
 
+import java.util.UUID;
+
 public record ChapterContentImportResponse(
-    Long variantId, String variantType, String languageDetectionStatus) {}
+    UUID variantId, String variantType, String languageDetectionStatus) {}

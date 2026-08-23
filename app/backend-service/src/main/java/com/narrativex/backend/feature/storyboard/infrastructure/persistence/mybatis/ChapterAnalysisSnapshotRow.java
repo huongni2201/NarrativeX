@@ -1,21 +1,22 @@
 package com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis;
 
+import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 
 @Getter
 @Setter
 public class ChapterAnalysisSnapshotRow {
-  private Long id;
-  private Long storyVersionId;
+  private UUID id;
+  private UUID storyVersionId;
   private long rowVersion;
   private String sourceHash;
   private String sourceText;
-  private Long contentVariantId;
+  private UUID contentVariantId;
   private String language;
-  private Long originVariantId;
+  private UUID originVariantId;
   private String chapterSourceHash;
   private String sourceContentHash;
-  private Long currentOriginalVariantId;
+  private UUID currentOriginalVariantId;
   private boolean stale;
 }

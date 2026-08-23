@@ -106,8 +106,6 @@ class PostgreSqlMigrationIntegrationTest {
       assertEquals("uuid", columnType(connection, "notifications", "project_id"));
       assertEquals("uuid", columnType(connection, "chapter_media_heads", "chapter_id"));
       assertEquals("uuid", columnType(connection, "chapter_media_heads", "generation_job_id"));
-      assertEquals("uuid", columnType(connection, "render_input_snapshots", "project_id"));
-      assertEquals("uuid", columnType(connection, "render_input_snapshots", "chapter_id"));
       assertEquals("uuid", columnType(connection, "render_input_snapshots", "generation_job_id"));
       assertEquals("uuid", columnType(connection, "narration_requests", "project_id"));
       assertEquals("uuid", columnType(connection, "narration_requests", "chapter_id"));

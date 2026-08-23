@@ -1,15 +1,16 @@
 package com.narrativex.backend.feature.storyboard.application.port.out;
 
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSource;
+import java.util.UUID;
 
 /** Fresh PostgreSQL read model for the ownership-scoped Chapter snapshot consumed by admission. */
 public interface ChapterAnalysisSnapshotRepository {
-  ChapterAnalysisSource requireOwnedByProject(Long projectId, Long chapterId, String userId);
+  ChapterAnalysisSource requireOwnedByProject(UUID projectId, UUID chapterId, String userId);
 
-  boolean existsReadyOriginalVariant(Long projectId, Long chapterId);
+  boolean existsReadyOriginalVariant(UUID projectId, UUID chapterId);
 
   default ChapterAnalysisSource requireOwnedByProject(
-      Long projectId, Long chapterId, String userId, Long contentVariantId) {
+      UUID projectId, UUID chapterId, String userId, UUID contentVariantId) {
     return requireOwnedByProject(projectId, chapterId, userId);
   }
 }

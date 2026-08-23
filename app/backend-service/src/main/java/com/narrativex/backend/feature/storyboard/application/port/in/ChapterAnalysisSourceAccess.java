@@ -1,5 +1,7 @@
 package com.narrativex.backend.feature.storyboard.application.port.in;
 
+import java.util.UUID;
+
 /**
  * Cross-feature contract for obtaining an ownership-scoped authoritative Chapter snapshot.
  * Implementations authorize the requested project/chapter scope before acquiring the Chapter
@@ -7,10 +9,10 @@ package com.narrativex.backend.feature.storyboard.application.port.in;
  */
 public interface ChapterAnalysisSourceAccess {
   ChapterAnalysisSource requireOwnedForAnalysisLocked(
-      Long projectId, Long chapterId, String userId);
+      UUID projectId, UUID chapterId, String userId);
 
   default ChapterAnalysisSource requireOwnedForAnalysisLocked(
-      Long projectId, Long chapterId, String userId, Long contentVariantId) {
+      UUID projectId, UUID chapterId, String userId, UUID contentVariantId) {
     return requireOwnedForAnalysisLocked(projectId, chapterId, userId);
   }
 }

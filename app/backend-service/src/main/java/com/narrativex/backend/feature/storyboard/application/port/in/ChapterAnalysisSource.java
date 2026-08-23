@@ -1,17 +1,19 @@
 package com.narrativex.backend.feature.storyboard.application.port.in;
 
+import java.util.UUID;
+
 /** Immutable Chapter source snapshot exposed to cross-feature analysis orchestration. */
 public record ChapterAnalysisSource(
-    Long chapterId,
-    Long storyVersionId,
+    UUID chapterId,
+    UUID storyVersionId,
     long rowVersion,
     String sourceHash,
     String sourceText,
-    Long contentVariantId,
+    UUID contentVariantId,
     String language,
-    Long originVariantId) {
+    UUID originVariantId) {
   public ChapterAnalysisSource(
-      Long chapterId, Long storyVersionId, long rowVersion, String sourceHash, String sourceText) {
+      UUID chapterId, UUID storyVersionId, long rowVersion, String sourceHash, String sourceText) {
     this(chapterId, storyVersionId, rowVersion, sourceHash, sourceText, null, null, null);
   }
 }
