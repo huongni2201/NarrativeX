@@ -4,6 +4,7 @@ import com.narrativex.backend.feature.project.application.port.out.ChapterCreati
 import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ChapterCreationIdempotencyMapper;
 import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ChapterCreationIdempotencyRow;
 import java.util.Optional;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -15,14 +16,14 @@ public class MyBatisChapterCreationIdempotencyAdapter
 
   @Override
   public Optional<Reservation> reserve(
-      String ownerId, Long projectId, String idempotencyKey, String requestFingerprint) {
+      String ownerId, UUID projectId, String idempotencyKey, String requestFingerprint) {
     ChapterCreationIdempotencyRow row =
         mapper.reserve(ownerId, projectId, idempotencyKey, requestFingerprint);
     return Optional.ofNullable(row).map(MyBatisChapterCreationIdempotencyAdapter::toReservation);
   }
 
   @Override
-  public void complete(Long reservationId, Long chapterId) {
+  public void complete(Long reservationId, UUID chapterId) {
     if (mapper.complete(reservationId, chapterId) != 1) {
       throw new IllegalStateException("Chapter creation reservation was modified concurrently");
     }
