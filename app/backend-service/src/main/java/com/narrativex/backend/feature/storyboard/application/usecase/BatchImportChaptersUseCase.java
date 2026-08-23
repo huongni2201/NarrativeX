@@ -3,7 +3,12 @@ package com.narrativex.backend.feature.storyboard.application.usecase;
 import com.narrativex.backend.configuration.NarrativeXLimitsProperties;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.application.TextInputEstimator;
+import com.narrativex.backend.feature.project.application.command.CreateStoryVersionCommand;
+import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
+import com.narrativex.backend.feature.project.application.port.out.StoryVersionRepository;
+import com.narrativex.backend.feature.project.application.usecase.CreateStoryVersionUseCase;
+import com.narrativex.backend.feature.project.domain.aggregate.Project;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterResponse;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterDocumentTextExtractor;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
@@ -28,6 +33,9 @@ public class BatchImportChaptersUseCase {
 
   private final CurrentUserId currentUserId;
   private final StoryVersionAccess storyVersionAccess;
+  private final ProjectAccess projectAccess;
+  private final StoryVersionRepository storyVersionRepository;
+  private final CreateStoryVersionUseCase createStoryVersionUseCase;
   private final ChapterRepository chapterRepository;
   private final ChapterDocumentTextExtractor documentTextExtractor;
   private final ChapterImportSplitter splitter;
@@ -43,15 +51,32 @@ public class BatchImportChaptersUseCase {
     if (content.length > MAX_FILE_BYTES)
       throw new IllegalArgumentException("Import file exceeds 10 MB limit");
 
-    storyVersionAccess.requireOwnedStoryVersion(projectId, storyVersionId, currentUserId.get());
+    Project project = projectAccess.findOwnedProjectForUpdate(projectId, currentUserId.get());
     log.info(
-        "Starting batch import of chapters from file '{}' (size: {} bytes, type: '{}') for storyVersionId={}, projectId={}",
+        "Starting batch import of chapters from file '{}' (size: {} bytes, type: '{}') for"
+            + " storyVersionId={}, projectId={}",
         fileName,
         content.length,
         contentType,
         storyVersionId,
         projectId);
     String extracted = documentTextExtractor.extract(fileName, contentType, content);
+    if (storyVersionId == null) {
+      storyVersionId =
+          storyVersionRepository
+              .findActiveByProjectId(projectId)
+              .or(() -> storyVersionRepository.findLatestByProjectId(projectId))
+              .map(version -> version.getId())
+              .orElseGet(
+                  () ->
+                      createStoryVersionUseCase
+                          .execute(
+                              new CreateStoryVersionCommand(
+                                  projectId, extracted, project.getSourceLanguage(), null))
+                          .getId());
+    } else {
+      storyVersionAccess.requireOwnedStoryVersion(projectId, storyVersionId, currentUserId.get());
+    }
     var drafts = splitter.split(extracted, fileName);
     if (drafts.size() > MAX_CHAPTERS_PER_IMPORT) {
       throw new IllegalArgumentException("Import document contains more than 100 chapters");

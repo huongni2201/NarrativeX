@@ -56,15 +56,15 @@ export const chaptersApi = {
       {},
       isApiChapterWorkspace,
     ),
-  create: (projectId: number, input: CreateChapterApiInput) =>
+  create: (projectId: number, input: CreateChapterApiInput, idempotencyKey = crypto.randomUUID()) =>
     apiRequest<ApiChapter>(
       `/api/v1/projects/${projectId}/chapters`,
-      { method: "POST", json: input },
+      { method: "POST", headers: { "Idempotency-Key": idempotencyKey }, json: input },
       isApiChapter,
     ),
-  batchImport: (projectId: number, storyVersionId: number, file: File) => {
+  batchImport: (projectId: number, file: File, storyVersionId?: number) => {
     const form = new FormData();
-    form.set("storyVersionId", String(storyVersionId));
+    if (storyVersionId !== undefined) form.set("storyVersionId", String(storyVersionId));
     form.set("file", file);
     return apiRequest<ApiChapter[]>(
       `/api/v1/projects/${projectId}/chapters/batch-import`,

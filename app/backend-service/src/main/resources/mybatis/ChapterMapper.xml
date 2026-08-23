@@ -96,4 +96,10 @@
                AND order_index = #{orderIndex}
         )
     </select>
+
+    <select id="findMaxOrderIndexByStoryVersionId" resultType="int">
+        SELECT COALESCE(MAX(order_index), -1)
+          FROM chapters
+         WHERE story_version_id = #{storyVersionId}
+    </select>
 </mapper>

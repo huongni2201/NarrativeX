@@ -1,0 +1,14 @@
+package com.narrativex.backend.feature.project.infrastructure.persistence.mybatis;
+
+import com.narrativex.backend.feature.common.infrastructure.persistence.mybatis.NarrativeXMyBatisMapper;
+import org.apache.ibatis.annotations.Param;
+
+public interface ChapterCreationIdempotencyMapper extends NarrativeXMyBatisMapper {
+  ChapterCreationIdempotencyRow reserve(
+      @Param("ownerId") String ownerId,
+      @Param("projectId") Long projectId,
+      @Param("idempotencyKey") String idempotencyKey,
+      @Param("requestFingerprint") String requestFingerprint);
+
+  int complete(@Param("id") Long id, @Param("chapterId") Long chapterId);
+}

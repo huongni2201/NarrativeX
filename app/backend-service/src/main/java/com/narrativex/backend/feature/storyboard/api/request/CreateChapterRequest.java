@@ -5,7 +5,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 public record CreateChapterRequest(
-    @NotNull Long storyVersionId,
-    @Min(0) int orderIndex,
+    Long storyVersionId,
+    @Min(0) Integer orderIndex,
     @NotNull @Size(min = 1, max = 200) String title,
     @NotNull String sourceText) {}

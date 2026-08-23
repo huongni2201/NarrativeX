@@ -75,6 +75,8 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml config
 docker run --rm -v "${PWD}/Caddyfile.prod:/etc/caddy/Caddyfile:ro" caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile
 ```
 
+The Compose file fails fast if `CLOUDFLARE_TUNNEL_TOKEN` is missing or empty. Do not start the stack until the resolved configuration command succeeds; otherwise `cloudflared` will repeatedly restart with a missing tunnel identity.
+
 Start and verify:
 
 ```powershell

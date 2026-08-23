@@ -30,7 +30,9 @@
                fa.width, fa.height, fa.status, fa.created_at, fa.updated_at
           FROM final_artifacts fa
           JOIN projects p ON p.id = fa.project_id
-         WHERE fa.id = #{artifactId} AND p.owner_id = #{ownerId}
+         WHERE fa.id = #{artifactId}
+           AND p.owner_id = #{ownerId}
+           AND fa.status = 'READY'
     </select>
 
     <select id="findByGenerationJobId" resultMap="finalArtifactRow">

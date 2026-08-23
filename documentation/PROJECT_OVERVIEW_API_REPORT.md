@@ -38,7 +38,7 @@ Authentication and CSRF endpoints are handled by the shared frontend API client 
 
 ## 4. Chapters and batch import
 
-Manual chapter creation uses `POST /api/v1/projects/{projectId}/chapters`. Batch import uses `POST /api/v1/projects/{projectId}/chapters/batch-import` as multipart form data with `storyVersionId` and `file`.
+Manual chapter creation uses `POST /api/v1/projects/{projectId}/chapters` with `Idempotency-Key`; `storyVersionId` and `orderIndex` are optional and are resolved server-side when omitted. Batch import uses `POST /api/v1/projects/{projectId}/chapters/batch-import` as multipart form data with optional `storyVersionId` and `file`. Both workflows ensure an active/latest StoryVersion transactionally; the frontend does not create StoryVersions as a prerequisite.
 
 After chapter mutations the frontend invalidates the Project Overview and relevant chapter/story queries so the UI returns to backend truth.
 

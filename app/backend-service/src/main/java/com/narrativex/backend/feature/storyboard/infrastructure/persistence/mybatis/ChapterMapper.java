@@ -24,4 +24,6 @@ public interface ChapterMapper extends NarrativeXMyBatisMapper {
 
   boolean existsByStoryVersionIdAndOrderIndex(
       @Param("storyVersionId") Long storyVersionId, @Param("orderIndex") int orderIndex);
+
+  int findMaxOrderIndexByStoryVersionId(@Param("storyVersionId") Long storyVersionId);
 }

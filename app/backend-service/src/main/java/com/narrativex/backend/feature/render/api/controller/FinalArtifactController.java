@@ -44,20 +44,21 @@ public class FinalArtifactController {
   }
 
   @GetMapping("/{artifactId}/download")
-  public ResponseEntity<?> download(
+  public ResponseEntity<StreamingResponseBody> download(
       @PathVariable Long artifactId,
       @RequestHeader(value = HttpHeaders.RANGE, required = false) String range) {
     return stream(artifactId, range, true);
   }
 
   @GetMapping({"/{artifactId}/content", "/{artifactId}/preview"})
-  public ResponseEntity<?> preview(
+  public ResponseEntity<StreamingResponseBody> preview(
       @PathVariable Long artifactId,
       @RequestHeader(value = HttpHeaders.RANGE, required = false) String range) {
     return stream(artifactId, range, false);
   }
 
-  private ResponseEntity<?> stream(Long artifactId, String rangeHeader, boolean attachment) {
+  private ResponseEntity<StreamingResponseBody> stream(
+      Long artifactId, String rangeHeader, boolean attachment) {
     var artifact = getFinalArtifactUseCase.execute(artifactId);
     ByteRange range = ByteRange.parse(rangeHeader, artifact.sizeBytes());
     if (range == null && rangeHeader != null && !rangeHeader.isBlank()) {

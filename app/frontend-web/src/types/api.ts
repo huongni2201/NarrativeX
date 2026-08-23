@@ -201,8 +201,8 @@ export interface CreateStoryVersionApiInput {
 }
 
 export interface CreateChapterApiInput {
-  storyVersionId: number;
-  orderIndex: number;
+  storyVersionId?: number | null;
+  orderIndex?: number;
   title: string;
   sourceText: string;
 }

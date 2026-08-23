@@ -256,7 +256,7 @@ services:
     restart: unless-stopped
     command: ["tunnel", "--no-autoupdate", "run"]
     environment:
-      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?Set CLOUDFLARE_TUNNEL_TOKEN in .env.prod before starting the production stack}
     depends_on:
       caddy: { condition: service_healthy }
     networks: [appnet]

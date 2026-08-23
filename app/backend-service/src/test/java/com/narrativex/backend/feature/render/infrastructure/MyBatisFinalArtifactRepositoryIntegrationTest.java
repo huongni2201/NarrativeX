@@ -1,0 +1,75 @@
+package com.narrativex.backend.feature.render.infrastructure;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
+import com.narrativex.backend.feature.render.application.port.out.FinalArtifactRepository;
+import com.narrativex.backend.support.PostgreSqlIntegrationTestSupport;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.ActiveProfiles;
+
+@SpringBootTest
+@ActiveProfiles("test")
+class MyBatisFinalArtifactRepositoryIntegrationTest extends PostgreSqlIntegrationTestSupport {
+  @Autowired private FinalArtifactRepository repository;
+  @Autowired private JdbcTemplate jdbcTemplate;
+
+  @BeforeEach
+  void seedArtifacts() {
+    jdbcTemplate.update(
+        "INSERT INTO auth_users (id, email, display_name, password_hash, enabled) VALUES"
+            + " ('artifact-owner', 'artifact-owner@example.com', 'Artifact Owner', 'pass', true) ON"
+            + " CONFLICT (id) DO NOTHING");
+    jdbcTemplate.update(
+        "INSERT INTO projects (id, name, owner_id, status, source_language, narration_language,"
+            + " metadata_language, image_aspect_ratio, image_quality_tier) VALUES (9601, 'Artifact"
+            + " project', 'artifact-owner', 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9',"
+            + " 'STANDARD') ON CONFLICT (id) DO NOTHING");
+    jdbcTemplate.update(
+        "INSERT INTO story_versions (id, project_id, version_number, content, source_language,"
+            + " status, moderation_decision) VALUES (9701, 9601, 1, 'Content', 'vi-VN', 'ACTIVE',"
+            + " 'SAFE') ON CONFLICT (id) DO NOTHING");
+    jdbcTemplate.update(
+        "INSERT INTO chapters (id, story_version_id, order_index, title, source_text, source_hash)"
+            + " VALUES (9801, 9701, 0, 'Chapter', 'Text', repeat('a', 64)) ON CONFLICT (id) DO"
+            + " NOTHING");
+    jdbcTemplate.update(
+        "INSERT INTO generation_jobs (id, job_id, project_id, chapter_id, job_type, status,"
+            + " resource_class, progress, requested_by_user_id, billed_to_user_id) VALUES (9901,"
+            + " 'artifact-repository-job', 9601, 9801, 'CHAPTER_RENDER', 'COMPLETED', 'CPU_RENDER',"
+            + " 100, 'artifact-owner', 'artifact-owner') ON CONFLICT (id) DO NOTHING");
+    jdbcTemplate.update(
+        "INSERT INTO final_artifacts (id, project_id, chapter_id, generation_job_id, artifact_type,"
+            + " render_fingerprint, storage_key, storage_provider, external_file_id, mime_type,"
+            + " size_bytes, status) VALUES (9911, 9601, 9801, 9901, 'CHAPTER_VIDEO', repeat('d',"
+            + " 64), 'artifact/repository.mp4', 'LOCAL', 'artifact/repository.mp4', 'video/mp4',"
+            + " 10, 'READY') ON CONFLICT (id) DO NOTHING");
+    jdbcTemplate.update(
+        "INSERT INTO final_artifacts (id, project_id, chapter_id, generation_job_id, artifact_type,"
+            + " render_fingerprint, storage_key, storage_provider, external_file_id, mime_type,"
+            + " size_bytes, status) VALUES (9912, 9601, 9801, NULL, 'CHAPTER_VIDEO', repeat('e',"
+            + " 64), 'artifact/archived.mp4', 'LOCAL', 'artifact/archived.mp4', 'video/mp4', 10,"
+            + " 'ARCHIVED') ON CONFLICT (id) DO NOTHING");
+  }
+
+  @Test
+  void returnsReadyArtifactOnlyForItsOwner() {
+    assertThat(repository.findOwned(9911L, "artifact-owner").status()).isEqualTo("READY");
+    assertThatThrownBy(() -> repository.findOwned(9911L, "wrong-owner"))
+        .isInstanceOf(ResourceNotFoundException.class);
+  }
+
+  @Test
+  void doesNotReturnArchivedArtifactByJob() {
+    assertThat(repository.findByGenerationJobId("artifact-repository-job"))
+        .isPresent()
+        .get()
+        .extracting("id")
+        .isEqualTo(9911L);
+  }
+}

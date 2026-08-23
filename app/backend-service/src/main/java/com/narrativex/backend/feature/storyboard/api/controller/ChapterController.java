@@ -2,6 +2,8 @@ package com.narrativex.backend.feature.storyboard.api.controller;
 
 import com.narrativex.backend.feature.common.pagination.CursorPage;
 import com.narrativex.backend.feature.common.response.ApiResponse;
+import com.narrativex.backend.feature.project.application.command.CreateChapterWithStoryCommand;
+import com.narrativex.backend.feature.project.application.usecase.CreateChapterWithStoryUseCase;
 import com.narrativex.backend.feature.storyboard.api.request.CreateChapterRequest;
 import com.narrativex.backend.feature.storyboard.api.request.ImportChapterContentRequest;
 import com.narrativex.backend.feature.storyboard.api.request.UpdateChapterRequest;
@@ -11,11 +13,9 @@ import com.narrativex.backend.feature.storyboard.api.response.ChapterLanguageSta
 import com.narrativex.backend.feature.storyboard.api.response.ChapterResponse;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterSummaryResponse;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterWorkspaceResponse;
-import com.narrativex.backend.feature.storyboard.application.command.CreateChapterCommand;
 import com.narrativex.backend.feature.storyboard.application.command.ImportChapterContentCommand;
 import com.narrativex.backend.feature.storyboard.application.command.UpdateChapterCommand;
 import com.narrativex.backend.feature.storyboard.application.usecase.BatchImportChaptersUseCase;
-import com.narrativex.backend.feature.storyboard.application.usecase.CreateChapterUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.GetChapterLanguageStatusUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.GetChapterUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.GetChapterWorkspaceUseCase;
@@ -49,7 +49,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/projects/{projectId}/chapters")
 public class ChapterController {
-  private final CreateChapterUseCase createChapterUseCase;
+  private final CreateChapterWithStoryUseCase createChapterWithStoryUseCase;
   private final BatchImportChaptersUseCase batchImportChaptersUseCase;
   private final GetChapterUseCase getChapterUseCase;
   private final GetChapterWorkspaceUseCase getChapterWorkspaceUseCase;
@@ -61,19 +61,22 @@ public class ChapterController {
 
   @PostMapping
   public ResponseEntity<ApiResponse<ChapterResponse>> create(
-      @PathVariable Long projectId, @Valid @RequestBody CreateChapterRequest request) {
+      @PathVariable Long projectId,
+      @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+      @Valid @RequestBody CreateChapterRequest request) {
     log.info(
         "API POST create chapter for projectId={}, storyVersionId={}",
         projectId,
         request.storyVersionId());
     ApiResponse<ChapterResponse> response =
-        createChapterUseCase.execute(
-            new CreateChapterCommand(
+        createChapterWithStoryUseCase.execute(
+            new CreateChapterWithStoryCommand(
                 projectId,
                 request.storyVersionId(),
                 request.orderIndex(),
                 request.title(),
-                request.sourceText()));
+                request.sourceText(),
+                idempotencyKey));
     ChapterResponse chapter = response.data();
     return ResponseEntity.status(HttpStatus.CREATED)
         .location(URI.create("/api/v1/projects/" + projectId + "/chapters/" + chapter.id()))
@@ -84,13 +87,12 @@ public class ChapterController {
   @PostMapping(value = "/batch-import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   public ResponseEntity<ApiResponse<List<ChapterResponse>>> batchImport(
       @PathVariable Long projectId,
-      @RequestParam Long storyVersionId,
+      @RequestParam(required = false) Long storyVersionId,
       @RequestParam("file") MultipartFile file)
       throws IOException {
     log.info(
-        "API POST batch-import chapters for projectId={}, storyVersionId={}, filename={}",
+        "API POST batch-import chapters for projectId={}, filename={}",
         projectId,
-        storyVersionId,
         file.getOriginalFilename());
     List<ChapterResponse> imported =
         batchImportChaptersUseCase.execute(

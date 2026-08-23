@@ -15,6 +15,8 @@ public interface ChapterRepository extends ChapterAccess {
 
   List<Chapter> findAllByStoryVersionId(Long storyVersionId);
 
+  int findMaxOrderIndexByStoryVersionId(Long storyVersionId);
+
   CursorPage<Chapter> findPageByStoryVersionId(Long storyVersionId, String cursor, int limit);
 
   boolean existsByStoryVersionIdAndOrderIndex(Long storyVersionId, int orderIndex);

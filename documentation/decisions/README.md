@@ -22,6 +22,9 @@ All architectural decisions across NarrativeX are consolidated into 4 canonical 
    - *Scope:* Internal user identity in PostgreSQL, Spring Security server-managed session persistence (`NX_SESSION`) in Redis, CSRF protection, Google OIDC safe linking, Redis fail-open rate limiting, out-of-band E2E test credentials (`E2E_TEST_EMAIL`, `E2E_TEST_PASSWORD`), and automated CI secret scanning.
    - *Consolidates:* Former ADR-0004 and ADR-0013.
 
+5. **[ADR-0018: Transactional chapter creation owns StoryVersion orchestration](./ADR-0018-transactional-chapter-creation.md)**
+   - *Scope:* Backend-owned StoryVersion/Chapter orchestration, PostgreSQL idempotency for chapter creation, server-derived ordering, and batch-import transaction boundaries.
+
 ---
 
 Use sequential ADR numbers (`ADR-0005+`) for future cross-cutting architectural decisions.

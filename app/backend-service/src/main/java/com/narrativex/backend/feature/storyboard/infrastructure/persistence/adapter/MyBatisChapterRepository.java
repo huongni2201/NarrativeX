@@ -49,6 +49,12 @@ public class MyBatisChapterRepository implements ChapterRepository {
 
   @Override
   @Transactional(readOnly = true)
+  public int findMaxOrderIndexByStoryVersionId(Long storyVersionId) {
+    return mapper.findMaxOrderIndexByStoryVersionId(storyVersionId);
+  }
+
+  @Override
+  @Transactional(readOnly = true)
   public CursorPage<Chapter> findPageByStoryVersionId(
       Long storyVersionId, String cursor, int limit) {
     OrderIndexCursorKey cursorKey = CursorCodec.decodeOrderIndex(cursor);

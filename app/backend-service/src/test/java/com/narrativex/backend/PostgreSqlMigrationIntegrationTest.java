@@ -50,7 +50,7 @@ class PostgreSqlMigrationIntegrationTest {
   @Test
   void emptyPostgresMigratesAndApplicationContextStarts() throws SQLException {
     try (Connection connection = dataSource.getConnection()) {
-      assertEquals(1, latestFlywayVersion(connection));
+      assertEquals(3, latestFlywayVersion(connection));
       assertEquals(0, rowCount(connection, "generation_jobs"));
       assertEquals(0, rowCount(connection, "projects"));
       assertEquals(11, rowCount(connection, "plan_entitlements"));
