@@ -20,4 +20,7 @@ public class VisualPromptCharacterRow {
   private String hairstyle;
   private String injury;
   private String wardrobeContext;
+  private Long masterAssetId;
+  private String masterAssetStorageKey;
+  private String masterAssetMimeType;
 }
