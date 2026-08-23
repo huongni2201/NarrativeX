@@ -2,10 +2,11 @@ package com.narrativex.backend.feature.generation.application.command;
 
 import com.narrativex.backend.feature.generation.domain.enums.ImageStyle;
 import java.math.BigDecimal;
+import java.util.UUID;
 
 public record CreateMediaJobCommand(
-    Long projectId,
-    Long chapterId,
+    UUID projectId,
+    UUID chapterId,
     String idempotencyKey,
     String productionMode,
     String aspectRatio,
@@ -13,8 +14,8 @@ public record CreateMediaJobCommand(
     BigDecimal maxAuthorizedCost,
     ImageStyle imageStyle) {
   public CreateMediaJobCommand(
-      Long projectId,
-      Long chapterId,
+      UUID projectId,
+      UUID chapterId,
       String idempotencyKey,
       String productionMode,
       String aspectRatio,
