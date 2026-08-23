@@ -20,7 +20,7 @@
 
     <select id="insert"
             parameterType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.StageAttemptRow"
-            resultType="long" affectData="true">
+            resultType="java.util.UUID" affectData="true">
         INSERT INTO stage_attempts
             (generation_job_id, stage_name, attempt_number, status, worker_id, heartbeat_at)
         VALUES

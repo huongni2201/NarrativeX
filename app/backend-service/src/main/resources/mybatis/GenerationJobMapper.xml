@@ -45,7 +45,7 @@
 
     <select id="insert"
             parameterType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.GenerationJobRow"
-            resultType="long" affectData="true">
+            resultType="java.util.UUID" affectData="true">
         INSERT INTO generation_jobs
             (job_id, project_id, job_type, status, resource_class, progress, current_step,
              error_code, requested_by_user_id, billed_to_user_id, story_version_id, chapter_id,
