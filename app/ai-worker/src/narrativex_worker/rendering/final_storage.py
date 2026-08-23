@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import quote
@@ -16,6 +18,7 @@ _DRIVE_SCOPE = "https://www.googleapis.com/auth/drive"
 _DRIVE_API = "https://www.googleapis.com/drive/v3"
 _DRIVE_UPLOAD_API = "https://www.googleapis.com/upload/drive/v3"
 _CHUNK_SIZE = 8 * 1024 * 1024  # Multiple of 256 KiB, as required by Drive.
+logger = logging.getLogger("narrativex.worker.render.final-storage")
 
 
 class FinalVideoStorageError(RuntimeError):
@@ -31,6 +34,13 @@ class FinalVideoAsset:
     size_bytes: int
     checksum: str
     mime_type: str
+
+
+@dataclass
+class _UploadMetrics:
+    uploaded_bytes: int = 0
+    resume_count: int = 0
+    drive_http_retries: int = 0
 
 
 @dataclass(frozen=True)
@@ -102,52 +112,82 @@ class GoogleDriveFinalVideoStorage:
         checksum: str,
         generation_job_id: int,
     ) -> FinalVideoAsset:
-        size_bytes = file_path.stat().st_size
-        if size_bytes <= 0:
-            raise FinalVideoStorageError("Rendered video is empty")
+        started_at = time.perf_counter()
+        metrics = _UploadMetrics()
+        size_bytes = 0
+        reused = False
+        outcome = "failed"
+        try:
+            size_bytes = file_path.stat().st_size
+            if size_bytes <= 0:
+                raise FinalVideoStorageError("Rendered video is empty")
 
-        token = await self._access_token()
-        existing = await self._find_existing(token, render_fingerprint)
-        if existing is not None:
-            existing_size = int(existing.get("size") or 0)
-            properties = existing.get("appProperties") or {}
-            existing_checksum = (
+            token = await self._access_token()
+            existing = await self._find_existing(token, render_fingerprint)
+            if existing is not None:
+                existing_size = int(existing.get("size") or 0)
+                properties = existing.get("appProperties") or {}
+                existing_checksum = (
+                    str(properties.get("narrativexSha256") or "")
+                    if isinstance(properties, dict)
+                    else ""
+                )
+                if existing_size != size_bytes or existing_checksum != checksum:
+                    raise FinalVideoStorageError(
+                        "Google Drive already contains the render fingerprint with "
+                        "different immutable content"
+                    )
+                reused = True
+                outcome = "reused"
+                return self._to_asset(existing, existing_checksum)
+
+            metadata = {
+                "name": f"{render_fingerprint}.mp4",
+                "parents": [self.settings.folder_id],
+                "appProperties": {
+                    "narrativexRenderFingerprint": render_fingerprint,
+                    "narrativexGenerationJobId": str(generation_job_id),
+                    "narrativexSha256": checksum,
+                },
+            }
+            session_url = await self._start_resumable_upload(token, metadata, size_bytes)
+            uploaded = await self._upload_chunks(
+                token,
+                session_url,
+                file_path,
+                size_bytes,
+                metrics=metrics,
+            )
+            metrics.uploaded_bytes = size_bytes
+            file_id = str(uploaded.get("id") or "")
+            if not file_id:
+                raise FinalVideoStorageError("Google Drive upload completed without a file id")
+            file_info = await self._get_file(token, file_id)
+            properties = file_info.get("appProperties") or {}
+            uploaded_checksum = (
                 str(properties.get("narrativexSha256") or "")
                 if isinstance(properties, dict)
                 else ""
             )
-            if existing_size != size_bytes or existing_checksum != checksum:
+            if uploaded_checksum != checksum:
                 raise FinalVideoStorageError(
-                    "Google Drive already contains the render fingerprint with different immutable content"
+                    "Google Drive uploaded file metadata does not match the local SHA-256"
                 )
-            return self._to_asset(existing, existing_checksum)
-
-        metadata = {
-            "name": f"{render_fingerprint}.mp4",
-            "parents": [self.settings.folder_id],
-            "appProperties": {
-                "narrativexRenderFingerprint": render_fingerprint,
-                "narrativexGenerationJobId": str(generation_job_id),
-                "narrativexSha256": checksum,
-            },
-        }
-        session_url = await self._start_resumable_upload(token, metadata, size_bytes)
-        uploaded = await self._upload_chunks(token, session_url, file_path, size_bytes)
-        file_id = str(uploaded.get("id") or "")
-        if not file_id:
-            raise FinalVideoStorageError("Google Drive upload completed without a file id")
-        file_info = await self._get_file(token, file_id)
-        properties = file_info.get("appProperties") or {}
-        uploaded_checksum = (
-            str(properties.get("narrativexSha256") or "")
-            if isinstance(properties, dict)
-            else ""
-        )
-        if uploaded_checksum != checksum:
-            raise FinalVideoStorageError(
-                "Google Drive uploaded file metadata does not match the local SHA-256"
+            outcome = "uploaded"
+            return self._to_asset(file_info, uploaded_checksum)
+        finally:
+            logger.info(
+                "final_video_upload outcome=%s generation_job_id=%s "
+                "upload_duration_seconds=%.3f uploaded_bytes=%s resume_count=%s "
+                "drive_http_retries=%s reused=%s",
+                outcome,
+                generation_job_id,
+                time.perf_counter() - started_at,
+                metrics.uploaded_bytes,
+                metrics.resume_count,
+                metrics.drive_http_retries,
+                reused,
             )
-        return self._to_asset(file_info, uploaded_checksum)
 
     async def _find_existing(
         self, token: str, fingerprint: str
@@ -209,8 +249,15 @@ class GoogleDriveFinalVideoStorage:
         return location
 
     async def _upload_chunks(
-        self, token: str, session_url: str, file_path: Path, size_bytes: int
+        self,
+        token: str,
+        session_url: str,
+        file_path: Path,
+        size_bytes: int,
+        *,
+        metrics: _UploadMetrics | None = None,
     ) -> dict[str, object]:
+        upload_metrics = metrics or _UploadMetrics()
         offset = 0
         with file_path.open("rb") as source:
             async with httpx.AsyncClient(timeout=self.settings.timeout_seconds) as client:
@@ -233,17 +280,26 @@ class GoogleDriveFinalVideoStorage:
                             content=chunk,
                         )
                     except (httpx.TimeoutException, httpx.NetworkError):
+                        upload_metrics.drive_http_retries += 1
+                        upload_metrics.resume_count += 1
                         offset, completed = await self._query_resume_state(
                             client,
                             token,
                             session_url,
                             size_bytes,
                         )
+                        upload_metrics.uploaded_bytes = max(
+                            upload_metrics.uploaded_bytes, offset
+                        )
                         if completed is not None:
+                            upload_metrics.uploaded_bytes = size_bytes
                             return completed
                         continue
                     if response.status_code == 308:
                         offset = self._next_offset(response, end + 1)
+                        upload_metrics.uploaded_bytes = max(
+                            upload_metrics.uploaded_bytes, offset
+                        )
                         continue
                     self._raise_for_status(response, "upload final-video chunk")
                     payload = response.json()
@@ -251,6 +307,7 @@ class GoogleDriveFinalVideoStorage:
                         raise FinalVideoStorageError(
                             "Google Drive returned an invalid upload response"
                         )
+                    upload_metrics.uploaded_bytes = size_bytes
                     return payload
         raise FinalVideoStorageError("Google Drive resumable upload ended without completion")
 

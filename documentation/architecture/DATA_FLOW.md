@@ -111,6 +111,11 @@ memory. The backend returns `206`, `Content-Range`, `Content-Length`, and `Accep
 partial content; `/content` uses inline disposition and `/download` uses attachment disposition.
 The legacy `/preview` path remains an alias for inline content delivery.
 
+The worker emits a structured `final_video_upload` log for each upload or fingerprint reuse,
+including `upload_duration_seconds`, `uploaded_bytes`, `resume_count`, and
+`drive_http_retries`. OAuth credentials and resumable session URLs are never included in this
+telemetry.
+
 ## Current gaps
 
 - production user-audio upload/finalize/alignment hardening;
