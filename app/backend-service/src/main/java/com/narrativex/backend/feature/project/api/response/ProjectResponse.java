@@ -1,9 +1,10 @@
 package com.narrativex.backend.feature.project.api.response;
 
 import com.narrativex.backend.feature.project.domain.aggregate.Project;
+import java.util.UUID;
 
 public record ProjectResponse(
-    Long id,
+    UUID id,
     String name,
     String description,
     String coverImageUrl,
