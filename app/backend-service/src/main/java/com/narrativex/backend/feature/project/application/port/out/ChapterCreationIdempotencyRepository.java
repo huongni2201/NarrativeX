@@ -1,18 +1,19 @@
 package com.narrativex.backend.feature.project.application.port.out;
 
 import java.util.Optional;
+import java.util.UUID;
 
 public interface ChapterCreationIdempotencyRepository {
   Optional<Reservation> reserve(
-      String ownerId, Long projectId, String idempotencyKey, String requestFingerprint);
+      String ownerId, UUID projectId, String idempotencyKey, String requestFingerprint);
 
-  void complete(Long reservationId, Long chapterId);
+  void complete(Long reservationId, UUID chapterId);
 
   record Reservation(
       Long id,
       String ownerId,
-      Long projectId,
+      UUID projectId,
       String idempotencyKey,
       String requestFingerprint,
-      Long chapterId) {}
+      UUID chapterId) {}
 }
