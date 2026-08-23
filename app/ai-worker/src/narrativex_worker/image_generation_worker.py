@@ -50,8 +50,8 @@ class ImageGenerationWorkerRunner:
         self.repository = repository or ImageGenerationRepository(
             settings.database_url, settings.lease_seconds, settings
         )
-        self.provider = create_image_provider(settings)
-        self.storage = storage
+        self.storage = storage or _configured_storage(settings)
+        self.provider = create_image_provider(settings, reference_store=self.storage)
         self._running = False
         self._tasks: set[asyncio.Task[None]] = set()
         self._concurrency_gate = concurrency_gate
@@ -69,11 +69,7 @@ class ImageGenerationWorkerRunner:
             self.logger.info("Image generation worker dry run completed")
             return
         if self.storage is None:
-            self.storage = (
-                LocalMediaStorage(self.settings.media_local_dir)
-                if self.settings.media_storage_mode == "local"
-                else S3MediaStorage(self.settings)
-            )
+            raise RuntimeError("Image generation requires configured media storage")
         await self.repository.connect()
         self._running = True
         try:
@@ -196,8 +192,6 @@ class ImageGenerationWorkerRunner:
                 operation, provider_operation.operation_id, provider_operation.status
             )
         except ImageGenerationLeaseLostError:
-            # A stale worker must never terminalize an operation after the paid boundary. The
-            # already-committed UNKNOWN fence is intentionally left for the active owner/reconciler.
             self.logger.warning(
                 "Image batch submission returned after lease/state changed; leaving UNKNOWN "
                 "for recovery operation=%s provider_operation_id=%s",
@@ -211,8 +205,6 @@ class ImageGenerationWorkerRunner:
                 operation.id,
                 provider_operation.operation_id,
             )
-            # Best effort only. If this write also fails, prepare_provider_submission already
-            # committed UNKNOWN + item bindings, so reconciliation can still recover by fingerprint.
             with contextlib.suppress(Exception):
                 await self.repository.mark_unknown(
                     operation,
@@ -277,8 +269,6 @@ class ImageGenerationWorkerRunner:
                     "operation=%s",
                     durable.id,
                 )
-                # Reconciliation transport/runtime failures are non-terminal unless the provider
-                # explicitly reports FAILED or output validation rejects a completed result.
                 await self.repository.mark_unknown(durable, normalize_error(exception))
 
     async def _heartbeat(self, job: ClaimedImageGenerationJob) -> None:
@@ -289,6 +279,14 @@ class ImageGenerationWorkerRunner:
                 raise ImageGenerationLeaseLostError("Image generation lease was lost")
 
 
+def _configured_storage(settings: WorkerSettings) -> MediaStorage | None:
+    if settings.media_storage_mode == "local":
+        return LocalMediaStorage(settings.media_local_dir)
+    if settings.media_storage_mode == "r2":
+        return S3MediaStorage(settings)
+    return None
+
+
 def _partition_batches(
     items: list[ImageBatchItem], max_items: int
 ) -> tuple[tuple[ImageBatchItem, ...], ...]:
@@ -296,6 +294,7 @@ def _partition_batches(
 
     Vertex's JSONL response may echo identical instances without a stable item identity. A
     deterministic split is safer than positional assignment and still batches all unique bodies.
+    Character reference identity is part of the request body and therefore part of this key.
     """
     batches: list[tuple[ImageBatchItem, ...]] = []
     current: list[ImageBatchItem] = []
@@ -308,6 +307,10 @@ def _partition_batches(
             item.request.aspect_ratio.value,
             item.request.quality_tier.value,
             item.request.model_key,
+            tuple(
+                (reference.asset_id, reference.sha256, reference.role)
+                for reference in item.request.references
+            ),
         )
         if current and (
             len(current) >= max_items
