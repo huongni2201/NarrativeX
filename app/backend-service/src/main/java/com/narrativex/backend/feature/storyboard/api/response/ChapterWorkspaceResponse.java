@@ -41,5 +41,6 @@ public record ChapterWorkspaceResponse(
       boolean canAnalyze,
       boolean canGenerateVisuals,
       boolean canGenerateAudio,
-      boolean canRender) {}
+      boolean canRender,
+      String visualGenerationBlockReason) {}
 }

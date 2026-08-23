@@ -10,6 +10,7 @@ import com.narrativex.backend.feature.storyboard.api.response.ChapterResponse;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterWorkspaceResponse;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterWorkspaceAccess.AudioStep;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
+import com.narrativex.backend.feature.storyboard.application.port.out.ChapterAnalysisSnapshotRepository;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterWorkspaceReadRepository;
 import java.time.Instant;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ public class GetChapterWorkspaceUseCase {
   private final CurrentUserId currentUserId;
   private final StoryVersionAccess storyVersionAccess;
   private final ChapterRepository chapterRepository;
+  private final ChapterAnalysisSnapshotRepository chapterAnalysisSnapshotRepository;
   private final ChapterWorkspaceReadRepository chapterWorkspaceReadRepository;
   private final ObjectStoragePort objectStorage;
 
@@ -74,8 +76,25 @@ public class GetChapterWorkspaceUseCase {
             && !isActive(analysisStatus)
             && !(snapshot.hasApprovedOutput() && !sourceOutdated);
     boolean chapterAnalysisCompleted = "COMPLETED".equals(analysisStatus) && !sourceOutdated;
+    boolean originalVariantReady =
+        chapterAnalysisSnapshotRepository.existsReadyOriginalVariant(projectId, chapterId);
+    boolean visualPlanningCompleted = "COMPLETED".equals(planningStatus);
     boolean visualJobRunning = isActive(visualGeneration.status());
-    boolean canGenerateVisuals = mediaGenerationEnabled && chapterAnalysisCompleted && !visualJobRunning;
+    boolean canGenerateVisuals =
+        mediaGenerationEnabled
+            && chapterAnalysisCompleted
+            && visualPlanningCompleted
+            && snapshot.visualBeatCount() > 0
+            && originalVariantReady
+            && !visualJobRunning;
+    String visualGenerationBlockReason =
+        visualGenerationBlockReason(
+            mediaGenerationEnabled,
+            originalVariantReady,
+            chapterAnalysisCompleted,
+            visualPlanningCompleted,
+            snapshot.visualBeatCount(),
+            visualJobRunning);
     boolean canGenerateAudio =
         !chapter.getSourceText().isBlank()
             && !"READY".equals(audio.status())
@@ -110,7 +129,11 @@ public class GetChapterWorkspaceUseCase {
                 sourceOutdated),
             previewScenes,
             new ChapterWorkspaceResponse.Capabilities(
-                canAnalyze, canGenerateVisuals, canGenerateAudio, canRender));
+                canAnalyze,
+                canGenerateVisuals,
+                canGenerateAudio,
+                canRender,
+                visualGenerationBlockReason));
 
     return ApiResponse.success(response);
   }
@@ -123,6 +146,22 @@ public class GetChapterWorkspaceUseCase {
       case "QUEUED", "RUNNING", "GENERATING", "STALLED", "UNKNOWN", "PAUSED_COST_LIMIT" -> true;
       default -> false;
     };
+  }
+
+  private static String visualGenerationBlockReason(
+      boolean mediaGenerationEnabled,
+      boolean originalVariantReady,
+      boolean analysisCompleted,
+      boolean visualPlanningCompleted,
+      int visualBeatCount,
+      boolean visualJobRunning) {
+    if (!originalVariantReady) return "CONTENT_VARIANT_NOT_READY";
+    if (!analysisCompleted) return "ANALYSIS_NOT_COMPLETED";
+    if (!visualPlanningCompleted) return "VISUAL_PLANNING_NOT_COMPLETED";
+    if (visualBeatCount == 0) return "NO_VISUAL_BEATS";
+    if (!mediaGenerationEnabled) return "MEDIA_GENERATION_DISABLED";
+    if (visualJobRunning) return "VISUAL_GENERATION_IN_PROGRESS";
+    return null;
   }
 
   private String createAudioUrl(AudioStep audio) {

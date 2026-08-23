@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
@@ -177,6 +178,8 @@ class InMemoryMediaStorage:
 class S3MediaStorage:
     """Cloudflare R2 immutable media storage through its S3-compatible API."""
 
+    logger = logging.getLogger("narrativex.worker.narration.storage")
+
     def __init__(self, settings: WorkerSettings) -> None:
         if settings.media_storage_mode != "r2":
             raise ValueError("S3MediaStorage is R2-only and requires MEDIA_STORAGE_MODE=r2")
@@ -278,6 +281,13 @@ class S3MediaStorage:
             raise ValueError("file checksum does not match supplied checksum")
         object_metadata = dict(metadata or {})
         object_metadata["sha256"] = checksum
+        size_bytes = file_path.stat().st_size
+        self.logger.info(
+            "R2 upload started storageKey=%s sizeBytes=%s checksum=%s",
+            storage_key,
+            size_bytes,
+            checksum,
+        )
         try:
             await asyncio.to_thread(
                 self._put_file_sync,
@@ -295,11 +305,31 @@ class S3MediaStorage:
                 raise MediaAssetConflictError(
                     f"immutable storage conflict for {storage_key}"
                 ) from exception
+            self.logger.info(
+                "R2 upload reused existing immutable object storageKey=%s sizeBytes=%s checksum=%s",
+                storage_key,
+                existing.size_bytes,
+                existing.checksum,
+            )
             return existing
+        except Exception:
+            self.logger.exception(
+                "R2 upload failed storageKey=%s sizeBytes=%s checksum=%s",
+                storage_key,
+                size_bytes,
+                checksum,
+            )
+            raise
+        self.logger.info(
+            "R2 upload completed storageKey=%s sizeBytes=%s checksum=%s",
+            storage_key,
+            size_bytes,
+            checksum,
+        )
         return StoredMediaAsset(
             storage_key,
             checksum,
-            file_path.stat().st_size,
+            size_bytes,
             mime_type,
             object_metadata,
         )

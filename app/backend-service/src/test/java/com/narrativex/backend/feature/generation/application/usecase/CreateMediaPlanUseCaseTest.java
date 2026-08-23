@@ -11,6 +11,7 @@ import com.narrativex.backend.feature.generation.application.port.out.MediaPlanR
 import com.narrativex.backend.feature.generation.application.service.DefaultMotionExecutionPolicy;
 import com.narrativex.backend.feature.generation.application.service.MotionStrategyResolver;
 import com.narrativex.backend.feature.generation.domain.aggregate.MediaPlan;
+import com.narrativex.backend.feature.generation.domain.enums.ImageStyle;
 import com.narrativex.backend.feature.generation.domain.enums.MotionStrategy;
 import com.narrativex.backend.feature.generation.domain.enums.ProductionMode;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSource;
@@ -62,7 +63,17 @@ class CreateMediaPlanUseCaseTest {
     var plan =
         useCase.execute(
             new CreateMediaPlanCommand(
-                1L, 10L, ProductionMode.HYBRID_LOCAL_I2V, new BigDecimal("1.25")));
+                1L,
+                10L,
+                ProductionMode.HYBRID_LOCAL_I2V,
+                new BigDecimal("1.25"),
+                "16:9",
+                "STANDARD",
+                "vertex",
+                "gemini-2.5-flash-image",
+                null,
+                null,
+                ImageStyle.CINEMATIC));
 
     assertThat(plan.chapterId()).isEqualTo(10L);
     assertThat(plan.chapterRowVersion()).isEqualTo(7L);
@@ -71,6 +82,11 @@ class CreateMediaPlanUseCaseTest {
     assertThat(plan.productionMode()).isEqualTo(ProductionMode.HYBRID_LOCAL_I2V);
     assertThat(plan.scenes().getFirst().beats().getFirst().motionStrategy())
         .isEqualTo(MotionStrategy.IMAGE_TO_VIDEO);
+    assertThat(plan.scenes().getFirst().beats().getFirst().promptSnapshot())
+        .contains("GLOBAL VISUAL STYLE: cinematic visual storytelling")
+        .contains("SCENE DESCRIPTION: Character runs");
+    assertThat(plan.scenes().getFirst().beats().getFirst().negativePrompt())
+        .contains("inconsistent face");
     assertThat(plan.workload().narrationCharacters()).isEqualTo(5);
     assertThat(plan.workload().imageGenerateCount()).isEqualTo(1);
     assertThat(plan.workload().plannedI2vSeconds()).isEqualTo(8);
@@ -112,7 +128,17 @@ class CreateMediaPlanUseCaseTest {
     var plan =
         useCase.execute(
             new CreateMediaPlanCommand(
-                1L, 10L, ProductionMode.IMAGE_MOTION, new BigDecimal("0.25")));
+                1L,
+                10L,
+                ProductionMode.IMAGE_MOTION,
+                new BigDecimal("0.25"),
+                "16:9",
+                "STANDARD",
+                "vertex",
+                "gemini-2.5-flash-image",
+                null,
+                null,
+                ImageStyle.CINEMATIC));
 
     assertThat(plan.productionMode()).isEqualTo(ProductionMode.IMAGE_MOTION);
     assertThat(plan.narrationSetId()).isNull();

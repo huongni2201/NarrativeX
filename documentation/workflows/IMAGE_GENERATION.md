@@ -81,6 +81,18 @@ The MVP image workflow is a backend-authorized `CHAPTER_GENERATE` job. The backe
 current approved storyboard, READY narration/alignment identity, safe character context, image
 settings, provider/model/pricing version, and exact source revision into an immutable `MediaPlan`.
 
+## Visual style continuity
+
+Each media job selects a server-owned `ImageStyle` profile. The selected profile is appended to
+every beat's `prompt_snapshot`, and its server-owned negative prompt is persisted with the beat
+plan. The style code is also recorded in `image_settings_json`, so retries and later review use
+the same visual policy. The client sends only the allow-listed style code; it cannot supply an
+arbitrary prompt suffix.
+
+The current profiles are `CINEMATIC` and `STORYBOOK_WATERCOLOR`. A style profile improves global
+visual consistency, while character continuity still depends on the immutable character snapshot
+and approved reference assets.
+
 The worker creates at most one provider operation for each stable beat request fingerprint. A
 timeout, network failure, or ambiguous provider response is persisted as `UNKNOWN`; it is reconciled
 when the provider supports reconciliation and is never automatically blind-resubmitted otherwise.

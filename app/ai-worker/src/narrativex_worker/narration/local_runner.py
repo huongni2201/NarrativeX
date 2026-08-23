@@ -45,6 +45,15 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
         assert self.provider is not None
         assert self.storage is not None
         storage = self.storage
+        self.logger.info(
+            "Starting local narration job=%s request=%s voiceId=%s sourceChars=%s "
+            "hasVoiceReference=%s",
+            claimed.job_id,
+            claimed.narration_request_id,
+            claimed.voice_id,
+            len(claimed.source_text),
+            claimed.voice_reference_storage_key is not None,
+        )
         async with self.workspace.create_job_dir(str(claimed.narration_request_id)) as job_dir:
             reference_audio_path = await self._prepare_reference(claimed, job_dir)
             voice_id = claimed.voice_id
@@ -55,15 +64,33 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
                         str(claimed.narration_request_id), reference_audio_path
                     )
                     voice_id = temporary_voice
+                    self.logger.info(
+                        "Local narration voice reference enrolled job=%s request=%s voiceId=%s",
+                        claimed.job_id,
+                        claimed.narration_request_id,
+                        voice_id,
+                    )
                 except TtsProviderRejectedError as exception:
                     raise NarrationPermanentError(str(exception)) from exception
                 except Exception as exception:
+                    self.logger.exception(
+                        "Local narration voice enrollment failed job=%s request=%s",
+                        claimed.job_id,
+                        claimed.narration_request_id,
+                    )
                     raise NarrationRetryableInfrastructureError(
                         "Local voice enrollment failed"
                     ) from exception
 
             try:
                 segments = self.segmenter.segment(claimed.source_text)
+                self.logger.info(
+                    "Local narration segmented job=%s request=%s segmentCount=%s batchSize=%s",
+                    claimed.job_id,
+                    claimed.narration_request_id,
+                    len(segments),
+                    self.settings.vieneu_batch_max_segments,
+                )
                 materialized = await self._materialize_local_batches(
                     claimed, segments, voice_id, job_dir
                 )
@@ -72,8 +99,26 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
                     await self.provider.release_reference_voice(temporary_voice)
 
             pcm_path = job_dir / "chapter.pcm"
+            self.logger.info(
+                "Concatenating narration PCM job=%s request=%s segmentCount=%s",
+                claimed.job_id,
+                claimed.narration_request_id,
+                len(materialized),
+            )
             await self.audio.concatenate_files([item.file_path for item in materialized], pcm_path)
+            self.logger.info(
+                "Narration PCM ready job=%s request=%s sizeBytes=%s",
+                claimed.job_id,
+                claimed.narration_request_id,
+                pcm_path.stat().st_size,
+            )
             mp3_path = job_dir / "chapter.mp3"
+            self.logger.info(
+                "Encoding narration MP3 job=%s request=%s bitrate=%s",
+                claimed.job_id,
+                claimed.narration_request_id,
+                self.settings.narration_mp3_bitrate,
+            )
             await self.audio.encode_mp3_file(
                 pcm_path,
                 mp3_path,
@@ -81,7 +126,19 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
                 channels=1,
                 bitrate=self.settings.narration_mp3_bitrate,
             )
+            self.logger.info(
+                "Narration MP3 encoded job=%s request=%s sizeBytes=%s",
+                claimed.job_id,
+                claimed.narration_request_id,
+                mp3_path.stat().st_size,
+            )
             actual_duration_ms = await self.audio.probe_duration_ms_file(mp3_path)
+            self.logger.info(
+                "Narration MP3 duration probed job=%s request=%s durationMs=%s",
+                claimed.job_id,
+                claimed.narration_request_id,
+                actual_duration_ms,
+            )
             spans = build_alignment(materialized)
             self.validator.validate(
                 spans,
@@ -92,6 +149,16 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
             final_key = (
                 f"narration/{claimed.narration_request_id}/"
                 f"chapter-{checksum[:16]}.mp3"
+            )
+            self.logger.info(
+                "Narration media validated job=%s request=%s storageKey=%s checksum=%s "
+                "durationMs=%s sizeBytes=%s",
+                claimed.job_id,
+                claimed.narration_request_id,
+                final_key,
+                checksum,
+                actual_duration_ms,
+                mp3_path.stat().st_size,
             )
             try:
                 media_asset = await retry_local_io(
@@ -115,7 +182,22 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
                     ) from exception
                 raise NarrationPermanentError(str(exception)) from exception
 
+            self.logger.info(
+                "Narration R2 upload confirmed job=%s request=%s storageKey=%s "
+                "sizeBytes=%s checksum=%s",
+                claimed.job_id,
+                claimed.narration_request_id,
+                media_asset.storage_key,
+                media_asset.size_bytes,
+                media_asset.checksum,
+            )
             try:
+                self.logger.info(
+                    "Persisting narration completion job=%s request=%s storageKey=%s",
+                    claimed.job_id,
+                    claimed.narration_request_id,
+                    media_asset.storage_key,
+                )
                 await retry_local_io(
                     lambda: self.repository.complete(
                         claimed,
@@ -138,13 +220,14 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
 
             self.logger.info(
                 "Completed local narration job=%s request=%s durationMs=%s "
-                "finalSizeBytes=%s batches=%s",
+                "finalSizeBytes=%s batches=%s storageKey=%s",
                 claimed.job_id,
                 claimed.narration_request_id,
                 actual_duration_ms,
                 mp3_path.stat().st_size,
                 (len(segments) + self.settings.vieneu_batch_max_segments - 1)
                 // self.settings.vieneu_batch_max_segments,
+                media_asset.storage_key,
             )
 
     async def _prepare_reference(
@@ -155,6 +238,12 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
             return None
         source_path = job_dir / "voice-reference.mp3"
         reference_audio_path = job_dir / "voice-reference.wav"
+        self.logger.info(
+            "Downloading voice reference job=%s request=%s storageKey=%s",
+            claimed.job_id,
+            claimed.narration_request_id,
+            claimed.voice_reference_storage_key,
+        )
         try:
             await retry_local_io(
                 lambda: self.storage.download_to_file(
@@ -162,6 +251,12 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
                 )
             )
         except Exception as exception:
+            self.logger.exception(
+                "Voice reference download failed job=%s request=%s storageKey=%s",
+                claimed.job_id,
+                claimed.narration_request_id,
+                claimed.voice_reference_storage_key,
+            )
             if is_transient_infrastructure_error(exception):
                 raise NarrationRetryableInfrastructureError(
                     "Voice reference storage is temporarily unavailable"
@@ -176,7 +271,18 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
                 reference_audio_path,
             )
         except VoiceReferenceAudioError as exception:
+            self.logger.exception(
+                "Voice reference preparation failed job=%s request=%s",
+                claimed.job_id,
+                claimed.narration_request_id,
+            )
             raise NarrationPermanentError(str(exception)) from exception
+        self.logger.info(
+            "Voice reference prepared job=%s request=%s wavSizeBytes=%s",
+            claimed.job_id,
+            claimed.narration_request_id,
+            reference_audio_path.stat().st_size,
+        )
         return reference_audio_path
 
     async def _materialize_local_batches(
@@ -191,6 +297,18 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
         batch_size = self.settings.vieneu_batch_max_segments
         for offset in range(0, len(segments), batch_size):
             batch = segments[offset : offset + batch_size]
+            batch_number = offset // batch_size + 1
+            total_batches = (len(segments) + batch_size - 1) // batch_size
+            self.logger.info(
+                "Starting VieNeu batch job=%s request=%s batch=%s/%s segmentStart=%s "
+                "segmentCount=%s",
+                claimed.job_id,
+                claimed.narration_request_id,
+                batch_number,
+                total_batches,
+                offset,
+                len(batch),
+            )
             requests = [
                 TtsRequest(
                     request_id=(
@@ -206,8 +324,22 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
             try:
                 synthesized_batch = await self.provider.synthesize_batch(requests)
             except TtsProviderRejectedError as exception:
+                self.logger.exception(
+                    "VieNeu rejected batch job=%s request=%s batch=%s/%s",
+                    claimed.job_id,
+                    claimed.narration_request_id,
+                    batch_number,
+                    total_batches,
+                )
                 raise NarrationPermanentError(str(exception)) from exception
             except (OSError, TimeoutError, RuntimeError) as exception:
+                self.logger.exception(
+                    "VieNeu batch failed job=%s request=%s batch=%s/%s",
+                    claimed.job_id,
+                    claimed.narration_request_id,
+                    batch_number,
+                    total_batches,
+                )
                 raise NarrationRetryableInfrastructureError(
                     "Local VieNeu synthesis failed and can be retried safely"
                 ) from exception
@@ -240,4 +372,12 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
                         checksum=checksum,
                     )
                 )
+            self.logger.info(
+                "Completed VieNeu batch job=%s request=%s batch=%s/%s materialized=%s",
+                claimed.job_id,
+                claimed.narration_request_id,
+                batch_number,
+                total_batches,
+                len(materialized),
+            )
         return materialized

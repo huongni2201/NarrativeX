@@ -7,6 +7,7 @@ export interface CreateMediaJobInput {
   aspectRatio: "16:9" | "9:16" | "1:1" | "4:3" | "3:4";
   qualityTier: "DRAFT" | "STANDARD" | "HIGH";
   maxAuthorizedCost: string;
+  imageStyle: "CINEMATIC" | "STORYBOOK_WATERCOLOR";
 }
 
 export interface MediaGenerationItem {

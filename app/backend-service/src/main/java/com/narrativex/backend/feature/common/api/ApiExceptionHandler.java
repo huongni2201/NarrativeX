@@ -125,6 +125,10 @@ public class ApiExceptionHandler {
       } catch (IllegalArgumentException ignored) {
         // Keep the safe conflict code for unknown admission reasons.
       }
+    } else if (exception
+        instanceof
+        com.narrativex.backend.feature.storyboard.domain.exception.ContentVariantNotReadyException) {
+      code = ApiErrorCode.CONTENT_VARIANT_NOT_READY;
     }
     return error(HttpStatus.CONFLICT, code, exception.getMessage(), request);
   }

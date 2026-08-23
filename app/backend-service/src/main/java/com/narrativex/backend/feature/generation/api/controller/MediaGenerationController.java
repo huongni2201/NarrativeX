@@ -10,6 +10,7 @@ import com.narrativex.backend.feature.generation.application.command.CreateMedia
 import com.narrativex.backend.feature.generation.application.usecase.CreateMediaJobUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.GetMediaJobDetailsUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.ReviewMediaGenerationItemUseCase;
+import com.narrativex.backend.feature.generation.domain.enums.ImageStyle;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -41,7 +42,17 @@ public class MediaGenerationController {
       @Valid @RequestBody CreateMediaJobRequest request,
       @RequestHeader("Idempotency-Key") String idempotencyKey) {
     requireMediaGenerationEnabled();
-    var job = createMediaJobUseCase.execute(new CreateMediaJobCommand(projectId, chapterId, idempotencyKey, request.productionMode(), request.aspectRatio(), request.qualityTier(), request.maxAuthorizedCost()));
+    var job =
+        createMediaJobUseCase.execute(
+            new CreateMediaJobCommand(
+                projectId,
+                chapterId,
+                idempotencyKey,
+                request.productionMode(),
+                request.aspectRatio(),
+                request.qualityTier(),
+                request.maxAuthorizedCost(),
+                ImageStyle.from(request.imageStyle())));
     return ResponseEntity.status(HttpStatus.ACCEPTED).body(ApiResponse.success("Media job queued", JobResponse.from(job)));
   }
 

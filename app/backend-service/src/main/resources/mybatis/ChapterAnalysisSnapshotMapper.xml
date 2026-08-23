@@ -58,4 +58,34 @@
            </choose>
          ORDER BY v.created_at DESC, v.id DESC LIMIT 1
     </select>
+    <select id="existsOwnedChapter" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1
+              FROM chapters c
+              JOIN story_versions sv ON sv.id = c.story_version_id
+              JOIN projects p ON p.id = sv.project_id
+             WHERE c.id = #{chapterId}
+               AND p.id = #{projectId}
+               AND p.owner_id = #{userId}
+               AND p.archived_at IS NULL
+        )
+    </select>
+    <select id="existsReadyOriginalVariant" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1
+              FROM chapters c
+              JOIN chapter_content_variants ccv
+                ON ccv.chapter_id = c.id
+               AND ccv.variant_type = 'ORIGINAL'
+               AND ccv.content_hash = c.source_hash
+             WHERE c.id = #{chapterId}
+               AND EXISTS (
+                   SELECT 1
+                     FROM story_versions sv
+                     JOIN projects p ON p.id = sv.project_id
+                    WHERE sv.id = c.story_version_id
+                      AND p.id = #{projectId}
+               )
+        )
+    </select>
 </mapper>

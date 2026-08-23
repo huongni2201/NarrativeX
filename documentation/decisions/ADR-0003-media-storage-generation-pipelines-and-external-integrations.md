@@ -17,6 +17,14 @@ In addition, AI inference for images and speech must maintain high reliability, 
 
 ## Decision
 
+### Server-owned visual style profiles
+
+Media generation accepts an allow-listed visual style code and resolves it on the backend to a
+versioned prompt suffix and negative prompt. The resolved style is merged into every beat's
+immutable prompt snapshot before the provider request is persisted. Clients never submit raw
+provider prompt fragments. This gives a chapter a repeatable visual policy while preserving the
+existing immutable plan and idempotency boundaries.
+
 ### 1. Two-Tier Storage Architecture: Cloudflare R2 & Google Drive
 
 NarrativeX partitions durable media storage by lifecycle and asset type:

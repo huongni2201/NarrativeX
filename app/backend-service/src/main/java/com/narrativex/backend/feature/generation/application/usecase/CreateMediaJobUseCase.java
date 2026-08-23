@@ -17,9 +17,11 @@ import com.narrativex.backend.feature.generation.domain.entity.StageAttempt;
 import com.narrativex.backend.feature.generation.domain.enums.ProductionMode;
 import com.narrativex.backend.feature.generation.domain.enums.ResourceClass;
 import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
+import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSourceAccess;
+import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
@@ -41,6 +43,7 @@ public class CreateMediaJobUseCase {
   private static final String PRICING_VERSION = "gemini-2.5-flash-image-batch-2026-08-22";
   private final CurrentUserId currentUserId;
   private final ProjectAccess projectAccess;
+  private final ChapterRepository chapterRepository;
   private final ChapterAnalysisSourceAccess chapterSourceAccess;
   private final MediaPlanningSourceAccess mediaPlanningSourceAccess;
   private final CreateMediaPlanUseCase createMediaPlanUseCase;
@@ -86,15 +89,18 @@ public class CreateMediaJobUseCase {
       return existing.get();
     }
 
+    var project = projectAccess.findOwnedProject(command.projectId(), userId);
+    chapterRepository
+        .findById(command.chapterId())
+        .orElseThrow(() -> new ResourceNotFoundException("Chapter not found"));
     var chapter =
         chapterSourceAccess.requireOwnedForAnalysisLocked(
             command.projectId(), command.chapterId(), userId);
-    var project = projectAccess.findOwnedProject(command.projectId(), userId);
     int beatCount =
         mediaPlanningSourceAccess.requireCurrent(command.chapterId()).scenes().stream()
             .mapToInt(scene -> scene.beats().size())
             .sum();
-    BigDecimal expectedCost = expectedCost(command.qualityTier(), beatCount);
+    BigDecimal expectedCost = MediaCostEstimator.estimate(command.qualityTier(), beatCount);
     if (expectedCost.compareTo(command.maxAuthorizedCost()) > 0) {
       throw new GenerationAdmissionDeniedException(
           "COST_LIMIT", "The requested authorization cap is below the server estimate.");
@@ -126,7 +132,8 @@ public class CreateMediaJobUseCase {
                     + "\",\"tier\":\""
                     + command.qualityTier()
                     + "\",\"executionMode\":\"BATCH\"}",
-                sha256(PRICING_VERSION + ":" + command.qualityTier())));
+                sha256(PRICING_VERSION + ":" + command.qualityTier()),
+                command.imageStyle()));
     var reservation =
         quotaReservation
             .reserve(userId, command.maxAuthorizedCost(), quota.maxConcurrentExpensiveJobs())
@@ -186,18 +193,6 @@ public class CreateMediaJobUseCase {
     return job;
   }
 
-  private static BigDecimal expectedCost(String qualityTier, int beatCount) {
-    BigDecimal unit =
-        switch (qualityTier) {
-          case "DRAFT" -> new BigDecimal("0.10");
-          case "HIGH" -> new BigDecimal("0.40");
-          default -> new BigDecimal("0.25");
-        };
-    // Admission remains deliberately conservative. Provider billing reconciliation uses the
-    // persisted Vertex Batch usage after execution.
-    return unit.multiply(BigDecimal.valueOf(beatCount)).setScale(6, RoundingMode.HALF_UP);
-  }
-
   private static String fingerprint(CreateMediaJobCommand command) {
     return sha256(
         command.projectId()
@@ -209,6 +204,8 @@ public class CreateMediaJobUseCase {
             + command.aspectRatio()
             + ":"
             + command.qualityTier()
+            + ":"
+            + command.imageStyle()
             + ":"
             + command.maxAuthorizedCost().toPlainString());
   }

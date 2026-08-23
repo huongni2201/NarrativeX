@@ -120,9 +120,10 @@ public class CreateMediaPlanUseCase {
                                     motionStrategyResolver.resolve(
                                         command.productionMode(), beat.motionIntent()),
                                     "GENERATE_NEW",
-                                    "prompt-v1",
-                                    beat.visualIntent(),
-                                    null,
+                                    "prompt-v2-"
+                                        + command.imageStyle().name().toLowerCase(),
+                                    command.imageStyle().promptFor(beat.visualIntent()),
+                                    command.imageStyle().negativePrompt(),
                                     beat.audioStartMs(),
                                     beat.audioEndMs(),
                                     beat.audioStartMs() != null && beat.audioEndMs() != null
@@ -137,6 +138,8 @@ public class CreateMediaPlanUseCase {
                                         + (beat.qualityTierOverride() == null
                                             ? command.imageQualityTier()
                                             : beat.qualityTierOverride())
+                                        + "\",\"visualStyle\":\""
+                                        + command.imageStyle().name()
                                         + "\"}",
                                     "{}",
                                     null))

@@ -4,6 +4,7 @@ import com.narrativex.backend.feature.common.exception.ResourceNotFoundException
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSource;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterAnalysisSnapshotRepository;
+import com.narrativex.backend.feature.storyboard.domain.exception.ContentVariantNotReadyException;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterAnalysisSnapshotMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterAnalysisSnapshotRow;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +26,10 @@ public class MyBatisChapterAnalysisSnapshotRepository
       Long projectId, Long chapterId, String userId, Long contentVariantId) {
     ChapterAnalysisSnapshotRow row = mapper.findOwned(projectId, chapterId, userId, contentVariantId);
     if (row == null) {
-      throw new ResourceNotFoundException("Chapter not found");
+      if (!mapper.existsOwnedChapter(projectId, chapterId, userId)) {
+        throw new ResourceNotFoundException("Chapter not found");
+      }
+      throw new ContentVariantNotReadyException();
     }
     if (row.isStale()) {
       throw new ResourceConflictException(
@@ -34,5 +38,10 @@ public class MyBatisChapterAnalysisSnapshotRepository
     return new ChapterAnalysisSource(
         row.getId(), row.getStoryVersionId(), row.getRowVersion(), row.getSourceHash(), row.getSourceText(),
         row.getContentVariantId(), row.getLanguage(), row.getOriginVariantId());
+  }
+
+  @Override
+  public boolean existsReadyOriginalVariant(Long projectId, Long chapterId) {
+    return mapper.existsReadyOriginalVariant(projectId, chapterId);
   }
 }

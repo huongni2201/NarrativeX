@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import re
+import time
 from pathlib import Path
 from typing import Any
 
@@ -76,6 +77,13 @@ class VieneuTtsProvider:
         self._validate_requests(requests)
         voice_name = self._resolve_voice(requests[0].voice_id)
         texts = [request.segment.text for request in requests]
+        started_at = time.monotonic()
+        self.logger.info(
+            "VieNeu inference started voice=%s batchCount=%s batchSize=%s",
+            voice_name,
+            len(requests),
+            self.settings.vieneu_max_batch_size,
+        )
         try:
             async with self._inference_gate:
                 audios = await asyncio.to_thread(
@@ -86,12 +94,29 @@ class VieneuTtsProvider:
                     apply_watermark=self.settings.vieneu_apply_watermark,
                 )
         except (ValueError, TypeError) as exception:
+            self.logger.exception(
+                "VieNeu inference rejected voice=%s batchCount=%s",
+                voice_name,
+                len(requests),
+            )
             raise TtsProviderRejectedError("VieNeu rejected the narration input") from exception
 
         if len(audios) != len(requests):
+            self.logger.error(
+                "VieNeu inference returned incomplete batch voice=%s expected=%s actual=%s",
+                voice_name,
+                len(requests),
+                len(audios),
+            )
             raise RuntimeError(
                 f"VieNeu returned {len(audios)} waveforms for {len(requests)} requests"
             )
+        self.logger.info(
+            "VieNeu inference completed voice=%s batchCount=%s durationSeconds=%.3f",
+            voice_name,
+            len(requests),
+            time.monotonic() - started_at,
+        )
         return [
             self._waveform_to_segment(request, audio)
             for request, audio in zip(requests, audios, strict=True)
@@ -114,7 +139,9 @@ class VieneuTtsProvider:
                     save=False,
                 )
         except (ValueError, TypeError) as exception:
-            raise TtsProviderRejectedError("VieNeu rejected the uploaded voice reference") from exception
+            raise TtsProviderRejectedError(
+                "VieNeu rejected the uploaded voice reference"
+            ) from exception
         self.logger.info("Enrolled temporary VieNeu voice name=%s", temporary_voice)
         return temporary_voice
 
