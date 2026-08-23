@@ -6,8 +6,11 @@ import java.time.Instant;
 import java.util.EnumSet;
 import java.util.Objects;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 public final class ProviderOperation extends DomainEntity {
+  private static final Pattern SHA256_PATTERN = Pattern.compile("^[0-9a-f]{64}$");
+
   private final Long stageAttemptId;
   private final String providerKey;
   private final String providerOperationId;
@@ -46,7 +49,7 @@ public final class ProviderOperation extends DomainEntity {
     this.providerOperationId = providerOperationId;
     this.status = Objects.requireNonNull(status, "status");
     this.reservedAt = Objects.requireNonNull(reservedAt, "reservedAt");
-    this.requestFingerprint = requestFingerprint;
+    this.requestFingerprint = requireSha256(requestFingerprint, "requestFingerprint");
     this.normalizedResultJson = normalizedResultJson;
     this.resultFingerprint = resultFingerprint;
     this.completedAt = completedAt;
@@ -55,10 +58,6 @@ public final class ProviderOperation extends DomainEntity {
       throw new IllegalArgumentException("reconcileAttempts must be nonnegative");
     this.reconcileAttempts = reconcileAttempts;
     this.lastReconcileError = lastReconcileError;
-  }
-
-  public static ProviderOperation create(Long stageAttemptId, String providerKey) {
-    return create(stageAttemptId, providerKey, null);
   }
 
   public static ProviderOperation create(
@@ -72,31 +71,6 @@ public final class ProviderOperation extends DomainEntity {
         ProviderOperationStatus.RESERVED,
         Instant.now(),
         requestFingerprint,
-        null,
-        null,
-        null,
-        null,
-        0,
-        null);
-  }
-
-  public static ProviderOperation rehydrate(
-      Long id,
-      long rowVersion,
-      Long stageAttemptId,
-      String providerKey,
-      String providerOperationId,
-      ProviderOperationStatus status,
-      Instant reservedAt) {
-    return new ProviderOperation(
-        id,
-        rowVersion,
-        stageAttemptId,
-        providerKey,
-        providerOperationId,
-        status,
-        reservedAt,
-        null,
         null,
         null,
         null,
@@ -238,5 +212,13 @@ public final class ProviderOperation extends DomainEntity {
               ProviderOperationStatus.RUNNING);
       case RESERVED -> EnumSet.noneOf(ProviderOperationStatus.class);
     };
+  }
+
+  private static String requireSha256(String value, String fieldName) {
+    if (value == null || !SHA256_PATTERN.matcher(value).matches()) {
+      throw new IllegalArgumentException(
+          fieldName + " must be a lowercase 64-character SHA-256 hex digest");
+    }
+    return value;
   }
 }
