@@ -2,19 +2,25 @@
 
 import { useState } from "react";
 import { useChapterRender } from "@/features/render/hooks/useChapterRender";
+import type {
+  ApiChapterWorkspaceProgressStep,
+  ApiChapterWorkspaceRenderStep,
+} from "@/types/api";
 import { ChapterRenderTab } from "./ChapterRenderTab";
 
 interface ChapterRenderContainerProps {
   projectId: number;
   chapterId: number;
-  initialRender: {
-    status: string;
-    latestJobId: string | null;
-    artifactId: number | null;
-  };
+  initialMedia: ApiChapterWorkspaceProgressStep;
+  initialRender: ApiChapterWorkspaceRenderStep;
 }
 
-export function ChapterRenderContainer({ projectId, chapterId, initialRender }: Readonly<ChapterRenderContainerProps>) {
+export function ChapterRenderContainer({
+  projectId,
+  chapterId,
+  initialMedia,
+  initialRender,
+}: Readonly<ChapterRenderContainerProps>) {
   const [resolution, setResolution] = useState<"720p" | "1080p">("1080p");
   const render = useChapterRender({
     projectId,
@@ -22,10 +28,17 @@ export function ChapterRenderContainer({ projectId, chapterId, initialRender }: 
     resolution,
     format: "mp4",
     maxAuthorizedCost: "0.500000",
+    initialMedia,
     initialJobId: initialRender.latestJobId,
     initialRenderStatus: initialRender.status,
     initialArtifactId: initialRender.artifactId,
   });
 
-  return <ChapterRenderTab render={render} resolution={resolution} onResolutionChange={setResolution} />;
+  return (
+    <ChapterRenderTab
+      render={render}
+      resolution={resolution}
+      onResolutionChange={setResolution}
+    />
+  );
 }
