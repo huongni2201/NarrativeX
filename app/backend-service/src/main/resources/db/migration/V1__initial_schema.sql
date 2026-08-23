@@ -1,8 +1,44 @@
 -- Align the PostgreSQL schema with the UUID domain/persistence contracts introduced by the
--- UUID identifier refactor.  This migration is deliberately data-preserving: legacy BIGINT
+-- UUID identifier refactor. This migration is deliberately data-preserving: legacy BIGINT
 -- identifiers are deterministically embedded into UUID values so PK/FK relationships survive.
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- PostgreSQL 17 does not provide a built-in uuidv7() function. Keep UUID generation in the
+-- database because several MyBatis inserts intentionally omit the id column and RETURNING id.
+CREATE OR REPLACE FUNCTION narrativex_uuid_v7()
+RETURNS UUID
+LANGUAGE plpgsql
+VOLATILE
+AS $$
+DECLARE
+    unix_ts_ms BIGINT;
+    random_bytes BYTEA;
+    random_hex TEXT;
+    raw_hex TEXT;
+    variant_hex TEXT;
+BEGIN
+    unix_ts_ms := floor(extract(epoch FROM clock_timestamp()) * 1000)::BIGINT;
+    random_bytes := gen_random_bytes(10);
+    random_hex := encode(random_bytes, 'hex');
+    variant_hex := lpad(to_hex((get_byte(random_bytes, 2) & 63) | 128), 2, '0');
+
+    raw_hex :=
+        lpad(to_hex(unix_ts_ms), 12, '0')
+        || '7'
+        || substr(random_hex, 1, 3)
+        || variant_hex
+        || substr(random_hex, 7, 14);
+
+    RETURN (
+        substr(raw_hex, 1, 8) || '-'
+        || substr(raw_hex, 9, 4) || '-'
+        || substr(raw_hex, 13, 4) || '-'
+        || substr(raw_hex, 17, 4) || '-'
+        || substr(raw_hex, 21, 12)
+    )::uuid;
+END;
+$$;
 
 CREATE OR REPLACE FUNCTION narrativex_legacy_bigint_to_uuid(value BIGINT)
 RETURNS UUID
@@ -19,7 +55,7 @@ AS $$
     FROM (SELECT lpad(to_hex(value), 16, '0') AS hex_value) encoded;
 $$;
 
--- Save FK definitions before changing referenced/referencing column types.  Rebuilding from
+-- Save FK definitions before changing referenced/referencing column types. Rebuilding from
 -- pg_get_constraintdef keeps ON DELETE/UPDATE, MATCH and deferrability semantics intact.
 CREATE TEMP TABLE narrativex_uuid_fk_backup ON COMMIT DROP AS
 SELECT
@@ -77,7 +113,7 @@ INSERT INTO narrativex_uuid_identity_tables (table_name) VALUES
     ('provider_operations'),
     ('operation_plans');
 
--- Convert every BIGINT FK column that referenced one of the UUID identity PKs.  The mapping is
+-- Convert every BIGINT FK column that referenced one of the UUID identity PKs. The mapping is
 -- derived from the original constraints, so newly-added FK consumers cannot silently stay BIGINT.
 DO $$
 DECLARE
@@ -119,7 +155,7 @@ BEGIN
 END
 $$;
 
--- Convert the authoritative PKs themselves and replace identity sequences with UUID defaults.
+-- Convert the authoritative PKs themselves and replace identity sequences with UUIDv7 defaults.
 DO $$
 DECLARE
     target RECORD;
@@ -143,7 +179,7 @@ BEGIN
                 target.table_name
             );
             EXECUTE format(
-                'ALTER TABLE public.%I ALTER COLUMN id SET DEFAULT gen_random_uuid()',
+                'ALTER TABLE public.%I ALTER COLUMN id SET DEFAULT narrativex_uuid_v7()',
                 target.table_name
             );
         END IF;
