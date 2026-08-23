@@ -6,7 +6,7 @@ import java.util.UUID;
 
 /** Cross-feature read boundary for the chapter readiness projection. */
 public interface ChapterWorkspaceAccess {
-  Snapshot get(Long projectId, Long chapterId);
+  Snapshot get(UUID projectId, UUID chapterId);
 
   record Snapshot(
       String projectName,
