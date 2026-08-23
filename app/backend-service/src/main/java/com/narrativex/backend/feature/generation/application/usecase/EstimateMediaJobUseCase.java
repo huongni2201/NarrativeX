@@ -7,6 +7,7 @@ import com.narrativex.backend.feature.generation.api.response.MediaCostEstimateR
 import com.narrativex.backend.feature.generation.application.port.out.ImageGenerationCatalog;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSourceAccess;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,7 +22,7 @@ public class EstimateMediaJobUseCase {
 
   @Transactional(readOnly = true)
   public ApiResponse<MediaCostEstimateResponse> execute(
-      Long projectId, Long chapterId, EstimateMediaJobRequest request) {
+      UUID projectId, UUID chapterId, EstimateMediaJobRequest request) {
     chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(
         projectId, chapterId, currentUserId.get());
     int visualBeatCount =
