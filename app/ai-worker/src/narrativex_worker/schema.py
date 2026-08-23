@@ -50,6 +50,17 @@ class ImageQualityTier(StrEnum):
     HIGH = "HIGH"
 
 
+class CameraAngle(StrEnum):
+    WIDE = "WIDE"
+    MEDIUM = "MEDIUM"
+    CLOSE_UP = "CLOSE_UP"
+    EXTREME_CLOSE_UP = "EXTREME_CLOSE_UP"
+    LOW_ANGLE = "LOW_ANGLE"
+    HIGH_ANGLE = "HIGH_ANGLE"
+    OVER_THE_SHOULDER = "OVER_THE_SHOULDER"
+    POV = "POV"
+
+
 class ModerationDecision(StrEnum):
     SAFE = "SAFE"
     REVIEW = "REVIEW"
@@ -88,6 +99,7 @@ class VisualBeatAnalysis(BaseModel):
 
     title: str = Field(min_length=1, max_length=200)
     visual_intent: str = Field(min_length=1, max_length=8000)
+    camera_angle: CameraAngle = CameraAngle.MEDIUM
 
 
 class SceneCharacterRef(BaseModel):
