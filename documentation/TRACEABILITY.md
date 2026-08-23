@@ -1,6 +1,6 @@
 # NarrativeX V1.11 Current Implementation Traceability
 
-This matrix maps the V1.11 contract to repository evidence at implementation checkpoint `feat/final-video-google-drive` / `b26e4792d933e787526ea1bb6cb85dfcc5d4c87e`.
+This matrix maps the V1.11 contract to repository evidence at implementation checkpoint `fix/render-snapshot-retry-integrity` / `a167a88709e342b882cef0ceea6f0d6bd4122e4f`.
 
 | Capability / invariant | Evidence | Status |
 |---|---|---|
@@ -16,9 +16,9 @@ This matrix maps the V1.11 contract to repository evidence at implementation che
 | Vertex image generation | real Vertex image provider/batch execution + R2 materialization | IMPLEMENTED foundation |
 | READY image assets consumed by renderer | media plan/image asset repository queries | IMPLEMENTED foundation |
 | IMAGE_MOTION chapter render | dedicated render role, FFmpeg image motion, ffprobe validation | IMPLEMENTED foundation |
-| Local render quota settlement | V9 local-render quota migration | IMPLEMENTED |
+| Local render quota settlement | consolidated Flyway schema + explicit quota persistence | IMPLEMENTED |
 | Final MP4 in Google Drive | `GoogleDriveFinalVideoStorage`, resumable upload, remote lookup/size verification | IMPLEMENTED foundation |
-| FinalArtifact Drive metadata | V10 + MyBatis final artifact fields `storageProvider`, external file id, web view link | IMPLEMENTED foundation |
+| FinalArtifact Drive metadata | consolidated Flyway schema + MyBatis fields `storageProvider`, external file id, web view link | IMPLEMENTED foundation |
 | Final MP4 excluded from R2 | render worker promotes validated local MP4 directly to Drive | IMPLEMENTED |
 | Render with generated narration snapshot | render repository loads matching generated narration by chapter row-version/source-hash | IMPLEMENTED foundation |
 | Render with aligned multi-part uploaded narration | render worker has no slicing/stitching path for narration parts | PARTIAL |
