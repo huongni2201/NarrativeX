@@ -26,6 +26,7 @@ from narrativex_worker.rendering.final_storage import (
 )
 from narrativex_worker.rendering.image_motion import ImageMotionManifest, MotionBeat
 from narrativex_worker.rendering.local_final_storage import LocalFinalVideoStorage
+from narrativex_worker.rendering.profile import load_render_profile
 from narrativex_worker.rendering.repository import (
     ClaimedRenderJob,
     RenderBeatAsset,
@@ -208,6 +209,9 @@ class RenderWorkerRunner:
             if render_format != "mp4":
                 raise ValueError(f"Unsupported render format: {render_format}")
             width, height = _dimensions(resolution, claimed.aspect_ratio)
+            render_profile = await load_render_profile(
+                self.settings.database_url, claimed.generation_job_id
+            )
             beat_assets = await self.repository.load_beats(claimed)
             if not beat_assets:
                 raise ValueError("Render media plan has no READY image assets")
@@ -236,7 +240,7 @@ class RenderWorkerRunner:
             await self.repository.assert_lease(claimed)
             durations_ms = _normalize_durations(beat_assets, audio.duration_ms)
             fingerprint_payload = {
-                "version": "image-motion-render-v5-admission-snapshot-drive-lock",
+                "version": "image-motion-render-v6-pinned-profile",
                 "projectId": claimed.project_id,
                 "chapterId": claimed.chapter_id,
                 "chapterRowVersion": claimed.chapter_row_version,
@@ -246,7 +250,7 @@ class RenderWorkerRunner:
                 "resolution": resolution,
                 "format": render_format,
                 "aspectRatio": claimed.aspect_ratio,
-                "fps": 30,
+                "renderer": render_profile.fingerprint_payload(),
                 "narration": {
                     "requestId": (
                         str(claimed.narration_request_id)
@@ -270,7 +274,7 @@ class RenderWorkerRunner:
                     "durationMs": audio.duration_ms,
                 },
                 "subtitles": {
-                    "mode": "burned-ass",
+                    "mode": render_profile.subtitle_mode,
                     "timingSource": subtitle_track.timing_source,
                     "fingerprint": subtitle_track.fingerprint,
                     "cueCount": len(subtitle_track.cues),
@@ -322,8 +326,15 @@ class RenderWorkerRunner:
                     output_path=output_path,
                     width=width,
                     height=height,
-                    fps=30,
+                    fps=render_profile.fps,
                     subtitle_path=subtitle_path,
+                    effects=render_profile.effects,
+                    video_encoder=render_profile.video_encoder,
+                    x264_preset=render_profile.x264_preset,
+                    crf=render_profile.crf,
+                    nvenc_preset=render_profile.nvenc_preset,
+                    nvenc_cq=render_profile.nvenc_cq,
+                    audio_bitrate=render_profile.audio_bitrate,
                 )
                 await self.repository.assert_lease(claimed)
                 with self.metrics.measure("render_duration", context):
@@ -335,7 +346,9 @@ class RenderWorkerRunner:
                     width=width,
                     height=height,
                     expected_duration_seconds=audio.duration_ms / 1000.0,
-                    tolerance_seconds=max(0.35, len(beat_assets) / 30.0 + 0.1),
+                    tolerance_seconds=max(
+                        0.35, len(beat_assets) / render_profile.fps + 0.1
+                    ),
                 )
                 checksum = await asyncio.to_thread(sha256_file, output_path)
                 async with render_fingerprint_lock(self.settings.database_url, render_fingerprint):
@@ -383,7 +396,7 @@ class RenderWorkerRunner:
                         duration_ms=audio.duration_ms,
                         width=width,
                         height=height,
-                        fps=30,
+                        fps=render_profile.fps,
                     )
                 self.logger.info(
                     "Completed chapter render job=%s fingerprint=%s driveFileId=%s "

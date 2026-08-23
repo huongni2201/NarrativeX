@@ -15,6 +15,7 @@ from narrativex_worker.rendering.final_storage import (
     FinalVideoAsset,
     FinalVideoStorageError,
 )
+from narrativex_worker.rendering.profile import RenderProfile
 from narrativex_worker.rendering.repository import (
     ClaimedRenderJob,
     RenderAudioAsset,
@@ -42,6 +43,50 @@ def _beat(duration_ms: int | None) -> RenderBeatAsset:
         storage_key="image.png",
         size_bytes=10,
         checksum="a" * 64,
+    )
+
+
+def _profile() -> RenderProfile:
+    return RenderProfile.from_json(
+        {
+            "schemaVersion": 1,
+            "engine": "ffmpeg-python",
+            "rendererVersion": "image-motion-v6-profiled-cinematic",
+            "fps": 30,
+            "video": {
+                "encoder": "libx264",
+                "x264Preset": "veryfast",
+                "crf": 20,
+                "nvencPreset": "p5",
+                "nvencCq": 21,
+                "pixelFormat": "yuv420p",
+            },
+            "audio": {"codec": "aac", "bitrate": "192k", "sampleRate": 48000},
+            "effects": {
+                "transition": "LEGACY_FADE",
+                "transitionSeconds": 0.12,
+                "colorGrade": "NONE",
+                "backgroundMode": "COVER",
+                "backgroundBlurSigma": 22.0,
+                "overlayStyle": "NONE",
+                "overlayOpacity": 0.30,
+                "watermarkWidthRatio": 0.12,
+                "watermarkOpacity": 0.82,
+                "watermarkPosition": "TOP_RIGHT",
+                "bgmVolume": 0.18,
+                "duckThreshold": 0.08,
+                "duckRatio": 8.0,
+                "duckAttackMs": 20.0,
+                "duckReleaseMs": 350.0,
+                "motionEasing": "LINEAR",
+                "textOverlays": [],
+                "lutAsset": None,
+                "overlayAsset": None,
+                "watermarkAsset": None,
+                "bgmAsset": None,
+            },
+            "subtitles": {"mode": "burned-ass"},
+        }
     )
 
 
@@ -183,6 +228,10 @@ class _FakeFinalStorage:
 
 
 def _install_render_doubles(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def load_profile(*args: Any, **kwargs: Any) -> RenderProfile:
+        del args, kwargs
+        return _profile()
+
     async def load_subtitle_source(*args: Any, **kwargs: Any) -> SubtitleSource:
         del args, kwargs
         return SubtitleSource("NarrativeX test render", (), None)
@@ -210,6 +259,7 @@ def _install_render_doubles(monkeypatch: pytest.MonkeyPatch) -> None:
         del args, kwargs
         yield
 
+    monkeypatch.setattr(render_worker, "load_render_profile", load_profile)
     monkeypatch.setattr(render_worker, "load_subtitle_source", load_subtitle_source)
     monkeypatch.setattr(render_worker, "render_image_motion", render_image_motion)
     monkeypatch.setattr(render_worker, "probe_mp4", probe_mp4)
@@ -248,6 +298,9 @@ async def test_render_worker_happy_path_completes_with_drive_artifact(
     assert final_storage.upload_count == 1
     assert repository.completed[0]["media_asset"].external_file_id == "render-1"
     assert repository.completed[0]["render_fingerprint"] in final_storage.files
+    manifest = repository.completed[0]["manifest"]
+    assert manifest["version"] == "image-motion-render-v6-pinned-profile"
+    assert manifest["renderer"]["rendererVersion"] == "image-motion-v6-profiled-cinematic"
 
 
 @pytest.mark.asyncio
