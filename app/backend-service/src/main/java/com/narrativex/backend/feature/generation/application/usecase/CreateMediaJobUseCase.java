@@ -5,6 +5,7 @@ import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.generation.application.command.CreateMediaJobCommand;
 import com.narrativex.backend.feature.generation.application.command.CreateMediaPlanCommand;
+import com.narrativex.backend.feature.generation.application.port.out.ChapterMediaHeadRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationOutboxRepository;
 import com.narrativex.backend.feature.generation.application.port.out.ImageGenerationCatalog;
@@ -45,6 +46,7 @@ public class CreateMediaJobUseCase {
   private final MediaPlanningSourceAccess mediaPlanningSourceAccess;
   private final CreateMediaPlanUseCase createMediaPlanUseCase;
   private final GenerationJobRepository generationJobRepository;
+  private final ChapterMediaHeadRepository chapterMediaHeadRepository;
   private final MediaGenerationItemRepository mediaGenerationItemRepository;
   private final GenerationOutboxRepository generationOutboxRepository;
   private final OperationPlanRepository operationPlanRepository;
@@ -147,6 +149,8 @@ public class CreateMediaJobUseCase {
                 project.getSourceLanguage(),
                 command.idempotencyKey(),
                 userId));
+    chapterMediaHeadRepository.setCurrent(command.chapterId(), job.getId());
+
     OperationPlan operationPlan =
         operationPlanRepository.save(
             OperationPlan.create(

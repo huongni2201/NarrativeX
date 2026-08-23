@@ -29,8 +29,6 @@ export const queryKeys = {
   projectDashboardFiltered: (filter?: string, sort?: string, query?: string) =>
     ["project-dashboard", filter ?? "ALL", sort ?? "NEWEST", query ?? ""] as const,
   job: (jobId: string) => ["jobs", jobId] as const,
-  mediaJobForChapter: (projectId: number, chapterId: number) =>
-    ["media-jobs", "chapter", projectId, chapterId] as const,
   mediaJob: (jobId: string) => ["media-jobs", jobId] as const,
   renderJob: (jobId: string) => ["render-jobs", jobId] as const,
   artifactByJobId: (jobId: string) => ["render-artifacts", "job", jobId] as const,

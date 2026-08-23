@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis;
 
 import java.time.Instant;
+import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -24,6 +25,9 @@ public class ChapterWorkspaceAggregateRow {
   private int visualGenerationStalled;
   private int visualGenerationUnknown;
   private int visualGenerationPaused;
+  private String visualGenerationLatestJobId;
+  private UUID visualGenerationMediaPlanId;
+  private Integer visualGenerationMediaPlanRevision;
   private boolean narrationAssetReady;
   private String narrationJobStatus;
   private Instant narrationCompletedAt;

@@ -1,25 +1,74 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiErrorMessage } from "@/shared/api/client";
-import { ACTIVE_JOB_STATUSES, TERMINAL_JOB_STATUSES, type ApiGenerationJob } from "@/types/api";
+import {
+  ACTIVE_JOB_STATUSES,
+  TERMINAL_JOB_STATUSES,
+  type ApiChapterWorkspace,
+  type ApiChapterWorkspaceProgressStep,
+} from "@/types/api";
 import { queryKeys } from "@/lib/query-keys";
 import { mediaApi, type CreateMediaJobInput } from "../api/media.api";
 
-interface TrackedMediaJob extends ApiGenerationJob {
-  message: string | null;
-}
+type InitialMediaIdentity = Pick<
+  ApiChapterWorkspaceProgressStep,
+  "latestJobId" | "mediaPlanId" | "mediaPlanRevision"
+>;
 
-export function useMediaGeneration(projectId: number, chapterId: number) {
+export function useMediaGeneration(
+  projectId: number,
+  chapterId: number,
+  initialMedia: InitialMediaIdentity,
+) {
   const queryClient = useQueryClient();
-  const currentJobQuery = useQuery<TrackedMediaJob | null>({
-    queryKey: queryKeys.mediaJobForChapter(projectId, chapterId),
-    queryFn: async () => null,
-    enabled: false,
+  const [message, setMessage] = useState<string | null>(null);
+
+  const createJob = useMutation({
+    mutationFn: ({ input, idempotencyKey }: { input: CreateMediaJobInput; idempotencyKey: string }) =>
+      mediaApi.createJob(projectId, chapterId, input, idempotencyKey),
+    onSuccess: (job) => {
+      setMessage("Đã xếp hàng tạo keyframe. Bạn có thể theo dõi tiến độ bên dưới.");
+      queryClient.setQueryData(queryKeys.job(job.jobId), job);
+      queryClient.setQueryData<ApiChapterWorkspace>(
+        queryKeys.chapterWorkspace(projectId, chapterId),
+        (current) =>
+          current
+            ? {
+                ...current,
+                pipeline: {
+                  ...current.pipeline,
+                  visualGeneration: {
+                    ...current.pipeline.visualGeneration,
+                    status: job.status,
+                    latestJobId: job.jobId,
+                    mediaPlanId: job.mediaPlanId ?? null,
+                    mediaPlanRevision: job.mediaPlanRevision ?? null,
+                  },
+                },
+              }
+            : current,
+      );
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.chapterWorkspace(projectId, chapterId),
+      });
+    },
+    onError: (error) => {
+      setMessage(apiErrorMessage(error, "Không thể tạo media job."));
+    },
   });
-  const jobId = currentJobQuery.data?.jobId ?? null;
-  const message = currentJobQuery.data?.message ?? null;
+
+  const createdJob = createJob.data ?? null;
+  const workspaceHasCreatedJob = Boolean(
+    createdJob && initialMedia.latestJobId === createdJob.jobId,
+  );
+  const jobId = initialMedia.latestJobId ?? createdJob?.jobId ?? null;
+
+  useEffect(() => {
+    if (workspaceHasCreatedJob) createJob.reset();
+  }, [workspaceHasCreatedJob, createJob.reset]);
+
   const jobQuery = useQuery({
     queryKey: jobId ? queryKeys.job(jobId) : ["jobs", "media-none"],
     queryFn: () => mediaApi.getJob(jobId!),
@@ -29,52 +78,63 @@ export function useMediaGeneration(projectId: number, chapterId: number) {
       return status && TERMINAL_JOB_STATUSES.has(status) ? false : 1500;
     },
   });
+
   const detailsQuery = useQuery({
     queryKey: jobId ? queryKeys.mediaJob(jobId) : ["media-jobs", "none"],
     queryFn: () => mediaApi.getDetails(jobId!),
     enabled: Boolean(jobId),
-    refetchInterval: jobQuery.data?.status && ACTIVE_JOB_STATUSES.has(jobQuery.data.status) ? 1500 : false,
+    refetchInterval:
+      jobQuery.data?.status && ACTIVE_JOB_STATUSES.has(jobQuery.data.status) ? 1500 : false,
   });
-  const createJob = useMutation({
-    mutationFn: ({ input, idempotencyKey }: { input: CreateMediaJobInput; idempotencyKey: string }) => mediaApi.createJob(projectId, chapterId, input, idempotencyKey),
-    onSuccess: (job) => {
-      queryClient.setQueryData(queryKeys.mediaJobForChapter(projectId, chapterId), {
-        ...job,
-        message: "Đã xếp hàng tạo keyframe. Bạn có thể theo dõi tiến độ bên dưới.",
-      });
-      queryClient.setQueryData(queryKeys.job(job.jobId), job);
-    },
-    onError: (error) => {
-      queryClient.setQueryData(queryKeys.mediaJobForChapter(projectId, chapterId), (current: TrackedMediaJob | null | undefined) =>
-        current ? { ...current, message: apiErrorMessage(error, "Không thể tạo media job.") } : null,
-      );
-    },
-  });
+
   const review = useMutation({
-    mutationFn: ({ itemId, decision, rowVersion }: { itemId: string; decision: "APPROVED" | "REJECTED"; rowVersion: number }) => mediaApi.review(itemId, decision, rowVersion),
+    mutationFn: ({
+      itemId,
+      decision,
+      rowVersion,
+    }: {
+      itemId: string;
+      decision: "APPROVED" | "REJECTED";
+      rowVersion: number;
+    }) => mediaApi.review(itemId, decision, rowVersion),
     onSuccess: () => {
       if (jobId) void queryClient.invalidateQueries({ queryKey: queryKeys.mediaJob(jobId) });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.chapterWorkspace(projectId, chapterId),
+      });
     },
     onError: (error) => {
-      queryClient.setQueryData(queryKeys.mediaJobForChapter(projectId, chapterId), (current: TrackedMediaJob | null | undefined) =>
-        current ? { ...current, message: apiErrorMessage(error, "Không thể cập nhật review.") } : null,
-      );
+      setMessage(apiErrorMessage(error, "Không thể cập nhật review."));
     },
   });
+
+  const job = jobQuery.data ?? (workspaceHasCreatedJob ? null : createdJob);
   useEffect(() => {
-    const currentJob = jobQuery.data;
-    if (currentJob?.status === "FAILED" || currentJob?.status === "UNKNOWN") {
-      queryClient.setQueryData(queryKeys.mediaJobForChapter(projectId, chapterId), (current: TrackedMediaJob | null | undefined) =>
-        current
-          ? {
-              ...current,
-              message: currentJob.errorCode
-                ? `Media job ${currentJob.errorCode}.`
-                : `Media job ${currentJob.status.toLowerCase()}.`,
-            }
-          : null,
+    if (job?.status === "FAILED" || job?.status === "UNKNOWN") {
+      setMessage(
+        job.errorCode
+          ? `Media job ${job.errorCode}.`
+          : `Media job ${job.status.toLowerCase()}.`,
       );
     }
-  }, [chapterId, jobQuery.data, projectId, queryClient]);
-  return { jobId, job: jobQuery.data ?? null, details: detailsQuery.data ?? null, isLoading: jobQuery.isPending || detailsQuery.isPending, message, createJob, review };
+  }, [job?.errorCode, job?.status]);
+
+  const mediaPlanId =
+    detailsQuery.data?.mediaPlanId ?? job?.mediaPlanId ?? initialMedia.mediaPlanId;
+  const mediaPlanRevision =
+    detailsQuery.data?.mediaPlanRevision ??
+    job?.mediaPlanRevision ??
+    initialMedia.mediaPlanRevision;
+
+  return {
+    jobId,
+    job: job ?? null,
+    details: detailsQuery.data ?? null,
+    mediaPlanId,
+    mediaPlanRevision,
+    isLoading: Boolean(jobId) && (jobQuery.isPending || detailsQuery.isPending),
+    message,
+    createJob,
+    review,
+  };
 }

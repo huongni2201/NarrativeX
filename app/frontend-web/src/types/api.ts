@@ -113,6 +113,9 @@ export interface ApiChapterWorkspaceProgressStep {
   total: number;
   completed: number;
   failed: number;
+  latestJobId: string | null;
+  mediaPlanId: string | null;
+  mediaPlanRevision: number | null;
 }
 
 export interface ApiChapterWorkspacePreviewScene {
@@ -384,7 +387,10 @@ function isApiChapterWorkspaceProgressStep(
     isString(value.status) &&
     isNumber(value.total) &&
     isNumber(value.completed) &&
-    isNumber(value.failed)
+    isNumber(value.failed) &&
+    isNullableString(value.latestJobId) &&
+    isNullableString(value.mediaPlanId) &&
+    isNullableNumber(value.mediaPlanRevision)
   );
 }
 

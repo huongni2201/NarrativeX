@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ChapterMediaHeadMapper">
+    <insert id="upsert">
+        INSERT INTO chapter_media_heads (chapter_id, generation_job_id, updated_at)
+        VALUES (#{chapterId}, #{generationJobId}, CURRENT_TIMESTAMP)
+        ON CONFLICT (chapter_id) DO UPDATE
+        SET generation_job_id = EXCLUDED.generation_job_id,
+            updated_at = CURRENT_TIMESTAMP
+    </insert>
+
+    <select id="matchesCurrentPlan" resultType="boolean">
+        SELECT EXISTS (
+          SELECT 1
+            FROM chapter_media_heads cmh
+            JOIN generation_jobs gj ON gj.id = cmh.generation_job_id
+           WHERE cmh.chapter_id = #{chapterId}
+             AND gj.media_plan_id = #{mediaPlanId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+             AND gj.media_plan_revision = #{mediaPlanRevision}
+        )
+    </select>
+</mapper>

@@ -2,6 +2,7 @@ package com.narrativex.backend.feature.storyboard.application.port.in;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 /** Cross-feature read boundary for the chapter readiness projection. */
 public interface ChapterWorkspaceAccess {
@@ -21,7 +22,14 @@ public interface ChapterWorkspaceAccess {
   record ChapterWorkspaceProjection(
       ProgressStep visualGeneration, AudioStep audio, RenderStep render) {}
 
-  record ProgressStep(String status, int total, int completed, int failed) {}
+  record ProgressStep(
+      String status,
+      int total,
+      int completed,
+      int failed,
+      String latestJobId,
+      UUID mediaPlanId,
+      Integer mediaPlanRevision) {}
 
   record PipelineStep(String status, Instant completedAt) {}
 

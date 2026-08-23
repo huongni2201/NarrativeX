@@ -3,6 +3,7 @@ package com.narrativex.backend.feature.generation.application.usecase;
 import com.narrativex.backend.feature.account.application.port.in.UserQuotaAccess;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.generation.application.command.CreateChapterRenderCommand;
+import com.narrativex.backend.feature.generation.application.port.out.ChapterMediaHeadRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationOutboxRepository;
 import com.narrativex.backend.feature.generation.application.port.out.MediaPlanRepository;
@@ -38,6 +39,7 @@ public class CreateChapterRenderUseCase {
   private final GenerationOutboxRepository generationOutboxRepository;
   private final OperationPlanRepository operationPlanRepository;
   private final MediaPlanRepository mediaPlanRepository;
+  private final ChapterMediaHeadRepository chapterMediaHeadRepository;
   private final RenderInputSnapshotRepository renderInputSnapshotRepository;
   private final StageAttemptRepository stageAttemptRepository;
   private final QuotaReservation quotaReservation;
@@ -62,6 +64,12 @@ public class CreateChapterRenderUseCase {
       throw new GenerationAdmissionDeniedException(
           "MEDIA_PLAN_NOT_FOUND",
           "The requested media plan revision is not owned by this project.");
+    }
+    if (!chapterMediaHeadRepository.matchesCurrentPlan(
+        command.chapterId(), command.mediaPlanId(), command.mediaPlanRevision())) {
+      throw new GenerationAdmissionDeniedException(
+          "MEDIA_PLAN_STALE",
+          "The requested media plan is no longer the current visual-generation plan.");
     }
     if (!"COMPLETED".equals(workspace.analysis().status())) {
       throw new IllegalStateException("Chapter analysis must be completed before rendering");

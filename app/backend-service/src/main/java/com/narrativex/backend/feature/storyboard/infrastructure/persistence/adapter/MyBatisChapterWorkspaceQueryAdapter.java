@@ -44,7 +44,10 @@ public class MyBatisChapterWorkspaceQueryAdapter implements ChapterWorkspaceRead
                     row.getVisualGenerationPaused()),
                 row.getVisualGenerationTotal(),
                 row.getVisualGenerationCompleted(),
-                row.getVisualGenerationFailed()),
+                row.getVisualGenerationFailed(),
+                row.getVisualGenerationLatestJobId(),
+                row.getVisualGenerationMediaPlanId(),
+                row.getVisualGenerationMediaPlanRevision()),
             new AudioStep(
                 narrationStatus(row.isNarrationAssetReady(), row.getNarrationJobStatus()),
                 row.getNarrationCompletedAt(),
