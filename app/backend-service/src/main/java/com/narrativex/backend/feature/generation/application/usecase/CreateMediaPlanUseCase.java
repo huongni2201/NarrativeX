@@ -58,12 +58,12 @@ public class CreateMediaPlanUseCase {
       throw new GenerationAdmissionDeniedException(
           "STORYBOARD_NOT_READY", "Every visual beat must be approved before image generation.");
     }
-    if (command.productionMode().name().equals("IMAGE_MOTION")
-        && (planningSource.narrationSetId() == null
-            || planningSource.narrationAlignmentRunId() == null)) {
-      throw new GenerationAdmissionDeniedException(
-          "NARRATION_NOT_READY", "Image-motion planning requires a pinned narration timeline.");
-    }
+
+    // Chapter-level narration is the current executable MVP contract. The legacy/future
+    // narration_sets projection is not populated by MediaPlanningSourceService yet, so requiring
+    // those nullable pointers here made every IMAGE_MOTION plan impossible to create. Render
+    // admission is the authoritative boundary that now requires and snapshots the exact ready
+    // narration asset together with the selected images.
     var workload = calculateWorkload(scenes);
     int revision = mediaPlanRepository.nextRevision(command.chapterId());
 
