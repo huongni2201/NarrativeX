@@ -1,22 +1,24 @@
 package com.narrativex.backend.feature.common.domain;
 
 import java.util.Objects;
+import java.util.UUID;
 
-/** Framework-free identity base reserved for aggregate roots. */
+/** Framework-free identity base reserved for aggregate roots. Internal identities use UUIDv7. */
 public abstract class AggregateRoot {
-  private final Long id;
+  private final UUID id;
   private final long rowVersion;
 
   protected AggregateRoot() {
     this(null, 0L);
   }
 
-  protected AggregateRoot(Long id, long rowVersion) {
+  protected AggregateRoot(UUID id, long rowVersion) {
+    if (rowVersion < 0) throw new IllegalArgumentException("rowVersion must not be negative");
     this.id = id;
     this.rowVersion = rowVersion;
   }
 
-  public Long getId() {
+  public UUID getId() {
     return id;
   }
 
