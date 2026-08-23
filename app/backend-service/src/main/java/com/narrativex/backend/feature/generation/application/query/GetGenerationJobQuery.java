@@ -1,3 +1,5 @@
 package com.narrativex.backend.feature.generation.application.query;
 
-public record GetGenerationJobQuery(String jobId, String ownerId) {}
+import java.util.UUID;
+
+public record GetGenerationJobQuery(UUID jobId, String ownerId) {}
