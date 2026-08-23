@@ -7,7 +7,7 @@ import lombok.Setter;
 @Getter
 @Setter
 public class ChapterCreationIdempotencyRow {
-  private Long id;
+  private UUID id;
   private String ownerId;
   private UUID projectId;
   private String idempotencyKey;
