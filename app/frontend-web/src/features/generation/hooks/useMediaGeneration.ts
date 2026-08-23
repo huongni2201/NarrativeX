@@ -6,6 +6,7 @@ import { apiErrorMessage } from "@/shared/api/client";
 import {
   ACTIVE_JOB_STATUSES,
   TERMINAL_JOB_STATUSES,
+  type ApiChapterWorkspace,
   type ApiChapterWorkspaceProgressStep,
 } from "@/types/api";
 import { queryKeys } from "@/lib/query-keys";
@@ -30,7 +31,28 @@ export function useMediaGeneration(
     onSuccess: (job) => {
       setMessage("Đã xếp hàng tạo keyframe. Bạn có thể theo dõi tiến độ bên dưới.");
       queryClient.setQueryData(queryKeys.job(job.jobId), job);
-      void queryClient.invalidateQueries({ queryKey: queryKeys.chapterWorkspace(projectId, chapterId) });
+      queryClient.setQueryData<ApiChapterWorkspace>(
+        queryKeys.chapterWorkspace(projectId, chapterId),
+        (current) =>
+          current
+            ? {
+                ...current,
+                pipeline: {
+                  ...current.pipeline,
+                  visualGeneration: {
+                    ...current.pipeline.visualGeneration,
+                    status: job.status,
+                    latestJobId: job.jobId,
+                    mediaPlanId: job.mediaPlanId ?? null,
+                    mediaPlanRevision: job.mediaPlanRevision ?? null,
+                  },
+                },
+              }
+            : current,
+      );
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.chapterWorkspace(projectId, chapterId),
+      });
     },
     onError: (error) => {
       setMessage(apiErrorMessage(error, "Không thể tạo media job."));
@@ -38,7 +60,14 @@ export function useMediaGeneration(
   });
 
   const createdJob = createJob.data ?? null;
-  const jobId = createdJob?.jobId ?? initialMedia.latestJobId;
+  const workspaceHasCreatedJob = Boolean(
+    createdJob && initialMedia.latestJobId === createdJob.jobId,
+  );
+  const jobId = initialMedia.latestJobId ?? createdJob?.jobId ?? null;
+
+  useEffect(() => {
+    if (workspaceHasCreatedJob) createJob.reset();
+  }, [workspaceHasCreatedJob, createJob.reset]);
 
   const jobQuery = useQuery({
     queryKey: jobId ? queryKeys.job(jobId) : ["jobs", "media-none"],
@@ -70,14 +99,16 @@ export function useMediaGeneration(
     }) => mediaApi.review(itemId, decision, rowVersion),
     onSuccess: () => {
       if (jobId) void queryClient.invalidateQueries({ queryKey: queryKeys.mediaJob(jobId) });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.chapterWorkspace(projectId, chapterId) });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.chapterWorkspace(projectId, chapterId),
+      });
     },
     onError: (error) => {
       setMessage(apiErrorMessage(error, "Không thể cập nhật review."));
     },
   });
 
-  const job = jobQuery.data ?? createdJob;
+  const job = jobQuery.data ?? (workspaceHasCreatedJob ? null : createdJob);
   useEffect(() => {
     if (job?.status === "FAILED" || job?.status === "UNKNOWN") {
       setMessage(
