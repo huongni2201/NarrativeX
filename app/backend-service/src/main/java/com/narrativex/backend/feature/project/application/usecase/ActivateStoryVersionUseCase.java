@@ -8,6 +8,7 @@ import com.narrativex.backend.feature.project.application.port.out.StoryVersionR
 import com.narrativex.backend.feature.project.domain.aggregate.Project;
 import com.narrativex.backend.feature.project.domain.entity.StoryVersion;
 import java.util.Optional;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -23,7 +24,7 @@ public class ActivateStoryVersionUseCase {
   private final CurrentUserId currentUserId;
 
   @Transactional
-  public StoryVersion execute(Long projectId, Long storyVersionId) {
+  public StoryVersion execute(UUID projectId, UUID storyVersionId) {
     String ownerId = currentUserId.get();
     Project project = projectAccess.findOwnedProjectForUpdate(projectId, ownerId);
     StoryVersion nextVersion =
@@ -41,9 +42,6 @@ public class ActivateStoryVersionUseCase {
     }
 
     project.activateStoryVersion(nextVersion, currentActive.orElse(null));
-
-    // PostgreSQL's partial unique index is immediate. Flush the previous ACTIVE -> SUPERSEDED
-    // update before persisting the next ACTIVE row so Hibernate cannot order an INSERT first.
     currentActive.ifPresent(storyVersionRepository::saveAndFlush);
     StoryVersion saved = storyVersionRepository.save(nextVersion);
     projectRepository.save(project);
