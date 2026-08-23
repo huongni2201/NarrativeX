@@ -172,7 +172,7 @@ export function ChapterOverviewTab({
               className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-orange-600 via-orange-500 to-orange-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-950/50 transition-[background-color,box-shadow,color] hover:from-orange-500 hover:to-orange-500 hover:shadow-orange-700/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 disabled:cursor-not-allowed disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 disabled:shadow-none"
             >
               {analysisActive ? (
-                <Loader2 className="h-4 w-4 motion-safe:animate-spin text-white" />
+                <Loader2 className="h-4 w-4 animate-spin text-white" />
               ) : (
                 <Sparkles className="h-4 w-4 text-orange-200" />
               )}
@@ -299,7 +299,7 @@ function ProgressItem({
           <span className="rounded bg-orange-500/10 px-1.5 py-0.5 text-orange-300">{progressLabel}</span>
         )}
         {isRunning ? (
-          <Loader2 className="h-3.5 w-3.5 motion-safe:animate-spin text-orange-400" />
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-orange-400" />
         ) : isCompleted ? (
           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
         ) : (

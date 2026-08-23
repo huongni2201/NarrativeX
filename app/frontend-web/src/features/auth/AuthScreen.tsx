@@ -226,7 +226,7 @@ export const AuthScreen: React.FC = () => {
               aria-busy={isSubmitting}
               className="mt-7 w-full rounded-xl bg-primary px-4 py-3.5 text-base font-semibold text-white transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60 shadow-lg shadow-primary/20"
             >
-              {isSubmitting && <LoaderCircle className="mr-2 h-4 w-4 motion-safe:animate-spin" />}
+              {isSubmitting && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
               {isSubmitting ? "Đang xử lý…" : mode === "login" ? "Đăng nhập" : "Tạo tài khoản"}
             </button>
           </form>
@@ -243,7 +243,7 @@ export const AuthScreen: React.FC = () => {
             aria-busy={isRedirecting}
             className="w-full rounded-xl border border-border bg-surface-3 px-4 py-3.5 text-base font-semibold text-text-primary transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isRedirecting && <LoaderCircle className="mr-2 inline-block h-4 w-4 motion-safe:animate-spin" />}
+            {isRedirecting && <LoaderCircle className="mr-2 inline-block h-4 w-4 animate-spin" />}
             {isRedirecting ? "Đang chuyển đến Google…" : "Tiếp tục với Google"}
           </button>
         </div>

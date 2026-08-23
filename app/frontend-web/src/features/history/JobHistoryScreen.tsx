@@ -65,7 +65,7 @@ export function JobHistoryScreen() {
           disabled={isFetching}
           className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface-card px-3.5 py-2 text-xs font-semibold text-text-primary transition-colors hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
         >
-          <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "motion-safe:animate-spin text-primary" : ""}`} />
+          <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin text-primary" : ""}`} />
           Làm mới
         </button>
       </div>

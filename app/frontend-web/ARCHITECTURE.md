@@ -118,7 +118,7 @@ Project creation currently spans Project + initial StoryVersion writes.
 - Backend media URLs may come from Cloudflare R2/CDN hosts that vary by environment. Until the storage contract provides a stable trusted media hostname, use native `<img loading="lazy" decoding="async">` for those arbitrary runtime URLs instead of weakening `remotePatterns`.
 - Once a stable media host is part of configuration, add the narrow `remotePatterns` entry and migrate that media path to `next/image`.
 - Above-the-fold brand/hero images may use `priority`; card/grid imagery should remain lazy by default and provide responsive `sizes` when rendered through `next/image`.
-- Decorative motion and spinners use reduced-motion-aware utilities (`motion-safe:*`) unless movement is essential to communicate state.
+- Decorative motion uses reduced-motion-aware utilities (`motion-safe:*`), while essential state indicators and spinners use `animate-spin` to communicate ongoing progress.
 
 ## Architecture enforcement
 

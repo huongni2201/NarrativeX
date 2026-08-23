@@ -291,7 +291,7 @@ export function ProductionShell({ projectId, initialTab = "chapters" }: Readonly
                   className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-3.5 py-2 text-xs font-semibold text-text-secondary transition-colors hover:bg-surface-3 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {batchImport.isPending ? (
-                    <Loader2 className="h-3.5 w-3.5 motion-safe:animate-spin text-primary-light" />
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-primary-light" />
                   ) : (
                     <UploadCloud className="h-3.5 w-3.5 text-primary-light" />
                   )}

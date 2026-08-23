@@ -304,7 +304,7 @@ export function GenerateNarrationModal({
               >
                 {generateMutation.isPending ? (
                   <>
-                    <Loader2 className="h-3.5 w-3.5 motion-safe:animate-spin" />
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     Đang gửi yêu cầu…
                   </>
                 ) : (

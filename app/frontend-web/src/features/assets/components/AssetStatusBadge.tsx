@@ -24,5 +24,5 @@ export const AssetStatusBadge: React.FC<AssetStatusBadgeProps> = ({ status, prog
   const item = configs[status];
   const Icon = item.icon;
   const moving = status === "PROCESSING" || status === "UPLOADING" || status === "VALIDATING";
-  return <span className={cn("inline-flex items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-wider", item.className, className)}><Icon className={cn("h-3 w-3", moving && "motion-safe:animate-spin")} /><span>{item.label}</span></span>;
+  return <span className={cn("inline-flex items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-wider", item.className, className)}><Icon className={cn("h-3 w-3", moving && "animate-spin")} /><span>{item.label}</span></span>;
 };

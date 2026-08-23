@@ -64,7 +64,7 @@ export function NotificationScreen() {
             disabled={isFetching}
             className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-card px-3.5 py-2 text-xs font-semibold text-text-primary transition-colors hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
           >
-            <RotateCcw className={`h-3.5 w-3.5 ${isFetching ? "motion-safe:animate-spin text-primary" : ""}`} />
+            <RotateCcw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin text-primary" : ""}`} />
             Làm mới
           </button>
         </div>

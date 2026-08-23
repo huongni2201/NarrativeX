@@ -22,7 +22,7 @@ export function LoadingState({ message, className, iconClassName }: Readonly<Loa
         />
         <LoaderCircle
           aria-hidden="true"
-          className={cn("relative h-5 w-5 motion-safe:animate-spin text-primary-light", iconClassName)}
+          className={cn("relative h-5 w-5 animate-spin text-primary-light", iconClassName)}
         />
       </span>
       <span>{message}</span>

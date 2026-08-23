@@ -135,7 +135,7 @@ export function CharacterLibrary() {
             disabled={query.isFetchingNextPage}
             onClick={() => query.fetchNextPage()}
           >
-            {query.isFetchingNextPage && <LoaderCircle className="mr-2 h-4 w-4 motion-safe:animate-spin" />}
+            {query.isFetchingNextPage && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
             Tải thêm
           </Button>
         </div>
