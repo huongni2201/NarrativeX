@@ -8,6 +8,7 @@ import com.narrativex.backend.feature.character.infrastructure.persistence.mybat
 import com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.OutfitVersionRow;
 import com.narrativex.backend.feature.common.infrastructure.persistence.OptimisticConcurrency;
 import java.util.Optional;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -18,12 +19,12 @@ public class MyBatisOutfitVersionPersistenceAdapter implements OutfitVersionRepo
   private final CharacterMyBatisRowMapper rowMapper;
 
   @Override
-  public int findMaxVersionNumberByCharacterId(Long id) {
+  public int findMaxVersionNumberByCharacterId(UUID id) {
     return mapper.maxOutfitVersion(id);
   }
 
   @Override
-  public Optional<OutfitVersion> findOwnedById(Long id, String ownerId) {
+  public Optional<OutfitVersion> findOwnedById(UUID id, String ownerId) {
     return Optional.ofNullable(mapper.findOwnedOutfit(id, ownerId, CharacterStatus.ARCHIVED.name()))
         .map(rowMapper::toDomain);
   }
@@ -34,14 +35,14 @@ public class MyBatisOutfitVersionPersistenceAdapter implements OutfitVersionRepo
     if (value.getId() == null) {
       row.setId(null);
       row.setRowVersion(0);
-      Long id = mapper.insertOutfit(row);
+      UUID id = mapper.insertOutfit(row);
       return rowMapper.toDomain(mapper.findOutfit(id));
     }
     OutfitVersionRow existing = mapper.findOutfit(value.getId());
     if (existing == null) {
       row.setId(null);
       row.setRowVersion(0);
-      Long id = mapper.insertOutfit(row);
+      UUID id = mapper.insertOutfit(row);
       return rowMapper.toDomain(mapper.findOutfit(id));
     }
     OptimisticConcurrency.requireVersion(
