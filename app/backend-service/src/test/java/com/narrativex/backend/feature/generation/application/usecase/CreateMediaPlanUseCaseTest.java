@@ -8,8 +8,13 @@ import static org.mockito.Mockito.when;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.generation.application.command.CreateMediaPlanCommand;
 import com.narrativex.backend.feature.generation.application.port.out.MediaPlanRepository;
+import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository;
+import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.CharacterCanon;
+import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.LocationCanon;
+import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.VisualPromptContext;
 import com.narrativex.backend.feature.generation.application.service.DefaultMotionExecutionPolicy;
 import com.narrativex.backend.feature.generation.application.service.MotionStrategyResolver;
+import com.narrativex.backend.feature.generation.application.service.VisualPromptComposer;
 import com.narrativex.backend.feature.generation.domain.aggregate.MediaPlan;
 import com.narrativex.backend.feature.generation.domain.enums.ImageStyle;
 import com.narrativex.backend.feature.generation.domain.enums.MotionStrategy;
@@ -33,6 +38,7 @@ class CreateMediaPlanUseCaseTest {
     var chapterSourceAccess = mock(ChapterAnalysisSourceAccess.class);
     var mediaPlanningSourceAccess = mock(MediaPlanningSourceAccess.class);
     var mediaPlanRepository = mock(MediaPlanRepository.class);
+    var visualPromptContextRepository = mock(VisualPromptContextRepository.class);
     var resolver = new MotionStrategyResolver(new DefaultMotionExecutionPolicy());
     var useCase =
         new CreateMediaPlanUseCase(
@@ -40,7 +46,9 @@ class CreateMediaPlanUseCaseTest {
             chapterSourceAccess,
             mediaPlanningSourceAccess,
             mediaPlanRepository,
-            resolver);
+            resolver,
+            visualPromptContextRepository,
+            new VisualPromptComposer());
 
     when(currentUserId.get()).thenReturn("user-1");
     when(chapterSourceAccess.requireOwnedForAnalysisLocked(1L, 10L, "user-1"))
@@ -56,6 +64,22 @@ class CreateMediaPlanUseCaseTest {
                         8,
                         List.of(
                             new BeatSnapshot(40L, 0, "Character runs", MotionIntent.AI_VIDEO))))));
+    when(visualPromptContextRepository.findForScene(1L, 30L))
+        .thenReturn(
+            new VisualPromptContext(
+                new LocationCanon(80L, "Old apartment", "small aging apartment", "warm dim apartment"),
+                List.of(
+                    new CharacterCanon(
+                        90L,
+                        91L,
+                        "Lan",
+                        3,
+                        "Vietnamese woman with oval face and shoulder-length black hair",
+                        "beige cardigan and white blouse",
+                        "mid twenties",
+                        "shoulder-length straight black hair",
+                        null,
+                        "beige cardigan and white blouse"))));
     when(mediaPlanRepository.nextRevision(10L)).thenReturn(3);
     when(mediaPlanRepository.save(any(MediaPlan.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
@@ -75,18 +99,27 @@ class CreateMediaPlanUseCaseTest {
                 null,
                 ImageStyle.CINEMATIC));
 
+    var beat = plan.scenes().getFirst().beats().getFirst();
     assertThat(plan.chapterId()).isEqualTo(10L);
     assertThat(plan.chapterRowVersion()).isEqualTo(7L);
     assertThat(plan.sourceHash()).isEqualTo("source-hash");
     assertThat(plan.revision()).isEqualTo(3);
     assertThat(plan.productionMode()).isEqualTo(ProductionMode.HYBRID_LOCAL_I2V);
-    assertThat(plan.scenes().getFirst().beats().getFirst().motionStrategy())
-        .isEqualTo(MotionStrategy.IMAGE_TO_VIDEO);
-    assertThat(plan.scenes().getFirst().beats().getFirst().promptSnapshot())
+    assertThat(beat.motionStrategy()).isEqualTo(MotionStrategy.IMAGE_TO_VIDEO);
+    assertThat(beat.promptTemplateVersion()).isEqualTo("prompt-v3-cinematic");
+    assertThat(beat.promptSnapshot())
         .contains("GLOBAL VISUAL STYLE: cinematic visual storytelling")
-        .contains("SCENE DESCRIPTION: Character runs");
-    assertThat(plan.scenes().getFirst().beats().getFirst().negativePrompt())
-        .contains("inconsistent face");
+        .contains("SCENE DESCRIPTION: Character runs")
+        .contains("LOCATION CONTINUITY: Old apartment")
+        .contains("CHARACTER CONTINUITY")
+        .contains("Lan")
+        .contains("shoulder-length black hair")
+        .contains("beige cardigan and white blouse");
+    assertThat(beat.characterSnapshotJson())
+        .contains("\"canonicalName\":\"Lan\"")
+        .contains("\"versionNumber\":3")
+        .contains("\"appearancePrompt\":\"beige cardigan and white blouse\"");
+    assertThat(beat.negativePrompt()).contains("inconsistent face");
     assertThat(plan.workload().narrationCharacters()).isEqualTo(5);
     assertThat(plan.workload().imageGenerateCount()).isEqualTo(1);
     assertThat(plan.workload().plannedI2vSeconds()).isEqualTo(8);
@@ -99,13 +132,16 @@ class CreateMediaPlanUseCaseTest {
     var chapterSourceAccess = mock(ChapterAnalysisSourceAccess.class);
     var mediaPlanningSourceAccess = mock(MediaPlanningSourceAccess.class);
     var mediaPlanRepository = mock(MediaPlanRepository.class);
+    var visualPromptContextRepository = mock(VisualPromptContextRepository.class);
     var useCase =
         new CreateMediaPlanUseCase(
             currentUserId,
             chapterSourceAccess,
             mediaPlanningSourceAccess,
             mediaPlanRepository,
-            new MotionStrategyResolver(new DefaultMotionExecutionPolicy()));
+            new MotionStrategyResolver(new DefaultMotionExecutionPolicy()),
+            visualPromptContextRepository,
+            new VisualPromptComposer());
 
     when(currentUserId.get()).thenReturn("user-1");
     when(chapterSourceAccess.requireOwnedForAnalysisLocked(1L, 10L, "user-1"))
@@ -120,6 +156,8 @@ class CreateMediaPlanUseCaseTest {
                         "Hello",
                         8,
                         List.of(new BeatSnapshot(40L, 0, "Character runs", MotionIntent.STILL))))));
+    when(visualPromptContextRepository.findForScene(1L, 30L))
+        .thenReturn(VisualPromptContext.empty());
     when(mediaPlanRepository.nextRevision(10L)).thenReturn(1);
     when(mediaPlanRepository.save(any(MediaPlan.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
@@ -144,5 +182,7 @@ class CreateMediaPlanUseCaseTest {
     assertThat(plan.narrationAlignmentRunId()).isNull();
     assertThat(plan.scenes().getFirst().beats().getFirst().motionStrategy())
         .isEqualTo(MotionStrategy.BASIC_IMAGE_MOTION);
+    assertThat(plan.scenes().getFirst().beats().getFirst().characterSnapshotJson())
+        .isEqualTo("{\"characters\":[]}");
   }
 }
