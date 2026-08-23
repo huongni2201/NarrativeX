@@ -8,7 +8,8 @@ on:
       - 'app/backend-service/**'
       - 'app/frontend-web/**'
       - 'app/ai-worker/**'
-      - 'docker-compose.yml'
+      - 'docker-compose.real.yml'
+      - 'docker-compose.ci.yml'
       - 'docker-compose.prod.yml'
       - 'Caddyfile.prod'
       - '.env.example'
@@ -22,7 +23,8 @@ on:
       - 'app/backend-service/**'
       - 'app/frontend-web/**'
       - 'app/ai-worker/**'
-      - 'docker-compose.yml'
+      - 'docker-compose.real.yml'
+      - 'docker-compose.ci.yml'
       - 'docker-compose.prod.yml'
       - 'Caddyfile.prod'
       - '.env.example'
@@ -47,11 +49,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Validate local Compose config
-        run: docker compose --env-file .env.example -f docker-compose.yml config --quiet
+      - name: Validate CI Compose config
+        run: docker compose --env-file .env.example -f docker-compose.ci.yml config --quiet
+
+      - name: Validate real Docker Compose config
+        run: >-
+          GCP_SERVICE_ACCOUNT_FILE=/tmp/ci-gcp-service-account.json
+          VIENEU_REFERENCE_AUDIO_FILE=/tmp/ci-reference.wav
+          docker compose --env-file .env.example -f docker-compose.real.yml config --quiet
 
       - name: Validate production Compose config
-        run: docker compose --env-file .env.prod.example -f docker-compose.prod.yml config --quiet
+        run: >-
+          CLOUDFLARE_TUNNEL_TOKEN=ci-placeholder
+          docker compose --env-file .env.example -f docker-compose.prod.yml config --quiet
 
       - name: Validate image config contract
         run: python scripts/check-image-config-contract.py

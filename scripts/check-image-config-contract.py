@@ -5,6 +5,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 COMPOSE = (ROOT / "docker-compose.prod.yml").read_text(encoding="utf-8")
+REAL_COMPOSE = (ROOT / "docker-compose.real.yml").read_text(encoding="utf-8")
 ENV = (ROOT / ".env.example").read_text(encoding="utf-8")
 BACKEND_ENV = (ROOT / "app" / "backend-service" / ".env.example").read_text(encoding="utf-8")
 
@@ -30,6 +31,18 @@ REQUIRED_ENV = (
 )
 
 errors = [f"docker-compose.prod.yml: {value}" for value in REQUIRED_COMPOSE if value not in COMPOSE]
+errors += [
+    f"docker-compose.real.yml: {value}"
+    for value in (
+        "SPRING_PROFILES_ACTIVE: prod",
+        "WORKER_ENV: production",
+        "AI_PROVIDER_MODE: vertex",
+        "IMAGE_PROVIDER_MODE: vertex",
+        "MEDIA_STORAGE_MODE: r2",
+        "NEXT_PUBLIC_NX_DATA_MODE: api",
+    )
+    if value not in REAL_COMPOSE
+]
 errors += [f".env.example: {value}" for value in REQUIRED_ENV if value not in ENV]
 errors += [
     f"app/backend-service/.env.example: {value}"

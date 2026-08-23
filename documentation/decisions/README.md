@@ -28,6 +28,9 @@ Architectural decisions across NarrativeX are maintained in the following canoni
 6. **[ADR-0019: Architecture guards and pipeline observability](./ADR-0019-architecture-guards-and-pipeline-observability.md)**
    - *Scope:* ArchUnit dependency boundaries, stable worker repository facades, cross-stage pipeline metrics, correlation fields, and final-artifact streaming counters.
 
+7. **[ADR-0020: Production-profile Docker runtime for real machine-local execution](./ADR-0020-real-docker-runtime.md)**
+   - *Scope:* Production provider/storage semantics inside Docker on a developer-owned machine, with fake/local adapters restricted to tests and Storybook.
+
 ---
 
-Use sequential ADR numbers (`ADR-0005+`) for future cross-cutting architectural decisions.
+Use the next sequential ADR number for future cross-cutting architectural decisions.

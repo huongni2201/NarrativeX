@@ -17,7 +17,7 @@ server:
       cookie:
         name: NX_SESSION
         http-only: true
-        secure: true
+        secure: ${NARRATIVEX_SESSION_COOKIE_SECURE:true}
         same-site: lax
 
 narrativex:

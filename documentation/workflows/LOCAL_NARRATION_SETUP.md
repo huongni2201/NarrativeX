@@ -1,18 +1,18 @@
-# Local narration setup
+# Machine-local real narration setup
 
-The local demo account is assigned to `PRO` entitlement version `1`. The local
-Flyway migration `V2__seed_demo_data.sql` enables the `narration` feature
-flag for that seeded plan without changing production entitlement data.
+The machine-local Docker runtime uses the `prod` Spring profile and real provider
+semantics. It does not use the developer identity fallback or demo entitlement data.
 
-The local `.env` uses `TTS_PROVIDER_MODE=vieneu` and `MEDIA_STORAGE_MODE=r2`.
-VieNeu can use the READY user-uploaded MP3 reference per narration request, so a
-static `VIENEU_REFERENCE_AUDIO_PATH` is optional for this flow.
+The real compose runtime uses `TTS_PROVIDER_MODE=vieneu` and
+`MEDIA_STORAGE_MODE=r2`. Set `VIENEU_REFERENCE_AUDIO_FILE` to a consented WAV
+reference on the host and configure the R2 credentials before starting.
 
-After changing local configuration or migrations, rebuild the backend and worker:
+After changing configuration or migrations, rebuild the backend and narration worker:
 
 ```powershell
-docker compose up -d --build backend ai-worker
+docker compose --env-file .env.prod -f docker-compose.real.yml up -d --build backend narration-worker
 ```
 
 Check the worker logs for `Narration worker configuration verified` and retry the
-narration request. Do not apply this local entitlement migration to production.
+narration request. A production worker rejects fake, disabled and local narration
+configuration at startup.

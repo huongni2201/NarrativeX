@@ -147,6 +147,28 @@ def test_disabled_image_provider_does_not_require_batch_bucket() -> None:
     assert settings.vertex_image_batch_gcs_bucket is None
 
 
+def test_production_image_worker_rejects_disabled_provider() -> None:
+    with pytest.raises(ValidationError, match="IMAGE_PROVIDER_MODE=vertex"):
+        WorkerSettings(worker_env="production", worker_roles="image-generation")
+
+
+def test_production_image_worker_accepts_real_provider_and_r2() -> None:
+    settings = WorkerSettings(
+        worker_env="production",
+        worker_roles="image-generation",
+        image_provider_mode="vertex",
+        vertex_project_id="project-123",
+        vertex_image_batch_gcs_bucket="image-batches",
+        media_storage_mode="r2",
+        r2_account_id="account-123",
+        r2_access_key_id="access-key",
+        r2_secret_access_key="secret-key",
+    )
+
+    assert settings.image_provider_mode == "vertex"
+    assert settings.media_storage_mode == "r2"
+
+
 @pytest.mark.parametrize("execution_mode", ["online", "auto"])
 def test_non_batch_vertex_execution_modes_are_rejected(execution_mode: str) -> None:
     with pytest.raises(ValidationError, match="batch"):

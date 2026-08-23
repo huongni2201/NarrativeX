@@ -76,7 +76,7 @@ The provider result is validated with Pydantic before persistence. Current analy
 
 ### Vertex Gemini
 
-`AI_PROVIDER_MODE=vertex` enables the Vertex Gemini adapter. Authentication uses Google Application Default Credentials/workload identity. Provider credentials must never come from the browser or be baked into the image.
+`AI_PROVIDER_MODE=vertex` enables the Vertex Gemini adapter. Authentication uses Google Application Default Credentials/workload identity. Provider credentials must never come from the browser or be baked into the image. A worker with `WORKER_ENV=production` and the `image-generation` role must use `IMAGE_PROVIDER_MODE=vertex` and `MEDIA_STORAGE_MODE=r2`; fake, disabled and local adapters are rejected at startup.
 
 External provider execution follows an at-most-once submission fence:
 
