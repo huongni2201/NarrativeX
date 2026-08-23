@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class NarrationRequestFingerprint {
   public String calculate(
-      Long chapterId,
+      UUID chapterId,
       long chapterRowVersion,
       String sourceHash,
       String voiceId,
@@ -30,7 +30,7 @@ public class NarrationRequestFingerprint {
   }
 
   public String calculate(
-      Long chapterId,
+      UUID chapterId,
       long chapterRowVersion,
       String sourceHash,
       String voiceId,
