@@ -87,6 +87,10 @@ public class CreateChapterRenderUseCase {
             + ":"
             + chapter.sourceHash()
             + ":"
+            + command.mediaPlanId()
+            + ":"
+            + command.mediaPlanRevision()
+            + ":"
             + command.resolution()
             + ":"
             + command.format();
