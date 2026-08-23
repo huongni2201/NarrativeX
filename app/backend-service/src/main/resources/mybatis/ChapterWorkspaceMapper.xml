@@ -12,6 +12,10 @@
         <result property="visualGenerationFailed" column="visual_generation_failed"/><result property="visualGenerationRunning" column="visual_generation_running"/>
         <result property="visualGenerationQueued" column="visual_generation_queued"/><result property="visualGenerationStalled" column="visual_generation_stalled"/>
         <result property="visualGenerationUnknown" column="visual_generation_unknown"/><result property="visualGenerationPaused" column="visual_generation_paused"/>
+        <result property="visualGenerationLatestJobId" column="visual_generation_latest_job_id"/>
+        <result property="visualGenerationMediaPlanId" column="visual_generation_media_plan_id"
+                typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler"/>
+        <result property="visualGenerationMediaPlanRevision" column="visual_generation_media_plan_revision"/>
         <result property="narrationAssetReady" column="narration_asset_ready"/>
         <result property="narrationJobStatus" column="narration_job_status"/><result property="narrationCompletedAt" column="narration_completed_at"/>
         <result property="narrationStorageKey" column="narration_storage_key"/><result property="narrationDurationMs" column="narration_duration_ms"/>
@@ -56,19 +60,24 @@
                  WHERE s.status = 'APPROVED'
                     OR EXISTS (SELECT 1 FROM visual_beats vb WHERE vb.scene_id = s.id AND vb.review_status = 'APPROVED')
             ) AS has_approved_output
-        ), current_media_plan AS (
-            SELECT cr.*, mp.id AS media_plan_id, mp.revision AS media_plan_revision
+        ), current_media_job AS (
+            SELECT cr.*,
+                   gj.id AS media_generation_job_id,
+                   gj.job_id AS media_generation_job_key,
+                   gj.media_plan_id,
+                   gj.media_plan_revision,
+                   gj.status AS media_generation_status
               FROM current_revision cr
-              LEFT JOIN LATERAL (
-                  SELECT mp.id, mp.revision
-                    FROM media_plans mp
-                   WHERE mp.chapter_id = cr.chapter_id
-                     AND mp.chapter_row_version = cr.chapter_row_version
-                     AND mp.source_hash = cr.source_hash
-                     AND mp.storyboard_revision_id = cr.revision_id
-                   ORDER BY mp.revision DESC, mp.created_at DESC
-                   LIMIT 1
-              ) mp ON TRUE
+              LEFT JOIN chapter_media_heads cmh ON cmh.chapter_id = cr.chapter_id
+              LEFT JOIN generation_jobs gj
+                ON gj.id = cmh.generation_job_id
+               AND gj.chapter_id = cr.chapter_id
+               AND gj.job_type IN ('IMAGE_GENERATE','SHOT_IMAGE_GENERATE')
+               AND gj.chapter_row_version = cr.chapter_row_version
+               AND gj.source_hash = cr.source_hash
+               AND gj.storyboard_revision_id = cr.revision_id
+               AND gj.media_plan_id IS NOT NULL
+               AND gj.media_plan_revision IS NOT NULL
         ), latest_analysis AS (
             SELECT gj.status, gj.source_hash,
                    CASE WHEN gj.status = 'COMPLETED' THEN gj.updated_at ELSE NULL END AS completed_at
@@ -83,26 +92,16 @@
                    ORDER BY gj.created_at DESC, gj.id DESC
                    LIMIT 1
               ) gj ON TRUE
-        ), current_visual_jobs AS (
-            SELECT gj.*
-              FROM current_media_plan cmp JOIN generation_jobs gj
-                ON gj.chapter_id = cmp.chapter_id
-               AND gj.job_type IN ('IMAGE_GENERATE','SHOT_IMAGE_GENERATE')
-               AND gj.chapter_row_version = cmp.chapter_row_version
-               AND gj.source_hash = cmp.source_hash
-               AND gj.storyboard_revision_id = cmp.revision_id
-               AND (cmp.media_plan_id IS NULL
-                    OR (gj.media_plan_id = cmp.media_plan_id AND gj.media_plan_revision = cmp.media_plan_revision))
         ), visual_generation AS (
-            SELECT COUNT(*)::int AS total,
-                   COUNT(*) FILTER (WHERE status = 'COMPLETED')::int AS completed,
-                   COUNT(*) FILTER (WHERE status = 'FAILED')::int AS failed,
-                   COUNT(*) FILTER (WHERE status = 'RUNNING')::int AS running,
-                   COUNT(*) FILTER (WHERE status = 'QUEUED')::int AS queued,
-                   COUNT(*) FILTER (WHERE status = 'STALLED')::int AS stalled,
-                   COUNT(*) FILTER (WHERE status = 'UNKNOWN')::int AS unknown,
-                   COUNT(*) FILTER (WHERE status = 'PAUSED_COST_LIMIT')::int AS paused
-              FROM current_visual_jobs
+            SELECT CASE WHEN cmj.media_generation_job_id IS NULL THEN 0 ELSE 1 END::int AS total,
+                   CASE WHEN cmj.media_generation_status = 'COMPLETED' THEN 1 ELSE 0 END::int AS completed,
+                   CASE WHEN cmj.media_generation_status = 'FAILED' THEN 1 ELSE 0 END::int AS failed,
+                   CASE WHEN cmj.media_generation_status = 'RUNNING' THEN 1 ELSE 0 END::int AS running,
+                   CASE WHEN cmj.media_generation_status = 'QUEUED' THEN 1 ELSE 0 END::int AS queued,
+                   CASE WHEN cmj.media_generation_status = 'STALLED' THEN 1 ELSE 0 END::int AS stalled,
+                   CASE WHEN cmj.media_generation_status = 'UNKNOWN' THEN 1 ELSE 0 END::int AS unknown,
+                   CASE WHEN cmj.media_generation_status = 'PAUSED_COST_LIMIT' THEN 1 ELSE 0 END::int AS paused
+              FROM current_media_job cmj
         ), latest_narration AS (
             SELECT na.id AS narration_asset_id, op.status AS job_status,
                    pa.storage_key AS narration_storage_key, na.duration_ms AS narration_duration_ms,
@@ -135,16 +134,15 @@
               LEFT JOIN project_assets pa ON pa.id = na.project_asset_id
         ), latest_render_manifest AS (
             SELECT rm.id, rm.created_at
-              FROM current_media_plan cmp
+              FROM current_media_job cmj
               LEFT JOIN LATERAL (
                   SELECT rm.id, rm.created_at
                     FROM render_manifests rm
-                   WHERE rm.chapter_id = cmp.chapter_id
-                     AND rm.chapter_row_version = cmp.chapter_row_version
-                     AND rm.source_hash = cmp.source_hash
-                     AND (cmp.media_plan_id IS NULL
-                          OR (rm.media_plan_id = cmp.media_plan_id
-                              AND rm.media_plan_revision = cmp.media_plan_revision))
+                   WHERE rm.chapter_id = cmj.chapter_id
+                     AND rm.chapter_row_version = cmj.chapter_row_version
+                     AND rm.source_hash = cmj.source_hash
+                     AND rm.media_plan_id = cmj.media_plan_id
+                     AND rm.media_plan_revision = cmj.media_plan_revision
                    ORDER BY rm.created_at DESC, rm.id DESC
                    LIMIT 1
               ) rm ON TRUE
@@ -163,17 +161,17 @@
               ) fa ON TRUE
         ), latest_render_job AS (
             SELECT gj.id AS job_id, gj.status AS job_status
-              FROM current_media_plan cmp
+              FROM current_media_job cmj
               LEFT JOIN LATERAL (
                   SELECT gj.id, gj.status
                     FROM generation_jobs gj
                    WHERE gj.id = (SELECT generation_job_id FROM latest_render_artifact)
-                      OR (gj.chapter_id = cmp.chapter_id
+                      OR (gj.chapter_id = cmj.chapter_id
                           AND gj.job_type IN ('CHAPTER_RENDER','RENDER_PROJECT','RENDER_SHORT')
-                          AND gj.chapter_row_version = cmp.chapter_row_version
-                          AND gj.source_hash = cmp.source_hash
-                          AND (cmp.media_plan_id IS NULL
-                               OR (gj.media_plan_id = cmp.media_plan_id AND gj.media_plan_revision = cmp.media_plan_revision)))
+                          AND gj.chapter_row_version = cmj.chapter_row_version
+                          AND gj.source_hash = cmj.source_hash
+                          AND gj.media_plan_id = cmj.media_plan_id
+                          AND gj.media_plan_revision = cmj.media_plan_revision)
                    ORDER BY CASE WHEN gj.id = (SELECT generation_job_id FROM latest_render_artifact) THEN 0 ELSE 1 END,
                             gj.created_at DESC, gj.id DESC
                    LIMIT 1
@@ -186,6 +184,9 @@
                vg.failed AS visual_generation_failed, vg.running AS visual_generation_running,
                vg.queued AS visual_generation_queued, vg.stalled AS visual_generation_stalled,
                vg.unknown AS visual_generation_unknown, vg.paused AS visual_generation_paused,
+               cmj.media_generation_job_key AS visual_generation_latest_job_id,
+               cmj.media_plan_id AS visual_generation_media_plan_id,
+               cmj.media_plan_revision AS visual_generation_media_plan_revision,
                (SELECT narration_asset_id IS NOT NULL FROM latest_narration) AS narration_asset_ready,
                (SELECT job_status FROM latest_narration) AS narration_job_status,
                (SELECT completed_at FROM latest_narration) AS narration_completed_at,
@@ -197,8 +198,8 @@
                (SELECT job_id::text FROM latest_render_job) AS render_job_id,
                (SELECT artifact_id FROM latest_render_artifact) AS render_artifact_id,
                (SELECT completed_at FROM latest_render_artifact) AS render_completed_at
-          FROM current_chapter cc CROSS JOIN current_revision cr CROSS JOIN scene_stats ss CROSS JOIN beat_stats bs
-          CROSS JOIN visual_generation vg
+          FROM current_chapter cc CROSS JOIN current_revision cr CROSS JOIN current_media_job cmj
+          CROSS JOIN scene_stats ss CROSS JOIN beat_stats bs CROSS JOIN visual_generation vg
           CROSS JOIN approval_state aps LEFT JOIN latest_analysis la ON TRUE
     </select>
 
