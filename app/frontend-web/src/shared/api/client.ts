@@ -2,12 +2,14 @@ import type { ApiDataGuard, ApiFieldError, ErrorResponse } from "@/types/api";
 import { isApiResponse, isErrorResponse } from "@/types/api";
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+export const DEFAULT_API_TIMEOUT_MS = 30_000;
 
 interface ApiRequestInit extends Omit<RequestInit, "body"> {
   json?: unknown;
   body?: BodyInit;
   parseJson?: boolean;
   notifyUnauthorized?: boolean;
+  timeoutMs?: number;
 }
 
 interface CsrfTokenResponse {
@@ -47,6 +49,16 @@ export class ApiProtocolError extends Error {
     this.name = "ApiProtocolError";
     this.path = path;
     this.payload = payload;
+  }
+}
+
+export class ApiRequestTimeoutError extends Error {
+  readonly timeoutMs: number;
+
+  constructor(timeoutMs: number) {
+    super(`Request timed out after ${timeoutMs}ms.`);
+    this.name = "ApiRequestTimeoutError";
+    this.timeoutMs = timeoutMs;
   }
 }
 
@@ -109,8 +121,44 @@ async function parseSuccessPayload(response: Response, path: string): Promise<un
   }
 }
 
+async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+  timeoutMs: number = DEFAULT_API_TIMEOUT_MS,
+): Promise<Response> {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    throw new RangeError("timeoutMs must be a positive finite number.");
+  }
+
+  const controller = new AbortController();
+  const callerSignal = init.signal;
+  let timedOut = false;
+
+  const abortFromCaller = () => controller.abort(callerSignal?.reason);
+  if (callerSignal?.aborted) {
+    abortFromCaller();
+  } else {
+    callerSignal?.addEventListener("abort", abortFromCaller, { once: true });
+  }
+
+  const timeoutHandle = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (timedOut) throw new ApiRequestTimeoutError(timeoutMs);
+    throw error;
+  } finally {
+    clearTimeout(timeoutHandle);
+    callerSignal?.removeEventListener("abort", abortFromCaller);
+  }
+}
+
 async function loadCsrfToken(): Promise<CsrfTokenResponse> {
-  const response = await fetch(apiUrl("/api/v1/auth/csrf"), {
+  const response = await fetchWithTimeout(apiUrl("/api/v1/auth/csrf"), {
     headers: { Accept: "application/json" },
     credentials: "include",
   });
@@ -141,6 +189,7 @@ export async function apiRequest<T>(
     body,
     parseJson = true,
     notifyUnauthorized: notifyUnauthorizedOn401 = true,
+    timeoutMs = DEFAULT_API_TIMEOUT_MS,
     headers: initialHeaders,
     ...requestInit
   } = init;
@@ -159,6 +208,7 @@ export async function apiRequest<T>(
       headers,
       parseJson,
       notifyUnauthorizedOn401,
+      timeoutMs,
       dataGuard,
     );
   }
@@ -169,6 +219,7 @@ export async function apiRequest<T>(
     headers,
     parseJson,
     notifyUnauthorizedOn401,
+    timeoutMs,
     dataGuard,
   );
 }
@@ -179,6 +230,7 @@ async function sendRequest<T>(
   headers: Headers,
   parseJson: boolean,
   notifyUnauthorizedOn401: boolean,
+  timeoutMs: number,
   dataGuard?: ApiDataGuard<T>,
 ): Promise<T> {
   const method = (requestInit.method || "GET").toUpperCase();
@@ -187,11 +239,15 @@ async function sendRequest<T>(
     headers.set(token.headerName, token.token);
   }
 
-  const response = await fetch(apiUrl(path), {
-    ...requestInit,
-    headers,
-    credentials: "include",
-  });
+  const response = await fetchWithTimeout(
+    apiUrl(path),
+    {
+      ...requestInit,
+      headers,
+      credentials: "include",
+    },
+    timeoutMs,
+  );
 
   if (!response.ok) {
     const errorResponse = await parseErrorResponse(response);
@@ -208,7 +264,13 @@ async function sendRequest<T>(
 }
 
 export function apiErrorMessage(error: unknown, fallback: string) {
-  if (error instanceof ApiClientError || error instanceof ApiProtocolError) return error.message;
+  if (
+    error instanceof ApiClientError ||
+    error instanceof ApiProtocolError ||
+    error instanceof ApiRequestTimeoutError
+  ) {
+    return error.message;
+  }
   if (error instanceof Error && error.message) return error.message;
   return fallback;
 }
