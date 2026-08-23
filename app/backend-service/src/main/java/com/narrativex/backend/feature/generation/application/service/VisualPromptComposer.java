@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
@@ -27,6 +28,11 @@ public class VisualPromptComposer {
 
   public ComposedVisualPrompt compose(
       ImageStyle style, String visualIntent, VisualPromptContext context) {
+    return compose(style, visualIntent, null, context);
+  }
+
+  public ComposedVisualPrompt compose(
+      ImageStyle style, String visualIntent, String cameraAngle, VisualPromptContext context) {
     if (style == null) {
       throw new IllegalArgumentException("style must not be null");
     }
@@ -37,6 +43,7 @@ public class VisualPromptComposer {
     Set<UUID> selectedReferenceIds = selectReferenceIds(safeContext.characters());
 
     StringBuilder prompt = new StringBuilder(style.promptFor(visualIntent));
+    appendCameraFraming(prompt, cameraAngle);
     appendLocation(prompt, safeContext.location());
     appendCharacters(prompt, safeContext.characters());
     if (!selectedReferenceIds.isEmpty()) {
@@ -56,13 +63,32 @@ public class VisualPromptComposer {
         characterSnapshotJson(safeContext.characters(), selectedReferenceIds));
   }
 
+  private static void appendCameraFraming(StringBuilder prompt, String cameraAngle) {
+    if (cameraAngle == null || cameraAngle.isBlank()) {
+      return;
+    }
+    String normalized = cameraAngle.trim().toUpperCase(Locale.ROOT);
+    String instruction =
+        switch (normalized) {
+          case "WIDE" -> "wide shot; establish subject and environment clearly";
+          case "MEDIUM" -> "medium shot; balance subject performance with surrounding context";
+          case "CLOSE_UP" -> "close-up; prioritize face, expression, or the key story detail";
+          case "EXTREME_CLOSE_UP" -> "extreme close-up; isolate one critical facial or object detail";
+          case "LOW_ANGLE" -> "low-angle view; camera below the subject looking upward";
+          case "HIGH_ANGLE" -> "high-angle view; camera above the subject looking downward";
+          case "OVER_THE_SHOULDER" -> "over-the-shoulder framing with a clear foreground shoulder anchor";
+          case "POV" -> "first-person point-of-view from the story character's position";
+          default -> throw new IllegalArgumentException("Unsupported cameraAngle: " + cameraAngle);
+        };
+    prompt.append("\nCAMERA FRAMING: ").append(instruction).append('.');
+  }
+
   private static Set<UUID> selectReferenceIds(List<CharacterCanon> characters) {
     LinkedHashSet<UUID> selected = new LinkedHashSet<>();
     if (characters == null || characters.isEmpty()) {
       return selected;
     }
 
-    // Give each character one identity anchor before any character gets a second image.
     for (CharacterCanon character : characters) {
       sortedReferences(character).stream()
           .findFirst()
@@ -72,7 +98,6 @@ public class VisualPromptComposer {
       }
     }
 
-    // Fill remaining capacity with the next highest-priority references.
     for (CharacterCanon character : characters) {
       for (CharacterReference reference : sortedReferences(character)) {
         addReference(selected, reference);
