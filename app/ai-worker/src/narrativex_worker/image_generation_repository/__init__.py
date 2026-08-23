@@ -15,6 +15,7 @@ from narrativex_worker.image_generation_repository.implementation import (
 )
 from narrativex_worker.media_repository import DurableMediaResult
 from narrativex_worker.providers.image import ImageBatchItem, ImageReference
+from narrativex_worker.schema import ProviderOperationStatus
 
 
 class ImageGenerationRepository(ImageGenerationRepositoryImplementation):
@@ -88,6 +89,67 @@ class ImageGenerationRepository(ImageGenerationRepositoryImplementation):
             operation_id,
         )
         return {row["item_key"]: row["character_snapshot_json"] for row in rows}
+
+    async def mark_submitted(
+        self,
+        operation: DurableImageOperation,
+        provider_operation_id: str | None,
+        status: ProviderOperationStatus,
+    ) -> DurableImageOperation:
+        """Persist non-terminal provider progress without regressing durable state.
+
+        Reconciliation may report the same state repeatedly. A stale SUBMITTED response after
+        RUNNING has already been persisted must not move the durable operation backwards.
+        """
+        if status not in {
+            ProviderOperationStatus.SUBMITTED,
+            ProviderOperationStatus.RUNNING,
+        }:
+            raise ValueError(f"invalid submitted status: {status}")
+
+        row = await self._require_pool().fetchrow(
+            """
+            UPDATE provider_operations
+               SET status = CASE
+                       WHEN status = 'RUNNING' AND $2 = 'SUBMITTED' THEN 'RUNNING'
+                       ELSE $2
+                   END,
+                   provider_operation_id = COALESCE(provider_operation_id, $3),
+                   next_reconcile_at = CURRENT_TIMESTAMP + INTERVAL '15 seconds',
+                   last_reconcile_error = NULL,
+                   updated_at = CURRENT_TIMESTAMP,
+                   row_version = row_version + 1
+             WHERE id = $1
+               AND status IN ('RESERVED', 'UNKNOWN', 'SUBMITTED', 'RUNNING')
+               AND row_version = $4
+               AND (provider_operation_id IS NULL OR $3::text IS NULL OR provider_operation_id = $3)
+               AND (
+                   ($5::text IS NULL AND $6::uuid IS NULL)
+                   OR EXISTS (
+                       SELECT 1
+                         FROM stage_attempts sa
+                        WHERE sa.id = provider_operations.stage_attempt_id
+                          AND sa.worker_id = $5
+                          AND sa.lease_token = $6::uuid
+                          AND sa.status = 'RUNNING'
+                   )
+               )
+            RETURNING id, stage_attempt_id, provider_key, request_fingerprint,
+                      provider_operation_id, status, row_version
+            """,
+            operation.id,
+            status.value,
+            provider_operation_id,
+            operation.row_version,
+            operation.worker_id,
+            operation.lease_token,
+        )
+        if row is None:
+            raise ImageGenerationLeaseLostError(
+                "Image provider operation changed, provider id conflicted, or lease was lost "
+                "before provider progress was persisted"
+            )
+        return self._operation(row, operation.items, owner=operation)
 
     async def fail_provider_operation(
         self, operation: DurableImageOperation, error_code: str
