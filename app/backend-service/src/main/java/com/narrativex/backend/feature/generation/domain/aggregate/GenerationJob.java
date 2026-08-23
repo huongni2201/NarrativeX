@@ -11,7 +11,7 @@ import java.util.UUID;
 /** Durable generation job aggregate. */
 public final class GenerationJob extends AggregateRoot {
   private final String jobId;
-  private final Long projectId;
+  private final UUID projectId;
   private final JobType type;
   private JobStatus status;
   private final ResourceClass resourceClass;
@@ -20,9 +20,9 @@ public final class GenerationJob extends AggregateRoot {
   private final String errorCode;
   private final String requestedByUserId;
   private final String billedToUserId;
-  private final Long storyVersionId;
-  private final Long chapterId;
-  private final Long storyboardRevisionId;
+  private final UUID storyVersionId;
+  private final UUID chapterId;
+  private final UUID storyboardRevisionId;
   private final Long chapterRowVersion;
   private final String sourceHash;
   private final String sourceText;
@@ -39,7 +39,7 @@ public final class GenerationJob extends AggregateRoot {
       Long id,
       long rowVersion,
       String jobId,
-      Long projectId,
+      UUID projectId,
       JobType type,
       JobStatus status,
       ResourceClass resourceClass,
@@ -48,9 +48,9 @@ public final class GenerationJob extends AggregateRoot {
       String errorCode,
       String requestedByUserId,
       String billedToUserId,
-      Long storyVersionId,
-      Long chapterId,
-      Long storyboardRevisionId,
+      UUID storyVersionId,
+      UUID chapterId,
+      UUID storyboardRevisionId,
       Long chapterRowVersion,
       String sourceHash,
       String sourceText,
@@ -92,7 +92,7 @@ public final class GenerationJob extends AggregateRoot {
       Long id,
       long rowVersion,
       String jobId,
-      Long projectId,
+      UUID projectId,
       JobType type,
       JobStatus status,
       ResourceClass resourceClass,
@@ -101,9 +101,9 @@ public final class GenerationJob extends AggregateRoot {
       String errorCode,
       String requestedByUserId,
       String billedToUserId,
-      Long storyVersionId,
-      Long chapterId,
-      Long storyboardRevisionId,
+      UUID storyVersionId,
+      UUID chapterId,
+      UUID storyboardRevisionId,
       Long chapterRowVersion,
       String sourceHash,
       String sourceText,
@@ -117,10 +117,7 @@ public final class GenerationJob extends AggregateRoot {
       String targetLanguage) {
     super(id, rowVersion);
     this.jobId = required(jobId, "jobId");
-    if (projectId == null || projectId <= 0) {
-      throw new IllegalArgumentException("projectId must be positive");
-    }
-    this.projectId = projectId;
+    this.projectId = Objects.requireNonNull(projectId, "projectId");
     this.type = Objects.requireNonNull(type, "type");
     this.status = Objects.requireNonNull(status, "status");
     this.resourceClass = Objects.requireNonNull(resourceClass, "resourceClass");
@@ -150,7 +147,7 @@ public final class GenerationJob extends AggregateRoot {
   }
 
   public static GenerationJob create(
-      Long projectId, JobType type, ResourceClass resourceClass, String userId) {
+      UUID projectId, JobType type, ResourceClass resourceClass, String userId) {
     return new GenerationJob(
         null,
         0L,
@@ -178,10 +175,10 @@ public final class GenerationJob extends AggregateRoot {
   }
 
   public static GenerationJob createChapterAnalysis(
-      Long projectId,
-      Long storyVersionId,
-      Long chapterId,
-      Long storyboardRevisionId,
+      UUID projectId,
+      UUID storyVersionId,
+      UUID chapterId,
+      UUID storyboardRevisionId,
       long chapterRowVersion,
       String sourceHash,
       String sourceText,
@@ -203,10 +200,10 @@ public final class GenerationJob extends AggregateRoot {
   }
 
   public static GenerationJob createChapterAnalysis(
-      Long projectId,
-      Long storyVersionId,
-      Long chapterId,
-      Long storyboardRevisionId,
+      UUID projectId,
+      UUID storyVersionId,
+      UUID chapterId,
+      UUID storyboardRevisionId,
       long chapterRowVersion,
       String sourceHash,
       String sourceText,
@@ -214,15 +211,9 @@ public final class GenerationJob extends AggregateRoot {
       String idempotencyKey,
       String userId,
       Long contentVariantId) {
-    if (storyVersionId == null || storyVersionId <= 0) {
-      throw new IllegalArgumentException("storyVersionId must be positive");
-    }
-    if (chapterId == null || chapterId <= 0) {
-      throw new IllegalArgumentException("chapterId must be positive");
-    }
-    if (storyboardRevisionId == null || storyboardRevisionId <= 0) {
-      throw new IllegalArgumentException("storyboardRevisionId must be positive");
-    }
+    Objects.requireNonNull(storyVersionId, "storyVersionId");
+    Objects.requireNonNull(chapterId, "chapterId");
+    Objects.requireNonNull(storyboardRevisionId, "storyboardRevisionId");
     if (chapterRowVersion < 0) {
       throw new IllegalArgumentException("chapterRowVersion must not be negative");
     }
@@ -256,9 +247,9 @@ public final class GenerationJob extends AggregateRoot {
   }
 
   public static GenerationJob createChapterTranslation(
-      Long projectId,
-      Long storyVersionId,
-      Long chapterId,
+      UUID projectId,
+      UUID storyVersionId,
+      UUID chapterId,
       Long sourceVariantId,
       long chapterRowVersion,
       String sourceHash,
@@ -267,6 +258,8 @@ public final class GenerationJob extends AggregateRoot {
       String targetLanguage,
       String idempotencyKey,
       String userId) {
+    Objects.requireNonNull(storyVersionId, "storyVersionId");
+    Objects.requireNonNull(chapterId, "chapterId");
     return new GenerationJob(
         null,
         0L,
@@ -298,17 +291,15 @@ public final class GenerationJob extends AggregateRoot {
 
   /** Creates a media job that can only execute the exact persisted media-plan revision supplied. */
   public static GenerationJob createChapterGeneration(
-      Long projectId,
-      Long storyVersionId,
+      UUID projectId,
+      UUID storyVersionId,
       MediaPlan mediaPlan,
       ResourceClass resourceClass,
       String sourceLanguage,
       String idempotencyKey,
       String userId) {
     Objects.requireNonNull(mediaPlan, "mediaPlan");
-    if (storyVersionId == null || storyVersionId <= 0) {
-      throw new IllegalArgumentException("storyVersionId must be positive");
-    }
+    Objects.requireNonNull(storyVersionId, "storyVersionId");
     return new GenerationJob(
         null,
         0L,
@@ -336,9 +327,9 @@ public final class GenerationJob extends AggregateRoot {
   }
 
   public static GenerationJob createChapterRender(
-      Long projectId,
-      Long storyVersionId,
-      Long chapterId,
+      UUID projectId,
+      UUID storyVersionId,
+      UUID chapterId,
       long chapterRowVersion,
       String sourceHash,
       String sourceText,
@@ -347,12 +338,8 @@ public final class GenerationJob extends AggregateRoot {
       UUID mediaPlanId,
       Integer mediaPlanRevision,
       String userId) {
-    if (storyVersionId == null || storyVersionId <= 0) {
-      throw new IllegalArgumentException("storyVersionId must be positive");
-    }
-    if (chapterId == null || chapterId <= 0) {
-      throw new IllegalArgumentException("chapterId must be positive");
-    }
+    Objects.requireNonNull(storyVersionId, "storyVersionId");
+    Objects.requireNonNull(chapterId, "chapterId");
     if (chapterRowVersion < 0) {
       throw new IllegalArgumentException("chapterRowVersion must not be negative");
     }
@@ -389,7 +376,7 @@ public final class GenerationJob extends AggregateRoot {
       Long id,
       long rowVersion,
       String jobId,
-      Long projectId,
+      UUID projectId,
       JobType type,
       JobStatus status,
       ResourceClass resourceClass,
@@ -398,9 +385,9 @@ public final class GenerationJob extends AggregateRoot {
       String errorCode,
       String requestedByUserId,
       String billedToUserId,
-      Long storyVersionId,
-      Long chapterId,
-      Long storyboardRevisionId,
+      UUID storyVersionId,
+      UUID chapterId,
+      UUID storyboardRevisionId,
       Long chapterRowVersion,
       String sourceHash,
       String sourceText,
@@ -436,7 +423,7 @@ public final class GenerationJob extends AggregateRoot {
       Long id,
       long rowVersion,
       String jobId,
-      Long projectId,
+      UUID projectId,
       JobType type,
       JobStatus status,
       ResourceClass resourceClass,
@@ -445,9 +432,9 @@ public final class GenerationJob extends AggregateRoot {
       String errorCode,
       String requestedByUserId,
       String billedToUserId,
-      Long storyVersionId,
-      Long chapterId,
-      Long storyboardRevisionId,
+      UUID storyVersionId,
+      UUID chapterId,
+      UUID storyboardRevisionId,
       Long chapterRowVersion,
       String sourceHash,
       String sourceText,
@@ -492,7 +479,7 @@ public final class GenerationJob extends AggregateRoot {
       Long id,
       long rowVersion,
       String jobId,
-      Long projectId,
+      UUID projectId,
       JobType type,
       JobStatus status,
       ResourceClass resourceClass,
@@ -501,9 +488,9 @@ public final class GenerationJob extends AggregateRoot {
       String errorCode,
       String requestedByUserId,
       String billedToUserId,
-      Long storyVersionId,
-      Long chapterId,
-      Long storyboardRevisionId,
+      UUID storyVersionId,
+      UUID chapterId,
+      UUID storyboardRevisionId,
       Long chapterRowVersion,
       String sourceHash,
       String sourceText,
@@ -538,101 +525,30 @@ public final class GenerationJob extends AggregateRoot {
         productionMode);
   }
 
-  public String getJobId() {
-    return jobId;
-  }
-
-  public Long getProjectId() {
-    return projectId;
-  }
-
-  public JobType getType() {
-    return type;
-  }
-
-  public JobStatus getStatus() {
-    return status;
-  }
-
-  public ResourceClass getResourceClass() {
-    return resourceClass;
-  }
-
-  public int getProgress() {
-    return progress;
-  }
-
-  public String getCurrentStep() {
-    return currentStep;
-  }
-
-  public String getErrorCode() {
-    return errorCode;
-  }
-
-  public String getRequestedByUserId() {
-    return requestedByUserId;
-  }
-
-  public String getBilledToUserId() {
-    return billedToUserId;
-  }
-
-  public Long getStoryVersionId() {
-    return storyVersionId;
-  }
-
-  public Long getChapterId() {
-    return chapterId;
-  }
-
-  public Long getStoryboardRevisionId() {
-    return storyboardRevisionId;
-  }
-
-  public Long getChapterRowVersion() {
-    return chapterRowVersion;
-  }
-
-  public String getSourceHash() {
-    return sourceHash;
-  }
-
-  public String getSourceText() {
-    return sourceText;
-  }
-
-  public String getSourceLanguage() {
-    return sourceLanguage;
-  }
-
-  public String getIdempotencyKey() {
-    return idempotencyKey;
-  }
-
-  public Long getContentVariantId() {
-    return contentVariantId;
-  }
-
-  public Long getSourceVariantId() {
-    return sourceVariantId;
-  }
-
-  public String getTargetLanguage() {
-    return targetLanguage;
-  }
-
-  public UUID getMediaPlanId() {
-    return mediaPlanId;
-  }
-
-  public Integer getMediaPlanRevision() {
-    return mediaPlanRevision;
-  }
-
-  public ProductionMode getProductionMode() {
-    return productionMode;
-  }
+  public String getJobId() { return jobId; }
+  public UUID getProjectId() { return projectId; }
+  public JobType getType() { return type; }
+  public JobStatus getStatus() { return status; }
+  public ResourceClass getResourceClass() { return resourceClass; }
+  public int getProgress() { return progress; }
+  public String getCurrentStep() { return currentStep; }
+  public String getErrorCode() { return errorCode; }
+  public String getRequestedByUserId() { return requestedByUserId; }
+  public String getBilledToUserId() { return billedToUserId; }
+  public UUID getStoryVersionId() { return storyVersionId; }
+  public UUID getChapterId() { return chapterId; }
+  public UUID getStoryboardRevisionId() { return storyboardRevisionId; }
+  public Long getChapterRowVersion() { return chapterRowVersion; }
+  public String getSourceHash() { return sourceHash; }
+  public String getSourceText() { return sourceText; }
+  public String getSourceLanguage() { return sourceLanguage; }
+  public String getIdempotencyKey() { return idempotencyKey; }
+  public Long getContentVariantId() { return contentVariantId; }
+  public Long getSourceVariantId() { return sourceVariantId; }
+  public String getTargetLanguage() { return targetLanguage; }
+  public UUID getMediaPlanId() { return mediaPlanId; }
+  public Integer getMediaPlanRevision() { return mediaPlanRevision; }
+  public ProductionMode getProductionMode() { return productionMode; }
 
   private static void requireCompleteMediaPlanPointer(
       UUID mediaPlanId, Integer mediaPlanRevision, ProductionMode productionMode) {
