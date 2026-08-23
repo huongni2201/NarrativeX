@@ -152,6 +152,8 @@ export function GenerateNarrationModal({
       toast.info("Đã xếp hàng tạo Audio", {
         description:
           "Hệ thống đang xử lý narration. Bạn có thể tiếp tục làm việc; sẽ có thông báo khi hoàn tất.",
+        className:
+          "!border-primary/60 !bg-surface-elevated !text-text-primary shadow-lg shadow-black/40",
       });
       onClose();
     } catch (error) {

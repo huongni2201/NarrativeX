@@ -191,7 +191,7 @@ function NotificationCard({
 function NotificationIcon({ type }: { type: string }) {
   if (type.includes("COMPLETED") || type.includes("SUCCESS")) {
     return (
-      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-success-bg text-success">
+      <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-success/60 bg-success-bg text-success shadow-sm shadow-success/20">
         <CheckCircle2 className="h-3.5 w-3.5" />
       </div>
     );

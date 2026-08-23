@@ -197,7 +197,7 @@ function NotificationRow({
 function NotificationIcon({ type }: { type: string }) {
   if (type.includes("COMPLETED") || type.includes("SUCCESS")) {
     return (
-      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-success-bg text-success">
+      <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-success/60 bg-success-bg text-success shadow-sm shadow-success/20">
         <CheckCircle2 className="h-4 w-4" />
       </div>
     );
