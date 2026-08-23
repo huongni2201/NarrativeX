@@ -5,6 +5,7 @@ import com.narrativex.backend.feature.storyboard.domain.value.LanguageDetection;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.LanguageDetectionMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.LanguageDetectionRow;
 import java.util.Optional;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -38,7 +39,7 @@ public class MyBatisLanguageDetectionRepository implements LanguageDetectionRepo
   }
 
   @Override
-  public Optional<LanguageDetection> findLatest(Long contentVariantId, String contentHash) {
+  public Optional<LanguageDetection> findLatest(UUID contentVariantId, String contentHash) {
     LanguageDetectionRow row = mapper.findLatest(contentVariantId, contentHash);
     return Optional.ofNullable(row)
         .map(

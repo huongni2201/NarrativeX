@@ -38,7 +38,7 @@ public interface ChapterWorkspaceAccess {
   record AudioStep(String status, Instant completedAt, String storageKey, Long durationMs) {}
 
   record PreviewScene(
-      long id,
+      UUID id,
       int orderIndex,
       String title,
       Integer durationSeconds,

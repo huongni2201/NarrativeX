@@ -2,6 +2,7 @@ package com.narrativex.backend.feature.storyboard.infrastructure.persistence.myb
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -13,7 +14,7 @@ import lombok.Setter;
 @AllArgsConstructor
 public class LanguageDetectionRow {
   private Long id;
-  private Long contentVariantId;
+  private UUID contentVariantId;
   private String detectedLanguage;
   private BigDecimal confidence;
   private String detector;

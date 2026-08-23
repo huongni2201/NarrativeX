@@ -39,7 +39,7 @@ public record ChapterWorkspaceResponse(
       Integer mediaPlanRevision) {}
 
   public record PreviewScene(
-      Long id,
+      UUID id,
       int orderIndex,
       String title,
       Integer durationSeconds,
