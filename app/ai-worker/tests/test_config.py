@@ -86,13 +86,13 @@ def test_unknown_worker_role_is_rejected() -> None:
         WorkerSettings(worker_roles="narration,unknown")
 
 
-def test_image_generation_defaults_to_batch_only_gemini_flash_image() -> None:
+def test_image_generation_defaults_to_gemini_flash_image_batch_configuration() -> None:
     settings = WorkerSettings()
 
     assert settings.vertex_image_model == "gemini-2.5-flash-image"
     assert settings.vertex_image_location == "global"
     assert settings.vertex_image_service_tier == "standard"
-    assert settings.vertex_image_execution_mode == "batch"
+    assert settings.vertex_image_batch_gcs_bucket is None
 
 
 def test_gemini_25_flash_image_rejects_flex_paygo() -> None:
@@ -114,7 +114,6 @@ def test_enabled_vertex_requires_gcs_staging_bucket() -> None:
         WorkerSettings(
             image_provider_mode="vertex",
             vertex_project_id="project-123",
-            vertex_image_execution_mode="batch",
         )
 
 
@@ -142,7 +141,6 @@ def test_disabled_image_provider_does_not_require_batch_bucket() -> None:
     settings = WorkerSettings()
 
     assert settings.image_provider_mode == "disabled"
-    assert settings.vertex_image_execution_mode == "batch"
     assert settings.vertex_image_batch_gcs_bucket is None
 
 
@@ -166,9 +164,3 @@ def test_production_image_worker_accepts_real_provider_and_r2() -> None:
 
     assert settings.image_provider_mode == "vertex"
     assert settings.media_storage_mode == "r2"
-
-
-@pytest.mark.parametrize("execution_mode", ["online", "auto"])
-def test_non_batch_vertex_execution_modes_are_rejected(execution_mode: str) -> None:
-    with pytest.raises(ValidationError, match="batch"):
-        WorkerSettings(vertex_image_execution_mode=execution_mode)  # type: ignore[arg-type]
