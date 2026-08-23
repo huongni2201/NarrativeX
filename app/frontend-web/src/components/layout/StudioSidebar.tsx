@@ -18,6 +18,7 @@ import {
   LogOut,
   User,
   Crown,
+  CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -87,7 +88,9 @@ export const StudioSidebar = () => {
     };
   }, [isProfileMenuOpen]);
 
-  const isUnlimited = quota ? quota.totalCredits === null || quota.tier === "ULTRA" : false;
+  const normalizedTier = quota?.tier?.trim().toUpperCase();
+  const isPaidTier = normalizedTier === "PRO" || normalizedTier === "ULTRA";
+  const isUnlimited = quota ? quota.totalCredits === null || normalizedTier === "ULTRA" : false;
   const totalCredits = quota && quota.totalCredits !== null ? Number(quota.totalCredits) || 0 : 0;
   const remainingCredits = quota && quota.remainingCredits !== null ? Number(quota.remainingCredits) || 0 : 0;
   const creditsUsed = quota ? Number(quota.usage.creditsUsed) || 0 : 0;
@@ -375,10 +378,19 @@ export const StudioSidebar = () => {
               <button
                 type="button"
                 onClick={() => setIsQuotaModalOpen(true)}
-                className="w-full rounded-lg bg-gradient-to-r from-primary to-orange-500 px-3 py-2 text-xs font-bold text-white shadow-sm shadow-primary/20 hover:from-primary-hover hover:to-orange-600 flex items-center justify-center gap-1.5 transition-all active:scale-[0.98]"
+                className={cn(
+                  "w-full rounded-lg px-3 py-2 text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-[0.98]",
+                  isPaidTier
+                    ? "border border-border bg-surface-2 text-text-secondary hover:bg-surface-3 hover:text-text-primary"
+                    : "bg-gradient-to-r from-primary to-orange-500 text-white shadow-sm shadow-primary/20 hover:from-primary-hover hover:to-orange-600",
+                )}
               >
-                <Crown className="w-3.5 h-3.5 shrink-0" />
-                <span>Nâng cấp</span>
+                {isPaidTier ? (
+                  <CreditCard className="w-3.5 h-3.5 shrink-0" />
+                ) : (
+                  <Crown className="w-3.5 h-3.5 shrink-0" />
+                )}
+                <span>{isPaidTier ? "Xem chi tiết gói" : "Nâng cấp"}</span>
               </button>
             </>
           ) : (

@@ -12,9 +12,10 @@
                pl.visual_prompt
           FROM scenes s
           JOIN chapters ch ON ch.id = s.chapter_id
+          JOIN story_versions sv ON sv.id = ch.story_version_id
           LEFT JOIN project_locations pl ON pl.id = s.project_location_id
          WHERE s.id = #{sceneId}
-           AND ch.project_id = #{projectId}
+           AND sv.project_id = #{projectId}
          LIMIT 1
     </select>
 
@@ -33,6 +34,7 @@
           FROM scene_characters sc
           JOIN scenes s ON s.id = sc.scene_id
           JOIN chapters ch ON ch.id = s.chapter_id
+          JOIN story_versions sv ON sv.id = ch.story_version_id
           JOIN project_characters pc ON pc.id = sc.project_character_id
           JOIN characters c ON c.id = pc.character_id
           LEFT JOIN LATERAL (
@@ -68,7 +70,7 @@
                LIMIT 1
           ) appearance ON TRUE
          WHERE sc.scene_id = #{sceneId}
-           AND ch.project_id = #{projectId}
+           AND sv.project_id = #{projectId}
            AND pc.project_id = #{projectId}
            AND pc.status = 'ACTIVE'
            AND c.status = 'ACTIVE'
@@ -87,6 +89,7 @@
           FROM scene_characters sc
           JOIN scenes s ON s.id = sc.scene_id
           JOIN chapters ch ON ch.id = s.chapter_id
+          JOIN story_versions sv ON sv.id = ch.story_version_id
           JOIN project_characters pc ON pc.id = sc.project_character_id
           JOIN projects p ON p.id = pc.project_id
           JOIN characters c ON c.id = pc.character_id
@@ -115,7 +118,7 @@
            AND ma.status = 'READY'
            AND ma.deleted_at IS NULL
          WHERE sc.scene_id = #{sceneId}
-           AND ch.project_id = #{projectId}
+           AND sv.project_id = #{projectId}
            AND pc.project_id = #{projectId}
            AND pc.status = 'ACTIVE'
            AND c.status = 'ACTIVE'
