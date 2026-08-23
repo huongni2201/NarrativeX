@@ -126,16 +126,6 @@ public class MyBatisMediaAssetRepository implements MediaAssetRepository {
 
   @Override
   @Transactional
-  public MediaAssetView approve(String accountId, UUID id) {
-    MediaAssetRow current = requireOwnedRow(accountId, id);
-    if (statusOf(current) != MediaAssetStatus.READY) {
-      throw new IllegalStateException("Asset approval is available only after media validation");
-    }
-    return toView(current);
-  }
-
-  @Override
-  @Transactional
   public MediaAssetView reject(String accountId, UUID id) {
     return transition(accountId, id, MediaAssetStatus.REJECTED, mapper::reject);
   }

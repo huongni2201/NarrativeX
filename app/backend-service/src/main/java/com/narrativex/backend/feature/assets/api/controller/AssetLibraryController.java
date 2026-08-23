@@ -75,12 +75,6 @@ public class AssetLibraryController {
             UploadFinalizeResponse.from(mediaUploadUseCase.finalizeUpload(id))));
   }
 
-  @PostMapping("/{id}/approve")
-  public ResponseEntity<ApiResponse<MediaAssetResponse>> approve(@PathVariable UUID id) {
-    return ResponseEntity.ok(
-        ApiResponse.success("Asset approved", MediaAssetResponse.from(useCase.approve(id))));
-  }
-
   @DeleteMapping("/{id}")
   public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
     useCase.delete(id);

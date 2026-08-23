@@ -133,8 +133,6 @@ export const assetsApi = {
       isApiMediaAssetPage,
     );
   },
-  approve: (id: string) =>
-    apiRequest<ApiMediaAsset>(`/api/v1/assets/${encodeURIComponent(id)}/approve`, { method: "POST" }, isApiMediaAsset),
   delete: (id: string) =>
     apiRequest<void>(`/api/v1/assets/${encodeURIComponent(id)}`, { method: "DELETE" }),
   createUploadIntent: (request: {
