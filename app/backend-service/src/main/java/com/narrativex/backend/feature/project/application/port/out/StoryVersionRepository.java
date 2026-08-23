@@ -2,15 +2,16 @@ package com.narrativex.backend.feature.project.application.port.out;
 
 import com.narrativex.backend.feature.project.domain.entity.StoryVersion;
 import java.util.Optional;
+import java.util.UUID;
 
 public interface StoryVersionRepository {
-  int findMaxVersionNumberByProjectId(Long projectId);
+  int findMaxVersionNumberByProjectId(UUID projectId);
 
-  Optional<StoryVersion> findByIdAndProjectId(Long storyVersionId, Long projectId);
+  Optional<StoryVersion> findByIdAndProjectId(UUID storyVersionId, UUID projectId);
 
-  Optional<StoryVersion> findActiveByProjectId(Long projectId);
+  Optional<StoryVersion> findActiveByProjectId(UUID projectId);
 
-  Optional<StoryVersion> findLatestByProjectId(Long projectId);
+  Optional<StoryVersion> findLatestByProjectId(UUID projectId);
 
   StoryVersion save(StoryVersion storyVersion);
 
