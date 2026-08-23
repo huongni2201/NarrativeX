@@ -35,7 +35,7 @@
         po.reconcile_attempts, po.last_reconcile_error
     </sql>
 
-    <select id="insert" parameterType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ProviderOperationRow" resultType="long" affectData="true">
+    <select id="insert" parameterType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ProviderOperationRow" resultType="java.util.UUID" affectData="true">
         INSERT INTO provider_operations
             (stage_attempt_id, provider_key, provider_operation_id, status,
              request_fingerprint, normalized_result_json, result_fingerprint,
