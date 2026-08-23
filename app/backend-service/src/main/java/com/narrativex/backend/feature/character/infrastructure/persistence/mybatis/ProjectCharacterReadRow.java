@@ -31,7 +31,6 @@ public class ProjectCharacterReadRow {
   private String versionStatus;
   private String bible;
   private String visualPrompt;
-  private Long masterAssetId;
   private String ageState;
   private String hairstyle;
   private String injury;
