@@ -2,6 +2,7 @@ package com.narrativex.backend.feature.project.infrastructure.persistence.mybati
 
 import com.narrativex.backend.feature.common.infrastructure.persistence.mybatis.NarrativeXMyBatisMapper;
 import java.util.List;
+import java.util.UUID;
 import org.apache.ibatis.annotations.Param;
 
 public interface ProjectDashboardMapper extends NarrativeXMyBatisMapper {
@@ -16,7 +17,7 @@ public interface ProjectDashboardMapper extends NarrativeXMyBatisMapper {
   ProjectDashboardCountsRow findDashboardCounts(
       @Param("userId") String userId, @Param("query") String query);
 
-  int addFavorite(@Param("userId") String userId, @Param("projectId") Long projectId);
+  int addFavorite(@Param("userId") String userId, @Param("projectId") UUID projectId);
 
-  int removeFavorite(@Param("userId") String userId, @Param("projectId") Long projectId);
+  int removeFavorite(@Param("userId") String userId, @Param("projectId") UUID projectId);
 }
