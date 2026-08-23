@@ -1,5 +1,6 @@
 """Stable image-generation repository facade."""
 
+import hashlib
 import json
 from dataclasses import replace
 
@@ -12,6 +13,7 @@ from narrativex_worker.image_generation_repository.implementation import (
 from narrativex_worker.image_generation_repository.implementation import (
     ImageGenerationRepository as ImageGenerationRepositoryImplementation,
 )
+from narrativex_worker.media_repository import DurableMediaResult
 from narrativex_worker.providers.image import ImageBatchItem, ImageReference
 
 
@@ -27,6 +29,12 @@ class ImageGenerationRepository(ImageGenerationRepositoryImplementation):
         self, job: ClaimedImageGenerationJob
     ) -> tuple[ClaimedImageGenerationItem, ...]:
         items = await super().load_pending_items(job)
+        if not items:
+            # A previous worker may have persisted terminal item/provider state and crashed before
+            # aggregating the stage/job. Reclaiming an otherwise empty job is therefore a recovery
+            # opportunity rather than a no-op.
+            await self.aggregate_generation_job(job.stage_attempt_id)
+            return ()
         snapshots = await self._reference_snapshots_for_job(job.generation_job_id)
         return tuple(
             replace(
@@ -81,9 +89,95 @@ class ImageGenerationRepository(ImageGenerationRepositoryImplementation):
         )
         return {row["item_key"]: row["character_snapshot_json"] for row in rows}
 
+    async def fail_provider_operation(
+        self, operation: DurableImageOperation, error_code: str
+    ) -> bool:
+        pool = self._require_pool()
+        error = error_code[:2000]
+        async with pool.acquire() as connection:
+            async with connection.transaction():
+                row = await connection.fetchrow(
+                    """
+                    UPDATE provider_operations
+                       SET status = 'FAILED',
+                           last_reconcile_error = $2,
+                           completed_at = CURRENT_TIMESTAMP,
+                           next_reconcile_at = NULL,
+                           updated_at = CURRENT_TIMESTAMP,
+                           row_version = row_version + 1
+                     WHERE id = $1
+                       AND status IN ('RESERVED', 'UNKNOWN', 'SUBMITTED', 'RUNNING')
+                       AND row_version = $3
+                       AND (
+                           ($4::text IS NULL AND $5::uuid IS NULL)
+                           OR EXISTS (
+                               SELECT 1
+                                 FROM stage_attempts sa
+                                WHERE sa.id = provider_operations.stage_attempt_id
+                                  AND sa.worker_id = $4
+                                  AND sa.lease_token = $5::uuid
+                                  AND sa.status = 'RUNNING'
+                           )
+                       )
+                    RETURNING id
+                    """,
+                    operation.id,
+                    error,
+                    operation.row_version,
+                    operation.worker_id,
+                    operation.lease_token,
+                )
+                if row is None:
+                    return False
+                await connection.execute(
+                    """
+                    UPDATE media_generation_items
+                       SET execution_status = 'FAILED',
+                           error_code = $2,
+                           updated_at = CURRENT_TIMESTAMP,
+                           row_version = row_version + 1
+                     WHERE provider_operation_id = $1
+                       AND execution_status NOT IN ('READY', 'FAILED')
+                    """,
+                    operation.id,
+                    error[:80],
+                )
+                await self._aggregate_generation_job(connection, operation.stage_attempt_id)
+                return True
+
+    async def complete_provider_operation(
+        self, operation: DurableImageOperation, results: tuple[DurableMediaResult, ...]
+    ) -> None:
+        summary = json.dumps({"items": len(results)}, separators=(",", ":"))
+        fingerprint = hashlib.sha256(summary.encode()).hexdigest()
+        pool = self._require_pool()
+        async with pool.acquire() as connection:
+            async with connection.transaction():
+                row = await connection.fetchrow(
+                    """
+                    UPDATE provider_operations
+                       SET status = 'COMPLETED', normalized_result_json = $2::jsonb,
+                           result_fingerprint = $3,
+                           completed_at = CURRENT_TIMESTAMP,
+                           next_reconcile_at = NULL, updated_at = CURRENT_TIMESTAMP,
+                           row_version = row_version + 1
+                     WHERE id = $1 AND status IN ('UNKNOWN', 'SUBMITTED', 'RUNNING')
+                       AND row_version = $4
+                    RETURNING id
+                    """,
+                    operation.id,
+                    summary,
+                    fingerprint,
+                    operation.row_version,
+                )
+                if row is None:
+                    raise ImageGenerationLeaseLostError(
+                        "Image provider operation changed before completion was persisted"
+                    )
+                await self._aggregate_generation_job(connection, operation.stage_attempt_id)
+
     async def mark_unknown(self, operation: DurableImageOperation, error: str) -> bool:
         pool = self._require_pool()
-        terminalized = False
         async with pool.acquire() as connection:
             async with connection.transaction():
                 row = await connection.fetchrow(
@@ -141,8 +235,7 @@ class ImageGenerationRepository(ImageGenerationRepositoryImplementation):
                 if row is None:
                     return False
 
-                terminalized = row["status"] == "FAILED"
-                if terminalized:
+                if row["status"] == "FAILED":
                     await connection.execute(
                         """
                         UPDATE media_generation_items
@@ -155,10 +248,8 @@ class ImageGenerationRepository(ImageGenerationRepositoryImplementation):
                         """,
                         operation.id,
                     )
-
-        if terminalized:
-            await self.aggregate_generation_job(operation.stage_attempt_id)
-        return True
+                    await self._aggregate_generation_job(connection, operation.stage_attempt_id)
+                return True
 
 
 def _parse_image_references(snapshot_json: str | None) -> tuple[ImageReference, ...]:
