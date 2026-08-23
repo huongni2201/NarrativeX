@@ -29,7 +29,10 @@
                appearance.age_state,
                appearance.hairstyle,
                appearance.injury,
-               appearance.wardrobe_context
+               appearance.wardrobe_context,
+               canon.master_asset_id,
+               master_asset.storage_key AS master_asset_storage_key,
+               master_asset.mime_type AS master_asset_mime_type
           FROM scene_characters sc
           JOIN scenes s ON s.id = sc.scene_id
           JOIN chapters ch ON ch.id = s.chapter_id
@@ -37,7 +40,8 @@
           JOIN characters c ON c.id = pc.character_id
           LEFT JOIN LATERAL (
               SELECT cv.version_number,
-                     cv.visual_prompt
+                     cv.visual_prompt,
+                     cv.master_asset_id
                 FROM character_versions cv
                WHERE cv.character_id = c.id
                  AND (
@@ -52,6 +56,11 @@
                         cv.id DESC
                LIMIT 1
           ) canon ON TRUE
+          LEFT JOIN project_assets master_asset
+            ON master_asset.id = canon.master_asset_id
+           AND master_asset.project_id = pc.project_id
+           AND master_asset.asset_type = 'IMAGE'
+           AND master_asset.status = 'ACTIVE'
           LEFT JOIN LATERAL (
               SELECT ca.appearance_prompt,
                      ca.age_state,
