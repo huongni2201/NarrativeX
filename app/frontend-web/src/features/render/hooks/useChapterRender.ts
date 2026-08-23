@@ -3,7 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiClientError, apiErrorMessage } from "@/shared/api/client";
-import { TERMINAL_JOB_STATUSES, type ApiGenerationJob } from "@/types/api";
+import {
+  TERMINAL_JOB_STATUSES,
+  type ApiChapterWorkspaceProgressStep,
+  type ApiGenerationJob,
+} from "@/types/api";
 import { queryKeys } from "@/lib/query-keys";
 import { mediaApi, type RenderChapterInput } from "@/features/generation/api/media.api";
 import { useMediaGeneration } from "@/features/generation/hooks/useMediaGeneration";
@@ -29,6 +33,7 @@ type RenderConfig = Pick<RenderChapterInput, "resolution" | "format" | "maxAutho
 interface UseChapterRenderOptions {
   projectId: number;
   chapterId: number;
+  initialMedia: ApiChapterWorkspaceProgressStep;
   resolution?: RenderConfig["resolution"];
   format?: RenderConfig["format"];
   maxAuthorizedCost?: RenderConfig["maxAuthorizedCost"];
@@ -60,6 +65,7 @@ const DEFAULT_RENDER_CONFIG: RenderConfig = {
 export function useChapterRender({
   projectId,
   chapterId,
+  initialMedia,
   initialJobId = null,
   initialRenderStatus = null,
   initialArtifactId = null,
@@ -68,7 +74,7 @@ export function useChapterRender({
   maxAuthorizedCost = DEFAULT_RENDER_CONFIG.maxAuthorizedCost,
 }: UseChapterRenderOptions): UseChapterRenderResult {
   const queryClient = useQueryClient();
-  const media = useMediaGeneration(projectId, chapterId);
+  const media = useMediaGeneration(projectId, chapterId, initialMedia);
   const [jobId, setJobId] = useState<string | null>(initialJobId);
   const [artifactId, setArtifactId] = useState<number | null>(initialArtifactId);
   const [submittedJob, setSubmittedJob] = useState<ApiGenerationJob | null>(null);
@@ -98,9 +104,8 @@ export function useChapterRender({
       : jobId
         ? queryKeys.artifactByJobId(jobId)
         : ["render-artifacts", "none"],
-    queryFn: () => artifactId
-      ? artifactsApi.getById(artifactId)
-      : artifactsApi.getByJobId(jobId!),
+    queryFn: () =>
+      artifactId ? artifactsApi.getById(artifactId) : artifactsApi.getByJobId(jobId!),
     enabled: Boolean(artifactId || (jobId && jobQuery.data?.status === "COMPLETED")),
     retry: 2,
     refetchInterval: (query) => (query.state.data || query.state.error ? false : 1500),
@@ -123,13 +128,19 @@ export function useChapterRender({
       setSubmittedJob(nextJob);
       queryClient.setQueryData(queryKeys.renderJob(nextJob.jobId), nextJob);
       void queryClient.removeQueries({ queryKey: queryKeys.artifactByJobId(nextJob.jobId) });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.chapterWorkspace(projectId, chapterId),
+      });
     },
   });
 
   const job = jobQuery.data ?? submittedJob;
   const artifact = artifactQuery.data ?? null;
+
   useEffect(() => {
-    if (job?.status === "FAILED" || job?.status === "CANCELED") idempotencyKeyRef.current = null;
+    if (job?.status === "FAILED" || job?.status === "CANCELED") {
+      idempotencyKeyRef.current = null;
+    }
   }, [job?.status]);
 
   const artifactResolutionFailed = Boolean(job?.status === "COMPLETED" && artifactQuery.error);
@@ -149,8 +160,8 @@ export function useChapterRender({
     hasArtifactIdentity: Boolean(artifactId),
   });
 
-  const mediaPlanId = media.details?.mediaPlanId ?? media.job?.mediaPlanId ?? null;
-  const mediaPlanRevision = media.details?.mediaPlanRevision ?? media.job?.mediaPlanRevision ?? null;
+  const mediaPlanId = media.mediaPlanId;
+  const mediaPlanRevision = media.mediaPlanRevision;
   const hasApprovedMedia = Boolean(
     media.details &&
       media.details.totalItems > 0 &&
@@ -164,7 +175,11 @@ export function useChapterRender({
     status === "STALLED" ||
     status === "COMPLETED" ||
     status === "RESOLVING_ARTIFACT";
-  const canRender = hasApprovedMedia && typeof mediaPlanId === "string" && typeof mediaPlanRevision === "number" && !renderInFlight;
+  const canRender =
+    hasApprovedMedia &&
+    typeof mediaPlanId === "string" &&
+    typeof mediaPlanRevision === "number" &&
+    !renderInFlight;
 
   const render = useCallback(
     (overrides: RenderOverrides = {}) => {
@@ -176,17 +191,35 @@ export function useChapterRender({
         format: overrides.format ?? format,
         maxAuthorizedCost: overrides.maxAuthorizedCost ?? maxAuthorizedCost,
       } satisfies RenderChapterInput;
-      renderMutation.mutate({ input, idempotencyKey: startNewRenderIntent(idempotencyKeyRef) });
+      renderMutation.mutate({
+        input,
+        idempotencyKey: startNewRenderIntent(idempotencyKeyRef),
+      });
     },
-    [canRender, format, maxAuthorizedCost, mediaPlanId, mediaPlanRevision, renderMutation, resolution],
+    [
+      canRender,
+      format,
+      maxAuthorizedCost,
+      mediaPlanId,
+      mediaPlanRevision,
+      renderMutation,
+      resolution,
+    ],
   );
 
   const retry = useCallback(() => {
     if (!lastInput || renderMutation.isPending) return;
-    if (job?.status === "FAILED" || job?.status === "CANCELED" || isDefinitiveRenderRequestFailure(renderMutation.error)) {
+    if (
+      job?.status === "FAILED" ||
+      job?.status === "CANCELED" ||
+      isDefinitiveRenderRequestFailure(renderMutation.error)
+    ) {
       idempotencyKeyRef.current = null;
     }
-    renderMutation.mutate({ input: lastInput, idempotencyKey: ensureRenderIntentKey(idempotencyKeyRef) });
+    renderMutation.mutate({
+      input: lastInput,
+      idempotencyKey: ensureRenderIntentKey(idempotencyKeyRef),
+    });
   }, [job?.status, lastInput, renderMutation]);
 
   const error = getChapterRenderError({
@@ -195,7 +228,9 @@ export function useChapterRender({
     artifactQueryError: artifactResolutionFailed ? artifactQuery.error : null,
     job,
   });
-  const progress = status === "READY" || status === "COMPLETED" ? 100 : clampProgress(job?.progress ?? 0);
+  const progress =
+    status === "READY" || status === "COMPLETED" ? 100 : clampProgress(job?.progress ?? 0);
+
   return {
     render,
     job,
@@ -251,7 +286,9 @@ export function getChapterRenderStatus({
   if (mutationPending) return "SUBMITTING";
   if (mutationFailed || artifactResolutionFailed) return "FAILED";
   if (!job) {
-    if (hasArtifactIdentity && initialRenderStatus === "READY" && artifactResolving) return "RESOLVING_ARTIFACT";
+    if (hasArtifactIdentity && initialRenderStatus === "READY" && artifactResolving) {
+      return "RESOLVING_ARTIFACT";
+    }
     if (hasArtifactIdentity && initialRenderStatus === "READY" && artifact) return "READY";
     return mapWorkspaceRenderStatus(initialRenderStatus);
   }
@@ -278,7 +315,9 @@ export function getChapterRenderStatus({
 
 function mapWorkspaceRenderStatus(status: string | null): ChapterRenderStatus {
   if (status === "COMPLETED" || status === "READY") return "RESOLVING_ARTIFACT";
-  if (status === "PROCESSING" || status === "RUNNING" || status === "QUEUED") return "RUNNING";
+  if (status === "PROCESSING" || status === "RUNNING" || status === "QUEUED") {
+    return "RUNNING";
+  }
   if (status === "FAILED") return "FAILED";
   return "IDLE";
 }
@@ -297,8 +336,12 @@ function getChapterRenderError({
   job,
 }: ChapterRenderErrorInput): string | null {
   if (mutationError) return apiErrorMessage(mutationError, "Không thể gửi render job.");
-  if (artifactQueryError) return apiErrorMessage(artifactQueryError, "Không thể tải render artifact.");
-  if (jobQueryError && !job) return apiErrorMessage(jobQueryError, "Không thể tải trạng thái render.");
+  if (artifactQueryError) {
+    return apiErrorMessage(artifactQueryError, "Không thể tải render artifact.");
+  }
+  if (jobQueryError && !job) {
+    return apiErrorMessage(jobQueryError, "Không thể tải trạng thái render.");
+  }
   if (job?.status === "FAILED" || job?.status === "CANCELED") {
     return `Render thất bại${job.errorCode ? ` (${job.errorCode})` : "."}`;
   }
