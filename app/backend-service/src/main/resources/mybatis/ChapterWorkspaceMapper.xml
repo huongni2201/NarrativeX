@@ -160,10 +160,10 @@
                    LIMIT 1
               ) fa ON TRUE
         ), latest_render_job AS (
-            SELECT gj.id AS job_id, gj.status AS job_status
+            SELECT gj.id AS generation_job_id, gj.job_id AS job_id, gj.status AS job_status
               FROM current_media_job cmj
               LEFT JOIN LATERAL (
-                  SELECT gj.id, gj.status
+                  SELECT gj.id, gj.job_id, gj.status
                     FROM generation_jobs gj
                    WHERE gj.id = (SELECT generation_job_id FROM latest_render_artifact)
                       OR (gj.chapter_id = cmj.chapter_id
@@ -195,7 +195,7 @@
                EXISTS (SELECT 1 FROM latest_render_manifest WHERE id IS NOT NULL) AS render_manifest_created,
                (SELECT artifact_status FROM latest_render_artifact) AS render_artifact_status,
                (SELECT job_status FROM latest_render_job) AS render_job_status,
-               (SELECT job_id::text FROM latest_render_job) AS render_job_id,
+               (SELECT job_id FROM latest_render_job) AS render_job_id,
                (SELECT artifact_id FROM latest_render_artifact) AS render_artifact_id,
                (SELECT completed_at FROM latest_render_artifact) AS render_completed_at
           FROM current_chapter cc CROSS JOIN current_revision cr CROSS JOIN current_media_job cmj
