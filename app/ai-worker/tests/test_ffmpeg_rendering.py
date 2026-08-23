@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from narrativex_worker.rendering.effects import AnimatedText, RenderEffects
 from narrativex_worker.rendering.ffmpeg import build_ffmpeg_args
 from narrativex_worker.rendering.image_motion import ImageMotionManifest, MotionBeat
 
@@ -23,7 +24,7 @@ def _manifest(tmp_path: Path, **overrides: object) -> ImageMotionManifest:
     return ImageMotionManifest(**values)  # type: ignore[arg-type]
 
 
-def test_ffmpeg_python_graph_contains_motion_transition_audio_and_faststart(
+def test_default_graph_enables_cinematic_motion_transition_audio_and_faststart(
     tmp_path: Path,
 ) -> None:
     args = build_ffmpeg_args(_manifest(tmp_path))
@@ -33,9 +34,12 @@ def test_ffmpeg_python_graph_contains_motion_transition_audio_and_faststart(
     assert "zoompan=" in command
     assert "1+0.08*" in command
     assert "(iw-iw/zoom)*" in command
-    assert "fade=" in command
+    assert "blend=" in command
     assert "concat=" in command
+    assert "colorbalance=" in command
+    assert "vignette=" in command
     assert "ass=filename=" in command
+    # auto compiles portably as libx264; render_image_motion replaces it after runtime probe.
     assert "-vcodec libx264" in command
     assert "-preset veryfast" in command
     assert "-crf 20" in command
@@ -43,6 +47,70 @@ def test_ffmpeg_python_graph_contains_motion_transition_audio_and_faststart(
     assert "-b:a 192k" in command
     assert "-movflags +faststart" in command
     assert "-pix_fmt yuv420p" in command
+    assert "3-2*" in command
+
+
+@pytest.mark.parametrize(
+    ("transition", "needle"),
+    [
+        ("FADE", "blend="),
+        ("DISSOLVE", "mod(X*17+Y*13"),
+        ("SLIDE_LEFT", "overlay="),
+        ("ZOOM", "0.86+0.14"),
+        ("WIPE_LEFT", "lte(X/W"),
+    ],
+)
+def test_transition_catalog_compiles(
+    tmp_path: Path, transition: str, needle: str
+) -> None:
+    effects = RenderEffects(transition=transition, transition_seconds=0.25)
+    command = " ".join(build_ffmpeg_args(_manifest(tmp_path, effects=effects)))
+    assert needle in command
+
+
+def test_cinematic_profile_compiles_grading_depth_overlay_watermark_bgm_and_text(
+    tmp_path: Path,
+) -> None:
+    effects = RenderEffects(
+        transition="AUTO",
+        transition_seconds=0.25,
+        color_grade="CINEMATIC",
+        background_mode="BLUR",
+        overlay_style="FILM_GRAIN_VIGNETTE",
+        overlay_path=tmp_path / "atmosphere.mov",
+        watermark_path=tmp_path / "logo.png",
+        bgm_path=tmp_path / "music.mp3",
+        motion_easing="EASE_IN_OUT",
+        text_overlays=(
+            AnimatedText("NarrativeX", 0.2, 1.5, style="SLIDE", position="TOP"),
+            AnimatedText("Chapter 1", 1.5, 4.5, style="TYPEWRITER"),
+        ),
+    )
+    command = " ".join(build_ffmpeg_args(_manifest(tmp_path, effects=effects)))
+
+    assert "gblur=" in command
+    assert "colorbalance=" in command
+    assert "noise=" in command
+    assert "vignette=" in command
+    assert "colorchannelmixer=" in command
+    assert "sidechaincompress=" in command
+    assert "amix=" in command
+    assert "drawtext=" in command
+    assert "3-2*" in command
+
+
+@pytest.mark.parametrize("grade", ["WARM", "COOL", "HORROR", "FANTASY"])
+def test_builtin_color_grades_compile(tmp_path: Path, grade: str) -> None:
+    effects = RenderEffects(color_grade=grade)
+    command = " ".join(build_ffmpeg_args(_manifest(tmp_path, effects=effects)))
+    assert "colorbalance=" in command
+
+
+def test_lut3d_profile_compiles(tmp_path: Path) -> None:
+    effects = RenderEffects(lut_path=tmp_path / "cinematic.cube")
+    command = " ".join(build_ffmpeg_args(_manifest(tmp_path, effects=effects)))
+    assert "lut3d=" in command
+    assert "tetrahedral" in command
 
 
 def test_ffmpeg_python_graph_can_select_nvenc(tmp_path: Path) -> None:
@@ -62,6 +130,18 @@ def test_ffmpeg_python_graph_can_select_nvenc(tmp_path: Path) -> None:
     assert "-rc vbr" in command
 
 
+def test_auto_encoder_compiles_portably_as_libx264_before_runtime_probe(tmp_path: Path) -> None:
+    command = " ".join(build_ffmpeg_args(_manifest(tmp_path, video_encoder="auto")))
+    assert "-vcodec libx264" in command
+
+
 def test_render_manifest_rejects_unknown_encoder(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="unsupported video encoder"):
         build_ffmpeg_args(_manifest(tmp_path, video_encoder="unknown"))
+
+
+def test_render_effects_reject_unknown_transition(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="unsupported transition"):
+        build_ffmpeg_args(
+            _manifest(tmp_path, effects=RenderEffects(transition="TELEPORT"))
+        )
