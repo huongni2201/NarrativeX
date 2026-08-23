@@ -34,9 +34,9 @@ class ImageMotionManifest:
     subtitle_path: Path | None = None
     # Backward-compatible override for the pre-effects manifest contract.
     transition_seconds: float | None = None
-    effects: RenderEffects = field(default_factory=RenderEffects.cinematic)
-    # auto probes the actual NVENC runtime and falls back to libx264 when unavailable.
-    video_encoder: str = "auto"
+    # Keep the default output stable until the API/DB render profile is fingerprinted.
+    effects: RenderEffects = field(default_factory=RenderEffects)
+    video_encoder: str = "libx264"
     x264_preset: str = "veryfast"
     crf: int = 20
     nvenc_preset: str = "p5"
