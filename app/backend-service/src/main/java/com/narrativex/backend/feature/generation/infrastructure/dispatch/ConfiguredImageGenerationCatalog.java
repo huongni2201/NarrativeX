@@ -1,7 +1,5 @@
 package com.narrativex.backend.feature.generation.infrastructure.dispatch;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.narrativex.backend.feature.generation.application.port.out.ImageGenerationCatalog;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -12,6 +10,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 @Component
 public class ConfiguredImageGenerationCatalog implements ImageGenerationCatalog {
@@ -58,7 +58,7 @@ public class ConfiguredImageGenerationCatalog implements ImageGenerationCatalog 
       String pricingSnapshot = objectMapper.writeValueAsString(snapshot);
       return new ImageGenerationProfile(
           providerKey, model, unitCost, pricingSnapshot, sha256(pricingSnapshot));
-    } catch (JsonProcessingException exception) {
+    } catch (JacksonException exception) {
       throw new IllegalStateException("Could not serialize image pricing snapshot", exception);
     }
   }
