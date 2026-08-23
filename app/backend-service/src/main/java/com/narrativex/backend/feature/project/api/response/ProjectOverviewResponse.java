@@ -3,10 +3,11 @@ package com.narrativex.backend.feature.project.api.response;
 import com.narrativex.backend.feature.project.application.query.ProjectOverviewView;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 /** Read model tailored to the Project Overview screen. */
 public record ProjectOverviewResponse(
-    Long id,
+    UUID id,
     String name,
     String description,
     String coverImageUrl,
