@@ -7,10 +7,10 @@ public interface ChapterCreationIdempotencyRepository {
   Optional<Reservation> reserve(
       String ownerId, UUID projectId, String idempotencyKey, String requestFingerprint);
 
-  void complete(Long reservationId, UUID chapterId);
+  void complete(UUID reservationId, UUID chapterId);
 
   record Reservation(
-      Long id,
+      UUID id,
       String ownerId,
       UUID projectId,
       String idempotencyKey,
