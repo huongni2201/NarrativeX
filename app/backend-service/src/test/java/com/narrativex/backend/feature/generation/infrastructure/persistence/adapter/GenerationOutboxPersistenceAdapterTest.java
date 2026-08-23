@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
 import com.narrativex.backend.feature.generation.domain.enums.ResourceClass;
@@ -21,7 +22,7 @@ class GenerationOutboxPersistenceAdapterTest {
   @Test
   void enqueuesAStableIdempotentEventKey() {
     GenerationJob job =
-        GenerationJob.create(7L, JobType.STORY_ANALYZE, ResourceClass.CPU_LIGHT, "user-1");
+        GenerationJob.create(UuidV7.random(), JobType.STORY_ANALYZE, ResourceClass.CPU_LIGHT, "user-1");
     when(mapper.enqueue(any(GenerationOutboxRow.class))).thenReturn(1);
 
     new GenerationOutboxPersistenceAdapter(mapper).enqueue(job);

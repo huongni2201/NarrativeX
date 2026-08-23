@@ -50,8 +50,8 @@ class ProviderOperationRepositoryIntegrationTest extends PostgreSqlIntegrationTe
 
   @Test
   void reservesDuplicateFingerprintIdempotently() {
-    long stageAttemptId = insertStageAttempt();
-    String fingerprint = unique("reservation");
+    UUID stageAttemptId = insertStageAttempt();
+    String fingerprint = uniqueSha();
 
     ProviderOperation first =
         repository.save(ProviderOperation.create(stageAttemptId, "vertex", fingerprint));
@@ -181,7 +181,7 @@ class ProviderOperationRepositoryIntegrationTest extends PostgreSqlIntegrationTe
 
   private ProviderOperation reserve(String suffix) {
     return repository.save(
-        ProviderOperation.create(insertStageAttempt(), "vertex", unique(suffix)));
+        ProviderOperation.create(insertStageAttempt(), "vertex", uniqueSha()));
   }
 
   private ProviderOperation complete(ProviderOperation reserved) {
@@ -211,8 +211,8 @@ class ProviderOperationRepositoryIntegrationTest extends PostgreSqlIntegrationTe
     }
   }
 
-  private long insertStageAttempt() {
-    long projectId =
+  private UUID insertStageAttempt() {
+    UUID projectId =
         jdbcTemplate.queryForObject(
             """
             INSERT INTO projects
@@ -221,9 +221,9 @@ class ProviderOperationRepositoryIntegrationTest extends PostgreSqlIntegrationTe
             VALUES (?, 'provider-operation-test', 'DRAFT', 'en-US', 'en-US', 'en-US', 'RATIO_16_9', 'STANDARD')
             RETURNING id
             """,
-            Long.class,
-            unique("project"));
-    long jobId =
+            UUID.class,
+            "project-" + com.narrativex.backend.feature.common.uuid.UuidV7.random());
+    UUID jobId =
         jdbcTemplate.queryForObject(
             """
             INSERT INTO generation_jobs
@@ -233,8 +233,8 @@ class ProviderOperationRepositoryIntegrationTest extends PostgreSqlIntegrationTe
                     'provider-operation-test', 'provider-operation-test')
             RETURNING id
             """,
-            Long.class,
-            UUID.randomUUID().toString(),
+            UUID.class,
+            com.narrativex.backend.feature.common.uuid.UuidV7.random(),
             projectId);
     return jdbcTemplate.queryForObject(
         """
@@ -242,12 +242,12 @@ class ProviderOperationRepositoryIntegrationTest extends PostgreSqlIntegrationTe
         VALUES (?, ?, 1, 'QUEUED')
         RETURNING id
         """,
-        Long.class,
+        UUID.class,
         jobId,
-        unique("stage"));
+        "stage-" + com.narrativex.backend.feature.common.uuid.UuidV7.random());
   }
 
-  private static String unique(String prefix) {
-    return prefix + "-" + UUID.randomUUID();
+  private static String uniqueSha() {
+    return "a".repeat(32) + com.narrativex.backend.feature.common.uuid.UuidV7.random().toString().replace("-", "");
   }
 }

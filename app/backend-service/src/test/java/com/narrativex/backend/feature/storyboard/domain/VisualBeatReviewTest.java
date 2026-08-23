@@ -3,16 +3,19 @@ package com.narrativex.backend.feature.storyboard.domain;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.storyboard.domain.entity.VisualBeat;
 import com.narrativex.backend.feature.storyboard.domain.enums.CameraMovement;
 import com.narrativex.backend.feature.storyboard.domain.enums.MotionMode;
 import com.narrativex.backend.feature.storyboard.domain.enums.VisualBeatReviewStatus;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class VisualBeatReviewTest {
   @Test
   void newBeatStartsInNeedsReviewAndCanBeApproved() {
-    VisualBeat beat = new VisualBeat(1L, 0, "Đội quân xuất phát", "Wide cinematic shot");
+    UUID sceneId = UuidV7.random();
+    VisualBeat beat = new VisualBeat(sceneId, 0, "Đội quân xuất phát", "Wide cinematic shot");
 
     assertEquals("Đội quân xuất phát", beat.getTitle());
     assertEquals(MotionMode.STILL, beat.getMotionMode());
@@ -26,19 +29,21 @@ class VisualBeatReviewTest {
 
   @Test
   void beatRejectsBlankOrOversizedUserFacingFields() {
+    UUID sceneId = UuidV7.random();
     assertThrows(
-        IllegalArgumentException.class, () -> new VisualBeat(1L, 0, " ", "Wide cinematic shot"));
+        IllegalArgumentException.class, () -> new VisualBeat(sceneId, 0, " ", "Wide cinematic shot"));
     assertThrows(
-        IllegalArgumentException.class, () -> new VisualBeat(1L, 0, "Title", "x".repeat(8001)));
+        IllegalArgumentException.class, () -> new VisualBeat(sceneId, 0, "Title", "x".repeat(8001)));
   }
 
   @Test
   void previewAssetLinkMustBePositiveWhenPresent() {
-    VisualBeat beat = new VisualBeat(1L, 0, "Đội quân xuất phát", "Wide cinematic shot");
+    UUID sceneId = UuidV7.random();
+    UUID assetId = UuidV7.random();
+    VisualBeat beat = new VisualBeat(sceneId, 0, "Đội quân xuất phát", "Wide cinematic shot");
 
-    beat.attachPreviewAsset(42L);
+    beat.attachPreviewAsset(assetId);
 
-    assertEquals(42L, beat.getPreviewAssetId());
-    assertThrows(IllegalArgumentException.class, () -> beat.attachPreviewAsset(0L));
+    assertEquals(assetId, beat.getPreviewAssetId());
   }
 }

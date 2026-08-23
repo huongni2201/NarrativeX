@@ -3,6 +3,7 @@ package com.narrativex.backend.feature.generation.domain.aggregate;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.domain.enums.MotionStrategy;
 import com.narrativex.backend.feature.generation.domain.enums.ProductionMode;
 import com.narrativex.backend.feature.generation.domain.value.MediaBeatPlan;
@@ -12,22 +13,26 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class MediaPlanTest {
 
   @Test
   void defensivelyCopiesSceneAndBeatLists() {
+    UUID beatId = UuidV7.random();
+    UUID sceneId = UuidV7.random();
+    UUID chapterId = UuidV7.random();
     var beats =
-        new ArrayList<>(
+        new ArrayList<MediaBeatPlan>(
             List.of(
                 new MediaBeatPlan(
-                    11L, 0, "Character enters", "AI_VIDEO", MotionStrategy.IMAGE_TO_VIDEO)));
-    var scenes = new ArrayList<>(List.of(new MediaScenePlan(7L, 0, "Narration", 5, beats)));
+                    beatId, 0, "Character enters", "AI_VIDEO", MotionStrategy.IMAGE_TO_VIDEO)));
+    var scenes = new ArrayList<MediaScenePlan>(List.of(new MediaScenePlan(sceneId, 0, "Narration", 5, beats)));
 
     var plan =
         MediaPlan.create(
-            3L,
+            chapterId,
             4L,
             "abc123",
             ProductionMode.HYBRID_LOCAL_I2V,

@@ -5,12 +5,17 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.narrativex.backend.feature.common.exception.FeatureNotAvailableException;
+import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.render.application.port.out.FinalArtifactContentPort;
 import com.narrativex.backend.feature.render.application.query.FinalArtifactView;
 import java.time.Instant;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class ReadFinalArtifactContentUseCaseTest {
+  private static final UUID PROJECT_ID = UuidV7.random();
+  private static final UUID CHAPTER_ID = UuidV7.random();
+
   private final FinalArtifactContentPort contentPort = mock(FinalArtifactContentPort.class);
   private final ReadFinalArtifactContentUseCase useCase =
       new ReadFinalArtifactContentUseCase(contentPort);
@@ -36,8 +41,8 @@ class ReadFinalArtifactContentUseCaseTest {
   private static FinalArtifactView artifact(String status, String externalFileId) {
     return new FinalArtifactView(
         1L,
-        2L,
-        3L,
+        PROJECT_ID,
+        CHAPTER_ID,
         "CHAPTER_VIDEO",
         "fingerprint",
         "storage-key",

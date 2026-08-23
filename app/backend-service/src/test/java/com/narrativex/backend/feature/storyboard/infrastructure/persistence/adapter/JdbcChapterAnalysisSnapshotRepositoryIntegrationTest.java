@@ -31,7 +31,7 @@ class MyBatisChapterAnalysisSnapshotRepositoryIntegrationTest
 
   @Test
   void chapterAdvisoryLockMapsItsIntegerSentinel() {
-    long chapterId = insertChapter("owner-lock");
+    UUID chapterId = insertChapter("owner-lock");
 
     new TransactionTemplate(transactionManager)
         .executeWithoutResult(status -> storyboardRevisionAccess.lockChapter(chapterId));
@@ -39,11 +39,11 @@ class MyBatisChapterAnalysisSnapshotRepositoryIntegrationTest
 
   @Test
   void returnsSnapshotOnlyForTheRequestedOwnedProjectScope() {
-    long chapterId = insertChapter("owner-a");
-    long projectId =
+    UUID chapterId = insertChapter("owner-a");
+    UUID projectId =
         jdbcTemplate.queryForObject(
             "SELECT sv.project_id FROM chapters c JOIN story_versions sv ON sv.id = c.story_version_id WHERE c.id = ?",
-            Long.class,
+            UUID.class,
             chapterId);
     var repository = new MyBatisChapterAnalysisSnapshotRepository(mapper);
 
@@ -57,12 +57,12 @@ class MyBatisChapterAnalysisSnapshotRepositoryIntegrationTest
         () -> repository.requireOwnedByProject(projectId, chapterId, "owner-b"));
     assertThrows(
         ResourceNotFoundException.class,
-        () -> repository.requireOwnedByProject(projectId + 1, chapterId, "owner-a"));
+        () -> repository.requireOwnedByProject(com.narrativex.backend.feature.common.uuid.UuidV7.random(), chapterId, "owner-a"));
   }
 
-  private long insertChapter(String ownerId) {
-    String suffix = UUID.randomUUID().toString();
-    long projectId =
+  private UUID insertChapter(String ownerId) {
+    String suffix = com.narrativex.backend.feature.common.uuid.UuidV7.random().toString();
+    UUID projectId =
         jdbcTemplate.queryForObject(
             """
             INSERT INTO projects
@@ -71,10 +71,10 @@ class MyBatisChapterAnalysisSnapshotRepositoryIntegrationTest
             VALUES (?, ?, 'DRAFT', 'en-US', 'en-US', 'en-US', 'RATIO_16_9', 'STANDARD')
             RETURNING id
             """,
-            Long.class,
+            UUID.class,
             "Analysis scope " + suffix,
             ownerId);
-    long storyVersionId =
+    UUID storyVersionId =
         jdbcTemplate.queryForObject(
             """
             INSERT INTO story_versions
@@ -82,9 +82,9 @@ class MyBatisChapterAnalysisSnapshotRepositoryIntegrationTest
             VALUES (?, 1, 'story', 'en-US', 'DRAFT', 'PENDING')
             RETURNING id
             """,
-            Long.class,
+            UUID.class,
             projectId);
-    long chapterId =
+    UUID chapterId =
         jdbcTemplate.queryForObject(
             """
         INSERT INTO chapters
@@ -92,7 +92,7 @@ class MyBatisChapterAnalysisSnapshotRepositoryIntegrationTest
         VALUES (?, 0, 'Chapter', 'source', ?, 'DRAFT')
         RETURNING id
         """,
-            Long.class,
+            UUID.class,
             storyVersionId,
             SOURCE_HASH);
     jdbcTemplate.update(

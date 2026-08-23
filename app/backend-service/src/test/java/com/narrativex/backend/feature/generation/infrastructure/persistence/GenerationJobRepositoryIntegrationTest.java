@@ -58,7 +58,7 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
 
   @Test
   void insertsAndRoundTripsGeneratedIdentityAndOptionalFields() {
-    long projectId = insertProject("owner-a");
+    UUID projectId = insertProject("owner-a");
     GenerationJob saved =
         repository.save(
             GenerationJob.create(
@@ -74,7 +74,7 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
 
   @Test
   void updatesWithCompareAndSetAndRejectsStaleVersion() {
-    long projectId = insertProject("owner-b");
+    UUID projectId = insertProject("owner-b");
     GenerationJob saved =
         repository.save(
             GenerationJob.create(
@@ -90,12 +90,12 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
 
   @Test
   void distinguishesMissingUpdateFromStaleVersion() {
-    long projectId = insertProject("owner-c");
+    UUID projectId = insertProject("owner-c");
     GenerationJob missing =
         GenerationJob.rehydrate(
-            999_999_999L,
+            com.narrativex.backend.feature.common.uuid.UuidV7.random(),
             0L,
-            UUID.randomUUID().toString(),
+            com.narrativex.backend.feature.common.uuid.UuidV7.random(),
             projectId,
             JobType.STORY_ANALYZE,
             JobStatus.QUEUED,
@@ -119,7 +119,7 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
 
   @Test
   void preservesOwnerIsolationAndArchivedProjectVisibility() {
-    long projectId = insertProject("owner-d");
+    UUID projectId = insertProject("owner-d");
     GenerationJob saved =
         repository.save(
             GenerationJob.create(
@@ -135,8 +135,8 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
 
   @Test
   void findsIdempotencyKeyAndDatabaseRejectsDuplicates() {
-    long projectId = insertProject("owner-e");
-    String key = "generation-job-" + UUID.randomUUID();
+    UUID projectId = insertProject("owner-e");
+    String key = "generation-job-" + com.narrativex.backend.feature.common.uuid.UuidV7.random();
     GenerationJob first = repository.save(jobWithIdempotency(projectId, key, "owner-e"));
 
     assertEquals(first.getId(), repository.findByIdempotencyKey(key).orElseThrow().getId());
@@ -147,13 +147,13 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
 
   @Test
   void mediaPlanPointerRoundTripsExactly() {
-    long projectId = insertProject("owner-f");
+    UUID projectId = insertProject("owner-f");
     MediaFixture media = insertMediaPlan(projectId);
     GenerationJob job =
         GenerationJob.rehydrate(
             null,
             0L,
-            UUID.randomUUID().toString(),
+            com.narrativex.backend.feature.common.uuid.UuidV7.random(),
             projectId,
             JobType.CHAPTER_GENERATE,
             JobStatus.QUEUED,
@@ -170,7 +170,7 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
             media.sourceHash(),
             null,
             "vi-VN",
-            "media-job-" + UUID.randomUUID(),
+            "media-job-" + com.narrativex.backend.feature.common.uuid.UuidV7.random(),
             media.mediaPlanId(),
             1,
             ProductionMode.IMAGE_MOTION);
@@ -184,7 +184,7 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
 
   @Test
   void advisoryLockSerializesTransactionsForSameIdempotencyKey() throws Exception {
-    String key = "lock-" + UUID.randomUUID();
+    String key = "lock-" + com.narrativex.backend.feature.common.uuid.UuidV7.random();
     CountDownLatch firstLocked = new CountDownLatch(1);
     CountDownLatch releaseFirst = new CountDownLatch(1);
     CountDownLatch secondAcquired = new CountDownLatch(1);
@@ -218,7 +218,7 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
     second.get(5, TimeUnit.SECONDS);
   }
 
-  private long insertProject(String ownerId) {
+  private UUID insertProject(String ownerId) {
     return jdbcTemplate.queryForObject(
         """
         INSERT INTO projects
@@ -227,13 +227,13 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
         VALUES (?, ?, 'DRAFT', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD')
         RETURNING id
         """,
-        Long.class,
-        "Generation job test " + UUID.randomUUID(),
+        UUID.class,
+        "Generation job test " + com.narrativex.backend.feature.common.uuid.UuidV7.random(),
         ownerId);
   }
 
-  private MediaFixture insertMediaPlan(long projectId) {
-    long storyVersionId =
+  private MediaFixture insertMediaPlan(UUID projectId) {
+    UUID storyVersionId =
         jdbcTemplate.queryForObject(
             """
         INSERT INTO story_versions
@@ -241,20 +241,20 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
         VALUES (?, 1, 'story', 'vi-VN', 'DRAFT', 'PENDING')
         RETURNING id
         """,
-            Long.class,
+            UUID.class,
             projectId);
     String sourceHash = "a".repeat(64);
-    long chapterId =
+    UUID chapterId =
         jdbcTemplate.queryForObject(
             """
         INSERT INTO chapters (story_version_id, order_index, title, source_text, source_hash)
         VALUES (?, 0, 'Chapter', 'source', ?)
         RETURNING id
         """,
-            Long.class,
+            UUID.class,
             storyVersionId,
             sourceHash);
-    UUID mediaPlanId = UUID.randomUUID();
+    UUID mediaPlanId = com.narrativex.backend.feature.common.uuid.UuidV7.random();
     jdbcTemplate.update(
         """
         INSERT INTO media_plans
@@ -270,11 +270,11 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
     return new MediaFixture(storyVersionId, chapterId, sourceHash, mediaPlanId);
   }
 
-  private static GenerationJob jobWithIdempotency(long projectId, String key, String userId) {
+  private static GenerationJob jobWithIdempotency(UUID projectId, String key, String userId) {
     return GenerationJob.rehydrate(
         null,
         0L,
-        UUID.randomUUID().toString(),
+        com.narrativex.backend.feature.common.uuid.UuidV7.random(),
         projectId,
         JobType.STORY_ANALYZE,
         JobStatus.QUEUED,
@@ -333,5 +333,5 @@ class GenerationJobRepositoryIntegrationTest extends PostgreSqlIntegrationTestSu
   }
 
   private record MediaFixture(
-      long storyVersionId, long chapterId, String sourceHash, UUID mediaPlanId) {}
+      UUID storyVersionId, UUID chapterId, String sourceHash, UUID mediaPlanId) {}
 }

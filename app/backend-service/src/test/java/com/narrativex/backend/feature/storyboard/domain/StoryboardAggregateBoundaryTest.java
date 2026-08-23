@@ -5,19 +5,21 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.narrativex.backend.feature.common.domain.AggregateRoot;
 import com.narrativex.backend.feature.common.domain.DomainEntity;
+import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.storyboard.domain.aggregate.Chapter;
 import com.narrativex.backend.feature.storyboard.domain.aggregate.Scene;
 import com.narrativex.backend.feature.storyboard.domain.entity.VisualBeat;
 import com.narrativex.backend.feature.storyboard.domain.enums.SceneStatus;
 import com.narrativex.backend.feature.storyboard.domain.exception.InvalidSceneTransitionException;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class StoryboardAggregateBoundaryTest {
 
   @Test
   void chapterAndSceneAreIndependentAggregateRoots() {
-    assertEquals(AggregateRoot.class, Chapter.class.getSuperclass());
-    assertEquals(AggregateRoot.class, Scene.class.getSuperclass());
+    assertEquals(AggregateRoot.class, Chapter.class.getSuperclass().getSuperclass());
+    assertEquals(AggregateRoot.class, Scene.class.getSuperclass().getSuperclass());
   }
 
   @Test
@@ -27,13 +29,14 @@ class StoryboardAggregateBoundaryTest {
 
   @Test
   void aggregateReferencesMustBeValid() {
-    assertThrows(IllegalArgumentException.class, () -> new Chapter(0L, 0, "Chapter"));
-    assertThrows(IllegalArgumentException.class, () -> new Scene(0L, 0, "Scene"));
+    assertThrows(NullPointerException.class, () -> new Chapter(null, 0, "Chapter"));
+    assertThrows(NullPointerException.class, () -> new Scene(null, 0, "Scene"));
   }
 
   @Test
   void chapterOwnsItsTitleAndOrderRules() {
-    Chapter chapter = new Chapter(1L, 0, "Chapter 1");
+    UUID storyVersionId = UuidV7.random();
+    Chapter chapter = new Chapter(storyVersionId, 0, "Chapter 1");
 
     chapter.rename("Opening");
     chapter.reorder(2);
@@ -46,7 +49,8 @@ class StoryboardAggregateBoundaryTest {
 
   @Test
   void sceneOwnsCanonicalLifecycleTransitions() {
-    Scene scene = new Scene(1L, 0, "Scene 1");
+    UUID chapterId = UuidV7.random();
+    Scene scene = new Scene(chapterId, 0, "Scene 1");
 
     assertEquals(SceneStatus.DRAFT, scene.getStatus());
     scene.markReadyForVisual();
@@ -61,7 +65,8 @@ class StoryboardAggregateBoundaryTest {
 
   @Test
   void sceneRejectsInvalidLifecycleTransitions() {
-    Scene scene = new Scene(1L, 0, "Scene 1");
+    UUID chapterId = UuidV7.random();
+    Scene scene = new Scene(chapterId, 0, "Scene 1");
 
     assertThrows(InvalidSceneTransitionException.class, scene::startGeneration);
 
@@ -72,7 +77,9 @@ class StoryboardAggregateBoundaryTest {
 
   @Test
   void editingApprovedSceneMarksItsSnapshotOutdated() {
-    Scene scene = Scene.rehydrate(10L, 3L, 1L, 0, "Scene 1", "Narration", 12, SceneStatus.APPROVED);
+    UUID sceneId = UuidV7.random();
+    UUID chapterId = UuidV7.random();
+    Scene scene = Scene.rehydrate(sceneId, 3L, chapterId, 0, "Scene 1", "Narration", 12, SceneStatus.APPROVED);
 
     scene.updateNarration("Updated narration");
 

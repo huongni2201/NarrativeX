@@ -6,11 +6,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
+import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.project.domain.entity.StoryVersion;
 import com.narrativex.backend.feature.project.domain.enums.ModerationDecision;
 import com.narrativex.backend.feature.project.domain.enums.StoryVersionStatus;
 import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.StoryVersionMapper;
 import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.StoryVersionRow;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -19,21 +21,24 @@ import org.springframework.dao.OptimisticLockingFailureException;
 
 @ExtendWith(MockitoExtension.class)
 class StoryVersionPersistenceAdapterTest {
+  private static final UUID STORY_ID = UuidV7.random();
+  private static final UUID PROJECT_ID = UuidV7.random();
+
   @Mock private StoryVersionMapper mapper;
 
   @Test
   void rejectsDetachedStoryVersionWhenPersistedVersionMovedForward() {
     StoryVersion value =
         StoryVersion.rehydrate(
-            11L,
+            STORY_ID,
             3L,
-            7L,
+            PROJECT_ID,
             1,
             "content",
             "vi-VN",
             StoryVersionStatus.DRAFT,
             ModerationDecision.PENDING);
-    when(mapper.findById(11L)).thenReturn(row(4L));
+    when(mapper.findById(STORY_ID)).thenReturn(row(4L));
     MyBatisStoryVersionPersistenceAdapter adapter =
         new MyBatisStoryVersionPersistenceAdapter(mapper);
     assertThrows(OptimisticLockingFailureException.class, () -> adapter.save(value));
@@ -44,15 +49,15 @@ class StoryVersionPersistenceAdapterTest {
   void persistedStoryVersionCannotBeSilentlyRecreatedWhenMissing() {
     StoryVersion value =
         StoryVersion.rehydrate(
-            11L,
+            STORY_ID,
             3L,
-            7L,
+            PROJECT_ID,
             1,
             "content",
             "vi-VN",
             StoryVersionStatus.DRAFT,
             ModerationDecision.PENDING);
-    when(mapper.findById(11L)).thenReturn(null);
+    when(mapper.findById(STORY_ID)).thenReturn(null);
     assertThrows(
         ResourceNotFoundException.class,
         () -> new MyBatisStoryVersionPersistenceAdapter(mapper).save(value));
@@ -60,9 +65,9 @@ class StoryVersionPersistenceAdapterTest {
 
   private static StoryVersionRow row(long version) {
     StoryVersionRow row = new StoryVersionRow();
-    row.setId(11L);
+    row.setId(STORY_ID);
     row.setRowVersion(version);
-    row.setProjectId(7L);
+    row.setProjectId(PROJECT_ID);
     row.setVersionNumber(1);
     row.setContent("server");
     row.setSourceLanguage("vi-VN");

@@ -89,7 +89,7 @@ class MyBatisProjectRepositoryIntegrationTest extends PostgreSqlIntegrationTestS
 
   private Project newProject(String ownerId) {
     return Project.create(
-        "Project " + UUID.randomUUID(),
+        "Project " + com.narrativex.backend.feature.common.uuid.UuidV7.random(),
         ownerId,
         "vi-VN",
         "vi-VN",
@@ -98,7 +98,7 @@ class MyBatisProjectRepositoryIntegrationTest extends PostgreSqlIntegrationTestS
         ImageQualityTier.STANDARD);
   }
 
-  private Instant timestamp(String column, Long projectId) {
+  private Instant timestamp(String column, UUID projectId) {
     return jdbcTemplate.queryForObject(
         "SELECT " + column + " FROM projects WHERE id = ?", Instant.class, projectId);
   }

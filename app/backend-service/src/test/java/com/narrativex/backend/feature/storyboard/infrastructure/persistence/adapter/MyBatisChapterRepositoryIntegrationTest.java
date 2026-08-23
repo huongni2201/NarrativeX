@@ -36,7 +36,7 @@ class MyBatisChapterRepositoryIntegrationTest extends PostgreSqlIntegrationTestS
   @Test
   void contextSelectsExactlyOneMyBatisChapterRepositoryAndRoundTripsUnicodeText() {
     assertInstanceOf(MyBatisChapterRepository.class, repository);
-    long storyVersionId = insertStoryVersion();
+    UUID storyVersionId = insertStoryVersion();
     String sourceText = "Xin chào NarrativeX — \"quote\"\nEnglish line\n🙂";
 
     Chapter saved =
@@ -60,7 +60,7 @@ class MyBatisChapterRepositoryIntegrationTest extends PostgreSqlIntegrationTestS
 
   @Test
   void preservesDeterministicOrderingAndCursorPagination() {
-    long storyVersionId = insertStoryVersion();
+    UUID storyVersionId = insertStoryVersion();
     repository.save(new Chapter(storyVersionId, 2, "Two", "two", HASH_HELLO));
     repository.save(new Chapter(storyVersionId, 0, "Zero", "zero", HASH_HELLO));
     repository.save(new Chapter(storyVersionId, 1, "One", "one", HASH_HELLO));
@@ -79,7 +79,7 @@ class MyBatisChapterRepositoryIntegrationTest extends PostgreSqlIntegrationTestS
 
   @Test
   void incrementsVersionAndRejectsStaleSourceUpdate() {
-    long storyVersionId = insertStoryVersion();
+    UUID storyVersionId = insertStoryVersion();
     Chapter created =
         repository.save(new Chapter(storyVersionId, 0, "Original", "hello", HASH_HELLO));
     Chapter stale = repository.findById(created.getId()).orElseThrow();
@@ -99,7 +99,7 @@ class MyBatisChapterRepositoryIntegrationTest extends PostgreSqlIntegrationTestS
 
   @Test
   void rollsBackChapterUpdateWithTheSpringTransaction() {
-    long storyVersionId = insertStoryVersion();
+    UUID storyVersionId = insertStoryVersion();
     Chapter created =
         repository.save(new Chapter(storyVersionId, 0, "Original", "hello", HASH_HELLO));
 
@@ -124,18 +124,18 @@ class MyBatisChapterRepositoryIntegrationTest extends PostgreSqlIntegrationTestS
   void translatesForeignKeyAndUniqueConstraintFailures() {
     assertThrows(
         DataIntegrityViolationException.class,
-        () -> repository.save(new Chapter(Long.MAX_VALUE, 0, "Invalid", "hello", HASH_HELLO)));
+        () -> repository.save(new Chapter(com.narrativex.backend.feature.common.uuid.UuidV7.random(), 0, "Invalid", "hello", HASH_HELLO)));
 
-    long storyVersionId = insertStoryVersion();
+    UUID storyVersionId = insertStoryVersion();
     repository.save(new Chapter(storyVersionId, 0, "First", "hello", HASH_HELLO));
     assertThrows(
         DataIntegrityViolationException.class,
         () -> repository.save(new Chapter(storyVersionId, 0, "Duplicate", "hello", HASH_HELLO)));
   }
 
-  private long insertStoryVersion() {
-    String suffix = UUID.randomUUID().toString();
-    long projectId =
+  private UUID insertStoryVersion() {
+    String suffix = com.narrativex.backend.feature.common.uuid.UuidV7.random().toString();
+    UUID projectId =
         jdbcTemplate.queryForObject(
             """
             INSERT INTO projects
@@ -144,7 +144,7 @@ class MyBatisChapterRepositoryIntegrationTest extends PostgreSqlIntegrationTestS
             VALUES (?, 'chapter-test-owner', 'DRAFT', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD')
             RETURNING id
             """,
-            Long.class,
+            UUID.class,
             "Chapter test " + suffix);
     return jdbcTemplate.queryForObject(
         """
@@ -153,7 +153,7 @@ class MyBatisChapterRepositoryIntegrationTest extends PostgreSqlIntegrationTestS
         VALUES (?, 1, 'story', 'vi-VN', 'DRAFT', 'PENDING')
         RETURNING id
         """,
-        Long.class,
+        UUID.class,
         projectId);
   }
 }
