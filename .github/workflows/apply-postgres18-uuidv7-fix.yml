@@ -1,0 +1,85 @@
+name: Apply PostgreSQL 18 UUIDv7 schema fix
+
+on:
+  push:
+    branches:
+      - fix/postgres18-uuidv7-schema
+    paths:
+      - .github/workflows/apply-postgres18-uuidv7-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-schema-fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/postgres18-uuidv7-schema
+          fetch-depth: 0
+
+      - name: Apply exact schema replacements
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path("app/backend-service/src/main/resources/db/migration/V1__initial_schema.sql")
+          text = path.read_text(encoding="utf-8")
+
+          replacements = [
+              ("uuid_generate_v7()", "uuidv7()", 20),
+              ("job_id VARCHAR(36) NOT NULL UNIQUE", "job_id UUID NOT NULL UNIQUE", 1),
+              ("job_id BIGINT REFERENCES generation_jobs(id)", "job_id UUID REFERENCES generation_jobs(id)", 1),
+              (
+                  "provider_operation_id BIGINT REFERENCES provider_operations(id)",
+                  "provider_operation_id UUID REFERENCES provider_operations(id)",
+                  1,
+              ),
+          ]
+
+          for old, new, expected in replacements:
+              actual = text.count(old)
+              if actual != expected:
+                  raise SystemExit(
+                      f"Refusing unsafe rewrite: expected {expected} occurrence(s) of {old!r}, found {actual}"
+                  )
+              text = text.replace(old, new)
+
+          path.write_text(text, encoding="utf-8")
+
+      - name: Verify replacements
+        shell: python
+        run: |
+          from pathlib import Path
+
+          text = Path("app/backend-service/src/main/resources/db/migration/V1__initial_schema.sql").read_text(encoding="utf-8")
+          forbidden = [
+              "uuid_generate_v7()",
+              "job_id VARCHAR(36) NOT NULL UNIQUE",
+              "job_id BIGINT REFERENCES generation_jobs(id)",
+              "provider_operation_id BIGINT REFERENCES provider_operations(id)",
+          ]
+          for value in forbidden:
+              if value in text:
+                  raise SystemExit(f"Forbidden legacy schema fragment remains: {value}")
+
+          required = [
+              "id UUID PRIMARY KEY DEFAULT uuidv7()",
+              "job_id UUID NOT NULL UNIQUE",
+              "job_id UUID REFERENCES generation_jobs(id)",
+              "provider_operation_id UUID REFERENCES provider_operations(id)",
+          ]
+          for value in required:
+              if value not in text:
+                  raise SystemExit(f"Required PostgreSQL 18 schema fragment missing: {value}")
+
+      - name: Commit schema fix and remove one-shot workflow
+        shell: bash
+        run: |
+          rm .github/workflows/apply-postgres18-uuidv7-fix.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/backend-service/src/main/resources/db/migration/V1__initial_schema.sql .github/workflows/apply-postgres18-uuidv7-fix.yml
+          git commit -m "fix(db): align baseline schema with PostgreSQL 18 UUIDv7"
+          git push origin HEAD:fix/postgres18-uuidv7-schema
