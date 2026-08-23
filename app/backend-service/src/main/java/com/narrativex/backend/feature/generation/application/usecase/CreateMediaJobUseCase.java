@@ -23,7 +23,6 @@ import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmi
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSourceAccess;
-import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;

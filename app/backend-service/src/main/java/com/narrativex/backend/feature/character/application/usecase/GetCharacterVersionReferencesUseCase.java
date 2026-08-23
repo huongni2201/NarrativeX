@@ -2,8 +2,8 @@ package com.narrativex.backend.feature.character.application.usecase;
 
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.character.application.port.out.CharacterVersionReferenceRepository;
-import com.narrativex.backend.feature.character.application.port.out.CharacterVersionReferenceRepository.Reference;
 import com.narrativex.backend.feature.character.application.port.out.CharacterVersionRepository;
+import com.narrativex.backend.feature.character.domain.value.CharacterVersionReference;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import java.util.List;
 import java.util.UUID;
@@ -19,7 +19,7 @@ public class GetCharacterVersionReferencesUseCase {
   private final CharacterVersionReferenceRepository referenceRepository;
 
   @Transactional(readOnly = true)
-  public List<Reference> execute(UUID characterId, UUID versionId) {
+  public List<CharacterVersionReference> execute(UUID characterId, UUID versionId) {
     var version =
         versionRepository
             .findOwnedById(versionId, currentUserId.get())

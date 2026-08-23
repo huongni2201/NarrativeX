@@ -2,6 +2,7 @@ package com.narrativex.backend.feature.assets.infrastructure.persistence.adapter
 
 import com.narrativex.backend.feature.assets.application.pagination.MediaAssetCursor;
 import com.narrativex.backend.feature.assets.application.pagination.MediaAssetCursorCodec;
+import com.narrativex.backend.feature.assets.application.port.in.MediaAssetAccess;
 import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository;
 import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository.CreateVerifiedMediaAsset;
 import com.narrativex.backend.feature.assets.application.query.MediaAssetView;
@@ -13,6 +14,7 @@ import com.narrativex.backend.feature.common.exception.ResourceNotFoundException
 import com.narrativex.backend.feature.common.pagination.CursorPage;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.OptimisticLockingFailureException;
@@ -21,7 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Component
 @RequiredArgsConstructor
-public class MyBatisMediaAssetRepository implements MediaAssetRepository {
+public class MyBatisMediaAssetRepository implements MediaAssetRepository, MediaAssetAccess {
   private final MediaAssetMapper mapper;
   private final MediaAssetTransitionService transitionService;
 
@@ -149,6 +151,22 @@ public class MyBatisMediaAssetRepository implements MediaAssetRepository {
       throw optimisticConflict(id);
     }
     return requireOwned(accountId, id);
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public Optional<MediaAssetSummary> findOwned(String ownerId, UUID assetId) {
+    MediaAssetRow row = mapper.findOwned(ownerId, assetId);
+    if (row == null) {
+      return Optional.empty();
+    }
+    return Optional.of(
+        new MediaAssetSummary(
+            row.getId(),
+            row.getAssetType(),
+            row.getStatus(),
+            row.getContentType(),
+            row.getDetectedContentType()));
   }
 
   private MediaAssetRow requireOwnedRow(String accountId, UUID id) {

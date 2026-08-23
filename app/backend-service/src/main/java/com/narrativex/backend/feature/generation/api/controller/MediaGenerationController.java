@@ -68,7 +68,10 @@ public class MediaGenerationController {
       @PathVariable UUID chapterId,
       @Valid @RequestBody EstimateMediaJobRequest request) {
     requireMediaGenerationEnabled();
-    return ResponseEntity.ok(estimateMediaJobUseCase.execute(projectId, chapterId, request));
+    return ResponseEntity.ok(
+        estimateMediaJobUseCase.execute(
+            new com.narrativex.backend.feature.generation.application.command.EstimateMediaJobCommand(
+                projectId, chapterId, request.qualityTier())));
   }
 
   private void requireMediaGenerationEnabled() {

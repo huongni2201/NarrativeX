@@ -1,6 +1,5 @@
 package com.narrativex.backend.feature.storyboard.application.usecase;
 
-import com.narrativex.backend.feature.assets.application.port.out.ObjectStoragePort;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.FeatureNotAvailableException;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
@@ -30,7 +29,6 @@ public class GetChapterWorkspaceUseCase {
   private final ChapterRepository chapterRepository;
   private final ChapterAnalysisSnapshotRepository chapterAnalysisSnapshotRepository;
   private final ChapterWorkspaceReadRepository chapterWorkspaceReadRepository;
-  private final ObjectStoragePort objectStorage;
 
   @Transactional(readOnly = true)
   public ApiResponse<ChapterWorkspaceResponse> execute(UUID projectId, UUID chapterId) {

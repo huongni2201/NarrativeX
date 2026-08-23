@@ -1,13 +1,14 @@
 package com.narrativex.backend.feature.character.application.port.out;
 
+import com.narrativex.backend.feature.character.domain.value.CharacterVersionReference;
 import java.util.List;
 import java.util.UUID;
 
 /** Persistence boundary for immutable media references attached to a character version. */
 public interface CharacterVersionReferenceRepository {
-  List<Reference> findByVersionId(UUID characterVersionId);
+  List<CharacterVersionReference> findByVersionId(UUID characterVersionId);
 
-  void replace(UUID characterVersionId, List<Reference> references);
+  void replace(UUID characterVersionId, List<CharacterVersionReference> references);
 
   record Reference(UUID mediaAssetId, String role, int priority) {
     public Reference {

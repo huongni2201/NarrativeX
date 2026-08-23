@@ -2,8 +2,8 @@ package com.narrativex.backend.feature.generation.application.usecase;
 
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.response.ApiResponse;
-import com.narrativex.backend.feature.generation.api.request.EstimateMediaJobRequest;
 import com.narrativex.backend.feature.generation.api.response.MediaCostEstimateResponse;
+import com.narrativex.backend.feature.generation.application.command.EstimateMediaJobCommand;
 import com.narrativex.backend.feature.generation.application.port.out.ImageGenerationCatalog;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSourceAccess;
@@ -21,15 +21,14 @@ public class EstimateMediaJobUseCase {
   private final ImageGenerationCatalog imageGenerationCatalog;
 
   @Transactional(readOnly = true)
-  public ApiResponse<MediaCostEstimateResponse> execute(
-      UUID projectId, UUID chapterId, EstimateMediaJobRequest request) {
+  public ApiResponse<MediaCostEstimateResponse> execute(EstimateMediaJobCommand command) {
     chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(
-        projectId, chapterId, currentUserId.get());
+        command.projectId(), command.chapterId(), currentUserId.get());
     int visualBeatCount =
-        mediaPlanningSourceAccess.requireCurrent(chapterId).scenes().stream()
+        mediaPlanningSourceAccess.requireCurrent(command.chapterId()).scenes().stream()
             .mapToInt(scene -> scene.beats().size())
             .sum();
-    var imageProfile = imageGenerationCatalog.resolve(request.qualityTier());
+    var imageProfile = imageGenerationCatalog.resolve(command.qualityTier());
     return ApiResponse.success(
         new MediaCostEstimateResponse(
             visualBeatCount,

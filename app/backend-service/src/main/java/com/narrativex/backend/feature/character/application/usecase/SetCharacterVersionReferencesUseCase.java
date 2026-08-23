@@ -1,11 +1,11 @@
 package com.narrativex.backend.feature.character.application.usecase;
 
-import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository;
+import com.narrativex.backend.feature.assets.application.port.in.MediaAssetAccess;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.character.application.port.out.CharacterVersionReferenceRepository;
-import com.narrativex.backend.feature.character.application.port.out.CharacterVersionReferenceRepository.Reference;
 import com.narrativex.backend.feature.character.application.port.out.CharacterVersionRepository;
 import com.narrativex.backend.feature.character.domain.enums.CharacterVersionStatus;
+import com.narrativex.backend.feature.character.domain.value.CharacterVersionReference;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import java.util.Comparator;
@@ -27,10 +27,11 @@ public class SetCharacterVersionReferencesUseCase {
   private final CurrentUserId currentUserId;
   private final CharacterVersionRepository versionRepository;
   private final CharacterVersionReferenceRepository referenceRepository;
-  private final MediaAssetRepository mediaAssetRepository;
+  private final MediaAssetAccess mediaAssetAccess;
 
   @Transactional
-  public List<Reference> execute(UUID characterId, UUID versionId, List<ReferenceInput> inputs) {
+  public List<CharacterVersionReference> execute(
+      UUID characterId, UUID versionId, List<ReferenceInput> inputs) {
     String ownerId = currentUserId.get();
     var version =
         versionRepository
@@ -68,8 +69,10 @@ public class SetCharacterVersionReferencesUseCase {
         throw new IllegalArgumentException("Duplicate character reference priority");
       }
 
-      var asset = mediaAssetRepository.findOwned(ownerId, input.assetId());
-      if (asset == null) throw new ResourceNotFoundException("Reference media asset not found");
+      var asset =
+          mediaAssetAccess
+              .findOwned(ownerId, input.assetId())
+              .orElseThrow(() -> new ResourceNotFoundException("Reference media asset not found"));
       if (!"IMAGE".equals(asset.type()) || !"READY".equals(asset.status())) {
         throw new ResourceConflictException("Character references must be READY image assets");
       }
@@ -80,10 +83,15 @@ public class SetCharacterVersionReferencesUseCase {
       }
     }
 
-    List<Reference> references =
+    List<CharacterVersionReference> references =
         safeInputs.stream()
-            .map(input -> new Reference(input.assetId(), normalizedRole(input.role()), input.priority()))
-            .sorted(Comparator.comparingInt(Reference::priority).thenComparing(Reference::mediaAssetId))
+            .map(
+                input ->
+                    new CharacterVersionReference(
+                        input.assetId(), normalizedRole(input.role()), input.priority()))
+            .sorted(
+                Comparator.comparingInt(CharacterVersionReference::priority)
+                    .thenComparing(CharacterVersionReference::mediaAssetId))
             .toList();
     if (!references.isEmpty() && !"IDENTITY".equals(references.getFirst().role())) {
       throw new IllegalArgumentException("The highest-priority character reference must be IDENTITY");

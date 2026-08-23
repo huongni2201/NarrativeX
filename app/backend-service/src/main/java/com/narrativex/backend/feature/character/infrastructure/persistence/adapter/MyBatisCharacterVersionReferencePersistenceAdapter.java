@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.character.infrastructure.persistence.adapter;
 
 import com.narrativex.backend.feature.character.application.port.out.CharacterVersionReferenceRepository;
+import com.narrativex.backend.feature.character.domain.value.CharacterVersionReference;
 import com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.CharacterVersionReferenceMapper;
 import com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.CharacterVersionReferenceRow;
 import java.util.List;
@@ -15,16 +16,19 @@ public class MyBatisCharacterVersionReferencePersistenceAdapter
   private final CharacterVersionReferenceMapper mapper;
 
   @Override
-  public List<Reference> findByVersionId(UUID characterVersionId) {
+  public List<CharacterVersionReference> findByVersionId(UUID characterVersionId) {
     return mapper.findByVersionId(characterVersionId).stream()
-        .map(row -> new Reference(row.getMediaAssetId(), row.getReferenceRole(), row.getPriority()))
+        .map(
+            row ->
+                new CharacterVersionReference(
+                    row.getMediaAssetId(), row.getReferenceRole(), row.getPriority()))
         .toList();
   }
 
   @Override
-  public void replace(UUID characterVersionId, List<Reference> references) {
+  public void replace(UUID characterVersionId, List<CharacterVersionReference> references) {
     mapper.deleteByVersionId(characterVersionId);
-    for (Reference reference : references) {
+    for (CharacterVersionReference reference : references) {
       CharacterVersionReferenceRow row = new CharacterVersionReferenceRow();
       row.setCharacterVersionId(characterVersionId);
       row.setMediaAssetId(reference.mediaAssetId());
