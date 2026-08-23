@@ -14,9 +14,9 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ChapterContentVariantRow {
-  private Long id;
+  private UUID id;
   private UUID chapterId;
-  private Long sourceVariantId;
+  private UUID sourceVariantId;
   private ContentVariantType type;
   private String languageCode;
   private String content;
