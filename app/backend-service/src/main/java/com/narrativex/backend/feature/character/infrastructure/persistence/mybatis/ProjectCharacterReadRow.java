@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.character.infrastructure.persistence.mybatis;
 
 import java.time.Instant;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -11,9 +12,9 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ProjectCharacterReadRow {
-  private Long assignmentId;
-  private Long characterId;
-  private Long projectId;
+  private UUID assignmentId;
+  private UUID characterId;
+  private UUID projectId;
   private String workspaceId;
   private String canonicalName;
   private String aliasesJson;
@@ -21,7 +22,7 @@ public class ProjectCharacterReadRow {
   private String role;
   private int importance;
   private String groupsJson;
-  private Long pinnedCharacterVersionId;
+  private UUID pinnedCharacterVersionId;
   private String status;
   private int sceneCount;
   private long rowVersion;

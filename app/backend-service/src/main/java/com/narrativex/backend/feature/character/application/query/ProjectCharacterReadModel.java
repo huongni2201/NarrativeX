@@ -2,11 +2,12 @@ package com.narrativex.backend.feature.character.application.query;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 public record ProjectCharacterReadModel(
-    Long assignmentId,
-    Long characterId,
-    Long projectId,
+    UUID assignmentId,
+    UUID characterId,
+    UUID projectId,
     String workspaceId,
     String canonicalName,
     List<String> aliases,
@@ -14,7 +15,7 @@ public record ProjectCharacterReadModel(
     String role,
     int importance,
     List<String> groups,
-    Long pinnedCharacterVersionId,
+    UUID pinnedCharacterVersionId,
     String status,
     int sceneCount,
     long rowVersion,

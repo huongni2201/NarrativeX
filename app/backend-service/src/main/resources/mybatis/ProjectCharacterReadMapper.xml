@@ -4,9 +4,9 @@
     "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.ProjectCharacterReadMapper">
     <resultMap id="projectCharacterReadRow" type="com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.ProjectCharacterReadRow">
-        <id property="assignmentId" column="assignment_id" />
-        <result property="characterId" column="character_id" />
-        <result property="projectId" column="project_id" />
+        <id property="assignmentId" column="assignment_id" javaType="java.util.UUID" typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
+        <result property="characterId" column="character_id" javaType="java.util.UUID" typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
+        <result property="projectId" column="project_id" javaType="java.util.UUID" typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
         <result property="workspaceId" column="workspace_id" />
         <result property="canonicalName" column="canonical_name" />
         <result property="aliasesJson" column="aliases_json" />
@@ -14,7 +14,7 @@
         <result property="role" column="role" />
         <result property="importance" column="importance" />
         <result property="groupsJson" column="groups_json" />
-        <result property="pinnedCharacterVersionId" column="pinned_character_version_id" />
+        <result property="pinnedCharacterVersionId" column="pinned_character_version_id" javaType="java.util.UUID" typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
         <result property="status" column="status" />
         <result property="sceneCount" column="scene_count" />
         <result property="rowVersion" column="row_version" />
