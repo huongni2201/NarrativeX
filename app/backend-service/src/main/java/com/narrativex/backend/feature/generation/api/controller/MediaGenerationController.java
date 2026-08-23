@@ -3,11 +3,14 @@ package com.narrativex.backend.feature.generation.api.controller;
 import com.narrativex.backend.feature.common.exception.FeatureNotAvailableException;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.generation.api.request.CreateMediaJobRequest;
+import com.narrativex.backend.feature.generation.api.request.EstimateMediaJobRequest;
+import com.narrativex.backend.feature.generation.api.response.MediaCostEstimateResponse;
 import com.narrativex.backend.feature.generation.api.request.ReviewMediaGenerationItemRequest;
 import com.narrativex.backend.feature.generation.api.response.JobResponse;
 import com.narrativex.backend.feature.generation.api.response.MediaJobDetailsResponse;
 import com.narrativex.backend.feature.generation.application.command.CreateMediaJobCommand;
 import com.narrativex.backend.feature.generation.application.usecase.CreateMediaJobUseCase;
+import com.narrativex.backend.feature.generation.application.usecase.EstimateMediaJobUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.GetMediaJobDetailsUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.ReviewMediaGenerationItemUseCase;
 import com.narrativex.backend.feature.generation.domain.enums.ImageStyle;
@@ -30,6 +33,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1")
 public class MediaGenerationController {
   private final CreateMediaJobUseCase createMediaJobUseCase;
+  private final EstimateMediaJobUseCase estimateMediaJobUseCase;
   private final GetMediaJobDetailsUseCase getMediaJobDetailsUseCase;
   private final ReviewMediaGenerationItemUseCase reviewMediaGenerationItemUseCase;
   @Value("${narrativex.generation.media-enabled:false}")
@@ -54,6 +58,15 @@ public class MediaGenerationController {
                 request.maxAuthorizedCost(),
                 ImageStyle.from(request.imageStyle())));
     return ResponseEntity.status(HttpStatus.ACCEPTED).body(ApiResponse.success("Media job queued", JobResponse.from(job)));
+  }
+
+  @PostMapping("/projects/{projectId}/chapters/{chapterId}/media-jobs/estimate")
+  public ResponseEntity<ApiResponse<MediaCostEstimateResponse>> estimate(
+      @PathVariable Long projectId,
+      @PathVariable Long chapterId,
+      @Valid @RequestBody EstimateMediaJobRequest request) {
+    requireMediaGenerationEnabled();
+    return ResponseEntity.ok(estimateMediaJobUseCase.execute(projectId, chapterId, request));
   }
 
   private void requireMediaGenerationEnabled() {

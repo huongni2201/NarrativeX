@@ -154,7 +154,7 @@ export function ChapterEditor({ projectId, chapterId }: Readonly<ChapterEditorPr
           />
         </div>
       ) : activeTab === "visuals" ? (
-        <ChapterVisualsTab projectId={numericProjectId} chapterId={workspace.chapter.id} />
+        <ChapterVisualsTab projectId={numericProjectId} chapterId={workspace.chapter.id} visualBeatCount={workspace.summary.visualBeatCount} />
       ) : activeTab === "render" ? (
         <ChapterRenderTab projectId={numericProjectId} chapterId={workspace.chapter.id} />
       ) : activeTab === "audio" ? (

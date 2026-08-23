@@ -136,7 +136,15 @@ export interface ApiChapterWorkspace {
     canGenerateVisuals: boolean;
     canGenerateAudio: boolean;
     canRender: boolean;
+    visualGenerationBlockReason: string | null;
   };
+}
+
+export interface ApiMediaCostEstimate {
+  visualBeatCount: number;
+  unitEstimatedCost: string;
+  estimatedCost: string;
+  currency: string;
 }
 
 export interface ApiGenerationJob {
@@ -403,7 +411,8 @@ export function isApiChapterWorkspace(value: unknown): value is ApiChapterWorksp
     isBoolean(value.capabilities.canAnalyze) &&
     isBoolean(value.capabilities.canGenerateVisuals) &&
     isBoolean(value.capabilities.canGenerateAudio) &&
-    isBoolean(value.capabilities.canRender)
+    isBoolean(value.capabilities.canRender) &&
+    isNullableString(value.capabilities.visualGenerationBlockReason)
   );
 }
 

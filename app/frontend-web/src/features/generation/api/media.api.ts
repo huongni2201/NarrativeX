@@ -1,4 +1,4 @@
-import type { ApiGenerationJob } from "@/types/api";
+import type { ApiGenerationJob, ApiMediaCostEstimate } from "@/types/api";
 import { isApiGenerationJob } from "@/types/api";
 import { apiRequest } from "@/shared/api/client";
 
@@ -8,6 +8,24 @@ export interface CreateMediaJobInput {
   qualityTier: "DRAFT" | "STANDARD" | "HIGH";
   maxAuthorizedCost: string;
   imageStyle: "CINEMATIC" | "STORYBOOK_WATERCOLOR";
+}
+
+export interface EstimateMediaJobInput {
+  productionMode: "IMAGE_MOTION";
+  aspectRatio: CreateMediaJobInput["aspectRatio"];
+  qualityTier: CreateMediaJobInput["qualityTier"];
+  imageStyle: CreateMediaJobInput["imageStyle"];
+}
+
+function isApiMediaCostEstimate(value: unknown): value is ApiMediaCostEstimate {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<ApiMediaCostEstimate>;
+  return (
+    typeof candidate.visualBeatCount === "number" &&
+    typeof candidate.unitEstimatedCost === "string" &&
+    typeof candidate.estimatedCost === "string" &&
+    typeof candidate.currency === "string"
+  );
 }
 
 export interface MediaGenerationItem {
@@ -52,6 +70,12 @@ function isMediaJobDetails(value: unknown): value is MediaJobDetails {
 }
 
 export const mediaApi = {
+  estimate: (projectId: number, chapterId: number, input: EstimateMediaJobInput) =>
+    apiRequest<ApiMediaCostEstimate>(
+      `/api/v1/projects/${projectId}/chapters/${chapterId}/media-jobs/estimate`,
+      { method: "POST", json: input },
+      isApiMediaCostEstimate,
+    ),
   createJob: (projectId: number, chapterId: number, input: CreateMediaJobInput, idempotencyKey: string) =>
     apiRequest<ApiGenerationJob>(`/api/v1/projects/${projectId}/chapters/${chapterId}/media-jobs`, { method: "POST", headers: { "Idempotency-Key": idempotencyKey }, json: input }, isApiGenerationJob),
   getJob: (jobId: string) => apiRequest<ApiGenerationJob>(`/api/v1/generation-jobs/${encodeURIComponent(jobId)}`, {}, isApiGenerationJob),

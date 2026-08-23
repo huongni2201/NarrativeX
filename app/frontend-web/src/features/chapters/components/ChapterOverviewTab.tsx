@@ -187,7 +187,12 @@ export function ChapterOverviewTab({
                   : "Phân tích hiện chưa khả dụng; hãy lưu nội dung Chapter và kiểm tra trạng thái quyền sử dụng."}
               </p>
             )}
-            <QuickAction label="Review Visuals" enabled={workspace.capabilities.canGenerateVisuals} onClick={onOpenStoryboard} />
+            <QuickAction
+              label="Review Visuals"
+              enabled={workspace.capabilities.canGenerateVisuals}
+              disabledReason={workspace.capabilities.visualGenerationBlockReason}
+              onClick={onOpenStoryboard}
+            />
             <QuickAction
               label="Tạo Audio"
               enabled={workspace.capabilities.canGenerateAudio}
@@ -327,10 +332,12 @@ function ProgressItem({
 function QuickAction({
   label,
   enabled,
+  disabledReason,
   onClick,
 }: {
   label: string;
   enabled: boolean;
+  disabledReason?: string | null;
   onClick?: () => void;
 }) {
   return (
@@ -345,7 +352,7 @@ function QuickAction({
       }`}
     >
       {label}
-      {!enabled && <span className="ml-1.5 text-[10px] text-slate-600">(chưa mở)</span>}
+      {!enabled && <span className="ml-1.5 text-[10px] text-slate-600">({disabledReason ?? "chưa mở"})</span>}
     </button>
   );
 }

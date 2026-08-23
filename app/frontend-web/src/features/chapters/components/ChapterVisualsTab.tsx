@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { GenerateMediaModal } from "@/features/generation/components/GenerateMediaModal";
 import { useMediaGeneration } from "@/features/generation/hooks/useMediaGeneration";
 
-export function ChapterVisualsTab({ projectId, chapterId }: Readonly<{ projectId: number; chapterId: number }>) {
+export function ChapterVisualsTab({ projectId, chapterId, visualBeatCount }: Readonly<{ projectId: number; chapterId: number; visualBeatCount: number }>) {
   const [modalOpen, setModalOpen] = useState(false);
   const media = useMediaGeneration(projectId, chapterId);
   return (
@@ -15,7 +15,7 @@ export function ChapterVisualsTab({ projectId, chapterId }: Readonly<{ projectId
       {media.job && <div className="rounded-lg border border-border-dark bg-surface-panel p-3 text-sm text-slate-300">Job {media.job.status.toLowerCase()} · {media.job.progress}%{media.job.mediaPlanRevision ? ` · plan revision ${media.job.mediaPlanRevision}` : ""}</div>}
       {!media.details && <p className="rounded-xl border border-dashed border-border-dark px-4 py-10 text-center text-sm text-slate-500">Chưa có media job cho Chapter này.</p>}
       {media.details && <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{media.details.items.map((item) => <article key={item.id} className="rounded-xl border border-border-dark bg-surface-panel p-4"><div className="flex items-center justify-between"><span className="text-sm font-medium text-slate-200">Beat {item.visualBeatId}</span><span className="text-xs text-slate-500">attempt {item.attemptNumber}</span></div><p className="mt-3 text-xs uppercase tracking-wide text-slate-400">{item.executionStatus} · {item.reviewStatus}</p>{item.errorCode && <p className="mt-2 text-xs text-rose-300">{item.errorCode}</p>}{item.reviewStatus === "NEEDS_REVIEW" && <div className="mt-4 flex gap-2"><Button size="sm" onClick={() => media.review.mutate({ itemId: item.id, decision: "APPROVED", rowVersion: item.rowVersion })} disabled={media.review.isPending}>Approve</Button><Button size="sm" variant="ghost" onClick={() => media.review.mutate({ itemId: item.id, decision: "REJECTED", rowVersion: item.rowVersion })} disabled={media.review.isPending}>Reject</Button></div>}</article>)}</div>}
-      <GenerateMediaModal open={modalOpen} pending={media.createJob.isPending} onClose={() => setModalOpen(false)} onSubmit={(input) => { setModalOpen(false); media.createJob.mutate({ input, idempotencyKey: crypto.randomUUID() }); }} />
+      <GenerateMediaModal projectId={projectId} chapterId={chapterId} visualBeatCount={visualBeatCount} open={modalOpen} pending={media.createJob.isPending} onClose={() => setModalOpen(false)} onSubmit={(input) => { setModalOpen(false); media.createJob.mutate({ input, idempotencyKey: crypto.randomUUID() }); }} />
     </section>
   );
 }
