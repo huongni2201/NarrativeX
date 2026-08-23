@@ -1,16 +1,16 @@
 # NarrativeX — Project Source of Truth V1.11
 
 **Status:** Canonical engineering direction and code-aligned baseline  
-**Effective date:** 22/08/2026  
+**Effective date:** 23/08/2026  
 **Repository:** `huongni2201/NarrativeX`  
-**Docs-sync implementation checkpoint:** `feat/final-video-google-drive` at `b26e4792d933e787526ea1bb6cb85dfcc5d4c87e`  
+**Docs-sync implementation checkpoint:** `fix/render-snapshot-retry-integrity` at `a167a88709e342b882cef0ceea6f0d6bd4122e4f`  
 **Supersedes:** V1.10 as the planning baseline for new work
 
 ---
 
 ## 1. Authority and status semantics
 
-V1.11 is the maintained product/domain/architecture baseline. Accepted ADRs refine cross-cutting decisions. Current code and Flyway migrations decide factual AS-IS implementation claims when a derived document drifts.
+V1.11 is the maintained product/domain/architecture baseline. Cross-cutting decisions are recorded in consolidated Architecture Decision Records ([ADR-0001](../decisions/ADR-0001-system-topology-execution-and-persistence.md) through [ADR-0004](../decisions/ADR-0004-authentication-runtime-security-and-test-credentials.md)). Current code and Flyway migrations decide factual AS-IS implementation claims when a derived document drifts.
 
 Status vocabulary:
 
@@ -81,11 +81,19 @@ Google Drive is authoritative for final rendered MP4 exports. Final MP4 files ar
 
 PostgreSQL stores storage provider identity, external object identity, checksum, size, lineage and render metadata. Worker-local files are scratch/cache/FFmpeg workspace only.
 
-ADR-0012 remains authoritative for R2-backed pipeline media. ADR-0016 supersedes ADR-0012 only for final rendered MP4 storage.
+[ADR-0003](../decisions/ADR-0003-media-storage-generation-pipelines-and-external-integrations.md) governs media storage, generation pipelines, and external provider integrations.
 
 ### 3.6 Persistence is MyBatis + explicit SQL
 
 Production backend persistence uses technology-neutral application/domain ports backed by MyBatis row models, mapper interfaces/XML and explicit PostgreSQL SQL. The backend build has no JPA dependency and production source has no direct `JdbcTemplate` persistence.
+
+### 3.7 Render input snapshot isolation & retry integrity
+
+Render jobs snapshot immutable input headers and beat configurations into `render_input_snapshots` at admission time. Render workers claim and execute exclusively against this snapshotted state, isolating running and retried renders from concurrent edits to MediaPlans or assets.
+
+External side effects (Google Drive upload and FinalArtifact persistence) are serialized across workers using session-scoped PostgreSQL advisory locks on the render fingerprint (`render_fingerprint_lock`), enforcing idempotent checksum reuse.
+
+Provider failure transitions are strictly fenced, preserving `UNKNOWN` state across paid boundaries without blind retries.
 
 ---
 
@@ -96,22 +104,25 @@ Production backend persistence uses technology-neutral application/domain ports 
 | Project/Chapter authoring | IMPLEMENTED foundation | Project and Chapter persistence are MyBatis-backed |
 | Project dashboard/favorite | IMPLEMENTED foundation | backend contracts and frontend wiring exist |
 | Chapter Analyze | IMPLEMENTED | durable admission/enqueue and worker execution |
-| Worker claim/lease/heartbeat | IMPLEMENTED | PostgreSQL-backed |
-| ProviderOperation durability | IMPLEMENTED foundation | reconciliation/result immutability foundation exists |
+| Worker claim/lease/heartbeat | IMPLEMENTED | PostgreSQL-backed (`sa.stage_name = 'CHAPTER_RENDER'`, skip locked) |
+| ProviderOperation durability & failure fencing | IMPLEMENTED foundation | reconciliation/result immutability; preserves `UNKNOWN` across paid boundary |
 | Generation execution persistence | IMPLEMENTED | GenerationJob, StageAttempt, OperationPlan, MediaPlan, outbox and Job History use explicit SQL/MyBatis |
+| Immutable RenderInputSnapshot admission | IMPLEMENTED | admission-time snapshot of media plan revision, narration assets, and READY image beats into `render_input_snapshots` |
 | Character + Location continuity | IMPLEMENTED foundation | full human review/reference locking remains partial |
 | Project Character list/detail | IMPLEMENTED foundation | project-scoped authoritative reads are wired end to end |
 | Scene + VisualBeat | IMPLEMENTED foundation | richer revision/review flows remain partial |
 | Backend-authoritative MediaPlan | IMPLEMENTED foundation | immutable revision and job pinning exist |
 | Full-chapter generated narration | IMPLEMENTED foundation | Google TTS / local VieNeu paths with R2 durability |
-| Narration alignment | IMPLEMENTED foundation | source/audio timing model exists |
+| Narration alignment | IMPLEMENTED foundation | source/audio timing model with sentence/word spans exists |
+| Burned ASS subtitle generation | IMPLEMENTED | deterministic ASS subtitle track from pinned narration alignment or asset cues, burned into MP4 via FFmpeg |
 | `USER_PROVIDED_AUDIO` planning/timeline | IMPLEMENTED foundation | ordered parts, global clock, fingerprints and TTS bypass |
 | User-provided audio ingestion/alignment E2E | PARTIAL | complete production-facing flow still needs hardening |
 | Vertex image generation | IMPLEMENTED foundation | real Vertex image path with durable R2 image materialization exists |
 | Immutable image media lifecycle | IMPLEMENTED foundation | renderer consumes READY R2 image assets; richer approval/reuse lineage remains partial |
-| IMAGE_MOTION chapter render | IMPLEMENTED foundation | dedicated durable render worker executes FFmpeg and validates MP4 |
-| Google Drive final MP4 storage | IMPLEMENTED foundation | resumable upload, fingerprint lookup, remote size verification and FinalArtifact metadata exist |
-| Render with generated narration snapshot | IMPLEMENTED foundation | render worker loads matching generated narration |
+| IMAGE_MOTION chapter render | IMPLEMENTED | dedicated durable render worker executes FFmpeg with burned ASS subtitles and validates MP4 |
+| Google Drive final MP4 storage | IMPLEMENTED foundation | resumable upload, fingerprint lookup, remote size/SHA-256 verification and FinalArtifact metadata exist |
+| Cross-worker advisory lock & Drive upload serialization | IMPLEMENTED | PostgreSQL advisory lock on render fingerprint serializes Drive upload and prevents duplicate concurrent attempts |
+| Render with generated narration snapshot | IMPLEMENTED | render worker loads matching generated narration |
 | Render with multi-part user-provided narration | PARTIAL | chapter-range slicing/stitching from aligned uploaded parts is not implemented in the render worker |
 | Preview/download/publishing from Drive | PARTIAL/TARGET | metadata is exposed; controlled streaming/download/publishing boundary still needs completion |
 | MyBatis-only production persistence | IMPLEMENTED | architecture boundary is complete |
@@ -133,12 +144,12 @@ Spring Boot Backend
   -> Redis           Spring Session + transient/non-authoritative hints
         |
         v
-Python AI / Media Worker
-  -> Vertex analysis/image execution
-  -> narration/alignment execution
-  -> R2 source/generated/reusable media
-  -> local FFmpeg render workspace
-  -> Google Drive final MP4 upload
+Python AI / Media Workers
+  -> ai-worker:        Vertex analysis, translation, image generation
+  -> narration-worker: TTS / VieNeu narration, alignment execution
+  -> render-worker:    IMAGE_MOTION FFmpeg render, burned subtitles, Google Drive upload
+  -> Cloudflare R2:    source/generated/reusable pipeline media
+  -> Google Drive:     final rendered MP4 exports
 ```
 
 PostgreSQL owns source versions, domain state, plans, jobs, stages, provider operations, reservations/usage metadata and media/final-artifact lineage. Redis must never be the only record of generation correctness.
@@ -150,19 +161,24 @@ PostgreSQL owns source versions, domain state, plans, jobs, stages, provider ope
 ```text
 Source Snapshot / Reviewed State
   -> OperationPlan / MediaPlan
-  -> GenerationJob
+  -> GenerationJob + RenderInputSnapshot (persisted at admission)
   -> StageAttempt
-  -> ProviderOperation when crossing a provider boundary
+  -> ProviderOperation (when crossing external provider boundary)
   -> validated result
-  -> durable binary storage + PostgreSQL metadata
-  -> terminal durable stage/job state
+  -> durable binary storage (R2 for pipeline media, Google Drive for final MP4)
+  -> PostgreSQL metadata + terminal stage/job state
 ```
 
 Long network/provider calls must not hold long business database transactions open. Stage lease/heartbeat state is durable. A worker that loses its lease cannot finalize successful output for that lease.
 
 For R2-backed pipeline media, completion means validated bytes are durable in R2 and metadata is committed.
 
-For a final rendered MP4, completion means local FFmpeg validation succeeded, Drive upload/verification succeeded and `final_artifacts` metadata is committed.
+For a final rendered MP4, completion means:
+1. Local FFmpeg validation with burned ASS subtitles succeeded;
+2. Session-scoped advisory lock was acquired to serialize Drive upload;
+3. Drive upload/verification succeeded with matching remote checksum and size;
+4. `render_manifest` and `final_artifacts` metadata are committed;
+5. Render stage and job are marked `COMPLETED`.
 
 ---
 
@@ -183,6 +199,8 @@ ambiguous timeout/outcome
 
 Retries reuse deterministic request identity. Terminal completed/failed state does not reopen. Completed results are immutable by result fingerprint.
 
+Provider failure transitions are strictly fenced: when an ambiguous boundary failure occurs on a paid boundary, the operation remains in `UNKNOWN` state and must not be marked `FAILED` or retried without external reconciliation.
+
 ---
 
 ## 8. Narration architecture
@@ -196,10 +214,12 @@ persisted exact Chapter source
   -> validate/normalize
   -> R2
   -> immutable narration metadata
-  -> alignment
+  -> alignment (sentence/word spans)
 ```
 
 Generated narration audio remains in R2. At the current default 96 kbps MP3 setting, audio is small relative to final MP4 storage and remains a reusable pipeline asset.
+
+The alignment spans generated during narration processing serve as the timing source for burned ASS subtitles during video rendering.
 
 ### 8.2 User-provided audio
 
@@ -212,7 +232,7 @@ selected Chapter source manifest
   -> alignment spans
 ```
 
-The planning/timeline foundation exists. The render worker does not yet slice/stitch aligned multi-part user audio into chapter-local render input, so this must remain a PARTIAL claim.
+The planning/timeline foundation exists. The render worker does not yet slice/stitch aligned multi-part user audio into chapter-local render input, so this remains a PARTIAL claim.
 
 ---
 
@@ -226,7 +246,7 @@ source + analysis/storyboard + continuity + narration alignment
   -> VisualScenePlan[]
 ```
 
-Current rendering can consume persisted media beat plans and READY image assets, but this does not mean the complete narration-driven planner/review workflow is finished.
+Current rendering can consume persisted media beat plans and READY image assets from `render_input_snapshots`, but this does not mean the complete narration-driven planner/review workflow is finished.
 
 ---
 
@@ -242,17 +262,17 @@ MotionStrategy
   IMAGE_TO_VIDEO
 ```
 
-`IMAGE_MOTION` authorizes deterministic image motion only and never I2V. A real FFmpeg chapter render path now exists. `HYBRID_LOCAL_I2V` remains deferred fast-follow work.
+`IMAGE_MOTION` authorizes deterministic image motion only and never I2V. A real FFmpeg chapter render path with burned ASS subtitles exists. `HYBRID_LOCAL_I2V` remains deferred fast-follow work.
 
 ---
 
 ## 11. Image generation and media durability
 
-Production image execution uses the authorized image generation plan and current Vertex adapter path. Validated images are stored as immutable R2 media assets before render.
+Production image execution uses the authorized image generation plan and current Vertex Gemini 2.5 Flash adapter path. Validated images are stored as immutable R2 media assets before render.
 
 ```text
 planned image operation
-  -> provider execution
+  -> provider execution (Vertex)
   -> validate image payload
   -> immutable R2 object
   -> MediaAsset metadata
@@ -268,7 +288,7 @@ REUSE_APPROVED
   -> GENERATE_NEW
 ```
 
-The current production foundation may generate new images; richer reuse/approval/derivation remains incomplete.
+The current production foundation generates new images; richer reuse/approval/derivation remains incomplete.
 
 ---
 
@@ -277,18 +297,28 @@ The current production foundation may generate new images; richer reuse/approval
 The implemented chapter render foundation is:
 
 ```text
-pinned CHAPTER_RENDER job
-  -> load exact MediaPlan revision
+POST /api/v1/projects/{projectId}/chapters/{chapterId}/render/image-motion
+  -> persist immutable RenderInputSnapshot (header + beats)
+  -> admit & enqueue CHAPTER_RENDER GenerationJob + StageAttempt
+  -> render-worker claims job (sa.stage_name = 'CHAPTER_RENDER')
+  -> query exclusively from render_input_snapshots
   -> load READY image assets from R2
   -> load matching generated narration from R2
+  -> load pinned narration alignment / asset cues
+  -> build deterministic ASS subtitle track (build_subtitle_track)
   -> normalize beat durations against narration duration
-  -> FFmpeg IMAGE_MOTION render in local workspace
-  -> ffprobe validation
-  -> SHA-256
-  -> Google Drive resumable upload
-  -> lookup/verify Drive file by render fingerprint + expected size
-  -> persist render_manifest + final_artifacts
-  -> mark render stage/job COMPLETED
+  -> calculate render_fingerprint (image-motion-render-v5-admission-snapshot-drive-lock)
+  -> FFmpeg IMAGE_MOTION render with burned ASS subtitles (-vf subtitles=subtitles.ass) in local workspace
+  -> ffprobe MP4 duration and stream validation
+  -> calculate local SHA-256 checksum
+  -> acquire session-scoped PostgreSQL advisory lock (render_fingerprint_lock)
+  -> Google Drive put_immutable:
+       - find existing file by renderFingerprint
+       - verify remote size and narrativexSha256 appProperty match local checksum
+       - if absent, start resumable chunked upload with custom appProperties
+       - verify uploaded file metadata matches local SHA-256
+  -> commit render_manifest + final_artifacts
+  -> mark render stage and job COMPLETED
 ```
 
 The current `final_artifacts` storage shape records:
@@ -306,15 +336,14 @@ height
 fps
 ```
 
-The Drive file ID, not the web-view URL, is the remote object identity.
+The Drive file ID, not the web-view URL, is the remote object identity. Final video bytes are not written to R2.
 
-Final video bytes are not written to R2.
+### Retry semantics & integrity
 
-### Current retry limitation
-
-Drive chunk upload supports resumable upload inside a worker attempt and the adapter searches by `renderFingerprint` before creating a new file, which makes retries idempotent after a successful remote upload.
-
-However, the validated local MP4 is still inside an ephemeral job workspace. If the job is marked `STALLED` after a Drive failure and the worker attempt exits, the next claim may rerender before retrying Drive. Preserving a validated local MP4 across job attempts is a TARGET hardening item; docs must not claim that upload retry is already a fully separate durable stage.
+1. **Admission snapshot isolation:** Since the render worker reads strictly from `render_input_snapshots`, subsequent edits to MediaPlans or assets cannot corrupt a running or retried render job.
+2. **PostgreSQL advisory lock:** Cross-worker advisory lock on the render fingerprint serializes Drive upload and FinalArtifact persistence, preventing duplicate parallel uploads.
+3. **Idempotent remote reuse:** If a previous worker attempt succeeded in uploading to Drive before a transient failure or crash, subsequent attempts search by `renderFingerprint`, verify the SHA-256 checksum, and reuse the remote file without re-uploading.
+4. **Ephemeral workspace boundary:** The local workspace `chapter.mp4` is ephemeral. If a job is marked `STALLED` and reclaimed by another worker attempt, the local FFmpeg render will re-execute locally before verifying/reusing the remote Drive file. Preserving a validated local MP4 across job attempts is a TARGET hardening item.
 
 ---
 
@@ -365,7 +394,7 @@ PostgreSQL                -> metadata, lineage, provider/external IDs, checksums
 Worker local filesystem   -> ephemeral scratch only
 ```
 
-This split is the current storage direction and supersedes earlier single-store R2 assumptions.
+This split is governed by [ADR-0003](../decisions/ADR-0003-media-storage-generation-pipelines-and-external-integrations.md) and supersedes earlier single-store R2 assumptions.
 
 ---
 
@@ -387,7 +416,7 @@ This split is the current storage direction and supersedes earlier single-store 
 
 - This V1.11 file is the single maintained versioned source of truth.
 - Do not recreate V1.10/V1.9 as parallel current specs.
-- ADR-0012 governs R2 pipeline media; ADR-0016 governs final MP4 storage.
+- [ADR-0001](../decisions/ADR-0001-system-topology-execution-and-persistence.md) through [ADR-0004](../decisions/ADR-0004-authentication-runtime-security-and-test-credentials.md) record consolidated architectural decisions.
 - Current code decides AS-IS claims; target architecture must be explicitly labeled TARGET.
 - Derived docs must not claim `R2-only`, `R2 FinalArtifact`, unfinished image generation, or unfinished Google Drive final storage after this checkpoint.
 - Derived docs must also not claim that multi-part uploaded narration rendering or cross-attempt Drive upload retry is complete until code proves it.

@@ -4,7 +4,7 @@
 
 - Version: `V1.11`
 - Repository: `huongni2201/NarrativeX`
-- Implementation checkpoint: `feat/final-video-google-drive` at `b26e4792d933e787526ea1bb6cb85dfcc5d4c87e`
+- Implementation checkpoint: `fix/render-snapshot-retry-integrity` at `a167a88709e342b882cef0ceea6f0d6bd4122e4f`
 - Canonical specification: `documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`
 
 Current code and Flyway migrations decide factual AS-IS implementation claims when a derived document drifts.
@@ -13,13 +13,16 @@ Current code and Flyway migrations decide factual AS-IS implementation claims wh
 
 - Project/Chapter authoring, dashboard/favorite, Analyze and durable PostgreSQL worker execution.
 - MyBatis + explicit SQL across production backend persistence; no JPA or direct `JdbcTemplate` persistence in production code.
-- Backend-authoritative MediaPlan, generation job/stage durability and provider-operation reconciliation foundations.
+- Backend-authoritative MediaPlan, generation job/stage durability, provider-operation reconciliation and provider failure transition fencing.
 - Character/Location continuity, Scene/VisualBeat and project-scoped Character reads.
 - Full-chapter generated narration through Google TTS/local VieNeu with R2-backed durable audio.
+- Narration alignment (sentence/word spans) and deterministic burned ASS subtitle generation during video render.
 - User-provided narration planning/timeline foundation: ordered parts, one logical global audio clock, fingerprints and TTS bypass.
 - Real Vertex image-generation foundation with validated images persisted to R2.
-- Dedicated `IMAGE_MOTION` render worker using FFmpeg/ffprobe against pinned R2 image + generated narration inputs.
-- Final rendered MP4 storage in Google Drive via resumable upload. FinalArtifact stores Drive/provider metadata; final MP4 is not duplicated into R2 by default.
+- Dedicated `IMAGE_MOTION` render worker using FFmpeg/ffprobe with burned ASS subtitles against snapshotted R2 image + generated narration inputs.
+- Immutable `RenderInputSnapshot` persisted at admission; render worker claims and executes exclusively against snapshotted state.
+- Final rendered MP4 storage in Google Drive via resumable upload with session-scoped PostgreSQL advisory lock (`render_fingerprint_lock`) to serialize Drive upload and verify/reuse remote checksums idempotently.
+- FinalArtifact stores Drive/provider metadata; final MP4 is not duplicated into R2 by default.
 
 ## Current durable storage split
 
@@ -33,7 +36,7 @@ PostgreSQL                -> authoritative metadata/state/lineage
 Worker local filesystem   -> ephemeral scratch only
 ```
 
-ADR-0012 remains authoritative for R2-backed pipeline media. ADR-0016 supersedes ADR-0012 only for final rendered MP4 storage.
+[ADR-0003](../decisions/ADR-0003-media-storage-generation-pipelines-and-external-integrations.md) governs media storage (R2 for pipeline media + Google Drive for final rendered MP4 exports).
 
 ## Primary remaining V1.11 work
 
