@@ -7,6 +7,7 @@ import com.narrativex.backend.feature.character.infrastructure.persistence.mybat
 import com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.CharacterVersionRow;
 import com.narrativex.backend.feature.common.infrastructure.persistence.OptimisticConcurrency;
 import java.util.Optional;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -17,12 +18,12 @@ public class MyBatisCharacterVersionPersistenceAdapter implements CharacterVersi
   private final CharacterMyBatisRowMapper rowMapper;
 
   @Override
-  public int findMaxVersionNumberByCharacterId(Long id) {
+  public int findMaxVersionNumberByCharacterId(UUID id) {
     return mapper.maxCharacterVersion(id);
   }
 
   @Override
-  public Optional<CharacterVersion> findOwnedById(Long id, String ownerId) {
+  public Optional<CharacterVersion> findOwnedById(UUID id, String ownerId) {
     return Optional.ofNullable(mapper.findOwnedVersion(id, ownerId)).map(rowMapper::toDomain);
   }
 
@@ -32,14 +33,14 @@ public class MyBatisCharacterVersionPersistenceAdapter implements CharacterVersi
     if (value.getId() == null) {
       row.setId(null);
       row.setRowVersion(0);
-      Long id = mapper.insertCharacterVersion(row);
+      UUID id = mapper.insertCharacterVersion(row);
       return rowMapper.toDomain(mapper.findCharacterVersion(id));
     }
     CharacterVersionRow existing = mapper.findCharacterVersion(value.getId());
     if (existing == null) {
       row.setId(null);
       row.setRowVersion(0);
-      Long id = mapper.insertCharacterVersion(row);
+      UUID id = mapper.insertCharacterVersion(row);
       return rowMapper.toDomain(mapper.findCharacterVersion(id));
     }
     OptimisticConcurrency.requireVersion(
