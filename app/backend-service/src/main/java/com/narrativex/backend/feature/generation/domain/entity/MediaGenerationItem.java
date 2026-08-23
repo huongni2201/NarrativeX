@@ -10,13 +10,13 @@ import java.util.UUID;
 public final class MediaGenerationItem {
   private final UUID id;
   private final long rowVersion;
-  private final Long generationJobId;
+  private final UUID generationJobId;
   private final UUID mediaPlanId;
   private final Long visualBeatId;
   private final String itemKey;
   private final int attemptNumber;
   private MediaGenerationExecutionStatus executionStatus;
-  private final Long providerOperationId;
+  private final UUID providerOperationId;
   private final UUID mediaAssetId;
   private final String requestFingerprint;
   private final String errorCode;
@@ -28,13 +28,13 @@ public final class MediaGenerationItem {
   private MediaGenerationItem(
       UUID id,
       long rowVersion,
-      Long generationJobId,
+      UUID generationJobId,
       UUID mediaPlanId,
       Long visualBeatId,
       String itemKey,
       int attemptNumber,
       MediaGenerationExecutionStatus executionStatus,
-      Long providerOperationId,
+      UUID providerOperationId,
       UUID mediaAssetId,
       String requestFingerprint,
       String errorCode,
@@ -62,7 +62,7 @@ public final class MediaGenerationItem {
   }
 
   public static MediaGenerationItem create(
-      Long generationJobId,
+      UUID generationJobId,
       UUID mediaPlanId,
       Long visualBeatId,
       String itemKey,
@@ -90,13 +90,13 @@ public final class MediaGenerationItem {
   public static MediaGenerationItem rehydrate(
       UUID id,
       long rowVersion,
-      Long generationJobId,
+      UUID generationJobId,
       UUID mediaPlanId,
       Long visualBeatId,
       String itemKey,
       int attemptNumber,
       MediaGenerationExecutionStatus executionStatus,
-      Long providerOperationId,
+      UUID providerOperationId,
       UUID mediaAssetId,
       String requestFingerprint,
       String errorCode,
@@ -123,7 +123,7 @@ public final class MediaGenerationItem {
         reviewedAt);
   }
 
-  public Long getGenerationJobId() {
+  public UUID getGenerationJobId() {
     return generationJobId;
   }
 
@@ -155,7 +155,7 @@ public final class MediaGenerationItem {
     return executionStatus;
   }
 
-  public Long getProviderOperationId() {
+  public UUID getProviderOperationId() {
     return providerOperationId;
   }
 
