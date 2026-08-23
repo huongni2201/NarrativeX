@@ -4,17 +4,14 @@ import com.narrativex.backend.feature.character.domain.enums.CharacterVersionSta
 import com.narrativex.backend.feature.character.domain.exception.InvalidCharacterVersionTransitionException;
 import com.narrativex.backend.feature.common.domain.DomainEntity;
 import java.time.Instant;
-import java.util.List;
 import java.util.Objects;
 
-/** Immutable-after-lock identity/Bible/reference snapshot owned by Character. */
+/** Immutable-after-lock identity/Bible snapshot owned by Character. Media references are modeled separately. */
 public final class CharacterVersion extends DomainEntity {
   private final Long characterId;
   private final int versionNumber;
   private final String bible;
   private final String visualPrompt;
-  private final Long masterAssetId;
-  private final List<Long> referenceAssetIds;
   private CharacterVersionStatus status;
   private Instant lockedAt;
   private String lockedBy;
@@ -26,8 +23,6 @@ public final class CharacterVersion extends DomainEntity {
       int versionNumber,
       String bible,
       String visualPrompt,
-      Long masterAssetId,
-      List<Long> referenceAssetIds,
       CharacterVersionStatus status,
       Instant lockedAt,
       String lockedBy) {
@@ -42,20 +37,13 @@ public final class CharacterVersion extends DomainEntity {
     this.versionNumber = versionNumber;
     this.bible = required(bible, "bible");
     this.visualPrompt = required(visualPrompt, "visualPrompt");
-    this.masterAssetId = masterAssetId;
-    this.referenceAssetIds = List.copyOf(referenceAssetIds == null ? List.of() : referenceAssetIds);
     this.status = Objects.requireNonNull(status, "status");
     this.lockedAt = lockedAt;
     this.lockedBy = lockedBy;
   }
 
   public static CharacterVersion create(
-      Long characterId,
-      int versionNumber,
-      String bible,
-      String visualPrompt,
-      Long masterAssetId,
-      List<Long> referenceAssetIds) {
+      Long characterId, int versionNumber, String bible, String visualPrompt) {
     return new CharacterVersion(
         null,
         0L,
@@ -63,8 +51,6 @@ public final class CharacterVersion extends DomainEntity {
         versionNumber,
         bible,
         visualPrompt,
-        masterAssetId,
-        referenceAssetIds,
         CharacterVersionStatus.DRAFT,
         null,
         null);
@@ -77,8 +63,6 @@ public final class CharacterVersion extends DomainEntity {
       int versionNumber,
       String bible,
       String visualPrompt,
-      Long masterAssetId,
-      List<Long> referenceAssetIds,
       CharacterVersionStatus status,
       Instant lockedAt,
       String lockedBy) {
@@ -89,8 +73,6 @@ public final class CharacterVersion extends DomainEntity {
         versionNumber,
         bible,
         visualPrompt,
-        masterAssetId,
-        referenceAssetIds,
         status,
         lockedAt,
         lockedBy);
@@ -129,14 +111,6 @@ public final class CharacterVersion extends DomainEntity {
 
   public String getVisualPrompt() {
     return visualPrompt;
-  }
-
-  public Long getMasterAssetId() {
-    return masterAssetId;
-  }
-
-  public List<Long> getReferenceAssetIds() {
-    return referenceAssetIds;
   }
 
   public CharacterVersionStatus getStatus() {
