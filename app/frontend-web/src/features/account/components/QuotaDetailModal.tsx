@@ -201,7 +201,7 @@ export function QuotaDetailModal({ isOpen, onClose }: Readonly<QuotaDetailModalP
               }
             >
               {isPaidTier ? <CreditCard className="h-3.5 w-3.5 shrink-0" /> : <Crown className="h-3.5 w-3.5 shrink-0" />}
-              <span>{isPaidTier ? "Quản lý gói" : "Nâng cấp gói ngay"}</span>
+              <span>{isPaidTier ? "Xem chi tiết gói" : "Nâng cấp gói ngay"}</span>
             </button>
             <button
               type="button"
