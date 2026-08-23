@@ -5,14 +5,14 @@ import { LoadingState } from "@/components/ui/LoadingState";
 import { StoryboardScreen } from "@/features/storyboard/StoryboardScreen";
 import { apiErrorMessage } from "@/shared/api/client";
 import { useChapterWorkspaceState } from "../hooks/useChapterWorkspaceState";
+import { ChapterAudioTab } from "./ChapterAudioTab";
 import { ChapterBreadcrumb } from "./ChapterBreadcrumb";
 import { ChapterContentEditor } from "./ChapterContentEditor";
 import { ChapterHero } from "./ChapterHero";
 import { ChapterOverviewTab } from "./ChapterOverviewTab";
-import { ChapterWorkspaceTabs } from "./ChapterWorkspaceTabs";
-import { ChapterVisualsTab } from "./ChapterVisualsTab";
 import { ChapterRenderContainer } from "./ChapterRenderContainer";
-import { ChapterAudioTab } from "./ChapterAudioTab";
+import { ChapterVisualsTab } from "./ChapterVisualsTab";
+import { ChapterWorkspaceTabs } from "./ChapterWorkspaceTabs";
 
 interface ChapterEditorProps {
   projectId: string;
@@ -52,13 +52,14 @@ export function ChapterEditor({ projectId, chapterId }: Readonly<ChapterEditorPr
   } = useChapterWorkspaceState(projectId, chapterId);
 
   if (!validIds) return <WorkspaceMessage>Chapter route không hợp lệ.</WorkspaceMessage>;
-  if (workspaceQuery.isPending)
+  if (workspaceQuery.isPending) {
     return (
       <LoadingState
         message="Đang tải Chapter Workspace từ backend…"
         className="rounded-xl border border-border bg-surface-panel p-8"
       />
     );
+  }
   if (workspaceQuery.isError) {
     return (
       <WorkspaceMessage>
@@ -93,10 +94,10 @@ export function ChapterEditor({ projectId, chapterId }: Readonly<ChapterEditorPr
         availableTabs={{
           visuals: workspace.capabilities.canGenerateVisuals,
           audio: Boolean(workspace.chapter.sourceText.trim()),
-            render:
-              workspace.capabilities.canRender ||
-              workspace.pipeline.render.status === "READY" ||
-              workspace.pipeline.render.status === "COMPLETED",
+          render:
+            workspace.capabilities.canRender ||
+            workspace.pipeline.render.status === "READY" ||
+            workspace.pipeline.render.status === "COMPLETED",
         }}
       />
 
@@ -157,11 +158,17 @@ export function ChapterEditor({ projectId, chapterId }: Readonly<ChapterEditorPr
           />
         </div>
       ) : activeTab === "visuals" ? (
-        <ChapterVisualsTab projectId={numericProjectId} chapterId={workspace.chapter.id} visualBeatCount={workspace.summary.visualBeatCount} />
+        <ChapterVisualsTab
+          projectId={numericProjectId}
+          chapterId={workspace.chapter.id}
+          visualBeatCount={workspace.summary.visualBeatCount}
+          initialMedia={workspace.pipeline.visualGeneration}
+        />
       ) : activeTab === "render" ? (
         <ChapterRenderContainer
           projectId={numericProjectId}
           chapterId={workspace.chapter.id}
+          initialMedia={workspace.pipeline.visualGeneration}
           initialRender={workspace.pipeline.render}
         />
       ) : activeTab === "audio" ? (
