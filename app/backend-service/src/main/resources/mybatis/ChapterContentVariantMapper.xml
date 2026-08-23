@@ -13,7 +13,7 @@
         <result property="createdAt" column="created_at"/><result property="updatedAt" column="updated_at"/>
     </resultMap>
     <sql id="columns">id, chapter_id, source_variant_id, variant_type, language_code, content, content_hash, source_content_hash, translation_status, translation_provider, translation_model, created_at, updated_at</sql>
-    <select id="insert" parameterType="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterContentVariantRow" resultType="long" affectData="true">
+    <select id="insert" parameterType="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterContentVariantRow" resultType="java.util.UUID" affectData="true">
         INSERT INTO chapter_content_variants
           (chapter_id, source_variant_id, variant_type, language_code, content, content_hash, source_content_hash, translation_status, translation_provider, translation_model, created_at, updated_at)
         VALUES
