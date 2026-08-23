@@ -189,6 +189,8 @@ class WorkerSettings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_narration_runtime(self) -> "WorkerSettings":
+        if self.worker_env.strip().lower() in {"production", "prod"}:
+            self._validate_production_runtime()
         if self.image_provider_mode == "vertex" and not self.vertex_project_id:
             raise ValueError("VERTEX_PROJECT_ID is required when IMAGE_PROVIDER_MODE=vertex")
         if self.vertex_image_service_tier == "flex":
@@ -239,6 +241,26 @@ class WorkerSettings(BaseSettings):
         if self.tts_provider_mode not in {"disabled", "fake"} and self.media_storage_mode != "r2":
             raise ValueError("External narration TTS requires durable MEDIA_STORAGE_MODE=r2")
         return self
+
+    def _validate_production_runtime(self) -> None:
+        """Prevent a production worker container from silently selecting test/local adapters."""
+        errors: list[str] = []
+        if self.has_worker_role("analysis") and self.provider_mode != "vertex":
+            errors.append("AI_PROVIDER_MODE=vertex is required for production analysis")
+        if self.has_worker_role("image-generation") and self.image_provider_mode != "vertex":
+            errors.append("IMAGE_PROVIDER_MODE=vertex is required for production image generation")
+        if self.has_worker_role("narration") and self.tts_provider_mode not in {"google", "vieneu"}:
+            errors.append("TTS_PROVIDER_MODE=google or vieneu is required for production narration")
+        if (
+            self.has_worker_role("image-generation")
+            or self.has_worker_role("narration")
+            or self.has_worker_role("render")
+        ) and self.media_storage_mode != "r2":
+            errors.append("MEDIA_STORAGE_MODE=r2 is required for production media workers")
+        if self.has_worker_role("render") and self.final_video_storage_mode != "google-drive":
+            errors.append("FINAL_VIDEO_STORAGE_MODE=google-drive is required for production render")
+        if errors:
+            raise ValueError("Invalid production worker configuration: " + "; ".join(errors))
 
 
 def get_settings() -> WorkerSettings:
