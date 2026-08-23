@@ -24,6 +24,7 @@ import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRep
 import com.narrativex.backend.feature.storyboard.application.usecase.CreateChapterUseCase;
 import com.narrativex.backend.feature.storyboard.domain.aggregate.Chapter;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class CreateChapterWithStoryUseCaseTest {
@@ -48,64 +49,69 @@ class CreateChapterWithStoryUseCaseTest {
           chapters,
           idempotency);
 
+  private static final UUID RESERVATION_ID = com.narrativex.backend.feature.common.uuid.UuidV7.random();
+  private static final UUID PROJECT_ID = com.narrativex.backend.feature.common.uuid.UuidV7.random();
+  private static final UUID STORY_ID = com.narrativex.backend.feature.common.uuid.UuidV7.random();
+  private static final UUID CHAPTER_ID = com.narrativex.backend.feature.common.uuid.UuidV7.random();
+
   @Test
   void createsStoryVersionAndChapterInsideTheSameApplicationWorkflow() {
     Project project = project();
     StoryVersion story =
         StoryVersion.rehydrate(
-            11L,
+            STORY_ID,
             0L,
-            7L,
+            PROJECT_ID,
             1,
             "Text",
             "vi-VN",
             com.narrativex.backend.feature.project.domain.enums.StoryVersionStatus.DRAFT,
             com.narrativex.backend.feature.project.domain.enums.ModerationDecision.NOT_REQUIRED);
     ChapterResponse response =
-        new ChapterResponse(21L, 11L, 0, "Chapter", "Text", "a".repeat(64), 0L);
+        new ChapterResponse(CHAPTER_ID, STORY_ID, 0, "Chapter", "Text", "a".repeat(64), 0L);
     when(currentUserId.get()).thenReturn("owner");
-    when(projectAccess.findOwnedProjectForUpdate(7L, "owner")).thenReturn(project);
-    when(idempotency.reserve(anyString(), eq(7L), eq("key-1"), anyString()))
+    when(projectAccess.findOwnedProjectForUpdate(PROJECT_ID, "owner")).thenReturn(project);
+    when(idempotency.reserve(anyString(), eq(PROJECT_ID), eq("key-1"), anyString()))
         .thenAnswer(
             invocation ->
                 Optional.of(
                     new ChapterCreationIdempotencyRepository.Reservation(
-                        1L, "owner", 7L, "key-1", (String) invocation.getArgument(3), null)));
-    when(storyVersions.findActiveByProjectId(7L)).thenReturn(Optional.empty());
-    when(storyVersions.findLatestByProjectId(7L)).thenReturn(Optional.empty());
+                        RESERVATION_ID, "owner", PROJECT_ID, "key-1", (String) invocation.getArgument(3), null)));
+    when(storyVersions.findActiveByProjectId(PROJECT_ID)).thenReturn(Optional.empty());
+    when(storyVersions.findLatestByProjectId(PROJECT_ID)).thenReturn(Optional.empty());
     when(createStory.execute(any())).thenReturn(story);
-    when(chapters.findMaxOrderIndexByStoryVersionId(11L)).thenReturn(-1);
+    when(chapters.findMaxOrderIndexByStoryVersionId(STORY_ID)).thenReturn(-1);
     when(createChapter.execute(any())).thenReturn(ApiResponse.success("created", response));
 
     assertEquals(
-        21L,
+        CHAPTER_ID,
         useCase
-            .execute(new CreateChapterWithStoryCommand(7L, null, null, "Chapter", "Text", "key-1"))
+            .execute(new CreateChapterWithStoryCommand(PROJECT_ID, null, null, "Chapter", "Text", "key-1"))
             .data()
             .id());
 
     verify(createStory).execute(any());
     verify(createChapter).execute(any());
-    verify(idempotency).complete(1L, 21L);
+    verify(idempotency).complete(RESERVATION_ID, CHAPTER_ID);
   }
 
   @Test
   void reusesCompletedIdempotencyReservationWithoutCreatingAnotherChapter() {
-    Chapter chapter = Chapter.rehydrate(21L, 0L, 11L, 0, "Chapter", "Text", "a".repeat(64));
+    Chapter chapter = Chapter.rehydrate(CHAPTER_ID, 0L, STORY_ID, 0, "Chapter", "Text", "a".repeat(64));
     when(currentUserId.get()).thenReturn("owner");
-    when(projectAccess.findOwnedProjectForUpdate(7L, "owner")).thenReturn(project());
-    when(idempotency.reserve(anyString(), eq(7L), eq("key-1"), anyString()))
+    when(projectAccess.findOwnedProjectForUpdate(PROJECT_ID, "owner")).thenReturn(project());
+    when(idempotency.reserve(anyString(), eq(PROJECT_ID), eq("key-1"), anyString()))
         .thenAnswer(
             invocation ->
                 Optional.of(
                     new ChapterCreationIdempotencyRepository.Reservation(
-                        1L, "owner", 7L, "key-1", (String) invocation.getArgument(3), 21L)));
-    when(chapters.findById(21L)).thenReturn(Optional.of(chapter));
+                        RESERVATION_ID, "owner", PROJECT_ID, "key-1", (String) invocation.getArgument(3), CHAPTER_ID)));
+    when(chapters.findById(CHAPTER_ID)).thenReturn(Optional.of(chapter));
 
     assertEquals(
-        21L,
+        CHAPTER_ID,
         useCase
-            .execute(new CreateChapterWithStoryCommand(7L, 11L, 0, "Chapter", "Text", "key-1"))
+            .execute(new CreateChapterWithStoryCommand(PROJECT_ID, STORY_ID, 0, "Chapter", "Text", "key-1"))
             .data()
             .id());
 
@@ -115,7 +121,7 @@ class CreateChapterWithStoryUseCaseTest {
 
   private static Project project() {
     return Project.rehydrate(
-        7L,
+        PROJECT_ID,
         0L,
         "Project",
         "owner",

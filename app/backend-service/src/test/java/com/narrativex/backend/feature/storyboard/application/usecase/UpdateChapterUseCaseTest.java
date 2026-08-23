@@ -9,12 +9,14 @@ import static org.mockito.Mockito.when;
 import com.narrativex.backend.configuration.NarrativeXLimitsProperties;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
+import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
 import com.narrativex.backend.feature.storyboard.application.command.UpdateChapterCommand;
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardRevisionAccess;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
 import com.narrativex.backend.feature.storyboard.application.service.ChapterSourceHasher;
 import com.narrativex.backend.feature.storyboard.domain.aggregate.Chapter;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -22,6 +24,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class UpdateChapterUseCaseTest {
+  private static final UUID PROJECT_ID = UuidV7.random();
+  private static final UUID CHAPTER_ID = UuidV7.random();
+  private static final UUID STORY_VERSION_ID = UuidV7.random();
+
   @Mock private CurrentUserId currentUserId;
   @Mock private StoryVersionAccess storyVersionAccess;
   @Mock private ChapterRepository chapterRepository;
@@ -38,18 +44,18 @@ class UpdateChapterUseCaseTest {
             storyboardRevisionAccess,
             sourceHasher,
             new NarrativeXLimitsProperties());
-    var chapter = Chapter.rehydrate(11L, 2L, 9L, 0, "Chapter", "source", SOURCE_HASH);
+    var chapter = Chapter.rehydrate(CHAPTER_ID, 2L, STORY_VERSION_ID, 0, "Chapter", "source", SOURCE_HASH);
     when(currentUserId.get()).thenReturn("user-b");
-    when(chapterRepository.findById(11L)).thenReturn(java.util.Optional.of(chapter));
+    when(chapterRepository.findById(CHAPTER_ID)).thenReturn(java.util.Optional.of(chapter));
     doThrow(new ResourceNotFoundException("Story version not found"))
         .when(storyVersionAccess)
-        .requireOwnedStoryVersion(7L, 9L, "user-b");
+        .requireOwnedStoryVersion(PROJECT_ID, STORY_VERSION_ID, "user-b");
 
     assertThrows(
         ResourceNotFoundException.class,
-        () -> useCase.execute(new UpdateChapterCommand(7L, 11L, 2L, "Updated", "updated source")));
+        () -> useCase.execute(new UpdateChapterCommand(PROJECT_ID, CHAPTER_ID, 2L, "Updated", "updated source")));
 
-    verify(storyboardRevisionAccess, never()).lockChapter(11L);
+    verify(storyboardRevisionAccess, never()).lockChapter(CHAPTER_ID);
   }
 
   private static final String SOURCE_HASH =

@@ -15,6 +15,7 @@ import com.narrativex.backend.feature.generation.application.port.out.VisualProm
 import com.narrativex.backend.feature.generation.application.service.DefaultMotionExecutionPolicy;
 import com.narrativex.backend.feature.generation.application.service.MotionStrategyResolver;
 import com.narrativex.backend.feature.generation.application.service.VisualPromptComposer;
+import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.domain.aggregate.MediaPlan;
 import com.narrativex.backend.feature.generation.domain.enums.ImageStyle;
 import com.narrativex.backend.feature.generation.domain.enums.MotionStrategy;
@@ -112,17 +113,15 @@ class CreateMediaPlanUseCaseTest {
                 null,
                 ImageStyle.CINEMATIC));
 
-    assertThat(plan.projectId()).isEqualTo(projectId);
     assertThat(plan.chapterId()).isEqualTo(chapterId);
-    assertThat(plan.storyVersionId()).isEqualTo(storyVersionId);
     assertThat(plan.chapterRowVersion()).isEqualTo(7L);
     assertThat(plan.revision()).isEqualTo(3);
     assertThat(plan.productionMode()).isEqualTo(ProductionMode.HYBRID_LOCAL_I2V);
     assertThat(plan.scenes()).hasSize(1);
     assertThat(plan.scenes().getFirst().beats()).hasSize(1);
     assertThat(plan.scenes().getFirst().beats().getFirst().motionStrategy())
-        .isEqualTo(MotionStrategy.RUNWAY_I2V);
-    assertThat(plan.scenes().getFirst().beats().getFirst().stillPrompt())
+        .isEqualTo(MotionStrategy.IMAGE_TO_VIDEO);
+    assertThat(plan.scenes().getFirst().beats().getFirst().promptSnapshot())
         .contains("Vietnamese woman with oval face");
     assertThat(plan.scenes().getFirst().beats().getFirst().characterSnapshotJson())
         .contains("\"canonicalName\":\"Lan\"")

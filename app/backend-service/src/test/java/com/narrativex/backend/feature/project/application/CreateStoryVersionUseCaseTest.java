@@ -62,13 +62,6 @@ class CreateStoryVersionUseCaseTest {
         "vi-VN",
         AspectRatio.RATIO_16_9,
         ImageQualityTier.STANDARD,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
         null);
   }
 }
