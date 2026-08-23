@@ -28,5 +28,8 @@ public interface VisualPromptContextRepository {
       String ageState,
       String hairstyle,
       String injury,
-      String wardrobeContext) {}
+      String wardrobeContext,
+      Long masterAssetId,
+      String masterAssetStorageKey,
+      String masterAssetMimeType) {}
 }
