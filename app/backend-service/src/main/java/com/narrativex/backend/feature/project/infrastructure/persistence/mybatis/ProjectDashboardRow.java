@@ -1,9 +1,10 @@
 package com.narrativex.backend.feature.project.infrastructure.persistence.mybatis;
 
 import java.time.Instant;
+import java.util.UUID;
 
 public record ProjectDashboardRow(
-    Long id,
+    UUID id,
     String name,
     String description,
     String coverImageUrl,
