@@ -201,7 +201,7 @@ export function CharacterDetailView({
 
   const chapters = projectOverviewQuery.data?.chapters ?? [];
   const projectAssets = projectAssetsQuery.data?.content ?? [];
-  const assetCount = projectAssets.length > 0 ? projectAssets.length : character.version?.masterAssetId ? 1 : 0;
+  const assetCount = projectAssets.length;
 
   const promptLines: string[] = [];
   if (character.appearance?.hairstyle || character.appearance?.ageState || character.appearance?.wardrobeContext) {

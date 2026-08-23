@@ -70,8 +70,7 @@ public class ProjectCharacterReadPersistenceAdapter implements ProjectCharacterR
                 row.getVersionNumber(),
                 row.getVersionStatus(),
                 row.getBible(),
-                row.getVisualPrompt(),
-                row.getMasterAssetId());
+                row.getVisualPrompt());
 
     boolean hasAppearance =
         row.getAgeState() != null

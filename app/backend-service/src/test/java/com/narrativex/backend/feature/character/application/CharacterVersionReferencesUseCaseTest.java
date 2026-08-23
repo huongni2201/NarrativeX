@@ -54,7 +54,8 @@ class CharacterVersionReferencesUseCaseTest {
         .isInstanceOf(ResourceConflictException.class)
         .hasMessageContaining("immutable");
 
-    verify(referenceRepository, never()).replace(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    verify(referenceRepository, never())
+        .replace(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
   }
 
   @Test
@@ -74,7 +75,8 @@ class CharacterVersionReferencesUseCaseTest {
         .isInstanceOf(ResourceConflictException.class)
         .hasMessageContaining("READY image assets");
 
-    verify(referenceRepository, never()).replace(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    verify(referenceRepository, never())
+        .replace(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
   }
 
   @Test
@@ -145,8 +147,6 @@ class CharacterVersionReferencesUseCaseTest {
         1,
         "character bible",
         "character visual prompt",
-        null,
-        List.of(),
         status,
         status == CharacterVersionStatus.LOCKED ? Instant.parse("2026-08-23T00:00:00Z") : null,
         status == CharacterVersionStatus.LOCKED ? "owner" : null);

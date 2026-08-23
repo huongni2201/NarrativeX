@@ -115,6 +115,8 @@ class ImageBatchOperation:
 
 
 class ImageGenerationProvider(Protocol):
+    """Realtime/single-request image generation contract."""
+
     def get_capabilities(self) -> object: ...
 
     async def submit(self, request: ImageGenerationRequest) -> ImageProviderOperation: ...
@@ -122,7 +124,11 @@ class ImageGenerationProvider(Protocol):
     async def reconcile(self, operation: ImageProviderOperation) -> ImageProviderOperation: ...
 
 
-class BatchImageGenerationProvider(ImageGenerationProvider, Protocol):
+class BatchImageGenerationProvider(Protocol):
+    """Durable batch image generation contract used by production image workers."""
+
+    def get_capabilities(self) -> object: ...
+
     async def submit_batch(self, items: Sequence[ImageBatchItem]) -> ImageBatchOperation: ...
 
     async def reconcile_batch(self, operation: ImageBatchOperation) -> ImageBatchOperation: ...

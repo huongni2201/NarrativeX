@@ -97,8 +97,6 @@ class CharacterAggregateTest {
             1,
             "bible",
             "prompt",
-            null,
-            java.util.List.of(),
             CharacterVersionStatus.DRAFT,
             null,
             null);

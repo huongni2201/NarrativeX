@@ -38,9 +38,7 @@ class CreateCharacterVersionUseCaseTest {
         new CreateCharacterVersionUseCase(characterRepository, versionRepository, currentUserId);
 
     CharacterVersion response =
-        useCase.execute(
-            new CreateCharacterVersionCommand(
-                10L, "bible", "visual prompt", null, List.of(), "owner"));
+        useCase.execute(new CreateCharacterVersionCommand(10L, "bible", "visual prompt"));
 
     assertEquals(4, response.getVersionNumber());
     verify(characterRepository).findOwnedByIdForUpdate(10L, "owner");

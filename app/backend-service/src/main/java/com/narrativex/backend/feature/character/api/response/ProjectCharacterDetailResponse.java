@@ -47,7 +47,7 @@ public record ProjectCharacterDetailResponse(
   }
 
   public record VersionResponse(
-      Integer versionNumber, String status, String bible, String visualPrompt, Long masterAssetId) {
+      Integer versionNumber, String status, String bible, String visualPrompt) {
     static VersionResponse from(ProjectCharacterReadModel.Version version) {
       return version == null
           ? null
@@ -55,8 +55,7 @@ public record ProjectCharacterDetailResponse(
               version.versionNumber(),
               version.status(),
               version.bible(),
-              version.visualPrompt(),
-              version.masterAssetId());
+              version.visualPrompt());
     }
   }
 

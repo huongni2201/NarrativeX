@@ -24,7 +24,6 @@
         <result property="versionStatus" column="version_status" />
         <result property="bible" column="bible" />
         <result property="visualPrompt" column="visual_prompt" />
-        <result property="masterAssetId" column="master_asset_id" />
         <result property="ageState" column="age_state" />
         <result property="hairstyle" column="hairstyle" />
         <result property="injury" column="injury" />
@@ -62,7 +61,6 @@
         cv.status AS version_status,
         cv.bible,
         cv.visual_prompt,
-        cv.master_asset_id,
         appearance.age_state,
         appearance.hairstyle,
         appearance.injury,

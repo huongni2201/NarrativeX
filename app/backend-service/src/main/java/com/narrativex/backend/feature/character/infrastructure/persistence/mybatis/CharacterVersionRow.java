@@ -15,8 +15,6 @@ public class CharacterVersionRow {
   private int versionNumber;
   private String bible;
   private String visualPrompt;
-  private Long masterAssetId;
-  private String referenceAssetIdsJson;
   private String status;
   private Instant lockedAt;
   private String lockedBy;

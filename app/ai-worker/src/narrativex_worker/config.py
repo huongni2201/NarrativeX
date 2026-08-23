@@ -75,7 +75,6 @@ class WorkerSettings(BaseSettings):
     vertex_image_location: str = "global"
     vertex_image_timeout_seconds: float = Field(default=120.0, gt=1, le=1800)
     vertex_image_service_tier: Literal["standard", "flex"] = "standard"
-    vertex_image_execution_mode: Literal["batch"] = "batch"
     vertex_image_batch_max_items: int = Field(default=50, ge=1, le=1000)
     vertex_image_batch_location: str = "global"
     vertex_image_batch_gcs_bucket: str | None = None

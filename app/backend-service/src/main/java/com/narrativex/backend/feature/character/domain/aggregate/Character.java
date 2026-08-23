@@ -49,15 +49,9 @@ public final class Character extends AggregateRoot {
     return new Character(id, rowVersion, ownerId, workspaceId, canonicalName, aliases, status);
   }
 
-  public CharacterVersion createVersion(
-      int versionNumber,
-      String bible,
-      String visualPrompt,
-      Long masterAssetId,
-      List<Long> referenceAssetIds) {
+  public CharacterVersion createVersion(int versionNumber, String bible, String visualPrompt) {
     ensureVersionCanBeCreated();
-    return CharacterVersion.create(
-        getId(), versionNumber, bible, visualPrompt, masterAssetId, referenceAssetIds);
+    return CharacterVersion.create(getId(), versionNumber, bible, visualPrompt);
   }
 
   public void archive() {
