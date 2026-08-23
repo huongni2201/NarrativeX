@@ -1,14 +1,15 @@
 package com.narrativex.backend.feature.project.domain.entity;
 
-import com.narrativex.backend.feature.common.domain.DomainEntity;
+import com.narrativex.backend.feature.common.domain.UuidDomainEntity;
 import com.narrativex.backend.feature.project.domain.enums.ModerationDecision;
 import com.narrativex.backend.feature.project.domain.enums.StoryVersionStatus;
 import com.narrativex.backend.feature.project.domain.exception.InvalidStoryVersionTransitionException;
 import java.util.Objects;
+import java.util.UUID;
 
 /** Story version entity owned by the Project aggregate. */
-public final class StoryVersion extends DomainEntity {
-  private final Long projectId;
+public final class StoryVersion extends UuidDomainEntity {
+  private final UUID projectId;
   private final int versionNumber;
   private final String content;
   private final String sourceLanguage;
@@ -16,21 +17,19 @@ public final class StoryVersion extends DomainEntity {
   private final ModerationDecision moderationDecision;
 
   private StoryVersion(
-      Long id,
+      UUID id,
       long rowVersion,
-      Long projectId,
+      UUID projectId,
       int versionNumber,
       String content,
       String sourceLanguage,
       StoryVersionStatus status,
       ModerationDecision moderationDecision) {
     super(id, rowVersion);
-    if (projectId == null || projectId <= 0)
-      throw new IllegalArgumentException("projectId must be positive");
+    this.projectId = Objects.requireNonNull(projectId, "projectId");
     if (versionNumber <= 0) throw new IllegalArgumentException("versionNumber must be positive");
     if (content == null || content.isBlank())
       throw new IllegalArgumentException("content must not be blank");
-    this.projectId = projectId;
     this.versionNumber = versionNumber;
     this.content = content;
     this.sourceLanguage = Objects.requireNonNull(sourceLanguage, "sourceLanguage");
@@ -39,7 +38,7 @@ public final class StoryVersion extends DomainEntity {
   }
 
   public static StoryVersion create(
-      Long projectId, int versionNumber, String content, String sourceLanguage) {
+      UUID projectId, int versionNumber, String content, String sourceLanguage) {
     return new StoryVersion(
         null,
         0L,
@@ -52,9 +51,9 @@ public final class StoryVersion extends DomainEntity {
   }
 
   public static StoryVersion rehydrate(
-      Long id,
+      UUID id,
       long rowVersion,
-      Long projectId,
+      UUID projectId,
       int versionNumber,
       String content,
       String sourceLanguage,
@@ -87,27 +86,10 @@ public final class StoryVersion extends DomainEntity {
     status = StoryVersionStatus.SUPERSEDED;
   }
 
-  public Long getProjectId() {
-    return projectId;
-  }
-
-  public int getVersionNumber() {
-    return versionNumber;
-  }
-
-  public String getContent() {
-    return content;
-  }
-
-  public String getSourceLanguage() {
-    return sourceLanguage;
-  }
-
-  public StoryVersionStatus getStatus() {
-    return status;
-  }
-
-  public ModerationDecision getModerationDecision() {
-    return moderationDecision;
-  }
+  public UUID getProjectId() { return projectId; }
+  public int getVersionNumber() { return versionNumber; }
+  public String getContent() { return content; }
+  public String getSourceLanguage() { return sourceLanguage; }
+  public StoryVersionStatus getStatus() { return status; }
+  public ModerationDecision getModerationDecision() { return moderationDecision; }
 }
