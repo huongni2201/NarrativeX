@@ -21,6 +21,7 @@ import com.narrativex.backend.feature.project.application.usecase.GetProjectUseC
 import com.narrativex.backend.feature.project.application.usecase.ListProjectsUseCase;
 import com.narrativex.backend.feature.project.application.usecase.SetProjectFavoriteUseCase;
 import jakarta.validation.Valid;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -73,19 +74,19 @@ public class ProjectController {
   }
 
   @PutMapping("/{projectId}/favorite")
-  public ResponseEntity<Void> addFavorite(@PathVariable Long projectId) {
+  public ResponseEntity<Void> addFavorite(@PathVariable UUID projectId) {
     setProjectFavoriteUseCase.add(projectId);
     return ResponseEntity.noContent().build();
   }
 
   @DeleteMapping("/{projectId}/favorite")
-  public ResponseEntity<Void> removeFavorite(@PathVariable Long projectId) {
+  public ResponseEntity<Void> removeFavorite(@PathVariable UUID projectId) {
     setProjectFavoriteUseCase.remove(projectId);
     return ResponseEntity.noContent().build();
   }
 
   @GetMapping("/{projectId}")
-  public ResponseEntity<ApiResponse<ProjectResponse>> get(@PathVariable Long projectId) {
+  public ResponseEntity<ApiResponse<ProjectResponse>> get(@PathVariable UUID projectId) {
     return ResponseEntity.ok(
         ApiResponse.success(
             "Project retrieved successfully",
@@ -94,7 +95,7 @@ public class ProjectController {
 
   @GetMapping("/{projectId}/overview")
   public ResponseEntity<ApiResponse<ProjectOverviewResponse>> overview(
-      @PathVariable Long projectId) {
+      @PathVariable UUID projectId) {
     return ResponseEntity.ok(
         ApiResponse.success(
             "Project overview retrieved successfully",
@@ -103,7 +104,7 @@ public class ProjectController {
 
   @GetMapping("/{projectId}/stories/latest")
   public ResponseEntity<ApiResponse<StoryVersionResponse>> getLatestStory(
-      @PathVariable Long projectId) {
+      @PathVariable UUID projectId) {
     return ResponseEntity.ok(
         ApiResponse.success(
             "Latest story version retrieved successfully",
@@ -133,7 +134,7 @@ public class ProjectController {
 
   @PostMapping("/{projectId}/stories")
   public ResponseEntity<ApiResponse<StoryVersionResponse>> createStory(
-      @PathVariable Long projectId, @Valid @RequestBody CreateStoryVersionRequest request) {
+      @PathVariable UUID projectId, @Valid @RequestBody CreateStoryVersionRequest request) {
     var command =
         new CreateStoryVersionCommand(projectId, request.content(), request.sourceLanguage(), null);
     return ResponseEntity.status(HttpStatus.CREATED)
