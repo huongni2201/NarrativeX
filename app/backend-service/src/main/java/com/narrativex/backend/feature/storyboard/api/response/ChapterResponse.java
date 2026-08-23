@@ -1,10 +1,11 @@
 package com.narrativex.backend.feature.storyboard.api.response;
 
 import com.narrativex.backend.feature.storyboard.domain.aggregate.Chapter;
+import java.util.UUID;
 
 public record ChapterResponse(
-    Long id,
-    Long storyVersionId,
+    UUID id,
+    UUID storyVersionId,
     int orderIndex,
     String title,
     String sourceText,
