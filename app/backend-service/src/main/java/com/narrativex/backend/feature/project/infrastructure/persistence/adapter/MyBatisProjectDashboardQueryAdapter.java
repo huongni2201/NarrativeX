@@ -7,6 +7,7 @@ import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis
 import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ProjectDashboardMapper;
 import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ProjectDashboardRow;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -30,12 +31,12 @@ public class MyBatisProjectDashboardQueryAdapter
   }
 
   @Override
-  public void add(String userId, Long projectId) {
+  public void add(String userId, UUID projectId) {
     mapper.addFavorite(userId, projectId);
   }
 
   @Override
-  public void remove(String userId, Long projectId) {
+  public void remove(String userId, UUID projectId) {
     mapper.removeFavorite(userId, projectId);
   }
 
