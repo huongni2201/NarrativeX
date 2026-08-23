@@ -31,9 +31,9 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 /**
  * Contract test for the authoritative PostgreSQL/Flyway schema and MyBatis UUID mappings.
  *
- * <p>The UUID migration deliberately runs the legacy V0 baseline first and then V1. If either the
- * PK/FK conversion or an XML mapping drifts from the Java contract, this test must fail before the
- * application is deployable.
+ * <p>Database-generated aggregate identifiers use the portable PostgreSQL UUIDv7 function defined
+ * by V1. If a PK/FK type, UUID default, or XML mapping drifts from the Java contract, this test
+ * must fail before the application is deployable.
  */
 @Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest
@@ -67,7 +67,8 @@ class PostgreSqlMigrationIntegrationTest {
           "generation_jobs",
           "stage_attempts",
           "provider_operations",
-          "operation_plans");
+          "operation_plans",
+          "render_manifests");
 
   @DynamicPropertySource
   static void postgresProperties(DynamicPropertyRegistry registry) {
@@ -93,6 +94,9 @@ class PostgreSqlMigrationIntegrationTest {
 
       for (String table : UUID_ID_TABLES) {
         assertEquals("uuid", columnType(connection, table, "id"), table + ".id must be UUID");
+        assertTrue(
+            columnDefault(connection, table, "id").contains("narrativex_uuid_v7()"),
+            table + ".id must use the UUIDv7 default");
       }
 
       assertEquals("uuid", columnType(connection, "generation_jobs", "job_id"));
@@ -104,15 +108,26 @@ class PostgreSqlMigrationIntegrationTest {
 
       assertEquals("uuid", columnType(connection, "language_detections", "content_variant_id"));
       assertEquals("uuid", columnType(connection, "notifications", "project_id"));
+      assertEquals("uuid", columnType(connection, "ai_audit_events", "job_id"));
       assertEquals("uuid", columnType(connection, "chapter_media_heads", "chapter_id"));
       assertEquals("uuid", columnType(connection, "chapter_media_heads", "generation_job_id"));
       assertEquals("uuid", columnType(connection, "render_input_snapshots", "generation_job_id"));
       assertEquals("uuid", columnType(connection, "narration_requests", "project_id"));
       assertEquals("uuid", columnType(connection, "narration_requests", "chapter_id"));
       assertEquals("uuid", columnType(connection, "media_generation_items", "generation_job_id"));
-      assertEquals("uuid", columnType(connection, "media_generation_items", "provider_operation_id"));
+      assertEquals(
+          "uuid", columnType(connection, "media_generation_items", "provider_operation_id"));
       assertEquals("uuid", columnType(connection, "media_scene_plans", "scene_id"));
       assertEquals("uuid", columnType(connection, "media_beat_plans", "visual_beat_id"));
+      assertTrue(tableExists(connection, "character_version_reference_assets"));
+      assertEquals(
+          "uuid",
+          columnType(connection, "character_version_reference_assets", "character_version_id"));
+      assertEquals(
+          "uuid", columnType(connection, "character_version_reference_assets", "media_asset_id"));
+      assertTrue(tableExists(connection, "local_device_pairing_codes"));
+      assertTrue(tableExists(connection, "local_devices"));
+      assertTrue(tableExists(connection, "local_device_capabilities"));
 
       // Numeric domain values are not identifiers and must remain numeric.
       assertEquals("bigint", columnType(connection, "projects", "row_version"));
@@ -125,6 +140,18 @@ class PostgreSqlMigrationIntegrationTest {
       assertFalse(columnExists(connection, "generation_jobs", "references"));
       assertFalse(columnExists(connection, "character_appearances", "references"));
       assertFalse(columnExists(connection, "scene_characters", "references"));
+    }
+  }
+
+  @Test
+  void databaseUuidV7FunctionProducesVersion7Identifiers() throws SQLException {
+    try (Connection connection = dataSource.getConnection();
+        PreparedStatement statement = connection.prepareStatement("select narrativex_uuid_v7()");
+        ResultSet result = statement.executeQuery()) {
+      assertTrue(result.next());
+      UUID generated = result.getObject(1, UUID.class);
+      assertEquals(7, generated.version());
+      assertEquals(2, generated.variant());
     }
   }
 
@@ -186,7 +213,8 @@ class PostgreSqlMigrationIntegrationTest {
     assertNull(
         assertDoesNotThrow(
             () -> languageDetectionMapper.findLatest(missingVariantId, "0".repeat(64))));
-    assertTrue(assertDoesNotThrow(() -> notificationMapper.list("missing-user", true, 5)).isEmpty());
+    assertTrue(
+        assertDoesNotThrow(() -> notificationMapper.list("missing-user", true, 5)).isEmpty());
   }
 
   private static String latestFlywayVersion(Connection connection) throws SQLException {
@@ -235,6 +263,22 @@ class PostgreSqlMigrationIntegrationTest {
       try (ResultSet result = statement.executeQuery()) {
         assertTrue(result.next(), table + "." + column + " must exist");
         return result.getString(1);
+      }
+    }
+  }
+
+  private static String columnDefault(Connection connection, String table, String column)
+      throws SQLException {
+    try (PreparedStatement statement =
+        connection.prepareStatement(
+            "select column_default from information_schema.columns where table_schema = 'public' and table_name = ? and column_name = ?")) {
+      statement.setString(1, table);
+      statement.setString(2, column);
+      try (ResultSet result = statement.executeQuery()) {
+        assertTrue(result.next(), table + "." + column + " must exist");
+        String defaultValue = result.getString(1);
+        assertTrue(defaultValue != null, table + "." + column + " must have a default");
+        return defaultValue;
       }
     }
   }

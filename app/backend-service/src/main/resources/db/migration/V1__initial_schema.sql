@@ -15,6 +15,44 @@ INSERT INTO schema_baseline (id, description)
 VALUES ('v1_baseline', 'NarrativeX consolidated schema baseline')
 ON CONFLICT (id) DO NOTHING;
 
+-- PostgreSQL 17 does not provide a built-in UUIDv7 function. Keep generation in
+-- the database because several MyBatis inserts omit the id column and RETURNING id.
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+CREATE OR REPLACE FUNCTION narrativex_uuid_v7()
+RETURNS UUID
+LANGUAGE plpgsql
+VOLATILE
+AS $$
+DECLARE
+    unix_ts_ms BIGINT;
+    random_bytes BYTEA;
+    random_hex TEXT;
+    raw_hex TEXT;
+    variant_hex TEXT;
+BEGIN
+    unix_ts_ms := floor(extract(epoch FROM clock_timestamp()) * 1000)::BIGINT;
+    random_bytes := gen_random_bytes(10);
+    random_hex := encode(random_bytes, 'hex');
+    variant_hex := lpad(to_hex((get_byte(random_bytes, 2) & 63) | 128), 2, '0');
+
+    raw_hex :=
+        lpad(to_hex(unix_ts_ms), 12, '0')
+        || '7'
+        || substr(random_hex, 1, 3)
+        || variant_hex
+        || substr(random_hex, 7, 14);
+
+    RETURN (
+        substr(raw_hex, 1, 8) || '-'
+        || substr(raw_hex, 9, 4) || '-'
+        || substr(raw_hex, 13, 4) || '-'
+        || substr(raw_hex, 17, 4) || '-'
+        || substr(raw_hex, 21, 12)
+    )::uuid;
+END;
+$$;
+
 -- -----------------------------------------------------------------------------
 -- Authentication & Users
 -- -----------------------------------------------------------------------------
@@ -32,11 +70,53 @@ CREATE TABLE IF NOT EXISTS auth_users (
 );
 
 -- -----------------------------------------------------------------------------
+-- Local execution devices
+-- -----------------------------------------------------------------------------
+
+CREATE TABLE local_device_pairing_codes (
+    id BIGSERIAL PRIMARY KEY,
+    user_id VARCHAR(255) NOT NULL,
+    code_hash CHAR(64) NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    consumed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_local_device_pairing_codes_user
+    ON local_device_pairing_codes (user_id, created_at DESC);
+
+CREATE TABLE local_devices (
+    id UUID PRIMARY KEY,
+    user_id VARCHAR(255) NOT NULL,
+    name VARCHAR(160) NOT NULL,
+    platform VARCHAR(80) NOT NULL,
+    agent_version VARCHAR(64) NOT NULL,
+    token_hash CHAR(64) NOT NULL UNIQUE,
+    last_seen_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    revoked_at TIMESTAMPTZ
+);
+
+CREATE INDEX idx_local_devices_user
+    ON local_devices (user_id, created_at DESC);
+
+CREATE INDEX idx_local_devices_last_seen
+    ON local_devices (last_seen_at DESC)
+    WHERE revoked_at IS NULL;
+
+CREATE TABLE local_device_capabilities (
+    device_id UUID NOT NULL REFERENCES local_devices(id) ON DELETE CASCADE,
+    capability VARCHAR(64) NOT NULL,
+    PRIMARY KEY (device_id, capability)
+);
+
+-- -----------------------------------------------------------------------------
 -- Durable domain foundation (Projects, Stories, Chapters, Revisions, Scenes, Visual Beats)
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE projects (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -78,7 +158,7 @@ CREATE INDEX idx_project_favorites_project_user
     ON project_favorites (project_id, user_id);
 
 CREATE TABLE story_versions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -100,7 +180,7 @@ CREATE UNIQUE INDEX uq_story_versions_one_active_per_project
     WHERE status = 'ACTIVE';
 
 CREATE TABLE chapters (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -120,7 +200,7 @@ CREATE TABLE chapters (
 );
 
 CREATE TABLE chapter_creation_idempotency (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
     owner_id VARCHAR(128) NOT NULL REFERENCES auth_users(id),
     project_id UUID NOT NULL REFERENCES projects(id),
     idempotency_key VARCHAR(200) NOT NULL,
@@ -138,7 +218,7 @@ CREATE INDEX idx_chapter_creation_idempotency_chapter
     WHERE chapter_id IS NOT NULL;
 
 CREATE TABLE chapter_content_variants (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
     chapter_id UUID NOT NULL REFERENCES chapters(id),
     source_variant_id UUID REFERENCES chapter_content_variants(id),
     variant_type VARCHAR(32) NOT NULL,
@@ -199,7 +279,7 @@ CREATE INDEX idx_language_detections_variant_created
     ON language_detections (content_variant_id, created_at DESC, id DESC);
 
 CREATE TABLE storyboard_revisions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -226,7 +306,7 @@ ALTER TABLE chapters
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE characters (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -239,7 +319,7 @@ CREATE TABLE characters (
 CREATE INDEX idx_characters_owner_status ON characters (owner_id, status);
 
 CREATE TABLE character_versions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -256,7 +336,7 @@ CREATE INDEX idx_character_versions_character_status
     ON character_versions (character_id, status);
 
 CREATE TABLE outfit_versions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -271,7 +351,7 @@ CREATE TABLE outfit_versions (
 );
 
 CREATE TABLE character_appearances (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -292,7 +372,7 @@ CREATE INDEX idx_character_appearances_character_timeline
     ON character_appearances (character_id, timeline_key);
 
 CREATE TABLE project_characters (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -317,7 +397,7 @@ CREATE UNIQUE INDEX uq_project_characters_project_id_id ON project_characters (p
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE project_locations (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -337,7 +417,7 @@ CREATE INDEX idx_project_locations_active_project
 CREATE UNIQUE INDEX uq_project_locations_project_id_id ON project_locations (project_id, id);
 
 CREATE TABLE project_assets (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -417,7 +497,7 @@ CREATE INDEX idx_project_location_ai_identity_entity
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE scenes (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -455,7 +535,7 @@ CREATE INDEX idx_scene_characters_project_character
     ON scene_characters (project_character_id);
 
 CREATE TABLE visual_beats (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -630,7 +710,7 @@ FOR EACH ROW EXECUTE FUNCTION reject_media_plan_update();
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE generation_jobs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -701,7 +781,7 @@ CREATE INDEX idx_generation_jobs_requester_created_id
     ON generation_jobs (requested_by_user_id, created_at DESC, id DESC);
 
 CREATE TABLE stage_attempts (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -729,7 +809,7 @@ CREATE INDEX idx_stage_attempts_running_lease
     WHERE status = 'RUNNING';
 
 CREATE TABLE provider_operations (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -780,7 +860,7 @@ CREATE INDEX idx_provider_operations_reconcile_due
       AND next_reconcile_at IS NOT NULL;
 
 CREATE TABLE operation_plans (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1050,6 +1130,30 @@ CREATE INDEX idx_media_assets_account_status ON media_assets (account_id, status
 CREATE INDEX idx_media_assets_account_created_visible
     ON media_assets (account_id, created_at DESC, id DESC)
     WHERE status <> 'DELETED' AND deleted_at IS NULL;
+
+-- -----------------------------------------------------------------------------
+-- Character version reference media
+-- -----------------------------------------------------------------------------
+
+CREATE TABLE character_version_reference_assets (
+    character_version_id UUID NOT NULL REFERENCES character_versions(id) ON DELETE CASCADE,
+    media_asset_id UUID NOT NULL REFERENCES media_assets(id),
+    reference_role VARCHAR(24) NOT NULL,
+    priority SMALLINT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT pk_character_version_reference_assets PRIMARY KEY (character_version_id, media_asset_id),
+    CONSTRAINT uq_character_version_reference_priority UNIQUE (character_version_id, priority),
+    CONSTRAINT ck_character_version_reference_role CHECK (
+        reference_role IN ('IDENTITY', 'PROFILE', 'EXPRESSION', 'OUTFIT', 'POSE')
+    ),
+    CONSTRAINT ck_character_version_reference_priority CHECK (priority BETWEEN 0 AND 99)
+);
+
+CREATE INDEX idx_character_version_reference_asset
+    ON character_version_reference_assets (media_asset_id);
+
+COMMENT ON TABLE character_version_reference_assets IS
+    'FK-backed immutable character-version references. priority 0 is the preferred identity reference.';
 
 CREATE TABLE media_asset_checksums (
     account_id VARCHAR(128) NOT NULL,
@@ -1367,7 +1471,7 @@ CREATE TABLE IF NOT EXISTS ai_audit_events (
     id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
     user_id VARCHAR(128),
     project_id UUID REFERENCES projects(id),
-    job_id BIGINT REFERENCES generation_jobs(id),
+    job_id UUID REFERENCES generation_jobs(id),
     capability VARCHAR(64) NOT NULL,
     provider VARCHAR(64),
     model_key VARCHAR(128),
@@ -1423,7 +1527,7 @@ CREATE INDEX IF NOT EXISTS idx_abuse_user_created ON abuse_events (user_id, crea
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE render_manifests (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     chapter_id UUID NOT NULL REFERENCES chapters(id) ON DELETE CASCADE,
     media_plan_id UUID REFERENCES media_plans(id),
@@ -1653,7 +1757,7 @@ CREATE TABLE media_generation_items (
     item_key VARCHAR(160) NOT NULL,
     attempt_number INTEGER NOT NULL,
     execution_status VARCHAR(24) NOT NULL,
-    provider_operation_id BIGINT REFERENCES provider_operations(id),
+    provider_operation_id UUID REFERENCES provider_operations(id),
     media_asset_id UUID REFERENCES media_assets(id),
     request_fingerprint VARCHAR(128) NOT NULL,
     error_code VARCHAR(80),
