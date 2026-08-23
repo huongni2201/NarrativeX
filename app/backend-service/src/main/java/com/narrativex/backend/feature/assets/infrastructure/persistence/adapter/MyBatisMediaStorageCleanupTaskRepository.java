@@ -4,6 +4,7 @@ import com.narrativex.backend.feature.assets.application.port.out.MediaStorageCl
 import com.narrativex.backend.feature.assets.application.port.out.MediaStorageCleanupTaskRepository.CleanupTask;
 import com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaStorageCleanupTaskMapper;
 import com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaStorageCleanupTaskRow;
+import com.narrativex.backend.feature.common.uuid.UuidV7;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -19,7 +20,7 @@ public class MyBatisMediaStorageCleanupTaskRepository implements MediaStorageCle
   @Override
   @Transactional
   public void enqueue(String storageKey, String reason, Instant nextAttemptAt) {
-    mapper.enqueue(UUID.randomUUID(), storageKey, reason, nextAttemptAt);
+    mapper.enqueue(UuidV7.random(), storageKey, reason, nextAttemptAt);
   }
 
   @Override

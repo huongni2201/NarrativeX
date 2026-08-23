@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.account.application.port.in.UserQuotaAccess;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
+import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.application.command.ConfirmChapterTranslationCommand;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationOutboxRepository;
@@ -27,6 +28,7 @@ import com.narrativex.backend.feature.storyboard.domain.enums.TranslationStatus;
 import com.narrativex.backend.feature.storyboard.domain.value.ChapterContentVariant;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -36,6 +38,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class ConfirmChapterTranslationUseCaseTest {
   private static final String HASH = "a".repeat(64);
+  private static final UUID PROJECT_ID = UuidV7.random();
+  private static final UUID CHAPTER_ID = UuidV7.random();
+  private static final UUID STORY_VERSION_ID = UuidV7.random();
+  private static final UUID VARIANT_77 = UuidV7.random();
+  private static final UUID VARIANT_55 = UuidV7.random();
 
   @Mock private CurrentUserId currentUserId;
   @Mock private ChapterAccess chapterAccess;
@@ -54,13 +61,13 @@ class ConfirmChapterTranslationUseCaseTest {
   @Test
   void rejectsTranslationAsSourceBeforeAnyGenerationSideEffect() {
     var chapter = chapter();
-    var source = variant(77L, ContentVariantType.TRANSLATION, HASH);
+    var source = variant(VARIANT_77, ContentVariantType.TRANSLATION, HASH);
     givenChapter(chapter);
-    when(variantAccess.findByIdOwned(7L, 12L, 77L, "user-1")).thenReturn(Optional.of(source));
+    when(variantAccess.findByIdOwned(PROJECT_ID, CHAPTER_ID, VARIANT_77, "user-1")).thenReturn(Optional.of(source));
 
     assertThrows(
         IllegalArgumentException.class,
-        () -> useCase.execute(new ConfirmChapterTranslationCommand(7L, 12L, 77L, HASH, "vi-VN")));
+        () -> useCase.execute(new ConfirmChapterTranslationCommand(PROJECT_ID, CHAPTER_ID, VARIANT_77, HASH, "vi-VN")));
 
     verify(quotaReservation, never())
         .reserve(
@@ -73,47 +80,43 @@ class ConfirmChapterTranslationUseCaseTest {
   @Test
   void derivesTheSameIdempotencyKeyWithoutAClientHeader() {
     var chapter = chapter();
-    var source = variant(55L, ContentVariantType.ORIGINAL, HASH);
+    var source = variant(VARIANT_55, ContentVariantType.ORIGINAL, HASH);
     givenChapter(chapter);
-    when(variantAccess.findByIdOwned(7L, 12L, 55L, "user-1")).thenReturn(Optional.of(source));
-    when(variantAccess.findCurrentOriginalOwned(7L, 12L, "user-1")).thenReturn(Optional.of(source));
+    when(variantAccess.findByIdOwned(PROJECT_ID, CHAPTER_ID, VARIANT_55, "user-1")).thenReturn(Optional.of(source));
+    when(variantAccess.findCurrentOriginalOwned(PROJECT_ID, CHAPTER_ID, "user-1")).thenReturn(Optional.of(source));
     var project =
         org.mockito.Mockito.mock(
             com.narrativex.backend.feature.project.domain.aggregate.Project.class);
     when(project.getProjectLanguage()).thenReturn("vi-VN");
-    when(projectAccess.findOwnedProject(7L, "user-1")).thenReturn(project);
+    when(projectAccess.findOwnedProject(PROJECT_ID, "user-1")).thenReturn(project);
     var existing = org.mockito.Mockito.mock(GenerationJob.class);
-    when(generationJobRepository.findByIdempotencyKey(
-            "chapter-translation:12:55:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:vi-vn:translation-v1",
-            "user-1"))
+    String expectedKey = "chapter-translation:" + CHAPTER_ID + ":" + VARIANT_55 + ":" + HASH + ":vi-vn:translation-v1";
+    when(generationJobRepository.findByIdempotencyKey(expectedKey, "user-1"))
         .thenReturn(Optional.of(existing));
 
     assertEquals(
         existing,
-        useCase.execute(new ConfirmChapterTranslationCommand(7L, 12L, 55L, HASH, "VI-VN")));
+        useCase.execute(new ConfirmChapterTranslationCommand(PROJECT_ID, CHAPTER_ID, VARIANT_55, HASH, "VI-VN")));
 
     verify(generationJobRepository)
-        .acquireIdempotencyLock(
-            eq(
-                "chapter-translation:12:55:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:vi-vn:translation-v1"),
-            eq("user-1"));
+        .acquireIdempotencyLock(eq(expectedKey), eq("user-1"));
   }
 
   private void givenChapter(Chapter chapter) {
     when(currentUserId.get()).thenReturn("user-1");
-    when(chapterAccess.findById(12L)).thenReturn(Optional.of(chapter));
+    when(chapterAccess.findById(CHAPTER_ID)).thenReturn(Optional.of(chapter));
   }
 
   private static Chapter chapter() {
-    return Chapter.rehydrate(12L, 4L, 99L, 1, "Chapter", "source", HASH);
+    return Chapter.rehydrate(CHAPTER_ID, 4L, STORY_VERSION_ID, 1, "Chapter", "source", HASH);
   }
 
   private static ChapterContentVariant variant(
-      Long id, ContentVariantType type, String sourceHash) {
+      UUID id, ContentVariantType type, String sourceHash) {
     return new ChapterContentVariant(
         id,
-        12L,
-        type == ContentVariantType.ORIGINAL ? null : 1L,
+        CHAPTER_ID,
+        type == ContentVariantType.ORIGINAL ? null : UuidV7.random(),
         type,
         "en-US",
         "source",

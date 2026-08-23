@@ -12,19 +12,24 @@ import com.narrativex.backend.feature.character.domain.enums.CharacterStatus;
 import com.narrativex.backend.feature.character.domain.enums.CharacterVersionStatus;
 import com.narrativex.backend.feature.character.domain.enums.OutfitVersionStatus;
 import com.narrativex.backend.feature.character.domain.exception.InvalidProjectCharacterTransitionException;
+import com.narrativex.backend.feature.common.uuid.UuidV7;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class CharacterAggregateTest {
 
   @Test
   void oneCharacterIdentityCanBeAssignedToMultipleProjects() {
+    UUID characterId = UuidV7.random();
+    UUID project1Id = UuidV7.random();
+    UUID project2Id = UuidV7.random();
     Character character =
         Character.rehydrate(
-            10L, 0L, "owner", null, "Mina", java.util.List.of("M"), CharacterStatus.ACTIVE);
+            characterId, 0L, "owner", null, "Mina", java.util.List.of("M"), CharacterStatus.ACTIVE);
 
     ProjectCharacter first =
         ProjectCharacter.assign(
-            100L,
+            project1Id,
             character.getId(),
             "PROTAGONIST",
             1,
@@ -34,7 +39,7 @@ class CharacterAggregateTest {
             null);
     ProjectCharacter second =
         ProjectCharacter.assign(
-            200L,
+            project2Id,
             character.getId(),
             "SUPPORTING",
             2,
@@ -44,16 +49,18 @@ class CharacterAggregateTest {
             null);
 
     assertEquals(first.getCharacterId(), second.getCharacterId());
-    assertEquals(100L, first.getProjectId());
-    assertEquals(200L, second.getProjectId());
+    assertEquals(project1Id, first.getProjectId());
+    assertEquals(project2Id, second.getProjectId());
   }
 
   @Test
   void appearanceIsStoryStateAndDoesNotCreateAnotherIdentity() {
+    UUID characterId = UuidV7.random();
+    UUID projectId = UuidV7.random();
     CharacterAppearance appearance =
         CharacterAppearance.create(
-            10L,
-            100L,
+            characterId,
+            projectId,
             "chapter-1",
             "young",
             "short hair",
@@ -62,22 +69,26 @@ class CharacterAggregateTest {
             "young character",
             null);
 
-    assertEquals(10L, appearance.getCharacterId());
-    assertEquals(100L, appearance.getProjectId());
+    assertEquals(characterId, appearance.getCharacterId());
+    assertEquals(projectId, appearance.getProjectId());
   }
 
   @Test
   void appearanceRejectsAnOutfitVersionFromAnotherCharacter() {
+    UUID characterId = UuidV7.random();
+    UUID otherCharacterId = UuidV7.random();
+    UUID projectId = UuidV7.random();
+    UUID outfitId = UuidV7.random();
     OutfitVersion outfit =
         OutfitVersion.rehydrate(
-            11L, 0L, 20L, 1, "Mina travel", null, "prompt", OutfitVersionStatus.DRAFT);
+            outfitId, 0L, otherCharacterId, 1, "Mina travel", null, "prompt", OutfitVersionStatus.DRAFT);
 
     assertThrows(
         IllegalArgumentException.class,
         () ->
             CharacterAppearance.create(
-                10L,
-                100L,
+                characterId,
+                projectId,
                 "chapter-1",
                 "young",
                 "short hair",
@@ -89,11 +100,14 @@ class CharacterAggregateTest {
 
   @Test
   void characterVersionMustBeReviewedBeforeItCanBeLockedAndPinned() {
+    UUID characterId = UuidV7.random();
+    UUID versionId = UuidV7.random();
+    UUID projectId = UuidV7.random();
     CharacterVersion version =
         CharacterVersion.rehydrate(
-            11L,
+            versionId,
             0L,
-            10L,
+            characterId,
             1,
             "bible",
             "prompt",
@@ -102,7 +116,7 @@ class CharacterAggregateTest {
             null);
     ProjectCharacter assignment =
         ProjectCharacter.assign(
-            100L, 10L, "PROTAGONIST", 1, java.util.List.of(), null, java.util.List.of(), null);
+            projectId, characterId, "PROTAGONIST", 1, java.util.List.of(), null, java.util.List.of(), null);
 
     assertThrows(
         InvalidProjectCharacterTransitionException.class, () -> assignment.pinVersion(version));
@@ -110,6 +124,6 @@ class CharacterAggregateTest {
     version.lock("owner");
     assignment.pinVersion(version);
 
-    assertEquals(11L, assignment.getPinnedCharacterVersionId());
+    assertEquals(versionId, assignment.getPinnedCharacterVersionId());
   }
 }

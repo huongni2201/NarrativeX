@@ -3,6 +3,7 @@ package com.narrativex.backend.feature.common.infrastructure.persistence;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.application.port.out.ProviderOperationRepository;
 import com.narrativex.backend.feature.generation.domain.entity.ProviderOperation;
 import com.narrativex.backend.feature.project.application.port.out.ProjectRepository;
@@ -41,9 +42,9 @@ class MyBatisTransactionIntegrationTest extends PostgreSqlIntegrationTestSupport
   }
 
   private void assertBothWritesRollback(boolean providerFirst) {
-    long stageAttemptId = insertStageAttempt();
-    String fingerprint = "transaction-" + UUID.randomUUID();
-    long[] projectId = new long[1];
+    UUID stageAttemptId = insertStageAttempt();
+    String fingerprint = "a".repeat(32) + UuidV7.random().toString().replace("-", "");
+    UUID[] projectId = new UUID[1];
     assertThrows(
         ForcedRollback.class,
         () ->
@@ -82,7 +83,7 @@ class MyBatisTransactionIntegrationTest extends PostgreSqlIntegrationTestSupport
 
   private Project newProject() {
     return Project.create(
-        "transaction-test-" + UUID.randomUUID(),
+        "transaction-test-" + UuidV7.random(),
         "transaction-test",
         "en-US",
         "en-US",
@@ -91,23 +92,23 @@ class MyBatisTransactionIntegrationTest extends PostgreSqlIntegrationTestSupport
         ImageQualityTier.STANDARD);
   }
 
-  private long insertStageAttempt() {
-    long projectId =
+  private UUID insertStageAttempt() {
+    UUID projectId =
         jdbcTemplate.queryForObject(
             "INSERT INTO projects (name, owner_id, status, source_language, narration_language, metadata_language, image_aspect_ratio, image_quality_tier) VALUES (?, 'transaction-fixture', 'DRAFT', 'en-US', 'en-US', 'en-US', 'RATIO_16_9', 'STANDARD') RETURNING id",
-            Long.class,
-            "fixture-" + UUID.randomUUID());
-    long jobId =
+            UUID.class,
+            "fixture-" + UuidV7.random());
+    UUID jobId =
         jdbcTemplate.queryForObject(
             "INSERT INTO generation_jobs (job_id, project_id, job_type, status, resource_class, progress, requested_by_user_id, billed_to_user_id) VALUES (?, ?, 'CHAPTER_ANALYZE', 'QUEUED', 'PROVIDER_INTERACTIVE', 0, 'transaction-fixture', 'transaction-fixture') RETURNING id",
-            Long.class,
-            UUID.randomUUID().toString(),
+            UUID.class,
+            UuidV7.random(),
             projectId);
     return jdbcTemplate.queryForObject(
         "INSERT INTO stage_attempts (generation_job_id, stage_name, attempt_number, status) VALUES (?, ?, 1, 'QUEUED') RETURNING id",
-        Long.class,
+        UUID.class,
         jobId,
-        "transaction-stage-" + UUID.randomUUID());
+        "transaction-stage-" + UuidV7.random());
   }
 
   private static final class ForcedRollback extends RuntimeException {}

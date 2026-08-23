@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.localexecution.application.usecase;
 
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
+import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.localexecution.application.port.out.LocalDeviceStore;
 import com.narrativex.backend.feature.localexecution.application.query.LocalDeviceView;
 import java.nio.charset.StandardCharsets;
@@ -47,7 +48,7 @@ public class LocalDeviceUseCase {
             .consumePairingCode(sha256(normalizePairingCode(command.pairingCode())), now)
             .orElseThrow(() -> new BadCredentialsException("Pairing code is invalid or expired"));
 
-    UUID deviceId = UUID.randomUUID();
+    UUID deviceId = UuidV7.random();
     String deviceToken = generateDeviceToken();
     List<String> capabilities = normalizeCapabilities(command.capabilities());
     store.createDevice(

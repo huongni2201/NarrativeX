@@ -4,6 +4,7 @@ import com.narrativex.backend.feature.auth.application.port.out.AuthAccountRegis
 import com.narrativex.backend.feature.auth.application.port.out.PasswordHashing;
 import com.narrativex.backend.feature.common.application.port.out.UserPlanAssignmentProvisioner;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
+import com.narrativex.backend.feature.common.uuid.UuidV7;
 import java.util.Locale;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -24,7 +25,7 @@ public class RegisterAuthAccountService {
       throw new ResourceConflictException("An account already exists for this email.");
     }
 
-    String userId = UUID.randomUUID().toString();
+    String userId = UuidV7.random().toString();
     accounts.createPasswordAccount(
         userId, normalizedEmail, displayName.trim(), passwordHashing.encode(rawPassword));
     userPlanAssignmentProvisioner.ensureDefaultAssignment(userId);

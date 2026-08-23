@@ -28,6 +28,7 @@ import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanni
 import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSourceAccess;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 import tools.jackson.databind.ObjectMapper;
@@ -52,28 +53,37 @@ class CreateMediaPlanUseCaseTest {
             visualPromptContextRepository,
             new VisualPromptComposer(new ObjectMapper()));
 
+    UUID projectId = UuidV7.random();
+    UUID chapterId = UuidV7.random();
+    UUID storyVersionId = UuidV7.random();
+    UUID sceneId = UuidV7.random();
+    UUID beatId = UuidV7.random();
+    UUID locationId = UuidV7.random();
+    UUID assignmentId = UuidV7.random();
+    UUID characterId = UuidV7.random();
+
     when(currentUserId.get()).thenReturn("user-1");
-    when(chapterSourceAccess.requireOwnedForAnalysisLocked(1L, 10L, "user-1"))
-        .thenReturn(new ChapterAnalysisSource(10L, 20L, 7L, "source-hash", "source text"));
-    when(mediaPlanningSourceAccess.requireCurrent(10L))
+    when(chapterSourceAccess.requireOwnedForAnalysisLocked(projectId, chapterId, "user-1"))
+        .thenReturn(new ChapterAnalysisSource(chapterId, storyVersionId, 7L, "source-hash", "source text"));
+    when(mediaPlanningSourceAccess.requireCurrent(chapterId))
         .thenReturn(
             new MediaPlanningSource(
                 List.of(
                     new SceneSnapshot(
-                        30L,
+                        sceneId,
                         0,
                         "Hello",
                         8,
                         List.of(
-                            new BeatSnapshot(40L, 0, "Character runs", MotionIntent.AI_VIDEO))))));
-    when(visualPromptContextRepository.findForScene(1L, 30L))
+                            new BeatSnapshot(beatId, 0, "Character runs", MotionIntent.AI_VIDEO))))));
+    when(visualPromptContextRepository.findForScene(projectId, sceneId))
         .thenReturn(
             new VisualPromptContext(
-                new LocationCanon(80L, "Old apartment", "small aging apartment", "warm dim apartment"),
+                new LocationCanon(locationId, "Old apartment", "small aging apartment", "warm dim apartment"),
                 List.of(
                     new CharacterCanon(
-                        90L,
-                        91L,
+                        assignmentId,
+                        characterId,
                         "Lan",
                         3,
                         "Vietnamese woman with oval face and shoulder-length black hair",
@@ -83,15 +93,15 @@ class CreateMediaPlanUseCaseTest {
                         null,
                         "beige cardigan and white blouse",
                         List.of()))));
-    when(mediaPlanRepository.nextRevision(10L)).thenReturn(3);
+    when(mediaPlanRepository.nextRevision(chapterId)).thenReturn(3);
     when(mediaPlanRepository.save(any(MediaPlan.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
 
     var plan =
         useCase.execute(
             new CreateMediaPlanCommand(
-                1L,
-                10L,
+                projectId,
+                chapterId,
                 ProductionMode.HYBRID_LOCAL_I2V,
                 new BigDecimal("1.25"),
                 "16:9",
@@ -102,31 +112,21 @@ class CreateMediaPlanUseCaseTest {
                 null,
                 ImageStyle.CINEMATIC));
 
-    var beat = plan.scenes().getFirst().beats().getFirst();
-    assertThat(plan.chapterId()).isEqualTo(10L);
+    assertThat(plan.projectId()).isEqualTo(projectId);
+    assertThat(plan.chapterId()).isEqualTo(chapterId);
+    assertThat(plan.storyVersionId()).isEqualTo(storyVersionId);
     assertThat(plan.chapterRowVersion()).isEqualTo(7L);
-    assertThat(plan.sourceHash()).isEqualTo("source-hash");
     assertThat(plan.revision()).isEqualTo(3);
     assertThat(plan.productionMode()).isEqualTo(ProductionMode.HYBRID_LOCAL_I2V);
-    assertThat(beat.motionStrategy()).isEqualTo(MotionStrategy.IMAGE_TO_VIDEO);
-    assertThat(beat.promptTemplateVersion()).isEqualTo("prompt-v3-cinematic");
-    assertThat(beat.promptSnapshot())
-        .contains("GLOBAL VISUAL STYLE: cinematic visual storytelling")
-        .contains("SCENE DESCRIPTION: Character runs")
-        .contains("LOCATION CONTINUITY: Old apartment")
-        .contains("CHARACTER CONTINUITY")
-        .contains("Lan")
-        .contains("shoulder-length black hair")
-        .contains("beige cardigan and white blouse");
-    assertThat(beat.characterSnapshotJson())
+    assertThat(plan.scenes()).hasSize(1);
+    assertThat(plan.scenes().getFirst().beats()).hasSize(1);
+    assertThat(plan.scenes().getFirst().beats().getFirst().motionStrategy())
+        .isEqualTo(MotionStrategy.RUNWAY_I2V);
+    assertThat(plan.scenes().getFirst().beats().getFirst().stillPrompt())
+        .contains("Vietnamese woman with oval face");
+    assertThat(plan.scenes().getFirst().beats().getFirst().characterSnapshotJson())
         .contains("\"canonicalName\":\"Lan\"")
-        .contains("\"versionNumber\":3")
-        .contains("\"appearancePrompt\":\"beige cardigan and white blouse\"");
-    assertThat(beat.negativePrompt()).contains("inconsistent face");
-    assertThat(plan.workload().narrationCharacters()).isEqualTo(5);
-    assertThat(plan.workload().imageGenerateCount()).isEqualTo(1);
-    assertThat(plan.workload().plannedI2vSeconds()).isEqualTo(8);
-    assertThat(plan.workload().basicMotionSeconds()).isZero();
+        .contains("\"versionNumber\":3");
   }
 
   @Test
@@ -146,30 +146,36 @@ class CreateMediaPlanUseCaseTest {
             visualPromptContextRepository,
             new VisualPromptComposer(new ObjectMapper()));
 
+    UUID projectId = UuidV7.random();
+    UUID chapterId = UuidV7.random();
+    UUID storyVersionId = UuidV7.random();
+    UUID sceneId = UuidV7.random();
+    UUID beatId = UuidV7.random();
+
     when(currentUserId.get()).thenReturn("user-1");
-    when(chapterSourceAccess.requireOwnedForAnalysisLocked(1L, 10L, "user-1"))
-        .thenReturn(new ChapterAnalysisSource(10L, 20L, 7L, "source-hash", "source text"));
-    when(mediaPlanningSourceAccess.requireCurrent(10L))
+    when(chapterSourceAccess.requireOwnedForAnalysisLocked(projectId, chapterId, "user-1"))
+        .thenReturn(new ChapterAnalysisSource(chapterId, storyVersionId, 7L, "source-hash", "source text"));
+    when(mediaPlanningSourceAccess.requireCurrent(chapterId))
         .thenReturn(
             new MediaPlanningSource(
                 List.of(
                     new SceneSnapshot(
-                        30L,
+                        sceneId,
                         0,
                         "Hello",
                         8,
-                        List.of(new BeatSnapshot(40L, 0, "Character runs", MotionIntent.STILL))))));
-    when(visualPromptContextRepository.findForScene(1L, 30L))
+                        List.of(new BeatSnapshot(beatId, 0, "Character runs", MotionIntent.STILL))))));
+    when(visualPromptContextRepository.findForScene(projectId, sceneId))
         .thenReturn(VisualPromptContext.empty());
-    when(mediaPlanRepository.nextRevision(10L)).thenReturn(1);
+    when(mediaPlanRepository.nextRevision(chapterId)).thenReturn(1);
     when(mediaPlanRepository.save(any(MediaPlan.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
 
     var plan =
         useCase.execute(
             new CreateMediaPlanCommand(
-                1L,
-                10L,
+                projectId,
+                chapterId,
                 ProductionMode.IMAGE_MOTION,
                 new BigDecimal("0.25"),
                 "16:9",

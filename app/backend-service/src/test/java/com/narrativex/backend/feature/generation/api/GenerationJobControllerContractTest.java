@@ -6,6 +6,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.api.controller.GenerationJobController;
 import com.narrativex.backend.feature.generation.api.response.JobResponse;
 import com.narrativex.backend.feature.generation.application.query.GetGenerationJobQuery;
@@ -14,6 +15,7 @@ import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
 import com.narrativex.backend.feature.generation.domain.enums.ResourceClass;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 
@@ -23,12 +25,14 @@ class GenerationJobControllerContractTest {
 
   @Test
   void getMapsPathToQueryAndWrapsDomainResult() {
+    UUID jobId = UuidV7.random();
+    UUID projectId = UuidV7.random();
     GenerationJob job =
         GenerationJob.rehydrate(
-            1L,
+            UuidV7.random(),
             0L,
-            "job-1",
-            7L,
+            jobId,
+            projectId,
             JobType.STORY_ANALYZE,
             JobStatus.RUNNING,
             ResourceClass.FAST_CPU,
@@ -44,24 +48,34 @@ class GenerationJobControllerContractTest {
             null,
             null,
             null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
             null);
     when(useCase.execute(any(GetGenerationJobQuery.class))).thenReturn(job);
 
-    var responseEntity = controller.get("job-1");
+    var responseEntity = controller.get(jobId);
 
     assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
-    assertEquals("job-1", responseEntity.getBody().data().jobId());
-    verify(useCase).execute(new GetGenerationJobQuery("job-1", null));
+    assertEquals(jobId, responseEntity.getBody().data().jobId());
+    verify(useCase).execute(new GetGenerationJobQuery(jobId, null));
   }
 
   @Test
   void responseTargetsChapterWhenJobHasChapterScope() {
+    UUID jobId = UuidV7.random();
+    UUID projectId = UuidV7.random();
+    UUID storyVersionId = UuidV7.random();
+    UUID chapterId = UuidV7.random();
     GenerationJob job =
         GenerationJob.rehydrate(
-            2L,
+            UuidV7.random(),
             0L,
-            "chapter-job",
-            7L,
+            jobId,
+            projectId,
             JobType.NARRATION_GENERATE,
             JobStatus.QUEUED,
             ResourceClass.PROVIDER_INTERACTIVE,
@@ -70,10 +84,16 @@ class GenerationJobControllerContractTest {
             null,
             "owner",
             "owner",
-            9L,
-            11L,
+            storyVersionId,
+            chapterId,
             null,
             0L,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
             null,
             null,
             null,
@@ -82,7 +102,7 @@ class GenerationJobControllerContractTest {
     JobResponse response = JobResponse.from(job);
 
     assertEquals("CHAPTER", response.entityType());
-    assertEquals(11L, response.entityId());
-    assertEquals(new JobResponse.JobTarget("CHAPTER", 11L), response.target());
+    assertEquals(chapterId, response.entityId());
+    assertEquals(new JobResponse.JobTarget("CHAPTER", chapterId), response.target());
   }
 }

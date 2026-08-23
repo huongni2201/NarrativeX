@@ -4,6 +4,7 @@ import com.narrativex.backend.feature.auth.application.service.RegisterAuthAccou
 import com.narrativex.backend.feature.auth.infrastructure.persistence.mybatis.AuthUserMapper;
 import com.narrativex.backend.feature.auth.infrastructure.persistence.mybatis.AuthUserRow;
 import com.narrativex.backend.feature.common.application.port.out.UserPlanAssignmentProvisioner;
+import com.narrativex.backend.feature.common.uuid.UuidV7;
 import java.time.Instant;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -64,7 +65,7 @@ public class NarrativeXOidcUserService implements OAuth2UserService<OidcUserRequ
         Instant now = Instant.now();
         account =
             AuthUserRow.builder()
-                .id(UUID.randomUUID().toString())
+                .id(UuidV7.random().toString())
                 .email(email)
                 .displayName(displayName)
                 .avatarUrl(avatarUrl)

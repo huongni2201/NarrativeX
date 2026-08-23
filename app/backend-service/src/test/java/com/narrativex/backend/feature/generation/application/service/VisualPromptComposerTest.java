@@ -2,6 +2,7 @@ package com.narrativex.backend.feature.generation.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.CharacterCanon;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.CharacterReference;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.LocationCanon;
@@ -21,11 +22,11 @@ class VisualPromptComposerTest {
     var identityId = UUID.fromString("11111111-1111-1111-1111-111111111111");
     var context =
         new VisualPromptContext(
-            new LocationCanon(10L, "Kitchen", "old apartment kitchen", "warm practical lighting"),
+            new LocationCanon(UuidV7.random(), "Kitchen", "old apartment kitchen", "warm practical lighting"),
             List.of(
                 new CharacterCanon(
-                    20L,
-                    30L,
+                    UuidV7.random(),
+                    UuidV7.random(),
                     "Lan",
                     4,
                     "oval face, dark eyes, shoulder-length black hair",
@@ -81,8 +82,8 @@ class VisualPromptComposerTest {
             null,
             List.of(
                 new CharacterCanon(
-                    1L,
-                    2L,
+                    UuidV7.random(),
+                    UuidV7.random(),
                     "Lan \"L\"",
                     1,
                     "line one\nline two",
@@ -110,8 +111,8 @@ class VisualPromptComposerTest {
         new VisualPromptContext(
             null,
             List.of(
-                canon(1L, "Lan", List.of(lanIdentity, lanProfile, lanExpression)),
-                canon(2L, "Minh", List.of(minhIdentity))));
+                canon(UuidV7.random(), "Lan", List.of(lanIdentity, lanProfile, lanExpression)),
+                canon(UuidV7.random(), "Minh", List.of(minhIdentity))));
 
     var result = composer.compose(ImageStyle.CINEMATIC, "Lan and Minh speak", context);
 
@@ -123,10 +124,10 @@ class VisualPromptComposerTest {
   }
 
   private static CharacterCanon canon(
-      Long assignmentId, String name, List<CharacterReference> references) {
+      UUID assignmentId, String name, List<CharacterReference> references) {
     return new CharacterCanon(
         assignmentId,
-        assignmentId + 100,
+        UuidV7.random(),
         name,
         1,
         name + " visual canon",
@@ -139,14 +140,13 @@ class VisualPromptComposerTest {
   }
 
   private static CharacterReference reference(
-      String id, String role, int priority, String checksumChar) {
-    UUID assetId = UUID.fromString(id);
+      String assetId, String role, int priority, String digestChar) {
     return new CharacterReference(
-        assetId,
+        UUID.fromString(assetId),
         role,
         priority,
-        "private/characters/" + assetId + ".png",
+        "private/characters/" + role.toLowerCase() + ".png",
         "image/png",
-        checksumChar.repeat(64));
+        digestChar.repeat(64));
   }
 }

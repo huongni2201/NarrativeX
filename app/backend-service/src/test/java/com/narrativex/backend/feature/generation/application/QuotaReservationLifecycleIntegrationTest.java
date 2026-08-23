@@ -55,13 +55,13 @@ class QuotaReservationLifecycleIntegrationTest {
   @Test
   void completedJobConsumesActualCostAndImmediatelyFreesConcurrentCapacity() {
     seedEntitlement();
-    long projectId = insertProject();
-    List<Long> jobIds = new ArrayList<>();
+    UUID projectId = insertProject();
+    List<UUID> jobIds = new ArrayList<>();
 
     for (int index = 0; index < 4; index++) {
       var reservation =
           quotaReservation.reserve(USER_ID, new BigDecimal("1.000000"), 4).orElseThrow();
-      long jobId = insertJob(projectId, "complete-slot-" + index);
+      UUID jobId = insertJob(projectId, "complete-slot-" + index);
       quotaReservation.bindToGenerationJob(reservation.id(), jobId);
       jobIds.add(jobId);
     }
@@ -89,9 +89,9 @@ class QuotaReservationLifecycleIntegrationTest {
   @Test
   void completedLocalVieNeuNarrationConsumesZeroCostWithoutProviderOperation() {
     seedEntitlement();
-    long projectId = insertProject();
+    UUID projectId = insertProject();
     var reservation = quotaReservation.reserve(USER_ID, BigDecimal.ZERO, 4).orElseThrow();
-    long jobId = insertLocalVieNeuNarrationJob(projectId);
+    UUID jobId = insertLocalVieNeuNarrationJob(projectId);
     quotaReservation.bindToGenerationJob(reservation.id(), jobId);
 
     jdbcTemplate.update(
@@ -107,10 +107,10 @@ class QuotaReservationLifecycleIntegrationTest {
   @Test
   void failedJobReleasesReservationWithoutChargingCreditsAndRetryIsIdempotent() {
     seedEntitlement();
-    long projectId = insertProject();
+    UUID projectId = insertProject();
     var reservation =
         quotaReservation.reserve(USER_ID, new BigDecimal("2.500000"), 4).orElseThrow();
-    long jobId = insertJob(projectId, "failed-release");
+    UUID jobId = insertJob(projectId, "failed-release");
     quotaReservation.bindToGenerationJob(reservation.id(), jobId);
 
     jdbcTemplate.update("UPDATE generation_jobs SET status = 'FAILED' WHERE id = ?", jobId);
@@ -131,10 +131,10 @@ class QuotaReservationLifecycleIntegrationTest {
   @Test
   void failedBillableProviderOperationConsumesActualCostExactlyOnce() {
     seedEntitlement();
-    long projectId = insertProject();
+    UUID projectId = insertProject();
     var reservation =
         quotaReservation.reserve(USER_ID, new BigDecimal("2.500000"), 4).orElseThrow();
-    long jobId = insertJob(projectId, "failed-billable");
+    UUID jobId = insertJob(projectId, "failed-billable");
     quotaReservation.bindToGenerationJob(reservation.id(), jobId);
     persistProviderBilling(jobId, new BigDecimal("0.031250000"));
 
@@ -153,10 +153,10 @@ class QuotaReservationLifecycleIntegrationTest {
   @Test
   void zeroCostProviderFailureReleasesReservation() {
     seedEntitlement();
-    long projectId = insertProject();
+    UUID projectId = insertProject();
     var reservation =
         quotaReservation.reserve(USER_ID, new BigDecimal("1.000000"), 4).orElseThrow();
-    long jobId = insertJob(projectId, "failed-zero-cost");
+    UUID jobId = insertJob(projectId, "failed-zero-cost");
     quotaReservation.bindToGenerationJob(reservation.id(), jobId);
     persistProviderBilling(jobId, BigDecimal.ZERO.setScale(9));
 
@@ -169,10 +169,10 @@ class QuotaReservationLifecycleIntegrationTest {
   @Test
   void ultraPayAsYouGoAllowsUncappedReservationsAndConsumesActualCost() {
     seedUltraEntitlement();
-    long projectId = insertProject();
+    UUID projectId = insertProject();
     var reservation =
         quotaReservation.reserve(USER_ID, new BigDecimal("500.000000"), 20).orElseThrow();
-    long jobId = insertJob(projectId, "ultra-job-1");
+    UUID jobId = insertJob(projectId, "ultra-job-1");
     quotaReservation.bindToGenerationJob(reservation.id(), jobId);
     persistProviderBilling(jobId, new BigDecimal("45.500000000"));
 
@@ -258,7 +258,7 @@ class QuotaReservationLifecycleIntegrationTest {
         PLAN_KEY);
   }
 
-  private long insertProject() {
+  private UUID insertProject() {
     return jdbcTemplate.queryForObject(
         """
         INSERT INTO projects
@@ -268,11 +268,11 @@ class QuotaReservationLifecycleIntegrationTest {
                 'RATIO_16_9', 'STANDARD')
         RETURNING id
         """,
-        Long.class,
+        UUID.class,
         USER_ID);
   }
 
-  private long insertJob(long projectId, String suffix) {
+  private UUID insertJob(UUID projectId, String suffix) {
     return jdbcTemplate.queryForObject(
         """
         INSERT INTO generation_jobs
@@ -281,15 +281,15 @@ class QuotaReservationLifecycleIntegrationTest {
         VALUES (?, ?, 'CHAPTER_ANALYZE', 'QUEUED', 'PROVIDER_INTERACTIVE', 0, ?, ?)
         RETURNING id
         """,
-        Long.class,
-        "quota-lifecycle-" + suffix,
+        UUID.class,
+        com.narrativex.backend.feature.common.uuid.UuidV7.random(),
         projectId,
         USER_ID,
         USER_ID);
   }
 
-  private long insertLocalVieNeuNarrationJob(long projectId) {
-    long storyVersionId =
+  private UUID insertLocalVieNeuNarrationJob(UUID projectId) {
+    UUID storyVersionId =
         jdbcTemplate.queryForObject(
             """
             INSERT INTO story_versions
@@ -297,9 +297,9 @@ class QuotaReservationLifecycleIntegrationTest {
             VALUES (?, 1, 'Narration source', 'vi-VN', 'ACTIVE', 'SAFE')
             RETURNING id
             """,
-            Long.class,
+            UUID.class,
             projectId);
-    long chapterId =
+    UUID chapterId =
         jdbcTemplate.queryForObject(
             """
             INSERT INTO chapters
@@ -307,10 +307,10 @@ class QuotaReservationLifecycleIntegrationTest {
             VALUES (?, 0, 'Chapter 1', 'Xin chao', ?, 'DRAFT')
             RETURNING id
             """,
-            Long.class,
+            UUID.class,
             storyVersionId,
             "a".repeat(64));
-    long jobId =
+    UUID jobId =
         jdbcTemplate.queryForObject(
             """
             INSERT INTO generation_jobs
@@ -319,23 +319,23 @@ class QuotaReservationLifecycleIntegrationTest {
             VALUES (?, ?, 'NARRATION_GENERATE', 'QUEUED', 'PROVIDER_INTERACTIVE', 0, ?, ?, ?, ?)
             RETURNING id
             """,
-            Long.class,
-            "quota-lifecycle-vieneu-" + UUID.randomUUID(),
+            UUID.class,
+            com.narrativex.backend.feature.common.uuid.UuidV7.random(),
             projectId,
             USER_ID,
             USER_ID,
             storyVersionId,
             chapterId);
-    long stageAttemptId =
+    UUID stageAttemptId =
         jdbcTemplate.queryForObject(
             """
             INSERT INTO stage_attempts (generation_job_id, stage_name, attempt_number, status)
             VALUES (?, 'NARRATION_TTS', 1, 'RUNNING')
             RETURNING id
             """,
-            Long.class,
+            UUID.class,
             jobId);
-    UUID narrationRequestId = UUID.randomUUID();
+    UUID narrationRequestId = com.narrativex.backend.feature.common.uuid.UuidV7.random();
     jdbcTemplate.update(
         """
         INSERT INTO narration_requests
@@ -355,22 +355,22 @@ class QuotaReservationLifecycleIntegrationTest {
           (id, narration_request_id, generation_job_id, stage_attempt_id)
         VALUES (?, ?, ?, ?)
         """,
-        UUID.randomUUID(),
+        com.narrativex.backend.feature.common.uuid.UuidV7.random(),
         narrationRequestId,
         jobId,
         stageAttemptId);
     return jobId;
   }
 
-  private void persistProviderBilling(long jobId, BigDecimal actualCost) {
-    Long stageAttemptId =
+  private void persistProviderBilling(UUID jobId, BigDecimal actualCost) {
+    UUID stageAttemptId =
         jdbcTemplate.queryForObject(
             """
             INSERT INTO stage_attempts (generation_job_id, stage_name, attempt_number, status)
             VALUES (?, 'CHAPTER_ANALYSIS', 1, 'RUNNING')
             RETURNING id
             """,
-            Long.class,
+            UUID.class,
             jobId);
     jdbcTemplate.update(
         """
@@ -383,16 +383,16 @@ class QuotaReservationLifecycleIntegrationTest {
         """,
         stageAttemptId,
         "provider-op-" + jobId,
-        "fingerprint-" + jobId,
+        "a".repeat(32) + com.narrativex.backend.feature.common.uuid.UuidV7.random().toString().replace("-", ""),
         actualCost);
   }
 
-  private String reservationStatus(long jobId) {
+  private String reservationStatus(UUID jobId) {
     return jdbcTemplate.queryForObject(
         "SELECT status FROM quota_reservations WHERE generation_job_id = ?", String.class, jobId);
   }
 
-  private BigDecimal reservationActualCost(long jobId) {
+  private BigDecimal reservationActualCost(UUID jobId) {
     BigDecimal value =
         jdbcTemplate.queryForObject(
             "SELECT actual_cost FROM quota_reservations WHERE generation_job_id = ?",
@@ -401,7 +401,7 @@ class QuotaReservationLifecycleIntegrationTest {
     return value == null ? BigDecimal.ZERO : value;
   }
 
-  private String reservationCurrency(long jobId) {
+  private String reservationCurrency(UUID jobId) {
     return jdbcTemplate.queryForObject(
         "SELECT billing_currency FROM quota_reservations WHERE generation_job_id = ?",
         String.class,

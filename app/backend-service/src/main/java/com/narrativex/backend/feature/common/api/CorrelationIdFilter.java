@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.common.api;
 
+import com.narrativex.backend.feature.common.uuid.UuidV7;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -36,12 +37,12 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
     Object attribute = request.getAttribute(REQUEST_ATTRIBUTE);
     return attribute instanceof String value && !value.isBlank()
         ? value
-        : UUID.randomUUID().toString();
+        : UuidV7.random().toString();
   }
 
   private static String sanitize(String candidate) {
     return candidate != null && SAFE_ID.matcher(candidate).matches()
         ? candidate
-        : UUID.randomUUID().toString();
+        : UuidV7.random().toString();
   }
 }

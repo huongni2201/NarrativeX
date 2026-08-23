@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import com.narrativex.backend.feature.account.application.port.in.PlanFeatures;
 import com.narrativex.backend.feature.account.application.port.in.UserQuotaAccess;
 import com.narrativex.backend.feature.common.exception.FeatureNotAvailableException;
+import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.application.port.out.QuotaReservation;
 import com.narrativex.backend.feature.generation.application.service.ChapterAnalysisAdmissionService;
 import com.narrativex.backend.feature.generation.application.service.ChapterAnalysisCostEstimator;
@@ -13,17 +14,21 @@ import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmi
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSource;
 import java.math.BigDecimal;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class ChapterAnalysisAdmissionServiceTest {
+  private static final UUID CHAPTER_ID = UuidV7.random();
+  private static final UUID STORY_VERSION_ID = UuidV7.random();
+  private static final UUID PROJECT_ID = UuidV7.random();
   private static final ChapterAnalysisSource SOURCE =
-      new ChapterAnalysisSource(11L, 12L, 1L, "a".repeat(64), "A short chapter.");
+      new ChapterAnalysisSource(CHAPTER_ID, STORY_VERSION_ID, 1L, "a".repeat(64), "A short chapter.");
 
   @Test
   void freePlanWithoutStoryAnalysisFeatureIsRejected() {
     var service = service(quota(false), new ReservationSpy(true));
 
-    assertThrows(FeatureNotAvailableException.class, () -> service.admit("user-1", 7L, SOURCE));
+    assertThrows(FeatureNotAvailableException.class, () -> service.admit("user-1", PROJECT_ID, SOURCE));
   }
 
   @Test
@@ -32,7 +37,7 @@ class ChapterAnalysisAdmissionServiceTest {
 
     var exception =
         assertThrows(
-            GenerationAdmissionDeniedException.class, () -> service.admit("user-1", 7L, SOURCE));
+            GenerationAdmissionDeniedException.class, () -> service.admit("user-1", PROJECT_ID, SOURCE));
     assertEquals("COST_LIMIT", exception.getCode());
   }
 
@@ -41,7 +46,7 @@ class ChapterAnalysisAdmissionServiceTest {
     var reservation = new ReservationSpy(true);
     var service = service(quota(true), reservation);
 
-    var admission = service.admit("user-1", 7L, SOURCE);
+    var admission = service.admit("user-1", PROJECT_ID, SOURCE);
 
     assertEquals(new BigDecimal("0.010000"), admission.estimate().estimateMin());
     assertEquals(new BigDecimal("0.010016"), admission.estimate().estimateMax());
@@ -80,15 +85,15 @@ class ChapterAnalysisAdmissionServiceTest {
     }
 
     @Override
-    public void bindToGenerationJob(long reservationId, long generationJobId) {}
+    public void bindToGenerationJob(long reservationId, UUID generationJobId) {}
 
     @Override
-    public boolean consumeForJob(long generationJobId) {
+    public boolean consumeForJob(UUID generationJobId) {
       return false;
     }
 
     @Override
-    public boolean releaseForJob(long generationJobId) {
+    public boolean releaseForJob(UUID generationJobId) {
       return false;
     }
   }

@@ -99,7 +99,7 @@ class ProjectCharacterReadUseCasesTest {
         PINNED_VERSION_ID,
         "ACTIVE",
         8,
-        APPEARANCE_ID,
+        4L,
         Instant.parse("2026-08-20T00:00:00Z"),
         Instant.parse("2026-08-21T00:00:00Z"),
         new ProjectCharacterReadModel.Version(3, "APPROVED", "bible", "prompt"),
