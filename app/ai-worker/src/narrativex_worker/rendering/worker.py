@@ -44,6 +44,70 @@ from narrativex_worker.rendering.validation import (
 )
 from narrativex_worker.workspace import WorkerWorkspace, sha256_file
 
+RENDER_FINGERPRINT_VERSION = "image-motion-render-v6-render-identity"
+RENDERER_SEMANTICS_VERSION = "ffmpeg-python-effects-v1"
+
+
+def _render_identity(manifest: ImageMotionManifest) -> dict[str, object]:
+    """Return every render setting that can materially change output bytes."""
+    effects = manifest.effects
+    return {
+        "rendererSemanticsVersion": RENDERER_SEMANTICS_VERSION,
+        "fps": manifest.fps,
+        "transitionSecondsOverride": manifest.transition_seconds,
+        "encoding": {
+            "videoEncoder": manifest.video_encoder,
+            "x264Preset": manifest.x264_preset,
+            "crf": manifest.crf,
+            "nvencPreset": manifest.nvenc_preset,
+            "nvencCq": manifest.nvenc_cq,
+            "pixelFormat": "yuv420p",
+            "audioCodec": "aac",
+            "audioBitrate": manifest.audio_bitrate,
+            "audioSampleRateHz": 48_000,
+            "movflags": "+faststart",
+        },
+        "effects": {
+            "transition": effects.transition,
+            "transitionSeconds": effects.transition_seconds,
+            "colorGrade": effects.color_grade,
+            "lutPath": str(effects.lut_path) if effects.lut_path is not None else None,
+            "backgroundMode": effects.background_mode,
+            "backgroundBlurSigma": effects.background_blur_sigma,
+            "overlayStyle": effects.overlay_style,
+            "overlayPath": (
+                str(effects.overlay_path) if effects.overlay_path is not None else None
+            ),
+            "overlayOpacity": effects.overlay_opacity,
+            "watermarkPath": (
+                str(effects.watermark_path) if effects.watermark_path is not None else None
+            ),
+            "watermarkWidthRatio": effects.watermark_width_ratio,
+            "watermarkOpacity": effects.watermark_opacity,
+            "watermarkPosition": effects.watermark_position,
+            "bgmPath": str(effects.bgm_path) if effects.bgm_path is not None else None,
+            "bgmVolume": effects.bgm_volume,
+            "duckThreshold": effects.duck_threshold,
+            "duckRatio": effects.duck_ratio,
+            "duckAttackMs": effects.duck_attack_ms,
+            "duckReleaseMs": effects.duck_release_ms,
+            "motionEasing": effects.motion_easing,
+            "textOverlays": [
+                {
+                    "text": item.text,
+                    "startSeconds": item.start_seconds,
+                    "endSeconds": item.end_seconds,
+                    "style": item.style,
+                    "position": item.position,
+                    "fontSize": item.font_size,
+                    "fontColor": item.font_color,
+                    "box": item.box,
+                }
+                for item in effects.text_overlays
+            ],
+        },
+    }
+
 
 class RenderWorkerRunner:
     """Claim render jobs, build MP4s, and persist final videos to Google Drive."""
@@ -235,59 +299,6 @@ class RenderWorkerRunner:
 
             await self.repository.assert_lease(claimed)
             durations_ms = _normalize_durations(beat_assets, audio.duration_ms)
-            fingerprint_payload = {
-                "version": "image-motion-render-v5-admission-snapshot-drive-lock",
-                "projectId": claimed.project_id,
-                "chapterId": claimed.chapter_id,
-                "chapterRowVersion": claimed.chapter_row_version,
-                "sourceHash": claimed.source_hash,
-                "mediaPlanId": str(claimed.media_plan_id),
-                "mediaPlanRevision": claimed.media_plan_revision,
-                "resolution": resolution,
-                "format": render_format,
-                "aspectRatio": claimed.aspect_ratio,
-                "fps": 30,
-                "narration": {
-                    "requestId": (
-                        str(claimed.narration_request_id)
-                        if claimed.narration_request_id is not None
-                        else None
-                    ),
-                    "assetId": (
-                        str(claimed.narration_asset_id)
-                        if claimed.narration_asset_id is not None
-                        else None
-                    ),
-                    "alignmentId": (
-                        str(claimed.narration_alignment_id)
-                        if claimed.narration_alignment_id is not None
-                        else None
-                    ),
-                },
-                "audio": {
-                    "storageKey": audio.storage_key,
-                    "checksum": audio.checksum,
-                    "durationMs": audio.duration_ms,
-                },
-                "subtitles": {
-                    "mode": "burned-ass",
-                    "timingSource": subtitle_track.timing_source,
-                    "fingerprint": subtitle_track.fingerprint,
-                    "cueCount": len(subtitle_track.cues),
-                },
-                "beats": [
-                    {
-                        "visualBeatId": beat.visual_beat_id,
-                        "storageKey": beat.storage_key,
-                        "checksum": beat.checksum,
-                        "durationMs": duration,
-                        "cameraMovement": beat.camera_movement,
-                    }
-                    for beat, duration in zip(beat_assets, durations_ms, strict=True)
-                ],
-            }
-            serialized = json.dumps(fingerprint_payload, sort_keys=True, separators=(",", ":"))
-            render_fingerprint = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
             async with self.workspace.create_job_dir(claimed.job_id) as job_dir:
                 image_paths = await self._download_images(beat_assets, job_dir)
@@ -325,6 +336,62 @@ class RenderWorkerRunner:
                     fps=30,
                     subtitle_path=subtitle_path,
                 )
+                fingerprint_payload = {
+                    "version": RENDER_FINGERPRINT_VERSION,
+                    "projectId": claimed.project_id,
+                    "chapterId": claimed.chapter_id,
+                    "chapterRowVersion": claimed.chapter_row_version,
+                    "sourceHash": claimed.source_hash,
+                    "mediaPlanId": str(claimed.media_plan_id),
+                    "mediaPlanRevision": claimed.media_plan_revision,
+                    "resolution": resolution,
+                    "format": render_format,
+                    "aspectRatio": claimed.aspect_ratio,
+                    "render": _render_identity(manifest),
+                    "narration": {
+                        "requestId": (
+                            str(claimed.narration_request_id)
+                            if claimed.narration_request_id is not None
+                            else None
+                        ),
+                        "assetId": (
+                            str(claimed.narration_asset_id)
+                            if claimed.narration_asset_id is not None
+                            else None
+                        ),
+                        "alignmentId": (
+                            str(claimed.narration_alignment_id)
+                            if claimed.narration_alignment_id is not None
+                            else None
+                        ),
+                    },
+                    "audio": {
+                        "storageKey": audio.storage_key,
+                        "checksum": audio.checksum,
+                        "durationMs": audio.duration_ms,
+                    },
+                    "subtitles": {
+                        "mode": "burned-ass",
+                        "timingSource": subtitle_track.timing_source,
+                        "fingerprint": subtitle_track.fingerprint,
+                        "cueCount": len(subtitle_track.cues),
+                    },
+                    "beats": [
+                        {
+                            "visualBeatId": beat.visual_beat_id,
+                            "storageKey": beat.storage_key,
+                            "checksum": beat.checksum,
+                            "durationMs": duration,
+                            "cameraMovement": beat.camera_movement,
+                        }
+                        for beat, duration in zip(beat_assets, durations_ms, strict=True)
+                    ],
+                }
+                serialized = json.dumps(
+                    fingerprint_payload, sort_keys=True, separators=(",", ":")
+                )
+                render_fingerprint = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
                 await self.repository.assert_lease(claimed)
                 with self.metrics.measure("render_duration", context):
                     with self.metrics.measure("ffmpeg_duration", context):
@@ -383,7 +450,7 @@ class RenderWorkerRunner:
                         duration_ms=audio.duration_ms,
                         width=width,
                         height=height,
-                        fps=30,
+                        fps=manifest.fps,
                     )
                 self.logger.info(
                     "Completed chapter render job=%s fingerprint=%s driveFileId=%s "
