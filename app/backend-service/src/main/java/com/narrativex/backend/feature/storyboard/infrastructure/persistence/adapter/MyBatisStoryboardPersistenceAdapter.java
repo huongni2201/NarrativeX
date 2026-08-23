@@ -17,6 +17,7 @@ import com.narrativex.backend.feature.storyboard.infrastructure.persistence.myba
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -26,14 +27,14 @@ public class MyBatisStoryboardPersistenceAdapter implements StoryboardRepository
   private final StoryboardMapper mapper;
 
   @Override
-  public List<Scene> findScenesByChapterId(Long id) {
+  public List<Scene> findScenesByChapterId(UUID id) {
     return mapper.findCurrentScenes(id).stream()
         .map(MyBatisStoryboardPersistenceAdapter::toDomain)
         .toList();
   }
 
   @Override
-  public List<VisualBeat> findVisualBeatsBySceneIds(List<Long> ids) {
+  public List<VisualBeat> findVisualBeatsBySceneIds(List<UUID> ids) {
     return ids.isEmpty()
         ? List.of()
         : mapper.findVisualBeats(ids).stream()
@@ -42,25 +43,25 @@ public class MyBatisStoryboardPersistenceAdapter implements StoryboardRepository
   }
 
   @Override
-  public Optional<Scene> findSceneById(Long id) {
+  public Optional<Scene> findSceneById(UUID id) {
     return Optional.ofNullable(mapper.findScene(id))
         .map(MyBatisStoryboardPersistenceAdapter::toDomain);
   }
 
   @Override
-  public Optional<Scene> findSceneByIdForUpdate(Long id, Long chapterId) {
+  public Optional<Scene> findSceneByIdForUpdate(UUID id, UUID chapterId) {
     return Optional.ofNullable(mapper.findSceneForUpdate(id, chapterId))
         .map(MyBatisStoryboardPersistenceAdapter::toDomain);
   }
 
   @Override
-  public Optional<VisualBeat> findVisualBeatById(Long id) {
+  public Optional<VisualBeat> findVisualBeatById(UUID id) {
     return Optional.ofNullable(mapper.findVisualBeat(id))
         .map(MyBatisStoryboardPersistenceAdapter::toDomain);
   }
 
   @Override
-  public int nextVisualBeatOrderIndex(Long sceneId) {
+  public int nextVisualBeatOrderIndex(UUID sceneId) {
     int max = mapper.maxVisualBeatOrder(sceneId);
     if (max == Integer.MAX_VALUE)
       throw new IllegalStateException("Visual beat order index is exhausted for scene " + sceneId);
@@ -90,7 +91,7 @@ public class MyBatisStoryboardPersistenceAdapter implements StoryboardRepository
     if (value.getId() == null) {
       row.setId(null);
       row.setRowVersion(0);
-      Long id = mapper.insertVisualBeat(row);
+      UUID id = mapper.insertVisualBeat(row);
       return toDomain(mapper.findVisualBeat(id));
     }
     VisualBeatRow existing = mapper.findVisualBeat(value.getId());
