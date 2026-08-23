@@ -7,6 +7,7 @@ import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterSummaryResponse;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,7 +21,7 @@ public class ListChaptersUseCase {
 
   @Transactional(readOnly = true)
   public ApiResponse<CursorPage<ChapterSummaryResponse>> execute(
-      Long projectId, Long storyVersionId, String cursor, int limit) {
+      UUID projectId, UUID storyVersionId, String cursor, int limit) {
     if (limit < 1 || limit > 100) {
       throw new DomainValidationException("limit must be between 1 and 100");
     }
