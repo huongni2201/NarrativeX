@@ -33,7 +33,7 @@ public class MyBatisStoryboardRevisionAccess implements StoryboardRevisionAccess
 
   @Override
   public UUID createDraft(
-      UUID chapterId, String sourceHash, long sourceRowVersion, Long contentVariantId) {
+      UUID chapterId, String sourceHash, long sourceRowVersion, UUID contentVariantId) {
     Objects.requireNonNull(sourceHash, "sourceHash");
     UUID revisionId = mapper.createDraft(chapterId, sourceHash, sourceRowVersion, contentVariantId);
     if (revisionId == null) {
