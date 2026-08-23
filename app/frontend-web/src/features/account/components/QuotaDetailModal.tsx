@@ -24,7 +24,9 @@ export function QuotaDetailModal({ isOpen, onClose }: Readonly<QuotaDetailModalP
 
   if (!isOpen) return null;
 
-  const isUnlimited = quota?.totalCredits === null || quota?.tier === "ULTRA";
+  const normalizedTier = quota?.tier?.trim().toUpperCase();
+  const isPaidTier = normalizedTier === "PRO" || normalizedTier === "ULTRA";
+  const isUnlimited = quota?.totalCredits === null || normalizedTier === "ULTRA";
   const totalCredits =
     quota?.totalCredits !== null && quota?.totalCredits !== undefined
       ? Number(quota.totalCredits)
@@ -192,10 +194,14 @@ export function QuotaDetailModal({ isOpen, onClose }: Readonly<QuotaDetailModalP
           <div className="pt-3 border-t border-border flex items-center justify-between gap-3">
             <button
               type="button"
-              className="rounded-lg bg-gradient-to-r from-primary to-orange-500 px-4 py-2 text-xs font-bold text-white shadow-sm shadow-primary/20 hover:from-primary-hover hover:to-orange-600 flex items-center gap-1.5 transition-all active:scale-[0.98]"
+              className={
+                isPaidTier
+                  ? "flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-4 py-2 text-xs font-bold text-text-secondary transition-colors hover:bg-surface-3 hover:text-text-primary active:scale-[0.98]"
+                  : "flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-primary to-orange-500 px-4 py-2 text-xs font-bold text-white shadow-sm shadow-primary/20 transition-all hover:from-primary-hover hover:to-orange-600 active:scale-[0.98]"
+              }
             >
-              <Crown className="h-3.5 w-3.5 shrink-0" />
-              <span>Nâng cấp gói ngay</span>
+              {isPaidTier ? <CreditCard className="h-3.5 w-3.5 shrink-0" /> : <Crown className="h-3.5 w-3.5 shrink-0" />}
+              <span>{isPaidTier ? "Quản lý gói" : "Nâng cấp gói ngay"}</span>
             </button>
             <button
               type="button"
