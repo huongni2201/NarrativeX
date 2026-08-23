@@ -7,6 +7,7 @@ import com.narrativex.backend.feature.generation.application.command.CreateMedia
 import com.narrativex.backend.feature.generation.application.command.CreateMediaPlanCommand;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationOutboxRepository;
+import com.narrativex.backend.feature.generation.application.port.out.ImageGenerationCatalog;
 import com.narrativex.backend.feature.generation.application.port.out.MediaGenerationItemRepository;
 import com.narrativex.backend.feature.generation.application.port.out.OperationPlanRepository;
 import com.narrativex.backend.feature.generation.application.port.out.QuotaReservation;
@@ -37,9 +38,6 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class CreateMediaJobUseCase {
   private static final String STAGE_NAME = "SHOT_IMAGE_GENERATE";
-  private static final String IMAGE_PROVIDER = "vertex";
-  private static final String IMAGE_MODEL = "gemini-2.5-flash-image";
-  private static final String PRICING_VERSION = "gemini-2.5-flash-image-batch-2026-08-22";
   private final CurrentUserId currentUserId;
   private final ProjectAccess projectAccess;
   private final ChapterRepository chapterRepository;
@@ -53,6 +51,7 @@ public class CreateMediaJobUseCase {
   private final StageAttemptRepository stageAttemptRepository;
   private final QuotaReservation quotaReservation;
   private final UserQuotaAccess userQuotaAccess;
+  private final ImageGenerationCatalog imageGenerationCatalog;
 
   @Transactional
   public GenerationJob execute(CreateMediaJobCommand command) {
@@ -115,6 +114,7 @@ public class CreateMediaJobUseCase {
       throw new GenerationAdmissionDeniedException(
           "ENTITLEMENT_DENIED", "The requested quality exceeds the active plan entitlement.");
     }
+    var imageProfile = imageGenerationCatalog.resolve(command.qualityTier());
     var plan =
         createMediaPlanUseCase.execute(
             new CreateMediaPlanCommand(
@@ -124,14 +124,10 @@ public class CreateMediaJobUseCase {
                 expectedCost,
                 command.aspectRatio(),
                 command.qualityTier(),
-                IMAGE_PROVIDER,
-                IMAGE_MODEL,
-                "{\"catalogVersion\":\""
-                    + PRICING_VERSION
-                    + "\",\"tier\":\""
-                    + command.qualityTier()
-                    + "\",\"executionMode\":\"BATCH\"}",
-                sha256(PRICING_VERSION + ":" + command.qualityTier()),
+                imageProfile.providerKey(),
+                imageProfile.model(),
+                imageProfile.pricingSnapshot(),
+                imageProfile.pricingFingerprint(),
                 command.imageStyle()));
     var reservation =
         quotaReservation
@@ -181,7 +177,7 @@ public class CreateMediaJobUseCase {
         plan.id(),
         beatCount,
         command.qualityTier(),
-        IMAGE_MODEL,
+        imageProfile.model(),
         command.projectId(),
         command.chapterId());
     return job;
