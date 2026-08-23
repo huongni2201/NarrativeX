@@ -3,6 +3,8 @@
 import asyncio
 import os
 from collections.abc import AsyncIterator
+from typing import cast
+from uuid import UUID
 
 import asyncpg  # type: ignore[import-untyped]
 import pytest
@@ -41,7 +43,7 @@ async def immutable_result_database() -> AsyncIterator[str]:
             DROP TABLE IF EXISTS generation_jobs;
 
             CREATE TABLE generation_jobs (
-                id BIGSERIAL PRIMARY KEY,
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                 job_id TEXT NOT NULL UNIQUE,
                 project_id BIGINT NOT NULL,
                 story_version_id BIGINT NOT NULL,
@@ -62,8 +64,8 @@ async def immutable_result_database() -> AsyncIterator[str]:
             );
 
             CREATE TABLE stage_attempts (
-                id BIGSERIAL PRIMARY KEY,
-                generation_job_id BIGINT NOT NULL REFERENCES generation_jobs(id) ON DELETE CASCADE,
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                generation_job_id UUID NOT NULL REFERENCES generation_jobs(id) ON DELETE CASCADE,
                 status TEXT NOT NULL,
                 worker_id TEXT,
                 heartbeat_at TIMESTAMPTZ,
@@ -73,8 +75,8 @@ async def immutable_result_database() -> AsyncIterator[str]:
             );
 
             CREATE TABLE provider_operations (
-                id BIGSERIAL PRIMARY KEY,
-                stage_attempt_id BIGINT NOT NULL REFERENCES stage_attempts(id) ON DELETE CASCADE,
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                stage_attempt_id UUID NOT NULL REFERENCES stage_attempts(id) ON DELETE CASCADE,
                 provider_key TEXT NOT NULL,
                 request_fingerprint TEXT NOT NULL,
                 provider_operation_id TEXT,
@@ -140,14 +142,14 @@ async def seed_operation(
         await connection.close()
 
     claimed = ClaimedChapterAnalysisJob(
-        stage_attempt_id=int(stage_id),
-        generation_job_id=int(job_id),
+        stage_attempt_id=cast(UUID, stage_id),
+        generation_job_id=cast(UUID, job_id),
         job_id=f"job-{fingerprint}",
         requested_by_user_id="user-1",
         request=ChapterAnalysisRequest(
-            project_id=1,
-            story_version_id=2,
-            chapter_id=3,
+            project_id="1",
+            story_version_id="2",
+            chapter_id="3",
             chapter_row_version=4,
             source_hash=SOURCE_HASH,
             source_text="Story",
@@ -172,7 +174,7 @@ def result(narration: str) -> ChapterAnalysisResult:
     )
 
 
-async def row(database_url: str, operation_id: int) -> asyncpg.Record:
+async def row(database_url: str, operation_id: UUID) -> asyncpg.Record:
     connection = await asyncpg.connect(database_url)
     try:
         value = await connection.fetchrow(
@@ -185,7 +187,7 @@ async def row(database_url: str, operation_id: int) -> asyncpg.Record:
             operation_id,
         )
         assert value is not None
-        return value
+        return cast(asyncpg.Record, value)
     finally:
         await connection.close()
 

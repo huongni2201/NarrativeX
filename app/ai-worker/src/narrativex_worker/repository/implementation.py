@@ -190,9 +190,9 @@ class WorkerRepository:
                 )
 
                 request = ChapterAnalysisRequest(
-                    project_id=row["project_id"],
-                    story_version_id=row["story_version_id"],
-                    chapter_id=row["chapter_id"],
+                    project_id=str(row["project_id"]),
+                    story_version_id=str(row["story_version_id"]),
+                    chapter_id=str(row["chapter_id"]),
                     chapter_row_version=row["chapter_row_version"],
                     source_hash=row["source_hash"],
                     source_text=row["source_text"],
