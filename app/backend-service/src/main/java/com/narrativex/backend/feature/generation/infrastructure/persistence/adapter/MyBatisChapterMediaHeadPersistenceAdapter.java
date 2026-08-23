@@ -2,6 +2,7 @@ package com.narrativex.backend.feature.generation.infrastructure.persistence.ada
 
 import com.narrativex.backend.feature.generation.application.port.out.ChapterMediaHeadRepository;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ChapterMediaHeadMapper;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -16,5 +17,10 @@ public class MyBatisChapterMediaHeadPersistenceAdapter implements ChapterMediaHe
       throw new IllegalStateException(
           "Could not update current media job for chapter " + chapterId);
     }
+  }
+
+  @Override
+  public boolean matchesCurrentPlan(Long chapterId, UUID mediaPlanId, int mediaPlanRevision) {
+    return mapper.matchesCurrentPlan(chapterId, mediaPlanId, mediaPlanRevision);
   }
 }
