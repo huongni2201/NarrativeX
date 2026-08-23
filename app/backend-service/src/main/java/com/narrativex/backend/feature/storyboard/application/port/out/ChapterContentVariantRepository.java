@@ -5,13 +5,14 @@ import com.narrativex.backend.feature.storyboard.domain.enums.TranslationStatus;
 import com.narrativex.backend.feature.storyboard.domain.value.ChapterContentVariant;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public interface ChapterContentVariantRepository extends ChapterContentVariantAccess {
   ChapterContentVariant saveOriginal(
-      Long chapterId, String languageCode, String content, String contentHash);
+      UUID chapterId, String languageCode, String content, String contentHash);
 
   ChapterContentVariant saveTranslation(
-      Long chapterId,
+      UUID chapterId,
       Long sourceVariantId,
       String languageCode,
       String content,
@@ -21,30 +22,30 @@ public interface ChapterContentVariantRepository extends ChapterContentVariantAc
       String model);
 
   Optional<ChapterContentVariant> findByIdOwned(
-      Long projectId, Long chapterId, Long variantId, String userId);
+      UUID projectId, UUID chapterId, Long variantId, String userId);
 
   Optional<ChapterContentVariant> findByIdentity(
-      Long chapterId,
+      UUID chapterId,
       Long sourceVariantId,
       String languageCode,
       String sourceContentHash,
       String contentHash);
 
-  Optional<ChapterContentVariant> findLatestOriginal(Long chapterId);
+  Optional<ChapterContentVariant> findLatestOriginal(UUID chapterId);
 
   Optional<ChapterContentVariant> findCompletedTranslation(
-      Long chapterId, Long sourceVariantId, String languageCode, String sourceContentHash);
+      UUID chapterId, Long sourceVariantId, String languageCode, String sourceContentHash);
 
   Optional<ChapterContentVariant> findCompletedTranslation(
-      Long chapterId,
+      UUID chapterId,
       Long sourceVariantId,
       String languageCode,
       String sourceContentHash,
       String contentHash);
 
-  List<ChapterContentVariant> findAllOwned(Long projectId, Long chapterId);
+  List<ChapterContentVariant> findAllOwned(UUID projectId, UUID chapterId);
 
-  void markTranslationsStale(Long chapterId, Long currentSourceVariantId);
+  void markTranslationsStale(UUID chapterId, Long currentSourceVariantId);
 
   void updateStatus(Long variantId, TranslationStatus status);
 }
