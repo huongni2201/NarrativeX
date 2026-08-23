@@ -5,8 +5,8 @@
 <mapper namespace="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.NarrationMapper">
     <resultMap id="narrationRequestRow" type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.NarrationRequestRow">
         <result property="id" column="id" javaType="java.util.UUID" typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
-        <result property="projectId" column="project_id" />
-        <result property="chapterId" column="chapter_id" />
+        <result property="projectId" column="project_id" javaType="java.util.UUID" typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
+        <result property="chapterId" column="chapter_id" javaType="java.util.UUID" typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
         <result property="chapterRowVersion" column="chapter_row_version" />
         <result property="sourceHash" column="source_hash" />
         <result property="sourceText" column="source_text" />
@@ -24,7 +24,10 @@
              voice_id, language, speaking_rate, segmentation_version, request_fingerprint,
              voice_reference_asset_id)
         VALUES
-            (#{id}, #{projectId}, #{chapterId}, #{chapterRowVersion}, #{sourceHash}, #{sourceText},
+            (#{id,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+             #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+             #{chapterId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+             #{chapterRowVersion}, #{sourceHash}, #{sourceText},
              #{voiceId}, #{language}, #{speakingRate}, #{segmentationVersion}, #{requestFingerprint},
              #{voiceReferenceAssetId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler})
         ON CONFLICT (request_fingerprint) DO NOTHING
@@ -42,6 +45,9 @@
         INSERT INTO narration_operations
             (id, narration_request_id, generation_job_id, stage_attempt_id)
         VALUES
-            (#{id}, #{narrationRequestId}, #{generationJobId}, #{stageAttemptId})
+            (#{id,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+             #{narrationRequestId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+             #{generationJobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+             #{stageAttemptId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler})
     </insert>
 </mapper>
