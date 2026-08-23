@@ -37,7 +37,16 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @EnableWebSecurity
 public class SecurityConfig {
   private static final String[] PUBLIC_AUTH_PATHS = {
-    "/actuator/health", "/api/v1/auth/csrf", "/api/auth/login", "/api/auth/register"
+    "/actuator/health",
+    "/api/v1/auth/csrf",
+    "/api/auth/login",
+    "/api/auth/register",
+    "/api/v1/local-devices/pair",
+    "/api/v1/local-devices/heartbeat"
+  };
+
+  private static final String[] DEVICE_CSRF_IGNORED_PATHS = {
+    "/api/v1/local-devices/pair", "/api/v1/local-devices/heartbeat"
   };
 
   @Bean
@@ -111,7 +120,10 @@ public class SecurityConfig {
           String frontendBaseUrl)
       throws Exception {
     http.cors(Customizer.withDefaults())
-        .csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()))
+        .csrf(
+            csrf ->
+                csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                    .ignoringRequestMatchers(DEVICE_CSRF_IGNORED_PATHS))
         .securityContext(context -> context.securityContextRepository(securityContextRepository))
         .sessionManagement(
             session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
@@ -164,7 +176,10 @@ public class SecurityConfig {
           boolean localDevIdentityEnabled)
       throws Exception {
     http.cors(Customizer.withDefaults())
-        .csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()))
+        .csrf(
+            csrf ->
+                csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                    .ignoringRequestMatchers(DEVICE_CSRF_IGNORED_PATHS))
         .securityContext(context -> context.securityContextRepository(securityContextRepository))
         .sessionManagement(
             session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
