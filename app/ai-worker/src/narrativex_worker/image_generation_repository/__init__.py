@@ -31,9 +31,6 @@ class ImageGenerationRepository(ImageGenerationRepositoryImplementation):
     ) -> tuple[ClaimedImageGenerationItem, ...]:
         items = await super().load_pending_items(job)
         if not items:
-            # A previous worker may have persisted terminal item/provider state and crashed before
-            # aggregating the stage/job. Reclaiming an otherwise empty job is therefore a recovery
-            # opportunity rather than a no-op.
             await self.aggregate_generation_job(job.stage_attempt_id)
             return ()
         snapshots = await self._reference_snapshots_for_job(job.generation_job_id)
@@ -96,11 +93,6 @@ class ImageGenerationRepository(ImageGenerationRepositoryImplementation):
         provider_operation_id: str | None,
         status: ProviderOperationStatus,
     ) -> DurableImageOperation:
-        """Persist non-terminal provider progress without regressing durable state.
-
-        Reconciliation may report the same state repeatedly. A stale SUBMITTED response after
-        RUNNING has already been persisted must not move the durable operation backwards.
-        """
         if status not in {
             ProviderOperationStatus.SUBMITTED,
             ProviderOperationStatus.RUNNING,
@@ -223,18 +215,32 @@ class ImageGenerationRepository(ImageGenerationRepositoryImplementation):
                            completed_at = CURRENT_TIMESTAMP,
                            next_reconcile_at = NULL, updated_at = CURRENT_TIMESTAMP,
                            row_version = row_version + 1
-                     WHERE id = $1 AND status IN ('UNKNOWN', 'SUBMITTED', 'RUNNING')
+                     WHERE id = $1
+                       AND status IN ('UNKNOWN', 'SUBMITTED', 'RUNNING')
                        AND row_version = $4
+                       AND (
+                           ($5::text IS NULL AND $6::uuid IS NULL)
+                           OR EXISTS (
+                               SELECT 1
+                                 FROM stage_attempts sa
+                                WHERE sa.id = provider_operations.stage_attempt_id
+                                  AND sa.worker_id = $5
+                                  AND sa.lease_token = $6::uuid
+                                  AND sa.status = 'RUNNING'
+                           )
+                       )
                     RETURNING id
                     """,
                     operation.id,
                     summary,
                     fingerprint,
                     operation.row_version,
+                    operation.worker_id,
+                    operation.lease_token,
                 )
                 if row is None:
                     raise ImageGenerationLeaseLostError(
-                        "Image provider operation changed before completion was persisted"
+                        "Image provider operation changed or stage lease was lost before completion was persisted"
                     )
                 await self._aggregate_generation_job(connection, operation.stage_attempt_id)
 
