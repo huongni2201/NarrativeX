@@ -6,6 +6,7 @@ import com.narrativex.backend.feature.character.application.port.out.CharacterVe
 import com.narrativex.backend.feature.character.application.port.out.CharacterVersionRepository;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,7 +19,7 @@ public class GetCharacterVersionReferencesUseCase {
   private final CharacterVersionReferenceRepository referenceRepository;
 
   @Transactional(readOnly = true)
-  public List<Reference> execute(Long characterId, Long versionId) {
+  public List<Reference> execute(UUID characterId, UUID versionId) {
     var version =
         versionRepository
             .findOwnedById(versionId, currentUserId.get())
