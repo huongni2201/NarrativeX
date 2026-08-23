@@ -8,6 +8,7 @@ import com.narrativex.backend.feature.generation.application.port.out.Generation
 import com.narrativex.backend.feature.generation.application.port.out.MediaPlanRepository;
 import com.narrativex.backend.feature.generation.application.port.out.OperationPlanRepository;
 import com.narrativex.backend.feature.generation.application.port.out.QuotaReservation;
+import com.narrativex.backend.feature.generation.application.port.out.RenderInputSnapshotRepository;
 import com.narrativex.backend.feature.generation.application.port.out.StageAttemptRepository;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.aggregate.OperationPlan;
@@ -37,6 +38,7 @@ public class CreateChapterRenderUseCase {
   private final GenerationOutboxRepository generationOutboxRepository;
   private final OperationPlanRepository operationPlanRepository;
   private final MediaPlanRepository mediaPlanRepository;
+  private final RenderInputSnapshotRepository renderInputSnapshotRepository;
   private final StageAttemptRepository stageAttemptRepository;
   private final QuotaReservation quotaReservation;
   private final UserQuotaAccess userQuotaAccess;
@@ -114,6 +116,22 @@ public class CreateChapterRenderUseCase {
                 command.mediaPlanId(),
                 command.mediaPlanRevision(),
                 userId));
+
+    var renderSnapshot =
+        renderInputSnapshotRepository.create(
+            job.getId(),
+            command.projectId(),
+            command.chapterId(),
+            chapter.rowVersion(),
+            chapter.sourceHash(),
+            command.mediaPlanId(),
+            command.mediaPlanRevision());
+    if (!renderSnapshot.complete()) {
+      throw new GenerationAdmissionDeniedException(
+          "RENDER_INPUT_NOT_READY",
+          "Rendering requires one immutable narration asset and one READY image asset per planned beat.");
+    }
+
     OperationPlan plan =
         operationPlanRepository.save(
             OperationPlan.create(
