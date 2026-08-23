@@ -1,4 +1,6 @@
 package com.narrativex.backend.feature.storyboard.application.command;
 
+import java.util.UUID;
+
 public record ImportChapterContentCommand(
-    Long projectId, Long chapterId, String content, String title) {}
+    UUID projectId, UUID chapterId, String content, String title) {}
