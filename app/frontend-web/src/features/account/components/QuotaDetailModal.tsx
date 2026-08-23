@@ -8,6 +8,7 @@ import {
   Sparkles,
   Calendar,
   Layers,
+  Crown,
 } from "lucide-react";
 import { useUserQuota } from "../hooks/useUserQuota";
 import { Modal } from "@/components/ui/Modal";
@@ -188,11 +189,18 @@ export function QuotaDetailModal({ isOpen, onClose }: Readonly<QuotaDetailModalP
             </>
           )}
 
-          <div className="pt-2 border-t border-border flex justify-end">
+          <div className="pt-3 border-t border-border flex items-center justify-between gap-3">
+            <button
+              type="button"
+              className="rounded-lg bg-gradient-to-r from-primary to-orange-500 px-4 py-2 text-xs font-bold text-white shadow-sm shadow-primary/20 hover:from-primary-hover hover:to-orange-600 flex items-center gap-1.5 transition-all active:scale-[0.98]"
+            >
+              <Crown className="h-3.5 w-3.5 shrink-0" />
+              <span>Nâng cấp gói ngay</span>
+            </button>
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className="rounded-lg border border-border bg-surface-2 px-4 py-2 text-xs font-semibold text-text-secondary transition-colors hover:bg-surface-3 hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               Đóng
             </button>

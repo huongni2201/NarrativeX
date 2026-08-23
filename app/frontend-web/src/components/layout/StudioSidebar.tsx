@@ -13,11 +13,11 @@ import {
   Palette,
   History,
   Settings,
-  Sparkles,
   Zap,
   ChevronDown,
   LogOut,
   User,
+  Crown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -26,7 +26,6 @@ import { useAuthSessionLifecycle } from "@/features/auth/hooks/useAuthSessionLif
 import { ApiClientError } from "@/shared/api/client";
 import { useUserQuota } from "@/features/account/hooks/useUserQuota";
 import { QuotaDetailModal } from "@/features/account/components/QuotaDetailModal";
-import { ProviderHealthIndicator } from "@/features/health/components/ProviderHealthIndicator";
 
 export const StudioSidebar = () => {
   const pathname = usePathname();
@@ -315,7 +314,7 @@ export const StudioSidebar = () => {
         </nav>
       </div>
 
-      <div className="space-y-3">
+      <div className="pb-3">
         <div className="p-3.5 mx-3 rounded-xl bg-surface border border-border space-y-3">
           {isQuotaLoading ? (
             <div className="space-y-2.5 animate-pulse py-1">
@@ -376,10 +375,10 @@ export const StudioSidebar = () => {
               <button
                 type="button"
                 onClick={() => setIsQuotaModalOpen(true)}
-                className="w-full rounded-lg border border-border-dark bg-surface-dark px-3 py-2 text-xs font-semibold text-text-secondary hover:border-primary/50 hover:bg-surface-3 hover:text-text-primary flex items-center justify-center gap-1.5 transition-colors"
+                className="w-full rounded-lg bg-gradient-to-r from-primary to-orange-500 px-3 py-2 text-xs font-bold text-white shadow-sm shadow-primary/20 hover:from-primary-hover hover:to-orange-600 flex items-center justify-center gap-1.5 transition-all active:scale-[0.98]"
               >
-                <Sparkles className="w-3.5 h-3.5 text-text-muted" />
-                <span>Chi tiết hạn mức & gói</span>
+                <Crown className="w-3.5 h-3.5 shrink-0" />
+                <span>Nâng cấp</span>
               </button>
             </>
           ) : (
@@ -398,13 +397,17 @@ export const StudioSidebar = () => {
                   ? "Không thể tải thông tin hạn mức lúc này."
                   : "Đăng nhập để xem hạn mức và số credits khả dụng."}
               </p>
+
+              <button
+                type="button"
+                onClick={() => setIsQuotaModalOpen(true)}
+                className="w-full rounded-lg bg-gradient-to-r from-primary to-orange-500 px-3 py-2 text-xs font-bold text-white shadow-sm shadow-primary/20 hover:from-primary-hover hover:to-orange-600 flex items-center justify-center gap-1.5 transition-all active:scale-[0.98]"
+              >
+                <Crown className="w-3.5 h-3.5 shrink-0" />
+                <span>Nâng cấp</span>
+              </button>
             </>
           )}
-        </div>
-
-        {/* Footer info & Health Indicator */}
-        <div className="px-5 pb-4 flex items-center justify-between">
-          <ProviderHealthIndicator />
         </div>
       </div>
 
