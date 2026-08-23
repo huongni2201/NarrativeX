@@ -27,13 +27,13 @@ public interface ChapterWorkspaceAccess {
       int total,
       int completed,
       int failed,
-      String latestJobId,
+      UUID latestJobId,
       UUID mediaPlanId,
       Integer mediaPlanRevision) {}
 
   record PipelineStep(String status, Instant completedAt) {}
 
-  record RenderStep(String status, Instant completedAt, String latestJobId, Long artifactId) {}
+  record RenderStep(String status, Instant completedAt, UUID latestJobId, Long artifactId) {}
 
   record AudioStep(String status, Instant completedAt, String storageKey, Long durationMs) {}
 
