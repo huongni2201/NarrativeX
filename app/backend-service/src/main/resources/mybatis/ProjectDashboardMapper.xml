@@ -5,7 +5,7 @@
 <mapper namespace="com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ProjectDashboardMapper">
     <resultMap id="projectDashboardRow" type="com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ProjectDashboardRow">
         <constructor>
-            <arg column="id" javaType="java.lang.Long" />
+            <arg column="id" javaType="java.util.UUID" typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
             <arg column="name" javaType="java.lang.String" />
             <arg column="description" javaType="java.lang.String" />
             <arg column="cover_image_url" javaType="java.lang.String" />
