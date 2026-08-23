@@ -4,7 +4,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface MediaAssetAccess {
-  Optional<MediaAssetSummary> findOwned(String ownerId, UUID assetId);
+  Optional<MediaAssetSummary> findOwnedSummary(String ownerId, UUID assetId);
 
   record MediaAssetSummary(
       UUID id,

@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.storyboard.application.usecase;
 
+import com.narrativex.backend.feature.assets.application.port.in.MediaStorageAccess;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.FeatureNotAvailableException;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
@@ -29,6 +30,7 @@ public class GetChapterWorkspaceUseCase {
   private final ChapterRepository chapterRepository;
   private final ChapterAnalysisSnapshotRepository chapterAnalysisSnapshotRepository;
   private final ChapterWorkspaceReadRepository chapterWorkspaceReadRepository;
+  private final MediaStorageAccess mediaStorageAccess;
 
   @Transactional(readOnly = true)
   public ApiResponse<ChapterWorkspaceResponse> execute(UUID projectId, UUID chapterId) {
@@ -175,9 +177,8 @@ public class GetChapterWorkspaceUseCase {
   private String createAudioUrl(AudioStep audio) {
     if (!"READY".equals(audio.status()) || audio.storageKey() == null) return null;
     try {
-      return objectStorage
-          .createDownload(audio.storageKey(), Instant.now().plusSeconds(900))
-          .downloadUrl()
+      return mediaStorageAccess
+          .createDownloadUrl(audio.storageKey(), Instant.now().plusSeconds(900))
           .toString();
     } catch (FeatureNotAvailableException | IllegalArgumentException ignored) {
       return null;

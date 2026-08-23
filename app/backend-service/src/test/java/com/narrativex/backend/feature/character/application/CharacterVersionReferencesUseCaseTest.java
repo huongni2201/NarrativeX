@@ -64,7 +64,7 @@ class CharacterVersionReferencesUseCaseTest {
   void rejectsNonReadyOrNonImageAssets() {
     when(versionRepository.findOwnedById(VERSION_ID, "owner"))
         .thenReturn(Optional.of(version(CharacterVersionStatus.DRAFT)));
-    when(mediaAssetAccess.findOwned("owner", IDENTITY_ASSET))
+    when(mediaAssetAccess.findOwnedSummary("owner", IDENTITY_ASSET))
         .thenReturn(Optional.of(asset(IDENTITY_ASSET, "VIDEO", "READY", "video/mp4")));
     var useCase = setUseCase();
 
@@ -85,9 +85,9 @@ class CharacterVersionReferencesUseCaseTest {
   void requiresHighestPriorityReferenceToBeIdentityAndPersistsSortedReferences() {
     when(versionRepository.findOwnedById(VERSION_ID, "owner"))
         .thenReturn(Optional.of(version(CharacterVersionStatus.DRAFT)));
-    when(mediaAssetAccess.findOwned("owner", IDENTITY_ASSET))
+    when(mediaAssetAccess.findOwnedSummary("owner", IDENTITY_ASSET))
         .thenReturn(Optional.of(asset(IDENTITY_ASSET, "IMAGE", "READY", "image/png")));
-    when(mediaAssetAccess.findOwned("owner", PROFILE_ASSET))
+    when(mediaAssetAccess.findOwnedSummary("owner", PROFILE_ASSET))
         .thenReturn(Optional.of(asset(PROFILE_ASSET, "IMAGE", "READY", "image/jpeg")));
     var useCase = setUseCase();
 

@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.assets.infrastructure.storage;
 
+import com.narrativex.backend.feature.assets.application.port.in.MediaStorageAccess;
 import com.narrativex.backend.feature.assets.application.port.out.ObjectStoragePort;
 import com.narrativex.backend.feature.assets.application.port.out.ObjectStoragePort.CreateUpload;
 import com.narrativex.backend.feature.assets.application.port.out.ObjectStoragePort.PresignedDownload;
@@ -35,7 +36,11 @@ import org.springframework.stereotype.Component;
 /** S3-compatible Cloudflare R2 adapter; credentials remain infrastructure-only. */
 @Component
 @RequiredArgsConstructor
-public class R2ObjectStorageAdapter implements ObjectStoragePort {
+public class R2ObjectStorageAdapter implements ObjectStoragePort, MediaStorageAccess {
+  @Override
+  public URI createDownloadUrl(String storageKey, Instant expiresAt) {
+    return createDownload(storageKey, expiresAt).downloadUrl();
+  }
   private static final String REGION = "auto";
   private static final String SERVICE = "s3";
   private static final String UNSIGNED_PAYLOAD = "UNSIGNED-PAYLOAD";

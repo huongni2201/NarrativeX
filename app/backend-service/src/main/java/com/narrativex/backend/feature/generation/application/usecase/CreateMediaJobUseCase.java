@@ -40,7 +40,6 @@ public class CreateMediaJobUseCase {
   private static final String STAGE_NAME = "SHOT_IMAGE_GENERATE";
   private final CurrentUserId currentUserId;
   private final ProjectAccess projectAccess;
-  private final ChapterRepository chapterRepository;
   private final ChapterAnalysisSourceAccess chapterSourceAccess;
   private final MediaPlanningSourceAccess mediaPlanningSourceAccess;
   private final CreateMediaPlanUseCase createMediaPlanUseCase;
@@ -89,9 +88,6 @@ public class CreateMediaJobUseCase {
     }
 
     var project = projectAccess.findOwnedProject(command.projectId(), userId);
-    chapterRepository
-        .findById(command.chapterId())
-        .orElseThrow(() -> new ResourceNotFoundException("Chapter not found"));
     var chapter =
         chapterSourceAccess.requireOwnedForAnalysisLocked(
             command.projectId(), command.chapterId(), userId);

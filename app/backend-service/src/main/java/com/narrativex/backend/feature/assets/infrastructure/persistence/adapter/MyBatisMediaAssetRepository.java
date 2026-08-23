@@ -155,7 +155,7 @@ public class MyBatisMediaAssetRepository implements MediaAssetRepository, MediaA
 
   @Override
   @Transactional(readOnly = true)
-  public Optional<MediaAssetSummary> findOwned(String ownerId, UUID assetId) {
+  public Optional<MediaAssetSummary> findOwnedSummary(String ownerId, UUID assetId) {
     MediaAssetRow row = mapper.findOwned(ownerId, assetId);
     if (row == null) {
       return Optional.empty();

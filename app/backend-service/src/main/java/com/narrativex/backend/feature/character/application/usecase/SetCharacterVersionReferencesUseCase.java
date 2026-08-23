@@ -71,7 +71,7 @@ public class SetCharacterVersionReferencesUseCase {
 
       var asset =
           mediaAssetAccess
-              .findOwned(ownerId, input.assetId())
+              .findOwnedSummary(ownerId, input.assetId())
               .orElseThrow(() -> new ResourceNotFoundException("Reference media asset not found"));
       if (!"IMAGE".equals(asset.type()) || !"READY".equals(asset.status())) {
         throw new ResourceConflictException("Character references must be READY image assets");

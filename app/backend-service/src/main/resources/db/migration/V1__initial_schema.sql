@@ -3,7 +3,7 @@
 
 -- -----------------------------------------------------------------------------
 -- Baseline marker
--- -----------------------------------------------------------------------------
+-- ----------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS schema_baseline (
     id VARCHAR(64) PRIMARY KEY,
@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS auth_users (
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE projects (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -78,7 +78,7 @@ CREATE INDEX idx_project_favorites_project_user
     ON project_favorites (project_id, user_id);
 
 CREATE TABLE story_versions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -100,7 +100,7 @@ CREATE UNIQUE INDEX uq_story_versions_one_active_per_project
     WHERE status = 'ACTIVE';
 
 CREATE TABLE chapters (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -120,7 +120,7 @@ CREATE TABLE chapters (
 );
 
 CREATE TABLE chapter_creation_idempotency (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
     owner_id VARCHAR(128) NOT NULL REFERENCES auth_users(id),
     project_id UUID NOT NULL REFERENCES projects(id),
     idempotency_key VARCHAR(200) NOT NULL,
@@ -138,7 +138,7 @@ CREATE INDEX idx_chapter_creation_idempotency_chapter
     WHERE chapter_id IS NOT NULL;
 
 CREATE TABLE chapter_content_variants (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
     chapter_id UUID NOT NULL REFERENCES chapters(id),
     source_variant_id UUID REFERENCES chapter_content_variants(id),
     variant_type VARCHAR(32) NOT NULL,
@@ -199,7 +199,7 @@ CREATE INDEX idx_language_detections_variant_created
     ON language_detections (content_variant_id, created_at DESC, id DESC);
 
 CREATE TABLE storyboard_revisions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -226,7 +226,7 @@ ALTER TABLE chapters
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE characters (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -239,7 +239,7 @@ CREATE TABLE characters (
 CREATE INDEX idx_characters_owner_status ON characters (owner_id, status);
 
 CREATE TABLE character_versions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -256,7 +256,7 @@ CREATE INDEX idx_character_versions_character_status
     ON character_versions (character_id, status);
 
 CREATE TABLE outfit_versions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -271,7 +271,7 @@ CREATE TABLE outfit_versions (
 );
 
 CREATE TABLE character_appearances (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -292,7 +292,7 @@ CREATE INDEX idx_character_appearances_character_timeline
     ON character_appearances (character_id, timeline_key);
 
 CREATE TABLE project_characters (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -317,7 +317,7 @@ CREATE UNIQUE INDEX uq_project_characters_project_id_id ON project_characters (p
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE project_locations (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -337,7 +337,7 @@ CREATE INDEX idx_project_locations_active_project
 CREATE UNIQUE INDEX uq_project_locations_project_id_id ON project_locations (project_id, id);
 
 CREATE TABLE project_assets (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -417,7 +417,7 @@ CREATE INDEX idx_project_location_ai_identity_entity
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE scenes (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -455,7 +455,7 @@ CREATE INDEX idx_scene_characters_project_character
     ON scene_characters (project_character_id);
 
 CREATE TABLE visual_beats (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -630,7 +630,7 @@ FOR EACH ROW EXECUTE FUNCTION reject_media_plan_update();
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE generation_jobs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -701,7 +701,7 @@ CREATE INDEX idx_generation_jobs_requester_created_id
     ON generation_jobs (requested_by_user_id, created_at DESC, id DESC);
 
 CREATE TABLE stage_attempts (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -729,7 +729,7 @@ CREATE INDEX idx_stage_attempts_running_lease
     WHERE status = 'RUNNING';
 
 CREATE TABLE provider_operations (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -780,7 +780,7 @@ CREATE INDEX idx_provider_operations_reconcile_due
       AND next_reconcile_at IS NOT NULL;
 
 CREATE TABLE operation_plans (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1423,7 +1423,7 @@ CREATE INDEX IF NOT EXISTS idx_abuse_user_created ON abuse_events (user_id, crea
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE render_manifests (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     chapter_id UUID NOT NULL REFERENCES chapters(id) ON DELETE CASCADE,
     media_plan_id UUID REFERENCES media_plans(id),
