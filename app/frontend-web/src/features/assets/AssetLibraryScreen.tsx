@@ -118,18 +118,9 @@ export const AssetLibraryScreen: React.FC = () => {
     }
   }, [closeDetailDrawer, deleteAsset, loadAssets]);
 
-  const handleApprove = useCallback(async (id: string) => {
-    if (isMockDataMode) {
-      approveAsset(id);
-      return;
-    }
-    try {
-      await assetsApi.approve(id);
-      await loadAssets();
-    } catch (error) {
-      setApiError(apiErrorMessage(error, "Không thể approve tài sản."));
-    }
-  }, [approveAsset, loadAssets]);
+  const handleApprove = useCallback((id: string) => {
+    approveAsset(id);
+  }, [approveAsset]);
 
   const typeTabs = useMemo(
     () => assetTypes.map((tab) => ({
@@ -218,7 +209,10 @@ export const AssetLibraryScreen: React.FC = () => {
 
             <SelectField label="Lọc theo trạng thái" value={filterStatus} onChange={setFilterStatus}>
               <option value="all">Trạng thái: Tất cả</option>
-              {['PENDING_UPLOAD', 'UPLOADING', 'VALIDATING', 'READY', 'REJECTED', 'APPROVED', 'NEEDS_REVIEW', 'LOCKED', 'GENERATED', 'PROCESSING', 'FAILED', 'COMPLETED'].map((status) => <option key={status} value={status}>{status}</option>)}
+              {(isMockDataMode
+                ? ['PENDING_UPLOAD', 'UPLOADING', 'VALIDATING', 'READY', 'REJECTED', 'APPROVED', 'NEEDS_REVIEW', 'LOCKED', 'GENERATED', 'PROCESSING', 'FAILED', 'COMPLETED']
+                : ['PENDING_UPLOAD', 'UPLOADING', 'VALIDATING', 'READY', 'REJECTED']
+              ).map((status) => <option key={status} value={status}>{status}</option>)}
             </SelectField>
 
             <SelectField label="Lọc theo tỷ lệ" value={filterAspectRatio} onChange={setFilterAspectRatio}>
@@ -274,7 +268,7 @@ export const AssetLibraryScreen: React.FC = () => {
         )}
       </div>
 
-      {isDetailDrawerOpen && selectedAsset && <AssetDetailDrawer asset={selectedAsset} onClose={closeDetailDrawer} onDelete={handleDelete} onApprove={canApprove(selectedAsset.status) ? handleApprove : undefined} onReject={isMockDataMode ? rejectAsset : undefined} onToggleLock={isMockDataMode ? toggleLockAsset : undefined} />}
+      {isDetailDrawerOpen && selectedAsset && <AssetDetailDrawer asset={selectedAsset} onClose={closeDetailDrawer} onDelete={handleDelete} onApprove={isMockDataMode && canApprove(selectedAsset.status) ? handleApprove : undefined} onReject={isMockDataMode ? rejectAsset : undefined} onToggleLock={isMockDataMode ? toggleLockAsset : undefined} />}
       <AssetUploadModal isOpen={isUploadModalOpen} onClose={closeUploadModal} onUploaded={loadAssets} />
     </div>
   );

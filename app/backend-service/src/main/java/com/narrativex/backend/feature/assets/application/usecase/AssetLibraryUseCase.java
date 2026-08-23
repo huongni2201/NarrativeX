@@ -37,11 +37,6 @@ public class AssetLibraryUseCase {
   }
 
   @Transactional
-  public MediaAssetView approve(UUID id) {
-    return repository.approve(currentUserId.get(), id);
-  }
-
-  @Transactional
   public MediaAssetView reject(UUID id) {
     return repository.reject(currentUserId.get(), id);
   }

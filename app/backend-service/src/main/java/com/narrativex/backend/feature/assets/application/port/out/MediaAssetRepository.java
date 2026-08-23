@@ -20,8 +20,6 @@ public interface MediaAssetRepository {
 
   MediaAssetView startValidation(String accountId, UUID id);
 
-  MediaAssetView approve(String accountId, UUID id);
-
   MediaAssetView reject(String accountId, UUID id);
 
   void delete(String accountId, UUID id);
