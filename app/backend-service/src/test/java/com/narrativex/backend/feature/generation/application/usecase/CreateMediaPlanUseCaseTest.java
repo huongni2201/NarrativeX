@@ -76,4 +76,48 @@ class CreateMediaPlanUseCaseTest {
     assertThat(plan.workload().plannedI2vSeconds()).isEqualTo(8);
     assertThat(plan.workload().basicMotionSeconds()).isZero();
   }
+
+  @Test
+  void imageMotionDoesNotRequireUnwiredNarrationSetPointers() {
+    var currentUserId = mock(CurrentUserId.class);
+    var chapterSourceAccess = mock(ChapterAnalysisSourceAccess.class);
+    var mediaPlanningSourceAccess = mock(MediaPlanningSourceAccess.class);
+    var mediaPlanRepository = mock(MediaPlanRepository.class);
+    var useCase =
+        new CreateMediaPlanUseCase(
+            currentUserId,
+            chapterSourceAccess,
+            mediaPlanningSourceAccess,
+            mediaPlanRepository,
+            new MotionStrategyResolver(new DefaultMotionExecutionPolicy()));
+
+    when(currentUserId.get()).thenReturn("user-1");
+    when(chapterSourceAccess.requireOwnedForAnalysisLocked(1L, 10L, "user-1"))
+        .thenReturn(new ChapterAnalysisSource(10L, 20L, 7L, "source-hash", "source text"));
+    when(mediaPlanningSourceAccess.requireCurrent(10L))
+        .thenReturn(
+            new MediaPlanningSource(
+                List.of(
+                    new SceneSnapshot(
+                        30L,
+                        0,
+                        "Hello",
+                        8,
+                        List.of(
+                            new BeatSnapshot(40L, 0, "Character runs", MotionIntent.STILL))))));
+    when(mediaPlanRepository.nextRevision(10L)).thenReturn(1);
+    when(mediaPlanRepository.save(any(MediaPlan.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+
+    var plan =
+        useCase.execute(
+            new CreateMediaPlanCommand(
+                1L, 10L, ProductionMode.IMAGE_MOTION, new BigDecimal("0.25")));
+
+    assertThat(plan.productionMode()).isEqualTo(ProductionMode.IMAGE_MOTION);
+    assertThat(plan.narrationSetId()).isNull();
+    assertThat(plan.narrationAlignmentRunId()).isNull();
+    assertThat(plan.scenes().getFirst().beats().getFirst().motionStrategy())
+        .isEqualTo(MotionStrategy.BASIC_IMAGE_MOTION);
+  }
 }
