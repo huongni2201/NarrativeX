@@ -12,8 +12,8 @@ NarrativeX is an image-first AI Story Video Studio for turning flexible-length s
 | `documentation` | Product, domain, architecture, workflows, codebase notes and ADRs |
 | `contracts` | Versioned backend ↔ worker payload contracts |
 | `docker-compose.yml` | Safe local PostgreSQL 18, Redis 8, backend and AI worker stack |
-| `docker-compose.prod.yml` | Production stack with frontend, split AI/narration/render workers and Caddy TLS termination |
-| `Caddyfile.prod` | Production HTTPS reverse-proxy configuration |
+| `docker-compose.prod.yml` | Production stack with frontend, split AI/narration/render workers, Caddy origin routing and Cloudflare Tunnel |
+| `Caddyfile.prod` | Private HTTP origin used only inside the Cloudflare Tunnel Docker network |
 
 ## Start the local stack
 
@@ -49,13 +49,42 @@ When `AI_PROVIDER_MODE=vertex` or `IMAGE_PROVIDER_MODE=vertex`, the worker needs
 Production intentionally uses a separate Compose/env contract so local development cannot silently enable paid providers or secure-cookie/domain settings.
 
 ```powershell
-Copy-Item .env.prod.example .env.prod
+Copy-Item .env.example .env.prod
 # Fill every secret/path/domain value in .env.prod before continuing.
 docker compose --env-file .env.prod -f docker-compose.prod.yml config
 docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
 ```
 
-The production stack forces the Spring `prod` profile, uses Caddy for HTTPS, runs the general AI worker separately from the VieNeu narration worker and render worker, enables Vertex analysis/image generation, keeps generated images and narration audio in R2, and stores final rendered MP4 files in Google Drive.
+The production stack forces the Spring `prod` profile, runs the general AI worker separately from the VieNeu narration worker and render worker, enables Vertex analysis/image generation, keeps generated images and narration audio in R2, and stores final rendered MP4 files in Google Drive.
+
+### Publish from a Windows PC with Cloudflare Tunnel
+
+The public connection is `HTTPS client -> Cloudflare -> encrypted tunnel -> cloudflared -> Caddy HTTP on appnet`. Caddy and the application do not publish host ports, so do not add router port-forwarding rules for ports 80 or 443.
+
+1. Add the application domain to Cloudflare and create a remotely-managed Tunnel.
+2. Add a Public Hostname route for `APP_DOMAIN` with service URL `http://caddy:80`.
+3. Copy the connector token to `CLOUDFLARE_TUNNEL_TOKEN` in the untracked `.env.prod`.
+4. Keep `APP_DOMAIN` as a hostname only, for example `app.example.com` (no scheme or path).
+5. In Cloudflare, enable Always Use HTTPS and choose an appropriate edge certificate policy. Cloudflare terminates browser TLS; the origin remains private inside the authenticated tunnel.
+6. Prevent Windows sleep/hibernate while serving production traffic and configure Docker Desktop to start automatically.
+
+Validate before starting:
+
+```powershell
+docker compose --env-file .env.prod -f docker-compose.prod.yml config
+docker run --rm -v "${PWD}/Caddyfile.prod:/etc/caddy/Caddyfile:ro" caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile
+```
+
+Start and verify:
+
+```powershell
+docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
+docker compose --env-file .env.prod -f docker-compose.prod.yml ps
+docker compose --env-file .env.prod -f docker-compose.prod.yml logs --tail 100 cloudflared caddy
+curl.exe -I "https://$((Get-Content .env.prod | Select-String '^APP_DOMAIN=').Line.Split('=',2)[1])"
+```
+
+A healthy deployment must redirect or serve only HTTPS publicly, return the expected security headers, keep ports 80/443 closed on the router, and show the Tunnel connector as Healthy in Cloudflare.
 
 For final-video storage, create a Google OAuth refresh token for the Drive account that owns the target folder with the `https://www.googleapis.com/auth/drive` scope, then configure `GOOGLE_DRIVE_CLIENT_ID`, `GOOGLE_DRIVE_CLIENT_SECRET`, `GOOGLE_DRIVE_REFRESH_TOKEN`, and `GOOGLE_DRIVE_FOLDER_ID` in `.env.prod`. The render worker uses resumable uploads and stores the Drive file ID plus view link in `final_artifacts`. The production template defaults VieNeu to the CPU/ONNX backend; GPU/PyTorch deployment requires a GPU-capable image/runtime rather than only changing `VIENEU_BACKEND`.
 

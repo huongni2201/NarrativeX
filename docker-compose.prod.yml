@@ -235,15 +235,29 @@ services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
-    environment:
-      APP_DOMAIN: ${APP_DOMAIN}
-      ACME_EMAIL: ${ACME_EMAIL}
-    ports: ["80:80", "443:443", "443:443/udp"]
+    expose: ["80"]
     volumes:
       - ./Caddyfile.prod:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
       - caddy-config:/config
-    depends_on: [frontend, backend]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    depends_on:
+      frontend: { condition: service_started }
+      backend: { condition: service_healthy }
+    networks: [appnet]
+
+  cloudflared:
+    image: ${CLOUDFLARED_IMAGE:-cloudflare/cloudflared:latest}
+    restart: unless-stopped
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      caddy: { condition: service_healthy }
     networks: [appnet]
 
 networks:
@@ -252,5 +266,4 @@ volumes:
   postgres-data:
   redis-data:
   vieneu-home:
-  caddy-data:
   caddy-config:
