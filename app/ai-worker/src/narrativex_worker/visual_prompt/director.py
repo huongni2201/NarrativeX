@@ -16,10 +16,13 @@ VISUAL_DIRECTION_INSTRUCTIONS = (
     "(4) composition and what must remain visually dominant, (5) one physically motivated light "
     "source and atmosphere, (6) restrained facial/body performance when a character is present, "
     "and (7) continuity constraints that preserve established character appearance, costume, "
-    "location and time-of-day. Prefer concrete visible details over adjectives such as cinematic, "
-    "beautiful, epic or dramatic. Do not invent text, logos, subtitles, watermarks, extra people, "
-    "or story facts unsupported by the chapter. Keep each beat suitable for generating one static "
-    "key image that can later receive subtle FFmpeg motion."
+    "location and time-of-day. Also set camera_angle to exactly one structured value from the "
+    "response schema: WIDE, MEDIUM, CLOSE_UP, EXTREME_CLOSE_UP, LOW_ANGLE, HIGH_ANGLE, "
+    "OVER_THE_SHOULDER, or POV. Choose the framing that best communicates the beat; do not use "
+    "camera_angle for camera movement. Prefer concrete visible details over adjectives such as "
+    "cinematic, beautiful, epic or dramatic. Do not invent text, logos, subtitles, watermarks, "
+    "extra people, or story facts unsupported by the chapter. Keep each beat suitable for "
+    "generating one static key image that can later receive subtle FFmpeg motion."
 )
 
 
