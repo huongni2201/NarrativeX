@@ -93,7 +93,7 @@ class StoryboardApiIntegrationTest {
     jdbcTemplate.update(
         "INSERT INTO generation_jobs (id, job_id, project_id, chapter_id, job_type, status, resource_class, progress, requested_by_user_id, billed_to_user_id) VALUES (6005, '00000000-0000-4000-8000-000000000005', 1001, 3001, 'RENDER_PROJECT', 'COMPLETED', 'GPU_HEAVY', 100, 'seed-user-01', 'seed-user-01') ON CONFLICT (id) DO NOTHING");
     jdbcTemplate.update(
-        "INSERT INTO final_artifacts (id, project_id, chapter_id, generation_job_id, render_manifest_id, artifact_type, render_fingerprint, storage_key, mime_type, size_bytes, checksum_sha256, duration_ms, width, height, fps, status) VALUES (28001, 1001, 3001, 6005, 27001, 'CHAPTER_VIDEO', repeat('6', 64), 'key', 'video/mp4', 24800000, repeat('7', 64), 42000, 1920, 1080, 24.0, 'READY') ON CONFLICT (id) DO NOTHING");
+        "INSERT INTO final_artifacts (id, project_id, chapter_id, generation_job_id, render_manifest_id, artifact_type, render_fingerprint, storage_key, storage_provider, external_file_id, mime_type, size_bytes, checksum_sha256, duration_ms, width, height, fps, status) VALUES (28001, 1001, 3001, 6005, 27001, 'CHAPTER_VIDEO', repeat('6', 64), 'gdrive:drive-file-28001', 'GOOGLE_DRIVE', 'drive-file-28001', 'video/mp4', 24800000, repeat('7', 64), 42000, 1920, 1080, 24.0, 'READY') ON CONFLICT (id) DO NOTHING");
   }
 
   @Test
@@ -220,8 +220,13 @@ class StoryboardApiIntegrationTest {
         .perform(get("/api/v1/artifacts/28001"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.status").value("READY"))
-        .andExpect(jsonPath("$.data.downloadAvailable").value(false))
-        .andExpect(jsonPath("$.data.downloadUrl").doesNotExist());
+        .andExpect(jsonPath("$.data.previewAvailable").value(true))
+        .andExpect(jsonPath("$.data.previewUrl").value("/api/v1/artifacts/28001/content"))
+        .andExpect(jsonPath("$.data.downloadAvailable").value(true))
+        .andExpect(jsonPath("$.data.downloadUrl").value("/api/v1/artifacts/28001/download"))
+        .andExpect(jsonPath("$.data.externalFileId").doesNotExist())
+        .andExpect(jsonPath("$.data.refreshToken").doesNotExist())
+        .andExpect(jsonPath("$.data.accessToken").doesNotExist());
 
     mockMvc
         .perform(get("/api/v1/artifacts/by-job/00000000-0000-4000-8000-000000000005"))

@@ -50,7 +50,7 @@ public class FinalArtifactController {
     return stream(artifactId, range, true);
   }
 
-  @GetMapping("/{artifactId}/preview")
+  @GetMapping({"/{artifactId}/content", "/{artifactId}/preview"})
   public ResponseEntity<?> preview(
       @PathVariable Long artifactId,
       @RequestHeader(value = HttpHeaders.RANGE, required = false) String range) {

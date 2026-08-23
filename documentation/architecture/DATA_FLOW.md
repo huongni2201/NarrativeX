@@ -108,7 +108,8 @@ FinalArtifact readiness are checked before the backend refreshes the shared Goog
 access token and requests `files/{externalFileId}?alt=media`. A single browser byte range is
 forwarded to Drive and the response body is copied to the browser without buffering the MP4 in
 memory. The backend returns `206`, `Content-Range`, `Content-Length`, and `Accept-Ranges` for
-partial content; `/preview` uses inline disposition and `/download` uses attachment disposition.
+partial content; `/content` uses inline disposition and `/download` uses attachment disposition.
+The legacy `/preview` path remains an alias for inline content delivery.
 
 ## Current gaps
 

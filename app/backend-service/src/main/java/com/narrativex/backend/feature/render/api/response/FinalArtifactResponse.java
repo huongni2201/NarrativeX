@@ -19,10 +19,12 @@ public record FinalArtifactResponse(
     String status,
     Instant createdAt,
     Instant updatedAt,
+    boolean previewAvailable,
+    String previewUrl,
     boolean downloadAvailable,
     String downloadUrl) {
   public static FinalArtifactResponse from(FinalArtifactView view) {
-    boolean downloadAvailable =
+    boolean contentAvailable =
         "READY".equalsIgnoreCase(view.status())
             && view.externalFileId() != null
             && !view.externalFileId().isBlank();
@@ -42,7 +44,9 @@ public record FinalArtifactResponse(
         view.status(),
         view.createdAt(),
         view.updatedAt(),
-        downloadAvailable,
-        downloadAvailable ? "/api/v1/artifacts/" + view.id() + "/download" : null);
+        contentAvailable,
+        contentAvailable ? "/api/v1/artifacts/" + view.id() + "/content" : null,
+        contentAvailable,
+        contentAvailable ? "/api/v1/artifacts/" + view.id() + "/download" : null);
   }
 }
