@@ -25,7 +25,7 @@ public class ChapterWorkspaceAggregateRow {
   private int visualGenerationStalled;
   private int visualGenerationUnknown;
   private int visualGenerationPaused;
-  private String visualGenerationLatestJobId;
+  private UUID visualGenerationLatestJobId;
   private UUID visualGenerationMediaPlanId;
   private Integer visualGenerationMediaPlanRevision;
   private boolean narrationAssetReady;
@@ -36,7 +36,7 @@ public class ChapterWorkspaceAggregateRow {
   private boolean renderManifestCreated;
   private String renderArtifactStatus;
   private String renderJobStatus;
-  private String renderJobId;
+  private UUID renderJobId;
   private Long renderArtifactId;
   private Instant renderCompletedAt;
 }
