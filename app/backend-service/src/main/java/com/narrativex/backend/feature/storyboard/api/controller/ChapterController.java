@@ -2,8 +2,8 @@ package com.narrativex.backend.feature.storyboard.api.controller;
 
 import com.narrativex.backend.feature.common.pagination.CursorPage;
 import com.narrativex.backend.feature.common.response.ApiResponse;
-import com.narrativex.backend.feature.project.application.command.CreateChapterWithStoryCommand;
-import com.narrativex.backend.feature.project.application.usecase.CreateChapterWithStoryUseCase;
+import com.narrativex.backend.feature.storyboard.application.command.CreateChapterWithStoryCommand;
+import com.narrativex.backend.feature.storyboard.application.usecase.CreateChapterWithStoryUseCase;
 import com.narrativex.backend.feature.storyboard.api.request.CreateChapterRequest;
 import com.narrativex.backend.feature.storyboard.api.request.ImportChapterContentRequest;
 import com.narrativex.backend.feature.storyboard.api.request.UpdateChapterRequest;

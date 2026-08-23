@@ -1,8 +1,9 @@
-package com.narrativex.backend.feature.project.infrastructure.persistence.adapter;
+package com.narrativex.backend.feature.storyboard.infrastructure.persistence.adapter;
 
-import com.narrativex.backend.feature.project.application.port.out.ChapterCreationIdempotencyRepository;
-import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ChapterCreationIdempotencyMapper;
-import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ChapterCreationIdempotencyRow;
+import com.narrativex.backend.feature.common.uuid.UuidV7;
+import com.narrativex.backend.feature.storyboard.application.port.out.ChapterCreationIdempotencyRepository;
+import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterCreationIdempotencyMapper;
+import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterCreationIdempotencyRow;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -18,20 +19,22 @@ public class MyBatisChapterCreationIdempotencyAdapter
   public Optional<Reservation> reserve(
       String ownerId, UUID projectId, String idempotencyKey, String requestFingerprint) {
     ChapterCreationIdempotencyRow row =
-        mapper.reserve(ownerId, projectId, idempotencyKey, requestFingerprint);
+        mapper.reserve(UuidV7.random(), ownerId, projectId, idempotencyKey, requestFingerprint);
     return Optional.ofNullable(row).map(MyBatisChapterCreationIdempotencyAdapter::toReservation);
   }
 
   @Override
   public void complete(UUID reservationId, UUID chapterId) {
-    if (mapper.complete(reservationId, chapterId) != 1) {
-      throw new IllegalStateException("Chapter creation reservation was modified concurrently");
-    }
+    mapper.complete(reservationId, chapterId);
   }
 
   private static Reservation toReservation(ChapterCreationIdempotencyRow row) {
     return new Reservation(
-        row.getId(), row.getOwnerId(), row.getProjectId(), row.getIdempotencyKey(),
-        row.getRequestFingerprint(), row.getChapterId());
+        row.getId(),
+        row.getOwnerId(),
+        row.getProjectId(),
+        row.getIdempotencyKey(),
+        row.getRequestFingerprint(),
+        row.getChapterId());
   }
 }

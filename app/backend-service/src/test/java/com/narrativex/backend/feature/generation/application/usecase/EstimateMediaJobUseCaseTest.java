@@ -7,7 +7,7 @@ import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
-import com.narrativex.backend.feature.generation.api.request.EstimateMediaJobRequest;
+import com.narrativex.backend.feature.generation.application.command.EstimateMediaJobCommand;
 import com.narrativex.backend.feature.generation.application.port.out.ImageGenerationCatalog;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSource;
@@ -48,9 +48,7 @@ class EstimateMediaJobUseCaseTest {
 
     var response =
         useCase.execute(
-            projectId,
-            chapterId,
-            new EstimateMediaJobRequest("IMAGE_MOTION", "16:9", "HIGH", "CINEMATIC"));
+            new EstimateMediaJobCommand(projectId, chapterId, "HIGH"));
 
     assertThat(response.data().visualBeatCount()).isEqualTo(3);
     assertThat(response.data().unitEstimatedCost()).isEqualTo("0.400000");

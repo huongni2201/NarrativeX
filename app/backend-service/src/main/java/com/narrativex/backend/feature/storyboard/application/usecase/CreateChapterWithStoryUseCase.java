@@ -1,35 +1,29 @@
-package com.narrativex.backend.feature.project.application.usecase;
+package com.narrativex.backend.feature.storyboard.application.usecase;
 
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.response.ApiResponse;
-import com.narrativex.backend.feature.project.application.command.CreateChapterWithStoryCommand;
-import com.narrativex.backend.feature.project.application.command.CreateStoryVersionCommand;
-import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
-import com.narrativex.backend.feature.project.application.port.out.ChapterCreationIdempotencyRepository;
-import com.narrativex.backend.feature.project.application.port.out.StoryVersionRepository;
-import com.narrativex.backend.feature.project.domain.aggregate.Project;
-import com.narrativex.backend.feature.project.domain.entity.StoryVersion;
+import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterResponse;
 import com.narrativex.backend.feature.storyboard.application.command.CreateChapterCommand;
+import com.narrativex.backend.feature.storyboard.application.command.CreateChapterWithStoryCommand;
+import com.narrativex.backend.feature.storyboard.application.port.out.ChapterCreationIdempotencyRepository;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
-import com.narrativex.backend.feature.storyboard.application.usecase.CreateChapterUseCase;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Application orchestrator for the cross-feature chapter/story creation workflow. */
+/** Application orchestrator for the chapter/story creation workflow. */
 @Service
 @RequiredArgsConstructor
 public class CreateChapterWithStoryUseCase {
   private final CurrentUserId currentUserId;
-  private final ProjectAccess projectAccess;
-  private final StoryVersionRepository storyVersionRepository;
-  private final CreateStoryVersionUseCase createStoryVersionUseCase;
+  private final StoryVersionAccess storyVersionAccess;
   private final CreateChapterUseCase createChapterUseCase;
   private final ChapterRepository chapterRepository;
   private final ChapterCreationIdempotencyRepository idempotencyRepository;
@@ -38,7 +32,6 @@ public class CreateChapterWithStoryUseCase {
   public ApiResponse<ChapterResponse> execute(CreateChapterWithStoryCommand command) {
     requireIdempotencyKey(command.idempotencyKey());
     String ownerId = currentUserId.get();
-    Project project = projectAccess.findOwnedProjectForUpdate(command.projectId(), ownerId);
     String fingerprint = fingerprint(command);
     var reservation =
         idempotencyRepository
@@ -57,18 +50,18 @@ public class CreateChapterWithStoryUseCase {
       return ApiResponse.success("Chapter already created", existing);
     }
 
-    StoryVersion storyVersion = resolveStoryVersion(command, project);
+    UUID storyVersionId = resolveStoryVersionId(command, ownerId);
     int orderIndex =
         command.orderIndex() != null
             ? command.orderIndex()
-            : chapterRepository.findMaxOrderIndexByStoryVersionId(storyVersion.getId()) + 1;
+            : chapterRepository.findMaxOrderIndexByStoryVersionId(storyVersionId) + 1;
     if (orderIndex < 0) throw new IllegalArgumentException("orderIndex must not be negative");
 
     ApiResponse<ChapterResponse> response =
         createChapterUseCase.execute(
             new CreateChapterCommand(
                 command.projectId(),
-                storyVersion.getId(),
+                storyVersionId,
                 orderIndex,
                 command.title(),
                 command.sourceText()));
@@ -76,23 +69,14 @@ public class CreateChapterWithStoryUseCase {
     return response;
   }
 
-  private StoryVersion resolveStoryVersion(CreateChapterWithStoryCommand command, Project project) {
+  private UUID resolveStoryVersionId(CreateChapterWithStoryCommand command, String ownerId) {
     if (command.storyVersionId() != null) {
-      return storyVersionRepository
-          .findByIdAndProjectId(command.storyVersionId(), command.projectId())
-          .orElseThrow(() -> new ResourceNotFoundException("Story version not found"));
+      storyVersionAccess.requireOwnedStoryVersion(
+          command.projectId(), command.storyVersionId(), ownerId);
+      return command.storyVersionId();
     }
-    return storyVersionRepository
-        .findActiveByProjectId(command.projectId())
-        .or(() -> storyVersionRepository.findLatestByProjectId(command.projectId()))
-        .orElseGet(
-            () ->
-                createStoryVersionUseCase.execute(
-                    new CreateStoryVersionCommand(
-                        command.projectId(),
-                        command.sourceText(),
-                        project.getSourceLanguage(),
-                        null)));
+    return storyVersionAccess.resolveOrCreateStoryVersion(
+        command.projectId(), ownerId, command.sourceText());
   }
 
   private static void requireIdempotencyKey(String value) {

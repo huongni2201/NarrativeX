@@ -1,11 +1,14 @@
-package com.narrativex.backend.feature.project.infrastructure.persistence.mybatis;
+package com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis;
 
+import java.time.Instant;
 import java.util.UUID;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Getter
 @Setter
+@NoArgsConstructor
 public class ChapterCreationIdempotencyRow {
   private UUID id;
   private String ownerId;
@@ -13,4 +16,6 @@ public class ChapterCreationIdempotencyRow {
   private String idempotencyKey;
   private String requestFingerprint;
   private UUID chapterId;
+  private Instant createdAt;
+  private Instant completedAt;
 }

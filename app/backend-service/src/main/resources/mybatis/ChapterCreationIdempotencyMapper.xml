@@ -2,8 +2,8 @@
 <!DOCTYPE mapper
     PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ChapterCreationIdempotencyMapper">
-    <resultMap id="row" type="com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ChapterCreationIdempotencyRow">
+<mapper namespace="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterCreationIdempotencyMapper">
+    <resultMap id="row" type="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterCreationIdempotencyRow">
         <id property="id" column="id" />
         <result property="ownerId" column="owner_id" />
         <result property="projectId" column="project_id" />
@@ -13,9 +13,9 @@
     </resultMap>
     <select id="reserve" resultMap="row" affectData="true">
         INSERT INTO chapter_creation_idempotency (
-            owner_id, project_id, idempotency_key, request_fingerprint
+            id, owner_id, project_id, idempotency_key, request_fingerprint
         ) VALUES (
-            #{ownerId}, #{projectId}, #{idempotencyKey}, #{requestFingerprint}
+            #{id}, #{ownerId}, #{projectId}, #{idempotencyKey}, #{requestFingerprint}
         ) ON CONFLICT (owner_id, project_id, idempotency_key)
             DO UPDATE SET idempotency_key = EXCLUDED.idempotency_key
         RETURNING id, owner_id, project_id, idempotency_key, request_fingerprint, chapter_id

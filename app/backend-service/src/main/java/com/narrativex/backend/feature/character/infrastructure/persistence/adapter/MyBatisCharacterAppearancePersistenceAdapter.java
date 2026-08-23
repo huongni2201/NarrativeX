@@ -20,15 +20,15 @@ public class MyBatisCharacterAppearancePersistenceAdapter implements CharacterAp
   public CharacterAppearance save(CharacterAppearance value) {
     CharacterAppearanceRow row = rowMapper.row(value, CharacterMyBatisRowMapper.InstantPair.now());
     if (value.getId() == null) {
-      row.setId(null);
-      row.setRowVersion(0);
+      row.setId((UUID) null);
+      row.setRowVersion(0L);
       UUID id = mapper.insertAppearance(row);
       return rowMapper.toDomain(mapper.findAppearance(id));
     }
     CharacterAppearanceRow existing = mapper.findAppearance(value.getId());
     if (existing == null) {
-      row.setId(null);
-      row.setRowVersion(0);
+      row.setId((UUID) null);
+      row.setRowVersion(0L);
       UUID id = mapper.insertAppearance(row);
       return rowMapper.toDomain(mapper.findAppearance(id));
     }
