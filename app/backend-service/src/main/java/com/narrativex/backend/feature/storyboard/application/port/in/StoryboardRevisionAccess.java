@@ -11,7 +11,7 @@ public interface StoryboardRevisionAccess {
   UUID createDraft(UUID chapterId, String sourceHash, long sourceRowVersion);
 
   default UUID createDraft(
-      UUID chapterId, String sourceHash, long sourceRowVersion, Long contentVariantId) {
+      UUID chapterId, String sourceHash, long sourceRowVersion, UUID contentVariantId) {
     return createDraft(chapterId, sourceHash, sourceRowVersion);
   }
 
