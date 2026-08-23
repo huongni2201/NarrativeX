@@ -1,6 +1,6 @@
 package com.narrativex.backend.feature.project.domain.aggregate;
 
-import com.narrativex.backend.feature.common.domain.AggregateRoot;
+import com.narrativex.backend.feature.common.domain.UuidAggregateRoot;
 import com.narrativex.backend.feature.project.domain.entity.StoryVersion;
 import com.narrativex.backend.feature.project.domain.enums.AspectRatio;
 import com.narrativex.backend.feature.project.domain.enums.ImageQualityTier;
@@ -10,9 +10,10 @@ import com.narrativex.backend.feature.project.domain.exception.ArchivedProjectEx
 import com.narrativex.backend.feature.project.domain.exception.ProjectPersistenceRequiredException;
 import java.time.Instant;
 import java.util.Objects;
+import java.util.UUID;
 
 /** Project aggregate root; child story versions are created and activated through this boundary. */
-public final class Project extends AggregateRoot {
+public final class Project extends UuidAggregateRoot {
   private final String name;
   private final String description;
   private final String coverImageUrl;
@@ -26,7 +27,7 @@ public final class Project extends AggregateRoot {
   private Instant archivedAt;
 
   private Project(
-      Long id,
+      UUID id,
       long rowVersion,
       String name,
       String description,
@@ -98,7 +99,7 @@ public final class Project extends AggregateRoot {
   }
 
   public static Project rehydrate(
-      Long id,
+      UUID id,
       long rowVersion,
       String name,
       String ownerId,
@@ -126,7 +127,7 @@ public final class Project extends AggregateRoot {
   }
 
   public static Project rehydrate(
-      Long id,
+      UUID id,
       long rowVersion,
       String name,
       String description,
@@ -160,11 +161,6 @@ public final class Project extends AggregateRoot {
     return StoryVersion.create(getId(), versionNumber, content, sourceLanguage);
   }
 
-  /**
-   * Owns the StoryVersion activation lifecycle. The application transaction must lock this Project,
-   * load the current ACTIVE version, persist its SUPERSEDED transition, and only then persist the
-   * new ACTIVE version.
-   */
   public void activateStoryVersion(StoryVersion nextVersion, StoryVersion currentActiveVersion) {
     ensureStoryVersionCanBeManaged();
     StoryVersion next = requireOwnedStoryVersion(nextVersion, "nextVersion");
@@ -179,7 +175,6 @@ public final class Project extends AggregateRoot {
     ensureProjectActive();
   }
 
-  /** Repairs a DRAFT project when its persisted StoryVersion is already ACTIVE. */
   public void reconcileActiveStoryVersion(StoryVersion activeVersion) {
     ensureStoryVersionCanBeManaged();
     StoryVersion active = requireOwnedStoryVersion(activeVersion, "activeVersion");
@@ -220,65 +215,22 @@ public final class Project extends AggregateRoot {
     }
   }
 
-  public String getName() {
-    return name;
-  }
-
-  public String getDescription() {
-    return description;
-  }
-
-  public String getCoverImageUrl() {
-    return coverImageUrl;
-  }
-
-  public String getOwnerId() {
-    return ownerId;
-  }
-
-  public ProjectStatus getStatus() {
-    return status;
-  }
-
-  public String getSourceLanguage() {
-    return sourceLanguage;
-  }
-
-  /**
-   * Project language used by analysis and production; sourceLanguage is retained for API
-   * compatibility.
-   */
-  public String getProjectLanguage() {
-    return sourceLanguage;
-  }
-
-  public String getNarrationLanguage() {
-    return narrationLanguage;
-  }
-
-  public String getMetadataLanguage() {
-    return metadataLanguage;
-  }
-
-  public AspectRatio getImageAspectRatio() {
-    return imageAspectRatio;
-  }
-
-  public ImageQualityTier getImageQualityTier() {
-    return imageQualityTier;
-  }
-
-  public Instant getArchivedAt() {
-    return archivedAt;
-  }
+  public String getName() { return name; }
+  public String getDescription() { return description; }
+  public String getCoverImageUrl() { return coverImageUrl; }
+  public String getOwnerId() { return ownerId; }
+  public ProjectStatus getStatus() { return status; }
+  public String getSourceLanguage() { return sourceLanguage; }
+  public String getProjectLanguage() { return sourceLanguage; }
+  public String getNarrationLanguage() { return narrationLanguage; }
+  public String getMetadataLanguage() { return metadataLanguage; }
+  public AspectRatio getImageAspectRatio() { return imageAspectRatio; }
+  public ImageQualityTier getImageQualityTier() { return imageQualityTier; }
+  public Instant getArchivedAt() { return archivedAt; }
 
   private static String required(String value, String field, int maxLength) {
-    if (value == null || value.isBlank()) {
-      throw new IllegalArgumentException(field + " must not be blank");
-    }
-    if (value.length() > maxLength) {
-      throw new IllegalArgumentException(field + " exceeds the maximum length");
-    }
+    if (value == null || value.isBlank()) throw new IllegalArgumentException(field + " must not be blank");
+    if (value.length() > maxLength) throw new IllegalArgumentException(field + " exceeds the maximum length");
     return value;
   }
 }
