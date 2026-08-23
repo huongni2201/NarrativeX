@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.notification.infrastructure.persistence.mybatis;
 
 import java.time.Instant;
+import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -8,7 +9,7 @@ import lombok.Setter;
 @Setter
 public class NotificationRow {
   private Long id;
-  private Long projectId;
+  private UUID projectId;
   private String type;
   private String titleKey;
   private String messageKey;

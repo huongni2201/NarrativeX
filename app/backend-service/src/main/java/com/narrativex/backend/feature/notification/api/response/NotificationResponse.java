@@ -4,10 +4,11 @@ import com.narrativex.backend.feature.notification.application.query.Notificatio
 import com.narrativex.backend.feature.notification.application.usecase.NotificationUseCase.NotificationFeed;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 public record NotificationResponse(
     Long id,
-    Long projectId,
+    UUID projectId,
     String type,
     String titleKey,
     String messageKey,
