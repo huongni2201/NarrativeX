@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.UUID;
 
 public record GenerateBatchNarrationRequest(
-    @NotEmpty @Size(max = 50) List<@NotNull Long> chapterIds,
+    @NotEmpty @Size(max = 50) List<@NotNull UUID> chapterIds,
     @NotBlank String voiceId,
     @DecimalMin("0.25") @DecimalMax("2.0") BigDecimal speakingRate,
     UUID voiceReferenceAssetId) {
