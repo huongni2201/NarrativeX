@@ -59,14 +59,18 @@ class _Pool:
         return _Acquire(self.connection)
 
 
-def _operation() -> DurableImageOperation:
+def _operation(
+    *,
+    provider_operation_id: str | None = None,
+    status: ProviderOperationStatus = ProviderOperationStatus.UNKNOWN,
+) -> DurableImageOperation:
     return DurableImageOperation(
         id=20,
         stage_attempt_id=10,
         provider_key="vertex",
         request_fingerprint="a" * 64,
-        provider_operation_id=None,
-        status=ProviderOperationStatus.UNKNOWN,
+        provider_operation_id=provider_operation_id,
+        status=status,
         row_version=7,
         items=(),
         worker_id=None,
@@ -85,7 +89,7 @@ def _repository(connection: _Connection) -> ImageGenerationRepository:
 
 
 @pytest.mark.asyncio
-async def test_expired_unknown_terminalizes_operation_items_and_job() -> None:
+async def test_expired_unresolved_unknown_terminalizes_operation_items_and_job() -> None:
     connection = _Connection("FAILED")
     repository = _repository(connection)
     aggregate_calls: list[int] = []
@@ -100,6 +104,7 @@ async def test_expired_unknown_terminalizes_operation_items_and_job() -> None:
 
     assert transitioned is True
     provider_query, provider_args = connection.fetchrow_calls[0]
+    assert "provider_operation_id IS NULL" in provider_query
     assert "THEN 'FAILED'" in provider_query
     assert "PROVIDER_SUBMISSION_UNRESOLVED" in provider_query
     assert "row_version = $3" in provider_query
@@ -114,7 +119,32 @@ async def test_expired_unknown_terminalizes_operation_items_and_job() -> None:
 
 
 @pytest.mark.asyncio
-async def test_recoverable_unknown_reschedules_without_terminalizing_items() -> None:
+async def test_expired_known_provider_operation_reschedules_instead_of_terminalizing() -> None:
+    connection = _Connection("UNKNOWN")
+    repository = _repository(connection)
+    aggregate_calls: list[int] = []
+
+    async def aggregate(stage_attempt_id: int) -> None:
+        aggregate_calls.append(stage_attempt_id)
+
+    repository.aggregate_generation_job = cast(Any, aggregate)
+    operation = _operation(
+        provider_operation_id="projects/p/locations/global/batchPredictionJobs/123",
+        status=ProviderOperationStatus.RUNNING,
+    )
+
+    transitioned = await repository.mark_unknown(operation, "NETWORK_TIMEOUT")
+
+    assert transitioned is True
+    provider_query, _ = connection.fetchrow_calls[0]
+    assert "provider_operation_id IS NULL" in provider_query
+    assert "CURRENT_TIMESTAMP + INTERVAL '15 seconds'" in provider_query
+    assert connection.execute_calls == []
+    assert aggregate_calls == []
+
+
+@pytest.mark.asyncio
+async def test_recoverable_unresolved_unknown_reschedules_without_terminalizing_items() -> None:
     connection = _Connection("UNKNOWN")
     repository = _repository(connection)
     aggregate_calls: list[int] = []

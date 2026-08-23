@@ -15,8 +15,9 @@ class ImageGenerationRepository(ImageGenerationRepositoryImplementation):
     """Public facade retained for existing worker and test consumers.
 
     The implementation keeps ambiguous paid submissions recoverable as UNKNOWN. Once that
-    recovery window expires, the facade terminalizes the operation and its bound media items in
-    one transaction so the stage/job cannot remain RUNNING forever.
+    recovery window expires, the facade terminalizes only submissions whose provider job identity
+    is still unresolved. Operations that already have a durable provider operation id stay
+    recoverable and continue reconciliation even when a transient poll fails after the window.
     """
 
     async def mark_unknown(self, operation: DurableImageOperation, error: str) -> bool:
@@ -28,22 +29,26 @@ class ImageGenerationRepository(ImageGenerationRepositoryImplementation):
                     """
                     UPDATE provider_operations
                        SET status = CASE
-                               WHEN reserved_at <= CURRENT_TIMESTAMP - ($4 * INTERVAL '1 second')
+                               WHEN provider_operation_id IS NULL
+                                AND reserved_at <= CURRENT_TIMESTAMP - ($4 * INTERVAL '1 second')
                                THEN 'FAILED'
                                ELSE 'UNKNOWN'
                            END,
                            completed_at = CASE
-                               WHEN reserved_at <= CURRENT_TIMESTAMP - ($4 * INTERVAL '1 second')
+                               WHEN provider_operation_id IS NULL
+                                AND reserved_at <= CURRENT_TIMESTAMP - ($4 * INTERVAL '1 second')
                                THEN COALESCE(completed_at, CURRENT_TIMESTAMP)
                                ELSE completed_at
                            END,
                            next_reconcile_at = CASE
-                               WHEN reserved_at <= CURRENT_TIMESTAMP - ($4 * INTERVAL '1 second')
+                               WHEN provider_operation_id IS NULL
+                                AND reserved_at <= CURRENT_TIMESTAMP - ($4 * INTERVAL '1 second')
                                THEN NULL
                                ELSE CURRENT_TIMESTAMP + INTERVAL '15 seconds'
                            END,
                            last_reconcile_error = CASE
-                               WHEN reserved_at <= CURRENT_TIMESTAMP - ($4 * INTERVAL '1 second')
+                               WHEN provider_operation_id IS NULL
+                                AND reserved_at <= CURRENT_TIMESTAMP - ($4 * INTERVAL '1 second')
                                THEN 'PROVIDER_SUBMISSION_UNRESOLVED'
                                ELSE $2
                            END,
