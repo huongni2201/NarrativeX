@@ -89,15 +89,15 @@ def _repository(connection: _Connection) -> ImageGenerationRepository:
 
 
 @pytest.mark.asyncio
-async def test_expired_unresolved_unknown_terminalizes_operation_items_and_job() -> None:
+async def test_expired_unresolved_unknown_terminalizes_operation_items_and_job_atomically() -> None:
     connection = _Connection("FAILED")
     repository = _repository(connection)
-    aggregate_calls: list[int] = []
+    aggregate_calls: list[tuple[Any, int]] = []
 
-    async def aggregate(stage_attempt_id: int) -> None:
-        aggregate_calls.append(stage_attempt_id)
+    async def aggregate(connection_arg: Any, stage_attempt_id: int) -> None:
+        aggregate_calls.append((connection_arg, stage_attempt_id))
 
-    repository.aggregate_generation_job = cast(Any, aggregate)
+    repository._aggregate_generation_job = cast(Any, aggregate)
     operation = _operation()
 
     transitioned = await repository.mark_unknown(operation, "NETWORK_TIMEOUT")
@@ -115,19 +115,19 @@ async def test_expired_unresolved_unknown_terminalizes_operation_items_and_job()
     assert "execution_status = 'FAILED'" in item_query
     assert "PROVIDER_SUBMISSION_UNRESOLVED" in item_query
     assert item_args == (operation.id,)
-    assert aggregate_calls == [operation.stage_attempt_id]
+    assert aggregate_calls == [(connection, operation.stage_attempt_id)]
 
 
 @pytest.mark.asyncio
 async def test_expired_known_provider_operation_reschedules_instead_of_terminalizing() -> None:
     connection = _Connection("UNKNOWN")
     repository = _repository(connection)
-    aggregate_calls: list[int] = []
+    aggregate_calls: list[tuple[Any, int]] = []
 
-    async def aggregate(stage_attempt_id: int) -> None:
-        aggregate_calls.append(stage_attempt_id)
+    async def aggregate(connection_arg: Any, stage_attempt_id: int) -> None:
+        aggregate_calls.append((connection_arg, stage_attempt_id))
 
-    repository.aggregate_generation_job = cast(Any, aggregate)
+    repository._aggregate_generation_job = cast(Any, aggregate)
     operation = _operation(
         provider_operation_id="projects/p/locations/global/batchPredictionJobs/123",
         status=ProviderOperationStatus.RUNNING,
@@ -147,12 +147,12 @@ async def test_expired_known_provider_operation_reschedules_instead_of_terminali
 async def test_recoverable_unresolved_unknown_reschedules_without_terminalizing_items() -> None:
     connection = _Connection("UNKNOWN")
     repository = _repository(connection)
-    aggregate_calls: list[int] = []
+    aggregate_calls: list[tuple[Any, int]] = []
 
-    async def aggregate(stage_attempt_id: int) -> None:
-        aggregate_calls.append(stage_attempt_id)
+    async def aggregate(connection_arg: Any, stage_attempt_id: int) -> None:
+        aggregate_calls.append((connection_arg, stage_attempt_id))
 
-    repository.aggregate_generation_job = cast(Any, aggregate)
+    repository._aggregate_generation_job = cast(Any, aggregate)
 
     transitioned = await repository.mark_unknown(_operation(), "NETWORK_TIMEOUT")
 
@@ -167,12 +167,12 @@ async def test_recoverable_unresolved_unknown_reschedules_without_terminalizing_
 async def test_stale_unknown_transition_does_not_mutate_items_or_aggregate() -> None:
     connection = _Connection(None)
     repository = _repository(connection)
-    aggregate_calls: list[int] = []
+    aggregate_calls: list[tuple[Any, int]] = []
 
-    async def aggregate(stage_attempt_id: int) -> None:
-        aggregate_calls.append(stage_attempt_id)
+    async def aggregate(connection_arg: Any, stage_attempt_id: int) -> None:
+        aggregate_calls.append((connection_arg, stage_attempt_id))
 
-    repository.aggregate_generation_job = cast(Any, aggregate)
+    repository._aggregate_generation_job = cast(Any, aggregate)
 
     transitioned = await repository.mark_unknown(_operation(), "STALE")
 
