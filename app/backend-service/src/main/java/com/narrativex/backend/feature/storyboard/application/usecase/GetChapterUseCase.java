@@ -6,6 +6,7 @@ import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterResponse;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,7 +19,7 @@ public class GetChapterUseCase {
   private final ChapterRepository chapterRepository;
 
   @Transactional(readOnly = true)
-  public ApiResponse<ChapterResponse> execute(Long projectId, Long chapterId) {
+  public ApiResponse<ChapterResponse> execute(UUID projectId, UUID chapterId) {
     var chapter =
         chapterRepository
             .findById(chapterId)
