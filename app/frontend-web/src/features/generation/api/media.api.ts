@@ -17,6 +17,14 @@ export interface EstimateMediaJobInput {
   imageStyle: CreateMediaJobInput["imageStyle"];
 }
 
+export interface RenderChapterInput {
+  mediaPlanId: string;
+  mediaPlanRevision: number;
+  resolution: "720p" | "1080p";
+  format: "mp4";
+  maxAuthorizedCost: string;
+}
+
 function isApiMediaCostEstimate(value: unknown): value is ApiMediaCostEstimate {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Partial<ApiMediaCostEstimate>;
@@ -82,6 +90,6 @@ export const mediaApi = {
   getDetails: (jobId: string) => apiRequest<MediaJobDetails>(`/api/v1/media-jobs/${encodeURIComponent(jobId)}`, {}, isMediaJobDetails),
   review: (itemId: string, decision: "APPROVED" | "REJECTED", rowVersion: number) =>
     apiRequest<void>(`/api/v1/media-generation-items/${encodeURIComponent(itemId)}/review`, { method: "POST", json: { decision, rowVersion } }),
-  render: (projectId: number, chapterId: number, input: { mediaPlanId: string; mediaPlanRevision: number; resolution: "720p" | "1080p"; format: "mp4"; maxAuthorizedCost: string }, idempotencyKey: string) =>
+  render: (projectId: number, chapterId: number, input: RenderChapterInput, idempotencyKey: string) =>
     apiRequest<ApiGenerationJob>(`/api/v1/projects/${projectId}/chapters/${chapterId}/render`, { method: "POST", headers: { "Idempotency-Key": idempotencyKey }, json: input }, isApiGenerationJob),
 };

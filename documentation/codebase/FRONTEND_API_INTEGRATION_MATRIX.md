@@ -84,7 +84,9 @@ The Chapter workspace now exposes capability-driven Visuals and Render tabs. Vis
 real `POST /api/v1/projects/{projectId}/chapters/{chapterId}/media-jobs` contract with an
 `Idempotency-Key`, polls the durable job/item status, and submits explicit human review decisions.
 Render is enabled only after all items are ready and approved, and sends the pinned media-plan revision
-to the existing render endpoint. No runtime mock-data path is used.
+to the existing render endpoint. Render artifact reads are owned by `features/render/api/artifacts.api.ts`;
+the preview uses the backend `previewUrl` directly as the native video source, so the browser can stream
+with HTTP Range support. No runtime mock-data path is used.
 
 ## Verification gate
 
