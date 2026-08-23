@@ -4,9 +4,9 @@ import java.util.UUID;
 
 public interface RenderInputSnapshotRepository {
   SnapshotResult create(
-      Long generationJobId,
-      Long projectId,
-      Long chapterId,
+      UUID generationJobId,
+      UUID projectId,
+      UUID chapterId,
       long chapterRowVersion,
       String sourceHash,
       UUID mediaPlanId,

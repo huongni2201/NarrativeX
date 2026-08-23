@@ -10,7 +10,7 @@
       audio_storage_key, audio_size_bytes, audio_checksum, audio_duration_ms
     )
     SELECT
-      #{generationJobId},
+      #{generationJobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
       #{mediaPlanId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
       #{mediaPlanRevision},
       narration.narration_request_id,
@@ -40,8 +40,8 @@
            ORDER BY nal.created_at DESC, nal.id DESC
            LIMIT 1
         ) alignment ON TRUE
-       WHERE nr.project_id = #{projectId}
-         AND nr.chapter_id = #{chapterId}
+       WHERE nr.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+         AND nr.chapter_id = #{chapterId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
          AND nr.chapter_row_version = #{chapterRowVersion}
          AND nr.source_hash = #{sourceHash}
          AND pa.status = 'ACTIVE'
@@ -51,7 +51,7 @@
     ) narration ON TRUE
     WHERE mp.id = #{mediaPlanId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
       AND mp.revision = #{mediaPlanRevision}
-      AND mp.chapter_id = #{chapterId}
+      AND mp.chapter_id = #{chapterId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
       AND mp.chapter_row_version = #{chapterRowVersion}
       AND mp.source_hash = #{sourceHash}
   </insert>
@@ -62,7 +62,7 @@
       media_generation_item_id, media_asset_id, duration_ms, camera_movement,
       storage_key, size_bytes, checksum
     )
-    SELECT #{generationJobId},
+    SELECT #{generationJobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
            mbp.scene_index,
            mbp.beat_index,
            mbp.visual_beat_id,
@@ -110,7 +110,7 @@
   <select id="hasNarration" resultType="boolean">
     SELECT EXISTS (
       SELECT 1 FROM render_input_snapshots
-       WHERE generation_job_id = #{generationJobId}
+       WHERE generation_job_id = #{generationJobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
          AND narration_request_id IS NOT NULL
          AND narration_asset_id IS NOT NULL
          AND audio_storage_key IS NOT NULL
