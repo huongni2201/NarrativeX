@@ -15,6 +15,7 @@ import com.narrativex.backend.feature.generation.application.usecase.GenerateBat
 import com.narrativex.backend.feature.generation.application.usecase.GenerateChapterNarrationUseCase;
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -51,8 +52,8 @@ public class ProjectGenerationController {
 
   @PostMapping("/{projectId}/chapters/{chapterId}/narration-jobs")
   public ResponseEntity<ApiResponse<JobResponse>> narrateChapter(
-      @PathVariable Long projectId,
-      @PathVariable Long chapterId,
+      @PathVariable UUID projectId,
+      @PathVariable UUID chapterId,
       @Valid @RequestBody GenerateChapterNarrationRequest request) {
     log.info("Requesting narration for chapter {} in project {}", chapterId, projectId);
     var job =
@@ -69,7 +70,7 @@ public class ProjectGenerationController {
 
   @PostMapping("/{projectId}/narration-jobs:batch")
   public ResponseEntity<ApiResponse<List<BatchNarrationJobResponse>>> narrateChapters(
-      @PathVariable Long projectId, @Valid @RequestBody GenerateBatchNarrationRequest request) {
+      @PathVariable UUID projectId, @Valid @RequestBody GenerateBatchNarrationRequest request) {
     var jobs =
         generateBatchNarrationUseCase.execute(
             new GenerateBatchNarrationCommand(
@@ -109,5 +110,5 @@ public class ProjectGenerationController {
         .body(ApiResponse.success("Chapter translation job accepted", JobResponse.from(job)));
   }
 
-  public record BatchNarrationJobResponse(Long chapterId, JobResponse job) {}
+  public record BatchNarrationJobResponse(UUID chapterId, JobResponse job) {}
 }
