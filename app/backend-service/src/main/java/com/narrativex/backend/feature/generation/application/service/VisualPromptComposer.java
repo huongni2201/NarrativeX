@@ -12,17 +12,17 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
-import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.ObjectMapper;
 
 /** Deterministically enriches one still-image prompt with immutable scene continuity context. */
 @Component
 public class VisualPromptComposer {
   static final int MAX_REFERENCE_IMAGES = 3;
 
-  private final JsonMapper jsonMapper;
+  private final ObjectMapper objectMapper;
 
-  public VisualPromptComposer(JsonMapper jsonMapper) {
-    this.jsonMapper = jsonMapper;
+  public VisualPromptComposer(ObjectMapper objectMapper) {
+    this.objectMapper = objectMapper;
   }
 
   public ComposedVisualPrompt compose(
@@ -62,7 +62,7 @@ public class VisualPromptComposer {
       return selected;
     }
 
-    // First pass: give each character one identity anchor before any character gets a second image.
+    // Give each character one identity anchor before any character gets a second image.
     for (CharacterCanon character : characters) {
       sortedReferences(character).stream()
           .findFirst()
@@ -72,7 +72,7 @@ public class VisualPromptComposer {
       }
     }
 
-    // Second pass: fill remaining capacity with the next highest-priority references.
+    // Fill remaining capacity with the next highest-priority references.
     for (CharacterCanon character : characters) {
       for (CharacterReference reference : sortedReferences(character)) {
         addReference(selected, reference);
@@ -86,7 +86,9 @@ public class VisualPromptComposer {
 
   private static List<CharacterReference> sortedReferences(CharacterCanon character) {
     return character.references().stream()
-        .sorted(Comparator.comparingInt(CharacterReference::priority).thenComparing(CharacterReference::assetId))
+        .sorted(
+            Comparator.comparingInt(CharacterReference::priority)
+                .thenComparing(CharacterReference::assetId))
         .toList();
   }
 
@@ -131,7 +133,8 @@ public class VisualPromptComposer {
     }
   }
 
-  private String characterSnapshotJson(List<CharacterCanon> characters, Set<UUID> selectedReferenceIds) {
+  private String characterSnapshotJson(
+      List<CharacterCanon> characters, Set<UUID> selectedReferenceIds) {
     List<CharacterSnapshot> snapshots =
         (characters == null ? List.<CharacterCanon>of() : characters).stream()
             .map(
@@ -153,7 +156,7 @@ public class VisualPromptComposer {
                             .toList()))
             .toList();
     try {
-      return jsonMapper.writeValueAsString(new CharacterSnapshotEnvelope(snapshots));
+      return objectMapper.writeValueAsString(new CharacterSnapshotEnvelope(snapshots));
     } catch (Exception exception) {
       throw new IllegalStateException("Could not serialize character generation snapshot", exception);
     }
