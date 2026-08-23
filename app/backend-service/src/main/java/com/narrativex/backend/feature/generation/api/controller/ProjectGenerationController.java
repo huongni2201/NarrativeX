@@ -15,8 +15,8 @@ import com.narrativex.backend.feature.generation.application.usecase.GenerateBat
 import com.narrativex.backend.feature.generation.application.usecase.GenerateChapterNarrationUseCase;
 import jakarta.validation.Valid;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -28,30 +28,13 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Slf4j
 @RestController
+@RequiredArgsConstructor
 @RequestMapping("/api/v1/projects")
 public class ProjectGenerationController {
   private final EnqueueStoryAnalysisUseCase enqueueStoryAnalysisUseCase;
   private final GenerateChapterNarrationUseCase generateChapterNarrationUseCase;
   private final GenerateBatchNarrationUseCase generateBatchNarrationUseCase;
   private final ConfirmChapterTranslationUseCase confirmChapterTranslationUseCase;
-
-  @Autowired
-  public ProjectGenerationController(
-      EnqueueStoryAnalysisUseCase enqueueStoryAnalysisUseCase,
-      GenerateChapterNarrationUseCase generateChapterNarrationUseCase,
-      GenerateBatchNarrationUseCase generateBatchNarrationUseCase,
-      ConfirmChapterTranslationUseCase confirmChapterTranslationUseCase) {
-    this.enqueueStoryAnalysisUseCase = enqueueStoryAnalysisUseCase;
-    this.generateChapterNarrationUseCase = generateChapterNarrationUseCase;
-    this.generateBatchNarrationUseCase = generateBatchNarrationUseCase;
-    this.confirmChapterTranslationUseCase = confirmChapterTranslationUseCase;
-  }
-
-  public ProjectGenerationController(
-      EnqueueStoryAnalysisUseCase enqueueStoryAnalysisUseCase,
-      GenerateChapterNarrationUseCase generateChapterNarrationUseCase) {
-    this(enqueueStoryAnalysisUseCase, generateChapterNarrationUseCase, null, null);
-  }
 
   @PostMapping("/{projectId}/chapters/{chapterId}/analysis-jobs")
   public ResponseEntity<ApiResponse<JobResponse>> analyzeChapter(
@@ -87,9 +70,6 @@ public class ProjectGenerationController {
   @PostMapping("/{projectId}/narration-jobs:batch")
   public ResponseEntity<ApiResponse<List<BatchNarrationJobResponse>>> narrateChapters(
       @PathVariable Long projectId, @Valid @RequestBody GenerateBatchNarrationRequest request) {
-    if (generateBatchNarrationUseCase == null) {
-      throw new IllegalStateException("Batch narration use case is not configured");
-    }
     var jobs =
         generateBatchNarrationUseCase.execute(
             new GenerateBatchNarrationCommand(
@@ -117,9 +97,6 @@ public class ProjectGenerationController {
       @PathVariable Long projectId,
       @PathVariable Long chapterId,
       @Valid @RequestBody ConfirmChapterTranslationRequest request) {
-    if (confirmChapterTranslationUseCase == null) {
-      throw new IllegalStateException("Translation use case is not configured");
-    }
     var job =
         confirmChapterTranslationUseCase.execute(
             new ConfirmChapterTranslationCommand(
