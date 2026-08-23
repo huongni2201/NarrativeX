@@ -4,6 +4,7 @@ import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.generation.api.response.JobResponse;
 import com.narrativex.backend.feature.generation.application.query.GetGenerationJobQuery;
 import com.narrativex.backend.feature.generation.application.usecase.GetGenerationJobUseCase;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -20,7 +21,7 @@ public class GenerationJobController {
   private final GetGenerationJobUseCase getGenerationJobUseCase;
 
   @GetMapping("/{jobId}")
-  public ResponseEntity<ApiResponse<JobResponse>> get(@PathVariable String jobId) {
+  public ResponseEntity<ApiResponse<JobResponse>> get(@PathVariable UUID jobId) {
     return ResponseEntity.ok(
         ApiResponse.success(
             "Generation job retrieved successfully",
