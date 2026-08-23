@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
+import com.narrativex.backend.feature.storyboard.domain.exception.ContentVariantNotReadyException;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterAnalysisSnapshotMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterAnalysisSnapshotRow;
 import org.junit.jupiter.api.Test;
@@ -26,5 +27,14 @@ class MyBatisChapterAnalysisSnapshotRepositoryTest {
     assertThrows(
         ResourceConflictException.class,
         () -> repository.requireOwnedByProject(7L, 11L, "user-1", 99L));
+  }
+
+  @Test
+  void rejectsMissingOwnedOriginalVariantAsContentVariantConflict() {
+    when(mapper.existsOwnedChapter(7L, 11L, "user-1")).thenReturn(true);
+
+    assertThrows(
+        ContentVariantNotReadyException.class,
+        () -> repository.requireOwnedByProject(7L, 11L, "user-1"));
   }
 }
