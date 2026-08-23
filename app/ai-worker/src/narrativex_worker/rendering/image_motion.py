@@ -1,5 +1,7 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+
+from narrativex_worker.rendering.effects import RenderEffects
 
 ALLOWED_MOVEMENTS = {
     "NONE",
@@ -30,7 +32,9 @@ class ImageMotionManifest:
     height: int
     fps: int = 30
     subtitle_path: Path | None = None
-    transition_seconds: float = 0.12
+    # Backward-compatible override for the pre-effects manifest contract.
+    transition_seconds: float | None = None
+    effects: RenderEffects = field(default_factory=RenderEffects)
     video_encoder: str = "libx264"
     x264_preset: str = "veryfast"
     crf: int = 20
@@ -46,14 +50,15 @@ def validate_manifest(manifest: ImageMotionManifest) -> None:
         raise ValueError("render dimensions and fps must be positive")
     if manifest.width % 2 or manifest.height % 2:
         raise ValueError("H.264 render dimensions must be even")
-    if manifest.transition_seconds < 0 or manifest.transition_seconds > 1.0:
-        raise ValueError("transition_seconds must be between 0 and 1 second")
-    if manifest.video_encoder not in {"libx264", "h264_nvenc"}:
+    if manifest.transition_seconds is not None and not 0 <= manifest.transition_seconds <= 2:
+        raise ValueError("transition_seconds must be between 0 and 2")
+    if manifest.video_encoder not in {"auto", "libx264", "h264_nvenc"}:
         raise ValueError(f"unsupported video encoder: {manifest.video_encoder}")
     if not 0 <= manifest.crf <= 51:
         raise ValueError("crf must be between 0 and 51")
     if not 0 <= manifest.nvenc_cq <= 51:
         raise ValueError("nvenc_cq must be between 0 and 51")
+    manifest.effects.validate()
     for beat in manifest.beats:
         if beat.duration_seconds <= 0:
             raise ValueError("beat duration must be positive")
