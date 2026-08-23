@@ -15,6 +15,11 @@ on:
         description: "Google Cloud project ID"
         required: true
         type: string
+      vertex_image_model:
+        description: "Vertex image model; use the same value as NARRATIVEX_IMAGE_MODEL in production"
+        required: true
+        default: "gemini-2.5-flash-image"
+        type: string
       vertex_image_location:
         description: "Vertex image location"
         required: true
@@ -96,7 +101,7 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/gcp-service-account.json
           VERTEX_PROJECT_ID: ${{ inputs.vertex_project_id }}
-          VERTEX_IMAGE_MODEL: gemini-2.5-flash-image
+          VERTEX_IMAGE_MODEL: ${{ inputs.vertex_image_model }}
           VERTEX_IMAGE_LOCATION: ${{ inputs.vertex_image_location }}
           VERTEX_IMAGE_BATCH_LOCATION: ${{ inputs.vertex_image_batch_location }}
           VERTEX_IMAGE_BATCH_GCS_BUCKET: ${{ inputs.vertex_image_batch_gcs_bucket }}
