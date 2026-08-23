@@ -8,6 +8,7 @@ import com.narrativex.backend.feature.character.application.port.out.CharacterVe
 import com.narrativex.backend.feature.character.domain.enums.CharacterVersionStatus;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -84,10 +85,11 @@ public class SetCharacterVersionReferencesUseCase {
     List<Reference> references =
         safeInputs.stream()
             .map(input -> new Reference(input.assetId(), normalizedRole(input.role()), input.priority()))
-            .sorted(
-                java.util.Comparator.comparingInt(Reference::priority)
-                    .thenComparing(Reference::mediaAssetId))
+            .sorted(Comparator.comparingInt(Reference::priority).thenComparing(Reference::mediaAssetId))
             .toList();
+    if (!references.isEmpty() && !"IDENTITY".equals(references.getFirst().role())) {
+      throw new IllegalArgumentException("The highest-priority character reference must be IDENTITY");
+    }
     referenceRepository.replace(versionId, references);
     return references;
   }
