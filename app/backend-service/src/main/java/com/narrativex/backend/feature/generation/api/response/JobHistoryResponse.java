@@ -4,10 +4,11 @@ import com.narrativex.backend.feature.common.pagination.CursorPage;
 import com.narrativex.backend.feature.generation.application.query.JobHistoryView;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 public record JobHistoryResponse(
-    String jobId,
-    Long projectId,
+    UUID jobId,
+    UUID projectId,
     String projectName,
     String jobType,
     String status,
