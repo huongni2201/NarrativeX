@@ -26,7 +26,7 @@ Core authoring/analyze/generation durability is implemented as a foundation, and
 | IMAGE_MOTION chapter render | IMPLEMENTED foundation; dedicated FFmpeg/ffprobe render worker |
 | Google Drive final MP4 storage | IMPLEMENTED foundation; resumable upload + provider-aware FinalArtifact metadata |
 | Uploaded multi-part audio -> render | PARTIAL; slicing/stitching from alignment is missing |
-| Drive preview/download/streaming | PARTIAL/TARGET |
+| Drive preview/download/streaming | IMPLEMENTED; owner-authorized backend proxy with OAuth refresh and HTTP Range streaming |
 | Cross-attempt upload-only retry | TARGET hardening |
 | MyBatis-only production persistence | IMPLEMENTED |
 
@@ -61,8 +61,7 @@ The final MP4 is not retained in R2 by default.
 1. Harden user-audio upload/finalize/alignment and connect aligned multi-part audio to render slicing/stitching.
 2. Complete narration-driven VisualScenePlanner/review workflow.
 3. Harden image approval/reuse/reframe/edit lineage.
-4. Add owner-authorized Drive final-video preview/download/streaming.
-5. Add cross-attempt upload-only retry without rerender if required.
-6. Complete billing ledger/actual usage reconciliation.
-7. Complete Character reference locking/storyboard review flows.
-8. Complete moderation/SSRF/retention/observability/restore evidence.
+4. Add cross-attempt upload-only retry without rerender if required.
+5. Complete billing ledger/actual usage reconciliation.
+6. Complete Character reference locking/storyboard review flows.
+7. Complete moderation/SSRF/retention/observability/restore evidence.

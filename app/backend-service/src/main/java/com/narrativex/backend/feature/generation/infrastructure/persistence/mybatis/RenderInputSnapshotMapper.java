@@ -15,8 +15,7 @@ public interface RenderInputSnapshotMapper extends NarrativeXMyBatisMapper {
       @Param("mediaPlanRevision") int mediaPlanRevision);
 
   int insertBeats(
-      @Param("generationJobId") Long generationJobId,
-      @Param("mediaPlanId") UUID mediaPlanId);
+      @Param("generationJobId") Long generationJobId, @Param("mediaPlanId") UUID mediaPlanId);
 
   int countPlanBeats(@Param("mediaPlanId") UUID mediaPlanId);
 

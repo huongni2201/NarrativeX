@@ -69,7 +69,10 @@ public class EnqueueStoryAnalysisUseCase {
     generationJobRepository.acquireIdempotencyLock(idempotencyKey, userId);
     var existing = generationJobRepository.findByIdempotencyKey(idempotencyKey, userId);
     if (existing.isPresent()) {
-      log.debug("Found existing chapter analysis job id={} for idempotencyKey='{}'", existing.get().getId(), idempotencyKey);
+      log.debug(
+          "Found existing chapter analysis job id={} for idempotencyKey='{}'",
+          existing.get().getId(),
+          idempotencyKey);
       return existing.get();
     }
 
@@ -83,7 +86,10 @@ public class EnqueueStoryAnalysisUseCase {
             ? storyboardRevisionAccess.createDraft(
                 command.chapterId(), chapter.sourceHash(), chapter.rowVersion())
             : storyboardRevisionAccess.createDraft(
-                command.chapterId(), chapter.sourceHash(), chapter.rowVersion(), chapter.contentVariantId());
+                command.chapterId(),
+                chapter.sourceHash(),
+                chapter.rowVersion(),
+                chapter.contentVariantId());
 
     OperationPlan operationPlan =
         operationPlanRepository.save(

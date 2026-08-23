@@ -6,10 +6,10 @@ import com.narrativex.backend.feature.generation.application.port.out.MediaPlanR
 import com.narrativex.backend.feature.generation.application.service.MotionStrategyResolver;
 import com.narrativex.backend.feature.generation.domain.aggregate.MediaPlan;
 import com.narrativex.backend.feature.generation.domain.enums.MotionStrategy;
+import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
 import com.narrativex.backend.feature.generation.domain.value.MediaBeatPlan;
 import com.narrativex.backend.feature.generation.domain.value.MediaScenePlan;
 import com.narrativex.backend.feature.generation.domain.value.MediaWorkload;
-import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSource;
 import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSourceAccess;
@@ -49,7 +49,8 @@ public class CreateMediaPlanUseCase {
     var scenes = resolveScenes(command, planningSource);
     if (scenes.isEmpty() || scenes.stream().allMatch(scene -> scene.beats().isEmpty())) {
       throw new GenerationAdmissionDeniedException(
-          "STORYBOARD_NOT_READY", "The current storyboard has no visual beats ready for generation.");
+          "STORYBOARD_NOT_READY",
+          "The current storyboard has no visual beats ready for generation.");
     }
     if (command.productionMode().name().equals("IMAGE_MOTION")
         && planningSource.scenes().stream()
@@ -120,8 +121,7 @@ public class CreateMediaPlanUseCase {
                                     motionStrategyResolver.resolve(
                                         command.productionMode(), beat.motionIntent()),
                                     "GENERATE_NEW",
-                                    "prompt-v2-"
-                                        + command.imageStyle().name().toLowerCase(),
+                                    "prompt-v2-" + command.imageStyle().name().toLowerCase(),
                                     command.imageStyle().promptFor(beat.visualIntent()),
                                     command.imageStyle().negativePrompt(),
                                     beat.audioStartMs(),

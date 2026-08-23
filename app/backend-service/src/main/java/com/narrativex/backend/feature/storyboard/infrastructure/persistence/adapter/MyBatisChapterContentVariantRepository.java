@@ -67,9 +67,13 @@ public class MyBatisChapterContentVariantRepository implements ChapterContentVar
   private ChapterContentVariant save(ChapterContentVariantRow row) {
     Long id = mapper.insert(row);
     if (id == null) {
-      ChapterContentVariantRow existing = mapper.findByIdentity(
-          row.getChapterId(), row.getSourceVariantId(), row.getLanguageCode(),
-          row.getSourceContentHash(), row.getContentHash());
+      ChapterContentVariantRow existing =
+          mapper.findByIdentity(
+              row.getChapterId(),
+              row.getSourceVariantId(),
+              row.getLanguageCode(),
+              row.getSourceContentHash(),
+              row.getContentHash());
       if (existing == null) throw new IllegalStateException("Content variant was not persisted");
       return toDomain(existing);
     }
@@ -79,8 +83,10 @@ public class MyBatisChapterContentVariantRepository implements ChapterContentVar
   }
 
   @Override
-  public Optional<ChapterContentVariant> findByIdOwned(Long projectId, Long chapterId, Long variantId, String userId) {
-    return Optional.ofNullable(mapper.findByIdOwned(projectId, chapterId, variantId, userId)).map(MyBatisChapterContentVariantRepository::toDomain);
+  public Optional<ChapterContentVariant> findByIdOwned(
+      Long projectId, Long chapterId, Long variantId, String userId) {
+    return Optional.ofNullable(mapper.findByIdOwned(projectId, chapterId, variantId, userId))
+        .map(MyBatisChapterContentVariantRepository::toDomain);
   }
 
   @Override
@@ -92,38 +98,50 @@ public class MyBatisChapterContentVariantRepository implements ChapterContentVar
 
   @Override
   public Optional<ChapterContentVariant> findByIdentity(
-      Long chapterId, Long sourceVariantId, String languageCode, String sourceContentHash,
+      Long chapterId,
+      Long sourceVariantId,
+      String languageCode,
+      String sourceContentHash,
       String contentHash) {
-    return Optional.ofNullable(mapper.findByIdentity(
-            chapterId, sourceVariantId, languageCode, sourceContentHash, contentHash))
+    return Optional.ofNullable(
+            mapper.findByIdentity(
+                chapterId, sourceVariantId, languageCode, sourceContentHash, contentHash))
         .map(MyBatisChapterContentVariantRepository::toDomain);
   }
 
   @Override
   public Optional<ChapterContentVariant> findLatestOriginal(Long chapterId) {
-    return Optional.ofNullable(mapper.findLatestOriginal(chapterId)).map(MyBatisChapterContentVariantRepository::toDomain);
+    return Optional.ofNullable(mapper.findLatestOriginal(chapterId))
+        .map(MyBatisChapterContentVariantRepository::toDomain);
   }
 
   @Override
   public Optional<ChapterContentVariant> findCompletedTranslation(
       Long chapterId, Long sourceVariantId, String languageCode, String sourceContentHash) {
-    return Optional.ofNullable(mapper.findCompletedTranslation(
-            chapterId, sourceVariantId, languageCode, sourceContentHash))
+    return Optional.ofNullable(
+            mapper.findCompletedTranslation(
+                chapterId, sourceVariantId, languageCode, sourceContentHash))
         .map(MyBatisChapterContentVariantRepository::toDomain);
   }
 
   @Override
   public Optional<ChapterContentVariant> findCompletedTranslation(
-      Long chapterId, Long sourceVariantId, String languageCode, String sourceContentHash,
+      Long chapterId,
+      Long sourceVariantId,
+      String languageCode,
+      String sourceContentHash,
       String contentHash) {
-    return Optional.ofNullable(mapper.findCompletedTranslationByIdentity(
-            chapterId, sourceVariantId, languageCode, sourceContentHash, contentHash))
+    return Optional.ofNullable(
+            mapper.findCompletedTranslationByIdentity(
+                chapterId, sourceVariantId, languageCode, sourceContentHash, contentHash))
         .map(MyBatisChapterContentVariantRepository::toDomain);
   }
 
   @Override
   public List<ChapterContentVariant> findAllOwned(Long projectId, Long chapterId) {
-    return mapper.findAllOwned(projectId, chapterId).stream().map(MyBatisChapterContentVariantRepository::toDomain).toList();
+    return mapper.findAllOwned(projectId, chapterId).stream()
+        .map(MyBatisChapterContentVariantRepository::toDomain)
+        .toList();
   }
 
   @Override
@@ -138,8 +156,17 @@ public class MyBatisChapterContentVariantRepository implements ChapterContentVar
 
   static ChapterContentVariant toDomain(ChapterContentVariantRow row) {
     return new ChapterContentVariant(
-        row.getId(), row.getChapterId(), row.getSourceVariantId(), row.getType(), row.getLanguageCode(),
-        row.getContent(), row.getContentHash(), row.getSourceContentHash(), row.getTranslationProvider(), row.getTranslationModel(),
-        row.getTranslationStatus(), row.getCreatedAt());
+        row.getId(),
+        row.getChapterId(),
+        row.getSourceVariantId(),
+        row.getType(),
+        row.getLanguageCode(),
+        row.getContent(),
+        row.getContentHash(),
+        row.getSourceContentHash(),
+        row.getTranslationProvider(),
+        row.getTranslationModel(),
+        row.getTranslationStatus(),
+        row.getCreatedAt());
   }
 }

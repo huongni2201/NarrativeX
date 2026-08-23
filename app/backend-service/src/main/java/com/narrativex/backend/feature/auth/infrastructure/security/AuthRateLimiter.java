@@ -105,7 +105,8 @@ public class AuthRateLimiter implements AuthRateLimitPolicy {
     var iterator = fallbackBuckets.entrySet().iterator();
     while (iterator.hasNext() && cleaned < 64) {
       var entry = iterator.next();
-      if (entry.getValue().expiresAtMillis <= now && fallbackBuckets.remove(entry.getKey(), entry.getValue())) {
+      if (entry.getValue().expiresAtMillis <= now
+          && fallbackBuckets.remove(entry.getKey(), entry.getValue())) {
         cleaned++;
       }
     }

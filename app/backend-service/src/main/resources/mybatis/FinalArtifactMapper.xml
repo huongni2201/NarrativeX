@@ -32,4 +32,13 @@
           JOIN projects p ON p.id = fa.project_id
          WHERE fa.id = #{artifactId} AND p.owner_id = #{ownerId}
     </select>
+
+    <select id="findByGenerationJobId" resultMap="finalArtifactRow">
+        SELECT fa.*
+          FROM final_artifacts fa
+          JOIN generation_jobs gj ON gj.id = fa.generation_job_id
+         WHERE gj.job_id = #{jobId}
+           AND fa.status = 'READY'
+         LIMIT 1
+    </select>
 </mapper>

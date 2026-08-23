@@ -34,6 +34,8 @@ public class CatalogController {
     return ResponseEntity.ok(
         ApiResponse.success(
             "Voice catalog retrieved successfully",
-            listCatalogUseCase.voices(language).stream().map(CatalogResponse.Voice::from).toList()));
+            listCatalogUseCase.voices(language).stream()
+                .map(CatalogResponse.Voice::from)
+                .toList()));
   }
 }

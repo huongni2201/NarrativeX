@@ -63,8 +63,8 @@ Production persistence is MyBatis + explicit SQL. Further work here is maintenan
 - `storageProvider`, Drive file ID and optional web-view link are persisted;
 - final MP4 is not duplicated into R2 by default.
 
-### B7 — Final video delivery — TARGET hardening
-- owner-authorized preview/download/streaming from Drive;
+### B7 — Final video delivery — IMPLEMENTED foundation
+- owner-authorized preview/download/streaming from private Drive through the backend OAuth proxy with HTTP Range support;
 - provider-neutral read/stream contract for future YouTube/Facebook/TikTok publishing;
 - production storage health/config checks.
 

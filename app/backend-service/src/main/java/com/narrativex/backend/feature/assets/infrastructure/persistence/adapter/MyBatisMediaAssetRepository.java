@@ -5,12 +5,12 @@ import com.narrativex.backend.feature.assets.application.pagination.MediaAssetCu
 import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository;
 import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository.CreateVerifiedMediaAsset;
 import com.narrativex.backend.feature.assets.application.query.MediaAssetView;
+import com.narrativex.backend.feature.assets.domain.enums.MediaAssetStatus;
 import com.narrativex.backend.feature.assets.domain.service.MediaAssetTransitionService;
 import com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetMapper;
 import com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetRow;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.pagination.CursorPage;
-import com.narrativex.backend.feature.assets.domain.enums.MediaAssetStatus;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -152,10 +152,7 @@ public class MyBatisMediaAssetRepository implements MediaAssetRepository {
   }
 
   private MediaAssetView transition(
-      String accountId,
-      UUID id,
-      MediaAssetStatus nextStatus,
-      TransitionOperation operation) {
+      String accountId, UUID id, MediaAssetStatus nextStatus, TransitionOperation operation) {
     MediaAssetRow current = requireOwnedRow(accountId, id);
     transitionService.requireAllowed(statusOf(current), nextStatus);
     if (operation.update(accountId, id) != 1) {
@@ -202,7 +199,8 @@ public class MyBatisMediaAssetRepository implements MediaAssetRepository {
   }
 
   private static OptimisticLockingFailureException optimisticConflict(UUID id) {
-    return new OptimisticLockingFailureException("Media asset " + id + " was modified concurrently");
+    return new OptimisticLockingFailureException(
+        "Media asset " + id + " was modified concurrently");
   }
 
   private static String normalizeOptional(String value) {

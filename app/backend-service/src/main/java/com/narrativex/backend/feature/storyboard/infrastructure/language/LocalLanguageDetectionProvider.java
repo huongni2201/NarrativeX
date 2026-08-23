@@ -10,8 +10,10 @@ import org.springframework.stereotype.Component;
 /** Fast, deterministic detector for the common clear-language path. */
 @Component
 public class LocalLanguageDetectionProvider implements LanguageDetectionProvider {
-  private static final Set<String> VI_MARKERS = Set.of(" và ", " không ", " của ", " những ", " một ", " tôi ");
-  private static final Set<String> EN_MARKERS = Set.of(" the ", " and ", " is ", " are ", " of ", " to ");
+  private static final Set<String> VI_MARKERS =
+      Set.of(" và ", " không ", " của ", " những ", " một ", " tôi ");
+  private static final Set<String> EN_MARKERS =
+      Set.of(" the ", " and ", " is ", " are ", " of ", " to ");
 
   @Override
   public LanguageDetectionResult detect(String content) {
@@ -23,12 +25,15 @@ public class LocalLanguageDetectionProvider implements LanguageDetectionProvider
     long en = EN_MARKERS.stream().filter(normalized::contains).count();
     boolean vietnameseDiacritics = normalized.matches(".*[ăâđêôơưáàảãạấầẩẫậắằẳẵặ].*");
     if (vietnameseDiacritics || vi > en) {
-      return new LanguageDetectionResult("vi", confidence(Math.max(vi, 1), en), "local-heuristic-v1");
+      return new LanguageDetectionResult(
+          "vi", confidence(Math.max(vi, 1), en), "local-heuristic-v1");
     }
     if (en > vi) {
-      return new LanguageDetectionResult("en", confidence(Math.max(en, 1), vi), "local-heuristic-v1");
+      return new LanguageDetectionResult(
+          "en", confidence(Math.max(en, 1), vi), "local-heuristic-v1");
     }
-    return new LanguageDetectionResult("MULTILINGUAL", new BigDecimal("0.55"), "local-heuristic-v1");
+    return new LanguageDetectionResult(
+        "MULTILINGUAL", new BigDecimal("0.55"), "local-heuristic-v1");
   }
 
   private static BigDecimal confidence(long winner, long other) {

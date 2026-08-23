@@ -22,10 +22,7 @@ public class CreateCharacterUseCase {
     Character character =
         characterRepository.save(
             Character.create(
-                ownerId,
-                command.workspaceId(),
-                command.canonicalName(),
-                command.aliases()));
+                ownerId, command.workspaceId(), command.canonicalName(), command.aliases()));
     log.info(
         "Created character id={} (canonicalName='{}', ownerId={}, workspaceId={})",
         character.getId(),

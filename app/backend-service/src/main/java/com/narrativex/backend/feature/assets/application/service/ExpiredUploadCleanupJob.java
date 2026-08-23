@@ -1,7 +1,7 @@
 package com.narrativex.backend.feature.assets.application.service;
 
-import com.narrativex.backend.feature.assets.application.port.out.MediaUploadSessionRepository;
 import com.narrativex.backend.feature.assets.application.port.out.MediaStorageCleanupTaskRepository;
+import com.narrativex.backend.feature.assets.application.port.out.MediaUploadSessionRepository;
 import com.narrativex.backend.feature.assets.application.port.out.ObjectStoragePort;
 import java.time.Instant;
 import java.util.List;
@@ -14,7 +14,9 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 @ConditionalOnProperty(
-    name = "narrativex.storage.upload-cleanup-enabled", havingValue = "true", matchIfMissing = true)
+    name = "narrativex.storage.upload-cleanup-enabled",
+    havingValue = "true",
+    matchIfMissing = true)
 public class ExpiredUploadCleanupJob {
   private final MediaUploadSessionRepository sessions;
   private final MediaUploadFinalizationService finalization;

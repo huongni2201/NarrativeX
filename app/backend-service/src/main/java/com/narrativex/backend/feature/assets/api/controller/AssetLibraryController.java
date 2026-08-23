@@ -1,9 +1,9 @@
 package com.narrativex.backend.feature.assets.api.controller;
 
 import com.narrativex.backend.feature.assets.api.request.CreateUploadIntentRequest;
+import com.narrativex.backend.feature.assets.api.response.MediaAssetResponse;
 import com.narrativex.backend.feature.assets.api.response.UploadFinalizeResponse;
 import com.narrativex.backend.feature.assets.api.response.UploadIntentResponse;
-import com.narrativex.backend.feature.assets.api.response.MediaAssetResponse;
 import com.narrativex.backend.feature.assets.application.command.CreateUploadIntentCommand;
 import com.narrativex.backend.feature.assets.application.usecase.AssetLibraryUseCase;
 import com.narrativex.backend.feature.assets.application.usecase.MediaUploadUseCase;
@@ -45,7 +45,8 @@ public class AssetLibraryController {
   @GetMapping("/{id}")
   public ResponseEntity<ApiResponse<MediaAssetResponse>> get(@PathVariable UUID id) {
     return ResponseEntity.ok(
-        ApiResponse.success("Asset retrieved successfully", MediaAssetResponse.from(useCase.find(id))));
+        ApiResponse.success(
+            "Asset retrieved successfully", MediaAssetResponse.from(useCase.find(id))));
   }
 
   @PostMapping("/upload-intents")
@@ -67,11 +68,11 @@ public class AssetLibraryController {
   }
 
   @PostMapping("/upload-intents/{id}/finalize")
-  public ResponseEntity<ApiResponse<UploadFinalizeResponse>> finalizeUpload(
-      @PathVariable UUID id) {
+  public ResponseEntity<ApiResponse<UploadFinalizeResponse>> finalizeUpload(@PathVariable UUID id) {
     return ResponseEntity.ok(
         ApiResponse.success(
-            "Upload finalized", UploadFinalizeResponse.from(mediaUploadUseCase.finalizeUpload(id))));
+            "Upload finalized",
+            UploadFinalizeResponse.from(mediaUploadUseCase.finalizeUpload(id))));
   }
 
   @PostMapping("/{id}/approve")

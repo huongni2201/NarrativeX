@@ -23,7 +23,7 @@ This matrix maps the V1.11 contract to repository evidence at implementation che
 | Render with generated narration snapshot | render repository loads matching generated narration by chapter row-version/source-hash | IMPLEMENTED foundation |
 | Render with aligned multi-part uploaded narration | render worker has no slicing/stitching path for narration parts | PARTIAL |
 | Cross-attempt upload retry without rerender | resumable upload works within an attempt; render workspace is ephemeral after stalled attempt | TARGET hardening |
-| Owner-authorized preview/download/stream of Drive final | storage metadata exists; controlled read/stream boundary not complete | PARTIAL/TARGET |
+| Owner-authorized preview/download/stream of Drive final | backend proxy with OAuth refresh, ownership check and HTTP Range streaming | IMPLEMENTED |
 | MyBatis-only production persistence | production adapters use MyBatis + explicit SQL | IMPLEMENTED |
 | VisualScenePlanner | full narration-driven planner/review vertical slice remains incomplete | TARGET |
 | Reuse/reframe/edit AssetResolver | architecture defined, intentionally postponed | DEFERRED |

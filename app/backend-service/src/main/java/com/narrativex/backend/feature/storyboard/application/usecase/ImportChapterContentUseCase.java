@@ -29,21 +29,29 @@ public class ImportChapterContentUseCase {
   private final NarrativeXLimitsProperties limits;
 
   @Transactional
-  public ApiResponse<ChapterContentImportResponse> execute(
-      ImportChapterContentCommand command) {
+  public ApiResponse<ChapterContentImportResponse> execute(ImportChapterContentCommand command) {
     Long projectId = command.projectId();
     Long chapterId = command.chapterId();
-    var chapter = chapterRepository.findById(chapterId).orElseThrow(() -> new IllegalArgumentException("Chapter not found"));
-    storyVersionAccess.requireOwnedStoryVersion(projectId, chapter.getStoryVersionId(), currentUserId.get());
+    var chapter =
+        chapterRepository
+            .findById(chapterId)
+            .orElseThrow(() -> new IllegalArgumentException("Chapter not found"));
+    storyVersionAccess.requireOwnedStoryVersion(
+        projectId, chapter.getStoryVersionId(), currentUserId.get());
     storyboardRevisionAccess.lockChapter(chapterId);
-    chapter = chapterRepository.findById(chapterId).orElseThrow(() -> new IllegalArgumentException("Chapter not found"));
-    storyVersionAccess.requireOwnedStoryVersion(projectId, chapter.getStoryVersionId(), currentUserId.get());
+    chapter =
+        chapterRepository
+            .findById(chapterId)
+            .orElseThrow(() -> new IllegalArgumentException("Chapter not found"));
+    storyVersionAccess.requireOwnedStoryVersion(
+        projectId, chapter.getStoryVersionId(), currentUserId.get());
     validateSourceSize(command.content());
     var normalized = sourceHasher.normalizeAndHash(command.content());
     if (command.title() != null && !command.title().isBlank()) chapter.rename(command.title());
     chapter.updateSource(normalized.text(), normalized.hash());
     chapterRepository.saveAndFlush(chapter);
-    var imported = contentImportService.importOriginal(chapterId, normalized.text(), normalized.hash());
+    var imported =
+        contentImportService.importOriginal(chapterId, normalized.text(), normalized.hash());
     String status = imported.detection().detectedLanguage();
     log.info(
         "Imported chapter content for chapterId={}, variantId={}, detectedLanguage={} for projectId={}",
@@ -51,13 +59,16 @@ public class ImportChapterContentUseCase {
         imported.variant().id(),
         status,
         projectId);
-    return ApiResponse.success("Chapter content imported", new ChapterContentImportResponse(
-        imported.variant().id(), imported.variant().type().name(), status));
+    return ApiResponse.success(
+        "Chapter content imported",
+        new ChapterContentImportResponse(
+            imported.variant().id(), imported.variant().type().name(), status));
   }
 
   private void validateSourceSize(String content) {
     if (content.codePointCount(0, content.length()) > limits.getMaxStoryCharacters()
-        || TextInputEstimator.estimateTokensConservatively(content) > limits.getMaxEstimatedInputTokens()) {
+        || TextInputEstimator.estimateTokensConservatively(content)
+            > limits.getMaxEstimatedInputTokens()) {
       throw new IllegalArgumentException("Chapter exceeds the configured content limit");
     }
   }

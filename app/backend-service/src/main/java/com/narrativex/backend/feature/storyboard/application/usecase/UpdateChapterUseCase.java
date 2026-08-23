@@ -54,8 +54,14 @@ public class UpdateChapterUseCase {
       StoryboardRevisionAccess storyboardRevisionAccess,
       ChapterSourceHasher sourceHasher,
       NarrativeXLimitsProperties limits) {
-    this(currentUserId, storyVersionAccess, chapterRepository, storyboardRevisionAccess,
-        sourceHasher, null, limits);
+    this(
+        currentUserId,
+        storyVersionAccess,
+        chapterRepository,
+        storyboardRevisionAccess,
+        sourceHasher,
+        null,
+        limits);
   }
 
   @Transactional
@@ -85,7 +91,8 @@ public class UpdateChapterUseCase {
     chapter.updateSource(normalized.text(), normalized.hash());
     var saved = chapterRepository.saveAndFlush(chapter);
     if (contentImportService != null) {
-      contentImportService.importOriginal(saved.getId(), saved.getSourceText(), saved.getSourceHash());
+      contentImportService.importOriginal(
+          saved.getId(), saved.getSourceText(), saved.getSourceHash());
     }
     log.info(
         "Updated chapter id={} (title='{}', rowVersion={}) for projectId={}",

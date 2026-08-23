@@ -5,8 +5,6 @@ import com.narrativex.backend.feature.storyboard.application.port.out.ChapterWor
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterWorkspaceAggregateRow;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterWorkspaceMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterWorkspacePreviewRow;
-import java.time.Instant;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -23,31 +21,63 @@ public class MyBatisChapterWorkspaceQueryAdapter implements ChapterWorkspaceRead
     }
     return new Snapshot(
         row.getProjectName(),
-        mapper.previewScenes(projectId, chapterId).stream().map(MyBatisChapterWorkspaceQueryAdapter::toPreview).toList(),
-        row.getSceneCount(), row.getVisualBeatCount(), row.getEstimatedDurationSeconds(),
-        row.getStoryboardSourceHash(), row.isHasApprovedOutput(),
-        new Analysis(row.getAnalysisStatus(), row.getAnalysisSourceHash(), row.getAnalysisCompletedAt()),
+        mapper.previewScenes(projectId, chapterId).stream()
+            .map(MyBatisChapterWorkspaceQueryAdapter::toPreview)
+            .toList(),
+        row.getSceneCount(),
+        row.getVisualBeatCount(),
+        row.getEstimatedDurationSeconds(),
+        row.getStoryboardSourceHash(),
+        row.isHasApprovedOutput(),
+        new Analysis(
+            row.getAnalysisStatus(), row.getAnalysisSourceHash(), row.getAnalysisCompletedAt()),
         new ChapterWorkspaceProjection(
             new ProgressStep(
-                progressStatus(row.getVisualGenerationTotal(), row.getVisualGenerationCompleted(),
-                    row.getVisualGenerationFailed(), row.getVisualGenerationRunning(),
-                    row.getVisualGenerationQueued(), row.getVisualGenerationStalled(),
-                    row.getVisualGenerationUnknown(), row.getVisualGenerationPaused()),
-                row.getVisualGenerationTotal(), row.getVisualGenerationCompleted(), row.getVisualGenerationFailed()),
+                progressStatus(
+                    row.getVisualGenerationTotal(),
+                    row.getVisualGenerationCompleted(),
+                    row.getVisualGenerationFailed(),
+                    row.getVisualGenerationRunning(),
+                    row.getVisualGenerationQueued(),
+                    row.getVisualGenerationStalled(),
+                    row.getVisualGenerationUnknown(),
+                    row.getVisualGenerationPaused()),
+                row.getVisualGenerationTotal(),
+                row.getVisualGenerationCompleted(),
+                row.getVisualGenerationFailed()),
             new AudioStep(
                 narrationStatus(row.isNarrationAssetReady(), row.getNarrationJobStatus()),
-                row.getNarrationCompletedAt(), row.getNarrationStorageKey(), row.getNarrationDurationMs()),
-            new PipelineStep(renderStatus(row.isRenderManifestCreated(), row.getRenderArtifactStatus(), row.getRenderJobStatus()), row.getRenderCompletedAt())));
+                row.getNarrationCompletedAt(),
+                row.getNarrationStorageKey(),
+                row.getNarrationDurationMs()),
+            new PipelineStep(
+                renderStatus(
+                    row.isRenderManifestCreated(),
+                    row.getRenderArtifactStatus(),
+                    row.getRenderJobStatus()),
+                row.getRenderCompletedAt())));
   }
 
   private static PreviewScene toPreview(ChapterWorkspacePreviewRow row) {
-    return new PreviewScene(row.getId(), row.getOrderIndex(), row.getTitle(), row.getDurationSeconds(),
-        row.getStatus(), row.getVisualBeatCount(), row.getPreviewImageUrl());
+    return new PreviewScene(
+        row.getId(),
+        row.getOrderIndex(),
+        row.getTitle(),
+        row.getDurationSeconds(),
+        row.getStatus(),
+        row.getVisualBeatCount(),
+        row.getPreviewImageUrl());
   }
 
   private static String progressStatus(
-      int total, int completed, int failed, int running, int queued,
-      int stalled, int unknown, int paused) {
+      int total,
+      int completed,
+      int failed,
+      int running,
+      int queued,
+      int stalled,
+      int unknown,
+      int paused) {
     if (total == 0) return "NOT_STARTED";
     if (running > 0) return "RUNNING";
     if (queued > 0) return "QUEUED";
@@ -65,7 +95,8 @@ public class MyBatisChapterWorkspaceQueryAdapter implements ChapterWorkspaceRead
     return jobStatus == null ? "NOT_STARTED" : "FAILED";
   }
 
-  private static String renderStatus(boolean manifestCreated, String artifactStatus, String jobStatus) {
+  private static String renderStatus(
+      boolean manifestCreated, String artifactStatus, String jobStatus) {
     if ("READY".equals(artifactStatus)) return "COMPLETED";
     if ("FAILED".equals(artifactStatus) || "FAILED".equals(jobStatus)) return "FAILED";
     if ("PENDING".equals(artifactStatus) || isActive(jobStatus)) return "PROCESSING";
@@ -73,9 +104,10 @@ public class MyBatisChapterWorkspaceQueryAdapter implements ChapterWorkspaceRead
   }
 
   private static boolean isActive(String status) {
-    return status != null && switch (status) {
-      case "QUEUED", "RUNNING", "STALLED", "UNKNOWN", "PAUSED_COST_LIMIT" -> true;
-      default -> false;
-    };
+    return status != null
+        && switch (status) {
+          case "QUEUED", "RUNNING", "STALLED", "UNKNOWN", "PAUSED_COST_LIMIT" -> true;
+          default -> false;
+        };
   }
 }

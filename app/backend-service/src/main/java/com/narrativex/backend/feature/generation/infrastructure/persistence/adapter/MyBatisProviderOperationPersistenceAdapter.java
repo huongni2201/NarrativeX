@@ -197,7 +197,8 @@ public class MyBatisProviderOperationPersistenceAdapter implements ProviderOpera
   }
 
   private static OptimisticLockingFailureException optimisticConflict(Long id) {
-    return new OptimisticLockingFailureException("Provider operation " + id + " was modified concurrently");
+    return new OptimisticLockingFailureException(
+        "Provider operation " + id + " was modified concurrently");
   }
 
   private static ProviderOperationRow toRow(ProviderOperation operation) {

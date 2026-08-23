@@ -35,7 +35,8 @@ public class MyBatisCatalogQueryAdapter implements CatalogQueryRepository, Voice
 
   @Override
   public Optional<VoiceCapabilities> findVoice(String voiceId) {
-    return mapper.findVoiceCapabilities(voiceId)
+    return mapper
+        .findVoiceCapabilities(voiceId)
         .map(
             row ->
                 new VoiceCapabilities(

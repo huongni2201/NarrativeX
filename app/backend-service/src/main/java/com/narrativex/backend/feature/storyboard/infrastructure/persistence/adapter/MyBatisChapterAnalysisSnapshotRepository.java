@@ -1,7 +1,7 @@
 package com.narrativex.backend.feature.storyboard.infrastructure.persistence.adapter;
 
-import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
+import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSource;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterAnalysisSnapshotRepository;
 import com.narrativex.backend.feature.storyboard.domain.exception.ContentVariantNotReadyException;
@@ -12,19 +12,20 @@ import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
-public class MyBatisChapterAnalysisSnapshotRepository
-    implements ChapterAnalysisSnapshotRepository {
+public class MyBatisChapterAnalysisSnapshotRepository implements ChapterAnalysisSnapshotRepository {
   private final ChapterAnalysisSnapshotMapper mapper;
 
   @Override
-  public ChapterAnalysisSource requireOwnedByProject(Long projectId, Long chapterId, String userId) {
+  public ChapterAnalysisSource requireOwnedByProject(
+      Long projectId, Long chapterId, String userId) {
     return requireOwnedByProject(projectId, chapterId, userId, null);
   }
 
   @Override
   public ChapterAnalysisSource requireOwnedByProject(
       Long projectId, Long chapterId, String userId, Long contentVariantId) {
-    ChapterAnalysisSnapshotRow row = mapper.findOwned(projectId, chapterId, userId, contentVariantId);
+    ChapterAnalysisSnapshotRow row =
+        mapper.findOwned(projectId, chapterId, userId, contentVariantId);
     if (row == null) {
       if (!mapper.existsOwnedChapter(projectId, chapterId, userId)) {
         throw new ResourceNotFoundException("Chapter not found");
@@ -36,8 +37,14 @@ public class MyBatisChapterAnalysisSnapshotRepository
           "Selected content variant is stale; refresh Chapter language state");
     }
     return new ChapterAnalysisSource(
-        row.getId(), row.getStoryVersionId(), row.getRowVersion(), row.getSourceHash(), row.getSourceText(),
-        row.getContentVariantId(), row.getLanguage(), row.getOriginVariantId());
+        row.getId(),
+        row.getStoryVersionId(),
+        row.getRowVersion(),
+        row.getSourceHash(),
+        row.getSourceText(),
+        row.getContentVariantId(),
+        row.getLanguage(),
+        row.getOriginVariantId());
   }
 
   @Override

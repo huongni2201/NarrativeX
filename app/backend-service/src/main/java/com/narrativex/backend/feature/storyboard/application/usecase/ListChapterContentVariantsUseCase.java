@@ -21,8 +21,15 @@ public class ListChapterContentVariantsUseCase {
 
   @Transactional(readOnly = true)
   public ApiResponse<List<ChapterContentVariantResponse>> execute(Long projectId, Long chapterId) {
-    var chapter = chapterRepository.findById(chapterId).orElseThrow(() -> new IllegalArgumentException("Chapter not found"));
-    storyVersionAccess.requireOwnedStoryVersion(projectId, chapter.getStoryVersionId(), currentUserId.get());
-    return ApiResponse.success(variantRepository.findAllOwned(projectId, chapterId).stream().map(ChapterContentVariantResponse::from).toList());
+    var chapter =
+        chapterRepository
+            .findById(chapterId)
+            .orElseThrow(() -> new IllegalArgumentException("Chapter not found"));
+    storyVersionAccess.requireOwnedStoryVersion(
+        projectId, chapter.getStoryVersionId(), currentUserId.get());
+    return ApiResponse.success(
+        variantRepository.findAllOwned(projectId, chapterId).stream()
+            .map(ChapterContentVariantResponse::from)
+            .toList());
   }
 }

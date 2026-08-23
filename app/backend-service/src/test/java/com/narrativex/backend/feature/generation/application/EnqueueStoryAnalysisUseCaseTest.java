@@ -76,7 +76,9 @@ class EnqueueStoryAnalysisUseCaseTest {
     when(currentUserId.get()).thenReturn("user-1");
     when(chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(7L, 11L, "user-1"))
         .thenReturn(snapshot);
-    doThrow(stop).when(generationJobRepository).acquireIdempotencyLock(expectedIdempotencyKey, "user-1");
+    doThrow(stop)
+        .when(generationJobRepository)
+        .acquireIdempotencyLock(expectedIdempotencyKey, "user-1");
 
     var thrown =
         assertThrows(
@@ -137,7 +139,8 @@ class EnqueueStoryAnalysisUseCaseTest {
             org.mockito.Mockito.mock(
                 com.narrativex.backend.feature.project.domain.aggregate.Project.class));
     when(projectAccess.findOwnedProject(7L, "user-1").getSourceLanguage()).thenReturn("vi-VN");
-    when(generationJobRepository.findByIdempotencyKey("chapter-analysis:7:11:" + SOURCE_HASH, "user-1"))
+    when(generationJobRepository.findByIdempotencyKey(
+            "chapter-analysis:7:11:" + SOURCE_HASH, "user-1"))
         .thenReturn(Optional.empty());
     when(admissionService.admit("user-1", 7L, snapshot))
         .thenReturn(new ChapterAnalysisAdmissionService.Admission(estimate, reservation));
@@ -193,7 +196,8 @@ class EnqueueStoryAnalysisUseCaseTest {
     when(chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(7L, 11L, "user-1"))
         .thenReturn(snapshot);
     when(projectAccess.findOwnedProject(7L, "user-1")).thenReturn(null);
-    when(generationJobRepository.findByIdempotencyKey("chapter-analysis:7:11:" + SOURCE_HASH, "user-1"))
+    when(generationJobRepository.findByIdempotencyKey(
+            "chapter-analysis:7:11:" + SOURCE_HASH, "user-1"))
         .thenReturn(Optional.of(existing));
 
     assertSame(existing, useCase.execute(new EnqueueStoryAnalysisCommand(7L, 11L)));
@@ -228,7 +232,8 @@ class EnqueueStoryAnalysisUseCaseTest {
             com.narrativex.backend.feature.project.domain.aggregate.Project.class);
     when(project.getSourceLanguage()).thenReturn("vi-VN");
     when(projectAccess.findOwnedProject(7L, "user-1")).thenReturn(project);
-    when(generationJobRepository.findByIdempotencyKey("chapter-analysis:7:11:" + SOURCE_HASH, "user-1"))
+    when(generationJobRepository.findByIdempotencyKey(
+            "chapter-analysis:7:11:" + SOURCE_HASH, "user-1"))
         .thenReturn(Optional.empty());
     when(admissionService.admit("user-1", 7L, snapshot))
         .thenReturn(new ChapterAnalysisAdmissionService.Admission(estimate, reservation));

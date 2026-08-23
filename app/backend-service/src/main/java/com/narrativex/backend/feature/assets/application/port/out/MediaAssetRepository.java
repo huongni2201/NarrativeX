@@ -8,8 +8,7 @@ public interface MediaAssetRepository {
   CursorPage<MediaAssetView> list(
       String accountId, String type, String status, String search, String cursor, int limit);
 
-  MediaAssetView createOrReuseVerifiedAsset(
-      String accountId, CreateVerifiedMediaAsset command);
+  MediaAssetView createOrReuseVerifiedAsset(String accountId, CreateVerifiedMediaAsset command);
 
   MediaAssetView findOwned(String accountId, UUID id);
 

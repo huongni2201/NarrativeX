@@ -84,15 +84,27 @@ class MyBatisChapterAnalysisSnapshotRepositoryIntegrationTest
             """,
             Long.class,
             projectId);
-    return jdbcTemplate.queryForObject(
-        """
+    long chapterId =
+        jdbcTemplate.queryForObject(
+            """
         INSERT INTO chapters
           (story_version_id, order_index, title, source_text, source_hash, status)
         VALUES (?, 0, 'Chapter', 'source', ?, 'DRAFT')
         RETURNING id
         """,
-        Long.class,
-        storyVersionId,
+            Long.class,
+            storyVersionId,
+            SOURCE_HASH);
+    jdbcTemplate.update(
+        """
+        INSERT INTO chapter_content_variants
+          (chapter_id, variant_type, language_code, content, content_hash,
+           source_content_hash, translation_status)
+        VALUES (?, 'ORIGINAL', 'en-US', 'source', ?, ?, 'NOT_REQUIRED')
+        """,
+        chapterId,
+        SOURCE_HASH,
         SOURCE_HASH);
+    return chapterId;
   }
 }

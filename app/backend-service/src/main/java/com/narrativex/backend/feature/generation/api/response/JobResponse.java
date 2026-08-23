@@ -27,7 +27,19 @@ public record JobResponse(
       Long entityId,
       JobTarget target,
       String errorCode) {
-    this(jobId, type, status, progress, currentStep, entityType, entityId, target, errorCode, null, null, null);
+    this(
+        jobId,
+        type,
+        status,
+        progress,
+        currentStep,
+        entityType,
+        entityId,
+        target,
+        errorCode,
+        null,
+        null,
+        null);
   }
 
   public static JobResponse from(GenerationJob job) {

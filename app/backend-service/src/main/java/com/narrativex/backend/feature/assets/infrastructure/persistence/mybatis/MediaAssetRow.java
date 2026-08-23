@@ -2,6 +2,7 @@ package com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis
 
 import java.time.Instant;
 import java.util.UUID;
+
 public class MediaAssetRow {
   private UUID id;
   private String accountId;
@@ -59,22 +60,69 @@ public class MediaAssetRow {
     this.checksumVerifiedAt = checksumVerifiedAt;
   }
 
-  public String getDetectedContentType() { return detectedContentType; }
-  public String getDetectedContainer() { return detectedContainer; }
-  public String getDetectedCodec() { return detectedCodec; }
-  public Integer getWidth() { return width; }
-  public Integer getHeight() { return height; }
-  public String getValidationErrorCode() { return validationErrorCode; }
-  public String getValidationErrorDetail() { return validationErrorDetail; }
-  public Instant getValidatedAt() { return validatedAt; }
-  public void setDetectedContentType(String value) { this.detectedContentType = value; }
-  public void setDetectedContainer(String value) { this.detectedContainer = value; }
-  public void setDetectedCodec(String value) { this.detectedCodec = value; }
-  public void setWidth(Integer value) { this.width = value; }
-  public void setHeight(Integer value) { this.height = value; }
-  public void setValidationErrorCode(String value) { this.validationErrorCode = value; }
-  public void setValidationErrorDetail(String value) { this.validationErrorDetail = value; }
-  public void setValidatedAt(Instant value) { this.validatedAt = value; }
+  public String getDetectedContentType() {
+    return detectedContentType;
+  }
+
+  public String getDetectedContainer() {
+    return detectedContainer;
+  }
+
+  public String getDetectedCodec() {
+    return detectedCodec;
+  }
+
+  public Integer getWidth() {
+    return width;
+  }
+
+  public Integer getHeight() {
+    return height;
+  }
+
+  public String getValidationErrorCode() {
+    return validationErrorCode;
+  }
+
+  public String getValidationErrorDetail() {
+    return validationErrorDetail;
+  }
+
+  public Instant getValidatedAt() {
+    return validatedAt;
+  }
+
+  public void setDetectedContentType(String value) {
+    this.detectedContentType = value;
+  }
+
+  public void setDetectedContainer(String value) {
+    this.detectedContainer = value;
+  }
+
+  public void setDetectedCodec(String value) {
+    this.detectedCodec = value;
+  }
+
+  public void setWidth(Integer value) {
+    this.width = value;
+  }
+
+  public void setHeight(Integer value) {
+    this.height = value;
+  }
+
+  public void setValidationErrorCode(String value) {
+    this.validationErrorCode = value;
+  }
+
+  public void setValidationErrorDetail(String value) {
+    this.validationErrorDetail = value;
+  }
+
+  public void setValidatedAt(Instant value) {
+    this.validatedAt = value;
+  }
 
   public UUID getId() {
     return id;

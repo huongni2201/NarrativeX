@@ -86,8 +86,7 @@ public class ProjectGenerationController {
 
   @PostMapping("/{projectId}/narration-jobs:batch")
   public ResponseEntity<ApiResponse<List<BatchNarrationJobResponse>>> narrateChapters(
-      @PathVariable Long projectId,
-      @Valid @RequestBody GenerateBatchNarrationRequest request) {
+      @PathVariable Long projectId, @Valid @RequestBody GenerateBatchNarrationRequest request) {
     if (generateBatchNarrationUseCase == null) {
       throw new IllegalStateException("Batch narration use case is not configured");
     }
@@ -101,7 +100,9 @@ public class ProjectGenerationController {
                 request.voiceReferenceAssetId()));
     var response =
         jobs.stream()
-            .map(item -> new BatchNarrationJobResponse(item.chapterId(), JobResponse.from(item.job())))
+            .map(
+                item ->
+                    new BatchNarrationJobResponse(item.chapterId(), JobResponse.from(item.job())))
             .toList();
     return ResponseEntity.status(HttpStatus.ACCEPTED)
         .body(ApiResponse.success("Narration jobs accepted", response));

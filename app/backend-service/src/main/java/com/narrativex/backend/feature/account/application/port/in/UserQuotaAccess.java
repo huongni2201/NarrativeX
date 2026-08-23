@@ -25,8 +25,18 @@ public interface UserQuotaAccess {
         int expensiveJobsActive,
         BigDecimal creditsUsed,
         BigDecimal totalCredits) {
-      this(features, maxConcurrentExpensiveJobs, expensiveJobsActive, creditsUsed, totalCredits,
-          true, "ULTRA", null, null, 0, 0);
+      this(
+          features,
+          maxConcurrentExpensiveJobs,
+          expensiveJobsActive,
+          creditsUsed,
+          totalCredits,
+          true,
+          "ULTRA",
+          null,
+          null,
+          0,
+          0);
     }
   }
 }

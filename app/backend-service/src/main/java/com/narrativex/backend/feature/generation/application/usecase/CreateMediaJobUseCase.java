@@ -2,6 +2,7 @@ package com.narrativex.backend.feature.generation.application.usecase;
 
 import com.narrativex.backend.feature.account.application.port.in.UserQuotaAccess;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
+import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.generation.application.command.CreateMediaJobCommand;
 import com.narrativex.backend.feature.generation.application.command.CreateMediaPlanCommand;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
@@ -17,13 +18,11 @@ import com.narrativex.backend.feature.generation.domain.entity.StageAttempt;
 import com.narrativex.backend.feature.generation.domain.enums.ProductionMode;
 import com.narrativex.backend.feature.generation.domain.enums.ResourceClass;
 import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
-import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSourceAccess;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.HexFormat;
@@ -70,7 +69,8 @@ public class CreateMediaJobUseCase {
     generationJobRepository.acquireIdempotencyLock(command.idempotencyKey(), userId);
     var existing = generationJobRepository.findByIdempotencyKey(command.idempotencyKey(), userId);
     if (existing.isPresent()) {
-      var existingItems = mediaGenerationItemRepository.findByJobOwned(userId, existing.get().getId());
+      var existingItems =
+          mediaGenerationItemRepository.findByJobOwned(userId, existing.get().getId());
       if (!existingItems.isEmpty()
           && existingItems.stream()
               .anyMatch(
@@ -79,8 +79,7 @@ public class CreateMediaJobUseCase {
                               requestFingerprint, item.getMediaPlanId(), item.getVisualBeatId())
                           .equals(item.getRequestFingerprint()))) {
         throw new GenerationAdmissionDeniedException(
-            "IDEMPOTENCY_CONFLICT",
-            "The Idempotency-Key is already bound to a different request.");
+            "IDEMPOTENCY_CONFLICT", "The Idempotency-Key is already bound to a different request.");
       }
       log.debug(
           "Found existing media generation job id={} for idempotencyKey='{}'",
@@ -172,12 +171,7 @@ public class CreateMediaJobUseCase {
             itemFingerprint(requestFingerprint, plan.id(), beat.visualBeatId());
         mediaGenerationItemRepository.save(
             MediaGenerationItem.create(
-                job.getId(),
-                plan.id(),
-                beat.visualBeatId(),
-                itemKey,
-                1,
-                shotFingerprint));
+                job.getId(), plan.id(), beat.visualBeatId(), itemKey, 1, shotFingerprint));
       }
     }
     generationOutboxRepository.enqueue(job);
@@ -219,8 +213,7 @@ public class CreateMediaJobUseCase {
     try {
       return HexFormat.of()
           .formatHex(
-              MessageDigest.getInstance("SHA-256")
-                  .digest(value.getBytes(StandardCharsets.UTF_8)));
+              MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
     } catch (java.security.NoSuchAlgorithmException exception) {
       throw new IllegalStateException("SHA-256 is unavailable", exception);
     }

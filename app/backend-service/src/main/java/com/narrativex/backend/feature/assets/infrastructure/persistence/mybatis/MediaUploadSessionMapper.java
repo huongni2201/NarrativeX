@@ -9,9 +9,11 @@ import org.apache.ibatis.annotations.Param;
 public interface MediaUploadSessionMapper extends NarrativeXMyBatisMapper {
   int insert(CreateUploadSession command);
 
-  MediaUploadSessionRow findOwnedSnapshot(@Param("accountId") String accountId, @Param("id") UUID id);
+  MediaUploadSessionRow findOwnedSnapshot(
+      @Param("accountId") String accountId, @Param("id") UUID id);
 
-  MediaUploadSessionRow findOwnedForUpdate(@Param("accountId") String accountId, @Param("id") UUID id);
+  MediaUploadSessionRow findOwnedForUpdate(
+      @Param("accountId") String accountId, @Param("id") UUID id);
 
   MediaUploadSessionRow findByIdempotencyKey(
       @Param("accountId") String accountId, @Param("idempotencyKey") String idempotencyKey);

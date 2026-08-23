@@ -3,10 +3,10 @@ package com.narrativex.backend.feature.assets.application.service;
 import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository;
 import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository.CreateVerifiedMediaAsset;
 import com.narrativex.backend.feature.assets.application.port.out.MediaStorageCleanupTaskRepository;
-import com.narrativex.backend.feature.assets.application.port.out.MediaValidationJobRepository;
-import com.narrativex.backend.feature.assets.application.port.out.MediaValidationJobRepository.ValidationRequest;
 import com.narrativex.backend.feature.assets.application.port.out.MediaUploadSessionRepository;
 import com.narrativex.backend.feature.assets.application.port.out.MediaUploadSessionRepository.UploadSession;
+import com.narrativex.backend.feature.assets.application.port.out.MediaValidationJobRepository;
+import com.narrativex.backend.feature.assets.application.port.out.MediaValidationJobRepository.ValidationRequest;
 import com.narrativex.backend.feature.assets.application.port.out.ObjectStoragePort.StoredObject;
 import com.narrativex.backend.feature.assets.application.query.MediaAssetView;
 import com.narrativex.backend.feature.assets.application.query.UploadFinalizeView;
@@ -16,7 +16,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.UUID;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -80,7 +79,8 @@ public class MediaUploadFinalizationService {
       case "READY", "VALIDATING" -> authoritativeView(locked);
       case "REJECTED" -> rejectedView(locked);
       case "PENDING_UPLOAD" -> finalizePending(accountId, locked, storedObject);
-      default -> throw new IllegalStateException("Unsupported upload session status: " + locked.status());
+      default ->
+          throw new IllegalStateException("Unsupported upload session status: " + locked.status());
     };
   }
 
@@ -176,7 +176,8 @@ public class MediaUploadFinalizationService {
   private static boolean matches(UploadSession session, StoredObject object) {
     return session.storageKey().equals(object.storageKey())
         && session.expectedSize() == object.sizeBytes()
-        && normalizeContentType(session.contentType()).equals(normalizeContentType(object.contentType()))
+        && normalizeContentType(session.contentType())
+            .equals(normalizeContentType(object.contentType()))
         && session.expectedSha256().equalsIgnoreCase(object.sha256());
   }
 

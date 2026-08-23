@@ -33,11 +33,16 @@ public class MyBatisQuotaReservation implements QuotaReservation {
     if (activePlan.getMonthlyCredits() != null) {
       BigDecimal creditsUsed = zero(mapper.findCreditsUsedForUpdate(userId, periodKey));
       BigDecimal creditsReserved = zero(mapper.findCreditsReserved(userId, periodKey));
-      if (creditsUsed.add(creditsReserved).add(estimatedCost).compareTo(activePlan.getMonthlyCredits()) > 0) {
+      if (creditsUsed
+              .add(creditsReserved)
+              .add(estimatedCost)
+              .compareTo(activePlan.getMonthlyCredits())
+          > 0) {
         return Optional.empty();
       }
     }
-    Long reservationId = mapper.insertReservation(new QuotaReservationRow(userId, periodKey, estimatedCost));
+    Long reservationId =
+        mapper.insertReservation(new QuotaReservationRow(userId, periodKey, estimatedCost));
     if (reservationId == null) {
       throw new IllegalStateException("Quota reservation insert returned no id");
     }

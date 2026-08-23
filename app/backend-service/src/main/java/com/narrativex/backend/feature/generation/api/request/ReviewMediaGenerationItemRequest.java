@@ -5,5 +5,4 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 
 public record ReviewMediaGenerationItemRequest(
-    @NotBlank @Pattern(regexp = "APPROVED|REJECTED") String decision,
-    @NotNull Long rowVersion) {}
+    @NotBlank @Pattern(regexp = "APPROVED|REJECTED") String decision, @NotNull Long rowVersion) {}

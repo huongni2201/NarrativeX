@@ -16,14 +16,18 @@ class R2ObjectStorageAdapterTest {
   void presignUsesCommandRemainingLifetimeMinusSafetyMargin() {
     R2ObjectStorageAdapter adapter =
         new R2ObjectStorageAdapter(
-            new R2StorageProperties("account", "access", "secret", "bucket", "https://example.com"));
+            new R2StorageProperties(
+                "account", "access", "secret", "bucket", "https://example.com"));
 
     var upload =
         adapter.createUpload(
             new ObjectStoragePort.CreateUpload(
                 "media/uploads/test", "audio/mpeg", 128, SHA, Instant.now().plusSeconds(120)));
 
-    String expires = URI.create(upload.uploadUrl().toString()).getQuery().replaceAll(".*X-Amz-Expires=([^&]+).*", "$1");
+    String expires =
+        URI.create(upload.uploadUrl().toString())
+            .getQuery()
+            .replaceAll(".*X-Amz-Expires=([^&]+).*", "$1");
     assertThat(Long.parseLong(expires)).isBetween(100L, 120L);
   }
 
@@ -31,13 +35,18 @@ class R2ObjectStorageAdapterTest {
   void doesNotSignWhenOnlySafetyMarginRemains() {
     R2ObjectStorageAdapter adapter =
         new R2ObjectStorageAdapter(
-            new R2StorageProperties("account", "access", "secret", "bucket", "https://example.com"));
+            new R2StorageProperties(
+                "account", "access", "secret", "bucket", "https://example.com"));
 
     org.assertj.core.api.Assertions.assertThatThrownBy(
             () ->
                 adapter.createUpload(
                     new ObjectStoragePort.CreateUpload(
-                        "media/uploads/test", "audio/mpeg", 128, SHA, Instant.now().plusSeconds(5))))
+                        "media/uploads/test",
+                        "audio/mpeg",
+                        128,
+                        SHA,
+                        Instant.now().plusSeconds(5))))
         .isInstanceOf(IllegalArgumentException.class);
   }
 
@@ -45,7 +54,8 @@ class R2ObjectStorageAdapterTest {
   void presignsPrivateDownloadWithGetAndHostOnly() {
     R2ObjectStorageAdapter adapter =
         new R2ObjectStorageAdapter(
-            new R2StorageProperties("account", "access", "secret", "bucket", "https://example.com"));
+            new R2StorageProperties(
+                "account", "access", "secret", "bucket", "https://example.com"));
 
     var download =
         adapter.createDownload("narration/request/chapter.mp3", Instant.now().plusSeconds(120));
@@ -54,8 +64,7 @@ class R2ObjectStorageAdapterTest {
     assertThat(query).contains("X-Amz-Algorithm=AWS4-HMAC-SHA256");
     assertThat(query).contains("X-Amz-SignedHeaders=host");
     assertThat(query).contains("X-Amz-Signature=");
-    assertThat(download.downloadUrl().getPath())
-        .isEqualTo("/bucket/narration/request/chapter.mp3");
+    assertThat(download.downloadUrl().getPath()).isEqualTo("/bucket/narration/request/chapter.mp3");
   }
 
   @Test

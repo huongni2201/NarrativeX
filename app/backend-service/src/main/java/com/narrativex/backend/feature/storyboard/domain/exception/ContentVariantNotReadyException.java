@@ -7,8 +7,7 @@ public final class ContentVariantNotReadyException extends DomainConflictExcepti
   public static final String CODE = "CONTENT_VARIANT_NOT_READY";
 
   public ContentVariantNotReadyException() {
-    super(
-        "The ORIGINAL content variant is missing or does not match the current chapter source.");
+    super("The ORIGINAL content variant is missing or does not match the current chapter source.");
   }
 
   public String getCode() {

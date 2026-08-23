@@ -48,7 +48,8 @@ public class CreateChapterUseCase {
             normalized.text(),
             normalized.hash());
     Chapter saved = chapterRepository.saveAndFlush(chapter);
-    contentImportService.importOriginal(saved.getId(), saved.getSourceText(), saved.getSourceHash());
+    contentImportService.importOriginal(
+        saved.getId(), saved.getSourceText(), saved.getSourceHash());
     log.info(
         "Created chapter id={} (orderIndex={}, title='{}') in storyVersionId={} for projectId={}",
         saved.getId(),

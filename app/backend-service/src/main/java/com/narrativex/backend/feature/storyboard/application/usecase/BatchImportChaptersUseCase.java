@@ -75,13 +75,14 @@ public class BatchImportChaptersUseCase {
       var normalized = sourceHasher.normalizeAndHash(draft.sourceText());
       Chapter saved =
           chapterRepository.saveAndFlush(
-          new Chapter(
+              new Chapter(
                   storyVersionId,
                   nextOrderIndex,
                   draft.title(),
                   normalized.text(),
                   normalized.hash()));
-      contentImportService.importOriginal(saved.getId(), saved.getSourceText(), saved.getSourceHash());
+      contentImportService.importOriginal(
+          saved.getId(), saved.getSourceText(), saved.getSourceHash());
       imported.add(ChapterResponse.from(saved));
       nextOrderIndex++;
     }

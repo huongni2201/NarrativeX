@@ -124,7 +124,7 @@ Provider failure transitions are strictly fenced, preserving `UNKNOWN` state acr
 | Cross-worker advisory lock & Drive upload serialization | IMPLEMENTED | PostgreSQL advisory lock on render fingerprint serializes Drive upload and prevents duplicate concurrent attempts |
 | Render with generated narration snapshot | IMPLEMENTED | render worker loads matching generated narration |
 | Render with multi-part user-provided narration | PARTIAL | chapter-range slicing/stitching from aligned uploaded parts is not implemented in the render worker |
-| Preview/download/publishing from Drive | PARTIAL/TARGET | metadata is exposed; controlled streaming/download/publishing boundary still needs completion |
+| Preview/download/publishing from Drive | IMPLEMENTED for preview/download | backend-authorized OAuth proxy exposes private Drive media with HTTP Range; publishing remains separate |
 | MyBatis-only production persistence | IMPLEMENTED | architecture boundary is complete |
 | VisualScenePlanner | TARGET | narration-driven adaptive visual planning remains incomplete |
 | Reuse/reframe/edit AssetResolver | DEFERRED fast-follow | optimize after creator loop reliability |
@@ -403,7 +403,7 @@ This split is governed by [ADR-0003](../decisions/ADR-0003-media-storage-generat
 1. Harden user-provided audio upload/finalize/alignment and connect aligned multi-part audio to render slicing/stitching.
 2. Complete narration-driven `VisualScenePlanner` and review/approval workflow.
 3. Harden image review/reuse/lineage and affected-scope regeneration.
-4. Add backend-authorized preview/download/streaming for Google Drive final artifacts.
+4. Add publishing/entitlement hardening around the existing backend-authorized preview/download/streaming for Google Drive final artifacts.
 5. Preserve validated local renders across Drive retry attempts or materialize a durable upload-stage boundary if rerender avoidance is required.
 6. Complete actual usage/billing reconciliation and release/refund behavior.
 7. Add production health/configuration checks for Drive credentials and storage availability.

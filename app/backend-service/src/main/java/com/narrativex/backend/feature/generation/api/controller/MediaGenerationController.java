@@ -4,9 +4,9 @@ import com.narrativex.backend.feature.common.exception.FeatureNotAvailableExcept
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.generation.api.request.CreateMediaJobRequest;
 import com.narrativex.backend.feature.generation.api.request.EstimateMediaJobRequest;
-import com.narrativex.backend.feature.generation.api.response.MediaCostEstimateResponse;
 import com.narrativex.backend.feature.generation.api.request.ReviewMediaGenerationItemRequest;
 import com.narrativex.backend.feature.generation.api.response.JobResponse;
+import com.narrativex.backend.feature.generation.api.response.MediaCostEstimateResponse;
 import com.narrativex.backend.feature.generation.api.response.MediaJobDetailsResponse;
 import com.narrativex.backend.feature.generation.application.command.CreateMediaJobCommand;
 import com.narrativex.backend.feature.generation.application.usecase.CreateMediaJobUseCase;
@@ -36,6 +36,7 @@ public class MediaGenerationController {
   private final EstimateMediaJobUseCase estimateMediaJobUseCase;
   private final GetMediaJobDetailsUseCase getMediaJobDetailsUseCase;
   private final ReviewMediaGenerationItemUseCase reviewMediaGenerationItemUseCase;
+
   @Value("${narrativex.generation.media-enabled:false}")
   private boolean mediaGenerationEnabled;
 
@@ -57,7 +58,8 @@ public class MediaGenerationController {
                 request.qualityTier(),
                 request.maxAuthorizedCost(),
                 ImageStyle.from(request.imageStyle())));
-    return ResponseEntity.status(HttpStatus.ACCEPTED).body(ApiResponse.success("Media job queued", JobResponse.from(job)));
+    return ResponseEntity.status(HttpStatus.ACCEPTED)
+        .body(ApiResponse.success("Media job queued", JobResponse.from(job)));
   }
 
   @PostMapping("/projects/{projectId}/chapters/{chapterId}/media-jobs/estimate")
@@ -71,13 +73,15 @@ public class MediaGenerationController {
 
   private void requireMediaGenerationEnabled() {
     if (!mediaGenerationEnabled) {
-      throw new FeatureNotAvailableException("Media generation is temporarily unavailable until its worker is enabled.");
+      throw new FeatureNotAvailableException(
+          "Media generation is temporarily unavailable until its worker is enabled.");
     }
   }
 
   @GetMapping("/media-jobs/{jobId}")
   public ResponseEntity<ApiResponse<MediaJobDetailsResponse>> details(@PathVariable String jobId) {
-    return ResponseEntity.ok(ApiResponse.success("Media job details", getMediaJobDetailsUseCase.execute(jobId)));
+    return ResponseEntity.ok(
+        ApiResponse.success("Media job details", getMediaJobDetailsUseCase.execute(jobId)));
   }
 
   @PostMapping("/media-generation-items/{itemId}/review")

@@ -5,11 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "narrativex.storage.r2")
 public record R2StorageProperties(
-    String accountId,
-    String accessKeyId,
-    String secretAccessKey,
-    String bucket,
-    String endpoint) {
+    String accountId, String accessKeyId, String secretAccessKey, String bucket, String endpoint) {
 
   boolean configured() {
     return notBlank(accountId)

@@ -164,8 +164,7 @@ public class GenerateChapterNarrationUseCase {
             () -> {
               boolean legacyVieNeu = voiceId.startsWith("vieneu-");
               log.warn(
-                  "Voice id={} is missing from catalog; using legacy provider fallback",
-                  voiceId);
+                  "Voice id={} is missing from catalog; using legacy provider fallback", voiceId);
               return new VoiceCatalogAccess.VoiceCapabilities(
                   voiceId,
                   legacyVieNeu ? "VIENEU" : "UNKNOWN",
@@ -182,8 +181,7 @@ public class GenerateChapterNarrationUseCase {
       VoiceCatalogAccess.VoiceCapabilities voiceCapabilities) {
     if (!voiceCapabilities.supportsSpeakingRate()
         && command.speakingRate().compareTo(BigDecimal.ONE) != 0) {
-      throw new IllegalArgumentException(
-          "Selected narration voice supports speakingRate=1.0 only");
+      throw new IllegalArgumentException("Selected narration voice supports speakingRate=1.0 only");
     }
   }
 

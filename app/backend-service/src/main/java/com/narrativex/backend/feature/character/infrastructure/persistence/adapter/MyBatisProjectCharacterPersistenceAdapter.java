@@ -12,14 +12,30 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class MyBatisProjectCharacterPersistenceAdapter implements ProjectCharacterRepository {
-  private final CharacterMapper mapper; private final CharacterMyBatisRowMapper rowMapper;
-  @Override public ProjectCharacter save(ProjectCharacter value) {
+  private final CharacterMapper mapper;
+  private final CharacterMyBatisRowMapper rowMapper;
+
+  @Override
+  public ProjectCharacter save(ProjectCharacter value) {
     ProjectCharacterRow row = rowMapper.row(value, CharacterMyBatisRowMapper.InstantPair.now());
-    if (value.getId() == null) { row.setId(null); row.setRowVersion(0); Long id = mapper.insertProjectCharacter(row); return rowMapper.toDomain(mapper.findProjectCharacter(id)); }
+    if (value.getId() == null) {
+      row.setId(null);
+      row.setRowVersion(0);
+      Long id = mapper.insertProjectCharacter(row);
+      return rowMapper.toDomain(mapper.findProjectCharacter(id));
+    }
     ProjectCharacterRow existing = mapper.findProjectCharacter(value.getId());
-    if (existing == null) { row.setId(null); row.setRowVersion(0); Long id = mapper.insertProjectCharacter(row); return rowMapper.toDomain(mapper.findProjectCharacter(id)); }
-    OptimisticConcurrency.requireVersion(value.getRowVersion(), existing.getRowVersion(), ProjectCharacter.class, value.getId());
-    if (mapper.updateProjectCharacter(row) != 1) throw new org.springframework.dao.OptimisticLockingFailureException("Project character was modified concurrently");
+    if (existing == null) {
+      row.setId(null);
+      row.setRowVersion(0);
+      Long id = mapper.insertProjectCharacter(row);
+      return rowMapper.toDomain(mapper.findProjectCharacter(id));
+    }
+    OptimisticConcurrency.requireVersion(
+        value.getRowVersion(), existing.getRowVersion(), ProjectCharacter.class, value.getId());
+    if (mapper.updateProjectCharacter(row) != 1)
+      throw new org.springframework.dao.OptimisticLockingFailureException(
+          "Project character was modified concurrently");
     return rowMapper.toDomain(mapper.findProjectCharacter(value.getId()));
   }
 }

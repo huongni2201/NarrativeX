@@ -42,6 +42,20 @@ NarrativeX partitions durable media storage by lifecycle and asset type:
 4. **Ephemeral Worker Scratch Space:**
    - Worker container filesystems are strictly temporary scratch spaces. Scratch files are deleted immediately after durable upload and verification.
 
+### 1.1 Backend-authorized Drive preview and download
+
+Google Drive private files are not exposed through a presigned object URL. The backend authorizes
+the owner against PostgreSQL, refreshes the configured OAuth access token, and proxies the Drive
+`files/{id}?alt=media` response to the browser. The proxy forwards a single byte `Range` request,
+returns `206 Partial Content` with `Content-Range` and `Content-Length` when applicable, and copies
+the upstream body through a streaming response. Neither the application boundary nor the adapter
+may materialize an entire final MP4 in a `byte[]` or another in-memory buffer.
+
+The provider-specific OAuth/API behavior is isolated in
+`feature.render.infrastructure.storage.GoogleDriveArtifactContentAdapter`; application code uses
+the provider-neutral `FinalArtifactContentPort`. Credentials are supplied through secret-backed
+environment variables and are never committed to the repository.
+
 ### 2. Client Presigned Uploads & Asset Validation Pipeline
 
 - **Upload Intent Lifecycle:** Clients initiate an upload intent (`/api/v1/assets/upload-intents`). The backend registers a `media_upload_sessions` record and returns an expiring presigned R2 upload URL.

@@ -10,7 +10,8 @@ public record ChapterAnalysisSource(
     Long contentVariantId,
     String language,
     Long originVariantId) {
-  public ChapterAnalysisSource(Long chapterId, Long storyVersionId, long rowVersion, String sourceHash, String sourceText) {
+  public ChapterAnalysisSource(
+      Long chapterId, Long storyVersionId, long rowVersion, String sourceHash, String sourceText) {
     this(chapterId, storyVersionId, rowVersion, sourceHash, sourceText, null, null, null);
   }
 }

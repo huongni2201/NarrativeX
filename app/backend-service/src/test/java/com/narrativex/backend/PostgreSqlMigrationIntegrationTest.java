@@ -410,7 +410,7 @@ class PostgreSqlMigrationIntegrationTest {
 
   private static int rowCount(Connection connection, String table) throws SQLException {
     try (PreparedStatement statement =
-        connection.prepareStatement("select count(*) from " + table);
+            connection.prepareStatement("select count(*) from " + table);
         ResultSet result = statement.executeQuery()) {
       result.next();
       return result.getInt(1);

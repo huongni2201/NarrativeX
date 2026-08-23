@@ -13,8 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Component
 @RequiredArgsConstructor
-public class MyBatisMediaStorageCleanupTaskRepository
-    implements MediaStorageCleanupTaskRepository {
+public class MyBatisMediaStorageCleanupTaskRepository implements MediaStorageCleanupTaskRepository {
   private final MediaStorageCleanupTaskMapper mapper;
 
   @Override

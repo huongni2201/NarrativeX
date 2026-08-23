@@ -25,14 +25,18 @@ public class CharacterController {
 
   @GetMapping("/count")
   public ResponseEntity<ApiResponse<Long>> count() {
-    return ResponseEntity.ok(ApiResponse.success("Character count retrieved successfully", countCharactersUseCase.execute()));
+    return ResponseEntity.ok(
+        ApiResponse.success(
+            "Character count retrieved successfully", countCharactersUseCase.execute()));
   }
 
   @GetMapping("/{characterId}")
   public ResponseEntity<ApiResponse<CharacterSummaryResponse>> detail(
       @PathVariable Long characterId) {
     return ResponseEntity.ok(
-        ApiResponse.success("Character retrieved successfully", CharacterSummaryResponse.from(getCharacterUseCase.execute(characterId))));
+        ApiResponse.success(
+            "Character retrieved successfully",
+            CharacterSummaryResponse.from(getCharacterUseCase.execute(characterId))));
   }
 
   @GetMapping

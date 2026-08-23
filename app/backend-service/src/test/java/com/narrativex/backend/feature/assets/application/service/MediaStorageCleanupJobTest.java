@@ -22,8 +22,10 @@ class MediaStorageCleanupJobTest {
     var tasks = Mockito.mock(MediaStorageCleanupTaskRepository.class);
     var storage = Mockito.mock(ObjectStoragePort.class);
     var assets = Mockito.mock(MediaAssetRepository.class);
-    var task = new CleanupTask(UUID.randomUUID(), "media/uploads/x", "late", "RUNNING", 1, Instant.now());
-    when(tasks.claimDue(any(Integer.class), any(Instant.class), any(Instant.class))).thenReturn(List.of(task));
+    var task =
+        new CleanupTask(UUID.randomUUID(), "media/uploads/x", "late", "RUNNING", 1, Instant.now());
+    when(tasks.claimDue(any(Integer.class), any(Instant.class), any(Instant.class)))
+        .thenReturn(List.of(task));
     when(assets.isReferencedByReadyAsset(task.storageKey())).thenReturn(true);
 
     new MediaStorageCleanupJob(tasks, storage, assets).cleanup();

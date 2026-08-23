@@ -2,9 +2,9 @@ package com.narrativex.backend.feature.assets.domain;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.narrativex.backend.feature.assets.domain.enums.MediaAssetStatus;
 import com.narrativex.backend.feature.assets.domain.exception.InvalidMediaAssetTransitionException;
 import com.narrativex.backend.feature.assets.domain.service.MediaAssetTransitionService;
-import com.narrativex.backend.feature.assets.domain.enums.MediaAssetStatus;
 import org.junit.jupiter.api.Test;
 
 class MediaAssetTransitionServiceTest {

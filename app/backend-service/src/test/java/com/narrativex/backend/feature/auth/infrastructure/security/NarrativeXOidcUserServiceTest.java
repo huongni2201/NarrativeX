@@ -32,8 +32,7 @@ class NarrativeXOidcUserServiceTest {
 
   @BeforeEach
   void setUp() {
-    service =
-        new NarrativeXOidcUserService(mapper, delegate, userPlanAssignmentProvisioner);
+    service = new NarrativeXOidcUserService(mapper, delegate, userPlanAssignmentProvisioner);
   }
 
   @Test

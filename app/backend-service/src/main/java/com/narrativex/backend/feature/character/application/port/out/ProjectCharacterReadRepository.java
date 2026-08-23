@@ -10,6 +10,5 @@ public interface ProjectCharacterReadRepository {
   CursorPage<ProjectCharacterReadModel> findByProject(
       Long projectId, String ownerId, String cursor, int limit);
 
-  Optional<ProjectCharacterReadModel> findDetail(
-      Long projectId, Long characterId, String ownerId);
+  Optional<ProjectCharacterReadModel> findDetail(Long projectId, Long characterId, String ownerId);
 }

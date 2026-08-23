@@ -1,9 +1,9 @@
 package com.narrativex.backend.feature.generation.infrastructure.dispatch;
 
-import java.time.Duration;
-import java.util.List;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.GenerationOutboxMapper;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.OutboxDispatchRow;
+import java.time.Duration;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -59,14 +59,20 @@ public class GenerationOutboxDispatcher {
   private List<OutboxRow> reserveBatch() {
     List<OutboxRow> rows =
         transactionTemplate.execute(
-            ignored -> mapper.reserveBatch(RESERVATION_MILLIS).stream().map(GenerationOutboxDispatcher::mapRow).toList());
+            ignored ->
+                mapper.reserveBatch(RESERVATION_MILLIS).stream()
+                    .map(GenerationOutboxDispatcher::mapRow)
+                    .toList());
     return rows == null ? List.of() : rows;
   }
 
   private static OutboxRow mapRow(OutboxDispatchRow row) {
     return new OutboxRow(
-        row.getId(), row.getPayloadJson(),
-        "MEDIA_VALIDATION_REQUESTED".equals(row.getEventType()) ? MEDIA_VALIDATION_CHANNEL : CHANNEL);
+        row.getId(),
+        row.getPayloadJson(),
+        "MEDIA_VALIDATION_REQUESTED".equals(row.getEventType())
+            ? MEDIA_VALIDATION_CHANNEL
+            : CHANNEL);
   }
 
   private record OutboxRow(long id, String payloadJson, String channel) {}

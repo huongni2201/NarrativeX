@@ -119,8 +119,7 @@ class CreateMediaPlanUseCaseTest {
                         0,
                         "Hello",
                         8,
-                        List.of(
-                            new BeatSnapshot(40L, 0, "Character runs", MotionIntent.STILL))))));
+                        List.of(new BeatSnapshot(40L, 0, "Character runs", MotionIntent.STILL))))));
     when(mediaPlanRepository.nextRevision(10L)).thenReturn(1);
     when(mediaPlanRepository.save(any(MediaPlan.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));

@@ -15,7 +15,10 @@ public record MediaJobDetailsResponse(
     List<Item> items) {
   public static MediaJobDetailsResponse from(GenerationJob job, List<MediaGenerationItem> items) {
     return new MediaJobDetailsResponse(
-        job.getJobId(), job.getMediaPlanId(), job.getMediaPlanRevision(), items.size(),
+        job.getJobId(),
+        job.getMediaPlanId(),
+        job.getMediaPlanRevision(),
+        items.size(),
         items.stream().filter(item -> item.getExecutionStatus().name().equals("READY")).count(),
         items.stream().filter(item -> item.getReviewStatus().name().equals("NEEDS_REVIEW")).count(),
         items.stream().map(Item::from).toList());
@@ -32,7 +35,16 @@ public record MediaJobDetailsResponse(
       String errorCode,
       long rowVersion) {
     static Item from(MediaGenerationItem item) {
-      return new Item(item.getId(), item.getVisualBeatId(), item.getItemKey(), item.getExecutionStatus().name(), item.getReviewStatus().name(), item.getAttemptNumber(), item.getMediaAssetId(), item.getErrorCode(), item.getRowVersion());
+      return new Item(
+          item.getId(),
+          item.getVisualBeatId(),
+          item.getItemKey(),
+          item.getExecutionStatus().name(),
+          item.getReviewStatus().name(),
+          item.getAttemptNumber(),
+          item.getMediaAssetId(),
+          item.getErrorCode(),
+          item.getRowVersion());
     }
   }
 }

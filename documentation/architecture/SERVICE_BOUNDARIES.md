@@ -11,7 +11,7 @@ NarrativeX remains one Spring Boot modular monolith plus separately deployed Pyt
 | storyboard | Chapter, Scene, VisualBeat and review/source semantics |
 | character | Character/ProjectCharacter/CharacterVersion continuity/reference state and project-scoped Character read models |
 | generation | OperationPlan/MediaPlan, GenerationJob, StageAttempt, ProviderOperation, narration planning and durable orchestration |
-| render | FinalArtifact read metadata and render-domain contracts |
+| render | FinalArtifact read metadata, provider-neutral content streaming port and render-domain contracts |
 | notification | durable notification state/read surfaces |
 | common | small shared primitives only; not a policy dumping ground |
 
@@ -64,6 +64,11 @@ render worker
 The current adapter owns Drive OAuth/API calls, resumable upload, render-fingerprint lookup, remote file ID/size verification and Drive-specific identifiers. PostgreSQL stores provider-aware FinalArtifact metadata such as `storageProvider`, external file ID, checksum, size and video metadata.
 
 The adapter can resume upload within one attempt and can reuse an already-uploaded matching Drive file by render fingerprint. Because the rendered file currently lives in an ephemeral job workspace, cross-attempt upload-only retry without rerender remains a target hardening item.
+
+The backend also owns browser-facing FinalArtifact content delivery. The render application layer
+exposes `FinalArtifactContentPort`; the infrastructure adapter refreshes Google OAuth credentials,
+forwards Drive media ranges and returns a one-shot response stream. Browser authorization remains
+backend-owned and private Drive files are never made public for preview/download.
 
 ## Character read boundary
 

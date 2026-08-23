@@ -62,7 +62,10 @@ public class ChapterController {
   @PostMapping
   public ResponseEntity<ApiResponse<ChapterResponse>> create(
       @PathVariable Long projectId, @Valid @RequestBody CreateChapterRequest request) {
-    log.info("API POST create chapter for projectId={}, storyVersionId={}", projectId, request.storyVersionId());
+    log.info(
+        "API POST create chapter for projectId={}, storyVersionId={}",
+        projectId,
+        request.storyVersionId());
     ApiResponse<ChapterResponse> response =
         createChapterUseCase.execute(
             new CreateChapterCommand(
@@ -146,10 +149,13 @@ public class ChapterController {
       @PathVariable Long projectId,
       @PathVariable Long chapterId,
       @Valid @RequestBody ImportChapterContentRequest request) {
-    log.info("API POST import chapter content for chapterId={}, projectId={}", chapterId, projectId);
+    log.info(
+        "API POST import chapter content for chapterId={}, projectId={}", chapterId, projectId);
     return ResponseEntity.accepted()
-        .body(importChapterContentUseCase.execute(
-            new ImportChapterContentCommand(projectId, chapterId, request.content(), request.title())));
+        .body(
+            importChapterContentUseCase.execute(
+                new ImportChapterContentCommand(
+                    projectId, chapterId, request.content(), request.title())));
   }
 
   @GetMapping("/{chapterId}/language-status")

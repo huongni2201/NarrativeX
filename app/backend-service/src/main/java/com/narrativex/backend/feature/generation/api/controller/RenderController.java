@@ -13,8 +13,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/projects/{projectId}/chapters/{chapterId}")
 public class RenderController {
   private final CreateChapterRenderUseCase createChapterRenderUseCase;
+
   @Value("${narrativex.generation.media-enabled:false}")
   private boolean mediaGenerationEnabled;
 
@@ -32,11 +33,20 @@ public class RenderController {
       @Valid @RequestBody CreateChapterRenderRequest request,
       @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
     if (!mediaGenerationEnabled) {
-      throw new FeatureNotAvailableException("Chapter rendering is temporarily unavailable until its worker is enabled.");
+      throw new FeatureNotAvailableException(
+          "Chapter rendering is temporarily unavailable until its worker is enabled.");
     }
     var job =
         createChapterRenderUseCase.execute(
-            new CreateChapterRenderCommand(projectId, chapterId, request.resolution(), request.format(), request.mediaPlanId(), request.mediaPlanRevision(), request.maxAuthorizedCost(), idempotencyKey));
+            new CreateChapterRenderCommand(
+                projectId,
+                chapterId,
+                request.resolution(),
+                request.format(),
+                request.mediaPlanId(),
+                request.mediaPlanRevision(),
+                request.maxAuthorizedCost(),
+                idempotencyKey));
     return ResponseEntity.accepted()
         .body(ApiResponse.success("Chapter render queued", JobResponse.from(job)));
   }

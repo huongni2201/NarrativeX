@@ -12,7 +12,8 @@ public record CreateChapterRenderCommand(
     Integer mediaPlanRevision,
     BigDecimal maxAuthorizedCost,
     String idempotencyKey) {
-  public CreateChapterRenderCommand(Long projectId, Long chapterId, String resolution, String format) {
+  public CreateChapterRenderCommand(
+      Long projectId, Long chapterId, String resolution, String format) {
     this(projectId, chapterId, resolution, format, null, null, null, null);
   }
 }

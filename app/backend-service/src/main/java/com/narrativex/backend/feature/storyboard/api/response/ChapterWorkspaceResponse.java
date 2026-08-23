@@ -23,8 +23,7 @@ public record ChapterWorkspaceResponse(
 
   public record PipelineStep(String status, Instant completedAt) {}
 
-  public record AudioStep(
-      String status, Instant completedAt, String audioUrl, Long durationMs) {}
+  public record AudioStep(String status, Instant completedAt, String audioUrl, Long durationMs) {}
 
   public record ProgressStep(String status, int total, int completed, int failed) {}
 

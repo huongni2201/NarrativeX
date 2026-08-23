@@ -20,14 +20,23 @@ public class ChapterContentImportService {
 
   public ImportedContent importOriginal(Long chapterId, String content, String contentHash) {
     LanguageDetectionResult result = detectionProvider.detect(content);
-    String languageCode = result.detectedLanguage().equals("MULTILINGUAL")
-        || result.detectedLanguage().equals("UNKNOWN") ? "und" : result.detectedLanguage();
+    String languageCode =
+        result.detectedLanguage().equals("MULTILINGUAL")
+                || result.detectedLanguage().equals("UNKNOWN")
+            ? "und"
+            : result.detectedLanguage();
     ChapterContentVariant variant =
         variantRepository.saveOriginal(chapterId, languageCode, content, contentHash);
     variantRepository.markTranslationsStale(chapterId, variant.id());
     LanguageDetection detection =
-        new LanguageDetection(null, variant.id(), result.detectedLanguage(), result.confidence(),
-            result.detector(), contentHash, Instant.now());
+        new LanguageDetection(
+            null,
+            variant.id(),
+            result.detectedLanguage(),
+            result.confidence(),
+            result.detector(),
+            contentHash,
+            Instant.now());
     LanguageDetection saved = detectionRepository.save(detection);
     return new ImportedContent(variant, saved);
   }

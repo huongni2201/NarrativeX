@@ -16,7 +16,9 @@ public class MyBatisNotificationQueryAdapter implements NotificationQueryReposit
 
   @Override
   public List<NotificationView> list(String userId, boolean unreadOnly, int limit) {
-    return mapper.list(userId, unreadOnly, limit).stream().map(MyBatisNotificationQueryAdapter::toView).toList();
+    return mapper.list(userId, unreadOnly, limit).stream()
+        .map(MyBatisNotificationQueryAdapter::toView)
+        .toList();
   }
 
   @Override
@@ -37,7 +39,12 @@ public class MyBatisNotificationQueryAdapter implements NotificationQueryReposit
 
   private static NotificationView toView(NotificationRow row) {
     return new NotificationView(
-        row.getId(), row.getProjectId(), row.getType(), row.getTitleKey(), row.getMessageKey(),
-        row.getReadAt(), row.getCreatedAt());
+        row.getId(),
+        row.getProjectId(),
+        row.getType(),
+        row.getTitleKey(),
+        row.getMessageKey(),
+        row.getReadAt(),
+        row.getCreatedAt());
   }
 }

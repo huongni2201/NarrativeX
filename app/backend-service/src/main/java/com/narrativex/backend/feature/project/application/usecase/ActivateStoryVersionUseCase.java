@@ -35,7 +35,8 @@ public class ActivateStoryVersionUseCase {
     if (currentActive.map(StoryVersion::getId).filter(storyVersionId::equals).isPresent()) {
       project.reconcileActiveStoryVersion(nextVersion);
       projectRepository.save(project);
-      log.debug("Story version id={} is already active for projectId={}", storyVersionId, projectId);
+      log.debug(
+          "Story version id={} is already active for projectId={}", storyVersionId, projectId);
       return nextVersion;
     }
 

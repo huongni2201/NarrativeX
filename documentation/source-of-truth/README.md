@@ -44,7 +44,7 @@ Worker local filesystem   -> ephemeral scratch only
 - Connect aligned multi-part uploaded narration to chapter render slicing/stitching; the current render worker requires a matching generated narration snapshot.
 - Complete narration-driven `VisualScenePlanner` and review/approval flow.
 - Harden image reuse/reframe/edit/approval lineage after the current generate-new foundation.
-- Add owner-authorized preview/download/streaming for Drive-backed FinalArtifacts.
+- Owner-authorized preview/download/streaming for Drive-backed FinalArtifacts is served by the backend proxy with HTTP Range support.
 - Preserve a validated local MP4 across cross-attempt Drive upload retries if rerender avoidance is required; current resumable upload is robust within an attempt and idempotent by render fingerprint, but the job workspace itself is ephemeral.
 - Complete actual usage/billing reconciliation, moderation, SSRF, retention, observability and DR evidence.
 - Add future social publishing through a provider-neutral final-video read/stream boundary.

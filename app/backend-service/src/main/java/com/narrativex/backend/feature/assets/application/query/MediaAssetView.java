@@ -35,7 +35,25 @@ public record MediaAssetView(
       Long durationMs,
       String status,
       Instant createdAt) {
-    this(id, type, origin, storageKey, originalFilename, contentType, sizeBytes, sha256,
-        durationMs, status, createdAt, null, null, null, null, null, null, null, null);
+    this(
+        id,
+        type,
+        origin,
+        storageKey,
+        originalFilename,
+        contentType,
+        sizeBytes,
+        sha256,
+        durationMs,
+        status,
+        createdAt,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null);
   }
 }

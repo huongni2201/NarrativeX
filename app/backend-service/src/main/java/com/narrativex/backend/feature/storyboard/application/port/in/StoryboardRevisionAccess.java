@@ -8,7 +8,8 @@ public interface StoryboardRevisionAccess {
 
   Long createDraft(Long chapterId, String sourceHash, long sourceRowVersion);
 
-  default Long createDraft(Long chapterId, String sourceHash, long sourceRowVersion, Long contentVariantId) {
+  default Long createDraft(
+      Long chapterId, String sourceHash, long sourceRowVersion, Long contentVariantId) {
     return createDraft(chapterId, sourceHash, sourceRowVersion);
   }
 

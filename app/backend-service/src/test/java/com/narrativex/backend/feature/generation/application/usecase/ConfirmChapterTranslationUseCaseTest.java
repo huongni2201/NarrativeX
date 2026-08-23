@@ -9,18 +9,18 @@ import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.account.application.port.in.UserQuotaAccess;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
+import com.narrativex.backend.feature.generation.application.command.ConfirmChapterTranslationCommand;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationOutboxRepository;
 import com.narrativex.backend.feature.generation.application.port.out.OperationPlanRepository;
 import com.narrativex.backend.feature.generation.application.port.out.QuotaReservation;
 import com.narrativex.backend.feature.generation.application.port.out.StageAttemptRepository;
-import com.narrativex.backend.feature.generation.application.command.ConfirmChapterTranslationCommand;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAccess;
-import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardRevisionAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterContentVariantAccess;
+import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardRevisionAccess;
 import com.narrativex.backend.feature.storyboard.domain.aggregate.Chapter;
 import com.narrativex.backend.feature.storyboard.domain.enums.ContentVariantType;
 import com.narrativex.backend.feature.storyboard.domain.enums.TranslationStatus;
@@ -62,8 +62,11 @@ class ConfirmChapterTranslationUseCaseTest {
         IllegalArgumentException.class,
         () -> useCase.execute(new ConfirmChapterTranslationCommand(7L, 12L, 77L, HASH, "vi-VN")));
 
-    verify(quotaReservation, never()).reserve(org.mockito.ArgumentMatchers.any(),
-        org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt());
+    verify(quotaReservation, never())
+        .reserve(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyInt());
     verify(generationJobRepository, never()).save(org.mockito.ArgumentMatchers.any());
   }
 
@@ -74,7 +77,9 @@ class ConfirmChapterTranslationUseCaseTest {
     givenChapter(chapter);
     when(variantAccess.findByIdOwned(7L, 12L, 55L, "user-1")).thenReturn(Optional.of(source));
     when(variantAccess.findCurrentOriginalOwned(7L, 12L, "user-1")).thenReturn(Optional.of(source));
-    var project = org.mockito.Mockito.mock(com.narrativex.backend.feature.project.domain.aggregate.Project.class);
+    var project =
+        org.mockito.Mockito.mock(
+            com.narrativex.backend.feature.project.domain.aggregate.Project.class);
     when(project.getProjectLanguage()).thenReturn("vi-VN");
     when(projectAccess.findOwnedProject(7L, "user-1")).thenReturn(project);
     var existing = org.mockito.Mockito.mock(GenerationJob.class);
@@ -83,12 +88,15 @@ class ConfirmChapterTranslationUseCaseTest {
             "user-1"))
         .thenReturn(Optional.of(existing));
 
-    assertEquals(existing, useCase.execute(
-        new ConfirmChapterTranslationCommand(7L, 12L, 55L, HASH, "VI-VN")));
+    assertEquals(
+        existing,
+        useCase.execute(new ConfirmChapterTranslationCommand(7L, 12L, 55L, HASH, "VI-VN")));
 
-    verify(generationJobRepository).acquireIdempotencyLock(
-        eq("chapter-translation:12:55:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:vi-vn:translation-v1"),
-        eq("user-1"));
+    verify(generationJobRepository)
+        .acquireIdempotencyLock(
+            eq(
+                "chapter-translation:12:55:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:vi-vn:translation-v1"),
+            eq("user-1"));
   }
 
   private void givenChapter(Chapter chapter) {
@@ -103,7 +111,17 @@ class ConfirmChapterTranslationUseCaseTest {
   private static ChapterContentVariant variant(
       Long id, ContentVariantType type, String sourceHash) {
     return new ChapterContentVariant(
-        id, 12L, type == ContentVariantType.ORIGINAL ? null : 1L, type, "en-US", "source",
-        sourceHash, sourceHash, null, null, TranslationStatus.NOT_REQUIRED, Instant.now());
+        id,
+        12L,
+        type == ContentVariantType.ORIGINAL ? null : 1L,
+        type,
+        "en-US",
+        "source",
+        sourceHash,
+        sourceHash,
+        null,
+        null,
+        TranslationStatus.NOT_REQUIRED,
+        Instant.now());
   }
 }

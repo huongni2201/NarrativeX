@@ -54,7 +54,17 @@ public record MediaPlanningSource(
       Long audioEndMs) {
     public BeatSnapshot(
         Long visualBeatId, int orderIndex, String visualIntent, MotionIntent motionIntent) {
-      this(visualBeatId, orderIndex, visualIntent, motionIntent, "APPROVED", "NONE", null, null, null, null);
+      this(
+          visualBeatId,
+          orderIndex,
+          visualIntent,
+          motionIntent,
+          "APPROVED",
+          "NONE",
+          null,
+          null,
+          null,
+          null);
     }
 
     public BeatSnapshot {

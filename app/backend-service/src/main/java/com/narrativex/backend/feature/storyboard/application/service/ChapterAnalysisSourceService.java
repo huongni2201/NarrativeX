@@ -33,8 +33,10 @@ public class ChapterAnalysisSourceService implements ChapterAnalysisSourceAccess
   @Transactional(propagation = Propagation.MANDATORY)
   public ChapterAnalysisSource requireOwnedForAnalysisLocked(
       Long projectId, Long chapterId, String userId, Long contentVariantId) {
-    chapterAnalysisSnapshotRepository.requireOwnedByProject(projectId, chapterId, userId, contentVariantId);
+    chapterAnalysisSnapshotRepository.requireOwnedByProject(
+        projectId, chapterId, userId, contentVariantId);
     storyboardRevisionAccess.lockChapter(chapterId);
-    return chapterAnalysisSnapshotRepository.requireOwnedByProject(projectId, chapterId, userId, contentVariantId);
+    return chapterAnalysisSnapshotRepository.requireOwnedByProject(
+        projectId, chapterId, userId, contentVariantId);
   }
 }

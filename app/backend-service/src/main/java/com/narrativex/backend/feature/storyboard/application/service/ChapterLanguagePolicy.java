@@ -6,7 +6,8 @@ public final class ChapterLanguagePolicy {
   private ChapterLanguagePolicy() {}
 
   public static String translationStatus(LanguageDetection detection, String projectLanguage) {
-    if (detection == null || detection.detectedLanguage().equals("UNKNOWN")) return "LANGUAGE_SELECTION_REQUIRED";
+    if (detection == null || detection.detectedLanguage().equals("UNKNOWN"))
+      return "LANGUAGE_SELECTION_REQUIRED";
     if (detection.detectedLanguage().equals("MULTILINGUAL")) return "MULTILINGUAL";
     if (sameLanguage(detection.detectedLanguage(), projectLanguage)) return "NOT_REQUIRED";
     if (detection.confidence().doubleValue() >= 0.80d) return "PENDING_CONFIRMATION";

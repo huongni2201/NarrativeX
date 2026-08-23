@@ -11,10 +11,10 @@ import java.sql.SQLException;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -127,7 +127,8 @@ public class ApiExceptionHandler {
       }
     } else if (exception
         instanceof
-        com.narrativex.backend.feature.storyboard.domain.exception.ContentVariantNotReadyException) {
+        com.narrativex.backend.feature.storyboard.domain.exception
+            .ContentVariantNotReadyException) {
       code = ApiErrorCode.CONTENT_VARIANT_NOT_READY;
     }
     return error(HttpStatus.CONFLICT, code, exception.getMessage(), request);

@@ -45,7 +45,7 @@ This is a working foundation, not yet the complete product creator loop.
 2. Slice/stitch aligned multi-part uploaded audio into chapter-local render input.
 3. Complete narration-driven `VisualScenePlanner` and review flow.
 4. Harden image approval/reuse/reframe/edit lineage and affected-scope regeneration.
-5. Expose owner-authorized preview/download/streaming for Drive-backed FinalArtifacts.
+5. Expose owner-authorized preview/download/streaming for Drive-backed FinalArtifacts through the backend OAuth proxy.
 6. Add cross-attempt upload-only retry without rerender if required.
 7. Complete actual-cost/ledger reconciliation and production safety/observability evidence.
 

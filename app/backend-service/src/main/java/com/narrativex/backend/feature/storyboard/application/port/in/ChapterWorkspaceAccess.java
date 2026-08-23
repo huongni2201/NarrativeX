@@ -25,8 +25,7 @@ public interface ChapterWorkspaceAccess {
 
   record PipelineStep(String status, Instant completedAt) {}
 
-  record AudioStep(
-      String status, Instant completedAt, String storageKey, Long durationMs) {}
+  record AudioStep(String status, Instant completedAt, String storageKey, Long durationMs) {}
 
   record PreviewScene(
       long id,

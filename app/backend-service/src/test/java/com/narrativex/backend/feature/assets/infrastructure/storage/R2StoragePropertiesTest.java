@@ -9,11 +9,7 @@ class R2StoragePropertiesTest {
   void rejectsMalformedConfiguredEndpoint() {
     R2StorageProperties properties =
         new R2StorageProperties(
-            "account",
-            "access",
-            "secret",
-            "bucket",
-            "R2_ENDPOINT=https://example.com");
+            "account", "access", "secret", "bucket", "R2_ENDPOINT=https://example.com");
 
     assertThat(properties.configured()).isFalse();
   }
@@ -21,8 +17,7 @@ class R2StoragePropertiesTest {
   @Test
   void acceptsHttpsEndpoint() {
     R2StorageProperties properties =
-        new R2StorageProperties(
-            "account", "access", "secret", "bucket", "https://example.com");
+        new R2StorageProperties("account", "access", "secret", "bucket", "https://example.com");
 
     assertThat(properties.configured()).isTrue();
   }

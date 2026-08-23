@@ -21,8 +21,7 @@ public final class MediaAssetCursorCodec {
   public static MediaAssetCursor decode(String encoded) {
     if (encoded == null || encoded.isBlank()) return null;
     try {
-      String decoded =
-          new String(Base64.getUrlDecoder().decode(encoded), StandardCharsets.UTF_8);
+      String decoded = new String(Base64.getUrlDecoder().decode(encoded), StandardCharsets.UTF_8);
       int separatorIndex = decoded.lastIndexOf(SEPARATOR);
       if (separatorIndex <= 0 || separatorIndex == decoded.length() - 1) {
         throw new IllegalArgumentException("Malformed cursor");

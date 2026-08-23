@@ -24,8 +24,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest
@@ -147,8 +147,7 @@ class ProviderOperationRepositoryIntegrationTest extends PostgreSqlIntegrationTe
 
     assertEquals(1, results.stream().filter(ProviderOperation.class::isInstance).count());
     assertEquals(
-        1,
-        results.stream().filter(OptimisticLockingFailureException.class::isInstance).count());
+        1, results.stream().filter(OptimisticLockingFailureException.class::isInstance).count());
     assertEquals(
         1,
         Stream.of(ProviderOperationStatus.SUBMITTED, ProviderOperationStatus.RUNNING)

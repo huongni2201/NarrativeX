@@ -21,7 +21,8 @@ class ExpiredUploadCleanupJobTest {
     var finalization = Mockito.mock(MediaUploadFinalizationService.class);
     var storage = Mockito.mock(ObjectStoragePort.class);
     var tasks = Mockito.mock(MediaStorageCleanupTaskRepository.class);
-    var upload = new MediaUploadSessionRepository.RejectedUpload(UUID.randomUUID(), "media/uploads/late");
+    var upload =
+        new MediaUploadSessionRepository.RejectedUpload(UUID.randomUUID(), "media/uploads/late");
     when(sessions.findExpiredPending(100)).thenReturn(List.of());
     when(sessions.findRejectedForCleanup(100)).thenReturn(List.of(upload));
     when(storage.head(upload.storageKey()))
@@ -29,6 +30,7 @@ class ExpiredUploadCleanupJobTest {
 
     new ExpiredUploadCleanupJob(sessions, finalization, storage, tasks).cleanup();
 
-    verify(tasks).enqueue(eq(upload.storageKey()), eq("REJECTED_UPLOAD_RECONCILIATION"), any(Instant.class));
+    verify(tasks)
+        .enqueue(eq(upload.storageKey()), eq("REJECTED_UPLOAD_RECONCILIATION"), any(Instant.class));
   }
 }

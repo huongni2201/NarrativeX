@@ -20,7 +20,7 @@ This is the single maintained feature/status view. Historical requirement identi
 | Vertex image generation | IMPLEMENTED foundation | real provider path + durable R2 image assets |
 | IMAGE_MOTION chapter render | IMPLEMENTED foundation | dedicated FFmpeg render worker + ffprobe validation |
 | Final MP4 duplicated into R2 | NOT USED | final video is promoted directly to Drive by default |
-| Owner-authorized Drive preview/download | PARTIAL/TARGET | provider metadata exists; controlled read/stream boundary remains |
+| Owner-authorized Drive preview/download | IMPLEMENTED | backend-authorized OAuth proxy with preview/download dispositions and HTTP Range |
 | Cross-attempt Drive upload-only retry | TARGET hardening | resumable upload is robust within an attempt; local workspace is ephemeral |
 | MyBatis-only production persistence | IMPLEMENTED | all production persistence uses MyBatis + explicit SQL |
 | VisualScenePlanner | TARGET | narration-timeline-driven adaptive scenes |

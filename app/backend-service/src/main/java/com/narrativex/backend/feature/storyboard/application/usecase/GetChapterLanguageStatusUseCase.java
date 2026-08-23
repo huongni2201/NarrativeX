@@ -26,19 +26,38 @@ public class GetChapterLanguageStatusUseCase {
 
   @Transactional(readOnly = true)
   public ApiResponse<ChapterLanguageStatusResponse> execute(Long projectId, Long chapterId) {
-    var chapter = chapterRepository.findById(chapterId).orElseThrow(() -> new ResourceNotFoundException("Chapter not found"));
-    storyVersionAccess.requireOwnedStoryVersion(projectId, chapter.getStoryVersionId(), currentUserId.get());
+    var chapter =
+        chapterRepository
+            .findById(chapterId)
+            .orElseThrow(() -> new ResourceNotFoundException("Chapter not found"));
+    storyVersionAccess.requireOwnedStoryVersion(
+        projectId, chapter.getStoryVersionId(), currentUserId.get());
     var project = projectAccess.findOwnedProject(projectId, currentUserId.get());
-    var variant = variantRepository.findLatestOriginal(chapterId).orElseThrow(() -> new ResourceNotFoundException("Chapter content variant not found"));
-    var detection = detectionRepository.findLatest(variant.id(), variant.contentHash()).orElse(null);
-    String status = ChapterLanguagePolicy.translationStatus(detection, project.getProjectLanguage());
-    Long translationId = detection == null ? null : variantRepository
-        .findCompletedTranslation(chapterId, variant.id(), project.getProjectLanguage(), variant.contentHash())
-        .map(v -> v.id()).orElse(null);
+    var variant =
+        variantRepository
+            .findLatestOriginal(chapterId)
+            .orElseThrow(() -> new ResourceNotFoundException("Chapter content variant not found"));
+    var detection =
+        detectionRepository.findLatest(variant.id(), variant.contentHash()).orElse(null);
+    String status =
+        ChapterLanguagePolicy.translationStatus(detection, project.getProjectLanguage());
+    Long translationId =
+        detection == null
+            ? null
+            : variantRepository
+                .findCompletedTranslation(
+                    chapterId, variant.id(), project.getProjectLanguage(), variant.contentHash())
+                .map(v -> v.id())
+                .orElse(null);
     if (translationId != null) status = "COMPLETED";
-    return ApiResponse.success(new ChapterLanguageStatusResponse(
-        variant.id(), detection == null ? null : detection.detectedLanguage(),
-        detection == null ? null : detection.confidence(), detection == null ? null : detection.detector(),
-        project.getProjectLanguage(), status, translationId));
+    return ApiResponse.success(
+        new ChapterLanguageStatusResponse(
+            variant.id(),
+            detection == null ? null : detection.detectedLanguage(),
+            detection == null ? null : detection.confidence(),
+            detection == null ? null : detection.detector(),
+            project.getProjectLanguage(),
+            status,
+            translationId));
   }
 }

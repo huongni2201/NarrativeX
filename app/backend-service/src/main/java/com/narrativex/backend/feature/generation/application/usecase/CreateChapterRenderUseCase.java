@@ -47,25 +47,35 @@ public class CreateChapterRenderUseCase {
   public GenerationJob execute(CreateChapterRenderCommand command) {
     String userId = currentUserId.get();
     var chapter =
-        chapterSourceAccess.requireOwnedForAnalysisLocked(command.projectId(), command.chapterId(), userId);
+        chapterSourceAccess.requireOwnedForAnalysisLocked(
+            command.projectId(), command.chapterId(), userId);
     var project = projectAccess.findOwnedProject(command.projectId(), userId);
     var workspace = workspaceRepository.get(command.projectId(), command.chapterId());
-    if (command.mediaPlanId() == null || command.mediaPlanRevision() == null || command.mediaPlanRevision() <= 0) {
+    if (command.mediaPlanId() == null
+        || command.mediaPlanRevision() == null
+        || command.mediaPlanRevision() <= 0) {
       throw new GenerationAdmissionDeniedException(
           "MEDIA_PLAN_REQUIRED", "Rendering requires an approved media plan revision.");
     }
     if (!mediaPlanRepository.existsOwnedForChapter(
         command.mediaPlanId(), command.mediaPlanRevision(), command.chapterId(), userId)) {
       throw new GenerationAdmissionDeniedException(
-          "MEDIA_PLAN_NOT_FOUND", "The requested media plan revision is not owned by this project.");
+          "MEDIA_PLAN_NOT_FOUND",
+          "The requested media plan revision is not owned by this project.");
     }
     if (!"COMPLETED".equals(workspace.analysis().status())) {
       throw new IllegalStateException("Chapter analysis must be completed before rendering");
     }
-    var quota = userQuotaAccess.findCurrentQuota(userId)
-        .orElseThrow(() -> new GenerationAdmissionDeniedException("ENTITLEMENT_DENIED", "No active plan."));
+    var quota =
+        userQuotaAccess
+            .findCurrentQuota(userId)
+            .orElseThrow(
+                () ->
+                    new GenerationAdmissionDeniedException(
+                        "ENTITLEMENT_DENIED", "No active plan."));
     if (!qualityAllowed(command.resolution(), quota.maxVideoQuality())) {
-      throw new GenerationAdmissionDeniedException("ENTITLEMENT_DENIED", "The requested resolution exceeds the active plan entitlement.");
+      throw new GenerationAdmissionDeniedException(
+          "ENTITLEMENT_DENIED", "The requested resolution exceeds the active plan entitlement.");
     }
     if (!"COMPLETED".equals(workspace.projection().visualGeneration().status())
         || !"READY".equals(workspace.projection().audio().status())) {
@@ -74,30 +84,35 @@ public class CreateChapterRenderUseCase {
 
     BigDecimal renderCost =
         "1080p".equals(command.resolution()) ? BigDecimal.valueOf(0.50) : BigDecimal.valueOf(0.25);
-    if (command.maxAuthorizedCost() != null && renderCost.compareTo(command.maxAuthorizedCost()) > 0) {
-      throw new GenerationAdmissionDeniedException("COST_LIMIT", "The requested render authorization cap is below the server estimate.");
+    if (command.maxAuthorizedCost() != null
+        && renderCost.compareTo(command.maxAuthorizedCost()) > 0) {
+      throw new GenerationAdmissionDeniedException(
+          "COST_LIMIT", "The requested render authorization cap is below the server estimate.");
     }
     String idempotencyKey =
         command.idempotencyKey() != null && !command.idempotencyKey().isBlank()
             ? command.idempotencyKey()
             : "chapter-render:"
-            + command.projectId()
-            + ":"
-            + command.chapterId()
-            + ":"
-            + chapter.sourceHash()
-            + ":"
-            + command.mediaPlanId()
-            + ":"
-            + command.mediaPlanRevision()
-            + ":"
-            + command.resolution()
-            + ":"
-            + command.format();
+                + command.projectId()
+                + ":"
+                + command.chapterId()
+                + ":"
+                + chapter.sourceHash()
+                + ":"
+                + command.mediaPlanId()
+                + ":"
+                + command.mediaPlanRevision()
+                + ":"
+                + command.resolution()
+                + ":"
+                + command.format();
     generationJobRepository.acquireIdempotencyLock(idempotencyKey, userId);
     var existing = generationJobRepository.findByIdempotencyKey(idempotencyKey, userId);
     if (existing.isPresent()) {
-      log.debug("Found existing render job id={} for idempotencyKey='{}'", existing.get().getId(), idempotencyKey);
+      log.debug(
+          "Found existing render job id={} for idempotencyKey='{}'",
+          existing.get().getId(),
+          idempotencyKey);
       return existing.get();
     }
 
@@ -105,7 +120,9 @@ public class CreateChapterRenderUseCase {
         quotaReservation
             .reserve(userId, renderCost, quota.maxConcurrentExpensiveJobs())
             .orElseThrow(
-                () -> new GenerationAdmissionDeniedException("COST_LIMIT", "Render quota is exhausted."));
+                () ->
+                    new GenerationAdmissionDeniedException(
+                        "COST_LIMIT", "Render quota is exhausted."));
     GenerationJob job =
         generationJobRepository.save(
             GenerationJob.createChapterRender(
@@ -169,13 +186,14 @@ public class CreateChapterRenderUseCase {
   private static boolean qualityAllowed(String requestedResolution, String maximumQuality) {
     if (maximumQuality == null || maximumQuality.isBlank()) return false;
     int requested = "1080p".equalsIgnoreCase(requestedResolution) ? 3 : 1;
-    int maximum = switch (maximumQuality.toUpperCase()) {
-      case "DRAFT", "720P" -> 1;
-      case "STANDARD" -> 2;
-      case "HIGH", "1080P" -> 3;
-      case "ULTRA" -> 4;
-      default -> 0;
-    };
+    int maximum =
+        switch (maximumQuality.toUpperCase()) {
+          case "DRAFT", "720P" -> 1;
+          case "STANDARD" -> 2;
+          case "HIGH", "1080P" -> 3;
+          case "ULTRA" -> 4;
+          default -> 0;
+        };
     return maximum >= requested;
   }
 }

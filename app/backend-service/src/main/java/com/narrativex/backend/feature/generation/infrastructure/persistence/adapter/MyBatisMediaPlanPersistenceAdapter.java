@@ -6,8 +6,8 @@ import com.narrativex.backend.feature.generation.infrastructure.persistence.myba
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.MediaPlanMapper;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.MediaPlanRow;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.MediaScenePlanRow;
-import lombok.RequiredArgsConstructor;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -91,7 +91,8 @@ public class MyBatisMediaPlanPersistenceAdapter implements MediaPlanRepository {
   }
 
   @Override
-  public boolean existsOwnedForChapter(UUID mediaPlanId, int revision, Long chapterId, String ownerId) {
+  public boolean existsOwnedForChapter(
+      UUID mediaPlanId, int revision, Long chapterId, String ownerId) {
     return mapper.existsOwnedForChapter(mediaPlanId, revision, chapterId, ownerId);
   }
 }

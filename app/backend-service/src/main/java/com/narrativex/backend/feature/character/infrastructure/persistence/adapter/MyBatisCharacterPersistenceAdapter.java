@@ -24,22 +24,63 @@ public class MyBatisCharacterPersistenceAdapter implements CharacterRepository {
   @Override
   public CursorPage<Character> findActiveByOwnerId(String ownerId, String cursor, int limit) {
     CursorKey key = CursorCodec.decode(cursor);
-    List<CharacterRow> rows = key == null ? mapper.findActiveFirstPage(ownerId, limit + 1) : mapper.findActiveAfter(ownerId, key.updatedAt(), key.id(), limit + 1);
+    List<CharacterRow> rows =
+        key == null
+            ? mapper.findActiveFirstPage(ownerId, limit + 1)
+            : mapper.findActiveAfter(ownerId, key.updatedAt(), key.id(), limit + 1);
     boolean hasNext = rows.size() > limit;
     List<CharacterRow> visible = rows.subList(0, Math.min(limit, rows.size()));
-    String next = hasNext && !visible.isEmpty() ? CursorCodec.encode(visible.getLast().getUpdatedAt(), visible.getLast().getId()) : null;
-    return new CursorPage<>(visible.stream().map(rowMapper::toDomain).toList(), next, limit, hasNext);
+    String next =
+        hasNext && !visible.isEmpty()
+            ? CursorCodec.encode(visible.getLast().getUpdatedAt(), visible.getLast().getId())
+            : null;
+    return new CursorPage<>(
+        visible.stream().map(rowMapper::toDomain).toList(), next, limit, hasNext);
   }
-  @Override public long countActiveByOwnerId(String ownerId) { return mapper.countActive(ownerId, CharacterStatus.ACTIVE.name()); }
-  @Override public Optional<Character> findOwnedById(Long id, String ownerId) { return Optional.ofNullable(mapper.findOwned(id, ownerId, CharacterStatus.ARCHIVED.name())).map(rowMapper::toDomain); }
-  @Override public Optional<Character> findOwnedByIdForUpdate(Long id, String ownerId) { return Optional.ofNullable(mapper.findOwnedForUpdate(id, ownerId, CharacterStatus.ARCHIVED.name())).map(rowMapper::toDomain); }
-  @Override public Character save(Character value) {
+
+  @Override
+  public long countActiveByOwnerId(String ownerId) {
+    return mapper.countActive(ownerId, CharacterStatus.ACTIVE.name());
+  }
+
+  @Override
+  public Optional<Character> findOwnedById(Long id, String ownerId) {
+    return Optional.ofNullable(mapper.findOwned(id, ownerId, CharacterStatus.ARCHIVED.name()))
+        .map(rowMapper::toDomain);
+  }
+
+  @Override
+  public Optional<Character> findOwnedByIdForUpdate(Long id, String ownerId) {
+    return Optional.ofNullable(
+            mapper.findOwnedForUpdate(id, ownerId, CharacterStatus.ARCHIVED.name()))
+        .map(rowMapper::toDomain);
+  }
+
+  @Override
+  public Character save(Character value) {
     CharacterRow row = rowMapper.row(value, CharacterMyBatisRowMapper.InstantPair.now());
-    if (value.getId() == null) { row.setId(null); row.setRowVersion(0); row.setCreatedAt(java.time.Instant.now()); row.setUpdatedAt(row.getCreatedAt()); Long id = mapper.insertCharacter(row); row.setId(id); return rowMapper.toDomain(mapper.findCharacter(id)); }
+    if (value.getId() == null) {
+      row.setId(null);
+      row.setRowVersion(0);
+      row.setCreatedAt(java.time.Instant.now());
+      row.setUpdatedAt(row.getCreatedAt());
+      Long id = mapper.insertCharacter(row);
+      row.setId(id);
+      return rowMapper.toDomain(mapper.findCharacter(id));
+    }
     CharacterRow existing = mapper.findCharacter(value.getId());
-    if (existing == null) { row.setId(null); row.setRowVersion(0); Long id = mapper.insertCharacter(row); row.setId(id); return rowMapper.toDomain(mapper.findCharacter(id)); }
-    OptimisticConcurrency.requireVersion(value.getRowVersion(), existing.getRowVersion(), Character.class, value.getId());
-    if (mapper.updateCharacter(row) != 1) throw new org.springframework.dao.OptimisticLockingFailureException("Character was modified concurrently");
+    if (existing == null) {
+      row.setId(null);
+      row.setRowVersion(0);
+      Long id = mapper.insertCharacter(row);
+      row.setId(id);
+      return rowMapper.toDomain(mapper.findCharacter(id));
+    }
+    OptimisticConcurrency.requireVersion(
+        value.getRowVersion(), existing.getRowVersion(), Character.class, value.getId());
+    if (mapper.updateCharacter(row) != 1)
+      throw new org.springframework.dao.OptimisticLockingFailureException(
+          "Character was modified concurrently");
     return rowMapper.toDomain(mapper.findCharacter(value.getId()));
   }
 }

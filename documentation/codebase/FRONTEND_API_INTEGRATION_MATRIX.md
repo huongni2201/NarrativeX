@@ -28,7 +28,7 @@ This matrix records frontend wiring separately from backend/API availability. AP
 | Provider Health | IMPLEMENTED foundation | backend read (`/api/v1/provider-health`) | status indicator badge & model info |
 | Presets | IMPLEMENTED foundation | `/api/v1/style-presets` reads PostgreSQL catalog | custom preset CRUD and project assignment |
 | Voice catalog | IMPLEMENTED foundation | `/api/v1/voices` reads enabled PostgreSQL catalog | provider sample playback and voice administration |
-| Render/export | IMPLEMENTED foundation | chapter render admission, job status and artifact metadata APIs | image materialization, worker render and signed download |
+| Render/export | IMPLEMENTED foundation | chapter render admission, job status and owner-authorized artifact metadata APIs, including `GET /api/v1/artifacts/by-job/{jobId}` | image materialization, worker render and signed download |
 | Settings | PARTIAL | partial/local contracts | define persisted settings boundaries |
 
 ## Chapter Analyze UI contract

@@ -10,18 +10,17 @@ import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.assets.application.pagination.MediaAssetCursorCodec;
 import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository;
+import com.narrativex.backend.feature.assets.domain.enums.MediaAssetStatus;
+import com.narrativex.backend.feature.assets.domain.service.MediaAssetTransitionService;
 import com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetMapper;
 import com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetRow;
-import com.narrativex.backend.feature.assets.domain.service.MediaAssetTransitionService;
-import com.narrativex.backend.feature.common.pagination.CursorPage;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
-import com.narrativex.backend.feature.assets.domain.enums.MediaAssetStatus;
+import com.narrativex.backend.feature.common.pagination.CursorPage;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.dao.OptimisticLockingFailureException;
 
 class MyBatisMediaAssetRepositoryTest {
   private static final String ACCOUNT = "account-1";
@@ -36,7 +35,8 @@ class MyBatisMediaAssetRepositoryTest {
   @BeforeEach
   void setUp() {
     firstId = UUID.randomUUID();
-    validating = row(firstId, MediaAssetStatus.VALIDATING.name(), Instant.parse("2026-01-01T00:00:00Z"));
+    validating =
+        row(firstId, MediaAssetStatus.VALIDATING.name(), Instant.parse("2026-01-01T00:00:00Z"));
   }
 
   @Test
@@ -71,7 +71,8 @@ class MyBatisMediaAssetRepositoryTest {
     when(mapper.findOwned(ACCOUNT, existing.getId())).thenReturn(existing);
 
     assertThat(
-            repository.createOrReuseVerifiedAsset(
+            repository
+                .createOrReuseVerifiedAsset(
                     ACCOUNT,
                     new MediaAssetRepository.CreateVerifiedMediaAsset(
                         firstId,
@@ -83,7 +84,7 @@ class MyBatisMediaAssetRepositoryTest {
                         100,
                         HASH,
                         1_000L))
-        .id())
+                .id())
         .isEqualTo(existing.getId());
     verify(mapper, never()).insertVerified(any());
   }
@@ -95,7 +96,8 @@ class MyBatisMediaAssetRepositoryTest {
     when(mapper.findOwned(ACCOUNT, firstId)).thenReturn(validating);
 
     assertThat(
-            repository.createOrReuseVerifiedAsset(
+            repository
+                .createOrReuseVerifiedAsset(
                     ACCOUNT,
                     new MediaAssetRepository.CreateVerifiedMediaAsset(
                         firstId,
@@ -107,7 +109,7 @@ class MyBatisMediaAssetRepositoryTest {
                         100,
                         HASH,
                         1_000L))
-        .id())
+                .id())
         .isEqualTo(firstId);
     verify(mapper).insertVerified(any());
   }

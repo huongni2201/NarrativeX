@@ -23,21 +23,51 @@ class StoryVersionPersistenceAdapterTest {
 
   @Test
   void rejectsDetachedStoryVersionWhenPersistedVersionMovedForward() {
-    StoryVersion value = StoryVersion.rehydrate(11L, 3L, 7L, 1, "content", "vi-VN", StoryVersionStatus.DRAFT, ModerationDecision.PENDING);
+    StoryVersion value =
+        StoryVersion.rehydrate(
+            11L,
+            3L,
+            7L,
+            1,
+            "content",
+            "vi-VN",
+            StoryVersionStatus.DRAFT,
+            ModerationDecision.PENDING);
     when(mapper.findById(11L)).thenReturn(row(4L));
-    MyBatisStoryVersionPersistenceAdapter adapter = new MyBatisStoryVersionPersistenceAdapter(mapper);
+    MyBatisStoryVersionPersistenceAdapter adapter =
+        new MyBatisStoryVersionPersistenceAdapter(mapper);
     assertThrows(OptimisticLockingFailureException.class, () -> adapter.save(value));
     verify(mapper, never()).update(org.mockito.ArgumentMatchers.any());
   }
 
   @Test
   void persistedStoryVersionCannotBeSilentlyRecreatedWhenMissing() {
-    StoryVersion value = StoryVersion.rehydrate(11L, 3L, 7L, 1, "content", "vi-VN", StoryVersionStatus.DRAFT, ModerationDecision.PENDING);
+    StoryVersion value =
+        StoryVersion.rehydrate(
+            11L,
+            3L,
+            7L,
+            1,
+            "content",
+            "vi-VN",
+            StoryVersionStatus.DRAFT,
+            ModerationDecision.PENDING);
     when(mapper.findById(11L)).thenReturn(null);
-    assertThrows(ResourceNotFoundException.class, () -> new MyBatisStoryVersionPersistenceAdapter(mapper).save(value));
+    assertThrows(
+        ResourceNotFoundException.class,
+        () -> new MyBatisStoryVersionPersistenceAdapter(mapper).save(value));
   }
 
   private static StoryVersionRow row(long version) {
-    StoryVersionRow row = new StoryVersionRow(); row.setId(11L); row.setRowVersion(version); row.setProjectId(7L); row.setVersionNumber(1); row.setContent("server"); row.setSourceLanguage("vi-VN"); row.setStatus("DRAFT"); row.setModerationDecision("PENDING"); return row;
+    StoryVersionRow row = new StoryVersionRow();
+    row.setId(11L);
+    row.setRowVersion(version);
+    row.setProjectId(7L);
+    row.setVersionNumber(1);
+    row.setContent("server");
+    row.setSourceLanguage("vi-VN");
+    row.setStatus("DRAFT");
+    row.setModerationDecision("PENDING");
+    return row;
   }
 }

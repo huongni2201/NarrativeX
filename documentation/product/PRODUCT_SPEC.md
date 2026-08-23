@@ -106,7 +106,7 @@ The Drive adapter supports resumable chunk recovery within an attempt and finger
 | IMAGE_MOTION chapter render/export | IMPLEMENTED foundation |
 | Google Drive final-video upload + metadata | IMPLEMENTED foundation |
 | Uploaded multi-part audio render slicing/stitching | PARTIAL/TARGET |
-| Owner-authorized Drive preview/download/streaming | PARTIAL/TARGET |
+| Owner-authorized Drive preview/download/streaming | IMPLEMENTED |
 | Cross-attempt upload-only retry | TARGET hardening |
 | VisualScenePlanner | TARGET |
 | Character/reference locking + richer image reuse lineage | PARTIAL/DEFERRED fast-follow |

@@ -18,18 +18,38 @@ public class MyBatisLanguageDetectionRepository implements LanguageDetectionRepo
     Long id =
         mapper.insert(
             new LanguageDetectionRow(
-                detection.id(), detection.contentVariantId(), detection.detectedLanguage(),
-                detection.confidence(), detection.detector(), detection.contentHash(), detection.detectedAt()));
-    LanguageDetectionRow row = mapper.findLatest(detection.contentVariantId(), detection.contentHash());
+                detection.id(),
+                detection.contentVariantId(),
+                detection.detectedLanguage(),
+                detection.confidence(),
+                detection.detector(),
+                detection.contentHash(),
+                detection.detectedAt()));
+    LanguageDetectionRow row =
+        mapper.findLatest(detection.contentVariantId(), detection.contentHash());
     return new LanguageDetection(
-        id == null ? row.getId() : id, row.getContentVariantId(), row.getDetectedLanguage(),
-        row.getConfidence(), row.getDetector(), row.getContentHash(), row.getDetectedAt());
+        id == null ? row.getId() : id,
+        row.getContentVariantId(),
+        row.getDetectedLanguage(),
+        row.getConfidence(),
+        row.getDetector(),
+        row.getContentHash(),
+        row.getDetectedAt());
   }
 
   @Override
   public Optional<LanguageDetection> findLatest(Long contentVariantId, String contentHash) {
     LanguageDetectionRow row = mapper.findLatest(contentVariantId, contentHash);
     return Optional.ofNullable(row)
-        .map(r -> new LanguageDetection(r.getId(), r.getContentVariantId(), r.getDetectedLanguage(), r.getConfidence(), r.getDetector(), r.getContentHash(), r.getDetectedAt()));
+        .map(
+            r ->
+                new LanguageDetection(
+                    r.getId(),
+                    r.getContentVariantId(),
+                    r.getDetectedLanguage(),
+                    r.getConfidence(),
+                    r.getDetector(),
+                    r.getContentHash(),
+                    r.getDetectedAt()));
   }
 }

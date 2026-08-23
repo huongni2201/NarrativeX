@@ -18,8 +18,17 @@ public record ChapterContentVariantResponse(
     Instant createdAt) {
   public static ChapterContentVariantResponse from(ChapterContentVariant value) {
     return new ChapterContentVariantResponse(
-        value.id(), value.chapterId(), value.sourceVariantId(), value.type().name(), value.languageCode(),
-        value.content(), value.contentHash(), value.sourceContentHash(), value.translationProvider(), value.translationModel(),
-        value.status().name(), value.createdAt());
+        value.id(),
+        value.chapterId(),
+        value.sourceVariantId(),
+        value.type().name(),
+        value.languageCode(),
+        value.content(),
+        value.contentHash(),
+        value.sourceContentHash(),
+        value.translationProvider(),
+        value.translationModel(),
+        value.status().name(),
+        value.createdAt());
   }
 }

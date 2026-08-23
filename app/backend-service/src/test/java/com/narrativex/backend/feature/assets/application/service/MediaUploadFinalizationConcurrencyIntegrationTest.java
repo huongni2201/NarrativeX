@@ -89,9 +89,15 @@ class MediaUploadFinalizationConcurrencyIntegrationTest {
       assertThat(first.status()).isEqualTo("VALIDATING");
       assertThat(second.status()).isEqualTo("VALIDATING");
       assertThat(second.mediaAssetId()).isEqualTo(first.mediaAssetId());
-      assertThat(count("SELECT COUNT(*) FROM media_upload_sessions WHERE id = ? AND status = 'VALIDATING'", session.id()))
+      assertThat(
+              count(
+                  "SELECT COUNT(*) FROM media_upload_sessions WHERE id = ? AND status = 'VALIDATING'",
+                  session.id()))
           .isEqualTo(1);
-      assertThat(count("SELECT COUNT(*) FROM media_assets WHERE account_id = ? AND status = 'VALIDATING'", ACCOUNT))
+      assertThat(
+              count(
+                  "SELECT COUNT(*) FROM media_assets WHERE account_id = ? AND status = 'VALIDATING'",
+                  ACCOUNT))
           .isEqualTo(1);
       assertThat(
               count(
@@ -108,11 +114,14 @@ class MediaUploadFinalizationConcurrencyIntegrationTest {
     UploadSession session = createSession();
     StoredObject storedObject = storedObject(session);
 
-    UploadFinalizeView first = finalization.finalizeVerifiedObject(ACCOUNT, session.id(), storedObject);
-    UploadFinalizeView retry = finalization.finalizeVerifiedObject(ACCOUNT, session.id(), storedObject);
+    UploadFinalizeView first =
+        finalization.finalizeVerifiedObject(ACCOUNT, session.id(), storedObject);
+    UploadFinalizeView retry =
+        finalization.finalizeVerifiedObject(ACCOUNT, session.id(), storedObject);
 
     assertThat(retry.mediaAssetId()).isEqualTo(first.mediaAssetId());
-    assertThat(count("SELECT COUNT(*) FROM media_assets WHERE account_id = ?", ACCOUNT)).isEqualTo(1);
+    assertThat(count("SELECT COUNT(*) FROM media_assets WHERE account_id = ?", ACCOUNT))
+        .isEqualTo(1);
     assertThat(count("SELECT COUNT(*) FROM media_storage_cleanup_tasks")).isZero();
   }
 
@@ -161,7 +170,8 @@ class MediaUploadFinalizationConcurrencyIntegrationTest {
         finalization.finalizeVerifiedObject(
             ACCOUNT,
             session.id(),
-            new StoredObject(session.storageKey(), session.expectedSize() + 1, session.contentType(), SHA));
+            new StoredObject(
+                session.storageKey(), session.expectedSize() + 1, session.contentType(), SHA));
 
     assertThat(result.status()).isEqualTo("REJECTED");
     assertThat(count("SELECT COUNT(*) FROM media_storage_cleanup_tasks WHERE status = 'PENDING'"))
@@ -196,7 +206,8 @@ class MediaUploadFinalizationConcurrencyIntegrationTest {
   }
 
   private static StoredObject storedObject(UploadSession session) {
-    return new StoredObject(session.storageKey(), session.expectedSize(), session.contentType(), SHA);
+    return new StoredObject(
+        session.storageKey(), session.expectedSize(), session.contentType(), SHA);
   }
 
   private long count(String sql, Object... args) {

@@ -46,7 +46,8 @@ public interface ChapterContentVariantMapper extends NarrativeXMyBatisMapper {
       @Param("projectId") Long projectId, @Param("chapterId") Long chapterId);
 
   int markTranslationsStale(
-      @Param("chapterId") Long chapterId, @Param("currentSourceVariantId") Long currentSourceVariantId);
+      @Param("chapterId") Long chapterId,
+      @Param("currentSourceVariantId") Long currentSourceVariantId);
 
   int updateStatus(@Param("variantId") Long variantId, @Param("status") String status);
 }

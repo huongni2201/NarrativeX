@@ -3,8 +3,8 @@ package com.narrativex.backend.feature.generation.domain.entity;
 import com.narrativex.backend.feature.generation.domain.enums.MediaGenerationExecutionStatus;
 import com.narrativex.backend.feature.generation.domain.enums.MediaGenerationReviewStatus;
 import java.time.Instant;
-import java.util.UUID;
 import java.util.Objects;
+import java.util.UUID;
 
 /** One immutable execution attempt for one planned VisualBeat. */
 public final class MediaGenerationItem {
@@ -123,22 +123,69 @@ public final class MediaGenerationItem {
         reviewedAt);
   }
 
-  public Long getGenerationJobId() { return generationJobId; }
-  public UUID getId() { return id; }
-  public long getRowVersion() { return rowVersion; }
-  public UUID getMediaPlanId() { return mediaPlanId; }
-  public Long getVisualBeatId() { return visualBeatId; }
-  public String getItemKey() { return itemKey; }
-  public int getAttemptNumber() { return attemptNumber; }
-  public MediaGenerationExecutionStatus getExecutionStatus() { return executionStatus; }
-  public Long getProviderOperationId() { return providerOperationId; }
-  public UUID getMediaAssetId() { return mediaAssetId; }
-  public String getRequestFingerprint() { return requestFingerprint; }
-  public String getErrorCode() { return errorCode; }
-  public String getErrorDetailRef() { return errorDetailRef; }
-  public MediaGenerationReviewStatus getReviewStatus() { return reviewStatus; }
-  public String getReviewedByUserId() { return reviewedByUserId; }
-  public Instant getReviewedAt() { return reviewedAt; }
+  public Long getGenerationJobId() {
+    return generationJobId;
+  }
+
+  public UUID getId() {
+    return id;
+  }
+
+  public long getRowVersion() {
+    return rowVersion;
+  }
+
+  public UUID getMediaPlanId() {
+    return mediaPlanId;
+  }
+
+  public Long getVisualBeatId() {
+    return visualBeatId;
+  }
+
+  public String getItemKey() {
+    return itemKey;
+  }
+
+  public int getAttemptNumber() {
+    return attemptNumber;
+  }
+
+  public MediaGenerationExecutionStatus getExecutionStatus() {
+    return executionStatus;
+  }
+
+  public Long getProviderOperationId() {
+    return providerOperationId;
+  }
+
+  public UUID getMediaAssetId() {
+    return mediaAssetId;
+  }
+
+  public String getRequestFingerprint() {
+    return requestFingerprint;
+  }
+
+  public String getErrorCode() {
+    return errorCode;
+  }
+
+  public String getErrorDetailRef() {
+    return errorDetailRef;
+  }
+
+  public MediaGenerationReviewStatus getReviewStatus() {
+    return reviewStatus;
+  }
+
+  public String getReviewedByUserId() {
+    return reviewedByUserId;
+  }
+
+  public Instant getReviewedAt() {
+    return reviewedAt;
+  }
 
   public void review(MediaGenerationReviewStatus decision, String reviewerId, Instant at) {
     if (executionStatus != MediaGenerationExecutionStatus.READY
@@ -151,7 +198,8 @@ public final class MediaGenerationItem {
   }
 
   private static String required(String value, String field) {
-    if (value == null || value.isBlank()) throw new IllegalArgumentException(field + " must not be blank");
+    if (value == null || value.isBlank())
+      throw new IllegalArgumentException(field + " must not be blank");
     return value;
   }
 }

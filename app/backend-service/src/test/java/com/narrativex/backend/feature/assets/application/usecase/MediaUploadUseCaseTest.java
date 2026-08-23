@@ -3,8 +3,8 @@ package com.narrativex.backend.feature.assets.application.usecase;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -21,8 +21,8 @@ import com.narrativex.backend.feature.assets.application.query.UploadFinalizeVie
 import com.narrativex.backend.feature.assets.application.query.UploadIntentView;
 import com.narrativex.backend.feature.assets.application.service.MediaUploadFinalizationService;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
-import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
+import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import java.net.URI;
 import java.time.Instant;
 import java.util.Optional;
@@ -101,7 +101,8 @@ class MediaUploadUseCaseTest {
     UploadSession existing = session(UUID.randomUUID(), "PENDING_UPLOAD", null);
     when(sessions.findByIdempotencyKey(ACCOUNT, "retry-1")).thenReturn(Optional.of(existing));
     when(objectStorage.createUpload(any()))
-        .thenReturn(new PresignedUpload(existing.storageKey(), URI.create("https://signed"), EXPIRES_AT));
+        .thenReturn(
+            new PresignedUpload(existing.storageKey(), URI.create("https://signed"), EXPIRES_AT));
 
     UploadIntentView response = useCase.createIntent(request(), "retry-1");
 
@@ -134,7 +135,8 @@ class MediaUploadUseCaseTest {
 
   @Test
   void expiredIdempotentSessionCannotBeSignedAgain() {
-    UploadSession existing = session(UUID.randomUUID(), "PENDING_UPLOAD", null, Instant.now().minusSeconds(1));
+    UploadSession existing =
+        session(UUID.randomUUID(), "PENDING_UPLOAD", null, Instant.now().minusSeconds(1));
     when(sessions.findByIdempotencyKey(ACCOUNT, "retry-1")).thenReturn(Optional.of(existing));
 
     assertThatThrownBy(() -> useCase.createIntent(request(), "retry-1"))
@@ -149,7 +151,9 @@ class MediaUploadUseCaseTest {
     when(sessions.findOwnedSnapshot(ACCOUNT, sessionId)).thenReturn(Optional.of(session));
     when(sessions.findOwnedForUpdate(ACCOUNT, sessionId)).thenReturn(Optional.of(session));
     when(objectStorage.head(session.storageKey()))
-        .thenReturn(new StoredObject(session.storageKey(), session.expectedSize(), session.contentType(), SHA));
+        .thenReturn(
+            new StoredObject(
+                session.storageKey(), session.expectedSize(), session.contentType(), SHA));
     UUID assetId = UUID.randomUUID();
     when(assets.createOrReuseVerifiedAsset(any(), any()))
         .thenReturn(
@@ -183,7 +187,9 @@ class MediaUploadUseCaseTest {
     when(sessions.findOwnedSnapshot(ACCOUNT, sessionId)).thenReturn(Optional.of(session));
     when(sessions.findOwnedForUpdate(ACCOUNT, sessionId)).thenReturn(Optional.of(session));
     when(objectStorage.head(session.storageKey()))
-        .thenReturn(new StoredObject(session.storageKey(), session.expectedSize(), session.contentType(), SHA));
+        .thenReturn(
+            new StoredObject(
+                session.storageKey(), session.expectedSize(), session.contentType(), SHA));
     when(assets.createOrReuseVerifiedAsset(any(), any()))
         .thenReturn(
             new com.narrativex.backend.feature.assets.application.query.MediaAssetView(
@@ -205,8 +211,7 @@ class MediaUploadUseCaseTest {
     assertThat(response.status()).isEqualTo("READY");
     assertThat(response.mediaAssetId()).isEqualTo(existingAssetId);
     verify(assets).createOrReuseVerifiedAsset(any(), any());
-    verify(cleanupTasks)
-        .enqueue(any(), org.mockito.ArgumentMatchers.eq("DUPLICATE_UPLOAD"), any());
+    verify(cleanupTasks).enqueue(any(), org.mockito.ArgumentMatchers.eq("DUPLICATE_UPLOAD"), any());
   }
 
   @Test
@@ -218,10 +223,7 @@ class MediaUploadUseCaseTest {
     when(objectStorage.head(session.storageKey()))
         .thenReturn(
             new StoredObject(
-                session.storageKey(),
-                session.expectedSize(),
-                "audio/wav; charset=binary",
-                SHA));
+                session.storageKey(), session.expectedSize(), "audio/wav; charset=binary", SHA));
     UUID assetId = UUID.randomUUID();
     when(assets.createOrReuseVerifiedAsset(any(), any()))
         .thenReturn(
@@ -250,7 +252,12 @@ class MediaUploadUseCaseTest {
     when(sessions.findOwnedSnapshot(ACCOUNT, sessionId)).thenReturn(Optional.of(session));
     when(sessions.findOwnedForUpdate(ACCOUNT, sessionId)).thenReturn(Optional.of(session));
     when(objectStorage.head(session.storageKey()))
-        .thenReturn(new StoredObject(session.storageKey(), session.expectedSize(), session.contentType(), "b".repeat(64)));
+        .thenReturn(
+            new StoredObject(
+                session.storageKey(),
+                session.expectedSize(),
+                session.contentType(),
+                "b".repeat(64)));
     when(sessions.markRejected(ACCOUNT, sessionId)).thenReturn(true);
 
     UploadFinalizeView response = useCase.finalizeUpload(sessionId);
@@ -280,7 +287,8 @@ class MediaUploadUseCaseTest {
     return session(id, status, mediaAssetId, EXPIRES_AT);
   }
 
-  private static UploadSession session(UUID id, String status, UUID mediaAssetId, Instant expiresAt) {
+  private static UploadSession session(
+      UUID id, String status, UUID mediaAssetId, Instant expiresAt) {
     return new UploadSession(
         id,
         "AUDIO",

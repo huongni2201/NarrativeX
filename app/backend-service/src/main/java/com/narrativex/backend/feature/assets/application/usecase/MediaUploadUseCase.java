@@ -28,10 +28,13 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class MediaUploadUseCase {
   private static final Map<String, Long> MAX_BYTES_BY_TYPE =
-      Map.of("AUDIO", 100L * 1024 * 1024, "IMAGE", 100L * 1024 * 1024, "VIDEO", 1_024L * 1024 * 1024);
+      Map.of(
+          "AUDIO", 100L * 1024 * 1024, "IMAGE", 100L * 1024 * 1024, "VIDEO", 1_024L * 1024 * 1024);
   private static final Map<String, Set<String>> CONTENT_TYPES_BY_TYPE =
       Map.of(
-          "AUDIO", Set.of("audio/mpeg", "audio/wav", "audio/x-wav", "audio/ogg", "audio/mp4", "audio/webm"),
+          "AUDIO",
+              Set.of(
+                  "audio/mpeg", "audio/wav", "audio/x-wav", "audio/ogg", "audio/mp4", "audio/webm"),
           "IMAGE", Set.of("image/jpeg", "image/png", "image/webp", "image/gif"),
           "VIDEO", Set.of("video/mp4", "video/webm", "video/quicktime"));
 
@@ -49,7 +52,8 @@ public class MediaUploadUseCase {
       ObjectStoragePort objectStorage,
       MediaUploadFinalizationService finalization,
       StorageUploadProperties storageProperties) {
-    this(currentUserId, sessions, objectStorage, finalization, storageProperties, Clock.systemUTC());
+    this(
+        currentUserId, sessions, objectStorage, finalization, storageProperties, Clock.systemUTC());
   }
 
   // Kept for focused unit tests and small embedders that do not load Spring configuration.
@@ -93,7 +97,8 @@ public class MediaUploadUseCase {
           sessions.findByIdempotencyKey(accountId, idempotencyKey).orElse(null);
       if (existing != null) {
         if (!sameRequest(existing, request)) {
-          throw new ResourceConflictException("Idempotency key was already used for another upload");
+          throw new ResourceConflictException(
+              "Idempotency key was already used for another upload");
         }
         Instant now = clock.instant();
         if ("READY".equals(existing.status())) {
@@ -150,19 +155,24 @@ public class MediaUploadUseCase {
   }
 
   private static void validateRequest(CreateUploadIntentCommand request) {
-    String type = request.assetType() == null ? "" : request.assetType().trim().toUpperCase(Locale.ROOT);
+    String type =
+        request.assetType() == null ? "" : request.assetType().trim().toUpperCase(Locale.ROOT);
     String contentType = normalize(request.contentType());
     if (!MAX_BYTES_BY_TYPE.containsKey(type)) {
       throw new IllegalArgumentException("Unsupported asset type");
     }
-    if (request.expectedSizeBytes() <= 0 || request.expectedSizeBytes() > MAX_BYTES_BY_TYPE.get(type)) {
+    if (request.expectedSizeBytes() <= 0
+        || request.expectedSizeBytes() > MAX_BYTES_BY_TYPE.get(type)) {
       throw new IllegalArgumentException("Upload exceeds the server-authorized size limit");
     }
     if (!CONTENT_TYPES_BY_TYPE.get(type).contains(contentType)) {
       throw new IllegalArgumentException("Content type is not allowed for this asset type");
     }
     String filename = request.originalFilename() == null ? "" : request.originalFilename().trim();
-    if (filename.isBlank() || filename.contains("/") || filename.contains("\\") || filename.indexOf('\0') >= 0) {
+    if (filename.isBlank()
+        || filename.contains("/")
+        || filename.contains("\\")
+        || filename.indexOf('\0') >= 0) {
       throw new IllegalArgumentException("Filename is invalid");
     }
   }

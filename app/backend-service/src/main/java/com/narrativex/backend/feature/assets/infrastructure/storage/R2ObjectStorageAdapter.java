@@ -49,7 +49,10 @@ public class R2ObjectStorageAdapter implements ObjectStoragePort {
 
   private final R2StorageProperties properties;
   private final HttpClient httpClient =
-      HttpClient.newBuilder().connectTimeout(CONNECT_TIMEOUT).version(HttpClient.Version.HTTP_1_1).build();
+      HttpClient.newBuilder()
+          .connectTimeout(CONNECT_TIMEOUT)
+          .version(HttpClient.Version.HTTP_1_1)
+          .build();
   private final Clock clock = Clock.systemUTC();
 
   @Override
@@ -63,7 +66,15 @@ public class R2ObjectStorageAdapter implements ObjectStoragePort {
     }
     String amzDate = AMZ_DATE.format(now);
     String shortDate = SHORT_DATE.format(now);
-    String credential = properties.accessKeyId().trim() + "/" + shortDate + "/" + REGION + "/" + SERVICE + "/aws4_request";
+    String credential =
+        properties.accessKeyId().trim()
+            + "/"
+            + shortDate
+            + "/"
+            + REGION
+            + "/"
+            + SERVICE
+            + "/aws4_request";
     String checksumHeader = base64Checksum(command.checksumSha256());
     String signedHeaders = "host;x-amz-checksum-sha256";
     Map<String, String> query =
@@ -78,16 +89,26 @@ public class R2ObjectStorageAdapter implements ObjectStoragePort {
     String canonicalQuery = canonicalQuery(query);
     String canonicalRequest =
         "PUT\n"
-            + canonicalPath(objectUri) + "\n"
-            + canonicalQuery + "\n"
-            + "host:" + host(objectUri) + "\n"
-            + "x-amz-checksum-sha256:" + checksumHeader + "\n\n"
-            + signedHeaders + "\n"
+            + canonicalPath(objectUri)
+            + "\n"
+            + canonicalQuery
+            + "\n"
+            + "host:"
+            + host(objectUri)
+            + "\n"
+            + "x-amz-checksum-sha256:"
+            + checksumHeader
+            + "\n\n"
+            + signedHeaders
+            + "\n"
             + UNSIGNED_PAYLOAD;
     String scope = shortDate + "/" + REGION + "/" + SERVICE + "/aws4_request";
     query.put(
         "X-Amz-Signature",
-        hex(hmac(signingKey(shortDate), "AWS4-HMAC-SHA256\n" + amzDate + "\n" + scope + "\n" + sha256(canonicalRequest))));
+        hex(
+            hmac(
+                signingKey(shortDate),
+                "AWS4-HMAC-SHA256\n" + amzDate + "\n" + scope + "\n" + sha256(canonicalRequest))));
     return new PresignedUpload(
         command.storageKey(),
         withQuery(objectUri, query),
@@ -97,13 +118,18 @@ public class R2ObjectStorageAdapter implements ObjectStoragePort {
 
   @Override
   public StoredObject head(String storageKey) {
-    HttpResponse<byte[]> response = sendSigned("HEAD", storageKey, HttpRequest.BodyPublishers.noBody());
-    if (response.statusCode() == 404) throw new ObjectStoragePort.ObjectNotFoundException(storageKey);
+    HttpResponse<byte[]> response =
+        sendSigned("HEAD", storageKey, HttpRequest.BodyPublishers.noBody());
+    if (response.statusCode() == 404)
+      throw new ObjectStoragePort.ObjectNotFoundException(storageKey);
     if (response.statusCode() < 200 || response.statusCode() >= 300) {
-      throw new IllegalStateException("Object storage HEAD request failed with status " + response.statusCode());
+      throw new IllegalStateException(
+          "Object storage HEAD request failed with status " + response.statusCode());
     }
     long size =
-        response.headers().firstValue("content-length")
+        response
+            .headers()
+            .firstValue("content-length")
             .map(R2ObjectStorageAdapter::parseSize)
             .orElse(-1L);
     String contentType =
@@ -136,29 +162,44 @@ public class R2ObjectStorageAdapter implements ObjectStoragePort {
     Map<String, String> query =
         new TreeMap<>(
             Map.of(
-                "X-Amz-Algorithm", "AWS4-HMAC-SHA256",
-                "X-Amz-Credential", properties.accessKeyId().trim() + "/" + scope,
-                "X-Amz-Date", amzDate,
-                "X-Amz-Expires", String.valueOf(expiresSeconds),
-                "X-Amz-SignedHeaders", "host"));
+                "X-Amz-Algorithm",
+                "AWS4-HMAC-SHA256",
+                "X-Amz-Credential",
+                properties.accessKeyId().trim() + "/" + scope,
+                "X-Amz-Date",
+                amzDate,
+                "X-Amz-Expires",
+                String.valueOf(expiresSeconds),
+                "X-Amz-SignedHeaders",
+                "host"));
     String canonicalRequest =
-        "GET\n" + canonicalPath(objectUri) + "\n" + canonicalQuery(query) + "\n"
-            + "host:" + host(objectUri) + "\n\n"
-            + "host\n" + UNSIGNED_PAYLOAD;
+        "GET\n"
+            + canonicalPath(objectUri)
+            + "\n"
+            + canonicalQuery(query)
+            + "\n"
+            + "host:"
+            + host(objectUri)
+            + "\n\n"
+            + "host\n"
+            + UNSIGNED_PAYLOAD;
     query.put(
         "X-Amz-Signature",
-        hex(hmac(signingKey(shortDate),
-            "AWS4-HMAC-SHA256\n" + amzDate + "\n" + scope + "\n"
-                + sha256(canonicalRequest))));
+        hex(
+            hmac(
+                signingKey(shortDate),
+                "AWS4-HMAC-SHA256\n" + amzDate + "\n" + scope + "\n" + sha256(canonicalRequest))));
     return new PresignedDownload(storageKey, withQuery(objectUri, query), expiresAt);
   }
 
   @Override
   public void delete(String storageKey) {
-    HttpResponse<byte[]> response = sendSigned("DELETE", storageKey, HttpRequest.BodyPublishers.noBody());
+    HttpResponse<byte[]> response =
+        sendSigned("DELETE", storageKey, HttpRequest.BodyPublishers.noBody());
     if (response.statusCode() == 404) return;
     if (response.statusCode() < 200 || response.statusCode() >= 300) {
-      throw new IllegalStateException("Object storage DELETE request failed with status " + response.statusCode());
+      throw new IllegalStateException(
+          "Object storage DELETE request failed with status " + response.statusCode());
     }
   }
 
@@ -179,21 +220,44 @@ public class R2ObjectStorageAdapter implements ObjectStoragePort {
     String shortDate = SHORT_DATE.format(now);
     String payloadHash = sha256Hex(new byte[0]);
     String canonicalHeaders =
-        "host:" + host(uri) + "\n" + "x-amz-content-sha256:" + payloadHash + "\n" + "x-amz-date:" + amzDate + "\n";
+        "host:"
+            + host(uri)
+            + "\n"
+            + "x-amz-content-sha256:"
+            + payloadHash
+            + "\n"
+            + "x-amz-date:"
+            + amzDate
+            + "\n";
     String signedHeaders = "host;x-amz-content-sha256;x-amz-date";
     String canonicalRequest =
-        method + "\n"
-            + canonicalPath(uri) + "\n\n"
-            + canonicalHeaders + "\n"
-            + signedHeaders + "\n"
+        method
+            + "\n"
+            + canonicalPath(uri)
+            + "\n\n"
+            + canonicalHeaders
+            + "\n"
+            + signedHeaders
+            + "\n"
             + payloadHash;
     String scope = shortDate + "/" + REGION + "/" + SERVICE + "/aws4_request";
     String authorization =
         "AWS4-HMAC-SHA256 Credential="
-            + properties.accessKeyId().trim() + "/" + scope
-            + ", SignedHeaders=" + signedHeaders
+            + properties.accessKeyId().trim()
+            + "/"
+            + scope
+            + ", SignedHeaders="
+            + signedHeaders
             + ", Signature="
-            + hex(hmac(signingKey(shortDate), "AWS4-HMAC-SHA256\n" + amzDate + "\n" + scope + "\n" + sha256(canonicalRequest)));
+            + hex(
+                hmac(
+                    signingKey(shortDate),
+                    "AWS4-HMAC-SHA256\n"
+                        + amzDate
+                        + "\n"
+                        + scope
+                        + "\n"
+                        + sha256(canonicalRequest)));
     // java.net.http derives the restricted Host header from the request URI.
     HttpRequest request =
         HttpRequest.newBuilder(uri)
@@ -215,12 +279,20 @@ public class R2ObjectStorageAdapter implements ObjectStoragePort {
 
   private URI objectUri(String storageKey) {
     URI endpoint = URI.create(properties.effectiveEndpoint());
-    String path = trimTrailingSlash(endpoint.getPath()) + "/" + awsEncode(properties.bucket().trim()) + "/" + encodePath(storageKey);
+    String path =
+        trimTrailingSlash(endpoint.getPath())
+            + "/"
+            + awsEncode(properties.bucket().trim())
+            + "/"
+            + encodePath(storageKey);
     return URI.create(endpoint.getScheme() + "://" + endpoint.getRawAuthority() + path);
   }
 
   private byte[] signingKey(String shortDate) {
-    byte[] dateKey = hmac(("AWS4" + properties.secretAccessKey().trim()).getBytes(StandardCharsets.UTF_8), shortDate);
+    byte[] dateKey =
+        hmac(
+            ("AWS4" + properties.secretAccessKey().trim()).getBytes(StandardCharsets.UTF_8),
+            shortDate);
     byte[] regionKey = hmac(dateKey, REGION);
     byte[] serviceKey = hmac(regionKey, SERVICE);
     return hmac(serviceKey, "aws4_request");
@@ -279,7 +351,8 @@ public class R2ObjectStorageAdapter implements ObjectStoragePort {
             storageKey,
             HttpRequest.BodyPublishers.noBody(),
             HttpResponse.BodyHandlers.ofInputStream());
-    if (response.statusCode() == 404) throw new ObjectStoragePort.ObjectNotFoundException(storageKey);
+    if (response.statusCode() == 404)
+      throw new ObjectStoragePort.ObjectNotFoundException(storageKey);
     if (response.statusCode() < 200 || response.statusCode() >= 300) {
       throw new IllegalStateException(
           "Object storage GET request failed while verifying checksum with status "
@@ -313,10 +386,10 @@ public class R2ObjectStorageAdapter implements ObjectStoragePort {
     long size = headSize >= 0 ? headSize : bytesRead;
     String contentType = headContentType;
     if (contentType.isBlank()) {
-      contentType =
-          normalizeContentType(response.headers().firstValue("content-type").orElse(""));
+      contentType = normalizeContentType(response.headers().firstValue("content-type").orElse(""));
     }
-    return new StoredObject(storageKey, size, contentType, HexFormat.of().formatHex(digest.digest()));
+    return new StoredObject(
+        storageKey, size, contentType, HexFormat.of().formatHex(digest.digest()));
   }
 
   private static long parseSize(String value) {
@@ -339,14 +412,13 @@ public class R2ObjectStorageAdapter implements ObjectStoragePort {
     try {
       return Base64.getEncoder().encodeToString(HexFormat.of().parseHex(checksumHex));
     } catch (IllegalArgumentException exception) {
-      throw new IllegalArgumentException("checksumSha256 must be a 64-character hexadecimal SHA-256", exception);
+      throw new IllegalArgumentException(
+          "checksumSha256 must be a 64-character hexadecimal SHA-256", exception);
     }
   }
 
   private static String awsEncode(String value) {
-    return URLEncoder.encode(value, StandardCharsets.UTF_8)
-        .replace("+", "%20")
-        .replace("%7E", "~");
+    return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20").replace("%7E", "~");
   }
 
   private static String sha256(String value) {

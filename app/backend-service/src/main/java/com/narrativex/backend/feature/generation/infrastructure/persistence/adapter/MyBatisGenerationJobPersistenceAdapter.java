@@ -136,6 +136,7 @@ public class MyBatisGenerationJobPersistenceAdapter implements GenerationJobRepo
   }
 
   private static OptimisticLockingFailureException optimisticConflict(Long id) {
-    return new OptimisticLockingFailureException("Generation job " + id + " was modified concurrently");
+    return new OptimisticLockingFailureException(
+        "Generation job " + id + " was modified concurrently");
   }
 }

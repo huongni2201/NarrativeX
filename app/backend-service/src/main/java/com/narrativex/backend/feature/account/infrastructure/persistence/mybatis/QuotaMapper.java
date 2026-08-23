@@ -5,8 +5,7 @@ import java.math.BigDecimal;
 import org.apache.ibatis.annotations.Param;
 
 public interface QuotaMapper extends NarrativeXMyBatisMapper {
-  QuotaCurrentRow findCurrent(
-      @Param("userId") String userId, @Param("periodKey") String periodKey);
+  QuotaCurrentRow findCurrent(@Param("userId") String userId, @Param("periodKey") String periodKey);
 
   BigDecimal findMonthlyCreditsForUpdate(@Param("userId") String userId);
 

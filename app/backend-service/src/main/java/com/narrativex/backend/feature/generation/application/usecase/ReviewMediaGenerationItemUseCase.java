@@ -17,7 +17,8 @@ public class ReviewMediaGenerationItemUseCase {
   @Transactional
   public void execute(UUID itemId, String decision, long rowVersion) {
     if (!repository.review(currentUserId.get(), itemId, rowVersion, decision)) {
-      throw new GenerationAdmissionDeniedException("ASSET_REVIEW_REQUIRED", "The item changed or is no longer awaiting review.");
+      throw new GenerationAdmissionDeniedException(
+          "ASSET_REVIEW_REQUIRED", "The item changed or is no longer awaiting review.");
     }
   }
 }

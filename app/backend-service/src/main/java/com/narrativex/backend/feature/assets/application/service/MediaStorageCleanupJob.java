@@ -1,8 +1,8 @@
 package com.narrativex.backend.feature.assets.application.service;
 
+import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository;
 import com.narrativex.backend.feature.assets.application.port.out.MediaStorageCleanupTaskRepository;
 import com.narrativex.backend.feature.assets.application.port.out.MediaStorageCleanupTaskRepository.CleanupTask;
-import com.narrativex.backend.feature.assets.application.port.out.MediaAssetRepository;
 import com.narrativex.backend.feature.assets.application.port.out.ObjectStoragePort;
 import java.time.Duration;
 import java.time.Instant;
@@ -18,7 +18,9 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 @Slf4j
 @ConditionalOnProperty(
-    name = "narrativex.storage.upload-cleanup-enabled", havingValue = "true", matchIfMissing = true)
+    name = "narrativex.storage.upload-cleanup-enabled",
+    havingValue = "true",
+    matchIfMissing = true)
 public class MediaStorageCleanupJob {
   private static final int BATCH_SIZE = 100;
   private static final Duration LEASE = Duration.ofMinutes(5);

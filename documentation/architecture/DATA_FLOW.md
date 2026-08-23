@@ -101,13 +101,21 @@ fps
 
 The Drive file ID/provider metadata is the durable remote identity. A public/share link is not required for correctness.
 
+## Drive FinalArtifact content flow
+
+Owner-authorized preview/download uses the backend as a streaming proxy. PostgreSQL ownership and
+FinalArtifact readiness are checked before the backend refreshes the shared Google Drive OAuth
+access token and requests `files/{externalFileId}?alt=media`. A single browser byte range is
+forwarded to Drive and the response body is copied to the browser without buffering the MP4 in
+memory. The backend returns `206`, `Content-Range`, `Content-Length`, and `Accept-Ranges` for
+partial content; `/preview` uses inline disposition and `/download` uses attachment disposition.
+
 ## Current gaps
 
 - production user-audio upload/finalize/alignment hardening;
 - aligned multi-part uploaded-audio slicing/stitching for render;
 - complete narration-driven VisualScenePlanner/review loop;
 - richer image approval/reuse/reframe/edit lineage;
-- owner-authorized preview/download/streaming for Drive FinalArtifacts;
 - cross-attempt Drive upload-only retry without rerender;
 - complete actual-usage/billing reconciliation and release/refund behavior;
 - full Character/reference and approved-storyboard workflows;

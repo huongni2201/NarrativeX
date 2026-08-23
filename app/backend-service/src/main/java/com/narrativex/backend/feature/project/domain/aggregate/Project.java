@@ -244,7 +244,10 @@ public final class Project extends AggregateRoot {
     return sourceLanguage;
   }
 
-  /** Project language used by analysis and production; sourceLanguage is retained for API compatibility. */
+  /**
+   * Project language used by analysis and production; sourceLanguage is retained for API
+   * compatibility.
+   */
   public String getProjectLanguage() {
     return sourceLanguage;
   }

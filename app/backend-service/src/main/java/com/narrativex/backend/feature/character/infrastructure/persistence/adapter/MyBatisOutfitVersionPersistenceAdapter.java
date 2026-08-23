@@ -14,16 +14,41 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class MyBatisOutfitVersionPersistenceAdapter implements OutfitVersionRepository {
-  private final CharacterMapper mapper; private final CharacterMyBatisRowMapper rowMapper;
-  @Override public int findMaxVersionNumberByCharacterId(Long id) { return mapper.maxOutfitVersion(id); }
-  @Override public Optional<OutfitVersion> findOwnedById(Long id, String ownerId) { return Optional.ofNullable(mapper.findOwnedOutfit(id, ownerId, CharacterStatus.ARCHIVED.name())).map(rowMapper::toDomain); }
-  @Override public OutfitVersion save(OutfitVersion value) {
+  private final CharacterMapper mapper;
+  private final CharacterMyBatisRowMapper rowMapper;
+
+  @Override
+  public int findMaxVersionNumberByCharacterId(Long id) {
+    return mapper.maxOutfitVersion(id);
+  }
+
+  @Override
+  public Optional<OutfitVersion> findOwnedById(Long id, String ownerId) {
+    return Optional.ofNullable(mapper.findOwnedOutfit(id, ownerId, CharacterStatus.ARCHIVED.name()))
+        .map(rowMapper::toDomain);
+  }
+
+  @Override
+  public OutfitVersion save(OutfitVersion value) {
     OutfitVersionRow row = rowMapper.row(value, CharacterMyBatisRowMapper.InstantPair.now());
-    if (value.getId() == null) { row.setId(null); row.setRowVersion(0); Long id = mapper.insertOutfit(row); return rowMapper.toDomain(mapper.findOutfit(id)); }
+    if (value.getId() == null) {
+      row.setId(null);
+      row.setRowVersion(0);
+      Long id = mapper.insertOutfit(row);
+      return rowMapper.toDomain(mapper.findOutfit(id));
+    }
     OutfitVersionRow existing = mapper.findOutfit(value.getId());
-    if (existing == null) { row.setId(null); row.setRowVersion(0); Long id = mapper.insertOutfit(row); return rowMapper.toDomain(mapper.findOutfit(id)); }
-    OptimisticConcurrency.requireVersion(value.getRowVersion(), existing.getRowVersion(), OutfitVersion.class, value.getId());
-    if (mapper.updateOutfit(row) != 1) throw new org.springframework.dao.OptimisticLockingFailureException("Outfit version was modified concurrently");
+    if (existing == null) {
+      row.setId(null);
+      row.setRowVersion(0);
+      Long id = mapper.insertOutfit(row);
+      return rowMapper.toDomain(mapper.findOutfit(id));
+    }
+    OptimisticConcurrency.requireVersion(
+        value.getRowVersion(), existing.getRowVersion(), OutfitVersion.class, value.getId());
+    if (mapper.updateOutfit(row) != 1)
+      throw new org.springframework.dao.OptimisticLockingFailureException(
+          "Outfit version was modified concurrently");
     return rowMapper.toDomain(mapper.findOutfit(value.getId()));
   }
 }

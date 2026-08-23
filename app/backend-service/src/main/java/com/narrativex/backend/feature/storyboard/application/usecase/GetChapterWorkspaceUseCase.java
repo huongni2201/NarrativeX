@@ -1,7 +1,7 @@
 package com.narrativex.backend.feature.storyboard.application.usecase;
 
-import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.assets.application.port.out.ObjectStoragePort;
+import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.FeatureNotAvailableException;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.response.ApiResponse;
@@ -9,8 +9,8 @@ import com.narrativex.backend.feature.project.application.port.in.StoryVersionAc
 import com.narrativex.backend.feature.storyboard.api.response.ChapterResponse;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterWorkspaceResponse;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterWorkspaceAccess.AudioStep;
-import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterAnalysisSnapshotRepository;
+import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterWorkspaceReadRepository;
 import java.time.Instant;
 import lombok.RequiredArgsConstructor;
