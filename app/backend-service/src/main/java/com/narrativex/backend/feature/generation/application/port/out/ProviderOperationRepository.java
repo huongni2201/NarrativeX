@@ -5,11 +5,12 @@ import com.narrativex.backend.feature.generation.domain.enums.ProviderOperationS
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public interface ProviderOperationRepository {
   ProviderOperation save(ProviderOperation operation);
 
-  Optional<ProviderOperation> findById(Long id);
+  Optional<ProviderOperation> findById(UUID id);
 
   Optional<ProviderOperation> findByFingerprint(String providerKey, String requestFingerprint);
 
@@ -19,20 +20,20 @@ public interface ProviderOperationRepository {
       List<ProviderOperationStatus> statuses, int limit);
 
   ProviderOperation transition(
-      Long id,
+      UUID id,
       long expectedVersion,
       ProviderOperationStatus nextStatus,
       String providerOperationId);
 
-  ProviderOperation markSubmissionUnknown(Long id, long expectedVersion, Instant nextReconcileAt);
+  ProviderOperation markSubmissionUnknown(UUID id, long expectedVersion, Instant nextReconcileAt);
 
   ProviderOperation persistResult(
-      Long id,
+      UUID id,
       long expectedVersion,
       String providerOperationId,
       String normalizedResultJson,
       String resultFingerprint);
 
   ProviderOperation recordReconciliationError(
-      Long id, long expectedVersion, String error, Instant nextReconcileAt);
+      UUID id, long expectedVersion, String error, Instant nextReconcileAt);
 }
