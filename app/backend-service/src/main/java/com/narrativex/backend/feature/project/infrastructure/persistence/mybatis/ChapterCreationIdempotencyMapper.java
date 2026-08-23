@@ -11,5 +11,5 @@ public interface ChapterCreationIdempotencyMapper extends NarrativeXMyBatisMappe
       @Param("idempotencyKey") String idempotencyKey,
       @Param("requestFingerprint") String requestFingerprint);
 
-  int complete(@Param("id") Long id, @Param("chapterId") UUID chapterId);
+  int complete(@Param("id") UUID id, @Param("chapterId") UUID chapterId);
 }
