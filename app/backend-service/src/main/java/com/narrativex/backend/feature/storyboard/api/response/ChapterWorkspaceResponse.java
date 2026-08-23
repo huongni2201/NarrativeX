@@ -2,6 +2,7 @@ package com.narrativex.backend.feature.storyboard.api.response;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 public record ChapterWorkspaceResponse(
     ChapterResponse chapter,
@@ -28,7 +29,14 @@ public record ChapterWorkspaceResponse(
   public record RenderStep(
       String status, Instant completedAt, String latestJobId, Long artifactId) {}
 
-  public record ProgressStep(String status, int total, int completed, int failed) {}
+  public record ProgressStep(
+      String status,
+      int total,
+      int completed,
+      int failed,
+      String latestJobId,
+      UUID mediaPlanId,
+      Integer mediaPlanRevision) {}
 
   public record PreviewScene(
       Long id,
