@@ -29,12 +29,7 @@ public class CreateCharacterVersionUseCase {
     int versionNumber = versionRepository.findMaxVersionNumberByCharacterId(character.getId()) + 1;
     CharacterVersion saved =
         versionRepository.save(
-            character.createVersion(
-                versionNumber,
-                command.bible(),
-                command.visualPrompt(),
-                command.masterAssetId(),
-                command.referenceAssetIds()));
+            character.createVersion(versionNumber, command.bible(), command.visualPrompt()));
     log.info(
         "Created character version id={} (versionNumber={}) for characterId={}",
         saved.getId(),
