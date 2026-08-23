@@ -50,6 +50,9 @@ narrativex:
       model: ${NARRATIVEX_IMAGE_MODEL:gemini-2.5-flash-image}
       pricing-version: ${NARRATIVEX_IMAGE_PRICING_VERSION:gemini-2.5-flash-image-batch-2026-08-22}
       execution-mode: ${NARRATIVEX_IMAGE_EXECUTION_MODE:BATCH}
+      unit-cost-draft: ${NARRATIVEX_IMAGE_UNIT_COST_DRAFT:0.10}
+      unit-cost-standard: ${NARRATIVEX_IMAGE_UNIT_COST_STANDARD:0.25}
+      unit-cost-high: ${NARRATIVEX_IMAGE_UNIT_COST_HIGH:0.40}
   limits:
     max-story-characters: ${NARRATIVEX_MAX_STORY_CHARACTERS:500000}
     max-estimated-input-tokens: ${NARRATIVEX_MAX_ESTIMATED_INPUT_TOKENS:120000}

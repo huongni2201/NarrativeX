@@ -98,7 +98,8 @@ public class CreateMediaJobUseCase {
         mediaPlanningSourceAccess.requireCurrent(command.chapterId()).scenes().stream()
             .mapToInt(scene -> scene.beats().size())
             .sum();
-    BigDecimal expectedCost = MediaCostEstimator.estimate(command.qualityTier(), beatCount);
+    var imageProfile = imageGenerationCatalog.resolve(command.qualityTier());
+    BigDecimal expectedCost = imageProfile.estimateCost(beatCount);
     if (expectedCost.compareTo(command.maxAuthorizedCost()) > 0) {
       throw new GenerationAdmissionDeniedException(
           "COST_LIMIT", "The requested authorization cap is below the server estimate.");
@@ -114,7 +115,6 @@ public class CreateMediaJobUseCase {
       throw new GenerationAdmissionDeniedException(
           "ENTITLEMENT_DENIED", "The requested quality exceeds the active plan entitlement.");
     }
-    var imageProfile = imageGenerationCatalog.resolve(command.qualityTier());
     var plan =
         createMediaPlanUseCase.execute(
             new CreateMediaPlanCommand(
@@ -137,8 +137,6 @@ public class CreateMediaJobUseCase {
                     new GenerationAdmissionDeniedException(
                         "COST_LIMIT", "Media generation quota is exhausted."));
 
-    // The aggregate currently names the enclosing orchestration CHAPTER_GENERATE. The durable
-    // executable stage is deliberately SHOT_IMAGE_GENERATE and is the worker claim boundary.
     GenerationJob job =
         generationJobRepository.save(
             GenerationJob.createChapterGeneration(
@@ -172,12 +170,13 @@ public class CreateMediaJobUseCase {
     }
     generationOutboxRepository.enqueue(job);
     log.info(
-        "Created and enqueued shot-image media job id={} (planId={}, beats={}, quality='{}', model='{}') for projectId={}, chapterId={}",
+        "Created and enqueued shot-image media job id={} (planId={}, beats={}, quality='{}', model='{}', estimatedCost={}) for projectId={}, chapterId={}",
         job.getId(),
         plan.id(),
         beatCount,
         command.qualityTier(),
         imageProfile.model(),
+        expectedCost,
         command.projectId(),
         command.chapterId());
     return job;
