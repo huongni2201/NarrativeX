@@ -2,9 +2,12 @@ import { AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 import { ACTIVE_JOB_STATUSES } from "@/types/api";
 import { Progress } from "@/components/ui/Progress";
 import type { ApiGenerationJob } from "@/types/api";
+import type { ChapterRenderStatus } from "@/features/render/hooks/useChapterRender";
 
 interface RenderProgressProps {
   job: Pick<ApiGenerationJob, "jobId" | "status" | "progress" | "currentStep">;
+  status?: ChapterRenderStatus;
+  progress?: number;
 }
 
 const statusCopy: Record<string, string> = {
@@ -16,12 +19,17 @@ const statusCopy: Record<string, string> = {
   COMPLETED: "Render hoàn tất",
   FAILED: "Render thất bại",
   CANCELED: "Render đã bị hủy",
+  IDLE: "Chưa bắt đầu render",
+  SUBMITTING: "Đang gửi render job",
+  RESOLVING_ARTIFACT: "Đang xác nhận artifact",
+  READY: "Artifact đã sẵn sàng",
 };
 
-export function RenderProgress({ job }: Readonly<RenderProgressProps>) {
-  const progress = job.status === "COMPLETED" ? 100 : Math.min(100, Math.max(0, job.progress));
-  const complete = job.status === "COMPLETED";
-  const active = ACTIVE_JOB_STATUSES.has(job.status);
+export function RenderProgress({ job, status, progress: progressOverride }: Readonly<RenderProgressProps>) {
+  const displayStatus = status ?? job.status;
+  const progress = progressOverride ?? (displayStatus === "COMPLETED" || displayStatus === "READY" ? 100 : Math.min(100, Math.max(0, job.progress)));
+  const complete = displayStatus === "READY";
+  const active = status ? ["QUEUED", "RUNNING", "STALLED", "COMPLETED", "RESOLVING_ARTIFACT"].includes(status) : ACTIVE_JOB_STATUSES.has(job.status);
 
   return (
     <section className="rounded-xl border border-border-dark bg-surface-panel p-4" aria-labelledby="render-progress-title">
@@ -31,7 +39,7 @@ export function RenderProgress({ job }: Readonly<RenderProgressProps>) {
             Render progress
           </h3>
           <p className="mt-1 text-xs text-slate-400">
-            {statusCopy[job.status] ?? job.status} · {job.currentStep}
+            {statusCopy[displayStatus] ?? displayStatus} · {job.currentStep}
           </p>
         </div>
         {complete ? (

@@ -8,28 +8,15 @@ import { RenderProgress } from "@/features/render/components/RenderProgress";
 import { useChapterRender } from "@/features/render/hooks/useChapterRender";
 
 export function ChapterRenderTab({ projectId, chapterId }: Readonly<{ projectId: number; chapterId: number }>) {
-  const render = useChapterRender({ projectId, chapterId });
   const [resolution, setResolution] = useState<"720p" | "1080p">("1080p");
-  const media = render.media;
-  const ready = Boolean(
-    media.details &&
-      media.details.totalItems > 0 &&
-      media.details.readyItems === media.details.totalItems &&
-      media.details.reviewItems === 0 &&
-      media.job?.mediaPlanId &&
-      media.job.mediaPlanRevision,
-  );
-
-  const startRender = () => {
-    if (!ready || !media.job?.mediaPlanId || !media.job.mediaPlanRevision) return;
-    render.renderChapter({
-      mediaPlanId: media.job.mediaPlanId,
-      mediaPlanRevision: media.job.mediaPlanRevision,
-      resolution,
-      format: "mp4",
-      maxAuthorizedCost: "0.500000",
-    });
-  };
+  const render = useChapterRender({
+    projectId,
+    chapterId,
+    resolution,
+    format: "mp4",
+    maxAuthorizedCost: "0.500000",
+  });
+  const isSubmitting = render.status === "SUBMITTING";
 
   return (
     <section className="space-y-5 rounded-2xl border border-border-dark bg-surface p-5">
@@ -51,14 +38,15 @@ export function ChapterRenderTab({ projectId, chapterId }: Readonly<{ projectId:
             <option value="1080p">1080p</option>
           </select>
         </label>
-        <Button onClick={startRender} isLoading={render.isPending} disabled={!ready || render.isActive}>
-          {render.isPending ? "Đang xếp hàng…" : ready ? "Render Chapter" : "Approve toàn bộ keyframe để render"}
+        <Button onClick={() => render.render()} isLoading={isSubmitting} disabled={!render.canRender}>
+          {isSubmitting ? "Đang gửi render…" : render.status === "READY" ? "Render lại Chapter" : render.canRender ? "Render Chapter" : "Approve toàn bộ keyframe để render"}
         </Button>
       </div>
 
-      {media.message ? <p className="text-sm text-slate-300">{media.message}</p> : null}
-      {render.job ? <RenderProgress job={render.job} /> : null}
-      {render.errorMessage ? <RenderFailure message={render.errorMessage} onRetry={render.retry} retryDisabled={render.isPending} /> : null}
+      {render.mediaMessage ? <p className="text-sm text-slate-300">{render.mediaMessage}</p> : null}
+      {isSubmitting ? <p className="text-sm text-slate-300" role="status">Đang gửi render job…</p> : null}
+      {render.job ? <RenderProgress job={render.job} status={render.status} progress={render.progress} /> : null}
+      {render.error ? <RenderFailure message={render.error} onRetry={render.retry} retryDisabled={isSubmitting} /> : null}
       {render.artifact ? <RenderPreview artifact={render.artifact} /> : null}
     </section>
   );

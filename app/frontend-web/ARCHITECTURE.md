@@ -95,6 +95,14 @@ Project creation currently spans Project + initial StoryVersion writes.
 - Persisted mutation workflows lock close/back/step actions while pending.
 - The long-term backend contract should expose an idempotent orchestration endpoint or transactional create-project-with-initial-story command.
 
+### Render request idempotency
+
+The chapter render hook keeps the `Idempotency-Key` in a ref for the lifetime of one render intent.
+
+- Retry reuses the same key after an ambiguous transport/protocol failure or a 5xx response so a committed job can be reconciled.
+- A definitive 4xx rejection or a terminal `FAILED`/`CANCELED` render clears the key before retry.
+- The explicit render action starts a new intent and therefore gets a new key; changing the project/chapter context also clears the ref.
+
 ## Accessibility baseline
 
 - Every dialog has an accessible name through `title`/`aria-labelledby` or `ariaLabel`.

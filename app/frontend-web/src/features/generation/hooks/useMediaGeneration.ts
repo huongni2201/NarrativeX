@@ -1,16 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiErrorMessage } from "@/shared/api/client";
-import { ACTIVE_JOB_STATUSES, TERMINAL_JOB_STATUSES } from "@/types/api";
+import { ACTIVE_JOB_STATUSES, TERMINAL_JOB_STATUSES, type ApiGenerationJob } from "@/types/api";
 import { queryKeys } from "@/lib/query-keys";
 import { mediaApi, type CreateMediaJobInput } from "../api/media.api";
 
+interface TrackedMediaJob extends ApiGenerationJob {
+  message: string | null;
+}
+
 export function useMediaGeneration(projectId: number, chapterId: number) {
   const queryClient = useQueryClient();
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const currentJobQuery = useQuery<TrackedMediaJob | null>({
+    queryKey: queryKeys.mediaJobForChapter(projectId, chapterId),
+    queryFn: async () => null,
+    enabled: false,
+  });
+  const jobId = currentJobQuery.data?.jobId ?? null;
+  const message = currentJobQuery.data?.message ?? null;
   const jobQuery = useQuery({
     queryKey: jobId ? queryKeys.job(jobId) : ["jobs", "media-none"],
     queryFn: () => mediaApi.getJob(jobId!),
@@ -29,21 +38,43 @@ export function useMediaGeneration(projectId: number, chapterId: number) {
   const createJob = useMutation({
     mutationFn: ({ input, idempotencyKey }: { input: CreateMediaJobInput; idempotencyKey: string }) => mediaApi.createJob(projectId, chapterId, input, idempotencyKey),
     onSuccess: (job) => {
-      setJobId(job.jobId);
-      setMessage("Đã xếp hàng tạo keyframe. Bạn có thể theo dõi tiến độ bên dưới.");
+      queryClient.setQueryData(queryKeys.mediaJobForChapter(projectId, chapterId), {
+        ...job,
+        message: "Đã xếp hàng tạo keyframe. Bạn có thể theo dõi tiến độ bên dưới.",
+      });
       queryClient.setQueryData(queryKeys.job(job.jobId), job);
     },
-    onError: (error) => setMessage(apiErrorMessage(error, "Không thể tạo media job.")),
+    onError: (error) => {
+      queryClient.setQueryData(queryKeys.mediaJobForChapter(projectId, chapterId), (current: TrackedMediaJob | null | undefined) =>
+        current ? { ...current, message: apiErrorMessage(error, "Không thể tạo media job.") } : null,
+      );
+    },
   });
   const review = useMutation({
     mutationFn: ({ itemId, decision, rowVersion }: { itemId: string; decision: "APPROVED" | "REJECTED"; rowVersion: number }) => mediaApi.review(itemId, decision, rowVersion),
     onSuccess: () => {
       if (jobId) void queryClient.invalidateQueries({ queryKey: queryKeys.mediaJob(jobId) });
     },
-    onError: (error) => setMessage(apiErrorMessage(error, "Không thể cập nhật review.")),
+    onError: (error) => {
+      queryClient.setQueryData(queryKeys.mediaJobForChapter(projectId, chapterId), (current: TrackedMediaJob | null | undefined) =>
+        current ? { ...current, message: apiErrorMessage(error, "Không thể cập nhật review.") } : null,
+      );
+    },
   });
   useEffect(() => {
-    if (jobQuery.data?.status === "FAILED" || jobQuery.data?.status === "UNKNOWN") setMessage(jobQuery.data.errorCode ? `Media job ${jobQuery.data.errorCode}.` : `Media job ${jobQuery.data.status.toLowerCase()}.`);
-  }, [jobQuery.data]);
+    const currentJob = jobQuery.data;
+    if (currentJob?.status === "FAILED" || currentJob?.status === "UNKNOWN") {
+      queryClient.setQueryData(queryKeys.mediaJobForChapter(projectId, chapterId), (current: TrackedMediaJob | null | undefined) =>
+        current
+          ? {
+              ...current,
+              message: currentJob.errorCode
+                ? `Media job ${currentJob.errorCode}.`
+                : `Media job ${currentJob.status.toLowerCase()}.`,
+            }
+          : null,
+      );
+    }
+  }, [chapterId, jobQuery.data, projectId, queryClient]);
   return { jobId, job: jobQuery.data ?? null, details: detailsQuery.data ?? null, isLoading: jobQuery.isPending || detailsQuery.isPending, message, createJob, review };
 }
