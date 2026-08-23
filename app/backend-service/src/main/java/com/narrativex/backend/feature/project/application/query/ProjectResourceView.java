@@ -1,12 +1,13 @@
 package com.narrativex.backend.feature.project.application.query;
 
 import java.time.Instant;
+import java.util.UUID;
 
 public final class ProjectResourceView {
   private ProjectResourceView() {}
 
   public record Location(
-      Long id,
+      UUID id,
       String name,
       String description,
       String visualPrompt,
@@ -15,7 +16,7 @@ public final class ProjectResourceView {
       Instant updatedAt) {}
 
   public record Asset(
-      Long id,
+      UUID id,
       String name,
       String assetType,
       String storageKey,
