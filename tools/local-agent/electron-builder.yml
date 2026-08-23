@@ -1,0 +1,14 @@
+appId: com.narrativex.localagent
+productName: NarrativeX Agent
+files:
+  - dist/**/*
+  - src/renderer/**/*
+  - package.json
+directories:
+  output: release
+win:
+  target:
+    - nsis
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
