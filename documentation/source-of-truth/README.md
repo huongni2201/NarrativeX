@@ -4,7 +4,7 @@
 
 - Version: `V1.11`
 - Repository: `huongni2201/NarrativeX`
-- Implementation checkpoint: `fix/render-snapshot-retry-integrity` at `a167a88709e342b882cef0ceea6f0d6bd4122e4f`
+- Implementation checkpoint: `main` at `0b8577a5a6b406d34b297a818e663f5db29b06d6`
 - Canonical specification: `documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`
 
 Current code and Flyway migrations decide factual AS-IS implementation claims when a derived document drifts.
@@ -44,7 +44,7 @@ Worker local filesystem   -> ephemeral scratch only
 - Connect aligned multi-part uploaded narration to chapter render slicing/stitching; the current render worker requires a matching generated narration snapshot.
 - Complete narration-driven `VisualScenePlanner` and review/approval flow.
 - Harden image reuse/reframe/edit/approval lineage after the current generate-new foundation.
-- Owner-authorized preview/download/streaming for Drive-backed FinalArtifacts is served by the backend proxy with HTTP Range support.
+- Harden publishing/entitlement behavior around the implemented owner-authorized preview/download/streaming proxy for Drive-backed FinalArtifacts.
 - Preserve a validated local MP4 across cross-attempt Drive upload retries if rerender avoidance is required; current resumable upload is robust within an attempt and idempotent by render fingerprint, but the job workspace itself is ephemeral.
 - Complete actual usage/billing reconciliation, moderation, SSRF, retention, observability and DR evidence.
 - Add future social publishing through a provider-neutral final-video read/stream boundary.

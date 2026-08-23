@@ -59,3 +59,23 @@ Browser mutation
 4. `local`/`test` may use the configured developer identity fallback; staging/production fail closed when OIDC is disabled.
 5. Credentialed browser mutations include the session-bound CSRF header; CORS uses an explicit origin allowlist.
 6. Logout invalidates the server session; durable work follows its own reconciliation policy.
+
+## Notification Outbox & Event Dispatch
+
+NarrativeX uses an outbox pattern for guaranteed in-app and email notification delivery:
+
+```text
+Durable Event (Job completed / Quota alert)
+  -> outbox_events table (committed in same DB transaction)
+  -> OutboxDispatcher polling / Redis notification hints
+  -> notifications table / notification_preferences check
+  -> Client Notification Feed & SSE/Email dispatch
+```
+
+- Notifications are persisted durably with `user_id`, `type`, `title`, `message`, `data_json`, and read status.
+- Preference rules (`IN_APP_ONLY`, `EMAIL_DIGEST`, `IMMEDIATE_EMAIL`) filter external delivery while preserving in-app audit history.
+
+## Repository Governance & Branch Protection
+
+- Main branch protection requires pull request reviews and linear git history.
+- Critical workflow execution uses deterministic test baselines ([ADR-0005](../decisions/ADR-0005-deterministic-mvp-e2e-render-storage.md)) to validate queue, persistence, and worker execution in CI without external vendor dependencies.

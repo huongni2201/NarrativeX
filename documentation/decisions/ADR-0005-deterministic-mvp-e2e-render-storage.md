@@ -1,4 +1,4 @@
-# ADR-0017: Deterministic MVP E2E Rendering with Local Final Storage
+# ADR-0005: Deterministic MVP E2E Rendering with Local Final Storage
 
 - Status: Accepted
 - Date: 2026-08-23

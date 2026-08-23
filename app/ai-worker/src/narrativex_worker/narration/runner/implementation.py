@@ -52,7 +52,6 @@ from narrativex_worker.narration.voice_reference import (
     prepare_mp3_reference,
 )
 from narrativex_worker.observability import PipelineContext, PipelineMetrics
-from narrativex_worker.providers.tts import GoogleCloudTtsProvider
 from narrativex_worker.providers.tts.vieneu import VieneuTtsProvider
 from narrativex_worker.schema import ProviderOperationStatus
 from narrativex_worker.task_runtime import reap_finished_tasks
@@ -88,9 +87,6 @@ class NarrationWorkerRunner:
         if self.enabled:
             if settings.tts_provider_mode == "fake":
                 self.provider = FakeTtsProvider()
-            elif settings.tts_provider_mode == "google":
-                self.provider = GoogleCloudTtsProvider(settings)
-                self.pricing = GoogleTtsPricingCatalog(settings.tts_pricing_catalog_version)
             elif settings.tts_provider_mode == "vieneu":
                 self.provider = VieneuTtsProvider(settings)
                 self.pricing = VieneuTtsPricingCatalog(settings.tts_pricing_catalog_version)

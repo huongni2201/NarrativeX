@@ -17,6 +17,8 @@ MyBatis; application persistence code does not use JPA repositories/entities or 
 | Scene / VisualBeat / revisions | MyBatis + explicit SQL | DONE |
 | Character / ProjectCharacter / Location continuity | MyBatis + explicit SQL for persistence boundaries | DONE |
 | AuthUser and remaining CRUD/query ports | MyBatis + explicit SQL | DONE |
+| RenderInputSnapshot / ChapterMediaHead | MyBatis + explicit SQL | DONE |
+| Character reference assets / local devices | MyBatis + explicit SQL | DONE foundation |
 
 ## Migration recipe
 
@@ -44,8 +46,9 @@ application port stays unchanged
 
 ## Completion condition
 
-The migration is complete when the build contains no JPA dependency, production source has no JPA
-or `JdbcTemplate` references, and architecture tests keep that boundary enforced.
+The migration is complete: the build contains no JPA dependency, production source has no JPA or
+`JdbcTemplate` references, and architecture tests keep that boundary enforced. The remaining work
+is ordinary schema/query evolution, not a persistence-framework migration.
 
 ## Generation execution migration status
 

@@ -36,7 +36,32 @@ Approved VisualBeat + KeyframeAsset
 
 `VideoGenerationProvider` exposes capability, submit, status and reconcile behavior. Domain code uses production/motion capability, never `if provider == ...` business branches. Provider/model names, endpoint/model versions, request options and operation IDs are durable snapshots at the execution/accounting boundary.
 
-The initial `WanVideoProvider` calls a configured private Wan-compatible HTTP endpoint. NarrativeX does not embed Wan runtime dependencies into the backend domain and does not introduce a new domain service. See `LOCAL_I2V.md` and [ADR-0009](../decisions/ADR-0009-visual-beat-motion-and-production-modes.md).
+The initial `WanVideoProvider` calls a configured private Wan-compatible HTTP endpoint. NarrativeX does not embed Wan runtime dependencies into the backend domain and does not introduce a new domain service. See [ADR-0002](../decisions/ADR-0002-storyboard-character-continuity-and-production-workflows.md).
+
+## Local I2V & Wan2.2 Integration
+
+For `HYBRID_LOCAL_I2V` production mode:
+- SIMPLE scenes use deterministic FFmpeg pan/zoom/parallax motion.
+- Selected MEDIUM/COMPLEX scenes use local I2V with deterministic fallback when policy allows.
+- Motion prompt composer extracts characters, camera movement, and action descriptions from the immutable visual beat snapshot.
+- Motion generation jobs run asynchronously with `StageAttempt` leases and save output MP4 directly to R2.
+
+## Shorts / Reels Generation Workflow
+
+Shorts are independent vertical (9:16) artifacts derived from approved long-form timeline and assets:
+
+```text
+Approved long-form timeline / chapter
+  -> SHORT_HIGHLIGHT_ANALYZE (Vertex AI Gemini)
+  -> ranked ShortCandidate (hook/conflict/reveal/emotion/payoff)
+  -> 9:16 vertical render plan (crop/reframe approved assets)
+  -> SHORT_RENDER with 9:16 vertical RenderProfile
+  -> FinalArtifact validation & Google Drive export
+```
+
+- Planning rules: Highlight analyzer identifies coherent story beats (30s–60s). Crop/reframe preserves character identity and composition.
+- Delta execution: Editing a short creates a delta `OperationPlan` while original chapter assets remain immutable.
+- Server-side entitlement enforces monthly short export limits, watermarking, and concurrent job limits atomically.
 
 ## Durable and idempotent execution
 
@@ -59,7 +84,7 @@ Generated I2V duration and narration-span duration are intentionally separate. F
 
 ## Final render and storage
 
-Motion assets are pipeline media and remain R2-backed. The final exported MP4 follows a different durable-storage path defined by [ADR-0016](../decisions/ADR-0016-google-drive-final-video-storage.md):
+Motion assets are pipeline media and remain R2-backed. The final exported MP4 follows a different durable-storage path defined by [ADR-0003](../decisions/ADR-0003-media-storage-generation-pipelines-and-external-integrations.md):
 
 ```text
 approved R2 image/motion/audio inputs

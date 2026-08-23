@@ -22,13 +22,16 @@ Architectural decisions across NarrativeX are maintained in the following canoni
    - *Scope:* Internal user identity in PostgreSQL, Spring Security server-managed session persistence (`NX_SESSION`) in Redis, CSRF protection, Google OIDC safe linking, Redis fail-open rate limiting, out-of-band E2E test credentials (`E2E_TEST_EMAIL`, `E2E_TEST_PASSWORD`), and automated CI secret scanning.
    - *Consolidates:* Former ADR-0004 and ADR-0013.
 
-5. **[ADR-0018: Transactional chapter creation owns StoryVersion orchestration](./ADR-0018-transactional-chapter-creation.md)**
+5. **[ADR-0005: Deterministic MVP E2E rendering with local final storage](./ADR-0005-deterministic-mvp-e2e-render-storage.md)**
+   - *Scope:* Real PostgreSQL/Redis/backend/worker/FFmpeg MVP verification with deterministic fake providers and local final-video storage as a test-only exception to production Google Drive storage.
+
+6. **[ADR-0006: Transactional chapter creation owns StoryVersion orchestration](./ADR-0006-transactional-chapter-creation.md)**
    - *Scope:* Backend-owned StoryVersion/Chapter orchestration, PostgreSQL idempotency for chapter creation, server-derived ordering, and batch-import transaction boundaries.
 
-6. **[ADR-0019: Architecture guards and pipeline observability](./ADR-0019-architecture-guards-and-pipeline-observability.md)**
+7. **[ADR-0007: Architecture guards and pipeline observability](./ADR-0007-architecture-guards-and-pipeline-observability.md)**
    - *Scope:* ArchUnit dependency boundaries, stable worker repository facades, cross-stage pipeline metrics, correlation fields, and final-artifact streaming counters.
 
-7. **[ADR-0020: Production-profile Docker runtime for real machine-local execution](./ADR-0020-real-docker-runtime.md)**
+8. **[ADR-0008: Production-profile Docker runtime for real machine-local execution](./ADR-0008-real-docker-runtime.md)**
    - *Scope:* Production provider/storage semantics inside Docker on a developer-owned machine, with fake/local adapters restricted to tests and Storybook.
 
 ---

@@ -3,7 +3,7 @@
 **Status:** Canonical engineering direction and code-aligned baseline  
 **Effective date:** 23/08/2026  
 **Repository:** `huongni2201/NarrativeX`  
-**Docs-sync implementation checkpoint:** `fix/render-snapshot-retry-integrity` at `a167a88709e342b882cef0ceea6f0d6bd4122e4f`  
+**Docs-sync implementation checkpoint:** `main` at `0b8577a5a6b406d34b297a818e663f5db29b06d6`
 **Supersedes:** V1.10 as the planning baseline for new work
 
 ---
@@ -110,6 +110,8 @@ Provider failure transitions are strictly fenced, preserving `UNKNOWN` state acr
 | Immutable RenderInputSnapshot admission | IMPLEMENTED | admission-time snapshot of media plan revision, narration assets, and READY image beats into `render_input_snapshots` |
 | Character + Location continuity | IMPLEMENTED foundation | full human review/reference locking remains partial |
 | Project Character list/detail | IMPLEMENTED foundation | project-scoped authoritative reads are wired end to end |
+| Character reference assets | IMPLEMENTED foundation | CharacterVersion references are normalized, owner-authorized and snapshotted into image requests |
+| Chapter media head | IMPLEMENTED | durable current-media projection drives workspace hydration and stale-plan rejection |
 | Scene + VisualBeat | IMPLEMENTED foundation | richer revision/review flows remain partial |
 | Backend-authoritative MediaPlan | IMPLEMENTED foundation | immutable revision and job pinning exist |
 | Full-chapter generated narration | IMPLEMENTED foundation | Google TTS / local VieNeu paths with R2 durability |
@@ -126,6 +128,7 @@ Provider failure transitions are strictly fenced, preserving `UNKNOWN` state acr
 | Render with multi-part user-provided narration | PARTIAL | chapter-range slicing/stitching from aligned uploaded parts is not implemented in the render worker |
 | Preview/download/publishing from Drive | IMPLEMENTED for preview/download | backend-authorized OAuth proxy exposes private Drive media with HTTP Range; publishing remains separate |
 | MyBatis-only production persistence | IMPLEMENTED | architecture boundary is complete |
+| Local device management | IMPLEMENTED foundation | pairing codes, device capabilities, heartbeat and revocation are persisted in PostgreSQL |
 | VisualScenePlanner | TARGET | narration-driven adaptive visual planning remains incomplete |
 | Reuse/reframe/edit AssetResolver | DEFERRED fast-follow | optimize after creator loop reliability |
 | HYBRID_LOCAL_I2V end-to-end | DEFERRED fast-follow | selected-beat private I2V |

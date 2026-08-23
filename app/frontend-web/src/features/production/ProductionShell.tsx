@@ -193,9 +193,7 @@ export function ProductionShell({ projectId, initialTab = "chapters" }: Readonly
       )}
 
       {activeTab === "storyboard" && (
-        <div className="rounded-2xl border border-slate-800/90 bg-surface p-4 sm:p-6 shadow-xl">
-          <StoryboardScreen projectId={numericProjectId} chapters={chapters} />
-        </div>
+        <StoryboardScreen projectId={numericProjectId} chapters={chapters} />
       )}
 
       {activeTab === "characters" && (

@@ -142,4 +142,18 @@ Generated images          -> R2
 Final rendered MP4        -> Google Drive
 ```
 
-Audio remains R2-backed; only final rendered MP4 storage moved to Google Drive under ADR-0016.
+Audio remains R2-backed; final rendered MP4 storage uses Google Drive under ADR-0003.
+
+## Machine-Local VieNeu Narration Setup
+
+The machine-local Docker runtime uses the `prod` Spring profile and real provider semantics (`TTS_PROVIDER_MODE=vieneu`, `MEDIA_STORAGE_MODE=r2`).
+
+1. Set `VIENEU_REFERENCE_AUDIO_FILE` to a consented WAV reference on the host.
+2. Configure R2 credentials in `.env.prod`.
+3. Build and launch the backend and narration worker:
+
+```powershell
+docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build backend narration-worker
+```
+
+4. Verify the worker logs for `Narration worker configuration verified`. A production worker rejects fake, disabled and unconfigured narration settings at startup.

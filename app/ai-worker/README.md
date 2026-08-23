@@ -4,13 +4,16 @@
 
 The Python worker executes durable AI/media work authorized by the backend. It is not a public HTTP/FastAPI service.
 
-## Current execution foundations
+## Current V1.11 execution foundations
 
 - Chapter analysis and continuity/storyboard materialization;
 - durable ProviderOperation reconciliation;
 - Gemini 2.5 Flash Image batch-only generation through Vertex Batch inference;
 - full-chapter TTS narration, alignment and R2 persistence;
 - user-provided narration part/timeline processing foundation;
+- deterministic IMAGE_MOTION FFmpeg rendering, subtitle burning, ffprobe validation and final-artifact storage adapters;
+- database-backed media validation and local-device-compatible worker configuration;
+- character reference-aware image requests and immutable reference snapshots;
 - Wan-compatible I2V adapter/planning foundation;
 - bounded PostgreSQL claim/lease/heartbeat runtime.
 
@@ -46,9 +49,8 @@ final generated media.
 A paid batch must never be submitted before the durable provider-operation fence is persisted.
 Ambiguous submission outcomes remain `UNKNOWN` and must reconcile instead of being blindly retried.
 
-The repository does not yet run a dedicated `SHOT_IMAGE_GENERATE` claim loop from `__main__.py`;
-the batch-only runner is the execution primitive that the durable media-job worker must invoke when
-that worker loop is wired.
+The durable `SHOT_IMAGE_GENERATE` worker path is role-gated from `__main__.py`; the batch-only
+runner is invoked by the image-generation role after PostgreSQL claim/lease fencing.
 
 ## Narration
 
@@ -68,6 +70,22 @@ reference audio file. NarrativeX also keeps `Ngọc Huyền v2` as a separate
 system-managed reference profile, which is enrolled from `ngoc_huyen_sample.wav`
 when that voice is selected.
 
+To create browser previews for the catalog, run the checked-in generator from the
+worker environment. It writes one short WAV per built-in VieNeu voice under
+`app/ai-worker/artifacts/vieneu-previews/`:
+
+```text
+python app/ai-worker/scripts/generate_vieneu_previews.py \
+  --output-dir app/ai-worker/artifacts/vieneu-previews \
+  --skip-reference-voice
+```
+
+Upload each generated file to R2 with the key
+`narration/vieneu-previews/<filename>` and save the resulting public or signed URL in
+the matching `voice_catalog.sample_url`. The `Ngọc Huyền v2` file is intentionally
+not generated until the consented `ngoc_huyen_sample.wav` is supplied with
+`--reference-audio`.
+
 ### VieNeu-TTS voice cloning
 
 Install the worker dependencies, prepare a clean 3–8 second `.wav` sample outside the repository,
@@ -81,8 +99,8 @@ VIENEU_VOICE_ID=vieneu-ngoc-huyen-v2
 VIENEU_VOICE_NAME=Ngọc Huyền v2
 ```
 
-For Docker Compose, set `VIENEU_REFERENCE_AUDIO_HOST_DIR` to the host directory containing the WAV;
-Compose mounts that directory read-only at `/run/narrativex/voices` inside the worker. The worker
+For the production Compose stack, set `VIENEU_REFERENCE_AUDIO_FILE` to the host WAV path;
+Compose mounts that file read-only at `/run/narrativex/voices/reference.wav` inside the worker. The worker
 enrolls the profile once with `add_voice(..., denoise=True)`, calls `save_voices()`, and
 reuses it for each narration segment. `VIENEU_BACKEND=auto` selects the v3 Turbo ONNX CPU path on
 CPU; set `VIENEU_BACKEND=pytorch` only when the runtime has the corresponding GPU stack. The worker
@@ -103,11 +121,13 @@ voice profile. The worker image includes FFmpeg for MP3 decoding.
 
 One audio part may cover multiple Chapters. The worker can translate per-part timestamps into one global audio timeline; physical concatenation is not required just to define timeline continuity.
 
-Production upload/finalize and real alignment runtime still need end-to-end hardening.
+Production uploaded-audio ingestion/alignment and chapter-local render slicing remain partial.
 
 ## Durable media
 
-Cloudflare R2 is the only durable media store. Worker-local files are scratch/cache/FFmpeg workspace only. A retry should reuse valid R2 media rather than regenerate due solely to lost scratch.
+Cloudflare R2 is authoritative for source/generated/reusable pipeline media. Google Drive is
+authoritative for final rendered MP4 files. Worker-local files are scratch/cache/FFmpeg workspace
+only; a retry should reuse valid durable media rather than regenerate due solely to lost scratch.
 
 ## Worker authority boundary
 

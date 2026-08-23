@@ -1,6 +1,6 @@
 # NarrativeX Technology Stack — V1.11
 
-Canonical authority: [`../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md). ADR-0012 governs R2 pipeline media; ADR-0016 governs final rendered MP4 storage.
+Canonical authority: [`../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md). ADR-0003 governs R2 pipeline media and Google Drive final rendered MP4 storage.
 
 | Layer | Current stack | V1.11 role |
 |---|---|---|

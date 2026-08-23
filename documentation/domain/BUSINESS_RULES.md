@@ -40,8 +40,8 @@
 ## Durable media
 
 - **BR-110** Binary media is not stored in PostgreSQL.
-- **BR-111** Cloudflare R2 is the only durable media object store.
-- **BR-112** A media stage is not complete until bytes validate, immutable R2 persistence succeeds and authoritative metadata commits.
+- **BR-111** Cloudflare R2 is authoritative for source/generated/reusable pipeline media; Google Drive is authoritative for final rendered MP4 bytes.
+- **BR-112** A pipeline-media stage is not complete until bytes validate, immutable R2 persistence succeeds and authoritative metadata commits. A final-video stage additionally requires validated Drive durability and verification.
 - **BR-113** Worker-local media paths are scratch/cache only.
 - **BR-114** FinalArtifact becomes ready only after checksum/MIME/dimensions/duration/manifest validation.
 
@@ -49,7 +49,7 @@
 
 - **BR-120** New persistence-heavy backend work converges on MyBatis + explicit SQL + PostgreSQL unless an ADR records an exception.
 - **BR-121** SQL concurrency/state transitions use CAS/allowed-previous predicates and affected-row validation.
-- **BR-122** JPA/JDBC are migration-era surfaces and must not be treated as the strategic final persistence model.
+- **BR-122** JPA is absent from production persistence; direct JDBC helpers are limited to test/integration support and must not become the production persistence boundary.
 
 ## History and continuity
 

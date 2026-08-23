@@ -7,7 +7,7 @@ interface StoryboardEmptyStateProps {
 
 export function StoryboardEmptyState({ title, description }: Readonly<StoryboardEmptyStateProps>) {
   return (
-    <div className="flex min-h-[330px] items-center justify-center rounded-xl border border-dashed border-border bg-surface-panel px-6 text-center">
+    <div className="flex min-h-[330px] items-center justify-center rounded-xl border border-dashed border-border-dark bg-surface-panel px-6 text-center">
       <div>
         <ImageIcon className="mx-auto h-9 w-9 text-slate-700" />
         <h3 className="mt-3 text-sm font-semibold text-slate-300">{title}</h3>

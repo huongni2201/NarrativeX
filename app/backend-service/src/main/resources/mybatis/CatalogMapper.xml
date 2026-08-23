@@ -35,8 +35,9 @@
     <select id="listVoices" resultMap="voiceRow">
         SELECT id, provider, name, language, gender, sample_url,
                metadata_json::text AS metadata_json, updated_at
-          FROM voice_catalog
+         FROM voice_catalog
          WHERE enabled = TRUE
+           AND provider = 'VIENEU'
         <if test="language != null and language != ''">AND language = #{language}</if>
          ORDER BY language, LOWER(name), id
     </select>
@@ -54,8 +55,9 @@
                    metadata_json ->> 'executionSemantics',
                    CASE WHEN provider = 'VIENEU' THEN 'LOCAL_RETRYABLE' ELSE 'EXTERNAL_DURABLE' END
                ) AS execution_semantics
-          FROM voice_catalog
+         FROM voice_catalog
          WHERE id = #{voiceId}
            AND enabled = TRUE
+           AND provider = 'VIENEU'
     </select>
 </mapper>

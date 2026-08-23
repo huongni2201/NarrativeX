@@ -29,6 +29,9 @@ Core authoring/analyze/generation durability is implemented as a foundation, and
 | Drive preview/download/streaming | IMPLEMENTED; owner-authorized backend proxy with OAuth refresh and HTTP Range streaming |
 | Cross-attempt upload-only retry | TARGET hardening |
 | MyBatis-only production persistence | IMPLEMENTED |
+| Authoritative Chapter media head | IMPLEMENTED; workspace hydration and stale-plan checks use PostgreSQL projection |
+| Character reference assets | IMPLEMENTED foundation; normalized and included in image-generation snapshots |
+| Local device management | IMPLEMENTED foundation; pairing/capability/revocation state is durable |
 
 ## Durable media/storage contract
 

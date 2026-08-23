@@ -43,16 +43,15 @@ def test_r2_runtime_requires_credentials(monkeypatch: pytest.MonkeyPatch) -> Non
         WorkerSettings()
 
 
-def test_google_tts_requires_project(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_google_tts_mode_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("TTS_PROVIDER_MODE", "google")
 
-    with pytest.raises(ValidationError, match="GOOGLE_TTS_PROJECT_ID"):
+    with pytest.raises(ValidationError, match="disabled.*fake.*vieneu"):
         WorkerSettings()
 
 
 def test_tts_requires_r2_storage(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("TTS_PROVIDER_MODE", "google")
-    monkeypatch.setenv("GOOGLE_TTS_PROJECT_ID", "project-123")
+    monkeypatch.setenv("TTS_PROVIDER_MODE", "vieneu")
 
     with pytest.raises(ValidationError, match="MEDIA_STORAGE_MODE=r2"):
         WorkerSettings()

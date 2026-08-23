@@ -2,14 +2,11 @@
 
 ## Authority and validation
 
-# NarrativeX Database Baseline V1.11
-
-## Authority and validation
-
 - PostgreSQL is the authoritative business-state store.
 - Redis is not authoritative GenerationJob state; it is used for sessions and non-authoritative delivery/progress hints.
 - Backend is the Flyway/schema owner.
-- `spring.jpa.hibernate.ddl-auto=validate` protects runtime schema drift outside test profiles.
+- Flyway applies the complete schema before the backend starts; there is no JPA/Hibernate schema
+  validation path.
 - PostgreSQL + Flyway is the release schema gate.
 
 ## Flyway migration matrix
@@ -17,21 +14,9 @@
 | Migration | Purpose | Current state |
 |---|---|---|
 | V1 `initial_schema` | Auth, project/story/chapter foundations, storyboard revisions, split motion/camera visual beats, preview-asset links, character/location AI identities, backend-authoritative media plans, generation execution/review and lineage, durable provider operations, quota reservation lifecycle, chapter-level TTS, uploaded narration, upload sessions, media lifecycle hardening, durable media validation jobs, detected media metadata, style presets and voice catalog, render ownership pins, owner-scoped idempotency, voice reference asset, cleanup tasks | Consolidated baseline |
-| V2 `remove_internal_analysis_moderation_gate` | Removes the retired application-owned analysis moderation gate | Production migration |
-| V3 `chapter_content_variants_and_translation` | Adds immutable ORIGINAL/TRANSLATION chapter variants, language detection and translation job lineage | Production migration |
-| V4 `scope_quota_finalization_to_reserved_jobs` | Scopes quota finalization to jobs with durable reservations | Production migration |
-| V5 `fix_translation_variant_lineage_identity` | Replaces the broad chapter variant uniqueness index with ORIGINAL and source-lineage-aware TRANSLATION identities | Production migration |
-
-The production migration set is V1 through V5. Existing databases created from any former migration
-split require operator-reviewed recreation or explicit re-baselining.
-
-The local V2 fixture covers all supported demo paths. In addition to the core
-project/story rows, it includes scene and visual-beat continuity links, AI
-identity mappings, favorites, media plans, quota reservations, TTS
-requests/assets/alignments, uploaded narration sets/parts/documents/alignment
-runs, render manifests, final artifacts, and catalog entries. Seed statements
-use explicit column lists and provide valid values for every non-default
-required column used by a fixture.
+The supported migration set is the single consolidated V1 baseline. Databases created from the
+removed split migration history require operator-reviewed recreation or explicit re-baselining; the
+application does not rewrite `flyway_schema_history`.
 
 ## Entity/schema matrix
 
@@ -40,6 +25,7 @@ required column used by a fixture.
 | Project | `projects` | IMPLEMENTED | ownership, active query index and cursor pagination foundation |
 | StoryVersion | `story_versions` | IMPLEMENTED FOUNDATION | version/source boundary |
 | Chapter | `chapters` | IMPLEMENTED FOUNDATION | sourceText/sourceHash/rowVersion contract |
+| Chapter creation idempotency | `chapter_creation_idempotency` | IMPLEMENTED | owner/project/key uniqueness, request fingerprint and resulting Chapter |
 | StoryboardRevision | `storyboard_revisions` | IMPLEMENTED | immutable revision boundary for safe re-analysis |
 | Scene | `scenes` | IMPLEMENTED FOUNDATION | storyboard scene persistence, location association |
 | SceneCharacter | `scene_characters` | IMPLEMENTED | ordered scene-to-character continuity associations |
@@ -48,6 +34,7 @@ required column used by a fixture.
 | MediaPlan | `media_plans` / `media_scene_plans` / `media_beat_plans` | IMPLEMENTED | backend-authoritative execution and cost plan |
 | ProjectFavorite | `project_favorites` | IMPLEMENTED | per-user dashboard favorites |
 | GenerationJob | `generation_jobs` | IMPLEMENTED FOUNDATION | durable async execution state with plan & revision pinning |
+| Chapter media head | `chapter_media_heads` | IMPLEMENTED | authoritative current media job per Chapter |
 | StageAttempt | `stage_attempts` | IMPLEMENTED FOUNDATION | lease/attempt model with heartbeat claims |
 | ProviderOperation | `provider_operations` | IMPLEMENTED SQL-FIRST SLICE | durable provider boundary, CAS lifecycle, reconciliation, billing evidence & result fingerprint |
 | OperationPlan | `operation_plans` | IMPLEMENTED MVP FOUNDATION | estimate/cap/admission link |
@@ -56,13 +43,16 @@ required column used by a fixture.
 | Media validation | `media_assets` / `media_asset_checksums` / `media_upload_sessions` / `media_validation_jobs` / `outbox_events` | IMPLEMENTED FOUNDATION | finalization persists `VALIDATING` plus an idempotent durable validation job; worker CAS-persisted decode results drive `READY`/`REJECTED` |
 | Narration (Upload) | `media_assets` / `media_asset_checksums` / `media_upload_sessions` / `narration_sets` / `narration_parts` / `narration_documents` / `narration_alignment_runs` | IMPLEMENTED FOUNDATION | verified upload finalization claims one canonical checksum owner, materializes assets as `VALIDATING`, and queues duplicate-object cleanup transactionally |
 | Character & Identity | `characters` / `character_versions` / `outfit_versions` / `character_appearances` / `project_characters` / `project_character_ai_identities` | IMPLEMENTED FOUNDATION | reusable character identity, appearance timelines & AI continuity matching |
+| Character references | `character_version_reference_assets` | IMPLEMENTED FOUNDATION | immutable FK-backed identity/profile/outfit/pose references with priority |
 | Location | `project_locations` / `project_location_ai_identities` | IMPLEMENTED FOUNDATION | project locations and AI continuity key mapping |
 | Render artifact | `render_manifests` / `final_artifacts` | IMPLEMENTED | immutable render inputs and durable output metadata |
+| Render input snapshot | `render_input_snapshots` / `render_input_snapshot_beats` | IMPLEMENTED | immutable admission-time media-plan, narration and READY-beat inputs |
+| Local execution | `local_device_pairing_codes` / `local_devices` / `local_device_capabilities` | IMPLEMENTED FOUNDATION | paired local-device identity, capabilities and revocation |
 
 ## Durable execution persistence
 
 The persisted execution contract is documented in
-[`ADR-0008`](../decisions/ADR-0008-durable-provider-operations-and-execution-lifecycle.md).
+[`ADR-0001`](../decisions/ADR-0001-system-topology-execution-and-persistence.md).
 Java and Python mirrors must be updated with every new persisted execution
 value. Canonical execution values and bounds are validated via PostgreSQL CHECK constraints in V1.
 
@@ -115,7 +105,6 @@ continuity keys.
 
 Mutable entities use row version protection:
 
-- JPA `@Version` protects persistence writes.
 - Domain adapters compare expected row version before applying detached changes.
 - The ProviderOperation MyBatis adapter enforces allowed status plus expected `row_version` in SQL; zero affected rows are conflicts.
 - Public mutable APIs should expose ETag / `If-Match` semantics.
@@ -156,7 +145,7 @@ The partial predicate avoids archived rows polluting the common active-project p
 For schema PRs:
 
 1. Apply all migrations on an empty supported PostgreSQL instance.
-2. Start backend with Hibernate validate.
+2. Start backend and verify Flyway has applied the V1 baseline.
 3. Run backend verification suite.
 4. Verify stale-version behavior.
 5. Verify query plans for keyset pagination with representative data.

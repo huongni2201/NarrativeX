@@ -1,4 +1,4 @@
-# ADR-0019: Architecture guards and pipeline observability
+# ADR-0007: Architecture guards and pipeline observability
 
 ## Status
 

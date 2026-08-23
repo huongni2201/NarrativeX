@@ -29,8 +29,8 @@ Canonical routes include `/auth`, `/projects`, `/projects/[projectId]`, `/charac
 | Quota details UI | IMPLEMENTED foundation |
 | Notification center | IMPLEMENTED foundation |
 | Chapter Narration TTS | IMPLEMENTED foundation |
-| Presets persisted backend workflow | PENDING |
-| Image/render/export | PENDING |
+| Presets catalog reads | IMPLEMENTED foundation |
+| Image/render/export | IMPLEMENTED foundation; real API mode, durable job polling, review and artifact preview/download |
 
 See `FRONTEND_API_INTEGRATION_MATRIX.md` for the backend-available versus frontend-connected distinction.
 
@@ -83,6 +83,6 @@ Architecture regression checks protect shared/feature dependency boundaries and 
 - Broader Character version/reference/lock UX.
 - Broader Storyboard editing/deep-link/review workflows.
 - Asset upload/finalize/review lifecycle.
-- Preset persistence.
-- Image/TTS/render/export workflows once backend/media stages exist.
+- Preset write/assignment workflows.
+- Richer image review/reuse/reframe/edit UX and uploaded-audio render slicing/stitching.
 - Server-side project search/filter contract for the full unbounded collection.

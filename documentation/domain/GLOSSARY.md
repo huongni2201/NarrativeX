@@ -1,15 +1,14 @@
-# NarrativeX V1.8 — Glossary
+# NarrativeX V1.11 — Glossary
 
  | Thuật ngữ | Định nghĩa |
  |---|---|
  | StoryVersion | Phiên bản nội dung truyện đã nhập/chỉnh; một version ACTIVE trên Project tại một thời điểm. |
  | Character Bible | Hồ sơ nhận diện ổn định của nhân vật. |
- | CharacterVersion | Snapshot versioned của Character Bible và references. |
+ | CharacterVersion | Immutable snapshot của Character Bible và approved reference assets. |
  | Reference Asset | Ảnh dùng làm điều kiện tham chiếu cho AI. |
- | Character Master | Ảnh/phiên bản user chọn làm identity source chính của CharacterVersion. |
+ | Identity Anchor | Reference asset role được chọn làm reference ưu tiên cho CharacterVersion; không phải một cột master-asset riêng. |
  | Character | Canonical reusable character identity thuộc User/Workspace; có thể tham gia nhiều Project. |
 | ProjectCharacter | Assignment của Character vào một Project; giữ role và metadata riêng của story/project. |
-| CharacterVersion | Immutable version của Character identity/Bible/references. |
 | CharacterAppearance | Visual state của Character trong một khoảng story/timeline; không phải identity mới. |
 | SceneCharacter | Character participation trong một Scene; tham chiếu ProjectCharacter và scene-specific state. |
 | CharacterTemplate | Optional template dùng để tạo Character mới; không phải runtime identity và không bắt buộc clone mỗi Project. |
@@ -19,7 +18,7 @@
  | CharacterTemplate | Nhân vật reusable ở user-level library; Project import thành snapshot. |
 | Project Bible | Project-scoped snapshot/assignments của ProjectCharacter, Location, Outfit, Style và generation settings dùng xuyên chapter. |
  | Scene | Đơn vị nội dung storyboard có narration và duration. |
- | Shot | Khái niệm camera/timeline finer-grained tùy workflow; V1.8 không bắt buộc tách semantics khỏi VisualBeat. |
+ | Shot | Khái niệm camera/timeline finer-grained tùy workflow; không bắt buộc tách semantics khỏi VisualBeat. |
  | VisualBeat | Khoảng narration/timeline có visual intent ổn định; đơn vị generation chính long-form. |
  | GenerationAttempt | Một lần generate cụ thể, lưu prompt/model/seed/settings/output. |
  | Approved Asset | Asset được user chọn làm output chính cho beat/shot. |
@@ -30,7 +29,7 @@
  | StageAttempt | Attempt persisted của một stage trong parent job, có lifecycle retry/recover riêng. |
  | ProviderOperation | Bản ghi durable của external submission, gồm provider identity, operation id và status. |
  | UNKNOWN | Chưa xác định external operation thành công/thất bại; không được blind resubmit. |
- | FinalArtifact | Video cuối đã validate storage/MIME/dimensions/manifest; điều kiện parent complete. |
+ | FinalArtifact | Metadata của video cuối đã validate storage/MIME/dimensions/manifest; bytes nằm trong Google Drive production hoặc local final storage ở E2E deterministic. |
  | RenderVersion | Một lần kết xuất final immutable; render lại tạo version mới. |
  | RenderProfile | Preset output gồm aspect ratio, quality, width/height/FPS/bitrate. |
  | Aspect Ratio | Tỉ lệ rộng:cao của image/video; capability provider quyết định khả dụng. |
@@ -51,7 +50,7 @@
  | Transactional Outbox | Event persist cùng business transaction rồi dispatch async, tránh mất notification event. |
  | Notification | Persisted in-app event; email/web-push chỉ là delivery channel. |
  | GPU Pool | Nhóm worker GPU cho self-hosted ComfyUI/model, tách CPU workers; managed mode có thể scale 0. |
- | Critical Media | Character Master/Reference, Approved Assets, FinalArtifacts cần RPO/RTO chặt hơn attempts. |
+ | Critical Media | Identity references, Approved Assets, FinalArtifacts cần RPO/RTO chặt hơn attempts. |
  | RPO / RTO | Recovery Point Objective / Recovery Time Objective: dữ liệu mất tối đa / thời gian khôi phục mục tiêu. |
  | STALLED | Stage RUNNING mất lease/heartbeat; cần safe retry hoặc external reconciliation. |
  | PAUSED_COST_LIMIT | Operation tạm dừng vì stage billable tiếp theo có thể vượt max authorized spend. |

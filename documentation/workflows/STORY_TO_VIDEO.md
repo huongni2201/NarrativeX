@@ -134,7 +134,7 @@ Final artifacts are private. The durable remote identity is the Drive provider/f
 - narration-driven VisualScenePlanner/review;
 - reuse/reframe/edit AssetResolver;
 - Character/reference locking and approved storyboard revisions;
-- owner-authorized final-video preview/download/streaming;
+- publishing/entitlement hardening around the implemented owner-authorized final-video preview/download/streaming proxy;
 - durable upload-only retry across attempts;
 - HYBRID_LOCAL_I2V/Wan hardening;
 - full cost/usage reconciliation;

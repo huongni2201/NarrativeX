@@ -2,7 +2,7 @@
 
 ## Authority and role
 
-This document describes the current Python worker implementation for the V1.10 baseline. Product and architecture authority remains `../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_10.md`.
+This document describes the current Python worker implementation for the V1.11 baseline. Product and architecture authority remains `../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`.
 
 The worker is the asynchronous execution runtime for AI/media workloads. It is not a browser-facing API and it is not canonical product/domain authority. Spring Boot owns client APIs, authorization and durable orchestration policy; PostgreSQL owns durable execution state.
 
@@ -56,9 +56,9 @@ A dropped Redis delivery hint must not lose queued work. PostgreSQL remains auth
 | ProviderOperation durable lifecycle | IMPLEMENTED foundation with fail-closed ambiguous-submission recovery and paced reconciliation metadata |
 | Location materialization | IMPLEMENTED foundation |
 | Scene character/location continuity materialization | IMPLEMENTED foundation |
-| Image generation | PENDING |
-| TTS/subtitle generation | PENDING |
-| FFmpeg render/export | PENDING |
+| Image generation | IMPLEMENTED foundation; durable role wiring and Vertex Batch inference |
+| TTS/subtitle generation | IMPLEMENTED foundation; Google/VieNeu narration, alignment and ASS subtitles |
+| FFmpeg render/export | IMPLEMENTED foundation; deterministic IMAGE_MOTION, ffprobe and final storage |
 
 ## Chapter analysis contract
 
@@ -150,7 +150,7 @@ cancels the work and cannot mark the job completed or failed from the old owner.
 - prompt/schema boundary and structured validation;
 - stale Chapter protection;
 - current Chapter-analysis result materialization;
-- future media execution once those stages are implemented.
+- image-generation, media-validation, narration and render role execution against durable snapshots.
 
 ### Worker does not own
 
@@ -165,19 +165,19 @@ cancels the work and cannot mark the job completed or failed from the old owner.
 ## Current gaps
 
 - Complete provider actual-usage reconciliation across all operation types.
-- Full provider-backed image generation dispatch and durable DB materialization wiring.
-- TTS/subtitle generation.
-- Render/export/final artifact validation.
+- Complete user-provided-audio render slicing/stitching and production hardening.
+- Full review/reuse lineage around generated images and final artifacts.
 - Broader production observability, recovery and provider integration evidence.
 
-## MVP image execution contract
+## MVP image/render execution contract
 
-The worker now has provider-neutral image request/result contracts, a fail-closed Vertex Imagen adapter,
-bounded PNG/JPEG/WEBP validation, and an image runner that writes immutable private R2 result keys only
-after checksum validation. Provider submission timeouts and transport/5xx failures become `UNKNOWN`; the
-runner never blind-resubmits an ambiguous operation. Deterministic `IMAGE_MOTION` FFmpeg argument and
-output-validation modules are also present. The remaining integration work is wiring these modules into
-the durable job dispatcher and concrete PostgreSQL materialization adapter.
+The worker has provider-neutral image request/result contracts, a fail-closed Vertex Batch adapter,
+bounded PNG/JPEG/WEBP validation, character-reference-aware requests, immutable private R2 result keys,
+and durable PostgreSQL materialization. Provider submission timeouts and transport/5xx failures become
+`UNKNOWN`; the runner never blind-resubmits an ambiguous operation. The render role consumes pinned
+render-input snapshots, builds deterministic IMAGE_MOTION FFmpeg output with ASS subtitles, validates
+the result with ffprobe/checksum, and promotes the final MP4 through the configured final-video storage
+boundary.
 
 ## Verification expectations
 

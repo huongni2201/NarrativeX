@@ -1,4 +1,4 @@
-# ADR-0018: Transactional chapter creation owns StoryVersion orchestration
+# ADR-0006: Transactional chapter creation owns StoryVersion orchestration
 
 ## Status
 

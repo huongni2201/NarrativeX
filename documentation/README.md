@@ -2,7 +2,7 @@
 
 The canonical product and architecture baseline is [`source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](./source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md). Superseded versioned documents are removed once unique history is preserved in ADRs.
 
-Current code, migrations and tests define factual implementation state when a derived document drifts. Accepted ADRs explain important implementation decisions and deliberate deviations. ADR-0016 supersedes the earlier R2-only storage rule specifically for final rendered video exports.
+Current code, migrations and tests define factual implementation state when a derived document drifts. Accepted ADRs explain important implementation decisions and deliberate deviations. ADR-0003 defines the split R2 pipeline-media and Google Drive final-video storage contract.
 
 ## Navigation
 

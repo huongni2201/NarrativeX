@@ -1,0 +1,126 @@
+{
+  "provider": "VIENEU",
+  "previewText": "Xin chào, đây là giọng đọc thử của NarrativeX.",
+  "files": [
+    {
+      "voiceId": "vieneu-ngoc-huyen",
+      "voiceName": "Ngọc Huyền",
+      "filename": "vieneu-ngoc-huyen.wav",
+      "r2Key": "narration/vieneu-previews/vieneu-ngoc-huyen.wav"
+    },
+    {
+      "voiceId": "vieneu-minh-duc",
+      "voiceName": "Minh Đức",
+      "filename": "vieneu-minh-duc.wav",
+      "r2Key": "narration/vieneu-previews/vieneu-minh-duc.wav"
+    },
+    {
+      "voiceId": "vieneu-thanh-binh",
+      "voiceName": "Thanh Bình",
+      "filename": "vieneu-thanh-binh.wav",
+      "r2Key": "narration/vieneu-previews/vieneu-thanh-binh.wav"
+    },
+    {
+      "voiceId": "vieneu-truc-ly",
+      "voiceName": "Trúc Ly",
+      "filename": "vieneu-truc-ly.wav",
+      "r2Key": "narration/vieneu-previews/vieneu-truc-ly.wav"
+    },
+    {
+      "voiceId": "vieneu-ngoc-linh",
+      "voiceName": "Ngọc Linh",
+      "filename": "vieneu-ngoc-linh.wav",
+      "r2Key": "narration/vieneu-previews/vieneu-ngoc-linh.wav"
+    },
+    {
+      "voiceId": "vieneu-mai-anh",
+      "voiceName": "Mai Anh",
+      "filename": "vieneu-mai-anh.wav",
+      "r2Key": "narration/vieneu-previews/vieneu-mai-anh.wav"
+    },
+    {
+      "voiceId": "vieneu-quynh-anh",
+      "voiceName": "Quỳnh Anh",
+      "filename": "vieneu-quynh-anh.wav",
+      "r2Key": "narration/vieneu-previews/vieneu-quynh-anh.wav"
+    },
+    {
+      "voiceId": "vieneu-doan-trang",
+      "voiceName": "Đoan Trang",
+      "filename": "vieneu-doan-trang.wav",
+      "r2Key": "narration/vieneu-previews/vieneu-doan-trang.wav"
+    },
+    {
+      "voiceId": "vieneu-pham-tuyen",
+      "voiceName": "Phạm Tuyên",
+      "filename": "vieneu-pham-tuyen.wav",
+      "r2Key": "narration/vieneu-previews/vieneu-pham-tuyen.wav"
+    },
+    {
+      "voiceId": "vieneu-quang-son",
+      "voiceName": "Quang Sơn",
+      "filename": "vieneu-quang-son.wav",
+      "r2Key": "narration/vieneu-previews/vieneu-quang-son.wav"
+    },
+    {
+      "voiceId": "vieneu-ngoc-tran",
+      "voiceName": "Ngọc Trân",
+      "filename": "vieneu-ngoc-tran.wav",
+      "r2Key": "narration/vieneu-previews/vieneu-ngoc-tran.wav"
+    },
+    {
+      "voiceId": "vieneu-adam",
+      "voiceName": "Adam",
+      "filename": "vieneu-adam.wav",
+      "r2Key": "narration/vieneu-previews/vieneu-adam.wav"
+    },
+    {
+      "voiceId": "vieneu-xuan-vinh",
+      "voiceName": "Xuân Vĩnh",
+      "filename": "vieneu-xuan-vinh.wav",
+      "r2Key": "narration/vieneu-previews/vieneu-xuan-vinh.wav"
+    },
+    {
+      "voiceId": "vieneu-thai-son",
+      "voiceName": "Thái Sơn",
+      "filename": "vieneu-thai-son.wav",
+      "r2Key": "narration/vieneu-previews/vieneu-thai-son.wav"
+    },
+    {
+      "voiceId": "vieneu-thuy-dung",
+      "voiceName": "Thùy Dung",
+      "filename": "vieneu-thuy-dung.wav",
+      "r2Key": "narration/vieneu-previews/vieneu-thuy-dung.wav"
+    },
+    {
+      "voiceId": "vieneu-my-duyen",
+      "voiceName": "Mỹ Duyên",
+      "filename": "vieneu-my-duyen.wav",
+      "r2Key": "narration/vieneu-previews/vieneu-my-duyen.wav"
+    },
+    {
+      "voiceId": "vieneu-minh-triet",
+      "voiceName": "Minh Triết",
+      "filename": "vieneu-minh-triet.wav",
+      "r2Key": "narration/vieneu-previews/vieneu-minh-triet.wav"
+    },
+    {
+      "voiceId": "vieneu-duc-tri",
+      "voiceName": "Đức Trí",
+      "filename": "vieneu-duc-tri.wav",
+      "r2Key": "narration/vieneu-previews/vieneu-duc-tri.wav"
+    },
+    {
+      "voiceId": "vieneu-thuc-doan",
+      "voiceName": "Thục Đoan",
+      "filename": "vieneu-thuc-doan.wav",
+      "r2Key": "narration/vieneu-previews/vieneu-thuc-doan.wav"
+    },
+    {
+      "voiceId": "vieneu-kim-thanh",
+      "voiceName": "Kim Thanh",
+      "filename": "vieneu-kim-thanh.wav",
+      "r2Key": "narration/vieneu-previews/vieneu-kim-thanh.wav"
+    }
+  ]
+}

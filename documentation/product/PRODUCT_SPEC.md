@@ -4,7 +4,7 @@
 **Canonical source:** [`../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md)  
 **Implementation evidence:** [`../TRACEABILITY.md`](../TRACEABILITY.md)
 
-ADR-0012 governs R2 pipeline media. ADR-0016 governs final rendered MP4 storage in Google Drive.
+ADR-0003 governs R2 pipeline media and final rendered MP4 storage in Google Drive.
 
 ## Product definition
 

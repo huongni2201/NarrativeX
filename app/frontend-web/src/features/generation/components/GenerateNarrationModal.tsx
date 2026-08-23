@@ -1,7 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Volume2, X, Sparkles, Check, AlertCircle, Loader2, FileAudio } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import {
+  Volume2,
+  X,
+  Sparkles,
+  Check,
+  AlertCircle,
+  Loader2,
+  FileAudio,
+  Play,
+  Pause,
+} from "lucide-react";
 import { toast } from "sonner";
 import { PRESET_VOICES, type VoiceOption } from "../types/narration.types";
 import { useGenerateNarration } from "../hooks/useGenerateNarration";
@@ -32,24 +42,38 @@ export function GenerateNarrationModal({
 }: Readonly<GenerateNarrationModalProps>) {
   const [selectedVoice, setSelectedVoice] = useState<string>(GLOBAL_VIENEU_VOICE_ID);
   const [speakingRate, setSpeakingRate] = useState<number>(1.0);
-  const [languageFilter, setLanguageFilter] = useState<string>("vi-VN");
+  const [languageFilter] = useState<string>("vi-VN");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [voices, setVoices] = useState<VoiceOption[]>(isMockDataMode ? PRESET_VOICES : []);
+  const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    if (isOpen) return;
+    previewAudioRef.current?.pause();
+    previewAudioRef.current = null;
+    setPlayingVoiceId(null);
+  }, [isOpen]);
+
+  useEffect(() => () => previewAudioRef.current?.pause(), []);
 
   useEffect(() => {
     if (isMockDataMode || !isOpen) return;
     voicesApi
       .list(languageFilter)
       .then((items) => {
-        const mapped: VoiceOption[] = items.map((voice) => ({
-          id: voice.id,
-          name: voice.name,
-          language: voice.language,
-          gender: voice.gender === "MALE" ? "MALE" : "FEMALE",
-          style: "Standard" as const,
-          description: `${voice.provider} · ${voice.language}`,
-          provider: voice.provider,
-        }));
+        const mapped: VoiceOption[] = items
+        .filter((voice) => voice.provider.toUpperCase() === "VIENEU")
+        .map((voice) => ({
+            id: voice.id,
+            name: voice.name,
+            language: voice.language,
+            gender: voice.gender === "MALE" ? "MALE" : "FEMALE",
+            style: "Standard" as const,
+            description: `${voice.provider} · ${voice.language}`,
+            provider: voice.provider,
+            sampleUrl: voice.sampleUrl,
+          }));
         setVoices(mapped);
         setSelectedVoice(
           mapped.find((voice) => voice.id === GLOBAL_VIENEU_VOICE_ID)?.id ?? mapped[0]?.id ?? "",
@@ -62,7 +86,9 @@ export function GenerateNarrationModal({
 
   if (!isOpen) return null;
 
-  const filteredVoices = voices.filter((v) => v.language === languageFilter);
+  const filteredVoices = voices.filter(
+    (voice) => voice.language === languageFilter && voice.provider?.toUpperCase() === "VIENEU",
+  );
   const selectedVoiceOption = voices.find((voice) => voice.id === selectedVoice);
   const usesVieNeu = (voiceId: string, voice?: VoiceOption) =>
     voiceId.startsWith("vieneu-") || voice?.provider?.toUpperCase() === "VIENEU";
@@ -72,6 +98,40 @@ export function GenerateNarrationModal({
 
   const selectVoice = (voiceId: string) => {
     setSelectedVoice(voiceId);
+  };
+
+  const previewVoice = (voice: VoiceOption) => {
+    if (!voice.sampleUrl) return;
+    if (playingVoiceId === voice.id && previewAudioRef.current) {
+      previewAudioRef.current.pause();
+      previewAudioRef.current = null;
+      setPlayingVoiceId(null);
+      return;
+    }
+    previewAudioRef.current?.pause();
+    const audio = new Audio(voice.sampleUrl);
+    previewAudioRef.current = audio;
+    setPlayingVoiceId(voice.id);
+    audio.onended = () => {
+      if (previewAudioRef.current === audio) {
+        previewAudioRef.current = null;
+        setPlayingVoiceId(null);
+      }
+    };
+    audio.onerror = () => {
+      if (previewAudioRef.current === audio) {
+        previewAudioRef.current = null;
+        setPlayingVoiceId(null);
+        setErrorMessage("Không thể phát file nghe thử voice.");
+      }
+    };
+    void audio.play().catch(() => {
+      if (previewAudioRef.current === audio) {
+        previewAudioRef.current = null;
+        setPlayingVoiceId(null);
+        setErrorMessage("Không thể phát file nghe thử voice.");
+      }
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -145,34 +205,9 @@ export function GenerateNarrationModal({
           <div>
             <label className="text-xs font-semibold text-text-secondary">Ngôn ngữ giọng đọc</label>
             <div className="mt-2 flex gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setLanguageFilter("vi-VN");
-                  selectVoice(isMockDataMode ? "vi-VN-Standard-A" : GLOBAL_VIENEU_VOICE_ID);
-                }}
-                className={`rounded-lg px-3.5 py-1.5 text-xs font-medium transition-colors ${
-                  languageFilter === "vi-VN"
-                    ? "bg-primary text-white"
-                    : "border border-border bg-surface-panel text-text-secondary hover:text-text-primary"
-                }`}
-              >
-                Tiếng Việt (vi-VN)
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setLanguageFilter("en-US");
-                  selectVoice(isMockDataMode ? "en-US-Standard-C" : "narrativex-en-us-female-1");
-                }}
-                className={`rounded-lg px-3.5 py-1.5 text-xs font-medium transition-colors ${
-                  languageFilter === "en-US"
-                    ? "bg-primary text-white"
-                    : "border border-border bg-surface-panel text-text-secondary hover:text-text-primary"
-                }`}
-              >
-                English (en-US)
-              </button>
+              <span className="rounded-lg bg-primary px-3.5 py-1.5 text-xs font-medium text-white">
+                Tiếng Việt · VieNeu (vi-VN)
+              </span>
             </div>
           </div>
 
@@ -183,30 +218,44 @@ export function GenerateNarrationModal({
               {filteredVoices.map((voice) => {
                 const isSelected = selectedVoice === voice.id;
                 return (
-                  <button
+                  <div
                     key={voice.id}
-                    type="button"
-                    onClick={() => selectVoice(voice.id)}
-                    className={`flex flex-col rounded-lg border p-3 text-left transition-colors ${
+                    className={`rounded-lg border p-3 transition-colors ${
                       isSelected
                         ? "border-primary bg-primary-muted/20 ring-2 ring-primary/40"
                         : "border-border bg-surface-panel hover:border-border-glow hover:bg-surface-2/40"
                     }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-text-primary">{voice.name}</span>
-                      {isSelected ? (
-                        <Check className="h-4 w-4 text-primary" />
+                    <button type="button" onClick={() => selectVoice(voice.id)} className="w-full text-left">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-text-primary">{voice.name}</span>
+                        {isSelected ? (
+                          <Check className="h-4 w-4 text-primary" />
+                        ) : (
+                          <span className="rounded bg-surface-3 px-1.5 py-0.5 text-[10px] text-text-muted">
+                            {voice.style}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1 text-[11px] text-text-secondary leading-snug">
+                        {voice.description}
+                      </p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => previewVoice(voice)}
+                      disabled={!voice.sampleUrl}
+                      className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-medium text-primary transition-colors hover:text-primary-hover disabled:cursor-not-allowed disabled:text-text-muted"
+                      aria-label={`Nghe thử ${voice.name}`}
+                    >
+                      {playingVoiceId === voice.id ? (
+                        <Pause className="h-3.5 w-3.5" aria-hidden="true" />
                       ) : (
-                        <span className="rounded bg-surface-3 px-1.5 py-0.5 text-[10px] text-text-muted">
-                          {voice.style}
-                        </span>
+                        <Play className="h-3.5 w-3.5" aria-hidden="true" />
                       )}
-                    </div>
-                    <p className="mt-1 text-[11px] text-text-secondary leading-snug">
-                      {voice.description}
-                    </p>
-                  </button>
+                      {voice.sampleUrl ? (playingVoiceId === voice.id ? "Đang phát" : "Nghe thử") : "Chưa có preview"}
+                    </button>
+                  </div>
                 );
               })}
             </div>

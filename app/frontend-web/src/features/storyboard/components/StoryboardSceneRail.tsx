@@ -14,7 +14,7 @@ export function StoryboardSceneRail({
   onSelectScene,
 }: Readonly<StoryboardSceneRailProps>) {
   return (
-    <aside className="border-b border-border-dark bg-surface-panel p-2 lg:border-b-0 lg:border-r">
+    <aside className="border-b border-border-dark bg-surface-panel p-2 lg:border-b-0 lg:border-r lg:border-border-dark">
       <button
         type="button"
         onClick={onSelectAll}

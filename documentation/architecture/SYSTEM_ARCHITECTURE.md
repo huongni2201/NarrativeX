@@ -4,7 +4,7 @@
 
 NarrativeX is a Spring Boot modular monolith with separately deployed Python worker roles. The backend owns browser/API authorization, business policy, source snapshots, MediaPlan authorization and durable control-plane state. Workers own asynchronous execution mechanics.
 
-ADR-0012 governs R2-backed source/generated/reusable pipeline media. ADR-0016 supersedes the old R2-only rule specifically for final rendered MP4 exports.
+ADR-0003 governs R2-backed source/generated/reusable pipeline media and Google Drive final rendered MP4 exports.
 
 ## Logical topology
 
@@ -31,6 +31,10 @@ Python worker roles
 ## Backend authority
 
 The backend owns session/CSRF and ownership, entitlement/quota admission, persisted Chapter/source identity, durable jobs/outbox, immutable MediaPlan authorization, production mode/MotionStrategy resolution, durable media/final-artifact metadata and Flyway schema ownership.
+
+The Chapter Workspace resolves the current visual media identity from the durable
+`chapter_media_heads` projection. Frontend refresh/hydration must not rely on an optimistic media
+cache or an arbitrary latest-job query.
 
 Workers execute persisted policy and must not invent paid or I2V work outside the authorized plan.
 
@@ -115,6 +119,6 @@ Still incomplete:
 - complete production user-audio ingestion/alignment/render path;
 - narration-driven `VisualScenePlanner` and review workflow;
 - richer image approval/reuse/reframe/edit lineage;
-- owner-authorized Drive preview/download/streaming;
+- richer owner-authorized Drive publishing/entitlement hardening around the implemented preview/download/streaming proxy;
 - cross-attempt Drive upload-only retry;
 - HYBRID_LOCAL_I2V hardening and broader production safety/observability work.

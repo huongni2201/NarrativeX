@@ -102,3 +102,35 @@ Validated output creates/reuses a READY `MediaAsset` and an insert-only lineage 
 separate state machine: `NEEDS_REVIEW` must become `APPROVED` before the asset can enter a render
 manifest. Rejection does not mutate or delete the generated asset; regeneration is a new explicit
 paid attempt.
+
+## Media Generation Operations & Review Signals
+
+### Admission & Execution
+- The backend authorizes `IMAGE_MOTION` for one Chapter at a time, snapshotting approved storyboard revisions, narration/alignment references, and provider pricing into `MediaGenerationItem` rows.
+- The worker persists `ProviderOperation(RESERVED)` before external submission. Network 5xx/timeouts transition to `UNKNOWN` and require explicit reconciliation; blind retries are prohibited.
+- Monitor jobs by execution status (`QUEUED`, `RUNNING`, `VALIDATING`, `READY`, `FAILED`, `UNKNOWN`) and review status (`NOT_READY`, `NEEDS_REVIEW`, `APPROVED`, `REJECTED`).
+
+## Cloudflare R2 Browser Upload CORS Configuration
+
+NarrativeX generates short-lived presigned R2 `PUT` URLs for client-side uploads. The target bucket must allow frontend origins and request headers in the Cloudflare Dashboard under **R2 → Settings → CORS Policy**:
+
+```json
+[
+  {
+    "AllowedOrigins": [
+      "http://localhost:3000",
+      "http://127.0.0.1:3000"
+    ],
+    "AllowedMethods": ["PUT"],
+    "AllowedHeaders": ["Content-Type", "x-amz-checksum-sha256"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+Or configure via Wrangler CLI:
+
+```powershell
+npx wrangler r2 bucket cors set narrativex-prod --file .\r2-cors.json
+```

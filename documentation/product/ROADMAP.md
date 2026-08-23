@@ -16,7 +16,7 @@ Create/Edit Chapter
   -> Google Drive final MP4
 ```
 
-Also implemented as foundations: worker claim/lease/heartbeat, user-provided-audio TTS-bypass planning, project-scoped Character list/detail reads, MyBatis-only production persistence, local render quota settlement, and provider-aware FinalArtifact metadata.
+Also implemented as foundations: worker claim/lease/heartbeat, user-provided-audio TTS-bypass planning, project-scoped Character list/detail reads, normalized CharacterVersion references, authoritative Chapter media heads, MyBatis-only production persistence, local render quota settlement, local-device pairing, and provider-aware FinalArtifact metadata.
 
 ## Track A — Preserve persistence architecture — IMPLEMENTED
 

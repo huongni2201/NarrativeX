@@ -9,8 +9,7 @@ NarrativeX is an image-first AI Story Video Studio. It turns flexible-length sto
 - `app/frontend-web`: Next.js + TypeScript UI; storyboard/review/cost/notification experience.
 - `documentation`: canonical implementation-facing product, domain, architecture, workflow and codebase notes.
 - `contracts`: versioned cross-runtime payload contracts.
-- `docker-compose.yml`: safe local PostgreSQL/Redis/backend/worker stack.
-- `docker-compose.prod.yml`: production stack with separate AI, narration and render workers.
+- `docker-compose.prod.yml`: production-profile stack with separate AI, narration and render workers; it is also the supported real machine-local runtime.
 
 ## Current durable storage contract
 
@@ -24,7 +23,7 @@ Metadata / lineage / state -> PostgreSQL
 Worker local filesystem   -> ephemeral scratch
 ```
 
-ADR-0012 governs R2 pipeline media. ADR-0016 governs final rendered MP4 storage.
+ADR-0003 governs R2 pipeline media and Google Drive final rendered MP4 storage.
 
 ## Implemented media foundations
 
@@ -42,7 +41,7 @@ ADR-0012 governs R2 pipeline media. ADR-0016 governs final rendered MP4 storage.
 - connect aligned multi-part uploaded audio to render slicing/stitching;
 - complete narration-driven `VisualScenePlanner` and review workflow;
 - harden image approval/reuse/reframe/edit lineage;
-- implement owner-authorized preview/download/streaming for Drive-backed final videos;
+- harden owner-authorized preview/download/streaming for Drive-backed final videos;
 - add cross-attempt Drive upload retry without rerender if required;
 - complete actual-cost reconciliation, moderation/SSRF/retention/observability/DR evidence.
 

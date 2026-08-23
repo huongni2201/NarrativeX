@@ -10,13 +10,13 @@ This matrix records frontend wiring separately from backend/API availability. AP
 | Project Overview | IMPLEMENTED | overview API | richer metrics only when contracts require |
 | StoryVersion | IMPLEMENTED foundation | create/latest contracts | broader version-management UI |
 | Chapter source | IMPLEMENTED | list/get/create/update/workspace + ETag/If-Match | delete/reorder and broader commands |
-| Chapter Workspace pipeline | IMPLEMENTED foundation | workspace projection maps analysis, image jobs, narration assets and render artifacts | visual-beat image asset linkage and complete render commands |
+| Chapter Workspace pipeline | IMPLEMENTED foundation | workspace projection maps analysis, authoritative chapter media head, image jobs, narration assets and render artifacts | richer review/edit states and complete uploaded-audio render path |
 | Chapter batch import | IMPLEMENTED foundation | multipart `.txt/.docx/.pdf` import | progress/granular import UX |
 | Chapter Analyze | IMPLEMENTED foundation | durable admission/enqueue/provider pipeline | production hardening, real-provider E2E |
 | Analysis progress | IMPLEMENTED foundation | GenerationJob read API | optional SSE/reconnect UX |
 | Storyboard | IMPLEMENTED foundation | Storyboard + VisualBeat read/review contracts | broader Scene/VisualBeat editing/deep links |
 | Analysis continuity | IMPLEMENTED backend foundation | Character + Location materialization; Scene character/location relations persisted | expose richer continuity/review data as UI needs it |
-| Project Characters | IMPLEMENTED foundation | project-scoped list/detail read APIs backed by MyBatis | version diff/lock/reference management; richer authoritative relationships/assets/scene details |
+| Project Characters | IMPLEMENTED foundation | project-scoped list/detail reads plus normalized CharacterVersion reference asset APIs backed by MyBatis | version diff/lock workflow; richer authoritative relationships/assets/scene details |
 | Global Character library | IMPLEMENTED foundation | Character library APIs | richer global-library management |
 | Project Locations | IMPLEMENTED foundation | Location read API + AI Location materialization | richer edit/reference workflows |
 | Project Assets | IMPLEMENTED foundation | Asset read/create foundations | upload/finalize/delete/review lifecycle |
@@ -28,7 +28,7 @@ This matrix records frontend wiring separately from backend/API availability. AP
 | Provider Health | IMPLEMENTED foundation | backend read (`/api/v1/provider-health`) | status indicator badge & model info |
 | Presets | IMPLEMENTED foundation | `/api/v1/style-presets` reads PostgreSQL catalog | custom preset CRUD and project assignment |
 | Voice catalog | IMPLEMENTED foundation | `/api/v1/voices` reads enabled PostgreSQL catalog | provider sample playback and voice administration |
-| Render/export | IMPLEMENTED foundation | chapter render admission, job status and owner-authorized artifact metadata APIs, including `GET /api/v1/artifacts/by-job/{jobId}` | image materialization, worker render and signed download |
+| Render/export | IMPLEMENTED foundation | chapter render admission, authoritative media-head hydration, job status and owner-authorized artifact metadata/content APIs, including `GET /api/v1/artifacts/by-job/{jobId}` | richer review UX and uploaded-audio render slicing/stitching |
 | Settings | PARTIAL | partial/local contracts | define persisted settings boundaries |
 
 ## Chapter Analyze UI contract

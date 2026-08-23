@@ -1,4 +1,4 @@
-# ADR-0020: Use the Production Profile for Machine-Local Docker Execution
+# ADR-0008: Use the Production Profile for Machine-Local Docker Execution
 
 ## Status
 
@@ -14,7 +14,7 @@ storage semantics.
 
 ## Decision
 
-The supported machine-local runtime is `docker-compose.real.yml` with
+The supported machine-local runtime is `docker-compose.prod.yml` with
 `SPRING_PROFILES_ACTIVE=prod` and `WORKER_ENV=production`. It explicitly selects:
 
 - Vertex for analysis and image generation;
@@ -23,8 +23,8 @@ The supported machine-local runtime is `docker-compose.real.yml` with
 - Google Drive for final rendered MP4 files;
 - API mode for the frontend and server-managed session authentication.
 
-The public deployment remains `docker-compose.prod.yml`, which adds Caddy and Cloudflare Tunnel.
-Fake providers, local media storage and frontend mock data remain test/Storybook capabilities only.
+The same Compose file contains the public Caddy and Cloudflare Tunnel services. Fake providers,
+local media storage and frontend mock data remain test/Storybook capabilities only.
 Production worker startup rejects disabled/fake/local provider or storage selections for roles that
 need real external execution.
 
@@ -37,5 +37,5 @@ to loopback HTTP; the public stack keeps secure cookies behind HTTPS.
 
 ## Related Decisions
 
-- ADR-0017: Deterministic MVP E2E render storage remains the test-only exception.
+- ADR-0005: Deterministic MVP E2E render storage remains the test-only exception.
 - ADR-0003: Media storage and external integration boundaries.

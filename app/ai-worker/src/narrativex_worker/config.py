@@ -6,7 +6,14 @@ are never copied into durable job payloads.
 
 from typing import Literal
 
-from pydantic import AliasChoices, Field, SecretStr, computed_field, field_validator, model_validator
+from pydantic import (
+    AliasChoices,
+    Field,
+    SecretStr,
+    computed_field,
+    field_validator,
+    model_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 WORKER_ROLE_NAMES = {
@@ -84,14 +91,14 @@ class WorkerSettings(BaseSettings):
     vertex_image_unknown_max_age_seconds: int = Field(default=3600, ge=60, le=86_400)
     image_max_output_bytes: int = Field(default=15_000_000, ge=1024, le=50_000_000)
 
-    tts_provider_mode: Literal["disabled", "fake", "google", "vieneu"] = Field(
+    tts_provider_mode: Literal["disabled", "fake", "vieneu"] = Field(
         default="disabled",
         validation_alias=AliasChoices("TTS_PROVIDER_MODE", "NARRATION_PROVIDER_MODE"),
     )
     google_tts_project_id: str | None = None
     google_tts_endpoint: str = "https://texttospeech.googleapis.com"
     google_tts_timeout_seconds: float = Field(default=120.0, gt=1, le=600)
-    tts_pricing_catalog_version: str = "google-tts-2026-08-20"
+    tts_pricing_catalog_version: str = "vieneu-local-2026-08-23"
     narration_mp3_bitrate: Literal["64k", "80k", "96k", "112k", "128k", "160k", "192k"] = "96k"
     vieneu_voice_id: str = "vieneu-ngoc-huyen-v2"
     vieneu_voice_name: str = "Ngọc Huyền v2"
@@ -210,8 +217,6 @@ class WorkerSettings(BaseSettings):
                 )
         if not self.normalized_vertex_image_batch_prefix:
             raise ValueError("VERTEX_IMAGE_BATCH_GCS_PREFIX must not be blank")
-        if self.tts_provider_mode == "google" and not self.google_tts_project_id:
-            raise ValueError("GOOGLE_TTS_PROJECT_ID is required when TTS_PROVIDER_MODE=google")
         if self.tts_provider_mode == "vieneu":
             if not self.vieneu_voice_id.strip():
                 raise ValueError("VIENEU_VOICE_ID must not be blank")
@@ -248,8 +253,8 @@ class WorkerSettings(BaseSettings):
             errors.append("AI_PROVIDER_MODE=vertex is required for production analysis")
         if self.has_worker_role("image-generation") and self.image_provider_mode != "vertex":
             errors.append("IMAGE_PROVIDER_MODE=vertex is required for production image generation")
-        if self.has_worker_role("narration") and self.tts_provider_mode not in {"google", "vieneu"}:
-            errors.append("TTS_PROVIDER_MODE=google or vieneu is required for production narration")
+        if self.has_worker_role("narration") and self.tts_provider_mode != "vieneu":
+            errors.append("TTS_PROVIDER_MODE=vieneu is required for production narration")
         if (
             self.has_worker_role("image-generation")
             or self.has_worker_role("narration")

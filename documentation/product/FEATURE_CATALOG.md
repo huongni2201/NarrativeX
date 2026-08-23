@@ -10,6 +10,7 @@ This is the single maintained feature/status view. Historical requirement identi
 | Generation durability persistence | IMPLEMENTED | GenerationJob/StageAttempt/OperationPlan/MediaPlan/outbox/Job History explicit SQL/MyBatis |
 | Character/Location continuity | IMPLEMENTED foundation | complete human review/reference lock remains PARTIAL |
 | Project Character list/detail | IMPLEMENTED foundation | project-scoped authoritative read model wired end to end |
+| Character reference assets | IMPLEMENTED foundation | normalized CharacterVersion identity/profile/outfit/pose references are available to image planning |
 | Storyboard/VisualBeat | IMPLEMENTED foundation | approved revision/reset workflow PARTIAL |
 | Backend MediaPlan authority | IMPLEMENTED foundation | immutable revision + resolved motion policy |
 | TTS/VieNeu narration + alignment | IMPLEMENTED foundation | R2-backed immutable narration |
@@ -19,6 +20,8 @@ This is the single maintained feature/status view. Historical requirement identi
 | Google Drive final MP4 storage | IMPLEMENTED foundation | resumable upload + fingerprint lookup + FinalArtifact Drive metadata |
 | Vertex image generation | IMPLEMENTED foundation | real provider path + durable R2 image assets |
 | IMAGE_MOTION chapter render | IMPLEMENTED foundation | dedicated FFmpeg render worker + ffprobe validation |
+| Authoritative Chapter media head | IMPLEMENTED | workspace hydration and stale-plan checks resolve the current media identity from PostgreSQL |
+| Local device pairing | IMPLEMENTED foundation | paired device capabilities and revocation are persisted for local execution |
 | Final MP4 duplicated into R2 | NOT USED | final video is promoted directly to Drive by default |
 | Owner-authorized Drive preview/download | IMPLEMENTED | backend-authorized OAuth proxy with preview/download dispositions and HTTP Range |
 | Cross-attempt Drive upload-only retry | TARGET hardening | resumable upload is robust within an attempt; local workspace is ephemeral |
@@ -39,7 +42,7 @@ Reusable pipeline media -> R2
 Final rendered MP4      -> Google Drive
 ```
 
-ADR-0012 governs R2-backed pipeline media. ADR-0016 governs final MP4 storage.
+ADR-0003 governs R2-backed pipeline media and Google Drive final MP4 storage.
 
 ## V1.11 narration acceptance
 

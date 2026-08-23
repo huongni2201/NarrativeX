@@ -11,29 +11,29 @@ NarrativeX is an image-first AI Story Video Studio for turning flexible-length s
 | `app/frontend-web` | Next.js/TypeScript storyboard, review, cost and notification UI |
 | `documentation` | Product, domain, architecture, workflows, codebase notes and ADRs |
 | `contracts` | Versioned backend ↔ worker payload contracts |
-| `docker-compose.real.yml` | Production-profile Docker stack for real local execution and real provider generation |
-| `docker-compose.prod.yml` | Production stack with frontend, split AI/narration/render workers, Caddy origin routing and Cloudflare Tunnel |
+| `docker-compose.prod.yml` | Production-profile stack for real local or public execution, with split AI/narration/render workers, Caddy and optional Cloudflare Tunnel |
 | `Caddyfile.prod` | Private HTTP origin used only inside the Cloudflare Tunnel Docker network |
 
 ## Run the real stack in Docker on this PC
 
-The supported machine-local runtime is still the `prod` Spring profile, not the `local` profile. It
-uses the real Vertex image provider, Cloudflare R2, VieNeu narration and Google Drive final-video
-storage; Docker is only the execution environment. Fake providers, local media storage and the
-frontend mock mode remain available only to automated tests and Storybook.
+The supported machine-local runtime is the `prod` Spring profile. It uses the real Vertex image
+provider, Cloudflare R2, VieNeu narration and Google Drive final-video storage; Docker is only the
+execution environment. Fake providers, local media storage and frontend mock mode remain limited
+to automated tests and Storybook.
 
 Copy the production template once, fill the provider/storage credentials, and run:
 
 ```powershell
 Copy-Item .env.example .env.prod
-docker compose --env-file .env.prod -f docker-compose.real.yml config
-docker compose --env-file .env.prod -f docker-compose.real.yml up -d --build
+docker compose --env-file .env.prod -f docker-compose.prod.yml config
+docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
 ```
 
-The web app is available at `http://localhost:3000`, the backend at `http://localhost:8080`, and
-Actuator health at `http://localhost:8080/actuator/health`. The local Docker compose binds these
-ports to loopback only. The browser uses server-managed sessions; it does not use a developer
-identity fallback.
+The production Compose file does not publish frontend/backend ports to the host. The browser entry
+point is the configured `https://APP_DOMAIN` through Cloudflare Tunnel; Caddy proxies the frontend
+and the Next.js server proxies API calls to the backend. PostgreSQL is the only service bound to
+loopback by default. The browser uses server-managed sessions and does not use a developer identity
+fallback.
 
 Required for real image generation:
 
@@ -58,8 +58,9 @@ When `AI_PROVIDER_MODE=vertex` or `IMAGE_PROVIDER_MODE=vertex`, the worker needs
 
 ## Run the production stack
 
-The public deployment uses a separate Compose/env contract so the machine-local runtime cannot
-silently become internet-facing.
+The same Compose file contains the public Caddy and Cloudflare Tunnel services, and requires a
+remotely managed tunnel token. There is no separate local Compose file in the current repository;
+use the frontend/backend module dev commands when a host-local HTTP loopback workflow is needed.
 
 ```powershell
 Copy-Item .env.example .env.prod
@@ -68,7 +69,9 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml config
 docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
 ```
 
-The production stack forces the Spring `prod` profile, runs the general AI worker separately from the VieNeu narration worker and render worker, enables Vertex analysis/image generation, keeps generated images and narration audio in R2, and stores final rendered MP4 files in Google Drive.
+The Compose stack forces the Spring `prod` profile, runs the general AI worker separately from the
+VieNeu narration worker and render worker, enables Vertex analysis/image generation, keeps
+generated images and narration audio in R2, and stores final rendered MP4 files in Google Drive.
 
 ### Publish from a Windows PC with Cloudflare Tunnel
 
@@ -107,4 +110,8 @@ For final-video storage, create a Google OAuth refresh token for the Drive accou
 
 V1.11 is not a fixed-duration or fixed-image-count generator. Planning uses semantic scene boundaries, narration timing, complexity, asset reuse, delta scope, provider capability, and cost reservation. Character identity is versioned and reviewed; external provider outcomes are durable and reconciled; chapter continuation, notifications, entitlement, trust & safety, rights/consent, abuse and privacy gates are part of the product contract, while the current repository remains an incremental foundation.
 
-The canonical source of truth is `documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`. Accepted ADRs refine cross-cutting decisions; ADR-0016 supersedes the R2-only rule specifically for final rendered video storage. Current code, Flyway migrations and automated tests decide factual AS-IS implementation claims when derived documentation drifts.
+The canonical source of truth is `documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`.
+Accepted ADRs refine cross-cutting decisions; ADR-0003 defines the split R2/Google Drive storage
+contract and ADR-0008 defines the production-profile Docker runtime. Current code, Flyway
+migrations and automated tests decide factual AS-IS implementation claims when derived
+documentation drifts.

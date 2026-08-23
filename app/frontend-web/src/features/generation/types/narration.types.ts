@@ -16,6 +16,7 @@ export interface VoiceOption {
   style: "Standard" | "Neural" | "Wavenet" | "Studio";
   description: string;
   provider?: string;
+  sampleUrl?: string | null;
   supportsSpeakingRate?: boolean;
   supportsVoiceClone?: boolean;
   supportsBatch?: boolean;
@@ -25,66 +26,48 @@ export interface VoiceOption {
 
 export const PRESET_VOICES: VoiceOption[] = [
   {
-    id: "vi-VN-Standard-A",
-    name: "Mai Anh (Nữ - Truyền cảm)",
+    id: "vieneu-ngoc-huyen-v2",
+    name: "Ngọc Huyền v2",
     language: "vi-VN",
     gender: "FEMALE",
     style: "Standard",
-    description: "Giọng đọc nữ miền Bắc nhẹ nhàng, phù hợp văn xuôi, tản văn, tự sự.",
-    supportsSpeakingRate: true,
+    description: "Voice reference profile của hệ thống VieNeu.",
+    provider: "VIENEU",
   },
   {
-    id: "vi-VN-Standard-B",
-    name: "Minh Quân (Nam - Trầm ấm)",
-    language: "vi-VN",
-    gender: "MALE",
-    style: "Standard",
-    description: "Giọng đọc nam miền Bắc trầm hùng, phù hợp truyện kiếm hiệp, lịch sử, kỳ ảo.",
-    supportsSpeakingRate: true,
-  },
-  {
-    id: "vi-VN-Standard-C",
-    name: "Thảo Vy (Nữ - Ngọt ngào)",
+    id: "vieneu-ngoc-huyen",
+    name: "Ngọc Huyền",
     language: "vi-VN",
     gender: "FEMALE",
     style: "Standard",
-    description: "Giọng đọc nữ miền Nam tự nhiên, phù hợp truyện ngôn tình, hiện đại.",
-    supportsSpeakingRate: true,
+    description: "Preset VieNeu miền Bắc, tự nhiên.",
+    provider: "VIENEU",
   },
   {
-    id: "vi-VN-Standard-D",
-    name: "Hùng Dũng (Nam - Quyền lực)",
+    id: "vieneu-thanh-binh",
+    name: "Thanh Bình",
     language: "vi-VN",
     gender: "MALE",
     style: "Standard",
-    description: "Giọng đọc nam miền Nam rõ ràng, phù hợp trinh thám, hành động.",
-    supportsSpeakingRate: true,
+    description: "Preset VieNeu miền Bắc, kể chuyện.",
+    provider: "VIENEU",
   },
   {
-    id: "vi-VN-Neural2-A",
-    name: "Ánh Dương (Nữ - Neural HD)",
+    id: "vieneu-ngoc-linh",
+    name: "Ngọc Linh",
+    language: "vi-VN",
+    gender: "FEMALE",
+    style: "Standard",
+    description: "Preset VieNeu miền Bắc, kể chuyện.",
+    provider: "VIENEU",
+  },
+  {
+    id: "vieneu-kim-thanh",
+    name: "Kim Thanh",
     language: "vi-VN",
     gender: "FEMALE",
     style: "Neural",
-    description: "Công nghệ Neural biểu cảm cao, ngắt nghỉ theo ngữ cảnh tự nhiên.",
-    supportsSpeakingRate: true,
-  },
-  {
-    id: "en-US-Standard-C",
-    name: "Emma (Female - US Narration)",
-    language: "en-US",
-    gender: "FEMALE",
-    style: "Standard",
-    description: "Clear and expressive US English female voice.",
-    supportsSpeakingRate: true,
-  },
-  {
-    id: "en-US-Standard-D",
-    name: "James (Male - US Deep)",
-    language: "en-US",
-    gender: "MALE",
-    style: "Standard",
-    description: "Deep cinematic storytelling voice for English stories.",
-    supportsSpeakingRate: true,
+    description: "Preset VieNeu miền Nam, audiobook.",
+    provider: "VIENEU",
   },
 ];

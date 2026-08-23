@@ -1,6 +1,6 @@
 # NarrativeX V1.11 Baseline Implementation Traceability
 
-This matrix maps the V1.11 contract to repository evidence at the validated baseline implementation checkpoint `fix/render-snapshot-retry-integrity` / `a167a88709e342b882cef0ceea6f0d6bd4122e4f`. Code and migrations after that checkpoint remain authoritative for newer AS-IS behavior; this document must not imply the historical checkpoint is the current Git HEAD.
+This matrix maps the V1.11 contract to the current implementation checkpoint `main` / `0b8577a5a6b406d34b297a818e663f5db29b06d6`. Uncommitted worktree changes remain authoritative for the working implementation until committed.
 
 | Capability / invariant | Evidence | Status |
 |---|---|---|

@@ -75,7 +75,7 @@ Engineering work outside this screen currently includes:
 - aligned multi-part uploaded-audio slicing/stitching for render;
 - narration-driven `VisualScenePlanner` and review workflow;
 - richer image approval/reuse/reframe/edit lineage;
-- owner-authorized preview/download/streaming for Google Drive-backed FinalArtifacts;
+- publishing/entitlement hardening around the implemented owner-authorized preview/download/streaming proxy for Google Drive-backed FinalArtifacts;
 - cross-attempt Drive upload retry without rerender;
 - complete actual-usage/billing reconciliation;
 - moderation/SSRF/retention/observability/DR hardening.
