@@ -27,12 +27,12 @@ class NarrationClaimStateConflictError(RuntimeError):
 
 @dataclass(frozen=True)
 class ClaimedNarrationJob:
-    stage_attempt_id: int
-    generation_job_id: int
+    stage_attempt_id: uuid.UUID
+    generation_job_id: uuid.UUID
     job_id: str
     narration_request_id: uuid.UUID
-    project_id: int
-    chapter_id: int
+    project_id: uuid.UUID
+    chapter_id: uuid.UUID
     chapter_row_version: int
     source_hash: str
     source_text: str
@@ -45,8 +45,8 @@ class ClaimedNarrationJob:
 
 @dataclass(frozen=True)
 class DurableNarrationProviderOperation:
-    id: int
-    stage_attempt_id: int
+    id: uuid.UUID
+    stage_attempt_id: uuid.UUID
     provider_key: str
     status: ProviderOperationStatus
     row_version: int
@@ -236,12 +236,12 @@ class NarrationWorkerRepository:
             raise NarrationClaimStateConflictError(f"stage_attempt_id={row['stage_attempt_id']}")
 
         return ClaimedNarrationJob(
-            stage_attempt_id=int(row["stage_attempt_id"]),
-            generation_job_id=int(row["generation_job_id"]),
+            stage_attempt_id=row["stage_attempt_id"],
+            generation_job_id=row["generation_job_id"],
             job_id=str(row["job_id"]),
             narration_request_id=row["narration_request_id"],
-            project_id=int(row["project_id"]),
-            chapter_id=int(row["chapter_id"]),
+            project_id=row["project_id"],
+            chapter_id=row["chapter_id"],
             chapter_row_version=int(row["chapter_row_version"]),
             source_hash=str(row["source_hash"]),
             source_text=str(row["source_text"]),
@@ -256,7 +256,7 @@ class NarrationWorkerRepository:
             ),
         )
 
-    async def heartbeat(self, stage_attempt_id: int, worker_id: str) -> bool:
+    async def heartbeat(self, stage_attempt_id: uuid.UUID, worker_id: str) -> bool:
         result = await self._require_pool().execute(
             """
             UPDATE stage_attempts
@@ -269,7 +269,7 @@ class NarrationWorkerRepository:
         return str(result) == "UPDATE 1"
 
     async def reserve_provider_operation(
-        self, stage_attempt_id: int, provider_key: str, request_fingerprint: str
+        self, stage_attempt_id: uuid.UUID, provider_key: str, request_fingerprint: str
     ) -> DurableNarrationProviderOperation:
         pool = self._require_pool()
         async with pool.acquire() as connection:
@@ -409,7 +409,9 @@ class NarrationWorkerRepository:
             raise NarrationProviderStateConflictError(str(operation.id))
         return self._operation(row)
 
-    async def get_provider_operation(self, operation_id: int) -> DurableNarrationProviderOperation:
+    async def get_provider_operation(
+        self, operation_id: uuid.UUID
+    ) -> DurableNarrationProviderOperation:
         row = await self._require_pool().fetchrow(
             """
             SELECT id, stage_attempt_id, provider_key, status, row_version,
@@ -767,8 +769,8 @@ class NarrationWorkerRepository:
             parsed = json.loads(raw) if isinstance(raw, str) else raw
             result = dict(parsed)
         return DurableNarrationProviderOperation(
-            id=int(row["id"]),
-            stage_attempt_id=int(row["stage_attempt_id"]),
+            id=row["id"],
+            stage_attempt_id=row["stage_attempt_id"],
             provider_key=str(row["provider_key"]),
             status=ProviderOperationStatus(row["status"]),
             row_version=int(row["row_version"]),

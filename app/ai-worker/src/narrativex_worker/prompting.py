@@ -5,7 +5,6 @@ import json
 from narrativex_worker.schema import ChapterAnalysisRequest
 from narrativex_worker.visual_prompt.director import VISUAL_DIRECTION_INSTRUCTIONS
 
-
 SCENE_SEGMENTATION_INSTRUCTIONS = (
     "Segment the chapter into semantically meaningful narrative scenes for story-to-video, not "
     "traditional screenplay scenes. A scene is one coherent narrative phase with one dominant "

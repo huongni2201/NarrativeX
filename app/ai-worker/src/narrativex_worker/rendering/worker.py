@@ -346,9 +346,7 @@ class RenderWorkerRunner:
                     width=width,
                     height=height,
                     expected_duration_seconds=audio.duration_ms / 1000.0,
-                    tolerance_seconds=max(
-                        0.35, len(beat_assets) / render_profile.fps + 0.1
-                    ),
+                    tolerance_seconds=max(0.35, len(beat_assets) / render_profile.fps + 0.1),
                 )
                 checksum = await asyncio.to_thread(sha256_file, output_path)
                 async with render_fingerprint_lock(self.settings.database_url, render_fingerprint):

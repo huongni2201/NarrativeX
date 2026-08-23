@@ -1,4 +1,4 @@
-INSERT INTO plan_entitlements (
+MERGE INTO plan_entitlements (
     plan_key,
     version,
     watermark_required,
@@ -10,6 +10,7 @@ INSERT INTO plan_entitlements (
     monthly_credits,
     active_from
 )
+KEY (plan_key, version)
 VALUES (
     'NORMAL',
     1,
@@ -21,7 +22,22 @@ VALUES (
     '{"storyAnalysis":true}',
     2.000000,
     CURRENT_TIMESTAMP
-), (
+);
+
+MERGE INTO plan_entitlements (
+    plan_key,
+    version,
+    watermark_required,
+    max_video_quality,
+    max_longform_exports_month,
+    max_short_exports_month,
+    max_concurrent_expensive_jobs,
+    feature_flags_json,
+    monthly_credits,
+    active_from
+)
+KEY (plan_key, version)
+VALUES (
     'ULTRA',
     1,
     FALSE,

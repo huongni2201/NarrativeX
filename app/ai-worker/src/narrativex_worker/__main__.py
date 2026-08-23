@@ -44,9 +44,7 @@ async def run_workers(settings: WorkerSettings, *, dry_run: bool) -> None:
     workers: dict[str, Any] = {}
 
     if settings.has_worker_role("analysis"):
-        workers["analysis"] = NarrativeXWorker(
-            settings=settings, concurrency_gate=concurrency_gate
-        )
+        workers["analysis"] = NarrativeXWorker(settings=settings, concurrency_gate=concurrency_gate)
     if settings.has_worker_role("translation"):
         workers["translation"] = TranslationWorkerRunner(
             settings=settings, concurrency_gate=concurrency_gate
@@ -70,9 +68,7 @@ async def run_workers(settings: WorkerSettings, *, dry_run: bool) -> None:
         if image_worker.enabled:
             workers["image-generation"] = image_worker
     if settings.has_worker_role("render"):
-        render_worker = RenderWorkerRunner(
-            settings=settings, concurrency_gate=concurrency_gate
-        )
+        render_worker = RenderWorkerRunner(settings=settings, concurrency_gate=concurrency_gate)
         if render_worker.enabled:
             workers["render"] = render_worker
 

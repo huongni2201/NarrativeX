@@ -27,10 +27,10 @@ from narrativex_worker.schema import ImageAspectRatio, ImageQualityTier, Provide
 
 @dataclass(frozen=True)
 class ClaimedImageGenerationJob:
-    generation_job_id: int
-    stage_attempt_id: int
+    generation_job_id: uuid.UUID
+    stage_attempt_id: uuid.UUID
     lease_token: str
-    project_id: int
+    project_id: uuid.UUID
     media_plan_id: uuid.UUID
     worker_id: str
 
@@ -43,14 +43,14 @@ class ImageGenerationLeaseLostError(RuntimeError):
 class ClaimedImageGenerationItem:
     id: uuid.UUID
     item_key: str
-    visual_beat_id: int
+    visual_beat_id: uuid.UUID
     request: ImageGenerationRequest
 
 
 @dataclass(frozen=True)
 class DurableImageOperation:
-    id: int
-    stage_attempt_id: int
+    id: uuid.UUID
+    stage_attempt_id: uuid.UUID
     provider_key: str
     request_fingerprint: str
     provider_operation_id: str | None
@@ -544,14 +544,14 @@ class ImageGenerationRepository:
                 )
         await self.aggregate_generation_job(operation.stage_attempt_id)
 
-    async def aggregate_generation_job(self, stage_attempt_id: int) -> None:
+    async def aggregate_generation_job(self, stage_attempt_id: uuid.UUID) -> None:
         pool = self._require_pool()
         async with pool.acquire() as connection:
             async with connection.transaction():
                 await self._aggregate_generation_job(connection, stage_attempt_id)
 
     async def _aggregate_generation_job(
-        self, connection: asyncpg.Connection, stage_attempt_id: int
+        self, connection: asyncpg.Connection, stage_attempt_id: uuid.UUID
     ) -> None:
         stage = await connection.fetchrow(
             """
@@ -633,7 +633,7 @@ class ImageGenerationRepository:
     async def finalize_image_result(
         self,
         *,
-        operation_id: int | None,
+        operation_id: uuid.UUID | None,
         item_key: str,
         request_fingerprint: str,
         provider_operation_id: str | None,
@@ -747,7 +747,7 @@ class ImageGenerationRepository:
                 )
                 return stored
 
-    async def _items_for_operation(self, operation_id: int) -> tuple[ImageBatchItem, ...]:
+    async def _items_for_operation(self, operation_id: uuid.UUID) -> tuple[ImageBatchItem, ...]:
         rows = await self._require_pool().fetch(
             """
             SELECT mgi.item_key, mgi.request_fingerprint,

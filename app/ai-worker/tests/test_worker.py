@@ -43,9 +43,9 @@ SOURCE_HASH = "a" * 64
 
 def chapter_request(source_text: str = "A short story.") -> ChapterAnalysisRequest:
     return ChapterAnalysisRequest(
-        project_id=1,
-        story_version_id=2,
-        chapter_id=3,
+        project_id="00000000-0000-4000-8000-000000000001",
+        story_version_id="00000000-0000-4000-8000-000000000002",
+        chapter_id="00000000-0000-4000-8000-000000000003",
         chapter_row_version=4,
         source_hash=SOURCE_HASH,
         source_text=source_text,
@@ -184,7 +184,7 @@ def test_chapter_request_is_snapshot_scoped_without_rights_attestation() -> None
     request = chapter_request()
     dumped = request.model_dump()
     settings = ImageGenerationSettings()
-    assert request.chapter_id == 3
+    assert request.chapter_id == "00000000-0000-4000-8000-000000000003"
     assert request.chapter_row_version == 4
     assert request.source_hash == SOURCE_HASH
     assert "rights_attested" not in dumped

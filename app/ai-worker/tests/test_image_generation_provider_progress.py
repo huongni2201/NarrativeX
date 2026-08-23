@@ -21,7 +21,9 @@ class _Pool:
         return self.row
 
 
-def _operation(status: ProviderOperationStatus = ProviderOperationStatus.SUBMITTED) -> DurableImageOperation:
+def _operation(
+    status: ProviderOperationStatus = ProviderOperationStatus.SUBMITTED,
+) -> DurableImageOperation:
     return DurableImageOperation(
         id=20,
         stage_attempt_id=10,

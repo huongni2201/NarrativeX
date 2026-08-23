@@ -19,12 +19,12 @@ class RenderStateConflictError(RuntimeError):
 
 @dataclass(frozen=True)
 class ClaimedRenderJob:
-    stage_attempt_id: int
-    generation_job_id: int
+    stage_attempt_id: uuid.UUID
+    generation_job_id: uuid.UUID
     job_id: str
-    project_id: int
+    project_id: uuid.UUID
     project_owner_id: str
-    chapter_id: int
+    chapter_id: uuid.UUID
     chapter_row_version: int
     source_hash: str
     media_plan_id: uuid.UUID
@@ -42,7 +42,7 @@ class ClaimedRenderJob:
 class RenderBeatAsset:
     scene_index: int
     beat_index: int
-    visual_beat_id: int
+    visual_beat_id: uuid.UUID
     duration_ms: int | None
     camera_movement: str
     storage_key: str
@@ -168,12 +168,12 @@ class RenderRepositoryImplementation:
                         f"stage_attempt_id={row['stage_attempt_id']} could not be claimed"
                     )
                 return ClaimedRenderJob(
-                    stage_attempt_id=int(row["stage_attempt_id"]),
-                    generation_job_id=int(row["generation_job_id"]),
+                    stage_attempt_id=row["stage_attempt_id"],
+                    generation_job_id=row["generation_job_id"],
                     job_id=str(row["job_id"]),
-                    project_id=int(row["project_id"]),
+                    project_id=row["project_id"],
                     project_owner_id=str(row["project_owner_id"]),
-                    chapter_id=int(row["chapter_id"]),
+                    chapter_id=row["chapter_id"],
                     chapter_row_version=int(row["chapter_row_version"]),
                     source_hash=str(row["source_hash"]),
                     media_plan_id=row["media_plan_id"],
@@ -236,7 +236,7 @@ class RenderRepositoryImplementation:
             RenderBeatAsset(
                 scene_index=int(row["scene_index"]),
                 beat_index=int(row["beat_index"]),
-                visual_beat_id=int(row["visual_beat_id"]),
+                visual_beat_id=row["visual_beat_id"],
                 duration_ms=(int(row["duration_ms"]) if row["duration_ms"] is not None else None),
                 camera_movement=str(row["camera_movement"]),
                 storage_key=str(row["storage_key"]),

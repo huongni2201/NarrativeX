@@ -54,9 +54,7 @@ def test_default_graph_preserves_legacy_output_contract(tmp_path: Path) -> None:
         ("WIPE_LEFT", "lte(X/W"),
     ],
 )
-def test_transition_catalog_compiles(
-    tmp_path: Path, transition: str, needle: str
-) -> None:
+def test_transition_catalog_compiles(tmp_path: Path, transition: str, needle: str) -> None:
     effects = RenderEffects(transition=transition, transition_seconds=0.25)
     command = " ".join(build_ffmpeg_args(_manifest(tmp_path, effects=effects)))
     assert needle in command
@@ -134,6 +132,4 @@ def test_render_manifest_rejects_unknown_encoder(tmp_path: Path) -> None:
 
 def test_render_effects_reject_unknown_transition(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="unsupported transition"):
-        build_ffmpeg_args(
-            _manifest(tmp_path, effects=RenderEffects(transition="TELEPORT"))
-        )
+        build_ffmpeg_args(_manifest(tmp_path, effects=RenderEffects(transition="TELEPORT")))

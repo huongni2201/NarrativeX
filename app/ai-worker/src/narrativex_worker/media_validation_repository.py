@@ -1,9 +1,10 @@
 """PostgreSQL-backed media validation queue and compare-and-set result persistence."""
 
 from dataclasses import dataclass
+from typing import cast
 from uuid import UUID, uuid4
 
-import asyncpg
+import asyncpg  # type: ignore[import-untyped]
 
 
 @dataclass(frozen=True)
@@ -101,7 +102,7 @@ class MediaValidationRepository:
             self.lease_seconds,
             lease_token,
         )
-        return result == "UPDATE 1"
+        return cast(str, result) == "UPDATE 1"
 
     async def complete(
         self,

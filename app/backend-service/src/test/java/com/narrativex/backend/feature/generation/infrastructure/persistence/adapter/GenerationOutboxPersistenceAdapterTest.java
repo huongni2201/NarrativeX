@@ -31,7 +31,7 @@ class GenerationOutboxPersistenceAdapterTest {
         .enqueue(
             org.mockito.ArgumentMatchers.argThat(
                 row ->
-                    row.getAggregateId().equals(job.getJobId())
+                    row.getAggregateId().equals(job.getJobId().toString())
                         && row.getEventKey().equals("generation-job:" + job.getJobId() + ":queued")
                         && row.getJobType() == JobType.STORY_ANALYZE));
   }

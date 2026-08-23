@@ -90,7 +90,7 @@ class PostgreSqlMigrationIntegrationTest {
   @Test
   void emptyPostgresMigratesThroughAuthoritativeUuidSchema() throws SQLException {
     try (Connection connection = dataSource.getConnection()) {
-      assertEquals("1", latestFlywayVersion(connection));
+      assertEquals("2", latestFlywayVersion(connection));
 
       for (String table : UUID_ID_TABLES) {
         assertEquals("uuid", columnType(connection, table, "id"), table + ".id must be UUID");

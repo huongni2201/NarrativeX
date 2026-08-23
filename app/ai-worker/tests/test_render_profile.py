@@ -4,7 +4,6 @@ import pytest
 
 from narrativex_worker.rendering.profile import RenderProfile
 
-
 PROFILE = {
     "schemaVersion": 1,
     "engine": "ffmpeg-python",

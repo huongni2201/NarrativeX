@@ -20,9 +20,9 @@ def claimed_job() -> ClaimedChapterAnalysisJob:
         job_id="job-1",
         requested_by_user_id="user-1",
         request=ChapterAnalysisRequest(
-            project_id=1,
-            story_version_id=2,
-            chapter_id=3,
+            project_id="00000000-0000-4000-8000-000000000001",
+            story_version_id="00000000-0000-4000-8000-000000000002",
+            chapter_id="00000000-0000-4000-8000-000000000003",
             chapter_row_version=4,
             source_hash=SOURCE_HASH,
             source_text="Hero enters the old house.",
@@ -112,7 +112,7 @@ class StoryboardConnection:
 
     async def fetchrow(self, query: str, *args: object) -> dict[str, object]:
         assert "storyboard_revisions" in query
-        assert args == (20, 3)
+        assert args == (20, "00000000-0000-4000-8000-000000000003")
         return {
             "id": 501,
             "source_hash": SOURCE_HASH,
@@ -122,7 +122,12 @@ class StoryboardConnection:
 
     async def execute(self, query: str, *args: object) -> str:
         if "UPDATE chapters" in query:
-            assert args == (3, 501, 4, SOURCE_HASH)
+            assert args == (
+                "00000000-0000-4000-8000-000000000003",
+                501,
+                4,
+                SOURCE_HASH,
+            )
             return "UPDATE 1"
         assert "DELETE FROM" in query
         assert args == (501,)
@@ -161,4 +166,6 @@ async def test_storyboard_materializer_persists_scene_character_and_location_lin
     visual_beat_call = next(
         call for call in connection.executemany_calls if "INSERT INTO visual_beats" in call[0]
     )
-    assert visual_beat_call[1] == [(1001, 0, "Threshold", "The hero crosses a dusty threshold.")]
+    assert visual_beat_call[1] == [
+        (1001, 0, "Threshold", "The hero crosses a dusty threshold.", "NONE")
+    ]

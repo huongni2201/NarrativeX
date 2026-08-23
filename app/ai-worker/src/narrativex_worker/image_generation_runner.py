@@ -1,6 +1,7 @@
 """Crash-replayable batch-only image generation orchestration."""
 
 import hashlib
+import uuid
 from typing import Any
 
 from narrativex_worker.media_repository import DurableMediaResult
@@ -105,7 +106,7 @@ class ImageGenerationRunner:
         raise ImageGenerationPendingError(operation)
 
     async def materialize_batch(
-        self, operation: ImageBatchOperation, *, durable_operation_id: int | None = None
+        self, operation: ImageBatchOperation, *, durable_operation_id: uuid.UUID | None = None
     ) -> tuple[DurableMediaResult, ...]:
         if len(operation.items) != len(operation.results):
             raise ImageGenerationOutputError("BATCH_ITEM_CORRELATION_FAILED")
@@ -158,7 +159,7 @@ class ImageGenerationRunner:
         request: ImageGenerationRequest,
         result: ImageGenerationResult,
         *,
-        operation_id: int | None,
+        operation_id: uuid.UUID | None,
         provider_operation_id: str | None,
     ) -> DurableMediaResult:
         if result.moderation is ModerationDecision.BLOCK:

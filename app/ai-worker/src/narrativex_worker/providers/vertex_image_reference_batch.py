@@ -2,7 +2,8 @@
 
 Character references remain private NarrativeX media assets in R2. Immediately before the paid
 Vertex batch boundary, this adapter verifies each immutable reference checksum, stages it to a
-content-addressed GCS object, and builds the exact multimodal request that can later be reconstructed
+content-addressed GCS object, and builds the exact multimodal request that can later be
+reconstructed
 for provider-output correlation and crash recovery.
 """
 
@@ -155,9 +156,7 @@ class ReferenceAwareVertexBatchImageProvider(VertexBatchImageProvider):
             content = await self.reference_store.get_bytes(reference.storage_key)
             checksum = hashlib.sha256(content).hexdigest()
             if checksum != reference.sha256.lower():
-                raise VertexImageProviderError(
-                    f"REFERENCE_CHECKSUM_MISMATCH:{reference.asset_id}"
-                )
+                raise VertexImageProviderError(f"REFERENCE_CHECKSUM_MISMATCH:{reference.asset_id}")
             await self._put_reference_if_absent(token, bucket, reference, content)
 
     async def _put_reference_if_absent(
@@ -247,9 +246,7 @@ def _unique_references(items: tuple[ImageBatchItem, ...]) -> tuple[ImageReferenc
         for reference in item.request.references:
             existing = by_asset.get(reference.asset_id)
             if existing is not None and existing != reference:
-                raise VertexImageProviderError(
-                    f"REFERENCE_SNAPSHOT_CONFLICT:{reference.asset_id}"
-                )
+                raise VertexImageProviderError(f"REFERENCE_SNAPSHOT_CONFLICT:{reference.asset_id}")
             by_asset[reference.asset_id] = reference
     return tuple(sorted(by_asset.values(), key=lambda value: value.asset_id))
 
@@ -266,7 +263,10 @@ def _reference_uri(settings: WorkerSettings, reference: ImageReference) -> str:
 
 
 def _reference_request_body(item: ImageBatchItem, settings: WorkerSettings) -> dict[str, object]:
-    uris = {reference.asset_id: _reference_uri(settings, reference) for reference in item.request.references}
+    uris = {
+        reference.asset_id: _reference_uri(settings, reference)
+        for reference in item.request.references
+    }
     return _request_body(item.request, reference_uris=uris if uris else None)
 
 

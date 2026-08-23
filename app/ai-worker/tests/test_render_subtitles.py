@@ -1,10 +1,7 @@
 from pathlib import Path
 
-from narrativex_worker.rendering.image_motion import (
-    ImageMotionManifest,
-    MotionBeat,
-    build_ffmpeg_args,
-)
+from narrativex_worker.rendering.ffmpeg import build_ffmpeg_args
+from narrativex_worker.rendering.image_motion import ImageMotionManifest, MotionBeat
 from narrativex_worker.rendering.subtitles import (
     SubtitleAlignmentSpan,
     SubtitleCue,
@@ -72,7 +69,9 @@ def test_write_ass_subtitles_never_rounds_to_zero_duration(tmp_path: Path) -> No
 
     path = write_ass_subtitles(track, tmp_path / "rounding.ass", width=1920, height=1080)
     dialogue = next(
-        line for line in path.read_text(encoding="utf-8").splitlines() if line.startswith("Dialogue:")
+        line
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.startswith("Dialogue:")
     )
 
     assert ",0:00:00.01,0:00:00.03," in dialogue
@@ -96,7 +95,8 @@ def test_ffmpeg_args_burn_ass_after_concat(tmp_path: Path) -> None:
     args = build_ffmpeg_args(manifest)
     filter_complex = args[args.index("-filter_complex") + 1]
 
-    assert "concat=n=2:v=1:a=0[vconcat]" in filter_complex
-    assert "[vconcat]ass=filename='" in filter_complex
-    assert "[vout]" in filter_complex
-    assert args[args.index("-map") + 1] == "[vout]"
+    concat_index = filter_complex.index("concat=a=0:n=2:v=1")
+    subtitle_index = filter_complex.index("ass=filename=")
+    assert concat_index < subtitle_index
+    mapped_video = args[args.index("-map") + 1]
+    assert mapped_video.startswith("[") and mapped_video.endswith("]")

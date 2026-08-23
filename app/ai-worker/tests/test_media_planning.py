@@ -14,7 +14,7 @@ def test_i2v_scene_requires_duration_and_resolution() -> None:
     with pytest.raises(ValidationError):
         VisualScenePlan(
             visual_scene_id="ch1-vs1",
-            chapter_id=1,
+            chapter_id="00000000-0000-4000-8000-000000000003",
             audio_start_ms=0,
             audio_end_ms=7000,
             source_text_start=0,
@@ -26,7 +26,7 @@ def test_i2v_scene_requires_duration_and_resolution() -> None:
 
     scene = VisualScenePlan(
         visual_scene_id="ch1-vs1",
-        chapter_id=1,
+        chapter_id="00000000-0000-4000-8000-000000000003",
         audio_start_ms=0,
         audio_end_ms=7000,
         source_text_start=0,
@@ -44,7 +44,7 @@ def test_reuse_and_edit_strategies_require_source_asset_lineage() -> None:
     with pytest.raises(ValidationError):
         VisualScenePlan(
             visual_scene_id="ch1-vs2",
-            chapter_id=1,
+            chapter_id="00000000-0000-4000-8000-000000000003",
             audio_start_ms=7000,
             audio_end_ms=13000,
             source_text_start=121,
@@ -59,7 +59,7 @@ def test_basic_motion_cannot_reserve_i2v_work() -> None:
     with pytest.raises(ValidationError):
         VisualScenePlan(
             visual_scene_id="ch1-vs3",
-            chapter_id=1,
+            chapter_id="00000000-0000-4000-8000-000000000003",
             audio_start_ms=13000,
             audio_end_ms=20000,
             source_text_start=221,

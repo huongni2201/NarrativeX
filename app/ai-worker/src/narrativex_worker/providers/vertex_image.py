@@ -58,8 +58,11 @@ class VertexImageProvider(ImageGenerationProvider):
                 "Character reference images require the Vertex batch adapter"
             )
         token = await self._access_token()
+        project_id = self.settings.vertex_project_id
+        if not project_id:
+            raise VertexImageProviderError("Vertex project id is not configured")
         endpoint = _endpoint(
-            self.settings.vertex_project_id,
+            project_id,
             request.location,
             request.model_key,
         )

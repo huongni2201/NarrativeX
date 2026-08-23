@@ -48,8 +48,8 @@ class SubtitleTrack:
 async def load_subtitle_source(
     database_url: str,
     *,
-    project_id: int,
-    chapter_id: int,
+    project_id: uuid.UUID,
+    chapter_id: uuid.UUID,
     chapter_row_version: int,
     source_hash: str,
     narration_request_id: uuid.UUID | None = None,
@@ -277,7 +277,9 @@ def _split_chunks(value: str, max_chars: int) -> list[str]:
             if current:
                 chunks.append(current)
                 current = ""
-            chunks.extend(word[index : index + max_chars] for index in range(0, len(word), max_chars))
+            chunks.extend(
+                word[index : index + max_chars] for index in range(0, len(word), max_chars)
+            )
             continue
         candidate = word if not current else f"{current} {word}"
         if len(candidate) <= max_chars:
@@ -331,12 +333,7 @@ def _wrap_two_lines(value: str, target_line_chars: int = 42) -> str:
 
 
 def _escape_ass_text(value: str) -> str:
-    return (
-        value.replace("\\", r"\\")
-        .replace("{", r"\{")
-        .replace("}", r"\}")
-        .replace("\n", r"\N")
-    )
+    return value.replace("\\", r"\\").replace("{", r"\{").replace("}", r"\}").replace("\n", r"\N")
 
 
 def _ass_centiseconds(milliseconds: int, *, round_up: bool) -> int:
@@ -354,7 +351,6 @@ def _format_ass_centiseconds(centiseconds: int) -> str:
 
 def _fingerprint(cues: Sequence[SubtitleCue], timing_source: str) -> str:
     payload = "\n".join(
-        [timing_source]
-        + [f"{cue.start_ms}|{cue.end_ms}|{cue.text}" for cue in cues]
+        [timing_source] + [f"{cue.start_ms}|{cue.end_ms}|{cue.text}" for cue in cues]
     )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()

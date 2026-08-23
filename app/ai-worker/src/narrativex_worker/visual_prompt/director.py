@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import re
 
-
 VISUAL_DIRECTION_INSTRUCTIONS = (
     "For every visual beat, write visual_intent as a production-ready still-image direction, not "
     "as generic prose. Describe: (1) the primary subject and one readable physical action or "
@@ -25,11 +24,13 @@ VISUAL_DIRECTION_INSTRUCTIONS = (
 
 
 _REVEAL_TERMS = re.compile(
-    r"\b(reveal|discover|realize|realise|recognize|recognise|notice|secret|truth|phát hiện|nhận ra|bí mật|sự thật)\b",
+    r"\b(reveal|discover|realize|realise|recognize|recognise|notice|secret|truth|"
+    r"phát hiện|nhận ra|bí mật|sự thật)\b",
     re.IGNORECASE,
 )
 _ESTABLISH_TERMS = re.compile(
-    r"\b(establish|landscape|city|village|room|location|environment|toàn cảnh|khung cảnh|thành phố|ngôi làng|căn phòng)\b",
+    r"\b(establish|landscape|city|village|room|location|environment|toàn cảnh|"
+    r"khung cảnh|thành phố|ngôi làng|căn phòng)\b",
     re.IGNORECASE,
 )
 _ISOLATION_TERMS = re.compile(
@@ -41,7 +42,8 @@ _PORTRAIT_TERMS = re.compile(
     re.IGNORECASE,
 )
 _VERTICAL_TERMS = re.compile(
-    r"\b(look up|look down|tower|building|stairs|sky|ceiling|ngước lên|cúi xuống|tòa nhà|cầu thang|bầu trời|trần nhà)\b",
+    r"\b(look up|look down|tower|building|stairs|sky|ceiling|ngước lên|cúi xuống|"
+    r"tòa nhà|cầu thang|bầu trời|trần nhà)\b",
     re.IGNORECASE,
 )
 

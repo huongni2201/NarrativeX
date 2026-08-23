@@ -65,7 +65,7 @@ class RenderEffects:
     text_overlays: tuple[AnimatedText, ...] = ()
 
     @classmethod
-    def cinematic(cls) -> "RenderEffects":
+    def cinematic(cls) -> RenderEffects:
         return cls(
             transition="AUTO",
             transition_seconds=0.25,

@@ -49,9 +49,7 @@ def _eased_progress(easing: str, *, frames: int) -> str:
     return raw
 
 
-def _motion_expressions(
-    beat: MotionBeat, *, frames: int, easing: str
-) -> tuple[str, str, str]:
+def _motion_expressions(beat: MotionBeat, *, frames: int, easing: str) -> tuple[str, str, str]:
     progress = _eased_progress(easing, frames=frames)
     centered_x = "iw/2-(iw/zoom/2)"
     centered_y = "ih/2-(ih/zoom/2)"
@@ -77,9 +75,7 @@ def _motion_expressions(
     return "1.0", centered_x, centered_y
 
 
-def _needs_blurred_background(
-    image_path: Path, *, width: int, height: int, mode: str
-) -> bool:
+def _needs_blurred_background(image_path: Path, *, width: int, height: int, mode: str) -> bool:
     if mode == "BLUR":
         return True
     if mode != "AUTO" or not image_path.exists():
@@ -93,9 +89,7 @@ def _needs_blurred_background(
     return abs(source_ratio - target_ratio) / target_ratio > 0.035
 
 
-def _frame_still(
-    beat: MotionBeat, *, width: int, height: int, effects: RenderEffects
-) -> Any:
+def _frame_still(beat: MotionBeat, *, width: int, height: int, effects: RenderEffects) -> Any:
     stream = ffmpeg.input(str(beat.image_path)).video
     if not _needs_blurred_background(
         beat.image_path,
@@ -103,9 +97,9 @@ def _frame_still(
         height=height,
         mode=effects.background_mode,
     ):
-        return stream.filter(
-            "scale", width, height, force_original_aspect_ratio="increase"
-        ).filter("crop", width, height)
+        return stream.filter("scale", width, height, force_original_aspect_ratio="increase").filter(
+            "crop", width, height
+        )
 
     split = stream.filter_multi_output("split", 2)
     background = (
@@ -115,9 +109,7 @@ def _frame_still(
         .filter("gblur", sigma=effects.background_blur_sigma)
         .filter("eq", brightness=-0.04, saturation=0.82)
     )
-    foreground = split[1].filter(
-        "scale", width, height, force_original_aspect_ratio="decrease"
-    )
+    foreground = split[1].filter("scale", width, height, force_original_aspect_ratio="decrease")
     return ffmpeg.overlay(
         background,
         foreground,
@@ -214,9 +206,7 @@ def _build_transition(
 
     if transition_name == "DISSOLVE":
         expression = f"if(lte(mod(X*17+Y*13,100)/100,{progress}),B,A)"
-        return ffmpeg.filter(
-            [outgoing, incoming], "blend", all_expr=expression, shortest=1
-        )
+        return ffmpeg.filter([outgoing, incoming], "blend", all_expr=expression, shortest=1)
     if transition_name.startswith("WIPE_"):
         conditions = {
             "WIPE_LEFT": f"lte(X/W,{progress})",
@@ -321,11 +311,7 @@ def _build_catalog_video(manifest: ImageMotionManifest, transition_seconds: floa
             effects=manifest.effects,
         )
         branch_count = 1 + int(index > 0) + int(index < count - 1)
-        branches = (
-            clip.filter_multi_output("split", branch_count)
-            if branch_count > 1
-            else None
-        )
+        branches = clip.filter_multi_output("split", branch_count) if branch_count > 1 else None
         branch_index = 0
 
         if index > 0:
@@ -334,9 +320,7 @@ def _build_catalog_video(manifest: ImageMotionManifest, transition_seconds: floa
             branch_index += 1
 
         core_start = transition_seconds if index > 0 else 0.0
-        core_end = (
-            effective_duration - transition_seconds if index < count - 1 else None
-        )
+        core_end = effective_duration - transition_seconds if index < count - 1 else None
         core_source = branches[branch_index] if branches is not None else clip
         cores.append(_trim(core_source, start=core_start, end=core_end))
         branch_index += 1
@@ -441,12 +425,7 @@ def _apply_overlays(video: Any, manifest: ImageMotionManifest) -> Any:
 
 
 def _escape_drawtext_text(value: str) -> str:
-    return (
-        value.replace("\\", r"\\")
-        .replace(":", r"\:")
-        .replace("'", r"\'")
-        .replace("%", r"\%")
-    )
+    return value.replace("\\", r"\\").replace(":", r"\:").replace("'", r"\'").replace("%", r"\%")
 
 
 def _text_y(position: str) -> str:
@@ -534,9 +513,7 @@ def _apply_animated_text(video: Any, effects: RenderEffects) -> Any:
 def _build_audio(manifest: ImageMotionManifest) -> Any | None:
     if manifest.audio_path is None:
         return None
-    narration = ffmpeg.input(str(manifest.audio_path)).audio.filter(
-        "asetpts", "PTS-STARTPTS"
-    )
+    narration = ffmpeg.input(str(manifest.audio_path)).audio.filter("asetpts", "PTS-STARTPTS")
     effects = manifest.effects
     if effects.bgm_path is None:
         return narration
@@ -605,9 +582,7 @@ def build_ffmpeg_graph(manifest: ImageMotionManifest) -> Any:
 
     audio = _build_audio(manifest)
     if audio is not None:
-        output_options.update(
-            {"acodec": "aac", "b:a": manifest.audio_bitrate, "ar": 48_000}
-        )
+        output_options.update({"acodec": "aac", "b:a": manifest.audio_bitrate, "ar": 48_000})
         return ffmpeg.output(video, audio, str(manifest.output_path), **output_options)
     return ffmpeg.output(video, str(manifest.output_path), **output_options)
 

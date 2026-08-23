@@ -40,7 +40,7 @@ class ReadFinalArtifactContentUseCaseTest {
 
   private static FinalArtifactView artifact(String status, String externalFileId) {
     return new FinalArtifactView(
-        1L,
+        9911L,
         PROJECT_ID,
         CHAPTER_ID,
         "CHAPTER_VIDEO",

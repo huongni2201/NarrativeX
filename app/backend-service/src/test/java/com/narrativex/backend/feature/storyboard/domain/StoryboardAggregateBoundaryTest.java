@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.narrativex.backend.feature.common.domain.AggregateRoot;
 import com.narrativex.backend.feature.common.domain.DomainEntity;
+import com.narrativex.backend.feature.common.domain.UuidAggregateRoot;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.storyboard.domain.aggregate.Chapter;
 import com.narrativex.backend.feature.storyboard.domain.aggregate.Scene;
@@ -18,8 +19,8 @@ class StoryboardAggregateBoundaryTest {
 
   @Test
   void chapterAndSceneAreIndependentAggregateRoots() {
-    assertEquals(AggregateRoot.class, Chapter.class.getSuperclass().getSuperclass());
-    assertEquals(AggregateRoot.class, Scene.class.getSuperclass().getSuperclass());
+    assertEquals(UuidAggregateRoot.class, Chapter.class.getSuperclass());
+    assertEquals(AggregateRoot.class, Scene.class.getSuperclass());
   }
 
   @Test

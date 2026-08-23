@@ -61,9 +61,7 @@ def test_flex_headers_use_vertex_shared_flex_tier() -> None:
 
 
 def test_standard_headers_do_not_request_flex() -> None:
-    assert _request_headers("token-123", "standard") == {
-        "Authorization": "Bearer token-123"
-    }
+    assert _request_headers("token-123", "standard") == {"Authorization": "Bearer token-123"}
 
 
 def test_prediction_reads_gemini_inline_data() -> None:

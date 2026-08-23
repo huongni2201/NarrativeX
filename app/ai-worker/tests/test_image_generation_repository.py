@@ -133,6 +133,9 @@ class _CompletionConnection:
         raise AssertionError(f"Unexpected fetch query: {query}")
 
     async def fetchrow(self, query: str, *args: Any) -> dict[str, int] | None:
+        self.execute_calls.append((query, args))
+        if "UPDATE provider_operations" in query:
+            return {"id": 20}
         if "FROM stage_attempts" in query:
             return {"generation_job_id": 1}
         if "COUNT(*) AS total" in query:
@@ -179,10 +182,10 @@ def _fixture(*, lease: bool = True, updated_count: int = 1) -> _Fixture:
     )
     repository._pool = _Pool(connection)
     job = ClaimedImageGenerationJob(
-        generation_job_id=1,
-        stage_attempt_id=10,
+        generation_job_id=UUID("00000000-0000-4000-8000-000000000001"),
+        stage_attempt_id=UUID("00000000-0000-4000-8000-000000000010"),
         lease_token="00000000-0000-0000-0000-000000000001",
-        project_id=1,
+        project_id=UUID("00000000-0000-4000-8000-000000000001"),
         media_plan_id=UUID("00000000-0000-0000-0000-000000000002"),
         worker_id="worker-1",
     )
@@ -349,8 +352,9 @@ async def test_aggregate_generation_job_fails_stage_and_job_when_any_job_item_fa
 
 
 @pytest.mark.asyncio
-async def test_aggregate_generation_job_completes_stage_and_job_when_all_job_items_are_ready(
-) -> None:
+async def test_aggregate_generation_job_completes_stage_and_job_when_all_job_items_are_ready() -> (
+    None
+):
     connection = _CompletionConnection(
         total=2,
         ready=2,
@@ -371,8 +375,9 @@ async def test_aggregate_generation_job_completes_stage_and_job_when_all_job_ite
 
 
 @pytest.mark.asyncio
-async def test_aggregate_generation_job_can_reconcile_late_failure_after_job_was_completed(
-) -> None:
+async def test_aggregate_generation_job_can_reconcile_late_failure_after_job_was_completed() -> (
+    None
+):
     connection = _CompletionConnection(
         total=2,
         ready=1,
@@ -421,6 +426,6 @@ async def test_complete_provider_operation_updates_only_provider_then_aggregates
     assert "result_fingerprint = $3" in provider_query
     assert "completed_at = CURRENT_TIMESTAMP" in provider_query
     assert provider_args[0] == 20
-    assert connection.transaction_calls == 2
+    assert connection.transaction_calls == 1
     assert connection.stage_status == "RUNNING"
     assert connection.job_status == "RUNNING"

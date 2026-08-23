@@ -10,6 +10,9 @@ import subprocess
 import tempfile
 import time
 from pathlib import Path
+from uuid import UUID
+
+from pydantic import SecretStr
 
 from narrativex_worker.config import WorkerSettings
 from narrativex_worker.narration.storage import S3MediaStorage
@@ -70,8 +73,8 @@ async def run_smoke() -> None:
         vertex_image_batch_poll_seconds=5.0,
         media_storage_mode="r2",
         r2_account_id=_required_env("R2_ACCOUNT_ID"),
-        r2_access_key_id=_required_env("R2_ACCESS_KEY_ID"),
-        r2_secret_access_key=_required_env("R2_SECRET_ACCESS_KEY"),
+        r2_access_key_id=SecretStr(_required_env("R2_ACCESS_KEY_ID")),
+        r2_secret_access_key=SecretStr(_required_env("R2_SECRET_ACCESS_KEY")),
         r2_bucket=_required_env("R2_BUCKET"),
         r2_endpoint=os.getenv("R2_ENDPOINT") or None,
     )
@@ -117,7 +120,9 @@ async def run_smoke() -> None:
 
         image = operation.results[0].result
         r2 = S3MediaStorage(settings)
-        storage_key = f"provider-smoke/images/{image.result_fingerprint}.{image.mime_type.split('/')[-1]}"
+        storage_key = (
+            f"provider-smoke/images/{image.result_fingerprint}.{image.mime_type.split('/')[-1]}"
+        )
         stored = await r2.put_immutable(
             storage_key=storage_key,
             content=image.content,
@@ -139,7 +144,7 @@ async def run_smoke() -> None:
                 file_path=video_path,
                 render_fingerprint=f"provider-smoke-drive-v1-{video_checksum[:24]}",
                 checksum=video_checksum,
-                generation_job_id=0,
+                generation_job_id=UUID("00000000-0000-0000-0000-000000000001"),
             )
 
         print(

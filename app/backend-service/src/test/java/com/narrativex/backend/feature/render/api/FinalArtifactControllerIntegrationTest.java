@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.narrativex.backend.support.PostgreSqlIntegrationTestSupport;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.UUID;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,6 +26,20 @@ import org.springframework.test.web.servlet.MockMvc;
 @ActiveProfiles("test")
 class FinalArtifactControllerIntegrationTest extends PostgreSqlIntegrationTestSupport {
   private static final Path FINAL_ROOT = createFinalRoot();
+  private static final UUID PROJECT_ID = testUuid(9101);
+  private static final UUID OTHER_PROJECT_ID = testUuid(9102);
+  private static final UUID STORY_VERSION_ID = testUuid(9201);
+  private static final UUID OTHER_STORY_VERSION_ID = testUuid(9202);
+  private static final UUID CHAPTER_ID = testUuid(9301);
+  private static final UUID OTHER_CHAPTER_ID = testUuid(9302);
+  private static final UUID READY_JOB_ID = testUuid(9401);
+  private static final UUID ARCHIVED_JOB_ID = testUuid(9402);
+  private static final UUID READY_JOB_ROW_ID = testUuid(9401);
+  private static final UUID ARCHIVED_JOB_ROW_ID = testUuid(9402);
+  private static final Long READY_ARTIFACT_ID = 9501L;
+  private static final Long ARCHIVED_ARTIFACT_ID = 9502L;
+  private static final Long OTHER_ARTIFACT_ID = 9503L;
+  private static final UUID UNKNOWN_JOB_ID = testUuid(9599);
 
   @DynamicPropertySource
   static void finalArtifactProperties(DynamicPropertyRegistry registry) {
@@ -47,15 +62,15 @@ class FinalArtifactControllerIntegrationTest extends PostgreSqlIntegrationTestSu
         "INSERT INTO auth_users (id, email, display_name, password_hash, enabled) VALUES"
             + " ('other-owner', 'other-render@example.com', 'Other Owner', 'pass', true) ON"
             + " CONFLICT (id) DO NOTHING");
-    insertProject(9101L, "seed-user-01");
-    insertProject(9102L, "other-owner");
-    insertStoryAndChapter(9201L, 9101L, 9301L);
-    insertStoryAndChapter(9202L, 9102L, 9302L);
-    insertJob(9401L, "job-ready", 9101L, 9301L);
-    insertJob(9402L, "job-archived", 9101L, 9301L);
-    insertArtifact(9501L, 9101L, 9301L, 9401L, "READY", "artifact-9501.mp4");
-    insertArtifact(9502L, 9101L, 9301L, 9402L, "ARCHIVED", "artifact-9502.mp4");
-    insertArtifact(9503L, 9102L, 9302L, 9401L, "READY", "artifact-9503.mp4");
+    insertProject(PROJECT_ID, "seed-user-01");
+    insertProject(OTHER_PROJECT_ID, "other-owner");
+    insertStoryAndChapter(STORY_VERSION_ID, PROJECT_ID, CHAPTER_ID);
+    insertStoryAndChapter(OTHER_STORY_VERSION_ID, OTHER_PROJECT_ID, OTHER_CHAPTER_ID);
+    insertJob(READY_JOB_ROW_ID, READY_JOB_ID, PROJECT_ID, CHAPTER_ID);
+    insertJob(ARCHIVED_JOB_ROW_ID, ARCHIVED_JOB_ID, PROJECT_ID, CHAPTER_ID);
+    insertArtifact(READY_ARTIFACT_ID, PROJECT_ID, CHAPTER_ID, READY_JOB_ROW_ID, "READY", "artifact-9501.mp4");
+    insertArtifact(ARCHIVED_ARTIFACT_ID, PROJECT_ID, CHAPTER_ID, ARCHIVED_JOB_ROW_ID, "ARCHIVED", "artifact-9502.mp4");
+    insertArtifact(OTHER_ARTIFACT_ID, OTHER_PROJECT_ID, OTHER_CHAPTER_ID, READY_JOB_ROW_ID, "READY", "artifact-9503.mp4");
     byte[] bytes = new byte[2048];
     IntStream.range(0, bytes.length).forEach(i -> bytes[i] = (byte) (i % 251));
     Files.write(FINAL_ROOT.resolve("artifact-9501.mp4"), bytes);
@@ -63,24 +78,24 @@ class FinalArtifactControllerIntegrationTest extends PostgreSqlIntegrationTestSu
 
   @Test
   void completedRenderReturnsReadyArtifactByJob() throws Exception {
-    mockMvc.perform(get("/api/v1/artifacts/by-job/job-ready")).andExpect(status().isOk());
+    mockMvc.perform(get("/api/v1/artifacts/by-job/" + READY_JOB_ID)).andExpect(status().isOk());
   }
 
   @Test
   void unknownJobAndWrongOwnerAreNotVisible() throws Exception {
-    mockMvc.perform(get("/api/v1/artifacts/by-job/unknown-job")).andExpect(status().isNotFound());
-    mockMvc.perform(get("/api/v1/artifacts/9503")).andExpect(status().isNotFound());
+    mockMvc.perform(get("/api/v1/artifacts/by-job/" + UNKNOWN_JOB_ID)).andExpect(status().isNotFound());
+    mockMvc.perform(get("/api/v1/artifacts/" + OTHER_ARTIFACT_ID)).andExpect(status().isNotFound());
   }
 
   @Test
   void archivedArtifactIsNotReturned() throws Exception {
-    mockMvc.perform(get("/api/v1/artifacts/9502")).andExpect(status().isNotFound());
+    mockMvc.perform(get("/api/v1/artifacts/" + ARCHIVED_ARTIFACT_ID)).andExpect(status().isNotFound());
   }
 
   @Test
   void rangeAndDispositionSemanticsArePreserved() throws Exception {
     mockMvc
-        .perform(get("/api/v1/artifacts/9501/download").header(HttpHeaders.RANGE, "bytes=0-1023"))
+        .perform(get("/api/v1/artifacts/" + READY_ARTIFACT_ID + "/download").header(HttpHeaders.RANGE, "bytes=0-1023"))
         .andExpect(status().isPartialContent())
         .andExpect(header().string(HttpHeaders.CONTENT_RANGE, "bytes 0-1023/2048"))
         .andExpect(
@@ -90,7 +105,7 @@ class FinalArtifactControllerIntegrationTest extends PostgreSqlIntegrationTestSu
                     org.hamcrest.Matchers.containsString("attachment")));
 
     mockMvc
-        .perform(get("/api/v1/artifacts/9501/preview"))
+        .perform(get("/api/v1/artifacts/" + READY_ARTIFACT_ID + "/preview"))
         .andExpect(status().isOk())
         .andExpect(
             header()
@@ -100,11 +115,11 @@ class FinalArtifactControllerIntegrationTest extends PostgreSqlIntegrationTestSu
 
     mockMvc
         .perform(
-            get("/api/v1/artifacts/9501/preview").header(HttpHeaders.RANGE, "bytes=not-a-range"))
+            get("/api/v1/artifacts/" + READY_ARTIFACT_ID + "/preview").header(HttpHeaders.RANGE, "bytes=not-a-range"))
         .andExpect(status().isRequestedRangeNotSatisfiable());
   }
 
-  private void insertProject(long id, String ownerId) {
+  private void insertProject(UUID id, String ownerId) {
     jdbcTemplate.update(
         "INSERT INTO projects (id, name, description, owner_id, status, source_language,"
             + " narration_language, metadata_language, image_aspect_ratio, image_quality_tier)"
@@ -115,7 +130,7 @@ class FinalArtifactControllerIntegrationTest extends PostgreSqlIntegrationTestSu
         ownerId);
   }
 
-  private void insertStoryAndChapter(long storyId, long projectId, long chapterId) {
+  private void insertStoryAndChapter(UUID storyId, UUID projectId, UUID chapterId) {
     jdbcTemplate.update(
         "INSERT INTO story_versions (id, project_id, version_number, content, source_language,"
             + " status, moderation_decision) VALUES (?, ?, 1, 'Content', 'vi-VN', 'ACTIVE', 'SAFE')"
@@ -130,7 +145,7 @@ class FinalArtifactControllerIntegrationTest extends PostgreSqlIntegrationTestSu
         storyId);
   }
 
-  private void insertJob(long id, String jobId, long projectId, long chapterId) {
+  private void insertJob(UUID id, UUID jobId, UUID projectId, UUID chapterId) {
     jdbcTemplate.update(
         "INSERT INTO generation_jobs (id, job_id, project_id, chapter_id, job_type, status,"
             + " resource_class, progress, requested_by_user_id, billed_to_user_id) VALUES (?, ?, ?,"
@@ -143,7 +158,7 @@ class FinalArtifactControllerIntegrationTest extends PostgreSqlIntegrationTestSu
   }
 
   private void insertArtifact(
-      long id, long projectId, long chapterId, long jobId, String status, String fileName) {
+      Long id, UUID projectId, UUID chapterId, UUID jobId, String status, String fileName) {
     jdbcTemplate.update(
         "INSERT INTO final_artifacts (id, project_id, chapter_id, generation_job_id, artifact_type,"
             + " render_fingerprint, storage_key, storage_provider, external_file_id, mime_type,"
@@ -165,5 +180,9 @@ class FinalArtifactControllerIntegrationTest extends PostgreSqlIntegrationTestSu
     } catch (Exception exception) {
       throw new ExceptionInInitializerError(exception);
     }
+  }
+
+  private static UUID testUuid(long suffix) {
+    return UUID.fromString("00000000-0000-4000-8000-" + String.format("%012d", suffix));
   }
 }

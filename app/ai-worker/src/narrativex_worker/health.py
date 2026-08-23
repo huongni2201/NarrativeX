@@ -54,7 +54,7 @@ class WorkerHealthServer:
                 timeout=self.database_timeout_seconds,
                 command_timeout=self.database_timeout_seconds,
             )
-            return await connection.fetchval("SELECT 1") == 1
+            return bool(await connection.fetchval("SELECT 1") == 1)
         except Exception as exception:
             logger.warning("Worker health database probe failed: %s", type(exception).__name__)
             return False

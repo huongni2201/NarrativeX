@@ -1,6 +1,10 @@
 import pytest
 
-from narrativex_worker.translation import TranslationValidationError, chunk_text, validate_translation
+from narrativex_worker.translation import (
+    TranslationValidationError,
+    chunk_text,
+    validate_translation,
+)
 
 
 def test_chunking_prefers_sentence_boundaries() -> None:
@@ -13,7 +17,9 @@ def test_validation_preserves_markers_and_rejects_provider_preamble() -> None:
     validate_translation("Hello [SFX] world.", "Xin chào [SFX] thế giới.")
 
     with pytest.raises(TranslationValidationError):
-        validate_translation("Hello [SFX] world.", "Here is the translation: Xin chào [SFX] thế giới.")
+        validate_translation(
+            "Hello [SFX] world.", "Here is the translation: Xin chào [SFX] thế giới."
+        )
 
 
 def test_validation_rejects_lost_marker() -> None:

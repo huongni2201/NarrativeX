@@ -25,9 +25,7 @@ class FakeVieneuClient:
     def list_preset_voices(self) -> list[tuple[str, str]]:
         return [(name, name) for name in sorted(self.voices)]
 
-    def add_voice(
-        self, name: str, path: Path, *, denoise: bool, save: bool = False
-    ) -> None:
+    def add_voice(self, name: str, path: Path, *, denoise: bool, save: bool = False) -> None:
         self.add_voice_calls.append((name, path, denoise, save))
         self.voices.add(name)
 
@@ -92,9 +90,7 @@ def test_vieneu_batches_multiple_segments_in_one_sdk_call(tmp_path: Path) -> Non
     results = asyncio.run(provider.synthesize_batch([_request(index=0), _request(index=1)]))
 
     assert len(results) == 2
-    assert client.batch_calls == [
-        (["Xin chào", "Xin chào"], "Ngọc Huyền v2", 16, False)
-    ]
+    assert client.batch_calls == [(["Xin chào", "Xin chào"], "Ngọc Huyền v2", 16, False)]
 
 
 def test_vieneu_reuses_enrolled_voice_without_reenrollment(tmp_path: Path) -> None:
@@ -139,9 +135,7 @@ def test_vieneu_uses_builtin_ngoc_huyen_preset_without_reference_audio() -> None
     ("voice_id", "voice_name"),
     [("vieneu-my-duyen", "Mỹ Duyên"), ("vieneu-thuy-dung", "Thùy Dung")],
 )
-def test_vieneu_resolves_catalog_ids_without_diacritics(
-    voice_id: str, voice_name: str
-) -> None:
+def test_vieneu_resolves_catalog_ids_without_diacritics(voice_id: str, voice_name: str) -> None:
     client = FakeVieneuClient()
     client.voices.update({"Ngọc Huyền", voice_name})
     settings = WorkerSettings(

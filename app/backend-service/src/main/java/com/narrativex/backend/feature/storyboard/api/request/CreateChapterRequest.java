@@ -6,7 +6,7 @@ import jakarta.validation.constraints.Size;
 import java.util.UUID;
 
 public record CreateChapterRequest(
-    @NotNull UUID storyVersionId,
+    UUID storyVersionId,
     @Min(0) Integer orderIndex,
     @NotNull @Size(min = 1, max = 200) String title,
     @NotNull String sourceText) {}

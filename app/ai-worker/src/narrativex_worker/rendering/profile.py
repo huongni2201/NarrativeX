@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any
+from uuid import UUID
 
 import asyncpg  # type: ignore[import-untyped]
 
@@ -30,7 +32,7 @@ class RenderProfile:
     subtitle_mode: str
 
     @classmethod
-    def from_json(cls, raw: str | Mapping[str, Any]) -> "RenderProfile":
+    def from_json(cls, raw: str | Mapping[str, Any]) -> RenderProfile:
         payload: Mapping[str, Any]
         if isinstance(raw, str):
             parsed = json.loads(raw)
@@ -155,7 +157,7 @@ class RenderProfile:
         }
 
 
-async def load_render_profile(database_url: str, generation_job_id: int) -> RenderProfile:
+async def load_render_profile(database_url: str, generation_job_id: UUID) -> RenderProfile:
     connection = await asyncpg.connect(database_url)
     try:
         raw = await connection.fetchval(

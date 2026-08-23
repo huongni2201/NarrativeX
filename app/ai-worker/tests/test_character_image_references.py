@@ -19,7 +19,9 @@ def _reference(asset_id: str, checksum: str, name: str = "Lan") -> ImageReferenc
     )
 
 
-def _request(*references: ImageReference, prompt: str = "Lan in a rainy alley") -> ImageGenerationRequest:
+def _request(
+    *references: ImageReference, prompt: str = "Lan in a rainy alley"
+) -> ImageGenerationRequest:
     return ImageGenerationRequest(
         request_fingerprint="f" * 64,
         prompt=prompt,

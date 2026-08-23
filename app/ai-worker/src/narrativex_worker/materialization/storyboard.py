@@ -1,6 +1,7 @@
 """Revision-safe storyboard materialization for Chapter analysis."""
 
 from typing import TYPE_CHECKING
+from uuid import UUID
 
 import asyncpg  # type: ignore[import-untyped]
 
@@ -15,8 +16,8 @@ async def materialize_storyboard(
     connection: asyncpg.Connection,
     claimed: "ClaimedChapterAnalysisJob",
     result: ChapterAnalysisResult,
-    project_characters: dict[str, int],
-    project_locations: dict[str, int],
+    project_characters: dict[str, UUID],
+    project_locations: dict[str, UUID],
 ) -> None:
     revision = await connection.fetchrow(
         """
@@ -67,7 +68,7 @@ async def materialize_storyboard(
                project_location_id, status)
             SELECT $1, $2, source.order_index, source.title, source.narration,
                    source.project_location_id, 'DRAFT'
-              FROM UNNEST($3::int[], $4::text[], $5::text[], $6::bigint[])
+              FROM UNNEST($3::int[], $4::text[], $5::text[], $6::uuid[])
                    AS source(order_index, title, narration, project_location_id)
              ORDER BY source.order_index
             RETURNING id, order_index

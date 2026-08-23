@@ -1,7 +1,17 @@
 """Deterministic analysis provider for the full-stack E2E profile."""
 
-from narrativex_worker.providers.ports import ProviderCapabilities, ProviderEstimate, ProviderOperation
-from narrativex_worker.schema import ChapterAnalysisRequest, ChapterAnalysisResult, ProviderOperationStatus, SceneAnalysis, VisualBeatAnalysis
+from narrativex_worker.providers.ports import (
+    ProviderCapabilities,
+    ProviderEstimate,
+    ProviderOperation,
+)
+from narrativex_worker.schema import (
+    ChapterAnalysisRequest,
+    ChapterAnalysisResult,
+    ProviderOperationStatus,
+    SceneAnalysis,
+    VisualBeatAnalysis,
+)
 
 
 class FakeAnalysisProvider:

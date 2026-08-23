@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import uuid
 from dataclasses import replace
 
 from narrativex_worker.image_generation_repository.implementation import (
@@ -45,7 +46,7 @@ class ImageGenerationRepository(ImageGenerationRepositoryImplementation):
             for item in items
         )
 
-    async def _items_for_operation(self, operation_id: int) -> tuple[ImageBatchItem, ...]:
+    async def _items_for_operation(self, operation_id: uuid.UUID) -> tuple[ImageBatchItem, ...]:
         items = await super()._items_for_operation(operation_id)
         snapshots = await self._reference_snapshots_for_operation(operation_id)
         return tuple(
@@ -59,7 +60,9 @@ class ImageGenerationRepository(ImageGenerationRepositoryImplementation):
             for item in items
         )
 
-    async def _reference_snapshots_for_job(self, generation_job_id: int) -> dict[str, str | None]:
+    async def _reference_snapshots_for_job(
+        self, generation_job_id: uuid.UUID
+    ) -> dict[str, str | None]:
         rows = await self._require_pool().fetch(
             """
             SELECT mgi.item_key, mbp.character_snapshot_json::text AS character_snapshot_json
@@ -73,7 +76,9 @@ class ImageGenerationRepository(ImageGenerationRepositoryImplementation):
         )
         return {row["item_key"]: row["character_snapshot_json"] for row in rows}
 
-    async def _reference_snapshots_for_operation(self, operation_id: int) -> dict[str, str | None]:
+    async def _reference_snapshots_for_operation(
+        self, operation_id: uuid.UUID
+    ) -> dict[str, str | None]:
         rows = await self._require_pool().fetch(
             """
             SELECT mgi.item_key, mbp.character_snapshot_json::text AS character_snapshot_json
@@ -216,9 +221,7 @@ class ImageGenerationRepository(ImageGenerationRepositoryImplementation):
         if any(item["itemKey"] is None for item in normalized_items):
             raise ValueError("durable image result is missing item_key")
         normalized_items.sort(key=lambda item: str(item["itemKey"]))
-        summary = json.dumps(
-            {"items": normalized_items}, sort_keys=True, separators=(",", ":")
-        )
+        summary = json.dumps({"items": normalized_items}, sort_keys=True, separators=(",", ":"))
         fingerprint = hashlib.sha256(summary.encode()).hexdigest()
         pool = self._require_pool()
         async with pool.acquire() as connection:
@@ -256,7 +259,8 @@ class ImageGenerationRepository(ImageGenerationRepositoryImplementation):
                 )
                 if row is None:
                     raise ImageGenerationLeaseLostError(
-                        "Image provider operation changed or stage lease was lost before completion was persisted"
+                        "Image provider operation changed or stage lease was lost before "
+                        "completion was persisted"
                     )
                 await self._aggregate_generation_job(connection, operation.stage_attempt_id)
 
@@ -367,8 +371,15 @@ def _parse_image_references(snapshot_json: str | None) -> tuple[ImageReference, 
             mime_type = raw.get("contentType")
             sha256 = raw.get("sha256")
             role = raw.get("role")
-            if not all(isinstance(value, str) and value for value in (asset_id, storage_key, mime_type, sha256)):
+            if not all(
+                isinstance(value, str) and value
+                for value in (asset_id, storage_key, mime_type, sha256)
+            ):
                 continue
+            assert isinstance(asset_id, str)
+            assert isinstance(storage_key, str)
+            assert isinstance(mime_type, str)
+            assert isinstance(sha256, str)
             if not mime_type.startswith("image/") or len(sha256) != 64:
                 continue
             if asset_id in seen:

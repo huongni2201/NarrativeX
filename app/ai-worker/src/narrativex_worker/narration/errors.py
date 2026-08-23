@@ -1,6 +1,7 @@
 """Typed failure categories for the durable narration pipeline."""
 
 import asyncio
+import uuid
 from collections.abc import Awaitable, Callable
 
 import asyncpg  # type: ignore[import-untyped]
@@ -22,7 +23,7 @@ class NarrationOutcomeUnknownError(NarrationError):
         self,
         message: str,
         *,
-        provider_operation_id: int | None = None,
+        provider_operation_id: uuid.UUID | None = None,
         storage_key: str | None = None,
         reconciliation_exhausted: bool = False,
     ) -> None:

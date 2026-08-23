@@ -10,7 +10,7 @@ public record EnqueueStoryAnalysisCommand(UUID projectId, UUID chapterId, UUID c
   }
 
   public EnqueueStoryAnalysisCommand {
-    Objects.requireNonNull(projectId, "projectId must not be null");
-    Objects.requireNonNull(chapterId, "chapterId must not be null");
+    if (projectId == null) throw new IllegalArgumentException("projectId must not be null");
+    if (chapterId == null) throw new IllegalArgumentException("chapterId must not be null");
   }
 }

@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import uuid
 from dataclasses import dataclass
 
 import asyncpg  # type: ignore[import-untyped]
@@ -11,12 +12,12 @@ from narrativex_worker.translation import TranslationProviderResponse, Translati
 
 @dataclass(frozen=True)
 class ClaimedTranslationJob:
-    stage_attempt_id: int
-    generation_job_id: int
+    stage_attempt_id: uuid.UUID
+    generation_job_id: uuid.UUID
     job_id: str
-    chapter_id: int
-    project_id: int
-    source_variant_id: int
+    chapter_id: uuid.UUID
+    project_id: uuid.UUID
+    source_variant_id: uuid.UUID
     source_content_hash: str
     source_language: str
     source_text: str
@@ -25,7 +26,7 @@ class ClaimedTranslationJob:
 
 @dataclass(frozen=True)
 class TranslationOperation:
-    id: int
+    id: uuid.UUID
     status: str
     row_version: int
     content: str | None = None
@@ -106,7 +107,7 @@ class TranslationWorkerRepository:
                     target_language=row["target_language"],
                 )
 
-    async def heartbeat(self, stage_attempt_id: int, worker_id: str) -> bool:
+    async def heartbeat(self, stage_attempt_id: uuid.UUID, worker_id: str) -> bool:
         pool = self._require_pool()
         result = await pool.execute(
             """UPDATE stage_attempts SET heartbeat_at = CURRENT_TIMESTAMP,

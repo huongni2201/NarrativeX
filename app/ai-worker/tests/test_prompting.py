@@ -7,9 +7,9 @@ from narrativex_worker.schema import ChapterAnalysisRequest
 
 def _request(source_text: str = "Một chương truyện thử nghiệm.") -> ChapterAnalysisRequest:
     return ChapterAnalysisRequest(
-        project_id=1,
-        story_version_id=1,
-        chapter_id=1,
+        project_id="00000000-0000-4000-8000-000000000001",
+        story_version_id="00000000-0000-4000-8000-000000000002",
+        chapter_id="00000000-0000-4000-8000-000000000003",
         chapter_row_version=0,
         source_hash="0" * 64,
         source_text=source_text,

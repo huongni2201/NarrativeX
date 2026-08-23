@@ -107,23 +107,23 @@ class MyBatisProjectQueryIntegrationTest extends PostgreSqlIntegrationTestSuppor
         "INSERT INTO story_versions (project_id, version_number, content, source_language, status, moderation_decision) "
             + "VALUES (?, 1, 'Content', 'vi-VN', 'ACTIVE', 'SAFE')",
         p1.getId());
-    Long storyVersionId =
+    UUID storyVersionId =
         jdbcTemplate.queryForObject(
-            "SELECT id FROM story_versions WHERE project_id = ?", Long.class, p1.getId());
+            "SELECT id FROM story_versions WHERE project_id = ?", UUID.class, p1.getId());
     jdbcTemplate.update(
         "INSERT INTO chapters (story_version_id, order_index, title, source_text, source_hash, status, estimated_duration_ms, generation_progress) "
             + "VALUES (?, 1, 'Ch 1', 'Text', repeat('a', 64), 'READY', 47000, 100)",
         storyVersionId);
-    Long chapterId =
+    UUID chapterId =
         jdbcTemplate.queryForObject(
-            "SELECT id FROM chapters WHERE story_version_id = ?", Long.class, storyVersionId);
+            "SELECT id FROM chapters WHERE story_version_id = ?", UUID.class, storyVersionId);
     jdbcTemplate.update(
         "INSERT INTO storyboard_revisions (chapter_id, revision_number, source_hash, source_row_version, status) "
             + "VALUES (?, 1, repeat('a', 64), 0, 'DRAFT')",
         chapterId);
-    Long revId =
+    UUID revId =
         jdbcTemplate.queryForObject(
-            "SELECT id FROM storyboard_revisions WHERE chapter_id = ?", Long.class, chapterId);
+            "SELECT id FROM storyboard_revisions WHERE chapter_id = ?", UUID.class, chapterId);
     jdbcTemplate.update(
         "INSERT INTO scenes (chapter_id, storyboard_revision_id, order_index, title, narration, duration_seconds, status) "
             + "VALUES (?, ?, 1, 'Scene 1', 'Narration', 47, 'APPROVED')",

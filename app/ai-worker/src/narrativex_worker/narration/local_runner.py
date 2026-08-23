@@ -33,18 +33,15 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
 
     async def _execute(self, claimed: ClaimedNarrationJob) -> None:
         assert self.provider is not None
-        if (
-            self.provider.capabilities.execution_semantics
-            is TtsExecutionSemantics.EXTERNAL_DURABLE
-        ):
+        if self.provider.capabilities.execution_semantics is TtsExecutionSemantics.EXTERNAL_DURABLE:
             await super()._execute(claimed)
             return
         await self._execute_local(claimed)
 
     async def _execute_local(self, claimed: ClaimedNarrationJob) -> None:
         assert self.provider is not None
-        assert self.storage is not None
         storage = self.storage
+        assert storage is not None
         self.logger.info(
             "Starting local narration job=%s request=%s voiceId=%s sourceChars=%s "
             "hasVoiceReference=%s",
@@ -146,10 +143,7 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
                 audio_duration_ms=actual_duration_ms,
             )
             checksum = await asyncio.to_thread(sha256_file, mp3_path)
-            final_key = (
-                f"narration/{claimed.narration_request_id}/"
-                f"chapter-{checksum[:16]}.mp3"
-            )
+            final_key = f"narration/{claimed.narration_request_id}/chapter-{checksum[:16]}.mp3"
             self.logger.info(
                 "Narration media validated job=%s request=%s storageKey=%s checksum=%s "
                 "durationMs=%s sizeBytes=%s",
@@ -230,10 +224,9 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
                 media_asset.storage_key,
             )
 
-    async def _prepare_reference(
-        self, claimed: ClaimedNarrationJob, job_dir: Path
-    ) -> Path | None:
-        assert self.storage is not None
+    async def _prepare_reference(self, claimed: ClaimedNarrationJob, job_dir: Path) -> Path | None:
+        storage = self.storage
+        assert storage is not None
         if claimed.voice_reference_storage_key is None:
             return None
         source_path = job_dir / "voice-reference.mp3"
@@ -246,7 +239,7 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
         )
         try:
             await retry_local_io(
-                lambda: self.storage.download_to_file(
+                lambda: storage.download_to_file(
                     claimed.voice_reference_storage_key or "", source_path
                 )
             )
@@ -311,9 +304,7 @@ class LocalOptimizedNarrationWorkerRunner(NarrationWorkerRunner):
             )
             requests = [
                 TtsRequest(
-                    request_id=(
-                        f"{claimed.narration_request_id}:segment:{segment.index:04d}"
-                    ),
+                    request_id=(f"{claimed.narration_request_id}:segment:{segment.index:04d}"),
                     segment=segment,
                     voice_id=voice_id,
                     language=claimed.language,

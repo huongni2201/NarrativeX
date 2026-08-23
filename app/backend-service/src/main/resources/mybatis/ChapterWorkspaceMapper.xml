@@ -66,7 +66,86 @@
                    gj.job_id AS media_generation_job_key,
                    gj.media_plan_id,
                    gj.media_plan_revision,
-                   gj.status AS media_generation_status
+                   gj.status AS media_generation_status,
+                   (SELECT COUNT(*)::int
+                      FROM generation_jobs current_jobs
+                     WHERE current_jobs.chapter_id = cr.chapter_id
+                       AND current_jobs.job_type IN ('IMAGE_GENERATE', 'SHOT_IMAGE_GENERATE')
+                       AND current_jobs.chapter_row_version = cr.chapter_row_version
+                       AND current_jobs.source_hash = cr.source_hash
+                       AND current_jobs.storyboard_revision_id = cr.revision_id
+                       AND current_jobs.media_plan_id IS NOT NULL
+                       AND current_jobs.media_plan_revision IS NOT NULL) AS media_generation_total,
+                   (SELECT COUNT(*)::int
+                      FROM generation_jobs current_jobs
+                     WHERE current_jobs.chapter_id = cr.chapter_id
+                       AND current_jobs.job_type IN ('IMAGE_GENERATE', 'SHOT_IMAGE_GENERATE')
+                       AND current_jobs.chapter_row_version = cr.chapter_row_version
+                       AND current_jobs.source_hash = cr.source_hash
+                       AND current_jobs.storyboard_revision_id = cr.revision_id
+                       AND current_jobs.media_plan_id IS NOT NULL
+                       AND current_jobs.media_plan_revision IS NOT NULL
+                       AND current_jobs.status = 'COMPLETED') AS media_generation_completed,
+                   (SELECT COUNT(*)::int
+                      FROM generation_jobs current_jobs
+                     WHERE current_jobs.chapter_id = cr.chapter_id
+                       AND current_jobs.job_type IN ('IMAGE_GENERATE', 'SHOT_IMAGE_GENERATE')
+                       AND current_jobs.chapter_row_version = cr.chapter_row_version
+                       AND current_jobs.source_hash = cr.source_hash
+                       AND current_jobs.storyboard_revision_id = cr.revision_id
+                       AND current_jobs.media_plan_id IS NOT NULL
+                       AND current_jobs.media_plan_revision IS NOT NULL
+                       AND current_jobs.status = 'FAILED') AS media_generation_failed,
+                   (SELECT COUNT(*)::int
+                      FROM generation_jobs current_jobs
+                     WHERE current_jobs.chapter_id = cr.chapter_id
+                       AND current_jobs.job_type IN ('IMAGE_GENERATE', 'SHOT_IMAGE_GENERATE')
+                       AND current_jobs.chapter_row_version = cr.chapter_row_version
+                       AND current_jobs.source_hash = cr.source_hash
+                       AND current_jobs.storyboard_revision_id = cr.revision_id
+                       AND current_jobs.media_plan_id IS NOT NULL
+                       AND current_jobs.media_plan_revision IS NOT NULL
+                       AND current_jobs.status = 'RUNNING') AS media_generation_running,
+                   (SELECT COUNT(*)::int
+                      FROM generation_jobs current_jobs
+                     WHERE current_jobs.chapter_id = cr.chapter_id
+                       AND current_jobs.job_type IN ('IMAGE_GENERATE', 'SHOT_IMAGE_GENERATE')
+                       AND current_jobs.chapter_row_version = cr.chapter_row_version
+                       AND current_jobs.source_hash = cr.source_hash
+                       AND current_jobs.storyboard_revision_id = cr.revision_id
+                       AND current_jobs.media_plan_id IS NOT NULL
+                       AND current_jobs.media_plan_revision IS NOT NULL
+                       AND current_jobs.status = 'QUEUED') AS media_generation_queued,
+                   (SELECT COUNT(*)::int
+                      FROM generation_jobs current_jobs
+                     WHERE current_jobs.chapter_id = cr.chapter_id
+                       AND current_jobs.job_type IN ('IMAGE_GENERATE', 'SHOT_IMAGE_GENERATE')
+                       AND current_jobs.chapter_row_version = cr.chapter_row_version
+                       AND current_jobs.source_hash = cr.source_hash
+                       AND current_jobs.storyboard_revision_id = cr.revision_id
+                       AND current_jobs.media_plan_id IS NOT NULL
+                       AND current_jobs.media_plan_revision IS NOT NULL
+                       AND current_jobs.status = 'STALLED') AS media_generation_stalled,
+                   (SELECT COUNT(*)::int
+                      FROM generation_jobs current_jobs
+                     WHERE current_jobs.chapter_id = cr.chapter_id
+                       AND current_jobs.job_type IN ('IMAGE_GENERATE', 'SHOT_IMAGE_GENERATE')
+                       AND current_jobs.chapter_row_version = cr.chapter_row_version
+                       AND current_jobs.source_hash = cr.source_hash
+                       AND current_jobs.storyboard_revision_id = cr.revision_id
+                       AND current_jobs.media_plan_id IS NOT NULL
+                       AND current_jobs.media_plan_revision IS NOT NULL
+                       AND current_jobs.status = 'UNKNOWN') AS media_generation_unknown,
+                   (SELECT COUNT(*)::int
+                      FROM generation_jobs current_jobs
+                     WHERE current_jobs.chapter_id = cr.chapter_id
+                       AND current_jobs.job_type IN ('IMAGE_GENERATE', 'SHOT_IMAGE_GENERATE')
+                       AND current_jobs.chapter_row_version = cr.chapter_row_version
+                       AND current_jobs.source_hash = cr.source_hash
+                       AND current_jobs.storyboard_revision_id = cr.revision_id
+                       AND current_jobs.media_plan_id IS NOT NULL
+                       AND current_jobs.media_plan_revision IS NOT NULL
+                       AND current_jobs.status = 'PAUSED_COST_LIMIT') AS media_generation_paused
               FROM current_revision cr
               LEFT JOIN chapter_media_heads cmh ON cmh.chapter_id = cr.chapter_id
               LEFT JOIN generation_jobs gj
@@ -93,14 +172,14 @@
                    LIMIT 1
               ) gj ON TRUE
         ), visual_generation AS (
-            SELECT CASE WHEN cmj.media_generation_job_id IS NULL THEN 0 ELSE 1 END::int AS total,
-                   CASE WHEN cmj.media_generation_status = 'COMPLETED' THEN 1 ELSE 0 END::int AS completed,
-                   CASE WHEN cmj.media_generation_status = 'FAILED' THEN 1 ELSE 0 END::int AS failed,
-                   CASE WHEN cmj.media_generation_status = 'RUNNING' THEN 1 ELSE 0 END::int AS running,
-                   CASE WHEN cmj.media_generation_status = 'QUEUED' THEN 1 ELSE 0 END::int AS queued,
-                   CASE WHEN cmj.media_generation_status = 'STALLED' THEN 1 ELSE 0 END::int AS stalled,
-                   CASE WHEN cmj.media_generation_status = 'UNKNOWN' THEN 1 ELSE 0 END::int AS unknown,
-                   CASE WHEN cmj.media_generation_status = 'PAUSED_COST_LIMIT' THEN 1 ELSE 0 END::int AS paused
+            SELECT cmj.media_generation_total AS total,
+                   cmj.media_generation_completed AS completed,
+                   cmj.media_generation_failed AS failed,
+                   cmj.media_generation_running AS running,
+                   cmj.media_generation_queued AS queued,
+                   cmj.media_generation_stalled AS stalled,
+                   cmj.media_generation_unknown AS unknown,
+                   cmj.media_generation_paused AS paused
               FROM current_media_job cmj
         ), latest_narration AS (
             SELECT na.id AS narration_asset_id, op.status AS job_status,
@@ -134,15 +213,13 @@
               LEFT JOIN project_assets pa ON pa.id = na.project_asset_id
         ), latest_render_manifest AS (
             SELECT rm.id, rm.created_at
-              FROM current_media_job cmj
+              FROM current_revision cr
               LEFT JOIN LATERAL (
                   SELECT rm.id, rm.created_at
                     FROM render_manifests rm
-                   WHERE rm.chapter_id = cmj.chapter_id
-                     AND rm.chapter_row_version = cmj.chapter_row_version
-                     AND rm.source_hash = cmj.source_hash
-                     AND rm.media_plan_id = cmj.media_plan_id
-                     AND rm.media_plan_revision = cmj.media_plan_revision
+                   WHERE rm.chapter_id = cr.chapter_id
+                     AND rm.chapter_row_version = cr.chapter_row_version
+                     AND rm.source_hash = cr.source_hash
                    ORDER BY rm.created_at DESC, rm.id DESC
                    LIMIT 1
               ) rm ON TRUE
@@ -161,17 +238,15 @@
               ) fa ON TRUE
         ), latest_render_job AS (
             SELECT gj.id AS generation_job_id, gj.job_id AS job_id, gj.status AS job_status
-              FROM current_media_job cmj
+              FROM current_revision cr
               LEFT JOIN LATERAL (
                   SELECT gj.id, gj.job_id, gj.status
                     FROM generation_jobs gj
                    WHERE gj.id = (SELECT generation_job_id FROM latest_render_artifact)
-                      OR (gj.chapter_id = cmj.chapter_id
+                      OR (gj.chapter_id = cr.chapter_id
                           AND gj.job_type IN ('CHAPTER_RENDER','RENDER_PROJECT','RENDER_SHORT')
-                          AND gj.chapter_row_version = cmj.chapter_row_version
-                          AND gj.source_hash = cmj.source_hash
-                          AND gj.media_plan_id = cmj.media_plan_id
-                          AND gj.media_plan_revision = cmj.media_plan_revision)
+                          AND gj.chapter_row_version = cr.chapter_row_version
+                          AND gj.source_hash = cr.source_hash)
                    ORDER BY CASE WHEN gj.id = (SELECT generation_job_id FROM latest_render_artifact) THEN 0 ELSE 1 END,
                             gj.created_at DESC, gj.id DESC
                    LIMIT 1

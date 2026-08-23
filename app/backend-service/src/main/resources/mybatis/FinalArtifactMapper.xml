@@ -39,7 +39,7 @@
         SELECT fa.*
           FROM final_artifacts fa
           JOIN generation_jobs gj ON gj.id = fa.generation_job_id
-         WHERE gj.job_id = #{jobId}
+         WHERE gj.job_id = CAST(#{jobId} AS UUID)
            AND fa.status = 'READY'
          LIMIT 1
     </select>

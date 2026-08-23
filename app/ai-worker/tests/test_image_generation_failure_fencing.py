@@ -26,11 +26,29 @@ class _Connection:
     def transaction(self) -> _Transaction:
         return _Transaction()
 
+    async def fetchrow(self, query: str, *args: Any) -> dict[str, int] | None:
+        self.execute_calls.append((query, args))
+        if "UPDATE provider_operations" in query:
+            return {"id": 20} if self.provider_update_result == "UPDATE 1" else None
+        if "SELECT sa.generation_job_id" in query:
+            return {"generation_job_id": 20}
+        raise AssertionError(f"Unexpected fetchrow query: {query}")
+
+    async def fetch(self, query: str, *args: Any) -> list[dict[str, int]]:
+        self.execute_calls.append((query, args))
+        if "COUNT(*) AS total" in query:
+            return [{"total": 1, "ready": 0, "failed": 1, "pending": 0}]
+        raise AssertionError(f"Unexpected fetch query: {query}")
+
     async def execute(self, query: str, *args: Any) -> str:
         self.execute_calls.append((query, args))
         if "UPDATE provider_operations" in query:
             return self.provider_update_result
         if "UPDATE media_generation_items" in query:
+            return "UPDATE 1"
+        if "UPDATE stage_attempts" in query:
+            return "UPDATE 1"
+        if "UPDATE generation_jobs" in query:
             return "UPDATE 1"
         raise AssertionError(f"Unexpected execute query: {query}")
 
@@ -65,9 +83,7 @@ def _operation(*, owned: bool = True) -> DurableImageOperation:
         row_version=7,
         items=(),
         worker_id="worker-1" if owned else None,
-        lease_token=(
-            "00000000-0000-0000-0000-000000000001" if owned else None
-        ),
+        lease_token=("00000000-0000-0000-0000-000000000001" if owned else None),
     )
 
 
@@ -87,10 +103,11 @@ async def test_fail_provider_operation_uses_state_version_and_owner_fence() -> N
     repository = _repository(connection)
     aggregate_calls: list[int] = []
 
-    async def aggregate(stage_attempt_id: int) -> None:
+    async def aggregate(connection: Any, stage_attempt_id: int) -> None:
+        del connection
         aggregate_calls.append(stage_attempt_id)
 
-    repository.aggregate_generation_job = cast(Any, aggregate)
+    repository._aggregate_generation_job = cast(Any, aggregate)
     operation = _operation()
 
     transitioned = await repository.fail_provider_operation(operation, "HTTP_400")
@@ -119,10 +136,11 @@ async def test_stale_failure_cannot_mutate_items_or_aggregate_job() -> None:
     repository = _repository(connection)
     aggregate_calls: list[int] = []
 
-    async def aggregate(stage_attempt_id: int) -> None:
+    async def aggregate(connection: Any, stage_attempt_id: int) -> None:
+        del connection
         aggregate_calls.append(stage_attempt_id)
 
-    repository.aggregate_generation_job = cast(Any, aggregate)
+    repository._aggregate_generation_job = cast(Any, aggregate)
 
     transitioned = await repository.fail_provider_operation(_operation(), "STALE_WORKER")
 
@@ -138,10 +156,11 @@ async def test_unowned_reconciler_is_still_row_version_fenced() -> None:
     connection = _Connection("UPDATE 1")
     repository = _repository(connection)
 
-    async def aggregate(stage_attempt_id: int) -> None:
+    async def aggregate(connection: Any, stage_attempt_id: int) -> None:
+        del connection
         del stage_attempt_id
 
-    repository.aggregate_generation_job = cast(Any, aggregate)
+    repository._aggregate_generation_job = cast(Any, aggregate)
     operation = _operation(owned=False)
 
     transitioned = await repository.fail_provider_operation(operation, "PROVIDER_FAILED")

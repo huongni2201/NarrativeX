@@ -21,9 +21,7 @@ async def _http_probe(server: WorkerHealthServer, path: str = "/healthz") -> byt
     assert sockets
     port = sockets[0].getsockname()[1]
     reader, writer = await asyncio.open_connection("127.0.0.1", port)
-    writer.write(
-        f"GET {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n".encode()
-    )
+    writer.write(f"GET {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n".encode())
     await writer.drain()
     response = await reader.read()
     writer.close()

@@ -21,6 +21,8 @@ import org.junit.jupiter.api.Test;
 class GetFinalArtifactByJobUseCaseTest {
   private static final UUID PROJECT_ID = UuidV7.random();
   private static final UUID CHAPTER_ID = UuidV7.random();
+  private static final Long ARTIFACT_ID = 9911L;
+  private static final String JOB_ID = "00000000-0000-4000-8000-000000009911";
 
   private final CurrentUserId currentUserId = mock(CurrentUserId.class);
   private final ProjectAccess projectAccess = mock(ProjectAccess.class);
@@ -30,20 +32,20 @@ class GetFinalArtifactByJobUseCaseTest {
 
   @Test
   void returnsReadyArtifactAfterVerifyingProjectOwnership() {
-    FinalArtifactView artifact = artifact(123L, PROJECT_ID);
+    FinalArtifactView artifact = artifact(ARTIFACT_ID, PROJECT_ID);
     when(currentUserId.get()).thenReturn("owner-1");
-    when(repository.findByGenerationJobId("job-1")).thenReturn(Optional.of(artifact));
+    when(repository.findByGenerationJobId(JOB_ID)).thenReturn(Optional.of(artifact));
 
-    assertEquals(artifact, useCase.execute("job-1"));
+    assertEquals(artifact, useCase.execute(JOB_ID));
 
     verify(projectAccess).findOwnedProject(PROJECT_ID, "owner-1");
   }
 
   @Test
   void hidesMissingArtifactAsNotFound() {
-    when(repository.findByGenerationJobId("job-1")).thenReturn(Optional.empty());
+    when(repository.findByGenerationJobId(JOB_ID)).thenReturn(Optional.empty());
 
-    assertThrows(ResourceNotFoundException.class, () -> useCase.execute("job-1"));
+    assertThrows(ResourceNotFoundException.class, () -> useCase.execute(JOB_ID));
 
     verifyNoInteractions(projectAccess, currentUserId);
   }

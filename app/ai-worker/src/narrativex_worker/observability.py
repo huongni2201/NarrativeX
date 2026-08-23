@@ -9,18 +9,19 @@ import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
+from uuid import UUID
 
 
 @dataclass(frozen=True)
 class PipelineContext:
-    job_id: str | int | None = None
-    project_id: str | int | None = None
-    chapter_id: str | int | None = None
+    job_id: str | int | UUID | None = None
+    project_id: str | int | UUID | None = None
+    chapter_id: str | int | UUID | None = None
     media_plan_id: str | None = None
     render_fingerprint: str | None = None
-    artifact_id: str | int | None = None
+    artifact_id: str | int | UUID | None = None
 
-    def fields(self) -> dict[str, str | int]:
+    def fields(self) -> dict[str, str | int | UUID]:
         return {
             key: value
             for key, value in {

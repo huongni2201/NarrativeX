@@ -174,9 +174,7 @@ class MediaValidationWorkerRunner:
         interval = max(3.0, self.settings.lease_seconds / 3)
         while True:
             await asyncio.sleep(interval)
-            if not await self.repository.heartbeat(
-                job.id, self.worker_id, job.lease_token
-            ):
+            if not await self.repository.heartbeat(job.id, self.worker_id, job.lease_token):
                 raise LeaseLostError("media validation lease was lost")
 
     def _max_bytes(self, declared_type: str) -> int:

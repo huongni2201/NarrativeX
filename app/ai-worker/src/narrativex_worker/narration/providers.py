@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Protocol
 
@@ -14,7 +14,7 @@ class TtsProviderUnknownError(RuntimeError):
     """Provider outcome may have been accepted; never blind-resubmit."""
 
 
-class TtsExecutionSemantics(str, Enum):
+class TtsExecutionSemantics(StrEnum):
     """How the worker must persist/retry a provider submission."""
 
     LOCAL_RETRYABLE = "local_retryable"

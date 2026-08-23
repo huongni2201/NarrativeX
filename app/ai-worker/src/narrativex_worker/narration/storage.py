@@ -149,9 +149,7 @@ class InMemoryMediaStorage:
         if expected_size is not None and asset.size_bytes != expected_size:
             raise MediaAssetConflictError("object size does not match validation job")
         if max_bytes is not None and asset.size_bytes > max_bytes:
-            raise MediaDownloadLimitError(
-                "object exceeds the authorized download limit"
-            )
+            raise MediaDownloadLimitError("object exceeds the authorized download limit")
         destination.parent.mkdir(parents=True, exist_ok=True)
         digest = hashlib.sha256()
         total = 0
@@ -160,9 +158,7 @@ class InMemoryMediaStorage:
                 chunk = content[offset : offset + 1024 * 1024]
                 total += len(chunk)
                 if max_bytes is not None and total > max_bytes:
-                    raise MediaDownloadLimitError(
-                        "object exceeds the authorized download limit"
-                    )
+                    raise MediaDownloadLimitError("object exceeds the authorized download limit")
                 digest.update(chunk)
                 output.write(chunk)
         if total != asset.size_bytes or (expected_size is not None and total != expected_size):
@@ -205,9 +201,7 @@ class LocalMediaStorage:
         if path.exists():
             existing = await self.find(storage_key)
             if existing is None or existing.checksum != checksum:
-                raise MediaAssetConflictError(
-                    "local media key already contains different content"
-                )
+                raise MediaAssetConflictError("local media key already contains different content")
             return existing
         await asyncio.to_thread(path.write_bytes, content)
         return StoredMediaAsset(
@@ -499,9 +493,7 @@ class S3MediaStorage:
             raise MediaAssetConflictError("object size does not match validation job")
         if max_bytes is not None and content_length > max_bytes:
             body.close()
-            raise MediaDownloadLimitError(
-                "object exceeds the authorized download limit"
-            )
+            raise MediaDownloadLimitError("object exceeds the authorized download limit")
         destination.parent.mkdir(parents=True, exist_ok=True)
         digest = hashlib.sha256()
         total = 0

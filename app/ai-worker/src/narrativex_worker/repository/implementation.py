@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import uuid
 from dataclasses import dataclass
 from typing import NoReturn
 
@@ -22,7 +23,7 @@ from narrativex_worker.schema import (
 class ProviderOperationStateConflictError(RuntimeError):
     """The durable operation changed after the caller loaded its snapshot."""
 
-    def __init__(self, operation_id: int, expected_version: int) -> None:
+    def __init__(self, operation_id: uuid.UUID, expected_version: int) -> None:
         super().__init__(
             f"Provider operation {operation_id} changed after row_version={expected_version}"
         )
@@ -35,7 +36,7 @@ class ProviderResultConflictError(RuntimeError):
 
     def __init__(
         self,
-        operation_id: int,
+        operation_id: uuid.UUID,
         persisted_fingerprint: str | None,
         incoming_fingerprint: str,
     ) -> None:
@@ -85,8 +86,8 @@ ALLOWED_PROVIDER_TRANSITIONS: dict[ProviderOperationStatus, frozenset[ProviderOp
 
 @dataclass(frozen=True)
 class DurableProviderOperation:
-    id: int
-    stage_attempt_id: int
+    id: uuid.UUID
+    stage_attempt_id: uuid.UUID
     provider_key: str
     provider_operation_id: str | None
     status: ProviderOperationStatus
@@ -99,8 +100,8 @@ class DurableProviderOperation:
 
 @dataclass(frozen=True)
 class ClaimedChapterAnalysisJob:
-    stage_attempt_id: int
-    generation_job_id: int
+    stage_attempt_id: uuid.UUID
+    generation_job_id: uuid.UUID
     job_id: str
     requested_by_user_id: str
     request: ChapterAnalysisRequest
@@ -205,7 +206,7 @@ class WorkerRepository:
                     request=request,
                 )
 
-    async def heartbeat(self, stage_attempt_id: int, worker_id: str) -> bool:
+    async def heartbeat(self, stage_attempt_id: uuid.UUID, worker_id: str) -> bool:
         pool = self._require_pool()
         result = await pool.execute(
             """
@@ -510,7 +511,7 @@ class WorkerRepository:
                 self._raise_state_conflict(operation)
 
     async def _load_provider_operation_for_update(
-        self, connection: asyncpg.Connection, operation_id: int
+        self, connection: asyncpg.Connection, operation_id: uuid.UUID
     ) -> DurableProviderOperation:
         row = await connection.fetchrow(
             """
@@ -583,7 +584,7 @@ class WorkerRepository:
             raise ValueError("COMPLETED requires persist_provider_result() with a durable result")
         return await self._transition_provider_operation(operation, status, provider_operation_id)
 
-    async def get_provider_operation(self, operation_id: int) -> DurableProviderOperation:
+    async def get_provider_operation(self, operation_id: uuid.UUID) -> DurableProviderOperation:
         pool = self._require_pool()
         row = await pool.fetchrow(
             """

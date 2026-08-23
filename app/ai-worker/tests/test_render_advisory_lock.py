@@ -31,7 +31,9 @@ class _FakeConnection:
 
 
 @pytest.mark.asyncio
-async def test_render_fingerprint_lock_acquires_and_releases(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_render_fingerprint_lock_acquires_and_releases(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     connection = _FakeConnection([True])
 
     async def connect(_: str) -> _FakeConnection:
@@ -48,7 +50,9 @@ async def test_render_fingerprint_lock_acquires_and_releases(monkeypatch: pytest
 
 
 @pytest.mark.asyncio
-async def test_render_fingerprint_lock_retries_then_acquires(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_render_fingerprint_lock_retries_then_acquires(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     connection = _FakeConnection([False, True])
 
     async def connect(_: str) -> _FakeConnection:

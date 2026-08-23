@@ -69,9 +69,7 @@ async def test_chunk_operations_are_reserved_and_completed_individually(
     )
     runner.repository = FakeTranslationRepository()
     runner.worker_id = "worker-1"
-    monkeypatch.setattr(
-        "narrativex_worker.translation_worker.chunk_text", lambda _: ["one", "two"]
-    )
+    monkeypatch.setattr("narrativex_worker.translation_worker.chunk_text", lambda _: ["one", "two"])
     monkeypatch.setattr(
         "narrativex_worker.translation_worker.validate_translation", lambda *_: None
     )

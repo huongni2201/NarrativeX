@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 from urllib.parse import quote
+from uuid import UUID
 
 import httpx
 from google.auth.transport.requests import Request
@@ -33,8 +34,8 @@ class FinalVideoStorage(Protocol):
         file_path: Path,
         render_fingerprint: str,
         checksum: str,
-        generation_job_id: int,
-    ) -> "FinalVideoAsset": ...
+        generation_job_id: UUID,
+    ) -> FinalVideoAsset: ...
 
 
 @dataclass(frozen=True)
@@ -64,15 +65,11 @@ class GoogleDriveSettings:
     timeout_seconds: float = 120.0
 
     @classmethod
-    def from_env(cls) -> "GoogleDriveSettings":
+    def from_env(cls) -> GoogleDriveSettings:
         required = {
             "GOOGLE_DRIVE_CLIENT_ID": os.getenv("GOOGLE_DRIVE_CLIENT_ID", "").strip(),
-            "GOOGLE_DRIVE_CLIENT_SECRET": os.getenv(
-                "GOOGLE_DRIVE_CLIENT_SECRET", ""
-            ).strip(),
-            "GOOGLE_DRIVE_REFRESH_TOKEN": os.getenv(
-                "GOOGLE_DRIVE_REFRESH_TOKEN", ""
-            ).strip(),
+            "GOOGLE_DRIVE_CLIENT_SECRET": os.getenv("GOOGLE_DRIVE_CLIENT_SECRET", "").strip(),
+            "GOOGLE_DRIVE_REFRESH_TOKEN": os.getenv("GOOGLE_DRIVE_REFRESH_TOKEN", "").strip(),
             "GOOGLE_DRIVE_FOLDER_ID": os.getenv("GOOGLE_DRIVE_FOLDER_ID", "").strip(),
         }
         missing = [name for name, value in required.items() if not value]
@@ -103,7 +100,7 @@ class GoogleDriveFinalVideoStorage:
 
     def __init__(self, settings: GoogleDriveSettings) -> None:
         self.settings = settings
-        self._credentials = Credentials(
+        self._credentials = Credentials(  # type: ignore[no-untyped-call]
             token=None,
             refresh_token=settings.refresh_token,
             token_uri="https://oauth2.googleapis.com/token",
@@ -113,7 +110,7 @@ class GoogleDriveFinalVideoStorage:
         )
 
     @classmethod
-    def from_env(cls) -> "GoogleDriveFinalVideoStorage":
+    def from_env(cls) -> GoogleDriveFinalVideoStorage:
         return cls(GoogleDriveSettings.from_env())
 
     async def put_immutable(
@@ -122,7 +119,7 @@ class GoogleDriveFinalVideoStorage:
         file_path: Path,
         render_fingerprint: str,
         checksum: str,
-        generation_job_id: int,
+        generation_job_id: UUID,
     ) -> FinalVideoAsset:
         started_at = time.perf_counter()
         metrics = _UploadMetrics()
@@ -137,7 +134,10 @@ class GoogleDriveFinalVideoStorage:
             token = await self._access_token()
             existing = await self._find_existing(token, render_fingerprint)
             if existing is not None:
-                existing_size = int(existing.get("size") or 0)
+                raw_size = existing.get("size")
+                existing_size = (
+                    int(raw_size) if isinstance(raw_size, (str, int, float)) else 0
+                )
                 properties = existing.get("appProperties") or {}
                 existing_checksum = (
                     str(properties.get("narrativexSha256") or "")
@@ -153,7 +153,7 @@ class GoogleDriveFinalVideoStorage:
                 outcome = "reused"
                 return self._to_asset(existing, existing_checksum)
 
-            metadata = {
+            metadata: dict[str, object] = {
                 "name": f"{render_fingerprint}.mp4",
                 "parents": [self.settings.folder_id],
                 "appProperties": {
@@ -201,9 +201,7 @@ class GoogleDriveFinalVideoStorage:
                 reused,
             )
 
-    async def _find_existing(
-        self, token: str, fingerprint: str
-    ) -> dict[str, object] | None:
+    async def _find_existing(self, token: str, fingerprint: str) -> dict[str, object] | None:
         escaped_fingerprint = fingerprint.replace("'", "\\'")
         escaped_folder = self.settings.folder_id.replace("'", "\\'")
         query = (
@@ -258,7 +256,7 @@ class GoogleDriveFinalVideoStorage:
         location = response.headers.get("Location")
         if not location:
             raise FinalVideoStorageError("Google Drive did not return a resumable upload URL")
-        return location
+        return str(location)
 
     async def _upload_chunks(
         self,
@@ -300,18 +298,14 @@ class GoogleDriveFinalVideoStorage:
                             session_url,
                             size_bytes,
                         )
-                        upload_metrics.uploaded_bytes = max(
-                            upload_metrics.uploaded_bytes, offset
-                        )
+                        upload_metrics.uploaded_bytes = max(upload_metrics.uploaded_bytes, offset)
                         if completed is not None:
                             upload_metrics.uploaded_bytes = size_bytes
                             return completed
                         continue
                     if response.status_code == 308:
                         offset = self._next_offset(response, end + 1)
-                        upload_metrics.uploaded_bytes = max(
-                            upload_metrics.uploaded_bytes, offset
-                        )
+                        upload_metrics.uploaded_bytes = max(upload_metrics.uploaded_bytes, offset)
                         continue
                     self._raise_for_status(response, "upload final-video chunk")
                     payload = response.json()
@@ -348,9 +342,7 @@ class GoogleDriveFinalVideoStorage:
         self._raise_for_status(response, "resume final-video upload")
         payload = response.json()
         if not isinstance(payload, dict):
-            raise FinalVideoStorageError(
-                "Google Drive returned invalid completed-upload metadata"
-            )
+            raise FinalVideoStorageError("Google Drive returned invalid completed-upload metadata")
         return size_bytes, payload
 
     @staticmethod
@@ -410,7 +402,8 @@ class GoogleDriveFinalVideoStorage:
         file_id = str(file_info.get("id") or "")
         if not file_id:
             raise FinalVideoStorageError("Google Drive file metadata is missing id")
-        size_bytes = int(file_info.get("size") or 0)
+        raw_size = file_info.get("size")
+        size_bytes = int(raw_size) if isinstance(raw_size, (str, int, float)) else 0
         if size_bytes <= 0:
             raise FinalVideoStorageError("Google Drive file metadata is missing size")
         web_view_link = file_info.get("webViewLink")

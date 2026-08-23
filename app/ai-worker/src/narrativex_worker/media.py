@@ -2,6 +2,7 @@
 
 from enum import StrEnum
 from typing import Self
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -44,7 +45,7 @@ class VisualScenePlan(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     visual_scene_id: str = Field(min_length=1, max_length=128)
-    chapter_id: int = Field(gt=0)
+    chapter_id: UUID
     audio_start_ms: int = Field(ge=0)
     audio_end_ms: int = Field(gt=0)
     source_text_start: int = Field(ge=0)

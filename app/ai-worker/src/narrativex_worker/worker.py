@@ -513,7 +513,7 @@ class NarrativeXWorker:
                         latest.row_version,
                     )
 
-    async def _heartbeat_loop(self, stage_attempt_id: int) -> None:
+    async def _heartbeat_loop(self, stage_attempt_id: uuid.UUID) -> None:
         interval = max(3.0, self.settings.lease_seconds / 3)
         while True:
             await asyncio.sleep(interval)

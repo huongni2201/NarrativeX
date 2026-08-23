@@ -1,6 +1,7 @@
 from collections.abc import Sequence
 
 from narrativex_worker.config import WorkerSettings
+from narrativex_worker.providers.fake_image import FakeImageProvider
 from narrativex_worker.providers.image import (
     BatchImageGenerationProvider,
     ImageBatchItem,
@@ -11,7 +12,6 @@ from narrativex_worker.providers.image import (
 from narrativex_worker.providers.vertex_image_reference_batch import (
     ReferenceAwareVertexBatchImageProvider,
 )
-from narrativex_worker.providers.fake_image import FakeImageProvider
 from narrativex_worker.schema import ProviderOperationStatus
 
 

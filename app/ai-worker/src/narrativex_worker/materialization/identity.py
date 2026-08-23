@@ -6,6 +6,7 @@ import unicodedata
 from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
+from uuid import UUID
 
 import asyncpg  # type: ignore[import-untyped]
 
@@ -17,13 +18,13 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class _Candidate:
-    entity_id: int
+    entity_id: UUID
     names: tuple[str, ...]
 
 
 @dataclass(frozen=True)
 class _Match:
-    entity_id: int
+    entity_id: UUID
     basis: str
     confidence: float
 
@@ -32,7 +33,7 @@ async def materialize_characters(
     connection: asyncpg.Connection,
     claimed: "ClaimedChapterAnalysisJob",
     result: ChapterAnalysisResult,
-) -> dict[str, int]:
+) -> dict[str, UUID]:
     if not result.characters:
         return {}
 
@@ -89,8 +90,8 @@ async def materialize_characters(
         for row in candidate_rows
     ]
 
-    materialized: dict[str, int] = {}
-    assigned_in_response: dict[int, str] = {}
+    materialized: dict[str, UUID] = {}
+    assigned_in_response: dict[UUID, str] = {}
 
     for character in result.characters:
         project_character_id = existing_by_key.get(character.key)
@@ -153,7 +154,7 @@ async def materialize_characters(
                 raise RuntimeError(
                     f"Character identity mapping disappeared for key {character.key!r}"
                 )
-            project_character_id = int(durable_entity_id)
+            project_character_id = durable_entity_id
 
         owner_key = assigned_in_response.get(project_character_id)
         if owner_key is not None and owner_key != character.key:
@@ -213,7 +214,7 @@ async def materialize_locations(
     connection: asyncpg.Connection,
     claimed: "ClaimedChapterAnalysisJob",
     result: ChapterAnalysisResult,
-) -> dict[str, int]:
+) -> dict[str, UUID]:
     if not result.locations:
         return {}
 
@@ -268,8 +269,8 @@ async def materialize_locations(
         for row in candidate_rows
     ]
 
-    materialized: dict[str, int] = {}
-    assigned_in_response: dict[int, str] = {}
+    materialized: dict[str, UUID] = {}
+    assigned_in_response: dict[UUID, str] = {}
 
     for location in result.locations:
         project_location_id = existing_by_key.get(location.key)
@@ -332,7 +333,7 @@ async def materialize_locations(
                 raise RuntimeError(
                     f"Location identity mapping disappeared for key {location.key!r}"
                 )
-            project_location_id = int(durable_entity_id)
+            project_location_id = durable_entity_id
 
         owner_key = assigned_in_response.get(project_location_id)
         if owner_key is not None and owner_key != location.key:
@@ -385,7 +386,7 @@ async def _create_character(
     name: str,
     aliases: list[str],
     description: str,
-) -> int:
+) -> UUID:
     character_id = await connection.fetchval(
         """
         INSERT INTO characters (owner_id, canonical_name, aliases, status)
@@ -421,7 +422,7 @@ async def _create_character(
     )
     if project_character_id is None:
         raise RuntimeError("Failed to create project character")
-    return int(project_character_id)
+    return UUID(str(project_character_id))
 
 
 def _json_string_list(value: object) -> tuple[str, ...]:
@@ -464,7 +465,7 @@ def _unique_candidate_match(
     aliases: Iterable[str],
     candidates: Iterable[_Candidate],
     *,
-    excluded_entity_ids: set[int],
+    excluded_entity_ids: set[UUID],
 ) -> _Match | None:
     mention_names = _candidate_names(name, aliases, ())
     scored: list[_Match] = []

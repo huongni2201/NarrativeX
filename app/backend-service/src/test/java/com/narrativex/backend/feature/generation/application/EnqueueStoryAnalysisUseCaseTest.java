@@ -168,12 +168,12 @@ class EnqueueStoryAnalysisUseCaseTest {
     verify(operationPlanRepository, times(2))
         .save(org.mockito.ArgumentMatchers.any(OperationPlan.class));
     verify(generationJobRepository).save(org.mockito.ArgumentMatchers.any(GenerationJob.class));
-    verify(quotaReservation).bindToGenerationJob(77L, JOB_ID);
+    verify(quotaReservation).bindToGenerationJob(77L, persistedJob.getId());
     verify(stageAttemptRepository)
         .create(
             org.mockito.ArgumentMatchers.argThat(
                 a ->
-                    a.getGenerationJobId().equals(JOB_ID)
+                    a.getGenerationJobId().equals(persistedJob.getId())
                         && a.getStageName().equals("CHAPTER_ANALYSIS")
                         && a.getAttemptNumber() == 1));
     verify(generationOutboxRepository).enqueue(persistedJob);

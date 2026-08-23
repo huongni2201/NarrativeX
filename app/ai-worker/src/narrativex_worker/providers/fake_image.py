@@ -12,8 +12,8 @@ from narrativex_worker.providers.image import (
     ImageBatchItem,
     ImageBatchItemResult,
     ImageBatchOperation,
-    ImageGenerationResult,
     ImageGenerationRequest,
+    ImageGenerationResult,
     ImageProviderOperation,
     batch_fingerprint,
 )

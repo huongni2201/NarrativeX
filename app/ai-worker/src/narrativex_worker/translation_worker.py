@@ -27,9 +27,7 @@ class TranslationWorkerRunner:
     def __init__(self, settings: WorkerSettings, concurrency_gate: asyncio.Semaphore) -> None:
         self.settings = settings
         self.worker_id = f"{settings.worker_name}-translation-{uuid.uuid4()}"
-        self.repository = TranslationWorkerRepository(
-            settings.database_url, settings.lease_seconds
-        )
+        self.repository = TranslationWorkerRepository(settings.database_url, settings.lease_seconds)
         self.provider = (
             VertexGeminiProvider(settings) if settings.provider_mode == "vertex" else None
         )
