@@ -99,12 +99,17 @@ public class GetChapterWorkspaceUseCase {
         !chapter.getSourceText().isBlank()
             && !"READY".equals(audio.status())
             && !isActive(audio.status());
+    boolean hasCurrentMediaPlan =
+        visualGeneration.latestJobId() != null
+            && visualGeneration.mediaPlanId() != null
+            && visualGeneration.mediaPlanRevision() != null;
     boolean canRender =
         mediaGenerationEnabled
             && !sourceOutdated
             && chapterAnalysisCompleted
             && "COMPLETED".equals(planningStatus)
             && "COMPLETED".equals(visualGeneration.status())
+            && hasCurrentMediaPlan
             && "READY".equals(audio.status());
 
     var response =
@@ -122,7 +127,10 @@ public class GetChapterWorkspaceUseCase {
                     visualGeneration.status(),
                     visualGeneration.total(),
                     visualGeneration.completed(),
-                    visualGeneration.failed()),
+                    visualGeneration.failed(),
+                    visualGeneration.latestJobId(),
+                    visualGeneration.mediaPlanId(),
+                    visualGeneration.mediaPlanRevision()),
                 new ChapterWorkspaceResponse.AudioStep(
                     audio.status(), audio.completedAt(), audioUrl, audio.durationMs()),
                 new ChapterWorkspaceResponse.RenderStep(
