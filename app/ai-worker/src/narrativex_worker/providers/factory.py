@@ -6,8 +6,11 @@ from narrativex_worker.providers.image import (
     ImageBatchItem,
     ImageBatchOperation,
     ImageProviderOperation,
+    ReferenceObjectStore,
 )
-from narrativex_worker.providers.vertex_image_batch import VertexBatchImageProvider
+from narrativex_worker.providers.vertex_image_reference_batch import (
+    ReferenceAwareVertexBatchImageProvider,
+)
 from narrativex_worker.providers.fake_image import FakeImageProvider
 from narrativex_worker.schema import ProviderOperationStatus
 
@@ -45,9 +48,12 @@ class DisabledImageProvider:
         return operation
 
 
-def create_image_provider(settings: WorkerSettings) -> BatchImageGenerationProvider:
+def create_image_provider(
+    settings: WorkerSettings,
+    reference_store: ReferenceObjectStore | None = None,
+) -> BatchImageGenerationProvider:
     if settings.image_provider_mode == "fake":
         return FakeImageProvider()
     if settings.image_provider_mode == "vertex":
-        return VertexBatchImageProvider(settings)
+        return ReferenceAwareVertexBatchImageProvider(settings, reference_store)
     return DisabledImageProvider()
