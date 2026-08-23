@@ -4,7 +4,6 @@ import com.narrativex.backend.feature.common.exception.ResourceNotFoundException
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterWorkspaceReadRepository;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterWorkspaceAggregateRow;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterWorkspaceMapper;
-import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterWorkspaceMediaIdentityRow;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterWorkspacePreviewRow;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -20,8 +19,6 @@ public class MyBatisChapterWorkspaceQueryAdapter implements ChapterWorkspaceRead
     if (row == null) {
       throw new ResourceNotFoundException("Project not found");
     }
-    ChapterWorkspaceMediaIdentityRow mediaIdentity =
-        mapper.latestVisualMediaIdentity(projectId, chapterId);
     return new Snapshot(
         row.getProjectName(),
         mapper.previewScenes(projectId, chapterId).stream()
@@ -48,9 +45,9 @@ public class MyBatisChapterWorkspaceQueryAdapter implements ChapterWorkspaceRead
                 row.getVisualGenerationTotal(),
                 row.getVisualGenerationCompleted(),
                 row.getVisualGenerationFailed(),
-                mediaIdentity == null ? null : mediaIdentity.getLatestJobId(),
-                mediaIdentity == null ? null : mediaIdentity.getMediaPlanId(),
-                mediaIdentity == null ? null : mediaIdentity.getMediaPlanRevision()),
+                row.getVisualGenerationLatestJobId(),
+                row.getVisualGenerationMediaPlanId(),
+                row.getVisualGenerationMediaPlanRevision()),
             new AudioStep(
                 narrationStatus(row.isNarrationAssetReady(), row.getNarrationJobStatus()),
                 row.getNarrationCompletedAt(),
