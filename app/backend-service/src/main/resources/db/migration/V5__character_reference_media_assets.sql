@@ -1,6 +1,6 @@
 -- Normalize character reference images onto canonical media_assets.
--- Legacy character_versions.master_asset_id/reference_asset_ids remain for backward compatibility
--- but new generation code reads this FK-backed table exclusively.
+-- This migration is the final fresh-database character-reference schema; no legacy
+-- character_versions.master_asset_id/reference_asset_ids compatibility is retained.
 
 CREATE TABLE character_version_reference_assets (
     character_version_id BIGINT NOT NULL REFERENCES character_versions(id) ON DELETE CASCADE,
@@ -21,3 +21,7 @@ CREATE INDEX idx_character_version_reference_asset
 
 COMMENT ON TABLE character_version_reference_assets IS
     'FK-backed immutable character-version references. priority 0 is the preferred identity reference.';
+
+ALTER TABLE character_versions
+    DROP COLUMN IF EXISTS master_asset_id,
+    DROP COLUMN IF EXISTS reference_asset_ids;
