@@ -6,10 +6,11 @@ import com.narrativex.backend.feature.character.infrastructure.persistence.mybat
 import com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.ProjectCharacterReadRow;
 import com.narrativex.backend.feature.common.domain.exception.DomainValidationException;
 import com.narrativex.backend.feature.common.pagination.CursorCodec;
-import com.narrativex.backend.feature.common.pagination.CursorKey;
 import com.narrativex.backend.feature.common.pagination.CursorPage;
+import com.narrativex.backend.feature.common.pagination.UuidCursorKey;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 import tools.jackson.core.JacksonException;
@@ -25,18 +26,18 @@ public class ProjectCharacterReadPersistenceAdapter implements ProjectCharacterR
   private final ObjectMapper objectMapper;
 
   @Override
-  public boolean projectOwnedBy(Long projectId, String ownerId) {
+  public boolean projectOwnedBy(UUID projectId, String ownerId) {
     return mapper.projectOwnedBy(projectId, ownerId);
   }
 
   @Override
   public CursorPage<ProjectCharacterReadModel> findByProject(
-      Long projectId, String ownerId, String cursor, int limit) {
+      UUID projectId, String ownerId, String cursor, int limit) {
     if (limit < 1 || limit > 100) {
       throw new DomainValidationException("limit must be between 1 and 100");
     }
 
-    CursorKey key = CursorCodec.decode(cursor);
+    UuidCursorKey key = CursorCodec.decodeUuid(cursor);
     int fetchLimit = limit + 1;
     List<ProjectCharacterReadRow> rows =
         key == null
@@ -58,7 +59,7 @@ public class ProjectCharacterReadPersistenceAdapter implements ProjectCharacterR
 
   @Override
   public Optional<ProjectCharacterReadModel> findDetail(
-      Long projectId, Long characterId, String ownerId) {
+      UUID projectId, UUID characterId, String ownerId) {
     return Optional.ofNullable(mapper.findDetail(projectId, characterId, ownerId)).map(this::map);
   }
 
