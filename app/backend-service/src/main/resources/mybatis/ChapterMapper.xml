@@ -28,7 +28,7 @@
 
     <select id="insert"
             parameterType="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterRow"
-            resultType="long"
+            resultType="java.util.UUID"
             affectData="true">
         INSERT INTO chapters (
             row_version, created_at, updated_at, story_version_id, order_index,
