@@ -21,7 +21,7 @@ public class GenerationJobRow {
   private Instant createdAt;
   private Instant updatedAt;
   private String jobId;
-  private Long projectId;
+  private UUID projectId;
   private JobType type;
   private JobStatus status;
   private ResourceClass resourceClass;
@@ -30,14 +30,14 @@ public class GenerationJobRow {
   private String errorCode;
   private String requestedByUserId;
   private String billedToUserId;
-  private Long storyVersionId;
-  private Long chapterId;
+  private UUID storyVersionId;
+  private UUID chapterId;
   private Long chapterRowVersion;
   private String sourceHash;
   private String sourceText;
   private String sourceLanguage;
   private String idempotencyKey;
-  private Long storyboardRevisionId;
+  private UUID storyboardRevisionId;
   private UUID mediaPlanId;
   private Integer mediaPlanRevision;
   private ProductionMode productionMode;
