@@ -203,7 +203,7 @@ class RenderWorkerRunner:
             await self.repository.assert_lease(claimed)
             durations_ms = _normalize_durations(beat_assets, audio.duration_ms)
             fingerprint_payload = {
-                "version": "image-motion-render-v4-pinned-narration-drive-lock",
+                "version": "image-motion-render-v5-admission-snapshot-drive-lock",
                 "projectId": claimed.project_id,
                 "chapterId": claimed.chapter_id,
                 "chapterRowVersion": claimed.chapter_row_version,
