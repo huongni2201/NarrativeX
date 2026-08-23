@@ -32,5 +32,7 @@ public class ChapterWorkspaceAggregateRow {
   private boolean renderManifestCreated;
   private String renderArtifactStatus;
   private String renderJobStatus;
+  private String renderJobId;
+  private Long renderArtifactId;
   private Instant renderCompletedAt;
 }

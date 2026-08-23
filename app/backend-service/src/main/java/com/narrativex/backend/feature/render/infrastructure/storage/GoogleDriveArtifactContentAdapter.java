@@ -16,6 +16,7 @@ import java.time.Instant;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
@@ -23,6 +24,8 @@ import tools.jackson.databind.ObjectMapper;
 
 /** Streams private Google Drive media through the backend using the worker's OAuth credentials. */
 @Component
+@ConditionalOnProperty(
+    prefix = "narrativex.storage", name = "final-video-mode", havingValue = "google-drive", matchIfMissing = true)
 public class GoogleDriveArtifactContentAdapter implements FinalArtifactContentPort {
   private static final URI TOKEN_ENDPOINT = URI.create("https://oauth2.googleapis.com/token");
   private static final URI DRIVE_ENDPOINT = URI.create("https://www.googleapis.com/drive/v3/files");

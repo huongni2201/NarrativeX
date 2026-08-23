@@ -18,7 +18,7 @@ from narrativex_worker.image_generation_runner import (
     ImageGenerationRunner,
     ImageGenerationUnknownError,
 )
-from narrativex_worker.narration.storage import MediaStorage, S3MediaStorage
+from narrativex_worker.narration.storage import LocalMediaStorage, MediaStorage, S3MediaStorage
 from narrativex_worker.providers.factory import create_image_provider
 from narrativex_worker.providers.image import (
     ImageBatchItem,
@@ -66,7 +66,11 @@ class ImageGenerationWorkerRunner:
             self.logger.info("Image generation worker dry run completed")
             return
         if self.storage is None:
-            self.storage = S3MediaStorage(self.settings)
+            self.storage = (
+                LocalMediaStorage(self.settings.media_local_dir)
+                if self.settings.media_storage_mode == "local"
+                else S3MediaStorage(self.settings)
+            )
         await self.repository.connect()
         self._running = True
         try:

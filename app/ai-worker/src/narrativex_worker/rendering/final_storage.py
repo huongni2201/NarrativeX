@@ -8,6 +8,7 @@ import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Protocol
 from urllib.parse import quote
 
 import httpx
@@ -23,6 +24,17 @@ logger = logging.getLogger("narrativex.worker.render.final-storage")
 
 class FinalVideoStorageError(RuntimeError):
     """Raised when the durable final-video store cannot complete an operation."""
+
+
+class FinalVideoStorage(Protocol):
+    async def put_immutable(
+        self,
+        *,
+        file_path: Path,
+        render_fingerprint: str,
+        checksum: str,
+        generation_job_id: int,
+    ) -> "FinalVideoAsset": ...
 
 
 @dataclass(frozen=True)

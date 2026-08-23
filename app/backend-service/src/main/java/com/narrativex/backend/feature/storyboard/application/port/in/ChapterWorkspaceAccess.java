@@ -19,11 +19,13 @@ public interface ChapterWorkspaceAccess {
       ChapterWorkspaceProjection projection) {}
 
   record ChapterWorkspaceProjection(
-      ProgressStep visualGeneration, AudioStep audio, PipelineStep render) {}
+      ProgressStep visualGeneration, AudioStep audio, RenderStep render) {}
 
   record ProgressStep(String status, int total, int completed, int failed) {}
 
   record PipelineStep(String status, Instant completedAt) {}
+
+  record RenderStep(String status, Instant completedAt, String latestJobId, Long artifactId) {}
 
   record AudioStep(String status, Instant completedAt, String storageKey, Long durationMs) {}
 

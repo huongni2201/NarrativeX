@@ -65,6 +65,8 @@ narrativex:
       location: ${VERTEX_LOCATION:us-central1}
       model: ${VERTEX_GEMINI_MODEL:gemini-2.5-flash}
   storage:
+    final-video-mode: ${FINAL_VIDEO_STORAGE_MODE:google-drive}
+    final-video-local-dir: ${FINAL_VIDEO_LOCAL_DIR:/tmp/narrativex-e2e/final}
     upload-intent-ttl: ${NARRATIVEX_STORAGE_UPLOAD_INTENT_TTL:15m}
     r2:
       account-id: ${R2_ACCOUNT_ID:}

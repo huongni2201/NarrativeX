@@ -18,12 +18,15 @@ public record ChapterWorkspaceResponse(
       PipelineStep visualPlanning,
       ProgressStep visualGeneration,
       AudioStep audio,
-      PipelineStep render,
+      RenderStep render,
       boolean sourceOutdated) {}
 
   public record PipelineStep(String status, Instant completedAt) {}
 
   public record AudioStep(String status, Instant completedAt, String audioUrl, Long durationMs) {}
+
+  public record RenderStep(
+      String status, Instant completedAt, String latestJobId, Long artifactId) {}
 
   public record ProgressStep(String status, int total, int completed, int failed) {}
 

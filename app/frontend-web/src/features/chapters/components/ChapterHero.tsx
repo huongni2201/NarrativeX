@@ -135,7 +135,7 @@ function derivePipelineBadge(
         ? "active"
         : "pending";
   const renderStatus =
-    workspace.pipeline.render.status === "COMPLETED"
+    workspace.pipeline.render.status === "READY" || workspace.pipeline.render.status === "COMPLETED"
       ? "completed"
       : workspace.pipeline.render.status === "RUNNING"
         ? "active"

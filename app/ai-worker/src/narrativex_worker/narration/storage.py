@@ -175,6 +175,111 @@ class InMemoryMediaStorage:
         return asset
 
 
+class LocalMediaStorage:
+    """Filesystem-backed immutable media store for deterministic local/E2E execution."""
+
+    def __init__(self, root: str | Path) -> None:
+        self.root = Path(root).resolve()
+        self.root.mkdir(parents=True, exist_ok=True)
+
+    def _path(self, storage_key: str) -> Path:
+        path = (self.root / storage_key).resolve()
+        if self.root not in path.parents:
+            raise MediaAssetConflictError("local media key escapes the configured root")
+        return path
+
+    async def put_immutable(
+        self,
+        *,
+        storage_key: str,
+        content: bytes,
+        checksum: str,
+        mime_type: str,
+        metadata: dict[str, str] | None = None,
+    ) -> StoredMediaAsset:
+        path = self._path(storage_key)
+        actual = hashlib.sha256(content).hexdigest()
+        if actual != checksum:
+            raise ValueError("content checksum does not match supplied checksum")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if path.exists():
+            existing = await self.find(storage_key)
+            if existing is None or existing.checksum != checksum:
+                raise MediaAssetConflictError(
+                    "local media key already contains different content"
+                )
+            return existing
+        await asyncio.to_thread(path.write_bytes, content)
+        return StoredMediaAsset(
+            storage_key, checksum, len(content), mime_type, dict(metadata or {})
+        )
+
+    async def find(self, storage_key: str) -> StoredMediaAsset | None:
+        path = self._path(storage_key)
+        if not path.is_file():
+            return None
+        checksum = await asyncio.to_thread(sha256_file, path)
+        return StoredMediaAsset(
+            storage_key,
+            checksum,
+            path.stat().st_size,
+            _mime_for_path(path),
+            {},
+        )
+
+    async def get_bytes(self, storage_key: str) -> bytes:
+        return await asyncio.to_thread(self._path(storage_key).read_bytes)
+
+    async def download_to_file(
+        self,
+        storage_key: str,
+        destination: Path,
+        *,
+        expected_size: int | None = None,
+        expected_checksum: str | None = None,
+        max_bytes: int | None = None,
+    ) -> StoredMediaAsset:
+        asset = await self.find(storage_key)
+        if asset is None:
+            raise FileNotFoundError(storage_key)
+        if expected_size is not None and asset.size_bytes != expected_size:
+            raise MediaAssetConflictError("local media size mismatch")
+        if max_bytes is not None and asset.size_bytes > max_bytes:
+            raise MediaDownloadLimitError("object exceeds the authorized download limit")
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        content = await self.get_bytes(storage_key)
+        await asyncio.to_thread(destination.write_bytes, content)
+        if expected_checksum is not None and asset.checksum != expected_checksum.lower():
+            raise MediaAssetConflictError("local media checksum mismatch")
+        return asset
+
+    async def put_file_immutable(
+        self,
+        *,
+        storage_key: str,
+        file_path: Path,
+        checksum: str,
+        mime_type: str,
+        metadata: dict[str, str] | None = None,
+    ) -> StoredMediaAsset:
+        content = await asyncio.to_thread(file_path.read_bytes)
+        return await self.put_immutable(
+            storage_key=storage_key,
+            content=content,
+            checksum=checksum,
+            mime_type=mime_type,
+            metadata=metadata,
+        )
+
+
+def _mime_for_path(path: Path) -> str:
+    return {
+        ".mp3": "audio/mpeg",
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+    }.get(path.suffix.lower(), "application/octet-stream")
+
+
 class S3MediaStorage:
     """Cloudflare R2 immutable media storage through its S3-compatible API."""
 

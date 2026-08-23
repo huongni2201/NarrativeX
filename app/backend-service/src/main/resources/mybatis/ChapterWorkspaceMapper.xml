@@ -16,7 +16,8 @@
         <result property="narrationJobStatus" column="narration_job_status"/><result property="narrationCompletedAt" column="narration_completed_at"/>
         <result property="narrationStorageKey" column="narration_storage_key"/><result property="narrationDurationMs" column="narration_duration_ms"/>
         <result property="renderManifestCreated" column="render_manifest_created"/><result property="renderArtifactStatus" column="render_artifact_status"/>
-        <result property="renderJobStatus" column="render_job_status"/><result property="renderCompletedAt" column="render_completed_at"/>
+        <result property="renderJobStatus" column="render_job_status"/><result property="renderJobId" column="render_job_id"/>
+        <result property="renderArtifactId" column="render_artifact_id"/><result property="renderCompletedAt" column="render_completed_at"/>
     </resultMap>
     <resultMap id="chapterWorkspacePreviewRow" type="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterWorkspacePreviewRow">
         <id property="id" column="id"/><result property="orderIndex" column="order_index"/><result property="title" column="title"/>
@@ -148,21 +149,23 @@
                    LIMIT 1
               ) rm ON TRUE
         ), latest_render_artifact AS (
-            SELECT fa.generation_job_id, fa.status AS artifact_status,
+            SELECT fa.id AS artifact_id, fa.generation_job_id, fa.status AS artifact_status,
                    CASE WHEN fa.status = 'READY' THEN COALESCE(fa.updated_at, fa.created_at) ELSE NULL END AS completed_at
               FROM latest_render_manifest lrm
               LEFT JOIN LATERAL (
-                  SELECT fa.generation_job_id, fa.status, fa.updated_at, fa.created_at
+                  SELECT fa.id, fa.generation_job_id, fa.status, fa.updated_at, fa.created_at
                     FROM final_artifacts fa
-                   WHERE fa.render_manifest_id = lrm.id AND fa.status &lt;&gt; 'ARCHIVED'
+                   WHERE fa.render_manifest_id = lrm.id
+                     AND fa.artifact_type = 'CHAPTER_VIDEO'
+                     AND fa.status &lt;&gt; 'ARCHIVED'
                    ORDER BY fa.created_at DESC, fa.id DESC
                    LIMIT 1
               ) fa ON TRUE
         ), latest_render_job AS (
-            SELECT gj.status AS job_status
+            SELECT gj.id AS job_id, gj.status AS job_status
               FROM current_media_plan cmp
               LEFT JOIN LATERAL (
-                  SELECT gj.status
+                  SELECT gj.id, gj.status
                     FROM generation_jobs gj
                    WHERE gj.id = (SELECT generation_job_id FROM latest_render_artifact)
                       OR (gj.chapter_id = cmp.chapter_id
@@ -191,6 +194,8 @@
                EXISTS (SELECT 1 FROM latest_render_manifest WHERE id IS NOT NULL) AS render_manifest_created,
                (SELECT artifact_status FROM latest_render_artifact) AS render_artifact_status,
                (SELECT job_status FROM latest_render_job) AS render_job_status,
+               (SELECT job_id::text FROM latest_render_job) AS render_job_id,
+               (SELECT artifact_id FROM latest_render_artifact) AS render_artifact_id,
                (SELECT completed_at FROM latest_render_artifact) AS render_completed_at
           FROM current_chapter cc CROSS JOIN current_revision cr CROSS JOIN scene_stats ss CROSS JOIN beat_stats bs
           CROSS JOIN visual_generation vg

@@ -10,6 +10,7 @@ from pathlib import Path
 
 from narrativex_worker.config import WorkerSettings
 from narrativex_worker.narration.storage import (
+    LocalMediaStorage,
     MediaAssetConflictError,
     MediaStorage,
     S3MediaStorage,
@@ -17,9 +18,11 @@ from narrativex_worker.narration.storage import (
 from narrativex_worker.rendering.advisory_lock import render_fingerprint_lock
 from narrativex_worker.rendering.ffmpeg import FfmpegError, render_image_motion
 from narrativex_worker.rendering.final_storage import (
+    FinalVideoStorage,
     FinalVideoStorageError,
     GoogleDriveFinalVideoStorage,
 )
+from narrativex_worker.rendering.local_final_storage import LocalFinalVideoStorage
 from narrativex_worker.rendering.image_motion import ImageMotionManifest, MotionBeat
 from narrativex_worker.rendering.repository import (
     ClaimedRenderJob,
@@ -50,12 +53,12 @@ class RenderWorkerRunner:
         *,
         repository: RenderRepository | None = None,
         storage: MediaStorage | None = None,
-        final_storage: GoogleDriveFinalVideoStorage | None = None,
+        final_storage: FinalVideoStorage | None = None,
         workspace: WorkerWorkspace | None = None,
     ) -> None:
         self.settings = settings
         # Render inputs (images/audio) remain in R2. Only the final MP4 uses Drive.
-        self.enabled = settings.media_storage_mode == "r2"
+        self.enabled = settings.media_storage_mode in {"r2", "local"}
         self.worker_id = f"{settings.worker_name}-render-{uuid.uuid4()}"
         self.repository = repository or RenderRepository(
             settings.database_url,
@@ -75,15 +78,23 @@ class RenderWorkerRunner:
 
     async def start(self, *, dry_run: bool = False) -> None:
         if not self.enabled:
-            self.logger.info("Render worker disabled (MEDIA_STORAGE_MODE must be r2)")
+            self.logger.info("Render worker disabled (MEDIA_STORAGE_MODE must be r2 or local)")
             return
         if dry_run:
             self.logger.info("Render worker dry run completed")
             return
         if self.storage is None:
-            self.storage = S3MediaStorage(self.settings)
+            self.storage = (
+                LocalMediaStorage(self.settings.media_local_dir)
+                if self.settings.media_storage_mode == "local"
+                else S3MediaStorage(self.settings)
+            )
         if self.final_storage is None:
-            self.final_storage = GoogleDriveFinalVideoStorage.from_env()
+            self.final_storage = (
+                LocalFinalVideoStorage(self.settings.final_video_local_dir)
+                if self.settings.final_video_storage_mode == "local"
+                else GoogleDriveFinalVideoStorage.from_env()
+            )
         await self.repository.connect()
         self._running = True
         try:

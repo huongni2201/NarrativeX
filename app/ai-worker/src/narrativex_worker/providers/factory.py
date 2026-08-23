@@ -8,6 +8,7 @@ from narrativex_worker.providers.image import (
     ImageProviderOperation,
 )
 from narrativex_worker.providers.vertex_image_batch import VertexBatchImageProvider
+from narrativex_worker.providers.fake_image import FakeImageProvider
 from narrativex_worker.schema import ProviderOperationStatus
 
 
@@ -45,6 +46,8 @@ class DisabledImageProvider:
 
 
 def create_image_provider(settings: WorkerSettings) -> BatchImageGenerationProvider:
+    if settings.image_provider_mode == "fake":
+        return FakeImageProvider()
     if settings.image_provider_mode == "vertex":
         return VertexBatchImageProvider(settings)
     return DisabledImageProvider()

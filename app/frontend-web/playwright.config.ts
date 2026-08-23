@@ -32,6 +32,8 @@ export default defineConfig({
     baseURL: process.env.E2E_BASE_URL ?? "http://127.0.0.1:3000",
     storageState: hasTestCredentials ? authFile : undefined,
     trace: "retain-on-failure",
+    video: "retain-on-failure",
+    screenshot: "only-on-failure",
     actionTimeout: 5_000,
     navigationTimeout: 10_000,
   },

@@ -8,9 +8,13 @@ For `main`, configure a ruleset or branch protection rule with:
 - pull requests required before merging;
 - required status check: `Backend / Java 25 / Maven`;
 - required status check: `Frontend / Node 22 / Next.js`;
+- required status check: `MVP E2E`;
+- required status check: `Worker / Python 3.12`;
 - required status check: `Security Checks / Repository secret scan`;
 - stale approvals dismissed when new commits are pushed;
 - direct pushes restricted to maintainers or release automation.
 
-Keep these check names synchronized with `.github/workflows/backend-ci.yml` and
-`.github/workflows/frontend-ci.yml`.
+Keep these check names synchronized with `.github/workflows/backend-ci.yml`,
+`.github/workflows/worker-ci.yml`, `.github/workflows/frontend-ci.yml`, and
+`.github/workflows/e2e-ci.yml`. The MVP E2E job uses fake analysis/image/TTS providers,
+local final-video storage, and real PostgreSQL, Redis, worker, and FFmpeg execution.

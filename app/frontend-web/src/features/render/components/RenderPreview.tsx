@@ -9,8 +9,10 @@ export function RenderPreview({ artifact }: Readonly<{ artifact: RenderArtifact 
             Render preview
           </h3>
           <p className="mt-1 text-xs text-slate-400">
-            {artifact.width && artifact.height ? `${artifact.width} × ${artifact.height}` : "MP4"}
-            {artifact.durationMs ? ` · ${formatDuration(artifact.durationMs)}` : ""}
+            {artifact.width && artifact.height ? `${artifact.width} × ${artifact.height}` : "Kích thước chưa rõ"}
+            {artifact.durationMs !== null ? ` · ${formatDuration(artifact.durationMs)}` : ""}
+            {artifact.sizeBytes !== null ? ` · ${formatBytes(artifact.sizeBytes)}` : ""}
+            {` · ${artifact.mimeType === "video/mp4" ? "MP4" : artifact.mimeType ?? "MP4"}`}
           </p>
         </div>
         {artifact.downloadAvailable && artifact.downloadUrl ? (
@@ -25,6 +27,7 @@ export function RenderPreview({ artifact }: Readonly<{ artifact: RenderArtifact 
       </div>
       {artifact.previewUrl ? (
         <video
+          data-testid="render-video"
           className="mt-4 aspect-video w-full rounded-lg bg-surface-dark object-contain"
           controls
           preload="metadata"
@@ -44,4 +47,9 @@ export function RenderPreview({ artifact }: Readonly<{ artifact: RenderArtifact 
 function formatDuration(durationMs: number) {
   const totalSeconds = Math.round(durationMs / 1000);
   return `${Math.floor(totalSeconds / 60)}:${String(totalSeconds % 60).padStart(2, "0")}`;
+}
+
+function formatBytes(sizeBytes: number) {
+  if (sizeBytes < 1024 * 1024) return `${Math.max(1, Math.round(sizeBytes / 1024))} KB`;
+  return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
 }

@@ -125,7 +125,8 @@ public class GetChapterWorkspaceUseCase {
                     visualGeneration.failed()),
                 new ChapterWorkspaceResponse.AudioStep(
                     audio.status(), audio.completedAt(), audioUrl, audio.durationMs()),
-                new ChapterWorkspaceResponse.PipelineStep(render.status(), render.completedAt()),
+                new ChapterWorkspaceResponse.RenderStep(
+                    render.status(), render.completedAt(), render.latestJobId(), render.artifactId()),
                 sourceOutdated),
             previewScenes,
             new ChapterWorkspaceResponse.Capabilities(

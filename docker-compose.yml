@@ -53,6 +53,8 @@ services:
       NARRATIVEX_MAX_IMPORT_FILE_SIZE: ${NARRATIVEX_MAX_IMPORT_FILE_SIZE:-10MB}
       NARRATIVEX_MAX_IMPORT_REQUEST_SIZE: ${NARRATIVEX_MAX_IMPORT_REQUEST_SIZE:-11MB}
       NARRATIVEX_MEDIA_GENERATION_ENABLED: ${NARRATIVEX_MEDIA_GENERATION_ENABLED:-false}
+      FINAL_VIDEO_STORAGE_MODE: ${FINAL_VIDEO_STORAGE_MODE:-google-drive}
+      FINAL_VIDEO_LOCAL_DIR: ${FINAL_VIDEO_LOCAL_DIR:-/tmp/narrativex-e2e/final}
       NARRATIVEX_STORAGE_UPLOAD_INTENT_TTL: ${NARRATIVEX_STORAGE_UPLOAD_INTENT_TTL:-15m}
       GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
       GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
@@ -67,6 +69,8 @@ services:
       R2_ENDPOINT: ${R2_ENDPOINT:-}
     ports:
       - "${BACKEND_PORT:-8080}:8080"
+    volumes:
+      - "./.runtime/e2e:/tmp/narrativex-e2e"
     depends_on:
       postgres:
         condition: service_healthy
@@ -131,6 +135,9 @@ services:
       VIENEU_FORCE_REENROLL: ${VIENEU_FORCE_REENROLL:-false}
       VIENEU_APPLY_WATERMARK: ${VIENEU_APPLY_WATERMARK:-false}
       MEDIA_STORAGE_MODE: ${MEDIA_STORAGE_MODE:-disabled}
+      MEDIA_LOCAL_DIR: ${MEDIA_LOCAL_DIR:-/tmp/narrativex-e2e/media}
+      FINAL_VIDEO_STORAGE_MODE: ${FINAL_VIDEO_STORAGE_MODE:-google-drive}
+      FINAL_VIDEO_LOCAL_DIR: ${FINAL_VIDEO_LOCAL_DIR:-/tmp/narrativex-e2e/final}
       R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:-}
       R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
       R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
@@ -143,6 +150,7 @@ services:
       GOOGLE_DRIVE_FOLDER_ID: ${GOOGLE_DRIVE_FOLDER_ID:-}
       GOOGLE_DRIVE_TIMEOUT_SECONDS: ${GOOGLE_DRIVE_TIMEOUT_SECONDS:-120}
     volumes:
+      - "./.runtime/e2e:/tmp/narrativex-e2e"
       - "${GOOGLE_CLOUD_CONFIG_HOST:-${APPDATA}/gcloud}:/home/appuser/.config/gcloud:ro"
       - "${VIENEU_REFERENCE_AUDIO_HOST_DIR:-./.runtime/voices}:/run/narrativex/voices:ro"
     depends_on:

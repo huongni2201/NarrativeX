@@ -28,6 +28,7 @@ from narrativex_worker.narration.pricing import (
     VieneuTtsPricingCatalog,
 )
 from narrativex_worker.narration.providers import (
+    FakeTtsProvider,
     TtsProvider,
     TtsProviderRejectedError,
     TtsProviderUnknownError,
@@ -41,6 +42,7 @@ from narrativex_worker.narration.repository import (
 )
 from narrativex_worker.narration.segmenter import NarrationSegmenter, utf16_length
 from narrativex_worker.narration.storage import (
+    LocalMediaStorage,
     MediaAssetConflictError,
     MediaStorage,
     S3MediaStorage,
@@ -82,7 +84,9 @@ class NarrationWorkerRunner:
         self.storage: MediaStorage | None = None
         self.pricing: GoogleTtsPricingCatalog | VieneuTtsPricingCatalog | None = None
         if self.enabled:
-            if settings.tts_provider_mode == "google":
+            if settings.tts_provider_mode == "fake":
+                self.provider = FakeTtsProvider()
+            elif settings.tts_provider_mode == "google":
                 self.provider = GoogleCloudTtsProvider(settings)
                 self.pricing = GoogleTtsPricingCatalog(settings.tts_pricing_catalog_version)
             elif settings.tts_provider_mode == "vieneu":
@@ -90,7 +94,11 @@ class NarrationWorkerRunner:
                 self.pricing = VieneuTtsPricingCatalog(settings.tts_pricing_catalog_version)
             else:
                 raise RuntimeError(f"Unsupported TTS provider mode: {settings.tts_provider_mode}")
-            self.storage = S3MediaStorage(settings)
+            self.storage = (
+                LocalMediaStorage(settings.media_local_dir)
+                if settings.media_storage_mode == "local"
+                else S3MediaStorage(settings)
+            )
         self.segmenter = NarrationSegmenter()
         self.validator = NarrationAlignmentValidator()
         self.audio = FfmpegAudioAssembler()

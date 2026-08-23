@@ -140,3 +140,11 @@ Final artifacts are private. The durable remote identity is the Drive provider/f
 - full cost/usage reconciliation;
 - moderation/SSRF/retention/observability/DR;
 - social publishing through a provider-neutral final-video stream boundary.
+## Deterministic full-stack E2E
+
+The repository's MVP Playwright profile runs the real backend, PostgreSQL, Redis, Python worker,
+and FFmpeg while replacing only paid/external provider boundaries. Set `AI_PROVIDER_MODE=fake`,
+`IMAGE_PROVIDER_MODE=fake`, `TTS_PROVIDER_MODE=fake`, `MEDIA_STORAGE_MODE=local`, and
+`FINAL_VIDEO_STORAGE_MODE=local`. Local final MP4s are written under
+`FINAL_VIDEO_LOCAL_DIR`; the backend local artifact adapter serves them with HTTP Range support.
+Production keeps Google Drive final-video storage as the default.

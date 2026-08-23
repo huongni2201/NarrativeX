@@ -50,12 +50,14 @@ public class MyBatisChapterWorkspaceQueryAdapter implements ChapterWorkspaceRead
                 row.getNarrationCompletedAt(),
                 row.getNarrationStorageKey(),
                 row.getNarrationDurationMs()),
-            new PipelineStep(
+            new RenderStep(
                 renderStatus(
                     row.isRenderManifestCreated(),
                     row.getRenderArtifactStatus(),
                     row.getRenderJobStatus()),
-                row.getRenderCompletedAt())));
+                row.getRenderCompletedAt(),
+                row.getRenderJobId(),
+                row.getRenderArtifactId())));
   }
 
   private static PreviewScene toPreview(ChapterWorkspacePreviewRow row) {
@@ -97,7 +99,7 @@ public class MyBatisChapterWorkspaceQueryAdapter implements ChapterWorkspaceRead
 
   private static String renderStatus(
       boolean manifestCreated, String artifactStatus, String jobStatus) {
-    if ("READY".equals(artifactStatus)) return "COMPLETED";
+    if ("READY".equals(artifactStatus)) return "READY";
     if ("FAILED".equals(artifactStatus) || "FAILED".equals(jobStatus)) return "FAILED";
     if ("PENDING".equals(artifactStatus) || isActive(jobStatus)) return "PROCESSING";
     return manifestCreated ? "CREATED" : "NOT_STARTED";

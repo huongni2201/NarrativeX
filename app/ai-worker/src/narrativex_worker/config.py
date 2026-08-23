@@ -59,7 +59,7 @@ class WorkerSettings(BaseSettings):
         default=1024 * 1024 * 1024, ge=1024, le=2 * 1024 * 1024 * 1024
     )
 
-    provider_mode: Literal["disabled", "vertex"] = Field(
+    provider_mode: Literal["disabled", "fake", "vertex"] = Field(
         default="disabled",
         validation_alias=AliasChoices("AI_PROVIDER_MODE", "PROVIDER_MODE"),
         description="Story-analysis provider adapter mode; disabled is safe by default",
@@ -68,7 +68,7 @@ class WorkerSettings(BaseSettings):
     vertex_location: str = "us-central1"
     vertex_model: str = "gemini-2.5-flash"
     vertex_timeout_seconds: float = Field(default=120.0, gt=1, le=600)
-    image_provider_mode: Literal["disabled", "vertex"] = Field(
+    image_provider_mode: Literal["disabled", "fake", "vertex"] = Field(
         default="disabled", validation_alias=AliasChoices("IMAGE_PROVIDER_MODE")
     )
     vertex_image_model: str = "gemini-2.5-flash-image"
@@ -85,7 +85,7 @@ class WorkerSettings(BaseSettings):
     vertex_image_unknown_max_age_seconds: int = Field(default=3600, ge=60, le=86_400)
     image_max_output_bytes: int = Field(default=15_000_000, ge=1024, le=50_000_000)
 
-    tts_provider_mode: Literal["disabled", "google", "vieneu"] = Field(
+    tts_provider_mode: Literal["disabled", "fake", "google", "vieneu"] = Field(
         default="disabled",
         validation_alias=AliasChoices("TTS_PROVIDER_MODE", "NARRATION_PROVIDER_MODE"),
     )
@@ -108,7 +108,7 @@ class WorkerSettings(BaseSettings):
     vieneu_force_reenroll: bool = False
     vieneu_apply_watermark: bool = False
 
-    media_storage_mode: Literal["disabled", "r2"] = Field(
+    media_storage_mode: Literal["disabled", "local", "r2"] = Field(
         default="disabled",
         validation_alias=AliasChoices("MEDIA_STORAGE_MODE"),
         description="Durable media storage mode; Cloudflare R2 is the only object-store runtime",
@@ -138,6 +138,18 @@ class WorkerSettings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("R2_ENDPOINT", "R2_ENDPOINT_URL"),
         description="Optional R2 endpoint override; normally derived from r2_account_id",
+    )
+    media_local_dir: str = Field(
+        default="/tmp/narrativex-e2e/media",
+        validation_alias=AliasChoices("MEDIA_LOCAL_DIR"),
+    )
+    final_video_storage_mode: Literal["local", "google-drive"] = Field(
+        default="google-drive",
+        validation_alias=AliasChoices("FINAL_VIDEO_STORAGE_MODE"),
+    )
+    final_video_local_dir: str = Field(
+        default="/tmp/narrativex-e2e/final",
+        validation_alias=AliasChoices("FINAL_VIDEO_LOCAL_DIR"),
     )
 
     wan_video_enabled: bool = False
@@ -204,7 +216,7 @@ class WorkerSettings(BaseSettings):
                 raise ValueError("VIENEU_VOICE_ID must not be blank")
             if not self.vieneu_voice_name.strip():
                 raise ValueError("VIENEU_VOICE_NAME must not be blank")
-        if self.image_provider_mode != "disabled" and self.media_storage_mode != "r2":
+        if self.image_provider_mode not in {"disabled", "fake"} and self.media_storage_mode != "r2":
             raise ValueError("Image generation requires MEDIA_STORAGE_MODE=r2")
         if self.media_storage_mode == "r2":
             missing: list[str] = []
@@ -224,8 +236,8 @@ class WorkerSettings(BaseSettings):
                 missing.append("R2_BUCKET")
             if missing:
                 raise ValueError("Missing R2 settings: " + ", ".join(missing))
-        if self.tts_provider_mode != "disabled" and self.media_storage_mode != "r2":
-            raise ValueError("Narration TTS requires durable MEDIA_STORAGE_MODE=r2")
+        if self.tts_provider_mode not in {"disabled", "fake"} and self.media_storage_mode != "r2":
+            raise ValueError("External narration TTS requires durable MEDIA_STORAGE_MODE=r2")
         return self
 
 

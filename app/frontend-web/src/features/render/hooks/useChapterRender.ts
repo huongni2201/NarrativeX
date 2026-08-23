@@ -33,6 +33,8 @@ interface UseChapterRenderOptions {
   format?: RenderConfig["format"];
   maxAuthorizedCost?: RenderConfig["maxAuthorizedCost"];
   initialJobId?: string | null;
+  initialRenderStatus?: string | null;
+  initialArtifactId?: number | null;
 }
 
 type RenderOverrides = Partial<RenderConfig>;
@@ -59,6 +61,8 @@ export function useChapterRender({
   projectId,
   chapterId,
   initialJobId = null,
+  initialRenderStatus = null,
+  initialArtifactId = null,
   resolution = DEFAULT_RENDER_CONFIG.resolution,
   format = DEFAULT_RENDER_CONFIG.format,
   maxAuthorizedCost = DEFAULT_RENDER_CONFIG.maxAuthorizedCost,
@@ -66,15 +70,17 @@ export function useChapterRender({
   const queryClient = useQueryClient();
   const media = useMediaGeneration(projectId, chapterId);
   const [jobId, setJobId] = useState<string | null>(initialJobId);
+  const [artifactId, setArtifactId] = useState<number | null>(initialArtifactId);
   const [submittedJob, setSubmittedJob] = useState<ApiGenerationJob | null>(null);
   const [lastInput, setLastInput] = useState<RenderChapterInput | null>(null);
   const idempotencyKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     setJobId(initialJobId);
+    setArtifactId(initialArtifactId);
     setSubmittedJob(null);
     idempotencyKeyRef.current = null;
-  }, [chapterId, initialJobId, projectId]);
+  }, [chapterId, initialArtifactId, initialJobId, projectId]);
 
   const jobQuery = useQuery<ApiGenerationJob>({
     queryKey: jobId ? queryKeys.renderJob(jobId) : ["render-jobs", "none"],
@@ -87,9 +93,15 @@ export function useChapterRender({
   });
 
   const artifactQuery = useQuery<RenderArtifact>({
-    queryKey: jobId ? queryKeys.artifactByJobId(jobId) : ["render-artifacts", "none"],
-    queryFn: () => artifactsApi.getByJobId(jobId!),
-    enabled: Boolean(jobId && jobQuery.data?.status === "COMPLETED"),
+    queryKey: artifactId
+      ? queryKeys.artifact(artifactId)
+      : jobId
+        ? queryKeys.artifactByJobId(jobId)
+        : ["render-artifacts", "none"],
+    queryFn: () => artifactId
+      ? artifactsApi.getById(artifactId)
+      : artifactsApi.getByJobId(jobId!),
+    enabled: Boolean(artifactId || (jobId && jobQuery.data?.status === "COMPLETED")),
     retry: 2,
     refetchInterval: (query) => (query.state.data || query.state.error ? false : 1500),
   });
@@ -100,6 +112,7 @@ export function useChapterRender({
     onMutate: ({ input }) => {
       setLastInput(input);
       setJobId(null);
+      setArtifactId(null);
       setSubmittedJob(null);
     },
     onError: (error) => {
@@ -132,6 +145,8 @@ export function useChapterRender({
     artifact,
     artifactResolving,
     artifactResolutionFailed,
+    initialRenderStatus,
+    hasArtifactIdentity: Boolean(artifactId),
   });
 
   const mediaPlanId = media.details?.mediaPlanId ?? media.job?.mediaPlanId ?? null;
@@ -219,6 +234,8 @@ interface ChapterRenderStatusInput {
   artifact: RenderArtifact | null;
   artifactResolving: boolean;
   artifactResolutionFailed: boolean;
+  initialRenderStatus: string | null;
+  hasArtifactIdentity: boolean;
 }
 
 export function getChapterRenderStatus({
@@ -228,10 +245,16 @@ export function getChapterRenderStatus({
   artifact,
   artifactResolving,
   artifactResolutionFailed,
+  initialRenderStatus,
+  hasArtifactIdentity,
 }: ChapterRenderStatusInput): ChapterRenderStatus {
   if (mutationPending) return "SUBMITTING";
   if (mutationFailed || artifactResolutionFailed) return "FAILED";
-  if (!job) return "IDLE";
+  if (!job) {
+    if (hasArtifactIdentity && initialRenderStatus === "READY" && artifactResolving) return "RESOLVING_ARTIFACT";
+    if (hasArtifactIdentity && initialRenderStatus === "READY" && artifact) return "READY";
+    return mapWorkspaceRenderStatus(initialRenderStatus);
+  }
 
   switch (job.status) {
     case "QUEUED":
@@ -251,6 +274,13 @@ export function getChapterRenderStatus({
     default:
       return "FAILED";
   }
+}
+
+function mapWorkspaceRenderStatus(status: string | null): ChapterRenderStatus {
+  if (status === "COMPLETED" || status === "READY") return "RESOLVING_ARTIFACT";
+  if (status === "PROCESSING" || status === "RUNNING" || status === "QUEUED") return "RUNNING";
+  if (status === "FAILED") return "FAILED";
+  return "IDLE";
 }
 
 interface ChapterRenderErrorInput {

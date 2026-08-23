@@ -101,6 +101,13 @@ export interface ApiChapterWorkspacePipelineStep {
   durationMs?: number | null;
 }
 
+export interface ApiChapterWorkspaceRenderStep {
+  status: string;
+  completedAt: string | null;
+  latestJobId: string | null;
+  artifactId: number | null;
+}
+
 export interface ApiChapterWorkspaceProgressStep {
   status: string;
   total: number;
@@ -127,7 +134,7 @@ export interface ApiChapterWorkspace {
     visualPlanning: ApiChapterWorkspacePipelineStep;
     visualGeneration: ApiChapterWorkspaceProgressStep;
     audio: ApiChapterWorkspacePipelineStep;
-    render: ApiChapterWorkspacePipelineStep;
+    render: ApiChapterWorkspaceRenderStep;
     sourceOutdated: boolean;
   };
   previewScenes: ApiChapterWorkspacePreviewScene[];
@@ -357,6 +364,18 @@ function isApiChapterWorkspacePipelineStep(
   return isRecord(value) && isString(value.status) && isNullableString(value.completedAt);
 }
 
+function isApiChapterWorkspaceRenderStep(
+  value: unknown,
+): value is ApiChapterWorkspaceRenderStep {
+  return (
+    isRecord(value) &&
+    isString(value.status) &&
+    isNullableString(value.completedAt) &&
+    isNullableString(value.latestJobId) &&
+    isNullableNumber(value.artifactId)
+  );
+}
+
 function isApiChapterWorkspaceProgressStep(
   value: unknown,
 ): value is ApiChapterWorkspaceProgressStep {
@@ -398,7 +417,7 @@ export function isApiChapterWorkspace(value: unknown): value is ApiChapterWorksp
     !isApiChapterWorkspacePipelineStep(value.pipeline.visualPlanning) ||
     !isApiChapterWorkspaceProgressStep(value.pipeline.visualGeneration) ||
     !isApiChapterWorkspacePipelineStep(value.pipeline.audio) ||
-    !isApiChapterWorkspacePipelineStep(value.pipeline.render) ||
+    !isApiChapterWorkspaceRenderStep(value.pipeline.render) ||
     !isBoolean(value.pipeline.sourceOutdated) ||
     !Array.isArray(value.previewScenes) ||
     !value.previewScenes.every(isApiChapterWorkspacePreviewScene) ||
