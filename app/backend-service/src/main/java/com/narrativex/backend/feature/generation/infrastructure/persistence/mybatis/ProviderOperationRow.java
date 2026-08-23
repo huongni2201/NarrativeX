@@ -2,6 +2,7 @@ package com.narrativex.backend.feature.generation.infrastructure.persistence.myb
 
 import com.narrativex.backend.feature.generation.domain.enums.ProviderOperationStatus;
 import java.time.Instant;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -12,9 +13,9 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ProviderOperationRow {
-  private Long id;
+  private UUID id;
   private long rowVersion;
-  private Long stageAttemptId;
+  private UUID stageAttemptId;
   private String providerKey;
   private String providerOperationId;
   private ProviderOperationStatus status;

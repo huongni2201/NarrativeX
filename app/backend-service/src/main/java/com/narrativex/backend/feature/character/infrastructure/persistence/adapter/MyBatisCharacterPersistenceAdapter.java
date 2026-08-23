@@ -8,10 +8,11 @@ import com.narrativex.backend.feature.character.infrastructure.persistence.mybat
 import com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.CharacterRow;
 import com.narrativex.backend.feature.common.infrastructure.persistence.OptimisticConcurrency;
 import com.narrativex.backend.feature.common.pagination.CursorCodec;
-import com.narrativex.backend.feature.common.pagination.CursorKey;
 import com.narrativex.backend.feature.common.pagination.CursorPage;
+import com.narrativex.backend.feature.common.pagination.UuidCursorKey;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -23,7 +24,7 @@ public class MyBatisCharacterPersistenceAdapter implements CharacterRepository {
 
   @Override
   public CursorPage<Character> findActiveByOwnerId(String ownerId, String cursor, int limit) {
-    CursorKey key = CursorCodec.decode(cursor);
+    UuidCursorKey key = CursorCodec.decodeUuid(cursor);
     List<CharacterRow> rows =
         key == null
             ? mapper.findActiveFirstPage(ownerId, limit + 1)
@@ -34,8 +35,7 @@ public class MyBatisCharacterPersistenceAdapter implements CharacterRepository {
         hasNext && !visible.isEmpty()
             ? CursorCodec.encode(visible.getLast().getUpdatedAt(), visible.getLast().getId())
             : null;
-    return new CursorPage<>(
-        visible.stream().map(rowMapper::toDomain).toList(), next, limit, hasNext);
+    return new CursorPage<>(visible.stream().map(rowMapper::toDomain).toList(), next, limit, hasNext);
   }
 
   @Override
@@ -44,15 +44,14 @@ public class MyBatisCharacterPersistenceAdapter implements CharacterRepository {
   }
 
   @Override
-  public Optional<Character> findOwnedById(Long id, String ownerId) {
+  public Optional<Character> findOwnedById(UUID id, String ownerId) {
     return Optional.ofNullable(mapper.findOwned(id, ownerId, CharacterStatus.ARCHIVED.name()))
         .map(rowMapper::toDomain);
   }
 
   @Override
-  public Optional<Character> findOwnedByIdForUpdate(Long id, String ownerId) {
-    return Optional.ofNullable(
-            mapper.findOwnedForUpdate(id, ownerId, CharacterStatus.ARCHIVED.name()))
+  public Optional<Character> findOwnedByIdForUpdate(UUID id, String ownerId) {
+    return Optional.ofNullable(mapper.findOwnedForUpdate(id, ownerId, CharacterStatus.ARCHIVED.name()))
         .map(rowMapper::toDomain);
   }
 
@@ -64,7 +63,7 @@ public class MyBatisCharacterPersistenceAdapter implements CharacterRepository {
       row.setRowVersion(0);
       row.setCreatedAt(java.time.Instant.now());
       row.setUpdatedAt(row.getCreatedAt());
-      Long id = mapper.insertCharacter(row);
+      UUID id = mapper.insertCharacter(row);
       row.setId(id);
       return rowMapper.toDomain(mapper.findCharacter(id));
     }
@@ -72,15 +71,14 @@ public class MyBatisCharacterPersistenceAdapter implements CharacterRepository {
     if (existing == null) {
       row.setId(null);
       row.setRowVersion(0);
-      Long id = mapper.insertCharacter(row);
+      UUID id = mapper.insertCharacter(row);
       row.setId(id);
       return rowMapper.toDomain(mapper.findCharacter(id));
     }
     OptimisticConcurrency.requireVersion(
         value.getRowVersion(), existing.getRowVersion(), Character.class, value.getId());
     if (mapper.updateCharacter(row) != 1)
-      throw new org.springframework.dao.OptimisticLockingFailureException(
-          "Character was modified concurrently");
+      throw new org.springframework.dao.OptimisticLockingFailureException("Character was modified concurrently");
     return rowMapper.toDomain(mapper.findCharacter(value.getId()));
   }
 }

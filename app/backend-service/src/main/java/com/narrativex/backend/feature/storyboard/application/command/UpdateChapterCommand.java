@@ -1,4 +1,6 @@
 package com.narrativex.backend.feature.storyboard.application.command;
 
+import java.util.UUID;
+
 public record UpdateChapterCommand(
-    Long projectId, Long chapterId, long expectedRowVersion, String title, String sourceText) {}
+    UUID projectId, UUID chapterId, long expectedRowVersion, String title, String sourceText) {}

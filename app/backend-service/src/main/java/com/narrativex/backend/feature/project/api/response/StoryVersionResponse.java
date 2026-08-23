@@ -1,10 +1,11 @@
 package com.narrativex.backend.feature.project.api.response;
 
 import com.narrativex.backend.feature.project.domain.entity.StoryVersion;
+import java.util.UUID;
 
 public record StoryVersionResponse(
-    Long id,
-    Long projectId,
+    UUID id,
+    UUID projectId,
     int versionNumber,
     String status,
     String moderationDecision,

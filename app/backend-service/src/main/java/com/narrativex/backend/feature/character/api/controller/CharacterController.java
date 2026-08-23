@@ -13,6 +13,7 @@ import com.narrativex.backend.feature.character.application.usecase.SetCharacter
 import com.narrativex.backend.feature.common.pagination.CursorPage;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -42,7 +43,7 @@ public class CharacterController {
 
   @GetMapping("/{characterId}")
   public ResponseEntity<ApiResponse<CharacterSummaryResponse>> detail(
-      @PathVariable Long characterId) {
+      @PathVariable UUID characterId) {
     return ResponseEntity.ok(
         ApiResponse.success(
             "Character retrieved successfully",
@@ -51,7 +52,7 @@ public class CharacterController {
 
   @GetMapping("/{characterId}/versions/{versionId}/references")
   public ResponseEntity<ApiResponse<List<CharacterVersionReferenceResponse>>> versionReferences(
-      @PathVariable Long characterId, @PathVariable Long versionId) {
+      @PathVariable UUID characterId, @PathVariable UUID versionId) {
     var references = getCharacterVersionReferencesUseCase.execute(characterId, versionId);
     return ResponseEntity.ok(
         ApiResponse.success(
@@ -61,8 +62,8 @@ public class CharacterController {
 
   @PutMapping("/{characterId}/versions/{versionId}/references")
   public ResponseEntity<ApiResponse<List<CharacterVersionReferenceResponse>>> setVersionReferences(
-      @PathVariable Long characterId,
-      @PathVariable Long versionId,
+      @PathVariable UUID characterId,
+      @PathVariable UUID versionId,
       @RequestBody SetCharacterVersionReferencesRequest request) {
     List<ReferenceInput> inputs =
         request.references() == null

@@ -18,9 +18,9 @@
     </select>
     <select id="lockChapter" resultType="int">
         SELECT 1
-          FROM pg_advisory_xact_lock(#{chapterId})
+          FROM pg_advisory_xact_lock(hashtextextended(#{chapterId}::text, 0))
     </select>
-    <select id="createDraft" resultType="long" affectData="true">
+    <select id="createDraft" resultType="java.util.UUID" affectData="true">
         INSERT INTO storyboard_revisions
             (chapter_id, revision_number, source_hash, source_row_version, based_on_revision_id, status, content_variant_id)
         SELECT c.id,

@@ -4,6 +4,7 @@ import com.narrativex.backend.feature.character.application.port.out.CharacterVe
 import com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.CharacterVersionReferenceMapper;
 import com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.CharacterVersionReferenceRow;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -14,14 +15,14 @@ public class MyBatisCharacterVersionReferencePersistenceAdapter
   private final CharacterVersionReferenceMapper mapper;
 
   @Override
-  public List<Reference> findByVersionId(Long characterVersionId) {
+  public List<Reference> findByVersionId(UUID characterVersionId) {
     return mapper.findByVersionId(characterVersionId).stream()
         .map(row -> new Reference(row.getMediaAssetId(), row.getReferenceRole(), row.getPriority()))
         .toList();
   }
 
   @Override
-  public void replace(Long characterVersionId, List<Reference> references) {
+  public void replace(UUID characterVersionId, List<Reference> references) {
     mapper.deleteByVersionId(characterVersionId);
     for (Reference reference : references) {
       CharacterVersionReferenceRow row = new CharacterVersionReferenceRow();

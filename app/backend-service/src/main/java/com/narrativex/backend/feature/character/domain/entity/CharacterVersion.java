@@ -5,10 +5,11 @@ import com.narrativex.backend.feature.character.domain.exception.InvalidCharacte
 import com.narrativex.backend.feature.common.domain.DomainEntity;
 import java.time.Instant;
 import java.util.Objects;
+import java.util.UUID;
 
 /** Immutable-after-lock identity/Bible snapshot owned by Character. Media references are modeled separately. */
 public final class CharacterVersion extends DomainEntity {
-  private final Long characterId;
+  private final UUID characterId;
   private final int versionNumber;
   private final String bible;
   private final String visualPrompt;
@@ -17,9 +18,9 @@ public final class CharacterVersion extends DomainEntity {
   private String lockedBy;
 
   private CharacterVersion(
-      Long id,
+      UUID id,
       long rowVersion,
-      Long characterId,
+      UUID characterId,
       int versionNumber,
       String bible,
       String visualPrompt,
@@ -27,13 +28,8 @@ public final class CharacterVersion extends DomainEntity {
       Instant lockedAt,
       String lockedBy) {
     super(id, rowVersion);
-    if (characterId == null || characterId <= 0) {
-      throw new IllegalArgumentException("characterId must be positive");
-    }
-    if (versionNumber <= 0) {
-      throw new IllegalArgumentException("versionNumber must be positive");
-    }
-    this.characterId = characterId;
+    this.characterId = Objects.requireNonNull(characterId, "characterId");
+    if (versionNumber <= 0) throw new IllegalArgumentException("versionNumber must be positive");
     this.versionNumber = versionNumber;
     this.bible = required(bible, "bible");
     this.visualPrompt = required(visualPrompt, "visualPrompt");
@@ -43,23 +39,15 @@ public final class CharacterVersion extends DomainEntity {
   }
 
   public static CharacterVersion create(
-      Long characterId, int versionNumber, String bible, String visualPrompt) {
+      UUID characterId, int versionNumber, String bible, String visualPrompt) {
     return new CharacterVersion(
-        null,
-        0L,
-        characterId,
-        versionNumber,
-        bible,
-        visualPrompt,
-        CharacterVersionStatus.DRAFT,
-        null,
-        null);
+        null, 0L, characterId, versionNumber, bible, visualPrompt, CharacterVersionStatus.DRAFT, null, null);
   }
 
   public static CharacterVersion rehydrate(
-      Long id,
+      UUID id,
       long rowVersion,
-      Long characterId,
+      UUID characterId,
       int versionNumber,
       String bible,
       String visualPrompt,
@@ -67,29 +55,19 @@ public final class CharacterVersion extends DomainEntity {
       Instant lockedAt,
       String lockedBy) {
     return new CharacterVersion(
-        id,
-        rowVersion,
-        characterId,
-        versionNumber,
-        bible,
-        visualPrompt,
-        status,
-        lockedAt,
-        lockedBy);
+        id, rowVersion, characterId, versionNumber, bible, visualPrompt, status, lockedAt, lockedBy);
   }
 
   public void submitForReview() {
     if (status != CharacterVersionStatus.DRAFT && status != CharacterVersionStatus.GENERATING) {
-      throw new InvalidCharacterVersionTransitionException(
-          "Only draft or generating versions can enter review");
+      throw new InvalidCharacterVersionTransitionException("Only draft or generating versions can enter review");
     }
     status = CharacterVersionStatus.REVIEW;
   }
 
   public void lock(String actorId) {
     if (status != CharacterVersionStatus.REVIEW) {
-      throw new InvalidCharacterVersionTransitionException(
-          "Only reviewed character versions can be locked");
+      throw new InvalidCharacterVersionTransitionException("Only reviewed character versions can be locked");
     }
     String resolvedActorId = required(actorId, "actorId");
     status = CharacterVersionStatus.LOCKED;
@@ -97,38 +75,16 @@ public final class CharacterVersion extends DomainEntity {
     lockedBy = resolvedActorId;
   }
 
-  public Long getCharacterId() {
-    return characterId;
-  }
-
-  public int getVersionNumber() {
-    return versionNumber;
-  }
-
-  public String getBible() {
-    return bible;
-  }
-
-  public String getVisualPrompt() {
-    return visualPrompt;
-  }
-
-  public CharacterVersionStatus getStatus() {
-    return status;
-  }
-
-  public Instant getLockedAt() {
-    return lockedAt;
-  }
-
-  public String getLockedBy() {
-    return lockedBy;
-  }
+  public UUID getCharacterId() { return characterId; }
+  public int getVersionNumber() { return versionNumber; }
+  public String getBible() { return bible; }
+  public String getVisualPrompt() { return visualPrompt; }
+  public CharacterVersionStatus getStatus() { return status; }
+  public Instant getLockedAt() { return lockedAt; }
+  public String getLockedBy() { return lockedBy; }
 
   private static String required(String value, String field) {
-    if (value == null || value.isBlank()) {
-      throw new IllegalArgumentException(field + " must not be blank");
-    }
+    if (value == null || value.isBlank()) throw new IllegalArgumentException(field + " must not be blank");
     return value;
   }
 }

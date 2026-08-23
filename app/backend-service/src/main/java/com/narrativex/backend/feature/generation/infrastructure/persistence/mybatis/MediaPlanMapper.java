@@ -5,7 +5,7 @@ import java.util.UUID;
 import org.apache.ibatis.annotations.Param;
 
 public interface MediaPlanMapper extends NarrativeXMyBatisMapper {
-  Integer nextRevision(@Param("chapterId") Long chapterId);
+  Integer nextRevision(@Param("chapterId") UUID chapterId);
 
   int insertPlan(MediaPlanRow row);
 
@@ -16,6 +16,6 @@ public interface MediaPlanMapper extends NarrativeXMyBatisMapper {
   boolean existsOwnedForChapter(
       @Param("mediaPlanId") UUID mediaPlanId,
       @Param("revision") int revision,
-      @Param("chapterId") Long chapterId,
+      @Param("chapterId") UUID chapterId,
       @Param("ownerId") String ownerId);
 }

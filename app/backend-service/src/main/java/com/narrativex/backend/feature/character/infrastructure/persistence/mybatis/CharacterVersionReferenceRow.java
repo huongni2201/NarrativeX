@@ -7,7 +7,7 @@ import lombok.Setter;
 @Getter
 @Setter
 public class CharacterVersionReferenceRow {
-  private Long characterVersionId;
+  private UUID characterVersionId;
   private UUID mediaAssetId;
   private String referenceRole;
   private int priority;

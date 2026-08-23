@@ -29,7 +29,7 @@
 
     <select id="insert"
             parameterType="com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ProjectRow"
-            resultType="long"
+            resultType="java.util.UUID"
             affectData="true">
         INSERT INTO projects (
             row_version, created_at, updated_at, name, description, cover_image_url,

@@ -7,6 +7,7 @@ import com.narrativex.backend.feature.storyboard.domain.value.ChapterContentVari
 import com.narrativex.backend.feature.storyboard.domain.value.LanguageDetection;
 import com.narrativex.backend.feature.storyboard.domain.value.LanguageDetectionResult;
 import java.time.Instant;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -18,7 +19,7 @@ public class ChapterContentImportService {
   private final LanguageDetectionRepository detectionRepository;
   private final LanguageDetectionProvider detectionProvider;
 
-  public ImportedContent importOriginal(Long chapterId, String content, String contentHash) {
+  public ImportedContent importOriginal(UUID chapterId, String content, String contentHash) {
     LanguageDetectionResult result = detectionProvider.detect(content);
     String languageCode =
         result.detectedLanguage().equals("MULTILINGUAL")

@@ -6,6 +6,7 @@ import com.narrativex.backend.feature.common.pagination.CursorPage;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.project.application.port.out.ProjectResourceQueryRepository;
 import com.narrativex.backend.feature.project.application.query.ProjectResourceView;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,14 +20,14 @@ public class ListProjectResourcesUseCase {
 
   @Transactional(readOnly = true)
   public CursorPage<ProjectResourceView.Location> locations(
-      Long projectId, String cursor, int limit) {
+      UUID projectId, String cursor, int limit) {
     validateLimit(limit);
     projectAccess.findOwnedProject(projectId, currentUserId.get());
     return repository.listLocations(projectId, cursor, limit);
   }
 
   @Transactional(readOnly = true)
-  public CursorPage<ProjectResourceView.Asset> assets(Long projectId, String cursor, int limit) {
+  public CursorPage<ProjectResourceView.Asset> assets(UUID projectId, String cursor, int limit) {
     validateLimit(limit);
     projectAccess.findOwnedProject(projectId, currentUserId.get());
     return repository.listAssets(projectId, cursor, limit);

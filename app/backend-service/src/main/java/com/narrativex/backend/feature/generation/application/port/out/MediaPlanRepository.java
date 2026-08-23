@@ -5,9 +5,9 @@ import java.util.UUID;
 
 /** Persistence boundary for immutable versioned media plans and ownership checks. */
 public interface MediaPlanRepository {
-  int nextRevision(Long chapterId);
+  int nextRevision(UUID chapterId);
 
   MediaPlan save(MediaPlan mediaPlan);
 
-  boolean existsOwnedForChapter(UUID mediaPlanId, int revision, Long chapterId, String ownerId);
+  boolean existsOwnedForChapter(UUID mediaPlanId, int revision, UUID chapterId, String ownerId);
 }

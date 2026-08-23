@@ -10,8 +10,8 @@ import java.util.UUID;
 
 /** Durable generation job aggregate. */
 public final class GenerationJob extends AggregateRoot {
-  private final String jobId;
-  private final Long projectId;
+  private final UUID jobId;
+  private final UUID projectId;
   private final JobType type;
   private JobStatus status;
   private final ResourceClass resourceClass;
@@ -20,9 +20,9 @@ public final class GenerationJob extends AggregateRoot {
   private final String errorCode;
   private final String requestedByUserId;
   private final String billedToUserId;
-  private final Long storyVersionId;
-  private final Long chapterId;
-  private final Long storyboardRevisionId;
+  private final UUID storyVersionId;
+  private final UUID chapterId;
+  private final UUID storyboardRevisionId;
   private final Long chapterRowVersion;
   private final String sourceHash;
   private final String sourceText;
@@ -31,15 +31,15 @@ public final class GenerationJob extends AggregateRoot {
   private final UUID mediaPlanId;
   private final Integer mediaPlanRevision;
   private final ProductionMode productionMode;
-  private final Long contentVariantId;
-  private final Long sourceVariantId;
+  private final UUID contentVariantId;
+  private final UUID sourceVariantId;
   private final String targetLanguage;
 
   private GenerationJob(
-      Long id,
+      UUID id,
       long rowVersion,
-      String jobId,
-      Long projectId,
+      UUID jobId,
+      UUID projectId,
       JobType type,
       JobStatus status,
       ResourceClass resourceClass,
@@ -48,9 +48,9 @@ public final class GenerationJob extends AggregateRoot {
       String errorCode,
       String requestedByUserId,
       String billedToUserId,
-      Long storyVersionId,
-      Long chapterId,
-      Long storyboardRevisionId,
+      UUID storyVersionId,
+      UUID chapterId,
+      UUID storyboardRevisionId,
       Long chapterRowVersion,
       String sourceHash,
       String sourceText,
@@ -60,39 +60,17 @@ public final class GenerationJob extends AggregateRoot {
       Integer mediaPlanRevision,
       ProductionMode productionMode) {
     this(
-        id,
-        rowVersion,
-        jobId,
-        projectId,
-        type,
-        status,
-        resourceClass,
-        progress,
-        currentStep,
-        errorCode,
-        requestedByUserId,
-        billedToUserId,
-        storyVersionId,
-        chapterId,
-        storyboardRevisionId,
-        chapterRowVersion,
-        sourceHash,
-        sourceText,
-        sourceLanguage,
-        idempotencyKey,
-        mediaPlanId,
-        mediaPlanRevision,
-        productionMode,
-        null,
-        null,
-        null);
+        id, rowVersion, jobId, projectId, type, status, resourceClass, progress, currentStep,
+        errorCode, requestedByUserId, billedToUserId, storyVersionId, chapterId,
+        storyboardRevisionId, chapterRowVersion, sourceHash, sourceText, sourceLanguage,
+        idempotencyKey, mediaPlanId, mediaPlanRevision, productionMode, null, null, null);
   }
 
   private GenerationJob(
-      Long id,
+      UUID id,
       long rowVersion,
-      String jobId,
-      Long projectId,
+      UUID jobId,
+      UUID projectId,
       JobType type,
       JobStatus status,
       ResourceClass resourceClass,
@@ -101,9 +79,9 @@ public final class GenerationJob extends AggregateRoot {
       String errorCode,
       String requestedByUserId,
       String billedToUserId,
-      Long storyVersionId,
-      Long chapterId,
-      Long storyboardRevisionId,
+      UUID storyVersionId,
+      UUID chapterId,
+      UUID storyboardRevisionId,
       Long chapterRowVersion,
       String sourceHash,
       String sourceText,
@@ -112,21 +90,16 @@ public final class GenerationJob extends AggregateRoot {
       UUID mediaPlanId,
       Integer mediaPlanRevision,
       ProductionMode productionMode,
-      Long contentVariantId,
-      Long sourceVariantId,
+      UUID contentVariantId,
+      UUID sourceVariantId,
       String targetLanguage) {
     super(id, rowVersion);
-    this.jobId = required(jobId, "jobId");
-    if (projectId == null || projectId <= 0) {
-      throw new IllegalArgumentException("projectId must be positive");
-    }
-    this.projectId = projectId;
+    this.jobId = Objects.requireNonNull(jobId, "jobId");
+    this.projectId = Objects.requireNonNull(projectId, "projectId");
     this.type = Objects.requireNonNull(type, "type");
     this.status = Objects.requireNonNull(status, "status");
     this.resourceClass = Objects.requireNonNull(resourceClass, "resourceClass");
-    if (progress < 0 || progress > 100) {
-      throw new IllegalArgumentException("progress must be between 0 and 100");
-    }
+    if (progress < 0 || progress > 100) throw new IllegalArgumentException("progress must be between 0 and 100");
     this.progress = progress;
     this.currentStep = currentStep;
     this.errorCode = errorCode;
@@ -149,39 +122,18 @@ public final class GenerationJob extends AggregateRoot {
     this.targetLanguage = targetLanguage;
   }
 
-  public static GenerationJob create(
-      Long projectId, JobType type, ResourceClass resourceClass, String userId) {
+  public static GenerationJob create(UUID projectId, JobType type, ResourceClass resourceClass, String userId) {
     return new GenerationJob(
-        null,
-        0L,
-        UUID.randomUUID().toString(),
-        projectId,
-        type,
-        JobStatus.QUEUED,
-        resourceClass,
-        0,
-        "QUEUED",
-        null,
-        userId,
-        userId,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null);
+        null, 0L, UUID.randomUUID(), projectId, type, JobStatus.QUEUED, resourceClass, 0,
+        "QUEUED", null, userId, userId, null, null, null, null, null, null, null, null,
+        null, null, null);
   }
 
   public static GenerationJob createChapterAnalysis(
-      Long projectId,
-      Long storyVersionId,
-      Long chapterId,
-      Long storyboardRevisionId,
+      UUID projectId,
+      UUID storyVersionId,
+      UUID chapterId,
+      UUID storyboardRevisionId,
       long chapterRowVersion,
       String sourceHash,
       String sourceText,
@@ -189,77 +141,40 @@ public final class GenerationJob extends AggregateRoot {
       String idempotencyKey,
       String userId) {
     return createChapterAnalysis(
-        projectId,
-        storyVersionId,
-        chapterId,
-        storyboardRevisionId,
-        chapterRowVersion,
-        sourceHash,
-        sourceText,
-        sourceLanguage,
-        idempotencyKey,
-        userId,
-        null);
+        projectId, storyVersionId, chapterId, storyboardRevisionId, chapterRowVersion, sourceHash,
+        sourceText, sourceLanguage, idempotencyKey, userId, null);
   }
 
   public static GenerationJob createChapterAnalysis(
-      Long projectId,
-      Long storyVersionId,
-      Long chapterId,
-      Long storyboardRevisionId,
+      UUID projectId,
+      UUID storyVersionId,
+      UUID chapterId,
+      UUID storyboardRevisionId,
       long chapterRowVersion,
       String sourceHash,
       String sourceText,
       String sourceLanguage,
       String idempotencyKey,
       String userId,
-      Long contentVariantId) {
-    if (storyVersionId == null || storyVersionId <= 0) {
-      throw new IllegalArgumentException("storyVersionId must be positive");
-    }
-    if (chapterId == null || chapterId <= 0) {
-      throw new IllegalArgumentException("chapterId must be positive");
-    }
-    if (storyboardRevisionId == null || storyboardRevisionId <= 0) {
-      throw new IllegalArgumentException("storyboardRevisionId must be positive");
-    }
-    if (chapterRowVersion < 0) {
-      throw new IllegalArgumentException("chapterRowVersion must not be negative");
-    }
+      UUID contentVariantId) {
+    Objects.requireNonNull(storyVersionId, "storyVersionId");
+    Objects.requireNonNull(chapterId, "chapterId");
+    Objects.requireNonNull(storyboardRevisionId, "storyboardRevisionId");
+    if (chapterRowVersion < 0) throw new IllegalArgumentException("chapterRowVersion must not be negative");
     return new GenerationJob(
-        null,
-        0L,
-        UUID.randomUUID().toString(),
-        projectId,
-        JobType.CHAPTER_ANALYZE,
-        JobStatus.QUEUED,
-        ResourceClass.PROVIDER_INTERACTIVE,
-        0,
-        "QUEUED",
-        null,
-        userId,
-        userId,
-        storyVersionId,
-        chapterId,
-        storyboardRevisionId,
-        chapterRowVersion,
-        required(sourceHash, "sourceHash"),
-        required(sourceText, "sourceText"),
-        required(sourceLanguage, "sourceLanguage"),
-        required(idempotencyKey, "idempotencyKey"),
-        null,
-        null,
-        null,
-        contentVariantId,
-        contentVariantId,
-        null);
+        null, 0L, UUID.randomUUID(), projectId, JobType.CHAPTER_ANALYZE, JobStatus.QUEUED,
+        ResourceClass.PROVIDER_INTERACTIVE, 0, "QUEUED", null, userId, userId, storyVersionId,
+        chapterId, storyboardRevisionId, chapterRowVersion, required(sourceHash, "sourceHash"),
+        required(sourceText, "sourceText"), required(sourceLanguage, "sourceLanguage"),
+        required(idempotencyKey, "idempotencyKey"), null, null, null, contentVariantId,
+        contentVariantId, null);
   }
 
   public static GenerationJob createChapterTranslation(
-      Long projectId,
-      Long storyVersionId,
-      Long chapterId,
-      Long sourceVariantId,
+      UUID projectId,
+      UUID storyVersionId,
+      UUID chapterId,
+      UUID sourceVariantId,
       long chapterRowVersion,
       String sourceHash,
       String sourceText,
@@ -267,78 +182,40 @@ public final class GenerationJob extends AggregateRoot {
       String targetLanguage,
       String idempotencyKey,
       String userId) {
+    Objects.requireNonNull(storyVersionId, "storyVersionId");
+    Objects.requireNonNull(chapterId, "chapterId");
     return new GenerationJob(
-        null,
-        0L,
-        UUID.randomUUID().toString(),
-        projectId,
-        JobType.CHAPTER_TRANSLATE,
-        JobStatus.QUEUED,
-        ResourceClass.PROVIDER_INTERACTIVE,
-        0,
-        "QUEUED",
-        null,
-        userId,
-        userId,
-        storyVersionId,
-        chapterId,
-        null,
-        chapterRowVersion,
-        required(sourceHash, "sourceHash"),
-        required(sourceText, "sourceText"),
-        required(sourceLanguage, "sourceLanguage"),
-        required(idempotencyKey, "idempotencyKey"),
-        null,
-        null,
-        null,
-        sourceVariantId,
-        sourceVariantId,
-        required(targetLanguage, "targetLanguage"));
+        null, 0L, UUID.randomUUID(), projectId, JobType.CHAPTER_TRANSLATE, JobStatus.QUEUED,
+        ResourceClass.PROVIDER_INTERACTIVE, 0, "QUEUED", null, userId, userId, storyVersionId,
+        chapterId, null, chapterRowVersion, required(sourceHash, "sourceHash"),
+        required(sourceText, "sourceText"), required(sourceLanguage, "sourceLanguage"),
+        required(idempotencyKey, "idempotencyKey"), null, null, null, sourceVariantId,
+        sourceVariantId, required(targetLanguage, "targetLanguage"));
   }
 
-  /** Creates a media job that can only execute the exact persisted media-plan revision supplied. */
   public static GenerationJob createChapterGeneration(
-      Long projectId,
-      Long storyVersionId,
+      UUID projectId,
+      UUID storyVersionId,
       MediaPlan mediaPlan,
       ResourceClass resourceClass,
       String sourceLanguage,
       String idempotencyKey,
       String userId) {
     Objects.requireNonNull(mediaPlan, "mediaPlan");
-    if (storyVersionId == null || storyVersionId <= 0) {
-      throw new IllegalArgumentException("storyVersionId must be positive");
-    }
+    Objects.requireNonNull(storyVersionId, "storyVersionId");
     return new GenerationJob(
-        null,
-        0L,
-        UUID.randomUUID().toString(),
-        projectId,
-        JobType.CHAPTER_GENERATE,
-        JobStatus.QUEUED,
-        Objects.requireNonNull(resourceClass, "resourceClass"),
-        0,
-        "QUEUED",
-        null,
-        userId,
-        userId,
-        storyVersionId,
-        mediaPlan.chapterId(),
-        null,
-        mediaPlan.chapterRowVersion(),
-        mediaPlan.sourceHash(),
-        null,
-        required(sourceLanguage, "sourceLanguage"),
-        required(idempotencyKey, "idempotencyKey"),
-        mediaPlan.id(),
-        mediaPlan.revision(),
-        mediaPlan.productionMode());
+        null, 0L, UUID.randomUUID(), projectId, JobType.CHAPTER_GENERATE, JobStatus.QUEUED,
+        Objects.requireNonNull(resourceClass, "resourceClass"), 0, "QUEUED", null, userId,
+        userId, storyVersionId, mediaPlan.chapterId(), mediaPlan.storyboardRevisionId(),
+        mediaPlan.chapterRowVersion(), mediaPlan.sourceHash(), null,
+        required(sourceLanguage, "sourceLanguage"), required(idempotencyKey, "idempotencyKey"),
+        mediaPlan.id(), mediaPlan.revision(), mediaPlan.productionMode());
   }
 
   public static GenerationJob createChapterRender(
-      Long projectId,
-      Long storyVersionId,
-      Long chapterId,
+      UUID projectId,
+      UUID storyVersionId,
+      UUID chapterId,
       long chapterRowVersion,
       String sourceHash,
       String sourceText,
@@ -347,49 +224,24 @@ public final class GenerationJob extends AggregateRoot {
       UUID mediaPlanId,
       Integer mediaPlanRevision,
       String userId) {
-    if (storyVersionId == null || storyVersionId <= 0) {
-      throw new IllegalArgumentException("storyVersionId must be positive");
-    }
-    if (chapterId == null || chapterId <= 0) {
-      throw new IllegalArgumentException("chapterId must be positive");
-    }
-    if (chapterRowVersion < 0) {
-      throw new IllegalArgumentException("chapterRowVersion must not be negative");
-    }
-    if (mediaPlanId == null || mediaPlanRevision == null || mediaPlanRevision <= 0) {
+    Objects.requireNonNull(storyVersionId, "storyVersionId");
+    Objects.requireNonNull(chapterId, "chapterId");
+    if (chapterRowVersion < 0) throw new IllegalArgumentException("chapterRowVersion must not be negative");
+    if (mediaPlanId == null || mediaPlanRevision == null || mediaPlanRevision <= 0)
       throw new IllegalArgumentException("A pinned media plan revision is required for rendering");
-    }
     return new GenerationJob(
-        null,
-        0L,
-        UUID.randomUUID().toString(),
-        projectId,
-        JobType.CHAPTER_RENDER,
-        JobStatus.QUEUED,
-        ResourceClass.CPU_RENDER,
-        0,
-        "QUEUED",
-        null,
-        userId,
-        userId,
-        storyVersionId,
-        chapterId,
-        null,
-        chapterRowVersion,
-        required(sourceHash, "sourceHash"),
-        required(sourceText, "sourceText"),
-        required(sourceLanguage, "sourceLanguage"),
-        required(idempotencyKey, "idempotencyKey"),
-        mediaPlanId,
-        mediaPlanRevision,
-        ProductionMode.IMAGE_MOTION);
+        null, 0L, UUID.randomUUID(), projectId, JobType.CHAPTER_RENDER, JobStatus.QUEUED,
+        ResourceClass.CPU_RENDER, 0, "QUEUED", null, userId, userId, storyVersionId, chapterId,
+        null, chapterRowVersion, required(sourceHash, "sourceHash"), required(sourceText, "sourceText"),
+        required(sourceLanguage, "sourceLanguage"), required(idempotencyKey, "idempotencyKey"),
+        mediaPlanId, mediaPlanRevision, ProductionMode.IMAGE_MOTION);
   }
 
   public static GenerationJob rehydrate(
-      Long id,
+      UUID id,
       long rowVersion,
-      String jobId,
-      Long projectId,
+      UUID jobId,
+      UUID projectId,
       JobType type,
       JobStatus status,
       ResourceClass resourceClass,
@@ -398,45 +250,26 @@ public final class GenerationJob extends AggregateRoot {
       String errorCode,
       String requestedByUserId,
       String billedToUserId,
-      Long storyVersionId,
-      Long chapterId,
-      Long storyboardRevisionId,
+      UUID storyVersionId,
+      UUID chapterId,
+      UUID storyboardRevisionId,
       Long chapterRowVersion,
       String sourceHash,
       String sourceText,
       String sourceLanguage,
       String idempotencyKey) {
     return rehydrate(
-        id,
-        rowVersion,
-        jobId,
-        projectId,
-        type,
-        status,
-        resourceClass,
-        progress,
-        currentStep,
-        errorCode,
-        requestedByUserId,
-        billedToUserId,
-        storyVersionId,
-        chapterId,
-        storyboardRevisionId,
-        chapterRowVersion,
-        sourceHash,
-        sourceText,
-        sourceLanguage,
-        idempotencyKey,
-        null,
-        null,
-        null);
+        id, rowVersion, jobId, projectId, type, status, resourceClass, progress, currentStep,
+        errorCode, requestedByUserId, billedToUserId, storyVersionId, chapterId,
+        storyboardRevisionId, chapterRowVersion, sourceHash, sourceText, sourceLanguage,
+        idempotencyKey, null, null, null, null, null, null);
   }
 
   public static GenerationJob rehydrate(
-      Long id,
+      UUID id,
       long rowVersion,
-      String jobId,
-      Long projectId,
+      UUID jobId,
+      UUID projectId,
       JobType type,
       JobStatus status,
       ResourceClass resourceClass,
@@ -445,54 +278,33 @@ public final class GenerationJob extends AggregateRoot {
       String errorCode,
       String requestedByUserId,
       String billedToUserId,
-      Long storyVersionId,
-      Long chapterId,
-      Long storyboardRevisionId,
+      UUID storyVersionId,
+      UUID chapterId,
+      UUID storyboardRevisionId,
       Long chapterRowVersion,
       String sourceHash,
       String sourceText,
       String sourceLanguage,
       String idempotencyKey,
-      Long contentVariantId,
-      Long sourceVariantId,
+      UUID contentVariantId,
+      UUID sourceVariantId,
       String targetLanguage,
       UUID mediaPlanId,
       Integer mediaPlanRevision,
       ProductionMode productionMode) {
     return new GenerationJob(
-        id,
-        rowVersion,
-        jobId,
-        projectId,
-        type,
-        status,
-        resourceClass,
-        progress,
-        currentStep,
-        errorCode,
-        requestedByUserId,
-        billedToUserId,
-        storyVersionId,
-        chapterId,
-        storyboardRevisionId,
-        chapterRowVersion,
-        sourceHash,
-        sourceText,
-        sourceLanguage,
-        idempotencyKey,
-        mediaPlanId,
-        mediaPlanRevision,
-        productionMode,
-        contentVariantId,
-        sourceVariantId,
-        targetLanguage);
+        id, rowVersion, jobId, projectId, type, status, resourceClass, progress, currentStep,
+        errorCode, requestedByUserId, billedToUserId, storyVersionId, chapterId,
+        storyboardRevisionId, chapterRowVersion, sourceHash, sourceText, sourceLanguage,
+        idempotencyKey, mediaPlanId, mediaPlanRevision, productionMode, contentVariantId,
+        sourceVariantId, targetLanguage);
   }
 
   public static GenerationJob rehydrate(
-      Long id,
+      UUID id,
       long rowVersion,
-      String jobId,
-      Long projectId,
+      UUID jobId,
+      UUID projectId,
       JobType type,
       JobStatus status,
       ResourceClass resourceClass,
@@ -501,9 +313,9 @@ public final class GenerationJob extends AggregateRoot {
       String errorCode,
       String requestedByUserId,
       String billedToUserId,
-      Long storyVersionId,
-      Long chapterId,
-      Long storyboardRevisionId,
+      UUID storyVersionId,
+      UUID chapterId,
+      UUID storyboardRevisionId,
       Long chapterRowVersion,
       String sourceHash,
       String sourceText,
@@ -513,144 +325,49 @@ public final class GenerationJob extends AggregateRoot {
       Integer mediaPlanRevision,
       ProductionMode productionMode) {
     return new GenerationJob(
-        id,
-        rowVersion,
-        jobId,
-        projectId,
-        type,
-        status,
-        resourceClass,
-        progress,
-        currentStep,
-        errorCode,
-        requestedByUserId,
-        billedToUserId,
-        storyVersionId,
-        chapterId,
-        storyboardRevisionId,
-        chapterRowVersion,
-        sourceHash,
-        sourceText,
-        sourceLanguage,
-        idempotencyKey,
-        mediaPlanId,
-        mediaPlanRevision,
-        productionMode);
+        id, rowVersion, jobId, projectId, type, status, resourceClass, progress, currentStep,
+        errorCode, requestedByUserId, billedToUserId, storyVersionId, chapterId,
+        storyboardRevisionId, chapterRowVersion, sourceHash, sourceText, sourceLanguage,
+        idempotencyKey, mediaPlanId, mediaPlanRevision, productionMode);
   }
 
-  public String getJobId() {
-    return jobId;
-  }
-
-  public Long getProjectId() {
-    return projectId;
-  }
-
-  public JobType getType() {
-    return type;
-  }
-
-  public JobStatus getStatus() {
-    return status;
-  }
-
-  public ResourceClass getResourceClass() {
-    return resourceClass;
-  }
-
-  public int getProgress() {
-    return progress;
-  }
-
-  public String getCurrentStep() {
-    return currentStep;
-  }
-
-  public String getErrorCode() {
-    return errorCode;
-  }
-
-  public String getRequestedByUserId() {
-    return requestedByUserId;
-  }
-
-  public String getBilledToUserId() {
-    return billedToUserId;
-  }
-
-  public Long getStoryVersionId() {
-    return storyVersionId;
-  }
-
-  public Long getChapterId() {
-    return chapterId;
-  }
-
-  public Long getStoryboardRevisionId() {
-    return storyboardRevisionId;
-  }
-
-  public Long getChapterRowVersion() {
-    return chapterRowVersion;
-  }
-
-  public String getSourceHash() {
-    return sourceHash;
-  }
-
-  public String getSourceText() {
-    return sourceText;
-  }
-
-  public String getSourceLanguage() {
-    return sourceLanguage;
-  }
-
-  public String getIdempotencyKey() {
-    return idempotencyKey;
-  }
-
-  public Long getContentVariantId() {
-    return contentVariantId;
-  }
-
-  public Long getSourceVariantId() {
-    return sourceVariantId;
-  }
-
-  public String getTargetLanguage() {
-    return targetLanguage;
-  }
-
-  public UUID getMediaPlanId() {
-    return mediaPlanId;
-  }
-
-  public Integer getMediaPlanRevision() {
-    return mediaPlanRevision;
-  }
-
-  public ProductionMode getProductionMode() {
-    return productionMode;
-  }
+  public UUID getJobId() { return jobId; }
+  public UUID getProjectId() { return projectId; }
+  public JobType getType() { return type; }
+  public JobStatus getStatus() { return status; }
+  public ResourceClass getResourceClass() { return resourceClass; }
+  public int getProgress() { return progress; }
+  public String getCurrentStep() { return currentStep; }
+  public String getErrorCode() { return errorCode; }
+  public String getRequestedByUserId() { return requestedByUserId; }
+  public String getBilledToUserId() { return billedToUserId; }
+  public UUID getStoryVersionId() { return storyVersionId; }
+  public UUID getChapterId() { return chapterId; }
+  public UUID getStoryboardRevisionId() { return storyboardRevisionId; }
+  public Long getChapterRowVersion() { return chapterRowVersion; }
+  public String getSourceHash() { return sourceHash; }
+  public String getSourceText() { return sourceText; }
+  public String getSourceLanguage() { return sourceLanguage; }
+  public String getIdempotencyKey() { return idempotencyKey; }
+  public UUID getContentVariantId() { return contentVariantId; }
+  public UUID getSourceVariantId() { return sourceVariantId; }
+  public String getTargetLanguage() { return targetLanguage; }
+  public UUID getMediaPlanId() { return mediaPlanId; }
+  public Integer getMediaPlanRevision() { return mediaPlanRevision; }
+  public ProductionMode getProductionMode() { return productionMode; }
 
   private static void requireCompleteMediaPlanPointer(
       UUID mediaPlanId, Integer mediaPlanRevision, ProductionMode productionMode) {
     boolean allNull = mediaPlanId == null && mediaPlanRevision == null && productionMode == null;
     boolean allPresent = mediaPlanId != null && mediaPlanRevision != null && productionMode != null;
-    if (!allNull && !allPresent) {
-      throw new IllegalArgumentException(
-          "mediaPlanId, mediaPlanRevision, and productionMode must be set together");
-    }
-    if (mediaPlanRevision != null && mediaPlanRevision <= 0) {
+    if (!allNull && !allPresent)
+      throw new IllegalArgumentException("mediaPlanId, mediaPlanRevision, and productionMode must be set together");
+    if (mediaPlanRevision != null && mediaPlanRevision <= 0)
       throw new IllegalArgumentException("mediaPlanRevision must be positive");
-    }
   }
 
   private static String required(String value, String field) {
-    if (value == null || value.isBlank()) {
-      throw new IllegalArgumentException(field + " must not be blank");
-    }
+    if (value == null || value.isBlank()) throw new IllegalArgumentException(field + " must not be blank");
     return value;
   }
 }

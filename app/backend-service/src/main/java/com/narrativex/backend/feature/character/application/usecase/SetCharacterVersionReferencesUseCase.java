@@ -30,7 +30,7 @@ public class SetCharacterVersionReferencesUseCase {
   private final MediaAssetRepository mediaAssetRepository;
 
   @Transactional
-  public List<Reference> execute(Long characterId, Long versionId, List<ReferenceInput> inputs) {
+  public List<Reference> execute(UUID characterId, UUID versionId, List<ReferenceInput> inputs) {
     String ownerId = currentUserId.get();
     var version =
         versionRepository
@@ -69,9 +69,7 @@ public class SetCharacterVersionReferencesUseCase {
       }
 
       var asset = mediaAssetRepository.findOwned(ownerId, input.assetId());
-      if (asset == null) {
-        throw new ResourceNotFoundException("Reference media asset not found");
-      }
+      if (asset == null) throw new ResourceNotFoundException("Reference media asset not found");
       if (!"IMAGE".equals(asset.type()) || !"READY".equals(asset.status())) {
         throw new ResourceConflictException("Character references must be READY image assets");
       }

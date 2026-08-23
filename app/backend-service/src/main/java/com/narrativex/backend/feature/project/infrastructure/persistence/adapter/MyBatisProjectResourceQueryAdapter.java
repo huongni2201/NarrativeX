@@ -1,14 +1,15 @@
 package com.narrativex.backend.feature.project.infrastructure.persistence.adapter;
 
 import com.narrativex.backend.feature.common.pagination.CursorCodec;
-import com.narrativex.backend.feature.common.pagination.CursorKey;
 import com.narrativex.backend.feature.common.pagination.CursorPage;
+import com.narrativex.backend.feature.common.pagination.UuidCursorKey;
 import com.narrativex.backend.feature.project.application.port.out.ProjectResourceQueryRepository;
 import com.narrativex.backend.feature.project.application.query.ProjectResourceView;
 import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ProjectAssetRow;
 import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ProjectLocationRow;
 import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ProjectQueryMapper;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -19,8 +20,8 @@ public class MyBatisProjectResourceQueryAdapter implements ProjectResourceQueryR
 
   @Override
   public CursorPage<ProjectResourceView.Location> listLocations(
-      Long projectId, String cursor, int limit) {
-    CursorKey key = CursorCodec.decode(cursor);
+      UUID projectId, String cursor, int limit) {
+    UuidCursorKey key = CursorCodec.decodeUuid(cursor);
     int fetchLimit = limit + 1;
     List<ProjectLocationRow> rows =
         key == null
@@ -30,8 +31,7 @@ public class MyBatisProjectResourceQueryAdapter implements ProjectResourceQueryR
     List<ProjectLocationRow> visibleRows = rows.subList(0, Math.min(limit, rows.size()));
     String nextCursor =
         hasNext && !visibleRows.isEmpty()
-            ? CursorCodec.encode(
-                visibleRows.getLast().getUpdatedAt(), visibleRows.getLast().getId())
+            ? CursorCodec.encode(visibleRows.getLast().getUpdatedAt(), visibleRows.getLast().getId())
             : null;
     return new CursorPage<>(
         visibleRows.stream().map(this::toLocation).toList(), nextCursor, limit, hasNext);
@@ -39,8 +39,8 @@ public class MyBatisProjectResourceQueryAdapter implements ProjectResourceQueryR
 
   @Override
   public CursorPage<ProjectResourceView.Asset> listAssets(
-      Long projectId, String cursor, int limit) {
-    CursorKey key = CursorCodec.decode(cursor);
+      UUID projectId, String cursor, int limit) {
+    UuidCursorKey key = CursorCodec.decodeUuid(cursor);
     int fetchLimit = limit + 1;
     List<ProjectAssetRow> rows =
         key == null
@@ -50,8 +50,7 @@ public class MyBatisProjectResourceQueryAdapter implements ProjectResourceQueryR
     List<ProjectAssetRow> visibleRows = rows.subList(0, Math.min(limit, rows.size()));
     String nextCursor =
         hasNext && !visibleRows.isEmpty()
-            ? CursorCodec.encode(
-                visibleRows.getLast().getUpdatedAt(), visibleRows.getLast().getId())
+            ? CursorCodec.encode(visibleRows.getLast().getUpdatedAt(), visibleRows.getLast().getId())
             : null;
     return new CursorPage<>(
         visibleRows.stream().map(this::toAsset).toList(), nextCursor, limit, hasNext);
@@ -59,25 +58,13 @@ public class MyBatisProjectResourceQueryAdapter implements ProjectResourceQueryR
 
   private ProjectResourceView.Location toLocation(ProjectLocationRow row) {
     return new ProjectResourceView.Location(
-        row.getId(),
-        row.getName(),
-        row.getDescription(),
-        row.getVisualPrompt(),
-        row.getReferenceImageUrl(),
-        row.getStatus(),
-        row.getUpdatedAt());
+        row.getId(), row.getName(), row.getDescription(), row.getVisualPrompt(),
+        row.getReferenceImageUrl(), row.getStatus(), row.getUpdatedAt());
   }
 
   private ProjectResourceView.Asset toAsset(ProjectAssetRow row) {
     return new ProjectResourceView.Asset(
-        row.getId(),
-        row.getName(),
-        row.getAssetType(),
-        row.getStorageKey(),
-        row.getUrl(),
-        row.getMimeType(),
-        row.getStatus(),
-        row.getMetadataJson(),
-        row.getUpdatedAt());
+        row.getId(), row.getName(), row.getAssetType(), row.getStorageKey(), row.getUrl(),
+        row.getMimeType(), row.getStatus(), row.getMetadataJson(), row.getUpdatedAt());
   }
 }

@@ -2,28 +2,29 @@ package com.narrativex.backend.feature.storyboard.infrastructure.persistence.myb
 
 import com.narrativex.backend.feature.common.infrastructure.persistence.mybatis.NarrativeXMyBatisMapper;
 import java.util.List;
+import java.util.UUID;
 import org.apache.ibatis.annotations.Param;
 
 public interface ChapterMapper extends NarrativeXMyBatisMapper {
-  Long insert(ChapterRow row);
+  UUID insert(ChapterRow row);
 
   int update(ChapterRow row);
 
-  ChapterRow findById(@Param("id") Long id);
+  ChapterRow findById(@Param("id") UUID id);
 
-  List<ChapterRow> findAllByStoryVersionId(@Param("storyVersionId") Long storyVersionId);
+  List<ChapterRow> findAllByStoryVersionId(@Param("storyVersionId") UUID storyVersionId);
 
   List<ChapterRow> findFirstPageByStoryVersionId(
-      @Param("storyVersionId") Long storyVersionId, @Param("limit") int limit);
+      @Param("storyVersionId") UUID storyVersionId, @Param("limit") int limit);
 
   List<ChapterRow> findAfterByStoryVersionId(
-      @Param("storyVersionId") Long storyVersionId,
+      @Param("storyVersionId") UUID storyVersionId,
       @Param("orderIndex") int orderIndex,
-      @Param("id") Long id,
+      @Param("id") UUID id,
       @Param("limit") int limit);
 
   boolean existsByStoryVersionIdAndOrderIndex(
-      @Param("storyVersionId") Long storyVersionId, @Param("orderIndex") int orderIndex);
+      @Param("storyVersionId") UUID storyVersionId, @Param("orderIndex") int orderIndex);
 
-  int findMaxOrderIndexByStoryVersionId(@Param("storyVersionId") Long storyVersionId);
+  int findMaxOrderIndexByStoryVersionId(@Param("storyVersionId") UUID storyVersionId);
 }

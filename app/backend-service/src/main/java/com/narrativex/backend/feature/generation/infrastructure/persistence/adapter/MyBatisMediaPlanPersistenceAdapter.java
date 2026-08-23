@@ -16,7 +16,7 @@ public class MyBatisMediaPlanPersistenceAdapter implements MediaPlanRepository {
   private final MediaPlanMapper mapper;
 
   @Override
-  public int nextRevision(Long chapterId) {
+  public int nextRevision(UUID chapterId) {
     Integer next = mapper.nextRevision(chapterId);
     if (next == null || next <= 0) {
       throw new IllegalStateException(
@@ -29,62 +29,29 @@ public class MyBatisMediaPlanPersistenceAdapter implements MediaPlanRepository {
   public MediaPlan save(MediaPlan plan) {
     mapper.insertPlan(
         new MediaPlanRow(
-            plan.id(),
-            plan.chapterId(),
-            plan.chapterRowVersion(),
-            plan.sourceHash(),
-            plan.productionMode(),
-            plan.revision(),
-            plan.workload().narrationCharacters(),
-            plan.workload().imageGenerateCount(),
-            plan.workload().imageEditCount(),
-            plan.workload().basicMotionSeconds(),
-            plan.workload().plannedI2vSeconds(),
-            plan.estimatedCost(),
-            plan.createdAt(),
-            plan.storyboardRevisionId(),
-            plan.workflowVersion(),
-            plan.imageAspectRatio(),
-            plan.imageQualityTier(),
-            plan.imageProviderKey(),
-            plan.imageModelKey(),
-            plan.pricingSnapshotJson(),
-            plan.pricingFingerprint(),
-            plan.narrationSetId(),
-            plan.narrationAlignmentRunId()));
+            plan.id(), plan.chapterId(), plan.chapterRowVersion(), plan.sourceHash(),
+            plan.productionMode(), plan.revision(), plan.workload().narrationCharacters(),
+            plan.workload().imageGenerateCount(), plan.workload().imageEditCount(),
+            plan.workload().basicMotionSeconds(), plan.workload().plannedI2vSeconds(),
+            plan.estimatedCost(), plan.createdAt(), plan.storyboardRevisionId(),
+            plan.workflowVersion(), plan.imageAspectRatio(), plan.imageQualityTier(),
+            plan.imageProviderKey(), plan.imageModelKey(), plan.pricingSnapshotJson(),
+            plan.pricingFingerprint(), plan.narrationSetId(), plan.narrationAlignmentRunId()));
     for (int sceneIndex = 0; sceneIndex < plan.scenes().size(); sceneIndex++) {
       var scene = plan.scenes().get(sceneIndex);
       mapper.insertScene(
           new MediaScenePlanRow(
-              plan.id(),
-              sceneIndex,
-              scene.sceneId(),
-              scene.orderIndex(),
-              scene.narration(),
+              plan.id(), sceneIndex, scene.sceneId(), scene.orderIndex(), scene.narration(),
               scene.durationSeconds()));
       for (int beatIndex = 0; beatIndex < scene.beats().size(); beatIndex++) {
         var beat = scene.beats().get(beatIndex);
         mapper.insertBeat(
             new MediaBeatPlanRow(
-                plan.id(),
-                sceneIndex,
-                beatIndex,
-                beat.visualBeatId(),
-                beat.orderIndex(),
-                beat.visualIntent(),
-                beat.motionMode(),
-                beat.motionStrategy(),
-                beat.assetStrategy(),
-                beat.promptTemplateVersion(),
-                beat.promptSnapshot(),
-                beat.negativePrompt(),
-                beat.audioStartMs(),
-                beat.audioEndMs(),
-                beat.audioDurationMs(),
-                beat.cameraMovement(),
-                beat.imageSettingsJson(),
-                beat.characterSnapshotJson(),
-                beat.snapshotFingerprint()));
+                plan.id(), sceneIndex, beatIndex, beat.visualBeatId(), beat.orderIndex(),
+                beat.visualIntent(), beat.motionMode(), beat.motionStrategy(), beat.assetStrategy(),
+                beat.promptTemplateVersion(), beat.promptSnapshot(), beat.negativePrompt(),
+                beat.audioStartMs(), beat.audioEndMs(), beat.audioDurationMs(), beat.cameraMovement(),
+                beat.imageSettingsJson(), beat.characterSnapshotJson(), beat.snapshotFingerprint()));
       }
     }
     return plan;
@@ -92,7 +59,7 @@ public class MyBatisMediaPlanPersistenceAdapter implements MediaPlanRepository {
 
   @Override
   public boolean existsOwnedForChapter(
-      UUID mediaPlanId, int revision, Long chapterId, String ownerId) {
+      UUID mediaPlanId, int revision, UUID chapterId, String ownerId) {
     return mapper.existsOwnedForChapter(mediaPlanId, revision, chapterId, ownerId);
   }
 }

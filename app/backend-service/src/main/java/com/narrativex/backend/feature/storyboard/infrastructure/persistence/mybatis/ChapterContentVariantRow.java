@@ -3,6 +3,7 @@ package com.narrativex.backend.feature.storyboard.infrastructure.persistence.myb
 import com.narrativex.backend.feature.storyboard.domain.enums.ContentVariantType;
 import com.narrativex.backend.feature.storyboard.domain.enums.TranslationStatus;
 import java.time.Instant;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -13,9 +14,9 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ChapterContentVariantRow {
-  private Long id;
-  private Long chapterId;
-  private Long sourceVariantId;
+  private UUID id;
+  private UUID chapterId;
+  private UUID sourceVariantId;
   private ContentVariantType type;
   private String languageCode;
   private String content;

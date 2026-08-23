@@ -7,6 +7,7 @@ import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis
 import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ProjectOverviewRow;
 import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ProjectQueryMapper;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -17,7 +18,7 @@ public class MyBatisProjectOverviewQueryAdapter implements ProjectOverviewQueryR
   private final ProjectQueryMapper mapper;
 
   @Override
-  public ProjectOverviewView get(Long projectId) {
+  public ProjectOverviewView get(UUID projectId) {
     ProjectOverviewRow project = mapper.findOverview(projectId);
     if (project == null) {
       throw new ResourceNotFoundException("Project was not found");
@@ -72,9 +73,7 @@ public class MyBatisProjectOverviewQueryAdapter implements ProjectOverviewQueryR
   }
 
   private static int calculateProgress(List<ProjectOverviewView.Chapter> chapters) {
-    if (chapters.isEmpty()) {
-      return 0;
-    }
+    if (chapters.isEmpty()) return 0;
     int total = chapters.stream().mapToInt(chapter -> statusProgress(chapter.status())).sum();
     return Math.max(0, Math.min(100, Math.round((float) total / chapters.size())));
   }

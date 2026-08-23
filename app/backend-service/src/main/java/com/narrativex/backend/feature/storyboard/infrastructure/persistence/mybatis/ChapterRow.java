@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis;
 
 import java.time.Instant;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -14,11 +15,11 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ChapterRow {
-  private Long id;
+  private UUID id;
   private long rowVersion;
   private Instant createdAt;
   private Instant updatedAt;
-  private Long storyVersionId;
+  private UUID storyVersionId;
   private int orderIndex;
   private String title;
   private String sourceText;
@@ -26,6 +27,6 @@ public class ChapterRow {
   private String status;
   private Long estimatedDurationMs;
   private int generationProgress;
-  private Long sourceStoryVersionId;
+  private UUID sourceStoryVersionId;
   private String inheritedSnapshotHash;
 }

@@ -6,6 +6,7 @@ import com.narrativex.backend.feature.character.application.usecase.GetProjectCh
 import com.narrativex.backend.feature.character.application.usecase.ListProjectCharactersUseCase;
 import com.narrativex.backend.feature.common.pagination.CursorPage;
 import com.narrativex.backend.feature.common.response.ApiResponse;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,7 +24,7 @@ public class ProjectCharacterController {
 
   @GetMapping
   public ResponseEntity<ApiResponse<CursorPage<ProjectCharacterSummaryResponse>>> list(
-      @PathVariable Long projectId,
+      @PathVariable UUID projectId,
       @RequestParam(required = false) String cursor,
       @RequestParam(defaultValue = "20") int limit) {
     CursorPage<ProjectCharacterSummaryResponse> page =
@@ -36,7 +37,7 @@ public class ProjectCharacterController {
 
   @GetMapping("/{characterId}")
   public ResponseEntity<ApiResponse<ProjectCharacterDetailResponse>> detail(
-      @PathVariable Long projectId, @PathVariable Long characterId) {
+      @PathVariable UUID projectId, @PathVariable UUID characterId) {
     ProjectCharacterDetailResponse response =
         ProjectCharacterDetailResponse.from(
             getProjectCharacterDetailUseCase.execute(projectId, characterId));

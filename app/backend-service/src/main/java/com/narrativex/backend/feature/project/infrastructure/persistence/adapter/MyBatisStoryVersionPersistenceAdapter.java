@@ -10,6 +10,7 @@ import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis
 import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.StoryVersionRow;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -19,24 +20,24 @@ public class MyBatisStoryVersionPersistenceAdapter implements StoryVersionReposi
   private final StoryVersionMapper mapper;
 
   @Override
-  public int findMaxVersionNumberByProjectId(Long id) {
+  public int findMaxVersionNumberByProjectId(UUID id) {
     return mapper.maxVersion(id);
   }
 
   @Override
-  public Optional<StoryVersion> findByIdAndProjectId(Long id, Long projectId) {
+  public Optional<StoryVersion> findByIdAndProjectId(UUID id, UUID projectId) {
     return Optional.ofNullable(mapper.findByIdAndProject(id, projectId))
         .map(MyBatisStoryVersionPersistenceAdapter::toDomain);
   }
 
   @Override
-  public Optional<StoryVersion> findActiveByProjectId(Long id) {
+  public Optional<StoryVersion> findActiveByProjectId(UUID id) {
     return Optional.ofNullable(mapper.findActive(id, StoryVersionStatus.ACTIVE.name()))
         .map(MyBatisStoryVersionPersistenceAdapter::toDomain);
   }
 
   @Override
-  public Optional<StoryVersion> findLatestByProjectId(Long id) {
+  public Optional<StoryVersion> findLatestByProjectId(UUID id) {
     return Optional.ofNullable(mapper.findLatest(id))
         .map(MyBatisStoryVersionPersistenceAdapter::toDomain);
   }
@@ -65,7 +66,7 @@ public class MyBatisStoryVersionPersistenceAdapter implements StoryVersionReposi
     row.setStatus(value.getStatus().name());
     row.setModerationDecision(value.getModerationDecision().name());
     if (value.getId() == null) {
-      Long id = mapper.insert(row);
+      UUID id = mapper.insert(row);
       return toDomain(mapper.findById(id));
     }
     StoryVersionRow existing = mapper.findById(value.getId());

@@ -2,10 +2,11 @@ package com.narrativex.backend.feature.project.application.query;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 /** Projection returned by the persistence query for the Project Overview screen. */
 public record ProjectOverviewView(
-    Long id,
+    UUID id,
     String name,
     String description,
     String coverImageUrl,
@@ -29,7 +30,7 @@ public record ProjectOverviewView(
   public record Counts(int characters, int locations, int assets) {}
 
   public record Chapter(
-      Long id,
+      UUID id,
       int orderIndex,
       String title,
       String status,

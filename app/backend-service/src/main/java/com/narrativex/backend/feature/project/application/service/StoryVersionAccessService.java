@@ -4,6 +4,7 @@ import com.narrativex.backend.feature.common.exception.ResourceNotFoundException
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
 import com.narrativex.backend.feature.project.application.port.out.StoryVersionRepository;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,7 +18,7 @@ public class StoryVersionAccessService implements StoryVersionAccess {
 
   @Override
   @Transactional(readOnly = true)
-  public void requireOwnedStoryVersion(Long projectId, Long storyVersionId, String ownerId) {
+  public void requireOwnedStoryVersion(UUID projectId, UUID storyVersionId, String ownerId) {
     projectAccess.findOwnedProject(projectId, ownerId);
     storyVersionRepository
         .findByIdAndProjectId(storyVersionId, projectId)

@@ -1,41 +1,42 @@
 package com.narrativex.backend.feature.storyboard.domain.aggregate;
 
-import com.narrativex.backend.feature.common.domain.AggregateRoot;
+import com.narrativex.backend.feature.common.domain.UuidAggregateRoot;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 /** Storyboard chapter aggregate tied to a story-version snapshot. */
-public final class Chapter extends AggregateRoot {
+public final class Chapter extends UuidAggregateRoot {
   private static final Pattern SHA_256_HEX = Pattern.compile("[0-9a-f]{64}");
   private static final String EMPTY_SOURCE_SHA_256 =
       "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
-  private final Long storyVersionId;
+  private final UUID storyVersionId;
   private int orderIndex;
   private String title;
   private String sourceText;
   private String sourceHash;
 
   /** Convenience constructor for an empty draft Chapter. */
-  public Chapter(Long storyVersionId, int orderIndex, String title) {
+  public Chapter(UUID storyVersionId, int orderIndex, String title) {
     this(storyVersionId, orderIndex, title, "", EMPTY_SOURCE_SHA_256);
   }
 
   public Chapter(
-      Long storyVersionId, int orderIndex, String title, String sourceText, String sourceHash) {
+      UUID storyVersionId, int orderIndex, String title, String sourceText, String sourceHash) {
     this(null, 0L, storyVersionId, orderIndex, title, sourceText, sourceHash);
   }
 
   private Chapter(
-      Long id,
+      UUID id,
       long rowVersion,
-      Long storyVersionId,
+      UUID storyVersionId,
       int orderIndex,
       String title,
       String sourceText,
       String sourceHash) {
     super(id, rowVersion);
-    this.storyVersionId = positiveId(storyVersionId, "storyVersionId");
+    this.storyVersionId = Objects.requireNonNull(storyVersionId, "storyVersionId");
     this.orderIndex = validOrderIndex(orderIndex);
     this.title = requiredTitle(title);
     this.sourceText = Objects.requireNonNull(sourceText, "sourceText");
@@ -44,14 +45,14 @@ public final class Chapter extends AggregateRoot {
 
   /** Backward-compatible rehydration for legacy empty draft fixtures. */
   public static Chapter rehydrate(
-      Long id, long rowVersion, Long storyVersionId, int orderIndex, String title) {
+      UUID id, long rowVersion, UUID storyVersionId, int orderIndex, String title) {
     return new Chapter(id, rowVersion, storyVersionId, orderIndex, title, "", EMPTY_SOURCE_SHA_256);
   }
 
   public static Chapter rehydrate(
-      Long id,
+      UUID id,
       long rowVersion,
-      Long storyVersionId,
+      UUID storyVersionId,
       int orderIndex,
       String title,
       String sourceText,
@@ -59,53 +60,27 @@ public final class Chapter extends AggregateRoot {
     return new Chapter(id, rowVersion, storyVersionId, orderIndex, title, sourceText, sourceHash);
   }
 
-  /** Rename this chapter while preserving the chapter identity and story-version boundary. */
   public void rename(String newTitle) {
     title = requiredTitle(newTitle);
   }
 
-  /** Replace persisted Chapter source using a server-computed fingerprint. */
   public void updateSource(String newSourceText, String newSourceHash) {
     sourceText = Objects.requireNonNull(newSourceText, "sourceText");
     sourceHash = requiredSourceHash(newSourceHash);
   }
 
-  /** Change chapter ordering. Cross-chapter uniqueness is enforced by the repository/database. */
   public void reorder(int newOrderIndex) {
     orderIndex = validOrderIndex(newOrderIndex);
   }
 
-  public Long getStoryVersionId() {
-    return storyVersionId;
-  }
-
-  public int getOrderIndex() {
-    return orderIndex;
-  }
-
-  public String getTitle() {
-    return title;
-  }
-
-  public String getSourceText() {
-    return sourceText;
-  }
-
-  public String getSourceHash() {
-    return sourceHash;
-  }
-
-  private static Long positiveId(Long value, String field) {
-    if (value == null || value <= 0) {
-      throw new IllegalArgumentException(field + " must be positive");
-    }
-    return value;
-  }
+  public UUID getStoryVersionId() { return storyVersionId; }
+  public int getOrderIndex() { return orderIndex; }
+  public String getTitle() { return title; }
+  public String getSourceText() { return sourceText; }
+  public String getSourceHash() { return sourceHash; }
 
   private static int validOrderIndex(int value) {
-    if (value < 0) {
-      throw new IllegalArgumentException("orderIndex must not be negative");
-    }
+    if (value < 0) throw new IllegalArgumentException("orderIndex must not be negative");
     return value;
   }
 

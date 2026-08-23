@@ -2,11 +2,12 @@ package com.narrativex.backend.feature.character.application.port.out;
 
 import com.narrativex.backend.feature.character.domain.entity.OutfitVersion;
 import java.util.Optional;
+import java.util.UUID;
 
 public interface OutfitVersionRepository {
-  int findMaxVersionNumberByCharacterId(Long characterId);
+  int findMaxVersionNumberByCharacterId(UUID characterId);
 
-  Optional<OutfitVersion> findOwnedById(Long outfitVersionId, String ownerId);
+  Optional<OutfitVersion> findOwnedById(UUID outfitVersionId, String ownerId);
 
   OutfitVersion save(OutfitVersion outfitVersion);
 }

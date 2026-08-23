@@ -2,8 +2,8 @@ package com.narrativex.backend.feature.project.infrastructure.persistence.adapte
 
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.pagination.CursorCodec;
-import com.narrativex.backend.feature.common.pagination.CursorKey;
 import com.narrativex.backend.feature.common.pagination.CursorPage;
+import com.narrativex.backend.feature.common.pagination.UuidCursorKey;
 import com.narrativex.backend.feature.project.application.port.out.ProjectRepository;
 import com.narrativex.backend.feature.project.domain.aggregate.Project;
 import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ProjectMapper;
@@ -11,6 +11,7 @@ import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
@@ -24,7 +25,7 @@ public class MyBatisProjectRepository implements ProjectRepository {
   @Override
   @Transactional(readOnly = true)
   public CursorPage<Project> findActiveByOwnerId(String ownerId, String cursor, int limit) {
-    CursorKey cursorKey = CursorCodec.decode(cursor);
+    UuidCursorKey cursorKey = CursorCodec.decodeUuid(cursor);
     int fetchLimit = limit + 1;
     List<ProjectRow> rows =
         cursorKey == null
@@ -41,13 +42,13 @@ public class MyBatisProjectRepository implements ProjectRepository {
 
   @Override
   @Transactional(readOnly = true)
-  public Optional<Project> findOwnedById(Long projectId, String ownerId) {
+  public Optional<Project> findOwnedById(UUID projectId, String ownerId) {
     return Optional.ofNullable(mapper.findOwnedById(projectId, ownerId)).map(ProjectRow::toDomain);
   }
 
   @Override
   @Transactional(readOnly = true)
-  public Optional<Project> findOwnedByIdForUpdate(Long projectId, String ownerId) {
+  public Optional<Project> findOwnedByIdForUpdate(UUID projectId, String ownerId) {
     return Optional.ofNullable(mapper.findOwnedByIdForUpdate(projectId, ownerId))
         .map(ProjectRow::toDomain);
   }
@@ -56,7 +57,7 @@ public class MyBatisProjectRepository implements ProjectRepository {
   @Transactional
   public Project save(Project project) {
     if (project.getId() == null) {
-      Long insertedId = mapper.insert(toInsertRow(project));
+      UUID insertedId = mapper.insert(toInsertRow(project));
       if (insertedId == null) {
         throw new IllegalStateException("Inserted project did not return an id");
       }
@@ -75,7 +76,7 @@ public class MyBatisProjectRepository implements ProjectRepository {
             () -> new OptimisticLockingFailureException("Project was modified concurrently"));
   }
 
-  private Optional<Project> findById(Long projectId) {
+  private Optional<Project> findById(UUID projectId) {
     return Optional.ofNullable(mapper.findById(projectId)).map(ProjectRow::toDomain);
   }
 

@@ -3,29 +3,30 @@ package com.narrativex.backend.feature.project.infrastructure.persistence.mybati
 import com.narrativex.backend.feature.common.infrastructure.persistence.mybatis.NarrativeXMyBatisMapper;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 import org.apache.ibatis.annotations.Param;
 
 public interface ProjectQueryMapper extends NarrativeXMyBatisMapper {
-  ProjectOverviewRow findOverview(@Param("projectId") Long projectId);
+  ProjectOverviewRow findOverview(@Param("projectId") UUID projectId);
 
   List<ProjectOverviewChapterRow> findOverviewChapters(
-      @Param("storyVersionId") Long storyVersionId);
+      @Param("storyVersionId") UUID storyVersionId);
 
   List<ProjectLocationRow> findActiveLocationsFirstPage(
-      @Param("projectId") Long projectId, @Param("limit") int limit);
+      @Param("projectId") UUID projectId, @Param("limit") int limit);
 
   List<ProjectLocationRow> findActiveLocationsAfter(
-      @Param("projectId") Long projectId,
+      @Param("projectId") UUID projectId,
       @Param("updatedAt") Instant updatedAt,
-      @Param("id") Long id,
+      @Param("id") UUID id,
       @Param("limit") int limit);
 
   List<ProjectAssetRow> findActiveAssetsFirstPage(
-      @Param("projectId") Long projectId, @Param("limit") int limit);
+      @Param("projectId") UUID projectId, @Param("limit") int limit);
 
   List<ProjectAssetRow> findActiveAssetsAfter(
-      @Param("projectId") Long projectId,
+      @Param("projectId") UUID projectId,
       @Param("updatedAt") Instant updatedAt,
-      @Param("id") Long id,
+      @Param("id") UUID id,
       @Param("limit") int limit);
 }

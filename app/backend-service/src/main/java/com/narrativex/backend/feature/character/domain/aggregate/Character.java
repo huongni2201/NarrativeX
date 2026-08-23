@@ -7,6 +7,7 @@ import com.narrativex.backend.feature.character.domain.exception.CharacterPersis
 import com.narrativex.backend.feature.common.domain.AggregateRoot;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 
 /** Reusable identity aggregate owned by a user/workspace, never duplicated per project. */
 public final class Character extends AggregateRoot {
@@ -17,7 +18,7 @@ public final class Character extends AggregateRoot {
   private CharacterStatus status;
 
   private Character(
-      Long id,
+      UUID id,
       long rowVersion,
       String ownerId,
       String workspaceId,
@@ -39,7 +40,7 @@ public final class Character extends AggregateRoot {
   }
 
   public static Character rehydrate(
-      Long id,
+      UUID id,
       long rowVersion,
       String ownerId,
       String workspaceId,
@@ -55,45 +56,23 @@ public final class Character extends AggregateRoot {
   }
 
   public void archive() {
-    if (status == CharacterStatus.ARCHIVED) {
-      return;
-    }
+    if (status == CharacterStatus.ARCHIVED) return;
     status = CharacterStatus.ARCHIVED;
   }
 
   private void ensureVersionCanBeCreated() {
-    if (getId() == null) {
-      throw new CharacterPersistenceRequiredException();
-    }
-    if (status == CharacterStatus.ARCHIVED) {
-      throw new ArchivedCharacterException();
-    }
+    if (getId() == null) throw new CharacterPersistenceRequiredException();
+    if (status == CharacterStatus.ARCHIVED) throw new ArchivedCharacterException();
   }
 
-  public String getOwnerId() {
-    return ownerId;
-  }
-
-  public String getWorkspaceId() {
-    return workspaceId;
-  }
-
-  public String getCanonicalName() {
-    return canonicalName;
-  }
-
-  public List<String> getAliases() {
-    return aliases;
-  }
-
-  public CharacterStatus getStatus() {
-    return status;
-  }
+  public String getOwnerId() { return ownerId; }
+  public String getWorkspaceId() { return workspaceId; }
+  public String getCanonicalName() { return canonicalName; }
+  public List<String> getAliases() { return aliases; }
+  public CharacterStatus getStatus() { return status; }
 
   private static String required(String value, String field) {
-    if (value == null || value.isBlank()) {
-      throw new IllegalArgumentException(field + " must not be blank");
-    }
+    if (value == null || value.isBlank()) throw new IllegalArgumentException(field + " must not be blank");
     return value;
   }
 

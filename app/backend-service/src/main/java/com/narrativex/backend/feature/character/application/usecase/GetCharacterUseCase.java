@@ -4,6 +4,7 @@ import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.character.application.port.out.CharacterRepository;
 import com.narrativex.backend.feature.character.domain.aggregate.Character;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,7 +17,7 @@ public class GetCharacterUseCase {
   private final CurrentUserId currentUserId;
 
   @Transactional(readOnly = true)
-  public Character execute(Long characterId) {
+  public Character execute(UUID characterId) {
     return characterRepository
         .findOwnedById(characterId, currentUserId.get())
         .orElseThrow(() -> new ResourceNotFoundException("Character not found"));

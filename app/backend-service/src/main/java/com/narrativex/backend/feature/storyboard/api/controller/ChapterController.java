@@ -27,6 +27,7 @@ import jakarta.validation.Valid;
 import java.io.IOException;
 import java.net.URI;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
@@ -61,7 +62,7 @@ public class ChapterController {
 
   @PostMapping
   public ResponseEntity<ApiResponse<ChapterResponse>> create(
-      @PathVariable Long projectId,
+      @PathVariable UUID projectId,
       @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
       @Valid @RequestBody CreateChapterRequest request) {
     log.info(
@@ -86,8 +87,8 @@ public class ChapterController {
 
   @PostMapping(value = "/batch-import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   public ResponseEntity<ApiResponse<List<ChapterResponse>>> batchImport(
-      @PathVariable Long projectId,
-      @RequestParam(required = false) Long storyVersionId,
+      @PathVariable UUID projectId,
+      @RequestParam(required = false) UUID storyVersionId,
       @RequestParam("file") MultipartFile file)
       throws IOException {
     log.info(
@@ -107,8 +108,8 @@ public class ChapterController {
 
   @GetMapping
   public ResponseEntity<ApiResponse<CursorPage<ChapterSummaryResponse>>> list(
-      @PathVariable Long projectId,
-      @RequestParam Long storyVersionId,
+      @PathVariable UUID projectId,
+      @RequestParam UUID storyVersionId,
       @RequestParam(required = false) String cursor,
       @RequestParam(defaultValue = "50") int limit) {
     return ResponseEntity.ok(listChaptersUseCase.execute(projectId, storyVersionId, cursor, limit));
@@ -116,7 +117,7 @@ public class ChapterController {
 
   @GetMapping("/{chapterId}")
   public ResponseEntity<ApiResponse<ChapterResponse>> get(
-      @PathVariable Long projectId, @PathVariable Long chapterId) {
+      @PathVariable UUID projectId, @PathVariable UUID chapterId) {
     ApiResponse<ChapterResponse> response = getChapterUseCase.execute(projectId, chapterId);
     return ResponseEntity.ok()
         .header(HttpHeaders.ETAG, quotedVersion(response.data().rowVersion()))
@@ -125,14 +126,14 @@ public class ChapterController {
 
   @GetMapping("/{chapterId}/workspace")
   public ResponseEntity<ApiResponse<ChapterWorkspaceResponse>> workspace(
-      @PathVariable Long projectId, @PathVariable Long chapterId) {
+      @PathVariable UUID projectId, @PathVariable UUID chapterId) {
     return ResponseEntity.ok(getChapterWorkspaceUseCase.execute(projectId, chapterId));
   }
 
   @PutMapping("/{chapterId}")
   public ResponseEntity<ApiResponse<ChapterResponse>> update(
-      @PathVariable Long projectId,
-      @PathVariable Long chapterId,
+      @PathVariable UUID projectId,
+      @PathVariable UUID chapterId,
       @RequestHeader(value = HttpHeaders.IF_MATCH, required = false) String ifMatch,
       @Valid @RequestBody UpdateChapterRequest request) {
     log.info("API PUT update chapterId={} for projectId={}", chapterId, projectId);
@@ -148,8 +149,8 @@ public class ChapterController {
 
   @PostMapping("/{chapterId}/content")
   public ResponseEntity<ApiResponse<ChapterContentImportResponse>> importContent(
-      @PathVariable Long projectId,
-      @PathVariable Long chapterId,
+      @PathVariable UUID projectId,
+      @PathVariable UUID chapterId,
       @Valid @RequestBody ImportChapterContentRequest request) {
     log.info(
         "API POST import chapter content for chapterId={}, projectId={}", chapterId, projectId);
@@ -162,13 +163,13 @@ public class ChapterController {
 
   @GetMapping("/{chapterId}/language-status")
   public ResponseEntity<ApiResponse<ChapterLanguageStatusResponse>> languageStatus(
-      @PathVariable Long projectId, @PathVariable Long chapterId) {
+      @PathVariable UUID projectId, @PathVariable UUID chapterId) {
     return ResponseEntity.ok(getChapterLanguageStatusUseCase.execute(projectId, chapterId));
   }
 
   @GetMapping("/{chapterId}/content-variants")
   public ResponseEntity<ApiResponse<List<ChapterContentVariantResponse>>> contentVariants(
-      @PathVariable Long projectId, @PathVariable Long chapterId) {
+      @PathVariable UUID projectId, @PathVariable UUID chapterId) {
     return ResponseEntity.ok(listChapterContentVariantsUseCase.execute(projectId, chapterId));
   }
 

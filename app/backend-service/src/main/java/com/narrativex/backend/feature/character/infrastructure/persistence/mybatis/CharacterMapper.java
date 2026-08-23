@@ -3,6 +3,7 @@ package com.narrativex.backend.feature.character.infrastructure.persistence.myba
 import com.narrativex.backend.feature.common.infrastructure.persistence.mybatis.NarrativeXMyBatisMapper;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 import org.apache.ibatis.annotations.Param;
 
 public interface CharacterMapper extends NarrativeXMyBatisMapper {
@@ -12,59 +13,59 @@ public interface CharacterMapper extends NarrativeXMyBatisMapper {
   List<CharacterRow> findActiveAfter(
       @Param("ownerId") String ownerId,
       @Param("updatedAt") Instant updatedAt,
-      @Param("id") Long id,
+      @Param("id") UUID id,
       @Param("limit") int limit);
 
   long countActive(@Param("ownerId") String ownerId, @Param("status") String status);
 
   CharacterRow findOwned(
-      @Param("id") Long id,
+      @Param("id") UUID id,
       @Param("ownerId") String ownerId,
       @Param("excludedStatus") String excludedStatus);
 
   CharacterRow findOwnedForUpdate(
-      @Param("id") Long id,
+      @Param("id") UUID id,
       @Param("ownerId") String ownerId,
       @Param("excludedStatus") String excludedStatus);
 
-  CharacterRow findCharacter(@Param("id") Long id);
+  CharacterRow findCharacter(@Param("id") UUID id);
 
-  Long insertCharacter(CharacterRow row);
+  UUID insertCharacter(CharacterRow row);
 
   int updateCharacter(CharacterRow row);
 
-  int maxCharacterVersion(@Param("characterId") Long characterId);
+  int maxCharacterVersion(@Param("characterId") UUID characterId);
 
-  CharacterVersionRow findOwnedVersion(@Param("id") Long id, @Param("ownerId") String ownerId);
+  CharacterVersionRow findOwnedVersion(@Param("id") UUID id, @Param("ownerId") String ownerId);
 
-  CharacterVersionRow findCharacterVersion(@Param("id") Long id);
+  CharacterVersionRow findCharacterVersion(@Param("id") UUID id);
 
-  Long insertCharacterVersion(CharacterVersionRow row);
+  UUID insertCharacterVersion(CharacterVersionRow row);
 
   int updateCharacterVersion(CharacterVersionRow row);
 
-  int maxOutfitVersion(@Param("characterId") Long characterId);
+  int maxOutfitVersion(@Param("characterId") UUID characterId);
 
   OutfitVersionRow findOwnedOutfit(
-      @Param("id") Long id,
+      @Param("id") UUID id,
       @Param("ownerId") String ownerId,
       @Param("excludedStatus") String excludedStatus);
 
-  OutfitVersionRow findOutfit(@Param("id") Long id);
+  OutfitVersionRow findOutfit(@Param("id") UUID id);
 
-  Long insertOutfit(OutfitVersionRow row);
+  UUID insertOutfit(OutfitVersionRow row);
 
   int updateOutfit(OutfitVersionRow row);
 
-  CharacterAppearanceRow findAppearance(@Param("id") Long id);
+  CharacterAppearanceRow findAppearance(@Param("id") UUID id);
 
-  Long insertAppearance(CharacterAppearanceRow row);
+  UUID insertAppearance(CharacterAppearanceRow row);
 
   int updateAppearance(CharacterAppearanceRow row);
 
-  ProjectCharacterRow findProjectCharacter(@Param("id") Long id);
+  ProjectCharacterRow findProjectCharacter(@Param("id") UUID id);
 
-  Long insertProjectCharacter(ProjectCharacterRow row);
+  UUID insertProjectCharacter(ProjectCharacterRow row);
 
   int updateProjectCharacter(ProjectCharacterRow row);
 }
