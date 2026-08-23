@@ -2,9 +2,12 @@ package com.narrativex.backend.feature.generation.infrastructure.persistence.ada
 
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.CharacterCanon;
+import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.CharacterReference;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.LocationCanon;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.VisualPromptContext;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptContextMapper;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -25,6 +28,22 @@ public class MyBatisVisualPromptContextPersistenceAdapter implements VisualPromp
                 locationRow.getDescription(),
                 locationRow.getVisualPrompt());
 
+    Map<Long, java.util.List<CharacterReference>> referencesByAssignment =
+        mapper.findCharacterReferences(projectId, sceneId).stream()
+            .collect(
+                Collectors.groupingBy(
+                    row -> row.getAssignmentId(),
+                    Collectors.mapping(
+                        row ->
+                            new CharacterReference(
+                                row.getAssetId(),
+                                row.getRole(),
+                                row.getPriority(),
+                                row.getStorageKey(),
+                                row.getContentType(),
+                                row.getSha256()),
+                        Collectors.toList())));
+
     var characters =
         mapper.findCharacters(projectId, sceneId).stream()
             .map(
@@ -39,7 +58,8 @@ public class MyBatisVisualPromptContextPersistenceAdapter implements VisualPromp
                         row.getAgeState(),
                         row.getHairstyle(),
                         row.getInjury(),
-                        row.getWardrobeContext()))
+                        row.getWardrobeContext(),
+                        referencesByAssignment.getOrDefault(row.getAssignmentId(), java.util.List.of())))
             .toList();
 
     return new VisualPromptContext(location, characters);

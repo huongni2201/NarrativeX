@@ -36,7 +36,8 @@
           JOIN project_characters pc ON pc.id = sc.project_character_id
           JOIN characters c ON c.id = pc.character_id
           LEFT JOIN LATERAL (
-              SELECT cv.version_number,
+              SELECT cv.id,
+                     cv.version_number,
                      cv.visual_prompt
                 FROM character_versions cv
                WHERE cv.character_id = c.id
@@ -72,5 +73,52 @@
            AND pc.status = 'ACTIVE'
            AND c.status = 'ACTIVE'
          ORDER BY sc.order_index, pc.id
+    </select>
+
+    <select id="findCharacterReferences"
+            resultType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptReferenceRow">
+        SELECT pc.id AS assignment_id,
+               ma.id AS asset_id,
+               ref.reference_role AS role,
+               ref.priority,
+               ma.storage_key,
+               COALESCE(ma.detected_content_type, ma.content_type) AS content_type,
+               ma.sha256
+          FROM scene_characters sc
+          JOIN scenes s ON s.id = sc.scene_id
+          JOIN chapters ch ON ch.id = s.chapter_id
+          JOIN project_characters pc ON pc.id = sc.project_character_id
+          JOIN projects p ON p.id = pc.project_id
+          JOIN characters c ON c.id = pc.character_id
+          JOIN LATERAL (
+              SELECT cv.id
+                FROM character_versions cv
+               WHERE cv.character_id = c.id
+                 AND (
+                     cv.id = pc.pinned_character_version_id
+                     OR (
+                         pc.pinned_character_version_id IS NULL
+                         AND cv.status = 'LOCKED'
+                     )
+                 )
+               ORDER BY CASE WHEN cv.id = pc.pinned_character_version_id THEN 0 ELSE 1 END,
+                        cv.version_number DESC,
+                        cv.id DESC
+               LIMIT 1
+          ) canon ON TRUE
+          JOIN character_version_reference_assets ref
+            ON ref.character_version_id = canon.id
+          JOIN media_assets ma
+            ON ma.id = ref.media_asset_id
+           AND ma.account_id = p.owner_id
+           AND ma.asset_type = 'IMAGE'
+           AND ma.status = 'READY'
+           AND ma.deleted_at IS NULL
+         WHERE sc.scene_id = #{sceneId}
+           AND ch.project_id = #{projectId}
+           AND pc.project_id = #{projectId}
+           AND pc.status = 'ACTIVE'
+           AND c.status = 'ACTIVE'
+         ORDER BY sc.order_index, pc.id, ref.priority, ma.id
     </select>
 </mapper>

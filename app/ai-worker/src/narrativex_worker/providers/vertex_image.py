@@ -51,6 +51,12 @@ class VertexImageProvider(ImageGenerationProvider):
         )
 
     async def submit(self, request: ImageGenerationRequest) -> ImageProviderOperation:
+        # Production image execution is batch-only. References are private R2 objects and must be
+        # staged through the batch adapter before Vertex can consume them as fileData parts.
+        if request.references:
+            raise VertexImageProviderError(
+                "Character reference images require the Vertex batch adapter"
+            )
         token = await self._access_token()
         endpoint = _endpoint(
             self.settings.vertex_project_id,
@@ -178,18 +184,55 @@ def _request_headers(token: str, service_tier: str) -> dict[str, str]:
     return headers
 
 
-def _request_body(request: ImageGenerationRequest) -> dict[str, object]:
+def _prompt_text(request: ImageGenerationRequest) -> str:
     prompt = request.prompt
     if request.negative_prompt:
         prompt = (
             f"{prompt}\n\nAvoid the following visual elements unless required by the scene: "
             f"{request.negative_prompt}"
         )
+    return prompt
+
+
+def _request_body(
+    request: ImageGenerationRequest,
+    *,
+    reference_uris: dict[str, str] | None = None,
+) -> dict[str, object]:
+    parts: list[dict[str, object]] = []
+    if request.references:
+        if reference_uris is None:
+            raise VertexImageProviderError(
+                "Reference image URIs must be resolved before building a Vertex request"
+            )
+        for reference in request.references:
+            uri = reference_uris.get(reference.asset_id)
+            if not uri:
+                raise VertexImageProviderError(
+                    f"Reference image {reference.asset_id} has no staged GCS URI"
+                )
+            parts.append(
+                {
+                    "text": (
+                        f"Character identity reference for {reference.character_name} "
+                        f"({reference.role}). Preserve this character's identity from the image."
+                    )
+                }
+            )
+            parts.append(
+                {
+                    "fileData": {
+                        "fileUri": uri,
+                        "mimeType": reference.mime_type,
+                    }
+                }
+            )
+    parts.append({"text": _prompt_text(request)})
     return {
         "contents": [
             {
                 "role": "USER",
-                "parts": [{"text": prompt}],
+                "parts": parts,
             }
         ],
         "generationConfig": {

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.CharacterVersionReferenceMapper">
+  <resultMap id="referenceRow" type="com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.CharacterVersionReferenceRow">
+    <id property="characterVersionId" column="character_version_id"/>
+    <id property="mediaAssetId" column="media_asset_id" javaType="java.util.UUID" typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler"/>
+    <result property="referenceRole" column="reference_role"/>
+    <result property="priority" column="priority"/>
+  </resultMap>
+
+  <select id="findByVersionId" resultMap="referenceRow">
+    SELECT character_version_id, media_asset_id, reference_role, priority
+      FROM character_version_reference_assets
+     WHERE character_version_id = #{characterVersionId}
+     ORDER BY priority, media_asset_id
+  </select>
+
+  <delete id="deleteByVersionId">
+    DELETE FROM character_version_reference_assets
+     WHERE character_version_id = #{characterVersionId}
+  </delete>
+
+  <insert id="insert" parameterType="com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.CharacterVersionReferenceRow">
+    INSERT INTO character_version_reference_assets
+      (character_version_id, media_asset_id, reference_role, priority)
+    VALUES
+      (#{characterVersionId}, #{mediaAssetId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}, #{referenceRole}, #{priority})
+  </insert>
+</mapper>

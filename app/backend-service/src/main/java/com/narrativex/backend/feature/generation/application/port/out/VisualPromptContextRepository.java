@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.generation.application.port.out;
 
 import java.util.List;
+import java.util.UUID;
 
 /** Read-only generation projection used to snapshot character and location continuity. */
 public interface VisualPromptContextRepository {
@@ -18,6 +19,14 @@ public interface VisualPromptContextRepository {
 
   record LocationCanon(Long locationId, String name, String description, String visualPrompt) {}
 
+  record CharacterReference(
+      UUID assetId,
+      String role,
+      int priority,
+      String storageKey,
+      String contentType,
+      String sha256) {}
+
   record CharacterCanon(
       Long assignmentId,
       Long characterId,
@@ -28,5 +37,10 @@ public interface VisualPromptContextRepository {
       String ageState,
       String hairstyle,
       String injury,
-      String wardrobeContext) {}
+      String wardrobeContext,
+      List<CharacterReference> references) {
+    public CharacterCanon {
+      references = references == null ? List.of() : List.copyOf(references);
+    }
+  }
 }
