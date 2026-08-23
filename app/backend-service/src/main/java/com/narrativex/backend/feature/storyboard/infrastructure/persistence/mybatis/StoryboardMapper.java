@@ -2,22 +2,23 @@ package com.narrativex.backend.feature.storyboard.infrastructure.persistence.myb
 
 import com.narrativex.backend.feature.common.infrastructure.persistence.mybatis.NarrativeXMyBatisMapper;
 import java.util.List;
+import java.util.UUID;
 import org.apache.ibatis.annotations.Param;
 
 public interface StoryboardMapper extends NarrativeXMyBatisMapper {
-  List<SceneRow> findCurrentScenes(@Param("chapterId") Long chapterId);
+  List<SceneRow> findCurrentScenes(@Param("chapterId") UUID chapterId);
 
-  List<VisualBeatRow> findVisualBeats(@Param("sceneIds") List<Long> sceneIds);
+  List<VisualBeatRow> findVisualBeats(@Param("sceneIds") List<UUID> sceneIds);
 
-  SceneRow findScene(@Param("id") Long id);
+  SceneRow findScene(@Param("id") UUID id);
 
-  SceneRow findSceneForUpdate(@Param("id") Long id, @Param("chapterId") Long chapterId);
+  SceneRow findSceneForUpdate(@Param("id") UUID id, @Param("chapterId") UUID chapterId);
 
-  VisualBeatRow findVisualBeat(@Param("id") Long id);
+  VisualBeatRow findVisualBeat(@Param("id") UUID id);
 
-  int maxVisualBeatOrder(@Param("sceneId") Long sceneId);
+  int maxVisualBeatOrder(@Param("sceneId") UUID sceneId);
 
-  Long insertVisualBeat(VisualBeatRow row);
+  UUID insertVisualBeat(VisualBeatRow row);
 
   int updateVisualBeat(VisualBeatRow row);
 }
