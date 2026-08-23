@@ -4,11 +4,12 @@ import com.narrativex.backend.feature.generation.domain.enums.ImageStyle;
 import com.narrativex.backend.feature.generation.domain.enums.ProductionMode;
 import java.math.BigDecimal;
 import java.util.Objects;
+import java.util.UUID;
 
 /** Internal command for creating one authorized immutable media-plan revision. */
 public record CreateMediaPlanCommand(
-    Long projectId,
-    Long chapterId,
+    UUID projectId,
+    UUID chapterId,
     ProductionMode productionMode,
     BigDecimal estimatedCost,
     String imageAspectRatio,
@@ -19,12 +20,8 @@ public record CreateMediaPlanCommand(
     String pricingFingerprint,
     ImageStyle imageStyle) {
   public CreateMediaPlanCommand {
-    if (projectId == null || projectId <= 0) {
-      throw new IllegalArgumentException("projectId must be positive");
-    }
-    if (chapterId == null || chapterId <= 0) {
-      throw new IllegalArgumentException("chapterId must be positive");
-    }
+    Objects.requireNonNull(projectId, "projectId");
+    Objects.requireNonNull(chapterId, "chapterId");
     Objects.requireNonNull(productionMode, "productionMode");
     Objects.requireNonNull(imageStyle, "imageStyle");
     Objects.requireNonNull(estimatedCost, "estimatedCost");
