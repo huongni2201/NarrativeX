@@ -4,9 +4,9 @@ import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.generation.api.request.EstimateMediaJobRequest;
 import com.narrativex.backend.feature.generation.api.response.MediaCostEstimateResponse;
+import com.narrativex.backend.feature.generation.application.port.out.ImageGenerationCatalog;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSourceAccess;
-import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +17,7 @@ public class EstimateMediaJobUseCase {
   private final CurrentUserId currentUserId;
   private final ChapterAnalysisSourceAccess chapterAnalysisSourceAccess;
   private final MediaPlanningSourceAccess mediaPlanningSourceAccess;
+  private final ImageGenerationCatalog imageGenerationCatalog;
 
   @Transactional(readOnly = true)
   public ApiResponse<MediaCostEstimateResponse> execute(
@@ -27,13 +28,12 @@ public class EstimateMediaJobUseCase {
         mediaPlanningSourceAccess.requireCurrent(chapterId).scenes().stream()
             .mapToInt(scene -> scene.beats().size())
             .sum();
-    BigDecimal unitCost = MediaCostEstimator.unitCost(request.qualityTier());
-    BigDecimal estimatedCost = MediaCostEstimator.estimate(request.qualityTier(), visualBeatCount);
+    var imageProfile = imageGenerationCatalog.resolve(request.qualityTier());
     return ApiResponse.success(
         new MediaCostEstimateResponse(
             visualBeatCount,
-            unitCost.setScale(6).toPlainString(),
-            estimatedCost.toPlainString(),
+            imageProfile.unitCostUsd().setScale(6).toPlainString(),
+            imageProfile.estimateCost(visualBeatCount).toPlainString(),
             "USD"));
   }
 }
