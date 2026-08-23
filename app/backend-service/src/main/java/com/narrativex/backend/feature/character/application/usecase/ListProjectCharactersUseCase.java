@@ -5,6 +5,7 @@ import com.narrativex.backend.feature.character.application.port.out.ProjectChar
 import com.narrativex.backend.feature.character.application.query.ProjectCharacterReadModel;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.pagination.CursorPage;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,7 +17,7 @@ public class ListProjectCharactersUseCase {
   private final CurrentUserId currentUserId;
 
   @Transactional(readOnly = true)
-  public CursorPage<ProjectCharacterReadModel> execute(Long projectId, String cursor, int limit) {
+  public CursorPage<ProjectCharacterReadModel> execute(UUID projectId, String cursor, int limit) {
     String ownerId = currentUserId.get();
     if (!repository.projectOwnedBy(projectId, ownerId)) {
       throw new ResourceNotFoundException("Project not found");
