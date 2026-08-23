@@ -6,8 +6,8 @@ import java.util.UUID;
 
 public record NarrationRequest(
     UUID id,
-    Long projectId,
-    Long chapterId,
+    UUID projectId,
+    UUID chapterId,
     long chapterRowVersion,
     String sourceHash,
     String sourceText,
@@ -19,10 +19,8 @@ public record NarrationRequest(
     UUID voiceReferenceAssetId) {
   public NarrationRequest {
     Objects.requireNonNull(id, "id");
-    if (projectId == null || projectId <= 0)
-      throw new IllegalArgumentException("projectId must be positive");
-    if (chapterId == null || chapterId <= 0)
-      throw new IllegalArgumentException("chapterId must be positive");
+    Objects.requireNonNull(projectId, "projectId");
+    Objects.requireNonNull(chapterId, "chapterId");
     if (chapterRowVersion < 0)
       throw new IllegalArgumentException("chapterRowVersion must not be negative");
     requireText(sourceHash, "sourceHash");
