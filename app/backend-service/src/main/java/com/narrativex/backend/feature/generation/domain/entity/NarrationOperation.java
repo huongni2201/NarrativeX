@@ -5,15 +5,11 @@ import java.util.UUID;
 
 /** Domain grouping only; provider lifecycle remains in ProviderOperation. */
 public record NarrationOperation(
-    UUID id, UUID narrationRequestId, Long generationJobId, Long stageAttemptId) {
+    UUID id, UUID narrationRequestId, UUID generationJobId, UUID stageAttemptId) {
   public NarrationOperation {
     Objects.requireNonNull(id, "id");
     Objects.requireNonNull(narrationRequestId, "narrationRequestId");
-    if (generationJobId == null || generationJobId <= 0) {
-      throw new IllegalArgumentException("generationJobId must be positive");
-    }
-    if (stageAttemptId == null || stageAttemptId <= 0) {
-      throw new IllegalArgumentException("stageAttemptId must be positive");
-    }
+    Objects.requireNonNull(generationJobId, "generationJobId");
+    Objects.requireNonNull(stageAttemptId, "stageAttemptId");
   }
 }
