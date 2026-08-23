@@ -9,6 +9,7 @@ import com.narrativex.backend.feature.storyboard.infrastructure.persistence.myba
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -19,7 +20,7 @@ public class MyBatisChapterContentVariantRepository implements ChapterContentVar
 
   @Override
   public ChapterContentVariant saveOriginal(
-      Long chapterId, String languageCode, String content, String contentHash) {
+      UUID chapterId, String languageCode, String content, String contentHash) {
     return save(
         new ChapterContentVariantRow(
             null,
@@ -39,7 +40,7 @@ public class MyBatisChapterContentVariantRepository implements ChapterContentVar
 
   @Override
   public ChapterContentVariant saveTranslation(
-      Long chapterId,
+      UUID chapterId,
       Long sourceVariantId,
       String languageCode,
       String content,
@@ -84,21 +85,21 @@ public class MyBatisChapterContentVariantRepository implements ChapterContentVar
 
   @Override
   public Optional<ChapterContentVariant> findByIdOwned(
-      Long projectId, Long chapterId, Long variantId, String userId) {
+      UUID projectId, UUID chapterId, Long variantId, String userId) {
     return Optional.ofNullable(mapper.findByIdOwned(projectId, chapterId, variantId, userId))
         .map(MyBatisChapterContentVariantRepository::toDomain);
   }
 
   @Override
   public Optional<ChapterContentVariant> findCurrentOriginalOwned(
-      Long projectId, Long chapterId, String userId) {
+      UUID projectId, UUID chapterId, String userId) {
     return Optional.ofNullable(mapper.findCurrentOriginalOwned(projectId, chapterId, userId))
         .map(MyBatisChapterContentVariantRepository::toDomain);
   }
 
   @Override
   public Optional<ChapterContentVariant> findByIdentity(
-      Long chapterId,
+      UUID chapterId,
       Long sourceVariantId,
       String languageCode,
       String sourceContentHash,
@@ -110,14 +111,14 @@ public class MyBatisChapterContentVariantRepository implements ChapterContentVar
   }
 
   @Override
-  public Optional<ChapterContentVariant> findLatestOriginal(Long chapterId) {
+  public Optional<ChapterContentVariant> findLatestOriginal(UUID chapterId) {
     return Optional.ofNullable(mapper.findLatestOriginal(chapterId))
         .map(MyBatisChapterContentVariantRepository::toDomain);
   }
 
   @Override
   public Optional<ChapterContentVariant> findCompletedTranslation(
-      Long chapterId, Long sourceVariantId, String languageCode, String sourceContentHash) {
+      UUID chapterId, Long sourceVariantId, String languageCode, String sourceContentHash) {
     return Optional.ofNullable(
             mapper.findCompletedTranslation(
                 chapterId, sourceVariantId, languageCode, sourceContentHash))
@@ -126,7 +127,7 @@ public class MyBatisChapterContentVariantRepository implements ChapterContentVar
 
   @Override
   public Optional<ChapterContentVariant> findCompletedTranslation(
-      Long chapterId,
+      UUID chapterId,
       Long sourceVariantId,
       String languageCode,
       String sourceContentHash,
@@ -138,14 +139,14 @@ public class MyBatisChapterContentVariantRepository implements ChapterContentVar
   }
 
   @Override
-  public List<ChapterContentVariant> findAllOwned(Long projectId, Long chapterId) {
+  public List<ChapterContentVariant> findAllOwned(UUID projectId, UUID chapterId) {
     return mapper.findAllOwned(projectId, chapterId).stream()
         .map(MyBatisChapterContentVariantRepository::toDomain)
         .toList();
   }
 
   @Override
-  public void markTranslationsStale(Long chapterId, Long currentSourceVariantId) {
+  public void markTranslationsStale(UUID chapterId, Long currentSourceVariantId) {
     mapper.markTranslationsStale(chapterId, currentSourceVariantId);
   }
 
