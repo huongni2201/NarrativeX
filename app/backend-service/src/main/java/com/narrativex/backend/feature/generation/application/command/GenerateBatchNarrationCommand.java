@@ -5,8 +5,8 @@ import java.util.List;
 import java.util.UUID;
 
 public record GenerateBatchNarrationCommand(
-    Long projectId,
-    List<Long> chapterIds,
+    UUID projectId,
+    List<UUID> chapterIds,
     String voiceId,
     BigDecimal speakingRate,
     UUID voiceReferenceAssetId) {}
