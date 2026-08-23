@@ -4,6 +4,7 @@ import com.narrativex.backend.feature.common.pagination.CursorPage;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.project.api.response.ProjectResourceResponse;
 import com.narrativex.backend.feature.project.application.usecase.ListProjectResourcesUseCase;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,7 +21,7 @@ public class ProjectResourceController {
 
   @GetMapping("/locations")
   public ResponseEntity<ApiResponse<CursorPage<ProjectResourceResponse.Location>>> locations(
-      @PathVariable Long projectId,
+      @PathVariable UUID projectId,
       @RequestParam(required = false) String cursor,
       @RequestParam(defaultValue = "20") int limit) {
     CursorPage<ProjectResourceResponse.Location> page =
@@ -32,7 +33,7 @@ public class ProjectResourceController {
 
   @GetMapping("/assets")
   public ResponseEntity<ApiResponse<CursorPage<ProjectResourceResponse.Asset>>> assets(
-      @PathVariable Long projectId,
+      @PathVariable UUID projectId,
       @RequestParam(required = false) String cursor,
       @RequestParam(defaultValue = "20") int limit) {
     CursorPage<ProjectResourceResponse.Asset> page =
