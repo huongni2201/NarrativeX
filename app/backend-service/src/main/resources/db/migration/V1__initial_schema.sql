@@ -1739,6 +1739,51 @@ CREATE TABLE render_input_snapshots (
         REFERENCES generation_jobs(id) ON DELETE CASCADE,
     media_plan_id UUID NOT NULL REFERENCES media_plans(id),
     media_plan_revision INTEGER NOT NULL CHECK (media_plan_revision > 0),
+    render_profile_json JSONB NOT NULL DEFAULT '{
+      "schemaVersion": 1,
+      "engine": "ffmpeg-python",
+      "rendererVersion": "image-motion-v6-profiled-cinematic",
+      "fps": 30,
+      "video": {
+        "encoder": "libx264",
+        "x264Preset": "veryfast",
+        "crf": 20,
+        "nvencPreset": "p5",
+        "nvencCq": 21,
+        "pixelFormat": "yuv420p"
+      },
+      "audio": {
+        "codec": "aac",
+        "bitrate": "192k",
+        "sampleRate": 48000
+      },
+      "effects": {
+        "transition": "LEGACY_FADE",
+        "transitionSeconds": 0.12,
+        "colorGrade": "NONE",
+        "backgroundMode": "COVER",
+        "backgroundBlurSigma": 22.0,
+        "overlayStyle": "NONE",
+        "overlayOpacity": 0.30,
+        "watermarkWidthRatio": 0.12,
+        "watermarkOpacity": 0.82,
+        "watermarkPosition": "TOP_RIGHT",
+        "bgmVolume": 0.18,
+        "duckThreshold": 0.08,
+        "duckRatio": 8.0,
+        "duckAttackMs": 20.0,
+        "duckReleaseMs": 350.0,
+        "motionEasing": "LINEAR",
+        "textOverlays": [],
+        "lutAsset": null,
+        "overlayAsset": null,
+        "watermarkAsset": null,
+        "bgmAsset": null
+      },
+      "subtitles": {
+        "mode": "burned-ass"
+      }
+    }'::jsonb,
     narration_request_id UUID REFERENCES narration_requests(id),
     narration_asset_id UUID REFERENCES narration_assets(id),
     narration_alignment_id UUID REFERENCES narration_alignments(id),
@@ -1747,6 +1792,12 @@ CREATE TABLE render_input_snapshots (
     audio_checksum VARCHAR(64),
     audio_duration_ms BIGINT,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT ck_render_input_snapshot_profile_object
+        CHECK (jsonb_typeof(render_profile_json) = 'object'),
+    CONSTRAINT ck_render_input_snapshot_profile_version
+        CHECK ((render_profile_json ->> 'schemaVersion')::integer = 1),
+    CONSTRAINT ck_render_input_snapshot_renderer_version
+        CHECK (length(COALESCE(render_profile_json ->> 'rendererVersion', '')) > 0),
     CONSTRAINT ck_render_input_snapshots_audio_complete CHECK (
         (
             narration_request_id IS NULL
@@ -1818,6 +1869,8 @@ FOR EACH ROW EXECUTE FUNCTION reject_render_input_snapshot_update();
 
 COMMENT ON TABLE render_input_snapshots IS
     'Immutable chapter-render admission snapshot pinned to one generation job and media-plan revision.';
+COMMENT ON COLUMN render_input_snapshots.render_profile_json IS
+    'Immutable renderer semantics pinned when the render job is admitted. Bump rendererVersion whenever output semantics change.';
 COMMENT ON TABLE render_input_snapshot_beats IS
     'Immutable READY image inputs selected for each planned render beat at admission time.';
 

@@ -30,6 +30,8 @@ import java.math.BigDecimal;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
+import tools.jackson.databind.ObjectMapper;
+
 class CreateMediaPlanUseCaseTest {
 
   @Test
@@ -48,7 +50,7 @@ class CreateMediaPlanUseCaseTest {
             mediaPlanRepository,
             resolver,
             visualPromptContextRepository,
-            new VisualPromptComposer());
+            new VisualPromptComposer(new ObjectMapper()));
 
     when(currentUserId.get()).thenReturn("user-1");
     when(chapterSourceAccess.requireOwnedForAnalysisLocked(1L, 10L, "user-1"))
@@ -79,7 +81,8 @@ class CreateMediaPlanUseCaseTest {
                         "mid twenties",
                         "shoulder-length straight black hair",
                         null,
-                        "beige cardigan and white blouse"))));
+                        "beige cardigan and white blouse",
+                        List.of()))));
     when(mediaPlanRepository.nextRevision(10L)).thenReturn(3);
     when(mediaPlanRepository.save(any(MediaPlan.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
@@ -141,7 +144,7 @@ class CreateMediaPlanUseCaseTest {
             mediaPlanRepository,
             new MotionStrategyResolver(new DefaultMotionExecutionPolicy()),
             visualPromptContextRepository,
-            new VisualPromptComposer());
+            new VisualPromptComposer(new ObjectMapper()));
 
     when(currentUserId.get()).thenReturn("user-1");
     when(chapterSourceAccess.requireOwnedForAnalysisLocked(1L, 10L, "user-1"))
