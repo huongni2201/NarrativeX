@@ -22,7 +22,7 @@
 
     <select id="insert"
             parameterType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.OperationPlanRow"
-            resultType="long" affectData="true">
+            resultType="java.util.UUID" affectData="true">
         INSERT INTO operation_plans
             (project_id, generation_job_id, operation_type, estimate_min, estimate_max,
              max_authorized_cost, confidence)
