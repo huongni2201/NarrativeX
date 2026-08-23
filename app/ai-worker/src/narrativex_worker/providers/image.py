@@ -26,6 +26,22 @@ class ImageSubmissionUnknownError(ImageProviderError):
 
 
 @dataclass(frozen=True)
+class ImageReference:
+    """Immutable private media input used to preserve character identity during generation."""
+
+    asset_id: str
+    character_name: str
+    role: str
+    storage_key: str
+    mime_type: str
+    sha256: str
+
+
+class ReferenceObjectStore(Protocol):
+    async def get_bytes(self, storage_key: str) -> bytes: ...
+
+
+@dataclass(frozen=True)
 class ImageGenerationRequest:
     request_fingerprint: str
     prompt: str
@@ -35,6 +51,7 @@ class ImageGenerationRequest:
     provider_key: str
     model_key: str
     location: str
+    references: tuple[ImageReference, ...] = ()
     max_output_bytes: int = 15_000_000
 
 
