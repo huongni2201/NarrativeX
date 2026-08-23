@@ -69,6 +69,14 @@ FORBIDDEN = {
         r"(?:ProviderOperation/Chapter/Project done; other boundaries remain|Current MyBatis-backed boundaries include ProviderOperation, Chapter and Project)",
         re.IGNORECASE,
     ),
+    "obsolete pre-consolidation V9 quota claim": re.compile(
+        r"\bV9\b[^\n]*(?:local[- ]render|quota)",
+        re.IGNORECASE,
+    ),
+    "obsolete pre-consolidation V10 final-artifact claim": re.compile(
+        r"\bV10\b[^\n]*FinalArtifact",
+        re.IGNORECASE,
+    ),
 }
 
 LEGACY_STORAGE_ENV = re.compile(

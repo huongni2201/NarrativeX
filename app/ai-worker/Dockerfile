@@ -27,4 +27,8 @@ RUN pip install --no-cache-dir .
 
 USER appuser
 
+EXPOSE 8001
+HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=4 \
+  CMD python -c "import os, urllib.request; port=os.getenv('HEALTH_CHECK_PORT', '8001'); urllib.request.urlopen(f'http://127.0.0.1:{port}/healthz', timeout=4).read()" || exit 1
+
 CMD ["python", "-m", "narrativex_worker"]

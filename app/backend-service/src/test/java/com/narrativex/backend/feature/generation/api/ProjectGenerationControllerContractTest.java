@@ -7,7 +7,9 @@ import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.generation.api.controller.ProjectGenerationController;
 import com.narrativex.backend.feature.generation.application.command.EnqueueStoryAnalysisCommand;
+import com.narrativex.backend.feature.generation.application.usecase.ConfirmChapterTranslationUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.EnqueueStoryAnalysisUseCase;
+import com.narrativex.backend.feature.generation.application.usecase.GenerateBatchNarrationUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.GenerateChapterNarrationUseCase;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import org.junit.jupiter.api.Test;
@@ -18,6 +20,9 @@ class ProjectGenerationControllerContractTest {
   void chapterAnalysisMapsProjectAndChapterToDurableEnqueue() {
     EnqueueStoryAnalysisUseCase useCase = mock(EnqueueStoryAnalysisUseCase.class);
     GenerateChapterNarrationUseCase narrationUseCase = mock(GenerateChapterNarrationUseCase.class);
+    GenerateBatchNarrationUseCase batchNarrationUseCase = mock(GenerateBatchNarrationUseCase.class);
+    ConfirmChapterTranslationUseCase translationUseCase =
+        mock(ConfirmChapterTranslationUseCase.class);
     var job =
         GenerationJob.createChapterAnalysis(
             7L,
@@ -32,7 +37,8 @@ class ProjectGenerationControllerContractTest {
             "user-1");
     when(useCase.execute(new EnqueueStoryAnalysisCommand(7L, 11L))).thenReturn(job);
     ProjectGenerationController controller =
-        new ProjectGenerationController(useCase, narrationUseCase);
+        new ProjectGenerationController(
+            useCase, narrationUseCase, batchNarrationUseCase, translationUseCase);
 
     var response = controller.analyzeChapter(7L, 11L);
 

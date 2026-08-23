@@ -7,6 +7,7 @@ import sys
 from typing import Any
 
 from narrativex_worker.config import WorkerSettings, get_settings
+from narrativex_worker.health import WorkerHealthServer
 from narrativex_worker.image_generation_worker import ImageGenerationWorkerRunner
 from narrativex_worker.media_validation_worker import MediaValidationWorkerRunner
 from narrativex_worker.narration.local_runner import LocalOptimizedNarrationWorkerRunner
@@ -85,6 +86,8 @@ async def run_workers(settings: WorkerSettings, *, dry_run: bool) -> None:
         await asyncio.gather(*(worker.start(dry_run=True) for worker in workers.values()))
         return
 
+    health_server = WorkerHealthServer(settings.database_url, settings.health_check_port)
+    await health_server.start()
     tasks = {name: asyncio.create_task(worker.start()) for name, worker in workers.items()}
     try:
         done, _ = await asyncio.wait(
@@ -105,6 +108,7 @@ async def run_workers(settings: WorkerSettings, *, dry_run: bool) -> None:
             if not task.done():
                 task.cancel()
         await asyncio.gather(*tasks.values(), return_exceptions=True)
+        await health_server.close()
 
 
 def main() -> None:
