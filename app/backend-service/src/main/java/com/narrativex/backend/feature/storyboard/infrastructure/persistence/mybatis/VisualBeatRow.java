@@ -17,6 +17,7 @@ public class VisualBeatRow {
   private String reviewStatus;
   private String motionMode;
   private String cameraMovement;
+  private String cameraAngle;
   private String aspectRatioOverride;
   private String qualityTierOverride;
   private UUID previewAssetId;
