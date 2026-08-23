@@ -4,6 +4,7 @@ import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.project.application.port.out.ProjectOverviewQueryRepository;
 import com.narrativex.backend.feature.project.application.query.ProjectOverviewView;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,7 +17,7 @@ public class GetProjectOverviewUseCase {
   private final ProjectOverviewQueryRepository projectOverviewQueryRepository;
 
   @Transactional(readOnly = true)
-  public ProjectOverviewView execute(Long projectId) {
+  public ProjectOverviewView execute(UUID projectId) {
     projectAccess.findOwnedProject(projectId, currentUserId.get());
     return projectOverviewQueryRepository.get(projectId);
   }
