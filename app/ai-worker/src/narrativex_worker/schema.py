@@ -143,11 +143,9 @@ class ChapterAnalysisResult(BaseModel):
 class ChapterAnalysisRequest(BaseModel):
     """A persisted Chapter snapshot. Source content is data, never instruction/tool authority."""
 
-    model_config = ConfigDict(extra="forbid")
-
-    project_id: int = Field(gt=0)
-    story_version_id: int = Field(gt=0)
-    chapter_id: int = Field(gt=0)
+    project_id: str
+    story_version_id: str
+    chapter_id: str
     chapter_row_version: int = Field(ge=0)
     source_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
     source_text: str = Field(min_length=1, max_length=500_000)
