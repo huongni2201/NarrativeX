@@ -5,6 +5,18 @@ import { isCursorPage } from "@/types/api";
 const DEFAULT_CHARACTER_PAGE_SIZE = 20;
 
 export type ApiCharacterStatus = "ACTIVE" | "ARCHIVED";
+export type ApiCharacterReferenceRole =
+  | "IDENTITY"
+  | "PROFILE"
+  | "EXPRESSION"
+  | "OUTFIT"
+  | "POSE";
+
+export interface ApiCharacterVersionReference {
+  assetId: string;
+  role: ApiCharacterReferenceRole;
+  priority: number;
+}
 
 export interface ApiCharacterSummary {
   id: number;
@@ -74,6 +86,33 @@ function isNullableNumber(value: unknown): value is number | null {
 
 function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === "string";
+}
+
+function isReferenceRole(value: unknown): value is ApiCharacterReferenceRole {
+  return (
+    value === "IDENTITY" ||
+    value === "PROFILE" ||
+    value === "EXPRESSION" ||
+    value === "OUTFIT" ||
+    value === "POSE"
+  );
+}
+
+function isApiCharacterVersionReference(value: unknown): value is ApiCharacterVersionReference {
+  return (
+    isRecord(value) &&
+    typeof value.assetId === "string" &&
+    value.assetId.length > 0 &&
+    isReferenceRole(value.role) &&
+    typeof value.priority === "number" &&
+    Number.isSafeInteger(value.priority) &&
+    value.priority >= 0 &&
+    value.priority <= 99
+  );
+}
+
+function isCharacterReferenceArray(value: unknown): value is ApiCharacterVersionReference[] {
+  return Array.isArray(value) && value.every(isApiCharacterVersionReference);
 }
 
 function isApiCharacterSummary(value: unknown): value is ApiCharacterSummary {
@@ -150,6 +189,10 @@ function listPath(
   return `${basePath}?${params.toString()}`;
 }
 
+function versionReferencesPath(characterId: number, versionId: number): string {
+  return `/api/v1/characters/${encodeURIComponent(characterId)}/versions/${encodeURIComponent(versionId)}/references`;
+}
+
 export const charactersApi = {
   list: (params: CharacterListParams = {}) =>
     apiRequest<CursorPage<ApiCharacterSummary>>(
@@ -182,5 +225,26 @@ export const charactersApi = {
       `/api/v1/projects/${projectId}/characters/${characterId}`,
       {},
       isApiProjectCharacterDetail,
+    ),
+
+  getVersionReferences: (characterId: number, versionId: number) =>
+    apiRequest<ApiCharacterVersionReference[]>(
+      versionReferencesPath(characterId, versionId),
+      {},
+      isCharacterReferenceArray,
+    ),
+
+  setVersionReferences: (
+    characterId: number,
+    versionId: number,
+    references: ApiCharacterVersionReference[],
+  ) =>
+    apiRequest<ApiCharacterVersionReference[]>(
+      versionReferencesPath(characterId, versionId),
+      {
+        method: "PUT",
+        json: { references },
+      },
+      isCharacterReferenceArray,
     ),
 };
