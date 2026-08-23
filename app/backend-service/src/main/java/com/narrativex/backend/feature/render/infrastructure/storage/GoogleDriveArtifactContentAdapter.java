@@ -1,7 +1,7 @@
 package com.narrativex.backend.feature.render.infrastructure.storage;
 
 import com.narrativex.backend.feature.common.exception.FeatureNotAvailableException;
-import com.narrativex.backend.feature.render.application.port.out.ArtifactContentRange;
+import com.narrativex.backend.feature.render.application.port.in.ArtifactContentRange;
 import com.narrativex.backend.feature.render.application.port.out.FinalArtifactContentPort;
 import java.io.IOException;
 import java.io.InputStream;
@@ -25,7 +25,10 @@ import tools.jackson.databind.ObjectMapper;
 /** Streams private Google Drive media through the backend using the worker's OAuth credentials. */
 @Component
 @ConditionalOnProperty(
-    prefix = "narrativex.storage", name = "final-video-mode", havingValue = "google-drive", matchIfMissing = true)
+    prefix = "narrativex.storage",
+    name = "final-video-mode",
+    havingValue = "google-drive",
+    matchIfMissing = true)
 public class GoogleDriveArtifactContentAdapter implements FinalArtifactContentPort {
   private static final URI TOKEN_ENDPOINT = URI.create("https://oauth2.googleapis.com/token");
   private static final URI DRIVE_ENDPOINT = URI.create("https://www.googleapis.com/drive/v3/files");

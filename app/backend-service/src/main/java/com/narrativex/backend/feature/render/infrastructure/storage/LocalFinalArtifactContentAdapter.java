@@ -1,6 +1,6 @@
 package com.narrativex.backend.feature.render.infrastructure.storage;
 
-import com.narrativex.backend.feature.render.application.port.out.ArtifactContentRange;
+import com.narrativex.backend.feature.render.application.port.in.ArtifactContentRange;
 import com.narrativex.backend.feature.render.application.port.out.FinalArtifactContentPort;
 import java.io.IOException;
 import java.io.InputStream;
@@ -14,7 +14,9 @@ import org.springframework.stereotype.Component;
 /** Reads local final MP4s written by the E2E worker and preserves HTTP range semantics. */
 @Component
 @ConditionalOnProperty(
-    prefix = "narrativex.storage", name = "final-video-mode", havingValue = "local")
+    prefix = "narrativex.storage",
+    name = "final-video-mode",
+    havingValue = "local")
 public class LocalFinalArtifactContentAdapter implements FinalArtifactContentPort {
   private final Path root;
 

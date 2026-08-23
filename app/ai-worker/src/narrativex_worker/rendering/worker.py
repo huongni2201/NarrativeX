@@ -5,6 +5,7 @@ import contextlib
 import hashlib
 import json
 import logging
+import time
 import uuid
 from pathlib import Path
 
@@ -15,6 +16,7 @@ from narrativex_worker.narration.storage import (
     MediaStorage,
     S3MediaStorage,
 )
+from narrativex_worker.observability import PipelineContext, PipelineMetrics
 from narrativex_worker.rendering.advisory_lock import render_fingerprint_lock
 from narrativex_worker.rendering.ffmpeg import FfmpegError, render_image_motion
 from narrativex_worker.rendering.final_storage import (
@@ -22,8 +24,8 @@ from narrativex_worker.rendering.final_storage import (
     FinalVideoStorageError,
     GoogleDriveFinalVideoStorage,
 )
-from narrativex_worker.rendering.local_final_storage import LocalFinalVideoStorage
 from narrativex_worker.rendering.image_motion import ImageMotionManifest, MotionBeat
+from narrativex_worker.rendering.local_final_storage import LocalFinalVideoStorage
 from narrativex_worker.rendering.repository import (
     ClaimedRenderJob,
     RenderBeatAsset,
@@ -72,6 +74,7 @@ class RenderWorkerRunner:
         self._running = False
         self._tasks: set[asyncio.Task[None]] = set()
         self.logger = logging.getLogger("narrativex.render")
+        self.metrics = PipelineMetrics(self.logger)
 
     def stop(self) -> None:
         self._running = False
@@ -124,6 +127,13 @@ class RenderWorkerRunner:
             await self.repository.close()
 
     async def _process(self, claimed: ClaimedRenderJob) -> None:
+        started_at = time.monotonic()
+        context = PipelineContext(
+            job_id=claimed.job_id,
+            project_id=claimed.project_id,
+            chapter_id=claimed.chapter_id,
+            media_plan_id=str(claimed.media_plan_id),
+        )
         processing = asyncio.create_task(self._process_claimed(claimed))
         heartbeat = asyncio.create_task(self._heartbeat(claimed))
         try:
@@ -160,7 +170,12 @@ class RenderWorkerRunner:
                 exception,
             )
             await self.repository.mark_stalled(claimed, "RENDER_INFRASTRUCTURE_RETRY")
-        except (FfmpegError, RenderValidationError, MediaAssetConflictError, ValueError) as exception:
+        except (
+            FfmpegError,
+            RenderValidationError,
+            MediaAssetConflictError,
+            ValueError,
+        ) as exception:
             self.logger.error(
                 "Permanent render failure job=%s: %s",
                 claimed.generation_job_id,
@@ -171,6 +186,7 @@ class RenderWorkerRunner:
             self.logger.exception("Unexpected render failure job=%s", claimed.generation_job_id)
             await self.repository.fail(claimed, "RENDER_WORKER_INTERNAL_ERROR")
         finally:
+            self.metrics.duration("generation_job_duration", started_at, context)
             for task in (processing, heartbeat):
                 if not task.done():
                     task.cancel()
@@ -181,6 +197,12 @@ class RenderWorkerRunner:
     async def _process_claimed(self, claimed: ClaimedRenderJob) -> None:
         assert self.storage is not None
         assert self.final_storage is not None
+        context = PipelineContext(
+            job_id=claimed.job_id,
+            project_id=claimed.project_id,
+            chapter_id=claimed.chapter_id,
+            media_plan_id=str(claimed.media_plan_id),
+        )
         async with self._concurrency_gate:
             resolution, render_format = _parse_operation_type(claimed.operation_type)
             if render_format != "mp4":
@@ -264,9 +286,7 @@ class RenderWorkerRunner:
                     for beat, duration in zip(beat_assets, durations_ms, strict=True)
                 ],
             }
-            serialized = json.dumps(
-                fingerprint_payload, sort_keys=True, separators=(",", ":")
-            )
+            serialized = json.dumps(fingerprint_payload, sort_keys=True, separators=(",", ":"))
             render_fingerprint = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
             async with self.workspace.create_job_dir(claimed.job_id) as job_dir:
@@ -306,7 +326,9 @@ class RenderWorkerRunner:
                     subtitle_path=subtitle_path,
                 )
                 await self.repository.assert_lease(claimed)
-                await render_image_motion(manifest, timeout_seconds=1800.0)
+                with self.metrics.measure("render_duration", context):
+                    with self.metrics.measure("ffmpeg_duration", context):
+                        await render_image_motion(manifest, timeout_seconds=1800.0)
                 probe = await probe_mp4(output_path)
                 validate_probe(
                     probe,
@@ -316,15 +338,41 @@ class RenderWorkerRunner:
                     tolerance_seconds=max(0.35, len(beat_assets) / 30.0 + 0.1),
                 )
                 checksum = await asyncio.to_thread(sha256_file, output_path)
-                async with render_fingerprint_lock(
-                    self.settings.database_url, render_fingerprint
-                ):
+                async with render_fingerprint_lock(self.settings.database_url, render_fingerprint):
                     await self.repository.assert_lease(claimed)
-                    stored = await self.final_storage.put_immutable(
-                        file_path=output_path,
+                    upload_started_at = time.monotonic()
+                    try:
+                        stored = await self.final_storage.put_immutable(
+                            file_path=output_path,
+                            render_fingerprint=render_fingerprint,
+                            checksum=checksum,
+                            generation_job_id=claimed.generation_job_id,
+                        )
+                    finally:
+                        self.metrics.duration(
+                            "final_video_upload_duration",
+                            upload_started_at,
+                            PipelineContext(
+                                job_id=context.job_id,
+                                project_id=context.project_id,
+                                chapter_id=context.chapter_id,
+                                media_plan_id=context.media_plan_id,
+                                render_fingerprint=render_fingerprint,
+                            ),
+                        )
+                    upload_context = PipelineContext(
+                        job_id=context.job_id,
+                        project_id=context.project_id,
+                        chapter_id=context.chapter_id,
+                        media_plan_id=context.media_plan_id,
                         render_fingerprint=render_fingerprint,
-                        checksum=checksum,
-                        generation_job_id=claimed.generation_job_id,
+                        artifact_id=stored.external_file_id,
+                    )
+                    self.metrics.observe(
+                        "final_video_size_bytes",
+                        stored.size_bytes,
+                        upload_context,
+                        unit="bytes",
                     )
                     await self.repository.assert_lease(claimed)
                     await self.repository.complete(
@@ -338,7 +386,8 @@ class RenderWorkerRunner:
                         fps=30,
                     )
                 self.logger.info(
-                    "Completed chapter render job=%s fingerprint=%s driveFileId=%s sizeBytes=%s subtitleCues=%s",
+                    "Completed chapter render job=%s fingerprint=%s driveFileId=%s "
+                    "sizeBytes=%s subtitleCues=%s",
                     claimed.generation_job_id,
                     render_fingerprint,
                     stored.external_file_id,
@@ -346,9 +395,7 @@ class RenderWorkerRunner:
                     len(subtitle_track.cues),
                 )
 
-    async def _download_images(
-        self, beats: list[RenderBeatAsset], job_dir: Path
-    ) -> list[Path]:
+    async def _download_images(self, beats: list[RenderBeatAsset], job_dir: Path) -> list[Path]:
         assert self.storage is not None
         paths: list[Path] = []
         for index, beat in enumerate(beats):
@@ -412,9 +459,7 @@ def _normalize_durations(beats: list[RenderBeatAsset], audio_duration_ms: int) -
         boundaries.append(round(audio_duration_ms * cumulative / total_weight))
     boundaries.append(audio_duration_ms)
 
-    durations = [
-        boundaries[index + 1] - boundaries[index] for index in range(len(beats))
-    ]
+    durations = [boundaries[index + 1] - boundaries[index] for index in range(len(beats))]
     if any(duration <= 0 for duration in durations):
         # This is only possible with extremely short audio; fail instead of drifting duration.
         raise ValueError("Narration duration cannot be distributed across render beats")

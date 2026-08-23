@@ -1,4 +1,4 @@
-package com.narrativex.backend.feature.render.application.port.out;
+package com.narrativex.backend.feature.render.application.port.in;
 
 import java.io.InputStream;
 

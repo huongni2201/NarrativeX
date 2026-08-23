@@ -50,6 +50,18 @@ Generated narration has a working R2-backed execution path and can be consumed b
 
 Production persistence uses MyBatis + explicit PostgreSQL SQL. The backend build has no JPA dependency and production source has no direct `JdbcTemplate` persistence.
 
+## Architecture guards and pipeline observability
+
+Backend architecture tests enforce framework-free domains, domain feature isolation (apart from the
+shared `feature.common` kernel), API isolation from infrastructure/outbound ports, and the inward
+dependency direction of infrastructure adapters.
+
+Worker pipeline metric lines include `jobId`, `projectId`, `chapterId`, `mediaPlanId`,
+`renderFingerprint`, and `artifactId` when available. The tracked observations include generation,
+image generation, TTS, render/FFmpeg, final-video upload and size, plus final-artifact range
+requests and streamed bytes. This makes a render failure traceable from its job identifier without
+making Redis or worker process memory authoritative.
+
 ## Durable media boundaries
 
 ```text

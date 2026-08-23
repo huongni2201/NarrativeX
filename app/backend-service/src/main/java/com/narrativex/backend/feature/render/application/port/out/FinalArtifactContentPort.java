@@ -1,5 +1,7 @@
 package com.narrativex.backend.feature.render.application.port.out;
 
+import com.narrativex.backend.feature.render.application.port.in.ArtifactContentRange;
+
 /** Provider-neutral outbound boundary for streaming immutable final-artifact content. */
 public interface FinalArtifactContentPort {
   /**

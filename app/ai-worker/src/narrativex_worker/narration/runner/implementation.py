@@ -51,6 +51,7 @@ from narrativex_worker.narration.voice_reference import (
     VoiceReferenceAudioError,
     prepare_mp3_reference,
 )
+from narrativex_worker.observability import PipelineContext, PipelineMetrics
 from narrativex_worker.providers.tts import GoogleCloudTtsProvider
 from narrativex_worker.providers.tts.vieneu import VieneuTtsProvider
 from narrativex_worker.schema import ProviderOperationStatus
@@ -70,6 +71,7 @@ class NarrationWorkerRunner:
     ) -> None:
         self.settings = settings
         self.logger = logging.getLogger("narrativex.worker.narration")
+        self.metrics = PipelineMetrics(self.logger)
         self.worker_id = f"{settings.worker_name}-narration-{uuid.uuid4()}"
         self._running = False
         self._in_flight: set[asyncio.Task[None]] = set()
@@ -185,6 +187,11 @@ class NarrationWorkerRunner:
 
     async def _process(self, claimed: ClaimedNarrationJob) -> None:
         started_at = time.monotonic()
+        context = PipelineContext(
+            job_id=claimed.job_id,
+            project_id=claimed.project_id,
+            chapter_id=claimed.chapter_id,
+        )
         processing = asyncio.create_task(self._execute_with_budget(claimed))
         heartbeat = asyncio.create_task(self._heartbeat_loop(claimed.stage_attempt_id))
         try:
@@ -288,10 +295,23 @@ class NarrationWorkerRunner:
                 time.monotonic() - started_at,
                 len(self._in_flight),
             )
+            self.metrics.duration("generation_job_duration", started_at, context)
 
     async def _execute_with_budget(self, claimed: ClaimedNarrationJob) -> None:
         async with self._concurrency_gate:
-            await self._execute(claimed)
+            started_at = time.monotonic()
+            try:
+                await self._execute(claimed)
+            finally:
+                self.metrics.duration(
+                    "tts_duration",
+                    started_at,
+                    PipelineContext(
+                        job_id=claimed.job_id,
+                        project_id=claimed.project_id,
+                        chapter_id=claimed.chapter_id,
+                    ),
+                )
 
     async def _execute(self, claimed: ClaimedNarrationJob) -> None:
         assert self.provider is not None

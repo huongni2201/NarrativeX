@@ -3,6 +3,7 @@
 import asyncio
 import contextlib
 import logging
+import time
 import uuid
 
 from narrativex_worker.config import WorkerSettings
@@ -19,6 +20,7 @@ from narrativex_worker.image_generation_runner import (
     ImageGenerationUnknownError,
 )
 from narrativex_worker.narration.storage import LocalMediaStorage, MediaStorage, S3MediaStorage
+from narrativex_worker.observability import PipelineContext, PipelineMetrics
 from narrativex_worker.providers.factory import create_image_provider
 from narrativex_worker.providers.image import (
     ImageBatchItem,
@@ -54,6 +56,7 @@ class ImageGenerationWorkerRunner:
         self._tasks: set[asyncio.Task[None]] = set()
         self._concurrency_gate = concurrency_gate
         self.logger = logging.getLogger("narrativex.image-generation")
+        self.metrics = PipelineMetrics(self.logger)
 
     def stop(self) -> None:
         self._running = False
@@ -104,6 +107,12 @@ class ImageGenerationWorkerRunner:
                 await aclose()
 
     async def _process(self, job: ClaimedImageGenerationJob) -> None:
+        started_at = time.monotonic()
+        context = PipelineContext(
+            job_id=job.generation_job_id,
+            project_id=job.project_id,
+            media_plan_id=str(job.media_plan_id),
+        )
         processing = asyncio.create_task(self._process_claimed(job))
         heartbeat = asyncio.create_task(self._heartbeat(job))
         try:
@@ -131,6 +140,9 @@ class ImageGenerationWorkerRunner:
         except Exception:
             self.logger.exception("Image generation job failed job=%s", job.generation_job_id)
         finally:
+            metrics = getattr(self, "metrics", None)
+            if metrics is not None:
+                metrics.duration("image_generation_duration", started_at, context)
             for task in (processing, heartbeat):
                 if not task.done():
                     task.cancel()
@@ -165,8 +177,7 @@ class ImageGenerationWorkerRunner:
             return
         except Exception as exception:
             self.logger.exception(
-                "Image batch submission failed without a classified provider outcome "
-                "operation=%s",
+                "Image batch submission failed without a classified provider outcome operation=%s",
                 operation.id,
             )
             # Once submit_batch has been entered, a generic exception is ambiguous: the provider
@@ -257,13 +268,9 @@ class ImageGenerationWorkerRunner:
             except (VertexImageSubmissionUnknownError, ImageGenerationUnknownError) as exception:
                 await self.repository.mark_unknown(durable, normalize_error(exception))
             except VertexImageProviderError as exception:
-                await self.repository.fail_provider_operation(
-                    durable, normalize_error(exception)
-                )
+                await self.repository.fail_provider_operation(durable, normalize_error(exception))
             except (ImageGenerationOutputError, ImageGenerationProviderRejectedError) as exception:
-                await self.repository.fail_provider_operation(
-                    durable, normalize_error(exception)
-                )
+                await self.repository.fail_provider_operation(durable, normalize_error(exception))
             except Exception as exception:
                 self.logger.exception(
                     "Image batch reconciliation failed without a classified provider outcome "

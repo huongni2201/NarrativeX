@@ -58,7 +58,7 @@ class RenderAudioAsset:
     duration_ms: int
 
 
-class RenderRepository:
+class RenderRepositoryImplementation:
     def __init__(self, database_url: str, lease_seconds: int, *, pool_size: int = 4) -> None:
         self.database_url = database_url
         self.lease_seconds = lease_seconds

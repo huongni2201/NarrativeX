@@ -4,7 +4,7 @@ This directory records decisions that affect more than one feature or change a p
 
 ## Consolidated Architecture Decision Records
 
-All architectural decisions across NarrativeX are consolidated into 4 canonical records:
+Architectural decisions across NarrativeX are maintained in the following canonical records:
 
 1. **[ADR-0001: System topology, modular monolith, durable execution and persistence architecture](./ADR-0001-system-topology-execution-and-persistence.md)**
    - *Scope:* Spring Boot modular monolith, Python 3.12 AI worker boundary, DDD vertical package slices, SQL-first MyBatis persistence, Flyway PostgreSQL baseline V1, pre-submit fencing (`UNKNOWN`), result immutability, and quota reservation lifecycle.
@@ -24,6 +24,9 @@ All architectural decisions across NarrativeX are consolidated into 4 canonical 
 
 5. **[ADR-0018: Transactional chapter creation owns StoryVersion orchestration](./ADR-0018-transactional-chapter-creation.md)**
    - *Scope:* Backend-owned StoryVersion/Chapter orchestration, PostgreSQL idempotency for chapter creation, server-derived ordering, and batch-import transaction boundaries.
+
+6. **[ADR-0019: Architecture guards and pipeline observability](./ADR-0019-architecture-guards-and-pipeline-observability.md)**
+   - *Scope:* ArchUnit dependency boundaries, stable worker repository facades, cross-stage pipeline metrics, correlation fields, and final-artifact streaming counters.
 
 ---
 

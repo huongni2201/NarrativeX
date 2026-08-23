@@ -98,10 +98,9 @@ public class FinalArtifactController {
         .body(body);
   }
 
-  private static void copyAndClose(InputStream input, java.io.OutputStream output)
-      throws IOException {
+  private void copyAndClose(InputStream input, java.io.OutputStream output) throws IOException {
     try (input) {
-      input.transferTo(output);
+      readFinalArtifactContentUseCase.recordStreamBytes(input.transferTo(output));
     }
   }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2, Plus, UploadCloud } from "lucide-react";
 import { StoryboardScreen } from "@/features/storyboard/StoryboardScreen";
@@ -27,6 +28,7 @@ interface ProductionShellProps {
 }
 
 export function ProductionShell({ projectId, initialTab = "chapters" }: Readonly<ProductionShellProps>) {
+  const router = useRouter();
   const numericProjectId = projectId ? Number(projectId) : Number.NaN;
   const hasValidProjectId = Number.isSafeInteger(numericProjectId) && numericProjectId > 0;
   const [formOpen, setFormOpen] = useState(false);
@@ -233,13 +235,13 @@ export function ProductionShell({ projectId, initialTab = "chapters" }: Readonly
       <CreateChapterModal
         isOpen={formOpen}
         nextChapterNumber={chapters.length + 1}
-              isSubmitting={createChapter.isPending}
-              error={createChapter.errorMessage}
+        isSubmitting={createChapter.isPending}
+        error={createChapter.errorMessage}
         resetKey={formResetKey}
         onClose={() => setFormOpen(false)}
-              onSubmit={(input) => {
-                createChapter.submit(input);
-              }}
+        onSubmit={(input) => {
+          createChapter.submit(input);
+        }}
       />
     </div>
   );
