@@ -18,7 +18,7 @@ public interface ProjectQueryMapper extends NarrativeXMyBatisMapper {
   List<ProjectLocationRow> findActiveLocationsAfter(
       @Param("projectId") UUID projectId,
       @Param("updatedAt") Instant updatedAt,
-      @Param("id") Long id,
+      @Param("id") UUID id,
       @Param("limit") int limit);
 
   List<ProjectAssetRow> findActiveAssetsFirstPage(
@@ -27,6 +27,6 @@ public interface ProjectQueryMapper extends NarrativeXMyBatisMapper {
   List<ProjectAssetRow> findActiveAssetsAfter(
       @Param("projectId") UUID projectId,
       @Param("updatedAt") Instant updatedAt,
-      @Param("id") Long id,
+      @Param("id") UUID id,
       @Param("limit") int limit);
 }
