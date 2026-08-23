@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 import asyncpg  # type: ignore[import-untyped]
 
 from narrativex_worker.schema import ChapterAnalysisResult
+from narrativex_worker.visual_prompt.director import choose_ffmpeg_camera_movement
 
 if TYPE_CHECKING:
     from narrativex_worker.repository import ClaimedChapterAnalysisJob
@@ -105,6 +106,7 @@ async def materialize_storyboard(
                 beat_index,
                 beat.title,
                 beat.visual_intent,
+                choose_ffmpeg_camera_movement(beat.title, beat.visual_intent),
             )
             for scene_index, scene in enumerate(result.scenes)
             for beat_index, beat in enumerate(scene.visual_beats)
@@ -115,7 +117,7 @@ async def materialize_storyboard(
                 INSERT INTO visual_beats
                   (scene_id, order_index, title, visual_intent, motion_mode,
                    camera_movement, review_status)
-                VALUES ($1, $2, $3, $4, 'STILL', 'NONE', 'NEEDS_REVIEW')
+                VALUES ($1, $2, $3, $4, 'STILL', $5, 'NEEDS_REVIEW')
                 """,
                 beat_rows,
             )
