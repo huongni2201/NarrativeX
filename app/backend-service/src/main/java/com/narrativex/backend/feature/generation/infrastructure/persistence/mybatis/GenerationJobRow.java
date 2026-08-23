@@ -16,11 +16,11 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class GenerationJobRow {
-  private Long id;
+  private UUID id;
   private long rowVersion;
   private Instant createdAt;
   private Instant updatedAt;
-  private String jobId;
+  private UUID jobId;
   private UUID projectId;
   private JobType type;
   private JobStatus status;
@@ -41,7 +41,7 @@ public class GenerationJobRow {
   private UUID mediaPlanId;
   private Integer mediaPlanRevision;
   private ProductionMode productionMode;
-  private Long contentVariantId;
-  private Long sourceVariantId;
+  private UUID contentVariantId;
+  private UUID sourceVariantId;
   private String targetLanguage;
 }
