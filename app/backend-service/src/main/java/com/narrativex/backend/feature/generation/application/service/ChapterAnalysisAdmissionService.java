@@ -5,6 +5,7 @@ import com.narrativex.backend.feature.common.exception.FeatureNotAvailableExcept
 import com.narrativex.backend.feature.generation.application.port.out.QuotaReservation;
 import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSource;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -15,7 +16,7 @@ public class ChapterAnalysisAdmissionService {
   private final QuotaReservation quotaReservation;
   private final ChapterAnalysisCostEstimator costEstimator;
 
-  public Admission admit(String userId, Long projectId, ChapterAnalysisSource source) {
+  public Admission admit(String userId, UUID projectId, ChapterAnalysisSource source) {
     ChapterAnalysisCostEstimate estimate = costEstimator.estimate(source.sourceText());
     UserQuotaAccess.QuotaSnapshot quota =
         quotaQuery

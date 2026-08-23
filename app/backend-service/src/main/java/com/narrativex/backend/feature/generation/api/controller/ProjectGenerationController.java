@@ -39,9 +39,9 @@ public class ProjectGenerationController {
 
   @PostMapping("/{projectId}/chapters/{chapterId}/analysis-jobs")
   public ResponseEntity<ApiResponse<JobResponse>> analyzeChapter(
-      @PathVariable Long projectId,
-      @PathVariable Long chapterId,
-      @RequestParam(required = false) Long contentVariantId) {
+      @PathVariable UUID projectId,
+      @PathVariable UUID chapterId,
+      @RequestParam(required = false) UUID contentVariantId) {
     log.info("Requesting story analysis for chapter {} in project {}", chapterId, projectId);
     var job =
         enqueueStoryAnalysisUseCase.execute(
@@ -89,14 +89,14 @@ public class ProjectGenerationController {
         .body(ApiResponse.success("Narration jobs accepted", response));
   }
 
-  public ResponseEntity<ApiResponse<JobResponse>> analyzeChapter(Long projectId, Long chapterId) {
+  public ResponseEntity<ApiResponse<JobResponse>> analyzeChapter(UUID projectId, UUID chapterId) {
     return analyzeChapter(projectId, chapterId, null);
   }
 
   @PostMapping("/{projectId}/chapters/{chapterId}/translations")
   public ResponseEntity<ApiResponse<JobResponse>> translateChapter(
-      @PathVariable Long projectId,
-      @PathVariable Long chapterId,
+      @PathVariable UUID projectId,
+      @PathVariable UUID chapterId,
       @Valid @RequestBody ConfirmChapterTranslationRequest request) {
     var job =
         confirmChapterTranslationUseCase.execute(

@@ -22,6 +22,7 @@ import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardR
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Locale;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -47,8 +48,8 @@ public class ConfirmChapterTranslationUseCase {
 
   @Transactional
   public GenerationJob execute(ConfirmChapterTranslationCommand command) {
-    Long projectId = command.projectId();
-    Long chapterId = command.chapterId();
+    UUID projectId = command.projectId();
+    UUID chapterId = command.chapterId();
     String userId = currentUserId.get();
     var chapter =
         chapterRepository

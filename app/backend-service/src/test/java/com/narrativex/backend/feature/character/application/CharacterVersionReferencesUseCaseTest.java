@@ -28,6 +28,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class CharacterVersionReferencesUseCaseTest {
+  private static final UUID CHARACTER_ID =
+      UUID.fromString("00000000-0000-0000-0000-000000000010");
+  private static final UUID VERSION_ID =
+      UUID.fromString("00000000-0000-0000-0000-000000000020");
   private static final UUID IDENTITY_ASSET =
       UUID.fromString("11111111-1111-1111-1111-111111111111");
   private static final UUID PROFILE_ASSET =
@@ -41,15 +45,15 @@ class CharacterVersionReferencesUseCaseTest {
 
   @Test
   void rejectsReferenceMutationAfterCharacterVersionIsLocked() {
-    when(versionRepository.findOwnedById(20L, "owner"))
+    when(versionRepository.findOwnedById(VERSION_ID, "owner"))
         .thenReturn(Optional.of(version(CharacterVersionStatus.LOCKED)));
     var useCase = setUseCase();
 
     assertThatThrownBy(
             () ->
                 useCase.execute(
-                    10L,
-                    20L,
+                    CHARACTER_ID,
+                    VERSION_ID,
                     List.of(new ReferenceInput(IDENTITY_ASSET, "IDENTITY", 0))))
         .isInstanceOf(ResourceConflictException.class)
         .hasMessageContaining("immutable");
@@ -60,7 +64,7 @@ class CharacterVersionReferencesUseCaseTest {
 
   @Test
   void rejectsNonReadyOrNonImageAssets() {
-    when(versionRepository.findOwnedById(20L, "owner"))
+    when(versionRepository.findOwnedById(VERSION_ID, "owner"))
         .thenReturn(Optional.of(version(CharacterVersionStatus.DRAFT)));
     when(mediaAssetRepository.findOwned("owner", IDENTITY_ASSET))
         .thenReturn(asset(IDENTITY_ASSET, "VIDEO", "READY", "video/mp4"));
@@ -69,8 +73,8 @@ class CharacterVersionReferencesUseCaseTest {
     assertThatThrownBy(
             () ->
                 useCase.execute(
-                    10L,
-                    20L,
+                    CHARACTER_ID,
+                    VERSION_ID,
                     List.of(new ReferenceInput(IDENTITY_ASSET, "IDENTITY", 0))))
         .isInstanceOf(ResourceConflictException.class)
         .hasMessageContaining("READY image assets");
@@ -81,7 +85,7 @@ class CharacterVersionReferencesUseCaseTest {
 
   @Test
   void requiresHighestPriorityReferenceToBeIdentityAndPersistsSortedReferences() {
-    when(versionRepository.findOwnedById(20L, "owner"))
+    when(versionRepository.findOwnedById(VERSION_ID, "owner"))
         .thenReturn(Optional.of(version(CharacterVersionStatus.DRAFT)));
     when(mediaAssetRepository.findOwned("owner", IDENTITY_ASSET))
         .thenReturn(asset(IDENTITY_ASSET, "IMAGE", "READY", "image/png"));
@@ -92,8 +96,8 @@ class CharacterVersionReferencesUseCaseTest {
     assertThatThrownBy(
             () ->
                 useCase.execute(
-                    10L,
-                    20L,
+                    CHARACTER_ID,
+                    VERSION_ID,
                     List.of(
                         new ReferenceInput(PROFILE_ASSET, "PROFILE", 0),
                         new ReferenceInput(IDENTITY_ASSET, "IDENTITY", 1))))
@@ -102,8 +106,8 @@ class CharacterVersionReferencesUseCaseTest {
 
     var saved =
         useCase.execute(
-            10L,
-            20L,
+            CHARACTER_ID,
+            VERSION_ID,
             List.of(
                 new ReferenceInput(PROFILE_ASSET, "PROFILE", 1),
                 new ReferenceInput(IDENTITY_ASSET, "identity", 0)));
@@ -116,22 +120,22 @@ class CharacterVersionReferencesUseCaseTest {
         .containsExactly(
             org.assertj.core.groups.Tuple.tuple(IDENTITY_ASSET, "IDENTITY", 0),
             org.assertj.core.groups.Tuple.tuple(PROFILE_ASSET, "PROFILE", 1));
-    verify(referenceRepository).replace(20L, saved);
+    verify(referenceRepository).replace(VERSION_ID, saved);
   }
 
   @Test
   void readsReferencesOnlyThroughOwnedCharacterVersion() {
     var expected =
         List.of(new CharacterVersionReferenceRepository.Reference(IDENTITY_ASSET, "IDENTITY", 0));
-    when(versionRepository.findOwnedById(20L, "owner"))
+    when(versionRepository.findOwnedById(VERSION_ID, "owner"))
         .thenReturn(Optional.of(version(CharacterVersionStatus.LOCKED)));
-    when(referenceRepository.findByVersionId(20L)).thenReturn(expected);
+    when(referenceRepository.findByVersionId(VERSION_ID)).thenReturn(expected);
     var useCase =
         new GetCharacterVersionReferencesUseCase(
             currentUserId, versionRepository, referenceRepository);
 
-    assertThat(useCase.execute(10L, 20L)).isEqualTo(expected);
-    verify(referenceRepository).findByVersionId(20L);
+    assertThat(useCase.execute(CHARACTER_ID, VERSION_ID)).isEqualTo(expected);
+    verify(referenceRepository).findByVersionId(VERSION_ID);
   }
 
   private SetCharacterVersionReferencesUseCase setUseCase() {
@@ -141,9 +145,9 @@ class CharacterVersionReferencesUseCaseTest {
 
   private static CharacterVersion version(CharacterVersionStatus status) {
     return CharacterVersion.rehydrate(
-        20L,
+        VERSION_ID,
         0L,
-        10L,
+        CHARACTER_ID,
         1,
         "character bible",
         "character visual prompt",

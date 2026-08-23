@@ -11,13 +11,15 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.UUID;
+
 @Component
 @RequiredArgsConstructor
 public class MyBatisVisualPromptContextPersistenceAdapter implements VisualPromptContextRepository {
   private final VisualPromptContextMapper mapper;
 
   @Override
-  public VisualPromptContext findForScene(Long projectId, Long sceneId) {
+  public VisualPromptContext findForScene(UUID projectId, UUID sceneId) {
     var locationRow = mapper.findLocation(projectId, sceneId);
     LocationCanon location =
         locationRow == null || locationRow.getLocationId() == null
@@ -28,7 +30,7 @@ public class MyBatisVisualPromptContextPersistenceAdapter implements VisualPromp
                 locationRow.getDescription(),
                 locationRow.getVisualPrompt());
 
-    Map<Long, java.util.List<CharacterReference>> referencesByAssignment =
+    Map<UUID, java.util.List<CharacterReference>> referencesByAssignment =
         mapper.findCharacterReferences(projectId, sceneId).stream()
             .collect(
                 Collectors.groupingBy(

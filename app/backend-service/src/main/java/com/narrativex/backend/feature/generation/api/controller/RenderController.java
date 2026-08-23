@@ -7,6 +7,7 @@ import com.narrativex.backend.feature.generation.api.response.JobResponse;
 import com.narrativex.backend.feature.generation.application.command.CreateChapterRenderCommand;
 import com.narrativex.backend.feature.generation.application.usecase.CreateChapterRenderUseCase;
 import jakarta.validation.Valid;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
@@ -28,8 +29,8 @@ public class RenderController {
 
   @PostMapping("/render")
   public ResponseEntity<ApiResponse<JobResponse>> render(
-      @PathVariable Long projectId,
-      @PathVariable Long chapterId,
+      @PathVariable UUID projectId,
+      @PathVariable UUID chapterId,
       @Valid @RequestBody CreateChapterRenderRequest request,
       @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
     if (!mediaGenerationEnabled) {

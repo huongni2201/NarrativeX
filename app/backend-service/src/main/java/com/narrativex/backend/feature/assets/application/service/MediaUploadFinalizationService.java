@@ -12,6 +12,7 @@ import com.narrativex.backend.feature.assets.application.query.MediaAssetView;
 import com.narrativex.backend.feature.assets.application.query.UploadFinalizeView;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
+import com.narrativex.backend.feature.common.uuid.UuidV7;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Locale;
@@ -98,7 +99,7 @@ public class MediaUploadFinalizationService {
         assets.createOrReuseVerifiedAsset(
             accountId,
             new CreateVerifiedMediaAsset(
-                UUID.randomUUID(),
+                UuidV7.random(),
                 locked.assetType(),
                 "USER_UPLOAD",
                 locked.storageKey(),

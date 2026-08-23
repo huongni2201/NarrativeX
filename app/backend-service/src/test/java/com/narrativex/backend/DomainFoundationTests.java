@@ -7,6 +7,7 @@ import com.narrativex.backend.feature.auth.infrastructure.security.SecurityConte
 import com.narrativex.backend.feature.project.domain.entity.StoryVersion;
 import com.narrativex.backend.feature.project.domain.enums.AspectRatio;
 import com.narrativex.backend.feature.project.domain.enums.StoryVersionStatus;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.TestingAuthenticationToken;
@@ -27,7 +28,7 @@ class DomainFoundationTests {
 
   @Test
   void storyVersionCanActivateWithoutRightsAttestation() {
-    StoryVersion story = StoryVersion.create(1L, 1, "text", "en-US");
+    StoryVersion story = StoryVersion.create(UUID.randomUUID(), 1, "text", "en-US");
 
     story.activate();
 

@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis;
 
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -10,7 +11,7 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class VisualPromptLocationRow {
-  private Long locationId;
+  private UUID locationId;
   private String name;
   private String description;
   private String visualPrompt;

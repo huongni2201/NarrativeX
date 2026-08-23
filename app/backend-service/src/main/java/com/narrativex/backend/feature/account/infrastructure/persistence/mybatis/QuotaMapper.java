@@ -2,6 +2,7 @@ package com.narrativex.backend.feature.account.infrastructure.persistence.mybati
 
 import com.narrativex.backend.feature.common.infrastructure.persistence.mybatis.NarrativeXMyBatisMapper;
 import java.math.BigDecimal;
+import java.util.UUID;
 import org.apache.ibatis.annotations.Param;
 
 public interface QuotaMapper extends NarrativeXMyBatisMapper {
@@ -26,11 +27,11 @@ public interface QuotaMapper extends NarrativeXMyBatisMapper {
   Long insertReservation(QuotaReservationRow row);
 
   int bindToGenerationJob(
-      @Param("reservationId") long reservationId, @Param("generationJobId") long generationJobId);
+      @Param("reservationId") long reservationId, @Param("generationJobId") UUID generationJobId);
 
-  int countBilledOperations(@Param("generationJobId") long generationJobId);
+  int countBilledOperations(@Param("generationJobId") UUID generationJobId);
 
-  int consumeForJob(@Param("generationJobId") long generationJobId);
+  int consumeForJob(@Param("generationJobId") UUID generationJobId);
 
-  int releaseForJob(@Param("generationJobId") long generationJobId);
+  int releaseForJob(@Param("generationJobId") UUID generationJobId);
 }

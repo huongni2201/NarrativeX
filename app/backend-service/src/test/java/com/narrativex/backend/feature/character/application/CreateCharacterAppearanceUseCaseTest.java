@@ -19,6 +19,7 @@ import com.narrativex.backend.feature.character.domain.enums.OutfitVersionStatus
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,6 +34,11 @@ class CreateCharacterAppearanceUseCaseTest {
   @Mock private ProjectAccess projectAccess;
   private CreateCharacterAppearanceUseCase useCase;
 
+  private static final UUID CHARACTER_ID = UUID.fromString("00000000-0000-0000-0000-000000000010");
+  private static final UUID OTHER_CHARACTER_ID = UUID.fromString("00000000-0000-0000-0000-000000000020");
+  private static final UUID PROJECT_ID = UUID.fromString("00000000-0000-0000-0000-000000000100");
+  private static final UUID OUTFIT_ID = UUID.fromString("00000000-0000-0000-0000-000000000500");
+
   @BeforeEach
   void setUp() {
     CurrentUserId currentUserId = () -> "owner";
@@ -43,40 +49,40 @@ class CreateCharacterAppearanceUseCaseTest {
             outfitVersionRepository,
             projectAccess,
             currentUserId);
-    when(characterRepository.findOwnedById(10L, "owner")).thenReturn(Optional.of(character(10L)));
+    when(characterRepository.findOwnedById(CHARACTER_ID, "owner")).thenReturn(Optional.of(character(CHARACTER_ID)));
   }
 
   @Test
   void verifiesProjectOwnershipBeforeSavingAppearance() {
-    when(projectAccess.findOwnedProject(100L, "owner"))
+    when(projectAccess.findOwnedProject(PROJECT_ID, "owner"))
         .thenThrow(new ResourceNotFoundException("Project not found"));
-    assertThrows(ResourceNotFoundException.class, () -> useCase.execute(command(100L, null)));
+    assertThrows(ResourceNotFoundException.class, () -> useCase.execute(command(PROJECT_ID, null)));
     verify(appearanceRepository, never()).save(any());
     verify(outfitVersionRepository, never()).findOwnedById(any(), any());
   }
 
   @Test
   void rejectsAnOutfitVersionThatIsNotOwnedByTheCurrentUser() {
-    when(outfitVersionRepository.findOwnedById(500L, "owner")).thenReturn(Optional.empty());
-    assertThrows(ResourceNotFoundException.class, () -> useCase.execute(command(100L, 500L)));
+    when(outfitVersionRepository.findOwnedById(OUTFIT_ID, "owner")).thenReturn(Optional.empty());
+    assertThrows(ResourceNotFoundException.class, () -> useCase.execute(command(PROJECT_ID, OUTFIT_ID)));
     verify(appearanceRepository, never()).save(any());
   }
 
   @Test
   void rejectsAnOutfitVersionBelongingToAnotherCharacter() {
-    when(outfitVersionRepository.findOwnedById(500L, "owner"))
-        .thenReturn(Optional.of(outfit(500L, 20L)));
-    assertThrows(IllegalArgumentException.class, () -> useCase.execute(command(100L, 500L)));
+    when(outfitVersionRepository.findOwnedById(OUTFIT_ID, "owner"))
+        .thenReturn(Optional.of(outfit(OUTFIT_ID, OTHER_CHARACTER_ID)));
+    assertThrows(IllegalArgumentException.class, () -> useCase.execute(command(PROJECT_ID, OUTFIT_ID)));
     verify(appearanceRepository, never()).save(any());
   }
 
   @Test
   void savesOnlyAfterAllOptionalReferencesPassOwnershipChecks() {
-    when(outfitVersionRepository.findOwnedById(500L, "owner"))
-        .thenReturn(Optional.of(outfit(500L, 10L)));
-    useCase.execute(command(100L, 500L));
-    verify(projectAccess).findOwnedProject(100L, "owner");
-    verify(outfitVersionRepository).findOwnedById(500L, "owner");
+    when(outfitVersionRepository.findOwnedById(OUTFIT_ID, "owner"))
+        .thenReturn(Optional.of(outfit(OUTFIT_ID, CHARACTER_ID)));
+    useCase.execute(command(PROJECT_ID, OUTFIT_ID));
+    verify(projectAccess).findOwnedProject(PROJECT_ID, "owner");
+    verify(outfitVersionRepository).findOwnedById(OUTFIT_ID, "owner");
     verify(appearanceRepository).save(any());
   }
 
@@ -88,9 +94,9 @@ class CreateCharacterAppearanceUseCaseTest {
     verify(appearanceRepository).save(any());
   }
 
-  private static CreateCharacterAppearanceCommand command(Long projectId, Long outfitVersionId) {
+  private static CreateCharacterAppearanceCommand command(UUID projectId, UUID outfitVersionId) {
     return new CreateCharacterAppearanceCommand(
-        10L,
+        CHARACTER_ID,
         projectId,
         "chapter-1",
         "adult",
@@ -102,12 +108,12 @@ class CreateCharacterAppearanceUseCaseTest {
         "owner");
   }
 
-  private static Character character(Long id) {
+  private static Character character(UUID id) {
     return Character.rehydrate(
         id, 0L, "owner", null, "Mina", java.util.List.of(), CharacterStatus.ACTIVE);
   }
 
-  private static OutfitVersion outfit(Long id, Long characterId) {
+  private static OutfitVersion outfit(UUID id, UUID characterId) {
     return OutfitVersion.rehydrate(
         id, 0L, characterId, 1, "Travel", null, "prompt", OutfitVersionStatus.DRAFT);
   }

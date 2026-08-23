@@ -15,6 +15,7 @@ import com.narrativex.backend.feature.common.pagination.CursorPage;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -22,30 +23,36 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class ProjectCharacterReadUseCasesTest {
+  private static final UUID PROJECT_ID = UUID.fromString("00000000-0000-0000-0000-000000000100");
+  private static final UUID CHARACTER_ID = UUID.fromString("00000000-0000-0000-0000-000000000010");
+  private static final UUID ASSIGNMENT_ID = UUID.fromString("00000000-0000-0000-0000-000000000200");
+  private static final UUID PINNED_VERSION_ID = UUID.fromString("00000000-0000-0000-0000-000000000300");
+  private static final UUID APPEARANCE_ID = UUID.fromString("00000000-0000-0000-0000-000000000004");
+
   @Mock private ProjectCharacterReadRepository repository;
 
   private final CurrentUserId currentUserId = () -> "owner";
 
   @Test
   void listRejectsProjectOutsideCurrentOwner() {
-    when(repository.projectOwnedBy(100L, "owner")).thenReturn(false);
+    when(repository.projectOwnedBy(PROJECT_ID, "owner")).thenReturn(false);
     ListProjectCharactersUseCase useCase =
         new ListProjectCharactersUseCase(repository, currentUserId);
 
-    assertThrows(ResourceNotFoundException.class, () -> useCase.execute(100L, null, 20));
-    verify(repository).projectOwnedBy(100L, "owner");
+    assertThrows(ResourceNotFoundException.class, () -> useCase.execute(PROJECT_ID, null, 20));
+    verify(repository).projectOwnedBy(PROJECT_ID, "owner");
   }
 
   @Test
   void listReturnsAuthoritativeProjectProjection() {
     ProjectCharacterReadModel model = model();
-    when(repository.projectOwnedBy(100L, "owner")).thenReturn(true);
-    when(repository.findByProject(100L, "owner", null, 20))
+    when(repository.projectOwnedBy(PROJECT_ID, "owner")).thenReturn(true);
+    when(repository.findByProject(PROJECT_ID, "owner", null, 20))
         .thenReturn(new CursorPage<>(List.of(model), null, 20, false));
     ListProjectCharactersUseCase useCase =
         new ListProjectCharactersUseCase(repository, currentUserId);
 
-    CursorPage<ProjectCharacterReadModel> page = useCase.execute(100L, null, 20);
+    CursorPage<ProjectCharacterReadModel> page = useCase.execute(PROJECT_ID, null, 20);
 
     assertEquals(1, page.content().size());
     assertEquals("PROTAGONIST", page.content().getFirst().role());
@@ -54,23 +61,23 @@ class ProjectCharacterReadUseCasesTest {
 
   @Test
   void detailRejectsCharacterOutsideProject() {
-    when(repository.projectOwnedBy(100L, "owner")).thenReturn(true);
-    when(repository.findDetail(100L, 10L, "owner")).thenReturn(Optional.empty());
+    when(repository.projectOwnedBy(PROJECT_ID, "owner")).thenReturn(true);
+    when(repository.findDetail(PROJECT_ID, CHARACTER_ID, "owner")).thenReturn(Optional.empty());
     GetProjectCharacterDetailUseCase useCase =
         new GetProjectCharacterDetailUseCase(repository, currentUserId);
 
-    assertThrows(ResourceNotFoundException.class, () -> useCase.execute(100L, 10L));
+    assertThrows(ResourceNotFoundException.class, () -> useCase.execute(PROJECT_ID, CHARACTER_ID));
   }
 
   @Test
   void detailReturnsPinnedVersionAndAppearance() {
     ProjectCharacterReadModel model = model();
-    when(repository.projectOwnedBy(100L, "owner")).thenReturn(true);
-    when(repository.findDetail(100L, 10L, "owner")).thenReturn(Optional.of(model));
+    when(repository.projectOwnedBy(PROJECT_ID, "owner")).thenReturn(true);
+    when(repository.findDetail(PROJECT_ID, CHARACTER_ID, "owner")).thenReturn(Optional.of(model));
     GetProjectCharacterDetailUseCase useCase =
         new GetProjectCharacterDetailUseCase(repository, currentUserId);
 
-    ProjectCharacterReadModel result = useCase.execute(100L, 10L);
+    ProjectCharacterReadModel result = useCase.execute(PROJECT_ID, CHARACTER_ID);
 
     assertEquals(3, result.version().versionNumber());
     assertEquals("black hair", result.appearance().hairstyle());
@@ -79,9 +86,9 @@ class ProjectCharacterReadUseCasesTest {
 
   private static ProjectCharacterReadModel model() {
     return new ProjectCharacterReadModel(
-        200L,
-        10L,
-        100L,
+        ASSIGNMENT_ID,
+        CHARACTER_ID,
+        PROJECT_ID,
         "workspace",
         "Lan",
         List.of("Lan"),
@@ -89,10 +96,10 @@ class ProjectCharacterReadUseCasesTest {
         "PROTAGONIST",
         10,
         List.of("main-cast"),
-        300L,
+        PINNED_VERSION_ID,
         "ACTIVE",
         8,
-        4L,
+        APPEARANCE_ID,
         Instant.parse("2026-08-20T00:00:00Z"),
         Instant.parse("2026-08-21T00:00:00Z"),
         new ProjectCharacterReadModel.Version(3, "APPROVED", "bible", "prompt"),

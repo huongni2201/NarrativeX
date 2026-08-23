@@ -19,6 +19,7 @@ import com.narrativex.backend.feature.project.domain.aggregate.Project;
 import com.narrativex.backend.feature.project.domain.enums.AspectRatio;
 import com.narrativex.backend.feature.project.domain.enums.ImageQualityTier;
 import com.narrativex.backend.feature.project.domain.enums.ProjectStatus;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -33,12 +34,14 @@ class AssignCharacterToProjectUseCaseTest {
 
   @Test
   void assignmentUsesProjectAccessAndPersistsAnAssociation() {
+    UUID characterId = UUID.randomUUID();
+    UUID projectId = UUID.randomUUID();
     Character character =
         Character.rehydrate(
-            10L, 0L, "owner", null, "Mina", java.util.List.of(), CharacterStatus.ACTIVE);
+            characterId, 0L, "owner", null, "Mina", java.util.List.of(), CharacterStatus.ACTIVE);
     Project project =
         Project.rehydrate(
-            100L,
+            projectId,
             0L,
             "Story",
             "owner",
@@ -49,8 +52,8 @@ class AssignCharacterToProjectUseCaseTest {
             AspectRatio.RATIO_16_9,
             ImageQualityTier.STANDARD,
             null);
-    when(projectAccess.findOwnedProject(100L, "owner")).thenReturn(project);
-    when(characterRepository.findOwnedById(10L, "owner"))
+    when(projectAccess.findOwnedProject(projectId, "owner")).thenReturn(project);
+    when(characterRepository.findOwnedById(characterId, "owner"))
         .thenReturn(java.util.Optional.of(character));
     when(projectCharacterRepository.save(any(ProjectCharacter.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
@@ -66,8 +69,8 @@ class AssignCharacterToProjectUseCaseTest {
     ProjectCharacter response =
         useCase.execute(
             new AssignCharacterToProjectCommand(
-                100L,
-                10L,
+                projectId,
+                characterId,
                 "PROTAGONIST",
                 1,
                 java.util.List.of(),
@@ -76,8 +79,8 @@ class AssignCharacterToProjectUseCaseTest {
                 null,
                 "owner"));
 
-    assertEquals(10L, response.getCharacterId());
-    assertEquals(100L, response.getProjectId());
-    verify(projectAccess).findOwnedProject(100L, "owner");
+    assertEquals(characterId, response.getCharacterId());
+    assertEquals(projectId, response.getProjectId());
+    verify(projectAccess).findOwnedProject(projectId, "owner");
   }
 }

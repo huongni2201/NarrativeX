@@ -17,7 +17,7 @@ public class GenerationOutboxPersistenceAdapter implements GenerationOutboxRepos
   public void enqueue(GenerationJob job) {
     mapper.enqueue(
         new GenerationOutboxRow(
-            job.getJobId(),
+            job.getJobId().toString(),
             "generation-job:" + job.getJobId() + ":queued",
             job.getType(),
             job.getProjectId(),

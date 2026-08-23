@@ -2,35 +2,31 @@ package com.narrativex.backend.feature.storyboard.application.port.in;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 
 /** Cross-feature immutable projection of the current storyboard used for media planning. */
 public record MediaPlanningSource(
     List<SceneSnapshot> scenes,
-    Long storyboardRevisionId,
+    UUID storyboardRevisionId,
     String sourceHash,
-    String narrationSetId,
-    String narrationAlignmentRunId) {
+    UUID narrationSetId,
+    UUID narrationAlignmentRunId) {
   public MediaPlanningSource(List<SceneSnapshot> scenes) {
     this(scenes, null, null, null, null);
   }
 
   public MediaPlanningSource {
     scenes = List.copyOf(Objects.requireNonNull(scenes, "scenes"));
-    if (storyboardRevisionId != null && storyboardRevisionId <= 0) {
-      throw new IllegalArgumentException("storyboardRevisionId must be positive");
-    }
   }
 
   public record SceneSnapshot(
-      Long sceneId,
+      UUID sceneId,
       int orderIndex,
       String narration,
       Integer durationSeconds,
       List<BeatSnapshot> beats) {
     public SceneSnapshot {
-      if (sceneId == null || sceneId <= 0) {
-        throw new IllegalArgumentException("sceneId must be positive");
-      }
+      Objects.requireNonNull(sceneId, "sceneId");
       if (orderIndex < 0) {
         throw new IllegalArgumentException("orderIndex must not be negative");
       }
@@ -42,7 +38,7 @@ public record MediaPlanningSource(
   }
 
   public record BeatSnapshot(
-      Long visualBeatId,
+      UUID visualBeatId,
       int orderIndex,
       String visualIntent,
       MotionIntent motionIntent,
@@ -53,7 +49,7 @@ public record MediaPlanningSource(
       Long audioStartMs,
       Long audioEndMs) {
     public BeatSnapshot(
-        Long visualBeatId, int orderIndex, String visualIntent, MotionIntent motionIntent) {
+        UUID visualBeatId, int orderIndex, String visualIntent, MotionIntent motionIntent) {
       this(
           visualBeatId,
           orderIndex,
@@ -68,9 +64,7 @@ public record MediaPlanningSource(
     }
 
     public BeatSnapshot {
-      if (visualBeatId == null || visualBeatId <= 0) {
-        throw new IllegalArgumentException("visualBeatId must be positive");
-      }
+      Objects.requireNonNull(visualBeatId, "visualBeatId");
       if (orderIndex < 0) {
         throw new IllegalArgumentException("orderIndex must not be negative");
       }

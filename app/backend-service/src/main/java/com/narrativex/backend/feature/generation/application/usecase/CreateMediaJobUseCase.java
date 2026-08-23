@@ -204,7 +204,7 @@ public class CreateMediaJobUseCase {
   }
 
   private static String itemFingerprint(
-      String jobRequestFingerprint, UUID mediaPlanId, Long visualBeatId) {
+      String jobRequestFingerprint, UUID mediaPlanId, UUID visualBeatId) {
     return sha256(jobRequestFingerprint + ":" + mediaPlanId + ":" + visualBeatId);
   }
 

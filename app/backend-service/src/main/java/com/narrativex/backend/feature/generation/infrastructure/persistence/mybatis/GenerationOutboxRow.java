@@ -16,15 +16,15 @@ public class GenerationOutboxRow {
   private String aggregateId;
   private String eventKey;
   private JobType jobType;
-  private Long projectId;
-  private Long storyVersionId;
-  private Long chapterId;
+  private UUID projectId;
+  private UUID storyVersionId;
+  private UUID chapterId;
   private Long chapterRowVersion;
   private String sourceHash;
   private UUID mediaPlanId;
   private Integer mediaPlanRevision;
   private ProductionMode productionMode;
-  private Long contentVariantId;
-  private Long sourceVariantId;
+  private UUID contentVariantId;
+  private UUID sourceVariantId;
   private String targetLanguage;
 }

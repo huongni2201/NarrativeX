@@ -2,10 +2,11 @@ package com.narrativex.backend.feature.generation.domain.value;
 
 import com.narrativex.backend.feature.generation.domain.enums.MotionStrategy;
 import java.util.Objects;
+import java.util.UUID;
 
 /** Immutable execution decision for one visual beat. */
 public record MediaBeatPlan(
-    Long visualBeatId,
+    UUID visualBeatId,
     int orderIndex,
     String visualIntent,
     String motionMode,
@@ -22,7 +23,7 @@ public record MediaBeatPlan(
     String characterSnapshotJson,
     String snapshotFingerprint) {
   public MediaBeatPlan(
-      Long visualBeatId,
+      UUID visualBeatId,
       int orderIndex,
       String visualIntent,
       String motionMode,
@@ -47,9 +48,7 @@ public record MediaBeatPlan(
   }
 
   public MediaBeatPlan {
-    if (visualBeatId == null || visualBeatId <= 0) {
-      throw new IllegalArgumentException("visualBeatId must be positive");
-    }
+    Objects.requireNonNull(visualBeatId, "visualBeatId must not be null");
     if (orderIndex < 0) {
       throw new IllegalArgumentException("orderIndex must not be negative");
     }

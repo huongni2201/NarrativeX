@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.render.infrastructure.persistence.mybatis;
 
 import java.time.Instant;
+import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -8,8 +9,8 @@ import lombok.Setter;
 @Setter
 public class FinalArtifactRow {
   private Long id;
-  private Long projectId;
-  private Long chapterId;
+  private UUID projectId;
+  private UUID chapterId;
   private String artifactType;
   private String renderFingerprint;
   private String storageKey;

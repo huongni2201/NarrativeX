@@ -5,7 +5,7 @@ import java.util.UUID;
 
 /** Read-only generation projection used to snapshot character and location continuity. */
 public interface VisualPromptContextRepository {
-  VisualPromptContext findForScene(Long projectId, Long sceneId);
+  VisualPromptContext findForScene(UUID projectId, UUID sceneId);
 
   record VisualPromptContext(LocationCanon location, List<CharacterCanon> characters) {
     public VisualPromptContext {
@@ -17,7 +17,7 @@ public interface VisualPromptContextRepository {
     }
   }
 
-  record LocationCanon(Long locationId, String name, String description, String visualPrompt) {}
+  record LocationCanon(UUID locationId, String name, String description, String visualPrompt) {}
 
   record CharacterReference(
       UUID assetId,
@@ -28,8 +28,8 @@ public interface VisualPromptContextRepository {
       String sha256) {}
 
   record CharacterCanon(
-      Long assignmentId,
-      Long characterId,
+      UUID assignmentId,
+      UUID characterId,
       String canonicalName,
       Integer versionNumber,
       String visualPrompt,

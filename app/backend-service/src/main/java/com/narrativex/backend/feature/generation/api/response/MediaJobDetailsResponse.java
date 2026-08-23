@@ -26,7 +26,7 @@ public record MediaJobDetailsResponse(
 
   public record Item(
       UUID id,
-      Long visualBeatId,
+      UUID visualBeatId,
       String itemKey,
       String executionStatus,
       String reviewStatus,

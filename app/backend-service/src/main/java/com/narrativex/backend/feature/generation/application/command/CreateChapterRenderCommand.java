@@ -4,8 +4,8 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 public record CreateChapterRenderCommand(
-    Long projectId,
-    Long chapterId,
+    UUID projectId,
+    UUID chapterId,
     String resolution,
     String format,
     UUID mediaPlanId,
@@ -13,7 +13,7 @@ public record CreateChapterRenderCommand(
     BigDecimal maxAuthorizedCost,
     String idempotencyKey) {
   public CreateChapterRenderCommand(
-      Long projectId, Long chapterId, String resolution, String format) {
+      UUID projectId, UUID chapterId, String resolution, String format) {
     this(projectId, chapterId, resolution, format, null, null, null, null);
   }
 }

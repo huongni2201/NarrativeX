@@ -18,7 +18,7 @@ public class MediaGenerationItemRow {
   private long rowVersion;
   private UUID generationJobId;
   private UUID mediaPlanId;
-  private Long visualBeatId;
+  private UUID visualBeatId;
   private String itemKey;
   private int attemptNumber;
   private MediaGenerationExecutionStatus executionStatus;

@@ -14,6 +14,7 @@ import com.narrativex.backend.feature.assets.configuration.StorageUploadProperti
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
+import com.narrativex.backend.feature.common.uuid.UuidV7;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -113,7 +114,7 @@ public class MediaUploadUseCase {
     }
 
     Instant expiresAt = clock.instant().plus(storageProperties.uploadIntentTtl());
-    UUID id = UUID.randomUUID();
+    UUID id = UuidV7.random();
     String storageKey = "media/uploads/" + id;
     UploadSession session =
         sessions.create(

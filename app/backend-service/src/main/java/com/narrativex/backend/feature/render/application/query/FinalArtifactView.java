@@ -1,11 +1,12 @@
 package com.narrativex.backend.feature.render.application.query;
 
 import java.time.Instant;
+import java.util.UUID;
 
 public record FinalArtifactView(
     Long id,
-    Long projectId,
-    Long chapterId,
+    UUID projectId,
+    UUID chapterId,
     String artifactType,
     String renderFingerprint,
     String storageKey,

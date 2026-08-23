@@ -19,6 +19,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.UUID;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -81,7 +83,7 @@ public class EnqueueStoryAnalysisUseCase {
     var admission = admissionService.admit(userId, command.projectId(), chapter);
     var estimate = admission.estimate();
 
-    Long storyboardRevisionId =
+    UUID storyboardRevisionId =
         chapter.contentVariantId() == null
             ? storyboardRevisionAccess.createDraft(
                 command.chapterId(), chapter.sourceHash(), chapter.rowVersion())

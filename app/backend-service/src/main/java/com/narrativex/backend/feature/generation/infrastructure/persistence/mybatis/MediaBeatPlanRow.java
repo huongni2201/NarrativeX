@@ -15,7 +15,7 @@ public class MediaBeatPlanRow {
   private UUID mediaPlanId;
   private int sceneIndex;
   private int beatIndex;
-  private Long visualBeatId;
+  private UUID visualBeatId;
   private int visualBeatOrderIndex;
   private String visualIntent;
   private String semanticMotionMode;

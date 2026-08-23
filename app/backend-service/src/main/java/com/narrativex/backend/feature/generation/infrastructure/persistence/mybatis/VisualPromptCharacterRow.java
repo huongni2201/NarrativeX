@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis;
 
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -10,8 +11,8 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class VisualPromptCharacterRow {
-  private Long assignmentId;
-  private Long characterId;
+  private UUID assignmentId;
+  private UUID characterId;
   private String canonicalName;
   private Integer versionNumber;
   private String visualPrompt;

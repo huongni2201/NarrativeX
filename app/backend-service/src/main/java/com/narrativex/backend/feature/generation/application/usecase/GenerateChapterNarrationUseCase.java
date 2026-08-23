@@ -2,6 +2,7 @@ package com.narrativex.backend.feature.generation.application.usecase;
 
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.catalog.application.port.in.VoiceCatalogAccess;
+import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.application.command.GenerateChapterNarrationCommand;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationOutboxRepository;
@@ -93,7 +94,7 @@ public class GenerateChapterNarrationUseCase {
     NarrationRequest narrationRequest =
         narrationRequestRepository.save(
             new NarrationRequest(
-                UUID.randomUUID(),
+                UuidV7.random(),
                 command.projectId(),
                 command.chapterId(),
                 chapter.rowVersion(),
@@ -120,7 +121,7 @@ public class GenerateChapterNarrationUseCase {
             GenerationJob.rehydrate(
                 null,
                 0L,
-                UUID.randomUUID(),
+                UuidV7.random(),
                 command.projectId(),
                 JobType.NARRATION_GENERATE,
                 JobStatus.QUEUED,
@@ -145,7 +146,7 @@ public class GenerateChapterNarrationUseCase {
         stageAttemptRepository.create(StageAttempt.create(job.getId(), STAGE_NAME, 1));
     narrationOperationRepository.save(
         new NarrationOperation(
-            UUID.randomUUID(), narrationRequest.id(), job.getId(), stageAttempt.getId()));
+            UuidV7.random(), narrationRequest.id(), job.getId(), stageAttempt.getId()));
     generationOutboxRepository.enqueue(job);
     log.info(
         "Created and enqueued narration job id={} (voiceId='{}', rate={}) for chapterId={}, projectId={}",

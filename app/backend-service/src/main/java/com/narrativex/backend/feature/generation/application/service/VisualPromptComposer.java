@@ -181,8 +181,8 @@ public class VisualPromptComposer {
   private record CharacterSnapshotEnvelope(List<CharacterSnapshot> characters) {}
 
   private record CharacterSnapshot(
-      Long assignmentId,
-      Long characterId,
+      UUID assignmentId,
+      UUID characterId,
       String canonicalName,
       Integer versionNumber,
       String visualPrompt,

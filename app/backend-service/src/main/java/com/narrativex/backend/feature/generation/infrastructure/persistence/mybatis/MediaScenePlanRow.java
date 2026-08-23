@@ -13,7 +13,7 @@ import lombok.Setter;
 public class MediaScenePlanRow {
   private UUID mediaPlanId;
   private int sceneIndex;
-  private Long sceneId;
+  private UUID sceneId;
   private int sceneOrderIndex;
   private String narration;
   private Integer durationSeconds;

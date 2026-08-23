@@ -7,12 +7,14 @@ import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanni
 import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSourceAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardRevisionAccess;
 import com.narrativex.backend.feature.storyboard.application.port.out.StoryboardRepository;
+import com.narrativex.backend.feature.storyboard.domain.aggregate.Scene;
 import com.narrativex.backend.feature.storyboard.domain.entity.VisualBeat;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -26,19 +28,19 @@ public class MediaPlanningSourceService implements MediaPlanningSourceAccess {
 
   @Override
   @Transactional(propagation = Propagation.MANDATORY, readOnly = true)
-  public MediaPlanningSource requireCurrent(Long chapterId) {
-    var scenes = storyboardRepository.findScenesByChapterId(chapterId);
-    var sceneIds = scenes.stream().map(scene -> scene.getId()).toList();
-    var beats = storyboardRepository.findVisualBeatsBySceneIds(sceneIds);
+  public MediaPlanningSource requireCurrent(UUID chapterId) {
+    List<Scene> scenes = storyboardRepository.findScenesByChapterId(chapterId);
+    List<UUID> sceneIds = scenes.stream().map(Scene::getId).toList();
+    List<VisualBeat> beats = storyboardRepository.findVisualBeatsBySceneIds(sceneIds);
 
-    Map<Long, List<VisualBeat>> beatsByScene = new HashMap<>();
-    for (var beat : beats) {
+    Map<UUID, List<VisualBeat>> beatsByScene = new HashMap<>();
+    for (VisualBeat beat : beats) {
       beatsByScene.computeIfAbsent(beat.getSceneId(), ignored -> new ArrayList<>()).add(beat);
     }
 
     var snapshots =
         scenes.stream()
-            .sorted(Comparator.comparingInt(scene -> scene.getOrderIndex()))
+            .sorted(Comparator.comparingInt(Scene::getOrderIndex))
             .map(
                 scene ->
                     new SceneSnapshot(

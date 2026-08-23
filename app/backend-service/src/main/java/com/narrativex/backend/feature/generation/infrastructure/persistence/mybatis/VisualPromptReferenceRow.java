@@ -11,7 +11,7 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class VisualPromptReferenceRow {
-  private Long assignmentId;
+  private UUID assignmentId;
   private UUID assetId;
   private String role;
   private int priority;

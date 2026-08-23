@@ -5,6 +5,7 @@ import com.narrativex.backend.feature.account.infrastructure.persistence.mybatis
 import com.narrativex.backend.feature.generation.application.port.out.QuotaReservation;
 import java.math.BigDecimal;
 import java.util.Optional;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,7 +52,7 @@ public class MyBatisQuotaReservation implements QuotaReservation {
 
   @Override
   @Transactional
-  public void bindToGenerationJob(long reservationId, long generationJobId) {
+  public void bindToGenerationJob(long reservationId, UUID generationJobId) {
     if (mapper.bindToGenerationJob(reservationId, generationJobId) != 1) {
       throw new IllegalStateException(
           "Quota reservation " + reservationId + " cannot be bound to job " + generationJobId);
@@ -60,7 +61,7 @@ public class MyBatisQuotaReservation implements QuotaReservation {
 
   @Override
   @Transactional
-  public boolean consumeForJob(long generationJobId) {
+  public boolean consumeForJob(UUID generationJobId) {
     if (mapper.countBilledOperations(generationJobId) == 0) {
       return false;
     }
@@ -69,7 +70,7 @@ public class MyBatisQuotaReservation implements QuotaReservation {
 
   @Override
   @Transactional
-  public boolean releaseForJob(long generationJobId) {
+  public boolean releaseForJob(UUID generationJobId) {
     return mapper.releaseForJob(generationJobId) == 1;
   }
 

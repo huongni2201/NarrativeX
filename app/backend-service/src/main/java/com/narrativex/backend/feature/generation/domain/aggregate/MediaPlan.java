@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.generation.domain.aggregate;
 
+import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.domain.enums.ProductionMode;
 import com.narrativex.backend.feature.generation.domain.value.MediaScenePlan;
 import com.narrativex.backend.feature.generation.domain.value.MediaWorkload;
@@ -76,7 +77,7 @@ public record MediaPlan(
       BigDecimal estimatedCost,
       Instant createdAt) {
     return new MediaPlan(
-        UUID.randomUUID(), chapterId, chapterRowVersion, sourceHash, productionMode, revision,
+        UuidV7.random(), chapterId, chapterRowVersion, sourceHash, productionMode, revision,
         scenes, workload, estimatedCost, createdAt);
   }
 
@@ -100,7 +101,7 @@ public record MediaPlan(
       UUID narrationSetId,
       UUID narrationAlignmentRunId) {
     return new MediaPlan(
-        UUID.randomUUID(), chapterId, chapterRowVersion, sourceHash, productionMode, revision,
+        UuidV7.random(), chapterId, chapterRowVersion, sourceHash, productionMode, revision,
         scenes, workload, estimatedCost, createdAt, storyboardRevisionId, "media-mvp-v1",
         imageAspectRatio, imageQualityTier, imageProviderKey, imageModelKey, pricingSnapshotJson,
         pricingFingerprint, narrationSetId, narrationAlignmentRunId);

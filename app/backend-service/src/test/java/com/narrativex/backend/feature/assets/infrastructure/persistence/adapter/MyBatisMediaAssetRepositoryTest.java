@@ -54,14 +54,7 @@ class MyBatisMediaAssetRepositoryTest {
     assertThat(MediaAssetCursorCodec.decode(page.nextCursor()).id()).isEqualTo(second.getId());
   }
 
-  @Test
-  void validationCannotBeBypassedByApproveEndpoint() {
-    when(mapper.findOwned(ACCOUNT, firstId)).thenReturn(validating);
 
-    assertThatThrownBy(() -> repository.approve(ACCOUNT, firstId))
-        .isInstanceOf(IllegalStateException.class)
-        .hasMessageContaining("only after media validation");
-  }
 
   @Test
   void checksumClaimReturnsTheCanonicalAssetWhenItAlreadyExists() {

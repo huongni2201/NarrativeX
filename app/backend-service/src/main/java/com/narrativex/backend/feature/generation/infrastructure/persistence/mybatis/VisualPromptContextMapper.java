@@ -2,15 +2,16 @@ package com.narrativex.backend.feature.generation.infrastructure.persistence.myb
 
 import com.narrativex.backend.feature.common.infrastructure.persistence.mybatis.NarrativeXMyBatisMapper;
 import java.util.List;
+import java.util.UUID;
 import org.apache.ibatis.annotations.Param;
 
 public interface VisualPromptContextMapper extends NarrativeXMyBatisMapper {
   VisualPromptLocationRow findLocation(
-      @Param("projectId") Long projectId, @Param("sceneId") Long sceneId);
+      @Param("projectId") UUID projectId, @Param("sceneId") UUID sceneId);
 
   List<VisualPromptCharacterRow> findCharacters(
-      @Param("projectId") Long projectId, @Param("sceneId") Long sceneId);
+      @Param("projectId") UUID projectId, @Param("sceneId") UUID sceneId);
 
   List<VisualPromptReferenceRow> findCharacterReferences(
-      @Param("projectId") Long projectId, @Param("sceneId") Long sceneId);
+      @Param("projectId") UUID projectId, @Param("sceneId") UUID sceneId);
 }

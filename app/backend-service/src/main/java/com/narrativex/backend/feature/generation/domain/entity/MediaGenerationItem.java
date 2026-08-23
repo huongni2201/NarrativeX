@@ -1,5 +1,7 @@
 package com.narrativex.backend.feature.generation.domain.entity;
 
+import com.narrativex.backend.feature.common.domain.UuidEntity;
+import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.domain.enums.MediaGenerationExecutionStatus;
 import com.narrativex.backend.feature.generation.domain.enums.MediaGenerationReviewStatus;
 import java.time.Instant;
@@ -12,7 +14,7 @@ public final class MediaGenerationItem {
   private final long rowVersion;
   private final UUID generationJobId;
   private final UUID mediaPlanId;
-  private final Long visualBeatId;
+  private final UUID visualBeatId;
   private final String itemKey;
   private final int attemptNumber;
   private MediaGenerationExecutionStatus executionStatus;
@@ -30,7 +32,7 @@ public final class MediaGenerationItem {
       long rowVersion,
       UUID generationJobId,
       UUID mediaPlanId,
-      Long visualBeatId,
+      UUID visualBeatId,
       String itemKey,
       int attemptNumber,
       MediaGenerationExecutionStatus executionStatus,
@@ -64,12 +66,12 @@ public final class MediaGenerationItem {
   public static MediaGenerationItem create(
       UUID generationJobId,
       UUID mediaPlanId,
-      Long visualBeatId,
+      UUID visualBeatId,
       String itemKey,
       int attemptNumber,
       String requestFingerprint) {
     return new MediaGenerationItem(
-        UUID.randomUUID(),
+        UuidV7.random(),
         0L,
         generationJobId,
         mediaPlanId,
@@ -92,7 +94,7 @@ public final class MediaGenerationItem {
       long rowVersion,
       UUID generationJobId,
       UUID mediaPlanId,
-      Long visualBeatId,
+      UUID visualBeatId,
       String itemKey,
       int attemptNumber,
       MediaGenerationExecutionStatus executionStatus,
@@ -139,7 +141,7 @@ public final class MediaGenerationItem {
     return mediaPlanId;
   }
 
-  public Long getVisualBeatId() {
+  public UUID getVisualBeatId() {
     return visualBeatId;
   }
 

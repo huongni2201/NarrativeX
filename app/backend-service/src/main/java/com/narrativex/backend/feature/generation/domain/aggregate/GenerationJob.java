@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.generation.domain.aggregate;
 
 import com.narrativex.backend.feature.common.domain.AggregateRoot;
+import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
 import com.narrativex.backend.feature.generation.domain.enums.ProductionMode;
@@ -124,7 +125,7 @@ public final class GenerationJob extends AggregateRoot {
 
   public static GenerationJob create(UUID projectId, JobType type, ResourceClass resourceClass, String userId) {
     return new GenerationJob(
-        null, 0L, UUID.randomUUID(), projectId, type, JobStatus.QUEUED, resourceClass, 0,
+        null, 0L, UuidV7.random(), projectId, type, JobStatus.QUEUED, resourceClass, 0,
         "QUEUED", null, userId, userId, null, null, null, null, null, null, null, null,
         null, null, null);
   }
@@ -162,7 +163,7 @@ public final class GenerationJob extends AggregateRoot {
     Objects.requireNonNull(storyboardRevisionId, "storyboardRevisionId");
     if (chapterRowVersion < 0) throw new IllegalArgumentException("chapterRowVersion must not be negative");
     return new GenerationJob(
-        null, 0L, UUID.randomUUID(), projectId, JobType.CHAPTER_ANALYZE, JobStatus.QUEUED,
+        null, 0L, UuidV7.random(), projectId, JobType.CHAPTER_ANALYZE, JobStatus.QUEUED,
         ResourceClass.PROVIDER_INTERACTIVE, 0, "QUEUED", null, userId, userId, storyVersionId,
         chapterId, storyboardRevisionId, chapterRowVersion, required(sourceHash, "sourceHash"),
         required(sourceText, "sourceText"), required(sourceLanguage, "sourceLanguage"),
@@ -185,7 +186,7 @@ public final class GenerationJob extends AggregateRoot {
     Objects.requireNonNull(storyVersionId, "storyVersionId");
     Objects.requireNonNull(chapterId, "chapterId");
     return new GenerationJob(
-        null, 0L, UUID.randomUUID(), projectId, JobType.CHAPTER_TRANSLATE, JobStatus.QUEUED,
+        null, 0L, UuidV7.random(), projectId, JobType.CHAPTER_TRANSLATE, JobStatus.QUEUED,
         ResourceClass.PROVIDER_INTERACTIVE, 0, "QUEUED", null, userId, userId, storyVersionId,
         chapterId, null, chapterRowVersion, required(sourceHash, "sourceHash"),
         required(sourceText, "sourceText"), required(sourceLanguage, "sourceLanguage"),
@@ -204,7 +205,7 @@ public final class GenerationJob extends AggregateRoot {
     Objects.requireNonNull(mediaPlan, "mediaPlan");
     Objects.requireNonNull(storyVersionId, "storyVersionId");
     return new GenerationJob(
-        null, 0L, UUID.randomUUID(), projectId, JobType.CHAPTER_GENERATE, JobStatus.QUEUED,
+        null, 0L, UuidV7.random(), projectId, JobType.CHAPTER_GENERATE, JobStatus.QUEUED,
         Objects.requireNonNull(resourceClass, "resourceClass"), 0, "QUEUED", null, userId,
         userId, storyVersionId, mediaPlan.chapterId(), mediaPlan.storyboardRevisionId(),
         mediaPlan.chapterRowVersion(), mediaPlan.sourceHash(), null,
@@ -230,7 +231,7 @@ public final class GenerationJob extends AggregateRoot {
     if (mediaPlanId == null || mediaPlanRevision == null || mediaPlanRevision <= 0)
       throw new IllegalArgumentException("A pinned media plan revision is required for rendering");
     return new GenerationJob(
-        null, 0L, UUID.randomUUID(), projectId, JobType.CHAPTER_RENDER, JobStatus.QUEUED,
+        null, 0L, UuidV7.random(), projectId, JobType.CHAPTER_RENDER, JobStatus.QUEUED,
         ResourceClass.CPU_RENDER, 0, "QUEUED", null, userId, userId, storyVersionId, chapterId,
         null, chapterRowVersion, required(sourceHash, "sourceHash"), required(sourceText, "sourceText"),
         required(sourceLanguage, "sourceLanguage"), required(idempotencyKey, "idempotencyKey"),
