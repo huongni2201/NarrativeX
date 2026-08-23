@@ -66,8 +66,9 @@ export function GenerateNarrationModal({
   const selectedVoiceOption = voices.find((voice) => voice.id === selectedVoice);
   const usesVieNeu = (voiceId: string, voice?: VoiceOption) =>
     voiceId.startsWith("vieneu-") || voice?.provider?.toUpperCase() === "VIENEU";
-  const isPresetVieNeuVoice = usesVieNeu(selectedVoice, selectedVoiceOption);
-  const effectiveSpeakingRate = isPresetVieNeuVoice ? 1.0 : speakingRate;
+  const isVieNeuVoice = usesVieNeu(selectedVoice, selectedVoiceOption);
+  const isSystemReferenceVoice = selectedVoice === GLOBAL_VIENEU_VOICE_ID;
+  const effectiveSpeakingRate = isVieNeuVoice ? 1.0 : speakingRate;
 
   const selectVoice = (voiceId: string) => {
     setSelectedVoice(voiceId);
@@ -212,7 +213,7 @@ export function GenerateNarrationModal({
           </div>
 
           {/* VieNeu voice source */}
-          {isPresetVieNeuVoice && (
+          {isVieNeuVoice && (
             <div className="rounded-xl border border-primary/30 bg-primary-muted/10 p-4">
               <div className="flex items-start gap-3">
                 <div className="mt-0.5 rounded-lg bg-primary-muted p-2 text-primary">
@@ -221,7 +222,9 @@ export function GenerateNarrationModal({
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-semibold text-text-primary">Voice VieNeu dùng chung</p>
                   <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">
-                    Ngọc Huyền v2 được đăng ký từ voice profile của hệ thống và dùng chung cho các chapter. Bạn không cần upload file âm thanh.
+                    {isSystemReferenceVoice
+                      ? "Ngọc Huyền v2 được đăng ký từ sample voice của hệ thống và dùng chung cho các chapter."
+                      : `${selectedVoiceOption?.name ?? "Voice VieNeu"} là preset tích hợp sẵn của VieNeu và không cần sample riêng.`} Bạn không cần upload file âm thanh.
                   </p>
                   <p className="mt-3 flex items-center gap-1.5 text-[11px] text-success">
                     <Check className="h-3.5 w-3.5" aria-hidden="true" />
@@ -250,12 +253,12 @@ export function GenerateNarrationModal({
               max="2.0"
               step="0.05"
               value={effectiveSpeakingRate}
-              disabled={isPresetVieNeuVoice}
+              disabled={isVieNeuVoice}
               onChange={(e) => setSpeakingRate(Number.parseFloat(e.target.value))}
               className="mt-3 w-full accent-orange-500 disabled:cursor-not-allowed disabled:opacity-50"
             />
 
-            {isPresetVieNeuVoice ? (
+            {isVieNeuVoice ? (
               <p className="mt-2 text-[11px] text-text-muted">VieNeu hiện tổng hợp ở tốc độ chuẩn 1.0x.</p>
             ) : (
             <div className="mt-2 flex gap-1.5 justify-end">

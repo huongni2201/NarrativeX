@@ -4,6 +4,7 @@ import asyncio
 import logging
 import re
 import time
+import unicodedata
 from pathlib import Path
 from typing import Any
 
@@ -209,6 +210,16 @@ class VieneuTtsProvider:
     def _available_voice_names(self) -> set[str]:
         return {str(item[1]) for item in self._client.list_preset_voices()}
 
+    @staticmethod
+    def _voice_lookup_key(value: str) -> str:
+        without_diacritics = "".join(
+            character
+            for character in unicodedata.normalize("NFKD", value.casefold())
+            if not unicodedata.combining(character)
+        )
+        normalized = without_diacritics.removeprefix("vieneu-").replace("-", " ")
+        return " ".join(normalized.split())
+
     def _resolve_voice(self, requested_voice_id: str) -> str:
         available = self._available_voice_names()
         if requested_voice_id == self.voice_catalog_id:
@@ -220,12 +231,9 @@ class VieneuTtsProvider:
         if requested_voice_id in available:
             return requested_voice_id
 
-        req_clean = requested_voice_id.removeprefix("vieneu-").replace("-", " ").strip().lower()
+        requested_key = self._voice_lookup_key(requested_voice_id)
         for name in available:
-            name_clean = name.strip().lower()
-            if name_clean == req_clean or name_clean == requested_voice_id.strip().lower():
-                return name
-            if name_clean.replace(" ", "") == req_clean.replace(" ", ""):
+            if self._voice_lookup_key(name) == requested_key:
                 return name
 
         raise TtsProviderRejectedError(

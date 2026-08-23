@@ -55,7 +55,7 @@ class PostgreSqlMigrationIntegrationTest {
       assertEquals(0, rowCount(connection, "projects"));
       assertEquals(11, rowCount(connection, "plan_entitlements"));
       assertEquals(2, rowCount(connection, "style_presets"));
-      assertEquals(20, rowCount(connection, "voice_catalog"));
+      assertEquals(21, rowCount(connection, "voice_catalog"));
       assertTrue(tableExists(connection, "chapter_content_variants"));
       assertTrue(tableExists(connection, "language_detections"));
       assertTrue(tableExists(connection, "short_clip_requests"));

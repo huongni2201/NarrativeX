@@ -61,6 +61,13 @@ USER_PROVIDED_AUDIO
   -> no TTS_GENERATE stage
 ```
 
+### VieNeu-TTS voices
+
+VieNeu v3.3.0 includes a built-in preset named `Ngọc Huyền`; it does not need a
+reference audio file. NarrativeX also keeps `Ngọc Huyền v2` as a separate
+system-managed reference profile, which is enrolled from `ngoc_huyen_sample.wav`
+when that voice is selected.
+
 ### VieNeu-TTS voice cloning
 
 Install the worker dependencies, prepare a clean 3–8 second `.wav` sample outside the repository,

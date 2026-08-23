@@ -1,5 +1,6 @@
 import asyncio
 import wave
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -105,6 +106,54 @@ def test_vieneu_reuses_enrolled_voice_without_reenrollment(tmp_path: Path) -> No
 
     assert client.add_voice_calls == []
     assert client.save_calls == 0
+
+
+def test_vieneu_uses_builtin_ngoc_huyen_preset_without_reference_audio() -> None:
+    client = FakeVieneuClient()
+    client.voices.add("Ngọc Huyền")
+    settings = WorkerSettings(
+        worker_env="test",
+        vieneu_voice_id="vieneu-ngoc-huyen",
+        vieneu_voice_name="Ngọc Huyền",
+    )
+
+    provider = VieneuTtsProvider(settings, client=client)
+    result = asyncio.run(
+        provider.synthesize(
+            TtsRequest(
+                request_id="req-preset",
+                segment=NarrationSegment(index=0, text_start=0, text_end=5, text="Xin chào"),
+                voice_id="vieneu-ngoc-huyen",
+                language="vi-VN",
+                speaking_rate=1.0,
+            )
+        )
+    )
+
+    assert client.add_voice_calls == []
+    assert client.batch_calls[-1][1] == "Ngọc Huyền"
+    assert result.sample_rate_hz == 48_000
+
+
+@pytest.mark.parametrize(
+    ("voice_id", "voice_name"),
+    [("vieneu-my-duyen", "Mỹ Duyên"), ("vieneu-thuy-dung", "Thùy Dung")],
+)
+def test_vieneu_resolves_catalog_ids_without_diacritics(
+    voice_id: str, voice_name: str
+) -> None:
+    client = FakeVieneuClient()
+    client.voices.update({"Ngọc Huyền", voice_name})
+    settings = WorkerSettings(
+        worker_env="test",
+        vieneu_voice_id="vieneu-ngoc-huyen",
+        vieneu_voice_name="Ngọc Huyền",
+    )
+
+    provider = VieneuTtsProvider(settings, client=client)
+    asyncio.run(provider.synthesize(replace(_request(), voice_id=voice_id)))
+
+    assert client.batch_calls[-1][1] == voice_name
 
 
 def test_vieneu_missing_configured_voice_fails_fast() -> None:
