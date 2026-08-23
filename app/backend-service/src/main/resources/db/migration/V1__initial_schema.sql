@@ -247,8 +247,6 @@ CREATE TABLE character_versions (
     version_number INTEGER NOT NULL,
     bible TEXT NOT NULL,
     visual_prompt TEXT NOT NULL,
-    master_asset_id BIGINT,
-    reference_asset_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
     status VARCHAR(24) NOT NULL DEFAULT 'DRAFT',
     locked_at TIMESTAMP WITH TIME ZONE,
     locked_by VARCHAR(128),
