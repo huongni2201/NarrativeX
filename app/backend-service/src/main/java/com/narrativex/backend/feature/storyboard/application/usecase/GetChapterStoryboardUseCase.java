@@ -12,6 +12,7 @@ import com.narrativex.backend.feature.storyboard.domain.entity.VisualBeat;
 import com.narrativex.backend.feature.storyboard.domain.enums.VisualBeatReviewStatus;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,7 +29,7 @@ public class GetChapterStoryboardUseCase {
   private final StoryboardRepository storyboardRepository;
 
   @Transactional(readOnly = true)
-  public ApiResponse<ChapterStoryboardResponse> execute(Long projectId, Long chapterId) {
+  public ApiResponse<ChapterStoryboardResponse> execute(UUID projectId, UUID chapterId) {
     log.debug("Fetching storyboard for projectId={}, chapterId={}", projectId, chapterId);
     var chapter =
         chapterRepository
@@ -38,8 +39,8 @@ public class GetChapterStoryboardUseCase {
         projectId, chapter.getStoryVersionId(), currentUserId.get());
 
     var scenes = storyboardRepository.findScenesByChapterId(chapterId);
-    List<Long> sceneIds = scenes.stream().map(scene -> scene.getId()).toList();
-    Map<Long, List<VisualBeat>> beatsByScene =
+    List<UUID> sceneIds = scenes.stream().map(scene -> scene.getId()).toList();
+    Map<UUID, List<VisualBeat>> beatsByScene =
         storyboardRepository.findVisualBeatsBySceneIds(sceneIds).stream()
             .collect(Collectors.groupingBy(VisualBeat::getSceneId));
 

@@ -10,6 +10,7 @@ import com.narrativex.backend.feature.storyboard.application.usecase.GetChapterS
 import com.narrativex.backend.feature.storyboard.application.usecase.UpdateVisualBeatReviewStatusUseCase;
 import jakarta.validation.Valid;
 import java.net.URI;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
@@ -35,15 +36,15 @@ public class StoryboardController {
 
   @GetMapping("/storyboard")
   public ResponseEntity<ApiResponse<ChapterStoryboardResponse>> getStoryboard(
-      @PathVariable Long projectId, @PathVariable Long chapterId) {
+      @PathVariable UUID projectId, @PathVariable UUID chapterId) {
     return ResponseEntity.ok(getChapterStoryboardUseCase.execute(projectId, chapterId));
   }
 
   @PostMapping("/scenes/{sceneId}/visual-beats")
   public ResponseEntity<ApiResponse<VisualBeatResponse>> createVisualBeat(
-      @PathVariable Long projectId,
-      @PathVariable Long chapterId,
-      @PathVariable Long sceneId,
+      @PathVariable UUID projectId,
+      @PathVariable UUID chapterId,
+      @PathVariable UUID sceneId,
       @Valid @RequestBody CreateVisualBeatRequest request) {
     log.info(
         "API POST create visual beat for projectId={}, chapterId={}, sceneId={}",
@@ -70,10 +71,10 @@ public class StoryboardController {
 
   @PutMapping("/scenes/{sceneId}/visual-beats/{visualBeatId}/review-status")
   public ResponseEntity<ApiResponse<VisualBeatResponse>> updateReviewStatus(
-      @PathVariable Long projectId,
-      @PathVariable Long chapterId,
-      @PathVariable Long sceneId,
-      @PathVariable Long visualBeatId,
+      @PathVariable UUID projectId,
+      @PathVariable UUID chapterId,
+      @PathVariable UUID sceneId,
+      @PathVariable UUID visualBeatId,
       @RequestHeader(value = HttpHeaders.IF_MATCH, required = false) String ifMatch,
       @Valid @RequestBody UpdateVisualBeatReviewStatusRequest request) {
     log.info(

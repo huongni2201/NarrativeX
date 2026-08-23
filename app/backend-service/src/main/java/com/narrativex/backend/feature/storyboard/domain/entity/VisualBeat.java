@@ -7,12 +7,13 @@ import com.narrativex.backend.feature.storyboard.domain.enums.ImageQualityTier;
 import com.narrativex.backend.feature.storyboard.domain.enums.MotionMode;
 import com.narrativex.backend.feature.storyboard.domain.enums.VisualBeatReviewStatus;
 import java.util.Objects;
+import java.util.UUID;
 
 public final class VisualBeat extends DomainEntity {
   private static final int MAX_TITLE_LENGTH = 200;
   private static final int MAX_VISUAL_INTENT_LENGTH = 8000;
 
-  private final Long sceneId;
+  private final UUID sceneId;
   private final int orderIndex;
   private final String title;
   private final String visualIntent;
@@ -21,13 +22,13 @@ public final class VisualBeat extends DomainEntity {
   private final AspectRatio aspectRatioOverride;
   private final ImageQualityTier qualityTierOverride;
   private VisualBeatReviewStatus reviewStatus;
-  private Long previewAssetId;
+  private UUID previewAssetId;
 
-  public VisualBeat(Long sceneId, int orderIndex, String visualIntent) {
+  public VisualBeat(UUID sceneId, int orderIndex, String visualIntent) {
     this(sceneId, orderIndex, defaultTitle(visualIntent), visualIntent);
   }
 
-  public VisualBeat(Long sceneId, int orderIndex, String title, String visualIntent) {
+  public VisualBeat(UUID sceneId, int orderIndex, String title, String visualIntent) {
     this(
         null,
         0L,
@@ -43,9 +44,9 @@ public final class VisualBeat extends DomainEntity {
   }
 
   private VisualBeat(
-      Long id,
+      UUID id,
       long rowVersion,
-      Long sceneId,
+      UUID sceneId,
       int orderIndex,
       String title,
       String visualIntent,
@@ -55,13 +56,10 @@ public final class VisualBeat extends DomainEntity {
       ImageQualityTier qualityTierOverride,
       VisualBeatReviewStatus reviewStatus) {
     super(id, rowVersion);
-    if (sceneId == null || sceneId <= 0) {
-      throw new IllegalArgumentException("sceneId must be positive");
-    }
+    this.sceneId = Objects.requireNonNull(sceneId, "sceneId");
     if (orderIndex < 0) {
       throw new IllegalArgumentException("orderIndex must not be negative");
     }
-    this.sceneId = sceneId;
     this.orderIndex = orderIndex;
     this.title = requiredText(title, "title", MAX_TITLE_LENGTH);
     this.visualIntent = requiredText(visualIntent, "visualIntent", MAX_VISUAL_INTENT_LENGTH);
@@ -73,9 +71,9 @@ public final class VisualBeat extends DomainEntity {
   }
 
   public static VisualBeat rehydrate(
-      Long id,
+      UUID id,
       long rowVersion,
-      Long sceneId,
+      UUID sceneId,
       int orderIndex,
       String visualIntent,
       MotionMode motionMode,
@@ -97,9 +95,9 @@ public final class VisualBeat extends DomainEntity {
   }
 
   public static VisualBeat rehydrate(
-      Long id,
+      UUID id,
       long rowVersion,
-      Long sceneId,
+      UUID sceneId,
       int orderIndex,
       String title,
       String visualIntent,
@@ -126,7 +124,7 @@ public final class VisualBeat extends DomainEntity {
     reviewStatus = Objects.requireNonNull(newStatus, "newStatus");
   }
 
-  public Long getSceneId() {
+  public UUID getSceneId() {
     return sceneId;
   }
 
@@ -162,14 +160,11 @@ public final class VisualBeat extends DomainEntity {
     return reviewStatus;
   }
 
-  public Long getPreviewAssetId() {
+  public UUID getPreviewAssetId() {
     return previewAssetId;
   }
 
-  public void attachPreviewAsset(Long previewAssetId) {
-    if (previewAssetId != null && previewAssetId <= 0) {
-      throw new IllegalArgumentException("previewAssetId must be positive");
-    }
+  public void attachPreviewAsset(UUID previewAssetId) {
     this.previewAssetId = previewAssetId;
   }
 

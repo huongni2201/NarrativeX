@@ -10,6 +10,7 @@ import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardR
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
 import com.narrativex.backend.feature.storyboard.application.port.out.StoryboardRepository;
 import com.narrativex.backend.feature.storyboard.domain.enums.VisualBeatReviewStatus;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,10 +28,10 @@ public class UpdateVisualBeatReviewStatusUseCase {
 
   @Transactional
   public ApiResponse<VisualBeatResponse> execute(
-      Long projectId,
-      Long chapterId,
-      Long sceneId,
-      Long visualBeatId,
+      UUID projectId,
+      UUID chapterId,
+      UUID sceneId,
+      UUID visualBeatId,
       long expectedRowVersion,
       VisualBeatReviewStatus status) {
     storyboardRevisionAccess.lockChapter(chapterId);

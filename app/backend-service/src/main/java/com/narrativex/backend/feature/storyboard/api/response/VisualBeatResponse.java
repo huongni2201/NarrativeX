@@ -6,10 +6,11 @@ import com.narrativex.backend.feature.storyboard.domain.enums.CameraMovement;
 import com.narrativex.backend.feature.storyboard.domain.enums.ImageQualityTier;
 import com.narrativex.backend.feature.storyboard.domain.enums.MotionMode;
 import com.narrativex.backend.feature.storyboard.domain.enums.VisualBeatReviewStatus;
+import java.util.UUID;
 
 public record VisualBeatResponse(
-    Long id,
-    Long sceneId,
+    UUID id,
+    UUID sceneId,
     int orderIndex,
     String title,
     String visualIntent,
