@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptContextMapper">
+
+    <select id="findLocation"
+            resultType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptLocationRow">
+        SELECT pl.id AS location_id,
+               pl.name,
+               pl.description,
+               pl.visual_prompt
+          FROM scenes s
+          JOIN chapters ch ON ch.id = s.chapter_id
+          LEFT JOIN project_locations pl ON pl.id = s.project_location_id
+         WHERE s.id = #{sceneId}
+           AND ch.project_id = #{projectId}
+         LIMIT 1
+    </select>
+
+    <select id="findCharacters"
+            resultType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptCharacterRow">
+        SELECT pc.id AS assignment_id,
+               c.id AS character_id,
+               c.canonical_name,
+               canon.version_number,
+               canon.visual_prompt,
+               appearance.appearance_prompt,
+               appearance.age_state,
+               appearance.hairstyle,
+               appearance.injury,
+               appearance.wardrobe_context
+          FROM scene_characters sc
+          JOIN scenes s ON s.id = sc.scene_id
+          JOIN chapters ch ON ch.id = s.chapter_id
+          JOIN project_characters pc ON pc.id = sc.project_character_id
+          JOIN characters c ON c.id = pc.character_id
+          LEFT JOIN LATERAL (
+              SELECT cv.version_number,
+                     cv.visual_prompt
+                FROM character_versions cv
+               WHERE cv.character_id = c.id
+                 AND (
+                     cv.id = pc.pinned_character_version_id
+                     OR (
+                         pc.pinned_character_version_id IS NULL
+                         AND cv.status = 'LOCKED'
+                     )
+                 )
+               ORDER BY CASE WHEN cv.id = pc.pinned_character_version_id THEN 0 ELSE 1 END,
+                        cv.version_number DESC,
+                        cv.id DESC
+               LIMIT 1
+          ) canon ON TRUE
+          LEFT JOIN LATERAL (
+              SELECT ca.appearance_prompt,
+                     ca.age_state,
+                     ca.hairstyle,
+                     ca.injury,
+                     ca.wardrobe_context
+                FROM character_appearances ca
+               WHERE ca.character_id = c.id
+                 AND (ca.project_id = pc.project_id OR ca.project_id IS NULL)
+               ORDER BY CASE WHEN ca.project_id = pc.project_id THEN 0 ELSE 1 END,
+                        ca.updated_at DESC,
+                        ca.id DESC
+               LIMIT 1
+          ) appearance ON TRUE
+         WHERE sc.scene_id = #{sceneId}
+           AND ch.project_id = #{projectId}
+           AND pc.project_id = #{projectId}
+           AND pc.status = 'ACTIVE'
+           AND c.status = 'ACTIVE'
+         ORDER BY sc.order_index, pc.id
+    </select>
+</mapper>
