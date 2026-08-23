@@ -44,6 +44,7 @@ public record MediaPlanningSource(
       MotionIntent motionIntent,
       String reviewStatus,
       String cameraMovement,
+      String cameraAngle,
       String aspectRatioOverride,
       String qualityTierOverride,
       Long audioStartMs,
@@ -57,6 +58,7 @@ public record MediaPlanningSource(
           motionIntent,
           "APPROVED",
           "NONE",
+          "MEDIUM",
           null,
           null,
           null,
@@ -72,6 +74,7 @@ public record MediaPlanningSource(
         throw new IllegalArgumentException("visualIntent must not be blank");
       }
       Objects.requireNonNull(motionIntent, "motionIntent");
+      cameraAngle = cameraAngle == null || cameraAngle.isBlank() ? "MEDIUM" : cameraAngle;
     }
   }
 
