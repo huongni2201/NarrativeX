@@ -51,7 +51,6 @@ export interface ApiProjectCharacterVersion {
   status: string | null;
   bible: string | null;
   visualPrompt: string | null;
-  masterAssetId: number | null;
 }
 
 export interface ApiProjectCharacterAppearance {
@@ -155,8 +154,7 @@ function isApiProjectCharacterVersion(value: unknown): value is ApiProjectCharac
     (value.versionNumber === null || typeof value.versionNumber === "number") &&
     isNullableString(value.status) &&
     isNullableString(value.bible) &&
-    isNullableString(value.visualPrompt) &&
-    isNullableNumber(value.masterAssetId)
+    isNullableString(value.visualPrompt)
   );
 }
 
