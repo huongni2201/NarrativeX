@@ -96,44 +96,21 @@ class RenderRepository:
                            gj.chapter_id,
                            gj.chapter_row_version,
                            gj.source_hash,
-                           gj.media_plan_id,
-                           gj.media_plan_revision,
+                           ris.media_plan_id,
+                           ris.media_plan_revision,
                            op.operation_type,
                            COALESCE(mp.image_aspect_ratio, '16:9') AS aspect_ratio,
-                           narration.narration_request_id,
-                           narration.narration_asset_id,
-                           narration.narration_alignment_id
+                           ris.narration_request_id,
+                           ris.narration_asset_id,
+                           ris.narration_alignment_id
                       FROM stage_attempts sa
                       JOIN generation_jobs gj ON gj.id = sa.generation_job_id
                       JOIN projects p ON p.id = gj.project_id
+                      JOIN render_input_snapshots ris ON ris.generation_job_id = gj.id
                       JOIN media_plans mp
-                        ON mp.id = gj.media_plan_id
-                       AND mp.revision = gj.media_plan_revision
+                        ON mp.id = ris.media_plan_id
+                       AND mp.revision = ris.media_plan_revision
                       JOIN operation_plans op ON op.generation_job_id = gj.id
-                      LEFT JOIN LATERAL (
-                            SELECT nr.id AS narration_request_id,
-                                   na.id AS narration_asset_id,
-                                   alignment.id AS narration_alignment_id
-                              FROM narration_requests nr
-                              JOIN narration_assets na ON na.narration_request_id = nr.id
-                              JOIN project_assets pa ON pa.id = na.project_asset_id
-                              LEFT JOIN LATERAL (
-                                    SELECT nal.id
-                                      FROM narration_alignments nal
-                                     WHERE nal.narration_asset_id = na.id
-                                       AND nal.source_hash = nr.source_hash
-                                     ORDER BY nal.created_at DESC, nal.id DESC
-                                     LIMIT 1
-                              ) alignment ON TRUE
-                             WHERE nr.project_id = gj.project_id
-                               AND nr.chapter_id = gj.chapter_id
-                               AND nr.chapter_row_version = gj.chapter_row_version
-                               AND nr.source_hash = gj.source_hash
-                               AND pa.status = 'ACTIVE'
-                               AND pa.storage_key IS NOT NULL
-                             ORDER BY nr.created_at DESC, nr.id DESC
-                             LIMIT 1
-                      ) narration ON TRUE
                      WHERE gj.job_type = 'CHAPTER_RENDER'
                        AND gj.resource_class = 'CPU_RENDER'
                        AND gj.status IN ('QUEUED', 'RUNNING', 'STALLED')
@@ -241,39 +218,19 @@ class RenderRepository:
     async def load_beats(self, claimed: ClaimedRenderJob) -> list[RenderBeatAsset]:
         rows = await self._require_pool().fetch(
             """
-            SELECT mbp.scene_index,
-                   mbp.beat_index,
-                   mbp.visual_beat_id,
-                   COALESCE(
-                       mbp.audio_duration_ms,
-                       CASE
-                           WHEN mbp.audio_start_ms IS NOT NULL AND mbp.audio_end_ms IS NOT NULL
-                           THEN mbp.audio_end_ms - mbp.audio_start_ms
-                           ELSE NULL
-                       END
-                   ) AS duration_ms,
-                   COALESCE(mbp.camera_movement, 'NONE') AS camera_movement,
-                   ma.storage_key,
-                   ma.size_bytes,
-                   ma.sha256
-              FROM media_beat_plans mbp
-              JOIN LATERAL (
-                    SELECT mgi.media_asset_id
-                      FROM media_generation_items mgi
-                     WHERE mgi.media_plan_id = mbp.media_plan_id
-                       AND mgi.visual_beat_id = mbp.visual_beat_id
-                       AND mgi.execution_status = 'READY'
-                       AND mgi.media_asset_id IS NOT NULL
-                     ORDER BY mgi.attempt_number DESC, mgi.created_at DESC
-                     LIMIT 1
-              ) selected ON TRUE
-              JOIN media_assets ma ON ma.id = selected.media_asset_id
-             WHERE mbp.media_plan_id = $1
-               AND ma.asset_type = 'IMAGE'
-               AND ma.status = 'READY'
-             ORDER BY mbp.scene_index, mbp.beat_index
+            SELECT scene_index,
+                   beat_index,
+                   visual_beat_id,
+                   duration_ms,
+                   camera_movement,
+                   storage_key,
+                   size_bytes,
+                   checksum
+              FROM render_input_snapshot_beats
+             WHERE generation_job_id = $1
+             ORDER BY scene_index, beat_index
             """,
-            claimed.media_plan_id,
+            claimed.generation_job_id,
         )
         return [
             RenderBeatAsset(
@@ -284,46 +241,38 @@ class RenderRepository:
                 camera_movement=str(row["camera_movement"]),
                 storage_key=str(row["storage_key"]),
                 size_bytes=int(row["size_bytes"]),
-                checksum=str(row["sha256"]),
+                checksum=str(row["checksum"]),
             )
             for row in rows
         ]
 
     async def load_audio(self, claimed: ClaimedRenderJob) -> RenderAudioAsset | None:
-        if claimed.narration_request_id is None or claimed.narration_asset_id is None:
-            return None
         row = await self._require_pool().fetchrow(
             """
-            SELECT pa.storage_key,
-                   na.size_bytes,
-                   na.checksum,
-                   na.duration_ms
-              FROM narration_requests nr
-              JOIN narration_assets na ON na.narration_request_id = nr.id
-              JOIN project_assets pa ON pa.id = na.project_asset_id
-             WHERE nr.id = $1
-               AND na.id = $2
-               AND nr.project_id = $3
-               AND nr.chapter_id = $4
-               AND nr.chapter_row_version = $5
-               AND nr.source_hash = $6
-               AND pa.status = 'ACTIVE'
-               AND pa.storage_key IS NOT NULL
+            SELECT audio_storage_key,
+                   audio_size_bytes,
+                   audio_checksum,
+                   audio_duration_ms
+              FROM render_input_snapshots
+             WHERE generation_job_id = $1
+               AND narration_request_id = $2
+               AND narration_asset_id = $3
+               AND audio_storage_key IS NOT NULL
+               AND audio_size_bytes IS NOT NULL
+               AND audio_checksum IS NOT NULL
+               AND audio_duration_ms IS NOT NULL
             """,
+            claimed.generation_job_id,
             claimed.narration_request_id,
             claimed.narration_asset_id,
-            claimed.project_id,
-            claimed.chapter_id,
-            claimed.chapter_row_version,
-            claimed.source_hash,
         )
         if row is None:
             return None
         return RenderAudioAsset(
-            storage_key=str(row["storage_key"]),
-            size_bytes=int(row["size_bytes"]),
-            checksum=str(row["checksum"]),
-            duration_ms=int(row["duration_ms"]),
+            storage_key=str(row["audio_storage_key"]),
+            size_bytes=int(row["audio_size_bytes"]),
+            checksum=str(row["audio_checksum"]),
+            duration_ms=int(row["audio_duration_ms"]),
         )
 
     async def complete(
