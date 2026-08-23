@@ -8,6 +8,7 @@ import com.narrativex.backend.feature.storyboard.api.response.VisualBeatResponse
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
 import com.narrativex.backend.feature.storyboard.application.port.out.StoryboardRepository;
 import com.narrativex.backend.feature.storyboard.domain.entity.VisualBeat;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,7 +25,7 @@ public class CreateVisualBeatUseCase {
 
   @Transactional
   public ApiResponse<VisualBeatResponse> execute(
-      Long projectId, Long chapterId, Long sceneId, String title, String visualIntent) {
+      UUID projectId, UUID chapterId, UUID sceneId, String title, String visualIntent) {
     var chapter =
         chapterRepository
             .findById(chapterId)
