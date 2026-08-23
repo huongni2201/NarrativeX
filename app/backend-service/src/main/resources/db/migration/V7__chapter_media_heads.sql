@@ -2,10 +2,17 @@
 -- The generation job already pins media_plan_id/media_plan_revision, so this table deliberately
 -- stores only the selected job identity and avoids duplicating media-plan state.
 
+ALTER TABLE generation_jobs
+    ADD CONSTRAINT uq_generation_jobs_id_chapter UNIQUE (id, chapter_id);
+
 CREATE TABLE chapter_media_heads (
     chapter_id BIGINT PRIMARY KEY REFERENCES chapters(id) ON DELETE CASCADE,
-    generation_job_id BIGINT NOT NULL UNIQUE REFERENCES generation_jobs(id) ON DELETE CASCADE,
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+    generation_job_id BIGINT NOT NULL UNIQUE,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_chapter_media_heads_generation_job
+        FOREIGN KEY (generation_job_id, chapter_id)
+        REFERENCES generation_jobs(id, chapter_id)
+        ON DELETE CASCADE
 );
 
 CREATE INDEX idx_chapter_media_heads_updated
