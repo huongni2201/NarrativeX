@@ -8,7 +8,6 @@ from narrativex_worker.narration.storage import MediaStorage
 from narrativex_worker.providers.image import (
     BatchImageGenerationProvider,
     ImageBatchItem,
-    ImageBatchItemResult,
     ImageBatchOperation,
     ImageGenerationRequest,
     ImageGenerationResult,
@@ -43,12 +42,11 @@ class ImageGenerationProviderRejectedError(ImageGenerationBlockedError):
 
 
 class ImageGenerationRunner:
-    """Submit and reconcile one image through the asynchronous batch provider path.
+    """Submit and reconcile image generation through the asynchronous batch provider path.
 
-    Even a singleton image request is wrapped in ``ImageBatchItem`` and sent through
-    ``submit_batch``. ``run`` intentionally does not poll in memory: if the provider returns a
-    non-terminal batch, the returned operation is attached to ``ImageGenerationPendingError`` so
-    the durable executor can persist the provider job name and reconcile it after a crash/restart.
+    Singleton requests are still wrapped in ``ImageBatchItem``. ``run`` intentionally does not
+    poll in memory: non-terminal operations are returned via ``ImageGenerationPendingError`` so
+    the durable executor can persist the provider job name and reconcile after a crash/restart.
     """
 
     def __init__(
@@ -154,27 +152,6 @@ class ImageGenerationRunner:
             )
         return tuple(materialized)
 
-    async def _materialize_completed_batch(
-        self, operation: ImageBatchOperation
-    ) -> DurableMediaResult:
-        if len(operation.items) != 1:
-            raise ValueError("single-image runner received a multi-item batch")
-        item = operation.items[0]
-        item_result = _find_item_result(operation, item.item_key)
-        if item_result.error_code == ImageGenerationProviderRejectedError.code:
-            raise ImageGenerationProviderRejectedError(
-                item_result.error_detail or "provider moderation rejected this image"
-            )
-        if item_result.result is None:
-            raise RuntimeError(item_result.error_code or "IMAGE_BATCH_ITEM_FAILED")
-        return await self._materialize(
-            item.item_key,
-            item.request,
-            item_result.result,
-            operation_id=None,
-            provider_operation_id=operation.operation_id,
-        )
-
     async def _materialize(
         self,
         item_key: str,
@@ -222,10 +199,3 @@ class ImageGenerationRunner:
                 item_key, request.request_fingerprint, result, durable
             )
         return durable
-
-
-def _find_item_result(operation: ImageBatchOperation, item_key: str) -> ImageBatchItemResult:
-    matches = [result for result in operation.results if result.item_key == item_key]
-    if len(matches) != 1:
-        raise RuntimeError("IMAGE_BATCH_ITEM_RESULT_MISSING")
-    return matches[0]
