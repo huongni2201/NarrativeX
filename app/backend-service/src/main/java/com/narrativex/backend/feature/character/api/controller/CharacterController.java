@@ -6,6 +6,7 @@ import com.narrativex.backend.feature.character.api.response.CharacterVersionRef
 import com.narrativex.backend.feature.character.application.query.CharacterListQuery;
 import com.narrativex.backend.feature.character.application.usecase.CountCharactersUseCase;
 import com.narrativex.backend.feature.character.application.usecase.GetCharacterUseCase;
+import com.narrativex.backend.feature.character.application.usecase.GetCharacterVersionReferencesUseCase;
 import com.narrativex.backend.feature.character.application.usecase.ListCharactersUseCase;
 import com.narrativex.backend.feature.character.application.usecase.SetCharacterVersionReferencesUseCase;
 import com.narrativex.backend.feature.character.application.usecase.SetCharacterVersionReferencesUseCase.ReferenceInput;
@@ -29,6 +30,7 @@ public class CharacterController {
   private final ListCharactersUseCase listCharactersUseCase;
   private final GetCharacterUseCase getCharacterUseCase;
   private final CountCharactersUseCase countCharactersUseCase;
+  private final GetCharacterVersionReferencesUseCase getCharacterVersionReferencesUseCase;
   private final SetCharacterVersionReferencesUseCase setCharacterVersionReferencesUseCase;
 
   @GetMapping("/count")
@@ -45,6 +47,16 @@ public class CharacterController {
         ApiResponse.success(
             "Character retrieved successfully",
             CharacterSummaryResponse.from(getCharacterUseCase.execute(characterId))));
+  }
+
+  @GetMapping("/{characterId}/versions/{versionId}/references")
+  public ResponseEntity<ApiResponse<List<CharacterVersionReferenceResponse>>> versionReferences(
+      @PathVariable Long characterId, @PathVariable Long versionId) {
+    var references = getCharacterVersionReferencesUseCase.execute(characterId, versionId);
+    return ResponseEntity.ok(
+        ApiResponse.success(
+            "Character version references retrieved successfully",
+            references.stream().map(CharacterVersionReferenceResponse::from).toList()));
   }
 
   @PutMapping("/{characterId}/versions/{versionId}/references")
