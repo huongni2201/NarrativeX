@@ -27,8 +27,7 @@ public record ProjectCharacterReadModel(
       Integer versionNumber,
       String status,
       String bible,
-      String visualPrompt,
-      Long masterAssetId) {}
+      String visualPrompt) {}
 
   public record Appearance(
       String ageState,
