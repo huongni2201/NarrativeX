@@ -51,8 +51,8 @@ class ImageGenerationRequest:
     provider_key: str
     model_key: str
     location: str
-    references: tuple[ImageReference, ...] = ()
     max_output_bytes: int = 15_000_000
+    references: tuple[ImageReference, ...] = ()
 
 
 @dataclass(frozen=True)
