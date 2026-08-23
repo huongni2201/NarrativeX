@@ -13,6 +13,7 @@ import com.narrativex.backend.feature.storyboard.application.port.out.ChapterAna
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterWorkspaceReadRepository;
 import java.time.Instant;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -32,7 +33,7 @@ public class GetChapterWorkspaceUseCase {
   private final ObjectStoragePort objectStorage;
 
   @Transactional(readOnly = true)
-  public ApiResponse<ChapterWorkspaceResponse> execute(Long projectId, Long chapterId) {
+  public ApiResponse<ChapterWorkspaceResponse> execute(UUID projectId, UUID chapterId) {
     var chapter =
         chapterRepository
             .findById(chapterId)
