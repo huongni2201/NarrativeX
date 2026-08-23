@@ -17,6 +17,7 @@ class DurableMediaResult:
     mime_type: str
     width: int
     height: int
+    item_key: str | None = None
 
 
 class MediaGenerationRepository(Protocol):

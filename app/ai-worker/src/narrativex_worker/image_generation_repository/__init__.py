@@ -202,7 +202,23 @@ class ImageGenerationRepository(ImageGenerationRepositoryImplementation):
     async def complete_provider_operation(
         self, operation: DurableImageOperation, results: tuple[DurableMediaResult, ...]
     ) -> None:
-        summary = json.dumps({"items": len(results)}, separators=(",", ":"))
+        normalized_items = [
+            {
+                "itemKey": result.item_key,
+                "sha256": result.checksum.lower(),
+                "storageKey": result.storage_key,
+                "mimeType": result.mime_type,
+                "width": result.width,
+                "height": result.height,
+            }
+            for result in results
+        ]
+        if any(item["itemKey"] is None for item in normalized_items):
+            raise ValueError("durable image result is missing item_key")
+        normalized_items.sort(key=lambda item: str(item["itemKey"]))
+        summary = json.dumps(
+            {"items": normalized_items}, sort_keys=True, separators=(",", ":")
+        )
         fingerprint = hashlib.sha256(summary.encode()).hexdigest()
         pool = self._require_pool()
         async with pool.acquire() as connection:
