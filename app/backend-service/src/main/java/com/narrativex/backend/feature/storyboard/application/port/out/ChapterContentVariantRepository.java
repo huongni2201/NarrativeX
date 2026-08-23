@@ -13,7 +13,7 @@ public interface ChapterContentVariantRepository extends ChapterContentVariantAc
 
   ChapterContentVariant saveTranslation(
       UUID chapterId,
-      Long sourceVariantId,
+      UUID sourceVariantId,
       String languageCode,
       String content,
       String contentHash,
@@ -22,11 +22,11 @@ public interface ChapterContentVariantRepository extends ChapterContentVariantAc
       String model);
 
   Optional<ChapterContentVariant> findByIdOwned(
-      UUID projectId, UUID chapterId, Long variantId, String userId);
+      UUID projectId, UUID chapterId, UUID variantId, String userId);
 
   Optional<ChapterContentVariant> findByIdentity(
       UUID chapterId,
-      Long sourceVariantId,
+      UUID sourceVariantId,
       String languageCode,
       String sourceContentHash,
       String contentHash);
@@ -34,18 +34,18 @@ public interface ChapterContentVariantRepository extends ChapterContentVariantAc
   Optional<ChapterContentVariant> findLatestOriginal(UUID chapterId);
 
   Optional<ChapterContentVariant> findCompletedTranslation(
-      UUID chapterId, Long sourceVariantId, String languageCode, String sourceContentHash);
+      UUID chapterId, UUID sourceVariantId, String languageCode, String sourceContentHash);
 
   Optional<ChapterContentVariant> findCompletedTranslation(
       UUID chapterId,
-      Long sourceVariantId,
+      UUID sourceVariantId,
       String languageCode,
       String sourceContentHash,
       String contentHash);
 
   List<ChapterContentVariant> findAllOwned(UUID projectId, UUID chapterId);
 
-  void markTranslationsStale(UUID chapterId, Long currentSourceVariantId);
+  void markTranslationsStale(UUID chapterId, UUID currentSourceVariantId);
 
-  void updateStatus(Long variantId, TranslationStatus status);
+  void updateStatus(UUID variantId, TranslationStatus status);
 }
