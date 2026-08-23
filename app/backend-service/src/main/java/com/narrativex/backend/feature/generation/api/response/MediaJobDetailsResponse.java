@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.UUID;
 
 public record MediaJobDetailsResponse(
-    String jobId,
+    UUID jobId,
     UUID mediaPlanId,
     Integer mediaPlanRevision,
     int totalItems,
