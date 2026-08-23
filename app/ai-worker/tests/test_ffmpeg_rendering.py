@@ -24,9 +24,7 @@ def _manifest(tmp_path: Path, **overrides: object) -> ImageMotionManifest:
     return ImageMotionManifest(**values)  # type: ignore[arg-type]
 
 
-def test_default_graph_enables_cinematic_motion_transition_audio_and_faststart(
-    tmp_path: Path,
-) -> None:
+def test_default_graph_preserves_legacy_output_contract(tmp_path: Path) -> None:
     args = build_ffmpeg_args(_manifest(tmp_path))
     command = " ".join(args)
 
@@ -34,12 +32,9 @@ def test_default_graph_enables_cinematic_motion_transition_audio_and_faststart(
     assert "zoompan=" in command
     assert "1+0.08*" in command
     assert "(iw-iw/zoom)*" in command
-    assert "blend=" in command
+    assert "fade=" in command
     assert "concat=" in command
-    assert "colorbalance=" in command
-    assert "vignette=" in command
     assert "ass=filename=" in command
-    # auto compiles portably as libx264; render_image_motion replaces it after runtime probe.
     assert "-vcodec libx264" in command
     assert "-preset veryfast" in command
     assert "-crf 20" in command
@@ -47,7 +42,6 @@ def test_default_graph_enables_cinematic_motion_transition_audio_and_faststart(
     assert "-b:a 192k" in command
     assert "-movflags +faststart" in command
     assert "-pix_fmt yuv420p" in command
-    assert "3-2*" in command
 
 
 @pytest.mark.parametrize(
@@ -68,9 +62,7 @@ def test_transition_catalog_compiles(
     assert needle in command
 
 
-def test_cinematic_profile_compiles_grading_depth_overlay_watermark_bgm_and_text(
-    tmp_path: Path,
-) -> None:
+def test_cinematic_profile_compiles_all_effect_layers(tmp_path: Path) -> None:
     effects = RenderEffects(
         transition="AUTO",
         transition_seconds=0.25,
