@@ -6,7 +6,7 @@ import java.util.UUID;
 
 public interface ChapterContentVariantAccess {
   Optional<ChapterContentVariant> findByIdOwned(
-      UUID projectId, UUID chapterId, Long variantId, String userId);
+      UUID projectId, UUID chapterId, UUID variantId, String userId);
 
   Optional<ChapterContentVariant> findCurrentOriginalOwned(
       UUID projectId, UUID chapterId, String userId);
