@@ -3,7 +3,7 @@ package com.narrativex.backend.feature.storyboard.infrastructure.persistence.ada
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.pagination.CursorCodec;
 import com.narrativex.backend.feature.common.pagination.CursorPage;
-import com.narrativex.backend.feature.common.pagination.OrderIndexCursorKey;
+import com.narrativex.backend.feature.common.pagination.OrderIndexUuidCursorKey;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
 import com.narrativex.backend.feature.storyboard.domain.aggregate.Chapter;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterMapper;
@@ -11,6 +11,7 @@ import com.narrativex.backend.feature.storyboard.infrastructure.persistence.myba
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
@@ -35,13 +36,13 @@ public class MyBatisChapterRepository implements ChapterRepository {
 
   @Override
   @Transactional(readOnly = true)
-  public Optional<Chapter> findById(Long chapterId) {
+  public Optional<Chapter> findById(UUID chapterId) {
     return Optional.ofNullable(mapper.findById(chapterId)).map(MyBatisChapterRepository::toDomain);
   }
 
   @Override
   @Transactional(readOnly = true)
-  public List<Chapter> findAllByStoryVersionId(Long storyVersionId) {
+  public List<Chapter> findAllByStoryVersionId(UUID storyVersionId) {
     return mapper.findAllByStoryVersionId(storyVersionId).stream()
         .map(MyBatisChapterRepository::toDomain)
         .toList();
@@ -49,15 +50,15 @@ public class MyBatisChapterRepository implements ChapterRepository {
 
   @Override
   @Transactional(readOnly = true)
-  public int findMaxOrderIndexByStoryVersionId(Long storyVersionId) {
+  public int findMaxOrderIndexByStoryVersionId(UUID storyVersionId) {
     return mapper.findMaxOrderIndexByStoryVersionId(storyVersionId);
   }
 
   @Override
   @Transactional(readOnly = true)
   public CursorPage<Chapter> findPageByStoryVersionId(
-      Long storyVersionId, String cursor, int limit) {
-    OrderIndexCursorKey cursorKey = CursorCodec.decodeOrderIndex(cursor);
+      UUID storyVersionId, String cursor, int limit) {
+    OrderIndexUuidCursorKey cursorKey = CursorCodec.decodeOrderIndexUuid(cursor);
     int fetchLimit = limit + 1;
     List<ChapterRow> rows =
         cursorKey == null
@@ -81,13 +82,13 @@ public class MyBatisChapterRepository implements ChapterRepository {
 
   @Override
   @Transactional(readOnly = true)
-  public boolean existsByStoryVersionIdAndOrderIndex(Long storyVersionId, int orderIndex) {
+  public boolean existsByStoryVersionIdAndOrderIndex(UUID storyVersionId, int orderIndex) {
     return mapper.existsByStoryVersionIdAndOrderIndex(storyVersionId, orderIndex);
   }
 
   private Chapter persist(Chapter chapter) {
     if (chapter.getId() == null) {
-      Long insertedId = mapper.insert(toInsertRow(chapter));
+      UUID insertedId = mapper.insert(toInsertRow(chapter));
       if (insertedId == null) {
         throw new IllegalStateException("Inserted chapter did not return an id");
       }
