@@ -1,8 +1,11 @@
 {
-    email {$ACME_EMAIL}
+    auto_https off
 }
 
-http://{$APP_DOMAIN} {
+:80 {
+    @health path /healthz
+    respond @health 200
+
     encode zstd gzip
 
     header {
@@ -11,5 +14,13 @@ http://{$APP_DOMAIN} {
         X-Frame-Options SAMEORIGIN
     }
 
-    reverse_proxy frontend:3000
+    # This origin is reachable only through the cloudflared container on appnet.
+    # Cloudflare terminates public TLS, so preserve the external HTTPS scheme for
+    # Next.js, Spring Security, OAuth redirects, and secure session cookies.
+    reverse_proxy frontend:3000 {
+        header_up X-Forwarded-Proto https
+        header_up X-Forwarded-Host {http.request.host}
+        header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+        header_up X-Real-IP {http.request.header.CF-Connecting-IP}
+    }
 }
