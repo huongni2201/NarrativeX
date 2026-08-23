@@ -21,60 +21,33 @@ public class MyBatisChapterContentVariantRepository implements ChapterContentVar
   @Override
   public ChapterContentVariant saveOriginal(
       UUID chapterId, String languageCode, String content, String contentHash) {
-    return save(
-        new ChapterContentVariantRow(
-            null,
-            chapterId,
-            null,
-            ContentVariantType.ORIGINAL,
-            languageCode,
-            content,
-            contentHash,
-            contentHash,
-            TranslationStatus.NOT_REQUIRED,
-            null,
-            null,
-            Instant.now(),
-            Instant.now()));
+    return save(new ChapterContentVariantRow(
+        null, chapterId, null, ContentVariantType.ORIGINAL, languageCode, content, contentHash,
+        contentHash, TranslationStatus.NOT_REQUIRED, null, null, Instant.now(), Instant.now()));
   }
 
   @Override
   public ChapterContentVariant saveTranslation(
       UUID chapterId,
-      Long sourceVariantId,
+      UUID sourceVariantId,
       String languageCode,
       String content,
       String contentHash,
       String sourceContentHash,
       String provider,
       String model) {
-    return save(
-        new ChapterContentVariantRow(
-            null,
-            chapterId,
-            sourceVariantId,
-            ContentVariantType.TRANSLATION,
-            languageCode,
-            content,
-            contentHash,
-            sourceContentHash,
-            TranslationStatus.COMPLETED,
-            provider,
-            model,
-            Instant.now(),
-            Instant.now()));
+    return save(new ChapterContentVariantRow(
+        null, chapterId, sourceVariantId, ContentVariantType.TRANSLATION, languageCode, content,
+        contentHash, sourceContentHash, TranslationStatus.COMPLETED, provider, model,
+        Instant.now(), Instant.now()));
   }
 
   private ChapterContentVariant save(ChapterContentVariantRow row) {
-    Long id = mapper.insert(row);
+    UUID id = mapper.insert(row);
     if (id == null) {
-      ChapterContentVariantRow existing =
-          mapper.findByIdentity(
-              row.getChapterId(),
-              row.getSourceVariantId(),
-              row.getLanguageCode(),
-              row.getSourceContentHash(),
-              row.getContentHash());
+      ChapterContentVariantRow existing = mapper.findByIdentity(
+          row.getChapterId(), row.getSourceVariantId(), row.getLanguageCode(),
+          row.getSourceContentHash(), row.getContentHash());
       if (existing == null) throw new IllegalStateException("Content variant was not persisted");
       return toDomain(existing);
     }
@@ -85,7 +58,7 @@ public class MyBatisChapterContentVariantRepository implements ChapterContentVar
 
   @Override
   public Optional<ChapterContentVariant> findByIdOwned(
-      UUID projectId, UUID chapterId, Long variantId, String userId) {
+      UUID projectId, UUID chapterId, UUID variantId, String userId) {
     return Optional.ofNullable(mapper.findByIdOwned(projectId, chapterId, variantId, userId))
         .map(MyBatisChapterContentVariantRepository::toDomain);
   }
@@ -100,13 +73,12 @@ public class MyBatisChapterContentVariantRepository implements ChapterContentVar
   @Override
   public Optional<ChapterContentVariant> findByIdentity(
       UUID chapterId,
-      Long sourceVariantId,
+      UUID sourceVariantId,
       String languageCode,
       String sourceContentHash,
       String contentHash) {
-    return Optional.ofNullable(
-            mapper.findByIdentity(
-                chapterId, sourceVariantId, languageCode, sourceContentHash, contentHash))
+    return Optional.ofNullable(mapper.findByIdentity(
+            chapterId, sourceVariantId, languageCode, sourceContentHash, contentHash))
         .map(MyBatisChapterContentVariantRepository::toDomain);
   }
 
@@ -118,23 +90,21 @@ public class MyBatisChapterContentVariantRepository implements ChapterContentVar
 
   @Override
   public Optional<ChapterContentVariant> findCompletedTranslation(
-      UUID chapterId, Long sourceVariantId, String languageCode, String sourceContentHash) {
-    return Optional.ofNullable(
-            mapper.findCompletedTranslation(
-                chapterId, sourceVariantId, languageCode, sourceContentHash))
+      UUID chapterId, UUID sourceVariantId, String languageCode, String sourceContentHash) {
+    return Optional.ofNullable(mapper.findCompletedTranslation(
+            chapterId, sourceVariantId, languageCode, sourceContentHash))
         .map(MyBatisChapterContentVariantRepository::toDomain);
   }
 
   @Override
   public Optional<ChapterContentVariant> findCompletedTranslation(
       UUID chapterId,
-      Long sourceVariantId,
+      UUID sourceVariantId,
       String languageCode,
       String sourceContentHash,
       String contentHash) {
-    return Optional.ofNullable(
-            mapper.findCompletedTranslationByIdentity(
-                chapterId, sourceVariantId, languageCode, sourceContentHash, contentHash))
+    return Optional.ofNullable(mapper.findCompletedTranslationByIdentity(
+            chapterId, sourceVariantId, languageCode, sourceContentHash, contentHash))
         .map(MyBatisChapterContentVariantRepository::toDomain);
   }
 
@@ -146,28 +116,20 @@ public class MyBatisChapterContentVariantRepository implements ChapterContentVar
   }
 
   @Override
-  public void markTranslationsStale(UUID chapterId, Long currentSourceVariantId) {
+  public void markTranslationsStale(UUID chapterId, UUID currentSourceVariantId) {
     mapper.markTranslationsStale(chapterId, currentSourceVariantId);
   }
 
   @Override
-  public void updateStatus(Long variantId, TranslationStatus status) {
+  public void updateStatus(UUID variantId, TranslationStatus status) {
     mapper.updateStatus(variantId, status.name());
   }
 
   static ChapterContentVariant toDomain(ChapterContentVariantRow row) {
     return new ChapterContentVariant(
-        row.getId(),
-        row.getChapterId(),
-        row.getSourceVariantId(),
-        row.getType(),
-        row.getLanguageCode(),
-        row.getContent(),
-        row.getContentHash(),
-        row.getSourceContentHash(),
-        row.getTranslationProvider(),
-        row.getTranslationModel(),
-        row.getTranslationStatus(),
+        row.getId(), row.getChapterId(), row.getSourceVariantId(), row.getType(),
+        row.getLanguageCode(), row.getContent(), row.getContentHash(), row.getSourceContentHash(),
+        row.getTranslationProvider(), row.getTranslationModel(), row.getTranslationStatus(),
         row.getCreatedAt());
   }
 }
