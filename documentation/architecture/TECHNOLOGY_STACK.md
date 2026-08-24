@@ -1,72 +1,117 @@
 # NarrativeX Technology Stack — V1.11
 
-Canonical authority: [`../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md). ADR-0003 governs R2 pipeline media and Google Drive final rendered MP4 storage.
+Canonical authority: [`../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md).
 
-| Layer | Current stack | V1.11 role |
+Desktop client/media/render boundaries are governed by ADR-0010, ADR-0011 and ADR-0012. ADR-0003 continues to govern retained cloud/worker storage/provider behavior.
+
+| Layer | Current stack | Current role |
 |---|---|---|
-| Web | Next.js 16, React 19, TypeScript, TanStack Query, Zustand | Studio UI and review workflows |
-| Desktop | Electron, Electron Vite, React, TypeScript, Lucide | Primary editor workspace migration target; secure preload boundary for local execution |
-| Backend | Java 25, Spring Boot 4.1, Security/OAuth2, Spring Session Redis, Actuator | modular monolith, policy, durable orchestration, MediaPlan authority |
-| Persistence | PostgreSQL 18 target, Flyway, MyBatis + explicit SQL | sole production persistence path |
-| Redis | Spring Data Redis + Spring Session Redis | sessions and transient hints only |
-| Worker | Python 3.12+, Pydantic, HTTPX, asyncpg, google-auth, boto3 | async provider/media execution, narration, image generation, FFmpeg render, storage adapters |
+| Desktop | Electron 37, Electron Vite 4, React 19, TypeScript, React Router, TanStack Query, Zustand, Lucide | **Primary editor client**; native filesystem/project storage, system-browser auth callback and local execution through Electron main |
+| Legacy Web | Next.js 16, React 19, TypeScript, TanStack Query, Zustand | Temporary migration/compatibility client; not the target editor architecture |
+| Backend | Java 25, Spring Boot 4.1, Security/OAuth2, Spring Session Redis, Actuator | modular monolith, ownership/policy, durable orchestration, MediaPlan/job/lease authority |
+| Persistence | PostgreSQL 18 target, Flyway, MyBatis + explicit SQL | sole production persistence path for durable application/control metadata |
+| Redis | Spring Data Redis + Spring Session Redis | server-managed sessions and transient/non-authoritative hints |
+| Worker | Python 3.12+, Pydantic, HTTPX, asyncpg, google-auth, boto3 | async provider/media execution and retained cloud/server paths |
+| Shared client contracts | `packages/client-contracts` | typed backend contracts shared by Desktop/migration clients |
 | AI analysis | Vertex Gemini | structured Chapter analysis |
-| Image generation | Vertex Gemini image execution | real production foundation; validated image outputs persist to R2 |
-| Narration | Google TTS + local VieNeu + uploaded-audio timeline/alignment contracts | generated narration is R2-backed; uploaded-audio E2E remains partial |
-| Pipeline storage | Cloudflare R2 | durable private source/generated/reusable media |
-| Final video storage | Google Drive | durable private final MP4 through resumable upload and provider-aware FinalArtifact metadata |
-| Deterministic render | FFmpeg + ffprobe | `IMAGE_MOTION` chapter render is implemented foundation |
-| Optional I2V | Wan-compatible adapter foundation | deferred fast-follow/hardening |
+| Image generation | Vertex Gemini image execution | provider execution foundation; Desktop target materializes/registers project result bytes locally |
+| Narration | Google TTS + local VieNeu + uploaded-audio timeline/alignment contracts | generated/user audio; Desktop target registers project narration locally |
+| Desktop project storage | Electron `userData` + `project.manifest.json` | local-first images/audio/video/final artifacts using relative paths + SHA-256 |
+| Desktop deterministic render | FFmpeg + ffprobe from Electron main | backend-assigned `LOCAL_DEVICE` project render; local final artifact |
+| Cloud pipeline storage | Cloudflare R2 | retained cloud/legacy pipeline media and deliberately shared reusable media |
+| Cloud final video storage | Google Drive | retained cloud/legacy final MP4 path |
+| Optional I2V | Wan-compatible adapter foundation | deferred/fast-follow |
 
 ## Desktop client boundary
 
-`app/desktop` is the primary editor client and a sibling to `app/frontend-web`. It implements the
-dark editor shell, backend timeline/resource reads, production render request and job polling. Its
-main/preload boundary is the future home for system-browser Google OAuth callbacks, safeStorage,
-local device heartbeat, cache and FFmpeg execution. The renderer must not become an alternative
-source of truth for Projects, Chapters, Scenes, VisualBeats, assets, entitlements or render progress.
+`app/desktop` is the primary editor client.
 
-Electron main/preload code is the future home for local device, cache and FFmpeg execution protocols. Renderer code receives only explicitly exposed capabilities through the preload bridge.
+```text
+renderer
+  -> UI / routes / React Query / Zustand / timeline / preview
+  -> no unrestricted Node.js
+
+preload
+  -> narrow typed capability bridge
+
+main
+  -> BrowserWindow security
+  -> system-browser Google OAuth start
+  -> narrativex:// callback handling
+  -> native file/folder dialogs
+  -> local ProjectStorage manifest
+  -> protected device identity
+  -> local execution heartbeat/claim/progress
+  -> FFmpeg/ffprobe execution
+```
+
+The renderer must not become an alternative source of truth for Projects, Chapters, Scenes, VisualBeats, assets, entitlements or durable render state.
+
+## Authentication status
+
+Google is the only user-facing login provider.
+
+Desktop uses:
+
+```text
+system browser
+  -> /api/v1/auth/desktop/start
+  -> Google OIDC
+  -> narrativex://auth/callback?code=...
+  -> /api/v1/auth/desktop/exchange
+  -> server-managed NarrativeX session
+```
+
+Google access/refresh tokens do not enter Electron. Local-execution device credentials are separate from user authentication and are used only for device/job APIs.
+
+## Desktop local storage/render status
+
+Implemented foundation at `main` commit `751f006634218efb2c398fc00c2cbfecd25e1eac`:
+
+- schema-versioned local project manifest;
+- project-relative asset/artifact paths;
+- path-boundary, file-size and SHA-256 validation;
+- local device pairing/heartbeat;
+- backend-assigned local project-render claim;
+- lease heartbeat/progress/failure/completion;
+- FFmpeg/ffprobe probing;
+- segment render → video concat → narration concat → mux → ffprobe → local artifact registration;
+- in-process cancellation.
+
+Local project rendering requires FFmpeg/ffprobe and `NARRATIVEX_DESKTOP_PROJECT_RENDER_ENABLED=true`.
+
+Process-restart recovery and complete local materialization of every generation/import path remain incomplete.
+
+## Storage by execution mode
+
+### Primary Desktop path
+
+```text
+Project images/audio/video  -> local project workspace
+Render intermediates        -> local project workspace/work
+Final MP4                   -> local project workspace/artifacts
+Business/job metadata       -> PostgreSQL
+```
+
+### Retained cloud/legacy path
+
+```text
+Pipeline media              -> R2
+Final cloud-rendered MP4    -> Google Drive
+Business/job metadata       -> PostgreSQL
+Worker scratch              -> ephemeral local filesystem
+```
+
+Do not describe R2/Google Drive as mandatory storage for Desktop project media.
 
 ## Persistence status
 
-Production persistence uses MyBatis + explicit SQL. The backend build has no JPA dependency and production source has no direct `JdbcTemplate` persistence.
+Production persistence uses MyBatis + explicit PostgreSQL SQL. The backend build has no JPA dependency and production source has no direct `JdbcTemplate` persistence.
 
 ## Narration status
 
-Generated narration through Google TTS/local VieNeu is implemented as an R2-backed foundation. `USER_PROVIDED_AUDIO` planning supports ordered variable-count parts, fingerprints, a logical global clock and TTS bypass.
+Narration timing remains authoritative. `USER_PROVIDED_AUDIO` supports ordered parts/global-clock planning and TTS bypass; full multi-part render behavior must be described according to the execution path actually implemented.
 
-The current render worker loads generated narration matching the pinned Chapter source identity. It does not yet slice/stitch aligned multi-part uploaded narration into chapter-local render input.
+## Migration direction
 
-## Image/render status
-
-The worker now has real Vertex image generation and deterministic IMAGE_MOTION render foundations:
-
-```text
-Vertex image output
-  -> validate
-  -> R2 image MediaAsset
-  -> CHAPTER_RENDER
-  -> FFmpeg IMAGE_MOTION
-  -> ffprobe/checksum
-  -> Google Drive final MP4
-```
-
-Do not describe production image generation, deterministic chapter rendering or Google Drive final-video storage as future-only capabilities.
-
-## Durable media rules
-
-```text
-Images / narration / accepted uploaded audio / reusable media -> R2
-Final rendered MP4                                       -> Google Drive
-Metadata / provider identity / lineage                   -> PostgreSQL
-Worker-local files                                       -> ephemeral scratch
-```
-
-The final Drive object is identified by provider metadata/file ID, not by a public URL.
-
-## Drive retry behavior
-
-Drive upload is resumable within one worker attempt. The adapter also looks up an existing final file by render fingerprint before creating another object.
-
-The local rendered MP4 currently lives in an ephemeral job workspace. If an attempt exits after a Drive failure, a later reclaimed job may rerender. Cross-attempt upload-only retry without rerender is therefore a target hardening item rather than a current guarantee.
+New primary editor work belongs in `app/desktop`. `app/frontend-web` is removed only after Desktop parity, packaging and reliability gates are met.
