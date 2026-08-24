@@ -1,6 +1,7 @@
 name: Desktop CI
 
 on:
+  workflow_dispatch:
   pull_request:
     paths:
       - "app/desktop/**"
@@ -45,12 +46,14 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: desktop-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  desktop-check:
+  verify:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: app/desktop
+    timeout-minutes: 35
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -62,23 +65,17 @@ jobs:
           cache: npm
           cache-dependency-path: app/desktop/package-lock.json
 
-      - name: Install dependencies
+      - name: Install desktop dependencies
+        working-directory: app/desktop
         run: npm ci
 
-      - name: Type check
+      - name: Type check desktop
+        working-directory: app/desktop
         run: npm run type-check
 
       - name: Build desktop
+        working-directory: app/desktop
         run: npm run build
-
-  backend-desktop-check:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: app/backend-service
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -89,9 +86,11 @@ jobs:
           cache-dependency-path: app/backend-service/pom.xml
 
       - name: Compile backend
+        working-directory: app/backend-service
         run: ./mvnw -DskipTests compile
 
       - name: Validate schema and desktop-facing backend contracts
+        working-directory: app/backend-service
         run: >-
           ./mvnw
           -Dtest=FlywayBaselineStructureTest,MyBatisSchemaReferenceContractTest,SecurityConfigurationTest,DesktopAuthControllerTest,LocalProjectRenderUseCaseTest,LocalProjectRenderControllerTest,CreateProjectRenderUseCaseTest,ChapterCreationApiIntegrationTest
