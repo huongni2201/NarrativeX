@@ -397,12 +397,11 @@ async def _create_character(
         name,
         json.dumps(aliases, ensure_ascii=False),
     )
-    version_id = await connection.fetchval(
+    await connection.execute(
         """
         INSERT INTO character_versions
           (character_id, version_number, bible, visual_prompt, status)
         VALUES ($1, 1, $2, $2, 'DRAFT')
-        RETURNING id
         """,
         character_id,
         description or name,
@@ -410,15 +409,13 @@ async def _create_character(
     project_character_id = await connection.fetchval(
         """
         INSERT INTO project_characters
-          (project_id, character_id, role, importance, story_metadata,
-           pinned_character_version_id, status)
-        VALUES ($1, $2, 'SUPPORTING', 0, $3, $4, 'ACTIVE')
+          (project_id, character_id, role, importance, story_metadata, status)
+        VALUES ($1, $2, 'SUPPORTING', 0, $3, 'ACTIVE')
         RETURNING id
         """,
         claimed.request.project_id,
         character_id,
         description or None,
-        version_id,
     )
     if project_character_id is None:
         raise RuntimeError("Failed to create project character")
