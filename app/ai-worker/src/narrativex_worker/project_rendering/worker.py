@@ -9,6 +9,7 @@ import json
 import logging
 import time
 import uuid
+from dataclasses import replace
 from pathlib import Path
 
 import asyncpg  # type: ignore[import-untyped]
@@ -52,7 +53,7 @@ PREFERRED_SEGMENT_DURATION_MS = 4 * 60 * 1000
 
 
 class ProjectRenderWorkerRunner:
-    """Render immutable project timelines in restartable FFmpeg-sized segments."""
+    """Render immutable project timelines in bounded FFmpeg-sized segments."""
 
     def __init__(
         self,
@@ -212,32 +213,35 @@ class ProjectRenderWorkerRunner:
             beats = await self.repository.load_beats(claimed)
             _validate_snapshot(chapters, beats, claimed.total_duration_ms)
             segments = split_render_segments(beats)
-            quantized_durations = _frame_quantized_duration_seconds(beats, profile.fps)
-            beat_duration_by_id = {
-                beat.visual_beat_id: duration
-                for beat, duration in zip(beats, quantized_durations, strict=True)
-            }
             render_fingerprint = _render_fingerprint(
                 claimed, chapters, beats, profile, resolution, render_format
+            )
+            await self.repository.update_progress(
+                claimed, progress=8, current_step="RENDER_PROJECT_PREPARING"
             )
 
             async with self.workspace.create_job_dir(claimed.job_id) as job_dir:
                 image_paths = await self._download_images(beats, job_dir)
-                segment_paths: list[Path] = []
                 beat_path_by_id = {
                     beat.visual_beat_id: path for beat, path in zip(beats, image_paths, strict=True)
                 }
+                await self.repository.update_progress(
+                    claimed, progress=10, current_step="RENDER_PROJECT_IMAGES_READY"
+                )
+
+                segment_paths: list[Path] = []
                 for index, segment in enumerate(segments):
                     await self.repository.assert_lease(claimed)
+                    segment_durations = _frame_quantized_duration_seconds(segment, profile.fps)
                     output_path = job_dir / f"segment-{index:04d}.mp4"
                     manifest = ImageMotionManifest(
                         beats=tuple(
                             MotionBeat(
                                 image_path=beat_path_by_id[beat.visual_beat_id],
-                                duration_seconds=beat_duration_by_id[beat.visual_beat_id],
+                                duration_seconds=duration,
                                 camera_movement=beat.camera_movement,
                             )
-                            for beat in segment
+                            for beat, duration in zip(segment, segment_durations, strict=True)
                         ),
                         audio_path=None,
                         output_path=output_path,
@@ -254,16 +258,39 @@ class ProjectRenderWorkerRunner:
                     )
                     await render_image_motion(manifest, timeout_seconds=1800.0)
                     segment_paths.append(output_path)
+                    segment_progress = 10 + round(55 * (index + 1) / len(segments))
+                    await self.repository.update_progress(
+                        claimed,
+                        progress=segment_progress,
+                        current_step=f"RENDER_PROJECT_SEGMENT_{index + 1}_OF_{len(segments)}",
+                    )
 
                 visual_path = job_dir / "project-visual.mp4"
                 await concat_video_segments(segment_paths, visual_path)
+                await self.repository.update_progress(
+                    claimed, progress=70, current_step="RENDER_PROJECT_VIDEO_CONCAT"
+                )
 
                 audio_paths = await self._download_audio(chapters, job_dir)
+                await self.repository.update_progress(
+                    claimed, progress=74, current_step="RENDER_PROJECT_AUDIO_READY"
+                )
                 master_audio_path = job_dir / "project-master.m4a"
-                await concat_audio_parts(audio_paths, master_audio_path)
+                await concat_audio_parts(
+                    audio_paths,
+                    master_audio_path,
+                    bitrate=profile.audio_bitrate,
+                    sample_rate=profile.audio_sample_rate,
+                )
+                await self.repository.update_progress(
+                    claimed, progress=80, current_step="RENDER_PROJECT_AUDIO_CONCAT"
+                )
 
                 final_path = job_dir / "project-final.mp4"
                 await mux_master_audio(visual_path, master_audio_path, final_path)
+                await self.repository.update_progress(
+                    claimed, progress=88, current_step="RENDER_PROJECT_MUXED"
+                )
                 probe = await probe_mp4(final_path)
                 validate_probe(
                     probe,
@@ -276,14 +303,23 @@ class ProjectRenderWorkerRunner:
                     ),
                 )
                 checksum = await asyncio.to_thread(sha256_file, final_path)
+                await self.repository.update_progress(
+                    claimed, progress=92, current_step="RENDER_PROJECT_VALIDATED"
+                )
 
                 async with render_fingerprint_lock(self.settings.database_url, render_fingerprint):
                     await self.repository.assert_lease(claimed)
+                    await self.repository.update_progress(
+                        claimed, progress=94, current_step="RENDER_PROJECT_UPLOADING"
+                    )
                     stored = await self.final_storage.put_immutable(
                         file_path=final_path,
                         render_fingerprint=render_fingerprint,
                         checksum=checksum,
                         generation_job_id=claimed.generation_job_id,
+                    )
+                    await self.repository.update_progress(
+                        claimed, progress=97, current_step="RENDER_PROJECT_FINALIZING"
                     )
                     await self.repository.assert_lease(claimed)
                     await self.repository.complete(
@@ -309,7 +345,7 @@ class ProjectRenderWorkerRunner:
         assert self.storage is not None
         cached: dict[tuple[str, str], Path] = {}
         paths: list[Path] = []
-        for index, beat in enumerate(beats):
+        for beat in beats:
             key = (beat.storage_key, beat.checksum)
             path = cached.get(key)
             if path is None:
@@ -363,11 +399,12 @@ def split_render_segments(
     if preferred_duration_ms > max_duration_ms:
         preferred_duration_ms = max_duration_ms
 
+    slices = _split_oversized_beats(beats, max_duration_ms=max_duration_ms)
     segments: list[list[ProjectRenderBeatAsset]] = []
     current: list[ProjectRenderBeatAsset] = []
     current_duration = 0
     previous: ProjectRenderBeatAsset | None = None
-    for beat in beats:
+    for beat in slices:
         boundary = (
             previous is not None
             and (
@@ -390,6 +427,26 @@ def split_render_segments(
     return segments
 
 
+def _split_oversized_beats(
+    beats: list[ProjectRenderBeatAsset], *, max_duration_ms: int
+) -> list[ProjectRenderBeatAsset]:
+    slices: list[ProjectRenderBeatAsset] = []
+    for beat in beats:
+        start_ms = beat.global_start_ms
+        while start_ms < beat.global_end_ms:
+            end_ms = min(beat.global_end_ms, start_ms + max_duration_ms)
+            slices.append(
+                replace(
+                    beat,
+                    global_start_ms=start_ms,
+                    global_end_ms=end_ms,
+                    duration_ms=end_ms - start_ms,
+                )
+            )
+            start_ms = end_ms
+    return slices
+
+
 def _frame_quantized_duration_seconds(
     beats: list[ProjectRenderBeatAsset], fps: int
 ) -> list[float]:
@@ -397,15 +454,16 @@ def _frame_quantized_duration_seconds(
 
     Quantizing each beat duration independently can accumulate many frames of drift on long
     timelines. Quantizing shared global boundaries instead guarantees adjacent beats share the
-    same frame boundary and the complete visual track closes at round(total_audio * fps).
+    same frame boundary. The first beat may start after zero when this helper is used for one
+    bounded render segment.
     """
     if fps <= 0:
         raise ValueError("fps must be positive")
     if not beats:
         return []
 
+    previous_end_frame = round(beats[0].global_start_ms * fps / 1000.0)
     durations: list[float] = []
-    previous_end_frame = 0
     for beat in beats:
         start_frame = round(beat.global_start_ms * fps / 1000.0)
         end_frame = round(beat.global_end_ms * fps / 1000.0)
@@ -474,7 +532,9 @@ def _dimensions(resolution: str, aspect_ratio: str) -> tuple[int, int]:
     return width - width % 2, height - height % 2
 
 
-async def _load_project_render_profile(database_url: str, generation_job_id: uuid.UUID) -> RenderProfile:
+async def _load_project_render_profile(
+    database_url: str, generation_job_id: uuid.UUID
+) -> RenderProfile:
     connection = await asyncpg.connect(database_url)
     try:
         raw = await connection.fetchval(
