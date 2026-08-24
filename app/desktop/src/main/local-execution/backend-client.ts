@@ -18,7 +18,7 @@ export interface ClaimedProjectRenderChapter {
   orderIndex: number;
   globalStartMs: number;
   globalEndMs: number;
-  narrationAssetId: string;
+  narrationAssetId: string | null;
   downloadUrl: string | null;
   sizeBytes: number;
   checksum: string;
