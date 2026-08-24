@@ -1,7 +1,3 @@
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080").replace(
-  /\/$/,
-  "",
-);
 const DEFAULT_TIMEOUT_MS = 30_000;
 
 interface CsrfTokenResponse {
@@ -37,10 +33,6 @@ export class DesktopApiProtocolError extends Error {
     this.name = "DesktopApiProtocolError";
     this.path = path;
   }
-}
-
-export function apiBaseUrl() {
-  return API_BASE_URL;
 }
 
 function isCsrfTokenResponse(value: unknown): value is CsrfTokenResponse {
@@ -85,6 +77,10 @@ export async function apiRequest<T>(
   const method = (init.method ?? "GET").toUpperCase();
   const headers = new Headers(init.headers);
   headers.set("Accept", "application/json");
+  const body = requestBody(init.body);
+  if (body !== undefined && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
   if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
     const token = await csrfToken();
     headers.set(token.headerName, token.token);
@@ -95,15 +91,17 @@ export async function apiRequest<T>(
     {
       method,
       headers,
-      body: requestBody(init.body),
+      body,
     },
     timeoutMs,
   );
 
   if (!isSuccessful(response.status)) {
     let message = response.statusText || "Request failed";
-    const body = parseJson(response.bodyText) as { message?: unknown } | null;
-    if (typeof body?.message === "string" && body.message) message = body.message;
+    const responseBody = parseJson(response.bodyText) as { message?: unknown } | null;
+    if (typeof responseBody?.message === "string" && responseBody.message) {
+      message = responseBody.message;
+    }
     if (response.status === 401 || response.status === 403) csrfTokenPromise = undefined;
     throw new DesktopApiError(path, response.status, message);
   }
