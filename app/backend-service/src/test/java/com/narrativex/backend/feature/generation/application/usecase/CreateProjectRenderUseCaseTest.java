@@ -3,6 +3,7 @@ package com.narrativex.backend.feature.generation.application.usecase;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.narrativex.backend.feature.generation.application.command.CreateProjectRenderCommand;
 import com.narrativex.backend.feature.generation.application.command.RenderBeatOverride;
 import com.narrativex.backend.feature.generation.application.query.ProductionTimelineView;
 import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
@@ -37,6 +38,36 @@ class CreateProjectRenderUseCaseTest {
         .containsExactly(List.of(0L, 15_000L, 15_000L), List.of(15_000L, 60_000L, 45_000L));
     assertThat(adjusted.beats().getFirst().cameraMovement()).isEqualTo("NONE");
     assertThat(adjusted.beats().get(1).cameraMovement()).isEqualTo("PAN");
+  }
+
+  @Test
+  void projectRenderRequestFingerprintChangesWithResolutionAndTimelineEdits() {
+    UUID projectId = UUID.randomUUID();
+    UUID storyVersionId = UUID.randomUUID();
+    UUID chapterId = UUID.randomUUID();
+    UUID firstBeatId = UUID.randomUUID();
+    UUID secondBeatId = UUID.randomUUID();
+    ProductionTimelineView timeline =
+        timeline(projectId, storyVersionId, chapterId, firstBeatId, secondBeatId);
+    String originalTimelineFingerprint = CreateProjectRenderUseCase.timelineFingerprint(timeline);
+    String render720 =
+        CreateProjectRenderUseCase.requestFingerprint(
+            new CreateProjectRenderCommand(projectId, "720p", "mp4", null, null),
+            originalTimelineFingerprint);
+    String render1080 =
+        CreateProjectRenderUseCase.requestFingerprint(
+            new CreateProjectRenderCommand(projectId, "1080p", "mp4", null, null),
+            originalTimelineFingerprint);
+
+    ProductionTimelineView edited =
+        CreateProjectRenderUseCase.applyBeatOverrides(
+            timeline, List.of(new RenderBeatOverride(firstBeatId, 10_000L, null)));
+    String editedRender720 =
+        CreateProjectRenderUseCase.requestFingerprint(
+            new CreateProjectRenderCommand(projectId, "720p", "mp4", null, null),
+            CreateProjectRenderUseCase.timelineFingerprint(edited));
+
+    assertThat(render720).hasSize(64).isNotEqualTo(render1080).isNotEqualTo(editedRender720);
   }
 
   @Test
