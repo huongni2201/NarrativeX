@@ -59,11 +59,27 @@ export class LocalExecutionService extends EventEmitter {
   }
 
   async start(): Promise<void> {
-    this.identity = await this.identityStore.load();
-    // A persisted device token is deliberately dormant until the renderer confirms the
-    // currently authenticated NarrativeX user. This prevents processing work for a previous
-    // Google account during startup or while the login screen is shown.
-    this.setState(this.identity ? "OFFLINE" : "UNPAIRED", null);
+    const loadedIdentity = await this.identityStore.load();
+    this.identity = loadedIdentity;
+    if (!loadedIdentity) {
+      this.setState("UNPAIRED", null);
+      return;
+    }
+
+    // setUser() can race with startup while safeStorage/disk I/O is still loading. Re-check
+    // the already-bound session here so either ordering produces the same safe result.
+    const sessionUserId = this.sessionUserId;
+    if (!sessionUserId) {
+      this.setState("OFFLINE", null);
+      return;
+    }
+    if (loadedIdentity.userId !== sessionUserId) {
+      this.identity = null;
+      await this.identityStore.clear();
+      this.setState("UNPAIRED", null);
+      return;
+    }
+    await this.startHeartbeat();
   }
 
   async setUser(userId: string | null): Promise<LocalExecutionStatus> {
