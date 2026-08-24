@@ -37,12 +37,7 @@ public class MyBatisCharacterVersionPersistenceAdapter implements CharacterVersi
       return rowMapper.toDomain(mapper.findCharacterVersion(id));
     }
     CharacterVersionRow existing = mapper.findCharacterVersion(value.getId());
-    if (existing == null) {
-      row.setId(null);
-      row.setRowVersion(0);
-      UUID id = mapper.insertCharacterVersion(row);
-      return rowMapper.toDomain(mapper.findCharacterVersion(id));
-    }
+    OptimisticConcurrency.requirePresent(existing, CharacterVersion.class, value.getId());
     OptimisticConcurrency.requireVersion(
         value.getRowVersion(), existing.getRowVersion(), CharacterVersion.class, value.getId());
     if (mapper.updateCharacterVersion(row) != 1)
