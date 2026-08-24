@@ -26,6 +26,7 @@
                AND v.variant_type = 'ORIGINAL'
                AND v.content_hash = c.source_hash
              WHERE c.id = #{chapterId}
+               AND c.deleted_at IS NULL
              ORDER BY v.created_at DESC, v.id DESC
              LIMIT 1
         )
@@ -46,6 +47,7 @@
           JOIN chapter_content_variants v ON v.chapter_id = c.id
           LEFT JOIN current_original ON TRUE
           WHERE c.id = #{chapterId} AND p.id = #{projectId}
+           AND c.deleted_at IS NULL
            AND p.owner_id = #{userId} AND p.archived_at IS NULL
            AND
            <choose>
@@ -65,6 +67,7 @@
               JOIN story_versions sv ON sv.id = c.story_version_id
               JOIN projects p ON p.id = sv.project_id
              WHERE c.id = #{chapterId}
+               AND c.deleted_at IS NULL
                AND p.id = #{projectId}
                AND p.owner_id = #{userId}
                AND p.archived_at IS NULL
@@ -79,6 +82,7 @@
                AND ccv.variant_type = 'ORIGINAL'
                AND ccv.content_hash = c.source_hash
              WHERE c.id = #{chapterId}
+               AND c.deleted_at IS NULL
                AND EXISTS (
                    SELECT 1
                      FROM story_versions sv

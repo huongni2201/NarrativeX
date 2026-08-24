@@ -19,6 +19,7 @@ public class ChapterRow {
   private long rowVersion;
   private Instant createdAt;
   private Instant updatedAt;
+  private Instant deletedAt;
   private UUID storyVersionId;
   private int orderIndex;
   private String title;

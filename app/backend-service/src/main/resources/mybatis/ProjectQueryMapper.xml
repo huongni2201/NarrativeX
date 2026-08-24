@@ -85,6 +85,7 @@
                  AND s.status = 'APPROVED'
                 JOIN visual_beats vb ON vb.scene_id = s.id
                WHERE c.story_version_id = sv.id
+                 AND c.deleted_at IS NULL
           ) appr_vis ON TRUE
           LEFT JOIN LATERAL (
               SELECT COUNT(*)::int AS cnt
@@ -167,6 +168,7 @@
                LIMIT 1
           ) latest_job ON TRUE
          WHERE c.story_version_id = #{storyVersionId}
+           AND c.deleted_at IS NULL
          GROUP BY c.id, c.order_index, c.title, c.status, c.source_hash, c.estimated_duration_ms,
                   c.updated_at, latest_job.status, latest_job.source_hash
          ORDER BY c.order_index ASC, c.id ASC
