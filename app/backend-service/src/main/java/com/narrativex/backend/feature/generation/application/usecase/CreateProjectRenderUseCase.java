@@ -17,8 +17,10 @@ import com.narrativex.backend.feature.generation.domain.aggregate.OperationPlan;
 import com.narrativex.backend.feature.generation.domain.entity.StageAttempt;
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.generation.domain.enums.JobType;
+import com.narrativex.backend.feature.generation.domain.enums.RenderExecutionTarget;
 import com.narrativex.backend.feature.generation.domain.enums.ResourceClass;
 import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
+import com.narrativex.backend.feature.localexecution.application.port.in.LocalDeviceAccess;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -43,7 +45,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class CreateProjectRenderUseCase {
-  private static final String STAGE_NAME = "RENDER_PROJECT";
+  private static final String CLOUD_STAGE_NAME = "RENDER_PROJECT";
+  private static final String LOCAL_STAGE_NAME = "RENDER_PROJECT_LOCAL";
+  private static final String PROJECT_RENDER_CAPABILITY = "PROJECT_RENDER";
   private static final long BILLING_WINDOW_MS = 30L * 60L * 1000L;
   private static final int MAX_IDEMPOTENCY_KEY_LENGTH = 512;
 
@@ -57,11 +61,15 @@ public class CreateProjectRenderUseCase {
   private final StageAttemptRepository stageAttemptRepository;
   private final QuotaReservation quotaReservation;
   private final UserQuotaAccess userQuotaAccess;
+  private final LocalDeviceAccess localDeviceAccess;
 
   @Transactional
   public GenerationJob execute(CreateProjectRenderCommand command) {
     String userId = currentUserId.get();
     var project = projectAccess.findOwnedProject(command.projectId(), userId);
+    RenderExecutionTarget executionTarget = command.executionTarget();
+    validateExecutionTarget(userId, executionTarget, command.localDeviceId());
+
     ProductionTimelineView sourceTimeline =
         getProductionTimelineUseCase.executeOwned(command.projectId(), userId);
     if (!sourceTimeline.readyForRender()) {
@@ -83,7 +91,10 @@ public class CreateProjectRenderUseCase {
           "ENTITLEMENT_DENIED", "The requested resolution exceeds the active plan entitlement.");
     }
 
-    BigDecimal renderCost = estimateRenderCost(command.resolution(), timeline.totalDurationMs());
+    BigDecimal renderCost =
+        executionTarget == RenderExecutionTarget.LOCAL_DEVICE
+            ? BigDecimal.ZERO
+            : estimateRenderCost(command.resolution(), timeline.totalDurationMs());
     if (command.maxAuthorizedCost() != null
         && renderCost.compareTo(command.maxAuthorizedCost()) > 0) {
       throw new GenerationAdmissionDeniedException(
@@ -139,29 +150,60 @@ public class CreateProjectRenderUseCase {
                 idempotencyKey));
 
     projectRenderInputSnapshotRepository.create(
-        job.getId(), timeline, command.resolution(), command.format());
+        job.getId(),
+        timeline,
+        command.resolution(),
+        command.format(),
+        executionTarget,
+        command.localDeviceId());
 
     OperationPlan plan =
         operationPlanRepository.save(
             OperationPlan.create(
                 command.projectId(),
-                operationType(command.resolution(), command.format()),
+                operationType(executionTarget, command.resolution(), command.format()),
                 renderCost.multiply(BigDecimal.valueOf(0.8)),
                 renderCost,
                 command.maxAuthorizedCost() == null ? renderCost : command.maxAuthorizedCost()));
     quotaReservation.bindToGenerationJob(reservation.id(), job.getId());
     operationPlanRepository.save(plan.withGenerationJobId(job.getId()));
-    stageAttemptRepository.create(StageAttempt.create(job.getId(), STAGE_NAME, 1));
+    stageAttemptRepository.create(
+        StageAttempt.create(job.getId(), stageName(executionTarget), 1));
     generationOutboxRepository.enqueue(job);
     log.info(
-        "Created project render job id={} projectId={} durationMs={} chapters={} beats={} overrides={}",
+        "Created project render job id={} projectId={} target={} deviceId={} durationMs={} chapters={} beats={} overrides={}",
         job.getId(),
         command.projectId(),
+        executionTarget,
+        command.localDeviceId(),
         timeline.totalDurationMs(),
         timeline.chapters().size(),
         timeline.beats().size(),
         command.beatOverrides().size());
     return job;
+  }
+
+  private void validateExecutionTarget(
+      String userId, RenderExecutionTarget executionTarget, UUID localDeviceId) {
+    if (executionTarget == RenderExecutionTarget.CLOUD) {
+      if (localDeviceId != null) {
+        throw new GenerationAdmissionDeniedException(
+            "INVALID_RENDER_EXECUTION_TARGET",
+            "CLOUD project render must not specify a local device.");
+      }
+      return;
+    }
+    if (localDeviceId == null) {
+      throw new GenerationAdmissionDeniedException(
+          "LOCAL_DEVICE_REQUIRED", "LOCAL_DEVICE project render requires a paired desktop device.");
+    }
+    try {
+      localDeviceAccess.requireEligibleOwnedDevice(
+          userId, localDeviceId, PROJECT_RENDER_CAPABILITY);
+    } catch (IllegalArgumentException | IllegalStateException exception) {
+      throw new GenerationAdmissionDeniedException(
+          "LOCAL_DEVICE_UNAVAILABLE", exception.getMessage());
+    }
   }
 
   static ProductionTimelineView applyBeatOverrides(
@@ -290,7 +332,12 @@ public class CreateProjectRenderUseCase {
   }
 
   static String operationType(String resolution, String format) {
-    return STAGE_NAME
+    return operationType(RenderExecutionTarget.CLOUD, resolution, format);
+  }
+
+  static String operationType(
+      RenderExecutionTarget executionTarget, String resolution, String format) {
+    return stageName(executionTarget)
         + "_"
         + resolution.toUpperCase(Locale.ROOT)
         + "_"
@@ -306,7 +353,11 @@ public class CreateProjectRenderUseCase {
             + ":"
             + command.resolution().toLowerCase(Locale.ROOT)
             + ":"
-            + command.format().toLowerCase(Locale.ROOT));
+            + command.format().toLowerCase(Locale.ROOT)
+            + ":"
+            + command.executionTarget().name()
+            + ":"
+            + (command.localDeviceId() == null ? "-" : command.localDeviceId()));
   }
 
   private static String idempotencyKey(
@@ -369,6 +420,12 @@ public class CreateProjectRenderUseCase {
             + chapters
             + ":"
             + beats);
+  }
+
+  private static String stageName(RenderExecutionTarget executionTarget) {
+    return executionTarget == RenderExecutionTarget.LOCAL_DEVICE
+        ? LOCAL_STAGE_NAME
+        : CLOUD_STAGE_NAME;
   }
 
   private static String sha256(String value) {
