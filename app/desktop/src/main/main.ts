@@ -4,9 +4,11 @@ import { LocalExecutionBackendClient } from "./local-execution/backend-client";
 import { loadLocalExecutionConfig } from "./local-execution/config";
 import { DeviceIdentityStore } from "./local-execution/device-identity";
 import { LocalExecutionService } from "./local-execution/service";
+import { ProjectStorage } from "./local-storage/project-storage";
 
 let mainWindow: BrowserWindow | null = null;
 let localExecution: LocalExecutionService | null = null;
+let projectStorage: ProjectStorage | null = null;
 
 function createWindow() {
   const window = new BrowserWindow({
@@ -41,12 +43,23 @@ function requireLocalExecution(): LocalExecutionService {
   return localExecution;
 }
 
+function requireProjectStorage(): ProjectStorage {
+  if (!projectStorage) throw new Error("Local project storage is not initialized.");
+  return projectStorage;
+}
+
 void app.whenReady().then(() => {
   app.setAppUserModelId("com.narrativex.desktop");
   const config = loadLocalExecutionConfig();
   const identityStore = new DeviceIdentityStore();
   const backendClient = new LocalExecutionBackendClient(config, app.getVersion());
-  localExecution = new LocalExecutionService(config, identityStore, backendClient);
+  projectStorage = new ProjectStorage(join(app.getPath("userData"), "projects"));
+  localExecution = new LocalExecutionService(
+    config,
+    identityStore,
+    backendClient,
+    projectStorage,
+  );
 
   ipcMain.handle("desktop:app-version", () => app.getVersion());
   ipcMain.handle("desktop:local-execution:status", () => requireLocalExecution().status());
@@ -55,6 +68,16 @@ void app.whenReady().then(() => {
     return requireLocalExecution().pair(pairingCode);
   });
   ipcMain.handle("desktop:local-execution:unpair", () => requireLocalExecution().unpair());
+  ipcMain.handle("desktop:local-storage:ensure-project", async (_event, projectId: unknown) => {
+    if (typeof projectId !== "string") throw new Error("projectId must be a string.");
+    const manifest = await requireProjectStorage().ensureProject(projectId);
+    return {
+      projectId: manifest.projectId,
+      projectDirectory: requireProjectStorage().projectDirectory(projectId),
+      assetCount: Object.keys(manifest.assets).length,
+      artifactCount: Object.keys(manifest.artifacts).length,
+    };
+  });
 
   localExecution.on("status", (status) => {
     mainWindow?.webContents.send("desktop:local-execution:status-changed", status);
