@@ -22,7 +22,11 @@ public class MyBatisMediaGenerationItemPersistenceAdapter implements MediaGenera
     UUID id = mapper.insert(toRow(item));
     if (id == null)
       throw new IllegalStateException("Inserted media generation item did not return an id");
-    return toDomain(mapper.findById(id));
+    if (!id.equals(item.getId())) {
+      throw new IllegalStateException(
+          "Inserted media generation item returned an unexpected id " + id);
+    }
+    return item;
   }
 
   @Override
