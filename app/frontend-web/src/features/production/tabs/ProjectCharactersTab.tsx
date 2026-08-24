@@ -29,6 +29,9 @@ interface ProjectCharactersTabProps {
 
 type RoleFilter = "ALL" | "MAIN" | "SUPPORTING" | "ANTAGONIST" | "INCOMPLETE";
 
+const PROJECT_PAGE_SIZE = 20;
+const LIBRARY_PICKER_PAGE_SIZE = 20;
+
 function normalizeRole(role: string): "MAIN" | "SUPPORTING" | "ANTAGONIST" | "OTHER" {
   const normalized = role.trim().toUpperCase();
   if (normalized === "MAIN" || normalized === "PROTAGONIST" || normalized === "CHÍNH") return "MAIN";
@@ -92,11 +95,21 @@ export function ProjectCharactersTab({
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<RoleFilter>("ALL");
   const [linkOpen, setLinkOpen] = useState(false);
+  const [projectCursor, setProjectCursor] = useState<string | undefined>(undefined);
+  const [projectCursorHistory, setProjectCursorHistory] = useState<(string | undefined)[]>([]);
+  const [projectPage, setProjectPage] = useState(1);
+  const [libraryCursor, setLibraryCursor] = useState<string | undefined>(undefined);
+  const [libraryCursorHistory, setLibraryCursorHistory] = useState<(string | undefined)[]>([]);
+  const [libraryPage, setLibraryPage] = useState(1);
   const queryClient = useQueryClient();
 
   const projectCharactersQuery = useQuery({
-    queryKey: queryKeys.projectCharacters(projectId),
-    queryFn: () => charactersApi.listProject(projectId, { limit: 100 }),
+    queryKey: [...queryKeys.projectCharacters(projectId), projectCursor ?? "first"],
+    queryFn: () =>
+      charactersApi.listProject(projectId, {
+        cursor: projectCursor,
+        limit: PROJECT_PAGE_SIZE,
+      }),
   });
 
   const globalCharacterCountQuery = useQuery({
@@ -104,8 +117,9 @@ export function ProjectCharactersTab({
     queryFn: () => charactersApi.count(),
   });
   const globalCharactersQuery = useQuery({
-    queryKey: ["characters", "project-picker"],
-    queryFn: () => charactersApi.list({ limit: 100 }),
+    queryKey: ["characters", "project-picker", libraryCursor ?? "first"],
+    queryFn: () =>
+      charactersApi.list({ cursor: libraryCursor, limit: LIBRARY_PICKER_PAGE_SIZE }),
     enabled: linkOpen,
   });
   const assignMutation = useMutation({
@@ -123,7 +137,7 @@ export function ProjectCharactersTab({
   );
   const globalCount = globalCharacterCountQuery.data ?? 0;
 
-  // Real-time statistics from real API data
+  // Real-time statistics from real API data on the current page.
   const totalCount = rawCharacters.length;
   const inUseCount = rawCharacters.filter((c) => c.status === "ACTIVE").length;
   const incompleteCount = rawCharacters.filter((c) => !c.pinnedCharacterVersionId).length;
@@ -165,6 +179,45 @@ export function ProjectCharactersTab({
     return result;
   }, [rawCharacters, activeFilter, searchQuery]);
 
+  const goToNextProjectPage = () => {
+    const nextCursor = projectCharactersQuery.data?.nextCursor;
+    if (!projectCharactersQuery.data?.hasNext || !nextCursor) return;
+    setProjectCursorHistory((history) => [...history, projectCursor]);
+    setProjectCursor(nextCursor);
+    setProjectPage((page) => page + 1);
+  };
+
+  const goToPreviousProjectPage = () => {
+    if (projectCursorHistory.length === 0) return;
+    const previousCursor = projectCursorHistory[projectCursorHistory.length - 1];
+    setProjectCursorHistory((history) => history.slice(0, -1));
+    setProjectCursor(previousCursor);
+    setProjectPage((page) => Math.max(1, page - 1));
+  };
+
+  const openLibraryPicker = () => {
+    setLibraryCursor(undefined);
+    setLibraryCursorHistory([]);
+    setLibraryPage(1);
+    setLinkOpen(true);
+  };
+
+  const goToNextLibraryPage = () => {
+    const nextCursor = globalCharactersQuery.data?.nextCursor;
+    if (!globalCharactersQuery.data?.hasNext || !nextCursor) return;
+    setLibraryCursorHistory((history) => [...history, libraryCursor]);
+    setLibraryCursor(nextCursor);
+    setLibraryPage((page) => page + 1);
+  };
+
+  const goToPreviousLibraryPage = () => {
+    if (libraryCursorHistory.length === 0) return;
+    const previousCursor = libraryCursorHistory[libraryCursorHistory.length - 1];
+    setLibraryCursorHistory((history) => history.slice(0, -1));
+    setLibraryCursor(previousCursor);
+    setLibraryPage((page) => Math.max(1, page - 1));
+  };
+
   return (
     <section className="space-y-6" aria-labelledby="project-characters-heading">
       {/* Header Section */}
@@ -186,7 +239,7 @@ export function ProjectCharactersTab({
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
-            onClick={() => setLinkOpen(true)}
+            onClick={openLibraryPicker}
             className="flex items-center gap-2 rounded-xl border border-primary/60 bg-primary-muted px-4 py-2.5 text-sm font-semibold text-primary-light hover:bg-primary-muted-strong hover:text-white transition-colors"
           >
             <Plus className="h-4 w-4" />
@@ -330,7 +383,7 @@ export function ProjectCharactersTab({
             </div>
           ) : filteredCharacters.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-slate-800 bg-surface-card p-10 text-center text-sm text-slate-400">
-              Không tìm thấy nhân vật nào phù hợp với bộ lọc hoặc từ khóa tìm kiếm.
+              Không tìm thấy nhân vật nào phù hợp với bộ lọc hoặc từ khóa tìm kiếm trên trang này.
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -425,26 +478,28 @@ export function ProjectCharactersTab({
           )}
 
           {/* Pagination Footer */}
-          {filteredCharacters.length > 0 && (
+          {rawCharacters.length > 0 && (
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-800/60 pt-4 text-sm text-slate-400">
               <span>
-                Hiển thị 1–{filteredCharacters.length} của {totalCount} nhân vật
+                Trang {projectPage} · {filteredCharacters.length} nhân vật phù hợp trên trang hiện tại
               </span>
               <div className="flex items-center gap-1">
                 <button
                   type="button"
-                  disabled
+                  onClick={goToPreviousProjectPage}
+                  disabled={projectCursorHistory.length === 0 || projectCharactersQuery.isFetching}
                   className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-800 bg-surface-card text-slate-500 disabled:opacity-40"
                   aria-label="Trang trước"
                 >
                   &lt;
                 </button>
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-primary/80 bg-primary-muted font-bold text-primary-light">
-                  1
+                <span className="flex h-8 min-w-8 items-center justify-center rounded-lg border border-primary/80 bg-primary-muted px-2 font-bold text-primary-light">
+                  {projectPage}
                 </span>
                 <button
                   type="button"
-                  disabled
+                  onClick={goToNextProjectPage}
+                  disabled={!projectCharactersQuery.data?.hasNext || projectCharactersQuery.isFetching}
                   className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-800 bg-surface-card text-slate-500 disabled:opacity-40"
                   aria-label="Trang sau"
                 >
@@ -490,7 +545,7 @@ export function ProjectCharactersTab({
 
           {/* Widget 2: Thống kê trong dự án */}
           <div className="rounded-2xl border border-slate-800/80 bg-surface-card p-5 space-y-4">
-            <h3 className="text-base font-bold text-white">Thống kê trong dự án</h3>
+            <h3 className="text-base font-bold text-white">Thống kê trang hiện tại</h3>
 
             <div className="space-y-2.5">
               <div className="flex items-center justify-between rounded-xl border border-slate-800/60 bg-surface-2 p-3">
@@ -535,7 +590,7 @@ export function ProjectCharactersTab({
 
             <p className="flex items-center gap-2 rounded-xl border border-slate-800 bg-surface-2 px-4 py-3 text-sm text-slate-400">
               <BarChart3 className="h-4 w-4 text-primary-light" />
-              Báo cáo chi tiết sẽ khả dụng khi backend cung cấp metrics chuyên sâu.
+              Báo cáo toàn dự án cần metrics chuyên sâu từ backend.
             </p>
           </div>
         </div>
@@ -562,6 +617,29 @@ export function ProjectCharactersTab({
               ))}
             </div>
             {!globalCharactersQuery.isPending && (globalCharactersQuery.data?.content ?? []).length === 0 ? <p className="text-sm text-text-secondary">Thư viện chưa có nhân vật. Hãy tạo nhân vật ở thư viện chung.</p> : null}
+            {(globalCharactersQuery.data?.content ?? []).length > 0 ? (
+              <div className="flex items-center justify-between border-t border-border pt-3 text-xs text-text-muted">
+                <span>Trang {libraryPage}</span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={goToPreviousLibraryPage}
+                    disabled={libraryCursorHistory.length === 0 || globalCharactersQuery.isFetching}
+                    className="rounded-lg border border-border px-3 py-1.5 disabled:opacity-40"
+                  >
+                    Trước
+                  </button>
+                  <button
+                    type="button"
+                    onClick={goToNextLibraryPage}
+                    disabled={!globalCharactersQuery.data?.hasNext || globalCharactersQuery.isFetching}
+                    className="rounded-lg border border-border px-3 py-1.5 disabled:opacity-40"
+                  >
+                    Sau
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       )}
