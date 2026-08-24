@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ProjectRenderInputSnapshotMapper">
+  <insert id="insertHeader">
+    INSERT INTO project_render_input_snapshots (
+      generation_job_id, project_id, story_version_id, resolution, render_format,
+      aspect_ratio, total_duration_ms, chapter_count, beat_count
+    ) VALUES (
+      #{generationJobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+      #{timeline.projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+      #{timeline.storyVersionId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+      #{resolution}, #{format}, #{timeline.aspectRatio}, #{timeline.totalDurationMs},
+      #{timeline.chapters.size}, #{timeline.beats.size}
+    )
+  </insert>
+
+  <insert id="insertChapter">
+    INSERT INTO project_render_input_chapters (
+      generation_job_id, chapter_id, chapter_order_index, chapter_row_version, source_hash,
+      media_plan_id, media_plan_revision, global_start_ms, global_end_ms,
+      audio_storage_key, audio_size_bytes, audio_checksum, audio_duration_ms,
+      narration_request_id, narration_asset_id, narration_alignment_id
+    ) VALUES (
+      #{generationJobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+      #{chapter.chapterId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+      #{chapter.orderIndex}, #{chapter.rowVersion}, #{chapter.sourceHash},
+      #{chapter.mediaPlanId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+      #{chapter.mediaPlanRevision}, #{chapter.startMs}, #{chapter.endMs},
+      #{chapter.audioStorageKey}, #{chapter.audioSizeBytes}, #{chapter.audioChecksum}, #{chapter.audioDurationMs},
+      #{chapter.narrationRequestId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+      #{chapter.narrationAssetId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+      #{chapter.narrationAlignmentId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+    )
+  </insert>
+
+  <insert id="insertBeat">
+    INSERT INTO project_render_input_beats (
+      generation_job_id, chapter_id, scene_index, beat_index, visual_beat_id, media_asset_id,
+      global_start_ms, global_end_ms, duration_ms, camera_movement,
+      storage_key, size_bytes, checksum
+    ) VALUES (
+      #{generationJobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+      #{beat.chapterId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+      #{beat.sceneIndex}, #{beat.beatIndex},
+      #{beat.visualBeatId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+      #{beat.mediaAssetId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+      #{beat.startMs}, #{beat.endMs}, #{beat.durationMs}, #{beat.cameraMovement},
+      #{beat.storageKey}, #{beat.sizeBytes}, #{beat.checksum}
+    )
+  </insert>
+</mapper>
