@@ -28,7 +28,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-/** Contract test for the authoritative PostgreSQL/Flyway final baseline and MyBatis UUID mappings. */
+/** Contract test for the authoritative PostgreSQL/Flyway schema and MyBatis UUID mappings. */
 @Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest
 @ActiveProfiles("test")
@@ -84,8 +84,9 @@ class PostgreSqlMigrationIntegrationTest {
   @Test
   void emptyPostgresMigratesThroughAuthoritativeUuidSchema() throws SQLException {
     try (Connection connection = dataSource.getConnection()) {
-      assertEquals("1", latestFlywayVersion(connection));
-      assertEquals(1, successfulVersionedMigrationCount(connection));
+      assertEquals("2", latestFlywayVersion(connection));
+      assertEquals(2, successfulVersionedMigrationCount(connection));
+      assertEquals(512, characterMaximumLength(connection, "generation_jobs", "idempotency_key"));
 
       for (String table : UUID_ID_TABLES) {
         assertEquals("uuid", columnType(connection, table, "id"), table + ".id must be UUID");
@@ -114,8 +115,10 @@ class PostgreSqlMigrationIntegrationTest {
       assertEquals("uuid", columnType(connection, "media_beat_plans", "visual_beat_id"));
 
       assertTrue(tableExists(connection, "character_version_reference_assets"));
-      assertEquals("uuid", columnType(connection, "character_version_reference_assets", "character_version_id"));
-      assertEquals("uuid", columnType(connection, "character_version_reference_assets", "media_asset_id"));
+      assertEquals(
+          "uuid", columnType(connection, "character_version_reference_assets", "character_version_id"));
+      assertEquals(
+          "uuid", columnType(connection, "character_version_reference_assets", "media_asset_id"));
       assertTrue(tableExists(connection, "local_device_pairing_codes"));
       assertTrue(tableExists(connection, "local_devices"));
       assertTrue(tableExists(connection, "local_device_capabilities"));
@@ -179,7 +182,8 @@ class PostgreSqlMigrationIntegrationTest {
               result.getString("parent_type"),
               result.getString("child_type"),
               result.getString("child_table") + "." + result.getString("child_column")
-                  + " must match " + result.getString("parent_table") + "." + result.getString("parent_column"));
+                  + " must match " + result.getString("parent_table") + "."
+                  + result.getString("parent_column"));
         }
         assertTrue(checked > 0, "expected the schema to contain foreign keys");
       }
@@ -193,14 +197,19 @@ class PostgreSqlMigrationIntegrationTest {
     UUID missingVariantId = UUID.randomUUID();
 
     assertNull(assertDoesNotThrow(() -> projectMapper.findById(missingProjectId)));
-    assertNull(assertDoesNotThrow(() -> chapterWorkspaceMapper.aggregate(missingProjectId, missingChapterId)));
-    assertNull(assertDoesNotThrow(() -> languageDetectionMapper.findLatest(missingVariantId, "0".repeat(64))));
+    assertNull(
+        assertDoesNotThrow(
+            () -> chapterWorkspaceMapper.aggregate(missingProjectId, missingChapterId)));
+    assertNull(
+        assertDoesNotThrow(
+            () -> languageDetectionMapper.findLatest(missingVariantId, "0".repeat(64))));
     assertTrue(assertDoesNotThrow(() -> notificationMapper.list("missing-user", true, 5)).isEmpty());
   }
 
   private static String latestFlywayVersion(Connection connection) throws SQLException {
-    try (PreparedStatement statement = connection.prepareStatement(
-            "select version from flyway_schema_history where success = true and version is not null order by installed_rank desc limit 1");
+    try (PreparedStatement statement =
+            connection.prepareStatement(
+                "select version from flyway_schema_history where success = true and version is not null order by installed_rank desc limit 1");
         ResultSet result = statement.executeQuery()) {
       assertTrue(result.next());
       return result.getString(1);
@@ -208,8 +217,9 @@ class PostgreSqlMigrationIntegrationTest {
   }
 
   private static int successfulVersionedMigrationCount(Connection connection) throws SQLException {
-    try (PreparedStatement statement = connection.prepareStatement(
-            "select count(*) from flyway_schema_history where success = true and version is not null");
+    try (PreparedStatement statement =
+            connection.prepareStatement(
+                "select count(*) from flyway_schema_history where success = true and version is not null");
         ResultSet result = statement.executeQuery()) {
       assertTrue(result.next());
       return result.getInt(1);
@@ -217,14 +227,17 @@ class PostgreSqlMigrationIntegrationTest {
   }
 
   private static boolean tableExists(Connection connection, String table) throws SQLException {
-    return exists(connection,
+    return exists(
+        connection,
         "select exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = ?)",
         table);
   }
 
-  private static boolean columnExists(Connection connection, String table, String column) throws SQLException {
-    try (PreparedStatement statement = connection.prepareStatement(
-        "select exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = ? and column_name = ?)")) {
+  private static boolean columnExists(Connection connection, String table, String column)
+      throws SQLException {
+    try (PreparedStatement statement =
+        connection.prepareStatement(
+            "select exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = ? and column_name = ?)")) {
       statement.setString(1, table);
       statement.setString(2, column);
       try (ResultSet result = statement.executeQuery()) {
@@ -235,13 +248,14 @@ class PostgreSqlMigrationIntegrationTest {
   }
 
   private static boolean constraintExists(Connection connection, String name) throws SQLException {
-    return exists(connection,
-        "select exists (select 1 from pg_constraint where conname = ?)", name);
+    return exists(connection, "select exists (select 1 from pg_constraint where conname = ?)", name);
   }
 
   private static boolean indexExists(Connection connection, String name) throws SQLException {
-    return exists(connection,
-        "select exists (select 1 from pg_indexes where schemaname = 'public' and indexname = ?)", name);
+    return exists(
+        connection,
+        "select exists (select 1 from pg_indexes where schemaname = 'public' and indexname = ?)",
+        name);
   }
 
   private static boolean exists(Connection connection, String sql, String value) throws SQLException {
@@ -254,9 +268,11 @@ class PostgreSqlMigrationIntegrationTest {
     }
   }
 
-  private static String columnType(Connection connection, String table, String column) throws SQLException {
-    try (PreparedStatement statement = connection.prepareStatement(
-        "select data_type from information_schema.columns where table_schema = 'public' and table_name = ? and column_name = ?")) {
+  private static String columnType(Connection connection, String table, String column)
+      throws SQLException {
+    try (PreparedStatement statement =
+        connection.prepareStatement(
+            "select data_type from information_schema.columns where table_schema = 'public' and table_name = ? and column_name = ?")) {
       statement.setString(1, table);
       statement.setString(2, column);
       try (ResultSet result = statement.executeQuery()) {
@@ -266,9 +282,25 @@ class PostgreSqlMigrationIntegrationTest {
     }
   }
 
-  private static String columnDefault(Connection connection, String table, String column) throws SQLException {
-    try (PreparedStatement statement = connection.prepareStatement(
-        "select column_default from information_schema.columns where table_schema = 'public' and table_name = ? and column_name = ?")) {
+  private static int characterMaximumLength(Connection connection, String table, String column)
+      throws SQLException {
+    try (PreparedStatement statement =
+        connection.prepareStatement(
+            "select character_maximum_length from information_schema.columns where table_schema = 'public' and table_name = ? and column_name = ?")) {
+      statement.setString(1, table);
+      statement.setString(2, column);
+      try (ResultSet result = statement.executeQuery()) {
+        assertTrue(result.next(), table + "." + column + " must exist");
+        return result.getInt(1);
+      }
+    }
+  }
+
+  private static String columnDefault(Connection connection, String table, String column)
+      throws SQLException {
+    try (PreparedStatement statement =
+        connection.prepareStatement(
+            "select column_default from information_schema.columns where table_schema = 'public' and table_name = ? and column_name = ?")) {
       statement.setString(1, table);
       statement.setString(2, column);
       try (ResultSet result = statement.executeQuery()) {
