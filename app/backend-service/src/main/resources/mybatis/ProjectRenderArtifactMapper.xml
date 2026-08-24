@@ -19,7 +19,7 @@
   </resultMap>
 
   <select id="findByJobId" resultMap="artifactRow">
-    SELECT pra.id, pra.project_id, pra.generation_job_id, pra.web_view_link,
+    SELECT pra.id, pra.project_id, gj.job_id AS generation_job_id, pra.web_view_link,
            pra.mime_type, pra.size_bytes, pra.checksum_sha256, pra.duration_ms,
            pra.width, pra.height, pra.fps, pra.status
       FROM project_render_artifacts pra
