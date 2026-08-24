@@ -66,8 +66,6 @@ export class LocalExecutionService extends EventEmitter {
       return;
     }
 
-    // setUser() can race with startup while safeStorage/disk I/O is still loading. Re-check
-    // the already-bound session here so either ordering produces the same safe result.
     const sessionUserId = this.sessionUserId;
     if (!sessionUserId) {
       this.setState("OFFLINE", null);
@@ -361,7 +359,7 @@ export class LocalExecutionService extends EventEmitter {
         ...chapter,
         localPath: await this.resolveRenderAsset(
           claimed.projectId,
-          chapter.narrationAssetId,
+          narrationCacheKey(chapter.narrationAssetId, chapter.checksum),
           "AUDIO",
           chapter.downloadUrl,
           chapter.sizeBytes,
@@ -517,6 +515,10 @@ export class LocalExecutionService extends EventEmitter {
     this.lastError = lastError;
     if (changed) this.emit("status", this.status());
   }
+}
+
+function narrationCacheKey(narrationAssetId: string | null, checksumSha256: string): string {
+  return narrationAssetId ?? `audio-${checksumSha256.toLowerCase()}`;
 }
 
 async function downloadVerifiedFile(
