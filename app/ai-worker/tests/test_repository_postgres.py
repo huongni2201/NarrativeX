@@ -25,6 +25,10 @@ from narrativex_worker.schema import (
 
 TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")
 SOURCE_HASH = "b" * 64
+JOB_KEY = UUID("00000000-0000-4000-8000-000000000010")
+PROJECT_ID = UUID("00000000-0000-4000-8000-000000000011")
+STORY_VERSION_ID = UUID("00000000-0000-4000-8000-000000000012")
+CHAPTER_ID = UUID("00000000-0000-4000-8000-000000000013")
 
 pytestmark = pytest.mark.skipif(
     not TEST_DATABASE_URL,
@@ -45,10 +49,10 @@ async def postgres_database() -> AsyncIterator[str]:
 
             CREATE TABLE generation_jobs (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                job_id TEXT NOT NULL UNIQUE,
-                project_id BIGINT NOT NULL,
-                story_version_id BIGINT NOT NULL,
-                chapter_id BIGINT NOT NULL,
+                job_id UUID NOT NULL UNIQUE,
+                project_id UUID NOT NULL,
+                story_version_id UUID NOT NULL,
+                chapter_id UUID NOT NULL,
                 chapter_row_version BIGINT NOT NULL,
                 source_hash TEXT NOT NULL,
                 source_text TEXT NOT NULL,
@@ -119,12 +123,16 @@ async def seed_job(database_url: str, *, stage_status: str = "QUEUED") -> tuple[
                 job_type, status
             )
             VALUES (
-                'job-1', 1, 2, 3, 4,
-                $1, 'PostgreSQL integration story', 'vi-VN', 'user-1',
+                $1, $2, $3, $4, 4,
+                $5, 'PostgreSQL integration story', 'vi-VN', 'user-1',
                 'CHAPTER_ANALYZE', 'QUEUED'
             )
             RETURNING id
             """,
+            JOB_KEY,
+            PROJECT_ID,
+            STORY_VERSION_ID,
+            CHAPTER_ID,
             SOURCE_HASH,
         )
         stage_attempt_id = await connection.fetchval(
@@ -139,6 +147,27 @@ async def seed_job(database_url: str, *, stage_status: str = "QUEUED") -> tuple[
         return cast(UUID, generation_job_id), cast(UUID, stage_attempt_id)
     finally:
         await connection.close()
+
+
+def chapter_request() -> ChapterAnalysisRequest:
+    return ChapterAnalysisRequest(
+        project_id=PROJECT_ID,
+        story_version_id=STORY_VERSION_ID,
+        chapter_id=CHAPTER_ID,
+        chapter_row_version=4,
+        source_hash=SOURCE_HASH,
+        source_text="PostgreSQL integration story",
+    )
+
+
+def claimed_job(generation_job_id: UUID, stage_attempt_id: UUID) -> ClaimedChapterAnalysisJob:
+    return ClaimedChapterAnalysisJob(
+        stage_attempt_id=stage_attempt_id,
+        generation_job_id=generation_job_id,
+        job_id=str(JOB_KEY),
+        requested_by_user_id="user-1",
+        request=chapter_request(),
+    )
 
 
 def chapter_result() -> ChapterAnalysisResult:
@@ -168,7 +197,10 @@ async def test_two_workers_cannot_claim_same_stage_attempt(postgres_database: st
 
     claimed = [claim for claim in claims if claim is not None]
     assert len(claimed) == 1
-    assert claimed[0].job_id == "job-1"
+    assert str(claimed[0].job_id) == str(JOB_KEY)
+    assert claimed[0].request.project_id == PROJECT_ID
+    assert claimed[0].request.story_version_id == STORY_VERSION_ID
+    assert claimed[0].request.chapter_id == CHAPTER_ID
 
 
 @pytest.mark.asyncio
@@ -260,20 +292,7 @@ async def test_fresh_running_lease_is_not_reclaimed(postgres_database: str) -> N
 @pytest.mark.asyncio
 async def test_provider_reservation_is_unique_across_workers(postgres_database: str) -> None:
     generation_job_id, stage_attempt_id = await seed_job(postgres_database)
-    claimed = ClaimedChapterAnalysisJob(
-        stage_attempt_id=stage_attempt_id,
-        generation_job_id=generation_job_id,
-        job_id="job-1",
-        requested_by_user_id="user-1",
-        request=ChapterAnalysisRequest(
-            project_id="1",
-            story_version_id="2",
-            chapter_id="3",
-            chapter_row_version=4,
-            source_hash=SOURCE_HASH,
-            source_text="PostgreSQL integration story",
-        ),
-    )
+    claimed = claimed_job(generation_job_id, stage_attempt_id)
 
     first = WorkerRepository(postgres_database, lease_seconds=30)
     second = WorkerRepository(postgres_database, lease_seconds=30)
@@ -297,20 +316,7 @@ async def test_provider_result_and_completed_status_persist_atomically(
     postgres_database: str,
 ) -> None:
     generation_job_id, stage_attempt_id = await seed_job(postgres_database)
-    claimed = ClaimedChapterAnalysisJob(
-        stage_attempt_id=stage_attempt_id,
-        generation_job_id=generation_job_id,
-        job_id="job-1",
-        requested_by_user_id="user-1",
-        request=ChapterAnalysisRequest(
-            project_id="1",
-            story_version_id="2",
-            chapter_id="3",
-            chapter_row_version=4,
-            source_hash=SOURCE_HASH,
-            source_text="PostgreSQL integration story",
-        ),
-    )
+    claimed = claimed_job(generation_job_id, stage_attempt_id)
 
     repository = WorkerRepository(postgres_database, lease_seconds=30)
     await repository.connect()
@@ -340,20 +346,7 @@ async def test_provider_operation_state_machine_and_terminal_rows_are_immutable(
     postgres_database: str,
 ) -> None:
     generation_job_id, stage_attempt_id = await seed_job(postgres_database)
-    claimed = ClaimedChapterAnalysisJob(
-        stage_attempt_id=stage_attempt_id,
-        generation_job_id=generation_job_id,
-        job_id="job-1",
-        requested_by_user_id="user-1",
-        request=ChapterAnalysisRequest(
-            project_id="1",
-            story_version_id="2",
-            chapter_id="3",
-            chapter_row_version=4,
-            source_hash=SOURCE_HASH,
-            source_text="PostgreSQL integration story",
-        ),
-    )
+    claimed = claimed_job(generation_job_id, stage_attempt_id)
     repository = WorkerRepository(postgres_database, lease_seconds=30)
     await repository.connect()
     try:
@@ -401,20 +394,7 @@ async def test_stale_provider_operation_snapshot_cannot_overwrite_newer_state(
     postgres_database: str,
 ) -> None:
     generation_job_id, stage_attempt_id = await seed_job(postgres_database)
-    claimed = ClaimedChapterAnalysisJob(
-        stage_attempt_id=stage_attempt_id,
-        generation_job_id=generation_job_id,
-        job_id="job-1",
-        requested_by_user_id="user-1",
-        request=ChapterAnalysisRequest(
-            project_id="1",
-            story_version_id="2",
-            chapter_id="3",
-            chapter_row_version=4,
-            source_hash=SOURCE_HASH,
-            source_text="PostgreSQL integration story",
-        ),
-    )
+    claimed = claimed_job(generation_job_id, stage_attempt_id)
     first = WorkerRepository(postgres_database, lease_seconds=30)
     second = WorkerRepository(postgres_database, lease_seconds=30)
     await first.connect()
