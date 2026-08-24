@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ProjectRenderArtifactMapper">
+  <resultMap id="artifactRow" type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ProjectRenderArtifactRow">
+    <id property="id" column="id" />
+    <result property="projectId" column="project_id" />
+    <result property="generationJobId" column="generation_job_id" />
+    <result property="webViewLink" column="web_view_link" />
+    <result property="mimeType" column="mime_type" />
+    <result property="sizeBytes" column="size_bytes" />
+    <result property="checksumSha256" column="checksum_sha256" />
+    <result property="durationMs" column="duration_ms" />
+    <result property="width" column="width" />
+    <result property="height" column="height" />
+    <result property="fps" column="fps" />
+    <result property="status" column="status" />
+  </resultMap>
+
+  <select id="findByJobId" resultMap="artifactRow">
+    SELECT fa.id, fa.project_id, gj.job_id AS generation_job_id, fa.web_view_link,
+           fa.mime_type, fa.size_bytes, fa.checksum_sha256, fa.duration_ms,
+           fa.width, fa.height, fa.fps::int AS fps, fa.status
+      FROM final_artifacts fa
+      JOIN projects p ON p.id = fa.project_id
+      JOIN generation_jobs gj ON gj.id = fa.generation_job_id
+     WHERE fa.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+       AND gj.job_id = #{jobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+       AND gj.job_type = 'RENDER_PROJECT'
+       AND fa.artifact_type = 'PROJECT_VIDEO'
+       AND p.owner_id = #{ownerId}
+       AND p.archived_at IS NULL
+       AND fa.status = 'READY'
+     LIMIT 1
+  </select>
+</mapper>

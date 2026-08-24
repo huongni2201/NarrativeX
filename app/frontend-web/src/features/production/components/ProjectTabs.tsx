@@ -3,6 +3,7 @@
 import React from "react";
 import {
   BookOpen,
+  Clapperboard,
   Film,
   Image as ImageIcon,
   MapPin,
@@ -29,11 +30,20 @@ const projectTabConfig: readonly ProjectTabConfig[] = [
 interface ProjectTabsProps {
   activeTab: ProductionTab;
   onChange: (tab: ProductionTab) => void;
+  onOpenProduction: () => void;
 }
 
-export function ProjectTabs({ activeTab, onChange }: Readonly<ProjectTabsProps>) {
+export function ProjectTabs({
+  activeTab,
+  onChange,
+  onOpenProduction,
+}: Readonly<ProjectTabsProps>) {
   return (
-      <div className="flex items-center gap-2 overflow-x-auto border-b border-border-dark pb-3" role="tablist" aria-label="Các khu vực của dự án">
+    <div
+      className="flex items-center gap-2 overflow-x-auto border-b border-border-dark pb-3"
+      role="tablist"
+      aria-label="Các khu vực của dự án"
+    >
       {projectTabConfig.map((tab) => {
         const isActive = activeTab === tab.id;
         return (
@@ -43,7 +53,7 @@ export function ProjectTabs({ activeTab, onChange }: Readonly<ProjectTabsProps>)
             role="tab"
             aria-selected={isActive}
             onClick={() => onChange(tab.id)}
-            className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors whitespace-nowrap ${
+            className={`flex items-center gap-2 whitespace-nowrap rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors ${
               isActive
                 ? "border border-primary/70 bg-primary-muted text-primary-light shadow-sm"
                 : "border border-border-dark bg-surface/60 text-text-secondary hover:border-border hover:text-text-primary"
@@ -56,6 +66,16 @@ export function ProjectTabs({ activeTab, onChange }: Readonly<ProjectTabsProps>)
           </button>
         );
       })}
+
+      <button
+        type="button"
+        onClick={onOpenProduction}
+        className="ml-auto flex items-center gap-2 whitespace-nowrap rounded-lg border border-orange-500/50 bg-orange-500/10 px-4 py-2.5 text-sm font-semibold text-orange-200 transition-colors hover:border-orange-400 hover:bg-orange-500/15 hover:text-white"
+        aria-label="Mở Production Timeline của project"
+      >
+        <Clapperboard className="h-4 w-4" />
+        <span>Production</span>
+      </button>
     </div>
   );
 }

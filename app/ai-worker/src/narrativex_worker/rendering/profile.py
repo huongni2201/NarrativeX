@@ -107,7 +107,7 @@ class RenderProfile:
             raise ValueError(f"unsupported pixel format: {self.pixel_format}")
         if self.audio_codec != "aac" or self.audio_sample_rate != 48000:
             raise ValueError("unsupported pinned audio encoding")
-        if self.subtitle_mode != "burned-ass":
+        if self.subtitle_mode not in {"burned-ass", "none"}:
             raise ValueError(f"unsupported subtitle mode: {self.subtitle_mode}")
         self.effects.validate()
 

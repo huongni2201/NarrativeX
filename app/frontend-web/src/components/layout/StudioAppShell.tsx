@@ -16,6 +16,11 @@ const ProjectsDashboard = dynamic(() =>
 const ProductionShell = dynamic(() =>
   import("@/features/production/ProductionShell").then((module) => module.ProductionShell),
 );
+const ProductionTimelineScreen = dynamic(() =>
+  import("@/features/production/ProductionTimelineScreen").then(
+    (module) => module.ProductionTimelineScreen,
+  ),
+);
 const ChapterEditor = dynamic(() =>
   import("@/features/chapters/components/ChapterEditor").then((module) => module.ChapterEditor),
 );
@@ -52,6 +57,7 @@ type StudioRouteScreen = Extract<
   | "dashboard"
   | "project-workspace"
   | "chapter-workspace"
+  | "production-timeline"
   | "storyboard"
   | "characters"
   | "character-detail"
@@ -74,6 +80,7 @@ const screenTitles: Record<StudioRouteScreen, string> = {
   dashboard: "Quản lý dự án",
   "project-workspace": "Quản lý dự án",
   "chapter-workspace": "Biên tập chương",
+  "production-timeline": "Production",
   storyboard: "Bảng phân cảnh",
   characters: "Thư viện nhân vật",
   "character-detail": "Chi tiết nhân vật",
@@ -141,6 +148,9 @@ export function StudioAppShell({
           )}
           {screen === "chapter-workspace" && projectId && chapterId && (
             <ChapterEditor projectId={projectId} chapterId={chapterId} />
+          )}
+          {screen === "production-timeline" && projectId && (
+            <ProductionTimelineScreen projectId={projectId} />
           )}
           {screen === "storyboard" && projectId && (
             <ProjectStoryboardScreen projectId={projectId} />

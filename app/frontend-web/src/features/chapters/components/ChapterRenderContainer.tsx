@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useChapterRender } from "@/features/render/hooks/useChapterRender";
 import type {
   ApiChapterWorkspaceProgressStep,
@@ -23,6 +24,7 @@ export function ChapterRenderContainer({
   initialMedia,
   initialRender,
 }: Readonly<ChapterRenderContainerProps>) {
+  const router = useRouter();
   const [resolution, setResolution] = useState<"720p" | "1080p">("1080p");
   const render = useChapterRender({
     projectId,
@@ -41,6 +43,9 @@ export function ChapterRenderContainer({
       render={render}
       resolution={resolution}
       onResolutionChange={setResolution}
+      onOpenProduction={() =>
+        router.push(`/projects/${projectId}/production?focusChapter=${encodeURIComponent(chapterId)}`)
+      }
     />
   );
 }

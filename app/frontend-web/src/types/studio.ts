@@ -3,6 +3,7 @@ export type ScreenType =
   | "overview"
   | "project-workspace"
   | "chapter-workspace"
+  | "production-timeline"
   | "storyboard"
   | "dashboard"
   | "wizard"

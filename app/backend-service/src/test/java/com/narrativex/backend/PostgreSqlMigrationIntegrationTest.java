@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ProductionTimelineMapper;
 import com.narrativex.backend.feature.notification.infrastructure.persistence.mybatis.NotificationMapper;
 import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ProjectMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterWorkspaceMapper;
@@ -62,7 +63,8 @@ class PostgreSqlMigrationIntegrationTest {
           "stage_attempts",
           "provider_operations",
           "operation_plans",
-          "render_manifests");
+          "render_manifests",
+          "project_render_artifacts");
 
   @DynamicPropertySource
   static void postgresProperties(DynamicPropertyRegistry registry) {
@@ -80,12 +82,13 @@ class PostgreSqlMigrationIntegrationTest {
   @Autowired private ChapterWorkspaceMapper chapterWorkspaceMapper;
   @Autowired private LanguageDetectionMapper languageDetectionMapper;
   @Autowired private NotificationMapper notificationMapper;
+  @Autowired private ProductionTimelineMapper productionTimelineMapper;
 
   @Test
   void emptyPostgresMigratesThroughAuthoritativeUuidSchema() throws SQLException {
     try (Connection connection = dataSource.getConnection()) {
-      assertEquals("5", latestFlywayVersion(connection));
-      assertEquals(5, successfulVersionedMigrationCount(connection));
+      assertEquals("6", latestFlywayVersion(connection));
+      assertEquals(6, successfulVersionedMigrationCount(connection));
       assertTrue(triggerExists(connection, "trg_generation_jobs_notify_completion"));
       assertTrue(triggerExists(connection, "trg_generation_jobs_sse_events"));
       assertEquals(512, characterMaximumLength(connection, "generation_jobs", "idempotency_key"));
@@ -124,6 +127,15 @@ class PostgreSqlMigrationIntegrationTest {
       assertTrue(tableExists(connection, "local_device_pairing_codes"));
       assertTrue(tableExists(connection, "local_devices"));
       assertTrue(tableExists(connection, "local_device_capabilities"));
+
+      assertTrue(tableExists(connection, "project_render_input_snapshots"));
+      assertTrue(tableExists(connection, "project_render_input_chapters"));
+      assertTrue(tableExists(connection, "project_render_input_beats"));
+      assertTrue(tableExists(connection, "project_render_artifacts"));
+      assertEquals("uuid", columnType(connection, "project_render_input_snapshots", "generation_job_id"));
+      assertEquals("uuid", columnType(connection, "project_render_input_chapters", "chapter_id"));
+      assertEquals("uuid", columnType(connection, "project_render_input_beats", "visual_beat_id"));
+      assertEquals("uuid", columnType(connection, "project_render_artifacts", "id"));
 
       assertEquals("bigint", columnType(connection, "projects", "row_version"));
       assertEquals("bigint", columnType(connection, "chapters", "row_version"));
@@ -206,6 +218,13 @@ class PostgreSqlMigrationIntegrationTest {
         assertDoesNotThrow(
             () -> languageDetectionMapper.findLatest(missingVariantId, "0".repeat(64))));
     assertTrue(assertDoesNotThrow(() -> notificationMapper.list("missing-user", true, 5)).isEmpty());
+    assertTrue(
+        assertDoesNotThrow(
+                () -> productionTimelineMapper.findChapters(missingProjectId, "missing-user"))
+            .isEmpty());
+    assertTrue(
+        assertDoesNotThrow(() -> productionTimelineMapper.findBeats(missingProjectId, "missing-user"))
+            .isEmpty());
   }
 
   private static String latestFlywayVersion(Connection connection) throws SQLException {

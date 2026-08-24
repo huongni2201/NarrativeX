@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ProductionTimelineMapper">
+
+  <resultMap id="chapterRow" type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ProductionTimelineChapterRow">
+    <result property="storyVersionId" column="story_version_id" />
+    <id property="chapterId" column="chapter_id" />
+    <result property="orderIndex" column="order_index" />
+    <result property="title" column="title" />
+    <result property="rowVersion" column="row_version" />
+    <result property="sourceHash" column="source_hash" />
+    <result property="mediaPlanId" column="media_plan_id" />
+    <result property="mediaPlanRevision" column="media_plan_revision" />
+    <result property="aspectRatio" column="aspect_ratio" />
+    <result property="audioDurationMs" column="audio_duration_ms" />
+    <result property="audioStorageKey" column="audio_storage_key" />
+    <result property="audioSizeBytes" column="audio_size_bytes" />
+    <result property="audioChecksum" column="audio_checksum" />
+    <result property="narrationRequestId" column="narration_request_id" />
+    <result property="narrationAssetId" column="narration_asset_id" />
+    <result property="narrationAlignmentId" column="narration_alignment_id" />
+    <result property="fallbackDurationMs" column="fallback_duration_ms" />
+    <result property="beatCount" column="beat_count" />
+    <result property="readyBeatCount" column="ready_beat_count" />
+  </resultMap>
+
+  <resultMap id="beatRow" type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ProductionTimelineBeatRow">
+    <result property="chapterId" column="chapter_id" />
+    <result property="chapterOrderIndex" column="chapter_order_index" />
+    <result property="mediaPlanId" column="media_plan_id" />
+    <result property="mediaPlanRevision" column="media_plan_revision" />
+    <result property="sceneIndex" column="scene_index" />
+    <result property="beatIndex" column="beat_index" />
+    <id property="visualBeatId" column="visual_beat_id" />
+    <result property="title" column="title" />
+    <result property="visualIntent" column="visual_intent" />
+    <result property="cameraMovement" column="camera_movement" />
+    <result property="assetStrategy" column="asset_strategy" />
+    <result property="audioStartMs" column="audio_start_ms" />
+    <result property="audioEndMs" column="audio_end_ms" />
+    <result property="audioDurationMs" column="audio_duration_ms" />
+    <result property="mediaAssetId" column="media_asset_id" />
+    <result property="storageKey" column="storage_key" />
+    <result property="sizeBytes" column="size_bytes" />
+    <result property="checksum" column="checksum" />
+  </resultMap>
+
+  <sql id="currentStoryVersion">
+    SELECT sv.id
+      FROM story_versions sv
+      JOIN projects p ON p.id = sv.project_id
+     WHERE p.id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+       AND p.owner_id = #{ownerId}
+       AND p.archived_at IS NULL
+       AND sv.status IN ('ACTIVE', 'DRAFT')
+     ORDER BY CASE WHEN sv.status = 'ACTIVE' THEN 0 ELSE 1 END,
+              sv.version_number DESC,
+              sv.id DESC
+     LIMIT 1
+  </sql>
+
+  <select id="findChapters" resultMap="chapterRow">
+    WITH current_story AS (
+      <include refid="currentStoryVersion" />
+    )
+    SELECT c.story_version_id,
+           c.id AS chapter_id,
+           c.order_index,
+           c.title,
+           c.row_version,
+           c.source_hash,
+           mp.id AS media_plan_id,
+           mp.revision AS media_plan_revision,
+           COALESCE(mp.image_aspect_ratio, '16:9') AS aspect_ratio,
+           narration.duration_ms AS audio_duration_ms,
+           narration.storage_key AS audio_storage_key,
+           narration.size_bytes AS audio_size_bytes,
+           narration.checksum AS audio_checksum,
+           narration.narration_request_id,
+           narration.narration_asset_id,
+           narration.narration_alignment_id,
+           COALESCE(
+             narration.duration_ms,
+             NULLIF(c.estimated_duration_ms, 0),
+             scene_duration.duration_ms,
+             0
+           ) AS fallback_duration_ms,
+           COALESCE(plan_counts.beat_count, 0) AS beat_count,
+           COALESCE(plan_counts.ready_beat_count, 0) AS ready_beat_count
+      FROM chapters c
+      JOIN current_story cs ON cs.id = c.story_version_id
+      LEFT JOIN chapter_media_heads cmh ON cmh.chapter_id = c.id
+      LEFT JOIN generation_jobs gj
+        ON gj.id = cmh.generation_job_id
+       AND gj.status = 'COMPLETED'
+      LEFT JOIN media_plans mp
+        ON mp.id = gj.media_plan_id
+       AND mp.revision = gj.media_plan_revision
+       AND mp.chapter_id = c.id
+       AND mp.chapter_row_version = c.row_version
+       AND mp.source_hash = c.source_hash
+       AND mp.storyboard_revision_id = c.current_storyboard_revision_id
+      LEFT JOIN LATERAL (
+        SELECT nr.id AS narration_request_id,
+               na.id AS narration_asset_id,
+               alignment.id AS narration_alignment_id,
+               pa.storage_key,
+               na.size_bytes,
+               na.checksum,
+               na.duration_ms
+          FROM narration_requests nr
+          JOIN narration_assets na ON na.narration_request_id = nr.id
+          JOIN project_assets pa ON pa.id = na.project_asset_id
+          LEFT JOIN LATERAL (
+            SELECT nal.id
+              FROM narration_alignments nal
+             WHERE nal.narration_asset_id = na.id
+               AND nal.source_hash = nr.source_hash
+             ORDER BY nal.created_at DESC, nal.id DESC
+             LIMIT 1
+          ) alignment ON TRUE
+         WHERE nr.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+           AND nr.chapter_id = c.id
+           AND nr.chapter_row_version = c.row_version
+           AND nr.source_hash = c.source_hash
+           AND pa.status = 'ACTIVE'
+           AND pa.storage_key IS NOT NULL
+           AND na.duration_ms > 0
+         ORDER BY nr.created_at DESC, nr.id DESC
+         LIMIT 1
+      ) narration ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT COALESCE(SUM(s.duration_seconds) * 1000, 0)::bigint AS duration_ms
+          FROM scenes s
+         WHERE s.chapter_id = c.id
+           AND s.storyboard_revision_id = c.current_storyboard_revision_id
+      ) scene_duration ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*)::int AS beat_count,
+               COUNT(*) FILTER (
+                 WHERE EXISTS (
+                   SELECT 1
+                     FROM media_generation_items mgi
+                     JOIN media_assets ma ON ma.id = mgi.media_asset_id
+                    WHERE mgi.media_plan_id = mbp.media_plan_id
+                      AND mgi.visual_beat_id = mbp.visual_beat_id
+                      AND mgi.execution_status = 'READY'
+                      AND ma.asset_type = 'IMAGE'
+                      AND ma.status = 'READY'
+                      AND ma.deleted_at IS NULL
+                      AND ma.storage_key IS NOT NULL
+                      AND ma.size_bytes > 0
+                      AND ma.sha256 IS NOT NULL
+                 )
+               )::int AS ready_beat_count
+          FROM media_beat_plans mbp
+         WHERE mbp.media_plan_id = mp.id
+      ) plan_counts ON mp.id IS NOT NULL
+     WHERE c.deleted_at IS NULL
+     ORDER BY c.order_index ASC, c.id ASC
+  </select>
+
+  <select id="findBeats" resultMap="beatRow">
+    WITH current_story AS (
+      <include refid="currentStoryVersion" />
+    )
+    SELECT c.id AS chapter_id,
+           c.order_index AS chapter_order_index,
+           mp.id AS media_plan_id,
+           mp.revision AS media_plan_revision,
+           mbp.scene_index,
+           mbp.beat_index,
+           mbp.visual_beat_id,
+           COALESCE(vb.title, CONCAT('Beat ', mbp.beat_index + 1)) AS title,
+           mbp.visual_intent,
+           COALESCE(mbp.camera_movement, 'NONE') AS camera_movement,
+           mbp.asset_strategy,
+           mbp.audio_start_ms,
+           mbp.audio_end_ms,
+           mbp.audio_duration_ms,
+           selected.media_asset_id,
+           selected.storage_key,
+           selected.size_bytes,
+           selected.checksum
+      FROM chapters c
+      JOIN current_story cs ON cs.id = c.story_version_id
+      JOIN chapter_media_heads cmh ON cmh.chapter_id = c.id
+      JOIN generation_jobs gj
+        ON gj.id = cmh.generation_job_id
+       AND gj.status = 'COMPLETED'
+      JOIN media_plans mp
+        ON mp.id = gj.media_plan_id
+       AND mp.revision = gj.media_plan_revision
+       AND mp.chapter_id = c.id
+       AND mp.chapter_row_version = c.row_version
+       AND mp.source_hash = c.source_hash
+       AND mp.storyboard_revision_id = c.current_storyboard_revision_id
+      JOIN media_beat_plans mbp ON mbp.media_plan_id = mp.id
+      LEFT JOIN visual_beats vb ON vb.id = mbp.visual_beat_id
+      LEFT JOIN LATERAL (
+        SELECT mgi.media_asset_id,
+               ma.storage_key,
+               ma.size_bytes,
+               ma.sha256 AS checksum
+          FROM media_generation_items mgi
+          JOIN media_assets ma ON ma.id = mgi.media_asset_id
+         WHERE mgi.media_plan_id = mbp.media_plan_id
+           AND mgi.visual_beat_id = mbp.visual_beat_id
+           AND mgi.execution_status = 'READY'
+           AND mgi.media_asset_id IS NOT NULL
+           AND ma.asset_type = 'IMAGE'
+           AND ma.status = 'READY'
+           AND ma.deleted_at IS NULL
+           AND ma.storage_key IS NOT NULL
+           AND ma.size_bytes > 0
+           AND ma.sha256 IS NOT NULL
+         ORDER BY mgi.attempt_number DESC, mgi.created_at DESC, mgi.id DESC
+         LIMIT 1
+      ) selected ON TRUE
+     WHERE c.deleted_at IS NULL
+     ORDER BY c.order_index ASC, c.id ASC, mbp.scene_index ASC, mbp.beat_index ASC
+  </select>
+</mapper>

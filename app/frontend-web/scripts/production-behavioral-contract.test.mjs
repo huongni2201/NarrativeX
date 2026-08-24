@@ -6,6 +6,18 @@ const productionShell = await readFile(
   new URL("../src/features/production/ProductionShell.tsx", import.meta.url),
   "utf8",
 );
+const productionTimeline = await readFile(
+  new URL("../src/features/production/ProductionTimelineScreen.tsx", import.meta.url),
+  "utf8",
+);
+const productionApi = await readFile(
+  new URL("../src/features/production/api/production.api.ts", import.meta.url),
+  "utf8",
+);
+const projectTabs = await readFile(
+  new URL("../src/features/production/components/ProjectTabs.tsx", import.meta.url),
+  "utf8",
+);
 const chapterTable = await readFile(
   new URL("../src/features/production/components/ChapterTable.tsx", import.meta.url),
   "utf8",
@@ -32,6 +44,18 @@ const renderHook = await readFile(
 );
 const renderTab = await readFile(
   new URL("../src/features/chapters/components/ChapterRenderTab.tsx", import.meta.url),
+  "utf8",
+);
+const renderContainer = await readFile(
+  new URL("../src/features/chapters/components/ChapterRenderContainer.tsx", import.meta.url),
+  "utf8",
+);
+const productionRoute = await readFile(
+  new URL("../src/app/projects/[projectId]/production/page.tsx", import.meta.url),
+  "utf8",
+);
+const studioShell = await readFile(
+  new URL("../src/components/layout/StudioAppShell.tsx", import.meta.url),
   "utf8",
 );
 const notificationScreen = await readFile(
@@ -116,6 +140,48 @@ test("render transitions STALLED/RUNNING and resolves completed artifacts", () =
   assert.match(renderHook, /case "COMPLETED":\s*if \(artifact\) return "READY"/s);
   assert.match(renderHook, /artifactsApi\.getByJobId/);
   assert.match(renderTab, /render\.status === "READY" && render\.artifact/);
+});
+
+test("project production is a dedicated route with one global audio-clock timeline", () => {
+  assert.match(productionRoute, /screen="production-timeline"/);
+  assert.match(studioShell, /ProductionTimelineScreen/);
+  assert.match(studioShell, /screen === "production-timeline"/);
+  assert.match(projectTabs, /onOpenProduction/);
+  assert.match(productionShell, /\/projects\/\$\{projectIdentifier\}\/production/);
+  assert.match(productionTimeline, /Global Production Timeline/);
+  assert.match(productionTimeline, /CHAPTER/);
+  assert.match(productionTimeline, /VISUAL/);
+  assert.match(productionTimeline, /MOTION/);
+  assert.match(productionTimeline, /AUDIO/);
+  assert.match(productionApi, /\/production\/timeline/);
+  assert.match(productionApi, /\/production\/render/);
+});
+
+test("project production timeline edits timing and motion without changing the audio clock", () => {
+  assert.match(productionTimeline, /Beat inspector/);
+  assert.match(productionTimeline, /Timing weight \(giây\)/);
+  assert.match(productionTimeline, /applyTimelineOverrides/);
+  assert.match(productionTimeline, /onSelectBeat/);
+  assert.match(productionTimeline, /backend sẽ normalize lại để Chapter vẫn khớp audio thật/);
+  assert.match(productionTimeline, /beatOverrides: intent\.beatOverrides/);
+  assert.match(productionApi, /beatOverrides\?: ProjectRenderBeatOverrideInput\[\]/);
+});
+
+test("project final render retries preserve one idempotency intent", () => {
+  assert.match(productionTimeline, /interface RenderIntent/);
+  assert.match(productionTimeline, /overrideFingerprint: string/);
+  assert.match(productionTimeline, /const renderIntentRef = useRef<RenderIntent \| null>\(null\)/);
+  assert.match(productionTimeline, /intent\.resolution !== resolution/);
+  assert.match(productionTimeline, /intent\.overrideFingerprint !== overrideFingerprint/);
+  assert.match(productionTimeline, /renderMutation\.mutate\(intent\)/);
+  assert.match(productionTimeline, /onSuccess: \(job\) => \{[\s\S]*renderIntentRef\.current = null;/);
+  assert.doesNotMatch(productionTimeline, /onError:[\s\S]*renderIntentRef\.current = null/);
+});
+
+test("chapter render stays a preview and opens the focused project production timeline", () => {
+  assert.match(renderTab, /Chapter preview &amp; render/);
+  assert.match(renderTab, /Open in Production/);
+  assert.match(renderContainer, /\/production\?focusChapter=\$\{encodeURIComponent\(chapterId\)\}/);
 });
 
 test("notification surfaces describe completed image generation", () => {
