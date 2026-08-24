@@ -1,59 +1,88 @@
 # NarrativeX V1.11 Baseline Implementation Traceability
 
-This matrix maps the V1.11 contract to the documented baseline implementation checkpoint `main` / `0b8577a5a6b406d34b297a818e663f5db29b06d6`. The checked-out code may be newer; current code, migrations and tests remain authoritative for AS-IS claims.
+This matrix maps the V1.11 contract to implementation checkpoint `main` / `751f006634218efb2c398fc00c2cbfecd25e1eac` (2026-08-24). Current code, migrations and tests remain authoritative for AS-IS claims.
 
 | Capability / invariant | Evidence | Status |
 |---|---|---|
-| Project/Chapter authoring and durable Analyze | backend commands/use cases/MyBatis + worker claim lifecycle | IMPLEMENTED |
-| Generation durable persistence | GenerationJob/StageAttempt/OperationPlan/MediaPlan/outbox/job history explicit SQL/MyBatis | IMPLEMENTED |
-| ProviderOperation lifecycle | durable provider/reconciliation/result fingerprint path | IMPLEMENTED foundation |
-| Character + Location continuity and Scene relations | worker materialization + project Character reads | IMPLEMENTED foundation |
-| Backend-authoritative MediaPlan | immutable plan revision + job pointer + motion resolver | IMPLEMENTED foundation |
-| Generated TTS/VieNeu narration | narration worker + R2 storage | IMPLEMENTED foundation |
-| R2-backed generated narration durability | S3-compatible R2 storage adapter | IMPLEMENTED |
-| `USER_PROVIDED_AUDIO` planning/timeline/TTS bypass | narration strategy, ordered parts, timeline/fingerprint model | IMPLEMENTED foundation |
-| Production uploaded-audio E2E | ingestion/alignment foundations exist; complete user-facing path needs hardening | PARTIAL |
-| Vertex image generation | real Vertex image provider/batch execution + R2 materialization | IMPLEMENTED foundation |
-| READY image assets consumed by renderer | media plan/image asset repository queries | IMPLEMENTED foundation |
-| IMAGE_MOTION chapter render | dedicated render role, FFmpeg image motion, ffprobe validation | IMPLEMENTED foundation |
-| Local render quota settlement | consolidated Flyway schema + explicit quota persistence | IMPLEMENTED |
-| Final MP4 in Google Drive | `GoogleDriveFinalVideoStorage`, resumable upload, remote lookup/size verification | IMPLEMENTED foundation |
-| FinalArtifact Drive metadata | consolidated Flyway schema + MyBatis fields `storageProvider`, external file id, web view link | IMPLEMENTED foundation |
-| Final MP4 excluded from R2 | render worker promotes validated local MP4 directly to Drive | IMPLEMENTED |
-| Render with generated narration snapshot | render repository loads matching generated narration by chapter row-version/source-hash | IMPLEMENTED foundation |
-| Render with aligned multi-part uploaded narration | render worker has no slicing/stitching path for narration parts | PARTIAL |
-| Cross-attempt upload retry without rerender | resumable upload works within an attempt; render workspace is ephemeral after stalled attempt | TARGET hardening |
-| Owner-authorized preview/download/stream of Drive final | backend proxy with OAuth refresh, ownership check and HTTP Range streaming | IMPLEMENTED |
+| Project/Chapter authoring and durable Analyze | backend commands/use cases/MyBatis + worker lifecycle | IMPLEMENTED foundation |
+| Generation durable persistence | GenerationJob/StageAttempt/OperationPlan/MediaPlan/outbox/job history | IMPLEMENTED foundation |
+| ProviderOperation lifecycle | durable provider/reconciliation/result-fingerprint path | IMPLEMENTED foundation |
 | MyBatis-only production persistence | production adapters use MyBatis + explicit SQL | IMPLEMENTED |
-| VisualScenePlanner | full narration-driven planner/review vertical slice remains incomplete | TARGET |
-| Reuse/reframe/edit AssetResolver | architecture defined, intentionally postponed | DEFERRED |
+| Character + Location continuity | backend/worker continuity foundations + project-scoped reads | IMPLEMENTED foundation |
+| Narration strategy / TTS bypass | `TTS` + `USER_PROVIDED_AUDIO` planning model | IMPLEMENTED foundation |
+| Google TTS / VieNeu provider execution | worker/provider narration path | IMPLEMENTED foundation |
+| Multi-part uploaded-audio planning/timeline | ordered parts + logical global clock/alignment model | IMPLEMENTED foundation |
+| Vertex image generation | real provider execution foundation | IMPLEMENTED foundation |
+| Cloud R2 image/narration materialization | retained worker/cloud storage adapters | IMPLEMENTED foundation / LEGACY for Desktop |
+| Cloud IMAGE_MOTION render | worker FFmpeg/ffprobe path | IMPLEMENTED foundation / FALLBACK |
+| Cloud final MP4 in Google Drive | provider-neutral final-video storage + Drive adapter | IMPLEMENTED foundation / FALLBACK |
+| Electron Desktop primary client shell | `app/desktop` Electron Vite/React renderer | IMPLEMENTED foundation |
+| Secure Electron boundary | BrowserWindow context isolation, no Node integration, sandbox + preload | IMPLEMENTED foundation |
+| Shared Desktop client contracts | `packages/client-contracts` consumed by Desktop | IMPLEMENTED foundation |
+| Desktop system-browser Google OAuth start | `DesktopAuthService` + `/api/v1/auth/desktop/start` | IMPLEMENTED foundation |
+| `narrativex://` deep-link callback | Electron protocol registration + first/second-instance handling | IMPLEMENTED foundation |
+| One-time Desktop auth exchange | backend `/api/v1/auth/desktop/exchange` + server SecurityContext/session | IMPLEMENTED foundation |
+| Google tokens excluded from Electron | system-browser/handoff architecture; no Google token transport to renderer | IMPLEMENTED invariant |
+| Passwordless Google-only product direction | ADR-0011 + Desktop auth UI/runtime direction | IMPLEMENTED foundation |
+| Local project workspace | `ProjectStorage(<userData>/projects)` | IMPLEMENTED foundation |
+| Local manifest integrity | project-relative path, size, SHA-256, atomic write, workspace-boundary checks | IMPLEMENTED foundation |
+| Absolute local paths excluded from backend identity | local asset IDs + opaque relative artifact key contract | IMPLEMENTED foundation |
+| Local device pairing/identity | device identity store + pairing API/client | IMPLEMENTED foundation |
+| Device heartbeat/status | `LocalExecutionService` | IMPLEMENTED foundation |
+| Backend-assigned local render claim | project-render claim client/service | IMPLEMENTED foundation |
+| Local render input resolution | `narrationAssetId` / `mediaAssetId` resolved through manifest + checksum | IMPLEMENTED foundation |
+| Local render lease heartbeat | active-render lease timer + backend heartbeat | IMPLEMENTED foundation |
+| Local render progress/failure/completion | backend client + execution service | IMPLEMENTED foundation |
+| Local FFmpeg/ffprobe capability probing | desktop rendering runtime | IMPLEMENTED foundation |
+| Desktop project render pipeline | segment render → concat video/audio → mux → ffprobe → local artifact | IMPLEMENTED foundation |
+| In-process local render cancellation | AbortController + IPC cancel path | IMPLEMENTED foundation |
+| Local render feature gate | FFmpeg availability + `NARRATIVEX_DESKTOP_PROJECT_RENDER_ENABLED` | IMPLEMENTED |
+| Restart-safe local render recovery/resume | no complete cross-process resume/recovery guarantee | PARTIAL |
+| Automatic post-login device registration | explicit pairing remains current path | TARGET |
+| Complete image/TTS/import local materialization | not every result path is registered directly into local manifest yet | PARTIAL |
+| Full Desktop feature parity | primary shell/features exist; legacy web remains | PARTIAL |
+| Legacy `app/frontend-web` removal | parity/dependency gates not yet complete | TARGET |
+| Disk cleanup/backup/move/repair | local-first product hardening | TARGET |
+| Packaging/signing/auto-update hardening | production Desktop release work | TARGET |
+| VisualScenePlanner | narration-driven planner/review vertical slice remains incomplete | TARGET |
+| Reuse/reframe/edit AssetResolver | architecture direction exists, postponed | DEFERRED |
 | HYBRID_LOCAL_I2V | adapter/planning foundation only | DEFERRED fast-follow |
 | Complete actual usage/billing reconciliation | reservation/local render foundations exist | PARTIAL |
 
 ## Current non-claims
 
-NarrativeX now has real production foundations for image generation, deterministic chapter rendering and Google Drive final-video storage. Documentation must not describe these as unimplemented `TARGET` capabilities.
+NarrativeX **does** have implemented foundations for Desktop local storage and local FFmpeg project rendering. Documentation must not describe Electron main/local render orchestration as future-only after checkpoint `751f006...`.
 
-NarrativeX still does **not** claim the complete multi-Chapter user-provided-audio → final-video loop: the current render worker requires generated narration matching the pinned Chapter snapshot and does not yet slice/stitch aligned narration parts.
+NarrativeX **does not** yet claim restart-safe local render recovery, automatic device registration, complete local materialization for every image/TTS/import path, full Desktop feature parity or removal of the legacy web client.
 
-The Drive adapter performs resumable upload and idempotent fingerprint lookup, but the validated local MP4 is stored in an ephemeral worker job directory. Cross-attempt upload-only retry therefore remains a hardening target.
+The retained R2/Google Drive cloud path remains real and supported during migration, but it is **not** the Desktop project-media source of truth.
 
 ## Storage invariants
 
-1. PostgreSQL is durable application/execution authority.
-2. R2 stores source/generated/reusable pipeline media, including images and narration audio.
-3. Google Drive stores final rendered MP4 exports.
-4. Final MP4 is not duplicated to R2 by default.
-5. Worker-local paths are never authoritative durable assets.
-6. Drive file ID/provider metadata, not a public/share URL, identifies a final remote object.
-7. Drive files are private by default.
+### Desktop
+
+1. PostgreSQL is durable business/control authority.
+2. Desktop project bytes live in the local project workspace.
+3. `project.manifest.json` maps stable IDs to project-relative paths + size/SHA-256.
+4. Absolute local paths are not persisted as backend identities.
+5. Local final MP4 remains in the project artifact workspace unless an explicit export/upload/publish action copies it elsewhere.
+
+### Cloud/legacy
+
+1. R2 stores cloud pipeline media.
+2. Google Drive stores cloud-rendered final MP4.
+3. Worker-local paths are ephemeral scratch.
+4. This contract is a fallback/legacy execution mode for Desktop migration.
 
 ## Execution invariants
 
 1. `USER_PROVIDED_AUDIO` bypasses TTS for its covered scope.
 2. Audio file boundaries are not Chapter boundaries.
-3. Backend MediaPlan/motion policy is authoritative.
-4. `IMAGE_MOTION` never authorizes I2V.
-5. Provider `UNKNOWN` reconciles before resubmission.
-6. Completed provider results are immutable by fingerprint.
-7. A render is not completed before FFmpeg validation, Drive durability/verification and PostgreSQL FinalArtifact metadata commit.
+3. Backend MediaPlan/execution policy is authoritative.
+4. Provider `UNKNOWN` reconciles before paid resubmission.
+5. Completed provider results are immutable by identity/fingerprint policy.
+6. Desktop local render is backend-assigned and lease-controlled.
+7. Local render inputs are resolved by asset identity/checksum through the manifest.
+8. Lease loss prevents local successful completion.
+9. FFmpeg runs in Electron main, never unrestricted renderer code.
+10. User auth session credentials and device execution credentials remain separate.
