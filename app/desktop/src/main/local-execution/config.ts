@@ -15,15 +15,20 @@ function backendUrl(): string {
   return (runtimeOverride || buildConfigured || "http://localhost:8080").replace(/\/$/, "");
 }
 
+function heartbeatIntervalMs(): number {
+  const configured =
+    process.env.NARRATIVEX_DESKTOP_HEARTBEAT_MS ?? import.meta.env.VITE_DESKTOP_HEARTBEAT_MS;
+  return Math.max(5_000, Number(configured ?? "15000") || 15_000);
+}
+
 export function loadLocalExecutionConfig(ffmpegAvailable = true): LocalExecutionConfig {
-  const projectRenderEnabled =
-    ffmpegAvailable && enabled(process.env.NARRATIVEX_DESKTOP_PROJECT_RENDER_ENABLED);
+  const renderFlag =
+    process.env.NARRATIVEX_DESKTOP_PROJECT_RENDER_ENABLED ??
+    import.meta.env.VITE_DESKTOP_PROJECT_RENDER_ENABLED;
+  const projectRenderEnabled = ffmpegAvailable && enabled(renderFlag);
   return {
     backendBaseUrl: backendUrl(),
-    heartbeatIntervalMs: Math.max(
-      5_000,
-      Number(process.env.NARRATIVEX_DESKTOP_HEARTBEAT_MS ?? "15000") || 15_000,
-    ),
+    heartbeatIntervalMs: heartbeatIntervalMs(),
     capabilities: ["DESKTOP_APP", ...(projectRenderEnabled ? ["PROJECT_RENDER"] : [])],
     projectRenderEnabled,
   };
