@@ -313,7 +313,7 @@ class TranslationWorkerRepository:
         current_step = "UNKNOWN" if unknown else "FAILED"
         async with pool.acquire() as connection:
             async with connection.transaction():
-                await connection.execute(
+                stage = await connection.execute(
                     """UPDATE stage_attempts SET status = $3, heartbeat_at = CURRENT_TIMESTAMP,
                       updated_at = CURRENT_TIMESTAMP, row_version = row_version + 1
                       WHERE id = $1 AND worker_id = $2 AND status = 'RUNNING'""",
@@ -321,6 +321,8 @@ class TranslationWorkerRepository:
                     worker_id,
                     status,
                 )
+                if stage != "UPDATE 1":
+                    return
                 await connection.execute(
                     """UPDATE generation_jobs SET status = $2, current_step = $3, error_code = $4,
                       updated_at = CURRENT_TIMESTAMP, row_version = row_version + 1
