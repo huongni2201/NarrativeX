@@ -7,18 +7,21 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.character.domain.aggregate.Character;
+import com.narrativex.backend.feature.character.domain.aggregate.ProjectCharacter;
 import com.narrativex.backend.feature.character.domain.entity.CharacterAppearance;
 import com.narrativex.backend.feature.character.domain.entity.CharacterVersion;
 import com.narrativex.backend.feature.character.domain.entity.OutfitVersion;
 import com.narrativex.backend.feature.character.domain.enums.CharacterStatus;
 import com.narrativex.backend.feature.character.domain.enums.CharacterVersionStatus;
 import com.narrativex.backend.feature.character.domain.enums.OutfitVersionStatus;
+import com.narrativex.backend.feature.character.domain.enums.ProjectCharacterStatus;
 import com.narrativex.backend.feature.character.infrastructure.persistence.mapper.CharacterMyBatisRowMapper;
 import com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.CharacterAppearanceRow;
 import com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.CharacterMapper;
 import com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.CharacterRow;
 import com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.CharacterVersionRow;
 import com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.OutfitVersionRow;
+import com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.ProjectCharacterRow;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -46,6 +49,34 @@ class CharacterPersistenceMissingRowTest {
         () -> new MyBatisCharacterPersistenceAdapter(mapper, rowMapper).save(value));
 
     verify(mapper, never()).insertCharacter(any(CharacterRow.class));
+  }
+
+  @Test
+  void persistedProjectCharacterIsNotReinsertedWhenItsRowDisappeared() {
+    UUID id = UUID.randomUUID();
+    ProjectCharacter value =
+        ProjectCharacter.rehydrate(
+            id,
+            4L,
+            UUID.randomUUID(),
+            UUID.randomUUID(),
+            "PROTAGONIST",
+            10,
+            List.of("Mina"),
+            "lead character",
+            List.of("main-cast"),
+            null,
+            ProjectCharacterStatus.ACTIVE);
+    when(rowMapper.row(
+            any(ProjectCharacter.class), any(CharacterMyBatisRowMapper.InstantPair.class)))
+        .thenReturn(new ProjectCharacterRow());
+    when(mapper.findProjectCharacter(id)).thenReturn(null);
+
+    assertThrows(
+        OptimisticLockingFailureException.class,
+        () -> new MyBatisProjectCharacterPersistenceAdapter(mapper, rowMapper).save(value));
+
+    verify(mapper, never()).insertProjectCharacter(any(ProjectCharacterRow.class));
   }
 
   @Test
