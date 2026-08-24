@@ -159,6 +159,39 @@ class GetProductionTimelineUseCaseTest {
     assertThat(timeline.chapters().getFirst().readyForRender()).isFalse();
   }
 
+  @Test
+  void locksFinalRenderWhenAudioCannotRepresentOnePositiveIntervalPerBeat() {
+    UUID projectId = UUID.randomUUID();
+    UUID storyVersionId = UUID.randomUUID();
+    UUID chapterId = UUID.randomUUID();
+    UUID planId = UUID.randomUUID();
+
+    when(sourceRepository.findChapters(projectId, "owner"))
+        .thenReturn(
+            List.of(
+                chapter(
+                    storyVersionId,
+                    chapterId,
+                    0,
+                    planId,
+                    1L,
+                    "audio/chapter.mp3",
+                    "a".repeat(64),
+                    2)));
+    when(sourceRepository.findBeats(projectId, "owner"))
+        .thenReturn(
+            List.of(
+                beat(chapterId, 0, planId, 0, null, "b".repeat(64)),
+                beat(chapterId, 0, planId, 1, null, "c".repeat(64))));
+
+    var timeline = useCase.executeOwned(projectId, "owner");
+
+    assertThat(timeline.totalDurationMs()).isEqualTo(1L);
+    assertThat(timeline.beats()).isEmpty();
+    assertThat(timeline.readyForRender()).isFalse();
+    assertThat(timeline.chapters().getFirst().readyForRender()).isFalse();
+  }
+
   private static ChapterSource chapter(
       UUID storyVersionId,
       UUID chapterId,
