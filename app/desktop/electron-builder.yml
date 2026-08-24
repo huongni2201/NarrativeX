@@ -6,8 +6,8 @@ files:
   - out/**
   - resources/**
 win:
+  icon: resources/narrativex-icon.png
   target: nsis
-  icon: resources/narrativex-icon.ico
   artifactName: NarrativeX-Desktop-${version}.${ext}
 protocols:
   - name: NarrativeX Authentication

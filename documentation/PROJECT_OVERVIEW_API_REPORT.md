@@ -1,103 +1,127 @@
 # Project Overview API Integration Report
 
-> **Screen:** `01. Project Overview`  
-> **Scope:** `app/frontend-web` + `app/backend-service`  
-> **Rule:** Production UI must render backend-owned business data from real APIs. Missing capabilities must be shown as unavailable rather than simulated with hardcoded business values.
+> **Primary client:** `app/desktop`  
+> **Backend:** `app/backend-service`  
+> **Legacy reference:** `app/frontend-web` remains temporarily during migration.  
+> **Rule:** UI must render backend-owned business data from real APIs; machine-local media paths stay behind Electron main/preload.
 
 ## 1. Current integration status
 
-Project Overview is a real-API vertical slice for project metadata, overview metrics, story versions, chapters, project locations, project assets, authentication, and chapter batch import. The wider project shell also has real dashboard/favorite and project-scoped Character read foundations.
+Project Overview is a backend-authoritative slice for project metadata, overview metrics, story versions, chapters, characters, locations and project asset identities.
 
-The frontend must not present hardcoded subscription tiers, credits, dates, production configuration, or continuity claims as if they came from the backend.
+The Desktop migration reuses backend contracts but changes the client/media boundary:
 
-## 2. Implemented backend capabilities used by this area
+- `app/desktop` is the primary UI target;
+- backend APIs remain the durable metadata authority;
+- local project bytes are resolved by Electron main through the project manifest;
+- `app/frontend-web` is a legacy parity reference, not the target architecture.
 
-| Method | Endpoint | Frontend status |
+The UI must not fabricate subscription tiers, credits, dates, production configuration, continuity state or local file availability.
+
+## 2. Backend capabilities used by this area
+
+| Method | Endpoint | Status / Desktop direction |
 |---|---|---|
-| `GET` | `/api/v1/projects` | Integrated |
-| `GET` | `/api/v1/projects/dashboard` | Integrated in project dashboard |
-| `PUT/DELETE` | `/api/v1/projects/{projectId}/favorite` | Integrated in project dashboard |
-| `GET` | `/api/v1/projects/{projectId}` | Integrated |
-| `GET` | `/api/v1/projects/{projectId}/overview` | Integrated |
-| `GET` | `/api/v1/projects/{projectId}/stories/latest` | Integrated |
-| `POST` | `/api/v1/projects/{projectId}/stories` | Integrated |
-| `POST` | `/api/v1/projects/{projectId}/chapters` | Integrated |
-| `POST` | `/api/v1/projects/{projectId}/chapters/batch-import` | Integrated |
-| `GET` | `/api/v1/projects/{projectId}/characters` | Integrated in Project Characters tab |
-| `GET` | `/api/v1/projects/{projectId}/characters/{characterId}` | Integrated in Character detail |
-| `GET` | `/api/v1/projects/{projectId}/locations` | Integrated |
-| `GET` | `/api/v1/projects/{projectId}/assets` | Integrated |
-| `GET` | `/api/v1/users/me/quota` | Backend capability exists; consumed by the separate Quota UI |
-| `GET` | `/api/v1/jobs/history` | Backend capability exists; consumed by the separate Job History UI |
+| `GET` | `/api/v1/projects` | authoritative project list |
+| `GET` | `/api/v1/projects/dashboard` | authoritative dashboard data |
+| `PUT/DELETE` | `/api/v1/projects/{projectId}/favorite` | project favorite mutation |
+| `GET` | `/api/v1/projects/{projectId}` | authoritative project configuration |
+| `GET` | `/api/v1/projects/{projectId}/overview` | authoritative overview |
+| `GET` | `/api/v1/projects/{projectId}/stories/latest` | latest StoryVersion read |
+| `POST` | `/api/v1/projects/{projectId}/stories` | story mutation |
+| `POST` | `/api/v1/projects/{projectId}/chapters` | chapter creation |
+| `POST` | `/api/v1/projects/{projectId}/chapters/batch-import` | chapter import |
+| `GET` | `/api/v1/projects/{projectId}/characters` | project Character read |
+| `GET` | `/api/v1/projects/{projectId}/characters/{characterId}` | Character detail |
+| `GET` | `/api/v1/projects/{projectId}/locations` | project Location read |
+| `GET` | `/api/v1/projects/{projectId}/assets` | project asset identity/metadata |
+| `GET` | `/api/v1/users/me/quota` | quota read |
+| `GET` | `/api/v1/jobs/history` | job-history read |
 
-Authentication and CSRF endpoints are handled by the shared frontend API client and session flow.
+Desktop authentication uses the shared backend Google-OAuth/session contracts described by ADR-0011 rather than password authentication.
 
 ## 3. Project configuration
 
-`GET /api/v1/projects/{projectId}` is the source of truth for `sourceLanguage`, `narrationLanguage`, `metadataLanguage`, `imageAspectRatio`, `imageQualityTier`, `status` and `rowVersion`. The frontend must not replace these fields with hardcoded `16:9`, `vi-VN`, or `STANDARD` values.
+`GET /api/v1/projects/{projectId}` remains authoritative for project configuration such as source/narration/metadata language, image aspect/quality, status and row version.
 
-## 4. Chapters and batch import
+Desktop UI must not replace those values with hardcoded defaults that look authoritative.
 
-Manual chapter creation uses `POST /api/v1/projects/{projectId}/chapters` with `Idempotency-Key`; `storyVersionId` and `orderIndex` are optional and are resolved server-side when omitted. Batch import uses `POST /api/v1/projects/{projectId}/chapters/batch-import` as multipart form data with optional `storyVersionId` and `file`. Both workflows ensure an active/latest StoryVersion transactionally; the frontend does not create StoryVersions as a prerequisite.
+## 4. Chapters and import
 
-After chapter mutations the frontend invalidates the Project Overview and relevant chapter/story queries so the UI returns to backend truth.
+Chapter creation/batch import remains backend-authoritative and idempotent where defined. Desktop may use native file selection for source/import UX, but durable StoryVersion/Chapter orchestration remains server-side.
 
-## 5. Project Characters
+After mutations, Desktop query state must be invalidated/refetched rather than treating optimistic renderer state as durable truth.
 
-Project-scoped Character list/detail is an authoritative read slice:
+## 5. Characters and locations
 
-```http
-GET /api/v1/projects/{projectId}/characters
-GET /api/v1/projects/{projectId}/characters/{characterId}
-```
+Project-scoped Character/Location reads remain backend-owned. Desktop can present richer editor interactions, but missing authoritative fields must be shown as unavailable rather than filled with production-looking fixtures.
 
-The backend validates project ownership and returns project-context Character data including role, importance, aliases/groups, pinned version, appearance and scene count where available. Fields without an authoritative backend model remain explicitly unavailable instead of being fabricated.
+## 6. Project assets under the Desktop migration
 
-## 6. Project locations
-
-Project locations are read from `GET /api/v1/projects/{projectId}/locations`. Analysis also persists Location identities and Scene -> Location references as continuity foundations. Rich review/edit/reference workflows remain separate work.
-
-## 7. Project assets
-
-Project assets are read from `GET /api/v1/projects/{projectId}/assets`. The Project Overview Assets tab renders project-scoped assets from the backend instead of treating a global asset-library redirect as equivalent project data.
-
-## 8. Continuity wording
-
-Creating a chapter means the chapter belongs to the current Project and Story Version and uses persisted project configuration. Analysis persists Character/ProjectCharacter/Location continuity foundations and Scene relations, but this does not imply that every downstream Character Bible/Location Bible/reference-lock workflow is complete.
-
-## 9. Remaining integration work
-
-Frontend/product integration still includes richer quota/job-history/notification UX, richer project-resource actions and richer Character relationship/asset/scene-detail reads when authoritative contracts exist. The current quota, Job History and notification foundations are already wired outside Project Overview.
-
-Engineering work outside this screen currently includes:
-
-- production user-audio upload/finalize/alignment hardening;
-- aligned multi-part uploaded-audio slicing/stitching for render;
-- narration-driven `VisualScenePlanner` and review workflow;
-- richer image approval/reuse/reframe/edit lineage;
-- publishing/entitlement hardening around the implemented owner-authorized preview/download/streaming proxy for Google Drive-backed FinalArtifacts;
-- cross-attempt Drive upload retry without rerender;
-- complete actual-usage/billing reconciliation;
-- moderation/SSRF/retention/observability/DR hardening.
-
-Do **not** list production Vertex image generation, IMAGE_MOTION chapter rendering, Google Drive final-video upload, or MyBatis migration as future capabilities: those foundations are already implemented.
-
-## 10. Current media/storage context
-
-Project Overview itself is not the render/export screen, but documentation around it must use the current storage contract:
+The backend asset API describes stable asset identity/metadata. For Desktop-local project media, the actual byte location is resolved through:
 
 ```text
-Images / narration / uploaded audio / reusable media -> R2
-Final rendered MP4                              -> Google Drive
-Metadata / lineage / job state                  -> PostgreSQL
+backend assetId + expected integrity
+  -> Electron preload/main
+  -> project.manifest.json
+  -> checksum-verified local project file
 ```
 
-The final video is not a validated R2 FinalArtifact anymore.
+Do not persist or return absolute local paths as domain identifiers.
 
-## 11. Definition of done
+A backend asset may temporarily still refer to cloud-backed media during migration. Desktop should make local/cloud availability explicit rather than silently assuming every backend asset has already been materialized locally.
 
-Project Overview is production-correct when business values come from backend APIs, Project metadata/configuration are authoritative, Chapters/Characters/Locations/Assets use project-scoped data, mutations invalidate affected queries, unavailable capabilities are explicit, and documentation matches actual contracts.
+## 7. Authentication
 
-## 12. Summary
+Google is the only user-facing login provider.
 
-Project Overview should be described as a real-API integration over implemented backend capabilities. Future audits should distinguish between a missing backend capability, an implemented capability not yet wired into a screen, and an already-integrated end-to-end capability.
+```text
+Desktop -> system browser -> Google OIDC
+        -> narrativex:// one-time handoff
+        -> backend exchange
+        -> server-managed NarrativeX session
+```
+
+The local execution device token is separate from the user session and is not a replacement user auth model.
+
+## 8. Render/export context
+
+Project Overview is not itself the render engine, but related documentation must use the correct storage/execution boundary.
+
+### Desktop primary
+
+```text
+project media        -> local project workspace
+final local MP4      -> local project artifacts
+metadata/job state   -> PostgreSQL
+```
+
+### Cloud/legacy fallback
+
+```text
+cloud pipeline media -> R2
+cloud final MP4      -> Google Drive
+metadata/job state   -> PostgreSQL
+```
+
+Do not describe R2/Drive as mandatory Desktop project storage.
+
+## 9. Remaining Desktop integration work
+
+- complete project screen/action parity;
+- complete local materialization/registration for generated/imported assets;
+- richer Character/location/asset editing flows;
+- restart-safe local render recovery;
+- disk/backup/move/repair UX;
+- remove legacy web dependencies after parity gates.
+
+## 10. Definition of done
+
+Project Overview is production-correct when:
+
+- all business values come from backend-authoritative contracts;
+- Desktop is the primary client implementation;
+- local project bytes are resolved only through the secure Electron local-storage boundary;
+- unavailable/local-missing/cloud-only states are explicit;
+- mutations return to backend truth;
+- docs do not confuse the cloud fallback path with the Desktop local-first path.

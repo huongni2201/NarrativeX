@@ -1,6 +1,6 @@
 # Story-to-Video Workflow — V1.11
 
-NarrativeX is Chapter-first, audio-timeline-first and image-first. Video duration and visual count are adaptive.
+NarrativeX is desktop-first, Chapter-first, audio-timeline-first and image-first. Video duration and visual count are adaptive.
 
 ## Entry
 
@@ -10,15 +10,16 @@ Save Chapter   -> persisted source only
 Analyze        -> explicit durable operation
 ```
 
-## Analysis foundation — implemented
+The Spring backend remains authoritative for source identity, ownership, policy and job state. Electron Desktop is the primary editor and local project-media/render surface.
+
+## Analysis foundation
 
 ```text
 persisted Chapter
   -> lock/reload snapshot
-  -> safety/entitlement/quota/cost admission
+  -> entitlement/quota/cost admission
   -> OperationPlan + GenerationJob + StageAttempt + OutboxEvent
-  -> worker claim/lease/heartbeat
-  -> ProviderOperation execution/reconciliation
+  -> worker/provider execution
   -> stale Chapter guard
   -> Character + Location + Scene + VisualBeat continuity
 ```
@@ -27,124 +28,146 @@ persisted Chapter
 
 ```text
 GENERATED NARRATION
-  -> Google TTS or local VieNeu
+  -> Google TTS or VieNeu/provider execution
   -> validate/normalize
-  -> R2
   -> alignment
+  -> materialize according to execution mode
 
 USER_PROVIDED_AUDIO
-  -> ordered 1..N R2-backed audio parts
+  -> ordered 1..N audio parts
   -> one logical global audio clock
   -> alignment
-  -> no TTS_GENERATE stage
+  -> no TTS for covered scope
 ```
 
-One user audio file may cover many Chapters and several files may cover the same selected range. Alignment, not file boundaries, assigns source spans to audio time.
+One audio file may cover many Chapters and several files may cover one selected range. Alignment, not file boundaries, assigns source spans to time.
+
+For Desktop local rendering, accepted narration bytes must be registered in the local project workspace/manifest.
 
 ## Media planning and images
 
-The backend owns MediaPlan authorization and the worker executes the pinned plan. Real Vertex image generation now exists as a production foundation:
+The backend owns MediaPlan authorization and provider workers/devices execute the pinned policy.
 
 ```text
 pinned image-generation work
-  -> Vertex image execution
+  -> provider execution
   -> validate
-  -> immutable R2 image asset
-  -> READY media input
+  -> stable MediaAsset identity/checksum
+  -> materialize according to execution mode
 ```
 
-`VisualScenePlanner` remains incomplete as the richer narration-driven adaptive planning/review layer. Existing persisted media beat plans can already feed the current renderer.
-
-## Current generated-narration render path — implemented foundation
+Desktop target:
 
 ```text
-CHAPTER_RENDER
-  -> load exact MediaPlan revision
-  -> load READY R2 image assets
-  -> load generated narration matching chapterRowVersion + sourceHash
-  -> normalize beat durations to narration duration
-  -> FFmpeg IMAGE_MOTION in local scratch
-  -> ffprobe validation + SHA-256
-  -> Google Drive resumable upload
-  -> verify Drive file ID + size
-  -> persist render_manifest + FinalArtifact Drive metadata
-  -> mark stage/job COMPLETED
+validated image
+  -> local project assets/images
+  -> project.manifest.json
+  -> local render resolves mediaAssetId
 ```
 
-The final rendered MP4 is not duplicated into R2 by default.
+The Vertex provider foundation exists. Complete Desktop-local materialization for every generation/regeneration path is still PARTIAL.
 
-## User-provided narration render path — partial
+`VisualScenePlanner` remains TARGET as the richer narration-driven adaptive planning/review layer.
 
-The planning/timeline/TTS-bypass model exists, but the current render repository loads generated narration rather than resolving aligned `narration_parts` for a selected Chapter range.
+## Primary Desktop render path — implemented foundation
 
-Before claiming this path complete, the renderer must:
+```text
+backend admits + assigns LOCAL_DEVICE render
+  -> assigned Desktop device claims job + lease
+  -> claim provides narration/image IDs + expected checksums
+  -> Electron main resolves local files through project.manifest.json
+  -> reject missing/invalid inputs
+  -> build deterministic local render manifest
+  -> FFmpeg render visual segments
+  -> concatenate video
+  -> concatenate narration
+  -> mux audio/video
+  -> ffprobe + SHA-256 validation
+  -> register local artifact under artifacts/<jobId>/
+  -> report progress/completion to backend
+```
+
+The backend records a provider identity such as `LOCAL_DESKTOP` plus an opaque project-relative artifact key and media metadata. Absolute machine paths are not durable backend identifiers.
+
+Lease heartbeat runs during local execution. Lease loss prevents successful completion. In-process cancellation exists; restart-safe recovery/resume remains partial.
+
+Local project rendering requires FFmpeg/ffprobe and `NARRATIVEX_DESKTOP_PROJECT_RENDER_ENABLED=true`.
+
+## Retained cloud render path — fallback
+
+The existing worker path remains available during migration:
+
+```text
+cloud render
+  -> R2 pipeline inputs
+  -> worker FFmpeg/ffprobe
+  -> Google Drive final MP4
+  -> provider-aware FinalArtifact metadata
+```
+
+This cloud path remains real but is no longer the primary Desktop storage/render architecture.
+
+## Desktop project storage
+
+```text
+<userData>/projects/<projectId>/
+  project.manifest.json
+  assets/{images,audio,video}/
+  work/
+  artifacts/<jobId>/final.mp4
+```
+
+The manifest maps backend asset identities to project-relative paths plus size/SHA-256. Electron main owns local path resolution.
+
+## User-provided narration render path
+
+The planning/TTS-bypass/global-clock model exists. Complete E2E behavior depends on materializing the relevant aligned audio locally and producing the exact render input for the selected scope.
+
+Required shape:
 
 ```text
 alignment spans
-  -> locate relevant ordered uploaded-audio parts
-  -> slice chapter/global timeline ranges
-  -> concatenate/stitch where necessary
-  -> create one validated chapter-local render audio input
-  -> IMAGE_MOTION render
+  -> identify relevant ordered parts
+  -> slice/concatenate when necessary
+  -> validate one render audio input
+  -> register local narration asset/checksum
+  -> LOCAL_DEVICE render
 ```
 
-Until then, do not describe the full multi-Chapter uploaded-audio → final-video loop as implemented.
+Do not claim the complete multi-Chapter uploaded-audio → local-render loop until this is proven by code/tests.
 
-## Current render job state semantics
-
-The current implementation uses one durable `CHAPTER_RENDER` stage rather than separate durable PREPARING/RENDERING/UPLOADING/VERIFYING stages.
+## Current local render state semantics
 
 ```text
-GenerationJob / StageAttempt
-  QUEUED or STALLED
-    -> RUNNING / CHAPTER_RENDER
-    -> render + validate + Drive upload + DB materialization
-    -> COMPLETED
+backend job assigned to device
+  -> claimed lease
+  -> local execution RUNNING
+  -> periodic lease heartbeat + progress
+  -> COMPLETED | FAILED
 
-retryable infrastructure/Drive failure
-    -> STALLED
-
-invalid input / FFmpeg / validation failure
-    -> FAILED
+lease loss / cancellation
+  -> abort local process
+  -> no successful finalization by stale owner
 ```
 
-Sub-stage progress such as RENDERING/UPLOADING/VERIFYING may be added later, but must not be documented as current persisted state until implemented.
-
-## Drive retry behavior
-
-Within one attempt, Drive uses resumable chunk upload and can query the confirmed byte offset after timeout/network ambiguity.
-
-Before creating a file, the adapter searches by `renderFingerprint`; if an earlier upload already completed, a retry can reuse the matching Drive object rather than create a duplicate.
-
-The rendered local MP4 is currently in an ephemeral job workspace. If an upload failure causes the attempt to exit as `STALLED`, a later claim may rerender. Cross-attempt upload-only retry without rerender is a hardening target.
-
-## Storage contract
-
-```text
-Images / narration / accepted uploaded audio / reusable media -> R2
-Final rendered MP4                                       -> Google Drive
-Metadata / lineage / provider identity                   -> PostgreSQL
-```
-
-Final artifacts are private. The durable remote identity is the Drive provider/file ID stored by the application; a public/share URL is not the correctness boundary.
+Cross-process crash/restart recovery is still a hardening target.
 
 ## Fast-follow
 
-- complete multi-part user-audio render integration;
+- complete image/TTS/import local materialization;
+- complete multi-part user-audio local render integration;
 - narration-driven VisualScenePlanner/review;
-- reuse/reframe/edit AssetResolver;
-- Character/reference locking and approved storyboard revisions;
-- publishing/entitlement hardening around the implemented owner-authorized final-video preview/download/streaming proxy;
-- durable upload-only retry across attempts;
-- HYBRID_LOCAL_I2V/Wan hardening;
-- full cost/usage reconciliation;
-- moderation/SSRF/retention/observability/DR;
-- social publishing through a provider-neutral final-video stream boundary.
-## Deterministic full-stack E2E
+- richer timeline mutations and regeneration/reuse;
+- disk cleanup/backup/move/repair;
+- restart-safe local render recovery;
+- packaging/signing/auto-update/protocol hardening;
+- provider-neutral publishing/upload from local artifacts;
+- remove legacy web only after parity gates pass.
 
-The repository's MVP Playwright profile runs the real backend, PostgreSQL, Redis, Python worker,
-and FFmpeg while replacing only paid/external provider boundaries. Set `AI_PROVIDER_MODE=fake`,
-`IMAGE_PROVIDER_MODE=fake`, `TTS_PROVIDER_MODE=fake`, `MEDIA_STORAGE_MODE=local`, and
-`FINAL_VIDEO_STORAGE_MODE=local`. Local final MP4s are written under
-`FINAL_VIDEO_LOCAL_DIR`; the backend local artifact adapter serves them with HTTP Range support.
-Production keeps Google Drive final-video storage as the default.
+## Deterministic full-stack testing
+
+Paid/external provider boundaries may be replaced by deterministic fakes in E2E tests, but production architecture claims must still distinguish:
+
+- Desktop local project storage/render;
+- retained cloud/legacy R2/Drive worker execution;
+- backend-authoritative domain/job/lease state.

@@ -1,24 +1,32 @@
 # NarrativeX — Project Source of Truth V1.11
 
 **Status:** Canonical engineering direction and code-aligned baseline  
-**Effective date:** 23/08/2026  
+**Effective date:** 2026-08-24  
 **Repository:** `huongni2201/NarrativeX`  
-**Docs-sync baseline implementation checkpoint:** `main` at `0b8577a5a6b406d34b297a818e663f5db29b06d6`
-**Supersedes:** V1.10 as the planning baseline for new work
+**Docs-sync implementation checkpoint:** `main` at `751f006634218efb2c398fc00c2cbfecd25e1eac`  
+**Primary migration:** browser studio → Electron Desktop, cloud-first project media → Desktop local-first project media/render
 
 ---
 
 ## 1. Authority and status semantics
 
-V1.11 is the maintained product/domain/architecture baseline. Cross-cutting decisions are recorded in consolidated Architecture Decision Records ([ADR-0001](../decisions/ADR-0001-system-topology-execution-and-persistence.md) through [ADR-0004](../decisions/ADR-0004-authentication-runtime-security-and-test-credentials.md)). Current code and Flyway migrations decide factual AS-IS implementation claims when a derived document drifts.
+This file is the maintained V1.11 product/domain/architecture baseline.
+
+For factual AS-IS behavior, authority order is:
+
+1. current code, Flyway migrations and automated tests;
+2. accepted ADRs for deliberate cross-cutting decisions;
+3. this source-of-truth specification;
+4. derived reports, plans and older implementation notes.
 
 Status vocabulary:
 
-- **IMPLEMENTED** — a working code path exists at the documented checkpoint.
-- **IMPLEMENTED foundation** — the core runtime boundary exists, but the complete product workflow is not yet proven.
-- **PARTIAL** — some required runtime/product pieces are still missing.
-- **TARGET** — approved next implementation direction.
-- **DEFERRED** — intentionally postponed until the creator loop is reliable.
+- **IMPLEMENTED** — working path exists and its key contract is present.
+- **IMPLEMENTED foundation** — core runtime boundary exists but full product/reliability flow is not yet proven.
+- **PARTIAL** — required pieces remain missing.
+- **TARGET** — approved next direction.
+- **DEFERRED** — intentionally postponed.
+- **LEGACY/FALLBACK** — retained only during migration/compatibility and must not define new primary architecture.
 
 Roadmap intent must never be presented as implemented behavior.
 
@@ -26,18 +34,21 @@ Roadmap intent must never be presented as implemented behavior.
 
 ## 2. Product definition
 
-NarrativeX is an AI-assisted long-form story-video studio. It transforms persisted Chapter source into structured analysis, continuity-aware visual plans, durable media assets and final long-form video.
+NarrativeX is a **desktop-first AI-assisted long-form story-video studio**. It transforms persisted story/Chapter source into structured analysis, continuity-aware visual plans, narration, generated/imported project media and final long-form or Short/Reel video.
 
 The product is:
 
-- **chapter-first** — Chapter is the primary authoring/source unit;
-- **review-first** — generated state is inspectable/versioned instead of silently replacing approved history;
+- **desktop-first** — Electron Desktop is the primary editor client;
+- **chapter-first** — Chapter remains the primary persisted source unit;
+- **review-first** — generated/reviewed state is versioned rather than silently overwritten;
 - **audio-timeline-first** — narration timing is authoritative for visual duration;
 - **image-first** — deterministic image motion is the default low-cost render path;
-- **durable-by-design** — PostgreSQL owns authoritative state, R2 owns pipeline media, and Google Drive owns final rendered MP4 bytes;
-- **backend-authorized** — workers execute persisted plans and may not invent paid work.
+- **local-media-first for Desktop** — project media and final local renders stay on the user's machine;
+- **backend-authorized** — Spring/PostgreSQL remain authoritative for ownership, policy, job admission, assignment and durable execution state.
 
-Creating a Project only persists metadata. Saving a Chapter only persists source. Analyze, narration/audio processing, image generation and rendering are explicit operations.
+Creating a Project persists metadata. Saving a Chapter persists source. Analyze, narration/audio processing, image generation and rendering are explicit operations.
+
+`app/frontend-web` is a temporary legacy migration client and must not constrain new Desktop product architecture.
 
 ---
 
@@ -45,7 +56,7 @@ Creating a Project only persists metadata. Saving a Chapter only persists source
 
 ### 3.1 Source preservation
 
-Expensive work pins the authoritative source identity:
+Expensive work pins authoritative source identity such as:
 
 ```text
 chapterId
@@ -53,7 +64,7 @@ chapterRowVersion
 sourceHash
 ```
 
-A later Chapter edit creates a new source identity. Historical approved/generated outputs are not rewritten in place.
+A later source edit creates a new identity. Historical approved/generated outputs are not rewritten in place.
 
 ### 3.2 Narration is not synonymous with TTS
 
@@ -63,226 +74,368 @@ NarrationStrategy
   USER_PROVIDED_AUDIO
 ```
 
-If accepted user-provided audio covers a scope, NarrativeX must not generate or reserve TTS for that same scope.
+If accepted user-provided audio covers a scope, NarrativeX must not generate/reserve TTS for that same scope.
 
 ### 3.3 Audio file boundaries are not Chapter boundaries
 
-A user may provide one continuous audio file for many Chapters or several ordered files for one selected range. The durable model uses an ordered narration set plus one logical global audio clock. Alignment maps source spans to audio spans.
+A user may provide one continuous audio file for many Chapters or several ordered files for one range. The model uses ordered narration parts plus one logical audio clock/alignment model.
 
 ### 3.4 Backend owns execution policy
 
-The backend creates/version-controls the authorized `MediaPlan`, including `ProductionMode`, resolved `MotionStrategy`, workload and cost/reservation context. A `GenerationJob` pins the exact plan revision. The worker executes persisted policy and must not silently escalate deterministic motion to I2V.
+The backend creates/version-controls the authorized MediaPlan/production policy, including workload/cost context. Jobs pin the authorized state. Workers and Desktop devices execute persisted policy and may not silently escalate paid work or motion mode.
 
-### 3.5 Durable binary storage is split by lifecycle
+### 3.5 PostgreSQL remains durable control-plane authority
 
-Cloudflare R2 is authoritative for source/generated/reusable pipeline media, including generated images, narration/TTS audio, uploaded media accepted into the pipeline, thumbnails and reusable media assets.
-
-Google Drive is authoritative for final rendered MP4 exports. Final MP4 files are not duplicated into R2 by default.
-
-PostgreSQL stores storage provider identity, external object identity, checksum, size, lineage and render metadata. Worker-local files are scratch/cache/FFmpeg workspace only.
-
-[ADR-0003](../decisions/ADR-0003-media-storage-generation-pipelines-and-external-integrations.md) governs media storage, generation pipelines, and external provider integrations.
+PostgreSQL owns durable user/project/domain/job/lease/policy/lineage metadata. Redis is useful for server-managed sessions and transient delivery/hints but must never be the only record of generation correctness.
 
 ### 3.6 Persistence is MyBatis + explicit SQL
 
-Production backend persistence uses technology-neutral application/domain ports backed by MyBatis row models, mapper interfaces/XML and explicit PostgreSQL SQL. The backend build has no JPA dependency and production source has no direct `JdbcTemplate` persistence.
+Production backend persistence uses application/domain ports backed by MyBatis row models, mapper interfaces/XML and explicit PostgreSQL SQL. Do not reintroduce JPA or a parallel direct-`JdbcTemplate` production persistence path.
 
-### 3.7 Render input snapshot isolation & retry integrity
+### 3.7 Desktop renderer is sandboxed UI, not a local backend
 
-Render jobs snapshot immutable input headers and beat configurations into `render_input_snapshots` at admission time. Render workers claim and execute exclusively against this snapshotted state, isolating running and retried renders from concurrent edits to MediaPlans or assets.
-
-External side effects (Google Drive upload and FinalArtifact persistence) are serialized across workers using session-scoped PostgreSQL advisory locks on the render fingerprint (`render_fingerprint_lock`), enforcing idempotent checksum reuse.
-
-Provider failure transitions are strictly fenced, preserving `UNKNOWN` state across paid boundaries without blind retries.
-
----
-
-## 4. Current implementation baseline
-
-| Capability | V1.11 state | Notes |
-|---|---|---|
-| Project/Chapter authoring | IMPLEMENTED foundation | Project and Chapter persistence are MyBatis-backed |
-| Project dashboard/favorite | IMPLEMENTED foundation | backend contracts and frontend wiring exist |
-| Chapter Analyze | IMPLEMENTED | durable admission/enqueue and worker execution |
-| Worker claim/lease/heartbeat | IMPLEMENTED | PostgreSQL-backed (`sa.stage_name = 'CHAPTER_RENDER'`, skip locked) |
-| ProviderOperation durability & failure fencing | IMPLEMENTED foundation | reconciliation/result immutability; preserves `UNKNOWN` across paid boundary |
-| Generation execution persistence | IMPLEMENTED | GenerationJob, StageAttempt, OperationPlan, MediaPlan, outbox and Job History use explicit SQL/MyBatis |
-| Immutable RenderInputSnapshot admission | IMPLEMENTED | admission-time snapshot of media plan revision, narration assets, and READY image beats into `render_input_snapshots` |
-| Character + Location continuity | IMPLEMENTED foundation | full human review/reference locking remains partial |
-| Project Character list/detail | IMPLEMENTED foundation | project-scoped authoritative reads are wired end to end |
-| Character reference assets | IMPLEMENTED foundation | CharacterVersion references are normalized, owner-authorized and snapshotted into image requests |
-| Chapter media head | IMPLEMENTED | durable current-media projection drives workspace hydration and stale-plan rejection |
-| Scene + VisualBeat | IMPLEMENTED foundation | richer revision/review flows remain partial |
-| Backend-authoritative MediaPlan | IMPLEMENTED foundation | immutable revision and job pinning exist |
-| Full-chapter generated narration | IMPLEMENTED foundation | Google TTS / local VieNeu paths with R2 durability |
-| Narration alignment | IMPLEMENTED foundation | source/audio timing model with sentence/word spans exists |
-| Burned ASS subtitle generation | IMPLEMENTED | deterministic ASS subtitle track from pinned narration alignment or asset cues, burned into MP4 via FFmpeg |
-| `USER_PROVIDED_AUDIO` planning/timeline | IMPLEMENTED foundation | ordered parts, global clock, fingerprints and TTS bypass |
-| User-provided audio ingestion/alignment E2E | PARTIAL | complete production-facing flow still needs hardening |
-| Vertex image generation | IMPLEMENTED foundation | real Vertex image path with durable R2 image materialization exists |
-| Immutable image media lifecycle | IMPLEMENTED foundation | renderer consumes READY R2 image assets; richer approval/reuse lineage remains partial |
-| IMAGE_MOTION chapter render | IMPLEMENTED | dedicated durable render worker executes FFmpeg with burned ASS subtitles and validates MP4 |
-| Google Drive final MP4 storage | IMPLEMENTED foundation | resumable upload, fingerprint lookup, remote size/SHA-256 verification and FinalArtifact metadata exist |
-| Cross-worker advisory lock & Drive upload serialization | IMPLEMENTED | PostgreSQL advisory lock on render fingerprint serializes Drive upload and prevents duplicate concurrent attempts |
-| Render with generated narration snapshot | IMPLEMENTED | render worker loads matching generated narration |
-| Render with multi-part user-provided narration | PARTIAL | chapter-range slicing/stitching from aligned uploaded parts is not implemented in the render worker |
-| Preview/download/publishing from Drive | IMPLEMENTED for preview/download | backend-authorized OAuth proxy exposes private Drive media with HTTP Range; publishing remains separate |
-| MyBatis-only production persistence | IMPLEMENTED | architecture boundary is complete |
-| Local device management | IMPLEMENTED foundation | pairing codes, device capabilities, heartbeat and revocation are persisted in PostgreSQL |
-| VisualScenePlanner | TARGET | narration-driven adaptive visual planning remains incomplete |
-| Reuse/reframe/edit AssetResolver | DEFERRED fast-follow | optimize after creator loop reliability |
-| HYBRID_LOCAL_I2V end-to-end | DEFERRED fast-follow | selected-beat private I2V |
-| Complete actual-cost reconciliation | PARTIAL | reservation and local render settlement foundations exist |
-
----
-
-## 5. Canonical topology and authority
+Electron renderer owns UI/routing/query/editor state only. Native filesystem/process/credential/deep-link/local-render capabilities live in Electron main and cross preload only through narrow typed capabilities.
 
 ```text
-Browser / Next.js Studio
-        |
-        v
-Spring Boot Backend
-  -> PostgreSQL      authoritative domain/job/plan/usage/storage metadata
-  -> Redis           Spring Session + transient/non-authoritative hints
-        |
-        v
-Python AI / Media Workers
-  -> ai-worker:        Vertex analysis, translation, image generation
-  -> narration-worker: TTS / VieNeu narration, alignment execution
-  -> render-worker:    IMAGE_MOTION FFmpeg render, burned subtitles, Google Drive upload
-  -> Cloudflare R2:    source/generated/reusable pipeline media
-  -> Google Drive:     final rendered MP4 exports
+contextIsolation = true
+nodeIntegration  = false
+sandbox          = true
 ```
 
-PostgreSQL owns source versions, domain state, plans, jobs, stages, provider operations, reservations/usage metadata and media/final-artifact lineage. Redis must never be the only record of generation correctness.
+### 3.8 Absolute Desktop paths are never backend identities
+
+Desktop project files are referenced in backend contracts by stable asset IDs, checksums and opaque project-relative artifact keys. Absolute local paths are machine-specific implementation details and must not be persisted to PostgreSQL or exposed as domain identity.
+
+### 3.9 Lease ownership gates local finalization
+
+A backend-assigned `LOCAL_DEVICE` render is executed only by its authorized device/lease. Lease loss aborts execution and prevents successful completion.
 
 ---
 
-## 6. Durable execution contract
+## 4. Canonical client topology
+
+```text
+                 system browser / Google OAuth
+                           ^
+                           |
++------------------------------------------------------+
+|                 Electron Desktop                     |
+|                                                      |
+| renderer: UI / routes / query/editor state           |
+|                    |                                 |
+|                    v                                 |
+| preload: narrow typed bridge                         |
+|                    |                                 |
+|                    v                                 |
+| main: deep links / native files / ProjectStorage /   |
+|       device execution / FFmpeg / ffprobe            |
++--------------------+---------------------------------+
+                     |
+                     v
+              Spring Boot Backend
+              -> PostgreSQL authoritative state
+              -> Redis session/transient state
+              -> Python worker/provider execution
+
+Electron main
+  -> <userData>/projects/<projectId>/ local bytes
+
+Retained cloud/legacy path
+  -> R2 pipeline media
+  -> Google Drive cloud final MP4
+
+Legacy Next.js web client
+  -> temporary migration surface
+```
+
+The Desktop renderer is not a second domain authority. The backend does not become a local-file server for Desktop paths.
+
+---
+
+## 5. Desktop application boundary
+
+### 5.1 Electron main owns
+
+- BrowserWindow lifecycle/security;
+- system-browser Google OAuth start;
+- `narrativex://` callback handling;
+- native file/folder dialogs;
+- local project workspace/manifest;
+- protected device credentials;
+- local execution heartbeat/claim/progress/completion/failure;
+- FFmpeg/ffprobe process execution;
+- local artifact validation/open/reveal behavior.
+
+### 5.2 Preload owns
+
+A narrow allow-listed typed capability bridge. Do not expose arbitrary `fs`, `child_process`, `shell`, environment or Node globals.
+
+### 5.3 Renderer owns
+
+- application routes;
+- editor presentation/layout;
+- React Query/Zustand state;
+- timeline/preview/inspector interaction;
+- backend application-contract consumption;
+- invocation of explicit preload capabilities.
+
+Renderer code must not resolve arbitrary local paths or execute FFmpeg.
+
+---
+
+## 6. Authentication architecture
+
+Google is the only user-facing authentication provider. Password login, register and forgot-password flows are not part of the target runtime and must not be reintroduced.
+
+### 6.1 Desktop user authentication
+
+```text
+Electron main
+  -> GET /api/v1/auth/desktop/start?redirect_uri=narrativex://auth/callback
+  -> system browser
+  -> Spring Security Google OIDC
+  -> backend creates short-lived single-use handoff code
+  -> narrativex://auth/callback?code=<one-time-code>
+  -> Electron main extracts only the code
+  -> POST /api/v1/auth/desktop/exchange
+  -> backend establishes server-managed NarrativeX SecurityContext/session
+```
+
+Google access/refresh tokens never enter Electron.
+
+### 6.2 Device execution credential
+
+A local-execution device token is a separate machine credential used for pairing/heartbeat/render-job APIs. It is not a user OAuth token or replacement for the server-managed user session.
+
+Current implementation uses explicit pairing. Automatic post-login device registration is a TARGET optimization, not an AS-IS claim.
+
+---
+
+## 7. Desktop local-first project media
+
+Primary Desktop project bytes live under Electron `userData`:
+
+```text
+<userData>/projects/<projectId>/
+  project.manifest.json
+  assets/
+    images/
+    audio/
+    video/
+  artifacts/
+    <jobId>/final.mp4
+  work/
+```
+
+`project.manifest.json` is a local byte-location/integrity index, not a domain database.
+
+Manifest entries include:
+
+```text
+assetId or jobId
+kind
+relativePath
+sizeBytes
+checksumSha256
+updatedAt
+```
+
+Electron main validates project identity, workspace boundaries, file existence, expected size and SHA-256 before a local asset is consumed.
+
+### Desktop storage contract
+
+```text
+Generated/imported project images   -> local project workspace
+Project narration/audio             -> local project workspace
+Imported project media              -> local project workspace
+Render intermediates                -> local project workspace/work
+Final local MP4                     -> local project workspace/artifacts
+Durable business/job metadata       -> PostgreSQL
+```
+
+Shared voice/sample media may remain remote when deliberate cross-install reuse requires it.
+
+---
+
+## 8. Retained cloud/legacy storage contract
+
+ADR-0003 remains valid for the retained cloud/worker execution path:
+
+```text
+Cloud pipeline media              -> Cloudflare R2
+Cloud final rendered MP4          -> Google Drive
+Cloud worker local files          -> ephemeral scratch
+Durable business/job metadata     -> PostgreSQL
+```
+
+This is **LEGACY/FALLBACK** for Desktop project storage. It must not be presented as a mandatory Desktop round trip after ADR-0012.
+
+Cloud render/storage may coexist until Desktop parity/reliability gates are met.
+
+---
+
+## 9. Current implementation baseline
+
+| Capability | State | Notes |
+|---|---|---|
+| Project/Chapter authoring | IMPLEMENTED foundation | durable backend/MyBatis paths exist |
+| Chapter Analyze | IMPLEMENTED | durable admission + worker execution foundations |
+| MyBatis-only production persistence | IMPLEMENTED | no JPA/direct JdbcTemplate production persistence path |
+| Generation job/stage/provider durability | IMPLEMENTED foundation | backend/worker durable lifecycle remains authoritative |
+| Character + Location continuity | IMPLEMENTED foundation | richer review/reference flows remain partial |
+| Scene + VisualBeat | IMPLEMENTED foundation | richer revision/review/planning remains incomplete |
+| Narration strategy + TTS bypass | IMPLEMENTED foundation | user-provided audio is a first-class strategy |
+| Google TTS / VieNeu narration | IMPLEMENTED foundation | server/cloud execution foundation exists |
+| User-provided multi-part timeline/alignment | IMPLEMENTED foundation | full E2E rendering depends on execution path and remaining integration |
+| Vertex image generation | IMPLEMENTED foundation | provider path exists; Desktop local materialization migration remains incomplete |
+| Cloud IMAGE_MOTION render | IMPLEMENTED foundation | retained worker path exists |
+| Cloud R2 pipeline / Drive final storage | IMPLEMENTED foundation, LEGACY/FALLBACK for Desktop | valid cloud path, not Desktop storage authority |
+| Electron Desktop shell | IMPLEMENTED foundation | primary editor boundary exists |
+| Secure main/preload/renderer split | IMPLEMENTED foundation | sandboxed window + narrow IPC/preload model |
+| Desktop system-browser OAuth/deep link | IMPLEMENTED foundation | start/callback/exchange backend + Electron main path exists |
+| Passwordless Google-only product direction | IMPLEMENTED foundation | do not reintroduce password UX/runtime behavior |
+| Desktop ProjectStorage manifest | IMPLEMENTED foundation | schema-versioned, atomic, relative paths, SHA-256 checks |
+| Local device pairing/heartbeat | IMPLEMENTED foundation | explicit pairing currently required |
+| Backend-assigned local render claim | IMPLEMENTED foundation | device-scoped claim/lease lifecycle exists |
+| Local render lease heartbeat/progress | IMPLEMENTED foundation | lease loss abort/failure behavior exists |
+| Desktop FFmpeg/ffprobe project render | IMPLEMENTED foundation | segment render → concat → mux → probe → artifact register |
+| In-process local render cancellation | IMPLEMENTED foundation | AbortController-based cancellation exists |
+| Restart-safe local render recovery | PARTIAL | no complete resume/recovery guarantee across Desktop process restart |
+| Complete local materialization for image/TTS/import outputs | PARTIAL | migration still needed across every workflow |
+| Desktop editor feature parity | PARTIAL | core shell/features exist; legacy web not yet removable |
+| Legacy web removal | TARGET | remove only after parity/reliability/dependency gates |
+| Disk cleanup/backup/move/repair | TARGET | required for production local-first UX |
+| Packaging/signing/auto-update hardening | TARGET | production Desktop release work |
+| VisualScenePlanner adaptive review loop | TARGET | narration-driven planner/review remains incomplete |
+| Reuse/reframe/edit AssetResolver | DEFERRED fast-follow | optimize after creator loop reliability |
+| HYBRID_LOCAL_I2V E2E | DEFERRED fast-follow | selected-beat local I2V future work |
+
+---
+
+## 10. Durable execution contract
+
+Backend-authorized expensive work follows durable admission/lifecycle rules:
 
 ```text
 Source Snapshot / Reviewed State
   -> OperationPlan / MediaPlan
-  -> GenerationJob + RenderInputSnapshot (persisted at admission)
-  -> StageAttempt
-  -> ProviderOperation (when crossing external provider boundary)
+  -> GenerationJob / stage state
+  -> ProviderOperation when crossing paid provider boundary
   -> validated result
-  -> durable binary storage (R2 for pipeline media, Google Drive for final MP4)
-  -> PostgreSQL metadata + terminal stage/job state
+  -> project/cloud byte materialization according to execution mode
+  -> authoritative PostgreSQL metadata + terminal state
 ```
 
-Long network/provider calls must not hold long business database transactions open. Stage lease/heartbeat state is durable. A worker that loses its lease cannot finalize successful output for that lease.
+Long provider/network calls must not keep long business transactions open. External paid-provider ambiguity preserves `UNKNOWN` until reconciliation rather than blind resubmission.
 
-For R2-backed pipeline media, completion means validated bytes are durable in R2 and metadata is committed.
-
-For a final rendered MP4, completion means:
-1. Local FFmpeg validation with burned ASS subtitles succeeded;
-2. Session-scoped advisory lock was acquired to serialize Drive upload;
-3. Drive upload/verification succeeded with matching remote checksum and size;
-4. `render_manifest` and `final_artifacts` metadata are committed;
-5. Render stage and job are marked `COMPLETED`.
+Completed results remain immutable by identity/fingerprint rules.
 
 ---
 
-## 7. ProviderOperation invariants
+## 11. Local render execution contract
 
-Provider execution is a money/content boundary:
+Desktop rendering is not a direct renderer-side export from transient UI state.
 
 ```text
-RESERVED
-  -> SUBMITTED
-  -> RUNNING
-  -> COMPLETED | FAILED
-
-ambiguous timeout/outcome
-  -> UNKNOWN
-  -> reconcile before any resubmit
+backend admits + assigns LOCAL_DEVICE project render
+  -> authorized device claims job
+  -> claim includes lease + asset identities/integrity metadata
+  -> Electron main resolves inputs through project.manifest.json
+  -> verify size/checksum/workspace boundary
+  -> build deterministic local render manifest
+  -> FFmpeg render segments
+  -> concatenate video
+  -> concatenate narration
+  -> mux audio/video
+  -> ffprobe final MP4
+  -> calculate/register SHA-256 local artifact
+  -> report progress/completion to backend
+  -> backend records LOCAL_DESKTOP + opaque project-relative artifact key
 ```
 
-Retries reuse deterministic request identity. Terminal completed/failed state does not reopen. Completed results are immutable by result fingerprint.
+Lease heartbeat continues during execution. Lease loss aborts the active render. A device without the current lease cannot finalize success.
 
-Provider failure transitions are strictly fenced: when an ambiguous boundary failure occurs on a paid boundary, the operation remains in `UNKNOWN` state and must not be marked `FAILED` or retried without external reconciliation.
+Local project rendering is capability-gated by FFmpeg/ffprobe availability and `NARRATIVEX_DESKTOP_PROJECT_RENDER_ENABLED=true`.
+
+Process-restart recovery/resume remains PARTIAL.
 
 ---
 
-## 8. Narration architecture
+## 12. Cloud render execution contract
 
-### 8.1 Generated narration
+The retained cloud/legacy worker path may still perform deterministic IMAGE_MOTION rendering using remote pipeline media and Google Drive final storage. Its provider/upload/idempotency rules remain governed by ADR-0001/ADR-0003 and current worker code.
+
+Do not remove or break this fallback until Desktop migration no longer depends on it, but do not use it as the design default for new Desktop workflows.
+
+---
+
+## 13. Narration architecture
+
+Narration timing is the duration authority.
+
+### Generated narration
 
 ```text
-persisted exact Chapter source
-  -> NarrationRequest
-  -> Google TTS or local VieNeu
+persisted source
+  -> authorized NarrationRequest
+  -> Google TTS or VieNeu/provider execution
   -> validate/normalize
-  -> R2
-  -> immutable narration metadata
-  -> alignment (sentence/word spans)
+  -> alignment
+  -> materialize according to active execution mode
 ```
 
-Generated narration audio remains in R2. At the current default 96 kbps MP3 setting, audio is small relative to final MP4 storage and remains a reusable pipeline asset.
+Desktop target: narration bytes used by a local render must be registered in the local project manifest.
 
-The alignment spans generated during narration processing serve as the timing source for burned ASS subtitles during video rendering.
-
-### 8.2 User-provided audio
+### User-provided audio
 
 ```text
-selected Chapter source manifest
-  + ordered audio parts (1..N)
-  -> R2 upload/finalize + validation
-  -> narration/document fingerprints
+selected source scope
+  + ordered audio parts
+  -> validate/register
+  -> fingerprints
   -> one logical global audio clock
   -> alignment spans
 ```
 
-The planning/timeline foundation exists. The render worker does not yet slice/stitch aligned multi-part user audio into chapter-local render input, so this remains a PARTIAL claim.
+TTS workload is zero for the covered scope. Full end-to-end multi-part behavior must be described per the currently implemented Desktop/cloud render path rather than assumed from the planning model alone.
 
 ---
 
-## 9. Visual planning and timing authority
+## 14. Visual planning and timing
 
-Narration timing is the duration authority. `VisualScenePlanner` remains the intended adaptive planner:
+Narration timing remains authoritative for visual duration. Avoid fixed image-count or hardcoded per-image duration rules.
+
+Target adaptive planning remains:
 
 ```text
 source + analysis/storyboard + continuity + narration alignment
   -> VisualScenePlanner
-  -> VisualScenePlan[]
+  -> VisualScenePlan[] / VisualBeat timing
 ```
 
-Current rendering can consume persisted media beat plans and READY image assets from `render_input_snapshots`, but this does not mean the complete narration-driven planner/review workflow is finished.
+Current persisted plans/assets may be rendered before this complete review/planner loop is finished; that does not make the full planner IMPLEMENTED.
 
 ---
 
-## 10. Production modes
+## 15. Image generation and local materialization
+
+Provider execution remains backend-authorized and durable across provider boundaries.
+
+The Desktop migration target is:
 
 ```text
-ProductionMode
-  IMAGE_MOTION
-  HYBRID_LOCAL_I2V
-
-MotionStrategy
-  BASIC_IMAGE_MOTION
-  IMAGE_TO_VIDEO
+authorized image operation
+  -> provider execution
+  -> validate image
+  -> register stable MediaAsset identity/checksum
+  -> materialize bytes into Desktop project workspace
+  -> project.manifest.json entry
+  -> local render resolves mediaAssetId
 ```
 
-`IMAGE_MOTION` authorizes deterministic image motion only and never I2V. A real FFmpeg chapter render path with burned ASS subtitles exists. `HYBRID_LOCAL_I2V` remains deferred fast-follow work.
+The provider/cloud foundation exists. Complete Desktop-local materialization for every generation/regeneration/import path is still PARTIAL.
 
----
-
-## 11. Image generation and media durability
-
-Production image execution uses the authorized image generation plan and current Vertex Gemini 2.5 Flash adapter path. Validated images are stored as immutable R2 media assets before render.
-
-```text
-planned image operation
-  -> provider execution (Vertex)
-  -> validate image payload
-  -> immutable R2 object
-  -> MediaAsset metadata
-  -> READY media generation item
-```
-
-The long-term asset resolver remains reuse-first:
+Long-term reuse policy remains:
 
 ```text
 REUSE_APPROVED
@@ -291,135 +444,81 @@ REUSE_APPROVED
   -> GENERATE_NEW
 ```
 
-The current production foundation generates new images; richer reuse/approval/derivation remains incomplete.
+Richer reuse/approval/derivation remains incomplete.
 
 ---
 
-## 12. Current final render path
+## 16. Security and secrets
 
-The implemented chapter render foundation is:
-
-```text
-POST /api/v1/projects/{projectId}/chapters/{chapterId}/render/image-motion
-  -> persist immutable RenderInputSnapshot (header + beats)
-  -> admit & enqueue CHAPTER_RENDER GenerationJob + StageAttempt
-  -> render-worker claims job (sa.stage_name = 'CHAPTER_RENDER')
-  -> query exclusively from render_input_snapshots
-  -> load READY image assets from R2
-  -> load matching generated narration from R2
-  -> load pinned narration alignment / asset cues
-  -> build deterministic ASS subtitle track (build_subtitle_track)
-  -> normalize beat durations against narration duration
-  -> calculate render_fingerprint (image-motion-render-v5-admission-snapshot-drive-lock)
-  -> FFmpeg IMAGE_MOTION render with burned ASS subtitles (-vf subtitles=subtitles.ass) in local workspace
-  -> ffprobe MP4 duration and stream validation
-  -> calculate local SHA-256 checksum
-  -> acquire session-scoped PostgreSQL advisory lock (render_fingerprint_lock)
-  -> Google Drive put_immutable:
-       - find existing file by renderFingerprint
-       - verify remote size and narrativexSha256 appProperty match local checksum
-       - if absent, start resumable chunked upload with custom appProperties
-       - verify uploaded file metadata matches local SHA-256
-  -> commit render_manifest + final_artifacts
-  -> mark render stage and job COMPLETED
-```
-
-The current `final_artifacts` storage shape records:
-
-```text
-storageProvider = GOOGLE_DRIVE
-storageKey = gdrive:<driveFileId>
-externalFileId = <driveFileId>
-webViewLink = <optional Drive UI link>
-checksumSha256
-sizeBytes
-durationMs
-width
-height
-fps
-```
-
-The Drive file ID, not the web-view URL, is the remote object identity. Final video bytes are not written to R2.
-
-### Retry semantics & integrity
-
-1. **Admission snapshot isolation:** Since the render worker reads strictly from `render_input_snapshots`, subsequent edits to MediaPlans or assets cannot corrupt a running or retried render job.
-2. **PostgreSQL advisory lock:** Cross-worker advisory lock on the render fingerprint serializes Drive upload and FinalArtifact persistence, preventing duplicate parallel uploads.
-3. **Idempotent remote reuse:** If a previous worker attempt succeeded in uploading to Drive before a transient failure or crash, subsequent attempts search by `renderFingerprint`, verify the SHA-256 checksum, and reuse the remote file without re-uploading.
-4. **Ephemeral workspace boundary:** The local workspace `chapter.mp4` is ephemeral. If a job is marked `STALLED` and reclaimed by another worker attempt, the local FFmpeg render will re-execute locally before verifying/reusing the remote Drive file. Preserving a validated local MP4 across job attempts is a TARGET hardening item.
+- Google access/refresh tokens never enter Electron.
+- One-time Desktop OAuth handoff codes are short-lived/single-use.
+- Device tokens are separate, revocable machine credentials protected at rest.
+- Renderer does not receive arbitrary filesystem/process APIs.
+- Provider/R2/Drive credentials remain server/worker secrets.
+- Uploaded/provider media is untrusted until validated.
+- Absolute Desktop paths are not backend/domain identifiers.
+- Local project path resolution must remain inside the project workspace.
+- Lease loss must fence successful local completion.
 
 ---
 
-## 13. Cost, reservation and actual usage
+## 17. Cost and execution placement
 
-NarrativeX distinguishes:
+NarrativeX distinguishes expected/reserved/actual workload where applicable. Provider calls may create external cost; local FFmpeg execution does not fabricate provider billing.
 
-```text
-expectedCost
-reservationCeiling
-actualCost
-```
+Desktop-local rendering reduces cloud storage/transfer requirements but does not remove backend policy, entitlement or usage accounting.
 
-Provider work reconciles external cost where applicable. Local `CHAPTER_RENDER` consumes application credits through the local-render quota settlement path rather than fabricating provider billing.
-
-For `USER_PROVIDED_AUDIO`, TTS workload is zero for the covered scope, while storage/alignment/image/render workload may still be metered.
+For `USER_PROVIDED_AUDIO`, TTS workload is zero for covered source while image/alignment/render workload may remain metered.
 
 ---
 
-## 14. Review, history and continuity
+## 18. Review, history and continuity
 
-Character is reusable identity; ProjectCharacter is project participation/context. Appearance/outfit changes do not create a new Character identity.
+Character is reusable identity; ProjectCharacter is participation/context. Appearance/outfit/age/hairstyle/injury changes do not create a new Character solely for visual state.
 
-Re-analysis must not destructively replace approved Storyboard history. Regeneration creates new attempts/assets and preserves previous durable outputs for audit/review. When inputs change, prefer affected-scope invalidation rather than rebuilding unrelated work.
-
----
-
-## 15. Security, access and secrets
-
-- R2 pipeline objects are private by default.
-- Google Drive final files are private by default; `anyoneWithLink` is not part of the storage contract.
-- OAuth client secret and Drive refresh token are server/worker secrets and must never reach the browser or source control.
-- Drive production configuration uses `GOOGLE_DRIVE_CLIENT_ID`, `GOOGLE_DRIVE_CLIENT_SECRET`, `GOOGLE_DRIVE_REFRESH_TOKEN`, `GOOGLE_DRIVE_FOLDER_ID` and timeout settings on the render worker only.
-- Uploaded/provider media is untrusted until validation succeeds.
-- Browser/client access must remain owner-authorized; a Drive UI link is convenience metadata, not authorization.
+Regeneration/re-analysis must preserve immutable history where required. Input changes should invalidate affected scope rather than destructively rewriting unrelated approved work.
 
 ---
 
-## 16. Current production storage contract
+## 19. Legacy web deprecation rule
 
-```text
-Generated images          -> R2
-Generated narration       -> R2
-Accepted uploaded audio   -> R2
-Reusable media assets     -> R2
-Final rendered MP4        -> Google Drive
-PostgreSQL                -> metadata, lineage, provider/external IDs, checksums and state
-Worker local filesystem   -> ephemeral scratch only
-```
+`app/frontend-web` remains in the repository only during migration.
 
-This split is governed by [ADR-0003](../decisions/ADR-0003-media-storage-generation-pipelines-and-external-integrations.md) and supersedes earlier single-store R2 assumptions.
+Do not delete it until:
 
----
+- required product screens/workflows have Desktop parity;
+- auth/session flows are proven on packaged Desktop builds;
+- generation/import outputs needed by local render are locally materialized;
+- local render reliability/recovery requirements are defined/proven;
+- no deployment/test/docs tooling still depends on Next.js runtime behavior.
 
-## 17. Remaining release-critical work
-
-1. Harden user-provided audio upload/finalize/alignment and connect aligned multi-part audio to render slicing/stitching.
-2. Complete narration-driven `VisualScenePlanner` and review/approval workflow.
-3. Harden image review/reuse/lineage and affected-scope regeneration.
-4. Add publishing/entitlement hardening around the existing backend-authorized preview/download/streaming for Google Drive final artifacts.
-5. Preserve validated local renders across Drive retry attempts or materialize a durable upload-stage boundary if rerender avoidance is required.
-6. Complete actual usage/billing reconciliation and release/refund behavior.
-7. Add production health/configuration checks for Drive credentials and storage availability.
-8. Complete moderation, SSRF, retention/deletion, observability and disaster-recovery evidence.
-9. Add social publishing through a provider-neutral final-video read/stream boundary without making Drive files public.
+After those gates, remove web code and its stale documentation rather than leaving a permanent dual-client architecture by accident.
 
 ---
 
-## 18. Documentation rules
+## 20. Remaining release-critical Desktop work
+
+1. Complete local materialization/registration for image generation, TTS/narration and imports.
+2. Harden restart-safe local render recovery/resume.
+3. Decide/implement automatic device registration if explicit pairing should disappear from primary UX.
+4. Complete editor/timeline mutations, regeneration/review/reuse workflows and remaining screen parity.
+5. Add disk quota/cleanup, project backup/move/restore and missing-file repair flows.
+6. Harden packaging, code signing, auto-update and custom-protocol registration across supported OSes.
+7. Complete narration-driven VisualScenePlanner/review loop.
+8. Complete usage/cost reconciliation and production observability/retention/DR evidence.
+9. Remove `app/frontend-web` and cloud-first Desktop assumptions only after parity gates pass.
+10. Add publishing/export/upload features through explicit user actions/provider-neutral boundaries without making cloud storage mandatory for local editing.
+
+---
+
+## 21. Documentation rules
 
 - This V1.11 file is the single maintained versioned source of truth.
-- Do not recreate V1.10/V1.9 as parallel current specs.
-- [ADR-0001](../decisions/ADR-0001-system-topology-execution-and-persistence.md) through [ADR-0004](../decisions/ADR-0004-authentication-runtime-security-and-test-credentials.md) record consolidated architectural decisions.
-- Current code decides AS-IS claims; target architecture must be explicitly labeled TARGET.
-- Derived docs must not claim `R2-only`, `R2 FinalArtifact`, unfinished image generation, or unfinished Google Drive final storage after this checkpoint.
-- Derived docs must also not claim that multi-part uploaded narration rendering or cross-attempt Drive upload retry is complete until code proves it.
+- Current code decides AS-IS claims when docs drift.
+- ADR-0010 defines the Desktop client boundary.
+- ADR-0011 defines Google OAuth-only Desktop authentication.
+- ADR-0012 defines Desktop local-first project media and local render execution.
+- ADR-0003 remains valid for retained cloud/legacy worker storage/provider execution.
+- Derived docs must not claim that Desktop project media must live in R2 or that Desktop final MP4 must live in Google Drive.
+- Derived docs must not describe local FFmpeg orchestration as future-only after checkpoint `751f006...`.
+- Derived docs must not claim restart-safe recovery, full local materialization, full Desktop parity or legacy-web removal until code proves them.

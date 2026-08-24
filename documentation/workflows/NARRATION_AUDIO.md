@@ -10,153 +10,174 @@ NarrationStrategy
   USER_PROVIDED_AUDIO
 ```
 
-## Generated narration — implemented foundation
+For an accepted user-provided-audio scope, operation planning omits TTS work/reservation for that same scope.
 
-Generated narration is persisted as durable audio in Cloudflare R2. Provider execution semantics differ by provider.
+## Generated narration — implemented provider foundation
 
-### External Google TTS
+Generated narration starts from the persisted source identity and is validated/aligned before downstream use.
+
+### Google TTS
 
 ```text
 persisted Chapter source snapshot
   -> deterministic NarrationRequest
-  -> external provider operation / reconciliation
-  -> validated audio segments/final audio
-  -> R2
-  -> NarrationAsset metadata
+  -> provider operation / reconciliation
+  -> validated audio
   -> alignment
+  -> materialize according to execution mode
 ```
 
-External-provider durability retains provider-operation fencing because an ambiguous network outcome can otherwise duplicate billable work.
+Ambiguous external-provider outcomes remain fenced/reconciled before billable resubmission.
 
-### Local VieNeu
-
-VieNeu is local/retryable execution rather than an externally billable provider boundary:
+### VieNeu
 
 ```text
-persisted Chapter source
+persisted source
   -> sentence-aware segments
-  -> VieNeu local batch inference
-  -> PCM only in ephemeral worker workspace
-  -> concatenate/encode final MP3
+  -> local VieNeu inference
+  -> concatenate/encode final audio
   -> validate + SHA-256
-  -> immutable R2 final MP3
-  -> NarrationAsset metadata
+  -> alignment
+  -> materialize according to execution mode
 ```
 
-VieNeu does **not** need one durable R2 PCM object/provider operation per local synthesis segment. Failed local inference can be safely regenerated. The final MP3 remains durable in R2.
+VieNeu local inference can be regenerated safely when no external paid side effect occurred. Application quota/concurrency policy may still account for local compute.
 
-Production defaults can use CPU/ONNX. GPU/PyTorch requires a GPU-capable runtime/image; changing only an environment variable is not sufficient if the container lacks CUDA/PyTorch support.
+## Desktop narration materialization target
 
-`NARRATION_MP3_BITRATE` defaults to `96k`. Audio therefore remains substantially smaller than typical long-form final MP4 output and stays in R2 as reusable pipeline media.
+For the primary Desktop workflow, narration bytes consumed by local rendering must be registered in the project workspace:
 
-## VieNeu voice reference
+```text
+<userData>/projects/<projectId>/assets/audio/
+project.manifest.json
+```
 
-Preset voices do not need a reference file. A configured custom/global reference is mounted or supplied as an owned READY audio asset; credentials/reference media are never embedded in a job payload or committed to source control.
+The manifest maps the backend narration/media identity to a project-relative path, expected size and SHA-256. Electron main resolves/validates the file before rendering.
 
-When MP3 reference conversion is required, the worker performs the conversion outside the asyncio event loop and uses the ephemeral job workspace. Real-person voice cloning requires explicit consent, tenant isolation, retention and deletion controls before public production use.
+Absolute local paths are never persisted as backend narration identity.
+
+Cloud R2-backed narration remains a retained compatibility/provider path during migration; it is not the Desktop project-audio target.
 
 ## User-provided audio — implemented planning/timeline foundation
 
 ```text
-selected Chapter revision/source manifest
+selected Chapter/source manifest
   + ordered audio parts (1..N)
+  -> validate/register
   -> narration/document fingerprints
   -> one logical global audio clock
   -> alignment spans
   -> alignment status/coverage/confidence
 ```
 
-One audio part may cover multiple Chapters. Multiple files may cover one Chapter range. File boundaries do not determine Chapter boundaries.
+One audio part may cover multiple Chapters. Multiple files may cover one Chapter range. File boundaries do not define Chapter boundaries.
 
-For an accepted covered scope, operation planning omits `TTS_GENERATE`; TTS workload/reservation is zero for that scope.
+## Desktop user-audio import
 
-## User-provided audio ingestion — partial/hardening
-
-The intended durable boundary is:
+Primary Desktop flow should use native file selection and local manifest registration:
 
 ```text
-backend authorizes private R2 upload
-  -> client uploads audio
-  -> finalize
-  -> validate MIME/decode/duration/size/checksum
-  -> persist immutable media metadata
-  -> accept ordered narration part
-  -> align to selected source
+Electron native picker
+  -> validate selected file
+  -> copy/register under project assets/audio
+  -> SHA-256 + size metadata
+  -> backend stores stable asset identity/metadata
+  -> alignment planning/execution
 ```
 
-The model and storage foundations exist, but the complete production-facing upload/finalize/alignment experience still requires hardening. Unsupported/corrupt audio must fail before downstream paid work.
+Do not require a Desktop user to upload project audio to R2 solely so local FFmpeg can consume it.
 
-## Current render integration
+If the workflow intentionally needs cross-device/shared/cloud access, a separate explicit remote materialization/sync boundary may use cloud storage.
 
-The current `CHAPTER_RENDER` worker loads a generated narration asset that matches:
+## Current local render integration
+
+The local project-render claim resolves narration by backend asset identity plus expected integrity metadata. Electron main uses `ProjectStorage.resolveAsset(...)` to obtain the actual machine path only inside the trusted main process.
+
+Local project rendering then performs:
 
 ```text
-projectId
-chapterId
-chapterRowVersion
-sourceHash
+local narration input
+  + local image inputs
+  -> FFmpeg visual segments
+  -> video concat
+  -> narration concat
+  -> mux
+  -> ffprobe/checksum
+  -> local final artifact
 ```
 
-It does **not** yet resolve aligned `narration_parts` and slice/stitch the relevant global audio spans for a Chapter render.
+Lease heartbeat/progress/completion/failure are reported to the backend.
 
-Therefore the following is still required for full `USER_PROVIDED_AUDIO` rendering:
+## Multi-part user-provided audio — remaining E2E work
+
+The durable planning/global-clock model exists, but complete local E2E behavior must prove:
 
 ```text
 alignment spans
   -> identify relevant ordered parts
   -> calculate part-local ranges
-  -> slice audio ranges
-  -> concatenate/stitch across part boundaries when needed
-  -> validate one chapter-local render audio file
-  -> CHAPTER_RENDER
+  -> slice ranges when required
+  -> concatenate across boundaries
+  -> validate one render-scope audio input
+  -> register that local input/checksum
+  -> LOCAL_DEVICE render
 ```
 
-Do not claim the complete multi-Chapter uploaded-audio → render flow until this path exists.
+Do not claim complete multi-Chapter user-audio → local final-video behavior until this path is implemented and tested.
 
 ## Alignment acceptance
 
-Alignment maps selected source text to global audio time. At minimum preserve source identity, source span, global audio start/end, confidence and coverage/status.
+Alignment maps source text to global audio time. Preserve at least:
 
-Low confidence, missing source coverage, timeline gaps or incompatible source identity must stop for review/fix. NarrativeX must not silently replace accepted user-provided narration with generated TTS.
+- source identity/version;
+- source span;
+- global audio start/end;
+- confidence;
+- coverage/status.
 
-## Chapter Workspace visibility
+Low confidence, missing coverage, timeline gaps or incompatible source identity must stop for review/fix. NarrativeX must not silently replace accepted user-provided narration with generated TTS.
 
-Submitting a generated narration request returns a durable generation job. The Chapter Workspace keeps the Audio tab available while work is queued/running and prevents duplicate submission. Once a `NarrationAsset` exists, the backend can return short-lived private R2 access for playback; raw storage credentials are never exposed to the browser.
+## Desktop workspace visibility
 
-When the narration generation job reaches `COMPLETED`, PostgreSQL creates one unread in-app notification for the requesting user. The notification is idempotent across worker retries and appears in the notification center.
-Generation status/progress is also delivered through the authenticated generation SSE stream, with REST polling retained as a reconnect fallback.
+The Desktop Audio/Voice workspace should display backend-authoritative job/metadata state while resolving playable local files through the preload/main boundary. Renderer code must not receive arbitrary local paths or raw storage credentials.
+
+Cloud-backed playback may continue through authenticated backend access for compatibility where a local copy is not yet materialized.
 
 ## Cost behavior
 
 For a `USER_PROVIDED_AUDIO` covered scope:
 
 - TTS character workload = 0;
-- no TTS provider reservation/operation for that narration scope;
-- R2 storage, validation/alignment, image generation, motion and render workload may still be accounted separately.
+- no TTS provider operation/reservation for that narration scope;
+- validation/alignment/image/render workload may still be accounted separately.
 
-Local VieNeu synthesis has no external TTS provider charge, while application quota/concurrency policy may still account for local compute.
+For VieNeu, there may be no external provider charge while application compute/quota policy still applies.
 
-## Storage contract
+## Storage by execution mode
+
+### Desktop primary
 
 ```text
-Generated narration       -> R2
-Accepted uploaded audio   -> R2
-Generated images          -> R2
-Final rendered MP4        -> Google Drive
+Generated narration       -> local project assets/audio
+Accepted uploaded audio   -> local project assets/audio
+Generated images          -> local project assets/images
+Final local MP4           -> local project artifacts
+Metadata/job state        -> PostgreSQL
 ```
 
-Audio remains R2-backed; final rendered MP4 storage uses Google Drive under ADR-0003.
+### Cloud/legacy fallback
 
-## Machine-Local VieNeu Narration Setup
-
-The machine-local Docker runtime uses the `prod` Spring profile and real provider semantics (`TTS_PROVIDER_MODE=vieneu`, `MEDIA_STORAGE_MODE=r2`).
-
-1. Set `VIENEU_REFERENCE_AUDIO_FILE` to a consented WAV reference on the host.
-2. Configure R2 credentials in `.env.prod`.
-3. Build and launch the backend and narration worker:
-
-```powershell
-docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build backend narration-worker
+```text
+Cloud narration/audio     -> R2
+Cloud images              -> R2
+Cloud final MP4           -> Google Drive
+Metadata/job state        -> PostgreSQL
 ```
 
-4. Verify the worker logs for `Narration worker configuration verified`. A production worker rejects fake, disabled and unconfigured narration settings at startup.
+ADR-0012 governs Desktop local-first project media. ADR-0003 governs the retained cloud path.
+
+## VieNeu machine-local/provider setup
+
+The existing worker/Docker VieNeu path may continue for provider execution during migration. Its output must not force the Desktop project to remain cloud-backed; when a Desktop-local workflow consumes the result, materialize/register the accepted narration into the local project workspace.
+
+GPU/PyTorch execution still requires a GPU-capable runtime/image; toggling only an environment variable is not sufficient when CUDA/PyTorch dependencies are absent.

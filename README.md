@@ -1,117 +1,144 @@
 # NarrativeX
 
-NarrativeX is an image-first AI Story Video Studio for turning flexible-length stories into consistent, reviewed long-form videos and Short/Reel exports.
+NarrativeX is a desktop-first, image-first AI Story Video Studio for turning flexible-length stories into consistent, reviewed long-form videos and Short/Reel exports.
+
+The primary editor is now the Electron desktop application. Spring Boot remains the authoritative control plane for durable business metadata and execution state, while project media and local rendering are moving to a local-first Desktop boundary.
 
 ## Repository map
 
 | Area | Responsibility |
 | --- | --- |
-| `app/backend-service` | Spring Boot modular monolith, ownership, domain state, jobs and cost authority |
-| `app/ai-worker` | Python AI/media worker, provider ports, QA, TTS and FFmpeg orchestration |
-| `app/frontend-web` | Next.js/TypeScript storyboard, review, cost and notification UI |
-| `documentation` | Product, domain, architecture, workflows, codebase notes and ADRs |
+| `app/desktop` | Primary Electron + React + TypeScript editor; local project storage, native capabilities and local FFmpeg execution through Electron main |
+| `app/backend-service` | Spring Boot modular monolith; ownership, domain metadata, policy, jobs, leases and cost authority |
+| `app/ai-worker` | Python AI/media worker; provider execution and retained cloud/server processing paths |
+| `app/frontend-web` | Temporary legacy migration client; not the target editor architecture |
+| `packages/client-contracts` | Shared typed client/backend contracts |
 | `contracts` | Versioned backend ↔ worker payload contracts |
-| `docker-compose.prod.yml` | Production-profile stack for real local or public execution, with split AI/narration/render workers, Caddy and optional Cloudflare Tunnel |
-| `Caddyfile.prod` | Private HTTP origin used only inside the Cloudflare Tunnel Docker network |
+| `documentation` | Product, domain, architecture, workflows, migration plans and ADRs |
+| `docker-compose.prod.yml` | Retained cloud/legacy production stack and server-side worker runtime |
 
-## Run the real stack in Docker on this PC
+## Primary runtime topology
 
-The supported machine-local runtime is the `prod` Spring profile. It uses the real Vertex image
-provider, Cloudflare R2, VieNeu narration and Google Drive final-video storage; Docker is only the
-execution environment. Fake providers, local media storage and frontend mock mode remain limited
-to automated tests and Storybook.
-
-Copy the production template once, fill the provider/storage credentials, and run:
-
-```powershell
-Copy-Item .env.example .env.prod
-docker compose --env-file .env.prod -f docker-compose.prod.yml config
-docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
+```text
+Electron Desktop
+  renderer: editor UI / routing / state
+        |
+        v
+  preload: narrow typed capability bridge
+        |
+        v
+  main: OAuth deep link, native filesystem, local project manifest,
+        device execution, FFmpeg/ffprobe
+        |
+        +------------------------+
+        |                        |
+        v                        v
+Spring Boot Backend         Local project workspace
+  -> PostgreSQL               -> images/audio/video
+  -> Redis                    -> render work files
+  -> Python workers           -> final MP4 artifacts
 ```
 
-The production Compose file does not publish frontend/backend ports to the host. The browser entry
-point is the configured `https://APP_DOMAIN` through Cloudflare Tunnel; Caddy proxies the frontend
-and the Next.js server proxies API calls to the backend. PostgreSQL is the only service bound to
-loopback by default. The browser uses server-managed sessions and does not use a developer identity
-fallback.
+The backend remains authoritative for users, projects, source versions, ownership, entitlement/policy, render assignment, leases and durable job state. Electron local storage is authoritative only for Desktop project bytes referenced by stable backend asset IDs/checksums.
 
-Required for real image generation:
+## Desktop local-first media contract
 
-- Google Application Default Credentials service-account JSON, configured by `GCP_SERVICE_ACCOUNT_FILE`;
-- Vertex project and image batch staging bucket, configured by `GOOGLE_CLOUD_PROJECT` and `VERTEX_IMAGE_BATCH_GCS_BUCKET`;
-- Cloudflare R2 credentials for durable generated images;
-- a VieNeu reference WAV and Google Drive credentials if narration/rendering are enabled.
+For the Desktop path:
 
-The worker waits for the backend to become healthy so Flyway can apply the PostgreSQL schema first.
-Worker-local files are scratch/cache/FFmpeg workspace only. Generated images and narration audio go
-to R2; final rendered MP4 files go to the configured Google Drive folder.
-
-PostgreSQL 18 uses a new data directory layout. Do not point it directly at an existing PostgreSQL 16 data volume; migrate retained data with a tested dump/restore or PostgreSQL upgrade procedure first.
-
-Flyway migrations in `app/backend-service/src/main/resources/db/migration` are authoritative for both local and production schemas. The `local` Spring profile currently changes local runtime behavior (for example the secure-session-cookie setting) but does not load a separate demo-data migration location. Existing databases created from an older migration history require operator-reviewed migration/recreation; the application does not rewrite `flyway_schema_history` automatically.
-
-Then follow the module READMEs and `CONTRIBUTING.md` for backend, worker, and frontend checks.
-
-### Local Vertex credentials
-
-When `AI_PROVIDER_MODE=vertex` or `IMAGE_PROVIDER_MODE=vertex`, the worker needs Google Application Default Credentials. Set `GOOGLE_CLOUD_PROJECT` and point `GCP_SERVICE_ACCOUNT_FILE` to the service-account JSON. Compose mounts that file read-only at the worker's `GOOGLE_APPLICATION_CREDENTIALS` path. Do not commit credential files.
-
-## Run the production stack
-
-The same Compose file contains the public Caddy and Cloudflare Tunnel services, and requires a
-remotely managed tunnel token. There is no separate local Compose file in the current repository;
-use the frontend/backend module dev commands when a host-local HTTP loopback workflow is needed.
-
-```powershell
-Copy-Item .env.example .env.prod
-# Fill every secret/path/domain value in .env.prod before continuing.
-docker compose --env-file .env.prod -f docker-compose.prod.yml config
-docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
+```text
+Generated/imported project images   -> local project workspace
+Project narration/audio             -> local project workspace
+Imported project media              -> local project workspace
+Render intermediates                -> local project workspace/work
+Final rendered MP4                  -> local project workspace/artifacts
+Metadata / ownership / job state    -> PostgreSQL
 ```
 
-The Compose stack forces the Spring `prod` profile, runs the general AI worker separately from the
-VieNeu narration worker and render worker, enables Vertex analysis/image generation, keeps
-generated images and narration audio in R2, and stores final rendered MP4 files in Google Drive.
+Workspace layout:
 
-### Publish from a Windows PC with Cloudflare Tunnel
-
-The public connection is `HTTPS client -> Cloudflare -> encrypted tunnel -> cloudflared -> Caddy HTTP on appnet`. Caddy and the application do not publish host ports, so do not add router port-forwarding rules for ports 80 or 443.
-
-1. Add the application domain to Cloudflare and create a remotely-managed Tunnel.
-2. Add a Public Hostname route for `APP_DOMAIN` with service URL `http://caddy:80`.
-3. Copy the connector token to `CLOUDFLARE_TUNNEL_TOKEN` in the untracked `.env.prod`.
-4. Keep `APP_DOMAIN` as a hostname only, for example `app.example.com` (no scheme or path).
-5. In Cloudflare, enable Always Use HTTPS and choose an appropriate edge certificate policy. Cloudflare terminates browser TLS; the origin remains private inside the authenticated tunnel.
-6. Prevent Windows sleep/hibernate while serving production traffic and configure Docker Desktop to start automatically.
-
-Validate before starting:
-
-```powershell
-docker compose --env-file .env.prod -f docker-compose.prod.yml config
-docker run --rm -v "${PWD}/Caddyfile.prod:/etc/caddy/Caddyfile:ro" caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile
+```text
+<userData>/projects/<projectId>/
+  project.manifest.json
+  assets/
+    images/
+    audio/
+    video/
+  artifacts/
+    <jobId>/final.mp4
+  work/
 ```
 
-The Compose file fails fast if `CLOUDFLARE_TUNNEL_TOKEN` is missing or empty. Do not start the stack until the resolved configuration command succeeds; otherwise `cloudflared` will repeatedly restart with a missing tunnel identity.
+`project.manifest.json` maps backend asset IDs to project-relative paths, sizes and SHA-256 checksums. Absolute local filesystem paths must not be stored in backend state.
 
-Start and verify:
+Cloudflare R2 and Google Drive remain part of the retained cloud/legacy worker execution path during migration. They are not the primary Desktop project-media boundary. Shared voice/sample media may remain remote when cross-install reuse requires it.
 
-```powershell
-docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
-docker compose --env-file .env.prod -f docker-compose.prod.yml ps
-docker compose --env-file .env.prod -f docker-compose.prod.yml logs --tail 100 cloudflared caddy
-curl.exe -I "https://$((Get-Content .env.prod | Select-String '^APP_DOMAIN=').Line.Split('=',2)[1])"
+## Authentication
+
+NarrativeX uses Google OAuth only for end-user login. Password login/register/forgot-password flows must not be reintroduced.
+
+Desktop authentication uses the system browser:
+
+```text
+GET /api/v1/auth/desktop/start
+  -> Google OIDC
+  -> narrativex://auth/callback?code=<one-time-code>
+  -> POST /api/v1/auth/desktop/exchange
+  -> server-managed NarrativeX session
 ```
 
-A healthy deployment must redirect or serve only HTTPS publicly, return the expected security headers, keep ports 80/443 closed on the router, and show the Tunnel connector as Healthy in Cloudflare.
+Google access/refresh tokens never enter Electron. Local execution uses a separate device credential for heartbeat/render APIs; that device token is not the user's OAuth/session token.
 
-For final-video storage, create a Google OAuth refresh token for the Drive account that owns the target folder with the `https://www.googleapis.com/auth/drive` scope, then configure `GOOGLE_DRIVE_CLIENT_ID`, `GOOGLE_DRIVE_CLIENT_SECRET`, `GOOGLE_DRIVE_REFRESH_TOKEN`, and `GOOGLE_DRIVE_FOLDER_ID` in `.env.prod`. The render worker uses resumable uploads and stores the Drive file ID plus view link in `final_artifacts`. The production template defaults VieNeu to the CPU/ONNX backend; GPU/PyTorch deployment requires a GPU-capable image/runtime rather than only changing `VIENEU_BACKEND`.
+## Run Desktop in development
+
+Start the backend/required server dependencies, then run the desktop client:
+
+```powershell
+cd app/desktop
+npm ci
+npm run dev
+```
+
+Desktop checks:
+
+```powershell
+npm run type-check
+npm run build
+```
+
+Default backend URL:
+
+```text
+NARRATIVEX_BACKEND_URL=http://localhost:8080
+```
+
+Local project rendering additionally requires FFmpeg/ffprobe to be available and:
+
+```text
+NARRATIVEX_DESKTOP_PROJECT_RENDER_ENABLED=true
+```
+
+## Local render foundation
+
+The current Desktop implementation can claim backend-assigned local project renders, resolve checksum-verified local assets, render FFmpeg segments, concatenate video and narration, mux, validate with ffprobe, register the local artifact and report progress/completion back to the backend.
+
+Lease heartbeat, failure reporting and in-process cancellation are implemented foundations. Process-restart crash recovery/resume remains a hardening item.
+
+## Cloud/legacy runtime
+
+`docker-compose.prod.yml`, Caddy/Cloudflare Tunnel, R2-backed pipeline media and Google Drive final-video storage remain valid for the retained browser/cloud worker execution path while Desktop migration is incomplete. Do not use that topology to design new Desktop project storage or Desktop local rendering.
+
+The web client may be removed only after Desktop parity gates are satisfied and remaining browser-only dependencies are no longer required.
+
+## Persistence
+
+Flyway migrations in `app/backend-service/src/main/resources/db/migration` are authoritative for PostgreSQL schemas. Production persistence uses MyBatis + explicit SQL; JPA and direct `JdbcTemplate` persistence are not part of the production persistence path.
 
 ## Product guardrails
 
-V1.11 is not a fixed-duration or fixed-image-count generator. Planning uses semantic scene boundaries, narration timing, complexity, asset reuse, delta scope, provider capability, and cost reservation. Character identity is versioned and reviewed; external provider outcomes are durable and reconciled; chapter continuation, notifications, entitlement, trust & safety, rights/consent, abuse and privacy gates are part of the product contract, while the current repository remains an incremental foundation.
+NarrativeX is not a fixed-duration or fixed-image-count generator. Planning uses narration timing, semantic scene boundaries, complexity, asset reuse, source/version identity, provider capability and cost authorization.
 
-The canonical source of truth is `documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`.
-Accepted ADRs refine cross-cutting decisions; ADR-0003 defines the split R2/Google Drive storage
-contract and ADR-0008 defines the production-profile Docker runtime. Current code, Flyway
-migrations and automated tests decide factual AS-IS implementation claims when derived
-documentation drifts.
+Narration timing is the master clock. Expensive work pins source identity and must not silently overwrite immutable reviewed history. Workers execute backend-authorized plans and may not invent paid work.
+
+The canonical product/architecture baseline is `documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`. Accepted ADRs refine that baseline; for factual AS-IS implementation claims, current code, Flyway migrations and automated tests outrank stale derived documentation.
+
+Desktop-specific boundaries are defined by ADR-0010, ADR-0011 and ADR-0012, with `documentation/plans/DESKTOP_APP_MIGRATION.md` tracking remaining migration work.

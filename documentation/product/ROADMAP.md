@@ -1,95 +1,142 @@
 # NarrativeX — V1.11 Roadmap
 
 **Canonical baseline:** `../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`  
-**Planning rule:** dependency order, not fixed-date commitment.
+**Planning rule:** dependency order, not fixed-date commitment.  
+**Primary migration:** Electron Desktop + local-first project media/render.
 
 ## Current checkpoint — IMPLEMENTED foundations
 
 ```text
-Create/Edit Chapter
-  -> durable Analyze
-  -> Character/Location + Scene/VisualBeat continuity
-  -> TTS/VieNeu narration + alignment
-  -> backend-authoritative MediaPlan
-  -> Vertex image generation -> R2 image assets
-  -> IMAGE_MOTION chapter render
-  -> Google Drive final MP4
+Electron Desktop primary editor
+  -> Google OAuth system-browser handoff
+  -> backend-authoritative Project/Chapter/domain state
+  -> local project workspace + manifest
+  -> local device pairing/heartbeat
+  -> backend-assigned LOCAL_DEVICE render
+  -> FFmpeg/ffprobe local final MP4
 ```
 
-Also implemented as foundations: worker claim/lease/heartbeat, user-provided-audio TTS-bypass planning, global Character library and project assignment/role filtering, project-scoped Character list/detail reads, normalized CharacterVersion references, authoritative Chapter media heads, MyBatis-only production persistence, local render quota settlement, local-device pairing, and provider-aware FinalArtifact metadata.
+Existing cloud/provider foundations remain available for analysis, image generation, narration and fallback rendering/storage.
 
-## Track A — Preserve persistence architecture — IMPLEMENTED
+## Track A — Desktop client and security boundary — IMPLEMENTED foundation
 
-Production persistence is MyBatis + explicit SQL. Further work here is maintenance, query optimization and regression prevention rather than framework migration.
+- Electron Vite + React + TypeScript shell;
+- project-scoped editor workspaces;
+- secure main/preload/renderer split;
+- no unrestricted Node access in renderer;
+- native file/folder and artifact actions owned by main;
+- shared typed client contracts.
 
-## Track B — Finish the complete creator loop
+### Remaining
 
-### B1 — Generated narration path — IMPLEMENTED foundation
-- Google TTS/local VieNeu execution;
-- R2-backed narration media;
-- alignment/timing foundation;
-- render worker can load generated narration matching the pinned Chapter snapshot.
+- complete screen/editor mutation parity;
+- richer timeline editing/review/regeneration UX;
+- packaging/signing/auto-update hardening.
 
-### B2 — User-provided narration E2E — PARTIAL → TARGET
-- authorized private R2 upload/finalize;
-- MIME/decode/duration/checksum validation;
-- ordered multi-file logical timeline;
-- alignment coverage/confidence/review hardening;
-- **remaining render gap:** slice/stitch aligned narration parts for chapter-local render input.
+## Track B — Google OAuth-only Desktop auth — IMPLEMENTED foundation
 
-### B3 — VisualScenePlanner — TARGET
-- narration timing is duration authority;
-- pin source/analysis/narration identities together;
-- adaptive source/audio spans and reviewable scene plan.
+- system-browser `/api/v1/auth/desktop/start`;
+- `narrativex://auth/callback` handling;
+- one-time handoff exchange into server-managed NarrativeX session;
+- user session separated from device execution token.
 
-### B4 — Image generation execution — IMPLEMENTED foundation
-- Vertex image provider/batch path exists;
-- generated images are validated and persisted to R2;
-- renderer consumes READY image assets;
-- remaining work is richer review/reuse/reframe/edit lineage and affected-scope regeneration.
+### Remaining
 
-### B5 — IMAGE_MOTION renderer — IMPLEMENTED foundation
-- dedicated render worker exists;
-- pinned MediaPlan/image assets + narration snapshot;
-- deterministic FFmpeg image motion;
-- ffprobe validation and SHA-256;
-- local render quota settlement.
+- remove any remaining password-auth product/UI leftovers;
+- packaged-build protocol/OAuth integration tests;
+- decide whether explicit device pairing remains or becomes automatic after login.
 
-### B6 — Google Drive FinalArtifact — IMPLEMENTED foundation
-- final MP4 is uploaded directly from local render workspace to Google Drive;
-- resumable chunk upload;
-- render-fingerprint lookup for idempotency;
-- remote size verification;
-- `storageProvider`, Drive file ID and optional web-view link are persisted;
-- final MP4 is not duplicated into R2 by default.
+## Track C — Desktop local project storage — IMPLEMENTED foundation
 
-### B7 — Final video delivery — IMPLEMENTED foundation
-- owner-authorized preview/download/streaming from private Drive through the backend OAuth proxy with HTTP Range support;
-- provider-neutral read/stream contract for future YouTube/Facebook/TikTok publishing;
-- production storage health/config checks.
+- `<userData>/projects/<projectId>` workspace;
+- atomic schema-versioned `project.manifest.json`;
+- project-relative asset/artifact paths;
+- size/SHA-256 verification;
+- workspace/path traversal protection.
 
-### B8 — Drive retry durability — TARGET hardening
-The current Drive upload resumes within a worker attempt and detects an already-uploaded render by fingerprint. The rendered MP4 itself lives in an ephemeral job workspace, so a failed attempt may rerender after the job is reclaimed. Add a durable upload-stage/checkpoint or bounded retained render artifact if upload-only retry across attempts is required.
+### Remaining
 
-## Fast-follow after creator-loop reliability
+- disk quota/cleanup UX;
+- backup/move/restore;
+- missing/corrupt file repair;
+- complete local materialization of all image/TTS/import outputs.
+
+## Track D — Local project render — IMPLEMENTED foundation
+
+- device claim/lease/progress/completion/failure;
+- FFmpeg/ffprobe capability probing;
+- render segments;
+- concat video;
+- concat narration;
+- mux;
+- ffprobe/checksum final artifact;
+- local artifact registration;
+- in-process cancellation.
+
+### Remaining
+
+- process-restart recovery/resume;
+- richer pause/retry/recovery UI;
+- long-form disk-space preflight and cleanup;
+- packaged-runtime FFmpeg distribution strategy.
+
+## Track E — Finish Desktop-local creator loop — PARTIAL → TARGET
+
+### E1 — Image result local materialization
+
+Provider execution foundation exists. Every accepted generated/regenerated image needed by Desktop must be registered into the project workspace/manifest so local render resolves `mediaAssetId` without mandatory R2 download.
+
+### E2 — Narration result local materialization
+
+Generated/imported narration used by local render must be registered locally with checksum/timing metadata. `USER_PROVIDED_AUDIO` keeps TTS bypass and one logical audio clock.
+
+### E3 — Import/media local registration
+
+All Desktop imports use native file selection and manifest registration. Backend stores stable IDs/metadata, never absolute paths.
+
+### E4 — VisualScenePlanner/review
+
+Complete narration-driven adaptive scene/beat planning and review flow. Avoid fixed image-count/fixed-duration assumptions.
+
+### E5 — Asset review/reuse
+
+Add richer approval/reuse/reframe/edit/affected-scope regeneration after the generate-new foundation is reliable.
+
+## Track F — Retained cloud/legacy path — MAINTENANCE / FALLBACK
+
+The existing path remains valid while migration is incomplete:
+
+```text
+cloud pipeline media -> R2
+cloud final MP4      -> Google Drive
+```
+
+Maintain it only as required for compatibility/provider workflows and fallback. Do not make new Desktop features depend on cloud storage without an explicit cross-device/shared-media requirement.
+
+## Track G — Legacy web removal — TARGET
+
+Remove `app/frontend-web` after:
+
+- Desktop screen/workflow parity;
+- local media materialization coverage;
+- auth/protocol packaging validation;
+- local render reliability/recovery definition;
+- no CI/deployment/docs dependency requires Next.js.
+
+## Fast-follow after reliable creator loop
 
 - Character review/version/reference locking completion.
 - Approved storyboard revision/reset workflow.
 - Reuse → reframe → edit → new AssetResolver.
-- HYBRID_LOCAL_I2V/Wan runtime hardening and GPU usage reconciliation.
+- HYBRID_LOCAL_I2V/Wan runtime hardening.
 - Full actual-cost ledger/release/refund.
-- Output moderation, SSRF-safe ingestion, retention/deletion, observability and backup/restore evidence.
-
-## Storage checkpoint
-
-```text
-Images / narration / uploaded audio / reusable media -> R2
-Final rendered MP4                              -> Google Drive
-Metadata / lineage / job state                  -> PostgreSQL
-```
+- Moderation/SSRF/retention/observability/backup/restore evidence.
+- Provider-neutral publishing/upload from local final artifacts.
 
 ## Current acceptance scenarios
 
-**Generated narration path:** a pinned Chapter with READY R2 images and matching generated narration can render `IMAGE_MOTION`, validate the MP4 and persist the final video to Google Drive.
+**Desktop generated-media path:** backend-authorized generation produces an accepted media identity, Desktop materializes/registers its bytes locally, local render resolves asset IDs/checksums and produces a checksum-verified local MP4.
 
-**User-provided narration path:** planning/timeline/TTS bypass foundations exist, but do not claim complete multi-Chapter audio → render until aligned parts are sliced/stitched into render input.
+**Desktop local render:** an authorized paired device claims a `LOCAL_DEVICE` project render, heartbeats the lease, renders with FFmpeg, validates/registers the local artifact and reports completion without persisting an absolute machine path.
+
+**Cloud fallback:** retained R2/Drive worker rendering remains available where required during migration, but is not the Desktop target storage topology.
