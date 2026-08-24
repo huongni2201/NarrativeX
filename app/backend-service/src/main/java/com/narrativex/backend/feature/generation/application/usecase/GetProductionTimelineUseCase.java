@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -22,7 +23,7 @@ public class GetProductionTimelineUseCase {
   private final ProjectAccess projectAccess;
   private final ProductionTimelineSourceRepository sourceRepository;
 
-  @Transactional(readOnly = true)
+  @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
   public ProductionTimelineView execute(UUID projectId) {
     return executeOwned(projectId, currentUserId.get());
   }
