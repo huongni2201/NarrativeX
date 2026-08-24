@@ -65,22 +65,27 @@ async def concat_video_segments(
 
 
 async def concat_audio_parts(
-    parts: list[Path], output_path: Path, *, timeout_seconds: float = 900.0
+    parts: list[Path],
+    output_path: Path,
+    *,
+    bitrate: str = "192k",
+    sample_rate: int = 48_000,
+    timeout_seconds: float = 900.0,
 ) -> Path:
     if not parts:
         raise ValueError("At least one audio part is required")
+    if sample_rate <= 0:
+        raise ValueError("sample_rate must be positive")
+    if not bitrate.strip():
+        raise ValueError("bitrate must not be blank")
 
     command = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y"]
     for part in parts:
         command.extend(["-i", str(part)])
 
-    normalized = []
-    for index in range(len(parts)):
-        label = f"a{index}"
-        normalized.append(f"[{label}]")
-        command.extend([])
+    normalized = [f"[a{index}]" for index in range(len(parts))]
     filters = ";".join(
-        f"[{index}:a]aresample=48000,asetpts=PTS-STARTPTS[a{index}]"
+        f"[{index}:a]aresample={sample_rate},asetpts=PTS-STARTPTS[a{index}]"
         for index in range(len(parts))
     )
     filters += ";" + "".join(normalized) + f"concat=n={len(parts)}:v=0:a=1[aout]"
@@ -93,9 +98,9 @@ async def concat_audio_parts(
             "-c:a",
             "aac",
             "-b:a",
-            "192k",
+            bitrate,
             "-ar",
-            "48000",
+            str(sample_rate),
             str(output_path),
         ]
     )
@@ -110,6 +115,8 @@ async def mux_master_audio(
     *,
     timeout_seconds: float = 900.0,
 ) -> Path:
+    # concat_audio_parts already creates the pinned AAC master track. Stream-copy it here so
+    # long-form rendering pays the encode cost once and avoids a second lossy AAC generation.
     await _run(
         [
             "ffmpeg",
@@ -128,11 +135,7 @@ async def mux_master_audio(
             "-c:v",
             "copy",
             "-c:a",
-            "aac",
-            "-b:a",
-            "192k",
-            "-ar",
-            "48000",
+            "copy",
             "-shortest",
             "-movflags",
             "+faststart",
