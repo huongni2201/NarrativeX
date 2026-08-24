@@ -12,6 +12,7 @@ export type {
   ApiChapterStoryboard,
   ApiStoryboardScene,
   ApiStoryboardVisualBeat,
+  CameraAngle,
   CameraMovement,
   MotionMode,
   VisualBeatReviewStatus,
