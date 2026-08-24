@@ -89,6 +89,9 @@ class WorkerSettings(BaseSettings):
     vertex_image_batch_poll_seconds: float = Field(default=30.0, ge=5.0, le=300.0)
     vertex_image_batch_http_timeout_seconds: float = Field(default=120.0, gt=1, le=600)
     vertex_image_unknown_max_age_seconds: int = Field(default=3600, ge=60, le=86_400)
+    image_reconcile_max_attempts: int = Field(default=5, ge=1, le=100)
+    image_circuit_breaker_failure_threshold: int = Field(default=3, ge=1, le=100)
+    image_circuit_breaker_open_seconds: int = Field(default=120, ge=1, le=86_400)
     image_max_output_bytes: int = Field(default=15_000_000, ge=1024, le=50_000_000)
 
     tts_provider_mode: Literal["disabled", "fake", "vieneu"] = Field(

@@ -34,6 +34,9 @@ Architectural decisions across NarrativeX are maintained in the following canoni
 8. **[ADR-0008: Production-profile Docker runtime for real machine-local execution](./ADR-0008-real-docker-runtime.md)**
    - *Scope:* Production provider/storage semantics inside Docker on a developer-owned machine, with fake/local adapters restricted to tests and Storybook.
 
+9. **[ADR-0009: Bounded image-provider retries and circuit breaking](./ADR-0009-image-provider-circuit-breaker-and-retry-bounds.md)**
+   - *Scope:* Image-provider circuit breaking, durable reconciliation-attempt bounds, and application-level cancellation of retry loops.
+
 ---
 
 Use the next sequential ADR number for future cross-cutting architectural decisions.

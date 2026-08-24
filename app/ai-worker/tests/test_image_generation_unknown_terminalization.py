@@ -144,6 +144,34 @@ async def test_expired_known_provider_operation_reschedules_instead_of_terminali
 
 
 @pytest.mark.asyncio
+async def test_known_provider_operation_terminalizes_after_reconcile_attempt_limit() -> None:
+    connection = _Connection("FAILED")
+    repository = ImageGenerationRepository(
+        "postgresql://unused",
+        lease_seconds=30,
+        settings=WorkerSettings(worker_env="test", image_reconcile_max_attempts=1),
+    )
+    repository._pool = cast(Any, _Pool(connection))
+    aggregate_calls: list[tuple[Any, int]] = []
+
+    async def aggregate(connection_arg: Any, stage_attempt_id: int) -> None:
+        aggregate_calls.append((connection_arg, stage_attempt_id))
+
+    repository._aggregate_generation_job = cast(Any, aggregate)
+    operation = _operation(
+        provider_operation_id="projects/p/locations/global/batchPredictionJobs/123",
+        status=ProviderOperationStatus.RUNNING,
+    )
+
+    assert await repository.mark_unknown(operation, "NETWORK_TIMEOUT") is True
+    provider_query, provider_args = connection.fetchrow_calls[0]
+    assert "reconcile_attempts + 1 >= $5" in provider_query
+    assert provider_args[4] == 1
+    assert len(connection.execute_calls) == 1
+    assert aggregate_calls == [(connection, operation.stage_attempt_id)]
+
+
+@pytest.mark.asyncio
 async def test_recoverable_unresolved_unknown_reschedules_without_terminalizing_items() -> None:
     connection = _Connection("UNKNOWN")
     repository = _repository(connection)

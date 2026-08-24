@@ -55,6 +55,14 @@ Derived assets preserve lineage and only billable operations contribute provider
   before every new provider submission; claimed-worker DB mutations carry the same lease fence;
 - batches are capped by `VERTEX_IMAGE_BATCH_MAX_ITEMS` and duplicate request bodies are split into
   separate batches because positional output matching is forbidden;
+- the image worker opens an in-process circuit after `IMAGE_CIRCUIT_BREAKER_FAILURE_THRESHOLD`
+  consecutive provider failures and blocks new paid submissions during
+  `IMAGE_CIRCUIT_BREAKER_OPEN_SECONDS`;
+- ambiguous provider outcomes remain `UNKNOWN` for safe recovery, but each reconciliation failure
+  increments `reconcile_attempts`; after `IMAGE_RECONCILE_MAX_ATTEMPTS` the operation and its
+  generation items are terminalized as `FAILED`, stopping the retry loop. This is an application
+  retry cancellation; an external provider job that already has an operation ID may still need
+  provider-side cancellation or reconciliation.
 - completing one provider batch never completes the parent stage/job by itself: the worker
   aggregates every `media_generation_items` row for the generation job, preserving `RUNNING` for
   `QUEUED`/`RUNNING`/`VALIDATING`/`UNKNOWN`, setting `FAILED` when no pending items remain and any
