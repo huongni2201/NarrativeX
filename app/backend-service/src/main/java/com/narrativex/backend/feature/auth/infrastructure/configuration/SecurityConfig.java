@@ -34,11 +34,14 @@ public class SecurityConfig {
     "/actuator/health",
     "/api/v1/auth/csrf",
     "/api/v1/local-devices/pair",
-    "/api/v1/local-devices/heartbeat"
+    "/api/v1/local-devices/heartbeat",
+    "/api/v1/local-devices/project-renders/**"
   };
 
   private static final String[] DEVICE_CSRF_IGNORED_PATHS = {
-    "/api/v1/local-devices/pair", "/api/v1/local-devices/heartbeat"
+    "/api/v1/local-devices/pair",
+    "/api/v1/local-devices/heartbeat",
+    "/api/v1/local-devices/project-renders/**"
   };
 
   @Bean
@@ -74,7 +77,8 @@ public class SecurityConfig {
             "X-CSRF-TOKEN",
             "X-XSRF-TOKEN",
             "X-Correlation-Id",
-            "If-Match"));
+            "If-Match",
+            "X-NX-Device-Token"));
     configuration.setExposedHeaders(List.of("ETag", "Location", "X-Correlation-Id"));
     configuration.setAllowCredentials(true);
     configuration.setMaxAge(3600L);
