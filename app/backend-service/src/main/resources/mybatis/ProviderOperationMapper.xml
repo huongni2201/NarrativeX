@@ -50,26 +50,6 @@
         RETURNING id
     </select>
 
-    <update id="update" parameterType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ProviderOperationRow">
-        UPDATE provider_operations
-           SET stage_attempt_id = #{stageAttemptId},
-               provider_key = #{providerKey},
-               provider_operation_id = #{providerOperationId},
-               status = #{status},
-               request_fingerprint = #{requestFingerprint},
-               normalized_result_json = CAST(#{normalizedResultJson} AS jsonb),
-               result_fingerprint = #{resultFingerprint},
-               reserved_at = #{reservedAt},
-               completed_at = #{completedAt},
-               next_reconcile_at = #{nextReconcileAt},
-               reconcile_attempts = #{reconcileAttempts},
-               last_reconcile_error = #{lastReconcileError},
-               updated_at = CURRENT_TIMESTAMP,
-               row_version = row_version + 1
-         WHERE id = #{id}
-           AND row_version = #{rowVersion}
-    </update>
-
     <select id="findById" resultMap="providerOperationRow">
         SELECT <include refid="columns" />
           FROM provider_operations

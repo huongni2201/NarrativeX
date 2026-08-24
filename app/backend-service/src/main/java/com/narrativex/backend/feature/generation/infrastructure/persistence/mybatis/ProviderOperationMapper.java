@@ -10,8 +10,6 @@ import org.apache.ibatis.annotations.Param;
 public interface ProviderOperationMapper extends NarrativeXMyBatisMapper {
   UUID insert(ProviderOperationRow row);
 
-  int update(ProviderOperationRow row);
-
   ProviderOperationRow findById(@Param("id") UUID id);
 
   ProviderOperationRow findByFingerprint(
