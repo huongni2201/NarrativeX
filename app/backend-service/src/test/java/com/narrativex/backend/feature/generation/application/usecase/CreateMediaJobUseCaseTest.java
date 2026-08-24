@@ -16,7 +16,7 @@ class CreateMediaJobUseCaseTest {
 
   @Test
   void acceptsDatabaseMaximumIdempotencyKeyLength() {
-    String value = "k".repeat(200);
+    String value = "k".repeat(512);
 
     assertThat(CreateMediaJobUseCase.requireIdempotencyKey(value)).isEqualTo(value);
   }
@@ -31,8 +31,8 @@ class CreateMediaJobUseCaseTest {
 
   @Test
   void rejectsIdempotencyKeyLongerThanDatabaseColumn() {
-    assertThatThrownBy(() -> CreateMediaJobUseCase.requireIdempotencyKey("k".repeat(201)))
+    assertThatThrownBy(() -> CreateMediaJobUseCase.requireIdempotencyKey("k".repeat(513)))
         .isInstanceOf(GenerationAdmissionDeniedException.class)
-        .hasMessageContaining("200");
+        .hasMessageContaining("512");
   }
 }
