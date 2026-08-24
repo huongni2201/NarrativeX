@@ -298,14 +298,15 @@ export class ProjectStorage {
     const current = new Promise<void>((resolvePromise) => {
       release = resolvePromise;
     });
-    this.projectLocks.set(key, previous.then(() => current));
+    const queued = previous.then(() => current);
+    this.projectLocks.set(key, queued);
 
     await previous;
     try {
       return await task();
     } finally {
       release();
-      if (this.projectLocks.get(key) === current) {
+      if (this.projectLocks.get(key) === queued) {
         this.projectLocks.delete(key);
       }
     }
