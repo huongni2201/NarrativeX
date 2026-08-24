@@ -184,16 +184,20 @@ export class LocalExecutionService extends EventEmitter {
       return completion;
     } catch (error) {
       if (!leaseLost) {
-        const failure = renderFailure(error);
-        await this.backendClient
-          .failProjectRender(
-            identity.deviceToken,
-            prepared.jobId,
-            prepared.leaseToken,
-            failure.code,
-            failure.retryable,
-          )
-          .catch(() => undefined);
+        if (isRenderCancellation(error)) {
+          await this.persistCancellation(identity, prepared);
+        } else {
+          const failure = renderFailure(error);
+          await this.backendClient
+            .failProjectRender(
+              identity.deviceToken,
+              prepared.jobId,
+              prepared.leaseToken,
+              failure.code,
+              failure.retryable,
+            )
+            .catch(() => undefined);
+        }
       }
       throw error;
     } finally {
@@ -220,6 +224,31 @@ export class LocalExecutionService extends EventEmitter {
         true,
       ),
     );
+  }
+
+  private async persistCancellation(
+    identity: DeviceIdentity,
+    prepared: PreparedProjectRender,
+  ): Promise<void> {
+    try {
+      await this.backendClient.cancelProjectRender(
+        identity.deviceToken,
+        prepared.jobId,
+        prepared.leaseToken,
+      );
+    } catch {
+      // A failed cancel request must never make a user-cancelled render claimable again.
+      // Persist a terminal failure as the fallback if the dedicated cancel transition fails.
+      await this.backendClient
+        .failProjectRender(
+          identity.deviceToken,
+          prepared.jobId,
+          prepared.leaseToken,
+          "RENDER_CANCELLED",
+          false,
+        )
+        .catch(() => undefined);
+    }
   }
 
   private async prepareNextProjectRender(
@@ -295,8 +324,10 @@ export class LocalExecutionService extends EventEmitter {
     try {
       await this.executeNextProjectRender();
     } catch (error) {
-      this.lastError = errorMessage(error);
-      this.emit("status", this.status());
+      if (!isRenderCancellation(error)) {
+        this.lastError = errorMessage(error);
+        this.emit("status", this.status());
+      }
     } finally {
       this.renderInFlight = false;
     }
@@ -346,6 +377,10 @@ export class LocalExecutionService extends EventEmitter {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Local execution request failed.";
+}
+
+function isRenderCancellation(error: unknown): boolean {
+  return error instanceof RenderExecutionError && error.code === "RENDER_CANCELLED";
 }
 
 function renderFailure(error: unknown): { code: string; retryable: boolean } {
