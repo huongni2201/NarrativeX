@@ -4,8 +4,40 @@
     "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptContextMapper">
 
-    <select id="findLocation"
-            resultType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptLocationRow">
+    <resultMap id="visualPromptLocationRow"
+               type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptLocationRow">
+        <id property="locationId" column="location_id" />
+        <result property="name" column="name" />
+        <result property="description" column="description" />
+        <result property="visualPrompt" column="visual_prompt" />
+    </resultMap>
+
+    <resultMap id="visualPromptCharacterRow"
+               type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptCharacterRow">
+        <id property="assignmentId" column="assignment_id" />
+        <result property="characterId" column="character_id" />
+        <result property="canonicalName" column="canonical_name" />
+        <result property="versionNumber" column="version_number" />
+        <result property="visualPrompt" column="visual_prompt" />
+        <result property="appearancePrompt" column="appearance_prompt" />
+        <result property="ageState" column="age_state" />
+        <result property="hairstyle" column="hairstyle" />
+        <result property="injury" column="injury" />
+        <result property="wardrobeContext" column="wardrobe_context" />
+    </resultMap>
+
+    <resultMap id="visualPromptReferenceRow"
+               type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptReferenceRow">
+        <id property="assetId" column="asset_id" />
+        <result property="assignmentId" column="assignment_id" />
+        <result property="role" column="role" />
+        <result property="priority" column="priority" />
+        <result property="storageKey" column="storage_key" />
+        <result property="contentType" column="content_type" />
+        <result property="sha256" column="sha256" />
+    </resultMap>
+
+    <select id="findLocation" resultMap="visualPromptLocationRow">
         SELECT pl.id AS location_id,
                pl.name,
                pl.description,
@@ -20,8 +52,7 @@
          LIMIT 1
     </select>
 
-    <select id="findCharacters"
-            resultType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptCharacterRow">
+    <select id="findCharacters" resultMap="visualPromptCharacterRow">
         SELECT pc.id AS assignment_id,
                c.id AS character_id,
                c.canonical_name,
@@ -79,8 +110,7 @@
          ORDER BY sc.order_index, pc.id
     </select>
 
-    <select id="findCharacterReferences"
-            resultType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptReferenceRow">
+    <select id="findCharacterReferences" resultMap="visualPromptReferenceRow">
         SELECT pc.id AS assignment_id,
                ma.id AS asset_id,
                ref.reference_role AS role,
