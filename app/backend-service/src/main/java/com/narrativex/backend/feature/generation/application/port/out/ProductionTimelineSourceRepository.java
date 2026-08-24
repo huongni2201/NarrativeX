@@ -32,6 +32,8 @@ public interface ProductionTimelineSourceRepository {
   record BeatSource(
       UUID chapterId,
       int chapterOrderIndex,
+      UUID mediaPlanId,
+      Integer mediaPlanRevision,
       int sceneIndex,
       int beatIndex,
       UUID visualBeatId,
