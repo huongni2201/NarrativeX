@@ -54,6 +54,13 @@ public class EnqueueStoryAnalysisUseCase {
       throw new IllegalArgumentException("Chapter source must be saved before analysis");
     }
 
+    String analysisLanguage =
+        chapter.language() == null
+                || chapter.language().isBlank()
+                || "und".equalsIgnoreCase(chapter.language())
+            ? project.getSourceLanguage()
+            : chapter.language();
+
     String baseIdempotencyKey =
         "chapter-analysis:"
             + command.projectId()
@@ -118,7 +125,7 @@ public class EnqueueStoryAnalysisUseCase {
                 chapter.rowVersion(),
                 chapter.sourceHash(),
                 chapter.sourceText(),
-                project.getSourceLanguage(),
+                analysisLanguage,
                 idempotencyKey,
                 userId,
                 chapter.contentVariantId()));
