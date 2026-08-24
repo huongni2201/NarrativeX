@@ -109,15 +109,28 @@ export class ProjectStorage {
       const existing = manifest.assets[input.assetId];
       if (existing) {
         if (
-          existing.checksumSha256 === sourceChecksum &&
-          existing.sizeBytes === sourceStat.size &&
-          existing.kind === input.kind
+          existing.checksumSha256 !== sourceChecksum ||
+          existing.sizeBytes !== sourceStat.size ||
+          existing.kind !== input.kind
         ) {
+          throw new Error(
+            `Local asset ${input.assetId} is immutable and already points to different content.`,
+          );
+        }
+
+        const destination = this.resolveProjectRelativePath(projectId, existing.relativePath);
+        if (await fileMatches(destination, existing.sizeBytes, existing.checksumSha256)) {
           return existing;
         }
-        throw new Error(
-          `Local asset ${input.assetId} is immutable and already points to different content.`,
-        );
+
+        await mkdir(dirname(destination), { recursive: true });
+        if (source !== destination) await copyFile(source, destination);
+        if (!(await fileMatches(destination, existing.sizeBytes, existing.checksumSha256))) {
+          throw new Error(`Local asset ${input.assetId} could not be repaired from verified bytes.`);
+        }
+        existing.updatedAt = new Date().toISOString();
+        await this.writeManifest(manifest);
+        return existing;
       }
 
       const extension = safeExtension(source);
@@ -391,6 +404,16 @@ async function verifyOrCalculateChecksum(
     throw new Error("Local file checksum does not match the expected asset checksum.");
   }
   return actual;
+}
+
+async function fileMatches(path: string, sizeBytes: number, checksumSha256: string): Promise<boolean> {
+  try {
+    const fileStat = await stat(path);
+    return fileStat.isFile() && fileStat.size === sizeBytes && (await sha256File(path)) === checksumSha256;
+  } catch (error) {
+    if (isMissingFile(error)) return false;
+    throw error;
+  }
 }
 
 async function sha256File(path: string): Promise<string> {
