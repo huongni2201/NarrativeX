@@ -91,10 +91,20 @@ public class CreateProjectRenderUseCase {
     }
 
     String timelineFingerprint = timelineFingerprint(timeline);
-    String idempotencyKey = idempotencyKey(command, timelineFingerprint);
+    String requestFingerprint = requestFingerprint(command, timelineFingerprint);
+    String idempotencyKey = idempotencyKey(command, requestFingerprint);
     generationJobRepository.acquireIdempotencyLock(idempotencyKey, userId);
     var existing = generationJobRepository.findByIdempotencyKey(idempotencyKey, userId);
-    if (existing.isPresent()) return existing.get();
+    if (existing.isPresent()) {
+      GenerationJob existingJob = existing.get();
+      if (existingJob.getType() != JobType.RENDER_PROJECT
+          || !requestFingerprint.equals(existingJob.getSourceHash())) {
+        throw new GenerationAdmissionDeniedException(
+            "IDEMPOTENCY_CONFLICT",
+            "Idempotency-Key is already bound to a different project render request.");
+      }
+      return existingJob;
+    }
 
     var reservation =
         quotaReservation
@@ -123,7 +133,7 @@ public class CreateProjectRenderUseCase {
                 null,
                 null,
                 null,
-                timelineFingerprint,
+                requestFingerprint,
                 null,
                 project.getSourceLanguage(),
                 idempotencyKey));
@@ -173,7 +183,10 @@ public class CreateProjectRenderUseCase {
             .map(ProductionTimelineView.Beat::visualBeatId)
             .collect(Collectors.toSet());
     UUID unknownBeat =
-        overrideByBeat.keySet().stream().filter(id -> !timelineBeatIds.contains(id)).findFirst().orElse(null);
+        overrideByBeat.keySet().stream()
+            .filter(id -> !timelineBeatIds.contains(id))
+            .findFirst()
+            .orElse(null);
     if (unknownBeat != null) {
       throw new GenerationAdmissionDeniedException(
           "INVALID_RENDER_OVERRIDE",
@@ -284,8 +297,20 @@ public class CreateProjectRenderUseCase {
         + format.toUpperCase(Locale.ROOT);
   }
 
-  private static String idempotencyKey(
+  static String requestFingerprint(
       CreateProjectRenderCommand command, String timelineFingerprint) {
+    return sha256(
+        command.projectId()
+            + ":"
+            + timelineFingerprint
+            + ":"
+            + command.resolution().toLowerCase(Locale.ROOT)
+            + ":"
+            + command.format().toLowerCase(Locale.ROOT));
+  }
+
+  private static String idempotencyKey(
+      CreateProjectRenderCommand command, String requestFingerprint) {
     if (command.idempotencyKey() != null && !command.idempotencyKey().isBlank()) {
       String normalized = command.idempotencyKey().trim();
       if (normalized.length() > MAX_IDEMPOTENCY_KEY_LENGTH) {
@@ -294,15 +319,7 @@ public class CreateProjectRenderUseCase {
       }
       return normalized;
     }
-    return "project-render:"
-        + sha256(
-            command.projectId()
-                + ":"
-                + timelineFingerprint
-                + ":"
-                + command.resolution()
-                + ":"
-                + command.format());
+    return "project-render:" + requestFingerprint;
   }
 
   static String timelineFingerprint(ProductionTimelineView timeline) {
