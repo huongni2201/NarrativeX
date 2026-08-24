@@ -5,6 +5,9 @@ on:
     paths:
       - "app/desktop/**"
       - "packages/client-contracts/**"
+      - "app/backend-service/src/main/java/com/narrativex/backend/feature/auth/**"
+      - "app/backend-service/src/test/java/com/narrativex/backend/configuration/SecurityConfigurationTest.java"
+      - "app/backend-service/src/test/java/com/narrativex/backend/feature/auth/**"
       - ".github/workflows/desktop-ci.yml"
   push:
     branches:
@@ -12,6 +15,9 @@ on:
     paths:
       - "app/desktop/**"
       - "packages/client-contracts/**"
+      - "app/backend-service/src/main/java/com/narrativex/backend/feature/auth/**"
+      - "app/backend-service/src/test/java/com/narrativex/backend/configuration/SecurityConfigurationTest.java"
+      - "app/backend-service/src/test/java/com/narrativex/backend/feature/auth/**"
       - ".github/workflows/desktop-ci.yml"
 
 permissions:
@@ -42,3 +48,26 @@ jobs:
 
       - name: Build desktop
         run: npm run build
+
+  backend-auth-check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app/backend-service
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+          cache-dependency-path: app/backend-service/pom.xml
+
+      - name: Compile backend
+        run: ./mvnw -DskipTests compile
+
+      - name: Run desktop auth tests
+        run: ./mvnw -Dtest=SecurityConfigurationTest,DesktopAuthControllerTest test
