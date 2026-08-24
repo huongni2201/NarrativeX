@@ -9,7 +9,7 @@ import java.util.UUID;
 
 public record AssignCharacterToProjectRequest(
     @NotNull UUID characterId,
-    @NotBlank @Size(max = 100) String role,
+    @NotBlank @Size(max = 64) String role,
     @Min(0) int importance,
     @Size(max = 20) List<@NotBlank @Size(max = 200) String> projectAliases,
     @Size(max = 8000) String storyMetadata,
