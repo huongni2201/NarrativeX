@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
 import {
   AudioLines, Bell, Camera, Check, ChevronDown, ChevronRight, Cloud, Copy, Eye, Folder,
@@ -8,23 +9,16 @@ import {
   Undo2, UserCircle, Volume2, WandSparkles, ZoomIn, ZoomOut,
 } from "lucide-react";
 import { DesktopApiError, apiBaseUrl } from "../../api/client";
-import { workspaceApi, type DesktopAsset, type DesktopCharacter, type DesktopProject, type DesktopPreset, type DesktopRenderJob, type DesktopTimeline, type DesktopVoice } from "../../api/workspace";
+import { workspaceApi } from "../../api/workspace";
+import type { DesktopAsset, DesktopCharacter, DesktopProject, DesktopPreset, DesktopRenderJob, DesktopTimeline, DesktopVoice } from "@narrativex/client-contracts";
+import { useProjectWorkspace, type DesktopWorkspaceState } from "./queries/useProjectWorkspace";
+import { useProjectSessionStore } from "../projects/store/project-session.store";
+import { ProjectPicker } from "../projects/components/ProjectPicker";
 
 export type ActivityId = "editor" | "chapters" | "characters" | "images" | "voice" | "assets" | "render" | "settings";
 type InspectorTab = "properties" | "effects" | "transitions";
 type ClipStatus = "ready" | "generating";
 interface VisualClip { id: string; title: string; asset: string; startMs: number; endMs: number; scene: string; motion: string; status: ClipStatus; }
-interface WorkspaceState {
-  status: "loading" | "ready" | "partial" | "empty" | "error";
-  projects: DesktopProject[];
-  assets: DesktopAsset[];
-  characters: DesktopCharacter[];
-  voices: DesktopVoice[];
-  presets: DesktopPreset[];
-  timeline: DesktopTimeline | null;
-  error: string | null;
-}
-
 type RenderState = DesktopRenderJob | null;
 export type DesktopScreen = ActivityId | "projects";
 
@@ -54,6 +48,12 @@ const activities: { id: ActivityId; label: string; icon: LucideIcon }[] = [
 ];
 
 export function EditorScreen({ initialScreen = "editor" }: Readonly<{ initialScreen?: DesktopScreen }>) {
+  const { projectId: routeProjectId } = useParams<{ projectId: string }>();
+  const navigate = useNavigate();
+  const activeProjectId = useProjectSessionStore((state) => state.activeProjectId);
+  const setActiveProject = useProjectSessionStore((state) => state.setActiveProject);
+  const selectedProjectId = routeProjectId ?? activeProjectId;
+  const { workspace } = useProjectWorkspace(selectedProjectId);
   const [activity, setActivity] = useState<ActivityId>(initialScreen === "projects" ? "editor" : initialScreen);
   const [screen, setScreen] = useState<DesktopScreen>(initialScreen);
   const [selectedId, setSelectedId] = useState("");
@@ -64,11 +64,20 @@ export function EditorScreen({ initialScreen = "editor" }: Readonly<{ initialScr
   const [saveState, setSaveState] = useState("Connecting workspace…");
   const [renderJob, setRenderJob] = useState<RenderState>(null);
   const [renderNotice, setRenderNotice] = useState<string | null>(null);
-  const [workspace, setWorkspace] = useState<WorkspaceState>({ status: "loading", projects: [], assets: [], characters: [], voices: [], presets: [], timeline: null, error: null });
   const clips = useMemo(() => toVisualClips(workspace.timeline), [workspace.timeline]);
   const selected = useMemo(() => clips.find((clip) => clip.id === selectedId) ?? null, [clips, selectedId]);
   const totalMs = workspace.timeline?.totalDurationMs ?? 0;
-  const projectId = workspace.timeline?.projectId ?? workspace.projects[0]?.id ?? null;
+  const projectId = workspace.timeline?.projectId ?? selectedProjectId;
+  const activeProject = workspace.projects.find((project) => project.id === selectedProjectId) ?? null;
+
+  useEffect(() => {
+    if (routeProjectId && routeProjectId !== activeProjectId) setActiveProject(routeProjectId);
+  }, [activeProjectId, routeProjectId, setActiveProject]);
+
+  useEffect(() => {
+    if (workspace.timeline?.beats[0] && !selectedId) setSelectedId(workspace.timeline.beats[0].visualBeatId);
+    setSaveState(workspace.status === "error" ? "Backend unavailable" : workspace.status === "loading" ? "Connecting workspace…" : "Synced with backend");
+  }, [selectedId, workspace.status, workspace.timeline]);
 
   async function startRender() {
     if (!projectId) {
@@ -99,51 +108,6 @@ export function EditorScreen({ initialScreen = "editor" }: Readonly<{ initialScr
   }, [renderJob?.jobId, renderJob?.status]);
 
   useEffect(() => {
-    let cancelled = false;
-    async function loadWorkspace() {
-      try {
-        const projectPage = await workspaceApi.listProjects();
-        if (cancelled) return;
-        const configuredProjectId = import.meta.env.VITE_PROJECT_ID?.trim();
-        const projectId = configuredProjectId || projectPage.content[0]?.id;
-        if (!projectId) {
-          setWorkspace({ status: "empty", projects: projectPage.content, assets: [], characters: [], voices: [], presets: [], timeline: null, error: "Chưa có project để mở trong Desktop." });
-          setSaveState("No project selected");
-          return;
-        }
-        const [timelineResult, assetsResult, charactersResult, voicesResult, presetsResult] = await Promise.allSettled([
-          workspaceApi.getTimeline(projectId),
-          workspaceApi.listAssets(),
-          workspaceApi.listCharacters(projectId),
-          workspaceApi.listVoices(),
-          workspaceApi.listPresets(),
-        ]);
-        if (cancelled) return;
-        const timeline = timelineResult.status === "fulfilled" ? timelineResult.value : null;
-        setWorkspace({
-          status: timeline ? "ready" : "partial",
-          projects: projectPage.content,
-          assets: assetsResult.status === "fulfilled" ? assetsResult.value.items : [],
-          characters: charactersResult.status === "fulfilled" ? charactersResult.value.content : [],
-          voices: voicesResult.status === "fulfilled" ? voicesResult.value : [],
-          presets: presetsResult.status === "fulfilled" ? presetsResult.value : [],
-          timeline,
-          error: timelineResult.status === "rejected" ? errorMessage(timelineResult.reason) : null,
-        });
-        if (timeline?.beats[0]) setSelectedId(timeline.beats[0].visualBeatId);
-        setSaveState("Synced with backend");
-      } catch (error) {
-        if (!cancelled) {
-          setWorkspace({ status: "error", projects: [], assets: [], characters: [], voices: [], presets: [], timeline: null, error: errorMessage(error) });
-          setSaveState("Backend unavailable");
-        }
-      }
-    }
-    void loadWorkspace();
-    return () => { cancelled = true; };
-  }, []);
-
-  useEffect(() => {
     if (!playing) return;
     const timer = window.setInterval(() => setPlayheadMs((current) => current >= totalMs ? 0 : current + 250), 250);
     return () => window.clearInterval(timer);
@@ -163,12 +127,12 @@ export function EditorScreen({ initialScreen = "editor" }: Readonly<{ initialScr
     <header className="topbar">
       <div className="brand"><div className="brand-mark">N<span>X</span></div><span>NarrativeX</span></div>
       <nav className="menu" aria-label="Application menu">{["File", "Edit", "Project", "Timeline", "View", "Tools", "Help"].map((item) => <button key={item} type="button">{item}</button>)}</nav>
-      <div className="project-name"><span>Dự án:</span> {workspace.projects[0]?.name ?? "Chưa chọn project"} <ChevronDown size={13} /></div>
+      <ProjectPicker projects={workspace.projects} activeProjectId={activeProject?.id ?? selectedProjectId} onChange={(nextProjectId) => { setActiveProject(nextProjectId); navigate(`/projects/${nextProjectId}/editor`); }} />
       <div className="autosave"><Cloud size={14} /> {saveState}</div>
       <div className="window-actions"><button type="button" className="export-button" onClick={() => void startRender()}><Sparkles size={14} /> Export</button><span className="jobs-pill"><i /> {renderJob ? "1 job" : "0 jobs"}</span><button type="button" className="icon-button" aria-label="Cloud sync"><Cloud size={17} /></button><button type="button" className="icon-button notification" aria-label="Notifications"><Bell size={17} /><i /></button><button type="button" className="window-button" aria-label="Minimize">−</button><button type="button" className="window-button" aria-label="Maximize">□</button><button type="button" className="window-button close" aria-label="Close">×</button></div>
     </header>
     <aside className="activity-bar"><div className="activity-list">{activities.map(({ id, label, icon: Icon }) => <button key={id} type="button" className={`activity ${activity === id ? "active" : ""}`} onClick={() => { setActivity(id); setScreen(id); }} aria-label={label} aria-pressed={activity === id} title={label}><Icon size={18} /><span>{label}</span></button>)}</div></aside>
-    <aside className="explorer panel-right"><PanelHeader eyebrow={activity === "editor" || activity === "chapters" ? "Workspace" : "Library"} title={activity === "editor" || activity === "chapters" ? "Project Explorer" : activities.find((item) => item.id === activity)?.label ?? "Library"} /><>{activity === "editor" || activity === "chapters" ? <ProjectTree clips={clips} selectedId={selectedId} onSelect={(id) => { setSelectedId(id); setActivity("editor"); setScreen("editor"); }} projects={workspace.projects} /> : <Library activity={activity} />}</></aside>
+    <aside className="explorer panel-right"><PanelHeader eyebrow={activity === "editor" || activity === "chapters" ? "Workspace" : "Library"} title={activity === "editor" || activity === "chapters" ? "Project Explorer" : activities.find((item) => item.id === activity)?.label ?? "Library"} /><>{activity === "editor" || activity === "chapters" ? <ProjectTree clips={clips} selectedId={selectedId} onSelect={(id) => { setSelectedId(id); setActivity("editor"); setScreen("editor"); }} projects={workspace.projects} activeProjectId={selectedProjectId} /> : <Library activity={activity} />}</></aside>
     <main className="center-workspace">
       {screen === "editor" ? <div className="editor-surface">
       <ApiStatusBanner status={workspace.status} error={workspace.error} />
@@ -183,7 +147,7 @@ export function EditorScreen({ initialScreen = "editor" }: Readonly<{ initialScr
 
 function PanelHeader({ eyebrow, title, trailing }: Readonly<{ eyebrow: string; title: string; trailing?: ReactNode }>) { return <div className="panel-header"><div><span className="eyebrow">{eyebrow}</span><h2>{title}</h2></div><div className="panel-actions">{trailing ?? <><IconButton label="Search"><Search size={16} /></IconButton><IconButton label="Add"><Plus size={17} /></IconButton></>}</div></div>; }
 function IconButton({ label, children, onClick, active = false }: Readonly<{ label: string; children: ReactNode; onClick?: () => void; active?: boolean }>) { return <button type="button" className={`icon-button ${active ? "active" : ""}`} aria-label={label} title={label} onClick={onClick}>{children}</button>; }
-function ProjectTree({ clips, projects, selectedId, onSelect }: Readonly<{ clips: VisualClip[]; projects: DesktopProject[]; selectedId: string; onSelect: (id: string) => void }>) { return <div className="tree"><TreeRow icon={<FolderOpen size={16} />} label={projects[0]?.name ?? "Chưa chọn project"} root /><div className="tree-branch"><TreeRow icon={<Folder size={16} />} label="Chapters" /><div className="leaf-list">{clips.slice(0, 8).map((clip, index) => <button type="button" className={`tree-row leaf ${selectedId === clip.id ? "selected" : ""}`} key={clip.id} onClick={() => onSelect(clip.id)}><span className="leaf-index">{index + 1}</span><span>{clip.title}</span></button>)}</div>{clips.length === 0 && <p className="tree-empty">Timeline sẽ xuất hiện sau khi API trả về dữ liệu.</p>}<TreeRow icon={<Folder size={16} />} label="Assets" /><div className="asset-branches"><TreeRow icon={<Folder size={15} />} label="Images" count="API" /><TreeRow icon={<Folder size={15} />} label="Videos" count="API" /><TreeRow icon={<Folder size={15} />} label="Audio" count="API" /></div></div></div>; }
+function ProjectTree({ clips, projects, activeProjectId, selectedId, onSelect }: Readonly<{ clips: VisualClip[]; projects: DesktopProject[]; activeProjectId: string | null; selectedId: string; onSelect: (id: string) => void }>) { const project = projects.find((item) => item.id === activeProjectId); return <div className="tree"><TreeRow icon={<FolderOpen size={16} />} label={project?.name ?? "Chưa chọn project"} root /><div className="tree-branch"><TreeRow icon={<Folder size={16} />} label="Chapters" /><div className="leaf-list">{clips.slice(0, 8).map((clip, index) => <button type="button" className={`tree-row leaf ${selectedId === clip.id ? "selected" : ""}`} key={clip.id} onClick={() => onSelect(clip.id)}><span className="leaf-index">{index + 1}</span><span>{clip.title}</span></button>)}</div>{clips.length === 0 && <p className="tree-empty">Timeline sẽ xuất hiện sau khi API trả về dữ liệu.</p>}<TreeRow icon={<Folder size={16} />} label="Assets" /><div className="asset-branches"><TreeRow icon={<Folder size={15} />} label="Images" count="API" /><TreeRow icon={<Folder size={15} />} label="Videos" count="API" /><TreeRow icon={<Folder size={15} />} label="Audio" count="API" /></div></div></div>; }
 function TreeRow({ icon, label, root = false, collapsed = false, count }: Readonly<{ icon: ReactNode; label: string; root?: boolean; collapsed?: boolean; count?: string }>) { return <div className={`tree-row ${root ? "root" : ""}`}>{collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}{icon}<span>{label}</span>{count && <small>{count}</small>}{root && <MoreVertical size={14} className="tree-more" />}</div>; }
 function Library({ activity }: Readonly<{ activity: ActivityId }>) { const items: Record<ActivityId, string[]> = { editor: [], chapters: ["Chapter 01", "Chapter 02", "Chapter 03"], characters: ["Cậu bé", "Người dẫn chuyện", "The Keeper"], images: ["Visual beats", "Generated", "Approved"], voice: ["Narration", "Voice catalog", "Voice takes"], assets: ["Generated", "Imported", "Reused", "References"], render: ["Export queue", "Completed renders", "Render settings"], settings: ["General", "Storage", "Generation", "Rendering", "Account"] }; const Icon = activity === "voice" ? Mic2 : activity === "images" ? ImageIcon : activity === "render" ? Sparkles : activity === "settings" ? Settings2 : Folder; return <div className="library">{(items[activity] ?? []).map((item, index) => <button type="button" className="library-row" key={item}><Icon size={16} /><span>{item}</span>{index === 0 && <i />}</button>)}<div className="library-note"><Sparkles size={15} /><span>Library context stays in place while you edit.</span></div></div>; }
 function Timeline({ clips: visualClips, totalMs, selectedId, onSelect, playheadMs, zoom }: Readonly<{ clips: VisualClip[]; totalMs: number; selectedId: string; onSelect: (id: string) => void; playheadMs: number; zoom: number }>) { const width = Math.round(1080 * zoom); const scale = Math.max(1, totalMs); return <div className="timeline-scroll"><div className="timeline-canvas" style={{ width: `${width + 94}px` }}><div className="ruler-label" /><div className="ruler" style={{ width }}>{["00:00:00", "00:01:30", "00:03:00", "00:04:30", "00:06:00", "00:07:30", "00:09:00", "00:10:30", "00:12:00"].map((label, index, all) => <span key={label} style={{ left: `${(index / (all.length - 1)) * 100}%` }}>{label}</span>)}</div><Track label="V3" name="Effects" icon={<WandSparkles size={13} />}><TrackEmpty label="Effect tracks from API" /></Track><Track label="V2" name="Video 2" icon={<Eye size={13} />}><TrackEmpty label="Additional video layer" /></Track><Track label="V1" name="Video 1" icon={<ImageIcon size={13} />} main>{visualClips.length ? visualClips.map((clip) => <Clip key={clip.id} title={clip.asset} left={(clip.startMs / scale) * 100} width={((clip.endMs - clip.startMs) / scale) * 100} tone={clip.id === selectedId ? "selected" : clip.status === "generating" ? "pending" : "image"} selected={clip.id === selectedId} onClick={() => onSelect(clip.id)} />) : <TrackEmpty label="VisualBeat clips will appear after timeline sync" />}</Track><Track label="A1" name="Narration" icon={<Mic2 size={13} />} audio><TrackEmpty label="Narration waveform from API" /></Track><Track label="A2" name="Music" icon={<AudioLines size={13} />} audio><TrackEmpty label="Music track from API" /></Track><Track label="A3" name="SFX" icon={<Volume2 size={13} />}><TrackEmpty label="SFX track from API" /></Track><Track label="T1" name="Subtitle" icon={<Type size={13} />}><TrackEmpty label="Subtitle track from API" /></Track><div className="playhead" style={{ left: `${94 + (playheadMs / scale) * width}px` }}><span>{formatTimecode(playheadMs)}</span></div></div></div>; }
@@ -191,9 +155,9 @@ function Track({ label, name, icon, children, main = false, audio = false }: Rea
 function Clip({ title, left, width, tone, selected = false, onClick }: Readonly<{ title: string; left: number; width: number; tone: string; selected?: boolean; onClick?: () => void }>) { return <button type="button" className={`clip tone-${tone} ${selected ? "selected" : ""}`} style={{ left: `${left}%`, width: `${width}%` }} onClick={onClick}><span>{title}</span></button>; }
 function TrackEmpty({ label }: Readonly<{ label: string }>) { return <span className="track-empty">{label}</span>; }
 function Wave({ color }: Readonly<{ color: "cyan" | "green" }>) { return <div className={`wave ${color}`} aria-label="Audio waveform">{Array.from({ length: 110 }, (_, index) => <i key={index} style={{ height: `${18 + ((index * 17) % 62)}%` }} />)}</div>; }
-function ApiStatusBanner({ status, error }: Readonly<{ status: WorkspaceState["status"]; error: string | null }>) { if (status === "ready") return null; const label = status === "loading" ? "Đang đồng bộ workspace…" : status === "empty" ? "Workspace trống" : status === "partial" ? "Workspace đồng bộ một phần" : "Không kết nối được backend"; return <div className={`api-status ${status}`} role={status === "error" ? "alert" : "status"}><span className="api-status-dot" /><strong>{label}</strong><span>{error ?? `API: ${apiBaseUrl()}`}</span></div>; }
+function ApiStatusBanner({ status, error }: Readonly<{ status: DesktopWorkspaceState["status"]; error: string | null }>) { if (status === "ready") return null; const label = status === "loading" ? "Đang đồng bộ workspace…" : status === "empty" ? "Workspace trống" : status === "partial" ? "Workspace đồng bộ một phần" : "Không kết nối được backend"; return <div className={`api-status ${status}`} role={status === "error" ? "alert" : "status"}><span className="api-status-dot" /><strong>{label}</strong><span>{error ?? `API: ${apiBaseUrl()}`}</span></div>; }
 function EmptyInspector() { return <div className="placeholder"><MousePointer2 size={22} /><strong>Chưa chọn VisualBeat</strong><span>Chọn một clip trên timeline để mở transform, crop, color và AI asset.</span></div>; }
-function WorkspacePage({ screen, workspace, onOpenEditor, renderJob, onStartRender }: Readonly<{ screen: Exclude<DesktopScreen, "editor">; workspace: WorkspaceState; onOpenEditor: () => void; renderJob: DesktopRenderJob | null; onStartRender: () => void }>) {
+function WorkspacePage({ screen, workspace, onOpenEditor, renderJob, onStartRender }: Readonly<{ screen: Exclude<DesktopScreen, "editor">; workspace: DesktopWorkspaceState; onOpenEditor: () => void; renderJob: DesktopRenderJob | null; onStartRender: () => void }>) {
   const titles: Record<Exclude<DesktopScreen, "editor">, string> = { projects: "Project Hub", chapters: "Chapter Workspace", characters: "Character Library", images: "Image Generation", voice: "Voice & TTS", assets: "Asset Browser", render: "Render Workspace", settings: "Desktop Settings" };
   return <div className="workspace-page"><div className="workspace-page-header"><div><span className="eyebrow">NarrativeX Desktop</span><h1>{titles[screen]}</h1><p>{screen === "projects" ? "Mở project để đi thẳng vào editor timeline." : "Nội dung được lấy từ backend domain và hiển thị trong cùng một workspace."}</p></div><div className="workspace-page-actions"><span className="connection-pill"><i /> {workspace.status === "ready" ? "Backend connected" : "API status"}</span>{screen !== "settings" && screen !== "render" && <button type="button" className="primary-action" onClick={onOpenEditor}>Open Editor <ChevronRight size={14} /></button>}</div></div><ApiStatusBanner status={workspace.status} error={workspace.error} />{screen === "projects" && <ProjectPage projects={workspace.projects} onOpenEditor={onOpenEditor} />}{screen === "assets" && <AssetsPage assets={workspace.assets} />}{screen === "characters" && <CharactersPage characters={workspace.characters} />}{screen === "chapters" && <StoryPage timeline={workspace.timeline} />}{screen === "images" && <ScenesPage timeline={workspace.timeline} />}{screen === "voice" && <VoicesPage voices={workspace.voices} />}{screen === "render" && <RenderPage workspace={workspace} job={renderJob} onStart={onStartRender} />}{screen === "settings" && <SettingsPage workspace={workspace} />}</div>;
 }
@@ -205,10 +169,10 @@ function ScenesPage({ timeline }: Readonly<{ timeline: DesktopTimeline | null }>
 function VoicesPage({ voices }: Readonly<{ voices: DesktopVoice[] }>) { return <div className="resource-grid">{voices.map((voice) => <div className="resource-card voice-card" key={voice.id}><div className="voice-icon"><Mic2 size={22} /></div><div className="resource-card-body"><span className="eyebrow">{voice.provider} · {voice.language}</span><h3>{voice.name}</h3><p>{voice.gender ?? "Voice preset"}</p><button type="button" className="outline-action"><Play size={12} /> Preview voice</button></div></div>)}{voices.length === 0 && <ResourceEmpty title="Chưa tải voice catalog" action="Kiểm tra Catalog API" />}</div>; }
 function SubtitlePage({ timeline }: Readonly<{ timeline: DesktopTimeline | null }>) { return <div className="subtitle-board"><div className="subtitle-column"><span className="eyebrow">T1 · Subtitle track</span><h2>Subtitle timing follows VisualBeat boundaries</h2><p>Audio/narration remains the master clock. Subtitle editing sẽ kết nối với chapter content variants ở phase tiếp theo.</p></div><div className="subtitle-list">{timeline?.beats.slice(0, 8).map((beat) => <div className="subtitle-row" key={beat.visualBeatId}><span>{formatTime(beat.startMs)}</span><strong>{beat.title}</strong><button type="button" aria-label={`Edit subtitle ${beat.title}`}><Type size={14} /></button></div>)}</div></div>; }
 function PresetPage({ presets, title }: Readonly<{ presets: DesktopPreset[]; title: string }>) { return <div className="resource-section"><div className="resource-toolbar"><span>{title}</span><span>{presets.length} presets from API</span></div><div className="resource-grid">{presets.map((preset) => <div className="resource-card preset-card" key={`${preset.category}-${preset.name}`}><div className="preset-swatch"><Sparkles size={22} /></div><div className="resource-card-body"><span className="eyebrow">{preset.category ?? "STYLE"}</span><h3>{preset.name}</h3><p>{preset.description}</p><div className="tag-row">{preset.tags.slice(0, 3).map((tag) => <span key={tag}>{tag}</span>)}</div></div></div>)}{presets.length === 0 && <ResourceEmpty title="Chưa có preset" action="Preset catalog sẽ hiển thị tại đây" />}</div></div>; }
-function RenderPage({ workspace, job, onStart }: Readonly<{ workspace: WorkspaceState; job: DesktopRenderJob | null; onStart: () => void }>) { const active = Boolean(job && ["QUEUED", "RUNNING", "UNKNOWN", "STALLED", "PAUSED_COST_LIMIT"].includes(job.status)); return <div className="render-workspace"><div className="render-preview"><span className="eyebrow">Preview</span><div className="render-preview-stage"><div className="preview-art" /><div className="preview-overlay" /><span>{workspace.timeline?.readyForRender ? "Timeline ready for export" : "Timeline needs review"}</span></div><p>Export respects the current chapter timeline and approved assets.</p></div><div className="render-settings-card"><span className="eyebrow">Export settings</span><h2>Production render</h2><div className="render-setting"><span>Resolution</span><strong>1080p</strong></div><div className="render-setting"><span>Frame rate</span><strong>30 fps</strong></div><div className="render-setting"><span>Format</span><strong>MP4 · H.264</strong></div><div className="render-setting"><span>Timeline</span><strong>{workspace.timeline ? formatTimecode(workspace.timeline.totalDurationMs) : "Not loaded"}</strong></div><button type="button" className="primary-action render-start" onClick={onStart} disabled={active || !workspace.timeline?.readyForRender}><Sparkles size={14} /> {active ? "Rendering…" : "Export video"}</button>{job && <p className="render-job-note">{job.currentStep || job.status} · {job.progress}%</p>}</div><div className="render-boundary"><LockKeyhole size={15} /><span>Native FFmpeg execution stays behind the desktop main-process bridge. This workspace only submits the typed render contract.</span></div></div>; }
-function SettingsPage({ workspace }: Readonly<{ workspace: WorkspaceState }>) { return <div className="settings-page"><div className="setting-row"><div><span className="eyebrow">API endpoint</span><strong>{apiBaseUrl()}</strong><p>Desktop calls backend bằng session credentials.</p></div><span className="connection-pill"><i /> {workspace.status}</span></div><div className="setting-row"><div><span className="eyebrow">Editor clock</span><strong>Narration is master clock</strong><p>Visual clip duration luôn được suy ra từ startMs / endMs.</p></div><Check size={18} className="setting-check" /></div><div className="setting-row"><div><span className="eyebrow">Renderer boundary</span><strong>Desktop FFmpeg execution engine</strong><p>Renderer không tự render final MP4 và không truy cập Node APIs trực tiếp.</p></div><LockKeyhole size={18} className="setting-check" /></div></div>; }
+function RenderPage({ workspace, job, onStart }: Readonly<{ workspace: DesktopWorkspaceState; job: DesktopRenderJob | null; onStart: () => void }>) { const active = Boolean(job && ["QUEUED", "RUNNING", "UNKNOWN", "STALLED", "PAUSED_COST_LIMIT"].includes(job.status)); return <div className="render-workspace"><div className="render-preview"><span className="eyebrow">Preview</span><div className="render-preview-stage"><div className="preview-art" /><div className="preview-overlay" /><span>{workspace.timeline?.readyForRender ? "Timeline ready for export" : "Timeline needs review"}</span></div><p>Export respects the current chapter timeline and approved assets.</p></div><div className="render-settings-card"><span className="eyebrow">Export settings</span><h2>Production render</h2><div className="render-setting"><span>Resolution</span><strong>1080p</strong></div><div className="render-setting"><span>Frame rate</span><strong>30 fps</strong></div><div className="render-setting"><span>Format</span><strong>MP4 · H.264</strong></div><div className="render-setting"><span>Timeline</span><strong>{workspace.timeline ? formatTimecode(workspace.timeline.totalDurationMs) : "Not loaded"}</strong></div><button type="button" className="primary-action render-start" onClick={onStart} disabled={active || !workspace.timeline?.readyForRender}><Sparkles size={14} /> {active ? "Rendering…" : "Export video"}</button>{job && <p className="render-job-note">{job.currentStep || job.status} · {job.progress}%</p>}</div><div className="render-boundary"><LockKeyhole size={15} /><span>Native FFmpeg execution stays behind the desktop main-process bridge. This workspace only submits the typed render contract.</span></div></div>; }
+function SettingsPage({ workspace }: Readonly<{ workspace: DesktopWorkspaceState }>) { return <div className="settings-page"><div className="setting-row"><div><span className="eyebrow">API endpoint</span><strong>{apiBaseUrl()}</strong><p>Desktop calls backend bằng session credentials.</p></div><span className="connection-pill"><i /> {workspace.status}</span></div><div className="setting-row"><div><span className="eyebrow">Editor clock</span><strong>Narration is master clock</strong><p>Visual clip duration luôn được suy ra từ startMs / endMs.</p></div><Check size={18} className="setting-check" /></div><div className="setting-row"><div><span className="eyebrow">Renderer boundary</span><strong>Desktop FFmpeg execution engine</strong><p>Renderer không tự render final MP4 và không truy cập Node APIs trực tiếp.</p></div><LockKeyhole size={18} className="setting-check" /></div></div>; }
 function ResourceEmpty({ title, action }: Readonly<{ title: string; action: string }>) { return <div className="resource-empty"><FolderOpen size={22} /><strong>{title}</strong><span>{action}</span></div>; }
-function PageInspector({ screen, workspace, onOpenEditor }: Readonly<{ screen: Exclude<DesktopScreen, "editor">; workspace: WorkspaceState; onOpenEditor: () => void }>) { return <div className="page-inspector"><span className="eyebrow">Workspace context</span><h3>{screen[0].toUpperCase() + screen.slice(1)}</h3><p>Backend status: <strong>{workspace.status}</strong></p><div className="inspector-metric"><span>Projects</span><strong>{workspace.projects.length}</strong></div><div className="inspector-metric"><span>Assets</span><strong>{workspace.assets.length}</strong></div><div className="inspector-metric"><span>Characters</span><strong>{workspace.characters.length}</strong></div><button type="button" className="outline-action" onClick={onOpenEditor}><SlidersHorizontal size={13} /> Return to editor</button></div>; }
+function PageInspector({ screen, workspace, onOpenEditor }: Readonly<{ screen: Exclude<DesktopScreen, "editor">; workspace: DesktopWorkspaceState; onOpenEditor: () => void }>) { return <div className="page-inspector"><span className="eyebrow">Workspace context</span><h3>{screen[0].toUpperCase() + screen.slice(1)}</h3><p>Backend status: <strong>{workspace.status}</strong></p><div className="inspector-metric"><span>Projects</span><strong>{workspace.projects.length}</strong></div><div className="inspector-metric"><span>Assets</span><strong>{workspace.assets.length}</strong></div><div className="inspector-metric"><span>Characters</span><strong>{workspace.characters.length}</strong></div><button type="button" className="outline-action" onClick={onOpenEditor}><SlidersHorizontal size={13} /> Return to editor</button></div>; }
 function formatBytes(bytes: number) { if (bytes < 1024) return `${bytes} B`; if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`; return `${(bytes / (1024 * 1024)).toFixed(1)} MB`; }
 function formatTime(ms: number) { const totalSeconds = Math.max(0, Math.floor(ms / 1000)); return `${String(Math.floor(totalSeconds / 60)).padStart(2, "0")}:${String(totalSeconds % 60).padStart(2, "0")}`; }
 function Properties({ clip }: Readonly<{ clip: VisualClip }>) { return <div className="inspector-scroll"><section className="inspector-section clip-info"><div className="clip-heading"><div><span className="eyebrow">Clip</span><h3>{clip.asset}</h3></div><button type="button" className="small-action">Replace</button><IconButton label="More actions"><MoreVertical size={15} /></IconButton></div><div className="meta"><span className={clip.status}>{clip.status === "ready" ? "READY" : "GENERATING"}</span><span>{clip.scene}</span></div></section><InspectorSection title="Transform"><Field label="Position"><Value value="960.0" /><Value value="540.0" /></Field><Field label="Scale"><Value value="100.0 %" /><Value value="100.0 %" /><IconButton label="Lock aspect ratio"><LockKeyhole size={13} /></IconButton></Field><Field label="Rotation"><Value value="0.0°" /></Field><Field label="Opacity"><Slider value="100%" /></Field></InspectorSection><InspectorSection title="Crop"><Field label="Type"><select className="select" defaultValue="Fit"><option>Fit</option><option>Fill</option><option>Custom</option></select></Field><Field label="Left"><Value value="0" /><Value value="Right 0" /></Field><Field label="Top"><Value value="0" /><Value value="Bottom 0" /></Field></InspectorSection><InspectorSection title="Color"><Field label="Exposure"><Slider value="0.0" /></Field><Field label="Contrast"><Slider value="0.0" /></Field><button type="button" className="reset"><RotateCcw size={12} /> Reset adjustments</button></InspectorSection><InspectorSection title="AI Asset"><div className="strategy"><span>Strategy</span><b>{clip.status === "generating" ? "GENERATED" : "REUSED"}</b></div><div className="info-line"><span>Visual Beat</span><strong>{clip.title}</strong></div><div className="info-line"><span>Camera Motion</span><strong>{clip.motion}</strong></div><div className="inspector-actions"><button type="button"><WandSparkles size={13} /> Regenerate</button><button type="button"><Copy size={13} /> Reuse</button></div></InspectorSection></div>; }

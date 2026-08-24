@@ -1,0 +1,11 @@
+.auth-screen { width: 100%; height: 100%; display: grid; place-items: center; padding: 24px; background: radial-gradient(circle at 50% 0%, var(--surface-3), var(--bg) 56%); }
+.auth-card { width: min(420px, 100%); display: grid; justify-items: center; gap: 12px; padding: 38px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); box-shadow: 0 24px 80px var(--bg); text-align: center; }
+.auth-mark { width: 48px; height: 48px; display: grid; place-items: center; border: 1px solid var(--violet); border-radius: 13px; color: var(--violet-bright); font-weight: 800; letter-spacing: .05em; transform: rotate(-5deg); }
+.auth-card h1 { margin: 4px 0 0; color: var(--text); font-size: 22px; }
+.auth-card p { margin: 0; color: var(--text-3); line-height: 1.55; }
+.auth-login-button { width: 100%; min-height: 42px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; margin-top: 8px; border: 1px solid var(--violet); border-radius: 7px; background: var(--violet); color: var(--bg); cursor: pointer; font-weight: 700; }
+.auth-login-button:disabled { cursor: wait; opacity: .7; }
+.auth-security-note { width: 100%; display: flex; align-items: flex-start; gap: 7px; padding-top: 8px; color: var(--text-3); font-size: 10px; line-height: 1.45; text-align: left; }
+.auth-security-note svg { flex: 0 0 auto; color: var(--green); }
+.auth-error { color: var(--danger) !important; font-size: 11px; }
+.auth-loading { color: var(--text-2); }

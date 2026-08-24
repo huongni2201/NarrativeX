@@ -7,3 +7,7 @@ files:
 win:
   target: nsis
   artifactName: NarrativeX-Desktop-${version}.${ext}
+protocols:
+  - name: NarrativeX Authentication
+    schemes:
+      - narrativex

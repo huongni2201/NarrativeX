@@ -9,8 +9,8 @@ function enabled(value: string | undefined): boolean {
   return value?.trim().toLowerCase() === "true";
 }
 
-export function loadLocalExecutionConfig(): LocalExecutionConfig {
-  const projectRenderEnabled = enabled(process.env.NARRATIVEX_DESKTOP_PROJECT_RENDER_ENABLED);
+export function loadLocalExecutionConfig(ffmpegAvailable = true): LocalExecutionConfig {
+  const projectRenderEnabled = ffmpegAvailable && enabled(process.env.NARRATIVEX_DESKTOP_PROJECT_RENDER_ENABLED);
   return {
     backendBaseUrl:
       process.env.NARRATIVEX_BACKEND_URL?.replace(/\/$/, "") ?? "http://localhost:8080",

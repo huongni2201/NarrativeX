@@ -1,10 +1,11 @@
 import { DesktopProviders } from "./providers";
 import { DesktopRouter } from "./DesktopRouter";
+import { AuthGuard } from "../features/auth/AuthGuard";
 
 export function DesktopApp() {
   return (
     <DesktopProviders>
-      <DesktopRouter />
+      <AuthGuard><DesktopRouter /></AuthGuard>
     </DesktopProviders>
   );
 }

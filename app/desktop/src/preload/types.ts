@@ -20,8 +20,28 @@ export interface LocalProjectStorageStatus {
   artifactCount: number;
 }
 
+export interface LocalAssetImportResult {
+  assetId: string;
+  kind: "IMAGE" | "AUDIO" | "VIDEO" | "OTHER";
+  relativePath: string;
+  sizeBytes: number;
+  checksumSha256: string;
+}
+
+export interface FfmpegRuntimeStatus {
+  available: boolean;
+  ffmpegPath: string | null;
+  ffprobePath: string | null;
+  version: string | null;
+  reason: string | null;
+}
+
 export interface NarrativeXDesktopBridge {
   appVersion(): Promise<string>;
+  auth: {
+    login(): Promise<void>;
+    onCallback(listener: (code: string) => void): () => void;
+  };
   localExecution: {
     status(): Promise<LocalExecutionStatus>;
     pair(pairingCode: string): Promise<LocalExecutionStatus>;
@@ -30,5 +50,15 @@ export interface NarrativeXDesktopBridge {
   };
   localStorage: {
     ensureProject(projectId: string): Promise<LocalProjectStorageStatus>;
+    importAsset(input: { projectId: string; assetId: string; kind: "IMAGE" | "AUDIO" | "VIDEO" | "OTHER" }): Promise<LocalAssetImportResult | null>;
+    revealArtifact(input: { projectId: string; jobId: string }): Promise<void>;
+  };
+  render: {
+    status(): Promise<FfmpegRuntimeStatus>;
+    cancel(jobId: string): Promise<boolean>;
+  };
+  system: {
+    selectFiles(): Promise<string[]>;
+    selectFolder(): Promise<string | null>;
   };
 }

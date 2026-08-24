@@ -23,9 +23,9 @@ would leave two authentication models and two Electron runtimes to maintain.
 - Desktop authentication uses the system browser, not an embedded OAuth BrowserWindow. The backend
   completes Google OIDC, issues a short-lived one-time desktop authorization code, and redirects
   to `narrativex://auth/callback?code=...`.
-- Electron main exchanges the one-time code with the backend and stores desktop credentials only
-  through Electron `safeStorage`. Renderer code never receives Node access or raw refresh-token
-  persistence capabilities.
+- Electron main receives only the one-time handoff code through the custom protocol and forwards it
+  over the narrow preload bridge. The renderer exchanges the code with Spring, which creates the
+  server-managed `NX_SESSION` cookie. Google access/refresh tokens never enter Electron.
 - Desktop API calls use the desktop credential transport. The backend remains authoritative for
   user identity, ownership, entitlements, device registration, jobs and render policy.
 - The Local Agent is ported into `app/desktop/src/main` as device, heartbeat, storage and local
@@ -54,7 +54,7 @@ would leave two authentication models and two Electron runtimes to maintain.
 
 ### Negative
 
-- Desktop auth requires a custom protocol registration and token lifecycle.
+- Desktop auth requires a custom protocol registration and a short-lived handoff lifecycle.
 - Existing password-auth test fixtures and legacy password hashes need a staged cleanup.
 - The repository temporarily supports browser sessions and desktop tokens until web editor
   deprecation is complete.
@@ -64,8 +64,9 @@ would leave two authentication models and two Electron runtimes to maintain.
 - Never put access or refresh tokens in the deep-link URL.
 - One-time desktop auth codes expire quickly, are single-use, are bound to the pending OAuth state
   and are stored hashed when persisted.
-- Access tokens are short-lived; refresh tokens rotate and can be revoked per device.
-- Device tokens and refresh tokens are never logged or exposed through preload wholesale APIs.
+- Handoff codes are cryptographically random, hashed at rest in the handoff store, expire quickly,
+  and are single-use. The session cookie remains opaque to renderer application code.
+- Device tokens are never logged or exposed through preload wholesale APIs.
 
 ## Related decisions
 

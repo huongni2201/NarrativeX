@@ -65,7 +65,7 @@ narrativex:
       client-id: ${GOOGLE_OAUTH_CLIENT_ID:}
       client-secret: ${GOOGLE_OAUTH_CLIENT_SECRET:}
     cors:
-      allowed-origins: ${NARRATIVEX_CORS_ALLOWED_ORIGINS:http://localhost:3000,http://127.0.0.1:3000}
+      allowed-origins: ${NARRATIVEX_CORS_ALLOWED_ORIGINS:http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173,null}
   providers:
     vertex-gemini:
       enabled: ${VERTEX_GEMINI_ENABLED:false}

@@ -3,6 +3,7 @@ package com.narrativex.backend.feature.auth.infrastructure.configuration;
 import com.narrativex.backend.feature.auth.infrastructure.security.ApiAccessDeniedHandler;
 import com.narrativex.backend.feature.auth.infrastructure.security.ApiAuthenticationEntryPoint;
 import com.narrativex.backend.feature.auth.infrastructure.security.NarrativeXOidcUserService;
+import com.narrativex.backend.feature.auth.infrastructure.desktop.DesktopAuthenticationSuccessHandler;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Arrays;
 import java.util.List;
@@ -33,12 +34,15 @@ public class SecurityConfig {
   private static final String[] PUBLIC_AUTH_PATHS = {
     "/actuator/health",
     "/api/v1/auth/csrf",
+    "/api/v1/auth/desktop/start",
+    "/api/v1/auth/desktop/exchange",
     "/api/v1/local-devices/pair",
     "/api/v1/local-devices/heartbeat",
     "/api/v1/local-devices/project-renders/**"
   };
 
   private static final String[] DEVICE_CSRF_IGNORED_PATHS = {
+    "/api/v1/auth/desktop/exchange",
     "/api/v1/local-devices/pair",
     "/api/v1/local-devices/heartbeat",
     "/api/v1/local-devices/project-renders/**"
@@ -59,7 +63,7 @@ public class SecurityConfig {
   @Bean
   CorsConfigurationSource corsConfigurationSource(
       @Value(
-              "${narrativex.security.cors.allowed-origins:http://localhost:3000,http://127.0.0.1:3000}")
+              "${narrativex.security.cors.allowed-origins:http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173,null}")
           String origins) {
     List<String> allowedOrigins =
         Arrays.stream(origins.split(","))
@@ -98,9 +102,8 @@ public class SecurityConfig {
       ApiAuthenticationEntryPoint authenticationEntryPoint,
       ApiAccessDeniedHandler accessDeniedHandler,
       NarrativeXOidcUserService oidcUserService,
-      SecurityContextRepository securityContextRepository,
-      @Value("${narrativex.security.frontend-base-url:http://localhost:3000}")
-          String frontendBaseUrl)
+      DesktopAuthenticationSuccessHandler desktopAuthenticationSuccessHandler,
+      SecurityContextRepository securityContextRepository)
       throws Exception {
     http.cors(Customizer.withDefaults())
         .csrf(
@@ -127,7 +130,7 @@ public class SecurityConfig {
             oauth2 ->
                 oauth2
                     .userInfoEndpoint(userInfo -> userInfo.oidcUserService(oidcUserService))
-                    .defaultSuccessUrl(frontendBaseUrl, true))
+                    .successHandler(desktopAuthenticationSuccessHandler))
         .logout(
             logout ->
                 logout

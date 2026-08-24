@@ -154,6 +154,18 @@ export class ProjectStorage {
     return absolutePath;
   }
 
+  async resolveArtifact(projectId: string, jobId: string): Promise<string> {
+    validateOpaqueId(jobId, "jobId");
+    const manifest = await this.ensureProject(projectId);
+    const entry = manifest.artifacts[jobId];
+    if (!entry) throw new Error(`Local artifact ${jobId} is not registered for project ${projectId}.`);
+    const absolutePath = this.resolveProjectRelativePath(projectId, entry.relativePath);
+    const fileStat = await stat(absolutePath);
+    if (!fileStat.isFile() || fileStat.size !== entry.sizeBytes) throw new Error(`Local artifact ${jobId} is missing or invalid.`);
+    if (await sha256File(absolutePath) !== entry.checksumSha256) throw new Error(`Local artifact ${jobId} checksum does not match its manifest.`);
+    return absolutePath;
+  }
+
   projectDirectory(projectId: string): string {
     return this.projectRoot(projectId);
   }

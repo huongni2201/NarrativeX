@@ -47,6 +47,16 @@ Make `app/desktop` the primary NarrativeX client while keeping Spring Boot + Pos
 9. Migrate image/TTS/import workflows so Desktop results register directly into the local project manifest; only shared voice/sample audio remains remote on R2.
 10. Migrate remaining web feature surfaces and remove `app/frontend-web` only after parity gates pass.
 
+## Current implementation checkpoint (2026-08-24)
+
+- Desktop Google authentication now uses the system browser, a `narrativex://auth/callback` handoff,
+  a 90-second single-use code and a server-managed `NX_SESSION` created by the desktop exchange API.
+- Desktop routes are project-scoped under `#/projects/:projectId/*`; active project selection is held
+  in renderer Zustand while project data remains in React Query.
+- Local FFmpeg capability probing, ffprobe metadata parsing, progress parsing and deterministic
+  local render-manifest fingerprinting are available in Electron main. Full render orchestration,
+  lease-aware cancellation and crash recovery remain the next P1 implementation slice.
+
 ## Completion gate for this branch
 
 - Branch contains the current desktop shell foundation without reverting newer `main` renderer work.

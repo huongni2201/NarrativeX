@@ -5,7 +5,9 @@ import { DeviceIdentityStore, type DeviceIdentity } from "./device-identity";
 import {
   LocalExecutionBackendClient,
   type ClaimedProjectRender,
+  type LocalRenderCompletion,
 } from "./backend-client";
+import type { ProjectRenderer } from "../rendering/project-renderer";
 
 export type LocalExecutionConnectionState =
   | "UNPAIRED"
@@ -32,12 +34,16 @@ export class LocalExecutionService extends EventEmitter {
   private identity: DeviceIdentity | null = null;
   private state: LocalExecutionConnectionState = "UNPAIRED";
   private lastError: string | null = null;
+  private renderPollTimer: NodeJS.Timeout | null = null;
+  private renderInFlight = false;
+  private activeRender: { jobId: string; controller: AbortController } | null = null;
 
   constructor(
     private readonly config: LocalExecutionConfig,
     private readonly identityStore: DeviceIdentityStore,
     private readonly backendClient: LocalExecutionBackendClient,
     private readonly projectStorage: ProjectStorage,
+    private readonly projectRenderer?: ProjectRenderer,
   ) {
     super();
   }
@@ -70,6 +76,7 @@ export class LocalExecutionService extends EventEmitter {
 
   async unpair(): Promise<LocalExecutionStatus> {
     this.stopHeartbeat();
+    this.stopRenderPolling();
     this.identity = null;
     await this.identityStore.clear();
     this.setState("UNPAIRED", null);
@@ -130,8 +137,55 @@ export class LocalExecutionService extends EventEmitter {
     }
   }
 
+  async executeNextProjectRender(): Promise<LocalRenderCompletion | null> {
+    if (!this.projectRenderer || !this.identity || this.state !== "ONLINE") return null;
+    const prepared = await this.prepareNextProjectRender();
+    if (!prepared) return null;
+    const controller = new AbortController();
+    this.activeRender = { jobId: prepared.jobId, controller };
+    let leaseLost = false;
+    const leaseTimer = setInterval(() => {
+      void this.backendClient
+        .heartbeatProjectRender(this.identity!.deviceToken, prepared.jobId, prepared.leaseToken)
+        .catch(() => {
+          leaseLost = true;
+          controller.abort();
+        });
+    }, Math.max(5_000, Math.floor(this.config.heartbeatIntervalMs / 2)));
+    try {
+      const completion = await this.projectRenderer.render(prepared, controller.signal, async (progress, currentStep) => {
+        if (leaseLost) throw new Error("Project render lease was lost.");
+        try {
+          await this.backendClient.reportProjectRenderProgress(this.identity!.deviceToken, prepared.jobId, prepared.leaseToken, progress, currentStep);
+        } catch (error) {
+          leaseLost = true;
+          controller.abort();
+          throw error;
+        }
+      });
+      if (leaseLost) throw new Error("Project render lease was lost before completion.");
+      await this.backendClient.completeProjectRender(this.identity.deviceToken, prepared.jobId, prepared.leaseToken, completion);
+      return completion;
+    } catch (error) {
+      if (!leaseLost) {
+        await this.backendClient.failProjectRender(this.identity.deviceToken, prepared.jobId, prepared.leaseToken, errorCode(error), true).catch(() => undefined);
+      }
+      throw error;
+    } finally {
+      clearInterval(leaseTimer);
+      if (this.activeRender?.jobId === prepared.jobId) this.activeRender = null;
+    }
+  }
+
+  cancelProjectRender(jobId: string): boolean {
+    if (this.activeRender?.jobId !== jobId) return false;
+    this.activeRender.controller.abort();
+    return true;
+  }
+
   stop(): void {
     this.stopHeartbeat();
+    this.stopRenderPolling();
   }
 
   private async startHeartbeat(): Promise<void> {
@@ -141,6 +195,31 @@ export class LocalExecutionService extends EventEmitter {
       () => void this.sendHeartbeat(),
       this.config.heartbeatIntervalMs,
     );
+    this.startRenderPolling();
+  }
+
+  private startRenderPolling(): void {
+    if (!this.projectRenderer || this.renderPollTimer) return;
+    this.renderPollTimer = setInterval(() => void this.tryRenderNext(), 5_000);
+    void this.tryRenderNext();
+  }
+
+  private stopRenderPolling(): void {
+    if (this.renderPollTimer) clearInterval(this.renderPollTimer);
+    this.renderPollTimer = null;
+  }
+
+  private async tryRenderNext(): Promise<void> {
+    if (this.renderInFlight || this.state !== "ONLINE") return;
+    this.renderInFlight = true;
+    try {
+      await this.executeNextProjectRender();
+    } catch (error) {
+      this.lastError = errorMessage(error);
+      this.emit("status", this.status());
+    } finally {
+      this.renderInFlight = false;
+    }
   }
 
   private async sendHeartbeat(): Promise<void> {
@@ -172,4 +251,8 @@ export class LocalExecutionService extends EventEmitter {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Local execution request failed.";
+}
+
+function errorCode(error: unknown): string {
+  return error && typeof error === "object" && "code" in error && typeof error.code === "string" ? error.code : "LOCAL_RENDER_FAILED";
 }
