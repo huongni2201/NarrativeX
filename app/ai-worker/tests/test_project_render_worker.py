@@ -8,6 +8,7 @@ from narrativex_worker.project_rendering.repository import (
 )
 from narrativex_worker.project_rendering.worker import (
     _dimensions,
+    _frame_quantized_duration_seconds,
     _parse_operation_type,
     _validate_snapshot,
     split_render_segments,
@@ -105,6 +106,45 @@ def test_segmentation_enforces_hard_max_even_without_semantic_boundary() -> None
 
     assert [sum(beat.duration_ms for beat in segment) for segment in segments] == [240_000, 120_000]
     assert all(sum(beat.duration_ms for beat in segment) <= 300_000 for segment in segments)
+
+
+def test_frame_quantization_preserves_one_global_frame_budget_for_many_beats() -> None:
+    chapter_id = uuid4()
+    beat_duration_ms = 1001
+    beats = [
+        _beat(
+            chapter_id=chapter_id,
+            scene_index=0,
+            beat_index=index,
+            start_ms=index * beat_duration_ms,
+            duration_ms=beat_duration_ms,
+        )
+        for index in range(300)
+    ]
+
+    durations = _frame_quantized_duration_seconds(beats, 30)
+    total_duration_ms = len(beats) * beat_duration_ms
+    expected_frames = round(total_duration_ms * 30 / 1000.0)
+
+    assert len(durations) == len(beats)
+    assert round(sum(durations) * 30) == expected_frames
+    assert all(round(duration * 30) > 0 for duration in durations)
+
+
+def test_frame_quantization_rejects_subframe_visual_beats() -> None:
+    chapter_id = uuid4()
+    beats = [
+        _beat(
+            chapter_id=chapter_id,
+            scene_index=0,
+            beat_index=0,
+            start_ms=0,
+            duration_ms=10,
+        )
+    ]
+
+    with pytest.raises(ValueError, match="shorter than one render frame"):
+        _frame_quantized_duration_seconds(beats, 30)
 
 
 def test_snapshot_validation_accepts_contiguous_global_audio_clock() -> None:
