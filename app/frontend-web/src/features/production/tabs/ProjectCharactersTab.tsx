@@ -141,11 +141,12 @@ export function ProjectCharactersTab({
   const totalCount = rawCharacters.length;
   const inUseCount = rawCharacters.filter((c) => c.status === "ACTIVE").length;
   const incompleteCount = rawCharacters.filter((c) => !c.pinnedCharacterVersionId).length;
-  const unlinkedCount = rawCharacters.filter((c) => !c.workspaceId).length;
+  const workspaceUnscopedCount = rawCharacters.filter((c) => !c.workspaceId).length;
 
   const inUsePercent = totalCount > 0 ? Math.round((inUseCount / totalCount) * 100) : 0;
   const incompletePercent = totalCount > 0 ? Math.round((incompleteCount / totalCount) * 100) : 0;
-  const unlinkedPercent = totalCount > 0 ? Math.round((unlinkedCount / totalCount) * 100) : 0;
+  const workspaceUnscopedPercent =
+    totalCount > 0 ? Math.round((workspaceUnscopedCount / totalCount) * 100) : 0;
 
   const filteredCharacters = useMemo(() => {
     let result = rawCharacters;
@@ -580,11 +581,11 @@ export function ProjectCharactersTab({
                     <UserMinus className="h-4 w-4" />
                   </div>
                   <div>
-                    <div className="font-bold text-white text-base leading-tight">{unlinkedCount}</div>
-                    <div className="text-xs sm:text-sm text-slate-300">Chưa liên kết thư viện</div>
+                    <div className="font-bold text-white text-base leading-tight">{workspaceUnscopedCount}</div>
+                    <div className="text-xs sm:text-sm text-slate-300">Chưa gán workspace</div>
                   </div>
                 </div>
-                <span className="font-semibold text-slate-200 text-sm">{unlinkedPercent}%</span>
+                <span className="font-semibold text-slate-200 text-sm">{workspaceUnscopedPercent}%</span>
               </div>
             </div>
 
