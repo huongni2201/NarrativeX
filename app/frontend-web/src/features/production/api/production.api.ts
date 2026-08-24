@@ -56,7 +56,7 @@ export interface CreateProjectRenderInput {
 }
 
 export interface ProjectRenderArtifact {
-  id: string;
+  id: number;
   projectId: string;
   generationJobId: string;
   webViewLink: string | null;
@@ -132,7 +132,7 @@ function isProductionTimeline(value: unknown): value is ProductionTimeline {
 function isProjectRenderArtifact(value: unknown): value is ProjectRenderArtifact {
   if (!isRecord(value)) return false;
   return (
-    typeof value.id === "string" &&
+    typeof value.id === "number" &&
     typeof value.projectId === "string" &&
     typeof value.generationJobId === "string" &&
     (value.webViewLink === null || typeof value.webViewLink === "string") &&
