@@ -32,6 +32,7 @@ public class MyBatisLocalProjectRenderStore implements LocalProjectRenderStore {
                         chapter.globalStartMs(),
                         chapter.globalEndMs(),
                         chapter.narrationAssetId(),
+                        chapter.storageKey(),
                         chapter.sizeBytes(),
                         chapter.checksum(),
                         chapter.durationMs()))
@@ -50,6 +51,7 @@ public class MyBatisLocalProjectRenderStore implements LocalProjectRenderStore {
                         beat.globalEndMs(),
                         beat.durationMs(),
                         beat.cameraMovement(),
+                        beat.storageKey(),
                         beat.sizeBytes(),
                         beat.checksum()))
             .toList();
