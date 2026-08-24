@@ -205,6 +205,48 @@ class ProjectRenderRepository:
         if not owned:
             raise ProjectRenderLeaseLostError("Worker no longer owns the project render lease")
 
+    async def update_progress(
+        self,
+        claimed: ClaimedProjectRenderJob,
+        *,
+        progress: int,
+        current_step: str,
+    ) -> None:
+        if progress < 5 or progress >= 100:
+            raise ValueError("Project render progress must be between 5 and 99")
+        step = current_step.strip()
+        if not step or len(step) > 80:
+            raise ValueError("Project render current_step must contain 1 to 80 characters")
+        result = await self._require_pool().execute(
+            """
+            UPDATE generation_jobs gj
+               SET progress = GREATEST(gj.progress, $5),
+                   current_step = $6,
+                   updated_at = CURRENT_TIMESTAMP,
+                   row_version = gj.row_version + 1
+             WHERE gj.id = $1
+               AND gj.status = 'RUNNING'
+               AND EXISTS (
+                   SELECT 1
+                     FROM stage_attempts sa
+                    WHERE sa.id = $2
+                      AND sa.worker_id = $3
+                      AND sa.lease_token = $4
+                      AND sa.status = 'RUNNING'
+               )
+            """,
+            claimed.generation_job_id,
+            claimed.stage_attempt_id,
+            claimed.worker_id,
+            claimed.lease_token,
+            progress,
+            step,
+        )
+        if str(result) != "UPDATE 1":
+            raise ProjectRenderLeaseLostError(
+                "Worker lost the project render lease while updating progress"
+            )
+
     async def load_chapters(
         self, claimed: ClaimedProjectRenderJob
     ) -> list[ProjectRenderChapterAudio]:
