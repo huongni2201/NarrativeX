@@ -5,6 +5,7 @@ import uuid
 
 from narrativex_worker.media_repository import DurableMediaResult
 from narrativex_worker.providers.image import ImageGenerationResult
+from narrativex_worker.uuid_v7 import uuid7
 
 
 class ImageMaterializationMixin:
@@ -56,7 +57,7 @@ class ImageMaterializationMixin:
                     row["requested_by_user_id"],
                     stored.checksum,
                 )
-                asset_id = asset["media_asset_id"] if asset else uuid.uuid4()
+                asset_id = asset["media_asset_id"] if asset else uuid7()
                 if asset is None:
                     await connection.execute(
                         """
@@ -97,7 +98,7 @@ class ImageMaterializationMixin:
                             $10, $11, NULL, $12::jsonb)
                     ON CONFLICT (generation_item_id, relation_type) DO NOTHING
                     """,
-                    uuid.uuid4(),
+                    uuid7(),
                     asset_id,
                     row["requested_by_user_id"],
                     row["project_id"],
