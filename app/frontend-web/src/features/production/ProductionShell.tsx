@@ -134,7 +134,11 @@ export function ProductionShell({ projectId, initialTab = "chapters" }: Readonly
       />
 
       {/* Project Navigation Tabs */}
-      <ProjectTabs activeTab={activeTab} onChange={changeTab} />
+      <ProjectTabs
+        activeTab={activeTab}
+        onChange={changeTab}
+        onOpenProduction={() => router.push(`/projects/${projectIdentifier}/production`)}
+      />
 
       {/* Main Tab Content */}
       {activeTab === "chapters" && (
