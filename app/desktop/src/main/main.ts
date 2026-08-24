@@ -41,7 +41,7 @@ function requireLocalExecution(): LocalExecutionService {
   return localExecution;
 }
 
-void app.whenReady().then(async () => {
+void app.whenReady().then(() => {
   app.setAppUserModelId("com.narrativex.desktop");
   const config = loadLocalExecutionConfig();
   const identityStore = new DeviceIdentityStore();
@@ -59,9 +59,12 @@ void app.whenReady().then(async () => {
   localExecution.on("status", (status) => {
     mainWindow?.webContents.send("desktop:local-execution:status-changed", status);
   });
-  await localExecution.start();
 
   createWindow();
+  void localExecution.start().catch((error) => {
+    console.error("Failed to initialize local execution", error);
+  });
+
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
