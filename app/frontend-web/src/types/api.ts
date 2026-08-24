@@ -27,8 +27,17 @@ export const ACTIVE_JOB_STATUSES: ReadonlySet<JobStatus> = new Set([
   "PAUSED_COST_LIMIT",
 ]);
 
+/** Backend-owned resource identifiers are serialized UUID strings. */
+export type ResourceId = string;
+export type ProjectId = ResourceId;
+export type StoryVersionId = ResourceId;
+export type ChapterId = ResourceId;
+export type SceneId = ResourceId;
+export type VisualBeatId = ResourceId;
+export type MediaPlanId = ResourceId;
+
 export interface ApiProject {
-  id: string;
+  id: ProjectId;
   name: string;
   description?: string | null;
   coverImageUrl?: string | null;
@@ -42,8 +51,8 @@ export interface ApiProject {
 }
 
 export interface ApiStoryVersion {
-  id: string;
-  projectId: string;
+  id: StoryVersionId;
+  projectId: ProjectId;
   versionNumber: number;
   status: string;
   moderationDecision: string;
@@ -51,8 +60,8 @@ export interface ApiStoryVersion {
 }
 
 export interface ApiChapterSummary {
-  id: string;
-  storyVersionId: string;
+  id: ChapterId;
+  storyVersionId: StoryVersionId;
   orderIndex: number;
   title: string;
   sourceHash: string;
@@ -64,9 +73,9 @@ export interface ApiChapter extends ApiChapterSummary {
 }
 
 export interface ApiChapterContentVariant {
-  id: string;
-  chapterId: string;
-  sourceVariantId: string | null;
+  id: ResourceId;
+  chapterId: ChapterId;
+  sourceVariantId: ResourceId | null;
   variantType: "ORIGINAL" | "TRANSLATION";
   languageCode: string;
   content: string;
@@ -79,13 +88,13 @@ export interface ApiChapterContentVariant {
 }
 
 export interface ApiChapterLanguageStatus {
-  sourceVariantId: string;
+  sourceVariantId: ResourceId;
   detectedLanguage: string | null;
   confidence: number | null;
   detector: string | null;
   projectLanguage: string;
   translationStatus: string;
-  existingTranslationVariantId: string | null;
+  existingTranslationVariantId: ResourceId | null;
 }
 
 export interface ApiChapterWorkspaceSummary {
@@ -114,12 +123,12 @@ export interface ApiChapterWorkspaceProgressStep {
   completed: number;
   failed: number;
   latestJobId: string | null;
-  mediaPlanId: string | null;
+  mediaPlanId: MediaPlanId | null;
   mediaPlanRevision: number | null;
 }
 
 export interface ApiChapterWorkspacePreviewScene {
-  id: string;
+  id: SceneId;
   orderIndex: number;
   title: string;
   durationSeconds: number | null;
@@ -158,19 +167,19 @@ export interface ApiMediaCostEstimate {
 }
 
 export interface ApiGenerationJob {
-  jobId: string;
+  jobId: ResourceId;
   type: string;
   status: JobStatus;
   progress: number;
   currentStep: string;
   entityType: string;
-  entityId: string;
+  entityId: ResourceId;
   target: {
     type: string;
-    id: string;
+    id: ResourceId;
   };
   errorCode: string | null;
-  mediaPlanId?: string | null;
+  mediaPlanId?: MediaPlanId | null;
   mediaPlanRevision?: number | null;
   estimate?: {
     currency: string;
@@ -204,7 +213,7 @@ export interface CreateStoryVersionApiInput {
 }
 
 export interface CreateChapterApiInput {
-  storyVersionId?: number | null;
+  storyVersionId?: StoryVersionId | null;
   orderIndex?: number;
   title: string;
   sourceText: string;
@@ -221,9 +230,6 @@ export interface ApiResponse<T> {
   data: T;
   timestamp: string;
 }
-
-/** Project route IDs are UUIDs in the backend API. */
-export type ProjectId = string | number;
 
 export type ApiDataGuard<T> = (value: unknown) => value is T;
 
