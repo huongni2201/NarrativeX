@@ -63,8 +63,7 @@ class PostgreSqlMigrationIntegrationTest {
           "stage_attempts",
           "provider_operations",
           "operation_plans",
-          "render_manifests",
-          "project_render_artifacts");
+          "render_manifests");
 
   @DynamicPropertySource
   static void postgresProperties(DynamicPropertyRegistry registry) {
@@ -121,9 +120,11 @@ class PostgreSqlMigrationIntegrationTest {
 
       assertTrue(tableExists(connection, "character_version_reference_assets"));
       assertEquals(
-          "uuid", columnType(connection, "character_version_reference_assets", "character_version_id"));
+          "uuid",
+          columnType(connection, "character_version_reference_assets", "character_version_id"));
       assertEquals(
-          "uuid", columnType(connection, "character_version_reference_assets", "media_asset_id"));
+          "uuid",
+          columnType(connection, "character_version_reference_assets", "media_asset_id"));
       assertTrue(tableExists(connection, "local_device_pairing_codes"));
       assertTrue(tableExists(connection, "local_devices"));
       assertTrue(tableExists(connection, "local_device_capabilities"));
@@ -131,11 +132,14 @@ class PostgreSqlMigrationIntegrationTest {
       assertTrue(tableExists(connection, "project_render_input_snapshots"));
       assertTrue(tableExists(connection, "project_render_input_chapters"));
       assertTrue(tableExists(connection, "project_render_input_beats"));
-      assertTrue(tableExists(connection, "project_render_artifacts"));
-      assertEquals("uuid", columnType(connection, "project_render_input_snapshots", "generation_job_id"));
+      assertFalse(tableExists(connection, "project_render_artifacts"));
+      assertEquals(
+          "uuid", columnType(connection, "project_render_input_snapshots", "generation_job_id"));
       assertEquals("uuid", columnType(connection, "project_render_input_chapters", "chapter_id"));
       assertEquals("uuid", columnType(connection, "project_render_input_beats", "visual_beat_id"));
-      assertEquals("uuid", columnType(connection, "project_render_artifacts", "id"));
+      assertEquals("bigint", columnType(connection, "final_artifacts", "id"));
+      assertTrue(indexExists(connection, "uq_final_artifacts_project_render_job"));
+      assertTrue(indexExists(connection, "idx_final_artifacts_project_video_fingerprint"));
 
       assertEquals("bigint", columnType(connection, "projects", "row_version"));
       assertEquals("bigint", columnType(connection, "chapters", "row_version"));
@@ -195,8 +199,12 @@ class PostgreSqlMigrationIntegrationTest {
           assertEquals(
               result.getString("parent_type"),
               result.getString("child_type"),
-              result.getString("child_table") + "." + result.getString("child_column")
-                  + " must match " + result.getString("parent_table") + "."
+              result.getString("child_table")
+                  + "."
+                  + result.getString("child_column")
+                  + " must match "
+                  + result.getString("parent_table")
+                  + "."
                   + result.getString("parent_column"));
         }
         assertTrue(checked > 0, "expected the schema to contain foreign keys");
