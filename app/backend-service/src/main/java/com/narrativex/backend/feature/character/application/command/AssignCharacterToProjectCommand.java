@@ -11,5 +11,4 @@ public record AssignCharacterToProjectCommand(
     List<String> projectAliases,
     String storyMetadata,
     List<String> groups,
-    UUID pinnedCharacterVersionId,
-    String ownerId) {}
+    UUID pinnedCharacterVersionId) {}

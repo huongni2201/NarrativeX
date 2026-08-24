@@ -23,7 +23,7 @@ class MediaStorageCleanupJobTest {
     var storage = Mockito.mock(ObjectStoragePort.class);
     var assets = Mockito.mock(MediaAssetRepository.class);
     var task =
-        new CleanupTask(UUID.randomUUID(), "media/uploads/x", "late", "RUNNING", 1, Instant.now());
+        new CleanupTask(UUID.randomUUID(), "media/uploads/x", "late", "RUNNING", 3, Instant.now());
     when(tasks.claimDue(any(Integer.class), any(Instant.class), any(Instant.class)))
         .thenReturn(List.of(task));
     when(assets.isReferencedByReadyAsset(task.storageKey())).thenReturn(true);
@@ -31,6 +31,30 @@ class MediaStorageCleanupJobTest {
     new MediaStorageCleanupJob(tasks, storage, assets).cleanup();
 
     verify(storage, never()).delete(task.storageKey());
-    verify(tasks).markCompleted(eq(task.id()), any(Instant.class));
+    verify(tasks).markCompleted(eq(task.id()), eq(task.attemptCount()), any(Instant.class));
+  }
+
+  @Test
+  void failedCleanupUsesTheClaimedAttemptAsItsFence() {
+    var tasks = Mockito.mock(MediaStorageCleanupTaskRepository.class);
+    var storage = Mockito.mock(ObjectStoragePort.class);
+    var assets = Mockito.mock(MediaAssetRepository.class);
+    var task =
+        new CleanupTask(UUID.randomUUID(), "media/uploads/y", "retry", "RUNNING", 4, Instant.now());
+    when(tasks.claimDue(any(Integer.class), any(Instant.class), any(Instant.class)))
+        .thenReturn(List.of(task));
+    when(assets.isReferencedByReadyAsset(task.storageKey())).thenReturn(false);
+    Mockito.doThrow(new IllegalStateException("storage unavailable"))
+        .when(storage)
+        .delete(task.storageKey());
+
+    new MediaStorageCleanupJob(tasks, storage, assets).cleanup();
+
+    verify(tasks)
+        .markFailed(
+            eq(task.id()),
+            eq(task.attemptCount()),
+            any(Instant.class),
+            eq(IllegalStateException.class.getSimpleName()));
   }
 }

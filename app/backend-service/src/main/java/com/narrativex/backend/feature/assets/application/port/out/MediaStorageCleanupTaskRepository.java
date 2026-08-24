@@ -9,9 +9,9 @@ public interface MediaStorageCleanupTaskRepository {
 
   List<CleanupTask> claimDue(int limit, Instant now, Instant leaseUntil);
 
-  void markCompleted(UUID id, Instant completedAt);
+  void markCompleted(UUID id, int expectedAttemptCount, Instant completedAt);
 
-  void markFailed(UUID id, Instant nextAttemptAt, String lastError);
+  void markFailed(UUID id, int expectedAttemptCount, Instant nextAttemptAt, String lastError);
 
   record CleanupTask(
       UUID id,

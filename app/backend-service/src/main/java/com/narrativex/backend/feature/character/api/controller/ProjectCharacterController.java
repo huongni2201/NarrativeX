@@ -58,8 +58,7 @@ public class ProjectCharacterController {
                 request.projectAliases(),
                 request.storyMetadata(),
                 request.groups(),
-                request.pinnedCharacterVersionId(),
-                null));
+                request.pinnedCharacterVersionId()));
     return ResponseEntity.status(HttpStatus.CREATED)
         .body(
             ApiResponse.success(

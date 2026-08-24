@@ -18,10 +18,14 @@ public interface MediaStorageCleanupTaskMapper extends NarrativeXMyBatisMapper {
       @Param("leaseUntil") Instant leaseUntil,
       @Param("limit") int limit);
 
-  int markCompleted(@Param("id") UUID id, @Param("completedAt") Instant completedAt);
+  int markCompleted(
+      @Param("id") UUID id,
+      @Param("expectedAttemptCount") int expectedAttemptCount,
+      @Param("completedAt") Instant completedAt);
 
   int markFailed(
       @Param("id") UUID id,
+      @Param("expectedAttemptCount") int expectedAttemptCount,
       @Param("nextAttemptAt") Instant nextAttemptAt,
       @Param("lastError") String lastError);
 }
