@@ -63,9 +63,13 @@ public class GetProductionTimelineUseCase {
       long chapterDurationMs = resolveChapterDuration(chapter, chapterBeats);
       long chapterStartMs = cursorMs;
       long chapterEndMs = safeAdd(cursorMs, chapterDurationMs);
+      boolean timingRepresentable =
+          chapterBeats.isEmpty() || chapterDurationMs >= chapterBeats.size();
 
       List<ProductionTimelineView.Beat> plannedBeats =
-          planBeatTiming(chapter, chapterBeats, chapterStartMs, chapterDurationMs);
+          timingRepresentable
+              ? planBeatTiming(chapter, chapterBeats, chapterStartMs, chapterDurationMs)
+              : List.of();
       beats.addAll(plannedBeats);
 
       boolean audioReady =
@@ -81,7 +85,8 @@ public class GetProductionTimelineUseCase {
                           && Objects.equals(
                               beat.mediaPlanRevision(), chapter.mediaPlanRevision()));
       boolean planReady =
-          chapter.mediaPlanId() != null
+          timingRepresentable
+              && chapter.mediaPlanId() != null
               && chapter.mediaPlanRevision() != null
               && chapter.mediaPlanRevision() > 0
               && chapter.beatCount() > 0
