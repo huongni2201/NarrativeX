@@ -48,6 +48,8 @@ public class MyBatisProductionTimelineSourceAdapter implements ProductionTimelin
                 new BeatSource(
                     row.getChapterId(),
                     row.getChapterOrderIndex(),
+                    row.getMediaPlanId(),
+                    row.getMediaPlanRevision(),
                     row.getSceneIndex(),
                     row.getBeatIndex(),
                     row.getVisualBeatId(),
