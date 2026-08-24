@@ -1,0 +1,18 @@
+# Local Python caches and generated runtime artifacts.
+__pycache__
+*.py[cod]
+.mypy_cache
+.pytest_cache
+.ruff_cache
+artifacts
+
+# Tests and development-only tooling are not part of the production image.
+tests
+scripts
+
+# Repository and local environment files.
+.git
+*.log
+.env
+.env.*
+!.env.example

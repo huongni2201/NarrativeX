@@ -1,9 +1,11 @@
+# syntax=docker/dockerfile:1
+
 # Stage 1: Install dependencies
 FROM node:22-alpine AS deps
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
 
 # Stage 2: Build the application
 FROM node:22-alpine AS builder

@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1
+
 # Stage 1: Build application
 FROM eclipse-temurin:25-jdk-alpine AS builder
 WORKDIR /workspace
@@ -5,11 +7,13 @@ WORKDIR /workspace
 # Copy Maven wrapper and POM
 COPY .mvn .mvn
 COPY mvnw pom.xml ./
-RUN sed -i 's/\r$//' mvnw && sh ./mvnw dependency:go-offline -B
+RUN --mount=type=cache,target=/root/.m2 \
+    sed -i 's/\r$//' mvnw && sh ./mvnw dependency:go-offline -B
 
 # Copy source code and build package
 COPY src ./src
-RUN sh ./mvnw clean package -Dmaven.test.skip=true -B
+RUN --mount=type=cache,target=/root/.m2 \
+    sh ./mvnw clean package -Dmaven.test.skip=true -B
 
 # Stage 2: Production runtime
 FROM eclipse-temurin:25-jre-alpine AS runner

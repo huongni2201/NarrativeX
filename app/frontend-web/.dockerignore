@@ -1,0 +1,18 @@
+# Local dependency and build output; dependencies are installed in the deps stage.
+node_modules
+.next
+.next_dev
+out
+coverage
+playwright-report
+test-results
+
+# Local tooling and generated metadata.
+.git
+*.log
+*.tsbuildinfo
+
+# Never send local environment files into the build context.
+.env
+.env.*
+!.env.example
