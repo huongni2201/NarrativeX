@@ -9,6 +9,7 @@ import com.narrativex.backend.feature.common.infrastructure.persistence.Optimist
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -32,7 +33,18 @@ public class MyBatisProjectCharacterPersistenceAdapter implements ProjectCharact
       row.setId(null);
       row.setRowVersion(0);
       UUID id = mapper.insertProjectCharacter(row);
-      return rowMapper.toDomain(mapper.findProjectCharacter(id));
+      if (id != null) {
+        return rowMapper.toDomain(mapper.findProjectCharacter(id));
+      }
+
+      ProjectCharacterRow winner =
+          mapper.findProjectCharacterByProjectAndCharacterForUpdate(
+              value.getProjectId(), value.getCharacterId());
+      if (winner == null) {
+        throw new OptimisticLockingFailureException(
+            "Project character insert conflicted but the winning assignment was not found");
+      }
+      return rowMapper.toDomain(winner);
     }
     ProjectCharacterRow existing = mapper.findProjectCharacter(value.getId());
     if (existing == null) {
@@ -44,8 +56,7 @@ public class MyBatisProjectCharacterPersistenceAdapter implements ProjectCharact
     OptimisticConcurrency.requireVersion(
         value.getRowVersion(), existing.getRowVersion(), ProjectCharacter.class, value.getId());
     if (mapper.updateProjectCharacter(row) != 1)
-      throw new org.springframework.dao.OptimisticLockingFailureException(
-          "Project character was modified concurrently");
+      throw new OptimisticLockingFailureException("Project character was modified concurrently");
     return rowMapper.toDomain(mapper.findProjectCharacter(value.getId()));
   }
 }
