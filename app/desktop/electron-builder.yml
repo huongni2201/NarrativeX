@@ -1,0 +1,9 @@
+appId: com.narrativex.desktop
+productName: NarrativeX
+directories:
+  output: release
+files:
+  - out/**
+win:
+  target: nsis
+  artifactName: NarrativeX-Desktop-${version}.${ext}

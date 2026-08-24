@@ -1,0 +1,28 @@
+{
+  "name": "narrativex-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "NarrativeX desktop editor shell",
+  "main": "./out/main/main.js",
+  "author": "NarrativeX",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^4.7.0",
+    "electron": "^37.2.6",
+    "electron-vite": "^4.0.0",
+    "lucide-react": "^0.468.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "typescript": "^5.8.3"
+  }
+}
