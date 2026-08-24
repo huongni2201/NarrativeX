@@ -28,7 +28,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-/** Contract test for the authoritative PostgreSQL/Flyway schema and MyBatis UUID mappings. */
+/** Contract test for the authoritative PostgreSQL/Flyway final baseline and MyBatis UUID mappings. */
 @Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest
 @ActiveProfiles("test")
@@ -84,7 +84,8 @@ class PostgreSqlMigrationIntegrationTest {
   @Test
   void emptyPostgresMigratesThroughAuthoritativeUuidSchema() throws SQLException {
     try (Connection connection = dataSource.getConnection()) {
-      assertEquals("3", latestFlywayVersion(connection));
+      assertEquals("1", latestFlywayVersion(connection));
+      assertEquals(1, successfulVersionedMigrationCount(connection));
 
       for (String table : UUID_ID_TABLES) {
         assertEquals("uuid", columnType(connection, table, "id"), table + ".id must be UUID");
@@ -125,6 +126,7 @@ class PostgreSqlMigrationIntegrationTest {
       assertEquals("timestamp with time zone", columnType(connection, "chapters", "deleted_at"));
       assertFalse(constraintExists(connection, "uk_chapters_story_order"));
       assertTrue(indexExists(connection, "uq_chapters_story_order_active"));
+      assertTrue(indexExists(connection, "idx_chapters_deleted_at"));
 
       assertTrue(tableExists(connection, "plan_entitlements"));
       assertTrue(tableExists(connection, "style_presets"));
@@ -202,6 +204,15 @@ class PostgreSqlMigrationIntegrationTest {
         ResultSet result = statement.executeQuery()) {
       assertTrue(result.next());
       return result.getString(1);
+    }
+  }
+
+  private static int successfulVersionedMigrationCount(Connection connection) throws SQLException {
+    try (PreparedStatement statement = connection.prepareStatement(
+            "select count(*) from flyway_schema_history where success = true and version is not null");
+        ResultSet result = statement.executeQuery()) {
+      assertTrue(result.next());
+      return result.getInt(1);
     }
   }
 
