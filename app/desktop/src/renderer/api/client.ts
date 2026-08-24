@@ -1,3 +1,7 @@
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080").replace(
+  /\/$/,
+  "",
+);
 const DEFAULT_TIMEOUT_MS = 30_000;
 
 interface CsrfTokenResponse {
@@ -33,6 +37,10 @@ export class DesktopApiProtocolError extends Error {
     this.name = "DesktopApiProtocolError";
     this.path = path;
   }
+}
+
+export function apiBaseUrl(): string {
+  return API_BASE_URL;
 }
 
 function isCsrfTokenResponse(value: unknown): value is CsrfTokenResponse {
