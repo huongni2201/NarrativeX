@@ -192,42 +192,55 @@ class ImageProviderOperationFacadeMixin:
                     """
                     UPDATE provider_operations
                        SET status = CASE
-                               WHEN provider_operation_id IS NULL
-                                AND reserved_at <= CURRENT_TIMESTAMP - ($4 * INTERVAL '1 second')
-                               THEN 'FAILED'
+                               WHEN (
+                                   (provider_operation_id IS NULL
+                                    AND reserved_at <= CURRENT_TIMESTAMP
+                                        - ($4 * INTERVAL '1 second'))
+                                   OR reconcile_attempts + 1 >= $5
+                               ) THEN 'FAILED'
                                ELSE 'UNKNOWN'
                            END,
                            completed_at = CASE
-                               WHEN provider_operation_id IS NULL
-                                AND reserved_at <= CURRENT_TIMESTAMP - ($4 * INTERVAL '1 second')
-                               THEN COALESCE(completed_at, CURRENT_TIMESTAMP)
+                               WHEN (
+                                   (provider_operation_id IS NULL
+                                    AND reserved_at <= CURRENT_TIMESTAMP
+                                        - ($4 * INTERVAL '1 second'))
+                                   OR reconcile_attempts + 1 >= $5
+                               ) THEN COALESCE(completed_at, CURRENT_TIMESTAMP)
                                ELSE completed_at
                            END,
                            next_reconcile_at = CASE
-                               WHEN provider_operation_id IS NULL
-                                AND reserved_at <= CURRENT_TIMESTAMP - ($4 * INTERVAL '1 second')
-                               THEN NULL
+                               WHEN (
+                                   (provider_operation_id IS NULL
+                                    AND reserved_at <= CURRENT_TIMESTAMP
+                                        - ($4 * INTERVAL '1 second'))
+                                   OR reconcile_attempts + 1 >= $5
+                               ) THEN NULL
                                ELSE CURRENT_TIMESTAMP + INTERVAL '15 seconds'
                            END,
                            last_reconcile_error = CASE
-                               WHEN provider_operation_id IS NULL
-                                AND reserved_at <= CURRENT_TIMESTAMP - ($4 * INTERVAL '1 second')
-                               THEN 'PROVIDER_SUBMISSION_UNRESOLVED'
+                               WHEN (
+                                   (provider_operation_id IS NULL
+                                    AND reserved_at <= CURRENT_TIMESTAMP
+                                        - ($4 * INTERVAL '1 second'))
+                                   OR reconcile_attempts + 1 >= $5
+                               ) THEN 'PROVIDER_SUBMISSION_UNRESOLVED'
                                ELSE $2
                            END,
+                           reconcile_attempts = reconcile_attempts + 1,
                            updated_at = CURRENT_TIMESTAMP,
                            row_version = row_version + 1
                      WHERE id = $1
                        AND status IN ('RESERVED', 'SUBMITTED', 'RUNNING', 'UNKNOWN')
                        AND row_version = $3
                        AND (
-                           ($5::text IS NULL AND $6::uuid IS NULL)
+                           ($6::text IS NULL AND $7::uuid IS NULL)
                            OR EXISTS (
                                SELECT 1
                                  FROM stage_attempts sa
                                 WHERE sa.id = provider_operations.stage_attempt_id
-                                  AND sa.worker_id = $5
-                                  AND sa.lease_token = $6::uuid
+                                  AND sa.worker_id = $6
+                                  AND sa.lease_token = $7::uuid
                                   AND sa.status = 'RUNNING'
                            )
                        )
@@ -237,6 +250,7 @@ class ImageProviderOperationFacadeMixin:
                     error[:2000],
                     operation.row_version,
                     self.settings.vertex_image_unknown_max_age_seconds,
+                    self.settings.image_reconcile_max_attempts,
                     operation.worker_id,
                     operation.lease_token,
                 )

@@ -6,6 +6,7 @@ from uuid import UUID
 
 import pytest
 
+from narrativex_worker.circuit_breaker import ProviderCircuitBreaker
 from narrativex_worker.image_generation_repository import (
     ClaimedImageGenerationJob,
     DurableImageOperation,
@@ -42,6 +43,10 @@ class _Repository:
             await self.load_release.wait()
         item = _item()
         return (SimpleNamespace(item_key=item.item_key, request=item.request),)
+
+    async def resolve_reused_items(self, stage_attempt_id: UUID) -> int:
+        del stage_attempt_id
+        return 0
 
     async def assert_lease(self, job: ClaimedImageGenerationJob) -> None:
         del job
@@ -188,7 +193,12 @@ def _runner(repository: _Repository, provider: _Provider) -> Any:
     runner = cast(Any, object.__new__(ImageGenerationWorkerRunner))
     runner.repository = repository
     runner.provider = provider
-    runner.settings = SimpleNamespace(vertex_image_batch_max_items=8)
+    runner.settings = SimpleNamespace(
+        vertex_image_batch_max_items=8,
+        image_circuit_breaker_failure_threshold=3,
+        image_circuit_breaker_open_seconds=120,
+    )
+    runner.circuit_breaker = ProviderCircuitBreaker(3, 120)
     runner._concurrency_gate = asyncio.Semaphore(1)
     runner.logger = logging.getLogger("test.image-generation")
     return runner
@@ -235,6 +245,23 @@ async def test_submit_batch_treats_deterministic_provider_error_as_failed() -> N
 
     assert repository.mark_unknown_calls == []
     assert repository.fail_provider_operation_calls == ["HTTP_400"]
+
+
+@pytest.mark.asyncio
+async def test_submit_batch_does_not_call_provider_when_circuit_is_open() -> None:
+    repository = _Repository(_operation())
+    provider = _Provider(VertexImageProviderError("HTTP_503"))
+    runner = _runner(repository, provider)
+    runner.circuit_breaker = ProviderCircuitBreaker(1, 120)
+
+    await runner._submit_batch(_job(), (_item(),))
+    await runner._submit_batch(_job(), (_item(),))
+
+    assert provider.calls == 1
+    assert repository.fail_provider_operation_calls == [
+        "HTTP_503",
+        "IMAGE_CIRCUIT_BREAKER_OPEN",
+    ]
 
 
 @pytest.mark.asyncio

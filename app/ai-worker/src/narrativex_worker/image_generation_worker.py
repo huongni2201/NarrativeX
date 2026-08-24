@@ -6,6 +6,7 @@ import logging
 import time
 import uuid
 
+from narrativex_worker.circuit_breaker import ProviderCircuitBreaker
 from narrativex_worker.config import WorkerSettings
 from narrativex_worker.image_generation_repository import (
     ClaimedImageGenerationJob,
@@ -57,6 +58,10 @@ class ImageGenerationWorkerRunner:
         self._concurrency_gate = concurrency_gate
         self.logger = logging.getLogger("narrativex.image-generation")
         self.metrics = PipelineMetrics(self.logger)
+        self.circuit_breaker = ProviderCircuitBreaker(
+            settings.image_circuit_breaker_failure_threshold,
+            settings.image_circuit_breaker_open_seconds,
+        )
 
     def stop(self) -> None:
         self._running = False
@@ -163,14 +168,24 @@ class ImageGenerationWorkerRunner:
         operation = await self.repository.prepare_provider_submission(job, items)
         if not operation.created:
             return
+        if not self.circuit_breaker.allow():
+            self.logger.warning(
+                "Image provider circuit is open; failing generation operation=%s job=%s",
+                operation.id,
+                job.generation_job_id,
+            )
+            await self.repository.fail_provider_operation(operation, "IMAGE_CIRCUIT_BREAKER_OPEN")
+            return
         # This is the final DB-side lease fence before crossing the paid provider boundary.
         await self.repository.assert_lease(job)
         try:
             provider_operation = await self.provider.submit_batch(items)
         except VertexImageSubmissionUnknownError as exception:
+            self._record_provider_failure(normalize_error(exception))
             await self.repository.mark_unknown(operation, normalize_error(exception))
             return
         except VertexImageProviderError as exception:
+            self._record_provider_failure(normalize_error(exception))
             await self.repository.fail_provider_operation(operation, normalize_error(exception))
             return
         except Exception as exception:
@@ -181,14 +196,17 @@ class ImageGenerationWorkerRunner:
             # Once submit_batch has been entered, a generic exception is ambiguous: the provider
             # may have accepted the request before the client failed. Keep the durable UNKNOWN
             # fence recoverable instead of creating a false terminal failure.
+            self._record_provider_failure(normalize_error(exception))
             await self.repository.mark_unknown(operation, normalize_error(exception))
             return
         if provider_operation.status is ProviderOperationStatus.FAILED:
+            self._record_provider_failure(provider_operation.error_code or "IMAGE_PROVIDER_FAILED")
             await self.repository.fail_provider_operation(
                 operation,
                 provider_operation.error_code or "IMAGE_BATCH_PROVIDER_FAILED",
             )
             return
+        self.circuit_breaker.record_success()
         try:
             await self.repository.mark_submitted(
                 operation, provider_operation.operation_id, provider_operation.status
@@ -236,6 +254,9 @@ class ImageGenerationWorkerRunner:
                 else:
                     resolved = await self.provider.reconcile_batch(operation)
                 if resolved.status is ProviderOperationStatus.UNKNOWN:
+                    self._record_provider_failure(
+                        resolved.error_code or "PROVIDER_SUBMISSION_UNRESOLVED"
+                    )
                     await self.repository.mark_unknown(
                         durable, resolved.error_code or "PROVIDER_SUBMISSION_UNRESOLVED"
                     )
@@ -244,11 +265,15 @@ class ImageGenerationWorkerRunner:
                     ProviderOperationStatus.SUBMITTED,
                     ProviderOperationStatus.RUNNING,
                 }:
+                    self.circuit_breaker.record_success()
                     await self.repository.mark_submitted(
                         durable, resolved.operation_id, resolved.status
                     )
                     continue
                 if resolved.status is ProviderOperationStatus.FAILED:
+                    self._record_provider_failure(
+                        resolved.error_code or "IMAGE_BATCH_PROVIDER_FAILED"
+                    )
                     await self._fail_batch(
                         durable,
                         resolved.error_code or "IMAGE_BATCH_PROVIDER_FAILED",
@@ -260,8 +285,10 @@ class ImageGenerationWorkerRunner:
                 )
                 await self.repository.complete_provider_operation(durable, materialized)
             except (VertexImageSubmissionUnknownError, ImageGenerationUnknownError) as exception:
+                self._record_provider_failure(normalize_error(exception))
                 await self.repository.mark_unknown(durable, normalize_error(exception))
             except VertexImageProviderError as exception:
+                self._record_provider_failure(normalize_error(exception))
                 await self.repository.fail_provider_operation(durable, normalize_error(exception))
             except (ImageGenerationOutputError, ImageGenerationProviderRejectedError) as exception:
                 await self.repository.fail_provider_operation(durable, normalize_error(exception))
@@ -272,6 +299,13 @@ class ImageGenerationWorkerRunner:
                     durable.id,
                 )
                 await self.repository.mark_unknown(durable, normalize_error(exception))
+
+    def _record_provider_failure(self, error: str) -> None:
+        if self.circuit_breaker.record_failure():
+            self.logger.error(
+                "Image provider circuit opened after consecutive failures error=%s",
+                error,
+            )
 
     async def _heartbeat(self, job: ClaimedImageGenerationJob) -> None:
         interval = max(3.0, self.settings.lease_seconds / 3)
