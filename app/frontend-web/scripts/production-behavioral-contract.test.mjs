@@ -34,6 +34,23 @@ const renderTab = await readFile(
   new URL("../src/features/chapters/components/ChapterRenderTab.tsx", import.meta.url),
   "utf8",
 );
+const notificationScreen = await readFile(
+  new URL("../src/features/notifications/NotificationScreen.tsx", import.meta.url),
+  "utf8",
+);
+const notificationDrawer = await readFile(
+  new URL("../src/features/notifications/components/NotificationDrawer.tsx", import.meta.url),
+  "utf8",
+);
+const appProviders = await readFile(new URL("../src/app/providers.tsx", import.meta.url), "utf8");
+const generationEventsProvider = await readFile(
+  new URL("../src/features/generation/components/GenerationEventsProvider.tsx", import.meta.url),
+  "utf8",
+);
+const studioHeader = await readFile(
+  new URL("../src/components/layout/StudioHeader.tsx", import.meta.url),
+  "utf8",
+);
 
 test("chapter creation leaves StoryVersion orchestration to the backend", () => {
   assert.match(productionShell, /useCreateChapter/);
@@ -64,6 +81,33 @@ test("media generation owns optimistic job state and terminal recovery", () => {
   assert.match(mediaHook, /setQueryData\(queryKeys\.job\(job\.jobId\)/);
   assert.match(mediaHook, /job\?\.status === "FAILED" \|\| job\?\.status === "UNKNOWN"/);
   assert.match(mediaHook, /apiErrorMessage\(error, "Không thể tạo media job\."\)/);
+  assert.match(mediaHook, /toast\.success\("Đã bắt đầu tạo hình ảnh"/);
+});
+
+test("generation progress uses SSE with a polling fallback", () => {
+  assert.match(generationEventsProvider, /new EventSource\(apiUrl\("\/api\/v1\/generation-events"\)/);
+  assert.match(generationEventsProvider, /generation\.updated/);
+  assert.match(mediaHook, /generationEventsConnected/);
+  assert.match(mediaHook, /: 10000/);
+});
+
+test("toast notifications use a readable light surface", () => {
+  assert.match(appProviders, /<Toaster\s+position="top-right"\s+theme="light"/);
+  assert.match(appProviders, /toastOptions=\{\{/);
+  assert.match(appProviders, /!bg-surface-toast/);
+  assert.match(appProviders, /!text-text-toast/);
+});
+
+test("notification bell announces the unread notification count", () => {
+  assert.match(studioHeader, /Bạn có \{unreadCount\} thông báo mới/);
+  assert.match(studioHeader, /unreadCount > 0/);
+  assert.match(studioHeader, /aria-live="polite"/);
+});
+
+test("media generation keeps the queued job visible while details load", () => {
+  assert.match(mediaHook, /const jobId = createdJob\?\.jobId \?\? initialMedia\.latestJobId \?\? null/);
+  assert.match(mediaHook, /const job = jobQuery\.data \?\? createdJob;/);
+  assert.doesNotMatch(mediaHook, /workspaceHasCreatedJob|resetCreateJob/);
 });
 
 test("render transitions STALLED/RUNNING and resolves completed artifacts", () => {
@@ -72,4 +116,11 @@ test("render transitions STALLED/RUNNING and resolves completed artifacts", () =
   assert.match(renderHook, /case "COMPLETED":\s*if \(artifact\) return "READY"/s);
   assert.match(renderHook, /artifactsApi\.getByJobId/);
   assert.match(renderTab, /render\.status === "READY" && render\.artifact/);
+});
+
+test("notification surfaces describe completed image generation", () => {
+  for (const source of [notificationScreen, notificationDrawer]) {
+    assert.match(source, /notification\.image_generation\.completed/);
+    assert.match(source, /notification\.image_generation\.completed\.desc/);
+  }
 });

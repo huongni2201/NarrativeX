@@ -84,8 +84,10 @@ class PostgreSqlMigrationIntegrationTest {
   @Test
   void emptyPostgresMigratesThroughAuthoritativeUuidSchema() throws SQLException {
     try (Connection connection = dataSource.getConnection()) {
-      assertEquals("2", latestFlywayVersion(connection));
-      assertEquals(2, successfulVersionedMigrationCount(connection));
+      assertEquals("5", latestFlywayVersion(connection));
+      assertEquals(5, successfulVersionedMigrationCount(connection));
+      assertTrue(triggerExists(connection, "trg_generation_jobs_notify_completion"));
+      assertTrue(triggerExists(connection, "trg_generation_jobs_sse_events"));
       assertEquals(512, characterMaximumLength(connection, "generation_jobs", "idempotency_key"));
 
       for (String table : UUID_ID_TABLES) {
@@ -256,6 +258,10 @@ class PostgreSqlMigrationIntegrationTest {
         connection,
         "select exists (select 1 from pg_indexes where schemaname = 'public' and indexname = ?)",
         name);
+  }
+
+  private static boolean triggerExists(Connection connection, String name) throws SQLException {
+    return exists(connection, "select exists (select 1 from pg_trigger where tgname = ?)", name);
   }
 
   private static boolean exists(Connection connection, String sql, String value) throws SQLException {

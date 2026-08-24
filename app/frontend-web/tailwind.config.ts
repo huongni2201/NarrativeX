@@ -44,6 +44,8 @@ const config: Config = {
           panel: "var(--surface-panel)",
           elevated: "var(--surface-elevated)",
           input: "var(--surface-input)",
+          toast: "var(--surface-toast)",
+          "toast-hover": "var(--surface-toast-hover)",
           storyboard: "var(--surface-storyboard)",
           "storyboard-card": "var(--surface-storyboard-card)",
         },
@@ -55,6 +57,7 @@ const config: Config = {
           storyboard: "var(--border-storyboard)",
           "storyboard-strong": "var(--border-storyboard-strong)",
           glow: "var(--border-glow)",
+          toast: "var(--border-toast)",
         },
         primary: {
           DEFAULT: "var(--primary)",
@@ -80,6 +83,8 @@ const config: Config = {
           secondary: "var(--text-secondary)",
           muted: "var(--text-muted)",
           dim: "var(--text-dim)",
+          toast: "var(--text-toast)",
+          "toast-muted": "var(--text-toast-muted)",
         },
         badge: {
           blue: "var(--badge-blue)",

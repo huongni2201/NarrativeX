@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { apiErrorMessage } from "@/shared/api/client";
 import {
   ACTIVE_JOB_STATUSES,
@@ -13,6 +14,7 @@ import {
 } from "@/types/api";
 import { queryKeys } from "@/lib/query-keys";
 import { mediaApi, type CreateMediaJobInput } from "../api/media.api";
+import { useGenerationEventsStatus } from "../components/GenerationEventsProvider";
 
 type InitialMediaIdentity = Pick<
   ApiChapterWorkspaceProgressStep,
@@ -26,12 +28,18 @@ export function useMediaGeneration(
 ) {
   const queryClient = useQueryClient();
   const [message, setMessage] = useState<string | null>(null);
+  const { connected: generationEventsConnected } = useGenerationEventsStatus();
+  const scope = `${projectId}:${chapterId}`;
+  const previousScope = useRef(scope);
 
   const createJob = useMutation({
     mutationFn: ({ input, idempotencyKey }: { input: CreateMediaJobInput; idempotencyKey: string }) =>
       mediaApi.createJob(projectId, chapterId, input, idempotencyKey),
     onSuccess: (job) => {
       setMessage("Đã xếp hàng tạo keyframe. Bạn có thể theo dõi tiến độ bên dưới.");
+      toast.success("Đã bắt đầu tạo hình ảnh", {
+        description: "Keyframe đang được xử lý. Bạn có thể theo dõi tiến độ trong tab Visuals.",
+      });
       queryClient.setQueryData(queryKeys.job(job.jobId), job);
       queryClient.setQueryData<ApiChapterWorkspace>(
         queryKeys.chapterWorkspace(projectId, chapterId),
@@ -62,15 +70,16 @@ export function useMediaGeneration(
   });
 
   const createdJob = createJob.data ?? null;
-  const resetCreateJob = createJob.reset;
-  const workspaceHasCreatedJob = Boolean(
-    createdJob && initialMedia.latestJobId === createdJob.jobId,
-  );
-  const jobId = initialMedia.latestJobId ?? createdJob?.jobId ?? null;
-
   useEffect(() => {
-    if (workspaceHasCreatedJob) resetCreateJob();
-  }, [workspaceHasCreatedJob, resetCreateJob]);
+    if (previousScope.current === scope) return;
+    previousScope.current = scope;
+    createJob.reset();
+    setMessage(null);
+  }, [createJob, scope]);
+
+  // Keep the mutation result authoritative until the job query has observed it.
+  // The workspace refetch can race this query and otherwise make the progress card disappear.
+  const jobId = createdJob?.jobId ?? initialMedia.latestJobId ?? null;
 
   const jobQuery = useQuery({
     queryKey: jobId ? queryKeys.job(jobId) : ["jobs", "media-none"],
@@ -78,7 +87,11 @@ export function useMediaGeneration(
     enabled: Boolean(jobId),
     refetchInterval: (query) => {
       const status = query.state.data?.status;
-      return status && TERMINAL_JOB_STATUSES.has(status) ? false : 1500;
+      return status && TERMINAL_JOB_STATUSES.has(status)
+        ? false
+        : generationEventsConnected
+          ? false
+          : 10000;
     },
   });
 
@@ -87,7 +100,11 @@ export function useMediaGeneration(
     queryFn: () => mediaApi.getDetails(jobId!),
     enabled: Boolean(jobId),
     refetchInterval:
-      jobQuery.data?.status && ACTIVE_JOB_STATUSES.has(jobQuery.data.status) ? 1500 : false,
+      jobQuery.data?.status && ACTIVE_JOB_STATUSES.has(jobQuery.data.status)
+        ? generationEventsConnected
+          ? false
+          : 10000
+        : false,
   });
 
   const review = useMutation({
@@ -111,7 +128,7 @@ export function useMediaGeneration(
     },
   });
 
-  const job = jobQuery.data ?? (workspaceHasCreatedJob ? null : createdJob);
+  const job = jobQuery.data ?? createdJob;
   useEffect(() => {
     if (job?.status === "FAILED" || job?.status === "UNKNOWN") {
       setMessage(

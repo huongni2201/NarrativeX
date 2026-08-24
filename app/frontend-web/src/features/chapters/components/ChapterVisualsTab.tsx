@@ -68,7 +68,13 @@ export function ChapterVisualsTab({
         </div>
       )}
 
-      {!media.details && (
+      {media.job && !media.details && (
+        <p className="rounded-xl border border-dashed border-border-dark px-4 py-10 text-center text-sm text-slate-400">
+          Đang tải chi tiết các keyframe…
+        </p>
+      )}
+
+      {!media.details && !media.job && (
         <p className="rounded-xl border border-dashed border-border-dark px-4 py-10 text-center text-sm text-slate-500">
           Chưa có media job cho Chapter này.
         </p>

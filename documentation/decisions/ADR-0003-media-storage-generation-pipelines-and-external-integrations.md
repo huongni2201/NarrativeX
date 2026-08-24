@@ -80,6 +80,23 @@ environment variables and are never committed to the repository.
 - **GCS Staging Lifecycle:** A dedicated Google Cloud Storage bucket is used strictly as temporary staging for batch input/output JSONL files under deterministic batch prefixes. Reconciled images are uploaded to Cloudflare R2 as canonical `MediaAsset` records.
 - **Asynchronous Batch Reconciliation:** `ImageGenerationRunner` persists pending batch job metadata before releasing worker leases. Workers reconcile batches asynchronously, preventing in-memory polling and surviving worker restarts.
 
+### 5. Durable in-app completion notifications
+
+PostgreSQL creates one in-app notification when an image (`CHAPTER_GENERATE` and image stage
+variants) or generated narration (`NARRATION_GENERATE`) job transitions to `COMPLETED`. The
+notification is created by a database trigger because workers update `generation_jobs` directly;
+the unique event key makes retries idempotent and keeps the notification in the same transaction
+as the authoritative job transition.
+
+### 6. Generation progress delivery
+
+The backend exposes an authenticated SSE stream at `/api/v1/generation-events`. Workers still
+write authoritative job state to PostgreSQL; a PostgreSQL `NOTIFY` trigger is used only as a
+best-effort delivery signal for the backend SSE listener. The frontend updates its React Query
+cache from `generation.updated` events and falls back to bounded polling when the stream is
+unavailable. Heartbeats and browser reconnect behavior keep long-running generation jobs visible
+without making SSE a durable event store.
+
 ---
 
 ## Invariants
@@ -90,6 +107,7 @@ environment variables and are never committed to the repository.
 4. Narration timeline duration strictly drives visual beat timing; visual beats never use arbitrary hardcoded lengths.
 5. All Gemini image generation routes through Vertex Batch; GCS is temporary staging only, never a permanent media store.
 6. Ambiguous provider network outcomes remain `UNKNOWN` and undergo scheduled reconciliation rather than triggering blind re-generation.
+7. SSE delivery is user-scoped by the authenticated Spring Security session and never accepts a client-supplied user identity.
 
 ---
 

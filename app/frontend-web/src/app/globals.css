@@ -18,6 +18,8 @@
     --surface-panel: #0a1017;
     --surface-elevated: #151c26;
     --surface-input: #0a1119;
+    --surface-toast: #f8fafc;
+    --surface-toast-hover: #f1f5f9;
     --surface-storyboard: var(--surface-panel);
     --surface-storyboard-card: var(--surface-card);
 
@@ -29,6 +31,7 @@
     --border-storyboard: var(--border-dark);
     --border-storyboard-strong: var(--border);
     --border-glow: rgba(194, 65, 12, 0.2);
+    --border-toast: rgba(15, 23, 42, 0.14);
 
     /* Brand & Accents */
     --primary: #c2410c;
@@ -70,6 +73,8 @@
     --text-secondary: #c3ccd6;
     --text-muted: #a5b0bc;
     --text-dim: #94a3b8;
+    --text-toast: #0f172a;
+    --text-toast-muted: #475569;
 
     /* Tailwind palette aliases: component code stays token-driven. */
     --palette-slate-100: 232 238 244;

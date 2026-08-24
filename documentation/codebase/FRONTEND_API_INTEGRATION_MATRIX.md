@@ -23,7 +23,7 @@ This matrix records frontend wiring separately from backend/API availability. AP
 | Asset Library | IMPLEMENTED foundation | account-scoped verified media lifecycle at `/api/v1/assets`, cursor page `{items,nextCursor}`, and upload intents/finalize | signed downloads and richer upload UX |
 | Job History | IMPLEMENTED foundation | backend read (`/api/v1/jobs/history`) | deeper server-side filters and job details |
 | User Quota | IMPLEMENTED foundation | backend read (`/api/v1/users/me/quota`) | richer usage/billing breakdown and plan actions |
-| Notifications | IMPLEMENTED foundation | backend read/mark-read (`/api/v1/notifications`) | broader message catalog and richer deep links |
+| Notifications | IMPLEMENTED foundation | backend read/mark-read (`/api/v1/notifications`), generation SSE invalidation, unread badge/count in the shell, drawer and notification center | broader message catalog and richer deep links |
 | Chapter Narration | IMPLEMENTED foundation | backend narration jobs (`/narration-jobs`) | voice catalog modal & TTS generation UX |
 | Provider Health | IMPLEMENTED foundation | backend read (`/api/v1/provider-health`) | status indicator badge & model info |
 | Presets | IMPLEMENTED foundation | `/api/v1/style-presets` reads PostgreSQL catalog | custom preset CRUD and project assignment |
@@ -98,4 +98,4 @@ npm run type-check
 npm run build
 ```
 
-Behavioral browser verification should additionally cover saved-source Analyze, job polling, Storyboard refresh, project dashboard/favorite behavior, Job History, Notifications and Project Character list/detail using real backend data.
+Behavioral browser verification should additionally cover saved-source Analyze, generation SSE/reconnect with polling fallback, Storyboard refresh, project dashboard/favorite behavior, Job History, Notifications and Project Character list/detail using real backend data.
