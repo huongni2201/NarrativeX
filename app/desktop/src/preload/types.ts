@@ -13,6 +13,13 @@ export interface LocalExecutionStatus {
   lastError: string | null;
 }
 
+export interface LocalProjectStorageStatus {
+  projectId: string;
+  projectDirectory: string;
+  assetCount: number;
+  artifactCount: number;
+}
+
 export interface NarrativeXDesktopBridge {
   appVersion(): Promise<string>;
   localExecution: {
@@ -20,5 +27,8 @@ export interface NarrativeXDesktopBridge {
     pair(pairingCode: string): Promise<LocalExecutionStatus>;
     unpair(): Promise<LocalExecutionStatus>;
     onStatusChanged(listener: (status: LocalExecutionStatus) => void): () => void;
+  };
+  localStorage: {
+    ensureProject(projectId: string): Promise<LocalProjectStorageStatus>;
   };
 }
