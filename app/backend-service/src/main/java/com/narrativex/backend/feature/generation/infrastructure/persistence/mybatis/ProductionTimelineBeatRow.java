@@ -13,6 +13,8 @@ import lombok.Setter;
 public class ProductionTimelineBeatRow {
   private UUID chapterId;
   private int chapterOrderIndex;
+  private UUID mediaPlanId;
+  private Integer mediaPlanRevision;
   private int sceneIndex;
   private int beatIndex;
   private UUID visualBeatId;
