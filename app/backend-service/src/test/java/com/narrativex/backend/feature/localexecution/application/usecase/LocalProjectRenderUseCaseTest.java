@@ -78,4 +78,20 @@ class LocalProjectRenderUseCaseTest {
 
     verify(store).complete(jobId, deviceId, "desktop:" + deviceId, leaseToken, result);
   }
+
+  @Test
+  void cancelUsesOwnedLeaseAndRejectsAStaleDesktopClaim() {
+    UUID deviceId = UUID.randomUUID();
+    UUID jobId = UUID.randomUUID();
+    UUID leaseToken = UUID.randomUUID();
+    when(localDeviceAccess.authenticate("device-token", LocalProjectRenderUseCase.CAPABILITY))
+        .thenReturn(new LocalDeviceAccess.AuthenticatedDevice(deviceId, "user-1"));
+    when(store.cancel(jobId, deviceId, "desktop:" + deviceId, leaseToken)).thenReturn(false);
+
+    assertThatThrownBy(() -> useCase.cancel("device-token", jobId, leaseToken))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("lease is no longer owned");
+
+    verify(store).cancel(jobId, deviceId, "desktop:" + deviceId, leaseToken);
+  }
 }
