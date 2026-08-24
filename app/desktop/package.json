@@ -10,7 +10,8 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "type-check": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",
-    "check": "npm run type-check && npm run build"
+    "check": "npm run type-check && npm run build",
+    "package:win": "npm run check && npx --yes electron-builder@26.15.7 --win nsis"
   },
   "dependencies": {
     "@narrativex/client-contracts": "file:../../packages/client-contracts",
