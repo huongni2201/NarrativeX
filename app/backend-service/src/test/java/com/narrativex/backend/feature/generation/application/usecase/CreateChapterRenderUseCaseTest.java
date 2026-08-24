@@ -30,7 +30,7 @@ class CreateChapterRenderUseCaseTest {
     assertThat(first).isEqualTo(second);
     assertThat(first).startsWith("chapter-render:");
     assertThat(first).hasSize(79);
-    assertThat(first.length()).isLessThanOrEqualTo(200);
+    assertThat(first.length()).isLessThanOrEqualTo(512);
   }
 
   @Test
@@ -48,12 +48,16 @@ class CreateChapterRenderUseCaseTest {
     assertThat(CreateChapterRenderUseCase.renderIdempotencyKey(command("  retry-1  "), "a".repeat(64)))
         .isEqualTo("retry-1");
 
+    String maximum = "x".repeat(512);
+    assertThat(CreateChapterRenderUseCase.renderIdempotencyKey(command(maximum), "a".repeat(64)))
+        .isEqualTo(maximum);
+
     assertThatThrownBy(
             () ->
                 CreateChapterRenderUseCase.renderIdempotencyKey(
-                    command("x".repeat(201)), "a".repeat(64)))
+                    command("x".repeat(513)), "a".repeat(64)))
         .isInstanceOf(GenerationAdmissionDeniedException.class)
-        .hasMessageContaining("200");
+        .hasMessageContaining("512");
   }
 
   private static CreateChapterRenderCommand command(String idempotencyKey) {

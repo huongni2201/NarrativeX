@@ -123,6 +123,60 @@ class AssignCharacterToProjectUseCaseTest {
   }
 
   @Test
+  void concurrentExactInsertReplayReturnsTheWinningAssignment() {
+    UUID characterId = UUID.randomUUID();
+    UUID projectId = UUID.randomUUID();
+    ProjectCharacter winner =
+        ProjectCharacter.rehydrate(
+            UUID.randomUUID(),
+            0L,
+            projectId,
+            characterId,
+            "MAIN",
+            8,
+            List.of(),
+            null,
+            List.of(),
+            null,
+            ProjectCharacterStatus.ACTIVE);
+    stubOwnedProjectAndCharacter(projectId, characterId);
+    when(projectCharacterRepository.findByProjectAndCharacterForUpdate(projectId, characterId))
+        .thenReturn(Optional.empty());
+    when(projectCharacterRepository.save(any(ProjectCharacter.class))).thenReturn(winner);
+
+    ProjectCharacter response = newUseCase().execute(command(projectId, characterId, "MAIN", 8));
+
+    assertSame(winner, response);
+  }
+
+  @Test
+  void concurrentInsertWithDifferentWinningPayloadIsRejected() {
+    UUID characterId = UUID.randomUUID();
+    UUID projectId = UUID.randomUUID();
+    ProjectCharacter winner =
+        ProjectCharacter.rehydrate(
+            UUID.randomUUID(),
+            0L,
+            projectId,
+            characterId,
+            "MAIN",
+            8,
+            List.of(),
+            null,
+            List.of(),
+            null,
+            ProjectCharacterStatus.ACTIVE);
+    stubOwnedProjectAndCharacter(projectId, characterId);
+    when(projectCharacterRepository.findByProjectAndCharacterForUpdate(projectId, characterId))
+        .thenReturn(Optional.empty());
+    when(projectCharacterRepository.save(any(ProjectCharacter.class))).thenReturn(winner);
+
+    assertThrows(
+        ResourceConflictException.class,
+        () -> newUseCase().execute(command(projectId, characterId, "SUPPORTING", 1)));
+  }
+
+  @Test
   void assigningARemovedCharacterReactivatesTheExistingAssociation() {
     UUID characterId = UUID.randomUUID();
     UUID projectId = UUID.randomUUID();

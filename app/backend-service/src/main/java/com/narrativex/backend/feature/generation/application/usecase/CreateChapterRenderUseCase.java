@@ -34,7 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class CreateChapterRenderUseCase {
   private static final String STAGE_NAME = "CHAPTER_RENDER";
-  private static final int MAX_IDEMPOTENCY_KEY_LENGTH = 200;
+  private static final int MAX_IDEMPOTENCY_KEY_LENGTH = 512;
 
   private final CurrentUserId currentUserId;
   private final ProjectAccess projectAccess;
@@ -185,7 +185,7 @@ public class CreateChapterRenderUseCase {
       String normalized = command.idempotencyKey().trim();
       if (normalized.length() > MAX_IDEMPOTENCY_KEY_LENGTH) {
         throw new GenerationAdmissionDeniedException(
-            "IDEMPOTENCY_CONFLICT", "Idempotency-Key must not exceed 200 characters.");
+            "IDEMPOTENCY_CONFLICT", "Idempotency-Key must not exceed 512 characters.");
       }
       return normalized;
     }

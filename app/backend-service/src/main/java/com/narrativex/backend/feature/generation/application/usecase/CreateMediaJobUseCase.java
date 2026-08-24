@@ -38,7 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class CreateMediaJobUseCase {
   private static final String STAGE_NAME = "SHOT_IMAGE_GENERATE";
-  private static final int MAX_IDEMPOTENCY_KEY_LENGTH = 200;
+  private static final int MAX_IDEMPOTENCY_KEY_LENGTH = 512;
   private final CurrentUserId currentUserId;
   private final ProjectAccess projectAccess;
   private final ChapterAnalysisSourceAccess chapterSourceAccess;
@@ -187,7 +187,7 @@ public class CreateMediaJobUseCase {
     String normalized = value.trim();
     if (normalized.length() > MAX_IDEMPOTENCY_KEY_LENGTH) {
       throw new GenerationAdmissionDeniedException(
-          "IDEMPOTENCY_CONFLICT", "Idempotency-Key must not exceed 200 characters.");
+          "IDEMPOTENCY_CONFLICT", "Idempotency-Key must not exceed 512 characters.");
     }
     return normalized;
   }
