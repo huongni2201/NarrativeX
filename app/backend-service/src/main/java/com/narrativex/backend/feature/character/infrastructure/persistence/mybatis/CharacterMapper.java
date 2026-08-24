@@ -65,6 +65,9 @@ public interface CharacterMapper extends NarrativeXMyBatisMapper {
 
   ProjectCharacterRow findProjectCharacter(@Param("id") UUID id);
 
+  ProjectCharacterRow findProjectCharacterByProjectAndCharacterForUpdate(
+      @Param("projectId") UUID projectId, @Param("characterId") UUID characterId);
+
   UUID insertProjectCharacter(ProjectCharacterRow row);
 
   int updateProjectCharacter(ProjectCharacterRow row);
