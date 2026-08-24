@@ -10,6 +10,7 @@ import type { ProjectRenderer } from "../rendering/project-renderer";
 import { RenderExecutionError } from "../rendering/render-errors";
 import {
   LocalExecutionBackendClient,
+  LocalExecutionBackendError,
   type ClaimedProjectRender,
   type LocalRenderCompletion,
 } from "./backend-client";
@@ -487,11 +488,20 @@ export class LocalExecutionService extends EventEmitter {
       }
     } catch (error) {
       if (
-        this.identity?.deviceId === identity.deviceId &&
-        this.sessionUserId === identity.userId
+        this.identity?.deviceId !== identity.deviceId ||
+        this.sessionUserId !== identity.userId
       ) {
-        this.setState("OFFLINE", errorMessage(error));
+        return;
       }
+      if (isDeviceAuthenticationFailure(error)) {
+        this.stopHeartbeat();
+        this.stopRenderPolling();
+        this.identity = null;
+        await this.identityStore.clear().catch(() => undefined);
+        this.setState("UNPAIRED", null);
+        return;
+      }
+      this.setState("OFFLINE", errorMessage(error));
     }
   }
 
@@ -519,6 +529,13 @@ export class LocalExecutionService extends EventEmitter {
 
 function narrationCacheKey(narrationAssetId: string | null, checksumSha256: string): string {
   return narrationAssetId ?? `audio-${checksumSha256.toLowerCase()}`;
+}
+
+function isDeviceAuthenticationFailure(error: unknown): boolean {
+  return (
+    error instanceof LocalExecutionBackendError &&
+    (error.status === 401 || error.status === 403)
+  );
 }
 
 async function downloadVerifiedFile(
