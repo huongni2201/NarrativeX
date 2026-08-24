@@ -96,6 +96,14 @@ public class ApiExceptionHandler {
   @ExceptionHandler(ResourceNotFoundException.class)
   ResponseEntity<ErrorResponse> handleNotFound(
       ResourceNotFoundException exception, HttpServletRequest request) {
+    log.warn(
+        "Resource not found at API boundary correlationId={} method={} path={} exceptionType={} message={}",
+        CorrelationIdFilter.correlationId(request),
+        request.getMethod(),
+        request.getRequestURI(),
+        exception.getClass().getSimpleName(),
+        exception.getMessage(),
+        exception);
     return error(
         HttpStatus.NOT_FOUND,
         ApiErrorCode.RESOURCE_NOT_FOUND,
