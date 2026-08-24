@@ -88,6 +88,8 @@ export const chaptersApi = {
       },
       isApiChapter,
     ),
+  delete: (projectId: ProjectId, chapterId: string | number) =>
+    apiRequest<void>(`/api/v1/projects/${projectId}/chapters/${chapterId}`, { method: "DELETE" }),
   importContent: (projectId: ProjectId, chapterId: string | number, content: string, title?: string) =>
     apiRequest<{ variantId: string; variantType: string; languageDetectionStatus: string }>(
       `/api/v1/projects/${projectId}/chapters/${chapterId}/content`,

@@ -9,7 +9,7 @@ This matrix records frontend wiring separately from backend/API availability. AP
 | Project dashboard/favorite | IMPLEMENTED foundation | `/api/v1/projects/dashboard` + favorite commands | richer dashboard filters/metrics only as contracts grow |
 | Project Overview | IMPLEMENTED | overview API | richer metrics only when contracts require |
 | StoryVersion | IMPLEMENTED foundation | create/latest contracts | broader version-management UI |
-| Chapter source | IMPLEMENTED | list/get/create/update/workspace + ETag/If-Match | delete/reorder and broader commands |
+| Chapter source | IMPLEMENTED | list/get/create/update/delete/workspace + ETag/If-Match | reorder and broader commands |
 | Chapter Workspace pipeline | IMPLEMENTED foundation | workspace projection maps analysis, authoritative chapter media head, image jobs, narration assets and render artifacts | richer review/edit states and complete uploaded-audio render path |
 | Chapter batch import | IMPLEMENTED foundation | multipart `.txt/.docx/.pdf` import | progress/granular import UX |
 | Chapter Analyze | IMPLEMENTED foundation | durable admission/enqueue/provider pipeline | production hardening, real-provider E2E |

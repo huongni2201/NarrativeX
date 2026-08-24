@@ -57,6 +57,17 @@
            AND row_version = #{rowVersion}
     </update>
 
+    <update id="clearChapterCreationIdempotency">
+        UPDATE chapter_creation_idempotency
+           SET chapter_id = NULL
+         WHERE chapter_id = #{chapterId}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM chapters
+         WHERE id = #{id}
+    </delete>
+
     <select id="findById" resultMap="chapterRow">
         SELECT <include refid="columns" />
           FROM chapters

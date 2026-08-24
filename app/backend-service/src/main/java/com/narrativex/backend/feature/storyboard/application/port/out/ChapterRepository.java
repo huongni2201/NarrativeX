@@ -12,6 +12,8 @@ public interface ChapterRepository extends ChapterAccess {
 
   Chapter saveAndFlush(Chapter chapter);
 
+  void deleteById(UUID chapterId);
+
   Optional<Chapter> findById(UUID chapterId);
 
   List<Chapter> findAllByStoryVersionId(UUID storyVersionId);

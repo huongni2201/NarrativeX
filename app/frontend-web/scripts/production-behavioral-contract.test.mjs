@@ -6,6 +6,14 @@ const productionShell = await readFile(
   new URL("../src/features/production/ProductionShell.tsx", import.meta.url),
   "utf8",
 );
+const chapterTable = await readFile(
+  new URL("../src/features/production/components/ChapterTable.tsx", import.meta.url),
+  "utf8",
+);
+const deleteChapterModal = await readFile(
+  new URL("../src/features/production/components/DeleteChapterModal.tsx", import.meta.url),
+  "utf8",
+);
 const chaptersApi = await readFile(
   new URL("../src/features/chapters/api/chapters.api.ts", import.meta.url),
   "utf8",
@@ -33,6 +41,16 @@ test("chapter creation leaves StoryVersion orchestration to the backend", () => 
   assert.doesNotMatch(productionShell, /storyQuery/);
   assert.match(chaptersApi, /"Idempotency-Key": idempotencyKey/);
   assert.match(chaptersApi, /batchImport: \(projectId: ProjectId, file: File/);
+});
+
+test("chapter actions require confirmation before deleting and refresh the overview", () => {
+  assert.match(chapterTable, /Xoá chapter/);
+  assert.match(chapterTable, /onDelete\(\)/);
+  assert.match(deleteChapterModal, /title="Xoá chapter\?"/);
+  assert.match(deleteChapterModal, /onConfirm\(chapter\.id\)/);
+  assert.match(chaptersApi, /method: "DELETE"/);
+  assert.match(productionShell, /useDeleteChapter/);
+  assert.match(productionShell, /onDeleteChapter=\{setChapterToDelete\}/);
 });
 
 test("workspace behavior preserves translation confirmation and optimistic concurrency", () => {

@@ -1,16 +1,17 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronLeft, ChevronRight, FileText, MoreHorizontal } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight, FileText, MoreHorizontal, Trash2 } from "lucide-react";
 import type { ProductionChapter } from "../production.types";
 import { formatDateTime, formatDuration } from "./production-formatters";
 
 interface ChapterTableProps {
   chapters: readonly ProductionChapter[];
   onOpenChapter: (chapter: ProductionChapter) => void;
+  onDeleteChapter: (chapter: ProductionChapter) => void;
 }
 
-export function ChapterTable({ chapters, onOpenChapter }: Readonly<ChapterTableProps>) {
+export function ChapterTable({ chapters, onOpenChapter, onDeleteChapter }: Readonly<ChapterTableProps>) {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
   const totalChapters = chapters.length;
@@ -53,6 +54,7 @@ export function ChapterTable({ chapters, onOpenChapter }: Readonly<ChapterTableP
                 chapter={chapter}
                 displayNumber={startIndex + index + 1}
                 onOpen={() => onOpenChapter(chapter)}
+                onDelete={() => onDeleteChapter(chapter)}
               />
             ))}
           </tbody>
@@ -99,7 +101,32 @@ function ChapterRow({
   chapter,
   displayNumber,
   onOpen,
-}: Readonly<{ chapter: ProductionChapter; displayNumber: number; onOpen: () => void }>) {
+  onDelete,
+}: Readonly<{
+  chapter: ProductionChapter;
+  displayNumber: number;
+  onOpen: () => void;
+  onDelete: () => void;
+}>) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const closeMenu = (event: MouseEvent) => {
+      if (event.target instanceof Node && !menuRef.current?.contains(event.target)) setMenuOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", closeMenu);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeMenu);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [menuOpen]);
+
   return (
     <tr
       onClick={onOpen}
@@ -124,17 +151,43 @@ function ChapterRow({
         {formatDateTime(chapter.updatedAt)}
       </td>
       <td className="px-4 py-4 text-center">
-        <button
-          type="button"
-          aria-label={`Tùy chọn Chapter ${chapter.title}`}
-          onClick={(event) => {
-            event.stopPropagation();
-            onOpen();
-          }}
-          className="flex h-7 w-7 mx-auto items-center justify-center rounded-lg border border-slate-800 bg-slate-900/80 text-slate-400 transition-colors hover:border-slate-700 hover:text-slate-200"
-        >
-          <MoreHorizontal className="h-4 w-4" />
-        </button>
+        <div ref={menuRef} className="relative inline-block">
+          <button
+            type="button"
+            aria-label={`Tùy chọn Chapter ${chapter.title}`}
+            aria-expanded={menuOpen}
+            aria-haspopup="menu"
+            onClick={(event) => {
+              event.stopPropagation();
+              setMenuOpen((open) => !open);
+            }}
+            className="flex h-11 w-11 items-center justify-center rounded-lg border border-border bg-surface-2 text-text-secondary transition-colors hover:border-border-dark hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+          </button>
+
+          {menuOpen && (
+            <div
+              role="menu"
+              aria-label={`Thao tác với ${chapter.title}`}
+              className="absolute right-0 top-full z-20 mt-2 w-44 rounded-xl border border-border bg-surface-panel p-1.5 text-left shadow-2xl"
+            >
+              <button
+                type="button"
+                role="menuitem"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setMenuOpen(false);
+                  onDelete();
+                }}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold text-rose-300 transition-colors hover:bg-rose-950/40 hover:text-rose-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300"
+              >
+                <Trash2 className="h-4 w-4" aria-hidden="true" />
+                <span>Xoá chapter</span>
+              </button>
+            </div>
+          )}
+        </div>
       </td>
     </tr>
   );

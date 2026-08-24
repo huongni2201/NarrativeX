@@ -35,6 +35,15 @@ public class MyBatisChapterRepository implements ChapterRepository {
   }
 
   @Override
+  @Transactional
+  public void deleteById(UUID chapterId) {
+    mapper.clearChapterCreationIdempotency(chapterId);
+    if (mapper.deleteById(chapterId) != 1) {
+      throw new ResourceNotFoundException("Chapter was not found");
+    }
+  }
+
+  @Override
   @Transactional(readOnly = true)
   public Optional<Chapter> findById(UUID chapterId) {
     return Optional.ofNullable(mapper.findById(chapterId)).map(MyBatisChapterRepository::toDomain);

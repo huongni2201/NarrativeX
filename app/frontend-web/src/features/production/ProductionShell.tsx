@@ -9,6 +9,7 @@ import { apiErrorMessage } from "@/shared/api/client";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { ChapterTable } from "./components/ChapterTable";
 import { CreateChapterModal } from "./components/CreateChapterModal";
+import { DeleteChapterModal } from "./components/DeleteChapterModal";
 import { ProjectHero } from "./components/ProjectHero";
 import { ProjectTabs } from "./components/ProjectTabs";
 import { ProjectSummaryWidget } from "./components/ProjectSummaryWidget";
@@ -16,9 +17,10 @@ import { ProjectCharactersTab } from "./tabs/ProjectCharactersTab";
 import { ProjectInfoTab } from "./tabs/ProjectInfoTab";
 import { ProjectResourcesTab } from "./tabs/ProjectResourcesTab";
 import { ProjectSettingsTab } from "./tabs/ProjectSettingsTab";
-import type { ProductionTab } from "./production.types";
+import type { ProductionChapter, ProductionTab } from "./production.types";
 import { useBatchChapterImport } from "./hooks/useBatchChapterImport";
 import { useCreateChapter } from "./hooks/useCreateChapter";
+import { useDeleteChapter } from "./hooks/useDeleteChapter";
 import { useProjectResources } from "./hooks/useProjectResources";
 import { useProjectWorkspace } from "./hooks/useProjectWorkspace";
 import type { ProjectId } from "@/types/api";
@@ -34,6 +36,7 @@ export function ProductionShell({ projectId, initialTab = "chapters" }: Readonly
   const hasValidProjectId = projectIdentifier.length > 0;
   const [formOpen, setFormOpen] = useState(false);
   const [formResetKey, setFormResetKey] = useState(0);
+  const [chapterToDelete, setChapterToDelete] = useState<ProductionChapter | null>(null);
   const workspace = useProjectWorkspace(projectIdentifier, initialTab, hasValidProjectId);
   const resources = useProjectResources(projectIdentifier, workspace.activeTab, hasValidProjectId);
   const createChapter = useCreateChapter(projectIdentifier, {
@@ -43,6 +46,9 @@ export function ProductionShell({ projectId, initialTab = "chapters" }: Readonly
     },
   });
   const batchImport = useBatchChapterImport(projectIdentifier);
+  const deleteChapter = useDeleteChapter(projectIdentifier, {
+    onDeleted: () => setChapterToDelete(null),
+  });
 
   if (!hasValidProjectId) {
     return <WorkspaceError error={new Error("ID dự án không hợp lệ.")} fallback="ID dự án không hợp lệ." />;
@@ -185,6 +191,7 @@ export function ProductionShell({ projectId, initialTab = "chapters" }: Readonly
             <ChapterTable
               chapters={chapters}
               onOpenChapter={(chapter) => openChapter(chapter.id)}
+              onDeleteChapter={setChapterToDelete}
             />
           </div>
 
@@ -241,6 +248,19 @@ export function ProductionShell({ projectId, initialTab = "chapters" }: Readonly
         onSubmit={(input) => {
           createChapter.submit(input);
         }}
+      />
+
+      <DeleteChapterModal
+        chapter={chapterToDelete}
+        isDeleting={deleteChapter.isPending}
+        error={deleteChapter.errorMessage}
+        onClose={() => {
+          if (!deleteChapter.isPending) {
+            setChapterToDelete(null);
+            deleteChapter.reset();
+          }
+        }}
+        onConfirm={(chapterId) => deleteChapter.submit(chapterId)}
       />
     </div>
   );

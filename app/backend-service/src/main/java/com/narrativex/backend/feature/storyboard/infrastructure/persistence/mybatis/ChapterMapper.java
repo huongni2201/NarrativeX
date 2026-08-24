@@ -10,6 +10,10 @@ public interface ChapterMapper extends NarrativeXMyBatisMapper {
 
   int update(ChapterRow row);
 
+  int clearChapterCreationIdempotency(@Param("chapterId") UUID chapterId);
+
+  int deleteById(@Param("id") UUID id);
+
   ChapterRow findById(@Param("id") UUID id);
 
   List<ChapterRow> findAllByStoryVersionId(@Param("storyVersionId") UUID storyVersionId);
