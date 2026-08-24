@@ -64,11 +64,25 @@ function runtimeCandidates(): FfmpegCandidate[] {
     ];
   }
 
-  return [
+  return dedupeCandidates([
+    {
+      ffmpegPath: join(process.cwd(), "resources", "ffmpeg", executable),
+      ffprobePath: join(process.cwd(), "resources", "ffmpeg", probeExecutable),
+    },
     {
       ffmpegPath: join(process.resourcesPath, "ffmpeg", executable),
       ffprobePath: join(process.resourcesPath, "ffmpeg", probeExecutable),
     },
     { ffmpegPath: executable, ffprobePath: probeExecutable },
-  ];
+  ]);
+}
+
+function dedupeCandidates(candidates: FfmpegCandidate[]): FfmpegCandidate[] {
+  const seen = new Set<string>();
+  return candidates.filter((candidate) => {
+    const key = `${candidate.ffmpegPath}\n${candidate.ffprobePath}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
