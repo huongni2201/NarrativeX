@@ -26,6 +26,8 @@ public interface LocalDeviceStore {
   void heartbeat(
       UUID deviceId, String agentVersion, Instant now, List<String> capabilities);
 
+  List<String> listCapabilities(UUID deviceId);
+
   List<LocalDeviceView> listByUser(String userId, Instant onlineThreshold);
 
   record PairingCodeRecord(long id, String userId, Instant expiresAt, Instant consumedAt) {}
