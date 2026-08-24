@@ -38,6 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class CreateMediaJobUseCase {
   private static final String STAGE_NAME = "SHOT_IMAGE_GENERATE";
+  private static final int MAX_IDEMPOTENCY_KEY_LENGTH = 200;
   private final CurrentUserId currentUserId;
   private final ProjectAccess projectAccess;
   private final ChapterAnalysisSourceAccess chapterSourceAccess;
@@ -60,13 +61,10 @@ public class CreateMediaJobUseCase {
       throw new GenerationAdmissionDeniedException(
           "UNSUPPORTED_MEDIA_STRATEGY", "Only IMAGE_MOTION is available in the MVP.");
     }
-    if (command.idempotencyKey() == null || command.idempotencyKey().isBlank()) {
-      throw new GenerationAdmissionDeniedException(
-          "IDEMPOTENCY_CONFLICT", "Idempotency-Key is required.");
-    }
+    String idempotencyKey = requireIdempotencyKey(command.idempotencyKey());
     String requestFingerprint = fingerprint(command);
-    generationJobRepository.acquireIdempotencyLock(command.idempotencyKey(), userId);
-    var existing = generationJobRepository.findByIdempotencyKey(command.idempotencyKey(), userId);
+    generationJobRepository.acquireIdempotencyLock(idempotencyKey, userId);
+    var existing = generationJobRepository.findByIdempotencyKey(idempotencyKey, userId);
     if (existing.isPresent()) {
       var existingItems =
           mediaGenerationItemRepository.findByJobOwned(userId, existing.get().getId());
@@ -83,7 +81,7 @@ public class CreateMediaJobUseCase {
       log.debug(
           "Found existing media generation job id={} for idempotencyKey='{}'",
           existing.get().getId(),
-          command.idempotencyKey());
+          idempotencyKey);
       return existing.get();
     }
 
@@ -142,7 +140,7 @@ public class CreateMediaJobUseCase {
                 plan,
                 ResourceClass.PROVIDER_BATCH,
                 project.getSourceLanguage(),
-                command.idempotencyKey(),
+                idempotencyKey,
                 userId));
     chapterMediaHeadRepository.setCurrent(command.chapterId(), job.getId());
 
@@ -179,6 +177,19 @@ public class CreateMediaJobUseCase {
         command.projectId(),
         command.chapterId());
     return job;
+  }
+
+  static String requireIdempotencyKey(String value) {
+    if (value == null || value.isBlank()) {
+      throw new GenerationAdmissionDeniedException(
+          "IDEMPOTENCY_CONFLICT", "Idempotency-Key is required.");
+    }
+    String normalized = value.trim();
+    if (normalized.length() > MAX_IDEMPOTENCY_KEY_LENGTH) {
+      throw new GenerationAdmissionDeniedException(
+          "IDEMPOTENCY_CONFLICT", "Idempotency-Key must not exceed 200 characters.");
+    }
+    return normalized;
   }
 
   private static String fingerprint(CreateMediaJobCommand command) {
