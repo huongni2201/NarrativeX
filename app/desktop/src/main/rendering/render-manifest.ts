@@ -5,6 +5,8 @@ import type {
   ClaimedProjectRenderChapter,
 } from "../local-execution/backend-client";
 
+const SHA256_PATTERN = /^[0-9a-f]{64}$/i;
+
 export interface LocalRenderManifest {
   readonly version: 1;
   readonly jobId: string;
@@ -141,7 +143,8 @@ function validateTimeline(render: ClaimedProjectRender): void {
       chapter.globalStartMs !== chapterClock ||
       duration <= 0 ||
       chapter.durationMs !== duration ||
-      !chapter.narrationAssetId
+      chapter.sizeBytes <= 0 ||
+      !SHA256_PATTERN.test(chapter.checksum)
     ) {
       throw new Error(`Invalid narration chapter ${chapter.chapterId}.`);
     }
@@ -166,7 +169,9 @@ function validateTimeline(render: ClaimedProjectRender): void {
       beat.globalStartMs !== visualClock ||
       duration <= 0 ||
       beat.durationMs !== duration ||
-      !beat.mediaAssetId
+      !beat.mediaAssetId ||
+      beat.sizeBytes <= 0 ||
+      !SHA256_PATTERN.test(beat.checksum)
     ) {
       throw new Error(`Invalid visual beat ${beat.visualBeatId}.`);
     }
