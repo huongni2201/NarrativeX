@@ -79,7 +79,10 @@
           LEFT JOIN LATERAL (
               SELECT COUNT(vb.id)::int AS cnt
                 FROM chapters c
-                JOIN scenes s ON s.chapter_id = c.id AND s.status = 'APPROVED'
+                JOIN scenes s
+                  ON s.chapter_id = c.id
+                 AND s.storyboard_revision_id = c.current_storyboard_revision_id
+                 AND s.status = 'APPROVED'
                 JOIN visual_beats vb ON vb.scene_id = s.id
                WHERE c.story_version_id = sv.id
           ) appr_vis ON TRUE
@@ -152,7 +155,9 @@
                END AS duration_seconds,
                c.updated_at
           FROM chapters c
-          LEFT JOIN scenes s ON s.chapter_id = c.id
+          LEFT JOIN scenes s
+            ON s.chapter_id = c.id
+           AND s.storyboard_revision_id = c.current_storyboard_revision_id
           LEFT JOIN LATERAL (
               SELECT status, source_hash
                 FROM generation_jobs
