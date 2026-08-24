@@ -29,6 +29,8 @@
   <resultMap id="beatRow" type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ProductionTimelineBeatRow">
     <result property="chapterId" column="chapter_id" />
     <result property="chapterOrderIndex" column="chapter_order_index" />
+    <result property="mediaPlanId" column="media_plan_id" />
+    <result property="mediaPlanRevision" column="media_plan_revision" />
     <result property="sceneIndex" column="scene_index" />
     <result property="beatIndex" column="beat_index" />
     <id property="visualBeatId" column="visual_beat_id" />
@@ -166,6 +168,8 @@
     )
     SELECT c.id AS chapter_id,
            c.order_index AS chapter_order_index,
+           mp.id AS media_plan_id,
+           mp.revision AS media_plan_revision,
            mbp.scene_index,
            mbp.beat_index,
            mbp.visual_beat_id,
