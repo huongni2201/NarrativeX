@@ -132,9 +132,15 @@ class ProjectRenderRepository:
                 parent = await connection.execute(
                     """
                     UPDATE generation_jobs
-                       SET status = 'RUNNING', progress = GREATEST(progress, 5),
-                           current_step = 'RENDER_PROJECT', error_code = NULL,
-                           updated_at = CURRENT_TIMESTAMP, row_version = row_version + 1
+                       SET status = 'RUNNING',
+                           progress = CASE WHEN $2 = 'STALLED' THEN 5 ELSE GREATEST(progress, 5) END,
+                           current_step = CASE
+                               WHEN $2 = 'STALLED' THEN 'RENDER_PROJECT_RETRYING'
+                               ELSE 'RENDER_PROJECT'
+                           END,
+                           error_code = NULL,
+                           updated_at = CURRENT_TIMESTAMP,
+                           row_version = row_version + 1
                      WHERE id = $1 AND status = $2 AND row_version = $3
                     """,
                     row["generation_job_id"],
