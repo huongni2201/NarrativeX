@@ -3,6 +3,7 @@ package com.narrativex.backend.feature.character.application;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.same;
@@ -19,6 +20,7 @@ import com.narrativex.backend.feature.character.domain.aggregate.Character;
 import com.narrativex.backend.feature.character.domain.aggregate.ProjectCharacter;
 import com.narrativex.backend.feature.character.domain.enums.CharacterStatus;
 import com.narrativex.backend.feature.character.domain.enums.ProjectCharacterStatus;
+import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.project.domain.aggregate.Project;
 import com.narrativex.backend.feature.project.domain.enums.AspectRatio;
@@ -58,7 +60,34 @@ class AssignCharacterToProjectUseCaseTest {
   }
 
   @Test
-  void assigningAnAlreadyActiveCharacterIsIdempotent() {
+  void exactReplayOfActiveAssignmentIsIdempotent() {
+    UUID characterId = UUID.randomUUID();
+    UUID projectId = UUID.randomUUID();
+    ProjectCharacter existing =
+        ProjectCharacter.rehydrate(
+            UUID.randomUUID(),
+            4L,
+            projectId,
+            characterId,
+            "MAIN",
+            8,
+            List.of(),
+            null,
+            List.of(),
+            null,
+            ProjectCharacterStatus.ACTIVE);
+    stubOwnedProjectAndCharacter(projectId, characterId);
+    when(projectCharacterRepository.findByProjectAndCharacterForUpdate(projectId, characterId))
+        .thenReturn(Optional.of(existing));
+
+    ProjectCharacter response = newUseCase().execute(command(projectId, characterId, "MAIN", 8));
+
+    assertSame(existing, response);
+    verify(projectCharacterRepository, never()).save(any(ProjectCharacter.class));
+  }
+
+  @Test
+  void activeAssignmentWithDifferentPayloadIsRejected() {
     UUID characterId = UUID.randomUUID();
     UUID projectId = UUID.randomUUID();
     ProjectCharacter existing =
@@ -78,10 +107,18 @@ class AssignCharacterToProjectUseCaseTest {
     when(projectCharacterRepository.findByProjectAndCharacterForUpdate(projectId, characterId))
         .thenReturn(Optional.of(existing));
 
-    ProjectCharacter response = newUseCase().execute(command(projectId, characterId, "SUPPORTING", 1));
+    AssignCharacterToProjectCommand conflicting =
+        new AssignCharacterToProjectCommand(
+            projectId,
+            characterId,
+            "SUPPORTING",
+            1,
+            List.of("Different alias"),
+            "different metadata",
+            List.of("supporting-cast"),
+            null);
 
-    assertSame(existing, response);
-    assertEquals("MAIN", response.getRole());
+    assertThrows(ResourceConflictException.class, () -> newUseCase().execute(conflicting));
     verify(projectCharacterRepository, never()).save(any(ProjectCharacter.class));
   }
 
