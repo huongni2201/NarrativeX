@@ -64,6 +64,14 @@ public interface LocalProjectRenderMapper extends NarrativeXMyBatisMapper {
 
   int completeJob(@Param("jobId") UUID jobId, @Param("deviceId") UUID deviceId);
 
+  int cancelStage(
+      @Param("jobId") UUID jobId,
+      @Param("deviceId") UUID deviceId,
+      @Param("workerId") String workerId,
+      @Param("leaseToken") UUID leaseToken);
+
+  int cancelJob(@Param("jobId") UUID jobId, @Param("deviceId") UUID deviceId);
+
   int failStage(
       @Param("jobId") UUID jobId,
       @Param("deviceId") UUID deviceId,
