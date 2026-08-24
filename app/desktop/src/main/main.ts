@@ -114,6 +114,13 @@ function requireDesktopApi(): DesktopBackendApiService {
   return desktopApi;
 }
 
+function requireMainWindow(): BrowserWindow {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    throw new Error("NarrativeX main window is not available.");
+  }
+  return mainWindow;
+}
+
 void app.whenReady().then(async () => {
   app.setAppUserModelId("com.narrativex.desktop");
   ffmpegRuntime = await resolveFfmpegRuntime();
@@ -216,6 +223,21 @@ void app.whenReady().then(async () => {
   registerTrustedIpcHandler("desktop:system:select-folder", trustPolicy, async () => {
     const selected = await dialog.showOpenDialog({ properties: ["openDirectory"] });
     return selected.canceled ? null : selected.filePaths[0] ?? null;
+  });
+  registerTrustedIpcHandler("desktop:window:minimize", trustPolicy, () => {
+    requireMainWindow().minimize();
+  });
+  registerTrustedIpcHandler("desktop:window:toggle-maximize", trustPolicy, () => {
+    const window = requireMainWindow();
+    if (window.isMaximized()) {
+      window.unmaximize();
+      return false;
+    }
+    window.maximize();
+    return true;
+  });
+  registerTrustedIpcHandler("desktop:window:close", trustPolicy, () => {
+    requireMainWindow().close();
   });
 
   localExecution.on("status", (status) => {
