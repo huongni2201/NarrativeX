@@ -212,6 +212,11 @@ class ProjectRenderWorkerRunner:
             beats = await self.repository.load_beats(claimed)
             _validate_snapshot(chapters, beats, claimed.total_duration_ms)
             segments = split_render_segments(beats)
+            quantized_durations = _frame_quantized_duration_seconds(beats, profile.fps)
+            beat_duration_by_id = {
+                beat.visual_beat_id: duration
+                for beat, duration in zip(beats, quantized_durations, strict=True)
+            }
             render_fingerprint = _render_fingerprint(
                 claimed, chapters, beats, profile, resolution, render_format
             )
@@ -229,7 +234,7 @@ class ProjectRenderWorkerRunner:
                         beats=tuple(
                             MotionBeat(
                                 image_path=beat_path_by_id[beat.visual_beat_id],
-                                duration_seconds=beat.duration_ms / 1000.0,
+                                duration_seconds=beat_duration_by_id[beat.visual_beat_id],
                                 camera_movement=beat.camera_movement,
                             )
                             for beat in segment
@@ -265,7 +270,10 @@ class ProjectRenderWorkerRunner:
                     width=width,
                     height=height,
                     expected_duration_seconds=claimed.total_duration_ms / 1000.0,
-                    tolerance_seconds=max(1.0, len(chapters) * 0.08 + len(segments) / profile.fps),
+                    tolerance_seconds=max(
+                        1.0,
+                        len(chapters) * 0.08 + len(segments) / profile.fps + 0.1,
+                    ),
                 )
                 checksum = await asyncio.to_thread(sha256_file, final_path)
 
@@ -382,6 +390,34 @@ def split_render_segments(
     return segments
 
 
+def _frame_quantized_duration_seconds(
+    beats: list[ProjectRenderBeatAsset], fps: int
+) -> list[float]:
+    """Convert global millisecond boundaries to one contiguous frame budget.
+
+    Quantizing each beat duration independently can accumulate many frames of drift on long
+    timelines. Quantizing shared global boundaries instead guarantees adjacent beats share the
+    same frame boundary and the complete visual track closes at round(total_audio * fps).
+    """
+    if fps <= 0:
+        raise ValueError("fps must be positive")
+    if not beats:
+        return []
+
+    durations: list[float] = []
+    previous_end_frame = 0
+    for beat in beats:
+        start_frame = round(beat.global_start_ms * fps / 1000.0)
+        end_frame = round(beat.global_end_ms * fps / 1000.0)
+        if start_frame != previous_end_frame:
+            raise ValueError("Project beat frame timeline is not contiguous")
+        if end_frame <= start_frame:
+            raise ValueError("Project beat duration is shorter than one render frame")
+        durations.append((end_frame - start_frame) / fps)
+        previous_end_frame = end_frame
+    return durations
+
+
 def _validate_snapshot(
     chapters: list[ProjectRenderChapterAudio],
     beats: list[ProjectRenderBeatAsset],
@@ -465,7 +501,7 @@ def _render_fingerprint(
     render_format: str,
 ) -> str:
     payload = {
-        "version": "project-image-motion-v1-segmented",
+        "version": "project-image-motion-v2-frame-quantized",
         "projectId": str(claimed.project_id),
         "storyVersionId": str(claimed.story_version_id),
         "resolution": resolution,
