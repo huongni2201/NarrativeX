@@ -32,8 +32,6 @@ narrativex:
     outbox-dispatch-enabled: false
   security:
     local-dev-identity-enabled: true
-    auth-rate-limit:
-      enabled: false
 
 management:
   endpoints:

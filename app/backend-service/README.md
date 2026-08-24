@@ -13,7 +13,7 @@ Project creation is metadata-only. Chapter save persists source only. Analysis/n
 - **MyBatis + explicit SQL is the production persistence boundary**
 - MyBatis/explicit-SQL paths cover domain CRUD/query persistence, provider operations, generation jobs/stages/plans, media planning and items, outbox/job history, chapter idempotency, render-input snapshots, chapter media heads, assets, narration, catalogs, local devices and final artifacts
 - MyBatis + explicit SQL is the sole production persistence path; JPA and `JdbcTemplate` are absent from production code
-- Spring Security + server session/CSRF + Google OIDC/password auth
+- Spring Security + server session/CSRF + Google OIDC authentication
 - Redis for Spring Session and transient/non-authoritative hints
 - Testcontainers/JUnit/JaCoCo
 

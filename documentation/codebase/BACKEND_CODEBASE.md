@@ -85,7 +85,8 @@ Avatar/asset counts, relationship graphs and detailed scene participation are no
 - Global Character library plus project-scoped Character list/detail read foundations.
 - Location and Asset read/API foundations where recorded in the integration matrix.
 - Job history, user quota and notification read foundations.
-- Authentication/session endpoints with password auth and Google OIDC.
+- Authentication/session endpoints with Google OIDC; password login/register routes were removed in
+  the OAuth-only migration (see ADR-0011).
 - New password and Google accounts receive the default `NORMAL v1` plan assignment transactionally; the Flyway baseline also provisions the default assignment for existing accounts that have none.
 
 Backend endpoint availability does not imply every frontend surface is wired. Project Character list/detail is an exception: that vertical slice is wired end to end. See `FRONTEND_API_INTEGRATION_MATRIX.md`.
