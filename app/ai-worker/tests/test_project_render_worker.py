@@ -84,7 +84,10 @@ def test_segmentation_prefers_scene_boundary_after_preferred_duration() -> None:
 
     segments = split_render_segments(beats)
 
-    assert [sum(beat.duration_ms for beat in segment) for segment in segments] == [240_000, 60_000]
+    assert [sum(beat.duration_ms for beat in segment) for segment in segments] == [
+        240_000,
+        60_000,
+    ]
     assert segments[0][-1].scene_index == 0
     assert segments[1][0].scene_index == 1
 
@@ -104,7 +107,30 @@ def test_segmentation_enforces_hard_max_even_without_semantic_boundary() -> None
 
     segments = split_render_segments(beats)
 
-    assert [sum(beat.duration_ms for beat in segment) for segment in segments] == [240_000, 120_000]
+    assert [sum(beat.duration_ms for beat in segment) for segment in segments] == [
+        240_000,
+        120_000,
+    ]
+    assert all(sum(beat.duration_ms for beat in segment) <= 300_000 for segment in segments)
+
+
+def test_segmentation_splits_one_oversized_visual_beat_without_losing_clock() -> None:
+    chapter_id = uuid4()
+    original = _beat(
+        chapter_id=chapter_id,
+        scene_index=0,
+        beat_index=0,
+        start_ms=0,
+        duration_ms=650_000,
+    )
+
+    segments = split_render_segments([original])
+    slices = [beat for segment in segments for beat in segment]
+
+    assert [beat.duration_ms for beat in slices] == [300_000, 300_000, 50_000]
+    assert [beat.global_start_ms for beat in slices] == [0, 300_000, 600_000]
+    assert [beat.global_end_ms for beat in slices] == [300_000, 600_000, 650_000]
+    assert all(beat.visual_beat_id == original.visual_beat_id for beat in slices)
     assert all(sum(beat.duration_ms for beat in segment) <= 300_000 for segment in segments)
 
 
@@ -129,6 +155,31 @@ def test_frame_quantization_preserves_one_global_frame_budget_for_many_beats() -
     assert len(durations) == len(beats)
     assert round(sum(durations) * 30) == expected_frames
     assert all(round(duration * 30) > 0 for duration in durations)
+
+
+def test_frame_quantization_accepts_segment_that_starts_after_zero() -> None:
+    chapter_id = uuid4()
+    segment = [
+        _beat(
+            chapter_id=chapter_id,
+            scene_index=1,
+            beat_index=1,
+            start_ms=300_000,
+            duration_ms=1001,
+        ),
+        _beat(
+            chapter_id=chapter_id,
+            scene_index=1,
+            beat_index=2,
+            start_ms=301_001,
+            duration_ms=1001,
+        ),
+    ]
+
+    durations = _frame_quantized_duration_seconds(segment, 30)
+
+    expected_frames = round(302_002 * 30 / 1000.0) - round(300_000 * 30 / 1000.0)
+    assert round(sum(durations) * 30) == expected_frames
 
 
 def test_frame_quantization_rejects_subframe_visual_beats() -> None:
@@ -188,7 +239,9 @@ def test_snapshot_validation_accepts_contiguous_global_audio_clock() -> None:
 
 def test_snapshot_validation_rejects_visual_timeline_gap() -> None:
     chapter_id = uuid4()
-    chapters = [_chapter(chapter_id=chapter_id, order_index=0, start_ms=0, duration_ms=120_000)]
+    chapters = [
+        _chapter(chapter_id=chapter_id, order_index=0, start_ms=0, duration_ms=120_000)
+    ]
     beats = [
         _beat(
             chapter_id=chapter_id,
