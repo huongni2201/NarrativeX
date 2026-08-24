@@ -38,10 +38,17 @@ public class MyBatisChapterRepository implements ChapterRepository {
   @Override
   @Transactional
   public void deleteById(UUID chapterId) {
-    mapper.clearChapterCreationIdempotency(chapterId);
-    if (mapper.deleteById(chapterId) != 1) {
+    if (mapper.hasActiveGenerationJobs(chapterId)) {
       throw new ResourceConflictException(
           "Chapter cannot be deleted while generation work is active; wait for it to finish or cancel it first");
+    }
+    mapper.clearChapterCreationIdempotency(chapterId);
+    if (mapper.deleteById(chapterId) != 1) {
+      if (mapper.hasActiveGenerationJobs(chapterId)) {
+        throw new ResourceConflictException(
+            "Chapter cannot be deleted while generation work is active; wait for it to finish or cancel it first");
+      }
+      throw new ResourceNotFoundException("Chapter was not found");
     }
   }
 
