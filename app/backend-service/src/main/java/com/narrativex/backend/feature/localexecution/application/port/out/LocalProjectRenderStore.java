@@ -10,9 +10,6 @@ public interface LocalProjectRenderStore {
 
   boolean heartbeat(UUID jobId, UUID deviceId, String workerId, UUID leaseToken);
 
-  List<InputRef> listInputsForOwnedLease(
-      UUID jobId, UUID deviceId, String workerId, UUID leaseToken);
-
   boolean updateProgress(
       UUID jobId,
       UUID deviceId,
@@ -60,7 +57,7 @@ public interface LocalProjectRenderStore {
       int orderIndex,
       long globalStartMs,
       long globalEndMs,
-      String storageKey,
+      UUID narrationAssetId,
       long sizeBytes,
       String checksum,
       long durationMs) {}
@@ -70,15 +67,13 @@ public interface LocalProjectRenderStore {
       int sceneIndex,
       int beatIndex,
       UUID visualBeatId,
+      UUID mediaAssetId,
       long globalStartMs,
       long globalEndMs,
       long durationMs,
       String cameraMovement,
-      String storageKey,
       long sizeBytes,
       String checksum) {}
-
-  record InputRef(String storageKey, long sizeBytes, String checksum, String mediaKind) {}
 
   record CompletionResult(
       String renderFingerprint,
