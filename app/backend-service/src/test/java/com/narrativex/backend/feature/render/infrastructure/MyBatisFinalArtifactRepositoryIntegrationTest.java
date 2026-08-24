@@ -24,14 +24,15 @@ class MyBatisFinalArtifactRepositoryIntegrationTest extends PostgreSqlIntegratio
   private static final UUID GENERATION_JOB_ID = UUID.fromString(JOB_ID);
   private static final Long ARTIFACT_ID = 9911L;
   private static final Long ARCHIVED_ARTIFACT_ID = 9912L;
+
   @Autowired private FinalArtifactRepository repository;
   @Autowired private JdbcTemplate jdbcTemplate;
 
   @BeforeEach
   void seedArtifacts() {
     jdbcTemplate.update(
-        "INSERT INTO auth_users (id, email, display_name, password_hash, enabled) VALUES"
-            + " ('artifact-owner', 'artifact-owner@example.com', 'Artifact Owner', 'pass', true) ON"
+        "INSERT INTO auth_users (id, email, display_name, enabled) VALUES"
+            + " ('artifact-owner', 'artifact-owner@example.com', 'Artifact Owner', true) ON"
             + " CONFLICT (id) DO NOTHING");
     jdbcTemplate.update(
         "INSERT INTO projects (id, name, owner_id, status, source_language, narration_language,"

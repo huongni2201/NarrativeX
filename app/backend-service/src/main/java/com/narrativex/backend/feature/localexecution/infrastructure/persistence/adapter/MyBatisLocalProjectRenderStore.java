@@ -32,6 +32,7 @@ public class MyBatisLocalProjectRenderStore implements LocalProjectRenderStore {
                         chapter.globalStartMs(),
                         chapter.globalEndMs(),
                         chapter.narrationAssetId(),
+                        chapter.storageKey(),
                         chapter.sizeBytes(),
                         chapter.checksum(),
                         chapter.durationMs()))
@@ -50,6 +51,7 @@ public class MyBatisLocalProjectRenderStore implements LocalProjectRenderStore {
                         beat.globalEndMs(),
                         beat.durationMs(),
                         beat.cameraMovement(),
+                        beat.storageKey(),
                         beat.sizeBytes(),
                         beat.checksum()))
             .toList();
@@ -129,6 +131,18 @@ public class MyBatisLocalProjectRenderStore implements LocalProjectRenderStore {
     if (mapper.completeJob(jobId, deviceId) != 1) {
       throw new IllegalStateException("Desktop project render job could not be completed");
     }
+  }
+
+  @Override
+  @Transactional
+  public boolean cancel(UUID jobId, UUID deviceId, String workerId, UUID leaseToken) {
+    if (mapper.cancelStage(jobId, deviceId, workerId, leaseToken) != 1) {
+      return false;
+    }
+    if (mapper.cancelJob(jobId, deviceId) != 1) {
+      throw new IllegalStateException("Desktop project render cancellation was not persisted");
+    }
+    return true;
   }
 
   @Override

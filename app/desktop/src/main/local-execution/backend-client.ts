@@ -7,9 +7,20 @@ interface ApiEnvelope<T> {
   data?: T;
 }
 
+export class LocalExecutionBackendError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "LocalExecutionBackendError";
+  }
+}
+
 export interface PairDeviceResponse {
   deviceId: string;
   deviceToken: string;
+  userId: string;
 }
 
 export interface ClaimedProjectRenderChapter {
@@ -17,7 +28,8 @@ export interface ClaimedProjectRenderChapter {
   orderIndex: number;
   globalStartMs: number;
   globalEndMs: number;
-  narrationAssetId: string;
+  narrationAssetId: string | null;
+  downloadUrl: string | null;
   sizeBytes: number;
   checksum: string;
   durationMs: number;
@@ -33,6 +45,7 @@ export interface ClaimedProjectRenderBeat {
   globalEndMs: number;
   durationMs: number;
   cameraMovement: string;
+  downloadUrl: string | null;
   sizeBytes: number;
   checksum: string;
 }
@@ -150,6 +163,21 @@ export class LocalExecutionBackendClient {
     );
   }
 
+  async cancelProjectRender(
+    deviceToken: string,
+    jobId: string,
+    leaseToken: string,
+  ): Promise<void> {
+    await this.deviceRequest<void>(
+      deviceToken,
+      `/api/v1/local-devices/project-renders/${encodeURIComponent(jobId)}/cancel`,
+      {
+        method: "POST",
+        body: JSON.stringify({ leaseToken }),
+      },
+    );
+  }
+
   async failProjectRender(
     deviceToken: string,
     jobId: string,
@@ -191,7 +219,10 @@ export class LocalExecutionBackendClient {
       // Fall through to the HTTP status below.
     }
     if (!response.ok || payload?.success !== true) {
-      throw new Error(payload?.message || `Backend request failed (${response.status}).`);
+      throw new LocalExecutionBackendError(
+        response.status,
+        payload?.message || `Backend request failed (${response.status}).`,
+      );
     }
     return payload.data as T;
   }

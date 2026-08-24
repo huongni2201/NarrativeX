@@ -4,6 +4,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,7 +19,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import java.util.UUID;
 
 @Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest
@@ -43,6 +43,7 @@ class StoryboardApiIntegrationTest {
   private static final UUID RENDER_MANIFEST = testUuid(27001);
   private static final UUID RENDER_JOB = UUID.fromString("00000000-0000-4000-8000-000000000005");
   private static final Long FINAL_ARTIFACT = 28001L;
+
   @Container
   static final PostgreSQLContainer<?> POSTGRES =
       new PostgreSQLContainer<>("postgres:17-alpine")
@@ -69,21 +70,56 @@ class StoryboardApiIntegrationTest {
   @BeforeEach
   void setUpTestData() {
     jdbcTemplate.update(
-        "INSERT INTO auth_users (id, email, display_name, password_hash, enabled) VALUES ('seed-user-01', 'test@example.com', 'Test User', 'pass', true) ON CONFLICT (id) DO NOTHING");
-    jdbcTemplate.update("INSERT INTO projects (id, name, description, owner_id, status, source_language, narration_language, metadata_language, image_aspect_ratio, image_quality_tier) VALUES (?, 'P1001', 'Desc', 'seed-user-01', 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD') ON CONFLICT (id) DO NOTHING", PROJECT_1);
-    jdbcTemplate.update("INSERT INTO projects (id, name, description, owner_id, status, source_language, narration_language, metadata_language, image_aspect_ratio, image_quality_tier) VALUES (?, 'P1002', 'Desc', 'seed-user-01', 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD') ON CONFLICT (id) DO NOTHING", PROJECT_2);
-    jdbcTemplate.update("INSERT INTO story_versions (id, project_id, version_number, content, source_language, status, moderation_decision) VALUES (?, ?, 1, 'Content', 'vi-VN', 'ACTIVE', 'SAFE') ON CONFLICT (id) DO NOTHING", STORY_1, PROJECT_1);
-    jdbcTemplate.update("INSERT INTO story_versions (id, project_id, version_number, content, source_language, status, moderation_decision) VALUES (?, ?, 1, 'Content', 'vi-VN', 'ACTIVE', 'SAFE') ON CONFLICT (id) DO NOTHING", STORY_2, PROJECT_2);
-    jdbcTemplate.update("UPDATE story_versions SET moderation_decision = 'NOT_REQUIRED' WHERE id = ?", STORY_2);
-    jdbcTemplate.update("INSERT INTO chapters (id, story_version_id, order_index, title, source_text, source_hash, status, estimated_duration_ms, generation_progress) VALUES (?, ?, 1, 'Ch 1', 'Text', repeat('a', 64), 'READY', 42000, 100) ON CONFLICT (id) DO NOTHING", CHAPTER_1, STORY_1);
-    jdbcTemplate.update("INSERT INTO chapters (id, story_version_id, order_index, title, source_text, source_hash, status, estimated_duration_ms, generation_progress) VALUES (?, ?, 1, 'Ch 2', 'Text', repeat('a', 64), 'READY', 42000, 100) ON CONFLICT (id) DO NOTHING", CHAPTER_2, STORY_2);
-    jdbcTemplate.update("INSERT INTO storyboard_revisions (id, chapter_id, revision_number, source_hash, source_row_version, status) VALUES (?, ?, 1, repeat('a', 64), 0, 'DRAFT') ON CONFLICT (id) DO NOTHING", REVISION_1, CHAPTER_1);
-    jdbcTemplate.update("INSERT INTO storyboard_revisions (id, chapter_id, revision_number, source_hash, source_row_version, status) VALUES (?, ?, 1, repeat('a', 64), 0, 'DRAFT') ON CONFLICT (id) DO NOTHING", REVISION_2, CHAPTER_2);
-    jdbcTemplate.update("UPDATE chapters SET current_storyboard_revision_id = ? WHERE id = ?", REVISION_1, CHAPTER_1);
-    jdbcTemplate.update("UPDATE chapters SET current_storyboard_revision_id = ? WHERE id = ?", REVISION_2, CHAPTER_2);
-    jdbcTemplate.update("INSERT INTO scenes (id, chapter_id, storyboard_revision_id, order_index, title, narration, duration_seconds, status) VALUES (?, ?, ?, 1, 'Scene 1', 'Narration', 42, 'APPROVED') ON CONFLICT (id) DO NOTHING", SCENE_1, CHAPTER_1, REVISION_1);
-    jdbcTemplate.update("INSERT INTO visual_beats (id, scene_id, order_index, title, visual_intent, review_status, motion_mode, camera_movement, text_start, text_end, audio_start_ms, audio_end_ms) VALUES (?, ?, 1, 'Lanterns at dawn', 'Warm lanterns form a river of light through quiet stone streets.', 'APPROVED', 'BASIC_MOTION', 'PAN', 0, 46, 0, 42000) ON CONFLICT (id) DO NOTHING", BEAT_1, SCENE_1);
-    jdbcTemplate.update("INSERT INTO project_assets (id, project_id, name, asset_type, storage_key, url, mime_type, status, metadata_json) VALUES (?, ?, 'lantern_master.png', 'IMAGE', 'key', 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1200&auto=format&fit=crop', 'image/png', 'ACTIVE', '{}'::jsonb) ON CONFLICT (id) DO NOTHING", PROJECT_ASSET, PROJECT_1);
+        "INSERT INTO auth_users (id, email, display_name, enabled) VALUES ('seed-user-01', 'test@example.com', 'Test User', true) ON CONFLICT (id) DO NOTHING");
+    jdbcTemplate.update(
+        "INSERT INTO projects (id, name, description, owner_id, status, source_language, narration_language, metadata_language, image_aspect_ratio, image_quality_tier) VALUES (?, 'P1001', 'Desc', 'seed-user-01', 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD') ON CONFLICT (id) DO NOTHING",
+        PROJECT_1);
+    jdbcTemplate.update(
+        "INSERT INTO projects (id, name, description, owner_id, status, source_language, narration_language, metadata_language, image_aspect_ratio, image_quality_tier) VALUES (?, 'P1002', 'Desc', 'seed-user-01', 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD') ON CONFLICT (id) DO NOTHING",
+        PROJECT_2);
+    jdbcTemplate.update(
+        "INSERT INTO story_versions (id, project_id, version_number, content, source_language, status, moderation_decision) VALUES (?, ?, 1, 'Content', 'vi-VN', 'ACTIVE', 'SAFE') ON CONFLICT (id) DO NOTHING",
+        STORY_1,
+        PROJECT_1);
+    jdbcTemplate.update(
+        "INSERT INTO story_versions (id, project_id, version_number, content, source_language, status, moderation_decision) VALUES (?, ?, 1, 'Content', 'vi-VN', 'ACTIVE', 'SAFE') ON CONFLICT (id) DO NOTHING",
+        STORY_2,
+        PROJECT_2);
+    jdbcTemplate.update(
+        "UPDATE story_versions SET moderation_decision = 'NOT_REQUIRED' WHERE id = ?", STORY_2);
+    jdbcTemplate.update(
+        "INSERT INTO chapters (id, story_version_id, order_index, title, source_text, source_hash, status, estimated_duration_ms, generation_progress) VALUES (?, ?, 1, 'Ch 1', 'Text', repeat('a', 64), 'READY', 42000, 100) ON CONFLICT (id) DO NOTHING",
+        CHAPTER_1,
+        STORY_1);
+    jdbcTemplate.update(
+        "INSERT INTO chapters (id, story_version_id, order_index, title, source_text, source_hash, status, estimated_duration_ms, generation_progress) VALUES (?, ?, 1, 'Ch 2', 'Text', repeat('a', 64), 'READY', 42000, 100) ON CONFLICT (id) DO NOTHING",
+        CHAPTER_2,
+        STORY_2);
+    jdbcTemplate.update(
+        "INSERT INTO storyboard_revisions (id, chapter_id, revision_number, source_hash, source_row_version, status) VALUES (?, ?, 1, repeat('a', 64), 0, 'DRAFT') ON CONFLICT (id) DO NOTHING",
+        REVISION_1,
+        CHAPTER_1);
+    jdbcTemplate.update(
+        "INSERT INTO storyboard_revisions (id, chapter_id, revision_number, source_hash, source_row_version, status) VALUES (?, ?, 1, repeat('a', 64), 0, 'DRAFT') ON CONFLICT (id) DO NOTHING",
+        REVISION_2,
+        CHAPTER_2);
+    jdbcTemplate.update(
+        "UPDATE chapters SET current_storyboard_revision_id = ? WHERE id = ?", REVISION_1, CHAPTER_1);
+    jdbcTemplate.update(
+        "UPDATE chapters SET current_storyboard_revision_id = ? WHERE id = ?", REVISION_2, CHAPTER_2);
+    jdbcTemplate.update(
+        "INSERT INTO scenes (id, chapter_id, storyboard_revision_id, order_index, title, narration, duration_seconds, status) VALUES (?, ?, ?, 1, 'Scene 1', 'Narration', 42, 'APPROVED') ON CONFLICT (id) DO NOTHING",
+        SCENE_1,
+        CHAPTER_1,
+        REVISION_1);
+    jdbcTemplate.update(
+        "INSERT INTO visual_beats (id, scene_id, order_index, title, visual_intent, review_status, motion_mode, camera_movement, text_start, text_end, audio_start_ms, audio_end_ms) VALUES (?, ?, 1, 'Lanterns at dawn', 'Warm lanterns form a river of light through quiet stone streets.', 'APPROVED', 'BASIC_MOTION', 'PAN', 0, 46, 0, 42000) ON CONFLICT (id) DO NOTHING",
+        BEAT_1,
+        SCENE_1);
+    jdbcTemplate.update(
+        "INSERT INTO project_assets (id, project_id, name, asset_type, storage_key, url, mime_type, status, metadata_json) VALUES (?, ?, 'lantern_master.png', 'IMAGE', 'key', 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1200&auto=format&fit=crop', 'image/png', 'ACTIVE', '{}'::jsonb) ON CONFLICT (id) DO NOTHING",
+        PROJECT_ASSET,
+        PROJECT_1);
     jdbcTemplate.update(
         "INSERT INTO media_assets (id, account_id, asset_type, origin, storage_key, original_filename, content_type, size_bytes, sha256, duration_ms, status, checksum_verified_at) VALUES ('00000000-0000-4000-8000-000000004001', 'seed-user-01', 'AUDIO', 'USER_UPLOAD', 'accounts/seed-user-01/uploads/river-intro.wav', 'river-intro.wav', 'audio/wav', 1200000, repeat('3', 64), 60000, 'READY', CURRENT_TIMESTAMP) ON CONFLICT (id) DO NOTHING");
     jdbcTemplate.update(
@@ -137,7 +173,8 @@ class StoryboardApiIntegrationTest {
 
   @Test
   void chapterWorkspaceProjectsNarrationAndRenderStateFromDurableRows() throws Exception {
-    jdbcTemplate.update("UPDATE visual_beats SET preview_asset_id = ? WHERE id = ?", PROJECT_ASSET, BEAT_1);
+    jdbcTemplate.update(
+        "UPDATE visual_beats SET preview_asset_id = ? WHERE id = ?", PROJECT_ASSET, BEAT_1);
 
     mockMvc
         .perform(get("/api/v1/projects/" + PROJECT_1 + "/chapters/" + CHAPTER_1 + "/workspace"))
@@ -274,9 +311,13 @@ class StoryboardApiIntegrationTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.status").value("READY"))
         .andExpect(jsonPath("$.data.previewAvailable").value(true))
-        .andExpect(jsonPath("$.data.previewUrl").value("/api/v1/artifacts/" + FINAL_ARTIFACT + "/content"))
+        .andExpect(
+            jsonPath("$.data.previewUrl")
+                .value("/api/v1/artifacts/" + FINAL_ARTIFACT + "/content"))
         .andExpect(jsonPath("$.data.downloadAvailable").value(true))
-        .andExpect(jsonPath("$.data.downloadUrl").value("/api/v1/artifacts/" + FINAL_ARTIFACT + "/download"))
+        .andExpect(
+            jsonPath("$.data.downloadUrl")
+                .value("/api/v1/artifacts/" + FINAL_ARTIFACT + "/download"))
         .andExpect(jsonPath("$.data.externalFileId").doesNotExist())
         .andExpect(jsonPath("$.data.refreshToken").doesNotExist())
         .andExpect(jsonPath("$.data.accessToken").doesNotExist());

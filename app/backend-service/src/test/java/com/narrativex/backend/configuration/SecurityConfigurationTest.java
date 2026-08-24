@@ -62,7 +62,7 @@ class SecurityConfigurationTest {
   @Test
   void currentUserEndpointReturnsTheLocalServerIdentity() throws Exception {
     mockMvc
-        .perform(get("/api/auth/me"))
+        .perform(get("/api/v1/auth/me"))
         .andExpect(status().isOk())
         .andExpect(content().contentTypeCompatibleWith("application/json"))
         .andExpect(jsonPath("$.success").value(true))

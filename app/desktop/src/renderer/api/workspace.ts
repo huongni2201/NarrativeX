@@ -58,6 +58,37 @@ function isRenderJob(value: unknown): value is DesktopRenderJob {
   return record(value) && string(value.jobId) && string(value.type) && string(value.status) && typeof value.progress === "number" && (value.currentStep === null || string(value.currentStep)) && (value.errorCode === null || string(value.errorCode));
 }
 
+function isPairingCode(value: unknown): value is { code: string; expiresAt: string } {
+  return record(value) && string(value.code) && string(value.expiresAt);
+}
+
+async function requireLocalRenderDeviceId(): Promise<string> {
+  let status = await window.narrativex.localExecution.status();
+  if (!status.projectRenderEnabled) {
+    throw new Error(
+      "Local FFmpeg rendering is not enabled. Configure FFmpeg and enable desktop project rendering before export.",
+    );
+  }
+
+  if (status.state === "UNPAIRED") {
+    const pairing = await apiRequest<{ code: string; expiresAt: string }>(
+      "/api/v1/local-devices/pairing-codes",
+      { method: "POST" },
+    );
+    if (!isPairingCode(pairing)) {
+      throw new Error("Desktop pairing-code response does not match the expected contract.");
+    }
+    status = await window.narrativex.localExecution.pair(pairing.code);
+  }
+
+  if (status.state !== "ONLINE" || !status.deviceId) {
+    throw new Error(
+      "The desktop local executor is not online. Restore its backend connection before starting export.",
+    );
+  }
+  return status.deviceId;
+}
+
 export const workspaceApi = {
   listProjects: () => apiRequest<{ content: DesktopProject[]; nextCursor: string | null }>("/api/v1/projects/dashboard?limit=50&sort=NEWEST", {}, 20_000).then((value) => {
     if (!isProjectsPage(value)) throw new Error("Projects response không đúng contract.");
@@ -83,14 +114,23 @@ export const workspaceApi = {
     if (!Array.isArray(value) || !value.every(isPreset)) throw new Error("Presets response không đúng contract.");
     return value.map((preset) => ({ ...preset, category }));
   }))).then((groups) => groups.flat()),
-  startRender: (projectId: string, resolution: "720p" | "1080p" = "1080p") => apiRequest<DesktopRenderJob>(`/api/v1/projects/${encodeURIComponent(projectId)}/production/render`, {
-    method: "POST",
-    headers: { "Idempotency-Key": crypto.randomUUID() },
-    body: JSON.stringify({ resolution, format: "mp4", beatOverrides: [] }),
-  }).then((value) => {
-    if (!isRenderJob(value)) throw new Error("Render job response không đúng contract.");
-    return value;
-  }),
+  startRender: async (projectId: string, resolution: "720p" | "1080p" = "1080p") => {
+    const localDeviceId = await requireLocalRenderDeviceId();
+    return apiRequest<DesktopRenderJob>(`/api/v1/projects/${encodeURIComponent(projectId)}/production/render`, {
+      method: "POST",
+      headers: { "Idempotency-Key": crypto.randomUUID() },
+      body: JSON.stringify({
+        resolution,
+        format: "mp4",
+        executionTarget: "LOCAL_DEVICE",
+        localDeviceId,
+        beatOverrides: [],
+      }),
+    }).then((value) => {
+      if (!isRenderJob(value)) throw new Error("Render job response không đúng contract.");
+      return value;
+    });
+  },
   getRenderJob: (jobId: string) => apiRequest<DesktopRenderJob>(`/api/v1/generation-jobs/${encodeURIComponent(jobId)}`).then((value) => {
     if (!isRenderJob(value)) throw new Error("Generation job response không đúng contract.");
     return value;

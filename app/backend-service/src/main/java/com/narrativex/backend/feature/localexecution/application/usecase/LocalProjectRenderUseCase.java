@@ -26,7 +26,7 @@ public class LocalProjectRenderUseCase {
   public void heartbeat(String deviceToken, UUID jobId, UUID leaseToken) {
     var device = localDeviceAccess.authenticate(deviceToken, CAPABILITY);
     if (!store.heartbeat(jobId, device.id(), workerId(device.id()), leaseToken)) {
-      throw new IllegalStateException("Desktop project render lease is no longer owned by this device");
+      throw leaseLost();
     }
   }
 
@@ -42,7 +42,7 @@ public class LocalProjectRenderUseCase {
     var device = localDeviceAccess.authenticate(deviceToken, CAPABILITY);
     if (!store.updateProgress(
         jobId, device.id(), workerId(device.id()), leaseToken, progress, step)) {
-      throw new IllegalStateException("Desktop project render lease is no longer owned by this device");
+      throw leaseLost();
     }
   }
 
@@ -53,6 +53,13 @@ public class LocalProjectRenderUseCase {
       LocalProjectRenderStore.CompletionResult result) {
     var device = localDeviceAccess.authenticate(deviceToken, CAPABILITY);
     store.complete(jobId, device.id(), workerId(device.id()), leaseToken, result);
+  }
+
+  public void cancel(String deviceToken, UUID jobId, UUID leaseToken) {
+    var device = localDeviceAccess.authenticate(deviceToken, CAPABILITY);
+    if (!store.cancel(jobId, device.id(), workerId(device.id()), leaseToken)) {
+      throw leaseLost();
+    }
   }
 
   public void fail(
@@ -74,8 +81,12 @@ public class LocalProjectRenderUseCase {
         leaseToken,
         normalizedErrorCode,
         retryable)) {
-      throw new IllegalStateException("Desktop project render lease is no longer owned by this device");
+      throw leaseLost();
     }
+  }
+
+  private static IllegalStateException leaseLost() {
+    return new IllegalStateException("Desktop project render lease is no longer owned by this device");
   }
 
   private static String workerId(UUID deviceId) {

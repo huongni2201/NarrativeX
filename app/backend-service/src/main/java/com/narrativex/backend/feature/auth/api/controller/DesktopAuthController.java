@@ -3,6 +3,7 @@ package com.narrativex.backend.feature.auth.api.controller;
 import com.narrativex.backend.feature.auth.api.request.DesktopAuthExchangeRequest;
 import com.narrativex.backend.feature.auth.api.response.CurrentUserResponse;
 import com.narrativex.backend.feature.auth.infrastructure.desktop.DesktopAuthHandoffStore;
+import com.narrativex.backend.feature.auth.infrastructure.desktop.DesktopUserPrincipal;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -10,6 +11,8 @@ import jakarta.validation.Valid;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.time.Instant;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,7 +22,6 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.context.SecurityContextRepository;
-import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -35,7 +37,6 @@ public class DesktopAuthController {
 
   private final DesktopAuthHandoffStore handoffStore;
   private final SecurityContextRepository securityContextRepository;
-  private final SecurityContextLogoutHandler logoutHandler = new SecurityContextLogoutHandler();
 
   @GetMapping("/start")
   public void start(
@@ -57,38 +58,39 @@ public class DesktopAuthController {
       @Valid @RequestBody DesktopAuthExchangeRequest request,
       HttpServletRequest servletRequest,
       HttpServletResponse servletResponse) {
-    String userId = handoffStore.consume(request.code());
-    if (userId == null) {
+    DesktopUserPrincipal user = handoffStore.consume(request.code());
+    if (user == null) {
       return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-          .body(new ApiResponse<>(false, "Desktop auth code is invalid or expired.", null, java.time.Instant.now()));
+          .body(
+              new ApiResponse<>(
+                  false, "Desktop auth code is invalid or expired.", null, Instant.now()));
     }
 
     Authentication authentication =
         UsernamePasswordAuthenticationToken.authenticated(
-            userId, null, java.util.List.of(new SimpleGrantedAuthority("ROLE_USER")));
+            user, null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
     SecurityContext context = SecurityContextHolder.createEmptyContext();
     context.setAuthentication(authentication);
     SecurityContextHolder.setContext(context);
     securityContextRepository.saveContext(context, servletRequest, servletResponse);
+
     return ResponseEntity.ok(
         ApiResponse.success(
             "Desktop session established",
-            new CurrentUserResponse(userId, userId, null, null)));
+            new CurrentUserResponse(
+                user.id(), user.displayName(), user.email(), user.avatarUrl())));
   }
 
-  @PostMapping("/logout")
-  public ResponseEntity<Void> logout(
-      HttpServletRequest request, HttpServletResponse response) {
-    logoutHandler.logout(request, response, SecurityContextHolder.getContext().getAuthentication());
-    return ResponseEntity.noContent().build();
-  }
-
-  private static boolean isAllowedRedirect(String redirectUri) {
+  static boolean isAllowedRedirect(String redirectUri) {
     try {
       URI uri = new URI(redirectUri);
       return "narrativex".equalsIgnoreCase(uri.getScheme())
-          && "/auth/callback".equals(uri.getPath())
-          && uri.getHost() == null;
+          && "auth".equalsIgnoreCase(uri.getHost())
+          && "/callback".equals(uri.getPath())
+          && uri.getUserInfo() == null
+          && uri.getPort() == -1
+          && uri.getQuery() == null
+          && uri.getFragment() == null;
     } catch (URISyntaxException exception) {
       return false;
     }

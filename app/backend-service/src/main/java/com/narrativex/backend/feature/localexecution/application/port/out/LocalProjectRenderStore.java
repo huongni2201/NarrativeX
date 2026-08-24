@@ -25,6 +25,8 @@ public interface LocalProjectRenderStore {
       UUID leaseToken,
       CompletionResult result);
 
+  boolean cancel(UUID jobId, UUID deviceId, String workerId, UUID leaseToken);
+
   boolean fail(
       UUID jobId,
       UUID deviceId,
@@ -58,6 +60,7 @@ public interface LocalProjectRenderStore {
       long globalStartMs,
       long globalEndMs,
       UUID narrationAssetId,
+      String storageKey,
       long sizeBytes,
       String checksum,
       long durationMs) {}
@@ -72,6 +75,7 @@ public interface LocalProjectRenderStore {
       long globalEndMs,
       long durationMs,
       String cameraMovement,
+      String storageKey,
       long sizeBytes,
       String checksum) {}
 

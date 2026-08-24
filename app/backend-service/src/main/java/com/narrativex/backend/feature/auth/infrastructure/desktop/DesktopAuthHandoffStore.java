@@ -1,55 +1,84 @@
 package com.narrativex.backend.feature.auth.infrastructure.desktop;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
-import java.time.Clock;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.Base64;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
-/** In-memory, single-use handoff codes. The code is never persisted or logged. */
+/** Redis-backed, single-use desktop OAuth handoff codes. Raw codes are never persisted or logged. */
 @Component
+@RequiredArgsConstructor
 public class DesktopAuthHandoffStore {
   private static final Duration CODE_TTL = Duration.ofSeconds(90);
-  private final SecureRandom secureRandom = new SecureRandom();
-  private final Clock clock = Clock.systemUTC();
-  private final Map<String, Handoff> handoffs = new ConcurrentHashMap<>();
+  private static final String KEY_PREFIX = "narrativex:auth:desktop-handoff:";
 
-  public String issue(String userId) {
-    purgeExpired();
+  private final StringRedisTemplate redisTemplate;
+  private final ObjectMapper objectMapper;
+  private final SecureRandom secureRandom = new SecureRandom();
+
+  public String issue(DesktopUserPrincipal user) {
+    if (user == null || user.id() == null || user.id().isBlank()) {
+      throw new IllegalArgumentException("Desktop handoff user is required");
+    }
+
     byte[] bytes = new byte[32];
     secureRandom.nextBytes(bytes);
     String code = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-    handoffs.put(hash(code), new Handoff(userId, Instant.now(clock).plus(CODE_TTL)));
+    redisTemplate
+        .opsForValue()
+        .set(
+            redisKey(code),
+            writePayload(
+                new HandoffPayload(user.id(), user.displayName(), user.email(), user.avatarUrl())),
+            CODE_TTL);
     return code;
   }
 
-  public String consume(String code) {
+  public DesktopUserPrincipal consume(String code) {
     if (code == null || code.isBlank()) return null;
-    Handoff handoff = handoffs.remove(hash(code.trim()));
-    if (handoff == null || handoff.expiresAt().isBefore(Instant.now(clock))) return null;
-    return handoff.userId();
+    String payload = redisTemplate.opsForValue().getAndDelete(redisKey(code.trim()));
+    if (payload == null || payload.isBlank()) return null;
+
+    try {
+      HandoffPayload value = objectMapper.readValue(payload, HandoffPayload.class);
+      if (value.id() == null || value.id().isBlank()) return null;
+      return new DesktopUserPrincipal(
+          value.id(), value.displayName(), value.email(), value.avatarUrl());
+    } catch (JsonProcessingException exception) {
+      throw new IllegalStateException("Stored desktop auth handoff is invalid", exception);
+    }
   }
 
-  private void purgeExpired() {
-    Instant now = Instant.now(clock);
-    handoffs.entrySet().removeIf(entry -> entry.getValue().expiresAt().isBefore(now));
+  private String writePayload(HandoffPayload payload) {
+    try {
+      return objectMapper.writeValueAsString(payload);
+    } catch (JsonProcessingException exception) {
+      throw new IllegalStateException("Desktop auth handoff could not be serialized", exception);
+    }
+  }
+
+  private static String redisKey(String code) {
+    return KEY_PREFIX + hash(code);
   }
 
   private static String hash(String value) {
     try {
       return Base64.getUrlEncoder()
           .withoutPadding()
-          .encodeToString(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
+          .encodeToString(
+              MessageDigest.getInstance("SHA-256")
+                  .digest(value.getBytes(StandardCharsets.UTF_8)));
     } catch (NoSuchAlgorithmException exception) {
       throw new IllegalStateException("SHA-256 is required for desktop auth handoffs", exception);
     }
   }
 
-  private record Handoff(String userId, Instant expiresAt) {}
+  private record HandoffPayload(String id, String displayName, String email, String avatarUrl) {}
 }

@@ -1,5 +1,7 @@
 package com.narrativex.backend.feature.localexecution.api.controller;
 
+import com.narrativex.backend.feature.assets.application.port.in.MediaStorageAccess;
+import com.narrativex.backend.feature.common.exception.FeatureNotAvailableException;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.localexecution.application.port.out.LocalProjectRenderStore;
 import com.narrativex.backend.feature.localexecution.application.usecase.LocalProjectRenderUseCase;
@@ -10,6 +12,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -27,8 +31,10 @@ import org.springframework.web.bind.annotation.RestController;
 public class LocalProjectRenderController {
   private static final String DEVICE_TOKEN_HEADER = "X-NX-Device-Token";
   private static final String LOCAL_STORAGE_PROVIDER = "LOCAL_DESKTOP";
+  private static final Duration DOWNLOAD_URL_TTL = Duration.ofMinutes(15);
 
   private final LocalProjectRenderUseCase useCase;
+  private final MediaStorageAccess mediaStorageAccess;
 
   @PostMapping("/claim")
   public ResponseEntity<ApiResponse<ClaimResponse>> claim(
@@ -38,7 +44,7 @@ public class LocalProjectRenderController {
       return ResponseEntity.noContent().build();
     }
     return ResponseEntity.ok(
-        ApiResponse.success("Desktop project render claimed", ClaimResponse.from(claimed.get())));
+        ApiResponse.success("Desktop project render claimed", toClaimResponse(claimed.get())));
   }
 
   @PostMapping("/{jobId}/heartbeat")
@@ -85,6 +91,15 @@ public class LocalProjectRenderController {
     return ResponseEntity.ok(ApiResponse.success("Desktop project render completed"));
   }
 
+  @PostMapping("/{jobId}/cancel")
+  public ResponseEntity<ApiResponse<Void>> cancel(
+      @RequestHeader(DEVICE_TOKEN_HEADER) String deviceToken,
+      @PathVariable UUID jobId,
+      @Valid @RequestBody LeaseRequest request) {
+    useCase.cancel(deviceToken, jobId, request.leaseToken());
+    return ResponseEntity.ok(ApiResponse.success("Desktop project render canceled"));
+  }
+
   @PostMapping("/{jobId}/fail")
   public ResponseEntity<ApiResponse<Void>> fail(
       @RequestHeader(DEVICE_TOKEN_HEADER) String deviceToken,
@@ -93,6 +108,34 @@ public class LocalProjectRenderController {
     useCase.fail(
         deviceToken, jobId, request.leaseToken(), request.errorCode(), request.retryable());
     return ResponseEntity.ok(ApiResponse.success("Desktop project render failure recorded"));
+  }
+
+  private ClaimResponse toClaimResponse(LocalProjectRenderStore.ClaimedProjectRender value) {
+    Instant expiresAt = Instant.now().plus(DOWNLOAD_URL_TTL);
+    return new ClaimResponse(
+        value.jobId(),
+        value.projectId(),
+        value.storyVersionId(),
+        value.resolution(),
+        value.format(),
+        value.aspectRatio(),
+        value.totalDurationMs(),
+        value.renderProfileJson(),
+        value.leaseToken(),
+        value.chapters().stream()
+            .map(chapter -> ChapterInputResponse.from(chapter, downloadUrl(chapter.storageKey(), expiresAt)))
+            .toList(),
+        value.beats().stream()
+            .map(beat -> BeatInputResponse.from(beat, downloadUrl(beat.storageKey(), expiresAt)))
+            .toList());
+  }
+
+  private String downloadUrl(String storageKey, Instant expiresAt) {
+    try {
+      return mediaStorageAccess.createDownloadUrl(storageKey, expiresAt).toString();
+    } catch (FeatureNotAvailableException ignored) {
+      return null;
+    }
   }
 
   public record LeaseRequest(@NotNull UUID leaseToken) {}
@@ -130,22 +173,7 @@ public class LocalProjectRenderController {
       String renderProfileJson,
       UUID leaseToken,
       List<ChapterInputResponse> chapters,
-      List<BeatInputResponse> beats) {
-    static ClaimResponse from(LocalProjectRenderStore.ClaimedProjectRender value) {
-      return new ClaimResponse(
-          value.jobId(),
-          value.projectId(),
-          value.storyVersionId(),
-          value.resolution(),
-          value.format(),
-          value.aspectRatio(),
-          value.totalDurationMs(),
-          value.renderProfileJson(),
-          value.leaseToken(),
-          value.chapters().stream().map(ChapterInputResponse::from).toList(),
-          value.beats().stream().map(BeatInputResponse::from).toList());
-    }
-  }
+      List<BeatInputResponse> beats) {}
 
   public record ChapterInputResponse(
       UUID chapterId,
@@ -153,16 +181,19 @@ public class LocalProjectRenderController {
       long globalStartMs,
       long globalEndMs,
       UUID narrationAssetId,
+      String downloadUrl,
       long sizeBytes,
       String checksum,
       long durationMs) {
-    static ChapterInputResponse from(LocalProjectRenderStore.ChapterInput value) {
+    static ChapterInputResponse from(
+        LocalProjectRenderStore.ChapterInput value, String downloadUrl) {
       return new ChapterInputResponse(
           value.chapterId(),
           value.orderIndex(),
           value.globalStartMs(),
           value.globalEndMs(),
           value.narrationAssetId(),
+          downloadUrl,
           value.sizeBytes(),
           value.checksum(),
           value.durationMs());
@@ -179,9 +210,10 @@ public class LocalProjectRenderController {
       long globalEndMs,
       long durationMs,
       String cameraMovement,
+      String downloadUrl,
       long sizeBytes,
       String checksum) {
-    static BeatInputResponse from(LocalProjectRenderStore.BeatInput value) {
+    static BeatInputResponse from(LocalProjectRenderStore.BeatInput value, String downloadUrl) {
       return new BeatInputResponse(
           value.chapterId(),
           value.sceneIndex(),
@@ -192,6 +224,7 @@ public class LocalProjectRenderController {
           value.globalEndMs(),
           value.durationMs(),
           value.cameraMovement(),
+          downloadUrl,
           value.sizeBytes(),
           value.checksum());
     }

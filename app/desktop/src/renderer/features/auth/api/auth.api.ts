@@ -8,9 +8,16 @@ export interface DesktopAuthUser {
 }
 
 function parseUser(value: unknown): DesktopAuthUser {
-  if (!value || typeof value !== "object") throw new Error("Current user response không đúng contract.");
+  if (!value || typeof value !== "object") {
+    throw new Error("Current user response không đúng contract.");
+  }
   const user = value as Partial<DesktopAuthUser>;
-  if (typeof user.id !== "string" || typeof user.displayName !== "string" || (user.email !== null && typeof user.email !== "string") || (user.avatarUrl !== null && typeof user.avatarUrl !== "string")) {
+  if (
+    typeof user.id !== "string" ||
+    typeof user.displayName !== "string" ||
+    (user.email !== null && typeof user.email !== "string") ||
+    (user.avatarUrl !== null && typeof user.avatarUrl !== "string")
+  ) {
     throw new Error("Current user response không đúng contract.");
   }
   return user as DesktopAuthUser;
@@ -24,5 +31,5 @@ export const authApi = {
       body: JSON.stringify({ code }),
       headers: { "Content-Type": "application/json" },
     }).then(parseUser),
-  logout: () => apiRequest<void>("/api/v1/auth/logout", { method: "POST" }),
+  logout: () => apiRequest<void>("/logout", { method: "POST" }),
 };

@@ -16,10 +16,10 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
-/** Static contract between the authoritative Flyway baseline and every MyBatis XML mapper. */
+/** Static contract between the authoritative Flyway table baseline and every MyBatis XML mapper. */
 class MyBatisSchemaReferenceContractTest {
-  private static final Path MIGRATION =
-      Path.of("src/main/resources/db/migration/V1__initial_schema.sql");
+  private static final Path CREATE_TABLES_MIGRATION =
+      Path.of("src/main/resources/db/migration/V1__create_tables.sql");
   private static final Path MAPPER_ROOT = Path.of("src/main/resources/mybatis");
 
   private static final Pattern CREATE_TABLE =
@@ -28,15 +28,14 @@ class MyBatisSchemaReferenceContractTest {
   private static final Pattern TABLE_REFERENCE =
       Pattern.compile(
           "(?i)\\b(?:FROM|JOIN|UPDATE|INSERT\\s+INTO|DELETE\\s+FROM)\\s+([a-z_][a-z0-9_]*)\\b");
-  private static final Pattern RETIRED_REFERENCES_COLUMN =
-      Pattern.compile("(?i)\\breferences\\b");
+  private static final Pattern RETIRED_REFERENCES_COLUMN = Pattern.compile("(?i)\\breferences\\b");
 
   private static final Set<String> SQL_REFERENCE_KEYWORDS = Set.of("lateral");
 
   @Test
   void everyMyBatisTableReferenceExistsInAuthoritativeBaseline() throws IOException {
     Set<String> schemaTables = schemaTables();
-    assertFalse(schemaTables.isEmpty(), "expected V1 baseline to define tables");
+    assertFalse(schemaTables.isEmpty(), "expected V1 create-tables migration to define tables");
 
     List<String> violations = new ArrayList<>();
     for (Path mapper : mapperFiles()) {
@@ -55,7 +54,7 @@ class MyBatisSchemaReferenceContractTest {
 
     assertTrue(
         violations.isEmpty(),
-        () -> "MyBatis references tables missing from V1 baseline: " + violations);
+        () -> "MyBatis references tables missing from V1 create-tables baseline: " + violations);
   }
 
   @Test
@@ -74,7 +73,7 @@ class MyBatisSchemaReferenceContractTest {
   }
 
   private static Set<String> schemaTables() throws IOException {
-    String migration = Files.readString(MIGRATION);
+    String migration = Files.readString(CREATE_TABLES_MIGRATION);
     Matcher matcher = CREATE_TABLE.matcher(migration);
     Set<String> tables = new HashSet<>();
     while (matcher.find()) {

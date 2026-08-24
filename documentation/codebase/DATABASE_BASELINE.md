@@ -1,166 +1,117 @@
-# NarrativeX Database Baseline V1.13
+# NarrativeX Database Baseline
 
-## Authority and validation
+## Authority
 
 - PostgreSQL is the authoritative business-state store.
-- Redis is not authoritative GenerationJob state; it is used for sessions and non-authoritative delivery/progress hints.
-- Backend is the Flyway/schema owner.
-- Flyway applies the complete schema before the backend starts; there is no JPA/Hibernate schema
-  validation path.
-- PostgreSQL + Flyway is the release schema gate.
+- Redis is used for sessions and non-authoritative delivery/progress hints; it is not authoritative GenerationJob state.
+- The backend owns Flyway and the relational schema.
+- PostgreSQL + Flyway is the schema/release gate. H2-only success is not sufficient validation.
+- The current migration set is a **clean baseline**, not an incremental upgrade path for an older `flyway_schema_history`.
 
-## Flyway migration matrix
+## Final Flyway layout
 
-| Migration | Purpose | Current state |
-|---|---|---|
-| V1 `initial_schema` | Consolidated schema baseline: auth, project/story/chapter foundations, Chapter soft-delete, storyboard revisions, split motion/camera visual beats, preview-asset links, character/location AI identities, backend-authoritative media plans, UUID GenerationJob public keys, generation execution/review and lineage, durable provider operations, quota reservation lifecycle, chapter-level TTS, uploaded narration, upload sessions, media lifecycle hardening, durable media validation jobs, detected media metadata, style presets and voice catalog, render ownership pins, owner-scoped idempotency, voice reference asset, cleanup tasks, chapter creation idempotency | Authoritative baseline |
-| V2 `widen_idempotency_keys` | Widens `generation_jobs.idempotency_key` from 200 to 512 characters so deterministic and caller-supplied generation keys fit the persisted contract | Required forward migration |
+The database baseline is intentionally split by responsibility into exactly three versioned migrations:
 
-The supported Flyway migration set is **V1 + V2**. V1 remains the consolidated structural baseline; V2 is a forward-compatible schema evolution that widens the GenerationJob idempotency-key contract. A clean database must apply both migrations in order. In particular:
+| Migration | Responsibility |
+|---|---|
+| `V1__create_tables.sql` | PostgreSQL extension/function setup, tables, columns, primary/foreign/unique/check constraints, immutable-state functions and triggers |
+| `V2__init_indexes.sql` | Query/access-path indexes, partial indexes and partial unique indexes |
+| `V3__seed_data.sql` | Deterministic system/catalog seed data only: baseline marker, plan entitlements, style presets and voice catalog |
 
-- `generation_jobs.job_id` is created as PostgreSQL `UUID` directly in V1.
-- `chapters.deleted_at` is part of the original Chapter table definition.
-- Active Chapter order uniqueness is provided directly by `uq_chapters_story_order_active` on `(story_version_id, order_index) WHERE deleted_at IS NULL`.
-- `idx_chapters_deleted_at` is created directly for deleted-row maintenance/querying.
-- `generation_jobs.idempotency_key` is widened to `VARCHAR(512)` by V2.
+A clean database applies **V1 → V2 → V3**. `flyway_schema_history` should therefore contain exactly three successful versioned migrations and latest version `3`.
 
-V1 is an intentional clean rebaseline relative to the older historical migration chain. A database whose `flyway_schema_history` contains the pre-rebaseline V1/V2/V3 history is **not compatible with the rewritten V1 checksum/history**. Recreate that database from the current V1 + V2 migration set, or perform an explicit operator-reviewed migration. Do not rewrite `flyway_schema_history` to make an incompatible database appear current.
+The previous patch-style migrations (`widen_idempotency_keys`, media-beat reuse, notification/SSE triggers, project render snapshot and desktop execution routing) have been folded into the final baseline. Do not reintroduce one-off `ALTER TABLE` migrations for state that belongs in the clean baseline.
 
-Application queries that mean current, active, or owned Chapter state must enforce `chapters.deleted_at IS NULL`.
+A database whose Flyway history contains an older NarrativeX V1/V2/... chain is not compatible with this rewritten clean baseline checksum/history. Recreate it from the current three-file migration set or perform a separately reviewed operator migration; do not edit `flyway_schema_history` to make incompatible schemas appear current.
+
+## Important final-schema decisions
+
+- `auth_users` is Google/OIDC-oriented and has no password hash column.
+- `generation_jobs.job_id` is PostgreSQL `UUID`.
+- `generation_jobs.idempotency_key` is `VARCHAR(512)` directly in V1.
+- `chapters.deleted_at` is part of the Chapter definition; current/owned Chapter queries must enforce `deleted_at IS NULL` where appropriate.
+- Active Chapter order uniqueness is the partial unique index `uq_chapters_story_order_active` in V2.
+- `media_beat_plans.reuse_source_visual_beat_id` and its reuse-strategy invariants are part of V1.
+- Project render snapshots and `CLOUD` / `LOCAL_DEVICE` execution routing are part of V1; their claim/access indexes are in V2.
+- Generation completion notifications, generation SSE/`pg_notify`, quota-finalization and immutable-snapshot enforcement are defined once in V1 rather than patched by later migrations.
+- V3 contains system bootstrap data only. User/project/story content must not be inserted by Flyway.
 
 ## Entity/schema matrix
 
-| Domain | Table | Status | Notes |
-|---|---|---|---|
-| Project | `projects` | IMPLEMENTED | ownership, active query index and cursor pagination foundation |
-| StoryVersion | `story_versions` | IMPLEMENTED FOUNDATION | version/source boundary |
-| Chapter | `chapters` | IMPLEMENTED FOUNDATION | sourceText/sourceHash/rowVersion contract plus soft-delete via `deleted_at` |
-| Chapter creation idempotency | `chapter_creation_idempotency` | IMPLEMENTED | owner/project/key uniqueness, request fingerprint and resulting Chapter |
-| StoryboardRevision | `storyboard_revisions` | IMPLEMENTED | immutable revision boundary for safe re-analysis |
-| Scene | `scenes` | IMPLEMENTED FOUNDATION | storyboard scene persistence, location association |
-| SceneCharacter | `scene_characters` | IMPLEMENTED | ordered scene-to-character continuity associations |
-| VisualBeat | `visual_beats` | IMPLEMENTED FOUNDATION | structured camera angle, motion/camera split and nullable project-asset preview link |
-| VisualBeatCharacter | `visual_beat_characters` | IMPLEMENTED | ordered beat-to-character continuity |
-| MediaPlan | `media_plans` / `media_scene_plans` / `media_beat_plans` | IMPLEMENTED | backend-authoritative execution and cost plan |
-| ProjectFavorite | `project_favorites` | IMPLEMENTED | per-user dashboard favorites |
-| GenerationJob | `generation_jobs` | IMPLEMENTED FOUNDATION | durable async execution state with UUID `job_id`, plan & revision pinning |
-| Chapter media head | `chapter_media_heads` | IMPLEMENTED | authoritative current media job per active Chapter |
-| StageAttempt | `stage_attempts` | IMPLEMENTED FOUNDATION | lease/attempt model with heartbeat claims |
-| ProviderOperation | `provider_operations` | IMPLEMENTED SQL-FIRST SLICE | durable provider boundary, CAS lifecycle, reconciliation, billing evidence & result fingerprint |
-| OperationPlan | `operation_plans` | IMPLEMENTED MVP FOUNDATION | estimate/cap/admission link |
-| QuotaReservation | `quota_reservations` / `usage_windows` | IMPLEMENTED | atomic admission reservation and terminal provider cost settlement |
-| Narration (TTS) | `narration_requests` / `narration_operations` / `narration_assets` / `narration_alignments` | IMPLEMENTED FOUNDATION | immutable full-chapter TTS snapshots and segment alignment |
-| Media validation | `media_assets` / `media_asset_checksums` / `media_upload_sessions` / `media_validation_jobs` / `outbox_events` | IMPLEMENTED FOUNDATION | finalization persists `VALIDATING` plus an idempotent durable validation job; worker CAS-persisted decode results drive `READY`/`REJECTED` |
-| Narration (Upload) | `media_assets` / `media_asset_checksums` / `media_upload_sessions` / `narration_sets` / `narration_parts` / `narration_documents` / `narration_alignment_runs` | IMPLEMENTED FOUNDATION | verified upload finalization claims one canonical checksum owner, materializes assets as `VALIDATING`, and queues duplicate-object cleanup transactionally |
-| Character & Identity | `characters` / `character_versions` / `outfit_versions` / `character_appearances` / `project_characters` / `project_character_ai_identities` | IMPLEMENTED FOUNDATION | reusable character identity, appearance timelines & AI continuity matching |
-| Character references | `character_version_reference_assets` | IMPLEMENTED FOUNDATION | immutable FK-backed identity/profile/outfit/pose references with priority |
-| Location | `project_locations` / `project_location_ai_identities` | IMPLEMENTED FOUNDATION | project locations and AI continuity key mapping |
-| Render artifact | `render_manifests` / `final_artifacts` | IMPLEMENTED | immutable render inputs and durable output metadata |
-| Render input snapshot | `render_input_snapshots` / `render_input_snapshot_beats` | IMPLEMENTED | immutable admission-time media-plan, narration and READY-beat inputs |
-| Local execution | `local_device_pairing_codes` / `local_devices` / `local_device_capabilities` | IMPLEMENTED FOUNDATION | paired local-device identity, capabilities and revocation |
+| Domain | Tables | Notes |
+|---|---|---|
+| Authentication | `auth_users` | Google/OIDC user profile; no password credential persistence |
+| Project | `projects`, `project_favorites` | ownership, archival and dashboard/query foundation |
+| Story / Chapter | `story_versions`, `chapters`, `chapter_creation_idempotency`, `chapter_content_variants`, `language_detections` | versioned text, soft-delete, translation lineage and idempotent creation |
+| Storyboard | `storyboard_revisions`, `scenes`, `scene_characters`, `visual_beats`, `visual_beat_characters` | durable storyboard and continuity boundary |
+| Character continuity | `characters`, `character_versions`, `outfit_versions`, `character_appearances`, `project_characters`, `project_character_ai_identities` | reusable identities and project-local mappings |
+| Locations / project assets | `project_locations`, `project_location_ai_identities`, `project_assets` | project-local location/media metadata |
+| Media plan | `media_plans`, `media_scene_plans`, `media_beat_plans` | immutable backend-authoritative plan, prompt snapshots and reuse lineage |
+| Generation execution | `generation_jobs`, `stage_attempts`, `provider_operations`, `operation_plans` | durable async state, leasing, provider reconciliation and billing evidence |
+| Quota | `plan_entitlements`, `user_plan_assignments`, `usage_windows`, `quota_reservations` | admission reservation and terminal settlement |
+| Media assets | `media_assets`, `media_asset_checksums`, `media_upload_sessions`, `media_validation_jobs`, `media_storage_cleanup_tasks` | canonical metadata, validation and storage cleanup |
+| Narration | `narration_requests`, `narration_operations`, `narration_assets`, `narration_alignments`, `narration_sets`, `narration_parts`, `narration_documents`, `narration_document_chapters`, `narration_alignment_runs` | generated and uploaded narration plus immutable alignment lineage |
+| Media generation | `media_generation_items`, `media_asset_lineage` | per-beat execution/review and immutable result lineage |
+| Chapter render | `render_input_snapshots`, `render_input_snapshot_beats`, `chapter_media_heads`, `render_manifests`, `final_artifacts` | immutable chapter render admission and durable output |
+| Project render | `project_render_input_snapshots`, `project_render_input_chapters`, `project_render_input_beats` | immutable long-form render snapshot with cloud/local execution routing |
+| Local execution | `local_device_pairing_codes`, `local_devices`, `local_device_capabilities` | paired desktop identity, capabilities and revocation |
+| Shorts | `short_clip_requests` | durable trim/export requests against final artifacts |
+| Control plane | `notifications`, `notification_preferences`, `outbox_events`, `moderation_decisions`, `identity_consents`, `identity_profiles`, `ai_audit_events`, `data_deletion_requests`, `user_preferences`, `abuse_events` | policy, audit, preferences and delivery state |
+| Catalog | `style_presets`, `voice_catalog` | deterministic read-model data seeded by V3 |
 
-## Durable execution persistence
+## Durable execution contract
 
-The persisted execution contract is documented in
-[`ADR-0001`](../decisions/ADR-0001-system-topology-execution-and-persistence.md).
-Java and Python mirrors must be updated with every new persisted execution
-value. Canonical execution values and bounds are validated via PostgreSQL CHECK constraints in V1 and forward migrations such as V2.
-
-The database contract for expensive work is:
+The persisted expensive-work chain is:
 
 ```text
 OperationPlan
-      |
-      v
-GenerationJob
-      |
-      v
-StageAttempt
-      |
-      v
-ProviderOperation
+    -> GenerationJob
+    -> StageAttempt
+    -> ProviderOperation
 ```
 
-Before an external AI provider request:
+A provider request is persisted before external submission:
 
 ```text
-create ProviderOperation
-      -> persist RESERVED
-      -> submit external request
-      -> update SUBMITTED/RUNNING
-      -> COMPLETE / FAILED / UNKNOWN
+reserve durable operation
+    -> RESERVED
+    -> external submit
+    -> SUBMITTED / RUNNING
+    -> COMPLETED / FAILED / UNKNOWN
 ```
 
-`UNKNOWN` exists because a worker crash or network ambiguity can happen after provider acceptance but before local completion persistence. The system must reconcile before resubmission.
+`UNKNOWN` is a reconciliation state for ambiguous provider acceptance. Workers must reconcile before resubmitting work that may already have been accepted externally.
 
-## Storyboard and continuity schema boundary
+Mutable rows use `row_version`/CAS-style protection where the domain requires optimistic concurrency. Stale writes must conflict instead of silently becoming last-write-wins.
 
-Current persisted output:
+## Index boundary
 
-```text
-StoryVersion
-   |
-Chapter
-   |
-Scene
-   |
-VisualBeat
-```
+V1 must be capable of creating a relationally valid schema before V2 runs. Therefore uniqueness required as an FK target is expressed as a table `UNIQUE` constraint in V1. V2 owns indexes that exist for query performance, partial uniqueness or claim/access paths.
 
-AI-returned locations and scene-to-character continuity are materialized as
-explicit durable relations. Character names must not be used as historical
-continuity keys.
-
-## Optimistic concurrency
-
-Mutable entities use row version protection:
-
-- Domain adapters compare expected row version before applying detached changes.
-- The ProviderOperation MyBatis adapter enforces allowed status plus expected `row_version` in SQL; zero affected rows are conflicts.
-- Public mutable APIs should expose ETag / `If-Match` semantics.
-- Stale writes must return conflict, not last-write-wins.
-
-## Project query performance contract
-
-Active project list uses keyset pagination:
+Examples:
 
 ```sql
-WHERE owner_id = ?
-AND archived_at IS NULL
-AND (
- updated_at < ?
- OR (updated_at = ? AND id < ?)
-)
-ORDER BY updated_at DESC, id DESC
-```
+-- V1: required relational invariant / FK target
+CONSTRAINT uk_project_characters_project_id_id UNIQUE (project_id, id)
 
-Recommended access path:
-
-```sql
+-- V2: query access path
 CREATE INDEX idx_projects_active_owner_updated_id
 ON projects(owner_id, updated_at DESC, id DESC)
 WHERE archived_at IS NULL;
 ```
 
-The partial predicate avoids archived rows polluting the common active-project path.
+## Verification gate
 
-## Remaining database work
+For schema changes:
 
-1. Add full billing ledger, actual provider usage and reservation release accounting.
-2. Add complete deletion/retention lifecycle schema and backup verification beyond Chapter soft-delete.
-3. Add indexes from measured production query plans instead of speculative indexing.
-
-## Schema verification gate
-
-For schema PRs:
-
-1. Create an empty supported PostgreSQL instance and apply the complete Flyway migration set (`V1`, then `V2`).
-2. Verify `flyway_schema_history` contains exactly two successful versioned migrations and reports latest version `2`.
-3. Verify `generation_jobs.idempotency_key` is `VARCHAR(512)` after V2.
-4. Verify `generation_jobs.job_id` is `uuid` and `chapters.deleted_at` is `timestamptz`.
-5. Verify `uk_chapters_story_order` is absent and `uq_chapters_story_order_active` plus `idx_chapters_deleted_at` exist.
-6. Start backend and run the backend verification suite.
-7. Run worker PostgreSQL integration tests against UUID-shaped durable identifiers.
-8. Verify stale-version and soft-delete behavior.
-9. Verify query plans for keyset pagination with representative data.
-10. Do not use H2-only success as PostgreSQL compatibility evidence.
+1. Start an empty supported PostgreSQL instance.
+2. Apply `V1__create_tables.sql`, `V2__init_indexes.sql`, then `V3__seed_data.sql` through Flyway.
+3. Verify exactly three successful versioned Flyway rows and latest version `3`.
+4. Verify `auth_users` has no `password_hash` column.
+5. Verify `generation_jobs.idempotency_key` is `VARCHAR(512)` and `job_id` is `uuid`.
+6. Verify `media_beat_plans.reuse_source_visual_beat_id` and reuse constraints exist.
+7. Verify `project_render_input_snapshots.execution_target` and `assigned_local_device_id` exist with the routing constraint.
+8. Verify `uq_chapters_story_order_active`, local-render claim indexes and render artifact indexes exist after V2.
+9. Verify V3 seeds plan/style/voice catalogs without inserting application user/project content.
+10. Start the backend and run PostgreSQL/Testcontainers integration tests plus worker persistence tests.
+11. Verify representative query plans for keyset pagination and job/device claim paths.

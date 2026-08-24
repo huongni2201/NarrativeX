@@ -36,21 +36,43 @@ export interface FfmpegRuntimeStatus {
   reason: string | null;
 }
 
+export interface DesktopApiRequest {
+  path: string;
+  method?: string;
+  headers?: Record<string, string>;
+  body?: string;
+  timeoutMs?: number;
+}
+
+export interface DesktopApiResponse {
+  status: number;
+  statusText: string;
+  bodyText: string;
+}
+
 export interface NarrativeXDesktopBridge {
   appVersion(): Promise<string>;
+  api: {
+    request(input: DesktopApiRequest): Promise<DesktopApiResponse>;
+  };
   auth: {
     login(): Promise<void>;
     onCallback(listener: (code: string) => void): () => void;
   };
   localExecution: {
     status(): Promise<LocalExecutionStatus>;
+    setUser(userId: string | null): Promise<LocalExecutionStatus>;
     pair(pairingCode: string): Promise<LocalExecutionStatus>;
     unpair(): Promise<LocalExecutionStatus>;
     onStatusChanged(listener: (status: LocalExecutionStatus) => void): () => void;
   };
   localStorage: {
     ensureProject(projectId: string): Promise<LocalProjectStorageStatus>;
-    importAsset(input: { projectId: string; assetId: string; kind: "IMAGE" | "AUDIO" | "VIDEO" | "OTHER" }): Promise<LocalAssetImportResult | null>;
+    importAsset(input: {
+      projectId: string;
+      assetId: string;
+      kind: "IMAGE" | "AUDIO" | "VIDEO" | "OTHER";
+    }): Promise<LocalAssetImportResult | null>;
     revealArtifact(input: { projectId: string; jobId: string }): Promise<void>;
   };
   render: {
@@ -60,5 +82,10 @@ export interface NarrativeXDesktopBridge {
   system: {
     selectFiles(): Promise<string[]>;
     selectFolder(): Promise<string | null>;
+  };
+  windowControls: {
+    minimize(): Promise<void>;
+    toggleMaximize(): Promise<boolean>;
+    close(): Promise<void>;
   };
 }

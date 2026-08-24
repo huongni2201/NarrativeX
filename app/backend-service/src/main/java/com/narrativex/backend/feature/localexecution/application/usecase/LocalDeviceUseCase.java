@@ -61,7 +61,7 @@ public class LocalDeviceUseCase implements LocalDeviceAccess {
         sha256(deviceToken),
         now,
         capabilities);
-    return new PairedDevice(deviceId, deviceToken);
+    return new PairedDevice(deviceId, deviceToken, pairing.userId());
   }
 
   @Transactional
@@ -188,5 +188,5 @@ public class LocalDeviceUseCase implements LocalDeviceAccess {
 
   public record HeartbeatCommand(String agentVersion, List<String> capabilities) {}
 
-  public record PairedDevice(UUID deviceId, String deviceToken) {}
+  public record PairedDevice(UUID deviceId, String deviceToken, String userId) {}
 }
