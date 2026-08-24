@@ -14,10 +14,11 @@ from narrativex_worker.narration.repository.implementation import (
 from narrativex_worker.narration.repository.implementation import (
     NarrationWorkerRepository as NarrationWorkerRepositoryImplementation,
 )
+from narrativex_worker.narration.repository.completion import NarrationCompletionMixin
 from narrativex_worker.narration.storage import StoredMediaAsset
 
 
-class NarrationWorkerRepository(NarrationWorkerRepositoryImplementation):
+class NarrationWorkerRepository(NarrationCompletionMixin, NarrationWorkerRepositoryImplementation):
     """Public narration repository with task-local per-claim ownership fencing."""
 
     def __init__(self, *args: object, **kwargs: object) -> None:
