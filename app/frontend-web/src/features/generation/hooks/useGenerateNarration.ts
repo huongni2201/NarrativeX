@@ -2,11 +2,11 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { narrationApi } from "../api/narration.api";
 import type { GenerateNarrationInput } from "../types/narration.types";
 import { queryKeys } from "@/lib/query-keys";
-import type { ProjectId } from "@/types/api";
+import type { ChapterId, ProjectId } from "@/types/api";
 
 interface GenerateNarrationMutationParams {
   projectId: ProjectId;
-  chapterId: string | number;
+  chapterId: ChapterId;
   input: GenerateNarrationInput;
 }
 
