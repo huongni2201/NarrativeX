@@ -182,14 +182,29 @@ export class ProjectStorage {
       const existing = manifest.artifacts[input.jobId];
       if (existing) {
         if (
-          existing.checksumSha256 === sourceChecksum &&
-          existing.sizeBytes === sourceStat.size
+          existing.checksumSha256 !== sourceChecksum ||
+          existing.sizeBytes !== sourceStat.size
         ) {
+          throw new Error(
+            `Local artifact ${input.jobId} is immutable and already points to different content.`,
+          );
+        }
+
+        const destination = this.resolveProjectRelativePath(projectId, existing.relativePath);
+        if (await fileMatches(destination, existing.sizeBytes, existing.checksumSha256)) {
           return existing;
         }
-        throw new Error(
-          `Local artifact ${input.jobId} is immutable and already points to different content.`,
-        );
+
+        await mkdir(dirname(destination), { recursive: true });
+        if (source !== destination) await copyFile(source, destination);
+        if (!(await fileMatches(destination, existing.sizeBytes, existing.checksumSha256))) {
+          throw new Error(
+            `Local artifact ${input.jobId} could not be repaired from verified render bytes.`,
+          );
+        }
+        existing.updatedAt = new Date().toISOString();
+        await this.writeManifest(manifest);
+        return existing;
       }
 
       const relativePath = join(
