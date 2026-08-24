@@ -36,7 +36,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 class PostgreSqlMigrationIntegrationTest {
   @Container
   static final PostgreSQLContainer<?> POSTGRES =
-      new PostgreSQLContainer<>("postgres:17-alpine")
+      new PostgreSQLContainer<>("postgres:18-alpine")
           .withDatabaseName("narrativex_test")
           .withUsername("narrativex")
           .withPassword("narrativex");
