@@ -5,6 +5,7 @@ import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.generation.api.request.CreateChapterRenderRequest;
 import com.narrativex.backend.feature.generation.api.response.JobResponse;
 import com.narrativex.backend.feature.generation.application.command.CreateChapterRenderCommand;
+import com.narrativex.backend.feature.generation.application.command.RenderBeatOverride;
 import com.narrativex.backend.feature.generation.application.usecase.CreateChapterRenderUseCase;
 import jakarta.validation.Valid;
 import java.util.UUID;
@@ -37,6 +38,13 @@ public class RenderController {
       throw new FeatureNotAvailableException(
           "Chapter rendering is temporarily unavailable until its worker is enabled.");
     }
+    var beatOverrides =
+        request.beatOverrides().stream()
+            .map(
+                override ->
+                    new RenderBeatOverride(
+                        override.visualBeatId(), override.durationMs(), override.cameraMovement()))
+            .toList();
     var job =
         createChapterRenderUseCase.execute(
             new CreateChapterRenderCommand(
@@ -47,7 +55,8 @@ public class RenderController {
                 request.mediaPlanId(),
                 request.mediaPlanRevision(),
                 request.maxAuthorizedCost(),
-                idempotencyKey));
+                idempotencyKey,
+                beatOverrides));
     return ResponseEntity.accepted()
         .body(ApiResponse.success("Chapter render queued", JobResponse.from(job)));
   }

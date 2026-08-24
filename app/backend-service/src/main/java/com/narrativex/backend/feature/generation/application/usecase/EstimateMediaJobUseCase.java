@@ -5,9 +5,9 @@ import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.generation.api.response.MediaCostEstimateResponse;
 import com.narrativex.backend.feature.generation.application.command.EstimateMediaJobCommand;
 import com.narrativex.backend.feature.generation.application.port.out.ImageGenerationCatalog;
+import com.narrativex.backend.feature.generation.application.service.VisualAssetReuseResolver;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSourceAccess;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,16 +24,14 @@ public class EstimateMediaJobUseCase {
   public ApiResponse<MediaCostEstimateResponse> execute(EstimateMediaJobCommand command) {
     chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(
         command.projectId(), command.chapterId(), currentUserId.get());
-    int visualBeatCount =
-        mediaPlanningSourceAccess.requireCurrent(command.chapterId()).scenes().stream()
-            .mapToInt(scene -> scene.beats().size())
-            .sum();
+    var planningSource = mediaPlanningSourceAccess.requireCurrent(command.chapterId());
+    int generatedImageCount = VisualAssetReuseResolver.countGenerated(planningSource.scenes());
     var imageProfile = imageGenerationCatalog.resolve(command.qualityTier());
     return ApiResponse.success(
         new MediaCostEstimateResponse(
-            visualBeatCount,
+            generatedImageCount,
             imageProfile.unitCostUsd().setScale(6).toPlainString(),
-            imageProfile.estimateCost(visualBeatCount).toPlainString(),
+            imageProfile.estimateCost(generatedImageCount).toPlainString(),
             "USD"));
   }
 }

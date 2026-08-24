@@ -51,7 +51,8 @@ public class MyBatisMediaPlanPersistenceAdapter implements MediaPlanRepository {
                 beat.visualIntent(), beat.motionMode(), beat.motionStrategy(), beat.assetStrategy(),
                 beat.promptTemplateVersion(), beat.promptSnapshot(), beat.negativePrompt(),
                 beat.audioStartMs(), beat.audioEndMs(), beat.audioDurationMs(), beat.cameraMovement(),
-                beat.imageSettingsJson(), beat.characterSnapshotJson(), beat.snapshotFingerprint()));
+                beat.imageSettingsJson(), beat.characterSnapshotJson(), beat.snapshotFingerprint(),
+                beat.reuseSourceVisualBeatId()));
       }
     }
     return plan;

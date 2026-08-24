@@ -102,6 +102,14 @@
        AND ma.sha256 IS NOT NULL
   </insert>
 
+  <update id="applyBeatOverride">
+    UPDATE render_input_snapshot_beats
+       SET duration_ms = COALESCE(#{durationMs}, duration_ms),
+           camera_movement = COALESCE(#{cameraMovement}, camera_movement)
+     WHERE generation_job_id = #{generationJobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+       AND visual_beat_id = #{visualBeatId}
+  </update>
+
   <select id="countPlanBeats" resultType="int">
     SELECT COUNT(*) FROM media_beat_plans
      WHERE media_plan_id = #{mediaPlanId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}

@@ -110,7 +110,9 @@ class ImageClaimsMixin:
               JOIN media_plans mp ON mp.id = mgi.media_plan_id
               JOIN media_beat_plans mbp
                 ON mbp.media_plan_id = mgi.media_plan_id AND mbp.visual_beat_id = mgi.visual_beat_id
-             WHERE mgi.generation_job_id = $1 AND mgi.execution_status = 'QUEUED'
+             WHERE mgi.generation_job_id = $1
+               AND mgi.execution_status = 'QUEUED'
+               AND COALESCE(mbp.asset_strategy, 'GENERATE_NEW') = 'GENERATE_NEW'
              ORDER BY mgi.item_key
             """,
             job.generation_job_id,
