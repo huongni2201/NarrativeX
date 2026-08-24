@@ -22,7 +22,14 @@ public class MyBatisProjectRenderInputSnapshotAdapter
     if (!timeline.readyForRender()) {
       throw new IllegalArgumentException("Project render snapshot requires a render-ready timeline");
     }
-    if (mapper.insertHeader(generationJobId, timeline, resolution, format) != 1) {
+    if (mapper.insertHeader(
+            generationJobId,
+            timeline,
+            resolution,
+            format,
+            timeline.chapters().size(),
+            timeline.beats().size())
+        != 1) {
       throw new IllegalStateException("Project render snapshot header was not inserted");
     }
     for (ProductionTimelineView.Chapter chapter : timeline.chapters()) {
