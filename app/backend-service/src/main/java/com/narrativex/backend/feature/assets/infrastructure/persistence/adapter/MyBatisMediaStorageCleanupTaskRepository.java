@@ -36,14 +36,15 @@ public class MyBatisMediaStorageCleanupTaskRepository implements MediaStorageCle
 
   @Override
   @Transactional
-  public void markCompleted(UUID id, Instant completedAt) {
-    mapper.markCompleted(id, completedAt);
+  public void markCompleted(UUID id, int expectedAttemptCount, Instant completedAt) {
+    mapper.markCompleted(id, expectedAttemptCount, completedAt);
   }
 
   @Override
   @Transactional
-  public void markFailed(UUID id, Instant nextAttemptAt, String lastError) {
-    mapper.markFailed(id, nextAttemptAt, truncate(lastError));
+  public void markFailed(
+      UUID id, int expectedAttemptCount, Instant nextAttemptAt, String lastError) {
+    mapper.markFailed(id, expectedAttemptCount, nextAttemptAt, truncate(lastError));
   }
 
   private static CleanupTask toTask(MediaStorageCleanupTaskRow row) {

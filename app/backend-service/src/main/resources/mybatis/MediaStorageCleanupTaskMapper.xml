@@ -47,6 +47,7 @@
            SET status = 'COMPLETED', completed_at = #{completedAt}, last_error = NULL
          WHERE id = #{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
            AND status = 'RUNNING'
+           AND attempt_count = #{expectedAttemptCount}
     </update>
 
     <update id="markFailed">
@@ -54,5 +55,6 @@
            SET status = 'PENDING', next_attempt_at = #{nextAttemptAt}, last_error = #{lastError}
          WHERE id = #{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}
            AND status = 'RUNNING'
+           AND attempt_count = #{expectedAttemptCount}
     </update>
 </mapper>
