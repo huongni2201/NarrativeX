@@ -8,12 +8,14 @@ import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
 public class GenerateBatchNarrationUseCase {
   private final GenerateChapterNarrationUseCase generateChapterNarrationUseCase;
 
+  @Transactional
   public List<ChapterNarrationJob> execute(GenerateBatchNarrationCommand command) {
     var uniqueChapterIds = new LinkedHashSet<>(command.chapterIds());
     if (uniqueChapterIds.size() != command.chapterIds().size()) {
