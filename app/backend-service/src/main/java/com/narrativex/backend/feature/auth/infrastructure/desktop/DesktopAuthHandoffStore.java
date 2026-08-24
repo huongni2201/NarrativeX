@@ -20,20 +20,20 @@ public class DesktopAuthHandoffStore {
   private final Clock clock = Clock.systemUTC();
   private final Map<String, Handoff> handoffs = new ConcurrentHashMap<>();
 
-  public String issue(String userId) {
+  public String issue(DesktopUserPrincipal user) {
     purgeExpired();
     byte[] bytes = new byte[32];
     secureRandom.nextBytes(bytes);
     String code = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-    handoffs.put(hash(code), new Handoff(userId, Instant.now(clock).plus(CODE_TTL)));
+    handoffs.put(hash(code), new Handoff(user, Instant.now(clock).plus(CODE_TTL)));
     return code;
   }
 
-  public String consume(String code) {
+  public DesktopUserPrincipal consume(String code) {
     if (code == null || code.isBlank()) return null;
     Handoff handoff = handoffs.remove(hash(code.trim()));
     if (handoff == null || handoff.expiresAt().isBefore(Instant.now(clock))) return null;
-    return handoff.userId();
+    return handoff.user();
   }
 
   private void purgeExpired() {
@@ -45,11 +45,13 @@ public class DesktopAuthHandoffStore {
     try {
       return Base64.getUrlEncoder()
           .withoutPadding()
-          .encodeToString(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
+          .encodeToString(
+              MessageDigest.getInstance("SHA-256")
+                  .digest(value.getBytes(StandardCharsets.UTF_8)));
     } catch (NoSuchAlgorithmException exception) {
       throw new IllegalStateException("SHA-256 is required for desktop auth handoffs", exception);
     }
   }
 
-  private record Handoff(String userId, Instant expiresAt) {}
+  private record Handoff(DesktopUserPrincipal user, Instant expiresAt) {}
 }
