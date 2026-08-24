@@ -133,6 +133,18 @@ public class MyBatisLocalProjectRenderStore implements LocalProjectRenderStore {
 
   @Override
   @Transactional
+  public boolean cancel(UUID jobId, UUID deviceId, String workerId, UUID leaseToken) {
+    if (mapper.cancelStage(jobId, deviceId, workerId, leaseToken) != 1) {
+      return false;
+    }
+    if (mapper.cancelJob(jobId, deviceId) != 1) {
+      throw new IllegalStateException("Desktop project render cancellation was not persisted");
+    }
+    return true;
+  }
+
+  @Override
+  @Transactional
   public boolean fail(
       UUID jobId,
       UUID deviceId,
