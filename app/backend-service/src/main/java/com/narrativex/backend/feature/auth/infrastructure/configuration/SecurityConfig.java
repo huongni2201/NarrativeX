@@ -1,9 +1,9 @@
 package com.narrativex.backend.feature.auth.infrastructure.configuration;
 
+import com.narrativex.backend.feature.auth.infrastructure.desktop.DesktopAuthenticationSuccessHandler;
 import com.narrativex.backend.feature.auth.infrastructure.security.ApiAccessDeniedHandler;
 import com.narrativex.backend.feature.auth.infrastructure.security.ApiAuthenticationEntryPoint;
 import com.narrativex.backend.feature.auth.infrastructure.security.NarrativeXOidcUserService;
-import com.narrativex.backend.feature.auth.infrastructure.desktop.DesktopAuthenticationSuccessHandler;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Arrays;
 import java.util.List;
@@ -82,6 +82,7 @@ public class SecurityConfig {
             "X-XSRF-TOKEN",
             "X-Correlation-Id",
             "If-Match",
+            "Idempotency-Key",
             "X-NX-Device-Token"));
     configuration.setExposedHeaders(List.of("ETag", "Location", "X-Correlation-Id"));
     configuration.setAllowCredentials(true);
