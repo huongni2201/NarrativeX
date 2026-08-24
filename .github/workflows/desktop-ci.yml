@@ -6,8 +6,11 @@ on:
       - "app/desktop/**"
       - "packages/client-contracts/**"
       - "app/backend-service/src/main/java/com/narrativex/backend/feature/auth/**"
+      - "app/backend-service/src/main/java/com/narrativex/backend/feature/localexecution/**"
+      - "app/backend-service/src/main/resources/mybatis/LocalProjectRenderMapper.xml"
       - "app/backend-service/src/test/java/com/narrativex/backend/configuration/SecurityConfigurationTest.java"
       - "app/backend-service/src/test/java/com/narrativex/backend/feature/auth/**"
+      - "app/backend-service/src/test/java/com/narrativex/backend/feature/localexecution/**"
       - ".github/workflows/desktop-ci.yml"
   push:
     branches:
@@ -16,8 +19,11 @@ on:
       - "app/desktop/**"
       - "packages/client-contracts/**"
       - "app/backend-service/src/main/java/com/narrativex/backend/feature/auth/**"
+      - "app/backend-service/src/main/java/com/narrativex/backend/feature/localexecution/**"
+      - "app/backend-service/src/main/resources/mybatis/LocalProjectRenderMapper.xml"
       - "app/backend-service/src/test/java/com/narrativex/backend/configuration/SecurityConfigurationTest.java"
       - "app/backend-service/src/test/java/com/narrativex/backend/feature/auth/**"
+      - "app/backend-service/src/test/java/com/narrativex/backend/feature/localexecution/**"
       - ".github/workflows/desktop-ci.yml"
 
 permissions:
@@ -49,7 +55,7 @@ jobs:
       - name: Build desktop
         run: npm run build
 
-  backend-auth-check:
+  backend-desktop-check:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -69,5 +75,5 @@ jobs:
       - name: Compile backend
         run: ./mvnw -DskipTests compile
 
-      - name: Run desktop auth tests
-        run: ./mvnw -Dtest=SecurityConfigurationTest,DesktopAuthControllerTest test
+      - name: Run desktop-facing backend tests
+        run: ./mvnw -Dtest=SecurityConfigurationTest,DesktopAuthControllerTest,LocalProjectRenderUseCaseTest test
