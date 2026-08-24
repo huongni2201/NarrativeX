@@ -1,7 +1,14 @@
-import type { ApiGenerationJob, ApiMediaCostEstimate } from "@/types/api";
+import type {
+  ApiGenerationJob,
+  ApiMediaCostEstimate,
+  ChapterId,
+  MediaPlanId,
+  ProjectId,
+  ResourceId,
+  VisualBeatId,
+} from "@/types/api";
 import { isApiGenerationJob } from "@/types/api";
 import { apiRequest } from "@/shared/api/client";
-import type { ProjectId } from "@/types/api";
 
 export interface CreateMediaJobInput {
   productionMode: "IMAGE_MOTION";
@@ -19,7 +26,7 @@ export interface EstimateMediaJobInput {
 }
 
 export interface RenderChapterInput {
-  mediaPlanId: string;
+  mediaPlanId: MediaPlanId;
   mediaPlanRevision: number;
   resolution: "720p" | "1080p";
   format: "mp4";
@@ -38,20 +45,20 @@ function isApiMediaCostEstimate(value: unknown): value is ApiMediaCostEstimate {
 }
 
 export interface MediaGenerationItem {
-  id: string;
-  visualBeatId: string;
+  id: ResourceId;
+  visualBeatId: VisualBeatId;
   itemKey: string;
   executionStatus: string;
   reviewStatus: "NOT_READY" | "NEEDS_REVIEW" | "APPROVED" | "REJECTED";
   attemptNumber: number;
-  mediaAssetId: string | null;
+  mediaAssetId: ResourceId | null;
   errorCode: string | null;
   rowVersion: number;
 }
 
 export interface MediaJobDetails {
-  jobId: string;
-  mediaPlanId: string | null;
+  jobId: ResourceId;
+  mediaPlanId: MediaPlanId | null;
   mediaPlanRevision: number | null;
   totalItems: number;
   readyItems: number;
@@ -72,25 +79,33 @@ function isMediaJobDetails(value: unknown): value is MediaJobDetails {
     Array.isArray(candidate.items) &&
     candidate.items.every((item) => {
       if (!item || typeof item !== "object") return false;
-      const value = item as Partial<MediaGenerationItem>;
-      return typeof value.id === "string" && typeof value.visualBeatId === "string" && typeof value.itemKey === "string" && typeof value.executionStatus === "string" && typeof value.reviewStatus === "string" && typeof value.attemptNumber === "number" && (value.mediaAssetId === null || typeof value.mediaAssetId === "string") && (value.errorCode === null || typeof value.errorCode === "string") && typeof value.rowVersion === "number";
+      const itemValue = item as Partial<MediaGenerationItem>;
+      return typeof itemValue.id === "string" &&
+        typeof itemValue.visualBeatId === "string" &&
+        typeof itemValue.itemKey === "string" &&
+        typeof itemValue.executionStatus === "string" &&
+        typeof itemValue.reviewStatus === "string" &&
+        typeof itemValue.attemptNumber === "number" &&
+        (itemValue.mediaAssetId === null || typeof itemValue.mediaAssetId === "string") &&
+        (itemValue.errorCode === null || typeof itemValue.errorCode === "string") &&
+        typeof itemValue.rowVersion === "number";
     })
   );
 }
 
 export const mediaApi = {
-  estimate: (projectId: ProjectId, chapterId: string | number, input: EstimateMediaJobInput) =>
+  estimate: (projectId: ProjectId, chapterId: ChapterId, input: EstimateMediaJobInput) =>
     apiRequest<ApiMediaCostEstimate>(
       `/api/v1/projects/${projectId}/chapters/${chapterId}/media-jobs/estimate`,
       { method: "POST", json: input },
       isApiMediaCostEstimate,
     ),
-  createJob: (projectId: ProjectId, chapterId: string | number, input: CreateMediaJobInput, idempotencyKey: string) =>
+  createJob: (projectId: ProjectId, chapterId: ChapterId, input: CreateMediaJobInput, idempotencyKey: string) =>
     apiRequest<ApiGenerationJob>(`/api/v1/projects/${projectId}/chapters/${chapterId}/media-jobs`, { method: "POST", headers: { "Idempotency-Key": idempotencyKey }, json: input }, isApiGenerationJob),
-  getJob: (jobId: string) => apiRequest<ApiGenerationJob>(`/api/v1/generation-jobs/${encodeURIComponent(jobId)}`, {}, isApiGenerationJob),
-  getDetails: (jobId: string) => apiRequest<MediaJobDetails>(`/api/v1/media-jobs/${encodeURIComponent(jobId)}`, {}, isMediaJobDetails),
-  review: (itemId: string, decision: "APPROVED" | "REJECTED", rowVersion: number) =>
+  getJob: (jobId: ResourceId) => apiRequest<ApiGenerationJob>(`/api/v1/generation-jobs/${encodeURIComponent(jobId)}`, {}, isApiGenerationJob),
+  getDetails: (jobId: ResourceId) => apiRequest<MediaJobDetails>(`/api/v1/media-jobs/${encodeURIComponent(jobId)}`, {}, isMediaJobDetails),
+  review: (itemId: ResourceId, decision: "APPROVED" | "REJECTED", rowVersion: number) =>
     apiRequest<void>(`/api/v1/media-generation-items/${encodeURIComponent(itemId)}/review`, { method: "POST", json: { decision, rowVersion } }),
-  render: (projectId: ProjectId, chapterId: string | number, input: RenderChapterInput, idempotencyKey: string) =>
+  render: (projectId: ProjectId, chapterId: ChapterId, input: RenderChapterInput, idempotencyKey: string) =>
     apiRequest<ApiGenerationJob>(`/api/v1/projects/${projectId}/chapters/${chapterId}/render`, { method: "POST", headers: { "Idempotency-Key": idempotencyKey }, json: input }, isApiGenerationJob),
 };
