@@ -1,12 +1,17 @@
 import { apiRequest } from "@/shared/api/client";
-import { type ApiGenerationJob, isApiGenerationJob, type ProjectId } from "@/types/api";
+import {
+  type ApiGenerationJob,
+  type ChapterId,
+  isApiGenerationJob,
+  type ProjectId,
+} from "@/types/api";
 import type {
   GenerateBatchNarrationInput,
   GenerateNarrationInput,
 } from "../types/narration.types";
 
 export interface BatchNarrationJobResult {
-  chapterId: string;
+  chapterId: ChapterId;
   job: ApiGenerationJob;
 }
 
@@ -19,7 +24,7 @@ function isBatchNarrationJobResult(value: unknown): value is BatchNarrationJobRe
 export const narrationApi = {
   generateNarration: (
     projectId: ProjectId,
-    chapterId: string | number,
+    chapterId: ChapterId,
     input: GenerateNarrationInput,
   ) =>
     apiRequest<ApiGenerationJob>(
