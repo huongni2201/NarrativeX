@@ -15,6 +15,7 @@
           FROM chapters c
           JOIN storyboard_revisions sr ON sr.id = c.current_storyboard_revision_id
          WHERE c.id = #{chapterId}
+           AND c.deleted_at IS NULL
     </select>
     <select id="lockChapter" resultType="int">
         SELECT 1
@@ -29,6 +30,7 @@
                #{sourceHash}, #{sourceRowVersion}, c.current_storyboard_revision_id, 'DRAFT', #{contentVariantId}
           FROM chapters c
          WHERE c.id = #{chapterId}
+           AND c.deleted_at IS NULL
         RETURNING id
     </select>
 </mapper>

@@ -1,4 +1,4 @@
-# NarrativeX Database Baseline V1.11
+# NarrativeX Database Baseline V1.13
 
 ## Authority and validation
 
@@ -13,18 +13,18 @@
 
 | Migration | Purpose | Current state |
 |---|---|---|
-| V1 `initial_schema` | Auth, project/story/chapter foundations, storyboard revisions, split motion/camera visual beats, preview-asset links, character/location AI identities, backend-authoritative media plans, generation execution/review and lineage, durable provider operations, quota reservation lifecycle, chapter-level TTS, uploaded narration, upload sessions, media lifecycle hardening, durable media validation jobs, detected media metadata, style presets and voice catalog, render ownership pins, owner-scoped idempotency, voice reference asset, cleanup tasks, chapter creation idempotency | Consolidated baseline |
-| V2 `align_generation_job_key_uuid` | Align `generation_jobs.job_id` with the application UUID contract by converting the V1 `VARCHAR(36)` column to PostgreSQL `UUID` | Required follow-up migration |
+| V1 `initial_schema` | Final consolidated schema: auth, project/story/chapter foundations, Chapter soft-delete, storyboard revisions, split motion/camera visual beats, preview-asset links, character/location AI identities, backend-authoritative media plans, UUID GenerationJob public keys, generation execution/review and lineage, durable provider operations, quota reservation lifecycle, chapter-level TTS, uploaded narration, upload sessions, media lifecycle hardening, durable media validation jobs, detected media metadata, style presets and voice catalog, render ownership pins, owner-scoped idempotency, voice reference asset, cleanup tasks, chapter creation idempotency | Authoritative final baseline |
 
-The supported migration set is **V1 followed by V2**. V1 remains the consolidated baseline schema;
-V2 is an intentional compatibility correction that aligns the durable GenerationJob public key with
-the UUID contract used by backend and worker code. Databases created from the removed split migration
-history require operator-reviewed recreation or explicit re-baselining; the application does not
-rewrite `flyway_schema_history`.
+The supported Flyway migration set is now **V1 only**. The baseline directly declares the final schema instead of creating historical intermediate shapes and repairing them in later migrations. In particular:
 
-Existing databases must contain only UUID-shaped `generation_jobs.job_id` values before V2 runs,
-because the migration uses `job_id::uuid` during the type conversion. Fresh databases created from
-the supported migration chain satisfy this automatically.
+- `generation_jobs.job_id` is created as PostgreSQL `UUID` directly.
+- `chapters.deleted_at` is part of the original Chapter table definition.
+- Active Chapter order uniqueness is provided directly by `uq_chapters_story_order_active` on `(story_version_id, order_index) WHERE deleted_at IS NULL`.
+- `idx_chapters_deleted_at` is created directly for deleted-row maintenance/querying.
+
+This is an intentional clean rebaseline. A database whose `flyway_schema_history` contains the previous V1/V2/V3 chain is **not compatible with the rewritten V1 checksum/history**. Recreate that database from the final V1 baseline, or perform an explicit operator-reviewed migration outside this baseline. Do not rewrite `flyway_schema_history` to make an old database appear compatible.
+
+Application queries that mean current, active, or owned Chapter state must enforce `chapters.deleted_at IS NULL`.
 
 ## Entity/schema matrix
 
@@ -32,7 +32,7 @@ the supported migration chain satisfy this automatically.
 |---|---|---|---|
 | Project | `projects` | IMPLEMENTED | ownership, active query index and cursor pagination foundation |
 | StoryVersion | `story_versions` | IMPLEMENTED FOUNDATION | version/source boundary |
-| Chapter | `chapters` | IMPLEMENTED FOUNDATION | sourceText/sourceHash/rowVersion contract |
+| Chapter | `chapters` | IMPLEMENTED FOUNDATION | sourceText/sourceHash/rowVersion contract plus soft-delete via `deleted_at` |
 | Chapter creation idempotency | `chapter_creation_idempotency` | IMPLEMENTED | owner/project/key uniqueness, request fingerprint and resulting Chapter |
 | StoryboardRevision | `storyboard_revisions` | IMPLEMENTED | immutable revision boundary for safe re-analysis |
 | Scene | `scenes` | IMPLEMENTED FOUNDATION | storyboard scene persistence, location association |
@@ -42,7 +42,7 @@ the supported migration chain satisfy this automatically.
 | MediaPlan | `media_plans` / `media_scene_plans` / `media_beat_plans` | IMPLEMENTED | backend-authoritative execution and cost plan |
 | ProjectFavorite | `project_favorites` | IMPLEMENTED | per-user dashboard favorites |
 | GenerationJob | `generation_jobs` | IMPLEMENTED FOUNDATION | durable async execution state with UUID `job_id`, plan & revision pinning |
-| Chapter media head | `chapter_media_heads` | IMPLEMENTED | authoritative current media job per Chapter |
+| Chapter media head | `chapter_media_heads` | IMPLEMENTED | authoritative current media job per active Chapter |
 | StageAttempt | `stage_attempts` | IMPLEMENTED FOUNDATION | lease/attempt model with heartbeat claims |
 | ProviderOperation | `provider_operations` | IMPLEMENTED SQL-FIRST SLICE | durable provider boundary, CAS lifecycle, reconciliation, billing evidence & result fingerprint |
 | OperationPlan | `operation_plans` | IMPLEMENTED MVP FOUNDATION | estimate/cap/admission link |
@@ -145,17 +145,19 @@ The partial predicate avoids archived rows polluting the common active-project p
 ## Remaining database work
 
 1. Add full billing ledger, actual provider usage and reservation release accounting.
-2. Add complete deletion/retention lifecycle schema and backup verification.
+2. Add complete deletion/retention lifecycle schema and backup verification beyond Chapter soft-delete.
 3. Add indexes from measured production query plans instead of speculative indexing.
 
 ## Schema verification gate
 
 For schema PRs:
 
-1. Apply the complete supported Flyway chain (currently V1 then V2) on an empty supported PostgreSQL instance.
-2. Verify `flyway_schema_history` reports the latest supported migration version and `generation_jobs.job_id` is `uuid`.
-3. Start backend and run the backend verification suite.
-4. Run worker PostgreSQL integration tests against UUID-shaped durable identifiers.
-5. Verify stale-version behavior.
-6. Verify query plans for keyset pagination with representative data.
-7. Do not use H2-only success as PostgreSQL compatibility evidence.
+1. Create an empty supported PostgreSQL instance and apply the single authoritative `V1__initial_schema.sql` migration.
+2. Verify `flyway_schema_history` contains exactly one successful versioned migration and reports latest version `1`.
+3. Verify `generation_jobs.job_id` is `uuid` and `chapters.deleted_at` is `timestamptz` without any follow-up ALTER migration.
+4. Verify `uk_chapters_story_order` is absent and `uq_chapters_story_order_active` plus `idx_chapters_deleted_at` exist.
+5. Start backend and run the backend verification suite.
+6. Run worker PostgreSQL integration tests against UUID-shaped durable identifiers.
+7. Verify stale-version and soft-delete behavior.
+8. Verify query plans for keyset pagination with representative data.
+9. Do not use H2-only success as PostgreSQL compatibility evidence.

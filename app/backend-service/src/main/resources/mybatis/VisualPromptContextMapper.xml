@@ -15,6 +15,7 @@
           JOIN story_versions sv ON sv.id = ch.story_version_id
           LEFT JOIN project_locations pl ON pl.id = s.project_location_id
          WHERE s.id = #{sceneId}
+           AND ch.deleted_at IS NULL
            AND sv.project_id = #{projectId}
          LIMIT 1
     </select>
@@ -70,6 +71,7 @@
                LIMIT 1
           ) appearance ON TRUE
          WHERE sc.scene_id = #{sceneId}
+           AND ch.deleted_at IS NULL
            AND sv.project_id = #{projectId}
            AND pc.project_id = #{projectId}
            AND pc.status = 'ACTIVE'
@@ -118,6 +120,7 @@
            AND ma.status = 'READY'
            AND ma.deleted_at IS NULL
          WHERE sc.scene_id = #{sceneId}
+           AND ch.deleted_at IS NULL
            AND sv.project_id = #{projectId}
            AND pc.project_id = #{projectId}
            AND pc.status = 'ACTIVE'

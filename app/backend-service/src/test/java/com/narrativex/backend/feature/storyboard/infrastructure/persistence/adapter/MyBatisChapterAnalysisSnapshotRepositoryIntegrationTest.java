@@ -32,7 +32,6 @@ class MyBatisChapterAnalysisSnapshotRepositoryIntegrationTest
   @Test
   void chapterAdvisoryLockMapsItsIntegerSentinel() {
     UUID chapterId = insertChapter("owner-lock");
-
     new TransactionTemplate(transactionManager)
         .executeWithoutResult(status -> storyboardRevisionAccess.lockChapter(chapterId));
   }
@@ -57,7 +56,8 @@ class MyBatisChapterAnalysisSnapshotRepositoryIntegrationTest
         () -> repository.requireOwnedByProject(projectId, chapterId, "owner-b"));
     assertThrows(
         ResourceNotFoundException.class,
-        () -> repository.requireOwnedByProject(com.narrativex.backend.feature.common.uuid.UuidV7.random(), chapterId, "owner-a"));
+        () -> repository.requireOwnedByProject(
+            com.narrativex.backend.feature.common.uuid.UuidV7.random(), chapterId, "owner-a"));
   }
 
   private UUID insertChapter(String ownerId) {
@@ -87,11 +87,11 @@ class MyBatisChapterAnalysisSnapshotRepositoryIntegrationTest
     UUID chapterId =
         jdbcTemplate.queryForObject(
             """
-        INSERT INTO chapters
-          (story_version_id, order_index, title, source_text, source_hash, status)
-        VALUES (?, 0, 'Chapter', 'source', ?, 'DRAFT')
-        RETURNING id
-        """,
+            INSERT INTO chapters
+              (story_version_id, order_index, title, source_text, source_hash, status)
+            VALUES (?, 0, 'Chapter', 'source', ?, 'DRAFT')
+            RETURNING id
+            """,
             UUID.class,
             storyVersionId,
             SOURCE_HASH);

@@ -34,7 +34,7 @@
                    c.current_storyboard_revision_id, p.id AS project_id, p.name AS project_name
               FROM chapters c JOIN story_versions sv ON sv.id = c.story_version_id
               JOIN projects p ON p.id = sv.project_id
-             WHERE c.id = #{chapterId} AND p.id = #{projectId}
+             WHERE c.id = #{chapterId} AND c.deleted_at IS NULL AND p.id = #{projectId}
         ), current_revision AS (
             SELECT cc.*, sr.id AS revision_id, sr.source_hash AS storyboard_source_hash
               FROM current_chapter cc LEFT JOIN storyboard_revisions sr
@@ -286,7 +286,7 @@
           LEFT JOIN visual_beats vb ON vb.scene_id = s.id
           LEFT JOIN project_assets pa ON pa.id = vb.preview_asset_id AND pa.project_id = #{projectId}
              AND pa.asset_type = 'IMAGE' AND pa.status = 'ACTIVE'
-         WHERE c.id = #{chapterId} AND s.status &lt;&gt; 'OUTDATED'
+         WHERE c.id = #{chapterId} AND c.deleted_at IS NULL AND s.status &lt;&gt; 'OUTDATED'
          GROUP BY s.id, s.order_index, s.title, s.duration_seconds, s.status
          ORDER BY s.order_index ASC, s.id ASC LIMIT 4
     </select>

@@ -1,9 +1,11 @@
--- NarrativeX consolidated PostgreSQL/Flyway baseline schema.
+-- NarrativeX consolidated PostgreSQL/Flyway final baseline schema.
 -- PostgreSQL is authoritative; Redis remains an acceleration layer only.
+-- This baseline is intended for clean database creation. Do not apply it over
+-- a database whose flyway_schema_history contains the previous V1/V2/V3 chain.
 
 -- -----------------------------------------------------------------------------
 -- Baseline marker
--- ----------------------------------------------------------------------------
+-- -----------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS schema_baseline (
     id VARCHAR(64) PRIMARY KEY,
@@ -195,9 +197,17 @@ CREATE TABLE chapters (
     source_story_version_id UUID REFERENCES story_versions(id),
     inherited_snapshot_hash VARCHAR(128),
     current_storyboard_revision_id UUID,
-    CONSTRAINT uk_chapters_story_order UNIQUE (story_version_id, order_index),
+    deleted_at TIMESTAMP WITH TIME ZONE,
     CONSTRAINT ck_chapters_source_hash_sha256 CHECK (source_hash ~ '^[0-9a-f]{64}$')
 );
+
+CREATE UNIQUE INDEX uq_chapters_story_order_active
+    ON chapters (story_version_id, order_index)
+    WHERE deleted_at IS NULL;
+
+CREATE INDEX idx_chapters_deleted_at
+    ON chapters (deleted_at)
+    WHERE deleted_at IS NOT NULL;
 
 CREATE TABLE chapter_creation_idempotency (
     id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
@@ -714,7 +724,7 @@ CREATE TABLE generation_jobs (
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    job_id VARCHAR(36) NOT NULL UNIQUE,
+    job_id UUID NOT NULL UNIQUE,
     project_id UUID NOT NULL REFERENCES projects(id),
     job_type VARCHAR(32) NOT NULL,
     status VARCHAR(32) NOT NULL,
@@ -2019,6 +2029,7 @@ SELECT c.id, latest_job.id, COALESCE(latest_job.updated_at, latest_job.created_a
        ORDER BY gj.created_at DESC, gj.id DESC
        LIMIT 1
   ) latest_job ON TRUE
+ WHERE c.deleted_at IS NULL
 ON CONFLICT (chapter_id) DO UPDATE
 SET generation_job_id = EXCLUDED.generation_job_id,
     updated_at = EXCLUDED.updated_at;
