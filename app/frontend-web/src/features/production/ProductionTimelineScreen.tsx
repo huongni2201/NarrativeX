@@ -116,7 +116,7 @@ export function ProductionTimelineScreen({ projectId }: Readonly<ProductionTimel
               Project Production
             </p>
             <h1 className="truncate text-xl font-semibold">
-              {projectQuery.data?.project.name ?? "Production Timeline"}
+              {projectQuery.data?.name ?? "Production Timeline"}
             </h1>
           </div>
         </div>
