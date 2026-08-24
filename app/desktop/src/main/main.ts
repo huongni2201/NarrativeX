@@ -55,6 +55,7 @@ if (!hasSingleInstanceLock) {
 }
 
 function createWindow() {
+  const iconPath = join(__dirname, "../../resources/narrativex-icon.png");
   const window = new BrowserWindow({
     width: 1600,
     height: 980,
@@ -62,6 +63,7 @@ function createWindow() {
     minHeight: 720,
     backgroundColor: "#080b10",
     title: "NarrativeX",
+    icon: iconPath,
     webPreferences: {
       preload: join(__dirname, "../preload/index.js"),
       contextIsolation: true,
@@ -206,12 +208,14 @@ function isDesktopApiRequest(value: unknown): value is {
   method?: string;
   headers?: Record<string, string>;
   body?: string;
+  timeoutMs?: number;
 } {
   if (!value || typeof value !== "object") return false;
   const input = value as Record<string, unknown>;
   if (typeof input.path !== "string") return false;
   if (input.method !== undefined && typeof input.method !== "string") return false;
   if (input.body !== undefined && typeof input.body !== "string") return false;
+  if (input.timeoutMs !== undefined && typeof input.timeoutMs !== "number") return false;
   if (input.headers === undefined) return true;
   if (!input.headers || typeof input.headers !== "object" || Array.isArray(input.headers)) {
     return false;
