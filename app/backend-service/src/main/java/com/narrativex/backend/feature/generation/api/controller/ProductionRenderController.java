@@ -7,6 +7,7 @@ import com.narrativex.backend.feature.generation.api.response.JobResponse;
 import com.narrativex.backend.feature.generation.api.response.ProductionTimelineResponse;
 import com.narrativex.backend.feature.generation.api.response.ProjectRenderArtifactResponse;
 import com.narrativex.backend.feature.generation.application.command.CreateProjectRenderCommand;
+import com.narrativex.backend.feature.generation.application.command.RenderBeatOverride;
 import com.narrativex.backend.feature.generation.application.usecase.CreateProjectRenderUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.GetProductionTimelineUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.GetProjectRenderArtifactUseCase;
@@ -52,6 +53,13 @@ public class ProductionRenderController {
       throw new FeatureNotAvailableException(
           "Project rendering is temporarily unavailable until its worker is enabled.");
     }
+    var overrides =
+        request.beatOverrides().stream()
+            .map(
+                override ->
+                    new RenderBeatOverride(
+                        override.visualBeatId(), override.durationMs(), override.cameraMovement()))
+            .toList();
     var job =
         createProjectRenderUseCase.execute(
             new CreateProjectRenderCommand(
@@ -59,7 +67,8 @@ public class ProductionRenderController {
                 request.resolution(),
                 request.format(),
                 request.maxAuthorizedCost(),
-                idempotencyKey));
+                idempotencyKey,
+                overrides));
     return ResponseEntity.accepted()
         .body(ApiResponse.success("Project render queued", JobResponse.from(job)));
   }
