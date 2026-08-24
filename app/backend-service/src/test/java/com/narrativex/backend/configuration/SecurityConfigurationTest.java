@@ -13,7 +13,7 @@ import com.narrativex.backend.feature.auth.infrastructure.configuration.NonLocal
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.boot.context.runner.ApplicationContextRunner;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -62,7 +62,7 @@ class SecurityConfigurationTest {
   @Test
   void currentUserEndpointReturnsTheLocalServerIdentity() throws Exception {
     mockMvc
-        .perform(get("/api/auth/me"))
+        .perform(get("/api/v1/auth/me"))
         .andExpect(status().isOk())
         .andExpect(content().contentTypeCompatibleWith("application/json"))
         .andExpect(jsonPath("$.success").value(true))
