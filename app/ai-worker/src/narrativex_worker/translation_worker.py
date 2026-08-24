@@ -86,14 +86,18 @@ class TranslationWorkerRunner:
                 with contextlib.suppress(asyncio.CancelledError):
                     await work
         except Exception as exception:
-            unknown = exception.__class__.__name__.endswith("UnknownError")
+            unresolved = exception.__class__.__name__.endswith("UnknownError")
+            error_code = (
+                "TRANSLATION_SUBMISSION_UNRESOLVED"
+                if unresolved
+                else type(exception).__name__.upper()[:80]
+            )
             self.logger.exception("Translation job=%s failed", claimed.job_id)
             with contextlib.suppress(Exception):
                 await self.repository.fail(
                     claimed,
                     self.worker_id,
-                    type(exception).__name__.upper()[:80],
-                    unknown=unknown,
+                    error_code,
                 )
         finally:
             for task in (heartbeat, work):
@@ -138,8 +142,7 @@ class TranslationWorkerRunner:
                     await self.repository.fail(
                         claimed,
                         self.worker_id,
-                        "TRANSLATION_RECONCILIATION_REQUIRED",
-                        unknown=True,
+                        "TRANSLATION_SUBMISSION_UNRESOLVED",
                     )
                     return
 
