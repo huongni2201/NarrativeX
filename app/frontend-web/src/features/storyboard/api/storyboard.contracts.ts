@@ -10,6 +10,15 @@ export type CameraMovement =
   | "ZOOM_IN"
   | "ZOOM_OUT"
   | "PARALLAX";
+export type CameraAngle =
+  | "WIDE"
+  | "MEDIUM"
+  | "CLOSE_UP"
+  | "EXTREME_CLOSE_UP"
+  | "LOW_ANGLE"
+  | "HIGH_ANGLE"
+  | "OVER_THE_SHOULDER"
+  | "POV";
 
 export interface ApiStoryboardVisualBeat {
   id: string;
@@ -19,6 +28,7 @@ export interface ApiStoryboardVisualBeat {
   visualIntent: string;
   motionMode: MotionMode;
   cameraMovement: CameraMovement;
+  cameraAngle: CameraAngle;
   reviewStatus: VisualBeatReviewStatus;
   aspectRatioOverride: string | null;
   qualityTierOverride: string | null;
@@ -82,6 +92,19 @@ function isCameraMovement(value: unknown): value is CameraMovement {
   );
 }
 
+function isCameraAngle(value: unknown): value is CameraAngle {
+  return (
+    value === "WIDE" ||
+    value === "MEDIUM" ||
+    value === "CLOSE_UP" ||
+    value === "EXTREME_CLOSE_UP" ||
+    value === "LOW_ANGLE" ||
+    value === "HIGH_ANGLE" ||
+    value === "OVER_THE_SHOULDER" ||
+    value === "POV"
+  );
+}
+
 export function isApiStoryboardVisualBeat(value: unknown): value is ApiStoryboardVisualBeat {
   return (
     isRecord(value) &&
@@ -92,6 +115,7 @@ export function isApiStoryboardVisualBeat(value: unknown): value is ApiStoryboar
     isString(value.visualIntent) &&
     isMotionMode(value.motionMode) &&
     isCameraMovement(value.cameraMovement) &&
+    isCameraAngle(value.cameraAngle) &&
     isReviewStatus(value.reviewStatus) &&
     isNullableString(value.aspectRatioOverride) &&
     isNullableString(value.qualityTierOverride) &&
