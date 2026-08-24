@@ -261,7 +261,7 @@ services:
     networks: [appnet]
 
   cloudflared:
-    image: ${CLOUDFLARED_IMAGE:-cloudflare/cloudflared:latest}
+    image: ${CLOUDFLARED_IMAGE:-cloudflare/cloudflared:2026.8.2}
     restart: unless-stopped
     command: ["tunnel", "--no-autoupdate", "run"]
     environment:
