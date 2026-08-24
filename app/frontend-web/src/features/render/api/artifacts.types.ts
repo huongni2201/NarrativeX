@@ -3,7 +3,7 @@ export type RenderArtifactStatus = string;
 export interface RenderArtifact {
   id: number;
   projectId: string;
-  chapterId: string;
+  chapterId: string | null;
   artifactType: string;
   renderFingerprint: string;
   storageKey: string | null;
@@ -39,7 +39,7 @@ export function isRenderArtifact(value: unknown): value is RenderArtifact {
     isRecord(value) &&
     typeof value.id === "number" &&
     typeof value.projectId === "string" &&
-    typeof value.chapterId === "string" &&
+    isNullableString(value.chapterId) &&
     typeof value.artifactType === "string" &&
     typeof value.renderFingerprint === "string" &&
     isNullableString(value.storageKey) &&
