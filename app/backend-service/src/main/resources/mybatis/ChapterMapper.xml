@@ -65,6 +65,15 @@
          WHERE chapter_id = #{chapterId}
     </update>
 
+    <select id="hasActiveGenerationJobs" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1
+              FROM generation_jobs
+             WHERE chapter_id = #{chapterId}
+               AND status IN ('QUEUED', 'RUNNING', 'UNKNOWN', 'STALLED', 'PAUSED_COST_LIMIT')
+        )
+    </select>
+
     <update id="deleteById">
         UPDATE chapters c
            SET deleted_at = CURRENT_TIMESTAMP,
