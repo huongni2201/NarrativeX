@@ -85,6 +85,15 @@ public class LocalProjectRenderController {
     return ResponseEntity.ok(ApiResponse.success("Desktop project render completed"));
   }
 
+  @PostMapping("/{jobId}/cancel")
+  public ResponseEntity<ApiResponse<Void>> cancel(
+      @RequestHeader(DEVICE_TOKEN_HEADER) String deviceToken,
+      @PathVariable UUID jobId,
+      @Valid @RequestBody LeaseRequest request) {
+    useCase.cancel(deviceToken, jobId, request.leaseToken());
+    return ResponseEntity.ok(ApiResponse.success("Desktop project render canceled"));
+  }
+
   @PostMapping("/{jobId}/fail")
   public ResponseEntity<ApiResponse<Void>> fail(
       @RequestHeader(DEVICE_TOKEN_HEADER) String deviceToken,
