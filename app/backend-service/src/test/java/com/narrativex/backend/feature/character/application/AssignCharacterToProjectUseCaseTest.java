@@ -118,8 +118,7 @@ class AssignCharacterToProjectUseCaseTest {
             List.of("New alias"),
             "new metadata",
             List.of("villains"),
-            null,
-            "owner");
+            null);
 
     ProjectCharacter response = newUseCase().execute(command);
 
@@ -176,7 +175,6 @@ class AssignCharacterToProjectUseCaseTest {
         List.of(),
         null,
         List.of(),
-        null,
-        "owner");
+        null);
   }
 }
