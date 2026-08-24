@@ -76,8 +76,7 @@ class AssignCharacterToProjectUseCaseTest {
                 java.util.List.of(),
                 null,
                 java.util.List.of(),
-                null,
-                "owner"));
+                null));
 
     assertEquals(characterId, response.getCharacterId());
     assertEquals(projectId, response.getProjectId());
