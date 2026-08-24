@@ -14,7 +14,7 @@ CREATE TABLE project_render_input_snapshots (
     render_profile_json JSONB NOT NULL DEFAULT '{
       "schemaVersion": 1,
       "engine": "ffmpeg-python",
-      "rendererVersion": "project-image-motion-v1-segmented",
+      "rendererVersion": "project-image-motion-v2-frame-quantized",
       "fps": 30,
       "video": {
         "encoder": "libx264",
