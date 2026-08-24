@@ -8,6 +8,7 @@
         <result property="rowVersion" column="row_version" />
         <result property="createdAt" column="created_at" />
         <result property="updatedAt" column="updated_at" />
+        <result property="deletedAt" column="deleted_at" />
         <result property="storyVersionId" column="story_version_id" />
         <result property="orderIndex" column="order_index" />
         <result property="title" column="title" />
@@ -21,7 +22,7 @@
     </resultMap>
 
     <sql id="columns">
-        id, row_version, created_at, updated_at, story_version_id, order_index,
+        id, row_version, created_at, updated_at, deleted_at, story_version_id, order_index,
         title, source_text, source_hash, status, estimated_duration_ms,
         generation_progress, source_story_version_id, inherited_snapshot_hash
     </sql>
@@ -55,7 +56,7 @@
                row_version = row_version + 1
          WHERE id = #{id}
            AND row_version = #{rowVersion}
-           AND status &lt;&gt; 'DELETED'
+           AND deleted_at IS NULL
     </update>
 
     <update id="clearChapterCreationIdempotency">
@@ -66,11 +67,11 @@
 
     <update id="deleteById">
         UPDATE chapters c
-           SET status = 'DELETED',
+           SET deleted_at = CURRENT_TIMESTAMP,
                updated_at = CURRENT_TIMESTAMP,
                row_version = row_version + 1
          WHERE c.id = #{id}
-           AND c.status &lt;&gt; 'DELETED'
+           AND c.deleted_at IS NULL
            AND NOT EXISTS (
                SELECT 1
                  FROM generation_jobs gj
@@ -83,14 +84,14 @@
         SELECT <include refid="columns" />
           FROM chapters
          WHERE id = #{id}
-           AND status &lt;&gt; 'DELETED'
+           AND deleted_at IS NULL
     </select>
 
     <select id="findAllByStoryVersionId" resultMap="chapterRow">
         SELECT <include refid="columns" />
           FROM chapters
          WHERE story_version_id = #{storyVersionId}
-           AND status &lt;&gt; 'DELETED'
+           AND deleted_at IS NULL
          ORDER BY order_index ASC, id ASC
     </select>
 
@@ -98,7 +99,7 @@
         SELECT <include refid="columns" />
           FROM chapters
          WHERE story_version_id = #{storyVersionId}
-           AND status &lt;&gt; 'DELETED'
+           AND deleted_at IS NULL
          ORDER BY order_index ASC, id ASC
          LIMIT #{limit}
     </select>
@@ -107,7 +108,7 @@
         SELECT <include refid="columns" />
           FROM chapters
          WHERE story_version_id = #{storyVersionId}
-           AND status &lt;&gt; 'DELETED'
+           AND deleted_at IS NULL
            AND (order_index &gt; #{orderIndex}
                 OR (order_index = #{orderIndex} AND id &gt; #{id}))
          ORDER BY order_index ASC, id ASC
@@ -120,7 +121,7 @@
               FROM chapters
              WHERE story_version_id = #{storyVersionId}
                AND order_index = #{orderIndex}
-               AND status &lt;&gt; 'DELETED'
+               AND deleted_at IS NULL
         )
     </select>
 
@@ -128,6 +129,6 @@
         SELECT COALESCE(MAX(order_index), -1)
           FROM chapters
          WHERE story_version_id = #{storyVersionId}
-           AND status &lt;&gt; 'DELETED'
+           AND deleted_at IS NULL
     </select>
 </mapper>
