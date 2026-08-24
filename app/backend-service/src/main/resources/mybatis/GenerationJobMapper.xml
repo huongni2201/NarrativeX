@@ -119,11 +119,23 @@
 
     <select id="findByIdempotencyKey" resultMap="generationJobRow">
         SELECT <include refid="columns" />
-         FROM generation_jobs
+          FROM generation_jobs
          WHERE idempotency_key = #{idempotencyKey}
         <if test="ownerId != null">
            AND requested_by_user_id = #{ownerId}
         </if>
+    </select>
+
+    <select id="findLatestByIdempotencyFamily" resultMap="generationJobRow">
+        SELECT <include refid="columns" />
+          FROM generation_jobs
+         WHERE (idempotency_key = #{baseIdempotencyKey}
+                OR idempotency_key LIKE CONCAT(#{baseIdempotencyKey}, ':retry:%'))
+        <if test="ownerId != null">
+           AND requested_by_user_id = #{ownerId}
+        </if>
+         ORDER BY created_at DESC, id DESC
+         LIMIT 1
     </select>
 
     <select id="acquireIdempotencyLock" resultType="int">
