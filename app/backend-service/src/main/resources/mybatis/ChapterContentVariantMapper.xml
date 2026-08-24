@@ -16,8 +16,10 @@
     <select id="insert" parameterType="com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterContentVariantRow" resultType="java.util.UUID" affectData="true">
         INSERT INTO chapter_content_variants
           (chapter_id, source_variant_id, variant_type, language_code, content, content_hash, source_content_hash, translation_status, translation_provider, translation_model, created_at, updated_at)
-        VALUES
-          (#{chapterId}, #{sourceVariantId}, #{type}, #{languageCode}, #{content}, #{contentHash}, #{sourceContentHash}, #{translationStatus}, #{translationProvider}, #{translationModel}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        SELECT #{chapterId}, #{sourceVariantId}, #{type}, #{languageCode}, #{content}, #{contentHash}, #{sourceContentHash}, #{translationStatus}, #{translationProvider}, #{translationModel}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+          FROM chapters c
+         WHERE c.id = #{chapterId}
+           AND c.deleted_at IS NULL
         ON CONFLICT DO NOTHING
         RETURNING id
     </select>
@@ -28,64 +30,73 @@
           JOIN story_versions sv ON sv.id = c.story_version_id
           JOIN projects p ON p.id = sv.project_id
          WHERE p.id = #{projectId} AND p.owner_id = #{userId} AND p.archived_at IS NULL
-           AND c.id = #{chapterId} AND v.variant_type = 'ORIGINAL'
+           AND c.id = #{chapterId} AND c.deleted_at IS NULL AND v.variant_type = 'ORIGINAL'
            AND v.content_hash = c.source_hash
          ORDER BY v.created_at DESC, v.id DESC
          LIMIT 1
     </select>
-    <select id="findById" resultMap="variantRow">SELECT <include refid="columns"/> FROM chapter_content_variants WHERE id = #{id}</select>
+    <select id="findById" resultMap="variantRow">
+        SELECT v.* FROM chapter_content_variants v
+        JOIN chapters c ON c.id = v.chapter_id
+        WHERE v.id = #{id} AND c.deleted_at IS NULL
+    </select>
     <select id="findByIdOwned" resultMap="variantRow">
         SELECT v.* FROM chapter_content_variants v
         JOIN chapters c ON c.id = v.chapter_id JOIN story_versions sv ON sv.id = c.story_version_id
         JOIN projects p ON p.id = sv.project_id
         WHERE p.id = #{projectId} AND p.owner_id = #{userId} AND p.archived_at IS NULL
-          AND c.id = #{chapterId} AND v.id = #{variantId}
+          AND c.id = #{chapterId} AND c.deleted_at IS NULL AND v.id = #{variantId}
     </select>
     <select id="findByIdentity" resultMap="variantRow">
-        SELECT * FROM chapter_content_variants
-         WHERE chapter_id = #{chapterId}
-           AND source_variant_id IS NOT DISTINCT FROM #{sourceVariantId}
-           AND language_code = #{languageCode} AND source_content_hash = #{sourceContentHash}
-           AND content_hash = #{contentHash}
-         ORDER BY id DESC LIMIT 1
+        SELECT v.* FROM chapter_content_variants v
+        JOIN chapters c ON c.id = v.chapter_id
+         WHERE v.chapter_id = #{chapterId}
+           AND c.deleted_at IS NULL
+           AND v.source_variant_id IS NOT DISTINCT FROM #{sourceVariantId}
+           AND v.language_code = #{languageCode} AND v.source_content_hash = #{sourceContentHash}
+           AND v.content_hash = #{contentHash}
+         ORDER BY v.id DESC LIMIT 1
     </select>
     <select id="findLatestOriginal" resultMap="variantRow">
         SELECT v.* FROM chapter_content_variants v JOIN chapters c ON c.id = v.chapter_id
-         WHERE v.chapter_id = #{chapterId} AND v.variant_type = 'ORIGINAL'
+         WHERE v.chapter_id = #{chapterId} AND c.deleted_at IS NULL AND v.variant_type = 'ORIGINAL'
            AND v.content_hash = c.source_hash
          ORDER BY v.created_at DESC, v.id DESC LIMIT 1
     </select>
     <select id="findCompletedTranslation" resultMap="variantRow">
-        SELECT * FROM chapter_content_variants
-         WHERE chapter_id = #{chapterId} AND source_variant_id = #{sourceVariantId}
-           AND variant_type = 'TRANSLATION' AND language_code = #{languageCode}
-           AND source_content_hash = #{sourceContentHash}
-           AND translation_status = 'COMPLETED'
-         ORDER BY id DESC LIMIT 1
+        SELECT v.* FROM chapter_content_variants v JOIN chapters c ON c.id = v.chapter_id
+         WHERE v.chapter_id = #{chapterId} AND c.deleted_at IS NULL AND v.source_variant_id = #{sourceVariantId}
+           AND v.variant_type = 'TRANSLATION' AND v.language_code = #{languageCode}
+           AND v.source_content_hash = #{sourceContentHash}
+           AND v.translation_status = 'COMPLETED'
+         ORDER BY v.id DESC LIMIT 1
     </select>
     <select id="findCompletedTranslationByIdentity" resultMap="variantRow">
-        SELECT * FROM chapter_content_variants
-         WHERE chapter_id = #{chapterId} AND source_variant_id = #{sourceVariantId}
-           AND variant_type = 'TRANSLATION' AND language_code = #{languageCode}
-           AND source_content_hash = #{sourceContentHash} AND content_hash = #{contentHash}
-           AND translation_status = 'COMPLETED'
-         ORDER BY id DESC LIMIT 1
+        SELECT v.* FROM chapter_content_variants v JOIN chapters c ON c.id = v.chapter_id
+         WHERE v.chapter_id = #{chapterId} AND c.deleted_at IS NULL AND v.source_variant_id = #{sourceVariantId}
+           AND v.variant_type = 'TRANSLATION' AND v.language_code = #{languageCode}
+           AND v.source_content_hash = #{sourceContentHash} AND v.content_hash = #{contentHash}
+           AND v.translation_status = 'COMPLETED'
+         ORDER BY v.id DESC LIMIT 1
     </select>
     <select id="findAllOwned" resultMap="variantRow">
         SELECT v.* FROM chapter_content_variants v
         JOIN chapters c ON c.id = v.chapter_id JOIN story_versions sv ON sv.id = c.story_version_id
         JOIN projects p ON p.id = sv.project_id
         WHERE p.id = #{projectId} AND p.owner_id = #{userId}
-          AND c.id = #{chapterId} AND p.archived_at IS NULL
+          AND c.id = #{chapterId} AND c.deleted_at IS NULL AND p.archived_at IS NULL
         ORDER BY v.created_at DESC, v.id DESC
     </select>
     <update id="markTranslationsStale">
-        UPDATE chapter_content_variants SET translation_status = 'STALE', updated_at = CURRENT_TIMESTAMP
-         WHERE chapter_id = #{chapterId} AND variant_type = 'TRANSLATION'
-           AND source_variant_id IS DISTINCT FROM #{currentSourceVariantId}
-           AND translation_status NOT IN ('STALE', 'CANCELLED')
+        UPDATE chapter_content_variants v SET translation_status = 'STALE', updated_at = CURRENT_TIMESTAMP
+         WHERE v.chapter_id = #{chapterId} AND v.variant_type = 'TRANSLATION'
+           AND EXISTS (SELECT 1 FROM chapters c WHERE c.id = v.chapter_id AND c.deleted_at IS NULL)
+           AND v.source_variant_id IS DISTINCT FROM #{currentSourceVariantId}
+           AND v.translation_status NOT IN ('STALE', 'CANCELLED')
     </update>
     <update id="updateStatus">
-        UPDATE chapter_content_variants SET translation_status = #{status}, updated_at = CURRENT_TIMESTAMP WHERE id = #{variantId}
+        UPDATE chapter_content_variants v SET translation_status = #{status}, updated_at = CURRENT_TIMESTAMP
+         WHERE v.id = #{variantId}
+           AND EXISTS (SELECT 1 FROM chapters c WHERE c.id = v.chapter_id AND c.deleted_at IS NULL)
     </update>
 </mapper>
