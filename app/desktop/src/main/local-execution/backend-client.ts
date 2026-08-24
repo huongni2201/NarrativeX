@@ -18,6 +18,7 @@ export interface ClaimedProjectRenderChapter {
   globalStartMs: number;
   globalEndMs: number;
   narrationAssetId: string;
+  downloadUrl: string | null;
   sizeBytes: number;
   checksum: string;
   durationMs: number;
@@ -33,6 +34,7 @@ export interface ClaimedProjectRenderBeat {
   globalEndMs: number;
   durationMs: number;
   cameraMovement: string;
+  downloadUrl: string | null;
   sizeBytes: number;
   checksum: string;
 }
