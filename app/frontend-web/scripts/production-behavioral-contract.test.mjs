@@ -157,10 +157,22 @@ test("project production is a dedicated route with one global audio-clock timeli
   assert.match(productionApi, /\/production\/render/);
 });
 
+test("project production timeline edits timing and motion without changing the audio clock", () => {
+  assert.match(productionTimeline, /Beat inspector/);
+  assert.match(productionTimeline, /Timing weight \(giây\)/);
+  assert.match(productionTimeline, /applyTimelineOverrides/);
+  assert.match(productionTimeline, /onSelectBeat/);
+  assert.match(productionTimeline, /backend sẽ normalize lại để Chapter vẫn khớp audio thật/);
+  assert.match(productionTimeline, /beatOverrides: intent\.beatOverrides/);
+  assert.match(productionApi, /beatOverrides\?: ProjectRenderBeatOverrideInput\[\]/);
+});
+
 test("project final render retries preserve one idempotency intent", () => {
   assert.match(productionTimeline, /interface RenderIntent/);
+  assert.match(productionTimeline, /overrideFingerprint: string/);
   assert.match(productionTimeline, /const renderIntentRef = useRef<RenderIntent \| null>\(null\)/);
-  assert.match(productionTimeline, /if \(!intent \|\| intent\.resolution !== resolution\)/);
+  assert.match(productionTimeline, /intent\.resolution !== resolution/);
+  assert.match(productionTimeline, /intent\.overrideFingerprint !== overrideFingerprint/);
   assert.match(productionTimeline, /renderMutation\.mutate\(intent\)/);
   assert.match(productionTimeline, /onSuccess: \(job\) => \{[\s\S]*renderIntentRef\.current = null;/);
   assert.doesNotMatch(productionTimeline, /onError:[\s\S]*renderIntentRef\.current = null/);
