@@ -1,48 +1,50 @@
 # Architecture Decision Records
 
-This directory records decisions that affect more than one feature or change a production safety boundary. The maintained V1.11 source-of-truth specification remains the product/architecture authority; ADRs explain implementation choices and deliberate deviations.
+This directory records decisions that affect more than one feature or change a production safety boundary. The maintained V1.11 source-of-truth specification remains the product/architecture authority; current code, migrations and tests decide factual AS-IS behavior when derived docs drift.
 
-## Consolidated Architecture Decision Records
+## Current decision set
 
-Architectural decisions across NarrativeX are maintained in the following canonical records:
+1. **[ADR-0001: System topology, modular monolith, durable execution and persistence architecture](./ADR-0001-system-topology-execution-and-persistence.md)**  
+   Spring Boot control plane, Python worker boundary, MyBatis/PostgreSQL persistence, durable jobs/leases/provider operations and cost authorization.
 
-1. **[ADR-0001: System topology, modular monolith, durable execution and persistence architecture](./ADR-0001-system-topology-execution-and-persistence.md)**
-   - *Scope:* Spring Boot modular monolith, Python 3.12 AI worker boundary, DDD vertical package slices, SQL-first MyBatis persistence, Flyway PostgreSQL baseline V1, pre-submit fencing (`UNKNOWN`), result immutability, and quota reservation lifecycle.
-   - *Consolidates:* Former ADR-0001, ADR-0003, ADR-0006, ADR-0008, and ADR-0010.
+2. **[ADR-0002: Storyboard aggregate, character continuity, motion models and production workflows](./ADR-0002-storyboard-character-continuity-and-production-workflows.md)**  
+   Chapter-first workflow, reusable Character identity, revision/history rules, VisualBeat/motion models and translation lineage.
 
-2. **[ADR-0002: Storyboard aggregate, character continuity, motion models and production workflows](./ADR-0002-storyboard-character-continuity-and-production-workflows.md)**
-   - *Scope:* Chapter-first workflow & route hierarchy, reusable `Character` identity with `ProjectCharacter` assignments, `StoryboardRevision` non-destructive re-analysis lifecycle, `VisualBeat` decoupled motion modes (`IMAGE_MOTION`, `HYBRID_LOCAL_I2V`), and immutable `chapter_content_variants` with translation lineage.
-   - *Consolidates:* Former ADR-0002, ADR-0005, ADR-0007, ADR-0009, and ADR-0014.
+3. **[ADR-0003: Media storage, generation pipelines and external provider integrations](./ADR-0003-media-storage-generation-pipelines-and-external-integrations.md)**  
+   Cloud/worker media storage and provider integrations. R2 pipeline media + Google Drive final MP4 remain valid for the retained cloud/legacy execution path. **Desktop project-media storage is superseded by ADR-0012.**
 
-3. **[ADR-0003: Media storage, generation pipelines and external provider integrations](./ADR-0003-media-storage-generation-pipelines-and-external-integrations.md)**
-   - *Scope:* Two-tier storage architecture (Cloudflare R2 for pipeline media + Google Drive for final rendered MP4 exports), client presigned upload intents with tokened validation leases, narration audio pipeline with multi-part continuous clock & VieNeu local voice cloning, and Vertex Gemini 2.5 Flash image batch inference with GCS staging.
-   - *Consolidates:* Former ADR-0011, ADR-0012, ADR-0015, and ADR-0016.
+4. **[ADR-0004: Authentication, runtime security and test credentials](./ADR-0004-authentication-runtime-security-and-test-credentials.md)**  
+   Spring Security/session baseline, Google OIDC security controls, CSRF and test/runtime credential boundaries. Password-auth product behavior is superseded by ADR-0011.
 
-4. **[ADR-0004: Authentication, runtime security and test credentials](./ADR-0004-authentication-runtime-security-and-test-credentials.md)**
-   - *Scope:* Internal user identity in PostgreSQL, Spring Security server-managed session persistence (`NX_SESSION`) in Redis, CSRF protection, Google OIDC safe linking, Redis fail-open rate limiting, out-of-band E2E test credentials (`E2E_TEST_EMAIL`, `E2E_TEST_PASSWORD`), and automated CI secret scanning.
-   - *Consolidates:* Former ADR-0004 and ADR-0013.
+5. **[ADR-0005: Deterministic MVP E2E rendering with local final storage](./ADR-0005-deterministic-mvp-e2e-render-storage.md)**  
+   Deterministic integration verification and test-only local storage exception for the earlier server-render path.
 
-5. **[ADR-0005: Deterministic MVP E2E rendering with local final storage](./ADR-0005-deterministic-mvp-e2e-render-storage.md)**
-   - *Scope:* Real PostgreSQL/Redis/backend/worker/FFmpeg MVP verification with deterministic fake providers and local final-video storage as a test-only exception to production Google Drive storage.
+6. **[ADR-0006: Transactional chapter creation owns StoryVersion orchestration](./ADR-0006-transactional-chapter-creation.md)**  
+   Server-owned StoryVersion/Chapter orchestration, idempotency and batch-import transaction boundaries.
 
-6. **[ADR-0006: Transactional chapter creation owns StoryVersion orchestration](./ADR-0006-transactional-chapter-creation.md)**
-   - *Scope:* Backend-owned StoryVersion/Chapter orchestration, PostgreSQL idempotency for chapter creation, server-derived ordering, and batch-import transaction boundaries.
+7. **[ADR-0007: Architecture guards and pipeline observability](./ADR-0007-architecture-guards-and-pipeline-observability.md)**  
+   Architecture tests, worker facade boundaries, correlation/metrics and pipeline observability.
 
-7. **[ADR-0007: Architecture guards and pipeline observability](./ADR-0007-architecture-guards-and-pipeline-observability.md)**
-   - *Scope:* ArchUnit dependency boundaries, stable worker repository facades, cross-stage pipeline metrics, correlation fields, and final-artifact streaming counters.
+8. **[ADR-0008: Production-profile Docker runtime for real machine-local execution](./ADR-0008-real-docker-runtime.md)**  
+   Retained cloud/server provider runtime in Docker. This is no longer the primary editor/client runtime after the Desktop migration.
 
-8. **[ADR-0008: Production-profile Docker runtime for real machine-local execution](./ADR-0008-real-docker-runtime.md)**
-   - *Scope:* Production provider/storage semantics inside Docker on a developer-owned machine, with fake/local adapters restricted to tests and Storybook.
+9. **[ADR-0009: Bounded image-provider retries and circuit breaking](./ADR-0009-image-provider-circuit-breaker-and-retry-bounds.md)**  
+   Provider retry bounds, circuit breaking, reconciliation and cancellation.
 
-9. **[ADR-0009: Bounded image-provider retries and circuit breaking](./ADR-0009-image-provider-circuit-breaker-and-retry-bounds.md)**
-   - *Scope:* Image-provider circuit breaking, durable reconciliation-attempt bounds, and application-level cancellation of retry loops.
+10. **[ADR-0010: Establish the Electron desktop editor client boundary](./ADR-0010-desktop-editor-client-boundary.md)**  
+    `app/desktop` is the primary editor client. Electron main owns native capabilities/local execution, preload is narrow, renderer owns UI only, and `app/frontend-web` is temporary legacy migration surface.
 
-10. **[ADR-0010: Establish the Electron desktop editor client boundary](./ADR-0010-desktop-editor-client-boundary.md)**
-   - *Scope:* `app/desktop` Electron/React client boundary, secure preload bridge, editor-owned UI state, backend authority and incremental migration alongside `app/frontend-web`.
+11. **[ADR-0011: Google OAuth-only identity with Desktop system-browser handoff](./ADR-0011-google-oauth-only-desktop-auth.md)**  
+    Google-only end-user authentication, system-browser OIDC, one-time `narrativex://` handoff into a server-managed NarrativeX session, and strict separation from local-execution device tokens.
 
-11. **[ADR-0011: Google OAuth-only identity with a desktop authentication transport](./ADR-0011-google-oauth-only-desktop-auth.md)**
-   - *Scope:* Google-only user authentication, browser OIDC sessions, Desktop system-browser OAuth/deep-link exchange, safeStorage credentials and Local Agent consolidation.
+12. **[ADR-0012: Desktop local-first project media and local render execution](./ADR-0012-desktop-local-first-media-and-render-execution.md)**  
+    Local project workspace/manifest, asset-ID/checksum resolution, backend-assigned `LOCAL_DEVICE` rendering, FFmpeg in Electron main, `LOCAL_DESKTOP` local artifacts and cloud render/storage as migration fallback.
 
----
+## Supersession rules
+
+- ADR-0010 defines the primary client boundary and supersedes language that treats Next.js as the target editor.
+- ADR-0011 supersedes password-authentication product/runtime behavior and distinguishes user session credentials from execution device credentials.
+- ADR-0012 supersedes ADR-0003 only for Desktop project bytes and Desktop final artifacts. ADR-0003 remains valid for retained cloud/legacy worker execution and deliberately shared remote media.
+- A later accepted ADR wins when two decisions explicitly conflict in the same scope.
 
 Use the next sequential ADR number for future cross-cutting architectural decisions.
