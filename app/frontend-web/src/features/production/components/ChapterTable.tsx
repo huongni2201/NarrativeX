@@ -53,6 +53,7 @@ export function ChapterTable({ chapters, onOpenChapter, onDeleteChapter }: Reado
                 key={chapter.id}
                 chapter={chapter}
                 displayNumber={startIndex + index + 1}
+                isLastRow={index === currentChapters.length - 1}
                 onOpen={() => onOpenChapter(chapter)}
                 onDelete={() => onDeleteChapter(chapter)}
               />
@@ -100,11 +101,13 @@ export function ChapterTable({ chapters, onOpenChapter, onDeleteChapter }: Reado
 function ChapterRow({
   chapter,
   displayNumber,
+  isLastRow,
   onOpen,
   onDelete,
 }: Readonly<{
   chapter: ProductionChapter;
   displayNumber: number;
+  isLastRow: boolean;
   onOpen: () => void;
   onDelete: () => void;
 }>) {
@@ -170,7 +173,9 @@ function ChapterRow({
             <div
               role="menu"
               aria-label={`Thao tác với ${chapter.title}`}
-              className="absolute right-0 top-full z-20 mt-2 w-44 rounded-xl border border-border bg-surface-panel p-1.5 text-left shadow-2xl"
+              className={`absolute right-0 z-20 w-44 rounded-xl border border-border bg-surface-panel p-1.5 text-left shadow-2xl ${
+                isLastRow ? "bottom-full mb-2" : "top-full mt-2"
+              }`}
             >
               <button
                 type="button"
