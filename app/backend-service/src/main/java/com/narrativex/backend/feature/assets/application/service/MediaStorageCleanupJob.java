@@ -36,13 +36,17 @@ public class MediaStorageCleanupJob {
     for (CleanupTask task : claimed) {
       try {
         if (assets.isReferencedByReadyAsset(task.storageKey())) {
-          tasks.markCompleted(task.id(), Instant.now());
+          tasks.markCompleted(task.id(), task.attemptCount(), Instant.now());
           continue;
         }
         objectStorage.delete(task.storageKey());
-        tasks.markCompleted(task.id(), Instant.now());
+        tasks.markCompleted(task.id(), task.attemptCount(), Instant.now());
       } catch (RuntimeException exception) {
-        tasks.markFailed(task.id(), nextAttemptAt(task), exception.getClass().getSimpleName());
+        tasks.markFailed(
+            task.id(),
+            task.attemptCount(),
+            nextAttemptAt(task),
+            exception.getClass().getSimpleName());
         log.warn(
             "Storage cleanup deferred id={} attempt={} error={}",
             task.id(),
