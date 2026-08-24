@@ -69,8 +69,8 @@
            c.title,
            c.row_version,
            c.source_hash,
-           gj.media_plan_id,
-           gj.media_plan_revision,
+           mp.id AS media_plan_id,
+           mp.revision AS media_plan_revision,
            COALESCE(mp.image_aspect_ratio, '16:9') AS aspect_ratio,
            narration.duration_ms AS audio_duration_ms,
            narration.storage_key AS audio_storage_key,
@@ -90,11 +90,16 @@
       FROM chapters c
       JOIN current_story cs ON cs.id = c.story_version_id
       LEFT JOIN chapter_media_heads cmh ON cmh.chapter_id = c.id
-      LEFT JOIN generation_jobs gj ON gj.id = cmh.generation_job_id
+      LEFT JOIN generation_jobs gj
+        ON gj.id = cmh.generation_job_id
+       AND gj.status = 'COMPLETED'
       LEFT JOIN media_plans mp
         ON mp.id = gj.media_plan_id
        AND mp.revision = gj.media_plan_revision
        AND mp.chapter_id = c.id
+       AND mp.chapter_row_version = c.row_version
+       AND mp.source_hash = c.source_hash
+       AND mp.storyboard_revision_id = c.current_storyboard_revision_id
       LEFT JOIN LATERAL (
         SELECT nr.id AS narration_request_id,
                na.id AS narration_asset_id,
@@ -149,8 +154,8 @@
                  )
                )::int AS ready_beat_count
           FROM media_beat_plans mbp
-         WHERE mbp.media_plan_id = gj.media_plan_id
-      ) plan_counts ON gj.media_plan_id IS NOT NULL
+         WHERE mbp.media_plan_id = mp.id
+      ) plan_counts ON mp.id IS NOT NULL
      WHERE c.deleted_at IS NULL
      ORDER BY c.order_index ASC, c.id ASC
   </select>
@@ -178,11 +183,16 @@
       FROM chapters c
       JOIN current_story cs ON cs.id = c.story_version_id
       JOIN chapter_media_heads cmh ON cmh.chapter_id = c.id
-      JOIN generation_jobs gj ON gj.id = cmh.generation_job_id
+      JOIN generation_jobs gj
+        ON gj.id = cmh.generation_job_id
+       AND gj.status = 'COMPLETED'
       JOIN media_plans mp
         ON mp.id = gj.media_plan_id
        AND mp.revision = gj.media_plan_revision
        AND mp.chapter_id = c.id
+       AND mp.chapter_row_version = c.row_version
+       AND mp.source_hash = c.source_hash
+       AND mp.storyboard_revision_id = c.current_storyboard_revision_id
       JOIN media_beat_plans mbp ON mbp.media_plan_id = mp.id
       LEFT JOIN visual_beats vb ON vb.id = mbp.visual_beat_id
       LEFT JOIN LATERAL (
