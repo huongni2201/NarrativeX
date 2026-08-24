@@ -1,4 +1,10 @@
+import { randomUUID } from "node:crypto";
 import { EventEmitter } from "node:events";
+import { createWriteStream } from "node:fs";
+import { rm } from "node:fs/promises";
+import { extname, join } from "node:path";
+import { Readable, Transform } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import type { ProjectStorage } from "../local-storage/project-storage";
 import type { ProjectRenderer } from "../rendering/project-renderer";
 import { RenderExecutionError } from "../rendering/render-errors";
@@ -107,19 +113,24 @@ export class LocalExecutionService extends EventEmitter {
   async executeNextProjectRender(): Promise<LocalRenderCompletion | null> {
     const identity = this.identity;
     if (!this.projectRenderer || !identity || this.state !== "ONLINE") return null;
+    if (!this.config.projectRenderEnabled) {
+      throw new Error(
+        "Local project rendering is disabled until the desktop FFmpeg runtime is enabled.",
+      );
+    }
 
-    const prepared = await this.prepareNextProjectRender(identity);
-    if (!prepared) return null;
+    const claimed = await this.backendClient.claimProjectRender(identity.deviceToken);
+    if (!claimed) return null;
 
     const controller = new AbortController();
-    this.activeRender = { jobId: prepared.jobId, controller };
+    this.activeRender = { jobId: claimed.jobId, controller };
     let leaseLost = false;
     const leaseTimer = setInterval(() => {
       void this.backendClient
         .heartbeatProjectRender(
           identity.deviceToken,
-          prepared.jobId,
-          prepared.leaseToken,
+          claimed.jobId,
+          claimed.leaseToken,
         )
         .catch(() => {
           leaseLost = true;
@@ -134,6 +145,15 @@ export class LocalExecutionService extends EventEmitter {
     }, Math.max(5_000, Math.floor(this.config.heartbeatIntervalMs / 2)));
 
     try {
+      const prepared = await this.prepareClaimedProjectRender(claimed, controller.signal);
+      if (leaseLost) {
+        throw new RenderExecutionError(
+          "RENDER_LEASE_LOST",
+          "Project render lease was lost while preparing local assets.",
+          true,
+        );
+      }
+
       const completion = await this.projectRenderer.render(
         prepared,
         controller.signal,
@@ -148,8 +168,8 @@ export class LocalExecutionService extends EventEmitter {
           try {
             await this.backendClient.reportProjectRenderProgress(
               identity.deviceToken,
-              prepared.jobId,
-              prepared.leaseToken,
+              claimed.jobId,
+              claimed.leaseToken,
               progress,
               currentStep,
             );
@@ -177,22 +197,22 @@ export class LocalExecutionService extends EventEmitter {
 
       await this.backendClient.completeProjectRender(
         identity.deviceToken,
-        prepared.jobId,
-        prepared.leaseToken,
+        claimed.jobId,
+        claimed.leaseToken,
         completion,
       );
       return completion;
     } catch (error) {
       if (!leaseLost) {
         if (isRenderCancellation(error)) {
-          await this.persistCancellation(identity, prepared);
+          await this.persistCancellation(identity, claimed);
         } else {
           const failure = renderFailure(error);
           await this.backendClient
             .failProjectRender(
               identity.deviceToken,
-              prepared.jobId,
-              prepared.leaseToken,
+              claimed.jobId,
+              claimed.leaseToken,
               failure.code,
               failure.retryable,
             )
@@ -202,7 +222,7 @@ export class LocalExecutionService extends EventEmitter {
       throw error;
     } finally {
       clearInterval(leaseTimer);
-      if (this.activeRender?.jobId === prepared.jobId) this.activeRender = null;
+      if (this.activeRender?.jobId === claimed.jobId) this.activeRender = null;
     }
   }
 
@@ -228,22 +248,20 @@ export class LocalExecutionService extends EventEmitter {
 
   private async persistCancellation(
     identity: DeviceIdentity,
-    prepared: PreparedProjectRender,
+    claimed: ClaimedProjectRender,
   ): Promise<void> {
     try {
       await this.backendClient.cancelProjectRender(
         identity.deviceToken,
-        prepared.jobId,
-        prepared.leaseToken,
+        claimed.jobId,
+        claimed.leaseToken,
       );
     } catch {
-      // A failed cancel request must never make a user-cancelled render claimable again.
-      // Persist a terminal failure as the fallback if the dedicated cancel transition fails.
       await this.backendClient
         .failProjectRender(
           identity.deviceToken,
-          prepared.jobId,
-          prepared.leaseToken,
+          claimed.jobId,
+          claimed.leaseToken,
           "RENDER_CANCELLED",
           false,
         )
@@ -251,49 +269,81 @@ export class LocalExecutionService extends EventEmitter {
     }
   }
 
-  private async prepareNextProjectRender(
-    identity: DeviceIdentity,
-  ): Promise<PreparedProjectRender | null> {
-    if (!this.config.projectRenderEnabled) {
-      throw new Error(
-        "Local project rendering is disabled until the desktop FFmpeg runtime is enabled.",
-      );
-    }
-
-    const claimed = await this.backendClient.claimProjectRender(identity.deviceToken);
-    if (!claimed) return null;
-
+  private async prepareClaimedProjectRender(
+    claimed: ClaimedProjectRender,
+    signal: AbortSignal,
+  ): Promise<PreparedProjectRender> {
     try {
-      const chapters = await Promise.all(
-        claimed.chapters.map(async (chapter) => ({
-          ...chapter,
-          localPath: await this.projectStorage.resolveAsset(
-            claimed.projectId,
-            chapter.narrationAssetId,
-            { sizeBytes: chapter.sizeBytes, checksumSha256: chapter.checksum },
-          ),
-        })),
-      );
-      const beats = await Promise.all(
-        claimed.beats.map(async (beat) => ({
-          ...beat,
-          localPath: await this.projectStorage.resolveAsset(
-            claimed.projectId,
-            beat.mediaAssetId,
-            { sizeBytes: beat.sizeBytes, checksumSha256: beat.checksum },
-          ),
-        })),
-      );
+      const chapters = await mapWithConcurrency(claimed.chapters, 2, async (chapter) => ({
+        ...chapter,
+        localPath: await this.resolveRenderAsset(
+          claimed.projectId,
+          chapter.narrationAssetId,
+          "AUDIO",
+          chapter.downloadUrl,
+          chapter.sizeBytes,
+          chapter.checksum,
+          signal,
+        ),
+      }));
+      const beats = await mapWithConcurrency(claimed.beats, 4, async (beat) => ({
+        ...beat,
+        localPath: await this.resolveRenderAsset(
+          claimed.projectId,
+          beat.mediaAssetId,
+          "IMAGE",
+          beat.downloadUrl,
+          beat.sizeBytes,
+          beat.checksum,
+          signal,
+        ),
+      }));
       return { ...claimed, chapters, beats };
     } catch (error) {
-      await this.backendClient.failProjectRender(
-        identity.deviceToken,
-        claimed.jobId,
-        claimed.leaseToken,
+      if (signal.aborted) throw signal.reason ?? error;
+      throw new RenderExecutionError(
         "LOCAL_ASSET_MISSING_OR_INVALID",
+        errorMessage(error),
         false,
       );
-      throw error;
+    }
+  }
+
+  private async resolveRenderAsset(
+    projectId: string,
+    assetId: string,
+    kind: "IMAGE" | "AUDIO",
+    downloadUrl: string | null,
+    sizeBytes: number,
+    checksumSha256: string,
+    signal: AbortSignal,
+  ): Promise<string> {
+    const expected = { sizeBytes, checksumSha256 };
+    try {
+      return await this.projectStorage.resolveAsset(projectId, assetId, expected);
+    } catch (localError) {
+      if (!downloadUrl) throw localError;
+    }
+
+    signal.throwIfAborted();
+    await this.projectStorage.ensureProject(projectId);
+    const temporaryPath = join(
+      this.projectStorage.projectDirectory(projectId),
+      "work",
+      `.asset-${assetId}-${randomUUID()}${downloadExtension(downloadUrl)}`,
+    );
+    try {
+      await downloadVerifiedFile(downloadUrl, temporaryPath, sizeBytes, signal);
+      signal.throwIfAborted();
+      await this.projectStorage.registerAsset(projectId, {
+        assetId,
+        kind,
+        sourcePath: temporaryPath,
+        checksumSha256,
+      });
+      return await this.projectStorage.resolveAsset(projectId, assetId, expected);
+    } finally {
+      await rm(temporaryPath, { force: true }).catch(() => undefined);
     }
   }
 
@@ -373,6 +423,84 @@ export class LocalExecutionService extends EventEmitter {
     this.lastError = lastError;
     if (changed) this.emit("status", this.status());
   }
+}
+
+async function downloadVerifiedFile(
+  downloadUrl: string,
+  destination: string,
+  expectedSizeBytes: number,
+  signal: AbortSignal,
+): Promise<void> {
+  const url = new URL(downloadUrl);
+  if (
+    url.protocol !== "https:" &&
+    !(url.protocol === "http:" && isLoopbackHost(url.hostname))
+  ) {
+    throw new Error("Local render asset URL must use HTTPS outside localhost.");
+  }
+
+  const response = await fetch(url, { method: "GET", redirect: "error", signal });
+  if (!response.ok || !response.body) {
+    throw new Error(`Local render asset download failed (${response.status}).`);
+  }
+
+  const declaredSize = response.headers.get("content-length");
+  if (declaredSize) {
+    const parsed = Number(declaredSize);
+    if (Number.isFinite(parsed) && parsed >= 0 && parsed !== expectedSizeBytes) {
+      throw new Error("Local render asset download size does not match the render snapshot.");
+    }
+  }
+
+  let bytesWritten = 0;
+  const sizeGuard = new Transform({
+    transform(chunk: Buffer, _encoding, callback) {
+      bytesWritten += chunk.length;
+      if (bytesWritten > expectedSizeBytes) {
+        callback(new Error("Local render asset download exceeded the render snapshot size."));
+        return;
+      }
+      callback(null, chunk);
+    },
+  });
+  const body = Readable.fromWeb(
+    response.body as import("node:stream/web").ReadableStream<Uint8Array>,
+  );
+  await pipeline(body, sizeGuard, createWriteStream(destination, { flags: "wx" }), { signal });
+  if (bytesWritten !== expectedSizeBytes) {
+    throw new Error("Local render asset download is incomplete.");
+  }
+}
+
+function downloadExtension(downloadUrl: string): string {
+  const value = extname(new URL(downloadUrl).pathname).toLowerCase();
+  return /^\.[a-z0-9]{1,10}$/.test(value) ? value : ".bin";
+}
+
+function isLoopbackHost(hostname: string): boolean {
+  const value = hostname.toLowerCase();
+  return value === "localhost" || value === "127.0.0.1" || value === "[::1]";
+}
+
+async function mapWithConcurrency<T, R>(
+  values: readonly T[],
+  concurrency: number,
+  mapper: (value: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(values.length);
+  let nextIndex = 0;
+  const workers = Array.from(
+    { length: Math.min(Math.max(1, concurrency), values.length) },
+    async () => {
+      while (true) {
+        const index = nextIndex++;
+        if (index >= values.length) return;
+        results[index] = await mapper(values[index]);
+      }
+    },
+  );
+  await Promise.all(workers);
+  return results;
 }
 
 function errorMessage(error: unknown): string {
