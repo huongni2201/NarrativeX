@@ -17,7 +17,7 @@ export interface ClaimedProjectRenderChapter {
   orderIndex: number;
   globalStartMs: number;
   globalEndMs: number;
-  storageKey: string;
+  narrationAssetId: string;
   sizeBytes: number;
   checksum: string;
   durationMs: number;
@@ -28,11 +28,11 @@ export interface ClaimedProjectRenderBeat {
   sceneIndex: number;
   beatIndex: number;
   visualBeatId: string;
+  mediaAssetId: string;
   globalStartMs: number;
   globalEndMs: number;
   durationMs: number;
   cameraMovement: string;
-  storageKey: string;
   sizeBytes: number;
   checksum: string;
 }
@@ -53,10 +53,7 @@ export interface ClaimedProjectRender {
 
 export interface LocalRenderCompletion {
   renderFingerprint: string;
-  storageKey: string;
-  storageProvider: string;
-  externalFileId?: string | null;
-  webViewLink?: string | null;
+  localArtifactKey: string;
   mimeType: "video/mp4";
   sizeBytes: number;
   checksumSha256: string;
