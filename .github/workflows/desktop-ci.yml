@@ -11,11 +11,14 @@ on:
       - "app/backend-service/src/main/java/com/narrativex/backend/feature/generation/api/request/CreateProjectRenderRequest.java"
       - "app/backend-service/src/main/java/com/narrativex/backend/feature/generation/application/usecase/CreateProjectRenderUseCase.java"
       - "app/backend-service/src/main/java/com/narrativex/backend/feature/generation/domain/enums/RenderExecutionTarget.java"
+      - "app/backend-service/src/main/resources/db/migration/**"
       - "app/backend-service/src/main/resources/mybatis/LocalProjectRenderMapper.xml"
+      - "app/backend-service/src/test/java/com/narrativex/backend/architecture/**"
       - "app/backend-service/src/test/java/com/narrativex/backend/configuration/SecurityConfigurationTest.java"
       - "app/backend-service/src/test/java/com/narrativex/backend/feature/auth/**"
       - "app/backend-service/src/test/java/com/narrativex/backend/feature/localexecution/**"
       - "app/backend-service/src/test/java/com/narrativex/backend/feature/generation/application/usecase/CreateProjectRenderUseCaseTest.java"
+      - "app/backend-service/src/test/java/com/narrativex/backend/feature/storyboard/api/ChapterCreationApiIntegrationTest.java"
       - ".github/workflows/desktop-ci.yml"
   push:
     branches:
@@ -29,11 +32,14 @@ on:
       - "app/backend-service/src/main/java/com/narrativex/backend/feature/generation/api/request/CreateProjectRenderRequest.java"
       - "app/backend-service/src/main/java/com/narrativex/backend/feature/generation/application/usecase/CreateProjectRenderUseCase.java"
       - "app/backend-service/src/main/java/com/narrativex/backend/feature/generation/domain/enums/RenderExecutionTarget.java"
+      - "app/backend-service/src/main/resources/db/migration/**"
       - "app/backend-service/src/main/resources/mybatis/LocalProjectRenderMapper.xml"
+      - "app/backend-service/src/test/java/com/narrativex/backend/architecture/**"
       - "app/backend-service/src/test/java/com/narrativex/backend/configuration/SecurityConfigurationTest.java"
       - "app/backend-service/src/test/java/com/narrativex/backend/feature/auth/**"
       - "app/backend-service/src/test/java/com/narrativex/backend/feature/localexecution/**"
       - "app/backend-service/src/test/java/com/narrativex/backend/feature/generation/application/usecase/CreateProjectRenderUseCaseTest.java"
+      - "app/backend-service/src/test/java/com/narrativex/backend/feature/storyboard/api/ChapterCreationApiIntegrationTest.java"
       - ".github/workflows/desktop-ci.yml"
 
 permissions:
@@ -85,5 +91,8 @@ jobs:
       - name: Compile backend
         run: ./mvnw -DskipTests compile
 
-      - name: Run desktop-facing backend tests
-        run: ./mvnw -Dtest=SecurityConfigurationTest,DesktopAuthControllerTest,LocalProjectRenderUseCaseTest,LocalProjectRenderControllerTest,CreateProjectRenderUseCaseTest test
+      - name: Validate schema and desktop-facing backend contracts
+        run: >-
+          ./mvnw
+          -Dtest=FlywayBaselineStructureTest,MyBatisSchemaReferenceContractTest,SecurityConfigurationTest,DesktopAuthControllerTest,LocalProjectRenderUseCaseTest,LocalProjectRenderControllerTest,CreateProjectRenderUseCaseTest,ChapterCreationApiIntegrationTest
+          test
