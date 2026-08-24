@@ -93,6 +93,7 @@
                   ON s.chapter_id = c.id
                  AND s.storyboard_revision_id = c.current_storyboard_revision_id
                WHERE c.story_version_id = latest_story.id
+                 AND c.deleted_at IS NULL
           ) metrics ON TRUE
          <choose>
              <when test="sort == 'STARRED' or sort == 'FAVORITE'">
