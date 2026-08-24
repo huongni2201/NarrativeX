@@ -13,7 +13,7 @@ function authUrl(path: string) {
 export const authApi = {
   getCurrentUser: () =>
     apiRequest<ApiAuthUser>(
-      "/api/auth/me",
+      "/api/v1/auth/me",
       { notifyUnauthorized: false },
       isApiAuthUser,
     ),
