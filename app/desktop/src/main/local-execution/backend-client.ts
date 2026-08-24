@@ -150,6 +150,21 @@ export class LocalExecutionBackendClient {
     );
   }
 
+  async cancelProjectRender(
+    deviceToken: string,
+    jobId: string,
+    leaseToken: string,
+  ): Promise<void> {
+    await this.deviceRequest<void>(
+      deviceToken,
+      `/api/v1/local-devices/project-renders/${encodeURIComponent(jobId)}/cancel`,
+      {
+        method: "POST",
+        body: JSON.stringify({ leaseToken }),
+      },
+    );
+  }
+
   async failProjectRender(
     deviceToken: string,
     jobId: string,
