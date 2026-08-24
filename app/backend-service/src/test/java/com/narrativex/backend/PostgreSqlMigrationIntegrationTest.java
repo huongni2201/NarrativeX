@@ -63,7 +63,8 @@ class PostgreSqlMigrationIntegrationTest {
           "stage_attempts",
           "provider_operations",
           "operation_plans",
-          "render_manifests");
+          "render_manifests",
+          "project_render_artifacts");
 
   @DynamicPropertySource
   static void postgresProperties(DynamicPropertyRegistry registry) {
