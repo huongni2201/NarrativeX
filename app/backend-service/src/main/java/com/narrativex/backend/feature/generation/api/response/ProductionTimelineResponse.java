@@ -36,6 +36,15 @@ public record ProductionTimelineResponse(
       boolean audioReady,
       boolean readyForRender) {
     static Chapter from(ProductionTimelineView.Chapter chapter) {
+      boolean audioReady =
+          chapter.audioStorageKey() != null
+              && !chapter.audioStorageKey().isBlank()
+              && chapter.audioDurationMs() != null
+              && chapter.audioDurationMs() > 0
+              && chapter.audioSizeBytes() != null
+              && chapter.audioSizeBytes() > 0
+              && chapter.audioChecksum() != null
+              && !chapter.audioChecksum().isBlank();
       return new Chapter(
           chapter.chapterId(),
           chapter.orderIndex(),
@@ -45,10 +54,7 @@ public record ProductionTimelineResponse(
           chapter.audioDurationMs(),
           chapter.beatCount(),
           chapter.readyBeatCount(),
-          chapter.audioStorageKey() != null
-              && !chapter.audioStorageKey().isBlank()
-              && chapter.audioDurationMs() != null
-              && chapter.audioDurationMs() > 0,
+          audioReady,
           chapter.readyForRender());
     }
   }
