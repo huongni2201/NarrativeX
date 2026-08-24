@@ -161,6 +161,16 @@ void app.whenReady().then(async () => {
     requireLocalExecution().status(),
   );
   registerTrustedIpcHandler(
+    "desktop:local-execution:set-user",
+    trustPolicy,
+    async (userId) => {
+      if (userId !== null && typeof userId !== "string") {
+        throw new Error("userId must be a string or null.");
+      }
+      return requireLocalExecution().setUser(userId);
+    },
+  );
+  registerTrustedIpcHandler(
     "desktop:local-execution:pair",
     trustPolicy,
     async (pairingCode) => {
