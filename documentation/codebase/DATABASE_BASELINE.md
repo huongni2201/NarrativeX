@@ -14,9 +14,17 @@
 | Migration | Purpose | Current state |
 |---|---|---|
 | V1 `initial_schema` | Auth, project/story/chapter foundations, storyboard revisions, split motion/camera visual beats, preview-asset links, character/location AI identities, backend-authoritative media plans, generation execution/review and lineage, durable provider operations, quota reservation lifecycle, chapter-level TTS, uploaded narration, upload sessions, media lifecycle hardening, durable media validation jobs, detected media metadata, style presets and voice catalog, render ownership pins, owner-scoped idempotency, voice reference asset, cleanup tasks, chapter creation idempotency | Consolidated baseline |
-The supported migration set is the single consolidated V1 baseline. Databases created from the
-removed split migration history require operator-reviewed recreation or explicit re-baselining; the
-application does not rewrite `flyway_schema_history`.
+| V2 `align_generation_job_key_uuid` | Align `generation_jobs.job_id` with the application UUID contract by converting the V1 `VARCHAR(36)` column to PostgreSQL `UUID` | Required follow-up migration |
+
+The supported migration set is **V1 followed by V2**. V1 remains the consolidated baseline schema;
+V2 is an intentional compatibility correction that aligns the durable GenerationJob public key with
+the UUID contract used by backend and worker code. Databases created from the removed split migration
+history require operator-reviewed recreation or explicit re-baselining; the application does not
+rewrite `flyway_schema_history`.
+
+Existing databases must contain only UUID-shaped `generation_jobs.job_id` values before V2 runs,
+because the migration uses `job_id::uuid` during the type conversion. Fresh databases created from
+the supported migration chain satisfy this automatically.
 
 ## Entity/schema matrix
 
@@ -29,11 +37,11 @@ application does not rewrite `flyway_schema_history`.
 | StoryboardRevision | `storyboard_revisions` | IMPLEMENTED | immutable revision boundary for safe re-analysis |
 | Scene | `scenes` | IMPLEMENTED FOUNDATION | storyboard scene persistence, location association |
 | SceneCharacter | `scene_characters` | IMPLEMENTED | ordered scene-to-character continuity associations |
-| VisualBeat | `visual_beats` | IMPLEMENTED FOUNDATION | motion/camera split and nullable project-asset preview link |
+| VisualBeat | `visual_beats` | IMPLEMENTED FOUNDATION | structured camera angle, motion/camera split and nullable project-asset preview link |
 | VisualBeatCharacter | `visual_beat_characters` | IMPLEMENTED | ordered beat-to-character continuity |
 | MediaPlan | `media_plans` / `media_scene_plans` / `media_beat_plans` | IMPLEMENTED | backend-authoritative execution and cost plan |
 | ProjectFavorite | `project_favorites` | IMPLEMENTED | per-user dashboard favorites |
-| GenerationJob | `generation_jobs` | IMPLEMENTED FOUNDATION | durable async execution state with plan & revision pinning |
+| GenerationJob | `generation_jobs` | IMPLEMENTED FOUNDATION | durable async execution state with UUID `job_id`, plan & revision pinning |
 | Chapter media head | `chapter_media_heads` | IMPLEMENTED | authoritative current media job per Chapter |
 | StageAttempt | `stage_attempts` | IMPLEMENTED FOUNDATION | lease/attempt model with heartbeat claims |
 | ProviderOperation | `provider_operations` | IMPLEMENTED SQL-FIRST SLICE | durable provider boundary, CAS lifecycle, reconciliation, billing evidence & result fingerprint |
@@ -144,9 +152,10 @@ The partial predicate avoids archived rows polluting the common active-project p
 
 For schema PRs:
 
-1. Apply all migrations on an empty supported PostgreSQL instance.
-2. Start backend and verify Flyway has applied the V1 baseline.
-3. Run backend verification suite.
-4. Verify stale-version behavior.
-5. Verify query plans for keyset pagination with representative data.
-6. Do not use H2-only success as PostgreSQL compatibility evidence.
+1. Apply the complete supported Flyway chain (currently V1 then V2) on an empty supported PostgreSQL instance.
+2. Verify `flyway_schema_history` reports the latest supported migration version and `generation_jobs.job_id` is `uuid`.
+3. Start backend and run the backend verification suite.
+4. Run worker PostgreSQL integration tests against UUID-shaped durable identifiers.
+5. Verify stale-version behavior.
+6. Verify query plans for keyset pagination with representative data.
+7. Do not use H2-only success as PostgreSQL compatibility evidence.
