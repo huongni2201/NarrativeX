@@ -19,18 +19,19 @@
   </resultMap>
 
   <select id="findByJobId" resultMap="artifactRow">
-    SELECT pra.id, pra.project_id, gj.job_id AS generation_job_id, pra.web_view_link,
-           pra.mime_type, pra.size_bytes, pra.checksum_sha256, pra.duration_ms,
-           pra.width, pra.height, pra.fps, pra.status
-      FROM project_render_artifacts pra
-      JOIN projects p ON p.id = pra.project_id
-      JOIN generation_jobs gj ON gj.id = pra.generation_job_id
-     WHERE pra.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+    SELECT fa.id, fa.project_id, gj.job_id AS generation_job_id, fa.web_view_link,
+           fa.mime_type, fa.size_bytes, fa.checksum_sha256, fa.duration_ms,
+           fa.width, fa.height, fa.fps::int AS fps, fa.status
+      FROM final_artifacts fa
+      JOIN projects p ON p.id = fa.project_id
+      JOIN generation_jobs gj ON gj.id = fa.generation_job_id
+     WHERE fa.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
        AND gj.job_id = #{jobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
        AND gj.job_type = 'RENDER_PROJECT'
+       AND fa.artifact_type = 'PROJECT_VIDEO'
        AND p.owner_id = #{ownerId}
        AND p.archived_at IS NULL
-       AND pra.status = 'READY'
+       AND fa.status = 'READY'
      LIMIT 1
   </select>
 </mapper>
