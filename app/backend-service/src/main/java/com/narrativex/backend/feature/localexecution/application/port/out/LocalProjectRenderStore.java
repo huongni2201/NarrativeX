@@ -60,6 +60,7 @@ public interface LocalProjectRenderStore {
       long globalStartMs,
       long globalEndMs,
       UUID narrationAssetId,
+      String storageKey,
       long sizeBytes,
       String checksum,
       long durationMs) {}
@@ -74,6 +75,7 @@ public interface LocalProjectRenderStore {
       long globalEndMs,
       long durationMs,
       String cameraMovement,
+      String storageKey,
       long sizeBytes,
       String checksum) {}
 
