@@ -4,7 +4,7 @@ import com.narrativex.backend.feature.generation.application.query.ProjectRender
 import java.util.UUID;
 
 public record ProjectRenderArtifactResponse(
-    UUID id,
+    Long id,
     UUID projectId,
     UUID generationJobId,
     String webViewLink,
