@@ -11,6 +11,7 @@ from narrativex_worker.health import WorkerHealthServer
 from narrativex_worker.image_generation_worker import ImageGenerationWorkerRunner
 from narrativex_worker.media_validation_worker import MediaValidationWorkerRunner
 from narrativex_worker.narration.local_runner import LocalOptimizedNarrationWorkerRunner
+from narrativex_worker.project_rendering.worker import ProjectRenderWorkerRunner
 from narrativex_worker.rendering.worker import RenderWorkerRunner
 from narrativex_worker.translation_worker import TranslationWorkerRunner
 from narrativex_worker.worker import NarrativeXWorker
@@ -71,6 +72,11 @@ async def run_workers(settings: WorkerSettings, *, dry_run: bool) -> None:
         render_worker = RenderWorkerRunner(settings=settings, concurrency_gate=concurrency_gate)
         if render_worker.enabled:
             workers["render"] = render_worker
+        project_render_worker = ProjectRenderWorkerRunner(
+            settings=settings, concurrency_gate=concurrency_gate
+        )
+        if project_render_worker.enabled:
+            workers["project-render"] = project_render_worker
 
     if not workers:
         raise RuntimeError("No enabled workers remain after applying WORKER_ROLES/provider modes")
