@@ -2,9 +2,9 @@ import type { ApiStoryboardScene } from "../api/storyboard.api";
 
 interface StoryboardSceneRailProps {
   scenes: ApiStoryboardScene[];
-  sceneId: number | null;
+  sceneId: string | null;
   onSelectAll: () => void;
-  onSelectScene: (sceneId: number) => void;
+  onSelectScene: (sceneId: string) => void;
 }
 
 export function StoryboardSceneRail({

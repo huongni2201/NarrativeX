@@ -6,12 +6,12 @@ interface StoryboardHeaderProps {
   hideChapterSelector: boolean;
   orderedChapters: StoryboardChapterItem[];
   chapterId: string | number | null;
-  sceneId: number | null;
+  sceneId: string | null;
   status: StatusFilter;
   search: string;
   storyboard: ApiChapterStoryboard | undefined;
   onChapterChange: (chapterId: string | number) => void;
-  onSceneChange: (sceneId: number | null) => void;
+  onSceneChange: (sceneId: string | null) => void;
   onStatusChange: (status: StatusFilter) => void;
   onSearchChange: (search: string) => void;
   onAddVisualBeat: () => void;
@@ -52,7 +52,7 @@ export function StoryboardHeader({
         <select
           aria-label="Lọc theo Scene"
           value={sceneId?.toString() ?? "ALL"}
-          onChange={(event) => onSceneChange(event.target.value === "ALL" ? null : Number(event.target.value))}
+          onChange={(event) => onSceneChange(event.target.value === "ALL" ? null : event.target.value)}
           className="h-9 rounded-md border border-border-darker bg-surface-input px-2.5 text-xs text-slate-300 outline-none transition-colors focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
         >
           <option value="ALL">All Scenes</option>

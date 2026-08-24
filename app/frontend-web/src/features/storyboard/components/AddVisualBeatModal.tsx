@@ -5,13 +5,13 @@ import type { ApiChapterStoryboard, ApiStoryboardScene } from "../api/storyboard
 interface AddVisualBeatModalProps {
   isOpen: boolean;
   storyboard: ApiChapterStoryboard;
-  addSceneId: number | null;
+  addSceneId: string | null;
   beatTitle: string;
   visualIntent: string;
   actionError: string | null;
   isPending: boolean;
   onClose: () => void;
-  onSceneChange: (sceneId: number) => void;
+  onSceneChange: (sceneId: string) => void;
   onTitleChange: (title: string) => void;
   onIntentChange: (intent: string) => void;
   onSubmit: () => void;
@@ -56,7 +56,7 @@ export function AddVisualBeatModal({
             Scene
             <select
               value={addSceneId?.toString() ?? ""}
-              onChange={(event) => onSceneChange(Number(event.target.value))}
+              onChange={(event) => onSceneChange(event.target.value)}
               className="mt-1.5 h-10 w-full rounded-lg border border-border-dark bg-surface-input px-3 text-sm text-slate-200 outline-none transition-colors focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
             >
               {storyboard.scenes.map((scene: ApiStoryboardScene) => (

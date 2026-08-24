@@ -38,11 +38,11 @@ export function useStoryboardState({
   const [chapterId, setChapterId] = useState<string | number | null>(
     initialChapterId ?? orderedChapters.at(-1)?.id ?? null,
   );
-  const [sceneId, setSceneId] = useState<number | null>(null);
+  const [sceneId, setSceneId] = useState<string | null>(null);
   const [status, setStatus] = useState<StatusFilter>("ALL");
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
-  const [addSceneId, setAddSceneId] = useState<number | null>(null);
+  const [addSceneId, setAddSceneId] = useState<string | null>(null);
   const [beatTitle, setBeatTitle] = useState("");
   const [visualIntent, setVisualIntent] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
@@ -153,7 +153,7 @@ export function useStoryboardState({
 
   const visibleBeatCount = visibleScenes.reduce((sum, scene) => sum + scene.visualBeats.length, 0);
 
-  function openAddVisualBeat(preferredSceneId?: number) {
+  function openAddVisualBeat(preferredSceneId?: string) {
     const firstSceneId = storyboard?.scenes[0]?.id ?? null;
     setAddSceneId(preferredSceneId ?? sceneId ?? firstSceneId);
     setActionError(null);
