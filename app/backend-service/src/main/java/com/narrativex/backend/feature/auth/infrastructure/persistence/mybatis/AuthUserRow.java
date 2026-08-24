@@ -17,7 +17,6 @@ public class AuthUserRow {
   private String email;
   private String displayName;
   private String avatarUrl;
-  private String passwordHash;
   private String googleSubject;
   private boolean enabled;
   private Instant createdAt;

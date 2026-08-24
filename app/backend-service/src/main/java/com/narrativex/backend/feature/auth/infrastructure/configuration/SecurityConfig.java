@@ -12,16 +12,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.annotation.Order;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.ProviderManager;
-import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.crypto.factory.PasswordEncoderFactories;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.context.DelegatingSecurityContextRepository;
@@ -39,31 +33,13 @@ public class SecurityConfig {
   private static final String[] PUBLIC_AUTH_PATHS = {
     "/actuator/health",
     "/api/v1/auth/csrf",
-    "/api/auth/login",
-    "/api/auth/register",
     "/api/v1/local-devices/pair",
-    "/api/v1/local-devices/heartbeat",
-    "/api/v1/local-devices/project-renders/**"
+    "/api/v1/local-devices/heartbeat"
   };
 
   private static final String[] DEVICE_CSRF_IGNORED_PATHS = {
-    "/api/v1/local-devices/pair",
-    "/api/v1/local-devices/heartbeat",
-    "/api/v1/local-devices/project-renders/**"
+    "/api/v1/local-devices/pair", "/api/v1/local-devices/heartbeat"
   };
-
-  @Bean
-  PasswordEncoder passwordEncoder() {
-    return PasswordEncoderFactories.createDelegatingPasswordEncoder();
-  }
-
-  @Bean
-  AuthenticationManager authenticationManager(
-      UserDetailsService userDetailsService, PasswordEncoder passwordEncoder) {
-    DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
-    provider.setPasswordEncoder(passwordEncoder);
-    return new ProviderManager(provider);
-  }
 
   @Bean
   SecurityContextRepository securityContextRepository() {
@@ -98,8 +74,7 @@ public class SecurityConfig {
             "X-CSRF-TOKEN",
             "X-XSRF-TOKEN",
             "X-Correlation-Id",
-            "If-Match",
-            "X-NX-Device-Token"));
+            "If-Match"));
     configuration.setExposedHeaders(List.of("ETag", "Location", "X-Correlation-Id"));
     configuration.setAllowCredentials(true);
     configuration.setMaxAge(3600L);
