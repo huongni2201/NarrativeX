@@ -154,7 +154,7 @@ public class LocalProjectRenderController {
       int orderIndex,
       long globalStartMs,
       long globalEndMs,
-      String storageKey,
+      UUID narrationAssetId,
       long sizeBytes,
       String checksum,
       long durationMs) {
@@ -164,7 +164,7 @@ public class LocalProjectRenderController {
           value.orderIndex(),
           value.globalStartMs(),
           value.globalEndMs(),
-          value.storageKey(),
+          value.narrationAssetId(),
           value.sizeBytes(),
           value.checksum(),
           value.durationMs());
@@ -176,11 +176,11 @@ public class LocalProjectRenderController {
       int sceneIndex,
       int beatIndex,
       UUID visualBeatId,
+      UUID mediaAssetId,
       long globalStartMs,
       long globalEndMs,
       long durationMs,
       String cameraMovement,
-      String storageKey,
       long sizeBytes,
       String checksum) {
     static BeatInputResponse from(LocalProjectRenderStore.BeatInput value) {
@@ -189,11 +189,11 @@ public class LocalProjectRenderController {
           value.sceneIndex(),
           value.beatIndex(),
           value.visualBeatId(),
+          value.mediaAssetId(),
           value.globalStartMs(),
           value.globalEndMs(),
           value.durationMs(),
           value.cameraMovement(),
-          value.storageKey(),
           value.sizeBytes(),
           value.checksum());
     }
