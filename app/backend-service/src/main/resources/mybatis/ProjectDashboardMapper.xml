@@ -89,7 +89,9 @@
                      COUNT(DISTINCT s.id)::int AS total_scenes,
                      COALESCE(SUM(s.duration_seconds), 0)::bigint AS estimated_duration_seconds
                 FROM chapters c
-                LEFT JOIN scenes s ON s.chapter_id = c.id
+                LEFT JOIN scenes s
+                  ON s.chapter_id = c.id
+                 AND s.storyboard_revision_id = c.current_storyboard_revision_id
                WHERE c.story_version_id = latest_story.id
           ) metrics ON TRUE
          <choose>

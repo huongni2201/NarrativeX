@@ -63,6 +63,19 @@ class VisualPromptComposerTest {
   }
 
   @Test
+  void addsStructuredCameraFramingToImagePrompt() {
+    var result =
+        composer.compose(
+            ImageStyle.CINEMATIC,
+            "Lan reads the warning",
+            "LOW_ANGLE",
+            VisualPromptContext.empty());
+
+    assertThat(result.prompt())
+        .contains("CAMERA FRAMING: low-angle view; camera below the subject looking upward.");
+  }
+
+  @Test
   void keepsPromptExecutableWhenSceneHasNoCanonYet() {
     var result = composer.compose(ImageStyle.CINEMATIC, "Empty hallway at dawn", null);
 
