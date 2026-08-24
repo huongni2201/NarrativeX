@@ -1,74 +1,118 @@
-# ADR-0011: Google OAuth-only identity with a desktop authentication transport
+# ADR-0011: Google OAuth-only identity with Desktop system-browser handoff
 
-**Status**: Accepted  
-**Date**: 2026-08-24
+**Status:** Accepted  
+**Date:** 2026-08-24
 
-**Supersedes**: The password-authentication mode described in ADR-0004; the session/CSRF and
-Google OIDC security baseline remains applicable to browser flows.
+**Supersedes:** password-authentication behavior described by earlier runtime documentation. The Spring Security server-managed session model remains authoritative.
 
 ## Context
 
-NarrativeX is migrating the primary editor from the browser studio to Electron Desktop. The
-current backend still exposes password login/register alongside Google OIDC, while the separate
-Local Agent uses pairing codes and an encrypted device token. Keeping all three user-facing paths
-would leave two authentication models and two Electron runtimes to maintain.
+NarrativeX is migrating the primary editor to Electron Desktop. Maintaining password login/register, Google OIDC and a separate Electron user-token model would create multiple user identity paths and unnecessary credential risk.
+
+The Desktop app also has a device credential for local execution. That credential has a different purpose and must not be confused with end-user authentication.
 
 ## Decision
 
-- Google is the only user-facing authentication provider. Password login and registration are
-  removed from runtime routes and web auth UI; the existing `password_hash` column remains only as
-  a staged data-migration concern until a separately reviewed cleanup migration proves it is safe
-  to drop.
-- Browser web sessions continue to use Spring Security OIDC + `NX_SESSION` + CSRF.
-- Desktop authentication uses the system browser, not an embedded OAuth BrowserWindow. The backend
-  completes Google OIDC, issues a short-lived one-time desktop authorization code, and redirects
-  to `narrativex://auth/callback?code=...`.
-- Electron main receives only the one-time handoff code through the custom protocol and forwards it
-  over the narrow preload bridge. The renderer exchanges the code with Spring, which creates the
-  server-managed `NX_SESSION` cookie. Google access/refresh tokens never enter Electron.
-- Desktop API calls use the desktop credential transport. The backend remains authoritative for
-  user identity, ownership, entitlements, device registration, jobs and render policy.
-- The Local Agent is ported into `app/desktop/src/main` as device, heartbeat, storage and local
-  execution capabilities. Pairing codes remain available only for future headless/remote nodes;
-  the primary Desktop install auto-registers its local device after authentication.
+### 1. Google is the only end-user login method
 
-## Migration sequence
+Password login, registration and forgot-password flows are not part of the product/runtime target and must not be reintroduced in Desktop or legacy web UI.
 
-1. Remove password auth controllers, DTOs, providers, frontend inputs and password-only rate-limit
-   consumers while preserving Google OIDC and local/test-only identity fixtures.
-2. Add desktop OAuth start/exchange/refresh/logout contracts with state, PKCE, one-time code
-   expiry/consumption and refresh-token rotation/revocation.
-3. Port secure device identity, registration and heartbeat into the single Desktop main process.
-4. Move Desktop renderer API calls from cookie/CSRF-only assumptions to the desktop credential
-   bridge while keeping CSRF for browser session mutations.
-5. Split the Desktop renderer into feature modules and shared API/domain packages.
+Existing legacy database fields related to password authentication may remain temporarily only as a separately reviewed schema-cleanup concern.
+
+### 2. Desktop OAuth runs in the system browser
+
+Electron must not embed Google OAuth in an application BrowserWindow.
+
+The implemented start flow is:
+
+```text
+Electron main
+  -> GET /api/v1/auth/desktop/start?redirect_uri=narrativex://auth/callback
+  -> system browser
+  -> Spring Security Google OIDC
+```
+
+The backend validates the Desktop redirect URI and redirects to Google OIDC.
+
+### 3. OAuth completion uses a one-time handoff code
+
+After successful Google authentication, the backend creates a short-lived single-use Desktop handoff code and redirects to:
+
+```text
+narrativex://auth/callback?code=<one-time-code>
+```
+
+Electron main registers/handles the `narrativex` protocol, extracts only the handoff code and forwards that code through the narrow preload/event boundary.
+
+Google access tokens and refresh tokens never enter Electron.
+
+### 4. The one-time code establishes a server-managed NarrativeX session
+
+Desktop exchanges the handoff code through:
+
+```text
+POST /api/v1/auth/desktop/exchange
+```
+
+The backend consumes the code and saves an authenticated Spring Security context using the configured `SecurityContextRepository`. The resulting NarrativeX authentication is a server-managed application session, not a long-lived OAuth token stored by the Desktop application.
+
+Logout clears that server-managed session through the backend.
+
+### 5. Device token is a separate machine credential
+
+Local project execution uses a device identity/token for pairing, heartbeat, render claim and lease APIs. That token:
+
+- identifies an authorized execution device, not the user OAuth session;
+- is stored through Electron protected storage (`safeStorage` boundary);
+- is never placed in OAuth deep-link URLs;
+- is never exposed wholesale to renderer application code;
+- must be revocable independently of the user's Google identity/session.
+
+Current code supports explicit pairing-code enrollment for local execution. Automatic device registration after successful user authentication is a TARGET optimization, not an AS-IS guarantee.
+
+## Current implementation checkpoint
+
+At `main` commit `751f006634218efb2c398fc00c2cbfecd25e1eac`:
+
+- Electron `DesktopAuthService` opens `/api/v1/auth/desktop/start` in the system browser;
+- Electron registers the `narrativex` custom protocol and handles first/second-instance callback delivery;
+- only the handoff code is delivered to renderer-side application code;
+- backend `/api/v1/auth/desktop/start` redirects into Google OIDC;
+- backend `/api/v1/auth/desktop/exchange` consumes the one-time code and establishes the authenticated server-side security context;
+- Desktop logout endpoints clear the server-managed context;
+- local execution still has a separate explicit pairing/device-token lifecycle.
+
+Do not describe Desktop user authentication as a bearer-token/refresh-token model unless the implementation is deliberately changed by a later ADR.
+
+## Security constraints
+
+1. Never place Google access or refresh tokens in a deep-link URL.
+2. Handoff codes are cryptographically random, short-lived and single-use.
+3. Persisted handoff codes are stored hashed where persistence is required.
+4. Custom-protocol callbacks are allow-listed to the NarrativeX scheme/path.
+5. User session credentials and device execution credentials remain separate concepts.
+6. Device tokens are protected at rest and not logged.
+7. Renderer code receives only the minimum auth/device status it requires.
+8. Password authentication must not silently return through fallback UI or test-only code paths in production.
 
 ## Consequences
 
 ### Positive
 
-- One user identity model backed by Google OIDC.
-- No embedded OAuth login surface in Electron.
-- OS-protected desktop credentials and automatic local-device registration.
-- Web and Desktop can use different transports without duplicating users or policy.
+- One user identity provider: Google OIDC.
+- No embedded Google login surface in Electron.
+- Google credentials remain outside Desktop application state.
+- Server-managed NarrativeX authentication remains compatible with backend ownership/policy checks.
+- Device execution can be revoked independently from user authentication.
 
 ### Negative
 
-- Desktop auth requires a custom protocol registration and a short-lived handoff lifecycle.
-- Existing password-auth test fixtures and legacy password hashes need a staged cleanup.
-- The repository temporarily supports browser sessions and desktop tokens until web editor
-  deprecation is complete.
-
-## Security constraints
-
-- Never put access or refresh tokens in the deep-link URL.
-- One-time desktop auth codes expire quickly, are single-use, are bound to the pending OAuth state
-  and are stored hashed when persisted.
-- Handoff codes are cryptographically random, hashed at rest in the handoff store, expire quickly,
-  and are single-use. The session cookie remains opaque to renderer application code.
-- Device tokens are never logged or exposed through preload wholesale APIs.
+- Desktop packaging must register the custom protocol correctly on each OS.
+- One-time handoff lifecycle and session-cookie transport require integration testing.
+- Explicit device pairing remains an extra step until a reviewed auto-registration flow is implemented.
 
 ## Related decisions
 
 - [ADR-0004: Authentication, runtime security and test credentials](./ADR-0004-authentication-runtime-security-and-test-credentials.md)
-- [ADR-0010: Establish the Electron desktop editor client boundary](./ADR-0010-desktop-editor-client-boundary.md)
+- [ADR-0010: Electron desktop editor client boundary](./ADR-0010-desktop-editor-client-boundary.md)
+- [ADR-0012: Desktop local-first media and render execution](./ADR-0012-desktop-local-first-media-and-render-execution.md)
