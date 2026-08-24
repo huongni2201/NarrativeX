@@ -81,7 +81,7 @@ Architecture regression checks protect shared/feature dependency boundaries and 
 
 - Deeper Job History filtering/details beyond the current paginated table.
 - Richer quota usage/billing UX beyond the current quota details modal.
-- A broader notification message catalog and richer notification deep links.
+- Broader notification message catalog/deep links; the shell now exposes an unread badge and a live “Bạn có … thông báo mới” summary beside the notification bell.
 - Broader Character version/reference/lock UX.
 - Broader Storyboard editing/deep-link/review workflows.
 - Asset upload/finalize/review lifecycle.

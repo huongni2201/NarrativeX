@@ -50,7 +50,20 @@ export function AppProviders({ children }: Readonly<{ children: React.ReactNode 
     <QueryClientProvider client={queryClient}>
       <AuthBootstrap>
         {children}
-        <Toaster position="top-right" theme="dark" richColors />
+        <Toaster
+          position="top-right"
+          theme="light"
+          richColors
+          closeButton
+          toastOptions={{
+            classNames: {
+              toast: "!border-border-toast !bg-surface-toast !text-text-toast shadow-xl",
+              title: "!text-text-toast",
+              description: "!text-text-toast-muted",
+              closeButton: "!border-border-toast !bg-surface-toast-hover !text-text-toast-muted",
+            },
+          }}
+        />
       </AuthBootstrap>
     </QueryClientProvider>
   );

@@ -43,22 +43,33 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({ title, actions }) =>
         </button>
 
         {/* Nút Chuông Thông báo */}
-        <button
-          type="button"
-          aria-label={`Thông báo (${unreadCount} chưa đọc)`}
-          title="Trung tâm thông báo"
-          onClick={() => setIsNotificationDrawerOpen(true)}
-          className="relative flex h-10 w-10 items-center justify-center rounded-full border border-transparent text-slate-400 transition-colors hover:border-border hover:bg-surface-3 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-        >
-          <Bell className="h-5 w-5" />
+        <div className="flex min-w-0 items-center gap-2">
+          <button
+            type="button"
+            aria-label={`Thông báo (${unreadCount} chưa đọc)`}
+            title="Trung tâm thông báo"
+            onClick={() => setIsNotificationDrawerOpen(true)}
+            className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-transparent text-slate-400 transition-colors hover:border-border hover:bg-surface-3 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            <Bell className="h-5 w-5" />
+            {unreadCount > 0 && (
+              <span
+                className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-white shadow-md ring-2 ring-background"
+              >
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
+          </button>
+
           {unreadCount > 0 && (
             <span
-              className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-white shadow-md ring-2 ring-background"
+              aria-live="polite"
+              className="max-w-[150px] text-xs font-medium leading-4 text-text-secondary sm:max-w-none"
             >
-              {unreadCount > 99 ? "99+" : unreadCount}
+              Bạn có {unreadCount} thông báo mới
             </span>
           )}
-        </button>
+        </div>
 
         {/* Nút Tạo dự án mới */}
         <Button

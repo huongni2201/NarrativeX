@@ -80,6 +80,14 @@ environment variables and are never committed to the repository.
 - **GCS Staging Lifecycle:** A dedicated Google Cloud Storage bucket is used strictly as temporary staging for batch input/output JSONL files under deterministic batch prefixes. Reconciled images are uploaded to Cloudflare R2 as canonical `MediaAsset` records.
 - **Asynchronous Batch Reconciliation:** `ImageGenerationRunner` persists pending batch job metadata before releasing worker leases. Workers reconcile batches asynchronously, preventing in-memory polling and surviving worker restarts.
 
+### 5. Durable in-app completion notifications
+
+PostgreSQL creates one in-app notification when an image (`CHAPTER_GENERATE` and image stage
+variants) or generated narration (`NARRATION_GENERATE`) job transitions to `COMPLETED`. The
+notification is created by a database trigger because workers update `generation_jobs` directly;
+the unique event key makes retries idempotent and keeps the notification in the same transaction
+as the authoritative job transition.
+
 ---
 
 ## Invariants

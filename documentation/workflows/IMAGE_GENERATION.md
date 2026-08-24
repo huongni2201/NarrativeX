@@ -109,6 +109,7 @@ paid attempt.
 - The backend authorizes `IMAGE_MOTION` for one Chapter at a time, snapshotting approved storyboard revisions, narration/alignment references, and provider pricing into `MediaGenerationItem` rows.
 - The worker persists `ProviderOperation(RESERVED)` before external submission. Network 5xx/timeouts transition to `UNKNOWN` and require explicit reconciliation; blind retries are prohibited.
 - Monitor jobs by execution status (`QUEUED`, `RUNNING`, `VALIDATING`, `READY`, `FAILED`, `UNKNOWN`) and review status (`NOT_READY`, `NEEDS_REVIEW`, `APPROVED`, `REJECTED`).
+- When the authoritative image generation job reaches `COMPLETED`, PostgreSQL creates one unread in-app notification for the requesting user; the unique event key prevents duplicates during retries.
 
 ## Cloudflare R2 Browser Upload CORS Configuration
 

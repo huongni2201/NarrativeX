@@ -223,6 +223,7 @@ function formatNotificationTitle(key: string): string {
     "notification.story_analyze.failed": "Phân tích Chapter thất bại",
     "notification.narration.completed": "Tạo giọng đọc hoàn tất",
     "notification.narration.failed": "Tạo giọng đọc thất bại",
+    "notification.image_generation.completed": "Tạo hình ảnh hoàn tất",
     "notification.render.completed": "Render video thành công",
     "notification.quota.low": "Hạn mức credit sắp hết",
     "notification.welcome": "Chào mừng đến với NarrativeX",
@@ -234,6 +235,7 @@ function formatNotificationMessage(key: string): string {
   const map: Record<string, string> = {
     "notification.story_analyze.completed.desc": "Các Scene và Visual Beats đã được phân tích thành công.",
     "notification.narration.completed.desc": "Tệp âm thanh narration đã được lưu trữ bền vững trên Cloudflare R2.",
+    "notification.image_generation.completed.desc": "Các keyframe hình ảnh đã được tạo thành công và sẵn sàng để review.",
     "notification.welcome.desc": "Bắt đầu tạo câu chuyện hoặc nhập kịch bản đầu tiên của bạn.",
   };
   return map[key] ?? key;
