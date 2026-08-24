@@ -54,8 +54,10 @@ Remote backend origins must use HTTPS. Plain HTTP is accepted only for loopback 
 FFmpeg can be resolved from:
 
 1. `NARRATIVEX_FFMPEG_PATH` / `NARRATIVEX_FFPROBE_PATH`;
-2. packaged `resources/ffmpeg` binaries;
+2. packaged `${process.resourcesPath}/ffmpeg` binaries copied through `extraResources`;
 3. `ffmpeg` / `ffprobe` available on `PATH`.
+
+Optional bundled Windows binaries belong in `resources/ffmpeg/ffmpeg.exe` and `resources/ffmpeg/ffprobe.exe`. The directory is excluded from `app.asar` so the executables remain runnable after installation.
 
 ## Development
 
@@ -76,9 +78,17 @@ npm run check
 
 `type-check` explicitly checks both `tsconfig.node.json` and `tsconfig.web.json`; do not replace it with a bare `tsc --noEmit` against the root solution config.
 
-## Packaging status
+## Windows packaging
 
-`electron-builder.yml` defines the Windows NSIS application metadata, icon resources and `narrativex://` protocol registration. A deterministic installer command is intentionally not documented yet because `electron-builder` is not pinned in `package.json`/`package-lock.json`. Add and lock the packaging dependency before treating installer creation as a release gate.
+`electron-builder.yml` defines the Windows NSIS application metadata, NarrativeX icon, external FFmpeg resource layout and `narrativex://` protocol registration.
+
+Create a Windows installer with:
+
+```bash
+npm run package:win
+```
+
+The script runs `npm run check` first and then invokes the stable `electron-builder@26.15.7` release explicitly. This avoids changing the existing npm lockfile while keeping the packaging tool version fixed. Before a signed production release, move `electron-builder` into `devDependencies` and regenerate/commit `package-lock.json` with npm so the complete packaging dependency graph is locked as well.
 
 ## Migration rule
 
