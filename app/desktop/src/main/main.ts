@@ -1,5 +1,6 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, session, shell } from "electron";
 import { join } from "node:path";
+import { DesktopBackendApiService } from "./api/backend-api-service";
 import { DesktopAuthService } from "./auth/auth-service";
 import { AUTH_CALLBACK_CHANNEL } from "./auth/auth-events";
 import { extractDesktopAuthCode, isNarrativeXProtocolUrl } from "./auth/protocol-handler";
@@ -15,7 +16,14 @@ let mainWindow: BrowserWindow | null = null;
 let localExecution: LocalExecutionService | null = null;
 let projectStorage: ProjectStorage | null = null;
 let desktopAuth: DesktopAuthService | null = null;
-let ffmpegRuntime: FfmpegRuntimeStatus = { available: false, ffmpegPath: null, ffprobePath: null, version: null, reason: "Not initialized." };
+let desktopApi: DesktopBackendApiService | null = null;
+let ffmpegRuntime: FfmpegRuntimeStatus = {
+  available: false,
+  ffmpegPath: null,
+  ffprobePath: null,
+  version: null,
+  reason: "Not initialized.",
+};
 let initialProtocolUrl: string | null = process.argv.find(isNarrativeXProtocolUrl) ?? null;
 let pendingAuthCode: string | null = null;
 
@@ -84,12 +92,18 @@ function requireProjectStorage(): ProjectStorage {
   return projectStorage;
 }
 
+function requireDesktopApi(): DesktopBackendApiService {
+  if (!desktopApi) throw new Error("Desktop API service is not initialized.");
+  return desktopApi;
+}
+
 void app.whenReady().then(async () => {
   app.setAppUserModelId("com.narrativex.desktop");
   ffmpegRuntime = await resolveFfmpegRuntime();
   const config = loadLocalExecutionConfig(ffmpegRuntime.available);
   app.setAsDefaultProtocolClient("narrativex");
   desktopAuth = new DesktopAuthService(config.backendBaseUrl);
+  desktopApi = new DesktopBackendApiService(config.backendBaseUrl, session.defaultSession);
   const identityStore = new DeviceIdentityStore();
   const backendClient = new LocalExecutionBackendClient(config, app.getVersion());
   projectStorage = new ProjectStorage(join(app.getPath("userData"), "projects"));
@@ -102,6 +116,10 @@ void app.whenReady().then(async () => {
   );
 
   ipcMain.handle("desktop:app-version", () => app.getVersion());
+  ipcMain.handle("desktop:api:request", (_event, input: unknown) => {
+    if (!isDesktopApiRequest(input)) throw new Error("Invalid desktop API request.");
+    return requireDesktopApi().request(input);
+  });
   ipcMain.handle("desktop:auth:login", () => {
     if (!desktopAuth) throw new Error("Desktop auth is not initialized.");
     return desktopAuth.login();
@@ -131,7 +149,11 @@ void app.whenReady().then(async () => {
     if (!isAssetImportInput(input)) throw new Error("Invalid local asset import input.");
     const selected = await dialog.showOpenDialog({ properties: ["openFile"] });
     if (selected.canceled || !selected.filePaths[0]) return null;
-    return requireProjectStorage().registerAsset(input.projectId, { assetId: input.assetId, kind: input.kind, sourcePath: selected.filePaths[0] });
+    return requireProjectStorage().registerAsset(input.projectId, {
+      assetId: input.assetId,
+      kind: input.kind,
+      sourcePath: selected.filePaths[0],
+    });
   });
   ipcMain.handle("desktop:local-storage:reveal-artifact", async (_event, input: unknown) => {
     if (!isArtifactInput(input)) throw new Error("Invalid local artifact input.");
@@ -179,10 +201,38 @@ app.on("before-quit", () => {
   localExecution?.stop();
 });
 
-function isAssetImportInput(value: unknown): value is { projectId: string; assetId: string; kind: "IMAGE" | "AUDIO" | "VIDEO" | "OTHER" } {
+function isDesktopApiRequest(value: unknown): value is {
+  path: string;
+  method?: string;
+  headers?: Record<string, string>;
+  body?: string;
+} {
   if (!value || typeof value !== "object") return false;
   const input = value as Record<string, unknown>;
-  return typeof input.projectId === "string" && typeof input.assetId === "string" && ["IMAGE", "AUDIO", "VIDEO", "OTHER"].includes(String(input.kind));
+  if (typeof input.path !== "string") return false;
+  if (input.method !== undefined && typeof input.method !== "string") return false;
+  if (input.body !== undefined && typeof input.body !== "string") return false;
+  if (input.headers === undefined) return true;
+  if (!input.headers || typeof input.headers !== "object" || Array.isArray(input.headers)) {
+    return false;
+  }
+  return Object.entries(input.headers).every(
+    ([key, headerValue]) => key.length > 0 && typeof headerValue === "string",
+  );
+}
+
+function isAssetImportInput(value: unknown): value is {
+  projectId: string;
+  assetId: string;
+  kind: "IMAGE" | "AUDIO" | "VIDEO" | "OTHER";
+} {
+  if (!value || typeof value !== "object") return false;
+  const input = value as Record<string, unknown>;
+  return (
+    typeof input.projectId === "string" &&
+    typeof input.assetId === "string" &&
+    ["IMAGE", "AUDIO", "VIDEO", "OTHER"].includes(String(input.kind))
+  );
 }
 
 function isArtifactInput(value: unknown): value is { projectId: string; jobId: string } {
