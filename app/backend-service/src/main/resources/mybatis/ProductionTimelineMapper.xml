@@ -181,9 +181,9 @@
            mbp.audio_end_ms,
            mbp.audio_duration_ms,
            selected.media_asset_id,
-           ma.storage_key,
-           ma.size_bytes,
-           ma.sha256 AS checksum
+           selected.storage_key,
+           selected.size_bytes,
+           selected.checksum
       FROM chapters c
       JOIN current_story cs ON cs.id = c.story_version_id
       JOIN chapter_media_heads cmh ON cmh.chapter_id = c.id
@@ -200,20 +200,25 @@
       JOIN media_beat_plans mbp ON mbp.media_plan_id = mp.id
       LEFT JOIN visual_beats vb ON vb.id = mbp.visual_beat_id
       LEFT JOIN LATERAL (
-        SELECT mgi.media_asset_id
+        SELECT mgi.media_asset_id,
+               ma.storage_key,
+               ma.size_bytes,
+               ma.sha256 AS checksum
           FROM media_generation_items mgi
+          JOIN media_assets ma ON ma.id = mgi.media_asset_id
          WHERE mgi.media_plan_id = mbp.media_plan_id
            AND mgi.visual_beat_id = mbp.visual_beat_id
            AND mgi.execution_status = 'READY'
            AND mgi.media_asset_id IS NOT NULL
+           AND ma.asset_type = 'IMAGE'
+           AND ma.status = 'READY'
+           AND ma.deleted_at IS NULL
+           AND ma.storage_key IS NOT NULL
+           AND ma.size_bytes > 0
+           AND ma.sha256 IS NOT NULL
          ORDER BY mgi.attempt_number DESC, mgi.created_at DESC, mgi.id DESC
          LIMIT 1
       ) selected ON TRUE
-      LEFT JOIN media_assets ma
-        ON ma.id = selected.media_asset_id
-       AND ma.asset_type = 'IMAGE'
-       AND ma.status = 'READY'
-       AND ma.deleted_at IS NULL
      WHERE c.deleted_at IS NULL
      ORDER BY c.order_index ASC, c.id ASC, mbp.scene_index ASC, mbp.beat_index ASC
   </select>
