@@ -12,5 +12,6 @@ public record LocalProjectRenderBeatRow(
     long globalEndMs,
     long durationMs,
     String cameraMovement,
+    String storageKey,
     long sizeBytes,
     String checksum) {}
