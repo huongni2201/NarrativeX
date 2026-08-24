@@ -3,6 +3,7 @@ package com.narrativex.backend.feature.localexecution.infrastructure.persistence
 import com.narrativex.backend.feature.localexecution.application.port.out.LocalProjectRenderStore;
 import com.narrativex.backend.feature.localexecution.infrastructure.persistence.mybatis.LocalProjectRenderArtifactRow;
 import com.narrativex.backend.feature.localexecution.infrastructure.persistence.mybatis.LocalProjectRenderMapper;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -67,6 +68,18 @@ public class MyBatisLocalProjectRenderStore implements LocalProjectRenderStore {
             leaseToken,
             chapters,
             beats));
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public List<InputRef> listInputsForOwnedLease(
+      UUID jobId, UUID deviceId, String workerId, UUID leaseToken) {
+    return mapper.listInputsForOwnedLease(jobId, deviceId, workerId, leaseToken).stream()
+        .map(
+            row ->
+                new InputRef(
+                    row.storageKey(), row.sizeBytes(), row.checksum(), row.mediaKind()))
+        .toList();
   }
 
   @Override
