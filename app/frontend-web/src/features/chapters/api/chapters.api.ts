@@ -5,10 +5,13 @@ import type {
   ApiChapterContentVariant,
   ApiChapterLanguageStatus,
   ApiGenerationJob,
+  ChapterId,
   CreateChapterApiInput,
   CursorPage,
-  UpdateChapterApiInput,
   ProjectId,
+  ResourceId,
+  StoryVersionId,
+  UpdateChapterApiInput,
 } from "@/types/api";
 import {
   isApiChapter,
@@ -26,32 +29,28 @@ export interface ChapterListParams {
 
 function chapterListPath(
   projectId: ProjectId,
-  storyVersionId: string | number,
+  storyVersionId: StoryVersionId,
   { cursor, limit = 50 }: ChapterListParams = {},
 ): string {
-  const params = new URLSearchParams({
-    storyVersionId: String(storyVersionId),
-    limit: String(limit),
-  });
+  const params = new URLSearchParams({ storyVersionId, limit: String(limit) });
   if (cursor) params.set("cursor", cursor);
   return `/api/v1/projects/${projectId}/chapters?${params.toString()}`;
 }
 
 export const chaptersApi = {
-  list: (projectId: ProjectId, storyVersionId: string | number, params: ChapterListParams = {}) =>
+  list: (projectId: ProjectId, storyVersionId: StoryVersionId, params: ChapterListParams = {}) =>
     apiRequest<CursorPage<ApiChapterSummary>>(
       chapterListPath(projectId, storyVersionId, params),
       {},
-      (value): value is CursorPage<ApiChapterSummary> =>
-        isCursorPage(value, isApiChapterSummary),
+      (value): value is CursorPage<ApiChapterSummary> => isCursorPage(value, isApiChapterSummary),
     ),
-  getById: (projectId: ProjectId, chapterId: string | number) =>
+  getById: (projectId: ProjectId, chapterId: ChapterId) =>
     apiRequest<ApiChapter>(
       `/api/v1/projects/${projectId}/chapters/${chapterId}`,
       {},
       isApiChapter,
     ),
-  getWorkspace: (projectId: ProjectId, chapterId: string | number) =>
+  getWorkspace: (projectId: ProjectId, chapterId: ChapterId) =>
     apiRequest<ApiChapterWorkspace>(
       `/api/v1/projects/${projectId}/chapters/${chapterId}/workspace`,
       {},
@@ -63,9 +62,9 @@ export const chaptersApi = {
       { method: "POST", headers: { "Idempotency-Key": idempotencyKey }, json: input },
       isApiChapter,
     ),
-  batchImport: (projectId: ProjectId, file: File, storyVersionId?: string | number) => {
+  batchImport: (projectId: ProjectId, file: File, storyVersionId?: StoryVersionId) => {
     const form = new FormData();
-    if (storyVersionId !== undefined) form.set("storyVersionId", String(storyVersionId));
+    if (storyVersionId !== undefined) form.set("storyVersionId", storyVersionId);
     form.set("file", file);
     return apiRequest<ApiChapter[]>(
       `/api/v1/projects/${projectId}/chapters/batch-import`,
@@ -75,7 +74,7 @@ export const chaptersApi = {
   },
   update: (
     projectId: ProjectId,
-    chapterId: string | number,
+    chapterId: ChapterId,
     rowVersion: number,
     input: UpdateChapterApiInput,
   ) =>
@@ -88,19 +87,19 @@ export const chaptersApi = {
       },
       isApiChapter,
     ),
-  delete: (projectId: ProjectId, chapterId: string | number) =>
+  delete: (projectId: ProjectId, chapterId: ChapterId) =>
     apiRequest<void>(`/api/v1/projects/${projectId}/chapters/${chapterId}`, { method: "DELETE" }),
-  importContent: (projectId: ProjectId, chapterId: string | number, content: string, title?: string) =>
-    apiRequest<{ variantId: string; variantType: string; languageDetectionStatus: string }>(
+  importContent: (projectId: ProjectId, chapterId: ChapterId, content: string, title?: string) =>
+    apiRequest<{ variantId: ResourceId; variantType: string; languageDetectionStatus: string }>(
       `/api/v1/projects/${projectId}/chapters/${chapterId}/content`,
       { method: "POST", json: { content, title } },
-      (value): value is { variantId: string; variantType: string; languageDetectionStatus: string } =>
+      (value): value is { variantId: ResourceId; variantType: string; languageDetectionStatus: string } =>
         typeof value === "object" && value !== null &&
         typeof (value as { variantId?: unknown }).variantId === "string" &&
         typeof (value as { variantType?: unknown }).variantType === "string" &&
         typeof (value as { languageDetectionStatus?: unknown }).languageDetectionStatus === "string",
     ),
-  getLanguageStatus: (projectId: ProjectId, chapterId: string | number) =>
+  getLanguageStatus: (projectId: ProjectId, chapterId: ChapterId) =>
     apiRequest<ApiChapterLanguageStatus>(
       `/api/v1/projects/${projectId}/chapters/${chapterId}/language-status`,
       {},
@@ -116,7 +115,7 @@ export const chaptersApi = {
           (candidate.existingTranslationVariantId === null || typeof candidate.existingTranslationVariantId === "string");
       },
     ),
-  listContentVariants: (projectId: ProjectId, chapterId: string | number) =>
+  listContentVariants: (projectId: ProjectId, chapterId: ChapterId) =>
     apiRequest<ApiChapterContentVariant[]>(
       `/api/v1/projects/${projectId}/chapters/${chapterId}/content-variants`,
       {},
@@ -134,21 +133,21 @@ export const chaptersApi = {
     ),
   confirmTranslation: (
     projectId: ProjectId,
-    chapterId: string | number,
-    input: { sourceVariantId: string; sourceContentHash: string; targetLanguage: string },
+    chapterId: ChapterId,
+    input: { sourceVariantId: ResourceId; sourceContentHash: string; targetLanguage: string },
   ) =>
     apiRequest<ApiGenerationJob>(
       `/api/v1/projects/${projectId}/chapters/${chapterId}/translations`,
       { method: "POST", json: input },
       isApiGenerationJob,
     ),
-  analyze: (projectId: ProjectId, chapterId: string | number, contentVariantId?: string | number) =>
+  analyze: (projectId: ProjectId, chapterId: ChapterId, contentVariantId?: ResourceId) =>
     apiRequest<ApiGenerationJob>(
       `/api/v1/projects/${projectId}/chapters/${chapterId}/analysis-jobs${contentVariantId ? `?contentVariantId=${contentVariantId}` : ""}`,
       { method: "POST" },
       isApiGenerationJob,
     ),
-  getAnalysisJob: (jobId: string) =>
+  getAnalysisJob: (jobId: ResourceId) =>
     apiRequest<ApiGenerationJob>(
       `/api/v1/generation-jobs/${encodeURIComponent(jobId)}`,
       {},
