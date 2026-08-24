@@ -59,7 +59,8 @@ class EnqueueStoryAnalysisUseCaseTest {
           + ":"
           + CHAPTER_ROW_VERSION
           + ":"
-          + SOURCE_HASH;
+          + SOURCE_HASH
+          + ":original";
 
   @Mock private CurrentUserId currentUserId;
   @Mock private ProjectAccess projectAccess;
@@ -199,7 +200,8 @@ class EnqueueStoryAnalysisUseCaseTest {
             + ":"
             + (CHAPTER_ROW_VERSION + 1)
             + ":"
-            + SOURCE_HASH;
+            + SOURCE_HASH
+            + ":original";
     RuntimeException stop = new RuntimeException("derived new snapshot key");
     when(currentUserId.get()).thenReturn("user-1");
     when(chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(PROJECT_ID, CHAPTER_ID, "user-1"))
