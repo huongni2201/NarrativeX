@@ -83,13 +83,13 @@ export class DesktopBackendApiService {
 
   private resolveAllowedUrl(path: string): URL {
     if (!path.startsWith("/")) throw new Error("Desktop API path must be absolute.");
-    if (!(path.startsWith("/api/v1/") || path === "/logout")) {
-      throw new Error(`Desktop API path is not allowlisted: ${path}`);
-    }
 
     const url = new URL(path, this.backendBaseUrl);
     if (url.origin !== this.backendOrigin) {
       throw new Error("Desktop API request cannot leave the configured backend origin.");
+    }
+    if (!(url.pathname.startsWith("/api/v1/") || url.pathname === "/logout")) {
+      throw new Error(`Desktop API path is not allowlisted: ${url.pathname}`);
     }
     return url;
   }
