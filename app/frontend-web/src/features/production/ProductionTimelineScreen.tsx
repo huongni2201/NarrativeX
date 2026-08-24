@@ -92,7 +92,12 @@ export function ProductionTimelineScreen({ projectId }: Readonly<ProductionTimel
   }, [focusChapter?.chapterId, timeline, timelineWidth]);
 
   const error =
-    timelineQuery.error ?? projectQuery.error ?? renderMutation.error ?? jobQuery.error ?? null;
+    timelineQuery.error ??
+    projectQuery.error ??
+    renderMutation.error ??
+    jobQuery.error ??
+    artifactQuery.error ??
+    null;
   const renderBusy =
     renderMutation.isPending ||
     job?.status === "QUEUED" ||
@@ -189,7 +194,10 @@ export function ProductionTimelineScreen({ projectId }: Readonly<ProductionTimel
             </label>
             <button
               type="button"
-              onClick={() => renderMutation.mutate()}
+              onClick={() => {
+                idempotencyKeyRef.current = crypto.randomUUID();
+                renderMutation.mutate();
+              }}
               disabled={!timeline?.readyForRender || renderBusy}
               className="flex w-full items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 py-2.5 font-semibold text-black transition hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-40"
             >
