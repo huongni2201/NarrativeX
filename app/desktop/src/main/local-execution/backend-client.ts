@@ -7,6 +7,16 @@ interface ApiEnvelope<T> {
   data?: T;
 }
 
+export class LocalExecutionBackendError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "LocalExecutionBackendError";
+  }
+}
+
 export interface PairDeviceResponse {
   deviceId: string;
   deviceToken: string;
@@ -209,7 +219,10 @@ export class LocalExecutionBackendClient {
       // Fall through to the HTTP status below.
     }
     if (!response.ok || payload?.success !== true) {
-      throw new Error(payload?.message || `Backend request failed (${response.status}).`);
+      throw new LocalExecutionBackendError(
+        response.status,
+        payload?.message || `Backend request failed (${response.status}).`,
+      );
     }
     return payload.data as T;
   }
