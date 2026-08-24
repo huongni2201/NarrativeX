@@ -156,6 +156,15 @@ test("project production is a dedicated route with one global audio-clock timeli
   assert.match(productionApi, /\/production\/render/);
 });
 
+test("project final render retries preserve one idempotency intent", () => {
+  assert.match(productionTimeline, /interface RenderIntent/);
+  assert.match(productionTimeline, /const renderIntentRef = useRef<RenderIntent \| null>\(null\)/);
+  assert.match(productionTimeline, /if \(!intent \|\| intent\.resolution !== resolution\)/);
+  assert.match(productionTimeline, /renderMutation\.mutate\(intent\)/);
+  assert.match(productionTimeline, /onSuccess: \(job\) => \{[\s\S]*renderIntentRef\.current = null;/);
+  assert.doesNotMatch(productionTimeline, /onError:[\s\S]*renderIntentRef\.current = null/);
+});
+
 test("chapter render stays a preview and opens the focused project production timeline", () => {
   assert.match(renderTab, /Chapter preview &amp; render/);
   assert.match(renderTab, /Open in Production/);
