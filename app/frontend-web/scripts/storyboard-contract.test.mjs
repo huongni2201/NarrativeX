@@ -39,6 +39,7 @@ test("accepts UUID scene and visual beat identifiers", () => {
             visualIntent: "A quiet opening frame.",
             motionMode: "STILL",
             cameraMovement: "NONE",
+            cameraAngle: "WIDE",
             reviewStatus: "NEEDS_REVIEW",
             aspectRatioOverride: null,
             qualityTierOverride: null,

@@ -23,7 +23,7 @@ import { useCreateChapter } from "./hooks/useCreateChapter";
 import { useDeleteChapter } from "./hooks/useDeleteChapter";
 import { useProjectResources } from "./hooks/useProjectResources";
 import { useProjectWorkspace } from "./hooks/useProjectWorkspace";
-import type { ProjectId } from "@/types/api";
+import type { ChapterId, ProjectId } from "@/types/api";
 
 interface ProductionShellProps {
   projectId?: string;
@@ -78,7 +78,7 @@ export function ProductionShell({ projectId, initialTab = "chapters" }: Readonly
     else setFormOpen(true);
   };
 
-  const openChapter = (chapterId: string | number) => {
+  const openChapter = (chapterId: ChapterId) => {
     workspace.navigateToChapter(chapterId);
   };
 

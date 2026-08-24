@@ -8,6 +8,8 @@ import { AssetTypeBadge } from "./AssetTypeBadge";
 
 interface AssetDetailDrawerProps {
   asset: MediaAsset | null;
+  previewUrl?: string | null;
+  downloadUrl?: string | null;
   onClose: () => void;
   onDelete: (id: string) => void;
   onApprove?: (id: string) => void;
@@ -15,7 +17,7 @@ interface AssetDetailDrawerProps {
   onToggleLock?: (id: string) => void;
 }
 
-export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = ({ asset, onClose, onDelete, onApprove, onReject: _onReject, onToggleLock }) => {
+export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = ({ asset, previewUrl, downloadUrl, onClose, onDelete, onApprove, onReject: _onReject, onToggleLock }) => {
   const [confirmDelete, setConfirmDelete] = useState(false);
   if (!asset) return null;
 
@@ -26,7 +28,10 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = ({ asset, onC
         <button type="button" onClick={onClose} aria-label="Đóng chi tiết tài sản" className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-200"><X className="h-4 w-4" /></button>
       </header>
       <div className="flex-1 space-y-5 p-5">
-        {asset.type !== "AUDIO" && (asset.thumbnailUrl ? <img src={asset.thumbnailUrl} alt={asset.filename} className="aspect-[16/10] w-full rounded-xl object-cover" /> : <div className="flex aspect-[16/10] w-full items-center justify-center rounded-xl bg-surface-panel text-text-muted"><ImageIcon className="h-10 w-10" aria-hidden="true" /><span className="sr-only">Chưa có thumbnail</span></div>)}
+        {previewUrl && asset.type === "IMAGE" ? <img src={previewUrl} alt={asset.filename} className="aspect-[16/10] w-full rounded-xl bg-surface-panel object-contain" /> : null}
+        {previewUrl && asset.type === "VIDEO" ? <video src={previewUrl} controls preload="metadata" className="aspect-[16/10] w-full rounded-xl bg-surface-panel object-contain" /> : null}
+        {previewUrl && asset.type === "AUDIO" ? <audio src={previewUrl} controls preload="metadata" className="w-full" /> : null}
+        {!previewUrl && asset.type !== "AUDIO" && <div className="flex aspect-[16/10] w-full items-center justify-center rounded-xl bg-surface-panel text-text-muted"><ImageIcon className="h-10 w-10" aria-hidden="true" /><span className="sr-only">Preview chưa sẵn sàng</span></div>}
         <div className="flex items-center justify-between"><AssetTypeBadge type={asset.type} showIcon /><AssetStatusBadge status={asset.status} progressPercent={asset.progressPercent} /></div>
         <dl className="grid grid-cols-2 gap-3 rounded-xl border border-slate-800 bg-surface-panel p-4 text-xs">
           <div><dt className="text-slate-500">Dự án</dt><dd className="mt-1 text-slate-200">{asset.projectTitle}</dd></div>
@@ -37,7 +42,7 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = ({ asset, onC
         {asset.prompt && <div><h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Prompt AI</h4><p className="mt-2 rounded-xl border border-slate-800 bg-surface-panel p-3 font-mono text-[11px] leading-5 text-slate-300">{asset.prompt}</p></div>}
       </div>
       <footer className="sticky bottom-0 space-y-2 border-t border-slate-800 bg-surface-panel p-4">
-        {confirmDelete ? <div className="space-y-2 rounded-xl border border-rose-800/80 bg-rose-950/50 p-3"><p className="text-center text-xs text-rose-200">Xóa tài sản này?</p><div className="grid grid-cols-2 gap-2"><Button variant="secondary" size="sm" onClick={() => setConfirmDelete(false)}>Hủy</Button><Button variant="danger" size="sm" onClick={() => { onDelete(asset.id); setConfirmDelete(false); }}>Xóa</Button></div></div> : <div className="grid grid-cols-2 gap-2">{onToggleLock && <Button variant="secondary" size="sm" onClick={() => onToggleLock(asset.id)} leftIcon={asset.status === "LOCKED" ? <Unlock className="mr-1 h-3.5 w-3.5" /> : <Lock className="mr-1 h-3.5 w-3.5" />}>{asset.status === "LOCKED" ? "Mở khóa" : "Khóa"}</Button>}{onApprove && <Button variant="primary" size="sm" onClick={() => onApprove(asset.id)}>Approve</Button>}<Button variant="danger" size="sm" onClick={() => setConfirmDelete(true)} leftIcon={<Trash2 className="mr-1 h-3.5 w-3.5" />}>Xóa</Button></div>}
+        {confirmDelete ? <div className="space-y-2 rounded-xl border border-rose-800/80 bg-rose-950/50 p-3"><p className="text-center text-xs text-rose-200">Xóa tài sản này?</p><div className="grid grid-cols-2 gap-2"><Button variant="secondary" size="sm" onClick={() => setConfirmDelete(false)}>Hủy</Button><Button variant="danger" size="sm" onClick={() => { onDelete(asset.id); setConfirmDelete(false); }}>Xóa</Button></div></div> : <div className="grid grid-cols-2 gap-2">{downloadUrl && <a href={downloadUrl} download={asset.filename} className="inline-flex items-center justify-center rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white">Tải xuống</a>}{onToggleLock && <Button variant="secondary" size="sm" onClick={() => onToggleLock(asset.id)} leftIcon={asset.status === "LOCKED" ? <Unlock className="mr-1 h-3.5 w-3.5" /> : <Lock className="mr-1 h-3.5 w-3.5" />}>{asset.status === "LOCKED" ? "Mở khóa" : "Khóa"}</Button>}{onApprove && <Button variant="primary" size="sm" onClick={() => onApprove(asset.id)}>Approve</Button>}<Button variant="danger" size="sm" onClick={() => setConfirmDelete(true)} leftIcon={<Trash2 className="mr-1 h-3.5 w-3.5" />}>Xóa</Button></div>}
       </footer>
     </aside>
   );

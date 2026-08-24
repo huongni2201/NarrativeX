@@ -27,6 +27,12 @@ export interface ApiCharacterSummary {
   rowVersion: number;
 }
 
+export interface ApiProjectCharacterAssignment {
+  assignmentId: string;
+  characterId: string;
+  projectId: string;
+}
+
 export interface ApiProjectCharacterSummary {
   id: string;
   assignmentId: string;
@@ -188,6 +194,12 @@ function versionReferencesPath(characterId: string, versionId: string): string {
 }
 
 export const charactersApi = {
+  create: (input: { workspaceId?: string | null; canonicalName: string; aliases?: string[] }) =>
+    apiRequest<ApiCharacterSummary>(
+      "/api/v1/characters",
+      { method: "POST", json: input },
+      isApiCharacterSummary,
+    ),
   list: (params: CharacterListParams = {}) =>
     apiRequest<CursorPage<ApiCharacterSummary>>(
       listPath("/api/v1/characters", params),
@@ -240,5 +252,30 @@ export const charactersApi = {
         json: { references },
       },
       isCharacterReferenceArray,
+    ),
+  assignToProject: (
+    projectId: ProjectId,
+    input: {
+      characterId: string;
+      role: string;
+      importance?: number;
+      projectAliases?: string[];
+      storyMetadata?: string | null;
+      groups?: string[];
+      pinnedCharacterVersionId?: string | null;
+    },
+  ) =>
+    apiRequest<ApiProjectCharacterAssignment>(
+      `/api/v1/projects/${projectId}/characters`,
+      { method: "POST", json: { importance: 0, projectAliases: [], groups: [], ...input } },
+      (value): value is ApiProjectCharacterAssignment => {
+        if (typeof value !== "object" || value === null) return false;
+        const candidate = value as Partial<ApiProjectCharacterAssignment>;
+        return (
+          typeof candidate.assignmentId === "string" &&
+          typeof candidate.characterId === "string" &&
+          typeof candidate.projectId === "string"
+        );
+      },
     ),
 };

@@ -1,15 +1,35 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { LoaderCircle, RefreshCw, Search, Users } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { apiErrorMessage } from "@/shared/api/client";
+import { queryKeys } from "@/lib/query-keys";
 import { useCharactersQuery } from "./hooks/useCharactersQuery";
+import { charactersApi } from "./api/characters.api";
 
 export function CharacterLibrary() {
   const [search, setSearch] = useState("");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [aliases, setAliases] = useState("");
+  const queryClient = useQueryClient();
   const query = useCharactersQuery();
+  const createMutation = useMutation({
+    mutationFn: () =>
+      charactersApi.create({
+        canonicalName: name.trim(),
+        aliases: aliases.split(",").map((alias) => alias.trim()).filter(Boolean),
+      }),
+    onSuccess: async () => {
+      setName("");
+      setAliases("");
+      setCreateOpen(false);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.characters });
+    },
+  });
 
   const characters = useMemo(
     () => query.data?.pages.flatMap((page) => page.content) ?? [],
@@ -61,7 +81,8 @@ export function CharacterLibrary() {
           </p>
         </div>
 
-        <label className="relative block w-full sm:max-w-sm">
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          <label className="relative block w-full sm:w-72">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
           <input
             value={search}
@@ -69,7 +90,9 @@ export function CharacterLibrary() {
             placeholder="Tìm theo tên hoặc alias…"
             className="h-10 w-full rounded-xl border border-slate-800 bg-surface-card pl-9 pr-3 text-sm text-slate-100 outline-none transition focus:border-orange-500"
           />
-        </label>
+          </label>
+          <Button onClick={() => setCreateOpen(true)}>Tạo nhân vật</Button>
+        </div>
       </div>
 
       {visibleCharacters.length === 0 ? (
@@ -138,6 +161,36 @@ export function CharacterLibrary() {
             {query.isFetchingNextPage && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
             Tải thêm
           </Button>
+        </div>
+      )}
+
+      {createOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4" role="dialog" aria-modal="true" aria-labelledby="create-character-title">
+          <form
+            className="w-full max-w-lg space-y-4 rounded-2xl border border-border bg-surface-card p-6 shadow-2xl"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (name.trim()) createMutation.mutate();
+            }}
+          >
+            <div>
+              <h2 id="create-character-title" className="text-lg font-semibold text-text-primary">Tạo nhân vật</h2>
+              <p className="mt-1 text-sm text-text-secondary">Nhân vật được tạo ở thư viện chung, sau đó có thể liên kết vào project.</p>
+            </div>
+            <label className="block text-sm text-text-secondary">
+              Tên chính
+              <input className="mt-2 h-10 w-full rounded-lg border border-border bg-surface-panel px-3 text-sm text-text-primary" value={name} onChange={(event) => setName(event.target.value)} required maxLength={200} />
+            </label>
+            <label className="block text-sm text-text-secondary">
+              Alias
+              <input className="mt-2 h-10 w-full rounded-lg border border-border bg-surface-panel px-3 text-sm text-text-primary" value={aliases} onChange={(event) => setAliases(event.target.value)} placeholder="phân cách bằng dấu phẩy" maxLength={1000} />
+            </label>
+            {createMutation.isError && <p className="rounded-lg border border-danger/30 bg-danger-bg/20 px-3 py-2 text-sm text-danger">{apiErrorMessage(createMutation.error, "Không thể tạo nhân vật.")}</p>}
+            <div className="flex justify-end gap-2 border-t border-border pt-4">
+              <Button type="button" variant="secondary" onClick={() => setCreateOpen(false)} disabled={createMutation.isPending}>Hủy</Button>
+              <Button type="submit" isLoading={createMutation.isPending} disabled={!name.trim()}>Tạo nhân vật</Button>
+            </div>
+          </form>
         </div>
       )}
     </section>

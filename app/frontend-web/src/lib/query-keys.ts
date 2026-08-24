@@ -26,6 +26,7 @@ export const queryKeys = {
     ["projects", projectId, "chapters", chapterId, "storyboard"] as const,
   characters: ["characters"] as const,
   assets: ["assets"] as const,
+  assetDownloadUrl: (assetId: string) => ["assets", assetId, "download-url"] as const,
   stylePresets: ["style-presets"] as const,
   projectDashboard: ["project-dashboard"] as const,
   projectDashboardFiltered: (filter?: string, sort?: string, query?: string) =>

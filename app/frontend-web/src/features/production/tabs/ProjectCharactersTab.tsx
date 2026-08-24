@@ -16,9 +16,10 @@ import {
   UserMinus,
   UserRound,
 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { charactersApi } from "@/features/characters/api/characters.api";
 import { queryKeys } from "@/lib/query-keys";
+import { apiErrorMessage } from "@/shared/api/client";
 import type { ProjectId } from "@/types/api";
 
 interface ProjectCharactersTabProps {
@@ -90,6 +91,8 @@ export function ProjectCharactersTab({
 }: Readonly<ProjectCharactersTabProps>) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<RoleFilter>("ALL");
+  const [linkOpen, setLinkOpen] = useState(false);
+  const queryClient = useQueryClient();
 
   const projectCharactersQuery = useQuery({
     queryKey: queryKeys.projectCharacters(projectId),
@@ -99,6 +102,19 @@ export function ProjectCharactersTab({
   const globalCharacterCountQuery = useQuery({
     queryKey: ["characters", "count"],
     queryFn: () => charactersApi.count(),
+  });
+  const globalCharactersQuery = useQuery({
+    queryKey: ["characters", "project-picker"],
+    queryFn: () => charactersApi.list({ limit: 100 }),
+    enabled: linkOpen,
+  });
+  const assignMutation = useMutation({
+    mutationFn: (characterId: string) =>
+      charactersApi.assignToProject(projectId, { characterId, role: "SUPPORTING" }),
+    onSuccess: async () => {
+      setLinkOpen(false);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.projectCharacters(projectId) });
+    },
   });
 
   const rawCharacters = useMemo(
@@ -170,7 +186,7 @@ export function ProjectCharactersTab({
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
-            onClick={onOpenLibrary}
+            onClick={() => setLinkOpen(true)}
             className="flex items-center gap-2 rounded-xl border border-primary/60 bg-primary-muted px-4 py-2.5 text-sm font-semibold text-primary-light hover:bg-primary-muted-strong hover:text-white transition-colors"
           >
             <Plus className="h-4 w-4" />
@@ -398,7 +414,7 @@ export function ProjectCharactersTab({
                       <div className="flex items-center gap-1.5">
                         <UserRound className="h-4 w-4 text-slate-500" />
                         <span className="font-medium text-slate-300">
-                          {character.pinnedCharacterVersionId ? 18 : 8} Assets
+                          {character.pinnedCharacterVersionId ? "Đã pin version" : "Chưa pin version"}
                         </span>
                       </div>
                     </div>
@@ -517,19 +533,38 @@ export function ProjectCharactersTab({
               </div>
             </div>
 
-            <button
-              type="button"
-              className="flex w-full items-center justify-between rounded-xl border border-slate-800 bg-surface-2 px-4 py-3 text-sm font-semibold text-slate-300 transition hover:bg-surface-3 hover:text-white"
-            >
-              <span className="flex items-center gap-2">
-                <BarChart3 className="h-4 w-4 text-primary-light" />
-                <span>Xem báo cáo chi tiết</span>
-              </span>
-              <ArrowRight className="h-4 w-4 text-slate-500" />
-            </button>
+            <p className="flex items-center gap-2 rounded-xl border border-slate-800 bg-surface-2 px-4 py-3 text-sm text-slate-400">
+              <BarChart3 className="h-4 w-4 text-primary-light" />
+              Báo cáo chi tiết sẽ khả dụng khi backend cung cấp metrics chuyên sâu.
+            </p>
           </div>
         </div>
       </div>
+
+      {linkOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4" role="dialog" aria-modal="true" aria-labelledby="project-character-picker-title">
+          <div className="w-full max-w-lg space-y-4 rounded-2xl border border-border bg-surface-card p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 id="project-character-picker-title" className="text-lg font-semibold text-text-primary">Thêm nhân vật vào project</h2>
+                <p className="mt-1 text-sm text-text-secondary">Chọn một identity từ thư viện chung.</p>
+              </div>
+              <button type="button" onClick={() => setLinkOpen(false)} className="rounded-lg px-2 py-1 text-text-muted hover:bg-surface-2" aria-label="Đóng">×</button>
+            </div>
+            {globalCharactersQuery.isPending ? <p className="text-sm text-text-secondary">Đang tải thư viện…</p> : null}
+            {globalCharactersQuery.isError ? <p className="rounded-lg border border-danger/30 bg-danger-bg/20 px-3 py-2 text-sm text-danger">{apiErrorMessage(globalCharactersQuery.error, "Không tải được thư viện nhân vật.")}</p> : null}
+            <div className="max-h-80 space-y-2 overflow-y-auto">
+              {(globalCharactersQuery.data?.content ?? []).map((character) => (
+                <button key={character.id} type="button" onClick={() => assignMutation.mutate(character.id)} disabled={assignMutation.isPending} className="flex w-full items-center justify-between rounded-xl border border-border bg-surface-2 px-4 py-3 text-left hover:border-primary/60 disabled:opacity-50">
+                  <span><span className="block text-sm font-semibold text-text-primary">{character.canonicalName}</span><span className="text-xs text-text-muted">{character.aliases.join(", ") || "Chưa có alias"}</span></span>
+                  <span className="text-xs font-semibold text-primary-light">Thêm</span>
+                </button>
+              ))}
+            </div>
+            {!globalCharactersQuery.isPending && (globalCharactersQuery.data?.content ?? []).length === 0 ? <p className="text-sm text-text-secondary">Thư viện chưa có nhân vật. Hãy tạo nhân vật ở thư viện chung.</p> : null}
+          </div>
+        </div>
+      )}
     </section>
   );
 }

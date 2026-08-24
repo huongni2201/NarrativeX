@@ -1,6 +1,7 @@
 """Regression tests for Chapter analysis continuity materialization."""
 
 from typing import Any
+from uuid import UUID
 
 import pytest
 from pydantic import ValidationError
@@ -112,7 +113,7 @@ class StoryboardConnection:
 
     async def fetchrow(self, query: str, *args: object) -> dict[str, object]:
         assert "storyboard_revisions" in query
-        assert args == (20, "00000000-0000-4000-8000-000000000003")
+        assert args == (20, UUID("00000000-0000-4000-8000-000000000003"))
         return {
             "id": 501,
             "source_hash": SOURCE_HASH,
@@ -123,7 +124,7 @@ class StoryboardConnection:
     async def execute(self, query: str, *args: object) -> str:
         if "UPDATE chapters" in query:
             assert args == (
-                "00000000-0000-4000-8000-000000000003",
+                UUID("00000000-0000-4000-8000-000000000003"),
                 501,
                 4,
                 SOURCE_HASH,
@@ -167,5 +168,5 @@ async def test_storyboard_materializer_persists_scene_character_and_location_lin
         call for call in connection.executemany_calls if "INSERT INTO visual_beats" in call[0]
     )
     assert visual_beat_call[1] == [
-        (1001, 0, "Threshold", "The hero crosses a dusty threshold.", "NONE")
+        (1001, 0, "Threshold", "The hero crosses a dusty threshold.", "NONE", "MEDIUM")
     ]

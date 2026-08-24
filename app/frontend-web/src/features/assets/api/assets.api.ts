@@ -15,6 +15,13 @@ export interface ApiMediaAsset {
   createdAt: string;
 }
 
+export interface ApiMediaAssetDownloadUrl {
+  url: string;
+  expiresAt: string;
+  contentType: string;
+  filename: string;
+}
+
 export interface ApiMediaAssetPage {
   items: ApiMediaAsset[];
   nextCursor: string | null;
@@ -122,10 +129,10 @@ export const assetsApi = {
   waitForAsset: (id: string, timeoutMs = 30_000) => pollAsset(id, timeoutMs),
   get: (id: string) =>
     apiRequest<ApiMediaAsset>(`/api/v1/assets/${encodeURIComponent(id)}`, {}, isApiMediaAsset),
-  list: (params: { type?: string; status?: string; search?: string } = {}) => {
+  list: (params: { type?: string; status?: string; search?: string; cursor?: string; limit?: number } = {}) => {
     const query = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
-      if (value) query.set(key, value);
+      if (value !== undefined && value !== null && value !== "") query.set(key, String(value));
     });
     return apiRequest<ApiMediaAssetPage>(
       `/api/v1/assets${query.size ? `?${query.toString()}` : ""}`,
@@ -133,6 +140,21 @@ export const assetsApi = {
       isApiMediaAssetPage,
     );
   },
+  getDownloadUrl: (id: string) =>
+    apiRequest<ApiMediaAssetDownloadUrl>(
+      `/api/v1/assets/${encodeURIComponent(id)}/download-url`,
+      {},
+      (value): value is ApiMediaAssetDownloadUrl => {
+        if (typeof value !== "object" || value === null) return false;
+        const candidate = value as Partial<ApiMediaAssetDownloadUrl>;
+        return (
+          typeof candidate.url === "string" &&
+          typeof candidate.expiresAt === "string" &&
+          typeof candidate.contentType === "string" &&
+          typeof candidate.filename === "string"
+        );
+      },
+    ),
   delete: (id: string) =>
     apiRequest<void>(`/api/v1/assets/${encodeURIComponent(id)}`, { method: "DELETE" }),
   createUploadIntent: (request: {

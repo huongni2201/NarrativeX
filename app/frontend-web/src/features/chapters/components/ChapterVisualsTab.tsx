@@ -1,10 +1,15 @@
 "use client";
 
-import { useState } from "react";
+/* eslint-disable @next/next/no-img-element -- signed R2 URLs are runtime-provided. */
+
+import { useMemo, useState } from "react";
+import { useQueries } from "@tanstack/react-query";
 import { Button } from "@/components/ui/Button";
 import { GenerateMediaModal } from "@/features/generation/components/GenerateMediaModal";
 import { useMediaGeneration } from "@/features/generation/hooks/useMediaGeneration";
 import type { ApiChapterWorkspaceProgressStep, ChapterId, ProjectId } from "@/types/api";
+import { assetsApi } from "@/features/assets/api/assets.api";
+import { queryKeys } from "@/lib/query-keys";
 
 interface ChapterVisualsTabProps {
   projectId: ProjectId;
@@ -21,6 +26,19 @@ export function ChapterVisualsTab({
 }: Readonly<ChapterVisualsTabProps>) {
   const [modalOpen, setModalOpen] = useState(false);
   const media = useMediaGeneration(projectId, chapterId, initialMedia);
+  const mediaItems = useMemo(() => media.details?.items ?? [], [media.details?.items]);
+  const assetUrlQueries = useQueries({
+    queries: mediaItems.map((item) => ({
+      queryKey: item.mediaAssetId ? queryKeys.assetDownloadUrl(item.mediaAssetId) : ["assets", "none", "download-url"],
+      queryFn: () => assetsApi.getDownloadUrl(item.mediaAssetId!),
+      enabled: Boolean(item.mediaAssetId) && item.executionStatus === "READY",
+      staleTime: 4 * 60 * 1000,
+    })),
+  });
+  const assetUrls = useMemo(
+    () => new Map(mediaItems.map((item, index) => [item.id, assetUrlQueries[index]?.data?.url ?? null])),
+    [assetUrlQueries, mediaItems],
+  );
 
   return (
     <section className="space-y-4 rounded-2xl border border-border-dark bg-surface p-5">
@@ -58,7 +76,7 @@ export function ChapterVisualsTab({
 
       {media.details && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {media.details.items.map((item) => (
+          {mediaItems.map((item) => (
             <article
               key={item.id}
               className="rounded-xl border border-border-dark bg-surface-panel p-4"
@@ -67,6 +85,7 @@ export function ChapterVisualsTab({
                 <span className="text-sm font-medium text-slate-200">Beat {item.visualBeatId}</span>
                 <span className="text-xs text-slate-500">attempt {item.attemptNumber}</span>
               </div>
+              {assetUrls.get(item.id) ? <img src={assetUrls.get(item.id) ?? undefined} alt={`Keyframe cho beat ${item.visualBeatId}`} className="mt-3 aspect-video w-full rounded-lg bg-surface-dark object-contain" /> : <div className="mt-3 rounded-lg border border-dashed border-border-dark px-3 py-8 text-center text-xs text-slate-500">Ảnh preview chưa sẵn sàng</div>}
               <p className="mt-3 text-xs uppercase tracking-wide text-slate-400">
                 {item.executionStatus} · {item.reviewStatus}
               </p>

@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAssetStore } from "@/store/useAssetStore";
 import { AssetCard } from "@/components/assets/AssetCard";
 import { AssetDetailDrawer } from "@/components/assets/AssetDetailDrawer";
@@ -86,14 +86,15 @@ export const AssetLibraryScreen: React.FC = () => {
     rejectAsset,
     toggleLockAsset,
   } = useAssetStore();
-  const assetsQuery = useQuery({
+  const assetsQuery = useInfiniteQuery({
     queryKey: queryKeys.assets,
-    queryFn: () => assetsApi.list(),
+    queryFn: ({ pageParam }) => assetsApi.list({ cursor: pageParam ?? undefined, limit: 50 }),
     enabled: !isMockDataMode,
-    select: (page) => page.items.map(mapApiAsset),
+    initialPageParam: null as string | null,
+    getNextPageParam: (page) => page.nextCursor ?? undefined,
   });
   const assets = useMemo(
-    () => (isMockDataMode ? mockAssets : (assetsQuery.data ?? [])),
+    () => (isMockDataMode ? mockAssets : (assetsQuery.data?.pages.flatMap((page) => page.items).map(mapApiAsset) ?? [])),
     [assetsQuery.data, mockAssets],
   );
   const [apiError, setApiError] = useState<string | null>(null);
@@ -152,6 +153,12 @@ export const AssetLibraryScreen: React.FC = () => {
   }, [assets, filterAspectRatio, filterProject, filterStatus, filterType, searchQuery, sortOption]);
 
   const selectedAsset = assets.find((asset) => asset.id === selectedAssetId) ?? null;
+  const selectedAssetUrlQuery = useQuery({
+    queryKey: selectedAssetId ? queryKeys.assetDownloadUrl(selectedAssetId) : ["assets", "none", "download-url"],
+    queryFn: () => assetsApi.getDownloadUrl(selectedAssetId!),
+    enabled: !isMockDataMode && Boolean(selectedAssetId),
+    staleTime: 4 * 60 * 1000,
+  });
 
   if (!isMockDataMode && assetsQuery.isPending) {
     return (
@@ -266,9 +273,21 @@ export const AssetLibraryScreen: React.FC = () => {
             <Button onClick={openUploadModal} variant="primary" size="sm"><Plus className="w-3.5 h-3.5" /> Upload tài sản</Button>
           </div>
         )}
+        {assetsQuery.hasNextPage && (
+          <div className="flex justify-center py-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              isLoading={assetsQuery.isFetchingNextPage}
+              onClick={() => assetsQuery.fetchNextPage()}
+            >
+              Tải thêm tài sản
+            </Button>
+          </div>
+        )}
       </div>
 
-      {isDetailDrawerOpen && selectedAsset && <AssetDetailDrawer asset={selectedAsset} onClose={closeDetailDrawer} onDelete={handleDelete} onApprove={isMockDataMode && canApprove(selectedAsset.status) ? handleApprove : undefined} onReject={isMockDataMode ? rejectAsset : undefined} onToggleLock={isMockDataMode ? toggleLockAsset : undefined} />}
+      {isDetailDrawerOpen && selectedAsset && <AssetDetailDrawer asset={selectedAsset} previewUrl={selectedAssetUrlQuery.data?.url ?? null} downloadUrl={selectedAssetUrlQuery.data?.url ?? null} onClose={closeDetailDrawer} onDelete={handleDelete} onApprove={isMockDataMode && canApprove(selectedAsset.status) ? handleApprove : undefined} onReject={isMockDataMode ? rejectAsset : undefined} onToggleLock={isMockDataMode ? toggleLockAsset : undefined} />}
       <AssetUploadModal isOpen={isUploadModalOpen} onClose={closeUploadModal} onUploaded={loadAssets} />
     </div>
   );

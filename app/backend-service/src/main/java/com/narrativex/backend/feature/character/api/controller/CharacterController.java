@@ -1,10 +1,13 @@
 package com.narrativex.backend.feature.character.api.controller;
 
+import com.narrativex.backend.feature.character.api.request.CreateCharacterRequest;
 import com.narrativex.backend.feature.character.api.request.SetCharacterVersionReferencesRequest;
 import com.narrativex.backend.feature.character.api.response.CharacterSummaryResponse;
 import com.narrativex.backend.feature.character.api.response.CharacterVersionReferenceResponse;
+import com.narrativex.backend.feature.character.application.command.CreateCharacterCommand;
 import com.narrativex.backend.feature.character.application.query.CharacterListQuery;
 import com.narrativex.backend.feature.character.application.usecase.CountCharactersUseCase;
+import com.narrativex.backend.feature.character.application.usecase.CreateCharacterUseCase;
 import com.narrativex.backend.feature.character.application.usecase.GetCharacterUseCase;
 import com.narrativex.backend.feature.character.application.usecase.GetCharacterVersionReferencesUseCase;
 import com.narrativex.backend.feature.character.application.usecase.ListCharactersUseCase;
@@ -12,11 +15,14 @@ import com.narrativex.backend.feature.character.application.usecase.SetCharacter
 import com.narrativex.backend.feature.character.application.usecase.SetCharacterVersionReferencesUseCase.ReferenceInput;
 import com.narrativex.backend.feature.common.pagination.CursorPage;
 import com.narrativex.backend.feature.common.response.ApiResponse;
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -31,6 +37,7 @@ public class CharacterController {
   private final ListCharactersUseCase listCharactersUseCase;
   private final GetCharacterUseCase getCharacterUseCase;
   private final CountCharactersUseCase countCharactersUseCase;
+  private final CreateCharacterUseCase createCharacterUseCase;
   private final GetCharacterVersionReferencesUseCase getCharacterVersionReferencesUseCase;
   private final SetCharacterVersionReferencesUseCase setCharacterVersionReferencesUseCase;
 
@@ -39,6 +46,17 @@ public class CharacterController {
     return ResponseEntity.ok(
         ApiResponse.success(
             "Character count retrieved successfully", countCharactersUseCase.execute()));
+  }
+
+  @PostMapping
+  public ResponseEntity<ApiResponse<CharacterSummaryResponse>> create(
+      @Valid @RequestBody CreateCharacterRequest request) {
+    var character =
+        createCharacterUseCase.execute(
+            new CreateCharacterCommand(
+                request.workspaceId(), request.canonicalName(), request.aliases(), null));
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .body(ApiResponse.success("Character created", CharacterSummaryResponse.from(character)));
   }
 
   @GetMapping("/{characterId}")

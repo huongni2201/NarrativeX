@@ -1,4 +1,4 @@
-import { ImageIcon, Maximize2 } from "lucide-react";
+import { ImageIcon } from "lucide-react";
 import type {
   ApiStoryboardVisualBeat,
   CameraMovement,
@@ -33,14 +33,9 @@ export function VisualBeatCard({
           <div className="flex items-center gap-1.5">
             <MotionBadge mode={beat.motionMode} movement={beat.cameraMovement} />
           </div>
-          <button
-            type="button"
-            className="flex h-10 w-10 items-center justify-center rounded-md bg-black/60 text-slate-300 transition-colors hover:bg-black/80 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            title="Đổi góc quay / action"
-            aria-label="Đổi góc quay / action"
-          >
-            <Maximize2 className="h-4 w-4" aria-hidden="true" />
-          </button>
+          <span className="rounded-md bg-black/60 px-2 py-1 text-[9px] text-slate-300" title="Góc quay do storyboard backend quyết định">
+            {beat.cameraAngle}
+          </span>
         </div>
       </div>
 
