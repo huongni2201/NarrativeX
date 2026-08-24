@@ -82,4 +82,9 @@ export interface NarrativeXDesktopBridge {
     selectFiles(): Promise<string[]>;
     selectFolder(): Promise<string | null>;
   };
+  windowControls: {
+    minimize(): Promise<void>;
+    toggleMaximize(): Promise<boolean>;
+    close(): Promise<void>;
+  };
 }
