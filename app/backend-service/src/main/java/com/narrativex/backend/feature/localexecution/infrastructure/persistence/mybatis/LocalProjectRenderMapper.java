@@ -18,6 +18,12 @@ public interface LocalProjectRenderMapper extends NarrativeXMyBatisMapper {
   List<LocalProjectRenderBeatRow> listBeats(
       @Param("generationJobId") UUID generationJobId);
 
+  List<LocalProjectRenderInputRefRow> listInputsForOwnedLease(
+      @Param("jobId") UUID jobId,
+      @Param("deviceId") UUID deviceId,
+      @Param("workerId") String workerId,
+      @Param("leaseToken") UUID leaseToken);
+
   int heartbeat(
       @Param("jobId") UUID jobId,
       @Param("deviceId") UUID deviceId,
