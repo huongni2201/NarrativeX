@@ -718,7 +718,7 @@ class WorkerRepository:
 
                 await connection.execute(
                     "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))",
-                    claimed.request.project_id,
+                    str(claimed.request.project_id),
                 )
                 project_characters = await materialize_characters(connection, claimed, result)
                 project_locations = await materialize_locations(connection, claimed, result)

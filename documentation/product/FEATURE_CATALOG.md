@@ -9,7 +9,7 @@ This is the single maintained feature/status view. Historical requirement identi
 | Chapter Analyze | IMPLEMENTED | durable admission/job/provider/reconciliation |
 | Generation durability persistence | IMPLEMENTED | GenerationJob/StageAttempt/OperationPlan/MediaPlan/outbox/Job History explicit SQL/MyBatis |
 | Character/Location continuity | IMPLEMENTED foundation | complete human review/reference lock remains PARTIAL |
-| Project Character list/detail | IMPLEMENTED foundation | project-scoped authoritative read model wired end to end |
+| Project Character management | IMPLEMENTED foundation | project-scoped authoritative reads, library assignment and role-based filtering are wired end to end |
 | Character reference assets | IMPLEMENTED foundation | normalized CharacterVersion identity/profile/outfit/pose references are available to image planning |
 | Storyboard/VisualBeat | IMPLEMENTED foundation | approved revision/reset workflow PARTIAL |
 | Backend MediaPlan authority | IMPLEMENTED foundation | immutable revision + resolved motion policy |

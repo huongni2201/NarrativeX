@@ -84,9 +84,9 @@ LEGACY_STORAGE_ENV = re.compile(
 )
 
 IMPLEMENTATION_CHECKPOINT_PATTERNS = {
-    "spec": re.compile(r"Docs-sync implementation checkpoint:\*\* `[^`]+` at `([0-9a-f]{40})`"),
-    "readme": re.compile(r"Implementation checkpoint: `[^`]+` at `([0-9a-f]{40})`"),
-    "traceability": re.compile(r"implementation checkpoint `[^`]+` / `([0-9a-f]{40})`"),
+    "spec": re.compile(r"Docs-sync (?:baseline )?implementation checkpoint:\*\* `[^`]+` at `([0-9a-f]{40})`"),
+    "readme": re.compile(r"(?:Baseline )?implementation checkpoint: `[^`]+` at `([0-9a-f]{40})`", re.IGNORECASE),
+    "traceability": re.compile(r"(?:baseline|current) implementation checkpoint `[^`]+` / `([0-9a-f]{40})`"),
 }
 
 

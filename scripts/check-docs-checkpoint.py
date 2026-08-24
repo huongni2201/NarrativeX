@@ -13,9 +13,11 @@ SPEC = ROOT / "documentation" / "source-of-truth" / "NARRATIVEX_PROJECT_SPEC_V1_
 SOURCE_README = ROOT / "documentation" / "source-of-truth" / "README.md"
 
 PATTERNS = {
-    "spec": re.compile(r"Docs-sync implementation checkpoint:\*\* `[^`]+` at `([0-9a-f]{40})`"),
-    "readme": re.compile(r"Implementation checkpoint: `[^`]+` at `([0-9a-f]{40})`"),
-    "traceability": re.compile(r"baseline implementation checkpoint `[^`]+` / `([0-9a-f]{40})`"),
+    "spec": re.compile(r"Docs-sync (?:baseline )?implementation checkpoint:\*\* `[^`]+` at `([0-9a-f]{40})`"),
+    "readme": re.compile(r"(?:Baseline )?implementation checkpoint: `[^`]+` at `([0-9a-f]{40})`", re.IGNORECASE),
+    "traceability": re.compile(
+        r"(?:baseline|current) implementation checkpoint `[^`]+` / `([0-9a-f]{40})`"
+    ),
 }
 
 

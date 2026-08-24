@@ -3,7 +3,7 @@
 **Status:** Canonical engineering direction and code-aligned baseline  
 **Effective date:** 23/08/2026  
 **Repository:** `huongni2201/NarrativeX`  
-**Docs-sync implementation checkpoint:** `main` at `0b8577a5a6b406d34b297a818e663f5db29b06d6`
+**Docs-sync baseline implementation checkpoint:** `main` at `0b8577a5a6b406d34b297a818e663f5db29b06d6`
 **Supersedes:** V1.10 as the planning baseline for new work
 
 ---

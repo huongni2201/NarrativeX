@@ -4,7 +4,7 @@
 
 - Version: `V1.11`
 - Repository: `huongni2201/NarrativeX`
-- Implementation checkpoint: `main` at `0b8577a5a6b406d34b297a818e663f5db29b06d6`
+- Baseline implementation checkpoint: `main` at `0b8577a5a6b406d34b297a818e663f5db29b06d6`
 - Canonical specification: `documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`
 
 Current code and Flyway migrations decide factual AS-IS implementation claims when a derived document drifts.

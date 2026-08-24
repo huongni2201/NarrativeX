@@ -27,8 +27,8 @@ The frontend must not present hardcoded subscription tiers, credits, dates, prod
 | `GET` | `/api/v1/projects/{projectId}/characters/{characterId}` | Integrated in Character detail |
 | `GET` | `/api/v1/projects/{projectId}/locations` | Integrated |
 | `GET` | `/api/v1/projects/{projectId}/assets` | Integrated |
-| `GET` | `/api/v1/users/me/quota` | Backend capability exists; UI wiring is separate |
-| `GET` | `/api/v1/jobs/history` | Backend capability exists; UI wiring is separate |
+| `GET` | `/api/v1/users/me/quota` | Backend capability exists; consumed by the separate Quota UI |
+| `GET` | `/api/v1/jobs/history` | Backend capability exists; consumed by the separate Job History UI |
 
 Authentication and CSRF endpoints are handled by the shared frontend API client and session flow.
 
@@ -67,7 +67,7 @@ Creating a chapter means the chapter belongs to the current Project and Story Ve
 
 ## 9. Remaining integration work
 
-Frontend/product integration still includes quota UX, job-history UX, notifications, richer project-resource actions and richer Character relationship/asset/scene-detail reads when authoritative contracts exist.
+Frontend/product integration still includes richer quota/job-history/notification UX, richer project-resource actions and richer Character relationship/asset/scene-detail reads when authoritative contracts exist. The current quota, Job History and notification foundations are already wired outside Project Overview.
 
 Engineering work outside this screen currently includes:
 

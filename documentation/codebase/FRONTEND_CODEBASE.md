@@ -79,7 +79,9 @@ Architecture regression checks protect shared/feature dependency boundaries and 
 
 ## Remaining frontend work
 
-- Job History, Quota and Notifications UI wiring.
+- Deeper Job History filtering/details beyond the current paginated table.
+- Richer quota usage/billing UX beyond the current quota details modal.
+- A broader notification message catalog and richer notification deep links.
 - Broader Character version/reference/lock UX.
 - Broader Storyboard editing/deep-link/review workflows.
 - Asset upload/finalize/review lifecycle.

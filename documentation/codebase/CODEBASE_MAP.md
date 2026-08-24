@@ -1,7 +1,7 @@
 # NarrativeX Current Codebase Map — V1.11
 
 **Canonical baseline:** `documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`  
-**Implementation checkpoint:** `main` at `0b8577a5a6b406d34b297a818e663f5db29b06d6`
+**Baseline implementation checkpoint:** `main` at `0b8577a5a6b406d34b297a818e663f5db29b06d6`
 
 ## Runtime layout
 
@@ -21,6 +21,8 @@ Google Drive           durable final rendered MP4 storage
 - Production backend persistence is MyBatis + explicit SQL.
 - GenerationJob, StageAttempt, OperationPlan, MediaPlan, outbox enqueue/dispatch and Job History are durable.
 - Character + Location continuity and project-scoped Character reads exist as foundations.
+- Global Character library creation/listing plus project assignment and role-based filtering are
+  wired through the current Character and Project Character surfaces.
 - Full-chapter generated narration is stored durably in R2; local VieNeu and Google TTS paths exist.
 - User-provided narration planning supports ordered parts, one logical global audio clock and TTS bypass.
 - Real Vertex image generation is implemented as a production foundation and materializes validated images into R2.
@@ -50,7 +52,6 @@ user-audio ingestion/alignment hardening
   -> aligned multi-part audio slicing/stitching for render
   -> complete VisualScenePlanner/review loop
   -> richer image approval/reuse/lineage
-  -> owner-authorized Drive preview/download/streaming proxy
   -> cross-attempt Drive upload retry without rerender
 ```
 
