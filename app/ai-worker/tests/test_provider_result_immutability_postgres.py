@@ -4,7 +4,7 @@ import asyncio
 import os
 from collections.abc import AsyncIterator
 from typing import cast
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import asyncpg  # type: ignore[import-untyped]
 import pytest
@@ -24,6 +24,9 @@ from narrativex_worker.schema import (
 
 TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")
 SOURCE_HASH = "c" * 64
+PROJECT_ID = UUID("00000000-0000-4000-8000-000000000021")
+STORY_VERSION_ID = UUID("00000000-0000-4000-8000-000000000022")
+CHAPTER_ID = UUID("00000000-0000-4000-8000-000000000023")
 
 pytestmark = pytest.mark.skipif(
     not TEST_DATABASE_URL,
@@ -44,10 +47,10 @@ async def immutable_result_database() -> AsyncIterator[str]:
 
             CREATE TABLE generation_jobs (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                job_id TEXT NOT NULL UNIQUE,
-                project_id BIGINT NOT NULL,
-                story_version_id BIGINT NOT NULL,
-                chapter_id BIGINT NOT NULL,
+                job_id UUID NOT NULL UNIQUE,
+                project_id UUID NOT NULL,
+                story_version_id UUID NOT NULL,
+                chapter_id UUID NOT NULL,
                 chapter_row_version BIGINT NOT NULL,
                 source_hash TEXT NOT NULL,
                 source_text TEXT NOT NULL,
@@ -115,6 +118,7 @@ async def seed_operation(
     fingerprint: str,
 ) -> tuple[WorkerRepository, DurableProviderOperation]:
     connection = await asyncpg.connect(database_url)
+    job_key = uuid4()
     try:
         job_id = await connection.fetchval(
             """
@@ -123,11 +127,14 @@ async def seed_operation(
                 source_hash, source_text, source_language, requested_by_user_id,
                 job_type, status
             ) VALUES (
-                $1, 1, 2, 3, 4, $2, 'Story', 'vi-VN', 'user-1',
+                $1, $2, $3, $4, 4, $5, 'Story', 'vi-VN', 'user-1',
                 'CHAPTER_ANALYZE', 'QUEUED'
             ) RETURNING id
             """,
-            f"job-{fingerprint}",
+            job_key,
+            PROJECT_ID,
+            STORY_VERSION_ID,
+            CHAPTER_ID,
             SOURCE_HASH,
         )
         stage_id = await connection.fetchval(
@@ -144,12 +151,12 @@ async def seed_operation(
     claimed = ClaimedChapterAnalysisJob(
         stage_attempt_id=cast(UUID, stage_id),
         generation_job_id=cast(UUID, job_id),
-        job_id=f"job-{fingerprint}",
+        job_id=str(job_key),
         requested_by_user_id="user-1",
         request=ChapterAnalysisRequest(
-            project_id="1",
-            story_version_id="2",
-            chapter_id="3",
+            project_id=PROJECT_ID,
+            story_version_id=STORY_VERSION_ID,
+            chapter_id=CHAPTER_ID,
             chapter_row_version=4,
             source_hash=SOURCE_HASH,
             source_text="Story",
