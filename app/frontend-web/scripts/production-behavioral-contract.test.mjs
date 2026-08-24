@@ -146,7 +146,8 @@ test("project production is a dedicated route with one global audio-clock timeli
   assert.match(productionRoute, /screen="production-timeline"/);
   assert.match(studioShell, /ProductionTimelineScreen/);
   assert.match(studioShell, /screen === "production-timeline"/);
-  assert.match(projectTabs, /\/projects\/\$\{params\.projectId\}\/production/);
+  assert.match(projectTabs, /onOpenProduction/);
+  assert.match(productionShell, /\/projects\/\$\{projectIdentifier\}\/production/);
   assert.match(productionTimeline, /Global Production Timeline/);
   assert.match(productionTimeline, /CHAPTER/);
   assert.match(productionTimeline, /VISUAL/);
