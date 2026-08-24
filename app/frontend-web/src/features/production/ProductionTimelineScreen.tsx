@@ -18,6 +18,13 @@ interface ProductionTimelineScreenProps {
   projectId: string;
 }
 
+type RenderResolution = "720p" | "1080p";
+
+interface RenderIntent {
+  idempotencyKey: string;
+  resolution: RenderResolution;
+}
+
 const ZOOM_LEVELS = [2, 4, 8, 16] as const;
 
 export function ProductionTimelineScreen({ projectId }: Readonly<ProductionTimelineScreenProps>) {
@@ -26,10 +33,10 @@ export function ProductionTimelineScreen({ projectId }: Readonly<ProductionTimel
   const searchParams = useSearchParams();
   const focusChapterId = searchParams.get("focusChapter");
   const timelineScrollRef = useRef<HTMLDivElement | null>(null);
-  const [resolution, setResolution] = useState<"720p" | "1080p">("1080p");
+  const [resolution, setResolution] = useState<RenderResolution>("1080p");
   const [zoomIndex, setZoomIndex] = useState(1);
   const [jobId, setJobId] = useState<string | null>(null);
-  const idempotencyKeyRef = useRef<string | null>(null);
+  const renderIntentRef = useRef<RenderIntent | null>(null);
 
   const projectQuery = useQuery({
     queryKey: ["projects", typedProjectId, "overview"],
@@ -48,17 +55,15 @@ export function ProductionTimelineScreen({ projectId }: Readonly<ProductionTimel
   }, [timeline?.totalDurationMs]);
 
   const renderMutation = useMutation({
-    mutationFn: () => {
-      idempotencyKeyRef.current ??= crypto.randomUUID();
-      return productionApi.render(
+    mutationFn: (intent: RenderIntent) =>
+      productionApi.render(
         typedProjectId,
-        { resolution, format: "mp4" },
-        idempotencyKeyRef.current,
-      );
-    },
-    onSuccess: (job) => setJobId(job.jobId),
-    onError: () => {
-      idempotencyKeyRef.current = null;
+        { resolution: intent.resolution, format: "mp4" },
+        intent.idempotencyKey,
+      ),
+    onSuccess: (job) => {
+      setJobId(job.jobId);
+      renderIntentRef.current = null;
     },
   });
 
@@ -103,6 +108,15 @@ export function ProductionTimelineScreen({ projectId }: Readonly<ProductionTimel
     job?.status === "QUEUED" ||
     job?.status === "RUNNING" ||
     job?.status === "STALLED";
+
+  const submitRender = () => {
+    let intent = renderIntentRef.current;
+    if (!intent || intent.resolution !== resolution) {
+      intent = { idempotencyKey: crypto.randomUUID(), resolution };
+      renderIntentRef.current = intent;
+    }
+    renderMutation.mutate(intent);
+  };
 
   return (
     <div className="flex min-h-screen flex-col bg-[#080b10] text-slate-100">
@@ -184,7 +198,7 @@ export function ProductionTimelineScreen({ projectId }: Readonly<ProductionTimel
               Resolution
               <select
                 value={resolution}
-                onChange={(event) => setResolution(event.target.value as "720p" | "1080p")}
+                onChange={(event) => setResolution(event.target.value as RenderResolution)}
                 disabled={renderBusy}
                 className="mt-2 w-full rounded-lg border border-slate-700 bg-[#090d13] px-3 py-2 text-slate-100"
               >
@@ -194,10 +208,7 @@ export function ProductionTimelineScreen({ projectId }: Readonly<ProductionTimel
             </label>
             <button
               type="button"
-              onClick={() => {
-                idempotencyKeyRef.current = crypto.randomUUID();
-                renderMutation.mutate();
-              }}
+              onClick={submitRender}
               disabled={!timeline?.readyForRender || renderBusy}
               className="flex w-full items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 py-2.5 font-semibold text-black transition hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-40"
             >
