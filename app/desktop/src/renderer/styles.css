@@ -36,6 +36,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .desktop-app { height: 100dvh; min-width: 1180px; display: grid; grid-template-columns: 66px 258px minmax(560px, 1fr) 320px; grid-template-rows: 46px minmax(0, 1fr) 28px; background: var(--bg); }
 .topbar { grid-column: 1 / -1; display: grid; grid-template-columns: 150px auto minmax(240px, 1fr) auto auto; align-items: center; gap: 16px; padding: 0 12px 0 14px; background: #0b1119; border-bottom: 1px solid var(--border); }
 .brand { display: flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 650; letter-spacing: -.01em; white-space: nowrap; }
+.brand-logo-img { width: 22px; height: 22px; object-fit: contain; border-radius: 5px; flex-shrink: 0; }
 .brand-mark { width: 24px; height: 24px; display: grid; place-items: center; border: 1px solid var(--violet); border-radius: 7px; color: var(--violet-bright); font-weight: 800; font-size: 12px; transform: rotate(-7deg); }
 .brand-mark span { color: var(--cyan); }
 .menu { display: flex; align-items: center; gap: 4px; }

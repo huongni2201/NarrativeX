@@ -4,7 +4,9 @@ directories:
   output: release
 files:
   - out/**
+  - resources/**
 win:
+  icon: resources/narrativex-icon.png
   target: nsis
   artifactName: NarrativeX-Desktop-${version}.${ext}
 protocols:

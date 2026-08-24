@@ -125,7 +125,7 @@ export function EditorScreen({ initialScreen = "editor" }: Readonly<{ initialScr
 
   return <div className="desktop-app">
     <header className="topbar">
-      <div className="brand"><div className="brand-mark">N<span>X</span></div><span>NarrativeX</span></div>
+      <div className="brand"><img src="/branding/narrativex-icon-orange-v2.png" alt="NarrativeX" className="brand-logo-img" /><span>NarrativeX</span></div>
       <nav className="menu" aria-label="Application menu">{["File", "Edit", "Project", "Timeline", "View", "Tools", "Help"].map((item) => <button key={item} type="button">{item}</button>)}</nav>
       <ProjectPicker projects={workspace.projects} activeProjectId={activeProject?.id ?? selectedProjectId} onChange={(nextProjectId) => { setActiveProject(nextProjectId); navigate(`/projects/${nextProjectId}/editor`); }} />
       <div className="autosave"><Cloud size={14} /> {saveState}</div>
