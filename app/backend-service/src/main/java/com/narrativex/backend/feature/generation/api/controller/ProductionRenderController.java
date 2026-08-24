@@ -11,6 +11,7 @@ import com.narrativex.backend.feature.generation.application.command.RenderBeatO
 import com.narrativex.backend.feature.generation.application.usecase.CreateProjectRenderUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.GetProductionTimelineUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.GetProjectRenderArtifactUseCase;
+import com.narrativex.backend.feature.generation.domain.enums.RenderExecutionTarget;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -68,6 +69,8 @@ public class ProductionRenderController {
                 request.format(),
                 request.maxAuthorizedCost(),
                 idempotencyKey,
+                RenderExecutionTarget.valueOf(request.executionTarget()),
+                request.localDeviceId(),
                 overrides));
     return ResponseEntity.accepted()
         .body(ApiResponse.success("Project render queued", JobResponse.from(job)));
