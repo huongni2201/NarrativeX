@@ -55,12 +55,12 @@ class FinalArtifactControllerIntegrationTest extends PostgreSqlIntegrationTestSu
   @BeforeEach
   void seedFinalArtifacts() throws Exception {
     jdbcTemplate.update(
-        "INSERT INTO auth_users (id, email, display_name, password_hash, enabled) VALUES"
-            + " ('seed-user-01', 'render-test@example.com', 'Render Test', 'pass', true) ON"
+        "INSERT INTO auth_users (id, email, display_name, enabled) VALUES"
+            + " ('seed-user-01', 'render-test@example.com', 'Render Test', true) ON"
             + " CONFLICT (id) DO NOTHING");
     jdbcTemplate.update(
-        "INSERT INTO auth_users (id, email, display_name, password_hash, enabled) VALUES"
-            + " ('other-owner', 'other-render@example.com', 'Other Owner', 'pass', true) ON"
+        "INSERT INTO auth_users (id, email, display_name, enabled) VALUES"
+            + " ('other-owner', 'other-render@example.com', 'Other Owner', true) ON"
             + " CONFLICT (id) DO NOTHING");
     insertProject(PROJECT_ID, "seed-user-01");
     insertProject(OTHER_PROJECT_ID, "other-owner");
@@ -68,9 +68,27 @@ class FinalArtifactControllerIntegrationTest extends PostgreSqlIntegrationTestSu
     insertStoryAndChapter(OTHER_STORY_VERSION_ID, OTHER_PROJECT_ID, OTHER_CHAPTER_ID);
     insertJob(READY_JOB_ROW_ID, READY_JOB_ID, PROJECT_ID, CHAPTER_ID);
     insertJob(ARCHIVED_JOB_ROW_ID, ARCHIVED_JOB_ID, PROJECT_ID, CHAPTER_ID);
-    insertArtifact(READY_ARTIFACT_ID, PROJECT_ID, CHAPTER_ID, READY_JOB_ROW_ID, "READY", "artifact-9501.mp4");
-    insertArtifact(ARCHIVED_ARTIFACT_ID, PROJECT_ID, CHAPTER_ID, ARCHIVED_JOB_ROW_ID, "ARCHIVED", "artifact-9502.mp4");
-    insertArtifact(OTHER_ARTIFACT_ID, OTHER_PROJECT_ID, OTHER_CHAPTER_ID, READY_JOB_ROW_ID, "READY", "artifact-9503.mp4");
+    insertArtifact(
+        READY_ARTIFACT_ID,
+        PROJECT_ID,
+        CHAPTER_ID,
+        READY_JOB_ROW_ID,
+        "READY",
+        "artifact-9501.mp4");
+    insertArtifact(
+        ARCHIVED_ARTIFACT_ID,
+        PROJECT_ID,
+        CHAPTER_ID,
+        ARCHIVED_JOB_ROW_ID,
+        "ARCHIVED",
+        "artifact-9502.mp4");
+    insertArtifact(
+        OTHER_ARTIFACT_ID,
+        OTHER_PROJECT_ID,
+        OTHER_CHAPTER_ID,
+        READY_JOB_ROW_ID,
+        "READY",
+        "artifact-9503.mp4");
     byte[] bytes = new byte[2048];
     IntStream.range(0, bytes.length).forEach(i -> bytes[i] = (byte) (i % 251));
     Files.write(FINAL_ROOT.resolve("artifact-9501.mp4"), bytes);
@@ -95,7 +113,9 @@ class FinalArtifactControllerIntegrationTest extends PostgreSqlIntegrationTestSu
   @Test
   void rangeAndDispositionSemanticsArePreserved() throws Exception {
     mockMvc
-        .perform(get("/api/v1/artifacts/" + READY_ARTIFACT_ID + "/download").header(HttpHeaders.RANGE, "bytes=0-1023"))
+        .perform(
+            get("/api/v1/artifacts/" + READY_ARTIFACT_ID + "/download")
+                .header(HttpHeaders.RANGE, "bytes=0-1023"))
         .andExpect(status().isPartialContent())
         .andExpect(header().string(HttpHeaders.CONTENT_RANGE, "bytes 0-1023/2048"))
         .andExpect(
@@ -115,7 +135,8 @@ class FinalArtifactControllerIntegrationTest extends PostgreSqlIntegrationTestSu
 
     mockMvc
         .perform(
-            get("/api/v1/artifacts/" + READY_ARTIFACT_ID + "/preview").header(HttpHeaders.RANGE, "bytes=not-a-range"))
+            get("/api/v1/artifacts/" + READY_ARTIFACT_ID + "/preview")
+                .header(HttpHeaders.RANGE, "bytes=not-a-range"))
         .andExpect(status().isRequestedRangeNotSatisfiable());
   }
 
