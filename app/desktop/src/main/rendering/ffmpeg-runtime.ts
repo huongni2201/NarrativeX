@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { runProcess } from "./process-runner";
 
 export interface FfmpegRuntimeStatus {
@@ -49,28 +49,26 @@ export async function resolveFfmpegRuntime(): Promise<FfmpegRuntimeStatus> {
 }
 
 function runtimeCandidates(): FfmpegCandidate[] {
+  const executable = process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg";
+  const probeExecutable = process.platform === "win32" ? "ffprobe.exe" : "ffprobe";
   const configuredFfmpeg = process.env.NARRATIVEX_FFMPEG_PATH?.trim();
+
   if (configuredFfmpeg) {
     return [
       {
         ffmpegPath: configuredFfmpeg,
         ffprobePath:
           process.env.NARRATIVEX_FFPROBE_PATH?.trim() ||
-          configuredFfmpeg.replace(
-            /ffmpeg(\.exe)?$/i,
-            process.platform === "win32" ? "ffprobe.exe" : "ffprobe",
-          ),
+          join(dirname(configuredFfmpeg), probeExecutable),
       },
     ];
   }
 
-  const executable = process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg";
-  const probeExecutable = process.platform === "win32" ? "ffprobe.exe" : "ffprobe";
   return [
     {
       ffmpegPath: join(process.resourcesPath, "ffmpeg", executable),
       ffprobePath: join(process.resourcesPath, "ffmpeg", probeExecutable),
     },
-    { ffmpegPath: "ffmpeg", ffprobePath: "ffprobe" },
+    { ffmpegPath: executable, ffprobePath: probeExecutable },
   ];
 }
