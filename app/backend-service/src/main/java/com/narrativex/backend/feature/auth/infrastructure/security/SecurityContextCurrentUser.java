@@ -22,9 +22,6 @@ public class SecurityContextCurrentUser implements CurrentUserId, CurrentUserPro
   public CurrentUserResponse current() {
     Authentication authentication = authenticated();
     String id = authentication.getName();
-    if (authentication.getPrincipal() instanceof NarrativeXUserPrincipal user) {
-      return new CurrentUserResponse(id, user.displayName(), user.email(), user.avatarUrl());
-    }
     if (authentication.getPrincipal() instanceof OidcUser user) {
       return new CurrentUserResponse(
           id,

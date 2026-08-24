@@ -1,12 +1,11 @@
 package com.narrativex.backend.feature.auth.infrastructure.security;
 
-import com.narrativex.backend.feature.auth.application.service.RegisterAuthAccountService;
 import com.narrativex.backend.feature.auth.infrastructure.persistence.mybatis.AuthUserMapper;
 import com.narrativex.backend.feature.auth.infrastructure.persistence.mybatis.AuthUserRow;
 import com.narrativex.backend.feature.common.application.port.out.UserPlanAssignmentProvisioner;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import java.time.Instant;
-import java.util.UUID;
+import java.util.Locale;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
@@ -42,7 +41,7 @@ public class NarrativeXOidcUserService implements OAuth2UserService<OidcUserRequ
     }
 
     String subject = oidcUser.getSubject();
-    String email = RegisterAuthAccountService.normalizeEmail(oidcUser.getEmail());
+    String email = oidcUser.getEmail().trim().toLowerCase(Locale.ROOT);
     String displayName = firstNonBlank(oidcUser.getFullName(), oidcUser.getGivenName(), email);
     String avatarUrl = oidcUser.getPicture();
 

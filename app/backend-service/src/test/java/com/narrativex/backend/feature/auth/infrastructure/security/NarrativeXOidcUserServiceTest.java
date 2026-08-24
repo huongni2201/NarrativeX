@@ -87,7 +87,6 @@ class NarrativeXOidcUserServiceTest {
         .id("existing-user")
         .email("owner@example.com")
         .displayName("Existing Owner")
-        .passwordHash("{bcrypt}hash")
         .googleSubject(googleSubject)
         .enabled(enabled)
         .createdAt(now)

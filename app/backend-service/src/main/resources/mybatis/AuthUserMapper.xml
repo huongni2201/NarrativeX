@@ -8,7 +8,6 @@
         <result property="email" column="email" />
         <result property="displayName" column="display_name" />
         <result property="avatarUrl" column="avatar_url" />
-        <result property="passwordHash" column="password_hash" />
         <result property="googleSubject" column="google_subject" />
         <result property="enabled" column="enabled" />
         <result property="createdAt" column="created_at" />
@@ -16,15 +15,9 @@
     </resultMap>
 
     <sql id="columns">
-        id, email, display_name, avatar_url, password_hash, google_subject,
+        id, email, display_name, avatar_url, google_subject,
         enabled, created_at, updated_at
     </sql>
-
-    <select id="existsByEmail" resultType="boolean">
-        SELECT EXISTS (
-            SELECT 1 FROM auth_users WHERE LOWER(email) = LOWER(#{email})
-        )
-    </select>
 
     <select id="findByEmail" resultMap="authUserRow">
         SELECT <include refid="columns" />
@@ -42,10 +35,10 @@
 
     <insert id="insert" parameterType="com.narrativex.backend.feature.auth.infrastructure.persistence.mybatis.AuthUserRow">
         INSERT INTO auth_users
-            (id, email, display_name, avatar_url, password_hash, google_subject,
+            (id, email, display_name, avatar_url, google_subject,
              enabled, created_at, updated_at)
         VALUES
-            (#{id}, #{email}, #{displayName}, #{avatarUrl}, #{passwordHash}, #{googleSubject},
+            (#{id}, #{email}, #{displayName}, #{avatarUrl}, #{googleSubject},
              #{enabled}, #{createdAt}, #{updatedAt})
     </insert>
 

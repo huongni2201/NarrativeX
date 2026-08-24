@@ -20,7 +20,11 @@ Canonical authority: [`../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](../
 
 ## Desktop client boundary
 
-`app/desktop` is a sibling client to `app/frontend-web`. It currently implements the Phase UI-1 editor shell with isolated mock data: activity bar, project explorer, preview, inspector, render queue and multi-track timeline. The renderer must use backend domain contracts when integration begins; it must not become an alternative source of truth for Projects, Chapters, Scenes, VisualBeats, assets, entitlements or render progress.
+`app/desktop` is the primary editor client and a sibling to `app/frontend-web`. It implements the
+dark editor shell, backend timeline/resource reads, production render request and job polling. Its
+main/preload boundary is the future home for system-browser Google OAuth callbacks, safeStorage,
+local device heartbeat, cache and FFmpeg execution. The renderer must not become an alternative
+source of truth for Projects, Chapters, Scenes, VisualBeats, assets, entitlements or render progress.
 
 Electron main/preload code is the future home for local device, cache and FFmpeg execution protocols. Renderer code receives only explicitly exposed capabilities through the preload bridge.
 

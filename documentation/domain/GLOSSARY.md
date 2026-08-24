@@ -68,7 +68,6 @@
  | Human-in-the-loop | AI đề xuất/generate nhưng user/admin duyệt tại các gate quan trọng. |
  | Entitlement | Quyền tính năng/usage mà backend phải enforce; UI không thể tự cấp quyền. |
  | Abuse Protection | Rate limit, burst/concurrency/fairness/anomaly controls ở account/API layer, tách provider quota. |
- | Auth Rate Limit | Application-layer throttle cho password login/register; hiện dùng Redis fixed-window với IP và identity+IP bucket, trả 429 + Retry-After khi vượt ngưỡng. |
  | Deletion Workflow | Quy trình durable chặn job, revoke URL, cleanup/quarantine, retention và audit thay cho DELETE đơn lẻ. |
 
  ## Canonical status vocabulary

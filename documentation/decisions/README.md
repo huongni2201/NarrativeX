@@ -40,6 +40,9 @@ Architectural decisions across NarrativeX are maintained in the following canoni
 10. **[ADR-0010: Establish the Electron desktop editor client boundary](./ADR-0010-desktop-editor-client-boundary.md)**
    - *Scope:* `app/desktop` Electron/React client boundary, secure preload bridge, editor-owned UI state, backend authority and incremental migration alongside `app/frontend-web`.
 
+11. **[ADR-0011: Google OAuth-only identity with a desktop authentication transport](./ADR-0011-google-oauth-only-desktop-auth.md)**
+   - *Scope:* Google-only user authentication, browser OIDC sessions, Desktop system-browser OAuth/deep-link exchange, safeStorage credentials and Local Agent consolidation.
+
 ---
 
 Use the next sequential ADR number for future cross-cutting architectural decisions.
