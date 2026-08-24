@@ -84,8 +84,12 @@ async def concat_audio_parts(
         command.extend(["-i", str(part)])
 
     normalized = [f"[a{index}]" for index in range(len(parts))]
+    # The concat filter requires compatible audio formats. Normalize rate, sample format and
+    # channel layout so mono/stereo chapter sources can safely share one project master track.
     filters = ";".join(
-        f"[{index}:a]aresample={sample_rate},asetpts=PTS-STARTPTS[a{index}]"
+        f"[{index}:a]aresample={sample_rate},"
+        f"aformat=sample_fmts=fltp:sample_rates={sample_rate}:channel_layouts=stereo,"
+        f"asetpts=PTS-STARTPTS[a{index}]"
         for index in range(len(parts))
     )
     filters += ";" + "".join(normalized) + f"concat=n={len(parts)}:v=0:a=1[aout]"
