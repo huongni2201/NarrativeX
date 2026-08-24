@@ -1,4 +1,5 @@
 import { EventEmitter } from "node:events";
+import type { ProjectStorage } from "../local-storage/project-storage";
 import type { LocalExecutionConfig } from "./config";
 import { DeviceIdentityStore, type DeviceIdentity } from "./device-identity";
 import {
@@ -21,6 +22,11 @@ export interface LocalExecutionStatus {
   lastError: string | null;
 }
 
+export interface PreparedProjectRender extends ClaimedProjectRender {
+  chapters: Array<ClaimedProjectRender["chapters"][number] & { localPath: string }>;
+  beats: Array<ClaimedProjectRender["beats"][number] & { localPath: string }>;
+}
+
 export class LocalExecutionService extends EventEmitter {
   private heartbeatTimer: NodeJS.Timeout | null = null;
   private identity: DeviceIdentity | null = null;
@@ -31,6 +37,7 @@ export class LocalExecutionService extends EventEmitter {
     private readonly config: LocalExecutionConfig,
     private readonly identityStore: DeviceIdentityStore,
     private readonly backendClient: LocalExecutionBackendClient,
+    private readonly projectStorage: ProjectStorage,
   ) {
     super();
   }
@@ -80,14 +87,47 @@ export class LocalExecutionService extends EventEmitter {
     };
   }
 
-  async claimProjectRender(): Promise<ClaimedProjectRender | null> {
+  async prepareNextProjectRender(): Promise<PreparedProjectRender | null> {
     if (!this.config.projectRenderEnabled) {
       throw new Error(
         "Local project rendering is disabled until the desktop FFmpeg runtime is enabled.",
       );
     }
     if (!this.identity) throw new Error("Desktop device is not paired.");
-    return this.backendClient.claimProjectRender(this.identity.deviceToken);
+    const claimed = await this.backendClient.claimProjectRender(this.identity.deviceToken);
+    if (!claimed) return null;
+
+    try {
+      const chapters = await Promise.all(
+        claimed.chapters.map(async (chapter) => ({
+          ...chapter,
+          localPath: await this.projectStorage.resolveAsset(
+            claimed.projectId,
+            chapter.narrationAssetId,
+            { sizeBytes: chapter.sizeBytes, checksumSha256: chapter.checksum },
+          ),
+        })),
+      );
+      const beats = await Promise.all(
+        claimed.beats.map(async (beat) => ({
+          ...beat,
+          localPath: await this.projectStorage.resolveAsset(claimed.projectId, beat.mediaAssetId, {
+            sizeBytes: beat.sizeBytes,
+            checksumSha256: beat.checksum,
+          }),
+        })),
+      );
+      return { ...claimed, chapters, beats };
+    } catch (error) {
+      await this.backendClient.failProjectRender(
+        this.identity.deviceToken,
+        claimed.jobId,
+        claimed.leaseToken,
+        "LOCAL_ASSET_MISSING_OR_INVALID",
+        false,
+      );
+      throw error;
+    }
   }
 
   stop(): void {
