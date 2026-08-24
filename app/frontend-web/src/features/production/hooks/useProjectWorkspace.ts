@@ -4,7 +4,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { projectsApi } from "@/features/projects/api/projects.api";
 import { queryKeys } from "@/lib/query-keys";
 import { isProductionTab, type ProductionTab } from "../production.types";
-import type { ProjectId } from "@/types/api";
+import type { ChapterId, ProjectId } from "@/types/api";
 
 export function useProjectWorkspace(projectId: ProjectId, initialTab: ProductionTab, enabled = true) {
   const router = useRouter();
@@ -45,7 +45,7 @@ export function useProjectWorkspace(projectId: ProjectId, initialTab: Production
     continueChapter,
     overviewQuery,
     projectQuery,
-    navigateToChapter: (chapterId: string | number) => router.push(`/projects/${projectId}/chapters/${chapterId}`),
+    navigateToChapter: (chapterId: ChapterId) => router.push(`/projects/${projectId}/chapters/${chapterId}`),
     continueProject: () => {
       if (continueChapter) router.push(`/projects/${projectId}/chapters/${continueChapter.id}`);
     },
