@@ -11,7 +11,7 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ProjectRenderArtifactRow {
-  private UUID id;
+  private Long id;
   private UUID projectId;
   private UUID generationJobId;
   private String webViewLink;
