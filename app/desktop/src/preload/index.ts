@@ -14,6 +14,10 @@ const bridge: NarrativeXDesktopBridge = {
       return () => ipcRenderer.removeListener("desktop:local-execution:status-changed", handler);
     },
   },
+  localStorage: {
+    ensureProject: (projectId: string) =>
+      ipcRenderer.invoke("desktop:local-storage:ensure-project", projectId),
+  },
 };
 
 contextBridge.exposeInMainWorld("narrativex", bridge);
