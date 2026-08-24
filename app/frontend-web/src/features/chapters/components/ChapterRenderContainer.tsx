@@ -5,13 +5,14 @@ import { useChapterRender } from "@/features/render/hooks/useChapterRender";
 import type {
   ApiChapterWorkspaceProgressStep,
   ApiChapterWorkspaceRenderStep,
+  ChapterId,
   ProjectId,
 } from "@/types/api";
 import { ChapterRenderTab } from "./ChapterRenderTab";
 
 interface ChapterRenderContainerProps {
   projectId: ProjectId;
-  chapterId: string | number;
+  chapterId: ChapterId;
   initialMedia: ApiChapterWorkspaceProgressStep;
   initialRender: ApiChapterWorkspaceRenderStep;
 }

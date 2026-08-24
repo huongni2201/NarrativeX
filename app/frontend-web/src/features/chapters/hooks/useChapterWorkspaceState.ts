@@ -144,8 +144,8 @@ export function useChapterWorkspaceState(projectId: string, chapterId: string) {
   });
 
   const analyzeChapterMutation = useMutation({
-    mutationFn: (contentVariantId: string | number | undefined) =>
-      chaptersApi.analyze(numericProjectId, numericChapterId, contentVariantId),
+    mutationFn: (contentVariantId?: string | null) =>
+      chaptersApi.analyze(numericProjectId, numericChapterId, contentVariantId ?? undefined),
     onMutate: () => setAnalysisMessage("Đang tạo analysis job…"),
     onSuccess: (job) => {
       setAnalysisJobId(job.jobId);

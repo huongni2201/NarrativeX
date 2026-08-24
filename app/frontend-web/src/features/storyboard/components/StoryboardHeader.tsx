@@ -1,16 +1,17 @@
 import { Plus, Search } from "lucide-react";
+import type { ChapterId } from "@/types/api";
 import type { ApiChapterStoryboard, ApiStoryboardScene } from "../api/storyboard.api";
 import type { StatusFilter, StoryboardChapterItem } from "../hooks/useStoryboardState";
 
 interface StoryboardHeaderProps {
   hideChapterSelector: boolean;
   orderedChapters: StoryboardChapterItem[];
-  chapterId: string | number | null;
+  chapterId: ChapterId | null;
   sceneId: string | null;
   status: StatusFilter;
   search: string;
   storyboard: ApiChapterStoryboard | undefined;
-  onChapterChange: (chapterId: string | number) => void;
+  onChapterChange: (chapterId: ChapterId) => void;
   onSceneChange: (sceneId: string | null) => void;
   onStatusChange: (status: StatusFilter) => void;
   onSearchChange: (search: string) => void;

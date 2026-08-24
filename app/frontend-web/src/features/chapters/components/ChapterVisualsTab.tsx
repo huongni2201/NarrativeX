@@ -4,11 +4,11 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { GenerateMediaModal } from "@/features/generation/components/GenerateMediaModal";
 import { useMediaGeneration } from "@/features/generation/hooks/useMediaGeneration";
-import type { ApiChapterWorkspaceProgressStep, ProjectId } from "@/types/api";
+import type { ApiChapterWorkspaceProgressStep, ChapterId, ProjectId } from "@/types/api";
 
 interface ChapterVisualsTabProps {
   projectId: ProjectId;
-  chapterId: string | number;
+  chapterId: ChapterId;
   visualBeatCount: number;
   initialMedia: ApiChapterWorkspaceProgressStep;
 }

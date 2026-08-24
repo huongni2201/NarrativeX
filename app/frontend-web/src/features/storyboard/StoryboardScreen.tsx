@@ -12,14 +12,14 @@ import {
   useStoryboardState,
   type StoryboardChapterItem,
 } from "./hooks/useStoryboardState";
-import type { ProjectId } from "@/types/api";
+import type { ChapterId, ProjectId } from "@/types/api";
 
 export type { StoryboardChapterItem } from "./hooks/useStoryboardState";
 
 interface StoryboardScreenProps {
   projectId: ProjectId;
   chapters: StoryboardChapterItem[];
-  initialChapterId?: string | number | null;
+  initialChapterId?: ChapterId | null;
   hideChapterSelector?: boolean;
 }
 

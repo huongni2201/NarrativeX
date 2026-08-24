@@ -9,10 +9,10 @@ import {
   type ApiStoryboardVisualBeat,
   type VisualBeatReviewStatus,
 } from "../api/storyboard.api";
-import type { ProjectId } from "@/types/api";
+import type { ChapterId, ProjectId } from "@/types/api";
 
 export interface StoryboardChapterItem {
-  id: string | number;
+  id: ChapterId;
   orderIndex: number;
   title: string;
 }
@@ -22,7 +22,7 @@ export type StatusFilter = "ALL" | VisualBeatReviewStatus;
 interface UseStoryboardStateOptions {
   projectId: ProjectId;
   chapters: StoryboardChapterItem[];
-  initialChapterId?: string | number | null;
+  initialChapterId?: ChapterId | null;
 }
 
 export function useStoryboardState({
@@ -32,10 +32,10 @@ export function useStoryboardState({
 }: UseStoryboardStateOptions) {
   const queryClient = useQueryClient();
   const orderedChapters = useMemo(
-    () => [...chapters].sort((a, b) => a.orderIndex - b.orderIndex || String(a.id).localeCompare(String(b.id))),
+    () => [...chapters].sort((a, b) => a.orderIndex - b.orderIndex || a.id.localeCompare(b.id)),
     [chapters],
   );
-  const [chapterId, setChapterId] = useState<string | number | null>(
+  const [chapterId, setChapterId] = useState<ChapterId | null>(
     initialChapterId ?? orderedChapters.at(-1)?.id ?? null,
   );
   const [sceneId, setSceneId] = useState<string | null>(null);
