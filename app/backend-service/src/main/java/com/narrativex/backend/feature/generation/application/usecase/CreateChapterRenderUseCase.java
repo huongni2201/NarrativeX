@@ -3,6 +3,7 @@ package com.narrativex.backend.feature.generation.application.usecase;
 import com.narrativex.backend.feature.account.application.port.in.UserQuotaAccess;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.generation.application.command.CreateChapterRenderCommand;
+import com.narrativex.backend.feature.generation.application.command.RenderBeatOverride;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterMediaHeadRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationOutboxRepository;
@@ -22,8 +23,11 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Comparator;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Locale;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -53,6 +57,7 @@ public class CreateChapterRenderUseCase {
   @Transactional
   public GenerationJob execute(CreateChapterRenderCommand command) {
     String userId = currentUserId.get();
+    validateBeatOverrides(command.beatOverrides());
     var chapter =
         chapterSourceAccess.requireOwnedForAnalysisLocked(
             command.projectId(), command.chapterId(), userId);
@@ -143,7 +148,8 @@ public class CreateChapterRenderUseCase {
             chapter.rowVersion(),
             chapter.sourceHash(),
             command.mediaPlanId(),
-            command.mediaPlanRevision());
+            command.mediaPlanRevision(),
+            command.beatOverrides());
     if (!renderSnapshot.complete()) {
       throw new GenerationAdmissionDeniedException(
           "RENDER_INPUT_NOT_READY",
@@ -163,10 +169,11 @@ public class CreateChapterRenderUseCase {
     stageAttemptRepository.create(StageAttempt.create(job.getId(), STAGE_NAME, 1));
     generationOutboxRepository.enqueue(job);
     log.info(
-        "Created and enqueued render job id={} (resolution='{}', format='{}') for chapterId={}, projectId={}",
+        "Created and enqueued render job id={} (resolution='{}', format='{}', beatOverrides={}) for chapterId={}, projectId={}",
         job.getId(),
         command.resolution(),
         command.format(),
+        command.beatOverrides().size(),
         command.chapterId(),
         command.projectId());
     return job;
@@ -202,8 +209,38 @@ public class CreateChapterRenderUseCase {
             + ":"
             + command.resolution()
             + ":"
-            + command.format();
+            + command.format()
+            + ":"
+            + renderOverridesFingerprint(command.beatOverrides());
     return "chapter-render:" + sha256(fingerprintPayload);
+  }
+
+  private static String renderOverridesFingerprint(List<RenderBeatOverride> overrides) {
+    if (overrides == null || overrides.isEmpty()) {
+      return "default";
+    }
+    String canonical =
+        overrides.stream()
+            .sorted(Comparator.comparing(override -> override.visualBeatId().toString()))
+            .map(
+                override ->
+                    override.visualBeatId()
+                        + ":"
+                        + (override.durationMs() == null ? "auto" : override.durationMs())
+                        + ":"
+                        + (override.cameraMovement() == null
+                            ? "default"
+                            : override.cameraMovement()))
+            .collect(Collectors.joining("|"));
+    return sha256(canonical);
+  }
+
+  private static void validateBeatOverrides(List<RenderBeatOverride> overrides) {
+    long distinct = overrides.stream().map(RenderBeatOverride::visualBeatId).distinct().count();
+    if (distinct != overrides.size()) {
+      throw new GenerationAdmissionDeniedException(
+          "INVALID_RENDER_OVERRIDE", "Each visual beat may have at most one render override.");
+    }
   }
 
   private static String sha256(String value) {

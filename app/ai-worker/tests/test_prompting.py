@@ -49,3 +49,28 @@ def test_chapter_prompt_preserves_untrusted_boundary_and_output_contract() -> No
     assert "SOURCE_LANGUAGE=vi-VN" in prompt
     assert "OUTPUT_SCHEMA={characters:[{key,name,aliases,description}]" in prompt
     assert "visual_beats:[{title,visual_intent,camera_angle}]" in prompt
+
+
+def test_short_form_density_keeps_eight_second_target() -> None:
+    # 910 words at 140 wpm is approximately 6m30s, matching the common chapter case.
+    prompt = build_chapter_analysis_prompt(_request("word " * 910))
+
+    assert "TARGET_VISUAL_BEAT_MS=8000" in prompt
+    assert "TARGET_VISUAL_BEATS=49" in prompt
+
+
+def test_one_hour_density_uses_twelve_second_target_instead_of_four_hundred_plus_beats() -> None:
+    prompt = build_chapter_analysis_prompt(_request("word " * 8400))
+
+    assert "ESTIMATED_NARRATION_DURATION_MS=3600000" in prompt
+    assert "TARGET_VISUAL_BEAT_MS=12000" in prompt
+    assert "TARGET_VISUAL_BEATS=300" in prompt
+    assert "extrapolating an 8-second short-form cadence forever" in prompt
+
+
+def test_two_hour_density_relaxes_to_fifteen_second_target() -> None:
+    prompt = build_chapter_analysis_prompt(_request("word " * 16800))
+
+    assert "ESTIMATED_NARRATION_DURATION_MS=7200000" in prompt
+    assert "TARGET_VISUAL_BEAT_MS=15000" in prompt
+    assert "TARGET_VISUAL_BEATS=480" in prompt

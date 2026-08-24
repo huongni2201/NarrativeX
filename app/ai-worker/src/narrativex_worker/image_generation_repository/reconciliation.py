@@ -8,6 +8,7 @@ from narrativex_worker.image_generation_repository.models import DurableImageOpe
 from narrativex_worker.media_repository import DurableMediaResult
 from narrativex_worker.providers.image import ImageBatchItem, ImageGenerationRequest
 from narrativex_worker.schema import ImageAspectRatio, ImageQualityTier
+from narrativex_worker.uuid_v7 import uuid7
 
 
 class ImageReconciliationMixin:
@@ -48,6 +49,112 @@ class ImageReconciliationMixin:
             operation.lease_token if operation is not None else None,
         )
         return str(result) == "UPDATE 1"
+
+    async def resolve_reused_items(self, stage_attempt_id: uuid.UUID) -> int:
+        """Bind reusable beats to their generated anchor without crossing a paid provider boundary."""
+        pool = self._require_pool()
+        resolved = 0
+        async with pool.acquire() as connection:
+            async with connection.transaction():
+                rows = await connection.fetch(
+                    """
+                    SELECT target.id AS target_id,
+                           target.request_fingerprint,
+                           target.visual_beat_id,
+                           target.generation_job_id,
+                           target.media_plan_id,
+                           target_plan.asset_strategy,
+                           target_plan.prompt_snapshot,
+                           target_plan.reuse_source_visual_beat_id,
+                           source.media_asset_id,
+                           source.visual_beat_id AS source_visual_beat_id,
+                           gj.project_id,
+                           gj.requested_by_user_id,
+                           mp.chapter_id,
+                           ma.sha256
+                      FROM stage_attempts sa
+                      JOIN media_generation_items target
+                        ON target.generation_job_id = sa.generation_job_id
+                      JOIN media_beat_plans target_plan
+                        ON target_plan.media_plan_id = target.media_plan_id
+                       AND target_plan.visual_beat_id = target.visual_beat_id
+                      JOIN generation_jobs gj ON gj.id = target.generation_job_id
+                      JOIN media_plans mp ON mp.id = target.media_plan_id
+                      JOIN LATERAL (
+                        SELECT source_item.media_asset_id, source_item.visual_beat_id
+                          FROM media_generation_items source_item
+                         WHERE source_item.generation_job_id = target.generation_job_id
+                           AND source_item.media_plan_id = target.media_plan_id
+                           AND source_item.visual_beat_id = target_plan.reuse_source_visual_beat_id
+                           AND source_item.execution_status = 'READY'
+                           AND source_item.media_asset_id IS NOT NULL
+                         ORDER BY source_item.attempt_number DESC,
+                                  source_item.created_at DESC,
+                                  source_item.id DESC
+                         LIMIT 1
+                      ) source ON TRUE
+                      JOIN media_assets ma ON ma.id = source.media_asset_id
+                     WHERE sa.id = $1
+                       AND target.execution_status = 'QUEUED'
+                       AND target_plan.asset_strategy IN ('REUSE_APPROVED', 'REFRAME_DERIVED')
+                       AND target_plan.reuse_source_visual_beat_id IS NOT NULL
+                       AND ma.asset_type = 'IMAGE'
+                       AND ma.status = 'READY'
+                       AND ma.deleted_at IS NULL
+                     FOR UPDATE OF target
+                    """,
+                    stage_attempt_id,
+                )
+                for row in rows:
+                    result = await connection.execute(
+                        """
+                        UPDATE media_generation_items
+                           SET execution_status = 'READY',
+                               review_status = 'NEEDS_REVIEW',
+                               media_asset_id = $2,
+                               error_code = NULL,
+                               updated_at = CURRENT_TIMESTAMP,
+                               row_version = row_version + 1
+                         WHERE id = $1 AND execution_status = 'QUEUED'
+                        """,
+                        row["target_id"],
+                        row["media_asset_id"],
+                    )
+                    if str(result) != "UPDATE 1":
+                        continue
+                    await connection.execute(
+                        """
+                        INSERT INTO media_asset_lineage
+                            (id, media_asset_id, account_id, project_id, chapter_id,
+                             visual_beat_id, generation_job_id, media_plan_id, generation_item_id,
+                             source_asset_id, relation_type, request_fingerprint,
+                             result_fingerprint, prompt_snapshot, provider_snapshot_json)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $2,
+                                'DERIVED_KEYFRAME', $10, $11, $12, $13::jsonb)
+                        ON CONFLICT (generation_item_id, relation_type) DO NOTHING
+                        """,
+                        uuid7(),
+                        row["media_asset_id"],
+                        row["requested_by_user_id"],
+                        row["project_id"],
+                        row["chapter_id"],
+                        row["visual_beat_id"],
+                        row["generation_job_id"],
+                        row["media_plan_id"],
+                        row["target_id"],
+                        row["request_fingerprint"],
+                        row["sha256"],
+                        row["prompt_snapshot"],
+                        json.dumps(
+                            {
+                                "assetStrategy": row["asset_strategy"],
+                                "sourceVisualBeatId": str(row["source_visual_beat_id"]),
+                            },
+                            separators=(",", ":"),
+                        ),
+                    )
+                    resolved += 1
+        return resolved
 
     async def due_operations(self, limit: int) -> tuple[DurableImageOperation, ...]:
         rows = await self._require_pool().fetch(
@@ -96,6 +203,7 @@ class ImageReconciliationMixin:
                     fingerprint,
                     operation.row_version,
                 )
+        await self.resolve_reused_items(operation.stage_attempt_id)
         await self.aggregate_generation_job(operation.stage_attempt_id)
 
     async def _items_for_operation(self, operation_id: uuid.UUID) -> tuple[ImageBatchItem, ...]:

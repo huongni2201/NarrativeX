@@ -4,8 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.narrativex.backend.feature.generation.application.command.CreateChapterRenderCommand;
+import com.narrativex.backend.feature.generation.application.command.RenderBeatOverride;
 import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -41,6 +43,28 @@ class CreateChapterRenderUseCaseTest {
     String second = CreateChapterRenderUseCase.renderIdempotencyKey(command, "b".repeat(64));
 
     assertThat(first).isNotEqualTo(second);
+  }
+
+  @Test
+  void generatedIdempotencyKeyChangesWhenRenderBeatEditsChange() {
+    CreateChapterRenderCommand base = command(null);
+    UUID beatId = UUID.fromString("018f0000-0000-7000-8000-000000000004");
+    CreateChapterRenderCommand edited =
+        new CreateChapterRenderCommand(
+            base.projectId(),
+            base.chapterId(),
+            base.resolution(),
+            base.format(),
+            base.mediaPlanId(),
+            base.mediaPlanRevision(),
+            base.maxAuthorizedCost(),
+            null,
+            List.of(new RenderBeatOverride(beatId, 7_500L, "PUSH_IN")));
+
+    assertThat(
+            CreateChapterRenderUseCase.renderIdempotencyKey(base, "a".repeat(64)))
+        .isNotEqualTo(
+            CreateChapterRenderUseCase.renderIdempotencyKey(edited, "a".repeat(64)));
   }
 
   @Test

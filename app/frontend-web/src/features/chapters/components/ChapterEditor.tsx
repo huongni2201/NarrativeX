@@ -95,6 +95,7 @@ export function ChapterEditor({ projectId, chapterId }: Readonly<ChapterEditorPr
           visuals: workspace.capabilities.canGenerateVisuals,
           audio: Boolean(workspace.chapter.sourceText.trim()),
           render:
+            workspace.summary.visualBeatCount > 0 ||
             workspace.capabilities.canRender ||
             workspace.pipeline.render.status === "READY" ||
             workspace.pipeline.render.status === "COMPLETED",

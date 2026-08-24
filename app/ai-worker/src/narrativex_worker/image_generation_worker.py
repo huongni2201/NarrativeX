@@ -148,8 +148,10 @@ class ImageGenerationWorkerRunner:
 
     async def _process_claimed(self, job: ClaimedImageGenerationJob) -> None:
         async with self._concurrency_gate:
+            await self.repository.resolve_reused_items(job.stage_attempt_id)
             pending = await self.repository.load_pending_items(job)
             if not pending:
+                await self.repository.aggregate_generation_job(job.stage_attempt_id)
                 return
             items = [ImageBatchItem(item.item_key, item.request) for item in pending]
             for batch in _partition_batches(items, self.settings.vertex_image_batch_max_items):
