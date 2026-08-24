@@ -7,10 +7,10 @@ public record LocalProjectRenderBeatRow(
     int sceneIndex,
     int beatIndex,
     UUID visualBeatId,
+    UUID mediaAssetId,
     long globalStartMs,
     long globalEndMs,
     long durationMs,
     String cameraMovement,
-    String storageKey,
     long sizeBytes,
     String checksum) {}
