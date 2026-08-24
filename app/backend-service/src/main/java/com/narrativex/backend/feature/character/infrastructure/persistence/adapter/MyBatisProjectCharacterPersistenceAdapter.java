@@ -6,6 +6,7 @@ import com.narrativex.backend.feature.character.infrastructure.persistence.mappe
 import com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.CharacterMapper;
 import com.narrativex.backend.feature.character.infrastructure.persistence.mybatis.ProjectCharacterRow;
 import com.narrativex.backend.feature.common.infrastructure.persistence.OptimisticConcurrency;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -15,6 +16,14 @@ import org.springframework.stereotype.Component;
 public class MyBatisProjectCharacterPersistenceAdapter implements ProjectCharacterRepository {
   private final CharacterMapper mapper;
   private final CharacterMyBatisRowMapper rowMapper;
+
+  @Override
+  public Optional<ProjectCharacter> findByProjectAndCharacterForUpdate(
+      UUID projectId, UUID characterId) {
+    return Optional.ofNullable(
+            mapper.findProjectCharacterByProjectAndCharacterForUpdate(projectId, characterId))
+        .map(rowMapper::toDomain);
+  }
 
   @Override
   public ProjectCharacter save(ProjectCharacter value) {

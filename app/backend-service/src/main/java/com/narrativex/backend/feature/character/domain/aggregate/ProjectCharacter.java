@@ -13,11 +13,11 @@ import java.util.UUID;
 public final class ProjectCharacter extends AggregateRoot {
   private final UUID projectId;
   private final UUID characterId;
-  private final String role;
-  private final int importance;
-  private final List<String> projectAliases;
-  private final String storyMetadata;
-  private final List<String> groups;
+  private String role;
+  private int importance;
+  private List<String> projectAliases;
+  private String storyMetadata;
+  private List<String> groups;
   private UUID pinnedCharacterVersionId;
   private ProjectCharacterStatus status;
 
@@ -36,12 +36,7 @@ public final class ProjectCharacter extends AggregateRoot {
     super(id, rowVersion);
     this.projectId = Objects.requireNonNull(projectId, "projectId");
     this.characterId = Objects.requireNonNull(characterId, "characterId");
-    this.role = required(role, "role");
-    if (importance < 0) throw new IllegalArgumentException("importance must not be negative");
-    this.importance = importance;
-    this.projectAliases = List.copyOf(projectAliases == null ? List.of() : projectAliases);
-    this.storyMetadata = storyMetadata;
-    this.groups = List.copyOf(groups == null ? List.of() : groups);
+    setAssignmentMetadata(role, importance, projectAliases, storyMetadata, groups);
     this.pinnedCharacterVersionId = pinnedCharacterVersionId;
     this.status = Objects.requireNonNull(status, "status");
   }
@@ -77,6 +72,21 @@ public final class ProjectCharacter extends AggregateRoot {
         groups, pinnedCharacterVersionId, status);
   }
 
+  public void reactivate(
+      String role,
+      int importance,
+      List<String> projectAliases,
+      String storyMetadata,
+      List<String> groups) {
+    if (status != ProjectCharacterStatus.REMOVED) {
+      throw new InvalidProjectCharacterTransitionException(
+          "Only removed project characters can be reactivated");
+    }
+    setAssignmentMetadata(role, importance, projectAliases, storyMetadata, groups);
+    pinnedCharacterVersionId = null;
+    status = ProjectCharacterStatus.ACTIVE;
+  }
+
   public void pinVersion(CharacterVersion version) {
     Objects.requireNonNull(version, "version");
     if (status == ProjectCharacterStatus.REMOVED) {
@@ -102,6 +112,20 @@ public final class ProjectCharacter extends AggregateRoot {
   public List<String> getGroups() { return groups; }
   public UUID getPinnedCharacterVersionId() { return pinnedCharacterVersionId; }
   public ProjectCharacterStatus getStatus() { return status; }
+
+  private void setAssignmentMetadata(
+      String role,
+      int importance,
+      List<String> projectAliases,
+      String storyMetadata,
+      List<String> groups) {
+    this.role = required(role, "role");
+    if (importance < 0) throw new IllegalArgumentException("importance must not be negative");
+    this.importance = importance;
+    this.projectAliases = List.copyOf(projectAliases == null ? List.of() : projectAliases);
+    this.storyMetadata = storyMetadata;
+    this.groups = List.copyOf(groups == null ? List.of() : groups);
+  }
 
   private static String required(String value, String field) {
     if (value == null || value.isBlank()) throw new IllegalArgumentException(field + " must not be blank");
