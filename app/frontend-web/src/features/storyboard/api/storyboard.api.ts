@@ -1,5 +1,5 @@
 import { apiRequest } from "@/shared/api/client";
-import type { ProjectId } from "@/types/api";
+import type { ChapterId, ProjectId, SceneId, VisualBeatId } from "@/types/api";
 import {
   isApiChapterStoryboard,
   isApiStoryboardVisualBeat,
@@ -26,7 +26,7 @@ export interface CreateVisualBeatInput {
 }
 
 export const storyboardApi = {
-  get: (projectId: ProjectId, chapterId: string | number) =>
+  get: (projectId: ProjectId, chapterId: ChapterId) =>
     apiRequest<ApiChapterStoryboard>(
       `/api/v1/projects/${projectId}/chapters/${chapterId}/storyboard`,
       {},
@@ -35,8 +35,8 @@ export const storyboardApi = {
 
   createVisualBeat: (
     projectId: ProjectId,
-    chapterId: string | number,
-    sceneId: string,
+    chapterId: ChapterId,
+    sceneId: SceneId,
     input: CreateVisualBeatInput,
   ) =>
     apiRequest<ApiStoryboardVisualBeat>(
@@ -47,9 +47,9 @@ export const storyboardApi = {
 
   updateReviewStatus: (
     projectId: ProjectId,
-    chapterId: string | number,
-    sceneId: string,
-    beatId: string,
+    chapterId: ChapterId,
+    sceneId: SceneId,
+    beatId: VisualBeatId,
     rowVersion: number,
     status: VisualBeatReviewStatus,
   ) =>
