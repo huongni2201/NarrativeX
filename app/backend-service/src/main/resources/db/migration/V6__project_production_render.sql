@@ -1,5 +1,6 @@
 -- Project-level immutable render snapshots for long-form production timelines.
 -- Chapter render tables remain unchanged; this slice adds a separate project render boundary.
+-- Final project video outputs use the canonical final_artifacts table as PROJECT_VIDEO.
 
 CREATE TABLE project_render_input_snapshots (
     generation_job_id UUID PRIMARY KEY REFERENCES generation_jobs(id) ON DELETE CASCADE,
@@ -108,31 +109,18 @@ CREATE TABLE project_render_input_beats (
 CREATE INDEX idx_project_render_input_beats_order
     ON project_render_input_beats (generation_job_id, global_start_ms, scene_index, beat_index);
 
-CREATE TABLE project_render_artifacts (
-    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
-    project_id UUID NOT NULL REFERENCES projects(id),
-    generation_job_id UUID NOT NULL UNIQUE REFERENCES generation_jobs(id),
-    render_fingerprint VARCHAR(64) NOT NULL,
-    storage_key TEXT NOT NULL,
-    storage_provider VARCHAR(32) NOT NULL,
-    external_file_id TEXT NOT NULL,
-    web_view_link TEXT,
-    mime_type VARCHAR(128) NOT NULL DEFAULT 'video/mp4',
-    size_bytes BIGINT NOT NULL CHECK (size_bytes > 0),
-    checksum_sha256 VARCHAR(64) NOT NULL,
-    duration_ms BIGINT NOT NULL CHECK (duration_ms > 0),
-    width INTEGER NOT NULL CHECK (width > 0),
-    height INTEGER NOT NULL CHECK (height > 0),
-    fps INTEGER NOT NULL CHECK (fps > 0),
-    status VARCHAR(32) NOT NULL DEFAULT 'READY',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT ck_project_render_artifact_status CHECK (status IN ('READY', 'ARCHIVED'))
-);
+-- final_artifacts is the canonical durable output model for chapter, project, and short videos.
+-- Keep one active PROJECT_VIDEO artifact per render job while allowing multiple intentional
+-- rerenders of the same immutable render fingerprint to reference the same storage object.
+CREATE UNIQUE INDEX uq_final_artifacts_project_render_job
+    ON final_artifacts (generation_job_id)
+    WHERE artifact_type = 'PROJECT_VIDEO'
+      AND generation_job_id IS NOT NULL
+      AND status <> 'ARCHIVED';
 
-CREATE INDEX idx_project_render_artifacts_project_created
-    ON project_render_artifacts (project_id, created_at DESC);
-CREATE INDEX idx_project_render_artifacts_project_fingerprint
-    ON project_render_artifacts (project_id, render_fingerprint);
+CREATE INDEX idx_final_artifacts_project_video_fingerprint
+    ON final_artifacts (project_id, render_fingerprint)
+    WHERE artifact_type = 'PROJECT_VIDEO';
 
 -- RENDER_PROJECT is a local CPU render just like CHAPTER_RENDER. Re-declare the
 -- terminal quota trigger function so project renders consume their reserved credit
