@@ -19,6 +19,10 @@ import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterWorkspaceAccess;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class CreateChapterRenderUseCase {
   private static final String STAGE_NAME = "CHAPTER_RENDER";
+  private static final int MAX_IDEMPOTENCY_KEY_LENGTH = 200;
 
   private final CurrentUserId currentUserId;
   private final ProjectAccess projectAccess;
@@ -97,23 +102,7 @@ public class CreateChapterRenderUseCase {
       throw new GenerationAdmissionDeniedException(
           "COST_LIMIT", "The requested render authorization cap is below the server estimate.");
     }
-    String idempotencyKey =
-        command.idempotencyKey() != null && !command.idempotencyKey().isBlank()
-            ? command.idempotencyKey()
-            : "chapter-render:"
-                + command.projectId()
-                + ":"
-                + command.chapterId()
-                + ":"
-                + chapter.sourceHash()
-                + ":"
-                + command.mediaPlanId()
-                + ":"
-                + command.mediaPlanRevision()
-                + ":"
-                + command.resolution()
-                + ":"
-                + command.format();
+    String idempotencyKey = renderIdempotencyKey(command, chapter.sourceHash());
     generationJobRepository.acquireIdempotencyLock(idempotencyKey, userId);
     var existing = generationJobRepository.findByIdempotencyKey(idempotencyKey, userId);
     if (existing.isPresent()) {
@@ -189,6 +178,42 @@ public class CreateChapterRenderUseCase {
         + resolution.toUpperCase(Locale.ROOT)
         + "_"
         + format.toUpperCase(Locale.ROOT);
+  }
+
+  static String renderIdempotencyKey(CreateChapterRenderCommand command, String sourceHash) {
+    if (command.idempotencyKey() != null && !command.idempotencyKey().isBlank()) {
+      String normalized = command.idempotencyKey().trim();
+      if (normalized.length() > MAX_IDEMPOTENCY_KEY_LENGTH) {
+        throw new GenerationAdmissionDeniedException(
+            "IDEMPOTENCY_CONFLICT", "Idempotency-Key must not exceed 200 characters.");
+      }
+      return normalized;
+    }
+    String fingerprintPayload =
+        command.projectId()
+            + ":"
+            + command.chapterId()
+            + ":"
+            + sourceHash
+            + ":"
+            + command.mediaPlanId()
+            + ":"
+            + command.mediaPlanRevision()
+            + ":"
+            + command.resolution()
+            + ":"
+            + command.format();
+    return "chapter-render:" + sha256(fingerprintPayload);
+  }
+
+  private static String sha256(String value) {
+    try {
+      byte[] digest =
+          MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
+      return HexFormat.of().formatHex(digest);
+    } catch (NoSuchAlgorithmException exception) {
+      throw new IllegalStateException("SHA-256 must be available in the JDK", exception);
+    }
   }
 
   private static boolean qualityAllowed(String requestedResolution, String maximumQuality) {
