@@ -28,13 +28,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-/**
- * Contract test for the authoritative PostgreSQL/Flyway schema and MyBatis UUID mappings.
- *
- * <p>Database-generated aggregate identifiers use the portable PostgreSQL UUIDv7 function defined
- * by V1. If a PK/FK type, UUID default, or XML mapping drifts from the Java contract, this test
- * must fail before the application is deployable.
- */
+/** Contract test for the authoritative PostgreSQL/Flyway schema and MyBatis UUID mappings. */
 @Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest
 @ActiveProfiles("test")
@@ -90,7 +84,7 @@ class PostgreSqlMigrationIntegrationTest {
   @Test
   void emptyPostgresMigratesThroughAuthoritativeUuidSchema() throws SQLException {
     try (Connection connection = dataSource.getConnection()) {
-      assertEquals("2", latestFlywayVersion(connection));
+      assertEquals("3", latestFlywayVersion(connection));
 
       for (String table : UUID_ID_TABLES) {
         assertEquals("uuid", columnType(connection, table, "id"), table + ".id must be UUID");
@@ -105,7 +99,6 @@ class PostgreSqlMigrationIntegrationTest {
       assertEquals("uuid", columnType(connection, "generation_jobs", "story_version_id"));
       assertEquals("uuid", columnType(connection, "generation_jobs", "storyboard_revision_id"));
       assertEquals("uuid", columnType(connection, "generation_jobs", "content_variant_id"));
-
       assertEquals("uuid", columnType(connection, "language_detections", "content_variant_id"));
       assertEquals("uuid", columnType(connection, "notifications", "project_id"));
       assertEquals("uuid", columnType(connection, "ai_audit_events", "job_id"));
@@ -115,24 +108,23 @@ class PostgreSqlMigrationIntegrationTest {
       assertEquals("uuid", columnType(connection, "narration_requests", "project_id"));
       assertEquals("uuid", columnType(connection, "narration_requests", "chapter_id"));
       assertEquals("uuid", columnType(connection, "media_generation_items", "generation_job_id"));
-      assertEquals(
-          "uuid", columnType(connection, "media_generation_items", "provider_operation_id"));
+      assertEquals("uuid", columnType(connection, "media_generation_items", "provider_operation_id"));
       assertEquals("uuid", columnType(connection, "media_scene_plans", "scene_id"));
       assertEquals("uuid", columnType(connection, "media_beat_plans", "visual_beat_id"));
+
       assertTrue(tableExists(connection, "character_version_reference_assets"));
-      assertEquals(
-          "uuid",
-          columnType(connection, "character_version_reference_assets", "character_version_id"));
-      assertEquals(
-          "uuid", columnType(connection, "character_version_reference_assets", "media_asset_id"));
+      assertEquals("uuid", columnType(connection, "character_version_reference_assets", "character_version_id"));
+      assertEquals("uuid", columnType(connection, "character_version_reference_assets", "media_asset_id"));
       assertTrue(tableExists(connection, "local_device_pairing_codes"));
       assertTrue(tableExists(connection, "local_devices"));
       assertTrue(tableExists(connection, "local_device_capabilities"));
 
-      // Numeric domain values are not identifiers and must remain numeric.
       assertEquals("bigint", columnType(connection, "projects", "row_version"));
       assertEquals("bigint", columnType(connection, "chapters", "row_version"));
       assertEquals("bigint", columnType(connection, "chapters", "estimated_duration_ms"));
+      assertEquals("timestamp with time zone", columnType(connection, "chapters", "deleted_at"));
+      assertFalse(constraintExists(connection, "uk_chapters_story_order"));
+      assertTrue(indexExists(connection, "uq_chapters_story_order_active"));
 
       assertTrue(tableExists(connection, "plan_entitlements"));
       assertTrue(tableExists(connection, "style_presets"));
@@ -172,28 +164,20 @@ class PostgreSqlMigrationIntegrationTest {
                   JOIN pg_class parent ON parent.oid = con.confrelid
                   JOIN pg_namespace ns ON ns.oid = child.relnamespace
                   JOIN LATERAL unnest(con.conkey) WITH ORDINALITY ck(attnum, ord) ON TRUE
-                  JOIN LATERAL unnest(con.confkey) WITH ORDINALITY pk(attnum, ord)
-                    ON pk.ord = ck.ord
-                  JOIN pg_attribute child_col
-                    ON child_col.attrelid = child.oid AND child_col.attnum = ck.attnum
-                  JOIN pg_attribute parent_col
-                    ON parent_col.attrelid = parent.oid AND parent_col.attnum = pk.attnum
+                  JOIN LATERAL unnest(con.confkey) WITH ORDINALITY pk(attnum, ord) ON pk.ord = ck.ord
+                  JOIN pg_attribute child_col ON child_col.attrelid = child.oid AND child_col.attnum = ck.attnum
+                  JOIN pg_attribute parent_col ON parent_col.attrelid = parent.oid AND parent_col.attnum = pk.attnum
                  WHERE con.contype = 'f' AND ns.nspname = 'public'
                 """)) {
       try (ResultSet result = statement.executeQuery()) {
         int checked = 0;
         while (result.next()) {
           checked++;
-          String childTable = result.getString("child_table");
-          String childColumn = result.getString("child_column");
-          String childType = result.getString("child_type");
-          String parentTable = result.getString("parent_table");
-          String parentColumn = result.getString("parent_column");
-          String parentType = result.getString("parent_type");
           assertEquals(
-              parentType,
-              childType,
-              childTable + "." + childColumn + " must match " + parentTable + "." + parentColumn);
+              result.getString("parent_type"),
+              result.getString("child_type"),
+              result.getString("child_table") + "." + result.getString("child_column")
+                  + " must match " + result.getString("parent_table") + "." + result.getString("parent_column"));
         }
         assertTrue(checked > 0, "expected the schema to contain foreign keys");
       }
@@ -207,20 +191,14 @@ class PostgreSqlMigrationIntegrationTest {
     UUID missingVariantId = UUID.randomUUID();
 
     assertNull(assertDoesNotThrow(() -> projectMapper.findById(missingProjectId)));
-    assertNull(
-        assertDoesNotThrow(
-            () -> chapterWorkspaceMapper.aggregate(missingProjectId, missingChapterId)));
-    assertNull(
-        assertDoesNotThrow(
-            () -> languageDetectionMapper.findLatest(missingVariantId, "0".repeat(64))));
-    assertTrue(
-        assertDoesNotThrow(() -> notificationMapper.list("missing-user", true, 5)).isEmpty());
+    assertNull(assertDoesNotThrow(() -> chapterWorkspaceMapper.aggregate(missingProjectId, missingChapterId)));
+    assertNull(assertDoesNotThrow(() -> languageDetectionMapper.findLatest(missingVariantId, "0".repeat(64))));
+    assertTrue(assertDoesNotThrow(() -> notificationMapper.list("missing-user", true, 5)).isEmpty());
   }
 
   private static String latestFlywayVersion(Connection connection) throws SQLException {
-    try (PreparedStatement statement =
-            connection.prepareStatement(
-                "select version from flyway_schema_history where success = true and version is not null order by installed_rank desc limit 1");
+    try (PreparedStatement statement = connection.prepareStatement(
+            "select version from flyway_schema_history where success = true and version is not null order by installed_rank desc limit 1");
         ResultSet result = statement.executeQuery()) {
       assertTrue(result.next());
       return result.getString(1);
@@ -228,22 +206,14 @@ class PostgreSqlMigrationIntegrationTest {
   }
 
   private static boolean tableExists(Connection connection, String table) throws SQLException {
-    try (PreparedStatement statement =
-        connection.prepareStatement(
-            "select exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = ?)")) {
-      statement.setString(1, table);
-      try (ResultSet result = statement.executeQuery()) {
-        result.next();
-        return result.getBoolean(1);
-      }
-    }
+    return exists(connection,
+        "select exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = ?)",
+        table);
   }
 
-  private static boolean columnExists(Connection connection, String table, String column)
-      throws SQLException {
-    try (PreparedStatement statement =
-        connection.prepareStatement(
-            "select exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = ? and column_name = ?)")) {
+  private static boolean columnExists(Connection connection, String table, String column) throws SQLException {
+    try (PreparedStatement statement = connection.prepareStatement(
+        "select exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = ? and column_name = ?)")) {
       statement.setString(1, table);
       statement.setString(2, column);
       try (ResultSet result = statement.executeQuery()) {
@@ -253,11 +223,29 @@ class PostgreSqlMigrationIntegrationTest {
     }
   }
 
-  private static String columnType(Connection connection, String table, String column)
-      throws SQLException {
-    try (PreparedStatement statement =
-        connection.prepareStatement(
-            "select data_type from information_schema.columns where table_schema = 'public' and table_name = ? and column_name = ?")) {
+  private static boolean constraintExists(Connection connection, String name) throws SQLException {
+    return exists(connection,
+        "select exists (select 1 from pg_constraint where conname = ?)", name);
+  }
+
+  private static boolean indexExists(Connection connection, String name) throws SQLException {
+    return exists(connection,
+        "select exists (select 1 from pg_indexes where schemaname = 'public' and indexname = ?)", name);
+  }
+
+  private static boolean exists(Connection connection, String sql, String value) throws SQLException {
+    try (PreparedStatement statement = connection.prepareStatement(sql)) {
+      statement.setString(1, value);
+      try (ResultSet result = statement.executeQuery()) {
+        result.next();
+        return result.getBoolean(1);
+      }
+    }
+  }
+
+  private static String columnType(Connection connection, String table, String column) throws SQLException {
+    try (PreparedStatement statement = connection.prepareStatement(
+        "select data_type from information_schema.columns where table_schema = 'public' and table_name = ? and column_name = ?")) {
       statement.setString(1, table);
       statement.setString(2, column);
       try (ResultSet result = statement.executeQuery()) {
@@ -267,11 +255,9 @@ class PostgreSqlMigrationIntegrationTest {
     }
   }
 
-  private static String columnDefault(Connection connection, String table, String column)
-      throws SQLException {
-    try (PreparedStatement statement =
-        connection.prepareStatement(
-            "select column_default from information_schema.columns where table_schema = 'public' and table_name = ? and column_name = ?")) {
+  private static String columnDefault(Connection connection, String table, String column) throws SQLException {
+    try (PreparedStatement statement = connection.prepareStatement(
+        "select column_default from information_schema.columns where table_schema = 'public' and table_name = ? and column_name = ?")) {
       statement.setString(1, table);
       statement.setString(2, column);
       try (ResultSet result = statement.executeQuery()) {
