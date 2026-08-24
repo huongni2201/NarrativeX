@@ -4,6 +4,7 @@ import com.narrativex.backend.feature.account.application.port.in.UserQuotaAcces
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.application.command.CreateProjectRenderCommand;
+import com.narrativex.backend.feature.generation.application.command.RenderBeatOverride;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationOutboxRepository;
 import com.narrativex.backend.feature.generation.application.port.out.OperationPlanRepository;
@@ -23,8 +24,15 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -54,13 +62,14 @@ public class CreateProjectRenderUseCase {
   public GenerationJob execute(CreateProjectRenderCommand command) {
     String userId = currentUserId.get();
     var project = projectAccess.findOwnedProject(command.projectId(), userId);
-    ProductionTimelineView timeline =
+    ProductionTimelineView sourceTimeline =
         getProductionTimelineUseCase.executeOwned(command.projectId(), userId);
-    if (!timeline.readyForRender()) {
+    if (!sourceTimeline.readyForRender()) {
       throw new GenerationAdmissionDeniedException(
           "PROJECT_RENDER_INPUT_NOT_READY",
           "Project rendering requires READY narration and image assets for every production timeline beat.");
     }
+    ProductionTimelineView timeline = applyBeatOverrides(sourceTimeline, command.beatOverrides());
 
     var quota =
         userQuotaAccess
@@ -135,13 +144,127 @@ public class CreateProjectRenderUseCase {
     stageAttemptRepository.create(StageAttempt.create(job.getId(), STAGE_NAME, 1));
     generationOutboxRepository.enqueue(job);
     log.info(
-        "Created project render job id={} projectId={} durationMs={} chapters={} beats={}",
+        "Created project render job id={} projectId={} durationMs={} chapters={} beats={} overrides={}",
         job.getId(),
         command.projectId(),
         timeline.totalDurationMs(),
         timeline.chapters().size(),
-        timeline.beats().size());
+        timeline.beats().size(),
+        command.beatOverrides().size());
     return job;
+  }
+
+  static ProductionTimelineView applyBeatOverrides(
+      ProductionTimelineView timeline, List<RenderBeatOverride> overrides) {
+    if (overrides == null || overrides.isEmpty()) return timeline;
+
+    Set<UUID> seen = new HashSet<>();
+    Map<UUID, RenderBeatOverride> overrideByBeat = new LinkedHashMap<>();
+    for (RenderBeatOverride override : overrides) {
+      if (!seen.add(override.visualBeatId())) {
+        throw new GenerationAdmissionDeniedException(
+            "INVALID_RENDER_OVERRIDE", "Each visual beat may have at most one render override.");
+      }
+      overrideByBeat.put(override.visualBeatId(), override);
+    }
+
+    Set<UUID> timelineBeatIds =
+        timeline.beats().stream()
+            .map(ProductionTimelineView.Beat::visualBeatId)
+            .collect(Collectors.toSet());
+    UUID unknownBeat =
+        overrideByBeat.keySet().stream().filter(id -> !timelineBeatIds.contains(id)).findFirst().orElse(null);
+    if (unknownBeat != null) {
+      throw new GenerationAdmissionDeniedException(
+          "INVALID_RENDER_OVERRIDE",
+          "Render override references a visual beat outside the current production timeline.");
+    }
+
+    List<ProductionTimelineView.Beat> adjustedBeats = new ArrayList<>(timeline.beats().size());
+    for (ProductionTimelineView.Chapter chapter : timeline.chapters()) {
+      List<ProductionTimelineView.Beat> chapterBeats =
+          timeline.beats().stream()
+              .filter(beat -> beat.chapterId().equals(chapter.chapterId()))
+              .toList();
+      if (chapterBeats.isEmpty()) continue;
+
+      long chapterDurationMs = chapter.endMs() - chapter.startMs();
+      if (chapterDurationMs < chapterBeats.size()) {
+        throw new GenerationAdmissionDeniedException(
+            "INVALID_RENDER_OVERRIDE", "Chapter audio is too short for its visual beat count.");
+      }
+
+      long[] weights = new long[chapterBeats.size()];
+      long totalWeight = 0L;
+      for (int index = 0; index < chapterBeats.size(); index++) {
+        ProductionTimelineView.Beat beat = chapterBeats.get(index);
+        RenderBeatOverride override = overrideByBeat.get(beat.visualBeatId());
+        long weight =
+            override != null && override.durationMs() != null
+                ? override.durationMs()
+                : beat.durationMs();
+        weights[index] = weight;
+        totalWeight = Math.addExact(totalWeight, weight);
+      }
+
+      long previousRelativeEnd = 0L;
+      long cumulativeWeight = 0L;
+      for (int index = 0; index < chapterBeats.size(); index++) {
+        ProductionTimelineView.Beat beat = chapterBeats.get(index);
+        RenderBeatOverride override = overrideByBeat.get(beat.visualBeatId());
+        cumulativeWeight = Math.addExact(cumulativeWeight, weights[index]);
+
+        long relativeEnd;
+        if (index == chapterBeats.size() - 1) {
+          relativeEnd = chapterDurationMs;
+        } else {
+          relativeEnd = Math.round((double) chapterDurationMs * cumulativeWeight / totalWeight);
+          long minimumEnd = previousRelativeEnd + 1L;
+          long latestEnd = chapterDurationMs - (chapterBeats.size() - index - 1L);
+          relativeEnd = Math.max(minimumEnd, Math.min(relativeEnd, latestEnd));
+        }
+
+        long startMs = Math.addExact(chapter.startMs(), previousRelativeEnd);
+        long endMs = Math.addExact(chapter.startMs(), relativeEnd);
+        String cameraMovement =
+            override != null && override.cameraMovement() != null
+                ? override.cameraMovement()
+                : beat.cameraMovement();
+        adjustedBeats.add(
+            new ProductionTimelineView.Beat(
+                beat.chapterId(),
+                beat.chapterOrderIndex(),
+                beat.sceneIndex(),
+                beat.beatIndex(),
+                beat.visualBeatId(),
+                beat.title(),
+                beat.visualIntent(),
+                cameraMovement,
+                beat.assetStrategy(),
+                beat.mediaAssetId(),
+                beat.storageKey(),
+                beat.sizeBytes(),
+                beat.checksum(),
+                startMs,
+                endMs,
+                endMs - startMs,
+                beat.assetReady()));
+        previousRelativeEnd = relativeEnd;
+      }
+    }
+
+    if (adjustedBeats.size() != timeline.beats().size()) {
+      throw new GenerationAdmissionDeniedException(
+          "INVALID_RENDER_OVERRIDE", "Production timeline contains beats outside its chapter set.");
+    }
+    return new ProductionTimelineView(
+        timeline.projectId(),
+        timeline.storyVersionId(),
+        timeline.totalDurationMs(),
+        timeline.aspectRatio(),
+        timeline.readyForRender(),
+        timeline.chapters(),
+        List.copyOf(adjustedBeats));
   }
 
   static BigDecimal estimateRenderCost(String resolution, long durationMs) {
