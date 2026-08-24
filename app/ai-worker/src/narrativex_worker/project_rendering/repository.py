@@ -345,8 +345,10 @@ class ProjectRenderRepository:
                 existing = await connection.fetchrow(
                     """
                     SELECT storage_key, storage_provider, external_file_id, checksum_sha256
-                      FROM project_render_artifacts
+                      FROM final_artifacts
                      WHERE generation_job_id = $1
+                       AND artifact_type = 'PROJECT_VIDEO'
+                       AND status <> 'ARCHIVED'
                      LIMIT 1
                     """,
                     claimed.generation_job_id,
@@ -364,30 +366,29 @@ class ProjectRenderRepository:
                 else:
                     await connection.execute(
                         """
-                        INSERT INTO project_render_artifacts (
-                            id, project_id, generation_job_id, render_fingerprint,
-                            storage_key, storage_provider, external_file_id, web_view_link,
-                            mime_type, size_bytes, checksum_sha256, duration_ms,
-                            width, height, fps, status
+                        INSERT INTO final_artifacts (
+                            project_id, chapter_id, generation_job_id, render_manifest_id,
+                            artifact_type, render_fingerprint, storage_key, mime_type,
+                            size_bytes, checksum_sha256, duration_ms, width, height, fps,
+                            status, storage_provider, external_file_id, web_view_link
                         ) VALUES (
-                            $1, $2, $3, $4, $5, $6, $7, $8,
-                            'video/mp4', $9, $10, $11, $12, $13, $14, 'READY'
+                            $1, NULL, $2, NULL, 'PROJECT_VIDEO', $3, $4, 'video/mp4',
+                            $5, $6, $7, $8, $9, $10, 'READY', $11, $12, $13
                         )
                         """,
-                        uuid7(),
                         claimed.project_id,
                         claimed.generation_job_id,
                         render_fingerprint,
                         media_asset.storage_key,
-                        media_asset.storage_provider,
-                        media_asset.external_file_id,
-                        media_asset.web_view_link,
                         media_asset.size_bytes,
                         media_asset.checksum,
                         duration_ms,
                         width,
                         height,
                         fps,
+                        media_asset.storage_provider,
+                        media_asset.external_file_id,
+                        media_asset.web_view_link,
                     )
 
                 stage = await connection.execute(
