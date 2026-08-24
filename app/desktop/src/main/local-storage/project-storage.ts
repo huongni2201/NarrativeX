@@ -102,36 +102,55 @@ export class ProjectStorage {
     const source = resolve(input.sourcePath);
     const sourceStat = await stat(source);
     if (!sourceStat.isFile()) throw new Error("Local asset source must be a file.");
+    const sourceChecksum = await verifyOrCalculateChecksum(source, input.checksumSha256);
 
-    const extension = safeExtension(source);
-    const relativePath = join(
-      "assets",
-      assetDirectory(input.kind),
-      `${input.assetId}${extension}`,
-    );
-    const destination = this.resolveProjectRelativePath(projectId, relativePath);
-    await mkdir(dirname(destination), { recursive: true });
-    if (source !== destination) await copyFile(source, destination);
-
-    const checksumSha256 = await verifyOrCalculateChecksum(
-      destination,
-      input.checksumSha256,
-    );
-    const entry: LocalAssetManifestEntry = {
-      assetId: input.assetId,
-      kind: input.kind,
-      relativePath: toManifestPath(relativePath),
-      sizeBytes: (await stat(destination)).size,
-      checksumSha256,
-      updatedAt: new Date().toISOString(),
-    };
-
-    await this.withProjectLock(projectId, async () => {
+    return this.withProjectLock(projectId, async () => {
       const manifest = await this.requireManifest(projectId);
+      const existing = manifest.assets[input.assetId];
+      if (existing) {
+        if (
+          existing.checksumSha256 === sourceChecksum &&
+          existing.sizeBytes === sourceStat.size &&
+          existing.kind === input.kind
+        ) {
+          return existing;
+        }
+        throw new Error(
+          `Local asset ${input.assetId} is immutable and already points to different content.`,
+        );
+      }
+
+      const extension = safeExtension(source);
+      const relativePath = join(
+        "assets",
+        assetDirectory(input.kind),
+        `${input.assetId}${extension}`,
+      );
+      const destination = this.resolveProjectRelativePath(projectId, relativePath);
+      await mkdir(dirname(destination), { recursive: true });
+      if (source !== destination) await copyFile(source, destination);
+
+      const destinationStat = await stat(destination);
+      const destinationChecksum = await sha256File(destination);
+      if (
+        destinationStat.size !== sourceStat.size ||
+        destinationChecksum !== sourceChecksum
+      ) {
+        throw new Error(`Local asset ${input.assetId} changed while it was being registered.`);
+      }
+
+      const entry: LocalAssetManifestEntry = {
+        assetId: input.assetId,
+        kind: input.kind,
+        relativePath: toManifestPath(relativePath),
+        sizeBytes: destinationStat.size,
+        checksumSha256: destinationChecksum,
+        updatedAt: new Date().toISOString(),
+      };
       manifest.assets[input.assetId] = entry;
       await this.writeManifest(manifest);
+      return entry;
     });
-    return entry;
   }
 
   async registerArtifact(
@@ -143,34 +162,52 @@ export class ProjectStorage {
     const source = resolve(input.sourcePath);
     const sourceStat = await stat(source);
     if (!sourceStat.isFile()) throw new Error("Local artifact source must be a file.");
+    const sourceChecksum = await verifyOrCalculateChecksum(source, input.checksumSha256);
 
-    const relativePath = join(
-      "artifacts",
-      input.jobId,
-      `final${safeExtension(source) || ".mp4"}`,
-    );
-    const destination = this.resolveProjectRelativePath(projectId, relativePath);
-    await mkdir(dirname(destination), { recursive: true });
-    if (source !== destination) await copyFile(source, destination);
-
-    const checksumSha256 = await verifyOrCalculateChecksum(
-      destination,
-      input.checksumSha256,
-    );
-    const entry: LocalArtifactManifestEntry = {
-      jobId: input.jobId,
-      relativePath: toManifestPath(relativePath),
-      sizeBytes: (await stat(destination)).size,
-      checksumSha256,
-      updatedAt: new Date().toISOString(),
-    };
-
-    await this.withProjectLock(projectId, async () => {
+    return this.withProjectLock(projectId, async () => {
       const manifest = await this.requireManifest(projectId);
+      const existing = manifest.artifacts[input.jobId];
+      if (existing) {
+        if (
+          existing.checksumSha256 === sourceChecksum &&
+          existing.sizeBytes === sourceStat.size
+        ) {
+          return existing;
+        }
+        throw new Error(
+          `Local artifact ${input.jobId} is immutable and already points to different content.`,
+        );
+      }
+
+      const relativePath = join(
+        "artifacts",
+        input.jobId,
+        `final${safeExtension(source) || ".mp4"}`,
+      );
+      const destination = this.resolveProjectRelativePath(projectId, relativePath);
+      await mkdir(dirname(destination), { recursive: true });
+      if (source !== destination) await copyFile(source, destination);
+
+      const destinationStat = await stat(destination);
+      const destinationChecksum = await sha256File(destination);
+      if (
+        destinationStat.size !== sourceStat.size ||
+        destinationChecksum !== sourceChecksum
+      ) {
+        throw new Error(`Local artifact ${input.jobId} changed while it was being registered.`);
+      }
+
+      const entry: LocalArtifactManifestEntry = {
+        jobId: input.jobId,
+        relativePath: toManifestPath(relativePath),
+        sizeBytes: destinationStat.size,
+        checksumSha256: destinationChecksum,
+        updatedAt: new Date().toISOString(),
+      };
       manifest.artifacts[input.jobId] = entry;
       await this.writeManifest(manifest);
+      return entry;
     });
-    return entry;
   }
 
   async resolveAsset(
