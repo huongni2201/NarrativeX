@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useParams, useRouter } from "next/navigation";
 import {
   BookOpen,
   Clapperboard,
@@ -30,14 +31,12 @@ const projectTabConfig: readonly ProjectTabConfig[] = [
 interface ProjectTabsProps {
   activeTab: ProductionTab;
   onChange: (tab: ProductionTab) => void;
-  onOpenProduction: () => void;
 }
 
-export function ProjectTabs({
-  activeTab,
-  onChange,
-  onOpenProduction,
-}: Readonly<ProjectTabsProps>) {
+export function ProjectTabs({ activeTab, onChange }: Readonly<ProjectTabsProps>) {
+  const router = useRouter();
+  const params = useParams<{ projectId?: string }>();
+
   return (
     <div
       className="flex items-center gap-2 overflow-x-auto border-b border-border-dark pb-3"
@@ -69,8 +68,11 @@ export function ProjectTabs({
 
       <button
         type="button"
-        onClick={onOpenProduction}
-        className="ml-auto flex items-center gap-2 whitespace-nowrap rounded-lg border border-orange-500/50 bg-orange-500/10 px-4 py-2.5 text-sm font-semibold text-orange-200 transition-colors hover:border-orange-400 hover:bg-orange-500/15 hover:text-white"
+        onClick={() => {
+          if (params.projectId) router.push(`/projects/${params.projectId}/production`);
+        }}
+        disabled={!params.projectId}
+        className="ml-auto flex items-center gap-2 whitespace-nowrap rounded-lg border border-orange-500/50 bg-orange-500/10 px-4 py-2.5 text-sm font-semibold text-orange-200 transition-colors hover:border-orange-400 hover:bg-orange-500/15 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
         aria-label="Mở Production Timeline của project"
       >
         <Clapperboard className="h-4 w-4" />
