@@ -62,6 +62,6 @@ def build_chapter_analysis_prompt(request: ChapterAnalysisRequest) -> str:
         "OUTPUT_SCHEMA={characters:[{key,name,aliases,description}],"
         "locations:[{key,name,description}],"
         "scenes:[{title,narration,characters:[{character_key}],location_key,"
-        "visual_beats:[{title,visual_intent}]}]}\n"
+        "visual_beats:[{title,visual_intent,camera_angle}]}]}\n"
         f"<UNTRUSTED_CHAPTER>{source_as_json}</UNTRUSTED_CHAPTER>"
     )
