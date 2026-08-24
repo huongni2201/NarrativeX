@@ -23,9 +23,16 @@ RUN addgroup --system appgroup \
     && mkdir -p /home/appuser/.cache/huggingface /home/appuser/.config \
     && chown -R appuser:appgroup /home/appuser
 
+# Install the heavyweight third-party dependencies in a layer that does not
+# change when application source files change. The package metadata only needs
+# the small top-level module during this first install.
 COPY pyproject.toml README.md ./
-COPY src/ ./src/
+COPY src/narrativex_worker/__init__.py ./src/narrativex_worker/__init__.py
 RUN --mount=type=cache,target=/root/.cache/pip pip install .
+
+# Install the current application code without resolving dependencies again.
+COPY src/ ./src/
+RUN --mount=type=cache,target=/root/.cache/pip pip install --no-deps .
 
 USER appuser
 
