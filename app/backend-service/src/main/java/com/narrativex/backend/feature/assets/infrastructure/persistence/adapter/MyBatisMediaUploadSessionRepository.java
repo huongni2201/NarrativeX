@@ -7,6 +7,7 @@ import com.narrativex.backend.feature.assets.application.port.out.MediaUploadSes
 import com.narrativex.backend.feature.assets.application.port.out.MediaUploadSessionRepository.UploadSession;
 import com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaUploadSessionMapper;
 import com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaUploadSessionRow;
+import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -23,9 +24,25 @@ public class MyBatisMediaUploadSessionRepository implements MediaUploadSessionRe
   @Override
   @Transactional
   public UploadSession create(CreateUploadSession command) {
-    mapper.insert(command);
-    return findOwnedSnapshot(command.accountId(), command.id())
-        .orElseThrow(() -> new IllegalStateException("Upload session disappeared after insert"));
+    int inserted = mapper.insert(command);
+    if (inserted == 1) {
+      return findOwnedSnapshot(command.accountId(), command.id())
+          .orElseThrow(() -> new IllegalStateException("Upload session disappeared after insert"));
+    }
+    if (command.idempotencyKey() == null) {
+      throw new IllegalStateException("Upload session insert was skipped without an idempotency key");
+    }
+    UploadSession winner =
+        findByIdempotencyKey(command.accountId(), command.idempotencyKey())
+            .orElseThrow(
+                () ->
+                    new IllegalStateException(
+                        "Idempotency conflict occurred but the winning upload session was not found"));
+    if (!sameCreateRequest(winner, command)) {
+      throw new ResourceConflictException(
+          "Idempotency key was already used for another upload");
+    }
+    return winner;
   }
 
   @Override
@@ -96,5 +113,13 @@ public class MyBatisMediaUploadSessionRepository implements MediaUploadSessionRe
         row.getExpiresAt(),
         row.getCreatedAt(),
         row.getMediaAssetId());
+  }
+
+  private static boolean sameCreateRequest(UploadSession session, CreateUploadSession command) {
+    return session.assetType().equals(command.assetType())
+        && session.originalFilename().equals(command.originalFilename())
+        && session.contentType().equals(command.contentType())
+        && session.expectedSize() == command.expectedSize()
+        && session.expectedSha256().equals(command.expectedSha256());
   }
 }
