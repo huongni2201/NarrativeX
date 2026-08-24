@@ -63,8 +63,7 @@ class PostgreSqlMigrationIntegrationTest {
           "stage_attempts",
           "provider_operations",
           "operation_plans",
-          "render_manifests",
-          "project_render_artifacts");
+          "render_manifests");
 
   @DynamicPropertySource
   static void postgresProperties(DynamicPropertyRegistry registry) {
@@ -87,8 +86,8 @@ class PostgreSqlMigrationIntegrationTest {
   @Test
   void emptyPostgresMigratesThroughAuthoritativeUuidSchema() throws SQLException {
     try (Connection connection = dataSource.getConnection()) {
-      assertEquals("6", latestFlywayVersion(connection));
-      assertEquals(6, successfulVersionedMigrationCount(connection));
+      assertEquals("7", latestFlywayVersion(connection));
+      assertEquals(7, successfulVersionedMigrationCount(connection));
       assertTrue(triggerExists(connection, "trg_generation_jobs_notify_completion"));
       assertTrue(triggerExists(connection, "trg_generation_jobs_sse_events"));
       assertEquals(512, characterMaximumLength(connection, "generation_jobs", "idempotency_key"));
@@ -131,11 +130,13 @@ class PostgreSqlMigrationIntegrationTest {
       assertTrue(tableExists(connection, "project_render_input_snapshots"));
       assertTrue(tableExists(connection, "project_render_input_chapters"));
       assertTrue(tableExists(connection, "project_render_input_beats"));
-      assertTrue(tableExists(connection, "project_render_artifacts"));
+      assertFalse(tableExists(connection, "project_render_artifacts"));
       assertEquals("uuid", columnType(connection, "project_render_input_snapshots", "generation_job_id"));
+      assertEquals("character varying", columnType(connection, "project_render_input_snapshots", "execution_target"));
+      assertEquals("uuid", columnType(connection, "project_render_input_snapshots", "assigned_local_device_id"));
       assertEquals("uuid", columnType(connection, "project_render_input_chapters", "chapter_id"));
       assertEquals("uuid", columnType(connection, "project_render_input_beats", "visual_beat_id"));
-      assertEquals("uuid", columnType(connection, "project_render_artifacts", "id"));
+      assertTrue(indexExists(connection, "idx_project_render_input_local_claim"));
 
       assertEquals("bigint", columnType(connection, "projects", "row_version"));
       assertEquals("bigint", columnType(connection, "chapters", "row_version"));
