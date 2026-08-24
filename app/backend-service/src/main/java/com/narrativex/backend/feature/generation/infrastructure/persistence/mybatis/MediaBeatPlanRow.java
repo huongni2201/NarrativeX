@@ -31,4 +31,5 @@ public class MediaBeatPlanRow {
   private String imageSettingsJson;
   private String characterSnapshotJson;
   private String snapshotFingerprint;
+  private UUID reuseSourceVisualBeatId;
 }

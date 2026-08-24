@@ -3,6 +3,13 @@
     PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.GenerationOutboxMapper">
+    <resultMap id="outboxDispatchRow"
+               type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.OutboxDispatchRow">
+        <id property="id" column="id"/>
+        <result property="eventType" column="event_type"/>
+        <result property="payloadJson" column="payload_json"/>
+    </resultMap>
+
     <insert id="enqueue"
             parameterType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.GenerationOutboxRow">
         INSERT INTO outbox_events
@@ -32,7 +39,7 @@
           )
         ON CONFLICT (event_key) DO NOTHING
     </insert>
-    <select id="reserveBatch" resultType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.OutboxDispatchRow">
+    <select id="reserveBatch" resultMap="outboxDispatchRow">
         WITH candidates AS (
             SELECT id FROM outbox_events
              WHERE status = 'PENDING'

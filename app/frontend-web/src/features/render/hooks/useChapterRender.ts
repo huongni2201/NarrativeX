@@ -2,6 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { mediaApi, type MediaJobDetails, type RenderChapterInput } from "@/features/generation/api/media.api";
+import { useMediaGeneration } from "@/features/generation/hooks/useMediaGeneration";
+import {
+  storyboardApi,
+  type ApiChapterStoryboard,
+  type CameraMovement,
+} from "@/features/storyboard/api/storyboard.api";
+import { queryKeys } from "@/lib/query-keys";
 import { ApiClientError, apiErrorMessage } from "@/shared/api/client";
 import {
   TERMINAL_JOB_STATUSES,
@@ -10,9 +18,6 @@ import {
   type ChapterId,
   type ProjectId,
 } from "@/types/api";
-import { queryKeys } from "@/lib/query-keys";
-import { mediaApi, type RenderChapterInput } from "@/features/generation/api/media.api";
-import { useMediaGeneration } from "@/features/generation/hooks/useMediaGeneration";
 import { artifactsApi } from "../api/artifacts.api";
 import type { RenderArtifact } from "../api/artifacts.types";
 
@@ -46,6 +51,11 @@ interface UseChapterRenderOptions {
 
 type RenderOverrides = Partial<RenderConfig>;
 
+export interface RenderBeatOverrideDraft {
+  durationMs: number | null;
+  cameraMovement: CameraMovement | null;
+}
+
 export interface UseChapterRenderResult {
   render: (overrides?: RenderOverrides) => void;
   job: ApiGenerationJob | null;
@@ -56,6 +66,12 @@ export interface UseChapterRenderResult {
   canRender: boolean;
   retry: () => void;
   mediaMessage: string | null;
+  mediaDetails: MediaJobDetails | null;
+  storyboard: ApiChapterStoryboard | null;
+  storyboardLoading: boolean;
+  beatOverrides: Readonly<Record<string, RenderBeatOverrideDraft>>;
+  updateBeatOverride: (visualBeatId: string, patch: Partial<RenderBeatOverrideDraft>) => void;
+  resetBeatOverrides: () => void;
 }
 
 const DEFAULT_RENDER_CONFIG: RenderConfig = {
@@ -81,14 +97,21 @@ export function useChapterRender({
   const [artifactId, setArtifactId] = useState<number | null>(initialArtifactId);
   const [submittedJob, setSubmittedJob] = useState<ApiGenerationJob | null>(null);
   const [lastInput, setLastInput] = useState<RenderChapterInput | null>(null);
+  const [beatOverrides, setBeatOverrides] = useState<Record<string, RenderBeatOverrideDraft>>({});
   const idempotencyKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     setJobId(initialJobId);
     setArtifactId(initialArtifactId);
     setSubmittedJob(null);
+    setBeatOverrides({});
     idempotencyKeyRef.current = null;
   }, [chapterId, initialArtifactId, initialJobId, projectId]);
+
+  const storyboardQuery = useQuery<ApiChapterStoryboard>({
+    queryKey: queryKeys.storyboard(projectId, chapterId),
+    queryFn: () => storyboardApi.get(projectId, chapterId),
+  });
 
   const jobQuery = useQuery<ApiGenerationJob>({
     queryKey: jobId ? queryKeys.renderJob(jobId) : ["render-jobs", "none"],
@@ -183,15 +206,45 @@ export function useChapterRender({
     typeof mediaPlanRevision === "number" &&
     !renderInFlight;
 
+  const updateBeatOverride = useCallback(
+    (visualBeatId: string, patch: Partial<RenderBeatOverrideDraft>) => {
+      setBeatOverrides((current) => {
+        const existing = current[visualBeatId] ?? { durationMs: null, cameraMovement: null };
+        const value = { ...existing, ...patch };
+        const next = { ...current };
+        if (value.durationMs === null && value.cameraMovement === null) {
+          delete next[visualBeatId];
+        } else {
+          next[visualBeatId] = value;
+        }
+        return next;
+      });
+    },
+    [],
+  );
+
+  const resetBeatOverrides = useCallback(() => setBeatOverrides({}), []);
+
   const render = useCallback(
     (overrides: RenderOverrides = {}) => {
       if (!canRender || !mediaPlanId || mediaPlanRevision === null) return;
+      const renderBeatOverrides = Object.entries(beatOverrides).flatMap(([visualBeatId, value]) => {
+        if (value.durationMs === null && value.cameraMovement === null) return [];
+        return [
+          {
+            visualBeatId,
+            ...(value.durationMs === null ? {} : { durationMs: value.durationMs }),
+            ...(value.cameraMovement === null ? {} : { cameraMovement: value.cameraMovement }),
+          },
+        ];
+      });
       const input = {
         mediaPlanId,
         mediaPlanRevision,
         resolution: overrides.resolution ?? resolution,
         format: overrides.format ?? format,
         maxAuthorizedCost: overrides.maxAuthorizedCost ?? maxAuthorizedCost,
+        beatOverrides: renderBeatOverrides,
       } satisfies RenderChapterInput;
       renderMutation.mutate({
         input,
@@ -199,6 +252,7 @@ export function useChapterRender({
       });
     },
     [
+      beatOverrides,
       canRender,
       format,
       maxAuthorizedCost,
@@ -243,6 +297,12 @@ export function useChapterRender({
     canRender,
     retry,
     mediaMessage: media.message,
+    mediaDetails: media.details,
+    storyboard: storyboardQuery.data ?? null,
+    storyboardLoading: storyboardQuery.isPending,
+    beatOverrides,
+    updateBeatOverride,
+    resetBeatOverrides,
   };
 }
 

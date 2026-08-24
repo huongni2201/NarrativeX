@@ -62,17 +62,18 @@
             parameterType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.MediaBeatPlanRow">
         INSERT INTO media_beat_plans (
           media_plan_id, scene_index, beat_index, visual_beat_id, visual_beat_order_index,
-          visual_intent, semantic_motion_mode, motion_strategy
-          , asset_strategy, prompt_template_version, prompt_snapshot, negative_prompt,
+          visual_intent, semantic_motion_mode, motion_strategy,
+          asset_strategy, prompt_template_version, prompt_snapshot, negative_prompt,
           audio_start_ms, audio_end_ms, audio_duration_ms, camera_movement, image_settings_json,
-          character_snapshot_json, snapshot_fingerprint
+          character_snapshot_json, snapshot_fingerprint, reuse_source_visual_beat_id
         ) VALUES (
           #{mediaPlanId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
           #{sceneIndex}, #{beatIndex}, #{visualBeatId}, #{visualBeatOrderIndex},
           #{visualIntent}, #{semanticMotionMode}, #{motionStrategy},
           #{assetStrategy}, #{promptTemplateVersion}, #{promptSnapshot}, #{negativePrompt},
           #{audioStartMs}, #{audioEndMs}, #{audioDurationMs}, #{cameraMovement},
-          CAST(#{imageSettingsJson} AS jsonb), CAST(#{characterSnapshotJson} AS jsonb), #{snapshotFingerprint}
+          CAST(#{imageSettingsJson} AS jsonb), CAST(#{characterSnapshotJson} AS jsonb),
+          #{snapshotFingerprint}, #{reuseSourceVisualBeatId}
         )
     </insert>
 </mapper>

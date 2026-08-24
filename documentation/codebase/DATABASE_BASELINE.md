@@ -13,16 +13,18 @@
 
 | Migration | Purpose | Current state |
 |---|---|---|
-| V1 `initial_schema` | Final consolidated schema: auth, project/story/chapter foundations, Chapter soft-delete, storyboard revisions, split motion/camera visual beats, preview-asset links, character/location AI identities, backend-authoritative media plans, UUID GenerationJob public keys, generation execution/review and lineage, durable provider operations, quota reservation lifecycle, chapter-level TTS, uploaded narration, upload sessions, media lifecycle hardening, durable media validation jobs, detected media metadata, style presets and voice catalog, render ownership pins, owner-scoped idempotency, voice reference asset, cleanup tasks, chapter creation idempotency | Authoritative final baseline |
+| V1 `initial_schema` | Consolidated schema baseline: auth, project/story/chapter foundations, Chapter soft-delete, storyboard revisions, split motion/camera visual beats, preview-asset links, character/location AI identities, backend-authoritative media plans, UUID GenerationJob public keys, generation execution/review and lineage, durable provider operations, quota reservation lifecycle, chapter-level TTS, uploaded narration, upload sessions, media lifecycle hardening, durable media validation jobs, detected media metadata, style presets and voice catalog, render ownership pins, owner-scoped idempotency, voice reference asset, cleanup tasks, chapter creation idempotency | Authoritative baseline |
+| V2 `widen_idempotency_keys` | Widens `generation_jobs.idempotency_key` from 200 to 512 characters so deterministic and caller-supplied generation keys fit the persisted contract | Required forward migration |
 
-The supported Flyway migration set is now **V1 only**. The baseline directly declares the final schema instead of creating historical intermediate shapes and repairing them in later migrations. In particular:
+The supported Flyway migration set is **V1 + V2**. V1 remains the consolidated structural baseline; V2 is a forward-compatible schema evolution that widens the GenerationJob idempotency-key contract. A clean database must apply both migrations in order. In particular:
 
-- `generation_jobs.job_id` is created as PostgreSQL `UUID` directly.
+- `generation_jobs.job_id` is created as PostgreSQL `UUID` directly in V1.
 - `chapters.deleted_at` is part of the original Chapter table definition.
 - Active Chapter order uniqueness is provided directly by `uq_chapters_story_order_active` on `(story_version_id, order_index) WHERE deleted_at IS NULL`.
 - `idx_chapters_deleted_at` is created directly for deleted-row maintenance/querying.
+- `generation_jobs.idempotency_key` is widened to `VARCHAR(512)` by V2.
 
-This is an intentional clean rebaseline. A database whose `flyway_schema_history` contains the previous V1/V2/V3 chain is **not compatible with the rewritten V1 checksum/history**. Recreate that database from the final V1 baseline, or perform an explicit operator-reviewed migration outside this baseline. Do not rewrite `flyway_schema_history` to make an old database appear compatible.
+V1 is an intentional clean rebaseline relative to the older historical migration chain. A database whose `flyway_schema_history` contains the pre-rebaseline V1/V2/V3 history is **not compatible with the rewritten V1 checksum/history**. Recreate that database from the current V1 + V2 migration set, or perform an explicit operator-reviewed migration. Do not rewrite `flyway_schema_history` to make an incompatible database appear current.
 
 Application queries that mean current, active, or owned Chapter state must enforce `chapters.deleted_at IS NULL`.
 
@@ -62,7 +64,7 @@ Application queries that mean current, active, or owned Chapter state must enfor
 The persisted execution contract is documented in
 [`ADR-0001`](../decisions/ADR-0001-system-topology-execution-and-persistence.md).
 Java and Python mirrors must be updated with every new persisted execution
-value. Canonical execution values and bounds are validated via PostgreSQL CHECK constraints in V1.
+value. Canonical execution values and bounds are validated via PostgreSQL CHECK constraints in V1 and forward migrations such as V2.
 
 The database contract for expensive work is:
 
@@ -152,12 +154,13 @@ The partial predicate avoids archived rows polluting the common active-project p
 
 For schema PRs:
 
-1. Create an empty supported PostgreSQL instance and apply the single authoritative `V1__initial_schema.sql` migration.
-2. Verify `flyway_schema_history` contains exactly one successful versioned migration and reports latest version `1`.
-3. Verify `generation_jobs.job_id` is `uuid` and `chapters.deleted_at` is `timestamptz` without any follow-up ALTER migration.
-4. Verify `uk_chapters_story_order` is absent and `uq_chapters_story_order_active` plus `idx_chapters_deleted_at` exist.
-5. Start backend and run the backend verification suite.
-6. Run worker PostgreSQL integration tests against UUID-shaped durable identifiers.
-7. Verify stale-version and soft-delete behavior.
-8. Verify query plans for keyset pagination with representative data.
-9. Do not use H2-only success as PostgreSQL compatibility evidence.
+1. Create an empty supported PostgreSQL instance and apply the complete Flyway migration set (`V1`, then `V2`).
+2. Verify `flyway_schema_history` contains exactly two successful versioned migrations and reports latest version `2`.
+3. Verify `generation_jobs.idempotency_key` is `VARCHAR(512)` after V2.
+4. Verify `generation_jobs.job_id` is `uuid` and `chapters.deleted_at` is `timestamptz`.
+5. Verify `uk_chapters_story_order` is absent and `uq_chapters_story_order_active` plus `idx_chapters_deleted_at` exist.
+6. Start backend and run the backend verification suite.
+7. Run worker PostgreSQL integration tests against UUID-shaped durable identifiers.
+8. Verify stale-version and soft-delete behavior.
+9. Verify query plans for keyset pagination with representative data.
+10. Do not use H2-only success as PostgreSQL compatibility evidence.

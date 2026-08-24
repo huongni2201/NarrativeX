@@ -2,7 +2,6 @@ package com.narrativex.backend.feature.generation.application.usecase;
 
 import com.narrativex.backend.feature.account.application.port.in.UserQuotaAccess;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
-import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.generation.application.command.CreateMediaJobCommand;
 import com.narrativex.backend.feature.generation.application.command.CreateMediaPlanCommand;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterMediaHeadRepository;
@@ -13,6 +12,7 @@ import com.narrativex.backend.feature.generation.application.port.out.MediaGener
 import com.narrativex.backend.feature.generation.application.port.out.OperationPlanRepository;
 import com.narrativex.backend.feature.generation.application.port.out.QuotaReservation;
 import com.narrativex.backend.feature.generation.application.port.out.StageAttemptRepository;
+import com.narrativex.backend.feature.generation.application.service.VisualAssetReuseResolver;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.aggregate.OperationPlan;
 import com.narrativex.backend.feature.generation.domain.entity.MediaGenerationItem;
@@ -89,12 +89,11 @@ public class CreateMediaJobUseCase {
     var chapter =
         chapterSourceAccess.requireOwnedForAnalysisLocked(
             command.projectId(), command.chapterId(), userId);
-    int beatCount =
-        mediaPlanningSourceAccess.requireCurrent(command.chapterId()).scenes().stream()
-            .mapToInt(scene -> scene.beats().size())
-            .sum();
+    var planningSource = mediaPlanningSourceAccess.requireCurrent(command.chapterId());
+    int beatCount = planningSource.scenes().stream().mapToInt(scene -> scene.beats().size()).sum();
+    int generatedImageCount = VisualAssetReuseResolver.countGenerated(planningSource.scenes());
     var imageProfile = imageGenerationCatalog.resolve(command.qualityTier());
-    BigDecimal expectedCost = imageProfile.estimateCost(beatCount);
+    BigDecimal expectedCost = imageProfile.estimateCost(generatedImageCount);
     if (expectedCost.compareTo(command.maxAuthorizedCost()) > 0) {
       throw new GenerationAdmissionDeniedException(
           "COST_LIMIT", "The requested authorization cap is below the server estimate.");
@@ -167,10 +166,11 @@ public class CreateMediaJobUseCase {
     }
     generationOutboxRepository.enqueue(job);
     log.info(
-        "Created and enqueued shot-image media job id={} (planId={}, beats={}, quality='{}', model='{}', estimatedCost={}) for projectId={}, chapterId={}",
+        "Created and enqueued shot-image media job id={} (planId={}, beats={}, generatedImages={}, quality='{}', model='{}', estimatedCost={}) for projectId={}, chapterId={}",
         job.getId(),
         plan.id(),
         beatCount,
+        generatedImageCount,
         command.qualityTier(),
         imageProfile.model(),
         expectedCost,
