@@ -55,10 +55,10 @@ class GetProductionTimelineUseCaseTest {
     when(sourceRepository.findBeats(projectId, "owner"))
         .thenReturn(
             List.of(
-                beat(firstChapter, 0, 0, 30_000L, "c".repeat(64)),
-                beat(firstChapter, 0, 1, 90_000L, "d".repeat(64)),
-                beat(secondChapter, 1, 0, null, "e".repeat(64)),
-                beat(secondChapter, 1, 1, null, "f".repeat(64))));
+                beat(firstChapter, 0, firstPlan, 0, 30_000L, "c".repeat(64)),
+                beat(firstChapter, 0, firstPlan, 1, 90_000L, "d".repeat(64)),
+                beat(secondChapter, 1, secondPlan, 0, null, "e".repeat(64)),
+                beat(secondChapter, 1, secondPlan, 1, null, "f".repeat(64))));
 
     var timeline = useCase.executeOwned(projectId, "owner");
 
@@ -96,11 +96,13 @@ class GetProductionTimelineUseCaseTest {
                     "audio/chapter.mp3",
                     "a".repeat(64),
                     2)));
-    BeatSource ready = beat(chapterId, 0, 0, 30_000L, "b".repeat(64));
+    BeatSource ready = beat(chapterId, 0, planId, 0, 30_000L, "b".repeat(64));
     BeatSource missing =
         new BeatSource(
             chapterId,
             0,
+            planId,
+            1,
             0,
             1,
             UUID.randomUUID(),
@@ -121,6 +123,38 @@ class GetProductionTimelineUseCaseTest {
 
     assertThat(timeline.totalDurationMs()).isEqualTo(60_000L);
     assertThat(timeline.beats()).hasSize(2);
+    assertThat(timeline.readyForRender()).isFalse();
+    assertThat(timeline.chapters().getFirst().readyForRender()).isFalse();
+  }
+
+  @Test
+  void locksFinalRenderWhenBeatRowsComeFromAnotherMediaPlanRevision() {
+    UUID projectId = UUID.randomUUID();
+    UUID storyVersionId = UUID.randomUUID();
+    UUID chapterId = UUID.randomUUID();
+    UUID chapterPlanId = UUID.randomUUID();
+    UUID differentPlanId = UUID.randomUUID();
+
+    when(sourceRepository.findChapters(projectId, "owner"))
+        .thenReturn(
+            List.of(
+                chapter(
+                    storyVersionId,
+                    chapterId,
+                    0,
+                    chapterPlanId,
+                    60_000L,
+                    "audio/chapter.mp3",
+                    "a".repeat(64),
+                    1)));
+    when(sourceRepository.findBeats(projectId, "owner"))
+        .thenReturn(
+            List.of(beat(chapterId, 0, differentPlanId, 0, 60_000L, "b".repeat(64))));
+
+    var timeline = useCase.executeOwned(projectId, "owner");
+
+    assertThat(timeline.totalDurationMs()).isEqualTo(60_000L);
+    assertThat(timeline.beats()).hasSize(1);
     assertThat(timeline.readyForRender()).isFalse();
     assertThat(timeline.chapters().getFirst().readyForRender()).isFalse();
   }
@@ -159,6 +193,7 @@ class GetProductionTimelineUseCaseTest {
   private static BeatSource beat(
       UUID chapterId,
       int chapterOrderIndex,
+      UUID mediaPlanId,
       int beatIndex,
       Long audioDurationMs,
       String checksum) {
@@ -166,6 +201,8 @@ class GetProductionTimelineUseCaseTest {
     return new BeatSource(
         chapterId,
         chapterOrderIndex,
+        mediaPlanId,
+        1,
         0,
         beatIndex,
         visualBeatId,
