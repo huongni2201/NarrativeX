@@ -10,12 +10,14 @@ const ALLOWED_REQUEST_HEADERS = new Set([
   "if-match",
   "idempotency-key",
 ]);
+const MAX_TIMEOUT_MS = 120_000;
 
 export interface DesktopApiRequest {
   path: string;
   method?: string;
   headers?: Record<string, string>;
   body?: string;
+  timeoutMs?: number;
 }
 
 export interface DesktopApiResponse {
@@ -40,6 +42,11 @@ export class DesktopBackendApiService {
       throw new Error(`Unsupported desktop API method: ${method}`);
     }
 
+    const timeoutMs = input.timeoutMs ?? 30_000;
+    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0 || timeoutMs > MAX_TIMEOUT_MS) {
+      throw new Error(`Desktop API timeout must be between 1 and ${MAX_TIMEOUT_MS} ms.`);
+    }
+
     const url = this.resolveAllowedUrl(input.path);
     const headers = new Headers();
     for (const [name, value] of Object.entries(input.headers ?? {})) {
@@ -49,19 +56,29 @@ export class DesktopBackendApiService {
       headers.set(name, value);
     }
 
-    const response = await this.browserSession.fetch(url.toString(), {
-      method,
-      headers,
-      body: method === "GET" || method === "HEAD" ? undefined : input.body,
-      credentials: "include",
-      redirect: "error",
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(
+      () => controller.abort(new Error(`Desktop API request timed out after ${timeoutMs} ms.`)),
+      timeoutMs,
+    );
+    try {
+      const response = await this.browserSession.fetch(url.toString(), {
+        method,
+        headers,
+        body: method === "GET" || method === "HEAD" ? undefined : input.body,
+        credentials: "include",
+        redirect: "error",
+        signal: controller.signal,
+      });
 
-    return {
-      status: response.status,
-      statusText: response.statusText,
-      bodyText: method === "HEAD" || response.status === 204 ? "" : await response.text(),
-    };
+      return {
+        status: response.status,
+        statusText: response.statusText,
+        bodyText: method === "HEAD" || response.status === 204 ? "" : await response.text(),
+      };
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   private resolveAllowedUrl(path: string): URL {
