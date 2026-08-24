@@ -62,7 +62,9 @@ public class EnqueueStoryAnalysisUseCase {
             + ":"
             + chapter.rowVersion()
             + ":"
-            + chapter.sourceHash();
+            + chapter.sourceHash()
+            + ":"
+            + (chapter.contentVariantId() == null ? "original" : chapter.contentVariantId());
 
     generationJobRepository.acquireIdempotencyLock(baseIdempotencyKey, userId);
     var baseJob = generationJobRepository.findByIdempotencyKey(baseIdempotencyKey, userId);
