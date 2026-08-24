@@ -43,7 +43,7 @@ public interface ChapterContentVariantRepository extends ChapterContentVariantAc
       String sourceContentHash,
       String contentHash);
 
-  List<ChapterContentVariant> findAllOwned(UUID projectId, UUID chapterId);
+  List<ChapterContentVariant> findAllOwned(UUID projectId, UUID chapterId, String userId);
 
   void markTranslationsStale(UUID chapterId, UUID currentSourceVariantId);
 

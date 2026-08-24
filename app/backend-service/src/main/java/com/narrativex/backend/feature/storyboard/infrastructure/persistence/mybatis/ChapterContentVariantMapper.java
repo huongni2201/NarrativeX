@@ -44,7 +44,9 @@ public interface ChapterContentVariantMapper extends NarrativeXMyBatisMapper {
       @Param("contentHash") String contentHash);
 
   List<ChapterContentVariantRow> findAllOwned(
-      @Param("projectId") UUID projectId, @Param("chapterId") UUID chapterId);
+      @Param("projectId") UUID projectId,
+      @Param("chapterId") UUID chapterId,
+      @Param("userId") String userId);
 
   int markTranslationsStale(
       @Param("chapterId") UUID chapterId,

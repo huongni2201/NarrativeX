@@ -75,7 +75,8 @@
         SELECT v.* FROM chapter_content_variants v
         JOIN chapters c ON c.id = v.chapter_id JOIN story_versions sv ON sv.id = c.story_version_id
         JOIN projects p ON p.id = sv.project_id
-        WHERE p.id = #{projectId} AND c.id = #{chapterId} AND p.archived_at IS NULL
+        WHERE p.id = #{projectId} AND p.owner_id = #{userId}
+          AND c.id = #{chapterId} AND p.archived_at IS NULL
         ORDER BY v.created_at DESC, v.id DESC
     </select>
     <update id="markTranslationsStale">
