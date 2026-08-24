@@ -126,8 +126,9 @@ class TranslationWorkerRepository:
         chunk_hash: str,
     ) -> TranslationOperation:
         fingerprint = hashlib.sha256(
-            f"chapter-translation:{claimed.source_variant_id}:{claimed.source_content_hash}:"
-            f"{claimed.target_language.strip().lower()}:{chunk_index}:{chunk_hash}:translation-v1".encode()
+            f"chapter-translation:{claimed.generation_job_id}:{claimed.source_variant_id}:"
+            f"{claimed.source_content_hash}:{claimed.target_language.strip().lower()}:"
+            f"{chunk_index}:{chunk_hash}:translation-v1".encode()
         ).hexdigest()
         pool = self._require_pool()
         async with pool.acquire() as connection:
