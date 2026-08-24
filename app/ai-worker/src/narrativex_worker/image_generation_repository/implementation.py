@@ -473,7 +473,7 @@ class ImageGenerationRepository:
              WHERE item_key = $1 AND request_fingerprint = $2
                AND execution_status IN ('RUNNING', 'VALIDATING', 'UNKNOWN')
                AND (
-                   ($4::bigint IS NULL AND $5::text IS NULL AND $6::uuid IS NULL)
+                   ($4::uuid IS NULL AND $5::text IS NULL AND $6::uuid IS NULL)
                    OR EXISTS (
                        SELECT 1
                          FROM provider_operations po
@@ -652,7 +652,7 @@ class ImageGenerationRepository:
                       FROM media_generation_items mgi
                       JOIN generation_jobs gj ON gj.id = mgi.generation_job_id
                       JOIN media_plans mp ON mp.id = mgi.media_plan_id
-                     WHERE ($1::bigint IS NULL OR mgi.provider_operation_id = $1)
+                     WHERE ($1::uuid IS NULL OR mgi.provider_operation_id = $1)
                        AND mgi.item_key = $2 AND mgi.request_fingerprint = $3
                      FOR UPDATE
                     """,
