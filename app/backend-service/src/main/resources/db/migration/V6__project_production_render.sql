@@ -53,7 +53,7 @@ CREATE TABLE project_render_input_snapshots (
         "bgmAsset": null
       },
       "subtitles": {
-        "mode": "burned-ass"
+        "mode": "none"
       }
     }'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
