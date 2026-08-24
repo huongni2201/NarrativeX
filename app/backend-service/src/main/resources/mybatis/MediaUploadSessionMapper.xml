@@ -89,10 +89,15 @@
     </select>
 
     <select id="findRejectedForCleanup" resultType="com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.RejectedUploadRow">
-        SELECT id, storage_key AS storageKey
-          FROM media_upload_sessions
-         WHERE status = 'REJECTED'
-         ORDER BY created_at ASC, id ASC
+        SELECT session.id, session.storage_key AS storageKey
+          FROM media_upload_sessions session
+         WHERE session.status = 'REJECTED'
+           AND NOT EXISTS (
+               SELECT 1
+                 FROM media_storage_cleanup_tasks cleanup
+                WHERE cleanup.storage_key = session.storage_key
+           )
+         ORDER BY session.created_at ASC, session.id ASC
          LIMIT #{limit}
     </select>
 </mapper>
