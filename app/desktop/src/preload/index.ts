@@ -25,6 +25,8 @@ const bridge: NarrativeXDesktopBridge = {
   },
   localExecution: {
     status: () => ipcRenderer.invoke("desktop:local-execution:status"),
+    setUser: (userId: string | null) =>
+      ipcRenderer.invoke("desktop:local-execution:set-user", userId),
     pair: (pairingCode: string) =>
       ipcRenderer.invoke("desktop:local-execution:pair", pairingCode),
     unpair: () => ipcRenderer.invoke("desktop:local-execution:unpair"),
