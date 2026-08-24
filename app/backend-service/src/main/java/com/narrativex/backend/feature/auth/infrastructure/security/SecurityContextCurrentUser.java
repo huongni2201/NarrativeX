@@ -3,6 +3,7 @@ package com.narrativex.backend.feature.auth.infrastructure.security;
 import com.narrativex.backend.feature.auth.api.response.CurrentUserResponse;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserProfile;
+import com.narrativex.backend.feature.auth.infrastructure.desktop.DesktopUserPrincipal;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.core.Authentication;
@@ -28,6 +29,10 @@ public class SecurityContextCurrentUser implements CurrentUserId, CurrentUserPro
           firstNonBlank(user.getFullName(), user.getGivenName(), user.getEmail(), id),
           user.getEmail(),
           user.getPicture());
+    }
+    if (authentication.getPrincipal() instanceof DesktopUserPrincipal user) {
+      return new CurrentUserResponse(
+          user.id(), user.displayName(), user.email(), user.avatarUrl());
     }
     log.debug("Resolved authenticated principal {}", id);
     return new CurrentUserResponse(id, id, null, null);
