@@ -50,9 +50,11 @@ public class ProductionRenderController {
       @PathVariable UUID projectId,
       @Valid @RequestBody CreateProjectRenderRequest request,
       @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
-    if (!mediaGenerationEnabled) {
+    RenderExecutionTarget executionTarget =
+        RenderExecutionTarget.valueOf(request.executionTarget());
+    if (!mediaGenerationEnabled && executionTarget == RenderExecutionTarget.CLOUD) {
       throw new FeatureNotAvailableException(
-          "Project rendering is temporarily unavailable until its worker is enabled.");
+          "Cloud project rendering is temporarily unavailable until its worker is enabled.");
     }
     var overrides =
         request.beatOverrides().stream()
@@ -69,7 +71,7 @@ public class ProductionRenderController {
                 request.format(),
                 request.maxAuthorizedCost(),
                 idempotencyKey,
-                RenderExecutionTarget.valueOf(request.executionTarget()),
+                executionTarget,
                 request.localDeviceId(),
                 overrides));
     return ResponseEntity.accepted()
