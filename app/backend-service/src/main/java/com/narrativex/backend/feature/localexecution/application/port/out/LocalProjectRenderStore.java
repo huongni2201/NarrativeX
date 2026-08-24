@@ -25,6 +25,8 @@ public interface LocalProjectRenderStore {
       UUID leaseToken,
       CompletionResult result);
 
+  boolean cancel(UUID jobId, UUID deviceId, String workerId, UUID leaseToken);
+
   boolean fail(
       UUID jobId,
       UUID deviceId,
