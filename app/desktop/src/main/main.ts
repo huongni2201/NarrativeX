@@ -47,6 +47,7 @@ if (!hasSingleInstanceLock) {
 }
 
 function createWindow() {
+  const iconPath = join(__dirname, "../../resources/narrativex-icon.png");
   const window = new BrowserWindow({
     width: 1600,
     height: 980,
@@ -54,6 +55,7 @@ function createWindow() {
     minHeight: 720,
     backgroundColor: "#080b10",
     title: "NarrativeX",
+    icon: iconPath,
     webPreferences: {
       preload: join(__dirname, "../preload/index.js"),
       contextIsolation: true,
