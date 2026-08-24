@@ -10,6 +10,7 @@ export function AuthGuard({ children }: PropsWithChildren) {
   const queryClient = useQueryClient();
   const currentUser = useCurrentUserQuery();
   const [exchangeError, setExchangeError] = useState<string | null>(null);
+  const [boundLocalUserId, setBoundLocalUserId] = useState<string | null | undefined>(undefined);
 
   useEffect(() => {
     if (!window.narrativex?.auth) return;
@@ -26,7 +27,38 @@ export function AuthGuard({ children }: PropsWithChildren) {
     return unsubscribe;
   }, [queryClient]);
 
-  if (currentUser.isPending) return <main className="auth-screen"><div className="auth-loading">Đang kiểm tra phiên NarrativeX…</div></main>;
+  const currentUserId = currentUser.data?.id ?? null;
+  useEffect(() => {
+    if (currentUser.isPending) return;
+    if (!window.narrativex?.localExecution) {
+      setBoundLocalUserId(currentUserId);
+      return;
+    }
+
+    let cancelled = false;
+    setBoundLocalUserId(undefined);
+    void window.narrativex.localExecution
+      .setUser(currentUserId)
+      .then(() => {
+        if (!cancelled) setBoundLocalUserId(currentUserId);
+      })
+      .catch((error) => {
+        // Local execution is optional for browsing/editing. The main process already
+        // deactivates mismatched identities before a failed disk cleanup can surface.
+        console.error("Failed to bind local execution to the current user", error);
+        if (!cancelled) setBoundLocalUserId(currentUserId);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser.isPending, currentUserId]);
+
+  if (currentUser.isPending) {
+    return <main className="auth-screen"><div className="auth-loading">Đang kiểm tra phiên NarrativeX…</div></main>;
+  }
+  if (currentUser.data && boundLocalUserId !== currentUser.data.id) {
+    return <main className="auth-screen"><div className="auth-loading">Đang đồng bộ local executor…</div></main>;
+  }
   if (currentUser.data) return <>{children}</>;
 
   const queryError = currentUser.error instanceof DesktopApiError && currentUser.error.status !== 401
