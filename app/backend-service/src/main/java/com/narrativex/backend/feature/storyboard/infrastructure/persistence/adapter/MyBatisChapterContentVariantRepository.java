@@ -109,8 +109,8 @@ public class MyBatisChapterContentVariantRepository implements ChapterContentVar
   }
 
   @Override
-  public List<ChapterContentVariant> findAllOwned(UUID projectId, UUID chapterId) {
-    return mapper.findAllOwned(projectId, chapterId).stream()
+  public List<ChapterContentVariant> findAllOwned(UUID projectId, UUID chapterId, String userId) {
+    return mapper.findAllOwned(projectId, chapterId, userId).stream()
         .map(MyBatisChapterContentVariantRepository::toDomain)
         .toList();
   }
