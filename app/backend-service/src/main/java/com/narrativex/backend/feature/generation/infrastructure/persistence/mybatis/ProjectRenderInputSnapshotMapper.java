@@ -10,7 +10,9 @@ public interface ProjectRenderInputSnapshotMapper extends NarrativeXMyBatisMappe
       @Param("generationJobId") UUID generationJobId,
       @Param("timeline") ProductionTimelineView timeline,
       @Param("resolution") String resolution,
-      @Param("format") String format);
+      @Param("format") String format,
+      @Param("chapterCount") int chapterCount,
+      @Param("beatCount") int beatCount);
 
   int insertChapter(
       @Param("generationJobId") UUID generationJobId,
