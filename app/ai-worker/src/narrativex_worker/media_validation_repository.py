@@ -6,6 +6,8 @@ from uuid import UUID, uuid4
 
 import asyncpg  # type: ignore[import-untyped]
 
+from narrativex_worker.uuid_v7 import uuid7
+
 
 @dataclass(frozen=True)
 class ClaimedMediaValidationJob:
@@ -205,7 +207,7 @@ class MediaValidationRepository:
                         VALUES ($1, $2, 'VALIDATION_REJECTED', 'PENDING', 0, CURRENT_TIMESTAMP)
                         ON CONFLICT (storage_key) WHERE status IN ('PENDING', 'RUNNING') DO NOTHING
                         """,
-                        uuid4(),
+                        uuid7(),
                         job.storage_key,
                     )
         return True
@@ -293,7 +295,7 @@ class MediaValidationRepository:
                     VALUES ($1, $2, 'VALIDATION_RETRY_EXHAUSTED', 'PENDING', 0, CURRENT_TIMESTAMP)
                     ON CONFLICT (storage_key) WHERE status IN ('PENDING', 'RUNNING') DO NOTHING
                     """,
-                    uuid4(),
+                    uuid7(),
                     job.storage_key,
                 )
         return True
