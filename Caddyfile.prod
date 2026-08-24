@@ -18,6 +18,7 @@
     # Cloudflare terminates public TLS, so preserve the external HTTPS scheme for
     # Next.js, Spring Security, OAuth redirects, and secure session cookies.
     reverse_proxy frontend:3000 {
+        flush_interval -1
         header_up X-Forwarded-Proto https
         header_up X-Forwarded-Host {http.request.host}
         header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}

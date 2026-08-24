@@ -14,6 +14,7 @@ import {
 } from "@/types/api";
 import { queryKeys } from "@/lib/query-keys";
 import { mediaApi, type CreateMediaJobInput } from "../api/media.api";
+import { useGenerationEventsStatus } from "../components/GenerationEventsProvider";
 
 type InitialMediaIdentity = Pick<
   ApiChapterWorkspaceProgressStep,
@@ -27,6 +28,7 @@ export function useMediaGeneration(
 ) {
   const queryClient = useQueryClient();
   const [message, setMessage] = useState<string | null>(null);
+  const { connected: generationEventsConnected } = useGenerationEventsStatus();
   const scope = `${projectId}:${chapterId}`;
   const previousScope = useRef(scope);
 
@@ -85,7 +87,11 @@ export function useMediaGeneration(
     enabled: Boolean(jobId),
     refetchInterval: (query) => {
       const status = query.state.data?.status;
-      return status && TERMINAL_JOB_STATUSES.has(status) ? false : 1500;
+      return status && TERMINAL_JOB_STATUSES.has(status)
+        ? false
+        : generationEventsConnected
+          ? false
+          : 10000;
     },
   });
 
@@ -94,7 +100,11 @@ export function useMediaGeneration(
     queryFn: () => mediaApi.getDetails(jobId!),
     enabled: Boolean(jobId),
     refetchInterval:
-      jobQuery.data?.status && ACTIVE_JOB_STATUSES.has(jobQuery.data.status) ? 1500 : false,
+      jobQuery.data?.status && ACTIVE_JOB_STATUSES.has(jobQuery.data.status)
+        ? generationEventsConnected
+          ? false
+          : 10000
+        : false,
   });
 
   const review = useMutation({

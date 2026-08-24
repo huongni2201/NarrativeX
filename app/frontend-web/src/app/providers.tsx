@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { createQueryClient } from "@/lib/query-client";
 import { authApi } from "@/features/auth/api/auth.api";
 import { useAuthSessionLifecycle } from "@/features/auth/hooks/useAuthSessionLifecycle";
+import { GenerationEventsProvider } from "@/features/generation/components/GenerationEventsProvider";
 import { ApiClientError, subscribeUnauthorized } from "@/shared/api/client";
 import { useAuthStore } from "@/store/useAuthStore";
 
@@ -49,21 +50,23 @@ export function AppProviders({ children }: Readonly<{ children: React.ReactNode 
   return (
     <QueryClientProvider client={queryClient}>
       <AuthBootstrap>
-        {children}
-        <Toaster
-          position="top-right"
-          theme="light"
-          richColors
-          closeButton
-          toastOptions={{
-            classNames: {
-              toast: "!border-border-toast !bg-surface-toast !text-text-toast shadow-xl",
-              title: "!text-text-toast",
-              description: "!text-text-toast-muted",
-              closeButton: "!border-border-toast !bg-surface-toast-hover !text-text-toast-muted",
-            },
-          }}
-        />
+        <GenerationEventsProvider>
+          {children}
+          <Toaster
+            position="top-right"
+            theme="light"
+            richColors
+            closeButton
+            toastOptions={{
+              classNames: {
+                toast: "!border-border-toast !bg-surface-toast !text-text-toast shadow-xl",
+                title: "!text-text-toast",
+                description: "!text-text-toast-muted",
+                closeButton: "!border-border-toast !bg-surface-toast-hover !text-text-toast-muted",
+              },
+            }}
+          />
+        </GenerationEventsProvider>
       </AuthBootstrap>
     </QueryClientProvider>
   );

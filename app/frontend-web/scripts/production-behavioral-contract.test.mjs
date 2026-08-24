@@ -43,6 +43,10 @@ const notificationDrawer = await readFile(
   "utf8",
 );
 const appProviders = await readFile(new URL("../src/app/providers.tsx", import.meta.url), "utf8");
+const generationEventsProvider = await readFile(
+  new URL("../src/features/generation/components/GenerationEventsProvider.tsx", import.meta.url),
+  "utf8",
+);
 const studioHeader = await readFile(
   new URL("../src/components/layout/StudioHeader.tsx", import.meta.url),
   "utf8",
@@ -78,6 +82,13 @@ test("media generation owns optimistic job state and terminal recovery", () => {
   assert.match(mediaHook, /job\?\.status === "FAILED" \|\| job\?\.status === "UNKNOWN"/);
   assert.match(mediaHook, /apiErrorMessage\(error, "Không thể tạo media job\."\)/);
   assert.match(mediaHook, /toast\.success\("Đã bắt đầu tạo hình ảnh"/);
+});
+
+test("generation progress uses SSE with a polling fallback", () => {
+  assert.match(generationEventsProvider, /new EventSource\(apiUrl\("\/api\/v1\/generation-events"\)/);
+  assert.match(generationEventsProvider, /generation\.updated/);
+  assert.match(mediaHook, /generationEventsConnected/);
+  assert.match(mediaHook, /: 10000/);
 });
 
 test("toast notifications use a readable light surface", () => {

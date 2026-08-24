@@ -110,6 +110,7 @@ paid attempt.
 - The worker persists `ProviderOperation(RESERVED)` before external submission. Network 5xx/timeouts transition to `UNKNOWN` and require explicit reconciliation; blind retries are prohibited.
 - Monitor jobs by execution status (`QUEUED`, `RUNNING`, `VALIDATING`, `READY`, `FAILED`, `UNKNOWN`) and review status (`NOT_READY`, `NEEDS_REVIEW`, `APPROVED`, `REJECTED`).
 - When the authoritative image generation job reaches `COMPLETED`, PostgreSQL creates one unread in-app notification for the requesting user; the unique event key prevents duplicates during retries.
+- Generation status/progress is delivered to authenticated clients through `/api/v1/generation-events` via SSE; PostgreSQL remains authoritative and the frontend falls back to bounded polling if the stream disconnects.
 
 ## Cloudflare R2 Browser Upload CORS Configuration
 

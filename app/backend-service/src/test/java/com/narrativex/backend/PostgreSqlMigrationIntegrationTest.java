@@ -84,9 +84,10 @@ class PostgreSqlMigrationIntegrationTest {
   @Test
   void emptyPostgresMigratesThroughAuthoritativeUuidSchema() throws SQLException {
     try (Connection connection = dataSource.getConnection()) {
-      assertEquals("4", latestFlywayVersion(connection));
-      assertEquals(4, successfulVersionedMigrationCount(connection));
+      assertEquals("5", latestFlywayVersion(connection));
+      assertEquals(5, successfulVersionedMigrationCount(connection));
       assertTrue(triggerExists(connection, "trg_generation_jobs_notify_completion"));
+      assertTrue(triggerExists(connection, "trg_generation_jobs_sse_events"));
       assertEquals(512, characterMaximumLength(connection, "generation_jobs", "idempotency_key"));
 
       for (String table : UUID_ID_TABLES) {

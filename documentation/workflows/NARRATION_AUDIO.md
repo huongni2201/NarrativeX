@@ -124,6 +124,7 @@ Low confidence, missing source coverage, timeline gaps or incompatible source id
 Submitting a generated narration request returns a durable generation job. The Chapter Workspace keeps the Audio tab available while work is queued/running and prevents duplicate submission. Once a `NarrationAsset` exists, the backend can return short-lived private R2 access for playback; raw storage credentials are never exposed to the browser.
 
 When the narration generation job reaches `COMPLETED`, PostgreSQL creates one unread in-app notification for the requesting user. The notification is idempotent across worker retries and appears in the notification center.
+Generation status/progress is also delivered through the authenticated generation SSE stream, with REST polling retained as a reconnect fallback.
 
 ## Cost behavior
 

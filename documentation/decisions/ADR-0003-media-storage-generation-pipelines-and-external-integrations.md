@@ -88,6 +88,15 @@ notification is created by a database trigger because workers update `generation
 the unique event key makes retries idempotent and keeps the notification in the same transaction
 as the authoritative job transition.
 
+### 6. Generation progress delivery
+
+The backend exposes an authenticated SSE stream at `/api/v1/generation-events`. Workers still
+write authoritative job state to PostgreSQL; a PostgreSQL `NOTIFY` trigger is used only as a
+best-effort delivery signal for the backend SSE listener. The frontend updates its React Query
+cache from `generation.updated` events and falls back to bounded polling when the stream is
+unavailable. Heartbeats and browser reconnect behavior keep long-running generation jobs visible
+without making SSE a durable event store.
+
 ---
 
 ## Invariants
@@ -98,6 +107,7 @@ as the authoritative job transition.
 4. Narration timeline duration strictly drives visual beat timing; visual beats never use arbitrary hardcoded lengths.
 5. All Gemini image generation routes through Vertex Batch; GCS is temporary staging only, never a permanent media store.
 6. Ambiguous provider network outcomes remain `UNKNOWN` and undergo scheduled reconciliation rather than triggering blind re-generation.
+7. SSE delivery is user-scoped by the authenticated Spring Security session and never accepts a client-supplied user identity.
 
 ---
 
