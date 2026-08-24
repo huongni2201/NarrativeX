@@ -27,6 +27,7 @@
         VALUES
             (#{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}, #{accountId}, #{assetType}, #{originalFilename}, #{contentType}, #{expectedSize},
              #{expectedSha256}, #{storageKey}, #{idempotencyKey}, 'PENDING_UPLOAD', #{expiresAt})
+        ON CONFLICT (account_id, idempotency_key) DO NOTHING
     </insert>
 
     <select id="findOwnedSnapshot" resultMap="mediaUploadSessionRow">
