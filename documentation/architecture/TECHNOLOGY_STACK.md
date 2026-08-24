@@ -5,6 +5,7 @@ Canonical authority: [`../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](../
 | Layer | Current stack | V1.11 role |
 |---|---|---|
 | Web | Next.js 16, React 19, TypeScript, TanStack Query, Zustand | Studio UI and review workflows |
+| Desktop | Electron, Electron Vite, React, TypeScript, Lucide | Primary editor workspace migration target; secure preload boundary for local execution |
 | Backend | Java 25, Spring Boot 4.1, Security/OAuth2, Spring Session Redis, Actuator | modular monolith, policy, durable orchestration, MediaPlan authority |
 | Persistence | PostgreSQL 18 target, Flyway, MyBatis + explicit SQL | sole production persistence path |
 | Redis | Spring Data Redis + Spring Session Redis | sessions and transient hints only |
@@ -16,6 +17,12 @@ Canonical authority: [`../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](../
 | Final video storage | Google Drive | durable private final MP4 through resumable upload and provider-aware FinalArtifact metadata |
 | Deterministic render | FFmpeg + ffprobe | `IMAGE_MOTION` chapter render is implemented foundation |
 | Optional I2V | Wan-compatible adapter foundation | deferred fast-follow/hardening |
+
+## Desktop client boundary
+
+`app/desktop` is a sibling client to `app/frontend-web`. It currently implements the Phase UI-1 editor shell with isolated mock data: activity bar, project explorer, preview, inspector, render queue and multi-track timeline. The renderer must use backend domain contracts when integration begins; it must not become an alternative source of truth for Projects, Chapters, Scenes, VisualBeats, assets, entitlements or render progress.
+
+Electron main/preload code is the future home for local device, cache and FFmpeg execution protocols. Renderer code receives only explicitly exposed capabilities through the preload bridge.
 
 ## Persistence status
 

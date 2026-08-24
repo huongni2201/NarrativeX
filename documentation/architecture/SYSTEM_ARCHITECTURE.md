@@ -9,9 +9,10 @@ ADR-0003 governs R2-backed source/generated/reusable pipeline media and Google D
 ## Logical topology
 
 ```text
-Browser / Next.js Studio
-        |
-        v
+Browser / Next.js Studio       Electron Desktop Editor
+        |                                |
+        +---------------+----------------+
+                        v
 Spring Boot Backend
   -> PostgreSQL      authoritative domain/job/plan/usage/storage metadata
   -> Redis           Spring Session + transient/non-authoritative hints
@@ -31,6 +32,8 @@ Python worker roles
 ## Backend authority
 
 The backend owns session/CSRF and ownership, entitlement/quota admission, persisted Chapter/source identity, durable jobs/outbox, immutable MediaPlan authorization, production mode/MotionStrategy resolution, durable media/final-artifact metadata and Flyway schema ownership.
+
+The desktop renderer is an editor client, not a second domain authority. Its secure preload bridge will coordinate local device/cache/FFmpeg capabilities in later phases, while durable business state, entitlement and render progress remain backend-owned according to ADR-0010.
 
 The Chapter Workspace resolves the current visual media identity from the durable
 `chapter_media_heads` projection. Frontend refresh/hydration must not rely on an optimistic media

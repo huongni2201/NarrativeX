@@ -37,6 +37,9 @@ Architectural decisions across NarrativeX are maintained in the following canoni
 9. **[ADR-0009: Bounded image-provider retries and circuit breaking](./ADR-0009-image-provider-circuit-breaker-and-retry-bounds.md)**
    - *Scope:* Image-provider circuit breaking, durable reconciliation-attempt bounds, and application-level cancellation of retry loops.
 
+10. **[ADR-0010: Establish the Electron desktop editor client boundary](./ADR-0010-desktop-editor-client-boundary.md)**
+   - *Scope:* `app/desktop` Electron/React client boundary, secure preload bridge, editor-owned UI state, backend authority and incremental migration alongside `app/frontend-web`.
+
 ---
 
 Use the next sequential ADR number for future cross-cutting architectural decisions.
