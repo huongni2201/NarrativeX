@@ -26,17 +26,17 @@ public class MyBatisProviderOperationPersistenceAdapter implements ProviderOpera
   @Override
   @Transactional
   public ProviderOperation save(ProviderOperation operation) {
-    if (operation.getId() == null) {
-      UUID insertedId = mapper.insert(toRow(operation));
-      if (insertedId == null) {
-        return findByFingerprint(operation.getProviderKey(), operation.getRequestFingerprint())
-            .orElseThrow(() -> new IllegalStateException("Provider operation reservation disappeared"));
-      }
-      return findById(insertedId)
-          .orElseThrow(() -> new IllegalStateException("Inserted provider operation disappeared"));
+    if (operation.getId() != null) {
+      throw new IllegalArgumentException(
+          "Existing provider operations must be changed through transition APIs");
     }
-    if (mapper.update(toRow(operation)) != 1) throw optimisticConflict(operation.getId());
-    return findById(operation.getId()).orElseThrow(() -> optimisticConflict(operation.getId()));
+    UUID insertedId = mapper.insert(toRow(operation));
+    if (insertedId == null) {
+      return findByFingerprint(operation.getProviderKey(), operation.getRequestFingerprint())
+          .orElseThrow(() -> new IllegalStateException("Provider operation reservation disappeared"));
+    }
+    return findById(insertedId)
+        .orElseThrow(() -> new IllegalStateException("Inserted provider operation disappeared"));
   }
 
   @Override
