@@ -10,6 +10,7 @@ interface ApiEnvelope<T> {
 export interface PairDeviceResponse {
   deviceId: string;
   deviceToken: string;
+  userId: string;
 }
 
 export interface ClaimedProjectRenderChapter {
