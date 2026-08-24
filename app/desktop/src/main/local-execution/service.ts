@@ -41,6 +41,7 @@ export interface PreparedProjectRender extends ClaimedProjectRender {
 export class LocalExecutionService extends EventEmitter {
   private heartbeatTimer: NodeJS.Timeout | null = null;
   private identity: DeviceIdentity | null = null;
+  private sessionUserId: string | null = null;
   private state: LocalExecutionConnectionState = "UNPAIRED";
   private lastError: string | null = null;
   private renderPollTimer: NodeJS.Timeout | null = null;
@@ -59,20 +60,77 @@ export class LocalExecutionService extends EventEmitter {
 
   async start(): Promise<void> {
     this.identity = await this.identityStore.load();
+    // A persisted device token is deliberately dormant until the renderer confirms the
+    // currently authenticated NarrativeX user. This prevents processing work for a previous
+    // Google account during startup or while the login screen is shown.
+    this.setState(this.identity ? "OFFLINE" : "UNPAIRED", null);
+  }
+
+  async setUser(userId: string | null): Promise<LocalExecutionStatus> {
+    const normalized = userId?.trim() || null;
+    if (!normalized) {
+      this.sessionUserId = null;
+      this.stopHeartbeat();
+      this.stopRenderPolling();
+      this.abortActiveRender(
+        new RenderExecutionError(
+          "RENDER_INTERRUPTED",
+          "NarrativeX user session ended while rendering.",
+          true,
+        ),
+      );
+      this.setState(this.identity ? "OFFLINE" : "UNPAIRED", null);
+      return this.status();
+    }
+
+    this.sessionUserId = normalized;
     if (!this.identity) {
       this.setState("UNPAIRED", null);
-      return;
+      return this.status();
+    }
+
+    if (this.identity.userId !== normalized) {
+      this.stopHeartbeat();
+      this.stopRenderPolling();
+      this.abortActiveRender(
+        new RenderExecutionError(
+          "RENDER_INTERRUPTED",
+          "NarrativeX account changed while rendering.",
+          true,
+        ),
+      );
+      this.identity = null;
+      await this.identityStore.clear();
+      this.setState("UNPAIRED", null);
+      return this.status();
+    }
+
+    if (this.heartbeatTimer && (this.state === "ONLINE" || this.state === "CONNECTING")) {
+      return this.status();
     }
     await this.startHeartbeat();
+    return this.status();
   }
 
   async pair(pairingCode: string): Promise<LocalExecutionStatus> {
     const normalized = pairingCode.trim().toUpperCase();
     if (!normalized) throw new Error("Pairing code is required.");
+    const sessionUserId = this.sessionUserId;
+    if (!sessionUserId) {
+      throw new Error("Sign in to NarrativeX before pairing this desktop device.");
+    }
+
     this.setState("CONNECTING", null);
     try {
       const paired = await this.backendClient.pair(normalized);
-      this.identity = { deviceId: paired.deviceId, deviceToken: paired.deviceToken };
+      if (paired.userId !== sessionUserId) {
+        throw new Error("Pairing code belongs to a different NarrativeX user.");
+      }
+      this.identity = {
+        deviceId: paired.deviceId,
+        userId: paired.userId,
+        deviceToken: paired.deviceToken,
+      };
       await this.identityStore.save(this.identity);
       await this.startHeartbeat();
       return this.status();
@@ -112,7 +170,15 @@ export class LocalExecutionService extends EventEmitter {
 
   async executeNextProjectRender(): Promise<LocalRenderCompletion | null> {
     const identity = this.identity;
-    if (!this.projectRenderer || !identity || this.state !== "ONLINE") return null;
+    if (
+      !this.projectRenderer ||
+      !identity ||
+      !this.sessionUserId ||
+      identity.userId !== this.sessionUserId ||
+      this.state !== "ONLINE"
+    ) {
+      return null;
+    }
     if (!this.config.projectRenderEnabled) {
       throw new Error(
         "Local project rendering is disabled until the desktop FFmpeg runtime is enabled.",
@@ -235,6 +301,7 @@ export class LocalExecutionService extends EventEmitter {
   }
 
   stop(): void {
+    this.sessionUserId = null;
     this.stopHeartbeat();
     this.stopRenderPolling();
     this.abortActiveRender(
@@ -350,6 +417,7 @@ export class LocalExecutionService extends EventEmitter {
   private async startHeartbeat(): Promise<void> {
     this.stopHeartbeat();
     await this.sendHeartbeat();
+    if (this.state !== "ONLINE") return;
     this.heartbeatTimer = setInterval(
       () => void this.sendHeartbeat(),
       this.config.heartbeatIntervalMs,
@@ -389,15 +457,25 @@ export class LocalExecutionService extends EventEmitter {
       this.setState("UNPAIRED", null);
       return;
     }
+    if (!this.sessionUserId || identity.userId !== this.sessionUserId) {
+      this.setState("OFFLINE", null);
+      return;
+    }
 
     this.setState(this.state === "ONLINE" ? "ONLINE" : "CONNECTING", null);
     try {
       await this.backendClient.heartbeat(identity.deviceToken);
-      if (this.identity?.deviceId === identity.deviceId) {
+      if (
+        this.identity?.deviceId === identity.deviceId &&
+        this.sessionUserId === identity.userId
+      ) {
         this.setState("ONLINE", null);
       }
     } catch (error) {
-      if (this.identity?.deviceId === identity.deviceId) {
+      if (
+        this.identity?.deviceId === identity.deviceId &&
+        this.sessionUserId === identity.userId
+      ) {
         this.setState("OFFLINE", errorMessage(error));
       }
     }
