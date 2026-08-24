@@ -22,14 +22,14 @@ public class ListChapterContentVariantsUseCase {
 
   @Transactional(readOnly = true)
   public ApiResponse<List<ChapterContentVariantResponse>> execute(UUID projectId, UUID chapterId) {
+    String userId = currentUserId.get();
     var chapter =
         chapterRepository
             .findById(chapterId)
             .orElseThrow(() -> new IllegalArgumentException("Chapter not found"));
-    storyVersionAccess.requireOwnedStoryVersion(
-        projectId, chapter.getStoryVersionId(), currentUserId.get());
+    storyVersionAccess.requireOwnedStoryVersion(projectId, chapter.getStoryVersionId(), userId);
     return ApiResponse.success(
-        variantRepository.findAllOwned(projectId, chapterId).stream()
+        variantRepository.findAllOwned(projectId, chapterId, userId).stream()
             .map(ChapterContentVariantResponse::from)
             .toList());
   }
