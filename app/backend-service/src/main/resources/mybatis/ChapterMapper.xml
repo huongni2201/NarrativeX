@@ -55,6 +55,7 @@
                row_version = row_version + 1
          WHERE id = #{id}
            AND row_version = #{rowVersion}
+           AND status &lt;&gt; 'DELETED'
     </update>
 
     <update id="clearChapterCreationIdempotency">
@@ -63,21 +64,33 @@
          WHERE chapter_id = #{chapterId}
     </update>
 
-    <delete id="deleteById">
-        DELETE FROM chapters
-         WHERE id = #{id}
-    </delete>
+    <update id="deleteById">
+        UPDATE chapters c
+           SET status = 'DELETED',
+               updated_at = CURRENT_TIMESTAMP,
+               row_version = row_version + 1
+         WHERE c.id = #{id}
+           AND c.status &lt;&gt; 'DELETED'
+           AND NOT EXISTS (
+               SELECT 1
+                 FROM generation_jobs gj
+                WHERE gj.chapter_id = c.id
+                  AND gj.status IN ('QUEUED', 'RUNNING', 'UNKNOWN', 'STALLED', 'PAUSED_COST_LIMIT')
+           )
+    </update>
 
     <select id="findById" resultMap="chapterRow">
         SELECT <include refid="columns" />
           FROM chapters
          WHERE id = #{id}
+           AND status &lt;&gt; 'DELETED'
     </select>
 
     <select id="findAllByStoryVersionId" resultMap="chapterRow">
         SELECT <include refid="columns" />
           FROM chapters
          WHERE story_version_id = #{storyVersionId}
+           AND status &lt;&gt; 'DELETED'
          ORDER BY order_index ASC, id ASC
     </select>
 
@@ -85,6 +98,7 @@
         SELECT <include refid="columns" />
           FROM chapters
          WHERE story_version_id = #{storyVersionId}
+           AND status &lt;&gt; 'DELETED'
          ORDER BY order_index ASC, id ASC
          LIMIT #{limit}
     </select>
@@ -93,6 +107,7 @@
         SELECT <include refid="columns" />
           FROM chapters
          WHERE story_version_id = #{storyVersionId}
+           AND status &lt;&gt; 'DELETED'
            AND (order_index &gt; #{orderIndex}
                 OR (order_index = #{orderIndex} AND id &gt; #{id}))
          ORDER BY order_index ASC, id ASC
@@ -105,6 +120,7 @@
               FROM chapters
              WHERE story_version_id = #{storyVersionId}
                AND order_index = #{orderIndex}
+               AND status &lt;&gt; 'DELETED'
         )
     </select>
 
@@ -112,5 +128,6 @@
         SELECT COALESCE(MAX(order_index), -1)
           FROM chapters
          WHERE story_version_id = #{storyVersionId}
+           AND status &lt;&gt; 'DELETED'
     </select>
 </mapper>
