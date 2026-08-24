@@ -112,7 +112,7 @@ CREATE TABLE project_render_artifacts (
     id UUID PRIMARY KEY,
     project_id UUID NOT NULL REFERENCES projects(id),
     generation_job_id UUID NOT NULL UNIQUE REFERENCES generation_jobs(id),
-    render_fingerprint VARCHAR(64) NOT NULL UNIQUE,
+    render_fingerprint VARCHAR(64) NOT NULL,
     storage_key TEXT NOT NULL,
     storage_provider VARCHAR(32) NOT NULL,
     external_file_id TEXT NOT NULL,
@@ -131,6 +131,8 @@ CREATE TABLE project_render_artifacts (
 
 CREATE INDEX idx_project_render_artifacts_project_created
     ON project_render_artifacts (project_id, created_at DESC);
+CREATE INDEX idx_project_render_artifacts_project_fingerprint
+    ON project_render_artifacts (project_id, render_fingerprint);
 
 -- RENDER_PROJECT is a local CPU render just like CHAPTER_RENDER. Re-declare the
 -- terminal quota trigger function so project renders consume their reserved credit
