@@ -1,0 +1,229 @@
+package com.narrativex.backend.feature.generation.application.usecase;
+
+import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
+import com.narrativex.backend.feature.generation.application.port.out.ProductionTimelineSourceRepository;
+import com.narrativex.backend.feature.generation.application.port.out.ProductionTimelineSourceRepository.BeatSource;
+import com.narrativex.backend.feature.generation.application.port.out.ProductionTimelineSourceRepository.ChapterSource;
+import com.narrativex.backend.feature.generation.application.query.ProductionTimelineView;
+import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@RequiredArgsConstructor
+public class GetProductionTimelineUseCase {
+  private final CurrentUserId currentUserId;
+  private final ProjectAccess projectAccess;
+  private final ProductionTimelineSourceRepository sourceRepository;
+
+  @Transactional(readOnly = true)
+  public ProductionTimelineView execute(UUID projectId) {
+    return executeOwned(projectId, currentUserId.get());
+  }
+
+  ProductionTimelineView executeOwned(UUID projectId, String ownerId) {
+    projectAccess.findOwnedProject(projectId, ownerId);
+    List<ChapterSource> chapterSources = sourceRepository.findChapters(projectId, ownerId);
+    if (chapterSources.isEmpty()) {
+      throw new IllegalStateException("Project has no chapters in its current story version");
+    }
+
+    UUID storyVersionId = chapterSources.getFirst().storyVersionId();
+    List<BeatSource> beatSources = sourceRepository.findBeats(projectId, ownerId);
+    Map<UUID, List<BeatSource>> beatsByChapter = new LinkedHashMap<>();
+    for (BeatSource beat : beatSources) {
+      beatsByChapter.computeIfAbsent(beat.chapterId(), ignored -> new ArrayList<>()).add(beat);
+    }
+
+    String aspectRatio = firstAspectRatio(chapterSources);
+    boolean oneAspectRatio =
+        chapterSources.stream()
+            .filter(chapter -> chapter.mediaPlanId() != null)
+            .map(ChapterSource::aspectRatio)
+            .filter(value -> value != null && !value.isBlank())
+            .distinct()
+            .count()
+            <= 1;
+
+    long cursorMs = 0L;
+    List<ProductionTimelineView.Chapter> chapters = new ArrayList<>();
+    List<ProductionTimelineView.Beat> beats = new ArrayList<>();
+    boolean readyForRender = oneAspectRatio;
+
+    for (ChapterSource chapter : chapterSources) {
+      List<BeatSource> chapterBeats = beatsByChapter.getOrDefault(chapter.chapterId(), List.of());
+      long chapterDurationMs = resolveChapterDuration(chapter, chapterBeats);
+      long chapterStartMs = cursorMs;
+      long chapterEndMs = safeAdd(cursorMs, chapterDurationMs);
+
+      List<ProductionTimelineView.Beat> plannedBeats =
+          planBeatTiming(chapter, chapterBeats, chapterStartMs, chapterDurationMs);
+      beats.addAll(plannedBeats);
+
+      boolean audioReady =
+          positive(chapter.audioDurationMs())
+              && nonBlank(chapter.audioStorageKey())
+              && positive(chapter.audioSizeBytes())
+              && nonBlank(chapter.audioChecksum());
+      boolean planReady =
+          chapter.mediaPlanId() != null
+              && chapter.mediaPlanRevision() != null
+              && chapter.mediaPlanRevision() > 0
+              && chapter.beatCount() > 0
+              && chapterBeats.size() == chapter.beatCount();
+      boolean assetsReady =
+          planReady
+              && chapter.readyBeatCount() == chapter.beatCount()
+              && plannedBeats.stream().allMatch(ProductionTimelineView.Beat::assetReady);
+      boolean chapterReady = audioReady && assetsReady;
+      readyForRender &= chapterReady;
+
+      chapters.add(
+          new ProductionTimelineView.Chapter(
+              chapter.chapterId(),
+              chapter.orderIndex(),
+              chapter.title(),
+              chapter.rowVersion(),
+              chapter.sourceHash(),
+              chapter.mediaPlanId(),
+              chapter.mediaPlanRevision(),
+              chapterStartMs,
+              chapterEndMs,
+              chapter.audioDurationMs(),
+              chapter.audioStorageKey(),
+              chapter.audioSizeBytes(),
+              chapter.audioChecksum(),
+              chapter.narrationRequestId(),
+              chapter.narrationAssetId(),
+              chapter.narrationAlignmentId(),
+              chapter.beatCount(),
+              chapter.readyBeatCount(),
+              chapterReady));
+      cursorMs = chapterEndMs;
+    }
+
+    readyForRender &= cursorMs > 0 && !beats.isEmpty();
+    return new ProductionTimelineView(
+        projectId,
+        storyVersionId,
+        cursorMs,
+        aspectRatio,
+        readyForRender,
+        List.copyOf(chapters),
+        List.copyOf(beats));
+  }
+
+  private static List<ProductionTimelineView.Beat> planBeatTiming(
+      ChapterSource chapter,
+      List<BeatSource> sources,
+      long chapterStartMs,
+      long chapterDurationMs) {
+    if (sources.isEmpty()) return List.of();
+
+    long[] weights = new long[sources.size()];
+    long totalWeight = 0L;
+    for (int index = 0; index < sources.size(); index++) {
+      BeatSource source = sources.get(index);
+      long weight = resolveBeatWeight(source);
+      weights[index] = weight;
+      totalWeight = safeAdd(totalWeight, weight);
+    }
+    if (totalWeight <= 0) {
+      totalWeight = sources.size();
+      java.util.Arrays.fill(weights, 1L);
+    }
+
+    List<ProductionTimelineView.Beat> planned = new ArrayList<>(sources.size());
+    long previousRelativeEnd = 0L;
+    long cumulativeWeight = 0L;
+    for (int index = 0; index < sources.size(); index++) {
+      BeatSource source = sources.get(index);
+      cumulativeWeight = safeAdd(cumulativeWeight, weights[index]);
+      long relativeEnd;
+      if (index == sources.size() - 1) {
+        relativeEnd = chapterDurationMs;
+      } else {
+        relativeEnd = Math.round((double) chapterDurationMs * cumulativeWeight / totalWeight);
+        long minimumEnd = previousRelativeEnd + 1L;
+        long latestEnd = Math.max(minimumEnd, chapterDurationMs - (sources.size() - index - 1L));
+        relativeEnd = Math.max(minimumEnd, Math.min(relativeEnd, latestEnd));
+      }
+      if (relativeEnd <= previousRelativeEnd) relativeEnd = previousRelativeEnd + 1L;
+      if (relativeEnd > chapterDurationMs) relativeEnd = chapterDurationMs;
+
+      long globalStartMs = safeAdd(chapterStartMs, previousRelativeEnd);
+      long globalEndMs = safeAdd(chapterStartMs, relativeEnd);
+      long durationMs = Math.max(1L, globalEndMs - globalStartMs);
+      boolean assetReady =
+          source.mediaAssetId() != null
+              && nonBlank(source.storageKey())
+              && positive(source.sizeBytes())
+              && nonBlank(source.checksum());
+
+      planned.add(
+          new ProductionTimelineView.Beat(
+              chapter.chapterId(),
+              chapter.orderIndex(),
+              source.sceneIndex(),
+              source.beatIndex(),
+              source.visualBeatId(),
+              source.title(),
+              source.visualIntent(),
+              source.cameraMovement(),
+              source.assetStrategy(),
+              source.mediaAssetId(),
+              source.storageKey(),
+              source.sizeBytes(),
+              source.checksum(),
+              globalStartMs,
+              globalEndMs,
+              durationMs,
+              assetReady));
+      previousRelativeEnd = relativeEnd;
+    }
+    return List.copyOf(planned);
+  }
+
+  private static long resolveBeatWeight(BeatSource source) {
+    if (positive(source.audioDurationMs())) return source.audioDurationMs();
+    if (source.audioStartMs() != null
+        && source.audioEndMs() != null
+        && source.audioEndMs() > source.audioStartMs()) {
+      return source.audioEndMs() - source.audioStartMs();
+    }
+    return 1L;
+  }
+
+  private static long resolveChapterDuration(ChapterSource chapter, List<BeatSource> beats) {
+    if (positive(chapter.audioDurationMs())) return chapter.audioDurationMs();
+    if (positive(chapter.fallbackDurationMs())) return chapter.fallbackDurationMs();
+    long planned = beats.stream().mapToLong(GetProductionTimelineUseCase::resolveBeatWeight).sum();
+    return Math.max(planned, Math.max(1, beats.size()) * 8_000L);
+  }
+
+  private static String firstAspectRatio(List<ChapterSource> chapters) {
+    return chapters.stream()
+        .map(ChapterSource::aspectRatio)
+        .filter(value -> value != null && !value.isBlank())
+        .findFirst()
+        .orElse("16:9");
+  }
+
+  private static boolean positive(Long value) {
+    return value != null && value > 0;
+  }
+
+  private static boolean nonBlank(String value) {
+    return value != null && !value.isBlank();
+  }
+
+  private static long safeAdd(long left, long right) {
+    return Math.addExact(left, right);
+  }
+}
