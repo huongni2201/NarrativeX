@@ -66,6 +66,8 @@ public class EnqueueStoryAnalysisUseCase {
             + ":"
             + command.chapterId()
             + ":"
+            + chapter.rowVersion()
+            + ":"
             + chapter.sourceHash();
 
     generationJobRepository.acquireIdempotencyLock(idempotencyKey, userId);
