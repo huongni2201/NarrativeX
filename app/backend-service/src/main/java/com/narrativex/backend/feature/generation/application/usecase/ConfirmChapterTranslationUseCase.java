@@ -4,6 +4,7 @@ import com.narrativex.backend.feature.account.application.port.in.UserQuotaAcces
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
+import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.application.command.ConfirmChapterTranslationCommand;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationOutboxRepository;
@@ -13,6 +14,7 @@ import com.narrativex.backend.feature.generation.application.port.out.StageAttem
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.aggregate.OperationPlan;
 import com.narrativex.backend.feature.generation.domain.entity.StageAttempt;
+import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
@@ -91,7 +93,7 @@ public class ConfirmChapterTranslationUseCase {
       throw new IllegalArgumentException("Target language must match the project language");
     }
     String normalizedTargetLanguage = targetLanguage.toLowerCase(Locale.ROOT);
-    String idempotencyKey =
+    String baseIdempotencyKey =
         "chapter-translation:"
             + chapterId
             + ":"
@@ -101,14 +103,24 @@ public class ConfirmChapterTranslationUseCase {
             + ":"
             + normalizedTargetLanguage
             + ":translation-v1";
-    generationJobRepository.acquireIdempotencyLock(idempotencyKey, userId);
-    var existing = generationJobRepository.findByIdempotencyKey(idempotencyKey, userId);
-    if (existing.isPresent()) {
-      log.debug(
-          "Found existing translation job id={} for idempotencyKey='{}'",
-          existing.get().getId(),
+    generationJobRepository.acquireIdempotencyLock(baseIdempotencyKey, userId);
+    String idempotencyKey = baseIdempotencyKey;
+    var baseJob = generationJobRepository.findByIdempotencyKey(baseIdempotencyKey, userId);
+    if (baseJob.isPresent()) {
+      GenerationJob existing = baseJob.get();
+      if (!canRetry(existing.getStatus())) {
+        return existing;
+      }
+      var latest =
+          generationJobRepository.findLatestByIdempotencyFamily(baseIdempotencyKey, userId);
+      if (latest.isPresent() && !canRetry(latest.get().getStatus())) {
+        return latest.get();
+      }
+      idempotencyKey = baseIdempotencyKey + ":retry:" + UuidV7.random();
+      log.info(
+          "Retrying translation after terminal job id={} with new idempotencyKey='{}'",
+          latest.orElse(existing).getId(),
           idempotencyKey);
-      return existing.get();
     }
 
     var quota =
@@ -160,5 +172,9 @@ public class ConfirmChapterTranslationUseCase {
         chapterId,
         projectId);
     return job;
+  }
+
+  private static boolean canRetry(JobStatus status) {
+    return status == JobStatus.FAILED || status == JobStatus.CANCELED;
   }
 }
