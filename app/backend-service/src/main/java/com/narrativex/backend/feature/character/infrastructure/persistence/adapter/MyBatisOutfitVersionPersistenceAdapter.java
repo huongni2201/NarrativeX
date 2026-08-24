@@ -39,12 +39,7 @@ public class MyBatisOutfitVersionPersistenceAdapter implements OutfitVersionRepo
       return rowMapper.toDomain(mapper.findOutfit(id));
     }
     OutfitVersionRow existing = mapper.findOutfit(value.getId());
-    if (existing == null) {
-      row.setId(null);
-      row.setRowVersion(0);
-      UUID id = mapper.insertOutfit(row);
-      return rowMapper.toDomain(mapper.findOutfit(id));
-    }
+    OptimisticConcurrency.requirePresent(existing, OutfitVersion.class, value.getId());
     OptimisticConcurrency.requireVersion(
         value.getRowVersion(), existing.getRowVersion(), OutfitVersion.class, value.getId());
     if (mapper.updateOutfit(row) != 1)

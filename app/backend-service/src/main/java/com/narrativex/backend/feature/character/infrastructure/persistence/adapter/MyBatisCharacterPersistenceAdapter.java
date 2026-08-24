@@ -68,13 +68,7 @@ public class MyBatisCharacterPersistenceAdapter implements CharacterRepository {
       return rowMapper.toDomain(mapper.findCharacter(id));
     }
     CharacterRow existing = mapper.findCharacter(value.getId());
-    if (existing == null) {
-      row.setId(null);
-      row.setRowVersion(0);
-      UUID id = mapper.insertCharacter(row);
-      row.setId(id);
-      return rowMapper.toDomain(mapper.findCharacter(id));
-    }
+    OptimisticConcurrency.requirePresent(existing, Character.class, value.getId());
     OptimisticConcurrency.requireVersion(
         value.getRowVersion(), existing.getRowVersion(), Character.class, value.getId());
     if (mapper.updateCharacter(row) != 1)
