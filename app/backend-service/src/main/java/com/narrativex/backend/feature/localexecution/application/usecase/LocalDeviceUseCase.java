@@ -2,6 +2,7 @@ package com.narrativex.backend.feature.localexecution.application.usecase;
 
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
+import com.narrativex.backend.feature.localexecution.application.port.in.LocalDeviceAccess;
 import com.narrativex.backend.feature.localexecution.application.port.out.LocalDeviceStore;
 import com.narrativex.backend.feature.localexecution.application.query.LocalDeviceView;
 import java.nio.charset.StandardCharsets;
@@ -21,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-public class LocalDeviceUseCase {
+public class LocalDeviceUseCase implements LocalDeviceAccess {
   private static final Duration PAIRING_TTL = Duration.ofMinutes(10);
   private static final Duration ONLINE_WINDOW = Duration.ofSeconds(45);
   private static final SecureRandom RANDOM = new SecureRandom();
@@ -65,6 +66,37 @@ public class LocalDeviceUseCase {
 
   @Transactional
   public void heartbeat(String deviceToken, HeartbeatCommand command) {
+    AuthenticatedDevice device = authenticate(deviceToken, null);
+    String agentVersion =
+        command.agentVersion() == null || command.agentVersion().isBlank()
+            ? "unknown"
+            : command.agentVersion().trim();
+    store.heartbeat(device.id(), agentVersion, Instant.now(), normalizeCapabilities(command.capabilities()));
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public void requireEligibleOwnedDevice(String userId, UUID deviceId, String capability) {
+    if (userId == null || userId.isBlank()) throw new IllegalArgumentException("userId is required");
+    if (deviceId == null) throw new IllegalArgumentException("deviceId is required");
+    String requiredCapability = normalizeCapability(capability);
+    LocalDeviceView device =
+        store.listByUser(userId, Instant.now().minus(ONLINE_WINDOW)).stream()
+            .filter(candidate -> candidate.id().equals(deviceId))
+            .findFirst()
+            .orElseThrow(() -> new IllegalArgumentException("Local device is not owned by the user"));
+    if (!device.online()) {
+      throw new IllegalStateException("Local device is offline");
+    }
+    if (!device.capabilities().contains(requiredCapability)) {
+      throw new IllegalStateException(
+          "Local device does not advertise required capability " + requiredCapability);
+    }
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public AuthenticatedDevice authenticate(String deviceToken, String requiredCapability) {
     if (deviceToken == null || deviceToken.isBlank()) {
       throw new BadCredentialsException("Device token is required");
     }
@@ -73,11 +105,14 @@ public class LocalDeviceUseCase {
             .findByTokenHash(sha256(deviceToken.trim()))
             .filter(row -> row.revokedAt() == null)
             .orElseThrow(() -> new BadCredentialsException("Device token is invalid"));
-    String agentVersion =
-        command.agentVersion() == null || command.agentVersion().isBlank()
-            ? "unknown"
-            : command.agentVersion().trim();
-    store.heartbeat(device.id(), agentVersion, Instant.now(), normalizeCapabilities(command.capabilities()));
+    if (requiredCapability != null && !requiredCapability.isBlank()) {
+      String normalized = normalizeCapability(requiredCapability);
+      if (!store.listCapabilities(device.id()).contains(normalized)) {
+        throw new BadCredentialsException(
+            "Device does not advertise required capability " + normalized);
+      }
+    }
+    return new AuthenticatedDevice(device.id(), device.userId());
   }
 
   @Transactional(readOnly = true)
@@ -120,10 +155,17 @@ public class LocalDeviceUseCase {
     if (capabilities == null) return List.of();
     return capabilities.stream()
         .filter(value -> value != null && !value.isBlank())
-        .map(value -> value.trim().toUpperCase(Locale.ROOT))
+        .map(LocalDeviceUseCase::normalizeCapability)
         .distinct()
         .sorted()
         .toList();
+  }
+
+  private static String normalizeCapability(String capability) {
+    if (capability == null || capability.isBlank()) {
+      throw new IllegalArgumentException("capability is required");
+    }
+    return capability.trim().toUpperCase(Locale.ROOT);
   }
 
   private static String sha256(String value) {

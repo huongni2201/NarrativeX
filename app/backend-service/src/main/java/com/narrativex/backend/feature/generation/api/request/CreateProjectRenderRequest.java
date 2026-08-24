@@ -15,15 +15,29 @@ public record CreateProjectRenderRequest(
     @NotBlank @Pattern(regexp = "720p|1080p") String resolution,
     @NotBlank @Pattern(regexp = "mp4") String format,
     BigDecimal maxAuthorizedCost,
+    @Pattern(regexp = "CLOUD|LOCAL_DEVICE") String executionTarget,
+    UUID localDeviceId,
     @Valid @Size(max = 2000) List<BeatOverride> beatOverrides) {
 
   public CreateProjectRenderRequest {
+    executionTarget =
+        executionTarget == null || executionTarget.isBlank()
+            ? "CLOUD"
+            : executionTarget.trim().toUpperCase(java.util.Locale.ROOT);
     beatOverrides = beatOverrides == null ? List.of() : List.copyOf(beatOverrides);
   }
 
   public CreateProjectRenderRequest(
       String resolution, String format, BigDecimal maxAuthorizedCost) {
-    this(resolution, format, maxAuthorizedCost, List.of());
+    this(resolution, format, maxAuthorizedCost, "CLOUD", null, List.of());
+  }
+
+  public CreateProjectRenderRequest(
+      String resolution,
+      String format,
+      BigDecimal maxAuthorizedCost,
+      List<BeatOverride> beatOverrides) {
+    this(resolution, format, maxAuthorizedCost, "CLOUD", null, beatOverrides);
   }
 
   public record BeatOverride(

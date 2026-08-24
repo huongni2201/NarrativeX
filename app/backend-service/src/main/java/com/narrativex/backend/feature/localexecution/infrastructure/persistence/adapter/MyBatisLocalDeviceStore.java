@@ -56,6 +56,11 @@ public class MyBatisLocalDeviceStore implements LocalDeviceStore {
   }
 
   @Override
+  public List<String> listCapabilities(UUID deviceId) {
+    return mapper.listCapabilities(deviceId);
+  }
+
+  @Override
   public List<LocalDeviceView> listByUser(String userId, Instant onlineThreshold) {
     return mapper.listByUser(userId, onlineThreshold).stream()
         .map(

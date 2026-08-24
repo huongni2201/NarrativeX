@@ -1,0 +1,16 @@
+package com.narrativex.backend.feature.localexecution.infrastructure.persistence.mybatis;
+
+import java.util.UUID;
+
+public record LocalProjectRenderBeatRow(
+    UUID chapterId,
+    int sceneIndex,
+    int beatIndex,
+    UUID visualBeatId,
+    UUID mediaAssetId,
+    long globalStartMs,
+    long globalEndMs,
+    long durationMs,
+    String cameraMovement,
+    long sizeBytes,
+    String checksum) {}

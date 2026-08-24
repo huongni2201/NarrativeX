@@ -1,0 +1,302 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.localexecution.infrastructure.persistence.mybatis.LocalProjectRenderMapper">
+
+  <select id="claimNext"
+          resultType="com.narrativex.backend.feature.localexecution.infrastructure.persistence.mybatis.LocalProjectRenderJobRow"
+          affectData="true">
+    WITH candidate AS (
+      SELECT sa.id AS stage_attempt_id,
+             gj.id AS generation_job_id,
+             gj.job_id,
+             gj.project_id,
+             pris.story_version_id,
+             pris.resolution,
+             pris.render_format,
+             pris.aspect_ratio,
+             pris.total_duration_ms,
+             pris.render_profile_json::text AS render_profile_json,
+             sa.status AS stage_status,
+             gj.status AS job_status
+        FROM stage_attempts sa
+        JOIN generation_jobs gj ON gj.id = sa.generation_job_id
+        JOIN project_render_input_snapshots pris ON pris.generation_job_id = gj.id
+       WHERE gj.job_type = 'RENDER_PROJECT'
+         AND gj.resource_class = 'CPU_RENDER'
+         AND gj.status IN ('QUEUED', 'RUNNING', 'STALLED')
+         AND sa.stage_name = 'RENDER_PROJECT_LOCAL'
+         AND pris.execution_target = 'LOCAL_DEVICE'
+         AND pris.assigned_local_device_id = #{deviceId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+         AND (
+           sa.status IN ('QUEUED', 'STALLED')
+           OR (
+             sa.status = 'RUNNING'
+             AND (
+               sa.heartbeat_at IS NULL
+               OR sa.heartbeat_at &lt; CURRENT_TIMESTAMP - (#{leaseSeconds} * INTERVAL '1 second')
+             )
+           )
+         )
+       ORDER BY sa.created_at, sa.id
+       FOR UPDATE OF sa, gj SKIP LOCKED
+       LIMIT 1
+    ),
+    stage_claim AS (
+      UPDATE stage_attempts sa
+         SET status = 'RUNNING',
+             worker_id = #{workerId},
+             lease_token = #{leaseToken,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+             heartbeat_at = CURRENT_TIMESTAMP,
+             updated_at = CURRENT_TIMESTAMP,
+             row_version = row_version + 1
+        FROM candidate c
+       WHERE sa.id = c.stage_attempt_id
+         AND sa.status = c.stage_status
+      RETURNING sa.id
+    ),
+    job_claim AS (
+      UPDATE generation_jobs gj
+         SET status = 'RUNNING',
+             progress = CASE WHEN gj.status = 'STALLED' THEN 5 ELSE GREATEST(gj.progress, 5) END,
+             current_step = CASE
+               WHEN gj.status = 'STALLED' THEN 'RENDER_PROJECT_LOCAL_RETRYING'
+               ELSE 'RENDER_PROJECT_LOCAL'
+             END,
+             error_code = NULL,
+             updated_at = CURRENT_TIMESTAMP,
+             row_version = row_version + 1
+        FROM candidate c
+       WHERE gj.id = c.generation_job_id
+         AND gj.status = c.job_status
+      RETURNING gj.id
+    )
+    SELECT c.stage_attempt_id AS stageAttemptId,
+           c.generation_job_id AS generationJobId,
+           c.job_id AS jobId,
+           c.project_id AS projectId,
+           c.story_version_id AS storyVersionId,
+           c.resolution,
+           c.render_format AS renderFormat,
+           c.aspect_ratio AS aspectRatio,
+           c.total_duration_ms AS totalDurationMs,
+           c.render_profile_json AS renderProfileJson
+      FROM candidate c
+      JOIN stage_claim sc ON sc.id = c.stage_attempt_id
+      JOIN job_claim jc ON jc.id = c.generation_job_id
+  </select>
+
+  <select id="listChapters"
+          resultType="com.narrativex.backend.feature.localexecution.infrastructure.persistence.mybatis.LocalProjectRenderChapterRow">
+    SELECT chapter_id AS chapterId,
+           chapter_order_index AS orderIndex,
+           global_start_ms AS globalStartMs,
+           global_end_ms AS globalEndMs,
+           narration_asset_id AS narrationAssetId,
+           audio_size_bytes AS sizeBytes,
+           audio_checksum AS checksum,
+           audio_duration_ms AS durationMs
+      FROM project_render_input_chapters
+     WHERE generation_job_id = #{generationJobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+     ORDER BY chapter_order_index, chapter_id
+  </select>
+
+  <select id="listBeats"
+          resultType="com.narrativex.backend.feature.localexecution.infrastructure.persistence.mybatis.LocalProjectRenderBeatRow">
+    SELECT chapter_id AS chapterId,
+           scene_index AS sceneIndex,
+           beat_index AS beatIndex,
+           visual_beat_id AS visualBeatId,
+           media_asset_id AS mediaAssetId,
+           global_start_ms AS globalStartMs,
+           global_end_ms AS globalEndMs,
+           duration_ms AS durationMs,
+           camera_movement AS cameraMovement,
+           size_bytes AS sizeBytes,
+           checksum
+      FROM project_render_input_beats
+     WHERE generation_job_id = #{generationJobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+     ORDER BY global_start_ms, scene_index, beat_index, visual_beat_id
+  </select>
+
+  <update id="heartbeat">
+    UPDATE stage_attempts sa
+       SET heartbeat_at = CURRENT_TIMESTAMP,
+           updated_at = CURRENT_TIMESTAMP
+     WHERE sa.stage_name = 'RENDER_PROJECT_LOCAL'
+       AND sa.status = 'RUNNING'
+       AND sa.worker_id = #{workerId}
+       AND sa.lease_token = #{leaseToken,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+       AND EXISTS (
+         SELECT 1
+           FROM generation_jobs gj
+           JOIN project_render_input_snapshots pris ON pris.generation_job_id = gj.id
+          WHERE gj.id = sa.generation_job_id
+            AND gj.job_id = #{jobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+            AND pris.execution_target = 'LOCAL_DEVICE'
+            AND pris.assigned_local_device_id = #{deviceId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+       )
+  </update>
+
+  <update id="updateProgress">
+    UPDATE generation_jobs gj
+       SET progress = GREATEST(gj.progress, #{progress}),
+           current_step = #{currentStep},
+           updated_at = CURRENT_TIMESTAMP,
+           row_version = row_version + 1
+     WHERE gj.job_id = #{jobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+       AND gj.status = 'RUNNING'
+       AND EXISTS (
+         SELECT 1
+           FROM stage_attempts sa
+           JOIN project_render_input_snapshots pris ON pris.generation_job_id = sa.generation_job_id
+          WHERE sa.generation_job_id = gj.id
+            AND sa.stage_name = 'RENDER_PROJECT_LOCAL'
+            AND sa.status = 'RUNNING'
+            AND sa.worker_id = #{workerId}
+            AND sa.lease_token = #{leaseToken,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+            AND pris.execution_target = 'LOCAL_DEVICE'
+            AND pris.assigned_local_device_id = #{deviceId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+       )
+  </update>
+
+  <select id="ownsLease" resultType="boolean">
+    SELECT EXISTS (
+      SELECT 1
+        FROM generation_jobs gj
+        JOIN stage_attempts sa ON sa.generation_job_id = gj.id
+        JOIN project_render_input_snapshots pris ON pris.generation_job_id = gj.id
+       WHERE gj.job_id = #{jobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+         AND gj.status = 'RUNNING'
+         AND sa.stage_name = 'RENDER_PROJECT_LOCAL'
+         AND sa.status = 'RUNNING'
+         AND sa.worker_id = #{workerId}
+         AND sa.lease_token = #{leaseToken,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+         AND pris.execution_target = 'LOCAL_DEVICE'
+         AND pris.assigned_local_device_id = #{deviceId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+    )
+  </select>
+
+  <select id="findArtifact"
+          resultType="com.narrativex.backend.feature.localexecution.infrastructure.persistence.mybatis.LocalProjectRenderArtifactRow">
+    SELECT fa.render_fingerprint AS renderFingerprint,
+           fa.storage_key AS storageKey,
+           fa.storage_provider AS storageProvider,
+           fa.external_file_id AS externalFileId,
+           fa.web_view_link AS webViewLink,
+           fa.mime_type AS mimeType,
+           fa.size_bytes AS sizeBytes,
+           fa.checksum_sha256 AS checksumSha256,
+           fa.duration_ms AS durationMs,
+           fa.width,
+           fa.height,
+           CAST(ROUND(fa.fps) AS INTEGER) AS fps
+      FROM final_artifacts fa
+      JOIN generation_jobs gj ON gj.id = fa.generation_job_id
+     WHERE gj.job_id = #{jobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+       AND fa.artifact_type = 'PROJECT_VIDEO'
+       AND fa.status &lt;&gt; 'ARCHIVED'
+     LIMIT 1
+  </select>
+
+  <insert id="insertArtifact">
+    INSERT INTO final_artifacts (
+      project_id, chapter_id, generation_job_id, render_manifest_id,
+      artifact_type, render_fingerprint, storage_key, mime_type,
+      size_bytes, checksum_sha256, duration_ms, width, height, fps,
+      status, storage_provider, external_file_id, web_view_link
+    )
+    SELECT gj.project_id, NULL, gj.id, NULL,
+           'PROJECT_VIDEO', #{renderFingerprint}, #{storageKey}, #{mimeType},
+           #{sizeBytes}, #{checksumSha256}, #{durationMs}, #{width}, #{height}, #{fps},
+           'READY', #{storageProvider}, #{externalFileId}, #{webViewLink}
+      FROM generation_jobs gj
+      JOIN project_render_input_snapshots pris ON pris.generation_job_id = gj.id
+     WHERE gj.job_id = #{jobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+       AND pris.execution_target = 'LOCAL_DEVICE'
+       AND pris.assigned_local_device_id = #{deviceId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+  </insert>
+
+  <update id="completeStage">
+    UPDATE stage_attempts sa
+       SET status = 'COMPLETED',
+           heartbeat_at = CURRENT_TIMESTAMP,
+           updated_at = CURRENT_TIMESTAMP,
+           row_version = row_version + 1
+     WHERE sa.stage_name = 'RENDER_PROJECT_LOCAL'
+       AND sa.status = 'RUNNING'
+       AND sa.worker_id = #{workerId}
+       AND sa.lease_token = #{leaseToken,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+       AND EXISTS (
+         SELECT 1
+           FROM generation_jobs gj
+           JOIN project_render_input_snapshots pris ON pris.generation_job_id = gj.id
+          WHERE gj.id = sa.generation_job_id
+            AND gj.job_id = #{jobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+            AND pris.execution_target = 'LOCAL_DEVICE'
+            AND pris.assigned_local_device_id = #{deviceId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+       )
+  </update>
+
+  <update id="completeJob">
+    UPDATE generation_jobs gj
+       SET status = 'COMPLETED',
+           progress = 100,
+           current_step = 'COMPLETED',
+           error_code = NULL,
+           updated_at = CURRENT_TIMESTAMP,
+           row_version = row_version + 1
+     WHERE gj.job_id = #{jobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+       AND gj.status = 'RUNNING'
+       AND EXISTS (
+         SELECT 1
+           FROM project_render_input_snapshots pris
+          WHERE pris.generation_job_id = gj.id
+            AND pris.execution_target = 'LOCAL_DEVICE'
+            AND pris.assigned_local_device_id = #{deviceId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+       )
+  </update>
+
+  <update id="failStage">
+    UPDATE stage_attempts sa
+       SET status = CASE WHEN #{retryable} THEN 'STALLED' ELSE 'FAILED' END,
+           worker_id = NULL,
+           lease_token = NULL,
+           heartbeat_at = CURRENT_TIMESTAMP,
+           updated_at = CURRENT_TIMESTAMP,
+           row_version = row_version + 1
+     WHERE sa.stage_name = 'RENDER_PROJECT_LOCAL'
+       AND sa.status = 'RUNNING'
+       AND sa.worker_id = #{workerId}
+       AND sa.lease_token = #{leaseToken,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+       AND EXISTS (
+         SELECT 1
+           FROM generation_jobs gj
+           JOIN project_render_input_snapshots pris ON pris.generation_job_id = gj.id
+          WHERE gj.id = sa.generation_job_id
+            AND gj.job_id = #{jobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+            AND pris.execution_target = 'LOCAL_DEVICE'
+            AND pris.assigned_local_device_id = #{deviceId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+       )
+  </update>
+
+  <update id="failJob">
+    UPDATE generation_jobs gj
+       SET status = CASE WHEN #{retryable} THEN 'STALLED' ELSE 'FAILED' END,
+           current_step = CASE WHEN #{retryable} THEN 'RENDER_PROJECT_LOCAL_RETRY' ELSE 'FAILED' END,
+           error_code = #{errorCode},
+           updated_at = CURRENT_TIMESTAMP,
+           row_version = row_version + 1
+     WHERE gj.job_id = #{jobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+       AND gj.status = 'RUNNING'
+       AND EXISTS (
+         SELECT 1
+           FROM project_render_input_snapshots pris
+          WHERE pris.generation_job_id = gj.id
+            AND pris.execution_target = 'LOCAL_DEVICE'
+            AND pris.assigned_local_device_id = #{deviceId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+       )
+  </update>
+
+</mapper>

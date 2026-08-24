@@ -2,6 +2,7 @@ package com.narrativex.backend.feature.generation.infrastructure.persistence.myb
 
 import com.narrativex.backend.feature.common.infrastructure.persistence.mybatis.NarrativeXMyBatisMapper;
 import com.narrativex.backend.feature.generation.application.query.ProductionTimelineView;
+import com.narrativex.backend.feature.generation.domain.enums.RenderExecutionTarget;
 import java.util.UUID;
 import org.apache.ibatis.annotations.Param;
 
@@ -11,6 +12,8 @@ public interface ProjectRenderInputSnapshotMapper extends NarrativeXMyBatisMappe
       @Param("timeline") ProductionTimelineView timeline,
       @Param("resolution") String resolution,
       @Param("format") String format,
+      @Param("executionTarget") RenderExecutionTarget executionTarget,
+      @Param("assignedLocalDeviceId") UUID assignedLocalDeviceId,
       @Param("chapterCount") int chapterCount,
       @Param("beatCount") int beatCount);
 
