@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ProductionTimelineMapper;
 import com.narrativex.backend.feature.notification.infrastructure.persistence.mybatis.NotificationMapper;
 import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ProjectMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterWorkspaceMapper;
@@ -80,6 +81,7 @@ class PostgreSqlMigrationIntegrationTest {
   @Autowired private ChapterWorkspaceMapper chapterWorkspaceMapper;
   @Autowired private LanguageDetectionMapper languageDetectionMapper;
   @Autowired private NotificationMapper notificationMapper;
+  @Autowired private ProductionTimelineMapper productionTimelineMapper;
 
   @Test
   void emptyPostgresMigratesThroughAuthoritativeUuidSchema() throws SQLException {
@@ -215,6 +217,13 @@ class PostgreSqlMigrationIntegrationTest {
         assertDoesNotThrow(
             () -> languageDetectionMapper.findLatest(missingVariantId, "0".repeat(64))));
     assertTrue(assertDoesNotThrow(() -> notificationMapper.list("missing-user", true, 5)).isEmpty());
+    assertTrue(
+        assertDoesNotThrow(
+                () -> productionTimelineMapper.findChapters(missingProjectId, "missing-user"))
+            .isEmpty());
+    assertTrue(
+        assertDoesNotThrow(() -> productionTimelineMapper.findBeats(missingProjectId, "missing-user"))
+            .isEmpty());
   }
 
   private static String latestFlywayVersion(Connection connection) throws SQLException {
