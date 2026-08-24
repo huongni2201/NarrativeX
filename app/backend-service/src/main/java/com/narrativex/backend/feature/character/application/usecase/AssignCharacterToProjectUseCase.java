@@ -83,6 +83,11 @@ public class AssignCharacterToProjectUseCase {
               .orElseThrow(() -> new ResourceNotFoundException("Character version not found")));
     }
     ProjectCharacter saved = projectCharacterRepository.save(assignment);
+    if (saved.getStatus() != ProjectCharacterStatus.ACTIVE
+        || !matchesAssignmentRequest(saved, command)) {
+      throw new ResourceConflictException(
+          "Character assignment changed concurrently with different assignment metadata");
+    }
     log.info(
         "Assigned characterId={} to projectId={} with role='{}', pinnedVersionId={}",
         command.characterId(),
