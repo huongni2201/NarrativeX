@@ -6,8 +6,10 @@ import com.narrativex.backend.feature.character.application.port.out.CharacterRe
 import com.narrativex.backend.feature.character.application.port.out.CharacterVersionRepository;
 import com.narrativex.backend.feature.character.application.port.out.ProjectCharacterRepository;
 import com.narrativex.backend.feature.character.domain.aggregate.ProjectCharacter;
+import com.narrativex.backend.feature.character.domain.enums.ProjectCharacterStatus;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -30,16 +32,42 @@ public class AssignCharacterToProjectUseCase {
     characterRepository
         .findOwnedById(command.characterId(), ownerId)
         .orElseThrow(() -> new ResourceNotFoundException("Character not found"));
-    ProjectCharacter assignment =
-        ProjectCharacter.assign(
-            command.projectId(),
-            command.characterId(),
-            command.role(),
-            command.importance(),
-            command.projectAliases(),
-            command.storyMetadata(),
-            command.groups(),
-            null);
+
+    Optional<ProjectCharacter> existingAssignment =
+        projectCharacterRepository.findByProjectAndCharacterForUpdate(
+            command.projectId(), command.characterId());
+    if (existingAssignment.isPresent()
+        && existingAssignment.get().getStatus() == ProjectCharacterStatus.ACTIVE) {
+      log.info(
+          "CharacterId={} is already assigned to projectId={}; returning existing assignment id={}",
+          command.characterId(),
+          command.projectId(),
+          existingAssignment.get().getId());
+      return existingAssignment.get();
+    }
+
+    ProjectCharacter assignment;
+    if (existingAssignment.isPresent()) {
+      assignment = existingAssignment.get();
+      assignment.reactivate(
+          command.role(),
+          command.importance(),
+          command.projectAliases(),
+          command.storyMetadata(),
+          command.groups());
+    } else {
+      assignment =
+          ProjectCharacter.assign(
+              command.projectId(),
+              command.characterId(),
+              command.role(),
+              command.importance(),
+              command.projectAliases(),
+              command.storyMetadata(),
+              command.groups(),
+              null);
+    }
+
     if (command.pinnedCharacterVersionId() != null) {
       assignment.pinVersion(
           versionRepository
