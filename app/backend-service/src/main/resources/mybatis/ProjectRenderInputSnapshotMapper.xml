@@ -12,7 +12,7 @@
       #{timeline.projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
       #{timeline.storyVersionId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
       #{resolution}, #{format}, #{timeline.aspectRatio}, #{timeline.totalDurationMs},
-      #{timeline.chapters.size}, #{timeline.beats.size}
+      #{chapterCount}, #{beatCount}
     )
   </insert>
 
