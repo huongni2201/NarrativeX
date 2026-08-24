@@ -36,8 +36,24 @@ export interface FfmpegRuntimeStatus {
   reason: string | null;
 }
 
+export interface DesktopApiRequest {
+  path: string;
+  method?: string;
+  headers?: Record<string, string>;
+  body?: string;
+}
+
+export interface DesktopApiResponse {
+  status: number;
+  statusText: string;
+  bodyText: string;
+}
+
 export interface NarrativeXDesktopBridge {
   appVersion(): Promise<string>;
+  api: {
+    request(input: DesktopApiRequest): Promise<DesktopApiResponse>;
+  };
   auth: {
     login(): Promise<void>;
     onCallback(listener: (code: string) => void): () => void;
@@ -50,7 +66,11 @@ export interface NarrativeXDesktopBridge {
   };
   localStorage: {
     ensureProject(projectId: string): Promise<LocalProjectStorageStatus>;
-    importAsset(input: { projectId: string; assetId: string; kind: "IMAGE" | "AUDIO" | "VIDEO" | "OTHER" }): Promise<LocalAssetImportResult | null>;
+    importAsset(input: {
+      projectId: string;
+      assetId: string;
+      kind: "IMAGE" | "AUDIO" | "VIDEO" | "OTHER";
+    }): Promise<LocalAssetImportResult | null>;
     revealArtifact(input: { projectId: string; jobId: string }): Promise<void>;
   };
   render: {
