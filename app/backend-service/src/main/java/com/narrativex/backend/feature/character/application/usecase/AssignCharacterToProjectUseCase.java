@@ -7,8 +7,11 @@ import com.narrativex.backend.feature.character.application.port.out.CharacterVe
 import com.narrativex.backend.feature.character.application.port.out.ProjectCharacterRepository;
 import com.narrativex.backend.feature.character.domain.aggregate.ProjectCharacter;
 import com.narrativex.backend.feature.character.domain.enums.ProjectCharacterStatus;
+import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
+import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,12 +41,17 @@ public class AssignCharacterToProjectUseCase {
             command.projectId(), command.characterId());
     if (existingAssignment.isPresent()
         && existingAssignment.get().getStatus() == ProjectCharacterStatus.ACTIVE) {
+      ProjectCharacter existing = existingAssignment.get();
+      if (!matchesAssignmentRequest(existing, command)) {
+        throw new ResourceConflictException(
+            "Character is already assigned to this project with different assignment metadata");
+      }
       log.info(
           "CharacterId={} is already assigned to projectId={}; returning existing assignment id={}",
           command.characterId(),
           command.projectId(),
-          existingAssignment.get().getId());
-      return existingAssignment.get();
+          existing.getId());
+      return existing;
     }
 
     ProjectCharacter assignment;
@@ -82,5 +90,20 @@ public class AssignCharacterToProjectUseCase {
         command.role(),
         command.pinnedCharacterVersionId());
     return saved;
+  }
+
+  private static boolean matchesAssignmentRequest(
+      ProjectCharacter existing, AssignCharacterToProjectCommand command) {
+    return Objects.equals(existing.getRole(), command.role())
+        && existing.getImportance() == command.importance()
+        && existing.getProjectAliases().equals(emptyIfNull(command.projectAliases()))
+        && Objects.equals(existing.getStoryMetadata(), command.storyMetadata())
+        && existing.getGroups().equals(emptyIfNull(command.groups()))
+        && Objects.equals(
+            existing.getPinnedCharacterVersionId(), command.pinnedCharacterVersionId());
+  }
+
+  private static <T> List<T> emptyIfNull(List<T> values) {
+    return values == null ? List.of() : values;
   }
 }
