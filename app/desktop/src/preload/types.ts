@@ -61,6 +61,7 @@ export interface NarrativeXDesktopBridge {
   };
   localExecution: {
     status(): Promise<LocalExecutionStatus>;
+    setUser(userId: string | null): Promise<LocalExecutionStatus>;
     pair(pairingCode: string): Promise<LocalExecutionStatus>;
     unpair(): Promise<LocalExecutionStatus>;
     onStatusChanged(listener: (status: LocalExecutionStatus) => void): () => void;
