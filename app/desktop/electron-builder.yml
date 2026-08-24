@@ -5,6 +5,10 @@ directories:
 files:
   - out/**
   - resources/**
+  - "!resources/ffmpeg/**"
+extraResources:
+  - from: resources/ffmpeg
+    to: ffmpeg
 win:
   icon: resources/narrativex-icon.png
   target: nsis
