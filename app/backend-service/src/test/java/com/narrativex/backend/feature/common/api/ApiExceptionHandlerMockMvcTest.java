@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -73,6 +74,15 @@ class ApiExceptionHandlerMockMvcTest {
   }
 
   @Test
+  void missingRequiredHeaderReturns400() throws Exception {
+    mockMvc
+        .perform(get("/test/errors/required-header"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+        .andExpect(jsonPath("$.message").value("The request is invalid."));
+  }
+
+  @Test
   void dataIntegrityConflictReturnsRedacted409() throws Exception {
     mockMvc
         .perform(get("/test/errors/conflict"))
@@ -113,6 +123,9 @@ class ApiExceptionHandlerMockMvcTest {
 
     @GetMapping("/required")
     void required(@RequestParam String value) {}
+
+    @GetMapping("/required-header")
+    void requiredHeader(@RequestHeader("X-Required") String value) {}
 
     @GetMapping("/conflict")
     void conflict() {

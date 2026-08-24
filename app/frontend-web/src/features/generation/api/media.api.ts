@@ -100,7 +100,12 @@ export const mediaApi = {
       { method: "POST", json: input },
       isApiMediaCostEstimate,
     ),
-  createJob: (projectId: ProjectId, chapterId: ChapterId, input: CreateMediaJobInput, idempotencyKey: string) =>
+  createJob: (
+    projectId: ProjectId,
+    chapterId: ChapterId,
+    input: CreateMediaJobInput,
+    idempotencyKey = crypto.randomUUID(),
+  ) =>
     apiRequest<ApiGenerationJob>(`/api/v1/projects/${projectId}/chapters/${chapterId}/media-jobs`, { method: "POST", headers: { "Idempotency-Key": idempotencyKey }, json: input }, isApiGenerationJob),
   getJob: (jobId: ResourceId) => apiRequest<ApiGenerationJob>(`/api/v1/generation-jobs/${encodeURIComponent(jobId)}`, {}, isApiGenerationJob),
   getDetails: (jobId: ResourceId) => apiRequest<MediaJobDetails>(`/api/v1/media-jobs/${encodeURIComponent(jobId)}`, {}, isMediaJobDetails),

@@ -18,6 +18,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -83,6 +84,7 @@ public class ApiExceptionHandler {
   @ExceptionHandler({
     HttpMessageNotReadableException.class,
     MethodArgumentTypeMismatchException.class,
+    MissingRequestHeaderException.class,
     MissingServletRequestParameterException.class
   })
   ResponseEntity<ErrorResponse> handleMalformedRequest(
