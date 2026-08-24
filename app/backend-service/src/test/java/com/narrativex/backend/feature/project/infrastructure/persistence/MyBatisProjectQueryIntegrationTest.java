@@ -131,7 +131,7 @@ class MyBatisProjectQueryIntegrationTest extends PostgreSqlIntegrationTestSuppor
         revId);
 
     jdbcTemplate.update(
-        "INSERT INTO auth_users (id, email, display_name, password_hash, enabled) VALUES (?, ?, ?, 'pass', true) ON CONFLICT (id) DO NOTHING",
+        "INSERT INTO auth_users (id, email, display_name, enabled) VALUES (?, ?, ?, true) ON CONFLICT (id) DO NOTHING",
         ownerId,
         ownerId + "@example.com",
         ownerId);
