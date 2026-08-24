@@ -12,11 +12,13 @@ ROOT = Path(__file__).resolve().parents[1]
 CURRENT_FILES = [
     ROOT / "README.md",
     ROOT / "AI_CONTEXT.md",
+    ROOT / "app" / "desktop" / "README.md",
     ROOT / "documentation" / "README.md",
     ROOT / "documentation" / "TRACEABILITY.md",
     ROOT / "documentation" / "PROJECT_OVERVIEW_API_REPORT.md",
     ROOT / "documentation" / "source-of-truth" / "README.md",
     ROOT / "documentation" / "source-of-truth" / "NARRATIVEX_PROJECT_SPEC_V1_11.md",
+    ROOT / "documentation" / "plans" / "DESKTOP_APP_MIGRATION.md",
     ROOT / "documentation" / "codebase" / "CODEBASE_MAP.md",
     ROOT / "documentation" / "architecture" / "SYSTEM_ARCHITECTURE.md",
     ROOT / "documentation" / "architecture" / "SERVICE_BOUNDARIES.md",
@@ -32,10 +34,14 @@ REQUIRED_PATHS = [
     ROOT / "documentation" / "source-of-truth" / "NARRATIVEX_PROJECT_SPEC_V1_11.md",
     ROOT / "documentation" / "TRACEABILITY.md",
     ROOT / "documentation" / "product" / "FEATURE_CATALOG.md",
+    ROOT / "documentation" / "plans" / "DESKTOP_APP_MIGRATION.md",
     ROOT / "documentation" / "decisions" / "ADR-0001-system-topology-execution-and-persistence.md",
     ROOT / "documentation" / "decisions" / "ADR-0002-storyboard-character-continuity-and-production-workflows.md",
     ROOT / "documentation" / "decisions" / "ADR-0003-media-storage-generation-pipelines-and-external-integrations.md",
     ROOT / "documentation" / "decisions" / "ADR-0004-authentication-runtime-security-and-test-credentials.md",
+    ROOT / "documentation" / "decisions" / "ADR-0010-desktop-editor-client-boundary.md",
+    ROOT / "documentation" / "decisions" / "ADR-0011-google-oauth-only-desktop-auth.md",
+    ROOT / "documentation" / "decisions" / "ADR-0012-desktop-local-first-media-and-render-execution.md",
 ]
 
 FORBIDDEN = {
@@ -77,6 +83,18 @@ FORBIDDEN = {
         r"\bV10\b[^\n]*FinalArtifact",
         re.IGNORECASE,
     ),
+    "desktop still described as future primary client": re.compile(
+        r"desktop[^\n]{0,80}(?:future primary|migration target)[^\n]{0,80}client",
+        re.IGNORECASE,
+    ),
+    "browser still described as primary studio topology": re.compile(
+        r"^\s*Browser\s*/\s*Next\.js\s+Studio\s*$",
+        re.IGNORECASE | re.MULTILINE,
+    ),
+    "desktop final artifact incorrectly forced to Drive": re.compile(
+        r"Desktop[^\n]{0,120}(?:final|rendered)[^\n]{0,80}(?:must|always)[^\n]{0,40}Google Drive",
+        re.IGNORECASE,
+    ),
 }
 
 LEGACY_STORAGE_ENV = re.compile(
@@ -86,7 +104,7 @@ LEGACY_STORAGE_ENV = re.compile(
 IMPLEMENTATION_CHECKPOINT_PATTERNS = {
     "spec": re.compile(r"Docs-sync (?:baseline )?implementation checkpoint:\*\* `[^`]+` at `([0-9a-f]{40})`"),
     "readme": re.compile(r"(?:Baseline )?implementation checkpoint: `[^`]+` at `([0-9a-f]{40})`", re.IGNORECASE),
-    "traceability": re.compile(r"(?:baseline|current) implementation checkpoint `[^`]+` / `([0-9a-f]{40})`"),
+    "traceability": re.compile(r"(?:baseline|current) implementation checkpoint `[^`]+` / `([0-9a-f]{40})`", re.IGNORECASE),
 }
 
 
@@ -133,17 +151,16 @@ def main() -> int:
         )
 
     navigation = (ROOT / "documentation" / "README.md").read_text(encoding="utf-8")
-    for removed_dir in ("./plans/", "./audits/"):
-        if removed_dir in navigation:
-            errors.append(f"documentation/README.md links removed directory {removed_dir}")
+    if "./audits/" in navigation:
+        errors.append("documentation/README.md links removed directory ./audits/")
 
     prod_compose = ROOT / "docker-compose.prod.yml"
     prod_env = ROOT / ".env.prod.example"
     for required in ("GOOGLE_DRIVE_CLIENT_ID", "GOOGLE_DRIVE_CLIENT_SECRET", "GOOGLE_DRIVE_REFRESH_TOKEN", "GOOGLE_DRIVE_FOLDER_ID"):
         if prod_compose.exists() and required not in prod_compose.read_text(encoding="utf-8"):
-            errors.append(f"docker-compose.prod.yml: render worker is missing {required}")
+            errors.append(f"docker-compose.prod.yml: cloud render fallback is missing {required}")
         if prod_env.exists() and required not in prod_env.read_text(encoding="utf-8"):
-            errors.append(f".env.prod.example: missing {required}")
+            errors.append(f".env.prod.example: cloud render fallback is missing {required}")
 
     root_env = ROOT / ".env.example"
     if root_env.exists():
@@ -155,7 +172,7 @@ def main() -> int:
             "R2_BUCKET",
         ):
             if required_r2_env not in root_text:
-                errors.append(f".env.example: missing {required_r2_env}")
+                errors.append(f".env.example: cloud/legacy R2 fallback is missing {required_r2_env}")
 
     if errors:
         print("Documentation drift check failed:")

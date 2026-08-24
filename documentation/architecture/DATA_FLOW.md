@@ -1,29 +1,44 @@
 # NarrativeX Data Flow and Durability Model — V1.11
 
-PostgreSQL state, not Redis messages or process memory, determines what NarrativeX believes happened.
+PostgreSQL state, not Redis messages, renderer memory or process memory, determines what NarrativeX believes happened. Desktop project bytes are local-first but durable business/execution identity remains backend-owned.
 
 ## Authority matrix
 
 | Concern | Authority | Notes |
 |---|---|---|
-| Project/StoryVersion/Chapter/storyboard/continuity | PostgreSQL | ownership and versioning apply |
-| GenerationJob/StageAttempt/ProviderOperation | PostgreSQL | Redis may carry hints only |
-| MediaPlan / production policy | PostgreSQL | worker executes the persisted authorized revision |
-| Narration document/set/timeline metadata | PostgreSQL | source and narration fingerprints pin immutable inputs |
-| Durable source/generated/reusable media bytes | Cloudflare R2 | private by default; DB owns metadata/lineage |
-| Durable final rendered MP4 bytes | Google Drive | private by default; DB stores provider/external file identity |
-| Worker render/media workspace | Local filesystem | ephemeral only; current render output does not survive a completed/stalled worker attempt |
-| Browser session | Redis via Spring Session | availability dependency, not business-state authority |
+| Project/StoryVersion/Chapter/storyboard/continuity | PostgreSQL | ownership/versioning apply |
+| GenerationJob/StageAttempt/ProviderOperation | PostgreSQL | Redis/process memory may carry hints only |
+| MediaPlan / production policy | PostgreSQL | worker/device executes persisted authorized state |
+| Narration document/set/timeline metadata | PostgreSQL | source/narration fingerprints pin inputs |
+| Desktop project byte locations | local `project.manifest.json` | project-relative paths + size/SHA-256; not domain authority |
+| Desktop final MP4 bytes | local project `artifacts/` | backend stores `LOCAL_DESKTOP` + opaque artifact identity/metadata |
+| Cloud pipeline media bytes | Cloudflare R2 | retained cloud/legacy path |
+| Cloud final MP4 bytes | Google Drive | retained cloud/legacy path |
+| Browser/Desktop server session | Redis via Spring Session | availability dependency, not business-state authority |
+| Local-execution device credential | Electron protected storage | machine credential, not user session identity |
+
+## Desktop authentication
+
+```text
+Electron main
+  -> system browser /api/v1/auth/desktop/start
+  -> Google OIDC
+  -> narrativex://auth/callback?code=<one-time-code>
+  -> backend /api/v1/auth/desktop/exchange
+  -> server-managed NarrativeX session
+```
+
+Google tokens never enter Electron. The device token used for local execution is a separate credential.
 
 ## Chapter Analyze
 
 ```text
 persisted Chapter
   -> lock/reload authoritative snapshot
-  -> admission + atomic reservation
+  -> admission + reservation/policy
   -> OperationPlan + GenerationJob + StageAttempt + OutboxEvent
   -> worker claim/lease/heartbeat
-  -> ProviderOperation
+  -> ProviderOperation when applicable
   -> validated structured result
   -> stale-snapshot re-check
   -> continuity/storyboard materialization
@@ -33,64 +48,75 @@ persisted Chapter
 
 ```text
 NarrationStrategy.TTS
-  -> TTS_GENERATE
+  -> TTS execution
   -> AUDIO_ALIGN
 
 NarrationStrategy.USER_PROVIDED_AUDIO
+  -> validate/register audio
   -> AUDIO_ALIGN
-  -> no TTS_GENERATE
+  -> no TTS for covered scope
 ```
 
-User-provided parts are ordered and mapped onto one logical global audio clock. One part can cover multiple Chapters; Chapter boundaries come from source/alignment, not file boundaries.
+User-provided parts are ordered on one logical audio clock. File boundaries do not define Chapter boundaries.
 
-Generated narration and accepted uploaded audio remain R2-backed pipeline media.
+For Desktop local rendering, narration bytes must be present in the project workspace and registered in the local manifest. Cloud R2-backed narration remains a compatibility path while generation/import materialization migration is incomplete.
 
 ## Image execution
 
 ```text
-pinned media-generation work
-  -> Vertex image execution
+pinned authorized image work
+  -> Vertex/provider execution
   -> validate image bytes
-  -> immutable R2 image object
-  -> MediaAsset / media-generation metadata
-  -> READY input for render
+  -> stable MediaAsset identity + checksum
+  -> materialize according to execution mode
 ```
 
-This production foundation exists. Richer approval/reuse/reframe/edit lineage remains incomplete.
-
-## Current chapter render flow
+Desktop target:
 
 ```text
-CHAPTER_RENDER job
-  -> load pinned MediaPlan revision
-  -> load READY R2 images
-  -> load generated narration matching chapterRowVersion + sourceHash
-  -> normalize visual timing to narration duration
-  -> FFmpeg IMAGE_MOTION in local workspace
-  -> ffprobe validation + SHA-256
-  -> Google Drive resumable upload
-  -> fetch/verify Drive file identity + size
-  -> persist render_manifest + FinalArtifact Drive metadata
-  -> mark stage/job COMPLETED
+validated image
+  -> local project assets/images
+  -> project.manifest.json
+  -> local render resolves mediaAssetId + checksum
 ```
 
-The current render worker does not yet resolve aligned multi-part `USER_PROVIDED_AUDIO` into a chapter-local audio file. That path remains partial.
-
-## Google Drive upload semantics
-
-Inside one render attempt, Drive upload uses resumable chunks. If a chunk request becomes ambiguous, the adapter queries the resumable session offset and continues from the confirmed byte range.
-
-Before creating a final file, the adapter searches the configured Drive folder by `renderFingerprint`. If an earlier attempt already completed the remote upload, a retry can reuse that Drive file when its size matches instead of creating another copy.
-
-The current local `final.mp4` lives in an ephemeral job workspace. Therefore an upload/storage failure that causes the job to become `STALLED` may lead to a rerender on the next claim. Cross-attempt upload-only retry is a TARGET hardening item, not a current guarantee.
-
-## FinalArtifact storage metadata
+Cloud/legacy target:
 
 ```text
-storageProvider = GOOGLE_DRIVE
-storageKey = gdrive:<driveFileId>
-externalFileId = <driveFileId>
-webViewLink = <optional UI convenience link>
+validated image
+  -> immutable R2 object
+  -> cloud render/pipeline metadata
+```
+
+## Desktop local project render flow
+
+```text
+backend admits + assigns LOCAL_DEVICE render
+  -> authorized device claims job + lease
+  -> claim returns narration/image asset IDs + expected integrity
+  -> Electron main resolves assets through project.manifest.json
+  -> reject missing/size/checksum/path-boundary mismatch
+  -> build local render manifest
+  -> FFmpeg render segments
+  -> concatenate video
+  -> concatenate narration
+  -> mux
+  -> ffprobe final MP4
+  -> register checksum-verified artifact locally
+  -> report progress/completion to backend
+  -> backend records LOCAL_DESKTOP + opaque relative artifact key
+```
+
+A lease heartbeat runs during rendering. Lease loss aborts the render. In-process cancellation exists. Restart-safe recovery/resume remains partial.
+
+## Local project artifact metadata
+
+The backend must be able to identify a local artifact without storing the absolute machine path. Typical completion metadata includes:
+
+```text
+storageProvider = LOCAL_DESKTOP
+storageKey = <opaque project-relative artifact key>
+renderFingerprint
 checksumSha256
 sizeBytes
 durationMs
@@ -99,30 +125,30 @@ height
 fps
 ```
 
-The Drive file ID/provider metadata is the durable remote identity. A public/share link is not required for correctness.
+Electron's manifest/path resolver maps the opaque local identity back to the actual machine path.
 
-## Drive FinalArtifact content flow
+## Retained cloud render flow
 
-Owner-authorized preview/download uses the backend as a streaming proxy. PostgreSQL ownership and
-FinalArtifact readiness are checked before the backend refreshes the shared Google Drive OAuth
-access token and requests `files/{externalFileId}?alt=media`. A single browser byte range is
-forwarded to Drive and the response body is copied to the browser without buffering the MP4 in
-memory. The backend returns `206`, `Content-Range`, `Content-Length`, and `Accept-Ranges` for
-partial content; `/content` uses inline disposition and `/download` uses attachment disposition.
-The legacy `/preview` path remains an alias for inline content delivery.
+The older cloud/server path remains valid during migration:
 
-The worker emits a structured `final_video_upload` log for each upload or fingerprint reuse,
-including `upload_duration_seconds`, `uploaded_bytes`, `resume_count`, and
-`drive_http_retries`. OAuth credentials and resumable session URLs are never included in this
-telemetry.
+```text
+cloud render job
+  -> READY R2 inputs
+  -> worker FFmpeg/ffprobe
+  -> Google Drive final upload
+  -> FinalArtifact provider metadata
+  -> terminal backend job state
+```
+
+Drive resumable upload/idempotent fingerprint lookup remain cloud-path concerns. This path is a fallback and must not redefine Desktop storage.
 
 ## Current gaps
 
-- production user-audio upload/finalize/alignment hardening;
-- aligned multi-part uploaded-audio slicing/stitching for render;
-- complete narration-driven VisualScenePlanner/review loop;
+- complete local materialization of all image/TTS/import result paths;
+- restart-safe local render recovery/resume;
+- automatic device registration if explicit pairing is removed;
+- full Desktop editor parity and legacy web removal;
+- local disk cleanup/backup/move/repair UX;
+- narration-driven VisualScenePlanner/review;
 - richer image approval/reuse/reframe/edit lineage;
-- cross-attempt Drive upload-only retry without rerender;
-- complete actual-usage/billing reconciliation and release/refund behavior;
-- full Character/reference and approved-storyboard workflows;
-- broader moderation/SSRF/retention/observability/DR evidence.
+- complete cost/usage reconciliation and production observability/retention/DR evidence.

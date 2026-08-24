@@ -1,32 +1,59 @@
 # NarrativeX documentation map
 
-The canonical product and architecture baseline is [`source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](./source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md). Superseded versioned documents are removed once unique history is preserved in ADRs.
+The canonical product and architecture baseline is [`source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](./source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md). Current code, Flyway migrations and tests decide factual AS-IS implementation claims when derived documentation drifts.
 
-Current code, migrations and tests define factual implementation state when a derived document drifts. Accepted ADRs explain important implementation decisions and deliberate deviations. ADR-0003 defines the split R2 pipeline-media and Google Drive final-video storage contract.
+NarrativeX is now desktop-first. ADR-0010 defines the Electron client boundary, ADR-0011 defines Google OAuth-only Desktop authentication, and ADR-0012 defines Desktop local-first project media/render execution.
+
+ADR-0003 still governs the retained cloud/worker R2 + Google Drive path, but its storage rules no longer apply globally to Desktop-local project bytes.
 
 ## Navigation
 
 | Area | Purpose |
 | --- | --- |
 | [`source-of-truth/`](./source-of-truth/) | Canonical V1.11 product/domain/architecture direction |
-| [`product/`](./product/) | Maintained product contract, canonical [`FEATURE_CATALOG.md`](./product/FEATURE_CATALOG.md) and dependency-ordered roadmap |
+| [`product/`](./product/) | Product contract, feature catalog and roadmap |
 | [`domain/`](./domain/) | Domain model, invariants, glossary and business rules |
 | [`architecture/`](./architecture/) | System architecture, boundaries, data flow and technology stack |
-| [`workflows/`](./workflows/) | End-to-end workflows, including generated and user-provided narration |
-| [`decisions/`](./decisions/) | Accepted architecture decision records (ADRs) |
-| [`codebase/`](./codebase/) | Current implementation maps, persistence migration and integration matrices |
-| [`TRACEABILITY.md`](./TRACEABILITY.md) | V1.11 capability-to-code/test evidence |
+| [`workflows/`](./workflows/) | End-to-end workflows |
+| [`decisions/`](./decisions/) | Accepted architecture decision records |
+| [`plans/DESKTOP_APP_MIGRATION.md`](./plans/DESKTOP_APP_MIGRATION.md) | Desktop migration status, implemented slices and remaining parity/reliability work |
+| [`codebase/`](./codebase/) | Current implementation maps, persistence notes and integration matrices |
+| [`TRACEABILITY.md`](./TRACEABILITY.md) | Capability-to-code/test evidence |
+
+## Current authority order
+
+When documents conflict:
+
+1. current code + migrations + automated tests decide factual AS-IS implementation;
+2. accepted ADRs decide intentional cross-cutting architecture boundaries;
+3. the source-of-truth specification defines maintained product/architecture direction;
+4. derived reports/plans must be updated to match the above.
+
+A newer ADR wins only within the scope it explicitly supersedes.
 
 ## V1.11 maintenance rules
 
-1. V1.11 is the maintained planning baseline; do not maintain parallel current catalogs/specs with version suffixes.
-2. Code, migrations, tests and accepted ADRs decide factual AS-IS claims.
-3. Keep `IMPLEMENTED`, `PARTIAL`, `TARGET` and `DEFERRED` distinct; do not report roadmap intent as merged code.
-4. PostgreSQL is authoritative for durable application/execution state; Redis is non-authoritative for generation correctness.
-5. Cloudflare R2 stores durable source/generated media such as images, narration audio, thumbnails and reusable media assets. Final rendered MP4 exports use the provider-neutral `FinalVideoStorage` boundary, with Google Drive as the authoritative durable provider. Worker-local files are scratch/cache/render workspace only.
-6. A final video is not `READY` until local validation succeeds, Google Drive resumable upload completes, the remote object is verified, and authoritative metadata is committed. Only then may the local final file be deleted.
-7. Backend-authorized `MediaPlan`/execution policy is authoritative; workers execute persisted policy rather than inventing paid work.
-8. Narration is not synonymous with TTS. `NarrationStrategy.USER_PROVIDED_AUDIO` bypasses TTS for the covered scope.
-9. Production persistence is MyBatis + explicit SQL + PostgreSQL. Architecture tests prohibit JPA and direct `JdbcTemplate` persistence.
-10. Cross-cutting invariant changes require an ADR when they change an accepted decision.
-11. Update `scripts/check-docs-drift.py` whenever the canonical baseline or current-state document set changes.
+1. Keep `IMPLEMENTED`, `IMPLEMENTED foundation`, `PARTIAL`, `TARGET`, `DEFERRED` and `LEGACY/FALLBACK` distinct.
+2. `app/desktop` is the primary editor client. `app/frontend-web` is a temporary legacy migration client until parity/removal gates pass.
+3. Electron renderer owns UI only. Native filesystem/process/auth-callback/local-execution capabilities belong to Electron main behind a narrow preload bridge.
+4. Google is the only user-facing login provider. Do not reintroduce password login/register/forgot-password product flows.
+5. User authentication and device execution credentials are different concepts: Desktop user auth establishes a server-managed NarrativeX session; device tokens authorize machine heartbeat/job APIs.
+6. PostgreSQL is authoritative for durable business/domain/policy/job/lease metadata. Redis is non-authoritative for generation correctness.
+7. Desktop project media is local-first under `<userData>/projects/<projectId>` and mapped by `project.manifest.json` using stable IDs, project-relative paths, size and SHA-256.
+8. Absolute Desktop filesystem paths are never durable backend identifiers.
+9. Desktop local FFmpeg execution is backend-assigned/lease-controlled and occurs in Electron main, not the renderer.
+10. Cloudflare R2 + Google Drive remain the retained cloud/legacy storage path under ADR-0003; they are not mandatory Desktop project storage after ADR-0012.
+11. Narration is not synonymous with TTS. `NarrationStrategy.USER_PROVIDED_AUDIO` bypasses TTS for the covered scope.
+12. Production persistence is MyBatis + explicit PostgreSQL SQL. Do not reintroduce JPA or direct `JdbcTemplate` persistence as a parallel production path.
+13. Cross-cutting changes to client, auth, storage or execution boundaries require an ADR.
+14. Update documentation drift checks whenever the canonical current-state document set changes.
+
+## Desktop implementation checkpoint
+
+The migration documentation is aligned to `main` commit:
+
+```text
+751f006634218efb2c398fc00c2cbfecd25e1eac
+```
+
+At that checkpoint, local project storage, explicit device pairing/heartbeat, local render claim/lease/progress/completion, FFmpeg/ffprobe rendering and in-process cancellation are implemented foundations. Restart-safe recovery, complete local materialization of every generation/import path, full Desktop parity and legacy web removal remain incomplete.
