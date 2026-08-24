@@ -26,12 +26,7 @@ public class MyBatisCharacterAppearancePersistenceAdapter implements CharacterAp
       return rowMapper.toDomain(mapper.findAppearance(id));
     }
     CharacterAppearanceRow existing = mapper.findAppearance(value.getId());
-    if (existing == null) {
-      row.setId((UUID) null);
-      row.setRowVersion(0L);
-      UUID id = mapper.insertAppearance(row);
-      return rowMapper.toDomain(mapper.findAppearance(id));
-    }
+    OptimisticConcurrency.requirePresent(existing, CharacterAppearance.class, value.getId());
     OptimisticConcurrency.requireVersion(
         value.getRowVersion(), existing.getRowVersion(), CharacterAppearance.class, value.getId());
     if (mapper.updateAppearance(row) != 1)
