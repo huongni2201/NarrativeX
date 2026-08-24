@@ -29,7 +29,6 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
@@ -51,7 +50,7 @@ public class CreateProjectRenderUseCase {
   private final QuotaReservation quotaReservation;
   private final UserQuotaAccess userQuotaAccess;
 
-  @Transactional(isolation = Isolation.REPEATABLE_READ)
+  @Transactional
   public GenerationJob execute(CreateProjectRenderCommand command) {
     String userId = currentUserId.get();
     var project = projectAccess.findOwnedProject(command.projectId(), userId);
