@@ -42,10 +42,17 @@ export interface ProductionTimeline {
   beats: ProductionTimelineBeat[];
 }
 
+export interface ProjectRenderBeatOverrideInput {
+  visualBeatId: string;
+  durationMs?: number | null;
+  cameraMovement?: string | null;
+}
+
 export interface CreateProjectRenderInput {
   resolution: "720p" | "1080p";
   format: "mp4";
   maxAuthorizedCost?: string;
+  beatOverrides?: ProjectRenderBeatOverrideInput[];
 }
 
 export interface ProjectRenderArtifact {
