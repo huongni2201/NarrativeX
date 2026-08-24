@@ -51,6 +51,13 @@ public class MyBatisGenerationJobPersistenceAdapter implements GenerationJobRepo
   }
 
   @Override
+  public Optional<GenerationJob> findLatestByIdempotencyFamily(
+      String baseIdempotencyKey, String ownerId) {
+    return Optional.ofNullable(mapper.findLatestByIdempotencyFamily(baseIdempotencyKey, ownerId))
+        .map(MyBatisGenerationJobPersistenceAdapter::toDomain);
+  }
+
+  @Override
   public void acquireIdempotencyLock(String idempotencyKey, String ownerId) {
     mapper.acquireIdempotencyLock(idempotencyKey, ownerId);
   }

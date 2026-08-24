@@ -25,7 +25,6 @@ import com.narrativex.backend.feature.generation.domain.enums.ResourceClass;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
 import java.math.BigDecimal;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -78,16 +77,26 @@ public class GenerateChapterNarrationUseCase {
             command.speakingRate(),
             SEGMENTATION_VERSION,
             command.voiceReferenceAssetId());
-    String idempotencyKey = "chapter-narration:" + fingerprint;
+    String baseIdempotencyKey = "chapter-narration:" + fingerprint;
 
-    generationJobRepository.acquireIdempotencyLock(idempotencyKey, userId);
-    var existing = generationJobRepository.findByIdempotencyKey(idempotencyKey, userId);
-    if (existing.isPresent()) {
-      log.debug(
-          "Found existing narration job id={} for idempotencyKey='{}'",
-          existing.get().getId(),
+    generationJobRepository.acquireIdempotencyLock(baseIdempotencyKey, userId);
+    var baseJob = generationJobRepository.findByIdempotencyKey(baseIdempotencyKey, userId);
+    String idempotencyKey = baseIdempotencyKey;
+    if (baseJob.isPresent()) {
+      GenerationJob existing = baseJob.get();
+      if (!canRetry(existing.getStatus())) {
+        return existing;
+      }
+      var latest =
+          generationJobRepository.findLatestByIdempotencyFamily(baseIdempotencyKey, userId);
+      if (latest.isPresent() && !canRetry(latest.get().getStatus())) {
+        return latest.get();
+      }
+      idempotencyKey = baseIdempotencyKey + ":retry:" + UuidV7.random();
+      log.info(
+          "Retrying narration after terminal job id={} with new idempotencyKey='{}'",
+          latest.orElse(existing).getId(),
           idempotencyKey);
-      return existing.get();
     }
 
     var admission = admissionService.admit(userId, chapter, voiceCapabilities.localExecution());
@@ -156,6 +165,10 @@ public class GenerateChapterNarrationUseCase {
         command.chapterId(),
         command.projectId());
     return job;
+  }
+
+  private static boolean canRetry(JobStatus status) {
+    return status == JobStatus.FAILED || status == JobStatus.CANCELED;
   }
 
   private VoiceCatalogAccess.VoiceCapabilities resolveVoiceCapabilities(String voiceId) {
