@@ -84,8 +84,8 @@ class PostgreSqlMigrationIntegrationTest {
   @Test
   void emptyPostgresMigratesThroughAuthoritativeUuidSchema() throws SQLException {
     try (Connection connection = dataSource.getConnection()) {
-      assertEquals("5", latestFlywayVersion(connection));
-      assertEquals(5, successfulVersionedMigrationCount(connection));
+      assertEquals("6", latestFlywayVersion(connection));
+      assertEquals(6, successfulVersionedMigrationCount(connection));
       assertTrue(triggerExists(connection, "trg_generation_jobs_notify_completion"));
       assertTrue(triggerExists(connection, "trg_generation_jobs_sse_events"));
       assertEquals(512, characterMaximumLength(connection, "generation_jobs", "idempotency_key"));
@@ -124,6 +124,15 @@ class PostgreSqlMigrationIntegrationTest {
       assertTrue(tableExists(connection, "local_device_pairing_codes"));
       assertTrue(tableExists(connection, "local_devices"));
       assertTrue(tableExists(connection, "local_device_capabilities"));
+
+      assertTrue(tableExists(connection, "project_render_input_snapshots"));
+      assertTrue(tableExists(connection, "project_render_input_chapters"));
+      assertTrue(tableExists(connection, "project_render_input_beats"));
+      assertTrue(tableExists(connection, "project_render_artifacts"));
+      assertEquals("uuid", columnType(connection, "project_render_input_snapshots", "generation_job_id"));
+      assertEquals("uuid", columnType(connection, "project_render_input_chapters", "chapter_id"));
+      assertEquals("uuid", columnType(connection, "project_render_input_beats", "visual_beat_id"));
+      assertEquals("uuid", columnType(connection, "project_render_artifacts", "id"));
 
       assertEquals("bigint", columnType(connection, "projects", "row_version"));
       assertEquals("bigint", columnType(connection, "chapters", "row_version"));
