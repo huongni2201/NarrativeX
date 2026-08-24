@@ -11,6 +11,8 @@ public interface GenerationJobRepository {
 
   Optional<GenerationJob> findByIdempotencyKey(String idempotencyKey, String ownerId);
 
+  Optional<GenerationJob> findLatestByIdempotencyFamily(String baseIdempotencyKey, String ownerId);
+
   @Deprecated
   default Optional<GenerationJob> findByIdempotencyKey(String idempotencyKey) {
     return findByIdempotencyKey(idempotencyKey, null);
