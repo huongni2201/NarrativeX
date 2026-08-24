@@ -1,6 +1,6 @@
 # NarrativeX V1.11 Baseline Implementation Traceability
 
-This matrix maps the V1.11 contract to implementation checkpoint `main` / `751f006634218efb2c398fc00c2cbfecd25e1eac` (2026-08-24). Current code, migrations and tests remain authoritative for AS-IS claims.
+This matrix maps the V1.11 contract to the current implementation checkpoint `main` / `751f006634218efb2c398fc00c2cbfecd25e1eac` (2026-08-24). Current code, migrations and tests remain authoritative for AS-IS claims.
 
 | Capability / invariant | Evidence | Status |
 |---|---|---|
