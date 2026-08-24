@@ -8,7 +8,7 @@ interface StudioStore {
   isWizardOpen: boolean;
 
   setScreen: (screen: ScreenType) => void;
-  selectProject: (projectId: number) => void;
+  selectProject: (projectId: string) => void;
   openWizard: (initialStep?: 1 | 2 | 3 | 4) => void;
   closeWizard: () => void;
   setWizardStep: (step: 1 | 2 | 3 | 4) => void;
@@ -61,4 +61,3 @@ export const useStudioStore = create<StudioStore>((set) => ({
       isWizardOpen: false,
     }),
 }));
-

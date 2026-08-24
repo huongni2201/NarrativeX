@@ -61,14 +61,15 @@ export function useMediaGeneration(
   });
 
   const createdJob = createJob.data ?? null;
+  const resetCreateJob = createJob.reset;
   const workspaceHasCreatedJob = Boolean(
     createdJob && initialMedia.latestJobId === createdJob.jobId,
   );
   const jobId = initialMedia.latestJobId ?? createdJob?.jobId ?? null;
 
   useEffect(() => {
-    if (workspaceHasCreatedJob) createJob.reset();
-  }, [workspaceHasCreatedJob, createJob.reset]);
+    if (workspaceHasCreatedJob) resetCreateJob();
+  }, [workspaceHasCreatedJob, resetCreateJob]);
 
   const jobQuery = useQuery({
     queryKey: jobId ? queryKeys.job(jobId) : ["jobs", "media-none"],

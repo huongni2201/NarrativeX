@@ -28,11 +28,11 @@ const renderTab = await readFile(
 );
 
 test("chapter creation leaves StoryVersion orchestration to the backend", () => {
-  assert.match(productionShell, /chaptersApi\.create\(numericProjectId/);
+  assert.match(productionShell, /useCreateChapter/);
   assert.doesNotMatch(productionShell, /projectsApi\.createStoryVersion/);
   assert.doesNotMatch(productionShell, /storyQuery/);
   assert.match(chaptersApi, /"Idempotency-Key": idempotencyKey/);
-  assert.match(chaptersApi, /batchImport: \(projectId: number, file: File/);
+  assert.match(chaptersApi, /batchImport: \(projectId: ProjectId, file: File/);
 });
 
 test("workspace behavior preserves translation confirmation and optimistic concurrency", () => {
@@ -43,8 +43,8 @@ test("workspace behavior preserves translation confirmation and optimistic concu
 });
 
 test("media generation owns optimistic job state and terminal recovery", () => {
-  assert.match(mediaHook, /setQueryData\(queryKeys\.mediaJobForChapter/);
-  assert.match(mediaHook, /currentJob\?\.status === "FAILED" \|\| currentJob\?\.status === "UNKNOWN"/);
+  assert.match(mediaHook, /setQueryData\(queryKeys\.job\(job\.jobId\)/);
+  assert.match(mediaHook, /job\?\.status === "FAILED" \|\| job\?\.status === "UNKNOWN"/);
   assert.match(mediaHook, /apiErrorMessage\(error, "Không thể tạo media job\."\)/);
 });
 

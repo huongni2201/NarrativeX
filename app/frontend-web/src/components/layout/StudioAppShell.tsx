@@ -148,8 +148,8 @@ export function StudioAppShell({
           {screen === "characters" && <CharacterLibrary />}
           {screen === "character-detail" && characterId && (
             <CharacterDetailView
-              characterId={Number(characterId)}
-              projectId={projectId ? Number(projectId) : undefined}
+              characterId={characterId}
+              projectId={projectId}
             />
           )}
           {screen === "assets" && <AssetLibraryScreen />}
@@ -164,4 +164,3 @@ export function StudioAppShell({
     </div>
   );
 }
-

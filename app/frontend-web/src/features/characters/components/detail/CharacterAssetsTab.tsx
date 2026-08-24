@@ -14,8 +14,8 @@ import type { ApiProjectAsset } from "@/features/projects/api/project-resources.
 import { apiErrorMessage } from "@/shared/api/client";
 
 interface CharacterAssetsTabProps {
-  characterId: number;
-  versionId: number | null;
+  characterId: string;
+  versionId: string | null;
   versionStatus: string | null;
   projectAssets: ApiProjectAsset[];
 }
@@ -63,7 +63,7 @@ export function CharacterAssetsTab({
     },
   });
 
-  const references = referencesQuery.data ?? [];
+  const references = useMemo(() => referencesQuery.data ?? [], [referencesQuery.data]);
   const mediaById = useMemo(
     () => new Map((imagesQuery.data?.items ?? []).map((asset) => [asset.id, asset])),
     [imagesQuery.data?.items],

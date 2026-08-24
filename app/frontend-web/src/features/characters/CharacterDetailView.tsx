@@ -16,6 +16,7 @@ import { useQuery } from "@tanstack/react-query";
 import { charactersApi } from "@/features/characters/api/characters.api";
 import { projectsApi } from "@/features/projects/api/projects.api";
 import { queryKeys } from "@/lib/query-keys";
+import type { ProjectId } from "@/types/api";
 import {
   type DetailTab,
   roleBadgeStyle,
@@ -29,8 +30,8 @@ import { CharacterNotesTab } from "./components/detail/CharacterNotesTab";
 import { CharacterHistoryTab } from "./components/detail/CharacterHistoryTab";
 
 interface CharacterDetailViewProps {
-  characterId: number;
-  projectId?: number;
+  characterId: string;
+  projectId?: ProjectId;
 }
 export function CharacterDetailView({
   characterId,

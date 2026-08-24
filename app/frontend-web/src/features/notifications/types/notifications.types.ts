@@ -1,6 +1,6 @@
 export interface NotificationItem {
   id: number;
-  projectId: number | null;
+  projectId: string | null;
   type: string;
   titleKey: string;
   messageKey: string;
@@ -33,15 +33,11 @@ function isNullableString(value: unknown): value is string | null {
   return value === null || isString(value);
 }
 
-function isNullableNumber(value: unknown): value is number | null {
-  return value === null || isNumber(value);
-}
-
 export function isNotificationItem(value: unknown): value is NotificationItem {
   return (
     isRecord(value) &&
     isNumber(value.id) &&
-    isNullableNumber(value.projectId) &&
+    isNullableString(value.projectId) &&
     isString(value.type) &&
     isString(value.titleKey) &&
     isString(value.messageKey) &&

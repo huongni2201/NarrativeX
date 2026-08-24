@@ -1,6 +1,6 @@
 export interface JobHistoryItem {
   jobId: string;
-  projectId: number | null;
+  projectId: string | null;
   projectName: string | null;
   jobType: string;
   status: string;
@@ -38,15 +38,11 @@ function isNullableString(value: unknown): value is string | null {
   return value === null || isString(value);
 }
 
-function isNullableNumber(value: unknown): value is number | null {
-  return value === null || isNumber(value);
-}
-
 export function isJobHistoryItem(value: unknown): value is JobHistoryItem {
   return (
     isRecord(value) &&
     isString(value.jobId) &&
-    isNullableNumber(value.projectId) &&
+    isNullableString(value.projectId) &&
     isNullableString(value.projectName) &&
     isString(value.jobType) &&
     isString(value.status) &&

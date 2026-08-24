@@ -136,13 +136,13 @@ export interface CreateProjectInput {
 }
 
 export interface GenerationJob {
-  id: number;
+  id: string;
   status: string;
   progress?: number;
 }
 
 export interface StoryVersion {
-  id: number;
+  id: string;
   versionNumber: number;
   content: string;
 }

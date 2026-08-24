@@ -62,7 +62,7 @@ function roleBadgeStyle(role: string): { label: string; className: string } {
   };
 }
 
-function statusBadgeStyle(character: { pinnedCharacterVersionId: number | null; status: string }): {
+function statusBadgeStyle(character: { pinnedCharacterVersionId: string | null; status: string }): {
   label: string;
   className: string;
 } {

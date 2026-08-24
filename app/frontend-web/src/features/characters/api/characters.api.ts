@@ -19,7 +19,7 @@ export interface ApiCharacterVersionReference {
 }
 
 export interface ApiCharacterSummary {
-  id: number;
+  id: string;
   workspaceId: string | null;
   canonicalName: string;
   aliases: string[];
@@ -28,9 +28,9 @@ export interface ApiCharacterSummary {
 }
 
 export interface ApiProjectCharacterSummary {
-  id: number;
-  assignmentId: number;
-  projectId: number;
+  id: string;
+  assignmentId: string;
+  projectId: string;
   workspaceId: string | null;
   canonicalName: string;
   aliases: string[];
@@ -38,7 +38,7 @@ export interface ApiProjectCharacterSummary {
   role: string;
   importance: number;
   groups: string[];
-  pinnedCharacterVersionId: number | null;
+  pinnedCharacterVersionId: string | null;
   status: string;
   sceneCount: number;
   rowVersion: number;
@@ -79,10 +79,6 @@ function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string");
 }
 
-function isNullableNumber(value: unknown): value is number | null {
-  return value === null || typeof value === "number";
-}
-
 function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === "string";
 }
@@ -117,7 +113,7 @@ function isCharacterReferenceArray(value: unknown): value is ApiCharacterVersion
 function isApiCharacterSummary(value: unknown): value is ApiCharacterSummary {
   return (
     isRecord(value) &&
-    typeof value.id === "number" &&
+    typeof value.id === "string" &&
     (value.workspaceId === null || typeof value.workspaceId === "string") &&
     typeof value.canonicalName === "string" &&
     isStringArray(value.aliases) &&
@@ -129,9 +125,9 @@ function isApiCharacterSummary(value: unknown): value is ApiCharacterSummary {
 function isApiProjectCharacterSummary(value: unknown): value is ApiProjectCharacterSummary {
   return (
     isRecord(value) &&
-    typeof value.id === "number" &&
-    typeof value.assignmentId === "number" &&
-    typeof value.projectId === "number" &&
+    typeof value.id === "string" &&
+    typeof value.assignmentId === "string" &&
+    typeof value.projectId === "string" &&
     (value.workspaceId === null || typeof value.workspaceId === "string") &&
     typeof value.canonicalName === "string" &&
     isStringArray(value.aliases) &&
@@ -139,7 +135,7 @@ function isApiProjectCharacterSummary(value: unknown): value is ApiProjectCharac
     typeof value.role === "string" &&
     typeof value.importance === "number" &&
     isStringArray(value.groups) &&
-    isNullableNumber(value.pinnedCharacterVersionId) &&
+    isNullableString(value.pinnedCharacterVersionId) &&
     typeof value.status === "string" &&
     typeof value.sceneCount === "number" &&
     typeof value.rowVersion === "number" &&
@@ -187,7 +183,7 @@ function listPath(
   return `${basePath}?${params.toString()}`;
 }
 
-function versionReferencesPath(characterId: number, versionId: number): string {
+function versionReferencesPath(characterId: string, versionId: string): string {
   return `/api/v1/characters/${encodeURIComponent(characterId)}/versions/${encodeURIComponent(versionId)}/references`;
 }
 
@@ -200,7 +196,7 @@ export const charactersApi = {
         isCursorPage(value, isApiCharacterSummary),
     ),
 
-  get: (characterId: number) =>
+  get: (characterId: string) =>
     apiRequest<ApiCharacterSummary>(
       `/api/v1/characters/${encodeURIComponent(characterId)}`,
       {},
@@ -218,14 +214,14 @@ export const charactersApi = {
         isCursorPage(value, isApiProjectCharacterSummary),
     ),
 
-  getProjectDetail: (projectId: ProjectId, characterId: number) =>
+  getProjectDetail: (projectId: ProjectId, characterId: string) =>
     apiRequest<ApiProjectCharacterDetail>(
       `/api/v1/projects/${projectId}/characters/${characterId}`,
       {},
       isApiProjectCharacterDetail,
     ),
 
-  getVersionReferences: (characterId: number, versionId: number) =>
+  getVersionReferences: (characterId: string, versionId: string) =>
     apiRequest<ApiCharacterVersionReference[]>(
       versionReferencesPath(characterId, versionId),
       {},
@@ -233,8 +229,8 @@ export const charactersApi = {
     ),
 
   setVersionReferences: (
-    characterId: number,
-    versionId: number,
+    characterId: string,
+    versionId: string,
     references: ApiCharacterVersionReference[],
   ) =>
     apiRequest<ApiCharacterVersionReference[]>(

@@ -164,10 +164,10 @@ export interface ApiGenerationJob {
   progress: number;
   currentStep: string;
   entityType: string;
-  entityId: number;
+  entityId: string;
   target: {
     type: string;
-    id: number;
+    id: string;
   };
   errorCode: string | null;
   mediaPlanId?: string | null;
@@ -402,7 +402,7 @@ function isApiChapterWorkspacePreviewScene(
 ): value is ApiChapterWorkspacePreviewScene {
   return (
     isRecord(value) &&
-    isNumber(value.id) &&
+    isString(value.id) &&
     isNumber(value.orderIndex) &&
     isString(value.title) &&
     isNullableNumber(value.durationSeconds) &&
@@ -454,10 +454,10 @@ export function isApiGenerationJob(value: unknown): value is ApiGenerationJob {
     isNumber(value.progress) &&
     isString(value.currentStep) &&
     isString(value.entityType) &&
-    isNumber(value.entityId) &&
+    isString(value.entityId) &&
     target !== null &&
     isString(target.type) &&
-    isNumber(target.id) &&
+    isString(target.id) &&
     (value.errorCode === null || isString(value.errorCode)) &&
     (value.mediaPlanId === undefined || value.mediaPlanId === null || isString(value.mediaPlanId)) &&
     (value.mediaPlanRevision === undefined || value.mediaPlanRevision === null || isNumber(value.mediaPlanRevision))

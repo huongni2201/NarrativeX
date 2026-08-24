@@ -39,7 +39,7 @@ function isApiMediaCostEstimate(value: unknown): value is ApiMediaCostEstimate {
 
 export interface MediaGenerationItem {
   id: string;
-  visualBeatId: number;
+  visualBeatId: string;
   itemKey: string;
   executionStatus: string;
   reviewStatus: "NOT_READY" | "NEEDS_REVIEW" | "APPROVED" | "REJECTED";
@@ -73,7 +73,7 @@ function isMediaJobDetails(value: unknown): value is MediaJobDetails {
     candidate.items.every((item) => {
       if (!item || typeof item !== "object") return false;
       const value = item as Partial<MediaGenerationItem>;
-      return typeof value.id === "string" && typeof value.visualBeatId === "number" && typeof value.itemKey === "string" && typeof value.executionStatus === "string" && typeof value.reviewStatus === "string" && typeof value.attemptNumber === "number" && (value.mediaAssetId === null || typeof value.mediaAssetId === "string") && (value.errorCode === null || typeof value.errorCode === "string") && typeof value.rowVersion === "number";
+      return typeof value.id === "string" && typeof value.visualBeatId === "string" && typeof value.itemKey === "string" && typeof value.executionStatus === "string" && typeof value.reviewStatus === "string" && typeof value.attemptNumber === "number" && (value.mediaAssetId === null || typeof value.mediaAssetId === "string") && (value.errorCode === null || typeof value.errorCode === "string") && typeof value.rowVersion === "number";
     })
   );
 }

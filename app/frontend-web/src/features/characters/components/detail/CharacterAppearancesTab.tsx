@@ -4,10 +4,11 @@ import Link from "next/link";
 import { Clapperboard, ExternalLink } from "lucide-react";
 import type { ApiProjectCharacterDetail } from "@/features/characters/api/characters.api";
 import type { ApiProjectOverviewChapter } from "@/features/projects/api/project-overview.types";
+import type { ProjectId } from "@/types/api";
 
 interface CharacterAppearancesTabProps {
   character: ApiProjectCharacterDetail;
-  projectId: number;
+  projectId: ProjectId;
   chapters: ApiProjectOverviewChapter[];
 }
 
