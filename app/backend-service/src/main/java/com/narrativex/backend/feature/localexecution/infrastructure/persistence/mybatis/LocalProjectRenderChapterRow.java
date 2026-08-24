@@ -7,7 +7,7 @@ public record LocalProjectRenderChapterRow(
     int orderIndex,
     long globalStartMs,
     long globalEndMs,
-    String storageKey,
+    UUID narrationAssetId,
     long sizeBytes,
     String checksum,
     long durationMs) {}
