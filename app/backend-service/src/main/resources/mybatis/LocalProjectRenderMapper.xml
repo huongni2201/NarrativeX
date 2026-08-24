@@ -258,6 +258,48 @@
        )
   </update>
 
+  <update id="cancelStage">
+    UPDATE stage_attempts sa
+       SET status = 'CANCELED',
+           worker_id = NULL,
+           lease_token = NULL,
+           heartbeat_at = CURRENT_TIMESTAMP,
+           updated_at = CURRENT_TIMESTAMP,
+           row_version = row_version + 1
+     WHERE sa.stage_name = 'RENDER_PROJECT_LOCAL'
+       AND sa.status = 'RUNNING'
+       AND sa.worker_id = #{workerId}
+       AND sa.lease_token = #{leaseToken,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+       AND EXISTS (
+         SELECT 1
+           FROM generation_jobs gj
+           JOIN project_render_input_snapshots pris ON pris.generation_job_id = gj.id
+          WHERE gj.id = sa.generation_job_id
+            AND gj.job_id = #{jobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+            AND gj.status = 'RUNNING'
+            AND pris.execution_target = 'LOCAL_DEVICE'
+            AND pris.assigned_local_device_id = #{deviceId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+       )
+  </update>
+
+  <update id="cancelJob">
+    UPDATE generation_jobs gj
+       SET status = 'CANCELED',
+           current_step = 'CANCELED',
+           error_code = NULL,
+           updated_at = CURRENT_TIMESTAMP,
+           row_version = row_version + 1
+     WHERE gj.job_id = #{jobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+       AND gj.status = 'RUNNING'
+       AND EXISTS (
+         SELECT 1
+           FROM project_render_input_snapshots pris
+          WHERE pris.generation_job_id = gj.id
+            AND pris.execution_target = 'LOCAL_DEVICE'
+            AND pris.assigned_local_device_id = #{deviceId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+       )
+  </update>
+
   <update id="failStage">
     UPDATE stage_attempts sa
        SET status = CASE WHEN #{retryable} THEN 'STALLED' ELSE 'FAILED' END,
