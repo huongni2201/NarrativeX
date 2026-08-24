@@ -26,6 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/local-devices/project-renders")
 public class LocalProjectRenderController {
   private static final String DEVICE_TOKEN_HEADER = "X-NX-Device-Token";
+  private static final String LOCAL_STORAGE_PROVIDER = "LOCAL_DESKTOP";
 
   private final LocalProjectRenderUseCase useCase;
 
@@ -70,10 +71,10 @@ public class LocalProjectRenderController {
         request.leaseToken(),
         new LocalProjectRenderStore.CompletionResult(
             request.renderFingerprint(),
-            request.storageKey(),
-            request.storageProvider(),
-            request.externalFileId(),
-            request.webViewLink(),
+            request.localArtifactKey(),
+            LOCAL_STORAGE_PROVIDER,
+            null,
+            null,
             request.mimeType(),
             request.sizeBytes(),
             request.checksumSha256(),
@@ -104,10 +105,7 @@ public class LocalProjectRenderController {
   public record CompleteRequest(
       @NotNull UUID leaseToken,
       @NotBlank @Pattern(regexp = "^[0-9a-f]{64}$") String renderFingerprint,
-      @NotBlank @Size(max = 1024) String storageKey,
-      @NotBlank @Size(max = 32) String storageProvider,
-      @Size(max = 255) String externalFileId,
-      @Size(max = 4096) String webViewLink,
+      @NotBlank @Size(max = 512) @Pattern(regexp = "^[A-Za-z0-9._/-]+$") String localArtifactKey,
       @NotBlank @Pattern(regexp = "video/mp4") String mimeType,
       @Min(1) long sizeBytes,
       @NotBlank @Pattern(regexp = "^[0-9a-f]{64}$") String checksumSha256,
