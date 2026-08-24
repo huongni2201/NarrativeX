@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -72,12 +73,20 @@ public class GetProductionTimelineUseCase {
               && nonBlank(chapter.audioStorageKey())
               && positive(chapter.audioSizeBytes())
               && nonBlank(chapter.audioChecksum());
+      boolean planMatches =
+          chapterBeats.stream()
+              .allMatch(
+                  beat ->
+                      Objects.equals(beat.mediaPlanId(), chapter.mediaPlanId())
+                          && Objects.equals(
+                              beat.mediaPlanRevision(), chapter.mediaPlanRevision()));
       boolean planReady =
           chapter.mediaPlanId() != null
               && chapter.mediaPlanRevision() != null
               && chapter.mediaPlanRevision() > 0
               && chapter.beatCount() > 0
-              && chapterBeats.size() == chapter.beatCount();
+              && chapterBeats.size() == chapter.beatCount()
+              && planMatches;
       boolean assetsReady =
           planReady
               && chapter.readyBeatCount() == chapter.beatCount()
