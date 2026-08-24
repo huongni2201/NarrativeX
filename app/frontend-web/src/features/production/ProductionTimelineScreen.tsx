@@ -2,7 +2,16 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Film, Loader2, RefreshCw, ZoomIn, ZoomOut } from "lucide-react";
+import {
+  ArrowLeft,
+  Film,
+  Loader2,
+  RefreshCw,
+  RotateCcw,
+  SlidersHorizontal,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { mediaApi } from "@/features/generation/api/media.api";
 import { projectsApi } from "@/features/projects/api/projects.api";
@@ -12,6 +21,7 @@ import {
   productionApi,
   type ProductionTimeline,
   type ProductionTimelineBeat,
+  type ProjectRenderBeatOverrideInput,
 } from "./api/production.api";
 
 interface ProductionTimelineScreenProps {
@@ -20,12 +30,30 @@ interface ProductionTimelineScreenProps {
 
 type RenderResolution = "720p" | "1080p";
 
+interface BeatOverrideDraft {
+  durationMs: number | null;
+  cameraMovement: string | null;
+}
+
 interface RenderIntent {
   idempotencyKey: string;
   resolution: RenderResolution;
+  overrideFingerprint: string;
+  beatOverrides: ProjectRenderBeatOverrideInput[];
 }
 
 const ZOOM_LEVELS = [2, 4, 8, 16] as const;
+const CAMERA_MOVEMENTS = [
+  "NONE",
+  "PAN",
+  "TILT",
+  "PUSH_IN",
+  "PULL_OUT",
+  "PARALLAX",
+  "TRACK",
+  "ZOOM_IN",
+  "ZOOM_OUT",
+] as const;
 
 export function ProductionTimelineScreen({ projectId }: Readonly<ProductionTimelineScreenProps>) {
   const typedProjectId = projectId as ProjectId;
@@ -36,6 +64,8 @@ export function ProductionTimelineScreen({ projectId }: Readonly<ProductionTimel
   const [resolution, setResolution] = useState<RenderResolution>("1080p");
   const [zoomIndex, setZoomIndex] = useState(1);
   const [jobId, setJobId] = useState<string | null>(null);
+  const [selectedBeatId, setSelectedBeatId] = useState<string | null>(null);
+  const [beatOverrides, setBeatOverrides] = useState<Record<string, BeatOverrideDraft>>({});
   const renderIntentRef = useRef<RenderIntent | null>(null);
 
   const projectQuery = useQuery({
@@ -48,17 +78,54 @@ export function ProductionTimelineScreen({ projectId }: Readonly<ProductionTimel
   });
 
   const timeline = timelineQuery.data ?? null;
+  const editedTimeline = useMemo(
+    () => (timeline ? applyTimelineOverrides(timeline, beatOverrides) : null),
+    [timeline, beatOverrides],
+  );
+  const activeBeatIds = useMemo(
+    () => new Set(timeline?.beats.map((beat) => beat.visualBeatId) ?? []),
+    [timeline],
+  );
+  const beatOverridesPayload = useMemo<ProjectRenderBeatOverrideInput[]>(
+    () =>
+      Object.entries(beatOverrides)
+        .filter(([visualBeatId, override]) => {
+          return (
+            activeBeatIds.has(visualBeatId) &&
+            (override.durationMs !== null || override.cameraMovement !== null)
+          );
+        })
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([visualBeatId, override]) => ({
+          visualBeatId,
+          durationMs: override.durationMs,
+          cameraMovement: override.cameraMovement,
+        })),
+    [activeBeatIds, beatOverrides],
+  );
+
   useEffect(() => {
     if (!timeline) return;
     const durationMinutes = timeline.totalDurationMs / 60_000;
     setZoomIndex(durationMinutes >= 30 ? 0 : durationMinutes >= 10 ? 1 : 2);
   }, [timeline?.totalDurationMs]);
 
+  useEffect(() => {
+    setBeatOverrides({});
+    setSelectedBeatId(null);
+    setJobId(null);
+    renderIntentRef.current = null;
+  }, [timeline?.storyVersionId]);
+
   const renderMutation = useMutation({
     mutationFn: (intent: RenderIntent) =>
       productionApi.render(
         typedProjectId,
-        { resolution: intent.resolution, format: "mp4" },
+        {
+          resolution: intent.resolution,
+          format: "mp4",
+          beatOverrides: intent.beatOverrides,
+        },
         intent.idempotencyKey,
       ),
     onSuccess: (job) => {
@@ -87,14 +154,24 @@ export function ProductionTimelineScreen({ projectId }: Readonly<ProductionTimel
   });
 
   const pixelsPerSecond = ZOOM_LEVELS[zoomIndex];
-  const timelineWidth = Math.max(1200, ((timeline?.totalDurationMs ?? 0) / 1000) * pixelsPerSecond);
-  const focusChapter = timeline?.chapters.find((chapter) => chapter.chapterId === focusChapterId) ?? null;
+  const timelineWidth = Math.max(
+    1200,
+    ((editedTimeline?.totalDurationMs ?? 0) / 1000) * pixelsPerSecond,
+  );
+  const focusChapter =
+    editedTimeline?.chapters.find((chapter) => chapter.chapterId === focusChapterId) ?? null;
+  const selectedBeat =
+    editedTimeline?.beats.find((beat) => beat.visualBeatId === selectedBeatId) ?? null;
+  const selectedSourceBeat =
+    timeline?.beats.find((beat) => beat.visualBeatId === selectedBeatId) ?? null;
+  const selectedOverride = selectedBeatId ? beatOverrides[selectedBeatId] : undefined;
 
   useEffect(() => {
-    if (!focusChapter || !timelineScrollRef.current || !timeline) return;
-    const left = (focusChapter.startMs / Math.max(1, timeline.totalDurationMs)) * timelineWidth;
+    if (!focusChapter || !timelineScrollRef.current || !editedTimeline) return;
+    const left =
+      (focusChapter.startMs / Math.max(1, editedTimeline.totalDurationMs)) * timelineWidth;
     timelineScrollRef.current.scrollTo({ left: Math.max(0, left - 160), behavior: "smooth" });
-  }, [focusChapter?.chapterId, timeline, timelineWidth]);
+  }, [focusChapter?.chapterId, editedTimeline, timelineWidth]);
 
   const error =
     timelineQuery.error ??
@@ -109,10 +186,44 @@ export function ProductionTimelineScreen({ projectId }: Readonly<ProductionTimel
     job?.status === "RUNNING" ||
     job?.status === "STALLED";
 
+  const invalidateRenderIntent = () => {
+    renderIntentRef.current = null;
+    setJobId(null);
+  };
+
+  const updateBeatOverride = (visualBeatId: string, patch: Partial<BeatOverrideDraft>) => {
+    setBeatOverrides((current) => {
+      const previous = current[visualBeatId] ?? { durationMs: null, cameraMovement: null };
+      const next = { ...previous, ...patch };
+      if (next.durationMs === null && next.cameraMovement === null) {
+        const copy = { ...current };
+        delete copy[visualBeatId];
+        return copy;
+      }
+      return { ...current, [visualBeatId]: next };
+    });
+    invalidateRenderIntent();
+  };
+
+  const resetBeatOverrides = () => {
+    setBeatOverrides({});
+    invalidateRenderIntent();
+  };
+
   const submitRender = () => {
+    const overrideFingerprint = JSON.stringify(beatOverridesPayload);
     let intent = renderIntentRef.current;
-    if (!intent || intent.resolution !== resolution) {
-      intent = { idempotencyKey: crypto.randomUUID(), resolution };
+    if (
+      !intent ||
+      intent.resolution !== resolution ||
+      intent.overrideFingerprint !== overrideFingerprint
+    ) {
+      intent = {
+        idempotencyKey: crypto.randomUUID(),
+        resolution,
+        overrideFingerprint,
+        beatOverrides: beatOverridesPayload,
+      };
       renderIntentRef.current = intent;
     }
     renderMutation.mutate(intent);
@@ -140,15 +251,16 @@ export function ProductionTimelineScreen({ projectId }: Readonly<ProductionTimel
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-sm">
-          {timeline ? (
+          {editedTimeline ? (
             <>
-              <SummaryPill label="Duration" value={formatTime(timeline.totalDurationMs)} />
-              <SummaryPill label="Chapters" value={String(timeline.chapters.length)} />
-              <SummaryPill label="Visual beats" value={String(timeline.beats.length)} />
+              <SummaryPill label="Duration" value={formatTime(editedTimeline.totalDurationMs)} />
+              <SummaryPill label="Chapters" value={String(editedTimeline.chapters.length)} />
+              <SummaryPill label="Visual beats" value={String(editedTimeline.beats.length)} />
+              <SummaryPill label="Edits" value={String(beatOverridesPayload.length)} />
               <SummaryPill
                 label="Ready"
-                value={timeline.readyForRender ? "YES" : "NOT YET"}
-                emphasis={timeline.readyForRender}
+                value={editedTimeline.readyForRender ? "YES" : "NOT YET"}
+                emphasis={editedTimeline.readyForRender}
               />
             </>
           ) : null}
@@ -162,7 +274,7 @@ export function ProductionTimelineScreen({ projectId }: Readonly<ProductionTimel
           </div>
         ) : null}
 
-        <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
           <div className="flex min-h-[300px] items-center justify-center rounded-2xl border border-slate-800 bg-black/40">
             {artifactQuery.data?.webViewLink ? (
               <a
@@ -180,8 +292,8 @@ export function ProductionTimelineScreen({ projectId }: Readonly<ProductionTimel
                 <Film className="mx-auto h-10 w-10 text-slate-600" />
                 <h2 className="mt-3 font-semibold text-slate-200">Production Preview</h2>
                 <p className="mt-1 text-sm leading-6 text-slate-500">
-                  Timeline dùng audio làm master clock. Bạn có thể kiểm tra chapter, visual và motion
-                  trước khi tất cả ảnh sẵn sàng; chỉ Final Render mới yêu cầu toàn bộ input READY.
+                  Timeline dùng audio làm master clock. Chọn một Visual Beat để chỉnh timing/motion;
+                  Final Render chỉ mở khi toàn bộ audio và ảnh READY.
                 </p>
               </div>
             )}
@@ -198,7 +310,10 @@ export function ProductionTimelineScreen({ projectId }: Readonly<ProductionTimel
               Resolution
               <select
                 value={resolution}
-                onChange={(event) => setResolution(event.target.value as RenderResolution)}
+                onChange={(event) => {
+                  setResolution(event.target.value as RenderResolution);
+                  invalidateRenderIntent();
+                }}
                 disabled={renderBusy}
                 className="mt-2 w-full rounded-lg border border-slate-700 bg-[#090d13] px-3 py-2 text-slate-100"
               >
@@ -209,16 +324,16 @@ export function ProductionTimelineScreen({ projectId }: Readonly<ProductionTimel
             <button
               type="button"
               onClick={submitRender}
-              disabled={!timeline?.readyForRender || renderBusy}
+              disabled={!editedTimeline?.readyForRender || renderBusy}
               className="flex w-full items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 py-2.5 font-semibold text-black transition hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {renderBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Film className="h-4 w-4" />}
               Render Final Video
             </button>
-            {!timeline?.readyForRender && timeline ? (
+            {!editedTimeline?.readyForRender && editedTimeline ? (
               <p className="text-xs leading-5 text-amber-300/90">
                 Final render đang khóa vì còn chapter thiếu audio hoặc beat chưa có READY image. Timeline
-                vẫn mở để kiểm tra timing.
+                vẫn mở để chỉnh timing/motion trước.
               </p>
             ) : null}
             {job ? (
@@ -235,6 +350,127 @@ export function ProductionTimelineScreen({ projectId }: Readonly<ProductionTimel
                 </div>
               </div>
             ) : null}
+
+            <div className="border-t border-slate-800 pt-4">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                    <SlidersHorizontal className="h-3.5 w-3.5" /> Beat inspector
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-slate-200">
+                    {selectedBeat ? selectedBeat.title : "Chọn một Visual Beat"}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={resetBeatOverrides}
+                  disabled={renderBusy || beatOverridesPayload.length === 0}
+                  className="rounded-lg border border-slate-700 p-2 text-slate-400 transition hover:text-white disabled:opacity-30"
+                  aria-label="Reset toàn bộ timeline edits"
+                  title="Reset toàn bộ edits"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </button>
+              </div>
+
+              {selectedBeat && selectedSourceBeat ? (
+                <div className="mt-4 space-y-3">
+                  <div className="rounded-lg border border-slate-800 bg-black/20 p-3 text-xs text-slate-400">
+                    <div className="flex justify-between gap-3">
+                      <span>Result timing</span>
+                      <span className="font-mono text-slate-200">
+                        {formatTime(selectedBeat.startMs)} → {formatTime(selectedBeat.endMs)}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex justify-between gap-3">
+                      <span>Result duration</span>
+                      <span className="font-mono text-slate-200">
+                        {(selectedBeat.durationMs / 1000).toFixed(1)}s
+                      </span>
+                    </div>
+                  </div>
+
+                  <label className="block text-xs text-slate-400">
+                    Timing weight (giây)
+                    <input
+                      type="number"
+                      min={1}
+                      max={120}
+                      step={0.5}
+                      value={
+                        selectedOverride?.durationMs != null
+                          ? selectedOverride.durationMs / 1000
+                          : ""
+                      }
+                      placeholder="Auto"
+                      disabled={renderBusy}
+                      onChange={(event) => {
+                        if (!selectedBeatId) return;
+                        if (!event.target.value) {
+                          updateBeatOverride(selectedBeatId, { durationMs: null });
+                          return;
+                        }
+                        const seconds = Number(event.target.value);
+                        if (!Number.isFinite(seconds)) return;
+                        updateBeatOverride(selectedBeatId, {
+                          durationMs: Math.round(Math.min(120, Math.max(1, seconds)) * 1000),
+                        });
+                      }}
+                      className="mt-1 w-full rounded-lg border border-slate-700 bg-[#090d13] px-3 py-2 text-sm text-slate-100 outline-none focus:border-orange-400 disabled:opacity-50"
+                    />
+                    <span className="mt-1 block leading-5 text-slate-600">
+                      Đây là trọng số; backend sẽ normalize lại để Chapter vẫn khớp audio thật.
+                    </span>
+                  </label>
+
+                  <label className="block text-xs text-slate-400">
+                    Camera motion
+                    <select
+                      value={
+                        selectedOverride?.cameraMovement ?? selectedSourceBeat.cameraMovement ?? "NONE"
+                      }
+                      disabled={renderBusy}
+                      onChange={(event) => {
+                        if (!selectedBeatId) return;
+                        const movement = event.target.value;
+                        updateBeatOverride(selectedBeatId, {
+                          cameraMovement:
+                            movement === selectedSourceBeat.cameraMovement ? null : movement,
+                        });
+                      }}
+                      className="mt-1 w-full rounded-lg border border-slate-700 bg-[#090d13] px-3 py-2 text-sm text-slate-100 outline-none focus:border-orange-400 disabled:opacity-50"
+                    >
+                      {CAMERA_MOVEMENTS.map((movement) => (
+                        <option key={movement} value={movement}>
+                          {movement}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (selectedBeatId) {
+                        updateBeatOverride(selectedBeatId, {
+                          durationMs: null,
+                          cameraMovement: null,
+                        });
+                      }
+                    }}
+                    disabled={renderBusy || !selectedOverride}
+                    className="w-full rounded-lg border border-slate-700 px-3 py-2 text-xs font-medium text-slate-300 transition hover:border-slate-500 hover:text-white disabled:opacity-30"
+                  >
+                    Reset beat này
+                  </button>
+                </div>
+              ) : (
+                <p className="mt-3 text-xs leading-5 text-slate-500">
+                  Click một block ở track VISUAL để chỉnh duration/motion mà không cần ảnh đã generate.
+                </p>
+              )}
+            </div>
+
             <button
               type="button"
               onClick={() => timelineQuery.refetch()}
@@ -250,7 +486,8 @@ export function ProductionTimelineScreen({ projectId }: Readonly<ProductionTimel
             <div>
               <h2 className="font-semibold">Global Production Timeline</h2>
               <p className="text-xs text-slate-500">
-                startMs/endMs chạy liên tục qua tất cả chapter; audio là master duration.
+                startMs/endMs chạy liên tục qua tất cả chapter; audio là master duration. Click VISUAL
+                để edit.
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -282,11 +519,13 @@ export function ProductionTimelineScreen({ projectId }: Readonly<ProductionTimel
             <div className="flex h-72 items-center justify-center text-sm text-slate-500">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang dựng global timeline…
             </div>
-          ) : timeline ? (
+          ) : editedTimeline ? (
             <TimelineCanvas
-              timeline={timeline}
+              timeline={editedTimeline}
               width={timelineWidth}
               focusChapterId={focusChapterId}
+              selectedBeatId={selectedBeatId}
+              onSelectBeat={setSelectedBeatId}
               scrollRef={timelineScrollRef}
             />
           ) : null}
@@ -300,11 +539,15 @@ function TimelineCanvas({
   timeline,
   width,
   focusChapterId,
+  selectedBeatId,
+  onSelectBeat,
   scrollRef,
 }: Readonly<{
   timeline: ProductionTimeline;
   width: number;
   focusChapterId: string | null;
+  selectedBeatId: string | null;
+  onSelectBeat: (visualBeatId: string) => void;
   scrollRef: React.RefObject<HTMLDivElement | null>;
 }>) {
   const ticks = useMemo(() => buildTicks(timeline.totalDurationMs), [timeline.totalDurationMs]);
@@ -340,7 +583,13 @@ function TimelineCanvas({
         <TrackLabel>VISUAL</TrackLabel>
         <div className="relative h-20 border-b border-slate-800/80" style={{ width }}>
           {timeline.beats.map((beat) => (
-            <BeatBlock key={beat.visualBeatId} beat={beat} totalMs={timeline.totalDurationMs} />
+            <BeatBlock
+              key={beat.visualBeatId}
+              beat={beat}
+              totalMs={timeline.totalDurationMs}
+              selected={beat.visualBeatId === selectedBeatId}
+              onSelect={() => onSelectBeat(beat.visualBeatId)}
+            />
           ))}
         </div>
         <TrackLabel>MOTION</TrackLabel>
@@ -366,7 +615,11 @@ function TimelineCanvas({
               endMs={chapter.endMs}
               totalMs={timeline.totalDurationMs}
               className={chapter.audioReady ? "bg-emerald-500/25" : "bg-red-500/20"}
-              title={chapter.audioReady ? `Audio · ${formatTime(chapter.audioDurationMs ?? 0)}` : "NO AUDIO"}
+              title={
+                chapter.audioReady
+                  ? `Audio · ${formatTime(chapter.audioDurationMs ?? 0)}`
+                  : "NO AUDIO"
+              }
             />
           ))}
         </div>
@@ -383,16 +636,36 @@ function TrackLabel({ children }: Readonly<{ children: React.ReactNode }>) {
   );
 }
 
-function BeatBlock({ beat, totalMs }: Readonly<{ beat: ProductionTimelineBeat; totalMs: number }>) {
+function BeatBlock({
+  beat,
+  totalMs,
+  selected,
+  onSelect,
+}: Readonly<{
+  beat: ProductionTimelineBeat;
+  totalMs: number;
+  selected: boolean;
+  onSelect: () => void;
+}>) {
+  const left = (beat.startMs / Math.max(1, totalMs)) * 100;
+  const width = ((beat.endMs - beat.startMs) / Math.max(1, totalMs)) * 100;
   return (
-    <TimelineBlock
-      startMs={beat.startMs}
-      endMs={beat.endMs}
-      totalMs={totalMs}
-      className={beat.assetReady ? "bg-orange-500/35" : "bg-slate-700/55"}
-      title={beat.assetReady ? beat.title : `NO ASSET · ${beat.title}`}
-      subtitle={`${formatTime(beat.startMs)}–${formatTime(beat.endMs)}`}
-    />
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`absolute inset-y-1 overflow-hidden rounded border px-2 text-left transition ${
+        beat.assetReady ? "bg-orange-500/35" : "bg-slate-700/55"
+      } ${selected ? "border-orange-300 ring-2 ring-orange-300/70" : "border-white/10 hover:border-orange-300/60"}`}
+      style={{ left: `${left}%`, width: `${width}%`, minWidth: 8 }}
+      title={`${beat.assetReady ? beat.title : `NO ASSET · ${beat.title}`} · ${formatTime(beat.startMs)} → ${formatTime(beat.endMs)}`}
+    >
+      <p className="truncate text-[10px] font-medium text-slate-100">
+        {beat.assetReady ? beat.title : `NO ASSET · ${beat.title}`}
+      </p>
+      <p className="truncate text-[9px] text-slate-400">
+        {formatTime(beat.startMs)}–{formatTime(beat.endMs)}
+      </p>
+    </button>
   );
 }
 
@@ -439,11 +712,62 @@ function SummaryPill({
   emphasis = false,
 }: Readonly<{ label: string; value: string; emphasis?: boolean }>) {
   return (
-    <div className={`rounded-lg border px-3 py-1.5 ${emphasis ? "border-emerald-500/40 bg-emerald-500/10" : "border-slate-800 bg-black/20"}`}>
+    <div
+      className={`rounded-lg border px-3 py-1.5 ${
+        emphasis
+          ? "border-emerald-500/40 bg-emerald-500/10"
+          : "border-slate-800 bg-black/20"
+      }`}
+    >
       <span className="text-[10px] uppercase tracking-wider text-slate-500">{label}</span>
       <span className="ml-2 font-mono text-xs text-slate-200">{value}</span>
     </div>
   );
+}
+
+function applyTimelineOverrides(
+  timeline: ProductionTimeline,
+  overrides: Readonly<Record<string, BeatOverrideDraft>>,
+): ProductionTimeline {
+  if (Object.keys(overrides).length === 0) return timeline;
+
+  const adjustedBeats: ProductionTimelineBeat[] = [];
+  for (const chapter of timeline.chapters) {
+    const chapterBeats = timeline.beats.filter((beat) => beat.chapterId === chapter.chapterId);
+    if (chapterBeats.length === 0) continue;
+    const chapterDurationMs = chapter.endMs - chapter.startMs;
+    const weights = chapterBeats.map((beat) => overrides[beat.visualBeatId]?.durationMs ?? beat.durationMs);
+    const totalWeight = weights.reduce((total, weight) => total + weight, 0);
+    let previousRelativeEnd = 0;
+    let cumulativeWeight = 0;
+
+    chapterBeats.forEach((beat, index) => {
+      cumulativeWeight += weights[index];
+      let relativeEnd: number;
+      if (index === chapterBeats.length - 1) {
+        relativeEnd = chapterDurationMs;
+      } else {
+        relativeEnd = Math.round((chapterDurationMs * cumulativeWeight) / Math.max(1, totalWeight));
+        const minimumEnd = previousRelativeEnd + 1;
+        const latestEnd = chapterDurationMs - (chapterBeats.length - index - 1);
+        relativeEnd = Math.max(minimumEnd, Math.min(relativeEnd, latestEnd));
+      }
+      const startMs = chapter.startMs + previousRelativeEnd;
+      const endMs = chapter.startMs + relativeEnd;
+      adjustedBeats.push({
+        ...beat,
+        cameraMovement: overrides[beat.visualBeatId]?.cameraMovement ?? beat.cameraMovement,
+        startMs,
+        endMs,
+        durationMs: endMs - startMs,
+      });
+      previousRelativeEnd = relativeEnd;
+    });
+  }
+
+  return adjustedBeats.length === timeline.beats.length
+    ? { ...timeline, beats: adjustedBeats }
+    : timeline;
 }
 
 function buildTicks(totalMs: number) {
