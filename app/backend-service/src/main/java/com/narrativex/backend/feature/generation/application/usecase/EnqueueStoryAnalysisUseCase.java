@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.generation.application.usecase;
 
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
+import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.application.command.EnqueueStoryAnalysisCommand;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationOutboxRepository;
@@ -11,15 +12,15 @@ import com.narrativex.backend.feature.generation.application.service.ChapterAnal
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.aggregate.OperationPlan;
 import com.narrativex.backend.feature.generation.domain.entity.StageAttempt;
+import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardRevisionAccess;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.UUID;
 
 @Slf4j
 @Service
@@ -38,16 +39,9 @@ public class EnqueueStoryAnalysisUseCase {
   private final ChapterAnalysisAdmissionService admissionService;
   private final QuotaReservation quotaReservation;
 
-  /**
-   * Creates the complete durable boundary before any worker/provider submission can happen. The
-   * Chapter source comes exclusively from PostgreSQL; the client never supplies analysis text.
-   */
   @Transactional
   public GenerationJob execute(EnqueueStoryAnalysisCommand command) {
     String userId = currentUserId.get();
-
-    // Authorize the project/chapter scope before acquiring the Chapter advisory lock. The lock is
-    // then held through admission, quota reservation, revision/job creation, and outbox.
     var chapter =
         command.contentVariantId() == null
             ? chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(
@@ -60,7 +54,7 @@ public class EnqueueStoryAnalysisUseCase {
       throw new IllegalArgumentException("Chapter source must be saved before analysis");
     }
 
-    String idempotencyKey =
+    String baseIdempotencyKey =
         "chapter-analysis:"
             + command.projectId()
             + ":"
@@ -68,18 +62,26 @@ public class EnqueueStoryAnalysisUseCase {
             + ":"
             + chapter.sourceHash();
 
-    generationJobRepository.acquireIdempotencyLock(idempotencyKey, userId);
-    var existing = generationJobRepository.findByIdempotencyKey(idempotencyKey, userId);
-    if (existing.isPresent()) {
-      log.debug(
-          "Found existing chapter analysis job id={} for idempotencyKey='{}'",
-          existing.get().getId(),
+    generationJobRepository.acquireIdempotencyLock(baseIdempotencyKey, userId);
+    var baseJob = generationJobRepository.findByIdempotencyKey(baseIdempotencyKey, userId);
+    String idempotencyKey = baseIdempotencyKey;
+    if (baseJob.isPresent()) {
+      GenerationJob existing = baseJob.get();
+      if (!canRetry(existing.getStatus())) {
+        return existing;
+      }
+      var latest =
+          generationJobRepository.findLatestByIdempotencyFamily(baseIdempotencyKey, userId);
+      if (latest.isPresent() && !canRetry(latest.get().getStatus())) {
+        return latest.get();
+      }
+      idempotencyKey = baseIdempotencyKey + ":retry:" + UuidV7.random();
+      log.info(
+          "Retrying chapter analysis after terminal job id={} with new idempotencyKey='{}'",
+          latest.orElse(existing).getId(),
           idempotencyKey);
-      return existing.get();
     }
 
-    // Approved output for the same source is protected by the current storyboard revision; this
-    // check runs before quota reservation so a duplicate analysis cannot consume capacity.
     var admission = admissionService.admit(userId, command.projectId(), chapter);
     var estimate = admission.estimate();
 
@@ -128,5 +130,9 @@ public class EnqueueStoryAnalysisUseCase {
         command.chapterId(),
         storyboardRevisionId);
     return job;
+  }
+
+  private static boolean canRetry(JobStatus status) {
+    return status == JobStatus.FAILED || status == JobStatus.CANCELED;
   }
 }
