@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://narrativex.dev/contracts/local-job-result.v1.schema.json",
+  "title": "NarrativeX Local Job Result v1",
+  "type": "object",
+  "required": ["version", "jobId", "status"],
+  "properties": {
+    "version": { "const": 1 },
+    "jobId": { "type": "string", "format": "uuid" },
+    "status": { "type": "string", "enum": ["COMPLETED", "FAILED", "CANCELED", "UNKNOWN"] },
+    "artifacts": { "type": "array", "items": { "$ref": "#/$defs/artifact" } },
+    "errorCode": { "type": ["string", "null"] },
+    "errorMessage": { "type": ["string", "null"] }
+  },
+  "$defs": {
+    "artifact": {
+      "type": "object",
+      "required": ["kind", "path", "sha256"],
+      "properties": {
+        "kind": { "type": "string" },
+        "path": { "type": "string" },
+        "sha256": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+        "sizeBytes": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

@@ -37,7 +37,7 @@ Create `app/desktop` as a sibling client to `app/frontend-web`, built with Elect
 
 ## Implementation notes
 
-Phase UI-1 is implemented in `app/desktop/src/renderer/App.tsx`, `styles.css` and `api/`. The shell reads project, production-timeline, asset, character, voice and preset contracts without duplicating backend identity or policy logic. Export now submits the production render contract with CSRF and idempotency protection, then polls the backend generation job; the queue stays idle when no job exists. The next phase should add editor mutations, cancellation/recovery actions and local FFmpeg handoff.
+Phase UI-1 is implemented in `app/desktop/src/renderer/features/editor/EditorScreen.tsx`, `styles.css` and `api/`. The renderer entrypoint is intentionally thin: `app/DesktopApp.tsx` composes `providers.tsx` and `DesktopRouter.tsx`, while the editor feature owns workspace state and presentation. Hash routes are declared for the migration target screens without coupling the renderer to Electron or Next.js navigation. The shell reads project, production-timeline, asset, character, voice and preset contracts without duplicating backend identity or policy logic. Export submits the production render contract with CSRF and idempotency protection, then polls the backend generation job; the queue stays idle when no job exists. The next phase should move shared client contracts out of feature-local API types, then add editor mutations, cancellation/recovery actions and local FFmpeg handoff.
 
 ## Related decisions
 

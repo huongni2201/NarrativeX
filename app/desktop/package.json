@@ -12,12 +12,17 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@narrativex/client-contracts": "file:../../packages/client-contracts",
+    "@tanstack/react-query": "^5.101.4",
     "@vitejs/plugin-react": "^4.7.0",
     "electron": "^37.2.6",
     "electron-vite": "^4.0.0",
     "lucide-react": "^0.468.0",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "react-router-dom": "^7.8.2",
+    "sonner": "^2.0.8",
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",

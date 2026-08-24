@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://narrativex.dev/contracts/local-job.v1.schema.json",
+  "title": "NarrativeX Local Job v1",
+  "type": "object",
+  "required": ["version", "jobId", "kind", "executionPreference"],
+  "properties": {
+    "version": { "const": 1 },
+    "jobId": { "type": "string", "format": "uuid" },
+    "kind": { "type": "string", "enum": ["RENDER", "IMAGE_GENERATION", "NARRATION"] },
+    "executionPreference": { "type": "string", "enum": ["AUTO", "CLOUD", "LOCAL"] },
+    "manifest": { "type": "object", "additionalProperties": true }
+  },
+  "additionalProperties": false
+}

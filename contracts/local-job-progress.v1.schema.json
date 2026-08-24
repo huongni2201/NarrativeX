@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://narrativex.dev/contracts/local-job-progress.v1.schema.json",
+  "title": "NarrativeX Local Job Progress v1",
+  "type": "object",
+  "required": ["version", "jobId", "status", "progress"],
+  "properties": {
+    "version": { "const": 1 },
+    "jobId": { "type": "string", "format": "uuid" },
+    "status": { "type": "string", "enum": ["CLAIMED", "RUNNING", "COMPLETED", "FAILED", "CANCELED"] },
+    "progress": { "type": "number", "minimum": 0, "maximum": 100 },
+    "currentStep": { "type": ["string", "null"] },
+    "message": { "type": ["string", "null"] }
+  },
+  "additionalProperties": false
+}
