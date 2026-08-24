@@ -1,4 +1,4 @@
-import type { ProjectId } from "@/types/api";
+import type { ChapterId, ProjectId, StoryVersionId } from "@/types/api";
 
 export const queryKeys = {
   currentUser: ["auth", "current-user"] as const,
@@ -12,17 +12,17 @@ export const queryKeys = {
   projectCharacter: (projectId: ProjectId, characterId: string) =>
     ["projects", projectId, "characters", characterId] as const,
   story: (projectId: ProjectId) => ["projects", projectId, "story"] as const,
-  chapters: (projectId: ProjectId, storyVersionId: string | number) =>
+  chapters: (projectId: ProjectId, storyVersionId: StoryVersionId) =>
     ["projects", projectId, "storyVersions", storyVersionId, "chapters"] as const,
-  chapter: (projectId: ProjectId, chapterId: string | number) =>
+  chapter: (projectId: ProjectId, chapterId: ChapterId) =>
     ["projects", projectId, "chapters", chapterId] as const,
-  chapterWorkspace: (projectId: ProjectId, chapterId: string | number) =>
+  chapterWorkspace: (projectId: ProjectId, chapterId: ChapterId) =>
     ["projects", projectId, "chapters", chapterId, "workspace"] as const,
-  chapterLanguageStatus: (projectId: ProjectId, chapterId: string | number) =>
+  chapterLanguageStatus: (projectId: ProjectId, chapterId: ChapterId) =>
     ["projects", projectId, "chapters", chapterId, "language-status"] as const,
-  chapterContentVariants: (projectId: ProjectId, chapterId: string | number) =>
+  chapterContentVariants: (projectId: ProjectId, chapterId: ChapterId) =>
     ["projects", projectId, "chapters", chapterId, "content-variants"] as const,
-  storyboard: (projectId: ProjectId, chapterId: string | number) =>
+  storyboard: (projectId: ProjectId, chapterId: ChapterId) =>
     ["projects", projectId, "chapters", chapterId, "storyboard"] as const,
   characters: ["characters"] as const,
   assets: ["assets"] as const,
