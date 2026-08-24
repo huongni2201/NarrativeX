@@ -480,10 +480,12 @@ class NarrativeXWorker:
                     await self.repository.persist_provider_result(
                         durable, reconciled.operation_id, reconciled.result
                     )
+                    await self.repository.release_stage_for_provider_replay(durable)
                 elif reconciled.status is ProviderOperationStatus.FAILED:
                     await self.repository.mark_provider_operation_status(
                         durable, ProviderOperationStatus.FAILED, reconciled.operation_id
                     )
+                    await self.repository.release_stage_for_provider_replay(durable)
                 elif reconciled.operation_id is not None:
                     next_status = (
                         reconciled.status
