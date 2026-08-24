@@ -49,6 +49,11 @@ const bridge: NarrativeXDesktopBridge = {
     selectFiles: () => ipcRenderer.invoke("desktop:system:select-files"),
     selectFolder: () => ipcRenderer.invoke("desktop:system:select-folder"),
   },
+  windowControls: {
+    minimize: () => ipcRenderer.invoke("desktop:window:minimize"),
+    toggleMaximize: () => ipcRenderer.invoke("desktop:window:toggle-maximize"),
+    close: () => ipcRenderer.invoke("desktop:window:close"),
+  },
 };
 
 contextBridge.exposeInMainWorld("narrativex", bridge);
