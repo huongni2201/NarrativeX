@@ -10,6 +10,9 @@ public interface LocalProjectRenderStore {
 
   boolean heartbeat(UUID jobId, UUID deviceId, String workerId, UUID leaseToken);
 
+  List<InputRef> listInputsForOwnedLease(
+      UUID jobId, UUID deviceId, String workerId, UUID leaseToken);
+
   boolean updateProgress(
       UUID jobId,
       UUID deviceId,
@@ -74,6 +77,8 @@ public interface LocalProjectRenderStore {
       String storageKey,
       long sizeBytes,
       String checksum) {}
+
+  record InputRef(String storageKey, long sizeBytes, String checksum, String mediaKind) {}
 
   record CompletionResult(
       String renderFingerprint,
