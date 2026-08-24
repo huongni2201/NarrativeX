@@ -109,7 +109,7 @@ CREATE INDEX idx_project_render_input_beats_order
     ON project_render_input_beats (generation_job_id, global_start_ms, scene_index, beat_index);
 
 CREATE TABLE project_render_artifacts (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
     project_id UUID NOT NULL REFERENCES projects(id),
     generation_job_id UUID NOT NULL UNIQUE REFERENCES generation_jobs(id),
     render_fingerprint VARCHAR(64) NOT NULL,
