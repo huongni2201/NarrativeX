@@ -8,11 +8,9 @@ import {
   BookOpen,
   Clapperboard,
   MapPin,
-  MoreHorizontal,
   Plus,
   Scroll,
   Search,
-  SlidersHorizontal,
   UserMinus,
   UserRound,
 } from "lucide-react";
@@ -329,13 +327,6 @@ export function ProjectCharactersTab({
           >
             Chưa hoàn thiện
           </button>
-          <button
-            type="button"
-            aria-label="Cài đặt bộ lọc"
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-800 bg-surface-card text-slate-400 transition-colors hover:border-slate-700 hover:text-slate-200"
-          >
-            <SlidersHorizontal className="h-4 w-4" />
-          </button>
         </div>
       </div>
 
@@ -419,22 +410,9 @@ export function ProjectCharactersTab({
                       {/* Right: Character Info */}
                       <div className="min-w-0 flex-1 flex flex-col justify-between h-full py-0.5">
                         <div>
-                          <div className="flex items-start justify-between gap-1">
-                            <h3 className="truncate text-base font-bold text-slate-100 transition-colors group-hover:text-primary-light">
-                              {character.canonicalName}
-                            </h3>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                              }}
-                              className="p-1 -mr-1 -mt-1 text-slate-500 hover:text-slate-300 rounded hover:bg-slate-800/60 transition-colors"
-                              aria-label="Tùy chọn"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </button>
-                          </div>
+                          <h3 className="truncate text-base font-bold text-slate-100 transition-colors group-hover:text-primary-light">
+                            {character.canonicalName}
+                          </h3>
 
                           <div className="mt-1">
                             <span
