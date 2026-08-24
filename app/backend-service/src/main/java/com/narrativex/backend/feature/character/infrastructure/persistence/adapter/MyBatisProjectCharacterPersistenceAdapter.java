@@ -35,12 +35,8 @@ public class MyBatisProjectCharacterPersistenceAdapter implements ProjectCharact
       return rowMapper.toDomain(mapper.findProjectCharacter(id));
     }
     ProjectCharacterRow existing = mapper.findProjectCharacter(value.getId());
-    if (existing == null) {
-      row.setId(null);
-      row.setRowVersion(0);
-      UUID id = mapper.insertProjectCharacter(row);
-      return rowMapper.toDomain(mapper.findProjectCharacter(id));
-    }
+    OptimisticConcurrency.requirePresent(
+        existing, ProjectCharacter.class, value.getId());
     OptimisticConcurrency.requireVersion(
         value.getRowVersion(), existing.getRowVersion(), ProjectCharacter.class, value.getId());
     if (mapper.updateProjectCharacter(row) != 1)
