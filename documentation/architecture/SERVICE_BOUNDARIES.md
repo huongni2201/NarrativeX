@@ -1,82 +1,112 @@
 # NarrativeX Service and Module Boundaries — V1.11
 
-NarrativeX remains one Spring Boot modular monolith plus separately deployed Python worker roles. Feature boundaries are ownership boundaries, not microservices.
+NarrativeX uses one Spring Boot modular monolith, separately executed Python worker roles, and an Electron Desktop client with a strict native/UI boundary. Feature boundaries are ownership boundaries, not microservices.
+
+## Client boundary
+
+### Electron renderer
+
+Owns editor UX only:
+
+- routes and project-scoped screens;
+- React Query/Zustand state;
+- timeline/preview/inspector interaction;
+- backend application contracts;
+- narrow preload capability calls.
+
+It does not own arbitrary filesystem/process access, durable policy or local render mechanics.
+
+### Electron preload
+
+Exposes only allow-listed typed capabilities. It must not expose general Node.js primitives.
+
+### Electron main
+
+Owns native/machine capabilities:
+
+- system-browser OAuth start and `narrativex://` callback handling;
+- native file/folder selection;
+- local project workspace and `project.manifest.json`;
+- protected local device identity;
+- heartbeat/render claim/lease/progress/completion/failure;
+- FFmpeg/ffprobe execution and active-render cancellation;
+- local artifact reveal/open.
 
 ## Backend ownership
 
-| Feature / area | V1.11 responsibility |
+| Feature / area | Responsibility |
 |---|---|
-| auth/account | identity, session/CSRF, account/quota reads |
-| project | Project/StoryVersion ownership, dashboard/favorite reads and project lifecycle |
+| auth/account | Google-linked identity, server session/CSRF, Desktop one-time handoff exchange, account/quota reads |
+| project | Project/StoryVersion ownership and lifecycle |
 | storyboard | Chapter, Scene, VisualBeat and review/source semantics |
-| character | Character/ProjectCharacter/CharacterVersion continuity/reference state and project-scoped Character read models |
+| character | Character/ProjectCharacter/CharacterVersion continuity/reference state |
 | generation | OperationPlan/MediaPlan, GenerationJob, StageAttempt, ProviderOperation, narration planning and durable orchestration |
-| render | FinalArtifact read metadata, provider-neutral content streaming port and render-domain contracts |
+| device/local execution | device enrollment/revocation/capabilities, assignment, claim/lease/progress/terminal state |
+| render | render-domain contracts, FinalArtifact metadata and provider-neutral artifact semantics |
 | notification | durable notification state/read surfaces |
-| common | small shared primitives only; not a policy dumping ground |
+| common | small shared primitives only |
 
-## Worker boundary
+The backend is authoritative for ownership, entitlement/quota, execution policy, assignment and durable job state. It never persists machine-specific absolute Desktop project paths.
 
-Python worker roles own execution mechanics:
+## Python worker boundary
 
-- durable claim/lease/heartbeat;
+Workers own asynchronous provider/cloud execution mechanics:
+
+- durable provider claim/lease/heartbeat where applicable;
 - provider calls and reconciliation;
 - structured analysis materialization;
-- Google TTS/local VieNeu narration execution;
-- user-provided audio timeline/alignment execution foundations;
-- Vertex image generation and R2 image materialization;
-- R2 upload/download for source/generated/reusable pipeline media;
-- deterministic FFmpeg IMAGE_MOTION chapter rendering;
-- ffprobe/final-video validation;
-- Google Drive resumable final-MP4 upload through the final-video storage adapter.
+- Google TTS/VieNeu execution foundations;
+- user-audio validation/alignment foundations;
+- Vertex image generation;
+- retained R2 cloud materialization;
+- retained cloud/server FFmpeg render and Google Drive final-video path.
 
-The worker does **not** own browser authorization, entitlement/quota admission policy, MediaPlan authorization, Flyway migrations or public HTTP APIs.
+The worker does not own Desktop native paths/capabilities, user-facing authorization, entitlement policy or Flyway schema ownership.
 
 ## MediaPlan policy boundary
 
-The backend is authoritative for `ProductionMode` and resolved `MotionStrategy`. Workers receive/execute a pinned immutable plan revision. Fallback is allowed only inside persisted authorization.
+The backend is authoritative for ProductionMode/MotionStrategy and authorized workload. Desktop local devices and Python workers execute the pinned policy. Fallback/escalation is allowed only when explicitly authorized.
 
 ## Narration boundary
 
-`NarrationStrategy.TTS` and `NarrationStrategy.USER_PROVIDED_AUDIO` are generation-domain policy vocabulary. Audio processing/alignment mechanics remain worker-owned, while selection, fingerprints, authorization and durable metadata are backend/domain concerns.
+`NarrationStrategy.TTS` and `NarrationStrategy.USER_PROVIDED_AUDIO` are domain policy. Audio processing/alignment mechanics may run in worker/local execution components, but source identity, strategy, authorization, fingerprints and durable metadata remain backend/domain concerns.
 
-The current render worker can consume generated narration matching the pinned Chapter source identity. It does not yet slice/stitch aligned multi-part uploaded narration into chapter-local render input.
+Desktop local render inputs should resolve narration by stable asset identity/checksum from the local project manifest. Cloud narration may remain a compatibility source while local materialization migration is incomplete.
 
-## Pipeline media storage boundary
+## Project media storage boundary
 
-```text
-Generated images / narration / accepted uploaded audio / reusable media
-  -> Cloudflare R2
-```
-
-R2 credentials and object-key behavior remain infrastructure concerns. Local paths are scratch only.
-
-## Final video storage boundary
-
-Render/domain policy must not depend on Google Drive-specific identifiers.
+### Desktop primary
 
 ```text
-render worker
-  -> final-video storage abstraction
-  -> GoogleDriveFinalVideoStorage
+project images/audio/video  -> local project workspace
+render work                 -> local project workspace/work
+final local MP4             -> local project workspace/artifacts
 ```
 
-The current adapter owns Drive OAuth/API calls, resumable upload, render-fingerprint lookup, remote file ID/size verification and Drive-specific identifiers. PostgreSQL stores provider-aware FinalArtifact metadata such as `storageProvider`, external file ID, checksum, size and video metadata.
+Electron main owns resolution/validation. Backend metadata uses stable IDs, checksums and opaque project-relative artifact keys.
 
-The adapter can resume upload within one attempt and can reuse an already-uploaded matching Drive file by render fingerprint. Because the rendered file currently lives in an ephemeral job workspace, cross-attempt upload-only retry without rerender remains a target hardening item.
+### Cloud/legacy fallback
 
-The backend also owns browser-facing FinalArtifact content delivery. The render application layer
-exposes `FinalArtifactContentPort`; the infrastructure adapter refreshes Google OAuth credentials,
-forwards Drive media ranges and returns a one-shot response stream. Browser authorization remains
-backend-owned and private Drive files are never made public for preview/download.
+```text
+pipeline media              -> Cloudflare R2
+cloud final MP4             -> Google Drive
+worker scratch              -> ephemeral filesystem
+```
 
-## Character read boundary
+ADR-0012 governs Desktop local-first project bytes; ADR-0003 governs retained cloud/worker storage.
 
-Project Character list/detail APIs authorize project ownership before returning project-scoped Character data. Their MyBatis read projections expose only authoritative fields. Frontend runtime code must not backfill missing avatar, relationship, asset or scene-detail values with production-looking fixtures.
+## Authentication credential boundary
+
+User authentication and local device authorization are distinct:
+
+- Desktop user auth: Google OIDC system browser → one-time handoff → server-managed NarrativeX session.
+- Device auth: protected machine credential used only for device heartbeat/render APIs.
+
+Google tokens do not enter Electron. Device tokens are not user session tokens.
 
 ## Persistence boundary
 
-Application/domain repository ports remain persistence-neutral. Production infrastructure uses MyBatis + explicit SQL + PostgreSQL. The backend build has no JPA dependency and production source has no direct `JdbcTemplate` persistence.
+Application/domain repository ports remain persistence-neutral. Production infrastructure uses MyBatis + explicit PostgreSQL SQL. JPA and direct `JdbcTemplate` are not parallel production persistence paths.
 
 ## Dependency direction
 
@@ -84,7 +114,10 @@ Application/domain repository ports remain persistence-neutral. Production infra
 API adapters -> application use cases -> domain
 application -> outbound ports
 infrastructure -> application/domain contracts
-worker -> persisted execution/media contracts + provider/storage adapters
+renderer -> backend contracts + preload capabilities
+preload -> narrow main-process IPC
+Electron main -> local/native adapters + backend device contracts
+worker -> persisted execution contracts + provider/cloud adapters
 ```
 
-Provider/vendor/storage branches stay in adapters, not domain policy.
+Provider/vendor/storage branches stay in adapters rather than domain policy.
