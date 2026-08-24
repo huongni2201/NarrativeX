@@ -2,6 +2,7 @@
 
 from enum import StrEnum
 from typing import Self
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -155,9 +156,9 @@ class ChapterAnalysisResult(BaseModel):
 class ChapterAnalysisRequest(BaseModel):
     """A persisted Chapter snapshot. Source content is data, never instruction/tool authority."""
 
-    project_id: str
-    story_version_id: str
-    chapter_id: str
+    project_id: UUID
+    story_version_id: UUID
+    chapter_id: UUID
     chapter_row_version: int = Field(ge=0)
     source_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
     source_text: str = Field(min_length=1, max_length=500_000)

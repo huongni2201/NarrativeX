@@ -717,7 +717,7 @@ class WorkerRepository:
                     raise RuntimeError("Chapter changed while analysis was running")
 
                 await connection.execute(
-                    "SELECT pg_advisory_xact_lock($1)",
+                    "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))",
                     claimed.request.project_id,
                 )
                 project_characters = await materialize_characters(connection, claimed, result)
