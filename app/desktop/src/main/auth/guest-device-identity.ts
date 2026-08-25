@@ -15,7 +15,19 @@ export interface GuestDeviceIdentity {
 }
 
 export class GuestDeviceIdentityStore {
-  async loadOrCreate(): Promise<GuestDeviceIdentity> {
+  private identityPromise: Promise<GuestDeviceIdentity> | null = null;
+
+  loadOrCreate(): Promise<GuestDeviceIdentity> {
+    if (this.identityPromise) return this.identityPromise;
+    const pending = this.loadOrCreateOnce();
+    this.identityPromise = pending;
+    void pending.catch(() => {
+      if (this.identityPromise === pending) this.identityPromise = null;
+    });
+    return pending;
+  }
+
+  private async loadOrCreateOnce(): Promise<GuestDeviceIdentity> {
     const existing = await this.load();
     if (existing) return existing;
     const identity = {
