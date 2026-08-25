@@ -20,7 +20,7 @@ export function LoginScreen({ onLogin, error }: Readonly<{ onLogin: () => Promis
   return (
     <main className="auth-screen">
       <section className="auth-card">
-        <img src="/branding/narrativex-icon-orange-v2.png" alt="NarrativeX" width={56} height={56} className="auth-logo-img" />
+        <img src="/branding/narrativex-icon.png" alt="NarrativeX" width={56} height={56} className="auth-logo-img" />
         <span className="eyebrow">NarrativeX Desktop</span>
         <h1>Đăng nhập để tiếp tục</h1>
         <p>Google sẽ mở trong trình duyệt hệ thống. NarrativeX không nhúng Google login và không lưu Google token.</p>

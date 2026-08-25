@@ -100,6 +100,13 @@ npm ci
 npm run dev
 ```
 
+The Compose backend is published to `127.0.0.1:8080` for the Desktop client and
+the system-browser OAuth handoff. Verify it is ready before opening Desktop:
+
+```powershell
+Invoke-WebRequest http://localhost:8080/actuator/health
+```
+
 Desktop checks:
 
 ```powershell

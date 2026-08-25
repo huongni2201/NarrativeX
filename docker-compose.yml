@@ -73,7 +73,10 @@ services:
       R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
       R2_BUCKET: ${R2_BUCKET}
       R2_ENDPOINT: ${R2_ENDPOINT}
-    expose: ["8080"]
+    # Desktop development and the system-browser OAuth handoff run on the host,
+    # so the backend must be reachable at http://localhost:8080. Keep the bind
+    # loopback-only; worker services continue using http://backend:8080.
+    ports: ["127.0.0.1:8080:8080"]
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
