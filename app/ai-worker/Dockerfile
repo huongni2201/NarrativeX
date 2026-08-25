@@ -13,6 +13,7 @@ ENV PYTHONUNBUFFERED=1
 ENV HOME=/home/appuser
 ENV XDG_CACHE_HOME=/home/appuser/.cache
 ENV HF_HOME=/home/appuser/.cache/huggingface
+ENV PIP_CACHE_DIR=/home/appuser/.cache/pip
 
 RUN addgroup --system appgroup \
     && adduser --system --home /home/appuser --ingroup appgroup appuser \
@@ -33,11 +34,13 @@ CMD ["python", "-m", "narrativex_worker"]
 
 FROM base AS worker-core
 
-RUN --mount=type=cache,target=/root/.cache/pip pip install .
+RUN --mount=type=cache,id=narrativex-pip,target=/home/appuser/.cache/pip,sharing=locked \
+    pip install .
 
 # Install the current application code without resolving dependencies again.
 COPY src/ ./src/
-RUN --mount=type=cache,target=/root/.cache/pip pip install --no-deps .
+RUN --mount=type=cache,id=narrativex-pip,target=/home/appuser/.cache/pip,sharing=locked \
+    pip install --no-deps .
 
 USER appuser
 
@@ -49,23 +52,29 @@ RUN apt-get update \
 
 FROM media-base AS worker-image
 
-RUN --mount=type=cache,target=/root/.cache/pip pip install ".[image]"
+RUN --mount=type=cache,id=narrativex-pip,target=/home/appuser/.cache/pip,sharing=locked \
+    pip install ".[image]"
 COPY src/ ./src/
-RUN --mount=type=cache,target=/root/.cache/pip pip install --no-deps .
+RUN --mount=type=cache,id=narrativex-pip,target=/home/appuser/.cache/pip,sharing=locked \
+    pip install --no-deps .
 USER appuser
 
 FROM media-base AS worker-narration
 
-RUN --mount=type=cache,target=/root/.cache/pip pip install ".[narration]"
+RUN --mount=type=cache,id=narrativex-pip,target=/home/appuser/.cache/pip,sharing=locked \
+    pip install ".[narration]"
 COPY src/ ./src/
-RUN --mount=type=cache,target=/root/.cache/pip pip install --no-deps .
+RUN --mount=type=cache,id=narrativex-pip,target=/home/appuser/.cache/pip,sharing=locked \
+    pip install --no-deps .
 USER appuser
 
 FROM media-base AS worker-render
 
-RUN --mount=type=cache,target=/root/.cache/pip pip install ".[render]"
+RUN --mount=type=cache,id=narrativex-pip,target=/home/appuser/.cache/pip,sharing=locked \
+    pip install ".[render]"
 COPY src/ ./src/
-RUN --mount=type=cache,target=/root/.cache/pip pip install --no-deps .
+RUN --mount=type=cache,id=narrativex-pip,target=/home/appuser/.cache/pip,sharing=locked \
+    pip install --no-deps .
 USER appuser
 
 # `docker build .` keeps a useful default for the combined analysis/image worker;
