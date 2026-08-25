@@ -10,6 +10,7 @@
 .auth-security-note svg { flex: 0 0 auto; color: var(--green); }
 .auth-error { color: var(--danger) !important; font-size: 11px; }
 .auth-loading { color: var(--text-2); }
+.auth-event-shell { display: contents; }
 
 .auth-modal-backdrop { position: fixed; inset: 0; z-index: 10000; display: grid; place-items: center; padding: 24px; background: rgba(4, 6, 10, .72); backdrop-filter: blur(7px); }
 .auth-modal-card { position: relative; width: min(430px, calc(100vw - 32px)); box-shadow: 0 30px 110px rgba(0, 0, 0, .72); }
