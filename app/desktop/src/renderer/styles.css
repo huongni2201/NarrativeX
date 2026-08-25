@@ -85,6 +85,7 @@
   --blue-soft: var(--info-bg);
   --amber: var(--warning);
   --amber-soft: var(--warning-bg);
+  --danger-soft: var(--danger-bg);
 
   --radius-sm: 5px;
   --radius-md: 7px;
