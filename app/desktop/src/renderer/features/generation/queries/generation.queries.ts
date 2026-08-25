@@ -4,7 +4,10 @@ import { generationApi } from "../api/generation.api";
 
 export const generationQueryKeys = {
   all: ["generation"] as const,
-  job: (jobId: string) => [...generationQueryKeys.all, "job", jobId] as const,
+  generationJob: (jobId: string) =>
+    [...generationQueryKeys.all, "generation-job", jobId] as const,
+  mediaJob: (jobId: string) =>
+    [...generationQueryKeys.all, "media-job", jobId] as const,
 };
 
 export function useAnalyzeChapter() {
@@ -37,13 +40,15 @@ export function useCreateMediaJob() {
       request: CreateMediaJobInput;
     }) => generationApi.createMediaJob(input.projectId, input.chapterId, input.request),
     onSuccess: (job) =>
-      queryClient.invalidateQueries({ queryKey: generationQueryKeys.job(job.jobId) }),
+      queryClient.invalidateQueries({
+        queryKey: generationQueryKeys.mediaJob(job.jobId),
+      }),
   });
 }
 
 export function useMediaJob(jobId: string | null) {
   return useQuery({
-    queryKey: generationQueryKeys.job(jobId ?? "none"),
+    queryKey: generationQueryKeys.mediaJob(jobId ?? "none"),
     queryFn: () => generationApi.getJob(jobId as string),
     enabled: Boolean(jobId),
     refetchInterval: (query) =>
@@ -58,7 +63,7 @@ export function useMediaJob(jobId: string | null) {
 
 export function useGenerationJob(jobId: string | null) {
   return useQuery({
-    queryKey: generationQueryKeys.job(jobId ?? "none"),
+    queryKey: generationQueryKeys.generationJob(jobId ?? "none"),
     queryFn: () => generationApi.getGenerationJob(jobId as string),
     enabled: Boolean(jobId),
     refetchInterval: (query) =>
@@ -77,7 +82,7 @@ export function useReviewMediaItem() {
     onSuccess: (_value, input) => {
       if (input.jobId) {
         void queryClient.invalidateQueries({
-          queryKey: generationQueryKeys.job(input.jobId),
+          queryKey: generationQueryKeys.mediaJob(input.jobId),
         });
       }
     },
