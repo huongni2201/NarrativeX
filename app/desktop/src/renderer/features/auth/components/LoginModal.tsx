@@ -39,25 +39,25 @@ export function LoginModal({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="auth-card auth-modal-card" aria-describedby="auth-modal-description">
+      <DialogContent className="w-[min(420px,calc(100vw-32px))] rounded-xl border-[var(--border)] bg-[var(--surface)] p-7 shadow-2xl" aria-describedby="auth-modal-description">
         <DialogCloseButton aria-label="Đóng" />
         <img
           src="/branding/narrativex-icon.png"
           alt="NarrativeX"
           width={56}
           height={56}
-          className="auth-logo-img"
+          className="mb-2 size-14 rounded-xl object-contain"
         />
-        <span className="eyebrow">NarrativeX Desktop</span>
-        <DialogTitle id="auth-modal-title" className="auth-modal-title">Đăng nhập để dùng tính năng này</DialogTitle>
-        <DialogDescription id="auth-modal-description">
+        <span className="block text-[9px] font-bold uppercase tracking-[.13em] text-[var(--text-3)]">NarrativeX Desktop</span>
+        <DialogTitle id="auth-modal-title" className="mt-1 text-xl font-semibold text-[var(--text)]">Đăng nhập để dùng tính năng này</DialogTitle>
+        <DialogDescription id="auth-modal-description" className="mt-2 text-sm leading-6 text-[var(--text-3)]">
           {reason ?? "Tính năng này cần tài khoản NarrativeX."}
         </DialogDescription>
-        <p className="auth-preserve-context">
+        <p className="mt-4 text-xs leading-5 text-[var(--text-3)]">
           Sau khi đăng nhập, bạn vẫn ở nguyên project và màn hình đang làm việc.
         </p>
         <Button
-          className="auth-login-button"
+          className="mt-5 w-full justify-center"
           onClick={() => void handleLogin()}
           disabled={busy}
         >
@@ -68,16 +68,16 @@ export function LoginModal({
               ? "Mở lại đăng nhập Google"
               : "Tiếp tục với Google"}
         </Button>
-        <div className="auth-security-note">
+        <div className="mt-4 flex gap-2 rounded-md border border-[var(--border-soft)] bg-[var(--surface-2)] p-3 text-[11px] leading-5 text-[var(--text-3)]">
           <ShieldCheck size={15} />
           <span>
             Google mở trong trình duyệt hệ thống. NarrativeX chỉ nhận mã đăng nhập dùng một lần.
           </span>
         </div>
         {browserOpened && !loginError && !error && (
-          <p className="auth-waiting">Hoàn tất đăng nhập trong trình duyệt để tiếp tục.</p>
+          <p className="mt-3 text-xs text-[var(--cyan)]">Hoàn tất đăng nhập trong trình duyệt để tiếp tục.</p>
         )}
-        {(loginError || error) && <p className="auth-error">{loginError ?? error}</p>}
+        {(loginError || error) && <p className="mt-3 text-xs text-[var(--danger)]">{loginError ?? error}</p>}
       </DialogContent>
     </Dialog>
   );

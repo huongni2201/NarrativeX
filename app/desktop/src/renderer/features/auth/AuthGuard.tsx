@@ -10,7 +10,6 @@ import { authApi } from "./api/auth.api";
 import { configureAuthenticatedActionGate } from "./authenticated-action";
 import { LoginModal } from "./components/LoginModal";
 import { authQueryKeys, useCurrentUserQuery } from "./queries/auth.queries";
-import "./auth.css";
 
 export function AuthGuard({ children }: PropsWithChildren) {
   const queryClient = useQueryClient();
@@ -114,8 +113,8 @@ export function AuthGuard({ children }: PropsWithChildren) {
 
   if (currentUser.isPending || (needsGuestBootstrap && !bootstrapError)) {
     return (
-      <main className="auth-screen">
-        <div className="auth-loading">Đang mở NarrativeX…</div>
+      <main className="grid min-h-dvh place-items-center bg-[var(--bg)] p-6 text-sm text-[var(--text-3)]">
+        <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-6 py-5">Đang mở NarrativeX…</div>
       </main>
     );
   }
@@ -124,15 +123,15 @@ export function AuthGuard({ children }: PropsWithChildren) {
     currentUser.data && boundLocalUserId !== localExecutionUserId;
   if (syncingLocalIdentity) {
     return (
-      <main className="auth-screen">
-        <div className="auth-loading">Đang chuẩn bị local workspace…</div>
+      <main className="grid min-h-dvh place-items-center bg-[var(--bg)] p-6 text-sm text-[var(--text-3)]">
+        <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-6 py-5">Đang chuẩn bị local workspace…</div>
       </main>
     );
   }
 
   return (
     <>
-      <div className="auth-event-shell">{children}</div>
+      <div className="min-h-dvh">{children}</div>
       {loginReason && (
         <LoginModal
           reason={loginReason}
@@ -149,7 +148,7 @@ export function AuthGuard({ children }: PropsWithChildren) {
           }}
         />
       )}
-      {bootstrapError && <div className="auth-bootstrap-error">{bootstrapError}</div>}
+      {bootstrapError && <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-md border border-[var(--danger)]/40 bg-[var(--surface)] px-4 py-3 text-xs text-[var(--danger)] shadow-lg">{bootstrapError}</div>}
     </>
   );
 }

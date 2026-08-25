@@ -25,10 +25,11 @@ Components live in `app/desktop/src/renderer/components/ui` and are committed
 source, not consumed as an opaque runtime library. Radix is used for behavior
 and accessibility; NarrativeX owns the styling, tokens and component API.
 
-The migration is incremental. Button, Dialog, Tabs, Tooltip and Select are the
-first shared primitives. Timeline geometry, preview art, dense editor panels
-and other domain-specific compositions can retain focused CSS until their
-layout contracts are migrated safely.
+The renderer migration is complete. Button, Card, Dialog, DropdownMenu, Input,
+Select, Tabs, Textarea and Tooltip are source-owned primitives, while
+domain-specific compositions use Tailwind utilities and semantic CSS
+variables. `styles.css` is limited to tokens, theme mappings and global
+base/accessibility rules.
 
 ## Decision drivers
 
@@ -64,13 +65,14 @@ renderer shared behavior, typed variants and full control of the final CSS.
   variants.
 - Component source can be adjusted to the editor's compact density without
   waiting for an upstream library release.
-- Migration can proceed screen by screen without changing domain/API behavior.
+- Domain/API behavior stays unchanged while every Desktop renderer screen uses
+  the same utility-first styling and source-owned component vocabulary.
 
 ### Negative
 
 - The repository owns updates and compatibility for copied component source.
-- Tailwind utility conventions now coexist with legacy editor CSS during the
-  incremental migration.
+- Dense utility class strings require consistent composition through `cn` and
+  the shared source-owned primitives.
 - Dependency and build configuration become slightly larger.
 
 ## Implementation notes

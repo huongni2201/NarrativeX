@@ -56,9 +56,9 @@ The renderer uses a local source-owned component layer under
 - shadcn/ui is used as a source distribution model. There is no locked runtime UI library or remote component registry in the Desktop build.
 - Radix UI supplies keyboard navigation, focus management, dialog focus trapping, select behavior and tooltip behavior for the adopted primitives.
 - `class-variance-authority`, `clsx` and `tailwind-merge` provide typed variants and safe class composition through `src/renderer/lib/utils.ts`.
-- Existing editor-specific CSS remains responsible for timeline geometry, canvas art direction and dense panel layout. New reusable controls should use the source-owned primitives and semantic tokens before adding bespoke selectors.
+- Renderer styling is now utility-first: `styles.css` contains only design tokens, Tailwind theme mappings and global accessibility/base rules. Timeline geometry, canvas art direction, dense panels, projects and auth screens use Tailwind utilities and source-owned primitives.
 
-The initial migration covers Button, Dialog, Tabs, Tooltip and Select. It is intentionally incremental so timeline positioning and local-first editor behavior remain unchanged while controls converge on one accessible component vocabulary.
+The migration covers Button, Card, Dialog, DropdownMenu, Input, Select, Tabs, Textarea and Tooltip. Domain/API behavior remains unchanged while the renderer converges on one accessible component vocabulary.
 
 ## Authentication status
 
