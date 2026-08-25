@@ -60,8 +60,14 @@ export function groupScenes(beats: readonly DesktopTimelineBeat[]): EditorSceneG
     .sort(([left], [right]) => left - right)
     .map(([sceneIndex, sceneBeats]) => {
       const sortedBeats = [...sceneBeats].sort(compareBeats);
-      const startMs = sortedBeats[0]?.startMs ?? 0;
-      const endMs = sortedBeats.at(-1)?.endMs ?? startMs;
+      const startMs = sortedBeats.reduce(
+        (earliest, beat) => Math.min(earliest, beat.startMs),
+        sortedBeats[0]?.startMs ?? 0,
+      );
+      const endMs = sortedBeats.reduce(
+        (latest, beat) => Math.max(latest, beat.endMs),
+        startMs,
+      );
       return {
         chapterId: sortedBeats[0]?.chapterId ?? "",
         sceneIndex,
@@ -87,7 +93,10 @@ export function resolveEditorScopeWindow({
   scope: EditorScope;
   totalMs: number;
 }>): EditorScopeWindow {
-  const projectEndMs = Math.max(totalMs, ...beats.map((beat) => beat.endMs), 0);
+  const projectEndMs = beats.reduce(
+    (latest, beat) => Math.max(latest, beat.endMs),
+    Math.max(0, totalMs),
+  );
 
   if (!selected || scope === "project") {
     return {
@@ -137,9 +146,18 @@ function windowFromBeats(
     return { startMs: fallbackStartMs, endMs: fallbackEndMs, beats: [] };
   }
 
+  const startMs = beats.reduce(
+    (earliest, beat) => Math.min(earliest, beat.startMs),
+    beats[0].startMs,
+  );
+  const endMs = beats.reduce(
+    (latest, beat) => Math.max(latest, beat.endMs),
+    beats[0].endMs,
+  );
+
   return {
-    startMs: beats[0].startMs,
-    endMs: beats.at(-1)?.endMs ?? beats[0].endMs,
+    startMs,
+    endMs,
     beats: [...beats],
   };
 }
