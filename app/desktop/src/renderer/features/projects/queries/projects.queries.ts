@@ -1,6 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { CreateProjectInput } from "@narrativex/client-contracts";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { CreateProjectInput, DesktopProject } from "@narrativex/client-contracts";
 import { projectsApi } from "../api/projects.api";
 
 export const projectQueryKeys = {
@@ -11,14 +10,23 @@ export const projectQueryKeys = {
 export function useProjectsQuery() {
   return useQuery({
     queryKey: projectQueryKeys.list(),
-    queryFn: projectsApi.list,
+    queryFn: loadProjectsWithLocalFallback,
   });
 }
 
 export function useCreateProject() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: CreateProjectInput) => projectsApi.create(input),
+    mutationFn: async (input: CreateProjectInput) => {
+      const project = await projectsApi.create(input);
+      try {
+        await window.narrativex.localProjects.upsert(project, { syncStatus: "LOCAL_ONLY" });
+        await window.narrativex.localProjects.touch(project.id);
+      } catch (error) {
+        console.warn("Project was created but could not be persisted to the local catalog.", error);
+      }
+      return project;
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: projectQueryKeys.all }),
   });
 }
@@ -29,4 +37,58 @@ export function useToggleProjectFavorite() {
     mutationFn: (input: { projectId: string; starred: boolean }) => input.starred ? projectsApi.removeFavorite(input.projectId) : projectsApi.addFavorite(input.projectId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: projectQueryKeys.all }),
   });
+}
+
+async function loadProjectsWithLocalFallback() {
+  const localBeforeRefresh = await readLocalProjectsSafely();
+  try {
+    const remote = await projectsApi.list();
+    const localAfterRefresh = await reconcileLocalProjectsSafely(
+      remote.content,
+      localBeforeRefresh,
+    );
+    return {
+      ...remote,
+      content: mergeProjects(localAfterRefresh, remote.content),
+    };
+  } catch (error) {
+    if (localBeforeRefresh.length === 0) throw error;
+    return {
+      content: localBeforeRefresh,
+      nextCursor: null,
+    };
+  }
+}
+
+async function readLocalProjectsSafely(): Promise<DesktopProject[]> {
+  try {
+    return (await window.narrativex.localProjects.list()).map((entry) => entry.project);
+  } catch (error) {
+    console.warn("Could not read the local project catalog; continuing with backend projects.", error);
+    return [];
+  }
+}
+
+async function reconcileLocalProjectsSafely(
+  remoteProjects: DesktopProject[],
+  fallback: DesktopProject[],
+): Promise<DesktopProject[]> {
+  try {
+    return (await window.narrativex.localProjects.reconcile(remoteProjects)).map(
+      (entry) => entry.project,
+    );
+  } catch (error) {
+    console.warn("Could not refresh the local project catalog.", error);
+    return fallback;
+  }
+}
+
+function mergeProjects(local: DesktopProject[], remote: DesktopProject[]): DesktopProject[] {
+  const remoteById = new Map(remote.map((project) => [project.id, project]));
+  const merged = local.map((project) => remoteById.get(project.id) ?? project);
+  const localIds = new Set(local.map((project) => project.id));
+  for (const project of remote) {
+    if (!localIds.has(project.id)) merged.push(project);
+  }
+  return merged;
 }
