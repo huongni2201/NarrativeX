@@ -67,3 +67,28 @@ test("project catalog rebuilds registry from per-project snapshots", async () =>
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("remote reconcile updates known projects without deleting local-only projects", async () => {
+  const root = await mkdtemp(join(tmpdir(), "narrativex-catalog-reconcile-"));
+  try {
+    const catalog = new ProjectCatalog(new ProjectStorage(root));
+    await catalog.upsert(project(projectId, "Local guest project"));
+    await catalog.upsert(project(secondProjectId, "Remote project"));
+
+    const reconciled = await catalog.reconcile([
+      project(secondProjectId, "Remote project renamed"),
+    ]);
+
+    assert.equal(reconciled.length, 2);
+    assert.equal(
+      reconciled.find((entry) => entry.project.id === projectId)?.project.name,
+      "Local guest project",
+    );
+    assert.equal(
+      reconciled.find((entry) => entry.project.id === secondProjectId)?.project.name,
+      "Remote project renamed",
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
