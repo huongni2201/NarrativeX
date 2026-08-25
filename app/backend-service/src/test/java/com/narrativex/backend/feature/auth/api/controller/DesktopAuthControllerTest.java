@@ -14,6 +14,7 @@ import com.narrativex.backend.feature.auth.api.request.DesktopAuthExchangeReques
 import com.narrativex.backend.feature.auth.application.port.in.DesktopAuthHandoff;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import org.junit.jupiter.api.AfterEach;
@@ -78,13 +79,15 @@ class DesktopAuthControllerTest {
   }
 
   @Test
-  void exchangeWithMatchingVerifierEstablishesTheSessionWithoutWorkspaceTransfer() {
+  void exchangeWithMatchingVerifierRotatesExistingSessionBeforePrivilegeUpgrade() {
     DesktopAuthHandoff handoffStore = mock(DesktopAuthHandoff.class);
     SecurityContextRepository securityContextRepository = mock(SecurityContextRepository.class);
     DesktopAuthController controller =
         new DesktopAuthController(handoffStore, securityContextRepository);
     HttpServletRequest servletRequest = mock(HttpServletRequest.class);
     HttpServletResponse servletResponse = mock(HttpServletResponse.class);
+    HttpSession session = mock(HttpSession.class);
+    when(servletRequest.getSession(false)).thenReturn(session);
     String verifier = "a".repeat(43);
     DesktopAuthHandoff.AuthenticatedUser user =
         new DesktopAuthHandoff.AuthenticatedUser("user-1", "User", null, null);
@@ -96,6 +99,28 @@ class DesktopAuthControllerTest {
 
     assertEquals(HttpStatus.OK, result.getStatusCode());
     assertFalse(result.getBody().data().guest());
+    verify(servletRequest).changeSessionId();
+    verify(securityContextRepository).saveContext(any(), eq(servletRequest), eq(servletResponse));
+  }
+
+  @Test
+  void exchangeWithoutExistingSessionStillEstablishesSession() {
+    DesktopAuthHandoff handoffStore = mock(DesktopAuthHandoff.class);
+    SecurityContextRepository securityContextRepository = mock(SecurityContextRepository.class);
+    DesktopAuthController controller =
+        new DesktopAuthController(handoffStore, securityContextRepository);
+    HttpServletRequest servletRequest = mock(HttpServletRequest.class);
+    HttpServletResponse servletResponse = mock(HttpServletResponse.class);
+    String verifier = "c".repeat(43);
+    DesktopAuthHandoff.AuthenticatedUser user =
+        new DesktopAuthHandoff.AuthenticatedUser("user-1", "User", null, null);
+    when(handoffStore.consumeUser("code", verifier)).thenReturn(user);
+
+    var result =
+        controller.exchange(
+            new DesktopAuthExchangeRequest("code", verifier), servletRequest, servletResponse);
+
+    assertEquals(HttpStatus.OK, result.getStatusCode());
     verify(securityContextRepository).saveContext(any(), eq(servletRequest), eq(servletResponse));
   }
 

@@ -106,6 +106,8 @@ public class DesktopAuthController {
                   false, "Desktop auth code is invalid or expired.", null, Instant.now()));
     }
 
+    rotateExistingSession(servletRequest);
+
     Authentication authentication =
         UsernamePasswordAuthenticationToken.authenticated(
             user, null, List.of(new SimpleGrantedAuthority(ROLE_USER)));
@@ -119,6 +121,12 @@ public class DesktopAuthController {
             "Desktop session established",
             new CurrentUserResponse(
                 user.id(), user.displayName(), user.email(), user.avatarUrl(), false)));
+  }
+
+  private static void rotateExistingSession(HttpServletRequest request) {
+    if (request.getSession(false) != null) {
+      request.changeSessionId();
+    }
   }
 
   private static boolean hasAuthority(Authentication authentication, String authority) {
