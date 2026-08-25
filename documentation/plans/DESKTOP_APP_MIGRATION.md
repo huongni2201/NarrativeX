@@ -2,7 +2,7 @@
 
 ## Goal
 
-Make `app/desktop` the primary NarrativeX client while keeping Spring Boot + PostgreSQL authoritative for durable business metadata, ownership, policy and job state.
+Use `app/desktop` as the only NarrativeX editor client while keeping Spring Boot + PostgreSQL authoritative for durable business metadata, ownership, policy and job state.
 
 Desktop owns the editor workspace, project media bytes, local filesystem/cache, native capabilities and local FFmpeg execution. The renderer never receives unrestricted Node.js access.
 
@@ -14,14 +14,14 @@ Desktop owns the editor workspace, project media bytes, local filesystem/cache, 
 - Spring backend remains the control plane and durable source of truth for metadata, ownership, policy, job admission, assignment and lease state.
 - Desktop project media is local-first: generated/imported images, project audio, imported media, render intermediates and final MP4 files stay on the user's machine.
 - Backend contracts identify local media by stable asset IDs/checksums; absolute filesystem paths are never persisted or sent as durable backend state.
-- R2 is not the Desktop project-media store. It may remain for deliberately shared voice/sample media and for the retained cloud/legacy execution path.
+- R2 is not the Desktop project-media store. It may remain for deliberately shared voice/sample media and for retained server-worker execution paths.
 - `LOCAL_DEVICE` render execution is assigned by the backend and claimed only by an authorized device credential.
 - Electron `main` owns system-browser/deep-link handling, device identity, protected storage, local project manifests, heartbeat, native filesystem actions and local execution.
 - Electron `preload` exposes a narrow typed capability bridge.
 - Electron `renderer` owns UI/routing/query/editor state only.
 - FFmpeg/ffprobe execution runs outside the renderer.
 - Cloud project render remains a temporary migration fallback and does not redefine the Desktop local-storage boundary.
-- `app/frontend-web` is a temporary legacy migration client and may be removed only after Desktop parity gates pass.
+- `app/frontend-web` has been removed. Do not recreate a parallel browser editor without an explicit architecture decision.
 
 ## Local workspace layout
 
@@ -59,6 +59,7 @@ Desktop owns the editor workspace, project media bytes, local filesystem/cache, 
 - FFmpeg/ffprobe capability detection exists.
 - `ProjectRenderer` executes segment render → video concat → narration concat → mux → ffprobe → local artifact registration.
 - Local project rendering is gated by FFmpeg availability and `NARRATIVEX_DESKTOP_PROJECT_RENDER_ENABLED=true`.
+- The legacy `app/frontend-web` client and Caddy layer have been removed from the active runtime/repository topology.
 
 ### Still partial / next work
 
@@ -66,7 +67,7 @@ Desktop owns the editor workspace, project media bytes, local filesystem/cache, 
 - automatic local-device registration after user authentication if pairing is to be removed from the primary UX;
 - project backup/move/restore and packaged Electron E2E;
 - packaging, code signing, auto-update and protocol-registration hardening across supported OSes;
-- final removal of `app/frontend-web` and cloud-only UI assumptions after parity evidence exists.
+- remaining stale browser-only assumptions in historical/derived documentation should be cleaned as those documents are touched.
 
 ### 2026-08-25 implementation checkpoint
 
@@ -85,6 +86,7 @@ Desktop owns the editor workspace, project media bytes, local filesystem/cache, 
 - AI-worker local I/O retry and UNKNOWN reconciliation delays now use a shared deterministic bounded retry policy. Provider submission remains UNKNOWN-first and must reconcile before resubmission.
 - Timeline draft mutations now use a typed command-history state machine with undo/redo semantics, clearing the redo branch after a new edit.
 - Added deterministic Node and Python test coverage for timeline drafts, render-journal discovery, workspace backup/restore/archive-copy, storage accounting, retry policy behavior, and UUID/pinned-worker dependency contracts. Browser verification remains blocked by the in-app browser refusing local Vite URLs (`ERR_BLOCKED_BY_CLIENT`) in this environment.
+- Legacy `app/frontend-web` was removed; production Compose no longer contains a frontend or Caddy service. Cloudflare Tunnel, when used, routes directly to the backend.
 
 ## Implementation slices
 
@@ -148,15 +150,18 @@ Desktop owns the editor workspace, project media bytes, local filesystem/cache, 
 - packaging/signing/auto-update;
 - protocol and OS integration tests.
 
-### Slice 9 — Legacy web removal — TARGET
+### Slice 9 — Legacy web removal — IMPLEMENTED
 
-Remove `app/frontend-web` only when all required product flows are proven on Desktop and no runtime/deployment/doc/test dependency still requires it.
+- removed `app/frontend-web` from the repository;
+- removed the production frontend service;
+- removed Caddy from the production ingress path;
+- retained Cloudflare Tunnel only as optional direct HTTPS ingress to `backend:8080` for self-hosted deployments.
 
 ## Completion gate
 
 Desktop migration is complete when:
 
-- Desktop is the only primary editor surface.
+- Desktop is the only editor surface.
 - Password authentication is absent from production product flows.
 - Desktop user auth is Google-only and does not expose Google tokens to Electron.
 - Required project media generation/import paths register bytes into the local project manifest.
@@ -165,7 +170,7 @@ Desktop migration is complete when:
 - Final local completion records `LOCAL_DESKTOP` plus an opaque project-relative artifact key.
 - In-flight local work has defined crash/restart recovery behavior.
 - Packaging/protocol/upgrade paths are production-tested.
-- Legacy web routes, Next.js-only product assumptions and obsolete cloud-first Desktop docs are removed.
+- Legacy web routes, Next.js-only product assumptions and obsolete cloud-first Desktop docs are removed from current-state documentation.
 
 ## Related decisions
 
