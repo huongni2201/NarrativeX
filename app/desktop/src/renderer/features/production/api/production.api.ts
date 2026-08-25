@@ -3,6 +3,7 @@ import type {
   DesktopTimeline,
   LocalRenderPreflight,
   ProjectRenderBeatOverride,
+  UpdateBeatMediaInput,
 } from "@narrativex/client-contracts";
 import { apiRequest } from "../../../api/client";
 import { assertContract, isRecord, isString } from "../../../api/guards";
@@ -35,6 +36,18 @@ export const productionApi = {
       assertContract(isTimeline(value), "Production timeline response không đúng contract.");
       return value;
     }),
+
+  updateBeatMedia: (projectId: string, visualBeatId: string, input: UpdateBeatMediaInput) =>
+    apiRequest<void>(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/production/beats/${encodeURIComponent(visualBeatId)}/media`,
+      { method: "PUT", body: JSON.stringify(input) },
+    ),
+
+  resetBeatMedia: (projectId: string, visualBeatId: string) =>
+    apiRequest<void>(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/production/beats/${encodeURIComponent(visualBeatId)}/media`,
+      { method: "DELETE" },
+    ),
 
   startRender: async (
     projectId: string,

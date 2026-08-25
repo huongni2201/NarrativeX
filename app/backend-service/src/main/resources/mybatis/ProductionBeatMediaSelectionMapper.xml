@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ProductionBeatMediaSelectionMapper">
+  <select id="findSelectableAsset" resultType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ProductionBeatSelectableAssetRow">
+    SELECT id AS mediaAssetId,
+           asset_type AS mediaType,
+           storage_mode AS storageMode,
+           duration_ms AS durationMs,
+           size_bytes AS sizeBytes,
+           sha256 AS checksum
+      FROM media_assets
+     WHERE id = #{mediaAssetId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+       AND account_id = #{ownerId}
+       AND status = 'READY'
+       AND deleted_at IS NULL
+       AND asset_type IN ('IMAGE', 'VIDEO')
+  </select>
+
+  <insert id="upsert">
+    INSERT INTO production_beat_media_selections (
+      project_id, visual_beat_id, media_asset_id, fit_mode, trim_start_ms
+    ) VALUES (
+      #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+      #{visualBeatId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+      #{mediaAssetId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+      #{fitMode}, #{trimStartMs}
+    )
+    ON CONFLICT (project_id, visual_beat_id) DO UPDATE
+       SET media_asset_id = EXCLUDED.media_asset_id,
+           fit_mode = EXCLUDED.fit_mode,
+           trim_start_ms = EXCLUDED.trim_start_ms,
+           updated_at = CURRENT_TIMESTAMP,
+           row_version = production_beat_media_selections.row_version + 1
+  </insert>
+
+  <delete id="clear">
+    DELETE FROM production_beat_media_selections
+     WHERE project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+       AND visual_beat_id = #{visualBeatId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+  </delete>
+</mapper>

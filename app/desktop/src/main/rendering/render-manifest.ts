@@ -6,6 +6,7 @@ import type {
 } from "../local-execution/backend-client";
 
 const SHA256_PATTERN = /^[0-9a-f]{64}$/i;
+const VIDEO_FIT_MODES = new Set(["TRIM", "LOOP", "FREEZE_END", "SPEED_ADJUST"]);
 
 export interface LocalRenderManifest {
   readonly version: 1;
@@ -177,10 +178,50 @@ function validateTimeline(render: ClaimedProjectRender): void {
     ) {
       throw new Error(`Invalid visual beat ${beat.visualBeatId}.`);
     }
+    validateBeatMedia(beat);
     visualClock = beat.globalEndMs;
   }
   if (visualClock !== render.totalDurationMs) {
     throw new Error("Visual timeline does not match the project duration.");
+  }
+}
+
+function validateBeatMedia(beat: ClaimedProjectRenderBeat): void {
+  if (beat.mediaType !== "IMAGE" && beat.mediaType !== "VIDEO") {
+    throw new Error(`Visual beat ${beat.visualBeatId} has an unsupported media type.`);
+  }
+  if (!["REMOTE", "LOCAL_ONLY", "HYBRID"].includes(beat.storageMode)) {
+    throw new Error(`Visual beat ${beat.visualBeatId} has an invalid storage mode.`);
+  }
+  if (!Number.isFinite(beat.trimStartMs) || beat.trimStartMs < 0) {
+    throw new Error(`Visual beat ${beat.visualBeatId} has an invalid trim start.`);
+  }
+  if (beat.sourceDurationMs != null && beat.sourceDurationMs <= 0) {
+    throw new Error(`Visual beat ${beat.visualBeatId} has an invalid source duration.`);
+  }
+
+  if (beat.mediaType === "IMAGE") {
+    if (beat.fitMode !== "TRIM" || beat.trimStartMs !== 0) {
+      throw new Error(`Image beat ${beat.visualBeatId} cannot use video fit controls.`);
+    }
+    return;
+  }
+
+  if (!VIDEO_FIT_MODES.has(beat.fitMode)) {
+    throw new Error(`Video beat ${beat.visualBeatId} has an unsupported fit mode.`);
+  }
+  if (beat.sourceDurationMs != null && beat.trimStartMs >= beat.sourceDurationMs) {
+    throw new Error(`Video beat ${beat.visualBeatId} starts after the source video ends.`);
+  }
+  const remainingMs =
+    beat.sourceDurationMs == null ? null : beat.sourceDurationMs - beat.trimStartMs;
+  if (beat.fitMode === "TRIM" && remainingMs != null && remainingMs < beat.durationMs) {
+    throw new Error(
+      `Video beat ${beat.visualBeatId} is shorter than its narration span in Trim mode.`,
+    );
+  }
+  if (beat.fitMode === "SPEED_ADJUST" && beat.sourceDurationMs == null) {
+    throw new Error(`Video beat ${beat.visualBeatId} needs a known duration for Speed Adjust.`);
   }
 }
 

@@ -75,8 +75,9 @@ public class CreateProjectRenderUseCase {
     if (!sourceTimeline.readyForRender()) {
       throw new GenerationAdmissionDeniedException(
           "PROJECT_RENDER_INPUT_NOT_READY",
-          "Project rendering requires READY narration and image assets for every production timeline beat.");
+          "Project rendering requires READY narration and visual media for every production timeline beat.");
     }
+    validateMediaForExecutionTarget(sourceTimeline, executionTarget);
     ProductionTimelineView timeline = applyBeatOverrides(sourceTimeline, command.beatOverrides());
 
     var quota =
@@ -182,6 +183,21 @@ public class CreateProjectRenderUseCase {
     return job;
   }
 
+  private static void validateMediaForExecutionTarget(
+      ProductionTimelineView timeline, RenderExecutionTarget executionTarget) {
+    if (executionTarget != RenderExecutionTarget.CLOUD) return;
+    if (timeline.beats().stream().anyMatch(beat -> "LOCAL_ONLY".equals(beat.storageMode()))) {
+      throw new GenerationAdmissionDeniedException(
+          "CLOUD_RENDER_LOCAL_MEDIA",
+          "Cloud rendering cannot use LOCAL_ONLY beat media. Render on the paired Desktop or upload the asset first.");
+    }
+    if (timeline.beats().stream().anyMatch(beat -> "VIDEO".equals(beat.mediaType()))) {
+      throw new GenerationAdmissionDeniedException(
+          "CLOUD_VIDEO_MEDIA_UNSUPPORTED",
+          "Uploaded video beats currently require LOCAL_DEVICE rendering.");
+    }
+  }
+
   private void validateExecutionTarget(
       String userId, RenderExecutionTarget executionTarget, UUID localDeviceId) {
     if (executionTarget == RenderExecutionTarget.CLOUD) {
@@ -197,11 +213,9 @@ public class CreateProjectRenderUseCase {
           "LOCAL_DEVICE_REQUIRED", "LOCAL_DEVICE project render requires a paired desktop device.");
     }
     try {
-      localDeviceAccess.requireEligibleOwnedDevice(
-          userId, localDeviceId, PROJECT_RENDER_CAPABILITY);
+      localDeviceAccess.requireEligibleOwnedDevice(userId, localDeviceId, PROJECT_RENDER_CAPABILITY);
     } catch (IllegalArgumentException | IllegalStateException exception) {
-      throw new GenerationAdmissionDeniedException(
-          "LOCAL_DEVICE_UNAVAILABLE", exception.getMessage());
+      throw new GenerationAdmissionDeniedException("LOCAL_DEVICE_UNAVAILABLE", exception.getMessage());
     }
   }
 
@@ -254,9 +268,7 @@ public class CreateProjectRenderUseCase {
         ProductionTimelineView.Beat beat = chapterBeats.get(index);
         RenderBeatOverride override = overrideByBeat.get(beat.visualBeatId());
         long weight =
-            override != null && override.durationMs() != null
-                ? override.durationMs()
-                : beat.durationMs();
+            override != null && override.durationMs() != null ? override.durationMs() : beat.durationMs();
         weights[index] = weight;
         totalWeight = Math.addExact(totalWeight, weight);
       }
@@ -296,6 +308,12 @@ public class CreateProjectRenderUseCase {
                 cameraMovement,
                 beat.assetStrategy(),
                 beat.mediaAssetId(),
+                beat.mediaType(),
+                beat.storageMode(),
+                beat.sourceDurationMs(),
+                beat.fitMode(),
+                beat.trimStartMs(),
+                beat.mediaSelectionActive(),
                 beat.storageKey(),
                 beat.sizeBytes(),
                 beat.checksum(),
@@ -396,7 +414,19 @@ public class CreateProjectRenderUseCase {
                 beat ->
                     beat.visualBeatId()
                         + ":"
+                        + beat.mediaAssetId()
+                        + ":"
+                        + beat.mediaType()
+                        + ":"
+                        + beat.storageMode()
+                        + ":"
                         + beat.checksum()
+                        + ":"
+                        + beat.sourceDurationMs()
+                        + ":"
+                        + beat.fitMode()
+                        + ":"
+                        + beat.trimStartMs()
                         + ":"
                         + beat.startMs()
                         + ":"
@@ -419,9 +449,7 @@ public class CreateProjectRenderUseCase {
   }
 
   private static String stageName(RenderExecutionTarget executionTarget) {
-    return executionTarget == RenderExecutionTarget.LOCAL_DEVICE
-        ? LOCAL_STAGE_NAME
-        : CLOUD_STAGE_NAME;
+    return executionTarget == RenderExecutionTarget.LOCAL_DEVICE ? LOCAL_STAGE_NAME : CLOUD_STAGE_NAME;
   }
 
   private static String sha256(String value) {

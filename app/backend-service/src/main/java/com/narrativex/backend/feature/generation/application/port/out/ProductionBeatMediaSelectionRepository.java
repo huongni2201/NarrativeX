@@ -1,0 +1,26 @@
+package com.narrativex.backend.feature.generation.application.port.out;
+
+import com.narrativex.backend.feature.generation.domain.enums.BeatMediaFitMode;
+import java.util.Optional;
+import java.util.UUID;
+
+public interface ProductionBeatMediaSelectionRepository {
+  Optional<SelectableMediaAsset> findSelectableAsset(String ownerId, UUID mediaAssetId);
+
+  void upsert(
+      UUID projectId,
+      UUID visualBeatId,
+      UUID mediaAssetId,
+      BeatMediaFitMode fitMode,
+      long trimStartMs);
+
+  void clear(UUID projectId, UUID visualBeatId);
+
+  record SelectableMediaAsset(
+      UUID mediaAssetId,
+      String mediaType,
+      String storageMode,
+      Long durationMs,
+      long sizeBytes,
+      String checksum) {}
+}

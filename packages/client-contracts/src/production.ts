@@ -1,3 +1,7 @@
+export type BeatMediaFitMode = "TRIM" | "LOOP" | "FREEZE_END" | "SPEED_ADJUST";
+export type BeatMediaType = "IMAGE" | "VIDEO";
+export type BeatMediaStorageMode = "REMOTE" | "LOCAL_ONLY" | "HYBRID";
+
 export interface DesktopTimelineBeat {
   chapterId: string;
   sceneIndex: number;
@@ -8,6 +12,12 @@ export interface DesktopTimelineBeat {
   cameraMovement: string;
   assetStrategy: string;
   mediaAssetId: string | null;
+  mediaType: BeatMediaType | null;
+  storageMode: BeatMediaStorageMode | null;
+  sourceDurationMs: number | null;
+  fitMode: BeatMediaFitMode;
+  trimStartMs: number;
+  mediaSelectionActive: boolean;
   startMs: number;
   endMs: number;
   durationMs: number;
@@ -24,11 +34,16 @@ export interface DesktopTimeline {
   beats: DesktopTimelineBeat[];
 }
 
+export interface UpdateBeatMediaInput {
+  mediaAssetId: string;
+  fitMode?: BeatMediaFitMode;
+  trimStartMs?: number;
+}
+
 export interface ProjectRenderBeatOverride {
   visualBeatId: string;
   durationMs?: number;
   cameraMovement?: string;
-  mediaAssetId?: string;
 }
 
 export interface LocalRenderPreflightAsset {

@@ -2,10 +2,15 @@ package com.narrativex.backend.feature.localexecution.infrastructure.persistence
 
 import com.narrativex.backend.feature.localexecution.application.port.out.LocalProjectRenderStore;
 import com.narrativex.backend.feature.localexecution.infrastructure.persistence.mybatis.LocalProjectRenderArtifactRow;
+import com.narrativex.backend.feature.localexecution.infrastructure.persistence.mybatis.LocalProjectRenderBeatMediaMapper;
+import com.narrativex.backend.feature.localexecution.infrastructure.persistence.mybatis.LocalProjectRenderBeatMediaRow;
 import com.narrativex.backend.feature.localexecution.infrastructure.persistence.mybatis.LocalProjectRenderMapper;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class MyBatisLocalProjectRenderStore implements LocalProjectRenderStore {
   private final LocalProjectRenderMapper mapper;
+  private final LocalProjectRenderBeatMediaMapper beatMediaMapper;
 
   @Override
   @Transactional
@@ -37,23 +43,36 @@ public class MyBatisLocalProjectRenderStore implements LocalProjectRenderStore {
                         chapter.checksum(),
                         chapter.durationMs()))
             .toList();
+    Map<UUID, LocalProjectRenderBeatMediaRow> mediaByBeat =
+        beatMediaMapper.listBeatMedia(row.generationJobId()).stream()
+            .collect(Collectors.toMap(LocalProjectRenderBeatMediaRow::visualBeatId, Function.identity()));
     var beats =
         mapper.listBeats(row.generationJobId()).stream()
             .map(
-                beat ->
-                    new BeatInput(
-                        beat.chapterId(),
-                        beat.sceneIndex(),
-                        beat.beatIndex(),
-                        beat.visualBeatId(),
-                        beat.mediaAssetId(),
-                        beat.globalStartMs(),
-                        beat.globalEndMs(),
-                        beat.durationMs(),
-                        beat.cameraMovement(),
-                        beat.storageKey(),
-                        beat.sizeBytes(),
-                        beat.checksum()))
+                beat -> {
+                  var media = mediaByBeat.get(beat.visualBeatId());
+                  if (media == null) {
+                    throw new IllegalStateException("Project render beat media snapshot is missing");
+                  }
+                  return new BeatInput(
+                      beat.chapterId(),
+                      beat.sceneIndex(),
+                      beat.beatIndex(),
+                      beat.visualBeatId(),
+                      beat.mediaAssetId(),
+                      beat.globalStartMs(),
+                      beat.globalEndMs(),
+                      beat.durationMs(),
+                      beat.cameraMovement(),
+                      media.mediaType(),
+                      media.storageMode(),
+                      media.sourceDurationMs(),
+                      media.fitMode(),
+                      media.trimStartMs(),
+                      beat.storageKey(),
+                      beat.sizeBytes(),
+                      beat.checksum());
+                })
             .toList();
     return Optional.of(
         new ClaimedProjectRender(
@@ -92,8 +111,7 @@ public class MyBatisLocalProjectRenderStore implements LocalProjectRenderStore {
   public void complete(
       UUID jobId, UUID deviceId, String workerId, UUID leaseToken, CompletionResult result) {
     if (!mapper.ownsLease(jobId, deviceId, workerId, leaseToken)) {
-      throw new IllegalStateException(
-          "Desktop project render lease is no longer owned by this device");
+      throw new IllegalStateException("Desktop project render lease is no longer owned by this device");
     }
 
     LocalProjectRenderArtifactRow existing = mapper.findArtifact(jobId);
@@ -133,9 +151,7 @@ public class MyBatisLocalProjectRenderStore implements LocalProjectRenderStore {
   @Override
   @Transactional
   public boolean cancel(UUID jobId, UUID deviceId, String workerId, UUID leaseToken) {
-    if (mapper.cancelStage(jobId, deviceId, workerId, leaseToken) != 1) {
-      return false;
-    }
+    if (mapper.cancelStage(jobId, deviceId, workerId, leaseToken) != 1) return false;
     if (mapper.cancelJob(jobId, deviceId) != 1) {
       throw new IllegalStateException("Desktop project render cancellation was not persisted");
     }
@@ -151,9 +167,7 @@ public class MyBatisLocalProjectRenderStore implements LocalProjectRenderStore {
       UUID leaseToken,
       String errorCode,
       boolean retryable) {
-    if (mapper.failStage(jobId, deviceId, workerId, leaseToken, retryable) != 1) {
-      return false;
-    }
+    if (mapper.failStage(jobId, deviceId, workerId, leaseToken, retryable) != 1) return false;
     if (mapper.failJob(jobId, deviceId, errorCode, retryable) != 1) {
       throw new IllegalStateException("Desktop project render job failure state was not persisted");
     }
