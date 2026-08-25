@@ -9,6 +9,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.narrativex.backend.feature.auth.application.exception.InvalidDesktopGuestCredentialException;
 import com.narrativex.backend.feature.auth.application.port.out.DesktopGuestInstallationRepository;
 import com.narrativex.backend.feature.auth.application.port.out.GuestOwnershipTransferPort;
 import java.nio.charset.StandardCharsets;
@@ -17,7 +18,6 @@ import java.util.HexFormat;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
-import org.springframework.security.authentication.BadCredentialsException;
 
 class DesktopGuestIdentityServiceTest {
   private static final String DEVICE_ID = "00000000-0000-4000-8000-000000000001";
@@ -53,7 +53,9 @@ class DesktopGuestIdentityServiceTest {
                     DEVICE_UUID, "guest-stable", sha256("x".repeat(43)))));
     DesktopGuestIdentityService service = new DesktopGuestIdentityService(installations, ownership);
 
-    assertThrows(BadCredentialsException.class, () -> service.establish(DEVICE_ID, SECRET));
+    assertThrows(
+        InvalidDesktopGuestCredentialException.class,
+        () -> service.establish(DEVICE_ID, SECRET));
 
     verify(installations, never()).touch(any(UUID.class), any());
   }

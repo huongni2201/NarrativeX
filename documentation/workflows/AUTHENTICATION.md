@@ -105,7 +105,7 @@ The stable guest ID has the form `guest-<uuid-v7>`. It is an internal principal 
 
 During rollout, if an old ephemeral `guest-<uuid>` session is present when the stable installation is first established, the backend transfers its owned workspace rows to the stable guest ID first.
 
-On successful Desktop Google exchange, the auth application transfers guest-scoped mutable workspace ownership before replacing the session identity:
+On successful Desktop Google exchange, the auth application transfers only guest-created mutable workspace ownership before replacing the session identity:
 
 ```text
 projects.owner_id
@@ -113,8 +113,9 @@ characters.owner_id
 chapter_creation_idempotency.owner_id
 media_assets.account_id
 media_asset_checksums.account_id / canonical rows
-media_upload_sessions.account_id
 ```
+
+Cloud/account-bound state such as `media_upload_sessions`, generation jobs, provider operations, quota/billing rows and account preferences is not claimed by the guest transfer. Those workflows require `ROLE_USER` before creation.
 
 Checksum collisions are deduplicated before `media_asset_checksums.account_id` is moved. Project IDs, chapter IDs, character IDs and asset IDs do not change, so the renderer does not need to redirect or reconstruct the editor route after login.
 

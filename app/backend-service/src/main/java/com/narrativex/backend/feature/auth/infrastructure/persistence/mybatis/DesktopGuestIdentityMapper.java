@@ -38,7 +38,4 @@ public interface DesktopGuestIdentityMapper extends NarrativeXMyBatisMapper {
 
   int transferMediaChecksums(
       @Param("sourceUserId") String sourceUserId, @Param("targetUserId") String targetUserId);
-
-  int transferMediaUploadSessions(
-      @Param("sourceUserId") String sourceUserId, @Param("targetUserId") String targetUserId);
 }

@@ -72,8 +72,4 @@
     <update id="transferMediaChecksums">
         UPDATE media_asset_checksums SET account_id = #{targetUserId} WHERE account_id = #{sourceUserId}
     </update>
-
-    <update id="transferMediaUploadSessions">
-        UPDATE media_upload_sessions SET account_id = #{targetUserId} WHERE account_id = #{sourceUserId}
-    </update>
 </mapper>
