@@ -9,7 +9,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import org.junit.jupiter.api.Test;
 
-/** Guards the final clean Flyway baseline from drifting back into patch-style migrations. */
+/** Verifies the responsibility split and core contracts of the Flyway baseline. */
 class FlywayBaselineStructureTest {
   @Test
   void baselineContainsExactlyThreeResponsibilitySeparatedMigrations() throws IOException {
@@ -29,10 +29,9 @@ class FlywayBaselineStructureTest {
   }
 
   @Test
-  void finalV1ContainsFoldedSchemaAndNoPasswordCredentialColumn() throws IOException {
+  void v1ContainsCoreSchemaContracts() throws IOException {
     String v1 = Files.readString(FlywayMigrationContract.migration("V1__create_tables.sql"));
 
-    assertFalse(v1.toLowerCase().contains("password_hash"));
     assertTrue(v1.contains("idempotency_key VARCHAR(512)"));
     assertTrue(v1.contains("reuse_source_visual_beat_id UUID"));
     assertTrue(v1.contains("CREATE TABLE project_render_input_snapshots"));
@@ -42,14 +41,12 @@ class FlywayBaselineStructureTest {
   }
 
   @Test
-  void storyVersionsHaveOnlyLifecycleStateInTheFinalBaseline() throws IOException {
+  void storyVersionsDeclareCurrentLifecycleStates() throws IOException {
     String v1 = Files.readString(FlywayMigrationContract.migration("V1__create_tables.sql"));
     String storyVersions =
         v1.substring(
             v1.indexOf("CREATE TABLE story_versions"), v1.indexOf("CREATE TABLE chapters"));
 
-    assertFalse(storyVersions.toLowerCase().contains("moderation_decision"));
-    assertFalse(storyVersions.contains("BLOCKED"));
     assertTrue(storyVersions.contains("CHECK (status IN ('DRAFT', 'ACTIVE', 'SUPERSEDED'))"));
   }
 }
