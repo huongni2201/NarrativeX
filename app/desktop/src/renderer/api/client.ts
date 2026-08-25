@@ -1,9 +1,10 @@
+import { requestAuthentication } from "./auth-required-event";
+
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080").replace(
   /\/$/,
   "",
 );
 const DEFAULT_TIMEOUT_MS = 30_000;
-const AUTH_REQUIRED_EVENT = "narrativex:auth-required";
 
 interface CsrfTokenResponse {
   token: string;
@@ -115,11 +116,7 @@ export async function apiRequest<T>(
       message = responseBody.message;
     }
     if (responseBody?.code === "AUTHENTICATION_REQUIRED") {
-      window.dispatchEvent(
-        new CustomEvent(AUTH_REQUIRED_EVENT, {
-          detail: { reason: message, path },
-        }),
-      );
+      requestAuthentication(message, path);
     }
     if (response.status === 401 || response.status === 403) csrfTokenPromise = undefined;
     throw new DesktopApiError(path, response.status, message);
