@@ -19,7 +19,7 @@ This is the single maintained feature/status view. Current code, migrations and 
 | Cloud R2 pipeline media storage | IMPLEMENTED / LEGACY for Desktop | retained cloud/worker storage path |
 | Cloud Google Drive final MP4 storage | IMPLEMENTED foundation / FALLBACK | retained cloud/server final-video path |
 | Cloud IMAGE_MOTION render | IMPLEMENTED foundation / FALLBACK | worker FFmpeg/ffprobe path remains available |
-| Electron Desktop primary client | IMPLEMENTED foundation | primary editor target; legacy web remains temporarily |
+| Electron Desktop only editor client | IMPLEMENTED foundation | sole supported editor; former web client removed |
 | Secure main/preload/renderer split | IMPLEMENTED foundation | native capabilities outside renderer |
 | Google OAuth-only Desktop login | IMPLEMENTED foundation | system browser + one-time deep-link handoff + server session |
 | Password login/register/forgot | NOT TARGET | do not reintroduce production product flow |
@@ -35,8 +35,8 @@ This is the single maintained feature/status view. Current code, migrations and 
 | Restart-safe local render recovery | PARTIAL | complete process-restart resume/recovery not yet guaranteed |
 | Automatic device registration after login | TARGET | explicit pairing is current AS-IS behavior |
 | Complete image/TTS/import local materialization | PARTIAL | required before cloud-independent local creator loop is complete |
-| Full Desktop feature parity | PARTIAL | editor shell/features exist; legacy web remains |
-| Legacy web removal | TARGET | delete only after parity/reliability/dependency gates |
+| Full Desktop feature completeness | PARTIAL | remaining editor/review/recovery roadmap work is still being hardened |
+| Legacy web removal | IMPLEMENTED | former `app/frontend-web` removed from repository and active runtime |
 | Disk cleanup/backup/move/repair | TARGET | production local-first hardening |
 | Packaging/signing/auto-update | TARGET | production Desktop release hardening |
 | MyBatis-only production persistence | IMPLEMENTED | all production persistence uses MyBatis + explicit SQL |

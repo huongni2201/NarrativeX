@@ -7,7 +7,7 @@
 ## Current checkpoint — IMPLEMENTED foundations
 
 ```text
-Electron Desktop primary editor
+Electron Desktop only supported editor
   -> Google OAuth system-browser handoff
   -> backend-authoritative Project/Chapter/domain state
   -> local project workspace + manifest
@@ -113,15 +113,16 @@ cloud final MP4      -> Google Drive
 
 Maintain it only as required for compatibility/provider workflows and fallback. Do not make new Desktop features depend on cloud storage without an explicit cross-device/shared-media requirement.
 
-## Track G — Legacy web removal — TARGET
+## Track G — Legacy web removal — IMPLEMENTED
 
-Remove `app/frontend-web` after:
+The former `app/frontend-web` client has been removed from the repository and active runtime topology. The completed removal evidence is:
 
-- Desktop screen/workflow parity;
-- local media materialization coverage;
-- auth/protocol packaging validation;
-- local render reliability/recovery definition;
-- no CI/deployment/docs dependency requires Next.js.
+- no `app/frontend-web` path in the latest tree;
+- production Compose has no frontend or Caddy service;
+- Desktop system-browser OAuth uses the backend auth flow and `narrativex://` handoff;
+- no supported editor or deployment dependency requires Next.js.
+
+Remaining Desktop roadmap items are tracked independently; they do not require reintroducing a browser editor.
 
 ## Fast-follow after reliable creator loop
 

@@ -92,4 +92,4 @@ The script runs `npm run check` first and then invokes the stable `electron-buil
 
 ## Migration rule
 
-`app/frontend-web` remains a temporary parity reference until desktop reaches the migration parity gate. New editor UX, local filesystem integration and final FFmpeg execution belong in `app/desktop`; do not add new desktop-only behavior back into the web client.
+`app/desktop` is the only supported editor client. The former `app/frontend-web` client was removed from the repository; do not recreate a parallel browser editor without an explicit architecture decision. New editor UX, local filesystem integration and final FFmpeg execution belong in Desktop.

@@ -2,11 +2,11 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-24  
-**Updated:** 2026-08-24 after the first local-execution/render implementation slice
+**Updated:** 2026-08-25 after legacy web removal and OAuth fallback cleanup
 
 ## Context
 
-NarrativeX is migrating its primary creator experience from a browser studio to a dense desktop editor with a persistent activity bar, project explorer, preview, inspector, render queue and multi-track timeline.
+NarrativeX's creator experience is a dense desktop editor with a persistent activity bar, project explorer, preview, inspector, render queue and multi-track timeline. The former browser editor was removed after the Desktop migration gates completed.
 
 The Desktop client also owns native capabilities that should not exist in a browser renderer: local project storage, system file/folder selection, protected device credentials, deep-link handling and FFmpeg/ffprobe execution.
 
@@ -14,9 +14,9 @@ The backend remains authoritative for durable domain state, ownership, policy an
 
 ## Decision
 
-`app/desktop` is the primary NarrativeX editor client, built with Electron, Electron Vite, React and TypeScript.
+`app/desktop` is the only supported NarrativeX editor client, built with Electron, Electron Vite, React and TypeScript.
 
-`app/frontend-web` remains only as a temporary legacy migration client until Desktop parity/removal gates are satisfied.
+The former `app/frontend-web` client was removed from the repository and active runtime topology. Spring browser routes that remain for Google OAuth are backend authentication flow only, not a second editor client.
 
 ### Electron main
 
@@ -70,7 +70,7 @@ At `main` commit `751f006634218efb2c398fc00c2cbfecd25e1eac`:
 - lease heartbeat, progress, completion, failure and in-process cancellation are wired;
 - FFmpeg/ffprobe probing and a full local project-render foundation exist: segment render, video concat, narration concat, mux, validation and local artifact registration.
 
-Process-restart render recovery/resume and complete feature parity with the legacy web client remain incomplete. Do not describe them as implemented.
+Process-restart render recovery/resume and several planned editor/review hardening items remain incomplete. Do not describe them as implemented, and do not treat the removed browser editor as a current dependency.
 
 ## Consequences
 
@@ -80,17 +80,17 @@ Process-restart render recovery/resume and complete feature parity with the lega
 - Native storage/render features have an explicit security boundary.
 - Local long-form media/render flows avoid unnecessary cloud transfer.
 - The backend remains one durable business/control authority.
-- Migration can remain incremental while the legacy web client still exists.
+- Remaining Desktop roadmap work can proceed without a parallel browser editor.
 
 ### Negative
 
 - Two client dependency graphs exist temporarily.
 - Desktop packaging, auto-update, disk cleanup, backup/device migration and crash recovery need production hardening.
-- Feature parity must be tracked before `app/frontend-web` is deleted.
+- Feature completeness remains tracked independently from the completed browser-client removal.
 
 ## Invariants
 
-1. New primary editor features target `app/desktop`, not `app/frontend-web`.
+1. New editor features target `app/desktop`; do not recreate `app/frontend-web` without an explicit architecture decision.
 2. Renderer code never gains unrestricted Node.js/filesystem/process access.
 3. Native capabilities cross preload as narrow typed actions.
 4. Backend remains authoritative for ownership, policy, job admission and durable execution state.

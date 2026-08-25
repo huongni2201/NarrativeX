@@ -14,7 +14,7 @@ PostgreSQL state, not Redis messages, renderer memory or process memory, determi
 | Desktop final MP4 bytes | local project `artifacts/` | backend stores `LOCAL_DESKTOP` + opaque artifact identity/metadata |
 | Cloud pipeline media bytes | Cloudflare R2 | retained cloud/legacy path |
 | Cloud final MP4 bytes | Google Drive | retained cloud/legacy path |
-| Browser/Desktop server session | Redis via Spring Session | availability dependency, not business-state authority |
+| Server-managed session (OAuth callback/Desktop API) | Redis via Spring Session | availability dependency, not business-state authority |
 | Local-execution device credential | Electron protected storage | machine credential, not user session identity |
 
 ## Desktop authentication
@@ -147,7 +147,7 @@ Drive resumable upload/idempotent fingerprint lookup remain cloud-path concerns.
 - complete local materialization of all image/TTS/import result paths;
 - restart-safe local render recovery/resume;
 - automatic device registration if explicit pairing is removed;
-- full Desktop editor parity and legacy web removal;
+- remaining Desktop editor/review workflow completeness;
 - local disk cleanup/backup/move/repair UX;
 - narration-driven VisualScenePlanner/review;
 - richer image approval/reuse/reframe/edit lineage;

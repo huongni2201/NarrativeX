@@ -32,7 +32,7 @@ This directory records decisions that affect more than one feature or change a p
    Provider retry bounds, circuit breaking, reconciliation and cancellation.
 
 10. **[ADR-0010: Establish the Electron desktop editor client boundary](./ADR-0010-desktop-editor-client-boundary.md)**  
-    `app/desktop` is the primary editor client. Electron main owns native capabilities/local execution, preload is narrow, renderer owns UI only, and `app/frontend-web` is temporary legacy migration surface.
+   `app/desktop` is the only supported editor client. Electron main owns native capabilities/local execution, preload is narrow, renderer owns UI only, and the former `app/frontend-web` client has been removed.
 
 11. **[ADR-0011: Google OAuth-only identity with Desktop system-browser handoff](./ADR-0011-google-oauth-only-desktop-auth.md)**  
     Google-only end-user authentication, system-browser OIDC, one-time `narrativex://` handoff into a server-managed NarrativeX session, and strict separation from local-execution device tokens.

@@ -1,7 +1,7 @@
 # Frontend Styling & Color Tokens Rule
 
 ## Core Requirement
-All frontend components must use centralized design tokens and semantic CSS variables defined in global CSS (`app/frontend-web/src/app/globals.css`) and exposed via Tailwind CSS (`app/frontend-web/tailwind.config.ts`).
+All Desktop renderer components must use centralized design tokens and semantic CSS variables defined in `app/desktop/src/renderer/styles.css`. The former browser editor was removed and is not a styling target.
 
 ## Rules
 
@@ -9,9 +9,9 @@ All frontend components must use centralized design tokens and semantic CSS vari
    - Do NOT use arbitrary inline hex color classes in component files (e.g. `bg-[#0d1420]`, `border-[#142637]`, `text-[#f8fafc]`).
    - Do NOT hardcode inline hex values in `style={{ backgroundColor: '#...' }}` unless dynamically computed at runtime (e.g. user color picker).
 
-2. **If a Token is Missing, Create it in Global CSS**:
-   - If a new surface, border, accent, or status color is needed for a design, add the CSS variable in `:root` in `app/frontend-web/src/app/globals.css`.
-   - Map the variable in `app/frontend-web/tailwind.config.ts`.
+2. **If a Token is Missing, Create it in the Desktop renderer token layer**:
+   - If a new surface, border, accent, or status color is needed for a design, add the semantic CSS variable in `:root` in `app/desktop/src/renderer/styles.css`.
+   - Use the token through the existing Desktop renderer styling conventions.
    - Use the semantic class (e.g. `bg-surface-card`, `bg-surface-panel`, `border-border-dark`, `text-text-muted`) in component code.
 
 3. **Available Global Tokens**:

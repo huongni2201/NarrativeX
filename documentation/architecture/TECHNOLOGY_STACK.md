@@ -6,13 +6,13 @@ Desktop client/media/render boundaries are governed by ADR-0010, ADR-0011 and AD
 
 | Layer | Current stack | Current role |
 |---|---|---|
-| Desktop | Electron 37, Electron Vite 4, React 19, TypeScript, React Router, TanStack Query, Zustand, Lucide | **Primary editor client**; native filesystem/project storage, system-browser auth callback and local execution through Electron main |
-| Legacy Web | Next.js 16, React 19, TypeScript, TanStack Query, Zustand | Temporary migration/compatibility client; not the target editor architecture |
+| Desktop | Electron 37, Electron Vite 4, React 19, TypeScript, React Router, TanStack Query, Zustand, Lucide | **Only supported editor client**; native filesystem/project storage, system-browser auth callback and local execution through Electron main |
+| Browser OAuth flow | Spring Security OAuth2/OIDC endpoints | Backend authentication flow only; no supported browser editor client |
 | Backend | Java 25, Spring Boot 4.1, Security/OAuth2, Spring Session Redis, Actuator | modular monolith, ownership/policy, durable orchestration, MediaPlan/job/lease authority |
 | Persistence | PostgreSQL 18 target, Flyway, MyBatis + explicit SQL | sole production persistence path for durable application/control metadata |
 | Redis | Spring Data Redis + Spring Session Redis | server-managed sessions and transient/non-authoritative hints |
 | Worker | Python 3.12+, Pydantic, HTTPX, asyncpg, google-auth, boto3 | async provider/media execution and retained cloud/server paths |
-| Shared client contracts | `packages/client-contracts` | typed backend contracts shared by Desktop/migration clients |
+| Shared client contracts | `packages/client-contracts` | typed backend contracts consumed by Desktop |
 | AI analysis | Vertex Gemini | structured Chapter analysis |
 | Image generation | Vertex Gemini image execution | provider execution foundation; Desktop target materializes/registers project result bytes locally |
 | Narration | Google TTS + local VieNeu + uploaded-audio timeline/alignment contracts | generated/user audio; Desktop target registers project narration locally |
@@ -24,7 +24,7 @@ Desktop client/media/render boundaries are governed by ADR-0010, ADR-0011 and AD
 
 ## Desktop client boundary
 
-`app/desktop` is the primary editor client.
+`app/desktop` is the only supported editor client.
 
 ```text
 renderer
@@ -112,6 +112,6 @@ Production persistence uses MyBatis + explicit PostgreSQL SQL. The backend build
 
 Narration timing remains authoritative. `USER_PROVIDED_AUDIO` supports ordered parts/global-clock planning and TTS bypass; full multi-part render behavior must be described according to the execution path actually implemented.
 
-## Migration direction
+## Current client direction
 
-New primary editor work belongs in `app/desktop`. `app/frontend-web` is removed only after Desktop parity, packaging and reliability gates are met.
+`app/desktop` is the only supported editor client. The former `app/frontend-web` client was removed after the repository's parity, packaging and reliability/dependency gates; browser endpoints that remain are backend authentication flow, not a browser editor surface.

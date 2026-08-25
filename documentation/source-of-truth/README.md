@@ -15,7 +15,7 @@ Current code, Flyway migrations and automated tests decide factual AS-IS impleme
 NarrativeX is **desktop-first**:
 
 ```text
-Electron Desktop (primary editor)
+Electron Desktop (only supported editor)
   renderer -> UI/editor state only
   preload  -> narrow typed capability bridge
   main     -> native files, OAuth deep-link handling,
@@ -28,7 +28,7 @@ Spring Boot Backend
   -> Python provider/cloud workers
 ```
 
-`app/frontend-web` is a temporary legacy migration client, not the target editor architecture.
+`app/desktop` is the only supported editor client. The former `app/frontend-web` client was removed; browser routes that remain are backend authentication flow, not a browser editor.
 
 ## Current Desktop implemented foundations
 
@@ -84,6 +84,6 @@ A local-execution device token is a separate machine credential used only for he
 - Add local disk cleanup, backup/move/restore and repair UX.
 - Harden packaging, signing, auto-update and protocol registration.
 - Complete narration-driven `VisualScenePlanner` and richer asset reuse/approval flows.
-- Remove `app/frontend-web` only after parity/reliability/dependency gates pass.
+- Keep the removed `app/frontend-web` client out of the repository unless a new architecture decision explicitly reopens a browser editor.
 
 Derived documents must distinguish implemented Desktop foundations from these remaining gaps and must not restore cloud-first storage as the Desktop default.

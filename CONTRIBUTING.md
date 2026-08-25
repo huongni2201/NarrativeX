@@ -21,7 +21,7 @@ python -m pytest
 python -m ruff check .
 python -m mypy src
 
-# Desktop (primary client)
+# Desktop (only editor client)
 cd ../desktop
 npm ci
 npm run type-check

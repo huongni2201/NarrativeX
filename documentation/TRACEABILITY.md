@@ -16,7 +16,7 @@ This matrix maps the V1.11 contract to the current implementation checkpoint `ma
 | Cloud R2 image/narration materialization | retained worker/cloud storage adapters | IMPLEMENTED foundation / LEGACY for Desktop |
 | Cloud IMAGE_MOTION render | worker FFmpeg/ffprobe path | IMPLEMENTED foundation / FALLBACK |
 | Cloud final MP4 in Google Drive | provider-neutral final-video storage + Drive adapter | IMPLEMENTED foundation / FALLBACK |
-| Electron Desktop primary client shell | `app/desktop` Electron Vite/React renderer | IMPLEMENTED foundation |
+| Electron Desktop only editor client shell | `app/desktop` Electron Vite/React renderer | IMPLEMENTED foundation |
 | Secure Electron boundary | BrowserWindow context isolation, no Node integration, sandbox + preload | IMPLEMENTED foundation |
 | Shared Desktop client contracts | `packages/client-contracts` consumed by Desktop | IMPLEMENTED foundation |
 | Desktop system-browser Google OAuth start | `DesktopAuthService` + `/api/v1/auth/desktop/start` | IMPLEMENTED foundation |
@@ -40,8 +40,8 @@ This matrix maps the V1.11 contract to the current implementation checkpoint `ma
 | Restart-safe local render recovery/resume | no complete cross-process resume/recovery guarantee | PARTIAL |
 | Automatic post-login device registration | explicit pairing remains current path | TARGET |
 | Complete image/TTS/import local materialization | not every result path is registered directly into local manifest yet | PARTIAL |
-| Full Desktop feature parity | primary shell/features exist; legacy web remains | PARTIAL |
-| Legacy `app/frontend-web` removal | parity/dependency gates not yet complete | TARGET |
+| Full Desktop feature completeness | primary shell/features exist; remaining editor/review/recovery work is partial | PARTIAL |
+| Legacy `app/frontend-web` removal | removed from repository and active runtime topology | IMPLEMENTED |
 | Disk cleanup/backup/move/repair | local-first product hardening | TARGET |
 | Packaging/signing/auto-update hardening | production Desktop release work | TARGET |
 | VisualScenePlanner | narration-driven planner/review vertical slice remains incomplete | TARGET |
@@ -53,7 +53,7 @@ This matrix maps the V1.11 contract to the current implementation checkpoint `ma
 
 NarrativeX **does** have implemented foundations for Desktop local storage and local FFmpeg project rendering. Documentation must not describe Electron main/local render orchestration as future-only after checkpoint `751f006...`.
 
-NarrativeX **does not** yet claim restart-safe local render recovery, automatic device registration, complete local materialization for every image/TTS/import path, full Desktop feature parity or removal of the legacy web client.
+NarrativeX **does not** yet claim restart-safe local render recovery, automatic device registration, complete local materialization for every image/TTS/import path or complete Desktop product hardening. The former legacy web client has been removed.
 
 The retained R2/Google Drive cloud path remains real and supported during migration, but it is **not** the Desktop project-media source of truth.
 

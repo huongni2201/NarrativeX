@@ -1,8 +1,8 @@
 # Project Overview API Integration Report
 
-> **Primary client:** `app/desktop`  
+> **Only supported editor client:** `app/desktop`
 > **Backend:** `app/backend-service`  
-> **Legacy reference:** `app/frontend-web` remains temporarily during migration.  
+> **Editor boundary:** `app/desktop` is the only supported editor client.
 > **Rule:** UI must render backend-owned business data from real APIs; machine-local media paths stay behind Electron main/preload.
 
 ## 1. Current integration status
@@ -14,7 +14,7 @@ The Desktop migration reuses backend contracts but changes the client/media boun
 - `app/desktop` is the primary UI target;
 - backend APIs remain the durable metadata authority;
 - local project bytes are resolved by Electron main through the project manifest;
-- `app/frontend-web` is a legacy parity reference, not the target architecture.
+- the former `app/frontend-web` client was removed; any browser surface mentioned below is a backend authentication flow, not an editor client.
 
 The UI must not fabricate subscription tiers, credits, dates, production configuration, continuity state or local file availability.
 

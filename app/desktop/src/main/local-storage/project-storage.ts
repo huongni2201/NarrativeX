@@ -457,7 +457,9 @@ export class ProjectStorage {
     return this.withProjectLock(projectId, async () => {
       const manifest = await this.requireManifest(projectId);
       const source = this.projectRoot(projectId);
+      await this.assertNoSymlinks(source, "Active project workspace");
       const destinationRoot = resolve(destinationDirectory);
+      await this.assertSafeDirectoryOrMissing(destinationRoot, "Backup destination");
       await mkdir(destinationRoot, { recursive: true });
       const backupDirectory = join(
         destinationRoot,
@@ -468,6 +470,7 @@ export class ProjectStorage {
       }
       try {
         await cp(source, backupDirectory, { recursive: true, errorOnExist: true });
+        await this.assertNoSymlinks(backupDirectory, "Backup snapshot");
         const backupManifest = await readBackupManifest(backupDirectory);
         const sizeBytes = await directorySize(backupDirectory);
         const snapshot = await this.registerManagedSnapshot({
@@ -495,10 +498,14 @@ export class ProjectStorage {
 
   async restoreBackup(input: LocalProjectRestoreInput): Promise<LocalProjectRestoreResult> {
     const backupDirectory = resolve(input.backupDirectory);
+    await this.assertSafeDirectoryOrMissing(resolve(this.projectsRoot), "Projects root");
+    await this.assertNoSymlinkAncestors(backupDirectory, "Restore source");
+    await this.assertNoSymlinks(backupDirectory, "Restore source");
     const backupManifest = await readBackupManifest(backupDirectory);
     const projectId = backupManifest.projectId;
     return this.withProjectLock(projectId, async () => {
       const destination = this.projectRoot(projectId);
+      await this.assertSafeDirectoryOrMissing(destination, "Project root");
       const activeProjectDirectory = await directoryExists(destination) ? destination : null;
       if (activeProjectDirectory && !input.replaceExisting) {
         throw new Error(`Project ${projectId} already exists. Confirm replacement before restoring.`);
@@ -509,6 +516,7 @@ export class ProjectStorage {
 
       const staging = join(resolve(this.projectsRoot), `.restore-${projectId}-${process.pid}-${Date.now()}`);
       await cp(backupDirectory, staging, { recursive: true, errorOnExist: true });
+      await this.assertNoSymlinks(staging, "Restore staging directory");
       let preservedPreviousDirectory: string | null = null;
       let previousProjectSnapshot: ManagedSnapshotRecord | null = null;
       try {
@@ -569,6 +577,8 @@ export class ProjectStorage {
     return this.withProjectLock(projectId, async () => {
       const source = this.projectRoot(projectId);
       const destinationRoot = resolve(destinationDirectory);
+      await this.assertNoSymlinks(source, "Active project workspace");
+      await this.assertSafeDirectoryOrMissing(destinationRoot, "Archive destination");
       await mkdir(destinationRoot, { recursive: true });
       const archiveDirectory = join(
         destinationRoot,
@@ -722,6 +732,7 @@ export class ProjectStorage {
   }
 
   private async assertSafeDirectoryOrMissing(path: string, label: string): Promise<void> {
+    await this.assertNoSymlinkAncestors(path, label);
     try {
       const directoryStat = await lstat(path);
       if (directoryStat.isSymbolicLink() || !directoryStat.isDirectory()) {
@@ -729,6 +740,37 @@ export class ProjectStorage {
       }
     } catch (error) {
       if (!isMissingFile(error)) throw error;
+    }
+  }
+
+  private async assertNoSymlinkAncestors(path: string, label: string): Promise<void> {
+    let current = resolve(path);
+    while (true) {
+      try {
+        if ((await lstat(current)).isSymbolicLink()) {
+          throw new Error(`${label} contains a symlinked path component.`);
+        }
+      } catch (error) {
+        if (!isMissingFile(error)) throw error;
+      }
+      const parent = dirname(current);
+      if (parent === current) return;
+      current = parent;
+    }
+  }
+
+  private async assertNoSymlinks(path: string, label: string): Promise<void> {
+    const rootStat = await lstat(path);
+    if (rootStat.isSymbolicLink() || !rootStat.isDirectory()) {
+      throw new Error(`${label} must be a real directory without symlinks.`);
+    }
+    for (const entry of await readdir(path, { withFileTypes: true })) {
+      const child = join(path, entry.name);
+      const childStat = await lstat(child);
+      if (childStat.isSymbolicLink()) {
+        throw new Error(`${label} contains an unsafe symlink: ${entry.name}.`);
+      }
+      if (childStat.isDirectory()) await this.assertNoSymlinks(child, label);
     }
   }
 
@@ -929,6 +971,10 @@ async function directoryExists(path: string): Promise<boolean> {
 
 async function readBackupManifest(path: string): Promise<LocalProjectManifest> {
   const manifestPath = join(path, "project.manifest.json");
+  const manifestStat = await lstat(manifestPath);
+  if (!manifestStat.isFile() || manifestStat.isSymbolicLink()) {
+    throw new Error("Backup manifest must be a regular file.");
+  }
   const value = JSON.parse(await readFile(manifestPath, "utf8")) as Partial<LocalProjectManifest>;
   if (
     value.schemaVersion !== MANIFEST_SCHEMA_VERSION ||

@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 CURRENT_FILES = [
     ROOT / "README.md",
+    ROOT / "CONTRIBUTING.md",
     ROOT / "AI_CONTEXT.md",
     ROOT / "app" / "desktop" / "README.md",
     ROOT / "documentation" / "README.md",
@@ -19,6 +20,7 @@ CURRENT_FILES = [
     ROOT / "documentation" / "source-of-truth" / "README.md",
     ROOT / "documentation" / "source-of-truth" / "NARRATIVEX_PROJECT_SPEC_V1_11.md",
     ROOT / "documentation" / "plans" / "DESKTOP_APP_MIGRATION.md",
+    ROOT / "documentation" / "decisions" / "ADR-0010-desktop-editor-client-boundary.md",
     ROOT / "documentation" / "codebase" / "CODEBASE_MAP.md",
     ROOT / "documentation" / "architecture" / "SYSTEM_ARCHITECTURE.md",
     ROOT / "documentation" / "architecture" / "SERVICE_BOUNDARIES.md",
@@ -29,6 +31,11 @@ CURRENT_FILES = [
     ROOT / "documentation" / "workflows" / "STORY_TO_VIDEO.md",
     ROOT / "documentation" / "workflows" / "NARRATION_AUDIO.md",
 ]
+
+CANONICAL_CURRENT_FILES = {
+    ROOT / "documentation" / "source-of-truth" / "README.md",
+    ROOT / "documentation" / "source-of-truth" / "NARRATIVEX_PROJECT_SPEC_V1_11.md",
+}
 
 REQUIRED_PATHS = [
     ROOT / "documentation" / "source-of-truth" / "NARRATIVEX_PROJECT_SPEC_V1_11.md",
@@ -91,8 +98,22 @@ FORBIDDEN = {
         r"^\s*Browser\s*/\s*Next\.js\s+Studio\s*$",
         re.IGNORECASE | re.MULTILINE,
     ),
-    "desktop final artifact incorrectly forced to Drive": re.compile(
-        r"Desktop[^\n]{0,120}(?:final|rendered)[^\n]{0,80}(?:must|always)[^\n]{0,40}Google Drive",
+}
+
+DESKTOP_DRIVE_FORBIDDEN_LABEL = "desktop final artifact incorrectly forced to Drive"
+
+DESKTOP_ONLY_FORBIDDEN = {
+    "removed web client described as current": re.compile(
+        r"(?:`?app/frontend-web`?|legacy\s+(?:next\.js\s+)?web\s+client)\s+"
+        r"(?:remains?|is\s+(?:a\s+temporary|temporary|removed\s+only\s+after))",
+        re.IGNORECASE,
+    ),
+    "web removal still marked as target": re.compile(
+        r"(?:legacy\s+web\s+removal|app/frontend-web[^\n]{0,40}removal)\s*\|\s*TARGET",
+        re.IGNORECASE,
+    ),
+    "web removal still gated as future work": re.compile(
+        r"remove\s+`?app/frontend-web`?\s+only after",
         re.IGNORECASE,
     ),
 }
@@ -113,7 +134,52 @@ def checkpoint_sha(path: Path, pattern: re.Pattern[str]) -> str | None:
     return match.group(1) if match else None
 
 
+def contains_desktop_drive_assertion(text: str) -> bool:
+    """Detect a positive Desktop→Google Drive requirement, not a negated warning."""
+    for sentence in re.split(r"(?:\r?\n+)|(?<=[.!?])\s+", text):
+        if not re.search(r"\bdesktop\b", sentence, re.IGNORECASE):
+            continue
+        if not re.search(r"\bgoogle\s+drive\b", sentence, re.IGNORECASE):
+            continue
+        if re.search(
+            r"\b(?:must\s+not|should\s+not|does\s+not|do\s+not|never|not\s+required)\b",
+            sentence,
+            re.IGNORECASE,
+        ):
+            continue
+        if re.search(
+            r"\b(?:must|always|has\s+to|needs\s+to|required\s+to)\b[^.!?\n]{0,100}"
+            r"\bgoogle\s+drive\b",
+            sentence,
+            re.IGNORECASE,
+        ):
+            return True
+    return False
+
+
+def desktop_only_invariant_errors(path: Path, text: str, frontend_web_exists: bool) -> list[str]:
+    if frontend_web_exists:
+        return []
+    return [f"{path}: {label}" for label, pattern in DESKTOP_ONLY_FORBIDDEN.items() if pattern.search(text)]
+
+
+def check_fixture(path: Path) -> int:
+    text = path.read_text(encoding="utf-8")
+    if contains_desktop_drive_assertion(text):
+        print(f"Documentation drift fixture rejected: {path}")
+        print(f"- {DESKTOP_DRIVE_FORBIDDEN_LABEL}")
+        return 1
+    print(f"Documentation drift fixture passed: {path}")
+    return 0
+
+
 def main() -> int:
+    if len(sys.argv) > 1:
+        if len(sys.argv) != 3 or sys.argv[1] != "--fixture":
+            print("usage: check-docs-drift.py [--fixture PATH]", file=sys.stderr)
+            return 2
+        return check_fixture(Path(sys.argv[2]))
+
     errors: list[str] = []
 
     for path in REQUIRED_PATHS:
@@ -128,6 +194,13 @@ def main() -> int:
         for label, pattern in FORBIDDEN.items():
             if pattern.search(text):
                 errors.append(f"{path.relative_to(ROOT)}: {label}")
+        if path not in CANONICAL_CURRENT_FILES and contains_desktop_drive_assertion(text):
+            errors.append(f"{path.relative_to(ROOT)}: {DESKTOP_DRIVE_FORBIDDEN_LABEL}")
+        errors.extend(
+            desktop_only_invariant_errors(
+                path.relative_to(ROOT), text, (ROOT / "app" / "frontend-web").exists()
+            )
+        )
         if re.search(r"\bminio\b", text, re.IGNORECASE):
             errors.append(f"{path.relative_to(ROOT)}: MinIO is not part of the current storage contract")
         if LEGACY_STORAGE_ENV.search(text):

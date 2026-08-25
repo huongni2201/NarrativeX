@@ -38,7 +38,7 @@ NarrativeX is a **desktop-first AI-assisted long-form story-video studio**. It t
 
 The product is:
 
-- **desktop-first** — Electron Desktop is the primary editor client;
+- **desktop-only editor boundary** — Electron Desktop is the only supported editor client;
 - **chapter-first** — Chapter remains the primary persisted source unit;
 - **review-first** — generated/reviewed state is versioned rather than silently overwritten;
 - **audio-timeline-first** — narration timing is authoritative for visual duration;
@@ -48,7 +48,7 @@ The product is:
 
 Creating a Project persists metadata. Saving a Chapter persists source. Analyze, narration/audio processing, image generation and rendering are explicit operations.
 
-`app/frontend-web` is a temporary legacy migration client and must not constrain new Desktop product architecture.
+`app/desktop` is the only supported editor client. The former `app/frontend-web` client was removed after the Desktop migration gates; backend browser routes that remain are OAuth authentication flow only and must not be treated as an editor client.
 
 ---
 
@@ -144,8 +144,8 @@ Retained cloud/legacy path
   -> R2 pipeline media
   -> Google Drive cloud final MP4
 
-Legacy Next.js web client
-  -> temporary migration surface
+System-browser OAuth flow
+  -> backend authentication flow only; no browser editor surface
 ```
 
 The Desktop renderer is not a second domain authority. The backend does not become a local-file server for Desktop paths.
@@ -302,8 +302,8 @@ Cloud render/storage may coexist until Desktop parity/reliability gates are met.
 | In-process local render cancellation | IMPLEMENTED foundation | AbortController-based cancellation exists |
 | Restart-safe local render recovery | PARTIAL | no complete resume/recovery guarantee across Desktop process restart |
 | Complete local materialization for image/TTS/import outputs | PARTIAL | migration still needed across every workflow |
-| Desktop editor feature parity | PARTIAL | core shell/features exist; legacy web not yet removable |
-| Legacy web removal | TARGET | remove only after parity/reliability/dependency gates |
+| Desktop editor feature completeness | PARTIAL | core shell/features exist; remaining roadmap hardening is incomplete |
+| Legacy web removal | IMPLEMENTED | former `app/frontend-web` removed from repository and active runtime |
 | Disk cleanup/backup/move/repair | TARGET | required for production local-first UX |
 | Packaging/signing/auto-update hardening | TARGET | production Desktop release work |
 | VisualScenePlanner adaptive review loop | TARGET | narration-driven planner/review remains incomplete |
@@ -480,19 +480,18 @@ Regeneration/re-analysis must preserve immutable history where required. Input c
 
 ---
 
-## 19. Legacy web deprecation rule
+## 19. Legacy web removal status
 
-`app/frontend-web` remains in the repository only during migration.
+The former `app/frontend-web` client is removed from the repository and active runtime topology.
 
-Do not delete it until:
+The removal evidence is:
 
-- required product screens/workflows have Desktop parity;
-- auth/session flows are proven on packaged Desktop builds;
-- generation/import outputs needed by local render are locally materialized;
-- local render reliability/recovery requirements are defined/proven;
-- no deployment/test/docs tooling still depends on Next.js runtime behavior.
+- no `app/frontend-web` path exists in the latest tree;
+- production Compose has no frontend or Caddy service;
+- Desktop system-browser OAuth uses the backend auth flow and one-time `narrativex://` handoff;
+- no supported editor or deployment dependency requires Next.js runtime behavior.
 
-After those gates, remove web code and its stale documentation rather than leaving a permanent dual-client architecture by accident.
+Remaining Desktop feature, recovery and packaging work is tracked independently and must not reintroduce a permanent dual-client architecture.
 
 ---
 
@@ -506,8 +505,7 @@ After those gates, remove web code and its stale documentation rather than leavi
 6. Harden packaging, code signing, auto-update and custom-protocol registration across supported OSes.
 7. Complete narration-driven VisualScenePlanner/review loop.
 8. Complete usage/cost reconciliation and production observability/retention/DR evidence.
-9. Remove `app/frontend-web` and cloud-first Desktop assumptions only after parity gates pass.
-10. Add publishing/export/upload features through explicit user actions/provider-neutral boundaries without making cloud storage mandatory for local editing.
+9. Add publishing/export/upload features through explicit user actions/provider-neutral boundaries without making cloud storage mandatory for local editing.
 
 ---
 
@@ -521,4 +519,4 @@ After those gates, remove web code and its stale documentation rather than leavi
 - ADR-0003 remains valid for retained cloud/legacy worker storage/provider execution.
 - Derived docs must not claim that Desktop project media must live in R2 or that Desktop final MP4 must live in Google Drive.
 - Derived docs must not describe local FFmpeg orchestration as future-only after checkpoint `751f006...`.
-- Derived docs must not claim restart-safe recovery, full local materialization, full Desktop parity or legacy-web removal until code proves them.
+- Derived docs must not claim restart-safe recovery or full local materialization until code proves them; they must record legacy-web removal as implemented while the former client remains absent.

@@ -7,7 +7,6 @@ import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
@@ -20,9 +19,6 @@ public class DesktopAuthenticationSuccessHandler implements AuthenticationSucces
 
   private final DesktopAuthHandoffStore handoffStore;
 
-  @Value("${narrativex.security.frontend-base-url:http://localhost:3000}")
-  private String frontendBaseUrl;
-
   @Override
   public void onAuthenticationSuccess(
       HttpServletRequest request, HttpServletResponse response, Authentication authentication)
@@ -32,7 +28,9 @@ public class DesktopAuthenticationSuccessHandler implements AuthenticationSucces
             ? null
             : request.getSession(false).getAttribute(REDIRECT_SESSION_KEY);
     if (!(redirect instanceof String redirectUri)) {
-      response.sendRedirect(frontendBaseUrl);
+      response.sendError(
+          HttpServletResponse.SC_BAD_REQUEST,
+          "Desktop OAuth must be started through /api/v1/auth/desktop/start.");
       return;
     }
 

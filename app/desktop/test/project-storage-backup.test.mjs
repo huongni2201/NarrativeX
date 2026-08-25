@@ -131,3 +131,42 @@ test("storage rejects a symlinked registry and project root", async (t) => {
     ]);
   }
 });
+
+test("backup and restore reject symlinks in the snapshot tree", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "narrativex-storage-snapshot-link-"));
+  const backupRoot = await mkdtemp(join(tmpdir(), "narrativex-storage-snapshot-backup-"));
+  const outside = await mkdtemp(join(tmpdir(), "narrativex-storage-snapshot-outside-"));
+  try {
+    const storage = new ProjectStorage(root);
+    await storage.ensureProject(projectId);
+    const target = join(outside, "secret.bin");
+    await writeFile(target, "must not escape", "utf8");
+    const activeLink = join(root, projectId, "cache", "segments", "active-link.bin");
+    try {
+      await symlink(target, activeLink);
+    } catch (error) {
+      if (error?.code === "EPERM" || error?.code === "EACCES") {
+        t.skip("symlink creation is not permitted on this host");
+        return;
+      }
+      throw error;
+    }
+    await assert.rejects(() => storage.createBackup(projectId, backupRoot), /symlink/i);
+    await rm(activeLink, { force: true });
+
+    const backup = await storage.createBackup(projectId, backupRoot);
+    const backupDirectory = join(backupRoot, (await readdir(backupRoot)).find((entry) => entry.endsWith(".narrativex")));
+    await symlink(target, join(backupDirectory, "escaped.bin"));
+    await assert.rejects(
+      () => storage.restoreBackup({ backupDirectory, replaceExisting: true }),
+      /symlink/i,
+    );
+    assert.match(backup.snapshotId, /^[0-9a-f-]{36}$/);
+  } finally {
+    await Promise.all([
+      rm(root, { recursive: true, force: true }),
+      rm(backupRoot, { recursive: true, force: true }),
+      rm(outside, { recursive: true, force: true }),
+    ]);
+  }
+});

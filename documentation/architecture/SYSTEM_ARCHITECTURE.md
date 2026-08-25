@@ -3,7 +3,7 @@
 **Canonical source:** `../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`  
 **Desktop decisions:** ADR-0010, ADR-0011, ADR-0012
 
-NarrativeX is now desktop-first. The Spring Boot backend remains the authoritative control plane for durable business/domain state, while Electron Desktop is the primary editor and owns machine-local project bytes/native execution through a strict main/preload/renderer boundary.
+NarrativeX is now desktop-only at the editor boundary. The Spring Boot backend remains the authoritative control plane for durable business/domain state, while Electron Desktop is the only supported editor and owns machine-local project bytes/native execution through a strict main/preload/renderer boundary.
 
 ## Logical topology
 
@@ -56,8 +56,8 @@ Retained cloud/legacy execution
   -> Cloudflare R2 pipeline media
   -> Google Drive cloud-rendered final MP4
 
-Legacy Next.js client
-  -> temporary migration/compatibility surface only
+System-browser OAuth flow
+  -> backend authentication flow only; not an editor client
 ```
 
 ## Authority boundaries
@@ -232,6 +232,6 @@ Still incomplete:
 - restart-safe local render recovery/resume;
 - automatic device registration if explicit pairing is removed;
 - complete image/TTS/import local materialization;
-- full Desktop editor parity and removal of `app/frontend-web`;
+- remaining Desktop editor/review workflow completion;
 - disk cleanup/backup/move/repair UX;
 - production packaging/signing/auto-update hardening.
