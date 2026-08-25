@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.auth.infrastructure.persistence.mybatis.GuestWorkspaceMapper">
+    <update id="transferProjects">
+        UPDATE projects
+           SET owner_id = #{authenticatedUserId},
+               updated_at = CURRENT_TIMESTAMP
+         WHERE owner_id = #{guestUserId}
+    </update>
+
+    <update id="transferCharacters">
+        UPDATE characters
+           SET owner_id = #{authenticatedUserId},
+               updated_at = CURRENT_TIMESTAMP
+         WHERE owner_id = #{guestUserId}
+    </update>
+
+    <update id="transferChapterCreationIdempotency">
+        UPDATE chapter_creation_idempotency
+           SET owner_id = #{authenticatedUserId}
+         WHERE owner_id = #{guestUserId}
+    </update>
+
+    <delete id="deleteGuestMediaChecksums">
+        DELETE FROM media_asset_checksums
+         WHERE account_id = #{guestUserId}
+    </delete>
+
+    <update id="transferMediaAssets">
+        UPDATE media_assets
+           SET account_id = #{authenticatedUserId}
+         WHERE account_id = #{guestUserId}
+    </update>
+
+    <insert id="rebuildMediaChecksums">
+        INSERT INTO media_asset_checksums (account_id, sha256, media_asset_id)
+        SELECT #{authenticatedUserId}, sha256, id
+          FROM media_assets
+         WHERE account_id = #{authenticatedUserId}
+           AND sha256 IS NOT NULL
+           AND status &lt;&gt; 'DELETED'
+           AND deleted_at IS NULL
+        ON CONFLICT (account_id, sha256) DO NOTHING
+    </insert>
+</mapper>

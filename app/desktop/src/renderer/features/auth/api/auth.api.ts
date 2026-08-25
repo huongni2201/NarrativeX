@@ -11,6 +11,7 @@ export interface DesktopAuthUser {
   displayName: string;
   email: string | null;
   avatarUrl: string | null;
+  guest: boolean;
 }
 
 function parseUser(value: unknown): DesktopAuthUser {
@@ -22,7 +23,8 @@ function parseUser(value: unknown): DesktopAuthUser {
     typeof user.id !== "string" ||
     typeof user.displayName !== "string" ||
     (user.email !== null && typeof user.email !== "string") ||
-    (user.avatarUrl !== null && typeof user.avatarUrl !== "string")
+    (user.avatarUrl !== null && typeof user.avatarUrl !== "string") ||
+    typeof user.guest !== "boolean"
   ) {
     throw new Error("Current user response không đúng contract.");
   }
@@ -31,6 +33,8 @@ function parseUser(value: unknown): DesktopAuthUser {
 
 export const authApi = {
   getCurrentUser: () => apiRequest<unknown>("/api/v1/auth/me").then(parseUser),
+  ensureGuestSession: () =>
+    apiRequest<unknown>("/api/v1/auth/desktop/guest", { method: "POST" }).then(parseUser),
   exchange: async (response: DesktopAuthExchangeResponse) => {
     if (response.status < 200 || response.status >= 300) {
       let message = response.statusText || "Desktop auth exchange failed";

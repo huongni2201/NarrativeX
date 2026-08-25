@@ -13,6 +13,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -36,9 +37,21 @@ public class SecurityConfig {
     "/api/v1/auth/csrf",
     "/api/v1/auth/desktop/start",
     "/api/v1/auth/desktop/exchange",
+    "/api/v1/auth/desktop/guest",
     "/api/v1/local-devices/pair",
     "/api/v1/local-devices/heartbeat",
     "/api/v1/local-devices/project-renders/**"
+  };
+
+  /** Mutations that consume AI/provider resources or start production work. */
+  private static final String[] SIGNED_IN_POST_PATHS = {
+    "/api/v1/projects/*/chapters/*/analysis-jobs",
+    "/api/v1/projects/*/chapters/*/narration-jobs",
+    "/api/v1/projects/*/narration-jobs:batch",
+    "/api/v1/projects/*/chapters/*/translations",
+    "/api/v1/projects/*/chapters/*/media-jobs",
+    "/api/v1/projects/*/chapters/*/render",
+    "/api/v1/projects/*/production/render"
   };
 
   private static final String[] DEVICE_CSRF_IGNORED_PATHS = {
@@ -120,6 +133,12 @@ public class SecurityConfig {
                     .permitAll()
                     .requestMatchers("/oauth2/**", "/login/**")
                     .permitAll()
+                    .requestMatchers(HttpMethod.POST, SIGNED_IN_POST_PATHS)
+                    .hasRole("USER")
+                    .requestMatchers(HttpMethod.PUT, "/api/v1/projects/*/favorite")
+                    .hasRole("USER")
+                    .requestMatchers(HttpMethod.DELETE, "/api/v1/projects/*/favorite")
+                    .hasRole("USER")
                     .anyRequest()
                     .authenticated())
         .exceptionHandling(
@@ -193,7 +212,17 @@ public class SecurityConfig {
           .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
     } else {
       http.authorizeHttpRequests(
-          auth -> auth.requestMatchers(PUBLIC_AUTH_PATHS).permitAll().anyRequest().authenticated());
+          auth ->
+              auth.requestMatchers(PUBLIC_AUTH_PATHS)
+                  .permitAll()
+                  .requestMatchers(HttpMethod.POST, SIGNED_IN_POST_PATHS)
+                  .hasRole("USER")
+                  .requestMatchers(HttpMethod.PUT, "/api/v1/projects/*/favorite")
+                  .hasRole("USER")
+                  .requestMatchers(HttpMethod.DELETE, "/api/v1/projects/*/favorite")
+                  .hasRole("USER")
+                  .anyRequest()
+                  .authenticated());
     }
     return http.build();
   }
