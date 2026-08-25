@@ -7,16 +7,18 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
-/** Static contract between the authoritative Flyway table baseline and every MyBatis XML mapper. */
+/** Static contract between the authoritative Flyway baseline and every MyBatis XML mapper. */
 class MyBatisSchemaReferenceContractTest {
   private static final Path CREATE_TABLES_MIGRATION =
       Path.of("src/main/resources/db/migration/V1__create_tables.sql");
@@ -25,15 +27,54 @@ class MyBatisSchemaReferenceContractTest {
   private static final Pattern CREATE_TABLE =
       Pattern.compile(
           "(?im)^\\s*CREATE\\s+TABLE(?:\\s+IF\\s+NOT\\s+EXISTS)?\\s+([a-z_][a-z0-9_]*)\\b");
+  private static final Pattern CREATE_TABLE_BLOCK =
+      Pattern.compile(
+          "(?is)CREATE\\s+TABLE(?:\\s+IF\\s+NOT\\s+EXISTS)?\\s+([a-z_][a-z0-9_]*)\\s*\\((.*?)\\n\\);"
+      );
+  private static final Pattern COLUMN_DEFINITION =
+      Pattern.compile(
+          "(?im)^\\s*([a-z_][a-z0-9_]*)\\s+(?:BIGSERIAL|BIGINT|BOOLEAN|CHAR|INTEGER|JSONB|NUMERIC|SMALLINT|TEXT|TIMESTAMP|TIMESTAMPTZ|UUID|VARCHAR)\\b");
   private static final Pattern TABLE_REFERENCE =
       Pattern.compile(
           "(?i)\\b(?:FROM|JOIN|UPDATE|INSERT\\s+INTO|DELETE\\s+FROM)\\s+([a-z_][a-z0-9_]*)\\b");
+  private static final Pattern TABLE_ALIAS =
+      Pattern.compile(
+          "(?i)\\b(?:FROM|JOIN|UPDATE)\\s+([a-z_][a-z0-9_]*)\\s+(?:AS\\s+)?([a-z_][a-z0-9_]*)\\b");
+  private static final Pattern QUALIFIED_COLUMN =
+      Pattern.compile("(?i)\\b([a-z_][a-z0-9_]*)\\.([a-z_][a-z0-9_]*)\\b");
+  private static final Pattern INSERT_COLUMNS =
+      Pattern.compile(
+          "(?is)\\bINSERT\\s+INTO\\s+([a-z_][a-z0-9_]*)\\s*\\((.*?)\\)\\s*(?:VALUES|SELECT)");
+  private static final Pattern UPDATE_SET =
+      Pattern.compile(
+          "(?is)\\bUPDATE\\s+([a-z_][a-z0-9_]*)(?:\\s+(?:AS\\s+)?([a-z_][a-z0-9_]*))?\\s+SET\\s+(.*?)(?=\\bWHERE\\b|\\bRETURNING\\b|$)");
+  private static final Pattern ASSIGNMENT_COLUMN =
+      Pattern.compile("(?i)(?:^|,)\\s*([a-z_][a-z0-9_]*)\\s*=");
   private static final Pattern XML_TAG = Pattern.compile("(?s)<[^>]*>");
   private static final Pattern COMMON_TABLE_EXPRESSION =
-      Pattern.compile("(?i)(?:\\bWITH\\b|,)\\s*(?:RECURSIVE\\s+)?([a-z_][a-z0-9_]*)\\s+AS\\s*\\(");
+      Pattern.compile(
+          "(?i)(?:\\bWITH\\b|,)\\s*(?:RECURSIVE\\s+)?([a-z_][a-z0-9_]*)\\s+AS\\s*\\(");
 
   private static final Set<String> SQL_REFERENCE_KEYWORDS =
-      Set.of("insert", "lateral", "of", "select", "set", "skip");
+      Set.of(
+          "cross",
+          "full",
+          "group",
+          "inner",
+          "insert",
+          "lateral",
+          "left",
+          "limit",
+          "of",
+          "offset",
+          "on",
+          "order",
+          "returning",
+          "right",
+          "select",
+          "set",
+          "skip",
+          "where");
 
   @Test
   void everyMyBatisTableReferenceExistsInAuthoritativeBaseline() throws IOException {
@@ -42,7 +83,7 @@ class MyBatisSchemaReferenceContractTest {
 
     List<String> violations = new ArrayList<>();
     for (Path mapper : mapperFiles()) {
-      String sql = XML_TAG.matcher(Files.readString(mapper)).replaceAll(" ");
+      String sql = mapperSql(mapper);
       Set<String> commonTableExpressions = commonTableExpressions(sql);
       Matcher matcher = TABLE_REFERENCE.matcher(sql);
       while (matcher.find()) {
@@ -53,7 +94,7 @@ class MyBatisSchemaReferenceContractTest {
           continue;
         }
         if (!schemaTables.contains(table)) {
-          violations.add(MAPPER_ROOT.relativize(mapper) + " -> " + table);
+          violations.add(MAPPER_ROOT.relativize(mapper) + " -> table " + table);
         }
       }
     }
@@ -61,6 +102,76 @@ class MyBatisSchemaReferenceContractTest {
     assertTrue(
         violations.isEmpty(),
         () -> "MyBatis references tables missing from V1 create-tables baseline: " + violations);
+  }
+
+  @Test
+  void myBatisQualifiedAndWriteColumnsExistInAuthoritativeBaseline() throws IOException {
+    Map<String, Set<String>> schemaColumns = schemaColumns();
+    assertFalse(schemaColumns.isEmpty(), "expected V1 create-tables migration to define columns");
+
+    List<String> violations = new ArrayList<>();
+    for (Path mapper : mapperFiles()) {
+      String sql = mapperSql(mapper);
+      Set<String> commonTableExpressions = commonTableExpressions(sql);
+      Map<String, String> aliases = tableAliases(sql, schemaColumns.keySet(), commonTableExpressions);
+
+      Matcher qualified = QUALIFIED_COLUMN.matcher(sql);
+      while (qualified.find()) {
+        String qualifier = qualified.group(1).toLowerCase(Locale.ROOT);
+        String column = qualified.group(2).toLowerCase(Locale.ROOT);
+        String table = aliases.get(qualifier);
+        if (table != null && !schemaColumns.get(table).contains(column)) {
+          violations.add(
+              MAPPER_ROOT.relativize(mapper)
+                  + " -> "
+                  + qualifier
+                  + "."
+                  + column
+                  + " ("
+                  + table
+                  + ")");
+        }
+      }
+
+      Matcher insert = INSERT_COLUMNS.matcher(sql);
+      while (insert.find()) {
+        String table = insert.group(1).toLowerCase(Locale.ROOT);
+        Set<String> columns = schemaColumns.get(table);
+        if (columns == null) {
+          continue;
+        }
+        for (String rawColumn : insert.group(2).split(",")) {
+          String column = normalizeColumn(rawColumn);
+          if (!column.isEmpty() && !columns.contains(column)) {
+            violations.add(MAPPER_ROOT.relativize(mapper) + " -> " + table + "." + column);
+          }
+        }
+      }
+
+      Matcher update = UPDATE_SET.matcher(sql);
+      while (update.find()) {
+        String table = update.group(1).toLowerCase(Locale.ROOT);
+        Set<String> columns = schemaColumns.get(table);
+        if (columns == null) {
+          continue;
+        }
+        Matcher assignment = ASSIGNMENT_COLUMN.matcher(update.group(3));
+        while (assignment.find()) {
+          String column = assignment.group(1).toLowerCase(Locale.ROOT);
+          if (!columns.contains(column)) {
+            violations.add(MAPPER_ROOT.relativize(mapper) + " -> " + table + "." + column);
+          }
+        }
+      }
+    }
+
+    assertTrue(
+        violations.isEmpty(),
+        () -> "MyBatis references columns missing from V1 create-tables baseline: " + violations);
+  }
+
+  private static String mapperSql(Path mapper) throws IOException {
+    return XML_TAG.matcher(Files.readString(mapper)).replaceAll(" ");
   }
 
   private static Set<String> schemaTables() throws IOException {
@@ -71,6 +182,47 @@ class MyBatisSchemaReferenceContractTest {
       tables.add(matcher.group(1).toLowerCase(Locale.ROOT));
     }
     return tables;
+  }
+
+  private static Map<String, Set<String>> schemaColumns() throws IOException {
+    String migration = Files.readString(CREATE_TABLES_MIGRATION);
+    Matcher tableMatcher = CREATE_TABLE_BLOCK.matcher(migration);
+    Map<String, Set<String>> tables = new HashMap<>();
+    while (tableMatcher.find()) {
+      String table = tableMatcher.group(1).toLowerCase(Locale.ROOT);
+      Matcher columnMatcher = COLUMN_DEFINITION.matcher(tableMatcher.group(2));
+      Set<String> columns = new HashSet<>();
+      while (columnMatcher.find()) {
+        columns.add(columnMatcher.group(1).toLowerCase(Locale.ROOT));
+      }
+      tables.put(table, columns);
+    }
+    return tables;
+  }
+
+  private static Map<String, String> tableAliases(
+      String sql, Set<String> schemaTables, Set<String> commonTableExpressions) {
+    Map<String, String> aliases = new HashMap<>();
+
+    Matcher references = TABLE_REFERENCE.matcher(sql);
+    while (references.find()) {
+      String table = references.group(1).toLowerCase(Locale.ROOT);
+      if (schemaTables.contains(table)) {
+        aliases.put(table, table);
+      }
+    }
+
+    Matcher aliasMatcher = TABLE_ALIAS.matcher(sql);
+    while (aliasMatcher.find()) {
+      String table = aliasMatcher.group(1).toLowerCase(Locale.ROOT);
+      String alias = aliasMatcher.group(2).toLowerCase(Locale.ROOT);
+      if (schemaTables.contains(table)
+          && !commonTableExpressions.contains(table)
+          && !SQL_REFERENCE_KEYWORDS.contains(alias)) {
+        aliases.put(alias, table);
+      }
+    }
+    return aliases;
   }
 
   private static Set<String> commonTableExpressions(String sql) {
@@ -90,6 +242,14 @@ class MyBatisSchemaReferenceContractTest {
           .sorted()
           .toList();
     }
+  }
+
+  private static String normalizeColumn(String rawColumn) {
+    return rawColumn
+        .trim()
+        .replace("\"", "")
+        .toLowerCase(Locale.ROOT)
+        .replaceAll("\\s+", "");
   }
 
   private static boolean isFunctionCall(String sql, int identifierEnd) {

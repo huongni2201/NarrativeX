@@ -2,10 +2,6 @@
 -- Keep this file limited to catalog/system seed data. Application/user content
 -- must never be embedded in Flyway migrations.
 
-INSERT INTO schema_baseline (id, description)
-VALUES ('v1_baseline', 'NarrativeX final three-file baseline')
-ON CONFLICT (id) DO NOTHING;
-
 INSERT INTO plan_entitlements (
     id,
     plan_key,
@@ -122,8 +118,6 @@ SET provider = EXCLUDED.provider,
     enabled = TRUE,
     updated_at = CURRENT_TIMESTAMP;
 
--- This is intentionally harmless on a clean database and also gives an explicit
--- default plan if auth users are pre-provisioned before V3 is applied.
 INSERT INTO user_plan_assignments (
     user_id,
     plan_key,

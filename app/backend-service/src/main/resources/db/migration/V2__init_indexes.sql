@@ -10,6 +10,8 @@ CREATE INDEX idx_local_devices_user
 CREATE INDEX idx_local_devices_last_seen
     ON local_devices (last_seen_at DESC)
     WHERE revoked_at IS NULL;
+CREATE INDEX idx_local_media_materializations_device_project_state
+    ON local_media_materializations (local_device_id, project_id, state, media_asset_id);
 
 -- Projects and story structure
 CREATE INDEX idx_projects_owner_status ON projects (owner_id, status);
@@ -176,18 +178,12 @@ CREATE INDEX idx_narration_requests_voice_reference_asset
 CREATE INDEX idx_narration_sets_story_created
     ON narration_sets (story_id, created_at DESC);
 
--- Control plane
-CREATE INDEX idx_moderation_entity
-    ON moderation_decisions (entity_type, entity_id, created_at DESC);
+-- Notifications and durable outbox
 CREATE INDEX idx_notifications_user_unread
     ON notifications (user_id, read_at, created_at DESC);
 CREATE INDEX idx_notifications_user_created_id
     ON notifications (user_id, created_at DESC, id DESC);
 CREATE INDEX idx_outbox_pending ON outbox_events (status, available_at);
-CREATE INDEX idx_identity_consents_user ON identity_consents (user_id, revoked_at);
-CREATE INDEX idx_ai_audit_project_created ON ai_audit_events (project_id, created_at DESC);
-CREATE INDEX idx_deletion_requests_user_status ON data_deletion_requests (user_id, status);
-CREATE INDEX idx_abuse_user_created ON abuse_events (user_id, created_at DESC);
 
 -- Render manifests and final artifacts
 CREATE INDEX idx_render_manifests_chapter_created
