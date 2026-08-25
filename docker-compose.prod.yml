@@ -228,23 +228,6 @@ services:
       postgres: { condition: service_healthy }
     networks: [appnet]
 
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    expose: ["80"]
-    volumes:
-      - ./Caddyfile.prod:/etc/caddy/Caddyfile:ro
-      - caddy-config:/config
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
-      interval: 10s
-      timeout: 3s
-      retries: 10
-      start_period: 10s
-    depends_on:
-      backend: { condition: service_healthy }
-    networks: [appnet]
-
   cloudflared:
     image: ${CLOUDFLARED_IMAGE:-cloudflare/cloudflared:2026.8.2}
     restart: unless-stopped
@@ -252,7 +235,7 @@ services:
     environment:
       TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?Set CLOUDFLARE_TUNNEL_TOKEN in .env.prod before starting the production stack}
     depends_on:
-      caddy: { condition: service_healthy }
+      backend: { condition: service_healthy }
     networks: [appnet]
 
 networks:
@@ -261,4 +244,3 @@ volumes:
   postgres-data:
   redis-data:
   vieneu-home:
-  caddy-config:
