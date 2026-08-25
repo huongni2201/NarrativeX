@@ -1,7 +1,7 @@
+import { projectsApi } from "../features/projects/api/projects.api";
 import { assetsApi } from "./assets.api";
 import { catalogApi } from "./catalog.api";
 import { productionApi } from "./production.api";
-import { projectsApi } from "./projects.api";
 
 /** Compatibility facade for existing editor orchestration. Feature code should import its API module directly. */
 export const workspaceApi = {
