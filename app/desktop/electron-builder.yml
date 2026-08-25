@@ -1,19 +1,28 @@
 appId: com.narrativex.desktop
 productName: NarrativeX
+artifactName: NarrativeX-${version}-${os}-${arch}.${ext}
+asar: true
 directories:
-  output: release
+  output: dist
 files:
   - out/**
-  - resources/**
-  - "!resources/ffmpeg/**"
+  - package.json
 extraResources:
   - from: resources/ffmpeg
     to: ffmpeg
-win:
-  icon: resources/narrativex-icon.png
-  target: nsis
-  artifactName: NarrativeX-Desktop-${version}.${ext}
 protocols:
-  - name: NarrativeX Authentication
+  - name: NarrativeX authentication callback
     schemes:
       - narrativex
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  executableName: NarrativeX
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+publish: null
