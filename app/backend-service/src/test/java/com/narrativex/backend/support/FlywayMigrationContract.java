@@ -10,11 +10,15 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Shared test-side source of truth for the clean Flyway baseline. */
+/** Shared test-side source of truth for the Flyway baseline and reviewed additive migrations. */
 public final class FlywayMigrationContract {
   private static final Pattern VERSIONED_MIGRATION = Pattern.compile("V(\\d+)__.*\\.sql");
   private static final List<String> CANONICAL_MIGRATIONS =
-      List.of("V1__create_tables.sql", "V2__init_indexes.sql", "V3__seed_data.sql");
+      List.of(
+          "V1__create_tables.sql",
+          "V2__init_indexes.sql",
+          "V3__seed_data.sql",
+          "V4__desktop_guest_installations.sql");
 
   private FlywayMigrationContract() {}
 
