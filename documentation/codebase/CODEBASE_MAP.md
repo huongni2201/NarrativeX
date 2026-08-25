@@ -6,7 +6,7 @@
 ## Runtime layout
 
 ```text
-app/desktop/          Electron / React / TypeScript primary editor
+app/desktop/          Electron / React / TypeScript only editor client
                      + local project storage
                      + device execution
                      + FFmpeg/ffprobe local render
@@ -15,9 +15,7 @@ app/backend-service/  Java / Spring Boot modular monolith
                      durable policy/control plane
 
 app/ai-worker/        Python async AI/media/provider worker
-                     retained cloud/server execution paths
-
-app/frontend-web/     temporary legacy migration client
+                     retained server execution paths
 
 packages/client-contracts/
                      shared typed client contracts
@@ -25,6 +23,8 @@ packages/client-contracts/
 contracts/            backend <-> worker contracts
 documentation/        source of truth, architecture, workflows, ADRs and plans
 ```
+
+`app/frontend-web` has been removed. The repository no longer contains a parallel browser editor.
 
 ## Primary Desktop runtime
 
@@ -37,6 +37,7 @@ Electron preload
 
 Electron main
   -> system-browser/deep-link auth handoff
+  -> backend session transport
   -> native file/folder actions
   -> ProjectStorage
   -> protected device identity
@@ -46,7 +47,7 @@ Electron main
 Spring backend
   -> PostgreSQL authoritative domain/job/lease metadata
   -> Redis server-managed session/transient hints
-  -> provider/cloud workers where needed
+  -> provider/server workers where needed
 ```
 
 ## Desktop implementation highlights
@@ -74,7 +75,7 @@ Spring backend
 - Character/ProjectCharacter/Location continuity foundations exist.
 - Provider execution state and failure/reconciliation fences remain backend/worker concerns.
 - Local-device capability/heartbeat/revocation/assignment state is persisted by the backend.
-- Cloud/server AI/media execution remains available during Desktop migration.
+- Server AI/media execution remains available where the Desktop path still depends on it.
 
 ## Storage map by execution mode
 
@@ -91,30 +92,33 @@ Durable business/job metadata       -> PostgreSQL
 
 Backend state uses stable IDs/checksums and opaque project-relative artifact keys. It never persists absolute Desktop filesystem paths.
 
-### Retained cloud/legacy path
+### Retained server-worker path
 
 ```text
-Cloud pipeline media                -> Cloudflare R2
-Cloud final rendered MP4            -> Google Drive
-Cloud worker scratch                -> ephemeral filesystem
+Server pipeline media               -> Cloudflare R2 where remote durability is required
+Server final rendered MP4           -> Google Drive for retained cloud render fallback
+Worker scratch                      -> ephemeral filesystem
 Durable business/job metadata       -> PostgreSQL
 ```
 
-R2/Drive remain valid for the cloud/legacy worker path and deliberately shared remote media. They are not the Desktop project-media contract.
+R2/Drive remain valid for retained server-worker paths and deliberately shared remote media. They are not the Desktop project-media contract.
+
+## Production ingress
+
+`docker-compose.prod.yml` no longer contains a web frontend or Caddy service. For self-hosted deployments, Cloudflare Tunnel may route the public HTTPS API hostname directly to `http://backend:8080` on the Compose network. If the deployment platform already provides HTTPS ingress, `cloudflared` is optional.
 
 ## Current gaps
 
 ```text
 restart-safe local render recovery/resume
-  -> complete local materialization of image/TTS/import outputs
+  -> complete local materialization of remaining generation/import outputs
   -> richer timeline/editor mutations and regeneration/reuse workflows
   -> disk cleanup/backup/move/repair UX
   -> packaging/signing/auto-update hardening
-  -> Desktop parity evidence
-  -> remove app/frontend-web
+  -> production Desktop E2E and release hardening
 ```
 
-User-provided audio and other generation workflows must be described per the execution path actually implemented; do not infer Desktop-local completeness merely because a cloud/server foundation exists.
+User-provided audio and other generation workflows must be described per the execution path actually implemented; do not infer Desktop-local completeness merely because a server foundation exists.
 
 ## Persistence direction
 
@@ -122,7 +126,7 @@ The production persistence migration is complete: production source uses MyBatis
 
 ## Worker boundary
 
-Python workers own provider/media mechanics according to backend-authorized plans. During migration they may still own cloud storage/materialization and cloud rendering paths. They do not own Desktop local filesystem paths, Electron native capabilities, browser/user authorization, entitlement policy or Flyway schema ownership.
+Python workers own provider/media mechanics according to backend-authorized plans. They may still own remote storage/materialization and server rendering paths where those paths are retained. They do not own Desktop local filesystem paths, Electron native capabilities, user authorization, entitlement policy or Flyway schema ownership.
 
 ## Documentation authority
 
