@@ -12,15 +12,23 @@ import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.auth.api.request.DesktopAuthExchangeRequest;
 import com.narrativex.backend.feature.auth.application.port.in.DesktopAuthHandoff;
+import com.narrativex.backend.feature.auth.application.usecase.TransferGuestWorkspaceUseCase;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.context.SecurityContextRepository;
 
 class DesktopAuthControllerTest {
+  @AfterEach
+  void clearSecurityContext() {
+    SecurityContextHolder.clearContext();
+  }
+
   @Test
   void acceptsCanonicalNarrativeXCallback() {
     assertTrue(DesktopAuthController.isAllowedRedirect("narrativex://auth/callback"));
@@ -53,11 +61,35 @@ class DesktopAuthControllerTest {
   }
 
   @Test
+  void guestSessionEstablishesRoleGuestWithoutOpeningOAuth() {
+    DesktopAuthHandoff handoffStore = mock(DesktopAuthHandoff.class);
+    SecurityContextRepository securityContextRepository = mock(SecurityContextRepository.class);
+    TransferGuestWorkspaceUseCase transferGuestWorkspaceUseCase =
+        mock(TransferGuestWorkspaceUseCase.class);
+    DesktopAuthController controller =
+        new DesktopAuthController(
+            handoffStore, securityContextRepository, transferGuestWorkspaceUseCase);
+    HttpServletRequest servletRequest = mock(HttpServletRequest.class);
+    HttpServletResponse servletResponse = mock(HttpServletResponse.class);
+
+    var result = controller.guest(servletRequest, servletResponse);
+
+    assertEquals(HttpStatus.OK, result.getStatusCode());
+    assertTrue(result.getBody().data().guest());
+    assertTrue(result.getBody().data().id().startsWith("guest-"));
+    verify(securityContextRepository).saveContext(any(), eq(servletRequest), eq(servletResponse));
+    verifyNoInteractions(handoffStore, transferGuestWorkspaceUseCase);
+  }
+
+  @Test
   void exchangeWithMatchingVerifierEstablishesTheSession() {
     DesktopAuthHandoff handoffStore = mock(DesktopAuthHandoff.class);
     SecurityContextRepository securityContextRepository = mock(SecurityContextRepository.class);
+    TransferGuestWorkspaceUseCase transferGuestWorkspaceUseCase =
+        mock(TransferGuestWorkspaceUseCase.class);
     DesktopAuthController controller =
-        new DesktopAuthController(handoffStore, securityContextRepository);
+        new DesktopAuthController(
+            handoffStore, securityContextRepository, transferGuestWorkspaceUseCase);
     HttpServletRequest servletRequest = mock(HttpServletRequest.class);
     HttpServletResponse servletResponse = mock(HttpServletResponse.class);
     String verifier = "a".repeat(43);
@@ -70,15 +102,20 @@ class DesktopAuthControllerTest {
             new DesktopAuthExchangeRequest("code", verifier), servletRequest, servletResponse);
 
     assertEquals(HttpStatus.OK, result.getStatusCode());
+    assertFalse(result.getBody().data().guest());
     verify(securityContextRepository).saveContext(any(), eq(servletRequest), eq(servletResponse));
+    verifyNoInteractions(transferGuestWorkspaceUseCase);
   }
 
   @Test
   void wrongVerifierReturnsUnauthorizedAndDoesNotEstablishASession() {
     DesktopAuthHandoff handoffStore = mock(DesktopAuthHandoff.class);
     SecurityContextRepository securityContextRepository = mock(SecurityContextRepository.class);
+    TransferGuestWorkspaceUseCase transferGuestWorkspaceUseCase =
+        mock(TransferGuestWorkspaceUseCase.class);
     DesktopAuthController controller =
-        new DesktopAuthController(handoffStore, securityContextRepository);
+        new DesktopAuthController(
+            handoffStore, securityContextRepository, transferGuestWorkspaceUseCase);
     String verifier = "b".repeat(43);
     when(handoffStore.consumeUser("code", verifier)).thenReturn(null);
 
@@ -89,6 +126,6 @@ class DesktopAuthControllerTest {
             mock(HttpServletResponse.class));
 
     assertEquals(HttpStatus.UNAUTHORIZED, result.getStatusCode());
-    verifyNoInteractions(securityContextRepository);
+    verifyNoInteractions(securityContextRepository, transferGuestWorkspaceUseCase);
   }
 }
