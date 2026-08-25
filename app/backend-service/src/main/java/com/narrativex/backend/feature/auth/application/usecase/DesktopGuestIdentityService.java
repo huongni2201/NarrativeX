@@ -23,6 +23,7 @@ public class DesktopGuestIdentityService implements DesktopGuestIdentity {
   @Override
   @Transactional
   public String establish(String deviceId, String secret) {
+    installations.lockDevice(deviceId);
     String secretHash = sha256(secret);
     var existing = installations.findByDeviceId(deviceId);
     if (existing.isPresent()) {
@@ -33,14 +34,11 @@ public class DesktopGuestIdentityService implements DesktopGuestIdentity {
 
     String guestUserId = "guest-" + UuidV7.random();
     Instant now = Instant.now();
-    installations.create(deviceId, guestUserId, secretHash, now);
-    var resolved =
-        installations
-            .findByDeviceId(deviceId)
-            .orElseThrow(() -> new IllegalStateException("Desktop guest installation was not persisted."));
-    verifySecret(resolved.secretHash(), secretHash);
+    if (!installations.create(deviceId, guestUserId, secretHash, now)) {
+      throw new IllegalStateException("Desktop guest installation was not persisted.");
+    }
     installations.touch(deviceId, now);
-    return resolved.guestUserId();
+    return guestUserId;
   }
 
   @Override
@@ -66,7 +64,10 @@ public class DesktopGuestIdentityService implements DesktopGuestIdentity {
 
   private static String sha256(String value) {
     try {
-      return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
+      return HexFormat.of()
+          .formatHex(
+              MessageDigest.getInstance("SHA-256")
+                  .digest(value.getBytes(StandardCharsets.UTF_8)));
     } catch (NoSuchAlgorithmException exception) {
       throw new IllegalStateException("SHA-256 is unavailable.", exception);
     }
