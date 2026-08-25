@@ -175,6 +175,7 @@ export function VoiceScreen({
     setGender("all");
     setProvider("all");
     setTag("all");
+    setSortMode("name-asc");
   }
 
   return (

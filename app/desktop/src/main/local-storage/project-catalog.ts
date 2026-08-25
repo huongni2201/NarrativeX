@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, readdir, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { DesktopProject } from "@narrativex/client-contracts";
-import { ProjectStorage } from "./project-storage";
+import { ProjectStorage } from "./project-storage.ts";
 
 const CATALOG_SCHEMA_VERSION = 1 as const;
 const PROJECT_SNAPSHOT_SCHEMA_VERSION = 1 as const;

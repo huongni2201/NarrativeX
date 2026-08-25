@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { CreateMediaJobInput, MediaReviewInput } from "@narrativex/client-contracts";
-import { generationApi } from "../api/generation.api";
+import { generationApi } from "../api/generation.api.ts";
 
 export const generationQueryKeys = {
   all: ["generation"] as const,

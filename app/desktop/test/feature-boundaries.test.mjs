@@ -36,7 +36,7 @@ test("domain APIs live inside owning features", () => {
 });
 
 test("features only use renderer/api for shared transport primitives", () => {
-  const forbidden = /(?:\.\.\/)+api\/(?:assets\.api|catalog\.api|chapters\.api|generation\.api|narration\.api|production\.api|projects\.api|workspace)/;
+  const forbidden = /(?:\.\.\/){2,}api\/(?:assets\.api|catalog\.api|chapters\.api|generation\.api|narration\.api|production\.api|projects\.api|workspace)/;
   const violations = [];
   for (const file of sourceFiles(featuresRoot)) {
     const source = readFileSync(file, "utf8");

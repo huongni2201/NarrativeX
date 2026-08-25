@@ -1,240 +1,60 @@
 import { useEffect, useMemo, useState } from "react";
-import { Pause, Play, Search, SkipBack, SkipForward, ZoomIn, ZoomOut } from "lucide-react";
+import { AudioLines, ChevronDown, ChevronRight, CircleHelp, FileAudio, FileImage, Film, FolderOpen, Image as ImageIcon, Layers3, LockKeyhole, Maximize2, MessageSquareText, MoreVertical, Pause, Play, Search, Settings2, SkipBack, SkipForward, SlidersHorizontal, Sparkles, Upload, Volume2, WandSparkles, ZoomIn, ZoomOut } from "lucide-react";
 import type { DesktopTimelineBeat } from "@narrativex/client-contracts";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type { DesktopWorkspaceState } from "../workspace/queries/useProjectWorkspace";
 
-export function EditorScreen({
-  workspace,
-}: Readonly<{
-  workspace: DesktopWorkspaceState;
-}>) {
+const ART = "/artwork/fortress.jpg";
+
+export function EditorScreen({ workspace }: Readonly<{ workspace: DesktopWorkspaceState }>) {
   const timeline = workspace.timeline;
   const beats = timeline?.beats ?? [];
   const [selectedId, setSelectedId] = useState("");
-  const [playing, setPlaying] = useState(false);
-  const [playheadMs, setPlayheadMs] = useState(0);
-  const [zoom, setZoom] = useState(1);
   const [query, setQuery] = useState("");
-
-  useEffect(() => {
-    if (!selectedId && beats[0]) setSelectedId(beats[0].visualBeatId);
-  }, [beats, selectedId]);
-
-  const totalMs = timeline?.totalDurationMs ?? 0;
+  const [playing, setPlaying] = useState(false);
+  const [playhead, setPlayhead] = useState(0);
+  const [zoom, setZoom] = useState(1);
+  const total = timeline?.totalDurationMs ?? 0;
   const selected = beats.find((beat) => beat.visualBeatId === selectedId) ?? null;
-  const filteredBeats = useMemo(() => {
-    const needle = query.trim().toLocaleLowerCase();
-    if (!needle) return beats;
-    return beats.filter((beat) =>
-      `${beat.title} ${beat.visualIntent} ${beat.cameraMovement}`
-        .toLocaleLowerCase()
-        .includes(needle),
-    );
+  const filtered = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    return term ? beats.filter((beat) => (beat.title + " " + beat.visualIntent + " " + beat.cameraMovement).toLowerCase().includes(term)) : beats;
   }, [beats, query]);
-
+  useEffect(() => { if (!selectedId && beats[0]) setSelectedId(beats[0].visualBeatId); }, [beats, selectedId]);
   useEffect(() => {
-    if (!playing || totalMs <= 0) return;
-    const timer = window.setInterval(() => {
-      setPlayheadMs((current) => (current >= totalMs ? 0 : Math.min(totalMs, current + 250)));
-    }, 250);
+    if (!playing || !total) return;
+    const timer = window.setInterval(() => setPlayhead((value) => value >= total ? 0 : Math.min(total, value + 250)), 250);
     return () => window.clearInterval(timer);
-  }, [playing, totalMs]);
+  }, [playing, total]);
+  const groups = useMemo(() => {
+    const map = new Map<string, DesktopTimelineBeat[]>();
+    filtered.forEach((beat) => map.set(beat.chapterId, [...(map.get(beat.chapterId) ?? []), beat]));
+    return [...map.entries()];
+  }, [filtered]);
 
-  return (
-    <div className="grid h-full min-h-0 grid-cols-[230px_minmax(0,1fr)_280px]">
-      <aside className="min-h-0 overflow-hidden border-r border-border bg-card">
-        <div className="border-b border-border p-3">
-          <h1 className="text-sm font-semibold">Project Explorer</h1>
-          <label className="mt-2 flex items-center gap-2 rounded-md border border-input bg-popover px-2 text-muted-foreground">
-            <Search size={13} />
-            <input
-              className="h-8 min-w-0 flex-1 bg-transparent text-[10px] text-foreground outline-none"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Tìm visual beat…"
-            />
-          </label>
-        </div>
-        <div className="h-[calc(100%-76px)] overflow-auto p-2">
-          {filteredBeats.map((beat) => (
-            <BeatListItem
-              key={beat.visualBeatId}
-              beat={beat}
-              selected={beat.visualBeatId === selectedId}
-              onSelect={() => {
-                setSelectedId(beat.visualBeatId);
-                setPlayheadMs(beat.startMs);
-              }}
-            />
-          ))}
-          {!filteredBeats.length && (
-            <p className="p-4 text-center text-[10px] text-muted-foreground">Chưa có visual beat.</p>
-          )}
-        </div>
-      </aside>
-
-      <section className="grid min-h-0 grid-rows-[minmax(0,1fr)_220px] bg-surface-dark">
-        <div className="grid min-h-0 grid-rows-[44px_minmax(0,1fr)_44px]">
-          <div className="flex items-center justify-between border-b border-border px-4">
-            <div>
-              <span className="text-[9px] uppercase tracking-[.12em] text-muted-foreground">Canvas</span>
-              <strong className="ml-2 text-xs">Preview</strong>
-            </div>
-            <span className="text-[10px] text-muted-foreground">
-              {timeline?.aspectRatio ?? "16:9"} · {beats.length} beats
-            </span>
-          </div>
-          <div className="m-3 grid min-h-0 place-items-center overflow-hidden rounded-lg border border-border bg-card p-6 text-center">
-            {selected ? (
-              <div className="grid max-w-lg gap-2">
-                <span className="text-[9px] uppercase tracking-[.13em] text-primary-hover">
-                  Scene {selected.sceneIndex + 1} · Beat {selected.beatIndex + 1}
-                </span>
-                <h2 className="text-lg font-semibold">{selected.title}</h2>
-                <p className="text-xs leading-5 text-muted-foreground">{selected.visualIntent}</p>
-                <span className="text-[10px] text-muted-foreground">
-                  {selected.assetReady ? "Asset ready" : "Asset pending"} · {selected.cameraMovement}
-                </span>
-              </div>
-            ) : (
-              <span className="text-muted-foreground">Chọn visual beat để preview.</span>
-            )}
-          </div>
-          <div className="flex items-center gap-2 border-t border-border px-3">
-            <span className="w-[78px] font-mono text-[11px] text-primary-hover">
-              {formatTime(playheadMs)}
-            </span>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setPlayheadMs((value) => Math.max(0, value - 500))}
-            >
-              <SkipBack size={15} />
-            </Button>
-            <Button
-              size="icon"
-              onClick={() => setPlaying((value) => !value)}
-              disabled={!totalMs}
-              aria-label={playing ? "Pause" : "Play"}
-            >
-              {playing ? <Pause size={15} /> : <Play size={15} />}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setPlayheadMs((value) => Math.min(totalMs, value + 500))}
-            >
-              <SkipForward size={15} />
-            </Button>
-            <span className="ml-auto font-mono text-[10px] text-muted-foreground">
-              {formatTime(totalMs)}
-            </span>
-          </div>
-        </div>
-
-        <div className="grid min-h-0 grid-rows-[40px_minmax(0,1fr)] border-t border-border bg-card">
-          <div className="flex items-center justify-between border-b border-border px-3">
-            <strong className="text-xs">Timeline</strong>
-            <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon" onClick={() => setZoom((value) => Math.max(0.75, value - 0.25))}>
-                <ZoomOut size={14} />
-              </Button>
-              <span className="w-10 text-center text-[10px] text-muted-foreground">{Math.round(zoom * 100)}%</span>
-              <Button variant="ghost" size="icon" onClick={() => setZoom((value) => Math.min(2, value + 0.25))}>
-                <ZoomIn size={14} />
-              </Button>
-            </div>
-          </div>
-          <Timeline beats={beats} totalMs={totalMs} zoom={zoom} selectedId={selectedId} onSelect={setSelectedId} />
-        </div>
-      </section>
-
-      <aside className="min-h-0 overflow-auto border-l border-border bg-card p-4">
-        <span className="text-[9px] uppercase tracking-[.13em] text-muted-foreground">Inspector</span>
-        {selected ? (
-          <div className="mt-3 grid gap-3 text-xs">
-            <InspectorRow label="Title" value={selected.title} />
-            <InspectorRow label="Scene" value={`${selected.sceneIndex + 1}`} />
-            <InspectorRow label="Duration" value={`${(selected.durationMs / 1000).toFixed(1)}s`} />
-            <InspectorRow label="Camera" value={selected.cameraMovement} />
-            <InspectorRow label="Strategy" value={selected.assetStrategy} />
-            <InspectorRow label="Asset" value={selected.mediaAssetId ?? "Pending"} />
-          </div>
-        ) : (
-          <p className="mt-3 text-[10px] text-muted-foreground">Chưa chọn visual beat.</p>
-        )}
-      </aside>
+  return <div className="grid h-full min-h-0 grid-rows-[56px_minmax(0,1fr)] bg-[radial-gradient(circle_at_50%_0%,var(--editor-glow),transparent_45%)]">
+    <header className="flex items-center gap-4 border-b border-border bg-[var(--editor-header)] px-4"><div className="min-w-0"><span className="text-[9px] uppercase tracking-[.18em] text-text-muted">Editor</span><div className="flex items-center gap-2"><strong className="truncate text-sm">{timeline?.chapters[0]?.title ?? "Untitled project"}</strong><span className="rounded border border-warning/35 bg-warning-bg px-1.5 py-0.5 text-[9px] text-warning">Draft</span></div></div><div className="ml-auto flex items-center gap-2"><div className="hidden rounded-md border border-border bg-surface-input p-0.5 sm:flex"><button type="button" className="rounded bg-primary px-3 py-1.5 text-[10px] text-primary-foreground">Chapter</button><button type="button" className="rounded px-3 py-1.5 text-[10px] text-text-muted hover:text-foreground">Full project</button></div><span className="hidden items-center gap-1 text-[10px] text-text-muted md:flex"><span className="size-1.5 rounded-full bg-success" />{timeline ? "Synced" : "Waiting for timeline"}</span><Button variant="outline" size="sm" className="border-primary/45 bg-primary-muted text-primary-hover"><Upload size={13} /> Export <ChevronDown size={12} /></Button><Button variant="ghost" size="icon" aria-label="More editor actions"><MoreVertical size={15} /></Button></div></header>
+    <div className="grid min-h-0 grid-cols-[252px_minmax(0,1fr)_304px] gap-2 p-2 pt-0">
+      <aside className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-lg border border-border bg-surface-panel shadow-[var(--shadow-panel)]"><div className="border-b border-border p-3"><div className="flex items-center justify-between"><div><span className="text-[9px] uppercase tracking-[.18em] text-text-muted">Workspace</span><h2 className="mt-1 text-sm font-semibold">Project Explorer</h2></div><Button variant="ghost" size="icon" aria-label="Explorer settings"><Settings2 size={14} /></Button></div><label className="mt-3 flex items-center gap-2 rounded-md border border-input bg-surface-input px-2 text-text-muted"><Search size={13} /><input className="h-8 min-w-0 flex-1 bg-transparent text-[10px] outline-none placeholder:text-text-muted" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search beats or chapters…" aria-label="Search beats or chapters" /></label></div><div className="min-h-0 overflow-auto p-2">{groups.map(([chapterId, chapterBeats], groupIndex) => <section key={chapterId} className="mb-3"><div className="flex items-center gap-1 px-2 pb-1.5 text-[9px] uppercase tracking-[.12em] text-text-muted"><ChevronDown size={12} />Chapter {String(groupIndex + 1).padStart(2, "0")}<span className="ml-auto">{formatTime(chapterBeats.reduce((sum, beat) => sum + beat.durationMs, 0))}</span></div>{chapterBeats.map((beat, index) => <button type="button" key={beat.visualBeatId} onClick={() => { setSelectedId(beat.visualBeatId); setPlayhead(beat.startMs); }} className={cn("group mb-1 grid min-h-[58px] w-full grid-cols-[48px_minmax(0,1fr)_38px] items-center gap-2 rounded-md border p-1.5 text-left", selectedId === beat.visualBeatId ? "border-primary bg-primary-muted shadow-[var(--shadow-primary)]" : "border-border-subtle bg-surface-input hover:border-border")}><div className="relative h-10 overflow-hidden rounded border border-border"><img src={ART} alt="" className="h-full w-full object-cover opacity-75" /><span className="absolute bottom-1 left-1 rounded bg-black/65 px-1 text-[8px] text-white">{String(index + 1).padStart(2, "0")}</span></div><span className="min-w-0"><strong className="block truncate text-[10px]">{beat.title}</strong><span className="mt-1 block truncate text-[9px] text-text-muted">{beat.cameraMovement}</span></span><span className="text-right font-mono text-[9px] text-text-muted">{formatTime(beat.durationMs)}</span></button>)}</section>)}{!groups.length && <p className="p-8 text-center text-[10px] text-text-muted">No visual beats yet.</p>}</div><div className="border-t border-border p-3 text-[10px] text-text-muted"><div className="flex justify-between"><span>{filtered.length} visual beats</span><span>{formatTime(total)}</span></div><div className="mt-2 h-1 rounded-full bg-surface-4"><div className="h-full w-2/3 rounded-full bg-primary" /></div></div></aside>
+      <main className="grid min-h-0 grid-rows-[minmax(0,1fr)_238px] gap-2"><Preview selected={selected} total={total} playhead={playhead} playing={playing} onPlay={() => setPlaying((value) => !value)} onStep={(amount) => setPlayhead((value) => Math.max(0, Math.min(total, value + amount)))} /><Timeline beats={beats} total={total} zoom={zoom} selectedId={selectedId} onZoom={setZoom} onSelect={setSelectedId} /></main>
+      <Inspector selected={selected} assetCount={workspace.assets.length} />
     </div>
-  );
+  </div>;
 }
 
-function BeatListItem({ beat, selected, onSelect }: Readonly<{ beat: DesktopTimelineBeat; selected: boolean; onSelect: () => void }>) {
-  return (
-    <button
-      type="button"
-      className={`mb-1 grid w-full gap-1 rounded-md border p-2 text-left ${
-        selected
-          ? "border-primary bg-primary-muted"
-          : "border-border-subtle bg-popover hover:border-border"
-      }`}
-      onClick={onSelect}
-    >
-      <strong className="truncate text-[10px]">{beat.title}</strong>
-      <span className="text-[9px] text-muted-foreground">
-        Scene {beat.sceneIndex + 1} · {formatTime(beat.startMs)}
-      </span>
-    </button>
-  );
+function Preview({ selected, total, playhead, playing, onPlay, onStep }: Readonly<{ selected: DesktopTimelineBeat | null; total: number; playhead: number; playing: boolean; onPlay: () => void; onStep: (amount: number) => void }>) {
+  return <section className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)_48px] overflow-hidden rounded-lg border border-border bg-surface-panel shadow-[var(--shadow-panel)]"><div className="flex items-center justify-between border-b border-border px-4 py-2.5"><div><span className="text-[9px] uppercase tracking-[.18em] text-text-muted">Current beat</span><h2 className="mt-1 truncate text-sm font-semibold">{selected?.title ?? "Select a visual beat"}</h2></div><span className="text-[10px] text-text-muted">{selected ? "Scene " + (selected.sceneIndex + 1) + " · Beat " + (selected.beatIndex + 1) : "16:9"}</span></div><div className="relative m-3 min-h-0 overflow-hidden rounded-md border border-border-dark bg-surface-dark">{selected ? <><img src={ART} alt={"Preview for " + selected.title} className="h-full w-full object-cover opacity-90" /><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,9,13,.05),rgba(5,9,13,.82))]" /><div className="absolute inset-x-0 bottom-0 p-4"><span className="text-[9px] uppercase tracking-[.18em] text-primary-hover">Visual intent</span><p className="mt-1 truncate text-[11px] text-white/85">{selected.visualIntent}</p></div></> : <div className="grid h-full place-items-center text-[11px] text-text-muted">Select a beat to preview its visual context.</div>}<Button variant="ghost" size="icon" aria-label="Fullscreen preview" className="absolute bottom-3 right-3 bg-black/45 text-white"><Maximize2 size={14} /></Button></div><div className="flex items-center gap-2 border-t border-border px-3"><span className="font-mono text-[10px] text-primary-hover">{formatTime(playhead)}</span><Button variant="ghost" size="icon" aria-label="Previous frame" onClick={() => onStep(-500)}><SkipBack size={14} /></Button><Button size="icon" aria-label={playing ? "Pause preview" : "Play preview"} onClick={onPlay} disabled={!total}>{playing ? <Pause size={14} /> : <Play size={14} />}</Button><Button variant="ghost" size="icon" aria-label="Next frame" onClick={() => onStep(500)}><SkipForward size={14} /></Button><span className="ml-auto text-[10px] text-text-muted">{formatTime(total)}</span><Button variant="ghost" size="icon" aria-label="Toggle audio"><Volume2 size={14} /></Button></div></section>;
 }
 
-function Timeline({ beats, totalMs, zoom, selectedId, onSelect }: Readonly<{ beats: DesktopTimelineBeat[]; totalMs: number; zoom: number; selectedId: string; onSelect: (id: string) => void }>) {
-  if (!totalMs) {
-    return <div className="grid place-items-center text-[10px] text-muted-foreground">Timeline chưa có dữ liệu.</div>;
-  }
-
-  return (
-    <div className="min-h-0 overflow-auto p-3">
-      <div className="relative h-24 min-w-full rounded-md border border-border bg-surface-dark" style={{ width: `${zoom * 100}%` }}>
-        {beats.map((beat) => {
-          const left = (beat.startMs / totalMs) * 100;
-          const width = Math.max(1.2, ((beat.endMs - beat.startMs) / totalMs) * 100);
-          return (
-            <button
-              type="button"
-              key={beat.visualBeatId}
-              className={`absolute bottom-3 top-3 overflow-hidden rounded border px-2 text-left text-[9px] ${
-                selectedId === beat.visualBeatId
-                  ? "z-10 border-primary bg-primary-muted text-foreground"
-                  : beat.assetReady
-                    ? "border-info/40 bg-info-bg text-foreground"
-                    : "border-warning/40 bg-warning-bg text-warning"
-              }`}
-              style={{ left: `${left}%`, width: `${width}%` }}
-              onClick={() => onSelect(beat.visualBeatId)}
-              title={beat.title}
-            >
-              <span className="block truncate">{beat.title}</span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
+function Timeline({ beats, total, zoom, selectedId, onZoom, onSelect }: Readonly<{ beats: DesktopTimelineBeat[]; total: number; zoom: number; selectedId: string; onZoom: (value: number) => void; onSelect: (id: string) => void }>) {
+  return <section className="grid min-h-0 grid-rows-[40px_minmax(0,1fr)] overflow-hidden rounded-lg border border-border bg-surface-panel shadow-[var(--shadow-panel)]"><div className="flex items-center justify-between border-b border-border px-3"><div className="flex items-center gap-2"><SlidersHorizontal size={14} className="text-primary-hover" /><strong className="text-xs">Timeline</strong><span className="text-[9px] text-text-muted">{beats.length} visual beats</span></div><div className="flex items-center gap-1"><Button variant="ghost" size="icon" aria-label="Zoom out timeline" onClick={() => onZoom(Math.max(.75, zoom - .25))}><ZoomOut size={13} /></Button><span className="w-8 text-center text-[9px] text-text-muted">{Math.round(zoom * 100)}%</span><Button variant="ghost" size="icon" aria-label="Zoom in timeline" onClick={() => onZoom(Math.min(2, zoom + .25))}><ZoomIn size={13} /></Button></div></div>{!total ? <div className="grid place-items-center text-[10px] text-text-muted">Timeline chưa có dữ liệu.</div> : <div className="min-h-0 overflow-auto p-2"><div className="grid min-w-[520px] grid-cols-[90px_minmax(0,1fr)] gap-2" style={{ width: (zoom * 100) + "%" }}><div className="space-y-1 pt-5">{["Narration", "Visual beats", "Voiceover"].map((label) => <div key={label} className="flex h-12 items-center gap-1.5 border-b border-border-subtle text-[9px] text-text-muted"><LockKeyhole size={10} />{label}</div>)}</div><div><div className="grid h-5 grid-cols-6 text-[8px] text-text-dim">{Array.from({ length: 6 }, (_, index) => <span key={index}>{formatTime(total * index / 5)}</span>)}</div><div className="grid gap-1"><div className="flex h-12 items-center rounded border border-dashed border-border-subtle px-3 text-[9px] text-text-dim">No narration linked</div><div className="relative h-12 rounded border border-border-subtle bg-surface-dark">{beats.map((beat) => <button type="button" key={beat.visualBeatId} title={beat.title} onClick={() => onSelect(beat.visualBeatId)} className={cn("absolute inset-y-1 overflow-hidden rounded border px-2 text-left text-[9px]", selectedId === beat.visualBeatId ? "z-10 border-primary bg-primary-muted" : "border-warning/35 bg-warning-bg")} style={{ left: (beat.startMs / total * 100) + "%", width: Math.max(7, (beat.durationMs / total * 100)) + "%" }}><span className="block truncate">{beat.title}</span></button>)}</div><div className="flex h-12 items-center rounded border border-dashed border-border-subtle px-3 text-[9px] text-text-dim">No voiceover linked</div></div></div></div></div>}</section>;
 }
 
-function InspectorRow({ label, value }: Readonly<{ label: string; value: string }>) {
-  return (
-    <div className="grid gap-1 border-b border-border-subtle pb-2">
-      <span className="text-[9px] uppercase tracking-[.1em] text-muted-foreground">{label}</span>
-      <span className="break-words text-[10px] text-foreground">{value}</span>
-    </div>
-  );
+function Inspector({ selected, assetCount }: Readonly<{ selected: DesktopTimelineBeat | null; assetCount: number }>) {
+  return <aside className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-lg border border-border bg-surface-panel shadow-[var(--shadow-panel)]"><div className="border-b border-border px-3 pt-3"><div className="flex items-center justify-between"><div><span className="text-[9px] uppercase tracking-[.18em] text-text-muted">Properties</span><h2 className="mt-1 text-sm font-semibold">Inspector</h2></div><Button variant="ghost" size="icon" aria-label="Inspector help"><CircleHelp size={14} /></Button></div><div className="mt-3 grid grid-cols-4 gap-1 text-[9px]"><button type="button" className="border-b-2 border-primary pb-2 text-primary-hover"><Layers3 size={11} className="mx-auto" />Beat</button><button type="button" className="pb-2 text-text-muted"><ImageIcon size={11} className="mx-auto" />Visual</button><button type="button" className="pb-2 text-text-muted"><AudioLines size={11} className="mx-auto" />Audio</button><button type="button" className="pb-2 text-text-muted"><MessageSquareText size={11} className="mx-auto" />Notes</button></div></div><div className="min-h-0 overflow-auto p-3">{selected ? <div className="grid gap-4"><Panel title="Media source"><div className="rounded-md border border-border bg-surface-input p-2.5"><div className="flex items-center gap-2"><FileImage size={15} className="text-primary-hover" /><div className="min-w-0"><span className="text-[9px] text-text-muted">Current source</span><strong className="block truncate text-[10px]">{selected.mediaAssetId ?? "No asset selected"}</strong></div></div></div><div className="grid grid-cols-2 gap-1.5"><Action icon={<WandSparkles size={13} />} label="AI generate" /><Action icon={<Upload size={13} />} label="Upload media" /><Action icon={<Film size={13} />} label="Choose video" /><Action icon={<FolderOpen size={13} />} label={"Assets (" + assetCount + ")"} /></div></Panel><Panel title="Fit to beat"><div className="grid grid-cols-3 gap-1 rounded-md border border-border bg-surface-input p-1"><button type="button" className="rounded bg-primary py-1.5 text-[9px] text-primary-foreground">Trim</button><button type="button" className="rounded py-1.5 text-[9px] text-text-muted">Loop</button><button type="button" className="rounded py-1.5 text-[9px] text-text-muted">Freeze</button></div><div className="mt-3 h-1.5 rounded-full bg-surface-4"><div className="h-full w-3/4 rounded-full bg-primary" /></div></Panel><Panel title="Beat info"><Info label="Duration" value={(selected.durationMs / 1000).toFixed(1) + " sec"} /><Info label="Camera" value={selected.cameraMovement} /><Info label="Strategy" value={selected.assetStrategy} /><Info label="Status" value={selected.assetReady ? "Ready" : "Pending asset"} /></Panel></div> : <p className="py-12 text-center text-[10px] text-text-muted">Select a beat to inspect its source and timing.</p>}</div><div className="border-t border-border p-3"><div className="flex items-center gap-2"><Sparkles size={14} className="text-primary-hover" /><strong className="text-[10px]">AI Assistant</strong></div><div className="mt-2 flex items-center gap-2 rounded-md border border-border bg-surface-input p-2 text-[9px] text-text-dim">Ask AI to refine this beat…<ChevronRight size={13} className="ml-auto text-primary-hover" /></div></div></aside>;
 }
-
-function formatTime(ms: number) {
-  const seconds = Math.max(0, Math.floor(ms / 1000));
-  const minutes = Math.floor(seconds / 60);
-  const rest = seconds % 60;
-  return `${String(minutes).padStart(2, "0")}:${String(rest).padStart(2, "0")}`;
-}
+function Panel({ title, children }: Readonly<{ title: string; children: React.ReactNode }>) { return <section className="grid gap-2"><div className="flex items-center justify-between text-[10px] font-semibold text-text-secondary">{title}<ChevronDown size={13} className="text-text-muted" /></div>{children}</section>; }
+function Action({ icon, label }: Readonly<{ icon: React.ReactNode; label: string }>) { return <button type="button" className="flex min-h-8 items-center gap-1.5 rounded-md border border-border bg-surface-input px-2 text-[9px] text-text-secondary hover:border-primary hover:text-foreground">{icon}{label}</button>; }
+function Info({ label, value }: Readonly<{ label: string; value: string }>) { return <div className="flex justify-between gap-3 border-b border-border-subtle pb-2 text-[9px]"><span className="text-text-muted">{label}</span><span className="max-w-[170px] truncate text-right text-text-secondary">{value}</span></div>; }
+function formatTime(ms: number) { const seconds = Math.max(0, Math.floor(ms / 1000)); return String(Math.floor(seconds / 60)).padStart(2, "0") + ":" + String(seconds % 60).padStart(2, "0"); }

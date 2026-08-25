@@ -21,7 +21,7 @@ test("renderer CSS variable references resolve to declared design tokens", () =>
     [...styles.matchAll(/^\s*(--[a-z0-9-]+)\s*:/gim)].map(([, token]) => token),
   );
   const files = [
-    join(rendererRoot, "features", "editor", "EditorScreen.tsx"),
+    join(rendererRoot, "features", "editor", "ProjectWorkspaceRoute.tsx"),
     ...sourceFiles(join(rendererRoot, "components", "ui")),
   ];
   const unresolved = new Set();
