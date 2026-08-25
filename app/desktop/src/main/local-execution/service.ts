@@ -393,7 +393,7 @@ export class LocalExecutionService extends EventEmitter {
         localPath: await this.resolveRenderAsset(
           claimed.projectId,
           beat.mediaAssetId,
-          "IMAGE",
+          beat.mediaType,
           beat.downloadUrl,
           beat.sizeBytes,
           beat.checksum,
@@ -414,7 +414,7 @@ export class LocalExecutionService extends EventEmitter {
   private async resolveRenderAsset(
     projectId: string,
     assetId: string,
-    kind: "IMAGE" | "AUDIO",
+    kind: "IMAGE" | "AUDIO" | "VIDEO",
     downloadUrl: string | null,
     sizeBytes: number,
     checksumSha256: string,
