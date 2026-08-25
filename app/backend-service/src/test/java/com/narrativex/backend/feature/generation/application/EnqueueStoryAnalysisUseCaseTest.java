@@ -175,7 +175,6 @@ class EnqueueStoryAnalysisUseCaseTest {
     when(chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(
             PROJECT_ID, CHAPTER_ID, "user-1"))
         .thenReturn(snapshot);
-    when(projectAccess.findOwnedProject(PROJECT_ID, "user-1")).thenReturn(null);
     when(generationJobRepository.findByIdempotencyKey(IDEMPOTENCY_KEY, "user-1"))
         .thenReturn(Optional.of(existing));
 

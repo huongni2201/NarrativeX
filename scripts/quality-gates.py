@@ -17,6 +17,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+QUALITY_GATE_TMP = ROOT / ".quality-gate-tmp"
 
 
 @dataclass(frozen=True)
@@ -33,17 +34,25 @@ def python_gate(name: str, *args: str, cwd: Path = ROOT) -> Gate:
 
 def gates(profile: str, skip_install: bool) -> list[Gate]:
     maven = str(ROOT / "app/backend-service/mvnw.cmd")
+    npm = "npm.cmd" if os.name == "nt" else "npm"
     result = [
         python_gate("docs-drift", "scripts/check-docs-drift.py"),
         python_gate("docs-checkpoint", "scripts/check-docs-checkpoint.py"),
         python_gate("secret-scan", "scripts/check-secrets.py"),
-        Gate("backend-clean-test", (maven, "-B", "clean", "test"), ROOT / "app/backend-service"),
+        Gate("backend-test", (maven, "-B", "test"), ROOT / "app/backend-service"),
         Gate(
             "backend-spotless",
             (maven, "-B", "spotless:check"),
             ROOT / "app/backend-service",
         ),
-        python_gate("worker-pytest", "-m", "pytest", cwd=ROOT / "app/ai-worker"),
+        python_gate(
+            "worker-pytest",
+            "-m",
+            "pytest",
+            "--basetemp",
+            str(QUALITY_GATE_TMP),
+            cwd=ROOT / "app/ai-worker",
+        ),
         python_gate("worker-ruff", "-m", "ruff", "check", ".", cwd=ROOT / "app/ai-worker"),
         python_gate("worker-mypy", "-m", "mypy", "src", cwd=ROOT / "app/ai-worker"),
     ]
@@ -51,13 +60,13 @@ def gates(profile: str, skip_install: bool) -> list[Gate]:
     if not skip_install:
         result.insert(
             3,
-            Gate("desktop-install-lockfile", ("npm", "ci"), ROOT / "app/desktop"),
+            Gate("desktop-install-lockfile", (npm, "ci"), ROOT / "app/desktop"),
         )
     result.extend(
         [
-            Gate("desktop-test", ("npm", "test"), ROOT / "app/desktop"),
-            Gate("desktop-typecheck", ("npm", "run", "type-check"), ROOT / "app/desktop"),
-            Gate("desktop-build", ("npm", "run", "build"), ROOT / "app/desktop"),
+            Gate("desktop-test", (npm, "test"), ROOT / "app/desktop"),
+            Gate("desktop-typecheck", (npm, "run", "type-check"), ROOT / "app/desktop"),
+            Gate("desktop-build", (npm, "run", "build"), ROOT / "app/desktop"),
         ]
     )
 
@@ -66,7 +75,7 @@ def gates(profile: str, skip_install: bool) -> list[Gate]:
             [
                 Gate(
                     "backend-postgres",
-                    (maven, "-B", "verify"),
+                    (maven, "-B", "clean", "verify"),
                     ROOT / "app/backend-service",
                     ("docker",),
                 ),

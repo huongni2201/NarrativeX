@@ -1,4 +1,4 @@
-package com.narrativex.backend.feature.auth.application.port.out;
+package com.narrativex.backend.feature.auth.application.port.in;
 
 /** Application-facing boundary for consuming one-time desktop OAuth handoffs. */
 public interface DesktopAuthHandoff {

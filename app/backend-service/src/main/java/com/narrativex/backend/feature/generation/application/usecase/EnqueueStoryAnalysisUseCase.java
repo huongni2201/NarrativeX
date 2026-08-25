@@ -48,18 +48,9 @@ public class EnqueueStoryAnalysisUseCase {
                 command.projectId(), command.chapterId(), userId)
             : chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(
                 command.projectId(), command.chapterId(), userId, command.contentVariantId());
-    var project = projectAccess.findOwnedProject(command.projectId(), userId);
-
     if (chapter.sourceText().isBlank()) {
       throw new IllegalArgumentException("Chapter source must be saved before analysis");
     }
-
-    String analysisLanguage =
-        chapter.language() == null
-                || chapter.language().isBlank()
-                || "und".equalsIgnoreCase(chapter.language())
-            ? project.getSourceLanguage()
-            : chapter.language();
 
     String baseIdempotencyKey =
         "chapter-analysis:"
@@ -92,6 +83,14 @@ public class EnqueueStoryAnalysisUseCase {
           latest.orElse(existing).getId(),
           idempotencyKey);
     }
+
+    var project = projectAccess.findOwnedProject(command.projectId(), userId);
+    String analysisLanguage =
+        chapter.language() == null
+                || chapter.language().isBlank()
+                || "und".equalsIgnoreCase(chapter.language())
+            ? project.getSourceLanguage()
+            : chapter.language();
 
     var admission = admissionService.admit(userId, command.projectId(), chapter);
     var estimate = admission.estimate();

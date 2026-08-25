@@ -2,7 +2,7 @@ package com.narrativex.backend.feature.auth.api.controller;
 
 import com.narrativex.backend.feature.auth.api.request.DesktopAuthExchangeRequest;
 import com.narrativex.backend.feature.auth.api.response.CurrentUserResponse;
-import com.narrativex.backend.feature.auth.application.port.out.DesktopAuthHandoff;
+import com.narrativex.backend.feature.auth.application.port.in.DesktopAuthHandoff;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

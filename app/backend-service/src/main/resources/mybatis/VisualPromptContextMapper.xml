@@ -6,7 +6,8 @@
 
     <resultMap id="visualPromptLocationRow"
                type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptLocationRow">
-        <id property="locationId" column="location_id" />
+        <id property="locationId" column="location_id" javaType="java.util.UUID"
+            typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
         <result property="name" column="name" />
         <result property="description" column="description" />
         <result property="visualPrompt" column="visual_prompt" />
@@ -14,8 +15,10 @@
 
     <resultMap id="visualPromptCharacterRow"
                type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptCharacterRow">
-        <id property="assignmentId" column="assignment_id" />
-        <result property="characterId" column="character_id" />
+        <id property="assignmentId" column="assignment_id" javaType="java.util.UUID"
+            typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
+        <result property="characterId" column="character_id" javaType="java.util.UUID"
+            typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
         <result property="canonicalName" column="canonical_name" />
         <result property="versionNumber" column="version_number" />
         <result property="visualPrompt" column="visual_prompt" />
@@ -28,8 +31,10 @@
 
     <resultMap id="visualPromptReferenceRow"
                type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptReferenceRow">
-        <id property="assetId" column="asset_id" />
-        <result property="assignmentId" column="assignment_id" />
+        <id property="assetId" column="asset_id" javaType="java.util.UUID"
+            typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
+        <result property="assignmentId" column="assignment_id" javaType="java.util.UUID"
+            typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler" />
         <result property="role" column="role" />
         <result property="priority" column="priority" />
         <result property="storageKey" column="storage_key" />

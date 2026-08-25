@@ -1,6 +1,6 @@
 package com.narrativex.backend.feature.auth.infrastructure.desktop;
 
-import com.narrativex.backend.feature.auth.application.port.out.DesktopAuthHandoff;
+import com.narrativex.backend.feature.auth.application.port.in.DesktopAuthHandoff;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;

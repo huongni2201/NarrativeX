@@ -33,7 +33,8 @@ class MyBatisSchemaReferenceContractTest {
       Pattern.compile("(?i)(?:\\bWITH\\b|,)\\s*(?:RECURSIVE\\s+)?([a-z_][a-z0-9_]*)\\s+AS\\s*\\(");
   private static final Pattern RETIRED_REFERENCES_COLUMN = Pattern.compile("(?i)\\breferences\\b");
 
-  private static final Set<String> SQL_REFERENCE_KEYWORDS = Set.of("lateral", "of", "set");
+  private static final Set<String> SQL_REFERENCE_KEYWORDS =
+      Set.of("insert", "lateral", "of", "select", "set", "skip");
 
   @Test
   void everyMyBatisTableReferenceExistsInAuthoritativeBaseline() throws IOException {
