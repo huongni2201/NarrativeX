@@ -3,7 +3,9 @@ package com.narrativex.backend.feature.auth.api.controller;
 import com.narrativex.backend.feature.auth.api.request.DesktopAuthExchangeRequest;
 import com.narrativex.backend.feature.auth.api.response.CurrentUserResponse;
 import com.narrativex.backend.feature.auth.application.port.in.DesktopAuthHandoff;
+import com.narrativex.backend.feature.auth.application.usecase.TransferGuestWorkspaceUseCase;
 import com.narrativex.backend.feature.common.response.ApiResponse;
+import com.narrativex.backend.feature.common.uuid.UuidV7;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -35,9 +37,12 @@ public class DesktopAuthController {
   private static final String REDIRECT_SESSION_KEY = "NARRATIVEX_DESKTOP_REDIRECT_URI";
   private static final String CODE_CHALLENGE_SESSION_KEY = "NARRATIVEX_DESKTOP_CODE_CHALLENGE";
   private static final String CODE_CHALLENGE_PATTERN = "[A-Za-z0-9_-]{43}";
+  private static final String ROLE_USER = "ROLE_USER";
+  private static final String ROLE_GUEST = "ROLE_GUEST";
 
   private final DesktopAuthHandoff handoffStore;
   private final SecurityContextRepository securityContextRepository;
+  private final TransferGuestWorkspaceUseCase transferGuestWorkspaceUseCase;
 
   @GetMapping("/start")
   public void start(
@@ -57,11 +62,44 @@ public class DesktopAuthController {
     response.sendRedirect("/oauth2/authorization/google");
   }
 
+  @PostMapping("/guest")
+  public ResponseEntity<ApiResponse<CurrentUserResponse>> guest(
+      HttpServletRequest servletRequest, HttpServletResponse servletResponse) {
+    Authentication existing = SecurityContextHolder.getContext().getAuthentication();
+    if (hasAuthority(existing, ROLE_USER)) {
+      return ResponseEntity.status(HttpStatus.CONFLICT)
+          .body(
+              new ApiResponse<>(
+                  false, "Desktop session is already signed in.", null, Instant.now()));
+    }
+    if (hasAuthority(existing, ROLE_GUEST)) {
+      return ResponseEntity.ok(
+          ApiResponse.success(
+              "Guest desktop session already active",
+              new CurrentUserResponse(existing.getName(), "Khách", null, null, true)));
+    }
+
+    String guestUserId = "guest-" + UuidV7.random();
+    Authentication authentication =
+        UsernamePasswordAuthenticationToken.authenticated(
+            guestUserId, null, List.of(new SimpleGrantedAuthority(ROLE_GUEST)));
+    SecurityContext context = SecurityContextHolder.createEmptyContext();
+    context.setAuthentication(authentication);
+    SecurityContextHolder.setContext(context);
+    securityContextRepository.saveContext(context, servletRequest, servletResponse);
+
+    return ResponseEntity.ok(
+        ApiResponse.success(
+            "Guest desktop session established",
+            new CurrentUserResponse(guestUserId, "Khách", null, null, true)));
+  }
+
   @PostMapping("/exchange")
   public ResponseEntity<ApiResponse<CurrentUserResponse>> exchange(
       @Valid @RequestBody DesktopAuthExchangeRequest request,
       HttpServletRequest servletRequest,
       HttpServletResponse servletResponse) {
+    String guestUserId = currentGuestUserId();
     DesktopAuthHandoff.AuthenticatedUser user =
         handoffStore.consumeUser(request.code(), request.codeVerifier());
     if (user == null) {
@@ -71,9 +109,13 @@ public class DesktopAuthController {
                   false, "Desktop auth code is invalid or expired.", null, Instant.now()));
     }
 
+    if (guestUserId != null) {
+      transferGuestWorkspaceUseCase.execute(guestUserId, user.id());
+    }
+
     Authentication authentication =
         UsernamePasswordAuthenticationToken.authenticated(
-            user, null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
+            user, null, List.of(new SimpleGrantedAuthority(ROLE_USER)));
     SecurityContext context = SecurityContextHolder.createEmptyContext();
     context.setAuthentication(authentication);
     SecurityContextHolder.setContext(context);
@@ -83,7 +125,19 @@ public class DesktopAuthController {
         ApiResponse.success(
             "Desktop session established",
             new CurrentUserResponse(
-                user.id(), user.displayName(), user.email(), user.avatarUrl())));
+                user.id(), user.displayName(), user.email(), user.avatarUrl(), false)));
+  }
+
+  private static String currentGuestUserId() {
+    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    return hasAuthority(authentication, ROLE_GUEST) ? authentication.getName() : null;
+  }
+
+  private static boolean hasAuthority(Authentication authentication, String authority) {
+    return authentication != null
+        && authentication.isAuthenticated()
+        && authentication.getAuthorities().stream()
+            .anyMatch(grantedAuthority -> authority.equals(grantedAuthority.getAuthority()));
   }
 
   static boolean isAllowedRedirect(String redirectUri) {
