@@ -72,17 +72,14 @@ function buildBeatRenderArgs(
     `pad=${manifest.width}:${manifest.height}:(ow-iw)/2:(oh-ih)/2`;
 
   if (beat.mediaType === "IMAGE") {
+    const filter = imageMotionFilter(manifest, beat, targetDurationSeconds);
     return [
-      "-loop",
-      "1",
       "-i",
       beat.localPath,
       "-t",
       target,
       "-vf",
-      baseFilter,
-      "-r",
-      String(manifest.fps),
+      filter,
       "-an",
       "-c:v",
       "libx264",
@@ -172,6 +169,61 @@ function buildBeatRenderArgs(
   }
 }
 
+function imageMotionFilter(
+  manifest: LocalRenderManifest,
+  beat: LocalRenderBeat,
+  targetDurationSeconds: number,
+): string {
+  const frames = Math.max(1, Math.round(targetDurationSeconds * manifest.fps));
+  const progress = `(on/${Math.max(1, frames - 1)})`;
+  const centeredX = "iw/2-(iw/zoom/2)";
+  const centeredY = "ih/2-(ih/zoom/2)";
+  const movement = beat.cameraMovement?.toUpperCase() ?? "NONE";
+
+  let zoom = "1.0";
+  let x = centeredX;
+  let y = centeredY;
+
+  switch (movement) {
+    case "PUSH_IN":
+    case "ZOOM_IN":
+      zoom = `1+0.08*${progress}`;
+      break;
+    case "PULL_OUT":
+    case "ZOOM_OUT":
+      zoom = `1.08-0.08*${progress}`;
+      break;
+    case "PAN":
+      zoom = "1.08";
+      x = `(iw-iw/zoom)*${progress}`;
+      break;
+    case "TILT":
+      zoom = "1.08";
+      y = `(ih-ih/zoom)*${progress}`;
+      break;
+    case "TRACK":
+      zoom = "1.06";
+      x = `(iw-iw/zoom)*(1-${progress})`;
+      break;
+    case "PARALLAX":
+      zoom = `1.03+0.05*${progress}`;
+      x = `(iw-iw/zoom)*${progress}`;
+      y = `(ih-ih/zoom)*(1-${progress})`;
+      break;
+    case "NONE":
+    default:
+      break;
+  }
+
+  return [
+    `scale=${manifest.width}:${manifest.height}:force_original_aspect_ratio=increase`,
+    `crop=${manifest.width}:${manifest.height}`,
+    `zoompan=z='${zoom}':x='${x}':y='${y}':d=${frames}:s=${manifest.width}x${manifest.height}:fps=${manifest.fps}`,
+    "setsar=1",
+    "format=yuv420p",
+  ].join(",");
+}
+
 function encodeVideoArgs(
   input: string[],
   videoFilter: string,
@@ -201,7 +253,7 @@ function segmentCacheKey(manifest: LocalRenderManifest, beat: LocalRenderBeat): 
   return createHash("sha256")
     .update(
       JSON.stringify({
-        rendererVersion: "segment-render-v2",
+        rendererVersion: "segment-render-v3",
         width: manifest.width,
         height: manifest.height,
         fps: manifest.fps,
