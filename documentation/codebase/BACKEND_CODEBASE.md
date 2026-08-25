@@ -30,17 +30,16 @@ Chapter and Scene are independent aggregate roots. Chapter owns Chapter-level so
   detection is hash-bound; a high-confidence mismatch with the project's analysis language is
   exposed as a user confirmation state. Confirmed translations enter the durable
   `CHAPTER_TRANSLATE` job/outbox path and analysis snapshots can pin an explicit variant.
-
 - Creating a Project is metadata-only and never implicitly starts AI/media work.
 - Chapter source is persisted before analysis.
 - Analysis is explicitly requested through `POST /api/v1/projects/{projectId}/chapters/{chapterId}/analysis-jobs`.
 - Backend locks/reloads the persisted Chapter state and performs ownership, idempotency, entitlement/quota and estimated-cost admission before durable enqueue.
-- The Chapter Workspace exposes analysis state and `canAnalyze` from durable Chapter/job conditions; StoryVersion moderation is not an admission condition for Chapter Analyze.
+- The Chapter Workspace exposes analysis state and `canAnalyze` from durable Chapter/job conditions.
 - Durable enqueue persists `OperationPlan`, `GenerationJob`, `StageAttempt` and outbox state before worker execution.
 - Redis generation hints are non-authoritative.
 - Worker validates the persisted Chapter snapshot before result materialization.
 
-The Chapter Analyze endpoint is an implemented durable foundation; older scaffold-only documentation is historical and not current implementation status.
+The Chapter Analyze endpoint is an implemented durable execution boundary.
 
 ## Durable generation model
 
@@ -53,11 +52,11 @@ OperationPlan
 
 Provider requests require durable lifecycle state. Ambiguous external state uses `UNKNOWN` reconciliation instead of blind retry/resubmit. Chapter translation uses one provider operation per chunk and persists Vertex actual usage before output validation; broader actual-usage reconciliation and unused-reservation release remain follow-up work for other provider paths.
 
-The active generation durability path is MyBatis/explicit SQL for ProviderOperation, GenerationJob, StageAttempt, OperationPlan, MediaPlan, generation outbox enqueue/dispatch and Job History. Chapter analysis has no application-owned pre-moderation gate; provider safety/rejection handling remains part of provider/media execution. Chapter, Project, StoryVersion, storyboard, characters, account/quota, auth, catalog, notifications and the account-scoped MediaAsset library are also MyBatis-backed. MediaAsset bytes use verified R2 upload intents/finalization; metadata uses PostgreSQL upload sessions, guarded lifecycle transitions, soft delete, and cursor pagination.
+The active generation durability path is MyBatis/explicit SQL for ProviderOperation, GenerationJob, StageAttempt, OperationPlan, MediaPlan, generation outbox enqueue/dispatch and Job History. Provider safety/rejection handling remains part of provider/media execution. Chapter, Project, StoryVersion, storyboard, characters, account/quota, auth, catalog, notifications and the account-scoped MediaAsset library are also MyBatis-backed. MediaAsset bytes use verified R2 upload intents/finalization; metadata uses PostgreSQL upload sessions, guarded lifecycle transitions, soft delete, and cursor pagination.
 
 ## StoryVersion lifecycle and safety boundary
 
-StoryVersion stores lifecycle state only: `DRAFT -> ACTIVE -> SUPERSEDED`. It has no story-level moderation decision and no `BLOCKED` lifecycle state. Story text remains untrusted input, so prompt-injection boundaries, applicable consent checks, schema validation, abuse controls and provider/media safety or output review remain enforced at their respective boundaries. The worker `ModerationDecision` model is provider/media output state, and the PostgreSQL `moderation_decisions` table remains a control-plane record for policy/audit entities; neither is a StoryVersion field.
+StoryVersion lifecycle is `DRAFT -> ACTIVE -> SUPERSEDED`. Story text remains untrusted input, so prompt-injection boundaries, ownership checks, schema validation, rate/abuse controls and provider/media safety or output review remain enforced at their respective runtime boundaries. These concerns are not stored as StoryVersion lifecycle state.
 
 Application ports remain persistence-technology-neutral. MyBatis boundaries use dedicated row models and explicit PostgreSQL predicates, including `row_version` CAS for mutable writes. Future MyBatis boundaries must extend `NarrativeXMyBatisMapper` so shared configuration registers only explicitly opted-in mapper interfaces. XML uses explicit result maps and keeps SQL-specific JSONB/enum/timestamp mappings visible. Adapters validate affected rows for guarded updates rather than issuing unconditional writes after a Java-side version check. See ADR-0001 for the accepted SQL-first persistence and generation-durability decision.
 
@@ -89,11 +88,10 @@ Avatar/asset counts, relationship graphs and detailed scene participation are no
 - Global Character library plus project-scoped Character list/detail read foundations.
 - Location and Asset read/API foundations where recorded in the integration matrix.
 - Job history, user quota and notification read foundations.
-- Authentication/session endpoints with Google OIDC; password login/register routes were removed in
-  the OAuth-only migration (see ADR-0011).
-- New password and Google accounts receive the default `NORMAL v1` plan assignment transactionally; the Flyway baseline also provisions the default assignment for existing accounts that have none.
+- Authentication/session endpoints use Google OIDC; desktop handoff is documented in ADR-0011.
+- New Google-authenticated accounts receive the default `NORMAL v1` plan assignment transactionally; the Flyway baseline provisions the default assignment for `auth_users` that do not have one.
 
-Backend endpoint availability does not imply every frontend surface is wired. Project Character list/detail is an exception: that vertical slice is wired end to end. See `FRONTEND_API_INTEGRATION_MATRIX.md`.
+Backend endpoint availability does not imply every desktop surface is wired. Project Character list/detail is an exception: that vertical slice is wired end to end. See `FRONTEND_API_INTEGRATION_MATRIX.md`.
 
 ## Domain rules and concurrency
 
@@ -107,5 +105,5 @@ Backend endpoint availability does not imply every frontend surface is wired. Pr
 `CHAPTER_GENERATE` creates an executable, revision-pinned `MediaPlan` and one
 `MediaGenerationItem` per reviewed VisualBeat. Each item carries a request fingerprint and separate
 execution/review status. `CHAPTER_RENDER` remains a separate command and must consume the pinned plan
-revision. The consolidated V1 baseline includes the execution-item and append-only asset-lineage persistence contract; provider SDKs
+revision. V1 includes the execution-item and append-only asset-lineage persistence contract; provider SDKs
 remain worker/infrastructure concerns and are not imported by backend domain code.

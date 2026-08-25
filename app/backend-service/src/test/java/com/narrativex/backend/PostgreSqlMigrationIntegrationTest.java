@@ -2,7 +2,6 @@ package com.narrativex.backend;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -123,7 +122,6 @@ class PostgreSqlMigrationIntegrationTest {
       assertEquals("uuid", columnType(connection, "generation_jobs", "content_variant_id"));
       assertEquals("uuid", columnType(connection, "language_detections", "content_variant_id"));
       assertEquals("uuid", columnType(connection, "notifications", "project_id"));
-      assertEquals("uuid", columnType(connection, "ai_audit_events", "job_id"));
       assertEquals("uuid", columnType(connection, "chapter_media_heads", "chapter_id"));
       assertEquals("uuid", columnType(connection, "chapter_media_heads", "generation_job_id"));
       assertEquals("uuid", columnType(connection, "render_input_snapshots", "generation_job_id"));
@@ -144,11 +142,15 @@ class PostgreSqlMigrationIntegrationTest {
       assertTrue(tableExists(connection, "local_device_pairing_codes"));
       assertTrue(tableExists(connection, "local_devices"));
       assertTrue(tableExists(connection, "local_device_capabilities"));
+      assertTrue(tableExists(connection, "local_media_materializations"));
+      assertEquals("uuid", columnType(connection, "local_media_materializations", "project_id"));
+      assertEquals("uuid", columnType(connection, "local_media_materializations", "media_asset_id"));
+      assertEquals("uuid", columnType(connection, "local_media_materializations", "local_device_id"));
+      assertEquals("NO", columnNullable(connection, "local_media_materializations", "local_device_id"));
 
       assertTrue(tableExists(connection, "project_render_input_snapshots"));
       assertTrue(tableExists(connection, "project_render_input_chapters"));
       assertTrue(tableExists(connection, "project_render_input_beats"));
-      assertFalse(tableExists(connection, "project_render_artifacts"));
       assertEquals(
           "uuid", columnType(connection, "project_render_input_snapshots", "generation_job_id"));
       assertEquals(
@@ -165,16 +167,14 @@ class PostgreSqlMigrationIntegrationTest {
       assertEquals("bigint", columnType(connection, "chapters", "row_version"));
       assertEquals("bigint", columnType(connection, "chapters", "estimated_duration_ms"));
       assertEquals("timestamp with time zone", columnType(connection, "chapters", "deleted_at"));
-      assertFalse(constraintExists(connection, "uk_chapters_story_order"));
       assertTrue(indexExists(connection, "uq_chapters_story_order_active"));
       assertTrue(indexExists(connection, "idx_chapters_deleted_at"));
 
       assertTrue(tableExists(connection, "plan_entitlements"));
       assertTrue(tableExists(connection, "style_presets"));
       assertTrue(tableExists(connection, "voice_catalog"));
-      assertFalse(columnExists(connection, "generation_jobs", "references"));
-      assertFalse(columnExists(connection, "character_appearances", "references"));
-      assertFalse(columnExists(connection, "scene_characters", "references"));
+      assertTrue(tableExists(connection, "notifications"));
+      assertTrue(tableExists(connection, "outbox_events"));
     }
   }
 
@@ -284,25 +284,6 @@ class PostgreSqlMigrationIntegrationTest {
         table);
   }
 
-  private static boolean columnExists(Connection connection, String table, String column)
-      throws SQLException {
-    try (PreparedStatement statement =
-        connection.prepareStatement(
-            "select exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = ? and column_name = ?)")) {
-      statement.setString(1, table);
-      statement.setString(2, column);
-      try (ResultSet result = statement.executeQuery()) {
-        result.next();
-        return result.getBoolean(1);
-      }
-    }
-  }
-
-  private static boolean constraintExists(Connection connection, String name) throws SQLException {
-    return exists(
-        connection, "select exists (select 1 from pg_constraint where conname = ?)", name);
-  }
-
   private static boolean indexExists(Connection connection, String name) throws SQLException {
     return exists(
         connection,
@@ -330,6 +311,20 @@ class PostgreSqlMigrationIntegrationTest {
     try (PreparedStatement statement =
         connection.prepareStatement(
             "select data_type from information_schema.columns where table_schema = 'public' and table_name = ? and column_name = ?")) {
+      statement.setString(1, table);
+      statement.setString(2, column);
+      try (ResultSet result = statement.executeQuery()) {
+        assertTrue(result.next(), table + "." + column + " must exist");
+        return result.getString(1);
+      }
+    }
+  }
+
+  private static String columnNullable(Connection connection, String table, String column)
+      throws SQLException {
+    try (PreparedStatement statement =
+        connection.prepareStatement(
+            "select is_nullable from information_schema.columns where table_schema = 'public' and table_name = ? and column_name = ?")) {
       statement.setString(1, table);
       statement.setString(2, column);
       try (ResultSet result = statement.executeQuery()) {

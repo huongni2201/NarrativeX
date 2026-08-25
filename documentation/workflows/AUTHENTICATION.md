@@ -53,7 +53,7 @@ Browser mutation
 
 ## Security rules
 
-1. Provider subject is the stable external identity key when durable identity persistence is implemented.
+1. The Google provider subject is persisted as the stable external identity key in `auth_users.google_subject`.
 2. Provider tokens/secrets never enter frontend storage, logs or worker payloads.
 3. Project-scoped commands/queries resolve owner/actor through the auth application port.
 4. `local`/`test` may use the configured developer identity fallback; staging/production fail closed when OIDC is disabled.
@@ -62,20 +62,14 @@ Browser mutation
 
 ## Notification Outbox & Event Dispatch
 
-NarrativeX uses an outbox pattern for guaranteed in-app and email notification delivery:
+NarrativeX uses an outbox pattern for durable event dispatch and an in-app notification feed:
 
 ```text
-Durable Event (Job completed / Quota alert)
-  -> outbox_events table (committed in same DB transaction)
-  -> OutboxDispatcher polling / Redis notification hints
-  -> notifications table / notification_preferences check
-  -> Client Notification Feed & SSE/Email dispatch
+Durable Event (job completed / quota event)
+  -> outbox_events table when transactional dispatch is required
+  -> OutboxDispatcher / delivery adapter
+  -> notifications table
+  -> Client Notification Feed / SSE
 ```
 
-- Notifications are persisted durably with `user_id`, `type`, `title`, `message`, `data_json`, and read status.
-- Preference rules (`IN_APP_ONLY`, `EMAIL_DIGEST`, `IMMEDIATE_EMAIL`) filter external delivery while preserving in-app audit history.
-
-## Repository Governance & Branch Protection
-
-- Main branch protection requires pull request reviews and linear git history.
-- Critical workflow execution uses deterministic test baselines ([ADR-0005](../decisions/ADR-0005-deterministic-mvp-e2e-render-storage.md)) to validate queue, persistence, and worker execution in CI without external vendor dependencies.
+`notifications` stores the current durable notification contract: `user_id`, optional `project_id`, unique `event_key`, `type`, `channel_state_json`, `title_key`, `message_key`, creation time and `read_at`. External delivery channels are implemented by application delivery adapters when a concrete workflow requires them; no separate preference table is part of the current database baseline.
