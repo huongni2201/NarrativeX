@@ -1,27 +1,23 @@
-import type { DesktopCharacter } from "@narrativex/client-contracts";
+import type { CursorPage, DesktopCharacter } from "@narrativex/client-contracts";
 import { apiRequest } from "../../../api/client";
-import { assertContract, isRecord, isString } from "../../../api/guards";
+import { isRecord, isString } from "../../../api/guards";
+import { parseCursorPage } from "../../../api/pagination";
 
 function isCharacter(value: unknown): value is DesktopCharacter {
   return isRecord(value) && isString(value.id) && isString(value.canonicalName);
 }
 
 export const charactersApi = {
-  list: (projectId: string) =>
+  list: (projectId: string): Promise<CursorPage<DesktopCharacter>> =>
     apiRequest<unknown>(
       `/api/v1/projects/${encodeURIComponent(projectId)}/characters?limit=100`,
-    ).then((value) => {
-      assertContract(
-        isRecord(value) &&
-          Array.isArray(value.content) &&
-          value.content.every(isCharacter),
+    ).then((value) =>
+      parseCursorPage(
+        value,
+        isCharacter,
         "Characters response không đúng contract.",
-      );
-      return {
-        content: value.content,
-        nextCursor: typeof value.nextCursor === "string" ? value.nextCursor : null,
-      };
-    }),
+      ),
+    ),
 
   create: (input: {
     canonicalName: string;

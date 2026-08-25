@@ -5,7 +5,7 @@ import type {
   ProjectRenderBeatOverride,
   UpdateBeatMediaInput,
 } from "@narrativex/client-contracts";
-import { apiRequest } from "../../../api/client";
+import { apiCommand, apiRequest } from "../../../api/client";
 import { assertContract, isRecord, isString } from "../../../api/guards";
 
 function isTimeline(value: unknown): value is DesktopTimeline {
@@ -38,13 +38,13 @@ export const productionApi = {
     }),
 
   updateBeatMedia: (projectId: string, visualBeatId: string, input: UpdateBeatMediaInput) =>
-    apiRequest<void>(
+    apiCommand(
       `/api/v1/projects/${encodeURIComponent(projectId)}/production/beats/${encodeURIComponent(visualBeatId)}/media`,
       { method: "PUT", body: JSON.stringify(input) },
     ),
 
   resetBeatMedia: (projectId: string, visualBeatId: string) =>
-    apiRequest<void>(
+    apiCommand(
       `/api/v1/projects/${encodeURIComponent(projectId)}/production/beats/${encodeURIComponent(visualBeatId)}/media`,
       { method: "DELETE" },
     ),

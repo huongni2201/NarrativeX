@@ -97,12 +97,36 @@ export function ImagesScreen({
     }
   }
 
+  function reviewItem(
+    itemId: string,
+    rowVersion: number,
+    decision: "APPROVED" | "REJECTED",
+  ) {
+    setNotice(null);
+    review.mutate(
+      {
+        itemId,
+        jobId: mediaJobId ?? undefined,
+        review: { decision, rowVersion },
+      },
+      {
+        onSuccess: () =>
+          setNotice(decision === "APPROVED" ? "Ảnh đã được duyệt." : "Ảnh đã bị từ chối."),
+        onError: (error) => setNotice(toMessage(error)),
+      },
+    );
+  }
+
   return (
     <FeaturePage
       title="Image Generation"
       description="Analyze chapter, estimate cost, generate image assets và review từng media item trong generation feature riêng."
       actions={
-        <Button size="sm" onClick={() => void generateImages()} disabled={!chapterId || createJob.isPending}>
+        <Button
+          size="sm"
+          onClick={() => void generateImages()}
+          disabled={!chapterId || createJob.isPending}
+        >
           <Sparkles size={14} /> {createJob.isPending ? "Queuing…" : "Generate images"}
         </Button>
       }
@@ -111,17 +135,26 @@ export function ImagesScreen({
         <section className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-3">
           <Field label="Chapter">
             <Select value={chapterId || undefined} onValueChange={setChapterId}>
-              <SelectTrigger className="min-w-[230px]"><SelectValue placeholder="Chọn chapter" /></SelectTrigger>
+              <SelectTrigger className="min-w-[230px]">
+                <SelectValue placeholder="Chọn chapter" />
+              </SelectTrigger>
               <SelectContent>
                 {chapters.map((chapter) => (
-                  <SelectItem key={chapter.id} value={chapter.id}>{chapter.title}</SelectItem>
+                  <SelectItem key={chapter.id} value={chapter.id}>
+                    {chapter.title}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </Field>
           <Field label="Quality">
-            <Select value={qualityTier} onValueChange={(value) => setQualityTier(value as typeof qualityTier)}>
-              <SelectTrigger className="min-w-[120px]"><SelectValue /></SelectTrigger>
+            <Select
+              value={qualityTier}
+              onValueChange={(value) => setQualityTier(value as typeof qualityTier)}
+            >
+              <SelectTrigger className="min-w-[120px]">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="DRAFT">Draft</SelectItem>
                 <SelectItem value="STANDARD">Standard</SelectItem>
@@ -130,50 +163,83 @@ export function ImagesScreen({
             </Select>
           </Field>
           <Field label="Image style">
-            <Select value={imageStyle} onValueChange={(value) => setImageStyle(value as typeof imageStyle)}>
-              <SelectTrigger className="min-w-[190px]"><SelectValue /></SelectTrigger>
+            <Select
+              value={imageStyle}
+              onValueChange={(value) => setImageStyle(value as typeof imageStyle)}
+            >
+              <SelectTrigger className="min-w-[190px]">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="CINEMATIC">Cinematic</SelectItem>
                 <SelectItem value="STORYBOOK_WATERCOLOR">Storybook watercolor</SelectItem>
               </SelectContent>
             </Select>
           </Field>
-          <Button variant="outline" onClick={() => void runAnalysis()} disabled={!chapterId || analyze.isPending}>
+          <Button
+            variant="outline"
+            onClick={() => void runAnalysis()}
+            disabled={!chapterId || analyze.isPending}
+          >
             Analyze
           </Button>
-          <Button variant="outline" onClick={() => void estimateCost()} disabled={!chapterId || estimate.isPending}>
+          <Button
+            variant="outline"
+            onClick={() => void estimateCost()}
+            disabled={!chapterId || estimate.isPending}
+          >
             Estimate cost
           </Button>
         </section>
 
-        {notice && <p className="text-[10px] text-muted-foreground">{notice}</p>}
+        {notice && (
+          <p className="text-[10px] text-muted-foreground" role="status" aria-live="polite">
+            {notice}
+          </p>
+        )}
         {generationJob.data && (
           <div className="rounded-md border border-border bg-card p-3 text-[10px] text-muted-foreground">
-            Generation {generationJob.data.jobId.slice(0, 8)} · {generationJob.data.status} · {Math.round(generationJob.data.progress * 100)}%
+            Generation {generationJob.data.jobId.slice(0, 8)} · {generationJob.data.status} ·{" "}
+            {Math.round(generationJob.data.progress * 100)}%
           </div>
         )}
 
         <section className="grid grid-cols-[minmax(240px,.7fr)_minmax(0,1.3fr)] gap-3">
           <div className="rounded-lg border border-border bg-card p-3">
-            <span className="text-[9px] uppercase tracking-[.12em] text-muted-foreground">Visual beats</span>
+            <span className="text-[9px] uppercase tracking-[.12em] text-muted-foreground">
+              Visual beats
+            </span>
             <div className="mt-2 grid gap-2">
               {beats.map((beat) => (
-                <div key={beat.visualBeatId} className="rounded-md border border-border-subtle bg-popover p-2">
+                <div
+                  key={beat.visualBeatId}
+                  className="rounded-md border border-border-subtle bg-popover p-2"
+                >
                   <strong className="text-[10px]">{beat.title}</strong>
-                  <p className="mt-1 text-[9px] leading-4 text-muted-foreground">{beat.visualIntent}</p>
+                  <p className="mt-1 text-[9px] leading-4 text-muted-foreground">
+                    {beat.visualIntent}
+                  </p>
                 </div>
               ))}
               {!beats.length && (
-                <EmptyState title="Chưa có visual beat" description="Analyze chapter để tạo scene/visual beat trước." />
+                <EmptyState
+                  title="Chưa có visual beat"
+                  description="Analyze chapter để tạo scene/visual beat trước."
+                />
               )}
             </div>
           </div>
 
           <div className="rounded-lg border border-border bg-card p-3">
-            <span className="text-[9px] uppercase tracking-[.12em] text-muted-foreground">Media review</span>
+            <span className="text-[9px] uppercase tracking-[.12em] text-muted-foreground">
+              Media review
+            </span>
             <div className="mt-2 grid grid-cols-[repeat(auto-fill,minmax(210px,1fr))] gap-2">
               {mediaJob.data?.items.map((item) => (
-                <article key={item.id} className="grid gap-2 rounded-md border border-border-subtle bg-popover p-3">
+                <article
+                  key={item.id}
+                  className="grid gap-2 rounded-md border border-border-subtle bg-popover p-3"
+                >
                   <div className="flex items-center gap-2">
                     <ImageIcon size={16} className="text-primary-hover" />
                     <strong className="truncate text-[10px]">{item.visualBeatId}</strong>
@@ -185,7 +251,7 @@ export function ImagesScreen({
                     <div className="flex gap-2">
                       <Button
                         size="sm"
-                        onClick={() => void review.mutateAsync({ itemId: item.id, jobId: mediaJobId ?? undefined, review: { decision: "APPROVED", rowVersion: item.rowVersion } })}
+                        onClick={() => reviewItem(item.id, item.rowVersion, "APPROVED")}
                         disabled={review.isPending}
                       >
                         <Check size={12} /> Approve
@@ -193,7 +259,7 @@ export function ImagesScreen({
                       <Button
                         variant="destructive"
                         size="sm"
-                        onClick={() => void review.mutateAsync({ itemId: item.id, jobId: mediaJobId ?? undefined, review: { decision: "REJECTED", rowVersion: item.rowVersion } })}
+                        onClick={() => reviewItem(item.id, item.rowVersion, "REJECTED")}
                         disabled={review.isPending}
                       >
                         <X size={12} /> Reject
@@ -204,7 +270,10 @@ export function ImagesScreen({
               ))}
             </div>
             {!mediaJob.data?.items.length && (
-              <EmptyState title="Chưa có media job" description="Generate images để theo dõi và review output." />
+              <EmptyState
+                title="Chưa có media job"
+                description="Generate images để theo dõi và review output."
+              />
             )}
           </div>
         </section>
@@ -214,11 +283,20 @@ export function ImagesScreen({
 }
 
 function Field({ label, children }: Readonly<{ label: string; children: React.ReactNode }>) {
-  return <label className="grid gap-1 text-[10px] text-muted-foreground"><span>{label}</span>{children}</label>;
+  return (
+    <label className="grid gap-1 text-[10px] text-muted-foreground">
+      <span>{label}</span>
+      {children}
+    </label>
+  );
 }
 
-function asAspectRatio(value: string | undefined): "16:9" | "9:16" | "1:1" | "4:3" | "3:4" {
-  return value === "9:16" || value === "1:1" || value === "4:3" || value === "3:4" ? value : "16:9";
+function asAspectRatio(
+  value: string | undefined,
+): "16:9" | "9:16" | "1:1" | "4:3" | "3:4" {
+  return value === "9:16" || value === "1:1" || value === "4:3" || value === "3:4"
+    ? value
+    : "16:9";
 }
 
 function toMessage(error: unknown) {

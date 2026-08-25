@@ -4,7 +4,7 @@ import type {
   MediaJobDetails,
   MediaReviewInput,
 } from "@narrativex/client-contracts";
-import { apiRequest } from "../../../api/client.ts";
+import { apiCommand, apiRequest } from "../../../api/client.ts";
 
 export const generationApi = {
   analyze: (projectId: string, chapterId: string) =>
@@ -51,7 +51,7 @@ export const generationApi = {
     apiRequest<MediaJobDetails>(`/api/v1/media-jobs/${encodeURIComponent(jobId)}`),
 
   review: (itemId: string, input: MediaReviewInput) =>
-    apiRequest<void>(
+    apiCommand(
       `/api/v1/media-generation-items/${encodeURIComponent(itemId)}/review`,
       { method: "POST", body: JSON.stringify(input) },
     ),

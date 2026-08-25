@@ -1,10 +1,26 @@
-import type { CreateProjectInput, DesktopProject } from "@narrativex/client-contracts";
-import { apiRequest } from "../../../api/client";
-import { assertContract, isRecord, isString } from "../../../api/guards";
+import type {
+  CreateProjectInput,
+  CursorPage,
+  DesktopProject,
+} from "@narrativex/client-contracts";
+import { apiCommand, apiRequest } from "../../../api/client";
+import {
+  assertContract,
+  isNullableString,
+  isNumber,
+  isRecord,
+  isString,
+} from "../../../api/guards";
+import { parseCursorPage } from "../../../api/pagination";
 
-export interface ProjectsPage {
-  content: DesktopProject[];
-  nextCursor: string | null;
+export interface ProjectDashboardCounts {
+  all: number;
+  active: number;
+  draft: number;
+}
+
+export interface ProjectsPage extends CursorPage<DesktopProject> {
+  counts: ProjectDashboardCounts;
 }
 
 function isProject(value: unknown): value is DesktopProject {
@@ -12,23 +28,43 @@ function isProject(value: unknown): value is DesktopProject {
     isRecord(value) &&
     isString(value.id) &&
     isString(value.name) &&
-    isString(value.status)
+    isNullableString(value.description) &&
+    isNullableString(value.coverImageUrl) &&
+    isString(value.status) &&
+    isString(value.createdAt) &&
+    isString(value.updatedAt) &&
+    typeof value.isStarred === "boolean" &&
+    isRecord(value.metrics) &&
+    isNumber(value.metrics.totalChapters) &&
+    isNumber(value.metrics.totalScenes) &&
+    isNumber(value.metrics.estimatedDurationSeconds)
   );
 }
 
 function parsePage(value: unknown): ProjectsPage {
-  assertContract(
-    isRecord(value) && Array.isArray(value.content),
+  const page = parseCursorPage(
+    value,
+    isProject,
     "Projects response không đúng contract.",
   );
+  assertContract(isRecord(value), "Projects response không đúng contract.");
+
+  const counts = value.counts;
   assertContract(
-    value.content.every(isProject),
-    "Projects response chứa project không hợp lệ.",
+    isRecord(counts) &&
+      isNumber(counts.all) &&
+      isNumber(counts.active) &&
+      isNumber(counts.draft),
+    "Projects response counts không đúng contract.",
   );
 
   return {
-    content: value.content,
-    nextCursor: typeof value.nextCursor === "string" ? value.nextCursor : null,
+    ...page,
+    counts: {
+      all: counts.all,
+      active: counts.active,
+      draft: counts.draft,
+    },
   };
 }
 
@@ -47,12 +83,12 @@ export const projectsApi = {
     }),
 
   addFavorite: (projectId: string) =>
-    apiRequest<void>(`/api/v1/projects/${encodeURIComponent(projectId)}/favorite`, {
+    apiCommand(`/api/v1/projects/${encodeURIComponent(projectId)}/favorite`, {
       method: "PUT",
     }),
 
   removeFavorite: (projectId: string) =>
-    apiRequest<void>(`/api/v1/projects/${encodeURIComponent(projectId)}/favorite`, {
+    apiCommand(`/api/v1/projects/${encodeURIComponent(projectId)}/favorite`, {
       method: "DELETE",
     }),
 
