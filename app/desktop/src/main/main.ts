@@ -12,6 +12,8 @@ import { LocalExecutionBackendClient } from "./local-execution/backend-client";
 import { loadLocalExecutionConfig } from "./local-execution/config";
 import { DeviceIdentityStore } from "./local-execution/device-identity";
 import { LocalExecutionService } from "./local-execution/service";
+import { ProjectCatalog } from "./local-storage/project-catalog";
+import { registerProjectCatalogIpc } from "./local-storage/project-catalog-ipc";
 import { ProjectStorage } from "./local-storage/project-storage";
 import { RemoteAssetMaterializer } from "./local-storage/remote-asset-materializer";
 import {
@@ -181,6 +183,8 @@ void app.whenReady().then(async () => {
   const identityStore = new DeviceIdentityStore();
   const backendClient = new LocalExecutionBackendClient(config, app.getVersion());
   projectStorage = new ProjectStorage(join(app.getPath("userData"), "projects"));
+  const projectCatalog = new ProjectCatalog(projectStorage);
+  registerProjectCatalogIpc(trustPolicy, projectCatalog);
   renderPreflight = new LocalRenderPreflightService(ffmpegRuntime, projectStorage);
   renderJournals = new RenderJournalStore(projectStorage.rootDirectory());
   remoteAssetMaterializer = new RemoteAssetMaterializer(projectStorage, desktopApi);
