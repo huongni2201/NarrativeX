@@ -63,8 +63,7 @@ public class GetProductionTimelineUseCase {
       long chapterDurationMs = resolveChapterDuration(chapter, chapterBeats);
       long chapterStartMs = cursorMs;
       long chapterEndMs = safeAdd(cursorMs, chapterDurationMs);
-      boolean timingRepresentable =
-          chapterBeats.isEmpty() || chapterDurationMs >= chapterBeats.size();
+      boolean timingRepresentable = chapterBeats.isEmpty() || chapterDurationMs >= chapterBeats.size();
 
       List<ProductionTimelineView.Beat> plannedBeats =
           timingRepresentable
@@ -93,7 +92,7 @@ public class GetProductionTimelineUseCase {
               && planMatches;
       boolean assetsReady =
           planReady
-              && chapter.readyBeatCount() == chapter.beatCount()
+              && plannedBeats.size() == chapter.beatCount()
               && plannedBeats.stream().allMatch(ProductionTimelineView.Beat::assetReady);
       boolean chapterReady = audioReady && assetsReady;
       readyForRender &= chapterReady;
@@ -174,11 +173,14 @@ public class GetProductionTimelineUseCase {
       long globalStartMs = safeAdd(chapterStartMs, previousRelativeEnd);
       long globalEndMs = safeAdd(chapterStartMs, relativeEnd);
       long durationMs = Math.max(1L, globalEndMs - globalStartMs);
-      boolean assetReady =
+      boolean mediaMetadataReady =
           source.mediaAssetId() != null
-              && nonBlank(source.storageKey())
+              && nonBlank(source.mediaType())
               && positive(source.sizeBytes())
               && nonBlank(source.checksum());
+      boolean storageReady =
+          "LOCAL_ONLY".equals(source.storageMode()) || nonBlank(source.storageKey());
+      boolean assetReady = mediaMetadataReady && storageReady;
 
       planned.add(
           new ProductionTimelineView.Beat(
@@ -192,6 +194,12 @@ public class GetProductionTimelineUseCase {
               source.cameraMovement(),
               source.assetStrategy(),
               source.mediaAssetId(),
+              source.mediaType(),
+              source.storageMode(),
+              source.sourceDurationMs(),
+              nonBlank(source.fitMode()) ? source.fitMode() : "TRIM",
+              Math.max(0L, source.trimStartMs()),
+              source.mediaSelectionActive(),
               source.storageKey(),
               source.sizeBytes(),
               source.checksum(),
