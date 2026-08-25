@@ -8,3 +8,20 @@ export interface DesktopVoice {
 }
 
 export type ExecutionPreference = "AUTO" | "CLOUD" | "LOCAL";
+
+export interface GenerateNarrationInput {
+  chapterId: string;
+  voiceId: string;
+  speakingRate?: number;
+  voiceReferenceAssetId?: string;
+  executionPreference?: ExecutionPreference;
+}
+
+export interface GenerateBatchNarrationInput {
+  projectId: string;
+  chapterIds: string[];
+  voiceId: string;
+  speakingRate?: number;
+  voiceReferenceAssetId?: string;
+  executionPreference?: ExecutionPreference;
+}

@@ -10,6 +10,8 @@ public interface MediaAssetRepository {
 
   MediaAssetView createOrReuseVerifiedAsset(String accountId, CreateVerifiedMediaAsset command);
 
+  MediaAssetView createLocalAsset(String accountId, CreateLocalMediaAsset command);
+
   MediaAssetView findOwned(String accountId, UUID id);
 
   MediaAssetView findVerifiedByChecksum(String accountId, String sha256);
@@ -29,6 +31,15 @@ public interface MediaAssetRepository {
       String type,
       String origin,
       String storageKey,
+      String originalFilename,
+      String contentType,
+      long sizeBytes,
+      String sha256,
+      Long durationMs) {}
+
+  record CreateLocalMediaAsset(
+      UUID proposedId,
+      String type,
       String originalFilename,
       String contentType,
       long sizeBytes,

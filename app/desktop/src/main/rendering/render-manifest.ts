@@ -42,9 +42,11 @@ export function buildLocalRenderManifest(
   const fps = parseFps(render.renderProfileJson);
   validateTimeline(render);
 
-  const beats = render.beats.map(({ localPath, ...beat }) => ({ ...beat, localPath }));
+  const renderBeats = render.beats as Array<ClaimedProjectRenderBeat & { localPath: string }>;
+  const renderChapters = render.chapters as Array<ClaimedProjectRenderChapter & { localPath: string }>;
+  const beats = renderBeats.map(({ localPath, ...beat }) => ({ ...beat, localPath }));
   const audio = {
-    chapters: render.chapters.map(({ localPath, ...chapter }) => ({
+    chapters: renderChapters.map(({ localPath, ...chapter }) => ({
       ...chapter,
       localPath,
     })),

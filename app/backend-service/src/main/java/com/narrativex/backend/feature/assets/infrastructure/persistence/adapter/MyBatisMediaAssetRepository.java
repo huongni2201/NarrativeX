@@ -97,6 +97,30 @@ public class MyBatisMediaAssetRepository implements MediaAssetRepository, MediaA
 
   @Override
   @Transactional
+  public MediaAssetView createLocalAsset(String accountId, CreateLocalMediaAsset command) {
+    if (!List.of("AUDIO", "IMAGE", "VIDEO").contains(command.type())) {
+      throw new IllegalArgumentException("Local asset type must be AUDIO, IMAGE, or VIDEO");
+    }
+    if (command.sizeBytes() <= 0
+        || command.sha256() == null
+        || !command.sha256().matches("^[0-9a-fA-F]{64}$")) {
+      throw new IllegalArgumentException("Local asset size and SHA-256 are invalid");
+    }
+    MediaAssetRow row = new MediaAssetRow();
+    row.setId(command.proposedId() == null ? UUID.randomUUID() : command.proposedId());
+    row.setAccountId(accountId);
+    row.setAssetType(command.type());
+    row.setOriginalFilename(command.originalFilename());
+    row.setContentType(command.contentType());
+    row.setSizeBytes(command.sizeBytes());
+    row.setSha256(command.sha256().toLowerCase(Locale.ROOT));
+    row.setDurationMs(command.durationMs());
+    mapper.insertLocal(row);
+    return requireOwned(accountId, row.getId());
+  }
+
+  @Override
+  @Transactional
   public MediaAssetView startUpload(String accountId, UUID id) {
     return transition(accountId, id, MediaAssetStatus.UPLOADING, mapper::markUploading);
   }
@@ -203,7 +227,8 @@ public class MyBatisMediaAssetRepository implements MediaAssetRepository, MediaA
         row.getHeight(),
         row.getValidationErrorCode(),
         row.getValidationErrorDetail(),
-        row.getValidatedAt());
+        row.getValidatedAt(),
+        row.getStorageMode());
   }
 
   private static OptimisticLockingFailureException optimisticConflict(UUID id) {

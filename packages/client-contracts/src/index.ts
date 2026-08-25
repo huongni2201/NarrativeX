@@ -1,7 +1,7 @@
-export type { DesktopProject } from "./project";
-export type { DesktopChapter } from "./chapter";
+export type { CreateProjectInput, DesktopProject } from "./project";
+export type { CreateChapterInput, DesktopChapter, DesktopChapterDetails, UpdateChapterInput } from "./chapter";
 export type { DesktopCharacter } from "./character";
-export type { DesktopAsset, DesktopPreset } from "./asset";
-export type { DesktopVoice, ExecutionPreference } from "./narration";
-export type { DesktopTimeline, DesktopTimelineBeat } from "./production";
-export type { DesktopRenderJob, DesktopRenderJobStatus } from "./generation";
+export type { DesktopAsset, DesktopPreset, LocalAssetRegistration, LocalMaterializationStatus } from "./asset";
+export type { DesktopVoice, ExecutionPreference, GenerateBatchNarrationInput, GenerateNarrationInput } from "./narration";
+export type { DesktopTimeline, DesktopTimelineBeat, LocalRenderPreflight, LocalRenderPreflightAsset, ProjectRenderBeatOverride } from "./production";
+export type { CreateMediaJobInput, DesktopRenderJob, DesktopRenderJobStatus, GenerationJob, GenerationJobStatus, MediaGenerationItem, MediaJobDetails, MediaReviewInput } from "./generation";

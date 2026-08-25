@@ -10,6 +10,7 @@
         <result property="assetType" column="asset_type" />
         <result property="origin" column="origin" />
         <result property="storageKey" column="storage_key" />
+        <result property="storageMode" column="storage_mode" />
         <result property="originalFilename" column="original_filename" />
         <result property="contentType" column="content_type" />
         <result property="sizeBytes" column="size_bytes" />
@@ -30,7 +31,7 @@
     </resultMap>
 
     <sql id="columns">
-        id, account_id, asset_type, origin, storage_key, original_filename, content_type,
+        id, account_id, asset_type, origin, storage_mode, storage_key, original_filename, content_type,
         size_bytes, sha256, duration_ms, status, created_at, deleted_at, checksum_verified_at,
         detected_content_type, detected_container, detected_codec, width, height,
         validation_error_code, validation_error_detail, validated_at
@@ -64,6 +65,16 @@
         VALUES
             (#{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}, #{accountId}, #{assetType}, #{origin}, #{storageKey}, #{originalFilename}, #{contentType},
              #{sizeBytes}, #{sha256}, #{durationMs}, 'VALIDATING', CURRENT_TIMESTAMP)
+        RETURNING id
+    </select>
+
+    <select id="insertLocal" parameterType="com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetRow" resultType="java.util.UUID" affectData="true">
+        INSERT INTO media_assets
+            (id, account_id, asset_type, origin, storage_mode, storage_key, original_filename, content_type,
+             size_bytes, sha256, duration_ms, status, checksum_verified_at)
+        VALUES
+            (#{id,typeHandler=com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaAssetUuidTypeHandler}, #{accountId}, #{assetType}, 'LOCAL_ONLY', 'LOCAL_ONLY', NULL, #{originalFilename}, #{contentType},
+             #{sizeBytes}, #{sha256}, #{durationMs}, 'READY', CURRENT_TIMESTAMP)
         RETURNING id
     </select>
 

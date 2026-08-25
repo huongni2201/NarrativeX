@@ -183,3 +183,19 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 
 @media (max-width: 1320px) { .desktop-app { grid-template-columns: 60px 230px minmax(520px, 1fr) 290px; }.menu { gap: 0; }.menu button { padding: 5px; }.autosave { display: none; }.topbar { grid-template-columns: 140px auto minmax(200px, 1fr) auto; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; } }
+/* Chapter workflow */
+.chapter-editor-form { display: grid; gap: 9px; margin-top: 18px; }.chapter-editor-form input, .chapter-editor-form textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-2); color: var(--text); padding: 9px 10px; font: inherit; }.chapter-editor-form textarea { min-height: 150px; resize: vertical; }.chapter-editor-form > div { display: flex; gap: 8px; }.chapter-edit { display: grid; gap: 4px; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }.chapter-edit:hover strong { color: var(--violet-bright); }
+.generation-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; margin-bottom: 13px; padding: 11px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.generation-toolbar label { display: grid; gap: 4px; color: var(--text-3); font-size: 9px; }
+.generation-toolbar select, .generation-toolbar input { min-height: 29px; padding: 0 7px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface-2); color: var(--text-2); font: inherit; }
+.generation-job { display: grid; gap: 8px; margin-bottom: 13px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); }
+.generation-job strong { color: var(--text); font-size: 11px; }
+.generation-job small { color: var(--text-3); font-size: 9px; }
+.generation-item { display: grid; grid-template-columns: minmax(100px, 1fr) auto auto; align-items: center; gap: 8px; padding-top: 7px; border-top: 1px solid var(--border-soft); color: var(--text-2); font-size: 9px; }
+.generation-item > div { display: flex; gap: 5px; }
+.generation-item .outline-action { min-height: 24px; padding: 0 7px; font-size: 9px; }
+.preflight-summary { display: grid; gap: 4px; margin: 12px 0; padding: 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-2); }
+.preflight-summary.ready { border-color: var(--green); }
+.preflight-summary.blocked { border-color: var(--amber); }
+.preflight-summary strong { color: var(--text); font-size: 10px; }
+.preflight-summary span, .preflight-summary small { color: var(--text-3); font-size: 9px; line-height: 1.4; }

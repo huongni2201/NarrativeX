@@ -9,6 +9,7 @@ public class MediaAssetRow {
   private String assetType;
   private String origin;
   private String storageKey;
+  private String storageMode;
   private String originalFilename;
   private String contentType;
   private long sizeBytes;
@@ -142,6 +143,14 @@ public class MediaAssetRow {
 
   public String getStorageKey() {
     return storageKey;
+  }
+
+  public String getStorageMode() {
+    return storageMode;
+  }
+
+  public void setStorageMode(String storageMode) {
+    this.storageMode = storageMode;
   }
 
   public String getOriginalFilename() {

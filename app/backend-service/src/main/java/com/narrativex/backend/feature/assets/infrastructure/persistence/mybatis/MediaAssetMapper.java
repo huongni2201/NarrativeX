@@ -16,6 +16,8 @@ public interface MediaAssetMapper extends NarrativeXMyBatisMapper {
 
   UUID insertVerified(MediaAssetRow row);
 
+  UUID insertLocal(MediaAssetRow row);
+
   int releaseChecksum(@Param("accountId") String accountId, @Param("id") UUID id);
 
   List<MediaAssetRow> findPage(

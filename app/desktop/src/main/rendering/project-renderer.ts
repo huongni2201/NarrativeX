@@ -11,11 +11,13 @@ import { RenderExecutionError } from "./render-errors";
 import { buildLocalRenderManifest } from "./render-manifest";
 import { renderSegments } from "./segment-renderer";
 import { concatVideo } from "./video-concat";
+import { RenderJournalStore, type RenderJournal } from "./render-journal";
 
 export class ProjectRenderer {
   constructor(
     private readonly runtime: FfmpegRuntimeStatus,
     private readonly storage: ProjectStorage,
+    private readonly journals = new RenderJournalStore(storage.rootDirectory()),
   ) {}
 
   async render(
@@ -38,15 +40,25 @@ export class ProjectRenderer {
       prepared.jobId,
     );
     await mkdir(workDirectory, { recursive: true });
+    let journal = await this.journals.load(prepared.projectId, prepared.jobId);
+    if (journal && journal.renderFingerprint !== manifest.renderFingerprint) {
+      throw new RenderExecutionError("RENDER_CHECKPOINT_MISMATCH", "Saved render checkpoint does not match the current render snapshot.", false);
+    }
+    journal ??= { version: 1, projectId: prepared.projectId, jobId: prepared.jobId, renderFingerprint: manifest.renderFingerprint, stage: "CLAIMED", workDirectory, updatedAt: new Date().toISOString() };
+    await this.journals.save(journal);
 
     await onProgress(5, "Preparing local render manifest");
+    journal = await this.journals.advance(journal, "MATERIALIZING");
+    journal = await this.journals.advance(journal, "SEGMENT_RENDER");
     const segments = await renderSegments(
       this.runtime.ffmpegPath,
       workDirectory,
       manifest,
       signal,
+      join(this.storage.projectDirectory(prepared.projectId), "cache", "segments"),
     );
     await onProgress(85, "Concatenating video segments");
+    journal = await this.journals.advance(journal, "VIDEO_CONCAT");
     const video = await concatVideo(
       this.runtime.ffmpegPath,
       workDirectory,
@@ -54,6 +66,7 @@ export class ProjectRenderer {
       signal,
     );
     await onProgress(93, "Concatenating narration audio");
+    journal = await this.journals.advance(journal, "AUDIO_CONCAT");
     const audio = await concatNarration(
       this.runtime.ffmpegPath,
       workDirectory,
@@ -61,6 +74,7 @@ export class ProjectRenderer {
       signal,
     );
     await onProgress(97, "Muxing audio");
+    journal = await this.journals.advance(journal, "MUX");
     const finalPath = await muxNarration(
       this.runtime.ffmpegPath,
       workDirectory,
@@ -69,12 +83,14 @@ export class ProjectRenderer {
       signal,
     );
     await onProgress(98, "Validating final artifact");
+    journal = await this.journals.advance(journal, "VERIFY");
     const metadata = await probeVideo(this.runtime.ffprobePath, finalPath);
     const artifact = await this.storage.registerArtifact(prepared.projectId, {
       jobId: prepared.jobId,
       sourcePath: finalPath,
     });
     await onProgress(99, "Artifact registered");
+    await this.journals.advance(journal, "COMPLETED");
 
     return {
       renderFingerprint: manifest.renderFingerprint,

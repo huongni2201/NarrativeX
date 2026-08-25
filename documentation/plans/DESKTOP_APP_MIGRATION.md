@@ -62,14 +62,28 @@ Desktop owns the editor workspace, project media bytes, local filesystem/cache, 
 
 ### Still partial / next work
 
-- crash/restart recovery for an in-flight local render;
-- resumable/recoverable local render state across Desktop process restarts;
+- backend attachment/alignment endpoint for the `USER_PROVIDED_AUDIO` narration-set flow (Desktop deliberately disables TTS when that mode is selected until this endpoint is available);
 - automatic local-device registration after user authentication if pairing is to be removed from the primary UX;
-- complete migration of every image/TTS/import output into the local project manifest without depending on cloud materialization;
-- editor mutations, timeline editing depth, regeneration/reuse workflows and remaining screen parity;
-- disk quota/cleanup, project backup/move/restore and missing-file repair UX;
+- project backup/move/restore and packaged Electron E2E;
 - packaging, code signing, auto-update and protocol-registration hardening across supported OSes;
 - final removal of `app/frontend-web` and cloud-only UI assumptions after parity evidence exists.
+
+### 2026-08-25 implementation checkpoint
+
+- Desktop project creation and favorite mutations now use React Query and backend APIs; the empty-project UX no longer directs users to the web app.
+- Chapter list/create/update/delete is available from the Desktop Chapter Workspace with `If-Match` row-version handling.
+- Renderer API boundaries are split into projects, chapters, assets, catalog, generation, narration and production modules. `workspace.ts` remains only a compatibility facade for the existing editor shell.
+- Native asset import now uses a two-phase Electron flow: main-process inspection/hash produces a short-lived selection token, the backend registers a `LOCAL_ONLY` media identity, and main commits the selected file into `ProjectStorage` without exposing an absolute path to the renderer.
+- Production export now sends Desktop timeline beat overrides and the editor has duration/camera draft state with undo/redo/reset.
+- `media_assets.storage_mode` and `local_media_materializations` are part of the clean V1 baseline. Existing production/remote assets remain `REMOTE`; local registrations never persist a filesystem path.
+- Image generation now supports chapter selection, analysis, estimate, queue, polling, review, and verified remote-to-local materialization. Narration supports single/batch TTS, voice preview, and local audio import with an explicit `USER_PROVIDED_AUDIO` guard that never silently enqueues TTS.
+- Export runs a local preflight for FFmpeg/ffprobe, executor state, disk capacity, and local asset checksum/size before submitting a render job.
+- Render stages persist an atomic `render.state.json` journal; Desktop scans unfinished journals at local-execution startup and Settings exposes them alongside disk usage, project verification, and cleanup of completed/failed work directories. Project manifests migrate from schema v1 to v2.
+- Workspace backup/restore is now available from Settings. Backups are manifest-verified directory snapshots; restore preserves the previous active workspace under a `.before-restore-*` name instead of deleting it.
+- Render segment output is cached by immutable asset checksum, timeline identity, renderer version, and output settings. Cache hits skip FFmpeg segment rendering while concat/mux still run from the current job workspace.
+- AI-worker local I/O retry and UNKNOWN reconciliation delays now use a shared deterministic bounded retry policy. Provider submission remains UNKNOWN-first and must reconcile before resubmission.
+- Timeline draft mutations now use a typed command-history state machine with undo/redo semantics, clearing the redo branch after a new edit.
+- Added deterministic Node and Python test coverage for timeline drafts, render-journal discovery, workspace backup/restore, and retry policy behavior. Browser verification remains blocked by the in-app browser refusing local Vite URLs (`ERR_BLOCKED_BY_CLIENT`) in this environment.
 
 ## Implementation slices
 
@@ -109,23 +123,27 @@ Desktop owns the editor workspace, project media bytes, local filesystem/cache, 
 - local artifact registration;
 - cancellation.
 
-### Slice 6 — Generation/import local materialization — IN PROGRESS
+### Slice 6 — Generation/import local materialization — IMPLEMENTED foundation
 
 - image generation result → local project asset;
 - TTS/narration result → local project asset;
 - imported media/audio → local project asset;
 - backend records identity/checksum, not absolute local path.
 
-### Slice 7 — Desktop editor parity — IN PROGRESS
+### Slice 7 — Desktop editor parity — IMPLEMENTED foundation
 
 - project/chapter/editor/timeline/characters/images/TTS/assets/render/settings;
 - mutations, review/regeneration, queue/error/recovery UX;
 - remove browser/page-shell assumptions.
 
-### Slice 8 — Reliability and packaging — TARGET
+### Slice 8 — Reliability and packaging — IN PROGRESS
 
-- restart-safe execution recovery;
-- disk cleanup/backup/move/repair;
+- restart-safe execution journal and unfinished-job discovery;
+- disk cleanup/verification/repair;
+- backup/restore snapshot and safe recovery of the active workspace;
+- move/archive UI, signing/auto-update and protocol/OS integration tests;
+- shared retry policy and segment cache foundation;
+- typed timeline command history foundation;
 - packaging/signing/auto-update;
 - protocol and OS integration tests.
 
@@ -153,3 +171,4 @@ Desktop migration is complete when:
 - `ADR-0010-desktop-editor-client-boundary.md`
 - `ADR-0011-google-oauth-only-desktop-auth.md`
 - `ADR-0012-desktop-local-first-media-and-render-execution.md`
+- `ADR-0014-workspace-backup-and-render-segment-cache.md`

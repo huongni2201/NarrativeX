@@ -16,6 +16,7 @@ import {
 } from "./backend-client";
 import type { LocalExecutionConfig } from "./config";
 import { DeviceIdentityStore, type DeviceIdentity } from "./device-identity";
+import type { RenderJournalStore } from "../rendering/render-journal";
 
 export type LocalExecutionConnectionState =
   | "UNPAIRED"
@@ -29,6 +30,7 @@ export interface LocalExecutionStatus {
   deviceId: string | null;
   capabilities: string[];
   projectRenderEnabled: boolean;
+  unfinishedRenderCount: number;
   lastError: string | null;
 }
 
@@ -48,6 +50,7 @@ export class LocalExecutionService extends EventEmitter {
   private renderPollTimer: NodeJS.Timeout | null = null;
   private renderInFlight = false;
   private activeRender: { jobId: string; controller: AbortController } | null = null;
+  private unfinishedRenderCount = 0;
 
   constructor(
     private readonly config: LocalExecutionConfig,
@@ -55,11 +58,15 @@ export class LocalExecutionService extends EventEmitter {
     private readonly backendClient: LocalExecutionBackendClient,
     private readonly projectStorage: ProjectStorage,
     private readonly projectRenderer?: ProjectRenderer,
+    private readonly renderJournals?: RenderJournalStore,
   ) {
     super();
   }
 
   async start(): Promise<void> {
+    if (this.renderJournals) {
+      this.unfinishedRenderCount = (await this.renderJournals.listUnfinished()).length;
+    }
     const loadedIdentity = await this.identityStore.load();
     this.identity = loadedIdentity;
     if (!loadedIdentity) {
@@ -179,6 +186,7 @@ export class LocalExecutionService extends EventEmitter {
       deviceId: this.identity?.deviceId ?? null,
       capabilities: [...this.config.capabilities],
       projectRenderEnabled: this.config.projectRenderEnabled,
+      unfinishedRenderCount: this.unfinishedRenderCount,
       lastError: this.lastError,
     };
   }

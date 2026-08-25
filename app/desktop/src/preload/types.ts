@@ -1,3 +1,5 @@
+import type { LocalRenderPreflight } from "@narrativex/client-contracts";
+
 export type LocalExecutionConnectionState =
   | "UNPAIRED"
   | "CONNECTING"
@@ -10,6 +12,7 @@ export interface LocalExecutionStatus {
   deviceId: string | null;
   capabilities: string[];
   projectRenderEnabled: boolean;
+  unfinishedRenderCount: number;
   lastError: string | null;
 }
 
@@ -20,6 +23,32 @@ export interface LocalProjectStorageStatus {
   artifactCount: number;
 }
 
+export interface LocalStorageSummary {
+  projectId: string;
+  projectDirectory: string;
+  totalBytes: number;
+  assetBytes: number;
+  artifactBytes: number;
+  workBytes: number;
+  assetCount: number;
+  artifactCount: number;
+}
+
+export interface LocalProjectBackup {
+  projectId: string;
+  backupDirectory: string;
+  manifestSchemaVersion: number;
+  createdAt: string;
+  sizeBytes: number;
+}
+
+export interface LocalProjectRestoreResult {
+  projectId: string;
+  projectDirectory: string;
+  previousProjectDirectory: string | null;
+  restoredFrom: string;
+}
+
 export interface LocalAssetImportResult {
   assetId: string;
   kind: "IMAGE" | "AUDIO" | "VIDEO" | "OTHER";
@@ -28,12 +57,42 @@ export interface LocalAssetImportResult {
   checksumSha256: string;
 }
 
+export interface LocalAssetSelection {
+  selectionToken: string;
+  originalFilename: string;
+  contentType: string;
+  sizeBytes: number;
+  checksumSha256: string;
+  kind: "IMAGE" | "AUDIO" | "VIDEO" | "OTHER";
+}
+
+export interface LocalRemoteMaterializationInput {
+  projectId: string;
+  assetId: string;
+  kind: "IMAGE" | "AUDIO" | "VIDEO";
+  downloadUrl: string;
+  sizeBytes: number;
+  checksumSha256: string;
+  filename: string;
+}
+
 export interface FfmpegRuntimeStatus {
   available: boolean;
   ffmpegPath: string | null;
   ffprobePath: string | null;
   version: string | null;
   reason: string | null;
+}
+
+export interface LocalRenderPreflightInput {
+  projectId: string;
+  assetIds: string[];
+  estimatedOutputBytes: number;
+  requiredTemporaryBytes: number;
+}
+
+export interface RenderRecoveryStatus {
+  unfinished: Array<{ projectId: string; jobId: string; stage: string; updatedAt: string; renderFingerprint: string }>;
 }
 
 export interface DesktopApiRequest {
@@ -68,15 +127,26 @@ export interface NarrativeXDesktopBridge {
   };
   localStorage: {
     ensureProject(projectId: string): Promise<LocalProjectStorageStatus>;
-    importAsset(input: {
+    summary(projectId: string): Promise<LocalStorageSummary>;
+    verifyProject(projectId: string): Promise<Array<{ assetId: string; state: "AVAILABLE" | "MISSING" | "CORRUPT" }>>;
+    cleanupCompletedWork(projectId: string): Promise<number>;
+    createBackup(input: { projectId: string; destinationDirectory: string }): Promise<LocalProjectBackup>;
+    restoreBackup(input: { backupDirectory: string; replaceExisting?: boolean }): Promise<LocalProjectRestoreResult>;
+    materializeRemoteAsset(input: LocalRemoteMaterializationInput): Promise<LocalAssetImportResult>;
+    repairSelectedAsset(input: { projectId: string; assetId: string; kind: "IMAGE" | "AUDIO" | "VIDEO"; selectionToken: string }): Promise<LocalAssetImportResult>;
+    selectAsset(): Promise<LocalAssetSelection | null>;
+    commitSelectedAsset(input: {
       projectId: string;
       assetId: string;
       kind: "IMAGE" | "AUDIO" | "VIDEO" | "OTHER";
-    }): Promise<LocalAssetImportResult | null>;
+      selectionToken: string;
+    }): Promise<LocalAssetImportResult>;
     revealArtifact(input: { projectId: string; jobId: string }): Promise<void>;
   };
   render: {
     status(): Promise<FfmpegRuntimeStatus>;
+    preflight(input: LocalRenderPreflightInput): Promise<LocalRenderPreflight>;
+    recoveryStatus(): Promise<RenderRecoveryStatus>;
     cancel(jobId: string): Promise<boolean>;
   };
   system: {

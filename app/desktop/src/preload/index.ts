@@ -39,12 +39,22 @@ const bridge: NarrativeXDesktopBridge = {
   localStorage: {
     ensureProject: (projectId: string) =>
       ipcRenderer.invoke("desktop:local-storage:ensure-project", projectId),
-    importAsset: (input) => ipcRenderer.invoke("desktop:local-storage:import-asset", input),
+    summary: (projectId: string) => ipcRenderer.invoke("desktop:local-storage:summary", projectId),
+    verifyProject: (projectId: string) => ipcRenderer.invoke("desktop:local-storage:verify-project", projectId),
+    cleanupCompletedWork: (projectId: string) => ipcRenderer.invoke("desktop:local-storage:cleanup-completed-work", projectId),
+    createBackup: (input) => ipcRenderer.invoke("desktop:local-storage:create-backup", input),
+    restoreBackup: (input) => ipcRenderer.invoke("desktop:local-storage:restore-backup", input),
+    materializeRemoteAsset: (input) => ipcRenderer.invoke("desktop:local-storage:materialize-remote-asset", input),
+    repairSelectedAsset: (input) => ipcRenderer.invoke("desktop:local-storage:repair-selected-asset", input),
+    selectAsset: () => ipcRenderer.invoke("desktop:local-storage:select-asset"),
+    commitSelectedAsset: (input) => ipcRenderer.invoke("desktop:local-storage:commit-selected-asset", input),
     revealArtifact: (input) =>
       ipcRenderer.invoke("desktop:local-storage:reveal-artifact", input),
   },
   render: {
     status: () => ipcRenderer.invoke("desktop:render:status"),
+    preflight: (input) => ipcRenderer.invoke("desktop:render:preflight", input),
+    recoveryStatus: () => ipcRenderer.invoke("desktop:render:recovery-status"),
     cancel: (jobId: string) => ipcRenderer.invoke("desktop:render:cancel", jobId),
   },
   system: {

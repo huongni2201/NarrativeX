@@ -47,6 +47,7 @@ from narrativex_worker.narration.storage import (
     MediaStorage,
     S3MediaStorage,
 )
+from narrativex_worker.runtime.retry_policy import UNKNOWN_RECONCILIATION_POLICY
 from narrativex_worker.narration.voice_reference import (
     VoiceReferenceAudioError,
     prepare_mp3_reference,
@@ -643,7 +644,7 @@ class NarrationWorkerRunner:
         self, durable: DurableNarrationProviderOperation, error: str
     ) -> bool:
         try:
-            if durable.reconcile_attempts >= 8:
+            if durable.reconcile_attempts >= UNKNOWN_RECONCILIATION_POLICY.max_attempts:
                 await self.repository.exhaust_provider_reconciliation(durable, error)
                 self.logger.error(
                     "narration_reconciliation_exhausted_total=1 providerOperationId=%s",

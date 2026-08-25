@@ -2,9 +2,12 @@ import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import {
   copyFile,
+  cp,
   mkdir,
   readFile,
+  readdir,
   rename,
+  rm,
   stat,
   writeFile,
 } from "node:fs/promises";
@@ -19,7 +22,7 @@ import {
   resolve,
 } from "node:path";
 
-const MANIFEST_SCHEMA_VERSION = 1 as const;
+const MANIFEST_SCHEMA_VERSION = 2 as const;
 const PROJECT_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
@@ -46,6 +49,8 @@ export interface LocalArtifactManifestEntry {
 export interface LocalProjectManifest {
   schemaVersion: typeof MANIFEST_SCHEMA_VERSION;
   projectId: string;
+  createdAt: string;
+  updatedAt: string;
   assets: Record<string, LocalAssetManifestEntry>;
   artifacts: Record<string, LocalArtifactManifestEntry>;
 }
@@ -63,10 +68,46 @@ export interface RegisterLocalArtifactInput {
   checksumSha256?: string;
 }
 
+export interface LocalStorageSummary {
+  projectId: string;
+  projectDirectory: string;
+  totalBytes: number;
+  assetBytes: number;
+  artifactBytes: number;
+  workBytes: number;
+  assetCount: number;
+  artifactCount: number;
+}
+
+export interface LocalProjectBackup {
+  projectId: string;
+  backupDirectory: string;
+  manifestSchemaVersion: number;
+  createdAt: string;
+  sizeBytes: number;
+}
+
+export interface LocalProjectRestoreInput {
+  backupDirectory: string;
+  replaceExisting?: boolean;
+}
+
+export interface LocalProjectRestoreResult {
+  projectId: string;
+  projectDirectory: string;
+  previousProjectDirectory: string | null;
+  restoredFrom: string;
+}
+
 export class ProjectStorage {
   private readonly projectLocks = new Map<string, Promise<void>>();
+  private readonly projectsRoot: string;
 
-  constructor(private readonly projectsRoot: string) {}
+  constructor(projectsRoot: string) {
+    this.projectsRoot = projectsRoot;
+  }
+
+  rootDirectory(): string { return this.projectsRoot; }
 
   async ensureProject(projectId: string): Promise<LocalProjectManifest> {
     return this.withProjectLock(projectId, async () => {
@@ -78,13 +119,18 @@ export class ProjectStorage {
         mkdir(join(root, "assets", "other"), { recursive: true }),
         mkdir(join(root, "artifacts"), { recursive: true }),
         mkdir(join(root, "work"), { recursive: true }),
+        mkdir(join(root, "cache", "segments"), { recursive: true }),
+        mkdir(join(root, "backups"), { recursive: true }),
       ]);
       const existing = await this.readManifest(projectId);
       if (existing) return existing;
 
+      const now = new Date().toISOString();
       const manifest: LocalProjectManifest = {
         schemaVersion: MANIFEST_SCHEMA_VERSION,
         projectId,
+        createdAt: now,
+        updatedAt: now,
         assets: {},
         artifacts: {},
       };
@@ -295,6 +341,98 @@ export class ProjectStorage {
     return this.projectRoot(projectId);
   }
 
+  async storageSummary(projectId: string): Promise<LocalStorageSummary> {
+    const manifest = await this.ensureProject(projectId);
+    const root = this.projectRoot(projectId);
+    const [assetBytes, artifactBytes, workBytes] = await Promise.all([
+      directorySize(join(root, "assets")),
+      directorySize(join(root, "artifacts")),
+      directorySize(join(root, "work")),
+    ]);
+    return { projectId, projectDirectory: root, totalBytes: assetBytes + artifactBytes + workBytes, assetBytes, artifactBytes, workBytes, assetCount: Object.keys(manifest.assets).length, artifactCount: Object.keys(manifest.artifacts).length };
+  }
+
+  async verifyAssets(projectId: string): Promise<Array<{ assetId: string; state: "AVAILABLE" | "MISSING" | "CORRUPT" }>> {
+    const manifest = await this.ensureProject(projectId);
+    const result: Array<{ assetId: string; state: "AVAILABLE" | "MISSING" | "CORRUPT" }> = [];
+    for (const entry of Object.values(manifest.assets)) {
+      try {
+        await this.resolveAsset(projectId, entry.assetId);
+        result.push({ assetId: entry.assetId, state: "AVAILABLE" });
+      } catch (error) {
+        result.push({ assetId: entry.assetId, state: /missing|not registered/i.test(error instanceof Error ? error.message : "") ? "MISSING" : "CORRUPT" });
+      }
+    }
+    return result;
+  }
+
+  async cleanupCompletedWork(projectId: string): Promise<number> {
+    await this.ensureProject(projectId);
+    const workRoot = join(this.projectRoot(projectId), "work");
+    let removed = 0;
+    for (const entry of await readdir(workRoot, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const journalPath = join(workRoot, entry.name, "render.state.json");
+      try {
+        const journal = JSON.parse(await readFile(journalPath, "utf8")) as { stage?: string };
+        if (journal.stage === "COMPLETED" || journal.stage === "FAILED") {
+          await rm(join(workRoot, entry.name), { recursive: true, force: true });
+          removed += 1;
+        }
+      } catch (error) {
+        if (!isMissingFile(error)) throw error;
+      }
+    }
+    return removed;
+  }
+
+  async createBackup(projectId: string, destinationDirectory: string): Promise<LocalProjectBackup> {
+    const manifest = await this.ensureProject(projectId);
+    const source = this.projectRoot(projectId);
+    const destinationRoot = resolve(destinationDirectory);
+    if (isPathInside(source, destinationRoot) || isPathInside(destinationRoot, source)) {
+      throw new Error("Backup destination must be outside the active project workspace.");
+    }
+    await mkdir(destinationRoot, { recursive: true });
+    const backupDirectory = join(
+      destinationRoot,
+      `${projectId.toLowerCase()}-${backupTimestamp()}.narrativex`,
+    );
+    await cp(source, backupDirectory, { recursive: true, errorOnExist: true });
+    return {
+      projectId: manifest.projectId,
+      backupDirectory,
+      manifestSchemaVersion: manifest.schemaVersion,
+      createdAt: new Date().toISOString(),
+      sizeBytes: await directorySize(backupDirectory),
+    };
+  }
+
+  async restoreBackup(input: LocalProjectRestoreInput): Promise<LocalProjectRestoreResult> {
+    const backupDirectory = resolve(input.backupDirectory);
+    const backupManifest = await readBackupManifest(backupDirectory);
+    const projectId = backupManifest.projectId;
+    const destination = this.projectRoot(projectId);
+    const previousProjectDirectory = await directoryExists(destination) ? destination : null;
+    if (previousProjectDirectory && !input.replaceExisting) {
+      throw new Error(`Project ${projectId} already exists. Confirm replacement before restoring.`);
+    }
+
+    const staging = join(resolve(this.projectsRoot), `.restore-${projectId}-${process.pid}-${Date.now()}`);
+    await cp(backupDirectory, staging, { recursive: true, errorOnExist: true });
+    try {
+      if (previousProjectDirectory) {
+        const preserved = `${destination}.before-restore-${Date.now()}`;
+        await rename(destination, preserved);
+      }
+      await rename(staging, destination);
+    } catch (error) {
+      await rm(staging, { recursive: true, force: true }).catch(() => undefined);
+      throw error;
+    }
+    return { projectId, projectDirectory: destination, previousProjectDirectory, restoredFrom: backupDirectory };
+  }
+
   private projectRoot(projectId: string): string {
     if (!PROJECT_ID_PATTERN.test(projectId)) {
       throw new Error("Invalid projectId for local storage.");
@@ -325,16 +463,21 @@ export class ProjectStorage {
   private async readManifest(projectId: string): Promise<LocalProjectManifest | null> {
     const path = join(this.projectRoot(projectId), "project.manifest.json");
     try {
-      const parsed = JSON.parse(await readFile(path, "utf8")) as LocalProjectManifest;
+      const parsed = JSON.parse(await readFile(path, "utf8")) as { schemaVersion?: number; projectId?: string; createdAt?: string; updatedAt?: string; assets?: Record<string, LocalAssetManifestEntry>; artifacts?: Record<string, LocalArtifactManifestEntry> };
+      if (parsed.schemaVersion === 1) {
+        const migrated = migrateManifestV1ToV2(parsed, projectId);
+        await this.writeManifest(migrated);
+        return migrated;
+      }
       if (
         parsed.schemaVersion !== MANIFEST_SCHEMA_VERSION ||
-        parsed.projectId.toLowerCase() !== projectId.toLowerCase() ||
+        typeof parsed.projectId !== "string" || parsed.projectId.toLowerCase() !== projectId.toLowerCase() ||
         typeof parsed.assets !== "object" ||
         typeof parsed.artifacts !== "object"
       ) {
         throw new Error("Local project manifest is invalid or unsupported.");
       }
-      return parsed;
+      return parsed as LocalProjectManifest;
     } catch (error) {
       if (isMissingFile(error)) return null;
       throw error;
@@ -349,6 +492,7 @@ export class ProjectStorage {
       root,
       `.project.manifest.${process.pid}.${Date.now()}.${Math.random().toString(16).slice(2)}.tmp`,
     );
+    manifest.updatedAt = new Date().toISOString();
     await writeFile(temporary, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
     await rename(temporary, destination);
   }
@@ -452,4 +596,60 @@ function isMissingFile(error: unknown): boolean {
     "code" in error &&
     error.code === "ENOENT"
   );
+}
+
+function isPathInside(parent: string, candidate: string): boolean {
+  const parentPath = resolve(parent);
+  const candidatePath = resolve(candidate);
+  const relativePath = relative(parentPath, candidatePath);
+  return relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath));
+}
+
+function backupTimestamp(): string {
+  return new Date().toISOString().replace(/[.:]/g, "-");
+}
+
+async function directoryExists(path: string): Promise<boolean> {
+  try {
+    return (await stat(path)).isDirectory();
+  } catch (error) {
+    if (isMissingFile(error)) return false;
+    throw error;
+  }
+}
+
+async function readBackupManifest(path: string): Promise<LocalProjectManifest> {
+  const manifestPath = join(path, "project.manifest.json");
+  const value = JSON.parse(await readFile(manifestPath, "utf8")) as Partial<LocalProjectManifest>;
+  if (
+    value.schemaVersion !== MANIFEST_SCHEMA_VERSION ||
+    typeof value.projectId !== "string" ||
+    !PROJECT_ID_PATTERN.test(value.projectId) ||
+    !value.assets ||
+    !value.artifacts
+  ) {
+    throw new Error("Backup does not contain a supported NarrativeX project manifest.");
+  }
+  return value as LocalProjectManifest;
+}
+
+async function directorySize(path: string): Promise<number> {
+  try {
+    let total = 0;
+    for (const entry of await readdir(path, { withFileTypes: true })) {
+      const child = join(path, entry.name);
+      if (entry.isDirectory()) total += await directorySize(child);
+      else if (entry.isFile()) total += (await stat(child)).size;
+    }
+    return total;
+  } catch (error) {
+    if (isMissingFile(error)) return 0;
+    throw error;
+  }
+}
+
+function migrateManifestV1ToV2(value: { assets?: Record<string, LocalAssetManifestEntry>; artifacts?: Record<string, LocalArtifactManifestEntry> }, projectId: string): LocalProjectManifest {
+  const now = new Date().toISOString();
+  if (!value.assets || typeof value.assets !== "object" || !value.artifacts || typeof value.artifacts !== "object") throw new Error("Local project manifest v1 is invalid.");
+  return { schemaVersion: MANIFEST_SCHEMA_VERSION, projectId, createdAt: now, updatedAt: now, assets: value.assets, artifacts: value.artifacts } as LocalProjectManifest;
 }

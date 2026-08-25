@@ -7,6 +7,12 @@ from collections.abc import Awaitable, Callable
 import asyncpg  # type: ignore[import-untyped]
 from botocore.exceptions import BotoCoreError, ClientError  # type: ignore[import-untyped]
 
+from narrativex_worker.runtime.retry_policy import (
+    LOCAL_IO_RETRY_POLICY,
+    RetryPolicy,
+    UNKNOWN_RECONCILIATION_POLICY,
+)
+
 
 class NarrationError(RuntimeError):
     """Base class for failures whose state semantics are known to the worker."""
@@ -43,9 +49,7 @@ class NarrationLeaseLostError(NarrationError):
 
 def narration_reconcile_delay_seconds(attempt: int) -> int:
     """Return deterministic exponential backoff for an UNKNOWN operation."""
-    if attempt < 0:
-        raise ValueError("reconciliation attempt must be non-negative")
-    return min(300, 5 * int(2**attempt))
+    return int(UNKNOWN_RECONCILIATION_POLICY.delay_seconds(attempt))
 
 
 def is_transient_infrastructure_error(exception: BaseException) -> bool:
@@ -87,12 +91,24 @@ async def retry_local_io[T](
     """Retry bounded local/storage/DB I/O without ever retrying provider calls."""
     if attempts < 1:
         raise ValueError("attempts must be positive")
-    delays = (0.25, 1.0, 2.0)
+    policy = _local_io_policy(attempts)
     for attempt in range(attempts):
         try:
             return await operation()
         except Exception as exception:
             if not is_transient_infrastructure_error(exception) or attempt == attempts - 1:
                 raise
-            await asyncio.sleep(delays[min(attempt, len(delays) - 1)])
+            await asyncio.sleep(policy.delay_seconds(attempt))
     raise AssertionError("retry_local_io exhausted without returning or raising")
+
+
+def _local_io_policy(attempts: int) -> RetryPolicy:
+    """Preserve the local I/O contract while allowing callers to cap attempts."""
+    if attempts < 1:
+        raise ValueError("attempts must be positive")
+    return type(LOCAL_IO_RETRY_POLICY)(
+        max_attempts=attempts,
+        base_delay_seconds=LOCAL_IO_RETRY_POLICY.base_delay_seconds,
+        multiplier=LOCAL_IO_RETRY_POLICY.multiplier,
+        max_delay_seconds=LOCAL_IO_RETRY_POLICY.max_delay_seconds,
+    )

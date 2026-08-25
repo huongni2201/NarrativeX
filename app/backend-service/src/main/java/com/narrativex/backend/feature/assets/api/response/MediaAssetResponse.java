@@ -24,7 +24,8 @@ public record MediaAssetResponse(
     Integer height,
     String validationErrorCode,
     String validationErrorDetail,
-    Instant validatedAt) {
+    Instant validatedAt,
+    String storageMode) {
   public static MediaAssetResponse from(MediaAssetView view) {
     return new MediaAssetResponse(
         view.id(),
@@ -45,7 +46,8 @@ public record MediaAssetResponse(
         view.height(),
         view.validationErrorCode(),
         view.validationErrorDetail(),
-        view.validatedAt());
+        view.validatedAt(),
+        view.storageMode());
   }
 
   public record Page(List<MediaAssetResponse> items, String nextCursor) {

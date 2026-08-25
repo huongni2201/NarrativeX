@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.assets.api.controller;
 
 import com.narrativex.backend.feature.assets.api.request.CreateUploadIntentRequest;
+import com.narrativex.backend.feature.assets.api.request.RegisterLocalAssetRequest;
 import com.narrativex.backend.feature.assets.api.response.MediaAssetDownloadUrlResponse;
 import com.narrativex.backend.feature.assets.api.response.MediaAssetResponse;
 import com.narrativex.backend.feature.assets.api.response.UploadFinalizeResponse;
@@ -59,7 +60,7 @@ public class AssetLibraryController {
   public ResponseEntity<ApiResponse<MediaAssetDownloadUrlResponse>> downloadUrl(
       @PathVariable UUID id) {
     var asset = useCase.find(id);
-    if (!"READY".equals(asset.status())) {
+    if (!"READY".equals(asset.status()) || "LOCAL_ONLY".equals(asset.origin())) {
       throw new ResourceNotFoundException("Asset is not available for download");
     }
     Instant expiresAt = Instant.now().plus(Duration.ofMinutes(10));
@@ -89,6 +90,23 @@ public class AssetLibraryController {
                         request.expectedSizeBytes(),
                         request.expectedSha256()),
                     idempotencyKey))));
+  }
+
+  @PostMapping("/local")
+  public ResponseEntity<ApiResponse<MediaAssetResponse>> registerLocal(
+      @Valid @RequestBody RegisterLocalAssetRequest request) {
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .body(
+            ApiResponse.success(
+                "Local asset registered",
+                MediaAssetResponse.from(
+                    useCase.registerLocal(
+                        request.type(),
+                        request.originalFilename(),
+                        request.contentType(),
+                        request.sizeBytes(),
+                        request.checksumSha256(),
+                        request.durationMs()))));
   }
 
   @PostMapping("/upload-intents/{id}/finalize")

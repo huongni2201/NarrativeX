@@ -13,3 +13,13 @@ export interface DesktopProject {
     estimatedDurationSeconds: number;
   };
 }
+
+export interface CreateProjectInput {
+  name: string;
+  description?: string;
+  sourceLanguage?: string;
+  narrationLanguage?: string;
+  metadataLanguage?: string;
+  imageAspectRatio?: string;
+  imageQualityTier?: string;
+}
