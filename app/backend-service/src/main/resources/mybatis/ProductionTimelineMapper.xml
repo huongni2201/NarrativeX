@@ -5,8 +5,8 @@
 <mapper namespace="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ProductionTimelineMapper">
 
   <resultMap id="chapterRow" type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ProductionTimelineChapterRow">
-    <result property="storyVersionId" column="story_version_id" />
     <id property="chapterId" column="chapter_id" />
+    <result property="storyVersionId" column="story_version_id" />
     <result property="orderIndex" column="order_index" />
     <result property="title" column="title" />
     <result property="rowVersion" column="row_version" />
@@ -27,13 +27,13 @@
   </resultMap>
 
   <resultMap id="beatRow" type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.ProductionTimelineBeatRow">
+    <id property="visualBeatId" column="visual_beat_id" />
     <result property="chapterId" column="chapter_id" />
     <result property="chapterOrderIndex" column="chapter_order_index" />
     <result property="mediaPlanId" column="media_plan_id" />
     <result property="mediaPlanRevision" column="media_plan_revision" />
     <result property="sceneIndex" column="scene_index" />
     <result property="beatIndex" column="beat_index" />
-    <id property="visualBeatId" column="visual_beat_id" />
     <result property="title" column="title" />
     <result property="visualIntent" column="visual_intent" />
     <result property="cameraMovement" column="camera_movement" />

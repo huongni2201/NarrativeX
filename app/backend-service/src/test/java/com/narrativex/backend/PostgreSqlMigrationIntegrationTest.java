@@ -11,13 +11,16 @@ import com.narrativex.backend.feature.notification.infrastructure.persistence.my
 import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ProjectMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterWorkspaceMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.LanguageDetectionMapper;
+import com.narrativex.backend.support.FlywayMigrationContract;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 import javax.sql.DataSource;
+import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -77,6 +80,7 @@ class PostgreSqlMigrationIntegrationTest {
   }
 
   @Autowired private DataSource dataSource;
+  @Autowired private Flyway flyway;
   @Autowired private ProjectMapper projectMapper;
   @Autowired private ChapterWorkspaceMapper chapterWorkspaceMapper;
   @Autowired private LanguageDetectionMapper languageDetectionMapper;
@@ -84,10 +88,21 @@ class PostgreSqlMigrationIntegrationTest {
   @Autowired private ProductionTimelineMapper productionTimelineMapper;
 
   @Test
-  void emptyPostgresMigratesThroughAuthoritativeUuidSchema() throws SQLException {
+  void emptyPostgresMigratesThroughAuthoritativeUuidSchema() throws SQLException, IOException {
     try (Connection connection = dataSource.getConnection()) {
-      assertEquals("7", latestFlywayVersion(connection));
-      assertEquals(7, successfulVersionedMigrationCount(connection));
+      List<String> migrationNames = FlywayMigrationContract.discoverMigrationNames();
+      assertEquals(FlywayMigrationContract.canonicalMigrationNames(), migrationNames);
+      String latestMigration = migrationNames.get(migrationNames.size() - 1);
+      assertEquals(
+          Integer.toString(FlywayMigrationContract.version(latestMigration)),
+          latestFlywayVersion(connection));
+      assertEquals(migrationNames.size(), successfulVersionedMigrationCount(connection));
+      assertEquals(0, flyway.info().pending().length, "startup must leave no pending migration");
+
+      flyway.migrate();
+      assertEquals(migrationNames.size(), successfulVersionedMigrationCount(connection));
+      assertEquals(latestFlywayVersion(connection), flyway.info().current().getVersion().getVersion());
+      assertEquals(0, flyway.info().pending().length, "repeat migrate must be a no-op");
       assertTrue(triggerExists(connection, "trg_generation_jobs_notify_completion"));
       assertTrue(triggerExists(connection, "trg_generation_jobs_sse_events"));
       assertEquals(512, characterMaximumLength(connection, "generation_jobs", "idempotency_key"));

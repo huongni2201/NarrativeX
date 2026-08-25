@@ -1,7 +1,5 @@
 package com.narrativex.backend.feature.auth.infrastructure.desktop;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -11,6 +9,8 @@ import java.util.Base64;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 /** Redis-backed, single-use desktop OAuth handoff codes. Raw codes are never persisted or logged. */
 @Component
@@ -51,7 +51,7 @@ public class DesktopAuthHandoffStore {
       if (value.id() == null || value.id().isBlank()) return null;
       return new DesktopUserPrincipal(
           value.id(), value.displayName(), value.email(), value.avatarUrl());
-    } catch (JsonProcessingException exception) {
+    } catch (JacksonException exception) {
       throw new IllegalStateException("Stored desktop auth handoff is invalid", exception);
     }
   }
@@ -59,7 +59,7 @@ public class DesktopAuthHandoffStore {
   private String writePayload(HandoffPayload payload) {
     try {
       return objectMapper.writeValueAsString(payload);
-    } catch (JsonProcessingException exception) {
+    } catch (JacksonException exception) {
       throw new IllegalStateException("Desktop auth handoff could not be serialized", exception);
     }
   }

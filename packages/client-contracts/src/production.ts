@@ -37,9 +37,21 @@ export interface LocalRenderPreflightAsset {
   message: string | null;
 }
 
+export type LocalRenderPreflightBlockerCode =
+  | "FFMPEG_UNAVAILABLE"
+  | "EXECUTOR_OFFLINE"
+  | "EXECUTOR_UNPAIRED"
+  | "EXECUTOR_CONNECTING"
+  | "DEVICE_MISMATCH"
+  | "USER_MISMATCH"
+  | "INSUFFICIENT_DISK"
+  | "DISK_UNKNOWN"
+  | "ASSET_MISSING"
+  | "ASSET_CORRUPT";
+
 export interface LocalRenderPreflight {
   ready: boolean;
-  blockers: string[];
+  blockers: LocalRenderPreflightBlockerCode[];
   warnings: string[];
   assets: LocalRenderPreflightAsset[];
   diskFreeBytes: number | null;

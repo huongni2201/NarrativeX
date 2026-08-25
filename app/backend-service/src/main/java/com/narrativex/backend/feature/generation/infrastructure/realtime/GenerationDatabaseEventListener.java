@@ -1,6 +1,5 @@
 package com.narrativex.backend.feature.generation.infrastructure.realtime;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.narrativex.backend.feature.generation.api.response.JobResponse;
 import com.narrativex.backend.feature.generation.application.event.GenerationRealtimeEvent;
 import com.narrativex.backend.feature.generation.application.port.in.GenerationEventStream;
@@ -17,6 +16,7 @@ import org.postgresql.PGConnection;
 import org.postgresql.PGNotification;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.ObjectMapper;
 
 @Slf4j
 @Component

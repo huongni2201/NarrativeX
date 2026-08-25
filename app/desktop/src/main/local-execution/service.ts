@@ -191,6 +191,18 @@ export class LocalExecutionService extends EventEmitter {
     };
   }
 
+  renderPreflightContext(): {
+    state: LocalExecutionConnectionState;
+    currentUserValid: boolean;
+    devicePaired: boolean;
+  } {
+    return {
+      state: this.state,
+      currentUserValid: Boolean(this.sessionUserId && this.identity && this.identity.userId === this.sessionUserId),
+      devicePaired: Boolean(this.identity),
+    };
+  }
+
   async executeNextProjectRender(): Promise<LocalRenderCompletion | null> {
     const identity = this.identity;
     if (
@@ -295,7 +307,7 @@ export class LocalExecutionService extends EventEmitter {
       if (!leaseLost) {
         if (isRenderCancellation(error)) {
           await this.persistCancellation(identity, claimed);
-        } else {
+        } else if (!isResumableRenderInterruption(error)) {
           const failure = renderFailure(error);
           await this.backendClient
             .failProjectRender(
@@ -630,6 +642,11 @@ function errorMessage(error: unknown): string {
 
 function isRenderCancellation(error: unknown): boolean {
   return error instanceof RenderExecutionError && error.code === "RENDER_CANCELLED";
+}
+
+function isResumableRenderInterruption(error: unknown): boolean {
+  return error instanceof RenderExecutionError &&
+    (error.code === "RENDER_INTERRUPTED" || error.code === "RENDER_LEASE_LOST");
 }
 
 function renderFailure(error: unknown): { code: string; retryable: boolean } {

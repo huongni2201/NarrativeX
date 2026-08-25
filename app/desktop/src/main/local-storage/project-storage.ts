@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
 import {
   copyFile,
@@ -9,6 +9,7 @@ import {
   rename,
   rm,
   stat,
+  lstat,
   writeFile,
 } from "node:fs/promises";
 import {
@@ -23,6 +24,7 @@ import {
 } from "node:path";
 
 const MANIFEST_SCHEMA_VERSION = 2 as const;
+const SNAPSHOT_REGISTRY_SCHEMA_VERSION = 1 as const;
 const PROJECT_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
@@ -70,20 +72,22 @@ export interface RegisterLocalArtifactInput {
 
 export interface LocalStorageSummary {
   projectId: string;
-  projectDirectory: string;
   totalBytes: number;
   assetBytes: number;
   artifactBytes: number;
   workBytes: number;
   cacheBytes: number;
   backupBytes: number;
+  managedBackupBytes: number;
+  preRestoreSnapshotBytes: number;
+  otherNarrativeXOwnedBytes: number;
   assetCount: number;
   artifactCount: number;
 }
 
 export interface LocalProjectBackup {
   projectId: string;
-  backupDirectory: string;
+  snapshotId: string;
   manifestSchemaVersion: number;
   createdAt: string;
   sizeBytes: number;
@@ -96,19 +100,36 @@ export interface LocalProjectRestoreInput {
 
 export interface LocalProjectRestoreResult {
   projectId: string;
-  projectDirectory: string;
-  previousProjectDirectory: string | null;
-  restoredFrom: string;
+  replacedExisting: boolean;
+  previousProjectSnapshotId: string | null;
 }
 
 export interface LocalProjectArchiveResult {
   projectId: string;
-  archiveDirectory: string;
+  sizeBytes: number;
+}
+
+type ManagedSnapshotType = "BACKUP" | "PRE_RESTORE";
+
+interface ManagedSnapshotRecord {
+  snapshotId: string;
+  projectId: string;
+  type: ManagedSnapshotType;
+  path: string;
+  createdAt: string;
+  sizeBytes: number;
+  cleanupPolicy: "RETAIN_UNTIL_EXPLICIT_DELETE";
+}
+
+interface SnapshotRegistry {
+  schemaVersion: typeof SNAPSHOT_REGISTRY_SCHEMA_VERSION;
+  snapshots: Record<string, ManagedSnapshotRecord>;
 }
 
 export class ProjectStorage {
   private readonly projectLocks = new Map<string, Promise<void>>();
   private readonly projectsRoot: string;
+  private snapshotRegistryLock: Promise<void> = Promise.resolve();
 
   constructor(projectsRoot: string) {
     this.projectsRoot = projectsRoot;
@@ -344,6 +365,14 @@ export class ProjectStorage {
     return absolutePath;
   }
 
+  async artifactEntry(projectId: string, jobId: string): Promise<LocalArtifactManifestEntry> {
+    validateOpaqueId(jobId, "jobId");
+    const manifest = await this.ensureProject(projectId);
+    const entry = manifest.artifacts[jobId];
+    if (!entry) throw new Error(`Local artifact ${jobId} is not registered.`);
+    return entry;
+  }
+
   projectDirectory(projectId: string): string {
     return this.projectRoot(projectId);
   }
@@ -351,14 +380,29 @@ export class ProjectStorage {
   async storageSummary(projectId: string): Promise<LocalStorageSummary> {
     const manifest = await this.ensureProject(projectId);
     const root = this.projectRoot(projectId);
-    const [assetBytes, artifactBytes, workBytes, cacheBytes, backupBytes] = await Promise.all([
+    const [assetBytes, artifactBytes, workBytes, cacheBytes, otherNarrativeXOwnedBytes, snapshots] = await Promise.all([
       directorySize(join(root, "assets")),
       directorySize(join(root, "artifacts")),
       directorySize(join(root, "work")),
       directorySize(join(root, "cache")),
-      directorySize(join(root, "backups")),
+      directChildrenSize(root, new Set(["assets", "artifacts", "work", "cache", "backups"])),
+      this.snapshotSummary(projectId),
     ]);
-    return { projectId, projectDirectory: root, totalBytes: assetBytes + artifactBytes + workBytes + cacheBytes + backupBytes, assetBytes, artifactBytes, workBytes, cacheBytes, backupBytes, assetCount: Object.keys(manifest.assets).length, artifactCount: Object.keys(manifest.artifacts).length };
+    const backupBytes = snapshots.managedBackupBytes + snapshots.preRestoreSnapshotBytes;
+    return {
+      projectId,
+      totalBytes: assetBytes + artifactBytes + workBytes + cacheBytes + otherNarrativeXOwnedBytes + backupBytes,
+      assetBytes,
+      artifactBytes,
+      workBytes,
+      cacheBytes,
+      backupBytes,
+      managedBackupBytes: snapshots.managedBackupBytes,
+      preRestoreSnapshotBytes: snapshots.preRestoreSnapshotBytes,
+      otherNarrativeXOwnedBytes,
+      assetCount: Object.keys(manifest.assets).length,
+      artifactCount: Object.keys(manifest.artifacts).length,
+    };
   }
 
   async verifyAssets(projectId: string): Promise<Array<{ assetId: string; state: "AVAILABLE" | "MISSING" | "CORRUPT" }>> {
@@ -384,7 +428,7 @@ export class ProjectStorage {
       const journalPath = join(workRoot, entry.name, "render.state.json");
       try {
         const journal = JSON.parse(await readFile(journalPath, "utf8")) as { stage?: string };
-        if (journal.stage === "COMPLETED" || journal.stage === "FAILED") {
+        if (journal.stage === "COMPLETED" || journal.stage === "FAILED" || journal.stage === "CANCELLED") {
           await rm(join(workRoot, entry.name), { recursive: true, force: true });
           removed += 1;
         }
@@ -411,13 +455,23 @@ export class ProjectStorage {
       }
       try {
         await cp(source, backupDirectory, { recursive: true, errorOnExist: true });
-        await readBackupManifest(backupDirectory);
+        const backupManifest = await readBackupManifest(backupDirectory);
+        const sizeBytes = await directorySize(backupDirectory);
+        const snapshot = await this.registerManagedSnapshot({
+          snapshotId: randomUUID(),
+          projectId: backupManifest.projectId,
+          type: "BACKUP",
+          path: backupDirectory,
+          createdAt: new Date().toISOString(),
+          sizeBytes,
+          cleanupPolicy: "RETAIN_UNTIL_EXPLICIT_DELETE",
+        });
         return {
           projectId: manifest.projectId,
-          backupDirectory,
+          snapshotId: snapshot.snapshotId,
           manifestSchemaVersion: manifest.schemaVersion,
-          createdAt: new Date().toISOString(),
-          sizeBytes: await directorySize(backupDirectory),
+          createdAt: snapshot.createdAt,
+          sizeBytes,
         };
       } catch (error) {
         await rm(backupDirectory, { recursive: true, force: true }).catch(() => undefined);
@@ -443,20 +497,57 @@ export class ProjectStorage {
       const staging = join(resolve(this.projectsRoot), `.restore-${projectId}-${process.pid}-${Date.now()}`);
       await cp(backupDirectory, staging, { recursive: true, errorOnExist: true });
       let preservedPreviousDirectory: string | null = null;
+      let previousProjectSnapshot: ManagedSnapshotRecord | null = null;
       try {
         if (activeProjectDirectory) {
           preservedPreviousDirectory = `${destination}.before-restore-${Date.now()}`;
+          previousProjectSnapshot = await this.registerManagedSnapshot({
+            snapshotId: randomUUID(),
+            projectId,
+            type: "PRE_RESTORE",
+            path: preservedPreviousDirectory,
+            createdAt: new Date().toISOString(),
+            sizeBytes: await directorySize(destination),
+            cleanupPolicy: "RETAIN_UNTIL_EXPLICIT_DELETE",
+          });
           await rename(destination, preservedPreviousDirectory);
         }
         await rename(staging, destination);
       } catch (error) {
         await rm(staging, { recursive: true, force: true }).catch(() => undefined);
+        if (previousProjectSnapshot) {
+          await this.removeSnapshotRecord(previousProjectSnapshot.snapshotId).catch(() => undefined);
+        }
         if (preservedPreviousDirectory && !(await directoryExists(destination))) {
           await rename(preservedPreviousDirectory, destination).catch(() => undefined);
         }
         throw error;
       }
-      return { projectId, projectDirectory: destination, previousProjectDirectory: preservedPreviousDirectory, restoredFrom: backupDirectory };
+      return {
+        projectId,
+        replacedExisting: activeProjectDirectory !== null,
+        previousProjectSnapshotId: previousProjectSnapshot?.snapshotId ?? null,
+      };
+    });
+  }
+
+  async deleteManagedSnapshot(projectId: string, snapshotId: string): Promise<boolean> {
+    await this.ensureProject(projectId);
+    return this.withProjectLock(projectId, async () => {
+      const registry = await this.readSnapshotRegistry();
+      const snapshot = registry.snapshots[snapshotId];
+      if (!snapshot || snapshot.projectId !== projectId) return false;
+
+      let snapshotExists = true;
+      try {
+        await this.assertManagedSnapshotPath(snapshot);
+      } catch (error) {
+        if (!isMissingFile(error)) throw error;
+        snapshotExists = false;
+      }
+      if (snapshotExists) await rm(snapshot.path, { recursive: true, force: true });
+      await this.removeSnapshotRecord(snapshotId);
+      return true;
     });
   }
 
@@ -476,7 +567,7 @@ export class ProjectStorage {
       try {
         await cp(source, archiveDirectory, { recursive: true, errorOnExist: true });
         await readBackupManifest(archiveDirectory);
-        return { projectId, archiveDirectory };
+        return { projectId, sizeBytes: await directorySize(archiveDirectory) };
       } catch (error) {
         await rm(archiveDirectory, { recursive: true, force: true }).catch(() => undefined);
         throw error;
@@ -489,6 +580,125 @@ export class ProjectStorage {
       throw new Error("Invalid projectId for local storage.");
     }
     return join(resolve(this.projectsRoot), projectId.toLowerCase());
+  }
+
+  private async snapshotSummary(projectId: string): Promise<{
+    managedBackupBytes: number;
+    preRestoreSnapshotBytes: number;
+  }> {
+    const registry = await this.readSnapshotRegistry();
+    let managedBackupBytes = 0;
+    let preRestoreSnapshotBytes = 0;
+    for (const snapshot of Object.values(registry.snapshots)) {
+      if (snapshot.projectId !== projectId) continue;
+      const sizeBytes = await this.safeManagedSnapshotSize(snapshot);
+      if (sizeBytes === null) continue;
+      if (snapshot.type === "BACKUP") managedBackupBytes += sizeBytes;
+      else preRestoreSnapshotBytes += sizeBytes;
+    }
+    return { managedBackupBytes, preRestoreSnapshotBytes };
+  }
+
+  private async registerManagedSnapshot(snapshot: ManagedSnapshotRecord): Promise<ManagedSnapshotRecord> {
+    this.assertSnapshotLocation(snapshot);
+    return this.withSnapshotRegistryLock(async () => {
+      const registry = await this.readSnapshotRegistry();
+      registry.snapshots[snapshot.snapshotId] = snapshot;
+      await this.writeSnapshotRegistry(registry);
+      return snapshot;
+    });
+  }
+
+  private async removeSnapshotRecord(snapshotId: string): Promise<void> {
+    await this.withSnapshotRegistryLock(async () => {
+      const registry = await this.readSnapshotRegistry();
+      delete registry.snapshots[snapshotId];
+      await this.writeSnapshotRegistry(registry);
+    });
+  }
+
+  private async safeManagedSnapshotSize(snapshot: ManagedSnapshotRecord): Promise<number | null> {
+    try {
+      await this.assertManagedSnapshotPath(snapshot);
+      return await directorySize(snapshot.path);
+    } catch (error) {
+      if (isMissingFile(error)) return null;
+      return null;
+    }
+  }
+
+  private async assertManagedSnapshotPath(snapshot: ManagedSnapshotRecord): Promise<void> {
+    this.assertSnapshotLocation(snapshot);
+    const rootStat = await lstat(snapshot.path);
+    if (!rootStat.isDirectory() || rootStat.isSymbolicLink()) {
+      throw new Error(`Managed snapshot ${snapshot.snapshotId} is not a real directory.`);
+    }
+    const manifestStat = await lstat(join(snapshot.path, "project.manifest.json"));
+    if (!manifestStat.isFile() || manifestStat.isSymbolicLink()) {
+      throw new Error(`Managed snapshot ${snapshot.snapshotId} has an unsafe manifest path.`);
+    }
+    const manifest = await readBackupManifest(snapshot.path);
+    if (manifest.projectId.toLowerCase() !== snapshot.projectId.toLowerCase()) {
+      throw new Error(`Managed snapshot ${snapshot.snapshotId} belongs to another project.`);
+    }
+  }
+
+  private assertSnapshotLocation(snapshot: ManagedSnapshotRecord): void {
+    const candidate = resolve(snapshot.path);
+    const projectRoot = this.projectRoot(snapshot.projectId);
+    if (isPathInside(projectRoot, candidate)) {
+      throw new Error("Managed snapshots cannot be stored inside the active project workspace.");
+    }
+    if (snapshot.type === "PRE_RESTORE") {
+      const projectsRoot = resolve(this.projectsRoot);
+      const expectedPrefix = `${basename(projectRoot)}.before-restore-`;
+      if (!isPathInside(projectsRoot, candidate) || !basename(candidate).startsWith(expectedPrefix)) {
+        throw new Error("Pre-restore snapshot path is outside the managed projects boundary.");
+      }
+      return;
+    }
+    if (!basename(candidate).startsWith(`${snapshot.projectId.toLowerCase()}-`) || !basename(candidate).endsWith(".narrativex")) {
+      throw new Error("Managed backup path does not match the NarrativeX backup naming policy.");
+    }
+  }
+
+  private async readSnapshotRegistry(): Promise<SnapshotRegistry> {
+    const registryPath = this.snapshotRegistryPath();
+    try {
+      const parsed = JSON.parse(await readFile(registryPath, "utf8")) as Partial<SnapshotRegistry>;
+      if (parsed.schemaVersion !== SNAPSHOT_REGISTRY_SCHEMA_VERSION || !parsed.snapshots || typeof parsed.snapshots !== "object") {
+        throw new Error("Snapshot registry is invalid or unsupported.");
+      }
+      return parsed as SnapshotRegistry;
+    } catch (error) {
+      if (isMissingFile(error)) return { schemaVersion: SNAPSHOT_REGISTRY_SCHEMA_VERSION, snapshots: {} };
+      throw error;
+    }
+  }
+
+  private async writeSnapshotRegistry(registry: SnapshotRegistry): Promise<void> {
+    await mkdir(resolve(this.projectsRoot), { recursive: true });
+    const destination = this.snapshotRegistryPath();
+    const temporary = join(resolve(this.projectsRoot), `.snapshot-registry.${process.pid}.${Date.now()}.tmp`);
+    await writeFile(temporary, `${JSON.stringify(registry, null, 2)}\n`, "utf8");
+    await rename(temporary, destination);
+  }
+
+  private snapshotRegistryPath(): string {
+    return join(resolve(this.projectsRoot), ".snapshot-registry.json");
+  }
+
+  private async withSnapshotRegistryLock<T>(task: () => Promise<T>): Promise<T> {
+    const previous = this.snapshotRegistryLock;
+    let release!: () => void;
+    const current = new Promise<void>((resolvePromise) => { release = resolvePromise; });
+    this.snapshotRegistryLock = previous.then(() => current);
+    await previous;
+    try {
+      return await task();
+    } finally {
+      release();
+    }
   }
 
   private resolveProjectRelativePath(projectId: string, relativePath: string): string {
@@ -686,11 +896,30 @@ async function readBackupManifest(path: string): Promise<LocalProjectManifest> {
 
 async function directorySize(path: string): Promise<number> {
   try {
+    const rootStat = await lstat(path);
+    if (!rootStat.isDirectory() || rootStat.isSymbolicLink()) return 0;
     let total = 0;
     for (const entry of await readdir(path, { withFileTypes: true })) {
       const child = join(path, entry.name);
       if (entry.isDirectory()) total += await directorySize(child);
-      else if (entry.isFile()) total += (await stat(child)).size;
+      else if (entry.isFile()) total += (await lstat(child)).size;
+    }
+    return total;
+  } catch (error) {
+    if (isMissingFile(error)) return 0;
+    throw error;
+  }
+}
+
+async function directChildrenSize(path: string, excludedDirectories: Set<string>): Promise<number> {
+  try {
+    const rootStat = await lstat(path);
+    if (!rootStat.isDirectory() || rootStat.isSymbolicLink()) return 0;
+    let total = 0;
+    for (const entry of await readdir(path, { withFileTypes: true })) {
+      if (entry.isDirectory() && excludedDirectories.has(entry.name)) continue;
+      if (entry.isFile()) total += (await lstat(join(path, entry.name))).size;
+      else if (entry.isDirectory()) total += await directorySize(join(path, entry.name));
     }
     return total;
   } catch (error) {

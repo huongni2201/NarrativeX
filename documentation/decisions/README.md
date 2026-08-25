@@ -40,6 +40,15 @@ This directory records decisions that affect more than one feature or change a p
 12. **[ADR-0012: Desktop local-first project media and local render execution](./ADR-0012-desktop-local-first-media-and-render-execution.md)**  
     Local project workspace/manifest, asset-ID/checksum resolution, backend-assigned `LOCAL_DEVICE` rendering, FFmpeg in Electron main, `LOCAL_DESKTOP` local artifacts and cloud render/storage as migration fallback.
 
+13. **[ADR-0013: Desktop local media registration and editor mutations](./ADR-0013-desktop-local-media-registration-and-editor-mutations.md)**
+    Main-process asset registration and editor mutation boundaries.
+
+14. **[ADR-0014: Workspace backup and deterministic render segment cache](./ADR-0014-workspace-backup-and-render-segment-cache.md)**
+    Manifest-verified backups, restore preservation, snapshot accounting and disposable render cache behavior.
+
+16. **[ADR-0016: UUID policy for public and operational identifiers](./ADR-0016-public-id-uuid-policy.md)**
+    UUIDv7 for public/domain IDs; numeric operational IDs remain without a universal migration.
+
 ## Supersession rules
 
 - ADR-0010 defines the primary client boundary and supersedes language that treats Next.js as the target editor.

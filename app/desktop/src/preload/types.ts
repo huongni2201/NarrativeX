@@ -18,27 +18,28 @@ export interface LocalExecutionStatus {
 
 export interface LocalProjectStorageStatus {
   projectId: string;
-  projectDirectory: string;
   assetCount: number;
   artifactCount: number;
 }
 
 export interface LocalStorageSummary {
   projectId: string;
-  projectDirectory: string;
   totalBytes: number;
   assetBytes: number;
   artifactBytes: number;
   workBytes: number;
   cacheBytes: number;
   backupBytes: number;
+  managedBackupBytes: number;
+  preRestoreSnapshotBytes: number;
+  otherNarrativeXOwnedBytes: number;
   assetCount: number;
   artifactCount: number;
 }
 
 export interface LocalProjectBackup {
   projectId: string;
-  backupDirectory: string;
+  snapshotId: string;
   manifestSchemaVersion: number;
   createdAt: string;
   sizeBytes: number;
@@ -46,14 +47,13 @@ export interface LocalProjectBackup {
 
 export interface LocalProjectRestoreResult {
   projectId: string;
-  projectDirectory: string;
-  previousProjectDirectory: string | null;
-  restoredFrom: string;
+  replacedExisting: boolean;
+  previousProjectSnapshotId: string | null;
 }
 
 export interface LocalProjectArchiveResult {
   projectId: string;
-  archiveDirectory: string;
+  sizeBytes: number;
 }
 
 export interface LocalAssetImportResult {
@@ -76,11 +76,6 @@ export interface LocalAssetSelection {
 export interface LocalRemoteMaterializationInput {
   projectId: string;
   assetId: string;
-  kind: "IMAGE" | "AUDIO" | "VIDEO";
-  downloadUrl: string;
-  sizeBytes: number;
-  checksumSha256: string;
-  filename: string;
 }
 
 export interface FfmpegRuntimeStatus {
@@ -99,7 +94,7 @@ export interface LocalRenderPreflightInput {
 }
 
 export interface RenderRecoveryStatus {
-  unfinished: Array<{ projectId: string; jobId: string; stage: string; updatedAt: string; renderFingerprint: string }>;
+  unfinished: Array<{ projectId: string; jobId: string; stage: string; recoveryAction: string; updatedAt: string; renderFingerprint: string }>;
 }
 
 export interface DesktopApiRequest {
@@ -137,9 +132,9 @@ export interface NarrativeXDesktopBridge {
     summary(projectId: string): Promise<LocalStorageSummary>;
     verifyProject(projectId: string): Promise<Array<{ assetId: string; state: "AVAILABLE" | "MISSING" | "CORRUPT" }>>;
     cleanupCompletedWork(projectId: string): Promise<number>;
-    createBackup(input: { projectId: string; destinationDirectory: string }): Promise<LocalProjectBackup>;
-    restoreBackup(input: { backupDirectory: string; replaceExisting?: boolean }): Promise<LocalProjectRestoreResult>;
-    archiveProject(input: { projectId: string; destinationDirectory: string }): Promise<LocalProjectArchiveResult>;
+    createBackup(projectId: string): Promise<LocalProjectBackup | null>;
+    restoreBackup(): Promise<LocalProjectRestoreResult | null>;
+    archiveProject(projectId: string): Promise<LocalProjectArchiveResult | null>;
     materializeRemoteAsset(input: LocalRemoteMaterializationInput): Promise<LocalAssetImportResult>;
     repairSelectedAsset(input: { projectId: string; assetId: string; kind: "IMAGE" | "AUDIO" | "VIDEO"; selectionToken: string }): Promise<LocalAssetImportResult>;
     selectAsset(): Promise<LocalAssetSelection | null>;
@@ -157,10 +152,7 @@ export interface NarrativeXDesktopBridge {
     recoveryStatus(): Promise<RenderRecoveryStatus>;
     cancel(jobId: string): Promise<boolean>;
   };
-  system: {
-    selectFiles(): Promise<string[]>;
-    selectFolder(): Promise<string | null>;
-  };
+  system: Record<never, never>;
   windowControls: {
     minimize(): Promise<void>;
     toggleMaximize(): Promise<boolean>;

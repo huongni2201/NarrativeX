@@ -3,12 +3,13 @@ package com.narrativex.backend.feature.generation.infrastructure.persistence.myb
 import com.narrativex.backend.feature.common.infrastructure.persistence.mybatis.NarrativeXMyBatisMapper;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 import org.apache.ibatis.annotations.Param;
 
 public interface JobHistoryMapper extends NarrativeXMyBatisMapper {
   List<JobHistoryRow> list(
       @Param("userId") String userId,
       @Param("cursorUpdatedAt") Instant cursorUpdatedAt,
-      @Param("cursorId") Long cursorId,
+      @Param("cursorId") UUID cursorId,
       @Param("limit") int limit);
 }

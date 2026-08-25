@@ -1,4 +1,4 @@
-import { ipcMain, type WebContents } from "electron";
+import { ipcMain, type IpcMainInvokeEvent, type WebContents } from "electron";
 import { pathToFileURL } from "node:url";
 
 export interface RendererTrustPolicy {
@@ -49,5 +49,18 @@ export function registerTrustedIpcHandler(
       throw new Error(`Rejected IPC from an untrusted renderer on ${channel}.`);
     }
     return handler(...args);
+  });
+}
+
+export function registerTrustedIpcHandlerWithEvent(
+  channel: string,
+  policy: RendererTrustPolicy,
+  handler: (event: IpcMainInvokeEvent, ...args: unknown[]) => unknown,
+): void {
+  ipcMain.handle(channel, (event, ...args) => {
+    if (!isTrustedRendererUrl(event.sender.getURL(), policy)) {
+      throw new Error(`Rejected IPC from an untrusted renderer on ${channel}.`);
+    }
+    return handler(event, ...args);
   });
 }

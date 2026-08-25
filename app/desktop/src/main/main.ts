@@ -1,5 +1,5 @@
 import { app, BrowserWindow, dialog, session, shell } from "electron";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
@@ -17,12 +17,14 @@ import { RemoteAssetMaterializer } from "./local-storage/remote-asset-materializ
 import { resolveFfmpegRuntime, type FfmpegRuntimeStatus } from "./rendering/ffmpeg-runtime";
 import { ProjectRenderer } from "./rendering/project-renderer";
 import { LocalRenderPreflightService } from "./rendering/local-render-preflight";
-import { RenderJournalStore } from "./rendering/render-journal";
+import { recoveryActionForStage, RenderJournalStore } from "./rendering/render-journal";
 import {
   hardenRendererWebContents,
   registerTrustedIpcHandler,
+  registerTrustedIpcHandlerWithEvent,
   type RendererTrustPolicy,
 } from "./security/renderer-security";
+import { SelectionTokenStore } from "./security/selection-token-store";
 
 let mainWindow: BrowserWindow | null = null;
 let localExecution: LocalExecutionService | null = null;
@@ -41,7 +43,7 @@ let renderJournals: RenderJournalStore | null = null;
 let remoteAssetMaterializer: RemoteAssetMaterializer | null = null;
 let initialProtocolUrl: string | null = process.argv.find(isNarrativeXProtocolUrl) ?? null;
 let pendingAuthCode: string | null = null;
-const pendingAssetSelections = new Map<string, { sourcePath: string; kind: "IMAGE" | "AUDIO" | "VIDEO" | "OTHER"; expiresAt: number }>();
+const pendingAssetSelections = new SelectionTokenStore<{ sourcePath: string; kind: "IMAGE" | "AUDIO" | "VIDEO" | "OTHER" }>();
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
@@ -148,7 +150,7 @@ void app.whenReady().then(async () => {
   projectStorage = new ProjectStorage(join(app.getPath("userData"), "projects"));
   renderPreflight = new LocalRenderPreflightService(ffmpegRuntime, projectStorage);
   renderJournals = new RenderJournalStore(projectStorage.rootDirectory());
-  remoteAssetMaterializer = new RemoteAssetMaterializer(projectStorage);
+  remoteAssetMaterializer = new RemoteAssetMaterializer(projectStorage, desktopApi);
   localExecution = new LocalExecutionService(
     config,
     identityStore,
@@ -197,27 +199,36 @@ void app.whenReady().then(async () => {
     if (typeof projectId !== "string") throw new Error("projectId must be a string.");
     return requireProjectStorage().cleanupCompletedWork(projectId);
   });
-  registerTrustedIpcHandler("desktop:local-storage:create-backup", trustPolicy, async (input) => {
-    if (!isProjectBackupInput(input)) throw new Error("Invalid project backup input.");
-    return requireProjectStorage().createBackup(input.projectId, input.destinationDirectory);
+  registerTrustedIpcHandler("desktop:local-storage:create-backup", trustPolicy, async (projectId) => {
+    if (typeof projectId !== "string") throw new Error("projectId must be a string.");
+    const selected = await dialog.showOpenDialog(requireMainWindow(), { properties: ["openDirectory", "createDirectory"] });
+    const destinationDirectory = selected.filePaths[0];
+    if (selected.canceled || !destinationDirectory) return null;
+    const result = await requireProjectStorage().createBackup(projectId, destinationDirectory);
+    return { projectId: result.projectId, snapshotId: result.snapshotId, manifestSchemaVersion: result.manifestSchemaVersion, createdAt: result.createdAt, sizeBytes: result.sizeBytes };
   });
-  registerTrustedIpcHandler("desktop:local-storage:restore-backup", trustPolicy, async (input) => {
-    if (!isProjectRestoreInput(input)) throw new Error("Invalid project restore input.");
-    return requireProjectStorage().restoreBackup(input);
+  registerTrustedIpcHandler("desktop:local-storage:restore-backup", trustPolicy, async () => {
+    const selected = await dialog.showOpenDialog(requireMainWindow(), { properties: ["openDirectory"] });
+    const backupDirectory = selected.filePaths[0];
+    if (selected.canceled || !backupDirectory) return null;
+    const result = await requireProjectStorage().restoreBackup({ backupDirectory, replaceExisting: true });
+    return { projectId: result.projectId, replacedExisting: result.replacedExisting, previousProjectSnapshotId: result.previousProjectSnapshotId };
   });
-  registerTrustedIpcHandler("desktop:local-storage:archive-project", trustPolicy, async (input) => {
-    if (!isProjectBackupInput(input)) throw new Error("Invalid project archive input.");
-    return requireProjectStorage().archiveProject(input.projectId, input.destinationDirectory);
+  registerTrustedIpcHandler("desktop:local-storage:archive-project", trustPolicy, async (projectId) => {
+    if (typeof projectId !== "string") throw new Error("projectId must be a string.");
+    const selected = await dialog.showOpenDialog(requireMainWindow(), { properties: ["openDirectory", "createDirectory"] });
+    const destinationDirectory = selected.filePaths[0];
+    if (selected.canceled || !destinationDirectory) return null;
+    const result = await requireProjectStorage().archiveProject(projectId, destinationDirectory);
+    return { projectId: result.projectId, sizeBytes: result.sizeBytes };
   });
   registerTrustedIpcHandler("desktop:local-storage:materialize-remote-asset", trustPolicy, async (input) => {
     if (!isRemoteMaterializationInput(input) || !remoteAssetMaterializer) throw new Error("Invalid remote asset materialization input.");
     return remoteAssetMaterializer.materialize(input);
   });
-  registerTrustedIpcHandler("desktop:local-storage:repair-selected-asset", trustPolicy, async (input) => {
+  registerTrustedIpcHandlerWithEvent("desktop:local-storage:repair-selected-asset", trustPolicy, async (event, input) => {
     if (!isSelectedAssetCommitInput(input)) throw new Error("Invalid selected asset repair input.");
-    const selection = pendingAssetSelections.get(input.selectionToken);
-    pendingAssetSelections.delete(input.selectionToken);
-    if (!selection || selection.expiresAt < Date.now()) throw new Error("Local asset selection expired. Choose the file again.");
+    const selection = pendingAssetSelections.consume(input.selectionToken, event.sender.id, "asset-import");
     if (selection.kind !== input.kind) throw new Error("Local asset kind changed before repair.");
     return requireProjectStorage().registerAsset(input.projectId, { assetId: input.assetId, kind: input.kind, sourcePath: selection.sourcePath });
   });
@@ -240,29 +251,25 @@ void app.whenReady().then(async () => {
       const manifest = await requireProjectStorage().ensureProject(projectId);
       return {
         projectId: manifest.projectId,
-        projectDirectory: requireProjectStorage().projectDirectory(projectId),
         assetCount: Object.keys(manifest.assets).length,
         artifactCount: Object.keys(manifest.artifacts).length,
       };
     },
   );
-  registerTrustedIpcHandler("desktop:local-storage:select-asset", trustPolicy, async () => {
-    const selected = await dialog.showOpenDialog({ properties: ["openFile"] });
+  registerTrustedIpcHandlerWithEvent("desktop:local-storage:select-asset", trustPolicy, async (event) => {
+    const selected = await dialog.showOpenDialog(requireMainWindow(), { properties: ["openFile"] });
     const sourcePath = selected.filePaths[0];
     if (selected.canceled || !sourcePath) return null;
     const file = await stat(sourcePath);
     if (!file.isFile() || file.size <= 0) throw new Error("Selected asset must be a non-empty file.");
     const checksumSha256 = await checksumFile(sourcePath);
     const kind = kindForPath(sourcePath);
-    const selectionToken = randomUUID();
-    pendingAssetSelections.set(selectionToken, { sourcePath, kind, expiresAt: Date.now() + 5 * 60_000 });
+    const selectionToken = pendingAssetSelections.create(event.sender.id, "asset-import", { sourcePath, kind });
     return { selectionToken, originalFilename: basename(sourcePath), contentType: contentTypeForPath(sourcePath), sizeBytes: file.size, checksumSha256, kind };
   });
-  registerTrustedIpcHandler("desktop:local-storage:commit-selected-asset", trustPolicy, async (input) => {
+  registerTrustedIpcHandlerWithEvent("desktop:local-storage:commit-selected-asset", trustPolicy, async (event, input) => {
     if (!isSelectedAssetCommitInput(input)) throw new Error("Invalid selected asset commit input.");
-    const selection = pendingAssetSelections.get(input.selectionToken);
-    pendingAssetSelections.delete(input.selectionToken);
-    if (!selection || selection.expiresAt < Date.now()) throw new Error("Local asset selection expired. Choose the file again.");
+    const selection = pendingAssetSelections.consume(input.selectionToken, event.sender.id, "asset-import");
     if (selection.kind !== input.kind) throw new Error("Local asset kind changed before commit.");
     return requireProjectStorage().registerAsset(input.projectId, { assetId: input.assetId, kind: input.kind, sourcePath: selection.sourcePath });
   });
@@ -280,26 +287,16 @@ void app.whenReady().then(async () => {
   registerTrustedIpcHandler("desktop:render:preflight", trustPolicy, async (input) => {
     if (!isRenderPreflightInput(input)) throw new Error("Invalid render preflight input.");
     if (!renderPreflight) throw new Error("Render preflight is not initialized.");
-    return renderPreflight.check(input, requireLocalExecution().status().state !== "OFFLINE");
+    return renderPreflight.check(input, requireLocalExecution().renderPreflightContext());
   });
   registerTrustedIpcHandler("desktop:render:recovery-status", trustPolicy, async () => {
     if (!renderJournals) throw new Error("Render journal is not initialized.");
     const unfinished = await renderJournals.listUnfinished();
-    return { unfinished: unfinished.map(({ projectId, jobId, stage, updatedAt, renderFingerprint }) => ({ projectId, jobId, stage, updatedAt, renderFingerprint })) };
+    return { unfinished: unfinished.map(({ projectId, jobId, stage, updatedAt, renderFingerprint }) => ({ projectId, jobId, stage, recoveryAction: recoveryActionForStage(stage), updatedAt, renderFingerprint })) };
   });
   registerTrustedIpcHandler("desktop:render:cancel", trustPolicy, (jobId) => {
     if (typeof jobId !== "string") throw new Error("jobId must be a string.");
     return requireLocalExecution().cancelProjectRender(jobId);
-  });
-  registerTrustedIpcHandler("desktop:system:select-files", trustPolicy, async () => {
-    const selected = await dialog.showOpenDialog({
-      properties: ["openFile", "multiSelections"],
-    });
-    return selected.canceled ? [] : selected.filePaths;
-  });
-  registerTrustedIpcHandler("desktop:system:select-folder", trustPolicy, async () => {
-    const selected = await dialog.showOpenDialog({ properties: ["openDirectory"] });
-    return selected.canceled ? null : selected.filePaths[0] ?? null;
   });
   registerTrustedIpcHandler("desktop:window:minimize", trustPolicy, () => {
     requireMainWindow().minimize();
@@ -413,20 +410,8 @@ function isRenderPreflightInput(value: unknown): value is { projectId: string; a
   return typeof input.projectId === "string" && Array.isArray(input.assetIds) && input.assetIds.every((item) => typeof item === "string") && typeof input.estimatedOutputBytes === "number" && typeof input.requiredTemporaryBytes === "number";
 }
 
-function isRemoteMaterializationInput(value: unknown): value is { projectId: string; assetId: string; kind: "IMAGE" | "AUDIO" | "VIDEO"; downloadUrl: string; sizeBytes: number; checksumSha256: string; filename: string } {
+function isRemoteMaterializationInput(value: unknown): value is { projectId: string; assetId: string } {
   if (!value || typeof value !== "object") return false;
   const input = value as Record<string, unknown>;
-  return typeof input.projectId === "string" && typeof input.assetId === "string" && ["IMAGE", "AUDIO", "VIDEO"].includes(String(input.kind)) && typeof input.downloadUrl === "string" && typeof input.sizeBytes === "number" && typeof input.checksumSha256 === "string" && typeof input.filename === "string";
-}
-
-function isProjectBackupInput(value: unknown): value is { projectId: string; destinationDirectory: string } {
-  if (!value || typeof value !== "object") return false;
-  const input = value as Record<string, unknown>;
-  return typeof input.projectId === "string" && typeof input.destinationDirectory === "string" && input.destinationDirectory.length > 0;
-}
-
-function isProjectRestoreInput(value: unknown): value is { backupDirectory: string; replaceExisting?: boolean } {
-  if (!value || typeof value !== "object") return false;
-  const input = value as Record<string, unknown>;
-  return typeof input.backupDirectory === "string" && input.backupDirectory.length > 0 && (input.replaceExisting === undefined || typeof input.replaceExisting === "boolean");
+  return typeof input.projectId === "string" && typeof input.assetId === "string";
 }
