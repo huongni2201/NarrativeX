@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type PropsWithChildren } from "react";
+import { useEffect, useRef, useState, type PropsWithChildren, type SyntheticEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { DesktopApiError } from "../../api/client";
 import { authApi } from "./api/auth.api";
@@ -7,6 +7,16 @@ import { authQueryKeys, useCurrentUserQuery } from "./queries/auth.queries";
 import "./auth.css";
 
 const AUTH_REQUIRED_EVENT = "narrativex:auth-required";
+const PAID_EDITOR_CONTROL_SELECTOR = [
+  '.timeline-toolbar button[aria-label="Split clip"]',
+  '.timeline-toolbar button[aria-label="Duplicate clip"]',
+  '.timeline-toolbar button[aria-label="Delete clip"]',
+  '.timeline-toolbar button[aria-label="Undo"]',
+  '.timeline-toolbar button[aria-label="Redo"]',
+  ".inspector-scroll input:not([readonly])",
+  ".inspector-scroll select",
+  ".inspector-scroll button",
+].join(",");
 
 interface AuthRequiredDetail {
   reason?: string;
@@ -103,6 +113,16 @@ export function AuthGuard({ children }: PropsWithChildren) {
     };
   }, [currentUser.isPending, guestBootstrapPending, localExecutionUserId]);
 
+  function gateGuestEditorInteraction(event: SyntheticEvent) {
+    if (!currentUser.data?.guest) return;
+    const target = event.target;
+    if (!(target instanceof Element) || !target.closest(PAID_EDITOR_CONTROL_SELECTOR)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setExchangeError(null);
+    setLoginReason("Đăng nhập để chỉnh sửa video. Project và vị trí hiện tại sẽ được giữ nguyên.");
+  }
+
   if (currentUser.isPending || (needsGuestBootstrap && !bootstrapError)) {
     return (
       <main className="auth-screen">
@@ -123,7 +143,13 @@ export function AuthGuard({ children }: PropsWithChildren) {
 
   return (
     <>
-      {children}
+      <div
+        className="auth-event-shell"
+        onClickCapture={gateGuestEditorInteraction}
+        onChangeCapture={gateGuestEditorInteraction}
+      >
+        {children}
+      </div>
       {loginReason && (
         <LoginModal
           reason={loginReason}
