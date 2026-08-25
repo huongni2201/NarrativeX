@@ -37,6 +37,15 @@ const bridge: NarrativeXDesktopBridge = {
       return () => ipcRenderer.removeListener("desktop:local-execution:status-changed", handler);
     },
   },
+  localProjects: {
+    list: () => ipcRenderer.invoke("desktop:projects-local:list"),
+    lastOpened: () => ipcRenderer.invoke("desktop:projects-local:last-opened"),
+    upsert: (project, metadata) =>
+      ipcRenderer.invoke("desktop:projects-local:upsert", { project, metadata }),
+    reconcile: (projects, metadata) =>
+      ipcRenderer.invoke("desktop:projects-local:reconcile", { projects, metadata }),
+    touch: (projectId: string) => ipcRenderer.invoke("desktop:projects-local:touch", projectId),
+  },
   localStorage: {
     ensureProject: (projectId: string) =>
       ipcRenderer.invoke("desktop:local-storage:ensure-project", projectId),
