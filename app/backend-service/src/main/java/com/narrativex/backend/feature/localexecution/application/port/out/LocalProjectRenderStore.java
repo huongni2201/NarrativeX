@@ -71,9 +71,47 @@ public interface LocalProjectRenderStore {
       long globalEndMs,
       long durationMs,
       String cameraMovement,
+      String mediaType,
+      String storageMode,
+      Long sourceDurationMs,
+      String fitMode,
+      long trimStartMs,
       String storageKey,
       long sizeBytes,
-      String checksum) {}
+      String checksum) {
+    public BeatInput(
+        UUID chapterId,
+        int sceneIndex,
+        int beatIndex,
+        UUID visualBeatId,
+        UUID mediaAssetId,
+        long globalStartMs,
+        long globalEndMs,
+        long durationMs,
+        String cameraMovement,
+        String storageKey,
+        long sizeBytes,
+        String checksum) {
+      this(
+          chapterId,
+          sceneIndex,
+          beatIndex,
+          visualBeatId,
+          mediaAssetId,
+          globalStartMs,
+          globalEndMs,
+          durationMs,
+          cameraMovement,
+          "IMAGE",
+          storageKey == null ? "LOCAL_ONLY" : "REMOTE",
+          null,
+          "TRIM",
+          0L,
+          storageKey,
+          sizeBytes,
+          checksum);
+    }
+  }
 
   record CompletionResult(
       String renderFingerprint,
