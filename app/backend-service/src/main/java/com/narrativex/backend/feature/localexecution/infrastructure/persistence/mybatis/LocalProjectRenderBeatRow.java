@@ -12,6 +12,11 @@ public record LocalProjectRenderBeatRow(
     long globalEndMs,
     long durationMs,
     String cameraMovement,
+    String mediaType,
+    String storageMode,
+    Long sourceDurationMs,
+    String fitMode,
+    long trimStartMs,
     String storageKey,
     long sizeBytes,
     String checksum) {}
