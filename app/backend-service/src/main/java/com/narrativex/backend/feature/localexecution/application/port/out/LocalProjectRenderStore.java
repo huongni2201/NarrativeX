@@ -19,11 +19,7 @@ public interface LocalProjectRenderStore {
       String currentStep);
 
   void complete(
-      UUID jobId,
-      UUID deviceId,
-      String workerId,
-      UUID leaseToken,
-      CompletionResult result);
+      UUID jobId, UUID deviceId, String workerId, UUID leaseToken, CompletionResult result);
 
   boolean cancel(UUID jobId, UUID deviceId, String workerId, UUID leaseToken);
 

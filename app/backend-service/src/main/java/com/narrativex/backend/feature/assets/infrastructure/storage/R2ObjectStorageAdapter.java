@@ -41,6 +41,7 @@ public class R2ObjectStorageAdapter implements ObjectStoragePort, MediaStorageAc
   public URI createDownloadUrl(String storageKey, Instant expiresAt) {
     return createDownload(storageKey, expiresAt).downloadUrl();
   }
+
   private static final String REGION = "auto";
   private static final String SERVICE = "s3";
   private static final String UNSIGNED_PAYLOAD = "UNSIGNED-PAYLOAD";

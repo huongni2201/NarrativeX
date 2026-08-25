@@ -31,8 +31,7 @@ public class LocalDeviceController {
     var pairing = localDeviceUseCase.createPairingCode();
     return ResponseEntity.ok(
         ApiResponse.success(
-            "Pairing code created",
-            new PairingCodeResponse(pairing.code(), pairing.expiresAt())));
+            "Pairing code created", new PairingCodeResponse(pairing.code(), pairing.expiresAt())));
   }
 
   @GetMapping

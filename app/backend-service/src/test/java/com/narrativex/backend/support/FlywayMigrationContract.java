@@ -25,12 +25,14 @@ public final class FlywayMigrationContract {
   public static Path migrationRoot() {
     URL resource = FlywayMigrationContract.class.getClassLoader().getResource("db/migration");
     if (resource == null) {
-      throw new IllegalStateException("Flyway migration resources were not found on the test classpath");
+      throw new IllegalStateException(
+          "Flyway migration resources were not found on the test classpath");
     }
     try {
       return Path.of(resource.toURI());
     } catch (URISyntaxException | IllegalArgumentException exception) {
-      throw new IllegalStateException("Flyway migration resources must be a file-system directory", exception);
+      throw new IllegalStateException(
+          "Flyway migration resources must be a file-system directory", exception);
     }
   }
 
@@ -40,7 +42,8 @@ public final class FlywayMigrationContract {
           .filter(Files::isRegularFile)
           .map(path -> path.getFileName().toString())
           .filter(VERSIONED_MIGRATION.asPredicate())
-          .sorted(Comparator.comparingInt(FlywayMigrationContract::version).thenComparing(name -> name))
+          .sorted(
+              Comparator.comparingInt(FlywayMigrationContract::version).thenComparing(name -> name))
           .toList();
     }
   }

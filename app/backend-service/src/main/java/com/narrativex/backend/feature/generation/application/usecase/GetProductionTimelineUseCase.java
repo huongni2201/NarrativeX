@@ -46,11 +46,11 @@ public class GetProductionTimelineUseCase {
     String aspectRatio = firstAspectRatio(chapterSources);
     boolean oneAspectRatio =
         chapterSources.stream()
-            .filter(chapter -> chapter.mediaPlanId() != null)
-            .map(ChapterSource::aspectRatio)
-            .filter(value -> value != null && !value.isBlank())
-            .distinct()
-            .count()
+                .filter(chapter -> chapter.mediaPlanId() != null)
+                .map(ChapterSource::aspectRatio)
+                .filter(value -> value != null && !value.isBlank())
+                .distinct()
+                .count()
             <= 1;
 
     long cursorMs = 0L;
@@ -82,8 +82,7 @@ public class GetProductionTimelineUseCase {
               .allMatch(
                   beat ->
                       Objects.equals(beat.mediaPlanId(), chapter.mediaPlanId())
-                          && Objects.equals(
-                              beat.mediaPlanRevision(), chapter.mediaPlanRevision()));
+                          && Objects.equals(beat.mediaPlanRevision(), chapter.mediaPlanRevision()));
       boolean planReady =
           timingRepresentable
               && chapter.mediaPlanId() != null

@@ -22,13 +22,15 @@ class ChapterAnalysisAdmissionServiceTest {
   private static final UUID STORY_VERSION_ID = UuidV7.random();
   private static final UUID PROJECT_ID = UuidV7.random();
   private static final ChapterAnalysisSource SOURCE =
-      new ChapterAnalysisSource(CHAPTER_ID, STORY_VERSION_ID, 1L, "a".repeat(64), "A short chapter.");
+      new ChapterAnalysisSource(
+          CHAPTER_ID, STORY_VERSION_ID, 1L, "a".repeat(64), "A short chapter.");
 
   @Test
   void freePlanWithoutStoryAnalysisFeatureIsRejected() {
     var service = service(quota(false), new ReservationSpy(true));
 
-    assertThrows(FeatureNotAvailableException.class, () -> service.admit("user-1", PROJECT_ID, SOURCE));
+    assertThrows(
+        FeatureNotAvailableException.class, () -> service.admit("user-1", PROJECT_ID, SOURCE));
   }
 
   @Test
@@ -37,7 +39,8 @@ class ChapterAnalysisAdmissionServiceTest {
 
     var exception =
         assertThrows(
-            GenerationAdmissionDeniedException.class, () -> service.admit("user-1", PROJECT_ID, SOURCE));
+            GenerationAdmissionDeniedException.class,
+            () -> service.admit("user-1", PROJECT_ID, SOURCE));
     assertEquals("COST_LIMIT", exception.getCode());
   }
 

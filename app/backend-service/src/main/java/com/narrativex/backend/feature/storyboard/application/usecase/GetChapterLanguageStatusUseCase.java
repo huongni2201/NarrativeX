@@ -10,11 +10,10 @@ import com.narrativex.backend.feature.storyboard.application.port.out.ChapterCon
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
 import com.narrativex.backend.feature.storyboard.application.port.out.LanguageDetectionRepository;
 import com.narrativex.backend.feature.storyboard.application.service.ChapterLanguagePolicy;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor

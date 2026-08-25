@@ -30,7 +30,8 @@ class StageAttemptPersistenceAdapterTest {
     when(mapper.insert(any(StageAttemptRow.class))).thenReturn(STAGE_ATTEMPT_ID);
     when(mapper.findById(STAGE_ATTEMPT_ID))
         .thenReturn(
-            new StageAttemptRow(STAGE_ATTEMPT_ID, 0L, JOB_ID, "CHAPTER_ANALYSIS", 1, JobStatus.QUEUED, null, null));
+            new StageAttemptRow(
+                STAGE_ATTEMPT_ID, 0L, JOB_ID, "CHAPTER_ANALYSIS", 1, JobStatus.QUEUED, null, null));
     StageAttemptPersistenceAdapter adapter = new StageAttemptPersistenceAdapter(mapper);
 
     adapter.create(attempt);
@@ -41,7 +42,8 @@ class StageAttemptPersistenceAdapterTest {
   @Test
   void rejectsStageAttemptWithExistingIdBeforeWriting() {
     StageAttempt attempt =
-        StageAttempt.rehydrate(STAGE_ATTEMPT_ID, 0L, JOB_ID, "CHAPTER_ANALYSIS", 1, JobStatus.QUEUED, null, null);
+        StageAttempt.rehydrate(
+            STAGE_ATTEMPT_ID, 0L, JOB_ID, "CHAPTER_ANALYSIS", 1, JobStatus.QUEUED, null, null);
     StageAttemptPersistenceAdapter adapter = new StageAttemptPersistenceAdapter(mapper);
 
     assertThrows(IllegalArgumentException.class, () -> adapter.create(attempt));

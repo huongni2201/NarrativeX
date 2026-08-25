@@ -81,8 +81,10 @@ class EnqueueStoryAnalysisUseCaseTest {
 
   @Test
   void analysisCommandRequiresAValidProjectAndChapterScope() {
-    assertThrows(IllegalArgumentException.class, () -> new EnqueueStoryAnalysisCommand(null, CHAPTER_ID));
-    assertThrows(IllegalArgumentException.class, () -> new EnqueueStoryAnalysisCommand(PROJECT_ID, null));
+    assertThrows(
+        IllegalArgumentException.class, () -> new EnqueueStoryAnalysisCommand(null, CHAPTER_ID));
+    assertThrows(
+        IllegalArgumentException.class, () -> new EnqueueStoryAnalysisCommand(PROJECT_ID, null));
   }
 
   @Test
@@ -90,11 +92,10 @@ class EnqueueStoryAnalysisUseCaseTest {
     var snapshot = snapshot();
     RuntimeException stop = new RuntimeException("stop after idempotency derivation");
     when(currentUserId.get()).thenReturn("user-1");
-    when(chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(PROJECT_ID, CHAPTER_ID, "user-1"))
+    when(chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(
+            PROJECT_ID, CHAPTER_ID, "user-1"))
         .thenReturn(snapshot);
-    doThrow(stop)
-        .when(generationJobRepository)
-        .acquireIdempotencyLock(IDEMPOTENCY_KEY, "user-1");
+    doThrow(stop).when(generationJobRepository).acquireIdempotencyLock(IDEMPOTENCY_KEY, "user-1");
 
     var thrown =
         assertThrows(
@@ -103,7 +104,9 @@ class EnqueueStoryAnalysisUseCaseTest {
 
     assertSame(stop, thrown);
     InOrder order = inOrder(chapterAnalysisSourceAccess, generationJobRepository);
-    order.verify(chapterAnalysisSourceAccess).requireOwnedForAnalysisLocked(PROJECT_ID, CHAPTER_ID, "user-1");
+    order
+        .verify(chapterAnalysisSourceAccess)
+        .requireOwnedForAnalysisLocked(PROJECT_ID, CHAPTER_ID, "user-1");
     order.verify(generationJobRepository).acquireIdempotencyLock(IDEMPOTENCY_KEY, "user-1");
   }
 
@@ -111,8 +114,8 @@ class EnqueueStoryAnalysisUseCaseTest {
   void persistsExactlyOneDurableEnqueueBoundaryInOrder() {
     var snapshot = snapshot();
     var estimate =
-        new com.narrativex.backend.feature.generation.application.service.ChapterAnalysisCostEstimate(
-            20, BigDecimal.ONE, BigDecimal.TEN, BigDecimal.TEN);
+        new com.narrativex.backend.feature.generation.application.service
+            .ChapterAnalysisCostEstimate(20, BigDecimal.ONE, BigDecimal.TEN, BigDecimal.TEN);
     var reservation = new QuotaReservation.Reservation(77L, "user-1", "2026-08", BigDecimal.TEN);
     var persistedPlan =
         OperationPlan.rehydrate(
@@ -128,10 +131,12 @@ class EnqueueStoryAnalysisUseCaseTest {
     var persistedJob = persistedJob(JobStatus.QUEUED);
 
     when(currentUserId.get()).thenReturn("user-1");
-    when(chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(PROJECT_ID, CHAPTER_ID, "user-1"))
+    when(chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(
+            PROJECT_ID, CHAPTER_ID, "user-1"))
         .thenReturn(snapshot);
     var project =
-        org.mockito.Mockito.mock(com.narrativex.backend.feature.project.domain.aggregate.Project.class);
+        org.mockito.Mockito.mock(
+            com.narrativex.backend.feature.project.domain.aggregate.Project.class);
     when(project.getSourceLanguage()).thenReturn("vi-VN");
     when(projectAccess.findOwnedProject(PROJECT_ID, "user-1")).thenReturn(project);
     when(generationJobRepository.findByIdempotencyKey(IDEMPOTENCY_KEY, "user-1"))
@@ -148,7 +153,8 @@ class EnqueueStoryAnalysisUseCaseTest {
     GenerationJob result = useCase.execute(new EnqueueStoryAnalysisCommand(PROJECT_ID, CHAPTER_ID));
 
     assertSame(persistedJob, result);
-    verify(operationPlanRepository, times(2)).save(org.mockito.ArgumentMatchers.any(OperationPlan.class));
+    verify(operationPlanRepository, times(2))
+        .save(org.mockito.ArgumentMatchers.any(OperationPlan.class));
     verify(generationJobRepository).save(org.mockito.ArgumentMatchers.any(GenerationJob.class));
     verify(quotaReservation).bindToGenerationJob(77L, persistedJob.getId());
     verify(stageAttemptRepository)
@@ -166,7 +172,8 @@ class EnqueueStoryAnalysisUseCaseTest {
     var snapshot = snapshot();
     var existing = persistedJob(JobStatus.QUEUED);
     when(currentUserId.get()).thenReturn("user-1");
-    when(chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(PROJECT_ID, CHAPTER_ID, "user-1"))
+    when(chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(
+            PROJECT_ID, CHAPTER_ID, "user-1"))
         .thenReturn(snapshot);
     when(projectAccess.findOwnedProject(PROJECT_ID, "user-1")).thenReturn(null);
     when(generationJobRepository.findByIdempotencyKey(IDEMPOTENCY_KEY, "user-1"))
@@ -182,7 +189,8 @@ class EnqueueStoryAnalysisUseCaseTest {
     verify(operationPlanRepository, never()).save(org.mockito.ArgumentMatchers.any());
     verify(generationJobRepository, never()).save(org.mockito.ArgumentMatchers.any());
     verify(quotaReservation, never())
-        .bindToGenerationJob(org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any());
+        .bindToGenerationJob(
+            org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any());
     verify(stageAttemptRepository, never()).create(org.mockito.ArgumentMatchers.any());
     verify(generationOutboxRepository, never()).enqueue(org.mockito.ArgumentMatchers.any());
   }
@@ -204,7 +212,8 @@ class EnqueueStoryAnalysisUseCaseTest {
             + ":original";
     RuntimeException stop = new RuntimeException("derived new snapshot key");
     when(currentUserId.get()).thenReturn("user-1");
-    when(chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(PROJECT_ID, CHAPTER_ID, "user-1"))
+    when(chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(
+            PROJECT_ID, CHAPTER_ID, "user-1"))
         .thenReturn(newerSnapshot);
     doThrow(stop).when(generationJobRepository).acquireIdempotencyLock(newerKey, "user-1");
 
@@ -220,15 +229,17 @@ class EnqueueStoryAnalysisUseCaseTest {
   void failureBeforeOutboxDoesNotInvokeLaterDurableSteps() {
     var snapshot = snapshot();
     var estimate =
-        new com.narrativex.backend.feature.generation.application.service.ChapterAnalysisCostEstimate(
-            20, BigDecimal.ONE, BigDecimal.TEN, BigDecimal.TEN);
+        new com.narrativex.backend.feature.generation.application.service
+            .ChapterAnalysisCostEstimate(20, BigDecimal.ONE, BigDecimal.TEN, BigDecimal.TEN);
     var reservation = new QuotaReservation.Reservation(77L, "user-1", "2026-08", BigDecimal.TEN);
     RuntimeException failure = new RuntimeException("generation job insert failed");
     when(currentUserId.get()).thenReturn("user-1");
-    when(chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(PROJECT_ID, CHAPTER_ID, "user-1"))
+    when(chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(
+            PROJECT_ID, CHAPTER_ID, "user-1"))
         .thenReturn(snapshot);
     var project =
-        org.mockito.Mockito.mock(com.narrativex.backend.feature.project.domain.aggregate.Project.class);
+        org.mockito.Mockito.mock(
+            com.narrativex.backend.feature.project.domain.aggregate.Project.class);
     when(project.getSourceLanguage()).thenReturn("vi-VN");
     when(projectAccess.findOwnedProject(PROJECT_ID, "user-1")).thenReturn(project);
     when(generationJobRepository.findByIdempotencyKey(IDEMPOTENCY_KEY, "user-1"))
@@ -260,7 +271,8 @@ class EnqueueStoryAnalysisUseCaseTest {
             () -> useCase.execute(new EnqueueStoryAnalysisCommand(PROJECT_ID, CHAPTER_ID))));
 
     verify(quotaReservation, never())
-        .bindToGenerationJob(org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any());
+        .bindToGenerationJob(
+            org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any());
     verify(stageAttemptRepository, never()).create(org.mockito.ArgumentMatchers.any());
     verify(generationOutboxRepository, never()).enqueue(org.mockito.ArgumentMatchers.any());
   }

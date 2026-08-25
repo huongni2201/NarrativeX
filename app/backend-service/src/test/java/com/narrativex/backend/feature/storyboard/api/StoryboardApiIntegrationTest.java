@@ -104,9 +104,13 @@ class StoryboardApiIntegrationTest {
         REVISION_2,
         CHAPTER_2);
     jdbcTemplate.update(
-        "UPDATE chapters SET current_storyboard_revision_id = ? WHERE id = ?", REVISION_1, CHAPTER_1);
+        "UPDATE chapters SET current_storyboard_revision_id = ? WHERE id = ?",
+        REVISION_1,
+        CHAPTER_1);
     jdbcTemplate.update(
-        "UPDATE chapters SET current_storyboard_revision_id = ? WHERE id = ?", REVISION_2, CHAPTER_2);
+        "UPDATE chapters SET current_storyboard_revision_id = ? WHERE id = ?",
+        REVISION_2,
+        CHAPTER_2);
     jdbcTemplate.update(
         "INSERT INTO scenes (id, chapter_id, storyboard_revision_id, order_index, title, narration, duration_seconds, status) VALUES (?, ?, ?, 1, 'Scene 1', 'Narration', 42, 'APPROVED') ON CONFLICT (id) DO NOTHING",
         SCENE_1,
@@ -312,8 +316,7 @@ class StoryboardApiIntegrationTest {
         .andExpect(jsonPath("$.data.status").value("READY"))
         .andExpect(jsonPath("$.data.previewAvailable").value(true))
         .andExpect(
-            jsonPath("$.data.previewUrl")
-                .value("/api/v1/artifacts/" + FINAL_ARTIFACT + "/content"))
+            jsonPath("$.data.previewUrl").value("/api/v1/artifacts/" + FINAL_ARTIFACT + "/content"))
         .andExpect(jsonPath("$.data.downloadAvailable").value(true))
         .andExpect(
             jsonPath("$.data.downloadUrl")

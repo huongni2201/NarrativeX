@@ -28,9 +28,12 @@ class MyBatisSchemaReferenceContractTest {
   private static final Pattern TABLE_REFERENCE =
       Pattern.compile(
           "(?i)\\b(?:FROM|JOIN|UPDATE|INSERT\\s+INTO|DELETE\\s+FROM)\\s+([a-z_][a-z0-9_]*)\\b");
+  private static final Pattern XML_TAG = Pattern.compile("(?s)<[^>]*>");
+  private static final Pattern COMMON_TABLE_EXPRESSION =
+      Pattern.compile("(?i)(?:\\bWITH\\b|,)\\s*(?:RECURSIVE\\s+)?([a-z_][a-z0-9_]*)\\s+AS\\s*\\(");
   private static final Pattern RETIRED_REFERENCES_COLUMN = Pattern.compile("(?i)\\breferences\\b");
 
-  private static final Set<String> SQL_REFERENCE_KEYWORDS = Set.of("lateral");
+  private static final Set<String> SQL_REFERENCE_KEYWORDS = Set.of("lateral", "of", "set");
 
   @Test
   void everyMyBatisTableReferenceExistsInAuthoritativeBaseline() throws IOException {
@@ -39,11 +42,14 @@ class MyBatisSchemaReferenceContractTest {
 
     List<String> violations = new ArrayList<>();
     for (Path mapper : mapperFiles()) {
-      String sql = Files.readString(mapper);
+      String sql = XML_TAG.matcher(Files.readString(mapper)).replaceAll(" ");
+      Set<String> commonTableExpressions = commonTableExpressions(sql);
       Matcher matcher = TABLE_REFERENCE.matcher(sql);
       while (matcher.find()) {
         String table = matcher.group(1).toLowerCase(Locale.ROOT);
-        if (SQL_REFERENCE_KEYWORDS.contains(table) || isFunctionCall(sql, matcher.end(1))) {
+        if (commonTableExpressions.contains(table)
+            || SQL_REFERENCE_KEYWORDS.contains(table)
+            || isFunctionCall(sql, matcher.end(1))) {
           continue;
         }
         if (!schemaTables.contains(table)) {
@@ -80,6 +86,15 @@ class MyBatisSchemaReferenceContractTest {
       tables.add(matcher.group(1).toLowerCase(Locale.ROOT));
     }
     return tables;
+  }
+
+  private static Set<String> commonTableExpressions(String sql) {
+    Matcher matcher = COMMON_TABLE_EXPRESSION.matcher(sql);
+    Set<String> names = new HashSet<>();
+    while (matcher.find()) {
+      names.add(matcher.group(1).toLowerCase(Locale.ROOT));
+    }
+    return names;
   }
 
   private static List<Path> mapperFiles() throws IOException {

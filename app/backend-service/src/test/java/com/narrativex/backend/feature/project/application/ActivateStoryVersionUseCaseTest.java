@@ -43,7 +43,8 @@ class ActivateStoryVersionUseCaseTest {
     StoryVersion current = story(STORY_10, 1, StoryVersionStatus.ACTIVE);
     StoryVersion next = story(STORY_11, 2, StoryVersionStatus.DRAFT);
     when(projectAccess.findOwnedProjectForUpdate(PROJECT_ID, "owner")).thenReturn(project);
-    when(storyVersionRepository.findByIdAndProjectId(STORY_11, PROJECT_ID)).thenReturn(Optional.of(next));
+    when(storyVersionRepository.findByIdAndProjectId(STORY_11, PROJECT_ID))
+        .thenReturn(Optional.of(next));
     when(storyVersionRepository.findActiveByProjectId(PROJECT_ID)).thenReturn(Optional.of(current));
     when(storyVersionRepository.saveAndFlush(any(StoryVersion.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
@@ -75,7 +76,8 @@ class ActivateStoryVersionUseCaseTest {
     Project project = project();
     StoryVersion active = story(STORY_10, 1, StoryVersionStatus.ACTIVE);
     when(projectAccess.findOwnedProjectForUpdate(PROJECT_ID, "owner")).thenReturn(project);
-    when(storyVersionRepository.findByIdAndProjectId(STORY_10, PROJECT_ID)).thenReturn(Optional.of(active));
+    when(storyVersionRepository.findByIdAndProjectId(STORY_10, PROJECT_ID))
+        .thenReturn(Optional.of(active));
     when(storyVersionRepository.findActiveByProjectId(PROJECT_ID)).thenReturn(Optional.of(active));
     CurrentUserId currentUserId = () -> "owner";
     ActivateStoryVersionUseCase useCase =

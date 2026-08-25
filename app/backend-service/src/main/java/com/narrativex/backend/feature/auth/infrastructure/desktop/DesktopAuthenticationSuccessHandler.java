@@ -36,8 +36,7 @@ public class DesktopAuthenticationSuccessHandler implements AuthenticationSucces
 
     request.getSession(false).removeAttribute(REDIRECT_SESSION_KEY);
     String code = handoffStore.issue(toDesktopPrincipal(authentication));
-    response.sendRedirect(
-        redirectUri + "?code=" + URLEncoder.encode(code, StandardCharsets.UTF_8));
+    response.sendRedirect(redirectUri + "?code=" + URLEncoder.encode(code, StandardCharsets.UTF_8));
   }
 
   private static DesktopUserPrincipal toDesktopPrincipal(Authentication authentication) {

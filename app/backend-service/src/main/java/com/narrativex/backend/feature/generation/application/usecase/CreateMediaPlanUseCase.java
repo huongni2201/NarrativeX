@@ -110,7 +110,8 @@ public class CreateMediaPlanUseCase {
       Map<UUID, VisualAssetReuseResolver.Decision> reuseDecisions) {
     List<MediaScenePlan> resolved = new ArrayList<>();
     for (var scene : planningSource.scenes()) {
-      var context = visualPromptContextRepository.findForScene(command.projectId(), scene.sceneId());
+      var context =
+          visualPromptContextRepository.findForScene(command.projectId(), scene.sceneId());
       List<MediaBeatPlan> beats = new ArrayList<>();
       for (var beat : scene.beats()) {
         var reuseDecision = reuseDecisions.get(beat.visualBeatId());

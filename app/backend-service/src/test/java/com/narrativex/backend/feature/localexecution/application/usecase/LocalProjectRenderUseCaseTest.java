@@ -40,14 +40,11 @@ class LocalProjectRenderUseCaseTest {
     UUID leaseToken = UUID.randomUUID();
     when(localDeviceAccess.authenticate("device-token", LocalProjectRenderUseCase.CAPABILITY))
         .thenReturn(new LocalDeviceAccess.AuthenticatedDevice(deviceId, "user-1"));
-    when(store.updateProgress(
-            jobId, deviceId, "desktop:" + deviceId, leaseToken, 40, "RENDERING"))
+    when(store.updateProgress(jobId, deviceId, "desktop:" + deviceId, leaseToken, 40, "RENDERING"))
         .thenReturn(false);
 
     assertThatThrownBy(
-            () ->
-                useCase.updateProgress(
-                    "device-token", jobId, leaseToken, 40, "RENDERING"))
+            () -> useCase.updateProgress("device-token", jobId, leaseToken, 40, "RENDERING"))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("lease is no longer owned");
   }

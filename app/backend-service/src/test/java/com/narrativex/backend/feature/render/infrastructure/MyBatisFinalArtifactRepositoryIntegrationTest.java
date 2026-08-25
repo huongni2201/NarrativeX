@@ -18,7 +18,8 @@ import org.springframework.test.context.ActiveProfiles;
 @ActiveProfiles("test")
 class MyBatisFinalArtifactRepositoryIntegrationTest extends PostgreSqlIntegrationTestSupport {
   private static final UUID PROJECT_ID = UUID.fromString("00000000-0000-4000-8000-000000009601");
-  private static final UUID STORY_VERSION_ID = UUID.fromString("00000000-0000-4000-8000-000000009701");
+  private static final UUID STORY_VERSION_ID =
+      UUID.fromString("00000000-0000-4000-8000-000000009701");
   private static final UUID CHAPTER_ID = UUID.fromString("00000000-0000-4000-8000-000000009801");
   private static final String JOB_ID = "00000000-0000-4000-8000-000000009901";
   private static final UUID GENERATION_JOB_ID = UUID.fromString(JOB_ID);

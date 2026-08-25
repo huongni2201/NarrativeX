@@ -33,7 +33,8 @@ public class MyBatisProviderOperationPersistenceAdapter implements ProviderOpera
     UUID insertedId = mapper.insert(toRow(operation));
     if (insertedId == null) {
       return findByFingerprint(operation.getProviderKey(), operation.getRequestFingerprint())
-          .orElseThrow(() -> new IllegalStateException("Provider operation reservation disappeared"));
+          .orElseThrow(
+              () -> new IllegalStateException("Provider operation reservation disappeared"));
     }
     return findById(insertedId)
         .orElseThrow(() -> new IllegalStateException("Inserted provider operation disappeared"));
@@ -48,7 +49,8 @@ public class MyBatisProviderOperationPersistenceAdapter implements ProviderOpera
 
   @Override
   @Transactional(readOnly = true)
-  public Optional<ProviderOperation> findByFingerprint(String providerKey, String requestFingerprint) {
+  public Optional<ProviderOperation> findByFingerprint(
+      String providerKey, String requestFingerprint) {
     return Optional.ofNullable(mapper.findByFingerprint(providerKey, requestFingerprint))
         .map(MyBatisProviderOperationPersistenceAdapter::toDomain);
   }
@@ -74,12 +76,19 @@ public class MyBatisProviderOperationPersistenceAdapter implements ProviderOpera
   @Override
   @Transactional
   public ProviderOperation transition(
-      UUID id, long expectedVersion, ProviderOperationStatus nextStatus, String providerOperationId) {
+      UUID id,
+      long expectedVersion,
+      ProviderOperationStatus nextStatus,
+      String providerOperationId) {
     ProviderOperation current = require(id);
     requireTransition(current, nextStatus);
-    int affected = mapper.transition(
-        id, List.copyOf(ProviderOperation.allowedPreviousStatuses(nextStatus)), nextStatus,
-        providerOperationId, expectedVersion);
+    int affected =
+        mapper.transition(
+            id,
+            List.copyOf(ProviderOperation.allowedPreviousStatuses(nextStatus)),
+            nextStatus,
+            providerOperationId,
+            expectedVersion);
     if (affected != 1) {
       increment("provider_operation.transition.conflict");
       throw optimisticConflict(id);
@@ -119,8 +128,9 @@ public class MyBatisProviderOperationPersistenceAdapter implements ProviderOpera
     if (current.getStatus() == ProviderOperationStatus.COMPLETED)
       return resolveCompletedResult(current, resultFingerprint);
     requireTransition(current, ProviderOperationStatus.COMPLETED);
-    int affected = mapper.persistResult(
-        id, expectedVersion, providerOperationId, normalizedResultJson, resultFingerprint);
+    int affected =
+        mapper.persistResult(
+            id, expectedVersion, providerOperationId, normalizedResultJson, resultFingerprint);
     if (affected != 1) {
       ProviderOperation latest = require(id);
       if (latest.getStatus() == ProviderOperationStatus.COMPLETED)
@@ -152,15 +162,21 @@ public class MyBatisProviderOperationPersistenceAdapter implements ProviderOpera
     return findById(id).orElseThrow(() -> optimisticConflict(id));
   }
 
-  private static void requireTransition(ProviderOperation current, ProviderOperationStatus nextStatus) {
+  private static void requireTransition(
+      ProviderOperation current, ProviderOperationStatus nextStatus) {
     if (!current.canTransitionTo(nextStatus)) {
       throw new InvalidProviderOperationTransitionException(
-          "Provider operation " + current.getId() + " cannot transition from "
-              + current.getStatus() + " to " + nextStatus);
+          "Provider operation "
+              + current.getId()
+              + " cannot transition from "
+              + current.getStatus()
+              + " to "
+              + nextStatus);
     }
   }
 
-  private ProviderOperation resolveCompletedResult(ProviderOperation current, String resultFingerprint) {
+  private ProviderOperation resolveCompletedResult(
+      ProviderOperation current, String resultFingerprint) {
     if (resultFingerprint.equals(current.getResultFingerprint())) {
       increment("provider_operation.result.idempotent");
       return current;
@@ -181,18 +197,37 @@ public class MyBatisProviderOperationPersistenceAdapter implements ProviderOpera
 
   private static ProviderOperationRow toRow(ProviderOperation operation) {
     return new ProviderOperationRow(
-        operation.getId(), operation.getRowVersion(), operation.getStageAttemptId(),
-        operation.getProviderKey(), operation.getProviderOperationId(), operation.getStatus(),
-        operation.getRequestFingerprint(), operation.getNormalizedResultJson(),
-        operation.getResultFingerprint(), operation.getReservedAt(), operation.getCompletedAt(),
-        operation.getNextReconcileAt(), operation.getReconcileAttempts(), operation.getLastReconcileError());
+        operation.getId(),
+        operation.getRowVersion(),
+        operation.getStageAttemptId(),
+        operation.getProviderKey(),
+        operation.getProviderOperationId(),
+        operation.getStatus(),
+        operation.getRequestFingerprint(),
+        operation.getNormalizedResultJson(),
+        operation.getResultFingerprint(),
+        operation.getReservedAt(),
+        operation.getCompletedAt(),
+        operation.getNextReconcileAt(),
+        operation.getReconcileAttempts(),
+        operation.getLastReconcileError());
   }
 
   private static ProviderOperation toDomain(ProviderOperationRow row) {
     return ProviderOperation.rehydrate(
-        row.getId(), row.getRowVersion(), row.getStageAttemptId(), row.getProviderKey(),
-        row.getProviderOperationId(), row.getStatus(), row.getReservedAt(), row.getRequestFingerprint(),
-        row.getNormalizedResultJson(), row.getResultFingerprint(), row.getCompletedAt(),
-        row.getNextReconcileAt(), row.getReconcileAttempts(), row.getLastReconcileError());
+        row.getId(),
+        row.getRowVersion(),
+        row.getStageAttemptId(),
+        row.getProviderKey(),
+        row.getProviderOperationId(),
+        row.getStatus(),
+        row.getReservedAt(),
+        row.getRequestFingerprint(),
+        row.getNormalizedResultJson(),
+        row.getResultFingerprint(),
+        row.getCompletedAt(),
+        row.getNextReconcileAt(),
+        row.getReconcileAttempts(),
+        row.getLastReconcileError());
   }
 }

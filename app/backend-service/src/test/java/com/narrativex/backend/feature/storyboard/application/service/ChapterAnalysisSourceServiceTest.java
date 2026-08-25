@@ -34,7 +34,8 @@ class ChapterAnalysisSourceServiceTest {
 
   @Test
   void authorizesBeforeLockingAndReadsAuthoritativeSnapshotAfterLock() {
-    var snapshot = new ChapterAnalysisSource(CHAPTER_ID, STORY_VERSION_ID, 2L, SOURCE_HASH, "latest source");
+    var snapshot =
+        new ChapterAnalysisSource(CHAPTER_ID, STORY_VERSION_ID, 2L, SOURCE_HASH, "latest source");
     when(chapterAnalysisSnapshotRepository.requireOwnedByProject(PROJECT_ID, CHAPTER_ID, "user-1"))
         .thenReturn(snapshot);
 
@@ -42,9 +43,13 @@ class ChapterAnalysisSourceServiceTest {
 
     assertSame(snapshot, result);
     InOrder order = inOrder(storyboardRevisionAccess, chapterAnalysisSnapshotRepository);
-    order.verify(chapterAnalysisSnapshotRepository).requireOwnedByProject(PROJECT_ID, CHAPTER_ID, "user-1");
+    order
+        .verify(chapterAnalysisSnapshotRepository)
+        .requireOwnedByProject(PROJECT_ID, CHAPTER_ID, "user-1");
     order.verify(storyboardRevisionAccess).lockChapter(CHAPTER_ID);
-    order.verify(chapterAnalysisSnapshotRepository).requireOwnedByProject(PROJECT_ID, CHAPTER_ID, "user-1");
+    order
+        .verify(chapterAnalysisSnapshotRepository)
+        .requireOwnedByProject(PROJECT_ID, CHAPTER_ID, "user-1");
   }
 
   @Test

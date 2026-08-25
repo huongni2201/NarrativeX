@@ -15,14 +15,16 @@ import tools.jackson.databind.json.JsonMapper;
 
 class VisualPromptComposerTest {
 
-  private final VisualPromptComposer composer = new VisualPromptComposer(JsonMapper.builder().build());
+  private final VisualPromptComposer composer =
+      new VisualPromptComposer(JsonMapper.builder().build());
 
   @Test
   void enrichesStillImagePromptWithStableCharacterAndLocationCanon() {
     var identityId = UUID.fromString("11111111-1111-1111-1111-111111111111");
     var context =
         new VisualPromptContext(
-            new LocationCanon(UuidV7.random(), "Kitchen", "old apartment kitchen", "warm practical lighting"),
+            new LocationCanon(
+                UuidV7.random(), "Kitchen", "old apartment kitchen", "warm practical lighting"),
             List.of(
                 new CharacterCanon(
                     UuidV7.random(),

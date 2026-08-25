@@ -23,8 +23,7 @@ public interface LocalDeviceStore {
 
   Optional<DeviceRecord> findByTokenHash(String tokenHash);
 
-  void heartbeat(
-      UUID deviceId, String agentVersion, Instant now, List<String> capabilities);
+  void heartbeat(UUID deviceId, String agentVersion, Instant now, List<String> capabilities);
 
   List<String> listCapabilities(UUID deviceId);
 

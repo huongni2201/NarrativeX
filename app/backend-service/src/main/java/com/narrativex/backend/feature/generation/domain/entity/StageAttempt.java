@@ -53,10 +53,27 @@ public final class StageAttempt extends DomainEntity {
         id, rowVersion, generationJobId, stageName, attemptNumber, status, workerId, heartbeatAt);
   }
 
-  public UUID getGenerationJobId() { return generationJobId; }
-  public String getStageName() { return stageName; }
-  public int getAttemptNumber() { return attemptNumber; }
-  public JobStatus getStatus() { return status; }
-  public String getWorkerId() { return workerId; }
-  public Instant getHeartbeatAt() { return heartbeatAt; }
+  public UUID getGenerationJobId() {
+    return generationJobId;
+  }
+
+  public String getStageName() {
+    return stageName;
+  }
+
+  public int getAttemptNumber() {
+    return attemptNumber;
+  }
+
+  public JobStatus getStatus() {
+    return status;
+  }
+
+  public String getWorkerId() {
+    return workerId;
+  }
+
+  public Instant getHeartbeatAt() {
+    return heartbeatAt;
+  }
 }

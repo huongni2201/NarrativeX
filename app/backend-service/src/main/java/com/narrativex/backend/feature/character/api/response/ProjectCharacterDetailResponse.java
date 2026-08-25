@@ -53,10 +53,7 @@ public record ProjectCharacterDetailResponse(
       return version == null
           ? null
           : new VersionResponse(
-              version.versionNumber(),
-              version.status(),
-              version.bible(),
-              version.visualPrompt());
+              version.versionNumber(), version.status(), version.bible(), version.visualPrompt());
     }
   }
 

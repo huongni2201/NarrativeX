@@ -4,6 +4,7 @@ import json
 import uuid
 from dataclasses import replace
 
+from narrativex_worker.image_generation_repository.core import ImageRepositoryMixin
 from narrativex_worker.image_generation_repository.implementation import (
     ClaimedImageGenerationItem,
     ClaimedImageGenerationJob,
@@ -11,7 +12,7 @@ from narrativex_worker.image_generation_repository.implementation import (
 from narrativex_worker.providers.image import ImageBatchItem, ImageReference
 
 
-class ImageReferenceFacadeMixin:
+class ImageReferenceFacadeMixin(ImageRepositoryMixin):
     async def load_pending_items(
         self, job: ClaimedImageGenerationJob
     ) -> tuple[ClaimedImageGenerationItem, ...]:

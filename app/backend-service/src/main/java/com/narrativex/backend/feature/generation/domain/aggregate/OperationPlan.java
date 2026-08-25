@@ -47,7 +47,14 @@ public final class OperationPlan extends AggregateRoot {
       BigDecimal estimateMax,
       BigDecimal maxAuthorizedCost) {
     return new OperationPlan(
-        null, 0L, projectId, null, operationType, estimateMin, estimateMax, maxAuthorizedCost,
+        null,
+        0L,
+        projectId,
+        null,
+        operationType,
+        estimateMin,
+        estimateMax,
+        maxAuthorizedCost,
         EstimateConfidence.LOW);
   }
 
@@ -61,8 +68,15 @@ public final class OperationPlan extends AggregateRoot {
       BigDecimal maxAuthorizedCost,
       EstimateConfidence confidence) {
     return rehydrate(
-        id, rowVersion, projectId, null, operationType, estimateMin, estimateMax,
-        maxAuthorizedCost, confidence);
+        id,
+        rowVersion,
+        projectId,
+        null,
+        operationType,
+        estimateMin,
+        estimateMax,
+        maxAuthorizedCost,
+        confidence);
   }
 
   public static OperationPlan rehydrate(
@@ -76,23 +90,57 @@ public final class OperationPlan extends AggregateRoot {
       BigDecimal maxAuthorizedCost,
       EstimateConfidence confidence) {
     return new OperationPlan(
-        id, rowVersion, projectId, generationJobId, operationType, estimateMin, estimateMax,
-        maxAuthorizedCost, confidence);
+        id,
+        rowVersion,
+        projectId,
+        generationJobId,
+        operationType,
+        estimateMin,
+        estimateMax,
+        maxAuthorizedCost,
+        confidence);
   }
 
   public OperationPlan withGenerationJobId(UUID jobId) {
     return new OperationPlan(
-        getId(), getRowVersion(), projectId, Objects.requireNonNull(jobId, "jobId"),
-        operationType, estimateMin, estimateMax, maxAuthorizedCost, confidence);
+        getId(),
+        getRowVersion(),
+        projectId,
+        Objects.requireNonNull(jobId, "jobId"),
+        operationType,
+        estimateMin,
+        estimateMax,
+        maxAuthorizedCost,
+        confidence);
   }
 
-  public UUID getProjectId() { return projectId; }
-  public UUID getGenerationJobId() { return generationJobId; }
-  public String getOperationType() { return operationType; }
-  public BigDecimal getEstimateMin() { return estimateMin; }
-  public BigDecimal getEstimateMax() { return estimateMax; }
-  public BigDecimal getMaxAuthorizedCost() { return maxAuthorizedCost; }
-  public EstimateConfidence getConfidence() { return confidence; }
+  public UUID getProjectId() {
+    return projectId;
+  }
+
+  public UUID getGenerationJobId() {
+    return generationJobId;
+  }
+
+  public String getOperationType() {
+    return operationType;
+  }
+
+  public BigDecimal getEstimateMin() {
+    return estimateMin;
+  }
+
+  public BigDecimal getEstimateMax() {
+    return estimateMax;
+  }
+
+  public BigDecimal getMaxAuthorizedCost() {
+    return maxAuthorizedCost;
+  }
+
+  public EstimateConfidence getConfidence() {
+    return confidence;
+  }
 
   private static BigDecimal nonNegative(BigDecimal value, String field) {
     Objects.requireNonNull(value, field);

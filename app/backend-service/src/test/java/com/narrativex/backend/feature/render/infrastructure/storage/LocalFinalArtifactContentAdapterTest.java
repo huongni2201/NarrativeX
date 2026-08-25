@@ -13,7 +13,8 @@ class LocalFinalArtifactContentAdapterTest {
     Path root = Files.createTempDirectory("narrativex-final-");
     Path artifact = root.resolve("fingerprint.mp4");
     Files.write(artifact, new byte[] {0, 1, 2, 3, 4});
-    LocalFinalArtifactContentAdapter adapter = new LocalFinalArtifactContentAdapter(root.toString());
+    LocalFinalArtifactContentAdapter adapter =
+        new LocalFinalArtifactContentAdapter(root.toString());
 
     var full = adapter.read(artifact.toString(), null, null);
     var partial = adapter.read(artifact.toString(), 1L, 3L);
@@ -28,7 +29,8 @@ class LocalFinalArtifactContentAdapterTest {
   void rejectsFilesOutsideTheConfiguredRoot() throws Exception {
     Path root = Files.createTempDirectory("narrativex-final-");
     Path outside = Files.createTempFile("narrativex-outside-", ".mp4");
-    LocalFinalArtifactContentAdapter adapter = new LocalFinalArtifactContentAdapter(root.toString());
+    LocalFinalArtifactContentAdapter adapter =
+        new LocalFinalArtifactContentAdapter(root.toString());
 
     assertThatThrownBy(() -> adapter.read(outside.toString(), null, null))
         .isInstanceOf(IllegalStateException.class);

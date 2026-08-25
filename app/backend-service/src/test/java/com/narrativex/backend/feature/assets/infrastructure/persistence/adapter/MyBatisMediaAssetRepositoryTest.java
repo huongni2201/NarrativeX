@@ -54,8 +54,6 @@ class MyBatisMediaAssetRepositoryTest {
     assertThat(MediaAssetCursorCodec.decode(page.nextCursor()).id()).isEqualTo(second.getId());
   }
 
-
-
   @Test
   void checksumClaimReturnsTheCanonicalAssetWhenItAlreadyExists() {
     MediaAssetRow existing = row(UUID.randomUUID(), "READY", Instant.parse("2025-12-01T00:00:00Z"));

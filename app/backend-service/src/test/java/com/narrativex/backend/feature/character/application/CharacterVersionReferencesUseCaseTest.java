@@ -123,8 +123,7 @@ class CharacterVersionReferencesUseCaseTest {
 
   @Test
   void readsReferencesOnlyThroughOwnedCharacterVersion() {
-    var expected =
-        List.of(new CharacterVersionReference(IDENTITY_ASSET, "IDENTITY", 0));
+    var expected = List.of(new CharacterVersionReference(IDENTITY_ASSET, "IDENTITY", 0));
     when(versionRepository.findOwnedById(VERSION_ID, "owner"))
         .thenReturn(Optional.of(version(CharacterVersionStatus.LOCKED)));
     when(referenceRepository.findByVersionId(VERSION_ID)).thenReturn(expected);

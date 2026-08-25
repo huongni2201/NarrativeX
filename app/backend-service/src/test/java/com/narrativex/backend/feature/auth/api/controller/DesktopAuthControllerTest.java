@@ -16,7 +16,9 @@ class DesktopAuthControllerTest {
     assertFalse(DesktopAuthController.isAllowedRedirect("narrativex:/auth/callback"));
     assertFalse(DesktopAuthController.isAllowedRedirect("https://auth/callback"));
     assertFalse(DesktopAuthController.isAllowedRedirect("narrativex://evil/callback"));
-    assertFalse(DesktopAuthController.isAllowedRedirect("narrativex://auth/callback?next=https://evil.example"));
+    assertFalse(
+        DesktopAuthController.isAllowedRedirect(
+            "narrativex://auth/callback?next=https://evil.example"));
     assertFalse(DesktopAuthController.isAllowedRedirect("narrativex://auth/callback#fragment"));
   }
 }

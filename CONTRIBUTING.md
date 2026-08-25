@@ -10,6 +10,18 @@
 
 ## Local checks
 
+The repository also provides a provider-independent quality-gate runner. It is the local
+equivalent of the Phase 5 fast/integration gates and fails immediately on the first failed
+compile, test, formatter, lint, type, or build command:
+
+```powershell
+python scripts/quality-gates.py --skip-install       # fast gates, reuse node_modules
+python scripts/quality-gates.py --profile all       # includes Testcontainers and Docker image build
+```
+
+`--profile all` requires a working Docker daemon. The quality gates do not depend on GitHub
+Actions or a hosted CI token.
+
 ```powershell
 # Backend
 cd app/backend-service

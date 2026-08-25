@@ -51,7 +51,8 @@ class AssignCharacterToProjectUseCaseTest {
     when(projectCharacterRepository.save(any(ProjectCharacter.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
 
-    ProjectCharacter response = newUseCase().execute(command(projectId, characterId, "PROTAGONIST", 1));
+    ProjectCharacter response =
+        newUseCase().execute(command(projectId, characterId, "PROTAGONIST", 1));
 
     assertEquals(characterId, response.getCharacterId());
     assertEquals(projectId, response.getProjectId());
@@ -253,19 +254,13 @@ class AssignCharacterToProjectUseCaseTest {
             ImageQualityTier.STANDARD,
             null);
     when(projectAccess.findOwnedProject(projectId, "owner")).thenReturn(project);
-    when(characterRepository.findOwnedById(characterId, "owner")).thenReturn(Optional.of(character));
+    when(characterRepository.findOwnedById(characterId, "owner"))
+        .thenReturn(Optional.of(character));
   }
 
   private static AssignCharacterToProjectCommand command(
       UUID projectId, UUID characterId, String role, int importance) {
     return new AssignCharacterToProjectCommand(
-        projectId,
-        characterId,
-        role,
-        importance,
-        List.of(),
-        null,
-        List.of(),
-        null);
+        projectId, characterId, role, importance, List.of(), null, List.of(), null);
   }
 }

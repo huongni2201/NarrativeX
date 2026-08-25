@@ -19,4 +19,7 @@ def test_worker_dependencies_include_torch_for_vieneu_voice_enrollment() -> None
     dependencies = project["project"]["dependencies"]
 
     assert any(dependency.lower().startswith(("torch>=", "torch==")) for dependency in dependencies)
-    assert any(dependency.lower().startswith(("torchaudio>=", "torchaudio==")) for dependency in dependencies)
+    assert any(
+        dependency.lower().startswith(("torchaudio>=", "torchaudio=="))
+        for dependency in dependencies
+    )

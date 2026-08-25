@@ -1,6 +1,7 @@
 """Connection lifecycle and shared helpers for image-generation persistence."""
 
-from typing import Any
+import uuid
+from typing import TYPE_CHECKING, Any
 
 import asyncpg  # type: ignore[import-untyped]
 
@@ -9,8 +10,47 @@ from narrativex_worker.image_generation_repository.models import DurableImageOpe
 from narrativex_worker.providers.image import ImageBatchItem
 from narrativex_worker.schema import ProviderOperationStatus
 
+if TYPE_CHECKING:
+    from narrativex_worker.image_generation_repository.models import (
+        ClaimedImageGenerationItem,
+        ClaimedImageGenerationJob,
+    )
 
-class ImageRepositoryCore:
+
+class ImageRepositoryMixin:
+    """Type-only contract shared by the repository's cooperative mixins."""
+
+    if TYPE_CHECKING:
+        _pool: asyncpg.Pool | None
+        lease_seconds: int
+        settings: WorkerSettings
+
+        def _require_pool(self) -> asyncpg.Pool: ...
+
+        @staticmethod
+        def _operation(
+            row: Any,
+            items: tuple[ImageBatchItem, ...],
+            *,
+            owner: DurableImageOperation | None = None,
+        ) -> DurableImageOperation: ...
+
+        async def _aggregate_generation_job(
+            self, connection: asyncpg.Connection, stage_attempt_id: uuid.UUID
+        ) -> None: ...
+
+        async def aggregate_generation_job(self, stage_attempt_id: uuid.UUID) -> None: ...
+
+        async def load_pending_items(
+            self, job: ClaimedImageGenerationJob
+        ) -> tuple[ClaimedImageGenerationItem, ...]: ...
+
+        async def _items_for_operation(
+            self, operation_id: uuid.UUID
+        ) -> tuple[ImageBatchItem, ...]: ...
+
+
+class ImageRepositoryCore(ImageRepositoryMixin):
     def __init__(self, database_url: str, lease_seconds: int, settings: WorkerSettings) -> None:
         self.database_url = database_url
         self.lease_seconds = lease_seconds

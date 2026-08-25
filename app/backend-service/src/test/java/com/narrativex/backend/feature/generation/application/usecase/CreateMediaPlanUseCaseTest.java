@@ -6,6 +6,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
+import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.application.command.CreateMediaPlanCommand;
 import com.narrativex.backend.feature.generation.application.port.out.MediaPlanRepository;
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository;
@@ -15,7 +16,6 @@ import com.narrativex.backend.feature.generation.application.port.out.VisualProm
 import com.narrativex.backend.feature.generation.application.service.DefaultMotionExecutionPolicy;
 import com.narrativex.backend.feature.generation.application.service.MotionStrategyResolver;
 import com.narrativex.backend.feature.generation.application.service.VisualPromptComposer;
-import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.domain.aggregate.MediaPlan;
 import com.narrativex.backend.feature.generation.domain.enums.ImageStyle;
 import com.narrativex.backend.feature.generation.domain.enums.MotionStrategy;
@@ -31,7 +31,6 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
-
 import tools.jackson.databind.ObjectMapper;
 
 class CreateMediaPlanUseCaseTest {
@@ -65,7 +64,8 @@ class CreateMediaPlanUseCaseTest {
 
     when(currentUserId.get()).thenReturn("user-1");
     when(chapterSourceAccess.requireOwnedForAnalysisLocked(projectId, chapterId, "user-1"))
-        .thenReturn(new ChapterAnalysisSource(chapterId, storyVersionId, 7L, "source-hash", "source text"));
+        .thenReturn(
+            new ChapterAnalysisSource(chapterId, storyVersionId, 7L, "source-hash", "source text"));
     when(mediaPlanningSourceAccess.requireCurrent(chapterId))
         .thenReturn(
             new MediaPlanningSource(
@@ -76,11 +76,13 @@ class CreateMediaPlanUseCaseTest {
                         "Hello",
                         8,
                         List.of(
-                            new BeatSnapshot(beatId, 0, "Character runs", MotionIntent.AI_VIDEO))))));
+                            new BeatSnapshot(
+                                beatId, 0, "Character runs", MotionIntent.AI_VIDEO))))));
     when(visualPromptContextRepository.findForScene(projectId, sceneId))
         .thenReturn(
             new VisualPromptContext(
-                new LocationCanon(locationId, "Old apartment", "small aging apartment", "warm dim apartment"),
+                new LocationCanon(
+                    locationId, "Old apartment", "small aging apartment", "warm dim apartment"),
                 List.of(
                     new CharacterCanon(
                         assignmentId,
@@ -153,7 +155,8 @@ class CreateMediaPlanUseCaseTest {
 
     when(currentUserId.get()).thenReturn("user-1");
     when(chapterSourceAccess.requireOwnedForAnalysisLocked(projectId, chapterId, "user-1"))
-        .thenReturn(new ChapterAnalysisSource(chapterId, storyVersionId, 7L, "source-hash", "source text"));
+        .thenReturn(
+            new ChapterAnalysisSource(chapterId, storyVersionId, 7L, "source-hash", "source text"));
     when(mediaPlanningSourceAccess.requireCurrent(chapterId))
         .thenReturn(
             new MediaPlanningSource(
@@ -163,7 +166,8 @@ class CreateMediaPlanUseCaseTest {
                         0,
                         "Hello",
                         8,
-                        List.of(new BeatSnapshot(beatId, 0, "Character runs", MotionIntent.STILL))))));
+                        List.of(
+                            new BeatSnapshot(beatId, 0, "Character runs", MotionIntent.STILL))))));
     when(visualPromptContextRepository.findForScene(projectId, sceneId))
         .thenReturn(VisualPromptContext.empty());
     when(mediaPlanRepository.nextRevision(chapterId)).thenReturn(1);

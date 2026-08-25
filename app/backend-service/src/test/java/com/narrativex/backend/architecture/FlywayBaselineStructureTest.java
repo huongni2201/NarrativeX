@@ -4,9 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.narrativex.backend.support.FlywayMigrationContract;
 import java.io.IOException;
 import java.nio.file.Files;
-import com.narrativex.backend.support.FlywayMigrationContract;
 import org.junit.jupiter.api.Test;
 
 /** Guards the final clean Flyway baseline from drifting back into patch-style migrations. */

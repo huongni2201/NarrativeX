@@ -4,7 +4,6 @@ import com.narrativex.backend.feature.assets.application.port.out.MediaValidatio
 import com.narrativex.backend.feature.assets.application.port.out.MediaValidationJobRepository.ValidationRequest;
 import com.narrativex.backend.feature.assets.infrastructure.persistence.mybatis.MediaValidationJobMapper;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

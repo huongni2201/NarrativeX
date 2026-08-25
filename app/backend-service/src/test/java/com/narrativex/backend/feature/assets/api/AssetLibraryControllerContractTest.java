@@ -40,8 +40,7 @@ class AssetLibraryControllerContractTest {
             null,
             "READY",
             Instant.parse("2026-08-25T00:00:00Z"));
-    when(useCase.registerLocal(any(), any(), any(), any(Long.TYPE), any(), any()))
-        .thenReturn(view);
+    when(useCase.registerLocal(any(), any(), any(), any(Long.TYPE), any(), any())).thenReturn(view);
 
     var response =
         controller.registerLocal(

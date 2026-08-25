@@ -65,14 +65,29 @@ public final class Character extends AggregateRoot {
     if (status == CharacterStatus.ARCHIVED) throw new ArchivedCharacterException();
   }
 
-  public String getOwnerId() { return ownerId; }
-  public String getWorkspaceId() { return workspaceId; }
-  public String getCanonicalName() { return canonicalName; }
-  public List<String> getAliases() { return aliases; }
-  public CharacterStatus getStatus() { return status; }
+  public String getOwnerId() {
+    return ownerId;
+  }
+
+  public String getWorkspaceId() {
+    return workspaceId;
+  }
+
+  public String getCanonicalName() {
+    return canonicalName;
+  }
+
+  public List<String> getAliases() {
+    return aliases;
+  }
+
+  public CharacterStatus getStatus() {
+    return status;
+  }
 
   private static String required(String value, String field) {
-    if (value == null || value.isBlank()) throw new IllegalArgumentException(field + " must not be blank");
+    if (value == null || value.isBlank())
+      throw new IllegalArgumentException(field + " must not be blank");
     return value;
   }
 

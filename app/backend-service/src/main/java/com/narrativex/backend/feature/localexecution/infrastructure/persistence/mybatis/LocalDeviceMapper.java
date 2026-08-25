@@ -12,8 +12,7 @@ public interface LocalDeviceMapper extends NarrativeXMyBatisMapper {
       @Param("codeHash") String codeHash,
       @Param("expiresAt") Instant expiresAt);
 
-  PairingCodeRow consumePairingCode(
-      @Param("codeHash") String codeHash, @Param("now") Instant now);
+  PairingCodeRow consumePairingCode(@Param("codeHash") String codeHash, @Param("now") Instant now);
 
   int insertDevice(
       @Param("id") UUID id,
@@ -27,14 +26,11 @@ public interface LocalDeviceMapper extends NarrativeXMyBatisMapper {
   DeviceRow findByTokenHash(@Param("tokenHash") String tokenHash);
 
   int updateHeartbeat(
-      @Param("id") UUID id,
-      @Param("agentVersion") String agentVersion,
-      @Param("now") Instant now);
+      @Param("id") UUID id, @Param("agentVersion") String agentVersion, @Param("now") Instant now);
 
   int deleteCapabilities(@Param("deviceId") UUID deviceId);
 
-  int insertCapability(
-      @Param("deviceId") UUID deviceId, @Param("capability") String capability);
+  int insertCapability(@Param("deviceId") UUID deviceId, @Param("capability") String capability);
 
   List<String> listCapabilities(@Param("deviceId") UUID deviceId);
 

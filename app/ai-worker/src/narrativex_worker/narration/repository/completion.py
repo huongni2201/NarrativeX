@@ -1,7 +1,9 @@
 """Narration asset completion and durable materialization."""
 
 import json
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+import asyncpg  # type: ignore[import-untyped]
 
 from narrativex_worker.narration.errors import NarrationLeaseLostError
 from narrativex_worker.narration.repository.implementation import (
@@ -13,6 +15,9 @@ from narrativex_worker.uuid_v7 import uuid7
 
 
 class NarrationCompletionMixin:
+    if TYPE_CHECKING:
+        def _require_pool(self) -> asyncpg.Pool: ...
+
     async def complete(
         self,
         claimed: ClaimedNarrationJob,

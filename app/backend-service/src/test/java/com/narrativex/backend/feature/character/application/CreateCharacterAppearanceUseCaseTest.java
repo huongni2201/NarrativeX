@@ -35,7 +35,8 @@ class CreateCharacterAppearanceUseCaseTest {
   private CreateCharacterAppearanceUseCase useCase;
 
   private static final UUID CHARACTER_ID = UUID.fromString("00000000-0000-0000-0000-000000000010");
-  private static final UUID OTHER_CHARACTER_ID = UUID.fromString("00000000-0000-0000-0000-000000000020");
+  private static final UUID OTHER_CHARACTER_ID =
+      UUID.fromString("00000000-0000-0000-0000-000000000020");
   private static final UUID PROJECT_ID = UUID.fromString("00000000-0000-0000-0000-000000000100");
   private static final UUID OUTFIT_ID = UUID.fromString("00000000-0000-0000-0000-000000000500");
 
@@ -49,7 +50,8 @@ class CreateCharacterAppearanceUseCaseTest {
             outfitVersionRepository,
             projectAccess,
             currentUserId);
-    when(characterRepository.findOwnedById(CHARACTER_ID, "owner")).thenReturn(Optional.of(character(CHARACTER_ID)));
+    when(characterRepository.findOwnedById(CHARACTER_ID, "owner"))
+        .thenReturn(Optional.of(character(CHARACTER_ID)));
   }
 
   @Test
@@ -64,7 +66,8 @@ class CreateCharacterAppearanceUseCaseTest {
   @Test
   void rejectsAnOutfitVersionThatIsNotOwnedByTheCurrentUser() {
     when(outfitVersionRepository.findOwnedById(OUTFIT_ID, "owner")).thenReturn(Optional.empty());
-    assertThrows(ResourceNotFoundException.class, () -> useCase.execute(command(PROJECT_ID, OUTFIT_ID)));
+    assertThrows(
+        ResourceNotFoundException.class, () -> useCase.execute(command(PROJECT_ID, OUTFIT_ID)));
     verify(appearanceRepository, never()).save(any());
   }
 
@@ -72,7 +75,8 @@ class CreateCharacterAppearanceUseCaseTest {
   void rejectsAnOutfitVersionBelongingToAnotherCharacter() {
     when(outfitVersionRepository.findOwnedById(OUTFIT_ID, "owner"))
         .thenReturn(Optional.of(outfit(OUTFIT_ID, OTHER_CHARACTER_ID)));
-    assertThrows(IllegalArgumentException.class, () -> useCase.execute(command(PROJECT_ID, OUTFIT_ID)));
+    assertThrows(
+        IllegalArgumentException.class, () -> useCase.execute(command(PROJECT_ID, OUTFIT_ID)));
     verify(appearanceRepository, never()).save(any());
   }
 

@@ -3,7 +3,6 @@ package com.narrativex.backend.feature.localexecution.api.controller;
 import com.narrativex.backend.feature.assets.application.port.in.MediaStorageAccess;
 import com.narrativex.backend.feature.common.exception.FeatureNotAvailableException;
 import com.narrativex.backend.feature.common.response.ApiResponse;
-import com.narrativex.backend.feature.localexecution.application.port.out.LocalProjectRenderStore;
 import com.narrativex.backend.feature.localexecution.application.usecase.LocalProjectRenderUseCase;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -75,7 +74,7 @@ public class LocalProjectRenderController {
         deviceToken,
         jobId,
         request.leaseToken(),
-        new LocalProjectRenderStore.CompletionResult(
+        new LocalProjectRenderUseCase.CompletionResult(
             request.renderFingerprint(),
             request.localArtifactKey(),
             LOCAL_STORAGE_PROVIDER,
@@ -110,7 +109,7 @@ public class LocalProjectRenderController {
     return ResponseEntity.ok(ApiResponse.success("Desktop project render failure recorded"));
   }
 
-  private ClaimResponse toClaimResponse(LocalProjectRenderStore.ClaimedProjectRender value) {
+  private ClaimResponse toClaimResponse(LocalProjectRenderUseCase.ClaimedProjectRender value) {
     Instant expiresAt = Instant.now().plus(DOWNLOAD_URL_TTL);
     return new ClaimResponse(
         value.jobId(),
@@ -123,7 +122,10 @@ public class LocalProjectRenderController {
         value.renderProfileJson(),
         value.leaseToken(),
         value.chapters().stream()
-            .map(chapter -> ChapterInputResponse.from(chapter, downloadUrl(chapter.storageKey(), expiresAt)))
+            .map(
+                chapter ->
+                    ChapterInputResponse.from(
+                        chapter, downloadUrl(chapter.storageKey(), expiresAt)))
             .toList(),
         value.beats().stream()
             .map(beat -> BeatInputResponse.from(beat, downloadUrl(beat.storageKey(), expiresAt)))
@@ -158,9 +160,7 @@ public class LocalProjectRenderController {
       @Min(1) int fps) {}
 
   public record FailRequest(
-      @NotNull UUID leaseToken,
-      @NotBlank @Size(max = 80) String errorCode,
-      boolean retryable) {}
+      @NotNull UUID leaseToken, @NotBlank @Size(max = 80) String errorCode, boolean retryable) {}
 
   public record ClaimResponse(
       UUID jobId,
@@ -186,7 +186,7 @@ public class LocalProjectRenderController {
       String checksum,
       long durationMs) {
     static ChapterInputResponse from(
-        LocalProjectRenderStore.ChapterInput value, String downloadUrl) {
+        LocalProjectRenderUseCase.ChapterInput value, String downloadUrl) {
       return new ChapterInputResponse(
           value.chapterId(),
           value.orderIndex(),
@@ -213,7 +213,7 @@ public class LocalProjectRenderController {
       String downloadUrl,
       long sizeBytes,
       String checksum) {
-    static BeatInputResponse from(LocalProjectRenderStore.BeatInput value, String downloadUrl) {
+    static BeatInputResponse from(LocalProjectRenderUseCase.BeatInput value, String downloadUrl) {
       return new BeatInputResponse(
           value.chapterId(),
           value.sceneIndex(),

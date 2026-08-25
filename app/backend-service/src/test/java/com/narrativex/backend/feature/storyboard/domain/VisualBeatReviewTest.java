@@ -31,9 +31,11 @@ class VisualBeatReviewTest {
   void beatRejectsBlankOrOversizedUserFacingFields() {
     UUID sceneId = UuidV7.random();
     assertThrows(
-        IllegalArgumentException.class, () -> new VisualBeat(sceneId, 0, " ", "Wide cinematic shot"));
+        IllegalArgumentException.class,
+        () -> new VisualBeat(sceneId, 0, " ", "Wide cinematic shot"));
     assertThrows(
-        IllegalArgumentException.class, () -> new VisualBeat(sceneId, 0, "Title", "x".repeat(8001)));
+        IllegalArgumentException.class,
+        () -> new VisualBeat(sceneId, 0, "Title", "x".repeat(8001)));
   }
 
   @Test

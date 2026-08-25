@@ -124,7 +124,14 @@ class MyBatisChapterRepositoryIntegrationTest extends PostgreSqlIntegrationTestS
   void translatesForeignKeyAndUniqueConstraintFailures() {
     assertThrows(
         DataIntegrityViolationException.class,
-        () -> repository.save(new Chapter(com.narrativex.backend.feature.common.uuid.UuidV7.random(), 0, "Invalid", "hello", HASH_HELLO)));
+        () ->
+            repository.save(
+                new Chapter(
+                    com.narrativex.backend.feature.common.uuid.UuidV7.random(),
+                    0,
+                    "Invalid",
+                    "hello",
+                    HASH_HELLO)));
 
     UUID storyVersionId = insertStoryVersion();
     repository.save(new Chapter(storyVersionId, 0, "First", "hello", HASH_HELLO));

@@ -215,22 +215,59 @@ public final class Project extends UuidAggregateRoot {
     }
   }
 
-  public String getName() { return name; }
-  public String getDescription() { return description; }
-  public String getCoverImageUrl() { return coverImageUrl; }
-  public String getOwnerId() { return ownerId; }
-  public ProjectStatus getStatus() { return status; }
-  public String getSourceLanguage() { return sourceLanguage; }
-  public String getProjectLanguage() { return sourceLanguage; }
-  public String getNarrationLanguage() { return narrationLanguage; }
-  public String getMetadataLanguage() { return metadataLanguage; }
-  public AspectRatio getImageAspectRatio() { return imageAspectRatio; }
-  public ImageQualityTier getImageQualityTier() { return imageQualityTier; }
-  public Instant getArchivedAt() { return archivedAt; }
+  public String getName() {
+    return name;
+  }
+
+  public String getDescription() {
+    return description;
+  }
+
+  public String getCoverImageUrl() {
+    return coverImageUrl;
+  }
+
+  public String getOwnerId() {
+    return ownerId;
+  }
+
+  public ProjectStatus getStatus() {
+    return status;
+  }
+
+  public String getSourceLanguage() {
+    return sourceLanguage;
+  }
+
+  public String getProjectLanguage() {
+    return sourceLanguage;
+  }
+
+  public String getNarrationLanguage() {
+    return narrationLanguage;
+  }
+
+  public String getMetadataLanguage() {
+    return metadataLanguage;
+  }
+
+  public AspectRatio getImageAspectRatio() {
+    return imageAspectRatio;
+  }
+
+  public ImageQualityTier getImageQualityTier() {
+    return imageQualityTier;
+  }
+
+  public Instant getArchivedAt() {
+    return archivedAt;
+  }
 
   private static String required(String value, String field, int maxLength) {
-    if (value == null || value.isBlank()) throw new IllegalArgumentException(field + " must not be blank");
-    if (value.length() > maxLength) throw new IllegalArgumentException(field + " exceeds the maximum length");
+    if (value == null || value.isBlank())
+      throw new IllegalArgumentException(field + " must not be blank");
+    if (value.length() > maxLength)
+      throw new IllegalArgumentException(field + " exceeds the maximum length");
     return value;
   }
 }

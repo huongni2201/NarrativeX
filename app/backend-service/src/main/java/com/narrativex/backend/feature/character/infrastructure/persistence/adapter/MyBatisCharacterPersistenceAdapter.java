@@ -35,7 +35,8 @@ public class MyBatisCharacterPersistenceAdapter implements CharacterRepository {
         hasNext && !visible.isEmpty()
             ? CursorCodec.encode(visible.getLast().getUpdatedAt(), visible.getLast().getId())
             : null;
-    return new CursorPage<>(visible.stream().map(rowMapper::toDomain).toList(), next, limit, hasNext);
+    return new CursorPage<>(
+        visible.stream().map(rowMapper::toDomain).toList(), next, limit, hasNext);
   }
 
   @Override
@@ -51,7 +52,8 @@ public class MyBatisCharacterPersistenceAdapter implements CharacterRepository {
 
   @Override
   public Optional<Character> findOwnedByIdForUpdate(UUID id, String ownerId) {
-    return Optional.ofNullable(mapper.findOwnedForUpdate(id, ownerId, CharacterStatus.ARCHIVED.name()))
+    return Optional.ofNullable(
+            mapper.findOwnedForUpdate(id, ownerId, CharacterStatus.ARCHIVED.name()))
         .map(rowMapper::toDomain);
   }
 
@@ -72,7 +74,8 @@ public class MyBatisCharacterPersistenceAdapter implements CharacterRepository {
     OptimisticConcurrency.requireVersion(
         value.getRowVersion(), existing.getRowVersion(), Character.class, value.getId());
     if (mapper.updateCharacter(row) != 1)
-      throw new org.springframework.dao.OptimisticLockingFailureException("Character was modified concurrently");
+      throw new org.springframework.dao.OptimisticLockingFailureException(
+          "Character was modified concurrently");
     return rowMapper.toDomain(mapper.findCharacter(value.getId()));
   }
 }

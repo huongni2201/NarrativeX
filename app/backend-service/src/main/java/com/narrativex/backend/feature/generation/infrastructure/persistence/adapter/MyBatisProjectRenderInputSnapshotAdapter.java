@@ -23,13 +23,15 @@ public class MyBatisProjectRenderInputSnapshotAdapter
       RenderExecutionTarget executionTarget,
       UUID assignedLocalDeviceId) {
     if (!timeline.readyForRender()) {
-      throw new IllegalArgumentException("Project render snapshot requires a render-ready timeline");
+      throw new IllegalArgumentException(
+          "Project render snapshot requires a render-ready timeline");
     }
     if (executionTarget == RenderExecutionTarget.LOCAL_DEVICE && assignedLocalDeviceId == null) {
       throw new IllegalArgumentException("LOCAL_DEVICE project render requires an assigned device");
     }
     if (executionTarget == RenderExecutionTarget.CLOUD && assignedLocalDeviceId != null) {
-      throw new IllegalArgumentException("CLOUD project render cannot have an assigned local device");
+      throw new IllegalArgumentException(
+          "CLOUD project render cannot have an assigned local device");
     }
     if (mapper.insertHeader(
             generationJobId,
@@ -53,7 +55,8 @@ public class MyBatisProjectRenderInputSnapshotAdapter
     }
     for (ProductionTimelineView.Beat beat : timeline.beats()) {
       if (!beat.assetReady()) {
-        throw new IllegalArgumentException("Project render snapshot contains an unready beat asset");
+        throw new IllegalArgumentException(
+            "Project render snapshot contains an unready beat asset");
       }
       if (mapper.insertBeat(generationJobId, beat) != 1) {
         throw new IllegalStateException("Project render beat snapshot was not inserted");

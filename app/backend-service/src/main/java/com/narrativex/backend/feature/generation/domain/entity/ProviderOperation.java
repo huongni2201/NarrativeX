@@ -53,7 +53,8 @@ public final class ProviderOperation extends DomainEntity {
     this.resultFingerprint = resultFingerprint;
     this.completedAt = completedAt;
     this.nextReconcileAt = nextReconcileAt;
-    if (reconcileAttempts < 0) throw new IllegalArgumentException("reconcileAttempts must be nonnegative");
+    if (reconcileAttempts < 0)
+      throw new IllegalArgumentException("reconcileAttempts must be nonnegative");
     this.reconcileAttempts = reconcileAttempts;
     this.lastReconcileError = lastReconcileError;
   }
@@ -61,8 +62,20 @@ public final class ProviderOperation extends DomainEntity {
   public static ProviderOperation create(
       UUID stageAttemptId, String providerKey, String requestFingerprint) {
     return new ProviderOperation(
-        null, 0L, stageAttemptId, providerKey, null, ProviderOperationStatus.RESERVED, Instant.now(),
-        requestFingerprint, null, null, null, null, 0, null);
+        null,
+        0L,
+        stageAttemptId,
+        providerKey,
+        null,
+        ProviderOperationStatus.RESERVED,
+        Instant.now(),
+        requestFingerprint,
+        null,
+        null,
+        null,
+        null,
+        0,
+        null);
   }
 
   public static ProviderOperation rehydrate(
@@ -75,8 +88,20 @@ public final class ProviderOperation extends DomainEntity {
       Instant reservedAt,
       String requestFingerprint) {
     return rehydrate(
-        id, rowVersion, stageAttemptId, providerKey, providerOperationId, status, reservedAt,
-        requestFingerprint, null, null, null, null, 0, null);
+        id,
+        rowVersion,
+        stageAttemptId,
+        providerKey,
+        providerOperationId,
+        status,
+        reservedAt,
+        requestFingerprint,
+        null,
+        null,
+        null,
+        null,
+        0,
+        null);
   }
 
   public static ProviderOperation rehydrate(
@@ -95,23 +120,69 @@ public final class ProviderOperation extends DomainEntity {
       int reconcileAttempts,
       String lastReconcileError) {
     return new ProviderOperation(
-        id, rowVersion, stageAttemptId, providerKey, providerOperationId, status, reservedAt,
-        requestFingerprint, normalizedResultJson, resultFingerprint, completedAt, nextReconcileAt,
-        reconcileAttempts, lastReconcileError);
+        id,
+        rowVersion,
+        stageAttemptId,
+        providerKey,
+        providerOperationId,
+        status,
+        reservedAt,
+        requestFingerprint,
+        normalizedResultJson,
+        resultFingerprint,
+        completedAt,
+        nextReconcileAt,
+        reconcileAttempts,
+        lastReconcileError);
   }
 
-  public UUID getStageAttemptId() { return stageAttemptId; }
-  public String getProviderKey() { return providerKey; }
-  public String getProviderOperationId() { return providerOperationId; }
-  public ProviderOperationStatus getStatus() { return status; }
-  public Instant getReservedAt() { return reservedAt; }
-  public String getRequestFingerprint() { return requestFingerprint; }
-  public String getNormalizedResultJson() { return normalizedResultJson; }
-  public String getResultFingerprint() { return resultFingerprint; }
-  public Instant getCompletedAt() { return completedAt; }
-  public Instant getNextReconcileAt() { return nextReconcileAt; }
-  public int getReconcileAttempts() { return reconcileAttempts; }
-  public String getLastReconcileError() { return lastReconcileError; }
+  public UUID getStageAttemptId() {
+    return stageAttemptId;
+  }
+
+  public String getProviderKey() {
+    return providerKey;
+  }
+
+  public String getProviderOperationId() {
+    return providerOperationId;
+  }
+
+  public ProviderOperationStatus getStatus() {
+    return status;
+  }
+
+  public Instant getReservedAt() {
+    return reservedAt;
+  }
+
+  public String getRequestFingerprint() {
+    return requestFingerprint;
+  }
+
+  public String getNormalizedResultJson() {
+    return normalizedResultJson;
+  }
+
+  public String getResultFingerprint() {
+    return resultFingerprint;
+  }
+
+  public Instant getCompletedAt() {
+    return completedAt;
+  }
+
+  public Instant getNextReconcileAt() {
+    return nextReconcileAt;
+  }
+
+  public int getReconcileAttempts() {
+    return reconcileAttempts;
+  }
+
+  public String getLastReconcileError() {
+    return lastReconcileError;
+  }
 
   public boolean canTransitionTo(ProviderOperationStatus nextStatus) {
     return allowedPreviousStatuses(nextStatus).contains(status);
@@ -126,7 +197,8 @@ public final class ProviderOperation extends DomainEntity {
               ProviderOperationStatus.SUBMITTED,
               ProviderOperationStatus.RUNNING);
       case SUBMITTED -> EnumSet.of(ProviderOperationStatus.UNKNOWN);
-      case RUNNING -> EnumSet.of(ProviderOperationStatus.UNKNOWN, ProviderOperationStatus.SUBMITTED);
+      case RUNNING ->
+          EnumSet.of(ProviderOperationStatus.UNKNOWN, ProviderOperationStatus.SUBMITTED);
       case COMPLETED ->
           EnumSet.of(
               ProviderOperationStatus.UNKNOWN,

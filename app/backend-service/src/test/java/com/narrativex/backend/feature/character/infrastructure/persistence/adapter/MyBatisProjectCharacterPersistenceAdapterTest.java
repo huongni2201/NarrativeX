@@ -29,14 +29,7 @@ class MyBatisProjectCharacterPersistenceAdapterTest {
     UUID winningAssignmentId = UUID.randomUUID();
     ProjectCharacter candidate =
         ProjectCharacter.assign(
-            projectId,
-            characterId,
-            "SUPPORTING",
-            0,
-            List.of(),
-            null,
-            List.of(),
-            null);
+            projectId, characterId, "SUPPORTING", 0, List.of(), null, List.of(), null);
     ProjectCharacterRow insertRow = new ProjectCharacterRow();
     ProjectCharacterRow winnerRow = new ProjectCharacterRow();
     ProjectCharacter winner =

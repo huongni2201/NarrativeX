@@ -29,15 +29,12 @@ class EstimateMediaJobUseCaseTest {
     UUID chapterId = UuidV7.random();
 
     when(mediaPlanningSourceAccess.requireCurrent(chapterId))
-        .thenReturn(new MediaPlanningSource(List.of(scene(UuidV7.random(), 2), scene(UuidV7.random(), 1))));
+        .thenReturn(
+            new MediaPlanningSource(List.of(scene(UuidV7.random(), 2), scene(UuidV7.random(), 1))));
     when(imageGenerationCatalog.resolve("HIGH"))
         .thenReturn(
             new ImageGenerationCatalog.ImageGenerationProfile(
-                "vertex",
-                "gemini-image",
-                new BigDecimal("0.40"),
-                "{}",
-                "pricing-fingerprint"));
+                "vertex", "gemini-image", new BigDecimal("0.40"), "{}", "pricing-fingerprint"));
 
     var useCase =
         new EstimateMediaJobUseCase(
@@ -46,15 +43,14 @@ class EstimateMediaJobUseCaseTest {
             mediaPlanningSourceAccess,
             imageGenerationCatalog);
 
-    var response =
-        useCase.execute(
-            new EstimateMediaJobCommand(projectId, chapterId, "HIGH"));
+    var response = useCase.execute(new EstimateMediaJobCommand(projectId, chapterId, "HIGH"));
 
     assertThat(response.data().visualBeatCount()).isEqualTo(3);
     assertThat(response.data().unitEstimatedCost()).isEqualTo("0.400000");
     assertThat(response.data().estimatedCost()).isEqualTo("1.200000");
     assertThat(response.data().currency()).isEqualTo("USD");
-    verify(chapterAnalysisSourceAccess).requireOwnedForAnalysisLocked(projectId, chapterId, "user-1");
+    verify(chapterAnalysisSourceAccess)
+        .requireOwnedForAnalysisLocked(projectId, chapterId, "user-1");
     verify(imageGenerationCatalog).resolve("HIGH");
   }
 

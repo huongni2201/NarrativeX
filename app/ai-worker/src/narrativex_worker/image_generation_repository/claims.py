@@ -2,6 +2,7 @@
 
 import uuid
 
+from narrativex_worker.image_generation_repository.core import ImageRepositoryMixin
 from narrativex_worker.image_generation_repository.models import (
     ClaimedImageGenerationItem,
     ClaimedImageGenerationJob,
@@ -11,7 +12,7 @@ from narrativex_worker.providers.image import ImageGenerationRequest
 from narrativex_worker.schema import ImageAspectRatio, ImageQualityTier
 
 
-class ImageClaimsMixin:
+class ImageClaimsMixin(ImageRepositoryMixin):
     async def claim_next(self, worker_id: str) -> ClaimedImageGenerationJob | None:
         pool = self._require_pool()
         token = str(uuid.uuid4())

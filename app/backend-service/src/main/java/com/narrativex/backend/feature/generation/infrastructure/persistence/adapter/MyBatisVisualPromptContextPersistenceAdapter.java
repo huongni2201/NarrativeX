@@ -7,11 +7,10 @@ import com.narrativex.backend.feature.generation.application.port.out.VisualProm
 import com.narrativex.backend.feature.generation.application.port.out.VisualPromptContextRepository.VisualPromptContext;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VisualPromptContextMapper;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-
-import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
@@ -61,7 +60,8 @@ public class MyBatisVisualPromptContextPersistenceAdapter implements VisualPromp
                         row.getHairstyle(),
                         row.getInjury(),
                         row.getWardrobeContext(),
-                        referencesByAssignment.getOrDefault(row.getAssignmentId(), java.util.List.of())))
+                        referencesByAssignment.getOrDefault(
+                            row.getAssignmentId(), java.util.List.of())))
             .toList();
 
     return new VisualPromptContext(location, characters);

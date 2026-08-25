@@ -383,7 +383,10 @@ class QuotaReservationLifecycleIntegrationTest {
         """,
         stageAttemptId,
         "provider-op-" + jobId,
-        "a".repeat(32) + com.narrativex.backend.feature.common.uuid.UuidV7.random().toString().replace("-", ""),
+        "a".repeat(32)
+            + com.narrativex.backend.feature.common.uuid.UuidV7.random()
+                .toString()
+                .replace("-", ""),
         actualCost);
   }
 

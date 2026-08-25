@@ -1,5 +1,6 @@
 """Durable provider-submission fencing and base provider-state transitions."""
 
+from narrativex_worker.image_generation_repository.core import ImageRepositoryMixin
 from narrativex_worker.image_generation_repository.models import (
     ClaimedImageGenerationJob,
     DurableImageOperation,
@@ -10,7 +11,7 @@ from narrativex_worker.providers.image import batch_fingerprint as provider_batc
 from narrativex_worker.schema import ProviderOperationStatus
 
 
-class ImageSubmissionMixin:
+class ImageSubmissionMixin(ImageRepositoryMixin):
     async def prepare_provider_submission(
         self, job: ClaimedImageGenerationJob, items: tuple[ImageBatchItem, ...]
     ) -> DurableImageOperation:

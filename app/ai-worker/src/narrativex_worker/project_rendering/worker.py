@@ -87,7 +87,9 @@ class ProjectRenderWorkerRunner:
 
     async def start(self, *, dry_run: bool = False) -> None:
         if not self.enabled:
-            self.logger.info("Project render worker disabled (MEDIA_STORAGE_MODE must be r2 or local)")
+            self.logger.info(
+                "Project render worker disabled (MEDIA_STORAGE_MODE must be r2 or local)"
+            )
             return
         if dry_run:
             self.logger.info("Project render worker dry run completed")

@@ -30,7 +30,8 @@ public class MyBatisMediaUploadSessionRepository implements MediaUploadSessionRe
           .orElseThrow(() -> new IllegalStateException("Upload session disappeared after insert"));
     }
     if (command.idempotencyKey() == null) {
-      throw new IllegalStateException("Upload session insert was skipped without an idempotency key");
+      throw new IllegalStateException(
+          "Upload session insert was skipped without an idempotency key");
     }
     UploadSession winner =
         findByIdempotencyKey(command.accountId(), command.idempotencyKey())
@@ -39,8 +40,7 @@ public class MyBatisMediaUploadSessionRepository implements MediaUploadSessionRe
                     new IllegalStateException(
                         "Idempotency conflict occurred but the winning upload session was not found"));
     if (!sameCreateRequest(winner, command)) {
-      throw new ResourceConflictException(
-          "Idempotency key was already used for another upload");
+      throw new ResourceConflictException("Idempotency key was already used for another upload");
     }
     return winner;
   }

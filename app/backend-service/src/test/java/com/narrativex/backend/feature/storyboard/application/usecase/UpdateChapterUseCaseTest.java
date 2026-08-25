@@ -44,7 +44,8 @@ class UpdateChapterUseCaseTest {
             storyboardRevisionAccess,
             sourceHasher,
             new NarrativeXLimitsProperties());
-    var chapter = Chapter.rehydrate(CHAPTER_ID, 2L, STORY_VERSION_ID, 0, "Chapter", "source", SOURCE_HASH);
+    var chapter =
+        Chapter.rehydrate(CHAPTER_ID, 2L, STORY_VERSION_ID, 0, "Chapter", "source", SOURCE_HASH);
     when(currentUserId.get()).thenReturn("user-b");
     when(chapterRepository.findById(CHAPTER_ID)).thenReturn(java.util.Optional.of(chapter));
     doThrow(new ResourceNotFoundException("Story version not found"))
@@ -53,7 +54,9 @@ class UpdateChapterUseCaseTest {
 
     assertThrows(
         ResourceNotFoundException.class,
-        () -> useCase.execute(new UpdateChapterCommand(PROJECT_ID, CHAPTER_ID, 2L, "Updated", "updated source")));
+        () ->
+            useCase.execute(
+                new UpdateChapterCommand(PROJECT_ID, CHAPTER_ID, 2L, "Updated", "updated source")));
 
     verify(storyboardRevisionAccess, never()).lockChapter(CHAPTER_ID);
   }

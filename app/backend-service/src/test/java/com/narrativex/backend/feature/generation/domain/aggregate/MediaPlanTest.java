@@ -28,7 +28,9 @@ class MediaPlanTest {
             List.of(
                 new MediaBeatPlan(
                     beatId, 0, "Character enters", "AI_VIDEO", MotionStrategy.IMAGE_TO_VIDEO)));
-    var scenes = new ArrayList<MediaScenePlan>(List.of(new MediaScenePlan(sceneId, 0, "Narration", 5, beats)));
+    var scenes =
+        new ArrayList<MediaScenePlan>(
+            List.of(new MediaScenePlan(sceneId, 0, "Narration", 5, beats)));
 
     var plan =
         MediaPlan.create(

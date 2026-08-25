@@ -167,8 +167,7 @@ public class CreateProjectRenderUseCase {
                 command.maxAuthorizedCost() == null ? renderCost : command.maxAuthorizedCost()));
     quotaReservation.bindToGenerationJob(reservation.id(), job.getId());
     operationPlanRepository.save(plan.withGenerationJobId(job.getId()));
-    stageAttemptRepository.create(
-        StageAttempt.create(job.getId(), stageName(executionTarget), 1));
+    stageAttemptRepository.create(StageAttempt.create(job.getId(), stageName(executionTarget), 1));
     generationOutboxRepository.enqueue(job);
     log.info(
         "Created project render job id={} projectId={} target={} deviceId={} durationMs={} chapters={} beats={} overrides={}",
@@ -325,9 +324,7 @@ public class CreateProjectRenderUseCase {
   static BigDecimal estimateRenderCost(String resolution, long durationMs) {
     long units = Math.max(1L, (durationMs + BILLING_WINDOW_MS - 1L) / BILLING_WINDOW_MS);
     BigDecimal unitCost =
-        "1080p".equalsIgnoreCase(resolution)
-            ? BigDecimal.valueOf(0.50)
-            : BigDecimal.valueOf(0.25);
+        "1080p".equalsIgnoreCase(resolution) ? BigDecimal.valueOf(0.50) : BigDecimal.valueOf(0.25);
     return unitCost.multiply(BigDecimal.valueOf(units));
   }
 
@@ -344,8 +341,7 @@ public class CreateProjectRenderUseCase {
         + format.toUpperCase(Locale.ROOT);
   }
 
-  static String requestFingerprint(
-      CreateProjectRenderCommand command, String timelineFingerprint) {
+  static String requestFingerprint(CreateProjectRenderCommand command, String timelineFingerprint) {
     return sha256(
         command.projectId()
             + ":"

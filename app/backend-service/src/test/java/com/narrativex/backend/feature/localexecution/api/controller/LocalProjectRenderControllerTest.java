@@ -7,7 +7,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.assets.application.port.in.MediaStorageAccess;
-import com.narrativex.backend.feature.localexecution.application.port.out.LocalProjectRenderStore;
 import com.narrativex.backend.feature.localexecution.application.usecase.LocalProjectRenderUseCase;
 import java.net.URI;
 import java.time.Instant;
@@ -31,7 +30,7 @@ class LocalProjectRenderControllerTest {
     UUID imageAssetId = UUID.randomUUID();
 
     var claim =
-        new LocalProjectRenderStore.ClaimedProjectRender(
+        new LocalProjectRenderUseCase.ClaimedProjectRender(
             UUID.randomUUID(),
             jobId,
             projectId,
@@ -43,7 +42,7 @@ class LocalProjectRenderControllerTest {
             "{}",
             UUID.randomUUID(),
             List.of(
-                new LocalProjectRenderStore.ChapterInput(
+                new LocalProjectRenderUseCase.ChapterInput(
                     chapterId,
                     0,
                     0L,
@@ -54,7 +53,7 @@ class LocalProjectRenderControllerTest {
                     "a".repeat(64),
                     10_000L)),
             List.of(
-                new LocalProjectRenderStore.BeatInput(
+                new LocalProjectRenderUseCase.BeatInput(
                     chapterId,
                     0,
                     0,

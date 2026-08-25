@@ -73,10 +73,12 @@ public class VisualPromptComposer {
           case "WIDE" -> "wide shot; establish subject and environment clearly";
           case "MEDIUM" -> "medium shot; balance subject performance with surrounding context";
           case "CLOSE_UP" -> "close-up; prioritize face, expression, or the key story detail";
-          case "EXTREME_CLOSE_UP" -> "extreme close-up; isolate one critical facial or object detail";
+          case "EXTREME_CLOSE_UP" ->
+              "extreme close-up; isolate one critical facial or object detail";
           case "LOW_ANGLE" -> "low-angle view; camera below the subject looking upward";
           case "HIGH_ANGLE" -> "high-angle view; camera above the subject looking downward";
-          case "OVER_THE_SHOULDER" -> "over-the-shoulder framing with a clear foreground shoulder anchor";
+          case "OVER_THE_SHOULDER" ->
+              "over-the-shoulder framing with a clear foreground shoulder anchor";
           case "POV" -> "first-person point-of-view from the story character's position";
           default -> throw new IllegalArgumentException("Unsupported cameraAngle: " + cameraAngle);
         };
@@ -132,7 +134,9 @@ public class VisualPromptComposer {
     if (details.isEmpty()) {
       addIfPresent(details, location.description());
     }
-    prompt.append("\nLOCATION CONTINUITY: ").append(nonBlank(location.name(), "established location"));
+    prompt
+        .append("\nLOCATION CONTINUITY: ")
+        .append(nonBlank(location.name(), "established location"));
     if (!details.isEmpty()) {
       prompt.append(" — ").append(String.join("; ", details));
     }
@@ -161,29 +165,32 @@ public class VisualPromptComposer {
   private String characterSnapshotJson(
       List<CharacterCanon> characters, Set<UUID> selectedReferenceIds) {
     List<CharacterSnapshot> snapshots =
-        (characters == null ? List.<CharacterCanon>of() : characters).stream()
-            .map(
-                character ->
-                    new CharacterSnapshot(
-                        character.assignmentId(),
-                        character.characterId(),
-                        character.canonicalName(),
-                        character.versionNumber(),
-                        character.visualPrompt(),
-                        character.appearancePrompt(),
-                        character.ageState(),
-                        character.hairstyle(),
-                        character.injury(),
-                        character.wardrobeContext(),
-                        sortedReferences(character).stream()
-                            .filter(reference -> selectedReferenceIds.contains(reference.assetId()))
-                            .map(ReferenceSnapshot::from)
-                            .toList()))
-            .toList();
+        (characters == null ? List.<CharacterCanon>of() : characters)
+            .stream()
+                .map(
+                    character ->
+                        new CharacterSnapshot(
+                            character.assignmentId(),
+                            character.characterId(),
+                            character.canonicalName(),
+                            character.versionNumber(),
+                            character.visualPrompt(),
+                            character.appearancePrompt(),
+                            character.ageState(),
+                            character.hairstyle(),
+                            character.injury(),
+                            character.wardrobeContext(),
+                            sortedReferences(character).stream()
+                                .filter(
+                                    reference -> selectedReferenceIds.contains(reference.assetId()))
+                                .map(ReferenceSnapshot::from)
+                                .toList()))
+                .toList();
     try {
       return objectMapper.writeValueAsString(new CharacterSnapshotEnvelope(snapshots));
     } catch (Exception exception) {
-      throw new IllegalStateException("Could not serialize character generation snapshot", exception);
+      throw new IllegalStateException(
+          "Could not serialize character generation snapshot", exception);
     }
   }
 
@@ -219,7 +226,12 @@ public class VisualPromptComposer {
       List<ReferenceSnapshot> references) {}
 
   private record ReferenceSnapshot(
-      UUID assetId, String role, int priority, String storageKey, String contentType, String sha256) {
+      UUID assetId,
+      String role,
+      int priority,
+      String storageKey,
+      String contentType,
+      String sha256) {
     static ReferenceSnapshot from(CharacterReference reference) {
       return new ReferenceSnapshot(
           reference.assetId(),

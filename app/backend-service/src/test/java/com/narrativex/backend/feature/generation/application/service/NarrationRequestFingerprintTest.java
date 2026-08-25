@@ -18,7 +18,13 @@ class NarrationRequestFingerprintTest {
             chapterId, 4L, "a".repeat(64), "voice-1", "vi-VN", BigDecimal.ONE, "sentence-v1");
     String second =
         fingerprint.calculate(
-            chapterId, 4L, "a".repeat(64), "voice-1", "vi-VN", new BigDecimal("1.0"), "sentence-v1");
+            chapterId,
+            4L,
+            "a".repeat(64),
+            "voice-1",
+            "vi-VN",
+            new BigDecimal("1.0"),
+            "sentence-v1");
 
     assertThat(first).isEqualTo(second).hasSize(64);
   }

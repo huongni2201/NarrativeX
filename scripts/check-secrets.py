@@ -35,12 +35,28 @@ def tracked_files() -> list[Path]:
         check=True,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     return [Path(line) for line in result.stdout.splitlines() if line]
 
 
+def prod_env_is_tracked() -> bool:
+    result = subprocess.run(
+        ["git", "ls-files", "--error-unmatch", ".env.prod"],
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    return result.returncode == 0
+
+
 def main() -> int:
     violations: list[str] = []
+    if prod_env_is_tracked():
+        violations.append(".env.prod must not be tracked")
     for path in tracked_files():
         if not path.is_file():
             continue

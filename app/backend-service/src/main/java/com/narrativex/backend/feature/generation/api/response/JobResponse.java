@@ -27,8 +27,19 @@ public record JobResponse(
       UUID entityId,
       JobTarget target,
       String errorCode) {
-    this(jobId, type, status, progress, currentStep, entityType, entityId, target, errorCode,
-        null, null, null);
+    this(
+        jobId,
+        type,
+        status,
+        progress,
+        currentStep,
+        entityType,
+        entityId,
+        target,
+        errorCode,
+        null,
+        null,
+        null);
   }
 
   public static JobResponse from(GenerationJob job) {
@@ -38,9 +49,18 @@ public record JobResponse(
   public static JobResponse from(GenerationJob job, Estimate estimate) {
     JobTarget target = targetFor(job);
     return new JobResponse(
-        job.getJobId(), job.getType().name(), job.getStatus().name(), job.getProgress(),
-        job.getCurrentStep(), target.type(), target.id(), target, job.getErrorCode(),
-        job.getMediaPlanId(), job.getMediaPlanRevision(), estimate);
+        job.getJobId(),
+        job.getType().name(),
+        job.getStatus().name(),
+        job.getProgress(),
+        job.getCurrentStep(),
+        target.type(),
+        target.id(),
+        target,
+        job.getErrorCode(),
+        job.getMediaPlanId(),
+        job.getMediaPlanRevision(),
+        estimate);
   }
 
   private static JobTarget targetFor(GenerationJob job) {

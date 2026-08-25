@@ -7,9 +7,5 @@ public interface MediaAssetAccess {
   Optional<MediaAssetSummary> findOwnedSummary(String ownerId, UUID assetId);
 
   record MediaAssetSummary(
-      UUID id,
-      String type,
-      String status,
-      String contentType,
-      String detectedContentType) {}
+      UUID id, String type, String status, String contentType, String detectedContentType) {}
 }

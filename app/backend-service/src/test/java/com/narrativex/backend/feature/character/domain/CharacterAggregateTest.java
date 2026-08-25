@@ -81,7 +81,14 @@ class CharacterAggregateTest {
     UUID outfitId = UuidV7.random();
     OutfitVersion outfit =
         OutfitVersion.rehydrate(
-            outfitId, 0L, otherCharacterId, 1, "Mina travel", null, "prompt", OutfitVersionStatus.DRAFT);
+            outfitId,
+            0L,
+            otherCharacterId,
+            1,
+            "Mina travel",
+            null,
+            "prompt",
+            OutfitVersionStatus.DRAFT);
 
     assertThrows(
         IllegalArgumentException.class,
@@ -116,7 +123,14 @@ class CharacterAggregateTest {
             null);
     ProjectCharacter assignment =
         ProjectCharacter.assign(
-            projectId, characterId, "PROTAGONIST", 1, java.util.List.of(), null, java.util.List.of(), null);
+            projectId,
+            characterId,
+            "PROTAGONIST",
+            1,
+            java.util.List.of(),
+            null,
+            java.util.List.of(),
+            null);
 
     assertThrows(
         InvalidProjectCharacterTransitionException.class, () -> assignment.pinVersion(version));

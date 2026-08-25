@@ -71,20 +71,23 @@ public class LocalDeviceUseCase implements LocalDeviceAccess {
         command.agentVersion() == null || command.agentVersion().isBlank()
             ? "unknown"
             : command.agentVersion().trim();
-    store.heartbeat(device.id(), agentVersion, Instant.now(), normalizeCapabilities(command.capabilities()));
+    store.heartbeat(
+        device.id(), agentVersion, Instant.now(), normalizeCapabilities(command.capabilities()));
   }
 
   @Override
   @Transactional(readOnly = true)
   public void requireEligibleOwnedDevice(String userId, UUID deviceId, String capability) {
-    if (userId == null || userId.isBlank()) throw new IllegalArgumentException("userId is required");
+    if (userId == null || userId.isBlank())
+      throw new IllegalArgumentException("userId is required");
     if (deviceId == null) throw new IllegalArgumentException("deviceId is required");
     String requiredCapability = normalizeCapability(capability);
     LocalDeviceView device =
         store.listByUser(userId, Instant.now().minus(ONLINE_WINDOW)).stream()
             .filter(candidate -> candidate.id().equals(deviceId))
             .findFirst()
-            .orElseThrow(() -> new IllegalArgumentException("Local device is not owned by the user"));
+            .orElseThrow(
+                () -> new IllegalArgumentException("Local device is not owned by the user"));
     if (!device.online()) {
       throw new IllegalStateException("Local device is offline");
     }
@@ -170,7 +173,8 @@ public class LocalDeviceUseCase implements LocalDeviceAccess {
 
   private static String sha256(String value) {
     try {
-      byte[] digest = MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
+      byte[] digest =
+          MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
       return java.util.HexFormat.of().formatHex(digest);
     } catch (NoSuchAlgorithmException exception) {
       throw new IllegalStateException("SHA-256 is unavailable", exception);

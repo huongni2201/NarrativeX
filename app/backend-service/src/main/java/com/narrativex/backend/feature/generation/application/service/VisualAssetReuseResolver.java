@@ -60,8 +60,8 @@ public final class VisualAssetReuseResolver {
 
   /**
    * Build one stable decision map so cost estimation and executable MediaPlan use identical reuse
-   * choices. Reuse pressure is soft: it only relaxes similarity thresholds inside the same scene;
-   * a materially different beat still generates a new image even when the budget is exceeded.
+   * choices. Reuse pressure is soft: it only relaxes similarity thresholds inside the same scene; a
+   * materially different beat still generates a new image even when the budget is exceeded.
    */
   public static Map<UUID, Decision> plan(List<SceneSnapshot> scenes) {
     double targetGenerationRatio = targetGenerationRatio(scenes);
@@ -73,8 +73,7 @@ public final class VisualAssetReuseResolver {
       BeatSnapshot generatedAnchor = null;
       for (BeatSnapshot beat : scene.beats()) {
         boolean reusePressure =
-            processed >= 4
-                && generated / (double) Math.max(1, processed) > targetGenerationRatio;
+            processed >= 4 && generated / (double) Math.max(1, processed) > targetGenerationRatio;
         Decision decision = resolve(generatedAnchor, beat, reusePressure);
         decisions.put(beat.visualBeatId(), decision);
         processed++;

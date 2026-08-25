@@ -18,8 +18,7 @@ public interface GenerationJobMapper extends NarrativeXMyBatisMapper {
       @Param("idempotencyKey") String idempotencyKey, @Param("ownerId") String ownerId);
 
   GenerationJobRow findLatestByIdempotencyFamily(
-      @Param("baseIdempotencyKey") String baseIdempotencyKey,
-      @Param("ownerId") String ownerId);
+      @Param("baseIdempotencyKey") String baseIdempotencyKey, @Param("ownerId") String ownerId);
 
   Integer acquireIdempotencyLock(
       @Param("idempotencyKey") String idempotencyKey, @Param("ownerId") String ownerId);

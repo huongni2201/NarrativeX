@@ -90,13 +90,10 @@ public class MyBatisLocalProjectRenderStore implements LocalProjectRenderStore {
   @Override
   @Transactional
   public void complete(
-      UUID jobId,
-      UUID deviceId,
-      String workerId,
-      UUID leaseToken,
-      CompletionResult result) {
+      UUID jobId, UUID deviceId, String workerId, UUID leaseToken, CompletionResult result) {
     if (!mapper.ownsLease(jobId, deviceId, workerId, leaseToken)) {
-      throw new IllegalStateException("Desktop project render lease is no longer owned by this device");
+      throw new IllegalStateException(
+          "Desktop project render lease is no longer owned by this device");
     }
 
     LocalProjectRenderArtifactRow existing = mapper.findArtifact(jobId);

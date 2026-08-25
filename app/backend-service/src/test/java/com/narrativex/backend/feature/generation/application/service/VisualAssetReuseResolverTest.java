@@ -70,12 +70,7 @@ class VisualAssetReuseResolverTest {
               + index;
       beats.add(
           beat(
-              UUID.randomUUID(),
-              index,
-              intent,
-              "MEDIUM",
-              index * 12_000L,
-              (index + 1L) * 12_000L));
+              UUID.randomUUID(), index, intent, "MEDIUM", index * 12_000L, (index + 1L) * 12_000L));
     }
     var scene = new SceneSnapshot(UUID.randomUUID(), 0, "Long narration", 3_600, beats);
 
@@ -123,12 +118,7 @@ class VisualAssetReuseResolverTest {
   }
 
   private static BeatSnapshot beat(
-      UUID id,
-      int order,
-      String intent,
-      String cameraAngle,
-      Long audioStartMs,
-      Long audioEndMs) {
+      UUID id, int order, String intent, String cameraAngle, Long audioStartMs, Long audioEndMs) {
     return new BeatSnapshot(
         id,
         order,

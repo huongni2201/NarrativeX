@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.auth.infrastructure.desktop;
 
+import com.narrativex.backend.feature.auth.application.port.out.DesktopAuthHandoff;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -12,10 +13,12 @@ import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
-/** Redis-backed, single-use desktop OAuth handoff codes. Raw codes are never persisted or logged. */
+/**
+ * Redis-backed, single-use desktop OAuth handoff codes. Raw codes are never persisted or logged.
+ */
 @Component
 @RequiredArgsConstructor
-public class DesktopAuthHandoffStore {
+public class DesktopAuthHandoffStore implements DesktopAuthHandoff {
   private static final Duration CODE_TTL = Duration.ofSeconds(90);
   private static final String KEY_PREFIX = "narrativex:auth:desktop-handoff:";
 
@@ -56,6 +59,14 @@ public class DesktopAuthHandoffStore {
     }
   }
 
+  @Override
+  public AuthenticatedUser consumeUser(String code) {
+    DesktopUserPrincipal user = consume(code);
+    return user == null
+        ? null
+        : new AuthenticatedUser(user.id(), user.displayName(), user.email(), user.avatarUrl());
+  }
+
   private String writePayload(HandoffPayload payload) {
     try {
       return objectMapper.writeValueAsString(payload);
@@ -73,8 +84,7 @@ public class DesktopAuthHandoffStore {
       return Base64.getUrlEncoder()
           .withoutPadding()
           .encodeToString(
-              MessageDigest.getInstance("SHA-256")
-                  .digest(value.getBytes(StandardCharsets.UTF_8)));
+              MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
     } catch (NoSuchAlgorithmException exception) {
       throw new IllegalStateException("SHA-256 is required for desktop auth handoffs", exception);
     }

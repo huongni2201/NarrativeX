@@ -86,10 +86,27 @@ public final class StoryVersion extends UuidDomainEntity {
     status = StoryVersionStatus.SUPERSEDED;
   }
 
-  public UUID getProjectId() { return projectId; }
-  public int getVersionNumber() { return versionNumber; }
-  public String getContent() { return content; }
-  public String getSourceLanguage() { return sourceLanguage; }
-  public StoryVersionStatus getStatus() { return status; }
-  public ModerationDecision getModerationDecision() { return moderationDecision; }
+  public UUID getProjectId() {
+    return projectId;
+  }
+
+  public int getVersionNumber() {
+    return versionNumber;
+  }
+
+  public String getContent() {
+    return content;
+  }
+
+  public String getSourceLanguage() {
+    return sourceLanguage;
+  }
+
+  public StoryVersionStatus getStatus() {
+    return status;
+  }
+
+  public ModerationDecision getModerationDecision() {
+    return moderationDecision;
+  }
 }

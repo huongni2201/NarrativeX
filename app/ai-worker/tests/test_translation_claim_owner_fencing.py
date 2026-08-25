@@ -11,7 +11,10 @@ from narrativex_worker.translation_worker import TranslationWorkerRunner
 async def test_process_threads_claim_owner_into_work_task() -> None:
     runner = object.__new__(TranslationWorkerRunner)
     runner.worker_id = "process-worker"
-    runner.logger = SimpleNamespace(warning=lambda *args, **kwargs: None, exception=lambda *args, **kwargs: None)
+    runner.logger = SimpleNamespace(
+        warning=lambda *args, **kwargs: None,
+        exception=lambda *args, **kwargs: None,
+    )
     runner.repository = SimpleNamespace(fail=AsyncMock())
 
     heartbeat_started = asyncio.Event()

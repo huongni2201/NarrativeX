@@ -3,12 +3,13 @@
 import json
 import uuid
 
+from narrativex_worker.image_generation_repository.core import ImageRepositoryMixin
 from narrativex_worker.media_repository import DurableMediaResult
 from narrativex_worker.providers.image import ImageGenerationResult
 from narrativex_worker.uuid_v7 import uuid7
 
 
-class ImageMaterializationMixin:
+class ImageMaterializationMixin(ImageRepositoryMixin):
     async def finalize_image_result(
         self,
         *,

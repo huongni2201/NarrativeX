@@ -129,7 +129,9 @@ public class MyBatisStoryboardPersistenceAdapter implements StoryboardRepository
             row.getVisualIntent(),
             MotionMode.valueOf(row.getMotionMode()),
             CameraMovement.valueOf(row.getCameraMovement()),
-            row.getCameraAngle() == null ? CameraAngle.MEDIUM : CameraAngle.valueOf(row.getCameraAngle()),
+            row.getCameraAngle() == null
+                ? CameraAngle.MEDIUM
+                : CameraAngle.valueOf(row.getCameraAngle()),
             row.getAspectRatioOverride() == null
                 ? null
                 : AspectRatio.valueOf(row.getAspectRatioOverride()),

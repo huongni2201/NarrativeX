@@ -44,8 +44,7 @@ class LocalDeviceControllerRequestValidationTest {
   @Test
   void heartbeatRejectsOversizedVersionAndCapability() {
     var request =
-        new LocalDeviceController.HeartbeatRequest(
-            "v".repeat(65), List.of("c".repeat(65)));
+        new LocalDeviceController.HeartbeatRequest("v".repeat(65), List.of("c".repeat(65)));
 
     var violations = validator.validate(request);
 

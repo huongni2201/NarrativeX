@@ -56,8 +56,17 @@ public final class CharacterAppearance extends DomainEntity {
     if (outfitVersion != null && outfitVersionId == null)
       throw new IllegalArgumentException("outfitVersion must be persisted");
     return new CharacterAppearance(
-        null, 0L, characterId, projectId, timelineKey, ageState, hairstyle, injury,
-        wardrobeContext, appearancePrompt, outfitVersionId);
+        null,
+        0L,
+        characterId,
+        projectId,
+        timelineKey,
+        ageState,
+        hairstyle,
+        injury,
+        wardrobeContext,
+        appearancePrompt,
+        outfitVersionId);
   }
 
   public static CharacterAppearance rehydrate(
@@ -73,22 +82,58 @@ public final class CharacterAppearance extends DomainEntity {
       String appearancePrompt,
       UUID outfitVersionId) {
     return new CharacterAppearance(
-        id, rowVersion, characterId, projectId, timelineKey, ageState, hairstyle, injury,
-        wardrobeContext, appearancePrompt, outfitVersionId);
+        id,
+        rowVersion,
+        characterId,
+        projectId,
+        timelineKey,
+        ageState,
+        hairstyle,
+        injury,
+        wardrobeContext,
+        appearancePrompt,
+        outfitVersionId);
   }
 
-  public UUID getCharacterId() { return characterId; }
-  public UUID getProjectId() { return projectId; }
-  public String getTimelineKey() { return timelineKey; }
-  public String getAgeState() { return ageState; }
-  public String getHairstyle() { return hairstyle; }
-  public String getInjury() { return injury; }
-  public String getWardrobeContext() { return wardrobeContext; }
-  public String getAppearancePrompt() { return appearancePrompt; }
-  public UUID getOutfitVersionId() { return outfitVersionId; }
+  public UUID getCharacterId() {
+    return characterId;
+  }
+
+  public UUID getProjectId() {
+    return projectId;
+  }
+
+  public String getTimelineKey() {
+    return timelineKey;
+  }
+
+  public String getAgeState() {
+    return ageState;
+  }
+
+  public String getHairstyle() {
+    return hairstyle;
+  }
+
+  public String getInjury() {
+    return injury;
+  }
+
+  public String getWardrobeContext() {
+    return wardrobeContext;
+  }
+
+  public String getAppearancePrompt() {
+    return appearancePrompt;
+  }
+
+  public UUID getOutfitVersionId() {
+    return outfitVersionId;
+  }
 
   private static String required(String value, String field) {
-    if (value == null || value.isBlank()) throw new IllegalArgumentException(field + " must not be blank");
+    if (value == null || value.isBlank())
+      throw new IllegalArgumentException(field + " must not be blank");
     return value;
   }
 }

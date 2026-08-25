@@ -1,3 +1,5 @@
+const DESKTOP_HANDOFF_CODE_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+
 export function isNarrativeXProtocolUrl(value: string): boolean {
   return value.startsWith("narrativex://");
 }
@@ -8,7 +10,8 @@ export function extractDesktopAuthCode(value: string): string | null {
     const url = new URL(value);
     if (url.protocol !== "narrativex:" || url.hostname !== "auth" || url.pathname !== "/callback") return null;
     const code = url.searchParams.get("code");
-    return code?.trim() || null;
+    const normalized = code?.trim() || "";
+    return DESKTOP_HANDOFF_CODE_PATTERN.test(normalized) ? normalized : null;
   } catch {
     return null;
   }

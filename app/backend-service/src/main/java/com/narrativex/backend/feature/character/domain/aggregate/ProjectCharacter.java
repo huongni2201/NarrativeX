@@ -51,8 +51,17 @@ public final class ProjectCharacter extends AggregateRoot {
       List<String> groups,
       UUID pinnedCharacterVersionId) {
     return new ProjectCharacter(
-        null, 0L, projectId, characterId, role, importance, projectAliases, storyMetadata,
-        groups, pinnedCharacterVersionId, ProjectCharacterStatus.ACTIVE);
+        null,
+        0L,
+        projectId,
+        characterId,
+        role,
+        importance,
+        projectAliases,
+        storyMetadata,
+        groups,
+        pinnedCharacterVersionId,
+        ProjectCharacterStatus.ACTIVE);
   }
 
   public static ProjectCharacter rehydrate(
@@ -68,8 +77,17 @@ public final class ProjectCharacter extends AggregateRoot {
       UUID pinnedCharacterVersionId,
       ProjectCharacterStatus status) {
     return new ProjectCharacter(
-        id, rowVersion, projectId, characterId, role, importance, projectAliases, storyMetadata,
-        groups, pinnedCharacterVersionId, status);
+        id,
+        rowVersion,
+        projectId,
+        characterId,
+        role,
+        importance,
+        projectAliases,
+        storyMetadata,
+        groups,
+        pinnedCharacterVersionId,
+        status);
   }
 
   public void reactivate(
@@ -90,28 +108,59 @@ public final class ProjectCharacter extends AggregateRoot {
   public void pinVersion(CharacterVersion version) {
     Objects.requireNonNull(version, "version");
     if (status == ProjectCharacterStatus.REMOVED) {
-      throw new InvalidProjectCharacterTransitionException("Removed project characters cannot be modified");
+      throw new InvalidProjectCharacterTransitionException(
+          "Removed project characters cannot be modified");
     }
     if (!characterId.equals(version.getCharacterId()))
       throw new IllegalArgumentException("Pinned character version belongs to another character");
     if (version.getStatus() != CharacterVersionStatus.LOCKED) {
-      throw new InvalidProjectCharacterTransitionException("Only locked character versions can be pinned");
+      throw new InvalidProjectCharacterTransitionException(
+          "Only locked character versions can be pinned");
     }
-    if (version.getId() == null) throw new IllegalArgumentException("Pinned character version must be persisted");
+    if (version.getId() == null)
+      throw new IllegalArgumentException("Pinned character version must be persisted");
     pinnedCharacterVersionId = version.getId();
   }
 
-  public void remove() { status = ProjectCharacterStatus.REMOVED; }
+  public void remove() {
+    status = ProjectCharacterStatus.REMOVED;
+  }
 
-  public UUID getProjectId() { return projectId; }
-  public UUID getCharacterId() { return characterId; }
-  public String getRole() { return role; }
-  public int getImportance() { return importance; }
-  public List<String> getProjectAliases() { return projectAliases; }
-  public String getStoryMetadata() { return storyMetadata; }
-  public List<String> getGroups() { return groups; }
-  public UUID getPinnedCharacterVersionId() { return pinnedCharacterVersionId; }
-  public ProjectCharacterStatus getStatus() { return status; }
+  public UUID getProjectId() {
+    return projectId;
+  }
+
+  public UUID getCharacterId() {
+    return characterId;
+  }
+
+  public String getRole() {
+    return role;
+  }
+
+  public int getImportance() {
+    return importance;
+  }
+
+  public List<String> getProjectAliases() {
+    return projectAliases;
+  }
+
+  public String getStoryMetadata() {
+    return storyMetadata;
+  }
+
+  public List<String> getGroups() {
+    return groups;
+  }
+
+  public UUID getPinnedCharacterVersionId() {
+    return pinnedCharacterVersionId;
+  }
+
+  public ProjectCharacterStatus getStatus() {
+    return status;
+  }
 
   private void setAssignmentMetadata(
       String role,
@@ -128,7 +177,8 @@ public final class ProjectCharacter extends AggregateRoot {
   }
 
   private static String required(String value, String field) {
-    if (value == null || value.isBlank()) throw new IllegalArgumentException(field + " must not be blank");
+    if (value == null || value.isBlank())
+      throw new IllegalArgumentException(field + " must not be blank");
     return value;
   }
 }

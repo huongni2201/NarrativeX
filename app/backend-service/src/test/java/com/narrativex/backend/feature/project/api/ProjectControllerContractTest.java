@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.common.pagination.CursorPage;
+import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.project.api.controller.ProjectController;
 import com.narrativex.backend.feature.project.api.request.CreateProjectRequest;
 import com.narrativex.backend.feature.project.application.command.CreateProjectCommand;
@@ -24,7 +25,6 @@ import com.narrativex.backend.feature.project.application.usecase.SetProjectFavo
 import com.narrativex.backend.feature.project.domain.aggregate.Project;
 import com.narrativex.backend.feature.project.domain.enums.AspectRatio;
 import com.narrativex.backend.feature.project.domain.enums.ImageQualityTier;
-import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.project.domain.enums.ProjectStatus;
 import java.time.Instant;
 import java.util.List;
@@ -93,7 +93,9 @@ class ProjectControllerContractTest {
             now,
             new ProjectOverviewView.Metrics(1, 1, 0, 2, 90, 0, 1, 35),
             new ProjectOverviewView.Counts(3, 0, 0),
-            List.of(new ProjectOverviewView.Chapter(chapterId, 0, "Chapter 1", "ANALYZED", 2, 90, now)));
+            List.of(
+                new ProjectOverviewView.Chapter(
+                    chapterId, 0, "Chapter 1", "ANALYZED", 2, 90, now)));
     when(getProjectOverviewUseCase.execute(projectId)).thenReturn(view);
 
     var responseEntity = controller.overview(projectId);
@@ -107,7 +109,8 @@ class ProjectControllerContractTest {
   @Test
   void createMapsRequestToCommandAndKeeps201() {
     UUID projectId = UuidV7.random();
-    when(createProjectUseCase.execute(any(CreateProjectCommand.class))).thenReturn(project(projectId, 0L));
+    when(createProjectUseCase.execute(any(CreateProjectCommand.class)))
+        .thenReturn(project(projectId, 0L));
 
     var responseEntity =
         controller.create(

@@ -4,6 +4,7 @@ import hashlib
 import json
 import uuid
 
+from narrativex_worker.image_generation_repository.core import ImageRepositoryMixin
 from narrativex_worker.image_generation_repository.models import DurableImageOperation
 from narrativex_worker.media_repository import DurableMediaResult
 from narrativex_worker.providers.image import ImageBatchItem, ImageGenerationRequest
@@ -11,7 +12,7 @@ from narrativex_worker.schema import ImageAspectRatio, ImageQualityTier
 from narrativex_worker.uuid_v7 import uuid7
 
 
-class ImageReconciliationMixin:
+class ImageReconciliationMixin(ImageRepositoryMixin):
     async def mark_failed(
         self,
         item_key: str,
@@ -51,7 +52,9 @@ class ImageReconciliationMixin:
         return str(result) == "UPDATE 1"
 
     async def resolve_reused_items(self, stage_attempt_id: uuid.UUID) -> int:
-        """Bind reusable beats to their generated anchor without crossing a paid provider boundary."""
+        """Bind reusable beats to their generated anchor without crossing a paid provider
+        boundary.
+        """
         pool = self._require_pool()
         resolved = 0
         async with pool.acquire() as connection:

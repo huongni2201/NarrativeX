@@ -49,6 +49,7 @@ class CreateCharacterVersionUseCaseTest {
   }
 
   private static Character character() {
-    return Character.rehydrate(CHARACTER_ID, 0L, "owner", null, "Mina", List.of(), CharacterStatus.ACTIVE);
+    return Character.rehydrate(
+        CHARACTER_ID, 0L, "owner", null, "Mina", List.of(), CharacterStatus.ACTIVE);
   }
 }

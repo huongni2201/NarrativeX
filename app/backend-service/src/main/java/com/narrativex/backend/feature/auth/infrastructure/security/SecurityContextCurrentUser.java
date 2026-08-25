@@ -31,8 +31,7 @@ public class SecurityContextCurrentUser implements CurrentUserId, CurrentUserPro
           user.getPicture());
     }
     if (authentication.getPrincipal() instanceof DesktopUserPrincipal user) {
-      return new CurrentUserResponse(
-          user.id(), user.displayName(), user.email(), user.avatarUrl());
+      return new CurrentUserResponse(user.id(), user.displayName(), user.email(), user.avatarUrl());
     }
     log.debug("Resolved authenticated principal {}", id);
     return new CurrentUserResponse(id, id, null, null);

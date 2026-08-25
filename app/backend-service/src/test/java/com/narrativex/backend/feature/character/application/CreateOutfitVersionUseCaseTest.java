@@ -41,7 +41,8 @@ class CreateOutfitVersionUseCaseTest {
         new CreateOutfitVersionUseCase(characterRepository, outfitVersionRepository, currentUserId);
 
     OutfitVersion response =
-        useCase.execute(new CreateOutfitVersionCommand(CHARACTER_ID, "Travel", null, "prompt", "owner"));
+        useCase.execute(
+            new CreateOutfitVersionCommand(CHARACTER_ID, "Travel", null, "prompt", "owner"));
 
     assertEquals(4, response.getVersionNumber());
     verify(characterRepository).findOwnedByIdForUpdate(CHARACTER_ID, "owner");
@@ -49,6 +50,7 @@ class CreateOutfitVersionUseCaseTest {
   }
 
   private static Character character() {
-    return Character.rehydrate(CHARACTER_ID, 0L, "owner", null, "Mina", List.of(), CharacterStatus.ACTIVE);
+    return Character.rehydrate(
+        CHARACTER_ID, 0L, "owner", null, "Mina", List.of(), CharacterStatus.ACTIVE);
   }
 }

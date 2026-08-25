@@ -7,15 +7,7 @@ import java.util.UUID;
 public record RenderBeatOverride(UUID visualBeatId, Long durationMs, String cameraMovement) {
   private static final Set<String> CAMERA_MOVEMENTS =
       Set.of(
-          "NONE",
-          "PAN",
-          "TILT",
-          "PUSH_IN",
-          "PULL_OUT",
-          "TRACK",
-          "ZOOM_IN",
-          "ZOOM_OUT",
-          "PARALLAX");
+          "NONE", "PAN", "TILT", "PUSH_IN", "PULL_OUT", "TRACK", "ZOOM_IN", "ZOOM_OUT", "PARALLAX");
 
   public RenderBeatOverride {
     if (visualBeatId == null) {

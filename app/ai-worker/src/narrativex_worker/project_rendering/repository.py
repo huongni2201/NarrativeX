@@ -133,7 +133,8 @@ class ProjectRenderRepository:
                     """
                     UPDATE generation_jobs
                        SET status = 'RUNNING',
-                           progress = CASE WHEN $2 = 'STALLED' THEN 5 ELSE GREATEST(progress, 5) END,
+                           progress = CASE WHEN $2 = 'STALLED' THEN 5
+                                           ELSE GREATEST(progress, 5) END,
                            current_step = CASE
                                WHEN $2 = 'STALLED' THEN 'RENDER_PROJECT_RETRYING'
                                ELSE 'RENDER_PROJECT'

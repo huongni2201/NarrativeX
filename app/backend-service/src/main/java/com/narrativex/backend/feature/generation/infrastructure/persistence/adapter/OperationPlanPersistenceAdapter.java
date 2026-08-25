@@ -24,7 +24,8 @@ public class OperationPlanPersistenceAdapter implements OperationPlanRepository 
     UUID id = mapper.insert(toRow(operationPlan));
     if (id == null) throw new IllegalStateException("Inserted operation plan did not return an id");
     OperationPlanRow inserted = mapper.findById(id);
-    if (inserted == null) throw new IllegalStateException("Inserted operation plan " + id + " disappeared");
+    if (inserted == null)
+      throw new IllegalStateException("Inserted operation plan " + id + " disappeared");
     return toDomain(inserted);
   }
 
@@ -33,7 +34,9 @@ public class OperationPlanPersistenceAdapter implements OperationPlanRepository 
       OperationPlanRow current = mapper.findById(operationPlan.getId());
       if (current == null) {
         throw new ResourceNotFoundException(
-            "OperationPlan " + operationPlan.getId() + " no longer exists while applying an update");
+            "OperationPlan "
+                + operationPlan.getId()
+                + " no longer exists while applying an update");
       }
       throw new OptimisticLockingFailureException("Operation plan was modified concurrently");
     }
@@ -47,15 +50,27 @@ public class OperationPlanPersistenceAdapter implements OperationPlanRepository 
 
   private static OperationPlanRow toRow(OperationPlan plan) {
     return new OperationPlanRow(
-        plan.getId(), plan.getRowVersion(), plan.getProjectId(), plan.getGenerationJobId(),
-        plan.getOperationType(), plan.getEstimateMin(), plan.getEstimateMax(),
-        plan.getMaxAuthorizedCost(), plan.getConfidence());
+        plan.getId(),
+        plan.getRowVersion(),
+        plan.getProjectId(),
+        plan.getGenerationJobId(),
+        plan.getOperationType(),
+        plan.getEstimateMin(),
+        plan.getEstimateMax(),
+        plan.getMaxAuthorizedCost(),
+        plan.getConfidence());
   }
 
   private static OperationPlan toDomain(OperationPlanRow row) {
     return OperationPlan.rehydrate(
-        row.getId(), row.getRowVersion(), row.getProjectId(), row.getGenerationJobId(),
-        row.getOperationType(), row.getEstimateMin(), row.getEstimateMax(),
-        row.getMaxAuthorizedCost(), row.getConfidence());
+        row.getId(),
+        row.getRowVersion(),
+        row.getProjectId(),
+        row.getGenerationJobId(),
+        row.getOperationType(),
+        row.getEstimateMin(),
+        row.getEstimateMax(),
+        row.getMaxAuthorizedCost(),
+        row.getConfidence());
   }
 }

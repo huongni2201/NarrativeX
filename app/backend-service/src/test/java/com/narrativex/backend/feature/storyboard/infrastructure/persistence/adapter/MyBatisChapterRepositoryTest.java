@@ -32,7 +32,8 @@ class MyBatisChapterRepositoryTest {
   void insertsAndReloadsTheCompleteChapterDomainState() {
     Chapter chapter = new Chapter(STORY_VERSION_ID, 0, "Chapter 1", "hello", SOURCE_HASH);
     when(mapper.insert(any(ChapterRow.class))).thenReturn(CHAPTER_ID);
-    when(mapper.findById(CHAPTER_ID)).thenReturn(persistedChapter(CHAPTER_ID, 0L, "hello", SOURCE_HASH));
+    when(mapper.findById(CHAPTER_ID))
+        .thenReturn(persistedChapter(CHAPTER_ID, 0L, "hello", SOURCE_HASH));
 
     Chapter saved = new MyBatisChapterRepository(mapper).saveAndFlush(chapter);
 
@@ -45,7 +46,8 @@ class MyBatisChapterRepositoryTest {
 
   @Test
   void staleUpdateIsRejectedWhenTheCompareAndSetAffectsNoRows() {
-    Chapter chapter = Chapter.rehydrate(CHAPTER_ID, 3L, STORY_VERSION_ID, 0, "Chapter 1", "hello", SOURCE_HASH);
+    Chapter chapter =
+        Chapter.rehydrate(CHAPTER_ID, 3L, STORY_VERSION_ID, 0, "Chapter 1", "hello", SOURCE_HASH);
     ChapterRow persisted = persistedChapter(CHAPTER_ID, 4L, "server", SOURCE_HASH);
     when(mapper.findById(CHAPTER_ID)).thenReturn(persisted);
     when(mapper.update(any(ChapterRow.class))).thenReturn(0);
@@ -59,7 +61,8 @@ class MyBatisChapterRepositoryTest {
 
   @Test
   void existingChapterCannotBeSilentlyRecreatedWhenMissing() {
-    Chapter chapter = Chapter.rehydrate(CHAPTER_ID, 3L, STORY_VERSION_ID, 0, "Chapter 1", "hello", SOURCE_HASH);
+    Chapter chapter =
+        Chapter.rehydrate(CHAPTER_ID, 3L, STORY_VERSION_ID, 0, "Chapter 1", "hello", SOURCE_HASH);
     when(mapper.findById(CHAPTER_ID)).thenReturn(null);
 
     assertThrows(

@@ -26,7 +26,8 @@ class ProjectCharacterReadUseCasesTest {
   private static final UUID PROJECT_ID = UUID.fromString("00000000-0000-0000-0000-000000000100");
   private static final UUID CHARACTER_ID = UUID.fromString("00000000-0000-0000-0000-000000000010");
   private static final UUID ASSIGNMENT_ID = UUID.fromString("00000000-0000-0000-0000-000000000200");
-  private static final UUID PINNED_VERSION_ID = UUID.fromString("00000000-0000-0000-0000-000000000300");
+  private static final UUID PINNED_VERSION_ID =
+      UUID.fromString("00000000-0000-0000-0000-000000000300");
   private static final UUID APPEARANCE_ID = UUID.fromString("00000000-0000-0000-0000-000000000004");
 
   @Mock private ProjectCharacterReadRepository repository;

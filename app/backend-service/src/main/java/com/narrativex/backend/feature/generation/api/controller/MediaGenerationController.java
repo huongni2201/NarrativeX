@@ -70,8 +70,8 @@ public class MediaGenerationController {
     requireMediaGenerationEnabled();
     return ResponseEntity.ok(
         estimateMediaJobUseCase.execute(
-            new com.narrativex.backend.feature.generation.application.command.EstimateMediaJobCommand(
-                projectId, chapterId, request.qualityTier())));
+            new com.narrativex.backend.feature.generation.application.command
+                .EstimateMediaJobCommand(projectId, chapterId, request.qualityTier())));
   }
 
   private void requireMediaGenerationEnabled() {

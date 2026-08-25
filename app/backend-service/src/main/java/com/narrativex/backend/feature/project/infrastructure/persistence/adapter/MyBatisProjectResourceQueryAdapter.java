@@ -31,7 +31,8 @@ public class MyBatisProjectResourceQueryAdapter implements ProjectResourceQueryR
     List<ProjectLocationRow> visibleRows = rows.subList(0, Math.min(limit, rows.size()));
     String nextCursor =
         hasNext && !visibleRows.isEmpty()
-            ? CursorCodec.encode(visibleRows.getLast().getUpdatedAt(), visibleRows.getLast().getId())
+            ? CursorCodec.encode(
+                visibleRows.getLast().getUpdatedAt(), visibleRows.getLast().getId())
             : null;
     return new CursorPage<>(
         visibleRows.stream().map(this::toLocation).toList(), nextCursor, limit, hasNext);
@@ -50,7 +51,8 @@ public class MyBatisProjectResourceQueryAdapter implements ProjectResourceQueryR
     List<ProjectAssetRow> visibleRows = rows.subList(0, Math.min(limit, rows.size()));
     String nextCursor =
         hasNext && !visibleRows.isEmpty()
-            ? CursorCodec.encode(visibleRows.getLast().getUpdatedAt(), visibleRows.getLast().getId())
+            ? CursorCodec.encode(
+                visibleRows.getLast().getUpdatedAt(), visibleRows.getLast().getId())
             : null;
     return new CursorPage<>(
         visibleRows.stream().map(this::toAsset).toList(), nextCursor, limit, hasNext);
@@ -58,13 +60,25 @@ public class MyBatisProjectResourceQueryAdapter implements ProjectResourceQueryR
 
   private ProjectResourceView.Location toLocation(ProjectLocationRow row) {
     return new ProjectResourceView.Location(
-        row.getId(), row.getName(), row.getDescription(), row.getVisualPrompt(),
-        row.getReferenceImageUrl(), row.getStatus(), row.getUpdatedAt());
+        row.getId(),
+        row.getName(),
+        row.getDescription(),
+        row.getVisualPrompt(),
+        row.getReferenceImageUrl(),
+        row.getStatus(),
+        row.getUpdatedAt());
   }
 
   private ProjectResourceView.Asset toAsset(ProjectAssetRow row) {
     return new ProjectResourceView.Asset(
-        row.getId(), row.getName(), row.getAssetType(), row.getStorageKey(), row.getUrl(),
-        row.getMimeType(), row.getStatus(), row.getMetadataJson(), row.getUpdatedAt());
+        row.getId(),
+        row.getName(),
+        row.getAssetType(),
+        row.getStorageKey(),
+        row.getUrl(),
+        row.getMimeType(),
+        row.getStatus(),
+        row.getMetadataJson(),
+        row.getUpdatedAt());
   }
 }

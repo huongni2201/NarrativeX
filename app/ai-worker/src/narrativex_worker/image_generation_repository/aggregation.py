@@ -4,10 +4,11 @@ import uuid
 
 import asyncpg  # type: ignore[import-untyped]
 
+from narrativex_worker.image_generation_repository.core import ImageRepositoryMixin
 from narrativex_worker.image_generation_repository.models import ImageGenerationLeaseLostError
 
 
-class ImageAggregationMixin:
+class ImageAggregationMixin(ImageRepositoryMixin):
     async def aggregate_generation_job(self, stage_attempt_id: uuid.UUID) -> None:
         pool = self._require_pool()
         async with pool.acquire() as connection:

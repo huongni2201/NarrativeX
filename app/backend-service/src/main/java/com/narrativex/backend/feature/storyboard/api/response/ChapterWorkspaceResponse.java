@@ -26,8 +26,7 @@ public record ChapterWorkspaceResponse(
 
   public record AudioStep(String status, Instant completedAt, String audioUrl, Long durationMs) {}
 
-  public record RenderStep(
-      String status, Instant completedAt, UUID latestJobId, Long artifactId) {}
+  public record RenderStep(String status, Instant completedAt, UUID latestJobId, Long artifactId) {}
 
   public record ProgressStep(
       String status,

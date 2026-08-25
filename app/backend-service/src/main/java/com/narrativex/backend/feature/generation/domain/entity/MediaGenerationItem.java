@@ -1,6 +1,5 @@
 package com.narrativex.backend.feature.generation.domain.entity;
 
-import com.narrativex.backend.feature.common.domain.DomainEntity;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.domain.enums.MediaGenerationExecutionStatus;
 import com.narrativex.backend.feature.generation.domain.enums.MediaGenerationReviewStatus;

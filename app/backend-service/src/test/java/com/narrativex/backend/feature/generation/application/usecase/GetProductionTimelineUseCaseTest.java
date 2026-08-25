@@ -148,8 +148,7 @@ class GetProductionTimelineUseCaseTest {
                     "a".repeat(64),
                     1)));
     when(sourceRepository.findBeats(projectId, "owner"))
-        .thenReturn(
-            List.of(beat(chapterId, 0, differentPlanId, 0, 60_000L, "b".repeat(64))));
+        .thenReturn(List.of(beat(chapterId, 0, differentPlanId, 0, 60_000L, "b".repeat(64))));
 
     var timeline = useCase.executeOwned(projectId, "owner");
 

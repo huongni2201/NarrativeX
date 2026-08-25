@@ -53,19 +53,38 @@ public final class OutfitVersion extends DomainEntity {
   }
 
   public void activate() {
-    if (status != OutfitVersionStatus.DRAFT) throw new IllegalStateException("Only draft outfit versions can be activated");
+    if (status != OutfitVersionStatus.DRAFT)
+      throw new IllegalStateException("Only draft outfit versions can be activated");
     status = OutfitVersionStatus.ACTIVE;
   }
 
-  public UUID getCharacterId() { return characterId; }
-  public int getVersionNumber() { return versionNumber; }
-  public String getName() { return name; }
-  public String getDescription() { return description; }
-  public String getPrompt() { return prompt; }
-  public OutfitVersionStatus getStatus() { return status; }
+  public UUID getCharacterId() {
+    return characterId;
+  }
+
+  public int getVersionNumber() {
+    return versionNumber;
+  }
+
+  public String getName() {
+    return name;
+  }
+
+  public String getDescription() {
+    return description;
+  }
+
+  public String getPrompt() {
+    return prompt;
+  }
+
+  public OutfitVersionStatus getStatus() {
+    return status;
+  }
 
   private static String required(String value, String field) {
-    if (value == null || value.isBlank()) throw new IllegalArgumentException(field + " must not be blank");
+    if (value == null || value.isBlank())
+      throw new IllegalArgumentException(field + " must not be blank");
     return value;
   }
 }

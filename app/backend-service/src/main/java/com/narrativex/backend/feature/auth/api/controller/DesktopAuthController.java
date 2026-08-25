@@ -2,8 +2,7 @@ package com.narrativex.backend.feature.auth.api.controller;
 
 import com.narrativex.backend.feature.auth.api.request.DesktopAuthExchangeRequest;
 import com.narrativex.backend.feature.auth.api.response.CurrentUserResponse;
-import com.narrativex.backend.feature.auth.infrastructure.desktop.DesktopAuthHandoffStore;
-import com.narrativex.backend.feature.auth.infrastructure.desktop.DesktopUserPrincipal;
+import com.narrativex.backend.feature.auth.application.port.out.DesktopAuthHandoff;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -35,7 +34,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class DesktopAuthController {
   private static final String REDIRECT_SESSION_KEY = "NARRATIVEX_DESKTOP_REDIRECT_URI";
 
-  private final DesktopAuthHandoffStore handoffStore;
+  private final DesktopAuthHandoff handoffStore;
   private final SecurityContextRepository securityContextRepository;
 
   @GetMapping("/start")
@@ -58,7 +57,7 @@ public class DesktopAuthController {
       @Valid @RequestBody DesktopAuthExchangeRequest request,
       HttpServletRequest servletRequest,
       HttpServletResponse servletResponse) {
-    DesktopUserPrincipal user = handoffStore.consume(request.code());
+    DesktopAuthHandoff.AuthenticatedUser user = handoffStore.consumeUser(request.code());
     if (user == null) {
       return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
           .body(

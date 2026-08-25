@@ -111,8 +111,7 @@ class CreateProjectRenderUseCaseTest {
     assertThatThrownBy(
             () ->
                 CreateProjectRenderUseCase.applyBeatOverrides(
-                    timeline,
-                    List.of(new RenderBeatOverride(UUID.randomUUID(), 5_000L, null))))
+                    timeline, List.of(new RenderBeatOverride(UUID.randomUUID(), 5_000L, null))))
         .isInstanceOf(GenerationAdmissionDeniedException.class)
         .satisfies(
             error ->
@@ -146,11 +145,7 @@ class CreateProjectRenderUseCaseTest {
   }
 
   private static ProductionTimelineView timeline(
-      UUID projectId,
-      UUID storyVersionId,
-      UUID chapterId,
-      UUID firstBeatId,
-      UUID secondBeatId) {
+      UUID projectId, UUID storyVersionId, UUID chapterId, UUID firstBeatId, UUID secondBeatId) {
     UUID mediaPlanId = UUID.randomUUID();
     ProductionTimelineView.Chapter chapter =
         new ProductionTimelineView.Chapter(
@@ -178,22 +173,11 @@ class CreateProjectRenderUseCaseTest {
     ProductionTimelineView.Beat second =
         beat(chapterId, secondBeatId, 1, 30_000L, 60_000L, "d".repeat(64));
     return new ProductionTimelineView(
-        projectId,
-        storyVersionId,
-        60_000L,
-        "16:9",
-        true,
-        List.of(chapter),
-        List.of(first, second));
+        projectId, storyVersionId, 60_000L, "16:9", true, List.of(chapter), List.of(first, second));
   }
 
   private static ProductionTimelineView.Beat beat(
-      UUID chapterId,
-      UUID visualBeatId,
-      int beatIndex,
-      long startMs,
-      long endMs,
-      String checksum) {
+      UUID chapterId, UUID visualBeatId, int beatIndex, long startMs, long endMs, String checksum) {
     return new ProductionTimelineView.Beat(
         chapterId,
         0,

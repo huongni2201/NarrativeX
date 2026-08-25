@@ -1,9 +1,9 @@
 package com.narrativex.backend.feature.storyboard.api;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 import com.narrativex.backend.support.PostgreSqlIntegrationTestSupport;
 import java.util.UUID;
@@ -78,7 +78,9 @@ class ChapterCreationApiIntegrationTest extends PostgreSqlIntegrationTestSupport
 
     org.assertj.core.api.Assertions.assertThat(
             jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM story_versions WHERE project_id = ?", Integer.class, PROJECT_ID))
+                "SELECT COUNT(*) FROM story_versions WHERE project_id = ?",
+                Integer.class,
+                PROJECT_ID))
         .isEqualTo(1);
     org.assertj.core.api.Assertions.assertThat(
             jdbcTemplate.queryForObject(

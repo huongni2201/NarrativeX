@@ -64,29 +64,70 @@ public class MyBatisGenerationJobPersistenceAdapter implements GenerationJobRepo
 
   private GenerationJob requireInserted(UUID id) {
     GenerationJobRow inserted = mapper.findById(id);
-    if (inserted == null) throw new IllegalStateException("Inserted generation job " + id + " disappeared");
+    if (inserted == null)
+      throw new IllegalStateException("Inserted generation job " + id + " disappeared");
     return toDomain(inserted);
   }
 
   private static GenerationJobRow toRow(GenerationJob job) {
     return new GenerationJobRow(
-        job.getId(), job.getRowVersion(), null, null, job.getJobId(), job.getProjectId(),
-        job.getType(), job.getStatus(), job.getResourceClass(), job.getProgress(),
-        job.getCurrentStep(), job.getErrorCode(), job.getRequestedByUserId(), job.getBilledToUserId(),
-        job.getStoryVersionId(), job.getChapterId(), job.getChapterRowVersion(), job.getSourceHash(),
-        job.getSourceText(), job.getSourceLanguage(), job.getIdempotencyKey(), job.getStoryboardRevisionId(),
-        job.getMediaPlanId(), job.getMediaPlanRevision(), job.getProductionMode(), job.getContentVariantId(),
-        job.getSourceVariantId(), job.getTargetLanguage());
+        job.getId(),
+        job.getRowVersion(),
+        null,
+        null,
+        job.getJobId(),
+        job.getProjectId(),
+        job.getType(),
+        job.getStatus(),
+        job.getResourceClass(),
+        job.getProgress(),
+        job.getCurrentStep(),
+        job.getErrorCode(),
+        job.getRequestedByUserId(),
+        job.getBilledToUserId(),
+        job.getStoryVersionId(),
+        job.getChapterId(),
+        job.getChapterRowVersion(),
+        job.getSourceHash(),
+        job.getSourceText(),
+        job.getSourceLanguage(),
+        job.getIdempotencyKey(),
+        job.getStoryboardRevisionId(),
+        job.getMediaPlanId(),
+        job.getMediaPlanRevision(),
+        job.getProductionMode(),
+        job.getContentVariantId(),
+        job.getSourceVariantId(),
+        job.getTargetLanguage());
   }
 
   private static GenerationJob toDomain(GenerationJobRow row) {
     return GenerationJob.rehydrate(
-        row.getId(), row.getRowVersion(), row.getJobId(), row.getProjectId(), row.getType(),
-        row.getStatus(), row.getResourceClass(), row.getProgress(), row.getCurrentStep(),
-        row.getErrorCode(), row.getRequestedByUserId(), row.getBilledToUserId(), row.getStoryVersionId(),
-        row.getChapterId(), row.getStoryboardRevisionId(), row.getChapterRowVersion(), row.getSourceHash(),
-        row.getSourceText(), row.getSourceLanguage(), row.getIdempotencyKey(), row.getContentVariantId(),
-        row.getSourceVariantId(), row.getTargetLanguage(), row.getMediaPlanId(), row.getMediaPlanRevision(),
+        row.getId(),
+        row.getRowVersion(),
+        row.getJobId(),
+        row.getProjectId(),
+        row.getType(),
+        row.getStatus(),
+        row.getResourceClass(),
+        row.getProgress(),
+        row.getCurrentStep(),
+        row.getErrorCode(),
+        row.getRequestedByUserId(),
+        row.getBilledToUserId(),
+        row.getStoryVersionId(),
+        row.getChapterId(),
+        row.getStoryboardRevisionId(),
+        row.getChapterRowVersion(),
+        row.getSourceHash(),
+        row.getSourceText(),
+        row.getSourceLanguage(),
+        row.getIdempotencyKey(),
+        row.getContentVariantId(),
+        row.getSourceVariantId(),
+        row.getTargetLanguage(),
+        row.getMediaPlanId(),
+        row.getMediaPlanRevision(),
         row.getProductionMode());
   }
 

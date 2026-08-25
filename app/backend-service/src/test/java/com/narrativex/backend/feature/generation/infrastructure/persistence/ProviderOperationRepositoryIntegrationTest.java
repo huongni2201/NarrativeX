@@ -180,8 +180,7 @@ class ProviderOperationRepositoryIntegrationTest extends PostgreSqlIntegrationTe
   }
 
   private ProviderOperation reserve(String suffix) {
-    return repository.save(
-        ProviderOperation.create(insertStageAttempt(), "vertex", uniqueSha()));
+    return repository.save(ProviderOperation.create(insertStageAttempt(), "vertex", uniqueSha()));
   }
 
   private ProviderOperation complete(ProviderOperation reserved) {
@@ -248,6 +247,7 @@ class ProviderOperationRepositoryIntegrationTest extends PostgreSqlIntegrationTe
   }
 
   private static String uniqueSha() {
-    return "a".repeat(32) + com.narrativex.backend.feature.common.uuid.UuidV7.random().toString().replace("-", "");
+    return "a".repeat(32)
+        + com.narrativex.backend.feature.common.uuid.UuidV7.random().toString().replace("-", "");
   }
 }

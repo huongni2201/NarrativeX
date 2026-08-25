@@ -7,7 +7,10 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
-/** Immutable-after-lock identity/Bible snapshot owned by Character. Media references are modeled separately. */
+/**
+ * Immutable-after-lock identity/Bible snapshot owned by Character. Media references are modeled
+ * separately.
+ */
 public final class CharacterVersion extends DomainEntity {
   private final UUID characterId;
   private final int versionNumber;
@@ -41,7 +44,15 @@ public final class CharacterVersion extends DomainEntity {
   public static CharacterVersion create(
       UUID characterId, int versionNumber, String bible, String visualPrompt) {
     return new CharacterVersion(
-        null, 0L, characterId, versionNumber, bible, visualPrompt, CharacterVersionStatus.DRAFT, null, null);
+        null,
+        0L,
+        characterId,
+        versionNumber,
+        bible,
+        visualPrompt,
+        CharacterVersionStatus.DRAFT,
+        null,
+        null);
   }
 
   public static CharacterVersion rehydrate(
@@ -55,19 +66,29 @@ public final class CharacterVersion extends DomainEntity {
       Instant lockedAt,
       String lockedBy) {
     return new CharacterVersion(
-        id, rowVersion, characterId, versionNumber, bible, visualPrompt, status, lockedAt, lockedBy);
+        id,
+        rowVersion,
+        characterId,
+        versionNumber,
+        bible,
+        visualPrompt,
+        status,
+        lockedAt,
+        lockedBy);
   }
 
   public void submitForReview() {
     if (status != CharacterVersionStatus.DRAFT && status != CharacterVersionStatus.GENERATING) {
-      throw new InvalidCharacterVersionTransitionException("Only draft or generating versions can enter review");
+      throw new InvalidCharacterVersionTransitionException(
+          "Only draft or generating versions can enter review");
     }
     status = CharacterVersionStatus.REVIEW;
   }
 
   public void lock(String actorId) {
     if (status != CharacterVersionStatus.REVIEW) {
-      throw new InvalidCharacterVersionTransitionException("Only reviewed character versions can be locked");
+      throw new InvalidCharacterVersionTransitionException(
+          "Only reviewed character versions can be locked");
     }
     String resolvedActorId = required(actorId, "actorId");
     status = CharacterVersionStatus.LOCKED;
@@ -75,16 +96,37 @@ public final class CharacterVersion extends DomainEntity {
     lockedBy = resolvedActorId;
   }
 
-  public UUID getCharacterId() { return characterId; }
-  public int getVersionNumber() { return versionNumber; }
-  public String getBible() { return bible; }
-  public String getVisualPrompt() { return visualPrompt; }
-  public CharacterVersionStatus getStatus() { return status; }
-  public Instant getLockedAt() { return lockedAt; }
-  public String getLockedBy() { return lockedBy; }
+  public UUID getCharacterId() {
+    return characterId;
+  }
+
+  public int getVersionNumber() {
+    return versionNumber;
+  }
+
+  public String getBible() {
+    return bible;
+  }
+
+  public String getVisualPrompt() {
+    return visualPrompt;
+  }
+
+  public CharacterVersionStatus getStatus() {
+    return status;
+  }
+
+  public Instant getLockedAt() {
+    return lockedAt;
+  }
+
+  public String getLockedBy() {
+    return lockedBy;
+  }
 
   private static String required(String value, String field) {
-    if (value == null || value.isBlank()) throw new IllegalArgumentException(field + " must not be blank");
+    if (value == null || value.isBlank())
+      throw new IllegalArgumentException(field + " must not be blank");
     return value;
   }
 }

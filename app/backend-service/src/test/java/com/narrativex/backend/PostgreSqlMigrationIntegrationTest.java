@@ -12,11 +12,11 @@ import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterWorkspaceMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.LanguageDetectionMapper;
 import com.narrativex.backend.support.FlywayMigrationContract;
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 import javax.sql.DataSource;
@@ -101,7 +101,8 @@ class PostgreSqlMigrationIntegrationTest {
 
       flyway.migrate();
       assertEquals(migrationNames.size(), successfulVersionedMigrationCount(connection));
-      assertEquals(latestFlywayVersion(connection), flyway.info().current().getVersion().getVersion());
+      assertEquals(
+          latestFlywayVersion(connection), flyway.info().current().getVersion().getVersion());
       assertEquals(0, flyway.info().pending().length, "repeat migrate must be a no-op");
       assertTrue(triggerExists(connection, "trg_generation_jobs_notify_completion"));
       assertTrue(triggerExists(connection, "trg_generation_jobs_sse_events"));
@@ -129,13 +130,15 @@ class PostgreSqlMigrationIntegrationTest {
       assertEquals("uuid", columnType(connection, "narration_requests", "project_id"));
       assertEquals("uuid", columnType(connection, "narration_requests", "chapter_id"));
       assertEquals("uuid", columnType(connection, "media_generation_items", "generation_job_id"));
-      assertEquals("uuid", columnType(connection, "media_generation_items", "provider_operation_id"));
+      assertEquals(
+          "uuid", columnType(connection, "media_generation_items", "provider_operation_id"));
       assertEquals("uuid", columnType(connection, "media_scene_plans", "scene_id"));
       assertEquals("uuid", columnType(connection, "media_beat_plans", "visual_beat_id"));
 
       assertTrue(tableExists(connection, "character_version_reference_assets"));
       assertEquals(
-          "uuid", columnType(connection, "character_version_reference_assets", "character_version_id"));
+          "uuid",
+          columnType(connection, "character_version_reference_assets", "character_version_id"));
       assertEquals(
           "uuid", columnType(connection, "character_version_reference_assets", "media_asset_id"));
       assertTrue(tableExists(connection, "local_device_pairing_codes"));
@@ -146,9 +149,14 @@ class PostgreSqlMigrationIntegrationTest {
       assertTrue(tableExists(connection, "project_render_input_chapters"));
       assertTrue(tableExists(connection, "project_render_input_beats"));
       assertFalse(tableExists(connection, "project_render_artifacts"));
-      assertEquals("uuid", columnType(connection, "project_render_input_snapshots", "generation_job_id"));
-      assertEquals("character varying", columnType(connection, "project_render_input_snapshots", "execution_target"));
-      assertEquals("uuid", columnType(connection, "project_render_input_snapshots", "assigned_local_device_id"));
+      assertEquals(
+          "uuid", columnType(connection, "project_render_input_snapshots", "generation_job_id"));
+      assertEquals(
+          "character varying",
+          columnType(connection, "project_render_input_snapshots", "execution_target"));
+      assertEquals(
+          "uuid",
+          columnType(connection, "project_render_input_snapshots", "assigned_local_device_id"));
       assertEquals("uuid", columnType(connection, "project_render_input_chapters", "chapter_id"));
       assertEquals("uuid", columnType(connection, "project_render_input_beats", "visual_beat_id"));
       assertTrue(indexExists(connection, "idx_project_render_input_local_claim"));
@@ -211,8 +219,12 @@ class PostgreSqlMigrationIntegrationTest {
           assertEquals(
               result.getString("parent_type"),
               result.getString("child_type"),
-              result.getString("child_table") + "." + result.getString("child_column")
-                  + " must match " + result.getString("parent_table") + "."
+              result.getString("child_table")
+                  + "."
+                  + result.getString("child_column")
+                  + " must match "
+                  + result.getString("parent_table")
+                  + "."
                   + result.getString("parent_column"));
         }
         assertTrue(checked > 0, "expected the schema to contain foreign keys");
@@ -233,13 +245,15 @@ class PostgreSqlMigrationIntegrationTest {
     assertNull(
         assertDoesNotThrow(
             () -> languageDetectionMapper.findLatest(missingVariantId, "0".repeat(64))));
-    assertTrue(assertDoesNotThrow(() -> notificationMapper.list("missing-user", true, 5)).isEmpty());
+    assertTrue(
+        assertDoesNotThrow(() -> notificationMapper.list("missing-user", true, 5)).isEmpty());
     assertTrue(
         assertDoesNotThrow(
                 () -> productionTimelineMapper.findChapters(missingProjectId, "missing-user"))
             .isEmpty());
     assertTrue(
-        assertDoesNotThrow(() -> productionTimelineMapper.findBeats(missingProjectId, "missing-user"))
+        assertDoesNotThrow(
+                () -> productionTimelineMapper.findBeats(missingProjectId, "missing-user"))
             .isEmpty());
   }
 
@@ -285,7 +299,8 @@ class PostgreSqlMigrationIntegrationTest {
   }
 
   private static boolean constraintExists(Connection connection, String name) throws SQLException {
-    return exists(connection, "select exists (select 1 from pg_constraint where conname = ?)", name);
+    return exists(
+        connection, "select exists (select 1 from pg_constraint where conname = ?)", name);
   }
 
   private static boolean indexExists(Connection connection, String name) throws SQLException {
@@ -299,7 +314,8 @@ class PostgreSqlMigrationIntegrationTest {
     return exists(connection, "select exists (select 1 from pg_trigger where tgname = ?)", name);
   }
 
-  private static boolean exists(Connection connection, String sql, String value) throws SQLException {
+  private static boolean exists(Connection connection, String sql, String value)
+      throws SQLException {
     try (PreparedStatement statement = connection.prepareStatement(sql)) {
       statement.setString(1, value);
       try (ResultSet result = statement.executeQuery()) {

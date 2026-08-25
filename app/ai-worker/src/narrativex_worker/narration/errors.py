@@ -9,8 +9,8 @@ from botocore.exceptions import BotoCoreError, ClientError  # type: ignore[impor
 
 from narrativex_worker.runtime.retry_policy import (
     LOCAL_IO_RETRY_POLICY,
-    RetryPolicy,
     UNKNOWN_RECONCILIATION_POLICY,
+    RetryPolicy,
 )
 
 

@@ -4,6 +4,7 @@ import uuid
 from contextvars import ContextVar
 
 from narrativex_worker.narration.models import AlignmentSpan
+from narrativex_worker.narration.repository.completion import NarrationCompletionMixin
 from narrativex_worker.narration.repository.implementation import (
     ClaimedNarrationJob,
     DurableNarrationProviderOperation,
@@ -14,15 +15,14 @@ from narrativex_worker.narration.repository.implementation import (
 from narrativex_worker.narration.repository.implementation import (
     NarrationWorkerRepository as NarrationWorkerRepositoryImplementation,
 )
-from narrativex_worker.narration.repository.completion import NarrationCompletionMixin
 from narrativex_worker.narration.storage import StoredMediaAsset
 
 
 class NarrationWorkerRepository(NarrationCompletionMixin, NarrationWorkerRepositoryImplementation):
     """Public narration repository with task-local per-claim ownership fencing."""
 
-    def __init__(self, *args: object, **kwargs: object) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(self, database_url: str, lease_seconds: int, *, pool_size: int = 5) -> None:
+        super().__init__(database_url, lease_seconds, pool_size=pool_size)
         self._claim_owner: ContextVar[str | None] = ContextVar(
             f"narration-claim-owner-{id(self)}", default=None
         )

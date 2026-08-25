@@ -61,15 +61,14 @@ class CreateChapterRenderUseCaseTest {
             null,
             List.of(new RenderBeatOverride(beatId, 7_500L, "PUSH_IN")));
 
-    assertThat(
-            CreateChapterRenderUseCase.renderIdempotencyKey(base, "a".repeat(64)))
-        .isNotEqualTo(
-            CreateChapterRenderUseCase.renderIdempotencyKey(edited, "a".repeat(64)));
+    assertThat(CreateChapterRenderUseCase.renderIdempotencyKey(base, "a".repeat(64)))
+        .isNotEqualTo(CreateChapterRenderUseCase.renderIdempotencyKey(edited, "a".repeat(64)));
   }
 
   @Test
   void suppliedIdempotencyKeyIsTrimmedAndBoundedByDatabaseContract() {
-    assertThat(CreateChapterRenderUseCase.renderIdempotencyKey(command("  retry-1  "), "a".repeat(64)))
+    assertThat(
+            CreateChapterRenderUseCase.renderIdempotencyKey(command("  retry-1  "), "a".repeat(64)))
         .isEqualTo("retry-1");
 
     String maximum = "x".repeat(512);

@@ -16,7 +16,6 @@ from narrativex_worker.schema import (
 )
 from narrativex_worker.worker import NarrativeXWorker
 
-
 OPERATION_ID = UUID("00000000-0000-7000-8000-000000000201")
 STAGE_ATTEMPT_ID = UUID("00000000-0000-7000-8000-000000000202")
 GENERATION_JOB_ID = UUID("00000000-0000-7000-8000-000000000203")
@@ -72,7 +71,9 @@ class _Repository:
         self.failed = False
         self.released = False
 
-    async def list_provider_operations(self, statuses: object, limit: int) -> list[DurableProviderOperation]:
+    async def list_provider_operations(
+        self, statuses: object, limit: int
+    ) -> list[DurableProviderOperation]:
         del statuses, limit
         return [_durable()]
 
@@ -91,7 +92,9 @@ class _Repository:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("terminal_status", [ProviderOperationStatus.COMPLETED, ProviderOperationStatus.FAILED])
+@pytest.mark.parametrize(
+    "terminal_status", [ProviderOperationStatus.COMPLETED, ProviderOperationStatus.FAILED]
+)
 async def test_background_terminal_reconciliation_releases_stage_for_immediate_replay(
     terminal_status: ProviderOperationStatus,
 ) -> None:

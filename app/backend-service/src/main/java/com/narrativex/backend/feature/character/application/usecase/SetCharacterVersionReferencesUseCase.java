@@ -94,7 +94,8 @@ public class SetCharacterVersionReferencesUseCase {
                     .thenComparing(CharacterVersionReference::mediaAssetId))
             .toList();
     if (!references.isEmpty() && !"IDENTITY".equals(references.getFirst().role())) {
-      throw new IllegalArgumentException("The highest-priority character reference must be IDENTITY");
+      throw new IllegalArgumentException(
+          "The highest-priority character reference must be IDENTITY");
     }
     referenceRepository.replace(versionId, references);
     return references;

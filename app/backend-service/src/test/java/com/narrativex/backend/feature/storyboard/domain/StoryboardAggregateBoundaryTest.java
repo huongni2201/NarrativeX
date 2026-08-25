@@ -80,7 +80,9 @@ class StoryboardAggregateBoundaryTest {
   void editingApprovedSceneMarksItsSnapshotOutdated() {
     UUID sceneId = UuidV7.random();
     UUID chapterId = UuidV7.random();
-    Scene scene = Scene.rehydrate(sceneId, 3L, chapterId, 0, "Scene 1", "Narration", 12, SceneStatus.APPROVED);
+    Scene scene =
+        Scene.rehydrate(
+            sceneId, 3L, chapterId, 0, "Scene 1", "Narration", 12, SceneStatus.APPROVED);
 
     scene.updateNarration("Updated narration");
 

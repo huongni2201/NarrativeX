@@ -69,12 +69,7 @@ class FinalArtifactControllerIntegrationTest extends PostgreSqlIntegrationTestSu
     insertJob(READY_JOB_ROW_ID, READY_JOB_ID, PROJECT_ID, CHAPTER_ID);
     insertJob(ARCHIVED_JOB_ROW_ID, ARCHIVED_JOB_ID, PROJECT_ID, CHAPTER_ID);
     insertArtifact(
-        READY_ARTIFACT_ID,
-        PROJECT_ID,
-        CHAPTER_ID,
-        READY_JOB_ROW_ID,
-        "READY",
-        "artifact-9501.mp4");
+        READY_ARTIFACT_ID, PROJECT_ID, CHAPTER_ID, READY_JOB_ROW_ID, "READY", "artifact-9501.mp4");
     insertArtifact(
         ARCHIVED_ARTIFACT_ID,
         PROJECT_ID,
@@ -101,13 +96,17 @@ class FinalArtifactControllerIntegrationTest extends PostgreSqlIntegrationTestSu
 
   @Test
   void unknownJobAndWrongOwnerAreNotVisible() throws Exception {
-    mockMvc.perform(get("/api/v1/artifacts/by-job/" + UNKNOWN_JOB_ID)).andExpect(status().isNotFound());
+    mockMvc
+        .perform(get("/api/v1/artifacts/by-job/" + UNKNOWN_JOB_ID))
+        .andExpect(status().isNotFound());
     mockMvc.perform(get("/api/v1/artifacts/" + OTHER_ARTIFACT_ID)).andExpect(status().isNotFound());
   }
 
   @Test
   void archivedArtifactIsNotReturned() throws Exception {
-    mockMvc.perform(get("/api/v1/artifacts/" + ARCHIVED_ARTIFACT_ID)).andExpect(status().isNotFound());
+    mockMvc
+        .perform(get("/api/v1/artifacts/" + ARCHIVED_ARTIFACT_ID))
+        .andExpect(status().isNotFound());
   }
 
   @Test

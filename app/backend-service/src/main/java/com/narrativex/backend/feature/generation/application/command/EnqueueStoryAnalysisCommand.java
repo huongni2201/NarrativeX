@@ -1,6 +1,5 @@
 package com.narrativex.backend.feature.generation.application.command;
 
-import java.util.Objects;
 import java.util.UUID;
 
 /** Requests durable analysis for one Chapter within an owned Project. */

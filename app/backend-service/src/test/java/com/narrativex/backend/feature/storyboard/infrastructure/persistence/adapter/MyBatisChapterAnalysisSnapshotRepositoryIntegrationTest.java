@@ -56,8 +56,9 @@ class MyBatisChapterAnalysisSnapshotRepositoryIntegrationTest
         () -> repository.requireOwnedByProject(projectId, chapterId, "owner-b"));
     assertThrows(
         ResourceNotFoundException.class,
-        () -> repository.requireOwnedByProject(
-            com.narrativex.backend.feature.common.uuid.UuidV7.random(), chapterId, "owner-a"));
+        () ->
+            repository.requireOwnedByProject(
+                com.narrativex.backend.feature.common.uuid.UuidV7.random(), chapterId, "owner-a"));
   }
 
   private UUID insertChapter(String ownerId) {

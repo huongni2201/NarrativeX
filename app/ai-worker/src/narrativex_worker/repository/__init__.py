@@ -21,8 +21,8 @@ from narrativex_worker.schema import ChapterAnalysisResult
 class WorkerRepository(WorkerRepositoryImplementation):
     """Public repository facade with task-local per-claim ownership fencing."""
 
-    def __init__(self, *args: object, **kwargs: object) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(self, database_url: str, lease_seconds: int, pool_size: int = 5) -> None:
+        super().__init__(database_url, lease_seconds, pool_size)
         self._claim_owner: ContextVar[str | None] = ContextVar(
             f"chapter-analysis-claim-owner-{id(self)}", default=None
         )

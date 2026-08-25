@@ -3,6 +3,7 @@
 import hashlib
 import json
 
+from narrativex_worker.image_generation_repository.core import ImageRepositoryMixin
 from narrativex_worker.image_generation_repository.implementation import (
     DurableImageOperation,
     ImageGenerationLeaseLostError,
@@ -11,7 +12,7 @@ from narrativex_worker.media_repository import DurableMediaResult
 from narrativex_worker.schema import ProviderOperationStatus
 
 
-class ImageProviderOperationFacadeMixin:
+class ImageProviderOperationFacadeMixin(ImageRepositoryMixin):
     async def mark_submitted(
         self,
         operation: DurableImageOperation,

@@ -39,7 +39,13 @@ public class AssetLibraryUseCase {
     return repository.createLocalAsset(
         currentUserId.get(),
         new CreateLocalMediaAsset(
-            UuidV7.random(), type, originalFilename, contentType, sizeBytes, checksumSha256, durationMs));
+            UuidV7.random(),
+            type,
+            originalFilename,
+            contentType,
+            sizeBytes,
+            checksumSha256,
+            durationMs));
   }
 
   @Transactional

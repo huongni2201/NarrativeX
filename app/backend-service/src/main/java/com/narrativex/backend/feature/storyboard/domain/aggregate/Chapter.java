@@ -73,11 +73,25 @@ public final class Chapter extends UuidAggregateRoot {
     orderIndex = validOrderIndex(newOrderIndex);
   }
 
-  public UUID getStoryVersionId() { return storyVersionId; }
-  public int getOrderIndex() { return orderIndex; }
-  public String getTitle() { return title; }
-  public String getSourceText() { return sourceText; }
-  public String getSourceHash() { return sourceHash; }
+  public UUID getStoryVersionId() {
+    return storyVersionId;
+  }
+
+  public int getOrderIndex() {
+    return orderIndex;
+  }
+
+  public String getTitle() {
+    return title;
+  }
+
+  public String getSourceText() {
+    return sourceText;
+  }
+
+  public String getSourceHash() {
+    return sourceHash;
+  }
 
   private static int validOrderIndex(int value) {
     if (value < 0) throw new IllegalArgumentException("orderIndex must not be negative");
