@@ -1,5 +1,8 @@
 import type { Session } from "electron";
-import { GuestDeviceIdentityStore } from "../auth/guest-device-identity";
+import {
+  GuestDeviceIdentityStore,
+  type GuestDeviceIdentity,
+} from "../auth/guest-device-identity";
 
 const ALLOWED_METHODS = new Set(["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"]);
 const ALLOWED_REQUEST_HEADERS = new Set([
@@ -28,13 +31,17 @@ export interface DesktopApiResponse {
   bodyText: string;
 }
 
+export interface GuestIdentityProvider {
+  loadOrCreate(): Promise<GuestDeviceIdentity>;
+}
+
 export class DesktopBackendApiService {
   private readonly backendOrigin: string;
-  private readonly guestIdentity = new GuestDeviceIdentityStore();
 
   constructor(
     private readonly backendBaseUrl: string,
     private readonly browserSession: Session,
+    private readonly guestIdentity: GuestIdentityProvider = new GuestDeviceIdentityStore(),
   ) {
     this.backendOrigin = new URL(backendBaseUrl).origin;
   }
