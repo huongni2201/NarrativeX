@@ -24,6 +24,32 @@ persisted Chapter
   -> Character + Location + Scene + VisualBeat continuity
 ```
 
+## Desktop editor hierarchy and timing
+
+The editor hierarchy is logical, not a chain of prerendered video files:
+
+```text
+Project
+  -> Chapter
+      -> Scene
+          -> VisualBeat
+```
+
+`VisualBeat` is the smallest editable timeline span. `Scene` groups related beats and `Chapter` groups scenes. Scene and Chapter boundaries do not require `scene.mp4` or `chapter.mp4` artifacts before the user can continue editing.
+
+Narration/alignment is the timing authority. A beat carries the aligned `startMs`, `endMs` and `durationMs`; its media must fit that span:
+
+```text
+aligned narration span
+  -> VisualBeat timing
+  -> image source: animate for the beat duration
+  -> video source: trim/fill/extend for the beat duration
+  -> one non-destructive project timeline
+  -> FFmpeg render/export
+```
+
+Desktop editor scopes (`Beat`, `Scene`, `Chapter`, `Project`) are view windows over the same timeline. Switching scope changes what is inspected and previewed; it does not create another nested render output. Local segment/proxy caches may exist for performance, but they are render implementation details rather than durable domain hierarchy.
+
 ## Narration selection
 
 ```text
