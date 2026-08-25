@@ -42,6 +42,12 @@
     <result property="audioEndMs" column="audio_end_ms" />
     <result property="audioDurationMs" column="audio_duration_ms" />
     <result property="mediaAssetId" column="media_asset_id" />
+    <result property="mediaType" column="media_type" />
+    <result property="storageMode" column="storage_mode" />
+    <result property="sourceDurationMs" column="source_duration_ms" />
+    <result property="fitMode" column="fit_mode" />
+    <result property="trimStartMs" column="trim_start_ms" />
+    <result property="mediaSelectionActive" column="media_selection_active" />
     <result property="storageKey" column="storage_key" />
     <result property="sizeBytes" column="size_bytes" />
     <result property="checksum" column="checksum" />
@@ -81,20 +87,13 @@
            narration.narration_request_id,
            narration.narration_asset_id,
            narration.narration_alignment_id,
-           COALESCE(
-             narration.duration_ms,
-             NULLIF(c.estimated_duration_ms, 0),
-             scene_duration.duration_ms,
-             0
-           ) AS fallback_duration_ms,
+           COALESCE(narration.duration_ms, NULLIF(c.estimated_duration_ms, 0), scene_duration.duration_ms, 0) AS fallback_duration_ms,
            COALESCE(plan_counts.beat_count, 0) AS beat_count,
            COALESCE(plan_counts.ready_beat_count, 0) AS ready_beat_count
       FROM chapters c
       JOIN current_story cs ON cs.id = c.story_version_id
       LEFT JOIN chapter_media_heads cmh ON cmh.chapter_id = c.id
-      LEFT JOIN generation_jobs gj
-        ON gj.id = cmh.generation_job_id
-       AND gj.status = 'COMPLETED'
+      LEFT JOIN generation_jobs gj ON gj.id = cmh.generation_job_id AND gj.status = 'COMPLETED'
       LEFT JOIN media_plans mp
         ON mp.id = gj.media_plan_id
        AND mp.revision = gj.media_plan_revision
@@ -116,8 +115,7 @@
           LEFT JOIN LATERAL (
             SELECT nal.id
               FROM narration_alignments nal
-             WHERE nal.narration_asset_id = na.id
-               AND nal.source_hash = nr.source_hash
+             WHERE nal.narration_asset_id = na.id AND nal.source_hash = nr.source_hash
              ORDER BY nal.created_at DESC, nal.id DESC
              LIMIT 1
           ) alignment ON TRUE
@@ -134,23 +132,32 @@
       LEFT JOIN LATERAL (
         SELECT COALESCE(SUM(s.duration_seconds) * 1000, 0)::bigint AS duration_ms
           FROM scenes s
-         WHERE s.chapter_id = c.id
-           AND s.storyboard_revision_id = c.current_storyboard_revision_id
+         WHERE s.chapter_id = c.id AND s.storyboard_revision_id = c.current_storyboard_revision_id
       ) scene_duration ON TRUE
       LEFT JOIN LATERAL (
         SELECT COUNT(*)::int AS beat_count,
                COUNT(*) FILTER (
                  WHERE EXISTS (
                    SELECT 1
+                     FROM production_beat_media_selections pbms
+                     JOIN media_assets ma ON ma.id = pbms.media_asset_id
+                    WHERE pbms.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+                      AND pbms.visual_beat_id = mbp.visual_beat_id
+                      AND ma.status = 'READY'
+                      AND ma.deleted_at IS NULL
+                      AND ma.asset_type IN ('IMAGE', 'VIDEO')
+                      AND ma.size_bytes > 0
+                      AND ma.sha256 IS NOT NULL
+                 ) OR EXISTS (
+                   SELECT 1
                      FROM media_generation_items mgi
                      JOIN media_assets ma ON ma.id = mgi.media_asset_id
                     WHERE mgi.media_plan_id = mbp.media_plan_id
                       AND mgi.visual_beat_id = mbp.visual_beat_id
                       AND mgi.execution_status = 'READY'
-                      AND ma.asset_type = 'IMAGE'
+                      AND ma.asset_type IN ('IMAGE', 'VIDEO')
                       AND ma.status = 'READY'
                       AND ma.deleted_at IS NULL
-                      AND ma.storage_key IS NOT NULL
                       AND ma.size_bytes > 0
                       AND ma.sha256 IS NOT NULL
                  )
@@ -180,16 +187,20 @@
            mbp.audio_start_ms,
            mbp.audio_end_ms,
            mbp.audio_duration_ms,
-           selected.media_asset_id,
-           selected.storage_key,
-           selected.size_bytes,
-           selected.checksum
+           COALESCE(chosen.media_asset_id, generated.media_asset_id) AS media_asset_id,
+           COALESCE(chosen.media_type, generated.media_type) AS media_type,
+           COALESCE(chosen.storage_mode, generated.storage_mode) AS storage_mode,
+           COALESCE(chosen.source_duration_ms, generated.source_duration_ms) AS source_duration_ms,
+           CASE WHEN chosen.media_asset_id IS NOT NULL THEN chosen.fit_mode ELSE 'TRIM' END AS fit_mode,
+           CASE WHEN chosen.media_asset_id IS NOT NULL THEN chosen.trim_start_ms ELSE 0 END AS trim_start_ms,
+           (chosen.media_asset_id IS NOT NULL) AS media_selection_active,
+           COALESCE(chosen.storage_key, generated.storage_key) AS storage_key,
+           COALESCE(chosen.size_bytes, generated.size_bytes) AS size_bytes,
+           COALESCE(chosen.checksum, generated.checksum) AS checksum
       FROM chapters c
       JOIN current_story cs ON cs.id = c.story_version_id
       JOIN chapter_media_heads cmh ON cmh.chapter_id = c.id
-      JOIN generation_jobs gj
-        ON gj.id = cmh.generation_job_id
-       AND gj.status = 'COMPLETED'
+      JOIN generation_jobs gj ON gj.id = cmh.generation_job_id AND gj.status = 'COMPLETED'
       JOIN media_plans mp
         ON mp.id = gj.media_plan_id
        AND mp.revision = gj.media_plan_revision
@@ -200,7 +211,31 @@
       JOIN media_beat_plans mbp ON mbp.media_plan_id = mp.id
       LEFT JOIN visual_beats vb ON vb.id = mbp.visual_beat_id
       LEFT JOIN LATERAL (
+        SELECT ma.id AS media_asset_id,
+               ma.asset_type AS media_type,
+               ma.storage_mode,
+               ma.duration_ms AS source_duration_ms,
+               pbms.fit_mode,
+               pbms.trim_start_ms,
+               ma.storage_key,
+               ma.size_bytes,
+               ma.sha256 AS checksum
+          FROM production_beat_media_selections pbms
+          JOIN media_assets ma ON ma.id = pbms.media_asset_id
+         WHERE pbms.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+           AND pbms.visual_beat_id = mbp.visual_beat_id
+           AND ma.status = 'READY'
+           AND ma.deleted_at IS NULL
+           AND ma.asset_type IN ('IMAGE', 'VIDEO')
+           AND ma.size_bytes > 0
+           AND ma.sha256 IS NOT NULL
+         LIMIT 1
+      ) chosen ON TRUE
+      LEFT JOIN LATERAL (
         SELECT mgi.media_asset_id,
+               ma.asset_type AS media_type,
+               ma.storage_mode,
+               ma.duration_ms AS source_duration_ms,
                ma.storage_key,
                ma.size_bytes,
                ma.sha256 AS checksum
@@ -210,15 +245,14 @@
            AND mgi.visual_beat_id = mbp.visual_beat_id
            AND mgi.execution_status = 'READY'
            AND mgi.media_asset_id IS NOT NULL
-           AND ma.asset_type = 'IMAGE'
+           AND ma.asset_type IN ('IMAGE', 'VIDEO')
            AND ma.status = 'READY'
            AND ma.deleted_at IS NULL
-           AND ma.storage_key IS NOT NULL
            AND ma.size_bytes > 0
            AND ma.sha256 IS NOT NULL
          ORDER BY mgi.attempt_number DESC, mgi.created_at DESC, mgi.id DESC
          LIMIT 1
-      ) selected ON TRUE
+      ) generated ON TRUE
      WHERE c.deleted_at IS NULL
      ORDER BY c.order_index ASC, c.id ASC, mbp.scene_index ASC, mbp.beat_index ASC
   </select>
