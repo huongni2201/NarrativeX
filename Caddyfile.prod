@@ -1,8 +1,0 @@
-:80 {
-  encode zstd gzip
-
-  @health path /healthz
-  respond @health 200
-
-  reverse_proxy backend:8080
-}
