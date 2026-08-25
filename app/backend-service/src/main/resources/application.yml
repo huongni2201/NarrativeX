@@ -41,6 +41,7 @@ server:
         http-only: true
         secure: true
         same-site: lax
+        max-age: ${NARRATIVEX_SESSION_COOKIE_MAX_AGE:7d}
 
 narrativex:
   generation:
