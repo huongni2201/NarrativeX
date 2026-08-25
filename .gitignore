@@ -5,17 +5,11 @@
 .env.*
 !.env.example
 !**/.env.example
-app/frontend-web/playwright/.auth/
-app/frontend-web/test-results/
-app/frontend-web/playwright-report/
 
 # ==========================================
-# Node / Frontend (Next.js)
+# Node / Electron Desktop
 # ==========================================
 node_modules/
-.next/
-.next_dev/
-app/frontend-web/out/
 .turbo/
 .pnpm-store/
 *.tsbuildinfo
