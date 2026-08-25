@@ -94,6 +94,12 @@ export interface LocalProjectBackup {
   sizeBytes: number;
 }
 
+export interface LocalProjectBackupInspection {
+  projectId: string;
+  manifestSchemaVersion: number;
+  targetExists: boolean;
+}
+
 export interface LocalProjectRestoreInput {
   backupDirectory: string;
   replaceExisting?: boolean;
@@ -493,6 +499,26 @@ export class ProjectStorage {
         await rm(backupDirectory, { recursive: true, force: true }).catch(() => undefined);
         throw error;
       }
+    });
+  }
+
+  async inspectBackup(backupDirectory: string): Promise<LocalProjectBackupInspection> {
+    const source = resolve(backupDirectory);
+    await this.assertSafeDirectoryOrMissing(resolve(this.projectsRoot), "Projects root");
+    await this.assertNoSymlinkAncestors(source, "Restore source");
+    await this.assertNoSymlinks(source, "Restore source");
+    const backupManifest = await readBackupManifest(source);
+    return this.withProjectLock(backupManifest.projectId, async () => {
+      const destination = this.projectRoot(backupManifest.projectId);
+      await this.assertSafeDirectoryOrMissing(destination, "Project root");
+      if (isPathInside(destination, source)) {
+        throw new Error("Restore source must be outside the active project workspace.");
+      }
+      return {
+        projectId: backupManifest.projectId,
+        manifestSchemaVersion: backupManifest.schemaVersion,
+        targetExists: await directoryExists(destination),
+      };
     });
   }
 

@@ -79,6 +79,15 @@ class MyBatisSchemaReferenceContractTest {
         () -> "Retired `references` column found in MyBatis mapper(s): " + violations);
   }
 
+  @Test
+  void storyVersionMapperCannotReferenceRetiredModerationColumn() throws IOException {
+    Path mapper = MAPPER_ROOT.resolve("StoryVersionMapper.xml");
+
+    assertFalse(
+        Files.readString(mapper).toLowerCase(Locale.ROOT).contains("moderation_decision"),
+        "StoryVersionMapper must not reference the retired story moderation column");
+  }
+
   private static Set<String> schemaTables() throws IOException {
     String migration = Files.readString(CREATE_TABLES_MIGRATION);
     Matcher matcher = CREATE_TABLE.matcher(migration);

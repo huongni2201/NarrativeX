@@ -34,6 +34,7 @@ A database whose Flyway history contains an older NarrativeX V1/V2/... chain is 
 - `media_beat_plans.reuse_source_visual_beat_id` and its reuse-strategy invariants are part of V1.
 - Project render snapshots and `CLOUD` / `LOCAL_DEVICE` execution routing are part of V1; their claim/access indexes are in V2.
 - Generation completion notifications, generation SSE/`pg_notify`, quota-finalization and immutable-snapshot enforcement are defined once in V1 rather than patched by later migrations.
+- `story_versions` contains lifecycle state only (`DRAFT`, `ACTIVE`, `SUPERSEDED`); story-level moderation columns and `BLOCKED` are intentionally absent. The separate `moderation_decisions` control-plane table remains available for applicable policy/audit records and must not be reintroduced as StoryVersion state.
 - V3 contains system bootstrap data only. User/project/story content must not be inserted by Flyway.
 
 ## Entity/schema matrix

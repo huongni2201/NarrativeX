@@ -78,15 +78,13 @@ class StoryboardApiIntegrationTest {
         "INSERT INTO projects (id, name, description, owner_id, status, source_language, narration_language, metadata_language, image_aspect_ratio, image_quality_tier) VALUES (?, 'P1002', 'Desc', 'seed-user-01', 'ACTIVE', 'vi-VN', 'vi-VN', 'vi-VN', 'RATIO_16_9', 'STANDARD') ON CONFLICT (id) DO NOTHING",
         PROJECT_2);
     jdbcTemplate.update(
-        "INSERT INTO story_versions (id, project_id, version_number, content, source_language, status, moderation_decision) VALUES (?, ?, 1, 'Content', 'vi-VN', 'ACTIVE', 'SAFE') ON CONFLICT (id) DO NOTHING",
+        "INSERT INTO story_versions (id, project_id, version_number, content, source_language, status) VALUES (?, ?, 1, 'Content', 'vi-VN', 'ACTIVE') ON CONFLICT (id) DO NOTHING",
         STORY_1,
         PROJECT_1);
     jdbcTemplate.update(
-        "INSERT INTO story_versions (id, project_id, version_number, content, source_language, status, moderation_decision) VALUES (?, ?, 1, 'Content', 'vi-VN', 'ACTIVE', 'SAFE') ON CONFLICT (id) DO NOTHING",
+        "INSERT INTO story_versions (id, project_id, version_number, content, source_language, status) VALUES (?, ?, 1, 'Content', 'vi-VN', 'ACTIVE') ON CONFLICT (id) DO NOTHING",
         STORY_2,
         PROJECT_2);
-    jdbcTemplate.update(
-        "UPDATE story_versions SET moderation_decision = 'NOT_REQUIRED' WHERE id = ?", STORY_2);
     jdbcTemplate.update(
         "INSERT INTO chapters (id, story_version_id, order_index, title, source_text, source_hash, status, estimated_duration_ms, generation_progress) VALUES (?, ?, 1, 'Ch 1', 'Text', repeat('a', 64), 'READY', 42000, 100) ON CONFLICT (id) DO NOTHING",
         CHAPTER_1,

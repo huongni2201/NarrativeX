@@ -37,6 +37,8 @@ The local render engine currently provides:
 - immutable local asset/artifact registration with SHA-256 verification;
 - local project manifest updates serialized per project.
 
+Backup restore is inspected in Electron main using the backup manifest before any filesystem replacement. Restoring into a new project passes `replaceExisting: false`; an existing project requires a native Cancel/Replace Project confirmation. Replacement keeps a registered pre-restore snapshot and retains staging/symlink validation and rollback behavior.
+
 ## Configuration
 
 Copy `.env.example` to `.env` for development. electron-vite `VITE_*` values are build/dev configuration; `NARRATIVEX_*` process variables are optional runtime overrides and take precedence.

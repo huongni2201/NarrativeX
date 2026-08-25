@@ -25,12 +25,15 @@ Electron must not embed Google OAuth in an application `BrowserWindow`.
 
 ```text
 Electron main
-  -> GET /api/v1/auth/desktop/start?redirect_uri=narrativex://auth/callback
+  -> GET /api/v1/auth/desktop/start?redirect_uri=narrativex://auth/callback&code_challenge=<S256 challenge>
   -> system browser
   -> Spring Security Google OIDC
 ```
 
 The backend strictly validates the NarrativeX Desktop redirect structure before entering Google OIDC.
+Electron main generates a random 32-byte verifier for each login attempt, retains it only in
+memory, and sends only its unpadded base64url SHA-256 challenge to the backend. A new login
+replaces the pending verifier; failed, expired, successful and logout flows clear it.
 
 ### 3. OAuth completion uses a short-lived one-time handoff code
 
@@ -41,6 +44,11 @@ narrativex://auth/callback?code=<one-time-code>
 ```
 
 The custom protocol handler extracts only the handoff code. Google access and refresh tokens never enter the deep link or renderer state.
+
+The handoff payload also contains the initiating app instance's `code_challenge`. The Redis
+payload never contains the raw verifier. Electron main performs the exchange and sends only the
+parsed exchange response across preload to the renderer; the verifier and exchange request never
+enter renderer state, URLs or logs.
 
 Handoff codes are:
 
@@ -57,9 +65,14 @@ Desktop exchanges the handoff code through:
 
 ```text
 POST /api/v1/auth/desktop/exchange
+{ "code": "<one-time-code>", "codeVerifier": "<main-process-only-verifier>" }
 ```
 
-The backend consumes the code, reconstructs the NarrativeX user principal and persists authentication through the configured Spring Security `SecurityContextRepository`.
+The backend atomically obtains and deletes the short-lived handoff, derives
+`BASE64URL(SHA256(codeVerifier))`, and compares it with the stored challenge before reconstructing
+the NarrativeX user principal. A wrong verifier therefore cannot authenticate and the consumed
+handoff cannot be retried. The backend persists successful authentication through the configured
+Spring Security `SecurityContextRepository`.
 
 The resulting authentication is the same server-managed NarrativeX session model used by backend authorization. Desktop does not persist a long-lived Google bearer/refresh token.
 
@@ -88,12 +101,13 @@ After a valid user session exists, Desktop may create a short-lived pairing code
 
 1. Never place Google access or refresh tokens in a deep-link URL.
 2. Desktop handoff codes must remain random, short-lived and single-use.
-3. Persist only hashed/derived handoff identifiers; never log raw handoff codes.
-4. Custom-protocol callbacks must match the exact NarrativeX scheme/host/path contract.
-5. User-session and device-execution credentials remain separate concepts.
-6. Device tokens must be protected at rest, revocable and absent from renderer application state.
-7. Renderer IPC/network capabilities must be allow-listed and sender-validated.
-8. Password authentication/schema fields must not silently return through fallback UI, fixtures or production code.
+3. Desktop exchanges must use the initiating instance's PKCE-style verifier; intercepting only the deep-link code is insufficient.
+4. Persist only hashed/derived handoff identifiers and the challenge; never persist or log raw handoff codes or verifiers.
+5. Custom-protocol callbacks must match the exact NarrativeX scheme/host/path contract and must not carry a verifier.
+6. User-session and device-execution credentials remain separate concepts.
+7. Device tokens must be protected at rest, revocable and absent from renderer application state.
+8. Renderer IPC/network capabilities must be allow-listed and sender-validated; auth verifiers remain in main memory.
+9. Password authentication/schema fields must not silently return through fallback UI, fixtures or production code.
 
 ## Consequences
 
@@ -103,6 +117,7 @@ After a valid user session exists, Desktop may create a short-lived pairing code
 - No embedded Google login surface in Electron.
 - No password credential persistence in the final database baseline.
 - Google credentials remain outside Desktop application state.
+- Intercepted deep-link codes cannot be exchanged without the initiating instance's verifier.
 - OAuth handoff works across multiple backend instances through Redis.
 - Server-managed NarrativeX authentication remains compatible with backend ownership/policy checks.
 - Local execution can be revoked independently and cannot silently cross user accounts.

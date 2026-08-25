@@ -1,49 +1,54 @@
-"""Provider ports and concrete adapters."""
+"""Provider ports with lazy exports for role-specific adapters.
 
-from narrativex_worker.providers.disabled import DisabledProvider, ProviderNotConfiguredError
-from narrativex_worker.providers.factory import DisabledImageProvider, create_image_provider
-from narrativex_worker.providers.image import (
-    ImageGenerationRequest,
-    ImageGenerationResult,
-    ImageProviderOperation,
-)
-from narrativex_worker.providers.ports import (
-    LlmProvider,
-    ProviderCapabilities,
-    ProviderEstimate,
-    ProviderOperation,
-    VideoGenerationProvider,
-    VideoGenerationRequest,
-    VideoProviderOperation,
-)
-from narrativex_worker.providers.vertex import VertexGeminiProvider, VertexProviderError
-from narrativex_worker.providers.vertex_image import (
-    VertexImageProvider,
-    VertexImageProviderError,
-    VertexImageSubmissionUnknownError,
-)
-from narrativex_worker.providers.wan import WanProviderError, WanVideoProvider
+Importing the provider namespace must not import image, narration or other
+optional runtime dependencies. Concrete adapters are loaded only when a caller
+requests their named export or imports the adapter module directly.
+"""
 
-__all__ = [
-    "DisabledProvider",
-    "LlmProvider",
-    "ProviderCapabilities",
-    "ProviderEstimate",
-    "ProviderNotConfiguredError",
-    "ProviderOperation",
-    "VideoGenerationProvider",
-    "VideoGenerationRequest",
-    "VideoProviderOperation",
-    "VertexGeminiProvider",
-    "VertexProviderError",
-    "ImageGenerationRequest",
-    "ImageGenerationResult",
-    "ImageProviderOperation",
-    "VertexImageProvider",
-    "VertexImageProviderError",
-    "VertexImageSubmissionUnknownError",
-    "DisabledImageProvider",
-    "create_image_provider",
-    "WanProviderError",
-    "WanVideoProvider",
-]
+from importlib import import_module
+from typing import Any
+
+_LAZY_EXPORTS: dict[str, tuple[str, str]] = {
+    "DisabledProvider": ("narrativex_worker.providers.disabled", "DisabledProvider"),
+    "ProviderNotConfiguredError": (
+        "narrativex_worker.providers.disabled",
+        "ProviderNotConfiguredError",
+    ),
+    "DisabledImageProvider": ("narrativex_worker.providers.factory", "DisabledImageProvider"),
+    "create_image_provider": ("narrativex_worker.providers.factory", "create_image_provider"),
+    "ImageGenerationRequest": ("narrativex_worker.providers.image", "ImageGenerationRequest"),
+    "ImageGenerationResult": ("narrativex_worker.providers.image", "ImageGenerationResult"),
+    "ImageProviderOperation": ("narrativex_worker.providers.image", "ImageProviderOperation"),
+    "LlmProvider": ("narrativex_worker.providers.ports", "LlmProvider"),
+    "ProviderCapabilities": ("narrativex_worker.providers.ports", "ProviderCapabilities"),
+    "ProviderEstimate": ("narrativex_worker.providers.ports", "ProviderEstimate"),
+    "ProviderOperation": ("narrativex_worker.providers.ports", "ProviderOperation"),
+    "VideoGenerationProvider": ("narrativex_worker.providers.ports", "VideoGenerationProvider"),
+    "VideoGenerationRequest": ("narrativex_worker.providers.ports", "VideoGenerationRequest"),
+    "VideoProviderOperation": ("narrativex_worker.providers.ports", "VideoProviderOperation"),
+    "VertexGeminiProvider": ("narrativex_worker.providers.vertex", "VertexGeminiProvider"),
+    "VertexProviderError": ("narrativex_worker.providers.vertex", "VertexProviderError"),
+    "VertexImageProvider": ("narrativex_worker.providers.vertex_image", "VertexImageProvider"),
+    "VertexImageProviderError": (
+        "narrativex_worker.providers.vertex_image",
+        "VertexImageProviderError",
+    ),
+    "VertexImageSubmissionUnknownError": (
+        "narrativex_worker.providers.vertex_image",
+        "VertexImageSubmissionUnknownError",
+    ),
+    "WanProviderError": ("narrativex_worker.providers.wan", "WanProviderError"),
+    "WanVideoProvider": ("narrativex_worker.providers.wan", "WanVideoProvider"),
+}
+
+__all__ = sorted(_LAZY_EXPORTS)
+
+
+def __getattr__(name: str) -> Any:
+    target = _LAZY_EXPORTS.get(name)
+    if target is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module = import_module(target[0])
+    value = getattr(module, target[1])
+    globals()[name] = value
+    return value

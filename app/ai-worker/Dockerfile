@@ -1,15 +1,11 @@
 # syntax=docker/dockerfile:1
 
-FROM python:3.12-slim AS runner
+FROM python:3.12-slim AS base
 
 WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core \
-    && rm -rf /var/lib/apt/lists/*
 
 # The Debian system-user default home is /nonexistent. VieNeu and Hugging Face
 # resolve model/profile caches from the process home, so give the non-root worker
@@ -28,6 +24,15 @@ RUN addgroup --system appgroup \
 # the small top-level module during this first install.
 COPY pyproject.toml README.md ./
 COPY src/narrativex_worker/__init__.py ./src/narrativex_worker/__init__.py
+
+EXPOSE 8001
+HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=4 \
+  CMD python -c "import os, urllib.request; port=os.getenv('HEALTH_CHECK_PORT', '8001'); urllib.request.urlopen(f'http://127.0.0.1:{port}/healthz', timeout=4).read()" || exit 1
+
+CMD ["python", "-m", "narrativex_worker"]
+
+FROM base AS worker-core
+
 RUN --mount=type=cache,target=/root/.cache/pip pip install .
 
 # Install the current application code without resolving dependencies again.
@@ -36,8 +41,33 @@ RUN --mount=type=cache,target=/root/.cache/pip pip install --no-deps .
 
 USER appuser
 
-EXPOSE 8001
-HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=4 \
-  CMD python -c "import os, urllib.request; port=os.getenv('HEALTH_CHECK_PORT', '8001'); urllib.request.urlopen(f'http://127.0.0.1:{port}/healthz', timeout=4).read()" || exit 1
+FROM base AS media-base
 
-CMD ["python", "-m", "narrativex_worker"]
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core \
+    && rm -rf /var/lib/apt/lists/*
+
+FROM media-base AS worker-image
+
+RUN --mount=type=cache,target=/root/.cache/pip pip install ".[image]"
+COPY src/ ./src/
+RUN --mount=type=cache,target=/root/.cache/pip pip install --no-deps .
+USER appuser
+
+FROM media-base AS worker-narration
+
+RUN --mount=type=cache,target=/root/.cache/pip pip install ".[narration]"
+COPY src/ ./src/
+RUN --mount=type=cache,target=/root/.cache/pip pip install --no-deps .
+USER appuser
+
+FROM media-base AS worker-render
+
+RUN --mount=type=cache,target=/root/.cache/pip pip install ".[render]"
+COPY src/ ./src/
+RUN --mount=type=cache,target=/root/.cache/pip pip install --no-deps .
+USER appuser
+
+# `docker build .` keeps a useful default for the combined analysis/image worker;
+# Compose selects the explicit role target for each service.
+FROM worker-image AS default

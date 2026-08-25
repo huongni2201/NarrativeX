@@ -105,7 +105,11 @@ R2/Drive remain valid for retained server-worker paths and deliberately shared r
 
 ## Production ingress
 
-`docker-compose.prod.yml` no longer contains a web frontend or Caddy service. For self-hosted deployments, Cloudflare Tunnel may route the public HTTPS API hostname directly to `http://backend:8080` on the Compose network. If the deployment platform already provides HTTPS ingress, `cloudflared` is optional.
+`docker-compose.yml` contains no web frontend or Caddy service. For self-hosted
+deployments, Cloudflare Tunnel is opt-in through the `tunnel` Compose profile and
+may route the public HTTPS API hostname directly to `http://backend:8080` on the
+Compose network. If the deployment platform already provides HTTPS ingress,
+`cloudflared` is optional.
 
 ## Current gaps
 

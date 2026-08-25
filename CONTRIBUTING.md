@@ -10,17 +10,27 @@
 
 ## Local checks
 
-The repository also provides a provider-independent quality-gate runner. It is the local
-equivalent of the Phase 5 fast/integration gates and fails immediately on the first failed
-compile, test, formatter, lint, type, or build command:
+Run the full provider-independent local quality gate before pushing or merging. It fails
+immediately on the first failed secret scan, test, formatter, lint, type, build, or Compose
+validation command:
 
 ```powershell
-python scripts/quality-gates.py --skip-install       # fast gates, reuse node_modules
-python scripts/quality-gates.py --profile all       # includes Testcontainers and Docker image build
+pwsh -File scripts/verify-local.ps1
 ```
 
-`--profile all` requires a working Docker daemon. The quality gates do not depend on GitHub
-Actions or a hosted CI token.
+Windows PowerShell can run the same command with `powershell -File scripts/verify-local.ps1`.
+The gate runs `mvnw.cmd verify` (including configured JaCoCo and Spotless checks), AI worker
+tests/Ruff/mypy, Desktop `npm ci` plus tests/type-check/build, the repository secret scan,
+and `docker compose config --quiet`. It does not require GitHub Actions minutes or tokens.
+
+The first gate step is `python scripts/check-secrets.py`. It covers the provider credentials
+used by NarrativeX (Google/GCP, Cloudflare Tunnel, AWS/R2, GitHub, Slack), bearer/JWT tokens,
+database URLs with inline passwords, PEM private keys and non-placeholder environment
+credentials. `${ENV_VAR}`, `<redacted>`, `change-me` and explicit `secret-scan: allow` fixture
+markers are safe examples; do not use those allowlists for real credentials.
+
+For faster iteration, run only the narrow checks relevant to the files being changed. These
+are development checks and do not replace the full gate:
 
 ```powershell
 # Backend
@@ -36,11 +46,20 @@ python -m mypy src
 # Desktop (only editor client)
 cd ../desktop
 npm ci
+npm test
 npm run type-check
 npm run build
 ```
 
 The first run may require dependency downloads. Provider integrations must use deterministic fakes or mocked adapters in automated tests.
+
+An optional Git pre-push hook is included. Activate it explicitly for this checkout with:
+
+```powershell
+git config core.hooksPath .githooks
+```
+
+The hook invokes `scripts/verify-local.ps1`; application code never changes Git configuration.
 
 ## Desktop rules
 
@@ -53,7 +72,26 @@ The first run may require dependency downloads. Provider integrations must use d
 
 ## Production ingress
 
-NarrativeX does not require a web frontend or Caddy. A self-hosted production deployment may keep `cloudflared` as HTTPS ingress and route directly to `http://backend:8080` inside the Compose network. Deployments that already provide HTTPS ingress may omit `cloudflared`.
+NarrativeX does not require a web frontend or Caddy. The default Compose startup
+is:
+
+```powershell
+docker compose up -d
+```
+
+It starts PostgreSQL, Redis, the backend and retained workers without a tunnel
+token. A self-hosted deployment using Cloudflare Tunnel must explicitly enable
+the profile:
+
+```powershell
+docker compose --profile tunnel up -d
+```
+
+With that profile enabled, `CLOUDFLARE_TUNNEL_TOKEN` is required and the tunnel
+routes directly to `http://backend:8080` inside the Compose network. The public
+`APP_DOMAIN` must resolve over HTTPS to the tunnel for Desktop system-browser
+OAuth and API/session traffic. Deployments that already provide HTTPS ingress
+should leave the tunnel profile disabled.
 
 ## Documentation changes
 

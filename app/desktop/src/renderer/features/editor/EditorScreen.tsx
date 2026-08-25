@@ -5,6 +5,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   AudioLines, Bell, Camera, Check, ChevronDown, ChevronRight, Cloud, Copy, Eye, Folder,
   FolderOpen, HardDrive, Image as ImageIcon, Layers3, LockKeyhole, Maximize2, Menu, Mic2,
+  Minimize2,
   MoreVertical, MousePointer2, Pause, Play, Plus, Redo2, RotateCcw, Scissors,
   Search, Settings2, SkipBack, SkipForward, SlidersHorizontal, Sparkles, Trash2, Type,
   Undo2, UserCircle, Volume2, WandSparkles, ZoomIn, ZoomOut,
@@ -22,6 +23,7 @@ import { commitCommand, createCommandHistory, redoCommand, undoCommand } from ".
 import { useAnalyzeChapter, useCreateMediaJob, useEstimateMediaJob, useGenerationJob, useMediaJob, useReviewMediaItem } from "../generation/queries/generation.queries";
 import { useGenerateBatchNarration, useGenerateNarration } from "../generation/queries/narration.queries";
 import { useCreateCharacter } from "../characters/queries/characters.queries";
+import { invokeWindowControl, type WindowControlAction } from "../../app/window-control-actions";
 
 export type ActivityId = "editor" | "chapters" | "characters" | "images" | "voice" | "assets" | "render" | "settings";
 type InspectorTab = "properties" | "effects" | "transitions";
@@ -79,6 +81,8 @@ export function EditorScreen({ initialScreen = "editor" }: Readonly<{ initialScr
   const [saveState, setSaveState] = useState("Connecting workspace…");
   const [renderJob, setRenderJob] = useState<RenderState>(null);
   const [renderNotice, setRenderNotice] = useState<string | null>(null);
+  const [isMaximized, setIsMaximized] = useState(false);
+  const [windowControlError, setWindowControlError] = useState<string | null>(null);
   const [appVersion, setAppVersion] = useState<string | null>(null);
   const [timelineHistory, setTimelineHistory] = useState(() => createCommandHistory<TimelineDraft>({}));
   const timelineDraft = timelineHistory.present;
@@ -146,6 +150,17 @@ export function EditorScreen({ initialScreen = "editor" }: Readonly<{ initialScr
     }
   }
 
+  async function handleWindowControl(action: WindowControlAction) {
+    try {
+      setWindowControlError(null);
+      const result = await invokeWindowControl(window.narrativex?.windowControls, action);
+      if (action === "toggleMaximize") setIsMaximized(result === true);
+    } catch {
+      console.error(`Native window control failed: ${action}`);
+      setWindowControlError("Window controls are unavailable.");
+    }
+  }
+
   async function openRenderOutput() {
     if (!projectId || !renderJob || renderJob.status !== "COMPLETED") {
       setRenderNotice("Render output chưa sẵn sàng.");
@@ -193,7 +208,7 @@ export function EditorScreen({ initialScreen = "editor" }: Readonly<{ initialScr
       <nav className="menu" aria-label="Application menu">{["File", "Edit", "Project", "Timeline", "View", "Tools", "Help"].map((item) => <button key={item} type="button">{item}</button>)}</nav>
       <ProjectPicker projects={workspace.projects} activeProjectId={activeProject?.id ?? selectedProjectId} onChange={(nextProjectId) => { setActiveProject(nextProjectId); navigate(`/projects/${nextProjectId}/editor`); }} />
       <div className="autosave"><Cloud size={14} /> {saveState}</div>
-      <div className="window-actions"><button type="button" className="export-button" onClick={() => void startRender()}><Sparkles size={14} /> Export</button><span className="jobs-pill"><i /> {renderJob ? "1 job" : "0 jobs"}</span><button type="button" className="icon-button" aria-label="Cloud sync"><Cloud size={17} /></button><button type="button" className="icon-button notification" aria-label="Notifications"><Bell size={17} /><i /></button><button type="button" className="window-button" aria-label="Minimize">−</button><button type="button" className="window-button" aria-label="Maximize">□</button><button type="button" className="window-button close" aria-label="Close">×</button></div>
+      <div className="window-actions"><button type="button" className="export-button" onClick={() => void startRender()}><Sparkles size={14} /> Export</button><span className="jobs-pill"><i /> {renderJob ? "1 job" : "0 jobs"}</span><button type="button" className="icon-button" aria-label="Cloud sync"><Cloud size={17} /></button><button type="button" className="icon-button notification" aria-label="Notifications"><Bell size={17} /><i /></button>{windowControlError && <span className="window-control-error" role="status" aria-live="polite">{windowControlError}</span>}<button type="button" className="window-button" aria-label="Minimize" title="Minimize" onClick={() => void handleWindowControl("minimize")}>−</button><button type="button" className="window-button" aria-label={isMaximized ? "Restore" : "Maximize"} title={isMaximized ? "Restore" : "Maximize"} onClick={() => void handleWindowControl("toggleMaximize")}>{isMaximized ? <Minimize2 size={15} /> : <Maximize2 size={15} />}</button><button type="button" className="window-button close" aria-label="Close" title="Close" onClick={() => void handleWindowControl("close")}>×</button></div>
     </header>
     <aside className="activity-bar"><div className="activity-list">{activities.map(({ id, label, icon: Icon }) => <button key={id} type="button" className={`activity ${activity === id ? "active" : ""}`} onClick={() => { setActivity(id); setScreen(id); }} aria-label={label} aria-pressed={activity === id} title={label}><Icon size={18} /><span>{label}</span></button>)}</div></aside>
     <aside className="explorer panel-right"><PanelHeader eyebrow={activity === "editor" || activity === "chapters" ? "Workspace" : "Library"} title={activity === "editor" || activity === "chapters" ? "Project Explorer" : activities.find((item) => item.id === activity)?.label ?? "Library"} /><>{activity === "editor" || activity === "chapters" ? <ProjectTree clips={clips} selectedId={selectedId} onSelect={(id) => { setSelectedId(id); setActivity("editor"); setScreen("editor"); }} projects={workspace.projects} activeProjectId={selectedProjectId} /> : <Library activity={activity} />}</></aside>
@@ -337,7 +352,6 @@ function SettingsPage({ projectId, workspace }: Readonly<{ projectId: string | n
   }
   async function restore() {
     try {
-      if (!window.confirm("Restore sẽ thay thế project hiện tại và giữ bản cũ dưới tên .before-restore. Tiếp tục?")) return;
       const result = await window.narrativex.localStorage.restoreBackup();
       if (!result) return;
       setNotice(`Đã restore project ${result.projectId}. Bản trước được giữ lại để khôi phục thủ công nếu cần.`);

@@ -14,17 +14,19 @@ storage semantics.
 
 ## Decision
 
-The supported machine-local runtime is `docker-compose.prod.yml` with
+The supported machine-local runtime is `docker-compose.yml` with
 `SPRING_PROFILES_ACTIVE=prod` and `WORKER_ENV=production`. It explicitly selects:
 
 - Vertex for analysis and image generation;
 - Cloudflare R2 for durable generated media;
 - VieNeu for narration;
 - Google Drive for final rendered MP4 files;
-- API mode for the frontend and server-managed session authentication.
+- API mode for the Desktop client and server-managed session authentication.
 
-The same Compose file contains the public Caddy and Cloudflare Tunnel services. Fake providers,
-local media storage and frontend mock data remain test/Storybook capabilities only.
+The same Compose file contains the optional Cloudflare Tunnel service behind the
+`tunnel` profile; it does not contain a web frontend or Caddy service. Fake
+providers, local media storage and frontend mock data remain test/Storybook
+capabilities only.
 Production worker startup rejects disabled/fake/local provider or storage selections for roles that
 need real external execution.
 

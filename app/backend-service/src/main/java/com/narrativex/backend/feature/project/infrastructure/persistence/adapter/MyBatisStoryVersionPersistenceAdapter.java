@@ -4,7 +4,6 @@ import com.narrativex.backend.feature.common.exception.ResourceNotFoundException
 import com.narrativex.backend.feature.common.infrastructure.persistence.OptimisticConcurrency;
 import com.narrativex.backend.feature.project.application.port.out.StoryVersionRepository;
 import com.narrativex.backend.feature.project.domain.entity.StoryVersion;
-import com.narrativex.backend.feature.project.domain.enums.ModerationDecision;
 import com.narrativex.backend.feature.project.domain.enums.StoryVersionStatus;
 import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.StoryVersionMapper;
 import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.StoryVersionRow;
@@ -64,7 +63,6 @@ public class MyBatisStoryVersionPersistenceAdapter implements StoryVersionReposi
     row.setContent(value.getContent());
     row.setSourceLanguage(value.getSourceLanguage());
     row.setStatus(value.getStatus().name());
-    row.setModerationDecision(value.getModerationDecision().name());
     if (value.getId() == null) {
       UUID id = mapper.insert(row);
       return toDomain(mapper.findById(id));
@@ -87,7 +85,6 @@ public class MyBatisStoryVersionPersistenceAdapter implements StoryVersionReposi
         row.getVersionNumber(),
         row.getContent(),
         row.getSourceLanguage(),
-        StoryVersionStatus.valueOf(row.getStatus()),
-        ModerationDecision.valueOf(row.getModerationDecision()));
+        StoryVersionStatus.valueOf(row.getStatus()));
   }
 }

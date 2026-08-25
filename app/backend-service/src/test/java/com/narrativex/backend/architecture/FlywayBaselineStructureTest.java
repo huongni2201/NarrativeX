@@ -40,4 +40,16 @@ class FlywayBaselineStructureTest {
     assertTrue(v1.contains("assigned_local_device_id UUID REFERENCES local_devices(id)"));
     assertTrue(v1.contains("NEW.job_type IN ('CHAPTER_RENDER', 'RENDER_PROJECT')"));
   }
+
+  @Test
+  void storyVersionsHaveOnlyLifecycleStateInTheFinalBaseline() throws IOException {
+    String v1 = Files.readString(FlywayMigrationContract.migration("V1__create_tables.sql"));
+    String storyVersions =
+        v1.substring(
+            v1.indexOf("CREATE TABLE story_versions"), v1.indexOf("CREATE TABLE chapters"));
+
+    assertFalse(storyVersions.toLowerCase().contains("moderation_decision"));
+    assertFalse(storyVersions.contains("BLOCKED"));
+    assertTrue(storyVersions.contains("CHECK (status IN ('DRAFT', 'ACTIVE', 'SUPERSEDED'))"));
+  }
 }

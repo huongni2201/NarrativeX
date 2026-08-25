@@ -153,7 +153,7 @@ class FinalArtifactControllerIntegrationTest extends PostgreSqlIntegrationTestSu
   private void insertStoryAndChapter(UUID storyId, UUID projectId, UUID chapterId) {
     jdbcTemplate.update(
         "INSERT INTO story_versions (id, project_id, version_number, content, source_language,"
-            + " status, moderation_decision) VALUES (?, ?, 1, 'Content', 'vi-VN', 'ACTIVE', 'SAFE')"
+            + " status) VALUES (?, ?, 1, 'Content', 'vi-VN', 'ACTIVE')"
             + " ON CONFLICT (id) DO NOTHING",
         storyId,
         projectId);

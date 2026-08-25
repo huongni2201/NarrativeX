@@ -43,7 +43,7 @@ A newer ADR wins only within the scope it explicitly supersedes.
 8. Absolute Desktop filesystem paths are never durable backend identifiers.
 9. Desktop local FFmpeg execution is backend-assigned/lease-controlled and occurs in Electron main, not the renderer.
 10. Cloudflare R2 + Google Drive remain retained server-worker storage paths where required; they are not mandatory Desktop project storage after ADR-0012.
-11. Production Compose no longer contains a web frontend or Caddy. Self-hosted deployments may keep Cloudflare Tunnel as direct HTTPS ingress to `backend:8080`; deployments with another HTTPS ingress may omit it.
+11. Production Compose no longer contains a web frontend or Caddy. Self-hosted deployments may enable the `tunnel` profile for direct HTTPS ingress to `backend:8080`; deployments with another HTTPS ingress should leave it disabled.
 12. Narration is not synonymous with TTS. `NarrationStrategy.USER_PROVIDED_AUDIO` bypasses TTS for the covered scope.
 13. Production persistence is MyBatis + explicit PostgreSQL SQL. Do not reintroduce JPA or direct `JdbcTemplate` persistence as a parallel production path.
 14. Cross-cutting changes to client, auth, storage or execution boundaries require an ADR.

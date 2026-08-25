@@ -79,8 +79,8 @@ class MyBatisChapterAnalysisSnapshotRepositoryIntegrationTest
         jdbcTemplate.queryForObject(
             """
             INSERT INTO story_versions
-              (project_id, version_number, content, source_language, status, moderation_decision)
-            VALUES (?, 1, 'story', 'en-US', 'DRAFT', 'PENDING')
+              (project_id, version_number, content, source_language, status)
+            VALUES (?, 1, 'story', 'en-US', 'DRAFT')
             RETURNING id
             """,
             UUID.class,

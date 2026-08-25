@@ -1,5 +1,11 @@
 import { apiRequest } from "../../../api/client";
 
+interface DesktopAuthExchangeResponse {
+  status: number;
+  statusText: string;
+  bodyText: string;
+}
+
 export interface DesktopAuthUser {
   id: string;
   displayName: string;
@@ -25,11 +31,30 @@ function parseUser(value: unknown): DesktopAuthUser {
 
 export const authApi = {
   getCurrentUser: () => apiRequest<unknown>("/api/v1/auth/me").then(parseUser),
-  exchange: (code: string) =>
-    apiRequest<unknown>("/api/v1/auth/desktop/exchange", {
-      method: "POST",
-      body: JSON.stringify({ code }),
-      headers: { "Content-Type": "application/json" },
-    }).then(parseUser),
-  logout: () => apiRequest<void>("/logout", { method: "POST" }),
+  exchange: async (response: DesktopAuthExchangeResponse) => {
+    if (response.status < 200 || response.status >= 300) {
+      let message = response.statusText || "Desktop auth exchange failed";
+      try {
+        const body = JSON.parse(response.bodyText) as { message?: unknown };
+        if (typeof body.message === "string" && body.message) message = body.message;
+      } catch {
+        // Preserve the transport status when the error body is not JSON.
+      }
+      throw new Error(message);
+    }
+    let envelope: { success?: boolean; data?: unknown };
+    try {
+      envelope = JSON.parse(response.bodyText) as { success?: boolean; data?: unknown };
+    } catch {
+      throw new Error("Desktop auth exchange response is invalid.");
+    }
+    if (envelope.success !== true) throw new Error("Desktop auth exchange response is invalid.");
+    return parseUser(envelope.data);
+  },
+  logout: () =>
+    window.narrativex.auth.logout().then((response) => {
+      if (response.status < 200 || response.status >= 300) {
+        throw new Error(response.statusText || "Logout failed");
+      }
+    }),
 };

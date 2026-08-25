@@ -43,8 +43,8 @@ class MyBatisFinalArtifactRepositoryIntegrationTest extends PostgreSqlIntegratio
         PROJECT_ID);
     jdbcTemplate.update(
         "INSERT INTO story_versions (id, project_id, version_number, content, source_language,"
-            + " status, moderation_decision) VALUES (?, ?, 1, 'Content', 'vi-VN', 'ACTIVE',"
-            + " 'SAFE') ON CONFLICT (id) DO NOTHING",
+            + " status) VALUES (?, ?, 1, 'Content', 'vi-VN', 'ACTIVE')"
+            + " ON CONFLICT (id) DO NOTHING",
         STORY_VERSION_ID,
         PROJECT_ID);
     jdbcTemplate.update(

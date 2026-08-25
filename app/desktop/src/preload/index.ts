@@ -14,11 +14,12 @@ const bridge: NarrativeXDesktopBridge = {
   },
   auth: {
     login: () => ipcRenderer.invoke("desktop:auth:login"),
-    onCallback: (listener: (code: string) => void) => {
-      const handler = (_event: IpcRendererEvent, code: string) => listener(code);
+    logout: () => ipcRenderer.invoke("desktop:auth:logout") as Promise<DesktopApiResponse>,
+    onCallback: (listener: (response: DesktopApiResponse) => void) => {
+      const handler = (_event: IpcRendererEvent, response: DesktopApiResponse) => listener(response);
       ipcRenderer.on("desktop:auth:callback", handler);
-      void ipcRenderer.invoke("desktop:auth:consume-pending").then((code: unknown) => {
-        if (typeof code === "string" && code) listener(code);
+      void ipcRenderer.invoke("desktop:auth:consume-pending").then((response: unknown) => {
+        if (isDesktopApiResponse(response)) listener(response);
       });
       return () => ipcRenderer.removeListener("desktop:auth:callback", handler);
     },
@@ -66,5 +67,15 @@ const bridge: NarrativeXDesktopBridge = {
     close: () => ipcRenderer.invoke("desktop:window:close"),
   },
 };
+
+function isDesktopApiResponse(value: unknown): value is DesktopApiResponse {
+  if (!value || typeof value !== "object") return false;
+  const response = value as Partial<DesktopApiResponse>;
+  return (
+    typeof response.status === "number" &&
+    typeof response.statusText === "string" &&
+    typeof response.bodyText === "string"
+  );
+}
 
 contextBridge.exposeInMainWorld("narrativex", bridge);

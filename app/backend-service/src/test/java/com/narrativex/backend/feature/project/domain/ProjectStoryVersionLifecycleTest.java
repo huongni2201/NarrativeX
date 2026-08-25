@@ -8,9 +8,9 @@ import com.narrativex.backend.feature.project.domain.aggregate.Project;
 import com.narrativex.backend.feature.project.domain.entity.StoryVersion;
 import com.narrativex.backend.feature.project.domain.enums.AspectRatio;
 import com.narrativex.backend.feature.project.domain.enums.ImageQualityTier;
-import com.narrativex.backend.feature.project.domain.enums.ModerationDecision;
 import com.narrativex.backend.feature.project.domain.enums.ProjectStatus;
 import com.narrativex.backend.feature.project.domain.enums.StoryVersionStatus;
+import com.narrativex.backend.feature.project.domain.exception.InvalidStoryVersionTransitionException;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -54,6 +54,15 @@ class ProjectStoryVersionLifecycleTest {
     assertEquals(ProjectStatus.DRAFT, project.getStatus());
   }
 
+  @Test
+  void invalidStoryVersionTransitionsStillFail() {
+    StoryVersion active = story(STORY_10, PROJECT_ID, 1, StoryVersionStatus.ACTIVE);
+    StoryVersion draft = story(STORY_11, PROJECT_ID, 2, StoryVersionStatus.DRAFT);
+
+    assertThrows(InvalidStoryVersionTransitionException.class, active::activate);
+    assertThrows(InvalidStoryVersionTransitionException.class, draft::supersede);
+  }
+
   private static Project project(UUID id) {
     return Project.rehydrate(
         id,
@@ -71,7 +80,6 @@ class ProjectStoryVersionLifecycleTest {
 
   private static StoryVersion story(
       UUID id, UUID projectId, int versionNumber, StoryVersionStatus status) {
-    return StoryVersion.rehydrate(
-        id, 0L, projectId, versionNumber, "story", "vi-VN", status, ModerationDecision.PENDING);
+    return StoryVersion.rehydrate(id, 0L, projectId, versionNumber, "story", "vi-VN", status);
   }
 }

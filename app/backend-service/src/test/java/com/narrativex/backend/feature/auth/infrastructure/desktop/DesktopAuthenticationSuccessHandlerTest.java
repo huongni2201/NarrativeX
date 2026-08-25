@@ -40,16 +40,40 @@ class DesktopAuthenticationSuccessHandlerTest {
     HttpSession session = mock(HttpSession.class);
     Authentication authentication = mock(Authentication.class);
     String redirectUri = "narrativex://auth/callback";
+    String codeChallenge = "a".repeat(43);
 
     when(request.getSession(false)).thenReturn(session);
     when(session.getAttribute("NARRATIVEX_DESKTOP_REDIRECT_URI")).thenReturn(redirectUri);
+    when(session.getAttribute("NARRATIVEX_DESKTOP_CODE_CHALLENGE")).thenReturn(codeChallenge);
     when(authentication.getName()).thenReturn("user-1");
-    when(handoffStore.issue(new DesktopUserPrincipal("user-1", "user-1", null, null)))
+    when(handoffStore.issue(
+            new DesktopUserPrincipal("user-1", "user-1", null, null), codeChallenge))
         .thenReturn("one-time-code");
 
     handler.onAuthenticationSuccess(request, response, authentication);
 
     verify(session).removeAttribute("NARRATIVEX_DESKTOP_REDIRECT_URI");
+    verify(session).removeAttribute("NARRATIVEX_DESKTOP_CODE_CHALLENGE");
     verify(response).sendRedirect("narrativex://auth/callback?code=one-time-code");
+  }
+
+  @Test
+  void rejectsOAuthCompletionWithoutTheInitiatingCodeChallenge() throws Exception {
+    HttpServletRequest request = mock(HttpServletRequest.class);
+    HttpServletResponse response = mock(HttpServletResponse.class);
+    HttpSession session = mock(HttpSession.class);
+    Authentication authentication = mock(Authentication.class);
+
+    when(request.getSession(false)).thenReturn(session);
+    when(session.getAttribute("NARRATIVEX_DESKTOP_REDIRECT_URI"))
+        .thenReturn("narrativex://auth/callback");
+
+    handler.onAuthenticationSuccess(request, response, authentication);
+
+    verify(response)
+        .sendError(
+            HttpServletResponse.SC_BAD_REQUEST,
+            "Desktop OAuth must be started through /api/v1/auth/desktop/start.");
+    verifyNoInteractions(handoffStore);
   }
 }

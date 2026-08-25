@@ -86,7 +86,7 @@ Desktop owns the editor workspace, project media bytes, local filesystem/cache, 
 - AI-worker local I/O retry and UNKNOWN reconciliation delays now use a shared deterministic bounded retry policy. Provider submission remains UNKNOWN-first and must reconcile before resubmission.
 - Timeline draft mutations now use a typed command-history state machine with undo/redo semantics, clearing the redo branch after a new edit.
 - Added deterministic Node and Python test coverage for timeline drafts, render-journal discovery, workspace backup/restore/archive-copy, storage accounting, retry policy behavior, and UUID/pinned-worker dependency contracts. Browser verification remains blocked by the in-app browser refusing local Vite URLs (`ERR_BLOCKED_BY_CLIENT`) in this environment.
-- Legacy `app/frontend-web` was removed; production Compose no longer contains a frontend or Caddy service. Cloudflare Tunnel, when used, routes directly to the backend.
+- Legacy `app/frontend-web` was removed; production Compose no longer contains a frontend or Caddy service. Cloudflare Tunnel, when the `tunnel` profile is enabled, routes directly to the backend.
 
 ## Implementation slices
 
@@ -155,7 +155,7 @@ Desktop owns the editor workspace, project media bytes, local filesystem/cache, 
 - removed `app/frontend-web` from the repository;
 - removed the production frontend service;
 - removed Caddy from the production ingress path;
-- retained Cloudflare Tunnel only as optional direct HTTPS ingress to `backend:8080` for self-hosted deployments.
+- retained Cloudflare Tunnel only as optional direct HTTPS ingress to `backend:8080` for self-hosted deployments, enabled through the `tunnel` Compose profile.
 
 ## Completion gate
 

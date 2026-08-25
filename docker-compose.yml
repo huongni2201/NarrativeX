@@ -83,7 +83,7 @@ services:
     networks: [appnet]
 
   ai-worker:
-    build: { context: ./app/ai-worker, dockerfile: Dockerfile }
+    build: { context: ./app/ai-worker, dockerfile: Dockerfile, target: worker-image }
     restart: unless-stopped
     environment:
       WORKER_NAME: narrativex-prod-ai
@@ -142,7 +142,7 @@ services:
     networks: [appnet]
 
   narration-worker:
-    build: { context: ./app/ai-worker, dockerfile: Dockerfile }
+    build: { context: ./app/ai-worker, dockerfile: Dockerfile, target: worker-narration }
     restart: unless-stopped
     environment:
       WORKER_NAME: narrativex-prod-narration
@@ -194,7 +194,7 @@ services:
     networks: [appnet]
 
   render-worker:
-    build: { context: ./app/ai-worker, dockerfile: Dockerfile }
+    build: { context: ./app/ai-worker, dockerfile: Dockerfile, target: worker-render }
     restart: unless-stopped
     environment:
       WORKER_NAME: narrativex-prod-render
@@ -231,11 +231,12 @@ services:
     networks: [appnet]
 
   cloudflared:
+    profiles: ["tunnel"]
     image: ${CLOUDFLARED_IMAGE:-cloudflare/cloudflared:2026.8.2}
     restart: unless-stopped
     command: ["tunnel", "--no-autoupdate", "run"]
     environment:
-      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?Set CLOUDFLARE_TUNNEL_TOKEN in .env.prod before starting the production stack}
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?Set CLOUDFLARE_TUNNEL_TOKEN in .env before enabling the tunnel profile}
     depends_on:
       backend: { condition: service_healthy }
     networks: [appnet]

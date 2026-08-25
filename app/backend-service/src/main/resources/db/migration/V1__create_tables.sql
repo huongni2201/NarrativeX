@@ -133,12 +133,9 @@ CREATE TABLE story_versions (
     content TEXT NOT NULL,
     source_language VARCHAR(16) NOT NULL,
     status VARCHAR(24) NOT NULL,
-    moderation_decision VARCHAR(16) NOT NULL,
     CONSTRAINT uk_story_versions_project_version UNIQUE (project_id, version_number),
     CONSTRAINT ck_story_versions_status
-        CHECK (status IN ('DRAFT', 'ACTIVE', 'SUPERSEDED', 'BLOCKED')),
-    CONSTRAINT ck_story_versions_moderation_decision
-        CHECK (moderation_decision IN ('NOT_REQUIRED', 'PENDING', 'SAFE', 'REVIEW', 'BLOCK'))
+        CHECK (status IN ('DRAFT', 'ACTIVE', 'SUPERSEDED'))
 );
 
 CREATE TABLE chapters (

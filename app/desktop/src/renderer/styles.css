@@ -53,6 +53,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .icon-button:hover, .icon-button.active { color: var(--text); background: var(--surface-3); border-color: var(--border); }
 .window-button { width: 27px; height: 28px; padding: 0; font-size: 17px; color: var(--text-3); }
 .window-button.close:hover { background: var(--danger); color: white; }
+.window-control-error { max-width: 150px; color: var(--danger); font-size: 10px; line-height: 1.2; text-align: right; }
 .notification { position: relative; }
 .notification i { position: absolute; top: 5px; right: 5px; width: 5px; height: 5px; border-radius: 50%; background: var(--violet); }
 

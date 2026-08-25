@@ -88,7 +88,7 @@ not generated until the consented `ngoc_huyen_sample.wav` is supplied with
 
 ### VieNeu-TTS voice cloning
 
-Install the worker dependencies, prepare a clean 3–8 second `.wav` sample outside the repository,
+Install the narration extra with `pip install ".[narration]"`, prepare a clean 3–8 second `.wav` sample outside the repository,
 then configure:
 
 ```text
@@ -108,8 +108,9 @@ can enroll references through the ONNX/CPU path without importing PyTorch or Tor
 is never copied into a durable job payload. Real-person samples require explicit consent.
 
 The worker image runs as non-root `appuser` with a writable `/home/appuser` runtime home. VieNeu
-3.3's ONNX/CPU voice-cloning path can run without PyTorch/TorchAudio; the worker still declares
-those packages for compatibility with the existing runtime and tests. VieNeu's model and profile
+3.3's ONNX/CPU voice-cloning path can run without PyTorch/TorchAudio, but the narration target
+keeps those packages available for the configured PyTorch backend and compatibility with the
+existing runtime. VieNeu's model and profile
 caches are stored under `/home/appuser/.cache/huggingface`; this avoids the `/nonexistent` home
 assigned by default to Debian system users.
 
@@ -128,6 +129,28 @@ Production uploaded-audio ingestion/alignment and chapter-local render slicing r
 Cloudflare R2 is authoritative for source/generated/reusable pipeline media. Google Drive is
 authoritative for final rendered MP4 files. Worker-local files are scratch/cache/FFmpeg workspace
 only; a retry should reuse valid durable media rather than regenerate due solely to lost scratch.
+
+## Role-specific packaging
+
+The worker remains one Python source tree, but its optional dependencies are split by runtime
+role. The base project dependencies cover configuration, HTTP, PostgreSQL and Google auth. The
+`image` extra adds R2/Pillow support, `narration` adds R2, VieNeu, Torch/TorchAudio, NumPy and
+pydub, and `render` adds R2/Pillow plus `ffmpeg-python`. The `dev` extra includes all role
+dependencies for the complete test suite.
+
+The Dockerfile exposes these targets:
+
+```text
+worker-core       core/analysis and translation dependencies
+worker-image      analysis, media-validation and image-generation dependencies
+worker-narration  narration dependencies, including VieNeu/Torch
+worker-render     render dependencies, including FFmpeg/Pillow
+```
+
+Compose selects `worker-image`, `worker-narration` and `worker-render` for the corresponding
+services. `WORKER_ROLES` remains a runtime safety check, and `__main__.py` imports only the
+selected runner modules so a role does not require another role's optional packages merely to
+start or pass its healthcheck.
 
 ## Worker authority boundary
 

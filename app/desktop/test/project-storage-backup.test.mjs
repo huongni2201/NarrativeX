@@ -31,6 +31,12 @@ test("project storage creates a manifest-verified backup and restores it safely"
     const backupDirectory = join(backupRoot, (await readdir(backupRoot))[0]);
     assert.match(backupDirectory, /\.narrativex$/);
     assert.match(backup.snapshotId, /^[0-9a-f-]{36}$/);
+    const inspection = await storage.inspectBackup(backupDirectory);
+    assert.deepEqual(inspection, {
+      projectId,
+      manifestSchemaVersion: 2,
+      targetExists: true,
+    });
     assert.equal(summary.managedBackupBytes, 0);
     const afterBackup = await storage.storageSummary(projectId);
     assert.equal(afterBackup.managedBackupBytes, backup.sizeBytes);
@@ -68,6 +74,62 @@ test("project storage creates a manifest-verified backup and restores it safely"
       rm(backupRoot, { recursive: true, force: true }),
       rm(archiveRoot, { recursive: true, force: true }),
       rm(source, { recursive: true, force: true }),
+    ]);
+  }
+});
+
+test("restore refuses to replace an existing project without explicit confirmation", async () => {
+  const root = await mkdtemp(join(tmpdir(), "narrativex-storage-no-confirm-"));
+  const backupRoot = await mkdtemp(join(tmpdir(), "narrativex-backup-no-confirm-"));
+  try {
+    const storage = new ProjectStorage(root);
+    await storage.ensureProject(projectId);
+    await writeFile(join(root, projectId, "current.txt"), "keep current", "utf8");
+    const backup = await storage.createBackup(projectId, backupRoot);
+    const backupDirectory = join(backupRoot, (await readdir(backupRoot))[0]);
+
+    await assert.rejects(
+      () => storage.restoreBackup({ backupDirectory, replaceExisting: false }),
+      /already exists|confirm replacement/i,
+    );
+    assert.equal(await readFile(join(root, projectId, "current.txt"), "utf8"), "keep current");
+    assert.equal((await storage.inspectBackup(backupDirectory)).targetExists, true);
+    assert.match(backup.snapshotId, /^[0-9a-f-]{36}$/);
+  } finally {
+    await Promise.all([
+      rm(root, { recursive: true, force: true }),
+      rm(backupRoot, { recursive: true, force: true }),
+    ]);
+  }
+});
+
+test("restore without an existing project does not require replacement", async () => {
+  const sourceRoot = await mkdtemp(join(tmpdir(), "narrativex-storage-source-"));
+  const targetRoot = await mkdtemp(join(tmpdir(), "narrativex-storage-target-"));
+  const backupRoot = await mkdtemp(join(tmpdir(), "narrativex-backup-new-"));
+  try {
+    const sourceStorage = new ProjectStorage(sourceRoot);
+    await sourceStorage.ensureProject(projectId);
+    const backup = await sourceStorage.createBackup(projectId, backupRoot);
+    const backupDirectory = join(backupRoot, (await readdir(backupRoot))[0]);
+    const targetStorage = new ProjectStorage(targetRoot);
+
+    const inspection = await targetStorage.inspectBackup(backupDirectory);
+    assert.equal(inspection.targetExists, false);
+    const restored = await targetStorage.restoreBackup({
+      backupDirectory,
+      replaceExisting: false,
+    });
+    assert.equal(restored.projectId, projectId);
+    assert.equal(restored.replacedExisting, false);
+    assert.equal(restored.previousProjectSnapshotId, null);
+    assert.equal((await targetStorage.inspectBackup(backupDirectory)).targetExists, true);
+    assert.match(backup.snapshotId, /^[0-9a-f-]{36}$/);
+  } finally {
+    await Promise.all([
+      rm(sourceRoot, { recursive: true, force: true }),
+      rm(targetRoot, { recursive: true, force: true }),
+      rm(backupRoot, { recursive: true, force: true }),
     ]);
   }
 });

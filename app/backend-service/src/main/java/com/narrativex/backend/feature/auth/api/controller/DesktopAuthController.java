@@ -33,6 +33,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/auth/desktop")
 public class DesktopAuthController {
   private static final String REDIRECT_SESSION_KEY = "NARRATIVEX_DESKTOP_REDIRECT_URI";
+  private static final String CODE_CHALLENGE_SESSION_KEY = "NARRATIVEX_DESKTOP_CODE_CHALLENGE";
+  private static final String CODE_CHALLENGE_PATTERN = "[A-Za-z0-9_-]{43}";
 
   private final DesktopAuthHandoff handoffStore;
   private final SecurityContextRepository securityContextRepository;
@@ -41,14 +43,17 @@ public class DesktopAuthController {
   public void start(
       @RequestParam(name = "redirect_uri", defaultValue = "narrativex://auth/callback")
           String redirectUri,
+      @RequestParam(name = "code_challenge", required = false) String codeChallenge,
       HttpServletRequest request,
       HttpServletResponse response)
       throws IOException {
-    if (!isAllowedRedirect(redirectUri)) {
+    if (!isAllowedRedirect(redirectUri) || !isAllowedCodeChallenge(codeChallenge)) {
       response.sendError(HttpStatus.BAD_REQUEST.value(), "Unsupported desktop redirect URI.");
       return;
     }
-    request.getSession(true).setAttribute(REDIRECT_SESSION_KEY, redirectUri);
+    var session = request.getSession(true);
+    session.setAttribute(REDIRECT_SESSION_KEY, redirectUri);
+    session.setAttribute(CODE_CHALLENGE_SESSION_KEY, codeChallenge);
     response.sendRedirect("/oauth2/authorization/google");
   }
 
@@ -57,7 +62,8 @@ public class DesktopAuthController {
       @Valid @RequestBody DesktopAuthExchangeRequest request,
       HttpServletRequest servletRequest,
       HttpServletResponse servletResponse) {
-    DesktopAuthHandoff.AuthenticatedUser user = handoffStore.consumeUser(request.code());
+    DesktopAuthHandoff.AuthenticatedUser user =
+        handoffStore.consumeUser(request.code(), request.codeVerifier());
     if (user == null) {
       return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
           .body(
@@ -93,5 +99,9 @@ public class DesktopAuthController {
     } catch (URISyntaxException exception) {
       return false;
     }
+  }
+
+  static boolean isAllowedCodeChallenge(String codeChallenge) {
+    return codeChallenge != null && codeChallenge.matches(CODE_CHALLENGE_PATTERN);
   }
 }

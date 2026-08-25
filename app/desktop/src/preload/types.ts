@@ -124,7 +124,8 @@ export interface NarrativeXDesktopBridge {
   };
   auth: {
     login(): Promise<void>;
-    onCallback(listener: (code: string) => void): () => void;
+    logout(): Promise<DesktopApiResponse>;
+    onCallback(listener: (response: DesktopApiResponse) => void): () => void;
   };
   localExecution: {
     status(): Promise<LocalExecutionStatus>;

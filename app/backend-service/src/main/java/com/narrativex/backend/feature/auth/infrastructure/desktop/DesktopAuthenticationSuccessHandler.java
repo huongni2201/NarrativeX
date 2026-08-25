@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class DesktopAuthenticationSuccessHandler implements AuthenticationSuccessHandler {
   private static final String REDIRECT_SESSION_KEY = "NARRATIVEX_DESKTOP_REDIRECT_URI";
+  private static final String CODE_CHALLENGE_SESSION_KEY = "NARRATIVEX_DESKTOP_CODE_CHALLENGE";
 
   private final DesktopAuthHandoffStore handoffStore;
 
@@ -23,19 +24,19 @@ public class DesktopAuthenticationSuccessHandler implements AuthenticationSucces
   public void onAuthenticationSuccess(
       HttpServletRequest request, HttpServletResponse response, Authentication authentication)
       throws IOException, ServletException {
-    Object redirect =
-        request.getSession(false) == null
-            ? null
-            : request.getSession(false).getAttribute(REDIRECT_SESSION_KEY);
-    if (!(redirect instanceof String redirectUri)) {
+    var session = request.getSession(false);
+    Object redirect = session == null ? null : session.getAttribute(REDIRECT_SESSION_KEY);
+    Object challenge = session == null ? null : session.getAttribute(CODE_CHALLENGE_SESSION_KEY);
+    if (!(redirect instanceof String redirectUri) || !(challenge instanceof String codeChallenge)) {
       response.sendError(
           HttpServletResponse.SC_BAD_REQUEST,
           "Desktop OAuth must be started through /api/v1/auth/desktop/start.");
       return;
     }
 
-    request.getSession(false).removeAttribute(REDIRECT_SESSION_KEY);
-    String code = handoffStore.issue(toDesktopPrincipal(authentication));
+    session.removeAttribute(REDIRECT_SESSION_KEY);
+    session.removeAttribute(CODE_CHALLENGE_SESSION_KEY);
+    String code = handoffStore.issue(toDesktopPrincipal(authentication), codeChallenge);
     response.sendRedirect(redirectUri + "?code=" + URLEncoder.encode(code, StandardCharsets.UTF_8));
   }
 

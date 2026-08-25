@@ -8,7 +8,7 @@ The repository itself is the current implementation source of truth. Keep archit
 
 - PostgreSQL is authoritative for durable business state. Redis is non-authoritative infrastructure used for queue/delivery hints, cache, progress/scheduling, transient abuse-control counters, and server-managed HTTP session storage. Queue/progress state must be reconstructable where designed; Redis session loss may sign users out but must never lose durable business state.
 - Keep the Spring Boot application modular-monolith shaped. Do not introduce microservices without a measured bottleneck and an explicit ADR.
-- Story text, prompts, references, and provider output are untrusted data. Enforce moderation, prompt-injection boundaries, schema validation, and output review. Do not require a blanket per-story copyright/rights attestation checkbox. Rights/consent gates apply only where a concrete product or legal requirement exists; real-person references still require explicit consent.
+- Story text, prompts, references, and provider output are untrusted data. Enforce prompt-injection boundaries, schema validation, provider/media safety handling, and output review at the relevant boundary; StoryVersion itself does not carry a moderation state. Do not require a blanket per-story copyright/rights attestation checkbox. Rights/consent gates apply only where a concrete product or legal requirement exists; real-person references still require explicit consent.
 - Never assume 60 minutes, 2,000 words, one sentence per image, or a fixed image count. Visual planning is duration + semantic complexity + reuse/delta based.
 - Character is a reusable User/Workspace-owned identity, never a Project-owned duplicate.
 - Project participation is modeled through ProjectCharacter.
@@ -32,7 +32,7 @@ The repository itself is the current implementation source of truth. Keep archit
 - Electron main owns native filesystem access, protected credentials, system-browser/deep-link handling, backend session transport and local FFmpeg/ffprobe execution.
 - Desktop project bytes are local-first and represented to the backend through stable IDs/checksums plus opaque project-relative artifact keys, never absolute local filesystem paths.
 - Production Compose has no web frontend and no Caddy service.
-- Cloudflare Tunnel is optional infrastructure for self-hosted HTTPS ingress and, when used, routes directly to `http://backend:8080`. If deployment already provides HTTPS ingress, `cloudflared` is not required.
+- Cloudflare Tunnel is optional infrastructure for self-hosted HTTPS ingress. In the single `docker-compose.yml`, enable it with the `tunnel` profile; when used, it routes directly to `http://backend:8080`. If deployment already provides HTTPS ingress, leave the profile disabled.
 
 ## Change discipline
 

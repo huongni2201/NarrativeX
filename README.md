@@ -14,8 +14,7 @@ The primary and only editor client is the Electron desktop application. Spring B
 | `packages/client-contracts` | Shared typed client/backend contracts |
 | `contracts` | Versioned backend ↔ worker payload contracts |
 | `documentation` | Product, domain, architecture, workflows, migration plans and ADRs |
-| `docker-compose.yml` | Local Desktop development dependencies and backend runtime |
-| `docker-compose.prod.yml` | Production backend/worker runtime with optional Cloudflare Tunnel ingress |
+| `docker-compose.yml` | Compose backend/worker runtime with optional Cloudflare Tunnel ingress |
 
 ## Primary runtime topology
 
@@ -134,7 +133,13 @@ Lease heartbeat, failure reporting and in-process cancellation are implemented f
 
 ## Production backend ingress
 
-`docker-compose.prod.yml` contains the production backend, PostgreSQL, Redis and retained server workers. There is no web frontend service and no Caddy layer.
+`docker-compose.yml` is the single Compose topology for PostgreSQL, Redis, the
+backend and retained server workers. There is no web frontend service or Caddy
+layer. The default startup does not require Cloudflare credentials:
+
+```powershell
+docker compose up -d
+```
 
 For a self-hosted production backend, Cloudflare Tunnel is retained as an optional HTTPS ingress and should route the public API hostname directly to:
 
@@ -142,7 +147,18 @@ For a self-hosted production backend, Cloudflare Tunnel is retained as an option
 http://backend:8080
 ```
 
-The Electron app then uses `https://<APP_DOMAIN>` as its remote backend origin. If deployment already provides another HTTPS reverse proxy/load balancer, the `cloudflared` service and its environment variables can be removed without changing NarrativeX application code.
+Cloudflare Tunnel is opt-in through the `tunnel` profile:
+
+```powershell
+docker compose --profile tunnel up -d
+```
+
+The `CLOUDFLARE_TUNNEL_TOKEN` value in `.env` is required only when that profile
+is enabled. The Electron app uses `https://<APP_DOMAIN>` as its remote backend
+origin; the hostname must be publicly reachable over HTTPS for the Desktop
+system-browser OAuth callback and subsequent API/session traffic. If deployment
+already provides HTTPS ingress, leave the tunnel profile disabled and omit its
+token.
 
 ## Persistence
 

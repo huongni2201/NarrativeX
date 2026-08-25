@@ -55,6 +55,10 @@ Provider requests require durable lifecycle state. Ambiguous external state uses
 
 The active generation durability path is MyBatis/explicit SQL for ProviderOperation, GenerationJob, StageAttempt, OperationPlan, MediaPlan, generation outbox enqueue/dispatch and Job History. Chapter analysis has no application-owned pre-moderation gate; provider safety/rejection handling remains part of provider/media execution. Chapter, Project, StoryVersion, storyboard, characters, account/quota, auth, catalog, notifications and the account-scoped MediaAsset library are also MyBatis-backed. MediaAsset bytes use verified R2 upload intents/finalization; metadata uses PostgreSQL upload sessions, guarded lifecycle transitions, soft delete, and cursor pagination.
 
+## StoryVersion lifecycle and safety boundary
+
+StoryVersion stores lifecycle state only: `DRAFT -> ACTIVE -> SUPERSEDED`. It has no story-level moderation decision and no `BLOCKED` lifecycle state. Story text remains untrusted input, so prompt-injection boundaries, applicable consent checks, schema validation, abuse controls and provider/media safety or output review remain enforced at their respective boundaries. The worker `ModerationDecision` model is provider/media output state, and the PostgreSQL `moderation_decisions` table remains a control-plane record for policy/audit entities; neither is a StoryVersion field.
+
 Application ports remain persistence-technology-neutral. MyBatis boundaries use dedicated row models and explicit PostgreSQL predicates, including `row_version` CAS for mutable writes. Future MyBatis boundaries must extend `NarrativeXMyBatisMapper` so shared configuration registers only explicitly opted-in mapper interfaces. XML uses explicit result maps and keeps SQL-specific JSONB/enum/timestamp mappings visible. Adapters validate affected rows for guarded updates rather than issuing unconditional writes after a Java-side version check. See ADR-0001 for the accepted SQL-first persistence and generation-durability decision.
 
 ## Current continuity materialization

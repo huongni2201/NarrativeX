@@ -4,7 +4,7 @@ import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import { basename, extname } from "node:path";
-import { DesktopBackendApiService } from "./api/backend-api-service";
+import { DesktopBackendApiService, type DesktopApiResponse } from "./api/backend-api-service";
 import { DesktopAuthService } from "./auth/auth-service";
 import { AUTH_CALLBACK_CHANNEL } from "./auth/auth-events";
 import { extractDesktopAuthCode, isNarrativeXProtocolUrl } from "./auth/protocol-handler";
@@ -14,6 +14,10 @@ import { DeviceIdentityStore } from "./local-execution/device-identity";
 import { LocalExecutionService } from "./local-execution/service";
 import { ProjectStorage } from "./local-storage/project-storage";
 import { RemoteAssetMaterializer } from "./local-storage/remote-asset-materializer";
+import {
+  REPLACE_PROJECT_DIALOG_RESPONSE,
+  shouldProceedWithRestore,
+} from "./local-storage/restore-confirmation";
 import { resolveFfmpegRuntime, type FfmpegRuntimeStatus } from "./rendering/ffmpeg-runtime";
 import { ProjectRenderer } from "./rendering/project-renderer";
 import { LocalRenderPreflightService } from "./rendering/local-render-preflight";
@@ -47,14 +51,39 @@ const pendingAssetSelections = new SelectionTokenStore<{ sourcePath: string; kin
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
-function deliverProtocolUrl(value: string): void {
-  const code = extractDesktopAuthCode(value);
-  if (!code) return;
-  if (!mainWindow || mainWindow.webContents.isLoading()) {
+function authFailureResponse(): DesktopApiResponse {
+  return {
+    status: 401,
+    statusText: "Desktop authentication failed",
+    bodyText: JSON.stringify({ success: false, message: "Desktop authentication exchange failed." }),
+  };
+}
+
+async function exchangeDesktopAuthCode(code: string): Promise<DesktopApiResponse> {
+  if (!desktopAuth) return authFailureResponse();
+  try {
+    return await desktopAuth.exchange(code);
+  } catch {
+    return authFailureResponse();
+  }
+}
+
+function deliverProtocolCode(code: string): void {
+  if (!mainWindow || mainWindow.webContents.isLoading() || !desktopAuth) {
     pendingAuthCode = code;
     return;
   }
-  mainWindow.webContents.send(AUTH_CALLBACK_CHANNEL, code);
+  void exchangeDesktopAuthCode(code).then((result) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send(AUTH_CALLBACK_CHANNEL, result);
+    }
+  });
+}
+
+function deliverProtocolUrl(value: string): void {
+  const code = extractDesktopAuthCode(value);
+  if (!code) return;
+  deliverProtocolCode(code);
 }
 
 if (!hasSingleInstanceLock) {
@@ -143,8 +172,12 @@ void app.whenReady().then(async () => {
   session.defaultSession.setPermissionRequestHandler(
     (_webContents, _permission, callback) => callback(false),
   );
-  desktopAuth = new DesktopAuthService(config.backendBaseUrl);
   desktopApi = new DesktopBackendApiService(config.backendBaseUrl, session.defaultSession);
+  desktopAuth = new DesktopAuthService(
+    config.backendBaseUrl,
+    desktopApi,
+    (url) => shell.openExternal(url),
+  );
   const identityStore = new DeviceIdentityStore();
   const backendClient = new LocalExecutionBackendClient(config, app.getVersion());
   projectStorage = new ProjectStorage(join(app.getPath("userData"), "projects"));
@@ -167,12 +200,17 @@ void app.whenReady().then(async () => {
   });
   registerTrustedIpcHandler("desktop:auth:login", trustPolicy, () => {
     if (!desktopAuth) throw new Error("Desktop auth is not initialized.");
+    pendingAuthCode = null;
     return desktopAuth.login();
+  });
+  registerTrustedIpcHandler("desktop:auth:logout", trustPolicy, () => {
+    if (!desktopAuth) throw new Error("Desktop auth is not initialized.");
+    return desktopAuth.logout();
   });
   registerTrustedIpcHandler("desktop:auth:consume-pending", trustPolicy, () => {
     const code = pendingAuthCode;
     pendingAuthCode = null;
-    return code;
+    return code ? exchangeDesktopAuthCode(code) : null;
   });
   registerTrustedIpcHandler("desktop:local-execution:status", trustPolicy, () =>
     requireLocalExecution().status(),
@@ -219,7 +257,28 @@ void app.whenReady().then(async () => {
     const selected = await dialog.showOpenDialog(requireMainWindow(), { properties: ["openDirectory"] });
     const backupDirectory = selected.filePaths[0];
     if (selected.canceled || !backupDirectory) return null;
-    const result = await requireProjectStorage().restoreBackup({ backupDirectory, replaceExisting: true });
+    const storage = requireProjectStorage();
+    const inspection = await storage.inspectBackup(backupDirectory);
+    let dialogResponse: number | undefined;
+    if (inspection.targetExists) {
+      const confirmation = await dialog.showMessageBox(requireMainWindow(), {
+        type: "warning",
+        title: "Replace local project?",
+        message: `A local project with ID ${inspection.projectId} already exists.`,
+        detail:
+          "Restoring this backup will replace the current local project. NarrativeX will keep a pre-restore snapshot so the previous project can be recovered manually if needed.",
+        buttons: ["Cancel", "Replace Project"],
+        defaultId: 0,
+        cancelId: 0,
+        noLink: true,
+      });
+      dialogResponse = confirmation.response;
+    }
+    if (!shouldProceedWithRestore(inspection.targetExists, dialogResponse)) return null;
+    const result = await storage.restoreBackup({
+      backupDirectory,
+      replaceExisting: inspection.targetExists && dialogResponse === REPLACE_PROJECT_DIALOG_RESPONSE,
+    });
     return { projectId: result.projectId, replacedExisting: result.replacedExisting, previousProjectSnapshotId: result.previousProjectSnapshotId };
   });
   registerTrustedIpcHandler("desktop:local-storage:archive-project", trustPolicy, async (projectId) => {
@@ -345,6 +404,8 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", () => {
+  pendingAuthCode = null;
+  desktopAuth?.clearPendingLogin();
   localExecution?.stop();
 });
 

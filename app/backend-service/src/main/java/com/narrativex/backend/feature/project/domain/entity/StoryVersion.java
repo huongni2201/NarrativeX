@@ -1,7 +1,6 @@
 package com.narrativex.backend.feature.project.domain.entity;
 
 import com.narrativex.backend.feature.common.domain.UuidDomainEntity;
-import com.narrativex.backend.feature.project.domain.enums.ModerationDecision;
 import com.narrativex.backend.feature.project.domain.enums.StoryVersionStatus;
 import com.narrativex.backend.feature.project.domain.exception.InvalidStoryVersionTransitionException;
 import java.util.Objects;
@@ -14,7 +13,6 @@ public final class StoryVersion extends UuidDomainEntity {
   private final String content;
   private final String sourceLanguage;
   private StoryVersionStatus status;
-  private final ModerationDecision moderationDecision;
 
   private StoryVersion(
       UUID id,
@@ -23,8 +21,7 @@ public final class StoryVersion extends UuidDomainEntity {
       int versionNumber,
       String content,
       String sourceLanguage,
-      StoryVersionStatus status,
-      ModerationDecision moderationDecision) {
+      StoryVersionStatus status) {
     super(id, rowVersion);
     this.projectId = Objects.requireNonNull(projectId, "projectId");
     if (versionNumber <= 0) throw new IllegalArgumentException("versionNumber must be positive");
@@ -34,20 +31,12 @@ public final class StoryVersion extends UuidDomainEntity {
     this.content = content;
     this.sourceLanguage = Objects.requireNonNull(sourceLanguage, "sourceLanguage");
     this.status = Objects.requireNonNull(status, "status");
-    this.moderationDecision = Objects.requireNonNull(moderationDecision, "moderationDecision");
   }
 
   public static StoryVersion create(
       UUID projectId, int versionNumber, String content, String sourceLanguage) {
     return new StoryVersion(
-        null,
-        0L,
-        projectId,
-        versionNumber,
-        content,
-        sourceLanguage,
-        StoryVersionStatus.DRAFT,
-        ModerationDecision.NOT_REQUIRED);
+        null, 0L, projectId, versionNumber, content, sourceLanguage, StoryVersionStatus.DRAFT);
   }
 
   public static StoryVersion rehydrate(
@@ -57,17 +46,9 @@ public final class StoryVersion extends UuidDomainEntity {
       int versionNumber,
       String content,
       String sourceLanguage,
-      StoryVersionStatus status,
-      ModerationDecision moderationDecision) {
+      StoryVersionStatus status) {
     return new StoryVersion(
-        id,
-        rowVersion,
-        projectId,
-        versionNumber,
-        content,
-        sourceLanguage,
-        status,
-        moderationDecision);
+        id, rowVersion, projectId, versionNumber, content, sourceLanguage, status);
   }
 
   public void activate() {
@@ -104,9 +85,5 @@ public final class StoryVersion extends UuidDomainEntity {
 
   public StoryVersionStatus getStatus() {
     return status;
-  }
-
-  public ModerationDecision getModerationDecision() {
-    return moderationDecision;
   }
 }

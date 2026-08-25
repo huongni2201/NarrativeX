@@ -5,6 +5,11 @@
 .env.*
 !.env.example
 !**/.env.example
+.env.prod
+.env.production
+.env.*.local
+*.pem
+*.key
 
 # ==========================================
 # Node / Electron Desktop

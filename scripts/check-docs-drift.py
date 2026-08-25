@@ -227,15 +227,14 @@ def main() -> int:
     if "./audits/" in navigation:
         errors.append("documentation/README.md links removed directory ./audits/")
 
-    prod_compose = ROOT / "docker-compose.prod.yml"
-    prod_env = ROOT / ".env.prod.example"
-    for required in ("GOOGLE_DRIVE_CLIENT_ID", "GOOGLE_DRIVE_CLIENT_SECRET", "GOOGLE_DRIVE_REFRESH_TOKEN", "GOOGLE_DRIVE_FOLDER_ID"):
-        if prod_compose.exists() and required not in prod_compose.read_text(encoding="utf-8"):
-            errors.append(f"docker-compose.prod.yml: cloud render fallback is missing {required}")
-        if prod_env.exists() and required not in prod_env.read_text(encoding="utf-8"):
-            errors.append(f".env.prod.example: cloud render fallback is missing {required}")
-
+    compose = ROOT / "docker-compose.yml"
     root_env = ROOT / ".env.example"
+    for required in ("GOOGLE_DRIVE_CLIENT_ID", "GOOGLE_DRIVE_CLIENT_SECRET", "GOOGLE_DRIVE_REFRESH_TOKEN", "GOOGLE_DRIVE_FOLDER_ID"):
+        if compose.exists() and required not in compose.read_text(encoding="utf-8"):
+            errors.append(f"docker-compose.yml: cloud render fallback is missing {required}")
+        if root_env.exists() and required not in root_env.read_text(encoding="utf-8"):
+            errors.append(f".env.example: cloud render fallback is missing {required}")
+
     if root_env.exists():
         root_text = root_env.read_text(encoding="utf-8")
         for required_r2_env in (

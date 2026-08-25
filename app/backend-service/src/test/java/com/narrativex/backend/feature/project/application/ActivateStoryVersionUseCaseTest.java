@@ -16,7 +16,6 @@ import com.narrativex.backend.feature.project.domain.aggregate.Project;
 import com.narrativex.backend.feature.project.domain.entity.StoryVersion;
 import com.narrativex.backend.feature.project.domain.enums.AspectRatio;
 import com.narrativex.backend.feature.project.domain.enums.ImageQualityTier;
-import com.narrativex.backend.feature.project.domain.enums.ModerationDecision;
 import com.narrativex.backend.feature.project.domain.enums.ProjectStatus;
 import com.narrativex.backend.feature.project.domain.enums.StoryVersionStatus;
 import java.util.Optional;
@@ -107,7 +106,6 @@ class ActivateStoryVersionUseCaseTest {
   }
 
   private static StoryVersion story(UUID id, int versionNumber, StoryVersionStatus status) {
-    return StoryVersion.rehydrate(
-        id, 0L, PROJECT_ID, versionNumber, "story", "vi-VN", status, ModerationDecision.PENDING);
+    return StoryVersion.rehydrate(id, 0L, PROJECT_ID, versionNumber, "story", "vi-VN", status);
   }
 }

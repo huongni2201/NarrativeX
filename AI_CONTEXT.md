@@ -96,7 +96,7 @@ Google access/refresh tokens never enter Electron. A local-execution device toke
 
 ## Production ingress
 
-The production Compose topology has no browser frontend and no Caddy layer. For self-hosted deployments, `cloudflared` may route the public HTTPS API hostname directly to `http://backend:8080` inside the Compose network. If the deployment platform already supplies HTTPS ingress, `cloudflared` is optional and may be removed.
+The production Compose topology has no browser frontend and no Caddy layer. For self-hosted deployments, `cloudflared` is opt-in through the `tunnel` profile and may route the public HTTPS API hostname directly to `http://backend:8080` inside the Compose network. If the deployment platform already supplies HTTPS ingress, leave that profile disabled.
 
 ## Rendering rules
 

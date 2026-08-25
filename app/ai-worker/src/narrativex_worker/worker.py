@@ -11,9 +11,10 @@ from typing import Any
 
 from narrativex_worker.billing_repository import ProviderBillingRepository
 from narrativex_worker.config import WorkerSettings, get_settings
-from narrativex_worker.providers import DisabledProvider, VertexGeminiProvider
+from narrativex_worker.providers.disabled import DisabledProvider
 from narrativex_worker.providers.fake_analysis import FakeAnalysisProvider
 from narrativex_worker.providers.ports import ProviderOperation
+from narrativex_worker.providers.vertex import VertexGeminiProvider
 from narrativex_worker.repository import (
     ClaimedChapterAnalysisJob,
     DurableProviderOperation,

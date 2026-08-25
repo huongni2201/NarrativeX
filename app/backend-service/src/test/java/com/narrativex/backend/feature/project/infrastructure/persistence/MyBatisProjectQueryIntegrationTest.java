@@ -39,8 +39,8 @@ class MyBatisProjectQueryIntegrationTest extends PostgreSqlIntegrationTestSuppor
     jdbcTemplate.update(
         """
         INSERT INTO story_versions
-          (project_id, version_number, content, source_language, status, moderation_decision)
-        VALUES (?, 1, 'Overview story', 'vi-VN', 'DRAFT', 'PENDING')
+          (project_id, version_number, content, source_language, status)
+        VALUES (?, 1, 'Overview story', 'vi-VN', 'DRAFT')
         """,
         project.getId());
 
@@ -104,8 +104,8 @@ class MyBatisProjectQueryIntegrationTest extends PostgreSqlIntegrationTestSuppor
         "UPDATE projects SET status = 'ACTIVE' WHERE id IN (?, ?)", p1.getId(), p2.getId());
 
     jdbcTemplate.update(
-        "INSERT INTO story_versions (project_id, version_number, content, source_language, status, moderation_decision) "
-            + "VALUES (?, 1, 'Content', 'vi-VN', 'ACTIVE', 'SAFE')",
+        "INSERT INTO story_versions (project_id, version_number, content, source_language, status) "
+            + "VALUES (?, 1, 'Content', 'vi-VN', 'ACTIVE')",
         p1.getId());
     UUID storyVersionId =
         jdbcTemplate.queryForObject(

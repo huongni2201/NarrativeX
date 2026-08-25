@@ -13,6 +13,10 @@ test("desktop protocol accepts only the NarrativeX auth callback shape", () => {
   assert.equal(extractDesktopAuthCode("narrativex://auth/other?code=secret"), null);
   assert.equal(extractDesktopAuthCode("https://auth/callback?code=secret"), null);
   assert.equal(extractDesktopAuthCode("narrativex://auth/callback?code=%20%20"), null);
+  assert.equal(
+    extractDesktopAuthCode(`narrativex://auth/callback?code=${"a".repeat(43)}&code_verifier=secret`),
+    null,
+  );
 });
 
 test("desktop protocol does not treat arbitrary schemes or malformed URLs as callbacks", () => {

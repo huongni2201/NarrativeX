@@ -14,8 +14,8 @@ export function AuthGuard({ children }: PropsWithChildren) {
 
   useEffect(() => {
     if (!window.narrativex?.auth) return;
-    const unsubscribe = window.narrativex.auth.onCallback((code) => {
-      void authApi.exchange(code)
+    const unsubscribe = window.narrativex.auth.onCallback((response) => {
+      void authApi.exchange(response)
         .then((user) => {
           setExchangeError(null);
           queryClient.setQueryData(authQueryKeys.currentUser, user);

@@ -18,6 +18,7 @@ import com.narrativex.backend.feature.project.domain.entity.StoryVersion;
 import com.narrativex.backend.feature.project.domain.enums.AspectRatio;
 import com.narrativex.backend.feature.project.domain.enums.ImageQualityTier;
 import com.narrativex.backend.feature.project.domain.enums.ProjectStatus;
+import com.narrativex.backend.feature.project.domain.enums.StoryVersionStatus;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -46,6 +47,7 @@ class CreateStoryVersionUseCaseTest {
         useCase.execute(new CreateStoryVersionCommand(PROJECT_ID, "story", "vi-VN", "owner"));
 
     assertEquals(4, response.getVersionNumber());
+    assertEquals(StoryVersionStatus.DRAFT, response.getStatus());
     verify(projectAccess).findOwnedProjectForUpdate(PROJECT_ID, "owner");
     verify(projectAccess, never()).findOwnedProject(PROJECT_ID, "owner");
   }

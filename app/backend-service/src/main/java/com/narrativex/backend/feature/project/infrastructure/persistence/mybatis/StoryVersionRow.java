@@ -17,5 +17,4 @@ public class StoryVersionRow {
   private String content;
   private String sourceLanguage;
   private String status;
-  private String moderationDecision;
 }

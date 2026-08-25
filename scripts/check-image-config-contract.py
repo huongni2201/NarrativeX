@@ -4,7 +4,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-COMPOSE = (ROOT / "docker-compose.prod.yml").read_text(encoding="utf-8")
+COMPOSE = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
 ENV = (ROOT / ".env.example").read_text(encoding="utf-8")
 BACKEND_ENV = (ROOT / "app" / "backend-service" / ".env.example").read_text(encoding="utf-8")
 
@@ -29,7 +29,7 @@ REQUIRED_ENV = (
     "NARRATIVEX_IMAGE_UNIT_COST_HIGH=0.40",
 )
 
-errors = [f"docker-compose.prod.yml: {value}" for value in REQUIRED_COMPOSE if value not in COMPOSE]
+errors = [f"docker-compose.yml: {value}" for value in REQUIRED_COMPOSE if value not in COMPOSE]
 errors += [f".env.example: {value}" for value in REQUIRED_ENV if value not in ENV]
 errors += [
     f"app/backend-service/.env.example: {value}"

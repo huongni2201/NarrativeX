@@ -293,8 +293,8 @@ class QuotaReservationLifecycleIntegrationTest {
         jdbcTemplate.queryForObject(
             """
             INSERT INTO story_versions
-              (project_id, version_number, content, source_language, status, moderation_decision)
-            VALUES (?, 1, 'Narration source', 'vi-VN', 'ACTIVE', 'SAFE')
+              (project_id, version_number, content, source_language, status)
+            VALUES (?, 1, 'Narration source', 'vi-VN', 'ACTIVE')
             RETURNING id
             """,
             UUID.class,

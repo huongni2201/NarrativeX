@@ -8,13 +8,6 @@ from typing import Any
 
 from narrativex_worker.config import WorkerSettings, get_settings
 from narrativex_worker.health import WorkerHealthServer
-from narrativex_worker.image_generation_worker import ImageGenerationWorkerRunner
-from narrativex_worker.media_validation_worker import MediaValidationWorkerRunner
-from narrativex_worker.narration.local_runner import LocalOptimizedNarrationWorkerRunner
-from narrativex_worker.project_rendering.worker import ProjectRenderWorkerRunner
-from narrativex_worker.rendering.worker import RenderWorkerRunner
-from narrativex_worker.translation_worker import TranslationWorkerRunner
-from narrativex_worker.worker import NarrativeXWorker
 
 
 def setup_logging(level_name: str) -> None:
@@ -45,30 +38,43 @@ async def run_workers(settings: WorkerSettings, *, dry_run: bool) -> None:
     workers: dict[str, Any] = {}
 
     if settings.has_worker_role("analysis"):
+        from narrativex_worker.worker import NarrativeXWorker
+
         workers["analysis"] = NarrativeXWorker(settings=settings, concurrency_gate=concurrency_gate)
     if settings.has_worker_role("translation"):
+        from narrativex_worker.translation_worker import TranslationWorkerRunner
+
         workers["translation"] = TranslationWorkerRunner(
             settings=settings, concurrency_gate=concurrency_gate
         )
     if settings.has_worker_role("narration"):
+        from narrativex_worker.narration.local_runner import LocalOptimizedNarrationWorkerRunner
+
         narration_worker = LocalOptimizedNarrationWorkerRunner(
             settings=settings, concurrency_gate=concurrency_gate
         )
         if narration_worker.enabled:
             workers["narration"] = narration_worker
     if settings.has_worker_role("media-validation"):
+        from narrativex_worker.media_validation_worker import MediaValidationWorkerRunner
+
         media_validation_worker = MediaValidationWorkerRunner(
             settings=settings, concurrency_gate=concurrency_gate
         )
         if media_validation_worker.enabled:
             workers["media-validation"] = media_validation_worker
     if settings.has_worker_role("image-generation"):
+        from narrativex_worker.image_generation_worker import ImageGenerationWorkerRunner
+
         image_worker = ImageGenerationWorkerRunner(
             settings=settings, concurrency_gate=concurrency_gate
         )
         if image_worker.enabled:
             workers["image-generation"] = image_worker
     if settings.has_worker_role("render"):
+        from narrativex_worker.project_rendering.worker import ProjectRenderWorkerRunner
+        from narrativex_worker.rendering.worker import RenderWorkerRunner
+
         render_worker = RenderWorkerRunner(settings=settings, concurrency_gate=concurrency_gate)
         if render_worker.enabled:
             workers["render"] = render_worker

@@ -55,7 +55,7 @@
  | STALLED | Stage RUNNING mất lease/heartbeat; cần safe retry hoặc external reconciliation. |
  | PAUSED_COST_LIMIT | Operation tạm dừng vì stage billable tiếp theo có thể vượt max authorized spend. |
  | VideoGenerationAttempt | Attempt tạo MotionAsset bằng Veo/Kling/provider tương lai với request/cost/output snapshot. |
- | Moderation Decision | Application outcome SAFE/REVIEW/BLOCK + categories/provider signal/policy version. |
+ | Moderation Decision | Provider/media or other applicable policy outcome SAFE/REVIEW/BLOCK + categories/provider signal/policy version; not a StoryVersion lifecycle field. |
  | Story rights handling | NarrativeX không yêu cầu blanket per-story rights-attestation checkbox trước Analyze/Generate; report/review/takedown và nghĩa vụ pháp lý được xử lý như concern riêng. |
  | REAL_PERSON_REFERENCE | Reference có người thật; cần consent/use-right basis và retention/privacy chặt hơn. |
  | FICTIONAL_REFERENCE | Reference fictional/generated; áp policy khác REAL_PERSON_REFERENCE. |

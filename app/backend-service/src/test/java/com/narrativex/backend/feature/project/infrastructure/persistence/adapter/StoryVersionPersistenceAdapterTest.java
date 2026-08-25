@@ -8,7 +8,6 @@ import static org.mockito.Mockito.when;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.project.domain.entity.StoryVersion;
-import com.narrativex.backend.feature.project.domain.enums.ModerationDecision;
 import com.narrativex.backend.feature.project.domain.enums.StoryVersionStatus;
 import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.StoryVersionMapper;
 import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.StoryVersionRow;
@@ -30,14 +29,7 @@ class StoryVersionPersistenceAdapterTest {
   void rejectsDetachedStoryVersionWhenPersistedVersionMovedForward() {
     StoryVersion value =
         StoryVersion.rehydrate(
-            STORY_ID,
-            3L,
-            PROJECT_ID,
-            1,
-            "content",
-            "vi-VN",
-            StoryVersionStatus.DRAFT,
-            ModerationDecision.PENDING);
+            STORY_ID, 3L, PROJECT_ID, 1, "content", "vi-VN", StoryVersionStatus.DRAFT);
     when(mapper.findById(STORY_ID)).thenReturn(row(4L));
     MyBatisStoryVersionPersistenceAdapter adapter =
         new MyBatisStoryVersionPersistenceAdapter(mapper);
@@ -49,14 +41,7 @@ class StoryVersionPersistenceAdapterTest {
   void persistedStoryVersionCannotBeSilentlyRecreatedWhenMissing() {
     StoryVersion value =
         StoryVersion.rehydrate(
-            STORY_ID,
-            3L,
-            PROJECT_ID,
-            1,
-            "content",
-            "vi-VN",
-            StoryVersionStatus.DRAFT,
-            ModerationDecision.PENDING);
+            STORY_ID, 3L, PROJECT_ID, 1, "content", "vi-VN", StoryVersionStatus.DRAFT);
     when(mapper.findById(STORY_ID)).thenReturn(null);
     assertThrows(
         ResourceNotFoundException.class,
@@ -72,7 +57,6 @@ class StoryVersionPersistenceAdapterTest {
     row.setContent("server");
     row.setSourceLanguage("vi-VN");
     row.setStatus("DRAFT");
-    row.setModerationDecision("PENDING");
     return row;
   }
 }
