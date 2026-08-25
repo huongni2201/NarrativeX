@@ -1,27 +1,16 @@
-import { useEffect, useRef, useState, type PropsWithChildren, type SyntheticEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type PropsWithChildren } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { DesktopApiError } from "../../api/client";
+import {
+  AUTH_REQUIRED_EVENT,
+  requestAuthentication,
+  type AuthRequiredDetail,
+} from "../../api/auth-required-event";
 import { authApi } from "./api/auth.api";
+import { configureAuthenticatedActionGate } from "./authenticated-action";
 import { LoginModal } from "./components/LoginModal";
 import { authQueryKeys, useCurrentUserQuery } from "./queries/auth.queries";
 import "./auth.css";
-
-const AUTH_REQUIRED_EVENT = "narrativex:auth-required";
-const PAID_EDITOR_CONTROL_SELECTOR = [
-  '.timeline-toolbar button[aria-label="Split clip"]',
-  '.timeline-toolbar button[aria-label="Duplicate clip"]',
-  '.timeline-toolbar button[aria-label="Delete clip"]',
-  '.timeline-toolbar button[aria-label="Undo"]',
-  '.timeline-toolbar button[aria-label="Redo"]',
-  ".inspector-scroll input:not([readonly])",
-  ".inspector-scroll select",
-  ".inspector-scroll button",
-].join(",");
-
-interface AuthRequiredDetail {
-  reason?: string;
-  path?: string;
-}
 
 export function AuthGuard({ children }: PropsWithChildren) {
   const queryClient = useQueryClient();
@@ -32,6 +21,7 @@ export function AuthGuard({ children }: PropsWithChildren) {
   const [guestBootstrapPending, setGuestBootstrapPending] = useState(false);
   const [loginReason, setLoginReason] = useState<string | null>(null);
   const [boundLocalUserId, setBoundLocalUserId] = useState<string | null | undefined>(undefined);
+  const signedIn = Boolean(currentUser.data && !currentUser.data.guest);
 
   useEffect(() => {
     const handleAuthRequired = (event: Event) => {
@@ -42,6 +32,15 @@ export function AuthGuard({ children }: PropsWithChildren) {
     window.addEventListener(AUTH_REQUIRED_EVENT, handleAuthRequired);
     return () => window.removeEventListener(AUTH_REQUIRED_EVENT, handleAuthRequired);
   }, []);
+
+  useLayoutEffect(
+    () =>
+      configureAuthenticatedActionGate({
+        signedIn,
+        onAuthenticationRequired: (reason) => requestAuthentication(reason),
+      }),
+    [signedIn],
+  );
 
   const needsGuestBootstrap =
     currentUser.error instanceof DesktopApiError && currentUser.error.status === 401;
@@ -86,7 +85,7 @@ export function AuthGuard({ children }: PropsWithChildren) {
     return unsubscribe;
   }, [queryClient]);
 
-  // Guest browsing/editing must not activate the user-bound local executor/device identity.
+  // Guest browsing must not activate the user-bound local executor/device identity.
   const localExecutionUserId = currentUser.data?.guest ? null : currentUser.data?.id ?? null;
   useEffect(() => {
     if (currentUser.isPending || guestBootstrapPending) return;
@@ -103,7 +102,7 @@ export function AuthGuard({ children }: PropsWithChildren) {
         if (!cancelled) setBoundLocalUserId(localExecutionUserId);
       })
       .catch((error) => {
-        // Local execution is optional for browsing/editing. The main process already
+        // Local execution is optional for browsing. The main process already
         // deactivates mismatched identities before a failed disk cleanup can surface.
         console.error("Failed to bind local execution to the current user", error);
         if (!cancelled) setBoundLocalUserId(localExecutionUserId);
@@ -112,16 +111,6 @@ export function AuthGuard({ children }: PropsWithChildren) {
       cancelled = true;
     };
   }, [currentUser.isPending, guestBootstrapPending, localExecutionUserId]);
-
-  function gateGuestEditorInteraction(event: SyntheticEvent) {
-    if (!currentUser.data?.guest) return;
-    const target = event.target;
-    if (!(target instanceof Element) || !target.closest(PAID_EDITOR_CONTROL_SELECTOR)) return;
-    event.preventDefault();
-    event.stopPropagation();
-    setExchangeError(null);
-    setLoginReason("Đăng nhập để chỉnh sửa video. Project và vị trí hiện tại sẽ được giữ nguyên.");
-  }
 
   if (currentUser.isPending || (needsGuestBootstrap && !bootstrapError)) {
     return (
@@ -143,13 +132,7 @@ export function AuthGuard({ children }: PropsWithChildren) {
 
   return (
     <>
-      <div
-        className="auth-event-shell"
-        onClickCapture={gateGuestEditorInteraction}
-        onChangeCapture={gateGuestEditorInteraction}
-      >
-        {children}
-      </div>
+      <div className="auth-event-shell">{children}</div>
       {loginReason && (
         <LoginModal
           reason={loginReason}
