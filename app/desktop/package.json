@@ -10,7 +10,8 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "type-check": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",
-    "check": "npm test && npm run type-check && npm run build",
+    "check:lock": "node scripts/verify-dependency-lock.mjs",
+    "check": "npm run check:lock && npm test && npm run type-check && npm run build",
     "test": "node --experimental-strip-types --test test/*.test.mjs",
     "prepackage:win": "node scripts/verify-ffmpeg-bundle.mjs && npm run check",
     "package:win": "npx --yes electron-builder@26.15.7 --config electron-builder.yml --win nsis"
