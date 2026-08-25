@@ -1,3 +1,0 @@
-# NarrativeX Frontend
-User-agent: *
-Allow: /
