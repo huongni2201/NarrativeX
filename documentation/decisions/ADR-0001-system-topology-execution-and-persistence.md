@@ -43,23 +43,25 @@ Public JSON success responses use `ApiResponse<T>`. Mutable contracts use explic
 - SQL is explicit in MyBatis XML mappers with dedicated persistence row models.
 - Mutable state transitions use explicit CAS/row-version predicates and treat zero affected rows as conflicts.
 - MyBatis participates in Spring-managed transactions over the application datasource.
-- Static schema-reference tests validate that MyBatis table references exist in the authoritative V1 table baseline.
+- Static schema-reference tests and PostgreSQL planning tests validate MyBatis table/column references against the authoritative migrated schema.
 
-### 4. Final Flyway PostgreSQL baseline
+### 4. Frozen Flyway core baseline plus append-only evolution
 
-The clean database baseline is split by responsibility into exactly three versioned migrations:
+NarrativeX retains the consolidated three-file core baseline:
 
 ```text
-V1__create_tables.sql  -> relational schema, constraints, database functions and triggers
-V2__init_indexes.sql   -> performance/claim/partial-uniqueness indexes
+V1__create_tables.sql  -> core relational schema, constraints, database functions and triggers
+V2__init_indexes.sql   -> core performance/claim/partial-uniqueness indexes
 V3__seed_data.sql      -> deterministic system/catalog bootstrap data
 ```
 
-The split is structural rather than historical. Patch migrations such as idempotency widening, media-beat reuse, generation notifications/SSE, project render snapshots and Desktop execution routing are folded into the final definitions rather than retained as an incremental chain.
+That split is structural rather than historical. Earlier patch migrations such as idempotency widening, media-beat reuse, generation notifications/SSE, project render snapshots and Desktop execution routing were folded into V1-V3 before this baseline was shared.
 
-`spring.flyway.baseline-on-migrate=false` remains mandatory. This rewritten baseline is intended for clean database creation; an older incompatible `flyway_schema_history` requires database recreation or a separately reviewed operator migration rather than checksum/history manipulation.
+Once the consolidated V1-V3 baseline is present on `main` and may have been applied by developer or deployment databases, its checksums are frozen. New schema features use append-only versioned migrations (`V4+`) instead of rewriting V1-V3. `V4__desktop_guest_installations.sql` is the first migration under this evolution rule.
 
-Relational uniqueness needed as a foreign-key target is declared as a V1 `UNIQUE` constraint. V2 owns indexes whose purpose is query access, claiming, partial uniqueness or measured performance.
+`spring.flyway.baseline-on-migrate=false` remains mandatory. A clean database applies the complete canonical migration sequence. Existing databases advance through new versioned migrations normally; checksum/history manipulation is not used as a substitute for a reviewed migration.
+
+Within V1-V3, relational uniqueness needed as a foreign-key target is declared as a V1 `UNIQUE` constraint and V2 owns core query/claim indexes. Additive V4+ migrations are feature-scoped deployable units and may include the table, constraints and indexes needed for that feature atomically.
 
 ### 5. Durable provider execution and quota lifecycle
 
@@ -87,8 +89,9 @@ Project-level production rendering uses immutable snapshot tables:
 4. Ambiguous provider outcomes are reconciled instead of blindly resubmitted.
 5. First accepted terminal provider result wins under CAS; immutable render/media snapshots are not rewritten in place.
 6. A generation job cannot settle as completed without valid billing evidence unless it is explicitly modeled as local/zero-provider-cost execution.
-7. V1 must create a relationally valid schema before V2; V2 cannot be required to satisfy a V1 foreign key.
+7. The frozen V1 baseline must create a relationally valid core schema before V2; V2 cannot be required to satisfy a V1 foreign key.
 8. V3 contains deterministic system/catalog data only, never project/user content.
+9. Once a Flyway migration is shared/applied, subsequent feature schema changes are append-only versioned migrations rather than checksum rewrites.
 
 ## Consequences
 
@@ -96,6 +99,7 @@ Project-level production rendering uses immutable snapshot tables:
 - SQL, indexing and lock behavior remain visible and reviewable.
 - High-concurrency work uses explicit row-version and lease fencing.
 - Desktop local execution can reduce cloud-render dependency without moving policy or authoritative job state out of the backend.
-- The three-file clean baseline is easier to reason about than a patch chain, at the cost of requiring a clean DB/reviewed operator path when replacing incompatible historical Flyway state.
+- The V1-V3 core remains easy to reason about while V4+ preserves normal Flyway upgrade semantics for databases that already consumed the shared baseline.
+- New feature migrations increase the versioned history over time, but avoid destructive database recreation and checksum mismatch during normal development/deployment evolution.
 
 See [`DATABASE_BASELINE.md`](../codebase/DATABASE_BASELINE.md) for the concrete migration matrix and verification gate.
