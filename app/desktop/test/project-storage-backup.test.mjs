@@ -99,3 +99,35 @@ test("storage accounting ignores symlink targets outside the project boundary", 
     ]);
   }
 });
+
+test("storage rejects a symlinked registry and project root", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "narrativex-storage-registry-link-"));
+  const outside = await mkdtemp(join(tmpdir(), "narrativex-storage-registry-outside-"));
+  try {
+    const storage = new ProjectStorage(root);
+    await storage.ensureProject(projectId);
+    const registryTarget = join(outside, "registry.json");
+    const registryLink = join(root, ".snapshot-registry.json");
+    await writeFile(registryTarget, JSON.stringify({ schemaVersion: 1, snapshots: {} }), "utf8");
+    try {
+      await symlink(registryTarget, registryLink);
+    } catch (error) {
+      if (error?.code === "EPERM" || error?.code === "EACCES") {
+        t.skip("symlink creation is not permitted on this host");
+        return;
+      }
+      throw error;
+    }
+    await assert.rejects(() => storage.storageSummary(projectId), /regular file|symlink/i);
+
+    await rm(registryLink, { force: true });
+    await rm(join(root, projectId), { recursive: true, force: true });
+    await symlink(outside, join(root, projectId));
+    await assert.rejects(() => storage.ensureProject(projectId), /real directory|symlink/i);
+  } finally {
+    await Promise.all([
+      rm(root, { recursive: true, force: true }),
+      rm(outside, { recursive: true, force: true }),
+    ]);
+  }
+});

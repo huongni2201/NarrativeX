@@ -191,6 +191,14 @@ void app.whenReady().then(async () => {
     if (typeof projectId !== "string") throw new Error("projectId must be a string.");
     return requireProjectStorage().storageSummary(projectId);
   });
+  registerTrustedIpcHandler("desktop:local-storage:delete-managed-snapshot", trustPolicy, async (input) => {
+    if (!input || typeof input !== "object") throw new Error("Invalid managed snapshot delete request.");
+    const request = input as { projectId?: unknown; snapshotId?: unknown };
+    if (typeof request.projectId !== "string" || typeof request.snapshotId !== "string") {
+      throw new Error("projectId and snapshotId must be strings.");
+    }
+    return requireProjectStorage().deleteManagedSnapshot(request.projectId, request.snapshotId);
+  });
   registerTrustedIpcHandler("desktop:local-storage:verify-project", trustPolicy, async (projectId) => {
     if (typeof projectId !== "string") throw new Error("projectId must be a string.");
     return requireProjectStorage().verifyAssets(projectId);

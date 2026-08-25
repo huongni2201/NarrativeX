@@ -30,7 +30,6 @@ import org.apache.ibatis.mapping.MappedStatement;
 import org.apache.ibatis.reflection.ParamNameResolver;
 import org.apache.ibatis.reflection.SystemMetaObject;
 import org.apache.ibatis.session.Configuration;
-import org.apache.ibatis.session.SqlSession;
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -149,11 +148,18 @@ class MyBatisPostgreSqlPlanningIntegrationTest {
   void representativeMutationExecutesAndRollsBackAgainstPostgres() throws Exception {
     String userId = "mybatis-contract-rollback";
     String periodKey = "2099-01";
-    try (SqlSession session = sqlSessionFactory.openSession(false)) {
-      QuotaMapper mapper = session.getMapper(QuotaMapper.class);
-      assertEquals(1, mapper.ensureUsageWindow(userId, periodKey));
-      assertEquals(0, mapper.ensureUsageWindow(userId, periodKey), "ON CONFLICT branch must be executable");
-      session.rollback();
+    MappedStatement mutation = sqlSessionFactory.getConfiguration().getMappedStatement(
+        QuotaMapper.class.getName() + ".ensureUsageWindow");
+    Map<String, Object> parameters = Map.of("userId", userId, "periodKey", periodKey);
+    BoundSql boundSql = mutation.getBoundSql(parameters);
+    try (Connection connection = dataSource.getConnection()) {
+      connection.setAutoCommit(false);
+      try (PreparedStatement statement = connection.prepareStatement(boundSql.getSql())) {
+        bindPlanningParameters(connection, statement, boundSql, parameters);
+        assertEquals(1, statement.executeUpdate());
+        assertEquals(0, statement.executeUpdate(), "ON CONFLICT branch must be executable");
+      }
+      connection.rollback();
     }
 
     try (Connection connection = dataSource.getConnection();
@@ -165,6 +171,7 @@ class MyBatisPostgreSqlPlanningIntegrationTest {
       assertTrue(result.next());
       assertEquals(0, result.getInt(1), "rollback fixture must not leave durable rows");
     }
+    writeMutationReport();
   }
 
   private static Object planningParameters(
@@ -387,6 +394,16 @@ class MyBatisPostgreSqlPlanningIntegrationTest {
     output.add("| --- | --- | --- | --- |");
     output.addAll(reportRows);
     Files.writeString(report, String.join("\n", output) + "\n");
+  }
+
+  private static void writeMutationReport() throws Exception {
+    Path report = Path.of("target/mybatis-postgresql-mutation-execution-report.md");
+    Files.createDirectories(report.getParent());
+    Files.writeString(
+        report,
+        "# MyBatis PostgreSQL mutation execution report\n\n"
+            + "| Mapper | Statement | Result |\n| --- | --- | --- |\n"
+            + "| `" + QuotaMapper.class.getName() + ".ensureUsageWindow` | INSERT / ON CONFLICT | EXECUTED_ROLLBACK_PASS |\n");
   }
 
   private static String concise(Throwable throwable) {

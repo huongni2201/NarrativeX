@@ -40,6 +40,7 @@ const bridge: NarrativeXDesktopBridge = {
     ensureProject: (projectId: string) =>
       ipcRenderer.invoke("desktop:local-storage:ensure-project", projectId),
     summary: (projectId: string) => ipcRenderer.invoke("desktop:local-storage:summary", projectId),
+    deleteManagedSnapshot: (input) => ipcRenderer.invoke("desktop:local-storage:delete-managed-snapshot", input),
     verifyProject: (projectId: string) => ipcRenderer.invoke("desktop:local-storage:verify-project", projectId),
     cleanupCompletedWork: (projectId: string) => ipcRenderer.invoke("desktop:local-storage:cleanup-completed-work", projectId),
     createBackup: (projectId) => ipcRenderer.invoke("desktop:local-storage:create-backup", projectId),

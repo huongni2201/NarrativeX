@@ -35,6 +35,12 @@ export interface LocalStorageSummary {
   otherNarrativeXOwnedBytes: number;
   assetCount: number;
   artifactCount: number;
+  managedSnapshots: Array<{
+    snapshotId: string;
+    type: "BACKUP" | "PRE_RESTORE";
+    createdAt: string;
+    sizeBytes: number;
+  }>;
 }
 
 export interface LocalProjectBackup {
@@ -130,6 +136,7 @@ export interface NarrativeXDesktopBridge {
   localStorage: {
     ensureProject(projectId: string): Promise<LocalProjectStorageStatus>;
     summary(projectId: string): Promise<LocalStorageSummary>;
+    deleteManagedSnapshot(input: { projectId: string; snapshotId: string }): Promise<boolean>;
     verifyProject(projectId: string): Promise<Array<{ assetId: string; state: "AVAILABLE" | "MISSING" | "CORRUPT" }>>;
     cleanupCompletedWork(projectId: string): Promise<number>;
     createBackup(projectId: string): Promise<LocalProjectBackup | null>;

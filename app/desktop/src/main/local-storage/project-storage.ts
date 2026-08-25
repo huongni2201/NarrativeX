@@ -83,6 +83,7 @@ export interface LocalStorageSummary {
   otherNarrativeXOwnedBytes: number;
   assetCount: number;
   artifactCount: number;
+  managedSnapshots: ManagedSnapshotSummary[];
 }
 
 export interface LocalProjectBackup {
@@ -110,6 +111,13 @@ export interface LocalProjectArchiveResult {
 }
 
 type ManagedSnapshotType = "BACKUP" | "PRE_RESTORE";
+
+export interface ManagedSnapshotSummary {
+  snapshotId: string;
+  type: ManagedSnapshotType;
+  createdAt: string;
+  sizeBytes: number;
+}
 
 interface ManagedSnapshotRecord {
   snapshotId: string;
@@ -139,7 +147,11 @@ export class ProjectStorage {
 
   async ensureProject(projectId: string): Promise<LocalProjectManifest> {
     return this.withProjectLock(projectId, async () => {
+      await this.assertSafeDirectoryOrMissing(resolve(this.projectsRoot), "Projects root");
       const root = this.projectRoot(projectId);
+      await this.assertSafeDirectoryOrMissing(root, "Project root");
+      await mkdir(root, { recursive: true });
+      await this.assertSafeDirectoryOrMissing(root, "Project root");
       await Promise.all([
         mkdir(join(root, "assets", "images"), { recursive: true }),
         mkdir(join(root, "assets", "audio"), { recursive: true }),
@@ -402,6 +414,7 @@ export class ProjectStorage {
       otherNarrativeXOwnedBytes,
       assetCount: Object.keys(manifest.assets).length,
       artifactCount: Object.keys(manifest.artifacts).length,
+      managedSnapshots: snapshots.managedSnapshots,
     };
   }
 
@@ -585,18 +598,27 @@ export class ProjectStorage {
   private async snapshotSummary(projectId: string): Promise<{
     managedBackupBytes: number;
     preRestoreSnapshotBytes: number;
+    managedSnapshots: ManagedSnapshotSummary[];
   }> {
     const registry = await this.readSnapshotRegistry();
     let managedBackupBytes = 0;
     let preRestoreSnapshotBytes = 0;
+    const managedSnapshots: ManagedSnapshotSummary[] = [];
     for (const snapshot of Object.values(registry.snapshots)) {
       if (snapshot.projectId !== projectId) continue;
       const sizeBytes = await this.safeManagedSnapshotSize(snapshot);
       if (sizeBytes === null) continue;
       if (snapshot.type === "BACKUP") managedBackupBytes += sizeBytes;
       else preRestoreSnapshotBytes += sizeBytes;
+      managedSnapshots.push({
+        snapshotId: snapshot.snapshotId,
+        type: snapshot.type,
+        createdAt: snapshot.createdAt,
+        sizeBytes,
+      });
     }
-    return { managedBackupBytes, preRestoreSnapshotBytes };
+    managedSnapshots.sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+    return { managedBackupBytes, preRestoreSnapshotBytes, managedSnapshots };
   }
 
   private async registerManagedSnapshot(snapshot: ManagedSnapshotRecord): Promise<ManagedSnapshotRecord> {
@@ -665,6 +687,10 @@ export class ProjectStorage {
   private async readSnapshotRegistry(): Promise<SnapshotRegistry> {
     const registryPath = this.snapshotRegistryPath();
     try {
+      const registryStat = await lstat(registryPath);
+      if (registryStat.isSymbolicLink() || !registryStat.isFile()) {
+        throw new Error("Snapshot registry must be a regular file, not a symlink or directory.");
+      }
       const parsed = JSON.parse(await readFile(registryPath, "utf8")) as Partial<SnapshotRegistry>;
       if (parsed.schemaVersion !== SNAPSHOT_REGISTRY_SCHEMA_VERSION || !parsed.snapshots || typeof parsed.snapshots !== "object") {
         throw new Error("Snapshot registry is invalid or unsupported.");
@@ -677,11 +703,33 @@ export class ProjectStorage {
   }
 
   private async writeSnapshotRegistry(registry: SnapshotRegistry): Promise<void> {
-    await mkdir(resolve(this.projectsRoot), { recursive: true });
+    const projectsRoot = resolve(this.projectsRoot);
+    await this.assertSafeDirectoryOrMissing(projectsRoot, "Projects root");
+    await mkdir(projectsRoot, { recursive: true });
+    await this.assertSafeDirectoryOrMissing(projectsRoot, "Projects root");
     const destination = this.snapshotRegistryPath();
+    try {
+      const destinationStat = await lstat(destination);
+      if (destinationStat.isSymbolicLink() || !destinationStat.isFile()) {
+        throw new Error("Snapshot registry must be a regular file, not a symlink or directory.");
+      }
+    } catch (error) {
+      if (!isMissingFile(error)) throw error;
+    }
     const temporary = join(resolve(this.projectsRoot), `.snapshot-registry.${process.pid}.${Date.now()}.tmp`);
     await writeFile(temporary, `${JSON.stringify(registry, null, 2)}\n`, "utf8");
     await rename(temporary, destination);
+  }
+
+  private async assertSafeDirectoryOrMissing(path: string, label: string): Promise<void> {
+    try {
+      const directoryStat = await lstat(path);
+      if (directoryStat.isSymbolicLink() || !directoryStat.isDirectory()) {
+        throw new Error(`${label} must be a real directory, not a symlink or file.`);
+      }
+    } catch (error) {
+      if (!isMissingFile(error)) throw error;
+    }
   }
 
   private snapshotRegistryPath(): string {
