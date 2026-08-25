@@ -1,24 +1,77 @@
 import { useEffect, useState, type PropsWithChildren } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { apiBaseUrl, DesktopApiError } from "../../api/client";
+import { DesktopApiError } from "../../api/client";
 import { authApi } from "./api/auth.api";
-import { LoginScreen } from "./components/LoginScreen";
+import { LoginModal } from "./components/LoginModal";
 import { authQueryKeys, useCurrentUserQuery } from "./queries/auth.queries";
 import "./auth.css";
+
+const AUTH_REQUIRED_EVENT = "narrativex:auth-required";
+
+interface AuthRequiredDetail {
+  reason?: string;
+  path?: string;
+}
 
 export function AuthGuard({ children }: PropsWithChildren) {
   const queryClient = useQueryClient();
   const currentUser = useCurrentUserQuery();
   const [exchangeError, setExchangeError] = useState<string | null>(null);
+  const [bootstrapError, setBootstrapError] = useState<string | null>(null);
+  const [guestBootstrapPending, setGuestBootstrapPending] = useState(false);
+  const [loginReason, setLoginReason] = useState<string | null>(null);
   const [boundLocalUserId, setBoundLocalUserId] = useState<string | null | undefined>(undefined);
+
+  useEffect(() => {
+    const handleAuthRequired = (event: Event) => {
+      const detail = (event as CustomEvent<AuthRequiredDetail>).detail;
+      setExchangeError(null);
+      setLoginReason(detail?.reason ?? "Đăng nhập để sử dụng tính năng này.");
+    };
+    window.addEventListener(AUTH_REQUIRED_EVENT, handleAuthRequired);
+    return () => window.removeEventListener(AUTH_REQUIRED_EVENT, handleAuthRequired);
+  }, []);
+
+  const needsGuestBootstrap =
+    currentUser.error instanceof DesktopApiError && currentUser.error.status === 401;
+
+  useEffect(() => {
+    if (!needsGuestBootstrap || guestBootstrapPending) return;
+    let cancelled = false;
+    setGuestBootstrapPending(true);
+    setBootstrapError(null);
+    void authApi.ensureGuestSession()
+      .then(async (user) => {
+        if (cancelled) return;
+        queryClient.setQueryData(authQueryKeys.currentUser, user);
+        await queryClient.invalidateQueries({
+          predicate: (query) => query.queryKey[0] !== "auth",
+        });
+      })
+      .catch((reason) => {
+        if (!cancelled) {
+          setBootstrapError(
+            reason instanceof Error ? reason.message : "Không thể tạo guest session.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setGuestBootstrapPending(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [guestBootstrapPending, needsGuestBootstrap, queryClient]);
 
   useEffect(() => {
     if (!window.narrativex?.auth) return;
     const unsubscribe = window.narrativex.auth.onCallback((response) => {
       void authApi.exchange(response)
-        .then((user) => {
+        .then(async (user) => {
           setExchangeError(null);
+          setLoginReason(null);
           queryClient.setQueryData(authQueryKeys.currentUser, user);
+          await queryClient.invalidateQueries();
         })
         .catch((reason) => {
           setExchangeError(reason instanceof Error ? reason.message : "Mã đăng nhập không hợp lệ.");
@@ -27,45 +80,71 @@ export function AuthGuard({ children }: PropsWithChildren) {
     return unsubscribe;
   }, [queryClient]);
 
-  const currentUserId = currentUser.data?.id ?? null;
+  // Guest browsing/editing must not activate the user-bound local executor/device identity.
+  const localExecutionUserId = currentUser.data?.guest ? null : currentUser.data?.id ?? null;
   useEffect(() => {
-    if (currentUser.isPending) return;
+    if (currentUser.isPending || guestBootstrapPending) return;
     if (!window.narrativex?.localExecution) {
-      setBoundLocalUserId(currentUserId);
+      setBoundLocalUserId(localExecutionUserId);
       return;
     }
 
     let cancelled = false;
     setBoundLocalUserId(undefined);
     void window.narrativex.localExecution
-      .setUser(currentUserId)
+      .setUser(localExecutionUserId)
       .then(() => {
-        if (!cancelled) setBoundLocalUserId(currentUserId);
+        if (!cancelled) setBoundLocalUserId(localExecutionUserId);
       })
       .catch((error) => {
         // Local execution is optional for browsing/editing. The main process already
         // deactivates mismatched identities before a failed disk cleanup can surface.
         console.error("Failed to bind local execution to the current user", error);
-        if (!cancelled) setBoundLocalUserId(currentUserId);
+        if (!cancelled) setBoundLocalUserId(localExecutionUserId);
       });
     return () => {
       cancelled = true;
     };
-  }, [currentUser.isPending, currentUserId]);
+  }, [currentUser.isPending, guestBootstrapPending, localExecutionUserId]);
 
-  if (currentUser.isPending) {
-    return <main className="auth-screen"><div className="auth-loading">Đang kiểm tra phiên NarrativeX…</div></main>;
+  if (currentUser.isPending || (needsGuestBootstrap && guestBootstrapPending)) {
+    return (
+      <main className="auth-screen">
+        <div className="auth-loading">Đang mở NarrativeX…</div>
+      </main>
+    );
   }
-  if (currentUser.data && boundLocalUserId !== currentUser.data.id) {
-    return <main className="auth-screen"><div className="auth-loading">Đang đồng bộ local executor…</div></main>;
-  }
-  if (currentUser.data) return <>{children}</>;
 
-  const queryError = currentUser.error instanceof DesktopApiError && currentUser.error.status !== 401
-    ? `${currentUser.error.message} (${currentUser.error.status})`
-    : currentUser.error instanceof Error ? currentUser.error.message : undefined;
-  return <LoginScreen onLogin={() => {
-    if (!window.narrativex?.auth) return Promise.reject(new Error("Login chỉ khả dụng trong Electron Desktop."));
-    return window.narrativex.auth.login();
-  }} error={exchangeError ?? queryError ?? `Backend: ${apiBaseUrl()}`} />;
+  const syncingLocalIdentity =
+    currentUser.data && boundLocalUserId !== localExecutionUserId;
+  if (syncingLocalIdentity) {
+    return (
+      <main className="auth-screen">
+        <div className="auth-loading">Đang chuẩn bị local workspace…</div>
+      </main>
+    );
+  }
+
+  return (
+    <>
+      {children}
+      {loginReason && (
+        <LoginModal
+          reason={loginReason}
+          error={exchangeError ?? undefined}
+          onClose={() => {
+            setExchangeError(null);
+            setLoginReason(null);
+          }}
+          onLogin={() => {
+            if (!window.narrativex?.auth) {
+              return Promise.reject(new Error("Login chỉ khả dụng trong Electron Desktop."));
+            }
+            return window.narrativex.auth.login();
+          }}
+        />
+      )}
+      {bootstrapError && <div className="auth-bootstrap-error">{bootstrapError}</div>}
+    </>
+  );
 }
