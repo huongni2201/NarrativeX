@@ -9,6 +9,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.HexFormat;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Service;
@@ -23,21 +24,22 @@ public class DesktopGuestIdentityService implements DesktopGuestIdentity {
   @Override
   @Transactional
   public String establish(String deviceId, String secret) {
-    installations.lockDevice(deviceId);
+    UUID stableDeviceId = UUID.fromString(deviceId);
+    installations.lockDevice(stableDeviceId);
     String secretHash = sha256(secret);
-    var existing = installations.findByDeviceId(deviceId);
+    var existing = installations.findByDeviceId(stableDeviceId);
     if (existing.isPresent()) {
       verifySecret(existing.get().secretHash(), secretHash);
-      installations.touch(deviceId, Instant.now());
+      installations.touch(stableDeviceId, Instant.now());
       return existing.get().guestUserId();
     }
 
     String guestUserId = "guest-" + UuidV7.random();
     Instant now = Instant.now();
-    if (!installations.create(deviceId, guestUserId, secretHash, now)) {
+    if (!installations.create(stableDeviceId, guestUserId, secretHash, now)) {
       throw new IllegalStateException("Desktop guest installation was not persisted.");
     }
-    installations.touch(deviceId, now);
+    installations.touch(stableDeviceId, now);
     return guestUserId;
   }
 
