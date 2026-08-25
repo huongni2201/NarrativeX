@@ -5,6 +5,9 @@ import type {
 } from "@narrativex/client-contracts";
 import { apiRequest } from "../../../api/client";
 import { assertContract, isNumber, isRecord, isString } from "../../../api/guards";
+import { parseChapterWorkspace } from "./chapter-workspace-contract";
+
+export { parseChapterWorkspace } from "./chapter-workspace-contract";
 
 export interface ChaptersPage {
   content: DesktopChapterDetails[];
@@ -18,6 +21,7 @@ function isChapter(value: unknown): value is DesktopChapterDetails {
     isString(value.storyVersionId) &&
     isNumber(value.orderIndex) &&
     isString(value.title) &&
+    isString(value.sourceText) &&
     isString(value.sourceHash) &&
     isNumber(value.rowVersion)
   );
@@ -49,6 +53,11 @@ export const chaptersApi = {
     apiRequest<DesktopChapterDetails>(
       `/api/v1/projects/${encodeURIComponent(projectId)}/chapters/${encodeURIComponent(chapterId)}`,
     ),
+
+  workspace: (projectId: string, chapterId: string) =>
+    apiRequest<unknown>(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/chapters/${encodeURIComponent(chapterId)}/workspace`,
+    ).then(parseChapterWorkspace),
 
   create: (projectId: string, input: CreateChapterInput) =>
     apiRequest<DesktopChapterDetails>(

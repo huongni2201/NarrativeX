@@ -71,6 +71,26 @@
   --voice-teal: #66d6d7;
   --voice-purple: #b38aff;
 
+  /* Workspace surfaces and signature glows */
+  --workspace-glow: rgba(42, 57, 90, 0.24);
+  --workspace-header: rgba(8, 13, 21, 0.84);
+  --workspace-panel: rgba(11, 18, 28, 0.9);
+  --workspace-panel-strong: rgba(10, 17, 26, 0.94);
+  --workspace-context: rgba(11, 18, 28, 0.88);
+  --chapter-selected: linear-gradient(100deg, rgba(73, 43, 130, 0.44), rgba(31, 25, 62, 0.48));
+  --chapter-draft: rgba(17, 26, 37, 0.72);
+  --voice-glow: rgba(32, 55, 75, 0.25);
+  --voice-header: rgba(8, 14, 22, 0.78);
+  --voice-filter-bar: rgba(10, 17, 26, 0.82);
+  --voice-rail: rgba(10, 17, 26, 0.9);
+  --voice-context: rgba(10, 17, 26, 0.92);
+  --voice-card: linear-gradient(110deg, rgba(17, 29, 40, 0.9), rgba(12, 20, 30, 0.9));
+  --voice-card-selected: linear-gradient(110deg, rgba(54, 39, 94, 0.62), rgba(17, 29, 39, 0.82));
+  --voice-preview: linear-gradient(145deg, rgba(25, 107, 111, 0.72), rgba(11, 43, 54, 0.9));
+  --shadow-panel: 0 12px 28px rgba(0, 0, 0, 0.16);
+  --shadow-primary: 0 0 18px rgba(164, 124, 255, 0.12);
+  --shadow-card: 0 0 20px rgba(164, 124, 255, 0.12);
+
   /* Compatibility aliases while legacy editor JSX is decomposed. */
   --bg: var(--background);
   --text: var(--text-primary);

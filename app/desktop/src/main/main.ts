@@ -32,6 +32,20 @@ import {
 } from "./security/renderer-security";
 import { SelectionTokenStore } from "./security/selection-token-store";
 
+// A failed Chromium GPU/cache initialization should not leave users with an
+// indistinguishable black BrowserWindow. The editor is fully usable without
+// hardware acceleration, and this keeps the failure visible in the renderer.
+app.disableHardwareAcceleration();
+app.commandLine.appendSwitch("disable-gpu");
+app.commandLine.appendSwitch("disable-gpu-compositing");
+
+// Electron's default Chromium profile can remain locked by a stale dev
+// process on Windows. Keep development state isolated in a writable profile;
+// packaged Desktop builds continue using the normal persistent userData path.
+if (!app.isPackaged) {
+  app.setPath("userData", join(app.getPath("temp"), "narrativex-desktop-dev"));
+}
+
 let mainWindow: BrowserWindow | null = null;
 let localExecution: LocalExecutionService | null = null;
 let projectStorage: ProjectStorage | null = null;
@@ -112,6 +126,46 @@ function rendererTrustPolicy(): RendererTrustPolicy {
   };
 }
 
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>'"]/g, (character) => {
+    const entities: Record<string, string> = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      "'": "&#39;",
+      '"': "&quot;",
+    };
+    return entities[character] ?? character;
+  });
+}
+
+function rendererFailureMarkup(rendererUrl: string, reason: string): string {
+  return `<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8"><title>NarrativeX Desktop</title>
+    <style>body{margin:0;background:#080b10;color:#edf3fb;font:14px system-ui,sans-serif;display:grid;place-items:center;min-height:100vh}.card{max-width:680px;margin:24px;padding:28px;border:1px solid rgba(163,184,207,.2);border-radius:10px;background:#0d131b;box-shadow:0 20px 50px rgba(0,0,0,.35)}h1{font-size:20px;margin:0 0 10px}p{color:#b7c4d4;line-height:1.6}code{display:block;margin-top:16px;padding:12px;border-radius:6px;background:#111a25;color:#e6b56b;white-space:pre-wrap;overflow-wrap:anywhere}.muted{font-size:12px;color:#8291a4}</style>
+  </head>
+  <body><main class="card"><h1>NarrativeX chưa tải được giao diện</h1>
+    <p>Electron đã mở cửa sổ nhưng renderer không kết nối được. Hãy đóng các cửa sổ NarrativeX khác rồi khởi động lại ứng dụng.</p>
+    <code>${escapeHtml(reason)}</code>
+    <p class="muted">Renderer URL: ${escapeHtml(rendererUrl)}</p>
+  </main></body>
+</html>`;
+}
+
+async function showRendererFailure(window: BrowserWindow, rendererUrl: string, error: unknown): Promise<void> {
+  if (window.isDestroyed()) return;
+  const reason = error instanceof Error ? error.message : String(error);
+  console.error("NarrativeX renderer failed to load", { rendererUrl, reason });
+  try {
+    await window.loadURL(
+      `data:text/html;charset=utf-8,${encodeURIComponent(rendererFailureMarkup(rendererUrl, reason))}`,
+    );
+  } catch (fallbackError) {
+    console.error("NarrativeX renderer failure page could not be displayed", fallbackError);
+  }
+}
+
 function createWindow() {
   const iconPath = join(__dirname, "../../resources/narrativex-icon.png");
   const trustPolicy = rendererTrustPolicy();
@@ -131,15 +185,34 @@ function createWindow() {
     },
   });
   mainWindow = window;
+  let rendererFailureShown = false;
   window.on("closed", () => {
     if (mainWindow === window) mainWindow = null;
   });
   hardenRendererWebContents(window.webContents, trustPolicy);
+  window.webContents.on("did-fail-load", (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+    if (!isMainFrame || rendererFailureShown) return;
+    rendererFailureShown = true;
+    void showRendererFailure(window, validatedURL, `${errorDescription} (${errorCode})`);
+  });
+  window.webContents.on("render-process-gone", (_event, details) => {
+    if (rendererFailureShown) return;
+    rendererFailureShown = true;
+    void showRendererFailure(window, trustPolicy.developmentRendererUrl ?? trustPolicy.productionEntryPath, `Renderer process exited: ${details.reason}`);
+  });
 
   if (trustPolicy.developmentRendererUrl) {
-    void window.loadURL(trustPolicy.developmentRendererUrl);
+    void window.loadURL(trustPolicy.developmentRendererUrl).catch((error) => {
+      if (rendererFailureShown) return;
+      rendererFailureShown = true;
+      return showRendererFailure(window, trustPolicy.developmentRendererUrl!, error);
+    });
   } else {
-    void window.loadFile(trustPolicy.productionEntryPath);
+    void window.loadFile(trustPolicy.productionEntryPath).catch((error) => {
+      if (rendererFailureShown) return;
+      rendererFailureShown = true;
+      return showRendererFailure(window, trustPolicy.productionEntryPath, error);
+    });
   }
 }
 

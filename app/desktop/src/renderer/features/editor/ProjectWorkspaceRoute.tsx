@@ -34,8 +34,13 @@ export function ProjectWorkspaceRoute() {
       {screen === "chapters" && (
         <ChaptersScreen
           projectId={projectId}
+          projectName={workspace.projects.find((project) => project.id === projectId)?.name ?? "Project hiện tại"}
           storyVersionId={workspace.timeline?.storyVersionId ?? null}
           chapters={workspace.chapters}
+          workspaceStatus={workspace.status}
+          projectsCount={workspace.projects.length}
+          assetsCount={workspace.assets.length}
+          charactersCount={workspace.characters.length}
         />
       )}
       {screen === "characters" && (

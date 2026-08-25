@@ -5,7 +5,16 @@ import { chaptersApi } from "../api/chapters.api";
 export const chapterQueryKeys = {
   all: (projectId: string) => ["projects", projectId, "chapters"] as const,
   list: (projectId: string, storyVersionId: string) => [...chapterQueryKeys.all(projectId), storyVersionId] as const,
+  workspace: (projectId: string, chapterId: string) => [...chapterQueryKeys.all(projectId), chapterId, "workspace"] as const,
 };
+
+export function useChapterWorkspaceQuery(projectId: string, chapterId: string | null) {
+  return useQuery({
+    queryKey: chapterQueryKeys.workspace(projectId, chapterId ?? "none"),
+    queryFn: () => chaptersApi.workspace(projectId, chapterId as string),
+    enabled: Boolean(chapterId),
+  });
+}
 
 export function useChaptersQuery(projectId: string | null, storyVersionId: string | null) {
   return useQuery({ queryKey: chapterQueryKeys.list(projectId ?? "none", storyVersionId ?? "none"), queryFn: () => chaptersApi.list(projectId as string, storyVersionId as string), enabled: Boolean(projectId && storyVersionId) });

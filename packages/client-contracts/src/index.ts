@@ -1,5 +1,5 @@
 export type { CreateProjectInput, DesktopProject } from "./project";
-export type { CreateChapterInput, DesktopChapter, DesktopChapterDetails, UpdateChapterInput } from "./chapter";
+export type { ChapterWorkspaceAudio, ChapterWorkspacePreviewScene, ChapterWorkspaceProgress, ChapterWorkspaceRender, ChapterWorkspaceStep, CreateChapterInput, DesktopChapter, DesktopChapterDetails, DesktopChapterWorkspace, UpdateChapterInput } from "./chapter";
 export type { DesktopCharacter } from "./character";
 export type { DesktopAsset, DesktopPreset, LocalAssetRegistration, LocalMaterializationStatus } from "./asset";
 export type { DesktopVoice, ExecutionPreference, GenerateBatchNarrationInput, GenerateNarrationInput } from "./narration";
