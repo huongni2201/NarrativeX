@@ -8,6 +8,7 @@ from typing import Any
 
 from narrativex_worker.config import WorkerSettings, get_settings
 from narrativex_worker.health import WorkerHealthServer
+from narrativex_worker.runtime_files import validate_runtime_files
 
 
 def setup_logging(level_name: str) -> None:
@@ -124,6 +125,7 @@ def main() -> None:
     settings = get_settings()
     setup_logging(settings.log_level)
     try:
+        validate_runtime_files(settings)
         asyncio.run(run_workers(settings, dry_run=args.dry_run))
     except KeyboardInterrupt:
         return
