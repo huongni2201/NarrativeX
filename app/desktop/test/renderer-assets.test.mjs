@@ -9,7 +9,7 @@ const rendererRoot = join(desktopRoot, "src", "renderer");
 test("renderer local asset references resolve to files in public", () => {
   const sourceFiles = [
     join(rendererRoot, "index.html"),
-    join(rendererRoot, "features", "auth", "components", "LoginScreen.tsx"),
+    join(rendererRoot, "features", "auth", "components", "LoginModal.tsx"),
     join(rendererRoot, "features", "editor", "EditorScreen.tsx"),
   ];
   const assetReferences = sourceFiles.flatMap((sourceFile) =>
