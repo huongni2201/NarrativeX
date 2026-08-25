@@ -15,45 +15,47 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.HexFormat;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.BadCredentialsException;
 
 class DesktopGuestIdentityServiceTest {
   private static final String DEVICE_ID = "00000000-0000-4000-8000-000000000001";
+  private static final UUID DEVICE_UUID = UUID.fromString(DEVICE_ID);
   private static final String SECRET = "s".repeat(43);
 
   @Test
   void resumesTheSameGuestForTheSameInstallationSecret() throws Exception {
     DesktopGuestInstallationRepository installations = mock(DesktopGuestInstallationRepository.class);
     GuestOwnershipTransferPort ownership = mock(GuestOwnershipTransferPort.class);
-    when(installations.findByDeviceId(DEVICE_ID))
+    when(installations.findByDeviceId(DEVICE_UUID))
         .thenReturn(
             Optional.of(
                 new DesktopGuestInstallationRepository.Installation(
-                    DEVICE_ID, "guest-stable", sha256(SECRET))));
+                    DEVICE_UUID, "guest-stable", sha256(SECRET))));
     DesktopGuestIdentityService service = new DesktopGuestIdentityService(installations, ownership);
 
     assertEquals("guest-stable", service.establish(DEVICE_ID, SECRET));
 
-    verify(installations).lockDevice(DEVICE_ID);
-    verify(installations).touch(anyString(), any());
-    verify(installations, never()).create(anyString(), anyString(), anyString(), any());
+    verify(installations).lockDevice(DEVICE_UUID);
+    verify(installations).touch(DEVICE_UUID, any());
+    verify(installations, never()).create(any(UUID.class), anyString(), anyString(), any());
   }
 
   @Test
   void rejectsASecretThatDoesNotBelongToTheInstallation() throws Exception {
     DesktopGuestInstallationRepository installations = mock(DesktopGuestInstallationRepository.class);
     GuestOwnershipTransferPort ownership = mock(GuestOwnershipTransferPort.class);
-    when(installations.findByDeviceId(DEVICE_ID))
+    when(installations.findByDeviceId(DEVICE_UUID))
         .thenReturn(
             Optional.of(
                 new DesktopGuestInstallationRepository.Installation(
-                    DEVICE_ID, "guest-stable", sha256("x".repeat(43)))));
+                    DEVICE_UUID, "guest-stable", sha256("x".repeat(43)))));
     DesktopGuestIdentityService service = new DesktopGuestIdentityService(installations, ownership);
 
     assertThrows(BadCredentialsException.class, () -> service.establish(DEVICE_ID, SECRET));
 
-    verify(installations, never()).touch(anyString(), any());
+    verify(installations, never()).touch(any(UUID.class), any());
   }
 
   @Test
