@@ -1,4 +1,4 @@
-import { useEffect, useState, type PropsWithChildren } from "react";
+import { useEffect, useRef, useState, type PropsWithChildren } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { DesktopApiError } from "../../api/client";
 import { authApi } from "./api/auth.api";
@@ -16,6 +16,7 @@ interface AuthRequiredDetail {
 export function AuthGuard({ children }: PropsWithChildren) {
   const queryClient = useQueryClient();
   const currentUser = useCurrentUserQuery();
+  const guestBootstrapStarted = useRef(false);
   const [exchangeError, setExchangeError] = useState<string | null>(null);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [guestBootstrapPending, setGuestBootstrapPending] = useState(false);
@@ -36,32 +37,27 @@ export function AuthGuard({ children }: PropsWithChildren) {
     currentUser.error instanceof DesktopApiError && currentUser.error.status === 401;
 
   useEffect(() => {
-    if (!needsGuestBootstrap || guestBootstrapPending) return;
-    let cancelled = false;
+    if (!needsGuestBootstrap || guestBootstrapStarted.current) return;
+    guestBootstrapStarted.current = true;
     setGuestBootstrapPending(true);
     setBootstrapError(null);
     void authApi.ensureGuestSession()
       .then(async (user) => {
-        if (cancelled) return;
         queryClient.setQueryData(authQueryKeys.currentUser, user);
         await queryClient.invalidateQueries({
           predicate: (query) => query.queryKey[0] !== "auth",
         });
       })
       .catch((reason) => {
-        if (!cancelled) {
-          setBootstrapError(
-            reason instanceof Error ? reason.message : "Không thể tạo guest session.",
-          );
-        }
+        setBootstrapError(
+          reason instanceof Error ? reason.message : "Không thể tạo guest session.",
+        );
       })
       .finally(() => {
-        if (!cancelled) setGuestBootstrapPending(false);
+        guestBootstrapStarted.current = false;
+        setGuestBootstrapPending(false);
       });
-    return () => {
-      cancelled = true;
-    };
-  }, [guestBootstrapPending, needsGuestBootstrap, queryClient]);
+  }, [needsGuestBootstrap, queryClient]);
 
   useEffect(() => {
     if (!window.narrativex?.auth) return;
@@ -107,7 +103,7 @@ export function AuthGuard({ children }: PropsWithChildren) {
     };
   }, [currentUser.isPending, guestBootstrapPending, localExecutionUserId]);
 
-  if (currentUser.isPending || (needsGuestBootstrap && guestBootstrapPending)) {
+  if (currentUser.isPending || (needsGuestBootstrap && !bootstrapError)) {
     return (
       <main className="auth-screen">
         <div className="auth-loading">Đang mở NarrativeX…</div>
