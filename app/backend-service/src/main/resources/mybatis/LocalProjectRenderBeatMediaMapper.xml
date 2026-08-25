@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.localexecution.infrastructure.persistence.mybatis.LocalProjectRenderBeatMediaMapper">
+  <select id="listBeatMedia" resultType="com.narrativex.backend.feature.localexecution.infrastructure.persistence.mybatis.LocalProjectRenderBeatMediaRow">
+    SELECT visual_beat_id AS visualBeatId,
+           media_type AS mediaType,
+           storage_mode AS storageMode,
+           source_duration_ms AS sourceDurationMs,
+           fit_mode AS fitMode,
+           trim_start_ms AS trimStartMs
+      FROM project_render_input_beats
+     WHERE generation_job_id = #{generationJobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+     ORDER BY global_start_ms, scene_index, beat_index, visual_beat_id
+  </select>
+</mapper>
