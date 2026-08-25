@@ -1,13 +1,24 @@
 import { useEffect } from "react";
-import { useLocation, useParams } from "react-router-dom";
+import { Navigate, useLocation, useParams } from "react-router-dom";
+import { AssetsScreen } from "../assets/screens/AssetsScreen";
+import { ChaptersScreen } from "../chapters/screens/ChaptersScreen";
+import { CharactersScreen } from "../characters/screens/CharactersScreen";
+import { ImagesScreen } from "../generation/screens/ImagesScreen";
+import { RenderScreen } from "../production/screens/RenderScreen";
 import { useProjectSessionStore } from "../projects/store/project-session.store";
+import { SettingsScreen } from "../settings/screens/SettingsScreen";
+import { VoiceScreen } from "../voices/screens/VoiceScreen";
+import { WorkspaceShell } from "../workspace/components/WorkspaceShell";
+import { useProjectWorkspace } from "../workspace/queries/useProjectWorkspace";
+import { screenFromWorkspacePath } from "../workspace/workspace-navigation";
 import { EditorScreen } from "./EditorScreen";
-import { screenFromWorkspacePath } from "./editor-navigation";
 
 export function ProjectWorkspaceRoute() {
   const location = useLocation();
   const { projectId } = useParams<{ projectId: string }>();
   const setActiveProject = useProjectSessionStore((state) => state.setActiveProject);
+  const screen = screenFromWorkspacePath(location.pathname);
+  const { workspace } = useProjectWorkspace(projectId ?? null);
 
   useEffect(() => {
     if (!projectId) return;
@@ -15,5 +26,43 @@ export function ProjectWorkspaceRoute() {
     void window.narrativex.localProjects.touch(projectId).catch(() => undefined);
   }, [projectId, setActiveProject]);
 
-  return <EditorScreen initialScreen={screenFromWorkspacePath(location.pathname)} />;
+  if (!projectId) return <Navigate to="/projects" replace />;
+
+  return (
+    <WorkspaceShell projectId={projectId} screen={screen} workspace={workspace}>
+      {screen === "editor" && <EditorScreen workspace={workspace} />}
+      {screen === "chapters" && (
+        <ChaptersScreen
+          projectId={projectId}
+          storyVersionId={workspace.timeline?.storyVersionId ?? null}
+          chapters={workspace.chapters}
+        />
+      )}
+      {screen === "characters" && (
+        <CharactersScreen projectId={projectId} characters={workspace.characters} />
+      )}
+      {screen === "images" && (
+        <ImagesScreen
+          projectId={projectId}
+          chapters={workspace.chapters}
+          timeline={workspace.timeline}
+        />
+      )}
+      {screen === "voice" && (
+        <VoiceScreen
+          projectId={projectId}
+          chapters={workspace.chapters}
+          voices={workspace.voices}
+          assets={workspace.assets}
+        />
+      )}
+      {screen === "assets" && (
+        <AssetsScreen projectId={projectId} assets={workspace.assets} />
+      )}
+      {screen === "render" && (
+        <RenderScreen projectId={projectId} timeline={workspace.timeline} />
+      )}
+      {screen === "settings" && <SettingsScreen workspace={workspace} />}
+    </WorkspaceShell>
+  );
 }

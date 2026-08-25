@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { screenFromWorkspacePath } from "../src/renderer/features/editor/editor-navigation.ts";
+import { screenFromWorkspacePath } from "../src/renderer/features/workspace/workspace-navigation.ts";
 
-test("workspace routes resolve without coupling router to EditorScreen", () => {
+test("workspace routes resolve without coupling feature screens to EditorScreen", () => {
   assert.equal(screenFromWorkspacePath("/projects/p1/editor"), "editor");
   assert.equal(screenFromWorkspacePath("/projects/p1/chapters"), "chapters");
   assert.equal(screenFromWorkspacePath("/projects/p1/characters"), "characters");
