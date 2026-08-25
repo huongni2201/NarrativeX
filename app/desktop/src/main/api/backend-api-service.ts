@@ -1,8 +1,5 @@
 import type { Session } from "electron";
-import {
-  GuestDeviceIdentityStore,
-  type GuestDeviceIdentity,
-} from "../auth/guest-device-identity";
+import type { GuestDeviceIdentity } from "../auth/guest-device-identity";
 
 const ALLOWED_METHODS = new Set(["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"]);
 const ALLOWED_REQUEST_HEADERS = new Set([
@@ -35,13 +32,20 @@ export interface GuestIdentityProvider {
   loadOrCreate(): Promise<GuestDeviceIdentity>;
 }
 
+const defaultGuestIdentityProvider: GuestIdentityProvider = {
+  async loadOrCreate() {
+    const { GuestDeviceIdentityStore } = await import("../auth/guest-device-identity");
+    return new GuestDeviceIdentityStore().loadOrCreate();
+  },
+};
+
 export class DesktopBackendApiService {
   private readonly backendOrigin: string;
 
   constructor(
     private readonly backendBaseUrl: string,
     private readonly browserSession: Session,
-    private readonly guestIdentity: GuestIdentityProvider = new GuestDeviceIdentityStore(),
+    private readonly guestIdentity: GuestIdentityProvider = defaultGuestIdentityProvider,
   ) {
     this.backendOrigin = new URL(backendBaseUrl).origin;
   }
