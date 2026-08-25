@@ -43,6 +43,25 @@ public class SecurityConfig {
     "/api/v1/local-devices/project-renders/**"
   };
 
+  private static final String[] GUEST_WORKSPACE_POST_PATHS = {
+    "/api/v1/projects",
+    "/api/v1/projects/*/stories",
+    "/api/v1/projects/*/chapters",
+    "/api/v1/projects/*/chapters/batch-import",
+    "/api/v1/projects/*/chapters/*/content",
+    "/api/v1/characters",
+    "/api/v1/assets/local"
+  };
+
+  private static final String[] GUEST_WORKSPACE_PUT_PATHS = {
+    "/api/v1/projects/*/chapters/*",
+    "/api/v1/characters/*/versions/*/references"
+  };
+
+  private static final String[] GUEST_WORKSPACE_DELETE_PATHS = {
+    "/api/v1/projects/*/chapters/*", "/api/v1/assets/*"
+  };
+
   private static final String API_PATH = "/api/v1/**";
 
   private static final String[] DEVICE_CSRF_IGNORED_PATHS = {
@@ -124,6 +143,12 @@ public class SecurityConfig {
                     .permitAll()
                     .requestMatchers("/oauth2/**", "/login/**")
                     .permitAll()
+                    .requestMatchers(HttpMethod.POST, GUEST_WORKSPACE_POST_PATHS)
+                    .hasAnyRole("USER", "GUEST")
+                    .requestMatchers(HttpMethod.PUT, GUEST_WORKSPACE_PUT_PATHS)
+                    .hasAnyRole("USER", "GUEST")
+                    .requestMatchers(HttpMethod.DELETE, GUEST_WORKSPACE_DELETE_PATHS)
+                    .hasAnyRole("USER", "GUEST")
                     .requestMatchers(HttpMethod.POST, API_PATH)
                     .hasRole("USER")
                     .requestMatchers(HttpMethod.PUT, API_PATH)
@@ -208,6 +233,12 @@ public class SecurityConfig {
           auth ->
               auth.requestMatchers(PUBLIC_AUTH_PATHS)
                   .permitAll()
+                  .requestMatchers(HttpMethod.POST, GUEST_WORKSPACE_POST_PATHS)
+                  .hasAnyRole("USER", "GUEST")
+                  .requestMatchers(HttpMethod.PUT, GUEST_WORKSPACE_PUT_PATHS)
+                  .hasAnyRole("USER", "GUEST")
+                  .requestMatchers(HttpMethod.DELETE, GUEST_WORKSPACE_DELETE_PATHS)
+                  .hasAnyRole("USER", "GUEST")
                   .requestMatchers(HttpMethod.POST, API_PATH)
                   .hasRole("USER")
                   .requestMatchers(HttpMethod.PUT, API_PATH)
