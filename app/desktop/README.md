@@ -1,6 +1,6 @@
 # NarrativeX Desktop
 
-NarrativeX Desktop is the only editor client for editing and locally rendering NarrativeX projects. It is built with Electron, React, TypeScript and electron-vite while the Spring backend remains the authoritative source for users, projects, generation jobs and shared domain state.
+NarrativeX Desktop is the primary desktop-first client for editing and locally rendering NarrativeX projects. It is built with Electron, React, TypeScript and electron-vite while the Spring backend remains the authoritative source for users, projects, generation jobs and shared domain state.
 
 ## Runtime boundary
 
@@ -90,6 +90,6 @@ npm run package:win
 
 The script runs `npm run check` first and then invokes the stable `electron-builder@26.15.7` release explicitly. This avoids changing the existing npm lockfile while keeping the packaging tool version fixed. Before a signed production release, move `electron-builder` into `devDependencies` and regenerate/commit `package-lock.json` with npm so the complete packaging dependency graph is locked as well.
 
-## Client architecture rule
+## Migration rule
 
-`app/frontend-web` has been removed. New editor UX, local filesystem integration, authentication UI and final FFmpeg execution belong in `app/desktop`. Do not recreate a parallel browser editor without an explicit architecture decision.
+`app/frontend-web` remains a temporary parity reference until desktop reaches the migration parity gate. New editor UX, local filesystem integration and final FFmpeg execution belong in `app/desktop`; do not add new desktop-only behavior back into the web client.
