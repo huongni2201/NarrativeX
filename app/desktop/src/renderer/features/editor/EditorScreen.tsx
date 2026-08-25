@@ -1,7 +1,29 @@
 import { useEffect, useMemo, useState } from "react";
-import { Pause, Play, Search, SkipBack, SkipForward, Volume2, ZoomIn, ZoomOut } from "lucide-react";
-import type { DesktopTimeline, DesktopTimelineBeat } from "@narrativex/client-contracts";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  FileImage,
+  Film,
+  FolderOpen,
+  Pause,
+  Play,
+  RotateCcw,
+  Search,
+  SkipBack,
+  SkipForward,
+  Upload,
+  Volume2,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
+import type {
+  BeatMediaFitMode,
+  DesktopAsset,
+  DesktopTimeline,
+  DesktopTimelineBeat,
+} from "@narrativex/client-contracts";
 import { Button } from "@/components/ui/button";
+import { assetsApi } from "../assets/api/assets.api";
+import { productionApi } from "../production/api/production.api";
 import type { DesktopWorkspaceState } from "../workspace/queries/useProjectWorkspace";
 import {
   buildEditorHierarchy,
@@ -16,15 +38,23 @@ export function EditorScreen({
 }: Readonly<{
   workspace: DesktopWorkspaceState;
 }>) {
+  const queryClient = useQueryClient();
   const timeline = workspace.timeline;
+  const projectId = timeline?.projectId ?? null;
   const beats = timeline?.beats ?? [];
   const chapters = timeline?.chapters ?? [];
+  const selectableAssets = workspace.assets.filter(
+    (asset) => asset.type === "IMAGE" || asset.type === "VIDEO",
+  );
   const [selectedId, setSelectedId] = useState("");
   const [playing, setPlaying] = useState(false);
   const [playheadMs, setPlayheadMs] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [query, setQuery] = useState("");
   const [scope, setScope] = useState<EditorScope>("chapter");
+  const [assetChoiceId, setAssetChoiceId] = useState("");
+  const [mediaBusy, setMediaBusy] = useState(false);
+  const [mediaNotice, setMediaNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (!beats.length) {
@@ -36,6 +66,11 @@ export function EditorScreen({
       setPlayheadMs(beats[0].startMs);
     }
   }, [beats, selectedId]);
+
+  useEffect(() => {
+    setAssetChoiceId("");
+    setMediaNotice(null);
+  }, [selectedId]);
 
   const totalMs = timeline?.totalDurationMs ?? 0;
   const selected = beats.find((beat) => beat.visualBeatId === selectedId) ?? null;
@@ -87,8 +122,101 @@ export function EditorScreen({
     setPlayheadMs(beat.startMs);
   };
 
+  async function refreshEditorData() {
+    if (!projectId) return;
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["projects", projectId, "timeline"] }),
+      queryClient.invalidateQueries({ queryKey: ["assets", "library"] }),
+    ]);
+  }
+
+  async function withMediaMutation(action: () => Promise<void>, successMessage: string) {
+    setMediaBusy(true);
+    setMediaNotice(null);
+    try {
+      await action();
+      await refreshEditorData();
+      setMediaNotice(successMessage);
+    } catch (error) {
+      setMediaNotice(error instanceof Error ? error.message : "Không thể cập nhật media cho beat.");
+    } finally {
+      setMediaBusy(false);
+    }
+  }
+
+  async function uploadBeatMedia(expectedType: "IMAGE" | "VIDEO") {
+    if (!projectId || !selected) return;
+    await withMediaMutation(async () => {
+      const selection = await window.narrativex.localStorage.selectAsset();
+      if (!selection) return;
+      if (selection.kind !== expectedType) {
+        throw new Error(
+          expectedType === "VIDEO"
+            ? "Hãy chọn một file video."
+            : "Hãy chọn một file ảnh.",
+        );
+      }
+
+      const asset = await assetsApi.registerLocal({
+        projectId,
+        type: selection.kind,
+        originalFilename: selection.originalFilename,
+        contentType: selection.contentType,
+        sizeBytes: selection.sizeBytes,
+        checksumSha256: selection.checksumSha256,
+      });
+      await window.narrativex.localStorage.commitSelectedAsset({
+        projectId,
+        assetId: asset.id,
+        kind: selection.kind,
+        selectionToken: selection.selectionToken,
+      });
+      await productionApi.updateBeatMedia(projectId, selected.visualBeatId, {
+        mediaAssetId: asset.id,
+        fitMode: selection.kind === "VIDEO" ? "FREEZE_END" : "TRIM",
+        trimStartMs: 0,
+      });
+    }, expectedType === "VIDEO" ? "Video đã được gắn vào Visual Beat." : "Ảnh đã được gắn vào Visual Beat.");
+  }
+
+  async function chooseExistingAsset() {
+    if (!projectId || !selected || !assetChoiceId) return;
+    const asset = selectableAssets.find((candidate) => candidate.id === assetChoiceId);
+    if (!asset) return;
+    await withMediaMutation(
+      () =>
+        productionApi.updateBeatMedia(projectId, selected.visualBeatId, {
+          mediaAssetId: asset.id,
+          fitMode: asset.type === "VIDEO" ? "FREEZE_END" : "TRIM",
+          trimStartMs: 0,
+        }),
+      `${asset.originalFilename} đã được gắn vào Visual Beat.`,
+    );
+  }
+
+  async function updateFitMode(fitMode: BeatMediaFitMode) {
+    if (!projectId || !selected?.mediaAssetId) return;
+    await withMediaMutation(
+      () =>
+        productionApi.updateBeatMedia(projectId, selected.visualBeatId, {
+          mediaAssetId: selected.mediaAssetId as string,
+          fitMode,
+          trimStartMs: selected.trimStartMs,
+        }),
+      `Fit mode đã chuyển sang ${fitMode}.`,
+    );
+  }
+
+  async function resetToGeneratedSource() {
+    if (!projectId || !selected) return;
+    await withMediaMutation(
+      () => productionApi.resetBeatMedia(projectId, selected.visualBeatId),
+      "Visual Beat đã quay về generated source.",
+    );
+  }
+
   return (
-    <div className="grid h-full min-h-0 grid-cols-[250px_minmax(0,1fr)_300px]">
+    <div className="grid h-full min-h-0 grid-cols-[250px_minmax(0,1fr)_320px]">
       <aside className="min-h-0 overflow-hidden border-r border-border bg-card">
         <div className="border-b border-border p-3">
           <div className="flex items-center justify-between gap-2">
@@ -159,7 +287,7 @@ export function EditorScreen({
                 <p className="text-xs leading-5 text-muted-foreground">{selected.visualIntent}</p>
                 <div className="mx-auto flex flex-wrap items-center justify-center gap-2 text-[10px] text-muted-foreground">
                   <span className="rounded border border-border bg-popover px-2 py-1">
-                    {selected.assetReady ? "Asset ready" : "Asset pending"}
+                    {selected.mediaType ?? "NO MEDIA"}
                   </span>
                   <span className="rounded border border-border bg-popover px-2 py-1">
                     {selected.cameraMovement}
@@ -275,9 +403,97 @@ export function EditorScreen({
                 <strong className="text-[10px]">Timing source: Narration</strong>
               </div>
               <p className="mt-2 text-[9px] leading-4 text-muted-foreground">
-                Visual Beat giữ cùng audio span. Ảnh được animate theo span này; video source sẽ được trim/fill theo cùng timing khi media replacement được nối API.
+                Media thay đổi độc lập; audio span của Visual Beat vẫn giữ nguyên.
               </p>
             </div>
+
+            <InspectorSection title="Media Source">
+              <div className="rounded-md border border-border bg-card p-2">
+                <span className="text-[9px] text-muted-foreground">Current source</span>
+                <strong className="mt-1 block break-all text-[10px]">
+                  {selected.mediaType ?? "NONE"} · {selected.mediaAssetId ?? "Pending"}
+                </strong>
+                <span className="mt-1 block text-[9px] text-muted-foreground">
+                  {selected.mediaSelectionActive ? "User selected" : "Generated source"}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={mediaBusy || !projectId}
+                  onClick={() => void uploadBeatMedia("IMAGE")}
+                >
+                  <FileImage size={13} /> Upload image
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={mediaBusy || !projectId}
+                  onClick={() => void uploadBeatMedia("VIDEO")}
+                >
+                  <Film size={13} /> Upload video
+                </Button>
+              </div>
+              <div className="grid gap-2">
+                <select
+                  className="h-9 w-full rounded-md border border-input bg-card px-2 text-[10px] text-foreground outline-none"
+                  value={assetChoiceId}
+                  onChange={(event) => setAssetChoiceId(event.target.value)}
+                  disabled={mediaBusy}
+                >
+                  <option value="">Choose from Assets…</option>
+                  {selectableAssets.map((asset) => (
+                    <option key={asset.id} value={asset.id}>
+                      {asset.type} · {asset.originalFilename}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={mediaBusy || !assetChoiceId}
+                  onClick={() => void chooseExistingAsset()}
+                >
+                  <FolderOpen size={13} /> Use selected asset
+                </Button>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={mediaBusy || !selected.mediaSelectionActive}
+                onClick={() => void resetToGeneratedSource()}
+              >
+                <RotateCcw size={13} /> Use generated source
+              </Button>
+              {mediaNotice && (
+                <p className="text-[9px] leading-4 text-muted-foreground">{mediaNotice}</p>
+              )}
+            </InspectorSection>
+
+            <InspectorSection title="Fit to Beat">
+              {selected.mediaType === "VIDEO" ? (
+                <div className="grid grid-cols-2 gap-2">
+                  {(["TRIM", "LOOP", "FREEZE_END", "SPEED_ADJUST"] as BeatMediaFitMode[]).map(
+                    (mode) => (
+                      <Button
+                        key={mode}
+                        variant={selected.fitMode === mode ? "default" : "outline"}
+                        size="sm"
+                        disabled={mediaBusy || !selected.mediaAssetId}
+                        onClick={() => void updateFitMode(mode)}
+                      >
+                        {fitModeLabel(mode)}
+                      </Button>
+                    ),
+                  )}
+                </div>
+              ) : (
+                <p className="text-[9px] text-muted-foreground">
+                  Image media luôn giữ đúng narration span; video mới có Trim / Loop / Freeze / Speed.
+                </p>
+              )}
+            </InspectorSection>
 
             <InspectorSection title="Hierarchy">
               <InspectorRow label="Chapter" value={selectedChapter?.title ?? selected.chapterId} />
@@ -294,14 +510,15 @@ export function EditorScreen({
               />
             </InspectorSection>
 
-            <InspectorSection title="Media">
+            <InspectorSection title="Media Metadata">
               <InspectorRow label="Strategy" value={selected.assetStrategy} />
               <InspectorRow label="Camera" value={selected.cameraMovement} />
+              <InspectorRow label="Storage" value={selected.storageMode ?? "Pending"} />
+              <InspectorRow label="Fit" value={selected.fitMode} />
               <InspectorRow
                 label="Asset status"
                 value={selected.assetReady ? "Ready" : "Pending"}
               />
-              <InspectorRow label="Asset ID" value={selected.mediaAssetId ?? "Pending"} />
             </InspectorSection>
           </div>
         ) : (
@@ -441,7 +658,7 @@ function BeatListItem({
           {formatTime(beat.durationMs)}
         </span>
         <span className={`text-[8px] ${beat.assetReady ? "text-info" : "text-warning"}`}>
-          {beat.assetReady ? "ready" : "pending"}
+          {beat.mediaType ?? "pending"}
         </span>
       </div>
     </button>
@@ -538,7 +755,6 @@ function Timeline({
                     : "border-warning/40 bg-warning-bg text-warning"
                 }`}
                 style={{ left: `${left}%`, width: `${Math.max(1, width)}%` }}
-                title={`${chapter.title} · ${chapter.audioReady ? "Narration ready" : "Narration missing"}`}
               >
                 <span className="block truncate">
                   C{chapter.orderIndex + 1} · {chapter.audioReady ? "Narration" : "Missing audio"}
@@ -569,10 +785,10 @@ function Timeline({
                 }`}
                 style={{ left: `${left}%`, width: `${Math.max(1.4, width)}%` }}
                 onClick={() => onSelect(beat)}
-                title={`${beat.title} · ${(beat.durationMs / 1000).toFixed(1)}s`}
+                title={`${beat.mediaType ?? "MEDIA"} · ${beat.title} · ${(beat.durationMs / 1000).toFixed(1)}s`}
               >
                 <span className="block truncate font-semibold">
-                  S{beat.sceneIndex + 1} · B{beat.beatIndex + 1}
+                  {beat.mediaType === "VIDEO" ? "VIDEO" : "IMAGE"} · S{beat.sceneIndex + 1} · B{beat.beatIndex + 1}
                 </span>
                 <span className="block truncate opacity-80">{beat.title}</span>
               </button>
@@ -648,7 +864,7 @@ function filterHierarchy(hierarchy: EditorChapterGroup[], query: string) {
       const sceneBeats = chapterMatches || sceneMatches
         ? scene.beats
         : scene.beats.filter((beat) =>
-            `${beat.title} ${beat.visualIntent} ${beat.cameraMovement} visual beat ${beat.beatIndex + 1}`
+            `${beat.title} ${beat.visualIntent} ${beat.cameraMovement} ${beat.mediaType ?? ""} visual beat ${beat.beatIndex + 1}`
               .toLocaleLowerCase()
               .includes(needle),
           );
@@ -715,6 +931,19 @@ function scopeName(scope: EditorScope) {
       return "Chapter";
     case "project":
       return "Project";
+  }
+}
+
+function fitModeLabel(mode: BeatMediaFitMode) {
+  switch (mode) {
+    case "TRIM":
+      return "Trim";
+    case "LOOP":
+      return "Loop";
+    case "FREEZE_END":
+      return "Freeze end";
+    case "SPEED_ADJUST":
+      return "Speed adjust";
   }
 }
 
