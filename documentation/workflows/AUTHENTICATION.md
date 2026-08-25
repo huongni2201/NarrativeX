@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Let NarrativeX Desktop open directly into a usable workspace, then require Google OIDC only when the user invokes account-bound or paid production actions. Authentication remains server-managed and business modules obtain caller identity through application ports.
+Let NarrativeX Desktop open directly into a usable workspace, keep guest ownership stable across application and server-session restarts, then require Google OIDC only when the user invokes account-bound or paid production actions. Authentication remains server-managed and business modules obtain caller identity through application ports.
 
 ## Module boundary
 
@@ -31,20 +31,42 @@ project / character / generation
 
 Business modules do not read `SecurityContextHolder`, OIDC principals or Spring Security configuration directly.
 
+## Stable desktop guest identity
+
+Electron Main owns a per-installation credential:
+
+```text
+<userData>/guest-device-identity.json
+  deviceId          # random UUID, stable for this installation
+  encryptedSecret   # 32 random bytes encrypted with Electron safeStorage
+```
+
+The plaintext secret never enters React, browser storage, logs or worker payloads. `DesktopBackendApiService` injects it only when calling `POST /api/v1/auth/desktop/guest`.
+
+The backend stores only the SHA-256 hash in `desktop_guest_installations`. The table maps one `device_id` to one stable internal `guest_user_id`. A matching internal `auth_users` row exists only to satisfy ownership/FK invariants; it is not a password account and cannot be used as an OAuth identity.
+
+`NX_SESSION` remains a normal session cookie. Session expiry does not destroy the guest identity: Desktop simply presents the installation credential again and the backend issues a new `ROLE_GUEST` session for the same `guest_user_id`.
+
 ## Desktop guest-first flow
 
 ```text
 Desktop starts
   -> GET /api/v1/auth/me
-  -> if no server session: POST /api/v1/auth/desktop/guest
-  -> server creates ROLE_GUEST session
+  -> if the server session is still valid: reuse it
+  -> otherwise renderer requests POST /api/v1/auth/desktop/guest
+  -> Electron Main injects deviceId + installation secret
+  -> backend verifies/creates desktop_guest_installations
+  -> backend restores the same stable guest_user_id
+  -> server creates a fresh ROLE_GUEST session
   -> renderer opens Projects / Editor normally
 
-Guest uses ordinary workspace CRUD
-  -> project / story / chapter / character / local asset APIs
-  -> allowed through authenticated guest principal
+Guest uses free workspace mutations
+  -> create project/story/chapter
+  -> batch import/edit/delete chapter content
+  -> create character/reference metadata
+  -> register/delete local assets
 
-Guest invokes a gated production action
+Guest invokes a gated production/account action
   -> backend role gate requires ROLE_USER
   -> 403 code=AUTHENTICATION_REQUIRED
   -> renderer opens LoginModal over the current route
@@ -55,32 +77,35 @@ LoginModal
   -> Google OIDC
   -> narrativex://auth/callback?code=<one-time-code>
   -> POST /api/v1/auth/desktop/exchange
-  -> transfer guest-owned workspace data to Google account
+  -> transfer guest-owned workspace data to Google account in one auth use-case transaction
   -> replace ROLE_GUEST session with ROLE_USER session
   -> close modal + invalidate/refetch queries
   -> current project ID, route and editor context remain unchanged
 ```
 
-`CurrentUserResponse.guest` tells Desktop whether the active server session is a temporary guest workspace identity or a signed-in account.
+`CurrentUserResponse.guest` tells Desktop whether the active server session represents the installation guest identity or a signed-in Google account.
 
 ## Gated production actions
 
-Guest users may inspect the app, create/edit project content, import local assets and request non-consuming estimates. A signed-in account is required before starting operations that consume provider resources or production execution, including:
+Guest users may inspect the app, create/edit project content, import local assets and request non-consuming reads. A signed-in account is required before starting operations that consume provider/cloud resources or account-only state, including:
 
 - story/chapter AI analysis;
 - chapter translation;
 - narration/TTS generation;
 - image/media generation;
-- chapter/project render or export;
+- cloud upload intents;
+- chapter/project production render or export when the endpoint is account-gated;
 - account-only preferences such as project favorites.
 
-The backend is authoritative. UI buttons do not provide the security boundary; role-gated endpoints return `AUTHENTICATION_REQUIRED`, which the renderer translates into the in-place sign-in modal.
+Security uses explicit guest CRUD allowlists before the generic mutation rule. Generation routes under the same `/projects/...` namespace are not covered by those allowlists and remain `ROLE_USER` only.
 
 ## Guest ownership transfer
 
-Guest IDs are temporary server-session principals (`guest-<uuid-v7>`). They are not Google accounts and are not persisted as password/login identities.
+The stable guest ID has the form `guest-<uuid-v7>`. It is an internal principal associated with one installation credential, not a second end-user login method.
 
-On successful Desktop exchange, the auth application transfers guest-scoped mutable workspace ownership before replacing the session identity:
+During rollout, if an old ephemeral `guest-<uuid>` session is present when the stable installation is first established, the backend transfers its owned workspace rows to the stable guest ID first.
+
+On successful Desktop Google exchange, the auth application transfers guest-scoped mutable workspace ownership before replacing the session identity:
 
 ```text
 projects.owner_id
@@ -88,9 +113,12 @@ characters.owner_id
 chapter_creation_idempotency.owner_id
 media_assets.account_id
 media_asset_checksums.account_id / canonical rows
+media_upload_sessions.account_id
 ```
 
-Project IDs, chapter IDs and asset IDs do not change, so the renderer does not need to redirect or reconstruct the editor route after login.
+Checksum collisions are deduplicated before `media_asset_checksums.account_id` is moved. Project IDs, chapter IDs, character IDs and asset IDs do not change, so the renderer does not need to redirect or reconstruct the editor route after login.
+
+The `desktop_guest_installations` row remains associated with the installation after a Google claim. If the user later logs out, the same installation guest can resume and create new guest-only work; previously transferred Google-owned projects remain owned by the account. A later login transfers only new guest-owned rows.
 
 ## Current-user and CSRF flow
 
@@ -115,16 +143,19 @@ Desktop mutation
 
 ## Security rules
 
-1. Google remains the only persisted end-user login provider. A guest session is a temporary workspace principal, not a second login method.
-2. The Google provider subject is persisted as the stable external identity key in `auth_users.google_subject` for signed-in accounts.
-3. Provider tokens/secrets never enter frontend storage, logs or worker payloads.
-4. Paid/account-bound mutations are enforced by backend authorization (`ROLE_USER`), not only by renderer state.
-5. Project-scoped commands/queries resolve owner/actor through the auth application port.
-6. Guest local execution does not activate the user-bound device identity; device pairing resumes only after a real user session exists.
-7. `local`/`test` may use the configured developer identity fallback; staging/production fail closed when OIDC is disabled.
-8. Credentialed Desktop mutations include the session-bound CSRF header; CORS uses an explicit origin allowlist.
-9. OAuth completion updates session/query state in place. It must not redirect the renderer to Home or discard the active editor route.
-10. Logout invalidates the server session; durable work follows its own reconciliation policy.
+1. Google remains the only end-user login provider. The internal guest row exists for ownership/FK integrity, not as a password/OAuth account.
+2. The installation secret is generated in Electron Main, encrypted at rest with `safeStorage`, never exposed to renderer code, and only its SHA-256 hash is persisted server-side.
+3. A server session may expire independently; possession of the installation credential is required to resume the same stable guest identity.
+4. The Google provider subject is persisted as the stable external identity key in `auth_users.google_subject` for signed-in accounts.
+5. Provider tokens/secrets never enter frontend storage, logs or worker payloads.
+6. Paid/account-bound mutations are enforced by backend authorization (`ROLE_USER`), not only by renderer state.
+7. Free guest mutations are explicit endpoint allowlists; broad mutation wildcards remain `ROLE_USER` only.
+8. Project-scoped commands/queries resolve owner/actor through the auth application port.
+9. Guest local execution does not activate the user-bound device identity; device pairing resumes only after a real user session exists.
+10. `local`/`test` may use the configured developer identity fallback; staging/production fail closed when OIDC is disabled.
+11. Credentialed Desktop mutations include the session-bound CSRF header; CORS uses an explicit origin allowlist.
+12. OAuth completion updates session/query state in place. It must not redirect the renderer to Home or discard the active editor route.
+13. Logout invalidates the server session but does not delete local projects or the encrypted installation guest credential.
 
 ## Notification Outbox & Event Dispatch
 
