@@ -23,18 +23,23 @@ public class SecurityContextCurrentUser implements CurrentUserId, CurrentUserPro
   public CurrentUserResponse current() {
     Authentication authentication = authenticated();
     String id = authentication.getName();
+    if (hasAuthority(authentication, "ROLE_GUEST")) {
+      return new CurrentUserResponse(id, "Khách", null, null, true);
+    }
     if (authentication.getPrincipal() instanceof OidcUser user) {
       return new CurrentUserResponse(
           id,
           firstNonBlank(user.getFullName(), user.getGivenName(), user.getEmail(), id),
           user.getEmail(),
-          user.getPicture());
+          user.getPicture(),
+          false);
     }
     if (authentication.getPrincipal() instanceof DesktopUserPrincipal user) {
-      return new CurrentUserResponse(user.id(), user.displayName(), user.email(), user.avatarUrl());
+      return new CurrentUserResponse(
+          user.id(), user.displayName(), user.email(), user.avatarUrl(), false);
     }
     log.debug("Resolved authenticated principal {}", id);
-    return new CurrentUserResponse(id, id, null, null);
+    return new CurrentUserResponse(id, id, null, null, false);
   }
 
   private static Authentication authenticated() {
@@ -46,6 +51,11 @@ public class SecurityContextCurrentUser implements CurrentUserId, CurrentUserPro
       throw new AuthenticationCredentialsNotFoundException("Authenticated user is required");
     }
     return authentication;
+  }
+
+  private static boolean hasAuthority(Authentication authentication, String authority) {
+    return authentication.getAuthorities().stream()
+        .anyMatch(grantedAuthority -> authority.equals(grantedAuthority.getAuthority()));
   }
 
   private static String firstNonBlank(String... values) {
