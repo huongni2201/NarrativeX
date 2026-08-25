@@ -9,8 +9,11 @@
         <result property="secretHash" column="secret_hash" />
     </resultMap>
 
-    <select id="lockDevice" statementType="PREPARED">
-        SELECT pg_advisory_xact_lock(hashtext(#{deviceId}))
+    <select id="lockDevice" resultType="int">
+        WITH installation_lock AS (
+            SELECT pg_advisory_xact_lock(hashtext(#{deviceId}))
+        )
+        SELECT 1 FROM installation_lock
     </select>
 
     <select id="findByDeviceId" resultMap="desktopGuestInstallationRow">
