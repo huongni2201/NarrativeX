@@ -2,6 +2,7 @@ package com.narrativex.backend.feature.auth.infrastructure.persistence.mybatis;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -9,6 +10,7 @@ import com.narrativex.backend.feature.auth.application.port.in.DesktopGuestIdent
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.util.UUID;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -71,16 +73,16 @@ class DesktopGuestIdentityPostgreSqlIntegrationTest {
                        auth.google_subject
                   FROM desktop_guest_installations installation
                   JOIN auth_users auth ON auth.id = installation.guest_user_id
-                 WHERE installation.device_id = CAST(? AS uuid)
+                 WHERE installation.device_id = ?
                 """)) {
-      statement.setString(1, DEVICE_ID);
+      statement.setObject(1, UUID.fromString(DEVICE_ID));
       try (ResultSet result = statement.executeQuery()) {
         assertTrue(result.next());
         assertEquals(createdGuest, result.getString("guest_user_id"));
         String secretHash = result.getString("secret_hash");
         assertNotEquals(SECRET, secretHash);
         assertTrue(secretHash.matches("[0-9a-f]{64}"));
-        assertEquals(null, result.getString("google_subject"));
+        assertNull(result.getString("google_subject"));
       }
     }
   }
