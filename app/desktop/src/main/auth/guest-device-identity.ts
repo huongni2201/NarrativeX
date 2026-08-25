@@ -15,8 +15,6 @@ export interface GuestDeviceIdentity {
 }
 
 export class GuestDeviceIdentityStore {
-  private readonly filePath = path.join(app.getPath("userData"), "guest-device-identity.json");
-
   async loadOrCreate(): Promise<GuestDeviceIdentity> {
     const existing = await this.load();
     if (existing) return existing;
@@ -28,13 +26,19 @@ export class GuestDeviceIdentityStore {
     return identity;
   }
 
+  private filePath(): string {
+    return path.join(app.getPath("userData"), "guest-device-identity.json");
+  }
+
   private async load(): Promise<GuestDeviceIdentity | null> {
+    const filePath = this.filePath();
     try {
-      const raw = await fs.readFile(this.filePath, "utf8");
+      const raw = await fs.readFile(filePath, "utf8");
       const stored = JSON.parse(raw) as Partial<StoredGuestDeviceIdentity>;
       if (
         stored.schemaVersion !== 1 ||
         typeof stored.deviceId !== "string" ||
+        !/^[0-9a-f-]{36}$/i.test(stored.deviceId) ||
         typeof stored.encryptedSecret !== "string" ||
         !stored.encryptedSecret
       ) {
@@ -58,17 +62,18 @@ export class GuestDeviceIdentityStore {
     if (!safeStorage.isEncryptionAvailable()) {
       throw new Error("OS secure storage is not available.");
     }
-    await fs.mkdir(path.dirname(this.filePath), { recursive: true });
+    const filePath = this.filePath();
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
     const document: StoredGuestDeviceIdentity = {
       schemaVersion: 1,
       deviceId: identity.deviceId,
       encryptedSecret: safeStorage.encryptString(identity.secret).toString("base64"),
     };
-    const temporaryPath = `${this.filePath}.${randomUUID()}.tmp`;
+    const temporaryPath = `${filePath}.${randomUUID()}.tmp`;
     await fs.writeFile(temporaryPath, `${JSON.stringify(document, null, 2)}\n`, {
       encoding: "utf8",
       mode: 0o600,
     });
-    await fs.rename(temporaryPath, this.filePath);
+    await fs.rename(temporaryPath, filePath);
   }
 }
