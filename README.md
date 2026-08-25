@@ -2,7 +2,7 @@
 
 NarrativeX is a desktop-first, image-first AI Story Video Studio for turning flexible-length stories into consistent, reviewed long-form videos and Short/Reel exports.
 
-The primary editor is now the Electron desktop application. Spring Boot remains the authoritative control plane for durable business metadata and execution state, while project media and local rendering are moving to a local-first Desktop boundary.
+The primary and only editor client is the Electron desktop application. Spring Boot remains the authoritative control plane for durable business metadata and execution state, while project media and local rendering use a local-first Desktop boundary.
 
 ## Repository map
 
@@ -10,12 +10,12 @@ The primary editor is now the Electron desktop application. Spring Boot remains 
 | --- | --- |
 | `app/desktop` | Primary Electron + React + TypeScript editor; local project storage, native capabilities and local FFmpeg execution through Electron main |
 | `app/backend-service` | Spring Boot modular monolith; ownership, domain metadata, policy, jobs, leases and cost authority |
-| `app/ai-worker` | Python AI/media worker; provider execution and retained cloud/server processing paths |
-| `app/frontend-web` | Temporary legacy migration client; not the target editor architecture |
+| `app/ai-worker` | Python AI/media worker; provider execution and retained server-side processing paths |
 | `packages/client-contracts` | Shared typed client/backend contracts |
 | `contracts` | Versioned backend ↔ worker payload contracts |
 | `documentation` | Product, domain, architecture, workflows, migration plans and ADRs |
-| `docker-compose.prod.yml` | Retained cloud/legacy production stack and server-side worker runtime |
+| `docker-compose.yml` | Local Desktop development dependencies and backend runtime |
+| `docker-compose.prod.yml` | Production backend/worker runtime with optional Cloudflare Tunnel ingress |
 
 ## Primary runtime topology
 
@@ -28,7 +28,7 @@ Electron Desktop
         |
         v
   main: OAuth deep link, native filesystem, local project manifest,
-        device execution, FFmpeg/ffprobe
+        backend session transport, device execution, FFmpeg/ffprobe
         |
         +------------------------+
         |                        |
@@ -70,7 +70,7 @@ Workspace layout:
 
 `project.manifest.json` maps backend asset IDs to project-relative paths, sizes and SHA-256 checksums. Absolute local filesystem paths must not be stored in backend state.
 
-Cloudflare R2 and Google Drive remain part of the retained cloud/legacy worker execution path during migration. They are not the primary Desktop project-media boundary. Shared voice/sample media may remain remote when cross-install reuse requires it.
+Cloudflare R2 and Google Drive remain part of retained server-worker paths where remote durability is still required. They are not the primary Desktop project-media boundary. Shared voice/sample media may remain remote when cross-install reuse requires it.
 
 ## Authentication
 
@@ -81,6 +81,7 @@ Desktop authentication uses the system browser:
 ```text
 GET /api/v1/auth/desktop/start
   -> Google OIDC
+  -> backend OAuth callback
   -> narrativex://auth/callback?code=<one-time-code>
   -> POST /api/v1/auth/desktop/exchange
   -> server-managed NarrativeX session
@@ -93,6 +94,7 @@ Google access/refresh tokens never enter Electron. Local execution uses a separa
 Start the backend/required server dependencies, then run the desktop client:
 
 ```powershell
+docker compose up -d --build
 cd app/desktop
 npm ci
 npm run dev
@@ -123,11 +125,17 @@ The current Desktop implementation can claim backend-assigned local project rend
 
 Lease heartbeat, failure reporting and in-process cancellation are implemented foundations. Process-restart crash recovery/resume remains a hardening item.
 
-## Cloud/legacy runtime
+## Production backend ingress
 
-`docker-compose.prod.yml`, Caddy/Cloudflare Tunnel, R2-backed pipeline media and Google Drive final-video storage remain valid for the retained browser/cloud worker execution path while Desktop migration is incomplete. Do not use that topology to design new Desktop project storage or Desktop local rendering.
+`docker-compose.prod.yml` contains the production backend, PostgreSQL, Redis and retained server workers. There is no web frontend service and no Caddy layer.
 
-The web client may be removed only after Desktop parity gates are satisfied and remaining browser-only dependencies are no longer required.
+For a self-hosted production backend, Cloudflare Tunnel is retained as an optional HTTPS ingress and should route the public API hostname directly to:
+
+```text
+http://backend:8080
+```
+
+The Electron app then uses `https://<APP_DOMAIN>` as its remote backend origin. If deployment already provides another HTTPS reverse proxy/load balancer, the `cloudflared` service and its environment variables can be removed without changing NarrativeX application code.
 
 ## Persistence
 
