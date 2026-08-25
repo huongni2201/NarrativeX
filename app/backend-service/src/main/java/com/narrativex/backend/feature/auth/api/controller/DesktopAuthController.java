@@ -3,7 +3,6 @@ package com.narrativex.backend.feature.auth.api.controller;
 import com.narrativex.backend.feature.auth.api.request.DesktopAuthExchangeRequest;
 import com.narrativex.backend.feature.auth.api.response.CurrentUserResponse;
 import com.narrativex.backend.feature.auth.application.port.in.DesktopAuthHandoff;
-import com.narrativex.backend.feature.auth.application.usecase.TransferGuestWorkspaceUseCase;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import jakarta.servlet.http.HttpServletRequest;
@@ -42,7 +41,6 @@ public class DesktopAuthController {
 
   private final DesktopAuthHandoff handoffStore;
   private final SecurityContextRepository securityContextRepository;
-  private final TransferGuestWorkspaceUseCase transferGuestWorkspaceUseCase;
 
   @GetMapping("/start")
   public void start(
@@ -99,7 +97,6 @@ public class DesktopAuthController {
       @Valid @RequestBody DesktopAuthExchangeRequest request,
       HttpServletRequest servletRequest,
       HttpServletResponse servletResponse) {
-    String guestUserId = currentGuestUserId();
     DesktopAuthHandoff.AuthenticatedUser user =
         handoffStore.consumeUser(request.code(), request.codeVerifier());
     if (user == null) {
@@ -107,10 +104,6 @@ public class DesktopAuthController {
           .body(
               new ApiResponse<>(
                   false, "Desktop auth code is invalid or expired.", null, Instant.now()));
-    }
-
-    if (guestUserId != null) {
-      transferGuestWorkspaceUseCase.execute(guestUserId, user.id());
     }
 
     Authentication authentication =
@@ -126,11 +119,6 @@ public class DesktopAuthController {
             "Desktop session established",
             new CurrentUserResponse(
                 user.id(), user.displayName(), user.email(), user.avatarUrl(), false)));
-  }
-
-  private static String currentGuestUserId() {
-    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-    return hasAuthority(authentication, ROLE_GUEST) ? authentication.getName() : null;
   }
 
   private static boolean hasAuthority(Authentication authentication, String authority) {
