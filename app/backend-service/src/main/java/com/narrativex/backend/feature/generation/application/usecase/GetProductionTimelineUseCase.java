@@ -139,6 +139,21 @@ public class GetProductionTimelineUseCase {
       long chapterDurationMs) {
     if (sources.isEmpty()) return List.of();
 
+    if (hasCompleteAlignedClock(sources, chapterDurationMs)) {
+      List<ProductionTimelineView.Beat> aligned = new ArrayList<>(sources.size());
+      for (BeatSource source : sources) {
+        long relativeStartMs = source.audioStartMs();
+        long relativeEndMs = source.audioEndMs();
+        aligned.add(
+            buildBeat(
+                chapter,
+                source,
+                safeAdd(chapterStartMs, relativeStartMs),
+                safeAdd(chapterStartMs, relativeEndMs)));
+      }
+      return List.copyOf(aligned);
+    }
+
     long[] weights = new long[sources.size()];
     long totalWeight = 0L;
     for (int index = 0; index < sources.size(); index++) {
@@ -170,46 +185,71 @@ public class GetProductionTimelineUseCase {
       if (relativeEnd <= previousRelativeEnd) relativeEnd = previousRelativeEnd + 1L;
       if (relativeEnd > chapterDurationMs) relativeEnd = chapterDurationMs;
 
-      long globalStartMs = safeAdd(chapterStartMs, previousRelativeEnd);
-      long globalEndMs = safeAdd(chapterStartMs, relativeEnd);
-      long durationMs = Math.max(1L, globalEndMs - globalStartMs);
-      boolean mediaMetadataReady =
-          source.mediaAssetId() != null
-              && nonBlank(source.mediaType())
-              && positive(source.sizeBytes())
-              && nonBlank(source.checksum());
-      boolean storageReady =
-          "LOCAL_ONLY".equals(source.storageMode()) || nonBlank(source.storageKey());
-      boolean assetReady = mediaMetadataReady && storageReady;
-
       planned.add(
-          new ProductionTimelineView.Beat(
-              chapter.chapterId(),
-              chapter.orderIndex(),
-              source.sceneIndex(),
-              source.beatIndex(),
-              source.visualBeatId(),
-              source.title(),
-              source.visualIntent(),
-              source.cameraMovement(),
-              source.assetStrategy(),
-              source.mediaAssetId(),
-              source.mediaType(),
-              source.storageMode(),
-              source.sourceDurationMs(),
-              nonBlank(source.fitMode()) ? source.fitMode() : "TRIM",
-              Math.max(0L, source.trimStartMs()),
-              source.mediaSelectionActive(),
-              source.storageKey(),
-              source.sizeBytes(),
-              source.checksum(),
-              globalStartMs,
-              globalEndMs,
-              durationMs,
-              assetReady));
+          buildBeat(
+              chapter,
+              source,
+              safeAdd(chapterStartMs, previousRelativeEnd),
+              safeAdd(chapterStartMs, relativeEnd)));
       previousRelativeEnd = relativeEnd;
     }
     return List.copyOf(planned);
+  }
+
+  private static boolean hasCompleteAlignedClock(List<BeatSource> sources, long chapterDurationMs) {
+    long expectedStartMs = 0L;
+    for (BeatSource source : sources) {
+      Long startMs = source.audioStartMs();
+      Long endMs = source.audioEndMs();
+      if (startMs == null
+          || endMs == null
+          || startMs != expectedStartMs
+          || startMs < 0
+          || endMs <= startMs
+          || endMs > chapterDurationMs) {
+        return false;
+      }
+      expectedStartMs = endMs;
+    }
+    return expectedStartMs == chapterDurationMs;
+  }
+
+  private static ProductionTimelineView.Beat buildBeat(
+      ChapterSource chapter, BeatSource source, long globalStartMs, long globalEndMs) {
+    long durationMs = Math.max(1L, globalEndMs - globalStartMs);
+    boolean mediaMetadataReady =
+        source.mediaAssetId() != null
+            && nonBlank(source.mediaType())
+            && positive(source.sizeBytes())
+            && nonBlank(source.checksum());
+    boolean storageReady =
+        "LOCAL_ONLY".equals(source.storageMode()) || nonBlank(source.storageKey());
+    boolean assetReady = mediaMetadataReady && storageReady;
+
+    return new ProductionTimelineView.Beat(
+        chapter.chapterId(),
+        chapter.orderIndex(),
+        source.sceneIndex(),
+        source.beatIndex(),
+        source.visualBeatId(),
+        source.title(),
+        source.visualIntent(),
+        source.cameraMovement(),
+        source.assetStrategy(),
+        source.mediaAssetId(),
+        source.mediaType(),
+        source.storageMode(),
+        source.sourceDurationMs(),
+        nonBlank(source.fitMode()) ? source.fitMode() : "TRIM",
+        Math.max(0L, source.trimStartMs()),
+        source.mediaSelectionActive(),
+        source.storageKey(),
+        source.sizeBytes(),
+        source.checksum(),
+        globalStartMs,
+        globalEndMs,
+        durationMs,
+        assetReady);
   }
 
   private static long resolveBeatWeight(BeatSource source) {
