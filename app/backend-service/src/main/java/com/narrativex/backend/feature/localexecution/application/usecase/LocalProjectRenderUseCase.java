@@ -28,9 +28,7 @@ public class LocalProjectRenderUseCase {
 
   public void heartbeat(String deviceToken, UUID jobId, UUID leaseToken) {
     var device = localDeviceAccess.authenticate(deviceToken, CAPABILITY);
-    if (!store.heartbeat(jobId, device.id(), workerId(device.id()), leaseToken)) {
-      throw leaseLost();
-    }
+    if (!store.heartbeat(jobId, device.id(), workerId(device.id()), leaseToken)) throw leaseLost();
   }
 
   public void updateProgress(
@@ -43,8 +41,7 @@ public class LocalProjectRenderUseCase {
       throw new IllegalArgumentException("currentStep must contain 1 to 80 characters");
     }
     var device = localDeviceAccess.authenticate(deviceToken, CAPABILITY);
-    if (!store.updateProgress(
-        jobId, device.id(), workerId(device.id()), leaseToken, progress, step)) {
+    if (!store.updateProgress(jobId, device.id(), workerId(device.id()), leaseToken, progress, step)) {
       throw leaseLost();
     }
   }
@@ -65,7 +62,7 @@ public class LocalProjectRenderUseCase {
 
   public void cancel(String deviceToken, UUID jobId, UUID leaseToken) {
     var device = localDeviceAccess.authenticate(deviceToken, CAPABILITY);
-    if (!store.cancel(jobId, device.id(), workerId(device.id()), leaseToken)) {
+    if (!store.cancel(deviceToken == null ? jobId : jobId, device.id(), workerId(device.id()), leaseToken)) {
       throw leaseLost();
     }
   }
@@ -157,6 +154,11 @@ public class LocalProjectRenderUseCase {
       long globalEndMs,
       long durationMs,
       String cameraMovement,
+      String mediaType,
+      String storageMode,
+      Long sourceDurationMs,
+      String fitMode,
+      long trimStartMs,
       String storageKey,
       long sizeBytes,
       String checksum) {
@@ -171,9 +173,47 @@ public class LocalProjectRenderUseCase {
           value.globalEndMs(),
           value.durationMs(),
           value.cameraMovement(),
+          value.mediaType(),
+          value.storageMode(),
+          value.sourceDurationMs(),
+          value.fitMode(),
+          value.trimStartMs(),
           value.storageKey(),
           value.sizeBytes(),
           value.checksum());
+    }
+
+    public BeatInput(
+        UUID chapterId,
+        int sceneIndex,
+        int beatIndex,
+        UUID visualBeatId,
+        UUID mediaAssetId,
+        long globalStartMs,
+        long globalEndMs,
+        long durationMs,
+        String cameraMovement,
+        String storageKey,
+        long sizeBytes,
+        String checksum) {
+      this(
+          chapterId,
+          sceneIndex,
+          beatIndex,
+          visualBeatId,
+          mediaAssetId,
+          globalStartMs,
+          globalEndMs,
+          durationMs,
+          cameraMovement,
+          "IMAGE",
+          storageKey == null ? "LOCAL_ONLY" : "REMOTE",
+          null,
+          "TRIM",
+          0L,
+          storageKey,
+          sizeBytes,
+          checksum);
     }
   }
 
