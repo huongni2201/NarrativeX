@@ -19,12 +19,20 @@ The repository itself is the current implementation source of truth. Keep archit
 - Expensive operations require an `OperationPlan`, cost estimate/reservation, account abuse checks, entitlement checks, idempotency, and usage attribution.
 - Server-side entitlement is authoritative for watermark, quality, export, concurrency, and quota rules.
 - Real-person references require explicit consent, tenant isolation, restricted retention, and deletion handling.
-- Runtime frontend code uses real APIs only. Mock data is limited to isolated tests and Storybook fixtures and must never be selected by application runtime configuration.
+- `app/desktop` is the only editor client. Do not recreate `app/frontend-web` or add a parallel browser editor without an explicit ADR.
+- Desktop renderer code uses real APIs only. Mock data is limited to isolated tests/fixtures and must never be selected by application runtime configuration.
 - User identity comes from Spring Security `SecurityContextHolder`; application APIs must not accept identity through `X-User-Id` or equivalent client-controlled headers.
-- Browser authentication currently uses Spring Security server-managed sessions + CSRF for password and Google OIDC flows. Spring Session persists the opaque `NX_SESSION` in Redis; JWT/access/refresh tokens are not part of the current runtime contract.
-- Test authentication credentials are supplied out-of-band through `E2E_TEST_EMAIL` and `E2E_TEST_PASSWORD`; never store or print their values in repository guidance, source, logs, or test artifacts. See `.agents/rules/test-credentials.md`.
-- Frontend styling MUST use centralized design tokens and semantic CSS variables defined in global CSS (`globals.css` / `tailwind.config.ts`). Ad-hoc, hardcoded hex values in component JSX/TSX are strictly prohibited; define new semantic tokens in `globals.css` if a needed design token does not exist.
-- Playwright testing and browser verification MUST avoid arbitrary sleep/delays (`waitForTimeout`), relying on auto-waiting locators, web-first assertions, and event-driven waits to minimize step latency. See `.agents/rules/playwright-testing.md`.
+- End-user authentication is Google OAuth only. Desktop starts OAuth in the system browser, receives a one-time handoff through `narrativex://auth/callback`, then establishes a server-managed `NX_SESSION`. Google access/refresh tokens must never enter Electron.
+- Local device tokens are separate machine credentials for heartbeat/render APIs and must not be confused with user OAuth/session credentials.
+- Frontend/renderer styling MUST use centralized design tokens and semantic CSS variables. Ad-hoc hardcoded visual values should be avoided when an existing semantic token is available.
+
+## Runtime and deployment boundaries
+
+- Electron renderer owns UI/routing/editor state only; unrestricted Node.js/process/filesystem access stays out of the renderer.
+- Electron main owns native filesystem access, protected credentials, system-browser/deep-link handling, backend session transport and local FFmpeg/ffprobe execution.
+- Desktop project bytes are local-first and represented to the backend through stable IDs/checksums plus opaque project-relative artifact keys, never absolute local filesystem paths.
+- Production Compose has no web frontend and no Caddy service.
+- Cloudflare Tunnel is optional infrastructure for self-hosted HTTPS ingress and, when used, routes directly to `http://backend:8080`. If deployment already provides HTTPS ingress, `cloudflared` is not required.
 
 ## Change discipline
 
@@ -34,42 +42,19 @@ The repository itself is the current implementation source of truth. Keep archit
 - Update the relevant Markdown document and an ADR when a cross-cutting architectural decision changes.
 - Run the narrowest relevant checks locally, then the repository verification commands documented in `CONTRIBUTING.md`.
 
-## Mandatory Frontend Verification
+## Mandatory Desktop UI Verification
 
-For ANY task that changes frontend UI, styling, layout, routing,
-modal, form, interaction, responsive behavior, or frontend data rendering:
+For any task that changes Desktop UI, styling, layout, routing, modal, form, interaction, responsive behavior, or renderer data presentation:
 
-1. Start or reuse the frontend development server.
-2. Launch the available browser automation environment.
-3. If the browser was closed or its session was lost, relaunch it automatically.
-4. Navigate to every affected screen.
-5. Execute the actual user flow affected by the change.
-6. Inspect:
-   - browser console errors
-   - failed network/API requests
-   - unexpected mock/fake data usage
-   - layout/overflow issues
-   - loading/error/empty states
-7. Capture screenshot evidence after implementation.
-8. When relevant, capture before/after screenshots.
-9. Review the rendered UI visually against current implementation-facing documentation and approved design references.
-10. If verification fails, fix the implementation and repeat browser verification.
+1. Start or reuse the Electron/Vite development environment.
+2. Launch the available Desktop/browser automation environment when supported.
+3. Navigate to every affected screen.
+4. Execute the actual user flow affected by the change.
+5. Inspect console errors, failed API requests, unexpected mock/fake data usage, layout/overflow issues, and loading/error/empty states.
+6. Capture screenshot evidence after implementation when the environment supports it.
+7. Review the rendered UI against current implementation-facing documentation and approved design references.
+8. If runtime verification fails, fix the implementation and repeat verification.
 
-### Completion Gate
+### Completion gate
 
-NEVER mark a frontend task as DONE based only on:
-- source-code review
-- lint
-- typecheck
-- unit tests
-- build success
-
-A frontend UI task is DONE only when:
-- browser verification has been executed;
-- the affected user flow has been tested;
-- no blocking console/network errors remain;
-- screenshot evidence exists.
-
-If browser automation is unavailable or cannot be launched,
-report the task as `IMPLEMENTED — UI VERIFICATION BLOCKED`,
-not `DONE`.
+Never mark a Desktop UI task as DONE based only on source review, lint, typecheck, unit tests or build success. When runtime UI automation is unavailable, report the implementation as runtime-verification blocked rather than claiming visual verification occurred.
