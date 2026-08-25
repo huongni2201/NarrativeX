@@ -1,4 +1,4 @@
-import type { LocalRenderPreflight } from "@narrativex/client-contracts";
+import type { DesktopProject, LocalRenderPreflight } from "@narrativex/client-contracts";
 
 export type LocalExecutionConnectionState =
   | "UNPAIRED"
@@ -20,6 +20,29 @@ export interface LocalProjectStorageStatus {
   projectId: string;
   assetCount: number;
   artifactCount: number;
+}
+
+export type LocalProjectSyncStatus =
+  | "LOCAL_ONLY"
+  | "DIRTY"
+  | "SYNCING"
+  | "SYNCED"
+  | "SYNC_FAILED";
+
+export interface LocalProjectCatalogEntry {
+  project: DesktopProject;
+  workspacePath: string;
+  ownerId: string | null;
+  cloudProjectId: string | null;
+  syncStatus: LocalProjectSyncStatus;
+  registeredAt: string;
+  lastOpenedAt: string;
+}
+
+export interface LocalProjectCatalogMetadata {
+  ownerId?: string | null;
+  cloudProjectId?: string | null;
+  syncStatus?: LocalProjectSyncStatus;
 }
 
 export interface LocalStorageSummary {
@@ -133,6 +156,13 @@ export interface NarrativeXDesktopBridge {
     pair(pairingCode: string): Promise<LocalExecutionStatus>;
     unpair(): Promise<LocalExecutionStatus>;
     onStatusChanged(listener: (status: LocalExecutionStatus) => void): () => void;
+  };
+  localProjects: {
+    list(): Promise<LocalProjectCatalogEntry[]>;
+    lastOpened(): Promise<LocalProjectCatalogEntry | null>;
+    upsert(project: DesktopProject, metadata?: LocalProjectCatalogMetadata): Promise<LocalProjectCatalogEntry>;
+    reconcile(projects: DesktopProject[], metadata?: LocalProjectCatalogMetadata): Promise<LocalProjectCatalogEntry[]>;
+    touch(projectId: string): Promise<LocalProjectCatalogEntry>;
   };
   localStorage: {
     ensureProject(projectId: string): Promise<LocalProjectStorageStatus>;
