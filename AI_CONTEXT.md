@@ -4,11 +4,10 @@ NarrativeX is a desktop-first, image-first AI Story Video Studio. It turns flexi
 
 ## Current repository shape
 
-- `app/desktop`: primary Electron + React + TypeScript editor client; owns local project storage, native capabilities and local FFmpeg execution through Electron main.
+- `app/desktop`: primary and only Electron + React + TypeScript editor client; owns local project storage, native capabilities and local FFmpeg execution through Electron main.
 - `app/backend-service`: Spring Boot modular monolith; authoritative user/project ownership, domain metadata, policy, job admission and durable orchestration state.
-- `app/ai-worker`: Python AI/media worker; provider adapters and cloud/server execution paths for analysis, image generation, TTS/alignment and fallback rendering/storage flows.
-- `app/frontend-web`: temporary legacy migration client. Do not treat it as the target UI architecture or add new browser-only product constraints unless explicitly maintaining legacy parity.
-- `packages/client-contracts`: shared client-facing contracts used by Desktop and migration surfaces.
+- `app/ai-worker`: Python AI/media worker; provider adapters and retained server execution paths for analysis, image generation, TTS/alignment and fallback rendering/storage flows.
+- `packages/client-contracts`: shared client-facing contracts used by Desktop.
 - `documentation`: product, domain, architecture, workflow, ADR and implementation notes.
 - `contracts`: versioned backend ↔ worker payload contracts.
 
@@ -22,7 +21,8 @@ PostgreSQL
 
 Electron Desktop main
   -> local project bytes, project.manifest.json, native filesystem,
-     system-browser/deep-link handling, device credentials and FFmpeg execution
+     system-browser/deep-link handling, backend session transport,
+     device credentials and FFmpeg execution
 
 Electron renderer
   -> UI/routing/query/editor state only
@@ -59,7 +59,7 @@ Workspace layout:
 
 `project.manifest.json` maps stable backend asset IDs to project-relative paths, sizes and SHA-256 checksums. Absolute filesystem paths must never be persisted or sent to the backend.
 
-Cloudflare R2 + Google Drive remain valid for the retained cloud/legacy worker execution path during migration. Do not describe that cloud storage topology as the Desktop project-media contract.
+Cloudflare R2 + Google Drive remain valid for retained server-worker execution paths where remote durability is still required. Do not describe that storage topology as the Desktop project-media contract.
 
 ## Implemented desktop foundations
 
@@ -86,12 +86,17 @@ Desktop authentication:
 Electron main
   -> system browser /api/v1/auth/desktop/start
   -> Google OIDC
+  -> backend OAuth callback
   -> narrativex://auth/callback?code=<one-time-code>
   -> backend desktop exchange
   -> server-managed NarrativeX session
 ```
 
 Google access/refresh tokens never enter Electron. A local-execution device token is a separate machine credential used only by device/job APIs and stored through Electron protected storage; it is not the user's OAuth/session token.
+
+## Production ingress
+
+The production Compose topology has no browser frontend and no Caddy layer. For self-hosted deployments, `cloudflared` may route the public HTTPS API hostname directly to `http://backend:8080` inside the Compose network. If the deployment platform already supplies HTTPS ingress, `cloudflared` is optional and may be removed.
 
 ## Rendering rules
 
@@ -100,7 +105,7 @@ Google access/refresh tokens never enter Electron. A local-execution device toke
 - Desktop render inputs are resolved by stable asset IDs/checksums through the local manifest.
 - Local completion records provider identity such as `LOCAL_DESKTOP` plus an opaque project-relative artifact key; do not persist an absolute path.
 - The backend remains authoritative for assignment, lease lifecycle, progress state and terminal job state.
-- The cloud render worker remains a migration fallback and does not redefine the Desktop local-first boundary.
+- The cloud/server render worker remains a migration fallback and does not redefine the Desktop local-first boundary.
 
 Local project rendering is gated by FFmpeg availability and `NARRATIVEX_DESKTOP_PROJECT_RENDER_ENABLED=true`.
 
