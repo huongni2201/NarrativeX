@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.narrativex.backend.feature.auth.application.exception.InvalidDesktopGuestCredentialException;
 import com.narrativex.backend.feature.auth.application.port.in.DesktopGuestIdentity;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -15,7 +16,6 @@ import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -92,7 +92,7 @@ class DesktopGuestIdentityPostgreSqlIntegrationTest {
     desktopGuestIdentity.establish(OTHER_DEVICE_ID, SECRET);
 
     assertThrows(
-        BadCredentialsException.class,
+        InvalidDesktopGuestCredentialException.class,
         () -> desktopGuestIdentity.establish(OTHER_DEVICE_ID, WRONG_SECRET));
   }
 }
