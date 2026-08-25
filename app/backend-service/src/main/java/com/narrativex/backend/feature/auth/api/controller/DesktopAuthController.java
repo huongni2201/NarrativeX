@@ -3,6 +3,7 @@ package com.narrativex.backend.feature.auth.api.controller;
 import com.narrativex.backend.feature.auth.api.request.DesktopAuthExchangeRequest;
 import com.narrativex.backend.feature.auth.api.request.DesktopGuestSessionRequest;
 import com.narrativex.backend.feature.auth.api.response.CurrentUserResponse;
+import com.narrativex.backend.feature.auth.application.exception.InvalidDesktopGuestCredentialException;
 import com.narrativex.backend.feature.auth.application.port.in.DesktopAuthHandoff;
 import com.narrativex.backend.feature.auth.application.port.in.DesktopGuestIdentity;
 import com.narrativex.backend.feature.common.response.ApiResponse;
@@ -17,7 +18,6 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -79,7 +79,7 @@ public class DesktopAuthController {
     final String stableGuestUserId;
     try {
       stableGuestUserId = desktopGuestIdentity.establish(request.deviceId(), request.secret());
-    } catch (BadCredentialsException exception) {
+    } catch (InvalidDesktopGuestCredentialException exception) {
       return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
           .body(
               new ApiResponse<>(
