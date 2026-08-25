@@ -57,5 +57,50 @@ public record ProductionTimelineView(
       long startMs,
       long endMs,
       long durationMs,
-      boolean assetReady) {}
+      boolean assetReady) {
+    /** Compatibility constructor for image-only callers while editor media metadata is adopted. */
+    public Beat(
+        UUID chapterId,
+        int chapterOrderIndex,
+        int sceneIndex,
+        int beatIndex,
+        UUID visualBeatId,
+        String title,
+        String visualIntent,
+        String cameraMovement,
+        String assetStrategy,
+        UUID mediaAssetId,
+        String storageKey,
+        Long sizeBytes,
+        String checksum,
+        long startMs,
+        long endMs,
+        long durationMs,
+        boolean assetReady) {
+      this(
+          chapterId,
+          chapterOrderIndex,
+          sceneIndex,
+          beatIndex,
+          visualBeatId,
+          title,
+          visualIntent,
+          cameraMovement,
+          assetStrategy,
+          mediaAssetId,
+          mediaAssetId == null ? null : "IMAGE",
+          storageKey == null ? null : "REMOTE",
+          null,
+          "TRIM",
+          0L,
+          false,
+          storageKey,
+          sizeBytes,
+          checksum,
+          startMs,
+          endMs,
+          durationMs,
+          assetReady);
+    }
+  }
 }
