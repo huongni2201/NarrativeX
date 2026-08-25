@@ -1,10 +1,12 @@
 package com.narrativex.backend.feature.auth.api.controller;
 
 import com.narrativex.backend.feature.auth.api.request.DesktopAuthExchangeRequest;
+import com.narrativex.backend.feature.auth.api.request.DesktopGuestSessionRequest;
 import com.narrativex.backend.feature.auth.api.response.CurrentUserResponse;
+import com.narrativex.backend.feature.auth.application.exception.InvalidDesktopGuestCredentialException;
 import com.narrativex.backend.feature.auth.application.port.in.DesktopAuthHandoff;
+import com.narrativex.backend.feature.auth.application.port.in.DesktopGuestIdentity;
 import com.narrativex.backend.feature.common.response.ApiResponse;
-import com.narrativex.backend.feature.common.uuid.UuidV7;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -40,6 +42,7 @@ public class DesktopAuthController {
   private static final String ROLE_GUEST = "ROLE_GUEST";
 
   private final DesktopAuthHandoff handoffStore;
+  private final DesktopGuestIdentity desktopGuestIdentity;
   private final SecurityContextRepository securityContextRepository;
 
   @GetMapping("/start")
@@ -62,7 +65,9 @@ public class DesktopAuthController {
 
   @PostMapping("/guest")
   public ResponseEntity<ApiResponse<CurrentUserResponse>> guest(
-      HttpServletRequest servletRequest, HttpServletResponse servletResponse) {
+      @Valid @RequestBody DesktopGuestSessionRequest request,
+      HttpServletRequest servletRequest,
+      HttpServletResponse servletResponse) {
     Authentication existing = SecurityContextHolder.getContext().getAuthentication();
     if (hasAuthority(existing, ROLE_USER)) {
       return ResponseEntity.status(HttpStatus.CONFLICT)
@@ -70,17 +75,24 @@ public class DesktopAuthController {
               new ApiResponse<>(
                   false, "Desktop session is already signed in.", null, Instant.now()));
     }
-    if (hasAuthority(existing, ROLE_GUEST)) {
-      return ResponseEntity.ok(
-          ApiResponse.success(
-              "Guest desktop session already active",
-              new CurrentUserResponse(existing.getName(), "Khách", null, null, true)));
+
+    final String stableGuestUserId;
+    try {
+      stableGuestUserId = desktopGuestIdentity.establish(request.deviceId(), request.secret());
+    } catch (InvalidDesktopGuestCredentialException exception) {
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+          .body(
+              new ApiResponse<>(
+                  false, "Desktop guest credentials are invalid.", null, Instant.now()));
     }
 
-    String guestUserId = "guest-" + UuidV7.random();
+    if (hasAuthority(existing, ROLE_GUEST) && !stableGuestUserId.equals(existing.getName())) {
+      desktopGuestIdentity.transferOwnership(existing.getName(), stableGuestUserId);
+    }
+
     Authentication authentication =
         UsernamePasswordAuthenticationToken.authenticated(
-            guestUserId, null, List.of(new SimpleGrantedAuthority(ROLE_GUEST)));
+            stableGuestUserId, null, List.of(new SimpleGrantedAuthority(ROLE_GUEST)));
     SecurityContext context = SecurityContextHolder.createEmptyContext();
     context.setAuthentication(authentication);
     SecurityContextHolder.setContext(context);
@@ -89,7 +101,7 @@ public class DesktopAuthController {
     return ResponseEntity.ok(
         ApiResponse.success(
             "Guest desktop session established",
-            new CurrentUserResponse(guestUserId, "Khách", null, null, true)));
+            new CurrentUserResponse(stableGuestUserId, "Khách", null, null, true)));
   }
 
   @PostMapping("/exchange")
@@ -104,6 +116,11 @@ public class DesktopAuthController {
           .body(
               new ApiResponse<>(
                   false, "Desktop auth code is invalid or expired.", null, Instant.now()));
+    }
+
+    Authentication existing = SecurityContextHolder.getContext().getAuthentication();
+    if (hasAuthority(existing, ROLE_GUEST)) {
+      desktopGuestIdentity.transferOwnership(existing.getName(), user.id());
     }
 
     rotateExistingSession(servletRequest);

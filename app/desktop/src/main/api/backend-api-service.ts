@@ -1,4 +1,5 @@
 import type { Session } from "electron";
+import type { GuestDeviceIdentity } from "../auth/guest-device-identity";
 
 const ALLOWED_METHODS = new Set(["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"]);
 const ALLOWED_REQUEST_HEADERS = new Set([
@@ -11,6 +12,7 @@ const ALLOWED_REQUEST_HEADERS = new Set([
   "idempotency-key",
 ]);
 const MAX_TIMEOUT_MS = 120_000;
+const GUEST_SESSION_PATH = "/api/v1/auth/desktop/guest";
 
 export interface DesktopApiRequest {
   path: string;
@@ -26,12 +28,35 @@ export interface DesktopApiResponse {
   bodyText: string;
 }
 
+export interface GuestIdentityProvider {
+  loadOrCreate(): Promise<GuestDeviceIdentity>;
+}
+
+let defaultGuestIdentityStorePromise: Promise<GuestIdentityProvider> | undefined;
+
+async function defaultGuestIdentityStore(): Promise<GuestIdentityProvider> {
+  defaultGuestIdentityStorePromise ??= import("../auth/guest-device-identity")
+    .then(({ GuestDeviceIdentityStore }) => new GuestDeviceIdentityStore())
+    .catch((error) => {
+      defaultGuestIdentityStorePromise = undefined;
+      throw error;
+    });
+  return defaultGuestIdentityStorePromise;
+}
+
+const defaultGuestIdentityProvider: GuestIdentityProvider = {
+  async loadOrCreate() {
+    return (await defaultGuestIdentityStore()).loadOrCreate();
+  },
+};
+
 export class DesktopBackendApiService {
   private readonly backendOrigin: string;
 
   constructor(
     private readonly backendBaseUrl: string,
     private readonly browserSession: Session,
+    private readonly guestIdentity: GuestIdentityProvider = defaultGuestIdentityProvider,
   ) {
     this.backendOrigin = new URL(backendBaseUrl).origin;
   }
@@ -56,6 +81,14 @@ export class DesktopBackendApiService {
       headers.set(name, value);
     }
 
+    let body = input.body;
+    if (url.pathname === GUEST_SESSION_PATH) {
+      if (method !== "POST") throw new Error("Desktop guest session requires POST.");
+      const identity = await this.guestIdentity.loadOrCreate();
+      headers.set("Content-Type", "application/json");
+      body = JSON.stringify({ deviceId: identity.deviceId, secret: identity.secret });
+    }
+
     const controller = new AbortController();
     const timeout = setTimeout(
       () => controller.abort(new Error(`Desktop API request timed out after ${timeoutMs} ms.`)),
@@ -65,7 +98,7 @@ export class DesktopBackendApiService {
       const response = await this.browserSession.fetch(url.toString(), {
         method,
         headers,
-        body: method === "GET" || method === "HEAD" ? undefined : input.body,
+        body: method === "GET" || method === "HEAD" ? undefined : body,
         credentials: "include",
         redirect: "error",
         signal: controller.signal,

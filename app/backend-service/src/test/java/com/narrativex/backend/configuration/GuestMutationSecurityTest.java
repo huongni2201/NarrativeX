@@ -1,8 +1,6 @@
 package com.narrativex.backend.configuration;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -25,9 +23,55 @@ class GuestMutationSecurityTest {
 
   @Test
   @WithMockUser(username = "guest-test", authorities = "ROLE_GUEST")
-  void guestCannotCreateProject() throws Exception {
+  void guestCanReachProjectCreationValidation() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/v1/projects")
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  @WithMockUser(username = "guest-test", authorities = "ROLE_GUEST")
+  void guestCanReachChapterCreationValidation() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/v1/projects/00000000-0000-0000-0000-000000000001/chapters")
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  @WithMockUser(username = "guest-test", authorities = "ROLE_GUEST")
+  void guestCanReachLocalAssetRegistrationValidation() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/v1/assets/local")
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  @WithMockUser(username = "guest-test", authorities = "ROLE_GUEST")
+  void guestStillCannotStartPaidProduction() throws Exception {
     assertAuthenticationRequired(
-        post("/api/v1/projects")
+        post(
+                "/api/v1/projects/00000000-0000-0000-0000-000000000001/chapters/00000000-0000-0000-0000-000000000002/analysis-jobs")
+            .with(csrf()));
+    assertAuthenticationRequired(
+        post(
+                "/api/v1/projects/00000000-0000-0000-0000-000000000001/chapters/00000000-0000-0000-0000-000000000002/narration-jobs")
+            .with(csrf())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{}"));
+    assertAuthenticationRequired(
+        post("/api/v1/assets/upload-intents")
             .with(csrf())
             .contentType(MediaType.APPLICATION_JSON)
             .content("{}"));
@@ -35,34 +79,9 @@ class GuestMutationSecurityTest {
 
   @Test
   @WithMockUser(username = "guest-test", authorities = "ROLE_GUEST")
-  void guestCannotCreateChapter() throws Exception {
+  void guestStillCannotUseAccountOnlyFavorites() throws Exception {
     assertAuthenticationRequired(
-        post("/api/v1/projects/00000000-0000-0000-0000-000000000001/chapters")
-            .with(csrf())
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("{}"));
-  }
-
-  @Test
-  @WithMockUser(username = "guest-test", authorities = "ROLE_GUEST")
-  void guestCannotRegisterOrEditDurableContent() throws Exception {
-    assertAuthenticationRequired(
-        post("/api/v1/assets/local")
-            .with(csrf())
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("{}"));
-    assertAuthenticationRequired(
-        put("/api/v1/projects/00000000-0000-0000-0000-000000000001/chapters/00000000-0000-0000-0000-000000000002")
-            .with(csrf())
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("{}"));
-    assertAuthenticationRequired(
-        patch("/api/v1/projects/00000000-0000-0000-0000-000000000001")
-            .with(csrf())
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("{}"));
-    assertAuthenticationRequired(
-        delete("/api/v1/assets/00000000-0000-0000-0000-000000000003").with(csrf()));
+        put("/api/v1/projects/00000000-0000-0000-0000-000000000001/favorite").with(csrf()));
   }
 
   private void assertAuthenticationRequired(
