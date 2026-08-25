@@ -4,6 +4,7 @@ import com.narrativex.backend.feature.auth.application.port.out.DesktopGuestInst
 import com.narrativex.backend.feature.auth.application.port.out.GuestOwnershipTransferPort;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
@@ -14,12 +15,12 @@ public class MybatisDesktopGuestIdentityAdapter
   private final DesktopGuestIdentityMapper mapper;
 
   @Override
-  public void lockDevice(String deviceId) {
+  public void lockDevice(UUID deviceId) {
     mapper.lockDevice(deviceId);
   }
 
   @Override
-  public Optional<Installation> findByDeviceId(String deviceId) {
+  public Optional<Installation> findByDeviceId(UUID deviceId) {
     DesktopGuestInstallationRow row = mapper.findByDeviceId(deviceId);
     return row == null
         ? Optional.empty()
@@ -27,14 +28,14 @@ public class MybatisDesktopGuestIdentityAdapter
   }
 
   @Override
-  public boolean create(String deviceId, String guestUserId, String secretHash, Instant now) {
+  public boolean create(UUID deviceId, String guestUserId, String secretHash, Instant now) {
     String internalEmail = "guest+" + guestUserId.substring("guest-".length()) + "@desktop.invalid";
     if (mapper.insertGuestUser(guestUserId, internalEmail, now) != 1) return false;
     return mapper.insertInstallation(deviceId, guestUserId, secretHash, now) == 1;
   }
 
   @Override
-  public void touch(String deviceId, Instant now) {
+  public void touch(UUID deviceId, Instant now) {
     mapper.touch(deviceId, now);
   }
 
