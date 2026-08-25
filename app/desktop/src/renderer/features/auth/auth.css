@@ -10,3 +10,11 @@
 .auth-security-note svg { flex: 0 0 auto; color: var(--green); }
 .auth-error { color: var(--danger) !important; font-size: 11px; }
 .auth-loading { color: var(--text-2); }
+
+.auth-modal-backdrop { position: fixed; inset: 0; z-index: 10000; display: grid; place-items: center; padding: 24px; background: rgba(4, 6, 10, .72); backdrop-filter: blur(7px); }
+.auth-modal-card { position: relative; width: min(430px, calc(100vw - 32px)); box-shadow: 0 30px 110px rgba(0, 0, 0, .72); }
+.auth-modal-close { position: absolute; top: 12px; right: 12px; width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-2); color: var(--text-2); cursor: pointer; }
+.auth-modal-close:hover { color: var(--text); border-color: var(--border-strong, var(--border)); }
+.auth-preserve-context { width: 100%; padding: 9px 11px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-2); color: var(--text-2) !important; font-size: 11px; }
+.auth-waiting { color: var(--text-2) !important; font-size: 11px; }
+.auth-bootstrap-error { position: fixed; right: 16px; bottom: 16px; z-index: 9999; max-width: 420px; padding: 10px 12px; border: 1px solid var(--danger); border-radius: 7px; background: var(--surface); color: var(--danger); font-size: 11px; box-shadow: 0 12px 40px rgba(0, 0, 0, .4); }
