@@ -43,16 +43,7 @@ public class SecurityConfig {
     "/api/v1/local-devices/project-renders/**"
   };
 
-  /** Mutations that consume AI/provider resources or start production work. */
-  private static final String[] SIGNED_IN_POST_PATHS = {
-    "/api/v1/projects/*/chapters/*/analysis-jobs",
-    "/api/v1/projects/*/chapters/*/narration-jobs",
-    "/api/v1/projects/*/narration-jobs:batch",
-    "/api/v1/projects/*/chapters/*/translations",
-    "/api/v1/projects/*/chapters/*/media-jobs",
-    "/api/v1/projects/*/chapters/*/render",
-    "/api/v1/projects/*/production/render"
-  };
+  private static final String API_PATH = "/api/v1/**";
 
   private static final String[] DEVICE_CSRF_IGNORED_PATHS = {
     "/api/v1/auth/desktop/exchange",
@@ -133,11 +124,13 @@ public class SecurityConfig {
                     .permitAll()
                     .requestMatchers("/oauth2/**", "/login/**")
                     .permitAll()
-                    .requestMatchers(HttpMethod.POST, SIGNED_IN_POST_PATHS)
+                    .requestMatchers(HttpMethod.POST, API_PATH)
                     .hasRole("USER")
-                    .requestMatchers(HttpMethod.PUT, "/api/v1/projects/*/favorite")
+                    .requestMatchers(HttpMethod.PUT, API_PATH)
                     .hasRole("USER")
-                    .requestMatchers(HttpMethod.DELETE, "/api/v1/projects/*/favorite")
+                    .requestMatchers(HttpMethod.PATCH, API_PATH)
+                    .hasRole("USER")
+                    .requestMatchers(HttpMethod.DELETE, API_PATH)
                     .hasRole("USER")
                     .anyRequest()
                     .authenticated())
@@ -215,11 +208,13 @@ public class SecurityConfig {
           auth ->
               auth.requestMatchers(PUBLIC_AUTH_PATHS)
                   .permitAll()
-                  .requestMatchers(HttpMethod.POST, SIGNED_IN_POST_PATHS)
+                  .requestMatchers(HttpMethod.POST, API_PATH)
                   .hasRole("USER")
-                  .requestMatchers(HttpMethod.PUT, "/api/v1/projects/*/favorite")
+                  .requestMatchers(HttpMethod.PUT, API_PATH)
                   .hasRole("USER")
-                  .requestMatchers(HttpMethod.DELETE, "/api/v1/projects/*/favorite")
+                  .requestMatchers(HttpMethod.PATCH, API_PATH)
+                  .hasRole("USER")
+                  .requestMatchers(HttpMethod.DELETE, API_PATH)
                   .hasRole("USER")
                   .anyRequest()
                   .authenticated());
