@@ -47,6 +47,5 @@ public class MybatisDesktopGuestIdentityAdapter
     mapper.transferChapterIdempotency(sourceUserId, targetUserId);
     mapper.transferMediaAssets(sourceUserId, targetUserId);
     mapper.transferMediaChecksums(sourceUserId, targetUserId);
-    mapper.transferMediaUploadSessions(sourceUserId, targetUserId);
   }
 }

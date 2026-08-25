@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.auth.application.usecase;
 
+import com.narrativex.backend.feature.auth.application.exception.InvalidDesktopGuestCredentialException;
 import com.narrativex.backend.feature.auth.application.port.in.DesktopGuestIdentity;
 import com.narrativex.backend.feature.auth.application.port.out.DesktopGuestInstallationRepository;
 import com.narrativex.backend.feature.auth.application.port.out.GuestOwnershipTransferPort;
@@ -11,7 +12,6 @@ import java.time.Instant;
 import java.util.HexFormat;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -60,7 +60,7 @@ public class DesktopGuestIdentityService implements DesktopGuestIdentity {
     if (!MessageDigest.isEqual(
         expectedHash.getBytes(StandardCharsets.US_ASCII),
         actualHash.getBytes(StandardCharsets.US_ASCII))) {
-      throw new BadCredentialsException("Desktop guest credentials are invalid.");
+      throw new InvalidDesktopGuestCredentialException();
     }
   }
 

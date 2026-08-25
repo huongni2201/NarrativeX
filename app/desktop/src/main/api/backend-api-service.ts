@@ -32,10 +32,21 @@ export interface GuestIdentityProvider {
   loadOrCreate(): Promise<GuestDeviceIdentity>;
 }
 
+let defaultGuestIdentityStorePromise: Promise<GuestIdentityProvider> | undefined;
+
+async function defaultGuestIdentityStore(): Promise<GuestIdentityProvider> {
+  defaultGuestIdentityStorePromise ??= import("../auth/guest-device-identity")
+    .then(({ GuestDeviceIdentityStore }) => new GuestDeviceIdentityStore())
+    .catch((error) => {
+      defaultGuestIdentityStorePromise = undefined;
+      throw error;
+    });
+  return defaultGuestIdentityStorePromise;
+}
+
 const defaultGuestIdentityProvider: GuestIdentityProvider = {
   async loadOrCreate() {
-    const { GuestDeviceIdentityStore } = await import("../auth/guest-device-identity");
-    return new GuestDeviceIdentityStore().loadOrCreate();
+    return (await defaultGuestIdentityStore()).loadOrCreate();
   },
 };
 
