@@ -10,8 +10,8 @@
   --card-foreground: var(--foreground);
   --popover: #111a25;
   --popover-foreground: var(--foreground);
-  --primary: #a47cff;
-  --primary-foreground: #140c27;
+  --primary: #ff8a00;
+  --primary-foreground: #1b0e00;
   --secondary: #172231;
   --secondary-foreground: var(--foreground);
   --muted: #111a25;
@@ -39,7 +39,7 @@
   --border-subtle: var(--border-soft);
   --border-dark: rgba(163, 184, 207, 0.2);
   --border-darker: rgba(163, 184, 207, 0.28);
-  --border-glow: rgba(164, 124, 255, 0.55);
+  --border-glow: rgba(255, 138, 0, 0.55);
   --input: var(--border);
 
   /* Typography */
@@ -49,9 +49,9 @@
   --text-dim: #657386;
 
   /* Brand and states */
-  --primary-hover: #c0a6ff;
-  --primary-light: rgba(164, 124, 255, 0.24);
-  --primary-muted: rgba(164, 124, 255, 0.17);
+  --primary-hover: #ffb347;
+  --primary-light: rgba(255, 138, 0, 0.24);
+  --primary-muted: rgba(255, 138, 0, 0.17);
   --cyan: #65d8dc;
   --cyan-soft: rgba(101, 216, 220, 0.16);
   --success: #8fd28b;
@@ -69,16 +69,38 @@
   --voice-card: #101b27;
   --voice-card-hover: #152536;
   --voice-teal: #66d6d7;
-  --voice-purple: #b38aff;
+  --voice-accent: #ff9d2e;
+
+  /* Workspace surfaces and signature glows */
+  --workspace-glow: rgba(42, 57, 90, 0.24);
+  --workspace-header: rgba(8, 13, 21, 0.84);
+  --workspace-panel: rgba(11, 18, 28, 0.9);
+  --workspace-panel-strong: rgba(10, 17, 26, 0.94);
+  --workspace-context: rgba(11, 18, 28, 0.88);
+  --chapter-selected: linear-gradient(100deg, rgba(255, 138, 0, 0.28), rgba(63, 37, 14, 0.48));
+  --chapter-draft: rgba(17, 26, 37, 0.72);
+  --voice-glow: rgba(32, 55, 75, 0.25);
+  --voice-header: rgba(8, 14, 22, 0.78);
+  --voice-filter-bar: rgba(10, 17, 26, 0.82);
+  --voice-rail: rgba(10, 17, 26, 0.9);
+  --voice-context: rgba(10, 17, 26, 0.92);
+  --voice-card: linear-gradient(110deg, rgba(17, 29, 40, 0.9), rgba(12, 20, 30, 0.9));
+  --voice-card-selected: linear-gradient(110deg, rgba(255, 138, 0, 0.28), rgba(17, 29, 39, 0.82));
+  --voice-preview: linear-gradient(145deg, rgba(25, 107, 111, 0.72), rgba(11, 43, 54, 0.9));
+  --shadow-panel: 0 12px 28px rgba(0, 0, 0, 0.16);
+  --shadow-primary: 0 0 18px rgba(255, 138, 0, 0.16);
+  --shadow-card: 0 0 20px rgba(255, 138, 0, 0.12);
+  --editor-glow: rgba(100, 55, 14, 0.32);
+  --editor-header: rgba(8, 13, 20, 0.94);
 
   /* Compatibility aliases while legacy editor JSX is decomposed. */
   --bg: var(--background);
   --text: var(--text-primary);
   --text-2: var(--text-secondary);
   --text-3: var(--text-muted);
-  --violet: var(--primary);
-  --violet-bright: var(--primary-hover);
-  --violet-soft: var(--primary-muted);
+  --orange: var(--primary);
+  --orange-bright: var(--primary-hover);
+  --orange-soft: var(--primary-muted);
   --green: var(--success);
   --green-soft: var(--success-bg);
   --blue: var(--info);
@@ -107,6 +129,9 @@
   --color-primary-hover: var(--primary-hover);
   --color-primary-light: var(--primary-light);
   --color-primary-muted: var(--primary-muted);
+  --color-orange: var(--orange);
+  --color-orange-bright: var(--orange-bright);
+  --color-orange-soft: var(--orange-soft);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);

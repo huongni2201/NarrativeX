@@ -4,7 +4,7 @@ import type {
   MediaJobDetails,
   MediaReviewInput,
 } from "@narrativex/client-contracts";
-import { apiRequest } from "../../../api/client";
+import { apiRequest } from "../../../api/client.ts";
 
 export const generationApi = {
   analyze: (projectId: string, chapterId: string) =>

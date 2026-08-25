@@ -10,7 +10,7 @@ test("renderer local asset references resolve to files in public", () => {
   const sourceFiles = [
     join(rendererRoot, "index.html"),
     join(rendererRoot, "features", "auth", "components", "LoginModal.tsx"),
-    join(rendererRoot, "features", "editor", "EditorScreen.tsx"),
+    join(rendererRoot, "features", "editor", "ProjectWorkspaceRoute.tsx"),
   ];
   const assetReferences = sourceFiles.flatMap((sourceFile) =>
     [...readFileSync(sourceFile, "utf8").matchAll(/(?:src|href)=['"](\/[^'"]+)['"]/g)].map(

@@ -1,13 +1,16 @@
 import type { DesktopVoice } from "@narrativex/client-contracts";
 import { apiRequest } from "../../../api/client";
-import { assertContract, isRecord, isString } from "../../../api/guards";
+import { assertContract, isNullableString, isRecord, isString } from "../../../api/guards";
 
 function isVoice(value: unknown): value is DesktopVoice {
   return (
     isRecord(value) &&
     isString(value.id) &&
+    isString(value.provider) &&
     isString(value.name) &&
-    isString(value.language)
+    isString(value.language) &&
+    isNullableString(value.gender) &&
+    isNullableString(value.sampleUrl)
   );
 }
 
