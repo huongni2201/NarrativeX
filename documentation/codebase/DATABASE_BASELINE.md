@@ -6,24 +6,29 @@
 - Redis is used for sessions and non-authoritative delivery/progress hints; it is not authoritative GenerationJob state.
 - The backend owns Flyway and the relational schema.
 - PostgreSQL + Flyway is the schema/release gate. H2-only success is not sufficient validation.
-- The migration set defines the complete schema baseline for a clean database.
+- The migration set defines the complete schema required by the current application version.
 - Baseline tables must have an active application, worker, trigger or durable pipeline responsibility; speculative persistence is introduced only with the feature that consumes it.
+- Published/applied Flyway migrations are append-only. Do not rewrite an already-shared migration merely to keep the file count small.
 
 ## Flyway layout
 
-The database baseline is split by responsibility into exactly three versioned migrations:
+NarrativeX has a frozen three-file core baseline plus reviewed additive feature migrations:
 
 | Migration | Responsibility |
 |---|---|
-| `V1__create_tables.sql` | PostgreSQL extension/function setup, tables, columns, primary/foreign/unique/check constraints, immutable-state functions and triggers |
-| `V2__init_indexes.sql` | Query/access-path indexes, partial indexes and partial unique indexes |
+| `V1__create_tables.sql` | Core PostgreSQL extension/function setup, tables, columns, primary/foreign/unique/check constraints, immutable-state functions and triggers |
+| `V2__init_indexes.sql` | Core query/access-path indexes, partial indexes and partial unique indexes |
 | `V3__seed_data.sql` | Deterministic system/catalog seed data only: plan entitlements, style presets and voice catalog |
+| `V4__desktop_guest_installations.sql` | Stable Desktop guest-installation identity table and its feature-local access index |
 
-A clean database applies **V1 → V2 → V3**. `flyway_schema_history` should contain exactly three successful versioned migrations with latest version `3`.
+V1-V3 are the frozen clean core baseline that was consolidated before additive feature migration history resumed. New schema evolution is introduced with the next versioned migration rather than by changing the checksum of V1-V3.
+
+A clean database for the current version applies **V1 → V2 → V3 → V4**. `flyway_schema_history` must contain the canonical successful versioned migrations in order and leave no pending migration after application startup.
 
 ## Important schema decisions
 
-- `auth_users` stores the Google/OIDC user profile and identity subject.
+- `auth_users` stores Google/OIDC user profiles plus internal stable guest principals used only for ownership/FK integrity. Internal guest rows have no Google subject and are not a second login provider.
+- `desktop_guest_installations` maps one Desktop installation UUID to one stable guest principal and stores only a SHA-256 installation-secret hash. The plaintext secret remains Electron-local and encrypted with OS secure storage.
 - `generation_jobs.job_id` is PostgreSQL `UUID`.
 - `generation_jobs.idempotency_key` is `VARCHAR(512)`.
 - `chapters.deleted_at` is part of the Chapter definition; current/owned Chapter queries enforce `deleted_at IS NULL` where appropriate.
@@ -34,12 +39,13 @@ A clean database applies **V1 → V2 → V3**. `flyway_schema_history` should co
 - Generation completion notifications, generation SSE/`pg_notify`, quota finalization and immutable-snapshot enforcement are defined in V1.
 - `story_versions` lifecycle state is `DRAFT`, `ACTIVE`, or `SUPERSEDED`.
 - V3 contains system bootstrap data only. User/project/story content is created by application workflows, not Flyway.
+- V4 starts append-only feature migration history. Feature migrations may contain the table/constraint/index changes required to make that feature atomic and deployable.
 
 ## Entity/schema matrix
 
 | Domain | Tables | Notes |
 |---|---|---|
-| Authentication | `auth_users` | Google/OIDC user profile |
+| Authentication | `auth_users`, `desktop_guest_installations` | Google/OIDC identity plus stable installation-scoped guest continuity |
 | Project | `projects`, `project_favorites` | ownership, archival and dashboard/query foundation |
 | Story / Chapter | `story_versions`, `chapters`, `chapter_creation_idempotency`, `chapter_content_variants`, `language_detections` | versioned text, soft-delete, translation lineage and idempotent creation |
 | Storyboard | `storyboard_revisions`, `scenes`, `scene_characters`, `visual_beats`, `visual_beat_characters` | durable storyboard and continuity boundary |
@@ -83,9 +89,9 @@ reserve durable operation
 
 Mutable rows use `row_version`/CAS-style protection where the domain requires optimistic concurrency. Stale writes conflict instead of silently becoming last-write-wins.
 
-## Index boundary
+## Core index boundary
 
-V1 creates a relationally valid schema before V2 runs. Uniqueness required as an FK target is therefore expressed as a table `UNIQUE` constraint in V1. V2 owns indexes that exist for query performance, partial uniqueness or claim/access paths.
+Within the frozen V1-V3 baseline, V1 creates a relationally valid schema before V2 runs. Uniqueness required as an FK target is therefore expressed as a table `UNIQUE` constraint in V1. V2 owns indexes that exist for query performance, partial uniqueness or claim/access paths.
 
 Examples:
 
@@ -99,19 +105,22 @@ ON projects(owner_id, updated_at DESC, id DESC)
 WHERE archived_at IS NULL;
 ```
 
+Additive V4+ migrations are feature-scoped deployable units. They may create a new table and the indexes required by that table in the same migration; they must not rewrite V1-V3 checksums.
+
 ## Verification gate
 
 For schema changes:
 
 1. Start an empty supported PostgreSQL instance.
-2. Apply `V1__create_tables.sql`, `V2__init_indexes.sql`, then `V3__seed_data.sql` through Flyway.
-3. Verify exactly three successful versioned Flyway rows and latest version `3`.
+2. Apply the complete canonical migration list through Flyway in version order.
+3. Verify all canonical migrations are successful, the latest version matches the newest migration, and no migration remains pending.
 4. Verify `auth_users` contains the Google/OIDC identity fields used by the authentication boundary.
-5. Verify `generation_jobs.idempotency_key` is `VARCHAR(512)` and `job_id` is `uuid`.
-6. Verify `media_beat_plans.reuse_source_visual_beat_id` and reuse constraints exist.
-7. Verify `project_render_input_snapshots.execution_target` and `assigned_local_device_id` exist with the routing constraint.
-8. Verify `local_media_materializations` is device-scoped and retains only server-safe materialization metadata, not local filesystem paths.
-9. Verify `uq_chapters_story_order_active`, local-render claim indexes and render artifact indexes exist after V2.
-10. Verify V3 seeds plan/style/voice catalogs without inserting application user/project content.
-11. Start the backend and run PostgreSQL/Testcontainers integration tests plus worker persistence tests.
-12. Verify representative query plans for keyset pagination and job/device claim paths.
+5. Verify `desktop_guest_installations` references `auth_users`, stores a 64-character secret hash, and has its `last_seen_at` index after V4.
+6. Verify `generation_jobs.idempotency_key` is `VARCHAR(512)` and `job_id` is `uuid`.
+7. Verify `media_beat_plans.reuse_source_visual_beat_id` and reuse constraints exist.
+8. Verify `project_render_input_snapshots.execution_target` and `assigned_local_device_id` exist with the routing constraint.
+9. Verify `local_media_materializations` is device-scoped and retains only server-safe materialization metadata, not local filesystem paths.
+10. Verify `uq_chapters_story_order_active`, local-render claim indexes and render artifact indexes exist after V2.
+11. Verify V3 seeds plan/style/voice catalogs without inserting application user/project content.
+12. Start the backend and run PostgreSQL/Testcontainers integration tests plus worker persistence tests.
+13. Verify representative query plans for keyset pagination and job/device claim paths.

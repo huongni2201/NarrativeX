@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.narrativex.backend.feature.auth.infrastructure.persistence.mybatis.DesktopGuestIdentityMapper">
+    <resultMap id="desktopGuestInstallationRow" type="com.narrativex.backend.feature.auth.infrastructure.persistence.mybatis.DesktopGuestInstallationRow">
+        <id property="deviceId" column="device_id" />
+        <result property="guestUserId" column="guest_user_id" />
+        <result property="secretHash" column="secret_hash" />
+    </resultMap>
+
+    <select id="lockDevice" resultType="int">
+        WITH installation_lock AS (
+            SELECT pg_advisory_xact_lock(hashtext(CAST(#{deviceId} AS text)))
+        )
+        SELECT 1 FROM installation_lock
+    </select>
+
+    <select id="findByDeviceId" resultMap="desktopGuestInstallationRow">
+        SELECT device_id, guest_user_id, secret_hash
+          FROM desktop_guest_installations
+         WHERE device_id = #{deviceId}
+         LIMIT 1
+    </select>
+
+    <insert id="insertGuestUser">
+        INSERT INTO auth_users
+            (id, email, display_name, avatar_url, google_subject, enabled, created_at, updated_at)
+        VALUES
+            (#{id}, #{email}, 'Khách', NULL, NULL, TRUE, #{now}, #{now})
+    </insert>
+
+    <insert id="insertInstallation">
+        INSERT INTO desktop_guest_installations
+            (device_id, guest_user_id, secret_hash, created_at, updated_at, last_seen_at)
+        VALUES
+            (#{deviceId}, #{guestUserId}, #{secretHash}, #{now}, #{now}, #{now})
+    </insert>
+
+    <update id="touch">
+        UPDATE desktop_guest_installations
+           SET updated_at = #{now}, last_seen_at = #{now}
+         WHERE device_id = #{deviceId}
+    </update>
+
+    <delete id="deleteDuplicateChecksums">
+        DELETE FROM media_asset_checksums source
+         USING media_asset_checksums target
+         WHERE source.account_id = #{sourceUserId}
+           AND target.account_id = #{targetUserId}
+           AND source.sha256 = target.sha256
+    </delete>
+
+    <update id="transferProjects">
+        UPDATE projects SET owner_id = #{targetUserId} WHERE owner_id = #{sourceUserId}
+    </update>
+
+    <update id="transferCharacters">
+        UPDATE characters SET owner_id = #{targetUserId} WHERE owner_id = #{sourceUserId}
+    </update>
+
+    <update id="transferChapterIdempotency">
+        UPDATE chapter_creation_idempotency
+           SET owner_id = #{targetUserId}
+         WHERE owner_id = #{sourceUserId}
+    </update>
+
+    <update id="transferMediaAssets">
+        UPDATE media_assets SET account_id = #{targetUserId} WHERE account_id = #{sourceUserId}
+    </update>
+
+    <update id="transferMediaChecksums">
+        UPDATE media_asset_checksums SET account_id = #{targetUserId} WHERE account_id = #{sourceUserId}
+    </update>
+
+    <update id="transferMediaUploadSessions">
+        UPDATE media_upload_sessions SET account_id = #{targetUserId} WHERE account_id = #{sourceUserId}
+    </update>
+</mapper>

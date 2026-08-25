@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 /** Verifies the responsibility split and core contracts of the Flyway baseline. */
 class FlywayBaselineStructureTest {
   @Test
-  void baselineContainsExactlyThreeResponsibilitySeparatedMigrations() throws IOException {
+  void baselineAndReviewedAdditiveMigrationsStayCanonical() throws IOException {
     assertEquals(
         FlywayMigrationContract.canonicalMigrationNames(),
         FlywayMigrationContract.discoverMigrationNames());
@@ -20,12 +20,18 @@ class FlywayBaselineStructureTest {
     String v1 = Files.readString(FlywayMigrationContract.migration("V1__create_tables.sql"));
     String v2 = Files.readString(FlywayMigrationContract.migration("V2__init_indexes.sql"));
     String v3 = Files.readString(FlywayMigrationContract.migration("V3__seed_data.sql"));
+    String v4 =
+        Files.readString(
+            FlywayMigrationContract.migration("V4__desktop_guest_installations.sql"));
 
     assertFalse(v1.matches("(?is).*\\bCREATE\\s+(?:UNIQUE\\s+)?INDEX\\b.*"));
     assertFalse(v2.matches("(?is).*\\bCREATE\\s+TABLE\\b.*"));
     assertFalse(v3.matches("(?is).*\\bCREATE\\s+TABLE\\b.*"));
     assertFalse(v3.matches("(?is).*\\bCREATE\\s+(?:UNIQUE\\s+)?INDEX\\b.*"));
     assertFalse(v3.matches("(?is).*\\bALTER\\s+TABLE\\b.*"));
+    assertTrue(v4.contains("CREATE TABLE desktop_guest_installations"));
+    assertTrue(v4.contains("CREATE INDEX idx_desktop_guest_installations_last_seen"));
+    assertFalse(v4.matches("(?is).*\\bINSERT\\s+INTO\\b.*"));
   }
 
   @Test
