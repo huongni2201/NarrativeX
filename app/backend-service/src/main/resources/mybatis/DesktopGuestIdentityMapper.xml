@@ -11,15 +11,15 @@
 
     <select id="lockDevice" resultType="int">
         WITH installation_lock AS (
-            SELECT pg_advisory_xact_lock(hashtext(#{deviceId}))
+            SELECT pg_advisory_xact_lock(hashtext(CAST(#{deviceId} AS text)))
         )
         SELECT 1 FROM installation_lock
     </select>
 
     <select id="findByDeviceId" resultMap="desktopGuestInstallationRow">
-        SELECT device_id::text AS device_id, guest_user_id, secret_hash
+        SELECT device_id, guest_user_id, secret_hash
           FROM desktop_guest_installations
-         WHERE device_id = CAST(#{deviceId} AS uuid)
+         WHERE device_id = #{deviceId}
          LIMIT 1
     </select>
 
@@ -34,13 +34,13 @@
         INSERT INTO desktop_guest_installations
             (device_id, guest_user_id, secret_hash, created_at, updated_at, last_seen_at)
         VALUES
-            (CAST(#{deviceId} AS uuid), #{guestUserId}, #{secretHash}, #{now}, #{now}, #{now})
+            (#{deviceId}, #{guestUserId}, #{secretHash}, #{now}, #{now}, #{now})
     </insert>
 
     <update id="touch">
         UPDATE desktop_guest_installations
            SET updated_at = #{now}, last_seen_at = #{now}
-         WHERE device_id = CAST(#{deviceId} AS uuid)
+         WHERE device_id = #{deviceId}
     </update>
 
     <delete id="deleteDuplicateChecksums">
