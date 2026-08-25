@@ -1,4 +1,13 @@
-export type ActivityId = "editor" | "chapters" | "characters" | "images" | "voice" | "assets" | "render" | "settings";
+export type ActivityId =
+  | "editor"
+  | "chapters"
+  | "characters"
+  | "images"
+  | "voice"
+  | "assets"
+  | "render"
+  | "settings";
+
 export type DesktopScreen = ActivityId | "projects";
 
 const workspaceSegments: ReadonlyArray<readonly [string, ActivityId]> = [

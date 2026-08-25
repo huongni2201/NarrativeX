@@ -1,7 +1,20 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { catalogApi } from "../../../api/catalog.api";
+import { charactersApi } from "../api/characters.api";
 
 export function useCreateCharacter(projectId: string) {
   const queryClient = useQueryClient();
-  return useMutation({ mutationFn: (input: { canonicalName: string; aliases?: string[] }) => catalogApi.createCharacter(input), onSuccess: async (character) => { await catalogApi.assignCharacter(projectId, { characterId: character.id, role: "SECONDARY" }); await queryClient.invalidateQueries({ queryKey: ["projects", projectId, "characters"] }); } });
+
+  return useMutation({
+    mutationFn: (input: { canonicalName: string; aliases?: string[] }) =>
+      charactersApi.create(input),
+    onSuccess: async (character) => {
+      await charactersApi.assign(projectId, {
+        characterId: character.id,
+        role: "SECONDARY",
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["projects", projectId, "characters"],
+      });
+    },
+  });
 }

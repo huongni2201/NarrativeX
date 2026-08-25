@@ -1,537 +1,240 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useParams } from "react-router-dom";
-import type { LucideIcon } from "lucide-react";
-import {
-  AudioLines, Bell, BookOpen, Camera, Check, ChevronDown, ChevronRight, Cloud, Copy, Eye, FileText, Film, Folder,
-  FolderOpen, HardDrive, Image as ImageIcon, Layers3, LockKeyhole, Maximize2, Menu, Mic2,
-  Minimize2,
-  MoreVertical, MousePointer2, Pause, Play, Plus, Redo2, RotateCcw, Scissors,
-  Search, Settings2, SkipBack, SkipForward, SlidersHorizontal, Sparkles, Trash2, Type,
-  Undo2, Upload, UserCircle, Volume2, WandSparkles, ZoomIn, ZoomOut,
-} from "lucide-react";
-import { DesktopApiError, apiBaseUrl } from "../../api/client";
-import { workspaceApi } from "../../api/workspace";
-import { assetsApi } from "../../api/assets.api";
-import type { DesktopAsset, DesktopCharacter, DesktopProject, DesktopRenderJob, DesktopTimeline, DesktopVoice, LocalRenderPreflight, ProjectRenderBeatOverride } from "@narrativex/client-contracts";
-import { useProjectWorkspace, type DesktopWorkspaceState } from "./queries/useProjectWorkspace";
-import { useProjectSessionStore } from "../projects/store/project-session.store";
-import { ProjectPicker } from "../projects/components/ProjectPicker";
-import { useCreateChapter, useDeleteChapter, useUpdateChapter } from "../chapters/queries/chapters.queries";
-import { resetTimelineDraft, timelineOverrides, updateTimelineDraft, type TimelineDraft } from "../production/timeline-draft";
-import { commitCommand, createCommandHistory, redoCommand, undoCommand } from "../production/command-history";
-import { useAnalyzeChapter, useCreateMediaJob, useEstimateMediaJob, useGenerationJob, useMediaJob, useReviewMediaItem } from "../generation/queries/generation.queries";
-import { useGenerateBatchNarration, useGenerateNarration } from "../generation/queries/narration.queries";
-import { useCreateCharacter } from "../characters/queries/characters.queries";
-import { invokeWindowControl, type WindowControlAction } from "../../app/window-control-actions";
+import { useEffect, useMemo, useState } from "react";
+import { Pause, Play, Search, SkipBack, SkipForward, ZoomIn, ZoomOut } from "lucide-react";
+import type { DesktopTimelineBeat } from "@narrativex/client-contracts";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
+import type { DesktopWorkspaceState } from "../workspace/queries/useProjectWorkspace";
 
-export type ActivityId = "editor" | "chapters" | "characters" | "images" | "voice" | "assets" | "render" | "settings";
-type InspectorTab = "properties" | "effects" | "transitions";
-type ClipStatus = "ready" | "generating";
-interface VisualClip { id: string; title: string; asset: string; startMs: number; endMs: number; scene: string; motion: string; status: ClipStatus; }
-type RenderState = DesktopRenderJob | null;
-export type DesktopScreen = ActivityId | "projects";
-
-function errorMessage(error: unknown) {
-  if (error instanceof DesktopApiError) return `${error.message} (${error.status})`;
-  return error instanceof Error ? error.message : "Không thể kết nối backend.";
-}
-
-function toVisualClips(timeline: DesktopTimeline | null, overrides: TimelineDraft = {}): VisualClip[] {
-  if (!timeline) return [];
-  let cursor = 0;
-  return timeline.beats.map((beat) => {
-    const override = overrides[beat.visualBeatId];
-    const duration = override?.durationMs ?? beat.durationMs;
-    const clip: VisualClip = {
-    id: beat.visualBeatId,
-    title: beat.title,
-    asset: beat.mediaAssetId ?? (beat.assetReady ? "Approved asset" : "No asset"),
-    startMs: cursor,
-    endMs: cursor + duration,
-    scene: `Scene ${beat.sceneIndex + 1}`,
-    motion: override?.cameraMovement ?? beat.cameraMovement,
-    status: beat.assetReady ? "ready" : "generating",
-    };
-    cursor += duration;
-    return clip;
-  });
-}
-const activities: { id: ActivityId; label: string; icon: LucideIcon }[] = [
-  { id: "editor", label: "Editor", icon: Layers3 }, { id: "chapters", label: "Chapters", icon: Menu },
-  { id: "characters", label: "Characters", icon: UserCircle }, { id: "images", label: "Image Generation", icon: ImageIcon },
-  { id: "voice", label: "Voice & TTS", icon: Mic2 }, { id: "assets", label: "Assets", icon: Folder },
-  { id: "render", label: "Render", icon: Sparkles }, { id: "settings", label: "Settings", icon: Settings2 },
-];
-
-export function EditorScreen({ initialScreen = "editor" }: Readonly<{ initialScreen?: DesktopScreen }>) {
-  const { projectId: routeProjectId } = useParams<{ projectId: string }>();
-  const navigate = useNavigate();
-  const activeProjectId = useProjectSessionStore((state) => state.activeProjectId);
-  const setActiveProject = useProjectSessionStore((state) => state.setActiveProject);
-  const selectedProjectId = routeProjectId ?? activeProjectId;
-  const { workspace } = useProjectWorkspace(selectedProjectId);
-  const [activity, setActivity] = useState<ActivityId>(initialScreen === "projects" ? "editor" : initialScreen);
-  const [screen, setScreen] = useState<DesktopScreen>(initialScreen);
+export function EditorScreen({
+  workspace,
+}: Readonly<{
+  workspace: DesktopWorkspaceState;
+}>) {
+  const timeline = workspace.timeline;
+  const beats = timeline?.beats ?? [];
   const [selectedId, setSelectedId] = useState("");
-  const [inspectorTab, setInspectorTab] = useState<InspectorTab>("properties");
   const [playing, setPlaying] = useState(false);
   const [playheadMs, setPlayheadMs] = useState(0);
   const [zoom, setZoom] = useState(1);
-  const [saveState, setSaveState] = useState("Connecting workspace…");
-  const [renderJob, setRenderJob] = useState<RenderState>(null);
-  const [renderNotice, setRenderNotice] = useState<string | null>(null);
-  const [resolution, setResolution] = useState<"720p" | "1080p">("1080p");
-  const [isMaximized, setIsMaximized] = useState(false);
-  const [windowControlError, setWindowControlError] = useState<string | null>(null);
-  const [appVersion, setAppVersion] = useState<string | null>(null);
-  const [timelineHistory, setTimelineHistory] = useState(() => createCommandHistory<TimelineDraft>({}));
-  const timelineDraft = timelineHistory.present;
-  const [renderPreflight, setRenderPreflight] = useState<LocalRenderPreflight | null>(null);
-  const clips = useMemo(() => toVisualClips(workspace.timeline, timelineDraft), [workspace.timeline, timelineDraft]);
-  const selected = useMemo(() => clips.find((clip) => clip.id === selectedId) ?? null, [clips, selectedId]);
-  const totalMs = clips.at(-1)?.endMs ?? workspace.timeline?.totalDurationMs ?? 0;
-  const projectId = workspace.timeline?.projectId ?? selectedProjectId;
-  const activeProject = workspace.projects.find((project) => project.id === selectedProjectId) ?? null;
-
-  function changeTimelineDraft(next: TimelineDraft) {
-    setTimelineHistory((history) => commitCommand(history, next));
-  }
-
-  function updateBeatOverride(visualBeatId: string, patch: Omit<ProjectRenderBeatOverride, "visualBeatId">) {
-    changeTimelineDraft(updateTimelineDraft(timelineDraft, visualBeatId, patch));
-  }
-
-  function undoTimeline() {
-    setTimelineHistory(undoCommand);
-  }
-
-  function redoTimeline() {
-    setTimelineHistory(redoCommand);
-  }
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
-    if (routeProjectId && routeProjectId !== activeProjectId) setActiveProject(routeProjectId);
-  }, [activeProjectId, routeProjectId, setActiveProject]);
+    if (!selectedId && beats[0]) setSelectedId(beats[0].visualBeatId);
+  }, [beats, selectedId]);
+
+  const totalMs = timeline?.totalDurationMs ?? 0;
+  const selected = beats.find((beat) => beat.visualBeatId === selectedId) ?? null;
+  const filteredBeats = useMemo(() => {
+    const needle = query.trim().toLocaleLowerCase();
+    if (!needle) return beats;
+    return beats.filter((beat) =>
+      `${beat.title} ${beat.visualIntent} ${beat.cameraMovement}`
+        .toLocaleLowerCase()
+        .includes(needle),
+    );
+  }, [beats, query]);
 
   useEffect(() => {
-    setSelectedId("");
-    setTimelineHistory(createCommandHistory<TimelineDraft>({}));
-    setPlayheadMs(0);
-    setRenderJob(null);
-    setRenderNotice(null);
-    setRenderPreflight(null);
-  }, [selectedProjectId]);
-
-  useEffect(() => {
-    if (workspace.timeline?.beats[0] && !selectedId) setSelectedId(workspace.timeline.beats[0].visualBeatId);
-    setSaveState(workspace.status === "error" ? "Backend unavailable" : workspace.status === "loading" ? "Connecting workspace…" : "Synced with backend");
-  }, [selectedId, workspace.status, workspace.timeline]);
-
-  useEffect(() => {
-    void window.narrativex?.appVersion().then(setAppVersion).catch(() => undefined);
-  }, []);
-
-  async function startRender() {
-    if (!projectId) {
-      setRenderNotice("Chưa có project để render.");
-      return;
-    }
-    if (!workspace.timeline?.readyForRender) {
-      setRenderNotice("Timeline chưa sẵn sàng để render. Kiểm tra audio, asset và chapter state.");
-      return;
-    }
-    if (renderJob && ["QUEUED", "RUNNING", "UNKNOWN", "STALLED", "PAUSED_COST_LIMIT"].includes(renderJob.status)) return;
-    setRenderNotice("Đang kiểm tra local render preflight…");
-    try {
-      const assetIds = [...workspace.timeline.beats.map((beat) => beat.mediaAssetId), ...workspace.timeline.chapters.map((chapter) => chapter.narrationAssetId ?? null)].filter((assetId): assetId is string => Boolean(assetId));
-      const estimatedOutputBytes = Math.max(64 * 1024 * 1024, Math.round((workspace.timeline.totalDurationMs / 1000) * 1_500_000));
-      const preflight = await workspaceApi.preflight({ projectId, assetIds, estimatedOutputBytes, requiredTemporaryBytes: estimatedOutputBytes * 2 });
-      setRenderPreflight(preflight);
-      if (!preflight.ready) {
-        setRenderNotice(`Preflight blocked: ${preflight.blockers.map(renderBlockerMessage).join(" ")}`);
-        return;
-      }
-      const job = await workspaceApi.startRender(projectId, timelineOverrides(timelineDraft), resolution);
-      setRenderJob(job);
-      setRenderNotice(`Render job ${job.jobId.slice(0, 8)} đã được queue.`);
-    } catch (error) {
-      setRenderNotice(errorMessage(error));
-    }
-  }
-
-  async function handleWindowControl(action: WindowControlAction) {
-    try {
-      setWindowControlError(null);
-      const result = await invokeWindowControl(window.narrativex?.windowControls, action);
-      if (action === "toggleMaximize") setIsMaximized(result === true);
-    } catch {
-      console.error(`Native window control failed: ${action}`);
-      setWindowControlError("Window controls are unavailable.");
-    }
-  }
-
-  async function openRenderOutput() {
-    if (!projectId || !renderJob || renderJob.status !== "COMPLETED") {
-      setRenderNotice("Render output chưa sẵn sàng.");
-      return;
-    }
-    try {
-      await window.narrativex.localStorage.revealArtifact({ projectId, jobId: renderJob.jobId });
-      setRenderNotice("Đã mở video render bằng ứng dụng mặc định của hệ điều hành.");
-    } catch (error) {
-      setRenderNotice(errorMessage(error));
-    }
-  }
-
-  useEffect(() => {
-    if (!renderJob?.jobId || !["QUEUED", "RUNNING", "UNKNOWN", "STALLED", "PAUSED_COST_LIMIT"].includes(renderJob.status)) return;
+    if (!playing || totalMs <= 0) return;
     const timer = window.setInterval(() => {
-      void workspaceApi.getRenderJob(renderJob.jobId).then((nextJob) => {
-        setRenderJob(nextJob);
-        if (nextJob.status === "COMPLETED") {
-          setRenderNotice("Render hoàn tất. Video đã sẵn sàng trên máy này.");
-        }
-      }).catch((error) => setRenderNotice(errorMessage(error)));
-    }, 2_000);
-    return () => window.clearInterval(timer);
-  }, [renderJob?.jobId, renderJob?.status]);
-
-  useEffect(() => {
-    if (!playing) return;
-    const timer = window.setInterval(() => setPlayheadMs((current) => current >= totalMs ? 0 : current + 250), 250);
+      setPlayheadMs((current) => (current >= totalMs ? 0 : Math.min(totalMs, current + 250)));
+    }, 250);
     return () => window.clearInterval(timer);
   }, [playing, totalMs]);
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.code === "Space" && event.target === document.body) { event.preventDefault(); setPlaying((value) => !value); }
-      if (event.key === "ArrowLeft") setPlayheadMs((value) => Math.max(0, value - (event.shiftKey ? 5_000 : 500)));
-      if (event.key === "ArrowRight") setPlayheadMs((value) => Math.min(totalMs, value + (event.shiftKey ? 5_000 : 500)));
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [totalMs]);
 
-  return <div className="grid h-dvh min-w-[1180px] grid-cols-[66px_258px_minmax(560px,1fr)_320px] grid-rows-[46px_minmax(0,1fr)_28px] bg-[var(--bg)] text-xs text-[var(--text)]">
-    <header className="col-span-full grid grid-cols-[150px_auto_minmax(240px,1fr)_auto_auto] items-center gap-4 border-b border-[var(--border)] bg-[#0b1119] px-3.5 py-0">
-      <div className="flex items-center gap-2 font-semibold tracking-tight"><img src="/branding/narrativex-icon.png" alt="NarrativeX" width={22} height={22} className="size-[22px] shrink-0 rounded object-contain" /><span>NarrativeX</span></div>
-      <nav className="flex items-center gap-1" aria-label="Application menu">{["File", "Edit", "Project", "Timeline", "View", "Tools", "Help"].map((item) => <button key={item} type="button" className="rounded px-2 py-1.5 text-[var(--text-2)] transition-colors hover:bg-[var(--surface-3)] hover:text-[var(--text)]">{item}</button>)}</nav>
-      <ProjectPicker projects={workspace.projects} activeProjectId={activeProject?.id ?? selectedProjectId} onChange={(nextProjectId) => { setActiveProject(nextProjectId); navigate(`/projects/${nextProjectId}/editor`); }} />
-      <div className="flex items-center gap-1.5 whitespace-nowrap text-[var(--text-3)]"><Cloud size={14} /> {saveState}</div>
-      <div className="flex items-center gap-1"><Button size="sm" className="gap-1.5 border-[rgba(164,124,255,.55)] bg-[var(--violet)] text-[#140c27] hover:bg-[var(--violet-bright)]" onClick={() => void startRender()}><Sparkles size={14} /> Export</Button><span className="inline-flex min-h-7 items-center gap-1.5 rounded border border-[var(--border)] bg-[var(--surface-2)] px-2 text-[10px] text-[var(--text-2)]"><i className="size-1.5 rounded-full bg-[var(--cyan)] shadow-[0_0_7px_var(--cyan)]" /> {renderJob ? "1 job" : "0 jobs"}</span><IconButton label="Cloud sync"><Cloud size={17} /></IconButton><IconButton label="Notifications"><Bell size={17} /></IconButton>{windowControlError && <span className="max-w-[150px] text-right text-[10px] leading-tight text-[var(--danger)]" role="status" aria-live="polite">{windowControlError}</span>}<button type="button" className="grid size-7 place-items-center rounded text-base text-[var(--text-3)] hover:bg-[var(--surface-3)] hover:text-[var(--text)]" aria-label="Minimize" title="Minimize" onClick={() => void handleWindowControl("minimize")}>−</button><button type="button" className="grid size-7 place-items-center rounded text-[var(--text-3)] hover:bg-[var(--surface-3)] hover:text-[var(--text)]" aria-label={isMaximized ? "Restore" : "Maximize"} title={isMaximized ? "Restore" : "Maximize"} onClick={() => void handleWindowControl("toggleMaximize")}>{isMaximized ? <Minimize2 size={15} /> : <Maximize2 size={15} />}</button><button type="button" className="grid size-7 place-items-center rounded text-[var(--text-3)] hover:bg-[var(--danger)] hover:text-white" aria-label="Close" title="Close" onClick={() => void handleWindowControl("close")}>×</button></div>
-    </header>
-    <aside className="col-start-1 row-start-2 flex flex-col justify-between border-r border-[var(--border)] bg-[#0b121b] p-2"><div className="flex flex-col gap-1">{activities.map(({ id, label, icon: Icon }) => <button key={id} type="button" className={`flex min-h-[49px] flex-col items-center justify-center gap-1 rounded-md border text-[9px] transition-colors ${activity === id ? "border-[rgba(164,124,255,.25)] bg-[var(--violet-soft)] text-[var(--violet-bright)] shadow-[inset_2px_0_0_var(--violet)]" : "border-transparent text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]"}`} onClick={() => { setActivity(id); setScreen(id); }} aria-label={label} aria-pressed={activity === id} title={label}><Icon size={18} /><span>{label}</span></button>)}</div></aside>
-    <aside className="col-start-2 row-start-2 min-h-0 overflow-hidden border-r border-[var(--border)] bg-[var(--surface)]"><PanelHeader eyebrow={activity === "voice" ? "Library / Voice & TTS" : activity === "editor" || activity === "chapters" ? "Workspace" : "Library"} title={activity === "editor" || activity === "chapters" ? "Project Explorer" : activities.find((item) => item.id === activity)?.label ?? "Library"} /><>{activity === "editor" || activity === "chapters" ? <ProjectTree clips={clips} selectedId={selectedId} onSelect={(id) => { setSelectedId(id); setActivity("editor"); setScreen("editor"); }} projects={workspace.projects} activeProjectId={selectedProjectId} /> : <Library activity={activity} workspace={workspace} />}</></aside>
-    <main className="col-start-3 row-start-2 grid min-w-0 min-h-0 bg-[#0a1017]">
-      {screen === "editor" ? <div className="grid min-w-0 min-h-0 grid-rows-[25px_minmax(0,1.12fr)_minmax(255px,.88fr)]">
-      <ApiStatusBanner status={workspace.status} error={workspace.error} />
-      <section className="grid min-h-0 grid-rows-[56px_minmax(0,1fr)_46px]"><PanelHeader eyebrow="Canvas" title="Preview" trailing={<><span className="inline-flex items-center gap-1.5 text-[9px] tracking-[.08em] text-[var(--text-3)]"><i className="size-1.5 rounded-full bg-[var(--cyan)] shadow-[0_0_7px_var(--cyan)]" /> API TIMELINE</span><Select value={resolution} onValueChange={(value) => setResolution(value as "720p" | "1080p")}><SelectTrigger className="h-7 border-[var(--border)] bg-[var(--surface-2)] px-2 text-xs" aria-label="Preview resolution"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="720p">720p</SelectItem><SelectItem value="1080p">1080p</SelectItem></SelectContent></Select><IconButton label="Snapshot" disabled><Camera size={16} /></IconButton><IconButton label="More options" disabled><MoreVertical size={16} /></IconButton></>} /><div className="relative mx-2 mt-2 grid min-h-0 place-items-center overflow-hidden rounded-t-md border border-[var(--border)] bg-[var(--surface-2)] p-6 text-center"><div className="absolute inset-0 bg-gradient-to-br from-[var(--violet-soft)] via-transparent to-[var(--cyan-soft)]" /><div className="relative grid gap-2"><span className="text-[10px] font-bold uppercase tracking-[.13em] text-[var(--text-3)]">Live timeline preview</span><strong className="text-[clamp(13px,1.4vw,18px)]">{selected ? selected.title : "Chọn một VisualBeat để bắt đầu"}</strong><span className="text-[10px] text-[var(--text-3)]">{selected ? `${selected.scene} · ${selected.asset}` : "Preview media sẽ hiển thị sau khi asset local được materialize."}</span></div></div><div className="mx-2 flex items-center gap-2 rounded-b-md border border-t-0 border-[var(--border)] bg-[var(--surface-2)] px-3 text-[10px] text-[var(--text-3)]"><span className="font-mono text-[13px] text-[var(--violet-bright)]">{formatTimecode(playheadMs)}</span><span className="text-[var(--border)]">/</span><span>{totalMs ? formatTimecode(totalMs) : "--:--:--:--"}</span><div className="ml-auto flex items-center gap-1"><IconButton label="Previous clip" onClick={() => selected && setPlayheadMs(Math.max(0, selected.startMs - 1000))}><SkipBack size={15} /></IconButton><IconButton label="Step backward" onClick={() => setPlayheadMs((value) => Math.max(0, value - 500))}><SkipBack size={18} /></IconButton><button type="button" className="grid size-[34px] place-items-center rounded-full border border-[var(--violet)] bg-[var(--violet-soft)] text-[var(--violet-bright)] hover:bg-[var(--violet)] hover:text-[var(--bg)] disabled:opacity-40" aria-label={playing ? "Pause" : "Play"} onClick={() => setPlaying((value) => !value)} disabled={!totalMs}>{playing ? <Pause size={18} /> : <Play size={18} fill="currentColor" />}</button><IconButton label="Step forward" onClick={() => setPlayheadMs((value) => Math.min(totalMs, value + 500))}><SkipForward size={18} /></IconButton><IconButton label="Next clip" onClick={() => selected && setPlayheadMs(Math.min(totalMs, selected.endMs + 1000))}><SkipForward size={15} /></IconButton><IconButton label="Loop" disabled><RotateCcw size={16} /></IconButton></div><div className="ml-auto flex items-center gap-2"><IconButton label="Fullscreen" disabled><Maximize2 size={16} /></IconButton><input className="w-[70px] accent-[var(--violet)]" aria-label="Preview volume" type="range" min="0" max="100" defaultValue="72" disabled /><Volume2 size={16} /></div></div></section>
-      <section className="grid min-h-0 grid-rows-[42px_minmax(0,1fr)] border-t border-[var(--border)] bg-[#0a1119]"><div className="flex items-center justify-between border-b border-[var(--border-soft)] px-2.5"><div className="flex items-center gap-0.5"><IconButton label="Select tool" active><MousePointer2 size={15} /></IconButton><IconButton label="Split clip"><Scissors size={15} /></IconButton><IconButton label="Duplicate clip"><Copy size={15} /></IconButton><IconButton label="Delete clip"><Trash2 size={15} /></IconButton><span className="mx-2 h-4 w-px bg-[var(--border)]" /><IconButton label="Undo" onClick={undoTimeline} disabled={!timelineHistory.past.length}><Undo2 size={15} /></IconButton><IconButton label="Redo" onClick={redoTimeline} disabled={!timelineHistory.future.length}><Redo2 size={15} /></IconButton></div><div className="flex items-center gap-1"><span className="mr-2.5 text-[10px] text-[var(--text-3)]">Timeline {totalMs ? formatTimecode(totalMs) : "Not loaded"}</span><IconButton label="Zoom out" onClick={() => setZoom((value) => Math.max(0.75, value - 0.25))}><ZoomOut size={15} /></IconButton><span className="w-9 text-center font-mono text-[10px] text-[var(--text-2)]">{Math.round(zoom * 100)}%</span><IconButton label="Zoom in" onClick={() => setZoom((value) => Math.min(2, value + 0.25))}><ZoomIn size={15} /></IconButton></div></div><Timeline clips={clips} totalMs={totalMs} selectedId={selectedId} onSelect={setSelectedId} playheadMs={playheadMs} zoom={zoom} /></section>
-      </div> : <WorkspacePage screen={screen} workspace={workspace} resolution={resolution} renderJob={renderJob} renderPreflight={renderPreflight} onStartRender={() => void startRender()} onOpenRenderOutput={() => void openRenderOutput()} onOpenEditor={() => { setActivity("editor"); setScreen("editor"); }} />}
-    </main>
-    <aside className="col-start-4 row-start-2 flex min-h-0 flex-col overflow-hidden border-l border-[var(--border)] bg-[var(--surface)]">{screen === "editor" ? <Tabs value={inspectorTab} onValueChange={(value) => setInspectorTab(value as InspectorTab)} className="flex min-h-0 flex-1 flex-col"><TabsList className="border-b border-[var(--border-soft)] px-3" aria-label="Inspector sections">{(["properties", "effects", "transitions"] as InspectorTab[]).map((tab) => <TabsTrigger key={tab} value={tab}>{tab[0].toUpperCase() + tab.slice(1)}</TabsTrigger>)}</TabsList><TabsContent value="properties">{selected ? <Properties clip={selected} override={timelineDraft[selected.id]} onChange={(patch) => updateBeatOverride(selected.id, patch)} onReset={() => changeTimelineDraft(resetTimelineDraft(timelineDraft, selected.id))} /> : <EmptyInspector />}</TabsContent><TabsContent value="effects"><div className="grid flex-1 place-items-center gap-2 p-6 text-center text-[var(--text-3)]"><Settings2 size={22} /><strong className="text-[var(--text)]">Effects</strong><span>Chọn preset để áp dụng lên VisualBeat.</span><Button variant="outline" size="sm">Browse presets</Button></div></TabsContent><TabsContent value="transitions"><div className="grid flex-1 place-items-center gap-2 p-6 text-center text-[var(--text-3)]"><Settings2 size={22} /><strong className="text-[var(--text)]">Transitions</strong><span>Chọn preset để áp dụng lên VisualBeat.</span><Button variant="outline" size="sm">Browse presets</Button></div></TabsContent></Tabs> : <PageInspector screen={screen} workspace={workspace} onOpenEditor={() => { setActivity("editor"); setScreen("editor"); }} />}<RenderQueue job={renderJob} notice={renderNotice} onStart={() => void startRender()} onOpenOutput={() => void openRenderOutput()} /></aside>
-    <footer className="col-span-full flex items-center justify-between border-t border-[var(--border)] bg-[#0b1119] px-3 text-[10px] text-[var(--text-3)]"><div className="flex items-center gap-2"><span className="inline-flex items-center gap-1 text-[var(--text-2)]"><Check size={12} /> {saveState}</span><span className="h-4 w-px bg-[var(--border)]" /><span className="inline-flex items-center gap-1"><HardDrive size={12} /> Local workspace</span></div><div className="flex items-center gap-2"><span className="inline-flex items-center gap-1"><i className={`size-1.5 rounded-full bg-[var(--cyan)] shadow-[0_0_8px_var(--cyan)] ${workspace.status === "error" ? "bg-[var(--danger)] shadow-none" : ""}`} /> {workspace.status === "error" ? "API offline · local shell ready" : workspace.status === "loading" ? "Connecting to backend…" : "Backend session ready"}</span><span className="h-4 w-px bg-[var(--border)]" /><span>{appVersion ? `Desktop v${appVersion}` : "NarrativeX Desktop"}</span></div></footer>
-  </div>;
-}
+  return (
+    <div className="grid h-full min-h-0 grid-cols-[230px_minmax(0,1fr)_280px]">
+      <aside className="min-h-0 overflow-hidden border-r border-border bg-card">
+        <div className="border-b border-border p-3">
+          <h1 className="text-sm font-semibold">Project Explorer</h1>
+          <label className="mt-2 flex items-center gap-2 rounded-md border border-input bg-popover px-2 text-muted-foreground">
+            <Search size={13} />
+            <input
+              className="h-8 min-w-0 flex-1 bg-transparent text-[10px] text-foreground outline-none"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Tìm visual beat…"
+            />
+          </label>
+        </div>
+        <div className="h-[calc(100%-76px)] overflow-auto p-2">
+          {filteredBeats.map((beat) => (
+            <BeatListItem
+              key={beat.visualBeatId}
+              beat={beat}
+              selected={beat.visualBeatId === selectedId}
+              onSelect={() => {
+                setSelectedId(beat.visualBeatId);
+                setPlayheadMs(beat.startMs);
+              }}
+            />
+          ))}
+          {!filteredBeats.length && (
+            <p className="p-4 text-center text-[10px] text-muted-foreground">Chưa có visual beat.</p>
+          )}
+        </div>
+      </aside>
 
-function PanelHeader({ eyebrow, title, trailing }: Readonly<{ eyebrow: string; title: string; trailing?: ReactNode }>) { return <div className="flex h-14 items-center justify-between gap-2 border-b border-[var(--border-soft)] px-4"><div><span className="block text-[9px] font-bold uppercase tracking-[.13em] text-[var(--text-3)]">{eyebrow}</span><h2 className="mt-0.5 text-[13px] font-semibold text-[var(--text)]">{title}</h2></div><div className="flex items-center gap-0.5">{trailing}</div></div>; }
-function IconButton({ label, children, onClick, active = false, disabled = false, side = "bottom" }: Readonly<{ label: string; children: ReactNode; onClick?: () => void; active?: boolean; disabled?: boolean; side?: "top" | "right" | "bottom" | "left" }>) { const inactive = !onClick && !active; return <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className={`text-[var(--text-3)] hover:border-[var(--border)] hover:bg-[var(--surface-3)] hover:text-[var(--text)] ${active ? "border-[var(--border)] bg-[var(--surface-3)] text-[var(--text)]" : ""}`} aria-label={label} title={inactive ? `${label} — chưa được nối API` : label} onClick={onClick} disabled={disabled || inactive}>{children}</Button></TooltipTrigger><TooltipContent side={side}>{label}</TooltipContent></Tooltip>; }
-function ProjectTree({ clips, projects, activeProjectId, selectedId, onSelect }: Readonly<{ clips: VisualClip[]; projects: DesktopProject[]; activeProjectId: string | null; selectedId: string; onSelect: (id: string) => void }>) { const project = projects.find((item) => item.id === activeProjectId); return <div className="h-[calc(100%-56px)] overflow-auto p-2"><TreeRow icon={<FolderOpen size={16} />} label={project?.name ?? "Chưa chọn project"} root /><div className="ml-2 border-l border-[var(--border-soft)] pl-2"><TreeRow icon={<Folder size={16} />} label="Chapters" /><div className="my-0.5 mb-1.5 ml-5">{clips.slice(0, 8).map((clip, index) => <button type="button" className={`flex min-h-[29px] w-full items-center gap-2 rounded px-1.5 py-1 text-left text-[11px] text-[var(--text-2)] hover:bg-[var(--surface-3)] hover:text-[var(--text)] ${selectedId === clip.id ? "bg-[var(--violet-soft)] text-[var(--violet-bright)] shadow-[inset_2px_0_0_var(--violet)]" : ""}`} key={clip.id} onClick={() => onSelect(clip.id)}><span className="w-[21px] text-[var(--text-3)]">{index + 1}</span><span className="truncate">{clip.title}</span></button>)}</div>{clips.length === 0 && <p className="px-2 text-[10px] leading-5 text-[var(--text-3)]">Timeline sẽ xuất hiện sau khi API trả về dữ liệu.</p>}<TreeRow icon={<Folder size={16} />} label="Assets" /><div className="ml-5"><TreeRow icon={<Folder size={15} />} label="Images" count="API" /><TreeRow icon={<Folder size={15} />} label="Videos" count="API" /><TreeRow icon={<Folder size={15} />} label="Audio" count="API" /></div></div></div>; }
-function TreeRow({ icon, label, root = false, collapsed = false, count }: Readonly<{ icon: ReactNode; label: string; root?: boolean; collapsed?: boolean; count?: string }>) { return <div className={`flex min-h-[29px] items-center gap-1.5 rounded px-1.5 py-1 text-[var(--text-2)] ${root ? "pt-1 font-semibold text-[var(--text)]" : ""}`}>{collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}{icon}<span className="min-w-0 truncate">{label}</span>{count && <small className="ml-auto text-[10px] text-[var(--text-3)]">{count}</small>}{root && <MoreVertical size={14} className="ml-auto" />}</div>; }
-function Library({ activity, workspace }: Readonly<{ activity: ActivityId; workspace: DesktopWorkspaceState }>) { const summaries: Record<ActivityId, string[]> = { editor: [], chapters: [`${workspace.chapters.length} chapters from API`], characters: [`${workspace.characters.length} characters from API`], images: [`${workspace.timeline?.beats.length ?? 0} visual beats from API`], voice: [`${workspace.voices.length} voices from API`], assets: [`${workspace.assets.length} assets from API`], render: ["Render status is available in Render Workspace"], settings: ["Desktop settings"] }; const Icon = activity === "voice" ? Mic2 : activity === "images" ? ImageIcon : activity === "render" ? Sparkles : activity === "settings" ? Settings2 : Folder; return <div className="h-[calc(100%-56px)] p-2">{(summaries[activity] ?? []).map((item) => <div className="flex min-h-[35px] w-full items-center gap-2 rounded-md px-2 text-[var(--text-2)]" key={item}><Icon size={16} /><span>{item}</span></div>)}<div className="m-5 flex gap-2 rounded-md border border-[var(--border-soft)] p-2.5 text-[10px] leading-[1.45] text-[var(--text-3)]"><Sparkles size={15} className="shrink-0 text-[var(--violet)]" /><span>{activity === "voice" ? "Voice catalog và import audio dùng dữ liệu backend/local workspace." : "Danh sách trên được lấy từ API; thao tác chi tiết mở ở workspace tương ứng."}</span></div></div>; }
-function Timeline({ clips: visualClips, totalMs, selectedId, onSelect, playheadMs, zoom }: Readonly<{ clips: VisualClip[]; totalMs: number; selectedId: string; onSelect: (id: string) => void; playheadMs: number; zoom: number }>) { const width = Math.round(1080 * zoom); const scale = Math.max(1, totalMs); return <div className="min-h-0 overflow-auto"><div className="relative min-h-full" style={{ width: `${width + 94}px` }}><div className="sticky left-0 z-10 float-left h-7 w-[94px] border-r border-b border-[var(--border)] bg-[#0a1119]" /><div className="relative ml-[94px] h-7 border-b border-[var(--border-soft)] bg-[repeating-linear-gradient(90deg,transparent_0,transparent_59px,rgba(163,184,207,.06)_60px)]" style={{ width }}>{["00:00:00", "00:01:30", "00:03:00", "00:04:30", "00:06:00", "00:07:30", "00:09:00", "00:10:30", "00:12:00"].map((label, index, all) => <span className="absolute top-2 -translate-x-1/2 font-mono text-[9px] text-[var(--text-3)]" key={label} style={{ left: `${(index / (all.length - 1)) * 100}%` }}>{label}</span>)}</div><Track label="V3" name="Effects" icon={<WandSparkles size={13} />}><TrackEmpty label="Effect tracks from API" /></Track><Track label="V2" name="Video 2" icon={<Eye size={13} />}><TrackEmpty label="Additional video layer" /></Track><Track label="V1" name="Video 1" icon={<ImageIcon size={13} />} main>{visualClips.length ? visualClips.map((clip) => <Clip key={clip.id} title={clip.asset} left={(clip.startMs / scale) * 100} width={((clip.endMs - clip.startMs) / scale) * 100} tone={clip.id === selectedId ? "selected" : clip.status === "generating" ? "pending" : "image"} selected={clip.id === selectedId} onClick={() => onSelect(clip.id)} />) : <TrackEmpty label="VisualBeat clips will appear after timeline sync" />}</Track><Track label="A1" name="Narration" icon={<Mic2 size={13} />} audio><TrackEmpty label="Narration waveform from API" /></Track><Track label="A2" name="Music" icon={<AudioLines size={13} />} audio><TrackEmpty label="Music track from API" /></Track><Track label="A3" name="SFX" icon={<Volume2 size={13} />}><TrackEmpty label="SFX track from API" /></Track><Track label="T1" name="Subtitle" icon={<Type size={13} />}><TrackEmpty label="Subtitle track from API" /></Track><div className="pointer-events-none absolute bottom-0 top-0 z-20 w-px bg-[var(--violet-bright)] shadow-[0_0_9px_var(--violet)]" style={{ left: `${94 + (playheadMs / scale) * width}px` }}><span className="absolute left-0 top-0 -translate-x-1/2 whitespace-nowrap rounded bg-[var(--violet)] px-1.5 py-0.5 font-mono text-[9px] font-bold text-[#120d27]">{formatTimecode(playheadMs)}</span></div></div></div>; }
-function Track({ label, name, icon, children, main = false, audio = false }: Readonly<{ label: string; name: string; icon: ReactNode; children: ReactNode; main?: boolean; audio?: boolean }>) { return <div className={`relative grid grid-cols-[94px_1fr] border-b border-[var(--border-soft)] ${main ? "h-[30px]" : audio ? "h-[25px]" : "h-[23px]"}`}><div className="sticky left-0 z-10 flex items-center gap-1.5 border-r border-[var(--border)] bg-[#0a1119] px-2 text-[10px] text-[var(--text-3)]"><b className="w-[21px] text-[11px] text-[var(--text-2)]">{label}</b><span>{name}</span><small className="ml-auto flex gap-1"><Eye size={12} /><LockKeyhole size={11} /></small></div><div className="relative min-w-0 bg-[repeating-linear-gradient(90deg,transparent_0,transparent_59px,rgba(163,184,207,.045)_60px)]"><span className="pointer-events-none absolute left-2 top-1/2 z-[1] -translate-y-1/2 text-[var(--text-3)]">{icon}</span>{children}</div></div>; }
-function Clip({ title, left, width, tone, selected = false, onClick }: Readonly<{ title: string; left: number; width: number; tone: string; selected?: boolean; onClick?: () => void }>) { const toneClass = tone === "selected" ? "border-[var(--amber)] bg-[var(--amber-soft)] text-[var(--text)] shadow-[inset_0_-2px_0_var(--amber)]" : tone === "pending" ? "border-[var(--amber)] bg-[repeating-linear-gradient(135deg,var(--surface-3),var(--surface-3)_6px,var(--amber-soft)_6px,var(--amber-soft)_12px)] text-[var(--amber)]" : "border-[rgba(129,169,222,.35)] bg-[var(--surface-3)] text-[var(--text-2)]"; return <button type="button" className={`absolute bottom-1 top-1 min-w-[14px] overflow-hidden rounded border px-1.5 text-left text-[11px] hover:border-[var(--violet)] hover:text-[var(--text)] ${toneClass} ${selected ? "z-[2] ring-2 ring-[var(--violet)]" : ""}`} style={{ left: `${left}%`, width: `${width}%` }} onClick={onClick}><span className="block truncate leading-[17px]">{title}</span></button>; }
-function TrackEmpty({ label }: Readonly<{ label: string }>) { return <span className="absolute inset-0 flex items-center pl-8 text-[9px] tracking-[.04em] text-[var(--text-3)] opacity-80">{label}</span>; }
-function ApiStatusBanner({ status, error }: Readonly<{ status: DesktopWorkspaceState["status"]; error: string | null }>) { if (status === "ready") return null; const label = status === "loading" ? "Đang đồng bộ workspace…" : status === "empty" ? "Workspace trống" : status === "partial" ? "Workspace đồng bộ một phần" : "Không kết nối được backend"; return <div className="flex min-w-0 items-center gap-2 overflow-hidden border-b border-[var(--border-soft)] px-3 text-[10px] text-[var(--text-3)]" role={status === "error" ? "alert" : "status"}><span className={`size-1.5 shrink-0 rounded-full ${status === "error" ? "bg-[var(--danger)]" : status === "empty" ? "bg-[var(--text-3)]" : "bg-[var(--amber)]"}`} /><strong className="text-[var(--text-2)]">{label}</strong><span className="truncate">{error ?? `API: ${apiBaseUrl()}`}</span></div>; }
-function EmptyInspector() { return <div className="grid flex-1 place-items-center gap-2 p-6 text-center text-[var(--text-3)]"><MousePointer2 size={22} /><strong className="text-[var(--text)]">Chưa chọn VisualBeat</strong><span>Chọn một clip trên timeline để mở transform, crop, color và AI asset.</span></div>; }
-function WorkspacePage({ screen, workspace, resolution, onOpenEditor, renderJob, renderPreflight, onStartRender, onOpenRenderOutput }: Readonly<{ screen: Exclude<DesktopScreen, "editor">; workspace: DesktopWorkspaceState; resolution: "720p" | "1080p"; onOpenEditor: () => void; renderJob: DesktopRenderJob | null; renderPreflight: LocalRenderPreflight | null; onStartRender: () => void; onOpenRenderOutput: () => void }>) {
-  const titles: Record<Exclude<DesktopScreen, "editor">, string> = { projects: "Project Hub", chapters: "Chapter Workspace", characters: "Character Library", images: "Image Generation", voice: "Voice & TTS", assets: "Asset Browser", render: "Render Workspace", settings: "Desktop Settings" };
-  return <div className={`grid min-h-0 overflow-auto ${screen === "voice" ? "bg-[var(--voice-bg)]" : ""}`}>{screen !== "voice" && <div className="flex items-end justify-between gap-4 border-b border-[var(--border-soft)] p-4"><div><span className="text-[9px] font-bold uppercase tracking-[.13em] text-[var(--text-3)]">NarrativeX Desktop</span><h1>{titles[screen]}</h1><p>{screen === "projects" ? "Mở project để đi thẳng vào editor timeline." : "Nội dung được lấy từ backend domain và hiển thị trong cùng một workspace."}</p></div><div className="flex items-center gap-2"><span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-2 py-1 text-[10px] text-[var(--text-2)]"><i /> {workspace.status === "ready" ? "Backend connected" : "API status"}</span>{screen !== "settings" && screen !== "render" && <button type="button" className="inline-flex items-center justify-center gap-1.5 rounded-md bg-[var(--violet)] px-3 py-2 text-xs font-semibold text-[#140c27] hover:bg-[var(--violet-bright)] disabled:cursor-not-allowed disabled:opacity-50" onClick={onOpenEditor}>Open Editor <ChevronRight size={14} /></button>}</div></div>}<ApiStatusBanner status={workspace.status} error={workspace.error} />{screen === "projects" && <ProjectPage projects={workspace.projects} onOpenEditor={onOpenEditor} />}{screen === "assets" && <AssetsPage projectId={workspace.timeline?.projectId ?? null} assets={workspace.assets} />}{screen === "characters" && <CharactersPage projectId={workspace.timeline?.projectId ?? null} characters={workspace.characters} />}{screen === "chapters" && <StoryPage projectId={workspace.timeline?.projectId ?? null} storyVersionId={workspace.timeline?.storyVersionId ?? null} chapters={workspace.chapters} />}{screen === "images" && <ScenesPage projectId={workspace.timeline?.projectId ?? null} chapters={workspace.chapters} timeline={workspace.timeline} />}{screen === "voice" && <VoicesPage projectId={workspace.timeline?.projectId ?? null} chapters={workspace.chapters} voices={workspace.voices} assets={workspace.assets} />}{screen === "render" && <RenderPage workspace={workspace} resolution={resolution} job={renderJob} preflight={renderPreflight} onStart={onStartRender} onOpenOutput={onOpenRenderOutput} />}{screen === "settings" && <SettingsPage projectId={workspace.timeline?.projectId ?? null} workspace={workspace} />}</div>;
-}
-function ProjectPage({ projects, onOpenEditor }: Readonly<{ projects: DesktopProject[]; onOpenEditor: () => void }>) { return <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3">{projects.map((project) => <button type="button" className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]" key={project.id} onClick={onOpenEditor}><div className="grid min-h-24 place-items-center overflow-hidden bg-[var(--surface-2)] text-[var(--violet-bright)]" style={project.coverImageUrl ? { backgroundImage: `url(${project.coverImageUrl})` } : undefined}><FolderOpen size={22} /></div><div className="grid min-w-0 gap-2 p-3"><div><span className="text-[9px] font-bold uppercase tracking-[.13em] text-[var(--text-3)]">{project.status}</span><h3>{project.name}</h3></div><ChevronRight size={16} /><p>{project.description || "Chưa có mô tả project."}</p><small>{project.metrics?.totalChapters ?? "—"} chapters · {project.metrics?.totalScenes ?? "—"} scenes</small></div></button>)}{projects.length === 0 && <ResourceEmpty title="Chưa có project" action="Dùng New project để bắt đầu" />}</div>; }
-function AssetsPage({ projectId, assets, audioOnly = false }: Readonly<{ projectId: string | null; assets: DesktopAsset[]; audioOnly?: boolean }>) {
-  const queryClient = useQueryClient();
-  const [notice, setNotice] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [localStates, setLocalStates] = useState<Record<string, "AVAILABLE" | "MISSING" | "CORRUPT">>({});
-  useEffect(() => { if (!projectId) return; void window.narrativex.localStorage.verifyProject(projectId).then((entries) => setLocalStates(Object.fromEntries(entries.map((entry) => [entry.assetId, entry.state])))).catch(() => undefined); }, [projectId, assets.length]);
-  async function importAsset(repairAssetId?: string) {
-    if (!projectId) { setNotice("Mở project trước khi import asset."); return; }
-    setBusy(true); setNotice(null);
-    try {
-      const selection = await window.narrativex.localStorage.selectAsset();
-      if (!selection) return;
-      if (selection.kind === "OTHER") throw new Error("Chỉ hỗ trợ image, audio hoặc video asset.");
-      const asset = repairAssetId ? { id: repairAssetId } : await assetsApi.registerLocal({ projectId, type: selection.kind, originalFilename: selection.originalFilename, contentType: selection.contentType, sizeBytes: selection.sizeBytes, checksumSha256: selection.checksumSha256 });
-      if (repairAssetId) await window.narrativex.localStorage.repairSelectedAsset({ projectId, assetId: repairAssetId, kind: selection.kind, selectionToken: selection.selectionToken });
-      else await window.narrativex.localStorage.commitSelectedAsset({ projectId, assetId: asset.id, kind: selection.kind, selectionToken: selection.selectionToken });
-      await queryClient.invalidateQueries({ queryKey: ["assets", "library"] });
-      setNotice(`${selection.originalFilename} đã được ${repairAssetId ? "repair" : "đăng ký và materialize"} local.`);
-      if (projectId) { const entries = await window.narrativex.localStorage.verifyProject(projectId); setLocalStates(Object.fromEntries(entries.map((entry) => [entry.assetId, entry.state]))); }
-    } catch (error) { setNotice(error instanceof Error ? error.message : "Không thể import asset."); }
-    finally { setBusy(false); }
-  }
-  return <div className="grid min-h-0 gap-3 overflow-auto p-4"><div className="flex flex-wrap items-end gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] p-3"><span>{assets.length} assets from API</span><button type="button" className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-xs text-[var(--text-2)] hover:border-[var(--violet)] hover:text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-50" onClick={() => void importAsset()} disabled={busy}><Plus size={14} /> {busy ? "Importing…" : "Import asset"}</button></div>{notice && <p className="m-0 rounded-md border border-[var(--border-soft)] bg-[var(--surface-2)] p-2 text-[10px] leading-5 text-[var(--text-3)]">{notice}</p>}<div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">{assets.map((asset) => { const localState = localStates[asset.id]; return <div className="grid gap-2 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]" key={asset.id}><div className={cn("grid min-h-24 place-items-center gap-1 p-4", asset.type === "IMAGE" ? "bg-[var(--blue-soft)] text-[var(--blue)]" : asset.type === "AUDIO" ? "bg-[var(--cyan-soft)] text-[var(--cyan)]" : "bg-[var(--violet-soft)] text-[var(--violet-bright)]")}><ImageIcon size={22} /><span>{asset.type}</span></div><div className="grid min-w-0 gap-2 p-3"><h3>{asset.originalFilename}</h3><p>{formatBytes(asset.sizeBytes)} · {asset.status} · {localState ?? "REMOTE"}</p><small>{new Date(asset.createdAt).toLocaleDateString("vi-VN")}</small>{localState && localState !== "AVAILABLE" && <button type="button" className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-xs text-[var(--text-2)] hover:border-[var(--violet)] hover:text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-50" onClick={() => void importAsset(asset.id)} disabled={busy}>Repair local file</button>}</div></div>; })}{assets.length === 0 && <ResourceEmpty title={audioOnly ? "Chưa có audio" : "Chưa có asset"} action="Import asset từ máy này" />}</div></div>;
-}
-function CharactersPage({ projectId, characters }: Readonly<{ projectId: string | null; characters: DesktopCharacter[] }>) { const createCharacter = useCreateCharacter(projectId ?? ""); const [name, setName] = useState(""); const [notice, setNotice] = useState<string | null>(null); async function create(event: FormEvent) { event.preventDefault(); if (!projectId || !name.trim()) return; try { await createCharacter.mutateAsync({ canonicalName: name.trim() }); setName(""); setNotice("Character đã được tạo và assign vào project."); } catch (error) { setNotice(errorMessage(error)); } } return <div className="grid min-h-0 gap-3 overflow-auto p-4"><form className="flex flex-wrap items-end gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] p-3" onSubmit={(event) => void create(event)}><label>New character<Input value={name} onChange={(event) => setName(event.target.value)} placeholder="Canonical name" className="h-7 text-xs" /></label><button type="submit" className="inline-flex items-center justify-center gap-1.5 rounded-md bg-[var(--violet)] px-3 py-2 text-xs font-semibold text-[#140c27] hover:bg-[var(--violet-bright)] disabled:cursor-not-allowed disabled:opacity-50" disabled={!projectId || !name.trim() || createCharacter.isPending}><Plus size={13} /> Create character</button></form>{notice && <p className="m-0 rounded-md border border-[var(--border-soft)] bg-[var(--surface-2)] p-2 text-[10px] leading-5 text-[var(--text-3)]">{notice}</p>}<div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">{characters.map((character) => <div className="grid grid-cols-[48px_1fr] gap-3 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3" key={character.id}><div className="grid size-12 place-items-center rounded-lg bg-[var(--violet-soft)] text-[var(--violet-bright)]"><UserCircle size={30} /></div><div className="grid min-w-0 gap-2 p-3"><span className="text-[9px] font-bold uppercase tracking-[.13em] text-[var(--text-3)]">{character.status ?? "ACTIVE"}</span><h3>{character.canonicalName}</h3><p>{character.role ?? "Project character"}</p><small>{character.sceneCount ?? 0} scenes · {character.pinnedCharacterVersionId ? "Version locked" : "No version locked"}</small></div></div>)}{characters.length === 0 && <ResourceEmpty title="Chưa có character" action="Tạo character đầu tiên ở trên" />}</div></div>; }
-function StoryPage({ projectId, storyVersionId, chapters }: Readonly<{ projectId: string | null; storyVersionId: string | null; chapters: import("@narrativex/client-contracts").DesktopChapterDetails[] }>) {
-  const createChapter = useCreateChapter(projectId ?? "");
-  const updateChapter = useUpdateChapter(projectId ?? "");
-  const deleteChapter = useDeleteChapter(projectId ?? "");
-  const [title, setTitle] = useState("");
-  const [sourceText, setSourceText] = useState("");
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
-  const [notice, setNotice] = useState<string | null>(null);
-  const selected = chapters.find((chapter) => chapter.id === editingId) ?? null;
-  useEffect(() => { if (selected) { setTitle(selected.title); setSourceText(selected.sourceText); } }, [selected]);
-  const filteredChapters = chapters.filter((chapter) => `${chapter.title} ${chapter.sourceText}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
-  const wordCount = countWords(sourceText);
-  const busy = createChapter.isPending || updateChapter.isPending;
-  function startNewChapter() {
-    setEditingId(null);
-    setTitle("");
-    setSourceText("");
-    setNotice(null);
-  }
-  async function removeChapter(chapterId: string, chapterTitle: string) {
-    if (!window.confirm(`Xóa chapter “${chapterTitle}”? Hành động này không thể hoàn tác.`)) return;
-    setNotice(null);
-    try {
-      await deleteChapter.mutateAsync(chapterId);
-      if (editingId === chapterId) startNewChapter();
-      setNotice("Chapter đã được xóa.");
-    } catch (error) {
-      setNotice(errorMessage(error));
-    }
-  }
-  async function saveChapter(event?: { preventDefault: () => void }) {
-    event?.preventDefault();
-    if (!projectId || !title.trim() || !sourceText.trim() || busy) return;
-    setNotice(null);
-    try {
-      if (selected) {
-        await updateChapter.mutateAsync({ chapterId: selected.id, title: title.trim(), sourceText, rowVersion: selected.rowVersion });
-        setNotice("Chapter đã được lưu.");
-      } else {
-        await createChapter.mutateAsync({ storyVersionId: storyVersionId ?? undefined, orderIndex: chapters.length, title: title.trim(), sourceText });
-        setNotice("Chapter mới đã được tạo.");
-      }
-      setTitle(""); setSourceText(""); setEditingId(null);
-    } catch (error) {
-      setNotice(errorMessage(error));
-    }
-  }
-  return <div className="grid min-h-0 gap-3 overflow-auto p-4"><ChapterFlow /><div className="grid min-h-[560px] min-w-0 grid-cols-[minmax(270px,.72fr)_minmax(0,1.28fr)] gap-2.5"><section className="grid min-h-0 content-start overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]" aria-labelledby="chapters-heading"><div className="border-b border-[var(--border-soft)] p-3"><div className="flex items-center justify-between gap-2"><h2 id="chapters-heading" className="text-sm font-semibold">Chapters</h2><span className="text-[10px] text-[var(--text-3)]">{filteredChapters.length}/{chapters.length}</span></div><div className="mt-2 flex gap-1.5"><label className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface-2)] px-2 text-[var(--text-3)]"><Search size={14} aria-hidden="true" /><span className="sr-only">Tìm chapter</span><Input name="chapter-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm chapter…" className="h-7 min-w-0 border-0 bg-transparent px-0 text-xs shadow-none focus-visible:ring-0" /></label><button type="button" disabled className="grid size-8 shrink-0 place-items-center rounded-md border border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-3)] disabled:cursor-not-allowed disabled:opacity-50" aria-label="Bộ lọc chapter" title="Bộ lọc nâng cao chưa hỗ trợ"><Menu size={15} /></button></div><div className="mt-2 flex gap-1.5"><button type="button" className="inline-flex items-center justify-center gap-1.5 rounded-md bg-[var(--violet)] px-2.5 py-2 text-[11px] font-semibold text-[#140c27] hover:bg-[var(--violet-bright)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--violet-bright)]" onClick={startNewChapter}><Plus size={13} /> Tạo chapter</button><button type="button" disabled className="inline-flex items-center justify-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface-2)] px-2.5 py-2 text-[11px] text-[var(--text-2)] disabled:cursor-not-allowed disabled:opacity-50" title="Import chapter chưa được nối API"><FileText size={13} /> Nhập chapter</button></div></div><div className="min-h-0 overflow-auto p-2">{filteredChapters.map((chapter) => <ChapterListItem key={chapter.id} chapter={chapter} selected={chapter.id === editingId} onSelect={() => setEditingId(chapter.id)} onDelete={() => void removeChapter(chapter.id, chapter.title)} deleting={deleteChapter.isPending} />)}{filteredChapters.length === 0 && <ResourceEmpty title={chapters.length ? "Không tìm thấy chapter" : "Chưa có chapter"} action={chapters.length ? "Thử từ khóa khác" : "Tạo chapter đầu tiên ở trên"} />}</div><div className="border-t border-[var(--border-soft)] px-3 py-2 text-[10px] text-[var(--text-3)]">Hiển thị {filteredChapters.length} / {chapters.length} chapter</div></section><section className="grid min-h-0 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]" aria-labelledby="chapter-editor-heading"><div className="border-b border-[var(--border-soft)] p-3"><span className="text-[9px] font-bold uppercase tracking-[.13em] text-[var(--text-3)]">{selected ? "Đang chỉnh sửa" : "Chapter mới"}</span><h2 id="chapter-editor-heading" className="sr-only">Chapter editor</h2><Input aria-label="Tên chapter" name="title" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Tên chapter…" className="mt-2 h-10 border-[var(--border)] bg-[var(--surface-2)] text-lg" /></div><div className="flex flex-wrap items-center gap-1.5 border-b border-[var(--border-soft)] px-3 py-2 text-[10px] text-[var(--text-3)]"><span className="rounded-md border border-[var(--border-soft)] bg-[var(--surface-2)] px-2 py-1">{wordCount.toLocaleString("vi-VN")} từ</span><span className="rounded-md border border-[var(--border-soft)] bg-[var(--surface-2)] px-2 py-1">Ước lượng đọc: {Math.max(1, Math.ceil(wordCount / 150))} phút</span>{selected && <span className="rounded-md border border-[var(--border-soft)] bg-[var(--surface-2)] px-2 py-1">Version {selected.rowVersion}</span>}</div><div className="min-h-0 overflow-auto p-3"><div className="overflow-hidden rounded-md border border-[var(--border)] bg-[var(--surface-2)]"><div className="flex flex-wrap items-center gap-0.5 border-b border-[var(--border)] p-1.5"><button type="button" disabled className="rounded px-2 py-1 text-[10px] text-[var(--text-2)] disabled:cursor-not-allowed disabled:opacity-50">Đoạn văn⌄</button>{["B", "I", "U", "S", "☷", "☰", "≡", "❝", "↗", "↶", "↷"].map((label) => <button type="button" disabled className="grid size-7 place-items-center rounded text-[11px] font-semibold text-[var(--text-2)] disabled:cursor-not-allowed disabled:opacity-50" key={label} aria-label={`Định dạng ${label}`} title="Rich text formatting chưa hỗ trợ">{label}</button>)}</div><Textarea aria-label="Nội dung chapter" name="sourceText" value={sourceText} onChange={(event) => setSourceText(event.target.value)} placeholder="Viết nội dung chapter…" className="min-h-[300px] resize-none rounded-none border-0 bg-transparent p-3 text-xs leading-6 shadow-none focus-visible:ring-0" spellCheck /></div><div className="flex items-center justify-between py-2 text-[10px] text-[var(--text-3)]"><span>{sourceText.length.toLocaleString("vi-VN")} ký tự</span><span>{selected ? "Dữ liệu từ backend" : "Bản nháp cục bộ chưa lưu"}</span></div></div><div className="flex flex-wrap items-center gap-2 border-t border-[var(--border-soft)] p-3"><button type="button" className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-xs text-[var(--text-2)] hover:border-[var(--violet)] hover:text-[var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--violet)]" onClick={() => void saveChapter()} disabled={!projectId || !title.trim() || !sourceText.trim() || busy}>{busy ? "Đang lưu…" : "Lưu chapter"}</button><button type="button" disabled className="inline-flex items-center gap-1.5 rounded-md bg-[var(--violet)] px-3 py-2 text-xs font-semibold text-[#140c27] disabled:cursor-not-allowed disabled:opacity-50" title="Phân tích chapter chưa được nối vào action này"><WandSparkles size={13} /> Phân tích chapter</button><button type="button" disabled className="inline-flex items-center gap-1.5 rounded-md bg-[var(--violet)] px-3 py-2 text-xs font-semibold text-[#140c27] disabled:cursor-not-allowed disabled:opacity-50" title="Tạo scene chưa được nối vào action này"><Film size={13} /> Tạo scene</button>{notice && <span className="basis-full text-[10px] text-[var(--text-3)]" role="status" aria-live="polite">{notice}</span>}</div></section></div></div>;
-}
-function ChapterFlow() { const steps = [{ label: "Story", detail: "Cốt truyện tổng thể", icon: BookOpen }, { label: "Chapter", detail: "Phân chia chương", icon: FileText }, { label: "Scene", detail: "Kiến tạo từng cảnh", icon: Film }, { label: "VisualBeat", detail: "Nhịp điệu hình ảnh", icon: WandSparkles }]; return <div className="grid grid-cols-2 gap-2 rounded-lg border border-[var(--border)] bg-[linear-gradient(115deg,var(--surface),var(--violet-soft),var(--surface))] p-3 md:grid-cols-4">{steps.map(({ label, detail, icon: Icon }, index) => <div className="flex min-w-0 items-center gap-2" key={label}><div className="grid size-10 shrink-0 place-items-center rounded-full bg-[var(--violet-soft)] text-[var(--violet-bright)] shadow-[0_0_20px_rgba(164,124,255,.12)]"><Icon size={19} aria-hidden="true" /></div><div className="min-w-0"><strong className={`block text-xs ${label === "Chapter" ? "text-[var(--violet-bright)]" : "text-[var(--text)]"}`}>{label}</strong><span className="block truncate text-[10px] text-[var(--text-3)]">{detail}</span></div>{index < steps.length - 1 && <ChevronRight className="ml-auto hidden shrink-0 text-[var(--text-3)] md:block" size={17} aria-hidden="true" />}</div>)}</div>; }
-function ChapterListItem({ chapter, selected, onSelect, onDelete, deleting }: Readonly<{ chapter: import("@narrativex/client-contracts").DesktopChapterDetails; selected: boolean; onSelect: () => void; onDelete: () => void; deleting: boolean }>) {
-  const wordCount = countWords(chapter.sourceText);
-  return <article className={`group flex items-start gap-2 rounded-md border p-2.5 transition-colors ${selected ? "border-[var(--violet)] bg-[var(--violet-soft)] shadow-[0_0_0_1px_rgba(164,124,255,.2)]" : "border-[var(--border-soft)] bg-[var(--surface-2)] hover:border-[var(--border)]"}`}><button type="button" className="flex min-w-0 flex-1 items-start gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--violet-bright)]" onClick={onSelect} aria-current={selected ? "true" : undefined}><span className="grid size-7 shrink-0 place-items-center rounded bg-[var(--surface-3)] font-mono text-[11px] text-[var(--text-2)]">{chapter.orderIndex + 1}</span><span className="min-w-0"><strong className="block truncate text-[11px] text-[var(--text)]">{chapter.title}</strong><span className="mt-1 block text-[10px] text-[var(--text-3)]">{formatNumber(wordCount)} từ · {formatNumber(chapter.sourceText.length)} ký tự</span></span></button><div className="grid shrink-0 justify-items-end gap-1"><span className="text-[9px] text-[var(--text-3)]">v{chapter.rowVersion}</span><button type="button" className="rounded px-1.5 py-1 text-[10px] text-[var(--text-3)] transition-colors hover:bg-[var(--danger-soft)] hover:text-[var(--danger)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--danger)] disabled:cursor-not-allowed disabled:opacity-50" onClick={onDelete} disabled={deleting} aria-label={`Xóa ${chapter.title}`} title="Xóa chapter">×</button></div></article>;
-}
-function formatNumber(value: number) { return new Intl.NumberFormat("vi-VN").format(value); }
-function countWords(value: string) { return value.trim() ? value.trim().split(/\s+/u).length : 0; }
-function EditorSelectField({ label, value, onValueChange, placeholder, children, className, disabled = false }: Readonly<{ label: string; value: string; onValueChange: (value: string) => void; placeholder: string; children: ReactNode; className?: string; disabled?: boolean }>) {
-  return <label className={cn("grid min-w-[112px] gap-1 text-[10px] text-[var(--text-3)]", className)}><span>{label}</span><Select value={value || undefined} onValueChange={onValueChange} disabled={disabled}><SelectTrigger className="w-full" aria-label={label}><SelectValue placeholder={placeholder} /></SelectTrigger><SelectContent>{children}</SelectContent></Select></label>;
-}
-function ScenesPage({ projectId, chapters, timeline }: Readonly<{ projectId: string | null; chapters: import("@narrativex/client-contracts").DesktopChapterDetails[]; timeline: DesktopTimeline | null }>) {
-  const analyze = useAnalyzeChapter();
-  const estimate = useEstimateMediaJob();
-  const createJob = useCreateMediaJob();
-  const review = useReviewMediaItem();
-  const [chapterId, setChapterId] = useState("");
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [qualityTier, setQualityTier] = useState<"DRAFT" | "STANDARD" | "HIGH">("STANDARD");
-  const [imageStyle, setImageStyle] = useState<"CINEMATIC" | "STORYBOOK_WATERCOLOR">("CINEMATIC");
-  const details = useMediaJob(jobId);
-  const scenes = timeline?.beats ?? [];
-  useEffect(() => { if (!chapterId && chapters[0]) setChapterId(chapters[0].id); }, [chapterId, chapters]);
-  const chapterBeats = scenes.filter((beat) => beat.chapterId === chapterId);
-  async function runAnalysis() {
-    if (!projectId || !chapterId) return;
-    setNotice(null);
-    try { const job = await analyze.mutateAsync({ projectId, chapterId }); setJobId(job.jobId); setNotice(`Analysis job ${job.jobId.slice(0, 8)} đã được queue.`); } catch (error) { setNotice(errorMessage(error)); }
-  }
-  async function estimateCost() {
-    if (!projectId || !chapterId) return;
-    try { const result = await estimate.mutateAsync({ projectId, chapterId, qualityTier }); setNotice(`Ước tính ${result.estimatedCost} ${result.currency} cho ${result.visualBeatCount} visual beat.`); } catch (error) { setNotice(errorMessage(error)); }
-  }
-  async function generateImages() {
-    if (!projectId || !chapterId) return;
-    try { const job = await createJob.mutateAsync({ projectId, chapterId, request: { productionMode: "IMAGE_MOTION", aspectRatio: (timeline?.aspectRatio as "16:9" | "9:16" | "1:1" | "4:3" | "3:4") ?? "16:9", qualityTier, maxAuthorizedCost: 5, imageStyle } }); setJobId(job.jobId); setNotice(`Media job ${job.jobId.slice(0, 8)} đã được queue.`); } catch (error) { setNotice(errorMessage(error)); }
-  }
-  async function materialize(item: import("@narrativex/client-contracts").MediaGenerationItem) {
-    if (!projectId || !item.mediaAssetId) return;
-    try { const asset = await assetsApi.get(item.mediaAssetId); await window.narrativex.localStorage.materializeRemoteAsset({ projectId, assetId: asset.id }); setNotice(`${asset.originalFilename} đã materialize local và checksum đã xác thực.`); } catch (error) { setNotice(errorMessage(error)); }
-  }
-  return <div className="grid min-h-0 gap-3 overflow-auto p-4"><div className="flex flex-wrap items-end gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] p-3"><EditorSelectField label="Chapter" value={chapterId} onValueChange={setChapterId} placeholder="Chọn chapter" className="min-w-[180px]">{chapters.map((chapter) => <SelectItem value={chapter.id} key={chapter.id}>{chapter.orderIndex + 1}. {chapter.title}</SelectItem>)}</EditorSelectField><EditorSelectField label="Quality" value={qualityTier} onValueChange={(value) => setQualityTier(value as typeof qualityTier)} placeholder="Standard"><SelectItem value="DRAFT">Draft</SelectItem><SelectItem value="STANDARD">Standard</SelectItem><SelectItem value="HIGH">High</SelectItem></EditorSelectField><EditorSelectField label="Style" value={imageStyle} onValueChange={(value) => setImageStyle(value as typeof imageStyle)} placeholder="Cinematic" className="min-w-[170px]"><SelectItem value="CINEMATIC">Cinematic</SelectItem><SelectItem value="STORYBOOK_WATERCOLOR">Storybook watercolor</SelectItem></EditorSelectField><button type="button" className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-xs text-[var(--text-2)] hover:border-[var(--violet)] hover:text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-50" onClick={() => void runAnalysis()} disabled={!chapterId || analyze.isPending}><Sparkles size={13} /> {analyze.isPending ? "Analyzing…" : "Analyze"}</button><button type="button" className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-xs text-[var(--text-2)] hover:border-[var(--violet)] hover:text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-50" onClick={() => void estimateCost()} disabled={!chapterId || estimate.isPending}>Estimate</button><button type="button" className="inline-flex items-center justify-center gap-1.5 rounded-md bg-[var(--violet)] px-3 py-2 text-xs font-semibold text-[#140c27] hover:bg-[var(--violet-bright)] disabled:cursor-not-allowed disabled:opacity-50" onClick={() => void generateImages()} disabled={!chapterId || createJob.isPending}><ImageIcon size={13} /> {createJob.isPending ? "Queueing…" : "Generate images"}</button></div>{notice && <p className="m-0 rounded-md border border-[var(--border-soft)] bg-[var(--surface-2)] p-2 text-[10px] leading-5 text-[var(--text-3)]">{notice}</p>}{jobId && <div className="grid gap-2 rounded-md border border-[var(--border)] bg-[var(--surface-2)] p-3"><span className="text-[9px] font-bold uppercase tracking-[.13em] text-[var(--text-3)]">Generation job</span><strong>{details.data ? `${details.data.readyItems}/${details.data.totalItems} ready · ${details.data.reviewItems} needs review` : `Job ${jobId.slice(0, 8)} · loading details…`}</strong>{details.error && <small>{errorMessage(details.error)}</small>}{details.data?.items.map((item) => <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2 border-t border-[var(--border-soft)] py-2 text-[10px]" key={item.id}><span>{item.itemKey ?? item.visualBeatId.slice(0, 8)}</span><span>{item.executionStatus} · {item.reviewStatus}</span><div>{item.reviewStatus === "NEEDS_REVIEW" && <><button type="button" className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-xs text-[var(--text-2)] hover:border-[var(--violet)] hover:text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-50" onClick={() => void review.mutateAsync({ itemId: item.id, jobId, review: { decision: "APPROVED", rowVersion: item.rowVersion } })}>Approve</button><button type="button" className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-xs text-[var(--text-2)] hover:border-[var(--violet)] hover:text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-50" onClick={() => void review.mutateAsync({ itemId: item.id, jobId, review: { decision: "REJECTED", rowVersion: item.rowVersion } })}>Reject</button></>}{item.mediaAssetId && item.executionStatus === "READY" && <button type="button" className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-xs text-[var(--text-2)] hover:border-[var(--violet)] hover:text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-50" onClick={() => void materialize(item)}>Materialize</button>}</div></div>)}</div>}<div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">{chapterBeats.map((beat) => <div className="grid grid-cols-[42px_1fr] gap-3 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3" key={beat.visualBeatId}><div className="grid size-10 place-items-center rounded-md bg-[var(--violet-soft)] text-lg font-semibold text-[var(--violet-bright)]">{beat.sceneIndex + 1}<span>SCENE</span></div><div className="grid min-w-0 gap-2 p-3"><span className="text-[9px] font-bold uppercase tracking-[.13em] text-[var(--text-3)]">Beat {beat.beatIndex + 1}</span><h3>{beat.title}</h3><p>{beat.visualIntent || "Visual intent chưa có."}</p><small>{formatTime(beat.startMs)} → {formatTime(beat.endMs)} · {beat.cameraMovement} · {beat.assetReady ? "Asset ready" : "Needs asset"}</small></div></div>)}{chapterBeats.length === 0 && <ResourceEmpty title="Chưa có scene" action="Chọn chapter hoặc chạy analysis khi backend sẵn sàng" />}</div></div>;
-}
-function VoicesPage({ projectId, chapters, voices, assets }: Readonly<{ projectId: string | null; chapters: import("@narrativex/client-contracts").DesktopChapterDetails[]; voices: DesktopVoice[]; assets: DesktopAsset[] }>) {
-  const generate = useGenerateNarration();
-  const generateBatch = useGenerateBatchNarration();
-  const [chapterId, setChapterId] = useState("");
-  const [voiceId, setVoiceId] = useState("");
-  const [referenceAssetId, setReferenceAssetId] = useState("");
-  const [audioMode, setAudioMode] = useState<"TTS" | "USER_AUDIO">("TTS");
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
-  const [language, setLanguage] = useState("all");
-  const [gender, setGender] = useState("all");
-  const [provider, setProvider] = useState("all");
-  const [sortOrder, setSortOrder] = useState("newest");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const job = useGenerationJob(jobId);
-  const audioAssets = assets.filter((asset) => asset.type === "AUDIO");
-  const languages = useMemo(() => uniqueVoiceValues(voices.map((voice) => voice.language)), [voices]);
-  const genders = useMemo(() => uniqueVoiceValues(voices.map((voice) => voice.gender)), [voices]);
-  const providers = useMemo(() => uniqueVoiceValues(voices.map((voice) => voice.provider)), [voices]);
-  const filteredVoices = useMemo(() => voices.filter((voice) => {
-    const haystack = `${voice.name} ${voice.language} ${voice.gender ?? ""} ${voice.provider}`.toLowerCase();
-    return haystack.includes(query.trim().toLowerCase())
-      && (language === "all" || voice.language === language)
-      && (gender === "all" || voice.gender === gender)
-      && (provider === "all" || voice.provider === provider);
-  }).sort((left, right) => sortOrder === "name" ? left.name.localeCompare(right.name) : right.name.localeCompare(left.name)), [gender, language, provider, query, sortOrder, voices]);
-  useEffect(() => { if (!chapterId && chapters[0]) setChapterId(chapters[0].id); if (!voiceId && voices[0]) setVoiceId(voices[0].id); }, [chapterId, chapters, voiceId, voices]);
-  async function generateChapter() { if (!projectId || !chapterId || !voiceId) return; if (audioMode === "USER_AUDIO") { setNotice("USER_PROVIDED_AUDIO đang bật: TTS bị vô hiệu hóa. Audio local đã được hash và materialize; cần chọn Attach audio khi backend narration-set endpoint được bật."); return; } try { const result = await generate.mutateAsync({ projectId, request: { chapterId, voiceId, voiceReferenceAssetId: referenceAssetId || undefined } }); setJobId(result.jobId); setNotice(`Narration job ${result.jobId.slice(0, 8)} đã được queue.`); } catch (error) { setNotice(errorMessage(error)); } }
-  async function generateAll() { if (!projectId || !voiceId || chapters.length === 0 || audioMode === "USER_AUDIO") return; try { const result = await generateBatch.mutateAsync({ projectId, chapterIds: chapters.map((chapter) => chapter.id), voiceId, voiceReferenceAssetId: referenceAssetId || undefined }); setJobId(result[0]?.job.jobId ?? null); setNotice(`${result.length} narration job đã được queue.`); } catch (error) { setNotice(errorMessage(error)); } }
-  async function importReference() { if (!projectId) { setNotice("Mở project trước khi import audio reference."); return; } try { const selection = await window.narrativex.localStorage.selectAsset(); if (!selection) return; if (selection.kind !== "AUDIO") throw new Error("Hãy chọn file audio cho voice reference."); const asset = await assetsApi.registerLocal({ projectId, type: "AUDIO", originalFilename: selection.originalFilename, contentType: selection.contentType, sizeBytes: selection.sizeBytes, checksumSha256: selection.checksumSha256 }); await window.narrativex.localStorage.commitSelectedAsset({ projectId, assetId: asset.id, kind: "AUDIO", selectionToken: selection.selectionToken }); setReferenceAssetId(asset.id); setAudioMode("USER_AUDIO"); setNotice(`${selection.originalFilename} đã sẵn sàng ở USER_PROVIDED_AUDIO; không tự enqueue TTS.`); } catch (error) { setNotice(errorMessage(error)); } }
-  return <div className="grid min-h-0 gap-3 overflow-auto p-4">
-    <div className="flex items-center justify-between">
-      <div><span className="text-[9px] font-bold uppercase tracking-[.13em] text-[var(--text-3)]">Library / Voice &amp; TTS</span><h1>Voice &amp; TTS</h1><p>Quản lý và phát thử các file audio mẫu (TTS) trong workspace của bạn.</p></div>
-      <div className="flex items-center gap-2"><span className="text-[10px] text-[var(--text-3)]">{voices.length} files</span><button type="button" className="inline-flex items-center justify-center gap-1.5 rounded-md bg-[var(--violet)] px-3 py-2 text-xs font-semibold text-[#140c27] hover:bg-[var(--violet-bright)] disabled:cursor-not-allowed disabled:opacity-50" onClick={() => void importReference()}><Upload size={14} /> Upload audio</button><button type="button" className="text-[var(--text-3)] hover:border-[var(--border)] hover:bg-[var(--surface-3)] hover:text-[var(--text)] ml-1" aria-label="More voice library options" title="More options"><MoreVertical size={17} /></button></div>
+      <section className="grid min-h-0 grid-rows-[minmax(0,1fr)_220px] bg-surface-dark">
+        <div className="grid min-h-0 grid-rows-[44px_minmax(0,1fr)_44px]">
+          <div className="flex items-center justify-between border-b border-border px-4">
+            <div>
+              <span className="text-[9px] uppercase tracking-[.12em] text-muted-foreground">Canvas</span>
+              <strong className="ml-2 text-xs">Preview</strong>
+            </div>
+            <span className="text-[10px] text-muted-foreground">
+              {timeline?.aspectRatio ?? "16:9"} · {beats.length} beats
+            </span>
+          </div>
+          <div className="m-3 grid min-h-0 place-items-center overflow-hidden rounded-lg border border-border bg-card p-6 text-center">
+            {selected ? (
+              <div className="grid max-w-lg gap-2">
+                <span className="text-[9px] uppercase tracking-[.13em] text-primary-hover">
+                  Scene {selected.sceneIndex + 1} · Beat {selected.beatIndex + 1}
+                </span>
+                <h2 className="text-lg font-semibold">{selected.title}</h2>
+                <p className="text-xs leading-5 text-muted-foreground">{selected.visualIntent}</p>
+                <span className="text-[10px] text-muted-foreground">
+                  {selected.assetReady ? "Asset ready" : "Asset pending"} · {selected.cameraMovement}
+                </span>
+              </div>
+            ) : (
+              <span className="text-muted-foreground">Chọn visual beat để preview.</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2 border-t border-border px-3">
+            <span className="w-[78px] font-mono text-[11px] text-primary-hover">
+              {formatTime(playheadMs)}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setPlayheadMs((value) => Math.max(0, value - 500))}
+            >
+              <SkipBack size={15} />
+            </Button>
+            <Button
+              size="icon"
+              onClick={() => setPlaying((value) => !value)}
+              disabled={!totalMs}
+              aria-label={playing ? "Pause" : "Play"}
+            >
+              {playing ? <Pause size={15} /> : <Play size={15} />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setPlayheadMs((value) => Math.min(totalMs, value + 500))}
+            >
+              <SkipForward size={15} />
+            </Button>
+            <span className="ml-auto font-mono text-[10px] text-muted-foreground">
+              {formatTime(totalMs)}
+            </span>
+          </div>
+        </div>
+
+        <div className="grid min-h-0 grid-rows-[40px_minmax(0,1fr)] border-t border-border bg-card">
+          <div className="flex items-center justify-between border-b border-border px-3">
+            <strong className="text-xs">Timeline</strong>
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" size="icon" onClick={() => setZoom((value) => Math.max(0.75, value - 0.25))}>
+                <ZoomOut size={14} />
+              </Button>
+              <span className="w-10 text-center text-[10px] text-muted-foreground">{Math.round(zoom * 100)}%</span>
+              <Button variant="ghost" size="icon" onClick={() => setZoom((value) => Math.min(2, value + 0.25))}>
+                <ZoomIn size={14} />
+              </Button>
+            </div>
+          </div>
+          <Timeline beats={beats} totalMs={totalMs} zoom={zoom} selectedId={selectedId} onSelect={setSelectedId} />
+        </div>
+      </section>
+
+      <aside className="min-h-0 overflow-auto border-l border-border bg-card p-4">
+        <span className="text-[9px] uppercase tracking-[.13em] text-muted-foreground">Inspector</span>
+        {selected ? (
+          <div className="mt-3 grid gap-3 text-xs">
+            <InspectorRow label="Title" value={selected.title} />
+            <InspectorRow label="Scene" value={`${selected.sceneIndex + 1}`} />
+            <InspectorRow label="Duration" value={`${(selected.durationMs / 1000).toFixed(1)}s`} />
+            <InspectorRow label="Camera" value={selected.cameraMovement} />
+            <InspectorRow label="Strategy" value={selected.assetStrategy} />
+            <InspectorRow label="Asset" value={selected.mediaAssetId ?? "Pending"} />
+          </div>
+        ) : (
+          <p className="mt-3 text-[10px] text-muted-foreground">Chưa chọn visual beat.</p>
+        )}
+      </aside>
     </div>
-    <div className="flex flex-wrap items-end gap-2">
-      <label className="flex min-w-[220px] flex-1 items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface-2)] px-2 py-1.5 text-[var(--text-3)]"><Search size={15} /><span className="sr-only">Tìm kiếm voice</span><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm kiếm tên, giọng đọc, ngôn ngữ..." className="h-6 border-0 bg-transparent px-0 text-xs shadow-none focus-visible:ring-0" /></label>
-      <EditorSelectField label="Ngôn ngữ" value={language} onValueChange={setLanguage} placeholder="Tất cả"><SelectItem value="all">Tất cả</SelectItem>{languages.map((value) => <SelectItem value={value} key={value}>{value}</SelectItem>)}</EditorSelectField>
-      <EditorSelectField label="Giới tính" value={gender} onValueChange={setGender} placeholder="Tất cả"><SelectItem value="all">Tất cả</SelectItem>{genders.map((value) => <SelectItem value={value} key={value}>{formatVoiceGender(value)}</SelectItem>)}</EditorSelectField>
-      <EditorSelectField label="Nhà cung cấp" value={provider} onValueChange={setProvider} placeholder="Tất cả"><SelectItem value="all">Tất cả</SelectItem>{providers.map((value) => <SelectItem value={value} key={value}>{value}</SelectItem>)}</EditorSelectField>
-      <EditorSelectField label="Sắp xếp" value={sortOrder} onValueChange={setSortOrder} placeholder="Mới nhất" className="ml-auto"><SelectItem value="newest">Mới nhất</SelectItem><SelectItem value="name">Tên A–Z</SelectItem></EditorSelectField>
-      <div className="flex items-center gap-1" role="group" aria-label="Kiểu hiển thị"><button type="button" className={cn("inline-flex size-8 items-center justify-center rounded-md text-[var(--text-3)] transition-colors hover:bg-[var(--surface-3)] hover:text-[var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--violet)]", viewMode === "grid" && "bg-[var(--violet-soft)] text-[var(--violet-bright)]")} aria-label="Grid view" aria-pressed={viewMode === "grid"} onClick={() => setViewMode("grid")}><Layers3 size={16} /></button><button type="button" className={cn("inline-flex size-8 items-center justify-center rounded-md text-[var(--text-3)] transition-colors hover:bg-[var(--surface-3)] hover:text-[var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--violet)]", viewMode === "list" && "bg-[var(--violet-soft)] text-[var(--violet-bright)]")} aria-label="List view" aria-pressed={viewMode === "list"} onClick={() => setViewMode("list")}><Menu size={16} /></button></div>
+  );
+}
+
+function BeatListItem({ beat, selected, onSelect }: Readonly<{ beat: DesktopTimelineBeat; selected: boolean; onSelect: () => void }>) {
+  return (
+    <button
+      type="button"
+      className={`mb-1 grid w-full gap-1 rounded-md border p-2 text-left ${
+        selected
+          ? "border-primary bg-primary-muted"
+          : "border-border-subtle bg-popover hover:border-border"
+      }`}
+      onClick={onSelect}
+    >
+      <strong className="truncate text-[10px]">{beat.title}</strong>
+      <span className="text-[9px] text-muted-foreground">
+        Scene {beat.sceneIndex + 1} · {formatTime(beat.startMs)}
+      </span>
+    </button>
+  );
+}
+
+function Timeline({ beats, totalMs, zoom, selectedId, onSelect }: Readonly<{ beats: DesktopTimelineBeat[]; totalMs: number; zoom: number; selectedId: string; onSelect: (id: string) => void }>) {
+  if (!totalMs) {
+    return <div className="grid place-items-center text-[10px] text-muted-foreground">Timeline chưa có dữ liệu.</div>;
+  }
+
+  return (
+    <div className="min-h-0 overflow-auto p-3">
+      <div className="relative h-24 min-w-full rounded-md border border-border bg-surface-dark" style={{ width: `${zoom * 100}%` }}>
+        {beats.map((beat) => {
+          const left = (beat.startMs / totalMs) * 100;
+          const width = Math.max(1.2, ((beat.endMs - beat.startMs) / totalMs) * 100);
+          return (
+            <button
+              type="button"
+              key={beat.visualBeatId}
+              className={`absolute bottom-3 top-3 overflow-hidden rounded border px-2 text-left text-[9px] ${
+                selectedId === beat.visualBeatId
+                  ? "z-10 border-primary bg-primary-muted text-foreground"
+                  : beat.assetReady
+                    ? "border-info/40 bg-info-bg text-foreground"
+                    : "border-warning/40 bg-warning-bg text-warning"
+              }`}
+              style={{ left: `${left}%`, width: `${width}%` }}
+              onClick={() => onSelect(beat.visualBeatId)}
+              title={beat.title}
+            >
+              <span className="block truncate">{beat.title}</span>
+            </button>
+          );
+        })}
+      </div>
     </div>
-    <details className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
-      <summary><span><Mic2 size={14} /> Tạo narration từ voice catalog</span><ChevronDown size={15} /></summary>
-      <div className="flex flex-wrap items-end gap-2"><EditorSelectField label="Mode" value={audioMode} onValueChange={(value) => setAudioMode(value as typeof audioMode)} placeholder="Narration / TTS"><SelectItem value="TTS">Narration / TTS</SelectItem><SelectItem value="USER_AUDIO">Use my audio</SelectItem></EditorSelectField><EditorSelectField label="Voice" value={voiceId} onValueChange={setVoiceId} placeholder="Chọn voice" className="min-w-[180px]" disabled={audioMode === "USER_AUDIO"}>{voices.map((voice) => <SelectItem value={voice.id} key={voice.id}>{voice.name} · {voice.language}</SelectItem>)}</EditorSelectField><EditorSelectField label="Chapter" value={chapterId} onValueChange={setChapterId} placeholder="Chọn chapter" className="min-w-[180px]">{chapters.map((chapter) => <SelectItem value={chapter.id} key={chapter.id}>{chapter.orderIndex + 1}. {chapter.title}</SelectItem>)}</EditorSelectField><EditorSelectField label="Local audio" value={referenceAssetId} onValueChange={(value) => setReferenceAssetId(value === "none" ? "" : value)} placeholder="None" className="min-w-[180px]"><SelectItem value="none">None</SelectItem>{audioAssets.map((asset) => <SelectItem value={asset.id} key={asset.id}>{asset.originalFilename}</SelectItem>)}</EditorSelectField><button type="button" className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-xs text-[var(--text-2)] hover:border-[var(--violet)] hover:text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-50" onClick={() => void importReference()}><Plus size={13} /> Import user audio</button><button type="button" className="inline-flex items-center justify-center gap-1.5 rounded-md bg-[var(--violet)] px-3 py-2 text-xs font-semibold text-[#140c27] hover:bg-[var(--violet-bright)] disabled:cursor-not-allowed disabled:opacity-50" onClick={() => void generateChapter()} disabled={!projectId || !chapterId || !voiceId || generate.isPending || audioMode === "USER_AUDIO"}><Mic2 size={13} /> Generate chapter</button><button type="button" className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-xs text-[var(--text-2)] hover:border-[var(--violet)] hover:text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-50" onClick={() => void generateAll()} disabled={!projectId || !voiceId || chapters.length === 0 || generateBatch.isPending || audioMode === "USER_AUDIO"}>Generate all</button></div>
-    </details>
-    {notice && <p className="m-0 rounded-md border border-[var(--border-soft)] bg-[var(--surface-2)] p-2 text-[10px] leading-5 text-[var(--text-3)] my-2" role="status">{notice}</p>}{job.data && <div className="grid gap-1 rounded-md border border-[var(--border)] bg-[var(--surface-2)] p-3"><span className="text-[9px] font-bold uppercase tracking-[.13em] text-[var(--text-3)]">Narration job</span><strong>{job.data.type} · {job.data.status} · {job.data.progress}%</strong><small>{job.data.currentStep ?? "Waiting for worker"}</small></div>}
-    <div className="flex items-center justify-between text-[10px] text-[var(--text-3)]"><span>{filteredVoices.length} voice{filteredVoices.length === 1 ? "" : "s"}</span><span>{voices.length === filteredVoices.length ? "Voice catalog" : `${voices.length - filteredVoices.length} đang được ẩn bởi bộ lọc`}</span></div>
-    <div className={cn("grid gap-3", viewMode === "list" ? "grid-cols-1" : "grid-cols-[repeat(auto-fill,minmax(260px,1fr))]")}>{filteredVoices.map((voice) => <VoiceAudioCard voice={voice} key={voice.id} />)}{filteredVoices.length === 0 && <ResourceEmpty title={voices.length === 0 ? "Chưa tải voice catalog" : "Không tìm thấy voice phù hợp"} action={voices.length === 0 ? "Kiểm tra Catalog API" : "Thử xoá bớt bộ lọc hoặc từ khoá tìm kiếm"} />}</div>
-  </div>;
+  );
 }
-function uniqueVoiceValues(values: Array<string | null | undefined>): string[] { return [...new Set(values.filter((value): value is string => Boolean(value)))].sort((left, right) => left.localeCompare(right)); }
-function formatVoiceGender(value: string): string { return value.toUpperCase() === "FEMALE" ? "Nữ" : value.toUpperCase() === "MALE" ? "Nam" : value; }
-function formatAudioTime(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds < 0) return "—:—";
-  const totalSeconds = Math.floor(seconds);
-  return `${Math.floor(totalSeconds / 60)}:${String(totalSeconds % 60).padStart(2, "0")}`;
-}
-const AUDIO_WAVEFORM = [5, 12, 18, 8, 24, 11, 17, 7, 22, 14, 9, 19, 12, 25, 8, 16, 10, 21, 13, 7, 18, 11, 22, 9, 15, 6, 19, 12, 8, 16];
-function VoiceAudioCard({ voice }: Readonly<{ voice: DesktopVoice }>) {
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const [playing, setPlaying] = useState(false);
-  const [duration, setDuration] = useState(0);
-  const [currentTime, setCurrentTime] = useState(0);
-  const progress = duration > 0 ? Math.min(1, currentTime / duration) : 0;
 
-  useEffect(() => {
-    setPlaying(false);
-    setDuration(0);
-    setCurrentTime(0);
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-    }
-  }, [voice.sampleUrl]);
+function InspectorRow({ label, value }: Readonly<{ label: string; value: string }>) {
+  return (
+    <div className="grid gap-1 border-b border-border-subtle pb-2">
+      <span className="text-[9px] uppercase tracking-[.1em] text-muted-foreground">{label}</span>
+      <span className="break-words text-[10px] text-foreground">{value}</span>
+    </div>
+  );
+}
 
-  async function togglePlayback() {
-    if (!audioRef.current || !voice.sampleUrl) return;
-    if (playing) { audioRef.current.pause(); return; }
-    try { await audioRef.current.play(); setPlaying(true); } catch { setPlaying(false); }
-  }
-  return <article className="grid grid-cols-[80px_1fr] overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--voice-card)]"><div className="grid size-20 place-items-center bg-[var(--voice-bg)]"><button type="button" className="grid size-9 place-items-center rounded-full bg-[var(--violet-soft)] text-[var(--violet-bright)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--violet-bright)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--voice-card)]" aria-label={`${playing ? "Dừng" : "Phát thử"} ${voice.name}`} onClick={() => void togglePlayback()} disabled={!voice.sampleUrl}>{playing ? <Pause size={18} fill="currentColor" aria-hidden="true" /> : <Play size={18} fill="currentColor" aria-hidden="true" />}</button></div><div className="grid min-w-0 gap-3 p-3"><div className="flex items-start justify-between gap-2"><div><h3>{voice.name}</h3><p>{formatVoiceGender(voice.gender ?? "Voice preset")} · {voice.language}</p></div><button type="button" className="text-[var(--text-3)] hover:text-[var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--violet-bright)]" aria-label={`Tuỳ chọn cho ${voice.name}`} title="More options"><MoreVertical size={15} aria-hidden="true" /></button></div><div className="flex items-center gap-2 border-t border-[var(--border-soft)] pt-2"><button type="button" className="grid size-6 shrink-0 place-items-center rounded-full text-[var(--text-3)] hover:text-[var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--violet-bright)]" aria-label={`${playing ? "Dừng" : "Phát thử"} ${voice.name}`} onClick={() => void togglePlayback()} disabled={!voice.sampleUrl}>{playing ? <Pause size={12} fill="currentColor" aria-hidden="true" /> : <Play size={12} fill="currentColor" aria-hidden="true" />}</button><div className="relative h-7 min-w-0 flex-1" title={voice.sampleUrl ? `${formatAudioTime(currentTime)} / ${formatAudioTime(duration)}` : "Không có audio preview"}><div className="pointer-events-none absolute inset-0 flex items-center gap-0.5 overflow-hidden" aria-hidden="true"><div className="absolute inset-y-0 left-0 bg-[var(--violet-soft)]/50" style={{ width: `${progress * 100}%` }} />{AUDIO_WAVEFORM.map((height, index) => <i className="relative z-[1] w-0.5 shrink-0 rounded-full bg-[var(--voice-teal)]/75" key={`${voice.id}-wave-${index}`} style={{ height: `${height}px` }} />)}<span className="absolute inset-y-0 z-[2] w-px bg-[var(--violet-bright)] shadow-[0_0_5px_var(--violet-bright)]" style={{ left: `${progress * 100}%` }} /></div><input type="range" min="0" max={duration || 1} step="0.1" value={Math.min(currentTime, duration || 0)} disabled={!voice.sampleUrl || duration <= 0} onChange={(event) => { const nextTime = Number(event.currentTarget.value); setCurrentTime(nextTime); if (audioRef.current) audioRef.current.currentTime = nextTime; }} className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--violet-bright)] disabled:cursor-not-allowed" aria-label={`Tiến trình phát thử ${voice.name}`} /></div><span className="min-w-[62px] text-right font-mono text-[10px] tabular-nums text-[var(--text-3)]">{voice.sampleUrl ? `${formatAudioTime(currentTime)} / ${formatAudioTime(duration)}` : "—:—"}</span></div></div>{voice.sampleUrl && <audio ref={audioRef} preload="metadata" src={voice.sampleUrl} onLoadedMetadata={(event) => setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)} onDurationChange={(event) => setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)} onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => { setPlaying(false); setCurrentTime(0); }} />}</article>;
+function formatTime(ms: number) {
+  const seconds = Math.max(0, Math.floor(ms / 1000));
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(rest).padStart(2, "0")}`;
 }
-function RenderPage({ workspace, resolution, job, preflight, onStart, onOpenOutput }: Readonly<{ workspace: DesktopWorkspaceState; resolution: "720p" | "1080p"; job: DesktopRenderJob | null; preflight: LocalRenderPreflight | null; onStart: () => void; onOpenOutput: () => void }>) { const active = Boolean(job && ["QUEUED", "RUNNING", "UNKNOWN", "STALLED", "PAUSED_COST_LIMIT"].includes(job.status)); const completed = job?.status === "COMPLETED"; return <div className="grid min-h-0 grid-cols-[minmax(0,1.2fr)_minmax(280px,.8fr)] gap-3 overflow-auto p-4"><div className="grid gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4"><span className="text-[9px] font-bold uppercase tracking-[.13em] text-[var(--text-3)]">Preview</span><div className="relative grid min-h-56 place-items-center overflow-hidden rounded-md border border-[var(--border)] bg-[var(--surface-2)] p-4 text-center text-sm"><div className="absolute inset-0 bg-gradient-to-br from-[var(--violet-soft)] via-transparent to-[var(--cyan-soft)]" /><div className="relative grid gap-2"><strong>{workspace.timeline?.readyForRender ? "Timeline ready for export" : "Timeline needs review"}</strong><span className="text-xs text-[var(--text-3)]">Preview media sẽ hiển thị sau khi asset local được materialize.</span></div></div><p>Export respects the current chapter timeline and approved assets.</p></div><div className="grid content-start gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4"><span className="text-[9px] font-bold uppercase tracking-[.13em] text-[var(--text-3)]">Export settings</span><h2>Production render</h2><div className="flex items-center justify-between border-b border-[var(--border-soft)] py-2 text-xs"><span>Resolution</span><strong>{resolution}</strong></div><div className="flex items-center justify-between border-b border-[var(--border-soft)] py-2 text-xs"><span>Frame rate</span><strong>30 fps</strong></div><div className="flex items-center justify-between border-b border-[var(--border-soft)] py-2 text-xs"><span>Format</span><strong>MP4 · H.264</strong></div><div className="flex items-center justify-between border-b border-[var(--border-soft)] py-2 text-xs"><span>Timeline</span><strong>{workspace.timeline ? formatTimecode(workspace.timeline.totalDurationMs) : "Not loaded"}</strong></div><div className={cn("grid gap-1 rounded-md border p-2 text-xs", preflight?.ready ? "border-[rgba(143,210,139,.3)] bg-[var(--green-soft)] text-[var(--green)]" : preflight ? "border-[rgba(233,119,119,.3)] bg-[rgba(233,119,119,.12)] text-[var(--danger)]" : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-2)]")}><strong>{preflight ? (preflight.ready ? "Ready to export" : "Export blocked") : "Preflight runs before export"}</strong><span>{preflight ? `${preflight.assets.filter((asset) => asset.state === "AVAILABLE").length}/${preflight.assets.length} local assets · ${preflight.diskFreeBytes ? formatBytes(preflight.diskFreeBytes) + " free" : "disk unknown"}` : "FFmpeg · disk · checksum · local executor"}</span>{preflight?.blockers.map((blocker) => <small key={blocker}>{renderBlockerMessage(blocker)}</small>)}</div><button type="button" className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-[var(--violet)] px-3 py-2 text-xs font-semibold text-[#140c27] hover:bg-[var(--violet-bright)] disabled:cursor-not-allowed disabled:opacity-50" onClick={completed ? onOpenOutput : onStart} disabled={active || (!completed && !workspace.timeline?.readyForRender)}><Sparkles size={14} /> {active ? "Rendering…" : completed ? "Open output" : "Export video"}</button>{job && <p className="text-xs text-[var(--text-3)]">{job.currentStep || job.status} · {job.progress}%</p>}</div><div className="col-span-full flex items-center gap-2 rounded-md border border-[var(--border-soft)] p-3 text-[10px] text-[var(--text-3)]"><LockKeyhole size={15} /><span>Native FFmpeg execution stays behind the desktop main-process bridge. This workspace only submits the typed render contract.</span></div></div>; }
-function SettingsPage({ projectId, workspace }: Readonly<{ projectId: string | null; workspace: DesktopWorkspaceState }>) {
-  const [summary, setSummary] = useState<Awaited<ReturnType<typeof window.narrativex.localStorage.summary>> | null>(null);
-  const [recovery, setRecovery] = useState<Awaited<ReturnType<typeof window.narrativex.render.recoveryStatus>> | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  useEffect(() => { if (!projectId) return; void Promise.all([window.narrativex.localStorage.summary(projectId), window.narrativex.render.recoveryStatus()]).then(([nextSummary, nextRecovery]) => { setSummary(nextSummary); setRecovery(nextRecovery); }).catch((error) => setNotice(errorMessage(error))); }, [projectId]);
-  async function refresh() { if (!projectId) return; try { const [nextSummary, nextRecovery] = await Promise.all([window.narrativex.localStorage.summary(projectId), window.narrativex.render.recoveryStatus()]); setSummary(nextSummary); setRecovery(nextRecovery); } catch (error) { setNotice(errorMessage(error)); } }
-  async function cleanup() { if (!projectId) return; try { const count = await window.narrativex.localStorage.cleanupCompletedWork(projectId); setNotice(`${count} render work directory đã được dọn.`); await refresh(); } catch (error) { setNotice(errorMessage(error)); } }
-  async function deleteSnapshot(snapshotId: string) { if (!projectId) return; try { const deleted = await window.narrativex.localStorage.deleteManagedSnapshot({ projectId, snapshotId }); setNotice(deleted ? "Managed snapshot đã được xóa an toàn." : "Managed snapshot không còn tồn tại."); await refresh(); } catch (error) { setNotice(errorMessage(error)); } }
-  async function backup() {
-    if (!projectId) return;
-    try {
-      const result = await window.narrativex.localStorage.createBackup(projectId);
-      if (!result) return;
-      setNotice(`Backup đã tạo (${formatBytes(result.sizeBytes)}).`);
-    } catch (error) { setNotice(errorMessage(error)); }
-  }
-  async function restore() {
-    try {
-      const result = await window.narrativex.localStorage.restoreBackup();
-      if (!result) return;
-      setNotice(`Đã restore project ${result.projectId}. Bản trước được giữ lại để khôi phục thủ công nếu cần.`);
-      await refresh();
-    } catch (error) { setNotice(errorMessage(error)); }
-  }
-  async function archive() {
-    if (!projectId) return;
-    try {
-      const result = await window.narrativex.localStorage.archiveProject(projectId);
-      if (!result) return;
-      setNotice("Đã tạo archive copy; workspace active không thay đổi.");
-    } catch (error) { setNotice(errorMessage(error)); }
-  }
-  return <div className="grid content-start gap-1 overflow-auto p-4"><div className="flex items-start justify-between gap-4 border-b border-[var(--border-soft)] py-4"><div><span className="text-[9px] font-bold uppercase tracking-[.13em] text-[var(--text-3)]">API endpoint</span><strong>{apiBaseUrl()}</strong><p>Desktop calls backend bằng session credentials.</p></div><span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-2 py-1 text-[10px] text-[var(--text-2)]"><i /> {workspace.status}</span></div><div className="flex items-start justify-between gap-4 border-b border-[var(--border-soft)] py-4"><div><span className="text-[9px] font-bold uppercase tracking-[.13em] text-[var(--text-3)]">Local workspace</span><strong>{summary ? `${formatBytes(summary.totalBytes)} used · ${summary.assetCount} assets · ${summary.artifactCount} artifacts` : "Loading storage…"}</strong><p>Project storage is managed by Electron main and created on first local import/render.</p>{summary && <div className="mt-2 flex flex-wrap gap-2 text-[10px] text-[var(--text-3)]"><span>Assets {formatBytes(summary.assetBytes)}</span><span>Artifacts {formatBytes(summary.artifactBytes)}</span><span>Work {formatBytes(summary.workBytes)}</span><span>Cache {formatBytes(summary.cacheBytes)}</span><span>Managed backups {formatBytes(summary.managedBackupBytes)}</span><span>Pre-restore {formatBytes(summary.preRestoreSnapshotBytes)}</span><span>Other owned {formatBytes(summary.otherNarrativeXOwnedBytes)}</span></div>}</div><HardDrive size={18} className="text-[var(--cyan)]" /></div><div className="flex items-start justify-between gap-4 border-b border-[var(--border-soft)] py-4"><div><span className="text-[9px] font-bold uppercase tracking-[.13em] text-[var(--text-3)]">Workspace backup</span><strong>Versioned project snapshot</strong><p>Copy toàn bộ manifest, assets, artifacts và recovery journal sang thư mục bạn chọn.</p></div><div className="flex flex-wrap items-start gap-2"><button type="button" className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-xs text-[var(--text-2)] hover:border-[var(--violet)] hover:text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-50" onClick={() => void backup()} disabled={!projectId}>Create backup</button><button type="button" className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-xs text-[var(--text-2)] hover:border-[var(--violet)] hover:text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-50" onClick={() => void restore()}>Restore backup</button><button type="button" className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-xs text-[var(--text-2)] hover:border-[var(--violet)] hover:text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-50" onClick={() => void archive()} disabled={!projectId}>Archive copy</button></div></div>{summary && summary.managedSnapshots.length > 0 && <div className="flex items-start justify-between gap-4 border-b border-[var(--border-soft)] py-4"><div><span className="text-[9px] font-bold uppercase tracking-[.13em] text-[var(--text-3)]">Managed snapshots</span><strong>{summary.managedSnapshots.length} snapshot(s) registered by NarrativeX</strong><p>Only registry-owned snapshots are listed; arbitrary sibling directories are never deleted.</p><div className="mt-2 grid">{summary.managedSnapshots.map((snapshot) => <div className="flex items-center justify-between gap-2 border-t border-[var(--border-soft)] py-2 text-[10px]" key={snapshot.snapshotId}><span>{snapshot.type} · {formatBytes(snapshot.sizeBytes)} · {new Date(snapshot.createdAt).toLocaleString("vi-VN")}</span><button type="button" className="text-[10px] text-[var(--text-3)] hover:text-[var(--violet-bright)]" onClick={() => void deleteSnapshot(snapshot.snapshotId)} disabled={!projectId}>Delete</button></div>)}</div></div></div>}<div className="flex items-start justify-between gap-4 border-b border-[var(--border-soft)] py-4"><div><span className="text-[9px] font-bold uppercase tracking-[.13em] text-[var(--text-3)]">Render recovery</span><strong>{recovery?.unfinished.length ?? 0} unfinished render journal(s)</strong><p>{recovery?.unfinished[0] ? `${recovery.unfinished[0].stage} · ${new Date(recovery.unfinished[0].updatedAt).toLocaleString("vi-VN")}` : "No interrupted render checkpoint detected."}</p></div><button type="button" className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-xs text-[var(--text-2)] hover:border-[var(--violet)] hover:text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-50" onClick={() => void refresh()}>Refresh</button></div><div className="flex items-start justify-between gap-4 border-b border-[var(--border-soft)] py-4"><div><span className="text-[9px] font-bold uppercase tracking-[.13em] text-[var(--text-3)]">Render work cleanup</span><strong>{summary ? `${formatBytes(summary.workBytes)} temporary work data` : "Temporary render data"}</strong><p>Only completed or failed render work directories are removed; artifacts remain.</p></div><button type="button" className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-xs text-[var(--text-2)] hover:border-[var(--violet)] hover:text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-50" onClick={() => void cleanup()} disabled={!projectId}>Cleanup completed</button></div><div className="flex items-start justify-between gap-4 border-b border-[var(--border-soft)] py-4"><div><span className="text-[9px] font-bold uppercase tracking-[.13em] text-[var(--text-3)]">Editor clock</span><strong>Narration is master clock</strong><p>Visual clip duration luôn được suy ra từ startMs / endMs.</p></div><Check size={18} className="text-[var(--cyan)]" /></div><div className="flex items-start justify-between gap-4 border-b border-[var(--border-soft)] py-4"><div><span className="text-[9px] font-bold uppercase tracking-[.13em] text-[var(--text-3)]">Renderer boundary</span><strong>Desktop FFmpeg execution engine</strong><p>Renderer không tự render final MP4 và không truy cập Node APIs trực tiếp.</p></div><LockKeyhole size={18} className="text-[var(--cyan)]" /></div>{notice && <p className="m-0 rounded-md border border-[var(--border-soft)] bg-[var(--surface-2)] p-2 text-[10px] leading-5 text-[var(--text-3)]">{notice}</p>}</div>;
-}
-function ResourceEmpty({ title, action }: Readonly<{ title: string; action: string }>) { return <div className="grid min-h-[180px] place-content-center justify-items-center gap-2 p-6 text-center text-[var(--text-3)]"><FolderOpen size={22} /><strong className="text-[var(--text)]">{title}</strong><span>{action}</span></div>; }
-function PageInspector({ screen, workspace, onOpenEditor }: Readonly<{ screen: Exclude<DesktopScreen, "editor">; workspace: DesktopWorkspaceState; onOpenEditor: () => void }>) { return screen === "voice" ? <VoiceContextPanel workspace={workspace} /> : <div className="grid gap-3 overflow-auto p-4"><span className="text-[9px] font-bold uppercase tracking-[.13em] text-[var(--text-3)]">Workspace context</span><h3 className="text-sm font-semibold text-[var(--text)]">{screen[0].toUpperCase() + screen.slice(1)}</h3><p className="text-xs text-[var(--text-3)]">Backend status: <strong className="text-[var(--text-2)]">{workspace.status}</strong></p><div className="grid grid-cols-3 gap-2">{[["Projects", workspace.projects.length], ["Assets", workspace.assets.length], ["Characters", workspace.characters.length]].map(([label, value]) => <div className="rounded-md border border-[var(--border-soft)] bg-[var(--surface-2)] p-2" key={label}><span className="block text-[10px] text-[var(--text-3)]">{label}</span><strong className="text-sm text-[var(--text)]">{value}</strong></div>)}</div><Button variant="outline" size="sm" className="mt-2 w-fit" onClick={onOpenEditor}><SlidersHorizontal size={13} /> Return to editor</Button></div>; }
-function VoiceContextPanel({ workspace }: Readonly<{ workspace: DesktopWorkspaceState }>) {
-  const audioAssets = workspace.assets.filter((asset) => asset.type === "AUDIO");
-  const audioBytes = audioAssets.reduce((total, asset) => total + asset.sizeBytes, 0);
-  const audioDurationMs = audioAssets.reduce((total, asset) => total + (asset.durationMs ?? 0), 0);
-  const femaleVoices = workspace.voices.filter((voice) => voice.gender?.toUpperCase() === "FEMALE").length;
-  const maleVoices = workspace.voices.filter((voice) => voice.gender?.toUpperCase() === "MALE").length;
-  const tags = [{ label: "TTS", value: workspace.voices.length }, { label: "Giọng nữ", value: femaleVoices }, { label: "Giọng nam", value: maleVoices }, { label: "Audio local", value: audioAssets.length }].filter((tag) => tag.value > 0);
-  return <div className="grid gap-3 overflow-auto p-4"><div><span className="text-[9px] font-bold uppercase tracking-[.13em] text-[var(--text-3)]">Workspace context</span><h3 className="mt-1 text-sm font-semibold text-[var(--text)]">Voice</h3></div><div className="grid gap-2">{[["Danh sách audio", `${audioAssets.length} file${audioAssets.length === 1 ? "" : "s"}`], ["Tổng thời lượng", formatTime(audioDurationMs)], ["Tổng dung lượng", formatBytes(audioBytes)]].map(([label, value]) => <div className="flex items-center justify-between rounded-md border border-[var(--border-soft)] bg-[var(--surface-2)] p-2 text-[10px]" key={label}><span className="text-[var(--text-3)]">{label}</span><strong className="text-[var(--text-2)]">{value}</strong></div>)}</div><div className="grid justify-items-center gap-1 rounded-md border border-dashed border-[var(--border)] bg-[var(--surface-2)] p-5 text-center text-[var(--text-3)]"><Upload size={20} /><strong className="text-xs text-[var(--text-2)]">Import audio từ màn Voice &amp; TTS</strong><span className="text-[10px]">Chọn “Import user audio” để đăng ký file local.</span><small>MP3, WAV, M4A</small></div><Button variant="outline" size="sm" className="w-fit" disabled title="Chưa hỗ trợ tạo thư mục"><Plus size={14} /> Tạo thư mục</Button><div className="grid gap-1.5"><span className="text-[10px] font-semibold text-[var(--text-2)]">Thẻ phổ biến</span>{tags.length ? tags.map((tag) => <div className="flex justify-between text-xs" key={tag.label}><span>{tag.label}</span><strong>{tag.value}</strong></div>) : <p className="text-[10px] text-[var(--text-3)]">Chưa có voice tag.</p>}<button type="button" disabled className="inline-flex items-center text-[10px] text-[var(--violet-bright)] disabled:cursor-not-allowed disabled:opacity-50" title="Chưa hỗ trợ mở rộng danh sách">Xem thêm <ChevronDown size={13} /></button></div><div className="grid gap-1"><span className="text-[9px] font-bold uppercase tracking-[.13em] text-[var(--text-3)]">Quick actions</span><button type="button" disabled className="flex items-center gap-2 py-1 text-left text-xs text-[var(--text-2)] disabled:cursor-not-allowed disabled:opacity-50" title="Mở Voice catalog từ thanh điều hướng"><Mic2 size={14} /><span>Voice catalog</span><ChevronRight size={14} className="ml-auto" /></button><button type="button" disabled className="flex items-center gap-2 py-1 text-left text-xs text-[var(--text-2)] disabled:cursor-not-allowed disabled:opacity-50" title="Chưa hỗ trợ tạo voice take tại đây"><Plus size={14} /><span>Tạo voice take</span><ChevronRight size={14} className="ml-auto" /></button></div></div>;
-}
-function renderBlockerMessage(code: import("@narrativex/client-contracts").LocalRenderPreflightBlockerCode): string {
-  const messages: Record<import("@narrativex/client-contracts").LocalRenderPreflightBlockerCode, string> = {
-    FFMPEG_UNAVAILABLE: "FFmpeg/ffprobe chưa sẵn sàng.",
-    EXECUTOR_OFFLINE: "Local executor đang offline.",
-    EXECUTOR_UNPAIRED: "Desktop chưa được pair.",
-    EXECUTOR_CONNECTING: "Local executor đang kết nối.",
-    DEVICE_MISMATCH: "Device pairing không hợp lệ.",
-    USER_MISMATCH: "Phiên đăng nhập không khớp với device.",
-    INSUFFICIENT_DISK: "Không đủ dung lượng đĩa.",
-    DISK_UNKNOWN: "Không xác định được dung lượng đĩa.",
-    ASSET_MISSING: "Có asset local bị thiếu.",
-    ASSET_CORRUPT: "Có asset local bị lỗi checksum.",
-  };
-  return messages[code];
-}
-function formatBytes(bytes: number) { if (bytes < 1024) return `${bytes} B`; if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`; return `${(bytes / (1024 * 1024)).toFixed(1)} MB`; }
-function formatTime(ms: number) { const totalSeconds = Math.max(0, Math.floor(ms / 1000)); return `${String(Math.floor(totalSeconds / 60)).padStart(2, "0")}:${String(totalSeconds % 60).padStart(2, "0")}`; }
-function Properties({ clip, override, onChange, onReset }: Readonly<{ clip: VisualClip; override?: ProjectRenderBeatOverride; onChange: (patch: Omit<ProjectRenderBeatOverride, "visualBeatId">) => void; onReset: () => void }>) { return <div className="min-h-0 flex-1 overflow-auto"><section className="border-b border-[var(--border-soft)]"><div className="flex items-center justify-between gap-2 border-b border-[var(--border-soft)] p-3"><div><span className="text-[9px] font-bold uppercase tracking-[.13em] text-[var(--text-3)]">Clip</span><h3>{clip.asset}</h3></div><Button variant="outline" size="sm" className="text-[10px] text-[var(--text-3)] hover:text-[var(--violet-bright)]">Replace</Button><IconButton label="More actions"><MoreVertical size={15} /></IconButton></div><div className="flex items-center gap-2 px-3 pb-3 text-[10px] text-[var(--text-3)]"><span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-bold tracking-[.08em]", clip.status === "ready" ? "bg-[var(--green-soft)] text-[var(--green)]" : "bg-[var(--amber-soft)] text-[var(--amber)]")}>{clip.status === "ready" ? "READY" : "GENERATING"}</span><span>{clip.scene}</span></div></section><InspectorSection title="Transform"><Field label="Position"><Value value="960.0" /><Value value="540.0" /></Field><Field label="Scale"><Value value="100.0 %" /><Value value="100.0 %" /><IconButton label="Lock aspect ratio"><LockKeyhole size={13} /></IconButton></Field><Field label="Rotation"><Value value="0.0°" /></Field><Field label="Opacity"><Slider value="100%" /></Field></InspectorSection><InspectorSection title="Crop"><Field label="Type"><Select defaultValue="Fit"><SelectTrigger className="h-7 border-[var(--border)] bg-[var(--surface-2)] px-2 text-xs" aria-label="Crop type"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Fit">Fit</SelectItem><SelectItem value="Fill">Fill</SelectItem><SelectItem value="Custom">Custom</SelectItem></SelectContent></Select></Field><Field label="Left"><Value value="0" /><Value value="Right 0" /></Field><Field label="Top"><Value value="0" /><Value value="Bottom 0" /></Field></InspectorSection><InspectorSection title="Color"><Field label="Exposure"><Slider value="0.0" /></Field><Field label="Contrast"><Slider value="0.0" /></Field><Button variant="ghost" size="sm" className="mt-2 text-[var(--text-3)]"><RotateCcw size={12} /> Reset adjustments</Button></InspectorSection><InspectorSection title="AI Asset"><div className="flex items-center justify-between rounded-md bg-[var(--surface-2)] p-2 text-[10px]"><span>Strategy</span><b>{clip.status === "generating" ? "GENERATED" : "REUSED"}</b></div><div className="flex items-center justify-between gap-2 border-b border-[var(--border-soft)] px-3 py-2 text-[10px] text-[var(--text-3)]"><span>Visual Beat</span><strong>{clip.title}</strong></div><div className="flex items-center justify-between gap-2 border-b border-[var(--border-soft)] px-3 py-2 text-[10px] text-[var(--text-3)]"><span>Camera Motion</span><Select value={override?.cameraMovement ?? clip.motion} onValueChange={(value) => onChange({ cameraMovement: value })}><SelectTrigger className="h-7 border-[var(--border)] bg-[var(--surface-2)] px-2 text-xs" aria-label="Camera motion"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="NONE">NONE</SelectItem><SelectItem value="PAN">PAN</SelectItem><SelectItem value="TILT">TILT</SelectItem><SelectItem value="PUSH_IN">PUSH_IN</SelectItem><SelectItem value="PULL_OUT">PULL_OUT</SelectItem><SelectItem value="ZOOM_IN">ZOOM_IN</SelectItem><SelectItem value="ZOOM_OUT">ZOOM_OUT</SelectItem></SelectContent></Select></div><div className="flex items-center justify-between gap-2 border-b border-[var(--border-soft)] px-3 py-2 text-[10px] text-[var(--text-3)]"><span>Duration (ms)</span><Input className="h-7 min-w-0 px-2 text-xs" type="number" min={1} value={override?.durationMs ?? clip.endMs - clip.startMs} onChange={(event) => onChange({ durationMs: Math.max(1, Number(event.target.value) || 1) })} /></div><div className="flex flex-wrap gap-1 border-t border-[var(--border-soft)] p-3"><Button variant="ghost" size="sm" onClick={onReset}><RotateCcw size={13} /> Reset override</Button><Button variant="ghost" size="sm"><WandSparkles size={13} /> Regenerate</Button><Button variant="ghost" size="sm"><Copy size={13} /> Reuse</Button></div></InspectorSection></div>; }
-function InspectorSection({ title, children }: Readonly<{ title: string; children: ReactNode }>) { return <section className="border-b border-[var(--border-soft)]"><div className="flex items-center justify-between border-b border-[var(--border-soft)] px-3 py-2 text-xs font-semibold text-[var(--text-2)]"><span>{title}</span><ChevronDown size={14} /></div>{children}</section>; }
-function Field({ label, children }: Readonly<{ label: string; children: ReactNode }>) { return <div className="grid grid-cols-[82px_1fr] items-center gap-2 border-b border-[var(--border-soft)] px-3 py-2 text-[10px] text-[var(--text-3)]"><span>{label}</span><div>{children}</div></div>; }
-function Value({ value }: Readonly<{ value: string }>) { return <Input className="h-7 min-w-0 px-2 text-xs" aria-label={value} value={value} readOnly />; }
-function Slider({ value }: Readonly<{ value: string }>) { return <div className="flex items-center gap-2"><input className="min-w-0 flex-1 accent-[var(--violet)]" type="range" min="0" max="100" defaultValue="50" /><span>{value}</span></div>; }
-function RenderQueue({ job, notice, onStart, onOpenOutput }: Readonly<{ job: DesktopRenderJob | null; notice: string | null; onStart: () => void; onOpenOutput: () => void }>) {
-  const active = Boolean(job && ["QUEUED", "RUNNING", "UNKNOWN", "STALLED", "PAUSED_COST_LIMIT"].includes(job.status));
-  const completed = job?.status === "COMPLETED";
-  const statusLabel = completed ? "Completed" : job?.status === "FAILED" ? "Failed" : job?.status === "CANCELED" ? "Canceled" : job?.currentStep || (active ? "Queued by backend" : "No active render job");
-  return <section className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]"><div className="flex items-center justify-between border-b border-[var(--border-soft)] p-3"><div><span className="text-[9px] font-bold uppercase tracking-[.13em] text-[var(--text-3)]">Render Queue</span><h3>Production render</h3></div><b>{job ? "1" : "0"}</b></div><div className="grid gap-2 p-3"><div className="flex items-center justify-between text-xs"><span>{statusLabel}</span><strong>{job ? `${Math.max(0, Math.min(100, job.progress))}%` : "—"}</strong></div><div className="h-1.5 overflow-hidden rounded-full bg-[var(--surface-3)]"><i style={{ width: `${job?.progress ?? 0}%` }} /></div>{notice && <p className="m-0 rounded-md border border-[var(--border-soft)] bg-[var(--surface-2)] p-2 text-[10px] leading-5 text-[var(--text-3)]">{notice}</p>}{job && <div className="grid grid-cols-[auto_1fr_auto_1fr] gap-1 text-[10px] text-[var(--text-3)]"><span>Job</span><b>{job.jobId.slice(0, 8)}…</b><span>Type</span><b>{job.type}</b></div>}{!job && !notice && <p className="m-0 rounded-md border border-[var(--border-soft)] bg-[var(--surface-2)] p-2 text-[10px] leading-5 text-[var(--text-3)]">Export tạo job local qua production render API.</p>}</div><div className="p-3"><button type="button" className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-[var(--violet)] px-3 py-2 text-xs font-semibold text-[#140c27] hover:bg-[var(--violet-bright)] disabled:opacity-50" onClick={completed ? onOpenOutput : onStart} disabled={active}><Sparkles size={13} /> {active ? "Rendering" : completed ? "Open output" : "Export"}</button></div><div className="flex items-center gap-1.5 border-t border-[var(--border-soft)] p-3 text-[9px] tracking-[.08em] text-[var(--text-3)]"><i /> {active ? "POLLING · LOCAL EXECUTOR" : completed ? "OUTPUT_READY · LOCAL" : "QUEUE_IDLE · LOCAL"}</div></section>;
-}
-function formatTimecode(ms: number) { const totalSeconds = Math.max(0, Math.floor(ms / 1000)); return `00:${String(Math.floor(totalSeconds / 60)).padStart(2, "0")}:${String(totalSeconds % 60).padStart(2, "0")}:${String(Math.floor((ms % 1000) / 40)).padStart(2, "0")}`; }
