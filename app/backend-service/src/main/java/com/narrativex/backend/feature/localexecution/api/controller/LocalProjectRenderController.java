@@ -39,9 +39,7 @@ public class LocalProjectRenderController {
   public ResponseEntity<ApiResponse<ClaimResponse>> claim(
       @RequestHeader(DEVICE_TOKEN_HEADER) String deviceToken) {
     var claimed = useCase.claim(deviceToken);
-    if (claimed.isEmpty()) {
-      return ResponseEntity.noContent().build();
-    }
+    if (claimed.isEmpty()) return ResponseEntity.noContent().build();
     return ResponseEntity.ok(
         ApiResponse.success("Desktop project render claimed", toClaimResponse(claimed.get())));
   }
@@ -122,10 +120,7 @@ public class LocalProjectRenderController {
         value.renderProfileJson(),
         value.leaseToken(),
         value.chapters().stream()
-            .map(
-                chapter ->
-                    ChapterInputResponse.from(
-                        chapter, downloadUrl(chapter.storageKey(), expiresAt)))
+            .map(chapter -> ChapterInputResponse.from(chapter, downloadUrl(chapter.storageKey(), expiresAt)))
             .toList(),
         value.beats().stream()
             .map(beat -> BeatInputResponse.from(beat, downloadUrl(beat.storageKey(), expiresAt)))
@@ -133,6 +128,7 @@ public class LocalProjectRenderController {
   }
 
   private String downloadUrl(String storageKey, Instant expiresAt) {
+    if (storageKey == null || storageKey.isBlank()) return null;
     try {
       return mediaStorageAccess.createDownloadUrl(storageKey, expiresAt).toString();
     } catch (FeatureNotAvailableException ignored) {
@@ -210,6 +206,11 @@ public class LocalProjectRenderController {
       long globalEndMs,
       long durationMs,
       String cameraMovement,
+      String mediaType,
+      String storageMode,
+      Long sourceDurationMs,
+      String fitMode,
+      long trimStartMs,
       String downloadUrl,
       long sizeBytes,
       String checksum) {
@@ -224,6 +225,11 @@ public class LocalProjectRenderController {
           value.globalEndMs(),
           value.durationMs(),
           value.cameraMovement(),
+          value.mediaType(),
+          value.storageMode(),
+          value.sourceDurationMs(),
+          value.fitMode(),
+          value.trimStartMs(),
           downloadUrl,
           value.sizeBytes(),
           value.checksum());
