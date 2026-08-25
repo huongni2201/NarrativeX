@@ -79,11 +79,12 @@ Desktop owns the editor workspace, project media bytes, local filesystem/cache, 
 - Image generation now supports chapter selection, analysis, estimate, queue, polling, review, and verified remote-to-local materialization. Narration supports single/batch TTS, voice preview, and local audio import with an explicit `USER_PROVIDED_AUDIO` guard that never silently enqueues TTS.
 - Export runs a local preflight for FFmpeg/ffprobe, executor state, disk capacity, and local asset checksum/size before submitting a render job.
 - Render stages persist an atomic `render.state.json` journal; Desktop scans unfinished journals at local-execution startup and Settings exposes them alongside disk usage, project verification, and cleanup of completed/failed work directories. Project manifests migrate from schema v1 to v2.
-- Workspace backup/restore is now available from Settings. Backups are manifest-verified directory snapshots; restore preserves the previous active workspace under a `.before-restore-*` name instead of deleting it.
+- Workspace backup/restore/archive-copy is now available from Settings. Backups are manifest-verified directory snapshots; restore preserves the previous active workspace under a `.before-restore-*` name instead of deleting it, and archive-copy leaves the active workspace untouched.
+- Settings storage accounting now includes project assets, artifacts, render work, segment cache, and retained backup snapshots; the backup/restore/archive path is covered by manifest and active-workspace preservation tests.
 - Render segment output is cached by immutable asset checksum, timeline identity, renderer version, and output settings. Cache hits skip FFmpeg segment rendering while concat/mux still run from the current job workspace.
 - AI-worker local I/O retry and UNKNOWN reconciliation delays now use a shared deterministic bounded retry policy. Provider submission remains UNKNOWN-first and must reconcile before resubmission.
 - Timeline draft mutations now use a typed command-history state machine with undo/redo semantics, clearing the redo branch after a new edit.
-- Added deterministic Node and Python test coverage for timeline drafts, render-journal discovery, workspace backup/restore, and retry policy behavior. Browser verification remains blocked by the in-app browser refusing local Vite URLs (`ERR_BLOCKED_BY_CLIENT`) in this environment.
+- Added deterministic Node and Python test coverage for timeline drafts, render-journal discovery, workspace backup/restore/archive-copy, storage accounting, retry policy behavior, and UUID/pinned-worker dependency contracts. Browser verification remains blocked by the in-app browser refusing local Vite URLs (`ERR_BLOCKED_BY_CLIENT`) in this environment.
 
 ## Implementation slices
 
@@ -140,8 +141,8 @@ Desktop owns the editor workspace, project media bytes, local filesystem/cache, 
 
 - restart-safe execution journal and unfinished-job discovery;
 - disk cleanup/verification/repair;
-- backup/restore snapshot and safe recovery of the active workspace;
-- move/archive UI, signing/auto-update and protocol/OS integration tests;
+- backup/restore/archive-copy snapshots and safe recovery of the active workspace;
+- workspace-root relocation, signing/auto-update and protocol/OS integration tests;
 - shared retry policy and segment cache foundation;
 - typed timeline command history foundation;
 - packaging/signing/auto-update;

@@ -44,6 +44,7 @@ const bridge: NarrativeXDesktopBridge = {
     cleanupCompletedWork: (projectId: string) => ipcRenderer.invoke("desktop:local-storage:cleanup-completed-work", projectId),
     createBackup: (input) => ipcRenderer.invoke("desktop:local-storage:create-backup", input),
     restoreBackup: (input) => ipcRenderer.invoke("desktop:local-storage:restore-backup", input),
+    archiveProject: (input) => ipcRenderer.invoke("desktop:local-storage:archive-project", input),
     materializeRemoteAsset: (input) => ipcRenderer.invoke("desktop:local-storage:materialize-remote-asset", input),
     repairSelectedAsset: (input) => ipcRenderer.invoke("desktop:local-storage:repair-selected-asset", input),
     selectAsset: () => ipcRenderer.invoke("desktop:local-storage:select-asset"),

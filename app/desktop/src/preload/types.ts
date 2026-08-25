@@ -30,6 +30,8 @@ export interface LocalStorageSummary {
   assetBytes: number;
   artifactBytes: number;
   workBytes: number;
+  cacheBytes: number;
+  backupBytes: number;
   assetCount: number;
   artifactCount: number;
 }
@@ -47,6 +49,11 @@ export interface LocalProjectRestoreResult {
   projectDirectory: string;
   previousProjectDirectory: string | null;
   restoredFrom: string;
+}
+
+export interface LocalProjectArchiveResult {
+  projectId: string;
+  archiveDirectory: string;
 }
 
 export interface LocalAssetImportResult {
@@ -132,6 +139,7 @@ export interface NarrativeXDesktopBridge {
     cleanupCompletedWork(projectId: string): Promise<number>;
     createBackup(input: { projectId: string; destinationDirectory: string }): Promise<LocalProjectBackup>;
     restoreBackup(input: { backupDirectory: string; replaceExisting?: boolean }): Promise<LocalProjectRestoreResult>;
+    archiveProject(input: { projectId: string; destinationDirectory: string }): Promise<LocalProjectArchiveResult>;
     materializeRemoteAsset(input: LocalRemoteMaterializationInput): Promise<LocalAssetImportResult>;
     repairSelectedAsset(input: { projectId: string; assetId: string; kind: "IMAGE" | "AUDIO" | "VIDEO"; selectionToken: string }): Promise<LocalAssetImportResult>;
     selectAsset(): Promise<LocalAssetSelection | null>;

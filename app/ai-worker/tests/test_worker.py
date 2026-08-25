@@ -184,7 +184,7 @@ def test_chapter_request_is_snapshot_scoped_without_rights_attestation() -> None
     request = chapter_request()
     dumped = request.model_dump()
     settings = ImageGenerationSettings()
-    assert request.chapter_id == "00000000-0000-4000-8000-000000000003"
+    assert str(request.chapter_id) == "00000000-0000-4000-8000-000000000003"
     assert request.chapter_row_version == 4
     assert request.source_hash == SOURCE_HASH
     assert "rights_attested" not in dumped

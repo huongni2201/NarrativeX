@@ -18,5 +18,5 @@ def test_worker_dependencies_include_torch_for_vieneu_voice_enrollment() -> None
     project = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
     dependencies = project["project"]["dependencies"]
 
-    assert any(dependency.lower().startswith("torch>=") for dependency in dependencies)
-    assert any(dependency.lower().startswith("torchaudio>=") for dependency in dependencies)
+    assert any(dependency.lower().startswith(("torch>=", "torch==")) for dependency in dependencies)
+    assert any(dependency.lower().startswith(("torchaudio>=", "torchaudio==")) for dependency in dependencies)

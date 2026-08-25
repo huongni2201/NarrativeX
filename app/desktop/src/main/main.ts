@@ -205,6 +205,10 @@ void app.whenReady().then(async () => {
     if (!isProjectRestoreInput(input)) throw new Error("Invalid project restore input.");
     return requireProjectStorage().restoreBackup(input);
   });
+  registerTrustedIpcHandler("desktop:local-storage:archive-project", trustPolicy, async (input) => {
+    if (!isProjectBackupInput(input)) throw new Error("Invalid project archive input.");
+    return requireProjectStorage().archiveProject(input.projectId, input.destinationDirectory);
+  });
   registerTrustedIpcHandler("desktop:local-storage:materialize-remote-asset", trustPolicy, async (input) => {
     if (!isRemoteMaterializationInput(input) || !remoteAssetMaterializer) throw new Error("Invalid remote asset materialization input.");
     return remoteAssetMaterializer.materialize(input);

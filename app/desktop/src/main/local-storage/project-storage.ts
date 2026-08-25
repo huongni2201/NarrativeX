@@ -75,6 +75,8 @@ export interface LocalStorageSummary {
   assetBytes: number;
   artifactBytes: number;
   workBytes: number;
+  cacheBytes: number;
+  backupBytes: number;
   assetCount: number;
   artifactCount: number;
 }
@@ -97,6 +99,11 @@ export interface LocalProjectRestoreResult {
   projectDirectory: string;
   previousProjectDirectory: string | null;
   restoredFrom: string;
+}
+
+export interface LocalProjectArchiveResult {
+  projectId: string;
+  archiveDirectory: string;
 }
 
 export class ProjectStorage {
@@ -344,12 +351,14 @@ export class ProjectStorage {
   async storageSummary(projectId: string): Promise<LocalStorageSummary> {
     const manifest = await this.ensureProject(projectId);
     const root = this.projectRoot(projectId);
-    const [assetBytes, artifactBytes, workBytes] = await Promise.all([
+    const [assetBytes, artifactBytes, workBytes, cacheBytes, backupBytes] = await Promise.all([
       directorySize(join(root, "assets")),
       directorySize(join(root, "artifacts")),
       directorySize(join(root, "work")),
+      directorySize(join(root, "cache")),
+      directorySize(join(root, "backups")),
     ]);
-    return { projectId, projectDirectory: root, totalBytes: assetBytes + artifactBytes + workBytes, assetBytes, artifactBytes, workBytes, assetCount: Object.keys(manifest.assets).length, artifactCount: Object.keys(manifest.artifacts).length };
+    return { projectId, projectDirectory: root, totalBytes: assetBytes + artifactBytes + workBytes + cacheBytes + backupBytes, assetBytes, artifactBytes, workBytes, cacheBytes, backupBytes, assetCount: Object.keys(manifest.assets).length, artifactCount: Object.keys(manifest.artifacts).length };
   }
 
   async verifyAssets(projectId: string): Promise<Array<{ assetId: string; state: "AVAILABLE" | "MISSING" | "CORRUPT" }>> {
@@ -387,50 +396,92 @@ export class ProjectStorage {
   }
 
   async createBackup(projectId: string, destinationDirectory: string): Promise<LocalProjectBackup> {
-    const manifest = await this.ensureProject(projectId);
-    const source = this.projectRoot(projectId);
-    const destinationRoot = resolve(destinationDirectory);
-    if (isPathInside(source, destinationRoot) || isPathInside(destinationRoot, source)) {
-      throw new Error("Backup destination must be outside the active project workspace.");
-    }
-    await mkdir(destinationRoot, { recursive: true });
-    const backupDirectory = join(
-      destinationRoot,
-      `${projectId.toLowerCase()}-${backupTimestamp()}.narrativex`,
-    );
-    await cp(source, backupDirectory, { recursive: true, errorOnExist: true });
-    return {
-      projectId: manifest.projectId,
-      backupDirectory,
-      manifestSchemaVersion: manifest.schemaVersion,
-      createdAt: new Date().toISOString(),
-      sizeBytes: await directorySize(backupDirectory),
-    };
+    await this.ensureProject(projectId);
+    return this.withProjectLock(projectId, async () => {
+      const manifest = await this.requireManifest(projectId);
+      const source = this.projectRoot(projectId);
+      const destinationRoot = resolve(destinationDirectory);
+      await mkdir(destinationRoot, { recursive: true });
+      const backupDirectory = join(
+        destinationRoot,
+        `${projectId.toLowerCase()}-${backupTimestamp()}.narrativex`,
+      );
+      if (isPathInside(source, backupDirectory)) {
+        throw new Error("Backup destination must be outside the active project workspace.");
+      }
+      try {
+        await cp(source, backupDirectory, { recursive: true, errorOnExist: true });
+        await readBackupManifest(backupDirectory);
+        return {
+          projectId: manifest.projectId,
+          backupDirectory,
+          manifestSchemaVersion: manifest.schemaVersion,
+          createdAt: new Date().toISOString(),
+          sizeBytes: await directorySize(backupDirectory),
+        };
+      } catch (error) {
+        await rm(backupDirectory, { recursive: true, force: true }).catch(() => undefined);
+        throw error;
+      }
+    });
   }
 
   async restoreBackup(input: LocalProjectRestoreInput): Promise<LocalProjectRestoreResult> {
     const backupDirectory = resolve(input.backupDirectory);
     const backupManifest = await readBackupManifest(backupDirectory);
     const projectId = backupManifest.projectId;
-    const destination = this.projectRoot(projectId);
-    const previousProjectDirectory = await directoryExists(destination) ? destination : null;
-    if (previousProjectDirectory && !input.replaceExisting) {
-      throw new Error(`Project ${projectId} already exists. Confirm replacement before restoring.`);
-    }
-
-    const staging = join(resolve(this.projectsRoot), `.restore-${projectId}-${process.pid}-${Date.now()}`);
-    await cp(backupDirectory, staging, { recursive: true, errorOnExist: true });
-    try {
-      if (previousProjectDirectory) {
-        const preserved = `${destination}.before-restore-${Date.now()}`;
-        await rename(destination, preserved);
+    return this.withProjectLock(projectId, async () => {
+      const destination = this.projectRoot(projectId);
+      const activeProjectDirectory = await directoryExists(destination) ? destination : null;
+      if (activeProjectDirectory && !input.replaceExisting) {
+        throw new Error(`Project ${projectId} already exists. Confirm replacement before restoring.`);
       }
-      await rename(staging, destination);
-    } catch (error) {
-      await rm(staging, { recursive: true, force: true }).catch(() => undefined);
-      throw error;
-    }
-    return { projectId, projectDirectory: destination, previousProjectDirectory, restoredFrom: backupDirectory };
+      if (isPathInside(destination, backupDirectory)) {
+        throw new Error("Restore source must be outside the active project workspace.");
+      }
+
+      const staging = join(resolve(this.projectsRoot), `.restore-${projectId}-${process.pid}-${Date.now()}`);
+      await cp(backupDirectory, staging, { recursive: true, errorOnExist: true });
+      let preservedPreviousDirectory: string | null = null;
+      try {
+        if (activeProjectDirectory) {
+          preservedPreviousDirectory = `${destination}.before-restore-${Date.now()}`;
+          await rename(destination, preservedPreviousDirectory);
+        }
+        await rename(staging, destination);
+      } catch (error) {
+        await rm(staging, { recursive: true, force: true }).catch(() => undefined);
+        if (preservedPreviousDirectory && !(await directoryExists(destination))) {
+          await rename(preservedPreviousDirectory, destination).catch(() => undefined);
+        }
+        throw error;
+      }
+      return { projectId, projectDirectory: destination, previousProjectDirectory: preservedPreviousDirectory, restoredFrom: backupDirectory };
+    });
+  }
+
+  async archiveProject(projectId: string, destinationDirectory: string): Promise<LocalProjectArchiveResult> {
+    await this.ensureProject(projectId);
+    return this.withProjectLock(projectId, async () => {
+      const source = this.projectRoot(projectId);
+      const destinationRoot = resolve(destinationDirectory);
+      await mkdir(destinationRoot, { recursive: true });
+      const archiveDirectory = join(
+        destinationRoot,
+        `${projectId.toLowerCase()}-${backupTimestamp()}.narrativex`,
+      );
+      if (isPathInside(source, archiveDirectory)) {
+        throw new Error("Archive destination must be outside the active project workspace.");
+      }
+      try {
+        await cp(source, archiveDirectory, { recursive: true, errorOnExist: true });
+        await readBackupManifest(archiveDirectory);
+        return { projectId, archiveDirectory };
+      } catch (error) {
+        await rm(archiveDirectory, { recursive: true, force: true }).catch(() => undefined);
+        throw error;
+      }
+    });
   }
 
   private projectRoot(projectId: string): string {

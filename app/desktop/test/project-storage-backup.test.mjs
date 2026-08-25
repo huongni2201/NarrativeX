@@ -10,6 +10,7 @@ const projectId = "00000000-0000-0000-0000-000000000001";
 test("project storage creates a manifest-verified backup and restores it safely", async () => {
   const root = await mkdtemp(join(tmpdir(), "narrativex-storage-"));
   const backupRoot = await mkdtemp(join(tmpdir(), "narrativex-backup-"));
+  const archiveRoot = await mkdtemp(join(tmpdir(), "narrativex-archive-"));
   const source = await mkdtemp(join(tmpdir(), "narrativex-source-"));
   try {
     const storage = new ProjectStorage(root);
@@ -20,19 +21,30 @@ test("project storage creates a manifest-verified backup and restores it safely"
       kind: "OTHER",
       sourcePath: join(source, "note.txt"),
     });
+    await writeFile(join(root, projectId, "cache", "segments", "cached.txt"), "cache data", "utf8");
+
+    const summary = await storage.storageSummary(projectId);
+    assert.equal(summary.cacheBytes, "cache data".length);
+    assert.ok(summary.totalBytes >= summary.assetBytes + summary.cacheBytes);
 
     const backup = await storage.createBackup(projectId, backupRoot);
     assert.match(backup.backupDirectory, /\.narrativex$/);
     assert.equal(await readFile(join(backup.backupDirectory, "project.manifest.json"), "utf8").then((value) => value.includes('"schemaVersion": 2')), true);
 
+    const archive = await storage.archiveProject(projectId, archiveRoot);
+    assert.match(archive.archiveDirectory, /\.narrativex$/);
+    assert.equal(await storage.resolveAsset(projectId, "asset-1").then((path) => readFile(path, "utf8")), "workspace data");
+
     const restored = await storage.restoreBackup({ backupDirectory: backup.backupDirectory, replaceExisting: true });
     assert.equal(restored.projectId, projectId);
     assert.ok(restored.previousProjectDirectory);
+    assert.match(restored.previousProjectDirectory, /\.before-restore-/);
     assert.equal(await storage.resolveAsset(projectId, "asset-1").then((path) => readFile(path, "utf8")), "workspace data");
   } finally {
     await Promise.all([
       rm(root, { recursive: true, force: true }),
       rm(backupRoot, { recursive: true, force: true }),
+      rm(archiveRoot, { recursive: true, force: true }),
       rm(source, { recursive: true, force: true }),
     ]);
   }
