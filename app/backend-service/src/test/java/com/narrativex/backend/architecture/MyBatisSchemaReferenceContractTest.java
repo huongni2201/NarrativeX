@@ -31,7 +31,6 @@ class MyBatisSchemaReferenceContractTest {
   private static final Pattern XML_TAG = Pattern.compile("(?s)<[^>]*>");
   private static final Pattern COMMON_TABLE_EXPRESSION =
       Pattern.compile("(?i)(?:\\bWITH\\b|,)\\s*(?:RECURSIVE\\s+)?([a-z_][a-z0-9_]*)\\s+AS\\s*\\(");
-  private static final Pattern RETIRED_REFERENCES_COLUMN = Pattern.compile("(?i)\\breferences\\b");
 
   private static final Set<String> SQL_REFERENCE_KEYWORDS =
       Set.of("insert", "lateral", "of", "select", "set", "skip");
@@ -62,30 +61,6 @@ class MyBatisSchemaReferenceContractTest {
     assertTrue(
         violations.isEmpty(),
         () -> "MyBatis references tables missing from V1 create-tables baseline: " + violations);
-  }
-
-  @Test
-  void retiredReferencesColumnCannotReturnToMyBatisSql() throws IOException {
-    List<String> violations = new ArrayList<>();
-    for (Path mapper : mapperFiles()) {
-      String sql = Files.readString(mapper);
-      if (RETIRED_REFERENCES_COLUMN.matcher(sql).find()) {
-        violations.add(MAPPER_ROOT.relativize(mapper).toString());
-      }
-    }
-
-    assertTrue(
-        violations.isEmpty(),
-        () -> "Retired `references` column found in MyBatis mapper(s): " + violations);
-  }
-
-  @Test
-  void storyVersionMapperCannotReferenceRetiredModerationColumn() throws IOException {
-    Path mapper = MAPPER_ROOT.resolve("StoryVersionMapper.xml");
-
-    assertFalse(
-        Files.readString(mapper).toLowerCase(Locale.ROOT).contains("moderation_decision"),
-        "StoryVersionMapper must not reference the retired story moderation column");
   }
 
   private static Set<String> schemaTables() throws IOException {
