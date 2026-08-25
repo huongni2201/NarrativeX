@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { DesktopApiResponse, DesktopBackendApiService } from "../api/backend-api-service";
+import type { GuestDeviceIdentity } from "./guest-device-identity";
 
 const DESKTOP_REDIRECT_URI = "narrativex://auth/callback";
 const DESKTOP_AUTH_PENDING_TTL_MS = 90_000;
@@ -21,21 +22,39 @@ interface CsrfTokenResponse {
 
 type OpenExternal = (url: string) => Promise<void>;
 
+export interface GuestIdentityProvider {
+  loadOrCreate(): Promise<GuestDeviceIdentity>;
+}
+
 export class DesktopAuthService {
   private pendingVerifier: string | null = null;
   private pendingVerifierTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly backendBaseUrl: string;
   private readonly backendApi: Pick<DesktopBackendApiService, "request">;
   private readonly openExternal: OpenExternal;
+  private readonly guestIdentity?: GuestIdentityProvider;
 
   constructor(
     backendBaseUrl: string,
     backendApi: Pick<DesktopBackendApiService, "request">,
     openExternal: OpenExternal,
+    guestIdentity?: GuestIdentityProvider,
   ) {
     this.backendBaseUrl = backendBaseUrl;
     this.backendApi = backendApi;
     this.openExternal = openExternal;
+    this.guestIdentity = guestIdentity;
+  }
+
+  async ensureGuestSession(): Promise<DesktopApiResponse> {
+    if (!this.guestIdentity) {
+      throw new Error("Desktop guest identity store is not initialized.");
+    }
+    const identity = await this.guestIdentity.loadOrCreate();
+    return this.requestWithCsrf(
+      "/api/v1/auth/desktop/guest",
+      JSON.stringify({ deviceId: identity.deviceId, secret: identity.secret }),
+    );
   }
 
   async login(): Promise<void> {
