@@ -50,7 +50,6 @@ public class SecurityConfig {
     "/api/v1/projects/*/narration-jobs:batch",
     "/api/v1/projects/*/chapters/*/translations",
     "/api/v1/projects/*/chapters/*/media-jobs",
-    "/api/v1/projects/*/chapters/*/media-jobs/estimate",
     "/api/v1/projects/*/chapters/*/render",
     "/api/v1/projects/*/production/render"
   };
