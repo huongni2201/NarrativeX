@@ -116,6 +116,12 @@ class GetProductionTimelineUseCaseTest {
             null,
             null,
             null,
+            null,
+            "TRIM",
+            0L,
+            false,
+            null,
+            null,
             null);
     when(sourceRepository.findBeats(projectId, "owner")).thenReturn(List.of(ready, missing));
 
@@ -246,6 +252,12 @@ class GetProductionTimelineUseCaseTest {
         null,
         audioDurationMs,
         UUID.randomUUID(),
+        "IMAGE",
+        "REMOTE",
+        null,
+        "TRIM",
+        0L,
+        false,
         "images/" + visualBeatId + ".png",
         100L,
         checksum);
