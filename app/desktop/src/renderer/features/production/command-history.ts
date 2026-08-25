@@ -1,4 +1,4 @@
-import { runAuthenticatedAction } from "../auth/authenticated-action";
+import { runAuthenticatedAction } from "../auth/authenticated-action.ts";
 
 export interface CommandHistory<T> {
   present: T;

@@ -1,5 +1,13 @@
-import { useEffect, useState } from "react";
-import { LogIn, ShieldCheck, X } from "lucide-react";
+import { useState } from "react";
+import { LogIn, ShieldCheck } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogCloseButton,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export function LoginModal({
   onLogin,
@@ -16,14 +24,6 @@ export function LoginModal({
   const [loginError, setLoginError] = useState<string | null>(null);
   const [browserOpened, setBrowserOpened] = useState(false);
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
-
   async function handleLogin() {
     setBusy(true);
     setLoginError(null);
@@ -38,16 +38,9 @@ export function LoginModal({
   }
 
   return (
-    <div className="auth-modal-backdrop" role="presentation">
-      <section
-        className="auth-card auth-modal-card"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="auth-modal-title"
-      >
-        <button type="button" className="auth-modal-close" aria-label="Đóng" onClick={onClose}>
-          <X size={17} />
-        </button>
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="auth-card auth-modal-card" aria-describedby="auth-modal-description">
+        <DialogCloseButton aria-label="Đóng" />
         <img
           src="/branding/narrativex-icon.png"
           alt="NarrativeX"
@@ -56,13 +49,14 @@ export function LoginModal({
           className="auth-logo-img"
         />
         <span className="eyebrow">NarrativeX Desktop</span>
-        <h1 id="auth-modal-title">Đăng nhập để dùng tính năng này</h1>
-        <p>{reason ?? "Tính năng này cần tài khoản NarrativeX."}</p>
+        <DialogTitle id="auth-modal-title" className="auth-modal-title">Đăng nhập để dùng tính năng này</DialogTitle>
+        <DialogDescription id="auth-modal-description">
+          {reason ?? "Tính năng này cần tài khoản NarrativeX."}
+        </DialogDescription>
         <p className="auth-preserve-context">
           Sau khi đăng nhập, bạn vẫn ở nguyên project và màn hình đang làm việc.
         </p>
-        <button
-          type="button"
+        <Button
           className="auth-login-button"
           onClick={() => void handleLogin()}
           disabled={busy}
@@ -73,7 +67,7 @@ export function LoginModal({
             : browserOpened
               ? "Mở lại đăng nhập Google"
               : "Tiếp tục với Google"}
-        </button>
+        </Button>
         <div className="auth-security-note">
           <ShieldCheck size={15} />
           <span>
@@ -84,7 +78,7 @@ export function LoginModal({
           <p className="auth-waiting">Hoàn tất đăng nhập trong trình duyệt để tiếp tục.</p>
         )}
         {(loginError || error) && <p className="auth-error">{loginError ?? error}</p>}
-      </section>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

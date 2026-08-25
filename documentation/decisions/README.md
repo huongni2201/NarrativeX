@@ -49,6 +49,9 @@ This directory records decisions that affect more than one feature or change a p
 16. **[ADR-0016: UUID policy for public and operational identifiers](./ADR-0016-public-id-uuid-policy.md)**
     UUIDv7 for public/domain IDs; numeric operational IDs remain without a universal migration.
 
+17. **[ADR-0017: Source-owned Desktop renderer UI component stack](./ADR-0017-desktop-renderer-ui-component-stack.md)**
+    Tailwind CSS, source-owned shadcn/ui-style components, Radix UI behavior and CVA-based variants for the Electron renderer.
+
 ## Supersession rules
 
 - ADR-0010 defines the primary client boundary and supersedes language that treats Next.js as the target editor.

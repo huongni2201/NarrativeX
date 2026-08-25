@@ -6,7 +6,7 @@ Desktop client/media/render boundaries are governed by ADR-0010, ADR-0011 and AD
 
 | Layer | Current stack | Current role |
 |---|---|---|
-| Desktop | Electron 37, Electron Vite 4, React 19, TypeScript, React Router, TanStack Query, Zustand, Lucide | **Only supported editor client**; native filesystem/project storage, system-browser auth callback and local execution through Electron main |
+| Desktop | Electron 37, Electron Vite 4, React 19, TypeScript, React Router, TanStack Query, Zustand, Lucide, Tailwind CSS 4, shadcn/ui source components, Radix UI, CVA, clsx, tailwind-merge | **Only supported editor client**; native filesystem/project storage, system-browser auth callback and local execution through Electron main |
 | Browser OAuth flow | Spring Security OAuth2/OIDC endpoints | Backend authentication flow only; no supported browser editor client |
 | Backend | Java 25, Spring Boot 4.1, Security/OAuth2, Spring Session Redis, Actuator | modular monolith, ownership/policy, durable orchestration, MediaPlan/job/lease authority |
 | Persistence | PostgreSQL 18 target, Flyway, MyBatis + explicit SQL | sole production persistence path for durable application/control metadata |
@@ -46,6 +46,19 @@ main
 ```
 
 The renderer must not become an alternative source of truth for Projects, Chapters, Scenes, VisualBeats, assets, entitlements or durable render state.
+
+## Desktop renderer UI stack
+
+The renderer uses a local source-owned component layer under
+`app/desktop/src/renderer/components/ui`:
+
+- Tailwind CSS 4 is compiled by `@tailwindcss/vite`; semantic utility tokens map to the existing NarrativeX CSS variables.
+- shadcn/ui is used as a source distribution model. There is no locked runtime UI library or remote component registry in the Desktop build.
+- Radix UI supplies keyboard navigation, focus management, dialog focus trapping, select behavior and tooltip behavior for the adopted primitives.
+- `class-variance-authority`, `clsx` and `tailwind-merge` provide typed variants and safe class composition through `src/renderer/lib/utils.ts`.
+- Existing editor-specific CSS remains responsible for timeline geometry, canvas art direction and dense panel layout. New reusable controls should use the source-owned primitives and semantic tokens before adding bespoke selectors.
+
+The initial migration covers Button, Dialog, Tabs, Tooltip and Select. It is intentionally incremental so timeline positioning and local-first editor behavior remain unchanged while controls converge on one accessible component vocabulary.
 
 ## Authentication status
 
