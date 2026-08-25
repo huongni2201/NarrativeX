@@ -1,6 +1,8 @@
 import os from "node:os";
 import type { LocalExecutionConfig } from "./config";
 
+const REQUEST_TIMEOUT_MS = 30_000;
+
 interface ApiEnvelope<T> {
   success: boolean;
   message?: string;
@@ -107,12 +109,9 @@ export class LocalExecutionBackendClient {
   }
 
   async claimProjectRender(deviceToken: string): Promise<ClaimedProjectRender | null> {
-    const response = await fetch(
-      `${this.config.backendBaseUrl}/api/v1/local-devices/project-renders/claim`,
-      {
-        method: "POST",
-        headers: { "X-NX-Device-Token": deviceToken },
-      },
+    const response = await this.fetchWithTimeout(
+      "/api/v1/local-devices/project-renders/claim",
+      { method: "POST", headers: { "X-NX-Device-Token": deviceToken } },
     );
     if (response.status === 204) return null;
     return this.parseEnvelope<ClaimedProjectRender>(response);
@@ -207,8 +206,24 @@ export class LocalExecutionBackendClient {
   }
 
   private async request<T>(path: string, init: RequestInit): Promise<T> {
-    const response = await fetch(`${this.config.backendBaseUrl}${path}`, init);
+    const response = await this.fetchWithTimeout(path, init);
     return this.parseEnvelope<T>(response);
+  }
+
+  private async fetchWithTimeout(path: string, init: RequestInit): Promise<Response> {
+    const controller = new AbortController();
+    const timeout = setTimeout(
+      () => controller.abort(new Error(`Local execution request timed out after ${REQUEST_TIMEOUT_MS} ms.`)),
+      REQUEST_TIMEOUT_MS,
+    );
+    try {
+      return await fetch(`${this.config.backendBaseUrl}${path}`, {
+        ...init,
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   private async parseEnvelope<T>(response: Response): Promise<T> {
