@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 
 class GetProductionTimelineAlignedTimingTest {
   @Test
-  void usesExactAlignedSpansInsteadOfRescalingDurations() {
+  void usesExactAlignedSpansInsteadOfRescalingFromStaleDurationWeights() {
     CurrentUserId currentUserId = mock(CurrentUserId.class);
     ProjectAccess projectAccess = mock(ProjectAccess.class);
     ProductionTimelineSourceRepository sourceRepository =
@@ -53,8 +53,8 @@ class GetProductionTimelineAlignedTimingTest {
     when(sourceRepository.findBeats(projectId, "owner"))
         .thenReturn(
             List.of(
-                beat(chapterId, planId, 0, 0L, 2_000L),
-                beat(chapterId, planId, 1, 2_000L, 10_000L)));
+                beat(chapterId, planId, 0, 0L, 2_000L, 5_000L),
+                beat(chapterId, planId, 1, 2_000L, 10_000L, 5_000L)));
 
     var timeline = useCase.executeOwned(projectId, "owner");
 
@@ -66,7 +66,12 @@ class GetProductionTimelineAlignedTimingTest {
   }
 
   private static BeatSource beat(
-      UUID chapterId, UUID planId, int beatIndex, long audioStartMs, long audioEndMs) {
+      UUID chapterId,
+      UUID planId,
+      int beatIndex,
+      long audioStartMs,
+      long audioEndMs,
+      long staleAudioDurationMs) {
     UUID visualBeatId = UUID.randomUUID();
     return new BeatSource(
         chapterId,
@@ -82,7 +87,7 @@ class GetProductionTimelineAlignedTimingTest {
         "GENERATE_NEW",
         audioStartMs,
         audioEndMs,
-        audioEndMs - audioStartMs,
+        staleAudioDurationMs,
         UUID.randomUUID(),
         "IMAGE",
         "REMOTE",
