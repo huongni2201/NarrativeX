@@ -5,7 +5,7 @@ import java.time.Instant;
 import org.apache.ibatis.annotations.Param;
 
 public interface DesktopGuestIdentityMapper extends NarrativeXMyBatisMapper {
-  void lockDevice(@Param("deviceId") String deviceId);
+  int lockDevice(@Param("deviceId") String deviceId);
 
   DesktopGuestInstallationRow findByDeviceId(@Param("deviceId") String deviceId);
 
