@@ -19,8 +19,12 @@ export function useCreateProject() {
   return useMutation({
     mutationFn: async (input: CreateProjectInput) => {
       const project = await projectsApi.create(input);
-      await window.narrativex.localProjects.upsert(project, { syncStatus: "LOCAL_ONLY" });
-      await window.narrativex.localProjects.touch(project.id);
+      try {
+        await window.narrativex.localProjects.upsert(project, { syncStatus: "LOCAL_ONLY" });
+        await window.narrativex.localProjects.touch(project.id);
+      } catch (error) {
+        console.warn("Project was created but could not be persisted to the local catalog.", error);
+      }
       return project;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: projectQueryKeys.all }),
@@ -36,23 +40,46 @@ export function useToggleProjectFavorite() {
 }
 
 async function loadProjectsWithLocalFallback() {
-  const localBeforeRefresh = await window.narrativex.localProjects.list();
+  const localBeforeRefresh = await readLocalProjectsSafely();
   try {
     const remote = await projectsApi.list();
-    const localAfterRefresh = await window.narrativex.localProjects.reconcile(remote.content);
+    const localAfterRefresh = await reconcileLocalProjectsSafely(
+      remote.content,
+      localBeforeRefresh,
+    );
     return {
       ...remote,
-      content: mergeProjects(
-        localAfterRefresh.map((entry) => entry.project),
-        remote.content,
-      ),
+      content: mergeProjects(localAfterRefresh, remote.content),
     };
   } catch (error) {
     if (localBeforeRefresh.length === 0) throw error;
     return {
-      content: localBeforeRefresh.map((entry) => entry.project),
+      content: localBeforeRefresh,
       nextCursor: null,
     };
+  }
+}
+
+async function readLocalProjectsSafely(): Promise<DesktopProject[]> {
+  try {
+    return (await window.narrativex.localProjects.list()).map((entry) => entry.project);
+  } catch (error) {
+    console.warn("Could not read the local project catalog; continuing with backend projects.", error);
+    return [];
+  }
+}
+
+async function reconcileLocalProjectsSafely(
+  remoteProjects: DesktopProject[],
+  fallback: DesktopProject[],
+): Promise<DesktopProject[]> {
+  try {
+    return (await window.narrativex.localProjects.reconcile(remoteProjects)).map(
+      (entry) => entry.project,
+    );
+  } catch (error) {
+    console.warn("Could not refresh the local project catalog.", error);
+    return fallback;
   }
 }
 
