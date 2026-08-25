@@ -47,6 +47,11 @@ export interface ClaimedProjectRenderBeat {
   globalEndMs: number;
   durationMs: number;
   cameraMovement: string;
+  mediaType: "IMAGE" | "VIDEO";
+  storageMode: "REMOTE" | "LOCAL_ONLY" | "HYBRID";
+  sourceDurationMs: number | null;
+  fitMode: "TRIM" | "LOOP" | "FREEZE_END" | "SPEED_ADJUST";
+  trimStartMs: number;
   downloadUrl: string | null;
   sizeBytes: number;
   checksum: string;
@@ -139,10 +144,7 @@ export class LocalExecutionBackendClient {
     await this.deviceRequest<void>(
       deviceToken,
       `/api/v1/local-devices/project-renders/${encodeURIComponent(jobId)}/progress`,
-      {
-        method: "POST",
-        body: JSON.stringify({ leaseToken, progress, currentStep }),
-      },
+      { method: "POST", body: JSON.stringify({ leaseToken, progress, currentStep }) },
     );
   }
 
@@ -155,10 +157,7 @@ export class LocalExecutionBackendClient {
     await this.deviceRequest<void>(
       deviceToken,
       `/api/v1/local-devices/project-renders/${encodeURIComponent(jobId)}/complete`,
-      {
-        method: "POST",
-        body: JSON.stringify({ leaseToken, ...completion }),
-      },
+      { method: "POST", body: JSON.stringify({ leaseToken, ...completion }) },
     );
   }
 
@@ -170,10 +169,7 @@ export class LocalExecutionBackendClient {
     await this.deviceRequest<void>(
       deviceToken,
       `/api/v1/local-devices/project-renders/${encodeURIComponent(jobId)}/cancel`,
-      {
-        method: "POST",
-        body: JSON.stringify({ leaseToken }),
-      },
+      { method: "POST", body: JSON.stringify({ leaseToken }) },
     );
   }
 
@@ -187,10 +183,7 @@ export class LocalExecutionBackendClient {
     await this.deviceRequest<void>(
       deviceToken,
       `/api/v1/local-devices/project-renders/${encodeURIComponent(jobId)}/fail`,
-      {
-        method: "POST",
-        body: JSON.stringify({ leaseToken, errorCode, retryable }),
-      },
+      { method: "POST", body: JSON.stringify({ leaseToken, errorCode, retryable }) },
     );
   }
 
