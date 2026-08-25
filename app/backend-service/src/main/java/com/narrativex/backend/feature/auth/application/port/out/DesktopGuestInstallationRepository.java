@@ -4,6 +4,8 @@ import java.time.Instant;
 import java.util.Optional;
 
 public interface DesktopGuestInstallationRepository {
+  void lockDevice(String deviceId);
+
   Optional<Installation> findByDeviceId(String deviceId);
 
   boolean create(String deviceId, String guestUserId, String secretHash, Instant now);
