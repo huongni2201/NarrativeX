@@ -1,27 +1,6 @@
-import { HashRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { EditorScreen, type DesktopScreen } from "../features/editor/EditorScreen";
+import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
+import { ProjectWorkspaceRoute } from "../features/editor/ProjectWorkspaceRoute";
 import { ProjectsScreen } from "../features/projects/screens/ProjectsScreen";
-
-function ProjectWorkspaceRoute() {
-  const location = useLocation();
-  const path = location.pathname;
-  const initialScreen: DesktopScreen = path.includes("/chapters")
-    ? "chapters"
-    : path.includes("/characters")
-      ? "characters"
-      : path.includes("/images")
-        ? "images"
-        : path.includes("/voice")
-          ? "voice"
-          : path.includes("/assets")
-            ? "assets"
-            : path.includes("/render")
-              ? "render"
-              : path.includes("/settings")
-                ? "settings"
-                : "editor";
-  return <EditorScreen initialScreen={initialScreen} />;
-}
 
 export function DesktopRouter() {
   return (
