@@ -83,4 +83,4 @@ Production release hardening, abrupt-process recovery UX and richer editor/revie
 
 Production persistence is MyBatis + explicit PostgreSQL SQL. The backend build contains no JPA persistence dependency and application persistence does not use direct `JdbcTemplate` as a parallel production path.
 
-Current Flyway sequence is V1-V5, with V1-V3 frozen and V4+ append-only feature migrations.
+Current Flyway baseline is V1-V3 only. The Desktop guest, beat media selection and local execution/render metadata structures are already consolidated into V1; future schema changes start at append-only V4+.
