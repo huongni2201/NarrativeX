@@ -15,9 +15,8 @@ PostgreSQL state, not renderer memory, Redis messages or process memory, determi
 | Narration document/set/alignment metadata | PostgreSQL | source/narration fingerprints pin inputs |
 | Desktop project byte locations | local `project.manifest.json` | relative paths + size/SHA-256; not domain authority |
 | Desktop render journal/cache | local project work storage | recovery/performance aid, not backend business authority |
-| Desktop final MP4 bytes | local project `artifacts/` | backend stores opaque local artifact identity/metadata |
-| Retained cloud pipeline bytes | Cloudflare R2 | server/provider path |
-| Retained cloud final MP4 | Google Drive | cloud-render fallback path |
+| Desktop final MP4 bytes | local project `artifacts/` | backend stores metadata only |
+| AI-generated remote media | Cloudflare R2 | transport/durability before Desktop materialization |
 | Guest installation secret | Electron secure storage | backend stores only hash |
 | Local-execution device credential | Electron protected storage | machine credential, not user session |
 
@@ -72,7 +71,7 @@ TTS
   -> provider/local inference
   -> validate
   -> alignment
-  -> Desktop materialization when used locally
+  -> Desktop materialization before local editing/rendering
 
 USER_PROVIDED_AUDIO
   -> native import/register
@@ -90,11 +89,12 @@ pinned authorized image work
   -> provider execution/reconciliation
   -> validate/correlate bytes
   -> stable MediaAsset + checksum + lineage
+  -> remote generated-media transport where required
   -> Desktop materialize accepted/required image
   -> project.manifest.json
 ```
 
-Retained server/cloud flows may persist remote media in R2 where remote durability is intentionally required.
+R2 may hold generated media while provider/worker execution needs a remote durable location. Final rendering never depends on a remote final-video store.
 
 ## Native local import
 
@@ -122,10 +122,10 @@ storyboard + narration alignment + media assets
 
 Draft UI state must not be mistaken for durable production truth.
 
-## Desktop local render
+## Desktop final render
 
 ```text
-backend admits + assigns LOCAL_DEVICE render
+backend admits + assigns local render
   -> device claims lease
   -> preflight runtime/disk/assets
   -> resolve IDs/checksums through project.manifest.json
@@ -134,8 +134,9 @@ backend admits + assigns LOCAL_DEVICE render
   -> FFmpeg render missing segments
   -> concat/mux
   -> ffprobe + SHA-256 final MP4
-  -> local artifact registration
+  -> register final-artifact metadata
   -> backend progress/completion under current lease
+  -> Desktop previews/exports local MP4 directly
 ```
 
 Lease loss prevents success. In-process cancellation and unfinished-journal discovery exist. Full crash/restart resume/retry behavior remains hardening work.
@@ -151,19 +152,6 @@ active project workspace
 ```
 
 Backup snapshots are local file durability tools; backend domain ownership still comes from PostgreSQL.
-
-## Retained cloud render
-
-```text
-cloud-authorized render
-  -> R2 inputs
-  -> worker FFmpeg/ffprobe
-  -> Google Drive final upload
-  -> FinalArtifact provider metadata
-  -> terminal backend state
-```
-
-This path is fallback/server behavior and must not redefine Desktop local storage.
 
 ## Current gaps
 
