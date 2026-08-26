@@ -173,6 +173,16 @@ class PostgreSqlMigrationIntegrationTest {
       assertTrue(tableExists(connection, "plan_entitlements"));
       assertTrue(tableExists(connection, "style_presets"));
       assertTrue(tableExists(connection, "voice_catalog"));
+      try (PreparedStatement statement =
+              connection.prepareStatement(
+                  "SELECT COUNT(*) AS total, "
+                      + "COUNT(*) FILTER (WHERE (metadata_json ->> 'supportsSpeakingRate')::boolean) "
+                      + "AS supported FROM voice_catalog WHERE provider = 'VIENEU' AND enabled = TRUE");
+          ResultSet result = statement.executeQuery()) {
+        assertTrue(result.next());
+        assertTrue(result.getInt("total") > 0);
+        assertEquals(result.getInt("total"), result.getInt("supported"));
+      }
       assertTrue(tableExists(connection, "notifications"));
       assertTrue(tableExists(connection, "outbox_events"));
     }

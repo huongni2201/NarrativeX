@@ -93,6 +93,26 @@ routes directly to `http://backend:8080` inside the Compose network. The public
 OAuth and API/session traffic. Deployments that already provide HTTPS ingress
 should leave the tunnel profile disabled.
 
+For production worker rollouts, set `BUILD_SHA` to the immutable Git revision and
+configure the registry image prefixes in `.env.prod`. Then pull and recreate the
+tagged services without rebuilding from an unknown checkout:
+
+```powershell
+docker compose pull backend ai-worker narration-worker render-worker
+docker compose up -d --no-build backend ai-worker narration-worker render-worker
+```
+
+When the deployment builds locally instead of pulling a registry image, pass the same
+revision while building:
+
+```powershell
+docker compose build --build-arg BUILD_SHA=$env:BUILD_SHA backend ai-worker narration-worker render-worker
+docker compose up -d --no-build backend ai-worker narration-worker render-worker
+```
+
+After rollout, `docker compose logs narration-worker` should contain `Worker database
+ready` with the expected `dbName`, `dbSchema`, `provider` and `buildSha` values.
+
 ## Documentation changes
 
 Update the smallest relevant document, but update an ADR when a change crosses a client, storage, authentication or execution boundary. Keep `IMPLEMENTED`, `PARTIAL`, `TARGET`, `DEFERRED` and fallback behavior distinct.

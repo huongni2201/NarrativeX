@@ -44,7 +44,7 @@
     <select id="findVoiceCapabilities" resultMap="voiceCapabilitiesRow">
         SELECT id,
                provider,
-               COALESCE((metadata_json ->> 'supportsSpeakingRate')::boolean, provider &lt;&gt; 'VIENEU')
+               COALESCE((metadata_json ->> 'supportsSpeakingRate')::boolean, provider = 'VIENEU')
                    AS supports_speaking_rate,
                COALESCE((metadata_json ->> 'supportsVoiceClone')::boolean, provider = 'VIENEU')
                    AS supports_voice_clone,

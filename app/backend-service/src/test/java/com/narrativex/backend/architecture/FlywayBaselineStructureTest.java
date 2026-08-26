@@ -23,6 +23,12 @@ class FlywayBaselineStructureTest {
     String v4 =
         Files.readString(
             FlywayMigrationContract.migration("V4__desktop_guest_installations.sql"));
+    String v5 =
+        Files.readString(
+            FlywayMigrationContract.migration("V5__production_beat_media_selections.sql"));
+    String v6 =
+        Files.readString(
+            FlywayMigrationContract.migration("V6__enable_vieneu_speaking_rate.sql"));
 
     assertFalse(v1.matches("(?is).*\\bCREATE\\s+(?:UNIQUE\\s+)?INDEX\\b.*"));
     assertFalse(v2.matches("(?is).*\\bCREATE\\s+TABLE\\b.*"));
@@ -32,6 +38,10 @@ class FlywayBaselineStructureTest {
     assertTrue(v4.contains("CREATE TABLE desktop_guest_installations"));
     assertTrue(v4.contains("CREATE INDEX idx_desktop_guest_installations_last_seen"));
     assertFalse(v4.matches("(?is).*\\bINSERT\\s+INTO\\b.*"));
+    assertTrue(v5.contains("CREATE TABLE production_beat_media_selections"));
+    assertTrue(v5.contains("ALTER TABLE project_render_input_beats"));
+    assertTrue(v6.contains("UPDATE voice_catalog"));
+    assertTrue(v6.contains("supportsSpeakingRate"));
   }
 
   @Test

@@ -5,6 +5,7 @@ import asyncio
 import logging
 import sys
 from typing import Any
+from urllib.parse import urlsplit
 
 from narrativex_worker.config import WorkerSettings, get_settings
 from narrativex_worker.health import WorkerHealthServer
@@ -96,6 +97,24 @@ async def run_workers(settings: WorkerSettings, *, dry_run: bool) -> None:
         return
 
     health_server = WorkerHealthServer(settings.database_url, settings.health_check_port)
+    database_identity = await health_server.database_identity()
+    if database_identity is None:
+        raise RuntimeError("Worker startup database identity probe failed")
+    database_host, database_port, database_name = _database_target(settings.database_url)
+    provider = settings.tts_provider_mode if settings.has_worker_role("narration") else "n/a"
+    logging.getLogger("narrativex.worker").info(
+        "Worker database ready workerName=%s roles=%s provider=%s dbHost=%s dbPort=%s "
+        "dbName=%s dbSchema=%s configuredDbName=%s buildSha=%s",
+        settings.worker_name,
+        ",".join(sorted(workers)),
+        provider,
+        database_host,
+        database_port,
+        database_identity[0],
+        database_identity[1],
+        database_name,
+        settings.build_sha,
+    )
     await health_server.start()
     tasks = {name: asyncio.create_task(worker.start()) for name, worker in workers.items()}
     try:
@@ -133,6 +152,15 @@ def main() -> None:
         logging.getLogger("narrativex.worker").exception("Worker supervisor failed")
         sys.exit(1)
     sys.exit(0)
+
+
+def _database_target(database_url: str) -> tuple[str, int, str]:
+    parsed = urlsplit(database_url)
+    return (
+        parsed.hostname or "unknown",
+        parsed.port or 5432,
+        parsed.path.lstrip("/") or "unknown",
+    )
 
 
 if __name__ == "__main__":

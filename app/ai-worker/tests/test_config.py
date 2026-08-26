@@ -1,6 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
+from narrativex_worker.__main__ import _database_target
 from narrativex_worker.config import WorkerSettings
 
 
@@ -79,6 +80,20 @@ def test_worker_roles_can_isolate_narration() -> None:
 
     assert settings.has_worker_role("narration")
     assert not settings.has_worker_role("analysis")
+
+
+def test_build_sha_is_loaded_for_startup_diagnostics() -> None:
+    settings = WorkerSettings(build_sha="9fd428a")
+
+    assert settings.build_sha == "9fd428a"
+
+
+def test_database_target_does_not_include_credentials() -> None:
+    assert _database_target("postgresql://user:secret@postgres:5432/narrativex") == (
+        "postgres",
+        5432,
+        "narrativex",
+    )
 
 
 def test_unknown_worker_role_is_rejected() -> None:

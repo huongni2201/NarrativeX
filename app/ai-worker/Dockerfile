@@ -2,6 +2,8 @@
 
 FROM python:3.12-slim AS base
 
+ARG BUILD_SHA=unknown
+
 WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -14,6 +16,9 @@ ENV HOME=/home/appuser
 ENV XDG_CACHE_HOME=/home/appuser/.cache
 ENV HF_HOME=/home/appuser/.cache/huggingface
 ENV PIP_CACHE_DIR=/home/appuser/.cache/pip
+ENV BUILD_SHA=${BUILD_SHA}
+
+LABEL org.opencontainers.image.revision=${BUILD_SHA}
 
 RUN addgroup --system appgroup \
     && adduser --system --home /home/appuser --ingroup appgroup appuser \

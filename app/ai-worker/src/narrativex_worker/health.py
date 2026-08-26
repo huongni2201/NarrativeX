@@ -46,7 +46,7 @@ class WorkerHealthServer:
         await self._server.wait_closed()
         self._server = None
 
-    async def _database_healthy(self) -> bool:
+    async def database_identity(self) -> tuple[str, str] | None:
         connection: asyncpg.Connection | None = None
         try:
             connection = await asyncpg.connect(
@@ -54,14 +54,22 @@ class WorkerHealthServer:
                 timeout=self.database_timeout_seconds,
                 command_timeout=self.database_timeout_seconds,
             )
-            return bool(await connection.fetchval("SELECT 1") == 1)
+            row = await connection.fetchrow(
+                "SELECT current_database() AS database_name, current_schema() AS schema_name"
+            )
+            if row is None:
+                return None
+            return str(row["database_name"]), str(row["schema_name"])
         except Exception as exception:
             logger.warning("Worker health database probe failed: %s", type(exception).__name__)
-            return False
+            return None
         finally:
             if connection is not None:
                 with suppress(Exception):
                     await connection.close(timeout=self.database_timeout_seconds)
+
+    async def _database_healthy(self) -> bool:
+        return await self.database_identity() is not None
 
     async def _handle_connection(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter

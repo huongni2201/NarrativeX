@@ -29,6 +29,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Slf4j
 @Service
@@ -158,13 +160,41 @@ public class GenerateChapterNarrationUseCase {
             UuidV7.random(), narrationRequest.id(), job.getId(), stageAttempt.getId()));
     generationOutboxRepository.enqueue(job);
     log.info(
-        "Created and enqueued narration job id={} (voiceId='{}', rate={}) for chapterId={}, projectId={}",
+        "Prepared narration job rowId={} jobId={} (voiceId='{}', rate={}) for chapterId={}, projectId={}",
         job.getId(),
+        job.getJobId(),
         command.voiceId(),
         command.speakingRate(),
         command.chapterId(),
         command.projectId());
+    registerCommittedLog(job, command);
     return job;
+  }
+
+  private void registerCommittedLog(
+      GenerationJob job, GenerateChapterNarrationCommand command) {
+    Runnable committedLog =
+        () ->
+            log.info(
+                "Committed narration job rowId={} jobId={} for chapterId={}, projectId={}",
+                job.getId(),
+                job.getJobId(),
+                command.chapterId(),
+                command.projectId());
+    if (TransactionSynchronizationManager.isSynchronizationActive()) {
+      TransactionSynchronizationManager.registerSynchronization(
+          new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+              committedLog.run();
+            }
+          });
+      return;
+    }
+    log.warn(
+        "Narration job commit observer unavailable rowId={} jobId={}",
+        job.getId(),
+        job.getJobId());
   }
 
   private static boolean canRetry(JobStatus status) {
@@ -182,7 +212,7 @@ public class GenerateChapterNarrationUseCase {
               return new VoiceCatalogAccess.VoiceCapabilities(
                   voiceId,
                   legacyVieNeu ? "VIENEU" : "UNKNOWN",
-                  !legacyVieNeu,
+                  true,
                   legacyVieNeu,
                   legacyVieNeu,
                   48000,

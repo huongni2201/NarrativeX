@@ -52,3 +52,27 @@ async def test_health_endpoint_rejects_unknown_path() -> None:
     response = await _http_probe(_ProbeServer(True), "/unknown")
 
     assert response.startswith(b"HTTP/1.1 404 Not Found")
+
+
+@pytest.mark.asyncio
+async def test_database_identity_reports_authoritative_database_and_schema(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Connection:
+        async def fetchrow(self, query: str) -> dict[str, str]:
+            assert "current_database" in query
+            return {"database_name": "narrativex", "schema_name": "public"}
+
+        async def close(self, timeout: float) -> None:
+            assert timeout == 3.0
+
+    async def connect(*args: object, **kwargs: object) -> _Connection:
+        assert args == ("postgresql://unused",)
+        assert kwargs["timeout"] == 3.0
+        return _Connection()
+
+    monkeypatch.setattr("narrativex_worker.health.asyncpg.connect", connect)
+
+    identity = await WorkerHealthServer("postgresql://unused", 0).database_identity()
+
+    assert identity == ("narrativex", "public")

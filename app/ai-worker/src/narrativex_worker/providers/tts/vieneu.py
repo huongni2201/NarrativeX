@@ -5,6 +5,7 @@ import logging
 import re
 import time
 import unicodedata
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
@@ -28,12 +29,20 @@ class VieneuTtsProvider:
     no external provider side effect that requires UNKNOWN reconciliation.
     """
 
-    def __init__(self, settings: WorkerSettings, *, client: Any | None = None) -> None:
+    def __init__(
+        self,
+        settings: WorkerSettings,
+        *,
+        client: Any | None = None,
+        time_stretcher: Callable[[SynthesizedSegment, float], Awaitable[SynthesizedSegment]]
+        | None = None,
+    ) -> None:
         self.settings = settings
         self.logger = logging.getLogger("narrativex.worker.narration.vieneu")
         self.voice_name = settings.vieneu_voice_name
         self.voice_catalog_id = settings.vieneu_voice_id
         self._inference_gate = asyncio.Semaphore(settings.vieneu_inference_concurrency)
+        self._time_stretcher = time_stretcher or self._time_stretch
 
         if client is None:
             try:
@@ -63,7 +72,9 @@ class VieneuTtsProvider:
     def capabilities(self) -> TtsProviderCapabilities:
         return TtsProviderCapabilities(
             supports_batch=True,
-            supports_speaking_rate=False,
+            # VieNeu v3 Turbo does not expose a native rate argument. The adapter
+            # applies a pitch-preserving FFmpeg atempo filter after inference.
+            supports_speaking_rate=True,
             supports_voice_reference=True,
             execution_semantics=TtsExecutionSemantics.LOCAL_RETRYABLE,
         )
@@ -118,9 +129,13 @@ class VieneuTtsProvider:
             len(requests),
             time.monotonic() - started_at,
         )
-        return [
+        synthesized = [
             self._waveform_to_segment(request, audio)
             for request, audio in zip(requests, audios, strict=True)
+        ]
+        return [
+            await self._time_stretcher(segment, request.speaking_rate)
+            for request, segment in zip(requests, synthesized, strict=True)
         ]
 
     async def enroll_reference_voice(self, request_id: str, reference_audio_path: Path) -> str:
@@ -240,6 +255,69 @@ class VieneuTtsProvider:
             f"VieNeu voice {requested_voice_id!r} is not available in the worker profile"
         )
 
+    @staticmethod
+    def _atempo_filters(speaking_rate: float) -> tuple[str, ...]:
+        if not 0.25 <= speaking_rate <= 2.0:
+            raise ValueError("speaking_rate must be between 0.25 and 2.0")
+
+        factors: list[float] = []
+        remaining = speaking_rate
+        while remaining < 0.5:
+            factors.append(0.5)
+            remaining /= 0.5
+        while remaining > 2.0:
+            factors.append(2.0)
+            remaining /= 2.0
+        if abs(remaining - 1.0) > 1e-6:
+            factors.append(remaining)
+        return tuple(f"atempo={factor:.12g}" for factor in factors)
+
+    async def _time_stretch(
+        self, synthesized: SynthesizedSegment, speaking_rate: float
+    ) -> SynthesizedSegment:
+        if abs(speaking_rate - 1.0) <= 1e-6:
+            return synthesized
+
+        process = await asyncio.create_subprocess_exec(
+            "ffmpeg",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-f",
+            "s16le",
+            "-ar",
+            str(synthesized.sample_rate_hz),
+            "-ac",
+            str(synthesized.channels),
+            "-i",
+            "pipe:0",
+            "-af",
+            ",".join(self._atempo_filters(speaking_rate)),
+            "-f",
+            "s16le",
+            "pipe:1",
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            output, stderr = await process.communicate(synthesized.pcm_bytes)
+        except asyncio.CancelledError:
+            process.kill()
+            await process.wait()
+            raise
+        if process.returncode != 0:
+            message = stderr.decode("utf-8", errors="replace")[:1000]
+            raise RuntimeError(f"FFmpeg speaking-rate adjustment failed: {message}")
+        if not output:
+            raise RuntimeError("FFmpeg speaking-rate adjustment returned empty audio")
+        return SynthesizedSegment(
+            segment=synthesized.segment,
+            pcm_bytes=output,
+            sample_rate_hz=synthesized.sample_rate_hz,
+            channels=synthesized.channels,
+        )
+
     def _validate_requests(self, requests: list[TtsRequest]) -> None:
         first = requests[0]
         if first.reference_audio_path is not None:
@@ -247,10 +325,7 @@ class VieneuTtsProvider:
                 "Reference audio must be enrolled once before VieNeu batch synthesis"
             )
         for request in requests:
-            if abs(request.speaking_rate - 1.0) > 1e-6:
-                raise TtsProviderRejectedError(
-                    "VieNeu-TTS v3 Turbo does not expose speaking_rate; use 1.0 for this provider"
-                )
+            self._atempo_filters(request.speaking_rate)
             if request.reference_audio_path is not None:
                 raise TtsProviderRejectedError(
                     "Reference audio must be enrolled once before VieNeu batch synthesis"

@@ -52,6 +52,9 @@ This directory records decisions that affect more than one feature or change a p
 17. **[ADR-0017: Source-owned Desktop renderer UI component stack](./ADR-0017-desktop-renderer-ui-component-stack.md)**
     Tailwind CSS, source-owned shadcn/ui-style components, Radix UI behavior and CVA-based variants for the Electron renderer.
 
+18. **[ADR-0018: Generation commit and worker build observability](./ADR-0018-generation-commit-and-worker-build-observability.md)**
+    Post-commit job logging, database identity readiness diagnostics, shared Compose configuration and immutable build identity.
+
 ## Supersession rules
 
 - ADR-0010 defines the primary client boundary and supersedes language that treats Next.js as the target editor.

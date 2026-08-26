@@ -18,7 +18,9 @@ public final class FlywayMigrationContract {
           "V1__create_tables.sql",
           "V2__init_indexes.sql",
           "V3__seed_data.sql",
-          "V4__desktop_guest_installations.sql");
+          "V4__desktop_guest_installations.sql",
+          "V5__production_beat_media_selections.sql",
+          "V6__enable_vieneu_speaking_rate.sql");
 
   private FlywayMigrationContract() {}
 

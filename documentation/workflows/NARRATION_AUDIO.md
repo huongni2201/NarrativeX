@@ -35,6 +35,7 @@ Ambiguous provider outcomes are reconciled before billable resubmission.
 persisted source
   -> sentence-aware segments
   -> VieNeu inference
+  -> pitch-preserving speaking-rate adjustment (0.25x–2.0x)
   -> concatenate/encode
   -> validate + SHA-256
   -> alignment
@@ -142,3 +143,15 @@ Metadata/job state        -> PostgreSQL
 ```
 
 ADR-0012 governs Desktop local-first project media. ADR-0003 governs retained cloud/server storage.
+
+## Operational diagnostics
+
+Narration job creation is logged in two phases: `Prepared narration job` is emitted
+inside the backend transaction, while `Committed narration job` is emitted only from
+the transaction's `afterCommit` callback. PostgreSQL remains authoritative for deciding
+whether the job, `NARRATION_TTS` stage attempt and narration operation exist.
+
+At startup, each worker verifies `current_database()` and `current_schema()` and logs
+the resolved database target, provider, roles and `BUILD_SHA` without credentials.
+Redis delivery hints are optional; a narration worker must still discover queued work
+through its PostgreSQL claim query when Redis is unavailable.

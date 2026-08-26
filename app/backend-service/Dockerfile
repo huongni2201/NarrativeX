@@ -19,6 +19,8 @@ RUN --mount=type=cache,target=/root/.m2 \
 FROM eclipse-temurin:25-jre-alpine AS runner
 WORKDIR /app
 
+ARG BUILD_SHA=unknown
+
 # Used by the container healthcheck against Spring Boot Actuator.
 RUN apk add --no-cache wget
 
@@ -30,6 +32,8 @@ USER appuser
 COPY --from=builder --chown=appuser:appgroup /workspace/target/*.jar app.jar
 
 ENV PORT=8080
+ENV BUILD_SHA=${BUILD_SHA}
+LABEL org.opencontainers.image.revision=${BUILD_SHA}
 EXPOSE 8080
 
 HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=10 \

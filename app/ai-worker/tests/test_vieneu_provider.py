@@ -7,8 +7,8 @@ import numpy as np
 import pytest
 
 from narrativex_worker.config import WorkerSettings
-from narrativex_worker.narration.models import NarrationSegment
-from narrativex_worker.narration.providers import TtsProviderRejectedError, TtsRequest
+from narrativex_worker.narration.models import NarrationSegment, SynthesizedSegment
+from narrativex_worker.narration.providers import TtsRequest
 from narrativex_worker.providers.tts.vieneu import VieneuTtsProvider
 
 
@@ -155,15 +155,84 @@ def test_vieneu_missing_configured_voice_fails_fast() -> None:
         VieneuTtsProvider(WorkerSettings(worker_env="test"), client=FakeVieneuClient())
 
 
-def test_vieneu_rejects_non_default_speaking_rate(tmp_path: Path) -> None:
+def test_vieneu_applies_non_default_speaking_rate(tmp_path: Path) -> None:
     reference = tmp_path / "ngoc_huyen_sample.wav"
     reference.write_bytes(b"test audio placeholder")
     client = FakeVieneuClient()
     settings = WorkerSettings(worker_env="test", vieneu_reference_audio_path=str(reference))
-    provider = VieneuTtsProvider(settings, client=client)
+    applied_rates: list[float] = []
 
-    with pytest.raises(TtsProviderRejectedError, match="speaking_rate"):
-        asyncio.run(provider.synthesize(_request(speaking_rate=1.1)))
+    async def stretch(segment: SynthesizedSegment, rate: float) -> SynthesizedSegment:
+        applied_rates.append(rate)
+        return SynthesizedSegment(
+            segment=segment.segment,
+            pcm_bytes=segment.pcm_bytes + b"\x00\x00",
+            sample_rate_hz=segment.sample_rate_hz,
+            channels=segment.channels,
+        )
+
+    provider = VieneuTtsProvider(settings, client=client, time_stretcher=stretch)
+
+    result = asyncio.run(provider.synthesize(_request(speaking_rate=1.1)))
+
+    assert provider.capabilities.supports_speaking_rate is True
+    assert applied_rates == [1.1]
+    assert result.pcm_bytes.endswith(b"\x00\x00")
+
+
+def test_vieneu_atempo_filter_chain_covers_supported_range() -> None:
+    assert VieneuTtsProvider._atempo_filters(0.25) == ("atempo=0.5", "atempo=0.5")
+    assert VieneuTtsProvider._atempo_filters(0.75) == ("atempo=0.75",)
+    assert VieneuTtsProvider._atempo_filters(2.0) == ("atempo=2",)
+
+    with pytest.raises(ValueError, match="between 0.25 and 2.0"):
+        VieneuTtsProvider._atempo_filters(2.1)
+
+
+def test_vieneu_time_stretch_uses_pitch_preserving_ffmpeg_filter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = FakeVieneuClient()
+    client.voices.add("Ngọc Huyền v2")
+    provider = VieneuTtsProvider(WorkerSettings(worker_env="test"), client=client)
+    segment = SynthesizedSegment(
+        segment=NarrationSegment(index=0, text_start=0, text_end=5, text="Xin chào"),
+        pcm_bytes=b"\x00\x00" * 16,
+        sample_rate_hz=48_000,
+        channels=1,
+    )
+    calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+
+    class FakeProcess:
+        returncode = 0
+
+        async def communicate(self, payload: bytes) -> tuple[bytes, bytes]:
+            del payload
+            return b"stretched", b""
+
+        async def wait(self) -> None:
+            return None
+
+        def kill(self) -> None:
+            return None
+
+    process = FakeProcess()
+
+    async def create_process(*args: object, **kwargs: object) -> FakeProcess:
+        calls.append((args, kwargs))
+        return process
+
+    monkeypatch.setattr(
+        "narrativex_worker.providers.tts.vieneu.asyncio.create_subprocess_exec", create_process
+    )
+
+    result = asyncio.run(provider._time_stretch(segment, 0.25))
+
+    args, kwargs = calls[0]
+    assert args[0:2] == ("ffmpeg", "-hide_banner")
+    assert args[args.index("-af") + 1] == "atempo=0.5,atempo=0.5"
+    assert kwargs["stdin"] is asyncio.subprocess.PIPE
+    assert result.pcm_bytes == b"stretched"
 
 
 def test_vieneu_reference_path_must_be_wav(tmp_path: Path) -> None:

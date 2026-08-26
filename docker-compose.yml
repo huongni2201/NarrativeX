@@ -1,5 +1,18 @@
 name: ${COMPOSE_PROJECT_NAME:-narrativex-prod}
 
+x-postgres-environment: &postgres-environment
+  DB_HOST: postgres
+  DB_PORT: 5432
+  DB_NAME: ${DB_NAME}
+  DB_USERNAME: ${DB_USERNAME}
+  DB_PASSWORD: ${DB_PASSWORD}
+
+x-worker-database-environment: &worker-database-environment
+  DATABASE_URL: postgresql://${DB_USERNAME}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
+
+x-build-args: &build-args
+  BUILD_SHA: ${BUILD_SHA:-local}
+
 services:
   postgres:
     image: postgres:18-alpine
@@ -30,16 +43,17 @@ services:
     networks: [appnet]
 
   backend:
-    build: { context: ./app/backend-service, dockerfile: Dockerfile }
+    image: ${BACKEND_IMAGE:-narrativex-backend}:${BUILD_SHA:-local}
+    build:
+      context: ./app/backend-service
+      dockerfile: Dockerfile
+      args: *build-args
     restart: unless-stopped
     environment:
+      <<: *postgres-environment
       SPRING_PROFILES_ACTIVE: prod
       PORT: 8080
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: ${DB_NAME}
-      DB_USERNAME: ${DB_USERNAME}
-      DB_PASSWORD: ${DB_PASSWORD}
+      BUILD_SHA: ${BUILD_SHA:-local}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       NARRATIVEX_SESSION_TIMEOUT: ${NARRATIVEX_SESSION_TIMEOUT}
@@ -84,15 +98,21 @@ services:
     networks: [appnet]
 
   ai-worker:
-    build: { context: ./app/ai-worker, dockerfile: Dockerfile, target: worker-image }
+    image: ${AI_WORKER_IMAGE:-narrativex-ai-worker}:${BUILD_SHA:-local}
+    build:
+      context: ./app/ai-worker
+      dockerfile: Dockerfile
+      target: worker-image
+      args: *build-args
     restart: unless-stopped
     environment:
+      <<: *worker-database-environment
       WORKER_NAME: narrativex-prod-ai
       WORKER_ENV: production
       WORKER_ROLES: analysis,translation,media-validation,image-generation
       LOG_LEVEL: ${WORKER_LOG_LEVEL}
       BACKEND_URL: http://backend:8080
-      DATABASE_URL: postgresql://${DB_USERNAME}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
+      BUILD_SHA: ${BUILD_SHA:-local}
       POLL_INTERVAL_SECONDS: ${WORKER_POLL_INTERVAL_SECONDS}
       LEASE_SECONDS: ${WORKER_LEASE_SECONDS}
       WORKER_CONCURRENCY: ${GENERAL_WORKER_CONCURRENCY}
@@ -145,15 +165,21 @@ services:
     networks: [appnet]
 
   narration-worker:
-    build: { context: ./app/ai-worker, dockerfile: Dockerfile, target: worker-narration }
+    image: ${NARRATION_WORKER_IMAGE:-narrativex-narration-worker}:${BUILD_SHA:-local}
+    build:
+      context: ./app/ai-worker
+      dockerfile: Dockerfile
+      target: worker-narration
+      args: *build-args
     restart: unless-stopped
     environment:
+      <<: *worker-database-environment
       WORKER_NAME: narrativex-prod-narration
       WORKER_ENV: production
       WORKER_ROLES: narration
       LOG_LEVEL: ${WORKER_LOG_LEVEL}
       BACKEND_URL: http://backend:8080
-      DATABASE_URL: postgresql://${DB_USERNAME}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
+      BUILD_SHA: ${BUILD_SHA:-local}
       POLL_INTERVAL_SECONDS: ${WORKER_POLL_INTERVAL_SECONDS}
       LEASE_SECONDS: ${WORKER_LEASE_SECONDS}
       WORKER_CONCURRENCY: ${NARRATION_WORKER_CONCURRENCY}
@@ -199,15 +225,21 @@ services:
     networks: [appnet]
 
   render-worker:
-    build: { context: ./app/ai-worker, dockerfile: Dockerfile, target: worker-render }
+    image: ${RENDER_WORKER_IMAGE:-narrativex-render-worker}:${BUILD_SHA:-local}
+    build:
+      context: ./app/ai-worker
+      dockerfile: Dockerfile
+      target: worker-render
+      args: *build-args
     restart: unless-stopped
     environment:
+      <<: *worker-database-environment
       WORKER_NAME: narrativex-prod-render
       WORKER_ENV: production
       WORKER_ROLES: render
       LOG_LEVEL: ${WORKER_LOG_LEVEL}
       BACKEND_URL: http://backend:8080
-      DATABASE_URL: postgresql://${DB_USERNAME}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
+      BUILD_SHA: ${BUILD_SHA:-local}
       POLL_INTERVAL_SECONDS: ${WORKER_POLL_INTERVAL_SECONDS}
       LEASE_SECONDS: ${WORKER_LEASE_SECONDS}
       WORKER_CONCURRENCY: ${RENDER_WORKER_CONCURRENCY}

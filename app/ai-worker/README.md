@@ -60,6 +60,7 @@ GCS batch staging is temporary provider infrastructure, not the NarrativeX produ
 ```text
 TTS
   -> Google TTS or VieNeu
+  -> VieNeu speaking-rate adjustment when requested (0.25x–2.0x)
   -> validate/normalize
   -> alignment
 
