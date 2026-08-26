@@ -21,9 +21,9 @@ Electron Desktop (only supported editor)
         |
         v
 Spring Boot Backend
-  -> PostgreSQL authoritative business/job/policy/lease metadata
+  -> PostgreSQL authoritative business/job/policy/lease/artifact metadata
   -> Redis server session/transient state
-  -> Python provider/cloud workers
+  -> Python AI/provider workers
 ```
 
 `app/frontend-web` is removed. Browser routes that remain belong to the backend OAuth flow, not a browser editor.
@@ -31,7 +31,7 @@ Spring Boot Backend
 ## Current Desktop implemented foundations
 
 - Electron + Electron Vite + React + TypeScript editor with a source-owned Tailwind/shadcn-style component structure.
-- Context-isolated BrowserWindow boundary with no Node integration and narrow preload/main IPC; Chromium renderer sandbox is currently disabled for startup compatibility.
+- Secure BrowserWindow boundary with context isolation, no Node integration and sandboxing.
 - Stable installation-scoped guest identity persisted through Electron secure storage plus backend `desktop_guest_installations`.
 - Guest-first session bootstrap that lets users create/edit free workspace state before account sign-in.
 - Google-only account sign-in through system browser + `narrativex://auth/callback` one-time handoff.
@@ -42,7 +42,7 @@ Spring Boot Backend
 - Image-generation and narration foundations with local materialization/registration for the implemented Desktop workflows.
 - Backend-authorized production timeline with editable beat media selection and persisted selection overrides.
 - Explicit local device identity/heartbeat plus backend-assigned local render claim and lease lifecycle.
-- FFmpeg/ffprobe local render pipeline, preflight, progress/failure/completion reporting and local artifact registration.
+- FFmpeg/ffprobe local render pipeline, preflight, progress/failure/completion reporting and local artifact metadata registration.
 - Atomic render journal discovery, segment cache, storage verification/cleanup and backup/restore/archive-copy foundations.
 - Typed timeline command history with undo/redo behavior.
 
@@ -74,35 +74,34 @@ Project narration/audio             -> local project workspace
 Imported project media              -> local project workspace
 Render intermediates/cache          -> local project workspace/work
 Final local MP4                     -> local project workspace/artifacts
-Business/job metadata               -> PostgreSQL
+Business/job/artifact metadata      -> PostgreSQL
 ```
 
 The local manifest maps stable IDs to project-relative paths and checksums. Absolute local paths are not durable backend identities.
 
-## Retained cloud/fallback contract
+## Generated-media transport contract
 
 ```text
-Cloud pipeline media         -> Cloudflare R2
-Cloud final rendered MP4     -> Google Drive
-Cloud worker local storage   -> ephemeral scratch
-Business/job metadata        -> PostgreSQL
+AI-generated image/narration bytes  -> Cloudflare R2 transport/durability
+Desktop materialized project bytes  -> local project workspace
+Final rendered MP4                  -> local project workspace/artifacts
+Worker scratch                      -> ephemeral local storage
+Business/job/artifact metadata      -> PostgreSQL
 ```
 
-ADR-0003 governs that retained server-worker path. ADR-0012 governs the Desktop local-first boundary. Do not apply cloud storage rules globally to Desktop project bytes.
+ADR-0003 governs remote generated-media transport. ADR-0012 governs the Desktop local-first boundary. Final render bytes are local-only; the backend coordinates state but does not store or proxy the MP4.
 
 ## Database baseline
 
-Current Flyway order is:
+Current Flyway baseline:
 
 ```text
 V1__create_tables.sql
 V2__init_indexes.sql
 V3__seed_data.sql
-V4__desktop_guest_installations.sql
-V5__production_beat_media_selections.sql
 ```
 
-V1-V3 are the frozen core baseline. V4+ are append-only feature migrations.
+V1-V3 are frozen. Desktop guest-installation, production beat-media-selection and local execution/render metadata structures are already consolidated into V1. The next schema change must be introduced as an append-only `V4__*.sql`.
 
 ## Primary remaining work
 

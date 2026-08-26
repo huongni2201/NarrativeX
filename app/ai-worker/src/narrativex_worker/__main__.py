@@ -34,8 +34,9 @@ def parse_args() -> argparse.Namespace:
 
 async def run_workers(settings: WorkerSettings, *, dry_run: bool) -> None:
     # Selected workers share one process-wide provider budget. Heavy providers are only
-    # instantiated when their role is hosted by this process, allowing narration/rendering to be
-    # deployed and scaled independently from provider-facing AI workers.
+    # instantiated when their role is hosted by this process, allowing narration to be
+    # deployed and scaled independently from provider-facing AI workers. Final video rendering
+    # belongs exclusively to the Electron desktop local-execution runtime.
     concurrency_gate = asyncio.Semaphore(settings.worker_concurrency)
     workers: dict[str, Any] = {}
 
@@ -73,18 +74,6 @@ async def run_workers(settings: WorkerSettings, *, dry_run: bool) -> None:
         )
         if image_worker.enabled:
             workers["image-generation"] = image_worker
-    if settings.has_worker_role("render"):
-        from narrativex_worker.project_rendering.worker import ProjectRenderWorkerRunner
-        from narrativex_worker.rendering.worker import RenderWorkerRunner
-
-        render_worker = RenderWorkerRunner(settings=settings, concurrency_gate=concurrency_gate)
-        if render_worker.enabled:
-            workers["render"] = render_worker
-        project_render_worker = ProjectRenderWorkerRunner(
-            settings=settings, concurrency_gate=concurrency_gate
-        )
-        if project_render_worker.enabled:
-            workers["project-render"] = project_render_worker
 
     if not workers:
         raise RuntimeError("No enabled workers remain after applying WORKER_ROLES/provider modes")
@@ -118,10 +107,7 @@ async def run_workers(settings: WorkerSettings, *, dry_run: bool) -> None:
     await health_server.start()
     tasks = {name: asyncio.create_task(worker.start()) for name, worker in workers.items()}
     try:
-        done, _ = await asyncio.wait(
-            tasks.values(),
-            return_when=asyncio.FIRST_COMPLETED,
-        )
+        done, _ = await asyncio.wait(tasks.values(), return_when=asyncio.FIRST_COMPLETED)
         for name, task in tasks.items():
             if task not in done:
                 continue

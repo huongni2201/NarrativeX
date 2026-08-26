@@ -92,7 +92,7 @@ Absolute local paths never become backend domain identity.
 
 ## Beat media selection
 
-Generated images are candidates, not automatically the only final production media. The production timeline may persist an explicit media selection for a VisualBeat. V5 `production_beat_media_selections` supports this durable choice.
+Generated images are candidates, not automatically the only final production media. The production timeline may persist an explicit media selection for a VisualBeat. The consolidated V1 `production_beat_media_selections` table supports this durable choice.
 
 A user may also replace a beat with imported media. Image-only camera/motion controls apply only when the selected media semantics support them.
 

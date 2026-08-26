@@ -30,25 +30,25 @@ def test_worker_dependencies_are_split_by_role() -> None:
         dependency.lower().startswith(("torch==", "torchaudio=="))
         for dependency in extras["narration"]
     )
-    assert any(dependency.lower().startswith("ffmpeg-python==") for dependency in extras["render"])
+    assert "render" not in extras
 
 
-def test_dockerfile_has_role_targets_with_healthcheck_inherited_by_each_target() -> None:
+def test_dockerfile_has_only_active_role_targets() -> None:
     dockerfile = DOCKERFILE.read_text(encoding="utf-8")
 
     assert "FROM base AS worker-core" in dockerfile
     assert "FROM media-base AS worker-image" in dockerfile
     assert "FROM media-base AS worker-narration" in dockerfile
-    assert "FROM media-base AS worker-render" in dockerfile
+    assert "worker-render" not in dockerfile
     assert dockerfile.count("HEALTHCHECK") == 1
     assert 'pip install ".[image]"' in dockerfile
     assert 'pip install ".[narration]"' in dockerfile
-    assert 'pip install ".[render]"' in dockerfile
+    assert 'pip install ".[render]"' not in dockerfile
 
 
-def test_compose_selects_the_role_appropriate_targets() -> None:
+def test_compose_selects_only_active_worker_targets() -> None:
     compose = COMPOSE.read_text(encoding="utf-8")
 
-    assert "context: ./app/ai-worker, dockerfile: Dockerfile, target: worker-image" in compose
-    assert "context: ./app/ai-worker, dockerfile: Dockerfile, target: worker-narration" in compose
-    assert "context: ./app/ai-worker, dockerfile: Dockerfile, target: worker-render" in compose
+    assert "target: worker-image" in compose
+    assert "target: worker-narration" in compose
+    assert "worker-render" not in compose

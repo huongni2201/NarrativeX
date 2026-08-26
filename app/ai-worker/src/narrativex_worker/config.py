@@ -6,14 +6,7 @@ are never copied into durable job payloads.
 
 from typing import Literal
 
-from pydantic import (
-    AliasChoices,
-    Field,
-    SecretStr,
-    computed_field,
-    field_validator,
-    model_validator,
-)
+from pydantic import AliasChoices, Field, SecretStr, computed_field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 WORKER_ROLE_NAMES = {
@@ -22,7 +15,6 @@ WORKER_ROLE_NAMES = {
     "narration",
     "media-validation",
     "image-generation",
-    "render",
 }
 
 
@@ -125,7 +117,7 @@ class WorkerSettings(BaseSettings):
     media_storage_mode: Literal["disabled", "local", "r2"] = Field(
         default="disabled",
         validation_alias=AliasChoices("MEDIA_STORAGE_MODE"),
-        description="Durable media storage mode; Cloudflare R2 is the only object-store runtime",
+        description="Durable generated-media storage mode; Cloudflare R2 is the object-store runtime",
     )
     r2_account_id: str | None = Field(
         default=None,
@@ -156,14 +148,6 @@ class WorkerSettings(BaseSettings):
     media_local_dir: str = Field(
         default="/tmp/narrativex-e2e/media",
         validation_alias=AliasChoices("MEDIA_LOCAL_DIR"),
-    )
-    final_video_storage_mode: Literal["local", "google-drive"] = Field(
-        default="google-drive",
-        validation_alias=AliasChoices("FINAL_VIDEO_STORAGE_MODE"),
-    )
-    final_video_local_dir: str = Field(
-        default="/tmp/narrativex-e2e/final",
-        validation_alias=AliasChoices("FINAL_VIDEO_LOCAL_DIR"),
     )
 
     wan_video_enabled: bool = False
@@ -216,10 +200,7 @@ class WorkerSettings(BaseSettings):
                     "or Vertex batch inference for the 50% discounted rate"
                 )
         if self.image_provider_mode == "vertex":
-            if (
-                not self.vertex_image_batch_gcs_bucket
-                or not self.vertex_image_batch_gcs_bucket.strip()
-            ):
+            if not self.vertex_image_batch_gcs_bucket or not self.vertex_image_batch_gcs_bucket.strip():
                 raise ValueError(
                     "VERTEX_IMAGE_BATCH_GCS_BUCKET is required when IMAGE_PROVIDER_MODE=vertex"
                 )
@@ -236,15 +217,9 @@ class WorkerSettings(BaseSettings):
             missing: list[str] = []
             if not self.resolved_r2_endpoint:
                 missing.append("R2_ACCOUNT_ID or R2_ENDPOINT")
-            if (
-                self.r2_access_key_id is None
-                or not self.r2_access_key_id.get_secret_value().strip()
-            ):
+            if self.r2_access_key_id is None or not self.r2_access_key_id.get_secret_value().strip():
                 missing.append("R2_ACCESS_KEY_ID")
-            if (
-                self.r2_secret_access_key is None
-                or not self.r2_secret_access_key.get_secret_value().strip()
-            ):
+            if self.r2_secret_access_key is None or not self.r2_secret_access_key.get_secret_value().strip():
                 missing.append("R2_SECRET_ACCESS_KEY")
             if not self.r2_bucket.strip():
                 missing.append("R2_BUCKET")
@@ -264,13 +239,9 @@ class WorkerSettings(BaseSettings):
         if self.has_worker_role("narration") and self.tts_provider_mode != "vieneu":
             errors.append("TTS_PROVIDER_MODE=vieneu is required for production narration")
         if (
-            self.has_worker_role("image-generation")
-            or self.has_worker_role("narration")
-            or self.has_worker_role("render")
+            self.has_worker_role("image-generation") or self.has_worker_role("narration")
         ) and self.media_storage_mode != "r2":
             errors.append("MEDIA_STORAGE_MODE=r2 is required for production media workers")
-        if self.has_worker_role("render") and self.final_video_storage_mode != "google-drive":
-            errors.append("FINAL_VIDEO_STORAGE_MODE=google-drive is required for production render")
         if errors:
             raise ValueError("Invalid production worker configuration: " + "; ".join(errors))
 

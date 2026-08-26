@@ -16,19 +16,6 @@ For an accepted user-provided-audio scope, operation planning omits TTS work/res
 
 Generated narration starts from a persisted source identity and is validated/aligned before downstream use.
 
-### Google TTS
-
-```text
-persisted source snapshot
-  -> deterministic NarrationRequest
-  -> provider operation / reconciliation
-  -> validated audio
-  -> alignment
-  -> Desktop materialization for local use
-```
-
-Ambiguous provider outcomes are reconciled before billable resubmission.
-
 ### VieNeu
 
 ```text
@@ -39,6 +26,7 @@ persisted source
   -> concatenate/encode
   -> validate + SHA-256
   -> alignment
+  -> remote generated-media transport when required
   -> Desktop materialization for local use
 ```
 
@@ -46,9 +34,9 @@ Local/self-hosted inference may have no external provider charge while still con
 
 ## Desktop generated-audio workflow
 
-Current Desktop foundations include voice selection/preview, single/batch TTS requests, progress/error handling and local materialization of accepted narration results used by the project.
+Current Desktop foundations include voice selection/preview, single/batch narration requests, progress/error handling and local materialization of accepted narration results used by the project.
 
-Generated/project narration bytes used by local rendering live under the project workspace and are referenced through stable backend identity plus manifest integrity metadata. Absolute paths remain inside Electron main.
+Generated/project narration bytes used by final rendering live under the project workspace and are referenced through stable backend identity plus manifest integrity metadata. Absolute paths remain inside Electron main.
 
 ## User-provided audio import
 
@@ -63,7 +51,7 @@ Electron native picker
   -> narration/alignment metadata
 ```
 
-Do not upload project audio to R2 solely so local FFmpeg can consume it. Remote materialization is a separate deliberate requirement for shared/cloud workflows.
+Do not upload project audio to R2 solely so local FFmpeg can consume it. R2 is only for generated-media transport when remote provider/worker execution requires it.
 
 ## Logical audio clock
 
@@ -93,9 +81,10 @@ local narration input
   -> mux
   -> ffprobe/checksum
   -> local final artifact
+  -> backend final-artifact metadata
 ```
 
-Render execution remains backend-assigned and lease-controlled.
+Render execution remains backend-assigned and lease-controlled. Final MP4 playback/export reads the local artifact directly.
 
 ## Multi-part user audio — remaining hardening
 
@@ -122,27 +111,18 @@ For a `USER_PROVIDED_AUDIO` covered scope:
 - no TTS provider operation/reservation for that narration scope;
 - validation/alignment/image/render work may still be accounted separately.
 
-## Storage by execution mode
-
-### Desktop primary
+## Storage contract
 
 ```text
-Generated narration       -> local project assets/audio
-Accepted imported audio   -> local project assets/audio
-Generated/imported media  -> local project assets
-Final local MP4           -> local project artifacts
-Metadata/job state        -> PostgreSQL
+AI-generated narration transport -> R2 only while remote durability is needed
+Generated narration              -> local project assets/audio after materialization
+Accepted imported audio          -> local project assets/audio
+Generated/imported media         -> local project assets
+Final MP4                        -> local project artifacts
+Metadata/job/artifact state      -> PostgreSQL
 ```
 
-### Retained server/cloud path
-
-```text
-Cloud narration/media     -> R2 where remote durability is required
-Cloud final MP4           -> Google Drive
-Metadata/job state        -> PostgreSQL
-```
-
-ADR-0012 governs Desktop local-first project media. ADR-0003 governs retained cloud/server storage.
+ADR-0012 governs Desktop local-first project media. ADR-0003 governs generated-media remote transport.
 
 ## Operational diagnostics
 

@@ -6,7 +6,7 @@ NarrativeX is a desktop-first, image-first AI Story Video Studio. It turns flexi
 
 - `app/desktop`: only Electron + React + TypeScript editor; guest bootstrap, local project storage/catalog, native capabilities and local FFmpeg execution through Electron main.
 - `app/backend-service`: Spring Boot modular monolith; authoritative auth/ownership, domain metadata, policy, job admission, durable orchestration and Flyway schema ownership.
-- `app/ai-worker`: Python AI/media worker; provider adapters and retained server execution paths for analysis, image generation, narration/alignment and fallback rendering/storage.
+- `app/ai-worker`: Python AI/media worker; provider adapters and asynchronous execution for analysis, translation, image generation, narration and generated-media validation.
 - `packages/client-contracts`: shared Desktop-facing backend contracts.
 - `contracts`: backend ↔ worker payload contracts.
 - `documentation`: source of truth, product/domain/architecture/workflows, ADRs and current-state implementation maps.
@@ -17,7 +17,7 @@ Current documentation checkpoint: `main` at `0aca94e6eef07158e161cd67c648671e740
 
 ```text
 PostgreSQL
-  -> authoritative durable auth/ownership/domain/job/policy metadata
+  -> authoritative durable auth/ownership/domain/job/policy/artifact metadata
 
 Electron main
   -> guest installation credential
@@ -25,7 +25,7 @@ Electron main
   -> local project bytes / project.manifest.json
   -> native filesystem/dialogs
   -> local device credentials/execution
-  -> FFmpeg/ffprobe, render journal/cache, backup/restore
+  -> FFmpeg/ffprobe, render journal/cache, final MP4, backup/restore
 
 Electron renderer
   -> UI/routing/query/editor draft state only
@@ -72,7 +72,7 @@ Metadata / ownership / job state    -> PostgreSQL
 
 `project.manifest.json` maps stable backend IDs to project-relative paths, sizes and SHA-256. Absolute filesystem paths must never be persisted as backend identities.
 
-Cloudflare R2 + Google Drive remain valid for retained server-worker/fallback paths where remote durability is required. Do not describe that topology as mandatory Desktop storage.
+Cloudflare R2 is limited to generated AI-media transport/durability before Desktop materialization. Final render bytes remain local and are never uploaded to or streamed through the backend.
 
 ## Implemented Desktop foundations
 
@@ -87,7 +87,7 @@ Cloudflare R2 + Google Drive remain valid for retained server-worker/fallback pa
 - production timeline with narration-aligned timing and explicit beat media selection;
 - duration/camera draft command history with undo/redo;
 - device identity/heartbeat and backend-assigned local render claim;
-- local render preflight, FFmpeg/ffprobe execution, progress/failure/completion and artifact registration;
+- local render preflight, FFmpeg/ffprobe execution, progress/failure/completion and artifact metadata registration;
 - atomic render journals, unfinished-work discovery and immutable segment cache;
 - storage accounting/verification/cleanup and backup/restore/archive-copy foundations.
 
@@ -97,28 +97,26 @@ Do not describe these implemented foundations as future migration work.
 
 Production backend application persistence is MyBatis + explicit PostgreSQL SQL. JPA and direct `JdbcTemplate` persistence are not production application persistence paths.
 
-Current Flyway order:
+Current Flyway baseline:
 
 ```text
 V1__create_tables.sql
 V2__init_indexes.sql
 V3__seed_data.sql
-V4__desktop_guest_installations.sql
-V5__production_beat_media_selections.sql
 ```
 
-V1-V3 are frozen. V4+ are append-only feature migrations.
+V1-V3 are the frozen consolidated baseline. `desktop_guest_installations`, `production_beat_media_selections` and the current local-execution/render metadata structures are already part of V1. The next schema change must be an append-only `V4__*.sql` rather than a rewrite of V1-V3.
 
 ## Rendering rules
 
 - narration timing is the master clock;
-- FFmpeg/ffprobe execution belongs to Electron main for `LOCAL_DEVICE` renders;
-- local render inputs resolve stable asset IDs/checksums through the project manifest;
+- FFmpeg/ffprobe final render execution belongs to Electron main;
+- render inputs resolve stable asset IDs/checksums through the project manifest;
 - Desktop preflight validates runtime, executor, disk and local asset integrity before submission/execution;
-- local render is backend-assigned and lease-controlled;
+- final render is backend-assigned and lease-controlled but executed locally;
 - render journals/cache are local execution aids, not a second durable business-state database;
 - lease loss prevents successful finalization;
-- retained cloud rendering/storage is fallback, not the Desktop default.
+- final MP4 playback/export reads the local artifact directly; backend stores only durable metadata/state.
 
 ## Product/editor rules
 

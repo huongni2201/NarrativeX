@@ -27,7 +27,6 @@ Status vocabulary:
 - **PARTIAL** — required pieces remain missing.
 - **TARGET** — approved next direction.
 - **DEFERRED** — intentionally postponed.
-- **LEGACY/FALLBACK** — retained only for compatibility/server execution and must not define new Desktop architecture.
 
 Roadmap intent must never be presented as implemented behavior.
 
@@ -47,7 +46,7 @@ The product is:
 - **review-first** — generated/reviewed state is versioned rather than silently overwritten;
 - **audio-timeline-first** — narration timing is authoritative for visual duration;
 - **image-first but media-flexible** — image motion is the low-cost default, but a beat may use imported/generated video;
-- **local-media-first for Desktop** — project media and final local renders stay on the user's machine;
+- **local-media-first** — project media and final renders stay on the user's machine after required generated media is materialized;
 - **backend-authorized** — Spring/PostgreSQL remain authoritative for ownership, policy, job admission, production choices, assignment and durable execution state.
 
 Creating a Project persists metadata. Saving a Chapter persists source. Analyze, narration/audio processing, image generation and rendering are explicit operations.
@@ -90,24 +89,21 @@ The backend creates/version-controls authorized MediaPlan/production policy and 
 
 ### 3.5 PostgreSQL remains durable control-plane authority
 
-PostgreSQL owns durable auth/ownership/project/domain/job/lease/policy/lineage metadata. Redis may hold server sessions and transient hints but is never the only record of generation correctness.
+PostgreSQL owns durable auth/ownership/project/domain/job/lease/policy/lineage/artifact metadata. Redis may hold server sessions and transient hints but is never the only record of generation correctness.
 
 ### 3.6 Persistence is MyBatis + explicit SQL
 
 Production backend persistence uses application/domain ports backed by MyBatis rows/mappers/XML and explicit PostgreSQL SQL. Do not reintroduce JPA or parallel direct-`JdbcTemplate` production persistence without an ADR.
 
-### 3.7 Renderer is isolated UI
+### 3.7 Renderer is sandboxed UI
 
 ```text
 contextIsolation = true
 nodeIntegration  = false
-sandbox          = false
+sandbox          = true
 ```
 
-The Chromium renderer sandbox is currently disabled for Desktop startup compatibility. Electron
-renderer still owns UI/routing/query/editor state only; native filesystem/process/credential/deep-link/
-local-render capabilities live in Electron main behind narrow preload APIs, with context isolation
-and no Node integration preserved.
+Electron renderer owns UI/routing/query/editor state only. Native filesystem/process/credential/deep-link/local-render capabilities live in Electron main behind narrow preload APIs.
 
 ### 3.8 Absolute Desktop paths are never backend identities
 
@@ -117,9 +113,13 @@ Backend contracts identify local media using stable asset/job IDs, checksums and
 
 Guest/user role enforcement belongs to backend security. Renderer state may improve UX but cannot be the only authorization gate.
 
-### 3.10 Lease ownership gates local finalization
+### 3.10 Lease ownership gates finalization
 
-A `LOCAL_DEVICE` render can finalize only under its current authorized device/lease. Lease loss prevents successful completion.
+A Desktop render can finalize only under its current authorized device/lease. Lease loss prevents successful completion.
+
+### 3.11 Final video bytes are local-only
+
+Final project rendering executes in Electron main. The final MP4 lives in the local project artifact workspace. The backend records render/final-artifact metadata but does not store, download, preview-proxy or stream final video bytes.
 
 ---
 
@@ -149,14 +149,14 @@ A `LOCAL_DEVICE` render can finalize only under its current authorized device/le
               Spring Boot Backend
               -> PostgreSQL authoritative state
               -> Redis sessions/transient hints
-              -> Python provider/server workers
+              -> Python AI/provider workers
 
 Electron main
   -> <userData>/projects/<projectId>/ local project bytes
 
-Retained server/cloud path
-  -> R2 pipeline media when remote durability is needed
-  -> Google Drive final MP4 for retained cloud rendering
+Generated-media transport
+  -> R2 when remote durability is required by AI/provider execution
+  -> Desktop materialization before local project editing/final rendering
 ```
 
 ---
@@ -224,7 +224,8 @@ Do not conflate them.
 - protected local-device identity;
 - local execution heartbeat/claim/progress/completion/failure;
 - FFmpeg/ffprobe process execution;
-- render journal/cache and local artifact operations.
+- render journal/cache and local artifact operations;
+- final MP4 open/reveal/playback/export capabilities.
 
 ### Preload owns
 
@@ -260,15 +261,16 @@ Primary project bytes live under Electron `userData`:
 
 `project.manifest.json` is a local integrity/location index, not a domain database. Entries use stable IDs, project-relative paths, byte sizes and SHA-256.
 
-Primary Desktop contract:
+Primary contract:
 
 ```text
-Generated/imported project images   -> local project workspace
-Project narration/audio             -> local project workspace
-Imported project media              -> local project workspace
-Render intermediates/cache          -> local project workspace/work
-Final local MP4                     -> local project workspace/artifacts
-Durable business/job metadata       -> PostgreSQL
+AI-generated image/narration transport -> R2 only when remote durability is needed
+Generated/imported project images      -> local project workspace
+Project narration/audio                -> local project workspace
+Imported project media                 -> local project workspace
+Render intermediates/cache             -> local project workspace/work
+Final MP4                              -> local project workspace/artifacts
+Durable business/job/artifact metadata -> PostgreSQL
 ```
 
 Current foundations also include storage accounting/verification/cleanup and manifest-verified backup/restore/archive-copy behavior.
@@ -288,7 +290,7 @@ native selection
   -> manifest stores relative path + integrity
 ```
 
-Implemented image-generation/narration workflows materialize required results into Desktop local storage for the current creator flow. Retained cloud-backed source assets remain valid where a server/provider workflow still needs remote durability.
+Implemented image-generation/narration workflows materialize required results into Desktop local storage for the current creator flow. R2 may retain generated provider outputs while remote execution/reconciliation requires durable transport, but those remote locations do not become final project-video storage.
 
 ---
 
@@ -305,7 +307,7 @@ Project
            -> timing / supported visual controls
 ```
 
-Narration-aligned timing is authoritative. Explicit beat media selections are durable backend production state through `production_beat_media_selections` (V5).
+Narration-aligned timing is authoritative. Explicit beat media selections are durable backend production state through the consolidated V1 `production_beat_media_selections` table.
 
 Renderer-local duration/camera drafts may use undo/redo/reset, but render submission must resolve to backend-authorized stable identities and immutable input state.
 
@@ -313,10 +315,10 @@ Image-only camera/motion controls must not be forced onto video beats.
 
 ---
 
-## 10. Local render execution
+## 10. Final render execution
 
 ```text
-backend admits + assigns LOCAL_DEVICE render
+backend admits + assigns local render
   -> authorized device claims lease
   -> Desktop preflight validates runtime/disk/assets
   -> resolve input IDs/checksums through manifest
@@ -326,32 +328,21 @@ backend admits + assigns LOCAL_DEVICE render
   -> concat video/narration
   -> mux
   -> ffprobe + checksum final MP4
-  -> register local artifact
+  -> write artifacts/<jobId>/final.mp4
+  -> register final-artifact metadata
   -> report progress/completion under current lease
+  -> Desktop previews/exports local MP4 directly
 ```
 
 Implemented foundations include lease heartbeat, progress/failure/completion, in-process cancellation, journal discovery and immutable segment caching.
 
 Abrupt process/OS failure recovery across every stage and its user-facing resume/retry UX remains **PARTIAL** hardening work.
 
----
-
-## 11. Retained server/cloud execution
-
-ADR-0003 continues to govern retained worker/cloud paths:
-
-```text
-Cloud pipeline media      -> Cloudflare R2
-Cloud final MP4           -> Google Drive
-Worker scratch            -> ephemeral filesystem
-Durable metadata/state    -> PostgreSQL
-```
-
-This is **LEGACY/FALLBACK** for Desktop project storage. New Desktop features must not depend on it without a real remote/shared durability requirement.
+There is no server-side final render executor or final-video byte-storage path in the current architecture.
 
 ---
 
-## 12. Durable generation/provider contract
+## 11. Durable generation/provider contract
 
 ```text
 Source/reviewed state
@@ -359,28 +350,29 @@ Source/reviewed state
   -> GenerationJob / StageAttempt
   -> ProviderOperation when crossing external paid boundary
   -> validated immutable result
-  -> local/cloud materialization according to execution mode
+  -> remote generated-media transport where required
+  -> Desktop materialization for project use
 ```
 
 External provider ambiguity preserves `UNKNOWN` and reconciles before paid resubmission. Long provider/network calls must not hold long business transactions open.
 
 ---
 
-## 13. Current database baseline
+## 12. Current database baseline
 
 ```text
 V1__create_tables.sql
 V2__init_indexes.sql
 V3__seed_data.sql
-V4__desktop_guest_installations.sql
-V5__production_beat_media_selections.sql
 ```
 
-V1-V3 are frozen core migrations. V4+ are append-only feature migrations. Current schema evolution must not rewrite already-published Flyway history.
+V1-V3 are the frozen consolidated baseline and are the only current Flyway files. Desktop guest-installation, production beat-media-selection and local execution/render metadata structures are already folded into V1. Future schema evolution starts with a new append-only `V4__*.sql`; current schema evolution must not rewrite already-published Flyway history.
+
+Historical schema columns/defaults that no longer have an active executor do not by themselves define current runtime behavior; current code and additive migrations remain authoritative.
 
 ---
 
-## 14. Current implementation baseline
+## 13. Current implementation baseline
 
 | Capability | State |
 |---|---|
@@ -399,6 +391,7 @@ V1-V3 are frozen core migrations. V4+ are append-only feature migrations. Curren
 | Narration strategy + user-audio TTS bypass | IMPLEMENTED foundation |
 | Generated narration + local import | IMPLEMENTED foundation |
 | Vertex image generation + Desktop materialization | IMPLEMENTED foundation |
+| R2 generated-media transport | IMPLEMENTED foundation |
 | Native local asset registration | IMPLEMENTED foundation |
 | Production timeline narration alignment | IMPLEMENTED foundation |
 | Persisted beat media selection | IMPLEMENTED foundation |
@@ -409,7 +402,8 @@ V1-V3 are frozen core migrations. V4+ are append-only feature migrations. Curren
 | Backend-assigned local render | IMPLEMENTED foundation |
 | FFmpeg/ffprobe local render | IMPLEMENTED foundation |
 | Render preflight/journal/cache | IMPLEMENTED foundation |
-| Retained R2/Drive cloud path | LEGACY/FALLBACK for Desktop |
+| FinalArtifact metadata-only backend boundary | IMPLEMENTED |
+| Direct local final playback/export | IMPLEMENTED foundation |
 | Production packaging/signing/auto-update | TARGET |
 | Full abrupt-process render recovery UX | PARTIAL |
 | Adaptive narration-driven VisualScenePlanner | TARGET |
@@ -418,7 +412,7 @@ V1-V3 are frozen core migrations. V4+ are append-only feature migrations. Curren
 
 ---
 
-## 15. Visual planning and continuity direction
+## 14. Visual planning and continuity direction
 
 Avoid fixed image counts and fixed per-image duration. The target planner uses:
 
@@ -442,20 +436,21 @@ REUSE_APPROVED
 
 ---
 
-## 16. Security and secrets
+## 15. Security and secrets
 
 - Google tokens never enter Electron.
 - Guest plaintext secret never enters renderer logs/storage and backend stores only its hash.
 - Device credentials are separate revocable machine credentials.
 - Renderer receives no unrestricted filesystem/process APIs.
-- Provider/R2/Drive credentials remain server/worker secrets.
+- Provider/R2 credentials remain server/worker secrets.
 - Uploaded/provider media is untrusted until validated.
 - Absolute Desktop paths never become durable backend identity.
 - Guest/account production gates are enforced by backend authorization.
+- Final local artifact paths are resolved only inside Electron main and are not exposed as backend storage locations.
 
 ---
 
-## 17. Active remaining work
+## 16. Active remaining work
 
 Active work belongs in `../product/ROADMAP.md`, currently centered on:
 
@@ -471,7 +466,7 @@ Completed Desktop/backend/persistence migration plans are retired. Use ADRs and 
 
 ---
 
-## 18. Definition of V1.11 consistency
+## 17. Definition of V1.11 consistency
 
 Documentation and implementation are consistent when:
 
@@ -483,8 +478,30 @@ Documentation and implementation are consistent when:
 - narration drives production timing;
 - Chapter → Scene → VisualBeat hierarchy is preserved;
 - image/video beat media choices are explicit;
-- local renders are backend-assigned/lease-controlled and validate inputs/artifacts;
+- final renders are backend-assigned/lease-controlled, execute in Electron main and validate inputs/artifacts;
+- final MP4 bytes remain local and backend FinalArtifact state is metadata-only;
 - MyBatis + Flyway/PostgreSQL remain the production persistence/schema path;
-- cloud R2/Drive storage is described only as retained server/fallback behavior;
+- R2 is described only as generated-media transport/durability before local materialization;
 - current implementation foundations are not mislabeled as future migration work;
 - unfinished features remain clearly marked PARTIAL/TARGET/DEFERRED.
+
+---
+
+## 18. Current creator-loop summary
+
+```text
+Create/open Project
+  -> persist/edit Chapter source
+  -> Analyze
+  -> review Scene/VisualBeat structure
+  -> generate/import narration and visuals
+  -> materialize required media locally
+  -> edit production timeline
+  -> backend authorizes and leases final render
+  -> Electron main renders with FFmpeg/ffprobe
+  -> final MP4 remains in local project artifacts
+  -> backend records final-artifact metadata
+  -> Desktop previews/exports locally
+```
+
+That local-first creator loop is the architectural baseline for all new NarrativeX work.

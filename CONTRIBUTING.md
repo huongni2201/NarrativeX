@@ -65,8 +65,10 @@ The hook invokes `scripts/verify-local.ps1`; application code never changes Git 
 
 - Keep Node.js/process/filesystem access out of the renderer.
 - Extend the preload bridge only with narrow, typed capabilities.
-- Electron main owns native filesystem access, system-browser/deep-link handling, backend session transport, device credentials and FFmpeg execution.
-- Desktop project media is local-first. Backend contracts use stable asset IDs/checksums and opaque project-relative artifact keys, never absolute local paths.
+- Electron main owns native filesystem access, system-browser/deep-link handling, backend session transport, device credentials and final FFmpeg execution.
+- Desktop project media and final MP4 artifacts are local-first. Backend contracts use stable asset IDs/checksums and opaque project-relative artifact keys, never absolute local paths.
+- AI-generated images/narration may use R2 while remote provider/worker execution requires durable transport, then must be materialized for local project use.
+- Backend FinalArtifact persistence is metadata-only; final video bytes are not stored or proxied by backend/worker services.
 - Google OAuth is the only user-facing login flow. Do not reintroduce password login/register/forgot-password UI or runtime routes.
 - Device tokens are local-execution credentials and must not be confused with user OAuth/session credentials.
 
@@ -79,7 +81,7 @@ is:
 docker compose up -d
 ```
 
-It starts PostgreSQL, Redis, the backend and retained workers without a tunnel
+It starts PostgreSQL, Redis, the backend and retained AI/narration workers without a tunnel
 token. A self-hosted deployment using Cloudflare Tunnel must explicitly enable
 the profile:
 
@@ -98,16 +100,16 @@ configure the registry image prefixes in `.env.prod`. Then pull and recreate the
 tagged services without rebuilding from an unknown checkout:
 
 ```powershell
-docker compose pull backend ai-worker narration-worker render-worker
-docker compose up -d --no-build backend ai-worker narration-worker render-worker
+docker compose pull backend ai-worker narration-worker
+docker compose up -d --no-build backend ai-worker narration-worker
 ```
 
 When the deployment builds locally instead of pulling a registry image, pass the same
 revision while building:
 
 ```powershell
-docker compose build --build-arg BUILD_SHA=$env:BUILD_SHA backend ai-worker narration-worker render-worker
-docker compose up -d --no-build backend ai-worker narration-worker render-worker
+docker compose build --build-arg BUILD_SHA=$env:BUILD_SHA backend ai-worker narration-worker
+docker compose up -d --no-build backend ai-worker narration-worker
 ```
 
 After rollout, `docker compose logs narration-worker` should contain `Worker database
@@ -115,9 +117,9 @@ ready` with the expected `dbName`, `dbSchema`, `provider` and `buildSha` values.
 
 ## Documentation changes
 
-Update the smallest relevant document, but update an ADR when a change crosses a client, storage, authentication or execution boundary. Keep `IMPLEMENTED`, `PARTIAL`, `TARGET`, `DEFERRED` and fallback behavior distinct.
+Update the smallest relevant document, but update an ADR when a change crosses a client, storage, authentication or execution boundary. Keep `IMPLEMENTED`, `PARTIAL`, `TARGET` and `DEFERRED` distinct.
 
-For Desktop media/render behavior, ADR-0012 overrides the older cloud storage assumptions in ADR-0003. R2/Google Drive remain valid for retained server-worker execution where that path still exists; they are not the Desktop project-media boundary.
+For media/render behavior, ADR-0012 defines Desktop-local project/final bytes while ADR-0003 defines only remote generated-media transport. New server-side final-render or final-video storage paths require a new ADR.
 
 ## Pull request checklist
 

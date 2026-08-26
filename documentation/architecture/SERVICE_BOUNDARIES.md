@@ -1,6 +1,6 @@
 # NarrativeX Service and Module Boundaries — V1.11
 
-NarrativeX uses one Spring Boot modular monolith, separately executed Python worker roles and one Electron Desktop editor with a strict native/UI boundary. Feature boundaries are ownership boundaries, not microservices.
+NarrativeX uses one Spring Boot modular monolith, separately executed Python AI worker roles and one Electron Desktop editor with a strict native/UI boundary. Feature boundaries are ownership boundaries, not microservices.
 
 ## Desktop boundary
 
@@ -32,7 +32,7 @@ Owns machine/native capabilities:
 - backup/restore/archive-copy, storage verification and cleanup;
 - protected local device identity;
 - heartbeat/render claim/lease/progress/completion/failure;
-- FFmpeg/ffprobe, render journal/cache and artifact open/reveal.
+- FFmpeg/ffprobe, render journal/cache and final-artifact open/reveal/export.
 
 ## Backend feature ownership
 
@@ -42,15 +42,15 @@ Owns machine/native capabilities:
 | project | Project/StoryVersion ownership and lifecycle |
 | storyboard | Chapter, Scene, VisualBeat, source/review semantics |
 | character | Character/ProjectCharacter/CharacterVersion/Appearance continuity and reference state |
-| assets | stable MediaAsset identity, checksums, local/cloud materialization metadata and registration rules |
+| assets | stable MediaAsset identity, checksums, local/remote generated-media materialization metadata and registration rules |
 | generation | OperationPlan/MediaPlan, GenerationJob, StageAttempt, ProviderOperation, media planning/generation and durable orchestration |
 | production timeline | production read aggregation, aligned beat timing and explicit beat media selection |
 | local execution | device enrollment/revocation/capabilities, assignment, claim/lease/progress/terminal state |
-| render | render snapshots/manifests, FinalArtifact metadata and provider-neutral artifact semantics |
+| render | render snapshots/manifests and FinalArtifact metadata only; final bytes remain local |
 | notification | durable notification state/read surfaces |
 | common | small shared primitives and API envelopes only |
 
-The backend is authoritative for ownership, authorization, entitlement/quota, execution policy, production choices, assignment and durable job state. It never persists machine-specific absolute Desktop project paths.
+The backend is authoritative for ownership, authorization, entitlement/quota, execution policy, production choices, assignment and durable job/artifact state. It never persists machine-specific absolute Desktop project paths and does not proxy final MP4 bytes.
 
 ## Guest/account authorization boundary
 
@@ -70,18 +70,17 @@ A gated guest action returns `AUTHENTICATION_REQUIRED`; Desktop opens the LoginM
 
 ## Python worker boundary
 
-Workers own asynchronous provider/server execution mechanics:
+Workers own asynchronous provider/media execution mechanics:
 
 - provider claim/submit/status/reconciliation;
 - structured analysis materialization;
-- Google TTS/VieNeu execution foundations;
+- VieNeu narration execution foundations;
 - user-audio validation/alignment roles;
 - Vertex image generation;
-- retained R2 remote materialization;
-- retained cloud/server FFmpeg render and Google Drive final-video path;
+- R2 generated-media transport/materialization;
 - bounded retry/reconciliation/runtime-file handling.
 
-Workers do not own Desktop paths/native capabilities, user authorization, entitlement policy or Flyway schema ownership.
+Workers do not execute final project renders or own Desktop paths/native capabilities, user authorization, entitlement policy or Flyway schema ownership.
 
 ## MediaPlan / production policy boundary
 
@@ -97,26 +96,18 @@ Narration timing is the master clock.
 
 ## Project media storage boundary
 
-### Desktop primary
-
 ```text
-project images/audio/video  -> local project workspace
-render work/cache           -> local project workspace/work
-backups                     -> Desktop-managed local storage
-final local MP4             -> local project workspace/artifacts
+AI-generated image/narration transport -> Cloudflare R2 until materialized
+project images/audio/video              -> local project workspace
+render work/cache                       -> local project workspace/work
+backups                                 -> Desktop-managed local storage
+final MP4                               -> local project workspace/artifacts
+business/job/artifact metadata          -> PostgreSQL
 ```
 
-Electron main owns local resolution/validation. Backend metadata uses stable IDs/checksums and opaque relative artifact keys.
+Electron main owns local resolution/validation. Backend metadata uses stable IDs/checksums and opaque relative artifact keys; final playback/export reads the local artifact directly.
 
-### Retained server/cloud path
-
-```text
-pipeline media              -> Cloudflare R2
-cloud final MP4             -> Google Drive
-worker scratch              -> ephemeral filesystem
-```
-
-ADR-0012 governs Desktop local-first project bytes; ADR-0003 governs retained server/cloud storage.
+ADR-0012 governs Desktop local-first project bytes; ADR-0003 governs generated-media remote transport.
 
 ## Persistence boundary
 
@@ -131,7 +122,7 @@ infrastructure -> application/domain contracts
 renderer -> backend contracts + preload capabilities
 preload -> narrow main-process IPC
 Electron main -> native/local adapters + backend session/device contracts
-worker -> persisted execution contracts + provider/cloud adapters
+worker -> persisted execution contracts + provider/generated-media adapters
 ```
 
 Provider/vendor/storage branches stay in adapters rather than domain policy.

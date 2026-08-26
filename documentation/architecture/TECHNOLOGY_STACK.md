@@ -13,16 +13,15 @@ Executable manifests are authoritative for exact dependency versions. This file 
 | Backend | Java 25, Spring Boot 4.1.0, Security/OAuth2, Spring Session Redis, Actuator | modular monolith, auth/ownership/policy and durable orchestration authority |
 | Persistence | PostgreSQL + Flyway + MyBatis Spring Boot 4.1.0 + explicit SQL | sole production application persistence path |
 | Redis | Spring Data Redis + Spring Session Redis | server sessions and transient/non-authoritative state |
-| Worker | Python 3.12+, Pydantic 2.7.0, pydantic-settings 2.2.0, HTTPX 0.27.0, asyncpg 0.30.0, google-auth 2.35.0 | async provider/media execution and retained cloud/server paths |
-| Worker media/AI extras | boto3 1.40.0, Pillow 10.0.0, VieNeu 3.3.0, torch/torchaudio 2.8.0, pydub 0.25.1, ffmpeg-python 0.2.0 | narration, image/media processing and retained server rendering roles |
+| Worker | Python 3.12+, Pydantic 2.7.0, pydantic-settings 2.2.0, HTTPX 0.27.0, asyncpg 0.30.0, google-auth 2.35.0 | asynchronous analysis/translation/image/narration/media-validation execution |
+| Worker media/AI extras | boto3 1.40.0, Pillow 10.0.0, VieNeu 3.3.0, torch/torchaudio 2.8.0, pydub 0.25.1 | generated-media transport, narration and image/media processing |
 | Shared client contracts | `packages/client-contracts` | typed Desktop/backend contracts |
 | AI analysis | Vertex Gemini | structured Chapter analysis |
-| Image generation | Vertex Gemini image execution | provider execution plus implemented Desktop materialization foundation |
-| Narration | Google TTS + VieNeu + user-provided audio | generated/imported narration; narration remains the master clock |
+| Image generation | Vertex Gemini image execution | provider execution plus Desktop materialization |
+| Narration | VieNeu + user-provided audio | generated/imported narration; narration remains the master clock |
+| Remote generated-media transport | Cloudflare R2 | durable transport for AI-generated image/narration bytes before Desktop materialization |
 | Desktop project storage | Electron `userData` + `project.manifest.json` | local-first project media, backups, render work/cache and final artifacts |
-| Desktop deterministic render | FFmpeg + ffprobe from Electron main | backend-assigned lease-controlled `LOCAL_DEVICE` rendering |
-| Cloud pipeline storage | Cloudflare R2 | retained server-worker/fallback media durability |
-| Cloud final video storage | Google Drive | retained cloud-render final MP4 path |
+| Desktop deterministic render | FFmpeg + ffprobe from Electron main | backend-assigned lease-controlled final rendering and local MP4 output |
 
 ## Desktop trust boundary
 
@@ -75,7 +74,8 @@ Implemented foundations include:
 - render segment cache;
 - storage verification/cleanup;
 - workspace backup/restore/archive-copy;
-- local checksum-verified final artifact registration.
+- local checksum-verified final artifact metadata registration;
+- direct local playback/export of the final MP4.
 
 Production release hardening, abrupt-process recovery UX and richer editor/review workflows remain roadmap work.
 
@@ -83,4 +83,4 @@ Production release hardening, abrupt-process recovery UX and richer editor/revie
 
 Production persistence is MyBatis + explicit PostgreSQL SQL. The backend build contains no JPA persistence dependency and application persistence does not use direct `JdbcTemplate` as a parallel production path.
 
-Current Flyway sequence is V1-V5, with V1-V3 frozen and V4+ append-only feature migrations.
+Current Flyway baseline is V1-V3 only. The Desktop guest, beat media selection and local execution/render metadata structures are already consolidated into V1; future schema changes start at append-only V4+.

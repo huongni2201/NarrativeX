@@ -8,10 +8,6 @@ WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-
-# The Debian system-user default home is /nonexistent. VieNeu and Hugging Face
-# resolve model/profile caches from the process home, so give the non-root worker
-# an explicit writable runtime home instead.
 ENV HOME=/home/appuser
 ENV XDG_CACHE_HOME=/home/appuser/.cache
 ENV HF_HOME=/home/appuser/.cache/huggingface
@@ -25,9 +21,6 @@ RUN addgroup --system appgroup \
     && mkdir -p /home/appuser/.cache/huggingface /home/appuser/.config \
     && chown -R appuser:appgroup /home/appuser
 
-# Install the heavyweight third-party dependencies in a layer that does not
-# change when application source files change. The package metadata only needs
-# the small top-level module during this first install.
 COPY pyproject.toml README.md ./
 COPY src/narrativex_worker/__init__.py ./src/narrativex_worker/__init__.py
 
@@ -41,12 +34,9 @@ FROM base AS worker-core
 
 RUN --mount=type=cache,id=narrativex-pip,target=/home/appuser/.cache/pip,sharing=locked \
     pip install .
-
-# Install the current application code without resolving dependencies again.
 COPY src/ ./src/
 RUN --mount=type=cache,id=narrativex-pip,target=/home/appuser/.cache/pip,sharing=locked \
     pip install --no-deps .
-
 USER appuser
 
 FROM base AS media-base
@@ -74,15 +64,4 @@ RUN --mount=type=cache,id=narrativex-pip,target=/home/appuser/.cache/pip,sharing
     pip install --no-deps .
 USER appuser
 
-FROM media-base AS worker-render
-
-RUN --mount=type=cache,id=narrativex-pip,target=/home/appuser/.cache/pip,sharing=locked \
-    pip install ".[render]"
-COPY src/ ./src/
-RUN --mount=type=cache,id=narrativex-pip,target=/home/appuser/.cache/pip,sharing=locked \
-    pip install --no-deps .
-USER appuser
-
-# `docker build .` keeps a useful default for the combined analysis/image worker;
-# Compose selects the explicit role target for each service.
 FROM worker-image AS default
