@@ -31,7 +31,7 @@ NarrativeX is desktop-only at the editor boundary. Spring Boot is the authoritat
               Spring Boot Backend
               -> PostgreSQL authoritative state
               -> Redis server sessions/transient hints
-              -> Python worker/provider execution
+              -> Python AI/provider execution
 
 Electron main
   -> <userData>/projects/<projectId>/
@@ -41,7 +41,7 @@ Electron main
        artifacts/
 ```
 
-Retained server-worker execution may still use Cloudflare R2 for remote media durability and Google Drive for cloud-rendered final video. That path does not redefine Desktop project storage.
+Cloudflare R2 is limited to remote generated-media transport/durability for AI-produced images and narration before those bytes are materialized into the Desktop project workspace. Final video rendering and final MP4 bytes stay on the Desktop machine.
 
 ## Authority boundaries
 
@@ -58,10 +58,10 @@ The backend owns:
 - GenerationJob/StageAttempt/ProviderOperation lifecycle;
 - local-device registration/revocation and render assignment;
 - render leases, progress and terminal job state;
-- durable asset identity/checksums/lineage;
+- durable asset identity/checksums/lineage plus final-artifact metadata;
 - Flyway schema ownership.
 
-The backend never treats an absolute Desktop filesystem path as a durable asset identity.
+The backend never treats an absolute Desktop filesystem path as a durable asset identity and never stores or proxies final MP4 bytes.
 
 ### Electron main
 
@@ -75,7 +75,7 @@ Electron main owns machine-local privileged capabilities:
 - backup/restore/archive-copy and storage verification/cleanup;
 - local device credential and assigned-job execution;
 - FFmpeg/ffprobe process execution;
-- render journal/cache and local artifact validation/open/reveal behavior.
+- render journal/cache and local final-artifact validation/open/reveal/export behavior.
 
 Local byte ownership does not make Electron main a second domain database.
 
@@ -97,7 +97,7 @@ sandbox          = true
 
 ### Python workers
 
-Workers execute backend-authorized asynchronous provider/media roles such as analysis, image generation, narration/alignment and retained server/cloud rendering/storage. They do not own Desktop paths, user authorization or Flyway schema evolution.
+Workers execute backend-authorized asynchronous provider/media roles such as analysis, translation, image generation, narration/alignment and generated-media validation. They do not execute final project renders, own Desktop paths, user authorization or Flyway schema evolution.
 
 ## Guest-first authentication architecture
 
@@ -147,7 +147,7 @@ project images/audio/video       -> local workspace
 render work + segment cache      -> local workspace/work
 final MP4                        -> local workspace/artifacts
 backup/archive snapshots         -> Desktop-managed local storage
-business/job metadata            -> PostgreSQL
+business/job/artifact metadata   -> PostgreSQL
 ```
 
 ## Production timeline and local render
@@ -155,7 +155,7 @@ business/job metadata            -> PostgreSQL
 Production timeline state is backend-authoritative where persisted, including explicit beat media selections introduced by V5. Renderer draft state may add temporary camera/duration edits, but final render submission is converted into backend-authorized immutable input state.
 
 ```text
-backend admits + assigns LOCAL_DEVICE render
+backend admits + assigns local render
   -> device claims lease
   -> Desktop preflight verifies runtime/disk/assets
   -> resolve stable asset IDs through manifest
@@ -164,8 +164,9 @@ backend admits + assigns LOCAL_DEVICE render
   -> FFmpeg render missing segments
   -> concat/mux
   -> ffprobe + checksum final MP4
-  -> register local artifact
+  -> register final-artifact metadata
   -> report completion under current lease
+  -> preview/export local MP4 directly
 ```
 
 Lease loss prevents successful finalization. In-process cancellation and unfinished-journal discovery exist. Richer recovery/resume behavior for abrupt process/OS failure remains product hardening work.
@@ -182,7 +183,7 @@ native selection
   -> manifest records project-relative path + integrity
 ```
 
-Implemented image/narration workflows also materialize required media locally for Desktop use. Server/cloud media remains valid where the active workflow still requires remote provider execution or fallback durability.
+Implemented image/narration workflows materialize required generated media locally before it participates in final rendering. Remote generated-media transport does not change ownership of final project bytes.
 
 ## Persistence and migrations
 
