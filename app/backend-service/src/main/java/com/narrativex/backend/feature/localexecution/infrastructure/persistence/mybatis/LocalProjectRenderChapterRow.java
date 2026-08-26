@@ -11,4 +11,30 @@ public record LocalProjectRenderChapterRow(
     String storageKey,
     long sizeBytes,
     String checksum,
-    long durationMs) {}
+    long durationMs,
+    String subtitleText,
+    String subtitleSpansJson) {
+  public LocalProjectRenderChapterRow(
+      UUID chapterId,
+      int orderIndex,
+      long globalStartMs,
+      long globalEndMs,
+      UUID narrationAssetId,
+      String storageKey,
+      long sizeBytes,
+      String checksum,
+      long durationMs) {
+    this(
+        chapterId,
+        orderIndex,
+        globalStartMs,
+        globalEndMs,
+        narrationAssetId,
+        storageKey,
+        sizeBytes,
+        checksum,
+        durationMs,
+        "",
+        null);
+  }
+}
