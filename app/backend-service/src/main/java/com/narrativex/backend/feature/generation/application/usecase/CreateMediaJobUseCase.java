@@ -97,11 +97,12 @@ public class CreateMediaJobUseCase {
             .filter(job -> job.getStatus().isActive());
     if (activeCurrentJob.isPresent()) {
       log.info(
-          "Reusing active media generation job id={} for projectId={}, chapterId={} instead of creating duplicate paid work",
+          "Rejected duplicate media generation submission while job id={} is active for projectId={}, chapterId={}",
           activeCurrentJob.get().getId(),
           command.projectId(),
           command.chapterId());
-      return activeCurrentJob.get();
+      throw new GenerationAdmissionDeniedException(
+          "MEDIA_JOB_ACTIVE", "A media generation job is already active for this chapter.");
     }
 
     var planningSource = mediaPlanningSourceAccess.requireCurrent(command.chapterId());
