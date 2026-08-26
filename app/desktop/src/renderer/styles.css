@@ -98,6 +98,10 @@
   --shadow-card: 0 0 18px rgba(255, 138, 0, 0.1);
   --editor-glow: rgba(100, 55, 14, 0.22);
   --editor-header: rgba(8, 13, 20, 0.98);
+  --editor-explorer-width: 224px;
+  --editor-inspector-width: 272px;
+  --editor-preview-panel-height: clamp(400px, calc(100dvh - 430px), 500px);
+  --editor-preview-frame-width: 680px;
 
   /* Compatibility aliases while legacy editor JSX is decomposed. */
   --bg: var(--background);
@@ -287,6 +291,21 @@
     background:
       radial-gradient(circle at 50% 20%, rgba(45, 72, 103, 0.36), transparent 42%),
       linear-gradient(180deg, var(--surface-4), var(--surface-dark) 62%, var(--background));
+  }
+
+  .nx-editor-preview-panel {
+    flex: 0 1 var(--editor-preview-panel-height);
+    min-height: 400px;
+  }
+
+  .nx-editor-timeline-panel {
+    flex: 1 1 258px;
+    min-height: 220px;
+  }
+
+  .nx-editor-preview-frame {
+    width: 100%;
+    max-width: var(--editor-preview-frame-width);
   }
 }
 

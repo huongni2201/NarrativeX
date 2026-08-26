@@ -44,8 +44,8 @@ export function EditorPreviewViewport({
   const beatNumber = selectedBeat ? String(selectedBeat.beatIndex + 1).padStart(2, "0") : "01";
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-background px-3 py-2">
-      <div className="mx-auto flex h-8 w-full max-w-[820px] items-center justify-between gap-3 text-[10px]">
+    <div className="flex h-full min-h-0 flex-col bg-background px-3 py-1.5">
+      <div className="mx-auto flex h-7 w-full max-w-[680px] items-center justify-between gap-3 text-[10px]">
         <div className="flex min-w-0 items-center gap-2">
           <span className="font-mono text-[9px] font-semibold text-text-dim">{beatNumber}</span>
           <h2 className="truncate text-[11px] font-semibold text-foreground">
@@ -71,7 +71,7 @@ export function EditorPreviewViewport({
       </div>
 
       <div className="flex min-h-0 flex-1 items-center justify-center py-1">
-        <div className="relative aspect-video max-h-[300px] w-full max-w-[820px] overflow-hidden rounded-md border border-border bg-surface-dark shadow-[var(--shadow-panel)]">
+        <div className="nx-editor-preview-frame relative aspect-[21/9] overflow-hidden rounded-md border border-border bg-surface-dark shadow-[var(--shadow-panel)]">
           <div className="nx-media-placeholder relative flex h-full w-full items-center justify-center overflow-hidden">
             <div className="relative z-10 max-w-md px-5 text-center">
               <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-primary-hover">
@@ -89,7 +89,7 @@ export function EditorPreviewViewport({
         </div>
       </div>
 
-      <div className="mx-auto flex h-9 w-full max-w-[820px] items-center justify-between gap-3">
+      <div className="mx-auto flex h-8 w-full max-w-[680px] items-center justify-between gap-3">
         <div className="min-w-[118px] font-mono text-[9px]">
           <span className="font-semibold text-text-secondary">{formatTimecode(currentOffsetMs)}</span>
           <span className="mx-1 text-text-dim">/</span>

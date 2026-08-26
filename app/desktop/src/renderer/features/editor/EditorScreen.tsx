@@ -223,7 +223,7 @@ export function EditorScreen({
   }
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-[248px_minmax(0,1fr)_304px] overflow-hidden bg-background text-foreground select-none">
+    <div className="grid h-full min-h-0 grid-cols-[var(--editor-explorer-width)_minmax(0,1fr)_var(--editor-inspector-width)] overflow-hidden bg-background text-foreground select-none">
       <EditorExplorerPanel
         hierarchy={filteredHierarchy}
         selectedBeatId={selectedId}
@@ -233,7 +233,7 @@ export function EditorScreen({
       />
 
       <div className="flex min-h-0 min-w-0 flex-col overflow-hidden border-r border-border-subtle bg-background">
-        <div className="min-h-0 flex-1">
+        <div className="nx-editor-preview-panel min-h-[400px] shrink-0">
           <EditorPreviewViewport
             selectedBeat={selected}
             playheadMs={playheadMs}
@@ -247,7 +247,7 @@ export function EditorScreen({
           />
         </div>
 
-        <div className="h-[258px] shrink-0 border-t border-border-subtle">
+        <div className="nx-editor-timeline-panel min-h-[220px] border-t border-border-subtle">
           <EditorMultiTrackTimeline
             beats={beats}
             chapters={chapters}
