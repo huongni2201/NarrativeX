@@ -12,6 +12,8 @@ export const generationQueryKeys = {
     [...generationQueryKeys.all, "generation-job", jobId] as const,
   mediaJob: (jobId: string) =>
     [...generationQueryKeys.all, "media-job", jobId] as const,
+  currentMediaJob: (projectId: string, chapterId: string) =>
+    [...generationQueryKeys.all, "current-media-job", projectId, chapterId] as const,
 };
 
 export function useAnalyzeChapter() {
@@ -50,10 +52,22 @@ export function useCreateMediaJob() {
         input.request,
         input.idempotencyKey,
       ),
-    onSuccess: (job) =>
-      queryClient.invalidateQueries({
+    onSuccess: (job, input) => {
+      void queryClient.invalidateQueries({
         queryKey: generationQueryKeys.mediaJob(job.jobId),
-      }),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: generationQueryKeys.currentMediaJob(input.projectId, input.chapterId),
+      });
+    },
+  });
+}
+
+export function useCurrentMediaJob(projectId: string, chapterId: string | null) {
+  return useQuery({
+    queryKey: generationQueryKeys.currentMediaJob(projectId, chapterId ?? "none"),
+    queryFn: () => generationApi.getCurrentMediaJob(projectId, chapterId as string),
+    enabled: Boolean(projectId && chapterId),
   });
 }
 
