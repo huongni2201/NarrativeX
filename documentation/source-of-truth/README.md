@@ -93,17 +93,15 @@ ADR-0003 governs remote generated-media transport. ADR-0012 governs the Desktop 
 
 ## Database baseline
 
-Current Flyway order is:
+Current Flyway baseline:
 
 ```text
 V1__create_tables.sql
 V2__init_indexes.sql
 V3__seed_data.sql
-V4__desktop_guest_installations.sql
-V5__production_beat_media_selections.sql
 ```
 
-V1-V3 are the frozen core baseline. V4+ are append-only feature migrations.
+V1-V3 are frozen. Desktop guest-installation, production beat-media-selection and local execution/render metadata structures are already consolidated into V1. The next schema change must be introduced as an append-only `V4__*.sql`.
 
 ## Primary remaining work
 
