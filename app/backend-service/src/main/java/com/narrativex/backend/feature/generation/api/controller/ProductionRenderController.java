@@ -103,6 +103,7 @@ public class ProductionRenderController {
                 idempotencyKey,
                 executionTarget,
                 request.localDeviceId(),
+                request.backgroundMusicAssetId(),
                 overrides));
     return ResponseEntity.accepted()
         .body(ApiResponse.success("Project render queued", JobResponse.from(job)));
