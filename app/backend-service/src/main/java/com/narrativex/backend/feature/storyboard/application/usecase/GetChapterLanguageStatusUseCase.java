@@ -54,6 +54,7 @@ public class GetChapterLanguageStatusUseCase {
     return ApiResponse.success(
         new ChapterLanguageStatusResponse(
             variant.id(),
+            variant.contentHash(),
             detection == null ? null : detection.detectedLanguage(),
             detection == null ? null : detection.confidence(),
             detection == null ? null : detection.detector(),
