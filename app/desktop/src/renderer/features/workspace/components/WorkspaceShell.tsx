@@ -47,170 +47,139 @@ export function WorkspaceShell({
   children: ReactNode;
 }>) {
   const navigate = useNavigate();
-  const activeProject = workspace.projects.find((p) => p.id === projectId) ?? null;
-  const projectName = activeProject?.name || "Sau Khi Tiếng Lòng Của Phản Diện Bị Lộ";
+  const activeProject = workspace.projects.find((project) => project.id === projectId) ?? null;
+  const projectName = activeProject?.name || "NarrativeX Project";
 
   return (
-    <div className="flex h-dvh min-w-[1240px] flex-col bg-[#070a0f] text-foreground select-none font-sans">
-      {/* Global Top Header Bar */}
-      <header className="flex h-11 shrink-0 items-center justify-between border-b border-border/50 bg-[#090d14] px-3.5">
-        {/* Left: Brand Logo & Project Picker */}
-        <div className="flex items-center gap-3">
+    <div className="flex h-dvh min-w-0 flex-col bg-background font-sans text-foreground select-none">
+      <header className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-border-subtle bg-surface-dark px-3">
+        <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
-            className="flex items-center gap-2 font-bold transition hover:opacity-90"
+            className="flex shrink-0 items-center gap-2 rounded-sm px-1 py-1 font-bold transition hover:bg-surface-2"
             onClick={() => navigate("/projects")}
+            aria-label="Back to projects"
           >
-            <div className="flex h-5 w-5 items-center justify-center rounded bg-gradient-to-br from-[#ff8a00] to-[#e66c00] text-black font-black text-xs shadow-[0_0_8px_rgba(255,138,0,0.4)]">
+            <span className="grid size-5 place-items-center rounded-sm bg-primary text-[11px] font-black text-primary-foreground shadow-[var(--shadow-primary)]">
               N
-            </div>
-            <span className="text-xs font-black tracking-tight text-white">NarrativeX</span>
+            </span>
+            <span className="text-[11px] font-black tracking-tight text-foreground">NarrativeX</span>
           </button>
 
-          {/* Project dropdown */}
-          <div className="flex items-center gap-1.5 pl-3">
-            <span className="text-[11px] text-muted-foreground/80">Project</span>
-            <div className="flex items-center gap-1.5 rounded-md border border-border/60 bg-[#0f1522] px-2.5 py-0.5 text-xs font-medium text-foreground transition hover:border-border">
-              <span className="max-w-[260px] truncate">{projectName}</span>
-              <ChevronDown size={11} className="text-muted-foreground" />
-            </div>
+          <div className="hidden h-5 w-px bg-border-subtle sm:block" />
+
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="hidden text-[10px] text-text-dim xl:inline">Project</span>
+            <button
+              type="button"
+              className="nx-compact-control flex min-w-0 max-w-[300px] items-center gap-1.5 px-2.5 text-[11px] font-medium"
+              title={projectName}
+            >
+              <span className="truncate">{projectName}</span>
+              <ChevronDown size={11} className="shrink-0 text-text-muted" />
+            </button>
           </div>
         </div>
 
-        {/* Center: Scope Switcher */}
-        <div className="flex items-center gap-1 rounded-md border border-border/40 bg-[#060910] p-0.5 text-xs">
-          <span className="px-2 text-[10px] text-muted-foreground">Scope:</span>
+        <div className="hidden shrink-0 items-center rounded-md border border-border-subtle bg-background p-0.5 lg:flex">
+          <span className="px-2 text-[9px] font-medium uppercase tracking-wider text-text-dim">Scope</span>
           <button
             type="button"
-            className="rounded border border-[#ff8a00]/50 bg-[#ff8a00]/15 px-2.5 py-0.5 text-[11px] font-semibold text-[#ff8a00] shadow-sm"
+            className="rounded-sm border border-primary/40 bg-primary-muted px-2.5 py-1 text-[10px] font-semibold text-primary-hover"
           >
             Chapter 01
           </button>
           <button
             type="button"
-            className="rounded px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground transition hover:text-foreground"
+            className="rounded-sm px-2.5 py-1 text-[10px] font-medium text-text-muted transition hover:bg-surface-2 hover:text-foreground"
           >
             Full Project
           </button>
         </div>
 
-        {/* Right Actions: Autosave, Undo/Redo, Notifications, Profile Avatar & Export Button */}
-        <div className="flex items-center gap-2.5">
-          {/* Autosave Status */}
-          <div className="flex items-center gap-1.5 text-[11px] text-emerald-400">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
-            <span>Auto saved 10:45 AM</span>
-            <span className="font-bold text-[10px]">✓</span>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <div className="hidden items-center gap-1.5 pr-1 text-[9px] text-success 2xl:flex">
+            <span className="size-1.5 rounded-full bg-success" />
+            <span>Auto saved</span>
           </div>
 
-          {/* Undo / Redo / Help */}
-          <div className="flex items-center text-muted-foreground pl-1">
-            <button
-              type="button"
-              className="flex h-6 w-6 items-center justify-center rounded hover:bg-[#121926] hover:text-foreground"
-              title="Undo"
-              aria-label="Undo"
-            >
-              <Undo2 size={12} />
-            </button>
-            <button
-              type="button"
-              className="flex h-6 w-6 items-center justify-center rounded hover:bg-[#121926] hover:text-foreground"
-              title="Redo"
-              aria-label="Redo"
-            >
-              <Redo2 size={12} />
-            </button>
-            <button
-              type="button"
-              className="flex h-6 w-6 items-center justify-center rounded hover:bg-[#121926] hover:text-foreground"
-              title="Help"
-              aria-label="Help"
-            >
-              <HelpCircle size={12} />
-            </button>
-          </div>
+          <button type="button" className="nx-icon-button" title="Undo" aria-label="Undo">
+            <Undo2 size={12} />
+          </button>
+          <button type="button" className="nx-icon-button" title="Redo" aria-label="Redo">
+            <Redo2 size={12} />
+          </button>
+          <button type="button" className="nx-icon-button" title="Help" aria-label="Help">
+            <HelpCircle size={12} />
+          </button>
 
-          {/* Notification Bell */}
-          <div className="relative pl-0.5">
+          <div className="relative">
             <button
               type="button"
-              className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-[#121926] hover:text-foreground"
+              className="nx-icon-button"
               title="Notifications"
               aria-label="Notifications"
             >
               <Bell size={13} />
             </button>
-            <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3 items-center justify-center rounded-full bg-[#ff8a00] text-[8px] font-bold text-black">
+            <span className="absolute right-0 top-0 grid size-3 place-items-center rounded-full bg-primary text-[7px] font-bold text-primary-foreground">
               1
             </span>
           </div>
 
-          {/* User Profile Avatar */}
-          <div className="h-6 w-6 overflow-hidden rounded-full border border-border/70 bg-[#162132]">
-            <img
-              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=64&h=64&fit=crop&crop=faces"
-              alt="User"
-              className="h-full w-full object-cover"
-              onError={(e) => {
-                e.currentTarget.style.display = "none";
-              }}
-            />
-          </div>
-
-          {/* Export Button */}
           <button
             type="button"
-            className="flex items-center gap-1 rounded-md bg-[#ff8a00] px-3 py-1 text-xs font-bold text-black shadow-[0_0_10px_rgba(255,138,0,0.3)] transition hover:bg-[#ffa133]"
+            className="grid size-7 place-items-center rounded-full border border-border bg-surface-3 text-text-secondary transition hover:border-border-dark hover:text-foreground"
+            title="Account"
+            aria-label="Account"
           >
-            <Film size={12} className="fill-black" />
+            <UserCircle size={16} />
+          </button>
+
+          <button
+            type="button"
+            className="ml-1 flex h-7 items-center gap-1.5 rounded-sm bg-primary px-2.5 text-[10px] font-bold text-primary-foreground shadow-[var(--shadow-primary)] transition hover:bg-primary-hover"
+          >
+            <Film size={12} />
             <span>Export</span>
-            <ChevronDown size={11} className="stroke-[2.5]" />
+            <ChevronDown size={10} />
           </button>
         </div>
       </header>
 
-      {/* Main Workspace Body */}
-      <div className="flex flex-1 min-h-0">
-        {/* Left Navigation Rail (Ultra Slim 58px) */}
-        <aside className="flex w-[58px] shrink-0 flex-col justify-between border-r border-border/50 bg-[#080c13] py-2 px-1">
-          {/* Nav Items */}
-          <nav className="flex flex-col gap-1.5">
+      <div className="flex min-h-0 flex-1">
+        <aside className="flex w-[52px] shrink-0 flex-col justify-between border-r border-border-subtle bg-surface-dark px-1 py-2">
+          <nav className="flex flex-col gap-1" aria-label="Workspace navigation">
             {navigation.map(({ id, label, icon: Icon, segment }) => {
               const isActive = screen === id;
-
               return (
                 <NavLink
                   key={id}
                   to={`/projects/${projectId}/${segment}`}
-                  className={`flex flex-col items-center justify-center gap-0.5 rounded-lg py-1.5 text-[9px] font-medium transition-all ${
+                  className={`flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-sm border text-[8px] font-medium transition-colors ${
                     isActive
-                      ? "border border-[#ff8a00]/50 bg-[#ff8a00]/15 text-[#ff8a00] shadow-[0_0_10px_rgba(255,138,0,0.2)] font-bold"
-                      : "text-muted-foreground hover:bg-[#101622] hover:text-foreground"
+                      ? "border-primary/35 bg-primary-muted text-primary-hover"
+                      : "border-transparent text-text-muted hover:bg-surface-2 hover:text-foreground"
                   }`}
                   aria-label={label}
+                  aria-current={isActive ? "page" : undefined}
                 >
-                  <Icon size={16} className={isActive ? "text-[#ff8a00]" : "text-muted-foreground"} />
-                  <span className="scale-95">{label}</span>
+                  <Icon size={15} />
+                  <span>{label}</span>
                 </NavLink>
               );
             })}
           </nav>
 
-          {/* Bottom Storage Meter */}
-          <div className="space-y-0.5 px-0.5 text-center">
-            <div className="text-[8px] font-bold uppercase tracking-wider text-muted-foreground">
-              Storage
-            </div>
-            <div className="text-[7.5px] text-muted-foreground/80 leading-tight">128 GB / 500 GB</div>
-            <div className="h-0.5 w-full overflow-hidden rounded-full bg-[#162030]">
-              <div className="h-full w-1/4 rounded-full bg-[#ff8a00]" />
+          <div className="space-y-1 px-1 pb-1 text-center">
+            <span className="block text-[7px] font-semibold uppercase tracking-wider text-text-dim">Storage</span>
+            <div className="h-0.5 overflow-hidden rounded-full bg-surface-4" aria-hidden="true">
+              <div className="h-full w-1/4 rounded-full bg-primary" />
             </div>
           </div>
         </aside>
 
-        {/* Content View */}
-        <main className="flex-1 min-h-0 min-w-0 overflow-hidden bg-[#070a0f]">
+        <main className="min-h-0 min-w-0 flex-1 overflow-hidden bg-background">
           {workspace.error && (
             <div className="border-b border-warning/30 bg-warning-bg px-4 py-1.5 text-xs text-warning">
               {workspace.error}

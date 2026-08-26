@@ -102,14 +102,12 @@ export function EditorScreen({
   };
 
   const handlePrevBeat = () => {
-    const currentIndex = beats.findIndex((b) => b.visualBeatId === selectedId);
-    if (currentIndex > 0) {
-      selectBeat(beats[currentIndex - 1]);
-    }
+    const currentIndex = beats.findIndex((beat) => beat.visualBeatId === selectedId);
+    if (currentIndex > 0) selectBeat(beats[currentIndex - 1]);
   };
 
   const handleNextBeat = () => {
-    const currentIndex = beats.findIndex((b) => b.visualBeatId === selectedId);
+    const currentIndex = beats.findIndex((beat) => beat.visualBeatId === selectedId);
     if (currentIndex >= 0 && currentIndex < beats.length - 1) {
       selectBeat(beats[currentIndex + 1]);
     }
@@ -124,7 +122,7 @@ export function EditorScreen({
   const handleSeek = (targetMs: number) => {
     setPlayheadMs(targetMs);
     const beatAtTime = beats.find(
-      (b) => targetMs >= b.startMs && targetMs <= b.endMs,
+      (beat) => targetMs >= beat.startMs && targetMs <= beat.endMs,
     );
     if (beatAtTime && beatAtTime.visualBeatId !== selectedId) {
       setSelectedId(beatAtTime.visualBeatId);
@@ -225,8 +223,7 @@ export function EditorScreen({
   }
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-[240px_minmax(0,1fr)_320px] bg-[#070a0f] text-foreground select-none">
-      {/* Left Column: Chapters & Visual Beats */}
+    <div className="grid h-full min-h-0 grid-cols-[248px_minmax(0,1fr)_304px] overflow-hidden bg-background text-foreground select-none">
       <EditorExplorerPanel
         hierarchy={filteredHierarchy}
         selectedBeatId={selectedId}
@@ -235,10 +232,8 @@ export function EditorScreen({
         onQueryChange={setQuery}
       />
 
-      {/* Center Column: Video Preview on Top + Multi-track Timeline Below */}
-      <div className="flex min-h-0 flex-col overflow-hidden border-r border-border/50">
-        {/* Top: Video Preview & Transport Controls */}
-        <div className="flex-1 min-h-0">
+      <div className="flex min-h-0 min-w-0 flex-col overflow-hidden border-r border-border-subtle bg-background">
+        <div className="min-h-0 flex-1">
           <EditorPreviewViewport
             selectedBeat={selected}
             playheadMs={playheadMs}
@@ -252,8 +247,7 @@ export function EditorScreen({
           />
         </div>
 
-        {/* Bottom: Professional Multi-track Timeline */}
-        <div className="h-[250px] shrink-0 border-t border-border/50">
+        <div className="h-[258px] shrink-0 border-t border-border-subtle">
           <EditorMultiTrackTimeline
             beats={beats}
             chapters={chapters}
@@ -266,7 +260,6 @@ export function EditorScreen({
         </div>
       </div>
 
-      {/* Right Column: Inspector Details & AI Assistant */}
       <EditorInspectorPanel
         selectedBeat={selected}
         selectableAssets={selectableAssets}

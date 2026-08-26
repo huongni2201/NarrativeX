@@ -34,28 +34,23 @@ export function EditorMultiTrackTimeline({
   const containerRef = useRef<HTMLDivElement>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
 
-  // Compute duration bounds
   const effectiveTotalMs = useMemo(() => {
     if (totalDurationMs > 0) return totalDurationMs;
-    const lastBeatEnd = beats.reduce((max, beat) => Math.max(max, beat.endMs), 0);
+    const lastBeatEnd = beats.reduce((maximum, beat) => Math.max(maximum, beat.endMs), 0);
     return Math.max(30000, lastBeatEnd);
   }, [beats, totalDurationMs]);
 
-  // Generate ruler tick marks (00:00, 00:03, 00:06...)
   const rulerTicks = useMemo(() => {
     const ticks: number[] = [];
     const stepMs = 3000;
     const count = Math.ceil(effectiveTotalMs / stepMs) + 1;
-    for (let i = 0; i <= count; i++) {
-      ticks.push(i * stepMs);
-    }
+    for (let index = 0; index <= count; index += 1) ticks.push(index * stepMs);
     return ticks;
   }, [effectiveTotalMs]);
 
-  const playheadPercent = Math.max(
-    0,
-    Math.min(100, (playheadMs / effectiveTotalMs) * 100),
-  );
+  const playheadPercent = Math.max(0, Math.min(100, (playheadMs / effectiveTotalMs) * 100));
+  const contentEndMs = beats.reduce((maximum, beat) => Math.max(maximum, beat.endMs), 0);
+  const contentWidthPercent = Math.min(100, (contentEndMs / effectiveTotalMs) * 100);
 
   const handleTimelineClick = (event: React.MouseEvent<HTMLDivElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -65,72 +60,23 @@ export function EditorMultiTrackTimeline({
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col border-t border-border/60 bg-[#070a0f] select-none text-xs">
-      {/* Scrollable Tracks Viewport */}
-      <div className="flex flex-1 min-h-0 overflow-x-auto overflow-y-hidden">
-        {/* Left Track Headers Column */}
-        <div className="w-36 shrink-0 border-r border-border/50 bg-[#090d15]">
-          {/* Ruler blank spacer */}
-          <div className="h-6 border-b border-border/40 bg-[#080b12]" />
-
-          {/* Track 1: Narration */}
-          <div className="flex h-10 items-center justify-between border-b border-border/40 px-2.5">
-            <div className="flex items-center gap-1.5 font-medium text-foreground">
-              <span className="font-mono text-muted-foreground text-[10px]">1</span>
-              <span className="text-[11px]">Narration</span>
-            </div>
-            <div className="flex items-center gap-1 text-muted-foreground">
-              <Lock size={11} className="opacity-60" />
-              <Volume2 size={11} className="opacity-60" />
-            </div>
-          </div>
-
-          {/* Track 2: Visual Beats */}
-          <div className="flex h-14 items-center justify-between border-b border-border/40 px-2.5">
-            <div className="flex items-center gap-1.5 font-medium text-foreground">
-              <span className="font-mono text-muted-foreground text-[10px]">2</span>
-              <span className="text-[11px]">Visual Beats</span>
-            </div>
-            <div className="flex items-center gap-1 text-muted-foreground">
-              <FileImage size={11} className="opacity-60" />
-              <Lock size={11} className="opacity-60" />
-            </div>
-          </div>
-
-          {/* Track 3: Voiceover */}
-          <div className="flex h-10 items-center justify-between border-b border-border/40 px-2.5">
-            <div className="flex items-center gap-1.5 font-medium text-foreground">
-              <span className="font-mono text-muted-foreground text-[10px]">3</span>
-              <span className="text-[11px]">Voiceover</span>
-            </div>
-            <div className="flex items-center gap-1 text-muted-foreground">
-              <Mic size={11} className="opacity-60" />
-              <Lock size={11} className="opacity-60" />
-            </div>
-          </div>
-
-          {/* Track 4: Music */}
-          <div className="flex h-10 items-center justify-between border-b border-border/40 px-2.5">
-            <div className="flex items-center gap-1.5 font-medium text-foreground">
-              <span className="font-mono text-muted-foreground text-[10px]">4</span>
-              <span className="text-[11px]">Music</span>
-            </div>
-            <div className="flex items-center gap-1 text-muted-foreground">
-              <Music size={11} className="opacity-60" />
-              <Lock size={11} className="opacity-60" />
-            </div>
-          </div>
+    <div className="flex h-full min-h-0 flex-col bg-background text-[10px] select-none">
+      <div className="flex min-h-0 flex-1 overflow-x-auto overflow-y-hidden">
+        <div className="w-32 shrink-0 border-r border-border-subtle bg-surface-dark">
+          <div className="h-6 border-b border-border-subtle bg-surface-panel" />
+          <TrackHeader index="1" label="Narration" icon={<Volume2 size={10} />} heightClass="h-9" />
+          <TrackHeader index="2" label="Visual Beats" icon={<FileImage size={10} />} heightClass="h-14" />
+          <TrackHeader index="3" label="Voiceover" icon={<Mic size={10} />} heightClass="h-9" />
+          <TrackHeader index="4" label="Music" icon={<Music size={10} />} heightClass="h-9" />
         </div>
 
-        {/* Right Tracks Canvas */}
         <div
           ref={containerRef}
           onClick={handleTimelineClick}
-          className="relative min-w-[760px] flex-1 cursor-pointer bg-[#080c14]"
+          className="relative min-w-[760px] flex-1 cursor-pointer bg-background"
           style={{ width: `${Math.max(100, zoomLevel * 100)}%` }}
         >
-          {/* Time Ruler */}
-          <div className="relative h-6 border-b border-border/40 bg-[#090d15]">
+          <div className="relative h-6 border-b border-border-subtle bg-surface-dark">
             {rulerTicks.map((tickMs) => {
               const leftPercent = (tickMs / effectiveTotalMs) * 100;
               if (leftPercent > 100) return null;
@@ -139,163 +85,109 @@ export function EditorMultiTrackTimeline({
               return (
                 <div
                   key={tickMs}
-                  className="absolute top-0 bottom-0 flex flex-col justify-between"
+                  className="absolute inset-y-0 flex flex-col justify-between"
                   style={{ left: `${leftPercent}%` }}
                 >
-                  <span
-                    className={`font-mono text-[9px] ${
-                      isPlayheadNear ? "font-bold text-[#ff8a00]" : "text-muted-foreground/70"
-                    }`}
-                  >
+                  <span className={`font-mono text-[8px] ${isPlayheadNear ? "font-semibold text-primary-hover" : "text-text-dim"}`}>
                     {formatRulerTime(tickMs)}
                   </span>
-                  <div className="h-1 w-px bg-border/60" />
+                  <div className="h-1 w-px bg-border-dark" />
                 </div>
               );
             })}
           </div>
 
-          {/* Track 1: Narration */}
-          <div className="relative h-10 border-b border-border/30 px-1 py-1">
+          <div className="relative h-9 border-b border-border-subtle px-1 py-1">
             <div
-              className="absolute inset-y-1 rounded-md border border-emerald-500/40 bg-gradient-to-r from-emerald-950/70 via-emerald-900/50 to-emerald-950/70 px-2 flex items-center shadow-sm"
-              style={{
-                left: "0%",
-                width: `${Math.min(100, (beats.reduce((acc, b) => Math.max(acc, b.endMs), 0) / effectiveTotalMs) * 100)}%`,
-              }}
+              className="absolute inset-y-1 left-0 flex items-center rounded-sm border border-success/30 bg-success-bg px-2 text-success"
+              style={{ width: `${contentWidthPercent}%` }}
             >
-              <span className="truncate font-mono text-[10px] text-emerald-400">
-                narration_voice.mp3
-              </span>
-              <WaveformSvg color="#34d399" className="ml-2 h-3.5 flex-1 opacity-70" />
+              <span className="shrink-0 font-mono text-[8px]">narration_voice.mp3</span>
+              <WaveformSvg className="ml-2 h-3 flex-1 opacity-70" />
             </div>
           </div>
 
-          {/* Track 2: Visual Beats */}
-          <div className="relative h-14 border-b border-border/30 p-1 flex items-center">
+          <div className="relative flex h-14 items-center border-b border-border-subtle p-1">
             {beats.map((beat) => {
               const isSelected = beat.visualBeatId === selectedBeatId;
               const leftPercent = (beat.startMs / effectiveTotalMs) * 100;
               const widthPercent = (beat.durationMs / effectiveTotalMs) * 100;
+              const mediaClass = beat.mediaType === "VIDEO"
+                ? "border-info/40 bg-info-bg text-info"
+                : beat.mediaType === "IMAGE"
+                  ? "border-success/40 bg-success-bg text-success"
+                  : "border-primary/40 bg-primary-muted text-primary-hover";
 
               return (
-                <div
+                <button
                   key={beat.visualBeatId}
-                  onClick={(e) => {
-                    e.stopPropagation();
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
                     onSelectBeat(beat);
                     onSeek(beat.startMs);
                   }}
-                  className={`absolute inset-y-1 flex cursor-pointer items-center gap-1.5 overflow-hidden rounded-lg border px-1.5 transition-all ${
+                  className={`absolute inset-y-1 flex min-w-6 items-center gap-1 overflow-hidden rounded-sm border px-1.5 text-left transition-colors ${
                     isSelected
-                      ? "z-10 border-[#ff8a00] bg-[#1a1f2c] shadow-[0_0_12px_rgba(255,138,0,0.4)] ring-1 ring-[#ff8a00]"
-                      : "border-border/50 bg-[#0f1420] hover:border-border hover:bg-[#141b2b]"
+                      ? "z-10 border-primary bg-surface-3 shadow-[var(--shadow-primary)] ring-1 ring-primary/55"
+                      : "border-border bg-surface hover:border-border-dark hover:bg-surface-2"
                   }`}
-                  style={{
-                    left: `${leftPercent}%`,
-                    width: `${Math.max(1.8, widthPercent)}%`,
-                  }}
+                  style={{ left: `${leftPercent}%`, width: `${Math.max(1.8, widthPercent)}%` }}
+                  title={`${beat.title} · ${formatDurationSeconds(beat.durationMs)}`}
                 >
-                  {/* Badge */}
-                  <span
-                    className={`rounded px-1 py-0.2 font-bold uppercase text-[8px] ${
-                      beat.mediaType === "VIDEO"
-                        ? "bg-purple-500/20 text-purple-400 border border-purple-500/40"
-                        : beat.mediaType === "IMAGE"
-                          ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
-                          : "bg-[#ff8a00]/20 text-[#ff8a00] border border-[#ff8a00]/40"
-                    }`}
-                  >
+                  <span className={`rounded-sm border px-1 py-0.5 text-[7px] font-bold ${mediaClass}`}>
                     {beat.mediaType === "VIDEO" ? "VID" : beat.mediaType === "IMAGE" ? "IMG" : "AI"}
                   </span>
-
-                  {/* Thumbnail / Duration */}
-                  <span className="ml-auto shrink-0 font-mono text-[9px] text-muted-foreground">
+                  <span className="min-w-0 flex-1 truncate text-[8px] text-text-secondary">
+                    {beat.title}
+                  </span>
+                  <span className="shrink-0 font-mono text-[8px] text-text-dim">
                     {formatDurationSeconds(beat.durationMs)}
                   </span>
-                </div>
+                </button>
               );
             })}
           </div>
 
-          {/* Track 3: Voiceover */}
-          <div className="relative h-10 border-b border-border/30 px-1 py-1">
-            <div
-              className="absolute inset-y-1 rounded-md border border-purple-500/40 bg-gradient-to-r from-purple-950/70 via-purple-900/50 to-purple-950/70 px-2 flex items-center shadow-sm"
-              style={{
-                left: "0%",
-                width: "42%",
-              }}
-            >
-              <span className="truncate font-mono text-[10px] text-purple-300">
-                intro_voice.mp3
-              </span>
-              <WaveformSvg color="#c084fc" className="ml-2 h-3.5 flex-1 opacity-70" />
+          <div className="relative h-9 border-b border-border-subtle px-1 py-1">
+            <div className="absolute inset-y-1 left-0 flex w-[42%] items-center rounded-sm border border-info/30 bg-info-bg px-2 text-info">
+              <span className="shrink-0 font-mono text-[8px]">intro_voice.mp3</span>
+              <WaveformSvg className="ml-2 h-3 flex-1 opacity-70" />
             </div>
           </div>
 
-          {/* Track 4: Music */}
-          <div className="relative h-10 border-b border-border/30 px-1 py-1">
-            <div
-              className="absolute inset-y-1 rounded-md border border-amber-500/40 bg-gradient-to-r from-amber-950/70 via-amber-900/50 to-amber-950/70 px-2 flex items-center shadow-sm"
-              style={{
-                left: "0%",
-                width: "88%",
-              }}
-            >
-              <span className="truncate font-mono text-[10px] text-amber-300">
-                bgm_ambient_01.mp3
-              </span>
-              <WaveformSvg color="#f59e0b" className="ml-2 h-3.5 flex-1 opacity-70" />
+          <div className="relative h-9 border-b border-border-subtle px-1 py-1">
+            <div className="absolute inset-y-1 left-0 flex w-[88%] items-center rounded-sm border border-warning/30 bg-warning-bg px-2 text-warning">
+              <span className="shrink-0 font-mono text-[8px]">bgm_ambient_01.mp3</span>
+              <WaveformSvg className="ml-2 h-3 flex-1 opacity-70" />
             </div>
           </div>
 
-          {/* Playhead Scrub Line & Knob */}
           <div
-            className="pointer-events-none absolute top-0 bottom-0 z-30 w-px bg-[#ff8a00]"
+            className="pointer-events-none absolute inset-y-0 z-30 w-px bg-primary"
             style={{ left: `${playheadPercent}%` }}
           >
-            <div className="absolute -top-0.5 left-1/2 h-3 w-3 -translate-x-1/2 rounded-full border-2 border-white bg-[#ff8a00] shadow-[0_0_8px_rgba(255,138,0,0.8)]" />
+            <div className="absolute -top-0.5 left-1/2 size-2.5 -translate-x-1/2 rounded-full border border-foreground bg-primary shadow-[var(--shadow-primary)]" />
           </div>
         </div>
       </div>
 
-      {/* Bottom Timeline Footer: Badges Legend & Zoom Controls */}
-      <div className="flex h-8 items-center justify-between border-t border-border/50 bg-[#080c14] px-3 text-[10px] text-muted-foreground">
-        {/* Left Legend */}
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1.5">
-            <span className="rounded bg-[#ff8a00]/20 px-1 py-0.2 font-bold text-[#ff8a00] border border-[#ff8a00]/40 text-[8px]">
-              AI
-            </span>
-            <span>AI Generated Image</span>
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            <span className="rounded bg-emerald-500/20 px-1 py-0.2 font-bold text-emerald-400 border border-emerald-500/40 text-[8px]">
-              IMG
-            </span>
-            <span>Uploaded Image</span>
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            <span className="rounded bg-purple-500/20 px-1 py-0.2 font-bold text-purple-400 border border-purple-500/40 text-[8px]">
-              VID
-            </span>
-            <span>Uploaded Video</span>
-          </div>
+      <div className="flex h-8 shrink-0 items-center justify-between border-t border-border-subtle bg-surface-dark px-3 text-[8px] text-text-muted">
+        <div className="flex min-w-0 items-center gap-3">
+          <Legend badge="AI" className="border-primary/40 bg-primary-muted text-primary-hover" label="AI generated" />
+          <Legend badge="IMG" className="border-success/40 bg-success-bg text-success" label="Uploaded image" />
+          <Legend badge="VID" className="border-info/40 bg-info-bg text-info" label="Uploaded video" />
         </div>
 
-        {/* Right Zoom Controls */}
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
-            onClick={() => setZoomLevel((z) => Math.max(0.75, z - 0.25))}
-            className="text-muted-foreground hover:text-foreground"
+            onClick={() => setZoomLevel((zoom) => Math.max(0.75, zoom - 0.25))}
+            className="nx-icon-button size-6"
             title="Zoom out"
             aria-label="Zoom out"
           >
-            <ZoomOut size={13} />
+            <ZoomOut size={11} />
           </button>
           <input
             type="range"
@@ -303,17 +195,18 @@ export function EditorMultiTrackTimeline({
             max={2.5}
             step={0.25}
             value={zoomLevel}
-            onChange={(e) => setZoomLevel(parseFloat(e.target.value))}
-            className="h-1 w-20 cursor-pointer accent-[#ff8a00]"
+            onChange={(event) => setZoomLevel(Number.parseFloat(event.target.value))}
+            className="h-1 w-20 cursor-pointer accent-primary"
+            aria-label="Timeline zoom"
           />
           <button
             type="button"
-            onClick={() => setZoomLevel((z) => Math.min(2.5, z + 0.25))}
-            className="text-muted-foreground hover:text-foreground"
+            onClick={() => setZoomLevel((zoom) => Math.min(2.5, zoom + 0.25))}
+            className="nx-icon-button size-6"
             title="Zoom in"
             aria-label="Zoom in"
           >
-            <ZoomIn size={13} />
+            <ZoomIn size={11} />
           </button>
         </div>
       </div>
@@ -321,18 +214,53 @@ export function EditorMultiTrackTimeline({
   );
 }
 
-function WaveformSvg({ color, className }: Readonly<{ color: string; className?: string }>) {
+function TrackHeader({
+  index,
+  label,
+  icon,
+  heightClass,
+}: Readonly<{
+  index: string;
+  label: string;
+  icon: React.ReactNode;
+  heightClass: string;
+}>) {
+  return (
+    <div className={`flex items-center justify-between border-b border-border-subtle px-2 ${heightClass}`}>
+      <div className="flex items-center gap-1.5">
+        <span className="font-mono text-[8px] text-text-dim">{index}</span>
+        <span className="text-[9px] font-medium text-text-secondary">{label}</span>
+      </div>
+      <div className="flex items-center gap-1 text-text-dim">
+        {icon}
+        <Lock size={9} />
+      </div>
+    </div>
+  );
+}
+
+function Legend({ badge, className, label }: Readonly<{ badge: string; className: string; label: string }>) {
+  return (
+    <div className="flex items-center gap-1.5 whitespace-nowrap">
+      <span className={`rounded-sm border px-1 py-0.5 text-[7px] font-bold ${className}`}>{badge}</span>
+      <span>{label}</span>
+    </div>
+  );
+}
+
+function WaveformSvg({ className }: Readonly<{ className?: string }>) {
   return (
     <svg
       viewBox="0 0 400 30"
       preserveAspectRatio="none"
       className={className}
       xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
     >
       <path
         d="M0,15 Q20,3 40,15 T80,15 T120,5 T160,25 T200,10 T240,20 T280,7 T320,23 T360,12 T400,15"
         fill="none"
-        stroke={color}
+        stroke="currentColor"
         strokeWidth="1.5"
         strokeLinecap="round"
       />

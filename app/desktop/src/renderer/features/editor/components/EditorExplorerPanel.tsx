@@ -33,83 +33,78 @@ export function EditorExplorerPanel({
   const [collapsedChapters, setCollapsedChapters] = useState<Record<string, boolean>>({});
 
   const toggleChapter = (chapterId: string) => {
-    setCollapsedChapters((prev) => ({
-      ...prev,
-      [chapterId]: !prev[chapterId],
+    setCollapsedChapters((previous) => ({
+      ...previous,
+      [chapterId]: !previous[chapterId],
     }));
   };
 
   return (
-    <aside className="flex h-full min-h-0 flex-col border-r border-border/60 bg-[#0b0f17]">
-      {/* Panel Header */}
-      <div className="flex items-center justify-between border-b border-border/50 px-3.5 py-3">
-        <h3 className="text-xs font-bold text-foreground">Project Explorer</h3>
+    <aside className="flex h-full min-h-0 flex-col border-r border-border-subtle bg-surface-panel">
+      <div className="nx-panel-header flex items-center justify-between px-3">
+        <h3 className="text-[11px] font-bold text-foreground">Project Explorer</h3>
         <button
           type="button"
           onClick={onClose}
-          className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition hover:bg-[#141d2a] hover:text-foreground"
+          className="nx-icon-button size-6"
           aria-label="Close Explorer"
         >
-          <X size={13} />
+          <X size={12} />
         </button>
       </div>
 
-      {/* Search & Tool Icons */}
-      <div className="flex items-center gap-1.5 border-b border-border/40 p-2.5">
-        <div className="relative flex flex-1 items-center">
-          <Search size={13} className="pointer-events-none absolute left-2.5 text-muted-foreground" />
+      <div className="flex items-center gap-1.5 border-b border-border-subtle p-2">
+        <div className="relative flex min-w-0 flex-1 items-center">
+          <Search size={12} className="pointer-events-none absolute left-2.5 text-text-muted" />
           <input
             type="text"
-            className="h-8 w-full rounded-lg border border-border/60 bg-[#0f1522] pl-8 pr-2.5 text-xs text-foreground placeholder:text-muted-foreground/60 focus:border-[#ff8a00]/70 focus:outline-none"
+            className="nx-compact-control h-8 w-full pl-8 pr-2 text-[10px] placeholder:text-text-dim focus:border-primary focus:outline-none"
             placeholder="Search beats or chapters..."
             value={query}
-            onChange={(e) => onQueryChange(e.target.value)}
+            onChange={(event) => onQueryChange(event.target.value)}
           />
         </div>
         <button
           type="button"
-          className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/60 bg-[#0f1522] text-muted-foreground transition hover:text-foreground"
+          className="nx-compact-control grid size-8 place-items-center text-text-muted"
           title="Filter"
           aria-label="Filter"
         >
-          <Filter size={13} />
+          <Filter size={12} />
         </button>
         <button
           type="button"
-          className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/60 bg-[#0f1522] text-muted-foreground transition hover:text-foreground"
+          className="nx-compact-control grid size-8 place-items-center text-text-muted"
           title="Layout view"
           aria-label="Layout view"
         >
-          <LayoutGrid size={13} />
+          <LayoutGrid size={12} />
         </button>
       </div>
 
-      {/* Chapters & Beats List */}
-      <div className="flex-1 space-y-3 overflow-y-auto p-3 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-border/40">
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-2.5">
         {hierarchy.map((group) => {
           const isCollapsed = Boolean(collapsedChapters[group.chapter.chapterId]);
           const chapterDurationMs = Math.max(0, group.chapter.endMs - group.chapter.startMs);
 
           return (
-            <div key={group.chapter.chapterId} className="space-y-1.5">
-              {/* Chapter Accordion Header */}
+            <div key={group.chapter.chapterId} className="space-y-1">
               <button
                 type="button"
-                className="flex w-full items-center justify-between px-1 py-1 text-left text-xs transition hover:text-foreground"
+                className="flex h-7 w-full items-center justify-between rounded-sm px-1 text-left transition hover:bg-surface-2"
                 onClick={() => toggleChapter(group.chapter.chapterId)}
               >
-                <div className="flex items-center gap-1.5 text-[11px] font-bold tracking-wider text-muted-foreground hover:text-foreground uppercase">
-                  {isCollapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
-                  <span>CHAPTER {String(group.chapter.orderIndex + 1).padStart(2, "0")}</span>
+                <div className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-text-muted">
+                  {isCollapsed ? <ChevronRight size={11} /> : <ChevronDown size={11} />}
+                  <span>Chapter {String(group.chapter.orderIndex + 1).padStart(2, "0")}</span>
                 </div>
-                <span className="font-mono text-[11px] text-muted-foreground">
+                <span className="font-mono text-[9px] text-text-dim">
                   {formatDurationMinutes(chapterDurationMs)}
                 </span>
               </button>
 
-              {/* Beats within Chapter */}
               {!isCollapsed && (
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   {group.scenes.flatMap((scene) => scene.beats).map((beat) => {
                     const isSelected = beat.visualBeatId === selectedBeatId;
                     const beatNumber = String(beat.beatIndex + 1).padStart(2, "0");
@@ -119,33 +114,33 @@ export function EditorExplorerPanel({
                         key={beat.visualBeatId}
                         type="button"
                         onClick={() => onSelectBeat(beat)}
-                        className={`group relative flex w-full items-center gap-2.5 rounded-xl border p-2 text-left transition-all duration-150 ${
+                        className={`group flex w-full items-center gap-2 rounded-md border p-1.5 text-left transition-colors ${
                           isSelected
-                            ? "border-[#ff8a00] bg-[#141822] shadow-[0_0_12px_rgba(255,138,0,0.25)] ring-1 ring-[#ff8a00]"
-                            : "border-border/40 bg-[#0d121c]/90 hover:border-border/80 hover:bg-[#121826]"
+                            ? "border-primary/65 bg-primary-muted shadow-[var(--shadow-primary)]"
+                            : "border-border-subtle bg-surface hover:border-border-dark hover:bg-surface-2"
                         }`}
                       >
-                        {/* Thumbnail */}
-                        <div className="relative h-11 w-14 shrink-0 overflow-hidden rounded-lg border border-border/50 bg-[#161f30]">
-                          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#1a2538] via-[#101928] to-[#0a101b] text-xs">
-                            <div className="h-full w-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-900/40 via-purple-900/20 to-black" />
-                          </div>
+                        <div className="nx-media-placeholder relative h-10 w-14 shrink-0 overflow-hidden rounded-sm border border-border-subtle">
+                          <span className="absolute bottom-1 left-1 rounded-sm bg-background/80 px-1 font-mono text-[8px] text-text-secondary">
+                            {beat.mediaType === "VIDEO" ? "VID" : beat.mediaType === "IMAGE" ? "IMG" : "AI"}
+                          </span>
                         </div>
 
-                        {/* Title & Badge */}
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5">
-                            <span className="rounded bg-[#ff8a00] px-1 py-0.2 text-[9px] font-bold text-black">
+                            <span className="rounded-sm bg-primary px-1 py-0.5 text-[8px] font-bold text-primary-foreground">
                               {beatNumber}
                             </span>
-                            <span className="truncate text-xs font-medium text-foreground">
+                            <span className={`truncate text-[10px] font-medium ${isSelected ? "text-primary-hover" : "text-foreground"}`}>
                               {beat.title || `Beat ${beatNumber}`}
                             </span>
                           </div>
+                          <p className="mt-1 truncate text-[9px] text-text-dim">
+                            {beat.cameraMovement || beat.visualIntent || "Visual beat"}
+                          </p>
                         </div>
 
-                        {/* Duration */}
-                        <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+                        <span className="shrink-0 font-mono text-[9px] text-text-muted">
                           {formatDurationSeconds(beat.durationMs)}
                         </span>
                       </button>
@@ -158,18 +153,17 @@ export function EditorExplorerPanel({
         })}
 
         {!hierarchy.length && (
-          <div className="p-6 text-center text-xs text-muted-foreground">
+          <div className="rounded-md border border-dashed border-border p-5 text-center text-[10px] text-text-muted">
             Không tìm thấy chapter hoặc visual beat nào.
           </div>
         )}
 
-        {/* Add Chapter Button */}
         <button
           type="button"
           onClick={onAddChapter}
-          className="flex h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-border/70 bg-[#0d121c]/60 text-xs font-medium text-muted-foreground transition hover:border-[#ff8a00]/60 hover:bg-[#141b27] hover:text-[#ff8a00]"
+          className="flex h-9 w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-border bg-surface text-[10px] font-medium text-text-muted transition hover:border-primary/50 hover:bg-primary-muted hover:text-primary-hover"
         >
-          <Plus size={14} />
+          <Plus size={12} />
           <span>Add Chapter</span>
         </button>
       </div>
