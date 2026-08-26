@@ -6,16 +6,10 @@ spring:
     username: ${DB_USERNAME:narrativex}
     password: ${DB_PASSWORD:narrativex}
     driver-class-name: org.postgresql.Driver
-  data:
-    redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
   session:
     timeout: ${NARRATIVEX_SESSION_TIMEOUT:7d}
-    data:
-      redis:
-        namespace: ${NARRATIVEX_SESSION_REDIS_NAMESPACE:narrativex:session}
-        flush-mode: on-save
+    jdbc:
+      initialize-schema: never
   servlet:
     multipart:
       max-file-size: ${NARRATIVEX_MAX_IMPORT_FILE_SIZE:10MB}
