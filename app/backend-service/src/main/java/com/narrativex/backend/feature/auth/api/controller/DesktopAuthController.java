@@ -6,6 +6,7 @@ import com.narrativex.backend.feature.auth.api.response.CurrentUserResponse;
 import com.narrativex.backend.feature.auth.application.exception.InvalidDesktopGuestCredentialException;
 import com.narrativex.backend.feature.auth.application.port.in.DesktopAuthHandoff;
 import com.narrativex.backend.feature.auth.application.port.in.DesktopGuestIdentity;
+import com.narrativex.backend.feature.auth.infrastructure.desktop.DesktopUserPrincipal;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -156,9 +157,11 @@ public class DesktopAuthController {
 
     rotateExistingSession(servletRequest);
 
+    DesktopUserPrincipal principal =
+        new DesktopUserPrincipal(user.id(), user.displayName(), user.email(), user.avatarUrl());
     Authentication authentication =
         UsernamePasswordAuthenticationToken.authenticated(
-            user, null, List.of(new SimpleGrantedAuthority(ROLE_USER)));
+            principal, null, List.of(new SimpleGrantedAuthority(ROLE_USER)));
     SecurityContext context = SecurityContextHolder.createEmptyContext();
     context.setAuthentication(authentication);
     SecurityContextHolder.setContext(context);
