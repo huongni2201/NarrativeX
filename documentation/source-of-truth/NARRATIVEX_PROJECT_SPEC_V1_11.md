@@ -95,15 +95,15 @@ PostgreSQL owns durable auth/ownership/project/domain/job/lease/policy/lineage/a
 
 Production backend persistence uses application/domain ports backed by MyBatis rows/mappers/XML and explicit PostgreSQL SQL. Do not reintroduce JPA or parallel direct-`JdbcTemplate` production persistence without an ADR.
 
-### 3.7 Renderer is sandboxed UI
+### 3.7 Renderer is isolated UI
 
 ```text
 contextIsolation = true
 nodeIntegration  = false
-sandbox          = true
+sandbox          = false
 ```
 
-Electron renderer owns UI/routing/query/editor state only. Native filesystem/process/credential/deep-link/local-render capabilities live in Electron main behind narrow preload APIs.
+The Chromium renderer sandbox is currently disabled for Desktop startup compatibility. Electron renderer still owns UI/routing/query/editor state only; native filesystem/process/credential/deep-link/local-render capabilities live in Electron main behind narrow preload APIs, with context isolation and no Node integration preserved. Treat renderer-loaded story, prompt, reference and provider output as untrusted.
 
 ### 3.8 Absolute Desktop paths are never backend identities
 
