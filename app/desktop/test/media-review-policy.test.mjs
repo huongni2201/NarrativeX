@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { diffPrompt, preserveUnaffectedReviews, reviewReadiness, selectedRegenerationIds } from "../src/renderer/features/generation/media-review-policy.ts";
 
-const item = { id: "i1", visualBeatId: "b1", mediaAssetId: "a1", executionStatus: "COMPLETED", reviewStatus: "NEEDS_REVIEW", rowVersion: 3 };
+const item = { id: "i1", visualBeatId: "b1", mediaAssetId: "a1", executionStatus: "READY", reviewStatus: "NEEDS_REVIEW", rowVersion: 3 };
 const asset = { id: "a1", type: "IMAGE", origin: "GENERATED", originalFilename: "a.png", contentType: "image/png", sizeBytes: 100, status: "READY", createdAt: "now", durationMs: null, storageMode: "LOCAL_ONLY", sha256: "abc" };
 
 test("approval requires verified local checksum identity", () => {
