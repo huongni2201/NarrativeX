@@ -31,7 +31,7 @@ Spring Boot Backend
 ## Current Desktop implemented foundations
 
 - Electron + Electron Vite + React + TypeScript editor with a source-owned Tailwind/shadcn-style component structure.
-- Secure BrowserWindow boundary with context isolation, no Node integration and sandboxing.
+- Context-isolated BrowserWindow boundary with no Node integration and narrow preload/main IPC; Chromium renderer sandbox is currently disabled for startup compatibility.
 - Stable installation-scoped guest identity persisted through Electron secure storage plus backend `desktop_guest_installations`.
 - Guest-first session bootstrap that lets users create/edit free workspace state before account sign-in.
 - Google-only account sign-in through system browser + `narrativex://auth/callback` one-time handoff.
