@@ -44,166 +44,128 @@ export function EditorPreviewViewport({
   const beatNumber = selectedBeat ? String(selectedBeat.beatIndex + 1).padStart(2, "0") : "01";
 
   return (
-    <div className="flex h-full min-h-0 flex-col items-center justify-between bg-[#080b10] px-4 py-2">
-      {/* Top Header Bar over Canvas */}
-      <div className="flex w-full max-w-2xl items-center justify-between pb-1.5 text-xs">
-        {/* Left: Beat Number & Title & Status badge */}
-        <div className="flex items-center gap-2">
-          <h2 className="text-sm font-bold text-foreground">
-            {selectedBeat ? `${beatNumber} ${selectedBeat.title}` : "01 Mở đầu bi kịch"}
+    <div className="flex h-full min-h-0 flex-col bg-background px-3 py-2">
+      <div className="mx-auto flex h-8 w-full max-w-[820px] items-center justify-between gap-3 text-[10px]">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="font-mono text-[9px] font-semibold text-text-dim">{beatNumber}</span>
+          <h2 className="truncate text-[11px] font-semibold text-foreground">
+            {selectedBeat?.title || "Mở đầu bi kịch"}
           </h2>
-          <span className="rounded-md border border-border/70 bg-[#141b27] px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+          <span className={`shrink-0 rounded-sm border px-1.5 py-0.5 text-[8px] font-medium ${
+            selectedBeat?.assetReady
+              ? "border-success/30 bg-success-bg text-success"
+              : "border-border bg-surface-2 text-text-muted"
+          }`}>
             {selectedBeat?.assetReady ? "Ready" : "Draft"}
           </span>
         </div>
 
-        {/* Right: Metrics & Menu */}
-        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-          <div className="flex items-center gap-1.5 font-mono">
-            <span>Duration:</span>
-            <span className="font-bold text-foreground">
-              {formatTimecode(selectedBeat?.durationMs || 12000)}
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5 font-mono">
-            <span>Beats:</span>
-            <span className="font-bold text-foreground">6</span>
-          </div>
-          <button
-            type="button"
-            className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-[#151e2b] hover:text-foreground"
-            aria-label="More options"
-          >
-            <MoreVertical size={14} />
+        <div className="flex shrink-0 items-center gap-3 text-text-muted">
+          <span className="hidden font-mono xl:inline">
+            Duration <strong className="ml-1 font-semibold text-text-secondary">{formatTimecode(selectedBeat?.durationMs || 12000)}</strong>
+          </span>
+          <button type="button" className="nx-icon-button size-6" aria-label="More options">
+            <MoreVertical size={13} />
           </button>
         </div>
       </div>
 
-      {/* 16:9 Viewport Canvas */}
-      <div className="relative flex aspect-video max-h-[260px] w-full max-w-2xl items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-[#0c111a] shadow-xl shadow-black">
-        {/* Cinematic Atmospheric Visual Scene */}
-        <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-[#070c14]">
-          {/* Visual gradient backdrop */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-[#0d1624] to-[#15233a] opacity-90" />
-          
-          {/* Gothic / Cinematic castle atmosphere illustration preview */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="h-full w-full bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-sky-950/40 via-[#0a101b] to-black opacity-80" />
-            {/* Center Atmospheric Details */}
-            <div className="relative z-10 flex flex-col items-center justify-center p-4 text-center">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-[#ff8a00]">
+      <div className="flex min-h-0 flex-1 items-center justify-center py-1">
+        <div className="relative aspect-video max-h-[300px] w-full max-w-[820px] overflow-hidden rounded-md border border-border bg-surface-dark shadow-[var(--shadow-panel)]">
+          <div className="nx-media-placeholder relative flex h-full w-full items-center justify-center overflow-hidden">
+            <div className="relative z-10 max-w-md px-5 text-center">
+              <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-primary-hover">
                 {selectedBeat?.cameraMovement || "Slow Pan · Cinematic"}
               </span>
-              <h3 className="mt-1 text-base font-bold text-white drop-shadow-lg">
+              <h3 className="mt-1 text-sm font-semibold text-foreground">
                 {selectedBeat?.title || "Visual Beat"}
               </h3>
-              <p className="mt-1 max-w-sm text-xs leading-relaxed text-slate-300 drop-shadow">
+              <p className="mt-1 line-clamp-2 text-[10px] leading-4 text-text-secondary">
                 {selectedBeat?.visualIntent || "Giới thiệu bối cảnh và nhân vật chính."}
               </p>
             </div>
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent" />
           </div>
-
-          {/* Vignette shadow */}
-          <div className="pointer-events-none absolute inset-0 shadow-[inset_0_0_80px_rgba(0,0,0,0.85)]" />
         </div>
       </div>
 
-      {/* Bottom Transport Controls Bar */}
-      <div className="flex w-full max-w-2xl items-center justify-between pt-1.5">
-        {/* Timecode */}
-        <div className="flex items-center gap-1 font-mono text-xs">
-          <span className="font-bold text-foreground">
-            {formatTimecode(currentOffsetMs)}
-          </span>
-          <span className="text-muted-foreground/60">/</span>
-          <span className="text-muted-foreground">
-            {formatTimecode(totalScopeDurationMs || 12000)}
-          </span>
+      <div className="mx-auto flex h-9 w-full max-w-[820px] items-center justify-between gap-3">
+        <div className="min-w-[118px] font-mono text-[9px]">
+          <span className="font-semibold text-text-secondary">{formatTimecode(currentOffsetMs)}</span>
+          <span className="mx-1 text-text-dim">/</span>
+          <span className="text-text-muted">{formatTimecode(totalScopeDurationMs || 12000)}</span>
         </div>
 
-        {/* Center Transport Controls */}
-        <div className="flex items-center gap-2">
-          {/* Prev Beat */}
+        <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={onPrevBeat}
-            className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground transition hover:bg-[#151e2b] hover:text-foreground"
+            className="nx-icon-button"
             title="Previous beat"
             aria-label="Previous beat"
           >
-            <SkipBack size={14} />
+            <SkipBack size={13} />
           </button>
-
-          {/* Frame Step Back */}
           <button
             type="button"
             onClick={() => onStepMs(-500)}
-            className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground transition hover:bg-[#151e2b] hover:text-foreground"
+            className="nx-icon-button"
             title="Step back"
             aria-label="Step back"
           >
-            <span className="font-mono text-[11px] font-bold">‹‹</span>
+            <span className="font-mono text-[10px] font-bold">‹‹</span>
           </button>
-
-          {/* Large Circular Orange Play Button */}
           <button
             type="button"
             onClick={onTogglePlay}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-[#ff8a00] text-black shadow-[0_0_16px_rgba(255,138,0,0.4)] transition hover:scale-105 hover:bg-[#ffa133] active:scale-95"
+            className="mx-1 flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[var(--shadow-primary)] transition hover:bg-primary-hover active:scale-95"
             title={playing ? "Pause" : "Play"}
             aria-label={playing ? "Pause" : "Play"}
           >
-            {playing ? <Pause size={15} className="fill-black" /> : <Play size={15} className="ml-0.5 fill-black" />}
+            {playing ? <Pause size={13} /> : <Play size={13} className="ml-0.5" />}
           </button>
-
-          {/* Frame Step Forward */}
           <button
             type="button"
             onClick={() => onStepMs(500)}
-            className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground transition hover:bg-[#151e2b] hover:text-foreground"
+            className="nx-icon-button"
             title="Step forward"
             aria-label="Step forward"
           >
-            <span className="font-mono text-[11px] font-bold">››</span>
+            <span className="font-mono text-[10px] font-bold">››</span>
           </button>
-
-          {/* Next Beat */}
           <button
             type="button"
             onClick={onNextBeat}
-            className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground transition hover:bg-[#151e2b] hover:text-foreground"
+            className="nx-icon-button"
             title="Next beat"
             aria-label="Next beat"
           >
-            <SkipForward size={14} />
+            <SkipForward size={13} />
           </button>
-
-          {/* Volume toggle */}
           <button
             type="button"
             onClick={() => setMuted(!muted)}
-            className="ml-1 flex h-7 w-7 items-center justify-center rounded text-muted-foreground transition hover:bg-[#151e2b] hover:text-foreground"
+            className="nx-icon-button ml-1"
             title={muted ? "Unmute" : "Mute"}
-            aria-label="Volume"
+            aria-label={muted ? "Unmute" : "Mute"}
           >
-            {muted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+            {muted ? <VolumeX size={13} /> : <Volume2 size={13} />}
           </button>
         </div>
 
-        {/* Right Viewport Controls */}
-        <div className="flex items-center gap-2">
-          {/* Fit Dropdown */}
+        <div className="flex min-w-[118px] justify-end gap-1.5">
           <div className="relative">
             <button
               type="button"
               onClick={() => setIsFitOpen(!isFitOpen)}
-              className="flex h-7 items-center gap-1 rounded-md border border-border/70 bg-[#101724] px-2.5 text-[11px] font-medium text-foreground transition hover:bg-[#162032]"
+              className="nx-compact-control flex h-7 items-center gap-1 px-2 text-[9px] font-medium"
+              aria-expanded={isFitOpen}
             >
               <span>{fitMode}</span>
-              <ChevronDown size={11} className="text-muted-foreground" />
+              <ChevronDown size={10} className="text-text-muted" />
             </button>
             {isFitOpen && (
-              <div className="absolute bottom-8 right-0 z-30 w-24 rounded-lg border border-border bg-[#101724] p-1 shadow-xl">
+              <div className="absolute bottom-8 right-0 z-30 w-24 rounded-md border border-border bg-surface-elevated p-1 shadow-[var(--shadow-panel)]">
                 {(["Fit", "100%", "Fill"] as const).map((mode) => (
                   <button
                     key={mode}
@@ -212,10 +174,10 @@ export function EditorPreviewViewport({
                       setFitMode(mode);
                       setIsFitOpen(false);
                     }}
-                    className={`w-full rounded-md px-2 py-1 text-left text-[11px] transition ${
+                    className={`w-full rounded-sm px-2 py-1 text-left text-[9px] transition ${
                       fitMode === mode
-                        ? "bg-[#ff8a00]/20 font-semibold text-[#ff8a00]"
-                        : "text-muted-foreground hover:bg-[#162030] hover:text-foreground"
+                        ? "bg-primary-muted font-semibold text-primary-hover"
+                        : "text-text-muted hover:bg-surface-3 hover:text-foreground"
                     }`}
                   >
                     {mode}
@@ -225,14 +187,13 @@ export function EditorPreviewViewport({
             )}
           </div>
 
-          {/* Fullscreen toggle */}
           <button
             type="button"
-            className="flex h-7 w-7 items-center justify-center rounded-md border border-border/70 bg-[#101724] text-muted-foreground transition hover:bg-[#162032] hover:text-foreground"
+            className="nx-compact-control grid size-7 place-items-center text-text-muted"
             title="Toàn màn hình"
             aria-label="Fullscreen"
           >
-            <Maximize2 size={12} />
+            <Maximize2 size={11} />
           </button>
         </div>
       </div>
