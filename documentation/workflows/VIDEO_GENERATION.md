@@ -73,46 +73,37 @@ Ambiguous provider acceptance becomes `UNKNOWN` and reconciles before resubmissi
 
 Generated motion duration and narration-span duration are separate concepts. The production timeline still has to fit the selected media into the narration-authoritative beat span.
 
-## Local final render
+## Final render
 
-Regardless of whether a beat uses an imported video, generated motion or deterministic image motion, the primary Desktop final render is local-first:
+Regardless of whether a beat uses an imported video, generated motion or deterministic image motion, final rendering is a Desktop-local operation:
 
 ```text
 backend-authorized production snapshot
   -> selected beat media IDs + timing
-  -> assigned LOCAL_DEVICE lease
+  -> assigned local-device lease
   -> Electron main resolves checksum-verified local assets
   -> render/cache segments
   -> concat/mux with narration
   -> ffprobe/checksum final MP4
-  -> local artifact registration
-  -> backend completion metadata
+  -> write project artifacts/<jobId>/final.mp4
+  -> register backend artifact metadata
+  -> preview/export local MP4 directly
 ```
 
-The final Desktop MP4 remains under the project artifact workspace unless the user explicitly exports/uploads/publishes it elsewhere.
+The final MP4 remains under the project artifact workspace unless the user explicitly exports/uploads/publishes it elsewhere. The backend never stores or proxies final video bytes.
 
-## Retained cloud/server path
-
-Server/cloud rendering may still use remote pipeline media and Google Drive final storage:
-
-```text
-remote pipeline media -> R2
-cloud worker render    -> FFmpeg/ffprobe
-cloud final MP4        -> Google Drive
-```
-
-That is fallback/server behavior. Do not state that every final NarrativeX video must be uploaded to Google Drive.
+AI-generated images/narration may use R2 while provider/worker execution requires remote durable transport, but those accepted media bytes are materialized locally before final rendering.
 
 ## Shorts / Reels
 
 Short/Reel artifacts are derived from approved source/timeline state and should use explicit vertical render settings/crop/reframe policy. They must preserve source/asset lineage and reuse approved media where possible instead of mutating the long-form artifact.
 
-The same storage rule applies: a Desktop-local short can remain a local artifact; cloud upload is an explicit separate workflow, not an inherent final-render requirement.
+A short remains a Desktop-local artifact until the user explicitly exports or publishes it.
 
 ## Remaining work
 
 - production-complete imported-video editing semantics (trim/fill/reorder/review where allowed);
 - adaptive timeline/reframe UX for mixed image/video beats;
 - optional I2V provider/runtime hardening only after core creator reliability;
-- provider-neutral publishing/upload from local final artifacts;
+- provider-neutral publishing/upload from explicitly exported local final artifacts;
 - actual compute/cost reconciliation for any self-hosted or paid motion generation.
