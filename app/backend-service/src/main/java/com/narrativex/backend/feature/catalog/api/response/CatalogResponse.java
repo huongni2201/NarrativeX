@@ -8,9 +8,11 @@ import java.util.List;
 public final class CatalogResponse {
   private CatalogResponse() {}
 
-  public record StylePreset(String name, String description, String thumbnail, List<String> tags) {
+  public record StylePreset(
+      String name, String category, String description, String thumbnail, List<String> tags) {
     public static StylePreset from(StylePresetView view) {
-      return new StylePreset(view.name(), view.description(), view.thumbnailUrl(), view.tags());
+      return new StylePreset(
+          view.name(), view.category(), view.description(), view.thumbnailUrl(), view.tags());
     }
   }
 
