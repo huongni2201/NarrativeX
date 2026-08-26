@@ -35,7 +35,6 @@ export async function muxNarration(
         "title=NarrativeX Captions",
         "-disposition:s:0",
         "default",
-        "-shortest",
         "-y",
         output,
       ]
