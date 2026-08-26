@@ -92,7 +92,6 @@ test("auto edit plan emits only render parameters that differ from timeline", ()
   assert.deepEqual(plan.renderOverrides, [
     {
       visualBeatId: "beat-1",
-      cameraMovement: "NONE",
       fitMode: "TRIM",
       trimStartMs: 6000,
     },
