@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.generation.application.usecase;
 
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
+import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.generation.api.response.CurrentMediaJobResponse;
 import com.narrativex.backend.feature.generation.application.port.out.ChapterMediaHeadRepository;
 import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
@@ -31,12 +32,9 @@ public class GetCurrentMediaJobUseCase {
     var job =
         generationJobRepository
             .findByIdAndOwner(internalJobId.get(), userId)
-            .orElseThrow(
-                () ->
-                    new IllegalStateException(
-                        "Chapter media head points to a missing generation job"));
+            .orElseThrow(() -> new ResourceNotFoundException("Current media job not found"));
     if (!projectId.equals(job.getProjectId()) || !chapterId.equals(job.getChapterId())) {
-      throw new IllegalStateException("Chapter media head points outside the requested scope");
+      throw new ResourceNotFoundException("Current media job not found");
     }
     return new CurrentMediaJobResponse(job.getJobId());
   }
