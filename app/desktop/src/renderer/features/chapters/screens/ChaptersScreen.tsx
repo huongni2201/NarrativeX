@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type {
   DesktopChapterDetails,
   DesktopChapterWorkspace,
@@ -11,9 +11,11 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { toErrorMessage } from "@/lib/errors";
 import { generationApi } from "../../generation/api/generation.api";
+import { useGenerationJob } from "../../generation/queries/generation.queries";
 import { useGenerateNarration } from "../../generation/queries/narration.queries";
 import { ChapterEditorPanel } from "../components/ChapterEditorPanel";
 import { ChapterListPanel } from "../components/ChapterListPanel";
+import { ChapterTranslationCard } from "../components/ChapterTranslationCard";
 import { ChapterWorkflowRibbon } from "../components/ChapterWorkflowRibbon";
 import { ChapterWorkspaceContext } from "../components/ChapterWorkspaceContext";
 import {
@@ -34,8 +36,19 @@ import {
   useDeleteChapter,
   useUpdateChapter,
 } from "../queries/chapters.queries";
+import {
+  invalidateChapterTranslation,
+  useChapterContentVariants,
+  useChapterLanguageStatus,
+  useTranslateChapter,
+} from "../queries/translation.queries";
 
 type TrackedNarrationJob = {
+  jobId: string;
+  chapterId: string;
+};
+
+type TrackedTranslationJob = {
   jobId: string;
   chapterId: string;
 };
@@ -67,6 +80,7 @@ export function ChaptersScreen({
 }>) {
   const createChapter = useCreateChapter(projectId);
   const generateNarration = useGenerateNarration();
+  const translateChapter = useTranslateChapter();
   const updateChapter = useUpdateChapter(projectId);
   const deleteChapter = useDeleteChapter(projectId);
   const navigate = useNavigate();
@@ -84,6 +98,7 @@ export function ChaptersScreen({
   const [notice, setNotice] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [narrationJob, setNarrationJob] = useState<TrackedNarrationJob | null>(null);
+  const [translationJob, setTranslationJob] = useState<TrackedTranslationJob | null>(null);
 
   useEffect(() => {
     if (workspaceStatus === "loading") return;
@@ -107,6 +122,8 @@ export function ChaptersScreen({
   const selected = isCreating
     ? null
     : chapters.find((chapter) => chapter.id === editingId) ?? null;
+  const languageStatusQuery = useChapterLanguageStatus(projectId, selected?.id ?? null);
+  const contentVariantsQuery = useChapterContentVariants(projectId, selected?.id ?? null);
 
   const baseChapters = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
@@ -200,14 +217,7 @@ export function ChaptersScreen({
     generateNarration.isPending || selectedAudioProcessing || trackedNarrationForSelected;
   const audioReady = selectedAudioStatus === "READY" || selectedAudioStatus === "COMPLETED";
 
-  const narrationJobQuery = useQuery({
-    queryKey: ["generation-jobs", narrationJob?.jobId ?? "none"],
-    queryFn: () => generationApi.getGenerationJob(narrationJob!.jobId),
-    enabled: Boolean(narrationJob?.jobId),
-    refetchInterval: (jobQuery) =>
-      isGenerationJobTerminal(jobQuery.state.data?.status) ? false : 1500,
-  });
-
+  const narrationJobQuery = useGenerationJob(narrationJob?.jobId ?? null);
   const narrationJobStatus = narrationJobQuery.data?.status;
   const narrationJobErrorCode = narrationJobQuery.data?.errorCode;
 
@@ -261,6 +271,66 @@ export function ChaptersScreen({
     }
   }, [editingId, narrationJob, narrationJobQuery.isError, projectId, queryClient]);
 
+  const translationJobQuery = useGenerationJob(translationJob?.jobId ?? null);
+  const translationJobStatus = translationJobQuery.data?.status;
+  const translationJobErrorCode = translationJobQuery.data?.errorCode;
+  const translationJobActive = Boolean(
+    translationJob &&
+      (translationJobQuery.isLoading || !isGenerationJobTerminal(translationJobStatus)),
+  );
+  const translationTrackedForSelected = Boolean(
+    selected && translationJob?.chapterId === selected.id,
+  );
+  const translationBusyForSelected =
+    translateChapter.isPending || (translationTrackedForSelected && translationJobActive);
+  const translationBusyForAny = translateChapter.isPending || translationJobActive;
+
+  useEffect(() => {
+    if (!translationJob || !isGenerationJobTerminal(translationJobStatus)) return;
+    const completedJob = translationJob;
+    const completedStatus = translationJobStatus;
+    const completedErrorCode = translationJobErrorCode;
+
+    void invalidateChapterTranslation(queryClient, projectId, completedJob.chapterId).finally(() => {
+      setTranslationJob((current) =>
+        current?.jobId === completedJob.jobId ? null : current,
+      );
+      if (editingId !== completedJob.chapterId) return;
+      if (completedStatus === "COMPLETED") {
+        setNotice("Bản dịch đã hoàn tất và sẽ được dùng mặc định cho lần phân tích tiếp theo.");
+        return;
+      }
+      setNotice(
+        completedErrorCode
+          ? `Dịch chapter thất bại: ${completedErrorCode}`
+          : "Dịch chapter không hoàn tất. Bạn có thể thử lại.",
+      );
+    });
+  }, [
+    editingId,
+    projectId,
+    queryClient,
+    translationJob,
+    translationJobErrorCode,
+    translationJobStatus,
+  ]);
+
+  useEffect(() => {
+    if (!translationJob || !translationJobQuery.isError) return;
+    const failedTrackingJob = translationJob;
+    setTranslationJob(null);
+    void invalidateChapterTranslation(queryClient, projectId, failedTrackingJob.chapterId);
+    if (editingId === failedTrackingJob.chapterId) {
+      setNotice("Không thể theo dõi job dịch. Đã tải lại trạng thái ngôn ngữ của chapter.");
+    }
+  }, [
+    editingId,
+    projectId,
+    queryClient,
+    translationJob,
+    translationJobQuery.isError,
+  ]);
+
   useEffect(() => {
     if (!selected) {
       if (!isCreating) {
@@ -273,13 +343,25 @@ export function ChaptersScreen({
     setSourceText(selected.sourceText);
   }, [isCreating, selected]);
 
+  const analysisContentVariantId =
+    languageStatusQuery.data?.translationStatus === "COMPLETED"
+      ? languageStatusQuery.data.existingTranslationVariantId
+      : null;
+
   const analyzeChapter = useMutation({
-    mutationFn: (chapterId: string) => generationApi.analyze(projectId, chapterId),
-    onSuccess: async (_job, chapterId) => {
+    mutationFn: (input: { chapterId: string; contentVariantId?: string | null }) =>
+      generationApi.analyze(projectId, input.chapterId, input.contentVariantId),
+    onSuccess: async (_job, input) => {
       await queryClient.invalidateQueries({
-        queryKey: chapterQueryKeys.workspace(projectId, chapterId),
+        queryKey: chapterQueryKeys.workspace(projectId, input.chapterId),
       });
-      if (editingId === chapterId) setNotice("Phân tích chapter đã được gửi.");
+      if (editingId === input.chapterId) {
+        setNotice(
+          input.contentVariantId
+            ? "Phân tích chapter đã được gửi với bản dịch hiện tại."
+            : "Phân tích chapter đã được gửi.",
+        );
+      }
     },
     onError: (error) => setNotice(toErrorMessage(error, "Phân tích chapter thất bại.")),
   });
@@ -289,7 +371,8 @@ export function ChaptersScreen({
     saveBusy ||
     generateNarration.isPending ||
     deleteChapter.isPending ||
-    analyzeChapter.isPending;
+    analyzeChapter.isPending ||
+    translationBusyForSelected;
 
   const isDirty = selected
     ? title !== selected.title || sourceText !== selected.sourceText
@@ -371,6 +454,7 @@ export function ChaptersScreen({
           sourceText,
           rowVersion: selected.rowVersion,
         });
+        await invalidateChapterTranslation(queryClient, projectId, selected.id);
         setNotice("Chapter đã được cập nhật.");
       } else {
         const created = await createChapter.mutateAsync({
@@ -417,6 +501,37 @@ export function ChaptersScreen({
       setNotice(`Đã gửi tạo audio. Job ${job.jobId.slice(0, 8)} đang được xử lý.`);
     } catch (error) {
       setNotice(toErrorMessage(error, "Tạo audio thất bại."));
+    }
+  }
+
+  async function translateSelected() {
+    const status = languageStatusQuery.data;
+    if (
+      !selected ||
+      !status ||
+      isDirty ||
+      translationBusyForAny ||
+      status.translationStatus === "NOT_REQUIRED" ||
+      status.translationStatus === "COMPLETED"
+    ) {
+      return;
+    }
+
+    setNotice(null);
+    try {
+      const job = await translateChapter.mutateAsync({
+        projectId,
+        chapterId: selected.id,
+        request: {
+          sourceVariantId: status.sourceVariantId,
+          sourceContentHash: status.sourceContentHash,
+          targetLanguage: status.projectLanguage,
+        },
+      });
+      setTranslationJob({ jobId: job.jobId, chapterId: selected.id });
+      setNotice(`Đã gửi dịch chapter. Job ${job.jobId.slice(0, 8)} đang được xử lý.`);
+    } catch (error) {
+      setNotice(toErrorMessage(error, "Dịch chapter thất bại."));
     }
   }
 
@@ -516,45 +631,73 @@ export function ChaptersScreen({
           onDeleteChapter={(chapter) => void remove(chapter)}
         />
 
-        <ChapterEditorPanel
-          selected={selected}
-          title={title}
-          sourceText={sourceText}
-          busy={busy}
-          saveBusy={saveBusy}
-          isDirty={isDirty}
-          notice={notice}
-          audio={{
-            voices,
-            voiceId,
-            speakingRate,
-            workspace: selectedWorkspace,
-            workspaceError: Boolean(selectedWorkspaceQuery?.isError),
-            status: selectedAudioStatus,
-            busy: audioBusy,
-            ready: audioReady,
-            processing: selectedAudioProcessing,
-            controlsDisabled: audioControlsDisabled,
-            trackedForSelected: trackedNarrationForSelected,
-            blockedByAnotherChapter: narrationBlockedByAnotherChapter,
-            generatePending: generateNarration.isPending,
-            onVoiceChange: setVoiceId,
-            onSpeakingRateChange: setSpeakingRate,
-            onCreate: () => void createAudio(),
-            onRefetchWorkspace: () => {
-              void selectedWorkspaceQuery?.refetch();
-            },
-          }}
-          onTitleChange={setTitle}
-          onSourceTextChange={setSourceText}
-          onBeginCreate={beginCreate}
-          onCancel={cancelEditing}
-          onSave={() => void save()}
-          onAnalyze={() => {
-            if (selected && !generationActionDisabled) analyzeChapter.mutate(selected.id);
-          }}
-          onOpenEditor={openEditor}
-        />
+        <div className="min-h-0 space-y-3 overflow-y-auto pr-1">
+          <ChapterEditorPanel
+            selected={selected}
+            title={title}
+            sourceText={sourceText}
+            busy={busy}
+            saveBusy={saveBusy}
+            isDirty={isDirty}
+            notice={notice}
+            audio={{
+              voices,
+              voiceId,
+              speakingRate,
+              workspace: selectedWorkspace,
+              workspaceError: Boolean(selectedWorkspaceQuery?.isError),
+              status: selectedAudioStatus,
+              busy: audioBusy,
+              ready: audioReady,
+              processing: selectedAudioProcessing,
+              controlsDisabled: audioControlsDisabled,
+              trackedForSelected: trackedNarrationForSelected,
+              blockedByAnotherChapter: narrationBlockedByAnotherChapter,
+              generatePending: generateNarration.isPending,
+              onVoiceChange: setVoiceId,
+              onSpeakingRateChange: setSpeakingRate,
+              onCreate: () => void createAudio(),
+              onRefetchWorkspace: () => {
+                void selectedWorkspaceQuery?.refetch();
+              },
+            }}
+            onTitleChange={setTitle}
+            onSourceTextChange={setSourceText}
+            onBeginCreate={beginCreate}
+            onCancel={cancelEditing}
+            onSave={() => void save()}
+            onAnalyze={() => {
+              if (selected && !generationActionDisabled) {
+                analyzeChapter.mutate({
+                  chapterId: selected.id,
+                  contentVariantId: analysisContentVariantId,
+                });
+              }
+            }}
+            onOpenEditor={openEditor}
+          />
+
+          {selected && (
+            <ChapterTranslationCard
+              translation={{
+                status: languageStatusQuery.data,
+                variants: contentVariantsQuery.data,
+                loading: languageStatusQuery.isLoading || contentVariantsQuery.isLoading,
+                error: languageStatusQuery.isError || contentVariantsQuery.isError,
+                busy: translationBusyForAny,
+                jobStatus: translationTrackedForSelected ? translationJobStatus ?? null : null,
+                blockedByUnsavedChanges: generationBlockedByUnsavedChanges,
+                onTranslate: () => void translateSelected(),
+                onRefresh: () => {
+                  void Promise.all([
+                    languageStatusQuery.refetch(),
+                    contentVariantsQuery.refetch(),
+                  ]);
+                },
+              }}
+            />
+          )}
+        </div>
 
         <ChapterWorkspaceContext
           projectName={projectName}
