@@ -16,6 +16,10 @@ import { LocalExecutionBackendClient } from "./local-execution/backend-client";
 import { loadLocalExecutionConfig } from "./local-execution/config";
 import { DeviceIdentityStore } from "./local-execution/device-identity";
 import { LocalExecutionService } from "./local-execution/service";
+import {
+  installLocalAssetPreviewProtocol,
+  registerLocalAssetPreviewScheme,
+} from "./local-storage/local-asset-preview-protocol";
 import { ProjectCatalog } from "./local-storage/project-catalog";
 import { registerProjectCatalogIpc } from "./local-storage/project-catalog-ipc";
 import { ProjectStorage } from "./local-storage/project-storage";
@@ -36,6 +40,8 @@ import {
   type RendererTrustPolicy,
 } from "./security/renderer-security";
 import { SelectionTokenStore } from "./security/selection-token-store";
+
+registerLocalAssetPreviewScheme();
 
 // Hardware acceleration is important for timeline/video preview performance. Keep it
 // enabled by default and expose an explicit safe mode for machines with broken GPU
@@ -297,6 +303,7 @@ void app.whenReady().then(async () => {
   const identityStore = new DeviceIdentityStore();
   const backendClient = new LocalExecutionBackendClient(config, app.getVersion());
   projectStorage = new ProjectStorage(join(app.getPath("userData"), "projects"));
+  installLocalAssetPreviewProtocol(session.defaultSession.protocol, projectStorage);
   const projectCatalog = new ProjectCatalog(projectStorage);
   registerProjectCatalogIpc(trustPolicy, projectCatalog);
   renderPreflight = new LocalRenderPreflightService(ffmpegRuntime, projectStorage);
