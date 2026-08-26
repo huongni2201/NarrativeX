@@ -25,6 +25,10 @@ import com.narrativex.backend.feature.generation.domain.enums.ResourceClass;
 import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -38,6 +42,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 public class GenerateChapterNarrationUseCase {
   private static final String STAGE_NAME = "NARRATION_TTS";
   private static final String SEGMENTATION_VERSION = "sentence-v1";
+  private static final String PREVIEW_HASH_DOMAIN = "NARRATIVEX_VOICE_PREVIEW\u0000";
 
   private final CurrentUserId currentUserId;
   private final ProjectAccess projectAccess;
@@ -62,9 +67,12 @@ public class GenerateChapterNarrationUseCase {
             command.projectId(), command.chapterId(), userId);
     var project = projectAccess.findOwnedProject(command.projectId(), userId);
 
-    if (chapter.sourceText().isBlank()) {
+    String sourceText = command.preview() ? command.previewText() : chapter.sourceText();
+    if (sourceText == null || sourceText.isBlank()) {
       throw new IllegalArgumentException("Chapter source must be saved before narration");
     }
+    String sourceHash = command.preview() ? previewSourceHash(sourceText) : chapter.sourceHash();
+
     var voiceCapabilities = resolveVoiceCapabilities(command.voiceId());
     validateSpeakingRate(command, voiceCapabilities);
     validateVoiceReferenceAsset(userId, command, voiceCapabilities);
@@ -73,13 +81,14 @@ public class GenerateChapterNarrationUseCase {
         fingerprintService.calculate(
             command.chapterId(),
             chapter.rowVersion(),
-            chapter.sourceHash(),
+            sourceHash,
             command.voiceId(),
             project.getSourceLanguage(),
             command.speakingRate(),
             SEGMENTATION_VERSION,
             command.voiceReferenceAssetId());
-    String baseIdempotencyKey = "chapter-narration:" + fingerprint;
+    String familyPrefix = command.preview() ? "voice-preview:" : "chapter-narration:";
+    String baseIdempotencyKey = familyPrefix + fingerprint;
 
     generationJobRepository.acquireIdempotencyLock(baseIdempotencyKey, userId);
     var baseJob = generationJobRepository.findByIdempotencyKey(baseIdempotencyKey, userId);
@@ -101,7 +110,8 @@ public class GenerateChapterNarrationUseCase {
           idempotencyKey);
     }
 
-    var admission = admissionService.admit(userId, chapter, voiceCapabilities.localExecution());
+    var admission =
+        admissionService.admitText(userId, sourceText, voiceCapabilities.localExecution());
     NarrationRequest narrationRequest =
         narrationRequestRepository.save(
             new NarrationRequest(
@@ -109,8 +119,8 @@ public class GenerateChapterNarrationUseCase {
                 command.projectId(),
                 command.chapterId(),
                 chapter.rowVersion(),
-                chapter.sourceHash(),
-                chapter.sourceText(),
+                sourceHash,
+                sourceText,
                 command.voiceId(),
                 project.getSourceLanguage(),
                 command.speakingRate(),
@@ -146,8 +156,8 @@ public class GenerateChapterNarrationUseCase {
                 command.chapterId(),
                 null,
                 chapter.rowVersion(),
-                chapter.sourceHash(),
-                chapter.sourceText(),
+                sourceHash,
+                sourceText,
                 project.getSourceLanguage(),
                 idempotencyKey));
 
@@ -160,7 +170,8 @@ public class GenerateChapterNarrationUseCase {
             UuidV7.random(), narrationRequest.id(), job.getId(), stageAttempt.getId()));
     generationOutboxRepository.enqueue(job);
     log.info(
-        "Prepared narration job rowId={} jobId={} (voiceId='{}', rate={}) for chapterId={}, projectId={}",
+        "Prepared {} rowId={} jobId={} (voiceId='{}', rate={}) for chapterId={}, projectId={}",
+        command.preview() ? "voice preview" : "narration job",
         job.getId(),
         job.getJobId(),
         command.voiceId(),
@@ -176,7 +187,8 @@ public class GenerateChapterNarrationUseCase {
     Runnable committedLog =
         () ->
             log.info(
-                "Committed narration job rowId={} jobId={} for chapterId={}, projectId={}",
+                "Committed {} rowId={} jobId={} for chapterId={}, projectId={}",
+                command.preview() ? "voice preview" : "narration job",
                 job.getId(),
                 job.getJobId(),
                 command.chapterId(),
@@ -242,9 +254,33 @@ public class GenerateChapterNarrationUseCase {
     if (!"AUDIO".equals(asset.type()) || !"READY".equals(asset.status())) {
       throw new IllegalArgumentException("Voice reference asset must be a READY audio asset");
     }
-    if (!"audio/mpeg".equalsIgnoreCase(asset.contentType())
-        && !"audio/mp3".equalsIgnoreCase(asset.contentType())) {
-      throw new IllegalArgumentException("Voice reference upload must be an MP3 file");
+    if ("LOCAL_ONLY".equals(asset.origin())
+        || asset.storageKey() == null
+        || asset.storageKey().isBlank()) {
+      throw new IllegalArgumentException(
+          "Voice reference asset must be uploaded before narration can use it");
+    }
+    if (!isSupportedVoiceReferenceContentType(asset.contentType())) {
+      throw new IllegalArgumentException("Voice reference upload must be an MP3 or WAV file");
+    }
+  }
+
+  private static boolean isSupportedVoiceReferenceContentType(String contentType) {
+    if (contentType == null) return false;
+    return "audio/mpeg".equalsIgnoreCase(contentType)
+        || "audio/mp3".equalsIgnoreCase(contentType)
+        || "audio/wav".equalsIgnoreCase(contentType)
+        || "audio/x-wav".equalsIgnoreCase(contentType);
+  }
+
+  private static String previewSourceHash(String sourceText) {
+    try {
+      byte[] digest =
+          MessageDigest.getInstance("SHA-256")
+              .digest((PREVIEW_HASH_DOMAIN + sourceText).getBytes(StandardCharsets.UTF_8));
+      return HexFormat.of().formatHex(digest);
+    } catch (NoSuchAlgorithmException exception) {
+      throw new IllegalStateException("SHA-256 must be available in the JDK", exception);
     }
   }
 }

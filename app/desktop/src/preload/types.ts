@@ -102,6 +102,15 @@ export interface LocalAssetSelection {
   kind: "IMAGE" | "AUDIO" | "VIDEO" | "OTHER";
 }
 
+export interface VoiceReferenceUploadResult {
+  assetId: string;
+  status: string;
+  originalFilename: string;
+  contentType: string;
+  sizeBytes: number;
+  checksumSha256: string;
+}
+
 export interface LocalRemoteMaterializationInput {
   projectId: string;
   assetId: string;
@@ -157,6 +166,7 @@ export interface NarrativeXDesktopBridge {
   api: {
     request(input: DesktopApiRequest): Promise<DesktopApiResponse>;
     subscribe(path: string, handlers: DesktopSseHandlers): () => void;
+    uploadVoiceReference(): Promise<VoiceReferenceUploadResult | null>;
   };
   auth: {
     login(): Promise<void>;

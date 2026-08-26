@@ -16,7 +16,11 @@ public class NarrationAdmissionService {
   private final NarrationCostEstimator costEstimator;
 
   public Admission admit(String userId, ChapterAnalysisSource source, boolean localExecution) {
-    NarrationCostEstimate estimate = costEstimator.estimate(source.sourceText(), localExecution);
+    return admitText(userId, source.sourceText(), localExecution);
+  }
+
+  public Admission admitText(String userId, String sourceText, boolean localExecution) {
+    NarrationCostEstimate estimate = costEstimator.estimate(sourceText, localExecution);
     UserQuotaAccess.QuotaSnapshot quota =
         quotaQuery
             .findCurrentQuota(userId)

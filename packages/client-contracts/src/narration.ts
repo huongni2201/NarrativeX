@@ -25,3 +25,18 @@ export interface GenerateBatchNarrationInput {
   voiceReferenceAssetId?: string;
   executionPreference?: ExecutionPreference;
 }
+
+export interface GenerateVoicePreviewInput {
+  chapterId: string;
+  voiceId: string;
+  sampleText: string;
+  speakingRate?: number;
+  voiceReferenceAssetId: string;
+}
+
+export interface VoicePreviewResult {
+  url: string;
+  expiresAt: string;
+  contentType: string;
+  durationMs: number;
+}
