@@ -24,7 +24,8 @@
       generation_job_id, chapter_id, chapter_order_index, chapter_row_version, source_hash,
       media_plan_id, media_plan_revision, global_start_ms, global_end_ms,
       audio_storage_key, audio_size_bytes, audio_checksum, audio_duration_ms,
-      narration_request_id, narration_asset_id, narration_alignment_id
+      narration_request_id, narration_asset_id, narration_alignment_id,
+      subtitle_text, subtitle_spans_json
     ) VALUES (
       #{generationJobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
       #{chapter.chapterId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
@@ -34,7 +35,21 @@
       #{chapter.audioStorageKey}, #{chapter.audioSizeBytes}, #{chapter.audioChecksum}, #{chapter.audioDurationMs},
       #{chapter.narrationRequestId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
       #{chapter.narrationAssetId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
-      #{chapter.narrationAlignmentId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+      #{chapter.narrationAlignmentId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+      COALESCE((
+        SELECT c.source_text
+          FROM chapters c
+         WHERE c.id = #{chapter.chapterId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+           AND c.row_version = #{chapter.rowVersion}
+           AND c.source_hash = #{chapter.sourceHash}
+           AND c.deleted_at IS NULL
+      ), ''),
+      (
+        SELECT nal.spans_json
+          FROM narration_alignments nal
+         WHERE nal.id = #{chapter.narrationAlignmentId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+           AND nal.source_hash = #{chapter.sourceHash}
+      )
     )
   </insert>
 
