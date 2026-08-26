@@ -15,6 +15,7 @@ export const narrationApi = {
           voiceId: input.voiceId,
           speakingRate: input.speakingRate,
           voiceReferenceAssetId: input.voiceReferenceAssetId,
+          contentVariantId: input.contentVariantId,
         }),
       },
     ),
