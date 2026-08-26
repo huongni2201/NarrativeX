@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 public class DesktopAuthenticationFailureHandler implements AuthenticationFailureHandler {
+  private static final String DEFAULT_DESKTOP_REDIRECT_URI = "narrativex://auth/callback";
   private static final String REDIRECT_SESSION_KEY = "NARRATIVEX_DESKTOP_REDIRECT_URI";
   private static final String CODE_CHALLENGE_SESSION_KEY = "NARRATIVEX_DESKTOP_CODE_CHALLENGE";
 
@@ -21,23 +22,25 @@ public class DesktopAuthenticationFailureHandler implements AuthenticationFailur
   public void onAuthenticationFailure(
       HttpServletRequest request, HttpServletResponse response, AuthenticationException exception)
       throws IOException {
+    var session = request.getSession(false);
     log.warn(
-        "Desktop OAuth authentication failed correlationId={} exceptionType={} message={}",
+        "Desktop OAuth authentication failed correlationId={} sessionPresent={} exceptionType={} message={}",
         CorrelationIdFilter.correlationId(request),
+        session != null,
         exception.getClass().getName(),
         exception.getMessage(),
         exception);
 
-    var session = request.getSession(false);
     Object redirect = session == null ? null : session.getAttribute(REDIRECT_SESSION_KEY);
-    if (!(redirect instanceof String redirectUri) || !isAllowedRedirect(redirectUri)) {
-      response.sendError(
-          HttpServletResponse.SC_UNAUTHORIZED, "Desktop OAuth authentication failed.");
-      return;
-    }
+    String redirectUri =
+        redirect instanceof String candidate && isAllowedRedirect(candidate)
+            ? candidate
+            : DEFAULT_DESKTOP_REDIRECT_URI;
 
-    session.removeAttribute(REDIRECT_SESSION_KEY);
-    session.removeAttribute(CODE_CHALLENGE_SESSION_KEY);
+    if (session != null) {
+      session.removeAttribute(REDIRECT_SESSION_KEY);
+      session.removeAttribute(CODE_CHALLENGE_SESSION_KEY);
+    }
     response.sendRedirect(redirectUri + "?error=authentication_failed");
   }
 

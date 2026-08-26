@@ -33,7 +33,7 @@ class DesktopAuthenticationFailureHandlerTest {
   }
 
   @Test
-  void rejectsUnexpectedRedirectsWithoutRedirectingTheBrowser() throws Exception {
+  void usesTheSafeDesktopRedirectWhenTheOAuthSessionIsMissing() throws Exception {
     HttpServletRequest request = mock(HttpServletRequest.class);
     HttpServletResponse response = mock(HttpServletResponse.class);
     AuthenticationException exception = mock(AuthenticationException.class);
@@ -42,8 +42,6 @@ class DesktopAuthenticationFailureHandlerTest {
 
     handler.onAuthenticationFailure(request, response, exception);
 
-    verify(response)
-        .sendError(
-            HttpServletResponse.SC_UNAUTHORIZED, "Desktop OAuth authentication failed.");
+    verify(response).sendRedirect("narrativex://auth/callback?error=authentication_failed");
   }
 }

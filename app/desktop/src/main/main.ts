@@ -2,8 +2,7 @@ import { app, BrowserWindow, dialog, session, shell } from "electron";
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
-import { join } from "node:path";
-import { basename, extname } from "node:path";
+import { basename, extname, join, resolve } from "node:path";
 import { DesktopBackendApiService, type DesktopApiResponse } from "./api/backend-api-service";
 import { DesktopAuthService } from "./auth/auth-service";
 import { AUTH_CALLBACK_CHANNEL } from "./auth/auth-events";
@@ -45,6 +44,10 @@ if (shouldDisableHardwareAcceleration(process.env, process.argv)) {
   app.commandLine.appendSwitch("disable-gpu");
   app.commandLine.appendSwitch("disable-gpu-compositing");
 }
+
+// Prevent Chromium on Windows from calling the native Windows spellchecker API,
+// which can create corrupted unicode directories (e.g. Microsoft/Spelling) in cwd.
+app.commandLine.appendSwitch("disable-features", "WinUseBrowserSpellChecker");
 
 // Electron's default Chromium profile can remain locked by a stale dev
 // process on Windows. Keep development state isolated in a writable profile;
@@ -202,6 +205,7 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      spellcheck: false,
     },
   });
   mainWindow = window;
@@ -258,12 +262,26 @@ function requireMainWindow(): BrowserWindow {
   return mainWindow;
 }
 
+function registerNarrativeXProtocol(): void {
+  // Electron's one-argument registration is correct for packaged apps. In
+  // development, Windows otherwise launches Electron with the callback URL as
+  // the app path (for example, `C:\\Windows\\System32\\narrativex:\\auth\\callback`).
+  if (process.defaultApp && process.argv[1]) {
+    app.setAsDefaultProtocolClient("narrativex", process.execPath, [
+      resolve(process.argv[1]),
+    ]);
+    return;
+  }
+
+  app.setAsDefaultProtocolClient("narrativex");
+}
+
 void app.whenReady().then(async () => {
   app.setAppUserModelId("com.narrativex.desktop");
   ffmpegRuntime = await resolveFfmpegRuntime();
   const config = loadLocalExecutionConfig(ffmpegRuntime.available);
   const trustPolicy = rendererTrustPolicy();
-  app.setAsDefaultProtocolClient("narrativex");
+  registerNarrativeXProtocol();
   session.defaultSession.setPermissionRequestHandler(
     (_webContents, _permission, callback) => callback(false),
   );
