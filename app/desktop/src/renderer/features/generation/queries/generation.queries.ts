@@ -110,7 +110,11 @@ export function useGenerationJob(jobId: string | null) {
   });
 
   useEffect(() => {
-    if (!jobId || !isActiveGenerationJobStatus(query.data?.status)) return;
+    // Open the authenticated SSE stream as soon as a job id exists. A successful
+    // initial GET is not required: the first SSE snapshot can bootstrap the query.
+    // Once a terminal snapshot is known, stop the stream and watchdog naturally.
+    if (query.data && !isActiveGenerationJobStatus(query.data.status)) return;
+    if (!jobId) return;
 
     return subscribeSse(
       `/api/v1/generation-jobs/${encodeURIComponent(jobId)}/events`,
