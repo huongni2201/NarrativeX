@@ -93,12 +93,14 @@ export function ImagesScreen({
     );
   const mediaBusy =
     createJob.isPending ||
-    currentMediaJob.isLoading ||
     Boolean(
       effectiveMediaJobId &&
         (mediaGenerationJob.isLoading ||
           isActiveGenerationJobStatus(mediaGenerationJob.data?.status)),
     );
+  const mediaHeadChecking = currentMediaJob.isLoading;
+  const mediaHeadUnavailable = currentMediaJob.isError;
+  const mediaSubmissionBlocked = mediaHeadChecking || mediaHeadUnavailable;
 
   async function runAnalysis() {
     if (!chapterId || analysisBusy) return;
@@ -129,7 +131,7 @@ export function ImagesScreen({
   }
 
   async function generateImages() {
-    if (!chapterId || mediaBusy || analysisBusy || !beats.length) return;
+    if (!chapterId || mediaBusy || mediaSubmissionBlocked || analysisBusy || !beats.length) return;
     setNotice(null);
     try {
       const latestEstimate = await estimateCost();
@@ -194,6 +196,14 @@ export function ImagesScreen({
     );
   }
 
+  const generateLabel = mediaHeadChecking
+    ? "Checking…"
+    : mediaHeadUnavailable
+      ? "Unavailable"
+      : mediaBusy
+        ? "Generating…"
+        : "Generate images";
+
   return (
     <FeaturePage
       title="Image Generation"
@@ -202,9 +212,16 @@ export function ImagesScreen({
         <Button
           size="sm"
           onClick={() => void generateImages()}
-          disabled={!chapterId || !beats.length || analysisBusy || mediaBusy || estimate.isPending}
+          disabled={
+            !chapterId ||
+            !beats.length ||
+            analysisBusy ||
+            mediaBusy ||
+            mediaSubmissionBlocked ||
+            estimate.isPending
+          }
         >
-          <Sparkles size={14} /> {mediaBusy ? "Generating…" : "Generate images"}
+          <Sparkles size={14} /> {generateLabel}
         </Button>
       }
     >
@@ -291,9 +308,9 @@ export function ImagesScreen({
             {Math.round(mediaGenerationJob.data.progress * 100)}%
           </div>
         )}
-        {currentMediaJob.isError && (
+        {mediaHeadUnavailable && (
           <p className="text-[10px] text-warning" role="status">
-            Không thể tải media job hiện tại. Hãy refresh lại màn hình trước khi generate để tránh tạo trùng.
+            Không thể xác định media job hiện tại. Generate đã được khóa để tránh gửi trùng; hãy thử tải lại màn hình.
           </p>
         )}
 
