@@ -25,10 +25,14 @@ const ISOLATION_TERMS = /\b(alone|lonely|isolated|leaves|walks away|goodbye|mộ
 const PORTRAIT_TERMS = /\b(close[- ]?up|portrait|face|expression|reaction|cận cảnh|chân dung|biểu cảm|phản ứng)\b/i;
 const VERTICAL_TERMS = /\b(look up|look down|tower|building|stairs|sky|ceiling|ngước lên|cúi xuống|tòa nhà|cầu thang|bầu trời|trần nhà)\b/i;
 const ESTABLISH_TERMS = /\b(establish|landscape|city|village|room|location|environment|toàn cảnh|khung cảnh|thành phố|ngôi làng|căn phòng)\b/i;
+const ACTION_TERMS = /\b(run|running|chase|fight|attack|escape|explosion|crash|rush|sprint|battle|combat|đuổi|chạy|chiến đấu|tấn công|trốn chạy|nổ|va chạm)\b/i;
+const QUIET_TERMS = /\b(calm|quiet|still|pause|silence|conversation|dialogue|reflect|wait|yên tĩnh|im lặng|đối thoại|trò chuyện|suy ngẫm|chờ đợi)\b/i;
+
+type ResolvedAutoEditStyle = Exclude<AutoEditStyle, "AUTO">;
 
 export function createAutoEditPlan(
   timeline: DesktopTimeline,
-  style: AutoEditStyle = "CINEMATIC",
+  style: AutoEditStyle = "AUTO",
 ): AutoEditPlan {
   const decisions = timeline.beats.map((beat) => createBeatDecision(beat, style));
   const renderOverrides = decisions
@@ -46,10 +50,11 @@ export function createAutoEditPlan(
 
 export function createBeatDecision(
   beat: DesktopTimelineBeat,
-  style: AutoEditStyle = "CINEMATIC",
+  style: AutoEditStyle = "AUTO",
 ): AutoEditBeatDecision {
-  const motion = chooseCameraMovement(beat, style);
-  const fit = chooseMediaFit(beat, style);
+  const resolvedStyle = resolveAutoEditStyle(beat, style);
+  const motion = chooseCameraMovement(beat, resolvedStyle);
+  const fit = chooseMediaFit(beat, resolvedStyle);
   const source = normalizedCameraMovement(beat.cameraMovement) !== "NONE"
     ? "AI_DIRECTED"
     : "RULE_ENGINE";
@@ -60,13 +65,27 @@ export function createBeatDecision(
     fitMode: fit.fitMode,
     trimStartMs: fit.trimStartMs,
     source,
-    reason: fit.reason,
+    reason: style === "AUTO" ? `${fit.reason} Auto style: ${resolvedStyle}.` : fit.reason,
   };
+}
+
+export function resolveAutoEditStyle(
+  beat: Pick<DesktopTimelineBeat, "title" | "visualIntent">,
+  requestedStyle: AutoEditStyle = "AUTO",
+): ResolvedAutoEditStyle {
+  if (requestedStyle !== "AUTO") return requestedStyle;
+  const text = `${beat.title}\n${beat.visualIntent}`;
+  if (ACTION_TERMS.test(text)) return "DYNAMIC";
+  if (REVEAL_TERMS.test(text) || ISOLATION_TERMS.test(text) || PORTRAIT_TERMS.test(text)) {
+    return "CINEMATIC";
+  }
+  if (QUIET_TERMS.test(text)) return "BALANCED";
+  return "BALANCED";
 }
 
 export function chooseMediaFit(
   beat: Pick<DesktopTimelineBeat, "mediaType" | "sourceDurationMs" | "durationMs">,
-  style: AutoEditStyle = "CINEMATIC",
+  style: ResolvedAutoEditStyle = "CINEMATIC",
 ): { fitMode: BeatMediaFitMode; trimStartMs: number; reason: string } {
   if (beat.mediaType !== "VIDEO") {
     return {
@@ -99,7 +118,7 @@ export function chooseMediaFit(
     return {
       fitMode: "TRIM",
       trimStartMs,
-      reason: "Source video is longer than the narration span; Auto Edit selects a centered usable window.",
+      reason: "Source video is longer than the narration span; Auto Edit selects a deterministic usable window.",
     };
   }
 
@@ -134,14 +153,16 @@ export function chooseCameraMovement(
 
   const authored = normalizedCameraMovement(beat.cameraMovement);
   if (authored !== "NONE") return authored;
-  if (style === "BALANCED") return "NONE";
+  const resolvedStyle = resolveAutoEditStyle(beat, style);
+  if (resolvedStyle === "BALANCED") return "NONE";
 
   const text = `${beat.title}\n${beat.visualIntent}`;
   if (REVEAL_TERMS.test(text)) return "PUSH_IN";
   if (ISOLATION_TERMS.test(text)) return "PULL_OUT";
-  if (PORTRAIT_TERMS.test(text)) return style === "DYNAMIC" ? "PUSH_IN" : "PARALLAX";
+  if (PORTRAIT_TERMS.test(text)) return resolvedStyle === "DYNAMIC" ? "PUSH_IN" : "PARALLAX";
   if (VERTICAL_TERMS.test(text)) return "TILT";
   if (ESTABLISH_TERMS.test(text)) return "PAN";
+  if (resolvedStyle === "DYNAMIC" && ACTION_TERMS.test(text)) return "TRACK";
   return "NONE";
 }
 
