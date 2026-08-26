@@ -1,34 +1,55 @@
 # NarrativeX Data Flow and Durability Model — V1.11
 
-PostgreSQL state, not Redis messages, renderer memory or process memory, determines what NarrativeX believes happened. Desktop project bytes are local-first but durable business/execution identity remains backend-owned.
+PostgreSQL state, not renderer memory, Redis messages or process memory, determines durable NarrativeX business/execution truth. Desktop project bytes are local-first but durable ownership/policy/job identity remains backend-owned.
 
 ## Authority matrix
 
 | Concern | Authority | Notes |
 |---|---|---|
+| Guest/account identity and ownership | PostgreSQL | stable installation guest + Google-linked accounts |
+| Server session | Redis via Spring Session | availability/session state, not domain truth |
 | Project/StoryVersion/Chapter/storyboard/continuity | PostgreSQL | ownership/versioning apply |
-| GenerationJob/StageAttempt/ProviderOperation | PostgreSQL | Redis/process memory may carry hints only |
+| GenerationJob/StageAttempt/ProviderOperation | PostgreSQL | process memory may carry hints only |
 | MediaPlan / production policy | PostgreSQL | worker/device executes persisted authorized state |
-| Narration document/set/timeline metadata | PostgreSQL | source/narration fingerprints pin inputs |
-| Desktop project byte locations | local `project.manifest.json` | project-relative paths + size/SHA-256; not domain authority |
-| Desktop final MP4 bytes | local project `artifacts/` | backend stores `LOCAL_DESKTOP` + opaque artifact identity/metadata |
-| Cloud pipeline media bytes | Cloudflare R2 | retained cloud/legacy path |
-| Cloud final MP4 bytes | Google Drive | retained cloud/legacy path |
-| Server-managed session (OAuth callback/Desktop API) | Redis via Spring Session | availability dependency, not business-state authority |
-| Local-execution device credential | Electron protected storage | machine credential, not user session identity |
+| Production beat media selection | PostgreSQL | explicit editor choice persists through V5 |
+| Narration document/set/alignment metadata | PostgreSQL | source/narration fingerprints pin inputs |
+| Desktop project byte locations | local `project.manifest.json` | relative paths + size/SHA-256; not domain authority |
+| Desktop render journal/cache | local project work storage | recovery/performance aid, not backend business authority |
+| Desktop final MP4 bytes | local project `artifacts/` | backend stores opaque local artifact identity/metadata |
+| Retained cloud pipeline bytes | Cloudflare R2 | server/provider path |
+| Retained cloud final MP4 | Google Drive | cloud-render fallback path |
+| Guest installation secret | Electron secure storage | backend stores only hash |
+| Local-execution device credential | Electron protected storage | machine credential, not user session |
 
-## Desktop authentication
+## Guest-first session flow
 
 ```text
-Electron main
-  -> system browser /api/v1/auth/desktop/start
-  -> Google OIDC
-  -> narrativex://auth/callback?code=<one-time-code>
-  -> backend /api/v1/auth/desktop/exchange
-  -> server-managed NarrativeX session
+Desktop start
+  -> GET /api/v1/auth/me
+  -> no valid session
+  -> POST /api/v1/auth/desktop/guest
+  -> main injects installation deviceId + secret
+  -> backend verify/create stable guest mapping
+  -> ROLE_GUEST session
 ```
 
-Google tokens never enter Electron. The device token used for local execution is a separate credential.
+A session may expire without losing guest ownership continuity because the installation credential can restore the same guest identity.
+
+## Gated Google sign-in flow
+
+```text
+guest invokes account/provider-consuming action
+  -> backend 403 AUTHENTICATION_REQUIRED
+  -> LoginModal remains over current route
+  -> main opens system-browser Google OIDC
+  -> narrativex:// one-time code
+  -> backend exchange
+  -> eligible guest ownership transfer
+  -> ROLE_USER session
+  -> refetch current editor data
+```
+
+Google tokens never enter Electron.
 
 ## Chapter Analyze
 
@@ -38,117 +59,117 @@ persisted Chapter
   -> admission + reservation/policy
   -> OperationPlan + GenerationJob + StageAttempt + OutboxEvent
   -> worker claim/lease/heartbeat
-  -> ProviderOperation when applicable
-  -> validated structured result
+  -> ProviderOperation where applicable
+  -> validated result
   -> stale-snapshot re-check
   -> continuity/storyboard materialization
 ```
 
-## Narration selection
+## Narration
 
 ```text
-NarrationStrategy.TTS
-  -> TTS execution
-  -> AUDIO_ALIGN
+TTS
+  -> provider/local inference
+  -> validate
+  -> alignment
+  -> Desktop materialization when used locally
 
-NarrationStrategy.USER_PROVIDED_AUDIO
-  -> validate/register audio
-  -> AUDIO_ALIGN
+USER_PROVIDED_AUDIO
+  -> native import/register
+  -> one logical global clock
+  -> alignment
   -> no TTS for covered scope
 ```
 
-User-provided parts are ordered on one logical audio clock. File boundaries do not define Chapter boundaries.
+Narration alignment is the production timing authority.
 
-For Desktop local rendering, narration bytes must be present in the project workspace and registered in the local manifest. Cloud R2-backed narration remains a compatibility path while generation/import materialization migration is incomplete.
-
-## Image execution
+## Image generation
 
 ```text
 pinned authorized image work
-  -> Vertex/provider execution
-  -> validate image bytes
-  -> stable MediaAsset identity + checksum
-  -> materialize according to execution mode
-```
-
-Desktop target:
-
-```text
-validated image
-  -> local project assets/images
+  -> provider execution/reconciliation
+  -> validate/correlate bytes
+  -> stable MediaAsset + checksum + lineage
+  -> Desktop materialize accepted/required image
   -> project.manifest.json
-  -> local render resolves mediaAssetId + checksum
 ```
 
-Cloud/legacy target:
+Retained server/cloud flows may persist remote media in R2 where remote durability is intentionally required.
+
+## Native local import
 
 ```text
-validated image
-  -> immutable R2 object
-  -> cloud render/pipeline metadata
+renderer asks to import
+  -> Electron main native picker
+  -> inspect/hash + short-lived selection token
+  -> backend register LOCAL_ONLY stable asset identity
+  -> main copy/register in ProjectStorage
+  -> manifest relative path + integrity
 ```
 
-## Desktop local project render flow
+An arbitrary absolute local path does not cross into durable backend domain state.
+
+## Production timeline
+
+```text
+storyboard + narration alignment + media assets
+  -> backend production timeline read
+  -> persisted beat media selections
+  -> renderer draft edits where supported
+  -> render submission
+  -> immutable render input snapshot
+```
+
+Draft UI state must not be mistaken for durable production truth.
+
+## Desktop local render
 
 ```text
 backend admits + assigns LOCAL_DEVICE render
-  -> authorized device claims job + lease
-  -> claim returns narration/image asset IDs + expected integrity
-  -> Electron main resolves assets through project.manifest.json
-  -> reject missing/size/checksum/path-boundary mismatch
-  -> build local render manifest
-  -> FFmpeg render segments
-  -> concatenate video
-  -> concatenate narration
-  -> mux
-  -> ffprobe final MP4
-  -> register checksum-verified artifact locally
-  -> report progress/completion to backend
-  -> backend records LOCAL_DESKTOP + opaque relative artifact key
+  -> device claims lease
+  -> preflight runtime/disk/assets
+  -> resolve IDs/checksums through project.manifest.json
+  -> write atomic render journal
+  -> reuse valid segment cache
+  -> FFmpeg render missing segments
+  -> concat/mux
+  -> ffprobe + SHA-256 final MP4
+  -> local artifact registration
+  -> backend progress/completion under current lease
 ```
 
-A lease heartbeat runs during rendering. Lease loss aborts the render. In-process cancellation exists. Restart-safe recovery/resume remains partial.
+Lease loss prevents success. In-process cancellation and unfinished-journal discovery exist. Full crash/restart resume/retry behavior remains hardening work.
 
-## Local project artifact metadata
-
-The backend must be able to identify a local artifact without storing the absolute machine path. Typical completion metadata includes:
+## Backup/restore data flow
 
 ```text
-storageProvider = LOCAL_DESKTOP
-storageKey = <opaque project-relative artifact key>
-renderFingerprint
-checksumSha256
-sizeBytes
-durationMs
-width
-height
-fps
+active project workspace
+  -> manifest-verified backup snapshot
+  -> restore/archive-copy through Electron main
+  -> preserve/rename prior active workspace when replacing
+  -> verify restored manifest/files before normal use
 ```
 
-Electron's manifest/path resolver maps the opaque local identity back to the actual machine path.
+Backup snapshots are local file durability tools; backend domain ownership still comes from PostgreSQL.
 
-## Retained cloud render flow
-
-The older cloud/server path remains valid during migration:
+## Retained cloud render
 
 ```text
-cloud render job
-  -> READY R2 inputs
+cloud-authorized render
+  -> R2 inputs
   -> worker FFmpeg/ffprobe
   -> Google Drive final upload
   -> FinalArtifact provider metadata
-  -> terminal backend job state
+  -> terminal backend state
 ```
 
-Drive resumable upload/idempotent fingerprint lookup remain cloud-path concerns. This path is a fallback and must not redefine Desktop storage.
+This path is fallback/server behavior and must not redefine Desktop local storage.
 
 ## Current gaps
 
-- complete local materialization of all image/TTS/import result paths;
-- restart-safe local render recovery/resume;
-- automatic device registration if explicit pairing is removed;
-- remaining Desktop editor/review workflow completeness;
-- local disk cleanup/backup/move/repair UX;
-- narration-driven VisualScenePlanner/review;
-- richer image approval/reuse/reframe/edit lineage;
-- complete cost/usage reconciliation and production observability/retention/DR evidence.
+- full stage-by-stage crash/restart recovery UX and long-form soak validation;
+- adaptive narration-driven VisualScenePlanner/review;
+- richer media reuse/reframe/edit lineage;
+- complete arbitrary multi-part user-audio production behavior;
+- production packaging/signing/update/protocol hardening;
+- complete billing/actual-usage and operational/DR evidence.
