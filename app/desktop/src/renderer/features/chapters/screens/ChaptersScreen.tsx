@@ -347,6 +347,24 @@ export function ChaptersScreen({
     languageStatusQuery.data?.translationStatus === "COMPLETED"
       ? languageStatusQuery.data.existingTranslationVariantId
       : null;
+  const translationStatus = languageStatusQuery.data?.translationStatus;
+  const translationResolutionBlocked = Boolean(
+    selected &&
+      (languageStatusQuery.isLoading ||
+        languageStatusQuery.isError ||
+        (translationStatus !== undefined &&
+          translationStatus !== "NOT_REQUIRED" &&
+          translationStatus !== "COMPLETED")),
+  );
+  const translationBlockReason = !selected
+    ? null
+    : languageStatusQuery.isLoading
+      ? "Đang kiểm tra ngôn ngữ chapter trước khi chạy generation."
+      : languageStatusQuery.isError
+        ? "Không xác định được source language. Hãy thử tải lại trạng thái ngôn ngữ trước khi chạy generation."
+        : translationStatus !== "NOT_REQUIRED" && translationStatus !== "COMPLETED"
+          ? "Chapter khác ngôn ngữ project. Hãy xác nhận/hoàn tất bản dịch trước khi phân tích hoặc tạo audio."
+          : null;
 
   const analyzeChapter = useMutation({
     mutationFn: (input: { chapterId: string; contentVariantId?: string | null }) =>
@@ -378,7 +396,8 @@ export function ChaptersScreen({
     ? title !== selected.title || sourceText !== selected.sourceText
     : Boolean(title.trim() || sourceText.trim());
   const generationBlockedByUnsavedChanges = Boolean(selected && isDirty);
-  const generationActionDisabled = busy || generationBlockedByUnsavedChanges;
+  const generationActionDisabled =
+    busy || generationBlockedByUnsavedChanges || translationResolutionBlocked;
 
   const totalWords = useMemo(
     () => chapters.reduce((total, chapter) => total + wordCount(chapter.sourceText), 0),
@@ -562,7 +581,11 @@ export function ChaptersScreen({
     narrationJob && narrationJob.chapterId !== selected?.id,
   );
   const audioControlsDisabled =
-    !selected || busy || selectedAudioProcessing || Boolean(narrationJob);
+    !selected ||
+    busy ||
+    selectedAudioProcessing ||
+    Boolean(narrationJob) ||
+    translationResolutionBlocked;
 
   return (
     <div className="grid h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden bg-background text-foreground select-none">
@@ -640,6 +663,8 @@ export function ChaptersScreen({
             saveBusy={saveBusy}
             isDirty={isDirty}
             notice={notice}
+            analysisBlocked={translationResolutionBlocked}
+            analysisBlockReason={translationBlockReason}
             audio={{
               voices,
               voiceId,
@@ -653,6 +678,7 @@ export function ChaptersScreen({
               controlsDisabled: audioControlsDisabled,
               trackedForSelected: trackedNarrationForSelected,
               blockedByAnotherChapter: narrationBlockedByAnotherChapter,
+              blockedByTranslation: translationResolutionBlocked,
               generatePending: generateNarration.isPending,
               onVoiceChange: setVoiceId,
               onSpeakingRateChange: setSpeakingRate,
