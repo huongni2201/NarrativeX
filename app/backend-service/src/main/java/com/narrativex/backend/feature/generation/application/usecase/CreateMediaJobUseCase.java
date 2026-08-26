@@ -89,6 +89,21 @@ public class CreateMediaJobUseCase {
     var chapter =
         chapterSourceAccess.requireOwnedForAnalysisLocked(
             command.projectId(), command.chapterId(), userId);
+
+    var activeCurrentJob =
+        chapterMediaHeadRepository
+            .findCurrentJobId(command.chapterId())
+            .flatMap(jobId -> generationJobRepository.findByJobIdAndOwner(jobId, userId))
+            .filter(job -> job.getStatus().isActive());
+    if (activeCurrentJob.isPresent()) {
+      log.info(
+          "Reusing active media generation job id={} for projectId={}, chapterId={} instead of creating duplicate paid work",
+          activeCurrentJob.get().getId(),
+          command.projectId(),
+          command.chapterId());
+      return activeCurrentJob.get();
+    }
+
     var planningSource = mediaPlanningSourceAccess.requireCurrent(command.chapterId());
     int beatCount = planningSource.scenes().stream().mapToInt(scene -> scene.beats().size()).sum();
     int generatedImageCount = VisualAssetReuseResolver.countGenerated(planningSource.scenes());
