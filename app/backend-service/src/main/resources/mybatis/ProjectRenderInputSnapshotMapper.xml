@@ -7,7 +7,9 @@
     INSERT INTO project_render_input_snapshots (
       generation_job_id, project_id, story_version_id, resolution, render_format,
       aspect_ratio, total_duration_ms, execution_target, assigned_local_device_id,
-      chapter_count, beat_count
+      chapter_count, beat_count,
+      background_music_asset_id, bgm_storage_mode, bgm_storage_key,
+      bgm_size_bytes, bgm_checksum, bgm_duration_ms
     ) VALUES (
       #{generationJobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
       #{timeline.projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
@@ -15,7 +17,10 @@
       #{resolution}, #{format}, #{timeline.aspectRatio}, #{timeline.totalDurationMs},
       #{executionTarget},
       #{assignedLocalDeviceId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
-      #{chapterCount}, #{beatCount}
+      #{chapterCount}, #{beatCount},
+      #{backgroundMusic.assetId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
+      #{backgroundMusic.storageMode}, #{backgroundMusic.storageKey},
+      #{backgroundMusic.sizeBytes}, #{backgroundMusic.checksum}, #{backgroundMusic.durationMs}
     )
   </insert>
 
@@ -36,14 +41,14 @@
       #{chapter.narrationRequestId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
       #{chapter.narrationAssetId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
       #{chapter.narrationAlignmentId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
-      COALESCE((
+      (
         SELECT c.source_text
           FROM chapters c
          WHERE c.id = #{chapter.chapterId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
            AND c.row_version = #{chapter.rowVersion}
            AND c.source_hash = #{chapter.sourceHash}
            AND c.deleted_at IS NULL
-      ), ''),
+      ),
       (
         SELECT nal.spans_json
           FROM narration_alignments nal
