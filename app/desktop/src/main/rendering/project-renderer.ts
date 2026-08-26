@@ -10,6 +10,7 @@ import type { FfmpegRuntimeStatus } from "./ffmpeg-runtime";
 import { RenderExecutionError } from "./render-errors";
 import { buildLocalRenderManifest } from "./render-manifest";
 import { renderSegments } from "./segment-renderer";
+import { writeSubtitleTrack } from "./subtitle-srt";
 import { concatVideo } from "./video-concat";
 import { RenderJournalStore, type RenderJournal, type RenderJournalStage } from "./render-journal";
 
@@ -121,9 +122,17 @@ export class ProjectRenderer {
       await onProgress(93, "Concatenating narration audio");
       await checkpoint("AUDIO_CONCAT");
       const audio = await concatNarration(this.runtime.ffmpegPath, workDirectory, manifest, signal);
-      await onProgress(97, "Muxing audio");
+      const subtitles = await writeSubtitleTrack(workDirectory, manifest.subtitles);
+      await onProgress(97, subtitles ? "Muxing narration and subtitles" : "Muxing narration audio");
       await checkpoint("MUX");
-      const renderedFinalPath = await muxNarration(this.runtime.ffmpegPath, workDirectory, video, audio, signal);
+      const renderedFinalPath = await muxNarration(
+        this.runtime.ffmpegPath,
+        workDirectory,
+        video,
+        audio,
+        subtitles,
+        signal,
+      );
       await onProgress(98, "Validating final artifact");
       await checkpoint("VERIFY");
       let metadata: Awaited<ReturnType<typeof probeVideo>>;
@@ -210,6 +219,7 @@ async function cleanupInterruptedOutputs(workDirectory: string): Promise<void> {
     rm(join(workDirectory, "segments"), { recursive: true, force: true }),
     rm(join(workDirectory, "video.mp4"), { force: true }),
     rm(join(workDirectory, "narration.m4a"), { force: true }),
+    rm(join(workDirectory, "subtitles.srt"), { force: true }),
     rm(join(workDirectory, "final.mp4"), { force: true }),
   ]);
 }
