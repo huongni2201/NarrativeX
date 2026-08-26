@@ -204,7 +204,9 @@ function createWindow() {
       preload: join(__dirname, "../preload/index.js"),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true,
+      // Keep the renderer isolated from Node while allowing Chromium renderer
+      // startup on environments where the Electron sandbox cannot initialize.
+      sandbox: false,
       spellcheck: false,
     },
   });

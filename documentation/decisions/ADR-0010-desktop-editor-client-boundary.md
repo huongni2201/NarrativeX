@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-24  
-**Updated:** 2026-08-25 after legacy web removal and OAuth fallback cleanup
+**Updated:** 2026-08-26 after legacy web removal, OAuth fallback cleanup and Desktop sandbox compatibility adjustment
 
 ## Context
 
@@ -44,8 +44,14 @@ The window security baseline is:
 ```text
 contextIsolation = true
 nodeIntegration  = false
-sandbox          = true
+sandbox          = false
 ```
+
+The Chromium renderer sandbox is disabled because it cannot initialize reliably in the current
+Desktop runtime environments. This is a deliberate security trade-off, not permission for the
+renderer to access native APIs directly: `nodeIntegration` remains disabled, context isolation
+remains enabled, and preload exposes only narrow, trust-checked IPC capabilities. Re-enable the
+renderer sandbox when the affected Electron environments are supported and verified.
 
 ### Timeline and rendering
 

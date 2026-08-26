@@ -87,3 +87,10 @@ test("local quality gate includes backend verify and worker static analysis", ()
   assert.match(verification, /"ruff", "check", "src", "tests"/);
   assert.match(verification, /"mypy", "src"/);
 });
+
+test("desktop renderer keeps Node isolation while disabling Chromium sandbox", () => {
+  const main = source("app", "desktop", "src", "main", "main.ts");
+  assert.match(main, /contextIsolation: true/);
+  assert.match(main, /nodeIntegration: false/);
+  assert.match(main, /sandbox: false/);
+});

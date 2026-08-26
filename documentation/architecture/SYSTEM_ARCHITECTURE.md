@@ -92,8 +92,13 @@ Security baseline:
 ```text
 contextIsolation = true
 nodeIntegration  = false
-sandbox          = true
+sandbox          = false
 ```
+
+The Chromium renderer sandbox is currently disabled for Desktop startup compatibility on
+environments where Electron's renderer sandbox cannot initialize. Renderer code still has no
+Node integration; native capabilities remain behind the narrow, trust-checked preload/main IPC
+boundary. Treat all renderer-loaded story, prompt, reference and provider output as untrusted.
 
 ### Python workers
 
