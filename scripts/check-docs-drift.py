@@ -34,11 +34,6 @@ CURRENT_FILES = [
     ROOT / "documentation" / "workflows" / "VIDEO_GENERATION.md",
 ]
 
-CANONICAL_CURRENT_FILES = {
-    ROOT / "documentation" / "source-of-truth" / "README.md",
-    ROOT / "documentation" / "source-of-truth" / "NARRATIVEX_PROJECT_SPEC_V1_11.md",
-}
-
 REQUIRED_PATHS = [
     ROOT / "documentation" / "source-of-truth" / "NARRATIVEX_PROJECT_SPEC_V1_11.md",
     ROOT / "documentation" / "TRACEABILITY.md",
@@ -84,9 +79,13 @@ FORBIDDEN = {
         r"(?:stable|installation)[- ]scoped guest[^\n]{0,100}(?:TARGET|future-only|not implemented)",
         re.IGNORECASE,
     ),
+    "removed Google Drive storage contract": re.compile(r"\bgoogle\s+drive\b", re.IGNORECASE),
+    "removed Google Drive environment contract": re.compile(r"\bGOOGLE_DRIVE_[A-Z0-9_]+\b"),
+    "removed final-video server storage contract": re.compile(
+        r"\b(?:FINAL_VIDEO_STORAGE_MODE|FINAL_VIDEO_LOCAL_DIR|render-worker|worker-render)\b",
+        re.IGNORECASE,
+    ),
 }
-
-DESKTOP_DRIVE_FORBIDDEN_LABEL = "desktop final artifact incorrectly forced to Drive"
 
 DESKTOP_ONLY_FORBIDDEN = {
     "removed web client described as current": re.compile(
@@ -129,29 +128,6 @@ def checkpoint_sha(path: Path, pattern: re.Pattern[str]) -> str | None:
     return match.group(1) if match else None
 
 
-def contains_desktop_drive_assertion(text: str) -> bool:
-    """Detect a positive Desktop→Google Drive requirement, not a negated warning."""
-    for sentence in re.split(r"(?:\r?\n+)|(?<=[.!?])\s+", text):
-        if not re.search(r"\bdesktop\b", sentence, re.IGNORECASE):
-            continue
-        if not re.search(r"\bgoogle\s+drive\b", sentence, re.IGNORECASE):
-            continue
-        if re.search(
-            r"\b(?:must\s+not|should\s+not|does\s+not|do\s+not|never|not\s+required)\b",
-            sentence,
-            re.IGNORECASE,
-        ):
-            continue
-        if re.search(
-            r"\b(?:must|always|has\s+to|needs\s+to|required\s+to)\b[^.!?\n]{0,100}"
-            r"\bgoogle\s+drive\b",
-            sentence,
-            re.IGNORECASE,
-        ):
-            return True
-    return False
-
-
 def desktop_only_invariant_errors(path: Path, text: str, frontend_web_exists: bool) -> list[str]:
     if frontend_web_exists:
         return []
@@ -162,23 +138,7 @@ def desktop_only_invariant_errors(path: Path, text: str, frontend_web_exists: bo
     ]
 
 
-def check_fixture(path: Path) -> int:
-    text = path.read_text(encoding="utf-8")
-    if contains_desktop_drive_assertion(text):
-        print(f"Documentation drift fixture rejected: {path}")
-        print(f"- {DESKTOP_DRIVE_FORBIDDEN_LABEL}")
-        return 1
-    print(f"Documentation drift fixture passed: {path}")
-    return 0
-
-
 def main() -> int:
-    if len(sys.argv) > 1:
-        if len(sys.argv) != 3 or sys.argv[1] != "--fixture":
-            print("usage: check-docs-drift.py [--fixture PATH]", file=sys.stderr)
-            return 2
-        return check_fixture(Path(sys.argv[2]))
-
     errors: list[str] = []
 
     for path in REQUIRED_PATHS:
@@ -199,8 +159,6 @@ def main() -> int:
         for label, pattern in FORBIDDEN.items():
             if pattern.search(text):
                 errors.append(f"{path.relative_to(ROOT)}: {label}")
-        if path not in CANONICAL_CURRENT_FILES and contains_desktop_drive_assertion(text):
-            errors.append(f"{path.relative_to(ROOT)}: {DESKTOP_DRIVE_FORBIDDEN_LABEL}")
         errors.extend(desktop_only_invariant_errors(path.relative_to(ROOT), text, frontend_web_exists))
         if re.search(r"\bminio\b", text, re.IGNORECASE):
             errors.append(f"{path.relative_to(ROOT)}: MinIO is not part of the current storage contract")
@@ -252,19 +210,7 @@ def main() -> int:
         if retired_name in navigation:
             errors.append(f"documentation/README.md links retired doc {retired_name}")
 
-    compose = ROOT / "docker-compose.yml"
     root_env = ROOT / ".env.example"
-    for required in (
-        "GOOGLE_DRIVE_CLIENT_ID",
-        "GOOGLE_DRIVE_CLIENT_SECRET",
-        "GOOGLE_DRIVE_REFRESH_TOKEN",
-        "GOOGLE_DRIVE_FOLDER_ID",
-    ):
-        if compose.exists() and required not in compose.read_text(encoding="utf-8"):
-            errors.append(f"docker-compose.yml: cloud render fallback is missing {required}")
-        if root_env.exists() and required not in root_env.read_text(encoding="utf-8"):
-            errors.append(f".env.example: cloud render fallback is missing {required}")
-
     if root_env.exists():
         root_text = root_env.read_text(encoding="utf-8")
         for required_r2_env in (
@@ -274,7 +220,7 @@ def main() -> int:
             "R2_BUCKET",
         ):
             if required_r2_env not in root_text:
-                errors.append(f".env.example: cloud/legacy R2 fallback is missing {required_r2_env}")
+                errors.append(f".env.example: generated-media R2 transport is missing {required_r2_env}")
 
     if errors:
         print("Documentation drift check failed:")
