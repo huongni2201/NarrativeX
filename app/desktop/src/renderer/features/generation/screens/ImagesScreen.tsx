@@ -26,6 +26,7 @@ import {
 import {
   useAnalyzeChapter,
   useCreateMediaJob,
+  useCurrentMediaJob,
   useEstimateMediaJob,
   useGenerationJob,
   useMediaJob,
@@ -54,18 +55,28 @@ export function ImagesScreen({
   const [notice, setNotice] = useState<string | null>(null);
   const mediaIntentRef = useRef<{ signature: string; idempotencyKey: string } | null>(null);
 
+  const currentMediaJob = useCurrentMediaJob(projectId, chapterId || null);
+  const effectiveMediaJobId = mediaJobId ?? currentMediaJob.data?.jobId ?? null;
   const analysisJob = useGenerationJob(analysisJobId);
-  const mediaGenerationJob = useGenerationJob(mediaJobId);
-  const mediaJob = useMediaJob(mediaJobId);
+  const mediaGenerationJob = useGenerationJob(effectiveMediaJobId);
+  const mediaJob = useMediaJob(effectiveMediaJobId);
 
   useEffect(() => {
     if (!chapterId && chapters[0]) setChapterId(chapters[0].id);
   }, [chapterId, chapters]);
 
   useEffect(() => {
+    setAnalysisJobId(null);
+    setMediaJobId(null);
+    setCostEstimate(null);
+    setNotice(null);
+    mediaIntentRef.current = null;
+  }, [chapterId]);
+
+  useEffect(() => {
     setCostEstimate(null);
     mediaIntentRef.current = null;
-  }, [chapterId, imageStyle, qualityTier, timeline?.aspectRatio]);
+  }, [imageStyle, qualityTier, timeline?.aspectRatio]);
 
   useEffect(() => {
     if (isTerminalGenerationJobStatus(mediaGenerationJob.data?.status)) {
@@ -82,8 +93,9 @@ export function ImagesScreen({
     );
   const mediaBusy =
     createJob.isPending ||
+    currentMediaJob.isLoading ||
     Boolean(
-      mediaJobId &&
+      effectiveMediaJobId &&
         (mediaGenerationJob.isLoading ||
           isActiveGenerationJobStatus(mediaGenerationJob.data?.status)),
     );
@@ -171,7 +183,7 @@ export function ImagesScreen({
     review.mutate(
       {
         itemId,
-        jobId: mediaJobId ?? undefined,
+        jobId: effectiveMediaJobId ?? undefined,
         review: { decision, rowVersion },
       },
       {
@@ -279,6 +291,11 @@ export function ImagesScreen({
             {Math.round(mediaGenerationJob.data.progress * 100)}%
           </div>
         )}
+        {currentMediaJob.isError && (
+          <p className="text-[10px] text-warning" role="status">
+            Không thể tải media job hiện tại. Hãy refresh lại màn hình trước khi generate để tránh tạo trùng.
+          </p>
+        )}
 
         <section className="grid grid-cols-[minmax(240px,.7fr)_minmax(0,1.3fr)] gap-3">
           <div className="rounded-lg border border-border bg-card p-3">
@@ -323,8 +340,11 @@ export function ImagesScreen({
                   />
                   <div className="flex items-center gap-2">
                     <ImageIcon size={16} className="text-primary-hover" />
-                    <strong className="truncate text-[10px]" title={item.itemKey}>
-                      {item.itemKey}
+                    <strong
+                      className="truncate text-[10px]"
+                      title={item.itemKey ?? item.visualBeatId}
+                    >
+                      {item.itemKey ?? item.visualBeatId}
                     </strong>
                   </div>
                   <span className="text-[9px] text-muted-foreground">
