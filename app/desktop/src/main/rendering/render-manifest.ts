@@ -4,6 +4,7 @@ import type {
   ClaimedProjectRenderBeat,
   ClaimedProjectRenderChapter,
 } from "../local-execution/backend-client";
+import { planBeatTransitions } from "./transition-planner";
 
 const SHA256_PATTERN = /^[0-9a-f]{64}$/i;
 const VIDEO_FIT_MODES = new Set(["TRIM", "LOOP", "FREEZE_END", "SPEED_ADJUST"]);
@@ -19,13 +20,17 @@ export interface LocalRenderManifest {
   readonly beats: readonly LocalRenderBeat[];
   readonly audio: { readonly chapters: readonly LocalRenderAudio[] };
   readonly subtitles: readonly [];
-  readonly effects: Record<string, never>;
+  readonly effects: {
+    readonly transitionPolicy: "CHAPTER_FADE_BLACK_V1";
+  };
   readonly output: { readonly format: "mp4"; readonly mimeType: "video/mp4" };
 }
 
 export interface LocalRenderBeat
   extends Omit<ClaimedProjectRenderBeat, "localPath"> {
   readonly localPath: string;
+  readonly transitionInMs: number;
+  readonly transitionOutMs: number;
 }
 
 export interface LocalRenderAudio
@@ -45,13 +50,31 @@ export function buildLocalRenderManifest(
 
   const renderBeats = render.beats as Array<ClaimedProjectRenderBeat & { localPath: string }>;
   const renderChapters = render.chapters as Array<ClaimedProjectRenderChapter & { localPath: string }>;
-  const beats = renderBeats.map(({ localPath, ...beat }) => ({ ...beat, localPath }));
+  const orderedForTransitions = [...renderBeats].sort(
+    (left, right) =>
+      left.globalStartMs - right.globalStartMs ||
+      left.sceneIndex - right.sceneIndex ||
+      left.beatIndex - right.beatIndex,
+  );
+  const transitionByBeat = new Map(
+    planBeatTransitions(orderedForTransitions).map((plan) => [plan.visualBeatId, plan]),
+  );
+  const beats = renderBeats.map(({ localPath, ...beat }) => {
+    const transition = transitionByBeat.get(beat.visualBeatId);
+    return {
+      ...beat,
+      localPath,
+      transitionInMs: transition?.transitionInMs ?? 0,
+      transitionOutMs: transition?.transitionOutMs ?? 0,
+    };
+  });
   const audio = {
     chapters: renderChapters.map(({ localPath, ...chapter }) => ({
       ...chapter,
       localPath,
     })),
   };
+  const effects = { transitionPolicy: "CHAPTER_FADE_BLACK_V1" as const };
   const fingerprintSource = canonicalize({
     version: 1,
     jobId: render.jobId,
@@ -63,6 +86,7 @@ export function buildLocalRenderManifest(
     audio: {
       chapters: audio.chapters.map(({ localPath: _path, ...chapter }) => chapter),
     },
+    effects,
     output: { format: "mp4" },
   });
 
@@ -77,7 +101,7 @@ export function buildLocalRenderManifest(
     beats,
     audio,
     subtitles: [] as const,
-    effects: {} as Record<string, never>,
+    effects,
     output: { format: "mp4" as const, mimeType: "video/mp4" as const },
   });
 }
