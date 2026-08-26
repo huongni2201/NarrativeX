@@ -2,9 +2,6 @@ spring:
   task:
     scheduling:
       enabled: false
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.session.data.redis.autoconfigure.SessionDataRedisAutoConfiguration
   datasource:
     url: jdbc:h2:mem:narrativex-${random.uuid};DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=PostgreSQL
     driver-class-name: org.h2.Driver
@@ -14,10 +11,9 @@ spring:
     enabled: false
     locations:
       - classpath:db/migration
-  data:
-    redis:
-      repositories:
-        enabled: false
+  session:
+    jdbc:
+      initialize-schema: always
 
 server:
   servlet:

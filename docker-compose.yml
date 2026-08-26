@@ -30,18 +30,6 @@ services:
     ports: ["127.0.0.1:5432:5432"]
     networks: [appnet]
 
-  redis:
-    image: redis:8-alpine
-    restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes"]
-    volumes: [redis-data:/data]
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-    networks: [appnet]
-
   backend:
     image: ${BACKEND_IMAGE:-narrativex-backend}:${BUILD_SHA:-local}
     build:
@@ -54,10 +42,7 @@ services:
       SPRING_PROFILES_ACTIVE: prod
       PORT: 8080
       BUILD_SHA: ${BUILD_SHA:-local}
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
       NARRATIVEX_SESSION_TIMEOUT: ${NARRATIVEX_SESSION_TIMEOUT}
-      NARRATIVEX_SESSION_REDIS_NAMESPACE: ${NARRATIVEX_SESSION_REDIS_NAMESPACE}
       NARRATIVEX_OIDC_ENABLED: ${NARRATIVEX_OIDC_ENABLED}
       NARRATIVEX_LOCAL_DEV_IDENTITY_ENABLED: "false"
       NARRATIVEX_PUBLIC_BASE_URL: ${NARRATIVEX_PUBLIC_BASE_URL:-https://${APP_DOMAIN}}
@@ -93,7 +78,6 @@ services:
     ports: ["127.0.0.1:8080:8080"]
     depends_on:
       postgres: { condition: service_healthy }
-      redis: { condition: service_healthy }
     networks: [appnet]
 
   ai-worker:
@@ -237,5 +221,4 @@ networks:
   appnet: { driver: bridge }
 volumes:
   postgres-data:
-  redis-data:
   vieneu-home:
