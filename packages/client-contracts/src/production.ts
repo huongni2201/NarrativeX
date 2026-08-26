@@ -1,7 +1,7 @@
 export type BeatMediaFitMode = "TRIM" | "LOOP" | "FREEZE_END" | "SPEED_ADJUST";
 export type BeatMediaType = "IMAGE" | "VIDEO";
 export type BeatMediaStorageMode = "REMOTE" | "LOCAL_ONLY" | "HYBRID";
-export type AutoEditStyle = "CINEMATIC" | "BALANCED" | "DYNAMIC";
+export type AutoEditStyle = "AUTO" | "CINEMATIC" | "BALANCED" | "DYNAMIC";
 
 export interface DesktopTimelineBeat {
   chapterId: string;
