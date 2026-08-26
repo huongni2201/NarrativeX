@@ -14,6 +14,7 @@ export interface GenerateNarrationInput {
   voiceId: string;
   speakingRate?: number;
   voiceReferenceAssetId?: string;
+  contentVariantId?: string;
   executionPreference?: ExecutionPreference;
 }
 
