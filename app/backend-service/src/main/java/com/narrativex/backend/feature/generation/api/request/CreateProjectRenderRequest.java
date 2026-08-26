@@ -17,6 +17,7 @@ public record CreateProjectRenderRequest(
     BigDecimal maxAuthorizedCost,
     @Pattern(regexp = "CLOUD|LOCAL_DEVICE") String executionTarget,
     UUID localDeviceId,
+    UUID backgroundMusicAssetId,
     @Valid @Size(max = 2000) List<BeatOverride> beatOverrides) {
 
   public CreateProjectRenderRequest {
@@ -29,7 +30,7 @@ public record CreateProjectRenderRequest(
 
   public CreateProjectRenderRequest(
       String resolution, String format, BigDecimal maxAuthorizedCost) {
-    this(resolution, format, maxAuthorizedCost, "CLOUD", null, List.of());
+    this(resolution, format, maxAuthorizedCost, "CLOUD", null, null, List.of());
   }
 
   public CreateProjectRenderRequest(
@@ -37,7 +38,7 @@ public record CreateProjectRenderRequest(
       String format,
       BigDecimal maxAuthorizedCost,
       List<BeatOverride> beatOverrides) {
-    this(resolution, format, maxAuthorizedCost, "CLOUD", null, beatOverrides);
+    this(resolution, format, maxAuthorizedCost, "CLOUD", null, null, beatOverrides);
   }
 
   public record BeatOverride(
