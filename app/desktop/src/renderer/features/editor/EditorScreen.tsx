@@ -54,7 +54,9 @@ export function EditorScreen({
   const [playing, setPlaying] = useState(false);
   const [playheadMs, setPlayheadMs] = useState(0);
   const [query, setQuery] = useState("");
-  const [scope] = useState<EditorScope>("chapter");
+  // Review should naturally continue across chapter boundaries. Beat/scene/chapter
+  // scopes remain modelled in editor-timeline for future explicit focus controls.
+  const [scope] = useState<EditorScope>("project");
   const [mediaBusy, setMediaBusy] = useState(false);
   const [mediaNotice, setMediaNotice] = useState<string | null>(null);
   const [previewSources, setPreviewSources] = useState<PreviewSources>(EMPTY_PREVIEW);
@@ -295,6 +297,7 @@ export function EditorScreen({
         contentType: selection.contentType,
         sizeBytes: selection.sizeBytes,
         checksumSha256: selection.checksumSha256,
+        durationMs: selection.durationMs,
       });
       await window.narrativex.localStorage.commitSelectedAsset({
         projectId,
