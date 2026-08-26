@@ -10,14 +10,15 @@ app/desktop/          Electron / React / TypeScript only editor client
                      + stable guest bootstrap
                      + local project storage / backup / cache
                      + native asset import
-                     + local FFmpeg/ffprobe render
+                     + local FFmpeg/ffprobe final render
 
 app/backend-service/  Java / Spring Boot modular monolith
                      auth/ownership/domain/policy/control plane
                      MyBatis + Flyway + PostgreSQL
+                     final-artifact metadata only
 
 app/ai-worker/        Python async AI/media/provider worker
-                     retained server/provider execution paths
+                     analysis / translation / image / narration / validation
 
 packages/client-contracts/
                      shared typed Desktop/backend contracts
@@ -63,9 +64,10 @@ Renderer code does not own arbitrary filesystem paths, session cookies, provider
 - production timeline reads are narration-aligned and support explicit beat media selection;
 - duration/camera draft edits use typed undo/redo command history;
 - local export performs capability/disk/integrity preflight before render submission;
-- local rendering is backend-assigned and lease-controlled;
+- final rendering is backend-assigned, lease-controlled and executed only by Electron main;
 - render state is journaled and unfinished work is discoverable after restart;
 - immutable segment cache avoids redundant segment FFmpeg work;
+- final MP4 playback/export reads the local artifact directly;
 - Settings exposes storage accounting, project verification/cleanup and backup/restore/archive-copy foundations;
 - renderer UI has been reorganized into production-oriented feature/component boundaries with Tailwind/source-owned primitives.
 
@@ -79,40 +81,31 @@ Renderer code does not own arbitrary filesystem paths, session cookies, provider
 - V5 persisted production beat media selections;
 - production timeline aggregation/alignment and local render input snapshots;
 - local device capability/heartbeat/revocation/render assignment;
-- server worker/provider paths retained where Desktop still depends on remote execution or fallback durability.
+- render completion and FinalArtifact metadata without final-video byte storage/proxying.
 
 ## Worker highlights
 
 - Python 3.12+ async worker roles;
 - provider submission/reconciliation with bounded retry foundations;
 - runtime-file handling and deterministic retry policy;
-- narration, image generation and retained render/storage paths;
+- analysis, translation, narration, image generation and generated-media validation;
+- R2 transport for AI-generated media before Desktop materialization;
 - visual timing helpers aligned with narration-driven production timing.
 
-Workers execute backend-authorized plans. They do not own Desktop paths or user authorization policy.
+Workers execute backend-authorized plans. They do not execute final project renders, own Desktop paths or user authorization policy.
 
-## Storage by execution mode
-
-### Primary Desktop path
+## Storage contract
 
 ```text
-Project media                   -> local project workspace
-Render intermediates/cache      -> local project workspace/work
-Backups/snapshots               -> Desktop-managed local storage
-Final MP4                       -> local project workspace/artifacts
-Durable business/job metadata   -> PostgreSQL
+AI-generated remote media        -> Cloudflare R2 until Desktop materialization
+Project media                    -> local project workspace
+Render intermediates/cache       -> local project workspace/work
+Backups/snapshots                -> Desktop-managed local storage
+Final MP4                        -> local project workspace/artifacts
+Durable business/job metadata    -> PostgreSQL
 ```
 
-Backend state uses stable IDs/checksums and opaque project-relative artifact keys. It does not persist absolute Desktop filesystem paths.
-
-### Retained server-worker path
-
-```text
-Server pipeline media           -> Cloudflare R2 where remote durability is required
-Server final rendered MP4       -> Google Drive for retained cloud render fallback
-Worker scratch                  -> ephemeral filesystem
-Durable business/job metadata   -> PostgreSQL
-```
+Backend state uses stable IDs/checksums and opaque project-relative artifact keys. It does not persist absolute Desktop filesystem paths or serve final MP4 bytes.
 
 ## Flyway baseline
 
