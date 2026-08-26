@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.generation.api;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -10,6 +11,7 @@ import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.api.controller.GenerationJobController;
 import com.narrativex.backend.feature.generation.api.response.JobResponse;
 import com.narrativex.backend.feature.generation.application.query.GetGenerationJobQuery;
+import com.narrativex.backend.feature.generation.application.service.GenerationJobEventStreamService;
 import com.narrativex.backend.feature.generation.application.usecase.GetGenerationJobUseCase;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
@@ -18,10 +20,14 @@ import com.narrativex.backend.feature.generation.domain.enums.ResourceClass;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 class GenerationJobControllerContractTest {
   private final GetGenerationJobUseCase useCase = mock(GetGenerationJobUseCase.class);
-  private final GenerationJobController controller = new GenerationJobController(useCase);
+  private final GenerationJobEventStreamService eventStreamService =
+      mock(GenerationJobEventStreamService.class);
+  private final GenerationJobController controller =
+      new GenerationJobController(useCase, eventStreamService);
 
   @Test
   void getMapsPathToQueryAndWrapsDomainResult() {
@@ -62,6 +68,17 @@ class GenerationJobControllerContractTest {
     assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
     assertEquals(jobId, responseEntity.getBody().data().jobId());
     verify(useCase).execute(new GetGenerationJobQuery(jobId, null));
+  }
+
+  @Test
+  void eventsDelegatesToOwnerScopedStreamService() {
+    UUID jobId = UuidV7.random();
+    SseEmitter emitter = new SseEmitter();
+    when(eventStreamService.subscribe(jobId)).thenReturn(emitter);
+
+    assertSame(emitter, controller.events(jobId));
+
+    verify(eventStreamService).subscribe(jobId);
   }
 
   @Test

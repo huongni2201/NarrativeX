@@ -1,16 +1,23 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
+import { randomUUID } from "node:crypto";
 import type {
   DesktopApiRequest,
   DesktopApiResponse,
+  DesktopSseEvent,
+  DesktopSseHandlers,
   LocalExecutionStatus,
   NarrativeXDesktopBridge,
 } from "./types";
+
+const SSE_EVENT_CHANNEL = "desktop:api:sse:event";
+const SSE_ERROR_CHANNEL = "desktop:api:sse:error";
 
 const bridge: NarrativeXDesktopBridge = {
   appVersion: () => ipcRenderer.invoke("desktop:app-version"),
   api: {
     request: (input: DesktopApiRequest) =>
       ipcRenderer.invoke("desktop:api:request", input) as Promise<DesktopApiResponse>,
+    subscribe: subscribeBackendEvents,
   },
   auth: {
     login: () => ipcRenderer.invoke("desktop:auth:login"),
@@ -77,6 +84,47 @@ const bridge: NarrativeXDesktopBridge = {
   },
 };
 
+function subscribeBackendEvents(path: string, handlers: DesktopSseHandlers): () => void {
+  const subscriptionId = randomUUID();
+  let closed = false;
+
+  const eventHandler = (
+    _event: IpcRendererEvent,
+    payload: { subscriptionId?: unknown; event?: unknown },
+  ) => {
+    if (payload?.subscriptionId !== subscriptionId || !isDesktopSseEvent(payload.event)) return;
+    handlers.onEvent(payload.event);
+  };
+  const errorHandler = (
+    _event: IpcRendererEvent,
+    payload: { subscriptionId?: unknown; message?: unknown },
+  ) => {
+    if (payload?.subscriptionId !== subscriptionId || typeof payload.message !== "string") return;
+    handlers.onError?.(payload.message);
+  };
+
+  ipcRenderer.on(SSE_EVENT_CHANNEL, eventHandler);
+  ipcRenderer.on(SSE_ERROR_CHANNEL, errorHandler);
+  void ipcRenderer
+    .invoke("desktop:api:sse:start", { subscriptionId, path })
+    .then(() => {
+      if (closed) void ipcRenderer.invoke("desktop:api:sse:stop", { subscriptionId });
+    })
+    .catch((error: unknown) => {
+      if (!closed) {
+        handlers.onError?.(error instanceof Error ? error.message : "Unable to start backend event stream.");
+      }
+    });
+
+  return () => {
+    if (closed) return;
+    closed = true;
+    ipcRenderer.removeListener(SSE_EVENT_CHANNEL, eventHandler);
+    ipcRenderer.removeListener(SSE_ERROR_CHANNEL, errorHandler);
+    void ipcRenderer.invoke("desktop:api:sse:stop", { subscriptionId }).catch(() => undefined);
+  };
+}
+
 function isDesktopApiResponse(value: unknown): value is DesktopApiResponse {
   if (!value || typeof value !== "object") return false;
   const response = value as Partial<DesktopApiResponse>;
@@ -84,6 +132,17 @@ function isDesktopApiResponse(value: unknown): value is DesktopApiResponse {
     typeof response.status === "number" &&
     typeof response.statusText === "string" &&
     typeof response.bodyText === "string"
+  );
+}
+
+function isDesktopSseEvent(value: unknown): value is DesktopSseEvent {
+  if (!value || typeof value !== "object") return false;
+  const event = value as Partial<DesktopSseEvent>;
+  return (
+    typeof event.event === "string" &&
+    typeof event.data === "string" &&
+    (event.id === null || typeof event.id === "string") &&
+    (event.retry === null || typeof event.retry === "number")
   );
 }
 
