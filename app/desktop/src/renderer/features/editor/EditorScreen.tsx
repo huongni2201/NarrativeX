@@ -22,6 +22,20 @@ import { EditorPreviewViewport } from "./components/EditorPreviewViewport";
 import { EditorInspectorPanel } from "./components/EditorInspectorPanel";
 import { EditorMultiTrackTimeline } from "./components/EditorMultiTrackTimeline";
 
+interface PreviewSources {
+  mediaUrl: string | null;
+  narrationUrl: string | null;
+  loading: boolean;
+  message: string | null;
+}
+
+const EMPTY_PREVIEW: PreviewSources = {
+  mediaUrl: null,
+  narrationUrl: null,
+  loading: false,
+  message: null,
+};
+
 export function EditorScreen({
   workspace,
 }: Readonly<{
@@ -42,6 +56,7 @@ export function EditorScreen({
   const [scope] = useState<EditorScope>("chapter");
   const [mediaBusy, setMediaBusy] = useState(false);
   const [mediaNotice, setMediaNotice] = useState<string | null>(null);
+  const [previewSources, setPreviewSources] = useState<PreviewSources>(EMPTY_PREVIEW);
 
   useEffect(() => {
     if (!beats.length) {
@@ -60,9 +75,27 @@ export function EditorScreen({
 
   const totalMs = timeline?.totalDurationMs ?? 0;
   const selected = beats.find((beat) => beat.visualBeatId === selectedId) ?? null;
+  const selectedChapter = selected
+    ? chapters.find((chapter) => chapter.chapterId === selected.chapterId) ?? null
+    : null;
+  const narrationAsset = selectedChapter?.narrationAssetId
+    ? workspace.assets.find((asset) => asset.id === selectedChapter.narrationAssetId) ?? null
+    : null;
   const autoDecision = useMemo(
     () => (selected ? createBeatDecision(selected, "CINEMATIC") : null),
     [selected],
+  );
+  const previewBeat = useMemo<DesktopTimelineBeat | null>(
+    () =>
+      selected && autoDecision
+        ? {
+            ...selected,
+            cameraMovement: autoDecision.cameraMovement,
+            fitMode: autoDecision.fitMode,
+            trimStartMs: autoDecision.trimStartMs,
+          }
+        : selected,
+    [autoDecision, selected],
   );
   const hierarchy = useMemo(
     () => buildEditorHierarchy(chapters, beats),
@@ -104,6 +137,81 @@ export function EditorScreen({
     return () => window.clearInterval(timer);
   }, [playing, scopeDurationMs, scopeWindow.endMs, scopeWindow.startMs]);
 
+  useEffect(() => {
+    if (!beats.length) return;
+    const beatAtTime = beats.find((beat, index) => {
+      const isLast = index === beats.length - 1;
+      return playheadMs >= beat.startMs && (playheadMs < beat.endMs || (isLast && playheadMs <= beat.endMs));
+    });
+    if (beatAtTime && beatAtTime.visualBeatId !== selectedId) {
+      setSelectedId(beatAtTime.visualBeatId);
+    }
+  }, [beats, playheadMs, selectedId]);
+
+  useEffect(() => {
+    let active = true;
+    if (!projectId || !selected) {
+      setPreviewSources(EMPTY_PREVIEW);
+      return () => {
+        active = false;
+      };
+    }
+
+    const mediaIsLocalOnly = selected.storageMode === "LOCAL_ONLY";
+    const narrationIsLocalOnly = narrationAsset?.storageMode === "LOCAL_ONLY";
+    const needsMediaUrl = Boolean(selected.mediaAssetId && !mediaIsLocalOnly);
+    const needsNarrationUrl = Boolean(selectedChapter?.narrationAssetId && !narrationIsLocalOnly);
+
+    setPreviewSources({
+      mediaUrl: null,
+      narrationUrl: null,
+      loading: needsMediaUrl || needsNarrationUrl,
+      message: mediaIsLocalOnly
+        ? "Media này chỉ có trên local. Auto Edit vẫn render bằng local FFmpeg; live preview remote chưa áp dụng cho asset này."
+        : null,
+    });
+
+    void Promise.allSettled([
+      needsMediaUrl && selected.mediaAssetId
+        ? assetsApi.downloadUrl(selected.mediaAssetId)
+        : Promise.resolve(null),
+      needsNarrationUrl && selectedChapter?.narrationAssetId
+        ? assetsApi.downloadUrl(selectedChapter.narrationAssetId)
+        : Promise.resolve(null),
+    ]).then(([mediaResult, narrationResult]) => {
+      if (!active) return;
+      const mediaUrl = mediaResult.status === "fulfilled" ? mediaResult.value?.url ?? null : null;
+      const narrationUrl =
+        narrationResult.status === "fulfilled" ? narrationResult.value?.url ?? null : null;
+      const messages: string[] = [];
+      if (mediaIsLocalOnly) {
+        messages.push("Local-only media sẽ được FFmpeg đọc trực tiếp khi render.");
+      } else if (selected.mediaAssetId && !mediaUrl) {
+        messages.push("Không lấy được media preview URL.");
+      }
+      if (narrationIsLocalOnly) {
+        messages.push("Narration local-only chưa phát trong viewport nhưng vẫn được dùng khi render.");
+      } else if (selectedChapter?.narrationAssetId && !narrationUrl) {
+        messages.push("Không lấy được narration preview URL.");
+      }
+      setPreviewSources({
+        mediaUrl,
+        narrationUrl,
+        loading: false,
+        message: messages.length ? messages.join(" ") : null,
+      });
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [
+    narrationAsset?.storageMode,
+    projectId,
+    selected,
+    selectedChapter?.narrationAssetId,
+  ]);
+
   const selectBeat = (beat: DesktopTimelineBeat) => {
     setSelectedId(beat.visualBeatId);
     setPlayheadMs(beat.startMs);
@@ -123,14 +231,14 @@ export function EditorScreen({
 
   const handleStepMs = (deltaMs: number) => {
     setPlayheadMs((current) =>
-      Math.max(0, Math.min(scopeWindow.endMs, current + deltaMs)),
+      Math.max(scopeWindow.startMs, Math.min(scopeWindow.endMs, current + deltaMs)),
     );
   };
 
   const handleSeek = (targetMs: number) => {
     setPlayheadMs(targetMs);
     const beatAtTime = beats.find(
-      (beat) => targetMs >= beat.startMs && targetMs <= beat.endMs,
+      (beat) => targetMs >= beat.startMs && targetMs < beat.endMs,
     );
     if (beatAtTime && beatAtTime.visualBeatId !== selectedId) {
       setSelectedId(beatAtTime.visualBeatId);
@@ -253,7 +361,13 @@ export function EditorScreen({
       <div className="flex min-h-0 min-w-0 flex-col overflow-hidden border-r border-border-subtle bg-background">
         <div className="nx-editor-preview-panel min-h-[400px] shrink-0">
           <EditorPreviewViewport
-            selectedBeat={selected}
+            selectedBeat={previewBeat}
+            mediaUrl={previewSources.mediaUrl}
+            narrationUrl={previewSources.narrationUrl}
+            narrationStartMs={selectedChapter?.startMs ?? null}
+            narrationEndMs={selectedChapter?.endMs ?? null}
+            previewLoading={previewSources.loading}
+            previewMessage={previewSources.message}
             playheadMs={playheadMs}
             scopeWindowStartMs={scopeWindow.startMs}
             scopeWindowEndMs={scopeWindow.endMs}
