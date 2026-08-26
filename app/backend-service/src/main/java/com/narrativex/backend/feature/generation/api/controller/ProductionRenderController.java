@@ -9,15 +9,12 @@ import com.narrativex.backend.feature.generation.api.response.ProductionTimeline
 import com.narrativex.backend.feature.generation.api.response.ProjectRenderArtifactResponse;
 import com.narrativex.backend.feature.generation.application.command.CreateProjectRenderCommand;
 import com.narrativex.backend.feature.generation.application.command.RenderBeatOverride;
-import com.narrativex.backend.feature.generation.application.usecase.CreateProjectRenderUseCase;
+import com.narrativex.backend.feature.generation.application.usecase.CreateAutoEditedProjectRenderUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.GetProductionTimelineUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.GetProjectRenderArtifactUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.UpdateProductionBeatMediaUseCase;
-import com.narrativex.backend.feature.generation.domain.enums.BeatMediaFitMode;
 import com.narrativex.backend.feature.generation.domain.enums.RenderExecutionTarget;
-import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
 import jakarta.validation.Valid;
-import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -37,7 +34,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/projects/{projectId}/production")
 public class ProductionRenderController {
   private final GetProductionTimelineUseCase getProductionTimelineUseCase;
-  private final CreateProjectRenderUseCase createProjectRenderUseCase;
+  private final CreateAutoEditedProjectRenderUseCase createAutoEditedProjectRenderUseCase;
   private final GetProjectRenderArtifactUseCase getProjectRenderArtifactUseCase;
   private final UpdateProductionBeatMediaUseCase updateProductionBeatMediaUseCase;
 
@@ -85,7 +82,6 @@ public class ProductionRenderController {
           "Cloud project rendering is temporarily unavailable until its worker is enabled.");
     }
 
-    applyAutoEditMediaOverrides(projectId, request.beatOverrides());
     var overrides =
         request.beatOverrides().stream()
             .map(
@@ -98,7 +94,7 @@ public class ProductionRenderController {
                         override.trimStartMs()))
             .toList();
     var job =
-        createProjectRenderUseCase.execute(
+        createAutoEditedProjectRenderUseCase.execute(
             new CreateProjectRenderCommand(
                 projectId,
                 request.resolution(),
@@ -110,39 +106,6 @@ public class ProductionRenderController {
                 overrides));
     return ResponseEntity.accepted()
         .body(ApiResponse.success("Project render queued", JobResponse.from(job)));
-  }
-
-  private void applyAutoEditMediaOverrides(
-      UUID projectId, List<CreateProjectRenderRequest.BeatOverride> overrides) {
-    if (overrides.stream().noneMatch(value -> value.fitMode() != null || value.trimStartMs() != null)) {
-      return;
-    }
-
-    var timeline = getProductionTimelineUseCase.execute(projectId);
-    for (var override : overrides) {
-      if (override.fitMode() == null && override.trimStartMs() == null) continue;
-      var beat =
-          timeline.beats().stream()
-              .filter(value -> value.visualBeatId().equals(override.visualBeatId()))
-              .findFirst()
-              .orElseThrow(
-                  () ->
-                      new GenerationAdmissionDeniedException(
-                          "INVALID_RENDER_OVERRIDE",
-                          "Auto Edit references a visual beat outside the current production timeline."));
-      if (beat.mediaAssetId() == null) {
-        throw new GenerationAdmissionDeniedException(
-            "INVALID_RENDER_OVERRIDE", "Auto Edit cannot fit a beat without a selected media asset.");
-      }
-      BeatMediaFitMode fitMode =
-          override.fitMode() == null
-              ? BeatMediaFitMode.valueOf(beat.fitMode())
-              : BeatMediaFitMode.valueOf(override.fitMode());
-      long trimStartMs =
-          override.trimStartMs() == null ? beat.trimStartMs() : override.trimStartMs();
-      updateProductionBeatMediaUseCase.update(
-          projectId, override.visualBeatId(), beat.mediaAssetId(), fitMode, trimStartMs);
-    }
   }
 
   @GetMapping("/renders/by-job/{jobId}")
