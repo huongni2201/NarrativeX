@@ -307,7 +307,7 @@ Project
            -> timing / supported visual controls
 ```
 
-Narration-aligned timing is authoritative. Explicit beat media selections are durable backend production state through `production_beat_media_selections` (V5).
+Narration-aligned timing is authoritative. Explicit beat media selections are durable backend production state through the consolidated V1 `production_beat_media_selections` table.
 
 Renderer-local duration/camera drafts may use undo/redo/reset, but render submission must resolve to backend-authorized stable identities and immutable input state.
 
@@ -364,11 +364,9 @@ External provider ambiguity preserves `UNKNOWN` and reconciles before paid resub
 V1__create_tables.sql
 V2__init_indexes.sql
 V3__seed_data.sql
-V4__desktop_guest_installations.sql
-V5__production_beat_media_selections.sql
 ```
 
-V1-V3 are frozen core migrations. V4+ are append-only feature migrations. Current schema evolution must not rewrite already-published Flyway history.
+V1-V3 are the frozen consolidated baseline and are the only current Flyway files. Desktop guest-installation, production beat-media-selection and local execution/render metadata structures are already folded into V1. Future schema evolution starts with a new append-only `V4__*.sql`; current schema evolution must not rewrite already-published Flyway history.
 
 Historical schema columns/defaults that no longer have an active executor do not by themselves define current runtime behavior; current code and additive migrations remain authoritative.
 
