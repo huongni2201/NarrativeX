@@ -5,6 +5,7 @@ import java.util.UUID;
 
 public record ChapterLanguageStatusResponse(
     UUID sourceVariantId,
+    String sourceContentHash,
     String detectedLanguage,
     BigDecimal confidence,
     String detector,
