@@ -4,6 +4,7 @@ import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { basename, extname, join, resolve } from "node:path";
 import { DesktopBackendApiService, type DesktopApiResponse } from "./api/backend-api-service";
+import { registerBackendSseIpc } from "./api/backend-sse-ipc";
 import { DesktopAuthService } from "./auth/auth-service";
 import { AUTH_CALLBACK_CHANNEL } from "./auth/auth-events";
 import {
@@ -315,6 +316,7 @@ void app.whenReady().then(async () => {
     if (!isDesktopApiRequest(input)) throw new Error("Invalid desktop API request.");
     return requireDesktopApi().request(input);
   });
+  registerBackendSseIpc(trustPolicy, requireDesktopApi);
   registerTrustedIpcHandler("desktop:auth:login", trustPolicy, () => {
     if (!desktopAuth) throw new Error("Desktop auth is not initialized.");
     pendingAuthCode = null;
