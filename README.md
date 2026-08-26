@@ -2,7 +2,7 @@
 
 NarrativeX is a desktop-first, image-first AI Story Video Studio for turning flexible-length stories into reviewed long-form videos and Short/Reel exports.
 
-The Electron application is the only supported editor client. Spring Boot remains the authoritative control plane for durable business metadata, ownership, policy and execution state. Project media and local rendering use a local-first Desktop boundary.
+The Electron application is the only supported editor client. Spring Boot remains the authoritative control plane for durable business metadata, ownership, policy and execution state. Project media and final rendering use a local-first Desktop boundary.
 
 ## Repository map
 
@@ -10,11 +10,11 @@ The Electron application is the only supported editor client. Spring Boot remain
 | --- | --- |
 | `app/desktop` | Electron + React + TypeScript editor; guest bootstrap, local project storage, native capabilities and local FFmpeg execution through Electron main |
 | `app/backend-service` | Spring Boot modular monolith; auth/ownership, domain metadata, policy, jobs, leases, quotas and durable state |
-| `app/ai-worker` | Python AI/media worker; provider execution and retained server-side processing paths |
+| `app/ai-worker` | Python AI/media worker; analysis, translation, image generation, narration and generated-media validation |
 | `packages/client-contracts` | Shared typed Desktop/backend contracts |
 | `contracts` | Versioned backend ↔ worker payload contracts |
 | `documentation` | Product, domain, architecture, workflows, current-state maps and ADRs |
-| `docker-compose.yml` | Backend/worker runtime with optional Cloudflare Tunnel ingress |
+| `docker-compose.yml` | Backend/AI-worker runtime with optional Cloudflare Tunnel ingress |
 
 ## Primary runtime topology
 
@@ -35,10 +35,10 @@ Electron Desktop
 Spring Boot Backend         Local project workspace
   -> PostgreSQL               -> images/audio/video
   -> Redis                    -> render work/cache
-  -> Python workers           -> final MP4 artifacts
+  -> Python AI workers        -> final MP4 artifacts
 ```
 
-PostgreSQL is authoritative for users, projects, source versions, ownership, entitlement/policy, render assignment, leases and durable job state. Electron local storage is authoritative only for machine-local project bytes referenced by stable backend IDs and integrity metadata.
+PostgreSQL is authoritative for users, projects, source versions, ownership, entitlement/policy, render assignment, leases and durable job/artifact metadata. Electron local storage is authoritative for machine-local project bytes referenced by stable backend IDs and integrity metadata.
 
 ## Guest-first authentication
 
@@ -95,7 +95,7 @@ Workspace layout:
 
 `project.manifest.json` maps backend IDs to project-relative paths, sizes and SHA-256 checksums. Absolute local filesystem paths must not become durable backend identifiers.
 
-Cloudflare R2 and Google Drive remain retained server-worker/fallback paths where remote durability is required. They are not the primary Desktop project-media boundary.
+Cloudflare R2 is used only as remote transport/durable storage for generated AI media such as images and narration audio before Desktop materializes those bytes into the local workspace. Final MP4 bytes are never stored or proxied by the backend; playback and export read the local artifact directly.
 
 ## Current creator/editor foundations
 
@@ -108,7 +108,7 @@ The current Desktop code includes:
 - generated narration/voice preview and local audio import safeguards;
 - native local asset registration;
 - production timeline editing including beat media selection, duration/camera draft state and undo/redo;
-- local render preflight, lease-controlled FFmpeg execution and final artifact registration;
+- local render preflight, lease-controlled FFmpeg execution and final artifact metadata registration;
 - render journal discovery, segment caching and project storage verification/cleanup;
 - workspace backup/restore/archive-copy foundations;
 - source-owned Tailwind/shadcn-style renderer component structure.
