@@ -3,8 +3,8 @@ import type {
   LocalAssetRegistration,
   RegisterLocalAssetRequest,
 } from "@narrativex/client-contracts";
-import { apiRequest } from "../../../api/client";
-import { assertContract, isRecord, isString } from "../../../api/guards";
+import { apiRequest } from "../../../api/client.ts";
+import { assertContract, isRecord, isString } from "../../../api/guards.ts";
 
 function isAsset(value: unknown): value is DesktopAsset {
   return (

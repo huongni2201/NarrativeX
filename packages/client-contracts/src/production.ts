@@ -44,6 +44,7 @@ export interface ProjectRenderBeatOverride {
   visualBeatId: string;
   durationMs?: number;
   cameraMovement?: string;
+  mediaAssetId?: string;
 }
 
 export interface LocalRenderPreflightAsset {
