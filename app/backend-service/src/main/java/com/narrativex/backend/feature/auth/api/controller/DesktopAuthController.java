@@ -13,9 +13,11 @@ import jakarta.validation.Valid;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -30,9 +32,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.util.UriComponentsBuilder;
 
 @RestController
-@RequiredArgsConstructor
 @RequestMapping("/api/v1/auth/desktop")
 public class DesktopAuthController {
   private static final String REDIRECT_SESSION_KEY = "NARRATIVEX_DESKTOP_REDIRECT_URI";
@@ -40,10 +42,31 @@ public class DesktopAuthController {
   private static final String CODE_CHALLENGE_PATTERN = "[A-Za-z0-9_-]{43}";
   private static final String ROLE_USER = "ROLE_USER";
   private static final String ROLE_GUEST = "ROLE_GUEST";
+  private static final String DESKTOP_START_PATH = "/api/v1/auth/desktop/start";
 
   private final DesktopAuthHandoff handoffStore;
   private final DesktopGuestIdentity desktopGuestIdentity;
   private final SecurityContextRepository securityContextRepository;
+  private final String publicBaseUrl;
+
+  @Autowired
+  public DesktopAuthController(
+      DesktopAuthHandoff handoffStore,
+      DesktopGuestIdentity desktopGuestIdentity,
+      SecurityContextRepository securityContextRepository,
+      @Value("${narrativex.security.public-base-url:}") String publicBaseUrl) {
+    this.handoffStore = handoffStore;
+    this.desktopGuestIdentity = desktopGuestIdentity;
+    this.securityContextRepository = securityContextRepository;
+    this.publicBaseUrl = publicBaseUrl == null ? "" : publicBaseUrl.trim();
+  }
+
+  DesktopAuthController(
+      DesktopAuthHandoff handoffStore,
+      DesktopGuestIdentity desktopGuestIdentity,
+      SecurityContextRepository securityContextRepository) {
+    this(handoffStore, desktopGuestIdentity, securityContextRepository, "");
+  }
 
   @GetMapping("/start")
   public void start(
@@ -57,6 +80,14 @@ public class DesktopAuthController {
       response.sendError(HttpStatus.BAD_REQUEST.value(), "Unsupported desktop redirect URI.");
       return;
     }
+
+    String canonicalStartUrl =
+        canonicalPublicStartUrl(publicBaseUrl, request, redirectUri, codeChallenge);
+    if (canonicalStartUrl != null) {
+      response.sendRedirect(canonicalStartUrl);
+      return;
+    }
+
     var session = request.getSession(true);
     session.setAttribute(REDIRECT_SESSION_KEY, redirectUri);
     session.setAttribute(CODE_CHALLENGE_SESSION_KEY, codeChallenge);
@@ -151,6 +182,60 @@ public class DesktopAuthController {
         && authentication.isAuthenticated()
         && authentication.getAuthorities().stream()
             .anyMatch(grantedAuthority -> authority.equals(grantedAuthority.getAuthority()));
+  }
+
+  static String canonicalPublicStartUrl(
+      String publicBaseUrl,
+      HttpServletRequest request,
+      String redirectUri,
+      String codeChallenge) {
+    if (publicBaseUrl == null || publicBaseUrl.isBlank()) {
+      return null;
+    }
+
+    final URI publicOrigin;
+    try {
+      publicOrigin = new URI(publicBaseUrl.trim());
+    } catch (URISyntaxException exception) {
+      return null;
+    }
+
+    if (sameOrigin(request, publicOrigin)) {
+      return null;
+    }
+
+    return UriComponentsBuilder.fromUri(publicOrigin)
+        .replacePath(DESKTOP_START_PATH)
+        .replaceQuery(null)
+        .fragment(null)
+        .queryParam("redirect_uri", redirectUri)
+        .queryParam("code_challenge", codeChallenge)
+        .build()
+        .encode(StandardCharsets.UTF_8)
+        .toUriString();
+  }
+
+  private static boolean sameOrigin(HttpServletRequest request, URI publicOrigin) {
+    if (publicOrigin.getScheme() == null || publicOrigin.getHost() == null) {
+      return false;
+    }
+    return publicOrigin.getScheme().equalsIgnoreCase(request.getScheme())
+        && publicOrigin.getHost().equalsIgnoreCase(request.getServerName())
+        && effectivePort(publicOrigin.getScheme(), publicOrigin.getPort())
+            == effectivePort(request.getScheme(), request.getServerPort());
+  }
+
+  private static int effectivePort(String scheme, int configuredPort) {
+    if (configuredPort >= 0) {
+      return configuredPort;
+    }
+    if ("https".equalsIgnoreCase(scheme)) {
+      return 443;
+    }
+    if ("http".equalsIgnoreCase(scheme)) {
+      return 80;
+    }
+    return -1;
   }
 
   static boolean isAllowedRedirect(String redirectUri) {
