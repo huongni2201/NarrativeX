@@ -28,6 +28,7 @@ import {
   REPLACE_PROJECT_DIALOG_RESPONSE,
   shouldProceedWithRestore,
 } from "./local-storage/restore-confirmation";
+import { probeMediaDuration } from "./rendering/ffprobe";
 import { resolveFfmpegRuntime, type FfmpegRuntimeStatus } from "./rendering/ffmpeg-runtime";
 import { ProjectRenderer } from "./rendering/project-renderer";
 import { LocalRenderPreflightService } from "./rendering/local-render-preflight";
@@ -459,10 +460,21 @@ void app.whenReady().then(async () => {
     if (selected.canceled || !sourcePath) return null;
     const file = await stat(sourcePath);
     if (!file.isFile() || file.size <= 0) throw new Error("Selected asset must be a non-empty file.");
-    const checksumSha256 = await checksumFile(sourcePath);
     const kind = kindForPath(sourcePath);
+    const [checksumSha256, durationMs] = await Promise.all([
+      checksumFile(sourcePath),
+      selectedMediaDuration(kind, sourcePath),
+    ]);
     const selectionToken = pendingAssetSelections.create(event.sender.id, "asset-import", { sourcePath, kind });
-    return { selectionToken, originalFilename: basename(sourcePath), contentType: contentTypeForPath(sourcePath), sizeBytes: file.size, checksumSha256, kind };
+    return {
+      selectionToken,
+      originalFilename: basename(sourcePath),
+      contentType: contentTypeForPath(sourcePath),
+      sizeBytes: file.size,
+      checksumSha256,
+      kind,
+      ...(durationMs == null ? {} : { durationMs }),
+    };
   });
   registerTrustedIpcHandlerWithEvent("desktop:local-storage:commit-selected-asset", trustPolicy, async (event, input) => {
     if (!isSelectedAssetCommitInput(input)) throw new Error("Invalid selected asset commit input.");
@@ -595,6 +607,24 @@ async function checksumFile(sourcePath: string): Promise<string> {
   const hash = createHash("sha256");
   for await (const chunk of createReadStream(sourcePath)) hash.update(chunk);
   return hash.digest("hex");
+}
+
+async function selectedMediaDuration(
+  kind: "IMAGE" | "AUDIO" | "VIDEO" | "OTHER",
+  sourcePath: string,
+): Promise<number | undefined> {
+  if (kind !== "AUDIO" && kind !== "VIDEO") return undefined;
+  const ffprobePath = ffmpegRuntime.ffprobePath;
+  if (!ffprobePath) return undefined;
+  try {
+    return await probeMediaDuration(ffprobePath, sourcePath);
+  } catch (error) {
+    throw new Error(
+      `Không đọc được thời lượng ${kind === "VIDEO" ? "video" : "audio"}: ${
+        error instanceof Error ? error.message : "ffprobe failed"
+      }`,
+    );
+  }
 }
 
 function isArtifactInput(value: unknown): value is { projectId: string; jobId: string } {
