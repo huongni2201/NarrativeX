@@ -4,6 +4,7 @@ import {
   chooseCameraMovement,
   chooseMediaFit,
   createAutoEditPlan,
+  resolveAutoEditStyle,
 } from "../src/renderer/features/production/auto-edit-planner.ts";
 
 function beat(overrides = {}) {
@@ -37,7 +38,22 @@ test("image beats use narration duration and semantic motion", () => {
   assert.equal(chooseCameraMovement(input, "CINEMATIC"), "PUSH_IN");
 });
 
-test("long video is automatically trimmed to a centered window", () => {
+test("automatic style follows narrative intent without user input", () => {
+  assert.equal(
+    resolveAutoEditStyle({ title: "Escape", visualIntent: "The hero runs through an explosion" }),
+    "DYNAMIC",
+  );
+  assert.equal(
+    resolveAutoEditStyle({ title: "Truth", visualIntent: "Close-up reaction to a secret reveal" }),
+    "CINEMATIC",
+  );
+  assert.equal(
+    resolveAutoEditStyle({ title: "Room", visualIntent: "A quiet conversation in the room" }),
+    "BALANCED",
+  );
+});
+
+test("long video is automatically trimmed to a deterministic window", () => {
   const decision = chooseMediaFit({
     mediaType: "VIDEO",
     sourceDurationMs: 20_000,
@@ -46,7 +62,7 @@ test("long video is automatically trimmed to a centered window", () => {
   assert.deepEqual(decision, {
     fitMode: "TRIM",
     trimStartMs: 6000,
-    reason: "Source video is longer than the narration span; Auto Edit selects a centered usable window.",
+    reason: "Source video is longer than the narration span; Auto Edit selects a deterministic usable window.",
   });
 });
 
@@ -96,4 +112,17 @@ test("auto edit plan emits only render parameters that differ from timeline", ()
       trimStartMs: 6000,
     },
   ]);
+});
+
+test("auto is the zero-config default", () => {
+  const timeline = {
+    projectId: "project-1",
+    storyVersionId: "story-1",
+    totalDurationMs: 6000,
+    aspectRatio: "16:9",
+    readyForRender: true,
+    chapters: [],
+    beats: [beat()],
+  };
+  assert.equal(createAutoEditPlan(timeline).style, "AUTO");
 });
