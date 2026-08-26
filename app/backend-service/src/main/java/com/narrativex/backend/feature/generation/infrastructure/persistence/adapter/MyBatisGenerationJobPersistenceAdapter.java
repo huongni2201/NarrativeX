@@ -39,6 +39,12 @@ public class MyBatisGenerationJobPersistenceAdapter implements GenerationJobRepo
   }
 
   @Override
+  public Optional<GenerationJob> findByIdAndOwner(UUID id, String ownerId) {
+    return Optional.ofNullable(mapper.findByIdAndOwner(id, ownerId))
+        .map(MyBatisGenerationJobPersistenceAdapter::toDomain);
+  }
+
+  @Override
   public Optional<GenerationJob> findByJobIdAndOwner(UUID jobId, String ownerId) {
     return Optional.ofNullable(mapper.findByJobIdAndOwner(jobId, ownerId))
         .map(MyBatisGenerationJobPersistenceAdapter::toDomain);

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import type {
   DesktopChapterDetails,
   DesktopTimeline,
@@ -16,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { assetsApi } from "../../assets/api/assets.api";
 import { EmptyState, FeaturePage } from "../../workspace/components/FeaturePage";
 import {
   isActiveGenerationJobStatus,
@@ -24,6 +26,7 @@ import {
 import {
   useAnalyzeChapter,
   useCreateMediaJob,
+  useCurrentMediaJob,
   useEstimateMediaJob,
   useGenerationJob,
   useMediaJob,
@@ -52,18 +55,28 @@ export function ImagesScreen({
   const [notice, setNotice] = useState<string | null>(null);
   const mediaIntentRef = useRef<{ signature: string; idempotencyKey: string } | null>(null);
 
+  const currentMediaJob = useCurrentMediaJob(projectId, chapterId || null);
+  const effectiveMediaJobId = mediaJobId ?? currentMediaJob.data?.jobId ?? null;
   const analysisJob = useGenerationJob(analysisJobId);
-  const mediaGenerationJob = useGenerationJob(mediaJobId);
-  const mediaJob = useMediaJob(mediaJobId);
+  const mediaGenerationJob = useGenerationJob(effectiveMediaJobId);
+  const mediaJob = useMediaJob(effectiveMediaJobId);
 
   useEffect(() => {
     if (!chapterId && chapters[0]) setChapterId(chapters[0].id);
   }, [chapterId, chapters]);
 
   useEffect(() => {
+    setAnalysisJobId(null);
+    setMediaJobId(null);
+    setCostEstimate(null);
+    setNotice(null);
+    mediaIntentRef.current = null;
+  }, [chapterId]);
+
+  useEffect(() => {
     setCostEstimate(null);
     mediaIntentRef.current = null;
-  }, [chapterId, imageStyle, qualityTier, timeline?.aspectRatio]);
+  }, [imageStyle, qualityTier, timeline?.aspectRatio]);
 
   useEffect(() => {
     if (isTerminalGenerationJobStatus(mediaGenerationJob.data?.status)) {
@@ -81,10 +94,13 @@ export function ImagesScreen({
   const mediaBusy =
     createJob.isPending ||
     Boolean(
-      mediaJobId &&
+      effectiveMediaJobId &&
         (mediaGenerationJob.isLoading ||
           isActiveGenerationJobStatus(mediaGenerationJob.data?.status)),
     );
+  const mediaHeadChecking = currentMediaJob.isLoading;
+  const mediaHeadUnavailable = currentMediaJob.isError;
+  const mediaSubmissionBlocked = mediaHeadChecking || mediaHeadUnavailable;
 
   async function runAnalysis() {
     if (!chapterId || analysisBusy) return;
@@ -115,7 +131,7 @@ export function ImagesScreen({
   }
 
   async function generateImages() {
-    if (!chapterId || mediaBusy || analysisBusy || !beats.length) return;
+    if (!chapterId || mediaBusy || mediaSubmissionBlocked || analysisBusy || !beats.length) return;
     setNotice(null);
     try {
       const latestEstimate = await estimateCost();
@@ -169,7 +185,7 @@ export function ImagesScreen({
     review.mutate(
       {
         itemId,
-        jobId: mediaJobId ?? undefined,
+        jobId: effectiveMediaJobId ?? undefined,
         review: { decision, rowVersion },
       },
       {
@@ -180,6 +196,14 @@ export function ImagesScreen({
     );
   }
 
+  const generateLabel = mediaHeadChecking
+    ? "Checking…"
+    : mediaHeadUnavailable
+      ? "Unavailable"
+      : mediaBusy
+        ? "Generating…"
+        : "Generate images";
+
   return (
     <FeaturePage
       title="Image Generation"
@@ -188,9 +212,16 @@ export function ImagesScreen({
         <Button
           size="sm"
           onClick={() => void generateImages()}
-          disabled={!chapterId || !beats.length || analysisBusy || mediaBusy || estimate.isPending}
+          disabled={
+            !chapterId ||
+            !beats.length ||
+            analysisBusy ||
+            mediaBusy ||
+            mediaSubmissionBlocked ||
+            estimate.isPending
+          }
         >
-          <Sparkles size={14} /> {mediaBusy ? "Generating…" : "Generate images"}
+          <Sparkles size={14} /> {generateLabel}
         </Button>
       }
     >
@@ -277,6 +308,11 @@ export function ImagesScreen({
             {Math.round(mediaGenerationJob.data.progress * 100)}%
           </div>
         )}
+        {mediaHeadUnavailable && (
+          <p className="text-[10px] text-warning" role="status">
+            Không thể xác định media job hiện tại. Generate đã được khóa để tránh gửi trùng; hãy thử tải lại màn hình.
+          </p>
+        )}
 
         <section className="grid grid-cols-[minmax(240px,.7fr)_minmax(0,1.3fr)] gap-3">
           <div className="rounded-lg border border-border bg-card p-3">
@@ -308,25 +344,35 @@ export function ImagesScreen({
             <span className="text-[9px] uppercase tracking-[.12em] text-muted-foreground">
               Media review
             </span>
-            <div className="mt-2 grid grid-cols-[repeat(auto-fill,minmax(210px,1fr))] gap-2">
+            <div className="mt-2 grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-2">
               {mediaJob.data?.items.map((item) => (
                 <article
                   key={item.id}
                   className="grid gap-2 rounded-md border border-border-subtle bg-popover p-3"
                 >
+                  <MediaItemPreview
+                    mediaAssetId={item.mediaAssetId}
+                    visualBeatId={item.visualBeatId}
+                    executionStatus={item.executionStatus}
+                  />
                   <div className="flex items-center gap-2">
                     <ImageIcon size={16} className="text-primary-hover" />
-                    <strong className="truncate text-[10px]">{item.visualBeatId}</strong>
+                    <strong
+                      className="truncate text-[10px]"
+                      title={item.itemKey ?? item.visualBeatId}
+                    >
+                      {item.itemKey ?? item.visualBeatId}
+                    </strong>
                   </div>
                   <span className="text-[9px] text-muted-foreground">
                     {item.executionStatus} · {item.reviewStatus}
                   </span>
-                  {item.reviewStatus === "NEEDS_REVIEW" && (
+                  {item.reviewStatus === "NEEDS_REVIEW" && item.executionStatus === "READY" && (
                     <div className="flex gap-2">
                       <Button
                         size="sm"
                         onClick={() => reviewItem(item.id, item.rowVersion, "APPROVED")}
-                        disabled={review.isPending}
+                        disabled={review.isPending || !item.mediaAssetId}
                       >
                         <Check size={12} /> Approve
                       </Button>
@@ -334,7 +380,7 @@ export function ImagesScreen({
                         variant="destructive"
                         size="sm"
                         onClick={() => reviewItem(item.id, item.rowVersion, "REJECTED")}
-                        disabled={review.isPending}
+                        disabled={review.isPending || !item.mediaAssetId}
                       >
                         <X size={12} /> Reject
                       </Button>
@@ -353,6 +399,74 @@ export function ImagesScreen({
         </section>
       </div>
     </FeaturePage>
+  );
+}
+
+function MediaItemPreview({
+  mediaAssetId,
+  visualBeatId,
+  executionStatus,
+}: Readonly<{
+  mediaAssetId: string | null;
+  visualBeatId: string;
+  executionStatus: string;
+}>) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const preview = useQuery({
+    queryKey: ["assets", mediaAssetId ?? "none", "download-url"],
+    queryFn: () => assetsApi.downloadUrl(mediaAssetId as string),
+    enabled: Boolean(mediaAssetId) && executionStatus === "READY",
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [preview.data?.url]);
+
+  if (executionStatus !== "READY" || !mediaAssetId) {
+    return (
+      <div className="grid aspect-video place-items-center rounded-md border border-border-subtle bg-background text-[9px] text-muted-foreground">
+        Ảnh đang được xử lý…
+      </div>
+    );
+  }
+
+  if (preview.isLoading) {
+    return (
+      <div className="grid aspect-video place-items-center rounded-md border border-border-subtle bg-background text-[9px] text-muted-foreground">
+        Đang tải preview…
+      </div>
+    );
+  }
+
+  if (preview.isError || !preview.data?.url || imageFailed) {
+    return (
+      <div className="grid aspect-video place-items-center gap-2 rounded-md border border-warning/30 bg-warning-bg p-3 text-center text-[9px] text-warning">
+        <span>Không tải được ảnh preview.</span>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            setImageFailed(false);
+            void preview.refetch();
+          }}
+        >
+          Thử lại
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={preview.data.url}
+      alt={`Generated visual beat ${visualBeatId}`}
+      className="aspect-video w-full rounded-md border border-border-subtle bg-background object-cover"
+      loading="lazy"
+      onError={() => setImageFailed(true)}
+    />
   );
 }
 
