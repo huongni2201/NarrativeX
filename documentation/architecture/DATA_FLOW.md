@@ -11,7 +11,7 @@ PostgreSQL state, not renderer memory, Redis messages or process memory, determi
 | Project/StoryVersion/Chapter/storyboard/continuity | PostgreSQL | ownership/versioning apply |
 | GenerationJob/StageAttempt/ProviderOperation | PostgreSQL | process memory may carry hints only |
 | MediaPlan / production policy | PostgreSQL | worker/device executes persisted authorized state |
-| Production beat media selection | PostgreSQL | explicit editor choice persists through V5 |
+| Production beat media selection | PostgreSQL | explicit editor choice is part of the consolidated V1 schema |
 | Narration document/set/alignment metadata | PostgreSQL | source/narration fingerprints pin inputs |
 | Desktop project byte locations | local `project.manifest.json` | relative paths + size/SHA-256; not domain authority |
 | Desktop render journal/cache | local project work storage | recovery/performance aid, not backend business authority |
