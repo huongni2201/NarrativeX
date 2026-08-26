@@ -140,10 +140,18 @@ export interface DesktopApiResponse {
   bodyText: string;
 }
 
+export interface DesktopApiStreamEvent {
+  subscriptionId: string;
+  event: string;
+  id?: string;
+  data: string;
+}
+
 export interface NarrativeXDesktopBridge {
   appVersion(): Promise<string>;
   api: {
     request(input: DesktopApiRequest): Promise<DesktopApiResponse>;
+    subscribe(path: string, listener: (event: DesktopApiStreamEvent) => void): () => void;
   };
   auth: {
     login(): Promise<void>;
