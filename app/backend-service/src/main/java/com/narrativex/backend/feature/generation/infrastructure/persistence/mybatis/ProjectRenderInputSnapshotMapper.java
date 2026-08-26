@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis;
 
 import com.narrativex.backend.feature.common.infrastructure.persistence.mybatis.NarrativeXMyBatisMapper;
+import com.narrativex.backend.feature.generation.application.port.out.ProjectRenderInputSnapshotRepository.BackgroundMusicInput;
 import com.narrativex.backend.feature.generation.application.query.ProductionTimelineView;
 import com.narrativex.backend.feature.generation.domain.enums.RenderExecutionTarget;
 import java.util.UUID;
@@ -15,7 +16,8 @@ public interface ProjectRenderInputSnapshotMapper extends NarrativeXMyBatisMappe
       @Param("executionTarget") RenderExecutionTarget executionTarget,
       @Param("assignedLocalDeviceId") UUID assignedLocalDeviceId,
       @Param("chapterCount") int chapterCount,
-      @Param("beatCount") int beatCount);
+      @Param("beatCount") int beatCount,
+      @Param("backgroundMusic") BackgroundMusicInput backgroundMusic);
 
   int insertChapter(
       @Param("generationJobId") UUID generationJobId,
