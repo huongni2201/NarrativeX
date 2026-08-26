@@ -2,7 +2,7 @@
 
 Canonical authority: [`../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md).
 
-Executable manifests are authoritative for exact dependency versions. This file summarizes the current stack after the PostgreSQL-only MVP runtime refactor (2026-08-26).
+Executable manifests are authoritative for exact dependency versions. This file summarizes the current stack after the PostgreSQL-only, translation-free MVP runtime refactor (2026-08-26).
 
 | Layer | Current stack | Current role |
 |---|---|---|
@@ -13,17 +13,17 @@ Executable manifests are authoritative for exact dependency versions. This file 
 | Backend | Java 25, Spring Boot 4.1.0, Security/OAuth2, Spring Session JDBC, Actuator | modular monolith, auth/ownership/policy and durable orchestration authority |
 | Persistence | PostgreSQL + Flyway + MyBatis Spring Boot 4.1.0 + explicit SQL + Spring Session JDBC | sole production application persistence path, including durable queues, server sessions and one-time OAuth handoffs |
 | Queue execution | PostgreSQL polling + row locking/leases | workers claim durable jobs directly; no Redis/broker/NOTIFY dependency |
-| Worker | Python 3.12+, Pydantic 2.7.0, pydantic-settings 2.2.0, HTTPX 0.27.0, asyncpg 0.30.0, google-auth 2.35.0 | asynchronous analysis/translation/image/narration/media-validation execution |
+| Worker | Python 3.12+, Pydantic 2.7.0, pydantic-settings 2.2.0, HTTPX 0.27.0, asyncpg 0.30.0, google-auth 2.35.0 | asynchronous analysis/image/narration/media-validation execution |
 | Worker media/AI extras | boto3 1.40.0, Pillow 10.0.0, VieNeu 3.3.0, torch/torchaudio 2.8.0, pydub 0.25.1 | generated-media transport, narration and image/media processing |
 | Shared client contracts | `packages/client-contracts` | typed Desktop/backend contracts |
-| AI analysis | Vertex Gemini | structured Chapter analysis |
+| AI analysis | Vertex Gemini | structured Chapter analysis from saved Chapter source |
 | Image generation | Vertex Gemini image execution | provider execution plus Desktop materialization |
-| Narration | VieNeu + user-provided audio | generated/imported narration; narration remains the master clock |
+| Narration | VieNeu + user-provided audio | generated/imported narration from saved Chapter content; narration remains the master clock |
 | Remote generated-media transport | Cloudflare R2 | durable transport for AI-generated image/narration bytes before Desktop materialization |
 | Desktop project storage | Electron `userData` + `project.manifest.json` | local-first project media, backups, render work/cache and final artifacts |
 | Desktop deterministic render | FFmpeg + ffprobe from Electron main | backend-assigned lease-controlled final rendering and local MP4 output |
 
-Redis is intentionally not part of the MVP runtime. Adding a separate broker/cache later requires a measured need and an explicit architecture decision; it must not replace PostgreSQL as the durable job source of truth.
+Redis is intentionally not part of the MVP runtime. Translation/content-variant infrastructure is also intentionally absent from the current product baseline. Adding either later requires an explicit architecture/product decision.
 
 ## Desktop trust boundary
 
@@ -85,4 +85,4 @@ Production release hardening, abrupt-process recovery UX and richer editor/revie
 
 Production persistence is MyBatis + explicit PostgreSQL SQL. The backend build contains no JPA persistence dependency and application persistence does not use direct `JdbcTemplate` as a parallel production path.
 
-Flyway V1-V3 remain the frozen baseline. Append-only V4 adds PostgreSQL-backed Spring Session tables and single-use Desktop OAuth handoff state; future schema changes continue at V5+.
+The final pre-release Flyway baseline contains exactly V1-V3. V1 includes relational/runtime state such as Spring Session and Desktop OAuth handoffs, V2 contains the consolidated indexes/invariants, and V3 contains deterministic seeds. After this baseline is adopted, future schema changes begin with append-only V4+ migrations.

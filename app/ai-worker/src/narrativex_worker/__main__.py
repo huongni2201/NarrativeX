@@ -33,10 +33,6 @@ def parse_args() -> argparse.Namespace:
 
 
 async def run_workers(settings: WorkerSettings, *, dry_run: bool) -> None:
-    # Selected workers share one process-wide provider budget. Heavy providers are only
-    # instantiated when their role is hosted by this process, allowing narration to be
-    # deployed and scaled independently from provider-facing AI workers. Final video rendering
-    # belongs exclusively to the Electron desktop local-execution runtime.
     concurrency_gate = asyncio.Semaphore(settings.worker_concurrency)
     workers: dict[str, Any] = {}
 
@@ -44,12 +40,6 @@ async def run_workers(settings: WorkerSettings, *, dry_run: bool) -> None:
         from narrativex_worker.worker import NarrativeXWorker
 
         workers["analysis"] = NarrativeXWorker(settings=settings, concurrency_gate=concurrency_gate)
-    if settings.has_worker_role("translation"):
-        from narrativex_worker.translation_worker import TranslationWorkerRunner
-
-        workers["translation"] = TranslationWorkerRunner(
-            settings=settings, concurrency_gate=concurrency_gate
-        )
     if settings.has_worker_role("narration"):
         from narrativex_worker.narration.local_runner import LocalOptimizedNarrationWorkerRunner
 
@@ -92,8 +82,7 @@ async def run_workers(settings: WorkerSettings, *, dry_run: bool) -> None:
     database_host, database_port, database_name = _database_target(settings.database_url)
     provider = settings.tts_provider_mode if settings.has_worker_role("narration") else "n/a"
     logging.getLogger("narrativex.worker").info(
-        "Worker database ready workerName=%s roles=%s provider=%s dbHost=%s dbPort=%s "
-        "dbName=%s dbSchema=%s configuredDbName=%s buildSha=%s",
+        "Worker database ready workerName=%s roles=%s provider=%s dbHost=%s dbPort=%s dbName=%s dbSchema=%s configuredDbName=%s buildSha=%s",
         settings.worker_name,
         ",".join(sorted(workers)),
         provider,

@@ -92,7 +92,7 @@ services:
       <<: *worker-database-environment
       WORKER_NAME: narrativex-prod-ai
       WORKER_ENV: production
-      WORKER_ROLES: analysis,translation,media-validation,image-generation
+      WORKER_ROLES: analysis,media-validation,image-generation
       LOG_LEVEL: ${WORKER_LOG_LEVEL}
       BACKEND_URL: http://backend:8080
       BUILD_SHA: ${BUILD_SHA:-local}

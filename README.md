@@ -10,7 +10,7 @@ The Electron application is the only supported editor client. Spring Boot remain
 | --- | --- |
 | `app/desktop` | Electron + React + TypeScript editor; guest bootstrap, local project storage, native capabilities and local FFmpeg execution through Electron main |
 | `app/backend-service` | Spring Boot modular monolith; auth/ownership, domain metadata, policy, jobs, leases, quotas and durable state |
-| `app/ai-worker` | Python AI/media worker; analysis, translation, image generation, narration and generated-media validation |
+| `app/ai-worker` | Python AI/media worker; chapter analysis, image generation, narration and generated-media validation |
 | `packages/client-contracts` | Shared typed Desktop/backend contracts |
 | `contracts` | Versioned backend ↔ worker payload contracts |
 | `documentation` | Product, domain, architecture, workflows, current-state maps and ADRs |
@@ -114,6 +114,8 @@ The current Desktop code includes:
 - workspace backup/restore/archive-copy foundations;
 - source-owned Tailwind/shadcn-style renderer component structure.
 
+Chapter generation consumes the saved chapter source directly. NarrativeX does not maintain a translation/content-variant workflow in the current product baseline.
+
 Remaining product work is tracked in `documentation/product/ROADMAP.md`, not in completed migration plans.
 
 ## Run Desktop in development
@@ -165,7 +167,7 @@ If another platform already provides HTTPS ingress, leave the tunnel profile dis
 
 ## Persistence
 
-Flyway migrations under `app/backend-service/src/main/resources/db/migration` are authoritative for PostgreSQL schema evolution. Production persistence uses MyBatis + explicit SQL; JPA and direct `JdbcTemplate` persistence are not part of the production application persistence path. Spring Session JDBC and Desktop OAuth handoff state share PostgreSQL without becoming domain entities.
+Flyway migrations under `app/backend-service/src/main/resources/db/migration` are authoritative for PostgreSQL schema evolution. The final pre-release baseline contains exactly `V1__create_tables.sql`, `V2__init_indexes.sql` and `V3__seed_data.sql`. Production persistence uses MyBatis + explicit SQL; JPA and direct `JdbcTemplate` persistence are not part of the production application persistence path. Spring Session JDBC and Desktop OAuth handoff state share PostgreSQL without becoming domain entities.
 
 ## Product guardrails
 

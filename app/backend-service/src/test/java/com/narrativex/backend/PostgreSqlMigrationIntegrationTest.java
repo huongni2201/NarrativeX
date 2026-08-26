@@ -2,6 +2,7 @@ package com.narrativex.backend;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -9,7 +10,6 @@ import com.narrativex.backend.feature.generation.infrastructure.persistence.myba
 import com.narrativex.backend.feature.notification.infrastructure.persistence.mybatis.NotificationMapper;
 import com.narrativex.backend.feature.project.infrastructure.persistence.mybatis.ProjectMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterWorkspaceMapper;
-import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.LanguageDetectionMapper;
 import com.narrativex.backend.support.FlywayMigrationContract;
 import java.io.IOException;
 import java.sql.Connection;
@@ -50,7 +50,6 @@ class PostgreSqlMigrationIntegrationTest {
           "story_versions",
           "chapters",
           "chapter_creation_idempotency",
-          "chapter_content_variants",
           "storyboard_revisions",
           "characters",
           "character_versions",
@@ -83,7 +82,6 @@ class PostgreSqlMigrationIntegrationTest {
   @Autowired private Flyway flyway;
   @Autowired private ProjectMapper projectMapper;
   @Autowired private ChapterWorkspaceMapper chapterWorkspaceMapper;
-  @Autowired private LanguageDetectionMapper languageDetectionMapper;
   @Autowired private NotificationMapper notificationMapper;
   @Autowired private ProductionTimelineMapper productionTimelineMapper;
 
@@ -120,8 +118,12 @@ class PostgreSqlMigrationIntegrationTest {
       assertEquals("uuid", columnType(connection, "generation_jobs", "chapter_id"));
       assertEquals("uuid", columnType(connection, "generation_jobs", "story_version_id"));
       assertEquals("uuid", columnType(connection, "generation_jobs", "storyboard_revision_id"));
-      assertEquals("uuid", columnType(connection, "generation_jobs", "content_variant_id"));
-      assertEquals("uuid", columnType(connection, "language_detections", "content_variant_id"));
+      assertFalse(tableExists(connection, "chapter_content_variants"));
+      assertFalse(tableExists(connection, "language_detections"));
+      assertFalse(columnExists(connection, "storyboard_revisions", "content_variant_id"));
+      assertFalse(columnExists(connection, "generation_jobs", "content_variant_id"));
+      assertFalse(columnExists(connection, "generation_jobs", "source_variant_id"));
+      assertFalse(columnExists(connection, "generation_jobs", "target_language"));
       assertEquals("uuid", columnType(connection, "notifications", "project_id"));
       assertEquals("uuid", columnType(connection, "chapter_media_heads", "chapter_id"));
       assertEquals("uuid", columnType(connection, "chapter_media_heads", "generation_job_id"));
@@ -133,6 +135,15 @@ class PostgreSqlMigrationIntegrationTest {
           "uuid", columnType(connection, "media_generation_items", "provider_operation_id"));
       assertEquals("uuid", columnType(connection, "media_scene_plans", "scene_id"));
       assertEquals("uuid", columnType(connection, "media_beat_plans", "visual_beat_id"));
+
+      assertTrue(tableExists(connection, "desktop_auth_handoffs"));
+      assertTrue(indexExists(connection, "idx_desktop_auth_handoffs_expires_at"));
+      assertTrue(tableExists(connection, "spring_session"));
+      assertTrue(tableExists(connection, "spring_session_attributes"));
+      assertTrue(indexExists(connection, "spring_session_ix1"));
+      assertTrue(indexExists(connection, "spring_session_ix2"));
+      assertTrue(indexExists(connection, "spring_session_ix3"));
+      assertTrue(indexExists(connection, "spring_session_attributes_ix1"));
 
       assertTrue(tableExists(connection, "character_version_reference_assets"));
       assertEquals(
@@ -267,15 +278,11 @@ class PostgreSqlMigrationIntegrationTest {
   void sensitiveMyBatisQueriesExecuteAgainstTheRealMigratedSchema() {
     UUID missingProjectId = UUID.randomUUID();
     UUID missingChapterId = UUID.randomUUID();
-    UUID missingVariantId = UUID.randomUUID();
 
     assertNull(assertDoesNotThrow(() -> projectMapper.findById(missingProjectId)));
     assertNull(
         assertDoesNotThrow(
             () -> chapterWorkspaceMapper.aggregate(missingProjectId, missingChapterId)));
-    assertNull(
-        assertDoesNotThrow(
-            () -> languageDetectionMapper.findLatest(missingVariantId, "0".repeat(64))));
     assertTrue(
         assertDoesNotThrow(() -> notificationMapper.list("missing-user", true, 5)).isEmpty());
     assertTrue(
@@ -313,6 +320,20 @@ class PostgreSqlMigrationIntegrationTest {
         connection,
         "select exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = ?)",
         table);
+  }
+
+  private static boolean columnExists(Connection connection, String table, String column)
+      throws SQLException {
+    try (PreparedStatement statement =
+        connection.prepareStatement(
+            "select exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = ? and column_name = ?)")) {
+      statement.setString(1, table);
+      statement.setString(2, column);
+      try (ResultSet result = statement.executeQuery()) {
+        result.next();
+        return result.getBoolean(1);
+      }
+    }
   }
 
   private static boolean indexExists(Connection connection, String name) throws SQLException {

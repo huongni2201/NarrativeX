@@ -11,58 +11,22 @@ import com.narrativex.backend.feature.storyboard.api.response.ChapterResponse;
 import com.narrativex.backend.feature.storyboard.application.command.UpdateChapterCommand;
 import com.narrativex.backend.feature.storyboard.application.port.in.StoryboardRevisionAccess;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
-import com.narrativex.backend.feature.storyboard.application.service.ChapterContentImportService;
 import com.narrativex.backend.feature.storyboard.application.service.ChapterSourceHasher;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class UpdateChapterUseCase {
   private final CurrentUserId currentUserId;
   private final StoryVersionAccess storyVersionAccess;
   private final ChapterRepository chapterRepository;
   private final StoryboardRevisionAccess storyboardRevisionAccess;
   private final ChapterSourceHasher sourceHasher;
-  private final ChapterContentImportService contentImportService;
   private final NarrativeXLimitsProperties limits;
-
-  @Autowired
-  public UpdateChapterUseCase(
-      CurrentUserId currentUserId,
-      StoryVersionAccess storyVersionAccess,
-      ChapterRepository chapterRepository,
-      StoryboardRevisionAccess storyboardRevisionAccess,
-      ChapterSourceHasher sourceHasher,
-      ChapterContentImportService contentImportService,
-      NarrativeXLimitsProperties limits) {
-    this.currentUserId = currentUserId;
-    this.storyVersionAccess = storyVersionAccess;
-    this.chapterRepository = chapterRepository;
-    this.storyboardRevisionAccess = storyboardRevisionAccess;
-    this.sourceHasher = sourceHasher;
-    this.contentImportService = contentImportService;
-    this.limits = limits;
-  }
-
-  public UpdateChapterUseCase(
-      CurrentUserId currentUserId,
-      StoryVersionAccess storyVersionAccess,
-      ChapterRepository chapterRepository,
-      StoryboardRevisionAccess storyboardRevisionAccess,
-      ChapterSourceHasher sourceHasher,
-      NarrativeXLimitsProperties limits) {
-    this(
-        currentUserId,
-        storyVersionAccess,
-        chapterRepository,
-        storyboardRevisionAccess,
-        sourceHasher,
-        null,
-        limits);
-  }
 
   @Transactional
   public ApiResponse<ChapterResponse> execute(UpdateChapterCommand command) {
@@ -74,7 +38,6 @@ public class UpdateChapterUseCase {
     storyVersionAccess.requireOwnedStoryVersion(
         command.projectId(), chapter.getStoryVersionId(), userId);
 
-    // Do not acquire the Chapter serialization lock until the caller's project scope is known.
     storyboardRevisionAccess.lockChapter(command.chapterId());
     chapter =
         chapterRepository
@@ -90,10 +53,6 @@ public class UpdateChapterUseCase {
     chapter.rename(command.title());
     chapter.updateSource(normalized.text(), normalized.hash());
     var saved = chapterRepository.saveAndFlush(chapter);
-    if (contentImportService != null) {
-      contentImportService.importOriginal(
-          saved.getId(), saved.getSourceText(), saved.getSourceHash());
-    }
     log.info(
         "Updated chapter id={} (title='{}', rowVersion={}) for projectId={}",
         saved.getId(),

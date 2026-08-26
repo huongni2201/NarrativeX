@@ -1,7 +1,6 @@
 # NarrativeX System Architecture — V1.12
 
-**Canonical source:** `../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`  
-**Current docs checkpoint:** `refactor/remove-redis-mvp-20260826` (2026-08-26)
+**Canonical source:** `../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`
 
 NarrativeX is desktop-only at the editor boundary. Spring Boot is the authoritative control plane for durable business/domain state, while Electron Desktop owns machine-local project bytes and native execution behind a strict main/preload/renderer boundary.
 
@@ -57,6 +56,7 @@ The backend owns:
 - one-time hashed Desktop OAuth handoff state;
 - ownership transfer when an eligible guest workspace is claimed after Google sign-in;
 - Projects, Chapters, source versions, storyboard/continuity state and production choices;
+- saved Chapter source identity (`source_text`, `source_hash`);
 - entitlement/quota/cost admission;
 - MediaPlan/production policy;
 - GenerationJob/StageAttempt/ProviderOperation lifecycle;
@@ -66,7 +66,7 @@ The backend owns:
 - durable asset identity/checksums/lineage plus final-artifact metadata;
 - Flyway schema ownership.
 
-The backend never treats an absolute Desktop filesystem path as a durable asset identity and never stores or proxies final MP4 bytes.
+The backend never treats an absolute Desktop filesystem path as a durable asset identity and never stores or proxies final MP4 bytes. The current product has no translation/content-variant layer; analysis and narration consume the saved Chapter directly.
 
 ### Electron main
 
@@ -104,7 +104,7 @@ The Chromium renderer sandbox is currently disabled for Desktop startup compatib
 
 ### Python workers
 
-Workers execute backend-authorized asynchronous provider/media roles such as analysis, translation, image generation, narration/alignment and generated-media validation. They poll/claim durable PostgreSQL rows and do not execute final project renders, own Desktop paths, user authorization or Flyway schema evolution.
+Workers execute backend-authorized asynchronous provider/media roles: analysis, image generation, narration/alignment and generated-media validation. They poll/claim durable PostgreSQL rows and do not translate chapter content, execute final project renders, own Desktop paths, user authorization or Flyway schema evolution.
 
 ## Guest-first authentication architecture
 
@@ -161,7 +161,7 @@ business/job/artifact metadata   -> PostgreSQL
 
 ## Production timeline and local render
 
-Production timeline state is backend-authoritative where persisted, including explicit beat media selections consolidated into the frozen V1 schema. Renderer draft state may add temporary camera/duration edits, but final render submission is converted into backend-authorized immutable input state.
+Production timeline state is backend-authoritative where persisted, including explicit beat media selections consolidated into the final V1 schema. Renderer draft state may add temporary camera/duration edits, but final render submission is converted into backend-authorized immutable input state.
 
 ```text
 backend admits + assigns local render
@@ -196,16 +196,15 @@ Implemented image/narration workflows materialize required generated media local
 
 ## Persistence and migrations
 
-Production application persistence is MyBatis + explicit PostgreSQL SQL. Current Flyway migrations:
+Production application persistence is MyBatis + explicit PostgreSQL SQL. Final pre-release Flyway baseline:
 
 ```text
 V1__create_tables.sql
 V2__init_indexes.sql
 V3__seed_data.sql
-V4__postgres_runtime_state.sql
 ```
 
-V1-V3 are frozen. Desktop guest identity, production beat media selection and local-execution/render metadata are already consolidated into V1. V4 adds Spring Session JDBC and Desktop OAuth handoff state. Future schema evolution starts with append-only V5+ migrations.
+V1 includes the complete relational/runtime schema, including Spring Session JDBC, Desktop OAuth handoffs, Desktop guest identity, production beat media selection and local-execution/render metadata. V2 includes the complete index/invariant set. V3 contains deterministic bootstrap/catalog data. Translation/content-variant schema is absent. After this baseline is adopted, future schema evolution starts with append-only V4+ migrations.
 
 ## Remaining architecture hardening
 

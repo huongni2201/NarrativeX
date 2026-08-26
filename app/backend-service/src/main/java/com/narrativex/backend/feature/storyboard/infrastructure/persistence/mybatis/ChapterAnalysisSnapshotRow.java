@@ -12,11 +12,4 @@ public class ChapterAnalysisSnapshotRow {
   private long rowVersion;
   private String sourceHash;
   private String sourceText;
-  private UUID contentVariantId;
-  private String language;
-  private UUID originVariantId;
-  private String chapterSourceHash;
-  private String sourceContentHash;
-  private UUID currentOriginalVariantId;
-  private boolean stale;
 }

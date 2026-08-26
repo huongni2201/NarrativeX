@@ -12,6 +12,5 @@ public interface StoryboardRevisionMapper extends NarrativeXMyBatisMapper {
   UUID createDraft(
       @Param("chapterId") UUID chapterId,
       @Param("sourceHash") String sourceHash,
-      @Param("sourceRowVersion") long sourceRowVersion,
-      @Param("contentVariantId") UUID contentVariantId);
+      @Param("sourceRowVersion") long sourceRowVersion);
 }

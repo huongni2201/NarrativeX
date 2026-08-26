@@ -101,6 +101,11 @@ def test_unknown_worker_role_is_rejected() -> None:
         WorkerSettings(worker_roles="narration,unknown")
 
 
+def test_removed_translation_worker_role_is_rejected() -> None:
+    with pytest.raises(ValidationError, match="Unsupported WORKER_ROLES"):
+        WorkerSettings(worker_roles="translation")
+
+
 def test_image_generation_defaults_to_gemini_flash_image_batch_configuration() -> None:
     settings = WorkerSettings()
 

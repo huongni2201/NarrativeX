@@ -27,10 +27,12 @@ NarrativeX Desktop is guest-first.
 - Desktop one-time exchange transfers eligible guest-owned workspace metadata to the Google account before switching session identity.
 - Business modules obtain caller identity through auth application ports rather than reading Spring Security directly.
 
-## Chapter analysis boundary
+## Chapter source and analysis boundary
+
+`chapters.source_text` and `chapters.source_hash` are the authoritative saved source. There is no language-detection confirmation, translation job, content-variant table or variant-selection API in the current baseline.
 
 ```text
-persisted Chapter
+persisted Chapter source
   -> lock/reload authoritative source snapshot
   -> ownership + idempotency + entitlement/quota/cost admission
   -> OperationPlan + GenerationJob + StageAttempt + OutboxEvent
@@ -57,7 +59,7 @@ Generation/media outbox rows are persisted transactionally with admitted work. B
 
 ## Project media identity
 
-The backend owns stable media identity/metadata, not Desktop absolute file paths. Remote R2 upload/session/validation paths remain valid for server/provider/cloud workflows, but are not a requirement for every Desktop project asset.
+The backend owns stable media identity/metadata, not Desktop absolute file paths. Remote R2 upload/session/validation paths remain valid for server/provider workflows, but are not a requirement for every Desktop project asset.
 
 ## Production timeline and local render
 
@@ -65,7 +67,7 @@ Narration/alignment is the timing authority. Explicit beat media selections and 
 
 ## API/capability foundations
 
-Current backend surfaces include auth guest bootstrap/current-user/CSRF/Google Desktop auth; project/story/chapter CRUD and analysis/translation; storyboard and character/location reads; generation estimate/enqueue/history/events; narration/import/alignment; production timeline/media selection; local asset/materialization metadata; local-device/render execution; final-artifact/notification/quota/catalog reads.
+Current backend surfaces include auth guest bootstrap/current-user/CSRF/Google Desktop auth; project/story/chapter CRUD and direct chapter analysis; storyboard and character/location reads; generation estimate/enqueue/history/events; narration/import/alignment; production timeline/media selection; local asset/materialization metadata; local-device/render execution; final-artifact/notification/quota/catalog reads.
 
 Endpoint availability does not imply every future UI interaction is complete; use `documentation/TRACEABILITY.md` and `documentation/product/FEATURE_CATALOG.md` for current status.
 
@@ -73,14 +75,15 @@ Endpoint availability does not imply every future UI interaction is complete; us
 
 Production application code uses MyBatis + explicit SQL with dedicated row models/mappers and row-version/state CAS where required.
 
+Final pre-release baseline:
+
 ```text
 V1__create_tables.sql
 V2__init_indexes.sql
 V3__seed_data.sql
-V4__postgres_runtime_state.sql
 ```
 
-V1-V3 are frozen core migrations. V4 adds Spring Session JDBC and Desktop OAuth handoff tables. Future schema changes are append-only V5+.
+V1 contains the complete relational/runtime schema, including Spring Session JDBC and Desktop OAuth handoffs. V2 contains the complete index/invariant set. V3 contains deterministic seeds. Translation/content-variant schema is absent. After this final baseline is adopted, future schema changes are append-only starting with V4.
 
 ## Quality/concurrency rules
 

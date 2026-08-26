@@ -7,7 +7,6 @@ import com.narrativex.backend.feature.project.application.port.in.StoryVersionAc
 import com.narrativex.backend.feature.storyboard.api.response.ChapterResponse;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterDocumentTextExtractor;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
-import com.narrativex.backend.feature.storyboard.application.service.ChapterContentImportService;
 import com.narrativex.backend.feature.storyboard.application.service.ChapterImportSplitter;
 import com.narrativex.backend.feature.storyboard.application.service.ChapterSourceHasher;
 import com.narrativex.backend.feature.storyboard.domain.aggregate.Chapter;
@@ -34,19 +33,19 @@ public class BatchImportChaptersUseCase {
   private final ChapterImportSplitter splitter;
   private final ChapterSourceHasher sourceHasher;
   private final NarrativeXLimitsProperties limits;
-  private final ChapterContentImportService contentImportService;
 
   @Transactional
   public List<ChapterResponse> execute(
       UUID projectId, UUID storyVersionId, String fileName, String contentType, byte[] content) {
-    if (content == null || content.length == 0)
+    if (content == null || content.length == 0) {
       throw new IllegalArgumentException("Import file must not be empty");
-    if (content.length > MAX_FILE_BYTES)
+    }
+    if (content.length > MAX_FILE_BYTES) {
       throw new IllegalArgumentException("Import file exceeds 10 MB limit");
+    }
 
     log.info(
-        "Starting batch import of chapters from file '{}' (size: {} bytes, type: '{}') for"
-            + " storyVersionId={}, projectId={}",
+        "Starting batch import of chapters from file '{}' (size: {} bytes, type: '{}') for storyVersionId={}, projectId={}",
         fileName,
         content.length,
         contentType,
@@ -76,8 +75,7 @@ public class BatchImportChaptersUseCase {
     for (var draft : drafts) {
       validateSourceSize(draft.sourceText());
       if (chapterRepository.existsByStoryVersionIdAndOrderIndex(storyVersionId, nextOrderIndex)) {
-        throw new IllegalStateException(
-            "Chapter order changed during batch import; retry the request");
+        throw new IllegalStateException("Chapter order changed during batch import; retry the request");
       }
       var normalized = sourceHasher.normalizeAndHash(draft.sourceText());
       Chapter saved =
@@ -88,8 +86,6 @@ public class BatchImportChaptersUseCase {
                   draft.title(),
                   normalized.text(),
                   normalized.hash()));
-      contentImportService.importOriginal(
-          saved.getId(), saved.getSourceText(), saved.getSourceHash());
       imported.add(ChapterResponse.from(saved));
       nextOrderIndex++;
     }
@@ -105,12 +101,10 @@ public class BatchImportChaptersUseCase {
     int characterCount = sourceText.codePointCount(0, sourceText.length());
     int estimatedTokens = TextInputEstimator.estimateTokensConservatively(sourceText);
     if (characterCount > limits.getMaxStoryCharacters()) {
-      throw new IllegalArgumentException(
-          "Imported chapter exceeds the configured Unicode character limit");
+      throw new IllegalArgumentException("Imported chapter exceeds the configured Unicode character limit");
     }
     if (estimatedTokens > limits.getMaxEstimatedInputTokens()) {
-      throw new IllegalArgumentException(
-          "Imported chapter exceeds the configured estimated token limit");
+      throw new IllegalArgumentException("Imported chapter exceeds the configured estimated token limit");
     }
   }
 }

@@ -11,7 +11,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 WORKER_ROLE_NAMES = {
     "analysis",
-    "translation",
     "narration",
     "media-validation",
     "image-generation",
@@ -31,7 +30,7 @@ class WorkerSettings(BaseSettings):
     worker_name: str = Field(default="narrativex-worker", description="Identifier of the worker")
     worker_env: str = Field(default="development", description="Environment stage")
     worker_roles: str = Field(
-        default="analysis,translation,narration,media-validation,image-generation",
+        default="analysis,narration,media-validation,image-generation",
         validation_alias=AliasChoices("WORKER_ROLES"),
         description="Comma-separated worker roles hosted by this process",
     )

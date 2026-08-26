@@ -1,7 +1,6 @@
 # NarrativeX Current Codebase Map — V1.11
 
-**Canonical baseline:** `documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`  
-**Implementation checkpoint:** `main` at `0aca94e6eef07158e161cd67c648671e74055473` (2026-08-26)
+**Canonical baseline:** `documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`
 
 ## Runtime layout
 
@@ -18,7 +17,7 @@ app/backend-service/  Java / Spring Boot modular monolith
                      final-artifact metadata only
 
 app/ai-worker/        Python async AI/media/provider worker
-                     analysis / translation / image / narration / validation
+                     analysis / image / narration / validation
 
 packages/client-contracts/
                      shared typed Desktop/backend contracts
@@ -77,6 +76,7 @@ Renderer code does not own arbitrary filesystem paths, session cookies, provider
 - MyBatis-only production application persistence;
 - stable Desktop guest installation identities and guest ownership transfer;
 - project/chapter/storyboard/character/location domain foundations;
+- saved `chapters.source_text/source_hash` are the authoritative chapter content for analysis/narration;
 - durable generation jobs, stages, provider operations, plans, outbox and quota foundations;
 - persisted production beat media selections consolidated into V1;
 - production timeline aggregation/alignment and local render input snapshots;
@@ -88,11 +88,11 @@ Renderer code does not own arbitrary filesystem paths, session cookies, provider
 - Python 3.12+ async worker roles;
 - provider submission/reconciliation with bounded retry foundations;
 - runtime-file handling and deterministic retry policy;
-- analysis, translation, narration, image generation and generated-media validation;
+- analysis, narration, image generation and generated-media validation;
 - R2 transport for AI-generated media before Desktop materialization;
 - visual timing helpers aligned with narration-driven production timing.
 
-Workers execute backend-authorized plans. They do not execute final project renders, own Desktop paths or user authorization policy.
+Workers execute backend-authorized plans. They do not translate chapter content, execute final project renders, own Desktop paths or user authorization policy.
 
 ## Storage contract
 
@@ -110,12 +110,12 @@ Backend state uses stable IDs/checksums and opaque project-relative artifact key
 ## Flyway baseline
 
 ```text
-V1__create_tables.sql            # frozen consolidated schema
-V2__init_indexes.sql             # frozen consolidated indexes
-V3__seed_data.sql                # frozen deterministic seeds
+V1__create_tables.sql            # final consolidated schema/runtime state
+V2__init_indexes.sql             # final consolidated indexes/invariants
+V3__seed_data.sql                # deterministic seeds
 ```
 
-The current repository contains only V1-V3. Desktop guest identity, beat media selections and local execution/render metadata are already folded into V1. Future schema changes begin with append-only `V4__*.sql`.
+The repository contains only V1-V3. Spring Session, Desktop OAuth handoffs, Desktop guest identity, beat media selections and local execution/render metadata are already folded into V1/V2. Translation/content-variant tables and columns are absent. After this final baseline is adopted, future schema changes begin with append-only `V4__*.sql`.
 
 ## Current gaps
 

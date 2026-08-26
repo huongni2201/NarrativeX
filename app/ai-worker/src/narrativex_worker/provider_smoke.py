@@ -1,14 +1,16 @@
-"""Opt-in smoke check for the real Vertex Gemini provider."""
+"""Opt-in smoke check for the real Vertex Gemini analysis provider."""
 
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import os
+from uuid import uuid4
 
 from narrativex_worker.config import WorkerSettings
 from narrativex_worker.providers.vertex import VertexGeminiProvider
-from narrativex_worker.translation import TranslationRequest
+from narrativex_worker.schema import ChapterAnalysisRequest, ProviderOperationStatus
 
 
 def _required_env(name: str) -> str:
@@ -28,30 +30,33 @@ async def run_smoke() -> None:
         vertex_timeout_seconds=60.0,
     )
     provider = VertexGeminiProvider(settings)
-    response = await provider.translate(
-        TranslationRequest(
-            source_text="NarrativeX provider smoke test.",
-            source_language="en",
-            target_language="vi",
+    source_text = "Một nhân vật bước vào căn phòng và nhìn ra cửa sổ."
+    operation = await provider.submit(
+        ChapterAnalysisRequest(
+            project_id=uuid4(),
+            story_version_id=uuid4(),
+            chapter_id=uuid4(),
+            chapter_row_version=0,
+            source_hash=hashlib.sha256(source_text.encode("utf-8")).hexdigest(),
+            source_text=source_text,
+            source_language="vi-VN",
         )
     )
 
-    if not response.content.strip():
-        raise RuntimeError("Vertex smoke response was empty")
-    if response.provider != "vertex":
-        raise RuntimeError(f"Unexpected provider in smoke response: {response.provider}")
-    if response.billing.usage.prompt_tokens <= 0:
+    if operation.status != ProviderOperationStatus.COMPLETED or operation.result is None:
+        raise RuntimeError(f"Vertex smoke analysis failed with status={operation.status}")
+    if operation.billing is None or operation.billing.usage.prompt_tokens <= 0:
         raise RuntimeError("Vertex smoke response did not report prompt token usage")
 
     print(
         json.dumps(
             {
                 "status": "ok",
-                "provider": response.provider,
-                "model": response.model,
-                "promptTokens": response.billing.usage.prompt_tokens,
-                "candidateTokens": response.billing.usage.candidate_tokens,
-                "actualCostUsd": str(response.billing.actual_cost),
+                "provider": operation.provider_key,
+                "sceneCount": len(operation.result.scenes),
+                "promptTokens": operation.billing.usage.prompt_tokens,
+                "candidateTokens": operation.billing.usage.candidate_tokens,
+                "actualCostUsd": str(operation.billing.actual_cost),
             },
             separators=(",", ":"),
         )

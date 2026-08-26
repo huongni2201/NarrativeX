@@ -20,24 +20,8 @@ public class ChapterAnalysisSourceService implements ChapterAnalysisSourceAccess
   @Transactional(propagation = Propagation.MANDATORY)
   public ChapterAnalysisSource requireOwnedForAnalysisLocked(
       UUID projectId, UUID chapterId, String userId) {
-    // The first ownership-scoped read is deliberately unlocked. It prevents a caller from
-    // acquiring an advisory lock for a Chapter outside its requested project scope.
     chapterAnalysisSnapshotRepository.requireOwnedByProject(projectId, chapterId, userId);
-
-    // The advisory transaction lock is held by the outer admission transaction. Re-reading the
-    // same ownership scope after the lock closes the gap between authorization and snapshotting.
     storyboardRevisionAccess.lockChapter(chapterId);
     return chapterAnalysisSnapshotRepository.requireOwnedByProject(projectId, chapterId, userId);
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.MANDATORY)
-  public ChapterAnalysisSource requireOwnedForAnalysisLocked(
-      UUID projectId, UUID chapterId, String userId, UUID contentVariantId) {
-    chapterAnalysisSnapshotRepository.requireOwnedByProject(
-        projectId, chapterId, userId, contentVariantId);
-    storyboardRevisionAccess.lockChapter(chapterId);
-    return chapterAnalysisSnapshotRepository.requireOwnedByProject(
-        projectId, chapterId, userId, contentVariantId);
   }
 }
