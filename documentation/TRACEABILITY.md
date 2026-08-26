@@ -16,7 +16,9 @@ This matrix maps the V1.11 contract to implementation checkpoint `main` / `0aca9
 | Generation durable persistence | GenerationJob/StageAttempt/OperationPlan/MediaPlan/outbox/job history | IMPLEMENTED foundation |
 | ProviderOperation reconciliation | durable provider lifecycle with UNKNOWN-before-resubmit discipline | IMPLEMENTED foundation |
 | MyBatis-only production persistence | backend production adapters use MyBatis + explicit PostgreSQL SQL | IMPLEMENTED |
-| Flyway frozen core + additive migrations | V1-V3 frozen; V4 guest identity; V5 beat media selections | IMPLEMENTED |
+| Flyway consolidated baseline | V1-V3 are the complete frozen current baseline; future schema changes start at append-only V4+ | IMPLEMENTED |
+| Stable guest schema | `desktop_guest_installations` is consolidated into V1 | IMPLEMENTED |
+| Beat media selection schema | `production_beat_media_selections` is consolidated into V1 | IMPLEMENTED |
 | Character + Location continuity | backend continuity foundations + project-scoped reads | IMPLEMENTED foundation |
 | Narration strategy / TTS bypass | `TTS` + `USER_PROVIDED_AUDIO` model and guards | IMPLEMENTED foundation |
 | Generated narration | VieNeu provider path + Desktop local materialization foundation | IMPLEMENTED foundation |
@@ -25,7 +27,7 @@ This matrix maps the V1.11 contract to implementation checkpoint `main` / `0aca9
 | R2 generated-media transport | AI-generated image/narration bytes are remotely durable until Desktop materialization | IMPLEMENTED foundation |
 | Native local asset registration | two-phase main-process inspect/hash + backend LOCAL_ONLY registration + manifest commit | IMPLEMENTED foundation |
 | Production timeline reads | backend production timeline + narration-aligned timing | IMPLEMENTED foundation |
-| Beat media selection | V5 table + backend mutation/read model + Desktop editor integration | IMPLEMENTED foundation |
+| Beat media selection | V1 table + backend mutation/read model + Desktop editor integration | IMPLEMENTED foundation |
 | Timeline draft history | typed duration/camera command history with undo/redo/reset | IMPLEMENTED foundation |
 | Local project workspace | `ProjectStorage(<userData>/projects)` | IMPLEMENTED foundation |
 | Local manifest integrity | schema versioning, project-relative path, size, SHA-256, atomic write, boundary checks | IMPLEMENTED foundation |
