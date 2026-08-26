@@ -6,7 +6,7 @@ import type {
 } from "@narrativex/client-contracts";
 import { apiCommand, apiRequest } from "../../../api/client";
 import { isNumber, isRecord, isString } from "../../../api/guards";
-import { parseCursorPage } from "../../../api/pagination";
+import { collectCursorPages, parseCursorPage } from "../../../api/pagination";
 import { parseChapterWorkspace } from "./chapter-workspace-contract";
 
 export { parseChapterWorkspace } from "./chapter-workspace-contract";
@@ -39,7 +39,7 @@ function parseChapters(value: unknown): ChaptersPage {
 async function listPage(
   projectId: string,
   storyVersionId: string,
-  cursor?: string | null,
+  cursor: string | null = null,
 ): Promise<ChaptersPage> {
   const params = new URLSearchParams({
     storyVersionId,
@@ -53,22 +53,11 @@ async function listPage(
 }
 
 async function listAll(projectId: string, storyVersionId: string): Promise<DesktopChapterDetails[]> {
-  const chapters: DesktopChapterDetails[] = [];
-  const seenCursors = new Set<string>();
-  let cursor: string | null = null;
-
-  do {
-    const page = await listPage(projectId, storyVersionId, cursor);
-    chapters.push(...page.content);
-    if (!page.hasNext || !page.nextCursor) break;
-    if (seenCursors.has(page.nextCursor)) {
-      throw new Error("Chapters pagination returned a repeated cursor.");
-    }
-    seenCursors.add(page.nextCursor);
-    cursor = page.nextCursor;
-  } while (true);
-
-  return chapters;
+  const pages = await collectCursorPages<ChaptersPage>(
+    (cursor) => listPage(projectId, storyVersionId, cursor),
+    "Chapters pagination returned a repeated cursor.",
+  );
+  return pages.flatMap((page) => page.content);
 }
 
 export const chaptersApi = {

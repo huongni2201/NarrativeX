@@ -1,4 +1,8 @@
-import { apiRequest, parseApiResponseBody } from "../../../api/client";
+import {
+  apiRequest,
+  parseApiResponseBody,
+  resetApiSessionState,
+} from "../../../api/client";
 
 interface DesktopAuthExchangeResponse {
   status: number;
@@ -31,10 +35,18 @@ function parseUser(value: unknown): DesktopAuthUser {
   return user as DesktopAuthUser;
 }
 
+function completeSessionTransition(value: unknown): DesktopAuthUser {
+  const user = parseUser(value);
+  resetApiSessionState();
+  return user;
+}
+
 export const authApi = {
   getCurrentUser: () => apiRequest<unknown>("/api/v1/auth/me").then(parseUser),
   ensureGuestSession: () =>
-    apiRequest<unknown>("/api/v1/auth/desktop/guest", { method: "POST" }).then(parseUser),
+    apiRequest<unknown>("/api/v1/auth/desktop/guest", { method: "POST" }).then(
+      completeSessionTransition,
+    ),
   exchange: async (response: DesktopAuthExchangeResponse) => {
     if (response.status < 200 || response.status >= 300) {
       let message = response.statusText || "Desktop auth exchange failed";
@@ -54,12 +66,13 @@ export const authApi = {
     if (!Object.prototype.hasOwnProperty.call(envelope, "data")) {
       throw new Error("Desktop auth exchange response is invalid.");
     }
-    return parseUser(envelope.data);
+    return completeSessionTransition(envelope.data);
   },
-  logout: () =>
-    window.narrativex.auth.logout().then((response) => {
-      if (response.status < 200 || response.status >= 300) {
-        throw new Error(response.statusText || "Logout failed");
-      }
-    }),
+  logout: async () => {
+    const response = await window.narrativex.auth.logout();
+    if (response.status < 200 || response.status >= 300) {
+      throw new Error(response.statusText || "Logout failed");
+    }
+    resetApiSessionState();
+  },
 };

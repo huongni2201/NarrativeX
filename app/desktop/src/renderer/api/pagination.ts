@@ -20,7 +20,12 @@ export function parseCursorPage<T>(
     message,
   );
   assertContract(typeof hasNext === "boolean", message);
-  assertContract(hasNext || nextCursor === null, message);
+  assertContract(
+    hasNext
+      ? typeof nextCursor === "string" && nextCursor.length > 0
+      : nextCursor === null,
+    message,
+  );
 
   return {
     content,
@@ -28,4 +33,31 @@ export function parseCursorPage<T>(
     limit,
     hasNext,
   };
+}
+
+export async function collectCursorPages<P extends CursorPage<unknown>>(
+  loadPage: (cursor: string | null) => Promise<P>,
+  repeatedCursorMessage: string,
+): Promise<P[]> {
+  const pages: P[] = [];
+  const seenCursors = new Set<string>();
+  let cursor: string | null = null;
+
+  do {
+    const page = await loadPage(cursor);
+    pages.push(page);
+    if (!page.hasNext) break;
+
+    const nextCursor = page.nextCursor;
+    if (!nextCursor) {
+      throw new Error("Cursor page reported more data without a next cursor.");
+    }
+    if (seenCursors.has(nextCursor)) {
+      throw new Error(repeatedCursorMessage);
+    }
+    seenCursors.add(nextCursor);
+    cursor = nextCursor;
+  } while (true);
+
+  return pages;
 }
