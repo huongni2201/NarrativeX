@@ -186,7 +186,7 @@ function findTranslatedVariant(
   return (
     variants.find(
       (variant) =>
-        variant.variantType === "TRANSLATED" &&
+        variant.variantType === "TRANSLATION" &&
         variant.translationStatus === "COMPLETED" &&
         sameLanguage(variant.languageCode, status.projectLanguage) &&
         variant.sourceContentHash === status.sourceContentHash,
