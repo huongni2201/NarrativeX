@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.auth.api.controller;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -15,6 +16,7 @@ import com.narrativex.backend.feature.auth.api.request.DesktopAuthExchangeReques
 import com.narrativex.backend.feature.auth.api.request.DesktopGuestSessionRequest;
 import com.narrativex.backend.feature.auth.application.port.in.DesktopAuthHandoff;
 import com.narrativex.backend.feature.auth.application.port.in.DesktopGuestIdentity;
+import com.narrativex.backend.feature.auth.infrastructure.desktop.DesktopUserPrincipal;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
@@ -23,6 +25,7 @@ import jakarta.validation.constraints.Pattern;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.redis.serializer.JdkSerializationRedisSerializer;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -196,6 +199,30 @@ class DesktopAuthControllerTest {
     assertFalse(result.getBody().data().guest());
     verify(servletRequest).changeSessionId();
     verify(securityContextRepository).saveContext(any(), eq(servletRequest), eq(servletResponse));
+  }
+
+  @Test
+  void exchangeStoresSerializablePrincipalWithStableUserName() {
+    DesktopAuthHandoff handoffStore = mock(DesktopAuthHandoff.class);
+    DesktopGuestIdentity guestIdentity = mock(DesktopGuestIdentity.class);
+    SecurityContextRepository securityContextRepository = mock(SecurityContextRepository.class);
+    DesktopAuthController controller =
+        new DesktopAuthController(handoffStore, guestIdentity, securityContextRepository);
+    String verifier = "d".repeat(43);
+    when(handoffStore.consumeUser("code", verifier))
+        .thenReturn(
+            new DesktopAuthHandoff.AuthenticatedUser(
+                "user-1", "Narrative User", "user@example.test", "avatar"));
+
+    controller.exchange(
+        new DesktopAuthExchangeRequest("code", verifier),
+        mock(HttpServletRequest.class),
+        mock(HttpServletResponse.class));
+
+    var context = SecurityContextHolder.getContext();
+    assertEquals("user-1", context.getAuthentication().getName());
+    assertTrue(context.getAuthentication().getPrincipal() instanceof DesktopUserPrincipal);
+    assertDoesNotThrow(() -> new JdkSerializationRedisSerializer().serialize(context));
   }
 
   @Test
