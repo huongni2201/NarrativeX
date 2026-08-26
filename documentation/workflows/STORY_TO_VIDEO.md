@@ -59,7 +59,7 @@ Image-only camera/motion controls must not be shown as if they apply identically
 
 ```text
 TTS
-  -> Google TTS or VieNeu/provider execution
+  -> VieNeu/provider execution
   -> validate/normalize
   -> alignment
   -> local materialization for Desktop use
@@ -81,6 +81,7 @@ backend-authorized media work
   -> provider execution
   -> validate bytes/result
   -> stable MediaAsset identity + checksum
+  -> R2 transport when remote durability is required by provider/worker execution
   -> Desktop materializes required accepted result locally
   -> project.manifest.json
 ```
@@ -93,10 +94,10 @@ The backend production timeline aggregates persisted scene/beat/timing/media sta
 
 Renderer draft state supports typed undo/redo/reset for supported duration/camera edits. Draft state is not durable authority until converted to the backend render/production contract.
 
-## Local render path
+## Final local render path
 
 ```text
-backend admits + assigns LOCAL_DEVICE render
+backend admits + assigns local render
   -> assigned device claims lease
   -> Desktop preflight checks FFmpeg/ffprobe, executor, disk, assets
   -> resolve asset IDs/checksums through project.manifest.json
@@ -107,8 +108,10 @@ backend admits + assigns LOCAL_DEVICE render
   -> concat narration
   -> mux
   -> ffprobe + SHA-256 final validation
-  -> register local artifact under artifacts/<jobId>/
+  -> write artifacts/<jobId>/final.mp4
+  -> register final-artifact metadata
   -> report progress/completion under current lease
+  -> preview/export local MP4 directly
 ```
 
 Lease loss prevents success. In-process cancellation and unfinished-journal discovery exist. Richer crash/restart resume/retry UX remains hardening work.
@@ -123,19 +126,7 @@ Lease loss prevents success. In-process cancellation and unfinished-journal disc
   artifacts/<jobId>/final.mp4
 ```
 
-Desktop storage tooling also includes verification/accounting, completed/failed work cleanup and backup/restore/archive-copy foundations.
-
-## Retained cloud/server path
-
-Where remote provider/server execution still requires it:
-
-```text
-pipeline media -> Cloudflare R2
-cloud render   -> worker FFmpeg/ffprobe
-final MP4      -> Google Drive
-```
-
-This remains fallback/server behavior, not the Desktop project-storage default.
+Desktop storage tooling also includes verification/accounting, completed/failed work cleanup and backup/restore/archive-copy foundations. Final MP4 bytes never travel through backend final-video storage or a server render path.
 
 ## Remaining creator-loop work
 
