@@ -33,12 +33,14 @@ export function useChapterWorkspacesQuery(
       queryFn: () => chaptersApi.workspace(projectId, chapter.id),
       enabled: Boolean(projectId && chapter.id),
       refetchInterval: (query: Query<DesktopChapterWorkspace, Error, DesktopChapterWorkspace>) => {
-        if (chapter.id !== pollingChapterId) return false;
+        const isSelectedPollingTarget = chapter.id === pollingChapterId;
+        const isForcedPollingTarget = chapter.id === forcePollingChapterId;
+        if (!isSelectedPollingTarget && !isForcedPollingTarget) return false;
 
         // The enqueue endpoint can return before the workspace projection has switched
         // from NOT_STARTED to QUEUED. Keep polling the chapter that was just submitted
         // so the UI cannot fall back to an idle state and enable duplicate clicks.
-        if (chapter.id === forcePollingChapterId) return 1500;
+        if (isForcedPollingTarget) return 1500;
 
         return isAudioProcessingStatus(query.state.data?.pipeline.audio.status) ? 3000 : false;
       },
