@@ -33,7 +33,6 @@ export function VoiceLibraryRail() {
       <div className="mt-auto border-t border-border pt-3 text-[10px] text-text-muted">
         <span className="mr-1.5 inline-block size-1.5 rounded-full bg-success" />
         Local workspace
-        <span className="float-right">v1.0.0</span>
       </div>
     </aside>
   );
