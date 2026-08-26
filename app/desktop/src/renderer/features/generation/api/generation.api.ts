@@ -10,7 +10,10 @@ export const generationApi = {
   analyze: (projectId: string, chapterId: string) =>
     apiRequest<GenerationJob>(
       `/api/v1/projects/${encodeURIComponent(projectId)}/chapters/${encodeURIComponent(chapterId)}/analysis-jobs`,
-      { method: "POST" },
+      {
+        method: "POST",
+        headers: { "Idempotency-Key": crypto.randomUUID() },
+      },
     ),
 
   estimate: (

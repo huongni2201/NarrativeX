@@ -24,6 +24,7 @@ import { resolveFfmpegRuntime, type FfmpegRuntimeStatus } from "./rendering/ffmp
 import { ProjectRenderer } from "./rendering/project-renderer";
 import { LocalRenderPreflightService } from "./rendering/local-render-preflight";
 import { recoveryActionForStage, RenderJournalStore } from "./rendering/render-journal";
+import { shouldDisableHardwareAcceleration } from "./runtime/gpu-policy";
 import {
   hardenRendererWebContents,
   registerTrustedIpcHandler,
@@ -32,12 +33,14 @@ import {
 } from "./security/renderer-security";
 import { SelectionTokenStore } from "./security/selection-token-store";
 
-// A failed Chromium GPU/cache initialization should not leave users with an
-// indistinguishable black BrowserWindow. The editor is fully usable without
-// hardware acceleration, and this keeps the failure visible in the renderer.
-app.disableHardwareAcceleration();
-app.commandLine.appendSwitch("disable-gpu");
-app.commandLine.appendSwitch("disable-gpu-compositing");
+// Hardware acceleration is important for timeline/video preview performance. Keep it
+// enabled by default and expose an explicit safe mode for machines with broken GPU
+// drivers or Chromium initialization issues.
+if (shouldDisableHardwareAcceleration(process.env, process.argv)) {
+  app.disableHardwareAcceleration();
+  app.commandLine.appendSwitch("disable-gpu");
+  app.commandLine.appendSwitch("disable-gpu-compositing");
+}
 
 // Electron's default Chromium profile can remain locked by a stale dev
 // process on Windows. Keep development state isolated in a writable profile;

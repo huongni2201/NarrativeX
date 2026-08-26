@@ -13,6 +13,8 @@ export { parseChapterWorkspace } from "./chapter-workspace-contract";
 
 export type ChaptersPage = CursorPage<DesktopChapterDetails>;
 
+const CHAPTER_PAGE_LIMIT = 100;
+
 function isChapter(value: unknown): value is DesktopChapterDetails {
   return (
     isRecord(value) &&
@@ -34,11 +36,44 @@ function parseChapters(value: unknown): ChaptersPage {
   );
 }
 
+async function listPage(
+  projectId: string,
+  storyVersionId: string,
+  cursor?: string | null,
+): Promise<ChaptersPage> {
+  const params = new URLSearchParams({
+    storyVersionId,
+    limit: String(CHAPTER_PAGE_LIMIT),
+  });
+  if (cursor) params.set("cursor", cursor);
+
+  return apiRequest<unknown>(
+    `/api/v1/projects/${encodeURIComponent(projectId)}/chapters?${params.toString()}`,
+  ).then(parseChapters);
+}
+
+async function listAll(projectId: string, storyVersionId: string): Promise<DesktopChapterDetails[]> {
+  const chapters: DesktopChapterDetails[] = [];
+  const seenCursors = new Set<string>();
+  let cursor: string | null = null;
+
+  do {
+    const page = await listPage(projectId, storyVersionId, cursor);
+    chapters.push(...page.content);
+    if (!page.hasNext || !page.nextCursor) break;
+    if (seenCursors.has(page.nextCursor)) {
+      throw new Error("Chapters pagination returned a repeated cursor.");
+    }
+    seenCursors.add(page.nextCursor);
+    cursor = page.nextCursor;
+  } while (true);
+
+  return chapters;
+}
+
 export const chaptersApi = {
-  list: (projectId: string, storyVersionId: string) =>
-    apiRequest<unknown>(
-      `/api/v1/projects/${encodeURIComponent(projectId)}/chapters?storyVersionId=${encodeURIComponent(storyVersionId)}&limit=100`,
-    ).then(parseChapters),
+  list: listPage,
+  listAll,
 
   get: (projectId: string, chapterId: string) =>
     apiRequest<DesktopChapterDetails>(

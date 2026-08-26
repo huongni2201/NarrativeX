@@ -6,6 +6,8 @@ import type {
 import { apiRequest } from "../../../api/client.ts";
 import { assertContract, isRecord, isString } from "../../../api/guards.ts";
 
+const ASSET_PAGE_LIMIT = 100;
+
 function isAsset(value: unknown): value is DesktopAsset {
   return (
     isRecord(value) &&
@@ -28,6 +30,27 @@ function parseAssets(value: unknown) {
   };
 }
 
+async function listAll(): Promise<DesktopAsset[]> {
+  const assets: DesktopAsset[] = [];
+  const seenCursors = new Set<string>();
+  let cursor: string | null = null;
+
+  do {
+    const params = new URLSearchParams({ limit: String(ASSET_PAGE_LIMIT) });
+    if (cursor) params.set("cursor", cursor);
+    const page = await apiRequest<unknown>(`/api/v1/assets?${params.toString()}`).then(parseAssets);
+    assets.push(...page.items);
+    if (!page.nextCursor) break;
+    if (seenCursors.has(page.nextCursor)) {
+      throw new Error("Assets pagination returned a repeated cursor.");
+    }
+    seenCursors.add(page.nextCursor);
+    cursor = page.nextCursor;
+  } while (true);
+
+  return assets;
+}
+
 export function toRegisterLocalAssetRequest(
   input: LocalAssetRegistration,
 ): RegisterLocalAssetRequest {
@@ -44,6 +67,7 @@ export function toRegisterLocalAssetRequest(
 export const assetsApi = {
   list: (params = "limit=100") =>
     apiRequest<unknown>(`/api/v1/assets?${params}`).then(parseAssets),
+  listAll,
 
   get: (assetId: string) =>
     apiRequest<DesktopAsset>(`/api/v1/assets/${encodeURIComponent(assetId)}`),

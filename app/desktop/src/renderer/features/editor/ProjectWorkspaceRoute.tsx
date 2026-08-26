@@ -38,6 +38,7 @@ export function ProjectWorkspaceRoute() {
           storyVersionId={workspace.timeline?.storyVersionId ?? null}
           chapters={workspace.chapters}
           voices={workspace.voices}
+          timeline={workspace.timeline}
           workspaceStatus={workspace.status}
           projectsCount={workspace.projects.length}
           assetsCount={workspace.assets.length}
