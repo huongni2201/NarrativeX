@@ -11,6 +11,21 @@ test("approval requires verified local checksum identity", () => {
   assert.equal(reviewReadiness(item, asset, { assetId: "a1", state: "AVAILABLE", sizeBytes: 100, checksumSha256: "wrong", confirmedAt: "now" }).canApprove, false);
 });
 
+test("review stays blocked while provider result is validating or unknown", () => {
+  for (const executionStatus of ["VALIDATING", "UNKNOWN"]) {
+    const readiness = reviewReadiness({ ...item, executionStatus }, asset, {
+      assetId: "a1",
+      state: "AVAILABLE",
+      sizeBytes: 100,
+      checksumSha256: "abc",
+      confirmedAt: "now",
+    });
+    assert.equal(readiness.canApprove, false, executionStatus);
+    assert.equal(readiness.canReject, false, executionStatus);
+    assert.equal(readiness.canRegenerate, false, executionStatus);
+  }
+});
+
 test("regeneration scope contains selected known items only", () => {
   const items = [item, { ...item, id: "i2", reviewStatus: "APPROVED" }];
   assert.deepEqual(selectedRegenerationIds(items, new Set(["i2", "stale"])), ["i2"]);
