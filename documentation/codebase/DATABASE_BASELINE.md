@@ -2,25 +2,27 @@
 
 ## Authority
 
-- PostgreSQL is the authoritative business/control-state store.
-- Redis is used for sessions and non-authoritative delivery/progress hints; it is not authoritative GenerationJob state.
+- PostgreSQL is the authoritative business/control-state store and the only application state service required by the MVP runtime.
+- Spring Session JDBC and one-time Desktop OAuth handoffs use PostgreSQL; Redis is not required.
+- Generation jobs/provider operations/outbox state are durable PostgreSQL rows. `NOTIFY`, when emitted, is a lossy hint only.
 - The backend owns Flyway and the relational schema.
 - PostgreSQL + Flyway is the schema/release gate. H2-only success is not sufficient validation.
 - Published/applied Flyway migrations are append-only.
 
 ## Flyway layout
 
-The current repository has one frozen three-file consolidated baseline:
+The current repository has a frozen three-file core baseline plus append-only runtime-state migration:
 
 | Migration | Responsibility |
 |---|---|
 | `V1__create_tables.sql` | Core extensions/functions, tables, columns, keys/checks, execution/render/storage structures and core triggers |
 | `V2__init_indexes.sql` | Core query/access-path, claim and partial-unique indexes |
 | `V3__seed_data.sql` | Deterministic system/catalog bootstrap data such as plan entitlements, styles and voice catalog |
+| `V4__postgres_runtime_state.sql` | Spring Session JDBC tables and hash-only, short-lived Desktop OAuth handoff state |
 
-A clean database applies **V1 → V2 → V3** and leaves no pending migration after application startup.
+A clean database applies **V1 → V2 → V3 → V4** and leaves no pending migration after application startup.
 
-V1-V3 are frozen. The next schema change must be introduced as a new append-only `V4__*.sql`; do not rewrite the consolidated baseline after it has been shared/applied.
+V1-V3 are frozen. V4 is the first append-only post-baseline schema change; future changes must use V5+ and must not rewrite an applied migration.
 
 ## Consolidated V1 feature structures
 
@@ -32,12 +34,14 @@ Several Desktop-era features were folded into V1 before the baseline was frozen.
 - local media materialization/integrity metadata;
 - render snapshot/final-artifact metadata structures.
 
-These are **not** separate current V4/V5 migrations.
+These remain part of V1. V4 adds only runtime session/handoff storage needed to remove Redis.
 
 ## Important schema decisions
 
 - `auth_users` stores Google/OIDC user profiles plus internal stable guest principals used only for ownership/FK integrity. Guest rows are not a second sign-in provider.
 - `desktop_guest_installations` maps one Desktop installation UUID to one stable guest principal and stores only a SHA-256 installation-secret hash. The plaintext secret remains Electron-local and protected by OS secure storage.
+- `desktop_auth_handoffs` stores only the SHA-256/base64url hash of a random one-time code, its PKCE challenge/user snapshot and expiry. Consumption is atomic and single-use.
+- `SPRING_SESSION` / `SPRING_SESSION_ATTRIBUTES` persist server-managed `NX_SESSION` state through Spring Session JDBC.
 - `generation_jobs.job_id` is PostgreSQL `UUID`; idempotency keys are durable business identities rather than UI-only values.
 - `chapters.deleted_at` is part of active Chapter semantics; owned/current queries filter deleted rows where appropriate.
 - `media_beat_plans.reuse_source_visual_beat_id` and reuse invariants are part of the frozen core schema.
@@ -52,7 +56,7 @@ These are **not** separate current V4/V5 migrations.
 
 | Domain | Main tables | Notes |
 |---|---|---|
-| Authentication | `auth_users`, `desktop_guest_installations` | Google account identity plus stable installation guest continuity |
+| Authentication | `auth_users`, `desktop_guest_installations`, `desktop_auth_handoffs`, `SPRING_SESSION`, `SPRING_SESSION_ATTRIBUTES` | Google account identity, stable installation guest continuity and PostgreSQL-backed session/handoff state |
 | Project | `projects`, `project_favorites` | ownership, archival and dashboard/query foundation |
 | Story / Chapter | `story_versions`, `chapters`, `chapter_creation_idempotency`, `chapter_content_variants`, `language_detections` | versioned text, soft-delete, translation lineage and idempotent creation |
 | Storyboard | `storyboard_revisions`, `scenes`, `scene_characters`, `visual_beats`, `visual_beat_characters` | durable storyboard and continuity boundary |
@@ -87,11 +91,13 @@ Provider requests are persisted before external submission. Ambiguous acceptance
 For schema changes:
 
 1. Start an empty supported PostgreSQL instance.
-2. Apply V1, V2 and V3 in version order.
-3. Verify all three migrations are successful and none remain pending.
-4. Verify `desktop_guest_installations` references `auth_users` and stores only the secret hash.
-5. Verify `production_beat_media_selections` constraints/indexes and mapper references match the application read/write paths.
-6. Verify local-media/materialization and render tables contain server-safe identities/integrity metadata only, never absolute Desktop paths.
-7. Run backend PostgreSQL/Testcontainers migration/persistence tests and worker persistence tests.
-8. Run architecture/schema-reference tests that protect the frozen baseline and MyBatis mappings.
-9. Add future schema evolution as `V4__*.sql` or later; never rewrite V1-V3.
+2. Apply V1, V2, V3 and V4 in version order.
+3. Verify all four migrations are successful and none remain pending.
+4. Verify `desktop_guest_installations` references `auth_users` and stores only the installation-secret hash.
+5. Verify `desktop_auth_handoffs` stores hashed codes and expired/successful/wrong-verifier exchanges cannot replay the code.
+6. Verify Spring Session JDBC can create/read/invalidate `NX_SESSION` rows across a backend restart.
+7. Verify `production_beat_media_selections` constraints/indexes and mapper references match the application read/write paths.
+8. Verify local-media/materialization and render tables contain server-safe identities/integrity metadata only, never absolute Desktop paths.
+9. Run backend PostgreSQL/Testcontainers migration/persistence tests and worker persistence tests.
+10. Run architecture/schema-reference tests that protect the frozen baseline and MyBatis mappings.
+11. Add future schema evolution as `V5__*.sql` or later; never rewrite V1-V4.

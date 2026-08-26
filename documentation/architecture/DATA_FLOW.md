@@ -1,15 +1,17 @@
-# NarrativeX Data Flow and Durability Model — V1.11
+# NarrativeX Data Flow and Durability Model — V1.12
 
-PostgreSQL state, not renderer memory, Redis messages or process memory, determines durable NarrativeX business/execution truth. Desktop project bytes are local-first but durable ownership/policy/job identity remains backend-owned.
+PostgreSQL state, not renderer memory, delivery hints or process memory, determines durable NarrativeX business/execution truth. Desktop project bytes are local-first but durable ownership/policy/job identity remains backend-owned.
 
 ## Authority matrix
 
 | Concern | Authority | Notes |
 |---|---|---|
 | Guest/account identity and ownership | PostgreSQL | stable installation guest + Google-linked accounts |
-| Server session | Redis via Spring Session | availability/session state, not domain truth |
+| Server session | PostgreSQL via Spring Session JDBC | restart-safe server-managed session state |
+| Desktop OAuth handoff | PostgreSQL | 90-second, hash-only, PKCE-bound, atomically single-use |
 | Project/StoryVersion/Chapter/storyboard/continuity | PostgreSQL | ownership/versioning apply |
-| GenerationJob/StageAttempt/ProviderOperation | PostgreSQL | process memory may carry hints only |
+| GenerationJob/StageAttempt/ProviderOperation | PostgreSQL | worker claims and lifecycle truth |
+| Queue wake-up hint | PostgreSQL `NOTIFY` | lossy/non-authoritative; polling/claim remains correctness path |
 | MediaPlan / production policy | PostgreSQL | worker/device executes persisted authorized state |
 | Production beat media selection | PostgreSQL | explicit editor choice is part of the consolidated V1 schema |
 | Narration document/set/alignment metadata | PostgreSQL | source/narration fingerprints pin inputs |
@@ -20,6 +22,8 @@ PostgreSQL state, not renderer memory, Redis messages or process memory, determi
 | Guest installation secret | Electron secure storage | backend stores only hash |
 | Local-execution device credential | Electron protected storage | machine credential, not user session |
 
+Redis is not required by the MVP runtime.
+
 ## Guest-first session flow
 
 ```text
@@ -29,6 +33,7 @@ Desktop start
   -> POST /api/v1/auth/desktop/guest
   -> main injects installation deviceId + secret
   -> backend verify/create stable guest mapping
+  -> Spring Session JDBC persists NX_SESSION
   -> ROLE_GUEST session
 ```
 
@@ -42,7 +47,7 @@ guest invokes account/provider-consuming action
   -> LoginModal remains over current route
   -> main opens system-browser Google OIDC
   -> narrativex:// one-time code
-  -> backend exchange
+  -> backend atomically consumes hashed handoff row
   -> eligible guest ownership transfer
   -> ROLE_USER session
   -> refetch current editor data
@@ -57,7 +62,7 @@ persisted Chapter
   -> lock/reload authoritative snapshot
   -> admission + reservation/policy
   -> OperationPlan + GenerationJob + StageAttempt + OutboxEvent
-  -> worker claim/lease/heartbeat
+  -> worker claim/lease/heartbeat from PostgreSQL
   -> ProviderOperation where applicable
   -> validated result
   -> stale-snapshot re-check
