@@ -16,7 +16,8 @@ Desktop guest-first workspace
   -> production timeline + beat media selection
   -> local render preflight
   -> backend-assigned FFmpeg render
-  -> journal/cache/artifact registration
+  -> journal/cache/artifact metadata registration
+  -> local final MP4 playback/export
   -> backup/restore/storage tooling
 ```
 
@@ -111,25 +112,16 @@ Remaining:
 ## Track H — Operational hardening — MEDIUM
 
 - production backup/restore evidence for backend PostgreSQL state;
-- retention/cleanup policy for cloud fallback media and local generated work;
+- retention/cleanup policy for remote generated-media transport and local generated/render work;
 - structured observability/correlation across Desktop, backend and worker;
 - SSRF/upload/media validation hardening where external resources are accepted;
 - security review for guest credential lifecycle, ownership transfer and logout/resume behavior;
 - local quality gate that remains useful when GitHub Actions is unavailable.
 
-## Retained cloud/server path — MAINTENANCE
-
-```text
-cloud pipeline media -> R2
-cloud final MP4      -> Google Drive
-```
-
-Keep this path only where server/provider execution or fallback durability still requires it. New Desktop features should not depend on cloud storage merely because the fallback exists.
-
 ## Fast-follow / deferred
 
 - HYBRID_LOCAL_I2V/Wan runtime hardening;
-- provider-neutral publish/upload from local final artifacts;
+- provider-neutral publish/upload from an explicitly exported local final artifact;
 - richer collaborative/cross-device workflows after single-device reliability is proven.
 
 ## Acceptance scenarios
