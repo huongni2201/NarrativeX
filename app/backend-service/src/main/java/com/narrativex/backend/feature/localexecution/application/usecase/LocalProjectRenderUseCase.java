@@ -62,7 +62,7 @@ public class LocalProjectRenderUseCase {
 
   public void cancel(String deviceToken, UUID jobId, UUID leaseToken) {
     var device = localDeviceAccess.authenticate(deviceToken, CAPABILITY);
-    if (!store.cancel(deviceToken == null ? jobId : jobId, device.id(), workerId(device.id()), leaseToken)) {
+    if (!store.cancel(jobId, device.id(), workerId(device.id()), leaseToken)) {
       throw leaseLost();
     }
   }
@@ -129,7 +129,9 @@ public class LocalProjectRenderUseCase {
       String storageKey,
       long sizeBytes,
       String checksum,
-      long durationMs) {
+      long durationMs,
+      String subtitleText,
+      String subtitleSpansJson) {
     static ChapterInput from(LocalProjectRenderStore.ChapterInput value) {
       return new ChapterInput(
           value.chapterId(),
@@ -140,7 +142,33 @@ public class LocalProjectRenderUseCase {
           value.storageKey(),
           value.sizeBytes(),
           value.checksum(),
-          value.durationMs());
+          value.durationMs(),
+          value.subtitleText(),
+          value.subtitleSpansJson());
+    }
+
+    public ChapterInput(
+        UUID chapterId,
+        int orderIndex,
+        long globalStartMs,
+        long globalEndMs,
+        UUID narrationAssetId,
+        String storageKey,
+        long sizeBytes,
+        String checksum,
+        long durationMs) {
+      this(
+          chapterId,
+          orderIndex,
+          globalStartMs,
+          globalEndMs,
+          narrationAssetId,
+          storageKey,
+          sizeBytes,
+          checksum,
+          durationMs,
+          "",
+          null);
     }
   }
 

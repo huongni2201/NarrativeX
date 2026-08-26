@@ -6,9 +6,12 @@ import {
   Film,
   FolderOpen,
   RotateCcw,
+  SlidersHorizontal,
   Upload,
+  WandSparkles,
 } from "lucide-react";
 import type {
+  AutoEditBeatDecision,
   BeatMediaFitMode,
   DesktopAsset,
   DesktopTimelineBeat,
@@ -16,6 +19,7 @@ import type {
 
 interface EditorInspectorPanelProps {
   selectedBeat: DesktopTimelineBeat | null;
+  autoDecision: AutoEditBeatDecision | null;
   selectableAssets: DesktopAsset[];
   mediaBusy: boolean;
   mediaNotice: string | null;
@@ -25,10 +29,11 @@ interface EditorInspectorPanelProps {
   onResetSource: () => void;
 }
 
-type SectionId = "mediaSource" | "fitToBeat" | "beatInfo";
+type SectionId = "autoEdit" | "mediaSource" | "beatInfo";
 
 export function EditorInspectorPanel({
   selectedBeat,
+  autoDecision,
   selectableAssets,
   mediaBusy,
   mediaNotice,
@@ -38,14 +43,16 @@ export function EditorInspectorPanel({
   onResetSource,
 }: Readonly<EditorInspectorPanelProps>) {
   const [isAssetPickerOpen, setIsAssetPickerOpen] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [openSections, setOpenSections] = useState<Record<SectionId, boolean>>({
-    mediaSource: true,
-    fitToBeat: true,
+    autoEdit: true,
+    mediaSource: false,
     beatInfo: true,
   });
 
   useEffect(() => {
     setIsAssetPickerOpen(false);
+    setShowAdvanced(false);
   }, [selectedBeat]);
 
   const toggleSection = (section: SectionId) => {
@@ -62,7 +69,74 @@ export function EditorInspectorPanel({
         {selectedBeat ? (
           <>
             <InspectorSection
-              title="Media Source"
+              title="Auto Edit"
+              open={openSections.autoEdit}
+              onToggle={() => toggleSection("autoEdit")}
+            >
+              <div className="rounded-md border border-primary/25 bg-primary-muted p-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5 text-[9px] font-semibold text-primary-hover">
+                    <WandSparkles size={11} /> NarrativeX decision
+                  </span>
+                  <span className="rounded-sm border border-primary/20 bg-background/60 px-1.5 py-0.5 text-[7px] uppercase tracking-wider text-primary-hover">
+                    {autoDecision?.source === "AI_DIRECTED" ? "AI directed" : "Rule engine"}
+                  </span>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-1.5">
+                  <InfoCell label="Motion" value={autoDecision?.cameraMovement || "NONE"} />
+                  <InfoCell label="Fit" value={autoDecision?.fitMode || selectedBeat.fitMode} />
+                  <InfoCell label="Trim start" value={formatTimecode(autoDecision?.trimStartMs ?? selectedBeat.trimStartMs)} />
+                  <InfoCell label="Clock" value="Narration" />
+                </div>
+                <p className="mt-2 text-[8px] leading-4 text-text-muted">
+                  {autoDecision?.reason || "Narration controls the beat clock and FFmpeg executes the selected edit parameters."}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowAdvanced((value) => !value)}
+                className="flex h-7 w-full items-center justify-center gap-1.5 rounded-sm border border-border bg-surface-input text-[8px] font-medium text-text-muted transition hover:bg-surface-2 hover:text-foreground"
+              >
+                <SlidersHorizontal size={10} />
+                {showAdvanced ? "Hide manual override" : "Manual override"}
+              </button>
+
+              {showAdvanced && (
+                <div className="space-y-2 rounded-md border border-border-subtle bg-background p-2">
+                  <p className="text-[8px] leading-4 text-text-dim">
+                    Chỉ dùng khi muốn ghi đè quyết định Auto Edit cho beat này.
+                  </p>
+                  <div className="grid grid-cols-4 gap-1 rounded-sm border border-border-subtle bg-surface p-1">
+                    {(
+                      [
+                        { mode: "TRIM", label: "Trim" },
+                        { mode: "LOOP", label: "Loop" },
+                        { mode: "FREEZE_END", label: "Freeze" },
+                        { mode: "SPEED_ADJUST", label: "Speed" },
+                      ] as const
+                    ).map(({ mode, label }) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        disabled={mediaBusy || !selectedBeat.mediaAssetId}
+                        onClick={() => onUpdateFitMode(mode)}
+                        className={`rounded-sm py-1 text-[8px] font-medium transition-colors disabled:opacity-40 ${
+                          selectedBeat.fitMode === mode
+                            ? "bg-primary text-primary-foreground"
+                            : "text-text-muted hover:bg-surface-2 hover:text-foreground"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </InspectorSection>
+
+            <InspectorSection
+              title="Media Override"
               open={openSections.mediaSource}
               onToggle={() => toggleSection("mediaSource")}
             >
@@ -72,6 +146,10 @@ export function EditorInspectorPanel({
                   {mediaSourceLabel(selectedBeat)}
                 </span>
               </div>
+
+              <p className="text-[8px] leading-4 text-text-dim">
+                Generated media được dùng mặc định. Chỉ đổi nguồn khi bạn muốn thay một beat cụ thể.
+              </p>
 
               <div className="grid grid-cols-2 gap-1.5">
                 <ActionButton
@@ -121,7 +199,7 @@ export function EditorInspectorPanel({
                 </div>
               </div>
 
-              {selectedBeat.mediaAssetId && (
+              {selectedBeat.mediaSelectionActive && (
                 <button
                   type="button"
                   onClick={onResetSource}
@@ -129,7 +207,7 @@ export function EditorInspectorPanel({
                   className="flex h-7 w-full items-center justify-center gap-1.5 rounded-sm border border-border bg-surface-input text-[9px] text-text-muted transition hover:border-border-dark hover:bg-surface-2 hover:text-foreground disabled:opacity-50"
                 >
                   <RotateCcw size={10} />
-                  Reset to generated source
+                  Use generated source
                 </button>
               )}
 
@@ -141,58 +219,6 @@ export function EditorInspectorPanel({
             </InspectorSection>
 
             <InspectorSection
-              title="Fit to Beat"
-              open={openSections.fitToBeat}
-              onToggle={() => toggleSection("fitToBeat")}
-            >
-              <div className="grid grid-cols-4 gap-1 rounded-sm border border-border-subtle bg-background p-1">
-                {(
-                  [
-                    { mode: "TRIM", label: "Trim" },
-                    { mode: "LOOP", label: "Loop" },
-                    { mode: "FREEZE_END", label: "Freeze" },
-                    { mode: "SPEED_ADJUST", label: "Speed" },
-                  ] as const
-                ).map(({ mode, label }) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    disabled={mediaBusy || !selectedBeat.mediaAssetId}
-                    onClick={() => onUpdateFitMode(mode)}
-                    className={`rounded-sm py-1 text-[8px] font-medium transition-colors disabled:opacity-40 ${
-                      selectedBeat.fitMode === mode
-                        ? "bg-primary text-primary-foreground"
-                        : "text-text-muted hover:bg-surface-2 hover:text-foreground"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-
-              <div className="space-y-1.5">
-                <div className="h-1.5 overflow-hidden rounded-full bg-surface-4">
-                  <div className="h-full w-3/4 rounded-full bg-primary" />
-                </div>
-                <div className="flex justify-between font-mono text-[8px] text-text-dim">
-                  <span>00:00.00</span>
-                  <span className="text-text-secondary">{formatTimecode(selectedBeat.durationMs)}</span>
-                  <span>{formatTimecode(selectedBeat.sourceDurationMs || selectedBeat.durationMs)}</span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between gap-2 rounded-sm border border-border-subtle bg-background px-2 py-1.5">
-                <div>
-                  <span className="block text-[9px] text-text-secondary">Audio Sync</span>
-                  <span className="text-[8px] text-text-dim">Narration controls the beat clock</span>
-                </div>
-                <span className="rounded-sm border border-border bg-surface-2 px-2 py-1 text-[8px] font-medium text-text-secondary">
-                  Narration master
-                </span>
-              </div>
-            </InspectorSection>
-
-            <InspectorSection
               title="Beat Info"
               open={openSections.beatInfo}
               onToggle={() => toggleSection("beatInfo")}
@@ -201,7 +227,17 @@ export function EditorInspectorPanel({
                 <InfoCell label="Duration" value={formatTimecode(selectedBeat.durationMs)} />
                 <InfoCell label="Status" value={selectedBeat.assetReady ? "Ready" : "Draft"} />
                 <InfoCell label="Media" value={selectedBeat.mediaType || "Generated"} />
-                <InfoCell label="Camera" value={selectedBeat.cameraMovement || "Default"} />
+                <InfoCell label="Camera source" value={selectedBeat.cameraMovement || "Default"} />
+              </div>
+
+              <div className="flex items-center justify-between gap-2 rounded-sm border border-border-subtle bg-background px-2 py-1.5">
+                <div>
+                  <span className="block text-[9px] text-text-secondary">Audio Sync</span>
+                  <span className="text-[8px] text-text-dim">Narration controls the beat clock</span>
+                </div>
+                <span className="rounded-sm border border-border bg-surface-2 px-2 py-1 text-[8px] font-medium text-text-secondary">
+                  Automatic
+                </span>
               </div>
 
               <div className="grid gap-1">
@@ -214,7 +250,7 @@ export function EditorInspectorPanel({
           </>
         ) : (
           <div className="grid min-h-40 place-items-center rounded-md border border-dashed border-border p-4 text-center text-[9px] leading-4 text-text-muted">
-            Chọn một visual beat để chỉnh media và xem thông tin timing.
+            Chọn một visual beat để review quyết định Auto Edit.
           </div>
         )}
       </div>
@@ -284,9 +320,10 @@ function InfoCell({ label, value }: Readonly<{ label: string; value: string }>) 
 }
 
 function mediaSourceLabel(beat: DesktopTimelineBeat): string {
-  if (beat.mediaType === "VIDEO") return "Uploaded Video";
-  if (beat.mediaType === "IMAGE") return "Uploaded Image";
-  return "AI Generated";
+  if (!beat.mediaSelectionActive) return "Generated";
+  if (beat.mediaType === "VIDEO") return "Video override";
+  if (beat.mediaType === "IMAGE") return "Image override";
+  return "Generated";
 }
 
 function formatTimecode(ms: number): string {

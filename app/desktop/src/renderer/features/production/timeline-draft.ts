@@ -10,7 +10,12 @@ export function updateTimelineDraft(
   const current = draft[visualBeatId];
   const { visualBeatId: _currentId, ...currentValues } = current ?? {};
   const next = { visualBeatId, ...currentValues, ...patch };
-  if (next.durationMs === undefined && next.cameraMovement === undefined && next.mediaAssetId === undefined) {
+  if (
+    next.durationMs === undefined &&
+    next.cameraMovement === undefined &&
+    next.fitMode === undefined &&
+    next.trimStartMs === undefined
+  ) {
     const copy = { ...draft };
     delete copy[visualBeatId];
     return copy;

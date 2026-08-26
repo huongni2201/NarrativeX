@@ -1,10 +1,14 @@
 package com.narrativex.backend.feature.generation.application.usecase;
 
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
+import com.narrativex.backend.feature.generation.application.command.RenderBeatOverride;
 import com.narrativex.backend.feature.generation.application.port.out.ProductionBeatMediaSelectionRepository;
+import com.narrativex.backend.feature.generation.application.port.out.ProductionBeatMediaSelectionRepository.SelectableMediaAsset;
 import com.narrativex.backend.feature.generation.application.query.ProductionTimelineView;
 import com.narrativex.backend.feature.generation.domain.enums.BeatMediaFitMode;
 import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -27,28 +31,55 @@ public class UpdateProductionBeatMediaUseCase {
     String ownerId = currentUserId.get();
     ProductionTimelineView timeline = getProductionTimelineUseCase.executeOwned(projectId, ownerId);
     ProductionTimelineView.Beat beat = requireBeat(timeline, visualBeatId);
-    var asset =
-        repository
-            .findSelectableAsset(ownerId, mediaAssetId)
-            .orElseThrow(
-                () ->
-                    new GenerationAdmissionDeniedException(
-                        "INVALID_BEAT_MEDIA_SELECTION",
-                        "The selected image/video asset is not READY or does not belong to this account."));
-
+    SelectableMediaAsset asset = requireSelectableAsset(ownerId, mediaAssetId);
     BeatMediaFitMode normalizedFitMode = fitMode == null ? BeatMediaFitMode.TRIM : fitMode;
-    if (trimStartMs < 0) {
-      throw invalid("trimStartMs must be zero or positive.");
-    }
-    if ("IMAGE".equals(asset.mediaType())) {
-      if (normalizedFitMode != BeatMediaFitMode.TRIM || trimStartMs != 0) {
-        throw invalid("Image beats do not support video trim/loop/speed fit modes.");
-      }
-    } else {
-      validateVideoFit(beat, asset.durationMs(), normalizedFitMode, trimStartMs);
+    validateSelection(beat, asset, normalizedFitMode, trimStartMs);
+    repository.upsert(projectId, visualBeatId, mediaAssetId, normalizedFitMode, trimStartMs);
+  }
+
+  /**
+   * Validates every render-scoped fit/trim change before writing any of them. The caller is expected
+   * to invoke this inside the same transaction that creates the render job so admission failures
+   * roll the media edits back as one unit.
+   */
+  @Transactional
+  public void applyRenderOverrides(UUID projectId, List<RenderBeatOverride> overrides) {
+    if (overrides == null
+        || overrides.stream().noneMatch(value -> value.fitMode() != null || value.trimStartMs() != null)) {
+      return;
     }
 
-    repository.upsert(projectId, visualBeatId, mediaAssetId, normalizedFitMode, trimStartMs);
+    String ownerId = currentUserId.get();
+    ProductionTimelineView timeline = getProductionTimelineUseCase.executeOwned(projectId, ownerId);
+    List<PendingMediaUpdate> pending = new ArrayList<>();
+
+    for (RenderBeatOverride override : overrides) {
+      if (override.fitMode() == null && override.trimStartMs() == null) continue;
+      ProductionTimelineView.Beat beat = requireBeat(timeline, override.visualBeatId());
+      if (beat.mediaAssetId() == null) {
+        throw invalid("Auto Edit cannot fit a beat without a selected media asset.");
+      }
+      SelectableMediaAsset asset = requireSelectableAsset(ownerId, beat.mediaAssetId());
+      BeatMediaFitMode fitMode =
+          override.fitMode() == null
+              ? currentFitMode(beat)
+              : BeatMediaFitMode.valueOf(override.fitMode());
+      long trimStartMs =
+          override.trimStartMs() == null ? beat.trimStartMs() : override.trimStartMs();
+      validateSelection(beat, asset, fitMode, trimStartMs);
+      pending.add(
+          new PendingMediaUpdate(
+              override.visualBeatId(), beat.mediaAssetId(), fitMode, trimStartMs));
+    }
+
+    for (PendingMediaUpdate update : pending) {
+      repository.upsert(
+          projectId,
+          update.visualBeatId(),
+          update.mediaAssetId(),
+          update.fitMode(),
+          update.trimStartMs());
+    }
   }
 
   @Transactional
@@ -57,6 +88,16 @@ public class UpdateProductionBeatMediaUseCase {
     ProductionTimelineView timeline = getProductionTimelineUseCase.executeOwned(projectId, ownerId);
     requireBeat(timeline, visualBeatId);
     repository.clear(projectId, visualBeatId);
+  }
+
+  private SelectableMediaAsset requireSelectableAsset(String ownerId, UUID mediaAssetId) {
+    return repository
+        .findSelectableAsset(ownerId, mediaAssetId)
+        .orElseThrow(
+            () ->
+                new GenerationAdmissionDeniedException(
+                    "INVALID_BEAT_MEDIA_SELECTION",
+                    "The selected image/video asset is not READY or does not belong to this account."));
   }
 
   private static ProductionTimelineView.Beat requireBeat(
@@ -69,6 +110,32 @@ public class UpdateProductionBeatMediaUseCase {
                 new GenerationAdmissionDeniedException(
                     "INVALID_BEAT_MEDIA_SELECTION",
                     "Visual beat is not part of the current production timeline."));
+  }
+
+  private static BeatMediaFitMode currentFitMode(ProductionTimelineView.Beat beat) {
+    if (beat.fitMode() == null || beat.fitMode().isBlank()) return BeatMediaFitMode.TRIM;
+    try {
+      return BeatMediaFitMode.valueOf(beat.fitMode());
+    } catch (IllegalArgumentException exception) {
+      throw invalid("Visual beat has an unsupported current fit mode.");
+    }
+  }
+
+  private static void validateSelection(
+      ProductionTimelineView.Beat beat,
+      SelectableMediaAsset asset,
+      BeatMediaFitMode fitMode,
+      long trimStartMs) {
+    if (trimStartMs < 0) {
+      throw invalid("trimStartMs must be zero or positive.");
+    }
+    if ("IMAGE".equals(asset.mediaType())) {
+      if (fitMode != BeatMediaFitMode.TRIM || trimStartMs != 0) {
+        throw invalid("Image beats do not support video trim/loop/speed fit modes.");
+      }
+      return;
+    }
+    validateVideoFit(beat, asset.durationMs(), fitMode, trimStartMs);
   }
 
   private static void validateVideoFit(
@@ -95,4 +162,10 @@ public class UpdateProductionBeatMediaUseCase {
   private static GenerationAdmissionDeniedException invalid(String message) {
     return new GenerationAdmissionDeniedException("INVALID_BEAT_MEDIA_SELECTION", message);
   }
+
+  private record PendingMediaUpdate(
+      UUID visualBeatId,
+      UUID mediaAssetId,
+      BeatMediaFitMode fitMode,
+      long trimStartMs) {}
 }

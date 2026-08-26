@@ -41,6 +41,7 @@ export function AssetsScreen({
             contentType: selection.contentType,
             sizeBytes: selection.sizeBytes,
             checksumSha256: selection.checksumSha256,
+            durationMs: selection.durationMs,
           });
 
       if (repairAssetId) {
@@ -61,7 +62,8 @@ export function AssetsScreen({
 
       await queryClient.invalidateQueries({ queryKey: ["assets", "library"] });
       setLocalStates(await refreshLocalStates(projectId));
-      setNotice(`${selection.originalFilename} đã được ${repairAssetId ? "repair" : "import"}.`);
+      const durationLabel = selection.durationMs ? ` · ${formatDuration(selection.durationMs)}` : "";
+      setNotice(`${selection.originalFilename} đã được ${repairAssetId ? "repair" : "import"}${durationLabel}.`);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Không thể import asset.");
     } finally {
@@ -95,7 +97,9 @@ export function AssetsScreen({
                   <h2 className="truncate text-xs font-semibold" title={asset.originalFilename}>{asset.originalFilename}</h2>
                 </div>
                 <p className="text-[10px] text-muted-foreground">
-                  {formatBytes(asset.sizeBytes)} · {asset.status} · {localState ?? asset.storageMode ?? "REMOTE"}
+                  {formatBytes(asset.sizeBytes)}
+                  {asset.durationMs ? ` · ${formatDuration(asset.durationMs)}` : ""}
+                  {` · ${asset.status} · ${localState ?? asset.storageMode ?? "REMOTE"}`}
                 </p>
                 {localState && localState !== "AVAILABLE" && (
                   <Button variant="outline" size="sm" onClick={() => void importAsset(asset.id)} disabled={busy}>
@@ -123,4 +127,11 @@ function formatBytes(value: number) {
   if (value < 1024) return `${value} B`;
   if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
   return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatDuration(value: number) {
+  const totalSeconds = Math.round(value / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }

@@ -4,8 +4,13 @@ import type {
   BeatMediaFitMode,
   DesktopTimelineBeat,
 } from "@narrativex/client-contracts";
+import { localAssetPreviewUrl } from "../../../shared/local-asset-preview-url";
 import { assetsApi } from "../assets/api/assets.api";
 import { productionApi } from "../production/api/production.api";
+import {
+  chooseMediaFit,
+  createBeatDecision,
+} from "../production/auto-edit-planner";
 import type { DesktopWorkspaceState } from "../workspace/queries/useProjectWorkspace";
 import {
   buildEditorHierarchy,
@@ -17,6 +22,20 @@ import { EditorExplorerPanel } from "./components/EditorExplorerPanel";
 import { EditorPreviewViewport } from "./components/EditorPreviewViewport";
 import { EditorInspectorPanel } from "./components/EditorInspectorPanel";
 import { EditorMultiTrackTimeline } from "./components/EditorMultiTrackTimeline";
+
+interface PreviewSources {
+  mediaUrl: string | null;
+  narrationUrl: string | null;
+  loading: boolean;
+  message: string | null;
+}
+
+const EMPTY_PREVIEW: PreviewSources = {
+  mediaUrl: null,
+  narrationUrl: null,
+  loading: false,
+  message: null,
+};
 
 export function EditorScreen({
   workspace,
@@ -35,9 +54,12 @@ export function EditorScreen({
   const [playing, setPlaying] = useState(false);
   const [playheadMs, setPlayheadMs] = useState(0);
   const [query, setQuery] = useState("");
-  const [scope] = useState<EditorScope>("chapter");
+  // Review should naturally continue across chapter boundaries. Beat/scene/chapter
+  // scopes remain modelled in editor-timeline for future explicit focus controls.
+  const [scope] = useState<EditorScope>("project");
   const [mediaBusy, setMediaBusy] = useState(false);
   const [mediaNotice, setMediaNotice] = useState<string | null>(null);
+  const [previewSources, setPreviewSources] = useState<PreviewSources>(EMPTY_PREVIEW);
 
   useEffect(() => {
     if (!beats.length) {
@@ -56,6 +78,28 @@ export function EditorScreen({
 
   const totalMs = timeline?.totalDurationMs ?? 0;
   const selected = beats.find((beat) => beat.visualBeatId === selectedId) ?? null;
+  const selectedChapter = selected
+    ? chapters.find((chapter) => chapter.chapterId === selected.chapterId) ?? null
+    : null;
+  const narrationAsset = selectedChapter?.narrationAssetId
+    ? workspace.assets.find((asset) => asset.id === selectedChapter.narrationAssetId) ?? null
+    : null;
+  const autoDecision = useMemo(
+    () => (selected ? createBeatDecision(selected, "AUTO") : null),
+    [selected],
+  );
+  const previewBeat = useMemo<DesktopTimelineBeat | null>(
+    () =>
+      selected && autoDecision
+        ? {
+            ...selected,
+            cameraMovement: autoDecision.cameraMovement,
+            fitMode: autoDecision.fitMode,
+            trimStartMs: autoDecision.trimStartMs,
+          }
+        : selected,
+    [autoDecision, selected],
+  );
   const hierarchy = useMemo(
     () => buildEditorHierarchy(chapters, beats),
     [beats, chapters],
@@ -96,6 +140,88 @@ export function EditorScreen({
     return () => window.clearInterval(timer);
   }, [playing, scopeDurationMs, scopeWindow.endMs, scopeWindow.startMs]);
 
+  useEffect(() => {
+    if (!beats.length) return;
+    const beatAtTime = beats.find((beat, index) => {
+      const isLast = index === beats.length - 1;
+      return playheadMs >= beat.startMs && (playheadMs < beat.endMs || (isLast && playheadMs <= beat.endMs));
+    });
+    if (beatAtTime && beatAtTime.visualBeatId !== selectedId) {
+      setSelectedId(beatAtTime.visualBeatId);
+    }
+  }, [beats, playheadMs, selectedId]);
+
+  useEffect(() => {
+    let active = true;
+    if (!projectId || !selected) {
+      setPreviewSources(EMPTY_PREVIEW);
+      return () => {
+        active = false;
+      };
+    }
+
+    const mediaIsLocalOnly = selected.storageMode === "LOCAL_ONLY";
+    const narrationIsLocalOnly = narrationAsset?.storageMode === "LOCAL_ONLY";
+    const localMediaUrl =
+      mediaIsLocalOnly && selected.mediaAssetId
+        ? localAssetPreviewUrl(projectId, selected.mediaAssetId)
+        : null;
+    const localNarrationUrl =
+      narrationIsLocalOnly && selectedChapter?.narrationAssetId
+        ? localAssetPreviewUrl(projectId, selectedChapter.narrationAssetId)
+        : null;
+    const needsRemoteMediaUrl = Boolean(selected.mediaAssetId && !mediaIsLocalOnly);
+    const needsRemoteNarrationUrl = Boolean(
+      selectedChapter?.narrationAssetId && !narrationIsLocalOnly,
+    );
+
+    setPreviewSources({
+      mediaUrl: localMediaUrl,
+      narrationUrl: localNarrationUrl,
+      loading: needsRemoteMediaUrl || needsRemoteNarrationUrl,
+      message: null,
+    });
+
+    void Promise.allSettled([
+      needsRemoteMediaUrl && selected.mediaAssetId
+        ? assetsApi.downloadUrl(selected.mediaAssetId)
+        : Promise.resolve(null),
+      needsRemoteNarrationUrl && selectedChapter?.narrationAssetId
+        ? assetsApi.downloadUrl(selectedChapter.narrationAssetId)
+        : Promise.resolve(null),
+    ]).then(([mediaResult, narrationResult]) => {
+      if (!active) return;
+      const remoteMediaUrl =
+        mediaResult.status === "fulfilled" ? mediaResult.value?.url ?? null : null;
+      const remoteNarrationUrl =
+        narrationResult.status === "fulfilled" ? narrationResult.value?.url ?? null : null;
+      const mediaUrl = localMediaUrl ?? remoteMediaUrl;
+      const narrationUrl = localNarrationUrl ?? remoteNarrationUrl;
+      const messages: string[] = [];
+      if (selected.mediaAssetId && !mediaUrl) {
+        messages.push("Không lấy được media preview URL.");
+      }
+      if (selectedChapter?.narrationAssetId && !narrationUrl) {
+        messages.push("Không lấy được narration preview URL.");
+      }
+      setPreviewSources({
+        mediaUrl,
+        narrationUrl,
+        loading: false,
+        message: messages.length ? messages.join(" ") : null,
+      });
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [
+    narrationAsset?.storageMode,
+    projectId,
+    selected,
+    selectedChapter?.narrationAssetId,
+  ]);
+
   const selectBeat = (beat: DesktopTimelineBeat) => {
     setSelectedId(beat.visualBeatId);
     setPlayheadMs(beat.startMs);
@@ -115,14 +241,14 @@ export function EditorScreen({
 
   const handleStepMs = (deltaMs: number) => {
     setPlayheadMs((current) =>
-      Math.max(0, Math.min(scopeWindow.endMs, current + deltaMs)),
+      Math.max(scopeWindow.startMs, Math.min(scopeWindow.endMs, current + deltaMs)),
     );
   };
 
   const handleSeek = (targetMs: number) => {
     setPlayheadMs(targetMs);
     const beatAtTime = beats.find(
-      (beat) => targetMs >= beat.startMs && targetMs <= beat.endMs,
+      (beat) => targetMs >= beat.startMs && targetMs < beat.endMs,
     );
     if (beatAtTime && beatAtTime.visualBeatId !== selectedId) {
       setSelectedId(beatAtTime.visualBeatId);
@@ -171,6 +297,7 @@ export function EditorScreen({
         contentType: selection.contentType,
         sizeBytes: selection.sizeBytes,
         checksumSha256: selection.checksumSha256,
+        durationMs: selection.durationMs,
       });
       await window.narrativex.localStorage.commitSelectedAsset({
         projectId,
@@ -178,26 +305,36 @@ export function EditorScreen({
         kind: selection.kind,
         selectionToken: selection.selectionToken,
       });
+      const autoFit = chooseMediaFit({
+        mediaType: selection.kind === "VIDEO" ? "VIDEO" : "IMAGE",
+        sourceDurationMs: asset.durationMs,
+        durationMs: selected.durationMs,
+      });
       await productionApi.updateBeatMedia(projectId, selected.visualBeatId, {
         mediaAssetId: asset.id,
-        fitMode: selection.kind === "VIDEO" ? "FREEZE_END" : "TRIM",
-        trimStartMs: 0,
+        fitMode: autoFit.fitMode,
+        trimStartMs: autoFit.trimStartMs,
       });
-    }, expectedType === "VIDEO" ? "Video đã được gắn vào Visual Beat." : "Ảnh đã được gắn vào Visual Beat.");
+    }, expectedType === "VIDEO" ? "Video đã được gắn và Auto Edit sẽ tự fit theo narration." : "Ảnh đã được gắn vào Visual Beat.");
   }
 
   async function chooseExistingAsset(assetId: string) {
     if (!projectId || !selected) return;
     const asset = selectableAssets.find((candidate) => candidate.id === assetId);
     if (!asset) return;
+    const autoFit = chooseMediaFit({
+      mediaType: asset.type === "VIDEO" ? "VIDEO" : "IMAGE",
+      sourceDurationMs: asset.durationMs,
+      durationMs: selected.durationMs,
+    });
     await withMediaMutation(
       () =>
         productionApi.updateBeatMedia(projectId, selected.visualBeatId, {
           mediaAssetId: asset.id,
-          fitMode: asset.type === "VIDEO" ? "FREEZE_END" : "TRIM",
-          trimStartMs: 0,
+          fitMode: autoFit.fitMode,
+          trimStartMs: autoFit.trimStartMs,
         }),
-      `${asset.originalFilename} đã được gắn vào Visual Beat.`,
+      `${asset.originalFilename} đã được gắn; Auto Edit chọn ${autoFit.fitMode}.`,
     );
   }
 
@@ -210,7 +347,7 @@ export function EditorScreen({
           fitMode,
           trimStartMs: selected.trimStartMs,
         }),
-      `Fit mode đã chuyển sang ${fitMode}.`,
+      `Manual override đã chuyển fit mode sang ${fitMode}.`,
     );
   }
 
@@ -235,7 +372,13 @@ export function EditorScreen({
       <div className="flex min-h-0 min-w-0 flex-col overflow-hidden border-r border-border-subtle bg-background">
         <div className="nx-editor-preview-panel min-h-[400px] shrink-0">
           <EditorPreviewViewport
-            selectedBeat={selected}
+            selectedBeat={previewBeat}
+            mediaUrl={previewSources.mediaUrl}
+            narrationUrl={previewSources.narrationUrl}
+            narrationStartMs={selectedChapter?.startMs ?? null}
+            narrationEndMs={selectedChapter?.endMs ?? null}
+            previewLoading={previewSources.loading}
+            previewMessage={previewSources.message}
             playheadMs={playheadMs}
             scopeWindowStartMs={scopeWindow.startMs}
             scopeWindowEndMs={scopeWindow.endMs}
@@ -262,6 +405,7 @@ export function EditorScreen({
 
       <EditorInspectorPanel
         selectedBeat={selected}
+        autoDecision={autoDecision}
         selectableAssets={selectableAssets}
         mediaBusy={mediaBusy}
         mediaNotice={mediaNotice}

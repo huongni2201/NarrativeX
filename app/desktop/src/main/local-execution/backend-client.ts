@@ -35,6 +35,8 @@ export interface ClaimedProjectRenderChapter {
   sizeBytes: number;
   checksum: string;
   durationMs: number;
+  subtitleText: string;
+  subtitleSpansJson: string | null;
 }
 
 export interface ClaimedProjectRenderBeat {
