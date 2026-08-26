@@ -50,7 +50,7 @@ class DesktopGuestIdentityPostgreSqlIntegrationTest {
     registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
     registry.add("spring.flyway.enabled", () -> true);
     registry.add("spring.flyway.baseline-on-migrate", () -> false);
-    registry.add("spring.data.redis.repositories.enabled", () -> false);
+    registry.add("spring.session.jdbc.initialize-schema", () -> "never");
   }
 
   @Autowired private DesktopGuestIdentity desktopGuestIdentity;
@@ -161,7 +161,8 @@ class DesktopGuestIdentityPostgreSqlIntegrationTest {
     desktopGuestIdentity.transferOwnership(guestUserId, targetUserId);
 
     try (Connection connection = dataSource.getConnection()) {
-      assertEquals(targetUserId, scalarString(connection, "SELECT owner_id FROM projects WHERE id = ?", projectId));
+      assertEquals(
+          targetUserId, scalarString(connection, "SELECT owner_id FROM projects WHERE id = ?", projectId));
       assertEquals(
           1L,
           scalarLong(
