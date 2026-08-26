@@ -13,8 +13,9 @@ import { chaptersApi } from "../../chapters/api/chapters.api";
 import { charactersApi } from "../../characters/api/characters.api";
 import { presetsApi } from "../../presets/api/presets.api";
 import { productionApi } from "../../production/api/production.api";
-import { useProjectsQuery } from "../../projects/queries/projects.queries";
+import { useProjectQuery } from "../../projects/queries/projects.queries";
 import { voicesApi } from "../../voices/api/voices.api";
+import type { ActivityId } from "../workspace-navigation";
 
 export interface DesktopWorkspaceState {
   status: "loading" | "ready" | "partial" | "empty" | "error";
@@ -28,6 +29,82 @@ export interface DesktopWorkspaceState {
   error: string | null;
 }
 
+type WorkspaceQueryRequirements = Readonly<{
+  timeline: boolean;
+  chapters: boolean;
+  assets: boolean;
+  characters: boolean;
+  voices: boolean;
+  presets: boolean;
+}>;
+
+const QUERY_REQUIREMENTS: Record<ActivityId, WorkspaceQueryRequirements> = {
+  editor: {
+    timeline: true,
+    chapters: false,
+    assets: true,
+    characters: false,
+    voices: false,
+    presets: false,
+  },
+  chapters: {
+    timeline: true,
+    chapters: true,
+    assets: false,
+    characters: false,
+    voices: true,
+    presets: false,
+  },
+  characters: {
+    timeline: false,
+    chapters: false,
+    assets: false,
+    characters: true,
+    voices: false,
+    presets: false,
+  },
+  images: {
+    timeline: true,
+    chapters: true,
+    assets: false,
+    characters: false,
+    voices: false,
+    presets: false,
+  },
+  voice: {
+    timeline: true,
+    chapters: true,
+    assets: true,
+    characters: false,
+    voices: true,
+    presets: false,
+  },
+  assets: {
+    timeline: false,
+    chapters: false,
+    assets: true,
+    characters: false,
+    voices: false,
+    presets: false,
+  },
+  render: {
+    timeline: true,
+    chapters: false,
+    assets: false,
+    characters: false,
+    voices: false,
+    presets: false,
+  },
+  settings: {
+    timeline: false,
+    chapters: false,
+    assets: true,
+    characters: false,
+    voices: false,
+    presets: true,
+  },
+};
+
 const emptyWorkspace: DesktopWorkspaceState = {
   status: "empty",
   projects: [],
@@ -40,55 +117,59 @@ const emptyWorkspace: DesktopWorkspaceState = {
   error: null,
 };
 
-export function useProjectWorkspace(projectId: string | null) {
-  const projectsQuery = useProjectsQuery();
+export function useProjectWorkspace(projectId: string | null, screen: ActivityId) {
+  const projectQuery = useProjectQuery(projectId);
   const enabled = Boolean(projectId);
+  const requirements = QUERY_REQUIREMENTS[screen];
 
   const timelineQuery = useQuery({
     queryKey: ["projects", projectId, "timeline"],
     queryFn: () => productionApi.getTimeline(projectId as string),
-    enabled,
+    enabled: enabled && requirements.timeline,
   });
   const chaptersQuery = useQuery({
     queryKey: ["projects", projectId, "chapters", timelineQuery.data?.storyVersionId],
     queryFn: () =>
       chaptersApi.listAll(projectId as string, timelineQuery.data?.storyVersionId as string),
-    enabled: enabled && Boolean(timelineQuery.data?.storyVersionId),
+    enabled:
+      enabled && requirements.chapters && Boolean(timelineQuery.data?.storyVersionId),
   });
   const assetsQuery = useQuery({
     queryKey: ["assets", "library"],
     queryFn: assetsApi.listAll,
-    enabled,
+    enabled: enabled && requirements.assets,
   });
   const charactersQuery = useQuery({
     queryKey: ["projects", projectId, "characters"],
     queryFn: () => charactersApi.listAll(projectId as string),
-    enabled,
+    enabled: enabled && requirements.characters,
   });
   const voicesQuery = useQuery({
     queryKey: ["voices"],
     queryFn: voicesApi.list,
-    enabled,
+    enabled: enabled && requirements.voices,
   });
   const presetsQuery = useQuery({
     queryKey: ["presets"],
     queryFn: presetsApi.list,
-    enabled,
+    enabled: enabled && requirements.presets,
   });
 
-  const projects = projectsQuery.data?.content ?? [];
-  const queries = [
-    projectsQuery,
-    timelineQuery,
-    assetsQuery,
-    charactersQuery,
-    voicesQuery,
-    presetsQuery,
-    ...(timelineQuery.data?.storyVersionId ? [chaptersQuery] : []),
+  const projects = projectQuery.data ? [projectQuery.data] : [];
+  const resourceQueries = [
+    ...(requirements.timeline ? [timelineQuery] : []),
+    ...(requirements.chapters ? [chaptersQuery] : []),
+    ...(requirements.assets ? [assetsQuery] : []),
+    ...(requirements.characters ? [charactersQuery] : []),
+    ...(requirements.voices ? [voicesQuery] : []),
+    ...(requirements.presets ? [presetsQuery] : []),
   ];
+  const queries = [projectQuery, ...resourceQueries];
   const hasPending = queries.some((query) => query.isLoading);
-  const timeline = timelineQuery.data ?? null;
   const firstError = queries.find((query) => query.isError)?.error;
+  const hasScreenData =
+    resourceQueries.length === 0 || resourceQueries.some((query) => query.isSuccess);
+  const timeline = requirements.timeline ? (timelineQuery.data ?? null) : null;
 
   const workspace: DesktopWorkspaceState = !projectId
     ? { ...emptyWorkspace, projects }
@@ -96,25 +177,25 @@ export function useProjectWorkspace(projectId: string | null) {
         status: hasPending
           ? "loading"
           : firstError
-            ? timeline
+            ? hasScreenData
               ? "partial"
               : "error"
-            : timeline
-              ? "ready"
-              : "empty",
+            : requirements.timeline && !timeline
+              ? "empty"
+              : "ready",
         projects,
-        assets: assetsQuery.data ?? [],
-        characters: charactersQuery.data ?? [],
-        voices: voicesQuery.data ?? [],
-        presets: presetsQuery.data ?? [],
+        assets: requirements.assets ? (assetsQuery.data ?? []) : [],
+        characters: requirements.characters ? (charactersQuery.data ?? []) : [],
+        voices: requirements.voices ? (voicesQuery.data ?? []) : [],
+        presets: requirements.presets ? (presetsQuery.data ?? []) : [],
         timeline,
-        chapters: chaptersQuery.data ?? [],
+        chapters: requirements.chapters ? (chaptersQuery.data ?? []) : [],
         error: firstError instanceof Error ? firstError.message : null,
       };
 
   return {
     workspace,
-    projectsQuery,
+    projectsQuery: projectQuery,
     timelineQuery,
     isPending: hasPending,
     isError: Boolean(firstError),

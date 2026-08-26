@@ -8,12 +8,21 @@ import {
 export const projectQueryKeys = {
   all: ["projects"] as const,
   list: () => [...projectQueryKeys.all, "list"] as const,
+  detail: (projectId: string) => [...projectQueryKeys.all, "detail", projectId] as const,
 };
 
 export function useProjectsQuery() {
   return useQuery({
     queryKey: projectQueryKeys.list(),
     queryFn: loadProjectsWithLocalFallback,
+  });
+}
+
+export function useProjectQuery(projectId: string | null) {
+  return useQuery({
+    queryKey: projectQueryKeys.detail(projectId ?? "none"),
+    queryFn: () => loadProjectWithLocalFallback(projectId as string),
+    enabled: Boolean(projectId),
   });
 }
 
@@ -50,6 +59,17 @@ export function useToggleProjectFavorite() {
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: projectQueryKeys.all }),
   });
+}
+
+async function loadProjectWithLocalFallback(projectId: string): Promise<DesktopProject> {
+  try {
+    return await projectsApi.get(projectId);
+  } catch (error) {
+    const localProjects = await readLocalProjectsSafely();
+    const localProject = localProjects.find((project) => project.id === projectId);
+    if (localProject) return localProject;
+    throw error;
+  }
 }
 
 async function loadProjectsWithLocalFallback() {

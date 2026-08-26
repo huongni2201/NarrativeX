@@ -18,7 +18,7 @@ export function ProjectWorkspaceRoute() {
   const { projectId } = useParams<{ projectId: string }>();
   const setActiveProject = useProjectSessionStore((state) => state.setActiveProject);
   const screen = screenFromWorkspacePath(location.pathname);
-  const { workspace } = useProjectWorkspace(projectId ?? null);
+  const { workspace } = useProjectWorkspace(projectId ?? null, screen);
 
   useEffect(() => {
     if (!projectId) return;

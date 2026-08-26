@@ -11,7 +11,7 @@ import {
   isRecord,
   isString,
 } from "../../../api/guards";
-import { parseCursorPage } from "../../../api/pagination";
+import { collectCursorPages, parseCursorPage } from "../../../api/pagination";
 
 export interface ProjectDashboardCounts {
   all: number;
@@ -22,6 +22,8 @@ export interface ProjectDashboardCounts {
 export interface ProjectsPage extends CursorPage<DesktopProject> {
   counts: ProjectDashboardCounts;
 }
+
+const PROJECT_PAGE_LIMIT = 50;
 
 function isProject(value: unknown): value is DesktopProject {
   return (
@@ -68,13 +70,38 @@ function parsePage(value: unknown): ProjectsPage {
   };
 }
 
+async function listPage(cursor: string | null = null): Promise<ProjectsPage> {
+  const params = new URLSearchParams({
+    limit: String(PROJECT_PAGE_LIMIT),
+    sort: "NEWEST",
+  });
+  if (cursor) params.set("cursor", cursor);
+  return apiRequest<unknown>(`/api/v1/projects/dashboard?${params.toString()}`, {}, 20_000).then(
+    parsePage,
+  );
+}
+
+async function listAll(): Promise<ProjectsPage> {
+  const pages = await collectCursorPages<ProjectsPage>(
+    listPage,
+    "Projects pagination returned a repeated cursor.",
+  );
+  const firstPage = pages[0];
+  if (!firstPage) throw new Error("Projects pagination returned no page.");
+
+  return {
+    ...firstPage,
+    content: pages.flatMap((page) => page.content),
+    nextCursor: null,
+    hasNext: false,
+  };
+}
+
 export const projectsApi = {
-  list: () =>
-    apiRequest<unknown>(
-      "/api/v1/projects/dashboard?limit=50&sort=NEWEST",
-      {},
-      20_000,
-    ).then(parsePage),
+  list: listAll,
+
+  get: (projectId: string) =>
+    apiRequest<DesktopProject>(`/api/v1/projects/${encodeURIComponent(projectId)}`),
 
   create: (input: CreateProjectInput) =>
     apiRequest<DesktopProject>("/api/v1/projects", {

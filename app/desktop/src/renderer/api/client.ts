@@ -2,10 +2,6 @@ import type { ApiResponse, FieldViolation } from "@narrativex/client-contracts";
 import { requestAuthentication } from "./auth-required-event.ts";
 import { isRecord, isString } from "./guards.ts";
 
-const API_BASE_URL = (
-  (import.meta as ImportMeta & { env?: { VITE_API_BASE_URL?: string } }).env?.VITE_API_BASE_URL ??
-  "http://localhost:8080"
-).replace(/\/$/, "");
 const DEFAULT_TIMEOUT_MS = 30_000;
 
 interface CsrfTokenResponse {
@@ -60,8 +56,8 @@ export class DesktopApiProtocolError extends Error {
   }
 }
 
-export function apiBaseUrl(): string {
-  return API_BASE_URL;
+export function resetApiSessionState(): void {
+  csrfTokenPromise = undefined;
 }
 
 export function parseApiResponseBody<T>(path: string, bodyText: string): ApiResponse<T> {
@@ -157,7 +153,7 @@ async function executeApiRequest(
   );
 
   if (!isSuccessful(response.status)) {
-    if (response.status === 401 || response.status === 403) csrfTokenPromise = undefined;
+    if (response.status === 401 || response.status === 403) resetApiSessionState();
     const error = buildApiError(path, response);
     if (error.code === "AUTHENTICATION_REQUIRED") {
       requestAuthentication(error.message, path);
