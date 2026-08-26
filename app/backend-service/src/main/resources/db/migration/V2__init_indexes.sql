@@ -12,6 +12,8 @@ CREATE INDEX idx_local_devices_last_seen
     WHERE revoked_at IS NULL;
 CREATE INDEX idx_local_media_materializations_device_project_state
     ON local_media_materializations (local_device_id, project_id, state, media_asset_id);
+CREATE INDEX idx_desktop_guest_installations_last_seen
+    ON desktop_guest_installations (last_seen_at DESC);
 
 -- Projects and story structure
 CREATE INDEX idx_projects_owner_status ON projects (owner_id, status);
@@ -161,6 +163,8 @@ CREATE INDEX idx_media_assets_account_status
 CREATE INDEX idx_media_assets_account_created_visible
     ON media_assets (account_id, created_at DESC, id DESC)
     WHERE status <> 'DELETED' AND deleted_at IS NULL;
+CREATE INDEX idx_production_beat_media_selection_asset
+    ON production_beat_media_selections (media_asset_id);
 CREATE INDEX idx_character_version_reference_asset
     ON character_version_reference_assets (media_asset_id);
 CREATE INDEX idx_media_asset_checksums_asset

@@ -1,42 +1,7 @@
 -- NarrativeX final PostgreSQL/Flyway baseline: relational schema and database logic.
+-- Requires PostgreSQL 18+ for the native uuidv7() function.
 -- V1 creates tables, constraints, functions and triggers only.
 -- V2 creates indexes. V3 inserts deterministic bootstrap/catalog data.
-
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
-
-CREATE OR REPLACE FUNCTION narrativex_uuid_v7()
-RETURNS UUID
-LANGUAGE plpgsql
-VOLATILE
-AS $$
-DECLARE
-    unix_ts_ms BIGINT;
-    random_bytes BYTEA;
-    random_hex TEXT;
-    raw_hex TEXT;
-    variant_hex TEXT;
-BEGIN
-    unix_ts_ms := floor(extract(epoch FROM clock_timestamp()) * 1000)::BIGINT;
-    random_bytes := gen_random_bytes(10);
-    random_hex := encode(random_bytes, 'hex');
-    variant_hex := lpad(to_hex((get_byte(random_bytes, 2) & 63) | 128), 2, '0');
-
-    raw_hex :=
-        lpad(to_hex(unix_ts_ms), 12, '0')
-        || '7'
-        || substr(random_hex, 1, 3)
-        || variant_hex
-        || substr(random_hex, 7, 14);
-
-    RETURN (
-        substr(raw_hex, 1, 8) || '-'
-        || substr(raw_hex, 9, 4) || '-'
-        || substr(raw_hex, 13, 4) || '-'
-        || substr(raw_hex, 17, 4) || '-'
-        || substr(raw_hex, 21, 12)
-    )::uuid;
-END;
-$$;
 
 -- -----------------------------------------------------------------------------
 -- Authentication
@@ -85,12 +50,26 @@ CREATE TABLE local_device_capabilities (
     PRIMARY KEY (device_id, capability)
 );
 
+-- Stable guest identities for NarrativeX Desktop installations.
+-- The guest principal remains an internal auth row only; Google is still the only
+-- persisted end-user login provider. Installation secrets are stored as SHA-256 hashes.
+CREATE TABLE desktop_guest_installations (
+    device_id UUID PRIMARY KEY,
+    guest_user_id VARCHAR(128) NOT NULL UNIQUE REFERENCES auth_users(id) ON DELETE CASCADE,
+    secret_hash VARCHAR(64) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT ck_desktop_guest_installations_secret_hash
+        CHECK (secret_hash ~ '^[0-9a-f]{64}$')
+);
+
 -- -----------------------------------------------------------------------------
 -- Projects, stories, chapters and storyboard revisions
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE projects (
-    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -116,7 +95,7 @@ CREATE TABLE project_favorites (
 );
 
 CREATE TABLE story_versions (
-    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -131,7 +110,7 @@ CREATE TABLE story_versions (
 );
 
 CREATE TABLE chapters (
-    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -151,7 +130,7 @@ CREATE TABLE chapters (
 );
 
 CREATE TABLE chapter_creation_idempotency (
-    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     owner_id VARCHAR(128) NOT NULL REFERENCES auth_users(id),
     project_id UUID NOT NULL REFERENCES projects(id),
     idempotency_key VARCHAR(200) NOT NULL,
@@ -165,7 +144,7 @@ CREATE TABLE chapter_creation_idempotency (
 );
 
 CREATE TABLE chapter_content_variants (
-    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     chapter_id UUID NOT NULL REFERENCES chapters(id),
     source_variant_id UUID REFERENCES chapter_content_variants(id),
     variant_type VARCHAR(32) NOT NULL,
@@ -212,7 +191,7 @@ CREATE TABLE language_detections (
 );
 
 CREATE TABLE storyboard_revisions (
-    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -237,7 +216,7 @@ ALTER TABLE chapters
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE characters (
-    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -249,7 +228,7 @@ CREATE TABLE characters (
 );
 
 CREATE TABLE character_versions (
-    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -264,7 +243,7 @@ CREATE TABLE character_versions (
 );
 
 CREATE TABLE outfit_versions (
-    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -279,7 +258,7 @@ CREATE TABLE outfit_versions (
 );
 
 CREATE TABLE character_appearances (
-    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -298,7 +277,7 @@ CREATE TABLE character_appearances (
 );
 
 CREATE TABLE project_characters (
-    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -317,7 +296,7 @@ CREATE TABLE project_characters (
 );
 
 CREATE TABLE project_locations (
-    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -332,7 +311,7 @@ CREATE TABLE project_locations (
 );
 
 CREATE TABLE project_assets (
-    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -399,7 +378,7 @@ CREATE TABLE project_location_ai_identities (
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE scenes (
-    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -424,7 +403,7 @@ CREATE TABLE scene_characters (
 );
 
 CREATE TABLE visual_beats (
-    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -566,7 +545,7 @@ CREATE TABLE media_beat_plans (
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE generation_jobs (
-    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -623,7 +602,7 @@ CREATE TABLE generation_jobs (
 );
 
 CREATE TABLE stage_attempts (
-    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -642,7 +621,7 @@ CREATE TABLE stage_attempts (
 );
 
 CREATE TABLE provider_operations (
-    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -676,7 +655,7 @@ CREATE TABLE provider_operations (
 );
 
 CREATE TABLE operation_plans (
-    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -786,6 +765,25 @@ CREATE TABLE media_assets (
     CONSTRAINT ck_media_assets_sha256 CHECK (sha256 ~ '^[0-9a-f]{64}$'),
     CONSTRAINT ck_media_assets_duration CHECK (duration_ms IS NULL OR duration_ms > 0),
     CONSTRAINT uk_media_assets_account_storage_key UNIQUE (account_id, storage_key)
+);
+
+-- Durable non-destructive editor selection for the media used by each VisualBeat.
+-- Scene and Chapter remain logical groups; the selected media is resolved when the
+-- production timeline/render snapshot is built.
+CREATE TABLE production_beat_media_selections (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    row_version BIGINT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    visual_beat_id UUID NOT NULL REFERENCES visual_beats(id) ON DELETE CASCADE,
+    media_asset_id UUID NOT NULL REFERENCES media_assets(id),
+    fit_mode VARCHAR(24) NOT NULL DEFAULT 'TRIM',
+    trim_start_ms BIGINT NOT NULL DEFAULT 0,
+    CONSTRAINT uq_production_beat_media_selection UNIQUE (project_id, visual_beat_id),
+    CONSTRAINT ck_production_beat_media_selection_fit_mode
+        CHECK (fit_mode IN ('TRIM', 'LOOP', 'FREEZE_END', 'SPEED_ADJUST')),
+    CONSTRAINT ck_production_beat_media_selection_trim_start CHECK (trim_start_ms >= 0)
 );
 
 -- Server-side registry of which paired desktop device currently has a materialized
@@ -1041,7 +1039,7 @@ CREATE TABLE outbox_events (
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE render_manifests (
-    id UUID PRIMARY KEY DEFAULT narrativex_uuid_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     chapter_id UUID NOT NULL REFERENCES chapters(id) ON DELETE CASCADE,
     media_plan_id UUID REFERENCES media_plans(id),
@@ -1455,6 +1453,9 @@ CREATE TABLE project_render_input_chapters (
     CONSTRAINT ck_project_render_chapter_range CHECK (global_end_ms > global_start_ms)
 );
 
+-- Render jobs snapshot editor media choices immutably. LOCAL_ONLY media deliberately
+-- has no backend storage key; the assigned Desktop resolves it by stable mediaAssetId
+-- from its project.manifest.json.
 CREATE TABLE project_render_input_beats (
     generation_job_id UUID NOT NULL REFERENCES project_render_input_snapshots(generation_job_id) ON DELETE CASCADE,
     chapter_id UUID NOT NULL REFERENCES chapters(id),
@@ -1466,11 +1467,22 @@ CREATE TABLE project_render_input_beats (
     global_end_ms BIGINT NOT NULL,
     duration_ms BIGINT NOT NULL CHECK (duration_ms > 0),
     camera_movement VARCHAR(32) NOT NULL DEFAULT 'NONE',
-    storage_key TEXT NOT NULL,
+    storage_key TEXT,
     size_bytes BIGINT NOT NULL CHECK (size_bytes > 0),
     checksum VARCHAR(128) NOT NULL,
+    media_type VARCHAR(16) NOT NULL DEFAULT 'IMAGE',
+    storage_mode VARCHAR(24) NOT NULL DEFAULT 'REMOTE',
+    source_duration_ms BIGINT,
+    fit_mode VARCHAR(24) NOT NULL DEFAULT 'TRIM',
+    trim_start_ms BIGINT NOT NULL DEFAULT 0,
+    media_selection_active BOOLEAN NOT NULL DEFAULT FALSE,
     PRIMARY KEY (generation_job_id, visual_beat_id),
-    CONSTRAINT ck_project_render_beat_range CHECK (global_end_ms > global_start_ms)
+    CONSTRAINT ck_project_render_beat_range CHECK (global_end_ms > global_start_ms),
+    CONSTRAINT ck_project_render_input_beat_media_type CHECK (media_type IN ('IMAGE', 'VIDEO')),
+    CONSTRAINT ck_project_render_input_beat_storage_mode CHECK (storage_mode IN ('REMOTE', 'LOCAL_ONLY', 'HYBRID')),
+    CONSTRAINT ck_project_render_input_beat_source_duration CHECK (source_duration_ms IS NULL OR source_duration_ms > 0),
+    CONSTRAINT ck_project_render_input_beat_fit_mode CHECK (fit_mode IN ('TRIM', 'LOOP', 'FREEZE_END', 'SPEED_ADJUST')),
+    CONSTRAINT ck_project_render_input_beat_trim_start CHECK (trim_start_ms >= 0)
 );
 
 -- -----------------------------------------------------------------------------
