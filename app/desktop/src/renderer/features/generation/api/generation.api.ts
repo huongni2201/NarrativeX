@@ -1,4 +1,5 @@
 import type {
+  ConfirmChapterTranslationInput,
   CreateMediaJobInput,
   GenerationJob,
   MediaJobCostEstimate,
@@ -15,6 +16,16 @@ export const generationApi = {
         method: "POST",
         headers: { "Idempotency-Key": crypto.randomUUID() },
       },
+    ),
+
+  translateChapter: (
+    projectId: string,
+    chapterId: string,
+    input: ConfirmChapterTranslationInput,
+  ) =>
+    apiRequest<GenerationJob>(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/chapters/${encodeURIComponent(chapterId)}/translations`,
+      { method: "POST", body: JSON.stringify(input) },
     ),
 
   estimate: (
