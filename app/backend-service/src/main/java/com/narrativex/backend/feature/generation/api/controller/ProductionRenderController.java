@@ -86,7 +86,11 @@ public class ProductionRenderController {
             .map(
                 override ->
                     new RenderBeatOverride(
-                        override.visualBeatId(), override.durationMs(), override.cameraMovement()))
+                        override.visualBeatId(),
+                        override.durationMs(),
+                        override.cameraMovement(),
+                        override.fitMode(),
+                        override.trimStartMs()))
             .toList();
     var job =
         createProjectRenderUseCase.execute(
