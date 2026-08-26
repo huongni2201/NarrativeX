@@ -2,7 +2,7 @@
 -- V1 creates the complete relational schema. This migration adds query/access-path
 -- indexes and partial uniqueness that is not required to create foreign keys.
 
--- Local execution devices
+-- Local execution devices and desktop session runtime
 CREATE INDEX idx_local_device_pairing_codes_user
     ON local_device_pairing_codes (user_id, created_at DESC);
 CREATE INDEX idx_local_devices_user
@@ -14,6 +14,13 @@ CREATE INDEX idx_local_media_materializations_device_project_state
     ON local_media_materializations (local_device_id, project_id, state, media_asset_id);
 CREATE INDEX idx_desktop_guest_installations_last_seen
     ON desktop_guest_installations (last_seen_at DESC);
+CREATE INDEX idx_desktop_auth_handoffs_expires_at
+    ON desktop_auth_handoffs (expires_at);
+CREATE UNIQUE INDEX SPRING_SESSION_IX1 ON SPRING_SESSION (SESSION_ID);
+CREATE INDEX SPRING_SESSION_IX2 ON SPRING_SESSION (EXPIRY_TIME);
+CREATE INDEX SPRING_SESSION_IX3 ON SPRING_SESSION (PRINCIPAL_NAME);
+CREATE INDEX SPRING_SESSION_ATTRIBUTES_IX1
+    ON SPRING_SESSION_ATTRIBUTES (SESSION_PRIMARY_ID);
 
 -- Projects and story structure
 CREATE INDEX idx_projects_owner_status ON projects (owner_id, status);
@@ -44,22 +51,6 @@ CREATE INDEX idx_chapters_deleted_at
 CREATE INDEX idx_chapter_creation_idempotency_chapter
     ON chapter_creation_idempotency (chapter_id)
     WHERE chapter_id IS NOT NULL;
-CREATE UNIQUE INDEX uq_chapter_original_variants_identity
-    ON chapter_content_variants (chapter_id, language_code, content_hash)
-    WHERE variant_type = 'ORIGINAL';
-CREATE UNIQUE INDEX uq_chapter_translation_variants_lineage
-    ON chapter_content_variants (
-        chapter_id,
-        source_variant_id,
-        language_code,
-        source_content_hash,
-        content_hash
-    )
-    WHERE variant_type = 'TRANSLATION';
-CREATE INDEX idx_chapter_content_variants_chapter_created
-    ON chapter_content_variants (chapter_id, created_at DESC, id DESC);
-CREATE INDEX idx_language_detections_variant_created
-    ON language_detections (content_variant_id, created_at DESC, id DESC);
 CREATE INDEX idx_storyboard_revisions_chapter_created
     ON storyboard_revisions (chapter_id, revision_number DESC);
 

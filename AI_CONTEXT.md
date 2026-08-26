@@ -6,12 +6,10 @@ NarrativeX is a desktop-first, image-first AI Story Video Studio. It turns flexi
 
 - `app/desktop`: only Electron + React + TypeScript editor; guest bootstrap, local project storage/catalog, native capabilities and local FFmpeg execution through Electron main.
 - `app/backend-service`: Spring Boot modular monolith; authoritative auth/ownership, domain metadata, policy, job admission, durable orchestration and Flyway schema ownership.
-- `app/ai-worker`: Python AI/media worker; provider adapters and asynchronous execution for analysis, translation, image generation, narration and generated-media validation.
+- `app/ai-worker`: Python AI/media worker; provider adapters and asynchronous execution for chapter analysis, image generation, narration and generated-media validation.
 - `packages/client-contracts`: shared Desktop-facing backend contracts.
 - `contracts`: backend ↔ worker payload contracts.
 - `documentation`: source of truth, product/domain/architecture/workflows, ADRs and current-state implementation maps.
-
-Current documentation checkpoint: `main` at `0aca94e6eef07158e161cd67c648671e74055473` (2026-08-26).
 
 ## Authority model
 
@@ -59,6 +57,10 @@ Google is the only end-user account sign-in provider. Never reintroduce password
 
 The guest installation secret, signed-in user session and local-execution device token are separate credentials. Google provider tokens never enter Electron.
 
+## Chapter source contract
+
+`chapters.source_text` and `chapters.source_hash` are the authoritative saved Chapter source. Analyze and narration flows consume that saved Chapter directly. Do not reintroduce translation gating, language-detection confirmation, translated content variants, `contentVariantId`, `sourceVariantId` or `targetLanguage` generation lineage unless the product direction explicitly changes.
+
 ## Desktop local-first media contract
 
 ```text
@@ -97,7 +99,7 @@ Do not describe these implemented foundations as future migration work.
 
 Production backend application persistence is MyBatis + explicit PostgreSQL SQL. JPA and direct `JdbcTemplate` persistence are not production application persistence paths.
 
-Current Flyway baseline:
+Final pre-release Flyway baseline:
 
 ```text
 V1__create_tables.sql
@@ -105,7 +107,7 @@ V2__init_indexes.sql
 V3__seed_data.sql
 ```
 
-V1-V3 are the frozen consolidated baseline. `desktop_guest_installations`, `production_beat_media_selections` and the current local-execution/render metadata structures are already part of V1. The next schema change must be an append-only `V4__*.sql` rather than a rewrite of V1-V3.
+V1 contains the complete relational/runtime schema, including Spring Session, Desktop OAuth handoffs and PostgreSQL runtime triggers. V2 contains the complete index/invariant set. V3 contains deterministic catalog/bootstrap data. There is no V4 in this final consolidated baseline. After this baseline is adopted, future schema changes begin with append-only `V4__*.sql` migrations rather than rewriting V1-V3.
 
 ## Rendering rules
 

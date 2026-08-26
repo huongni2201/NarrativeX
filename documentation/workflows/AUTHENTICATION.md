@@ -96,7 +96,6 @@ If Google authentication fails, the backend logs the provider exception with the
 Guest users may inspect the app, create/edit project content, import local assets and request non-consuming reads. A signed-in account is required before starting operations that consume provider/cloud resources or account-only state, including:
 
 - story/chapter AI analysis;
-- chapter translation;
 - narration/TTS generation;
 - image/media generation;
 - cloud upload intents;
@@ -177,6 +176,6 @@ Durable Event (job completed / quota event)
   -> Client Notification Feed / SSE
 ```
 
-Generation/media outbox rows remain durable PostgreSQL records. Their dispatcher may emit PostgreSQL `NOTIFY` as a best-effort wake-up hint; workers must not depend on receipt of that notification and continue to discover durable work from PostgreSQL.
+Generation/media outbox rows remain durable PostgreSQL records. Workers continue to discover durable work from PostgreSQL regardless of best-effort wake-up mechanisms.
 
 `notifications` stores the current durable notification contract: `user_id`, optional `project_id`, unique `event_key`, `type`, `channel_state_json`, `title_key`, `message_key`, creation time and `read_at`. External delivery channels are implemented by application delivery adapters when a concrete workflow requires them; no separate preference table is part of the current database baseline.

@@ -26,9 +26,6 @@
               'chapterId', CAST(#{chapterId,jdbcType=OTHER,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler} AS UUID),
               'chapterRowVersion', CAST(#{chapterRowVersion,jdbcType=BIGINT} AS BIGINT),
               'sourceHash', #{sourceHash,jdbcType=VARCHAR},
-              'contentVariantId', CAST(#{contentVariantId,jdbcType=OTHER,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler} AS UUID),
-              'sourceVariantId', CAST(#{sourceVariantId,jdbcType=OTHER,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler} AS UUID),
-              'targetLanguage', #{targetLanguage,jdbcType=VARCHAR},
               'mediaPlanId', CAST(#{mediaPlanId,jdbcType=OTHER,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler} AS UUID),
               'mediaPlanRevision', CAST(#{mediaPlanRevision,jdbcType=INTEGER} AS INTEGER),
               'productionMode', CAST(#{productionMode,jdbcType=VARCHAR} AS TEXT)

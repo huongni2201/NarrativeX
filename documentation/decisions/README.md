@@ -8,7 +8,7 @@ This directory records decisions that affect more than one feature or change a p
    Spring Boot control plane, Python worker boundary, MyBatis/PostgreSQL persistence, durable jobs/leases/provider operations and cost authorization.
 
 2. **[ADR-0002: Storyboard aggregate, character continuity, motion models and production workflows](./ADR-0002-storyboard-character-continuity-and-production-workflows.md)**  
-   Chapter-first workflow, reusable Character identity, revision/history rules, VisualBeat/motion models and translation lineage.
+   Chapter-first workflow, reusable Character identity, revision/history rules and VisualBeat/motion models. Its historical translation-lineage portion is superseded by the current translation-free Chapter source baseline.
 
 3. **[ADR-0003: Media storage, generation pipelines and external provider integrations](./ADR-0003-media-storage-generation-pipelines-and-external-integrations.md)**  
    Cloud/worker media storage and provider integrations. R2 pipeline media + Google Drive final MP4 remain valid for the retained cloud/legacy execution path. **Desktop project-media storage is superseded by ADR-0012.**
@@ -60,6 +60,7 @@ This directory records decisions that affect more than one feature or change a p
 - ADR-0010 defines the primary client boundary and supersedes language that treats Next.js as the target editor.
 - ADR-0011 supersedes password-authentication product/runtime behavior and distinguishes user session credentials from execution device credentials.
 - ADR-0012 supersedes ADR-0003 only for Desktop project bytes and Desktop final artifacts. ADR-0003 remains valid for retained cloud/legacy worker execution and deliberately shared remote media.
+- The current translation-free Chapter source baseline supersedes translation/content-variant workflow and schema language in older ADRs; historical text remains only as rationale/history and is not an AS-IS contract.
 - A later accepted ADR wins when two decisions explicitly conflict in the same scope.
 
 Use the next sequential ADR number for future cross-cutting architectural decisions.

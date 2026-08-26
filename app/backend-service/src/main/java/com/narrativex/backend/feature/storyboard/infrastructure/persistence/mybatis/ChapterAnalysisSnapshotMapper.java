@@ -8,14 +8,5 @@ public interface ChapterAnalysisSnapshotMapper extends NarrativeXMyBatisMapper {
   ChapterAnalysisSnapshotRow findOwned(
       @Param("projectId") UUID projectId,
       @Param("chapterId") UUID chapterId,
-      @Param("userId") String userId,
-      @Param("contentVariantId") UUID contentVariantId);
-
-  boolean existsOwnedChapter(
-      @Param("projectId") UUID projectId,
-      @Param("chapterId") UUID chapterId,
       @Param("userId") String userId);
-
-  boolean existsReadyOriginalVariant(
-      @Param("projectId") UUID projectId, @Param("chapterId") UUID chapterId);
 }

@@ -21,16 +21,24 @@ Exact versions belong in `app/ai-worker/pyproject.toml`; do not duplicate versio
 
 ## Worker roles
 
-The same source tree is packaged into role-specific runtimes. Current Compose/config separates general/image, narration and render concurrency using role-appropriate settings such as:
+The supported worker roles are:
+
+```text
+analysis
+narration
+media-validation
+image-generation
+```
+
+The same source tree is packaged into role-specific runtimes. Current Compose/config separates general/image and narration concurrency using role-appropriate settings such as:
 
 ```text
 GENERAL_WORKER_CONCURRENCY
 NARRATION_WORKER_CONCURRENCY
-RENDER_WORKER_CONCURRENCY
 WORKER_ROLES
 ```
 
-Role-specific images/imports prevent one worker role from requiring every optional media dependency merely to start.
+Role-specific images/imports prevent one worker role from requiring every optional media dependency merely to start. Translation is not a supported worker role in the current product baseline.
 
 ## Chapter Analyze
 
@@ -40,7 +48,7 @@ Backend durable admission
   -> worker polls PostgreSQL
   -> FOR UPDATE ... SKIP LOCKED claim
   -> lease owner + heartbeat
-  -> persisted Chapter snapshot request
+  -> persisted saved Chapter source request
   -> provider execution
   -> Pydantic structured-result validation
   -> Chapter rowVersion/sourceHash stale guard
@@ -48,7 +56,7 @@ Backend durable admission
   -> terminal durable state
 ```
 
-Dropped delivery hints do not lose queued work because PostgreSQL is authoritative.
+The analysis source is the authoritative saved `chapters.source_text/source_hash`; there is no translation/content-variant selection layer. Dropped delivery hints do not lose queued work because PostgreSQL is authoritative.
 
 ## Provider operation fence
 
@@ -99,7 +107,7 @@ Remote R2 output is a server/provider durability boundary. Desktop workflows may
 
 ```text
 TTS
-  -> Google TTS or VieNeu execution
+  -> VieNeu execution
   -> validate/normalize
   -> retained remote materialization where required
   -> alignment
@@ -111,13 +119,9 @@ USER_PROVIDED_AUDIO
   -> no TTS_GENERATE for covered scope
 ```
 
-Narration provider ambiguity uses the same durable operation rules. Infrastructure failures after an external TTS side effect must not cause blind paid resubmission.
+Narration generation consumes saved Chapter content directly. Narration provider ambiguity uses the same durable operation rules. Infrastructure failures after an external TTS side effect must not cause blind paid resubmission.
 
 The worker may process user-owned voice references in ephemeral job storage when the authorized narration request allows it. Real-person samples require appropriate consent and must not become arbitrary durable payload secrets.
-
-## Translation
-
-Translation work is chunked by semantic/source identity. Each provider chunk owns a deterministic fingerprint and ProviderOperation boundary. Completed chunks can replay durable results; UNKNOWN chunks are not blindly resubmitted. Final immutable translation materializes only after all required chunks complete.
 
 ## Claim, lease and concurrency
 
@@ -134,15 +138,12 @@ Worker-local files are ephemeral execution scratch/cache. Runtime-file helpers v
 - Desktop local project bytes are owned by Electron main.
 - Worker scratch is disposable.
 - Retained remote server/provider media may use R2.
-- Retained cloud-render final MP4 may use Google Drive.
 
 The worker does not decide the Desktop storage topology.
 
-## Render role
+## Final project rendering
 
-The retained cloud/server render role consumes backend-pinned render input, runs FFmpeg/ffprobe, validates output and promotes final media through the configured cloud final-video storage adapter.
-
-Desktop `LOCAL_DEVICE` render is a different executor: it runs in Electron main under backend assignment/lease. Worker docs must not imply that all NarrativeX final videos are worker-rendered or uploaded to Google Drive.
+Final project video rendering belongs to Electron main under backend assignment/lease. The AI worker does not own Desktop `LOCAL_DEVICE` rendering, Desktop project paths or final MP4 bytes.
 
 ## Worker authority boundary
 
@@ -162,6 +163,8 @@ Desktop `LOCAL_DEVICE` render is a different executor: it runs in Electron main 
 - entitlement/billing policy authority;
 - Flyway schema ownership;
 - Desktop native paths/ProjectStorage/device credentials;
+- final project render execution;
+- chapter translation/content variants;
 - arbitrary paid-work escalation.
 
 ## Current gaps

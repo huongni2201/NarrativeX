@@ -10,11 +10,6 @@ public interface StoryboardRevisionAccess {
 
   UUID createDraft(UUID chapterId, String sourceHash, long sourceRowVersion);
 
-  default UUID createDraft(
-      UUID chapterId, String sourceHash, long sourceRowVersion, UUID contentVariantId) {
-    return createDraft(chapterId, sourceHash, sourceRowVersion);
-  }
-
   record Snapshot(UUID revisionId, String sourceHash, boolean hasApprovedOutput) {
     public static Snapshot empty() {
       return new Snapshot(null, null, false);

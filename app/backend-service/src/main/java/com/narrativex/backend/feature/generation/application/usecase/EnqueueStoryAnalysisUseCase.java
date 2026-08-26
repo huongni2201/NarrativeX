@@ -43,11 +43,8 @@ public class EnqueueStoryAnalysisUseCase {
   public GenerationJob execute(EnqueueStoryAnalysisCommand command) {
     String userId = currentUserId.get();
     var chapter =
-        command.contentVariantId() == null
-            ? chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(
-                command.projectId(), command.chapterId(), userId)
-            : chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(
-                command.projectId(), command.chapterId(), userId, command.contentVariantId());
+        chapterAnalysisSourceAccess.requireOwnedForAnalysisLocked(
+            command.projectId(), command.chapterId(), userId);
     if (chapter.sourceText().isBlank()) {
       throw new IllegalArgumentException("Chapter source must be saved before analysis");
     }
@@ -60,9 +57,7 @@ public class EnqueueStoryAnalysisUseCase {
             + ":"
             + chapter.rowVersion()
             + ":"
-            + chapter.sourceHash()
-            + ":"
-            + (chapter.contentVariantId() == null ? "original" : chapter.contentVariantId());
+            + chapter.sourceHash();
 
     generationJobRepository.acquireIdempotencyLock(baseIdempotencyKey, userId);
     var baseJob = generationJobRepository.findByIdempotencyKey(baseIdempotencyKey, userId);
@@ -72,8 +67,7 @@ public class EnqueueStoryAnalysisUseCase {
       if (!canRetry(existing.getStatus())) {
         return existing;
       }
-      var latest =
-          generationJobRepository.findLatestByIdempotencyFamily(baseIdempotencyKey, userId);
+      var latest = generationJobRepository.findLatestByIdempotencyFamily(baseIdempotencyKey, userId);
       if (latest.isPresent() && !canRetry(latest.get().getStatus())) {
         return latest.get();
       }
@@ -85,25 +79,13 @@ public class EnqueueStoryAnalysisUseCase {
     }
 
     var project = projectAccess.findOwnedProject(command.projectId(), userId);
-    String analysisLanguage =
-        chapter.language() == null
-                || chapter.language().isBlank()
-                || "und".equalsIgnoreCase(chapter.language())
-            ? project.getSourceLanguage()
-            : chapter.language();
-
+    String analysisLanguage = project.getSourceLanguage();
     var admission = admissionService.admit(userId, command.projectId(), chapter);
     var estimate = admission.estimate();
 
     UUID storyboardRevisionId =
-        chapter.contentVariantId() == null
-            ? storyboardRevisionAccess.createDraft(
-                command.chapterId(), chapter.sourceHash(), chapter.rowVersion())
-            : storyboardRevisionAccess.createDraft(
-                command.chapterId(),
-                chapter.sourceHash(),
-                chapter.rowVersion(),
-                chapter.contentVariantId());
+        storyboardRevisionAccess.createDraft(
+            command.chapterId(), chapter.sourceHash(), chapter.rowVersion());
 
     OperationPlan operationPlan =
         operationPlanRepository.save(
@@ -126,8 +108,7 @@ public class EnqueueStoryAnalysisUseCase {
                 chapter.sourceText(),
                 analysisLanguage,
                 idempotencyKey,
-                userId,
-                chapter.contentVariantId()));
+                userId));
 
     quotaReservation.bindToGenerationJob(admission.reservation().id(), job.getId());
     operationPlanRepository.save(operationPlan.withGenerationJobId(job.getId()));

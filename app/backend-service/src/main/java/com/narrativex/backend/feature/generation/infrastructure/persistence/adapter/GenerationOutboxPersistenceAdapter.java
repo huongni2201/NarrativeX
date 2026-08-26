@@ -27,9 +27,6 @@ public class GenerationOutboxPersistenceAdapter implements GenerationOutboxRepos
             job.getSourceHash(),
             job.getMediaPlanId(),
             job.getMediaPlanRevision(),
-            job.getProductionMode(),
-            job.getContentVariantId(),
-            job.getSourceVariantId(),
-            job.getTargetLanguage()));
+            job.getProductionMode()));
   }
 }

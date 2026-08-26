@@ -17,9 +17,7 @@ public class MyBatisGenerationJobPersistenceAdapter implements GenerationJobRepo
   private final GenerationJobMapper mapper;
 
   @Override
-  public GenerationJob save(GenerationJob job) {
-    return job.getId() == null ? create(job) : update(job);
-  }
+  public GenerationJob save(GenerationJob job) { return job.getId() == null ? create(job) : update(job); }
 
   private GenerationJob create(GenerationJob job) {
     UUID id = mapper.insert(toRow(job));
@@ -39,111 +37,42 @@ public class MyBatisGenerationJobPersistenceAdapter implements GenerationJobRepo
   }
 
   @Override
-  public Optional<GenerationJob> findByIdAndOwner(UUID id, String ownerId) {
-    return Optional.ofNullable(mapper.findByIdAndOwner(id, ownerId))
-        .map(MyBatisGenerationJobPersistenceAdapter::toDomain);
-  }
-
+  public Optional<GenerationJob> findByIdAndOwner(UUID id, String ownerId) { return Optional.ofNullable(mapper.findByIdAndOwner(id, ownerId)).map(MyBatisGenerationJobPersistenceAdapter::toDomain); }
   @Override
-  public Optional<GenerationJob> findByJobIdAndOwner(UUID jobId, String ownerId) {
-    return Optional.ofNullable(mapper.findByJobIdAndOwner(jobId, ownerId))
-        .map(MyBatisGenerationJobPersistenceAdapter::toDomain);
-  }
-
+  public Optional<GenerationJob> findByJobIdAndOwner(UUID jobId, String ownerId) { return Optional.ofNullable(mapper.findByJobIdAndOwner(jobId, ownerId)).map(MyBatisGenerationJobPersistenceAdapter::toDomain); }
   @Override
-  public Optional<GenerationJob> findByIdempotencyKey(String idempotencyKey, String ownerId) {
-    return Optional.ofNullable(mapper.findByIdempotencyKey(idempotencyKey, ownerId))
-        .map(MyBatisGenerationJobPersistenceAdapter::toDomain);
-  }
-
+  public Optional<GenerationJob> findByIdempotencyKey(String idempotencyKey, String ownerId) { return Optional.ofNullable(mapper.findByIdempotencyKey(idempotencyKey, ownerId)).map(MyBatisGenerationJobPersistenceAdapter::toDomain); }
   @Override
-  public Optional<GenerationJob> findLatestByIdempotencyFamily(
-      String baseIdempotencyKey, String ownerId) {
-    return Optional.ofNullable(mapper.findLatestByIdempotencyFamily(baseIdempotencyKey, ownerId))
-        .map(MyBatisGenerationJobPersistenceAdapter::toDomain);
-  }
-
+  public Optional<GenerationJob> findLatestByIdempotencyFamily(String baseIdempotencyKey, String ownerId) { return Optional.ofNullable(mapper.findLatestByIdempotencyFamily(baseIdempotencyKey, ownerId)).map(MyBatisGenerationJobPersistenceAdapter::toDomain); }
   @Override
-  public void acquireIdempotencyLock(String idempotencyKey, String ownerId) {
-    mapper.acquireIdempotencyLock(idempotencyKey, ownerId);
-  }
+  public void acquireIdempotencyLock(String idempotencyKey, String ownerId) { mapper.acquireIdempotencyLock(idempotencyKey, ownerId); }
 
   private GenerationJob requireInserted(UUID id) {
     GenerationJobRow inserted = mapper.findById(id);
-    if (inserted == null)
-      throw new IllegalStateException("Inserted generation job " + id + " disappeared");
+    if (inserted == null) throw new IllegalStateException("Inserted generation job " + id + " disappeared");
     return toDomain(inserted);
   }
 
   private static GenerationJobRow toRow(GenerationJob job) {
     return new GenerationJobRow(
-        job.getId(),
-        job.getRowVersion(),
-        null,
-        null,
-        job.getJobId(),
-        job.getProjectId(),
-        job.getType(),
-        job.getStatus(),
-        job.getResourceClass(),
-        job.getProgress(),
-        job.getCurrentStep(),
-        job.getErrorCode(),
-        job.getRequestedByUserId(),
-        job.getBilledToUserId(),
-        job.getStoryVersionId(),
-        job.getChapterId(),
-        job.getChapterRowVersion(),
-        job.getSourceHash(),
-        job.getSourceText(),
-        job.getSourceLanguage(),
-        job.getIdempotencyKey(),
-        job.getStoryboardRevisionId(),
-        job.getMediaPlanId(),
-        job.getMediaPlanRevision(),
-        job.getProductionMode(),
-        job.getContentVariantId(),
-        job.getSourceVariantId(),
-        job.getTargetLanguage());
+        job.getId(), job.getRowVersion(), null, null, job.getJobId(), job.getProjectId(),
+        job.getType(), job.getStatus(), job.getResourceClass(), job.getProgress(), job.getCurrentStep(),
+        job.getErrorCode(), job.getRequestedByUserId(), job.getBilledToUserId(), job.getStoryVersionId(),
+        job.getChapterId(), job.getChapterRowVersion(), job.getSourceHash(), job.getSourceText(),
+        job.getSourceLanguage(), job.getIdempotencyKey(), job.getStoryboardRevisionId(), job.getMediaPlanId(),
+        job.getMediaPlanRevision(), job.getProductionMode());
   }
 
   private static GenerationJob toDomain(GenerationJobRow row) {
     return GenerationJob.rehydrate(
-        row.getId(),
-        row.getRowVersion(),
-        row.getJobId(),
-        row.getProjectId(),
-        row.getType(),
-        row.getStatus(),
-        row.getResourceClass(),
-        row.getProgress(),
-        row.getCurrentStep(),
-        row.getErrorCode(),
-        row.getRequestedByUserId(),
-        row.getBilledToUserId(),
-        row.getStoryVersionId(),
-        row.getChapterId(),
-        row.getStoryboardRevisionId(),
-        row.getChapterRowVersion(),
-        row.getSourceHash(),
-        row.getSourceText(),
-        row.getSourceLanguage(),
-        row.getIdempotencyKey(),
-        row.getContentVariantId(),
-        row.getSourceVariantId(),
-        row.getTargetLanguage(),
-        row.getMediaPlanId(),
-        row.getMediaPlanRevision(),
+        row.getId(), row.getRowVersion(), row.getJobId(), row.getProjectId(), row.getType(), row.getStatus(),
+        row.getResourceClass(), row.getProgress(), row.getCurrentStep(), row.getErrorCode(),
+        row.getRequestedByUserId(), row.getBilledToUserId(), row.getStoryVersionId(), row.getChapterId(),
+        row.getStoryboardRevisionId(), row.getChapterRowVersion(), row.getSourceHash(), row.getSourceText(),
+        row.getSourceLanguage(), row.getIdempotencyKey(), row.getMediaPlanId(), row.getMediaPlanRevision(),
         row.getProductionMode());
   }
 
-  private static ResourceNotFoundException missing(UUID id) {
-    return new ResourceNotFoundException(
-        "GenerationJob " + id + " no longer exists while applying an update");
-  }
-
-  private static OptimisticLockingFailureException optimisticConflict(UUID id) {
-    return new OptimisticLockingFailureException(
-        "Generation job " + id + " was modified concurrently");
-  }
+  private static ResourceNotFoundException missing(UUID id) { return new ResourceNotFoundException("GenerationJob " + id + " no longer exists while applying an update"); }
+  private static OptimisticLockingFailureException optimisticConflict(UUID id) { return new OptimisticLockingFailureException("Generation job " + id + " was modified concurrently"); }
 }

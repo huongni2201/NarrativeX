@@ -6,8 +6,6 @@ import com.narrativex.backend.feature.storyboard.api.request.CreateChapterReques
 import com.narrativex.backend.feature.storyboard.api.request.ImportChapterContentRequest;
 import com.narrativex.backend.feature.storyboard.api.request.UpdateChapterRequest;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterContentImportResponse;
-import com.narrativex.backend.feature.storyboard.api.response.ChapterContentVariantResponse;
-import com.narrativex.backend.feature.storyboard.api.response.ChapterLanguageStatusResponse;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterResponse;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterSummaryResponse;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterWorkspaceResponse;
@@ -17,11 +15,9 @@ import com.narrativex.backend.feature.storyboard.application.command.UpdateChapt
 import com.narrativex.backend.feature.storyboard.application.usecase.BatchImportChaptersUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.CreateChapterWithStoryUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.DeleteChapterUseCase;
-import com.narrativex.backend.feature.storyboard.application.usecase.GetChapterLanguageStatusUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.GetChapterUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.GetChapterWorkspaceUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.ImportChapterContentUseCase;
-import com.narrativex.backend.feature.storyboard.application.usecase.ListChapterContentVariantsUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.ListChaptersUseCase;
 import com.narrativex.backend.feature.storyboard.application.usecase.UpdateChapterUseCase;
 import jakarta.validation.Valid;
@@ -60,18 +56,13 @@ public class ChapterController {
   private final UpdateChapterUseCase updateChapterUseCase;
   private final DeleteChapterUseCase deleteChapterUseCase;
   private final ImportChapterContentUseCase importChapterContentUseCase;
-  private final GetChapterLanguageStatusUseCase getChapterLanguageStatusUseCase;
-  private final ListChapterContentVariantsUseCase listChapterContentVariantsUseCase;
 
   @PostMapping
   public ResponseEntity<ApiResponse<ChapterResponse>> create(
       @PathVariable UUID projectId,
       @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
       @Valid @RequestBody CreateChapterRequest request) {
-    log.info(
-        "API POST create chapter for projectId={}, storyVersionId={}",
-        projectId,
-        request.storyVersionId());
+    log.info("API POST create chapter for projectId={}, storyVersionId={}", projectId, request.storyVersionId());
     ApiResponse<ChapterResponse> response =
         createChapterWithStoryUseCase.execute(
             new CreateChapterWithStoryCommand(
@@ -94,10 +85,6 @@ public class ChapterController {
       @RequestParam(required = false) UUID storyVersionId,
       @RequestParam("file") MultipartFile file)
       throws IOException {
-    log.info(
-        "API POST batch-import chapters for projectId={}, filename={}",
-        projectId,
-        file.getOriginalFilename());
     List<ChapterResponse> imported =
         batchImportChaptersUseCase.execute(
             projectId,
@@ -139,7 +126,6 @@ public class ChapterController {
       @PathVariable UUID chapterId,
       @RequestHeader(value = HttpHeaders.IF_MATCH, required = false) String ifMatch,
       @Valid @RequestBody UpdateChapterRequest request) {
-    log.info("API PUT update chapterId={} for projectId={}", chapterId, projectId);
     long expectedRowVersion = parseExpectedVersion(ifMatch);
     ApiResponse<ChapterResponse> response =
         updateChapterUseCase.execute(
@@ -153,7 +139,6 @@ public class ChapterController {
   @DeleteMapping("/{chapterId}")
   public ResponseEntity<ApiResponse<Void>> delete(
       @PathVariable UUID projectId, @PathVariable UUID chapterId) {
-    log.info("API DELETE chapterId={} for projectId={}", chapterId, projectId);
     deleteChapterUseCase.execute(projectId, chapterId);
     return ResponseEntity.ok(ApiResponse.success("Chapter deleted successfully"));
   }
@@ -163,25 +148,11 @@ public class ChapterController {
       @PathVariable UUID projectId,
       @PathVariable UUID chapterId,
       @Valid @RequestBody ImportChapterContentRequest request) {
-    log.info(
-        "API POST import chapter content for chapterId={}, projectId={}", chapterId, projectId);
     return ResponseEntity.accepted()
         .body(
             importChapterContentUseCase.execute(
                 new ImportChapterContentCommand(
                     projectId, chapterId, request.content(), request.title())));
-  }
-
-  @GetMapping("/{chapterId}/language-status")
-  public ResponseEntity<ApiResponse<ChapterLanguageStatusResponse>> languageStatus(
-      @PathVariable UUID projectId, @PathVariable UUID chapterId) {
-    return ResponseEntity.ok(getChapterLanguageStatusUseCase.execute(projectId, chapterId));
-  }
-
-  @GetMapping("/{chapterId}/content-variants")
-  public ResponseEntity<ApiResponse<List<ChapterContentVariantResponse>>> contentVariants(
-      @PathVariable UUID projectId, @PathVariable UUID chapterId) {
-    return ResponseEntity.ok(listChapterContentVariantsUseCase.execute(projectId, chapterId));
   }
 
   private static long parseExpectedVersion(String value) {
@@ -195,8 +166,7 @@ public class ChapterController {
       if (version < 0) throw new NumberFormatException("negative version");
       return version;
     } catch (NumberFormatException exception) {
-      throw new IllegalArgumentException(
-          "If-Match must contain a non-negative row version", exception);
+      throw new IllegalArgumentException("If-Match must contain a non-negative row version", exception);
     }
   }
 
