@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   DesktopChapterDetails,
@@ -7,48 +6,41 @@ import type {
   DesktopTimeline,
   DesktopVoice,
 } from "@narrativex/client-contracts";
-import {
-  AudioLines,
-  BookOpen,
-  ChevronLeft,
-  ChevronRight,
-  Clapperboard,
-  FileText,
-  Filter,
-  Folder,
-  Info,
-  Lightbulb,
-  Loader2,
-  PencilLine,
-  Plus,
-  Search,
-  Trash2,
-  WandSparkles,
-} from "lucide-react";
+import { ChevronRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { EmptyState } from "../../workspace/components/FeaturePage";
+import { toErrorMessage } from "@/lib/errors";
 import { generationApi } from "../../generation/api/generation.api";
 import { useGenerateNarration } from "../../generation/queries/narration.queries";
+import { ChapterEditorPanel } from "../components/ChapterEditorPanel";
+import { ChapterListPanel } from "../components/ChapterListPanel";
+import { ChapterWorkflowRibbon } from "../components/ChapterWorkflowRibbon";
+import { ChapterWorkspaceContext } from "../components/ChapterWorkspaceContext";
+import {
+  chapterStatus,
+  isAudioProcessingStatus,
+  isGenerationJobTerminal,
+  type ChapterFilter,
+  type ChapterSort,
+  type WorkspaceStatus,
+  wordCount,
+  workspaceStatusDotClass,
+  workspaceStatusLabel,
+} from "../model/chapter-ui";
 import {
   chapterQueryKeys,
-  isAudioProcessingStatus,
+  useChapterWorkspacesQuery,
   useCreateChapter,
   useDeleteChapter,
-  useChapterWorkspacesQuery,
   useUpdateChapter,
 } from "../queries/chapters.queries";
-
-type ChapterFilter = "all" | "completed" | "in_progress" | "draft";
-type ChapterSort = "recent" | "title" | "order" | "words";
-
-type WorkspaceStatus = "loading" | "ready" | "partial" | "empty" | "error";
 
 type TrackedNarrationJob = {
   jobId: string;
   chapterId: string;
 };
+
+const PAGE_SIZE = 8;
 
 export function ChaptersScreen({
   projectId,
@@ -92,7 +84,6 @@ export function ChaptersScreen({
   const [notice, setNotice] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [narrationJob, setNarrationJob] = useState<TrackedNarrationJob | null>(null);
-  const pageSize = 8;
 
   useEffect(() => {
     if (workspaceStatus === "loading") return;
@@ -133,8 +124,8 @@ export function ChaptersScreen({
   }, [chapters, query, sortBy]);
 
   const visibleCandidates = useMemo(() => {
-    const start = (page - 1) * pageSize;
-    return baseChapters.slice(start, start + pageSize);
+    const start = (page - 1) * PAGE_SIZE;
+    return baseChapters.slice(start, start + PAGE_SIZE);
   }, [baseChapters, page]);
 
   const workspaceTargets = useMemo(() => {
@@ -168,6 +159,16 @@ export function ChaptersScreen({
     [chapterWorkspaceQueries, workspaceTargets],
   );
 
+  const workspaceErrorsByChapterId = useMemo(
+    () =>
+      new Set(
+        workspaceTargets
+          .filter((_chapter, index) => chapterWorkspaceQueries[index]?.isError)
+          .map((chapter) => chapter.id),
+      ),
+    [chapterWorkspaceQueries, workspaceTargets],
+  );
+
   const filtered = useMemo(() => {
     if (statusFilter === "all") return baseChapters;
     return baseChapters.filter(
@@ -175,15 +176,15 @@ export function ChaptersScreen({
     );
   }, [baseChapters, statusFilter, workspacesByChapterId]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
 
   useEffect(() => {
     setPage((current) => Math.min(Math.max(current, 1), totalPages));
   }, [totalPages]);
 
   const paginatedChapters = useMemo(() => {
-    const start = (page - 1) * pageSize;
-    return filtered.slice(start, start + pageSize);
+    const start = (page - 1) * PAGE_SIZE;
+    return filtered.slice(start, start + PAGE_SIZE);
   }, [filtered, page]);
 
   const selectedWorkspace = selected ? workspacesByChapterId.get(selected.id) : undefined;
@@ -280,7 +281,7 @@ export function ChaptersScreen({
       });
       if (editingId === chapterId) setNotice("Phân tích chapter đã được gửi.");
     },
-    onError: (error) => setNotice(toMessage(error)),
+    onError: (error) => setNotice(toErrorMessage(error, "Phân tích chapter thất bại.")),
   });
 
   const saveBusy = createChapter.isPending || updateChapter.isPending;
@@ -293,6 +294,8 @@ export function ChaptersScreen({
   const isDirty = selected
     ? title !== selected.title || sourceText !== selected.sourceText
     : Boolean(title.trim() || sourceText.trim());
+  const generationBlockedByUnsavedChanges = Boolean(selected && isDirty);
+  const generationActionDisabled = busy || generationBlockedByUnsavedChanges;
 
   const totalWords = useMemo(
     () => chapters.reduce((total, chapter) => total + wordCount(chapter.sourceText), 0),
@@ -380,7 +383,7 @@ export function ChaptersScreen({
         if (created?.id) setEditingId(created.id);
       }
     } catch (error) {
-      setNotice(toMessage(error));
+      setNotice(toErrorMessage(error, "Thao tác chapter thất bại."));
     }
   }
 
@@ -388,8 +391,7 @@ export function ChaptersScreen({
     if (
       !selected ||
       !voiceId ||
-      busy ||
-      isDirty ||
+      generationActionDisabled ||
       selectedAudioProcessing ||
       narrationJob
     ) {
@@ -414,7 +416,7 @@ export function ChaptersScreen({
       });
       setNotice(`Đã gửi tạo audio. Job ${job.jobId.slice(0, 8)} đang được xử lý.`);
     } catch (error) {
-      setNotice(toMessage(error));
+      setNotice(toErrorMessage(error, "Tạo audio thất bại."));
     }
   }
 
@@ -437,19 +439,15 @@ export function ChaptersScreen({
       }
       setNotice("Chapter đã được xóa.");
     } catch (error) {
-      setNotice(toMessage(error));
+      setNotice(toErrorMessage(error, "Xóa chapter thất bại."));
     }
   }
 
-  const generationBlockedByUnsavedChanges = Boolean(selected && isDirty);
   const narrationBlockedByAnotherChapter = Boolean(
     narrationJob && narrationJob.chapterId !== selected?.id,
   );
   const audioControlsDisabled =
-    !selected ||
-    busy ||
-    selectedAudioProcessing ||
-    Boolean(narrationJob);
+    !selected || busy || selectedAudioProcessing || Boolean(narrationJob);
 
   return (
     <div className="grid h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden bg-background text-foreground select-none">
@@ -482,736 +480,98 @@ export function ChaptersScreen({
         </div>
       </header>
 
-      <WorkflowRibbon />
+      <ChapterWorkflowRibbon />
 
-      <div className="grid min-h-0 grid-cols-[minmax(320px,0.9fr)_minmax(460px,1.35fr)_minmax(280px,0.75fr)] gap-3 overflow-hidden p-4">
-        <section className="flex min-h-0 flex-col overflow-hidden rounded-md border border-border bg-surface-panel">
-          <div className="space-y-3 border-b border-border p-4">
-            <div>
-              <h2 className="text-sm font-bold text-foreground">Chapter List</h2>
-              <p className="mt-0.5 text-xs text-text-muted">
-                Quản lý và điều hướng các chapter trong project.
-              </p>
-            </div>
+      <div className="grid min-h-0 grid-cols-[minmax(270px,0.85fr)_minmax(440px,1.45fr)_minmax(240px,0.72fr)] gap-3 overflow-x-auto overflow-y-hidden p-4">
+        <ChapterListPanel
+          chapters={paginatedChapters}
+          allChaptersCount={chapters.length}
+          editingId={editingId}
+          isCreating={isCreating}
+          busy={busy}
+          query={query}
+          statusFilter={statusFilter}
+          sortBy={sortBy}
+          page={page}
+          pageSize={PAGE_SIZE}
+          totalPages={totalPages}
+          filteredCount={filtered.length}
+          workspacesByChapterId={workspacesByChapterId}
+          workspaceErrorsByChapterId={workspaceErrorsByChapterId}
+          onQueryChange={(value) => {
+            setQuery(value);
+            setPage(1);
+          }}
+          onStatusFilterChange={(value) => {
+            setStatusFilter(value);
+            setPage(1);
+          }}
+          onSortChange={(value) => {
+            setSortBy(value);
+            setPage(1);
+          }}
+          onResetFilters={resetFilters}
+          onPageChange={setPage}
+          onSelectChapter={selectChapter}
+          onDeleteChapter={(chapter) => void remove(chapter)}
+        />
 
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <input
-                  type="text"
-                  autoComplete="off"
-                  value={query}
-                  onChange={(event) => {
-                    setQuery(event.target.value);
-                    setPage(1);
-                  }}
-                  placeholder="Tìm kiếm chapter..."
-                  className="h-8 w-full rounded-md border border-border bg-surface-input px-3 pr-8 text-xs text-foreground placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-                <Search
-                  className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted"
-                  size={13}
-                />
-              </div>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={resetFilters}
-                title="Đặt lại bộ lọc"
-                className="size-8 border-border bg-surface-input text-text-muted hover:border-border-dark hover:text-foreground"
-              >
-                <Filter size={13} />
-              </Button>
-            </div>
+        <ChapterEditorPanel
+          selected={selected}
+          title={title}
+          sourceText={sourceText}
+          busy={busy}
+          saveBusy={saveBusy}
+          isDirty={isDirty}
+          notice={notice}
+          audio={{
+            voices,
+            voiceId,
+            speakingRate,
+            workspace: selectedWorkspace,
+            workspaceError: Boolean(selectedWorkspaceQuery?.isError),
+            status: selectedAudioStatus,
+            busy: audioBusy,
+            ready: audioReady,
+            processing: selectedAudioProcessing,
+            controlsDisabled: audioControlsDisabled,
+            trackedForSelected: trackedNarrationForSelected,
+            blockedByAnotherChapter: narrationBlockedByAnotherChapter,
+            generatePending: generateNarration.isPending,
+            onVoiceChange: setVoiceId,
+            onSpeakingRateChange: setSpeakingRate,
+            onCreate: () => void createAudio(),
+            onRefetchWorkspace: () => {
+              void selectedWorkspaceQuery?.refetch();
+            },
+          }}
+          onTitleChange={setTitle}
+          onSourceTextChange={setSourceText}
+          onBeginCreate={beginCreate}
+          onCancel={cancelEditing}
+          onSave={() => void save()}
+          onAnalyze={() => {
+            if (selected && !generationActionDisabled) analyzeChapter.mutate(selected.id);
+          }}
+          onOpenEditor={openEditor}
+        />
 
-            <div className="grid grid-cols-2 gap-2">
-              <select
-                value={statusFilter}
-                onChange={(event) => {
-                  setStatusFilter(event.target.value as ChapterFilter);
-                  setPage(1);
-                }}
-                className="h-8 rounded-md border border-border bg-surface-input px-2 text-xs text-text-secondary focus:border-primary focus:outline-none"
-              >
-                <option value="all">Tất cả trạng thái</option>
-                <option value="completed">Hoàn thành</option>
-                <option value="in_progress">Đang xử lý</option>
-                <option value="draft">Nháp</option>
-              </select>
-              <select
-                value={sortBy}
-                onChange={(event) => {
-                  setSortBy(event.target.value as ChapterSort);
-                  setPage(1);
-                }}
-                className="h-8 rounded-md border border-border bg-surface-input px-2 text-xs text-text-secondary focus:border-primary focus:outline-none"
-              >
-                <option value="recent">Cập nhật mới nhất</option>
-                <option value="order">Theo thứ tự</option>
-                <option value="title">Theo tên A–Z</option>
-                <option value="words">Nhiều từ nhất</option>
-              </select>
-            </div>
-
-            {statusFilter !== "all" && (
-              <p className="text-[10px] leading-4 text-text-muted">
-                Bộ lọc trạng thái tải workspace của toàn bộ chapter theo yêu cầu; polling nền vẫn chỉ chạy cho chapter đang chọn.
-              </p>
-            )}
-          </div>
-
-          <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
-            {paginatedChapters.map((chapter) => {
-              const isSelected = !isCreating && editingId === chapter.id;
-              const workspaceQuery = workspaceQueriesByChapterId.get(chapter.id);
-              const workspace = workspacesByChapterId.get(chapter.id);
-              const status = workspaceQuery?.isError ? "error" : chapterStatus(workspace);
-              const audioListLabel = workspace
-                ? chapterAudioListLabel(workspace.pipeline.audio.status, workspace.pipeline.audio.durationMs)
-                : null;
-
-              return (
-                <div
-                  key={chapter.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => selectChapter(chapter.id)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      selectChapter(chapter.id);
-                    }
-                  }}
-                  className={`group flex w-full cursor-pointer items-center justify-between gap-2 rounded-md border p-2.5 text-left transition-colors ${
-                    isSelected
-                      ? "border-primary/65 border-l-2 border-l-primary bg-primary-muted/55"
-                      : "border-border-subtle bg-surface hover:border-border hover:bg-surface-2"
-                  }`}
-                >
-                  <div className="min-w-0 flex-1">
-                    <strong
-                      className={`block truncate text-xs font-semibold ${
-                        isSelected ? "text-primary-hover" : "text-foreground"
-                      }`}
-                    >
-                      {chapter.title}
-                    </strong>
-                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-text-muted">
-                      <span>{wordCount(chapter.sourceText).toLocaleString("vi-VN")} từ</span>
-                      <span>v{chapter.rowVersion}</span>
-                      {audioListLabel && (
-                        <span className={chapterAudioListClass(workspace?.pipeline.audio.status)}>
-                          {audioListLabel}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <span className={`rounded px-2 py-0.5 text-[9px] font-medium ${chapterStatusClass(status)}`}>
-                      {chapterStatusLabel(status)}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        void remove(chapter);
-                      }}
-                      disabled={busy}
-                      className="size-6 text-text-dim opacity-0 group-hover:opacity-100 hover:text-danger"
-                      title={`Xóa chapter ${chapter.title}`}
-                    >
-                      <Trash2 size={12} />
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
-
-            {!filtered.length && (
-              <EmptyState
-                title="Chưa có chapter phù hợp"
-                description={
-                  chapters.length
-                    ? "Thử đổi bộ lọc hoặc tạo chapter mới."
-                    : "Tạo chapter đầu tiên để bắt đầu story flow."
-                }
-              />
-            )}
-          </div>
-
-          <div className="flex items-center justify-between border-t border-border px-3 py-2.5 text-xs text-text-muted">
-            <span>
-              Hiển thị {filtered.length > 0 ? (page - 1) * pageSize + 1 : 0} –{" "}
-              {Math.min(page * pageSize, filtered.length)} của {filtered.length} chapter
-            </span>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setPage((current) => Math.max(1, current - 1))}
-                disabled={page <= 1}
-                className="rounded p-1 text-text-muted hover:bg-surface-3 disabled:opacity-40"
-                aria-label="Trang trước"
-              >
-                <ChevronLeft size={13} />
-              </button>
-              <span className="min-w-14 rounded bg-surface-3 px-2 py-0.5 text-center text-xs font-semibold text-primary-hover">
-                {page} / {totalPages}
-              </span>
-              <button
-                type="button"
-                onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
-                disabled={page >= totalPages}
-                className="rounded p-1 text-text-muted hover:bg-surface-3 disabled:opacity-40"
-                aria-label="Trang sau"
-              >
-                <ChevronRight size={13} />
-              </button>
-            </div>
-          </div>
-        </section>
-
-        <section className="flex min-h-0 flex-col overflow-hidden rounded-md border border-border bg-surface-panel">
-          <div className="flex items-start justify-between gap-3 border-b border-border p-5">
-            <div>
-              <div className="flex items-center gap-2">
-                <PencilLine className="text-text-secondary" size={18} />
-                <h2 className="text-base font-bold text-foreground">
-                  {selected ? "Chỉnh sửa chapter" : "Tạo chapter mới"}
-                </h2>
-              </div>
-              <p className="mt-1 text-xs text-text-muted">
-                {selected
-                  ? "Lưu thay đổi trước khi chạy các bước phân tích hoặc tạo audio."
-                  : "Nhập nội dung chapter rồi lưu để tiếp tục pipeline."}
-              </p>
-            </div>
-            {selected && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={beginCreate}
-                disabled={busy}
-                className="h-8 gap-1.5 text-xs"
-              >
-                <Plus size={13} />
-                Chapter mới
-              </Button>
-            )}
-          </div>
-
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-text-secondary">
-                Tên chapter <span className="text-danger">*</span>
-              </label>
-              <div className="relative">
-                <Input
-                  name="chapter-title"
-                  autoComplete="off"
-                  maxLength={120}
-                  value={title}
-                  onChange={(event) => setTitle(event.target.value)}
-                  placeholder="Nhập tên chapter"
-                  className="h-9 border-border bg-surface-input pr-16 text-xs"
-                />
-                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-text-dim">
-                  {title.length} / 120
-                </span>
-              </div>
-            </div>
-
-            <div className="flex min-h-[240px] flex-col space-y-1.5">
-              <label className="text-xs font-semibold text-text-secondary">
-                Nội dung chapter <span className="text-danger">*</span>
-              </label>
-              <div className="relative flex flex-1 flex-col overflow-hidden rounded-md border border-border bg-surface-input focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
-                <Textarea
-                  name="chapter-source"
-                  value={sourceText}
-                  onChange={(event) => setSourceText(event.target.value)}
-                  placeholder="Nhập nội dung chapter..."
-                  className="min-h-[200px] flex-1 resize-none border-0 bg-transparent p-3 text-xs leading-relaxed focus-visible:ring-0"
-                />
-                <div className="flex items-center justify-between border-t border-border-subtle bg-surface-2 px-3 py-1.5 text-[10px] text-text-dim">
-                  <span>{wordCount(sourceText).toLocaleString("vi-VN")} từ</span>
-                  <span>{sourceText.length.toLocaleString("vi-VN")} ký tự</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-2 rounded-md border border-info/20 bg-info-bg p-3 text-xs leading-relaxed text-text-secondary">
-              <Info className="mt-0.5 shrink-0 text-info" size={15} />
-              <span>
-                Phân tích và tạo audio luôn dùng bản chapter đã lưu trên backend, không dùng nội dung nháp chưa lưu trong form.
-              </span>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <Button
-                variant="outline"
-                onClick={cancelEditing}
-                disabled={busy}
-                className="h-9 flex-1 border-border bg-surface-input text-xs font-semibold text-text-secondary"
-              >
-                Hủy
-              </Button>
-              <Button
-                onClick={() => void save()}
-                disabled={!title.trim() || !sourceText.trim() || busy || !isDirty}
-                className="h-9 flex-1 gap-1.5 text-xs font-bold"
-              >
-                <PencilLine size={13} />
-                <span>{saveBusy ? "Đang lưu…" : selected ? "Lưu thay đổi" : "Tạo chapter"}</span>
-              </Button>
-            </div>
-
-            {notice && (
-              <p className="text-xs text-text-secondary" role="status">
-                {notice}
-              </p>
-            )}
-
-            <div className="space-y-3 rounded-md border border-border bg-surface p-3">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex min-w-0 items-start gap-2">
-                  <AudioLines className="mt-0.5 shrink-0 text-text-secondary" size={16} />
-                  <div className="min-w-0">
-                    <h3 className="text-xs font-bold text-foreground">Audio chapter</h3>
-                    <p className="mt-1 text-[10px] leading-4 text-text-secondary">
-                      Chọn giọng, tốc độ và tạo narration từ bản chapter đã lưu.
-                    </p>
-                  </div>
-                </div>
-                <span
-                  className={`shrink-0 rounded px-2 py-1 text-[9px] font-semibold ${audioStatusBadgeClass(
-                    audioBusy ? "PROCESSING" : selectedAudioStatus,
-                  )}`}
-                  aria-live="polite"
-                >
-                  {audioBusy
-                    ? "Đang xử lý"
-                    : selectedWorkspace
-                      ? audioStatusLabel(selectedWorkspace.pipeline.audio.status)
-                      : selectedWorkspaceQuery?.isError
-                        ? "Không tải được"
-                        : selected
-                          ? "Đang tải…"
-                          : "Chưa có chapter"}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-[minmax(0,1fr)_88px_140px] items-end gap-2">
-                <label className="grid min-w-0 gap-1 text-[10px] text-text-secondary">
-                  <span>Giọng đọc</span>
-                  <select
-                    aria-label="Voice đọc chapter"
-                    value={voiceId}
-                    onChange={(event) => setVoiceId(event.target.value)}
-                    disabled={audioControlsDisabled || !voices.length}
-                    className="h-8 min-w-0 rounded-md border border-border bg-surface-input px-2 text-xs text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {!voices.length && <option value="">Chưa có voice</option>}
-                    {voices.map((voice) => (
-                      <option key={voice.id} value={voice.id}>
-                        {voice.name} · {voice.language}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="grid gap-1 text-[10px] text-text-secondary">
-                  <span>Tốc độ</span>
-                  <Input
-                    aria-label="Tốc độ đọc"
-                    type="number"
-                    min="0.25"
-                    max="2"
-                    step="0.05"
-                    value={speakingRate}
-                    onChange={(event) => setSpeakingRate(event.target.value)}
-                    disabled={audioControlsDisabled}
-                    className="h-8 border-border bg-surface-input text-xs disabled:cursor-not-allowed"
-                  />
-                </label>
-
-                <div className="grid gap-1">
-                  <span className="text-[10px] text-text-secondary">Tạo audio</span>
-                  <Button
-                    type="button"
-                    onClick={() => void createAudio()}
-                    disabled={
-                      !selected ||
-                      !voiceId ||
-                      busy ||
-                      generationBlockedByUnsavedChanges ||
-                      selectedAudioProcessing ||
-                      Boolean(narrationJob)
-                    }
-                    className="h-8 w-full gap-1.5 whitespace-nowrap px-3 text-xs font-bold"
-                  >
-                    {audioBusy ? (
-                      <Loader2 className="animate-spin" size={13} />
-                    ) : (
-                      <AudioLines size={13} />
-                    )}
-                    <span>
-                      {trackedNarrationForSelected || selectedAudioProcessing
-                        ? "Đang tạo…"
-                        : narrationBlockedByAnotherChapter
-                          ? "Đang bận…"
-                          : audioReady
-                            ? "Tạo lại"
-                            : "Tạo audio"}
-                    </span>
-                  </Button>
-                </div>
-              </div>
-
-              {generationBlockedByUnsavedChanges && (
-                <p className="text-[10px] leading-4 text-warning">
-                  Hãy lưu thay đổi trước khi tạo audio hoặc phân tích chapter.
-                </p>
-              )}
-
-              {narrationBlockedByAnotherChapter && (
-                <p className="text-[10px] leading-4 text-info">
-                  Một chapter khác đang tạo audio. Chờ job hiện tại hoàn tất trước khi gửi job mới.
-                </p>
-              )}
-
-              <div className="border-t border-border-subtle pt-3">
-                {audioBusy && (
-                  <div className="flex items-center gap-2 rounded-md border border-info/20 bg-info-bg px-3 py-2 text-[10px] text-text-secondary">
-                    <Loader2 className="shrink-0 animate-spin text-info" size={13} />
-                    <span>
-                      {generateNarration.isPending
-                        ? "Đang gửi yêu cầu tạo audio…"
-                        : "Narration worker đang xử lý. Nút tạo audio đã được khóa để tránh gửi trùng job."}
-                    </span>
-                  </div>
-                )}
-
-                {!audioBusy && audioReady && selectedWorkspace?.pipeline.audio.audioUrl && (
-                  <div className="space-y-2 rounded-md border border-border-subtle bg-surface-2 p-3">
-                    <div className="flex items-center justify-between gap-3 text-[10px]">
-                      <div className="min-w-0">
-                        <strong className="block truncate text-xs text-foreground">
-                          Narration · {voices.find((voice) => voice.id === voiceId)?.name ?? "Audio chapter"}
-                        </strong>
-                        <span className="text-text-muted">
-                          {formatDurationMs(selectedWorkspace.pipeline.audio.durationMs)}
-                        </span>
-                      </div>
-                      <span className="shrink-0 rounded bg-success-bg px-2 py-1 font-semibold text-success">
-                        Sẵn sàng
-                      </span>
-                    </div>
-                    <audio
-                      className="h-9 w-full"
-                      controls
-                      preload="metadata"
-                      src={selectedWorkspace.pipeline.audio.audioUrl}
-                      onError={() => {
-                        void selectedWorkspaceQuery?.refetch();
-                      }}
-                    />
-                  </div>
-                )}
-
-                {!audioBusy && audioReady && !selectedWorkspace?.pipeline.audio.audioUrl && (
-                  <p className="rounded-md border border-warning/20 bg-warning-bg px-3 py-2 text-[10px] leading-4 text-warning">
-                    Audio đã sẵn sàng nhưng chưa lấy được URL nghe thử. Hãy tải lại workspace hoặc kiểm tra media storage.
-                  </p>
-                )}
-
-                {!audioBusy && selectedAudioStatus === "FAILED" && (
-                  <p className="rounded-md border border-danger/20 bg-danger-bg px-3 py-2 text-[10px] leading-4 text-danger">
-                    Tạo audio thất bại. Bạn có thể giữ nguyên giọng/tốc độ và bấm Tạo audio để thử lại.
-                  </p>
-                )}
-
-                {!audioBusy && !audioReady && selectedAudioStatus !== "FAILED" && (
-                  <p className="text-[10px] text-text-muted">
-                    Chưa có audio để nghe. Sau khi job hoàn tất, player sẽ xuất hiện ngay tại đây.
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-2.5 border-t border-border pt-4">
-              <span className="block text-[11px] font-semibold text-text-muted">
-                Các hành động tiếp theo
-              </span>
-              <div className="grid grid-cols-2 gap-2.5">
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={!selected || busy || generationBlockedByUnsavedChanges}
-                  onClick={() => {
-                    if (selected) analyzeChapter.mutate(selected.id);
-                  }}
-                  className="h-auto items-start justify-start rounded-md border-border bg-surface p-3 text-left hover:border-border-dark hover:bg-surface-2"
-                >
-                  <div>
-                    <div className="flex items-center gap-1.5 text-xs font-semibold text-primary-hover">
-                      <WandSparkles size={13} />
-                      <span>Phân tích chapter</span>
-                    </div>
-                    <p className="mt-1 text-[10px] font-normal leading-4 text-text-muted">
-                      Phân tích nội dung và tạo cấu trúc scene/beat.
-                    </p>
-                  </div>
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={!selected || busy}
-                  onClick={openEditor}
-                  className="h-auto items-start justify-start rounded-md border-border bg-surface p-3 text-left hover:border-border-dark hover:bg-surface-2"
-                >
-                  <div>
-                    <div className="flex items-center gap-1.5 text-xs font-semibold text-text-secondary">
-                      <Clapperboard size={13} />
-                      <span>Mở Editor</span>
-                    </div>
-                    <p className="mt-1 text-[10px] font-normal leading-4 text-text-muted">
-                      Chỉnh scene, visual beat và media trên timeline.
-                    </p>
-                  </div>
-                </Button>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <aside className="flex min-h-0 flex-col overflow-y-auto rounded-md border border-border bg-surface-panel">
-          <div className="space-y-3 border-b border-border p-4">
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
-                WORKSPACE CONTEXT
-              </span>
-              <div className="mt-1 flex items-center gap-2">
-                <Folder className="text-primary-hover" size={16} />
-                <h2 className="text-sm font-bold text-foreground">Chapters</h2>
-              </div>
-            </div>
-            <div className="space-y-1">
-              <span className="text-[10px] text-text-muted">Project</span>
-              <div className="flex h-8 items-center justify-between rounded-md border border-border bg-surface-input px-3 text-xs text-foreground">
-                <span className="truncate">{projectName}</span>
-              </div>
-            </div>
-
-            <div className="space-y-2 pt-1 text-xs">
-              <Metric label="Tổng chapter" value={chapters.length} />
-              <Metric label="Tổng từ" value={`${totalWords.toLocaleString("vi-VN")} từ`} />
-              <Metric label="Tổng scene" value={totalSceneCount ?? "—"} />
-              <Metric label="Tổng visual beat" value={totalBeatCount ?? "—"} />
-              <Metric label="Audio sẵn sàng" value={audioReadyCount ?? "—"} />
-              <Metric label="Chapter sẵn sàng render" value={renderReadyCount ?? "—"} />
-            </div>
-          </div>
-
-          <div className="flex-1 space-y-3 p-4">
-            <div className="rounded-md border border-warning/20 bg-warning-bg p-3 text-xs leading-relaxed text-text-secondary">
-              <div className="flex items-center gap-1.5 font-bold text-warning">
-                <Lightbulb size={14} />
-                <span>Mẹo nhanh</span>
-              </div>
-              <ul className="mt-2 space-y-2 text-[11px] text-text-secondary">
-                <li>• Lưu chapter trước khi chạy tác vụ AI/media.</li>
-                <li>• Status filter chỉ tải toàn bộ workspace khi bạn thực sự dùng bộ lọc đó.</li>
-                <li>• Narration là master clock cho timeline render.</li>
-              </ul>
-            </div>
-
-            <div className="space-y-2.5 rounded-md border border-border bg-surface p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-text-muted">
-                    RENDER STATUS
-                  </span>
-                  <h3 className="mt-0.5 text-xs font-bold text-foreground">Production render</h3>
-                </div>
-                <span className="rounded bg-surface-3 px-2 py-1 text-[10px] font-bold text-text-muted">
-                  {selectedWorkspace
-                    ? pipelineStatusLabel(selectedWorkspace.pipeline.render.status)
-                    : selectedWorkspaceQuery?.isError
-                      ? "Không tải được"
-                      : selected
-                        ? "Đang tải…"
-                        : "Chưa chọn"}
-                </span>
-              </div>
-              <p className="text-xs text-text-muted">
-                {selectedWorkspace?.pipeline.render.latestJobId
-                  ? `Job: ${selectedWorkspace.pipeline.render.latestJobId}`
-                  : selected
-                    ? "Chapter này chưa có render job."
-                    : "Chọn một chapter để xem trạng thái render."}
-              </p>
-              <Button
-                variant="outline"
-                onClick={() => navigate(`/projects/${projectId}/render`)}
-                className="h-8 w-full gap-1.5 border-border bg-surface-input text-xs text-text-secondary hover:border-primary/50 hover:text-foreground"
-              >
-                <Clapperboard size={12} />
-                <span>Open Render Queue</span>
-              </Button>
-            </div>
-          </div>
-        </aside>
+        <ChapterWorkspaceContext
+          projectName={projectName}
+          selected={Boolean(selected)}
+          selectedWorkspace={selectedWorkspace}
+          selectedWorkspaceError={Boolean(selectedWorkspaceQuery?.isError)}
+          metrics={{
+            chapters: chapters.length,
+            words: totalWords,
+            scenes: totalSceneCount,
+            beats: totalBeatCount,
+            audioReady: audioReadyCount,
+            renderReady: renderReadyCount,
+          }}
+          onOpenRender={() => navigate(`/projects/${projectId}/render`)}
+        />
       </div>
     </div>
   );
-}
-
-function Metric({ label, value }: Readonly<{ label: string; value: string | number }>) {
-  return (
-    <div className="flex items-center justify-between text-text-secondary">
-      <span>{label}</span>
-      <strong className="font-mono text-foreground">{value}</strong>
-    </div>
-  );
-}
-
-function WorkflowRibbon() {
-  const steps = [
-    { label: "Story", icon: BookOpen, active: false },
-    { label: "Chapter", icon: FileText, active: true },
-    { label: "Scene", icon: Clapperboard, active: false },
-    { label: "Visual Beat", icon: WandSparkles, active: false },
-  ];
-
-  return (
-    <div className="border-b border-border bg-surface-panel px-6 py-2.5">
-      <div className="flex max-w-2xl items-center gap-3 text-xs text-text-muted">
-        {steps.map(({ label, active }, index) => (
-          <div key={label} className="flex items-center gap-3">
-            <div
-              className={`flex items-center gap-1.5 rounded-sm px-2 py-1.5 text-xs font-medium transition-colors ${
-                active
-                  ? "border-b-2 border-primary bg-transparent text-primary-hover"
-                  : "text-text-muted"
-              }`}
-            >
-              <span className={`size-1.5 rounded-full ${active ? "bg-primary" : "bg-text-dim"}`} />
-              <span>{label}</span>
-            </div>
-            {index < steps.length - 1 && (
-              <span aria-hidden="true" className="w-7 border-t border-dashed border-border-dark" />
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function wordCount(value: string) {
-  return value.trim() ? value.trim().split(/\s+/u).length : 0;
-}
-
-function formatDurationMs(durationMs: number | null | undefined) {
-  if (!durationMs || durationMs <= 0) return "Thời lượng chưa xác định";
-  const totalSeconds = Math.round(durationMs / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-}
-
-function isGenerationJobTerminal(status: string | null | undefined) {
-  return status === "COMPLETED" || status === "FAILED" || status === "CANCELED";
-}
-
-type ChapterDisplayStatus = "completed" | "in_progress" | "draft" | "loading" | "error";
-
-function chapterStatus(workspace: DesktopChapterWorkspace | undefined): ChapterDisplayStatus {
-  if (!workspace) return "loading";
-  if (workspace.pipeline.sourceOutdated) return "in_progress";
-  if (workspace.pipeline.analysis.status === "COMPLETED") return "completed";
-  if (["QUEUED", "RUNNING", "STALLED", "UNKNOWN"].includes(workspace.pipeline.analysis.status)) {
-    return "in_progress";
-  }
-  return "draft";
-}
-
-function chapterStatusLabel(status: ChapterDisplayStatus) {
-  if (status === "completed") return "Hoàn thành";
-  if (status === "in_progress") return "Đang xử lý";
-  if (status === "error") return "Không tải được";
-  if (status === "loading") return "Đang tải…";
-  return "Nháp";
-}
-
-function chapterStatusClass(status: ChapterDisplayStatus) {
-  if (status === "completed") return "border border-success/30 bg-success-bg text-success";
-  if (status === "in_progress") return "border border-info/30 bg-info-bg text-info";
-  if (status === "error") return "border border-danger/30 bg-danger-bg text-danger";
-  return "border border-border bg-surface-3 text-text-muted";
-}
-
-function chapterAudioListLabel(status: string, durationMs: number | null) {
-  if (status === "READY" || status === "COMPLETED") {
-    return durationMs ? `Audio ${formatDurationMs(durationMs)}` : "Audio sẵn sàng";
-  }
-  if (isAudioProcessingStatus(status)) return "Audio đang tạo";
-  if (status === "FAILED") return "Audio lỗi";
-  return null;
-}
-
-function chapterAudioListClass(status: string | undefined) {
-  if (status === "READY" || status === "COMPLETED") return "text-success";
-  if (isAudioProcessingStatus(status)) return "text-info";
-  if (status === "FAILED") return "text-danger";
-  return "text-text-muted";
-}
-
-function pipelineStatusLabel(status: string) {
-  if (status === "COMPLETED" || status === "READY") return "Hoàn thành";
-  if (["QUEUED", "RUNNING", "GENERATING", "STALLED", "UNKNOWN"].includes(status)) {
-    return "Đang chạy";
-  }
-  if (status === "FAILED") return "Thất bại";
-  return "Chưa bắt đầu";
-}
-
-function audioStatusLabel(status: string) {
-  if (status === "READY" || status === "COMPLETED") return "Sẵn sàng";
-  if (status === "PAUSED_COST_LIMIT") return "Tạm dừng";
-  if (isAudioProcessingStatus(status)) return "Đang xử lý";
-  if (status === "FAILED") return "Thất bại";
-  return "Chưa tạo";
-}
-
-function audioStatusBadgeClass(status: string | null) {
-  if (status === "READY" || status === "COMPLETED") {
-    return "border border-success/30 bg-success-bg text-success";
-  }
-  if (status === "FAILED") return "border border-danger/30 bg-danger-bg text-danger";
-  if (status === "PROCESSING" || isAudioProcessingStatus(status)) {
-    return "border border-info/30 bg-info-bg text-info";
-  }
-  return "border border-border bg-surface-3 text-text-muted";
-}
-
-function workspaceStatusDotClass(status: WorkspaceStatus) {
-  if (status === "ready") return "bg-success";
-  if (status === "error") return "bg-danger";
-  if (status === "partial") return "bg-warning";
-  if (status === "loading") return "bg-info";
-  return "bg-text-muted";
-}
-
-function workspaceStatusLabel(status: WorkspaceStatus) {
-  if (status === "ready") return "API ready";
-  if (status === "error") return "API error";
-  if (status === "partial") return "API partial";
-  if (status === "loading") return "API loading";
-  return "API empty";
-}
-
-function toMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Thao tác chapter thất bại.";
 }

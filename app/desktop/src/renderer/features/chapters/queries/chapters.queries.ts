@@ -12,6 +12,7 @@ import type {
   UpdateChapterInput,
 } from "@narrativex/client-contracts";
 import { chaptersApi } from "../api/chapters.api";
+import { isAudioProcessingStatus } from "../model/chapter-ui";
 
 export const chapterQueryKeys = {
   all: (projectId: string) => ["projects", projectId, "chapters"] as const,
@@ -38,18 +39,6 @@ export function useChapterWorkspacesQuery(
           : false,
     })),
   });
-}
-
-export function isAudioProcessingStatus(status: string | null | undefined) {
-  if (!status) return false;
-  return [
-    "QUEUED",
-    "RUNNING",
-    "GENERATING",
-    "STALLED",
-    "UNKNOWN",
-    "PAUSED_COST_LIMIT",
-  ].includes(status);
 }
 
 export function useChaptersQuery(projectId: string | null, storyVersionId: string | null) {
