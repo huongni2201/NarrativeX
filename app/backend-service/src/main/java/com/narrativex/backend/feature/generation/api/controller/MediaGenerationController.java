@@ -5,12 +5,14 @@ import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.generation.api.request.CreateMediaJobRequest;
 import com.narrativex.backend.feature.generation.api.request.EstimateMediaJobRequest;
 import com.narrativex.backend.feature.generation.api.request.ReviewMediaGenerationItemRequest;
+import com.narrativex.backend.feature.generation.api.response.CurrentMediaJobResponse;
 import com.narrativex.backend.feature.generation.api.response.JobResponse;
 import com.narrativex.backend.feature.generation.api.response.MediaCostEstimateResponse;
-import com.narrativex.backend.feature.generation.api.response.MediaJobDetailsResponse;
+import com.narrativex.backend.backend.feature.generation.api.response.MediaJobDetailsResponse;
 import com.narrativex.backend.feature.generation.application.command.CreateMediaJobCommand;
 import com.narrativex.backend.feature.generation.application.usecase.CreateMediaJobUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.EstimateMediaJobUseCase;
+import com.narrativex.backend.feature.generation.application.usecase.GetCurrentMediaJobUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.GetMediaJobDetailsUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.ReviewMediaGenerationItemUseCase;
 import com.narrativex.backend.feature.generation.domain.enums.ImageStyle;
@@ -34,6 +36,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class MediaGenerationController {
   private final CreateMediaJobUseCase createMediaJobUseCase;
   private final EstimateMediaJobUseCase estimateMediaJobUseCase;
+  private final GetCurrentMediaJobUseCase getCurrentMediaJobUseCase;
   private final GetMediaJobDetailsUseCase getMediaJobDetailsUseCase;
   private final ReviewMediaGenerationItemUseCase reviewMediaGenerationItemUseCase;
 
@@ -72,6 +75,14 @@ public class MediaGenerationController {
         estimateMediaJobUseCase.execute(
             new com.narrativex.backend.feature.generation.application.command
                 .EstimateMediaJobCommand(projectId, chapterId, request.qualityTier())));
+  }
+
+  @GetMapping("/projects/{projectId}/chapters/{chapterId}/media-jobs/current")
+  public ResponseEntity<ApiResponse<CurrentMediaJobResponse>> current(
+      @PathVariable UUID projectId, @PathVariable UUID chapterId) {
+    return ResponseEntity.ok(
+        ApiResponse.success(
+            "Current media job", getCurrentMediaJobUseCase.execute(projectId, chapterId)));
   }
 
   private void requireMediaGenerationEnabled() {
