@@ -100,9 +100,13 @@ export function useGenerationJob(jobId: string | null) {
     queryFn: () => generationApi.getGenerationJob(jobId as string),
     enabled: Boolean(jobId),
     // SSE is the primary status transport. Keep a slow watchdog so a backend/network
-    // interruption cannot leave the UI stale forever.
+    // interruption cannot leave the UI stale forever. Retry even before the first
+    // snapshot so a transient initial GET failure can self-heal.
     refetchInterval: (current) =>
-      isActiveGenerationJobStatus(current.state.data?.status) ? 15_000 : false,
+      jobId &&
+      (!current.state.data || isActiveGenerationJobStatus(current.state.data.status))
+        ? 15_000
+        : false,
   });
 
   useEffect(() => {
