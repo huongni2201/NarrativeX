@@ -82,10 +82,12 @@ export function useMediaJob(jobId: string | null) {
     queryKey: generationQueryKeys.mediaJob(jobId ?? "none"),
     queryFn: () => generationApi.getJob(jobId as string),
     enabled: Boolean(jobId),
+    // Generation SSE invalidates this query whenever the durable job snapshot changes.
+    // Keep only a slow watchdog for item-level changes that do not move job progress.
     refetchInterval: (query) =>
       query.state.data &&
       query.state.data.items.some((item) => isActiveMediaExecutionStatus(item.executionStatus))
-        ? 2_000
+        ? 15_000
         : false,
   });
 }
@@ -97,7 +99,7 @@ export function useGenerationJob(jobId: string | null) {
     queryKey,
     queryFn: () => generationApi.getGenerationJob(jobId as string),
     enabled: Boolean(jobId),
-    // SSE is the primary status transport. Keep a slow watchdog so a proxy/network
+    // SSE is the primary status transport. Keep a slow watchdog so a backend/network
     // interruption cannot leave the UI stale forever.
     refetchInterval: (current) =>
       isActiveGenerationJobStatus(current.state.data?.status) ? 15_000 : false,
@@ -115,6 +117,10 @@ export function useGenerationJob(jobId: string | null) {
             const snapshot = JSON.parse(event.data) as GenerationJob;
             if (!snapshot || snapshot.jobId !== jobId || typeof snapshot.status !== "string") return;
             queryClient.setQueryData(generationQueryKeys.generationJob(jobId), snapshot);
+            void queryClient.invalidateQueries({
+              queryKey: generationQueryKeys.mediaJob(jobId),
+              exact: true,
+            });
           } catch {
             void queryClient.invalidateQueries({
               queryKey: generationQueryKeys.generationJob(jobId),
@@ -122,8 +128,8 @@ export function useGenerationJob(jobId: string | null) {
           }
         },
         onError: () => {
-          // EventSource reconnects automatically. The watchdog GET above remains
-          // available as a bounded fallback when streaming is unavailable.
+          // Electron main reconnects the authenticated stream automatically. The
+          // watchdog GET above remains a bounded fallback while reconnecting.
         },
       },
     );
