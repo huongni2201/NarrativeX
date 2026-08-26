@@ -97,17 +97,15 @@ Do not describe these implemented foundations as future migration work.
 
 Production backend application persistence is MyBatis + explicit PostgreSQL SQL. JPA and direct `JdbcTemplate` persistence are not production application persistence paths.
 
-Current Flyway order:
+Current Flyway baseline:
 
 ```text
 V1__create_tables.sql
 V2__init_indexes.sql
 V3__seed_data.sql
-V4__desktop_guest_installations.sql
-V5__production_beat_media_selections.sql
 ```
 
-V1-V3 are frozen. V4+ are append-only feature migrations.
+V1-V3 are the frozen consolidated baseline. `desktop_guest_installations`, `production_beat_media_selections` and the current local-execution/render metadata structures are already part of V1. The next schema change must be an append-only `V4__*.sql` rather than a rewrite of V1-V3.
 
 ## Rendering rules
 
