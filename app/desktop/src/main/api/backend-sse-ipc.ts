@@ -10,6 +10,7 @@ const SSE_ERROR_CHANNEL = "desktop:api:sse:error";
 const RECONNECT_DELAY_MS = 1_500;
 const GENERATION_EVENTS_PATH = /^\/api\/v1\/generation-jobs\/[0-9a-f-]{36}\/events$/iu;
 const SUBSCRIPTION_ID = /^[0-9a-f-]{36}$/iu;
+const TERMINAL_JOB_STATUSES = new Set(["COMPLETED", "FAILED", "CANCELED"]);
 
 interface StartSseInput {
   subscriptionId: string;
@@ -53,15 +54,13 @@ export function registerBackendSseIpc(
       throw new Error("Desktop SSE subscription id is already active.");
     }
 
+    const senderId = event.sender.id;
     const controller = new AbortController();
-    subscriptions.set(input.subscriptionId, {
-      senderId: event.sender.id,
-      controller,
-    });
+    subscriptions.set(input.subscriptionId, { senderId, controller });
 
-    if (!trackedSenders.has(event.sender.id)) {
-      trackedSenders.add(event.sender.id);
-      event.sender.once("destroyed", () => stopForSender(event.sender.id));
+    if (!trackedSenders.has(senderId)) {
+      trackedSenders.add(senderId);
+      event.sender.once("destroyed", () => stopForSender(senderId));
     }
 
     void runSubscription(
@@ -92,10 +91,14 @@ async function runSubscription(
   isCurrent: () => boolean,
 ): Promise<void> {
   while (!signal.aborted && isCurrent() && !sender.isDestroyed()) {
+    let terminalSnapshotSeen = false;
     try {
       await apiProvider().streamEvents(
         input.path,
-        (event) => sendEvent(sender, input.subscriptionId, event),
+        (event) => {
+          sendEvent(sender, input.subscriptionId, event);
+          if (isTerminalGenerationSnapshot(event)) terminalSnapshotSeen = true;
+        },
         signal,
       );
     } catch (error) {
@@ -106,7 +109,7 @@ async function runSubscription(
       });
     }
 
-    if (signal.aborted || sender.isDestroyed() || !isCurrent()) return;
+    if (terminalSnapshotSeen || signal.aborted || sender.isDestroyed() || !isCurrent()) return;
     await abortableDelay(RECONNECT_DELAY_MS, signal);
   }
 }
@@ -116,18 +119,29 @@ function sendEvent(sender: WebContents, subscriptionId: string, event: DesktopSs
   sender.send(SSE_EVENT_CHANNEL, { subscriptionId, event });
 }
 
+function isTerminalGenerationSnapshot(event: DesktopSseEvent): boolean {
+  if (event.event !== "snapshot") return false;
+  try {
+    const payload = JSON.parse(event.data) as { status?: unknown };
+    return typeof payload.status === "string" && TERMINAL_JOB_STATUSES.has(payload.status);
+  } catch {
+    return false;
+  }
+}
+
 function abortableDelay(delayMs: number, signal: AbortSignal): Promise<void> {
   if (signal.aborted) return Promise.resolve();
   return new Promise((resolve) => {
-    const timeout = setTimeout(resolve, delayMs);
-    signal.addEventListener(
-      "abort",
-      () => {
-        clearTimeout(timeout);
-        resolve();
-      },
-      { once: true },
-    );
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      signal.removeEventListener("abort", finish);
+      resolve();
+    };
+    const timeout = setTimeout(finish, delayMs);
+    signal.addEventListener("abort", finish, { once: true });
   });
 }
 
