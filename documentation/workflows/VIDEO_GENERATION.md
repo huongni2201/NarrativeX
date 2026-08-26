@@ -13,7 +13,7 @@ VisualBeat
 
 Chapter → Scene → VisualBeat is a logical timeline hierarchy. A video beat does not require the system to prerender each Scene or Chapter into nested MP4 files before editing.
 
-V5 persisted beat media selections allow an editor-selected image/video asset to survive reload and feed production/render reads.
+Persisted beat media selections are part of the consolidated V1 schema and allow an editor-selected image/video asset to survive reload and feed production/render reads.
 
 ## Imported video — current Desktop direction
 
