@@ -56,13 +56,13 @@ V2__init_indexes.sql   -> core performance/claim/partial-uniqueness indexes
 V3__seed_data.sql      -> deterministic system/catalog bootstrap data
 ```
 
-That split is structural rather than historical. Earlier patch migrations were folded into V1-V3 before this baseline was shared.
+That split is structural rather than historical. Earlier patch migrations and the current Desktop guest/beat-selection/local-execution schema structures were folded into V1-V3 before this baseline was frozen.
 
-Once the consolidated V1-V3 baseline is present on `main` and may have been applied by developer or deployment databases, its checksums are frozen. New schema features use append-only versioned migrations (`V4+`) instead of rewriting V1-V3. `V4__desktop_guest_installations.sql` is the first migration under this evolution rule.
+Once the consolidated V1-V3 baseline is present on `main` and may have been applied by developer or deployment databases, its checksums are frozen. The current repository contains no V4 migration yet. New schema features must begin with a new append-only `V4__*.sql` instead of rewriting V1-V3.
 
-`spring.flyway.baseline-on-migrate=false` remains mandatory. A clean database applies the complete canonical migration sequence. Existing databases advance through new versioned migrations normally; checksum/history manipulation is not used as a substitute for a reviewed migration.
+`spring.flyway.baseline-on-migrate=false` remains mandatory. A clean database applies V1, V2 and V3. Existing databases advance through future versioned migrations normally; checksum/history manipulation is not used as a substitute for a reviewed migration.
 
-Within V1-V3, relational uniqueness needed as a foreign-key target is declared as a V1 `UNIQUE` constraint and V2 owns core query/claim indexes. Additive V4+ migrations are feature-scoped deployable units and may include the table, constraints and indexes needed for that feature atomically.
+Within V1-V3, relational uniqueness needed as a foreign-key target is declared as a V1 `UNIQUE` constraint and V2 owns core query/claim indexes. Future V4+ migrations are feature-scoped deployable units and may include the table, constraints and indexes needed for that feature atomically.
 
 Historical columns/defaults embedded in frozen migrations do not override current runtime behavior when the executor/path they described has been retired.
 
@@ -111,7 +111,7 @@ The backend and Python workers do not execute final project FFmpeg rendering and
 - SQL, indexing and lock behavior remain visible and reviewable.
 - High-concurrency work uses explicit row-version and lease fencing.
 - Final rendering has one executor and one byte-storage boundary instead of duplicate local/server paths.
-- The V1-V3 core remains easy to reason about while V4+ preserves normal Flyway upgrade semantics for databases that already consumed the shared baseline.
+- The V1-V3 core remains easy to reason about while future V4+ migrations preserve normal Flyway upgrade semantics for databases that already consumed the shared baseline.
 - New feature migrations increase the versioned history over time, but avoid destructive database recreation and checksum mismatch during normal development/deployment evolution.
 
 See [`DATABASE_BASELINE.md`](../codebase/DATABASE_BASELINE.md) for the concrete migration matrix and verification gate.
