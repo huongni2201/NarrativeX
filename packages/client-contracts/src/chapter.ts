@@ -80,6 +80,45 @@ export interface ChapterWorkspacePreviewScene {
   previewImageUrl: string | null;
 }
 
+export type ChapterTranslationStatus =
+  | "LANGUAGE_SELECTION_REQUIRED"
+  | "MULTILINGUAL"
+  | "NOT_REQUIRED"
+  | "PENDING_CONFIRMATION"
+  | "COMPLETED";
+
+export interface ChapterLanguageStatus {
+  sourceVariantId: string;
+  sourceContentHash: string;
+  detectedLanguage: string | null;
+  confidence: number | null;
+  detector: string | null;
+  projectLanguage: string;
+  translationStatus: ChapterTranslationStatus;
+  existingTranslationVariantId: string | null;
+}
+
+export interface ChapterContentVariant {
+  id: string;
+  chapterId: string;
+  sourceVariantId: string | null;
+  variantType: string;
+  languageCode: string;
+  content: string;
+  contentHash: string;
+  sourceContentHash: string | null;
+  translationProvider: string | null;
+  translationModel: string | null;
+  translationStatus: string;
+  createdAt: string;
+}
+
+export interface ConfirmChapterTranslationInput {
+  sourceVariantId: string;
+  sourceContentHash: string;
+  targetLanguage: string;
+}
+
 export interface CreateChapterInput {
   storyVersionId?: string;
   orderIndex?: number;
