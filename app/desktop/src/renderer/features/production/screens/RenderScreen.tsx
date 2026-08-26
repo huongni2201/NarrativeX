@@ -5,7 +5,7 @@ import type {
   DesktopTimeline,
   LocalRenderPreflight,
 } from "@narrativex/client-contracts";
-import { ExternalLink, Film, HardDrive, Play, WandSparkles } from "lucide-react";
+import { ExternalLink, Film, HardDrive, WandSparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -27,7 +27,7 @@ export function RenderScreen({
   timeline: DesktopTimeline | null;
 }>) {
   const [resolution, setResolution] = useState<"720p" | "1080p">("1080p");
-  const [autoEditStyle, setAutoEditStyle] = useState<AutoEditStyle>("CINEMATIC");
+  const [autoEditStyle, setAutoEditStyle] = useState<AutoEditStyle>("AUTO");
   const [job, setJob] = useState<DesktopRenderJob | null>(null);
   const [preflight, setPreflight] = useState<LocalRenderPreflight | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -55,7 +55,7 @@ export function RenderScreen({
       return;
     }
     setBusy(true);
-    setNotice("Auto Edit đã lập kế hoạch. Đang chạy local render preflight…");
+    setNotice("Auto Edit đang tự lập kế hoạch và chạy local render preflight…");
     try {
       const assetIds = [
         ...timeline.beats.map((beat) => beat.mediaAssetId),
@@ -83,7 +83,7 @@ export function RenderScreen({
       );
       setJob(nextJob);
       setNotice(
-        `Auto Edit ${autoEditStyle.toLowerCase()} đã áp dụng ${autoEditPlan.renderOverrides.length} override; render job ${nextJob.jobId.slice(0, 8)} đã được queue.`,
+        `Auto Edit ${autoEditStyle.toLowerCase()} đã áp dụng ${autoEditPlan.renderOverrides.length} thay đổi; render job ${nextJob.jobId.slice(0, 8)} đã được queue.`,
       );
     } catch (error) {
       setNotice(toMessage(error));
@@ -111,7 +111,7 @@ export function RenderScreen({
   return (
     <FeaturePage
       title="Auto Edit & Render"
-      description="NarrativeX tự chọn motion, trim và cách fit media theo narration rồi chuyển kế hoạch cho local FFmpeg executor."
+      description="Mặc định không cần chỉnh tay: NarrativeX tự chọn nhịp edit, motion, trim và cách fit media theo narration rồi giao cho local FFmpeg."
       actions={
         <Button size="sm" onClick={() => void startRender()} disabled={busy || !timeline}>
           <WandSparkles size={14} /> {busy ? "Preparing…" : "Auto Edit & Render"}
@@ -121,13 +121,14 @@ export function RenderScreen({
       <div className="grid gap-4">
         <section className="grid grid-cols-[repeat(auto-fit,minmax(190px,1fr))] gap-3 rounded-lg border border-border bg-card p-4">
           <Metric label="Timeline" value={timeline ? `${Math.round(timeline.totalDurationMs / 1000)}s` : "Not loaded"} icon={<Film size={16} />} />
-          <Metric label="Auto Edit" value={timeline?.readyForRender ? "Ready" : "Waiting for media"} icon={<WandSparkles size={16} />} />
+          <Metric label="Auto Edit" value={timeline?.readyForRender ? "Zero-config ready" : "Waiting for media"} icon={<WandSparkles size={16} />} />
           <Metric label="Disk free" value={preflight?.diskFreeBytes != null ? formatBytes(preflight.diskFreeBytes) : "Not checked"} icon={<HardDrive size={16} />} />
           <label className="grid gap-1 text-[10px] text-muted-foreground">
-            Edit style
+            Edit style · optional override
             <Select value={autoEditStyle} onValueChange={(value) => setAutoEditStyle(value as AutoEditStyle)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
+                <SelectItem value="AUTO">Auto · Recommended</SelectItem>
                 <SelectItem value="CINEMATIC">Cinematic</SelectItem>
                 <SelectItem value="BALANCED">Balanced</SelectItem>
                 <SelectItem value="DYNAMIC">Dynamic</SelectItem>
@@ -155,7 +156,7 @@ export function RenderScreen({
                   <h2 className="text-xs font-semibold">Auto Edit plan</h2>
                 </div>
                 <p className="mt-1 text-[10px] text-muted-foreground">
-                  Narration giữ vai trò master clock. AI-directed camera intent được giữ lại; rule engine chỉ tự quyết định phần fit/trim có thể xác định chắc chắn.
+                  Narration là master clock. Camera intent từ AI được ưu tiên; khi style là Auto, NarrativeX tự đổi nhịp theo nội dung beat và rule engine xử lý các quyết định media có thể xác định chắc chắn.
                 </p>
               </div>
               <span className="rounded-md border border-border bg-popover px-2 py-1 text-[9px] text-muted-foreground">
