@@ -1,18 +1,17 @@
 import type {
   CreateChapterInput,
+  CursorPage,
   DesktopChapterDetails,
   UpdateChapterInput,
 } from "@narrativex/client-contracts";
-import { apiRequest } from "../../../api/client";
-import { assertContract, isNumber, isRecord, isString } from "../../../api/guards";
+import { apiCommand, apiRequest } from "../../../api/client";
+import { isNumber, isRecord, isString } from "../../../api/guards";
+import { parseCursorPage } from "../../../api/pagination";
 import { parseChapterWorkspace } from "./chapter-workspace-contract";
 
 export { parseChapterWorkspace } from "./chapter-workspace-contract";
 
-export interface ChaptersPage {
-  content: DesktopChapterDetails[];
-  nextCursor: string | null;
-}
+export type ChaptersPage = CursorPage<DesktopChapterDetails>;
 
 function isChapter(value: unknown): value is DesktopChapterDetails {
   return (
@@ -28,19 +27,11 @@ function isChapter(value: unknown): value is DesktopChapterDetails {
 }
 
 function parseChapters(value: unknown): ChaptersPage {
-  assertContract(
-    isRecord(value) && Array.isArray(value.content),
+  return parseCursorPage(
+    value,
+    isChapter,
     "Chapters response không đúng contract.",
   );
-  assertContract(
-    value.content.every(isChapter),
-    "Chapters response chứa chapter không hợp lệ.",
-  );
-
-  return {
-    content: value.content,
-    nextCursor: typeof value.nextCursor === "string" ? value.nextCursor : null,
-  };
 }
 
 export const chaptersApi = {
@@ -80,7 +71,7 @@ export const chaptersApi = {
     ),
 
   remove: (projectId: string, chapterId: string) =>
-    apiRequest<void>(
+    apiCommand(
       `/api/v1/projects/${encodeURIComponent(projectId)}/chapters/${encodeURIComponent(chapterId)}`,
       { method: "DELETE" },
     ),

@@ -1,6 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { CreateProjectInput, DesktopProject } from "@narrativex/client-contracts";
-import { projectsApi } from "../api/projects.api";
+import {
+  projectsApi,
+  type ProjectDashboardCounts,
+} from "../api/projects.api";
 
 export const projectQueryKeys = {
   all: ["projects"] as const,
@@ -66,6 +69,9 @@ async function loadProjectsWithLocalFallback() {
     return {
       content: localBeforeRefresh,
       nextCursor: null,
+      limit: 50,
+      hasNext: false,
+      counts: countProjects(localBeforeRefresh),
     };
   }
 }
@@ -109,4 +115,12 @@ function mergeProjects(
   }
 
   return merged;
+}
+
+function countProjects(projects: DesktopProject[]): ProjectDashboardCounts {
+  return {
+    all: projects.length,
+    active: projects.filter((project) => project.status === "ACTIVE").length,
+    draft: projects.filter((project) => project.status === "DRAFT").length,
+  };
 }

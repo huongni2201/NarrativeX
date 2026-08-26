@@ -13,15 +13,20 @@ export interface DesktopAsset {
   sha256?: string;
 }
 
-export interface LocalAssetRegistration {
-  projectId: string;
-  assetId?: string;
+/** Wire request for POST /api/v1/assets/local. Mirrors RegisterLocalAssetRequest on backend. */
+export interface RegisterLocalAssetRequest {
   type: "AUDIO" | "IMAGE" | "VIDEO";
   originalFilename: string;
   contentType: string;
   sizeBytes: number;
   checksumSha256: string;
   durationMs?: number;
+}
+
+/** Desktop-local registration context. projectId/assetId must never be sent to the backend DTO. */
+export interface LocalAssetRegistration extends RegisterLocalAssetRequest {
+  projectId: string;
+  assetId?: string;
 }
 
 export interface LocalMaterializationStatus {

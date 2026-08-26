@@ -1,12 +1,11 @@
+import type { ApiResponse, FieldViolation } from "@narrativex/client-contracts";
 import { requestAuthentication } from "./auth-required-event.ts";
+import { isRecord, isString } from "./guards.ts";
 
 const API_BASE_URL = (
   (import.meta as ImportMeta & { env?: { VITE_API_BASE_URL?: string } }).env?.VITE_API_BASE_URL ??
   "http://localhost:8080"
-).replace(
-  /\/$/,
-  "",
-);
+).replace(/\/$/, "");
 const DEFAULT_TIMEOUT_MS = 30_000;
 
 interface CsrfTokenResponse {
@@ -20,17 +19,34 @@ interface DesktopTransportResponse {
   bodyText: string;
 }
 
+interface ApiErrorDetails {
+  code?: string;
+  correlationId?: string;
+  errors?: FieldViolation[];
+}
+
 let csrfTokenPromise: Promise<CsrfTokenResponse> | undefined;
 
 export class DesktopApiError extends Error {
   readonly status: number;
   readonly path: string;
+  readonly code?: string;
+  readonly correlationId?: string;
+  readonly errors?: FieldViolation[];
 
-  constructor(path: string, status: number, message: string) {
+  constructor(
+    path: string,
+    status: number,
+    message: string,
+    details: ApiErrorDetails = {},
+  ) {
     super(message);
     this.name = "DesktopApiError";
     this.status = status;
     this.path = path;
+    this.code = details.code;
+    this.correlationId = details.correlationId;
+    this.errors = details.errors;
   }
 }
 
@@ -48,6 +64,19 @@ export function apiBaseUrl(): string {
   return API_BASE_URL;
 }
 
+export function parseApiResponseBody<T>(path: string, bodyText: string): ApiResponse<T> {
+  const value = parseJson(bodyText);
+  if (
+    !isRecord(value) ||
+    value.success !== true ||
+    !isString(value.message) ||
+    !isString(value.timestamp)
+  ) {
+    throw new DesktopApiProtocolError(path);
+  }
+  return value as unknown as ApiResponse<T>;
+}
+
 function isCsrfTokenResponse(value: unknown): value is CsrfTokenResponse {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Partial<CsrfTokenResponse>;
@@ -55,21 +84,18 @@ function isCsrfTokenResponse(value: unknown): value is CsrfTokenResponse {
 }
 
 async function loadCsrfToken() {
+  const path = "/api/v1/auth/csrf";
   const response = await desktopRequest(
-    "/api/v1/auth/csrf",
+    path,
     { headers: { Accept: "application/json" } },
     DEFAULT_TIMEOUT_MS,
   );
   if (!isSuccessful(response.status)) {
-    throw new DesktopApiError(
-      "/api/v1/auth/csrf",
-      response.status,
-      response.statusText || "CSRF token request failed",
-    );
+    throw buildApiError(path, response);
   }
-  const envelope = parseJson(response.bodyText) as { success?: boolean; data?: unknown } | null;
-  if (envelope?.success !== true || !isCsrfTokenResponse(envelope.data)) {
-    throw new DesktopApiProtocolError("/api/v1/auth/csrf");
+  const envelope = parseApiResponseBody<unknown>(path, response.bodyText);
+  if (!hasResponseData(envelope) || !isCsrfTokenResponse(envelope.data)) {
+    throw new DesktopApiProtocolError(path);
   }
   return envelope.data;
 }
@@ -86,11 +112,32 @@ export async function apiRequest<T>(
   path: string,
   init: RequestInit = {},
   timeoutMs = DEFAULT_TIMEOUT_MS,
-) {
+): Promise<T> {
+  const envelope = await executeApiRequest(path, init, timeoutMs);
+  if (!envelope || !hasResponseData(envelope)) {
+    throw new DesktopApiProtocolError(path);
+  }
+  return envelope.data as T;
+}
+
+export async function apiCommand(
+  path: string,
+  init: RequestInit = {},
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+): Promise<void> {
+  await executeApiRequest(path, init, timeoutMs);
+}
+
+async function executeApiRequest(
+  path: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<ApiResponse<unknown> | undefined> {
   const method = (init.method ?? "GET").toUpperCase();
   const headers = new Headers(init.headers);
   headers.set("Accept", "application/json");
   const body = requestBody(init.body);
+
   if (body !== undefined && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
@@ -110,31 +157,59 @@ export async function apiRequest<T>(
   );
 
   if (!isSuccessful(response.status)) {
-    let message = response.statusText || "Request failed";
-    const responseBody = parseJson(response.bodyText) as {
-      message?: unknown;
-      code?: unknown;
-    } | null;
-    if (typeof responseBody?.message === "string" && responseBody.message) {
-      message = responseBody.message;
-    }
-    if (responseBody?.code === "AUTHENTICATION_REQUIRED") {
-      requestAuthentication(message, path);
-    }
     if (response.status === 401 || response.status === 403) csrfTokenPromise = undefined;
-    throw new DesktopApiError(path, response.status, message);
+    const error = buildApiError(path, response);
+    if (error.code === "AUTHENTICATION_REQUIRED") {
+      requestAuthentication(error.message, path);
+    }
+    throw error;
   }
 
-  if (response.status === 204) return undefined as T;
-  const envelope = parseJson(response.bodyText) as {
-    success?: boolean;
-    data?: T;
-    message?: string;
-  } | null;
-  if (envelope?.success !== true || !("data" in envelope)) {
-    throw new DesktopApiProtocolError(path);
-  }
-  return envelope.data as T;
+  if (response.status === 204) return undefined;
+  return parseApiResponseBody<unknown>(path, response.bodyText);
+}
+
+function buildApiError(path: string, response: DesktopTransportResponse): DesktopApiError {
+  const responseBody = parseJson(response.bodyText);
+  const details = extractApiErrorDetails(responseBody);
+  const message =
+    isRecord(responseBody) && isString(responseBody.message) && responseBody.message
+      ? responseBody.message
+      : response.statusText || "Request failed";
+
+  return new DesktopApiError(path, response.status, message, details);
+}
+
+function extractApiErrorDetails(value: unknown): ApiErrorDetails {
+  if (!isRecord(value)) return {};
+
+  const code = isString(value.code) ? value.code : undefined;
+  const correlationId = isString(value.correlationId) ? value.correlationId : undefined;
+  const errors = Array.isArray(value.errors)
+    ? value.errors.filter(isFieldViolation)
+    : undefined;
+
+  return {
+    code,
+    correlationId,
+    errors: errors?.length ? errors : undefined,
+  };
+}
+
+function isFieldViolation(value: unknown): value is FieldViolation {
+  return (
+    isRecord(value) &&
+    isString(value.field) &&
+    isString(value.code) &&
+    isString(value.messageKey) &&
+    isString(value.message)
+  );
+}
+
+function hasResponseData<T>(
+  response: ApiResponse<T>,
+): response is ApiResponse<T> & { data: T } {
+  return Object.prototype.hasOwnProperty.call(response, "data");
 }
 
 async function desktopRequest(

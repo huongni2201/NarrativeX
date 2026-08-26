@@ -8,6 +8,7 @@ public record ChapterSummaryResponse(
     UUID storyVersionId,
     int orderIndex,
     String title,
+    String sourceText,
     String sourceHash,
     long rowVersion) {
   public static ChapterSummaryResponse from(Chapter chapter) {
@@ -16,6 +17,7 @@ public record ChapterSummaryResponse(
         chapter.getStoryVersionId(),
         chapter.getOrderIndex(),
         chapter.getTitle(),
+        chapter.getSourceText(),
         chapter.getSourceHash(),
         chapter.getRowVersion());
   }

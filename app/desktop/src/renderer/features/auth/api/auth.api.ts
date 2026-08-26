@@ -1,4 +1,4 @@
-import { apiRequest } from "../../../api/client";
+import { apiRequest, parseApiResponseBody } from "../../../api/client";
 
 interface DesktopAuthExchangeResponse {
   status: number;
@@ -46,13 +46,14 @@ export const authApi = {
       }
       throw new Error(message);
     }
-    let envelope: { success?: boolean; data?: unknown };
-    try {
-      envelope = JSON.parse(response.bodyText) as { success?: boolean; data?: unknown };
-    } catch {
+
+    const envelope = parseApiResponseBody<unknown>(
+      "/api/v1/auth/desktop/exchange",
+      response.bodyText,
+    );
+    if (!Object.prototype.hasOwnProperty.call(envelope, "data")) {
       throw new Error("Desktop auth exchange response is invalid.");
     }
-    if (envelope.success !== true) throw new Error("Desktop auth exchange response is invalid.");
     return parseUser(envelope.data);
   },
   logout: () =>
