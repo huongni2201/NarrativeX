@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -74,6 +75,54 @@ class DesktopAuthControllerTest {
         DesktopAuthController.isAllowedRedirect(
             "narrativex://auth/callback?next=https://evil.example"));
     assertFalse(DesktopAuthController.isAllowedRedirect("narrativex://auth/callback#fragment"));
+  }
+
+  @Test
+  void desktopStartMovesBrowserToConfiguredPublicOriginBeforeCreatingSession() throws Exception {
+    DesktopAuthHandoff handoffStore = mock(DesktopAuthHandoff.class);
+    DesktopGuestIdentity guestIdentity = mock(DesktopGuestIdentity.class);
+    SecurityContextRepository securityContextRepository = mock(SecurityContextRepository.class);
+    DesktopAuthController controller =
+        new DesktopAuthController(
+            handoffStore, guestIdentity, securityContextRepository, "https://auth.example.com");
+    HttpServletRequest request = mock(HttpServletRequest.class);
+    HttpServletResponse response = mock(HttpServletResponse.class);
+    String challenge = "a".repeat(43);
+    when(request.getScheme()).thenReturn("http");
+    when(request.getServerName()).thenReturn("localhost");
+    when(request.getServerPort()).thenReturn(8080);
+
+    controller.start("narrativex://auth/callback", challenge, request, response);
+
+    verify(response)
+        .sendRedirect(
+            "https://auth.example.com/api/v1/auth/desktop/start?redirect_uri=narrativex%3A%2F%2Fauth%2Fcallback&code_challenge="
+                + challenge);
+    verify(request, never()).getSession(true);
+  }
+
+  @Test
+  void desktopStartOnConfiguredPublicOriginCreatesOAuthSessionThere() throws Exception {
+    DesktopAuthHandoff handoffStore = mock(DesktopAuthHandoff.class);
+    DesktopGuestIdentity guestIdentity = mock(DesktopGuestIdentity.class);
+    SecurityContextRepository securityContextRepository = mock(SecurityContextRepository.class);
+    DesktopAuthController controller =
+        new DesktopAuthController(
+            handoffStore, guestIdentity, securityContextRepository, "https://auth.example.com");
+    HttpServletRequest request = mock(HttpServletRequest.class);
+    HttpServletResponse response = mock(HttpServletResponse.class);
+    HttpSession session = mock(HttpSession.class);
+    String challenge = "b".repeat(43);
+    when(request.getScheme()).thenReturn("https");
+    when(request.getServerName()).thenReturn("auth.example.com");
+    when(request.getServerPort()).thenReturn(443);
+    when(request.getSession(true)).thenReturn(session);
+
+    controller.start("narrativex://auth/callback", challenge, request, response);
+
+    verify(session).setAttribute("NARRATIVEX_DESKTOP_REDIRECT_URI", "narrativex://auth/callback");
+    verify(session).setAttribute("NARRATIVEX_DESKTOP_CODE_CHALLENGE", challenge);
+    verify(response).sendRedirect("/oauth2/authorization/google");
   }
 
   @Test
