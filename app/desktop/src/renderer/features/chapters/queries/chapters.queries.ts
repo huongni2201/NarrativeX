@@ -25,25 +25,17 @@ export function useChapterWorkspacesQuery(
   projectId: string,
   chapters: DesktopChapterDetails[],
   pollingChapterId?: string | null,
-  forcePollingChapterId?: string | null,
 ) {
   return useQueries({
     queries: chapters.map((chapter) => ({
       queryKey: chapterQueryKeys.workspace(projectId, chapter.id),
       queryFn: () => chaptersApi.workspace(projectId, chapter.id),
       enabled: Boolean(projectId && chapter.id),
-      refetchInterval: (query: Query<DesktopChapterWorkspace, Error, DesktopChapterWorkspace>) => {
-        const isSelectedPollingTarget = chapter.id === pollingChapterId;
-        const isForcedPollingTarget = chapter.id === forcePollingChapterId;
-        if (!isSelectedPollingTarget && !isForcedPollingTarget) return false;
-
-        // The enqueue endpoint can return before the workspace projection has switched
-        // from NOT_STARTED to QUEUED. Keep polling the chapter that was just submitted
-        // so the UI cannot fall back to an idle state and enable duplicate clicks.
-        if (isForcedPollingTarget) return 1500;
-
-        return isAudioProcessingStatus(query.state.data?.pipeline.audio.status) ? 3000 : false;
-      },
+      refetchInterval: (query: Query<DesktopChapterWorkspace, Error, DesktopChapterWorkspace>) =>
+        chapter.id === pollingChapterId &&
+        isAudioProcessingStatus(query.state.data?.pipeline.audio.status)
+          ? 3000
+          : false,
     })),
   });
 }
