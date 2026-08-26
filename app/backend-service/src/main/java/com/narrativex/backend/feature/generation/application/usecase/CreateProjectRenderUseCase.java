@@ -1,6 +1,8 @@
 package com.narrativex.backend.feature.generation.application.usecase;
 
 import com.narrativex.backend.feature.account.application.port.in.UserQuotaAccess;
+import com.narrativex.backend.feature.assets.application.query.MediaAssetView;
+import com.narrativex.backend.feature.assets.application.usecase.AssetLibraryUseCase;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.application.command.CreateProjectRenderCommand;
@@ -9,6 +11,7 @@ import com.narrativex.backend.feature.generation.application.port.out.Generation
 import com.narrativex.backend.feature.generation.application.port.out.GenerationOutboxRepository;
 import com.narrativex.backend.feature.generation.application.port.out.OperationPlanRepository;
 import com.narrativex.backend.feature.generation.application.port.out.ProjectRenderInputSnapshotRepository;
+import com.narrativex.backend.feature.generation.application.port.out.ProjectRenderInputSnapshotRepository.BackgroundMusicInput;
 import com.narrativex.backend.feature.generation.application.port.out.QuotaReservation;
 import com.narrativex.backend.feature.generation.application.port.out.StageAttemptRepository;
 import com.narrativex.backend.feature.generation.application.query.ProductionTimelineView;
@@ -62,6 +65,7 @@ public class CreateProjectRenderUseCase {
   private final QuotaReservation quotaReservation;
   private final UserQuotaAccess userQuotaAccess;
   private final LocalDeviceAccess localDeviceAccess;
+  private final AssetLibraryUseCase assetLibraryUseCase;
 
   @Transactional
   public GenerationJob execute(CreateProjectRenderCommand command) {
@@ -79,6 +83,8 @@ public class CreateProjectRenderUseCase {
     }
     validateMediaForExecutionTarget(sourceTimeline, executionTarget);
     ProductionTimelineView timeline = applyBeatOverrides(sourceTimeline, command.beatOverrides());
+    BackgroundMusicInput backgroundMusic =
+        resolveBackgroundMusic(command.backgroundMusicAssetId(), executionTarget);
 
     var quota =
         userQuotaAccess
@@ -156,7 +162,8 @@ public class CreateProjectRenderUseCase {
         command.resolution(),
         command.format(),
         executionTarget,
-        command.localDeviceId());
+        command.localDeviceId(),
+        backgroundMusic);
 
     OperationPlan plan =
         operationPlanRepository.save(
@@ -171,16 +178,59 @@ public class CreateProjectRenderUseCase {
     stageAttemptRepository.create(StageAttempt.create(job.getId(), stageName(executionTarget), 1));
     generationOutboxRepository.enqueue(job);
     log.info(
-        "Created project render job id={} projectId={} target={} deviceId={} durationMs={} chapters={} beats={} overrides={}",
+        "Created project render job id={} projectId={} target={} deviceId={} bgmAssetId={} durationMs={} chapters={} beats={} overrides={}",
         job.getId(),
         command.projectId(),
         executionTarget,
         command.localDeviceId(),
+        command.backgroundMusicAssetId(),
         timeline.totalDurationMs(),
         timeline.chapters().size(),
         timeline.beats().size(),
         command.beatOverrides().size());
     return job;
+  }
+
+  private BackgroundMusicInput resolveBackgroundMusic(
+      UUID backgroundMusicAssetId, RenderExecutionTarget executionTarget) {
+    if (backgroundMusicAssetId == null) return null;
+    MediaAssetView asset;
+    try {
+      asset = assetLibraryUseCase.find(backgroundMusicAssetId);
+    } catch (RuntimeException exception) {
+      throw new GenerationAdmissionDeniedException(
+          "INVALID_BACKGROUND_MUSIC", "Background music asset is unavailable for this account.");
+    }
+    if (!"AUDIO".equals(asset.type()) || !"READY".equals(asset.status())) {
+      throw new GenerationAdmissionDeniedException(
+          "INVALID_BACKGROUND_MUSIC", "Background music must be a READY audio asset.");
+    }
+    if (asset.durationMs() == null || asset.durationMs() <= 0) {
+      throw new GenerationAdmissionDeniedException(
+          "INVALID_BACKGROUND_MUSIC", "Background music requires a known positive duration.");
+    }
+    String storageMode = asset.storageMode();
+    if (!Set.of("REMOTE", "LOCAL_ONLY", "HYBRID").contains(storageMode)) {
+      throw new GenerationAdmissionDeniedException(
+          "INVALID_BACKGROUND_MUSIC", "Background music has an invalid storage mode.");
+    }
+    if (executionTarget == RenderExecutionTarget.CLOUD && "LOCAL_ONLY".equals(storageMode)) {
+      throw new GenerationAdmissionDeniedException(
+          "CLOUD_RENDER_LOCAL_MEDIA",
+          "Cloud rendering cannot use LOCAL_ONLY background music.");
+    }
+    if (!"LOCAL_ONLY".equals(storageMode)
+        && (asset.storageKey() == null || asset.storageKey().isBlank())) {
+      throw new GenerationAdmissionDeniedException(
+          "INVALID_BACKGROUND_MUSIC", "Remote background music has no storage key.");
+    }
+    return new BackgroundMusicInput(
+        asset.id(),
+        storageMode,
+        asset.storageKey(),
+        asset.sizeBytes(),
+        asset.sha256(),
+        asset.durationMs());
   }
 
   private static void validateMediaForExecutionTarget(
@@ -371,7 +421,9 @@ public class CreateProjectRenderUseCase {
             + ":"
             + command.executionTarget().name()
             + ":"
-            + (command.localDeviceId() == null ? "-" : command.localDeviceId()));
+            + (command.localDeviceId() == null ? "-" : command.localDeviceId())
+            + ":"
+            + (command.backgroundMusicAssetId() == null ? "-" : command.backgroundMusicAssetId()));
   }
 
   private static String idempotencyKey(
