@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-24  
-**Updated:** 2026-08-26 after legacy web removal, OAuth fallback cleanup and Desktop sandbox compatibility adjustment
+**Updated:** 2026-08-26 after legacy web removal, OAuth fallback cleanup, Desktop sandbox compatibility adjustment and local-only final-render consolidation
 
 ## Context
 
@@ -47,17 +47,13 @@ nodeIntegration  = false
 sandbox          = false
 ```
 
-The Chromium renderer sandbox is disabled because it cannot initialize reliably in the current
-Desktop runtime environments. This is a deliberate security trade-off, not permission for the
-renderer to access native APIs directly: `nodeIntegration` remains disabled, context isolation
-remains enabled, and preload exposes only narrow, trust-checked IPC capabilities. Re-enable the
-renderer sandbox when the affected Electron environments are supported and verified.
+The Chromium renderer sandbox is disabled because it cannot initialize reliably in the current Desktop runtime environments. This is a deliberate security trade-off, not permission for the renderer to access native APIs directly: `nodeIntegration` remains disabled, context isolation remains enabled, and preload exposes only narrow, trust-checked IPC capabilities. Re-enable the renderer sandbox when the affected Electron environments are supported and verified.
 
 ### Timeline and rendering
 
 Timeline clips use explicit `startMs`/`endMs`; narration timing remains the master clock.
 
-For `LOCAL_DEVICE` project rendering, Electron main executes FFmpeg outside the renderer according to ADR-0012. Cloud/server render remains a migration fallback.
+Final project rendering executes only in Electron main under backend assignment/lease control according to ADR-0012. Python workers and backend services do not execute final FFmpeg renders or store/proxy final MP4 bytes.
 
 ### Local project media
 
@@ -65,7 +61,7 @@ Desktop project media is local-first. Electron main maps stable backend asset ID
 
 ## Current implementation checkpoint
 
-At `main` commit `751f006634218efb2c398fc00c2cbfecd25e1eac`:
+At the current V1.11 implementation baseline:
 
 - the Desktop editor shell and project-scoped routes exist;
 - shared client contracts are consumed by the Desktop renderer;
@@ -74,7 +70,7 @@ At `main` commit `751f006634218efb2c398fc00c2cbfecd25e1eac`:
 - local device pairing/identity/heartbeat is wired;
 - backend-assigned local project renders can be claimed by the device;
 - lease heartbeat, progress, completion, failure and in-process cancellation are wired;
-- FFmpeg/ffprobe probing and a full local project-render foundation exist: segment render, video concat, narration concat, mux, validation and local artifact registration.
+- FFmpeg/ffprobe probing and the local project-render foundation exist: segment render, video concat, narration concat, mux, validation and local artifact registration.
 
 Process-restart render recovery/resume and several planned editor/review hardening items remain incomplete. Do not describe them as implemented, and do not treat the removed browser editor as a current dependency.
 
@@ -86,13 +82,13 @@ Process-restart render recovery/resume and several planned editor/review hardeni
 - Native storage/render features have an explicit security boundary.
 - Local long-form media/render flows avoid unnecessary cloud transfer.
 - The backend remains one durable business/control authority.
-- Remaining Desktop roadmap work can proceed without a parallel browser editor.
+- Remaining Desktop roadmap work can proceed without a parallel browser editor or server final-render path.
 
 ### Negative
 
-- Two client dependency graphs exist temporarily.
 - Desktop packaging, auto-update, disk cleanup, backup/device migration and crash recovery need production hardening.
-- Feature completeness remains tracked independently from the completed browser-client removal.
+- Disabling the Chromium renderer sandbox is a temporary security trade-off that should be reversed when startup compatibility permits.
+- Feature completeness remains tracked independently from the completed browser-client and server-render removal.
 
 ## Invariants
 
@@ -100,9 +96,9 @@ Process-restart render recovery/resume and several planned editor/review hardeni
 2. Renderer code never gains unrestricted Node.js/filesystem/process access.
 3. Native capabilities cross preload as narrow typed actions.
 4. Backend remains authoritative for ownership, policy, job admission and durable execution state.
-5. Local project bytes follow ADR-0012.
+5. Local project bytes and final MP4 artifacts follow ADR-0012.
 6. Google user authentication follows ADR-0011.
-7. Cloud render/storage remains a compatibility path, not the Desktop architecture default.
+7. Final project rendering executes only in Electron main; introducing server/cloud final rendering or final-video byte storage requires a new ADR.
 
 ## Related decisions
 
