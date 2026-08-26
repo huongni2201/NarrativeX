@@ -4,6 +4,7 @@ import type {
   ClaimedProjectRenderBeat,
   ClaimedProjectRenderChapter,
 } from "../local-execution/backend-client";
+import { planSubtitles, type PlannedSubtitle } from "./subtitle-planner";
 import { planBeatTransitions } from "./transition-planner";
 
 const SHA256_PATTERN = /^[0-9a-f]{64}$/i;
@@ -19,9 +20,10 @@ export interface LocalRenderManifest {
   readonly fps: number;
   readonly beats: readonly LocalRenderBeat[];
   readonly audio: { readonly chapters: readonly LocalRenderAudio[] };
-  readonly subtitles: readonly [];
+  readonly subtitles: readonly PlannedSubtitle[];
   readonly effects: {
     readonly transitionPolicy: "CHAPTER_FADE_BLACK_V1";
+    readonly subtitlePolicy: "MOV_TEXT_ALIGNMENT_V1";
   };
   readonly output: { readonly format: "mp4"; readonly mimeType: "video/mp4" };
 }
@@ -74,7 +76,11 @@ export function buildLocalRenderManifest(
       localPath,
     })),
   };
-  const effects = { transitionPolicy: "CHAPTER_FADE_BLACK_V1" as const };
+  const subtitles = planSubtitles(renderChapters);
+  const effects = {
+    transitionPolicy: "CHAPTER_FADE_BLACK_V1" as const,
+    subtitlePolicy: "MOV_TEXT_ALIGNMENT_V1" as const,
+  };
   const fingerprintSource = canonicalize({
     version: 1,
     jobId: render.jobId,
@@ -86,6 +92,7 @@ export function buildLocalRenderManifest(
     audio: {
       chapters: audio.chapters.map(({ localPath: _path, ...chapter }) => chapter),
     },
+    subtitles,
     effects,
     output: { format: "mp4" },
   });
@@ -100,7 +107,7 @@ export function buildLocalRenderManifest(
     fps,
     beats,
     audio,
-    subtitles: [] as const,
+    subtitles,
     effects,
     output: { format: "mp4" as const, mimeType: "video/mp4" as const },
   });
