@@ -7,7 +7,6 @@ import type {
   DesktopVoice,
 } from "@narrativex/client-contracts";
 import {
-  ArrowDownAZ,
   AudioLines,
   BookOpen,
   ChevronLeft,
@@ -18,12 +17,10 @@ import {
   Folder,
   GripVertical,
   Info,
-  Layers,
   Lightbulb,
   MoreVertical,
-  Plus,
+  PencilLine,
   Search,
-  Sparkles,
   Trash2,
   WandSparkles,
 } from "lucide-react";
@@ -306,12 +303,12 @@ export function ChaptersScreen({
 
         {/* Right API Status & Open Editor Button */}
         <div className="flex shrink-0 items-center gap-3">
-          <span className="inline-flex h-8 items-center gap-2 rounded-full border border-border bg-surface px-3 text-xs text-text-secondary">
+          <span className="inline-flex h-8 items-center gap-2 rounded-md border border-border bg-surface px-3 text-xs text-text-secondary">
             <span
               className={`size-2 rounded-full ${
                 workspaceStatus === "error"
                   ? "bg-danger"
-                  : "bg-success shadow-[0_0_8px_var(--success)]"
+                  : "bg-success"
               }`}
             />
             <span>API status</span>
@@ -320,7 +317,7 @@ export function ChaptersScreen({
           <Button
             variant="outline"
             onClick={openEditor}
-            className="h-8 gap-1.5 border-primary/40 bg-primary-muted px-3 text-xs font-semibold text-primary-hover hover:bg-primary-light"
+            className="h-8 gap-1.5 border-border bg-surface-input px-3 text-xs font-semibold text-text-secondary hover:border-primary/55 hover:bg-surface-2 hover:text-primary-hover"
           >
             <span>Open Editor</span>
             <ChevronRight size={13} />
@@ -336,7 +333,7 @@ export function ChaptersScreen({
         {/* ========================================================================= */}
         {/* COLUMN 1: Chapter List Panel                                              */}
         {/* ========================================================================= */}
-        <section className="flex flex-col min-h-0 overflow-hidden rounded-lg border border-border bg-surface-panel shadow-[var(--shadow-panel)]">
+        <section className="flex flex-col min-h-0 overflow-hidden rounded-md border border-border bg-surface-panel shadow-none">
           <div className="border-b border-border p-4 space-y-3">
             <div>
               <h2 className="text-sm font-bold text-foreground">Chapter List</h2>
@@ -418,7 +415,7 @@ export function ChaptersScreen({
                   onClick={() => selectChapter(chapter.id)}
                   className={`group relative flex items-center justify-between gap-2 rounded-md border p-2.5 transition-all cursor-pointer ${
                     isSelected
-                      ? "border-primary bg-primary-muted shadow-[var(--shadow-primary)] ring-1 ring-primary/40"
+                      ? "border-primary/65 border-l-2 border-l-primary bg-primary-muted/55 shadow-none ring-0"
                       : "border-border-subtle bg-surface hover:border-border hover:bg-surface-2"
                   }`}
                 >
@@ -511,7 +508,7 @@ export function ChaptersScreen({
               >
                 <ChevronLeft size={13} />
               </button>
-              <span className="px-2 py-0.5 rounded bg-primary-muted text-primary-hover font-semibold text-xs">
+              <span className="px-2 py-0.5 rounded bg-surface-3 text-primary-hover font-semibold text-xs">
                 {page}
               </span>
               {totalPages > 1 && (
@@ -538,11 +535,11 @@ export function ChaptersScreen({
         {/* ========================================================================= */}
         {/* COLUMN 2: Form Panel (Tạo / Chỉnh sửa chapter)                            */}
         {/* ========================================================================= */}
-        <section className="flex flex-col min-h-0 overflow-hidden rounded-lg border border-border bg-surface-panel shadow-[var(--shadow-panel)]">
+        <section className="flex flex-col min-h-0 overflow-hidden rounded-md border border-border bg-surface-panel shadow-none">
           {/* Header */}
           <div className="border-b border-border p-5">
             <div className="flex items-center gap-2">
-              <Sparkles className="text-primary-hover" size={18} />
+              <PencilLine className="text-text-secondary" size={18} />
               <h2 className="text-base font-bold text-foreground">
                 {selected ? "Chỉnh sửa chapter" : "Tạo chapter mới"}
               </h2>
@@ -600,9 +597,9 @@ export function ChaptersScreen({
             </div>
 
             {/* Audio generation */}
-            <div className="space-y-3 rounded-md border border-primary/25 bg-primary-muted/30 p-3">
+            <div className="space-y-3 rounded-md border border-border bg-surface p-3">
               <div className="flex items-start gap-2">
-                <AudioLines className="mt-0.5 shrink-0 text-primary-hover" size={16} />
+                <AudioLines className="mt-0.5 shrink-0 text-text-secondary" size={16} />
                 <div>
                   <h3 className="text-xs font-bold text-foreground">Tạo audio cho chapter</h3>
                   <p className="mt-1 text-[10px] leading-4 text-text-secondary">
@@ -649,13 +646,13 @@ export function ChaptersScreen({
                 type="button"
                 onClick={() => void createAudio()}
                 disabled={!selected || !voiceId || !sourceText.trim() || busy}
-                className="h-8 w-full gap-1.5 bg-primary text-xs font-bold text-primary-foreground hover:bg-primary-hover disabled:opacity-50"
+                className="h-8 w-full gap-1.5 bg-primary text-xs font-bold text-primary-foreground shadow-none hover:bg-primary-hover disabled:opacity-50"
               >
                 <AudioLines size={13} />
                 {generateNarration.isPending ? "Đang gửi…" : "Tạo audio"}
               </Button>
 
-              <div className="border-t border-primary/15 pt-2 text-[10px] text-text-secondary">
+              <div className="border-t border-border-subtle pt-2 text-[10px] text-text-secondary">
                 <span>Trạng thái audio: </span>
                 <strong className="text-foreground">
                   {selectedWorkspace
@@ -689,9 +686,9 @@ export function ChaptersScreen({
               <Button
                 onClick={() => void save()}
                 disabled={!title.trim() || !sourceText.trim() || busy}
-                className="h-9 flex-1 gap-1.5 bg-primary text-xs font-bold text-primary-foreground shadow-[var(--shadow-primary)] hover:bg-primary-hover disabled:opacity-50"
+                className="h-9 flex-1 gap-1.5 bg-primary text-xs font-bold text-primary-foreground shadow-none hover:bg-primary-hover disabled:opacity-50"
               >
-                <Sparkles size={13} />
+                <PencilLine size={13} />
                 <span>{busy ? "Đang lưu…" : selected ? "Lưu thay đổi" : "Tạo chapter"}</span>
               </Button>
             </div>
@@ -709,10 +706,10 @@ export function ChaptersScreen({
                   onClick={() => {
                     if (selected) void analyzeChapter.mutateAsync(selected.id);
                   }}
-                  className="rounded-md border border-border bg-surface p-3 transition-all hover:border-primary/50 cursor-pointer"
+                  className="rounded-md border border-border bg-surface p-3 transition-colors hover:border-border-dark hover:bg-surface-2 cursor-pointer"
                 >
                   <div className="flex items-center gap-1.5 text-primary-hover font-semibold text-xs">
-                    <Sparkles size={13} />
+                    <PencilLine size={13} />
                     <span>Phân tích chapter</span>
                   </div>
                   <p className="mt-1 text-[10px] leading-4 text-text-muted">
@@ -723,7 +720,7 @@ export function ChaptersScreen({
                 {/* Card 2: Tạo scene */}
                 <div
                   onClick={openEditor}
-                  className="rounded-md border border-border bg-surface p-3 transition-all hover:border-primary/50 cursor-pointer"
+                  className="rounded-md border border-border bg-surface p-3 transition-colors hover:border-border-dark hover:bg-surface-2 cursor-pointer"
                 >
                   <div className="flex items-center gap-1.5 text-text-secondary font-semibold text-xs">
                     <Clapperboard size={13} />
@@ -741,7 +738,7 @@ export function ChaptersScreen({
         {/* ========================================================================= */}
         {/* COLUMN 3: Workspace Context Panel                                         */}
         {/* ========================================================================= */}
-        <aside className="flex flex-col min-h-0 overflow-y-auto rounded-lg border border-border bg-surface-panel shadow-[var(--shadow-panel)]">
+        <aside className="flex flex-col min-h-0 overflow-y-auto rounded-md border border-border bg-surface-panel shadow-none">
           {/* Header */}
           <div className="border-b border-border p-4 space-y-3">
             <div>
@@ -859,16 +856,16 @@ function WorkflowRibbon() {
         {steps.map(({ label, active }, index) => (
           <div key={label} className="flex items-center gap-3">
             <div
-              className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-all ${
+              className={`flex items-center gap-1.5 rounded-sm px-2 py-1.5 text-xs font-medium transition-colors ${
                 active
-                  ? "border border-primary/50 bg-primary-muted text-primary-hover shadow-[0_0_8px_var(--primary-light)]"
+                  ? "border-b-2 border-primary bg-transparent text-primary-hover"
                   : "text-text-muted"
               }`}
             >
               <span className={`size-1.5 rounded-full ${active ? "bg-primary" : "bg-text-dim"}`} />
               <span>{label}</span>
             </div>
-            {index < steps.length - 1 && <span className="text-border-dark">⋯⋯</span>}
+            {index < steps.length - 1 && <span aria-hidden="true" className="w-7 border-t border-dashed border-border-dark" />}
           </div>
         ))}
       </div>
