@@ -10,6 +10,4 @@ public interface GenerationOutboxMapper extends NarrativeXMyBatisMapper {
   List<OutboxDispatchRow> reserveBatch(@Param("reservationMillis") long reservationMillis);
 
   int markPublished(@Param("id") long id);
-
-  int scheduleRetry(@Param("id") long id, @Param("retryMillis") long retryMillis);
 }

@@ -18,8 +18,7 @@ class GenerationOutboxMapperResultMapTest {
       "com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.GenerationOutboxMapper";
 
   @Test
-  void reserveBatchExplicitlyMapsSnakeCaseColumnsWhenGlobalUnderscoreMappingIsDisabled()
-      throws Exception {
+  void reserveBatchExplicitlyMapsTheOnlyRequiredDispatchColumn() throws Exception {
     Configuration configuration = new Configuration();
     configuration.setMapUnderscoreToCamelCase(false);
 
@@ -33,8 +32,6 @@ class GenerationOutboxMapperResultMapTest {
         resultMap.getResultMappings().stream()
             .collect(Collectors.toMap(ResultMapping::getProperty, ResultMapping::getColumn));
 
-    assertThat(mappings)
-        .containsAllEntriesOf(
-            Map.of("id", "id", "eventType", "event_type", "payloadJson", "payload_json"));
+    assertThat(mappings).containsExactlyInAnyOrderEntriesOf(Map.of("id", "id"));
   }
 }
