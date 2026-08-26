@@ -1,8 +1,8 @@
-# NarrativeX Technology Stack — V1.11
+# NarrativeX Technology Stack — V1.12
 
 Canonical authority: [`../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md).
 
-Executable manifests are authoritative for exact dependency versions. This file summarizes the current stack at docs checkpoint `0aca94e6eef07158e161cd67c648671e74055473` (2026-08-26).
+Executable manifests are authoritative for exact dependency versions. This file summarizes the current stack after the PostgreSQL-only MVP runtime refactor (2026-08-26).
 
 | Layer | Current stack | Current role |
 |---|---|---|
@@ -10,9 +10,9 @@ Executable manifests are authoritative for exact dependency versions. This file 
 | Desktop state/data | TanStack React Query 5.102.3, Zustand 5.0.15 | backend query/cache and local editor state |
 | Desktop UI | Tailwind CSS 4.3.3, `@tailwindcss/vite` 4.3.3, source-owned shadcn-style primitives, Radix UI, CVA, clsx, tailwind-merge, Lucide 1.34.0, Sonner 2.0.8 | accessible renderer component vocabulary and semantic styling |
 | Browser OAuth flow | Spring Security OAuth2/OIDC endpoints | backend authentication flow only; no browser editor |
-| Backend | Java 25, Spring Boot 4.1.0, Security/OAuth2, Spring Session Redis, Actuator | modular monolith, auth/ownership/policy and durable orchestration authority |
-| Persistence | PostgreSQL + Flyway + MyBatis Spring Boot 4.1.0 + explicit SQL | sole production application persistence path |
-| Redis | Spring Data Redis + Spring Session Redis | server sessions and transient/non-authoritative state |
+| Backend | Java 25, Spring Boot 4.1.0, Security/OAuth2, Spring Session JDBC, Actuator | modular monolith, auth/ownership/policy and durable orchestration authority |
+| Persistence | PostgreSQL + Flyway + MyBatis Spring Boot 4.1.0 + explicit SQL + Spring Session JDBC | sole production application persistence path, including durable queues, server sessions and one-time OAuth handoffs |
+| Queue execution | PostgreSQL polling + row locking/leases | workers claim durable jobs directly; no Redis/broker/NOTIFY dependency |
 | Worker | Python 3.12+, Pydantic 2.7.0, pydantic-settings 2.2.0, HTTPX 0.27.0, asyncpg 0.30.0, google-auth 2.35.0 | asynchronous analysis/translation/image/narration/media-validation execution |
 | Worker media/AI extras | boto3 1.40.0, Pillow 10.0.0, VieNeu 3.3.0, torch/torchaudio 2.8.0, pydub 0.25.1 | generated-media transport, narration and image/media processing |
 | Shared client contracts | `packages/client-contracts` | typed Desktop/backend contracts |
@@ -22,6 +22,8 @@ Executable manifests are authoritative for exact dependency versions. This file 
 | Remote generated-media transport | Cloudflare R2 | durable transport for AI-generated image/narration bytes before Desktop materialization |
 | Desktop project storage | Electron `userData` + `project.manifest.json` | local-first project media, backups, render work/cache and final artifacts |
 | Desktop deterministic render | FFmpeg + ffprobe from Electron main | backend-assigned lease-controlled final rendering and local MP4 output |
+
+Redis is intentionally not part of the MVP runtime. Adding a separate broker/cache later requires a measured need and an explicit architecture decision; it must not replace PostgreSQL as the durable job source of truth.
 
 ## Desktop trust boundary
 
@@ -48,7 +50,7 @@ The renderer must not become a second source of truth for Projects, Chapters, st
 
 Desktop is guest-first. A stable installation-scoped guest identity provides ownership continuity for free workspace usage. Google remains the only end-user account sign-in provider and is required for backend-gated account/provider-consuming operations.
 
-The guest installation secret, signed-in user session and local-execution device credential are separate security concepts. Google access/refresh tokens never enter Electron.
+The guest installation secret, signed-in user session and local-execution device credential are separate security concepts. Google access/refresh tokens never enter Electron. `NX_SESSION` state and one-time Desktop OAuth handoffs are persisted in PostgreSQL; the raw handoff code is never stored.
 
 ## Renderer UI structure
 
@@ -83,4 +85,4 @@ Production release hardening, abrupt-process recovery UX and richer editor/revie
 
 Production persistence is MyBatis + explicit PostgreSQL SQL. The backend build contains no JPA persistence dependency and application persistence does not use direct `JdbcTemplate` as a parallel production path.
 
-Current Flyway baseline is V1-V3 only. The Desktop guest, beat media selection and local execution/render metadata structures are already consolidated into V1; future schema changes start at append-only V4+.
+Flyway V1-V3 remain the frozen baseline. Append-only V4 adds PostgreSQL-backed Spring Session tables and single-use Desktop OAuth handoff state; future schema changes continue at V5+.

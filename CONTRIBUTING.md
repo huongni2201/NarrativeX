@@ -74,16 +74,14 @@ The hook invokes `scripts/verify-local.ps1`; application code never changes Git 
 
 ## Production ingress
 
-NarrativeX does not require a web frontend or Caddy. The default Compose startup
-is:
+NarrativeX does not require a web frontend, Caddy or Redis. The default Compose startup is:
 
 ```powershell
 docker compose up -d
 ```
 
-It starts PostgreSQL, Redis, the backend and retained AI/narration workers without a tunnel
-token. A self-hosted deployment using Cloudflare Tunnel must explicitly enable
-the profile:
+It starts PostgreSQL, the backend and retained AI/narration workers without a tunnel token.
+A self-hosted deployment using Cloudflare Tunnel must explicitly enable the profile:
 
 ```powershell
 docker compose --profile tunnel up -d

@@ -45,7 +45,9 @@ The plaintext secret never enters React, browser storage, logs or worker payload
 
 The backend stores only the SHA-256 hash in `desktop_guest_installations`. The table maps one `device_id` to one stable internal `guest_user_id`. A matching internal `auth_users` row exists only to satisfy ownership/FK invariants; it is not a password account and cannot be used as an OAuth identity.
 
-`NX_SESSION` remains a normal session cookie. Session expiry does not destroy the guest identity: Desktop simply presents the installation credential again and the backend issues a new `ROLE_GUEST` session for the same `guest_user_id`.
+`NX_SESSION` is backed by Spring Session JDBC in PostgreSQL. Session expiry does not destroy the guest identity: Desktop simply presents the installation credential again and the backend issues a new `ROLE_GUEST` session for the same `guest_user_id`.
+
+Redis is not part of the authentication runtime. Pending Desktop Google handoffs are stored in PostgreSQL with only the SHA-256 hash of the random handoff code, a 90-second expiry and the PKCE challenge. Exchange atomically consumes the row with `DELETE ... RETURNING` before validating the verifier, preserving single-use semantics even for a wrong verifier. Raw handoff codes and Google provider tokens are never persisted in this handoff table.
 
 ## Desktop guest-first flow
 
@@ -83,14 +85,9 @@ LoginModal
   -> current project ID, route and editor context remain unchanged
 ```
 
-The backend stores each pending Google authorization request by its OAuth `state` inside the
-server session, rather than using Spring Security's single-request default slot. This prevents a
-second browser tab or a retry from overwriting the state needed by an earlier callback. At most
-eight pending states are retained per session; each state is removed after callback consumption.
+The backend stores each pending Google authorization request by its OAuth `state` inside the server session, rather than using Spring Security's single-request default slot. This prevents a second browser tab or a retry from overwriting the state needed by an earlier callback. At most eight pending states are retained per session; each state is removed after callback consumption.
 
-If Google authentication fails, the backend logs the provider exception with the correlation id
-and returns `narrativex://auth/callback?error=authentication_failed`. Desktop displays a retryable
-authentication error; it does not navigate to the non-existent browser route `/login`.
+If Google authentication fails, the backend logs the provider exception with the correlation id and returns `narrativex://auth/callback?error=authentication_failed`. Desktop displays a retryable authentication error; it does not navigate to the non-existent browser route `/login`.
 
 `CurrentUserResponse.guest` tells Desktop whether the active server session represents the installation guest identity or a signed-in Google account.
 
@@ -156,16 +153,17 @@ Desktop mutation
 1. Google remains the only end-user login provider. The internal guest row exists for ownership/FK integrity, not as a password/OAuth account.
 2. The installation secret is generated in Electron Main, encrypted at rest with `safeStorage`, never exposed to renderer code, and only its SHA-256 hash is persisted server-side.
 3. A server session may expire independently; possession of the installation credential is required to resume the same stable guest identity.
-4. The Google provider subject is persisted as the stable external identity key in `auth_users.google_subject` for signed-in accounts.
-5. Provider tokens/secrets never enter frontend storage, logs or worker payloads.
-6. Paid/account-bound mutations are enforced by backend authorization (`ROLE_USER`), not only by renderer state.
-7. Free guest mutations are explicit endpoint allowlists; broad mutation wildcards remain `ROLE_USER` only.
-8. Project-scoped commands/queries resolve owner/actor through the auth application port.
-9. Guest local execution does not activate the user-bound device identity; device pairing resumes only after a real user session exists.
-10. `local`/`test` may use the configured developer identity fallback; staging/production fail closed when OIDC is disabled.
-11. Credentialed Desktop mutations include the session-bound CSRF header; CORS uses an explicit origin allowlist.
-12. OAuth completion updates session/query state in place. It must not redirect the renderer to Home or discard the active editor route.
-13. Logout invalidates the server session but does not delete local projects or the encrypted installation guest credential.
+4. Desktop OAuth handoff codes are random, short-lived, stored only as hashes, bound to PKCE, and atomically single-use.
+5. The Google provider subject is persisted as the stable external identity key in `auth_users.google_subject` for signed-in accounts.
+6. Provider tokens/secrets never enter frontend storage, logs or worker payloads.
+7. Paid/account-bound mutations are enforced by backend authorization (`ROLE_USER`), not only by renderer state.
+8. Free guest mutations are explicit endpoint allowlists; broad mutation wildcards remain `ROLE_USER` only.
+9. Project-scoped commands/queries resolve owner/actor through the auth application port.
+10. Guest local execution does not activate the user-bound device identity; device pairing resumes only after a real user session exists.
+11. `local`/`test` may use the configured developer identity fallback; staging/production fail closed when OIDC is disabled.
+12. Credentialed Desktop mutations include the session-bound CSRF header; CORS uses an explicit origin allowlist.
+13. OAuth completion updates session/query state in place. It must not redirect the renderer to Home or discard the active editor route.
+14. Logout invalidates the server session but does not delete local projects or the encrypted installation guest credential.
 
 ## Notification Outbox & Event Dispatch
 
@@ -178,5 +176,7 @@ Durable Event (job completed / quota event)
   -> notifications table
   -> Client Notification Feed / SSE
 ```
+
+Generation/media outbox rows remain durable PostgreSQL records. Their dispatcher may emit PostgreSQL `NOTIFY` as a best-effort wake-up hint; workers must not depend on receipt of that notification and continue to discover durable work from PostgreSQL.
 
 `notifications` stores the current durable notification contract: `user_id`, optional `project_id`, unique `event_key`, `type`, `channel_state_json`, `title_key`, `message_key`, creation time and `read_at`. External delivery channels are implemented by application delivery adapters when a concrete workflow requires them; no separate preference table is part of the current database baseline.

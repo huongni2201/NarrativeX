@@ -1,7 +1,7 @@
-# NarrativeX System Architecture — V1.11
+# NarrativeX System Architecture — V1.12
 
 **Canonical source:** `../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`  
-**Current docs checkpoint:** `main` at `0aca94e6eef07158e161cd67c648671e74055473` (2026-08-26)
+**Current docs checkpoint:** `refactor/remove-redis-mvp-20260826` (2026-08-26)
 
 NarrativeX is desktop-only at the editor boundary. Spring Boot is the authoritative control plane for durable business/domain state, while Electron Desktop owns machine-local project bytes and native execution behind a strict main/preload/renderer boundary.
 
@@ -30,7 +30,8 @@ NarrativeX is desktop-only at the editor boundary. Spring Boot is the authoritat
                        v
               Spring Boot Backend
               -> PostgreSQL authoritative state
-              -> Redis server sessions/transient hints
+                 + HTTP sessions + OAuth handoffs
+                 + durable queues/outbox
               -> Python AI/provider execution
 
 Electron main
@@ -41,6 +42,8 @@ Electron main
        artifacts/
 ```
 
+Redis is not part of the MVP runtime. Python workers discover and claim durable work directly from PostgreSQL using polling/lease queries. No Redis, broker, `LISTEN`, or `NOTIFY` path is required by the current worker topology.
+
 Cloudflare R2 is limited to remote generated-media transport/durability for AI-produced images and narration before those bytes are materialized into the Desktop project workspace. Final video rendering and final MP4 bytes stay on the Desktop machine.
 
 ## Authority boundaries
@@ -50,12 +53,14 @@ Cloudflare R2 is limited to remote generated-media transport/durability for AI-p
 The backend owns:
 
 - signed-in Google users plus internal stable guest principals;
-- session/authorization policy and guest/account role gates;
+- PostgreSQL-backed session/authorization policy and guest/account role gates;
+- one-time hashed Desktop OAuth handoff state;
 - ownership transfer when an eligible guest workspace is claimed after Google sign-in;
 - Projects, Chapters, source versions, storyboard/continuity state and production choices;
 - entitlement/quota/cost admission;
 - MediaPlan/production policy;
 - GenerationJob/StageAttempt/ProviderOperation lifecycle;
+- transactional outbox evidence and its post-commit finalization;
 - local-device registration/revocation and render assignment;
 - render leases, progress and terminal job state;
 - durable asset identity/checksums/lineage plus final-artifact metadata;
@@ -99,7 +104,7 @@ The Chromium renderer sandbox is currently disabled for Desktop startup compatib
 
 ### Python workers
 
-Workers execute backend-authorized asynchronous provider/media roles such as analysis, translation, image generation, narration/alignment and generated-media validation. They do not execute final project renders, own Desktop paths, user authorization or Flyway schema evolution.
+Workers execute backend-authorized asynchronous provider/media roles such as analysis, translation, image generation, narration/alignment and generated-media validation. They poll/claim durable PostgreSQL rows and do not execute final project renders, own Desktop paths, user authorization or Flyway schema evolution.
 
 ## Guest-first authentication architecture
 
@@ -110,6 +115,7 @@ Desktop start
   -> GET /api/v1/auth/me
   -> if no usable session: POST /api/v1/auth/desktop/guest
   -> backend verifies/creates desktop_guest_installations
+  -> Spring Session JDBC stores NX_SESSION in PostgreSQL
   -> stable ROLE_GUEST session
 ```
 
@@ -122,6 +128,7 @@ Gated action
   -> main opens /api/v1/auth/desktop/start
   -> Google OIDC in system browser
   -> narrativex://auth/callback?code=...
+  -> hashed 90-second handoff atomically consumed from PostgreSQL
   -> /api/v1/auth/desktop/exchange
   -> eligible guest ownership transfer
   -> ROLE_USER session
@@ -189,15 +196,16 @@ Implemented image/narration workflows materialize required generated media local
 
 ## Persistence and migrations
 
-Production application persistence is MyBatis + explicit PostgreSQL SQL. Current Flyway baseline:
+Production application persistence is MyBatis + explicit PostgreSQL SQL. Current Flyway migrations:
 
 ```text
 V1__create_tables.sql
 V2__init_indexes.sql
 V3__seed_data.sql
+V4__postgres_runtime_state.sql
 ```
 
-V1-V3 are frozen. Desktop guest identity, production beat media selection and local-execution/render metadata are already consolidated into V1. Future schema evolution starts with an append-only `V4__*.sql`.
+V1-V3 are frozen. Desktop guest identity, production beat media selection and local-execution/render metadata are already consolidated into V1. V4 adds Spring Session JDBC and Desktop OAuth handoff state. Future schema evolution starts with append-only V5+ migrations.
 
 ## Remaining architecture hardening
 

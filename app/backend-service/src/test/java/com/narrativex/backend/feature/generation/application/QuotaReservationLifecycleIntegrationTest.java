@@ -33,7 +33,7 @@ class QuotaReservationLifecycleIntegrationTest {
 
   @Container
   static final PostgreSQLContainer<?> POSTGRES =
-      new PostgreSQLContainer<>("postgres:17-alpine")
+      new PostgreSQLContainer<>("postgres:18-alpine")
           .withDatabaseName("narrativex_quota_test")
           .withUsername("narrativex")
           .withPassword("narrativex");
@@ -46,7 +46,7 @@ class QuotaReservationLifecycleIntegrationTest {
     registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
     registry.add("spring.flyway.enabled", () -> true);
     registry.add("spring.flyway.baseline-on-migrate", () -> false);
-    registry.add("spring.data.redis.repositories.enabled", () -> false);
+    registry.add("spring.session.jdbc.initialize-schema", () -> "never");
   }
 
   @Autowired private QuotaReservation quotaReservation;

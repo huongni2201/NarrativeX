@@ -6,15 +6,15 @@ import java.time.Duration;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Best-effort Redis delivery hint for durable generation jobs. PostgreSQL remains authoritative: a
- * worker is always allowed to discover queued work by polling even when Redis is unavailable.
+ * Finalizes transactional generation/media-validation outbox records after commit. Workers claim
+ * their durable queue rows directly from PostgreSQL, so no external broker or wake-up channel is
+ * required for correctness or delivery.
  */
 @Slf4j
 @Component
@@ -23,57 +23,39 @@ import org.springframework.transaction.support.TransactionTemplate;
     havingValue = "true",
     matchIfMissing = true)
 public class GenerationOutboxDispatcher {
-  static final String CHANNEL = "narrativex:generation:jobs";
-  static final String MEDIA_VALIDATION_CHANNEL = "narrativex:media-validation:jobs";
   private static final long RESERVATION_MILLIS = Duration.ofSeconds(30).toMillis();
-  private static final long RETRY_MILLIS = Duration.ofSeconds(5).toMillis();
 
   private final GenerationOutboxMapper mapper;
-  private final StringRedisTemplate redisTemplate;
   private final TransactionTemplate transactionTemplate;
 
   public GenerationOutboxDispatcher(
-      GenerationOutboxMapper mapper,
-      StringRedisTemplate redisTemplate,
-      PlatformTransactionManager transactionManager) {
+      GenerationOutboxMapper mapper, PlatformTransactionManager transactionManager) {
     this.mapper = mapper;
-    this.redisTemplate = redisTemplate;
     this.transactionTemplate = new TransactionTemplate(transactionManager);
   }
 
   @Scheduled(fixedDelayString = "${narrativex.generation.outbox-dispatch-delay-ms:1000}")
   public void dispatchPending() {
-    for (OutboxRow row : reserveBatch()) {
+    for (OutboxDispatchRow row : reserveBatch()) {
       try {
-        redisTemplate.convertAndSend(row.channel(), row.payloadJson());
-        mapper.markPublished(row.id());
+        int updated = mapper.markPublished(row.getId());
+        if (updated == 0) {
+          log.debug("Outbox event {} was already finalized or is no longer pending", row.getId());
+        }
       } catch (RuntimeException exception) {
+        // reserveBatch moves available_at forward. Leaving the row PENDING is sufficient retry
+        // state; it becomes claimable again after the reservation expires.
         log.warn(
-            "Redis generation hint failed for outbox event {}; PostgreSQL polling remains active",
-            row.id());
-        mapper.scheduleRetry(row.id(), RETRY_MILLIS);
+            "Outbox acknowledgement failed for event {}; it will be retried after the reservation timeout",
+            row.getId(),
+            exception);
       }
     }
   }
 
-  private List<OutboxRow> reserveBatch() {
-    List<OutboxRow> rows =
-        transactionTemplate.execute(
-            ignored ->
-                mapper.reserveBatch(RESERVATION_MILLIS).stream()
-                    .map(GenerationOutboxDispatcher::mapRow)
-                    .toList());
+  private List<OutboxDispatchRow> reserveBatch() {
+    List<OutboxDispatchRow> rows =
+        transactionTemplate.execute(ignored -> mapper.reserveBatch(RESERVATION_MILLIS));
     return rows == null ? List.of() : rows;
   }
-
-  private static OutboxRow mapRow(OutboxDispatchRow row) {
-    return new OutboxRow(
-        row.getId(),
-        row.getPayloadJson(),
-        "MEDIA_VALIDATION_REQUESTED".equals(row.getEventType())
-            ? MEDIA_VALIDATION_CHANNEL
-            : CHANNEL);
-  }
-
-  private record OutboxRow(long id, String payloadJson, String channel) {}
 }

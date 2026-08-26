@@ -34,11 +34,12 @@ Electron Desktop
         v                        v
 Spring Boot Backend         Local project workspace
   -> PostgreSQL               -> images/audio/video
-  -> Redis                    -> render work/cache
-  -> Python AI workers        -> final MP4 artifacts
+     domain/jobs/session      -> render work/cache
+     OAuth handoffs           -> final MP4 artifacts
+  -> Python AI workers
 ```
 
-PostgreSQL is authoritative for users, projects, source versions, ownership, entitlement/policy, render assignment, leases and durable job/artifact metadata. Electron local storage is authoritative for machine-local project bytes referenced by stable backend IDs and integrity metadata.
+PostgreSQL is authoritative for users, projects, source versions, ownership, entitlement/policy, server sessions, one-time Desktop OAuth handoffs, render assignment, leases and durable job/artifact metadata. Python workers claim durable jobs directly from PostgreSQL. Electron local storage is authoritative for machine-local project bytes referenced by stable backend IDs and integrity metadata. Redis is not required by the MVP runtime.
 
 ## Guest-first authentication
 
@@ -64,7 +65,7 @@ Gated action
   -> ROLE_USER session, same project/editor route
 ```
 
-Google access/refresh tokens never enter Electron. The installation guest secret and local-execution device credentials are separate credentials with separate responsibilities.
+Google access/refresh tokens never enter Electron. The installation guest secret and local-execution device credentials are separate credentials with separate responsibilities. `NX_SESSION` and hashed, short-lived Desktop OAuth handoffs are stored in PostgreSQL.
 
 See `documentation/workflows/AUTHENTICATION.md` for the current contract.
 
@@ -126,6 +127,8 @@ npm ci
 npm run dev
 ```
 
+The default Compose topology requires PostgreSQL but no Redis service.
+
 Verify the backend before opening Desktop:
 
 ```powershell
@@ -162,7 +165,7 @@ If another platform already provides HTTPS ingress, leave the tunnel profile dis
 
 ## Persistence
 
-Flyway migrations under `app/backend-service/src/main/resources/db/migration` are authoritative for PostgreSQL schema evolution. Production persistence uses MyBatis + explicit SQL; JPA and direct `JdbcTemplate` persistence are not part of the production application persistence path.
+Flyway migrations under `app/backend-service/src/main/resources/db/migration` are authoritative for PostgreSQL schema evolution. Production persistence uses MyBatis + explicit SQL; JPA and direct `JdbcTemplate` persistence are not part of the production application persistence path. Spring Session JDBC and Desktop OAuth handoff state share PostgreSQL without becoming domain entities.
 
 ## Product guardrails
 
