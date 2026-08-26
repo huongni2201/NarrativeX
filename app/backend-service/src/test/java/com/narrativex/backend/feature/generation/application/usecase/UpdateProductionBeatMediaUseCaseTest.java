@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
+import com.narrativex.backend.feature.generation.application.command.RenderBeatOverride;
 import com.narrativex.backend.feature.generation.application.port.out.ProductionBeatMediaSelectionRepository;
 import com.narrativex.backend.feature.generation.application.port.out.ProductionBeatMediaSelectionRepository.SelectableMediaAsset;
 import com.narrativex.backend.feature.generation.application.query.ProductionTimelineView;
@@ -100,6 +101,52 @@ class UpdateProductionBeatMediaUseCaseTest {
   }
 
   @Test
+  void validatesEntireAutoEditBatchBeforeWritingAnyBeat() {
+    UUID projectId = UUID.randomUUID();
+    UUID chapterId = UUID.randomUUID();
+    UUID firstBeatId = UUID.randomUUID();
+    UUID secondBeatId = UUID.randomUUID();
+    UUID firstAssetId = UUID.randomUUID();
+    UUID secondAssetId = UUID.randomUUID();
+    when(currentUserId.get()).thenReturn("owner");
+    when(getProductionTimelineUseCase.executeOwned(projectId, "owner"))
+        .thenReturn(
+            new ProductionTimelineView(
+                projectId,
+                UUID.randomUUID(),
+                20_000L,
+                "16:9",
+                true,
+                List.of(),
+                List.of(
+                    beat(chapterId, firstBeatId, firstAssetId, 0L, 10_000L),
+                    beat(chapterId, secondBeatId, secondAssetId, 10_000L, 10_000L))));
+    when(repository.findSelectableAsset("owner", firstAssetId))
+        .thenReturn(
+            java.util.Optional.of(
+                new SelectableMediaAsset(
+                    firstAssetId, "VIDEO", "LOCAL_ONLY", 20_000L, 123L, "e".repeat(64))));
+    when(repository.findSelectableAsset("owner", secondAssetId))
+        .thenReturn(
+            java.util.Optional.of(
+                new SelectableMediaAsset(
+                    secondAssetId, "IMAGE", "LOCAL_ONLY", null, 123L, "f".repeat(64))));
+
+    assertThatThrownBy(
+            () ->
+                useCase.applyRenderOverrides(
+                    projectId,
+                    List.of(
+                        new RenderBeatOverride(firstBeatId, null, null, "TRIM", 1_000L),
+                        new RenderBeatOverride(secondBeatId, null, null, "LOOP", 0L))))
+        .isInstanceOf(GenerationAdmissionDeniedException.class)
+        .hasMessageContaining("Image beats do not support video trim/loop/speed fit modes");
+
+    verify(repository, never())
+        .upsert(projectId, firstBeatId, firstAssetId, BeatMediaFitMode.TRIM, 1_000L);
+  }
+
+  @Test
   void clearValidatesBeatAndDeletesSelection() {
     UUID projectId = UUID.randomUUID();
     UUID visualBeatId = UUID.randomUUID();
@@ -147,5 +194,37 @@ class UpdateProductionBeatMediaUseCaseTest {
                 durationMs,
                 durationMs,
                 true)));
+  }
+
+  private static ProductionTimelineView.Beat beat(
+      UUID chapterId,
+      UUID visualBeatId,
+      UUID mediaAssetId,
+      long startMs,
+      long durationMs) {
+    return new ProductionTimelineView.Beat(
+        chapterId,
+        0,
+        0,
+        (int) (startMs / Math.max(1L, durationMs)),
+        visualBeatId,
+        "Beat",
+        "Intent",
+        "NONE",
+        "USER_SELECTED",
+        mediaAssetId,
+        "VIDEO",
+        "LOCAL_ONLY",
+        20_000L,
+        "FREEZE_END",
+        0L,
+        true,
+        "video/beat.mp4",
+        100L,
+        "1".repeat(64),
+        startMs,
+        startMs + durationMs,
+        durationMs,
+        true);
   }
 }
