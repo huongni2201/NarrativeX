@@ -118,6 +118,22 @@ npm run dev
 
 `npm run check` verifies dependency-lock expectations, tests, type checks and the production build. Exact dependency versions are authoritative in `package.json` / `package-lock.json` and the dependency verification scripts; a separate dependency-migration document is intentionally not maintained.
 
+For local Desktop development against the Docker backend, use the ignored
+`app/desktop/.env` file (copy `.env.example` if it does not exist) with
+`VITE_API_BASE_URL=http://localhost:8080`, then start the local Compose override
+from the repository root:
+
+```bash
+docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.local.yml up -d --no-build
+```
+
+The local override keeps the backend on the loopback origin and starts all worker
+processes in development mode without external provider execution. The narration
+worker uses a deterministic fake TTS adapter only in this local development mode;
+AI/image jobs remain disabled until the production GCP credential and VieNeu
+reference-audio files are mounted explicitly. Fake provider output must not be used
+as production health or production media.
+
 ## Windows packaging
 
 `electron-builder.yml` defines Windows NSIS metadata, application resources, external FFmpeg layout and `narrativex://` protocol registration.
