@@ -2,53 +2,40 @@
 
 ## Purpose
 
-JaCoCo is a regression signal for the Spring Boot backend. Coverage work must
-protect business invariants such as idempotency, snapshot identity,
-authorization, transaction atomicity, provider state transitions, quota
-finalization, and immutable results. Tests that only execute code without
-asserting behavior do not satisfy this policy.
+JaCoCo is a regression signal for the Spring Boot backend. Coverage work must protect business invariants such as idempotency, snapshot identity, authorization, transaction atomicity, provider state transitions, quota finalization, guest ownership transfer and immutable results. Tests that only execute code without asserting behavior do not satisfy this policy.
 
-## Current gate and baseline
+## Current enforced gate
 
-The Maven build generates the JaCoCo report and enforces the bundle line gate
-during `verify`:
+`app/backend-service/pom.xml` is authoritative for the numeric threshold. At the 2026-08-26 documentation checkpoint it enforces:
 
-- Current enforced line gate: **15%**
-- Baseline measured on 2026-08-21: **52.92% line** (2,274/4,297)
-- Baseline measured on 2026-08-21: **37.25% branch** (510/1,369)
-- Baseline measured on 2026-08-21: **51.35% instruction** (10,215/19,892)
-- Test run: **167 tests passed**, including PostgreSQL/Testcontainers tests
+```text
+jacoco.minimum.line.coverage = 0.35
+```
 
-The baseline is observational at this stage; it is not a second Maven
-threshold. Thresholds are raised only after the corresponding tests and CI
-verification are green, with approximately 2–5 percentage points of buffer.
-The proposed progression is 35% line, 50% line, 60% line, then 70% and
-75–80% long term. Branch coverage is introduced after the line gate reaches
-60%.
+That means the Maven `verify` lifecycle requires at least **35% bundle line coverage**. Do not duplicate a historical measured percentage or test count here as if it were current; those values change with normal development and should be read from the generated report for the commit being evaluated.
+
+The threshold should be raised only after invariant-focused tests are stable and the full PostgreSQL/Testcontainers verification remains green with reasonable headroom.
 
 ## Reports
 
-After a successful report phase, local artifacts are available at:
+After a successful report phase:
 
 - `app/backend-service/target/site/jacoco/index.html`
 - `app/backend-service/target/site/jacoco/jacoco.xml`
 - `app/backend-service/target/surefire-reports/`
 
-Backend CI uploads the JaCoCo and Surefire directories as the
-`backend-verification-reports` artifact, including when verification fails.
+If CI is unavailable or account/runner limits prevent GitHub Actions from running, the local `verify` result is the required development signal; do not claim a remote CI result that did not execute.
 
 ## Scope rules
 
-- Keep PostgreSQL/Testcontainers for PostgreSQL locking, JSONB, constraints,
-  migrations, transaction, and SQL behavior.
-- Do not exclude business packages to improve the percentage.
-- Prefer deterministic provider fakes and explicit transaction coordination;
-  do not synchronize concurrency tests with `sleep()`.
-- Critical generation, storyboard concurrency, persistence, and authentication
-  paths require invariant-focused tests and may receive package-specific gates
-  after their baseline is stable.
+- Keep PostgreSQL/Testcontainers for PostgreSQL locking, JSONB, constraints, migrations, transaction and SQL behavior.
+- Keep architecture/schema-reference tests around Flyway and MyBatis boundaries.
+- Do not exclude business packages merely to improve the percentage.
+- Prefer deterministic provider fakes and explicit transaction coordination; do not synchronize concurrency tests with arbitrary sleeps.
+- Critical generation, storyboard concurrency, persistence, guest/authentication, ownership-transfer and local-execution paths require behavior assertions, not only line execution.
+- Treat coverage as a floor, not a substitute for state-machine, authorization, idempotency and concurrency tests.
 
-## Baseline command
+## Local verification
 
 From `app/backend-service`:
 
@@ -56,6 +43,4 @@ From `app/backend-service`:
 ./mvnw.cmd --batch-mode --no-transfer-progress clean verify
 ```
 
-The command requires Docker for the PostgreSQL/Testcontainers integration
-tests. A coverage number is valid as the backend baseline only when the full
-test suite reaches the JaCoCo report phase.
+Docker is required for the PostgreSQL/Testcontainers integration tests. A coverage value is a valid backend baseline only when the full verification lifecycle reaches the JaCoCo report/check phase.
