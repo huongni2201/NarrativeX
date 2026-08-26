@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type {
   DesktopChapterDetails,
   DesktopChapterWorkspace,
@@ -11,6 +11,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { toErrorMessage } from "@/lib/errors";
 import { generationApi } from "../../generation/api/generation.api";
+import { useGenerationJob } from "../../generation/queries/generation.queries";
 import { useGenerateNarration } from "../../generation/queries/narration.queries";
 import { ChapterEditorPanel } from "../components/ChapterEditorPanel";
 import { ChapterListPanel } from "../components/ChapterListPanel";
@@ -200,14 +201,7 @@ export function ChaptersScreen({
     generateNarration.isPending || selectedAudioProcessing || trackedNarrationForSelected;
   const audioReady = selectedAudioStatus === "READY" || selectedAudioStatus === "COMPLETED";
 
-  const narrationJobQuery = useQuery({
-    queryKey: ["generation-jobs", narrationJob?.jobId ?? "none"],
-    queryFn: () => generationApi.getGenerationJob(narrationJob!.jobId),
-    enabled: Boolean(narrationJob?.jobId),
-    refetchInterval: (jobQuery) =>
-      isGenerationJobTerminal(jobQuery.state.data?.status) ? false : 1500,
-  });
-
+  const narrationJobQuery = useGenerationJob(narrationJob?.jobId ?? null);
   const narrationJobStatus = narrationJobQuery.data?.status;
   const narrationJobErrorCode = narrationJobQuery.data?.errorCode;
 
@@ -250,16 +244,11 @@ export function ChaptersScreen({
   ]);
 
   useEffect(() => {
-    if (!narrationJob || !narrationJobQuery.isError) return;
-    const failedTrackingJob = narrationJob;
-    setNarrationJob(null);
-    void queryClient.invalidateQueries({
-      queryKey: chapterQueryKeys.workspace(projectId, failedTrackingJob.chapterId),
-    });
-    if (editingId === failedTrackingJob.chapterId) {
-      setNotice("Không thể theo dõi job tạo audio. Đã tải lại trạng thái chapter.");
+    if (!narrationJob || !narrationJobQuery.isError || narrationJobQuery.data) return;
+    if (editingId === narrationJob.chapterId) {
+      setNotice("Kết nối realtime tạm gián đoạn. Hệ thống sẽ tự thử lại trạng thái audio.");
     }
-  }, [editingId, narrationJob, narrationJobQuery.isError, projectId, queryClient]);
+  }, [editingId, narrationJob, narrationJobQuery.data, narrationJobQuery.isError]);
 
   useEffect(() => {
     if (!selected) {
