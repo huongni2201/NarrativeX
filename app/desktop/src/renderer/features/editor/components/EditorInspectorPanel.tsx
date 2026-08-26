@@ -6,8 +6,6 @@ import {
   Film,
   FolderOpen,
   RotateCcw,
-  Send,
-  Sparkles,
   Upload,
 } from "lucide-react";
 import type {
@@ -25,11 +23,9 @@ interface EditorInspectorPanelProps {
   onChooseAsset: (assetId: string) => void;
   onUpdateFitMode: (fitMode: BeatMediaFitMode) => void;
   onResetSource: () => void;
-  onAiRefine?: (instruction: string) => void;
 }
 
-type InspectorTab = "Beat" | "Visual" | "Audio" | "Notes";
-type SectionId = "mediaSource" | "fitToBeat" | "beatInfo" | "aiAssistant";
+type SectionId = "mediaSource" | "fitToBeat" | "beatInfo";
 
 export function EditorInspectorPanel({
   selectedBeat,
@@ -40,21 +36,15 @@ export function EditorInspectorPanel({
   onChooseAsset,
   onUpdateFitMode,
   onResetSource,
-  onAiRefine,
 }: Readonly<EditorInspectorPanelProps>) {
-  const [activeTab, setActiveTab] = useState<InspectorTab>("Beat");
   const [isAssetPickerOpen, setIsAssetPickerOpen] = useState(false);
-  const [aiPrompt, setAiPrompt] = useState("");
-  const [promptText, setPromptText] = useState("");
   const [openSections, setOpenSections] = useState<Record<SectionId, boolean>>({
     mediaSource: true,
     fitToBeat: true,
     beatInfo: true,
-    aiAssistant: true,
   });
 
   useEffect(() => {
-    setPromptText(selectedBeat?.visualIntent || "");
     setIsAssetPickerOpen(false);
   }, [selectedBeat]);
 
@@ -62,34 +52,10 @@ export function EditorInspectorPanel({
     setOpenSections((previous) => ({ ...previous, [section]: !previous[section] }));
   };
 
-  const handleSendAi = () => {
-    const instruction = aiPrompt.trim();
-    if (!instruction) return;
-    onAiRefine?.(instruction);
-    setAiPrompt("");
-  };
-
   return (
     <aside className="flex h-full min-h-0 flex-col bg-surface-panel text-[10px]">
       <div className="nx-panel-header flex items-center px-3">
         <h3 className="text-[11px] font-bold text-foreground">Inspector</h3>
-      </div>
-
-      <div className="grid grid-cols-4 border-b border-border-subtle bg-surface-dark p-1">
-        {(["Beat", "Visual", "Audio", "Notes"] as const).map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => setActiveTab(tab)}
-            className={`rounded-sm py-1.5 text-[9px] font-medium transition-colors ${
-              activeTab === tab
-                ? "bg-primary-muted text-primary-hover"
-                : "text-text-muted hover:bg-surface-2 hover:text-foreground"
-            }`}
-          >
-            {tab}
-          </button>
-        ))}
       </div>
 
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2.5">
@@ -109,12 +75,6 @@ export function EditorInspectorPanel({
 
               <div className="grid grid-cols-2 gap-1.5">
                 <ActionButton
-                  icon={<Sparkles size={11} />}
-                  label="AI Generate"
-                  emphasized
-                  disabled={mediaBusy}
-                />
-                <ActionButton
                   icon={<Upload size={11} />}
                   label="Upload Image"
                   disabled={mediaBusy}
@@ -127,10 +87,10 @@ export function EditorInspectorPanel({
                   onClick={() => onUploadMedia("VIDEO")}
                 />
 
-                <div className="relative">
+                <div className="relative col-span-2">
                   <ActionButton
                     icon={<FolderOpen size={11} />}
-                    label="From Assets"
+                    label="Choose From Assets"
                     disabled={mediaBusy}
                     onClick={() => setIsAssetPickerOpen((open) => !open)}
                   />
@@ -221,14 +181,14 @@ export function EditorInspectorPanel({
                 </div>
               </div>
 
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center justify-between gap-2 rounded-sm border border-border-subtle bg-background px-2 py-1.5">
                 <div>
                   <span className="block text-[9px] text-text-secondary">Audio Sync</span>
-                  <span className="text-[8px] text-text-dim">Align media to narration</span>
+                  <span className="text-[8px] text-text-dim">Narration controls the beat clock</span>
                 </div>
-                <button type="button" className="nx-compact-control flex h-7 items-center gap-1 px-2 text-[9px]">
-                  Auto <ChevronDown size={9} />
-                </button>
+                <span className="rounded-sm border border-border bg-surface-2 px-2 py-1 text-[8px] font-medium text-text-secondary">
+                  Narration master
+                </span>
               </div>
             </InspectorSection>
 
@@ -244,63 +204,17 @@ export function EditorInspectorPanel({
                 <InfoCell label="Camera" value={selectedBeat.cameraMovement || "Default"} />
               </div>
 
-              <label className="grid gap-1">
+              <div className="grid gap-1">
                 <span className="text-[8px] font-medium uppercase tracking-wider text-text-dim">Visual intent</span>
-                <textarea
-                  className="h-16 w-full resize-none rounded-sm border border-border bg-surface-input p-2 text-[9px] leading-4 text-text-secondary placeholder:text-text-dim focus:border-primary focus:outline-none"
-                  value={promptText}
-                  onChange={(event) => setPromptText(event.target.value)}
-                  maxLength={500}
-                  placeholder="Mô tả visual beat..."
-                />
-                <span className="justify-self-end text-[8px] text-text-dim">{promptText.length}/500</span>
-              </label>
-            </InspectorSection>
-
-            <InspectorSection
-              title="AI Assistant"
-              icon={<Sparkles size={11} className="text-primary-hover" />}
-              open={openSections.aiAssistant}
-              onToggle={() => toggleSection("aiAssistant")}
-            >
-              <div className="flex items-center gap-1 rounded-sm border border-border bg-surface-input p-1">
-                <input
-                  type="text"
-                  className="min-w-0 flex-1 bg-transparent px-1.5 text-[9px] text-foreground placeholder:text-text-dim focus:outline-none"
-                  placeholder="Ask AI to refine this beat..."
-                  value={aiPrompt}
-                  onChange={(event) => setAiPrompt(event.target.value)}
-                  onKeyDown={(event) => event.key === "Enter" && handleSendAi()}
-                />
-                <button
-                  type="button"
-                  onClick={handleSendAi}
-                  disabled={!aiPrompt.trim()}
-                  className="grid size-6 place-items-center rounded-sm bg-primary text-primary-foreground transition hover:bg-primary-hover disabled:opacity-40"
-                  title="Send"
-                  aria-label="Send"
-                >
-                  <Send size={10} />
-                </button>
-              </div>
-
-              <div className="flex flex-wrap gap-1">
-                {["Improve composition", "Suggest motion", "Expand scene"].map((suggestion) => (
-                  <button
-                    key={suggestion}
-                    type="button"
-                    onClick={() => setAiPrompt(suggestion)}
-                    className="rounded-sm border border-border bg-surface-input px-2 py-1 text-[8px] text-text-muted transition hover:border-primary/35 hover:text-primary-hover"
-                  >
-                    {suggestion}
-                  </button>
-                ))}
+                <p className="min-h-16 rounded-sm border border-border bg-surface-input p-2 text-[9px] leading-4 text-text-secondary">
+                  {selectedBeat.visualIntent || "Chưa có mô tả visual beat."}
+                </p>
               </div>
             </InspectorSection>
           </>
         ) : (
           <div className="grid min-h-40 place-items-center rounded-md border border-dashed border-border p-4 text-center text-[9px] leading-4 text-text-muted">
-            Chọn một visual beat để chỉnh media, timing và prompt.
+            Chọn một visual beat để chỉnh media và xem thông tin timing.
           </div>
         )}
       </div>
@@ -310,13 +224,11 @@ export function EditorInspectorPanel({
 
 function InspectorSection({
   title,
-  icon,
   open,
   onToggle,
   children,
 }: Readonly<{
   title: string;
-  icon?: React.ReactNode;
   open: boolean;
   onToggle: () => void;
   children: React.ReactNode;
@@ -329,7 +241,6 @@ function InspectorSection({
         className="flex h-8 w-full items-center justify-between gap-2 px-2.5 text-left"
       >
         <span className="flex items-center gap-1.5 text-[9px] font-semibold text-text-secondary">
-          {icon}
           {title}
         </span>
         {open ? <ChevronUp size={10} className="text-text-dim" /> : <ChevronDown size={10} className="text-text-dim" />}
@@ -342,13 +253,11 @@ function InspectorSection({
 function ActionButton({
   icon,
   label,
-  emphasized = false,
   disabled,
   onClick,
 }: Readonly<{
   icon: React.ReactNode;
   label: string;
-  emphasized?: boolean;
   disabled?: boolean;
   onClick?: () => void;
 }>) {
@@ -357,11 +266,7 @@ function ActionButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={`flex h-7 w-full items-center justify-center gap-1.5 rounded-sm border text-[8px] font-medium transition-colors disabled:opacity-45 ${
-        emphasized
-          ? "border-primary/30 bg-primary-muted text-primary-hover hover:border-primary/55"
-          : "border-border bg-surface-input text-text-secondary hover:border-border-dark hover:bg-surface-2"
-      }`}
+      className="flex h-7 w-full items-center justify-center gap-1.5 rounded-sm border border-border bg-surface-input text-[8px] font-medium text-text-secondary transition-colors hover:border-border-dark hover:bg-surface-2 disabled:opacity-45"
     >
       {icon}
       <span className="truncate">{label}</span>

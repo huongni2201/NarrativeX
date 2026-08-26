@@ -1,6 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { CreateMediaJobInput, MediaReviewInput } from "@narrativex/client-contracts";
 import { generationApi } from "../api/generation.api.ts";
+import {
+  isActiveGenerationJobStatus,
+  isActiveMediaExecutionStatus,
+} from "../generation-status.ts";
 
 export const generationQueryKeys = {
   all: ["generation"] as const,
@@ -38,7 +42,14 @@ export function useCreateMediaJob() {
       projectId: string;
       chapterId: string;
       request: CreateMediaJobInput;
-    }) => generationApi.createMediaJob(input.projectId, input.chapterId, input.request),
+      idempotencyKey: string;
+    }) =>
+      generationApi.createMediaJob(
+        input.projectId,
+        input.chapterId,
+        input.request,
+        input.idempotencyKey,
+      ),
     onSuccess: (job) =>
       queryClient.invalidateQueries({
         queryKey: generationQueryKeys.mediaJob(job.jobId),
@@ -53,9 +64,7 @@ export function useMediaJob(jobId: string | null) {
     enabled: Boolean(jobId),
     refetchInterval: (query) =>
       query.state.data &&
-      query.state.data.items.some(
-        (item) => item.executionStatus === "QUEUED" || item.executionStatus === "RUNNING",
-      )
+      query.state.data.items.some((item) => isActiveMediaExecutionStatus(item.executionStatus))
         ? 2_000
         : false,
   });
@@ -67,9 +76,7 @@ export function useGenerationJob(jobId: string | null) {
     queryFn: () => generationApi.getGenerationJob(jobId as string),
     enabled: Boolean(jobId),
     refetchInterval: (query) =>
-      query.state.data && ["QUEUED", "RUNNING", "UNKNOWN"].includes(query.state.data.status)
-        ? 2_000
-        : false,
+      isActiveGenerationJobStatus(query.state.data?.status) ? 2_000 : false,
   });
 }
 

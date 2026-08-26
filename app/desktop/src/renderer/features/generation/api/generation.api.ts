@@ -35,12 +35,13 @@ export const generationApi = {
     projectId: string,
     chapterId: string,
     input: CreateMediaJobInput,
+    idempotencyKey: string,
   ) =>
     apiRequest<GenerationJob>(
       `/api/v1/projects/${encodeURIComponent(projectId)}/chapters/${encodeURIComponent(chapterId)}/media-jobs`,
       {
         method: "POST",
-        headers: { "Idempotency-Key": crypto.randomUUID() },
+        headers: { "Idempotency-Key": idempotencyKey },
         body: JSON.stringify(input),
       },
     ),

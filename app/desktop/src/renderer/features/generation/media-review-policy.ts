@@ -1,4 +1,5 @@
 import type { DesktopAsset, LocalMaterializationStatus, MediaGenerationItem } from "@narrativex/client-contracts";
+import { isActiveMediaExecutionStatus } from "./generation-status.ts";
 
 export type ReviewAction = "APPROVE" | "REJECT" | "REGENERATE";
 
@@ -14,7 +15,7 @@ export function reviewReadiness(
   asset: DesktopAsset | null,
   materialization: LocalMaterializationStatus | null,
 ): ReviewReadiness {
-  if (item.executionStatus === "QUEUED" || item.executionStatus === "RUNNING") {
+  if (isActiveMediaExecutionStatus(item.executionStatus)) {
     return { canApprove: false, canReject: false, canRegenerate: false, reason: "Generation is still running." };
   }
   if (!item.mediaAssetId || !asset) {

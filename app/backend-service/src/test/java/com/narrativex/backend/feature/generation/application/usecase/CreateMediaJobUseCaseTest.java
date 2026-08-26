@@ -2,11 +2,58 @@ package com.narrativex.backend.feature.generation.application.usecase;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
+import com.narrativex.backend.feature.account.application.port.in.UserQuotaAccess;
+import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
+import com.narrativex.backend.feature.generation.application.command.CreateMediaJobCommand;
+import com.narrativex.backend.feature.generation.application.port.out.ChapterMediaHeadRepository;
+import com.narrativex.backend.feature.generation.application.port.out.GenerationJobRepository;
+import com.narrativex.backend.feature.generation.application.port.out.GenerationOutboxRepository;
+import com.narrativex.backend.feature.generation.application.port.out.ImageGenerationCatalog;
+import com.narrativex.backend.feature.generation.application.port.out.MediaGenerationItemRepository;
+import com.narrativex.backend.feature.generation.application.port.out.OperationPlanRepository;
+import com.narrativex.backend.feature.generation.application.port.out.QuotaReservation;
+import com.narrativex.backend.feature.generation.application.port.out.StageAttemptRepository;
+import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
+import com.narrativex.backend.feature.generation.domain.enums.JobStatus;
 import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
+import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
+import com.narrativex.backend.feature.storyboard.application.port.in.ChapterAnalysisSourceAccess;
+import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSourceAccess;
+import java.math.BigDecimal;
+import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
+@ExtendWith(MockitoExtension.class)
 class CreateMediaJobUseCaseTest {
+  private static final UUID PROJECT_ID = UUID.randomUUID();
+  private static final UUID CHAPTER_ID = UUID.randomUUID();
+  private static final UUID ACTIVE_JOB_ID = UUID.randomUUID();
+
+  @Mock private CurrentUserId currentUserId;
+  @Mock private ProjectAccess projectAccess;
+  @Mock private ChapterAnalysisSourceAccess chapterSourceAccess;
+  @Mock private MediaPlanningSourceAccess mediaPlanningSourceAccess;
+  @Mock private CreateMediaPlanUseCase createMediaPlanUseCase;
+  @Mock private GenerationJobRepository generationJobRepository;
+  @Mock private ChapterMediaHeadRepository chapterMediaHeadRepository;
+  @Mock private MediaGenerationItemRepository mediaGenerationItemRepository;
+  @Mock private GenerationOutboxRepository generationOutboxRepository;
+  @Mock private OperationPlanRepository operationPlanRepository;
+  @Mock private StageAttemptRepository stageAttemptRepository;
+  @Mock private QuotaReservation quotaReservation;
+  @Mock private UserQuotaAccess userQuotaAccess;
+  @Mock private ImageGenerationCatalog imageGenerationCatalog;
+  @Mock private GenerationJob activeJob;
+
+  @InjectMocks private CreateMediaJobUseCase useCase;
 
   @Test
   void normalizesIdempotencyKeyBeforePersistence() {
@@ -34,5 +81,42 @@ class CreateMediaJobUseCaseTest {
     assertThatThrownBy(() -> CreateMediaJobUseCase.requireIdempotencyKey("k".repeat(513)))
         .isInstanceOf(GenerationAdmissionDeniedException.class)
         .hasMessageContaining("512");
+  }
+
+  @Test
+  void rejectsDifferentSubmissionWhileChapterMediaJobIsActiveBeforePaidAdmission() {
+    when(currentUserId.get()).thenReturn("owner-1");
+    when(generationJobRepository.findByIdempotencyKey("intent-2", "owner-1"))
+        .thenReturn(Optional.empty());
+    when(chapterMediaHeadRepository.findCurrentJobId(CHAPTER_ID))
+        .thenReturn(Optional.of(ACTIVE_JOB_ID));
+    when(generationJobRepository.findByJobIdAndOwner(ACTIVE_JOB_ID, "owner-1"))
+        .thenReturn(Optional.of(activeJob));
+    when(activeJob.getStatus()).thenReturn(JobStatus.RUNNING);
+    when(activeJob.getId()).thenReturn(ACTIVE_JOB_ID);
+
+    CreateMediaJobCommand command =
+        new CreateMediaJobCommand(
+            PROJECT_ID,
+            CHAPTER_ID,
+            "intent-2",
+            "IMAGE_MOTION",
+            "16:9",
+            "STANDARD",
+            new BigDecimal("0.25"));
+
+    assertThatThrownBy(() -> useCase.execute(command))
+        .isInstanceOf(GenerationAdmissionDeniedException.class)
+        .hasMessageContaining("already active");
+
+    verifyNoInteractions(
+        mediaPlanningSourceAccess,
+        createMediaPlanUseCase,
+        quotaReservation,
+        generationOutboxRepository,
+        operationPlanRepository,
+        stageAttemptRepository,
+        userQuotaAccess,
+        imageGenerationCatalog);
   }
 }

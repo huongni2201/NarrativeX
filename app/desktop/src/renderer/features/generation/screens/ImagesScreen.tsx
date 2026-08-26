@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { DesktopChapterDetails, DesktopTimeline } from "@narrativex/client-contracts";
 import { Check, Image as ImageIcon, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,10 @@ import {
 } from "@/components/ui/select";
 import { EmptyState, FeaturePage } from "../../workspace/components/FeaturePage";
 import {
+  isActiveGenerationJobStatus,
+  isTerminalGenerationJobStatus,
+} from "../generation-status";
+import {
   useAnalyzeChapter,
   useCreateMediaJob,
   useEstimateMediaJob,
@@ -18,6 +22,13 @@ import {
   useMediaJob,
   useReviewMediaItem,
 } from "../queries/generation.queries";
+
+interface CostEstimate {
+  visualBeatCount: number;
+  unitEstimatedCost: string;
+  estimatedCost: string;
+  currency: string;
+}
 
 export function ImagesScreen({
   projectId,
@@ -35,63 +46,115 @@ export function ImagesScreen({
   const [chapterId, setChapterId] = useState("");
   const [qualityTier, setQualityTier] = useState<"DRAFT" | "STANDARD" | "HIGH">("STANDARD");
   const [imageStyle, setImageStyle] = useState<"CINEMATIC" | "STORYBOOK_WATERCOLOR">("CINEMATIC");
-  const [generationJobId, setGenerationJobId] = useState<string | null>(null);
+  const [analysisJobId, setAnalysisJobId] = useState<string | null>(null);
   const [mediaJobId, setMediaJobId] = useState<string | null>(null);
+  const [costEstimate, setCostEstimate] = useState<CostEstimate | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const mediaIntentRef = useRef<{ signature: string; idempotencyKey: string } | null>(null);
 
-  const generationJob = useGenerationJob(generationJobId);
+  const analysisJob = useGenerationJob(analysisJobId);
+  const mediaGenerationJob = useGenerationJob(mediaJobId);
   const mediaJob = useMediaJob(mediaJobId);
 
   useEffect(() => {
     if (!chapterId && chapters[0]) setChapterId(chapters[0].id);
   }, [chapterId, chapters]);
 
+  useEffect(() => {
+    setCostEstimate(null);
+    mediaIntentRef.current = null;
+  }, [chapterId, imageStyle, qualityTier, timeline?.aspectRatio]);
+
+  useEffect(() => {
+    if (isTerminalGenerationJobStatus(mediaGenerationJob.data?.status)) {
+      mediaIntentRef.current = null;
+    }
+  }, [mediaGenerationJob.data?.status]);
+
   const beats = timeline?.beats.filter((beat) => beat.chapterId === chapterId) ?? [];
+  const analysisBusy =
+    analyze.isPending ||
+    Boolean(
+      analysisJobId &&
+        (analysisJob.isLoading || isActiveGenerationJobStatus(analysisJob.data?.status)),
+    );
+  const mediaBusy =
+    createJob.isPending ||
+    Boolean(
+      mediaJobId &&
+        (mediaGenerationJob.isLoading ||
+          isActiveGenerationJobStatus(mediaGenerationJob.data?.status)),
+    );
 
   async function runAnalysis() {
-    if (!chapterId) return;
+    if (!chapterId || analysisBusy) return;
     setNotice(null);
     try {
       const job = await analyze.mutateAsync({ projectId, chapterId });
-      setGenerationJobId(job.jobId);
-      setMediaJobId(null);
+      setAnalysisJobId(job.jobId);
       setNotice(`Analysis ${job.jobId.slice(0, 8)} đã được queue.`);
     } catch (error) {
       setNotice(toMessage(error));
     }
   }
 
-  async function estimateCost() {
-    if (!chapterId) return;
+  async function estimateCost(): Promise<CostEstimate | null> {
+    if (!chapterId) return null;
     setNotice(null);
     try {
       const result = await estimate.mutateAsync({ projectId, chapterId, qualityTier });
+      setCostEstimate(result);
       setNotice(
         `Ước tính ${result.estimatedCost} ${result.currency} cho ${result.visualBeatCount} visual beat.`,
       );
+      return result;
     } catch (error) {
       setNotice(toMessage(error));
+      return null;
     }
   }
 
   async function generateImages() {
-    if (!chapterId) return;
+    if (!chapterId || mediaBusy || analysisBusy || !beats.length) return;
     setNotice(null);
     try {
+      const latestEstimate = await estimateCost();
+      if (!latestEstimate) return;
+      const maxAuthorizedCost = Number(latestEstimate.estimatedCost);
+      if (!Number.isFinite(maxAuthorizedCost) || maxAuthorizedCost <= 0) {
+        setNotice("Không có chi phí image generation hợp lệ để authorize.");
+        return;
+      }
+
+      const aspectRatio = asAspectRatio(timeline?.aspectRatio);
+      const signature = [
+        projectId,
+        chapterId,
+        qualityTier,
+        imageStyle,
+        aspectRatio,
+        latestEstimate.estimatedCost,
+      ].join(":");
+      if (mediaIntentRef.current?.signature !== signature) {
+        mediaIntentRef.current = { signature, idempotencyKey: crypto.randomUUID() };
+      }
+
       const job = await createJob.mutateAsync({
         projectId,
         chapterId,
+        idempotencyKey: mediaIntentRef.current.idempotencyKey,
         request: {
           productionMode: "IMAGE_MOTION",
-          aspectRatio: asAspectRatio(timeline?.aspectRatio),
+          aspectRatio,
           qualityTier,
-          maxAuthorizedCost: 25,
+          maxAuthorizedCost,
           imageStyle,
         },
       });
-      setGenerationJobId(job.jobId);
       setMediaJobId(job.jobId);
-      setNotice(`Media job ${job.jobId.slice(0, 8)} đã được queue.`);
+      setNotice(
+        `Media job ${job.jobId.slice(0, 8)} đã được queue với cap ${latestEstimate.estimatedCost} ${latestEstimate.currency}.`,
+      );
     } catch (error) {
       setNotice(toMessage(error));
     }
@@ -125,9 +188,9 @@ export function ImagesScreen({
         <Button
           size="sm"
           onClick={() => void generateImages()}
-          disabled={!chapterId || createJob.isPending}
+          disabled={!chapterId || !beats.length || analysisBusy || mediaBusy || estimate.isPending}
         >
-          <Sparkles size={14} /> {createJob.isPending ? "Queuing…" : "Generate images"}
+          <Sparkles size={14} /> {mediaBusy ? "Generating…" : "Generate images"}
         </Button>
       }
     >
@@ -179,28 +242,39 @@ export function ImagesScreen({
           <Button
             variant="outline"
             onClick={() => void runAnalysis()}
-            disabled={!chapterId || analyze.isPending}
+            disabled={!chapterId || analysisBusy || mediaBusy}
           >
-            Analyze
+            {analysisBusy ? "Analyzing…" : "Analyze"}
           </Button>
           <Button
             variant="outline"
             onClick={() => void estimateCost()}
-            disabled={!chapterId || estimate.isPending}
+            disabled={!chapterId || estimate.isPending || mediaBusy}
           >
-            Estimate cost
+            {estimate.isPending ? "Estimating…" : "Estimate cost"}
           </Button>
         </section>
 
+        {costEstimate && (
+          <div className="rounded-md border border-border bg-card p-3 text-[10px] text-muted-foreground">
+            Cost estimate · {costEstimate.estimatedCost} {costEstimate.currency} · {costEstimate.visualBeatCount} visual beat
+          </div>
+        )}
         {notice && (
           <p className="text-[10px] text-muted-foreground" role="status" aria-live="polite">
             {notice}
           </p>
         )}
-        {generationJob.data && (
+        {analysisJob.data && (
           <div className="rounded-md border border-border bg-card p-3 text-[10px] text-muted-foreground">
-            Generation {generationJob.data.jobId.slice(0, 8)} · {generationJob.data.status} ·{" "}
-            {Math.round(generationJob.data.progress * 100)}%
+            Analysis {analysisJob.data.jobId.slice(0, 8)} · {analysisJob.data.status} ·{" "}
+            {Math.round(analysisJob.data.progress * 100)}%
+          </div>
+        )}
+        {mediaGenerationJob.data && (
+          <div className="rounded-md border border-border bg-card p-3 text-[10px] text-muted-foreground">
+            Generation {mediaGenerationJob.data.jobId.slice(0, 8)} · {mediaGenerationJob.data.status} ·{" "}
+            {Math.round(mediaGenerationJob.data.progress * 100)}%
           </div>
         )}
 

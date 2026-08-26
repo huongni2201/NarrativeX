@@ -89,6 +89,22 @@ public class CreateMediaJobUseCase {
     var chapter =
         chapterSourceAccess.requireOwnedForAnalysisLocked(
             command.projectId(), command.chapterId(), userId);
+
+    var activeCurrentJob =
+        chapterMediaHeadRepository
+            .findCurrentJobId(command.chapterId())
+            .flatMap(jobId -> generationJobRepository.findByJobIdAndOwner(jobId, userId))
+            .filter(job -> job.getStatus().isActive());
+    if (activeCurrentJob.isPresent()) {
+      log.info(
+          "Rejected duplicate media generation submission while job id={} is active for projectId={}, chapterId={}",
+          activeCurrentJob.get().getId(),
+          command.projectId(),
+          command.chapterId());
+      throw new GenerationAdmissionDeniedException(
+          "MEDIA_JOB_ACTIVE", "A media generation job is already active for this chapter.");
+    }
+
     var planningSource = mediaPlanningSourceAccess.requireCurrent(command.chapterId());
     int beatCount = planningSource.scenes().stream().mapToInt(scene -> scene.beats().size()).sum();
     int generatedImageCount = VisualAssetReuseResolver.countGenerated(planningSource.scenes());
