@@ -1,54 +1,80 @@
 # NarrativeX
 
-NarrativeX is a desktop-first, image-first AI Story Video Studio for turning flexible-length stories into consistent, reviewed long-form videos and Short/Reel exports.
+NarrativeX is a desktop-first, image-first AI Story Video Studio for turning flexible-length stories into reviewed long-form videos and Short/Reel exports.
 
-The primary and only editor client is the Electron desktop application. Spring Boot remains the authoritative control plane for durable business metadata and execution state, while project media and local rendering use a local-first Desktop boundary.
+The Electron application is the only supported editor client. Spring Boot remains the authoritative control plane for durable business metadata, ownership, policy and execution state. Project media and local rendering use a local-first Desktop boundary.
 
 ## Repository map
 
 | Area | Responsibility |
 | --- | --- |
-| `app/desktop` | Primary Electron + React + TypeScript editor; local project storage, native capabilities and local FFmpeg execution through Electron main |
-| `app/backend-service` | Spring Boot modular monolith; ownership, domain metadata, policy, jobs, leases and cost authority |
+| `app/desktop` | Electron + React + TypeScript editor; guest bootstrap, local project storage, native capabilities and local FFmpeg execution through Electron main |
+| `app/backend-service` | Spring Boot modular monolith; auth/ownership, domain metadata, policy, jobs, leases, quotas and durable state |
 | `app/ai-worker` | Python AI/media worker; provider execution and retained server-side processing paths |
-| `packages/client-contracts` | Shared typed client/backend contracts |
+| `packages/client-contracts` | Shared typed Desktop/backend contracts |
 | `contracts` | Versioned backend ↔ worker payload contracts |
-| `documentation` | Product, domain, architecture, workflows, migration plans and ADRs |
-| `docker-compose.yml` | Compose backend/worker runtime with optional Cloudflare Tunnel ingress |
+| `documentation` | Product, domain, architecture, workflows, current-state maps and ADRs |
+| `docker-compose.yml` | Backend/worker runtime with optional Cloudflare Tunnel ingress |
 
 ## Primary runtime topology
 
 ```text
 Electron Desktop
-  renderer: editor UI / routing / state
+  renderer: editor UI / routing / query state
         |
         v
   preload: narrow typed capability bridge
         |
         v
-  main: OAuth deep link, native filesystem, local project manifest,
-        backend session transport, device execution, FFmpeg/ffprobe
+  main: guest credential, OAuth deep link, native filesystem,
+        backend session transport, project storage, FFmpeg/ffprobe
         |
         +------------------------+
         |                        |
         v                        v
 Spring Boot Backend         Local project workspace
   -> PostgreSQL               -> images/audio/video
-  -> Redis                    -> render work files
+  -> Redis                    -> render work/cache
   -> Python workers           -> final MP4 artifacts
 ```
 
-The backend remains authoritative for users, projects, source versions, ownership, entitlement/policy, render assignment, leases and durable job state. Electron local storage is authoritative only for Desktop project bytes referenced by stable backend asset IDs/checksums.
+PostgreSQL is authoritative for users, projects, source versions, ownership, entitlement/policy, render assignment, leases and durable job state. Electron local storage is authoritative only for machine-local project bytes referenced by stable backend IDs and integrity metadata.
+
+## Guest-first authentication
+
+NarrativeX Desktop opens into a stable installation-scoped guest workspace. The guest principal exists for ownership continuity and is **not** a second login provider.
+
+Google is the only end-user sign-in provider. Account-bound or provider-consuming actions are backend-gated to `ROLE_USER`; when a guest reaches one of those actions, Desktop opens the login modal over the current route.
+
+```text
+Desktop start
+  -> GET /api/v1/auth/me
+  -> if needed POST /api/v1/auth/desktop/guest
+  -> stable ROLE_GUEST session
+  -> free project/chapter/local-workspace editing
+
+Gated action
+  -> 403 AUTHENTICATION_REQUIRED
+  -> LoginModal
+  -> system browser /api/v1/auth/desktop/start
+  -> Google OIDC
+  -> narrativex://auth/callback?code=<one-time-code>
+  -> POST /api/v1/auth/desktop/exchange
+  -> transfer eligible guest-owned workspace metadata
+  -> ROLE_USER session, same project/editor route
+```
+
+Google access/refresh tokens never enter Electron. The installation guest secret and local-execution device credentials are separate credentials with separate responsibilities.
+
+See `documentation/workflows/AUTHENTICATION.md` for the current contract.
 
 ## Desktop local-first media contract
-
-For the Desktop path:
 
 ```text
 Generated/imported project images   -> local project workspace
 Project narration/audio             -> local project workspace
 Imported project media              -> local project workspace
-Render intermediates                -> local project workspace/work
+Render intermediates/cache          -> local project workspace/work
 Final rendered MP4                  -> local project workspace/artifacts
 Metadata / ownership / job state    -> PostgreSQL
 ```
@@ -67,30 +93,31 @@ Workspace layout:
   work/
 ```
 
-`project.manifest.json` maps backend asset IDs to project-relative paths, sizes and SHA-256 checksums. Absolute local filesystem paths must not be stored in backend state.
+`project.manifest.json` maps backend IDs to project-relative paths, sizes and SHA-256 checksums. Absolute local filesystem paths must not become durable backend identifiers.
 
-Cloudflare R2 and Google Drive remain part of retained server-worker paths where remote durability is still required. They are not the primary Desktop project-media boundary. Shared voice/sample media may remain remote when cross-install reuse requires it.
+Cloudflare R2 and Google Drive remain retained server-worker/fallback paths where remote durability is required. They are not the primary Desktop project-media boundary.
 
-## Authentication
+## Current creator/editor foundations
 
-NarrativeX uses Google OAuth only for end-user login. Password login/register/forgot-password flows must not be reintroduced.
+The current Desktop code includes:
 
-Desktop authentication uses the system browser:
+- project/chapter authoring and project catalog state;
+- guest-first session bootstrap and in-context Google sign-in;
+- chapter analysis and generation admission flows;
+- image generation/review plus remote-to-local materialization;
+- generated narration/voice preview and local audio import safeguards;
+- native local asset registration;
+- production timeline editing including beat media selection, duration/camera draft state and undo/redo;
+- local render preflight, lease-controlled FFmpeg execution and final artifact registration;
+- render journal discovery, segment caching and project storage verification/cleanup;
+- workspace backup/restore/archive-copy foundations;
+- source-owned Tailwind/shadcn-style renderer component structure.
 
-```text
-GET /api/v1/auth/desktop/start
-  -> Google OIDC
-  -> backend OAuth callback
-  -> narrativex://auth/callback?code=<one-time-code>
-  -> POST /api/v1/auth/desktop/exchange
-  -> server-managed NarrativeX session
-```
-
-Google access/refresh tokens never enter Electron. Local execution uses a separate device credential for heartbeat/render APIs; that device token is not the user's OAuth/session token.
+Remaining product work is tracked in `documentation/product/ROADMAP.md`, not in completed migration plans.
 
 ## Run Desktop in development
 
-Start the backend/required server dependencies, then run the desktop client:
+Start the backend/required server dependencies, then run Desktop:
 
 ```powershell
 docker compose up -d --build
@@ -99,18 +126,16 @@ npm ci
 npm run dev
 ```
 
-The Compose backend is published to `127.0.0.1:8080` for the Desktop client and
-the system-browser OAuth handoff. Verify it is ready before opening Desktop:
+Verify the backend before opening Desktop:
 
 ```powershell
 Invoke-WebRequest http://localhost:8080/actuator/health
 ```
 
-Desktop checks:
+Desktop quality gate:
 
 ```powershell
-npm run type-check
-npm run build
+npm run check
 ```
 
 Default backend URL:
@@ -119,62 +144,28 @@ Default backend URL:
 NARRATIVEX_BACKEND_URL=http://localhost:8080
 ```
 
-Local project rendering additionally requires FFmpeg/ffprobe to be available and:
+Local project rendering additionally requires FFmpeg/ffprobe and:
 
 ```text
 NARRATIVEX_DESKTOP_PROJECT_RENDER_ENABLED=true
 ```
 
-## Local render foundation
-
-The current Desktop implementation can claim backend-assigned local project renders, resolve checksum-verified local assets, render FFmpeg segments, concatenate video and narration, mux, validate with ffprobe, register the local artifact and report progress/completion back to the backend.
-
-Lease heartbeat, failure reporting and in-process cancellation are implemented foundations. Process-restart crash recovery/resume remains a hardening item.
-
 ## Production backend ingress
 
-`docker-compose.yml` is the single Compose topology for PostgreSQL, Redis, the
-backend and retained server workers. There is no web frontend service or Caddy
-layer. The default startup does not require Cloudflare credentials:
-
-```powershell
-docker compose up -d
-```
-
-For a self-hosted production backend, Cloudflare Tunnel is retained as an optional HTTPS ingress and should route the public API hostname directly to:
-
-```text
-http://backend:8080
-```
-
-Cloudflare Tunnel is opt-in through the `tunnel` profile:
+Production Compose contains no browser frontend and no Caddy layer. Cloudflare Tunnel is optional HTTPS ingress for self-hosted deployments and routes directly to `backend:8080` when the `tunnel` profile is enabled.
 
 ```powershell
 docker compose --profile tunnel up -d
 ```
 
-The `CLOUDFLARE_TUNNEL_TOKEN` value in `.env` is required only when that profile
-is enabled. The Electron app uses `https://<APP_DOMAIN>` as its remote backend
-origin; the hostname must be publicly reachable over HTTPS for the Desktop
-system-browser OAuth callback and subsequent API/session traffic. If deployment
-already provides HTTPS ingress, leave the tunnel profile disabled and omit its
-token.
-
-Set `NARRATIVEX_PUBLIC_BASE_URL` to the same public origin. The Google OAuth
-Authorized redirect URI must then be exactly
-`https://<APP_DOMAIN>/login/oauth2/code/google`; `narrativex://auth/callback`
-is only the post-login Electron handoff URI.
+If another platform already provides HTTPS ingress, leave the tunnel profile disabled. The public backend origin and Google OAuth redirect URI must match the deployed HTTPS host.
 
 ## Persistence
 
-Flyway migrations in `app/backend-service/src/main/resources/db/migration` are authoritative for PostgreSQL schemas. Production persistence uses MyBatis + explicit SQL; JPA and direct `JdbcTemplate` persistence are not part of the production persistence path.
+Flyway migrations under `app/backend-service/src/main/resources/db/migration` are authoritative for PostgreSQL schema evolution. Production persistence uses MyBatis + explicit SQL; JPA and direct `JdbcTemplate` persistence are not part of the production application persistence path.
 
 ## Product guardrails
 
-NarrativeX is not a fixed-duration or fixed-image-count generator. Planning uses narration timing, semantic scene boundaries, complexity, asset reuse, source/version identity, provider capability and cost authorization.
+NarrativeX is not a fixed-duration or fixed-image-count generator. Narration timing is the master clock. Expensive work pins source identity and must not silently overwrite immutable reviewed history. Workers and Desktop executors perform backend-authorized work; they do not invent paid operations.
 
-Narration timing is the master clock. Expensive work pins source identity and must not silently overwrite immutable reviewed history. Workers execute backend-authorized plans and may not invent paid work.
-
-The canonical product/architecture baseline is `documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`. Accepted ADRs refine that baseline; for factual AS-IS implementation claims, current code, Flyway migrations and automated tests outrank stale derived documentation.
-
-Desktop-specific boundaries are defined by ADR-0010, ADR-0011 and ADR-0012, with `documentation/plans/DESKTOP_APP_MIGRATION.md` tracking remaining migration work.
+The canonical product/architecture baseline is `documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`. Accepted ADRs refine that baseline. For factual AS-IS implementation claims, current code, Flyway migrations and automated tests outrank derived documentation.
