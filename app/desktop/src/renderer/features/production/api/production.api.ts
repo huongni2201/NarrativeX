@@ -96,12 +96,4 @@ export const productionApi = {
     estimatedOutputBytes: number;
     requiredTemporaryBytes: number;
   }): Promise<LocalRenderPreflight> => window.narrativex.render.preflight(input),
-
-  getRenderJob: (jobId: string) =>
-    apiRequest<unknown>(`/api/v1/generation-jobs/${encodeURIComponent(jobId)}`).then(
-      (value) => {
-        assertContract(isRenderJob(value), "Generation job response không đúng contract.");
-        return value;
-      },
-    ),
 };
