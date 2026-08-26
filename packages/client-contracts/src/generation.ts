@@ -17,7 +17,7 @@ export interface DesktopRenderJob {
   errorCode: string | null;
 }
 
-export type GenerationJobStatus = "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED" | "CANCELED" | "UNKNOWN";
+export type GenerationJobStatus = DesktopRenderJobStatus;
 
 export interface GenerationJob {
   jobId: string;
