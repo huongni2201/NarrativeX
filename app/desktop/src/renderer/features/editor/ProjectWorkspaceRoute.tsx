@@ -37,6 +37,7 @@ export function ProjectWorkspaceRoute() {
           projectName={workspace.projects.find((project) => project.id === projectId)?.name ?? "Project hiện tại"}
           storyVersionId={workspace.timeline?.storyVersionId ?? null}
           chapters={workspace.chapters}
+          voices={workspace.voices}
           workspaceStatus={workspace.status}
           projectsCount={workspace.projects.length}
           assetsCount={workspace.assets.length}

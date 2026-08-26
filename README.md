@@ -160,6 +160,11 @@ system-browser OAuth callback and subsequent API/session traffic. If deployment
 already provides HTTPS ingress, leave the tunnel profile disabled and omit its
 token.
 
+Set `NARRATIVEX_PUBLIC_BASE_URL` to the same public origin. The Google OAuth
+Authorized redirect URI must then be exactly
+`https://<APP_DOMAIN>/login/oauth2/code/google`; `narrativex://auth/callback`
+is only the post-login Electron handoff URI.
+
 ## Persistence
 
 Flyway migrations in `app/backend-service/src/main/resources/db/migration` are authoritative for PostgreSQL schemas. Production persistence uses MyBatis + explicit SQL; JPA and direct `JdbcTemplate` persistence are not part of the production persistence path.

@@ -1,5 +1,16 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { CreateChapterInput, UpdateChapterInput } from "@narrativex/client-contracts";
+import {
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+  type Query,
+} from "@tanstack/react-query";
+import type {
+  CreateChapterInput,
+  DesktopChapterDetails,
+  DesktopChapterWorkspace,
+  UpdateChapterInput,
+} from "@narrativex/client-contracts";
 import { chaptersApi } from "../api/chapters.api";
 
 export const chapterQueryKeys = {
@@ -8,12 +19,25 @@ export const chapterQueryKeys = {
   workspace: (projectId: string, chapterId: string) => [...chapterQueryKeys.all(projectId), chapterId, "workspace"] as const,
 };
 
-export function useChapterWorkspaceQuery(projectId: string, chapterId: string | null) {
-  return useQuery({
-    queryKey: chapterQueryKeys.workspace(projectId, chapterId ?? "none"),
-    queryFn: () => chaptersApi.workspace(projectId, chapterId as string),
-    enabled: Boolean(chapterId),
+export function useChapterWorkspacesQuery(
+  projectId: string,
+  chapters: DesktopChapterDetails[],
+) {
+  return useQueries({
+    queries: chapters.map((chapter) => ({
+      queryKey: chapterQueryKeys.workspace(projectId, chapter.id),
+      queryFn: () => chaptersApi.workspace(projectId, chapter.id),
+      enabled: Boolean(projectId && chapter.id),
+      refetchInterval: (query: Query<DesktopChapterWorkspace, Error, DesktopChapterWorkspace>) =>
+        query.state.data && isAudioProcessing(query.state.data.pipeline.audio.status)
+          ? 3000
+          : false,
+    })),
   });
+}
+
+function isAudioProcessing(status: string) {
+  return ["QUEUED", "RUNNING", "GENERATING", "STALLED", "UNKNOWN"].includes(status);
 }
 
 export function useChaptersQuery(projectId: string | null, storyVersionId: string | null) {
@@ -22,7 +46,16 @@ export function useChaptersQuery(projectId: string | null, storyVersionId: strin
 
 export function useCreateChapter(projectId: string) {
   const queryClient = useQueryClient();
-  return useMutation({ mutationFn: (input: CreateChapterInput) => chaptersApi.create(projectId, input), onSuccess: () => queryClient.invalidateQueries({ queryKey: chapterQueryKeys.all(projectId) }) });
+  return useMutation({
+    mutationFn: (input: CreateChapterInput) => chaptersApi.create(projectId, input),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: chapterQueryKeys.all(projectId) }),
+        // Creating the first chapter may also create the project's StoryVersion.
+        queryClient.invalidateQueries({ queryKey: ["projects", projectId, "timeline"] }),
+      ]);
+    },
+  });
 }
 
 export function useUpdateChapter(projectId: string) {

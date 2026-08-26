@@ -61,6 +61,9 @@ narrativex:
     oidc-enabled: ${NARRATIVEX_OIDC_ENABLED:false}
     local-user-id: ${NARRATIVEX_LOCAL_USER_ID:local-dev-user}
     local-dev-identity-enabled: ${NARRATIVEX_LOCAL_DEV_IDENTITY_ENABLED:false}
+    # Set this to the exact public HTTPS origin used by Google OAuth in production.
+    # Leave blank for local development so Spring resolves http://localhost:8080 dynamically.
+    public-base-url: ${NARRATIVEX_PUBLIC_BASE_URL:}
     google:
       client-id: ${GOOGLE_OAUTH_CLIENT_ID:}
       client-secret: ${GOOGLE_OAUTH_CLIENT_SECRET:}
