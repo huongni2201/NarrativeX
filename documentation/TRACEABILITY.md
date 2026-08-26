@@ -5,7 +5,7 @@ This matrix maps the V1.11 contract to implementation checkpoint `main` / `0aca9
 | Capability / invariant | Evidence | Status |
 |---|---|---|
 | Desktop-only editor client | `app/desktop`; former web client absent | IMPLEMENTED |
-| Secure Electron boundary | sandboxed BrowserWindow + narrow preload/main capabilities | IMPLEMENTED foundation |
+| Secure Electron boundary | context-isolated, no-Node-integration BrowserWindow + narrow preload/main capabilities; Chromium renderer sandbox currently disabled for startup compatibility | IMPLEMENTED foundation with documented trade-off |
 | Stable Desktop guest identity | Electron secure installation credential + backend `desktop_guest_installations` / guest session service | IMPLEMENTED |
 | Guest-first free workspace | backend guest allowlists + Desktop guest bootstrap | IMPLEMENTED foundation |
 | Google-only account sign-in | system-browser OIDC + one-time Desktop handoff/exchange | IMPLEMENTED |
