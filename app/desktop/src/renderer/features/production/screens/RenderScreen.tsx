@@ -1,6 +1,11 @@
-import { useEffect, useState } from "react";
-import type { DesktopRenderJob, DesktopTimeline, LocalRenderPreflight } from "@narrativex/client-contracts";
-import { ExternalLink, Film, HardDrive, Play } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import type {
+  AutoEditStyle,
+  DesktopRenderJob,
+  DesktopTimeline,
+  LocalRenderPreflight,
+} from "@narrativex/client-contracts";
+import { ExternalLink, Film, HardDrive, Play, WandSparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -12,6 +17,7 @@ import {
 import { useGenerationJob } from "../../generation/queries/generation.queries";
 import { FeaturePage } from "../../workspace/components/FeaturePage";
 import { productionApi } from "../api/production.api";
+import { createAutoEditPlan } from "../auto-edit-planner";
 
 export function RenderScreen({
   projectId,
@@ -21,12 +27,17 @@ export function RenderScreen({
   timeline: DesktopTimeline | null;
 }>) {
   const [resolution, setResolution] = useState<"720p" | "1080p">("1080p");
+  const [autoEditStyle, setAutoEditStyle] = useState<AutoEditStyle>("CINEMATIC");
   const [job, setJob] = useState<DesktopRenderJob | null>(null);
   const [preflight, setPreflight] = useState<LocalRenderPreflight | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const trackedJob = useGenerationJob(job?.jobId ?? null);
   const liveJob = trackedJob.data ?? job;
+  const autoEditPlan = useMemo(
+    () => (timeline ? createAutoEditPlan(timeline, autoEditStyle) : null),
+    [autoEditStyle, timeline],
+  );
 
   useEffect(() => {
     if (trackedJob.data?.status === "COMPLETED") setNotice("Render hoàn tất.");
@@ -39,12 +50,12 @@ export function RenderScreen({
   }, [trackedJob.isError]);
 
   async function startRender() {
-    if (!timeline?.readyForRender) {
+    if (!timeline?.readyForRender || !autoEditPlan) {
       setNotice("Timeline chưa ready for render. Kiểm tra narration và media asset trước.");
       return;
     }
     setBusy(true);
-    setNotice("Đang chạy local render preflight…");
+    setNotice("Auto Edit đã lập kế hoạch. Đang chạy local render preflight…");
     try {
       const assetIds = [
         ...timeline.beats.map((beat) => beat.mediaAssetId),
@@ -65,9 +76,15 @@ export function RenderScreen({
         setNotice(`Preflight blocked: ${nextPreflight.blockers.join(", ")}`);
         return;
       }
-      const nextJob = await productionApi.startRender(projectId, [], resolution);
+      const nextJob = await productionApi.startRender(
+        projectId,
+        autoEditPlan.renderOverrides,
+        resolution,
+      );
       setJob(nextJob);
-      setNotice(`Render job ${nextJob.jobId.slice(0, 8)} đã được queue.`);
+      setNotice(
+        `Auto Edit ${autoEditStyle.toLowerCase()} đã áp dụng ${autoEditPlan.renderOverrides.length} override; render job ${nextJob.jobId.slice(0, 8)} đã được queue.`,
+      );
     } catch (error) {
       setNotice(toMessage(error));
     } finally {
@@ -84,21 +101,39 @@ export function RenderScreen({
     }
   }
 
+  const fitSummary = autoEditPlan
+    ? autoEditPlan.decisions.reduce<Record<string, number>>((summary, decision) => {
+        summary[decision.fitMode] = (summary[decision.fitMode] ?? 0) + 1;
+        return summary;
+      }, {})
+    : {};
+
   return (
     <FeaturePage
-      title="Render Workspace"
-      description="Preflight local assets/disk/executor trước khi gửi project render tới local FFmpeg executor."
+      title="Auto Edit & Render"
+      description="NarrativeX tự chọn motion, trim và cách fit media theo narration rồi chuyển kế hoạch cho local FFmpeg executor."
       actions={
         <Button size="sm" onClick={() => void startRender()} disabled={busy || !timeline}>
-          <Play size={14} /> {busy ? "Checking…" : "Start render"}
+          <WandSparkles size={14} /> {busy ? "Preparing…" : "Auto Edit & Render"}
         </Button>
       }
     >
       <div className="grid gap-4">
         <section className="grid grid-cols-[repeat(auto-fit,minmax(190px,1fr))] gap-3 rounded-lg border border-border bg-card p-4">
           <Metric label="Timeline" value={timeline ? `${Math.round(timeline.totalDurationMs / 1000)}s` : "Not loaded"} icon={<Film size={16} />} />
-          <Metric label="Ready" value={timeline?.readyForRender ? "Yes" : "No"} icon={<Play size={16} />} />
+          <Metric label="Auto Edit" value={timeline?.readyForRender ? "Ready" : "Waiting for media"} icon={<WandSparkles size={16} />} />
           <Metric label="Disk free" value={preflight?.diskFreeBytes != null ? formatBytes(preflight.diskFreeBytes) : "Not checked"} icon={<HardDrive size={16} />} />
+          <label className="grid gap-1 text-[10px] text-muted-foreground">
+            Edit style
+            <Select value={autoEditStyle} onValueChange={(value) => setAutoEditStyle(value as AutoEditStyle)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="CINEMATIC">Cinematic</SelectItem>
+                <SelectItem value="BALANCED">Balanced</SelectItem>
+                <SelectItem value="DYNAMIC">Dynamic</SelectItem>
+              </SelectContent>
+            </Select>
+          </label>
           <label className="grid gap-1 text-[10px] text-muted-foreground">
             Resolution
             <Select value={resolution} onValueChange={(value) => setResolution(value as typeof resolution)}>
@@ -110,6 +145,32 @@ export function RenderScreen({
             </Select>
           </label>
         </section>
+
+        {autoEditPlan && (
+          <section className="rounded-lg border border-primary/25 bg-card p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 text-primary-hover">
+                  <WandSparkles size={14} />
+                  <h2 className="text-xs font-semibold">Auto Edit plan</h2>
+                </div>
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  Narration giữ vai trò master clock. AI-directed camera intent được giữ lại; rule engine chỉ tự quyết định phần fit/trim có thể xác định chắc chắn.
+                </p>
+              </div>
+              <span className="rounded-md border border-border bg-popover px-2 py-1 text-[9px] text-muted-foreground">
+                {autoEditPlan.renderOverrides.length} changes
+              </span>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2 text-[9px] text-muted-foreground">
+              {Object.entries(fitSummary).map(([mode, count]) => (
+                <span key={mode} className="rounded-md border border-border-subtle bg-popover px-2 py-1">
+                  {mode}: {count}
+                </span>
+              ))}
+            </div>
+          </section>
+        )}
 
         {notice && <p className="rounded-md border border-border bg-card p-3 text-[10px] text-muted-foreground">{notice}</p>}
 
