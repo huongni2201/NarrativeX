@@ -55,8 +55,11 @@ def main() -> int:
 
     steps = [
         Step("Docs drift", ROOT, [python, "scripts/check-docs-drift.py"]),
-        Step("Backend tests", backend, [mvnw, "test"]),
+        Step("Compose config", ROOT, ["docker", "compose", "config", "--no-interpolate"], optional=True),
+        Step("Backend verify", backend, [mvnw, "verify"]),
         Step("AI worker tests", worker, [python, "-m", "pytest"]),
+        Step("AI worker lint", worker, [python, "-m", "ruff", "check", "src", "tests"]),
+        Step("AI worker type-check", worker, [python, "-m", "mypy", "src"]),
         Step("Desktop tests/type-check/build", desktop, [npm, "run", "check"]),
     ]
 

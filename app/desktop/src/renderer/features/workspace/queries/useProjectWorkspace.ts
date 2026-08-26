@@ -52,17 +52,17 @@ export function useProjectWorkspace(projectId: string | null) {
   const chaptersQuery = useQuery({
     queryKey: ["projects", projectId, "chapters", timelineQuery.data?.storyVersionId],
     queryFn: () =>
-      chaptersApi.list(projectId as string, timelineQuery.data?.storyVersionId as string),
+      chaptersApi.listAll(projectId as string, timelineQuery.data?.storyVersionId as string),
     enabled: enabled && Boolean(timelineQuery.data?.storyVersionId),
   });
   const assetsQuery = useQuery({
     queryKey: ["assets", "library"],
-    queryFn: () => assetsApi.list(),
+    queryFn: assetsApi.listAll,
     enabled,
   });
   const charactersQuery = useQuery({
     queryKey: ["projects", projectId, "characters"],
-    queryFn: () => charactersApi.list(projectId as string),
+    queryFn: () => charactersApi.listAll(projectId as string),
     enabled,
   });
   const voicesQuery = useQuery({
@@ -84,9 +84,9 @@ export function useProjectWorkspace(projectId: string | null) {
     charactersQuery,
     voicesQuery,
     presetsQuery,
-    chaptersQuery,
+    ...(timelineQuery.data?.storyVersionId ? [chaptersQuery] : []),
   ];
-  const hasPending = queries.some((query) => query.isPending);
+  const hasPending = queries.some((query) => query.isLoading);
   const timeline = timelineQuery.data ?? null;
   const firstError = queries.find((query) => query.isError)?.error;
 
@@ -95,18 +95,20 @@ export function useProjectWorkspace(projectId: string | null) {
     : {
         status: hasPending
           ? "loading"
-          : timeline
-            ? "ready"
-            : firstError
+          : firstError
+            ? timeline
               ? "partial"
+              : "error"
+            : timeline
+              ? "ready"
               : "empty",
         projects,
-        assets: assetsQuery.data?.items ?? [],
-        characters: charactersQuery.data?.content ?? [],
+        assets: assetsQuery.data ?? [],
+        characters: charactersQuery.data ?? [],
         voices: voicesQuery.data ?? [],
         presets: presetsQuery.data ?? [],
         timeline,
-        chapters: chaptersQuery.data?.content ?? [],
+        chapters: chaptersQuery.data ?? [],
         error: firstError instanceof Error ? firstError.message : null,
       };
 

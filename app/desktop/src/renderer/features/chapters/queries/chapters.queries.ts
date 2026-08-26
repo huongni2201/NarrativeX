@@ -22,6 +22,7 @@ export const chapterQueryKeys = {
 export function useChapterWorkspacesQuery(
   projectId: string,
   chapters: DesktopChapterDetails[],
+  pollingChapterId?: string | null,
 ) {
   return useQueries({
     queries: chapters.map((chapter) => ({
@@ -29,7 +30,9 @@ export function useChapterWorkspacesQuery(
       queryFn: () => chaptersApi.workspace(projectId, chapter.id),
       enabled: Boolean(projectId && chapter.id),
       refetchInterval: (query: Query<DesktopChapterWorkspace, Error, DesktopChapterWorkspace>) =>
-        query.state.data && isAudioProcessing(query.state.data.pipeline.audio.status)
+        chapter.id === pollingChapterId &&
+        query.state.data &&
+        isAudioProcessing(query.state.data.pipeline.audio.status)
           ? 3000
           : false,
     })),

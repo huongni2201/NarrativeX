@@ -137,6 +137,8 @@ services:
         source: ${GCP_SERVICE_ACCOUNT_FILE}
         target: /run/secrets/gcp-service-account.json
         read_only: true
+        bind:
+          create_host_path: false
     depends_on:
       backend: { condition: service_healthy }
       postgres: { condition: service_healthy }
@@ -188,6 +190,8 @@ services:
         source: ${VIENEU_REFERENCE_AUDIO_FILE}
         target: /run/narrativex/voices/reference.wav
         read_only: true
+        bind:
+          create_host_path: false
       - vieneu-home:/home/appuser
     depends_on:
       backend: { condition: service_healthy }

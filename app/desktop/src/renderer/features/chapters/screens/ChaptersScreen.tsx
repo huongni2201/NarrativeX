@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type {
   DesktopChapterDetails,
   DesktopChapterWorkspace,
+  DesktopTimeline,
   DesktopVoice,
 } from "@narrativex/client-contracts";
 import {
@@ -15,11 +16,10 @@ import {
   FileText,
   Filter,
   Folder,
-  GripVertical,
   Info,
   Lightbulb,
-  MoreVertical,
   PencilLine,
+  Plus,
   Search,
   Trash2,
   WandSparkles,
@@ -41,12 +41,15 @@ import {
 type ChapterFilter = "all" | "completed" | "in_progress" | "draft";
 type ChapterSort = "recent" | "title" | "order" | "words";
 
+type WorkspaceStatus = "loading" | "ready" | "partial" | "empty" | "error";
+
 export function ChaptersScreen({
   projectId,
   projectName,
   storyVersionId,
   chapters,
   voices,
+  timeline,
   workspaceStatus,
   projectsCount: _projectsCount,
   assetsCount: _assetsCount,
@@ -57,7 +60,8 @@ export function ChaptersScreen({
   storyVersionId: string | null;
   chapters: DesktopChapterDetails[];
   voices: DesktopVoice[];
-  workspaceStatus: "loading" | "ready" | "partial" | "empty" | "error";
+  timeline: DesktopTimeline | null;
+  workspaceStatus: WorkspaceStatus;
   projectsCount: number;
   assetsCount: number;
   charactersCount: number;
@@ -68,7 +72,9 @@ export function ChaptersScreen({
   const deleteChapter = useDeleteChapter(projectId);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
   const [title, setTitle] = useState("");
   const [sourceText, setSourceText] = useState("");
   const [voiceId, setVoiceId] = useState("");
@@ -80,12 +86,18 @@ export function ChaptersScreen({
   const [page, setPage] = useState(1);
   const pageSize = 8;
 
-  // Auto select first chapter if available
   useEffect(() => {
-    if (!editingId && chapters.length > 0) {
+    if (workspaceStatus === "loading") return;
+    if (!chapters.length) {
+      setEditingId(null);
+      setIsCreating(true);
+      return;
+    }
+    if (isCreating) return;
+    if (!editingId || !chapters.some((chapter) => chapter.id === editingId)) {
       setEditingId(chapters[0].id);
     }
-  }, [chapters, editingId]);
+  }, [chapters, editingId, isCreating, workspaceStatus]);
 
   useEffect(() => {
     if (!voices.some((voice) => voice.id === voiceId)) {
@@ -93,89 +105,15 @@ export function ChaptersScreen({
     }
   }, [voiceId, voices]);
 
-  const selected = chapters.find((chapter) => chapter.id === editingId) ?? null;
-  const chapterWorkspaceQueries = useChapterWorkspacesQuery(projectId, chapters);
-  const workspacesByChapterId = useMemo(() => {
-    const workspaces = new Map<string, DesktopChapterWorkspace>();
-    for (const query of chapterWorkspaceQueries) {
-      if (query.data) workspaces.set(query.data.chapter.id, query.data);
-    }
-    return workspaces;
-  }, [chapterWorkspaceQueries]);
-  const workspaceQueriesByChapterId = useMemo(
-    () => new Map(chapters.map((chapter, index) => [chapter.id, chapterWorkspaceQueries[index]])),
-    [chapters, chapterWorkspaceQueries],
-  );
-  const selectedWorkspace = selected ? workspacesByChapterId.get(selected.id) : undefined;
-  const selectedWorkspaceQuery = selected ? workspaceQueriesByChapterId.get(selected.id) : undefined;
-  const chapterWorkspaceStatsReady =
-    chapterWorkspaceQueries.length === chapters.length &&
-    chapterWorkspaceQueries.every((query) => query.isSuccess);
-  const analyzeChapter = useMutation({
-    mutationFn: (chapterId: string) => generationApi.analyze(projectId, chapterId),
-    onSuccess: async (_job, chapterId) => {
-      await queryClient.invalidateQueries({ queryKey: chapterQueryKeys.workspace(projectId, chapterId) });
-      if (editingId === chapterId) setNotice("Phân tích chapter đã được gửi.");
-    },
-    onError: (error) => setNotice(toMessage(error)),
-  });
+  const selected = isCreating
+    ? null
+    : chapters.find((chapter) => chapter.id === editingId) ?? null;
 
-  async function createAudio() {
-    if (!selected || !voiceId || busy) return;
-    setNotice(null);
-    const parsedRate = Number.parseFloat(speakingRate);
-    try {
-      const job = await generateNarration.mutateAsync({
-        projectId,
-        request: {
-          chapterId: selected.id,
-          voiceId,
-          speakingRate: Number.isFinite(parsedRate) ? parsedRate : 1,
-        },
-      });
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: chapterQueryKeys.workspace(projectId, selected.id) }),
-        queryClient.invalidateQueries({ queryKey: ["projects", projectId, "timeline"] }),
-      ]);
-      setNotice(`Đã gửi tạo audio. Job ${job.jobId.slice(0, 8)} đang được xử lý.`);
-    } catch (error) {
-      setNotice(toMessage(error));
-    }
-  }
-
-  const totalWords = useMemo(
-    () => chapters.reduce((total, chapter) => total + wordCount(chapter.sourceText), 0),
-    [chapters],
-  );
-
-  const completedCount = useMemo(
-    () => chapters.filter((chapter) => chapterStatus(workspacesByChapterId.get(chapter.id)) === "completed").length,
-    [chapters, workspacesByChapterId],
-  );
-
-  const inProgressCount = useMemo(
-    () => chapters.filter((chapter) => chapterStatus(workspacesByChapterId.get(chapter.id)) === "in_progress").length,
-    [chapters, workspacesByChapterId],
-  );
-
-  const draftCount = useMemo(
-    () => chapters.filter((chapter) => chapterStatus(workspacesByChapterId.get(chapter.id)) === "draft").length,
-    [chapters, workspacesByChapterId],
-  );
-
-  const totalSceneCount = useMemo(
-    () => [...workspacesByChapterId.values()].reduce((total, workspace) => total + workspace.summary.sceneCount, 0),
-    [workspacesByChapterId],
-  );
-
-  const filtered = useMemo(() => {
+  const baseChapters = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
     const result = chapters.filter((chapter) => {
-      const matchesQuery =
-        !needle || `${chapter.title} ${chapter.sourceText}`.toLocaleLowerCase().includes(needle);
-      const status = chapterStatus(workspacesByChapterId.get(chapter.id));
-      const matchesStatus = statusFilter === "all" || statusFilter === status;
-      return matchesQuery && matchesStatus;
+      if (!needle) return true;
+      return `${chapter.title} ${chapter.sourceText}`.toLocaleLowerCase().includes(needle);
     });
 
     return [...result].sort((left, right) => {
@@ -184,23 +122,88 @@ export function ChaptersScreen({
       if (sortBy === "order") return left.orderIndex - right.orderIndex;
       return right.rowVersion - left.rowVersion;
     });
-  }, [chapters, query, sortBy, statusFilter, workspacesByChapterId]);
+  }, [chapters, query, sortBy]);
+
+  const visibleCandidates = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return baseChapters.slice(start, start + pageSize);
+  }, [baseChapters, page]);
+
+  const workspaceTargets = useMemo(() => {
+    if (statusFilter !== "all") return chapters;
+    const ids = new Set(visibleCandidates.map((chapter) => chapter.id));
+    if (selected) ids.add(selected.id);
+    return chapters.filter((chapter) => ids.has(chapter.id));
+  }, [chapters, selected, statusFilter, visibleCandidates]);
+
+  const chapterWorkspaceQueries = useChapterWorkspacesQuery(
+    projectId,
+    workspaceTargets,
+    selected?.id,
+  );
+
+  const workspacesByChapterId = useMemo(() => {
+    const workspaces = new Map<string, DesktopChapterWorkspace>();
+    workspaceTargets.forEach((chapter, index) => {
+      const data = chapterWorkspaceQueries[index]?.data;
+      if (data) workspaces.set(chapter.id, data);
+    });
+    return workspaces;
+  }, [chapterWorkspaceQueries, workspaceTargets]);
+
+  const workspaceQueriesByChapterId = useMemo(
+    () =>
+      new Map(
+        workspaceTargets.map((chapter, index) => [chapter.id, chapterWorkspaceQueries[index]]),
+      ),
+    [chapterWorkspaceQueries, workspaceTargets],
+  );
+
+  const filtered = useMemo(() => {
+    if (statusFilter === "all") return baseChapters;
+    return baseChapters.filter(
+      (chapter) => chapterStatus(workspacesByChapterId.get(chapter.id)) === statusFilter,
+    );
+  }, [baseChapters, statusFilter, workspacesByChapterId]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+
+  useEffect(() => {
+    setPage((current) => Math.min(Math.max(current, 1), totalPages));
+  }, [totalPages]);
+
   const paginatedChapters = useMemo(() => {
     const start = (page - 1) * pageSize;
     return filtered.slice(start, start + pageSize);
-  }, [filtered, page, pageSize]);
+  }, [filtered, page]);
+
+  const selectedWorkspace = selected ? workspacesByChapterId.get(selected.id) : undefined;
+  const selectedWorkspaceQuery = selected
+    ? workspaceQueriesByChapterId.get(selected.id)
+    : undefined;
 
   useEffect(() => {
     if (!selected) {
-      setTitle("");
-      setSourceText("");
+      if (!isCreating) {
+        setTitle("");
+        setSourceText("");
+      }
       return;
     }
     setTitle(selected.title);
     setSourceText(selected.sourceText);
-  }, [selected]);
+  }, [isCreating, selected]);
+
+  const analyzeChapter = useMutation({
+    mutationFn: (chapterId: string) => generationApi.analyze(projectId, chapterId),
+    onSuccess: async (_job, chapterId) => {
+      await queryClient.invalidateQueries({
+        queryKey: chapterQueryKeys.workspace(projectId, chapterId),
+      });
+      if (editingId === chapterId) setNotice("Phân tích chapter đã được gửi.");
+    },
+    onError: (error) => setNotice(toMessage(error)),
+  });
 
   const busy =
     createChapter.isPending ||
@@ -208,19 +211,42 @@ export function ChaptersScreen({
     updateChapter.isPending ||
     deleteChapter.isPending ||
     analyzeChapter.isPending;
+
   const isDirty = selected
     ? title !== selected.title || sourceText !== selected.sourceText
     : Boolean(title.trim() || sourceText.trim());
 
-  function startNew(clearNotice = true) {
+  const totalWords = useMemo(
+    () => chapters.reduce((total, chapter) => total + wordCount(chapter.sourceText), 0),
+    [chapters],
+  );
+
+  const totalSceneCount = useMemo(() => {
+    if (!timeline) return null;
+    return new Set(timeline.beats.map((beat) => `${beat.chapterId}:${beat.sceneIndex}`)).size;
+  }, [timeline]);
+
+  const totalBeatCount = timeline?.beats.length ?? null;
+  const audioReadyCount = timeline?.chapters.filter((chapter) => chapter.audioReady).length ?? null;
+  const renderReadyCount =
+    timeline?.chapters.filter((chapter) => chapter.readyForRender).length ?? null;
+
+  function beginCreate() {
+    if (isDirty && !window.confirm("Bạn có thay đổi chưa lưu. Bỏ thay đổi để tạo chapter mới?")) {
+      return;
+    }
     setEditingId(null);
+    setIsCreating(true);
     setTitle("");
     setSourceText("");
-    if (clearNotice) setNotice(null);
+    setNotice(null);
   }
 
   function selectChapter(chapterId: string) {
-    if (isDirty && !window.confirm("Bạn có thay đổi chưa lưu. Bỏ thay đổi để mở chapter khác?")) return;
+    if (isDirty && !window.confirm("Bạn có thay đổi chưa lưu. Bỏ thay đổi để mở chapter khác?")) {
+      return;
+    }
+    setIsCreating(false);
     setNotice(null);
     setEditingId(chapterId);
   }
@@ -230,9 +256,15 @@ export function ChaptersScreen({
     if (selected) {
       setTitle(selected.title);
       setSourceText(selected.sourceText);
-    } else {
-      startNew();
+      return;
     }
+    if (chapters.length) {
+      setIsCreating(false);
+      setEditingId(chapters[0].id);
+      return;
+    }
+    setTitle("");
+    setSourceText("");
   }
 
   function openEditor() {
@@ -244,6 +276,7 @@ export function ChaptersScreen({
     setQuery("");
     setStatusFilter("all");
     setSortBy("recent");
+    setPage(1);
   }
 
   async function save() {
@@ -265,8 +298,34 @@ export function ChaptersScreen({
           sourceText,
         });
         setNotice("Chapter mới đã được tạo.");
+        setIsCreating(false);
         if (created?.id) setEditingId(created.id);
       }
+    } catch (error) {
+      setNotice(toMessage(error));
+    }
+  }
+
+  async function createAudio() {
+    if (!selected || !voiceId || busy || isDirty) return;
+    setNotice(null);
+    const parsedRate = Number.parseFloat(speakingRate);
+    try {
+      const job = await generateNarration.mutateAsync({
+        projectId,
+        request: {
+          chapterId: selected.id,
+          voiceId,
+          speakingRate: Number.isFinite(parsedRate) ? parsedRate : 1,
+        },
+      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: chapterQueryKeys.workspace(projectId, selected.id),
+        }),
+        queryClient.invalidateQueries({ queryKey: ["projects", projectId, "timeline"] }),
+      ]);
+      setNotice(`Đã gửi tạo audio. Job ${job.jobId.slice(0, 8)} đang được xử lý.`);
     } catch (error) {
       setNotice(toMessage(error));
     }
@@ -278,11 +337,15 @@ export function ChaptersScreen({
     try {
       await deleteChapter.mutateAsync(chapter.id);
       if (editingId === chapter.id) {
-        const remaining = chapters.filter((c) => c.id !== chapter.id);
+        const remaining = chapters.filter((candidate) => candidate.id !== chapter.id);
         if (remaining.length) {
+          setIsCreating(false);
           setEditingId(remaining[0].id);
         } else {
-          startNew(false);
+          setEditingId(null);
+          setIsCreating(true);
+          setTitle("");
+          setSourceText("");
         }
       }
       setNotice("Chapter đã được xóa.");
@@ -291,29 +354,28 @@ export function ChaptersScreen({
     }
   }
 
+  const generationBlockedByUnsavedChanges = Boolean(selected && isDirty);
+
   return (
     <div className="grid h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden bg-background text-foreground select-none">
-      {/* 1. Header Banner */}
       <header className="flex items-start justify-between border-b border-border bg-surface-panel px-6 py-4">
         <div className="min-w-0">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">CHAPTER WORKSPACE</span>
-          <h1 className="mt-0.5 text-xl font-bold tracking-tight text-foreground">Chapter Workspace</h1>
-          <p className="mt-1 text-xs text-text-secondary">Nội dung được lấy từ backend domain và hiển thị trong cùng một workspace.</p>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
+            CHAPTER WORKSPACE
+          </span>
+          <h1 className="mt-0.5 text-xl font-bold tracking-tight text-foreground">
+            Chapter Workspace
+          </h1>
+          <p className="mt-1 text-xs text-text-secondary">
+            Tạo, chỉnh sửa và chuẩn bị chapter trước khi phân tích hoặc tạo media.
+          </p>
         </div>
 
-        {/* Right API Status & Open Editor Button */}
         <div className="flex shrink-0 items-center gap-3">
           <span className="inline-flex h-8 items-center gap-2 rounded-md border border-border bg-surface px-3 text-xs text-text-secondary">
-            <span
-              className={`size-2 rounded-full ${
-                workspaceStatus === "error"
-                  ? "bg-danger"
-                  : "bg-success"
-              }`}
-            />
-            <span>API status</span>
+            <span className={`size-2 rounded-full ${workspaceStatusDotClass(workspaceStatus)}`} />
+            <span>{workspaceStatusLabel(workspaceStatus)}</span>
           </span>
-
           <Button
             variant="outline"
             onClick={openEditor}
@@ -325,36 +387,35 @@ export function ChaptersScreen({
         </div>
       </header>
 
-      {/* 2. Storyboard Step Flow Navigation Ribbon */}
       <WorkflowRibbon />
 
-      {/* 3. Main 3-Column Content Layout */}
       <div className="grid min-h-0 grid-cols-[minmax(320px,0.9fr)_minmax(460px,1.35fr)_minmax(280px,0.75fr)] gap-3 overflow-hidden p-4">
-        {/* ========================================================================= */}
-        {/* COLUMN 1: Chapter List Panel                                              */}
-        {/* ========================================================================= */}
-        <section className="flex flex-col min-h-0 overflow-hidden rounded-md border border-border bg-surface-panel shadow-none">
-          <div className="border-b border-border p-4 space-y-3">
+        <section className="flex min-h-0 flex-col overflow-hidden rounded-md border border-border bg-surface-panel">
+          <div className="space-y-3 border-b border-border p-4">
             <div>
               <h2 className="text-sm font-bold text-foreground">Chapter List</h2>
-              <p className="mt-0.5 text-xs text-text-muted">Quản lý và điều hướng các chapter trong project.</p>
+              <p className="mt-0.5 text-xs text-text-muted">
+                Quản lý và điều hướng các chapter trong project.
+              </p>
             </div>
 
-            {/* Search Input Bar */}
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
                 <input
                   type="text"
                   autoComplete="off"
                   value={query}
-                  onChange={(e) => {
-                    setQuery(e.target.value);
+                  onChange={(event) => {
+                    setQuery(event.target.value);
                     setPage(1);
                   }}
                   placeholder="Tìm kiếm chapter..."
                   className="h-8 w-full rounded-md border border-border bg-surface-input px-3 pr-8 text-xs text-foreground placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 />
-                <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" size={13} />
+                <Search
+                  className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted"
+                  size={13}
+                />
               </div>
               <Button
                 variant="outline"
@@ -367,44 +428,45 @@ export function ChaptersScreen({
               </Button>
             </div>
 
-            {/* Filter & Sort Dropdowns */}
             <div className="grid grid-cols-2 gap-2">
               <select
                 value={statusFilter}
-                onChange={(e) => {
-                  setStatusFilter(e.target.value as ChapterFilter);
+                onChange={(event) => {
+                  setStatusFilter(event.target.value as ChapterFilter);
                   setPage(1);
                 }}
                 className="h-8 rounded-md border border-border bg-surface-input px-2 text-xs text-text-secondary focus:border-primary focus:outline-none"
               >
                 <option value="all">Tất cả trạng thái</option>
                 <option value="completed">Hoàn thành</option>
-                <option value="in_progress">Đang viết</option>
+                <option value="in_progress">Đang xử lý</option>
                 <option value="draft">Nháp</option>
               </select>
-
               <select
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as ChapterSort)}
+                onChange={(event) => {
+                  setSortBy(event.target.value as ChapterSort);
+                  setPage(1);
+                }}
                 className="h-8 rounded-md border border-border bg-surface-input px-2 text-xs text-text-secondary focus:border-primary focus:outline-none"
               >
-                <option value="recent">Sắp xếp: Cập nhật mới nhất</option>
-                <option value="order">Sắp xếp: Theo thứ tự</option>
-                <option value="title">Sắp xếp: Theo tên A–Z</option>
-                <option value="words">Sắp xếp: Nhiều từ nhất</option>
+                <option value="recent">Cập nhật mới nhất</option>
+                <option value="order">Theo thứ tự</option>
+                <option value="title">Theo tên A–Z</option>
+                <option value="words">Nhiều từ nhất</option>
               </select>
             </div>
 
-            {/* Chapter Count Badge */}
-            <div className="text-xs text-text-muted">
-              <span>{filtered.length} chapter</span>
-            </div>
+            {statusFilter !== "all" && (
+              <p className="text-[10px] leading-4 text-text-muted">
+                Bộ lọc trạng thái tải workspace của toàn bộ chapter theo yêu cầu; polling nền vẫn chỉ chạy cho chapter đang chọn.
+              </p>
+            )}
           </div>
 
-          {/* Chapters Scrollable List */}
-          <div className="flex-1 overflow-y-auto p-2 space-y-1.5 min-h-0">
+          <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
             {paginatedChapters.map((chapter) => {
-              const isSelected = editingId === chapter.id;
+              const isSelected = !isCreating && editingId === chapter.id;
               const workspaceQuery = workspaceQueriesByChapterId.get(chapter.id);
               const workspace = workspacesByChapterId.get(chapter.id);
               const status = workspaceQuery?.isError ? "error" : chapterStatus(workspace);
@@ -412,62 +474,43 @@ export function ChaptersScreen({
               return (
                 <div
                   key={chapter.id}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => selectChapter(chapter.id)}
-                  className={`group relative flex items-center justify-between gap-2 rounded-md border p-2.5 transition-all cursor-pointer ${
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      selectChapter(chapter.id);
+                    }
+                  }}
+                  className={`group flex w-full cursor-pointer items-center justify-between gap-2 rounded-md border p-2.5 text-left transition-colors ${
                     isSelected
-                      ? "border-primary/65 border-l-2 border-l-primary bg-primary-muted/55 shadow-none ring-0"
+                      ? "border-primary/65 border-l-2 border-l-primary bg-primary-muted/55"
                       : "border-border-subtle bg-surface hover:border-border hover:bg-surface-2"
                   }`}
                 >
-                  {/* Left: Drag handle & Title */}
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <GripVertical className="shrink-0 text-text-dim opacity-40 group-hover:opacity-100" size={13} />
-                    <div className="min-w-0 flex-1">
-                      <strong className={`block truncate text-xs font-semibold ${isSelected ? "text-primary-hover" : "text-foreground"}`}>
-                        {chapter.title}
-                      </strong>
-                      <div className="mt-0.5 flex items-center gap-3 text-[10px] text-text-muted">
-                        <span className="flex items-center gap-1">
-                          <Clapperboard size={10} />
-                          <span>{workspace ? `${workspace.summary.sceneCount} scene` : "Đang tải…"}</span>
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <FileText size={10} />
-                          <span>{workspace ? `${workspace.summary.visualBeatCount} beat` : "Đang tải…"}</span>
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right: Status badge & timestamp & menu */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span
-                      className={`rounded px-2 py-0.5 text-[9px] font-medium ${
-                        status === "completed"
-                          ? "border border-success/30 bg-success-bg text-success"
-                        : status === "in_progress"
-                            ? "border border-info/30 bg-info-bg text-info"
-                            : status === "error"
-                              ? "border border-danger/30 bg-danger-bg text-danger"
-                            : "border border-border bg-surface-3 text-text-muted"
+                  <div className="min-w-0 flex-1">
+                    <strong
+                      className={`block truncate text-xs font-semibold ${
+                        isSelected ? "text-primary-hover" : "text-foreground"
                       }`}
                     >
+                      {chapter.title}
+                    </strong>
+                    <div className="mt-1 flex items-center gap-3 text-[10px] text-text-muted">
+                      <span>{wordCount(chapter.sourceText).toLocaleString("vi-VN")} từ</span>
+                      <span>v{chapter.rowVersion}</span>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span className={`rounded px-2 py-0.5 text-[9px] font-medium ${chapterStatusClass(status)}`}>
                       {chapterStatusLabel(status)}
                     </span>
-
-                    <span className="text-[10px] text-text-dim hidden sm:inline-block">
-                      v{chapter.rowVersion}
-                    </span>
-
-                    <span aria-hidden="true" className="text-text-dim">
-                      <MoreVertical size={13} />
-                    </span>
-
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={(e) => {
-                        e.stopPropagation();
+                      onClick={(event) => {
+                        event.stopPropagation();
                         void remove(chapter);
                       }}
                       disabled={busy}
@@ -493,8 +536,7 @@ export function ChaptersScreen({
             )}
           </div>
 
-          {/* List Footer Pagination */}
-          <div className="border-t border-border px-3 py-2.5 text-xs text-text-muted flex items-center justify-between">
+          <div className="flex items-center justify-between border-t border-border px-3 py-2.5 text-xs text-text-muted">
             <span>
               Hiển thị {filtered.length > 0 ? (page - 1) * pageSize + 1 : 0} –{" "}
               {Math.min(page * pageSize, filtered.length)} của {filtered.length} chapter
@@ -502,29 +544,22 @@ export function ChaptersScreen({
             <div className="flex items-center gap-1">
               <button
                 type="button"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
                 disabled={page <= 1}
-                className="p-1 rounded hover:bg-surface-3 text-text-muted disabled:opacity-40"
+                className="rounded p-1 text-text-muted hover:bg-surface-3 disabled:opacity-40"
+                aria-label="Trang trước"
               >
                 <ChevronLeft size={13} />
               </button>
-              <span className="px-2 py-0.5 rounded bg-surface-3 text-primary-hover font-semibold text-xs">
-                {page}
+              <span className="min-w-14 rounded bg-surface-3 px-2 py-0.5 text-center text-xs font-semibold text-primary-hover">
+                {page} / {totalPages}
               </span>
-              {totalPages > 1 && (
-                <button
-                  type="button"
-                  onClick={() => setPage(2)}
-                  className="px-2 py-0.5 rounded text-xs text-text-muted hover:bg-surface-3"
-                >
-                  2
-                </button>
-              )}
               <button
                 type="button"
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
                 disabled={page >= totalPages}
-                className="p-1 rounded hover:bg-surface-3 text-text-muted disabled:opacity-40"
+                className="rounded p-1 text-text-muted hover:bg-surface-3 disabled:opacity-40"
+                aria-label="Trang sau"
               >
                 <ChevronRight size={13} />
               </button>
@@ -532,24 +567,37 @@ export function ChaptersScreen({
           </div>
         </section>
 
-        {/* ========================================================================= */}
-        {/* COLUMN 2: Form Panel (Tạo / Chỉnh sửa chapter)                            */}
-        {/* ========================================================================= */}
-        <section className="flex flex-col min-h-0 overflow-hidden rounded-md border border-border bg-surface-panel shadow-none">
-          {/* Header */}
-          <div className="border-b border-border p-5">
-            <div className="flex items-center gap-2">
-              <PencilLine className="text-text-secondary" size={18} />
-              <h2 className="text-base font-bold text-foreground">
-                {selected ? "Chỉnh sửa chapter" : "Tạo chapter mới"}
-              </h2>
+        <section className="flex min-h-0 flex-col overflow-hidden rounded-md border border-border bg-surface-panel">
+          <div className="flex items-start justify-between gap-3 border-b border-border p-5">
+            <div>
+              <div className="flex items-center gap-2">
+                <PencilLine className="text-text-secondary" size={18} />
+                <h2 className="text-base font-bold text-foreground">
+                  {selected ? "Chỉnh sửa chapter" : "Tạo chapter mới"}
+                </h2>
+              </div>
+              <p className="mt-1 text-xs text-text-muted">
+                {selected
+                  ? "Lưu thay đổi trước khi chạy các bước phân tích hoặc tạo audio."
+                  : "Nhập nội dung chapter rồi lưu để tiếp tục pipeline."}
+              </p>
             </div>
-            <p className="mt-1 text-xs text-text-muted">Điền thông tin để tạo chapter mới cho project.</p>
+            {selected && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={beginCreate}
+                disabled={busy}
+                className="h-8 gap-1.5 text-xs"
+              >
+                <Plus size={13} />
+                Chapter mới
+              </Button>
+            )}
           </div>
 
-          {/* Form Fields */}
-          <div className="flex-1 overflow-y-auto p-5 space-y-4 min-h-0">
-            {/* Field: Tên chapter */}
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-text-secondary">
                 Tên chapter <span className="text-danger">*</span>
@@ -560,9 +608,9 @@ export function ChaptersScreen({
                   autoComplete="off"
                   maxLength={120}
                   value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Nhập tên chapter (ví dụ: Chương 3: Đối đầu)"
-                  className="h-9 border-border bg-surface-input pr-16 text-xs text-foreground placeholder:text-text-muted focus:border-primary focus:ring-1 focus:ring-primary"
+                  onChange={(event) => setTitle(event.target.value)}
+                  placeholder="Nhập tên chapter"
+                  className="h-9 border-border bg-surface-input pr-16 text-xs"
                 />
                 <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-text-dim">
                   {title.length} / 120
@@ -570,40 +618,64 @@ export function ChaptersScreen({
               </div>
             </div>
 
-            {/* Field: Mô tả / Nội dung chapter */}
-            <div className="space-y-1.5 flex flex-col flex-1 min-h-[220px]">
+            <div className="flex min-h-[240px] flex-col space-y-1.5">
               <label className="text-xs font-semibold text-text-secondary">
-                Mô tả / Nội dung chapter <span className="text-danger">*</span>
+                Nội dung chapter <span className="text-danger">*</span>
               </label>
-              <div className="relative flex flex-1 flex-col rounded-md border border-border bg-surface-input overflow-hidden focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
+              <div className="relative flex flex-1 flex-col overflow-hidden rounded-md border border-border bg-surface-input focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
                 <Textarea
                   name="chapter-source"
                   value={sourceText}
-                  onChange={(e) => setSourceText(e.target.value)}
-                  placeholder="Nhập mô tả hoặc nội dung chapter..."
-                  className="flex-1 min-h-[180px] resize-none border-0 bg-transparent p-3 text-xs leading-relaxed text-foreground placeholder:text-text-muted focus-visible:outline-none focus-visible:ring-0"
+                  onChange={(event) => setSourceText(event.target.value)}
+                  placeholder="Nhập nội dung chapter..."
+                  className="min-h-[200px] flex-1 resize-none border-0 bg-transparent p-3 text-xs leading-relaxed focus-visible:ring-0"
                 />
-                <div className="border-t border-border-subtle bg-surface-2 px-3 py-1.5 flex items-center justify-between text-[10px] text-text-dim">
+                <div className="flex items-center justify-between border-t border-border-subtle bg-surface-2 px-3 py-1.5 text-[10px] text-text-dim">
                   <span>{wordCount(sourceText).toLocaleString("vi-VN")} từ</span>
-                  <span>{Math.min(100, Math.round((sourceText.length / 5000) * 100))}%</span>
+                  <span>{sourceText.length.toLocaleString("vi-VN")} ký tự</span>
                 </div>
               </div>
             </div>
 
-            {/* Info Callout Box */}
             <div className="flex items-start gap-2 rounded-md border border-info/20 bg-info-bg p-3 text-xs leading-relaxed text-text-secondary">
               <Info className="mt-0.5 shrink-0 text-info" size={15} />
-              <span>Sau khi tạo chapter, bạn có thể tiếp tục phân tích, tạo scene và visual beat.</span>
+              <span>
+                Phân tích và tạo audio luôn dùng bản chapter đã lưu trên backend, không dùng nội dung nháp chưa lưu trong form.
+              </span>
             </div>
 
-            {/* Audio generation */}
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                onClick={cancelEditing}
+                disabled={busy}
+                className="h-9 flex-1 border-border bg-surface-input text-xs font-semibold text-text-secondary"
+              >
+                Hủy
+              </Button>
+              <Button
+                onClick={() => void save()}
+                disabled={!title.trim() || !sourceText.trim() || busy || !isDirty}
+                className="h-9 flex-1 gap-1.5 text-xs font-bold"
+              >
+                <PencilLine size={13} />
+                <span>{busy ? "Đang lưu…" : selected ? "Lưu thay đổi" : "Tạo chapter"}</span>
+              </Button>
+            </div>
+
+            {notice && (
+              <p className="text-xs text-text-secondary" role="status">
+                {notice}
+              </p>
+            )}
+
             <div className="space-y-3 rounded-md border border-border bg-surface p-3">
               <div className="flex items-start gap-2">
                 <AudioLines className="mt-0.5 shrink-0 text-text-secondary" size={16} />
                 <div>
                   <h3 className="text-xs font-bold text-foreground">Tạo audio cho chapter</h3>
                   <p className="mt-1 text-[10px] leading-4 text-text-secondary">
-                    Chọn giọng đọc và gửi nội dung chapter đến dịch vụ narration.
+                    Chọn giọng đọc và gửi chapter đã lưu đến narration worker.
                   </p>
                 </div>
               </div>
@@ -645,12 +717,18 @@ export function ChaptersScreen({
               <Button
                 type="button"
                 onClick={() => void createAudio()}
-                disabled={!selected || !voiceId || !sourceText.trim() || busy}
-                className="h-8 w-full gap-1.5 bg-primary text-xs font-bold text-primary-foreground shadow-none hover:bg-primary-hover disabled:opacity-50"
+                disabled={!selected || !voiceId || busy || generationBlockedByUnsavedChanges}
+                className="h-8 w-full gap-1.5 text-xs font-bold"
               >
                 <AudioLines size={13} />
                 {generateNarration.isPending ? "Đang gửi…" : "Tạo audio"}
               </Button>
+
+              {generationBlockedByUnsavedChanges && (
+                <p className="text-[10px] leading-4 text-warning">
+                  Hãy lưu thay đổi trước khi tạo audio hoặc phân tích chapter.
+                </p>
+              )}
 
               <div className="border-t border-border-subtle pt-2 text-[10px] text-text-secondary">
                 <span>Trạng thái audio: </span>
@@ -659,7 +737,9 @@ export function ChaptersScreen({
                     ? audioStatusLabel(selectedWorkspace.pipeline.audio.status)
                     : selectedWorkspaceQuery?.isError
                       ? "Không tải được"
-                      : "Đang tải…"}
+                      : selected
+                        ? "Đang tải…"
+                        : "Chưa có chapter"}
                 </strong>
                 {selectedWorkspace?.pipeline.audio.audioUrl && (
                   <audio
@@ -672,140 +752,99 @@ export function ChaptersScreen({
               </div>
             </div>
 
-            {/* Form Buttons */}
-            <div className="flex items-center gap-3 pt-2">
-              <Button
-                variant="outline"
-                onClick={cancelEditing}
-                disabled={busy}
-                className="h-9 flex-1 border-border bg-surface-input text-xs font-semibold text-text-secondary hover:border-border-dark hover:text-foreground"
-              >
-                Hủy
-              </Button>
-
-              <Button
-                onClick={() => void save()}
-                disabled={!title.trim() || !sourceText.trim() || busy}
-                className="h-9 flex-1 gap-1.5 bg-primary text-xs font-bold text-primary-foreground shadow-none hover:bg-primary-hover disabled:opacity-50"
-              >
-                <PencilLine size={13} />
-                <span>{busy ? "Đang lưu…" : selected ? "Lưu thay đổi" : "Tạo chapter"}</span>
-              </Button>
-            </div>
-            {notice && <p className="text-xs text-text-secondary" role="status">{notice}</p>}
-
-            {/* Next Steps Container */}
-            <div className="border-t border-border pt-4 space-y-2.5">
-              <span className="text-[11px] font-semibold text-text-muted block">
-                Các hành động tiếp theo (sẽ sau khi tạo)
+            <div className="space-y-2.5 border-t border-border pt-4">
+              <span className="block text-[11px] font-semibold text-text-muted">
+                Các hành động tiếp theo
               </span>
-
               <div className="grid grid-cols-2 gap-2.5">
-                {/* Card 1: Phân tích chapter */}
-                <div
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={!selected || busy || generationBlockedByUnsavedChanges}
                   onClick={() => {
-                    if (selected) void analyzeChapter.mutateAsync(selected.id);
+                    if (selected) analyzeChapter.mutate(selected.id);
                   }}
-                  className="rounded-md border border-border bg-surface p-3 transition-colors hover:border-border-dark hover:bg-surface-2 cursor-pointer"
+                  className="h-auto items-start justify-start rounded-md border-border bg-surface p-3 text-left hover:border-border-dark hover:bg-surface-2"
                 >
-                  <div className="flex items-center gap-1.5 text-primary-hover font-semibold text-xs">
-                    <PencilLine size={13} />
-                    <span>Phân tích chapter</span>
+                  <div>
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-primary-hover">
+                      <WandSparkles size={13} />
+                      <span>Phân tích chapter</span>
+                    </div>
+                    <p className="mt-1 text-[10px] font-normal leading-4 text-text-muted">
+                      Phân tích nội dung và tạo cấu trúc scene/beat.
+                    </p>
                   </div>
-                  <p className="mt-1 text-[10px] leading-4 text-text-muted">
-                    Phân tích nội dung và gợi ý cấu trúc
-                  </p>
-                </div>
-
-                {/* Card 2: Tạo scene */}
-                <div
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={!selected || busy}
                   onClick={openEditor}
-                  className="rounded-md border border-border bg-surface p-3 transition-colors hover:border-border-dark hover:bg-surface-2 cursor-pointer"
+                  className="h-auto items-start justify-start rounded-md border-border bg-surface p-3 text-left hover:border-border-dark hover:bg-surface-2"
                 >
-                  <div className="flex items-center gap-1.5 text-text-secondary font-semibold text-xs">
-                    <Clapperboard size={13} />
-                    <span>Tạo scene</span>
+                  <div>
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-text-secondary">
+                      <Clapperboard size={13} />
+                      <span>Mở Editor</span>
+                    </div>
+                    <p className="mt-1 text-[10px] font-normal leading-4 text-text-muted">
+                      Chỉnh scene, visual beat và media trên timeline.
+                    </p>
                   </div>
-                  <p className="mt-1 text-[10px] leading-4 text-text-muted">
-                    Tạo các scene từ nội dung chapter
-                  </p>
-                </div>
+                </Button>
               </div>
             </div>
           </div>
         </section>
 
-        {/* ========================================================================= */}
-        {/* COLUMN 3: Workspace Context Panel                                         */}
-        {/* ========================================================================= */}
-        <aside className="flex flex-col min-h-0 overflow-y-auto rounded-md border border-border bg-surface-panel shadow-none">
-          {/* Header */}
-          <div className="border-b border-border p-4 space-y-3">
+        <aside className="flex min-h-0 flex-col overflow-y-auto rounded-md border border-border bg-surface-panel">
+          <div className="space-y-3 border-b border-border p-4">
             <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">WORKSPACE CONTEXT</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
+                WORKSPACE CONTEXT
+              </span>
               <div className="mt-1 flex items-center gap-2">
                 <Folder className="text-primary-hover" size={16} />
                 <h2 className="text-sm font-bold text-foreground">Chapters</h2>
               </div>
             </div>
-
-            {/* Project Picker */}
             <div className="space-y-1">
               <span className="text-[10px] text-text-muted">Project</span>
               <div className="flex h-8 items-center justify-between rounded-md border border-border bg-surface-input px-3 text-xs text-foreground">
                 <span className="truncate">{projectName}</span>
-                <ChevronRight className="rotate-90 text-text-muted" size={13} />
               </div>
             </div>
 
-            {/* Metrics List */}
             <div className="space-y-2 pt-1 text-xs">
-              <div className="flex items-center justify-between text-text-secondary">
-                <span>Tổng chapter</span>
-                <strong className="font-mono text-foreground">{chapters.length}</strong>
-              </div>
-              <div className="flex items-center justify-between text-text-secondary">
-                <span>Chapter hoàn thành</span>
-                <strong className="font-mono text-foreground">{chapterWorkspaceStatsReady ? completedCount : "—"}</strong>
-              </div>
-              <div className="flex items-center justify-between text-text-secondary">
-                <span>Đang viết</span>
-                <strong className="font-mono text-foreground">{chapterWorkspaceStatsReady ? inProgressCount : "—"}</strong>
-              </div>
-              <div className="flex items-center justify-between text-text-secondary">
-                <span>Nháp</span>
-                <strong className="font-mono text-foreground">{chapterWorkspaceStatsReady ? draftCount : "—"}</strong>
-              </div>
-              <div className="flex items-center justify-between text-text-secondary">
-                <span>Tổng từ</span>
-                <strong className="font-mono text-foreground">{totalWords.toLocaleString("vi-VN")} từ</strong>
-              </div>
-              <div className="flex items-center justify-between text-text-secondary">
-                <span>Tổng scene</span>
-                <strong className="font-mono text-foreground">{chapterWorkspaceStatsReady ? totalSceneCount : "—"}</strong>
-              </div>
+              <Metric label="Tổng chapter" value={chapters.length} />
+              <Metric label="Tổng từ" value={`${totalWords.toLocaleString("vi-VN")} từ`} />
+              <Metric label="Tổng scene" value={totalSceneCount ?? "—"} />
+              <Metric label="Tổng visual beat" value={totalBeatCount ?? "—"} />
+              <Metric label="Audio sẵn sàng" value={audioReadyCount ?? "—"} />
+              <Metric label="Chapter sẵn sàng render" value={renderReadyCount ?? "—"} />
             </div>
           </div>
 
-          {/* Quick Tips Box */}
-          <div className="p-4 space-y-3 flex-1">
+          <div className="flex-1 space-y-3 p-4">
             <div className="rounded-md border border-warning/20 bg-warning-bg p-3 text-xs leading-relaxed text-text-secondary">
               <div className="flex items-center gap-1.5 font-bold text-warning">
                 <Lightbulb size={14} />
                 <span>Mẹo nhanh</span>
               </div>
               <ul className="mt-2 space-y-2 text-[11px] text-text-secondary">
-                <li>• Tạo chapter rõ ràng, có cấu trúc giúp phân tích và tạo scene chính xác hơn.</li>
-                <li>• Mỗi chapter nên tập trung vào một mục tiêu hoặc bước phát triển chính của câu chuyện.</li>
-                <li>• Sau khi tạo, hãy phân tích để hệ thống gợi ý cấu trúc scene tối ưu.</li>
+                <li>• Lưu chapter trước khi chạy tác vụ AI/media.</li>
+                <li>• Status filter chỉ tải toàn bộ workspace khi bạn thực sự dùng bộ lọc đó.</li>
+                <li>• Narration là master clock cho timeline render.</li>
               </ul>
             </div>
 
-            {/* Render status from the selected chapter workspace */}
-            <div className="rounded-md border border-border bg-surface p-3 space-y-2.5">
+            <div className="space-y-2.5 rounded-md border border-border bg-surface p-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-text-muted">RENDER STATUS</span>
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-text-muted">
+                    RENDER STATUS
+                  </span>
                   <h3 className="mt-0.5 text-xs font-bold text-foreground">Production render</h3>
                 </div>
                 <span className="rounded bg-surface-3 px-2 py-1 text-[10px] font-bold text-text-muted">
@@ -813,7 +852,9 @@ export function ChaptersScreen({
                     ? pipelineStatusLabel(selectedWorkspace.pipeline.render.status)
                     : selectedWorkspaceQuery?.isError
                       ? "Không tải được"
-                      : "Đang tải…"}
+                      : selected
+                        ? "Đang tải…"
+                        : "Chưa chọn"}
                 </span>
               </div>
               <p className="text-xs text-text-muted">
@@ -822,9 +863,6 @@ export function ChaptersScreen({
                   : selected
                     ? "Chapter này chưa có render job."
                     : "Chọn một chapter để xem trạng thái render."}
-              </p>
-              <p className="text-[11px] leading-4 text-text-secondary">
-                Timeline chuẩn bị sẵn sàng để render. Kiểm tra audio, asset và chapter state.
               </p>
               <Button
                 variant="outline"
@@ -838,6 +876,15 @@ export function ChaptersScreen({
           </div>
         </aside>
       </div>
+    </div>
+  );
+}
+
+function Metric({ label, value }: Readonly<{ label: string; value: string | number }>) {
+  return (
+    <div className="flex items-center justify-between text-text-secondary">
+      <span>{label}</span>
+      <strong className="font-mono text-foreground">{value}</strong>
     </div>
   );
 }
@@ -865,7 +912,9 @@ function WorkflowRibbon() {
               <span className={`size-1.5 rounded-full ${active ? "bg-primary" : "bg-text-dim"}`} />
               <span>{label}</span>
             </div>
-            {index < steps.length - 1 && <span aria-hidden="true" className="w-7 border-t border-dashed border-border-dark" />}
+            {index < steps.length - 1 && (
+              <span aria-hidden="true" className="w-7 border-t border-dashed border-border-dark" />
+            )}
           </div>
         ))}
       </div>
@@ -897,6 +946,13 @@ function chapterStatusLabel(status: ChapterDisplayStatus) {
   return "Nháp";
 }
 
+function chapterStatusClass(status: ChapterDisplayStatus) {
+  if (status === "completed") return "border border-success/30 bg-success-bg text-success";
+  if (status === "in_progress") return "border border-info/30 bg-info-bg text-info";
+  if (status === "error") return "border border-danger/30 bg-danger-bg text-danger";
+  return "border border-border bg-surface-3 text-text-muted";
+}
+
 function pipelineStatusLabel(status: string) {
   if (status === "COMPLETED" || status === "READY") return "Hoàn thành";
   if (["QUEUED", "RUNNING", "GENERATING", "STALLED", "UNKNOWN"].includes(status)) {
@@ -913,6 +969,22 @@ function audioStatusLabel(status: string) {
   }
   if (status === "FAILED") return "Thất bại";
   return "Chưa tạo";
+}
+
+function workspaceStatusDotClass(status: WorkspaceStatus) {
+  if (status === "ready") return "bg-success";
+  if (status === "error") return "bg-danger";
+  if (status === "partial") return "bg-warning";
+  if (status === "loading") return "bg-info";
+  return "bg-text-muted";
+}
+
+function workspaceStatusLabel(status: WorkspaceStatus) {
+  if (status === "ready") return "API ready";
+  if (status === "error") return "API error";
+  if (status === "partial") return "API partial";
+  if (status === "loading") return "API loading";
+  return "API empty";
 }
 
 function toMessage(error: unknown) {
