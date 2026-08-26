@@ -34,17 +34,17 @@ A newer ADR wins only within the scope it explicitly supersedes.
 
 ## Current maintenance rules
 
-1. Keep `IMPLEMENTED`, `IMPLEMENTED foundation`, `PARTIAL`, `TARGET`, `DEFERRED` and `LEGACY/FALLBACK` distinct.
+1. Keep `IMPLEMENTED`, `IMPLEMENTED foundation`, `PARTIAL`, `TARGET` and `DEFERRED` distinct.
 2. `app/desktop` is the only editor client. `app/frontend-web` has been removed and must not be recreated without an explicit architecture decision.
 3. Electron renderer owns UI only. Native filesystem/process/auth-callback/local-execution capabilities belong to Electron main behind a narrow preload bridge.
 4. Desktop starts with a stable installation-scoped guest identity. The guest principal is an ownership/session mechanism, not a second login provider.
 5. Google is the only end-user account sign-in provider. Password login/register/forgot-password product flows must not be reintroduced.
 6. Guest free mutations and account/provider-consuming gates are enforced by backend authorization; the renderer must not be the only gate.
-7. PostgreSQL is authoritative for durable business/domain/policy/job/lease metadata. Redis is non-authoritative for generation correctness.
+7. PostgreSQL is authoritative for durable business/domain/policy/job/lease/artifact metadata. Redis is non-authoritative for generation correctness.
 8. Desktop project media is local-first under `<userData>/projects/<projectId>` and mapped by `project.manifest.json` using stable IDs, project-relative paths, size and SHA-256.
 9. Absolute Desktop filesystem paths are never durable backend identifiers.
-10. Desktop local FFmpeg execution is backend-assigned/lease-controlled and occurs in Electron main, not the renderer.
-11. Cloudflare R2 + Google Drive remain retained server-worker/fallback storage paths where required; they are not mandatory Desktop project storage.
+10. Final FFmpeg execution is backend-assigned/lease-controlled and occurs in Electron main, not the renderer or Python workers.
+11. Cloudflare R2 is limited to generated-media transport/durability before Desktop materialization; final MP4 bytes remain local and are not stored or proxied by the backend.
 12. Narration is not synonymous with TTS. `NarrationStrategy.USER_PROVIDED_AUDIO` bypasses TTS for the covered scope.
 13. Production persistence is MyBatis + explicit PostgreSQL SQL. Do not reintroduce JPA or direct `JdbcTemplate` persistence as a parallel production path.
 14. Flyway V1-V3 are the frozen core baseline; subsequent feature migrations are append-only.
