@@ -78,7 +78,12 @@ test("chapter analysis carries an idempotency key", () => {
 
 test("compose file mounts required files without creating missing host directories", () => {
   const compose = source("docker-compose.yml");
-  assert.match(compose, /condition: service_healthy/);
-  assert.match(compose, /type: bind[\s\S]*?source: \.\/app\/ai-worker\/scripts/);
-  assert.doesNotMatch(compose, /source: \.\/app\/ai-worker\/artifacts/);
+  assert.equal((compose.match(/create_host_path: false/g) ?? []).length, 2);
+});
+
+test("local quality gate includes backend verify and worker static analysis", () => {
+  const verification = source("scripts", "verify-local.py");
+  assert.match(verification, /Step\("Backend verify", backend, \[mvnw, "verify"\]\)/);
+  assert.match(verification, /"ruff", "check", "src", "tests"/);
+  assert.match(verification, /"mypy", "src"/);
 });
