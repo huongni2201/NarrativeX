@@ -1,49 +1,98 @@
 # NarrativeX Desktop
 
-NarrativeX Desktop is the primary desktop-first client for editing and locally rendering NarrativeX projects. It is built with Electron, React, TypeScript and electron-vite while the Spring backend remains the authoritative source for users, projects, generation jobs and shared domain state.
+NarrativeX Desktop is the only supported NarrativeX editor client. It is built with Electron, React, TypeScript and electron-vite while Spring Boot remains authoritative for users/guests, ownership, project/domain metadata, generation jobs and shared durable state.
 
 ## Runtime boundary
 
-The desktop app is intentionally split into three trust zones:
+The app is split into three trust zones:
 
-- **Renderer** — React UI only. It does not receive Node.js access or backend session cookies directly.
-- **Preload** — exposes the narrow typed `window.narrativex` bridge with `contextIsolation: true` and sandboxing enabled.
-- **Main process** — owns privileged filesystem access, dialogs, backend session transport, device pairing, local asset storage and FFmpeg execution.
+- **Renderer** — React UI, routing, React Query and editor draft state. No Node.js access and no direct ownership of backend session cookies.
+- **Preload** — narrow typed `window.narrativex` bridge with context isolation and sandboxing.
+- **Main process** — backend session transport, stable guest credential, system-browser auth, native filesystem/dialogs, ProjectStorage/ProjectCatalog, local device execution and FFmpeg/ffprobe.
 
-Renderer navigation, window creation, webview attachment, permission requests and IPC senders are restricted before privileged operations are accepted.
+Navigation, window creation, permissions and IPC senders are restricted before privileged operations are accepted.
 
-## Authentication
+## Guest-first authentication
 
-Desktop authentication is Google OAuth only. The system browser completes OAuth and returns a one-time handoff code through:
+Desktop does not require an account login screen before entering the workspace.
 
 ```text
-narrativex://auth/callback?code=...
+startup
+  -> reuse GET /api/v1/auth/me session when valid
+  -> otherwise POST /api/v1/auth/desktop/guest
+  -> main injects installation deviceId + protected guest secret
+  -> backend restores/creates the stable ROLE_GUEST identity
 ```
 
-The code is exchanged by the desktop app for the normal Spring session. Backend API calls from the renderer are proxied through Electron main so a packaged `file://` renderer does not own or manually copy session cookies.
+The guest credential is installation-scoped, stored through Electron secure storage and never exposed to renderer code. It exists for ownership/session continuity; it is not a second end-user login provider.
+
+Google is the only account sign-in provider. Backend-gated account/provider-consuming actions return `AUTHENTICATION_REQUIRED`, causing the renderer to open the LoginModal over the current route.
+
+```text
+LoginModal
+  -> main opens /api/v1/auth/desktop/start in system browser
+  -> Google OIDC
+  -> narrativex://auth/callback?code=...
+  -> main exchanges the one-time code
+  -> backend transfers eligible guest-owned workspace metadata
+  -> ROLE_USER session
+  -> renderer refetches without losing the active project/editor route
+```
+
+Google access/refresh tokens never enter Electron. Guest installation credentials, user session state and local-execution device credentials are separate concepts.
+
+## Local project storage
+
+Project bytes live under Electron `userData` and are indexed by a schema-versioned local manifest using project-relative paths, size and SHA-256.
+
+```text
+<userData>/projects/<projectId>/
+  project.manifest.json
+  assets/
+  artifacts/
+  work/
+```
+
+Native import uses a two-phase flow so renderer code never receives an arbitrary absolute path: main inspects/hashes the selection, backend registers the stable media identity, then main commits the bytes into ProjectStorage.
+
+Current storage tooling includes project verification, storage accounting, completed/failed work cleanup and manifest-verified backup/restore/archive-copy foundations.
+
+## Production timeline
+
+The editor consumes backend production timeline data and maintains supported local draft edits. Current foundations include:
+
+- narration-aligned beat timing;
+- explicit beat media selection/replace flow;
+- image/video-aware beat state;
+- duration/camera draft state where applicable;
+- typed undo/redo/reset command history;
+- render submission based on authoritative IDs/production choices rather than local machine paths.
 
 ## Local rendering
 
-The desktop main process can execute final project renders with FFmpeg when `PROJECT_RENDER` is enabled. The backend still owns the durable render job, input snapshot, lease and terminal status while the desktop owns local execution and artifact bytes.
+Electron main can execute final project renders with FFmpeg when project rendering is enabled. The backend owns the durable render job, input snapshot, assignment, lease and terminal state; Desktop owns local execution and artifact bytes.
 
-The local render engine currently provides:
+Current foundations include:
 
 - project/device-scoped render claims and leases;
 - narration as the master clock;
-- project aspect-ratio aware output dimensions;
-- FFmpeg/ffprobe runtime discovery with configured, bundled and system fallbacks;
-- progress heartbeats and lease-loss handling;
-- explicit `COMPLETED`, `CANCELED`, `FAILED` and retryable `STALLED` outcomes;
-- immutable local asset/artifact registration with SHA-256 verification;
-- local project manifest updates serialized per project.
+- aspect-ratio aware output;
+- FFmpeg/ffprobe discovery from configured, bundled or system paths;
+- preflight for runtime, executor, disk and local asset integrity;
+- progress heartbeat and lease-loss handling;
+- `COMPLETED`, `CANCELED`, `FAILED` and retryable/stalled behavior where defined;
+- atomic `render.state.json` journaling and unfinished-work discovery;
+- immutable segment cache keyed by input/timeline/renderer/output identity;
+- checksum-verified local artifact registration;
+- in-process cancellation.
 
-Backup restore is inspected in Electron main using the backup manifest before any filesystem replacement. Restoring into a new project passes `replaceExisting: false`; an existing project requires a native Cancel/Replace Project confirmation. Replacement keeps a registered pre-restore snapshot and retains staging/symlink validation and rollback behavior.
+Richer recovery/resume UX after abrupt process/OS failure remains roadmap work.
 
 ## Configuration
 
-Copy `.env.example` to `.env` for development. electron-vite `VITE_*` values are build/dev configuration; `NARRATIVEX_*` process variables are optional runtime overrides and take precedence.
+Copy `.env.example` to `.env` for development. `VITE_*` values are build/dev configuration; `NARRATIVEX_*` process variables are optional runtime overrides and take precedence.
 
-Important values:
+Important values include:
 
 ```text
 VITE_API_BASE_URL=http://localhost:8080
@@ -53,45 +102,32 @@ VITE_DESKTOP_HEARTBEAT_MS=15000
 
 Remote backend origins must use HTTPS. Plain HTTP is accepted only for loopback development hosts.
 
-FFmpeg can be resolved from:
+FFmpeg resolution order:
 
 1. `NARRATIVEX_FFMPEG_PATH` / `NARRATIVEX_FFPROBE_PATH`;
-2. packaged `${process.resourcesPath}/ffmpeg` binaries copied through `extraResources`;
-3. `ffmpeg` / `ffprobe` available on `PATH`.
-
-Optional bundled Windows binaries belong in `resources/ffmpeg/ffmpeg.exe` and `resources/ffmpeg/ffprobe.exe`. The directory is excluded from `app.asar` so the executables remain runnable after installation.
+2. packaged `${process.resourcesPath}/ffmpeg` binaries;
+3. `ffmpeg` / `ffprobe` on `PATH`.
 
 ## Development
 
-From `app/desktop`:
-
 ```bash
 npm ci
-npm run type-check
-npm run build
+npm run check
 npm run dev
 ```
 
-Or run the static validation and build together:
-
-```bash
-npm run check
-```
-
-`type-check` explicitly checks both `tsconfig.node.json` and `tsconfig.web.json`; do not replace it with a bare `tsc --noEmit` against the root solution config.
+`npm run check` verifies dependency-lock expectations, tests, type checks and the production build. Exact dependency versions are authoritative in `package.json` / `package-lock.json` and the dependency verification scripts; a separate dependency-migration document is intentionally not maintained.
 
 ## Windows packaging
 
-`electron-builder.yml` defines the Windows NSIS application metadata, NarrativeX icon, external FFmpeg resource layout and `narrativex://` protocol registration.
-
-Create a Windows installer with:
+`electron-builder.yml` defines Windows NSIS metadata, application resources, external FFmpeg layout and `narrativex://` protocol registration.
 
 ```bash
 npm run package:win
 ```
 
-The script runs `npm run check` first and then invokes the stable `electron-builder@26.15.7` release explicitly. This avoids changing the existing npm lockfile while keeping the packaging tool version fixed. Before a signed production release, move `electron-builder` into `devDependencies` and regenerate/commit `package-lock.json` with npm so the complete packaging dependency graph is locked as well.
+Production release work still needs full signing/upgrade/auto-update and packaged OAuth/protocol validation. See `../../documentation/product/ROADMAP.md`.
 
-## Migration rule
+## Architecture rule
 
-`app/desktop` is the only supported editor client. The former `app/frontend-web` client was removed from the repository; do not recreate a parallel browser editor without an explicit architecture decision. New editor UX, local filesystem integration and final FFmpeg execution belong in Desktop.
+`app/desktop` is the only supported editor client. Do not recreate a parallel browser editor without an explicit ADR. Native filesystem integration and local final FFmpeg execution belong in Electron main, never unrestricted renderer code.

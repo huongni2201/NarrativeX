@@ -5,41 +5,55 @@
 - Entry point: `com.narrativex.backend.NarrativeXBackendApplication`.
 - Build: Maven under `app/backend-service`.
 - Runtime: Java 25, Spring Boot 4.1.0.
-- Persistence: MyBatis + explicit SQL is the sole production persistence boundary, backed by PostgreSQL and Flyway. The JDBC driver/DataSource remain underlying infrastructure; JPA and `JdbcTemplate` are not used by production code.
-- Redis: Spring Data Redis provides non-authoritative abuse-control/delivery/cache/progress infrastructure, while Spring Session Data Redis stores authenticated HTTP session state.
-- Architecture: modular monolith with extraction-oriented feature boundaries plus a separate Python asynchronous AI/media worker.
+- Persistence: MyBatis + explicit PostgreSQL SQL is the sole production application persistence path; Flyway owns schema evolution.
+- Redis: Spring Session Redis plus non-authoritative transient/delivery/progress infrastructure.
+- Architecture: modular monolith with extraction-oriented feature boundaries plus separate Python asynchronous provider/media workers.
 
 ## Feature/dependency rules
 
-A business feature owns its API, application, domain and infrastructure vertical slice. Feature domains do not import other business feature domains; cross-feature application dependencies use explicit application contracts/ports. Controllers belong to the feature that owns the use case. Domain aggregates do not call repositories, Redis, object storage, provider SDKs or worker runtimes directly.
+A business feature owns its API, application, domain and infrastructure vertical slice. Cross-feature dependencies use explicit application contracts/ports rather than importing another feature's infrastructure. Domain objects do not call repositories, Redis, storage SDKs, provider SDKs or worker runtimes directly.
 
-## Current aggregate classification
+## Authentication and ownership
 
-| Feature | Aggregate roots | Entities/state |
-|---|---|---|
-| project | `Project` | `StoryVersion` |
-| character | `Character`, `ProjectCharacter` | `CharacterVersion`, appearance/outfit/reference foundations |
-| generation | `GenerationJob`, `OperationPlan` | `ProviderOperation`, `StageAttempt` |
-| storyboard | `Chapter`, `Scene` | `VisualBeat` |
+NarrativeX Desktop is guest-first.
 
-Chapter and Scene are independent aggregate roots. Chapter owns Chapter-level source/title/order behavior; Scene owns Scene-level mutable lifecycle and VisualBeat children.
+- `desktop_guest_installations` maps a stable Desktop installation to an internal guest owner and stores only the installation-secret hash.
+- The guest principal is not a password/OAuth login provider; it exists for ownership/session continuity.
+- Google OIDC remains the only end-user account sign-in provider.
+- Free guest mutations are explicit backend security allowlists.
+- Account/provider-consuming operations require `ROLE_USER` and return `AUTHENTICATION_REQUIRED` to a guest.
+- Desktop one-time exchange transfers eligible guest-owned workspace metadata to the Google account before switching session identity.
+- Business modules obtain caller identity through auth application ports rather than reading Spring Security directly.
+
+## Aggregate/domain classification
+
+| Feature | Representative roots/state |
+|---|---|
+| project | `Project`, `StoryVersion` |
+| storyboard | `Chapter`, `Scene`, `VisualBeat` |
+| character | `Character`, `ProjectCharacter`, version/appearance/reference state |
+| generation | `GenerationJob`, `OperationPlan`, `StageAttempt`, `ProviderOperation`, `MediaPlan` |
+| assets | stable `MediaAsset` identity, checksums/materialization metadata |
+| local execution | device identity/capabilities/assignment/lease state |
+| render | immutable input snapshots/manifests/final-artifact metadata |
+
+Chapter owns persisted source/title/order behavior. Scene/VisualBeat model production/storyboard hierarchy; renderer UI does not flatten durable semantics into arbitrary timeline-only state.
 
 ## Chapter analysis boundary
 
-- Chapter input is also persisted as immutable `chapter_content_variants` originals. Language
-  detection is hash-bound; a high-confidence mismatch with the project's analysis language is
-  exposed as a user confirmation state. Confirmed translations enter the durable
-  `CHAPTER_TRANSLATE` job/outbox path and analysis snapshots can pin an explicit variant.
-- Creating a Project is metadata-only and never implicitly starts AI/media work.
-- Chapter source is persisted before analysis.
-- Analysis is explicitly requested through `POST /api/v1/projects/{projectId}/chapters/{chapterId}/analysis-jobs`.
-- Backend locks/reloads the persisted Chapter state and performs ownership, idempotency, entitlement/quota and estimated-cost admission before durable enqueue.
-- The Chapter Workspace exposes analysis state and `canAnalyze` from durable Chapter/job conditions.
-- Durable enqueue persists `OperationPlan`, `GenerationJob`, `StageAttempt` and outbox state before worker execution.
-- Redis generation hints are non-authoritative.
-- Worker validates the persisted Chapter snapshot before result materialization.
+```text
+persisted Chapter
+  -> lock/reload authoritative source snapshot
+  -> ownership + idempotency + entitlement/quota/cost admission
+  -> OperationPlan + GenerationJob + StageAttempt + OutboxEvent
+  -> worker execution
+  -> rowVersion/sourceHash stale guard
+  -> Character/Location/Scene/VisualBeat materialization
+```
 
-The Chapter Analyze endpoint is an implemented durable execution boundary.
+Project creation remains metadata-only. AI/media work is explicit.
+
+Chapter language detection/translation uses persisted content variants and durable translation jobs rather than mutating the original source silently.
 
 ## Durable generation model
 
@@ -50,60 +64,95 @@ OperationPlan
             -> ProviderOperation
 ```
 
-Provider requests require durable lifecycle state. Ambiguous external state uses `UNKNOWN` reconciliation instead of blind retry/resubmit. Chapter translation uses one provider operation per chunk and persists Vertex actual usage before output validation; broader actual-usage reconciliation and unused-reservation release remain follow-up work for other provider paths.
+Provider requests require durable lifecycle state. Ambiguous external acceptance uses `UNKNOWN` reconciliation rather than blind resubmission. Provider calls stay outside long business transactions.
 
-The active generation durability path is MyBatis/explicit SQL for ProviderOperation, GenerationJob, StageAttempt, OperationPlan, MediaPlan, generation outbox enqueue/dispatch and Job History. Provider safety/rejection handling remains part of provider/media execution. Chapter, Project, StoryVersion, storyboard, characters, account/quota, auth, catalog, notifications and the account-scoped MediaAsset library are also MyBatis-backed. MediaAsset bytes use verified R2 upload intents/finalization; metadata uses PostgreSQL upload sessions, guarded lifecycle transitions, soft delete, and cursor pagination.
+Production application persistence for generation, projects, chapters, storyboard, characters, auth, quota, catalog, notifications, assets and render/local-device state is MyBatis-backed with explicit SQL and guarded affected-row checks.
 
-## StoryVersion lifecycle and safety boundary
+## Project media identity
 
-StoryVersion lifecycle is `DRAFT -> ACTIVE -> SUPERSEDED`. Story text remains untrusted input, so prompt-injection boundaries, ownership checks, schema validation, rate/abuse controls and provider/media safety or output review remain enforced at their respective runtime boundaries. These concerns are not stored as StoryVersion lifecycle state.
+The backend owns stable media identity/metadata, not Desktop absolute file paths.
 
-Application ports remain persistence-technology-neutral. MyBatis boundaries use dedicated row models and explicit PostgreSQL predicates, including `row_version` CAS for mutable writes. Future MyBatis boundaries must extend `NarrativeXMyBatisMapper` so shared configuration registers only explicitly opted-in mapper interfaces. XML uses explicit result maps and keeps SQL-specific JSONB/enum/timestamp mappings visible. Adapters validate affected rows for guarded updates rather than issuing unconditional writes after a Java-side version check. See ADR-0001 for the accepted SQL-first persistence and generation-durability decision.
+Desktop local media flow:
 
-## Current continuity materialization
+```text
+native/main-process selection or accepted generated result
+  -> backend stable MediaAsset identity + integrity metadata
+  -> local_media_materializations/device availability where applicable
+  -> Electron ProjectStorage owns actual project-relative byte path
+```
 
-Chapter analysis currently materializes/reuses:
+Remote R2 upload/session/validation paths remain valid for server/provider/cloud workflows, but are not a requirement for every Desktop project asset.
+
+## Production timeline
+
+The backend aggregates authoritative production timing/media state for the Desktop editor. V5 adds `production_beat_media_selections` so explicit beat media choices persist outside renderer memory.
+
+Narration/alignment is the timing authority. Renderer duration/camera drafts are not durable production truth until converted into an admitted render/production contract.
+
+## Local render control plane
+
+The backend owns:
+
+- immutable project render input snapshot;
+- execution target (`LOCAL_DEVICE` or retained `CLOUD` path);
+- assigned local device and capabilities;
+- claim/lease/heartbeat/progress/terminal transitions;
+- final artifact identity/checksum/metadata.
+
+Electron main owns actual local FFmpeg execution and paths. Lease loss prevents stale-device successful finalization.
+
+## Continuity materialization
+
+Analysis materializes/reuses:
 
 - Character / ProjectCharacter / CharacterVersion foundations;
 - stable Character AI-key mappings;
 - project-scoped Locations and Location AI-key mappings;
 - Scene / VisualBeat;
-- Scene -> ProjectCharacter relations;
-- Scene -> Location references.
+- scene character/location relations.
 
-This is analysis-time continuity persistence. Full Character review/version-lock/reference management remains a separate incomplete workflow.
+Richer review/version/reference locking remains a separate product-hardening workflow.
 
-## Current project Character reads
+## API/capability foundations
 
-The backend exposes project-scoped Character list/detail reads under `/api/v1/projects/{projectId}/characters`. The read adapter is MyBatis-backed and checks owner/project context before returning Character data. Current authoritative fields include canonical/project aliases, role, importance, groups, pinned CharacterVersion data, appearance state and scene count.
+Current backend surfaces include:
 
-Avatar/asset counts, relationship graphs and detailed scene participation are not fabricated when no authoritative read model exists.
+- auth guest bootstrap, current-user/CSRF, Google Desktop start/exchange/logout;
+- project list/create/detail/dashboard/favorite/overview;
+- StoryVersion and Chapter CRUD/import/workspace/analysis/translation paths;
+- storyboard/VisualBeat reads and review foundations;
+- Character/Location/project asset reads and mutations where implemented;
+- generation estimate/enqueue/job/history/event flows;
+- narration/TTS/import/alignment foundations;
+- production timeline and beat media-selection APIs;
+- local asset registration/materialization metadata;
+- local-device pairing/heartbeat/assignment/render execution APIs;
+- render snapshot/final-artifact and notification/quota/catalog reads.
 
-## Current API/capability foundations
+Endpoint availability does not imply every future UI interaction is complete; use `documentation/TRACEABILITY.md` and `documentation/product/FEATURE_CATALOG.md` for current status.
 
-- Project list/create/detail, dashboard/favorite and Project Overview.
-- StoryVersion and persisted Chapter CRUD/import/workspace foundations.
-- Explicit Chapter Analyze and generation-job reads.
-- Storyboard/VisualBeat read/review foundations.
-- Global Character library plus project-scoped Character list/detail read foundations.
-- Location and Asset read/API foundations where recorded in the integration matrix.
-- Job history, user quota and notification read foundations.
-- Authentication/session endpoints use Google OIDC; desktop handoff is documented in ADR-0011.
-- New Google-authenticated accounts receive the default `NORMAL v1` plan assignment transactionally; the Flyway baseline provisions the default assignment for `auth_users` that do not have one.
+## Persistence and Flyway
 
-Backend endpoint availability does not imply every desktop surface is wired. Project Character list/detail is an exception: that vertical slice is wired end to end. See `FRONTEND_API_INTEGRATION_MATRIX.md`.
+Production application code uses MyBatis + explicit SQL with dedicated row models/mappers and row-version/state CAS where required.
 
-## Domain rules and concurrency
+Current Flyway order:
+
+```text
+V1__create_tables.sql
+V2__init_indexes.sql
+V3__seed_data.sql
+V4__desktop_guest_installations.sql
+V5__production_beat_media_selections.sql
+```
+
+V1-V3 are frozen core migrations. V4+ are append-only feature migrations.
+
+## Quality/concurrency rules
 
 - Domain code remains framework-free.
-- Aggregate invariants are enforced by domain factories/intent methods; application services coordinate authorization, persistence and external systems.
-- Mutable aggregate writes use guarded `row_version` CAS predicates in explicit SQL.
-- Provider calls stay outside long database transactions.
-
-## MVP media generation boundary
-
-`CHAPTER_GENERATE` creates an executable, revision-pinned `MediaPlan` and one
-`MediaGenerationItem` per reviewed VisualBeat. Each item carries a request fingerprint and separate
-execution/review status. `CHAPTER_RENDER` remains a separate command and must consume the pinned plan
-revision. V1 includes the execution-item and append-only asset-lineage persistence contract; provider SDKs
-remain worker/infrastructure concerns and are not imported by backend domain code.
+- Mutable writes use expected-version/state predicates where concurrency matters.
+- Zero affected rows for a guarded mutation becomes a conflict rather than silent success.
+- Paid/provider submission uses persisted fences and UNKNOWN reconciliation.
+- PostgreSQL/Testcontainers is required for PostgreSQL-specific locking/migration/transaction behavior.
+- Architecture tests protect MyBatis/schema/client boundaries.
+- JaCoCo's current bundle line floor comes from `pom.xml` (35% at the 2026-08-26 checkpoint), not from a hardcoded historical measurement in this document.

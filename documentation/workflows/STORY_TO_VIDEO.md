@@ -1,139 +1,119 @@
 # Story-to-Video Workflow — V1.11
 
-NarrativeX is desktop-first, Chapter-first, audio-timeline-first and image-first. Video duration and visual count are adaptive.
+NarrativeX is Desktop-only at the editor boundary, Chapter-first, audio-timeline-first and image-first while allowing image or video media per VisualBeat. Duration and visual density are adaptive.
 
-## Entry
+## Entry and guest behavior
 
 ```text
-Create Project -> metadata only
-Save Chapter   -> persisted source only
-Analyze        -> explicit durable operation
+Desktop guest workspace
+  -> Create Project       -> durable project metadata
+  -> Save/import Chapter  -> persisted source
+  -> edit free workspace state
+
+Gated AI/provider action
+  -> backend requires ROLE_USER
+  -> LoginModal + Google OIDC
+  -> resume same editor route
 ```
 
-The Spring backend remains authoritative for source identity, ownership, policy and job state. Electron Desktop is the primary editor and local project-media/render surface.
+The backend remains authoritative for source identity, ownership, policy and job state. Desktop owns local project bytes/native execution only.
 
-## Analysis foundation
+## Analysis
 
 ```text
 persisted Chapter
-  -> lock/reload snapshot
-  -> entitlement/quota/cost admission
+  -> lock/reload authoritative snapshot
+  -> admission + reservation/policy
   -> OperationPlan + GenerationJob + StageAttempt + OutboxEvent
   -> worker/provider execution
-  -> stale Chapter guard
-  -> Character + Location + Scene + VisualBeat continuity
+  -> stale-source guard
+  -> Character + Location + Scene + VisualBeat materialization
 ```
 
-## Desktop editor hierarchy and timing
-
-The editor hierarchy is logical, not a chain of prerendered video files:
+## Editor hierarchy and timing
 
 ```text
 Project
   -> Chapter
       -> Scene
           -> VisualBeat
+              -> selected image or video media
 ```
 
-`VisualBeat` is the smallest editable timeline span. `Scene` groups related beats and `Chapter` groups scenes. Scene and Chapter boundaries do not require `scene.mp4` or `chapter.mp4` artifacts before the user can continue editing.
+`VisualBeat` is the smallest production timeline span. Scene and Chapter are logical groupings, not a requirement to prerender `scene.mp4`/`chapter.mp4` before editing.
 
-Narration/alignment is the timing authority. A beat carries the aligned `startMs`, `endMs` and `durationMs`; its media must fit that span:
+Narration/alignment is the timing authority:
 
 ```text
 aligned narration span
-  -> VisualBeat timing
-  -> image source: animate for the beat duration
-  -> video source: trim/fill/extend for the beat duration
-  -> one non-destructive project timeline
-  -> FFmpeg render/export
+  -> VisualBeat start/end/duration
+  -> image: deterministic motion over the span
+  -> video: trim/fill/extend according to supported policy
+  -> one project timeline
+  -> final FFmpeg render
 ```
 
-Desktop editor scopes (`Beat`, `Scene`, `Chapter`, `Project`) are view windows over the same timeline. Switching scope changes what is inspected and previewed; it does not create another nested render output. Local segment/proxy caches may exist for performance, but they are render implementation details rather than durable domain hierarchy.
+Image-only camera/motion controls must not be shown as if they apply identically to video beats.
 
 ## Narration selection
 
 ```text
-GENERATED NARRATION
+TTS
   -> Google TTS or VieNeu/provider execution
   -> validate/normalize
   -> alignment
-  -> materialize according to execution mode
+  -> local materialization for Desktop use
 
 USER_PROVIDED_AUDIO
+  -> native import/registration
   -> ordered 1..N audio parts
-  -> one logical global audio clock
+  -> one logical global clock
   -> alignment
   -> no TTS for covered scope
 ```
 
-One audio file may cover many Chapters and several files may cover one selected range. Alignment, not file boundaries, assigns source spans to time.
+Audio file boundaries do not define Chapter boundaries.
 
-For Desktop local rendering, accepted narration bytes must be registered in the local project workspace/manifest.
-
-## Media planning and images
-
-The backend owns MediaPlan authorization and provider workers/devices execute the pinned policy.
+## Media generation and local materialization
 
 ```text
-pinned image-generation work
+backend-authorized media work
   -> provider execution
-  -> validate
-  -> stable MediaAsset identity/checksum
-  -> materialize according to execution mode
-```
-
-Desktop target:
-
-```text
-validated image
-  -> local project assets/images
+  -> validate bytes/result
+  -> stable MediaAsset identity + checksum
+  -> Desktop materializes required accepted result locally
   -> project.manifest.json
-  -> local render resolves mediaAssetId
 ```
 
-The Vertex provider foundation exists. Complete Desktop-local materialization for every generation/regeneration path is still PARTIAL.
+The current Desktop image-generation flow includes chapter selection, analysis/estimate/queue/poll/review and verified remote-to-local materialization. Native imported media uses a two-phase main-process selection/hash/registration flow and does not expose absolute paths as backend identity.
 
-`VisualScenePlanner` remains TARGET as the richer narration-driven adaptive planning/review layer.
+## Production timeline
 
-## Primary Desktop render path — implemented foundation
+The backend production timeline aggregates persisted scene/beat/timing/media state. V5 adds durable beat media selections so an explicit editor choice survives reload and can feed render admission.
+
+Renderer draft state supports typed undo/redo/reset for supported duration/camera edits. Draft state is not durable authority until converted to the backend render/production contract.
+
+## Local render path
 
 ```text
 backend admits + assigns LOCAL_DEVICE render
-  -> assigned Desktop device claims job + lease
-  -> claim provides narration/image IDs + expected checksums
-  -> Electron main resolves local files through project.manifest.json
-  -> reject missing/invalid inputs
-  -> build deterministic local render manifest
-  -> FFmpeg render visual segments
-  -> concatenate video
-  -> concatenate narration
-  -> mux audio/video
-  -> ffprobe + SHA-256 validation
+  -> assigned device claims lease
+  -> Desktop preflight checks FFmpeg/ffprobe, executor, disk, assets
+  -> resolve asset IDs/checksums through project.manifest.json
+  -> journal execution state
+  -> reuse valid segment-cache entries
+  -> render missing visual segments
+  -> concat video
+  -> concat narration
+  -> mux
+  -> ffprobe + SHA-256 final validation
   -> register local artifact under artifacts/<jobId>/
-  -> report progress/completion to backend
+  -> report progress/completion under current lease
 ```
 
-The backend records a provider identity such as `LOCAL_DESKTOP` plus an opaque project-relative artifact key and media metadata. Absolute machine paths are not durable backend identifiers.
+Lease loss prevents success. In-process cancellation and unfinished-journal discovery exist. Richer crash/restart resume/retry UX remains hardening work.
 
-Lease heartbeat runs during local execution. Lease loss prevents successful completion. In-process cancellation exists; restart-safe recovery/resume remains partial.
-
-Local project rendering requires FFmpeg/ffprobe and `NARRATIVEX_DESKTOP_PROJECT_RENDER_ENABLED=true`.
-
-## Retained cloud render path — fallback
-
-The existing worker path remains available during migration:
-
-```text
-cloud render
-  -> R2 pipeline inputs
-  -> worker FFmpeg/ffprobe
-  -> Google Drive final MP4
-  -> provider-aware FinalArtifact metadata
-```
-
-This cloud path remains real but is no longer the primary Desktop storage/render architecture.
-
-## Desktop project storage
+## Local storage
 
 ```text
 <userData>/projects/<projectId>/
@@ -143,57 +123,27 @@ This cloud path remains real but is no longer the primary Desktop storage/render
   artifacts/<jobId>/final.mp4
 ```
 
-The manifest maps backend asset identities to project-relative paths plus size/SHA-256. Electron main owns local path resolution.
+Desktop storage tooling also includes verification/accounting, completed/failed work cleanup and backup/restore/archive-copy foundations.
 
-## User-provided narration render path
+## Retained cloud/server path
 
-The planning/TTS-bypass/global-clock model exists. Complete E2E behavior depends on materializing the relevant aligned audio locally and producing the exact render input for the selected scope.
-
-Required shape:
+Where remote provider/server execution still requires it:
 
 ```text
-alignment spans
-  -> identify relevant ordered parts
-  -> slice/concatenate when necessary
-  -> validate one render audio input
-  -> register local narration asset/checksum
-  -> LOCAL_DEVICE render
+pipeline media -> Cloudflare R2
+cloud render   -> worker FFmpeg/ffprobe
+final MP4      -> Google Drive
 ```
 
-Do not claim the complete multi-Chapter uploaded-audio → local-render loop until this is proven by code/tests.
+This remains fallback/server behavior, not the Desktop project-storage default.
 
-## Current local render state semantics
+## Remaining creator-loop work
 
-```text
-backend job assigned to device
-  -> claimed lease
-  -> local execution RUNNING
-  -> periodic lease heartbeat + progress
-  -> COMPLETED | FAILED
+- adaptive narration-driven `VisualScenePlanner` and richer Scene/VisualBeat review;
+- complete multi-part user-audio alignment/slicing behavior for all production scopes;
+- richer media reuse/reframe/edit/regeneration lineage;
+- richer timeline mutation/save/retry UX;
+- long-form crash/restart recovery and soak reliability;
+- production packaging/signing/auto-update and packaged OAuth/protocol tests.
 
-lease loss / cancellation
-  -> abort local process
-  -> no successful finalization by stale owner
-```
-
-Cross-process crash/restart recovery is still a hardening target.
-
-## Fast-follow
-
-- complete image/TTS/import local materialization;
-- complete multi-part user-audio local render integration;
-- narration-driven VisualScenePlanner/review;
-- richer timeline mutations and regeneration/reuse;
-- disk cleanup/backup/move/repair;
-- restart-safe local render recovery;
-- packaging/signing/auto-update/protocol hardening;
-- provider-neutral publishing/upload from local artifacts;
-- remove legacy web only after parity gates pass.
-
-## Deterministic full-stack testing
-
-Paid/external provider boundaries may be replaced by deterministic fakes in E2E tests, but production architecture claims must still distinguish:
-
-- Desktop local project storage/render;
-- retained cloud/legacy R2/Drive worker execution;
-- backend-authoritative domain/job/lease state.
+See `../product/ROADMAP.md` for active work. Completed migration plans are intentionally retired.

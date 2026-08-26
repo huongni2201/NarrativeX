@@ -2,194 +2,183 @@
 
 ## Authority and role
 
-This document describes the current Python worker implementation for the V1.11 baseline. Product and architecture authority remains `../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`.
-
-The worker is the asynchronous execution runtime for AI/media workloads. It is not a browser-facing API and it is not canonical product/domain authority. Spring Boot owns client APIs, authorization and durable orchestration policy; PostgreSQL owns durable execution state.
+The Python worker executes durable AI/media work authorized by Spring backend plans. It is not a public HTTP/FastAPI service and it is not product/domain authority. PostgreSQL remains the durable execution source of truth.
 
 ## Runtime and dependencies
 
 - Python `>=3.12`.
-- Package: `narrativex-worker 0.1.0`, built with Hatchling.
-- Configuration/validation: Pydantic v2 + Pydantic Settings.
-- PostgreSQL client: asyncpg.
-- HTTP client: HTTPX.
-- Google authentication: `google-auth` / ADC or workload identity.
-- Quality: Ruff, strict mypy, pytest and pytest-asyncio.
+- Package: `narrativex-worker` built with Hatchling.
+- Validation/config: Pydantic v2 + Pydantic Settings.
+- PostgreSQL: asyncpg.
+- HTTP: HTTPX.
+- Google auth: `google-auth` / ADC or workload identity.
+- Quality: pytest/pytest-asyncio, Ruff and mypy.
 - Entry points: `python -m narrativex_worker` and `narrativex-worker`.
 
-The current dependency manifest does **not** include FastAPI, Starlette or Uvicorn. The worker is not an HTTP API service.
+The worker dependency manifest does not make FastAPI/Starlette/Uvicorn part of the runtime architecture.
 
-## Current Chapter Analyze flow
+Exact versions belong in `app/ai-worker/pyproject.toml`; do not duplicate version pins here as migration targets.
+
+## Worker roles
+
+The same source tree is packaged into role-specific runtimes. Current Compose/config separates general/image, narration and render concurrency using role-appropriate settings such as:
 
 ```text
-Backend admission + durable enqueue
+GENERAL_WORKER_CONCURRENCY
+NARRATION_WORKER_CONCURRENCY
+RENDER_WORKER_CONCURRENCY
+WORKER_ROLES
+```
+
+Role-specific images/imports prevent one worker role from requiring every optional media dependency merely to start.
+
+## Chapter Analyze
+
+```text
+Backend durable admission
   -> OperationPlan + GenerationJob + StageAttempt
-  -> optional Redis delivery hint
   -> worker polls PostgreSQL
   -> FOR UPDATE ... SKIP LOCKED claim
   -> lease owner + heartbeat
   -> persisted Chapter snapshot request
-  -> provider port
-  -> Vertex Gemini when configured
+  -> provider execution
   -> Pydantic structured-result validation
-  -> Chapter rowVersion/sourceHash validation
-  -> Character / ProjectCharacter / CharacterVersion materialization
-  -> Scene / VisualBeat materialization
-  -> terminal StageAttempt + GenerationJob state
+  -> Chapter rowVersion/sourceHash stale guard
+  -> Character/Location/Scene/VisualBeat materialization
+  -> terminal durable state
 ```
 
-A dropped Redis delivery hint must not lose queued work. PostgreSQL remains authoritative.
+Dropped delivery hints do not lose queued work because PostgreSQL is authoritative.
 
-## Capability classification
+## Provider operation fence
 
-| Capability | Current state |
-|---|---|
-| Provider-neutral schemas/ports | IMPLEMENTED |
-| Disabled safe provider | IMPLEMENTED; fails explicitly and never fakes successful production output |
-| PostgreSQL durable job polling | IMPLEMENTED |
-| Claim with `FOR UPDATE ... SKIP LOCKED` | IMPLEMENTED |
-| StageAttempt lease/heartbeat/stale recovery foundation | IMPLEMENTED |
-| Bounded worker concurrency | IMPLEMENTED; configured by `WORKER_CONCURRENCY` |
-| Chapter snapshot protection | IMPLEMENTED using `rowVersion` + `sourceHash` checks |
-| Vertex Gemini structured Chapter analysis | IMPLEMENTED foundation |
-| Character/Scene/VisualBeat result materialization | IMPLEMENTED foundation |
-| ProviderOperation durable lifecycle | IMPLEMENTED foundation with fail-closed ambiguous-submission recovery and paced reconciliation metadata |
-| Location materialization | IMPLEMENTED foundation |
-| Scene character/location continuity materialization | IMPLEMENTED foundation |
-| Image generation | IMPLEMENTED foundation; durable role wiring and Vertex Batch inference |
-| TTS/subtitle generation | IMPLEMENTED foundation; Google/VieNeu narration, alignment and ASS subtitles |
-| FFmpeg render/export | IMPLEMENTED foundation; deterministic IMAGE_MOTION, ffprobe and final storage |
-
-## Chapter analysis contract
-
-The worker executes against persisted Chapter identity/state rather than arbitrary browser text. The request includes the project/story/chapter identity plus the Chapter snapshot fields required to reject stale results.
-
-Before materialization the worker verifies that the persisted Chapter still matches the execution snapshot. If the Chapter changed while AI was executing, the old result must not be applied to the newer source.
-
-The provider result is validated with Pydantic before persistence. Current analysis output supports Characters, Locations, Scenes and VisualBeats, and the worker materializes the project-scoped location identities plus scene character/location references under the same transaction.
-
-## Provider modes
-
-### Disabled
-
-`AI_PROVIDER_MODE=disabled` is the safe default. It fails explicitly instead of synthesizing successful AI output.
-
-### Vertex Gemini
-
-`AI_PROVIDER_MODE=vertex` enables the Vertex Gemini adapter. Authentication uses Google Application Default Credentials/workload identity. Provider credentials must never come from the browser or be baked into the image. A worker with `WORKER_ENV=production` and the `image-generation` role must use `IMAGE_PROVIDER_MODE=vertex` and `MEDIA_STORAGE_MODE=r2`; fake, disabled and local adapters are rejected at startup.
-
-External provider execution follows an at-most-once submission fence:
+External paid/provider work follows a fail-closed durable fence:
 
 ```text
 RESERVED
-  -> persist UNKNOWN before the external call can begin
-  -> provider returns a durable operation id: SUBMITTED/RUNNING and reconcile
-  -> provider returns terminal response: COMPLETED/FAILED
+  -> persist the submission fence before external call
+  -> SUBMITTED / RUNNING when durable provider identity is known
+  -> COMPLETED / FAILED
+  -> UNKNOWN when acceptance/outcome is ambiguous
 ```
 
-`RESERVED` is the only state that proves the external-call fence was not crossed and is therefore the only state that can be safely submitted after restart. `UNKNOWN`, `SUBMITTED` and `RUNNING` are never blindly resubmitted.
+Rules:
 
-The `SHOT_IMAGE_GENERATE` batch path is fenced atomically by
-`prepare_provider_submission`: it verifies the stage lease, creates or locks the deterministic
-provider operation, binds every queued `media_generation_items` row, and sets
-`next_reconcile_at` while the operation is already `UNKNOWN`, all in one PostgreSQL transaction.
-The provider call starts only after that transaction commits. This prevents a crash from leaving
-running items attached to an operation that is absent from the reconciliation queue.
+- never blind-resubmit `UNKNOWN`, `SUBMITTED` or `RUNNING` work;
+- reconcile using durable operation/request identity when the provider supports it;
+- keep unsupported ambiguous outcomes visible for explicit attention rather than manufacturing success/failure;
+- mutate provider operation state using status/row-version CAS rules;
+- treat `COMPLETED` and `FAILED` as terminal;
+- stale reconciliation responses must not overwrite newer durable state;
+- stage lease loss cancels claimed processing and prevents new submissions from the stale worker.
 
-For `SHOT_IMAGE_GENERATE`, the heartbeat and processing task are joined. If the heartbeat loses
-the stage lease, the processing task is cancelled and cannot start another provider submission.
-Immediately before a new paid submission, the worker performs a final
-`(stage_attempt_id, worker_id, lease_token, status=RUNNING)` fence. Mutations made by the claimed
-worker carry that same lease identity; reconciliation without a stage claim remains protected by
-provider-operation compare-and-set state.
+Image and narration paths apply this boundary with workflow-specific reconciliation/finalization rules.
 
-Every provider-operation mutation carries the loaded snapshot and uses optimistic CAS on both status and `row_version`. `COMPLETED` and `FAILED` are terminal; a stale reconciliation response is discarded after reloading the latest durable state.
+## Image generation
 
-Provider capabilities explicitly declare whether durable operation reconciliation is supported. The current synchronous Vertex `generateContent` adapter does not expose a pollable durable operation id. If submission times out, the process dies after the UNKNOWN fence, or a non-terminal state lacks a durable operation id, the worker preserves the ambiguous operation and schedules reconciliation (or explicit manual attention when reconciliation is unsafe) rather than risking a duplicate provider request or charge.
+The image role executes backend-authorized `SHOT_IMAGE_GENERATE` work through the configured Vertex image adapter and durable batch/reconciliation path.
 
-Reconciliation candidates are limited to `UNKNOWN`, `SUBMITTED` and `RUNNING` rows whose `next_reconcile_at` is due and whose StageAttempt is still non-terminal. Narration claims due reconciliation before ordinary queued work. The database records `reconcile_attempts` and `last_reconcile_error`; unsupported or unsafe reconciliation is suspended by clearing `next_reconcile_at` while preserving the ambiguous provider status and exposing `NARRATION_REQUIRES_ATTENTION` at job level.
+```text
+queued media-generation items
+  -> stage lease
+  -> deterministic request fingerprint
+  -> provider-operation submission fence
+  -> Vertex batch staging/execution
+  -> durable reconciliation
+  -> validate/correlate image output
+  -> stable MediaAsset + lineage
+  -> retained remote materialization when required
+  -> item/stage/job aggregation
+```
 
-Narration follows the same fence with additional recovery rules: storage/DB failures after TTS
-submission keep the provider operation `UNKNOWN`, immutable R2 objects are reused after checksum
-validation, and finalization-only infrastructure failures move the stage/job to `STALLED`. Retry
-stages reuse the logical narration operation by `(provider_key, request_fingerprint)`; the original
-stage id is audit provenance only. Lease-safe stage transitions update the parent job only when the
-worker still owns the running stage.
+Provider batch correlation fails closed when rows are missing/duplicate/unmatchable. One completed provider batch cannot complete a parent job while other items remain pending.
+
+Remote R2 output is a server/provider durability boundary. Desktop workflows may then materialize the accepted MediaAsset locally through authorized Desktop/backend flows; the worker never owns the Desktop machine path.
+
+## Narration
+
+```text
+TTS
+  -> Google TTS or VieNeu execution
+  -> validate/normalize
+  -> retained remote materialization where required
+  -> alignment
+
+USER_PROVIDED_AUDIO
+  -> ordered registered parts
+  -> logical global clock
+  -> alignment
+  -> no TTS_GENERATE for covered scope
+```
+
+Narration provider ambiguity uses the same durable operation rules. Infrastructure failures after an external TTS side effect must not cause blind paid resubmission.
+
+The worker may process user-owned voice references in ephemeral job storage when the authorized narration request allows it. Real-person samples require appropriate consent and must not become arbitrary durable payload secrets.
+
+## Translation
+
+Translation work is chunked by semantic/source identity. Each provider chunk owns a deterministic fingerprint and ProviderOperation boundary. Completed chunks can replay durable results; UNKNOWN chunks are not blindly resubmitted. Final immutable translation materializes only after all required chunks complete.
 
 ## Claim, lease and concurrency
 
-Workers claim eligible durable attempts with PostgreSQL row locking and `SKIP LOCKED`. The claim query carries the observed `status` and `row_version` for both `GenerationJob` and `StageAttempt`. It compare-and-sets the parent first, then the stage, requiring exactly one affected row at each step; a conflict returns no claim or rolls the transaction back. This prevents a concurrent cancellation/failure or metadata update from resurrecting a parent job, and prevents returning a claim when parent and stage did not transition together. Broad predicates such as `status <> 'COMPLETED'` are not valid claim transitions. A running attempt records worker ownership and heartbeat state. Stale attempts can be recovered according to lease policy.
+Worker claims use PostgreSQL row locking/`SKIP LOCKED` plus observed status/version fences. Parent GenerationJob and StageAttempt transitions must stay consistent; stale cancellation/failure must not be resurrected by a broad claim predicate.
 
-`WORKER_CONCURRENCY` defaults to 4 and is bounded by configuration. Both Chapter analysis and full-chapter narration use it as the maximum number of active jobs in one worker process. Narration keeps segments within one chapter sequential, so concurrency is applied between independent chapter jobs rather than multiplying TTS requests without a bound.
+Heartbeat/terminal mutations carry worker/lease identity where the role owns a claim. Lease loss stops the old owner from creating durable side effects or terminalizing success.
 
-Database pool sizing follows configured concurrency. The narration repository receives `max(5, WORKER_CONCURRENCY + 2)` as its pool limit so task concurrency is not silently throttled by the former fixed `max_size=5` pool. Graceful shutdown stops new claims, lets in-flight narration retain its heartbeat and finish, then closes the repository pool. A lease-loss path cancels processing without claiming authority to mark the job failed; durable provider-operation UNKNOWN semantics remain the recovery boundary.
+Retry/backoff behavior uses shared deterministic bounded policies where implemented; arbitrary `sleep()`-driven correctness is not acceptable for tests or state-machine fencing.
 
-Media-validation jobs use a fresh UUID lease token and increment `row_version` on every claim. Heartbeats and terminal transitions require the job id, worker id, lease token, `RUNNING` status, and an unexpired lease. Completion fences the validation job before changing the asset, upload sessions, or cleanup queue, so a reclaimed stale worker can produce no durable side effects.
+## Runtime files and local scratch
 
-### Chapter translation execution
+Worker-local files are ephemeral execution scratch/cache. Runtime-file helpers validate paths/sizes/media constraints and must not be confused with Desktop ProjectStorage.
 
-Chapter translation is chunked by semantic boundaries. Every provider chunk derives its own
-request fingerprint from the current source lineage, target language, chunk index and chunk hash,
-then owns a separate `provider_operations` fence. Completed chunks are replayed from durable
-normalized results; `UNKNOWN` chunks are never blindly resubmitted. The final immutable translation
-variant is materialized only after every chunk is durably completed.
+- Desktop local project bytes are owned by Electron main.
+- Worker scratch is disposable.
+- Retained remote server/provider media may use R2.
+- Retained cloud-render final MP4 may use Google Drive.
 
-Vertex translation returns actual usage metadata together with the raw text. The worker persists
-the provider operation as `COMPLETED` with actual billing before running structural translation
-validation, so invalid output still leaves auditable billed cost. A translation stage heartbeat
-runs at most one-third of the lease interval while provider calls are in flight; lease loss
-cancels the work and cannot mark the job completed or failed from the old owner.
+The worker does not decide the Desktop storage topology.
 
-## Application boundaries
+## Render role
+
+The retained cloud/server render role consumes backend-pinned render input, runs FFmpeg/ffprobe, validates output and promotes final media through the configured cloud final-video storage adapter.
+
+Desktop `LOCAL_DEVICE` render is a different executor: it runs in Electron main under backend assignment/lease. Worker docs must not imply that all NarrativeX final videos are worker-rendered or uploaded to Google Drive.
+
+## Worker authority boundary
 
 ### Worker owns
 
-- durable AI/media stage execution;
-- claim/lease/heartbeat execution mechanics;
-- provider invocation through provider-neutral ports;
-- prompt/schema boundary and structured validation;
-- stale Chapter protection;
-- current Chapter-analysis result materialization;
-- image-generation, media-validation, narration and render role execution against durable snapshots.
+- durable claimed AI/media stage execution;
+- provider invocation/reconciliation through adapters;
+- structured response/media validation;
+- stale-source/lease fences during execution;
+- provider/server materialization under persisted backend authorization.
 
 ### Worker does not own
 
-- browser authentication/authorization;
-- user/project ownership decisions;
-- HTTP session management;
-- public product APIs;
+- guest/account authentication or authorization;
+- project ownership policy;
+- public product APIs or HTTP sessions;
 - entitlement/billing policy authority;
 - Flyway schema ownership;
-- arbitrary direct mutation of domain state outside defined durable execution/materialization contracts.
+- Desktop native paths/ProjectStorage/device credentials;
+- arbitrary paid-work escalation.
 
 ## Current gaps
 
-- Complete provider actual-usage reconciliation across all operation types.
-- Complete user-provided-audio render slicing/stitching and production hardening.
-- Full review/reuse lineage around generated images and final artifacts.
-- Broader production observability, recovery and provider integration evidence.
-
-## MVP image/render execution contract
-
-The worker has provider-neutral image request/result contracts, a fail-closed Vertex Batch adapter,
-bounded PNG/JPEG/WEBP validation, character-reference-aware requests, immutable private R2 result keys,
-and durable PostgreSQL materialization. Provider submission timeouts and transport/5xx failures become
-`UNKNOWN`; the runner never blind-resubmits an ambiguous operation. The render role consumes pinned
-render-input snapshots, builds deterministic IMAGE_MOTION FFmpeg output with ASS subtitles, validates
-the result with ffprobe/checksum, and promotes the final MP4 through the configured final-video storage
-boundary.
+- complete actual-usage reconciliation across all operation types;
+- arbitrary multi-part user-audio production slicing/stitching hardening;
+- richer generated-media review/reuse lineage;
+- broader provider failure/recovery/observability evidence;
+- optional I2V runtime hardening only when the product enables that path.
 
 ## Verification expectations
 
-Worker CI must continue to run Ruff, mypy and pytest. Integration/E2E verification should prove the durable path:
-
-```text
-saved Chapter
-  -> durable queued work
-  -> worker claim + heartbeat
-  -> provider execution
-  -> validated materialization
-  -> durable terminal state
+```bash
+pytest
+ruff check .
+ruff format --check .
+mypy src tests
 ```
 
-It should additionally cover stale Chapter rejection, stale lease recovery, disabled-provider fail-closed behavior, crash recovery around the provider submission fence and real-provider structured-output compatibility.
+Tests should cover claim/lease loss, provider submission ambiguity, stale source rejection, deterministic validation failures, reconciliation, shutdown behavior and role-specific optional dependency boundaries.

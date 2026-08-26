@@ -2,142 +2,144 @@
 
 **Canonical baseline:** `../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`  
 **Planning rule:** dependency order, not fixed-date commitment.  
-**Primary migration:** Electron Desktop + local-first project media/render.
+**Current checkpoint:** `main` at `0aca94e6eef07158e161cd67c648671e74055473` (2026-08-26)
 
-## Current checkpoint — IMPLEMENTED foundations
+The browser→Desktop and JPA/JDBC→MyBatis migrations are no longer roadmap tracks. Desktop is already the only editor client and MyBatis is the production persistence path. Remaining work is product/reliability/release work.
+
+## Current implemented foundations
 
 ```text
-Electron Desktop only supported editor
-  -> Google OAuth system-browser handoff
-  -> backend-authoritative Project/Chapter/domain state
-  -> local project workspace + manifest
-  -> local device pairing/heartbeat
-  -> backend-assigned LOCAL_DEVICE render
-  -> FFmpeg/ffprobe local final MP4
+Desktop guest-first workspace
+  -> project/chapter authoring
+  -> analyze / image / narration workflows
+  -> local asset registration/materialization
+  -> production timeline + beat media selection
+  -> local render preflight
+  -> backend-assigned FFmpeg render
+  -> journal/cache/artifact registration
+  -> backup/restore/storage tooling
 ```
 
-Existing cloud/provider foundations remain available for analysis, image generation, narration and fallback rendering/storage.
+Google remains the only account sign-in provider. Guest identity is an installation-scoped ownership/session mechanism, not a second login provider.
 
-## Track A — Desktop client and security boundary — IMPLEMENTED foundation
+## Track A — Production Desktop release — HIGH
 
-- Electron Vite + React + TypeScript shell;
-- project-scoped editor workspaces;
-- secure main/preload/renderer split;
-- no unrestricted Node access in renderer;
-- native file/folder and artifact actions owned by main;
-- shared typed client contracts.
+- lock production packaging dependencies and installer reproducibility;
+- code signing and release identity;
+- auto-update strategy and rollback behavior;
+- packaged `narrativex://` protocol registration tests;
+- packaged system-browser OAuth integration tests;
+- Windows install/upgrade/uninstall data-preservation tests;
+- verify bundled FFmpeg/ffprobe across supported machines;
+- define crash-reporting/diagnostic collection without leaking local paths or secrets.
 
-### Remaining
+**Done when:** a clean supported Windows machine can install, authenticate, open/create a project, render/export, upgrade and recover without developer tooling.
 
-- complete screen/editor mutation parity;
-- richer timeline editing/review/regeneration UX;
-- packaging/signing/auto-update hardening.
+## Track B — Local execution recovery and long-form reliability — HIGH
 
-## Track B — Google OAuth-only Desktop auth — IMPLEMENTED foundation
+Current foundations already include render journals, unfinished-job discovery, segment cache, preflight, lease heartbeat and cancellation.
 
-- system-browser `/api/v1/auth/desktop/start`;
-- `narrativex://auth/callback` handling;
-- one-time handoff exchange into server-managed NarrativeX session;
-- user session separated from device execution token.
+Remaining:
 
-### Remaining
+- define resume/retry behavior for each persisted render stage;
+- prove lease-loss and app-crash recovery without duplicate finalization;
+- recover safely from FFmpeg child-process termination and OS shutdown;
+- expose clear retry/discard/recover UX for discovered unfinished work;
+- add long-duration soak tests for 1–2 hour outputs;
+- add disk-pressure behavior and cleanup policy around active/incomplete work;
+- validate cache invalidation across renderer/version/output-setting changes.
 
-- remove any remaining password-auth product/UI leftovers;
-- packaged-build protocol/OAuth integration tests;
-- decide whether explicit device pairing remains or becomes automatic after login.
+## Track C — Timeline/editor review workflow — HIGH
 
-## Track C — Desktop local project storage — IMPLEMENTED foundation
+Current foundations include production timeline reads, narration-aligned timing, beat media selection, duration/camera draft state and typed undo/redo.
 
-- `<userData>/projects/<projectId>` workspace;
-- atomic schema-versioned `project.manifest.json`;
-- project-relative asset/artifact paths;
-- size/SHA-256 verification;
-- workspace/path traversal protection.
+Remaining:
 
-### Remaining
+- richer scene/beat hierarchy editing while preserving Chapter → Scene → VisualBeat semantics;
+- trim/split/reorder behavior where domain rules allow it;
+- clear visual distinction between image and imported/generated video beats;
+- image-only camera/motion controls that do not appear for video beats;
+- review/regenerate/replace media from the timeline without losing selection state;
+- dirty-state/save/error/retry semantics for production mutations;
+- keyboard shortcuts and accessible focus behavior for dense editor workflows.
 
-- disk quota/cleanup UX;
-- backup/move/restore;
-- missing/corrupt file repair;
-- complete local materialization of all image/TTS/import outputs.
+## Track D — Adaptive scene planning and continuity — HIGH
 
-## Track D — Local project render — IMPLEMENTED foundation
+- complete narration-driven `VisualScenePlanner` instead of fixed image-count assumptions;
+- use narration alignment as the duration authority;
+- improve semantic scene boundaries and beat density based on source complexity;
+- strengthen Character/Location continuity context in planning and prompts;
+- complete review/approval/version flow for storyboard revisions;
+- preserve immutable approved history when source or continuity inputs change.
 
-- device claim/lease/progress/completion/failure;
-- FFmpeg/ffprobe capability probing;
-- render segments;
-- concat video;
-- concat narration;
-- mux;
-- ffprobe/checksum final artifact;
-- local artifact registration;
-- in-process cancellation.
+## Track E — Asset review, reuse and replacement — MEDIUM
 
-### Remaining
+Build on current media identity/materialization foundations:
 
-- process-restart recovery/resume;
-- richer pause/retry/recovery UI;
-- long-form disk-space preflight and cleanup;
-- packaged-runtime FFmpeg distribution strategy.
+```text
+REUSE_APPROVED
+  -> REFRAME_DERIVED
+  -> EDIT_EXISTING
+  -> GENERATE_NEW
+```
 
-## Track E — Finish Desktop-local creator loop — PARTIAL → TARGET
+Remaining:
 
-### E1 — Image result local materialization
+- explicit approved-asset reuse decisions;
+- lineage-aware reframe/edit operations;
+- imported user video as a first-class selectable beat medium;
+- affected-scope regeneration after source/character/style changes;
+- local missing/corrupt asset repair UX;
+- optional cross-device/shared-media workflows only when a real sharing requirement exists.
 
-Provider execution foundation exists. Every accepted generated/regenerated image needed by Desktop must be registered into the project workspace/manifest so local render resolves `mediaAssetId` without mandatory R2 download.
+## Track F — Narration/audio production completion — MEDIUM
 
-### E2 — Narration result local materialization
+- harden generated TTS and local imported narration flows around one logical audio clock;
+- complete multi-part user audio alignment/slicing behavior needed by production render;
+- expose alignment diagnostics and correction UX;
+- preserve `USER_PROVIDED_AUDIO` as an explicit TTS bypass;
+- keep narration timing authoritative for visual duration.
 
-Generated/imported narration used by local render must be registered locally with checksum/timing metadata. `USER_PROVIDED_AUDIO` keeps TTS bypass and one logical audio clock.
+## Track G — Billing, quota and provider operations — MEDIUM
 
-### E3 — Import/media local registration
+- complete actual-usage ledger and reservation settlement evidence;
+- prove terminal release/refund behavior under retries and provider ambiguity;
+- improve provider operation observability without weakening UNKNOWN reconciliation rules;
+- expose user-facing cost/usage status from backend-authoritative values;
+- add failure-mode tests for concurrent enqueue/edit/lease and provider terminal replay.
 
-All Desktop imports use native file selection and manifest registration. Backend stores stable IDs/metadata, never absolute paths.
+## Track H — Operational hardening — MEDIUM
 
-### E4 — VisualScenePlanner/review
+- production backup/restore evidence for backend PostgreSQL state;
+- retention/cleanup policy for cloud fallback media and local generated work;
+- structured observability/correlation across Desktop, backend and worker;
+- SSRF/upload/media validation hardening where external resources are accepted;
+- security review for guest credential lifecycle, ownership transfer and logout/resume behavior;
+- local quality gate that remains useful when GitHub Actions is unavailable.
 
-Complete narration-driven adaptive scene/beat planning and review flow. Avoid fixed image-count/fixed-duration assumptions.
-
-### E5 — Asset review/reuse
-
-Add richer approval/reuse/reframe/edit/affected-scope regeneration after the generate-new foundation is reliable.
-
-## Track F — Retained cloud/legacy path — MAINTENANCE / FALLBACK
-
-The existing path remains valid while migration is incomplete:
+## Retained cloud/server path — MAINTENANCE
 
 ```text
 cloud pipeline media -> R2
 cloud final MP4      -> Google Drive
 ```
 
-Maintain it only as required for compatibility/provider workflows and fallback. Do not make new Desktop features depend on cloud storage without an explicit cross-device/shared-media requirement.
+Keep this path only where server/provider execution or fallback durability still requires it. New Desktop features should not depend on cloud storage merely because the fallback exists.
 
-## Track G — Legacy web removal — IMPLEMENTED
+## Fast-follow / deferred
 
-The former `app/frontend-web` client has been removed from the repository and active runtime topology. The completed removal evidence is:
+- HYBRID_LOCAL_I2V/Wan runtime hardening;
+- provider-neutral publish/upload from local final artifacts;
+- richer collaborative/cross-device workflows after single-device reliability is proven.
 
-- no `app/frontend-web` path in the latest tree;
-- production Compose has no frontend or Caddy service;
-- Desktop system-browser OAuth uses the backend auth flow and `narrativex://` handoff;
-- no supported editor or deployment dependency requires Next.js.
+## Acceptance scenarios
 
-Remaining Desktop roadmap items are tracked independently; they do not require reintroducing a browser editor.
+**Guest-first authoring:** a new installation resumes the same guest-owned workspace across session restarts, allows free authoring, then signs in with Google only when a gated operation is invoked without losing the active editor context.
 
-## Fast-follow after reliable creator loop
+**Desktop generated-media path:** backend-authorized generation produces accepted media identity, Desktop materializes/registers required bytes locally, and local render resolves asset IDs/checksums without persisting absolute paths.
 
-- Character review/version/reference locking completion.
-- Approved storyboard revision/reset workflow.
-- Reuse → reframe → edit → new AssetResolver.
-- HYBRID_LOCAL_I2V/Wan runtime hardening.
-- Full actual-cost ledger/release/refund.
-- Moderation/SSRF/retention/observability/backup/restore evidence.
-- Provider-neutral publishing/upload from local final artifacts.
+**Editable production timeline:** a user can choose beat media, adjust supported timeline properties, undo/redo edits and submit an authoritative render snapshot that reflects persisted production choices.
 
-## Current acceptance scenarios
+**Local render recovery:** an assigned device renders with FFmpeg under a lease, journals progress, survives/reports interruption safely and never double-finalizes after recovery.
 
-**Desktop generated-media path:** backend-authorized generation produces an accepted media identity, Desktop materializes/registers its bytes locally, local render resolves asset IDs/checksums and produces a checksum-verified local MP4.
-
-**Desktop local render:** an authorized paired device claims a `LOCAL_DEVICE` project render, heartbeats the lease, renders with FFmpeg, validates/registers the local artifact and reports completion without persisting an absolute machine path.
-
-**Cloud fallback:** retained R2/Drive worker rendering remains available where required during migration, but is not the Desktop target storage topology.
+**Packaged release:** an installed production build can authenticate, use the editor and render with bundled/native capabilities without relying on Vite, source checkout or developer-only environment assumptions.

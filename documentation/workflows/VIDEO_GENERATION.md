@@ -1,121 +1,118 @@
-# Selected AI Video / Motion Generation Workflow
+# Video / Motion Media Workflow — V1.11
 
-AI video is an optional selected-beat capability. NarrativeX remains image-first: an approved `KeyframeAsset` is the source, and the provider result is a `MotionAsset` that can be accepted, rejected or replaced by deterministic FFmpeg/basic motion.
+NarrativeX remains image-first. A VisualBeat may use an image or video asset, but optional AI I2V is not required for the core Desktop creator loop.
 
-NarrativeX supports two production policies:
+## Beat media model
+
+```text
+VisualBeat
+  -> selected MediaAsset
+       IMAGE  -> deterministic FFmpeg camera/motion over narration span
+       VIDEO  -> trim/fill/extend according to supported production policy
+```
+
+Chapter → Scene → VisualBeat is a logical timeline hierarchy. A video beat does not require the system to prerender each Scene or Chapter into nested MP4 files before editing.
+
+V5 persisted beat media selections allow an editor-selected image/video asset to survive reload and feed production/render reads.
+
+## Imported video — current Desktop direction
+
+Imported user video is a first-class local project media candidate. Native import follows the same secure local-media boundary as other imports:
+
+```text
+Electron native picker
+  -> main inspect/hash
+  -> backend stable MediaAsset registration
+  -> main commit to project assets/video
+  -> manifest relative path + size + SHA-256
+  -> select for VisualBeat
+```
+
+Renderer/backend state uses stable IDs and metadata, never arbitrary absolute machine paths.
+
+## Deterministic image motion — primary path
+
+For image-selected beats, FFmpeg in Electron main applies supported deterministic camera/motion behavior for the beat's narration-derived duration. This remains the low-cost default.
+
+Image-only controls such as camera/pan/zoom behavior must not be displayed as if they are required for video-selected beats.
+
+## Optional AI I2V — deferred/fast-follow
+
+The domain may support a provider-neutral motion-generation policy such as:
 
 ```text
 IMAGE_MOTION
   -> deterministic image motion only
 
 HYBRID_LOCAL_I2V
-  -> SIMPLE beats use deterministic image motion
-  -> selected MEDIUM/COMPLEX beats may use private/self-hosted I2V
+  -> deterministic image motion by default
+  -> selected eligible beats may use self-hosted/private I2V
 ```
 
-`IMAGE_MOTION` MUST NOT schedule an I2V operation. `HYBRID_LOCAL_I2V` is provider-neutral; the first worker adapter targets a Wan2.2-compatible endpoint. Commercial providers can be added later without becoming domain dependencies.
+`IMAGE_MOTION` must not schedule paid/compute-heavy I2V. A future I2V implementation must remain behind a `VideoGenerationProvider`-style adapter and backend-authorized OperationPlan rather than adding provider-specific branches to domain policy.
 
-## Flow
+Current docs must not describe Wan/self-hosted I2V as required for the production Desktop path unless the code/tests for that path are present and enabled.
+
+## Durable optional I2V rules
+
+If/when an I2V operation is authorized:
 
 ```text
-Approved VisualBeat + KeyframeAsset
-  -> production-mode + motion-value/cost policy and affected scope
-  -> safety/rights/consent + entitlement/abuse gates
-  -> video capability lookup (ratio, duration, resolution, provider)
-  -> OperationPlan estimate + max spend confirmation
-  -> CostReservation
-  -> VIDEO_MOTION_GENERATE StageAttempt
-  -> VideoGenerationProvider adapter (Wan-local/future adapters)
-  -> MotionAsset validation + R2 persistence + output moderation
-  -> Identity QA / human review
-  -> approve MotionAsset or fallback to keyframe/basic motion
-  -> usage reconciliation + render dependency update
+approved VisualBeat + source keyframe/media identity
+  -> capability/cost/entitlement admission
+  -> OperationPlan + reservation
+  -> GenerationJob / StageAttempt
+  -> ProviderOperation persisted before submit
+  -> provider execution/reconciliation
+  -> validate MotionAsset
+  -> immutable identity/lineage
+  -> review/approve or fallback
 ```
 
-## Provider portability
+Ambiguous provider acceptance becomes `UNKNOWN` and reconciles before resubmission. Failed/rejected generated motion does not destroy the source keyframe or prevent deterministic fallback when policy allows it.
 
-`VideoGenerationProvider` exposes capability, submit, status and reconcile behavior. Domain code uses production/motion capability, never `if provider == ...` business branches. Provider/model names, endpoint/model versions, request options and operation IDs are durable snapshots at the execution/accounting boundary.
+Generated motion duration and narration-span duration are separate concepts. The production timeline still has to fit the selected media into the narration-authoritative beat span.
 
-The initial `WanVideoProvider` calls a configured private Wan-compatible HTTP endpoint. NarrativeX does not embed Wan runtime dependencies into the backend domain and does not introduce a new domain service. See [ADR-0002](../decisions/ADR-0002-storyboard-character-continuity-and-production-workflows.md).
+## Local final render
 
-## Local I2V & Wan2.2 Integration
-
-For `HYBRID_LOCAL_I2V` production mode:
-- SIMPLE scenes use deterministic FFmpeg pan/zoom/parallax motion.
-- Selected MEDIUM/COMPLEX scenes use local I2V with deterministic fallback when policy allows.
-- Motion prompt composer extracts characters, camera movement, and action descriptions from the immutable visual beat snapshot.
-- Motion generation jobs run asynchronously with `StageAttempt` leases and save output MP4 directly to R2.
-
-## Shorts / Reels Generation Workflow
-
-Shorts are independent vertical (9:16) artifacts derived from approved long-form timeline and assets:
+Regardless of whether a beat uses an imported video, generated motion or deterministic image motion, the primary Desktop final render is local-first:
 
 ```text
-Approved long-form timeline / chapter
-  -> SHORT_HIGHLIGHT_ANALYZE (Vertex AI Gemini)
-  -> ranked ShortCandidate (hook/conflict/reveal/emotion/payoff)
-  -> 9:16 vertical render plan (crop/reframe approved assets)
-  -> SHORT_RENDER with 9:16 vertical RenderProfile
-  -> FinalArtifact validation & Google Drive export
+backend-authorized production snapshot
+  -> selected beat media IDs + timing
+  -> assigned LOCAL_DEVICE lease
+  -> Electron main resolves checksum-verified local assets
+  -> render/cache segments
+  -> concat/mux with narration
+  -> ffprobe/checksum final MP4
+  -> local artifact registration
+  -> backend completion metadata
 ```
 
-- Planning rules: Highlight analyzer identifies coherent story beats (30s–60s). Crop/reframe preserves character identity and composition.
-- Delta execution: Editing a short creates a delta `OperationPlan` while original chapter assets remain immutable.
-- Server-side entitlement enforces monthly short export limits, watermarking, and concurrent job limits atomically.
+The final Desktop MP4 remains under the project artifact workspace unless the user explicitly exports/uploads/publishes it elsewhere.
 
-## Durable and idempotent execution
+## Retained cloud/server path
 
-The request has an idempotent stable request identity/fingerprint over beat snapshot, source keyframe, motion intent, duration, ratio/resolution, model/inference profile and workflow version. The backend must persist the `OperationPlan`, reservation, `GenerationJob`, `StageAttempt` and `ProviderOperation(RESERVED)` before submission.
+Server/cloud rendering may still use remote pipeline media and Google Drive final storage:
 
 ```text
-VideoGenerationAttempt: QUEUED -> SUBMITTED -> RUNNING -> REVIEW
-                       -> APPROVED / REJECTED / FAILED / UNKNOWN
-ProviderOperation: RESERVED -> SUBMITTED -> RUNNING
-                  -> COMPLETED / FAILED / UNKNOWN
+remote pipeline media -> R2
+cloud worker render    -> FFmpeg/ffprobe
+cloud final MP4        -> Google Drive
 ```
 
-If the submission request times out or receives an ambiguous server failure after submission may have occurred, the attempt becomes `UNKNOWN`/`RECONCILING`. The worker queries the provider by operation id or idempotent request id; it does not blindly resubmit. Auth/configuration errors require action. Known transient retry is allowed only after the provider outcome is known and within configured caps.
+That is fallback/server behavior. Do not state that every final NarrativeX video must be uploaded to Google Drive.
 
-## Output and fallback gates
+## Shorts / Reels
 
-Provider output is downloaded/written to worker-local scratch and validated for MIME, dimensions, duration, aspect ratio, checksum, manifest and provider response schema. The validated immutable motion object is uploaded to Cloudflare R2 and its Asset/MediaAsset metadata is committed before the producing stage can complete. Output moderation and identity QA then run before human approval. `REVIEW` is not publishable. A failed/blocked/too-expensive/unavailable motion stage can fall back to the approved keyframe with deterministic pan/zoom/parallax/fade if policy and render plan allow; fallback is recorded and does not delete the failed attempt.
+Short/Reel artifacts are derived from approved source/timeline state and should use explicit vertical render settings/crop/reframe policy. They must preserve source/asset lineage and reuse approved media where possible instead of mutating the long-form artifact.
 
-Generated I2V duration and narration-span duration are intentionally separate. For example, a five-second generated motion asset can be deterministically extended inside an eight-second narration span; only five generated seconds belong to the I2V workload.
+The same storage rule applies: a Desktop-local short can remain a local artifact; cloud upload is an explicit separate workflow, not an inherent final-render requirement.
 
-## Final render and storage
+## Remaining work
 
-Motion assets are pipeline media and remain R2-backed. The final exported MP4 follows a different durable-storage path defined by [ADR-0003](../decisions/ADR-0003-media-storage-generation-pipelines-and-external-integrations.md):
-
-```text
-approved R2 image/motion/audio inputs
-  -> FFmpeg local render
-  -> final.mp4
-  -> validate container/video/audio/duration/dimensions/checksum
-  -> FinalVideoStorage
-  -> Google Drive resumable upload
-  -> verify remote file
-  -> persist storageProvider + storageObjectId + final metadata
-  -> FinalArtifact READY
-  -> delete local final.mp4 when safe
-```
-
-Final MP4 is not uploaded to R2 by default. Render and upload are separate retry boundaries: if the Drive upload fails while the validated local MP4 still exists, retry the upload instead of rerendering.
-
-## Local GPU cost planning
-
-For local/self-hosted I2V, cost is not a hardcoded vendor price per scene. The planning authority prices the post-analysis I2V workload using a versioned benchmark snapshot for the selected model, GPU, resolution and inference profile:
-
-```text
-expectedGpuSeconds
-  = plannedI2vOutputSeconds
-  * benchmarkMedianGpuSecondsPerOutputSecond
-  * expectedAttemptFactor
-
-expectedI2vCost
-  = expectedGpuSeconds / 3600
-  * gpuUsdPerHour
-```
-
-Reservation uses p90/bounded benchmark data and maximum authorized attempts. Actual resource usage is reconciled separately. Changing production mode or local-I2V quality re-plans/re-prices the same valid semantic analysis snapshot instead of re-running story analysis.
-
-Usage records capture actual internal GPU/compute cost, motion seconds, storage/egress and `billed_to_user_id`. The reservation is consumed/released and the parent render dependency is updated transactionally. Final MP4 readiness still requires the normal FFmpeg/FinalArtifact validation gates plus verified durable final-video storage in Google Drive.
+- production-complete imported-video editing semantics (trim/fill/reorder/review where allowed);
+- adaptive timeline/reframe UX for mixed image/video beats;
+- optional I2V provider/runtime hardening only after core creator reliability;
+- provider-neutral publishing/upload from local final artifacts;
+- actual compute/cost reconciliation for any self-hosted or paid motion generation.

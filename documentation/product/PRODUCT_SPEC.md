@@ -4,31 +4,65 @@
 **Canonical source:** [`../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md)  
 **Implementation evidence:** [`../TRACEABILITY.md`](../TRACEABILITY.md)
 
-ADR-0003 governs R2 pipeline media and final rendered MP4 storage in Google Drive.
-
 ## Product definition
 
-NarrativeX is an AI-assisted long-form story-video studio. It is chapter-first, review-first, audio-timeline-first, image-first, backend-authorized and durable-by-design.
+NarrativeX is an AI-assisted long-form story-video studio. It is Desktop-only at the editor boundary, guest-first, Chapter-first, review-first, audio-timeline-first, image-first, backend-authorized and local-media-first for Desktop.
 
-Project creation is metadata-only. Saving Chapter source does not implicitly run AI. Analysis, narration selection/processing, image generation and rendering are explicit operations.
+Project creation is metadata-only. Saving Chapter source does not implicitly run AI. Analysis, narration/audio processing, image generation and rendering are explicit operations.
 
-## Current implementation snapshot
+## Authentication and entry experience
+
+A new Desktop installation opens into a stable guest-owned workspace rather than forcing an account login screen.
+
+```text
+Desktop startup
+  -> stable installation guest session
+  -> free project/chapter/local-workspace authoring
+
+Account/provider-consuming action
+  -> backend AUTHENTICATION_REQUIRED
+  -> LoginModal over current route
+  -> Google OIDC in system browser
+  -> one-time Desktop exchange
+  -> eligible guest ownership transfer
+  -> continue same project/editor context
+```
+
+Google is the only end-user account sign-in provider. Guest identity is an installation-scoped ownership/session mechanism, not a second account login method.
+
+## Current creator foundations
 
 Implemented foundations include:
 
-- Project/StoryVersion/Chapter authoring, dashboard/favorite and project-scoped reads;
-- MyBatis + explicit SQL for production persistence and durable generation execution;
+- Project/StoryVersion/Chapter authoring and project dashboard/favorite flows;
+- MyBatis + explicit SQL production persistence;
 - durable Chapter Analyze and provider-operation reconciliation;
 - Character/Location continuity and Scene/VisualBeat materialization;
-- backend-authoritative MediaPlan/job pinning;
-- Google TTS and local VieNeu narration with R2-backed final narration audio;
-- `USER_PROVIDED_AUDIO` ordered-part/global-clock/TTS-bypass planning foundations;
-- real Vertex image generation with validated R2-backed images;
-- dedicated deterministic `IMAGE_MOTION` chapter render through FFmpeg + ffprobe;
-- Google Drive resumable final-video upload and provider-aware FinalArtifact metadata;
-- final rendered MP4 is not duplicated into R2 by default.
+- generated narration/voice preview plus native user-audio import/TTS-bypass foundations;
+- Vertex image generation with Desktop review and verified local materialization;
+- native local media registration without renderer path exposure;
+- production timeline aggregation with narration-aligned timing;
+- persisted beat media selection (V5);
+- timeline duration/camera draft editing with undo/redo/reset;
+- local ProjectStorage/ProjectCatalog integrity, storage accounting/verification/cleanup;
+- backup/restore/archive-copy foundations;
+- backend-assigned local render preflight/lease/FFmpeg execution;
+- render journals, unfinished-work discovery and immutable segment cache;
+- checksum-verified local final artifact registration.
 
-The complete multi-Chapter uploaded-audio → render loop is not yet implemented because the current renderer loads matching generated narration and does not slice/stitch aligned uploaded-audio parts.
+## Timeline and media model
+
+```text
+Project
+  -> Chapter
+      -> Scene
+          -> VisualBeat
+              -> selected image or video MediaAsset
+```
+
+Narration alignment is the duration authority. The product must not assume one file per Chapter, a fixed image count or a fixed duration per image.
+
+For an image-selected beat, supported camera/motion controls may animate the image across the beat duration. For a video-selected beat, the editor should expose video-appropriate trim/fill behavior rather than forcing image-only camera controls.
 
 ## Narration contract
 
@@ -38,99 +72,111 @@ NarrationStrategy
   USER_PROVIDED_AUDIO
 ```
 
-`USER_PROVIDED_AUDIO` is not one-file-per-Chapter. One file may cover many Chapters or several ordered files may cover one selected range. NarrativeX models one logical audio clock and aligns source spans to that timeline. TTS generation/reservation is omitted for the covered scope.
+`USER_PROVIDED_AUDIO` can use one file across many Chapters or several ordered files across one scope. NarrativeX models one logical audio clock and aligns source spans to it. TTS generation/reservation is zero for the covered scope.
 
-Generated narration and accepted uploaded audio remain R2-backed pipeline media.
+Generated and imported narration used by Desktop local render is materialized under the local project workspace and referenced through stable IDs/checksums.
 
 ## Media planning contract
 
-The backend owns the authorized immutable `MediaPlan` and resolved `MotionStrategy`. The worker executes persisted policy and may only fall back within authorization.
+The backend owns authorized immutable MediaPlan/production state. Workers and local devices execute the pinned plan and may only fall back/escalate within explicit authorization.
+
+The primary low-cost motion path is deterministic FFmpeg image motion. Optional I2V remains a deferred/fast-follow provider-neutral capability rather than a core Desktop dependency.
+
+## Desktop storage contract
 
 ```text
-ProductionMode
-  IMAGE_MOTION
-  HYBRID_LOCAL_I2V
+Local project workspace
+  -> generated/imported images
+  -> narration/audio
+  -> imported video
+  -> render work/cache
+  -> final local MP4
+  -> backup/archive snapshots
 
-MotionStrategy
-  BASIC_IMAGE_MOTION
-  IMAGE_TO_VIDEO
+PostgreSQL
+  -> ownership, domain state, stable asset identity, policy, jobs, leases, lineage
 ```
 
-`IMAGE_MOTION` never schedules I2V. Its deterministic FFmpeg chapter-render foundation is implemented. `HYBRID_LOCAL_I2V` remains deferred/hardening work.
+`project.manifest.json` maps stable backend IDs to project-relative paths plus size/SHA-256. Absolute machine paths are never durable backend identities.
 
-## Storage contract
+## Retained server/cloud storage contract
 
 ```text
 Cloudflare R2
-  -> generated images/keyframes
-  -> generated narration/audio
-  -> accepted uploaded audio
-  -> thumbnails/reusable pipeline media
+  -> retained server/provider pipeline media when remote durability is required
 
 Google Drive
-  -> final rendered MP4 exports
-
-PostgreSQL
-  -> metadata, lineage, checksums, storage provider/object identity and execution state
+  -> retained cloud-render final MP4
 ```
 
-Local paths and public provider URLs are never authoritative asset identities. Google Drive files remain private by default.
+ADR-0003 governs the retained server/cloud path. ADR-0012 governs the primary Desktop local-first path. Do not state that every generated project asset or final MP4 must be stored remotely.
 
 ## Current final-video behavior
 
+Primary Desktop:
+
 ```text
-READY R2 images + matching generated narration
-  -> local FFmpeg IMAGE_MOTION
-  -> ffprobe + checksum validation
-  -> Drive resumable upload
-  -> remote Drive file ID/size verification
-  -> render_manifest + FinalArtifact metadata
-  -> COMPLETED
+backend-authorized production snapshot
+  -> assigned LOCAL_DEVICE lease
+  -> Desktop preflight
+  -> resolve local media IDs/checksums
+  -> journal + segment cache
+  -> FFmpeg/ffprobe render
+  -> checksum-verified local final MP4
+  -> backend completion metadata
 ```
 
-The Drive adapter supports resumable chunk recovery within an attempt and fingerprint lookup to reuse an already-uploaded matching remote file. The local render workspace is ephemeral, so cross-attempt upload-only retry without rerender is still a hardening target.
+Retained cloud fallback:
 
-## Current versus target media scope
+```text
+remote R2 inputs
+  -> cloud/server render
+  -> Google Drive final upload
+  -> FinalArtifact provider metadata
+```
+
+## Current versus target scope
 
 | Capability | Status |
 |---|---|
+| Stable guest identity / guest-first workspace | IMPLEMENTED |
+| Google-only account sign-in | IMPLEMENTED |
+| In-context auth gate + ownership transfer | IMPLEMENTED foundation |
 | Chapter analysis | IMPLEMENTED |
 | Character/Location continuity | IMPLEMENTED foundation |
-| Project Character list/detail | IMPLEMENTED foundation |
-| Backend-authoritative MediaPlan | IMPLEMENTED foundation |
-| Generated narration + R2 durability | IMPLEMENTED foundation |
-| User-provided narration plan/timeline + TTS bypass | IMPLEMENTED foundation |
-| Production uploaded-audio E2E | PARTIAL |
-| Vertex image generation + R2 materialization | IMPLEMENTED foundation |
-| READY image assets consumed by renderer | IMPLEMENTED foundation |
-| IMAGE_MOTION chapter render/export | IMPLEMENTED foundation |
-| Google Drive final-video upload + metadata | IMPLEMENTED foundation |
-| Uploaded multi-part audio render slicing/stitching | PARTIAL/TARGET |
-| Owner-authorized Drive preview/download/streaming | IMPLEMENTED |
-| Cross-attempt upload-only retry | TARGET hardening |
-| VisualScenePlanner | TARGET |
-| Character/reference locking + richer image reuse lineage | PARTIAL/DEFERRED fast-follow |
-| HYBRID_LOCAL_I2V end-to-end | DEFERRED fast-follow |
+| Storyboard Scene/VisualBeat | IMPLEMENTED foundation |
+| Generated narration + Desktop materialization | IMPLEMENTED foundation |
+| User-provided narration import/TTS bypass | IMPLEMENTED foundation |
+| Arbitrary multi-part audio production coverage | PARTIAL |
+| Vertex image generation + Desktop materialization | IMPLEMENTED foundation |
+| Native local asset registration | IMPLEMENTED foundation |
+| Persisted beat media selection | IMPLEMENTED foundation |
+| Mixed image/video beat timeline | IMPLEMENTED foundation |
+| Desktop local FFmpeg render | IMPLEMENTED foundation |
+| Render preflight/journal/cache | IMPLEMENTED foundation |
+| Backup/restore/archive-copy | IMPLEMENTED foundation |
+| Abrupt process/OS render recovery UX | PARTIAL |
+| Packaging/signing/auto-update | TARGET |
+| Adaptive VisualScenePlanner | TARGET |
+| Rich reuse/reframe/edit lineage | DEFERRED fast-follow |
+| HYBRID_LOCAL_I2V | DEFERRED fast-follow |
 | Complete billing/actual-usage reconciliation | PARTIAL |
 
 ## Acceptance direction
 
-The currently working render foundation is the generated-narration Chapter path. The full creator-loop acceptance remains broader:
+The reliable creator-loop target is:
 
 ```text
-persisted Chapter scope
-  -> analysis/review state
+guest/account project source
+  -> analysis/review
   -> narration strategy + aligned timeline
-  -> authorized MediaPlan
-  -> durable R2 image/audio assets
-  -> deterministic IMAGE_MOTION
+  -> generated/imported beat media
+  -> explicit production selections
+  -> local materialization + integrity checks
+  -> backend-authorized local render
   -> validated local MP4
-  -> Google Drive upload + verification
-  -> READY FinalArtifact metadata
 ```
 
-For `USER_PROVIDED_AUDIO`, acceptance additionally requires converting the aligned global timeline into the exact chapter-local audio input consumed by render.
+A provider success response alone never completes a media stage. Results must be validated, assigned stable identity/lineage and materialized according to the active execution/storage mode.
 
-A provider success response alone never completes a media stage. Pipeline media must be validated and durably stored in R2 with PostgreSQL metadata; final video must be validated, durably stored/verified in Drive and committed to PostgreSQL.
-
-Detailed feature/status inventory: [FEATURE_CATALOG.md](FEATURE_CATALOG.md).
+Detailed feature/status inventory: [FEATURE_CATALOG.md](FEATURE_CATALOG.md). Active remaining work: [ROADMAP.md](ROADMAP.md).

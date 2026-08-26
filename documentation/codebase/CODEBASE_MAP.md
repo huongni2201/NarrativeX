@@ -1,137 +1,140 @@
 # NarrativeX Current Codebase Map — V1.11
 
 **Canonical baseline:** `documentation/source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`  
-**Implementation checkpoint:** `main` at `751f006634218efb2c398fc00c2cbfecd25e1eac` (2026-08-24)
+**Implementation checkpoint:** `main` at `0aca94e6eef07158e161cd67c648671e74055473` (2026-08-26)
 
 ## Runtime layout
 
 ```text
 app/desktop/          Electron / React / TypeScript only editor client
-                     + local project storage
-                     + device execution
-                     + FFmpeg/ffprobe local render
+                     + stable guest bootstrap
+                     + local project storage / backup / cache
+                     + native asset import
+                     + local FFmpeg/ffprobe render
 
 app/backend-service/  Java / Spring Boot modular monolith
-                     durable policy/control plane
+                     auth/ownership/domain/policy/control plane
+                     MyBatis + Flyway + PostgreSQL
 
 app/ai-worker/        Python async AI/media/provider worker
-                     retained server execution paths
+                     retained server/provider execution paths
 
 packages/client-contracts/
-                     shared typed client contracts
+                     shared typed Desktop/backend contracts
 
 contracts/            backend <-> worker contracts
-documentation/        source of truth, architecture, workflows, ADRs and plans
+documentation/        source of truth, architecture, workflows, ADRs, roadmap
 ```
 
-`app/frontend-web` has been removed. The repository no longer contains a parallel browser editor.
+`app/frontend-web` and the Caddy frontend ingress layer are removed.
 
-## Primary Desktop runtime
+## Desktop main/preload/renderer split
 
 ```text
-Electron renderer
-  -> editor UI, routing, React Query/Zustand state
+renderer
+  -> feature-oriented React UI
+  -> React Query backend state
+  -> Zustand/editor draft state
+  -> timeline / preview / inspector
 
-Electron preload
-  -> narrow typed bridge
+preload
+  -> narrow allow-listed typed capabilities
 
-Electron main
-  -> system-browser/deep-link auth handoff
+main
   -> backend session transport
-  -> native file/folder actions
-  -> ProjectStorage
-  -> protected device identity
-  -> local execution service
+  -> guest installation credential
+  -> system-browser/deep-link auth
+  -> native file dialogs and inspection
+  -> ProjectStorage / ProjectCatalog
+  -> backup/restore/archive-copy
+  -> device identity/execution
   -> FFmpeg/ffprobe ProjectRenderer
-
-Spring backend
-  -> PostgreSQL authoritative domain/job/lease metadata
-  -> Redis server-managed session/transient hints
-  -> provider/server workers where needed
 ```
 
-## Desktop implementation highlights
+Renderer code does not own arbitrary filesystem paths, session cookies, provider secrets or FFmpeg execution.
 
-- Electron BrowserWindow uses `contextIsolation: true`, `nodeIntegration: false`, sandbox enabled.
-- Desktop Google authentication opens `/api/v1/auth/desktop/start` in the system browser.
-- `narrativex://auth/callback` custom-protocol handling supports initial/second-instance callback delivery.
-- Backend Desktop auth start/exchange/logout contracts establish a server-managed NarrativeX session from a one-time handoff code.
-- `ProjectStorage` creates `<userData>/projects/<projectId>` and maintains `project.manifest.json`.
-- Local manifest entries record project-relative path, size and SHA-256.
-- Path traversal/workspace escape, missing files, size mismatches and checksum mismatches are rejected.
-- Local execution supports explicit pairing, protected device identity, heartbeat and online/offline state.
-- Backend-assigned project renders can be claimed by the device.
-- Claimed narration/image inputs are resolved by `narrationAssetId` / `mediaAssetId`, not remote storage keys or absolute paths.
-- Render execution heartbeats its lease, reports progress and reports terminal completion/failure.
-- Active local render can be cancelled in-process.
-- `ProjectRenderer` builds a deterministic manifest, renders segments, concatenates video, concatenates narration, muxes, probes the final video and registers a checksum-verified local artifact.
-- Local rendering is enabled only when FFmpeg is available and `NARRATIVEX_DESKTOP_PROJECT_RENDER_ENABLED=true`.
+## Current Desktop highlights
 
-## Backend implementation highlights
+- guest-first bootstrap uses a stable installation credential and backend guest session;
+- account/provider-consuming actions can trigger in-context Google sign-in without losing the active route;
+- project/chapter CRUD is backed by real backend contracts and row-version behavior;
+- native import is two-phase: inspect/hash in main → backend stable asset registration → commit into ProjectStorage;
+- image generation and narration flows include local materialization foundations;
+- production timeline reads are narration-aligned and support explicit beat media selection;
+- duration/camera draft edits use typed undo/redo command history;
+- local export performs capability/disk/integrity preflight before render submission;
+- local rendering is backend-assigned and lease-controlled;
+- render state is journaled and unfinished work is discoverable after restart;
+- immutable segment cache avoids redundant segment FFmpeg work;
+- Settings exposes storage accounting, project verification/cleanup and backup/restore/archive-copy foundations;
+- renderer UI has been reorganized into production-oriented feature/component boundaries with Tailwind/source-owned primitives.
 
-- Production persistence is MyBatis + explicit SQL.
-- Project/Chapter/Analyze foundations are durable.
-- GenerationJob, StageAttempt, OperationPlan, MediaPlan and outbox/job-history foundations are persisted.
-- Character/ProjectCharacter/Location continuity foundations exist.
-- Provider execution state and failure/reconciliation fences remain backend/worker concerns.
-- Local-device capability/heartbeat/revocation/assignment state is persisted by the backend.
-- Server AI/media execution remains available where the Desktop path still depends on it.
+## Backend highlights
 
-## Storage map by execution mode
+- Spring Boot 4.1.0 / Java 25;
+- MyBatis-only production application persistence;
+- stable Desktop guest installation identities and guest ownership transfer;
+- project/chapter/storyboard/character/location domain foundations;
+- durable generation jobs, stages, provider operations, plans, outbox and quota foundations;
+- V5 persisted production beat media selections;
+- production timeline aggregation/alignment and local render input snapshots;
+- local device capability/heartbeat/revocation/render assignment;
+- server worker/provider paths retained where Desktop still depends on remote execution or fallback durability.
+
+## Worker highlights
+
+- Python 3.12+ async worker roles;
+- provider submission/reconciliation with bounded retry foundations;
+- runtime-file handling and deterministic retry policy;
+- narration, image generation and retained render/storage paths;
+- visual timing helpers aligned with narration-driven production timing.
+
+Workers execute backend-authorized plans. They do not own Desktop paths or user authorization policy.
+
+## Storage by execution mode
 
 ### Primary Desktop path
 
 ```text
-Generated/imported project images   -> local project workspace
-Project narration/audio             -> local project workspace
-Imported media                      -> local project workspace
-Render intermediates                -> local project workspace/work
-Final rendered MP4                  -> local project workspace/artifacts
-Durable business/job metadata       -> PostgreSQL
+Project media                   -> local project workspace
+Render intermediates/cache      -> local project workspace/work
+Backups/snapshots               -> Desktop-managed local storage
+Final MP4                       -> local project workspace/artifacts
+Durable business/job metadata   -> PostgreSQL
 ```
 
-Backend state uses stable IDs/checksums and opaque project-relative artifact keys. It never persists absolute Desktop filesystem paths.
+Backend state uses stable IDs/checksums and opaque project-relative artifact keys. It does not persist absolute Desktop filesystem paths.
 
 ### Retained server-worker path
 
 ```text
-Server pipeline media               -> Cloudflare R2 where remote durability is required
-Server final rendered MP4           -> Google Drive for retained cloud render fallback
-Worker scratch                      -> ephemeral filesystem
-Durable business/job metadata       -> PostgreSQL
+Server pipeline media           -> Cloudflare R2 where remote durability is required
+Server final rendered MP4       -> Google Drive for retained cloud render fallback
+Worker scratch                  -> ephemeral filesystem
+Durable business/job metadata   -> PostgreSQL
 ```
 
-R2/Drive remain valid for retained server-worker paths and deliberately shared remote media. They are not the Desktop project-media contract.
+## Flyway baseline
 
-## Production ingress
+```text
+V1__create_tables.sql            # frozen core schema
+V2__init_indexes.sql             # frozen core indexes
+V3__seed_data.sql                # frozen deterministic seeds
+V4__desktop_guest_installations.sql
+V5__production_beat_media_selections.sql
+```
 
-`docker-compose.yml` contains no web frontend or Caddy service. For self-hosted
-deployments, Cloudflare Tunnel is opt-in through the `tunnel` Compose profile and
-may route the public HTTPS API hostname directly to `http://backend:8080` on the
-Compose network. If the deployment platform already provides HTTPS ingress,
-`cloudflared` is optional.
+V4+ are append-only feature migrations.
 
 ## Current gaps
 
 ```text
-restart-safe local render recovery/resume
-  -> complete local materialization of remaining generation/import outputs
-  -> richer timeline/editor mutations and regeneration/reuse workflows
-  -> disk cleanup/backup/move/repair UX
-  -> packaging/signing/auto-update hardening
-  -> production Desktop E2E and release hardening
+production packaging / signing / auto-update
+  -> packaged protocol/OAuth/OS integration coverage
+  -> richer abrupt-process render recovery UX
+  -> richer timeline/review/regeneration/reuse workflows
+  -> adaptive narration-driven VisualScenePlanner
+  -> complete billing/actual-usage reconciliation
 ```
 
-User-provided audio and other generation workflows must be described per the execution path actually implemented; do not infer Desktop-local completeness merely because a server foundation exists.
-
-## Persistence direction
-
-The production persistence migration is complete: production source uses MyBatis + explicit SQL and does not use JPA or direct `JdbcTemplate` persistence as the application persistence mechanism.
-
-## Worker boundary
-
-Python workers own provider/media mechanics according to backend-authorized plans. They may still own remote storage/materialization and server rendering paths where those paths are retained. They do not own Desktop local filesystem paths, Electron native capabilities, user authorization, entitlement policy or Flyway schema ownership.
-
-## Documentation authority
-
-For factual AS-IS behavior, current code/migrations/tests win over stale derived documentation. Desktop client/storage/auth/render boundaries are defined by ADR-0010, ADR-0011 and ADR-0012.
+Completed Desktop/backend/persistence migration plans have been retired; remaining work is tracked in `documentation/product/ROADMAP.md`.

@@ -10,138 +10,108 @@ NarrationStrategy
   USER_PROVIDED_AUDIO
 ```
 
-For an accepted user-provided-audio scope, operation planning omits TTS work/reservation for that same scope.
+For an accepted user-provided-audio scope, operation planning omits TTS work/reservation for that scope.
 
-## Generated narration — implemented provider foundation
+## Generated narration
 
-Generated narration starts from the persisted source identity and is validated/aligned before downstream use.
+Generated narration starts from a persisted source identity and is validated/aligned before downstream use.
 
 ### Google TTS
 
 ```text
-persisted Chapter source snapshot
+persisted source snapshot
   -> deterministic NarrationRequest
   -> provider operation / reconciliation
   -> validated audio
   -> alignment
-  -> materialize according to execution mode
+  -> Desktop materialization for local use
 ```
 
-Ambiguous external-provider outcomes remain fenced/reconciled before billable resubmission.
+Ambiguous provider outcomes are reconciled before billable resubmission.
 
 ### VieNeu
 
 ```text
 persisted source
   -> sentence-aware segments
-  -> local VieNeu inference
-  -> concatenate/encode final audio
+  -> VieNeu inference
+  -> concatenate/encode
   -> validate + SHA-256
   -> alignment
-  -> materialize according to execution mode
+  -> Desktop materialization for local use
 ```
 
-VieNeu local inference can be regenerated safely when no external paid side effect occurred. Application quota/concurrency policy may still account for local compute.
+Local/self-hosted inference may have no external provider charge while still consuming application compute/quota policy.
 
-## Desktop narration materialization target
+## Desktop generated-audio workflow
 
-For the primary Desktop workflow, narration bytes consumed by local rendering must be registered in the project workspace:
+Current Desktop foundations include voice selection/preview, single/batch TTS requests, progress/error handling and local materialization of accepted narration results used by the project.
 
-```text
-<userData>/projects/<projectId>/assets/audio/
-project.manifest.json
-```
+Generated/project narration bytes used by local rendering live under the project workspace and are referenced through stable backend identity plus manifest integrity metadata. Absolute paths remain inside Electron main.
 
-The manifest maps the backend narration/media identity to a project-relative path, expected size and SHA-256. Electron main resolves/validates the file before rendering.
+## User-provided audio import
 
-Absolute local paths are never persisted as backend narration identity.
-
-Cloud R2-backed narration remains a retained compatibility/provider path during migration; it is not the Desktop project-audio target.
-
-## User-provided audio — implemented planning/timeline foundation
-
-```text
-selected Chapter/source manifest
-  + ordered audio parts (1..N)
-  -> validate/register
-  -> narration/document fingerprints
-  -> one logical global audio clock
-  -> alignment spans
-  -> alignment status/coverage/confidence
-```
-
-One audio part may cover multiple Chapters. Multiple files may cover one Chapter range. File boundaries do not define Chapter boundaries.
-
-## Desktop user-audio import
-
-Primary Desktop flow should use native file selection and local manifest registration:
+Desktop local audio import is an explicit native-file flow. Selecting `USER_PROVIDED_AUDIO` must never silently enqueue TTS.
 
 ```text
 Electron native picker
-  -> validate selected file
-  -> copy/register under project assets/audio
-  -> SHA-256 + size metadata
-  -> backend stores stable asset identity/metadata
-  -> alignment planning/execution
+  -> main inspect/hash
+  -> backend stable local media registration
+  -> main commit under project assets/audio
+  -> manifest relative path + size + SHA-256
+  -> narration/alignment metadata
 ```
 
-Do not require a Desktop user to upload project audio to R2 solely so local FFmpeg can consume it.
+Do not upload project audio to R2 solely so local FFmpeg can consume it. Remote materialization is a separate deliberate requirement for shared/cloud workflows.
 
-If the workflow intentionally needs cross-device/shared/cloud access, a separate explicit remote materialization/sync boundary may use cloud storage.
+## Logical audio clock
 
-## Current local render integration
+```text
+selected source scope
+  + ordered audio parts (1..N)
+  -> fingerprints
+  -> one logical global audio clock
+  -> source-to-audio alignment spans
+  -> coverage/confidence/status
+```
 
-The local project-render claim resolves narration by backend asset identity plus expected integrity metadata. Electron main uses `ProjectStorage.resolveAsset(...)` to obtain the actual machine path only inside the trusted main process.
+One audio part may cover multiple Chapters. Several parts may cover one Chapter range. File boundaries do not define Chapter boundaries.
 
-Local project rendering then performs:
+Alignment must preserve source identity/version, source span, global audio start/end, confidence and coverage/status. Low-confidence, missing or source-incompatible alignment must stop for review/fix rather than silently substituting generated narration.
+
+## Local render integration
+
+The local render claim identifies narration/media by backend identity plus expected integrity metadata. Electron main resolves the actual machine path through ProjectStorage and verifies it before FFmpeg runs.
 
 ```text
 local narration input
-  + local image inputs
-  -> FFmpeg visual segments
-  -> video concat
-  -> narration concat
+  + selected local beat media
+  -> visual segments
+  -> concat video
+  -> concat narration
   -> mux
   -> ffprobe/checksum
   -> local final artifact
 ```
 
-Lease heartbeat/progress/completion/failure are reported to the backend.
+Render execution remains backend-assigned and lease-controlled.
 
-## Multi-part user-provided audio — remaining E2E work
+## Multi-part user audio — remaining hardening
 
-The durable planning/global-clock model exists, but complete local E2E behavior must prove:
+The planning/global-clock model exists, but complete production behavior across every multi-part/Chapter boundary must prove:
 
 ```text
 alignment spans
-  -> identify relevant ordered parts
+  -> select relevant ordered parts
   -> calculate part-local ranges
-  -> slice ranges when required
+  -> slice where required
   -> concatenate across boundaries
   -> validate one render-scope audio input
-  -> register that local input/checksum
-  -> LOCAL_DEVICE render
+  -> register integrity metadata
+  -> render
 ```
 
-Do not claim complete multi-Chapter user-audio → local final-video behavior until this path is implemented and tested.
-
-## Alignment acceptance
-
-Alignment maps source text to global audio time. Preserve at least:
-
-- source identity/version;
-- source span;
-- global audio start/end;
-- confidence;
-- coverage/status.
-
-Low confidence, missing coverage, timeline gaps or incompatible source identity must stop for review/fix. NarrativeX must not silently replace accepted user-provided narration with generated TTS.
-
-## Desktop workspace visibility
-
-The Desktop Audio/Voice workspace should display backend-authoritative job/metadata state while resolving playable local files through the preload/main boundary. Renderer code must not receive arbitrary local paths or raw storage credentials.
-
-Cloud-backed playback may continue through authenticated backend access for compatibility where a local copy is not yet materialized.
+Do not claim complete arbitrary multi-part coverage until the relevant path is proven by code/tests.
 
 ## Cost behavior
 
@@ -149,9 +119,7 @@ For a `USER_PROVIDED_AUDIO` covered scope:
 
 - TTS character workload = 0;
 - no TTS provider operation/reservation for that narration scope;
-- validation/alignment/image/render workload may still be accounted separately.
-
-For VieNeu, there may be no external provider charge while application compute/quota policy still applies.
+- validation/alignment/image/render work may still be accounted separately.
 
 ## Storage by execution mode
 
@@ -159,25 +127,18 @@ For VieNeu, there may be no external provider charge while application compute/q
 
 ```text
 Generated narration       -> local project assets/audio
-Accepted uploaded audio   -> local project assets/audio
-Generated images          -> local project assets/images
+Accepted imported audio   -> local project assets/audio
+Generated/imported media  -> local project assets
 Final local MP4           -> local project artifacts
 Metadata/job state        -> PostgreSQL
 ```
 
-### Cloud/legacy fallback
+### Retained server/cloud path
 
 ```text
-Cloud narration/audio     -> R2
-Cloud images              -> R2
+Cloud narration/media     -> R2 where remote durability is required
 Cloud final MP4           -> Google Drive
 Metadata/job state        -> PostgreSQL
 ```
 
-ADR-0012 governs Desktop local-first project media. ADR-0003 governs the retained cloud path.
-
-## VieNeu machine-local/provider setup
-
-The existing worker/Docker VieNeu path may continue for provider execution during migration. Its output must not force the Desktop project to remain cloud-backed; when a Desktop-local workflow consumes the result, materialize/register the accepted narration into the local project workspace.
-
-GPU/PyTorch execution still requires a GPU-capable runtime/image; toggling only an environment variable is not sufficient when CUDA/PyTorch dependencies are absent.
+ADR-0012 governs Desktop local-first project media. ADR-0003 governs retained cloud/server storage.
