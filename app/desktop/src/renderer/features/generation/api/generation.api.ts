@@ -9,14 +9,18 @@ import type {
 import { apiCommand, apiRequest } from "../../../api/client.ts";
 
 export const generationApi = {
-  analyze: (projectId: string, chapterId: string) =>
-    apiRequest<GenerationJob>(
-      `/api/v1/projects/${encodeURIComponent(projectId)}/chapters/${encodeURIComponent(chapterId)}/analysis-jobs`,
+  analyze: (projectId: string, chapterId: string, contentVariantId?: string | null) => {
+    const params = new URLSearchParams();
+    if (contentVariantId) params.set("contentVariantId", contentVariantId);
+    const query = params.size ? `?${params.toString()}` : "";
+    return apiRequest<GenerationJob>(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/chapters/${encodeURIComponent(chapterId)}/analysis-jobs${query}`,
       {
         method: "POST",
         headers: { "Idempotency-Key": crypto.randomUUID() },
       },
-    ),
+    );
+  },
 
   translateChapter: (
     projectId: string,
