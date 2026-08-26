@@ -140,10 +140,23 @@ export interface DesktopApiResponse {
   bodyText: string;
 }
 
+export interface DesktopSseEvent {
+  event: string;
+  data: string;
+  id: string | null;
+  retry: number | null;
+}
+
+export interface DesktopSseHandlers {
+  onEvent(event: DesktopSseEvent): void;
+  onError?(message: string): void;
+}
+
 export interface NarrativeXDesktopBridge {
   appVersion(): Promise<string>;
   api: {
     request(input: DesktopApiRequest): Promise<DesktopApiResponse>;
+    subscribe(path: string, handlers: DesktopSseHandlers): () => void;
   };
   auth: {
     login(): Promise<void>;
