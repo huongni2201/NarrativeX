@@ -46,5 +46,9 @@ public record CreateProjectRenderRequest(
       @Pattern(regexp = "NONE|PAN|TILT|PUSH_IN|PULL_OUT|TRACK|ZOOM_IN|ZOOM_OUT|PARALLAX")
           String cameraMovement,
       @Pattern(regexp = "TRIM|LOOP|FREEZE_END|SPEED_ADJUST") String fitMode,
-      @Min(0) Long trimStartMs) {}
+      @Min(0) Long trimStartMs) {
+    public BeatOverride(UUID visualBeatId, Long durationMs, String cameraMovement) {
+      this(visualBeatId, durationMs, cameraMovement, null, null);
+    }
+  }
 }
