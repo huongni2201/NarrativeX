@@ -2,129 +2,85 @@
 
 Canonical authority: [`../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md).
 
-Desktop client/media/render boundaries are governed by ADR-0010, ADR-0011 and ADR-0012. ADR-0003 continues to govern retained cloud/worker storage/provider behavior.
+Executable manifests are authoritative for exact dependency versions. This file summarizes the current stack at docs checkpoint `0aca94e6eef07158e161cd67c648671e74055473` (2026-08-26).
 
 | Layer | Current stack | Current role |
 |---|---|---|
-| Desktop | Electron 37, Electron Vite 4, React 19, TypeScript, React Router, TanStack Query, Zustand, Lucide, Tailwind CSS 4, shadcn/ui source components, Radix UI, CVA, clsx, tailwind-merge | **Only supported editor client**; native filesystem/project storage, system-browser auth callback and local execution through Electron main |
-| Browser OAuth flow | Spring Security OAuth2/OIDC endpoints | Backend authentication flow only; no supported browser editor client |
-| Backend | Java 25, Spring Boot 4.1, Security/OAuth2, Spring Session Redis, Actuator | modular monolith, ownership/policy, durable orchestration, MediaPlan/job/lease authority |
-| Persistence | PostgreSQL 18 target, Flyway, MyBatis + explicit SQL | sole production persistence path for durable application/control metadata |
-| Redis | Spring Data Redis + Spring Session Redis | server-managed sessions and transient/non-authoritative hints |
-| Worker | Python 3.12+, Pydantic, HTTPX, asyncpg, google-auth, boto3 | async provider/media execution and retained cloud/server paths |
-| Shared client contracts | `packages/client-contracts` | typed backend contracts consumed by Desktop |
+| Desktop | Electron 43.4.1, Electron Vite 5.0.0, React/React DOM 19.2.8, React Router DOM 7.18.2, TypeScript 7.0.2 | only supported editor client and local native-execution boundary |
+| Desktop state/data | TanStack React Query 5.102.3, Zustand 5.0.15 | backend query/cache and local editor state |
+| Desktop UI | Tailwind CSS 4.3.3, `@tailwindcss/vite` 4.3.3, source-owned shadcn-style primitives, Radix UI, CVA, clsx, tailwind-merge, Lucide 1.34.0, Sonner 2.0.8 | accessible renderer component vocabulary and semantic styling |
+| Browser OAuth flow | Spring Security OAuth2/OIDC endpoints | backend authentication flow only; no browser editor |
+| Backend | Java 25, Spring Boot 4.1.0, Security/OAuth2, Spring Session Redis, Actuator | modular monolith, auth/ownership/policy and durable orchestration authority |
+| Persistence | PostgreSQL + Flyway + MyBatis Spring Boot 4.1.0 + explicit SQL | sole production application persistence path |
+| Redis | Spring Data Redis + Spring Session Redis | server sessions and transient/non-authoritative state |
+| Worker | Python 3.12+, Pydantic 2.7.0, pydantic-settings 2.2.0, HTTPX 0.27.0, asyncpg 0.30.0, google-auth 2.35.0 | async provider/media execution and retained cloud/server paths |
+| Worker media/AI extras | boto3 1.40.0, Pillow 10.0.0, VieNeu 3.3.0, torch/torchaudio 2.8.0, pydub 0.25.1, ffmpeg-python 0.2.0 | narration, image/media processing and retained server rendering roles |
+| Shared client contracts | `packages/client-contracts` | typed Desktop/backend contracts |
 | AI analysis | Vertex Gemini | structured Chapter analysis |
-| Image generation | Vertex Gemini image execution | provider execution foundation; Desktop target materializes/registers project result bytes locally |
-| Narration | Google TTS + local VieNeu + uploaded-audio timeline/alignment contracts | generated/user audio; Desktop target registers project narration locally |
-| Desktop project storage | Electron `userData` + `project.manifest.json` | local-first images/audio/video/final artifacts using relative paths + SHA-256 |
-| Desktop deterministic render | FFmpeg + ffprobe from Electron main | backend-assigned `LOCAL_DEVICE` project render; local final artifact |
-| Cloud pipeline storage | Cloudflare R2 | retained cloud/legacy pipeline media and deliberately shared reusable media |
-| Cloud final video storage | Google Drive | retained cloud/legacy final MP4 path |
-| Optional I2V | Wan-compatible adapter foundation | deferred/fast-follow |
+| Image generation | Vertex Gemini image execution | provider execution plus implemented Desktop materialization foundation |
+| Narration | Google TTS + VieNeu + user-provided audio | generated/imported narration; narration remains the master clock |
+| Desktop project storage | Electron `userData` + `project.manifest.json` | local-first project media, backups, render work/cache and final artifacts |
+| Desktop deterministic render | FFmpeg + ffprobe from Electron main | backend-assigned lease-controlled `LOCAL_DEVICE` rendering |
+| Cloud pipeline storage | Cloudflare R2 | retained server-worker/fallback media durability |
+| Cloud final video storage | Google Drive | retained cloud-render final MP4 path |
 
-## Desktop client boundary
-
-`app/desktop` is the only supported editor client.
+## Desktop trust boundary
 
 ```text
 renderer
-  -> UI / routes / React Query / Zustand / timeline / preview
+  -> React UI / routes / query state / timeline state
   -> no unrestricted Node.js
 
 preload
   -> narrow typed capability bridge
 
 main
-  -> BrowserWindow security
-  -> system-browser Google OAuth start
-  -> narrativex:// callback handling
-  -> native file/folder dialogs
-  -> local ProjectStorage manifest
-  -> protected device identity
-  -> local execution heartbeat/claim/progress
-  -> FFmpeg/ffprobe execution
+  -> backend session transport
+  -> stable guest installation credential
+  -> system-browser OAuth/deep link
+  -> native files and ProjectStorage
+  -> device execution
+  -> FFmpeg/ffprobe
 ```
 
-The renderer must not become an alternative source of truth for Projects, Chapters, Scenes, VisualBeats, assets, entitlements or durable render state.
-
-## Desktop renderer UI stack
-
-The renderer uses a local source-owned component layer under
-`app/desktop/src/renderer/components/ui`:
-
-- Tailwind CSS 4 is compiled by `@tailwindcss/vite`; semantic utility tokens map to the existing NarrativeX CSS variables.
-- shadcn/ui is used as a source distribution model. There is no locked runtime UI library or remote component registry in the Desktop build.
-- Radix UI supplies keyboard navigation, focus management, dialog focus trapping, select behavior and tooltip behavior for the adopted primitives.
-- `class-variance-authority`, `clsx` and `tailwind-merge` provide typed variants and safe class composition through `src/renderer/lib/utils.ts`.
-- Renderer styling is now utility-first: `styles.css` contains only design tokens, Tailwind theme mappings and global accessibility/base rules. Timeline geometry, canvas art direction, dense panels, projects and auth screens use Tailwind utilities and source-owned primitives.
-
-The migration covers Button, Card, Dialog, DropdownMenu, Input, Select, Tabs, Textarea and Tooltip. Domain/API behavior remains unchanged while the renderer converges on one accessible component vocabulary.
+The renderer must not become a second source of truth for Projects, Chapters, storyboard state, assets, entitlements or durable render state.
 
 ## Authentication status
 
-Google is the only user-facing login provider.
+Desktop is guest-first. A stable installation-scoped guest identity provides ownership continuity for free workspace usage. Google remains the only end-user account sign-in provider and is required for backend-gated account/provider-consuming operations.
 
-Desktop uses:
+The guest installation secret, signed-in user session and local-execution device credential are separate security concepts. Google access/refresh tokens never enter Electron.
 
-```text
-system browser
-  -> /api/v1/auth/desktop/start
-  -> Google OIDC
-  -> narrativex://auth/callback?code=...
-  -> /api/v1/auth/desktop/exchange
-  -> server-managed NarrativeX session
-```
+## Renderer UI structure
 
-Google access/refresh tokens do not enter Electron. Local-execution device credentials are separate from user authentication and are used only for device/job APIs.
+The current renderer uses feature-oriented modules plus source-owned primitives under `app/desktop/src/renderer/components/ui`.
+
+- Tailwind CSS 4 is compiled by `@tailwindcss/vite`.
+- shadcn/ui is used as a source distribution model rather than a runtime dependency.
+- Radix primitives provide accessibility behavior for adopted controls.
+- CVA/clsx/tailwind-merge provide variants and class composition.
+- `styles.css` should remain focused on tokens/theme mappings/global accessibility rules rather than page-specific styling.
+
+See `documentation/codebase/DESKTOP_RENDERER_STRUCTURE.md` and ADR-0017 for the current component/feature boundary.
 
 ## Desktop local storage/render status
 
-Implemented foundation at `main` commit `751f006634218efb2c398fc00c2cbfecd25e1eac`:
+Implemented foundations include:
 
-- schema-versioned local project manifest;
-- project-relative asset/artifact paths;
-- path-boundary, file-size and SHA-256 validation;
-- local device pairing/heartbeat;
-- backend-assigned local project-render claim;
-- lease heartbeat/progress/failure/completion;
-- FFmpeg/ffprobe probing;
-- segment render → video concat → narration concat → mux → ffprobe → local artifact registration;
-- in-process cancellation.
+- schema-versioned local project manifest and project catalog;
+- native local import/registration without renderer path exposure;
+- image/narration local materialization for implemented Desktop flows;
+- render preflight, local device claim/lease and FFmpeg execution;
+- atomic render journal discovery;
+- render segment cache;
+- storage verification/cleanup;
+- workspace backup/restore/archive-copy;
+- local checksum-verified final artifact registration.
 
-Local project rendering requires FFmpeg/ffprobe and `NARRATIVEX_DESKTOP_PROJECT_RENDER_ENABLED=true`.
-
-Process-restart recovery and complete local materialization of every generation/import path remain incomplete.
-
-## Storage by execution mode
-
-### Primary Desktop path
-
-```text
-Project images/audio/video  -> local project workspace
-Render intermediates        -> local project workspace/work
-Final MP4                   -> local project workspace/artifacts
-Business/job metadata       -> PostgreSQL
-```
-
-### Retained cloud/legacy path
-
-```text
-Pipeline media              -> R2
-Final cloud-rendered MP4    -> Google Drive
-Business/job metadata       -> PostgreSQL
-Worker scratch              -> ephemeral local filesystem
-```
-
-Do not describe R2/Google Drive as mandatory storage for Desktop project media.
+Production release hardening, abrupt-process recovery UX and richer editor/review workflows remain roadmap work.
 
 ## Persistence status
 
-Production persistence uses MyBatis + explicit PostgreSQL SQL. The backend build has no JPA dependency and production source has no direct `JdbcTemplate` persistence.
+Production persistence is MyBatis + explicit PostgreSQL SQL. The backend build contains no JPA persistence dependency and application persistence does not use direct `JdbcTemplate` as a parallel production path.
 
-## Narration status
-
-Narration timing remains authoritative. `USER_PROVIDED_AUDIO` supports ordered parts/global-clock planning and TTS bypass; full multi-part render behavior must be described according to the execution path actually implemented.
-
-## Current client direction
-
-`app/desktop` is the only supported editor client. The former `app/frontend-web` client was removed after the repository's parity, packaging and reliability/dependency gates; browser endpoints that remain are backend authentication flow, not a browser editor surface.
+Current Flyway sequence is V1-V5, with V1-V3 frozen and V4+ append-only feature migrations.
