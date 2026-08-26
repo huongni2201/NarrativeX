@@ -34,14 +34,20 @@ export function planSubtitles(
 export function planChapterSubtitles(
   chapter: SubtitlePlanningChapter,
 ): PlannedSubtitle[] {
-  const text = normalizeSourceText(chapter.subtitleText);
+  // Keep the immutable source string byte-for-byte/character-for-character here:
+  // narration alignment text offsets were produced against this exact text.
+  const sourceText = chapter.subtitleText ?? "";
   const chapterDurationMs = Math.max(0, chapter.globalEndMs - chapter.globalStartMs);
-  if (!text || chapterDurationMs <= 0) return [];
+  if (!sourceText.trim() || chapterDurationMs <= 0) return [];
 
-  const spans = parseAlignmentSpans(chapter.subtitleSpansJson, text.length, chapterDurationMs);
+  const spans = parseAlignmentSpans(
+    chapter.subtitleSpansJson,
+    sourceText.length,
+    chapterDurationMs,
+  );
   if (spans.length) {
     return spans.flatMap((span) => {
-      const spanText = cleanCueText(text.slice(span.textStart, span.textEnd));
+      const spanText = cleanCueText(sourceText.slice(span.textStart, span.textEnd));
       if (!spanText) return [];
       return splitTimedText(
         chapter.chapterId,
@@ -53,7 +59,7 @@ export function planChapterSubtitles(
     });
   }
 
-  const chunks = splitReadableText(text);
+  const chunks = splitReadableText(normalizeFallbackText(sourceText));
   if (!chunks.length) return [];
   const weights = chunks.map((chunk) => Math.max(1, visibleWeight(chunk)));
   const totalWeight = weights.reduce((sum, value) => sum + value, 0);
@@ -147,9 +153,10 @@ function splitTimedText(
   let cumulative = 0;
   return chunks.map((chunk, index) => {
     cumulative += weights[index];
-    const rawEnd = index === chunks.length - 1
-      ? endMs
-      : startMs + Math.round((duration * cumulative) / totalWeight);
+    const rawEnd =
+      index === chunks.length - 1
+        ? endMs
+        : startMs + Math.round((duration * cumulative) / totalWeight);
     const cueEnd = Math.min(endMs, Math.max(cursor + 1, rawEnd));
     const cue = { chapterId, startMs: cursor, endMs: cueEnd, text: chunk, timingSource };
     cursor = cueEnd;
@@ -185,7 +192,7 @@ function splitReadableText(value: string): string[] {
   return chunks;
 }
 
-function normalizeSourceText(value: string): string {
+function normalizeFallbackText(value: string): string {
   return value.replace(/\r\n?/g, "\n").trim();
 }
 
