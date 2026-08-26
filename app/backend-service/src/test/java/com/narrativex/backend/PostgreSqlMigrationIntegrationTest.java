@@ -61,6 +61,7 @@ class PostgreSqlMigrationIntegrationTest {
           "project_assets",
           "scenes",
           "visual_beats",
+          "production_beat_media_selections",
           "generation_jobs",
           "stage_attempts",
           "provider_operations",
@@ -110,8 +111,8 @@ class PostgreSqlMigrationIntegrationTest {
       for (String table : UUID_ID_TABLES) {
         assertEquals("uuid", columnType(connection, table, "id"), table + ".id must be UUID");
         assertTrue(
-            columnDefault(connection, table, "id").contains("narrativex_uuid_v7()"),
-            table + ".id must use the UUIDv7 default");
+            columnDefault(connection, table, "id").contains("uuidv7()"),
+            table + ".id must use the native PostgreSQL UUIDv7 default");
       }
 
       assertEquals("uuid", columnType(connection, "generation_jobs", "job_id"));
@@ -142,11 +143,20 @@ class PostgreSqlMigrationIntegrationTest {
       assertTrue(tableExists(connection, "local_device_pairing_codes"));
       assertTrue(tableExists(connection, "local_devices"));
       assertTrue(tableExists(connection, "local_device_capabilities"));
+      assertTrue(tableExists(connection, "desktop_guest_installations"));
+      assertTrue(indexExists(connection, "idx_desktop_guest_installations_last_seen"));
       assertTrue(tableExists(connection, "local_media_materializations"));
       assertEquals("uuid", columnType(connection, "local_media_materializations", "project_id"));
       assertEquals("uuid", columnType(connection, "local_media_materializations", "media_asset_id"));
       assertEquals("uuid", columnType(connection, "local_media_materializations", "local_device_id"));
       assertEquals("NO", columnNullable(connection, "local_media_materializations", "local_device_id"));
+
+      assertTrue(tableExists(connection, "production_beat_media_selections"));
+      assertTrue(indexExists(connection, "idx_production_beat_media_selection_asset"));
+      assertEquals(
+          "uuid", columnType(connection, "production_beat_media_selections", "visual_beat_id"));
+      assertEquals(
+          "uuid", columnType(connection, "production_beat_media_selections", "media_asset_id"));
 
       assertTrue(tableExists(connection, "project_render_input_snapshots"));
       assertTrue(tableExists(connection, "project_render_input_chapters"));
@@ -161,6 +171,17 @@ class PostgreSqlMigrationIntegrationTest {
           columnType(connection, "project_render_input_snapshots", "assigned_local_device_id"));
       assertEquals("uuid", columnType(connection, "project_render_input_chapters", "chapter_id"));
       assertEquals("uuid", columnType(connection, "project_render_input_beats", "visual_beat_id"));
+      assertEquals("YES", columnNullable(connection, "project_render_input_beats", "storage_key"));
+      assertEquals(
+          "character varying", columnType(connection, "project_render_input_beats", "media_type"));
+      assertEquals(
+          "character varying", columnType(connection, "project_render_input_beats", "storage_mode"));
+      assertEquals("bigint", columnType(connection, "project_render_input_beats", "source_duration_ms"));
+      assertEquals(
+          "character varying", columnType(connection, "project_render_input_beats", "fit_mode"));
+      assertEquals("bigint", columnType(connection, "project_render_input_beats", "trim_start_ms"));
+      assertEquals(
+          "boolean", columnType(connection, "project_render_input_beats", "media_selection_active"));
       assertTrue(indexExists(connection, "idx_project_render_input_local_claim"));
 
       assertEquals("bigint", columnType(connection, "projects", "row_version"));
@@ -189,9 +210,9 @@ class PostgreSqlMigrationIntegrationTest {
   }
 
   @Test
-  void databaseUuidV7FunctionProducesVersion7Identifiers() throws SQLException {
+  void nativePostgresUuidV7ProducesVersion7Identifiers() throws SQLException {
     try (Connection connection = dataSource.getConnection();
-        PreparedStatement statement = connection.prepareStatement("select narrativex_uuid_v7()");
+        PreparedStatement statement = connection.prepareStatement("select uuidv7()");
         ResultSet result = statement.executeQuery()) {
       assertTrue(result.next());
       UUID generated = result.getObject(1, UUID.class);
