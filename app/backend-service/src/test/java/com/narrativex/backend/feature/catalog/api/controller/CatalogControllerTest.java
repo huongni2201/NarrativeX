@@ -47,6 +47,7 @@ class CatalogControllerTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data[0].name").value("Cinematic Warmth"))
+        .andExpect(jsonPath("$.data[0].category").value("VISUAL_STYLE"))
         .andExpect(
             jsonPath("$.data[0].description")
                 .value("Warm cinematic lighting with grounded texture."))
@@ -54,7 +55,6 @@ class CatalogControllerTest {
             jsonPath("$.data[0].thumbnail").value("https://example.test/cinematic-warmth.jpg"))
         .andExpect(jsonPath("$.data[0].tags[0]").value("cinematic"))
         .andExpect(jsonPath("$.data[0].id").doesNotExist())
-        .andExpect(jsonPath("$.data[0].category").doesNotExist())
         .andExpect(jsonPath("$.data[0].createdAt").doesNotExist())
         .andExpect(jsonPath("$.data[0].promptSuffix").doesNotExist())
         .andExpect(jsonPath("$.data[0].negativePrompt").doesNotExist())
