@@ -8,13 +8,22 @@ import { assertContract, isRecord, isString } from "../../../api/guards.ts";
 
 const ASSET_PAGE_LIMIT = 100;
 
+export type AssetLibraryScope = "all" | "audio" | "visual";
+
 function isAsset(value: unknown): value is DesktopAsset {
   return (
     isRecord(value) &&
     isString(value.id) &&
     (value.type === "AUDIO" || value.type === "IMAGE" || value.type === "VIDEO") &&
+    isString(value.origin) &&
     isString(value.originalFilename) &&
-    isString(value.status)
+    isString(value.contentType) &&
+    typeof value.sizeBytes === "number" &&
+    Number.isFinite(value.sizeBytes) &&
+    isString(value.status) &&
+    isString(value.createdAt) &&
+    (value.durationMs === null ||
+      (typeof value.durationMs === "number" && Number.isFinite(value.durationMs)))
   );
 }
 
@@ -30,16 +39,19 @@ function parseAssets(value: unknown) {
   };
 }
 
-async function listAll(): Promise<DesktopAsset[]> {
+async function listAllByType(type?: DesktopAsset["type"]): Promise<DesktopAsset[]> {
   const assets: DesktopAsset[] = [];
   const seenCursors = new Set<string>();
   let cursor: string | null = null;
 
   do {
     const params = new URLSearchParams({ limit: String(ASSET_PAGE_LIMIT) });
+    if (type) params.set("type", type);
     if (cursor) params.set("cursor", cursor);
+
     const page = await apiRequest<unknown>(`/api/v1/assets?${params.toString()}`).then(parseAssets);
     assets.push(...page.items);
+
     if (!page.nextCursor) break;
     if (seenCursors.has(page.nextCursor)) {
       throw new Error("Assets pagination returned a repeated cursor.");
@@ -49,6 +61,15 @@ async function listAll(): Promise<DesktopAsset[]> {
   } while (true);
 
   return assets;
+}
+
+async function listAll(scope: AssetLibraryScope = "all"): Promise<DesktopAsset[]> {
+  if (scope === "audio") return listAllByType("AUDIO");
+  if (scope === "visual") {
+    const groups = await Promise.all([listAllByType("IMAGE"), listAllByType("VIDEO")]);
+    return groups.flat().sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+  }
+  return listAllByType();
 }
 
 export function toRegisterLocalAssetRequest(
