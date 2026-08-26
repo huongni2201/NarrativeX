@@ -9,10 +9,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import org.junit.jupiter.api.Test;
 
-/** Verifies the responsibility split and core contracts of the consolidated Flyway baseline. */
+/** Verifies the frozen baseline and append-only PostgreSQL runtime-state migration contracts. */
 class FlywayBaselineStructureTest {
   @Test
-  void consolidatedBaselineStaysCanonical() throws IOException {
+  void migrationSetStaysCanonical() throws IOException {
     assertEquals(
         FlywayMigrationContract.canonicalMigrationNames(),
         FlywayMigrationContract.discoverMigrationNames());
@@ -20,6 +20,8 @@ class FlywayBaselineStructureTest {
     String v1 = Files.readString(FlywayMigrationContract.migration("V1__create_tables.sql"));
     String v2 = Files.readString(FlywayMigrationContract.migration("V2__init_indexes.sql"));
     String v3 = Files.readString(FlywayMigrationContract.migration("V3__seed_data.sql"));
+    String v4 =
+        Files.readString(FlywayMigrationContract.migration("V4__postgres_runtime_state.sql"));
 
     assertFalse(v1.matches("(?is).*\\bCREATE\\s+(?:UNIQUE\\s+)?INDEX\\b.*"));
     assertFalse(v2.matches("(?is).*\\bCREATE\\s+TABLE\\b.*"));
@@ -33,6 +35,11 @@ class FlywayBaselineStructureTest {
     assertTrue(v2.contains("CREATE INDEX idx_desktop_guest_installations_last_seen"));
     assertTrue(v2.contains("CREATE INDEX idx_production_beat_media_selection_asset"));
     assertTrue(v3.contains("supportsSpeakingRate"));
+
+    assertTrue(v4.contains("CREATE TABLE desktop_auth_handoffs"));
+    assertTrue(v4.contains("CREATE TABLE SPRING_SESSION"));
+    assertTrue(v4.contains("CREATE TABLE SPRING_SESSION_ATTRIBUTES"));
+    assertTrue(v4.contains("ON DELETE CASCADE"));
 
     assertFalse(v1.contains("narrativex_uuid_v7"));
     assertFalse(v1.contains("CREATE EXTENSION IF NOT EXISTS pgcrypto"));

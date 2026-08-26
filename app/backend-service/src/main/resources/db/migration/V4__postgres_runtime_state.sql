@@ -1,9 +1,9 @@
--- Remove the Redis runtime dependency by moving transient auth/session state into PostgreSQL.
--- Durable generation state was already PostgreSQL-authoritative; NOTIFY remains only a wake-up hint.
+-- PostgreSQL-only MVP runtime state.
+-- Durable generation state is already PostgreSQL-authoritative; workers poll/claim queue rows directly.
 
 CREATE TABLE desktop_auth_handoffs (
     code_hash VARCHAR(43) PRIMARY KEY,
-    user_id TEXT NOT NULL,
+    user_id VARCHAR(128) NOT NULL,
     display_name TEXT,
     email TEXT,
     avatar_url TEXT,
@@ -15,6 +15,7 @@ CREATE TABLE desktop_auth_handoffs (
 CREATE INDEX idx_desktop_auth_handoffs_expires_at
     ON desktop_auth_handoffs (expires_at);
 
+-- Spring Session JDBC schema is owned by Flyway in non-embedded environments.
 CREATE TABLE SPRING_SESSION (
     PRIMARY_ID CHAR(36) NOT NULL,
     SESSION_ID CHAR(36) NOT NULL,
@@ -22,7 +23,7 @@ CREATE TABLE SPRING_SESSION (
     LAST_ACCESS_TIME BIGINT NOT NULL,
     MAX_INACTIVE_INTERVAL INT NOT NULL,
     EXPIRY_TIME BIGINT NOT NULL,
-    PRINCIPAL_NAME VARCHAR(100),
+    PRINCIPAL_NAME VARCHAR(128),
     CONSTRAINT SPRING_SESSION_PK PRIMARY KEY (PRIMARY_ID)
 );
 

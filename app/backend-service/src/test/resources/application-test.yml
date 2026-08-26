@@ -13,7 +13,8 @@ spring:
       - classpath:db/migration
   session:
     jdbc:
-      initialize-schema: always
+      # Initialize only for embedded H2 tests. PostgreSQL integration tests use Flyway V4.
+      initialize-schema: embedded
 
 server:
   servlet:
