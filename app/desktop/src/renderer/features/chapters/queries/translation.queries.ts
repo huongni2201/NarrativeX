@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from "@tanstack/react-query";
 import type { ConfirmChapterTranslationInput } from "@narrativex/client-contracts";
 import { generationApi } from "../../generation/api/generation.api.ts";
 import { chaptersApi } from "../api/chapters.api.ts";
@@ -44,7 +49,7 @@ export function useTranslateChapter() {
 }
 
 export function invalidateChapterTranslation(
-  queryClient: ReturnType<typeof useQueryClient>,
+  queryClient: QueryClient,
   projectId: string,
   chapterId: string,
 ) {
