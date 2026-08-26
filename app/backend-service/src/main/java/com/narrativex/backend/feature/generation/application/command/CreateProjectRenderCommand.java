@@ -13,6 +13,7 @@ public record CreateProjectRenderCommand(
     String idempotencyKey,
     RenderExecutionTarget executionTarget,
     UUID localDeviceId,
+    UUID backgroundMusicAssetId,
     List<RenderBeatOverride> beatOverrides) {
 
   public CreateProjectRenderCommand {
@@ -34,6 +35,7 @@ public record CreateProjectRenderCommand(
         idempotencyKey,
         RenderExecutionTarget.CLOUD,
         null,
+        null,
         List.of());
   }
 
@@ -51,6 +53,28 @@ public record CreateProjectRenderCommand(
         maxAuthorizedCost,
         idempotencyKey,
         RenderExecutionTarget.CLOUD,
+        null,
+        null,
+        beatOverrides);
+  }
+
+  public CreateProjectRenderCommand(
+      UUID projectId,
+      String resolution,
+      String format,
+      BigDecimal maxAuthorizedCost,
+      String idempotencyKey,
+      RenderExecutionTarget executionTarget,
+      UUID localDeviceId,
+      List<RenderBeatOverride> beatOverrides) {
+    this(
+        projectId,
+        resolution,
+        format,
+        maxAuthorizedCost,
+        idempotencyKey,
+        executionTarget,
+        localDeviceId,
         null,
         beatOverrides);
   }
