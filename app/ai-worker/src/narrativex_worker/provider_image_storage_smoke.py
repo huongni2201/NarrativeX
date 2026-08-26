@@ -1,4 +1,4 @@
-"""Manual smoke for the paid Vertex image -> R2 -> Google Drive production path."""
+"""Manual smoke for the paid Vertex image -> R2 production path."""
 
 from __future__ import annotations
 
@@ -6,11 +6,7 @@ import asyncio
 import hashlib
 import json
 import os
-import subprocess
-import tempfile
 import time
-from pathlib import Path
-from uuid import UUID
 
 from pydantic import SecretStr
 
@@ -18,7 +14,6 @@ from narrativex_worker.config import WorkerSettings
 from narrativex_worker.narration.storage import S3MediaStorage
 from narrativex_worker.providers.image import ImageBatchItem, ImageGenerationRequest
 from narrativex_worker.providers.vertex_image_batch import VertexBatchImageProvider
-from narrativex_worker.rendering.final_storage import GoogleDriveFinalVideoStorage
 from narrativex_worker.schema import ImageAspectRatio, ImageQualityTier, ProviderOperationStatus
 
 
@@ -31,31 +26,6 @@ def _required_env(name: str) -> str:
 
 def _sha256_bytes(content: bytes) -> str:
     return hashlib.sha256(content).hexdigest()
-
-
-async def _create_drive_smoke_video(path: Path) -> None:
-    command = [
-        "ffmpeg",
-        "-hide_banner",
-        "-loglevel",
-        "error",
-        "-y",
-        "-f",
-        "lavfi",
-        "-i",
-        "color=c=black:s=32x32:d=0.25:r=10",
-        "-an",
-        "-c:v",
-        "libx264",
-        "-pix_fmt",
-        "yuv420p",
-        "-metadata",
-        "creation_time=1970-01-01T00:00:00Z",
-        "-movflags",
-        "+faststart",
-        str(path),
-    ]
-    await asyncio.to_thread(subprocess.run, command, check=True, capture_output=True)
 
 
 async def run_smoke() -> None:
@@ -134,19 +104,6 @@ async def run_smoke() -> None:
         if confirmed is None or confirmed.checksum != image.result_fingerprint:
             raise RuntimeError("R2 smoke verification failed")
 
-        with tempfile.TemporaryDirectory(prefix="narrativex-provider-smoke-") as temp_dir:
-            video_path = Path(temp_dir) / "drive-smoke.mp4"
-            await _create_drive_smoke_video(video_path)
-            video_bytes = await asyncio.to_thread(video_path.read_bytes)
-            video_checksum = _sha256_bytes(video_bytes)
-            drive = GoogleDriveFinalVideoStorage.from_env()
-            drive_asset = await drive.put_immutable(
-                file_path=video_path,
-                render_fingerprint=f"provider-smoke-drive-v1-{video_checksum[:24]}",
-                checksum=video_checksum,
-                generation_job_id=UUID("00000000-0000-0000-0000-000000000001"),
-            )
-
         print(
             json.dumps(
                 {
@@ -155,8 +112,6 @@ async def run_smoke() -> None:
                     "imageModel": settings.vertex_image_model,
                     "imageBytes": len(image.content),
                     "r2StorageKey": stored.storage_key,
-                    "driveFileId": drive_asset.external_file_id,
-                    "driveSizeBytes": drive_asset.size_bytes,
                 },
                 separators=(",", ":"),
             )
