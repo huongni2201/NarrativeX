@@ -78,7 +78,7 @@ Renderer code does not own arbitrary filesystem paths, session cookies, provider
 - stable Desktop guest installation identities and guest ownership transfer;
 - project/chapter/storyboard/character/location domain foundations;
 - durable generation jobs, stages, provider operations, plans, outbox and quota foundations;
-- V5 persisted production beat media selections;
+- persisted production beat media selections consolidated into V1;
 - production timeline aggregation/alignment and local render input snapshots;
 - local device capability/heartbeat/revocation/render assignment;
 - render completion and FinalArtifact metadata without final-video byte storage/proxying.
@@ -110,14 +110,12 @@ Backend state uses stable IDs/checksums and opaque project-relative artifact key
 ## Flyway baseline
 
 ```text
-V1__create_tables.sql            # frozen core schema
-V2__init_indexes.sql             # frozen core indexes
+V1__create_tables.sql            # frozen consolidated schema
+V2__init_indexes.sql             # frozen consolidated indexes
 V3__seed_data.sql                # frozen deterministic seeds
-V4__desktop_guest_installations.sql
-V5__production_beat_media_selections.sql
 ```
 
-V4+ are append-only feature migrations.
+The current repository contains only V1-V3. Desktop guest identity, beat media selections and local execution/render metadata are already folded into V1. Future schema changes begin with append-only `V4__*.sql`.
 
 ## Current gaps
 
