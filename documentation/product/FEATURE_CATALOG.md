@@ -24,7 +24,7 @@ This is the maintained feature/status view at docs checkpoint `0aca94e6eef07158e
 | Vertex image generation | IMPLEMENTED foundation | selection/estimate/queue/review + verified Desktop materialization |
 | Remote generated-media transport | IMPLEMENTED foundation | R2 transports AI-generated media before Desktop materialization |
 | Native local media import | IMPLEMENTED foundation | main-process inspect/hash + backend stable identity + ProjectStorage commit |
-| Persisted beat media selection | IMPLEMENTED foundation | V5 production beat media selection state |
+| Persisted beat media selection | IMPLEMENTED foundation | production beat media selection state is consolidated into V1 |
 | Mixed image/video beat model | IMPLEMENTED foundation | timeline can carry media identity; richer video editing semantics remain partial |
 | Timeline duration/camera draft editing | IMPLEMENTED foundation | typed command history with undo/redo/reset |
 | Electron Desktop only editor | IMPLEMENTED | sole supported editor; former web client removed |
@@ -45,7 +45,7 @@ This is the maintained feature/status view at docs checkpoint `0aca94e6eef07158e
 | Direct final playback/export | IMPLEMENTED foundation | Desktop reads the local MP4 without backend byte proxying |
 | Full abrupt-process render recovery/resume UX | PARTIAL | journals exist; complete stage recovery/soak behavior still needs hardening |
 | MyBatis-only production persistence | IMPLEMENTED | production persistence uses MyBatis + explicit SQL |
-| Flyway V1-V3 frozen baseline | IMPLEMENTED | V4+ append-only feature migrations |
+| Flyway V1-V3 frozen baseline | IMPLEMENTED | current repository contains V1-V3 only; future schema evolution starts at append-only V4+ |
 | VisualScenePlanner | TARGET | narration-driven adaptive Scene/VisualBeat planning/review |
 | Reuse/reframe/edit AssetResolver | DEFERRED fast-follow | richer asset lineage/reuse after core reliability |
 | HYBRID_LOCAL_I2V | DEFERRED fast-follow | optional selected-beat I2V, not core Desktop dependency |
