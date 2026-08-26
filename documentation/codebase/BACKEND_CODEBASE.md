@@ -6,12 +6,12 @@
 - Build: Maven under `app/backend-service`.
 - Runtime: Java 25, Spring Boot 4.1.0.
 - Persistence: MyBatis + explicit PostgreSQL SQL is the sole production application persistence path; Flyway owns schema evolution.
-- Redis: Spring Session Redis plus non-authoritative transient/delivery/progress infrastructure.
+- Runtime state: Spring Session JDBC, one-time Desktop OAuth handoffs, durable generation/outbox state and worker claims all use PostgreSQL. Redis is not required by the MVP runtime.
 - Architecture: modular monolith with extraction-oriented feature boundaries plus separate Python asynchronous provider/media workers.
 
 ## Feature/dependency rules
 
-A business feature owns its API, application, domain and infrastructure vertical slice. Cross-feature dependencies use explicit application contracts/ports rather than importing another feature's infrastructure. Domain objects do not call repositories, Redis, storage SDKs, provider SDKs or worker runtimes directly.
+A business feature owns its API, application, domain and infrastructure vertical slice. Cross-feature dependencies use explicit application contracts/ports rather than importing another feature's infrastructure. Domain objects do not call repositories, storage SDKs, provider SDKs or worker runtimes directly.
 
 ## Authentication and ownership
 
@@ -20,6 +20,8 @@ NarrativeX Desktop is guest-first.
 - `desktop_guest_installations` maps a stable Desktop installation to an internal guest owner and stores only the installation-secret hash.
 - The guest principal is not a password/OAuth login provider; it exists for ownership/session continuity.
 - Google OIDC remains the only end-user account sign-in provider.
+- `NX_SESSION` is persisted through Spring Session JDBC in PostgreSQL.
+- Desktop OAuth handoffs store only a hash of the random handoff code, expire after 90 seconds and are atomically consumed from PostgreSQL.
 - Free guest mutations are explicit backend security allowlists.
 - Account/provider-consuming operations require `ROLE_USER` and return `AUTHENTICATION_REQUIRED` to a guest.
 - Desktop one-time exchange transfers eligible guest-owned workspace metadata to the Google account before switching session identity.
@@ -68,6 +70,8 @@ Provider requests require durable lifecycle state. Ambiguous external acceptance
 
 Production application persistence for generation, projects, chapters, storyboard, characters, auth, quota, catalog, notifications, assets and render/local-device state is MyBatis-backed with explicit SQL and guarded affected-row checks.
 
+Generation outbox dispatch uses PostgreSQL `NOTIFY` only as a lossy wake-up hint. Python workers remain PostgreSQL consumers: they claim durable rows directly, so a missed notification cannot lose a job. Notifications are batched by channel and do not serialize outbox payload JSON just to wake a worker.
+
 ## Project media identity
 
 The backend owns stable media identity/metadata, not Desktop absolute file paths.
@@ -85,7 +89,7 @@ Remote R2 upload/session/validation paths remain valid for server/provider/cloud
 
 ## Production timeline
 
-The backend aggregates authoritative production timing/media state for the Desktop editor. V5 adds `production_beat_media_selections` so explicit beat media choices persist outside renderer memory.
+The backend aggregates authoritative production timing/media state for the Desktop editor. Beat media selections and local execution/render metadata are already part of the consolidated baseline schema rather than renderer-only state.
 
 Narration/alignment is the timing authority. Renderer duration/camera drafts are not durable production truth until converted into an admitted render/production contract.
 
@@ -141,11 +145,10 @@ Current Flyway order:
 V1__create_tables.sql
 V2__init_indexes.sql
 V3__seed_data.sql
-V4__desktop_guest_installations.sql
-V5__production_beat_media_selections.sql
+V4__postgres_runtime_state.sql
 ```
 
-V1-V3 are frozen core migrations. V4+ are append-only feature migrations.
+V1-V3 are frozen core migrations. V4 adds Spring Session JDBC and Desktop OAuth handoff tables. Future schema changes are append-only V5+.
 
 ## Quality/concurrency rules
 

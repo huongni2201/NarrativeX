@@ -6,7 +6,7 @@ The repository itself is the current implementation source of truth. Keep archit
 
 ## Non-negotiable domain rules
 
-- PostgreSQL is authoritative for durable business state. Redis is non-authoritative infrastructure used for queue/delivery hints, cache, progress/scheduling, transient abuse-control counters, and server-managed HTTP session storage. Queue/progress state must be reconstructable where designed; Redis session loss may sign users out but must never lose durable business state.
+- PostgreSQL is authoritative for durable business state, durable queues, server-managed HTTP sessions, and one-time Desktop OAuth handoffs. Redis is not required by the MVP runtime. PostgreSQL `NOTIFY` may be used only as a lossy wake-up hint; workers must always be able to discover and claim work from durable PostgreSQL tables.
 - Keep the Spring Boot application modular-monolith shaped. Do not introduce microservices without a measured bottleneck and an explicit ADR.
 - Story text, prompts, references, and provider output are untrusted data. Enforce prompt-injection boundaries, schema validation, provider/media safety handling, and output review at the relevant boundary; StoryVersion itself does not carry a moderation state. Do not require a blanket per-story copyright/rights attestation checkbox. Rights/consent gates apply only where a concrete product or legal requirement exists; real-person references still require explicit consent.
 - Never assume 60 minutes, 2,000 words, one sentence per image, or a fixed image count. Visual planning is duration + semantic complexity + reuse/delta based.
@@ -31,7 +31,7 @@ The repository itself is the current implementation source of truth. Keep archit
 - Electron renderer owns UI/routing/editor state only; unrestricted Node.js/process/filesystem access stays out of the renderer.
 - Electron main owns native filesystem access, protected credentials, system-browser/deep-link handling, backend session transport and local FFmpeg/ffprobe execution.
 - Desktop project bytes are local-first and represented to the backend through stable IDs/checksums plus opaque project-relative artifact keys, never absolute local filesystem paths.
-- Production Compose has no web frontend and no Caddy service.
+- Production Compose has no web frontend, Caddy, or Redis service. PostgreSQL is the only application state service required by the MVP runtime.
 - Cloudflare Tunnel is optional infrastructure for self-hosted HTTPS ingress. In the single `docker-compose.yml`, enable it with the `tunnel` profile; when used, it routes directly to `http://backend:8080`. If deployment already provides HTTPS ingress, leave the profile disabled.
 
 ## Change discipline
