@@ -23,7 +23,7 @@ test("chapter workspace keeps an explicit create mode and blocks generation from
   );
   assert.match(chapters, /setIsCreating\(true\)/);
   assert.match(chapters, /generationBlockedByUnsavedChanges/);
-  assert.match(chapters, /busy \|\| isDirty/);
+  assert.match(chapters, /busy \|\| generationBlockedByUnsavedChanges/);
   assert.doesNotMatch(chapters, /setPage\(2\)/);
   assert.match(chapters, /Math\.min\(Math\.max\(current, 1\), totalPages\)/);
 });
