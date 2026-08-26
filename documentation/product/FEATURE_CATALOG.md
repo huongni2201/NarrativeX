@@ -17,11 +17,12 @@ This is the maintained feature/status view at docs checkpoint `0aca94e6eef07158e
 | Character/Location continuity | IMPLEMENTED foundation | richer human review/reference locking remains partial |
 | Storyboard / Scene / VisualBeat | IMPLEMENTED foundation | richer adaptive planning/revision review remains partial |
 | Narration timing authority | IMPLEMENTED foundation | aligned narration drives beat duration |
-| TTS/VieNeu narration | IMPLEMENTED foundation | provider execution + Desktop local materialization for current flows |
+| VieNeu narration | IMPLEMENTED foundation | provider execution + Desktop local materialization for current flows |
 | Local voice preview | IMPLEMENTED foundation | Desktop voice selection/preview workflow |
 | User-provided narration | IMPLEMENTED foundation | native local import, ordered parts, logical clock and TTS bypass |
 | Arbitrary multi-part user-audio production coverage | PARTIAL | slicing/concatenation/alignment behavior needs complete path-specific proof |
 | Vertex image generation | IMPLEMENTED foundation | selection/estimate/queue/review + verified Desktop materialization |
+| Remote generated-media transport | IMPLEMENTED foundation | R2 transports AI-generated media before Desktop materialization |
 | Native local media import | IMPLEMENTED foundation | main-process inspect/hash + backend stable identity + ProjectStorage commit |
 | Persisted beat media selection | IMPLEMENTED foundation | V5 production beat media selection state |
 | Mixed image/video beat model | IMPLEMENTED foundation | timeline can carry media identity; richer video editing semantics remain partial |
@@ -40,10 +41,9 @@ This is the maintained feature/status view at docs checkpoint `0aca94e6eef07158e
 | Render journal discovery | IMPLEMENTED foundation | atomic state journal + unfinished-work discovery |
 | Render segment cache | IMPLEMENTED foundation | immutable input/timeline/renderer/output identity cache |
 | In-process cancellation | IMPLEMENTED foundation | active render abort path |
-| Desktop final MP4 local storage | IMPLEMENTED foundation | local artifact; backend stores opaque identity/checksum metadata |
+| Desktop final MP4 local storage | IMPLEMENTED foundation | local artifact; backend stores identity/checksum metadata only |
+| Direct final playback/export | IMPLEMENTED foundation | Desktop reads the local MP4 without backend byte proxying |
 | Full abrupt-process render recovery/resume UX | PARTIAL | journals exist; complete stage recovery/soak behavior still needs hardening |
-| Cloud R2 pipeline media | IMPLEMENTED / LEGACY for Desktop | retained server/provider durability path |
-| Cloud Google Drive final MP4 | IMPLEMENTED foundation / FALLBACK | retained cloud-render final-video path |
 | MyBatis-only production persistence | IMPLEMENTED | production persistence uses MyBatis + explicit SQL |
 | Flyway V1-V3 frozen baseline | IMPLEMENTED | V4+ append-only feature migrations |
 | VisualScenePlanner | TARGET | narration-driven adaptive Scene/VisualBeat planning/review |
@@ -53,25 +53,16 @@ This is the maintained feature/status view at docs checkpoint `0aca94e6eef07158e
 | Full actual-cost reconciliation | PARTIAL | estimate/reservation/actual usage remain distinct |
 | Production retention/DR/observability | PARTIAL | operational evidence remains |
 
-## Storage contract by execution mode
-
-### Primary Desktop
+## Storage contract
 
 ```text
-Generated/imported project media  -> local project workspace
-Narration/audio                   -> local project workspace
-Render work/cache                 -> local project workspace/work
-Backups                           -> Desktop-managed local snapshots
-Final local MP4                   -> local project workspace/artifacts
-Business/job state                -> PostgreSQL
-```
-
-### Retained server/cloud
-
-```text
-Cloud pipeline media              -> R2
-Cloud final rendered MP4          -> Google Drive
-Business/job state                -> PostgreSQL
+AI-generated image/narration bytes -> R2 transport until materialized
+Generated/imported project media   -> local project workspace
+Narration/audio                    -> local project workspace
+Render work/cache                  -> local project workspace/work
+Backups                            -> Desktop-managed local snapshots
+Final MP4                          -> local project workspace/artifacts
+Business/job/artifact metadata     -> PostgreSQL
 ```
 
 ## Authentication acceptance
@@ -80,6 +71,6 @@ A Desktop installation can resume the same guest-owned workspace after server-se
 
 ## Local render acceptance
 
-A backend-authorized device can claim a local project render, preflight runtime/disk/assets, resolve checksum-verified media by stable IDs, heartbeat the lease, journal/cache local execution, run FFmpeg/ffprobe, register a local final artifact and report completion without persisting an absolute local path.
+A backend-authorized device can claim a project render, preflight runtime/disk/assets, resolve checksum-verified media by stable IDs, heartbeat the lease, journal/cache local execution, run FFmpeg/ffprobe, register final-artifact metadata and report completion without persisting an absolute local path. Playback/export reads the final local MP4 directly.
 
 Do not claim production-complete crash recovery, adaptive planner completion, arbitrary multi-part audio coverage or release packaging until those paths are proven.
