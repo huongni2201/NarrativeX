@@ -28,12 +28,6 @@ export interface DesktopApiResponse {
   bodyText: string;
 }
 
-export interface DesktopApiStreamMessage {
-  event: string;
-  id?: string;
-  data: string;
-}
-
 export interface GuestIdentityProvider {
   loadOrCreate(): Promise<GuestDeviceIdentity>;
 }
@@ -120,50 +114,6 @@ export class DesktopBackendApiService {
     }
   }
 
-  async stream(
-    path: string,
-    signal: AbortSignal,
-    onMessage: (message: DesktopApiStreamMessage) => void,
-  ): Promise<void> {
-    const url = this.resolveAllowedUrl(path);
-    const response = await this.browserSession.fetch(url.toString(), {
-      method: "GET",
-      headers: { Accept: "text/event-stream" },
-      credentials: "include",
-      redirect: "error",
-      signal,
-    });
-
-    if (!response.ok) {
-      const body = await response.text();
-      throw new Error(
-        `Desktop SSE request failed (${response.status} ${response.statusText}): ${body.slice(0, 500)}`,
-      );
-    }
-    if (!response.body) throw new Error("Desktop SSE response did not include a body stream.");
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-    try {
-      while (!signal.aborted) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n");
-        let boundary = buffer.indexOf("\n\n");
-        while (boundary >= 0) {
-          const frame = buffer.slice(0, boundary);
-          buffer = buffer.slice(boundary + 2);
-          const parsed = parseSseFrame(frame);
-          if (parsed) onMessage(parsed);
-          boundary = buffer.indexOf("\n\n");
-        }
-      }
-    } finally {
-      reader.releaseLock();
-    }
-  }
-
   private resolveAllowedUrl(path: string): URL {
     if (!path.startsWith("/")) throw new Error("Desktop API path must be absolute.");
 
@@ -176,22 +126,4 @@ export class DesktopBackendApiService {
     }
     return url;
   }
-}
-
-function parseSseFrame(frame: string): DesktopApiStreamMessage | null {
-  let event = "message";
-  let id: string | undefined;
-  const data: string[] = [];
-  for (const rawLine of frame.split("\n")) {
-    const line = rawLine.trimEnd();
-    if (!line || line.startsWith(":")) continue;
-    const separator = line.indexOf(":");
-    const field = separator < 0 ? line : line.slice(0, separator);
-    const value = separator < 0 ? "" : line.slice(separator + 1).replace(/^ /, "");
-    if (field === "event") event = value || "message";
-    else if (field === "id") id = value;
-    else if (field === "data") data.push(value);
-  }
-  if (!data.length && event === "message") return null;
-  return { event, id, data: data.join("\n") };
 }
