@@ -82,7 +82,7 @@ export function EditorScreen({
     ? workspace.assets.find((asset) => asset.id === selectedChapter.narrationAssetId) ?? null
     : null;
   const autoDecision = useMemo(
-    () => (selected ? createBeatDecision(selected, "CINEMATIC") : null),
+    () => (selected ? createBeatDecision(selected, "AUTO") : null),
     [selected],
   );
   const previewBeat = useMemo<DesktopTimelineBeat | null>(
