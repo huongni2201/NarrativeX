@@ -1,16 +1,40 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
+import { randomUUID } from "node:crypto";
 import type {
   DesktopApiRequest,
   DesktopApiResponse,
+  DesktopApiStreamEvent,
   LocalExecutionStatus,
   NarrativeXDesktopBridge,
 } from "./types";
+
+const API_STREAM_EVENT_CHANNEL = "desktop:api:stream:event";
 
 const bridge: NarrativeXDesktopBridge = {
   appVersion: () => ipcRenderer.invoke("desktop:app-version"),
   api: {
     request: (input: DesktopApiRequest) =>
       ipcRenderer.invoke("desktop:api:request", input) as Promise<DesktopApiResponse>,
+    subscribe: (path: string, listener: (event: DesktopApiStreamEvent) => void) => {
+      const subscriptionId = randomUUID();
+      const handler = (_event: IpcRendererEvent, message: DesktopApiStreamEvent) => {
+        if (message.subscriptionId === subscriptionId) listener(message);
+      };
+      ipcRenderer.on(API_STREAM_EVENT_CHANNEL, handler);
+      void ipcRenderer
+        .invoke("desktop:api:stream:start", { subscriptionId, path })
+        .catch((error: unknown) => {
+          listener({
+            subscriptionId,
+            event: "error",
+            data: error instanceof Error ? error.message : String(error),
+          });
+        });
+      return () => {
+        ipcRenderer.removeListener(API_STREAM_EVENT_CHANNEL, handler);
+        void ipcRenderer.invoke("desktop:api:stream:stop", subscriptionId).catch(() => undefined);
+      };
+    },
   },
   auth: {
     login: () => ipcRenderer.invoke("desktop:auth:login"),
