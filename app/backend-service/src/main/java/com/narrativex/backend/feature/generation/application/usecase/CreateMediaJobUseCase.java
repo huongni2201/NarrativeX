@@ -93,7 +93,7 @@ public class CreateMediaJobUseCase {
     var activeCurrentJob =
         chapterMediaHeadRepository
             .findCurrentJobId(command.chapterId())
-            .flatMap(jobId -> generationJobRepository.findByJobIdAndOwner(jobId, userId))
+            .flatMap(internalJobId -> generationJobRepository.findByIdAndOwner(internalJobId, userId))
             .filter(job -> job.getStatus().isActive());
     if (activeCurrentJob.isPresent()) {
       log.info(

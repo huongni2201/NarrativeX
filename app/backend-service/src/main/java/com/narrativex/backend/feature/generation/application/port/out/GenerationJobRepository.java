@@ -7,6 +7,8 @@ import java.util.UUID;
 public interface GenerationJobRepository {
   GenerationJob save(GenerationJob job);
 
+  Optional<GenerationJob> findByIdAndOwner(UUID id, String ownerId);
+
   Optional<GenerationJob> findByJobIdAndOwner(UUID jobId, String ownerId);
 
   Optional<GenerationJob> findByIdempotencyKey(String idempotencyKey, String ownerId);

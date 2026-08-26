@@ -1,18 +1,12 @@
 import type { ReactNode } from "react";
 import {
-  Bell,
   BookOpen,
-  ChevronDown,
-  Film,
   Folder,
-  HelpCircle,
   Image as ImageIcon,
   Key,
   Layers3,
   Mic2,
-  Redo2,
   Sparkles,
-  Undo2,
   UserCircle,
 } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
@@ -70,85 +64,30 @@ export function WorkspaceShell({
 
           <div className="flex min-w-0 items-center gap-2">
             <span className="hidden text-[10px] text-text-dim xl:inline">Project</span>
-            <button
-              type="button"
+            <div
               className="nx-compact-control flex min-w-0 max-w-[300px] items-center gap-1.5 px-2.5 text-[11px] font-medium"
               title={projectName}
+              aria-label={`Current project: ${projectName}`}
             >
               <span className="truncate">{projectName}</span>
-              <ChevronDown size={11} className="shrink-0 text-text-muted" />
-            </button>
+            </div>
           </div>
-        </div>
-
-        <div className="hidden shrink-0 items-center rounded-md border border-border-subtle bg-background p-0.5 lg:flex">
-          <span className="px-2 text-[9px] font-medium uppercase tracking-wider text-text-dim">Scope</span>
-          <button
-            type="button"
-            className="rounded-sm border border-primary/40 bg-primary-muted px-2.5 py-1 text-[10px] font-semibold text-primary-hover"
-          >
-            Chapter 01
-          </button>
-          <button
-            type="button"
-            className="rounded-sm px-2.5 py-1 text-[10px] font-medium text-text-muted transition hover:bg-surface-2 hover:text-foreground"
-          >
-            Full Project
-          </button>
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5">
-          <div className="hidden items-center gap-1.5 pr-1 text-[9px] text-success 2xl:flex">
-            <span className="size-1.5 rounded-full bg-success" />
-            <span>Auto saved</span>
-          </div>
-
-          <button type="button" className="nx-icon-button" title="Undo" aria-label="Undo">
-            <Undo2 size={12} />
-          </button>
-          <button type="button" className="nx-icon-button" title="Redo" aria-label="Redo">
-            <Redo2 size={12} />
-          </button>
-          <button type="button" className="nx-icon-button" title="Help" aria-label="Help">
-            <HelpCircle size={12} />
-          </button>
-
-          <div className="relative">
-            <button
-              type="button"
-              className="nx-icon-button"
-              title="Notifications"
-              aria-label="Notifications"
-            >
-              <Bell size={13} />
-            </button>
-            <span className="absolute right-0 top-0 grid size-3 place-items-center rounded-full bg-primary text-[7px] font-bold text-primary-foreground">
-              1
-            </span>
-          </div>
-
-          <button
-            type="button"
-            className="grid size-7 place-items-center rounded-full border border-border bg-surface-3 text-text-secondary transition hover:border-border-dark hover:text-foreground"
-            title="Account"
-            aria-label="Account"
-          >
-            <UserCircle size={16} />
-          </button>
-
           <button
             type="button"
             className="ml-1 flex h-7 items-center gap-1.5 rounded-sm bg-primary px-2.5 text-[10px] font-bold text-primary-foreground shadow-[var(--shadow-primary)] transition hover:bg-primary-hover"
+            onClick={() => navigate(`/projects/${projectId}/render`)}
           >
-            <Film size={12} />
-            <span>Export</span>
-            <ChevronDown size={10} />
+            <Sparkles size={12} />
+            <span>Render</span>
           </button>
         </div>
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <aside className="flex w-[52px] shrink-0 flex-col justify-between border-r border-border-subtle bg-surface-dark px-1 py-2">
+        <aside className="flex w-[52px] shrink-0 flex-col border-r border-border-subtle bg-surface-dark px-1 py-2">
           <nav className="flex flex-col gap-1" aria-label="Workspace navigation">
             {navigation.map(({ id, label, icon: Icon, segment }) => {
               const isActive = screen === id;
@@ -170,13 +109,6 @@ export function WorkspaceShell({
               );
             })}
           </nav>
-
-          <div className="space-y-1 px-1 pb-1 text-center">
-            <span className="block text-[7px] font-semibold uppercase tracking-wider text-text-dim">Storage</span>
-            <div className="h-0.5 overflow-hidden rounded-full bg-surface-4" aria-hidden="true">
-              <div className="h-full w-1/4 rounded-full bg-primary" />
-            </div>
-          </div>
         </aside>
 
         <main className="min-h-0 min-w-0 flex-1 overflow-hidden bg-background">
