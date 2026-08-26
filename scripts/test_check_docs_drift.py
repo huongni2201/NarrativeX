@@ -17,30 +17,6 @@ SPEC.loader.exec_module(CHECKER)
 
 
 class DocsDriftCheckerTest(unittest.TestCase):
-    def fixture(self, name: str) -> str:
-        return (ROOT / "scripts" / "fixtures" / "docs-drift" / name).read_text(encoding="utf-8")
-
-    def test_negative_drive_assertion_is_not_reported(self) -> None:
-        self.assertFalse(
-            CHECKER.contains_desktop_drive_assertion(
-                self.fixture("desktop-final-drive-negative.md")
-            )
-        )
-
-    def test_positive_drive_assertion_is_reported(self) -> None:
-        self.assertTrue(
-            CHECKER.contains_desktop_drive_assertion(
-                self.fixture("desktop-final-drive-positive.md")
-            )
-        )
-
-    def test_paraphrased_positive_drive_assertion_is_reported(self) -> None:
-        self.assertTrue(
-            CHECKER.contains_desktop_drive_assertion(
-                self.fixture("desktop-final-drive-paraphrase.md")
-            )
-        )
-
     def test_removed_web_client_cannot_be_described_as_current(self) -> None:
         errors = CHECKER.desktop_only_invariant_errors(
             Path("fixture.md"),
@@ -48,6 +24,20 @@ class DocsDriftCheckerTest(unittest.TestCase):
             frontend_web_exists=False,
         )
         self.assertTrue(errors)
+
+    def test_removed_drive_contract_is_forbidden_in_current_docs(self) -> None:
+        text = "Desktop final video is stored in Google Drive."
+        matches = [
+            label for label, pattern in CHECKER.FORBIDDEN.items() if pattern.search(text)
+        ]
+        self.assertIn("removed Google Drive storage contract", matches)
+
+    def test_removed_server_render_contract_is_forbidden_in_current_docs(self) -> None:
+        text = "The render-worker uploads the final artifact."
+        matches = [
+            label for label, pattern in CHECKER.FORBIDDEN.items() if pattern.search(text)
+        ]
+        self.assertIn("removed final-video server storage contract", matches)
 
 
 if __name__ == "__main__":
