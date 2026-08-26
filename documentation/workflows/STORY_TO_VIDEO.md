@@ -90,7 +90,7 @@ The current Desktop image-generation flow includes chapter selection, analysis/e
 
 ## Production timeline
 
-The backend production timeline aggregates persisted scene/beat/timing/media state. V5 adds durable beat media selections so an explicit editor choice survives reload and can feed render admission.
+The backend production timeline aggregates persisted scene/beat/timing/media state. Durable beat media selections are part of the consolidated V1 schema, so an explicit editor choice survives reload and can feed render admission.
 
 Renderer draft state supports typed undo/redo/reset for supported duration/camera edits. Draft state is not durable authority until converted to the backend render/production contract.
 
