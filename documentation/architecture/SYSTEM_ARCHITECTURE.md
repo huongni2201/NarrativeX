@@ -152,7 +152,7 @@ business/job/artifact metadata   -> PostgreSQL
 
 ## Production timeline and local render
 
-Production timeline state is backend-authoritative where persisted, including explicit beat media selections introduced by V5. Renderer draft state may add temporary camera/duration edits, but final render submission is converted into backend-authorized immutable input state.
+Production timeline state is backend-authoritative where persisted, including explicit beat media selections consolidated into the frozen V1 schema. Renderer draft state may add temporary camera/duration edits, but final render submission is converted into backend-authorized immutable input state.
 
 ```text
 backend admits + assigns local render
@@ -187,17 +187,15 @@ Implemented image/narration workflows materialize required generated media local
 
 ## Persistence and migrations
 
-Production application persistence is MyBatis + explicit PostgreSQL SQL. Current Flyway sequence is:
+Production application persistence is MyBatis + explicit PostgreSQL SQL. Current Flyway baseline:
 
 ```text
 V1__create_tables.sql
 V2__init_indexes.sql
 V3__seed_data.sql
-V4__desktop_guest_installations.sql
-V5__production_beat_media_selections.sql
 ```
 
-V1-V3 are frozen; V4+ are append-only feature migrations.
+V1-V3 are frozen. Desktop guest identity, production beat media selection and local-execution/render metadata are already consolidated into V1. Future schema evolution starts with an append-only `V4__*.sql`.
 
 ## Remaining architecture hardening
 
