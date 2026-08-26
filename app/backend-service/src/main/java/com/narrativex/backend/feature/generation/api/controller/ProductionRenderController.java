@@ -13,8 +13,11 @@ import com.narrativex.backend.feature.generation.application.usecase.CreateProje
 import com.narrativex.backend.feature.generation.application.usecase.GetProductionTimelineUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.GetProjectRenderArtifactUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.UpdateProductionBeatMediaUseCase;
+import com.narrativex.backend.feature.generation.domain.enums.BeatMediaFitMode;
 import com.narrativex.backend.feature.generation.domain.enums.RenderExecutionTarget;
+import com.narrativex.backend.feature.generation.domain.exception.GenerationAdmissionDeniedException;
 import jakarta.validation.Valid;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -81,6 +84,8 @@ public class ProductionRenderController {
       throw new FeatureNotAvailableException(
           "Cloud project rendering is temporarily unavailable until its worker is enabled.");
     }
+
+    applyAutoEditMediaOverrides(projectId, request.beatOverrides());
     var overrides =
         request.beatOverrides().stream()
             .map(
@@ -105,6 +110,39 @@ public class ProductionRenderController {
                 overrides));
     return ResponseEntity.accepted()
         .body(ApiResponse.success("Project render queued", JobResponse.from(job)));
+  }
+
+  private void applyAutoEditMediaOverrides(
+      UUID projectId, List<CreateProjectRenderRequest.BeatOverride> overrides) {
+    if (overrides.stream().noneMatch(value -> value.fitMode() != null || value.trimStartMs() != null)) {
+      return;
+    }
+
+    var timeline = getProductionTimelineUseCase.execute(projectId);
+    for (var override : overrides) {
+      if (override.fitMode() == null && override.trimStartMs() == null) continue;
+      var beat =
+          timeline.beats().stream()
+              .filter(value -> value.visualBeatId().equals(override.visualBeatId()))
+              .findFirst()
+              .orElseThrow(
+                  () ->
+                      new GenerationAdmissionDeniedException(
+                          "INVALID_RENDER_OVERRIDE",
+                          "Auto Edit references a visual beat outside the current production timeline."));
+      if (beat.mediaAssetId() == null) {
+        throw new GenerationAdmissionDeniedException(
+            "INVALID_RENDER_OVERRIDE", "Auto Edit cannot fit a beat without a selected media asset.");
+      }
+      BeatMediaFitMode fitMode =
+          override.fitMode() == null
+              ? BeatMediaFitMode.valueOf(beat.fitMode())
+              : BeatMediaFitMode.valueOf(override.fitMode());
+      long trimStartMs =
+          override.trimStartMs() == null ? beat.trimStartMs() : override.trimStartMs();
+      updateProductionBeatMediaUseCase.update(
+          projectId, override.visualBeatId(), beat.mediaAssetId(), fitMode, trimStartMs);
+    }
   }
 
   @GetMapping("/renders/by-job/{jobId}")
