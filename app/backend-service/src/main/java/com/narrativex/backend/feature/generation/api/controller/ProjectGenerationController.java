@@ -63,8 +63,7 @@ public class ProjectGenerationController {
                 chapterId,
                 request.voiceId(),
                 request.effectiveSpeakingRate(),
-                request.voiceReferenceAssetId(),
-                request.contentVariantId()));
+                request.voiceReferenceAssetId()));
     return ResponseEntity.status(HttpStatus.ACCEPTED)
         .body(ApiResponse.success("Narration job accepted", JobResponse.from(job)));
   }

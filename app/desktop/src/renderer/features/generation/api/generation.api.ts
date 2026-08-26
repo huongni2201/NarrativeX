@@ -1,5 +1,4 @@
 import type {
-  ConfirmChapterTranslationInput,
   CreateMediaJobInput,
   GenerationJob,
   MediaJobCostEstimate,
@@ -13,27 +12,13 @@ export interface CurrentMediaJob {
 }
 
 export const generationApi = {
-  analyze: (projectId: string, chapterId: string, contentVariantId?: string | null) => {
-    const params = new URLSearchParams();
-    if (contentVariantId) params.set("contentVariantId", contentVariantId);
-    const query = params.size ? `?${params.toString()}` : "";
-    return apiRequest<GenerationJob>(
-      `/api/v1/projects/${encodeURIComponent(projectId)}/chapters/${encodeURIComponent(chapterId)}/analysis-jobs${query}`,
+  analyze: (projectId: string, chapterId: string) =>
+    apiRequest<GenerationJob>(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/chapters/${encodeURIComponent(chapterId)}/analysis-jobs`,
       {
         method: "POST",
         headers: { "Idempotency-Key": crypto.randomUUID() },
       },
-    );
-  },
-
-  translateChapter: (
-    projectId: string,
-    chapterId: string,
-    input: ConfirmChapterTranslationInput,
-  ) =>
-    apiRequest<GenerationJob>(
-      `/api/v1/projects/${encodeURIComponent(projectId)}/chapters/${encodeURIComponent(chapterId)}/translations`,
-      { method: "POST", body: JSON.stringify(input) },
     ),
 
   estimate: (

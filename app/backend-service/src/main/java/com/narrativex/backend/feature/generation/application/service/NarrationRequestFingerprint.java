@@ -26,7 +26,6 @@ public class NarrationRequestFingerprint {
         language,
         speakingRate,
         segmentationVersion,
-        null,
         null);
   }
 
@@ -39,28 +38,6 @@ public class NarrationRequestFingerprint {
       BigDecimal speakingRate,
       String segmentationVersion,
       UUID voiceReferenceAssetId) {
-    return calculate(
-        chapterId,
-        chapterRowVersion,
-        sourceHash,
-        voiceId,
-        language,
-        speakingRate,
-        segmentationVersion,
-        voiceReferenceAssetId,
-        null);
-  }
-
-  public String calculate(
-      UUID chapterId,
-      long chapterRowVersion,
-      String sourceHash,
-      String voiceId,
-      String language,
-      BigDecimal speakingRate,
-      String segmentationVersion,
-      UUID voiceReferenceAssetId,
-      UUID contentVariantId) {
     String payload =
         String.join(
             "|",
@@ -71,8 +48,7 @@ public class NarrationRequestFingerprint {
             language,
             speakingRate.stripTrailingZeros().toPlainString(),
             segmentationVersion,
-            voiceReferenceAssetId == null ? "" : voiceReferenceAssetId.toString(),
-            contentVariantId == null ? "original" : contentVariantId.toString());
+            voiceReferenceAssetId == null ? "" : voiceReferenceAssetId.toString());
     try {
       byte[] digest =
           MessageDigest.getInstance("SHA-256").digest(payload.getBytes(StandardCharsets.UTF_8));

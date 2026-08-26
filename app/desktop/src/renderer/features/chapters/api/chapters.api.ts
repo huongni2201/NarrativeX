@@ -1,6 +1,4 @@
 import type {
-  ChapterContentVariant,
-  ChapterLanguageStatus,
   CreateChapterInput,
   CursorPage,
   DesktopChapterDetails,
@@ -75,16 +73,6 @@ export const chaptersApi = {
     apiRequest<unknown>(
       `/api/v1/projects/${encodeURIComponent(projectId)}/chapters/${encodeURIComponent(chapterId)}/workspace`,
     ).then(parseChapterWorkspace),
-
-  languageStatus: (projectId: string, chapterId: string) =>
-    apiRequest<ChapterLanguageStatus>(
-      `/api/v1/projects/${encodeURIComponent(projectId)}/chapters/${encodeURIComponent(chapterId)}/language-status`,
-    ),
-
-  contentVariants: (projectId: string, chapterId: string) =>
-    apiRequest<ChapterContentVariant[]>(
-      `/api/v1/projects/${encodeURIComponent(projectId)}/chapters/${encodeURIComponent(chapterId)}/content-variants`,
-    ),
 
   create: (projectId: string, input: CreateChapterInput) =>
     apiRequest<DesktopChapterDetails>(

@@ -58,11 +58,8 @@ public class GenerateChapterNarrationUseCase {
   public GenerationJob execute(GenerateChapterNarrationCommand command) {
     String userId = currentUserId.get();
     var chapter =
-        command.contentVariantId() == null
-            ? chapterSourceAccess.requireOwnedForAnalysisLocked(
-                command.projectId(), command.chapterId(), userId)
-            : chapterSourceAccess.requireOwnedForAnalysisLocked(
-                command.projectId(), command.chapterId(), userId, command.contentVariantId());
+        chapterSourceAccess.requireOwnedForAnalysisLocked(
+            command.projectId(), command.chapterId(), userId);
     var project = projectAccess.findOwnedProject(command.projectId(), userId);
 
     if (chapter.sourceText().isBlank()) {
@@ -72,23 +69,16 @@ public class GenerateChapterNarrationUseCase {
     validateSpeakingRate(command, voiceCapabilities);
     validateVoiceReferenceAsset(userId, command, voiceCapabilities);
 
-    String narrationLanguage =
-        chapter.language() == null
-                || chapter.language().isBlank()
-                || "und".equalsIgnoreCase(chapter.language())
-            ? project.getSourceLanguage()
-            : chapter.language();
     String fingerprint =
         fingerprintService.calculate(
             command.chapterId(),
             chapter.rowVersion(),
             chapter.sourceHash(),
             command.voiceId(),
-            narrationLanguage,
+            project.getSourceLanguage(),
             command.speakingRate(),
             SEGMENTATION_VERSION,
-            command.voiceReferenceAssetId(),
-            chapter.contentVariantId());
+            command.voiceReferenceAssetId());
     String baseIdempotencyKey = "chapter-narration:" + fingerprint;
 
     generationJobRepository.acquireIdempotencyLock(baseIdempotencyKey, userId);
@@ -122,7 +112,7 @@ public class GenerateChapterNarrationUseCase {
                 chapter.sourceHash(),
                 chapter.sourceText(),
                 command.voiceId(),
-                narrationLanguage,
+                project.getSourceLanguage(),
                 command.speakingRate(),
                 SEGMENTATION_VERSION,
                 fingerprint,
@@ -158,7 +148,7 @@ public class GenerateChapterNarrationUseCase {
                 chapter.rowVersion(),
                 chapter.sourceHash(),
                 chapter.sourceText(),
-                narrationLanguage,
+                project.getSourceLanguage(),
                 idempotencyKey));
 
     quotaReservation.bindToGenerationJob(admission.reservation().id(), job.getId());
@@ -170,12 +160,11 @@ public class GenerateChapterNarrationUseCase {
             UuidV7.random(), narrationRequest.id(), job.getId(), stageAttempt.getId()));
     generationOutboxRepository.enqueue(job);
     log.info(
-        "Prepared narration job rowId={} jobId={} (voiceId='{}', rate={}, contentVariantId={}) for chapterId={}, projectId={}",
+        "Prepared narration job rowId={} jobId={} (voiceId='{}', rate={}) for chapterId={}, projectId={}",
         job.getId(),
         job.getJobId(),
         command.voiceId(),
         command.speakingRate(),
-        chapter.contentVariantId(),
         command.chapterId(),
         command.projectId());
     registerCommittedLog(job, command);

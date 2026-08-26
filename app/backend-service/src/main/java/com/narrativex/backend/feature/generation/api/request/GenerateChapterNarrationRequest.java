@@ -9,8 +9,7 @@ import java.util.UUID;
 public record GenerateChapterNarrationRequest(
     @NotBlank String voiceId,
     @DecimalMin("0.25") @DecimalMax("2.0") BigDecimal speakingRate,
-    UUID voiceReferenceAssetId,
-    UUID contentVariantId) {
+    UUID voiceReferenceAssetId) {
   public BigDecimal effectiveSpeakingRate() {
     return speakingRate == null ? BigDecimal.ONE : speakingRate;
   }
