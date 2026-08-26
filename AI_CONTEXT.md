@@ -1,31 +1,34 @@
 # NarrativeX AI coding context
 
-NarrativeX is a desktop-first, image-first AI Story Video Studio. It turns flexible-length stories into reviewed storyboard/media state, narration, generated visuals and FFmpeg-rendered long-form or Short/Reel artifacts.
+NarrativeX is a desktop-first, image-first AI Story Video Studio. It turns flexible-length stories into reviewed storyboard/media state, narration, generated/imported visuals and FFmpeg-rendered long-form or Short/Reel artifacts.
 
 ## Current repository shape
 
-- `app/desktop`: primary and only Electron + React + TypeScript editor client; owns local project storage, native capabilities and local FFmpeg execution through Electron main.
-- `app/backend-service`: Spring Boot modular monolith; authoritative user/project ownership, domain metadata, policy, job admission and durable orchestration state.
-- `app/ai-worker`: Python AI/media worker; provider adapters and retained server execution paths for analysis, image generation, TTS/alignment and fallback rendering/storage flows.
-- `packages/client-contracts`: shared client-facing contracts used by Desktop.
-- `documentation`: product, domain, architecture, workflow, ADR and implementation notes.
-- `contracts`: versioned backend ↔ worker payload contracts.
+- `app/desktop`: only Electron + React + TypeScript editor; guest bootstrap, local project storage/catalog, native capabilities and local FFmpeg execution through Electron main.
+- `app/backend-service`: Spring Boot modular monolith; authoritative auth/ownership, domain metadata, policy, job admission, durable orchestration and Flyway schema ownership.
+- `app/ai-worker`: Python AI/media worker; provider adapters and retained server execution paths for analysis, image generation, narration/alignment and fallback rendering/storage.
+- `packages/client-contracts`: shared Desktop-facing backend contracts.
+- `contracts`: backend ↔ worker payload contracts.
+- `documentation`: source of truth, product/domain/architecture/workflows, ADRs and current-state implementation maps.
 
-Implementation checkpoint for the desktop migration docs: `main` at `751f006634218efb2c398fc00c2cbfecd25e1eac` (2026-08-24).
+Current documentation checkpoint: `main` at `0aca94e6eef07158e161cd67c648671e74055473` (2026-08-26).
 
 ## Authority model
 
 ```text
 PostgreSQL
-  -> authoritative durable business/domain/job/policy metadata
+  -> authoritative durable auth/ownership/domain/job/policy metadata
 
-Electron Desktop main
-  -> local project bytes, project.manifest.json, native filesystem,
-     system-browser/deep-link handling, backend session transport,
-     device credentials and FFmpeg execution
+Electron main
+  -> guest installation credential
+  -> backend session transport
+  -> local project bytes / project.manifest.json
+  -> native filesystem/dialogs
+  -> local device credentials/execution
+  -> FFmpeg/ffprobe, render journal/cache, backup/restore
 
 Electron renderer
-  -> UI/routing/query/editor state only
+  -> UI/routing/query/editor draft state only
 
 Python workers
   -> asynchronous provider/media execution according to backend-authorized plans
@@ -33,91 +36,101 @@ Python workers
 
 The renderer is never a second domain authority and never receives unrestricted Node.js access.
 
-## Desktop local-first media contract
+## Guest-first authentication
 
-For the primary Desktop workflow:
+Desktop opens into a stable installation-scoped guest workspace. The internal guest principal is used for ownership/session continuity; it is not a second account login provider.
+
+```text
+startup
+  -> reuse current session or POST /api/v1/auth/desktop/guest
+  -> ROLE_GUEST
+  -> free authoring/local-workspace mutations
+
+gated provider/account action
+  -> AUTHENTICATION_REQUIRED
+  -> LoginModal over current route
+  -> Google OIDC in system browser
+  -> narrativex:// one-time handoff
+  -> backend exchange + eligible guest ownership transfer
+  -> ROLE_USER, same editor context
+```
+
+Google is the only end-user account sign-in provider. Never reintroduce password login/register/forgot-password flows.
+
+The guest installation secret, signed-in user session and local-execution device token are separate credentials. Google provider tokens never enter Electron.
+
+## Desktop local-first media contract
 
 ```text
 Generated/imported project images   -> local project workspace
 Project narration/audio             -> local project workspace
 Imported project media              -> local project workspace
-Render intermediates                -> local project workspace/work
+Render intermediates/cache          -> local project workspace/work
 Final rendered MP4                  -> local project workspace/artifacts
 Metadata / ownership / job state    -> PostgreSQL
-Shared reusable voice/sample media  -> R2 only when cross-install reuse requires remote durability
 ```
 
-Workspace layout:
+`project.manifest.json` maps stable backend IDs to project-relative paths, sizes and SHA-256. Absolute filesystem paths must never be persisted as backend identities.
+
+Cloudflare R2 + Google Drive remain valid for retained server-worker/fallback paths where remote durability is required. Do not describe that topology as mandatory Desktop storage.
+
+## Implemented Desktop foundations
+
+- secure Electron main/preload/renderer boundary;
+- feature-oriented React renderer using Tailwind 4 and source-owned shadcn/Radix primitives;
+- stable guest installation identity and guest session bootstrap;
+- in-context Google-only account sign-in and guest ownership transfer;
+- project/chapter CRUD through typed backend APIs;
+- ProjectStorage/ProjectCatalog with atomic schema-versioned manifests and integrity checks;
+- native two-phase local import/registration without renderer path exposure;
+- image-generation and narration local materialization foundations;
+- production timeline with narration-aligned timing and explicit beat media selection;
+- duration/camera draft command history with undo/redo;
+- device identity/heartbeat and backend-assigned local render claim;
+- local render preflight, FFmpeg/ffprobe execution, progress/failure/completion and artifact registration;
+- atomic render journals, unfinished-work discovery and immutable segment cache;
+- storage accounting/verification/cleanup and backup/restore/archive-copy foundations.
+
+Do not describe these implemented foundations as future migration work.
+
+## Persistence and migrations
+
+Production backend application persistence is MyBatis + explicit PostgreSQL SQL. JPA and direct `JdbcTemplate` persistence are not production application persistence paths.
+
+Current Flyway order:
 
 ```text
-<userData>/projects/<projectId>/
-  project.manifest.json
-  assets/{images,audio,video}/
-  artifacts/<jobId>/final.mp4
-  work/
+V1__create_tables.sql
+V2__init_indexes.sql
+V3__seed_data.sql
+V4__desktop_guest_installations.sql
+V5__production_beat_media_selections.sql
 ```
 
-`project.manifest.json` maps stable backend asset IDs to project-relative paths, sizes and SHA-256 checksums. Absolute filesystem paths must never be persisted or sent to the backend.
-
-Cloudflare R2 + Google Drive remain valid for retained server-worker execution paths where remote durability is still required. Do not describe that storage topology as the Desktop project-media contract.
-
-## Implemented desktop foundations
-
-- Electron Vite + React editor shell with project-scoped routes and shared backend contracts.
-- secure BrowserWindow configuration: `contextIsolation: true`, `nodeIntegration: false`, sandbox enabled;
-- Google OAuth start in the system browser and `narrativex://auth/callback` custom-protocol handoff;
-- backend one-time desktop auth code exchange into a server-managed NarrativeX session;
-- local `ProjectStorage` manifest with workspace-boundary validation, size verification and SHA-256 checks;
-- device identity/pairing, heartbeat and local-execution status;
-- backend-assigned local project-render claim with lease heartbeat, progress, failure and completion reporting;
-- local FFmpeg/ffprobe capability probing;
-- local render pipeline: segment render → video concat → narration concat → mux → ffprobe validation → checksum-verified local artifact registration;
-- in-process render cancellation.
-
-Process-restart render recovery/resume and complete registration of every generation/import path into local project storage remain hardening/migration work.
-
-## Authentication model
-
-Google is the only user-facing identity provider. Do not reintroduce password login, registration or forgot-password flows.
-
-Desktop authentication:
-
-```text
-Electron main
-  -> system browser /api/v1/auth/desktop/start
-  -> Google OIDC
-  -> backend OAuth callback
-  -> narrativex://auth/callback?code=<one-time-code>
-  -> backend desktop exchange
-  -> server-managed NarrativeX session
-```
-
-Google access/refresh tokens never enter Electron. A local-execution device token is a separate machine credential used only by device/job APIs and stored through Electron protected storage; it is not the user's OAuth/session token.
-
-## Production ingress
-
-The production Compose topology has no browser frontend and no Caddy layer. For self-hosted deployments, `cloudflared` is opt-in through the `tunnel` profile and may route the public HTTPS API hostname directly to `http://backend:8080` inside the Compose network. If the deployment platform already supplies HTTPS ingress, leave that profile disabled.
+V1-V3 are frozen. V4+ are append-only feature migrations.
 
 ## Rendering rules
 
-- Narration timing remains the master clock.
-- FFmpeg execution belongs to Electron main for `LOCAL_DEVICE` Desktop renders, never the renderer.
-- Desktop render inputs are resolved by stable asset IDs/checksums through the local manifest.
-- Local completion records provider identity such as `LOCAL_DESKTOP` plus an opaque project-relative artifact key; do not persist an absolute path.
-- The backend remains authoritative for assignment, lease lifecycle, progress state and terminal job state.
-- The cloud/server render worker remains a migration fallback and does not redefine the Desktop local-first boundary.
+- narration timing is the master clock;
+- FFmpeg/ffprobe execution belongs to Electron main for `LOCAL_DEVICE` renders;
+- local render inputs resolve stable asset IDs/checksums through the project manifest;
+- Desktop preflight validates runtime, executor, disk and local asset integrity before submission/execution;
+- local render is backend-assigned and lease-controlled;
+- render journals/cache are local execution aids, not a second durable business-state database;
+- lease loss prevents successful finalization;
+- retained cloud rendering/storage is fallback, not the Desktop default.
 
-Local project rendering is gated by FFmpeg availability and `NARRATIVEX_DESKTOP_PROJECT_RENDER_ENABLED=true`.
+## Product/editor rules
 
-## Production persistence
+- Chapter → Scene → VisualBeat hierarchy remains semantically meaningful; do not flatten the product into a chapter-only timeline model.
+- A beat may use generated/imported image or video media; image-only camera/motion controls must not be forced onto video beats.
+- Do not encode fixed duration or fixed image-count assumptions.
+- Do not silently replace approved/versioned state.
+- Workers/Desktop executors may not invent paid work outside backend-authorized plans.
+- Use backend `ApiResponse`/pagination/client contracts rather than ad-hoc response shapes.
 
-Production backend persistence is MyBatis + explicit PostgreSQL SQL. JPA and direct `JdbcTemplate` persistence are absent from production code.
+## Character model
 
-## Important product constraints
-
-Do not encode fixed duration or fixed image-count assumptions. Do not silently replace approved/versioned state. Do not let workers invent paid work outside backend-authorized plans. Do not expose provider credentials, Google tokens, device tokens or arbitrary filesystem capabilities to renderer code.
-
-Character model:
 - Character = reusable User/Workspace-owned identity.
 - ProjectCharacter = Character assignment within one Project.
 - CharacterVersion = immutable identity snapshot.
@@ -125,3 +138,7 @@ Character model:
 - Scene/VisualBeat generation resolves only participating ProjectCharacters.
 - Never duplicate Character solely for outfit/age/hairstyle/injury changes.
 - Never use character name as a relational identity key.
+
+## Remaining work
+
+Use `documentation/product/ROADMAP.md` for active remaining work. Completed migration plans are intentionally retired; use ADRs and Git history when historical rationale is needed.
