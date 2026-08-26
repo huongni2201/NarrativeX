@@ -35,6 +35,7 @@ type AudioState = Readonly<{
   controlsDisabled: boolean;
   trackedForSelected: boolean;
   blockedByAnotherChapter: boolean;
+  blockedByTranslation: boolean;
   generatePending: boolean;
   onVoiceChange: (voiceId: string) => void;
   onSpeakingRateChange: (value: string) => void;
@@ -50,6 +51,8 @@ type Props = Readonly<{
   saveBusy: boolean;
   isDirty: boolean;
   notice: string | null;
+  analysisBlocked: boolean;
+  analysisBlockReason: string | null;
   audio: AudioState;
   onTitleChange: (value: string) => void;
   onSourceTextChange: (value: string) => void;
@@ -68,6 +71,8 @@ export function ChapterEditorPanel({
   saveBusy,
   isDirty,
   notice,
+  analysisBlocked,
+  analysisBlockReason,
   audio,
   onTitleChange,
   onSourceTextChange,
@@ -177,7 +182,7 @@ export function ChapterEditorPanel({
             <Button
               type="button"
               variant="outline"
-              disabled={!selected || busy || generationBlockedByUnsavedChanges}
+              disabled={!selected || busy || generationBlockedByUnsavedChanges || analysisBlocked}
               onClick={onAnalyze}
               className="h-auto items-start justify-start rounded-md border-border bg-surface p-3 text-left hover:border-border-dark hover:bg-surface-2"
             >
@@ -210,6 +215,9 @@ export function ChapterEditorPanel({
               </div>
             </Button>
           </div>
+          {analysisBlocked && analysisBlockReason && (
+            <p className="text-[10px] leading-4 text-warning">{analysisBlockReason}</p>
+          )}
         </div>
       </div>
 
@@ -351,6 +359,12 @@ function AudioChapterCard({
       {generationBlockedByUnsavedChanges && (
         <p className="text-[10px] leading-4 text-warning">
           Hãy lưu thay đổi trước khi tạo audio hoặc phân tích chapter.
+        </p>
+      )}
+
+      {audio.blockedByTranslation && !generationBlockedByUnsavedChanges && (
+        <p className="text-[10px] leading-4 text-warning">
+          Hãy hoàn tất bước xác nhận ngôn ngữ/bản dịch trước khi tạo audio hoặc phân tích chapter.
         </p>
       )}
 
