@@ -1,4 +1,4 @@
-# Narration and User-Provided Audio Workflow — V1.11
+# Narration and User-Provided Audio Workflow — V1.12
 
 Narration is a first-class timeline consumed by visual planning and rendering. It is not synonymous with TTS.
 
@@ -70,8 +70,6 @@ Alignment must preserve source identity/version, source span, global audio start
 
 ## Local render integration
 
-The local render claim identifies narration/media by backend identity plus expected integrity metadata. Electron main resolves the actual machine path through ProjectStorage and verifies it before FFmpeg runs.
-
 ```text
 local narration input
   + selected local beat media
@@ -85,23 +83,6 @@ local narration input
 ```
 
 Render execution remains backend-assigned and lease-controlled. Final MP4 playback/export reads the local artifact directly.
-
-## Multi-part user audio — remaining hardening
-
-The planning/global-clock model exists, but complete production behavior across every multi-part/Chapter boundary must prove:
-
-```text
-alignment spans
-  -> select relevant ordered parts
-  -> calculate part-local ranges
-  -> slice where required
-  -> concatenate across boundaries
-  -> validate one render-scope audio input
-  -> register integrity metadata
-  -> render
-```
-
-Do not claim complete arbitrary multi-part coverage until the relevant path is proven by code/tests.
 
 ## Cost behavior
 
@@ -122,16 +103,8 @@ Final MP4                        -> local project artifacts
 Metadata/job/artifact state      -> PostgreSQL
 ```
 
-ADR-0012 governs Desktop local-first project media. ADR-0003 governs generated-media remote transport.
-
 ## Operational diagnostics
 
-Narration job creation is logged in two phases: `Prepared narration job` is emitted
-inside the backend transaction, while `Committed narration job` is emitted only from
-the transaction's `afterCommit` callback. PostgreSQL remains authoritative for deciding
-whether the job, `NARRATION_TTS` stage attempt and narration operation exist.
+Narration job creation is logged in two phases: `Prepared narration job` inside the backend transaction and `Committed narration job` only after commit. PostgreSQL remains authoritative for whether the job, `NARRATION_TTS` stage attempt and narration operation exist.
 
-At startup, each worker verifies `current_database()` and `current_schema()` and logs
-the resolved database target, provider, roles and `BUILD_SHA` without credentials.
-Redis delivery hints are optional; a narration worker must still discover queued work
-through its PostgreSQL claim query when Redis is unavailable.
+Workers verify their database identity at startup and poll/claim durable PostgreSQL work directly. No Redis or notification channel is required for narration queue discovery.

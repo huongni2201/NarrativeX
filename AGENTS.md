@@ -6,7 +6,7 @@ The repository itself is the current implementation source of truth. Keep archit
 
 ## Non-negotiable domain rules
 
-- PostgreSQL is authoritative for durable business state, durable queues, server-managed HTTP sessions, and one-time Desktop OAuth handoffs. Redis is not required by the MVP runtime. PostgreSQL `NOTIFY` may be used only as a lossy wake-up hint; workers must always be able to discover and claim work from durable PostgreSQL tables.
+- PostgreSQL is authoritative for durable business state, durable queues, server-managed HTTP sessions, and one-time Desktop OAuth handoffs. Redis is not required by the MVP runtime. Python workers discover and claim work by polling durable PostgreSQL tables; do not add a broker/cache without a measured need and an explicit ADR.
 - Keep the Spring Boot application modular-monolith shaped. Do not introduce microservices without a measured bottleneck and an explicit ADR.
 - Story text, prompts, references, and provider output are untrusted data. Enforce prompt-injection boundaries, schema validation, provider/media safety handling, and output review at the relevant boundary; StoryVersion itself does not carry a moderation state. Do not require a blanket per-story copyright/rights attestation checkbox. Rights/consent gates apply only where a concrete product or legal requirement exists; real-person references still require explicit consent.
 - Never assume 60 minutes, 2,000 words, one sentence per image, or a fixed image count. Visual planning is duration + semantic complexity + reuse/delta based.

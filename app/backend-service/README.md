@@ -21,7 +21,7 @@ Redis is not required by the MVP backend runtime.
 
 ## Durable authority
 
-PostgreSQL owns authoritative domain/job/plan/usage metadata, server sessions and short-lived OAuth handoff state. Python workers claim durable jobs directly from PostgreSQL. PostgreSQL `NOTIFY` may be emitted as a lossy wake-up hint, but worker polling remains the correctness fallback. Cloudflare R2 owns durable generated-media transport bytes.
+PostgreSQL owns authoritative domain/job/plan/usage metadata, server sessions and short-lived OAuth handoff state. Python workers claim durable jobs directly from PostgreSQL using their normal polling/lease queries. Generation/media outbox rows are transactional evidence and are finalized after commit without an external broker. Cloudflare R2 owns durable generated-media transport bytes.
 
 ## MediaPlan authority
 
@@ -41,7 +41,7 @@ Production upload/finalize/alignment integration remains a hardening target.
 
 ## Character read model
 
-Project Character list/detail reads are exposed through project-scoped APIs and MyBatis read projections. the frontend uses these authoritative responses for role, importance, aliases/groups, pinned version, appearance state and scene usage instead of runtime demo values. Fields without an authoritative read model remain explicitly unavailable rather than fabricated.
+Project Character list/detail reads are exposed through project-scoped APIs and MyBatis read projections. The frontend uses these authoritative responses for role, importance, aliases/groups, pinned version, appearance state and scene usage instead of runtime demo values. Fields without an authoritative read model remain explicitly unavailable rather than fabricated.
 
 ## Persistence migration
 

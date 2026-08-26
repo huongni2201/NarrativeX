@@ -11,7 +11,7 @@ PostgreSQL state, not renderer memory, delivery hints or process memory, determi
 | Desktop OAuth handoff | PostgreSQL | 90-second, hash-only, PKCE-bound, atomically single-use |
 | Project/StoryVersion/Chapter/storyboard/continuity | PostgreSQL | ownership/versioning apply |
 | GenerationJob/StageAttempt/ProviderOperation | PostgreSQL | worker claims and lifecycle truth |
-| Queue wake-up hint | PostgreSQL `NOTIFY` | lossy/non-authoritative; polling/claim remains correctness path |
+| Queue discovery | PostgreSQL polling/claim SQL | durable source; no broker or notification dependency |
 | MediaPlan / production policy | PostgreSQL | worker/device executes persisted authorized state |
 | Production beat media selection | PostgreSQL | explicit editor choice is part of the consolidated V1 schema |
 | Narration document/set/alignment metadata | PostgreSQL | source/narration fingerprints pin inputs |
@@ -62,7 +62,9 @@ persisted Chapter
   -> lock/reload authoritative snapshot
   -> admission + reservation/policy
   -> OperationPlan + GenerationJob + StageAttempt + OutboxEvent
-  -> worker claim/lease/heartbeat from PostgreSQL
+  -> transaction commits; outbox bookkeeping is finalized
+  -> worker polls/claims GenerationJob from PostgreSQL
+  -> lease/heartbeat
   -> ProviderOperation where applicable
   -> validated result
   -> stale-snapshot re-check

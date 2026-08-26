@@ -1,13 +1,14 @@
-# NarrativeX V1.11 — Business Rules
+# NarrativeX V1.12 — Business Rules
 
-**Canonical source:** `../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`
+**Canonical source:** `../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`  
+**Runtime override:** ADR-0020 for PostgreSQL-only MVP runtime state.
 
 ## Core lifecycle
 
 - **BR-01** Project creation is metadata-only and never implicitly enqueues AI/media work.
-- **BR-02** Chapter source is persisted before Analyze; unsaved browser text is not execution authority.
+- **BR-02** Chapter source is persisted before Analyze; unsaved renderer text is not execution authority.
 - **BR-03** Expensive workflows pin durable source identity (`chapterId`, `rowVersion`, `sourceHash`).
-- **BR-04** PostgreSQL is authoritative for durable state; Redis generation hints are non-authoritative.
+- **BR-04** PostgreSQL is authoritative for durable state and worker queue discovery; Redis/broker notifications are not required by the MVP runtime.
 - **BR-05** Long-running AI/media work is asynchronous and recoverable from durable state.
 
 ## Narration
@@ -40,16 +41,16 @@
 ## Durable media
 
 - **BR-110** Binary media is not stored in PostgreSQL.
-- **BR-111** Cloudflare R2 is authoritative for source/generated/reusable pipeline media; Google Drive is authoritative for final rendered MP4 bytes.
-- **BR-112** A pipeline-media stage is not complete until bytes validate, immutable R2 persistence succeeds and authoritative metadata commits. A final-video stage additionally requires validated Drive durability and verification.
-- **BR-113** Worker-local media paths are scratch/cache only.
-- **BR-114** FinalArtifact becomes ready only after checksum/MIME/dimensions/duration/manifest validation.
+- **BR-111** Cloudflare R2 may provide generated-media transport/durability before Desktop materialization; final rendered MP4 bytes are local project artifacts owned by Electron ProjectStorage.
+- **BR-112** A remote provider-media stage is not complete until required bytes validate and authoritative metadata/durability commits. Final local rendering additionally requires local input integrity and final artifact validation.
+- **BR-113** Worker-local media paths are scratch/cache only; Desktop project-relative paths belong to Electron main/ProjectStorage.
+- **BR-114** FinalArtifact becomes ready only after the local render output is validated (checksum/MIME/dimensions/duration/manifest) and backend metadata registration succeeds under the current lease.
 
 ## Persistence
 
 - **BR-120** New persistence-heavy backend work converges on MyBatis + explicit SQL + PostgreSQL unless an ADR records an exception.
 - **BR-121** SQL concurrency/state transitions use CAS/allowed-previous predicates and affected-row validation.
-- **BR-122** JPA is absent from production persistence; direct JDBC helpers are limited to test/integration support and must not become the production persistence boundary.
+- **BR-122** JPA is absent from production persistence; direct JDBC helpers must not become a parallel domain persistence boundary.
 
 ## History and continuity
 

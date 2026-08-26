@@ -2,7 +2,7 @@
 
 Canonical authority: [`../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md).
 
-Executable manifests are authoritative for exact dependency versions. This file summarizes the current stack at docs checkpoint `d2613ab8a80a9db3d8392c8027f1066ef528c69c` (2026-08-26).
+Executable manifests are authoritative for exact dependency versions. This file summarizes the current stack after the PostgreSQL-only MVP runtime refactor (2026-08-26).
 
 | Layer | Current stack | Current role |
 |---|---|---|
@@ -12,7 +12,7 @@ Executable manifests are authoritative for exact dependency versions. This file 
 | Browser OAuth flow | Spring Security OAuth2/OIDC endpoints | backend authentication flow only; no browser editor |
 | Backend | Java 25, Spring Boot 4.1.0, Security/OAuth2, Spring Session JDBC, Actuator | modular monolith, auth/ownership/policy and durable orchestration authority |
 | Persistence | PostgreSQL + Flyway + MyBatis Spring Boot 4.1.0 + explicit SQL + Spring Session JDBC | sole production application persistence path, including durable queues, server sessions and one-time OAuth handoffs |
-| Queue wake-up | PostgreSQL `NOTIFY` | best-effort/lossy wake-up hint only; workers claim durable jobs from PostgreSQL and polling remains the correctness fallback |
+| Queue execution | PostgreSQL polling + row locking/leases | workers claim durable jobs directly; no Redis/broker/NOTIFY dependency |
 | Worker | Python 3.12+, Pydantic 2.7.0, pydantic-settings 2.2.0, HTTPX 0.27.0, asyncpg 0.30.0, google-auth 2.35.0 | asynchronous analysis/translation/image/narration/media-validation execution |
 | Worker media/AI extras | boto3 1.40.0, Pillow 10.0.0, VieNeu 3.3.0, torch/torchaudio 2.8.0, pydub 0.25.1 | generated-media transport, narration and image/media processing |
 | Shared client contracts | `packages/client-contracts` | typed Desktop/backend contracts |

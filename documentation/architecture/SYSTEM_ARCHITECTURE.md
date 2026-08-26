@@ -1,7 +1,7 @@
 # NarrativeX System Architecture — V1.12
 
 **Canonical source:** `../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`  
-**Current docs checkpoint:** `refactor/remove-redis-mvp-20260826` at `e66f7a3a6ce191c42bc0d81ae2d2cc95b5039a10` (2026-08-26)
+**Current docs checkpoint:** `refactor/remove-redis-mvp-20260826` (2026-08-26)
 
 NarrativeX is desktop-only at the editor boundary. Spring Boot is the authoritative control plane for durable business/domain state, while Electron Desktop owns machine-local project bytes and native execution behind a strict main/preload/renderer boundary.
 
@@ -31,7 +31,7 @@ NarrativeX is desktop-only at the editor boundary. Spring Boot is the authoritat
               Spring Boot Backend
               -> PostgreSQL authoritative state
                  + HTTP sessions + OAuth handoffs
-              -> PostgreSQL NOTIFY (lossy hint only)
+                 + durable queues/outbox
               -> Python AI/provider execution
 
 Electron main
@@ -42,7 +42,7 @@ Electron main
        artifacts/
 ```
 
-Redis is not part of the MVP runtime. Python workers discover and claim durable work directly from PostgreSQL; `NOTIFY` may reduce wake-up latency only when a listener exists and is never a correctness dependency.
+Redis is not part of the MVP runtime. Python workers discover and claim durable work directly from PostgreSQL using polling/lease queries. No Redis, broker, `LISTEN`, or `NOTIFY` path is required by the current worker topology.
 
 Cloudflare R2 is limited to remote generated-media transport/durability for AI-produced images and narration before those bytes are materialized into the Desktop project workspace. Final video rendering and final MP4 bytes stay on the Desktop machine.
 
@@ -60,6 +60,7 @@ The backend owns:
 - entitlement/quota/cost admission;
 - MediaPlan/production policy;
 - GenerationJob/StageAttempt/ProviderOperation lifecycle;
+- transactional outbox evidence and its post-commit finalization;
 - local-device registration/revocation and render assignment;
 - render leases, progress and terminal job state;
 - durable asset identity/checksums/lineage plus final-artifact metadata;
@@ -103,7 +104,7 @@ The Chromium renderer sandbox is currently disabled for Desktop startup compatib
 
 ### Python workers
 
-Workers execute backend-authorized asynchronous provider/media roles such as analysis, translation, image generation, narration/alignment and generated-media validation. They claim durable work from PostgreSQL and do not execute final project renders, own Desktop paths, user authorization or Flyway schema evolution.
+Workers execute backend-authorized asynchronous provider/media roles such as analysis, translation, image generation, narration/alignment and generated-media validation. They poll/claim durable PostgreSQL rows and do not execute final project renders, own Desktop paths, user authorization or Flyway schema evolution.
 
 ## Guest-first authentication architecture
 
