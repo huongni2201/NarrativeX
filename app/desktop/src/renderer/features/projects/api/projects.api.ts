@@ -3,15 +3,15 @@ import type {
   CursorPage,
   DesktopProject,
 } from "@narrativex/client-contracts";
-import { apiCommand, apiRequest } from "../../../api/client";
+import { apiCommand, apiRequest } from "../../../api/client.ts";
 import {
   assertContract,
   isNullableString,
   isNumber,
   isRecord,
   isString,
-} from "../../../api/guards";
-import { collectCursorPages, parseCursorPage } from "../../../api/pagination";
+} from "../../../api/guards.ts";
+import { collectCursorPages, parseCursorPage } from "../../../api/pagination.ts";
 
 export interface ProjectDashboardCounts {
   all: number;

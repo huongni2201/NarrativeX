@@ -177,9 +177,11 @@ export function useProjectWorkspace(projectId: string | null, screen: ActivityId
         status: hasPending
           ? "loading"
           : firstError
-            ? hasScreenData
+            ? timeline
               ? "partial"
-              : "error"
+              : hasScreenData
+                ? "partial"
+                : "error"
             : requirements.timeline && !timeline
               ? "empty"
               : "ready",

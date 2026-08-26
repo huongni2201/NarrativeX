@@ -8,6 +8,7 @@ export type ChapterDisplayStatus = "completed" | "in_progress" | "draft" | "load
 const AUDIO_PROCESSING_STATUSES = new Set([
   "QUEUED",
   "RUNNING",
+  "PROCESSING",
   "GENERATING",
   "STALLED",
   "UNKNOWN",
