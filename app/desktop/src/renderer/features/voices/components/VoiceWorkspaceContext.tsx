@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type {
   DesktopAsset,
   DesktopChapterDetails,
@@ -191,11 +192,7 @@ export function VoiceWorkspaceContext({
         <span className="text-[9px] font-bold uppercase tracking-[.17em] text-text-muted">
           Quick actions
         </span>
-        <QuickAction
-          label="Reset voice filters"
-          icon={<Mic2 size={13} />}
-          onClick={onResetFilters}
-        />
+        <QuickAction label="Reset voice filters" icon={<Mic2 size={13} />} onClick={onResetFilters} />
         <QuickAction
           label="Tạo voice take"
           icon={<Sparkles size={13} />}
@@ -229,7 +226,7 @@ function QuickAction({
   disabled = false,
 }: Readonly<{
   label: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
   onClick: () => void;
   disabled?: boolean;
 }>) {
