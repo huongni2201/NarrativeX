@@ -6,6 +6,10 @@ import type {
 } from "@narrativex/client-contracts";
 import { assetsApi } from "../assets/api/assets.api";
 import { productionApi } from "../production/api/production.api";
+import {
+  chooseMediaFit,
+  createBeatDecision,
+} from "../production/auto-edit-planner";
 import type { DesktopWorkspaceState } from "../workspace/queries/useProjectWorkspace";
 import {
   buildEditorHierarchy,
@@ -56,6 +60,10 @@ export function EditorScreen({
 
   const totalMs = timeline?.totalDurationMs ?? 0;
   const selected = beats.find((beat) => beat.visualBeatId === selectedId) ?? null;
+  const autoDecision = useMemo(
+    () => (selected ? createBeatDecision(selected, "CINEMATIC") : null),
+    [selected],
+  );
   const hierarchy = useMemo(
     () => buildEditorHierarchy(chapters, beats),
     [beats, chapters],
@@ -178,26 +186,36 @@ export function EditorScreen({
         kind: selection.kind,
         selectionToken: selection.selectionToken,
       });
+      const autoFit = chooseMediaFit({
+        mediaType: selection.kind === "VIDEO" ? "VIDEO" : "IMAGE",
+        sourceDurationMs: asset.durationMs,
+        durationMs: selected.durationMs,
+      });
       await productionApi.updateBeatMedia(projectId, selected.visualBeatId, {
         mediaAssetId: asset.id,
-        fitMode: selection.kind === "VIDEO" ? "FREEZE_END" : "TRIM",
-        trimStartMs: 0,
+        fitMode: autoFit.fitMode,
+        trimStartMs: autoFit.trimStartMs,
       });
-    }, expectedType === "VIDEO" ? "Video đã được gắn vào Visual Beat." : "Ảnh đã được gắn vào Visual Beat.");
+    }, expectedType === "VIDEO" ? "Video đã được gắn và Auto Edit sẽ tự fit theo narration." : "Ảnh đã được gắn vào Visual Beat.");
   }
 
   async function chooseExistingAsset(assetId: string) {
     if (!projectId || !selected) return;
     const asset = selectableAssets.find((candidate) => candidate.id === assetId);
     if (!asset) return;
+    const autoFit = chooseMediaFit({
+      mediaType: asset.type === "VIDEO" ? "VIDEO" : "IMAGE",
+      sourceDurationMs: asset.durationMs,
+      durationMs: selected.durationMs,
+    });
     await withMediaMutation(
       () =>
         productionApi.updateBeatMedia(projectId, selected.visualBeatId, {
           mediaAssetId: asset.id,
-          fitMode: asset.type === "VIDEO" ? "FREEZE_END" : "TRIM",
-          trimStartMs: 0,
+          fitMode: autoFit.fitMode,
+          trimStartMs: autoFit.trimStartMs,
         }),
-      `${asset.originalFilename} đã được gắn vào Visual Beat.`,
+      `${asset.originalFilename} đã được gắn; Auto Edit chọn ${autoFit.fitMode}.`,
     );
   }
 
@@ -210,7 +228,7 @@ export function EditorScreen({
           fitMode,
           trimStartMs: selected.trimStartMs,
         }),
-      `Fit mode đã chuyển sang ${fitMode}.`,
+      `Manual override đã chuyển fit mode sang ${fitMode}.`,
     );
   }
 
@@ -262,6 +280,7 @@ export function EditorScreen({
 
       <EditorInspectorPanel
         selectedBeat={selected}
+        autoDecision={autoDecision}
         selectableAssets={selectableAssets}
         mediaBusy={mediaBusy}
         mediaNotice={mediaNotice}
