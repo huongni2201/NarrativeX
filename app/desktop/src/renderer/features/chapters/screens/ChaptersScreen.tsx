@@ -201,6 +201,15 @@ export function ChaptersScreen({
     generateNarration.isPending || selectedAudioProcessing || trackedNarrationForSelected;
   const audioReady = selectedAudioStatus === "READY" || selectedAudioStatus === "COMPLETED";
 
+  useEffect(() => {
+    if (!selected) return;
+    const audio = selectedWorkspace?.pipeline.audio;
+    const latestJobId = audio?.latestJobId;
+    if (!latestJobId || !isAudioProcessingStatus(audio.status)) return;
+
+    setNarrationJob((current) => current ?? { jobId: latestJobId, chapterId: selected.id });
+  }, [selected, selectedWorkspace]);
+
   const narrationJobQuery = useGenerationJob(narrationJob?.jobId ?? null);
   const narrationJobStatus = narrationJobQuery.data?.status;
   const narrationJobErrorCode = narrationJobQuery.data?.errorCode;

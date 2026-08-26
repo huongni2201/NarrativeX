@@ -19,7 +19,13 @@ const workspace = {
     analysis: { status: "COMPLETED", completedAt: "2026-08-25T00:00:00Z" },
     visualPlanning: { status: "COMPLETED", completedAt: "2026-08-25T00:00:00Z" },
     visualGeneration: { status: "NOT_STARTED", total: 0, completed: 0, failed: 0 },
-    audio: { status: "NOT_STARTED", completedAt: null, audioUrl: null, durationMs: null },
+    audio: {
+      status: "NOT_STARTED",
+      completedAt: null,
+      latestJobId: null,
+      audioUrl: null,
+      durationMs: null,
+    },
     render: { status: "NOT_STARTED", completedAt: null, latestJobId: null, artifactId: null },
     sourceOutdated: false,
   },
@@ -43,9 +49,19 @@ const workspace = {
   },
 };
 
-test("chapter workspace parser accepts the backend shape and rejects malformed data", () => {
+test("chapter workspace parser accepts narration job identity and rejects malformed data", () => {
   assert.equal(parseChapterWorkspace(workspace).projectName, "Test");
+  const active = structuredClone(workspace);
+  active.pipeline.audio.status = "STALLED";
+  active.pipeline.audio.latestJobId = "019c4d49-3115-7f94-bac9-e11295993d30";
+  assert.equal(
+    parseChapterWorkspace(active).pipeline.audio.latestJobId,
+    "019c4d49-3115-7f94-bac9-e11295993d30",
+  );
   assert.throws(() => parseChapterWorkspace({ ...workspace, summary: null }), /contract/);
+  const missingJobIdentity = structuredClone(workspace);
+  delete missingJobIdentity.pipeline.audio.latestJobId;
+  assert.throws(() => parseChapterWorkspace(missingJobIdentity), /contract/);
 });
 
 test("voice tag filtering updates the result set", () => {

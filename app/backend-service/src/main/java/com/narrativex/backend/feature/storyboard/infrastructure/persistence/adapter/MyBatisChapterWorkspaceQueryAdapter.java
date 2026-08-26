@@ -52,6 +52,7 @@ public class MyBatisChapterWorkspaceQueryAdapter implements ChapterWorkspaceRead
             new AudioStep(
                 narrationStatus(row.isNarrationAssetReady(), row.getNarrationJobStatus()),
                 row.getNarrationCompletedAt(),
+                row.getNarrationJobId(),
                 row.getNarrationStorageKey(),
                 row.getNarrationDurationMs()),
             new RenderStep(
@@ -96,9 +97,12 @@ public class MyBatisChapterWorkspaceQueryAdapter implements ChapterWorkspaceRead
 
   private static String narrationStatus(boolean assetReady, String jobStatus) {
     if (assetReady) return "READY";
-    if ("RUNNING".equals(jobStatus)) return "GENERATING";
-    if ("QUEUED".equals(jobStatus)) return "QUEUED";
-    return jobStatus == null ? "NOT_STARTED" : "FAILED";
+    if (jobStatus == null) return "NOT_STARTED";
+    return switch (jobStatus) {
+      case "RUNNING" -> "GENERATING";
+      case "QUEUED", "STALLED", "UNKNOWN", "PAUSED_COST_LIMIT" -> jobStatus;
+      default -> "FAILED";
+    };
   }
 
   private static String renderStatus(

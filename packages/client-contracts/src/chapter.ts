@@ -61,6 +61,7 @@ export interface ChapterWorkspaceProgress {
 
 export interface ChapterWorkspaceAudio extends ChapterWorkspaceStep {
   status: string;
+  latestJobId: string | null;
   audioUrl: string | null;
   durationMs: number | null;
 }

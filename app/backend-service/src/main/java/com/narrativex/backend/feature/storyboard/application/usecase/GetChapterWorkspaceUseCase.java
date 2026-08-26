@@ -9,7 +9,6 @@ import com.narrativex.backend.feature.project.application.port.in.StoryVersionAc
 import com.narrativex.backend.feature.storyboard.api.response.ChapterResponse;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterWorkspaceResponse;
 import com.narrativex.backend.feature.storyboard.application.port.in.ChapterWorkspaceAccess.AudioStep;
-import com.narrativex.backend.feature.storyboard.application.port.out.ChapterAnalysisSnapshotRepository;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterWorkspaceReadRepository;
 import java.time.Instant;
@@ -28,7 +27,6 @@ public class GetChapterWorkspaceUseCase {
   private final CurrentUserId currentUserId;
   private final StoryVersionAccess storyVersionAccess;
   private final ChapterRepository chapterRepository;
-  private final ChapterAnalysisSnapshotRepository chapterAnalysisSnapshotRepository;
   private final ChapterWorkspaceReadRepository chapterWorkspaceReadRepository;
   private final MediaStorageAccess mediaStorageAccess;
 
@@ -77,8 +75,6 @@ public class GetChapterWorkspaceUseCase {
             && !isActive(analysisStatus)
             && !(snapshot.hasApprovedOutput() && !sourceOutdated);
     boolean chapterAnalysisCompleted = "COMPLETED".equals(analysisStatus) && !sourceOutdated;
-    boolean originalVariantReady =
-        chapterAnalysisSnapshotRepository.existsReadyOriginalVariant(projectId, chapterId);
     boolean visualPlanningCompleted = "COMPLETED".equals(planningStatus);
     boolean visualJobRunning = isActive(visualGeneration.status());
     boolean canGenerateVisuals =
@@ -86,12 +82,10 @@ public class GetChapterWorkspaceUseCase {
             && chapterAnalysisCompleted
             && visualPlanningCompleted
             && snapshot.visualBeatCount() > 0
-            && originalVariantReady
             && !visualJobRunning;
     String visualGenerationBlockReason =
         visualGenerationBlockReason(
             mediaGenerationEnabled,
-            originalVariantReady,
             chapterAnalysisCompleted,
             visualPlanningCompleted,
             snapshot.visualBeatCount(),
@@ -133,7 +127,11 @@ public class GetChapterWorkspaceUseCase {
                     visualGeneration.mediaPlanId(),
                     visualGeneration.mediaPlanRevision()),
                 new ChapterWorkspaceResponse.AudioStep(
-                    audio.status(), audio.completedAt(), audioUrl, audio.durationMs()),
+                    audio.status(),
+                    audio.completedAt(),
+                    audio.latestJobId(),
+                    audioUrl,
+                    audio.durationMs()),
                 new ChapterWorkspaceResponse.RenderStep(
                     render.status(),
                     render.completedAt(),
@@ -163,12 +161,10 @@ public class GetChapterWorkspaceUseCase {
 
   private static String visualGenerationBlockReason(
       boolean mediaGenerationEnabled,
-      boolean originalVariantReady,
       boolean analysisCompleted,
       boolean visualPlanningCompleted,
       int visualBeatCount,
       boolean visualJobRunning) {
-    if (!originalVariantReady) return "CONTENT_VARIANT_NOT_READY";
     if (!analysisCompleted) return "ANALYSIS_NOT_COMPLETED";
     if (!visualPlanningCompleted) return "VISUAL_PLANNING_NOT_COMPLETED";
     if (visualBeatCount == 0) return "NO_VISUAL_BEATS";

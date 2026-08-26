@@ -59,6 +59,7 @@ function isWorkspaceAudio(value: unknown): value is ChapterWorkspaceAudio {
   return (
     isRecord(value) &&
     isWorkspaceStep(value) &&
+    isNullableString(value.latestJobId) &&
     isNullableString(value.audioUrl) &&
     isNullableNumber(value.durationMs)
   );
