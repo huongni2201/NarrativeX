@@ -68,7 +68,7 @@ class SecretScannerTest(unittest.TestCase):
     def test_named_env_credentials_are_detected(self) -> None:
         self.assertIn(
             "env-credential-assignment",
-            self.rule_ids("GOOGLE_DRIVE_REFRESH_TOKEN=" + "r" * 32, ".env.production"),
+            self.rule_ids("EXAMPLE_REFRESH_TOKEN=" + "r" * 32, ".env.production"),
         )
 
     def test_placeholders_and_environment_references_are_ignored(self) -> None:
