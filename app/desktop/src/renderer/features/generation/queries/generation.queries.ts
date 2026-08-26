@@ -1,5 +1,11 @@
+import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { CreateMediaJobInput, MediaReviewInput } from "@narrativex/client-contracts";
+import type {
+  CreateMediaJobInput,
+  GenerationJob,
+  MediaReviewInput,
+} from "@narrativex/client-contracts";
+import { subscribeSse } from "../../../api/sse.ts";
 import { generationApi } from "../api/generation.api.ts";
 import {
   isActiveGenerationJobStatus,
@@ -71,13 +77,45 @@ export function useMediaJob(jobId: string | null) {
 }
 
 export function useGenerationJob(jobId: string | null) {
-  return useQuery({
-    queryKey: generationQueryKeys.generationJob(jobId ?? "none"),
+  const queryClient = useQueryClient();
+  const queryKey = generationQueryKeys.generationJob(jobId ?? "none");
+  const query = useQuery({
+    queryKey,
     queryFn: () => generationApi.getGenerationJob(jobId as string),
     enabled: Boolean(jobId),
-    refetchInterval: (query) =>
-      isActiveGenerationJobStatus(query.state.data?.status) ? 2_000 : false,
+    // SSE is the primary status transport. Keep a slow watchdog so a proxy/network
+    // interruption cannot leave the UI stale forever.
+    refetchInterval: (current) =>
+      isActiveGenerationJobStatus(current.state.data?.status) ? 15_000 : false,
   });
+
+  useEffect(() => {
+    if (!jobId || !isActiveGenerationJobStatus(query.data?.status)) return;
+
+    return subscribeSse(
+      `/api/v1/generation-jobs/${encodeURIComponent(jobId)}/events`,
+      "snapshot",
+      {
+        onEvent: (event) => {
+          try {
+            const snapshot = JSON.parse(event.data) as GenerationJob;
+            if (!snapshot || snapshot.jobId !== jobId || typeof snapshot.status !== "string") return;
+            queryClient.setQueryData(generationQueryKeys.generationJob(jobId), snapshot);
+          } catch {
+            void queryClient.invalidateQueries({
+              queryKey: generationQueryKeys.generationJob(jobId),
+            });
+          }
+        },
+        onError: () => {
+          // EventSource reconnects automatically. The watchdog GET above remains
+          // available as a bounded fallback when streaming is unavailable.
+        },
+      },
+    );
+  }, [jobId, query.data?.status, queryClient]);
+
+  return query;
 }
 
 export function useReviewMediaItem() {
