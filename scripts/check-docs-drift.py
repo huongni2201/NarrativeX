@@ -80,10 +80,6 @@ FORBIDDEN = {
         r"(?:Current enforced line gate|jacoco\.minimum\.line\.coverage)[^\n]{0,80}(?:15%|0\.15)",
         re.IGNORECASE,
     ),
-    "obsolete pre-V5 clean migration sequence": re.compile(
-        r"clean database[^\n]{0,120}V1[^\n]{0,40}V2[^\n]{0,40}V3[^\n]{0,40}V4(?![^\n]*V5)",
-        re.IGNORECASE,
-    ),
     "guest-first feature still migration future": re.compile(
         r"(?:stable|installation)[- ]scoped guest[^\n]{0,100}(?:TARGET|future-only|not implemented)",
         re.IGNORECASE,
@@ -233,14 +229,18 @@ def main() -> int:
         "V1__create_tables.sql",
         "V2__init_indexes.sql",
         "V3__seed_data.sql",
-        "V4__desktop_guest_installations.sql",
-        "V5__production_beat_media_selections.sql",
     }
     if migrations.exists():
         actual = {path.name for path in migrations.glob("V*.sql")}
         missing_migrations = sorted(expected_migrations - actual)
         if missing_migrations:
             errors.append("missing current Flyway migration(s): " + ", ".join(missing_migrations))
+        unexpected_migrations = sorted(actual - expected_migrations)
+        if unexpected_migrations:
+            errors.append(
+                "unexpected Flyway migration(s) outside consolidated baseline: "
+                + ", ".join(unexpected_migrations)
+            )
 
     navigation = (ROOT / "documentation" / "README.md").read_text(encoding="utf-8")
     for retired_name in (
