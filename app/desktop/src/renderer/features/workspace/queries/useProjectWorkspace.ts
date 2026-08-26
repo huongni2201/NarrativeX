@@ -8,7 +8,7 @@ import type {
   DesktopTimeline,
   DesktopVoice,
 } from "@narrativex/client-contracts";
-import { assetsApi } from "../../assets/api/assets.api";
+import { assetsApi, type AssetLibraryScope } from "../../assets/api/assets.api";
 import { chaptersApi } from "../../chapters/api/chapters.api";
 import { charactersApi } from "../../characters/api/characters.api";
 import { presetsApi } from "../../presets/api/presets.api";
@@ -32,17 +32,19 @@ export interface DesktopWorkspaceState {
 type WorkspaceQueryRequirements = Readonly<{
   timeline: boolean;
   chapters: boolean;
-  assets: boolean;
+  assetScope: AssetLibraryScope | null;
   characters: boolean;
   voices: boolean;
   presets: boolean;
 }>;
 
+const CATALOG_STALE_TIME_MS = 5 * 60 * 1000;
+
 const QUERY_REQUIREMENTS: Record<ActivityId, WorkspaceQueryRequirements> = {
   editor: {
     timeline: true,
     chapters: false,
-    assets: true,
+    assetScope: "visual",
     characters: false,
     voices: false,
     presets: false,
@@ -50,7 +52,7 @@ const QUERY_REQUIREMENTS: Record<ActivityId, WorkspaceQueryRequirements> = {
   chapters: {
     timeline: true,
     chapters: true,
-    assets: false,
+    assetScope: null,
     characters: false,
     voices: true,
     presets: false,
@@ -58,7 +60,7 @@ const QUERY_REQUIREMENTS: Record<ActivityId, WorkspaceQueryRequirements> = {
   characters: {
     timeline: false,
     chapters: false,
-    assets: false,
+    assetScope: null,
     characters: true,
     voices: false,
     presets: false,
@@ -66,7 +68,7 @@ const QUERY_REQUIREMENTS: Record<ActivityId, WorkspaceQueryRequirements> = {
   images: {
     timeline: true,
     chapters: true,
-    assets: false,
+    assetScope: null,
     characters: false,
     voices: false,
     presets: false,
@@ -74,7 +76,7 @@ const QUERY_REQUIREMENTS: Record<ActivityId, WorkspaceQueryRequirements> = {
   voice: {
     timeline: true,
     chapters: true,
-    assets: true,
+    assetScope: "audio",
     characters: false,
     voices: true,
     presets: false,
@@ -82,7 +84,7 @@ const QUERY_REQUIREMENTS: Record<ActivityId, WorkspaceQueryRequirements> = {
   assets: {
     timeline: false,
     chapters: false,
-    assets: true,
+    assetScope: "all",
     characters: false,
     voices: false,
     presets: false,
@@ -90,7 +92,7 @@ const QUERY_REQUIREMENTS: Record<ActivityId, WorkspaceQueryRequirements> = {
   render: {
     timeline: true,
     chapters: false,
-    assets: false,
+    assetScope: null,
     characters: false,
     voices: false,
     presets: false,
@@ -98,7 +100,7 @@ const QUERY_REQUIREMENTS: Record<ActivityId, WorkspaceQueryRequirements> = {
   settings: {
     timeline: false,
     chapters: false,
-    assets: true,
+    assetScope: "all",
     characters: false,
     voices: false,
     presets: true,
@@ -121,6 +123,7 @@ export function useProjectWorkspace(projectId: string | null, screen: ActivityId
   const projectQuery = useProjectQuery(projectId);
   const enabled = Boolean(projectId);
   const requirements = QUERY_REQUIREMENTS[screen];
+  const hasAssets = requirements.assetScope !== null;
 
   const timelineQuery = useQuery({
     queryKey: ["projects", projectId, "timeline"],
@@ -135,9 +138,9 @@ export function useProjectWorkspace(projectId: string | null, screen: ActivityId
       enabled && requirements.chapters && Boolean(timelineQuery.data?.storyVersionId),
   });
   const assetsQuery = useQuery({
-    queryKey: ["assets", "library"],
-    queryFn: assetsApi.listAll,
-    enabled: enabled && requirements.assets,
+    queryKey: ["assets", "library", requirements.assetScope ?? "none"],
+    queryFn: () => assetsApi.listAll(requirements.assetScope ?? "all"),
+    enabled: enabled && hasAssets,
   });
   const charactersQuery = useQuery({
     queryKey: ["projects", projectId, "characters"],
@@ -148,18 +151,20 @@ export function useProjectWorkspace(projectId: string | null, screen: ActivityId
     queryKey: ["voices"],
     queryFn: voicesApi.list,
     enabled: enabled && requirements.voices,
+    staleTime: CATALOG_STALE_TIME_MS,
   });
   const presetsQuery = useQuery({
     queryKey: ["presets"],
     queryFn: presetsApi.list,
     enabled: enabled && requirements.presets,
+    staleTime: CATALOG_STALE_TIME_MS,
   });
 
   const projects = projectQuery.data ? [projectQuery.data] : [];
   const resourceQueries = [
     ...(requirements.timeline ? [timelineQuery] : []),
     ...(requirements.chapters ? [chaptersQuery] : []),
-    ...(requirements.assets ? [assetsQuery] : []),
+    ...(hasAssets ? [assetsQuery] : []),
     ...(requirements.characters ? [charactersQuery] : []),
     ...(requirements.voices ? [voicesQuery] : []),
     ...(requirements.presets ? [presetsQuery] : []),
@@ -186,7 +191,7 @@ export function useProjectWorkspace(projectId: string | null, screen: ActivityId
               ? "empty"
               : "ready",
         projects,
-        assets: requirements.assets ? (assetsQuery.data ?? []) : [],
+        assets: hasAssets ? (assetsQuery.data ?? []) : [],
         characters: requirements.characters ? (charactersQuery.data ?? []) : [],
         voices: requirements.voices ? (voicesQuery.data ?? []) : [],
         presets: requirements.presets ? (presetsQuery.data ?? []) : [],
