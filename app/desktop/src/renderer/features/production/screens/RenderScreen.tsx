@@ -9,10 +9,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useGenerationJob } from "../../generation/queries/generation.queries";
 import { FeaturePage } from "../../workspace/components/FeaturePage";
 import { productionApi } from "../api/production.api";
-
-const ACTIVE_STATUSES = ["QUEUED", "RUNNING", "UNKNOWN", "STALLED", "PAUSED_COST_LIMIT"];
 
 export function RenderScreen({
   projectId,
@@ -26,20 +25,18 @@ export function RenderScreen({
   const [preflight, setPreflight] = useState<LocalRenderPreflight | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const trackedJob = useGenerationJob(job?.jobId ?? null);
+  const liveJob = trackedJob.data ?? job;
 
   useEffect(() => {
-    if (!job?.jobId || !ACTIVE_STATUSES.includes(job.status)) return;
-    const timer = window.setInterval(() => {
-      void productionApi
-        .getRenderJob(job.jobId)
-        .then((next) => {
-          setJob(next);
-          if (next.status === "COMPLETED") setNotice("Render hoàn tất.");
-        })
-        .catch((error) => setNotice(toMessage(error)));
-    }, 2_000);
-    return () => window.clearInterval(timer);
-  }, [job?.jobId, job?.status]);
+    if (trackedJob.data?.status === "COMPLETED") setNotice("Render hoàn tất.");
+  }, [trackedJob.data?.status]);
+
+  useEffect(() => {
+    if (trackedJob.isError) {
+      setNotice("Không thể tải trạng thái render job. NarrativeX sẽ tiếp tục thử lại bằng watchdog.");
+    }
+  }, [trackedJob.isError]);
 
   async function startRender() {
     if (!timeline?.readyForRender) {
@@ -79,9 +76,9 @@ export function RenderScreen({
   }
 
   async function openOutput() {
-    if (!job || job.status !== "COMPLETED") return;
+    if (!liveJob || liveJob.status !== "COMPLETED") return;
     try {
-      await window.narrativex.localStorage.revealArtifact({ projectId, jobId: job.jobId });
+      await window.narrativex.localStorage.revealArtifact({ projectId, jobId: liveJob.jobId });
     } catch (error) {
       setNotice(toMessage(error));
     }
@@ -131,23 +128,23 @@ export function RenderScreen({
           </section>
         )}
 
-        {job && (
+        {liveJob && (
           <section className="rounded-lg border border-border bg-card p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <span className="text-[9px] uppercase tracking-[.12em] text-muted-foreground">Render job</span>
-                <h2 className="text-sm font-semibold">{job.jobId}</h2>
+                <h2 className="text-sm font-semibold">{liveJob.jobId}</h2>
               </div>
-              {job.status === "COMPLETED" && (
+              {liveJob.status === "COMPLETED" && (
                 <Button variant="outline" onClick={() => void openOutput()}>
                   <ExternalLink size={14} /> Open output
                 </Button>
               )}
             </div>
             <div className="mt-3 h-2 overflow-hidden rounded-full bg-secondary">
-              <div className="h-full bg-primary" style={{ width: `${Math.max(0, Math.min(100, job.progress * 100))}%` }} />
+              <div className="h-full bg-primary" style={{ width: `${clampProgress(liveJob.progress)}%` }} />
             </div>
-            <p className="mt-2 text-[10px] text-muted-foreground">{job.status} · {Math.round(job.progress * 100)}% · {job.currentStep ?? "Waiting"}</p>
+            <p className="mt-2 text-[10px] text-muted-foreground">{liveJob.status} · {Math.round(clampProgress(liveJob.progress))}% · {liveJob.currentStep ?? "Waiting"}</p>
           </section>
         )}
       </div>
@@ -157,6 +154,10 @@ export function RenderScreen({
 
 function Metric({ label, value, icon }: Readonly<{ label: string; value: string; icon: React.ReactNode }>) {
   return <div className="flex items-center gap-3 rounded-md border border-border-subtle bg-popover p-3"><span className="text-primary-hover">{icon}</span><div><span className="block text-[9px] text-muted-foreground">{label}</span><strong className="text-xs">{value}</strong></div></div>;
+}
+
+function clampProgress(value: number) {
+  return Math.max(0, Math.min(100, value));
 }
 
 function formatBytes(value: number) {

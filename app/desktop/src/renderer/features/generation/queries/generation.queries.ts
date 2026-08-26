@@ -1,5 +1,11 @@
+import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { CreateMediaJobInput, MediaReviewInput } from "@narrativex/client-contracts";
+import type {
+  CreateMediaJobInput,
+  GenerationJob,
+  MediaReviewInput,
+} from "@narrativex/client-contracts";
+import { subscribeSse } from "../../../api/sse.ts";
 import { generationApi } from "../api/generation.api.ts";
 import {
   isActiveGenerationJobStatus,
@@ -76,22 +82,64 @@ export function useMediaJob(jobId: string | null) {
     queryKey: generationQueryKeys.mediaJob(jobId ?? "none"),
     queryFn: () => generationApi.getJob(jobId as string),
     enabled: Boolean(jobId),
+    // Generation SSE invalidates this query whenever the durable job snapshot changes.
+    // Keep only a slow watchdog for item-level changes that do not move job progress.
     refetchInterval: (query) =>
       query.state.data &&
       query.state.data.items.some((item) => isActiveMediaExecutionStatus(item.executionStatus))
-        ? 2_000
+        ? 15_000
         : false,
   });
 }
 
 export function useGenerationJob(jobId: string | null) {
-  return useQuery({
-    queryKey: generationQueryKeys.generationJob(jobId ?? "none"),
+  const queryClient = useQueryClient();
+  const queryKey = generationQueryKeys.generationJob(jobId ?? "none");
+  const query = useQuery({
+    queryKey,
     queryFn: () => generationApi.getGenerationJob(jobId as string),
     enabled: Boolean(jobId),
-    refetchInterval: (query) =>
-      isActiveGenerationJobStatus(query.state.data?.status) ? 2_000 : false,
+    // SSE is the primary status transport. Keep a slow watchdog so a backend/network
+    // interruption cannot leave the UI stale forever. Retry even before the first
+    // snapshot so a transient initial GET failure can self-heal.
+    refetchInterval: (current) =>
+      jobId &&
+      (!current.state.data || isActiveGenerationJobStatus(current.state.data.status))
+        ? 15_000
+        : false,
   });
+
+  useEffect(() => {
+    if (!jobId || !isActiveGenerationJobStatus(query.data?.status)) return;
+
+    return subscribeSse(
+      `/api/v1/generation-jobs/${encodeURIComponent(jobId)}/events`,
+      "snapshot",
+      {
+        onEvent: (event) => {
+          try {
+            const snapshot = JSON.parse(event.data) as GenerationJob;
+            if (!snapshot || snapshot.jobId !== jobId || typeof snapshot.status !== "string") return;
+            queryClient.setQueryData(generationQueryKeys.generationJob(jobId), snapshot);
+            void queryClient.invalidateQueries({
+              queryKey: generationQueryKeys.mediaJob(jobId),
+              exact: true,
+            });
+          } catch {
+            void queryClient.invalidateQueries({
+              queryKey: generationQueryKeys.generationJob(jobId),
+            });
+          }
+        },
+        onError: () => {
+          // Electron main reconnects the authenticated stream automatically. The
+          // watchdog GET above remains a bounded fallback while reconnecting.
+        },
+      },
+    );
+  }, [jobId, query.data?.status, queryClient]);
+
+  return query;
 }
 
 export function useReviewMediaItem() {
