@@ -27,6 +27,7 @@
   --surface-2: var(--popover);
   --surface-3: var(--secondary);
   --surface-4: #202d3d;
+  --surface-5: #26364a;
   --surface-dark: #0a1017;
   --surface-card: var(--surface);
   --surface-panel: #0b1119;
@@ -77,6 +78,11 @@
   --workspace-panel: rgba(11, 18, 28, 0.9);
   --workspace-panel-strong: rgba(10, 17, 26, 0.94);
   --workspace-context: rgba(11, 18, 28, 0.88);
+  --workspace-sidebar: #0b1119;
+  --workspace-sidebar-raised: #101a27;
+  --workspace-sidebar-hover: #162335;
+  --workspace-sidebar-active: rgba(255, 138, 0, 0.12);
+  --workspace-sidebar-border: rgba(163, 184, 207, 0.13);
   --chapter-selected: linear-gradient(100deg, rgba(255, 138, 0, 0.28), rgba(63, 37, 14, 0.48));
   --chapter-draft: rgba(17, 26, 37, 0.72);
   --voice-glow: rgba(32, 55, 75, 0.25);
@@ -152,6 +158,7 @@
   --color-surface-2: var(--surface-2);
   --color-surface-3: var(--surface-3);
   --color-surface-4: var(--surface-4);
+  --color-surface-5: var(--surface-5);
   --color-surface-dark: var(--surface-dark);
   --color-surface-card: var(--surface-card);
   --color-surface-panel: var(--surface-panel);
@@ -200,6 +207,16 @@
     background: var(--background);
     color: var(--foreground);
     font-size: 12px;
+  }
+
+  ::selection {
+    background: var(--primary-muted);
+    color: var(--foreground);
+  }
+
+  * {
+    scrollbar-color: var(--surface-4) transparent;
+    scrollbar-width: thin;
   }
 
   button,

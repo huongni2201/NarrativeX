@@ -1,11 +1,12 @@
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   FileImage,
-  Film,
   Lock,
   Mic,
   Music,
   Volume2,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import type {
   DesktopTimeline,
@@ -20,20 +21,18 @@ interface EditorMultiTrackTimelineProps {
   selectedBeatId: string;
   onSelectBeat: (beat: DesktopTimelineBeat) => void;
   onSeek: (ms: number) => void;
-  zoom?: number;
 }
 
 export function EditorMultiTrackTimeline({
   beats,
-  chapters,
   playheadMs,
   totalDurationMs,
   selectedBeatId,
   onSelectBeat,
   onSeek,
-  zoom = 1,
 }: Readonly<EditorMultiTrackTimelineProps>) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [zoomLevel, setZoomLevel] = useState(1);
 
   // Compute duration bounds
   const effectiveTotalMs = useMemo(() => {
@@ -42,7 +41,7 @@ export function EditorMultiTrackTimeline({
     return Math.max(30000, lastBeatEnd);
   }, [beats, totalDurationMs]);
 
-  // Generate ruler tick marks (e.g. every 3 seconds: 00:00, 00:03, 00:06...)
+  // Generate ruler tick marks (00:00, 00:03, 00:06...)
   const rulerTicks = useMemo(() => {
     const ticks: number[] = [];
     const stepMs = 3000;
@@ -66,71 +65,72 @@ export function EditorMultiTrackTimeline({
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col border-t border-border/70 bg-[#080b10] select-none">
+    <div className="flex h-full min-h-0 flex-col border-t border-border/60 bg-[#070a0f] select-none text-xs">
+      {/* Scrollable Tracks Viewport */}
       <div className="flex flex-1 min-h-0 overflow-x-auto overflow-y-hidden">
-        {/* Left Track Headers (Fixed Column) */}
-        <div className="w-44 shrink-0 border-r border-border/60 bg-[#0c1017]">
-          {/* Ruler spacer */}
-          <div className="h-7 border-b border-border/50 bg-[#090d14]" />
+        {/* Left Track Headers Column */}
+        <div className="w-36 shrink-0 border-r border-border/50 bg-[#090d15]">
+          {/* Ruler blank spacer */}
+          <div className="h-6 border-b border-border/40 bg-[#080b12]" />
 
           {/* Track 1: Narration */}
-          <div className="flex h-11 items-center justify-between border-b border-border/40 px-3 text-xs">
-            <div className="flex items-center gap-2 font-medium text-foreground">
-              <span className="font-mono text-muted-foreground text-[11px]">1</span>
-              <span>Narration</span>
+          <div className="flex h-10 items-center justify-between border-b border-border/40 px-2.5">
+            <div className="flex items-center gap-1.5 font-medium text-foreground">
+              <span className="font-mono text-muted-foreground text-[10px]">1</span>
+              <span className="text-[11px]">Narration</span>
             </div>
-            <div className="flex items-center gap-1.5 text-muted-foreground">
-              <Lock size={12} className="opacity-70" />
-              <Volume2 size={12} className="opacity-70" />
+            <div className="flex items-center gap-1 text-muted-foreground">
+              <Lock size={11} className="opacity-60" />
+              <Volume2 size={11} className="opacity-60" />
             </div>
           </div>
 
           {/* Track 2: Visual Beats */}
-          <div className="flex h-16 items-center justify-between border-b border-border/40 px-3 text-xs">
-            <div className="flex items-center gap-2 font-medium text-foreground">
-              <span className="font-mono text-muted-foreground text-[11px]">2</span>
-              <span>Visual Beats</span>
+          <div className="flex h-14 items-center justify-between border-b border-border/40 px-2.5">
+            <div className="flex items-center gap-1.5 font-medium text-foreground">
+              <span className="font-mono text-muted-foreground text-[10px]">2</span>
+              <span className="text-[11px]">Visual Beats</span>
             </div>
-            <div className="flex items-center gap-1.5 text-muted-foreground">
-              <FileImage size={12} className="opacity-70" />
-              <Lock size={12} className="opacity-70" />
+            <div className="flex items-center gap-1 text-muted-foreground">
+              <FileImage size={11} className="opacity-60" />
+              <Lock size={11} className="opacity-60" />
             </div>
           </div>
 
           {/* Track 3: Voiceover */}
-          <div className="flex h-11 items-center justify-between border-b border-border/40 px-3 text-xs">
-            <div className="flex items-center gap-2 font-medium text-foreground">
-              <span className="font-mono text-muted-foreground text-[11px]">3</span>
-              <span>Voiceover</span>
+          <div className="flex h-10 items-center justify-between border-b border-border/40 px-2.5">
+            <div className="flex items-center gap-1.5 font-medium text-foreground">
+              <span className="font-mono text-muted-foreground text-[10px]">3</span>
+              <span className="text-[11px]">Voiceover</span>
             </div>
-            <div className="flex items-center gap-1.5 text-muted-foreground">
-              <Mic size={12} className="opacity-70" />
-              <Lock size={12} className="opacity-70" />
+            <div className="flex items-center gap-1 text-muted-foreground">
+              <Mic size={11} className="opacity-60" />
+              <Lock size={11} className="opacity-60" />
             </div>
           </div>
 
           {/* Track 4: Music */}
-          <div className="flex h-11 items-center justify-between border-b border-border/40 px-3 text-xs">
-            <div className="flex items-center gap-2 font-medium text-foreground">
-              <span className="font-mono text-muted-foreground text-[11px]">4</span>
-              <span>Music</span>
+          <div className="flex h-10 items-center justify-between border-b border-border/40 px-2.5">
+            <div className="flex items-center gap-1.5 font-medium text-foreground">
+              <span className="font-mono text-muted-foreground text-[10px]">4</span>
+              <span className="text-[11px]">Music</span>
             </div>
-            <div className="flex items-center gap-1.5 text-muted-foreground">
-              <Music size={12} className="opacity-70" />
-              <Lock size={12} className="opacity-70" />
+            <div className="flex items-center gap-1 text-muted-foreground">
+              <Music size={11} className="opacity-60" />
+              <Lock size={11} className="opacity-60" />
             </div>
           </div>
         </div>
 
-        {/* Right Tracks Canvas Area */}
+        {/* Right Tracks Canvas */}
         <div
           ref={containerRef}
           onClick={handleTimelineClick}
-          className="relative min-w-[900px] flex-1 cursor-pointer bg-[#0a0e16]"
-          style={{ width: `${Math.max(100, zoom * 100)}%` }}
+          className="relative min-w-[760px] flex-1 cursor-pointer bg-[#080c14]"
+          style={{ width: `${Math.max(100, zoomLevel * 100)}%` }}
         >
           {/* Time Ruler */}
-          <div className="relative h-7 border-b border-border/50 bg-[#0c1017]">
+          <div className="relative h-6 border-b border-border/40 bg-[#090d15]">
             {rulerTicks.map((tickMs) => {
               const leftPercent = (tickMs / effectiveTotalMs) * 100;
               if (leftPercent > 100) return null;
@@ -143,41 +143,40 @@ export function EditorMultiTrackTimeline({
                   style={{ left: `${leftPercent}%` }}
                 >
                   <span
-                    className={`font-mono text-[10px] ${
-                      isPlayheadNear ? "font-bold text-[#ff8a00]" : "text-muted-foreground/80"
+                    className={`font-mono text-[9px] ${
+                      isPlayheadNear ? "font-bold text-[#ff8a00]" : "text-muted-foreground/70"
                     }`}
                   >
                     {formatRulerTime(tickMs)}
                   </span>
-                  <div className="h-1.5 w-px bg-border/80" />
+                  <div className="h-1 w-px bg-border/60" />
                 </div>
               );
             })}
           </div>
 
-          {/* Track 1: Narration Row */}
-          <div className="relative h-11 border-b border-border/40 px-1 py-1">
+          {/* Track 1: Narration */}
+          <div className="relative h-10 border-b border-border/30 px-1 py-1">
             <div
-              className="absolute inset-y-1 rounded-md border border-emerald-500/40 bg-gradient-to-r from-emerald-950/60 via-emerald-900/40 to-emerald-950/60 px-2.5 flex items-center shadow-sm"
+              className="absolute inset-y-1 rounded-md border border-emerald-500/40 bg-gradient-to-r from-emerald-950/70 via-emerald-900/50 to-emerald-950/70 px-2 flex items-center shadow-sm"
               style={{
                 left: "0%",
                 width: `${Math.min(100, (beats.reduce((acc, b) => Math.max(acc, b.endMs), 0) / effectiveTotalMs) * 100)}%`,
               }}
             >
-              <span className="truncate font-mono text-[11px] font-medium text-emerald-400">
+              <span className="truncate font-mono text-[10px] text-emerald-400">
                 narration_voice.mp3
               </span>
-              <WaveformSvg color="#34d399" className="ml-2 h-4 flex-1 opacity-70" />
+              <WaveformSvg color="#34d399" className="ml-2 h-3.5 flex-1 opacity-70" />
             </div>
           </div>
 
-          {/* Track 2: Visual Beats Row */}
-          <div className="relative h-16 border-b border-border/40 p-1 flex items-center">
+          {/* Track 2: Visual Beats */}
+          <div className="relative h-14 border-b border-border/30 p-1 flex items-center">
             {beats.map((beat) => {
               const isSelected = beat.visualBeatId === selectedBeatId;
               const leftPercent = (beat.startMs / effectiveTotalMs) * 100;
               const widthPercent = (beat.durationMs / effectiveTotalMs) * 100;
-              const beatNumber = String(beat.beatIndex + 1).padStart(2, "0");
 
               return (
                 <div
@@ -187,36 +186,31 @@ export function EditorMultiTrackTimeline({
                     onSelectBeat(beat);
                     onSeek(beat.startMs);
                   }}
-                  className={`absolute inset-y-1.5 flex cursor-pointer items-center gap-2 overflow-hidden rounded-lg border px-2 transition-all duration-150 ${
+                  className={`absolute inset-y-1 flex cursor-pointer items-center gap-1.5 overflow-hidden rounded-lg border px-1.5 transition-all ${
                     isSelected
-                      ? "z-10 border-[#ff8a00] bg-gradient-to-r from-[#241c16] via-[#1a1c24] to-[#121620] shadow-[0_0_16px_rgba(255,138,0,0.45)] ring-1 ring-[#ff8a00]"
-                      : "border-border/60 bg-[#121824] hover:border-border hover:bg-[#182030]"
+                      ? "z-10 border-[#ff8a00] bg-[#1a1f2c] shadow-[0_0_12px_rgba(255,138,0,0.4)] ring-1 ring-[#ff8a00]"
+                      : "border-border/50 bg-[#0f1420] hover:border-border hover:bg-[#141b2b]"
                   }`}
                   style={{
                     left: `${leftPercent}%`,
-                    width: `${Math.max(1.5, widthPercent)}%`,
+                    width: `${Math.max(1.8, widthPercent)}%`,
                   }}
                 >
-                  {/* Badge: AI / IMAGE / VIDEO */}
+                  {/* Badge */}
                   <span
-                    className={`rounded px-1 py-0.5 font-bold uppercase text-[9px] ${
+                    className={`rounded px-1 py-0.2 font-bold uppercase text-[8px] ${
                       beat.mediaType === "VIDEO"
-                        ? "bg-sky-500/20 text-sky-400 border border-sky-500/30"
+                        ? "bg-purple-500/20 text-purple-400 border border-purple-500/40"
                         : beat.mediaType === "IMAGE"
-                          ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                          : "bg-[#ff8a00]/20 text-[#ff8a00] border border-[#ff8a00]/30"
+                          ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
+                          : "bg-[#ff8a00]/20 text-[#ff8a00] border border-[#ff8a00]/40"
                     }`}
                   >
-                    {beat.mediaType ?? "AI"}
+                    {beat.mediaType === "VIDEO" ? "VID" : beat.mediaType === "IMAGE" ? "IMG" : "AI"}
                   </span>
 
-                  {/* Thumbnail / Title snippet */}
-                  <span className="truncate text-xs font-semibold text-foreground">
-                    {beat.title || `Beat ${beatNumber}`}
-                  </span>
-
-                  {/* Duration on right */}
-                  <span className="ml-auto shrink-0 font-mono text-[10px] text-muted-foreground">
+                  {/* Thumbnail / Duration */}
+                  <span className="ml-auto shrink-0 font-mono text-[9px] text-muted-foreground">
                     {formatDurationSeconds(beat.durationMs)}
                   </span>
                 </div>
@@ -224,35 +218,35 @@ export function EditorMultiTrackTimeline({
             })}
           </div>
 
-          {/* Track 3: Voiceover Row */}
-          <div className="relative h-11 border-b border-border/40 px-1 py-1">
+          {/* Track 3: Voiceover */}
+          <div className="relative h-10 border-b border-border/30 px-1 py-1">
             <div
-              className="absolute inset-y-1 rounded-md border border-purple-500/40 bg-gradient-to-r from-purple-950/60 via-purple-900/40 to-purple-950/60 px-2.5 flex items-center shadow-sm"
+              className="absolute inset-y-1 rounded-md border border-purple-500/40 bg-gradient-to-r from-purple-950/70 via-purple-900/50 to-purple-950/70 px-2 flex items-center shadow-sm"
               style={{
                 left: "0%",
-                width: "45%",
+                width: "42%",
               }}
             >
-              <span className="truncate font-mono text-[11px] font-medium text-purple-300">
+              <span className="truncate font-mono text-[10px] text-purple-300">
                 intro_voice.mp3
               </span>
-              <WaveformSvg color="#c084fc" className="ml-2 h-4 flex-1 opacity-70" />
+              <WaveformSvg color="#c084fc" className="ml-2 h-3.5 flex-1 opacity-70" />
             </div>
           </div>
 
-          {/* Track 4: Music Row */}
-          <div className="relative h-11 border-b border-border/40 px-1 py-1">
+          {/* Track 4: Music */}
+          <div className="relative h-10 border-b border-border/30 px-1 py-1">
             <div
-              className="absolute inset-y-1 rounded-md border border-amber-500/40 bg-gradient-to-r from-amber-950/60 via-amber-900/40 to-amber-950/60 px-2.5 flex items-center shadow-sm"
+              className="absolute inset-y-1 rounded-md border border-amber-500/40 bg-gradient-to-r from-amber-950/70 via-amber-900/50 to-amber-950/70 px-2 flex items-center shadow-sm"
               style={{
                 left: "0%",
-                width: "90%",
+                width: "88%",
               }}
             >
-              <span className="truncate font-mono text-[11px] font-medium text-amber-300">
+              <span className="truncate font-mono text-[10px] text-amber-300">
                 bgm_ambient_01.mp3
               </span>
-              <WaveformSvg color="#f59e0b" className="ml-2 h-4 flex-1 opacity-70" />
+              <WaveformSvg color="#f59e0b" className="ml-2 h-3.5 flex-1 opacity-70" />
             </div>
           </div>
 
@@ -261,9 +255,66 @@ export function EditorMultiTrackTimeline({
             className="pointer-events-none absolute top-0 bottom-0 z-30 w-px bg-[#ff8a00]"
             style={{ left: `${playheadPercent}%` }}
           >
-            {/* Scrubber Top Handle */}
-            <div className="absolute -top-1 left-1/2 h-3.5 w-3.5 -translate-x-1/2 rounded-full border-2 border-white bg-[#ff8a00] shadow-[0_0_10px_rgba(255,138,0,0.8)]" />
+            <div className="absolute -top-0.5 left-1/2 h-3 w-3 -translate-x-1/2 rounded-full border-2 border-white bg-[#ff8a00] shadow-[0_0_8px_rgba(255,138,0,0.8)]" />
           </div>
+        </div>
+      </div>
+
+      {/* Bottom Timeline Footer: Badges Legend & Zoom Controls */}
+      <div className="flex h-8 items-center justify-between border-t border-border/50 bg-[#080c14] px-3 text-[10px] text-muted-foreground">
+        {/* Left Legend */}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1.5">
+            <span className="rounded bg-[#ff8a00]/20 px-1 py-0.2 font-bold text-[#ff8a00] border border-[#ff8a00]/40 text-[8px]">
+              AI
+            </span>
+            <span>AI Generated Image</span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="rounded bg-emerald-500/20 px-1 py-0.2 font-bold text-emerald-400 border border-emerald-500/40 text-[8px]">
+              IMG
+            </span>
+            <span>Uploaded Image</span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="rounded bg-purple-500/20 px-1 py-0.2 font-bold text-purple-400 border border-purple-500/40 text-[8px]">
+              VID
+            </span>
+            <span>Uploaded Video</span>
+          </div>
+        </div>
+
+        {/* Right Zoom Controls */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setZoomLevel((z) => Math.max(0.75, z - 0.25))}
+            className="text-muted-foreground hover:text-foreground"
+            title="Zoom out"
+            aria-label="Zoom out"
+          >
+            <ZoomOut size={13} />
+          </button>
+          <input
+            type="range"
+            min={0.75}
+            max={2.5}
+            step={0.25}
+            value={zoomLevel}
+            onChange={(e) => setZoomLevel(parseFloat(e.target.value))}
+            className="h-1 w-20 cursor-pointer accent-[#ff8a00]"
+          />
+          <button
+            type="button"
+            onClick={() => setZoomLevel((z) => Math.min(2.5, z + 0.25))}
+            className="text-muted-foreground hover:text-foreground"
+            title="Zoom in"
+            aria-label="Zoom in"
+          >
+            <ZoomIn size={13} />
+          </button>
         </div>
       </div>
     </div>
@@ -302,4 +353,3 @@ function formatDurationSeconds(ms: number): string {
   const secs = totalSecs % 60;
   return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 }
-

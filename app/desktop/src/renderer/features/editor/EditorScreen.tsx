@@ -123,7 +123,6 @@ export function EditorScreen({
 
   const handleSeek = (targetMs: number) => {
     setPlayheadMs(targetMs);
-    // Find beat at seek position if any
     const beatAtTime = beats.find(
       (b) => targetMs >= b.startMs && targetMs <= b.endMs,
     );
@@ -226,56 +225,58 @@ export function EditorScreen({
   }
 
   return (
-    <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_220px] bg-[#080b10] text-foreground">
-      {/* Top Section: Explorer (left) - Preview (center) - Inspector (right) */}
-      <div className="grid min-h-0 grid-cols-[280px_minmax(0,1fr)_340px] border-b border-border/70">
-        {/* Left Column: Chapters & Visual Beats */}
-        <EditorExplorerPanel
-          hierarchy={filteredHierarchy}
-          selectedBeatId={selectedId}
-          onSelectBeat={selectBeat}
-          query={query}
-          onQueryChange={setQuery}
-        />
+    <div className="grid h-full min-h-0 grid-cols-[240px_minmax(0,1fr)_320px] bg-[#070a0f] text-foreground select-none">
+      {/* Left Column: Chapters & Visual Beats */}
+      <EditorExplorerPanel
+        hierarchy={filteredHierarchy}
+        selectedBeatId={selectedId}
+        onSelectBeat={selectBeat}
+        query={query}
+        onQueryChange={setQuery}
+      />
 
-        {/* Center Column: Video Preview & Transport Controls */}
-        <EditorPreviewViewport
-          selectedBeat={selected}
-          playheadMs={playheadMs}
-          scopeWindowStartMs={scopeWindow.startMs}
-          scopeWindowEndMs={scopeWindow.endMs}
-          playing={playing}
-          onTogglePlay={() => setPlaying(!playing)}
-          onPrevBeat={handlePrevBeat}
-          onNextBeat={handleNextBeat}
-          onStepMs={handleStepMs}
-        />
+      {/* Center Column: Video Preview on Top + Multi-track Timeline Below */}
+      <div className="flex min-h-0 flex-col overflow-hidden border-r border-border/50">
+        {/* Top: Video Preview & Transport Controls */}
+        <div className="flex-1 min-h-0">
+          <EditorPreviewViewport
+            selectedBeat={selected}
+            playheadMs={playheadMs}
+            scopeWindowStartMs={scopeWindow.startMs}
+            scopeWindowEndMs={scopeWindow.endMs}
+            playing={playing}
+            onTogglePlay={() => setPlaying(!playing)}
+            onPrevBeat={handlePrevBeat}
+            onNextBeat={handleNextBeat}
+            onStepMs={handleStepMs}
+          />
+        </div>
 
-        {/* Right Column: Inspector Details & AI Assistant */}
-        <EditorInspectorPanel
-          selectedBeat={selected}
-          selectableAssets={selectableAssets}
-          mediaBusy={mediaBusy}
-          mediaNotice={mediaNotice}
-          onUploadMedia={uploadBeatMedia}
-          onChooseAsset={chooseExistingAsset}
-          onUpdateFitMode={updateFitMode}
-          onResetSource={resetToGeneratedSource}
-        />
+        {/* Bottom: Professional Multi-track Timeline */}
+        <div className="h-[250px] shrink-0 border-t border-border/50">
+          <EditorMultiTrackTimeline
+            beats={beats}
+            chapters={chapters}
+            playheadMs={playheadMs}
+            totalDurationMs={totalMs}
+            selectedBeatId={selectedId}
+            onSelectBeat={selectBeat}
+            onSeek={handleSeek}
+          />
+        </div>
       </div>
 
-      {/* Bottom Section: Professional Multi-track Timeline */}
-      <div className="min-h-0">
-        <EditorMultiTrackTimeline
-          beats={beats}
-          chapters={chapters}
-          playheadMs={playheadMs}
-          totalDurationMs={totalMs}
-          selectedBeatId={selectedId}
-          onSelectBeat={selectBeat}
-          onSeek={handleSeek}
-        />
-      </div>
+      {/* Right Column: Inspector Details & AI Assistant */}
+      <EditorInspectorPanel
+        selectedBeat={selected}
+        selectableAssets={selectableAssets}
+        mediaBusy={mediaBusy}
+        mediaNotice={mediaNotice}
+        onUploadMedia={uploadBeatMedia}
+        onChooseAsset={chooseExistingAsset}
+        onUpdateFitMode={updateFitMode}
+        onResetSource={resetToGeneratedSource}
+      />
     </div>
   );
 }
