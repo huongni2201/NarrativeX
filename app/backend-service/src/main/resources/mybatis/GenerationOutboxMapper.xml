@@ -7,7 +7,6 @@
                type="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.OutboxDispatchRow">
         <id property="id" column="id"/>
         <result property="eventType" column="event_type"/>
-        <result property="payloadJson" column="payload_json"/>
     </resultMap>
 
     <insert id="enqueue"
@@ -51,7 +50,7 @@
            SET available_at = CURRENT_TIMESTAMP + (#{reservationMillis} * INTERVAL '1 millisecond')
           FROM candidates
          WHERE event.id = candidates.id
-        RETURNING event.id, event.event_type, event.payload_json::text AS payload_json
+        RETURNING event.id, event.event_type
     </select>
 
     <update id="markPublished">

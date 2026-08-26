@@ -8,5 +8,4 @@ import lombok.Setter;
 public class OutboxDispatchRow {
   private long id;
   private String eventType;
-  private String payloadJson;
 }

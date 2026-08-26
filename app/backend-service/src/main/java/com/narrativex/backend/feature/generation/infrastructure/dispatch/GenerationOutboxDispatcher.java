@@ -3,7 +3,10 @@ package com.narrativex.backend.feature.generation.infrastructure.dispatch;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.GenerationOutboxMapper;
 import com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.OutboxDispatchRow;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -42,15 +45,24 @@ public class GenerationOutboxDispatcher {
 
   @Scheduled(fixedDelayString = "${narrativex.generation.outbox-dispatch-delay-ms:1000}")
   public void dispatchPending() {
+    Map<String, List<OutboxRow>> byChannel = new LinkedHashMap<>();
     for (OutboxRow row : reserveBatch()) {
+      byChannel.computeIfAbsent(row.channel(), ignored -> new ArrayList<>()).add(row);
+    }
+
+    for (Map.Entry<String, List<OutboxRow>> entry : byChannel.entrySet()) {
+      List<OutboxRow> rows = entry.getValue();
       try {
-        hintPublisher.publish(row.channel(), row.id());
-        mapper.markPublished(row.id());
+        // NOTIFY is only a lossy wake-up signal, so one notification per channel is enough to
+        // wake workers for every durable job currently visible in PostgreSQL.
+        hintPublisher.publish(entry.getKey(), rows.getLast().id());
+        rows.forEach(row -> mapper.markPublished(row.id()));
       } catch (RuntimeException exception) {
         log.warn(
-            "PostgreSQL generation hint failed for outbox event {}; durable worker polling remains active",
-            row.id());
-        mapper.scheduleRetry(row.id(), RETRY_MILLIS);
+            "PostgreSQL generation hint failed for {} outbox events on channel {}; durable worker polling remains active",
+            rows.size(),
+            entry.getKey());
+        rows.forEach(row -> mapper.scheduleRetry(row.id(), RETRY_MILLIS));
       }
     }
   }
