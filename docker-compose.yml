@@ -155,7 +155,6 @@ services:
       args: *build-args
     restart: unless-stopped
     environment:
-      <<: *worker-database-environment
       WORKER_NAME: narrativex-prod-narration
       WORKER_ENV: production
       WORKER_ROLES: narration
