@@ -26,6 +26,10 @@ Furthermore, automated End-to-End (E2E) testing requires valid credentials, but 
   - Cookie security defaults to `HttpOnly`, `Secure`, and `SameSite=Lax` (in `local` profile, `Secure=false` is permitted for HTTP localhost).
 - **Passwords:** Salted and hashed using Spring Security `PasswordEncoder`. Raw passwords are never stored.
 - **Google OIDC Login:** Requires verified Google email and maps Google `sub`. To prevent account takeover, unlinked password accounts with the same email are rejected rather than auto-linked.
+- **OAuth request state:** Pending Google authorization requests are stored in the server session
+  under their individual OAuth `state` values, with a bounded eight-request index. This preserves
+  callbacks from concurrent browser tabs/retries without moving provider tokens or state authority
+  into Electron.
 - **SecurityContextHolder Authority:** Domain and application services extract authenticated identity strictly from `SecurityContextHolder`. Application APIs strictly reject client-controlled identity headers (such as `X-User-Id`).
 
 ### 2. Abuse Prevention & Fail-Open Rate Limiting

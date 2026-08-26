@@ -83,6 +83,11 @@ LoginModal
   -> current project ID, route and editor context remain unchanged
 ```
 
+The backend stores each pending Google authorization request by its OAuth `state` inside the
+server session, rather than using Spring Security's single-request default slot. This prevents a
+second browser tab or a retry from overwriting the state needed by an earlier callback. At most
+eight pending states are retained per session; each state is removed after callback consumption.
+
 If Google authentication fails, the backend logs the provider exception with the correlation id
 and returns `narrativex://auth/callback?error=authentication_failed`. Desktop displays a retryable
 authentication error; it does not navigate to the non-existent browser route `/login`.

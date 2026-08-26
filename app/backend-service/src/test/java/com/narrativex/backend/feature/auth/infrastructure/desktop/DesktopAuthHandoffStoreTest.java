@@ -30,7 +30,7 @@ class DesktopAuthHandoffStoreTest {
   }
 
   @Test
-  void issueSerializesPayloadAndConsumeRestoresPrincipal() {
+  void issueSerializesPayloadAndConsumeRestoresPrincipal() throws Exception {
     DesktopUserPrincipal principal =
         new DesktopUserPrincipal("user-1", "Narrative User", "user@example.test", "avatar");
 

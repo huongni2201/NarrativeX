@@ -2,6 +2,7 @@ package com.narrativex.backend.feature.auth.infrastructure.configuration;
 
 import com.narrativex.backend.feature.auth.infrastructure.desktop.DesktopAuthenticationFailureHandler;
 import com.narrativex.backend.feature.auth.infrastructure.desktop.DesktopAuthenticationSuccessHandler;
+import com.narrativex.backend.feature.auth.infrastructure.desktop.DesktopOAuth2AuthorizationRequestRepository;
 import com.narrativex.backend.feature.auth.infrastructure.security.ApiAccessDeniedHandler;
 import com.narrativex.backend.feature.auth.infrastructure.security.ApiAuthenticationEntryPoint;
 import com.narrativex.backend.feature.auth.infrastructure.security.NarrativeXOidcUserService;
@@ -129,6 +130,7 @@ public class SecurityConfig {
       NarrativeXOidcUserService oidcUserService,
       DesktopAuthenticationSuccessHandler desktopAuthenticationSuccessHandler,
       DesktopAuthenticationFailureHandler desktopAuthenticationFailureHandler,
+      DesktopOAuth2AuthorizationRequestRepository authorizationRequestRepository,
       SecurityContextRepository securityContextRepository)
       throws Exception {
     http.cors(Customizer.withDefaults())
@@ -169,6 +171,9 @@ public class SecurityConfig {
         .oauth2Login(
             oauth2 ->
                 oauth2
+                    .authorizationEndpoint(
+                        endpoint ->
+                            endpoint.authorizationRequestRepository(authorizationRequestRepository))
                     .userInfoEndpoint(userInfo -> userInfo.oidcUserService(oidcUserService))
                     .successHandler(desktopAuthenticationSuccessHandler)
                     .failureHandler(desktopAuthenticationFailureHandler))
