@@ -24,12 +24,3 @@ services:
       MEDIA_STORAGE_MODE: local
       MEDIA_LOCAL_DIR: /tmp/narrativex/media
     volumes: !reset []
-
-  render-worker:
-    environment:
-      WORKER_ENV: development
-      MEDIA_STORAGE_MODE: local
-      MEDIA_LOCAL_DIR: /tmp/narrativex/media
-      FINAL_VIDEO_STORAGE_MODE: local
-      FINAL_VIDEO_LOCAL_DIR: /tmp/narrativex/final
-    volumes: !reset []
