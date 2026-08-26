@@ -19,9 +19,10 @@ This matrix maps the V1.11 contract to implementation checkpoint `main` / `0aca9
 | Flyway frozen core + additive migrations | V1-V3 frozen; V4 guest identity; V5 beat media selections | IMPLEMENTED |
 | Character + Location continuity | backend continuity foundations + project-scoped reads | IMPLEMENTED foundation |
 | Narration strategy / TTS bypass | `TTS` + `USER_PROVIDED_AUDIO` model and guards | IMPLEMENTED foundation |
-| Generated narration | Google TTS / VieNeu provider paths + Desktop local materialization foundation | IMPLEMENTED foundation |
+| Generated narration | VieNeu provider path + Desktop local materialization foundation | IMPLEMENTED foundation |
 | Local audio import | native import/registration with USER_PROVIDED_AUDIO guard | IMPLEMENTED foundation |
 | Vertex image generation | queue/provider/review flow + verified remote-to-local materialization | IMPLEMENTED foundation |
+| R2 generated-media transport | AI-generated image/narration bytes are remotely durable until Desktop materialization | IMPLEMENTED foundation |
 | Native local asset registration | two-phase main-process inspect/hash + backend LOCAL_ONLY registration + manifest commit | IMPLEMENTED foundation |
 | Production timeline reads | backend production timeline + narration-aligned timing | IMPLEMENTED foundation |
 | Beat media selection | V5 table + backend mutation/read model + Desktop editor integration | IMPLEMENTED foundation |
@@ -34,10 +35,11 @@ This matrix maps the V1.11 contract to implementation checkpoint `main` / `0aca9
 | Backend-assigned local render | device-scoped claim/lease/progress/completion/failure | IMPLEMENTED foundation |
 | Local render input resolution | asset IDs/checksums resolved through local manifest | IMPLEMENTED foundation |
 | Desktop FFmpeg render | segment render → concat → mux → ffprobe → local artifact | IMPLEMENTED foundation |
+| Final artifact metadata only | backend stores FinalArtifact metadata and never final MP4 bytes | IMPLEMENTED |
+| Direct local playback/export | Desktop reads final MP4 directly from project artifacts | IMPLEMENTED foundation |
 | Render journal discovery | atomic `render.state.json` + unfinished-job scan | IMPLEMENTED foundation |
 | Segment render cache | immutable asset/timeline/renderer/output identity cache | IMPLEMENTED foundation |
 | In-process cancellation | local execution cancellation path | IMPLEMENTED foundation |
-| Cloud R2/Drive path | retained server-worker storage/render fallback | LEGACY/FALLBACK for Desktop |
 | Renderer component architecture | Tailwind 4 + source-owned shadcn/Radix primitives + feature-oriented renderer structure | IMPLEMENTED foundation |
 | Production packaging/signing/auto-update | release hardening remains | TARGET |
 | Abrupt process/OS failure recovery UX | journal discovery exists; full recovery/resume product behavior needs hardening | PARTIAL |
@@ -51,24 +53,15 @@ NarrativeX now has implemented foundations for guest-first Desktop use, local as
 
 NarrativeX does **not** yet claim production-complete packaging/signing/auto-update, fully hardened abrupt-process recovery across every failure mode, the complete adaptive VisualScenePlanner/review loop, or complete billing/actual-usage reconciliation.
 
-The retained R2/Google Drive path remains real for server-worker/fallback flows, but it is not the Desktop project-media source of truth.
-
 ## Storage invariants
 
-### Desktop
-
-1. PostgreSQL is durable business/control authority.
-2. Desktop project bytes live in the local project workspace.
-3. `project.manifest.json` maps stable IDs to project-relative paths + size/SHA-256.
-4. Absolute local paths are not persisted as backend identities.
-5. Local final MP4 remains in the project artifact workspace unless an explicit export/upload/publish action copies it elsewhere.
-
-### Cloud/fallback
-
-1. R2 stores retained cloud pipeline media.
-2. Google Drive stores retained cloud-rendered final MP4.
-3. Worker-local paths are ephemeral scratch.
-4. This contract does not redefine Desktop local-first project storage.
+1. PostgreSQL is durable business/control authority and stores final-artifact metadata only.
+2. AI-generated image/narration bytes may use R2 until they are materialized locally.
+3. Desktop project bytes live in the local project workspace.
+4. `project.manifest.json` maps stable IDs to project-relative paths + size/SHA-256.
+5. Absolute local paths are not persisted as backend identities.
+6. Final MP4 remains in the project artifact workspace unless an explicit export/upload/publish action copies it elsewhere.
+7. Backend and Python workers do not store, stream or proxy final MP4 bytes.
 
 ## Execution and auth invariants
 
@@ -77,8 +70,8 @@ The retained R2/Google Drive path remains real for server-worker/fallback flows,
 3. Backend MediaPlan/execution policy is authoritative.
 4. Provider `UNKNOWN` reconciles before paid resubmission.
 5. Completed provider results remain immutable by identity/fingerprint policy.
-6. Desktop local render is backend-assigned and lease-controlled.
-7. FFmpeg runs in Electron main, never unrestricted renderer code.
+6. Final rendering is backend-assigned and lease-controlled but executed only in Electron main.
+7. FFmpeg final project rendering never runs in unrestricted renderer code or Python AI workers.
 8. Stable guest identity, signed-in user session and device execution credential are distinct concepts.
 9. Google remains the only end-user account sign-in provider.
 10. Backend authorization, not renderer state alone, gates account/provider-consuming operations.
