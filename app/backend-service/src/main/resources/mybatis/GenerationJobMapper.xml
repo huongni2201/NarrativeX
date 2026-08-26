@@ -101,6 +101,22 @@
          WHERE id = #{id}
     </select>
 
+    <select id="findByIdAndOwner" resultMap="generationJobRow">
+        SELECT
+            j.id, j.row_version, j.created_at, j.updated_at, j.job_id, j.project_id,
+            j.job_type, j.status, j.resource_class, j.progress, j.current_step, j.error_code,
+            j.requested_by_user_id, j.billed_to_user_id, j.story_version_id, j.chapter_id,
+            j.chapter_row_version, j.source_hash, j.source_text, j.source_language,
+            j.idempotency_key, j.storyboard_revision_id, j.media_plan_id,
+            j.media_plan_revision, j.production_mode, j.content_variant_id, j.source_variant_id,
+            j.target_language
+          FROM generation_jobs j
+          JOIN projects p ON p.id = j.project_id
+         WHERE j.id = #{id}
+           AND p.owner_id = #{ownerId}
+           AND p.archived_at IS NULL
+    </select>
+
     <select id="findByJobIdAndOwner" resultMap="generationJobRow">
         SELECT
             j.id, j.row_version, j.created_at, j.updated_at, j.job_id, j.project_id,
