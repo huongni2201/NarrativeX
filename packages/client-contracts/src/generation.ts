@@ -28,12 +28,23 @@ export interface GenerationJob {
   errorCode: string | null;
 }
 
+export type MediaAspectRatio = "16:9" | "9:16" | "1:1" | "4:3" | "3:4";
+export type MediaQualityTier = "DRAFT" | "STANDARD" | "HIGH";
+export type MediaImageStyle = "CINEMATIC" | "STORYBOOK_WATERCOLOR";
+
 export interface CreateMediaJobInput {
   productionMode: "IMAGE_MOTION";
-  aspectRatio: "16:9" | "9:16" | "1:1" | "4:3" | "3:4";
-  qualityTier: "DRAFT" | "STANDARD" | "HIGH";
+  aspectRatio: MediaAspectRatio;
+  qualityTier: MediaQualityTier;
   maxAuthorizedCost: number;
-  imageStyle?: "CINEMATIC" | "STORYBOOK_WATERCOLOR";
+  imageStyle?: MediaImageStyle;
+}
+
+export interface MediaJobCostEstimate {
+  visualBeatCount: number;
+  unitEstimatedCost: string;
+  estimatedCost: string;
+  currency: string;
 }
 
 export interface MediaGenerationItem {

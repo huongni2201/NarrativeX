@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import type { DesktopChapterDetails, DesktopTimeline } from "@narrativex/client-contracts";
+import type {
+  DesktopChapterDetails,
+  DesktopTimeline,
+  MediaAspectRatio,
+  MediaImageStyle,
+  MediaJobCostEstimate,
+  MediaQualityTier,
+} from "@narrativex/client-contracts";
 import { Check, Image as ImageIcon, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,13 +30,6 @@ import {
   useReviewMediaItem,
 } from "../queries/generation.queries";
 
-interface CostEstimate {
-  visualBeatCount: number;
-  unitEstimatedCost: string;
-  estimatedCost: string;
-  currency: string;
-}
-
 export function ImagesScreen({
   projectId,
   chapters,
@@ -44,11 +44,11 @@ export function ImagesScreen({
   const createJob = useCreateMediaJob();
   const review = useReviewMediaItem();
   const [chapterId, setChapterId] = useState("");
-  const [qualityTier, setQualityTier] = useState<"DRAFT" | "STANDARD" | "HIGH">("STANDARD");
-  const [imageStyle, setImageStyle] = useState<"CINEMATIC" | "STORYBOOK_WATERCOLOR">("CINEMATIC");
+  const [qualityTier, setQualityTier] = useState<MediaQualityTier>("STANDARD");
+  const [imageStyle, setImageStyle] = useState<MediaImageStyle>("CINEMATIC");
   const [analysisJobId, setAnalysisJobId] = useState<string | null>(null);
   const [mediaJobId, setMediaJobId] = useState<string | null>(null);
-  const [costEstimate, setCostEstimate] = useState<CostEstimate | null>(null);
+  const [costEstimate, setCostEstimate] = useState<MediaJobCostEstimate | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const mediaIntentRef = useRef<{ signature: string; idempotencyKey: string } | null>(null);
 
@@ -98,7 +98,7 @@ export function ImagesScreen({
     }
   }
 
-  async function estimateCost(): Promise<CostEstimate | null> {
+  async function estimateCost(): Promise<MediaJobCostEstimate | null> {
     if (!chapterId) return null;
     setNotice(null);
     try {
@@ -213,7 +213,7 @@ export function ImagesScreen({
           <Field label="Quality">
             <Select
               value={qualityTier}
-              onValueChange={(value) => setQualityTier(value as typeof qualityTier)}
+              onValueChange={(value) => setQualityTier(value as MediaQualityTier)}
             >
               <SelectTrigger className="min-w-[120px]">
                 <SelectValue />
@@ -228,7 +228,7 @@ export function ImagesScreen({
           <Field label="Image style">
             <Select
               value={imageStyle}
-              onValueChange={(value) => setImageStyle(value as typeof imageStyle)}
+              onValueChange={(value) => setImageStyle(value as MediaImageStyle)}
             >
               <SelectTrigger className="min-w-[190px]">
                 <SelectValue />
@@ -365,9 +365,7 @@ function Field({ label, children }: Readonly<{ label: string; children: React.Re
   );
 }
 
-function asAspectRatio(
-  value: string | undefined,
-): "16:9" | "9:16" | "1:1" | "4:3" | "3:4" {
+function asAspectRatio(value: string | undefined): MediaAspectRatio {
   return value === "9:16" || value === "1:1" || value === "4:3" || value === "3:4"
     ? value
     : "16:9";
