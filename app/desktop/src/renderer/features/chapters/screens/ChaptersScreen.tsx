@@ -294,6 +294,8 @@ export function ChaptersScreen({
   const isDirty = selected
     ? title !== selected.title || sourceText !== selected.sourceText
     : Boolean(title.trim() || sourceText.trim());
+  const generationBlockedByUnsavedChanges = Boolean(selected && isDirty);
+  const generationActionDisabled = busy || generationBlockedByUnsavedChanges;
 
   const totalWords = useMemo(
     () => chapters.reduce((total, chapter) => total + wordCount(chapter.sourceText), 0),
@@ -389,8 +391,7 @@ export function ChaptersScreen({
     if (
       !selected ||
       !voiceId ||
-      busy ||
-      isDirty ||
+      generationActionDisabled ||
       selectedAudioProcessing ||
       narrationJob
     ) {
@@ -550,7 +551,7 @@ export function ChaptersScreen({
           onCancel={cancelEditing}
           onSave={() => void save()}
           onAnalyze={() => {
-            if (selected) analyzeChapter.mutate(selected.id);
+            if (selected && !generationActionDisabled) analyzeChapter.mutate(selected.id);
           }}
           onOpenEditor={openEditor}
         />
