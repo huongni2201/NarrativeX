@@ -1,10 +1,11 @@
-import type { ProjectRenderBeatOverride } from "@narrativex/client-contracts";
+import type { BeatMediaFitMode, ProjectRenderBeatOverride } from "@narrativex/client-contracts";
 import { resetTimelineDraft, updateTimelineDraft, type TimelineDraft } from "./timeline-draft.ts";
 
 export type TimelineCommand =
   | { type: "SET_DURATION"; visualBeatId: string; durationMs: number }
   | { type: "SET_CAMERA"; visualBeatId: string; cameraMovement: string }
-  | { type: "SET_MEDIA"; visualBeatId: string; mediaAssetId: string }
+  | { type: "SET_FIT"; visualBeatId: string; fitMode: BeatMediaFitMode }
+  | { type: "SET_TRIM_START"; visualBeatId: string; trimStartMs: number }
   | { type: "RESET_BEAT"; visualBeatId: string }
   | { type: "RESET_ALL" };
 
@@ -19,8 +20,13 @@ export function applyTimelineCommand(draft: TimelineDraft, command: TimelineComm
       return updateTimelineDraft(draft, command.visualBeatId, { durationMs: Math.round(command.durationMs) });
     case "SET_CAMERA":
       return updateTimelineDraft(draft, command.visualBeatId, { cameraMovement: required(command.cameraMovement, "cameraMovement") });
-    case "SET_MEDIA":
-      return updateTimelineDraft(draft, command.visualBeatId, { mediaAssetId: required(command.mediaAssetId, "mediaAssetId") });
+    case "SET_FIT":
+      return updateTimelineDraft(draft, command.visualBeatId, { fitMode: command.fitMode });
+    case "SET_TRIM_START":
+      if (!Number.isFinite(command.trimStartMs) || command.trimStartMs < 0) {
+        throw new RangeError("trimStartMs must be >= 0");
+      }
+      return updateTimelineDraft(draft, command.visualBeatId, { trimStartMs: Math.round(command.trimStartMs) });
     case "RESET_BEAT":
       return resetTimelineDraft(draft, command.visualBeatId);
     case "RESET_ALL":
