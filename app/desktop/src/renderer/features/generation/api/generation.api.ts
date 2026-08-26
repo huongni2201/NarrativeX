@@ -8,6 +8,10 @@ import type {
 } from "@narrativex/client-contracts";
 import { apiCommand, apiRequest } from "../../../api/client.ts";
 
+export interface CurrentMediaJob {
+  jobId: string | null;
+}
+
 export const generationApi = {
   analyze: (projectId: string, chapterId: string, contentVariantId?: string | null) => {
     const params = new URLSearchParams();
@@ -55,6 +59,11 @@ export const generationApi = {
         headers: { "Idempotency-Key": idempotencyKey },
         body: JSON.stringify(input),
       },
+    ),
+
+  getCurrentMediaJob: (projectId: string, chapterId: string) =>
+    apiRequest<CurrentMediaJob>(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/chapters/${encodeURIComponent(chapterId)}/media-jobs/current`,
     ),
 
   getGenerationJob: (jobId: string) =>
