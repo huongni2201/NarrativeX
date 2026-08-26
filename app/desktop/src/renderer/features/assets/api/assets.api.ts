@@ -1,4 +1,8 @@
-import type { DesktopAsset, LocalAssetRegistration } from "@narrativex/client-contracts";
+import type {
+  DesktopAsset,
+  LocalAssetRegistration,
+  RegisterLocalAssetRequest,
+} from "@narrativex/client-contracts";
 import { apiRequest } from "../../../api/client";
 import { assertContract, isRecord, isString } from "../../../api/guards";
 
@@ -24,6 +28,19 @@ function parseAssets(value: unknown) {
   };
 }
 
+export function toRegisterLocalAssetRequest(
+  input: LocalAssetRegistration,
+): RegisterLocalAssetRequest {
+  return {
+    type: input.type,
+    originalFilename: input.originalFilename,
+    contentType: input.contentType,
+    sizeBytes: input.sizeBytes,
+    checksumSha256: input.checksumSha256,
+    durationMs: input.durationMs,
+  };
+}
+
 export const assetsApi = {
   list: (params = "limit=100") =>
     apiRequest<unknown>(`/api/v1/assets?${params}`).then(parseAssets),
@@ -42,6 +59,6 @@ export const assetsApi = {
   registerLocal: (input: LocalAssetRegistration) =>
     apiRequest<DesktopAsset>("/api/v1/assets/local", {
       method: "POST",
-      body: JSON.stringify(input),
+      body: JSON.stringify(toRegisterLocalAssetRequest(input)),
     }),
 };
