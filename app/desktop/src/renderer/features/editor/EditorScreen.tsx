@@ -4,6 +4,7 @@ import type {
   BeatMediaFitMode,
   DesktopTimelineBeat,
 } from "@narrativex/client-contracts";
+import { localAssetPreviewUrl } from "../../../shared/local-asset-preview-url";
 import { assetsApi } from "../assets/api/assets.api";
 import { productionApi } from "../production/api/production.api";
 import {
@@ -159,39 +160,46 @@ export function EditorScreen({
 
     const mediaIsLocalOnly = selected.storageMode === "LOCAL_ONLY";
     const narrationIsLocalOnly = narrationAsset?.storageMode === "LOCAL_ONLY";
-    const needsMediaUrl = Boolean(selected.mediaAssetId && !mediaIsLocalOnly);
-    const needsNarrationUrl = Boolean(selectedChapter?.narrationAssetId && !narrationIsLocalOnly);
+    const localMediaUrl =
+      mediaIsLocalOnly && selected.mediaAssetId
+        ? localAssetPreviewUrl(projectId, selected.mediaAssetId)
+        : null;
+    const localNarrationUrl =
+      narrationIsLocalOnly && selectedChapter?.narrationAssetId
+        ? localAssetPreviewUrl(projectId, selectedChapter.narrationAssetId)
+        : null;
+    const needsRemoteMediaUrl = Boolean(selected.mediaAssetId && !mediaIsLocalOnly);
+    const needsRemoteNarrationUrl = Boolean(
+      selectedChapter?.narrationAssetId && !narrationIsLocalOnly,
+    );
 
     setPreviewSources({
-      mediaUrl: null,
-      narrationUrl: null,
-      loading: needsMediaUrl || needsNarrationUrl,
-      message: mediaIsLocalOnly
-        ? "Media này chỉ có trên local. Auto Edit vẫn render bằng local FFmpeg; live preview remote chưa áp dụng cho asset này."
-        : null,
+      mediaUrl: localMediaUrl,
+      narrationUrl: localNarrationUrl,
+      loading: needsRemoteMediaUrl || needsRemoteNarrationUrl,
+      message: null,
     });
 
     void Promise.allSettled([
-      needsMediaUrl && selected.mediaAssetId
+      needsRemoteMediaUrl && selected.mediaAssetId
         ? assetsApi.downloadUrl(selected.mediaAssetId)
         : Promise.resolve(null),
-      needsNarrationUrl && selectedChapter?.narrationAssetId
+      needsRemoteNarrationUrl && selectedChapter?.narrationAssetId
         ? assetsApi.downloadUrl(selectedChapter.narrationAssetId)
         : Promise.resolve(null),
     ]).then(([mediaResult, narrationResult]) => {
       if (!active) return;
-      const mediaUrl = mediaResult.status === "fulfilled" ? mediaResult.value?.url ?? null : null;
-      const narrationUrl =
+      const remoteMediaUrl =
+        mediaResult.status === "fulfilled" ? mediaResult.value?.url ?? null : null;
+      const remoteNarrationUrl =
         narrationResult.status === "fulfilled" ? narrationResult.value?.url ?? null : null;
+      const mediaUrl = localMediaUrl ?? remoteMediaUrl;
+      const narrationUrl = localNarrationUrl ?? remoteNarrationUrl;
       const messages: string[] = [];
-      if (mediaIsLocalOnly) {
-        messages.push("Local-only media sẽ được FFmpeg đọc trực tiếp khi render.");
-      } else if (selected.mediaAssetId && !mediaUrl) {
+      if (selected.mediaAssetId && !mediaUrl) {
         messages.push("Không lấy được media preview URL.");
       }
-      if (narrationIsLocalOnly) {
-        messages.push("Narration local-only chưa phát trong viewport nhưng vẫn được dùng khi render.");
-      } else if (selectedChapter?.narrationAssetId && !narrationUrl) {
+      if (selectedChapter?.narrationAssetId && !narrationUrl) {
         messages.push("Không lấy được narration preview URL.");
       }
       setPreviewSources({
