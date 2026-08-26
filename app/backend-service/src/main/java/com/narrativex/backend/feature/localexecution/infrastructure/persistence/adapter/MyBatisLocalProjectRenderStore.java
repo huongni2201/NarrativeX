@@ -41,7 +41,9 @@ public class MyBatisLocalProjectRenderStore implements LocalProjectRenderStore {
                         chapter.storageKey(),
                         chapter.sizeBytes(),
                         chapter.checksum(),
-                        chapter.durationMs()))
+                        chapter.durationMs(),
+                        chapter.subtitleText(),
+                        chapter.subtitleSpansJson()))
             .toList();
     Map<UUID, LocalProjectRenderBeatMediaRow> mediaByBeat =
         beatMediaMapper.listBeatMedia(row.generationJobId()).stream()
