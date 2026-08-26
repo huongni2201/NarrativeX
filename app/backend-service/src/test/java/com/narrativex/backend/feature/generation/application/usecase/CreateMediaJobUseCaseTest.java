@@ -2,6 +2,8 @@ package com.narrativex.backend.feature.generation.application.usecase;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -35,7 +37,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class CreateMediaJobUseCaseTest {
   private static final UUID PROJECT_ID = UUID.randomUUID();
   private static final UUID CHAPTER_ID = UUID.randomUUID();
-  private static final UUID ACTIVE_JOB_ID = UUID.randomUUID();
+  private static final UUID ACTIVE_INTERNAL_JOB_ID = UUID.randomUUID();
 
   @Mock private CurrentUserId currentUserId;
   @Mock private ProjectAccess projectAccess;
@@ -89,11 +91,11 @@ class CreateMediaJobUseCaseTest {
     when(generationJobRepository.findByIdempotencyKey("intent-2", "owner-1"))
         .thenReturn(Optional.empty());
     when(chapterMediaHeadRepository.findCurrentJobId(CHAPTER_ID))
-        .thenReturn(Optional.of(ACTIVE_JOB_ID));
-    when(generationJobRepository.findByJobIdAndOwner(ACTIVE_JOB_ID, "owner-1"))
+        .thenReturn(Optional.of(ACTIVE_INTERNAL_JOB_ID));
+    when(generationJobRepository.findByIdAndOwner(ACTIVE_INTERNAL_JOB_ID, "owner-1"))
         .thenReturn(Optional.of(activeJob));
     when(activeJob.getStatus()).thenReturn(JobStatus.RUNNING);
-    when(activeJob.getId()).thenReturn(ACTIVE_JOB_ID);
+    when(activeJob.getId()).thenReturn(ACTIVE_INTERNAL_JOB_ID);
 
     CreateMediaJobCommand command =
         new CreateMediaJobCommand(
@@ -109,6 +111,9 @@ class CreateMediaJobUseCaseTest {
         .isInstanceOf(GenerationAdmissionDeniedException.class)
         .hasMessageContaining("already active");
 
+    verify(generationJobRepository).findByIdAndOwner(ACTIVE_INTERNAL_JOB_ID, "owner-1");
+    verify(generationJobRepository, never())
+        .findByJobIdAndOwner(ACTIVE_INTERNAL_JOB_ID, "owner-1");
     verifyNoInteractions(
         mediaPlanningSourceAccess,
         createMediaPlanUseCase,
