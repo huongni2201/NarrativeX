@@ -9,7 +9,8 @@ public record GenerateChapterNarrationCommand(
     UUID chapterId,
     String voiceId,
     BigDecimal speakingRate,
-    UUID voiceReferenceAssetId) {
+    UUID voiceReferenceAssetId,
+    UUID contentVariantId) {
   public GenerateChapterNarrationCommand {
     Objects.requireNonNull(projectId, "projectId");
     Objects.requireNonNull(chapterId, "chapterId");
@@ -18,5 +19,14 @@ public record GenerateChapterNarrationCommand(
     if (speakingRate == null || speakingRate.signum() <= 0) {
       throw new IllegalArgumentException("speakingRate must be positive");
     }
+  }
+
+  public GenerateChapterNarrationCommand(
+      UUID projectId,
+      UUID chapterId,
+      String voiceId,
+      BigDecimal speakingRate,
+      UUID voiceReferenceAssetId) {
+    this(projectId, chapterId, voiceId, speakingRate, voiceReferenceAssetId, null);
   }
 }
