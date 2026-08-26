@@ -8,7 +8,7 @@ import com.narrativex.backend.feature.generation.api.request.ReviewMediaGenerati
 import com.narrativex.backend.feature.generation.api.response.CurrentMediaJobResponse;
 import com.narrativex.backend.feature.generation.api.response.JobResponse;
 import com.narrativex.backend.feature.generation.api.response.MediaCostEstimateResponse;
-import com.narrativex.backend.backend.feature.generation.api.response.MediaJobDetailsResponse;
+import com.narrativex.backend.feature.generation.api.response.MediaJobDetailsResponse;
 import com.narrativex.backend.feature.generation.application.command.CreateMediaJobCommand;
 import com.narrativex.backend.feature.generation.application.usecase.CreateMediaJobUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.EstimateMediaJobUseCase;
