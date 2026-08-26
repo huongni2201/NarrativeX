@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import type {
   DesktopChapterDetails,
   DesktopTimeline,
@@ -16,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { assetsApi } from "../../assets/api/assets.api";
 import { EmptyState, FeaturePage } from "../../workspace/components/FeaturePage";
 import {
   isActiveGenerationJobStatus,
@@ -308,25 +310,32 @@ export function ImagesScreen({
             <span className="text-[9px] uppercase tracking-[.12em] text-muted-foreground">
               Media review
             </span>
-            <div className="mt-2 grid grid-cols-[repeat(auto-fill,minmax(210px,1fr))] gap-2">
+            <div className="mt-2 grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-2">
               {mediaJob.data?.items.map((item) => (
                 <article
                   key={item.id}
                   className="grid gap-2 rounded-md border border-border-subtle bg-popover p-3"
                 >
+                  <MediaItemPreview
+                    mediaAssetId={item.mediaAssetId}
+                    visualBeatId={item.visualBeatId}
+                    executionStatus={item.executionStatus}
+                  />
                   <div className="flex items-center gap-2">
                     <ImageIcon size={16} className="text-primary-hover" />
-                    <strong className="truncate text-[10px]">{item.visualBeatId}</strong>
+                    <strong className="truncate text-[10px]" title={item.itemKey}>
+                      {item.itemKey}
+                    </strong>
                   </div>
                   <span className="text-[9px] text-muted-foreground">
                     {item.executionStatus} · {item.reviewStatus}
                   </span>
-                  {item.reviewStatus === "NEEDS_REVIEW" && (
+                  {item.reviewStatus === "NEEDS_REVIEW" && item.executionStatus === "READY" && (
                     <div className="flex gap-2">
                       <Button
                         size="sm"
                         onClick={() => reviewItem(item.id, item.rowVersion, "APPROVED")}
-                        disabled={review.isPending}
+                        disabled={review.isPending || !item.mediaAssetId}
                       >
                         <Check size={12} /> Approve
                       </Button>
@@ -334,7 +343,7 @@ export function ImagesScreen({
                         variant="destructive"
                         size="sm"
                         onClick={() => reviewItem(item.id, item.rowVersion, "REJECTED")}
-                        disabled={review.isPending}
+                        disabled={review.isPending || !item.mediaAssetId}
                       >
                         <X size={12} /> Reject
                       </Button>
@@ -353,6 +362,74 @@ export function ImagesScreen({
         </section>
       </div>
     </FeaturePage>
+  );
+}
+
+function MediaItemPreview({
+  mediaAssetId,
+  visualBeatId,
+  executionStatus,
+}: Readonly<{
+  mediaAssetId: string | null;
+  visualBeatId: string;
+  executionStatus: string;
+}>) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const preview = useQuery({
+    queryKey: ["assets", mediaAssetId ?? "none", "download-url"],
+    queryFn: () => assetsApi.downloadUrl(mediaAssetId as string),
+    enabled: Boolean(mediaAssetId) && executionStatus === "READY",
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [preview.data?.url]);
+
+  if (executionStatus !== "READY" || !mediaAssetId) {
+    return (
+      <div className="grid aspect-video place-items-center rounded-md border border-border-subtle bg-background text-[9px] text-muted-foreground">
+        Ảnh đang được xử lý…
+      </div>
+    );
+  }
+
+  if (preview.isLoading) {
+    return (
+      <div className="grid aspect-video place-items-center rounded-md border border-border-subtle bg-background text-[9px] text-muted-foreground">
+        Đang tải preview…
+      </div>
+    );
+  }
+
+  if (preview.isError || !preview.data?.url || imageFailed) {
+    return (
+      <div className="grid aspect-video place-items-center gap-2 rounded-md border border-warning/30 bg-warning-bg p-3 text-center text-[9px] text-warning">
+        <span>Không tải được ảnh preview.</span>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            setImageFailed(false);
+            void preview.refetch();
+          }}
+        >
+          Thử lại
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={preview.data.url}
+      alt={`Generated visual beat ${visualBeatId}`}
+      className="aspect-video w-full rounded-md border border-border-subtle bg-background object-cover"
+      loading="lazy"
+      onError={() => setImageFailed(true)}
+    />
   );
 }
 
