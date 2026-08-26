@@ -23,6 +23,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @Slf4j
 @RestControllerAdvice
@@ -104,6 +105,21 @@ public class ApiExceptionHandler {
         exception.getClass().getSimpleName(),
         exception.getMessage(),
         exception);
+    return error(
+        HttpStatus.NOT_FOUND,
+        ApiErrorCode.RESOURCE_NOT_FOUND,
+        "The requested resource was not found.",
+        request);
+  }
+
+  @ExceptionHandler(NoResourceFoundException.class)
+  ResponseEntity<ErrorResponse> handleNoResourceFound(
+      NoResourceFoundException exception, HttpServletRequest request) {
+    log.warn(
+        "No handler or static resource at API boundary correlationId={} method={} path={}",
+        CorrelationIdFilter.correlationId(request),
+        request.getMethod(),
+        request.getRequestURI());
     return error(
         HttpStatus.NOT_FOUND,
         ApiErrorCode.RESOURCE_NOT_FOUND,

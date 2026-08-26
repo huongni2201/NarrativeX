@@ -83,6 +83,10 @@ LoginModal
   -> current project ID, route and editor context remain unchanged
 ```
 
+If Google authentication fails, the backend logs the provider exception with the correlation id
+and returns `narrativex://auth/callback?error=authentication_failed`. Desktop displays a retryable
+authentication error; it does not navigate to the non-existent browser route `/login`.
+
 `CurrentUserResponse.guest` tells Desktop whether the active server session represents the installation guest identity or a signed-in Google account.
 
 ## Gated production actions

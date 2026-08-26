@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   extractDesktopAuthCode,
+  extractDesktopAuthError,
   isNarrativeXProtocolUrl,
 } from "../src/main/auth/protocol-handler.ts";
 
@@ -23,4 +24,16 @@ test("desktop protocol does not treat arbitrary schemes or malformed URLs as cal
   assert.equal(isNarrativeXProtocolUrl("narrativex-malicious://auth/callback?code=x"), false);
   assert.equal(extractDesktopAuthCode("narrativex://auth/callback?code=%ZZ"), null);
   assert.equal(extractDesktopAuthCode("narrativex://auth/callback"), null);
+});
+
+test("desktop protocol accepts only the controlled authentication failure callback", () => {
+  assert.equal(
+    extractDesktopAuthError("narrativex://auth/callback?error=authentication_failed"),
+    "authentication_failed",
+  );
+  assert.equal(extractDesktopAuthError("narrativex://auth/callback?error=access_denied"), null);
+  assert.equal(
+    extractDesktopAuthError("narrativex://auth/callback?error=authentication_failed&detail=secret"),
+    null,
+  );
 });

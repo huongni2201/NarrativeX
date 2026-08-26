@@ -7,7 +7,11 @@ import { basename, extname } from "node:path";
 import { DesktopBackendApiService, type DesktopApiResponse } from "./api/backend-api-service";
 import { DesktopAuthService } from "./auth/auth-service";
 import { AUTH_CALLBACK_CHANNEL } from "./auth/auth-events";
-import { extractDesktopAuthCode, isNarrativeXProtocolUrl } from "./auth/protocol-handler";
+import {
+  extractDesktopAuthCode,
+  extractDesktopAuthError,
+  isNarrativeXProtocolUrl,
+} from "./auth/protocol-handler";
 import { LocalExecutionBackendClient } from "./local-execution/backend-client";
 import { loadLocalExecutionConfig } from "./local-execution/config";
 import { DeviceIdentityStore } from "./local-execution/device-identity";
@@ -63,6 +67,7 @@ let renderJournals: RenderJournalStore | null = null;
 let remoteAssetMaterializer: RemoteAssetMaterializer | null = null;
 let initialProtocolUrl: string | null = process.argv.find(isNarrativeXProtocolUrl) ?? null;
 let pendingAuthCode: string | null = null;
+let pendingAuthFailure: DesktopApiResponse | null = null;
 const pendingAssetSelections = new SelectionTokenStore<{ sourcePath: string; kind: "IMAGE" | "AUDIO" | "VIDEO" | "OTHER" }>();
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
@@ -71,7 +76,10 @@ function authFailureResponse(): DesktopApiResponse {
   return {
     status: 401,
     statusText: "Desktop authentication failed",
-    bodyText: JSON.stringify({ success: false, message: "Desktop authentication exchange failed." }),
+    bodyText: JSON.stringify({
+      success: false,
+      message: "Google authentication failed. Please try again.",
+    }),
   };
 }
 
@@ -98,8 +106,17 @@ function deliverProtocolCode(code: string): void {
 
 function deliverProtocolUrl(value: string): void {
   const code = extractDesktopAuthCode(value);
-  if (!code) return;
-  deliverProtocolCode(code);
+  if (code) {
+    deliverProtocolCode(code);
+    return;
+  }
+  if (!extractDesktopAuthError(value)) return;
+  const response = authFailureResponse();
+  if (!mainWindow || mainWindow.webContents.isLoading() || !desktopAuth) {
+    pendingAuthFailure = response;
+    return;
+  }
+  mainWindow.webContents.send(AUTH_CALLBACK_CHANNEL, response);
 }
 
 if (!hasSingleInstanceLock) {
@@ -278,6 +295,7 @@ void app.whenReady().then(async () => {
   registerTrustedIpcHandler("desktop:auth:login", trustPolicy, () => {
     if (!desktopAuth) throw new Error("Desktop auth is not initialized.");
     pendingAuthCode = null;
+    pendingAuthFailure = null;
     return desktopAuth.login();
   });
   registerTrustedIpcHandler("desktop:auth:logout", trustPolicy, () => {
@@ -285,6 +303,9 @@ void app.whenReady().then(async () => {
     return desktopAuth.logout();
   });
   registerTrustedIpcHandler("desktop:auth:consume-pending", trustPolicy, () => {
+    const failure = pendingAuthFailure;
+    pendingAuthFailure = null;
+    if (failure) return failure;
     const code = pendingAuthCode;
     pendingAuthCode = null;
     return code ? exchangeDesktopAuthCode(code) : null;

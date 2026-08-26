@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-24  
-**Updated:** 2026-08-25 — guest-first Desktop entry and in-place sign-in gate
+**Updated:** 2026-08-26 — guest-first Desktop entry, in-place sign-in gate and OAuth failure handoff
 
 **Supersedes:** password-authentication behavior described by earlier runtime documentation. The Spring Security server-managed session model remains authoritative.
 
@@ -45,6 +45,12 @@ The backend strictly validates the NarrativeX Desktop redirect structure before 
 Electron main generates a random 32-byte verifier for each login attempt, retains it only in
 memory, and sends only its unpadded base64url SHA-256 challenge to the backend. A new login
 replaces the pending verifier; failed, expired, successful and logout flows clear it.
+
+OAuth failures do not use Spring's browser-oriented `/login` fallback because Desktop has no
+browser login page. The backend records the provider exception with the request correlation id,
+clears the pending session attributes, and redirects to the validated Desktop callback with the
+controlled error `narrativex://auth/callback?error=authentication_failed`. Electron consumes this
+error without exposing provider details to the renderer.
 
 ### 4. OAuth completion uses a short-lived one-time handoff code
 
