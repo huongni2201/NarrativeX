@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import {
   BookOpen,
+  ChevronDown,
   Folder,
   Image as ImageIcon,
   Layers3,
@@ -10,7 +11,6 @@ import {
   UserCircle,
 } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { ProjectPicker } from "../../projects/components/ProjectPicker";
 import type { DesktopWorkspaceState } from "../queries/useProjectWorkspace";
 import type { ActivityId } from "../workspace-navigation";
 
@@ -42,78 +42,92 @@ export function WorkspaceShell({
   children: ReactNode;
 }>) {
   const navigate = useNavigate();
-  const activeProject = workspace.projects.find((project) => project.id === projectId) ?? null;
 
   return (
-    <div className="grid h-dvh min-w-[980px] grid-cols-[72px_minmax(0,1fr)] grid-rows-[48px_minmax(0,1fr)_28px] bg-background text-foreground">
-      <header className="col-span-full flex items-center gap-4 border-b border-border bg-surface-panel px-3">
-        <button
-          type="button"
-          className="flex items-center gap-2 font-semibold"
-          onClick={() => navigate("/projects")}
-        >
-          <img
-            src="/branding/narrativex-icon.png"
-            alt="NarrativeX"
-            width={22}
-            height={22}
-            className="size-[22px] rounded object-contain"
-          />
-          <span>NarrativeX</span>
-        </button>
-        <div className="min-w-0 max-w-[420px] flex-1">
-          <ProjectPicker
-            projects={workspace.projects}
-            activeProjectId={activeProject?.id ?? projectId}
-            onChange={(nextProjectId) => navigate(`/projects/${nextProjectId}/${screen}`)}
-          />
-        </div>
-        <span className="ml-auto text-[10px] text-muted-foreground">
-          {workspace.status === "ready"
-            ? "Backend synced"
-            : workspace.status === "loading"
-              ? "Syncing workspace…"
-              : workspace.status === "partial"
-                ? "Partially synced"
-                : workspace.status === "error"
-                  ? "Backend unavailable"
-                  : "Workspace ready"}
-        </span>
-      </header>
-
-      <aside className="row-start-2 flex flex-col gap-1 border-r border-border bg-surface-panel p-2">
-        {navigation.map(({ id, label, icon: Icon, segment }) => (
-          <NavLink
-            key={id}
-            to={`/projects/${projectId}/${segment}`}
-            className={({ isActive }) =>
-              `flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-md border text-[9px] transition-colors ${
-                isActive || screen === id
-                  ? "border-primary/30 bg-primary-muted text-primary-hover"
-                  : "border-transparent text-muted-foreground hover:bg-secondary hover:text-foreground"
-              }`
-            }
-            aria-label={label}
+    <div className="grid h-dvh min-w-[1100px] grid-cols-[100px_minmax(0,1fr)] bg-[#080b10] text-foreground select-none">
+      {/* Left Sidebar */}
+      <aside className="flex flex-col justify-between border-r border-border/70 bg-[#0c1017] p-2.5">
+        {/* Top: Logo & Navigation */}
+        <div className="space-y-4">
+          {/* Logo Header */}
+          <button
+            type="button"
+            className="flex w-full items-center justify-center gap-0.5 py-2 font-black tracking-wider text-foreground transition hover:opacity-90"
+            onClick={() => navigate("/projects")}
+            title="NarrativeX Projects"
           >
-            <Icon size={18} />
-            <span>{label}</span>
-          </NavLink>
-        ))}
+            <span className="text-[13px] font-black tracking-widest text-white">NARRATIVE</span>
+            <span className="text-[14px] font-black text-[#ff8a00]">X</span>
+          </button>
+
+          {/* Navigation Items */}
+          <nav className="flex flex-col gap-1.5 pt-1">
+            {navigation.map(({ id, label, icon: Icon, segment }) => {
+              const isActive = screen === id;
+
+              return (
+                <NavLink
+                  key={id}
+                  to={`/projects/${projectId}/${segment}`}
+                  className={`flex flex-col items-center justify-center gap-1.5 rounded-xl py-2.5 text-[10px] font-medium transition-all ${
+                    isActive
+                      ? "bg-gradient-to-b from-[#ff8a00]/20 to-[#ff8a00]/5 text-[#ff8a00] shadow-[0_0_12px_rgba(255,138,0,0.15)] ring-1 ring-[#ff8a00]/30"
+                      : "text-muted-foreground hover:bg-[#141b27] hover:text-foreground"
+                  }`}
+                  aria-label={label}
+                >
+                  <Icon size={19} className={isActive ? "text-[#ff8a00]" : "text-muted-foreground"} />
+                  <span>{label}</span>
+                </NavLink>
+              );
+            })}
+          </nav>
+        </div>
+
+        {/* Bottom Section: Storage, Status & Workspace selector */}
+        <div className="space-y-3 border-t border-border/50 pt-3">
+          {/* Storage Gauge */}
+          <div className="space-y-1 px-1">
+            <div className="flex items-center justify-between text-[9px] font-bold tracking-wider text-muted-foreground uppercase">
+              <span>STORAGE</span>
+            </div>
+            <div className="text-[10px] text-muted-foreground/80">128 GB / 500 GB</div>
+            <div className="h-1 w-full overflow-hidden rounded-full bg-[#162030]">
+              <div className="h-full w-1/4 rounded-full bg-emerald-400" />
+            </div>
+          </div>
+
+          {/* Connection Status */}
+          <div className="flex items-center gap-1.5 px-1 text-[10px] font-medium text-emerald-400">
+            <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+            <span>Connected</span>
+          </div>
+
+          {/* Workspace dropdown button */}
+          <div className="px-0.5">
+            <button
+              type="button"
+              className="flex w-full items-center justify-between rounded-lg border border-border/60 bg-[#121927] px-2 py-1.5 text-left text-[9px] text-muted-foreground transition hover:border-border hover:bg-[#182335] hover:text-foreground"
+            >
+              <div className="truncate">
+                <span className="block text-[8px] text-muted-foreground/60 uppercase">Workspace</span>
+                <span className="truncate font-medium text-foreground">Local workspace</span>
+              </div>
+              <ChevronDown size={11} className="shrink-0 text-muted-foreground" />
+            </button>
+          </div>
+        </div>
       </aside>
 
-      <main className="row-start-2 min-h-0 min-w-0 overflow-hidden bg-background">
+      {/* Main Feature Content Screen */}
+      <main className="min-h-0 min-w-0 overflow-hidden bg-[#080b10]">
         {workspace.error && (
-          <div className="border-b border-warning/30 bg-warning-bg px-4 py-2 text-[10px] text-warning">
+          <div className="border-b border-warning/30 bg-warning-bg px-4 py-2 text-xs text-warning">
             {workspace.error}
           </div>
         )}
         {children}
       </main>
-
-      <footer className="col-span-full flex items-center justify-between border-t border-border bg-surface-panel px-3 text-[10px] text-muted-foreground">
-        <span>{activeProject?.name ?? "NarrativeX project"}</span>
-        <span>{workspace.timeline ? `${workspace.timeline.beats.length} visual beats` : "Timeline not loaded"}</span>
-      </footer>
     </div>
   );
 }
