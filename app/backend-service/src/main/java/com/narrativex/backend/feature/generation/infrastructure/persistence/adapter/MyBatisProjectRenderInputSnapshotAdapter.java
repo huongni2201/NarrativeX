@@ -21,7 +21,8 @@ public class MyBatisProjectRenderInputSnapshotAdapter
       String resolution,
       String format,
       RenderExecutionTarget executionTarget,
-      UUID assignedLocalDeviceId) {
+      UUID assignedLocalDeviceId,
+      BackgroundMusicInput backgroundMusic) {
     if (!timeline.readyForRender()) {
       throw new IllegalArgumentException(
           "Project render snapshot requires a render-ready timeline");
@@ -41,7 +42,8 @@ public class MyBatisProjectRenderInputSnapshotAdapter
             executionTarget,
             assignedLocalDeviceId,
             timeline.chapters().size(),
-            timeline.beats().size())
+            timeline.beats().size(),
+            backgroundMusic)
         != 1) {
       throw new IllegalStateException("Project render snapshot header was not inserted");
     }
