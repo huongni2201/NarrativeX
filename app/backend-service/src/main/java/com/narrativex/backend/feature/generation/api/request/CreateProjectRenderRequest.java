@@ -44,5 +44,7 @@ public record CreateProjectRenderRequest(
       @NotNull UUID visualBeatId,
       @Min(1000) @Max(120000) Long durationMs,
       @Pattern(regexp = "NONE|PAN|TILT|PUSH_IN|PULL_OUT|TRACK|ZOOM_IN|ZOOM_OUT|PARALLAX")
-          String cameraMovement) {}
+          String cameraMovement,
+      @Pattern(regexp = "TRIM|LOOP|FREEZE_END|SPEED_ADJUST") String fitMode,
+      @Min(0) Long trimStartMs) {}
 }
