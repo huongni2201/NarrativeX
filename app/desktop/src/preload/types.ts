@@ -100,6 +100,8 @@ export interface LocalAssetSelection {
   sizeBytes: number;
   checksumSha256: string;
   kind: "IMAGE" | "AUDIO" | "VIDEO" | "OTHER";
+  /** ffprobe-derived duration for audio/video. Undefined when not applicable or ffprobe is unavailable. */
+  durationMs?: number;
 }
 
 export interface LocalRemoteMaterializationInput {
