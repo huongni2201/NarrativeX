@@ -88,10 +88,10 @@ docker compose --profile tunnel up -d
 ```
 
 With that profile enabled, `CLOUDFLARE_TUNNEL_TOKEN` is required and the tunnel
-routes directly to `http://backend:8080` inside the Compose network. The public
-`APP_DOMAIN` must resolve over HTTPS to the tunnel for Desktop system-browser
-OAuth and API/session traffic. Deployments that already provide HTTPS ingress
-should leave the tunnel profile disabled.
+routes directly to `http://backend:8080` inside the Compose network. The hostname from
+`NARRATIVEX_PUBLIC_BASE_URL` must resolve over HTTPS to that ingress for Desktop
+system-browser OAuth and API/session traffic. Deployments that already provide HTTPS
+ingress should leave the tunnel profile disabled.
 
 For production worker rollouts, set `BUILD_SHA` to the immutable Git revision and
 configure the registry image prefixes in `.env.prod`. Then pull and recreate the
