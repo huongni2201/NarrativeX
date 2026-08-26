@@ -7,6 +7,8 @@ import {
 } from "../../shared/local-asset-preview-url";
 import type { ProjectStorage } from "./project-storage";
 
+const VERIFIED_PATH_TTL_MS = 60_000;
+
 /** Must run before Electron's ready event. */
 export function registerLocalAssetPreviewScheme(): void {
   protocol.registerSchemesAsPrivileged([
@@ -27,6 +29,8 @@ export function installLocalAssetPreviewProtocol(
   targetProtocol: Protocol,
   storage: ProjectStorage,
 ): void {
+  const verifiedPaths = new Map<string, { path: string; expiresAt: number }>();
+
   targetProtocol.handle(LOCAL_ASSET_PREVIEW_SCHEME, async (request) => {
     if (request.method !== "GET" && request.method !== "HEAD") {
       return new Response("Method not allowed", { status: 405 });
@@ -35,7 +39,17 @@ export function installLocalAssetPreviewProtocol(
     if (!target) return new Response("Invalid preview URL", { status: 400 });
 
     try {
-      const localPath = await storage.resolveAsset(target.projectId, target.assetId);
+      const key = `${target.projectId}:${target.assetId}`;
+      const now = Date.now();
+      const cached = verifiedPaths.get(key);
+      const localPath =
+        cached && cached.expiresAt > now
+          ? cached.path
+          : await storage.resolveAsset(target.projectId, target.assetId);
+      if (!cached || cached.expiresAt <= now) {
+        verifiedPaths.set(key, { path: localPath, expiresAt: now + VERIFIED_PATH_TTL_MS });
+      }
+
       const headers = new Headers();
       const range = request.headers.get("range");
       if (range) headers.set("Range", range);
