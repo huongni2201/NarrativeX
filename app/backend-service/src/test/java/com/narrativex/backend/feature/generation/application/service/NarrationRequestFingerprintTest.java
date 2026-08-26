@@ -30,7 +30,7 @@ class NarrationRequestFingerprintTest {
   }
 
   @Test
-  void sourceOrVoiceChangeCreatesDifferentNarrationIdentity() {
+  void sourceVoiceReferenceOrContentVariantChangeCreatesDifferentNarrationIdentity() {
     UUID chapterId = UuidV7.random();
     String base =
         fingerprint.calculate(
@@ -51,9 +51,21 @@ class NarrationRequestFingerprintTest {
             BigDecimal.ONE,
             "sentence-v1",
             UuidV7.random());
+    String translatedVariant =
+        fingerprint.calculate(
+            chapterId,
+            4L,
+            "a".repeat(64),
+            "voice-1",
+            "vi-VN",
+            BigDecimal.ONE,
+            "sentence-v1",
+            null,
+            UuidV7.random());
 
     assertThat(edited).isNotEqualTo(base);
     assertThat(otherVoice).isNotEqualTo(base);
     assertThat(reference).isNotEqualTo(base);
+    assertThat(translatedVariant).isNotEqualTo(base);
   }
 }
