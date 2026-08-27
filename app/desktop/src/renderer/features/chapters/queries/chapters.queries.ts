@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  type QueryClient,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import type {
   CreateChapterInput,
   DesktopChapterDetails,
@@ -17,6 +22,15 @@ export const chapterQueryKeys = {
   workspaces: (projectId: string, chapterIds: string[]) =>
     [...chapterQueryKeys.all(projectId), "workspaces", chapterIds] as const,
 };
+
+function invalidateChapterData(queryClient: QueryClient, projectId: string) {
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: chapterQueryKeys.all(projectId) }),
+    // Production timeline contains chapter identity/version/title and is therefore
+    // backend-derived chapter data too. Keep it synchronized after every CRUD write.
+    queryClient.invalidateQueries({ queryKey: ["projects", projectId, "timeline"] }),
+  ]);
+}
 
 export function useChapterWorkspacesQuery(
   projectId: string,
@@ -74,13 +88,7 @@ export function useCreateChapter(projectId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: CreateChapterInput) => chaptersApi.create(projectId, input),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: chapterQueryKeys.all(projectId) }),
-        // Creating the first chapter may also create the project's StoryVersion.
-        queryClient.invalidateQueries({ queryKey: ["projects", projectId, "timeline"] }),
-      ]);
-    },
+    onSuccess: () => invalidateChapterData(queryClient, projectId),
   });
 }
 
@@ -89,7 +97,7 @@ export function useUpdateChapter(projectId: string) {
   return useMutation({
     mutationFn: (input: UpdateChapterInput & { chapterId: string }) =>
       chaptersApi.update(projectId, input.chapterId, input),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: chapterQueryKeys.all(projectId) }),
+    onSuccess: () => invalidateChapterData(queryClient, projectId),
   });
 }
 
@@ -97,6 +105,6 @@ export function useDeleteChapter(projectId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (chapterId: string) => chaptersApi.remove(projectId, chapterId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: chapterQueryKeys.all(projectId) }),
+    onSuccess: () => invalidateChapterData(queryClient, projectId),
   });
 }

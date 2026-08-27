@@ -32,6 +32,8 @@ public final class GenerationJob extends AggregateRoot {
   private final UUID mediaPlanId;
   private final Integer mediaPlanRevision;
   private final ProductionMode productionMode;
+  private final String analysisVisualGenerationMode;
+  private final String analysisImageProvider;
 
   private GenerationJob(
       UUID id,
@@ -56,7 +58,9 @@ public final class GenerationJob extends AggregateRoot {
       String idempotencyKey,
       UUID mediaPlanId,
       Integer mediaPlanRevision,
-      ProductionMode productionMode) {
+      ProductionMode productionMode,
+      String analysisVisualGenerationMode,
+      String analysisImageProvider) {
     super(id, rowVersion);
     this.jobId = Objects.requireNonNull(jobId, "jobId");
     this.projectId = Objects.requireNonNull(projectId, "projectId");
@@ -80,9 +84,12 @@ public final class GenerationJob extends AggregateRoot {
     this.sourceLanguage = sourceLanguage;
     this.idempotencyKey = idempotencyKey;
     requireCompleteMediaPlanPointer(mediaPlanId, mediaPlanRevision, productionMode);
+    requireAnalysisPreferences(type, analysisVisualGenerationMode, analysisImageProvider);
     this.mediaPlanId = mediaPlanId;
     this.mediaPlanRevision = mediaPlanRevision;
     this.productionMode = productionMode;
+    this.analysisVisualGenerationMode = analysisVisualGenerationMode;
+    this.analysisImageProvider = analysisImageProvider;
   }
 
   public static GenerationJob create(
@@ -110,6 +117,8 @@ public final class GenerationJob extends AggregateRoot {
         null,
         null,
         null,
+        null,
+        null,
         null);
   }
 
@@ -123,6 +132,34 @@ public final class GenerationJob extends AggregateRoot {
       String sourceText,
       String sourceLanguage,
       String idempotencyKey,
+      String userId) {
+    return createChapterAnalysis(
+        projectId,
+        storyVersionId,
+        chapterId,
+        storyboardRevisionId,
+        chapterRowVersion,
+        sourceHash,
+        sourceText,
+        sourceLanguage,
+        idempotencyKey,
+        "IMAGE",
+        "API",
+        userId);
+  }
+
+  public static GenerationJob createChapterAnalysis(
+      UUID projectId,
+      UUID storyVersionId,
+      UUID chapterId,
+      UUID storyboardRevisionId,
+      long chapterRowVersion,
+      String sourceHash,
+      String sourceText,
+      String sourceLanguage,
+      String idempotencyKey,
+      String visualGenerationMode,
+      String imageProvider,
       String userId) {
     Objects.requireNonNull(storyVersionId, "storyVersionId");
     Objects.requireNonNull(chapterId, "chapterId");
@@ -153,7 +190,9 @@ public final class GenerationJob extends AggregateRoot {
         required(idempotencyKey, "idempotencyKey"),
         null,
         null,
-        null);
+        null,
+        required(visualGenerationMode, "visualGenerationMode"),
+        imageProvider);
   }
 
   public static GenerationJob createChapterGeneration(
@@ -189,7 +228,9 @@ public final class GenerationJob extends AggregateRoot {
         required(idempotencyKey, "idempotencyKey"),
         mediaPlan.id(),
         mediaPlan.revision(),
-        mediaPlan.productionMode());
+        mediaPlan.productionMode(),
+        null,
+        null);
   }
 
   public static GenerationJob createChapterRender(
@@ -235,7 +276,9 @@ public final class GenerationJob extends AggregateRoot {
         required(idempotencyKey, "idempotencyKey"),
         mediaPlanId,
         mediaPlanRevision,
-        ProductionMode.IMAGE_MOTION);
+        ProductionMode.IMAGE_MOTION,
+        null,
+        null);
   }
 
   public static GenerationJob rehydrate(
@@ -282,6 +325,8 @@ public final class GenerationJob extends AggregateRoot {
         idempotencyKey,
         null,
         null,
+        null,
+        null,
         null);
   }
 
@@ -309,6 +354,60 @@ public final class GenerationJob extends AggregateRoot {
       UUID mediaPlanId,
       Integer mediaPlanRevision,
       ProductionMode productionMode) {
+    return rehydrate(
+        id,
+        rowVersion,
+        jobId,
+        projectId,
+        type,
+        status,
+        resourceClass,
+        progress,
+        currentStep,
+        errorCode,
+        requestedByUserId,
+        billedToUserId,
+        storyVersionId,
+        chapterId,
+        storyboardRevisionId,
+        chapterRowVersion,
+        sourceHash,
+        sourceText,
+        sourceLanguage,
+        idempotencyKey,
+        mediaPlanId,
+        mediaPlanRevision,
+        productionMode,
+        null,
+        null);
+  }
+
+  public static GenerationJob rehydrate(
+      UUID id,
+      long rowVersion,
+      UUID jobId,
+      UUID projectId,
+      JobType type,
+      JobStatus status,
+      ResourceClass resourceClass,
+      int progress,
+      String currentStep,
+      String errorCode,
+      String requestedByUserId,
+      String billedToUserId,
+      UUID storyVersionId,
+      UUID chapterId,
+      UUID storyboardRevisionId,
+      Long chapterRowVersion,
+      String sourceHash,
+      String sourceText,
+      String sourceLanguage,
+      String idempotencyKey,
+      UUID mediaPlanId,
+      Integer mediaPlanRevision,
+      ProductionMode productionMode,
+      String analysisVisualGenerationMode,
+      String analysisImageProvider) {
     return new GenerationJob(
         id,
         rowVersion,
@@ -332,7 +431,9 @@ public final class GenerationJob extends AggregateRoot {
         idempotencyKey,
         mediaPlanId,
         mediaPlanRevision,
-        productionMode);
+        productionMode,
+        analysisVisualGenerationMode,
+        analysisImageProvider);
   }
 
   public UUID getJobId() { return jobId; }
@@ -356,6 +457,8 @@ public final class GenerationJob extends AggregateRoot {
   public UUID getMediaPlanId() { return mediaPlanId; }
   public Integer getMediaPlanRevision() { return mediaPlanRevision; }
   public ProductionMode getProductionMode() { return productionMode; }
+  public String getAnalysisVisualGenerationMode() { return analysisVisualGenerationMode; }
+  public String getAnalysisImageProvider() { return analysisImageProvider; }
 
   private static void requireCompleteMediaPlanPointer(
       UUID mediaPlanId, Integer mediaPlanRevision, ProductionMode productionMode) {
@@ -367,6 +470,26 @@ public final class GenerationJob extends AggregateRoot {
     }
     if (mediaPlanRevision != null && mediaPlanRevision <= 0) {
       throw new IllegalArgumentException("mediaPlanRevision must be positive");
+    }
+  }
+
+  private static void requireAnalysisPreferences(
+      JobType type, String visualGenerationMode, String imageProvider) {
+    if (visualGenerationMode == null && imageProvider == null) return;
+    if (type != JobType.CHAPTER_ANALYZE) {
+      throw new IllegalArgumentException("analysis preferences are only valid for CHAPTER_ANALYZE jobs");
+    }
+    if (!"IMAGE".equals(visualGenerationMode) && !"VIDEO".equals(visualGenerationMode)) {
+      throw new IllegalArgumentException("visualGenerationMode must be IMAGE or VIDEO");
+    }
+    if ("IMAGE".equals(visualGenerationMode)) {
+      if (!"GEMINI_WEB".equals(imageProvider) && !"API".equals(imageProvider)) {
+        throw new IllegalArgumentException("imageProvider must be GEMINI_WEB or API for IMAGE mode");
+      }
+      return;
+    }
+    if (imageProvider != null) {
+      throw new IllegalArgumentException("imageProvider must be null for VIDEO mode");
     }
   }
 

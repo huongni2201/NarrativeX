@@ -60,7 +60,8 @@ public class MyBatisGenerationJobPersistenceAdapter implements GenerationJobRepo
         job.getErrorCode(), job.getRequestedByUserId(), job.getBilledToUserId(), job.getStoryVersionId(),
         job.getChapterId(), job.getChapterRowVersion(), job.getSourceHash(), job.getSourceText(),
         job.getSourceLanguage(), job.getIdempotencyKey(), job.getStoryboardRevisionId(), job.getMediaPlanId(),
-        job.getMediaPlanRevision(), job.getProductionMode());
+        job.getMediaPlanRevision(), job.getProductionMode(), job.getAnalysisVisualGenerationMode(),
+        job.getAnalysisImageProvider());
   }
 
   private static GenerationJob toDomain(GenerationJobRow row) {
@@ -70,7 +71,7 @@ public class MyBatisGenerationJobPersistenceAdapter implements GenerationJobRepo
         row.getRequestedByUserId(), row.getBilledToUserId(), row.getStoryVersionId(), row.getChapterId(),
         row.getStoryboardRevisionId(), row.getChapterRowVersion(), row.getSourceHash(), row.getSourceText(),
         row.getSourceLanguage(), row.getIdempotencyKey(), row.getMediaPlanId(), row.getMediaPlanRevision(),
-        row.getProductionMode());
+        row.getProductionMode(), row.getAnalysisVisualGenerationMode(), row.getAnalysisImageProvider());
   }
 
   private static ResourceNotFoundException missing(UUID id) { return new ResourceNotFoundException("GenerationJob " + id + " no longer exists while applying an update"); }

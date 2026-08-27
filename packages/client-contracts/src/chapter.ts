@@ -19,6 +19,8 @@ export interface DesktopChapterDetails {
   sourceText: string;
   sourceHash: string;
   rowVersion: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface DesktopChapterWorkspace {
@@ -30,7 +32,7 @@ export interface DesktopChapterWorkspace {
     estimatedDurationSeconds: number;
   };
   pipeline: {
-    analysis: ChapterWorkspaceStep;
+    analysis: ChapterWorkspaceAnalysis;
     visualPlanning: ChapterWorkspaceStep;
     visualGeneration: ChapterWorkspaceProgress;
     audio: ChapterWorkspaceAudio;
@@ -53,17 +55,27 @@ export interface ChapterWorkspaceStep {
   completedAt: string | null;
 }
 
+export interface ChapterWorkspaceAnalysis extends ChapterWorkspaceStep {
+  latestJobId: string | null;
+  visualGenerationMode: "IMAGE" | "VIDEO" | null;
+  imageProvider: "GEMINI_WEB" | "API" | null;
+}
+
 export interface ChapterWorkspaceProgress {
   status: string;
   total: number;
   completed: number;
   failed: number;
+  latestJobId: string | null;
+  mediaPlanId: string | null;
+  mediaPlanRevision: number | null;
 }
 
 export interface ChapterWorkspaceAudio extends ChapterWorkspaceStep {
   status: string;
   latestJobId: string | null;
   voiceId: string | null;
+  speakingRate: number | null;
   audioUrl: string | null;
   durationMs: number | null;
 }

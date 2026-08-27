@@ -30,6 +30,8 @@ CREATE TABLE generation_jobs (
     media_plan_id UUID,
     media_plan_revision INTEGER,
     production_mode VARCHAR(32),
+    analysis_visual_generation_mode VARCHAR(16),
+    analysis_image_provider VARCHAR(32),
     CONSTRAINT ck_generation_jobs_progress CHECK (progress BETWEEN 0 AND 100),
     CONSTRAINT ck_generation_jobs_status CHECK (status IN (
         'QUEUED', 'RUNNING', 'COMPLETED', 'FAILED', 'CANCELED',
@@ -52,6 +54,25 @@ CREATE TABLE generation_jobs (
     ),
     CONSTRAINT ck_generation_jobs_production_mode CHECK (
         production_mode IS NULL OR production_mode IN ('IMAGE_MOTION', 'HYBRID_LOCAL_I2V')
+    ),
+    CONSTRAINT ck_generation_jobs_analysis_visual_mode CHECK (
+        analysis_visual_generation_mode IS NULL
+        OR analysis_visual_generation_mode IN ('IMAGE', 'VIDEO')
+    ),
+    CONSTRAINT ck_generation_jobs_analysis_image_provider CHECK (
+        analysis_image_provider IS NULL
+        OR analysis_image_provider IN ('GEMINI_WEB', 'API')
+    ),
+    CONSTRAINT ck_generation_jobs_analysis_preferences_job_type CHECK (
+        (analysis_visual_generation_mode IS NULL AND analysis_image_provider IS NULL)
+        OR job_type = 'CHAPTER_ANALYZE'
+    ),
+    CONSTRAINT ck_generation_jobs_analysis_preferences_consistent CHECK (
+        (analysis_visual_generation_mode IS NULL AND analysis_image_provider IS NULL)
+        OR (analysis_visual_generation_mode = 'IMAGE'
+            AND analysis_image_provider IN ('GEMINI_WEB', 'API'))
+        OR (analysis_visual_generation_mode = 'VIDEO'
+            AND analysis_image_provider IS NULL)
     ),
     CONSTRAINT fk_generation_jobs_media_plan
         FOREIGN KEY (media_plan_id, media_plan_revision, production_mode)

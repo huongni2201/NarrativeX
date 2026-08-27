@@ -87,6 +87,31 @@ def _visual_beat_density_guidance(request: ChapterAnalysisRequest) -> str:
     )
 
 
+def _visual_workflow_guidance(request: ChapterAnalysisRequest) -> str:
+    """Keep analysis aligned with the durable visual workflow selected by the user."""
+    provider = request.image_provider or "NONE"
+    if request.visual_generation_mode == "VIDEO":
+        guidance = (
+            "The downstream visual workflow is VIDEO. Favor visual beats with explicit physical "
+            "action, temporal continuity, stable subject identity, and clear start/end states that "
+            "can be animated or generated as short video shots. Do not invent motion absent from "
+            "the source."
+        )
+    else:
+        guidance = (
+            "The downstream visual workflow is IMAGE. Favor visual beats that are legible as "
+            "strong single-frame compositions while still preserving narrative continuity between "
+            "adjacent beats."
+        )
+    return (
+        f" VISUAL_GENERATION_MODE={request.visual_generation_mode}. IMAGE_PROVIDER={provider}. "
+        + guidance
+        + " IMAGE_PROVIDER is downstream routing metadata only; never change story facts, scene "
+        "boundaries, safety decisions, or character/location identity because of a provider "
+        "choice. "
+    )
+
+
 def build_chapter_analysis_prompt(request: ChapterAnalysisRequest) -> str:
     """Build a stable task prompt without allowing Chapter source to become instructions."""
     source_as_json = json.dumps(request.source_text, ensure_ascii=False)
@@ -96,6 +121,7 @@ def build_chapter_analysis_prompt(request: ChapterAnalysisRequest) -> str:
         "scenes, and seed visual beats per scene. "
         + SCENE_SEGMENTATION_INSTRUCTIONS
         + _visual_beat_density_guidance(request)
+        + _visual_workflow_guidance(request)
         + " Assign every character and location a stable ASCII key (letters, digits, dot, "
         "underscore, dash; max 64 chars), unique within the response. Scene "
         "character_key/location_key references must exactly match those keys. Use SOURCE_LANGUAGE "

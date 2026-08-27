@@ -41,4 +41,6 @@ public class GenerationJobRow {
   private UUID mediaPlanId;
   private Integer mediaPlanRevision;
   private ProductionMode productionMode;
+  private String analysisVisualGenerationMode;
+  private String analysisImageProvider;
 }

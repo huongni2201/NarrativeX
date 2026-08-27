@@ -163,6 +163,8 @@ public class MyBatisChapterRepository implements ChapterRepository {
         row.getOrderIndex(),
         row.getTitle(),
         row.getSourceText(),
-        row.getSourceHash());
+        row.getSourceHash(),
+        row.getCreatedAt(),
+        row.getUpdatedAt());
   }
 }

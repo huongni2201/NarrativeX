@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.storyboard.application.port.in;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -40,6 +41,7 @@ public interface ChapterWorkspaceAccess {
       Instant completedAt,
       UUID latestJobId,
       String voiceId,
+      BigDecimal speakingRate,
       String storageKey,
       Long durationMs) {}
 
@@ -52,5 +54,11 @@ public interface ChapterWorkspaceAccess {
       int visualBeatCount,
       String previewImageUrl) {}
 
-  record Analysis(String status, String sourceHash, Instant completedAt) {}
+  record Analysis(
+      String status,
+      String sourceHash,
+      Instant completedAt,
+      UUID latestJobId,
+      String visualGenerationMode,
+      String imageProvider) {}
 }

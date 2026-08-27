@@ -29,6 +29,11 @@ async def test_reclaimed_stage_keeps_old_and_new_tasks_on_distinct_claim_owners(
             new=AsyncMock(side_effect=[claimed, claimed]),
         ) as claim_next,
         patch.object(
+            WorkerRepository,
+            "_hydrate_analysis_preferences",
+            new=AsyncMock(side_effect=lambda value: value),
+        ),
+        patch.object(
             WorkerRepositoryImplementation,
             "heartbeat",
             new=AsyncMock(return_value=True),

@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type {
+  AnalyzeChapterInput,
   DesktopChapterDetails,
   DesktopChapterWorkspace,
   DesktopVoice,
@@ -19,7 +20,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { setAnalyzeChapterPreferences } from "../../generation/api/generation.api";
 import {
   audioButtonLabel,
   audioStatusBadgeClass,
@@ -53,6 +53,8 @@ type AudioState = Readonly<{
 
 type Props = Readonly<{
   selected: DesktopChapterDetails | null;
+  workspace: DesktopChapterWorkspace | undefined;
+  canAnalyze: boolean;
   title: string;
   sourceText: string;
   busy: boolean;
@@ -66,12 +68,14 @@ type Props = Readonly<{
   onBeginCreate: () => void;
   onCancel: () => void;
   onSave: () => void;
-  onAnalyze: () => void;
+  onAnalyze: (input: AnalyzeChapterInput) => void;
   onOpenEditor: () => void;
 }>;
 
 export function ChapterEditorPanel({
   selected,
+  workspace,
+  canAnalyze,
   title,
   sourceText,
   busy,
@@ -95,13 +99,27 @@ export function ChapterEditorPanel({
     useState<ImageGenerationProvider>("GEMINI_WEB");
   const generationBlockedByUnsavedChanges = Boolean(selected && isDirty);
 
+  useEffect(() => {
+    if (!selected) return;
+    const analysis = workspace?.pipeline.analysis;
+    if (analysis?.visualGenerationMode) {
+      setVisualGenerationMode(analysis.visualGenerationMode);
+    }
+    if (analysis?.imageProvider) {
+      setImageProvider(analysis.imageProvider);
+    }
+  }, [
+    selected,
+    workspace?.pipeline.analysis.imageProvider,
+    workspace?.pipeline.analysis.visualGenerationMode,
+  ]);
+
   function submitAnalysis() {
-    setAnalyzeChapterPreferences({
+    onAnalyze({
       visualGenerationMode,
       imageProvider: visualGenerationMode === "IMAGE" ? imageProvider : null,
     });
     setAnalyzeModalOpen(false);
-    onAnalyze();
   }
 
   return (
@@ -201,7 +219,7 @@ export function ChapterEditorPanel({
               <Button
                 type="button"
                 variant="outline"
-                disabled={!selected || busy || generationBlockedByUnsavedChanges}
+                disabled={!selected || busy || generationBlockedByUnsavedChanges || !canAnalyze}
                 onClick={() => setAnalyzeModalOpen(true)}
                 aria-busy={analyzeBusy}
                 className="h-auto items-start justify-start rounded-md border-border bg-surface p-3 text-left hover:border-border-dark hover:bg-surface-2"
@@ -218,7 +236,9 @@ export function ChapterEditorPanel({
                   <p className="mt-1 text-[10px] font-normal leading-4 text-text-muted">
                     {analyzeBusy
                       ? "AI đang phân tích nội dung. Nút được khóa để tránh gửi trùng request."
-                      : "Chọn IMAGE/VIDEO và provider trước khi tạo scene/beat."}
+                      : !canAnalyze && selected
+                        ? "Backend đang khóa phân tích cho trạng thái hiện tại của chapter."
+                        : "Chọn IMAGE/VIDEO và provider trước khi tạo scene/beat."}
                   </p>
                 </div>
               </Button>
