@@ -103,14 +103,14 @@ export function ChapterListPanel({
 
         <div className="grid grid-cols-2 gap-2">
           <label className="grid gap-1 text-[10px] text-text-muted">
-            <span>Trạng thái</span>
+            <span>Trạng thái phân tích</span>
             <select
               value={statusFilter}
               onChange={(event) => onStatusFilterChange(event.target.value as ChapterFilter)}
               className="h-8 rounded-md border border-border bg-surface-input px-2 text-xs text-text-secondary focus:border-primary focus:outline-none"
             >
               <option value="all">Tất cả trạng thái</option>
-              <option value="completed">Hoàn thành</option>
+              <option value="completed">Đã phân tích</option>
               <option value="in_progress">Đang xử lý</option>
               <option value="draft">Nháp</option>
             </select>
