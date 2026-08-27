@@ -1,5 +1,4 @@
 import type {
-  ChapterWorkspaceAnalysis,
   ChapterWorkspaceAudio,
   ChapterWorkspacePreviewScene,
   ChapterWorkspaceProgress,
@@ -56,7 +55,9 @@ function isWorkspaceStep(value: unknown): value is ChapterWorkspaceStep {
   return isRecord(value) && isString(value.status) && isNullableString(value.completedAt);
 }
 
-function isWorkspaceAnalysis(value: unknown): value is ChapterWorkspaceAnalysis {
+function isWorkspaceAnalysis(
+  value: unknown,
+): value is DesktopChapterWorkspace["pipeline"]["analysis"] {
   return (
     isWorkspaceStep(value) &&
     isNullableString(value.latestJobId) &&
