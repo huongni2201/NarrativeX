@@ -26,6 +26,37 @@ export interface EditorScopeWindow {
   beats: DesktopTimelineBeat[];
 }
 
+export function sortEditorBeats(beats: readonly DesktopTimelineBeat[]): DesktopTimelineBeat[] {
+  return [...beats].sort(compareBeats);
+}
+
+export function findEditorBeatAtTime(
+  beats: readonly DesktopTimelineBeat[],
+  targetMs: number,
+): DesktopTimelineBeat | null {
+  if (!beats.length) return null;
+  const ordered = sortEditorBeats(beats);
+  let low = 0;
+  let high = ordered.length - 1;
+
+  while (low <= high) {
+    const middle = Math.floor((low + high) / 2);
+    const beat = ordered[middle];
+    const isLast = middle === ordered.length - 1;
+    if (targetMs < beat.startMs) {
+      high = middle - 1;
+      continue;
+    }
+    if (targetMs > beat.endMs || (!isLast && targetMs === beat.endMs)) {
+      low = middle + 1;
+      continue;
+    }
+    return beat;
+  }
+
+  return null;
+}
+
 export function buildEditorHierarchy(
   chapters: readonly DesktopChapter[],
   beats: readonly DesktopTimelineBeat[],
@@ -41,7 +72,7 @@ export function buildEditorHierarchy(
   return [...chapters]
     .sort((left, right) => left.orderIndex - right.orderIndex)
     .map((chapter) => {
-      const chapterBeats = [...(beatsByChapter.get(chapter.chapterId) ?? [])].sort(compareBeats);
+      const chapterBeats = sortEditorBeats(beatsByChapter.get(chapter.chapterId) ?? []);
       const scenes = groupScenes(chapterBeats);
       return { chapter, scenes, beats: chapterBeats };
     });
@@ -59,7 +90,7 @@ export function groupScenes(beats: readonly DesktopTimelineBeat[]): EditorSceneG
   return [...scenes.entries()]
     .sort(([left], [right]) => left - right)
     .map(([sceneIndex, sceneBeats]) => {
-      const sortedBeats = [...sceneBeats].sort(compareBeats);
+      const sortedBeats = sortEditorBeats(sceneBeats);
       const startMs = sortedBeats.reduce(
         (earliest, beat) => Math.min(earliest, beat.startMs),
         sortedBeats[0]?.startMs ?? 0,
@@ -102,7 +133,7 @@ export function resolveEditorScopeWindow({
     return {
       startMs: 0,
       endMs: projectEndMs,
-      beats: [...beats].sort(compareBeats),
+      beats: sortEditorBeats(beats),
     };
   }
 
@@ -115,18 +146,16 @@ export function resolveEditorScopeWindow({
   }
 
   if (scope === "scene") {
-    const sceneBeats = beats
-      .filter(
-        (beat) =>
-          beat.chapterId === selected.chapterId && beat.sceneIndex === selected.sceneIndex,
-      )
-      .sort(compareBeats);
-    return windowFromBeats(sceneBeats, selected.startMs, selected.endMs);
+    const sceneBeats = beats.filter(
+      (beat) =>
+        beat.chapterId === selected.chapterId && beat.sceneIndex === selected.sceneIndex,
+    );
+    return windowFromBeats(sortEditorBeats(sceneBeats), selected.startMs, selected.endMs);
   }
 
-  const chapterBeats = beats
-    .filter((beat) => beat.chapterId === selected.chapterId)
-    .sort(compareBeats);
+  const chapterBeats = sortEditorBeats(
+    beats.filter((beat) => beat.chapterId === selected.chapterId),
+  );
   const chapter = chapters.find((candidate) => candidate.chapterId === selected.chapterId);
   const fallback = windowFromBeats(chapterBeats, selected.startMs, selected.endMs);
 
