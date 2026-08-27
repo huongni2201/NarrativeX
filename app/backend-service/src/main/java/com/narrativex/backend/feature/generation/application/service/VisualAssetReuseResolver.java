@@ -58,6 +58,56 @@ public final class VisualAssetReuseResolver {
 
   private VisualAssetReuseResolver() {}
 
+  public static Map<UUID, Decision> plan(
+      List<SceneSnapshot> scenes, String imageProvider, String requestedStrategy) {
+    String provider = normalizeProvider(imageProvider);
+    String strategy = normalizeStrategy(provider, requestedStrategy);
+
+    if (GENERATE_NEW.equals(strategy)) {
+      return generateAll(scenes);
+    }
+
+    Map<UUID, Decision> automatic = plan(scenes);
+    Map<UUID, Decision> constrained = new LinkedHashMap<>();
+    for (SceneSnapshot scene : scenes) {
+      for (BeatSnapshot beat : scene.beats()) {
+        Decision decision = automatic.getOrDefault(beat.visualBeatId(), Decision.generate());
+        boolean allowed = strategy.equals(decision.assetStrategy());
+        constrained.put(beat.visualBeatId(), allowed ? decision : Decision.generate());
+      }
+    }
+    return Map.copyOf(constrained);
+  }
+
+  public static String normalizeStrategy(String imageProvider, String requestedStrategy) {
+    String provider = normalizeProvider(imageProvider);
+    if ("GEMINI_WEB".equals(provider)) {
+      if (requestedStrategy != null
+          && !requestedStrategy.isBlank()
+          && !GENERATE_NEW.equals(requestedStrategy)) {
+        throw new IllegalArgumentException("Web image generation only supports GENERATE_NEW.");
+      }
+      return GENERATE_NEW;
+    }
+    if (requestedStrategy == null || requestedStrategy.isBlank()) {
+      return GENERATE_NEW;
+    }
+    if (!GENERATE_NEW.equals(requestedStrategy)
+        && !REUSE_APPROVED.equals(requestedStrategy)
+        && !REFRAME_DERIVED.equals(requestedStrategy)) {
+      throw new IllegalArgumentException("Unsupported image generation strategy: " + requestedStrategy);
+    }
+    return requestedStrategy;
+  }
+
+  public static int countGenerated(
+      List<SceneSnapshot> scenes, String imageProvider, String requestedStrategy) {
+    return (int)
+        plan(scenes, imageProvider, requestedStrategy).values().stream()
+            .filter(decision -> GENERATE_NEW.equals(decision.assetStrategy()))
+            .count();
+  }
+
   /**
    * Build one stable decision map so cost estimation and executable MediaPlan use identical reuse
    * choices. Reuse pressure is soft: it only relaxes similarity thresholds inside the same scene; a
@@ -158,6 +208,24 @@ public final class VisualAssetReuseResolver {
       return 0.58d;
     }
     return 0.60d;
+  }
+
+  private static Map<UUID, Decision> generateAll(List<SceneSnapshot> scenes) {
+    Map<UUID, Decision> decisions = new LinkedHashMap<>();
+    for (SceneSnapshot scene : scenes) {
+      for (BeatSnapshot beat : scene.beats()) {
+        decisions.put(beat.visualBeatId(), Decision.generate());
+      }
+    }
+    return Map.copyOf(decisions);
+  }
+
+  private static String normalizeProvider(String provider) {
+    if (provider == null || provider.isBlank()) return "API";
+    if (!"API".equals(provider) && !"GEMINI_WEB".equals(provider)) {
+      throw new IllegalArgumentException("Unsupported image generation provider: " + provider);
+    }
+    return provider;
   }
 
   private static long estimateDurationMs(List<SceneSnapshot> scenes) {
