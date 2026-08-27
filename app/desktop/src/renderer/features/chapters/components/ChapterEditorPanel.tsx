@@ -139,7 +139,7 @@ export function ChapterEditorPanel({
           </div>
         </div>
 
-        <div className="flex min-h-[140px] flex-col space-y-1.5">
+        <div className="flex min-h-[240px] flex-col space-y-1.5">
           <label className="text-xs font-semibold text-text-secondary" htmlFor="chapter-source">
             Nội dung chapter <span className="text-danger">*</span>
           </label>
