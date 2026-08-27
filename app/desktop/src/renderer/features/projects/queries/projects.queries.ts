@@ -33,7 +33,10 @@ export function useCreateProject() {
     mutationFn: async (input: CreateProjectInput) => {
       const project = await projectsApi.create(input);
       try {
-        await window.narrativex.localProjects.upsert(project, { syncStatus: "LOCAL_ONLY" });
+        await window.narrativex.localProjects.upsert(project, {
+          cloudProjectId: project.id,
+          syncStatus: "SYNCED",
+        });
         await window.narrativex.localProjects.touch(project.id);
       } catch (error) {
         console.warn(
