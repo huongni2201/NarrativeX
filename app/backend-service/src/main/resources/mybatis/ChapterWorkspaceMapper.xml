@@ -8,6 +8,9 @@
         <result property="sceneCount" column="scene_count"/><result property="visualBeatCount" column="visual_beat_count"/><result property="estimatedDurationSeconds" column="duration_seconds"/>
         <result property="storyboardSourceHash" column="storyboard_source_hash"/><result property="hasApprovedOutput" column="has_approved_output"/>
         <result property="analysisStatus" column="analysis_status"/><result property="analysisSourceHash" column="analysis_source_hash"/><result property="analysisCompletedAt" column="analysis_completed_at"/>
+        <result property="analysisLatestJobId" column="analysis_latest_job_id"/>
+        <result property="analysisVisualGenerationMode" column="analysis_visual_generation_mode"/>
+        <result property="analysisImageProvider" column="analysis_image_provider"/>
         <result property="visualGenerationTotal" column="visual_generation_total"/><result property="visualGenerationCompleted" column="visual_generation_completed"/>
         <result property="visualGenerationFailed" column="visual_generation_failed"/><result property="visualGenerationRunning" column="visual_generation_running"/>
         <result property="visualGenerationQueued" column="visual_generation_queued"/><result property="visualGenerationStalled" column="visual_generation_stalled"/>
@@ -18,6 +21,7 @@
         <result property="visualGenerationMediaPlanRevision" column="visual_generation_media_plan_revision"/>
         <result property="narrationAssetReady" column="narration_asset_ready"/>
         <result property="narrationJobStatus" column="narration_job_status"/><result property="narrationJobId" column="narration_job_id"/><result property="narrationVoiceId" column="narration_voice_id"/>
+        <result property="narrationSpeakingRate" column="narration_speaking_rate"/>
         <result property="narrationCompletedAt" column="narration_completed_at"/>
         <result property="narrationStorageKey" column="narration_storage_key"/><result property="narrationDurationMs" column="narration_duration_ms"/>
         <result property="renderManifestCreated" column="render_manifest_created"/><result property="renderArtifactStatus" column="render_artifact_status"/>
@@ -159,11 +163,13 @@
                AND gj.media_plan_id IS NOT NULL
                AND gj.media_plan_revision IS NOT NULL
         ), latest_analysis AS (
-            SELECT gj.status, gj.source_hash,
+            SELECT gj.job_id, gj.status, gj.source_hash,
+                   gj.analysis_visual_generation_mode, gj.analysis_image_provider,
                    CASE WHEN gj.status = 'COMPLETED' THEN gj.updated_at ELSE NULL END AS completed_at
               FROM current_chapter cc
               LEFT JOIN LATERAL (
-                  SELECT gj.status, gj.source_hash, gj.updated_at
+                  SELECT gj.job_id, gj.status, gj.source_hash, gj.updated_at,
+                         gj.analysis_visual_generation_mode, gj.analysis_image_provider
                     FROM generation_jobs gj
                    WHERE gj.chapter_id = cc.chapter_id
                      AND gj.job_type = 'CHAPTER_ANALYZE'
@@ -184,12 +190,12 @@
               FROM current_media_job cmj
         ), latest_narration AS (
             SELECT na.id AS narration_asset_id, op.job_id AS job_id, op.status AS job_status,
-                   nr.voice_id AS narration_voice_id,
+                   nr.voice_id AS narration_voice_id, nr.speaking_rate AS narration_speaking_rate,
                    pa.storage_key AS narration_storage_key, na.duration_ms AS narration_duration_ms,
                    CASE WHEN na.id IS NOT NULL THEN na.created_at ELSE NULL END AS completed_at
               FROM current_chapter cc
               LEFT JOIN LATERAL (
-                  SELECT nr.id, nr.voice_id
+                  SELECT nr.id, nr.voice_id, nr.speaking_rate
                     FROM narration_requests nr
                    WHERE nr.chapter_id = cc.chapter_id
                      AND nr.chapter_row_version = cc.chapter_row_version
@@ -257,6 +263,9 @@
         SELECT cc.project_name, ss.scene_count, bs.visual_beat_count,
                ss.duration_seconds, cr.storyboard_source_hash, aps.has_approved_output,
                la.status AS analysis_status, la.source_hash AS analysis_source_hash, la.completed_at AS analysis_completed_at,
+               la.job_id AS analysis_latest_job_id,
+               la.analysis_visual_generation_mode AS analysis_visual_generation_mode,
+               la.analysis_image_provider AS analysis_image_provider,
                vg.total AS visual_generation_total, vg.completed AS visual_generation_completed,
                vg.failed AS visual_generation_failed, vg.running AS visual_generation_running,
                vg.queued AS visual_generation_queued, vg.stalled AS visual_generation_stalled,
@@ -268,6 +277,7 @@
                (SELECT job_status FROM latest_narration) AS narration_job_status,
                (SELECT job_id FROM latest_narration) AS narration_job_id,
                (SELECT narration_voice_id FROM latest_narration) AS narration_voice_id,
+               (SELECT narration_speaking_rate FROM latest_narration) AS narration_speaking_rate,
                (SELECT completed_at FROM latest_narration) AS narration_completed_at,
                (SELECT narration_storage_key FROM latest_narration) AS narration_storage_key,
                (SELECT narration_duration_ms FROM latest_narration) AS narration_duration_ms,
