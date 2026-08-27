@@ -7,6 +7,7 @@ import type {
 } from "@narrativex/client-contracts";
 import {
   Check,
+  CheckCheck,
   Clapperboard,
   Copy,
   ExternalLink,
@@ -19,11 +20,23 @@ import {
 import { assetsApi } from "../../assets/api/assets.api";
 import { productionApi } from "../../production/api/production.api";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   storyboardApi,
   storyboardQueryKey,
   type StoryboardVisualBeat,
   type VisualBeatReviewStatus,
 } from "../api/storyboard.api";
+import {
+  beatsNeedingReview,
+  filterVisualBeatsByStatus,
+  type VisualBeatStatusFilter,
+} from "../storyboard-review";
 
 export function StoryboardScreen({
   projectId,
@@ -43,6 +56,7 @@ export function StoryboardScreen({
   const [pendingImportBeatId, setPendingImportBeatId] = useState<string | null>(null);
   const [mediaBusyBeatId, setMediaBusyBeatId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [reviewStatusFilter, setReviewStatusFilter] = useState<VisualBeatStatusFilter>("ALL");
 
   useEffect(() => {
     if (!chapters.length) {
@@ -76,6 +90,15 @@ export function StoryboardScreen({
 
   const selectedScene = scenes.find((scene) => scene.id === selectedSceneId) ?? null;
   const selectedChapter = chapters.find((chapter) => chapter.id === selectedChapterId) ?? null;
+  const selectedSceneBeats = selectedScene?.visualBeats ?? [];
+  const filteredVisualBeats = useMemo(
+    () => filterVisualBeatsByStatus(selectedSceneBeats, reviewStatusFilter),
+    [reviewStatusFilter, selectedSceneBeats],
+  );
+  const beatsPendingApproval = useMemo(
+    () => beatsNeedingReview(selectedSceneBeats),
+    [selectedSceneBeats],
+  );
 
   const timelineBeats = useMemo(
     () =>
@@ -132,6 +155,39 @@ export function StoryboardScreen({
       await queryClient.invalidateQueries({
         queryKey: storyboardQueryKey(projectId, selectedChapterId),
       });
+    },
+  });
+
+  const approveAll = useMutation({
+    mutationFn: async (beats: readonly StoryboardVisualBeat[]) => {
+      if (!selectedChapterId) throw new Error("Chưa chọn chapter.");
+      const results = await Promise.allSettled(
+        beats.map((beat) =>
+          storyboardApi.updateReviewStatus(
+            projectId,
+            selectedChapterId,
+            beat.sceneId,
+            beat.id,
+            beat.rowVersion,
+            "APPROVED",
+          ),
+        ),
+      );
+      return {
+        approved: results.filter((result) => result.status === "fulfilled").length,
+        failed: results.filter((result) => result.status === "rejected").length,
+      };
+    },
+    onSuccess: async ({ approved, failed }) => {
+      if (!selectedChapterId) return;
+      await queryClient.invalidateQueries({
+        queryKey: storyboardQueryKey(projectId, selectedChapterId),
+      });
+      setNotice(
+        failed
+          ? `Đã duyệt ${approved} Visual Beat. ${failed} beat không thể duyệt vì vừa thay đổi; hãy kiểm tra lại.`
+          : `Đã duyệt ${approved} Visual Beat.`,
+      );
     },
   });
 
@@ -214,8 +270,9 @@ export function StoryboardScreen({
     }
   }
 
-  const mutationError = createBeat.error ?? updateReview.error;
+  const mutationError = createBeat.error ?? updateReview.error ?? approveAll.error;
   const canCreateBeat = Boolean(beatTitle.trim() && visualIntent.trim() && selectedSceneId);
+  const reviewUpdating = updateReview.isPending || approveAll.isPending;
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background text-foreground select-none">
@@ -329,7 +386,7 @@ export function StoryboardScreen({
           </section>
 
           <section className="flex min-h-0 flex-col overflow-hidden bg-background">
-            <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3">
+            <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-text-muted">
                   <WandSparkles size={12} />
@@ -339,15 +396,48 @@ export function StoryboardScreen({
                   {selectedScene ? selectedScene.title : "Chọn một scene"}
                 </div>
               </div>
-              <button
-                type="button"
-                disabled={!selectedScene}
-                onClick={() => setCreatingBeat((value) => !value)}
-                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-bold text-white transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Plus size={13} />
-                Add Visual Beat
-              </button>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <div className="inline-flex h-8 items-center gap-2 rounded-md border border-border bg-surface-input px-2 text-[10px] font-semibold text-text-secondary">
+                  <span>Status</span>
+                  <Select
+                    value={reviewStatusFilter}
+                    onValueChange={(value) => setReviewStatusFilter(value as VisualBeatStatusFilter)}
+                  >
+                    <SelectTrigger
+                      aria-label="Lọc Visual Beat theo trạng thái review"
+                      className="h-7 min-w-[116px] border-0 bg-transparent px-0 text-[10px] font-semibold text-foreground shadow-none hover:border-0 hover:text-foreground focus:ring-0"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">All</SelectItem>
+                      <SelectItem value="NEEDS_REVIEW">Needs review</SelectItem>
+                      <SelectItem value="APPROVED">Approved</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <button
+                  type="button"
+                  disabled={!beatsPendingApproval.length || reviewUpdating}
+                  onClick={() => {
+                    setNotice(null);
+                    approveAll.mutate(beatsPendingApproval);
+                  }}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-md border border-success/35 bg-success/5 px-3 text-xs font-bold text-success transition hover:bg-success/10 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {approveAll.isPending ? <Loader2 size={13} className="animate-spin" /> : <CheckCheck size={13} />}
+                  {approveAll.isPending ? "Approving…" : `Approve all${beatsPendingApproval.length ? ` (${beatsPendingApproval.length})` : ""}`}
+                </button>
+                <button
+                  type="button"
+                  disabled={!selectedScene}
+                  onClick={() => setCreatingBeat((value) => !value)}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-bold text-white transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Plus size={13} />
+                  Add Visual Beat
+                </button>
+              </div>
             </div>
 
             {(mutationError || notice) && (
@@ -414,20 +504,26 @@ export function StoryboardScreen({
                   detail="Mỗi scene chứa các visual beat được tạo bởi quá trình phân tích hoặc thêm thủ công."
                   compact
                 />
-              ) : !selectedScene.visualBeats.length ? (
+              ) : !selectedSceneBeats.length ? (
                 <EmptyState
                   title="Scene chưa có Visual Beat"
                   detail="Bạn có thể thêm Visual Beat mới bằng nút phía trên."
                   compact
                 />
+              ) : !filteredVisualBeats.length ? (
+                <EmptyState
+                  title="Không có Visual Beat phù hợp"
+                  detail="Thử chọn một trạng thái review khác để xem các Visual Beat còn lại."
+                  compact
+                />
               ) : (
                 <div className="grid grid-cols-1 gap-3 2xl:grid-cols-2">
-                  {selectedScene.visualBeats.map((beat) => (
+                  {filteredVisualBeats.map((beat) => (
                     <VisualBeatCard
                       key={beat.id}
                       beat={beat}
                       timelineBeat={timelineBeats.get(beat.id) ?? null}
-                      updating={updateReview.isPending}
+                      updating={reviewUpdating}
                       mediaBusy={mediaBusyBeatId === beat.id}
                       pendingImport={pendingImportBeatId === beat.id}
                       onReview={(status) => updateReview.mutate({ beat, status })}
