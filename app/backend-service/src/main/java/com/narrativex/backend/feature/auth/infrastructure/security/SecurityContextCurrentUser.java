@@ -3,7 +3,7 @@ package com.narrativex.backend.feature.auth.infrastructure.security;
 import com.narrativex.backend.feature.auth.api.response.CurrentUserResponse;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserProfile;
-import com.narrativex.backend.feature.auth.infrastructure.desktop.DesktopUserPrincipal;
+import com.narrativex.backend.feature.auth.application.port.in.DesktopUserPrincipal;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.core.Authentication;
