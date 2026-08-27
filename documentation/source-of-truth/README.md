@@ -51,14 +51,17 @@ Cloudflare R2 is generated-media transport/durability where remote provider/work
 ## Database baseline
 
 ```text
-V1__create_tables.sql
-V2__init_indexes.sql
-V3__seed_data.sql
-V4__project_render_subtitles.sql
-V5__chapter_workspace_generation_lookup.sql
+V1__identity_and_access.sql
+V2__project_story_and_planning.sql
+V3__generation_billing_and_media.sql
+V4__narration_notifications_and_artifacts.sql
+V5__catalog_generation_and_render_snapshots.sql
+V6__database_logic_and_triggers.sql
+V7__indexes.sql
+V8__seed_catalog.sql
 ```
 
-V1-V3 are frozen. Spring Session JDBC, Desktop OAuth handoffs, guest identity and beat-media selection are already part of that baseline. V4 adds immutable render subtitle text/alignment snapshots, and V5 adds the Chapter Workspace generation lookup index. Future schema changes are append-only V6+.
+The repository is still pre-production, so this is a clean development baseline rather than frozen upgrade history. Project-render subtitle snapshots are defined directly in V5, the Chapter Workspace covering lookup lives in V7, and VieNeu voices are seeded in V8 with `supportsSpeakingRate=true`. Disposable development/test databases should be recreated when the baseline changes. The accepted baseline becomes immutable at the first production deployment; only then do future changes become append-only from the next version.
 
 ## Primary remaining work
 
