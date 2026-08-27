@@ -83,7 +83,10 @@ const bridge: NarrativeXDesktopBridge = {
     recoveryStatus: () => ipcRenderer.invoke("desktop:render:recovery-status"),
     cancel: (jobId: string) => ipcRenderer.invoke("desktop:render:cancel", jobId),
   },
-  system: {},
+  system: {
+    copyText: (text: string) =>
+      ipcRenderer.invoke("desktop:system:clipboard-write", text) as Promise<void>,
+  },
   windowControls: {
     minimize: () => ipcRenderer.invoke("desktop:window:minimize"),
     toggleMaximize: () => ipcRenderer.invoke("desktop:window:toggle-maximize"),

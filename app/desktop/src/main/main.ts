@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, Menu, screen, session, shell } from "electron";
+import { app, BrowserWindow, clipboard, dialog, Menu, screen, session, shell } from "electron";
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
@@ -347,6 +347,12 @@ void app.whenReady().then(async () => {
   );
 
   registerTrustedIpcHandler("desktop:app-version", trustPolicy, () => app.getVersion());
+  registerTrustedIpcHandler("desktop:system:clipboard-write", trustPolicy, (text) => {
+    if (typeof text !== "string" || text.length > 200_000) {
+      throw new Error("Invalid clipboard text.");
+    }
+    clipboard.writeText(text);
+  });
   registerTrustedIpcHandler("desktop:api:request", trustPolicy, (input) => {
     if (!isDesktopApiRequest(input)) throw new Error("Invalid desktop API request.");
     return requireDesktopApi().request(input);

@@ -216,7 +216,9 @@ export interface NarrativeXDesktopBridge {
     recoveryStatus(): Promise<RenderRecoveryStatus>;
     cancel(jobId: string): Promise<boolean>;
   };
-  system: Record<never, never>;
+  system: {
+    copyText(text: string): Promise<void>;
+  };
   windowControls: {
     minimize(): Promise<void>;
     toggleMaximize(): Promise<boolean>;

@@ -55,6 +55,7 @@ export function StoryboardScreen({
   const [visualIntent, setVisualIntent] = useState("");
   const [pendingImportBeatId, setPendingImportBeatId] = useState<string | null>(null);
   const [mediaBusyBeatId, setMediaBusyBeatId] = useState<string | null>(null);
+  const [copiedPromptBeatId, setCopiedPromptBeatId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [reviewStatusFilter, setReviewStatusFilter] = useState<VisualBeatStatusFilter>("ALL");
 
@@ -195,7 +196,7 @@ export function StoryboardScreen({
     const prompt = compileGeminiPrompt(beat);
     setNotice(null);
     try {
-      await navigator.clipboard.writeText(prompt);
+      await window.narrativex.system.copyText(prompt);
       window.open("https://gemini.google.com/", "_blank", "noopener,noreferrer");
       setPendingImportBeatId(beat.id);
       setNotice(
@@ -208,9 +209,11 @@ export function StoryboardScreen({
 
   async function copyPrompt(beat: StoryboardVisualBeat) {
     try {
-      await navigator.clipboard.writeText(compileGeminiPrompt(beat));
+      await window.narrativex.system.copyText(compileGeminiPrompt(beat));
+      setCopiedPromptBeatId(beat.id);
       setNotice(`Đã copy prompt của “${beat.title}”.`);
     } catch (error) {
+      setCopiedPromptBeatId(null);
       setNotice(errorMessage(error, "Không thể copy prompt."));
     }
   }
@@ -316,6 +319,7 @@ export function StoryboardScreen({
                       setSelectedSceneId(null);
                       setCreatingBeat(false);
                       setPendingImportBeatId(null);
+                      setCopiedPromptBeatId(null);
                       setNotice(null);
                     }}
                     className={`w-full rounded-md border px-3 py-2.5 text-left transition ${
@@ -359,6 +363,7 @@ export function StoryboardScreen({
                       onClick={() => {
                         setSelectedSceneId(scene.id);
                         setCreatingBeat(false);
+                        setCopiedPromptBeatId(null);
                       }}
                       className={`w-full rounded-md border p-3 text-left transition ${
                         active
@@ -526,6 +531,7 @@ export function StoryboardScreen({
                       updating={reviewUpdating}
                       mediaBusy={mediaBusyBeatId === beat.id}
                       pendingImport={pendingImportBeatId === beat.id}
+                      promptCopied={copiedPromptBeatId === beat.id}
                       onReview={(status) => updateReview.mutate({ beat, status })}
                       onGenerate={() => void generateWithGemini(beat)}
                       onCopyPrompt={() => void copyPrompt(beat)}
@@ -548,6 +554,7 @@ function VisualBeatCard({
   updating,
   mediaBusy,
   pendingImport,
+  promptCopied,
   onReview,
   onGenerate,
   onCopyPrompt,
@@ -558,6 +565,7 @@ function VisualBeatCard({
   updating: boolean;
   mediaBusy: boolean;
   pendingImport: boolean;
+  promptCopied: boolean;
   onReview: (status: VisualBeatReviewStatus) => void;
   onGenerate: () => void;
   onCopyPrompt: () => void;
@@ -601,9 +609,13 @@ function VisualBeatCard({
               <button
                 type="button"
                 onClick={onCopyPrompt}
-                className="inline-flex items-center gap-1 text-[10px] font-semibold text-primary-hover hover:text-primary"
+                aria-label={promptCopied ? `Prompt copied for ${beat.title}` : `Copy prompt for ${beat.title}`}
+                className={`inline-flex items-center gap-1 rounded px-1 py-0.5 text-[10px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${
+                  promptCopied ? "text-success" : "text-primary-hover hover:text-primary"
+                }`}
               >
-                <Copy size={11} /> Copy
+                {promptCopied ? <Check size={11} /> : <Copy size={11} />}
+                {promptCopied ? "Copied" : "Copy"}
               </button>
             </div>
             <p className="mt-2 line-clamp-4 whitespace-pre-wrap text-[10px] leading-4 text-text-secondary">
