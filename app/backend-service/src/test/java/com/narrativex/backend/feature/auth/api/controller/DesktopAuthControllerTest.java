@@ -16,7 +16,7 @@ import com.narrativex.backend.feature.auth.api.request.DesktopAuthExchangeReques
 import com.narrativex.backend.feature.auth.api.request.DesktopGuestSessionRequest;
 import com.narrativex.backend.feature.auth.application.port.in.DesktopAuthHandoff;
 import com.narrativex.backend.feature.auth.application.port.in.DesktopGuestIdentity;
-import com.narrativex.backend.feature.auth.infrastructure.desktop.DesktopUserPrincipal;
+import com.narrativex.backend.feature.auth.application.port.in.DesktopUserPrincipal;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
