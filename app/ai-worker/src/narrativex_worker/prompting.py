@@ -107,7 +107,8 @@ def _visual_workflow_guidance(request: ChapterAnalysisRequest) -> str:
         f" VISUAL_GENERATION_MODE={request.visual_generation_mode}. IMAGE_PROVIDER={provider}. "
         + guidance
         + " IMAGE_PROVIDER is downstream routing metadata only; never change story facts, scene "
-        "boundaries, safety decisions, or character/location identity because of a provider choice. "
+        "boundaries, safety decisions, or character/location identity because of a provider "
+        "choice. "
     )
 
 
