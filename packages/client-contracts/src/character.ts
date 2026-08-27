@@ -24,6 +24,12 @@ export interface DesktopCharacterVersion {
   visualPrompt?: string | null;
 }
 
+export interface DesktopCharacterVersionReference {
+  assetId: string;
+  role: string;
+  priority: number;
+}
+
 export interface DesktopCharacterAppearance {
   ageState?: string | null;
   hairstyle?: string | null;

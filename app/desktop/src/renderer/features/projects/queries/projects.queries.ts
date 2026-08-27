@@ -3,6 +3,7 @@ import type { CreateProjectInput, DesktopProject } from "@narrativex/client-cont
 import {
   projectsApi,
   type ProjectDashboardCounts,
+  type ProjectsPage,
 } from "../api/projects.api";
 
 export const projectQueryKeys = {
@@ -61,6 +62,34 @@ export function useToggleProjectFavorite() {
         : projectsApi.addFavorite(input.projectId),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: projectQueryKeys.all }),
+  });
+}
+
+export function useDeleteProject() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (projectId: string) => {
+      await projectsApi.remove(projectId);
+      try {
+        await window.narrativex.localProjects.markArchived(projectId);
+      } catch (error) {
+        console.warn(
+          "Project was archived remotely but could not be hidden in the local catalog.",
+          error,
+        );
+      }
+      return projectId;
+    },
+    onSuccess: (projectId) => {
+      queryClient.removeQueries({ queryKey: projectQueryKeys.detail(projectId) });
+      queryClient.setQueryData<ProjectsPage>(projectQueryKeys.list(), (current) => {
+        if (!current) return current;
+        const content = current.content.filter((project) => project.id !== projectId);
+        return { ...current, content, counts: countProjects(content) };
+      });
+      return queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
+    },
   });
 }
 

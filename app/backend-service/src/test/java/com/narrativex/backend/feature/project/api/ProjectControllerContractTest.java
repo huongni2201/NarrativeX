@@ -16,6 +16,7 @@ import com.narrativex.backend.feature.project.application.query.ProjectListQuery
 import com.narrativex.backend.feature.project.application.query.ProjectOverviewView;
 import com.narrativex.backend.feature.project.application.usecase.CreateProjectUseCase;
 import com.narrativex.backend.feature.project.application.usecase.CreateStoryVersionUseCase;
+import com.narrativex.backend.feature.project.application.usecase.DeleteProjectUseCase;
 import com.narrativex.backend.feature.project.application.usecase.GetLatestStoryVersionUseCase;
 import com.narrativex.backend.feature.project.application.usecase.GetProjectDashboardUseCase;
 import com.narrativex.backend.feature.project.application.usecase.GetProjectOverviewUseCase;
@@ -43,6 +44,7 @@ class ProjectControllerContractTest {
   private final SetProjectFavoriteUseCase setProjectFavoriteUseCase =
       mock(SetProjectFavoriteUseCase.class);
   private final CreateProjectUseCase createProjectUseCase = mock(CreateProjectUseCase.class);
+  private final DeleteProjectUseCase deleteProjectUseCase = mock(DeleteProjectUseCase.class);
   private final CreateStoryVersionUseCase createStoryVersionUseCase =
       mock(CreateStoryVersionUseCase.class);
   private final GetLatestStoryVersionUseCase getLatestStoryVersionUseCase =
@@ -59,6 +61,7 @@ class ProjectControllerContractTest {
             getProjectDashboardUseCase,
             setProjectFavoriteUseCase,
             createProjectUseCase,
+            deleteProjectUseCase,
             createStoryVersionUseCase,
             getLatestStoryVersionUseCase);
   }
@@ -118,6 +121,16 @@ class ProjectControllerContractTest {
 
     assertEquals(HttpStatus.CREATED, responseEntity.getStatusCode());
     assertEquals(projectId, responseEntity.getBody().data().id());
+  }
+
+  @Test
+  void deleteArchivesProjectAndReturns204() {
+    UUID projectId = UuidV7.random();
+
+    var responseEntity = controller.delete(projectId);
+
+    assertEquals(HttpStatus.NO_CONTENT, responseEntity.getStatusCode());
+    verify(deleteProjectUseCase).execute(projectId);
   }
 
   private static Project project(UUID id, long rowVersion) {

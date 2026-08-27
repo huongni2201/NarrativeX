@@ -12,12 +12,11 @@ import {
   Shirt,
   Sparkles,
   Tags,
-  UserCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState, FeaturePage } from "../../workspace/components/FeaturePage";
-import { useCharacterDetail, useCreateCharacter } from "../queries/characters.queries";
+import { useCharacterDetail, useCharacterPortrait, useCreateCharacter } from "../queries/characters.queries";
 
 function normalizeLabel(value?: string | null) {
   return value ? value.replaceAll("_", " ") : "—";
@@ -41,28 +40,67 @@ function statusDotClass(status?: string | null) {
   return "bg-emerald-500";
 }
 
+function CharacterPortrait({
+  src,
+  alt,
+  className,
+}: Readonly<{
+  src: string | null;
+  alt: string;
+  className: string;
+}>) {
+  const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => setImageFailed(false), [src]);
+
+  return (
+    <div className={`grid shrink-0 place-items-center overflow-hidden bg-primary-muted text-primary-hover ${className}`}>
+      {src && !imageFailed ? (
+        <img
+          src={src}
+          alt={alt}
+          width={128}
+          height={128}
+          loading="lazy"
+          className="size-full object-cover"
+          onError={() => setImageFailed(true)}
+        />
+      ) : (
+        <span className="px-2 text-center text-[9px] font-medium leading-4 text-text-dim">
+          Chưa có ảnh
+        </span>
+      )}
+    </div>
+  );
+}
+
 function CharacterCard({
   character,
   selected,
   onSelect,
+  portraitUrl,
 }: Readonly<{
   character: DesktopCharacter;
   selected: boolean;
   onSelect: () => void;
+  portraitUrl: string | null;
 }>) {
   return (
     <button
       type="button"
       onClick={onSelect}
-      className={`grid min-w-0 grid-cols-[44px_minmax(0,1fr)] gap-3 rounded-lg border p-3 text-left transition-colors ${
+      aria-pressed={selected}
+      className={`grid min-w-0 cursor-pointer items-stretch grid-cols-[88px_minmax(0,1fr)] gap-3 rounded-lg border p-3 text-left transition-colors focus-visible:ring-2 focus-visible:ring-ring ${
         selected
           ? "border-primary bg-primary/5"
           : "border-border bg-card hover:border-primary/40 hover:bg-surface-panel"
       }`}
     >
-      <div className="grid size-11 place-items-center rounded-lg bg-primary-muted text-primary-hover">
-        <UserCircle size={25} />
-      </div>
+      <CharacterPortrait
+        src={portraitUrl}
+        alt={`Ảnh đại diện của ${character.canonicalName}`}
+        className="h-full min-h-24 w-[88px] rounded-lg"
+      />
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
           <span className={`size-1.5 rounded-full ${statusDotClass(character.status)}`} />
@@ -148,6 +186,11 @@ export function CharactersScreen({
           appearance: null,
         }
       : null);
+  const portraitQuery = useCharacterPortrait(
+    projectId,
+    selectedId,
+    detail?.pinnedCharacterVersionId ?? null,
+  );
 
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -211,12 +254,16 @@ export function CharactersScreen({
           </div>
         </div>
 
-        {notice && <p className="px-1 text-[10px] text-muted-foreground">{notice}</p>}
+        {notice && (
+          <p role="status" aria-live="polite" className="px-1 text-[10px] text-muted-foreground">
+            {notice}
+          </p>
+        )}
 
         {!characters.length ? (
           <EmptyState title="Chưa có character" description="Tạo nhân vật đầu tiên bằng form phía trên." />
         ) : (
-          <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(380px,0.85fr)_minmax(0,1.65fr)]">
+          <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(380px,1fr)_minmax(0,1fr)]">
             <section className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] rounded-lg border border-border bg-surface-dark p-3">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
@@ -227,13 +274,14 @@ export function CharactersScreen({
                 </div>
               </div>
 
-              <div className="grid min-h-0 grid-cols-[repeat(auto-fill,minmax(220px,1fr))] content-start gap-2 overflow-auto pr-1 xl:grid-cols-1 2xl:grid-cols-2">
+              <div className="grid min-h-0 grid-cols-[repeat(auto-fill,minmax(220px,1fr))] content-start gap-2 overflow-auto pr-1 xl:grid-cols-2 2xl:grid-cols-3">
                 {filteredCharacters.map((character) => (
                   <CharacterCard
                     key={character.id}
                     character={character}
                     selected={character.id === selectedId}
                     onSelect={() => setSelectedId(character.id)}
+                    portraitUrl={character.id === selectedId ? portraitQuery.url : null}
                   />
                 ))}
                 {!filteredCharacters.length && (
@@ -252,8 +300,25 @@ export function CharactersScreen({
               ) : (
                 <>
                   <div className="flex flex-wrap items-start gap-4 border-b border-border-subtle p-4">
-                    <div className="grid size-20 shrink-0 place-items-center rounded-xl bg-primary-muted text-primary-hover">
-                      <UserCircle size={44} />
+                    <div className="grid shrink-0 justify-items-center gap-1.5">
+                      <CharacterPortrait
+                        src={portraitQuery.url}
+                        alt={`Ảnh đại diện của ${detail.canonicalName}`}
+                        className="size-20 rounded-xl"
+                      />
+                      {(portraitQuery.isReferencesLoading ||
+                        portraitQuery.isLoading ||
+                        portraitQuery.isReferencesError ||
+                        portraitQuery.isError ||
+                        portraitQuery.url) && (
+                        <span className="max-w-24 text-center text-[9px] text-text-dim">
+                          {portraitQuery.isReferencesLoading || portraitQuery.isLoading
+                            ? "Đang tải ảnh…"
+                            : portraitQuery.isReferencesError || portraitQuery.isError
+                              ? "Không tải được ảnh"
+                              : "Identity reference"}
+                        </span>
+                      )}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
@@ -300,7 +365,7 @@ export function CharactersScreen({
                   <div className="grid gap-3 p-3 2xl:grid-cols-2">
                     <div className="rounded-lg border border-border bg-surface-dark p-3">
                       <div className="mb-2 flex items-center gap-2">
-                        <Tags size={14} className="text-primary-hover" />
+                        <Tags aria-hidden="true" size={14} className="text-primary-hover" />
                         <h3 className="text-xs font-semibold">Project identity</h3>
                       </div>
                       <dl>
@@ -327,7 +392,7 @@ export function CharactersScreen({
 
                     <div className="rounded-lg border border-border bg-surface-dark p-3">
                       <div className="mb-2 flex items-center gap-2">
-                        <LockKeyhole size={14} className="text-primary-hover" />
+                        <LockKeyhole aria-hidden="true" size={14} className="text-primary-hover" />
                         <h3 className="text-xs font-semibold">Pinned version</h3>
                       </div>
                       {detail.version ? (
@@ -348,7 +413,7 @@ export function CharactersScreen({
 
                     <div className="rounded-lg border border-border bg-surface-dark p-3 2xl:col-span-2">
                       <div className="mb-2 flex items-center gap-2">
-                        <BookOpen size={14} className="text-primary-hover" />
+                        <BookOpen aria-hidden="true" size={14} className="text-primary-hover" />
                         <h3 className="text-xs font-semibold">Character bible</h3>
                       </div>
                       <p className="whitespace-pre-wrap text-[10px] leading-5 text-text-muted">
@@ -358,7 +423,7 @@ export function CharactersScreen({
 
                     <div className="rounded-lg border border-border bg-surface-dark p-3">
                       <div className="mb-2 flex items-center gap-2">
-                        <Sparkles size={14} className="text-primary-hover" />
+                        <Sparkles aria-hidden="true" size={14} className="text-primary-hover" />
                         <h3 className="text-xs font-semibold">Visual prompt</h3>
                       </div>
                       <p className="whitespace-pre-wrap text-[10px] leading-5 text-text-muted">
@@ -368,7 +433,7 @@ export function CharactersScreen({
 
                     <div className="rounded-lg border border-border bg-surface-dark p-3">
                       <div className="mb-2 flex items-center gap-2">
-                        <Shirt size={14} className="text-primary-hover" />
+                        <Shirt aria-hidden="true" size={14} className="text-primary-hover" />
                         <h3 className="text-xs font-semibold">Timeline appearance</h3>
                       </div>
                       {detail.appearance ? (
@@ -383,7 +448,7 @@ export function CharactersScreen({
                         </dl>
                       ) : (
                         <div className="flex items-center gap-2 rounded-md border border-dashed border-border p-4 text-[10px] text-text-muted">
-                          <CircleDot size={13} /> Chưa có appearance state cho timeline hiện tại.
+                          <CircleDot aria-hidden="true" size={13} /> Chưa có appearance state cho timeline hiện tại.
                         </div>
                       )}
                     </div>
@@ -391,7 +456,7 @@ export function CharactersScreen({
                     {detail.appearance?.appearancePrompt && (
                       <div className="rounded-lg border border-border bg-surface-dark p-3 2xl:col-span-2">
                         <div className="mb-2 flex items-center gap-2">
-                          <Sparkles size={14} className="text-primary-hover" />
+                          <Sparkles aria-hidden="true" size={14} className="text-primary-hover" />
                           <h3 className="text-xs font-semibold">Appearance prompt</h3>
                         </div>
                         <p className="whitespace-pre-wrap text-[10px] leading-5 text-text-muted">

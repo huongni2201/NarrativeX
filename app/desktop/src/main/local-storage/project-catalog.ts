@@ -182,6 +182,19 @@ export class ProjectCatalog {
     });
   }
 
+  async markArchived(projectId: string): Promise<void> {
+    return this.withWriteLock(async () => {
+      const catalog = await this.readCatalogWithRecovery();
+      const existing = catalog.projects[projectId];
+      if (!existing) return;
+
+      existing.syncStatus = "ORPHANED";
+      if (catalog.lastProjectId === projectId) catalog.lastProjectId = null;
+      await this.persistEntry(projectId, existing);
+      await this.writeCatalog(catalog);
+    });
+  }
+
   private visibleEntries(catalog: ProjectCatalogDocument): LocalProjectCatalogEntry[] {
     return Object.values(catalog.projects)
       .filter((entry) => entry.syncStatus !== "ORPHANED")

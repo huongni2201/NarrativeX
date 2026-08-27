@@ -244,7 +244,7 @@ export function StoryboardScreen({
           detail="Tạo chapter và chạy phân tích trước. Scene và Visual Beat sẽ xuất hiện tại đây."
         />
       ) : (
-        <div className="grid min-h-0 flex-1 grid-cols-[260px_320px_minmax(0,1fr)] overflow-hidden">
+        <div className="grid min-h-0 flex-1 grid-cols-[130px_320px_minmax(0,1fr)] overflow-hidden">
           <section className="min-h-0 overflow-y-auto border-r border-border bg-surface-dark p-3">
             <PanelTitle title="Chapters" count={chapters.length} />
             <div className="mt-3 space-y-1.5">
@@ -421,7 +421,7 @@ export function StoryboardScreen({
                   compact
                 />
               ) : (
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 gap-3 2xl:grid-cols-2">
                   {selectedScene.visualBeats.map((beat) => (
                     <VisualBeatCard
                       key={beat.id}
