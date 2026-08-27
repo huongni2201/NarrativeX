@@ -17,18 +17,35 @@ const workspace = {
     sourceText: "A story.",
     sourceHash: "hash",
     rowVersion: 1,
+    createdAt: "2026-08-24T00:00:00Z",
+    updatedAt: "2026-08-25T00:00:00Z",
   },
   projectName: "Test",
   summary: { sceneCount: 2, visualBeatCount: 3, estimatedDurationSeconds: 120 },
   pipeline: {
-    analysis: { status: "COMPLETED", completedAt: "2026-08-25T00:00:00Z" },
+    analysis: {
+      status: "COMPLETED",
+      completedAt: "2026-08-25T00:00:00Z",
+      latestJobId: "019c4d49-3115-7f94-bac9-e11295993d31",
+      visualGenerationMode: "IMAGE",
+      imageProvider: "GEMINI_WEB",
+    },
     visualPlanning: { status: "COMPLETED", completedAt: "2026-08-25T00:00:00Z" },
-    visualGeneration: { status: "NOT_STARTED", total: 0, completed: 0, failed: 0 },
+    visualGeneration: {
+      status: "NOT_STARTED",
+      total: 0,
+      completed: 0,
+      failed: 0,
+      latestJobId: null,
+      mediaPlanId: null,
+      mediaPlanRevision: null,
+    },
     audio: {
       status: "NOT_STARTED",
       completedAt: null,
       latestJobId: null,
       voiceId: null,
+      speakingRate: null,
       audioUrl: null,
       durationMs: null,
     },
@@ -56,19 +73,29 @@ const workspace = {
   },
 };
 
-test("chapter workspace parser accepts narration job identity and rejects malformed data", () => {
-  assert.equal(parseChapterWorkspace(workspace).projectName, "Test");
+test("chapter workspace parser accepts resumable analysis and narration metadata", () => {
+  const parsed = parseChapterWorkspace(workspace);
+  assert.equal(parsed.projectName, "Test");
+  assert.equal(parsed.pipeline.analysis.visualGenerationMode, "IMAGE");
+  assert.equal(parsed.pipeline.analysis.imageProvider, "GEMINI_WEB");
+
   const active = structuredClone(workspace);
   active.pipeline.audio.status = "STALLED";
   active.pipeline.audio.latestJobId = "019c4d49-3115-7f94-bac9-e11295993d30";
+  active.pipeline.audio.speakingRate = 1.15;
   assert.equal(
     parseChapterWorkspace(active).pipeline.audio.latestJobId,
     "019c4d49-3115-7f94-bac9-e11295993d30",
   );
+  assert.equal(parseChapterWorkspace(active).pipeline.audio.speakingRate, 1.15);
+
   assert.throws(() => parseChapterWorkspace({ ...workspace, summary: null }), /contract/);
-  const missingJobIdentity = structuredClone(workspace);
-  delete missingJobIdentity.pipeline.audio.latestJobId;
-  assert.throws(() => parseChapterWorkspace(missingJobIdentity), /contract/);
+  const missingAnalysisJobIdentity = structuredClone(workspace);
+  delete missingAnalysisJobIdentity.pipeline.analysis.latestJobId;
+  assert.throws(() => parseChapterWorkspace(missingAnalysisJobIdentity), /contract/);
+  const missingMediaPlanIdentity = structuredClone(workspace);
+  delete missingMediaPlanIdentity.pipeline.visualGeneration.mediaPlanId;
+  assert.throws(() => parseChapterWorkspace(missingMediaPlanIdentity), /contract/);
 });
 
 test("voice tag filtering updates the result set", () => {
