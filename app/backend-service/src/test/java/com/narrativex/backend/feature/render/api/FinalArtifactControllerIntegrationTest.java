@@ -1,7 +1,7 @@
 package com.narrativex.backend.feature.render.api;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.narrativex.backend.support.PostgreSqlIntegrationTestSupport;
@@ -14,7 +14,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.http.HttpHeaders;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -110,33 +109,14 @@ class FinalArtifactControllerIntegrationTest extends PostgreSqlIntegrationTestSu
   }
 
   @Test
-  void rangeAndDispositionSemanticsArePreserved() throws Exception {
+  void metadataOnlyArtifactDoesNotAdvertiseRemovedStreamingEndpoints() throws Exception {
     mockMvc
-        .perform(
-            get("/api/v1/artifacts/" + READY_ARTIFACT_ID + "/download")
-                .header(HttpHeaders.RANGE, "bytes=0-1023"))
-        .andExpect(status().isPartialContent())
-        .andExpect(header().string(HttpHeaders.CONTENT_RANGE, "bytes 0-1023/2048"))
-        .andExpect(
-            header()
-                .string(
-                    HttpHeaders.CONTENT_DISPOSITION,
-                    org.hamcrest.Matchers.containsString("attachment")));
-
-    mockMvc
-        .perform(get("/api/v1/artifacts/" + READY_ARTIFACT_ID + "/preview"))
+        .perform(get("/api/v1/artifacts/" + READY_ARTIFACT_ID))
         .andExpect(status().isOk())
-        .andExpect(
-            header()
-                .string(
-                    HttpHeaders.CONTENT_DISPOSITION,
-                    org.hamcrest.Matchers.containsString("inline")));
-
-    mockMvc
-        .perform(
-            get("/api/v1/artifacts/" + READY_ARTIFACT_ID + "/preview")
-                .header(HttpHeaders.RANGE, "bytes=not-a-range"))
-        .andExpect(status().isRequestedRangeNotSatisfiable());
+        .andExpect(jsonPath("$.data.previewAvailable").value(false))
+        .andExpect(jsonPath("$.data.previewUrl").doesNotExist())
+        .andExpect(jsonPath("$.data.downloadAvailable").value(false))
+        .andExpect(jsonPath("$.data.downloadUrl").doesNotExist());
   }
 
   private void insertProject(UUID id, String ownerId) {
