@@ -125,6 +125,8 @@ class MyBatisProjectQueryIntegrationTest extends PostgreSqlIntegrationTestSuppor
         jdbcTemplate.queryForObject(
             "SELECT id FROM storyboard_revisions WHERE chapter_id = ?", UUID.class, chapterId);
     jdbcTemplate.update(
+        "UPDATE chapters SET current_storyboard_revision_id = ? WHERE id = ?", revId, chapterId);
+    jdbcTemplate.update(
         "INSERT INTO scenes (chapter_id, storyboard_revision_id, order_index, title, narration, duration_seconds, status) "
             + "VALUES (?, ?, 1, 'Scene 1', 'Narration', 47, 'APPROVED')",
         chapterId,
