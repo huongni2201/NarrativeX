@@ -57,7 +57,9 @@ public class EnqueueStoryAnalysisUseCase {
             + ":"
             + chapter.rowVersion()
             + ":"
-            + chapter.sourceHash();
+            + chapter.sourceHash()
+            + ":"
+            + command.productionMode();
 
     generationJobRepository.acquireIdempotencyLock(baseIdempotencyKey, userId);
     var baseJob = generationJobRepository.findByIdempotencyKey(baseIdempotencyKey, userId);
@@ -108,18 +110,20 @@ public class EnqueueStoryAnalysisUseCase {
                 chapter.sourceText(),
                 analysisLanguage,
                 idempotencyKey,
-                userId));
+                userId,
+                command.productionMode()));
 
     quotaReservation.bindToGenerationJob(admission.reservation().id(), job.getId());
     operationPlanRepository.save(operationPlan.withGenerationJobId(job.getId()));
     stageAttemptRepository.create(StageAttempt.create(job.getId(), STAGE_NAME, 1));
     generationOutboxRepository.enqueue(job);
     log.info(
-        "Enqueued story analysis job id={} for projectId={}, chapterId={}, storyboardRevisionId={}",
+        "Enqueued story analysis job id={} for projectId={}, chapterId={}, storyboardRevisionId={}, productionMode={}",
         job.getId(),
         command.projectId(),
         command.chapterId(),
-        storyboardRevisionId);
+        storyboardRevisionId,
+        command.productionMode());
     return job;
   }
 
