@@ -372,7 +372,7 @@ export function EditorScreen({
   }
 
   return (
-    <div className="nx-editor-layout grid h-full min-h-0 min-w-0 grid-cols-[var(--editor-explorer-width)_minmax(0,1fr)_var(--editor-inspector-width)] grid-rows-[minmax(0,1fr)_var(--editor-timeline-height)] overflow-hidden bg-background text-foreground select-none">
+    <div className="nx-editor-layout grid h-full min-h-0 min-w-0 grid-cols-[var(--editor-explorer-width)_minmax(0,1fr)_var(--editor-inspector-width)] grid-rows-[minmax(0,2fr)_minmax(0,1fr)] overflow-hidden bg-background text-foreground select-none">
       <EditorExplorerPanel
         hierarchy={filteredHierarchy}
         selectedBeatId={selectedId}
