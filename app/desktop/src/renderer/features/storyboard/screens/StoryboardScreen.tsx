@@ -71,6 +71,7 @@ export function StoryboardScreen({
   const [reviewStatusFilter, setReviewStatusFilter] = useState<VisualBeatStatusFilter>("ALL");
   const [geminiQueue, setGeminiQueue] = useState<GeminiQueueState | null>(null);
   const geminiRunTokenRef = useRef(0);
+  const materializedReferenceIdsRef = useRef(new Set<string>());
 
   useEffect(() => {
     if (!chapters.length) {
@@ -342,6 +343,10 @@ export function StoryboardScreen({
 
   async function generateGeminiImage(beat: StoryboardVisualBeat, queueMode = false): Promise<boolean> {
     if (mediaBusyBeatId) return false;
+    if (!beat.prompt) {
+      setNotice("Backend chưa trả prompt cho Visual Beat này. Hãy refresh Storyboard rồi thử lại.");
+      return false;
+    }
     if (!selectedChapterId) {
       setNotice("Chưa chọn chapter để resolve character reference.");
       return false;
@@ -351,18 +356,20 @@ export function StoryboardScreen({
     setNotice(
       queueMode
         ? `Gemini All · Đang chuẩn bị character reference cho “${beat.title}”…`
-        : `Đang chuẩn bị character reference và Gemini prompt cho “${beat.title}”…`,
+        : `Đang chuẩn bị character reference cho “${beat.title}”…`,
     );
     try {
       const context = await storyboardApi.geminiContext(projectId, selectedChapterId, beat.id);
       for (const reference of context.references) {
+        if (materializedReferenceIdsRef.current.has(reference.assetId)) continue;
         await window.narrativex.localStorage.materializeRemoteAsset({
           projectId,
           assetId: reference.assetId,
         });
+        materializedReferenceIdsRef.current.add(reference.assetId);
       }
 
-      const prompt = [compileGeminiPrompt(beat), context.promptContext].filter(Boolean).join("\n\n");
+      const prompt = [beat.prompt, context.promptContext].filter(Boolean).join("\n\n");
       setNotice(
         queueMode
           ? `Gemini All · Đang gửi ${context.references.length} reference và generate “${beat.title}”…`
@@ -508,8 +515,12 @@ export function StoryboardScreen({
   }
 
   async function copyPrompt(beat: StoryboardVisualBeat) {
+    if (!beat.prompt) {
+      setNotice("Backend chưa trả prompt cho Visual Beat này. Hãy refresh Storyboard rồi thử lại.");
+      return;
+    }
     try {
-      await window.narrativex.system.copyText(compileGeminiPrompt(beat));
+      await window.narrativex.system.copyText(beat.prompt);
       setCopiedPromptBeatId(beat.id);
       setNotice(`Đã copy prompt của “${beat.title}”.`);
     } catch (error) {
@@ -964,7 +975,7 @@ function VisualBeatCard({
   onImport: () => void;
 }>) {
   const approved = beat.reviewStatus === "APPROVED";
-  const prompt = compileGeminiPrompt(beat);
+  const prompt = beat.prompt ?? "Backend prompt unavailable.";
 
   return (
     <article className={`rounded-lg border bg-surface-panel p-4 ${queueCurrent ? "border-primary/60 ring-1 ring-primary/20" : "border-border"}`}>
@@ -1029,7 +1040,7 @@ function VisualBeatCard({
           <div className="mt-3 flex flex-wrap gap-2">
             <button
               type="button"
-              disabled={mediaBusy || generationLocked}
+              disabled={mediaBusy || generationLocked || !beat.prompt}
               onClick={onGenerate}
               className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-[11px] font-bold text-white hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -1123,32 +1134,6 @@ function BeatImagePreview({ timelineBeat }: Readonly<{ timelineBeat: DesktopTime
       />
     </div>
   );
-}
-
-function compileGeminiPrompt(beat: StoryboardVisualBeat) {
-  return [
-    "IMAGE TASK:",
-    "Generate exactly one coherent still frame for one storyboard visual beat.",
-    "",
-    "VISUAL INTENT:",
-    beat.visualIntent,
-    "",
-    "SHOT DESIGN:",
-    `- camera angle: ${formatEnum(beat.cameraAngle)}`,
-    `- camera movement intent: ${formatEnum(beat.cameraMovement)}`,
-    "- create a readable cinematic composition that clearly advances the story",
-    "- avoid repeating the same centered framing pattern used by adjacent beats",
-    "",
-    "COMPOSITION RULE:",
-    "Do not create a montage, collage, split screen, contact sheet, or multiple panels.",
-    "",
-    "CONTINUITY RULE:",
-    "Preserve established character identity, wardrobe, environment, prop ownership, and lighting continuity.",
-    "Use canonical character/location/prop references only; do not treat a previous generated beat image as a base image.",
-    "",
-    "OUTPUT:",
-    "One new image only. No text, captions, logos, or watermarks unless explicitly required by the story.",
-  ].join("\n");
 }
 
 function geminiQueueStorageKey(projectId: string, chapterId: string) {
