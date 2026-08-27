@@ -2,6 +2,7 @@
 
 import uuid
 from contextvars import ContextVar
+from dataclasses import replace
 
 from narrativex_worker.repository.implementation import (
     ALLOWED_PROVIDER_TRANSITIONS,
@@ -31,7 +32,41 @@ class WorkerRepository(WorkerRepositoryImplementation):
         claim_owner = self._new_claim_owner(worker_id)
         claimed = await super().claim_next(claim_owner)
         self._claim_owner.set(claim_owner if claimed is not None else None)
-        return claimed
+        if claimed is None:
+            return None
+
+        pool = self._require_pool()
+        row = await pool.fetchrow(
+            """
+            SELECT analysis_visual_generation_mode, analysis_image_provider
+              FROM generation_jobs
+             WHERE id = $1
+            """,
+            claimed.generation_job_id,
+        )
+        visual_generation_mode = (
+            row["analysis_visual_generation_mode"]
+            if row is not None and row["analysis_visual_generation_mode"] is not None
+            else "IMAGE"
+        )
+        image_provider = (
+            row["analysis_image_provider"]
+            if row is not None and visual_generation_mode == "IMAGE"
+            else None
+        )
+        if visual_generation_mode == "IMAGE" and image_provider is None:
+            # Legacy jobs created before the durable preference columns existed used the API path.
+            image_provider = "API"
+
+        return replace(
+            claimed,
+            request=claimed.request.model_copy(
+                update={
+                    "visual_generation_mode": visual_generation_mode,
+                    "image_provider": image_provider,
+                }
+            ),
+        )
 
     async def heartbeat(self, stage_attempt_id: uuid.UUID, worker_id: str) -> bool:
         return await super().heartbeat(stage_attempt_id, self._lease_owner(worker_id))
