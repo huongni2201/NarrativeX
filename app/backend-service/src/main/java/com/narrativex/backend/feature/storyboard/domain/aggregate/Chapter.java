@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.storyboard.domain.aggregate;
 
 import com.narrativex.backend.feature.common.domain.UuidAggregateRoot;
+import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -12,6 +13,8 @@ public final class Chapter extends UuidAggregateRoot {
       "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
   private final UUID storyVersionId;
+  private final Instant createdAt;
+  private final Instant updatedAt;
   private int orderIndex;
   private String title;
   private String sourceText;
@@ -24,7 +27,7 @@ public final class Chapter extends UuidAggregateRoot {
 
   public Chapter(
       UUID storyVersionId, int orderIndex, String title, String sourceText, String sourceHash) {
-    this(null, 0L, storyVersionId, orderIndex, title, sourceText, sourceHash);
+    this(null, 0L, storyVersionId, orderIndex, title, sourceText, sourceHash, null, null);
   }
 
   private Chapter(
@@ -34,19 +37,37 @@ public final class Chapter extends UuidAggregateRoot {
       int orderIndex,
       String title,
       String sourceText,
-      String sourceHash) {
+      String sourceHash,
+      Instant createdAt,
+      Instant updatedAt) {
     super(id, rowVersion);
     this.storyVersionId = Objects.requireNonNull(storyVersionId, "storyVersionId");
     this.orderIndex = validOrderIndex(orderIndex);
     this.title = requiredTitle(title);
     this.sourceText = Objects.requireNonNull(sourceText, "sourceText");
     this.sourceHash = requiredSourceHash(sourceHash);
+    this.createdAt = createdAt;
+    this.updatedAt = updatedAt;
   }
 
   /** Backward-compatible rehydration for legacy empty draft fixtures. */
   public static Chapter rehydrate(
       UUID id, long rowVersion, UUID storyVersionId, int orderIndex, String title) {
-    return new Chapter(id, rowVersion, storyVersionId, orderIndex, title, "", EMPTY_SOURCE_SHA_256);
+    return new Chapter(
+        id, rowVersion, storyVersionId, orderIndex, title, "", EMPTY_SOURCE_SHA_256, null, null);
+  }
+
+  /** Backward-compatible rehydration for callers that do not need persistence timestamps. */
+  public static Chapter rehydrate(
+      UUID id,
+      long rowVersion,
+      UUID storyVersionId,
+      int orderIndex,
+      String title,
+      String sourceText,
+      String sourceHash) {
+    return new Chapter(
+        id, rowVersion, storyVersionId, orderIndex, title, sourceText, sourceHash, null, null);
   }
 
   public static Chapter rehydrate(
@@ -56,8 +77,19 @@ public final class Chapter extends UuidAggregateRoot {
       int orderIndex,
       String title,
       String sourceText,
-      String sourceHash) {
-    return new Chapter(id, rowVersion, storyVersionId, orderIndex, title, sourceText, sourceHash);
+      String sourceHash,
+      Instant createdAt,
+      Instant updatedAt) {
+    return new Chapter(
+        id,
+        rowVersion,
+        storyVersionId,
+        orderIndex,
+        title,
+        sourceText,
+        sourceHash,
+        Objects.requireNonNull(createdAt, "createdAt"),
+        Objects.requireNonNull(updatedAt, "updatedAt"));
   }
 
   public void rename(String newTitle) {
@@ -91,6 +123,14 @@ public final class Chapter extends UuidAggregateRoot {
 
   public String getSourceHash() {
     return sourceHash;
+  }
+
+  public Instant getCreatedAt() {
+    return createdAt;
+  }
+
+  public Instant getUpdatedAt() {
+    return updatedAt;
   }
 
   private static int validOrderIndex(int value) {
