@@ -7,6 +7,12 @@ import java.util.UUID;
 public interface VisualPromptContextRepository {
   VisualPromptContext findForScene(UUID projectId, UUID sceneId);
 
+  /**
+   * Resolve only characters participating in one Visual Beat. Legacy/manual beats without explicit
+   * beat-character rows may fall back to the parent scene cast in the persistence adapter.
+   */
+  VisualPromptContext findForBeat(UUID projectId, UUID visualBeatId);
+
   record VisualPromptContext(LocationCanon location, List<CharacterCanon> characters) {
     public VisualPromptContext {
       characters = characters == null ? List.of() : List.copyOf(characters);
@@ -38,6 +44,7 @@ public interface VisualPromptContextRepository {
       String hairstyle,
       String injury,
       String wardrobeContext,
+      String beatRole,
       List<CharacterReference> references) {
     public CharacterCanon {
       references = references == null ? List.of() : List.copyOf(references);
