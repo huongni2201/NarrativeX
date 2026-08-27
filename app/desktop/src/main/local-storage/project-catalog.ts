@@ -14,7 +14,8 @@ type ProjectSyncStatus =
   | "DIRTY"
   | "SYNCING"
   | "SYNCED"
-  | "SYNC_FAILED";
+  | "SYNC_FAILED"
+  | "ORPHANED";
 
 export interface LocalProjectCatalogEntry {
   project: DesktopProject;
@@ -63,19 +64,15 @@ export class ProjectCatalog {
 
   async list(): Promise<LocalProjectCatalogEntry[]> {
     const catalog = await this.readCatalogWithRecovery();
-    return Object.values(catalog.projects)
-      .map((entry) => this.toPublicEntry(entry))
-      .sort((left, right) => right.lastOpenedAt.localeCompare(left.lastOpenedAt));
+    return this.visibleEntries(catalog);
   }
 
   async lastOpened(): Promise<LocalProjectCatalogEntry | null> {
     const catalog = await this.readCatalogWithRecovery();
     const selected = catalog.lastProjectId ? catalog.projects[catalog.lastProjectId] : undefined;
-    if (selected) return this.toPublicEntry(selected);
-    const projects = Object.values(catalog.projects).sort((left, right) =>
-      right.lastOpenedAt.localeCompare(left.lastOpenedAt),
-    );
-    return projects[0] ? this.toPublicEntry(projects[0]) : null;
+    if (selected && selected.syncStatus !== "ORPHANED") return this.toPublicEntry(selected);
+    const projects = this.visibleEntries(catalog);
+    return projects[0] ?? null;
   }
 
   async upsert(
@@ -115,44 +112,81 @@ export class ProjectCatalog {
 
     return this.withWriteLock(async () => {
       const catalog = await this.readCatalogWithRecovery();
+      const remoteById = new Map(projects.map((project) => [project.id, project]));
       const now = new Date().toISOString();
-      for (const project of projects) {
-        const existing = catalog.projects[project.id];
+
+      // A successful remote list is authoritative for cloud-backed projects.
+      // Keep genuinely local-only projects, but hide cloud projects that disappeared remotely.
+      for (const [projectId, existing] of Object.entries(catalog.projects)) {
+        const remoteProject = remoteById.get(projectId);
+
+        if (remoteProject) {
+          const entry: PersistedProjectEntry = {
+            project: cloneProject(remoteProject),
+            ownerId: metadata.ownerId !== undefined ? metadata.ownerId : existing.ownerId,
+            cloudProjectId:
+              metadata.cloudProjectId !== undefined
+                ? metadata.cloudProjectId
+                : existing.cloudProjectId ?? remoteProject.id,
+            syncStatus: metadata.syncStatus ?? "SYNCED",
+            registeredAt: existing.registeredAt,
+            lastOpenedAt: existing.lastOpenedAt,
+          };
+          catalog.projects[projectId] = entry;
+          await this.persistEntry(projectId, entry);
+          remoteById.delete(projectId);
+          continue;
+        }
+
+        const isCloudBacked =
+          existing.cloudProjectId !== null || existing.syncStatus !== "LOCAL_ONLY";
+        if (!isCloudBacked) continue;
+
+        existing.syncStatus = "ORPHANED";
+        if (catalog.lastProjectId === projectId) catalog.lastProjectId = null;
+        await this.persistEntry(projectId, existing);
+      }
+
+      for (const project of remoteById.values()) {
         const entry: PersistedProjectEntry = {
           project: cloneProject(project),
-          ownerId: metadata.ownerId !== undefined ? metadata.ownerId : existing?.ownerId ?? null,
+          ownerId: metadata.ownerId ?? null,
           cloudProjectId:
-            metadata.cloudProjectId !== undefined
-              ? metadata.cloudProjectId
-              : existing?.cloudProjectId ?? null,
-          syncStatus: metadata.syncStatus ?? existing?.syncStatus ?? "LOCAL_ONLY",
-          registeredAt: existing?.registeredAt ?? now,
-          lastOpenedAt: existing?.lastOpenedAt ?? now,
+            metadata.cloudProjectId !== undefined ? metadata.cloudProjectId : project.id,
+          syncStatus: metadata.syncStatus ?? "SYNCED",
+          registeredAt: now,
+          lastOpenedAt: now,
         };
         catalog.projects[project.id] = entry;
         await this.persistEntry(project.id, entry);
       }
+
       await this.writeCatalog(catalog);
-      return Object.values(catalog.projects)
-        .map((entry) => this.toPublicEntry(entry))
-        .sort((left, right) => right.lastOpenedAt.localeCompare(left.lastOpenedAt));
+      return this.visibleEntries(catalog);
     });
   }
 
   async touch(projectId: string): Promise<LocalProjectCatalogEntry> {
-    await this.storage.ensureProject(projectId);
     return this.withWriteLock(async () => {
       const catalog = await this.readCatalogWithRecovery();
       const existing = catalog.projects[projectId];
-      if (!existing) {
+      if (!existing || existing.syncStatus === "ORPHANED") {
         throw new Error(`Local project ${projectId} is not registered.`);
       }
+      await this.storage.ensureProject(projectId);
       existing.lastOpenedAt = new Date().toISOString();
       catalog.lastProjectId = projectId;
       await this.persistEntry(projectId, existing);
       await this.writeCatalog(catalog);
       return this.toPublicEntry(existing);
     });
+  }
+
+  private visibleEntries(catalog: ProjectCatalogDocument): LocalProjectCatalogEntry[] {
+    return Object.values(catalog.projects)
+      .filter((entry) => entry.syncStatus !== "ORPHANED")
+      .map((entry) => this.toPublicEntry(entry))
+      .sort((left, right) => right.lastOpenedAt.localeCompare(left.lastOpenedAt));
   }
 
   private toPublicEntry(entry: PersistedProjectEntry): LocalProjectCatalogEntry {
@@ -202,9 +236,9 @@ export class ProjectCatalog {
       }
     }
 
-    const latest = Object.values(catalog.projects).sort((left, right) =>
-      right.lastOpenedAt.localeCompare(left.lastOpenedAt),
-    )[0];
+    const latest = Object.values(catalog.projects)
+      .filter((entry) => entry.syncStatus !== "ORPHANED")
+      .sort((left, right) => right.lastOpenedAt.localeCompare(left.lastOpenedAt))[0];
     catalog.lastProjectId = latest?.project.id ?? null;
     await this.writeCatalog(catalog);
     return catalog;
@@ -337,7 +371,9 @@ function isPersistedEntry(value: unknown): value is PersistedProjectEntry {
 }
 
 function isSyncStatus(value: unknown): value is ProjectSyncStatus {
-  return ["LOCAL_ONLY", "DIRTY", "SYNCING", "SYNCED", "SYNC_FAILED"].includes(String(value));
+  return ["LOCAL_ONLY", "DIRTY", "SYNCING", "SYNCED", "SYNC_FAILED", "ORPHANED"].includes(
+    String(value),
+  );
 }
 
 async function atomicJsonWrite(path: string, value: unknown): Promise<void> {
