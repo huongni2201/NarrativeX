@@ -1,5 +1,6 @@
 package com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.Getter;
@@ -17,6 +18,9 @@ public class ChapterWorkspaceAggregateRow {
   private String analysisStatus;
   private String analysisSourceHash;
   private Instant analysisCompletedAt;
+  private UUID analysisLatestJobId;
+  private String analysisVisualGenerationMode;
+  private String analysisImageProvider;
   private int visualGenerationTotal;
   private int visualGenerationCompleted;
   private int visualGenerationFailed;
@@ -32,6 +36,7 @@ public class ChapterWorkspaceAggregateRow {
   private String narrationJobStatus;
   private UUID narrationJobId;
   private String narrationVoiceId;
+  private BigDecimal narrationSpeakingRate;
   private Instant narrationCompletedAt;
   private String narrationStorageKey;
   private Long narrationDurationMs;
