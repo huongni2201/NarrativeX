@@ -47,7 +47,11 @@ export function ProjectWorkspaceRoute() {
         />
       )}
       {screen === "storyboard" && (
-        <StoryboardScreen projectId={projectId} chapters={workspace.chapters} />
+        <StoryboardScreen
+          projectId={projectId}
+          chapters={workspace.chapters}
+          timeline={workspace.timeline}
+        />
       )}
       {screen === "characters" && (
         <CharactersScreen projectId={projectId} characters={workspace.characters} />
