@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
+  AnalyzeChapterInput,
   CreateMediaJobInput,
   GenerationJob,
   MediaReviewInput,
@@ -24,8 +25,11 @@ export const generationQueryKeys = {
 
 export function useAnalyzeChapter() {
   return useMutation({
-    mutationFn: (input: { projectId: string; chapterId: string }) =>
-      generationApi.analyze(input.projectId, input.chapterId),
+    mutationFn: (input: {
+      projectId: string;
+      chapterId: string;
+      request: AnalyzeChapterInput;
+    }) => generationApi.analyze(input.projectId, input.chapterId, input.request),
   });
 }
 
@@ -82,8 +86,6 @@ export function useMediaJob(jobId: string | null) {
     queryKey: generationQueryKeys.mediaJob(jobId ?? "none"),
     queryFn: () => generationApi.getJob(jobId as string),
     enabled: Boolean(jobId),
-    // Generation SSE invalidates this query whenever the durable job snapshot changes.
-    // Keep only a slow watchdog for item-level changes that do not move job progress.
     refetchInterval: (query) =>
       query.state.data &&
       query.state.data.items.some((item) => isActiveMediaExecutionStatus(item.executionStatus))
@@ -99,9 +101,6 @@ export function useGenerationJob(jobId: string | null) {
     queryKey,
     queryFn: () => generationApi.getGenerationJob(jobId as string),
     enabled: Boolean(jobId),
-    // SSE is the primary status transport. Keep a slow watchdog so a backend/network
-    // interruption cannot leave the UI stale forever. Retry even before the first
-    // snapshot so a transient initial GET failure can self-heal.
     refetchInterval: (current) =>
       jobId &&
       (!current.state.data || isActiveGenerationJobStatus(current.state.data.status))
@@ -110,9 +109,6 @@ export function useGenerationJob(jobId: string | null) {
   });
 
   useEffect(() => {
-    // Open the authenticated SSE stream as soon as a job id exists. A successful
-    // initial GET is not required: the first SSE snapshot can bootstrap the query.
-    // Once a terminal snapshot is known, stop the stream and watchdog naturally.
     if (query.data && !isActiveGenerationJobStatus(query.data.status)) return;
     if (!jobId) return;
 
@@ -136,8 +132,7 @@ export function useGenerationJob(jobId: string | null) {
           }
         },
         onError: () => {
-          // Electron main reconnects the authenticated stream automatically. The
-          // watchdog GET above remains a bounded fallback while reconnecting.
+          // Electron main reconnects the authenticated stream automatically.
         },
       },
     );
