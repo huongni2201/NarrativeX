@@ -36,6 +36,34 @@ export interface ChapterStoryboard {
   scenes: StoryboardScene[];
 }
 
+export interface GeminiVisualCharacter {
+  assignmentId: string;
+  characterId: string;
+  canonicalName: string;
+  versionNumber: number | null;
+  visualPrompt: string | null;
+  appearancePrompt: string | null;
+  ageState: string | null;
+  hairstyle: string | null;
+  injury: string | null;
+  wardrobeContext: string | null;
+}
+
+export interface GeminiVisualReference {
+  referenceKey: string;
+  assetId: string;
+  assignmentId: string;
+  characterId: string;
+  characterName: string;
+  role: string | null;
+  priority: number;
+}
+
+export interface GeminiVisualContext {
+  characters: GeminiVisualCharacter[];
+  references: GeminiVisualReference[];
+}
+
 export interface CreateVisualBeatInput {
   title: string;
   visualIntent: string;
@@ -51,6 +79,11 @@ function chapterPath(projectId: string, chapterId: string) {
 export const storyboardApi = {
   get: (projectId: string, chapterId: string) =>
     apiRequest<ChapterStoryboard>(`${chapterPath(projectId, chapterId)}/storyboard`),
+
+  geminiVisualContext: (projectId: string, sceneId: string) =>
+    apiRequest<GeminiVisualContext>(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/scenes/${encodeURIComponent(sceneId)}/gemini-visual-context`,
+    ),
 
   createVisualBeat: (
     projectId: string,
