@@ -21,6 +21,32 @@ select Chapter(s)
 
 The renderer consumes typed backend contracts; it does not call Vertex or receive provider credentials.
 
+## Desktop Gemini Web path
+
+`GEMINI_WEB` is a separate Desktop-local provider path. It is selected during Chapter setup, but it does not create the backend API media-generation job or an API cost estimate. The Images screen directs this provider to Storyboard, where generation is performed per Visual Beat.
+
+```text
+Storyboard Visual Beat
+  -> compile locked Gemini Web prompt in Electron main
+  -> trusted preload call
+  -> Electron main starts/reuses a visible Chrome profile with CDP
+  -> user completes Gemini sign-in in that Chrome window when needed
+  -> open fresh conversation + Images mode
+  -> submit one prompt and wait for one generated image
+  -> download full-size image
+  -> validate extension/non-empty file + calculate SHA-256
+  -> sender-bound, single-use selection token
+  -> backend registers LOCAL_ONLY MediaAsset metadata
+  -> Electron main commits bytes into ProjectStorage
+  -> persist the asset as the Visual Beat media selection
+```
+
+The Storyboard supports single-beat Generate and a renderer-persisted `Gemini All` queue. The queue processes beats serially and supports resume, skip and stop; stopping the queue does not claim that an already-running Chrome generation was canceled. Gemini Web always uses `GENERATE_NEW`; reuse and reframe strategies are not supported on this path.
+
+This path requires Google Chrome. `NARRATIVEX_CHROME_PATH` may point to `chrome.exe` when automatic discovery cannot find it. NarrativeX never fills Gemini credentials. The Chrome profile, downloaded staging files and CDP session metadata are owned by Electron main, and provider web-page changes can make the automation unavailable. Errors such as missing Chrome, required sign-in, a busy generation, changed Gemini UI, timeout or failed download are surfaced to the Desktop UI.
+
+Copy Prompt uses the typed `system.copyText` preload capability and Electron main clipboard API. The renderer does not call `navigator.clipboard` or receive unrestricted system APIs.
+
 ## Durable provider execution
 
 ```text

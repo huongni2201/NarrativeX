@@ -7,8 +7,8 @@ NarrativeX Desktop is the only supported NarrativeX editor client. It is built w
 The app is split into three trust zones:
 
 - **Renderer** — React UI, routing, React Query and editor draft state. No Node.js access and no direct ownership of backend session cookies.
-- **Preload** — narrow typed `window.narrativex` bridge with context isolation and sandboxing.
-- **Main process** — backend session transport, stable guest credential, system-browser auth, native filesystem/dialogs, ProjectStorage/ProjectCatalog, local device execution and FFmpeg/ffprobe.
+- **Preload** — narrow typed `window.narrativex` bridge with context isolation and no Node integration; Chromium renderer sandboxing is currently disabled for startup compatibility.
+- **Main process** — backend session transport, stable guest credential, system-browser auth, native filesystem/dialogs, ProjectStorage/ProjectCatalog, local device execution, FFmpeg/ffprobe, Gemini Web Chrome/CDP automation and protected clipboard.
 
 Navigation, window creation, permissions and IPC senders are restricted before privileged operations are accepted.
 
@@ -57,6 +57,12 @@ Native import uses a two-phase flow so renderer code never receives an arbitrary
 
 Current storage tooling includes project verification, storage accounting, completed/failed work cleanup and manifest-verified backup/restore/archive-copy foundations.
 
+## Gemini Web image generation
+
+The Chapter setup exposes `GEMINI_WEB` as a manual Desktop provider. It always uses `GENERATE_NEW` and sends the user to Storyboard for single-beat Generate or the serial `Gemini All` queue; it does not create an API media job or cost estimate. Electron main owns a visible Chrome profile and drives Gemini through local CDP. The user signs in manually when needed; NarrativeX never fills provider credentials.
+
+The main process applies the locked Chinese romantic-fantasy manhua series style wrapper, treats the scene block as untrusted narrative input, waits for a full-size download, validates the image and SHA-256, then exposes only a short-lived sender-bound selection token to the renderer. The renderer registers asset metadata with the backend and asks main to commit bytes into ProjectStorage. `NARRATIVEX_CHROME_PATH` can override Chrome discovery.
+
 ## Production timeline
 
 The editor consumes backend production timeline data and maintains supported local draft edits. Current foundations include:
@@ -103,6 +109,7 @@ Important values include:
 VITE_API_BASE_URL=http://localhost:8080
 VITE_DESKTOP_PROJECT_RENDER_ENABLED=true
 VITE_DESKTOP_HEARTBEAT_MS=15000
+NARRATIVEX_CHROME_PATH=C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe
 ```
 
 Remote backend origins must use HTTPS. Plain HTTP is accepted only for loopback development hosts.

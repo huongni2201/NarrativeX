@@ -49,6 +49,7 @@ main
   -> backup/restore/archive-copy
   -> device identity/execution
   -> FFmpeg/ffprobe ProjectRenderer
+  -> Gemini Web Chrome/CDP automation and protected clipboard
 ```
 
 Renderer code does not own arbitrary filesystem paths, session cookies, provider secrets or FFmpeg execution.
@@ -60,6 +61,9 @@ Renderer code does not own arbitrary filesystem paths, session cookies, provider
 - project/chapter CRUD is backed by real backend contracts and row-version behavior;
 - native import is two-phase: inspect/hash in main → backend stable asset registration → commit into ProjectStorage;
 - image generation and narration flows include local materialization foundations;
+- Gemini Web Storyboard generation supports single-beat and serial Generate All flows with a locked manhua style wrapper;
+- Gemini Web output is validated, checksummed and committed through sender-bound main-process selection tokens;
+- prompt copy uses a typed preload-to-main clipboard capability;
 - generation jobs stream owner-scoped snapshots over authenticated SSE, with Desktop reconnect and a slow watchdog fallback;
 - production timeline reads are narration-aligned and support explicit beat media selection;
 - imported audio/video duration is probed in Electron main and carried into asset/timeline state;

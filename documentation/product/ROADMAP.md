@@ -2,7 +2,7 @@
 
 **Canonical baseline:** `../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`  
 **Planning rule:** dependency order, not fixed-date commitment.  
-**Current checkpoint:** `main` at `8c9d953da4c1972402aa1ecb0a62cbba8a3f9795` (2026-08-27)
+**Current checkpoint:** `main` at `7249f1bfd31bfeea597cb99352a09d3a746cd719` (2026-08-28)
 
 The browser→Desktop and JPA/JDBC→MyBatis migrations are no longer roadmap tracks. Desktop is already the only editor client and MyBatis is the production persistence path. Remaining work is product/reliability/release work.
 
@@ -11,7 +11,7 @@ The browser→Desktop and JPA/JDBC→MyBatis migrations are no longer roadmap tr
 ```text
 Desktop guest-first workspace
   -> project/chapter authoring
-  -> analyze / image / narration workflows
+  -> analyze / API image / Gemini Web image / narration workflows
   -> local asset registration/materialization
   -> production timeline + beat media selection
   -> Auto Edit planning with narration-aware fit/motion decisions

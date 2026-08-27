@@ -2,7 +2,7 @@
 
 Canonical authority: [`../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md`](../source-of-truth/NARRATIVEX_PROJECT_SPEC_V1_11.md).
 
-Executable manifests are authoritative for exact dependency versions. This file summarizes the current stack after the PostgreSQL-only, translation-free MVP runtime refactor and the latest Desktop render/status additions (2026-08-27).
+Executable manifests are authoritative for exact dependency versions. This file summarizes the current stack after the PostgreSQL-only, translation-free MVP runtime refactor and the latest Desktop Gemini Web/render/status additions (2026-08-28).
 
 | Layer | Current stack | Current role |
 |---|---|---|
@@ -17,7 +17,7 @@ Executable manifests are authoritative for exact dependency versions. This file 
 | Worker media/AI extras | boto3 1.40.0, Pillow 10.0.0, VieNeu 3.3.0, torch/torchaudio 2.8.0, pydub 0.25.1 | generated-media transport, narration and image/media processing |
 | Shared client contracts | `packages/client-contracts` | typed Desktop/backend contracts |
 | AI analysis | Vertex Gemini | structured Chapter analysis from saved Chapter source |
-| Image generation | Vertex Gemini image execution | provider execution plus Desktop materialization |
+| Image generation | Vertex Gemini worker execution + Gemini Web Chrome/CDP Desktop automation | API jobs use durable worker execution; Gemini Web is a per-Visual-Beat local/manual path with Desktop materialization |
 | Narration | VieNeu + user-provided audio | generated/imported narration from saved Chapter content; narration remains the master clock |
 | Remote generated-media transport | Cloudflare R2 | durable transport for AI-generated image/narration bytes before Desktop materialization |
 | Desktop project storage | Electron `userData` + `project.manifest.json` | local-first project media, backups, render work/cache and final artifacts |
@@ -42,6 +42,8 @@ main
   -> native files and ProjectStorage
   -> device execution
   -> FFmpeg/ffprobe
+  -> visible Chrome/CDP Gemini Web automation
+  -> protected system clipboard write
 ```
 
 The renderer must not become a second source of truth for Projects, Chapters, storyboard state, assets, entitlements or durable render state.
@@ -88,4 +90,4 @@ Production release hardening, abrupt-process recovery UX and richer editor/revie
 
 Production persistence is MyBatis + explicit PostgreSQL SQL. The backend build contains no JPA persistence dependency and application persistence does not use direct `JdbcTemplate` as a parallel production path.
 
-The final pre-release baseline is V1-V3, followed by append-only V4/V5 refinements. V1 includes relational/runtime state such as Spring Session and Desktop OAuth handoffs, V2 contains the baseline indexes/invariants, V3 contains deterministic seeds, V4 adds immutable render subtitle snapshots and V5 adds the Chapter Workspace generation lookup index. Future migrations begin at V6.
+The final pre-release baseline is V1-V8. V1-V6 separate schema/database responsibilities, V7 contains indexes/invariants and V8 contains deterministic catalog seeds. Subtitle snapshots, Chapter Workspace lookup, local execution/render metadata and VieNeu speaking-rate support are represented in their owning baseline migrations. Future migrations begin at append-only V9 after the first production deployment.

@@ -1,6 +1,6 @@
 # NarrativeX V1.11 Baseline Implementation Traceability
 
-This matrix maps the V1.11 contract to implementation checkpoint `main` / `8c9d953da4c1972402aa1ecb0a62cbba8a3f9795` (2026-08-27). Current code, migrations and tests remain authoritative for AS-IS claims.
+This matrix maps the V1.11 contract to implementation checkpoint `main` / `7249f1bfd31bfeea597cb99352a09d3a746cd719` (2026-08-28). Current code, migrations and tests remain authoritative for AS-IS claims.
 
 | Capability / invariant | Evidence | Status |
 |---|---|---|
@@ -18,7 +18,7 @@ This matrix maps the V1.11 contract to implementation checkpoint `main` / `8c9d9
 | Generation durable persistence | GenerationJob/StageAttempt/OperationPlan/MediaPlan/outbox/job history | IMPLEMENTED foundation |
 | ProviderOperation reconciliation | durable provider lifecycle with UNKNOWN-before-resubmit discipline | IMPLEMENTED foundation |
 | MyBatis-only production persistence | backend production adapters use MyBatis + explicit PostgreSQL SQL | IMPLEMENTED |
-| Flyway baseline plus append-only refinements | V1-V3 frozen baseline, V4 subtitle snapshot fields, V5 Chapter Workspace lookup index; future changes start at append-only V6+ | IMPLEMENTED |
+| Flyway V1-V8 clean pre-release baseline | V1-V6 responsibility-separated schema/database logic, V7 indexes/invariants, V8 deterministic catalog seeds; future changes start at append-only V9+ | IMPLEMENTED |
 | Stable guest schema | `desktop_guest_installations` is consolidated into V1 | IMPLEMENTED |
 | Beat media selection schema | `production_beat_media_selections` is consolidated into V1 | IMPLEMENTED |
 | Character + Location continuity | backend continuity foundations + project-scoped reads | IMPLEMENTED foundation |
@@ -26,6 +26,8 @@ This matrix maps the V1.11 contract to implementation checkpoint `main` / `8c9d9
 | Generated narration | VieNeu provider path + Desktop local materialization foundation | IMPLEMENTED foundation |
 | Local audio import | native import/registration with USER_PROVIDED_AUDIO guard | IMPLEMENTED foundation |
 | Vertex image generation | queue/provider/review flow + verified remote-to-local materialization | IMPLEMENTED foundation |
+| Gemini Web Desktop generation | Chrome/CDP automation, locked series prompt, Generate/Generate All Storyboard flow, protected IPC, checksum-verified local asset registration | IMPLEMENTED foundation |
+| Protected prompt clipboard | typed preload capability to Electron main clipboard API; renderer has no direct clipboard API | IMPLEMENTED foundation |
 | R2 generated-media transport | AI-generated image/narration bytes are remotely durable until Desktop materialization | IMPLEMENTED foundation |
 | Native local asset registration | two-phase main-process inspect/hash + backend LOCAL_ONLY registration + manifest commit | IMPLEMENTED foundation |
 | Production timeline reads | backend production timeline + narration-aligned timing | IMPLEMENTED foundation |

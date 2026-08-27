@@ -40,6 +40,7 @@ Implemented foundations include:
 - Character/Location continuity and Scene/VisualBeat materialization;
 - generated narration/voice preview plus native user-audio import/TTS-bypass foundations;
 - Vertex image generation with Desktop review and verified local materialization;
+- Gemini Web image generation through Desktop Chrome/CDP, including locked manhua series style and serial Storyboard Generate All;
 - native local media registration without renderer path exposure;
 - production timeline aggregation with narration-aligned timing;
 - persisted beat media selection (V1);
@@ -140,6 +141,7 @@ backend-authorized production snapshot
 | User-provided narration import/TTS bypass | IMPLEMENTED foundation |
 | Arbitrary multi-part audio production coverage | PARTIAL |
 | Vertex image generation + Desktop materialization | IMPLEMENTED foundation |
+| Gemini Web Desktop generation + local materialization | IMPLEMENTED foundation |
 | Native local asset registration | IMPLEMENTED foundation |
 | Persisted beat media selection | IMPLEMENTED foundation |
 | Generation SSE + reload recovery | IMPLEMENTED foundation |
