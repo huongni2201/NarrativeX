@@ -3,8 +3,10 @@ import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
-import { GeminiWebAutomation } from "./gemini-web-automation";
-import { GeminiWebNetworkCapture } from "./gemini-web-network-capture";
+import {
+  GeminiWebAutomation,
+  type GeminiWebReferenceFile,
+} from "./gemini-web-automation";
 import { compileGeminiWebPrompt } from "./gemini-web-prompt";
 import { ProjectStorage } from "../local-storage/project-storage";
 import {
@@ -14,7 +16,8 @@ import {
 import { SelectionTokenStore } from "../security/selection-token-store";
 
 const pendingGeminiSelections = new SelectionTokenStore<{ sourcePath: string }>();
-const NETWORK_RECOVERY_GRACE_MS = 8_000;
+const MAX_REFERENCE_IMAGES = 3;
+const OPAQUE_ID_PATTERN = /^[A-Za-z0-9._-]{1,128}$/;
 
 export function registerGeminiWebIpc(
   policy: RendererTrustPolicy,
@@ -28,22 +31,12 @@ export function registerGeminiWebIpc(
     policy,
     async (event, input) => {
       if (!isGenerateInput(input)) throw new Error("Invalid Gemini Web generation request.");
-
-      const networkCapture = new GeminiWebNetworkCapture(automationRoot);
-      const networkResult = networkCapture.captureNextGeneratedImage().catch(() => null);
-      try {
-        const result = await automation.generateImage(compileGeminiWebPrompt(input.prompt));
-        networkCapture.cancel();
-        return stageGeneratedImage(event.sender.id, result.sourcePath);
-      } catch (error) {
-        const captured = await waitForNetworkCapture(networkResult, NETWORK_RECOVERY_GRACE_MS);
-        if (captured) {
-          return stageGeneratedImage(event.sender.id, captured.sourcePath);
-        }
-        throw error;
-      } finally {
-        networkCapture.cancel();
-      }
+      const references = await resolveReferenceFiles(projectStorage, input);
+      const result = await automation.generateImage(
+        compileGeminiWebPrompt(input.prompt),
+        references,
+      );
+      return stageGeneratedImage(event.sender.id, result.sourcePath);
     },
   );
 
@@ -70,11 +63,33 @@ export function registerGeminiWebIpc(
   });
 }
 
-async function waitForNetworkCapture<T>(promise: Promise<T | null>, timeoutMs: number): Promise<T | null> {
-  return await Promise.race([
-    promise,
-    new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
-  ]);
+async function resolveReferenceFiles(
+  projectStorage: ProjectStorage,
+  input: GeminiGenerateInput,
+): Promise<GeminiWebReferenceFile[]> {
+  if (!input.references?.length) return [];
+  if (!input.projectId) throw new Error("projectId is required when Gemini references are supplied.");
+
+  const resolved: GeminiWebReferenceFile[] = [];
+  const seenAssets = new Set<string>();
+  const seenLabels = new Set<string>();
+  for (const reference of input.references) {
+    if (seenAssets.has(reference.assetId)) continue;
+    if (seenLabels.has(reference.refLabel)) {
+      throw new Error("Gemini reference labels must be unique.");
+    }
+    seenAssets.add(reference.assetId);
+    seenLabels.add(reference.refLabel);
+    const sourcePath = await projectStorage.resolveAsset(input.projectId, reference.assetId);
+    resolved.push({
+      path: sourcePath,
+      refLabel: reference.refLabel,
+      canonicalName: reference.canonicalName,
+      characterId: reference.characterId,
+      beatRole: reference.beatRole,
+    });
+  }
+  return resolved;
 }
 
 async function stageGeneratedImage(senderId: number, sourcePath: string) {
@@ -101,10 +116,48 @@ async function stageGeneratedImage(senderId: number, sourcePath: string) {
   };
 }
 
-function isGenerateInput(value: unknown): value is { prompt: string } {
+type GeminiReferenceInput = {
+  refLabel: string;
+  assetId: string;
+  characterId: string;
+  canonicalName: string;
+  beatRole?: string | null;
+};
+
+type GeminiGenerateInput = {
+  prompt: string;
+  projectId?: string;
+  references?: GeminiReferenceInput[];
+};
+
+function isGenerateInput(value: unknown): value is GeminiGenerateInput {
   if (!value || typeof value !== "object") return false;
   const input = value as Record<string, unknown>;
-  return typeof input.prompt === "string" && input.prompt.trim().length > 0;
+  if (typeof input.prompt !== "string" || !input.prompt.trim()) return false;
+  if (input.projectId !== undefined && typeof input.projectId !== "string") return false;
+  if (input.references === undefined) return true;
+  if (!Array.isArray(input.references) || input.references.length > MAX_REFERENCE_IMAGES) return false;
+  if (input.references.length > 0 && typeof input.projectId !== "string") return false;
+  return input.references.every(isReferenceInput);
+}
+
+function isReferenceInput(value: unknown): value is GeminiReferenceInput {
+  if (!value || typeof value !== "object") return false;
+  const reference = value as Record<string, unknown>;
+  return (
+    typeof reference.refLabel === "string" &&
+    /^REF_0[1-3]$/.test(reference.refLabel) &&
+    typeof reference.assetId === "string" &&
+    OPAQUE_ID_PATTERN.test(reference.assetId) &&
+    typeof reference.characterId === "string" &&
+    reference.characterId.length <= 128 &&
+    typeof reference.canonicalName === "string" &&
+    reference.canonicalName.trim().length > 0 &&
+    reference.canonicalName.length <= 200 &&
+    (reference.beatRole === undefined ||
+      reference.beatRole === null ||
+      ["PRIMARY", "SECONDARY", "BACKGROUND"].includes(String(reference.beatRole)))
+  );
 }
 
 function isCommitInput(value: unknown): value is {
