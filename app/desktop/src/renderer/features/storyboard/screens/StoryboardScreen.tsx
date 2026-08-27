@@ -342,22 +342,48 @@ export function StoryboardScreen({
 
   async function generateGeminiImage(beat: StoryboardVisualBeat, queueMode = false): Promise<boolean> {
     if (mediaBusyBeatId) return false;
+    if (!selectedChapterId) {
+      setNotice("Chưa chọn chapter để resolve character reference.");
+      return false;
+    }
     setMediaBusyBeatId(beat.id);
     setPendingImportBeatId(null);
     setNotice(
       queueMode
-        ? `Gemini All · Đang mở Chrome và generate “${beat.title}”…`
-        : `Đang mở Chrome, gửi prompt lên Gemini và generate “${beat.title}”…`,
+        ? `Gemini All · Đang chuẩn bị character reference cho “${beat.title}”…`
+        : `Đang chuẩn bị character reference và Gemini prompt cho “${beat.title}”…`,
     );
     try {
+      const context = await storyboardApi.geminiContext(projectId, selectedChapterId, beat.id);
+      for (const reference of context.references) {
+        await window.narrativex.localStorage.materializeRemoteAsset({
+          projectId,
+          assetId: reference.assetId,
+        });
+      }
+
+      const prompt = [compileGeminiPrompt(beat), context.promptContext].filter(Boolean).join("\n\n");
+      setNotice(
+        queueMode
+          ? `Gemini All · Đang gửi ${context.references.length} reference và generate “${beat.title}”…`
+          : `Đang gửi ${context.references.length} character reference lên Gemini và generate “${beat.title}”…`,
+      );
       const selection = await window.narrativex.geminiWeb.generateImage({
-        prompt: compileGeminiPrompt(beat),
+        prompt,
+        projectId,
+        references: context.references.map((reference) => ({
+          refLabel: reference.refLabel,
+          assetId: reference.assetId,
+          characterId: reference.characterId,
+          canonicalName: reference.canonicalName,
+          beatRole: reference.beatRole,
+        })),
       });
       await persistGeneratedImage(beat, selection, "GEMINI_WEB");
       setNotice(
         queueMode
-          ? `Gemini All · Đã tải và gắn ảnh cho “${beat.title}”.`
-          : `Gemini đã generate, tải xuống và gắn ảnh vào Visual Beat “${beat.title}”.`,
+          ? `Gemini All · Đã gắn ảnh cho “${beat.title}” với ${context.references.length} character reference.`
+          : `Gemini đã generate và gắn ảnh vào “${beat.title}” với ${context.references.length} character reference.`,
       );
       return true;
     } catch (error) {
@@ -903,7 +929,7 @@ function GeminiQueuePanel({
       </div>
       {!completed && (
         <p className="mt-2 text-[10px] leading-4 text-text-muted">
-          NarrativeX điều khiển một cửa sổ Chrome riêng: mở Gemini Images, gửi prompt, chờ ảnh, tải file, gắn vào đúng Visual Beat rồi tự chuyển sang beat tiếp theo. Nếu Gemini đổi UI hoặc từ chối một prompt, batch dừng tại beat đó để bạn retry hoặc skip.
+          NarrativeX resolve nhân vật xuất hiện trong từng beat, attach tối đa 3 locked reference theo đúng REF mapping, gửi Gemini Images, bắt output trực tiếp qua Chrome Network và chỉ dùng nút Download làm fallback.
         </p>
       )}
     </div>
