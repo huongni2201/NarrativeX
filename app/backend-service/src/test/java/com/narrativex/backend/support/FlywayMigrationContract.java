@@ -15,7 +15,7 @@ public final class FlywayMigrationContract {
   private static final Pattern VERSIONED_MIGRATION = Pattern.compile("V(\\d+)__.*\\.sql");
   private static final List<String> CANONICAL_MIGRATIONS =
       List.of(
-          "V1__create_tables.sql",
+          "V1__identity_and_access.sql",
           "V2__project_story_and_planning.sql",
           "V3__generation_billing_and_media.sql",
           "V4__narration_notifications_and_artifacts.sql",
