@@ -6,7 +6,7 @@ import com.narrativex.backend.feature.auth.api.response.CurrentUserResponse;
 import com.narrativex.backend.feature.auth.application.exception.InvalidDesktopGuestCredentialException;
 import com.narrativex.backend.feature.auth.application.port.in.DesktopAuthHandoff;
 import com.narrativex.backend.feature.auth.application.port.in.DesktopGuestIdentity;
-import com.narrativex.backend.feature.auth.infrastructure.desktop.DesktopUserPrincipal;
+import com.narrativex.backend.feature.auth.application.port.in.DesktopUserPrincipal;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
