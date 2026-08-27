@@ -46,4 +46,18 @@ class MyBatisChapterWorkspaceQueryAdapterTest {
 
     assertEquals("UNKNOWN", snapshot.projection().visualGeneration().status());
   }
+
+  @Test
+  void narrationSnapshotKeepsTheVoiceUsedByTheLatestRequest() {
+    ChapterWorkspaceAggregateRow row = new ChapterWorkspaceAggregateRow();
+    row.setNarrationVoiceId("adam");
+
+    ChapterWorkspaceMapper mapper = mock(ChapterWorkspaceMapper.class);
+    when(mapper.aggregate(PROJECT_ID, CHAPTER_ID)).thenReturn(row);
+    when(mapper.previewScenes(PROJECT_ID, CHAPTER_ID)).thenReturn(List.of());
+
+    var snapshot = new MyBatisChapterWorkspaceQueryAdapter(mapper).get(PROJECT_ID, CHAPTER_ID);
+
+    assertEquals("adam", snapshot.projection().audio().voiceId());
+  }
 }

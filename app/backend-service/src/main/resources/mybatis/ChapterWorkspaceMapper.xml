@@ -17,7 +17,7 @@
                 typeHandler="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler"/>
         <result property="visualGenerationMediaPlanRevision" column="visual_generation_media_plan_revision"/>
         <result property="narrationAssetReady" column="narration_asset_ready"/>
-        <result property="narrationJobStatus" column="narration_job_status"/><result property="narrationJobId" column="narration_job_id"/>
+        <result property="narrationJobStatus" column="narration_job_status"/><result property="narrationJobId" column="narration_job_id"/><result property="narrationVoiceId" column="narration_voice_id"/>
         <result property="narrationCompletedAt" column="narration_completed_at"/>
         <result property="narrationStorageKey" column="narration_storage_key"/><result property="narrationDurationMs" column="narration_duration_ms"/>
         <result property="renderManifestCreated" column="render_manifest_created"/><result property="renderArtifactStatus" column="render_artifact_status"/>
@@ -184,11 +184,12 @@
               FROM current_media_job cmj
         ), latest_narration AS (
             SELECT na.id AS narration_asset_id, op.job_id AS job_id, op.status AS job_status,
+                   nr.voice_id AS narration_voice_id,
                    pa.storage_key AS narration_storage_key, na.duration_ms AS narration_duration_ms,
                    CASE WHEN na.id IS NOT NULL THEN na.created_at ELSE NULL END AS completed_at
               FROM current_chapter cc
               LEFT JOIN LATERAL (
-                  SELECT nr.id
+                  SELECT nr.id, nr.voice_id
                     FROM narration_requests nr
                    WHERE nr.chapter_id = cc.chapter_id
                      AND nr.chapter_row_version = cc.chapter_row_version
@@ -266,6 +267,7 @@
                (SELECT narration_asset_id IS NOT NULL FROM latest_narration) AS narration_asset_ready,
                (SELECT job_status FROM latest_narration) AS narration_job_status,
                (SELECT job_id FROM latest_narration) AS narration_job_id,
+               (SELECT narration_voice_id FROM latest_narration) AS narration_voice_id,
                (SELECT completed_at FROM latest_narration) AS narration_completed_at,
                (SELECT narration_storage_key FROM latest_narration) AS narration_storage_key,
                (SELECT narration_duration_ms FROM latest_narration) AS narration_duration_ms,

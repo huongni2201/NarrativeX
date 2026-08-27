@@ -36,7 +36,12 @@ public interface ChapterWorkspaceAccess {
   record RenderStep(String status, Instant completedAt, UUID latestJobId, Long artifactId) {}
 
   record AudioStep(
-      String status, Instant completedAt, UUID latestJobId, String storageKey, Long durationMs) {}
+      String status,
+      Instant completedAt,
+      UUID latestJobId,
+      String voiceId,
+      String storageKey,
+      Long durationMs) {}
 
   record PreviewScene(
       UUID id,

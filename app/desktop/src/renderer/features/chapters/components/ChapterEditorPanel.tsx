@@ -20,6 +20,7 @@ import {
   audioStatusBadgeClass,
   audioStatusLabel,
   formatDurationMs,
+  narrationVoiceName,
   wordCount,
 } from "../model/chapter-ui";
 
@@ -83,7 +84,6 @@ export function ChapterEditorPanel({
   onOpenEditor,
 }: Props) {
   const generationBlockedByUnsavedChanges = Boolean(selected && isDirty);
-  const selectedVoiceName = audio.voices.find((voice) => voice.id === audio.voiceId)?.name;
 
   return (
     <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-surface-panel shadow-[var(--shadow-panel)]">
@@ -170,7 +170,6 @@ export function ChapterEditorPanel({
         <AudioChapterCard
           selected={selected}
           generationBlockedByUnsavedChanges={generationBlockedByUnsavedChanges}
-          selectedVoiceName={selectedVoiceName}
           audio={audio}
         />
 
@@ -257,14 +256,17 @@ export function ChapterEditorPanel({
 function AudioChapterCard({
   selected,
   generationBlockedByUnsavedChanges,
-  selectedVoiceName,
   audio,
 }: Readonly<{
   selected: DesktopChapterDetails | null;
   generationBlockedByUnsavedChanges: boolean;
-  selectedVoiceName: string | undefined;
   audio: AudioState;
 }>) {
+  const generatedVoiceName = narrationVoiceName({
+    generatedVoiceId: audio.workspace?.pipeline.audio.voiceId,
+    voices: audio.voices,
+  });
+
   return (
     <div className="space-y-3 rounded-lg border border-border bg-surface p-3.5">
       <div className="flex items-start justify-between gap-3">
@@ -407,7 +409,7 @@ function AudioChapterCard({
             <div className="flex items-center justify-between gap-3 text-[10px]">
               <div className="min-w-0">
                 <strong className="block truncate text-xs text-foreground">
-                  Narration · {selectedVoiceName ?? "Audio chapter"}
+                  Narration · {generatedVoiceName}
                 </strong>
                 <span className="text-text-muted">
                   {formatDurationMs(audio.workspace.pipeline.audio.durationMs)}

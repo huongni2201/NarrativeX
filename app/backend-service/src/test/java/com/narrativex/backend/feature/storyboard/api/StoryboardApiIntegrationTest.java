@@ -185,6 +185,7 @@ class StoryboardApiIntegrationTest {
         .andExpect(jsonPath("$.data.pipeline.visualGeneration.status").value("NOT_STARTED"))
         .andExpect(jsonPath("$.data.pipeline.visualGeneration.total").value(0))
         .andExpect(jsonPath("$.data.pipeline.audio.status").value("READY"))
+        .andExpect(jsonPath("$.data.pipeline.audio.voiceId").value("voice"))
         .andExpect(jsonPath("$.data.pipeline.audio.completedAt").isNotEmpty())
         .andExpect(jsonPath("$.data.pipeline.render.status").value("READY"))
         .andExpect(jsonPath("$.data.pipeline.render.completedAt").isNotEmpty())
