@@ -11,13 +11,20 @@ export interface CurrentMediaJob {
   jobId: string | null;
 }
 
+export type ChapterAnalysisProductionMode = "IMAGE_MOTION" | "VIDEO_GENERATION";
+
 export const generationApi = {
-  analyze: (projectId: string, chapterId: string) =>
+  analyze: (
+    projectId: string,
+    chapterId: string,
+    productionMode: ChapterAnalysisProductionMode = "IMAGE_MOTION",
+  ) =>
     apiRequest<GenerationJob>(
       `/api/v1/projects/${encodeURIComponent(projectId)}/chapters/${encodeURIComponent(chapterId)}/analysis-jobs`,
       {
         method: "POST",
         headers: { "Idempotency-Key": crypto.randomUUID() },
+        body: JSON.stringify({ productionMode }),
       },
     ),
 
