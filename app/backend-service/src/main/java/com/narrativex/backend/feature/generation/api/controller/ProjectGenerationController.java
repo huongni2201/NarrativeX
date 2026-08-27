@@ -61,6 +61,11 @@ public class ProjectGenerationController {
         .body(ApiResponse.success("Story analysis job accepted", JobResponse.from(job)));
   }
 
+  /** Backward-compatible direct-call overload retained for controller contract tests and callers. */
+  public ResponseEntity<ApiResponse<JobResponse>> analyzeChapter(UUID projectId, UUID chapterId) {
+    return analyzeChapter(projectId, chapterId, null);
+  }
+
   @PostMapping("/{projectId}/chapters/{chapterId}/narration-jobs")
   public ResponseEntity<ApiResponse<JobResponse>> narrateChapter(
       @PathVariable UUID projectId,
