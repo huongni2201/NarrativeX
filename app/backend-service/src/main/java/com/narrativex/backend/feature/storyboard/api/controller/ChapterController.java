@@ -48,6 +48,8 @@ import org.springframework.web.multipart.MultipartFile;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/projects/{projectId}/chapters")
 public class ChapterController {
+  private static final int MAX_WORKSPACE_BATCH_SIZE = 200;
+
   private final CreateChapterWithStoryUseCase createChapterWithStoryUseCase;
   private final BatchImportChaptersUseCase batchImportChaptersUseCase;
   private final GetChapterUseCase getChapterUseCase;
@@ -118,6 +120,21 @@ public class ChapterController {
   public ResponseEntity<ApiResponse<ChapterWorkspaceResponse>> workspace(
       @PathVariable UUID projectId, @PathVariable UUID chapterId) {
     return ResponseEntity.ok(getChapterWorkspaceUseCase.execute(projectId, chapterId));
+  }
+
+  @PostMapping("/workspaces:batch")
+  public ResponseEntity<ApiResponse<List<ChapterWorkspaceResponse>>> workspaces(
+      @PathVariable UUID projectId, @RequestBody List<UUID> chapterIds) {
+    if (chapterIds.size() > MAX_WORKSPACE_BATCH_SIZE) {
+      throw new IllegalArgumentException(
+          "Chapter workspace batch is limited to " + MAX_WORKSPACE_BATCH_SIZE + " chapters");
+    }
+    var workspaces =
+        chapterIds.stream()
+            .distinct()
+            .map(chapterId -> getChapterWorkspaceUseCase.execute(projectId, chapterId).data())
+            .toList();
+    return ResponseEntity.ok(ApiResponse.success("Chapter workspaces retrieved", workspaces));
   }
 
   @PutMapping("/{chapterId}")

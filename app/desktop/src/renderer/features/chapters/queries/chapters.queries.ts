@@ -1,10 +1,4 @@
-import {
-  useMutation,
-  useQueries,
-  useQuery,
-  useQueryClient,
-  type Query,
-} from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   CreateChapterInput,
   DesktopChapterDetails,
@@ -20,6 +14,8 @@ export const chapterQueryKeys = {
     [...chapterQueryKeys.all(projectId), storyVersionId] as const,
   workspace: (projectId: string, chapterId: string) =>
     [...chapterQueryKeys.all(projectId), chapterId, "workspace"] as const,
+  workspaces: (projectId: string, chapterIds: string[]) =>
+    [...chapterQueryKeys.all(projectId), "workspaces", chapterIds] as const,
 };
 
 export function useChapterWorkspacesQuery(
@@ -27,18 +23,42 @@ export function useChapterWorkspacesQuery(
   chapters: DesktopChapterDetails[],
   pollingChapterId?: string | null,
 ) {
-  return useQueries({
-    queries: chapters.map((chapter) => ({
-      queryKey: chapterQueryKeys.workspace(projectId, chapter.id),
-      queryFn: () => chaptersApi.workspace(projectId, chapter.id),
-      enabled: Boolean(projectId && chapter.id),
-      refetchInterval: (query: Query<DesktopChapterWorkspace, Error, DesktopChapterWorkspace>) =>
-        chapter.id === pollingChapterId &&
-        isAudioProcessingStatus(query.state.data?.pipeline.audio.status)
-          ? 3000
-          : false,
-    })),
+  const chapterIds = chapters.map((chapter) => chapter.id);
+  const batchQuery = useQuery({
+    queryKey: chapterQueryKeys.workspaces(projectId, chapterIds),
+    queryFn: () => chaptersApi.workspaces(projectId, chapterIds),
+    enabled: Boolean(projectId && chapterIds.length),
+    staleTime: 30_000,
   });
+
+  const pollingEnabled = Boolean(
+    pollingChapterId && chapterIds.includes(pollingChapterId),
+  );
+  const pollingQuery = useQuery({
+    queryKey: chapterQueryKeys.workspace(projectId, pollingChapterId ?? "none"),
+    queryFn: () => chaptersApi.workspace(projectId, pollingChapterId as string),
+    enabled: pollingEnabled,
+    refetchInterval: (query) =>
+      isAudioProcessingStatus(
+        (query.state.data as DesktopChapterWorkspace | undefined)?.pipeline.audio.status,
+      )
+        ? 3000
+        : false,
+  });
+
+  const workspacesByChapterId = new Map(
+    (batchQuery.data ?? []).map((workspace) => [workspace.chapter.id, workspace]),
+  );
+  if (pollingQuery.data && pollingChapterId) {
+    workspacesByChapterId.set(pollingChapterId, pollingQuery.data);
+  }
+
+  return chapters.map((chapter) => ({
+    data: workspacesByChapterId.get(chapter.id),
+    isError:
+      batchQuery.isError ||
+      (chapter.id === pollingChapterId && pollingQuery.isError && !workspacesByChapterId.has(chapter.id)),
+  }));
 }
 
 export function useChaptersQuery(projectId: string | null, storyVersionId: string | null) {

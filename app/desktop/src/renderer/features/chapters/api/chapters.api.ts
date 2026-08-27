@@ -2,6 +2,7 @@ import type {
   CreateChapterInput,
   CursorPage,
   DesktopChapterDetails,
+  DesktopChapterWorkspace,
   UpdateChapterInput,
 } from "@narrativex/client-contracts";
 import { apiCommand, apiRequest } from "../../../api/client";
@@ -34,6 +35,13 @@ function parseChapters(value: unknown): ChaptersPage {
     isChapter,
     "Chapters response không đúng contract.",
   );
+}
+
+function parseChapterWorkspaces(value: unknown): DesktopChapterWorkspace[] {
+  if (!Array.isArray(value)) {
+    throw new Error("Chapter workspaces response không đúng contract.");
+  }
+  return value.map(parseChapterWorkspace);
 }
 
 async function listPage(
@@ -73,6 +81,15 @@ export const chaptersApi = {
     apiRequest<unknown>(
       `/api/v1/projects/${encodeURIComponent(projectId)}/chapters/${encodeURIComponent(chapterId)}/workspace`,
     ).then(parseChapterWorkspace),
+
+  workspaces: (projectId: string, chapterIds: string[]) =>
+    apiRequest<unknown>(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/chapters/workspaces:batch`,
+      {
+        method: "POST",
+        body: JSON.stringify(chapterIds),
+      },
+    ).then(parseChapterWorkspaces),
 
   create: (projectId: string, input: CreateChapterInput) =>
     apiRequest<DesktopChapterDetails>(
