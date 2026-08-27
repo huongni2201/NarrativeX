@@ -36,6 +36,11 @@ class JobType(StrEnum):
     RENDER_SHORT = "RENDER_SHORT"
 
 
+class VisualGenerationMode(StrEnum):
+    IMAGE = "IMAGE"
+    VIDEO = "VIDEO"
+
+
 class ImageAspectRatio(StrEnum):
     RATIO_16_9 = "16:9"
     RATIO_9_16 = "9:16"
@@ -162,6 +167,7 @@ class ChapterAnalysisRequest(BaseModel):
     source_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
     source_text: str = Field(min_length=1, max_length=500_000)
     source_language: str = Field(default="vi-VN", min_length=2, max_length=16)
+    visual_generation_mode: VisualGenerationMode = VisualGenerationMode.IMAGE
     safety_policy_version: str = Field(default="safety-v1.8", min_length=1, max_length=64)
     preferred_locale: str = Field(default="vi-VN", min_length=2, max_length=16)
 
