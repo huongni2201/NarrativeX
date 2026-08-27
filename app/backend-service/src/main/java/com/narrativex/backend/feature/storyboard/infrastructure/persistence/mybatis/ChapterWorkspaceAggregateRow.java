@@ -30,6 +30,7 @@ public class ChapterWorkspaceAggregateRow {
   private Integer visualGenerationMediaPlanRevision;
   private boolean narrationAssetReady;
   private String narrationJobStatus;
+  private UUID narrationJobId;
   private Instant narrationCompletedAt;
   private String narrationStorageKey;
   private Long narrationDurationMs;
