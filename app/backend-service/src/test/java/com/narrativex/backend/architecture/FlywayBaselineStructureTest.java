@@ -9,7 +9,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import org.junit.jupiter.api.Test;
 
-/** Verifies the frozen baseline and append-only PostgreSQL runtime-state migration contracts. */
+/** Verifies the frozen baseline and append-only PostgreSQL migration contracts. */
 class FlywayBaselineStructureTest {
   @Test
   void migrationSetStaysCanonical() throws IOException {
@@ -21,7 +21,12 @@ class FlywayBaselineStructureTest {
     String v2 = Files.readString(FlywayMigrationContract.migration("V2__init_indexes.sql"));
     String v3 = Files.readString(FlywayMigrationContract.migration("V3__seed_data.sql"));
     String v4 =
-        Files.readString(FlywayMigrationContract.migration("V4__postgres_runtime_state.sql"));
+        Files.readString(FlywayMigrationContract.migration("V4__project_render_subtitles.sql"));
+    String v5 =
+        Files.readString(
+            FlywayMigrationContract.migration("V5__chapter_workspace_generation_lookup.sql"));
+    String v6 =
+        Files.readString(FlywayMigrationContract.migration("V6__enable_vieneu_speaking_rate.sql"));
 
     assertFalse(v1.matches("(?is).*\\bCREATE\\s+(?:UNIQUE\\s+)?INDEX\\b.*"));
     assertFalse(v2.matches("(?is).*\\bCREATE\\s+TABLE\\b.*"));
@@ -30,16 +35,21 @@ class FlywayBaselineStructureTest {
     assertFalse(v3.matches("(?is).*\\bALTER\\s+TABLE\\b.*"));
 
     assertTrue(v1.contains("CREATE TABLE desktop_guest_installations"));
+    assertTrue(v1.contains("CREATE TABLE desktop_auth_handoffs"));
+    assertTrue(v1.contains("CREATE TABLE SPRING_SESSION"));
+    assertTrue(v1.contains("CREATE TABLE SPRING_SESSION_ATTRIBUTES"));
     assertTrue(v1.contains("CREATE TABLE production_beat_media_selections"));
     assertTrue(v1.contains("media_selection_active BOOLEAN NOT NULL DEFAULT FALSE"));
     assertTrue(v2.contains("CREATE INDEX idx_desktop_guest_installations_last_seen"));
     assertTrue(v2.contains("CREATE INDEX idx_production_beat_media_selection_asset"));
     assertTrue(v3.contains("supportsSpeakingRate"));
 
-    assertTrue(v4.contains("CREATE TABLE desktop_auth_handoffs"));
-    assertTrue(v4.contains("CREATE TABLE SPRING_SESSION"));
-    assertTrue(v4.contains("CREATE TABLE SPRING_SESSION_ATTRIBUTES"));
-    assertTrue(v4.contains("ON DELETE CASCADE"));
+    assertTrue(v4.contains("ALTER TABLE project_render_input_chapters"));
+    assertTrue(v4.contains("subtitle_text"));
+    assertTrue(v4.contains("subtitle_spans_json"));
+    assertTrue(v5.contains("CREATE INDEX idx_generation_jobs_chapter_workspace_lookup"));
+    assertTrue(v6.contains("UPDATE voice_catalog"));
+    assertTrue(v6.contains("supportsSpeakingRate"));
 
     assertFalse(v1.contains("narrativex_uuid_v7"));
     assertFalse(v1.contains("CREATE EXTENSION IF NOT EXISTS pgcrypto"));

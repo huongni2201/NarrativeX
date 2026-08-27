@@ -3,6 +3,7 @@ package com.narrativex.backend.architecture;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.narrativex.backend.support.FlywayMigrationContract;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -18,7 +19,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
-/** Static contract between the authoritative Flyway baseline and every MyBatis XML mapper. */
+/** Static contract between the authoritative Flyway schema and every MyBatis XML mapper. */
 class MyBatisSchemaReferenceContractTest {
   private static final Path CREATE_TABLES_MIGRATION =
       Path.of("src/main/resources/db/migration/V1__create_tables.sql");
@@ -34,6 +35,11 @@ class MyBatisSchemaReferenceContractTest {
   private static final Pattern COLUMN_DEFINITION =
       Pattern.compile(
           "(?im)^\\s*([a-z_][a-z0-9_]*)\\s+(?:BIGSERIAL|BIGINT|BOOLEAN|CHAR|INTEGER|JSONB|NUMERIC|SMALLINT|TEXT|TIMESTAMP|TIMESTAMPTZ|UUID|VARCHAR)\\b");
+  private static final Pattern ALTER_TABLE_BLOCK =
+      Pattern.compile("(?is)ALTER\\s+TABLE\\s+([a-z_][a-z0-9_]*)\\s+(.*?);");
+  private static final Pattern ADD_COLUMN =
+      Pattern.compile(
+          "(?i)ADD\\s+COLUMN(?:\\s+IF\\s+NOT\\s+EXISTS)?\\s+([a-z_][a-z0-9_]*)\\b");
   private static final Pattern TABLE_REFERENCE =
       Pattern.compile(
           "(?i)\\b(?:FROM|JOIN|UPDATE|INSERT\\s+INTO|DELETE\\s+FROM)\\s+([a-z_][a-z0-9_]*)\\b");
@@ -51,6 +57,7 @@ class MyBatisSchemaReferenceContractTest {
   private static final Pattern ASSIGNMENT_COLUMN =
       Pattern.compile("(?i)(?:^|,)\\s*([a-z_][a-z0-9_]*)\\s*=");
   private static final Pattern XML_TAG = Pattern.compile("(?s)<[^>]*>");
+  private static final Pattern MYBATIS_PARAMETER = Pattern.compile("(?s)[#$]\\{[^}]*}");
   private static final Pattern COMMON_TABLE_EXPRESSION =
       Pattern.compile(
           "(?i)(?:\\bWITH\\b|,)\\s*(?:RECURSIVE\\s+)?([a-z_][a-z0-9_]*)\\s+AS\\s*\\(");
@@ -101,13 +108,13 @@ class MyBatisSchemaReferenceContractTest {
 
     assertTrue(
         violations.isEmpty(),
-        () -> "MyBatis references tables missing from V1 create-tables baseline: " + violations);
+        () -> "MyBatis references tables missing from Flyway schema: " + violations);
   }
 
   @Test
   void myBatisQualifiedAndWriteColumnsExistInAuthoritativeBaseline() throws IOException {
     Map<String, Set<String>> schemaColumns = schemaColumns();
-    assertFalse(schemaColumns.isEmpty(), "expected V1 create-tables migration to define columns");
+    assertFalse(schemaColumns.isEmpty(), "expected Flyway schema to define columns");
 
     List<String> violations = new ArrayList<>();
     for (Path mapper : mapperFiles()) {
@@ -137,9 +144,7 @@ class MyBatisSchemaReferenceContractTest {
       while (insert.find()) {
         String table = insert.group(1).toLowerCase(Locale.ROOT);
         Set<String> columns = schemaColumns.get(table);
-        if (columns == null) {
-          continue;
-        }
+        if (columns == null) continue;
         for (String rawColumn : insert.group(2).split(",")) {
           String column = normalizeColumn(rawColumn);
           if (!column.isEmpty() && !columns.contains(column)) {
@@ -152,9 +157,7 @@ class MyBatisSchemaReferenceContractTest {
       while (update.find()) {
         String table = update.group(1).toLowerCase(Locale.ROOT);
         Set<String> columns = schemaColumns.get(table);
-        if (columns == null) {
-          continue;
-        }
+        if (columns == null) continue;
         Matcher assignment = ASSIGNMENT_COLUMN.matcher(update.group(3));
         while (assignment.find()) {
           String column = assignment.group(1).toLowerCase(Locale.ROOT);
@@ -167,11 +170,12 @@ class MyBatisSchemaReferenceContractTest {
 
     assertTrue(
         violations.isEmpty(),
-        () -> "MyBatis references columns missing from V1 create-tables baseline: " + violations);
+        () -> "MyBatis references columns missing from Flyway schema: " + violations);
   }
 
   private static String mapperSql(Path mapper) throws IOException {
-    return XML_TAG.matcher(Files.readString(mapper)).replaceAll(" ");
+    String withoutXml = XML_TAG.matcher(Files.readString(mapper)).replaceAll(" ");
+    return MYBATIS_PARAMETER.matcher(withoutXml).replaceAll(" ? ");
   }
 
   private static Set<String> schemaTables() throws IOException {
@@ -197,6 +201,20 @@ class MyBatisSchemaReferenceContractTest {
       }
       tables.put(table, columns);
     }
+
+    for (String name : FlywayMigrationContract.canonicalMigrationNames()) {
+      if ("V1__create_tables.sql".equals(name)) continue;
+      String additionalMigration = Files.readString(FlywayMigrationContract.migration(name));
+      Matcher alter = ALTER_TABLE_BLOCK.matcher(additionalMigration);
+      while (alter.find()) {
+        Set<String> columns = tables.get(alter.group(1).toLowerCase(Locale.ROOT));
+        if (columns == null) continue;
+        Matcher added = ADD_COLUMN.matcher(alter.group(2));
+        while (added.find()) {
+          columns.add(added.group(1).toLowerCase(Locale.ROOT));
+        }
+      }
+    }
     return tables;
   }
 
@@ -207,9 +225,7 @@ class MyBatisSchemaReferenceContractTest {
     Matcher references = TABLE_REFERENCE.matcher(sql);
     while (references.find()) {
       String table = references.group(1).toLowerCase(Locale.ROOT);
-      if (schemaTables.contains(table)) {
-        aliases.put(table, table);
-      }
+      if (schemaTables.contains(table)) aliases.put(table, table);
     }
 
     Matcher aliasMatcher = TABLE_ALIAS.matcher(sql);
@@ -228,9 +244,7 @@ class MyBatisSchemaReferenceContractTest {
   private static Set<String> commonTableExpressions(String sql) {
     Matcher matcher = COMMON_TABLE_EXPRESSION.matcher(sql);
     Set<String> names = new HashSet<>();
-    while (matcher.find()) {
-      names.add(matcher.group(1).toLowerCase(Locale.ROOT));
-    }
+    while (matcher.find()) names.add(matcher.group(1).toLowerCase(Locale.ROOT));
     return names;
   }
 
@@ -255,9 +269,7 @@ class MyBatisSchemaReferenceContractTest {
   private static boolean isFunctionCall(String sql, int identifierEnd) {
     for (int index = identifierEnd; index < sql.length(); index++) {
       char current = sql.charAt(index);
-      if (Character.isWhitespace(current)) {
-        continue;
-      }
+      if (Character.isWhitespace(current)) continue;
       return current == '(';
     }
     return false;
