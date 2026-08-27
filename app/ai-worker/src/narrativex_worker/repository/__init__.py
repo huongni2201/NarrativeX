@@ -4,6 +4,8 @@ import uuid
 from contextvars import ContextVar
 from dataclasses import replace
 
+import asyncpg  # type: ignore[import-untyped]
+
 from narrativex_worker.repository.implementation import (
     ALLOWED_PROVIDER_TRANSITIONS,
     ClaimedChapterAnalysisJob,
@@ -40,14 +42,20 @@ class WorkerRepository(WorkerRepositoryImplementation):
         self, claimed: ClaimedChapterAnalysisJob
     ) -> ClaimedChapterAnalysisJob:
         pool = self._require_pool()
-        row = await pool.fetchrow(
-            """
-            SELECT analysis_visual_generation_mode, analysis_image_provider
-              FROM generation_jobs
-             WHERE id = $1
-            """,
-            claimed.generation_job_id,
-        )
+        try:
+            row = await pool.fetchrow(
+                """
+                SELECT analysis_visual_generation_mode, analysis_image_provider
+                  FROM generation_jobs
+                 WHERE id = $1
+                """,
+                claimed.generation_job_id,
+            )
+        except asyncpg.UndefinedColumnError:
+            # Allows a rolling deploy where the worker starts before V9 is applied. Such legacy
+            # jobs use the historical IMAGE/API behavior until the migration is available.
+            row = None
+
         visual_generation_mode = (
             row["analysis_visual_generation_mode"]
             if row is not None and row["analysis_visual_generation_mode"] is not None
@@ -59,7 +67,6 @@ class WorkerRepository(WorkerRepositoryImplementation):
             else None
         )
         if visual_generation_mode == "IMAGE" and image_provider is None:
-            # Legacy jobs created before the durable preference columns existed used the API path.
             image_provider = "API"
 
         return replace(
