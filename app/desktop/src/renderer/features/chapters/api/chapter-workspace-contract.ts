@@ -59,6 +59,7 @@ function isWorkspaceAnalysis(
   value: unknown,
 ): value is DesktopChapterWorkspace["pipeline"]["analysis"] {
   return (
+    isRecord(value) &&
     isWorkspaceStep(value) &&
     isNullableString(value.latestJobId) &&
     isNullableVisualGenerationMode(value.visualGenerationMode) &&
