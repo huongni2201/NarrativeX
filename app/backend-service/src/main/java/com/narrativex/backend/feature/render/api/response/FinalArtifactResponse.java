@@ -25,10 +25,6 @@ public record FinalArtifactResponse(
     boolean downloadAvailable,
     String downloadUrl) {
   public static FinalArtifactResponse from(FinalArtifactView view) {
-    boolean contentAvailable =
-        "READY".equalsIgnoreCase(view.status())
-            && view.externalFileId() != null
-            && !view.externalFileId().isBlank();
     return new FinalArtifactResponse(
         view.id(),
         view.projectId(),
@@ -45,9 +41,9 @@ public record FinalArtifactResponse(
         view.status(),
         view.createdAt(),
         view.updatedAt(),
-        contentAvailable,
-        contentAvailable ? "/api/v1/artifacts/" + view.id() + "/content" : null,
-        contentAvailable,
-        contentAvailable ? "/api/v1/artifacts/" + view.id() + "/download" : null);
+        false,
+        null,
+        false,
+        null);
   }
 }
