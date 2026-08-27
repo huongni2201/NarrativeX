@@ -51,6 +51,7 @@ type Props = Readonly<{
   sourceText: string;
   busy: boolean;
   saveBusy: boolean;
+  analyzeBusy: boolean;
   isDirty: boolean;
   notice: string | null;
   audio: AudioState;
@@ -69,6 +70,7 @@ export function ChapterEditorPanel({
   sourceText,
   busy,
   saveBusy,
+  analyzeBusy,
   isDirty,
   notice,
   audio,
@@ -182,15 +184,22 @@ export function ChapterEditorPanel({
               variant="outline"
               disabled={!selected || busy || generationBlockedByUnsavedChanges}
               onClick={onAnalyze}
+              aria-busy={analyzeBusy}
               className="h-auto items-start justify-start rounded-md border-border bg-surface p-3 text-left hover:border-border-dark hover:bg-surface-2"
             >
               <div>
                 <div className="flex items-center gap-1.5 text-xs font-semibold text-primary-hover">
-                  <WandSparkles size={13} />
-                  <span>Phân tích chapter</span>
+                  {analyzeBusy ? (
+                    <Loader2 className="animate-spin" size={13} />
+                  ) : (
+                    <WandSparkles size={13} />
+                  )}
+                  <span>{analyzeBusy ? "Đang phân tích…" : "Phân tích chapter"}</span>
                 </div>
                 <p className="mt-1 text-[10px] font-normal leading-4 text-text-muted">
-                  Phân tích nội dung và tạo cấu trúc scene/beat.
+                  {analyzeBusy
+                    ? "AI đang phân tích nội dung. Nút được khóa để tránh gửi trùng request."
+                    : "Phân tích nội dung và tạo cấu trúc scene/beat."}
                 </p>
               </div>
             </Button>
