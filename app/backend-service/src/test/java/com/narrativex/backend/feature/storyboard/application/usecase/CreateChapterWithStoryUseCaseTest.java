@@ -21,6 +21,7 @@ import com.narrativex.backend.feature.storyboard.application.command.CreateChapt
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterCreationIdempotencyRepository;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
 import com.narrativex.backend.feature.storyboard.domain.aggregate.Chapter;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -64,7 +65,16 @@ class CreateChapterWithStoryUseCaseTest {
   @Test
   void createsStoryVersionAndChapterInsideTheSameApplicationWorkflow() {
     ChapterResponse response =
-        new ChapterResponse(CHAPTER_ID, STORY_ID, 0, "Chapter", "Text", "a".repeat(64), 0L);
+        new ChapterResponse(
+            CHAPTER_ID,
+            STORY_ID,
+            0,
+            "Chapter",
+            "Text",
+            "a".repeat(64),
+            0L,
+            Instant.EPOCH,
+            Instant.EPOCH);
     when(currentUserId.get()).thenReturn("owner");
     when(storyVersionAccess.resolveOrCreateStoryVersion(PROJECT_ID, "owner", "Text"))
         .thenReturn(STORY_ID);

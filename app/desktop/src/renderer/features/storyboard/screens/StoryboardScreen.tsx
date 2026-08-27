@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   DesktopChapterDetails,
@@ -38,6 +38,17 @@ import {
   type VisualBeatStatusFilter,
 } from "../storyboard-review";
 
+type GeminiQueueStatus = "RUNNING" | "PAUSED" | "COMPLETED";
+
+type GeminiQueueState = {
+  chapterId: string;
+  beatIds: string[];
+  completedBeatIds: string[];
+  skippedBeatIds: string[];
+  currentIndex: number;
+  status: GeminiQueueStatus;
+};
+
 export function StoryboardScreen({
   projectId,
   chapters,
@@ -58,6 +69,8 @@ export function StoryboardScreen({
   const [copiedPromptBeatId, setCopiedPromptBeatId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [reviewStatusFilter, setReviewStatusFilter] = useState<VisualBeatStatusFilter>("ALL");
+  const [geminiQueue, setGeminiQueue] = useState<GeminiQueueState | null>(null);
+  const geminiRunTokenRef = useRef(0);
 
   useEffect(() => {
     if (!chapters.length) {
@@ -68,6 +81,38 @@ export function StoryboardScreen({
       setSelectedChapterId(chapters[0].id);
     }
   }, [chapters, selectedChapterId]);
+
+  useEffect(() => {
+    if (!selectedChapterId) {
+      setGeminiQueue(null);
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(geminiQueueStorageKey(projectId, selectedChapterId));
+      if (!raw) {
+        setGeminiQueue(null);
+        return;
+      }
+      const restored = JSON.parse(raw) as GeminiQueueState;
+      if (restored.chapterId !== selectedChapterId || !Array.isArray(restored.beatIds)) {
+        setGeminiQueue(null);
+        return;
+      }
+      setGeminiQueue(restored.status === "RUNNING" ? { ...restored, status: "PAUSED" } : restored);
+    } catch {
+      setGeminiQueue(null);
+    }
+  }, [projectId, selectedChapterId]);
+
+  useEffect(() => {
+    if (!selectedChapterId) return;
+    const key = geminiQueueStorageKey(projectId, selectedChapterId);
+    if (!geminiQueue) {
+      localStorage.removeItem(key);
+      return;
+    }
+    localStorage.setItem(key, JSON.stringify(geminiQueue));
+  }, [geminiQueue, projectId, selectedChapterId]);
 
   const storyboardQuery = useQuery({
     queryKey: selectedChapterId
@@ -92,6 +137,14 @@ export function StoryboardScreen({
   const selectedScene = scenes.find((scene) => scene.id === selectedSceneId) ?? null;
   const selectedChapter = chapters.find((chapter) => chapter.id === selectedChapterId) ?? null;
   const selectedSceneBeats = selectedScene?.visualBeats ?? [];
+  const allChapterBeats = useMemo(
+    () => scenes.flatMap((scene) => scene.visualBeats),
+    [scenes],
+  );
+  const beatById = useMemo(
+    () => new Map(allChapterBeats.map((beat) => [beat.id, beat])),
+    [allChapterBeats],
+  );
   const filteredVisualBeats = useMemo(
     () => filterVisualBeatsByStatus(selectedSceneBeats, reviewStatusFilter),
     [reviewStatusFilter, selectedSceneBeats],
@@ -100,6 +153,43 @@ export function StoryboardScreen({
     () => beatsNeedingReview(selectedSceneBeats),
     [selectedSceneBeats],
   );
+  const currentQueueBeatId = geminiQueue?.beatIds[geminiQueue.currentIndex] ?? null;
+  const currentQueueBeat = currentQueueBeatId ? beatById.get(currentQueueBeatId) ?? null : null;
+  const queueProcessedCount = geminiQueue
+    ? geminiQueue.completedBeatIds.length + geminiQueue.skippedBeatIds.length
+    : 0;
+
+  useEffect(() => {
+    if (!geminiQueue || !currentQueueBeat) return;
+    if (geminiQueue.status === "COMPLETED") return;
+    if (selectedSceneId !== currentQueueBeat.sceneId) {
+      setSelectedSceneId(currentQueueBeat.sceneId);
+    }
+    if (reviewStatusFilter !== "ALL") setReviewStatusFilter("ALL");
+  }, [currentQueueBeat, geminiQueue, reviewStatusFilter, selectedSceneId]);
+
+  useEffect(() => {
+    if (!geminiQueue || geminiQueue.status === "COMPLETED") return;
+    const validBeatIds = geminiQueue.beatIds.filter((beatId) => beatById.has(beatId));
+    if (validBeatIds.length === geminiQueue.beatIds.length) return;
+    if (!validBeatIds.length) {
+      setGeminiQueue(null);
+      return;
+    }
+    const processed = new Set([
+      ...geminiQueue.completedBeatIds,
+      ...geminiQueue.skippedBeatIds,
+    ]);
+    const firstPendingIndex = validBeatIds.findIndex((beatId) => !processed.has(beatId));
+    setGeminiQueue({
+      ...geminiQueue,
+      beatIds: validBeatIds,
+      completedBeatIds: geminiQueue.completedBeatIds.filter((beatId) => beatById.has(beatId)),
+      skippedBeatIds: geminiQueue.skippedBeatIds.filter((beatId) => beatById.has(beatId)),
+      currentIndex: firstPendingIndex >= 0 ? firstPendingIndex : validBeatIds.length,
+      status: firstPendingIndex >= 0 ? "PAUSED" : "COMPLETED",
+    });
+  }, [beatById, geminiQueue]);
 
   const timelineBeats = useMemo(
     () =>
@@ -192,19 +282,203 @@ export function StoryboardScreen({
     },
   });
 
-  async function generateWithGemini(beat: StoryboardVisualBeat) {
-    const prompt = compileGeminiPrompt(beat);
-    setNotice(null);
-    try {
-      await window.narrativex.system.copyText(prompt);
-      window.open("https://gemini.google.com/", "_blank", "noopener,noreferrer");
-      setPendingImportBeatId(beat.id);
-      setNotice(
-        `Prompt của “${beat.title}” đã được copy. Tạo một ảnh mới trên Gemini, tải ảnh về rồi bấm Import Generated Image.`,
-      );
-    } catch (error) {
-      setNotice(errorMessage(error, "Không thể copy prompt hoặc mở Gemini Web."));
+  async function persistGeneratedImage(
+    beat: StoryboardVisualBeat,
+    selection: {
+      selectionToken: string;
+      originalFilename: string;
+      contentType: string;
+      sizeBytes: number;
+      checksumSha256: string;
+      kind: "IMAGE" | "AUDIO" | "VIDEO" | "OTHER";
+    },
+    source: "GEMINI_WEB" | "MANUAL",
+  ) {
+    if (selection.kind !== "IMAGE") {
+      throw new Error("Generated image flow chỉ chấp nhận file ảnh.");
     }
+
+    const asset = await assetsApi.registerLocal({
+      projectId,
+      type: "IMAGE",
+      originalFilename: selection.originalFilename,
+      contentType: selection.contentType,
+      sizeBytes: selection.sizeBytes,
+      checksumSha256: selection.checksumSha256,
+      durationMs: null,
+    });
+
+    if (source === "GEMINI_WEB") {
+      await window.narrativex.geminiWeb.commitImage({
+        projectId,
+        assetId: asset.id,
+        selectionToken: selection.selectionToken,
+      });
+    } else {
+      await window.narrativex.localStorage.commitSelectedAsset({
+        projectId,
+        assetId: asset.id,
+        kind: "IMAGE",
+        selectionToken: selection.selectionToken,
+      });
+    }
+
+    await productionApi.updateBeatMedia(projectId, beat.id, {
+      mediaAssetId: asset.id,
+      fitMode: "TRIM",
+      trimStartMs: 0,
+    });
+
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["projects", projectId, "timeline"] }),
+      selectedChapterId
+        ? queryClient.invalidateQueries({
+            queryKey: storyboardQueryKey(projectId, selectedChapterId),
+          })
+        : Promise.resolve(),
+      queryClient.invalidateQueries({ queryKey: ["assets", "library"] }),
+    ]);
+  }
+
+  async function generateGeminiImage(beat: StoryboardVisualBeat, queueMode = false): Promise<boolean> {
+    if (mediaBusyBeatId) return false;
+    setMediaBusyBeatId(beat.id);
+    setPendingImportBeatId(null);
+    setNotice(
+      queueMode
+        ? `Gemini All · Đang mở Chrome và generate “${beat.title}”…`
+        : `Đang mở Chrome, gửi prompt lên Gemini và generate “${beat.title}”…`,
+    );
+    try {
+      const selection = await window.narrativex.geminiWeb.generateImage({
+        prompt: compileGeminiPrompt(beat),
+      });
+      await persistGeneratedImage(beat, selection, "GEMINI_WEB");
+      setNotice(
+        queueMode
+          ? `Gemini All · Đã tải và gắn ảnh cho “${beat.title}”.`
+          : `Gemini đã generate, tải xuống và gắn ảnh vào Visual Beat “${beat.title}”.`,
+      );
+      return true;
+    } catch (error) {
+      setNotice(errorMessage(error, "Không thể tự động generate ảnh bằng Gemini Web."));
+      return false;
+    } finally {
+      setMediaBusyBeatId(null);
+    }
+  }
+
+  async function generateWithGemini(beat: StoryboardVisualBeat) {
+    if (geminiQueue?.status === "RUNNING") {
+      setNotice("Gemini All đang chạy. Hãy dừng batch trước khi generate riêng một Visual Beat.");
+      return;
+    }
+    await generateGeminiImage(beat, false);
+  }
+
+  async function runGeminiQueue(initialQueue: GeminiQueueState, runToken: number) {
+    let queue = { ...initialQueue, status: "RUNNING" as const };
+    const processed = new Set([...queue.completedBeatIds, ...queue.skippedBeatIds]);
+
+    for (let index = queue.currentIndex; index < queue.beatIds.length; index += 1) {
+      if (runToken !== geminiRunTokenRef.current) return;
+      const beatId = queue.beatIds[index];
+      if (processed.has(beatId)) continue;
+      const beat = beatById.get(beatId);
+      if (!beat) {
+        processed.add(beatId);
+        queue = {
+          ...queue,
+          skippedBeatIds: uniqueIds([...queue.skippedBeatIds, beatId]),
+          currentIndex: index + 1,
+        };
+        setGeminiQueue(queue);
+        continue;
+      }
+
+      queue = { ...queue, currentIndex: index, status: "RUNNING" };
+      setGeminiQueue(queue);
+      setSelectedSceneId(beat.sceneId);
+      setReviewStatusFilter("ALL");
+
+      const generated = await generateGeminiImage(beat, true);
+      if (runToken !== geminiRunTokenRef.current) return;
+      if (!generated) {
+        setGeminiQueue({ ...queue, status: "PAUSED" });
+        return;
+      }
+
+      processed.add(beatId);
+      queue = {
+        ...queue,
+        completedBeatIds: uniqueIds([...queue.completedBeatIds, beatId]),
+        currentIndex: index + 1,
+        status: "RUNNING",
+      };
+      setGeminiQueue(queue);
+    }
+
+    if (runToken !== geminiRunTokenRef.current) return;
+    const completedQueue: GeminiQueueState = {
+      ...queue,
+      currentIndex: queue.beatIds.length,
+      status: "COMPLETED",
+    };
+    setGeminiQueue(completedQueue);
+    setNotice(
+      `Gemini All hoàn tất: ${completedQueue.completedBeatIds.length} generated, ${completedQueue.skippedBeatIds.length} skipped.`,
+    );
+  }
+
+  async function startGeminiAll() {
+    if (!selectedChapterId || !allChapterBeats.length) return;
+    const queue: GeminiQueueState = {
+      chapterId: selectedChapterId,
+      beatIds: allChapterBeats.map((beat) => beat.id),
+      completedBeatIds: [],
+      skippedBeatIds: [],
+      currentIndex: 0,
+      status: "RUNNING",
+    };
+    setGeminiQueue(queue);
+    const runToken = ++geminiRunTokenRef.current;
+    await runGeminiQueue(queue, runToken);
+  }
+
+  async function resumeGeminiAll() {
+    if (!geminiQueue || geminiQueue.status === "COMPLETED") return;
+    const runToken = ++geminiRunTokenRef.current;
+    const resumed = { ...geminiQueue, status: "RUNNING" as const };
+    setGeminiQueue(resumed);
+    await runGeminiQueue(resumed, runToken);
+  }
+
+  async function skipCurrentGeminiBeat() {
+    if (!geminiQueue || !currentQueueBeatId || geminiQueue.status === "COMPLETED") return;
+    const skipped = uniqueIds([...geminiQueue.skippedBeatIds, currentQueueBeatId]);
+    const nextQueue: GeminiQueueState = {
+      ...geminiQueue,
+      skippedBeatIds: skipped,
+      currentIndex: Math.min(geminiQueue.currentIndex + 1, geminiQueue.beatIds.length),
+      status:
+        geminiQueue.currentIndex + 1 >= geminiQueue.beatIds.length ? "COMPLETED" : "RUNNING",
+    };
+    setGeminiQueue(nextQueue);
+    if (nextQueue.status === "COMPLETED") {
+      setNotice(
+        `Gemini All hoàn tất: ${nextQueue.completedBeatIds.length} generated, ${nextQueue.skippedBeatIds.length} skipped.`,
+      );
+      return;
+    }
+    const runToken = ++geminiRunTokenRef.current;
+    await runGeminiQueue(nextQueue, runToken);
+  }
+
+  function stopGeminiAll() {
+    geminiRunTokenRef.current += 1;
+    setGeminiQueue(null);
+    setPendingImportBeatId(null);
+    setNotice("Đã dừng Gemini All. Generation đang chạy trên Chrome (nếu có) sẽ không tiếp tục sang beat kế tiếp.");
   }
 
   async function copyPrompt(beat: StoryboardVisualBeat) {
@@ -225,45 +499,7 @@ export function StoryboardScreen({
     try {
       const selection = await window.narrativex.localStorage.selectAsset();
       if (!selection) return;
-      if (selection.kind !== "IMAGE") {
-        throw new Error("Import Generated Image chỉ chấp nhận file ảnh.");
-      }
-
-      const asset = await assetsApi.registerLocal({
-        projectId,
-        type: "IMAGE",
-        originalFilename: selection.originalFilename,
-        contentType: selection.contentType,
-        sizeBytes: selection.sizeBytes,
-        checksumSha256: selection.checksumSha256,
-        durationMs: null,
-      });
-
-      try {
-        await window.narrativex.localStorage.commitSelectedAsset({
-          projectId,
-          assetId: asset.id,
-          kind: "IMAGE",
-          selectionToken: selection.selectionToken,
-        });
-        await productionApi.updateBeatMedia(projectId, beat.id, {
-          mediaAssetId: asset.id,
-          fitMode: "TRIM",
-          trimStartMs: 0,
-        });
-      } catch (error) {
-        throw error;
-      }
-
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["projects", projectId, "timeline"] }),
-        selectedChapterId
-          ? queryClient.invalidateQueries({
-              queryKey: storyboardQueryKey(projectId, selectedChapterId),
-            })
-          : Promise.resolve(),
-        queryClient.invalidateQueries({ queryKey: ["assets", "library"] }),
-      ]);
+      await persistGeneratedImage(beat, selection, "MANUAL");
       setPendingImportBeatId((current) => (current === beat.id ? null : current));
       setNotice(`Ảnh đã được import và gắn đúng Visual Beat “${beat.title}”.`);
     } catch (error) {
@@ -276,6 +512,7 @@ export function StoryboardScreen({
   const mutationError = createBeat.error ?? updateReview.error ?? approveAll.error;
   const canCreateBeat = Boolean(beatTitle.trim() && visualIntent.trim() && selectedSceneId);
   const reviewUpdating = updateReview.isPending || approveAll.isPending;
+  const geminiQueueActive = Boolean(geminiQueue && geminiQueue.status !== "COMPLETED");
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background text-foreground select-none">
@@ -287,7 +524,7 @@ export function StoryboardScreen({
           </div>
           <h1 className="mt-1 text-xl font-bold tracking-tight">Scene & Visual Beat Manager</h1>
           <p className="mt-1 text-xs text-text-secondary">
-            Quản lý visual beat, tạo ảnh mới bằng Gemini Web và import output về đúng beat.
+            Quản lý visual beat, tự động generate ảnh bằng Gemini Web và gắn output về đúng beat.
           </p>
         </div>
 
@@ -423,6 +660,15 @@ export function StoryboardScreen({
                 </div>
                 <button
                   type="button"
+                  disabled={!allChapterBeats.length || geminiQueueActive}
+                  onClick={() => void startGeminiAll()}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-md border border-primary/35 bg-primary/5 px-3 text-xs font-bold text-primary-hover transition hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <WandSparkles size={13} />
+                  Generate Gemini All
+                </button>
+                <button
+                  type="button"
                   disabled={!beatsPendingApproval.length || reviewUpdating}
                   onClick={() => {
                     setNotice(null);
@@ -444,6 +690,19 @@ export function StoryboardScreen({
                 </button>
               </div>
             </div>
+
+            {geminiQueue && (
+              <GeminiQueuePanel
+                queue={geminiQueue}
+                currentBeat={currentQueueBeat}
+                processedCount={queueProcessedCount}
+                busy={Boolean(mediaBusyBeatId)}
+                onResume={() => void resumeGeminiAll()}
+                onSkip={() => void skipCurrentGeminiBeat()}
+                onStop={stopGeminiAll}
+                onDismiss={() => setGeminiQueue(null)}
+              />
+            )}
 
             {(mutationError || notice) && (
               <div className="mx-5 mt-3">
@@ -532,6 +791,8 @@ export function StoryboardScreen({
                       mediaBusy={mediaBusyBeatId === beat.id}
                       pendingImport={pendingImportBeatId === beat.id}
                       promptCopied={copiedPromptBeatId === beat.id}
+                      queueCurrent={currentQueueBeatId === beat.id && geminiQueue?.status !== "COMPLETED"}
+                      generationLocked={geminiQueue?.status === "RUNNING" && currentQueueBeatId !== beat.id}
                       onReview={(status) => updateReview.mutate({ beat, status })}
                       onGenerate={() => void generateWithGemini(beat)}
                       onCopyPrompt={() => void copyPrompt(beat)}
@@ -548,6 +809,107 @@ export function StoryboardScreen({
   );
 }
 
+function GeminiQueuePanel({
+  queue,
+  currentBeat,
+  processedCount,
+  busy,
+  onResume,
+  onSkip,
+  onStop,
+  onDismiss,
+}: Readonly<{
+  queue: GeminiQueueState;
+  currentBeat: StoryboardVisualBeat | null;
+  processedCount: number;
+  busy: boolean;
+  onResume: () => void;
+  onSkip: () => void;
+  onStop: () => void;
+  onDismiss: () => void;
+}>) {
+  const total = queue.beatIds.length;
+  const percent = total ? Math.round((processedCount / total) * 100) : 0;
+  const completed = queue.status === "COMPLETED";
+  const running = queue.status === "RUNNING";
+
+  return (
+    <div className="mx-5 mt-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-primary-hover">
+            Gemini Web · Generate All
+          </div>
+          <div className="mt-1 flex items-center gap-2 text-xs font-semibold text-foreground">
+            {running && <Loader2 size={13} className="animate-spin" />}
+            {completed
+              ? `Hoàn tất ${queue.completedBeatIds.length}/${total} ảnh`
+              : running
+                ? `${processedCount}/${total} · Chrome đang generate ${currentBeat?.title ?? "Visual Beat"}`
+                : `${processedCount}/${total} · Tạm dừng tại ${currentBeat?.title ?? "Visual Beat"}`}
+          </div>
+          <div className="mt-1 text-[10px] text-text-muted">
+            {queue.completedBeatIds.length} generated · {queue.skippedBeatIds.length} skipped · {percent}%
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {completed ? (
+            <button
+              type="button"
+              onClick={onDismiss}
+              className="h-8 rounded-md border border-border bg-surface-input px-3 text-[11px] font-semibold text-text-secondary hover:bg-surface-2"
+            >
+              Dismiss
+            </button>
+          ) : running ? (
+            <button
+              type="button"
+              onClick={onStop}
+              className="h-8 rounded-md border border-danger/30 px-3 text-[11px] font-semibold text-danger hover:bg-danger/5"
+            >
+              Stop after current
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                disabled={!currentBeat || busy}
+                onClick={onResume}
+                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-[11px] font-bold text-white hover:bg-primary-hover disabled:opacity-50"
+              >
+                <WandSparkles size={12} /> Retry & Resume
+              </button>
+              <button
+                type="button"
+                disabled={!currentBeat || busy}
+                onClick={onSkip}
+                className="h-8 rounded-md border border-border bg-surface-input px-3 text-[11px] font-semibold text-text-secondary hover:bg-surface-2 disabled:opacity-50"
+              >
+                Skip
+              </button>
+              <button
+                type="button"
+                onClick={onStop}
+                className="h-8 rounded-md border border-danger/30 px-3 text-[11px] font-semibold text-danger hover:bg-danger/5"
+              >
+                Stop
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-input">
+        <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${percent}%` }} />
+      </div>
+      {!completed && (
+        <p className="mt-2 text-[10px] leading-4 text-text-muted">
+          NarrativeX điều khiển một cửa sổ Chrome riêng: mở Gemini Images, gửi prompt, chờ ảnh, tải file, gắn vào đúng Visual Beat rồi tự chuyển sang beat tiếp theo. Nếu Gemini đổi UI hoặc từ chối một prompt, batch dừng tại beat đó để bạn retry hoặc skip.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function VisualBeatCard({
   beat,
   timelineBeat,
@@ -555,6 +917,8 @@ function VisualBeatCard({
   mediaBusy,
   pendingImport,
   promptCopied,
+  queueCurrent,
+  generationLocked,
   onReview,
   onGenerate,
   onCopyPrompt,
@@ -566,6 +930,8 @@ function VisualBeatCard({
   mediaBusy: boolean;
   pendingImport: boolean;
   promptCopied: boolean;
+  queueCurrent: boolean;
+  generationLocked: boolean;
   onReview: (status: VisualBeatReviewStatus) => void;
   onGenerate: () => void;
   onCopyPrompt: () => void;
@@ -575,10 +941,10 @@ function VisualBeatCard({
   const prompt = compileGeminiPrompt(beat);
 
   return (
-    <article className="rounded-lg border border-border bg-surface-panel p-4">
+    <article className={`rounded-lg border bg-surface-panel p-4 ${queueCurrent ? "border-primary/60 ring-1 ring-primary/20" : "border-border"}`}>
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_240px]">
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="rounded bg-surface-input px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-text-muted">
               Beat {beat.orderIndex + 1}
             </span>
@@ -588,6 +954,11 @@ function VisualBeatCard({
             <span className="rounded bg-surface-input px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-text-muted">
               Generate New
             </span>
+            {queueCurrent && (
+              <span className="rounded bg-info-bg px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-primary-hover">
+                Gemini All · Current
+              </span>
+            )}
             <span
               className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
                 approved ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
@@ -625,26 +996,28 @@ function VisualBeatCard({
 
           {pendingImport && (
             <div className="mt-3 rounded-md border border-info/25 bg-info-bg p-3 text-[10px] leading-4 text-text-secondary">
-              Prompt đã copy. Gemini Web luôn tạo ảnh mới; sau khi tải ảnh xuống, dùng Import Generated Image để gắn output vào chính beat này.
+              Automation chưa hoàn tất. Bạn vẫn có thể dùng Import Generated Image làm fallback để gắn file ảnh thủ công vào beat này.
             </div>
           )}
 
           <div className="mt-3 flex flex-wrap gap-2">
             <button
               type="button"
+              disabled={mediaBusy || generationLocked}
               onClick={onGenerate}
-              className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-[11px] font-bold text-white hover:bg-primary-hover"
+              className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-[11px] font-bold text-white hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <ExternalLink size={12} /> Generate with Gemini
+              {mediaBusy ? <Loader2 size={12} className="animate-spin" /> : <ExternalLink size={12} />}
+              {mediaBusy ? "Generating…" : "Generate with Gemini"}
             </button>
             <button
               type="button"
-              disabled={mediaBusy}
+              disabled={mediaBusy || generationLocked}
               onClick={onImport}
               className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-surface-input px-3 text-[11px] font-semibold text-text-secondary hover:bg-surface-2 disabled:opacity-50"
             >
               {mediaBusy ? <Loader2 size={12} className="animate-spin" /> : <ImagePlus size={12} />}
-              Import Generated Image
+              Import Image (fallback)
             </button>
             <button
               type="button"
@@ -750,6 +1123,14 @@ function compileGeminiPrompt(beat: StoryboardVisualBeat) {
     "OUTPUT:",
     "One new image only. No text, captions, logos, or watermarks unless explicitly required by the story.",
   ].join("\n");
+}
+
+function geminiQueueStorageKey(projectId: string, chapterId: string) {
+  return `narrativex:gemini-web-queue:${projectId}:${chapterId}`;
+}
+
+function uniqueIds(ids: string[]) {
+  return [...new Set(ids)];
 }
 
 function Metric({ label, value }: Readonly<{ label: string; value: number }>) {

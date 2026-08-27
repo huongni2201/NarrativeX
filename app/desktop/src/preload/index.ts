@@ -4,6 +4,7 @@ import type {
   DesktopApiResponse,
   DesktopSseEvent,
   DesktopSseHandlers,
+  GeminiWebGenerateImageInput,
   LocalExecutionStatus,
   NarrativeXDesktopBridge,
   VoiceReferenceUploadResult,
@@ -76,6 +77,11 @@ const bridge: NarrativeXDesktopBridge = {
     commitSelectedAsset: (input) => ipcRenderer.invoke("desktop:local-storage:commit-selected-asset", input),
     revealArtifact: (input) =>
       ipcRenderer.invoke("desktop:local-storage:reveal-artifact", input),
+  },
+  geminiWeb: {
+    generateImage: (input: GeminiWebGenerateImageInput) =>
+      ipcRenderer.invoke("desktop:gemini-web:generate-image", input),
+    commitImage: (input) => ipcRenderer.invoke("desktop:gemini-web:commit-image", input),
   },
   render: {
     status: () => ipcRenderer.invoke("desktop:render:status"),

@@ -2,6 +2,9 @@
 
 import uuid
 from contextvars import ContextVar
+from dataclasses import replace
+
+import asyncpg  # type: ignore[import-untyped]
 
 from narrativex_worker.repository.implementation import (
     ALLOWED_PROVIDER_TRANSITIONS,
@@ -31,7 +34,50 @@ class WorkerRepository(WorkerRepositoryImplementation):
         claim_owner = self._new_claim_owner(worker_id)
         claimed = await super().claim_next(claim_owner)
         self._claim_owner.set(claim_owner if claimed is not None else None)
-        return claimed
+        if claimed is None:
+            return None
+        return await self._hydrate_analysis_preferences(claimed)
+
+    async def _hydrate_analysis_preferences(
+        self, claimed: ClaimedChapterAnalysisJob
+    ) -> ClaimedChapterAnalysisJob:
+        pool = self._require_pool()
+        try:
+            row = await pool.fetchrow(
+                """
+                SELECT analysis_visual_generation_mode, analysis_image_provider
+                  FROM generation_jobs
+                 WHERE id = $1
+                """,
+                claimed.generation_job_id,
+            )
+        except asyncpg.UndefinedColumnError:
+            # Allows a rolling deploy where the worker starts before V9 is applied. Such legacy
+            # jobs use the historical IMAGE/API behavior until the migration is available.
+            row = None
+
+        visual_generation_mode = (
+            row["analysis_visual_generation_mode"]
+            if row is not None and row["analysis_visual_generation_mode"] is not None
+            else "IMAGE"
+        )
+        image_provider = (
+            row["analysis_image_provider"]
+            if row is not None and visual_generation_mode == "IMAGE"
+            else None
+        )
+        if visual_generation_mode == "IMAGE" and image_provider is None:
+            image_provider = "API"
+
+        return replace(
+            claimed,
+            request=claimed.request.model_copy(
+                update={
+                    "visual_generation_mode": visual_generation_mode,
+                    "image_provider": image_provider,
+                }
+            ),
+        )
 
     async def heartbeat(self, stage_attempt_id: uuid.UUID, worker_id: str) -> bool:
         return await super().heartbeat(stage_attempt_id, self._lease_owner(worker_id))

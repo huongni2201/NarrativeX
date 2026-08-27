@@ -48,6 +48,9 @@ class FlywayBaselineStructureTest {
 
     assertTrue(v3.contains("CREATE TABLE generation_jobs"));
     assertTrue(v3.contains("idempotency_key VARCHAR(512)"));
+    assertTrue(v3.contains("analysis_visual_generation_mode VARCHAR(16)"));
+    assertTrue(v3.contains("analysis_image_provider VARCHAR(32)"));
+    assertTrue(v3.contains("ck_generation_jobs_analysis_preferences_consistent"));
     assertTrue(v3.contains("CREATE TABLE plan_entitlements"));
     assertTrue(v3.contains("CREATE TABLE production_beat_media_selections"));
 

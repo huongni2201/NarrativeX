@@ -28,6 +28,23 @@ test("chapter workspace keeps an explicit create mode and blocks generation from
   assert.match(chapters, /Math\.min\(Math\.max\(current, 1\), totalPages\)/);
 });
 
+test("chapter CRUD writes refresh chapter and backend-derived timeline data", () => {
+  const queries = source(
+    "app",
+    "desktop",
+    "src",
+    "renderer",
+    "features",
+    "chapters",
+    "queries",
+    "chapters.queries.ts",
+  );
+  assert.match(queries, /function invalidateChapterData/);
+  assert.match(queries, /chapterQueryKeys\.all\(projectId\)/);
+  assert.match(queries, /\["projects", projectId, "timeline"\]/);
+  assert.equal((queries.match(/onSuccess: \(\) => invalidateChapterData\(queryClient, projectId\)/g) ?? []).length, 3);
+});
+
 test("workspace follows cursor pagination and does not hide partial API failures", () => {
   const workspace = source(
     "app",

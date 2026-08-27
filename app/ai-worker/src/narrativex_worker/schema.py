@@ -162,6 +162,8 @@ class ChapterAnalysisRequest(BaseModel):
     source_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
     source_text: str = Field(min_length=1, max_length=500_000)
     source_language: str = Field(default="vi-VN", min_length=2, max_length=16)
+    visual_generation_mode: str = Field(default="IMAGE", pattern=r"^(IMAGE|VIDEO)$")
+    image_provider: str | None = Field(default="API", pattern=r"^(GEMINI_WEB|API)$")
     safety_policy_version: str = Field(default="safety-v1.8", min_length=1, max_length=64)
     preferred_locale: str = Field(default="vi-VN", min_length=2, max_length=16)
 
@@ -172,6 +174,14 @@ class ChapterAnalysisRequest(BaseModel):
         if estimated_tokens > 120_000:
             raise ValueError("source_text exceeds the 120000 estimated token limit")
         return value
+
+    @model_validator(mode="after")
+    def validate_visual_preferences(self) -> Self:
+        if self.visual_generation_mode == "IMAGE" and self.image_provider is None:
+            raise ValueError("image_provider is required for IMAGE analysis")
+        if self.visual_generation_mode == "VIDEO" and self.image_provider is not None:
+            raise ValueError("image_provider must be null for VIDEO analysis")
+        return self
 
 
 class GenerationJobEnvelope(BaseModel):

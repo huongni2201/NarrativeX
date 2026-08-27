@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type {
+  AnalyzeChapterInput,
   DesktopChapterDetails,
   DesktopChapterWorkspace,
   DesktopTimeline,
@@ -19,6 +20,7 @@ import { ChapterWorkspaceContext } from "../components/ChapterWorkspaceContext";
 import {
   chapterStatus,
   audioGenerationBlockMessage,
+  isAnalysisProcessingStatus,
   isAudioProcessingStatus,
   isGenerationJobTerminal,
   type ChapterFilter,
@@ -39,6 +41,11 @@ import {
 type TrackedGenerationJob = {
   jobId: string;
   chapterId: string;
+};
+
+type AnalyzeMutationInput = {
+  chapterId: string;
+  preferences: AnalyzeChapterInput;
 };
 
 const PAGE_SIZE = 8;
@@ -122,7 +129,10 @@ export function ChaptersScreen({
       if (sortBy === "title") return left.title.localeCompare(right.title, "vi");
       if (sortBy === "words") return wordCount(right.sourceText) - wordCount(left.sourceText);
       if (sortBy === "order") return left.orderIndex - right.orderIndex;
-      return right.rowVersion - left.rowVersion;
+      const timestampDifference = Date.parse(right.updatedAt) - Date.parse(left.updatedAt);
+      return Number.isFinite(timestampDifference) && timestampDifference !== 0
+        ? timestampDifference
+        : right.orderIndex - left.orderIndex;
     });
   }, [chapters, query, sortBy]);
 
@@ -197,6 +207,10 @@ export function ChaptersScreen({
     : undefined;
   const selectedAudioStatus = selectedWorkspace?.pipeline.audio.status ?? null;
   const selectedAudioProcessing = isAudioProcessingStatus(selectedAudioStatus);
+  const selectedAnalysisProcessing = isAnalysisProcessingStatus(
+    selectedWorkspace?.pipeline.analysis.status,
+  );
+  const canAnalyze = Boolean(selected && selectedWorkspace?.capabilities.canAnalyze);
   const trackedNarrationForSelected = Boolean(
     selected && narrationJob?.chapterId === selected.id,
   );
@@ -210,10 +224,30 @@ export function ChaptersScreen({
   useEffect(() => {
     if (!selected) return;
     const audio = selectedWorkspace?.pipeline.audio;
+    if (audio?.voiceId && voices.some((voice) => voice.id === audio.voiceId)) {
+      setVoiceId(audio.voiceId);
+    }
+    if (audio?.speakingRate != null) {
+      setSpeakingRate(String(audio.speakingRate));
+    }
+  }, [selected?.id, selectedWorkspace?.pipeline.audio.speakingRate, selectedWorkspace?.pipeline.audio.voiceId, voices]);
+
+  useEffect(() => {
+    if (!selected) return;
+    const audio = selectedWorkspace?.pipeline.audio;
     const latestJobId = audio?.latestJobId;
     if (!latestJobId || !isAudioProcessingStatus(audio.status)) return;
 
     setNarrationJob((current) => current ?? { jobId: latestJobId, chapterId: selected.id });
+  }, [selected, selectedWorkspace]);
+
+  useEffect(() => {
+    if (!selected) return;
+    const analysis = selectedWorkspace?.pipeline.analysis;
+    const latestJobId = analysis?.latestJobId;
+    if (!latestJobId || !isAnalysisProcessingStatus(analysis.status)) return;
+
+    setAnalysisJob((current) => current ?? { jobId: latestJobId, chapterId: selected.id });
   }, [selected, selectedWorkspace]);
 
   const narrationJobQuery = useGenerationJob(narrationJob?.jobId ?? null);
@@ -327,8 +361,9 @@ export function ChaptersScreen({
   }, [isCreating, selected]);
 
   const analyzeChapter = useMutation({
-    mutationFn: (chapterId: string) => generationApi.analyze(projectId, chapterId),
-    onSuccess: async (job, chapterId) => {
+    mutationFn: ({ chapterId, preferences }: AnalyzeMutationInput) =>
+      generationApi.analyze(projectId, chapterId, preferences),
+    onSuccess: async (job, { chapterId }) => {
       setAnalysisJob({ jobId: job.jobId, chapterId });
       await queryClient.invalidateQueries({
         queryKey: chapterQueryKeys.workspace(projectId, chapterId),
@@ -341,7 +376,8 @@ export function ChaptersScreen({
   });
 
   const saveBusy = createChapter.isPending || updateChapter.isPending;
-  const analysisBusy = analyzeChapter.isPending || Boolean(analysisJob);
+  const analysisBusy =
+    analyzeChapter.isPending || Boolean(analysisJob) || selectedAnalysisProcessing;
   const busy =
     saveBusy ||
     generateNarration.isPending ||
@@ -578,6 +614,8 @@ export function ChaptersScreen({
 
         <ChapterEditorPanel
           selected={selected}
+          workspace={selectedWorkspace}
+          canAnalyze={canAnalyze}
           title={title}
           sourceText={sourceText}
           busy={busy}
@@ -613,9 +651,9 @@ export function ChaptersScreen({
           onBeginCreate={beginCreate}
           onCancel={cancelEditing}
           onSave={() => void save()}
-          onAnalyze={() => {
-            if (selected && !generationActionDisabled && !analysisJob) {
-              analyzeChapter.mutate(selected.id);
+          onAnalyze={(preferences) => {
+            if (selected && canAnalyze && !generationActionDisabled && !analysisJob) {
+              analyzeChapter.mutate({ chapterId: selected.id, preferences });
             }
           }}
           onOpenEditor={openEditor}

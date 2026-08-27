@@ -28,6 +28,14 @@ function isNullableNumber(value: unknown): value is number | null {
   return value === null || isNumber(value);
 }
 
+function isNullableVisualGenerationMode(value: unknown): value is "IMAGE" | "VIDEO" | null {
+  return value === null || value === "IMAGE" || value === "VIDEO";
+}
+
+function isNullableImageProvider(value: unknown): value is "GEMINI_WEB" | "API" | null {
+  return value === null || value === "GEMINI_WEB" || value === "API";
+}
+
 function isChapter(value: unknown): value is DesktopChapterDetails {
   return (
     isRecord(value) &&
@@ -37,12 +45,26 @@ function isChapter(value: unknown): value is DesktopChapterDetails {
     isString(value.title) &&
     isString(value.sourceText) &&
     isString(value.sourceHash) &&
-    isNumber(value.rowVersion)
+    isNumber(value.rowVersion) &&
+    isString(value.createdAt) &&
+    isString(value.updatedAt)
   );
 }
 
 function isWorkspaceStep(value: unknown): value is ChapterWorkspaceStep {
   return isRecord(value) && isString(value.status) && isNullableString(value.completedAt);
+}
+
+function isWorkspaceAnalysis(
+  value: unknown,
+): value is DesktopChapterWorkspace["pipeline"]["analysis"] {
+  return (
+    isRecord(value) &&
+    isWorkspaceStep(value) &&
+    isNullableString(value.latestJobId) &&
+    isNullableVisualGenerationMode(value.visualGenerationMode) &&
+    isNullableImageProvider(value.imageProvider)
+  );
 }
 
 function isWorkspaceProgress(value: unknown): value is ChapterWorkspaceProgress {
@@ -51,7 +73,10 @@ function isWorkspaceProgress(value: unknown): value is ChapterWorkspaceProgress 
     isString(value.status) &&
     isNumber(value.total) &&
     isNumber(value.completed) &&
-    isNumber(value.failed)
+    isNumber(value.failed) &&
+    isNullableString(value.latestJobId) &&
+    isNullableString(value.mediaPlanId) &&
+    isNullableNumber(value.mediaPlanRevision)
   );
 }
 
@@ -61,6 +86,7 @@ function isWorkspaceAudio(value: unknown): value is ChapterWorkspaceAudio {
     isWorkspaceStep(value) &&
     isNullableString(value.latestJobId) &&
     isNullableString(value.voiceId) &&
+    isNullableNumber(value.speakingRate) &&
     isNullableString(value.audioUrl) &&
     isNullableNumber(value.durationMs)
   );
@@ -90,9 +116,25 @@ function isWorkspacePreviewScene(value: unknown): value is ChapterWorkspacePrevi
 
 function isChapterWorkspace(value: unknown): value is DesktopChapterWorkspace {
   if (!isRecord(value) || !isChapter(value.chapter) || !isString(value.projectName)) return false;
-  if (!isRecord(value.summary) || !isNumber(value.summary.sceneCount) || !isNumber(value.summary.visualBeatCount) || !isNumber(value.summary.estimatedDurationSeconds)) return false;
-  if (!isRecord(value.pipeline) || !isWorkspaceStep(value.pipeline.analysis) || !isWorkspaceStep(value.pipeline.visualPlanning) || !isWorkspaceProgress(value.pipeline.visualGeneration) || !isWorkspaceAudio(value.pipeline.audio) || !isWorkspaceRender(value.pipeline.render) || typeof value.pipeline.sourceOutdated !== "boolean") return false;
-  if (!Array.isArray(value.previewScenes) || !value.previewScenes.every(isWorkspacePreviewScene)) return false;
+  if (
+    !isRecord(value.summary) ||
+    !isNumber(value.summary.sceneCount) ||
+    !isNumber(value.summary.visualBeatCount) ||
+    !isNumber(value.summary.estimatedDurationSeconds)
+  )
+    return false;
+  if (
+    !isRecord(value.pipeline) ||
+    !isWorkspaceAnalysis(value.pipeline.analysis) ||
+    !isWorkspaceStep(value.pipeline.visualPlanning) ||
+    !isWorkspaceProgress(value.pipeline.visualGeneration) ||
+    !isWorkspaceAudio(value.pipeline.audio) ||
+    !isWorkspaceRender(value.pipeline.render) ||
+    typeof value.pipeline.sourceOutdated !== "boolean"
+  )
+    return false;
+  if (!Array.isArray(value.previewScenes) || !value.previewScenes.every(isWorkspacePreviewScene))
+    return false;
   if (!isRecord(value.capabilities)) return false;
   return (
     typeof value.capabilities.canAnalyze === "boolean" &&

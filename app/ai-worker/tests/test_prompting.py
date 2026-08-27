@@ -5,7 +5,12 @@ from narrativex_worker.prompting import (
 from narrativex_worker.schema import ChapterAnalysisRequest
 
 
-def _request(source_text: str = "Một chương truyện thử nghiệm.") -> ChapterAnalysisRequest:
+def _request(
+    source_text: str = "Một chương truyện thử nghiệm.",
+    *,
+    visual_generation_mode: str = "IMAGE",
+    image_provider: str | None = "API",
+) -> ChapterAnalysisRequest:
     return ChapterAnalysisRequest(
         project_id="00000000-0000-4000-8000-000000000001",
         story_version_id="00000000-0000-4000-8000-000000000002",
@@ -14,6 +19,8 @@ def _request(source_text: str = "Một chương truyện thử nghiệm.") -> Ch
         source_hash="0" * 64,
         source_text=source_text,
         source_language="vi-VN",
+        visual_generation_mode=visual_generation_mode,
+        image_provider=image_provider,
     )
 
 
@@ -49,6 +56,28 @@ def test_chapter_prompt_preserves_untrusted_boundary_and_output_contract() -> No
     assert "SOURCE_LANGUAGE=vi-VN" in prompt
     assert "OUTPUT_SCHEMA={characters:[{key,name,aliases,description}]" in prompt
     assert "visual_beats:[{title,visual_intent,camera_angle}]" in prompt
+
+
+def test_image_analysis_prompt_preserves_provider_as_routing_metadata() -> None:
+    prompt = build_chapter_analysis_prompt(
+        _request(visual_generation_mode="IMAGE", image_provider="GEMINI_WEB")
+    )
+
+    assert "VISUAL_GENERATION_MODE=IMAGE" in prompt
+    assert "IMAGE_PROVIDER=GEMINI_WEB" in prompt
+    assert "strong single-frame compositions" in prompt
+    assert "downstream routing metadata only" in prompt
+
+
+def test_video_analysis_prompt_requests_motion_friendly_beats_without_image_provider() -> None:
+    prompt = build_chapter_analysis_prompt(
+        _request(visual_generation_mode="VIDEO", image_provider=None)
+    )
+
+    assert "VISUAL_GENERATION_MODE=VIDEO" in prompt
+    assert "IMAGE_PROVIDER=NONE" in prompt
+    assert "explicit physical action" in prompt
+    assert "stable subject identity" in prompt
 
 
 def test_short_form_density_keeps_eight_second_target() -> None:
