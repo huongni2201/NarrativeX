@@ -8,10 +8,10 @@ import static org.mockito.Mockito.when;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
 import com.narrativex.backend.feature.generation.api.controller.ProjectGenerationController;
 import com.narrativex.backend.feature.generation.application.command.EnqueueStoryAnalysisCommand;
-import com.narrativex.backend.feature.generation.application.usecase.ConfirmChapterTranslationUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.EnqueueStoryAnalysisUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.GenerateBatchNarrationUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.GenerateChapterNarrationUseCase;
+import com.narrativex.backend.feature.generation.application.usecase.GetVoicePreviewResultUseCase;
 import com.narrativex.backend.feature.generation.domain.aggregate.GenerationJob;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -23,8 +23,7 @@ class ProjectGenerationControllerContractTest {
     EnqueueStoryAnalysisUseCase useCase = mock(EnqueueStoryAnalysisUseCase.class);
     GenerateChapterNarrationUseCase narrationUseCase = mock(GenerateChapterNarrationUseCase.class);
     GenerateBatchNarrationUseCase batchNarrationUseCase = mock(GenerateBatchNarrationUseCase.class);
-    ConfirmChapterTranslationUseCase translationUseCase =
-        mock(ConfirmChapterTranslationUseCase.class);
+    GetVoicePreviewResultUseCase voicePreviewResultUseCase = mock(GetVoicePreviewResultUseCase.class);
     UUID projectId = UuidV7.random();
     UUID storyVersionId = UuidV7.random();
     UUID chapterId = UuidV7.random();
@@ -44,9 +43,9 @@ class ProjectGenerationControllerContractTest {
     when(useCase.execute(new EnqueueStoryAnalysisCommand(projectId, chapterId))).thenReturn(job);
     ProjectGenerationController controller =
         new ProjectGenerationController(
-            useCase, narrationUseCase, batchNarrationUseCase, translationUseCase);
+            useCase, narrationUseCase, batchNarrationUseCase, voicePreviewResultUseCase);
 
-    var response = controller.analyzeChapter(projectId, chapterId, null);
+    var response = controller.analyzeChapter(projectId, chapterId);
 
     assertEquals(HttpStatus.ACCEPTED, response.getStatusCode());
     assertEquals(job.getJobId(), response.getBody().data().jobId());
