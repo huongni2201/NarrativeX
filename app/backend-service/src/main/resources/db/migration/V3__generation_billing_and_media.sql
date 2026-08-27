@@ -46,12 +46,24 @@ CREATE TABLE generation_jobs (
         'FAST_CPU', 'CPU_HEAVY', 'MEDIA_IO'
     )),
     CONSTRAINT ck_generation_jobs_media_plan_pointer CHECK (
-        (media_plan_id IS NULL AND media_plan_revision IS NULL AND production_mode IS NULL)
+        (
+            job_type = 'CHAPTER_ANALYZE'
+            AND media_plan_id IS NULL
+            AND media_plan_revision IS NULL
+            AND production_mode IN ('IMAGE_MOTION', 'VIDEO_GENERATION')
+        )
         OR
-        (media_plan_id IS NOT NULL AND media_plan_revision IS NOT NULL AND production_mode IS NOT NULL)
+        (
+            job_type <> 'CHAPTER_ANALYZE'
+            AND (
+                (media_plan_id IS NULL AND media_plan_revision IS NULL AND production_mode IS NULL)
+                OR
+                (media_plan_id IS NOT NULL AND media_plan_revision IS NOT NULL AND production_mode IS NOT NULL)
+            )
+        )
     ),
     CONSTRAINT ck_generation_jobs_production_mode CHECK (
-        production_mode IS NULL OR production_mode IN ('IMAGE_MOTION', 'HYBRID_LOCAL_I2V')
+        production_mode IS NULL OR production_mode IN ('IMAGE_MOTION', 'HYBRID_LOCAL_I2V', 'VIDEO_GENERATION')
     ),
     CONSTRAINT fk_generation_jobs_media_plan
         FOREIGN KEY (media_plan_id, media_plan_revision, production_mode)
@@ -116,7 +128,7 @@ CREATE TABLE operation_plans (
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    project_id UUID NOT NULL REFERENCES projects(id),
+    project_id UUID NOT NULL,
     generation_job_id UUID REFERENCES generation_jobs(id),
     operation_type VARCHAR(40) NOT NULL,
     estimate_min NUMERIC(19, 6) NOT NULL,
