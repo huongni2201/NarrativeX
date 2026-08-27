@@ -27,7 +27,7 @@ export interface DesktopTimelineBeat {
 
 export interface DesktopTimeline {
   projectId: string;
-  storyVersionId: string;
+  storyVersionId: string | null;
   totalDurationMs: number;
   aspectRatio: string;
   readyForRender: boolean;

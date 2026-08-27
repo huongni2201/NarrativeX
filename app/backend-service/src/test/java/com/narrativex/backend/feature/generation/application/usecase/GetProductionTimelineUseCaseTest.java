@@ -23,6 +23,23 @@ class GetProductionTimelineUseCaseTest {
       new GetProductionTimelineUseCase(currentUserId, projectAccess, sourceRepository);
 
   @Test
+  void returnsEmptyTimelineForProjectWithoutChapters() {
+    UUID projectId = UUID.randomUUID();
+    when(sourceRepository.findChapters(projectId, "owner")).thenReturn(List.of());
+
+    var timeline = useCase.executeOwned(projectId, "owner");
+
+    verify(projectAccess).findOwnedProject(projectId, "owner");
+    assertThat(timeline.projectId()).isEqualTo(projectId);
+    assertThat(timeline.storyVersionId()).isNull();
+    assertThat(timeline.totalDurationMs()).isZero();
+    assertThat(timeline.aspectRatio()).isEqualTo("16:9");
+    assertThat(timeline.readyForRender()).isFalse();
+    assertThat(timeline.chapters()).isEmpty();
+    assertThat(timeline.beats()).isEmpty();
+  }
+
+  @Test
   void buildsOneContiguousGlobalClockFromChapterAudioDurations() {
     UUID projectId = UUID.randomUUID();
     UUID storyVersionId = UUID.randomUUID();

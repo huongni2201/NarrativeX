@@ -334,6 +334,7 @@ export function EditorScreen({
         scopeWindowStartMs={scopeWindow.startMs}
         scopeWindowEndMs={scopeWindow.endMs}
         onSelectBeat={selectBeat}
+        onUploadMedia={(type) => void uploadBeatMedia(type)}
       />
 
       <EditorInspectorPanel

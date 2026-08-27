@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import {
+  ChevronDown,
   FileImage,
   Film,
   FolderOpen,
+  Image as ImageIcon,
   RotateCcw,
   SlidersHorizontal,
   Upload,
@@ -43,220 +45,200 @@ export function EditorInspectorPanel({
   const [activeTab, setActiveTab] = useState<InspectorTab>("scene");
   const [isAssetPickerOpen, setIsAssetPickerOpen] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [notes, setNotes] = useState("");
 
   useEffect(() => {
     setIsAssetPickerOpen(false);
     setShowAdvanced(false);
     setActiveTab("scene");
+    setNotes("");
   }, [selectedBeat]);
 
+  const beatTitle = selectedBeat?.title || "Visual Beat";
+  const durationText = selectedBeat ? formatTimecode(selectedBeat.durationMs) : "00:10.00";
+
   return (
-    <aside className="flex h-full min-h-0 flex-col bg-surface-panel text-[10px]">
-      <div className="nx-panel-header flex items-center px-4">
-        <div>
-          <h3 className="text-[12px] font-semibold text-foreground">Inspector</h3>
-          <p className="mt-0.5 text-[9px] text-text-dim">Context for the selected visual beat</p>
-        </div>
+    <aside className="flex h-full min-h-0 flex-col bg-surface-panel font-sans text-foreground">
+      {/* Header */}
+      <div className="flex h-14 shrink-0 items-center px-5 border-b border-border-subtle">
+        <h3 className="text-[14px] font-bold text-foreground">Inspector</h3>
       </div>
 
-      <div className="grid grid-cols-3 border-b border-border-subtle bg-surface-dark px-3 pt-2">
+      {/* Tabs */}
+      <div className="flex border-b border-border-subtle bg-surface-dark px-4">
         <InspectorTabButton label="Scene" active={activeTab === "scene"} onClick={() => setActiveTab("scene")} />
         <InspectorTabButton label="Audio" active={activeTab === "audio"} onClick={() => setActiveTab("audio")} />
         <InspectorTabButton label="Effects" active={activeTab === "effects"} onClick={() => setActiveTab("effects")} />
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-3">
-        {selectedBeat ? (
-          <div className="space-y-3">
-            {activeTab === "scene" && (
-              <>
-                <InspectorCard title="Scene Settings">
-                  <div className="space-y-2">
-                    <div className="rounded-md border border-border-subtle bg-background p-3">
-                      <span className="text-[8px] font-semibold uppercase tracking-[0.12em] text-text-dim">Visual Beat</span>
-                      <div className="mt-1.5 flex items-center justify-between gap-2">
-                        <strong className="truncate text-[11px] font-semibold text-foreground">{selectedBeat.title || "Visual Beat"}</strong>
-                        <span className={`rounded-md border px-2 py-1 text-[8px] font-medium ${selectedBeat.assetReady ? "border-success/30 bg-success-bg text-success" : "border-border bg-surface-2 text-text-muted"}`}>
-                          {selectedBeat.assetReady ? "Ready" : "Draft"}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <InfoCell label="Duration" value={formatTimecode(selectedBeat.durationMs)} />
-                      <InfoCell label="Media" value={selectedBeat.mediaType || "Generated"} />
-                      <InfoCell label="Fit mode" value={selectedBeat.fitMode} />
-                      <InfoCell label="Clock" value="Narration" />
-                    </div>
-                  </div>
-                </InspectorCard>
+      {/* Content */}
+      <div className="min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
+        {activeTab === "scene" && (
+          <>
+            {/* Scene Settings Card */}
+            <section className="space-y-3">
+              <h4 className="text-[12px] font-bold text-foreground">Scene Settings</h4>
+              
+              <div>
+                <label className="mb-1.5 block text-[11px] text-text-dim">Name</label>
+                <input
+                  aria-label="Scene name"
+                  readOnly
+                  value={beatTitle}
+                  className="h-8 w-full rounded-md border border-border-subtle bg-surface-input px-3 text-[11px] text-foreground focus:outline-none"
+                />
+              </div>
 
-                <InspectorCard title="Auto Edit">
-                  <div className="rounded-lg border border-primary/25 bg-primary-muted p-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="flex items-center gap-1.5 text-[10px] font-semibold text-primary-hover">
-                        <WandSparkles size={12} /> NarrativeX decision
-                      </span>
-                      <span className="rounded-md border border-primary/20 bg-background/60 px-2 py-1 text-[7px] uppercase tracking-wider text-primary-hover">
-                        {autoDecision?.source === "AI_DIRECTED" ? "AI directed" : "Rule engine"}
-                      </span>
-                    </div>
-                    <div className="mt-3 grid grid-cols-2 gap-2">
-                      <InfoCell label="Motion" value={autoDecision?.cameraMovement || "NONE"} />
-                      <InfoCell label="Fit" value={autoDecision?.fitMode || selectedBeat.fitMode} />
-                      <InfoCell label="Trim start" value={formatTimecode(autoDecision?.trimStartMs ?? selectedBeat.trimStartMs)} />
-                      <InfoCell label="Clock" value="Narration" />
-                    </div>
-                    <p className="mt-3 text-[9px] leading-4 text-text-muted">
-                      {autoDecision?.reason || "Narration controls the beat clock and FFmpeg executes the selected edit parameters."}
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setShowAdvanced((value) => !value)}
-                    className="mt-2 flex h-8 w-full items-center justify-center gap-1.5 rounded-md border border-border bg-surface-input text-[9px] font-medium text-text-muted transition hover:bg-surface-2 hover:text-foreground"
-                  >
-                    <SlidersHorizontal size={11} />
-                    {showAdvanced ? "Hide manual override" : "Manual override"}
-                  </button>
-
-                  {showAdvanced && (
-                    <div className="mt-2 space-y-2 rounded-lg border border-border-subtle bg-background p-2.5">
-                      <p className="text-[8px] leading-4 text-text-dim">
-                        Ghi đè quyết định Auto Edit cho beat hiện tại.
-                      </p>
-                      <div className="grid grid-cols-2 gap-1.5 rounded-md border border-border-subtle bg-surface p-1.5">
-                        {(
-                          [
-                            { mode: "TRIM", label: "Trim" },
-                            { mode: "LOOP", label: "Loop" },
-                            { mode: "FREEZE_END", label: "Freeze" },
-                            { mode: "SPEED_ADJUST", label: "Speed" },
-                          ] as const
-                        ).map(({ mode, label }) => (
-                          <button
-                            key={mode}
-                            type="button"
-                            disabled={mediaBusy || !selectedBeat.mediaAssetId}
-                            onClick={() => onUpdateFitMode(mode)}
-                            className={`rounded-md py-1.5 text-[8px] font-medium transition-colors disabled:opacity-40 ${
-                              selectedBeat.fitMode === mode
-                                ? "bg-primary text-primary-foreground"
-                                : "text-text-muted hover:bg-surface-2 hover:text-foreground"
-                            }`}
-                          >
-                            {label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </InspectorCard>
-
-                <InspectorCard title="Media">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[9px] text-text-muted">Current source</span>
-                    <span className="rounded-md border border-border bg-surface-2 px-2 py-1 text-[8px] font-medium text-text-secondary">
-                      {mediaSourceLabel(selectedBeat)}
-                    </span>
-                  </div>
-
-                  <div className="mt-2 rounded-lg border border-dashed border-border p-3 text-center">
-                    <p className="text-[9px] text-text-muted">Replace media for this visual beat</p>
-                    <div className="mt-3 grid grid-cols-2 gap-2">
-                      <ActionButton icon={<Upload size={11} />} label="Upload Image" disabled={mediaBusy} onClick={() => onUploadMedia("IMAGE")} />
-                      <ActionButton icon={<Film size={11} />} label="Upload Video" disabled={mediaBusy} onClick={() => onUploadMedia("VIDEO")} />
-                    </div>
-                    <div className="relative mt-2">
-                      <ActionButton
-                        icon={<FolderOpen size={11} />}
-                        label="Choose From Assets"
-                        disabled={mediaBusy}
-                        onClick={() => setIsAssetPickerOpen((open) => !open)}
-                      />
-                      {isAssetPickerOpen && (
-                        <div className="absolute right-0 top-9 z-40 max-h-52 w-full overflow-y-auto rounded-lg border border-border bg-surface-elevated p-1.5 shadow-[var(--shadow-panel)]">
-                          {selectableAssets.length ? (
-                            selectableAssets.map((asset) => (
-                              <button
-                                key={asset.id}
-                                type="button"
-                                onClick={() => {
-                                  onChooseAsset(asset.id);
-                                  setIsAssetPickerOpen(false);
-                                }}
-                                className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left transition hover:bg-surface-3"
-                              >
-                                {asset.type === "IMAGE" ? <FileImage size={12} /> : <Film size={12} />}
-                                <span className="min-w-0 flex-1 truncate text-[9px] text-text-secondary">{asset.originalFilename}</span>
-                              </button>
-                            ))
-                          ) : (
-                            <div className="p-3 text-center text-[9px] text-text-muted">Không có asset phù hợp.</div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {selectedBeat.mediaSelectionActive && (
-                    <button
-                      type="button"
-                      onClick={onResetSource}
-                      disabled={mediaBusy}
-                      className="mt-2 flex h-8 w-full items-center justify-center gap-1.5 rounded-md border border-border bg-surface-input text-[9px] text-text-muted transition hover:border-border-dark hover:bg-surface-2 hover:text-foreground disabled:opacity-50"
-                    >
-                      <RotateCcw size={11} />
-                      Use generated source
-                    </button>
-                  )}
-
-                  {mediaNotice && (
-                    <p className="mt-2 rounded-md border border-primary/25 bg-primary-muted px-2.5 py-2 text-[9px] leading-4 text-primary-hover" role="status">
-                      {mediaNotice}
-                    </p>
-                  )}
-                </InspectorCard>
-
-                <InspectorCard title="Visual Intent">
-                  <p className="min-h-20 rounded-md border border-border bg-surface-input p-3 text-[9px] leading-5 text-text-secondary">
-                    {selectedBeat.visualIntent || "Chưa có mô tả visual beat."}
-                  </p>
-                </InspectorCard>
-              </>
-            )}
-
-            {activeTab === "audio" && (
-              <InspectorCard title="Audio Sync">
-                <div className="rounded-lg border border-border-subtle bg-background p-3">
-                  <span className="block text-[10px] font-medium text-text-secondary">Narration master clock</span>
-                  <p className="mt-1.5 text-[9px] leading-4 text-text-dim">
-                    Timing của visual beat được căn theo narration. Audio controls chi tiết tiếp tục được quản lý ở các workflow Voice và timeline hiện có.
-                  </p>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <InfoCell label="Sync" value="Automatic" />
-                    <InfoCell label="Beat duration" value={formatTimecode(selectedBeat.durationMs)} />
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="mb-1.5 block text-[11px] text-text-dim">Duration</label>
+                  <input
+                    aria-label="Scene duration"
+                    readOnly
+                    value={durationText}
+                    className="h-8 w-full rounded-md border border-border-subtle bg-surface-input px-3 font-mono text-[11px] text-foreground focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-[11px] text-text-dim">Transition</label>
+                  <div className="flex h-8 w-full items-center justify-between rounded-md border border-border-subtle bg-surface-input px-3 text-[11px] text-foreground">
+                    <span>None</span>
+                    <ChevronDown size={13} className="text-text-muted" aria-hidden="true" />
                   </div>
                 </div>
-              </InspectorCard>
-            )}
+              </div>
+            </section>
 
-            {activeTab === "effects" && (
-              <InspectorCard title="Visual Effects">
-                <div className="rounded-lg border border-border-subtle bg-background p-3">
-                  <span className="block text-[10px] font-medium text-text-secondary">Current motion</span>
-                  <strong className="mt-1.5 block text-[11px] text-foreground">{selectedBeat.cameraMovement || "Default"}</strong>
-                  <p className="mt-2 text-[9px] leading-4 text-text-dim">
-                    Manual fit overrides are available in Scene → Auto Edit. Dedicated effects are intentionally not exposed until the underlying behavior is supported by the production pipeline.
-                  </p>
-                </div>
-              </InspectorCard>
-            )}
-          </div>
-        ) : (
-          <div className="grid min-h-48 place-items-center rounded-lg border border-dashed border-border p-5 text-center text-[9px] leading-5 text-text-muted">
-            Chọn một visual beat để review quyết định Auto Edit.
-          </div>
+            {/* Media Card */}
+            <section className="space-y-2">
+              <h4 className="text-[12px] font-bold text-foreground">Media</h4>
+              
+              <div className="flex min-h-[140px] flex-col items-center justify-center rounded-lg border border-border-subtle bg-[#0a0e16] p-4 text-center">
+                <ImageIcon size={26} className="text-text-muted opacity-80" strokeWidth={1.5} aria-hidden="true" />
+                <p className="mt-2.5 text-[12px] font-medium text-text-secondary">Drag &amp; drop media here</p>
+                <p className="mt-0.5 text-[10px] text-text-dim">or</p>
+                <button
+                  type="button"
+                  disabled={mediaBusy}
+                  onClick={() => onUploadMedia("IMAGE")}
+                  className="mt-2.5 h-8 rounded-md bg-[#2d1b54] px-4 text-[11px] font-semibold text-white shadow-[0_0_12px_rgba(109,60,207,0.25)] transition hover:bg-[#3c246f] active:scale-95 disabled:opacity-40"
+                >
+                  Upload Media
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between pt-1 text-[10px]">
+                <span className="text-text-dim">Current source</span>
+                <span className="rounded bg-surface-input px-2 py-0.5 font-medium text-text-secondary border border-border-subtle">
+                  {selectedBeat ? mediaSourceLabel(selectedBeat) : "Auto / Default"}
+                </span>
+              </div>
+
+              <div className="relative pt-1">
+                <button
+                  type="button"
+                  disabled={mediaBusy}
+                  onClick={() => setIsAssetPickerOpen((open) => !open)}
+                  className="flex h-7 w-full items-center justify-center gap-1.5 rounded-md border border-border-subtle bg-surface-input text-[10px] font-medium text-text-secondary transition hover:border-border hover:bg-surface-2"
+                >
+                  <FolderOpen size={12} />
+                  <span>Choose From Assets</span>
+                </button>
+
+                {isAssetPickerOpen && (
+                  <div className="absolute right-0 top-9 z-40 max-h-48 w-full overflow-y-auto rounded-lg border border-border-subtle bg-surface-elevated p-1 shadow-[var(--shadow-panel)]">
+                    {selectableAssets.length ? (
+                      selectableAssets.map((asset) => (
+                        <button
+                          key={asset.id}
+                          type="button"
+                          onClick={() => {
+                            onChooseAsset(asset.id);
+                            setIsAssetPickerOpen(false);
+                          }}
+                          className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left transition hover:bg-surface-3"
+                        >
+                          {asset.type === "IMAGE" ? <FileImage size={12} /> : <Film size={12} />}
+                          <span className="min-w-0 flex-1 truncate text-[10px] text-text-secondary">{asset.originalFilename}</span>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="p-3 text-center text-[10px] text-text-muted">Không có asset phù hợp.</div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {selectedBeat?.mediaSelectionActive && (
+                <button
+                  type="button"
+                  onClick={onResetSource}
+                  disabled={mediaBusy}
+                  className="flex h-7 w-full items-center justify-center gap-1.5 rounded-md border border-border-subtle bg-surface-input text-[10px] text-text-muted transition hover:border-border hover:bg-surface-2 hover:text-foreground disabled:opacity-50"
+                >
+                  <RotateCcw size={11} />
+                  Use generated source
+                </button>
+              )}
+
+              {mediaNotice && (
+                <p className="rounded-md border border-primary/25 bg-primary-muted px-2.5 py-1.5 text-[10px] text-primary" role="status">
+                  {mediaNotice}
+                </p>
+              )}
+            </section>
+
+            {/* Notes Card */}
+            <section className="space-y-2">
+              <h4 className="text-[12px] font-bold text-foreground">Notes</h4>
+              <div className="relative">
+                <textarea
+                  aria-label="Notes for this scene"
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value.slice(0, 500))}
+                  maxLength={500}
+                  placeholder="Ghi chú cho cảnh này..."
+                  className="h-28 w-full resize-none rounded-lg border border-border-subtle bg-[#0a0e16] p-3 text-[11px] text-foreground placeholder:text-text-dim focus:border-primary/60 focus:outline-none"
+                />
+                <span className="pointer-events-none absolute bottom-2.5 right-3 text-[10px] text-text-dim">
+                  {notes.length} / 500
+                </span>
+              </div>
+            </section>
+
+            {/* Auto Edit Collapsible / Sub-section */}
+            <section className="rounded-lg border border-border-subtle bg-surface p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-[11px] font-semibold text-primary">
+                  <WandSparkles size={12} /> Auto Edit Decision
+                </span>
+                <span className="rounded bg-primary-muted px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-primary">
+                  {autoDecision?.source === "AI_DIRECTED" ? "AI directed" : "Rule engine"}
+                </span>
+              </div>
+              <p className="text-[10px] text-text-muted leading-4">
+                {autoDecision?.reason || "Narration controls beat duration and FFmpeg auto-fits the media."}
+              </p>
+            </section>
+          </>
+        )}
+
+        {activeTab === "audio" && (
+          <section className="rounded-lg border border-border-subtle bg-surface p-3.5 space-y-2">
+            <h4 className="text-[12px] font-bold text-foreground">Audio Sync</h4>
+            <p className="text-[11px] text-text-dim leading-5">
+              Timing của visual beat được căn theo master narration track. Audio controls chi tiết được quản lý ở workflow Voice và timeline.
+            </p>
+          </section>
+        )}
+
+        {activeTab === "effects" && (
+          <section className="rounded-lg border border-border-subtle bg-surface p-3.5 space-y-2">
+            <h4 className="text-[12px] font-bold text-foreground">Visual Effects</h4>
+            <p className="text-[11px] text-text-dim leading-5">
+              Current motion: <strong className="text-foreground">{selectedBeat?.cameraMovement || "Auto"}</strong>
+            </p>
+          </section>
         )}
       </div>
     </aside>
@@ -268,52 +250,15 @@ function InspectorTabButton({ label, active, onClick }: Readonly<{ label: string
     <button
       type="button"
       onClick={onClick}
-      className={`border-b-2 px-2 py-2.5 text-[10px] font-medium transition ${active ? "border-primary text-primary-hover" : "border-transparent text-text-muted hover:text-foreground"}`}
+      className={`relative px-4 py-2.5 text-[11px] font-medium transition ${
+        active ? "text-primary font-semibold" : "text-text-muted hover:text-foreground"
+      }`}
     >
       {label}
+      {active && (
+        <span className="absolute inset-x-0 bottom-0 h-[2px] bg-primary" />
+      )}
     </button>
-  );
-}
-
-function InspectorCard({ title, children }: Readonly<{ title: string; children: React.ReactNode }>) {
-  return (
-    <section className="rounded-lg border border-border-subtle bg-surface p-3">
-      <h4 className="mb-2.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-text-dim">{title}</h4>
-      {children}
-    </section>
-  );
-}
-
-function ActionButton({
-  icon,
-  label,
-  disabled,
-  onClick,
-}: Readonly<{
-  icon: React.ReactNode;
-  label: string;
-  disabled?: boolean;
-  onClick?: () => void;
-}>) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className="flex h-8 w-full items-center justify-center gap-1.5 rounded-md border border-border bg-surface-input text-[8px] font-medium text-text-secondary transition-colors hover:border-border-dark hover:bg-surface-2 disabled:opacity-45"
-    >
-      {icon}
-      <span className="truncate">{label}</span>
-    </button>
-  );
-}
-
-function InfoCell({ label, value }: Readonly<{ label: string; value: string }>) {
-  return (
-    <div className="min-w-0 rounded-md border border-border-subtle bg-background px-2.5 py-2">
-      <span className="block text-[7px] uppercase tracking-wider text-text-dim">{label}</span>
-      <strong className="mt-1 block truncate text-[9px] font-medium text-text-secondary">{value}</strong>
-    </div>
   );
 }
 

@@ -248,6 +248,30 @@ function createWindow() {
       return showRendererFailure(window, trustPolicy.productionEntryPath, error);
     });
   }
+
+  if (!app.isPackaged) {
+    const toggleDevTools = () => {
+      if (window.webContents.isDevToolsOpened()) {
+        window.webContents.closeDevTools();
+      } else {
+        window.webContents.openDevTools({ mode: "detach" });
+      }
+    };
+
+    window.webContents.on("before-input-event", (event, input) => {
+      const isDevToolsShortcut =
+        input.type === "keyDown" &&
+        (input.key === "F12" ||
+          (input.control && input.shift && input.key.toLowerCase() === "i"));
+      if (!isDevToolsShortcut) return;
+      event.preventDefault();
+      toggleDevTools();
+    });
+
+    window.webContents.once("did-finish-load", () => {
+      toggleDevTools();
+    });
+  }
 }
 
 function requireLocalExecution(): LocalExecutionService {

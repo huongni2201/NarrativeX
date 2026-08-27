@@ -33,7 +33,8 @@ public class GetProductionTimelineUseCase {
     projectAccess.findOwnedProject(projectId, ownerId);
     List<ChapterSource> chapterSources = sourceRepository.findChapters(projectId, ownerId);
     if (chapterSources.isEmpty()) {
-      throw new IllegalStateException("Project has no chapters in its current story version");
+      return new ProductionTimelineView(
+          projectId, null, 0L, "16:9", false, List.of(), List.of());
     }
 
     UUID storyVersionId = chapterSources.getFirst().storyVersionId();

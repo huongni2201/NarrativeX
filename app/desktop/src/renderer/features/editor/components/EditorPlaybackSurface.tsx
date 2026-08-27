@@ -19,6 +19,7 @@ interface EditorPlaybackSurfaceProps {
   scopeWindowStartMs: number;
   scopeWindowEndMs: number;
   onSelectBeat: (beat: DesktopTimelineBeat) => void;
+  onUploadMedia?: (type: "IMAGE" | "VIDEO") => void;
 }
 
 export function EditorPlaybackSurface({
@@ -36,6 +37,7 @@ export function EditorPlaybackSurface({
   scopeWindowStartMs,
   scopeWindowEndMs,
   onSelectBeat,
+  onUploadMedia,
 }: Readonly<EditorPlaybackSurfaceProps>) {
   const orderedBeats = useMemo(() => sortEditorBeats(beats), [beats]);
   const [playing, setPlaying] = useState(false);
@@ -116,8 +118,8 @@ export function EditorPlaybackSurface({
   };
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-col overflow-hidden border-r border-border-subtle bg-background">
-      <div className="nx-editor-preview-panel min-h-[440px] shrink-0">
+    <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden border-r border-border-subtle bg-background">
+      <div className="nx-editor-preview-panel flex min-h-0 flex-1 flex-col overflow-hidden">
         <EditorPreviewViewport
           selectedBeat={previewBeat}
           mediaUrl={mediaUrl}
@@ -137,7 +139,7 @@ export function EditorPlaybackSurface({
         />
       </div>
 
-      <div className="nx-editor-timeline-panel min-h-[260px] border-t border-border-subtle">
+      <div className="nx-editor-timeline-panel h-[215px] shrink-0 border-t border-border-subtle overflow-hidden">
         <EditorMultiTrackTimeline
           beats={orderedBeats}
           chapters={chapters}
@@ -146,6 +148,7 @@ export function EditorPlaybackSurface({
           selectedBeatId={selectedBeatId}
           onSelectBeat={selectBeat}
           onSeek={handleSeek}
+          onUploadMedia={onUploadMedia}
         />
       </div>
     </div>
