@@ -127,7 +127,12 @@ public class GetChapterWorkspaceUseCase {
                 snapshot.visualBeatCount(),
                 snapshot.estimatedDurationSeconds()),
             new ChapterWorkspaceResponse.Pipeline(
-                new ChapterWorkspaceResponse.PipelineStep(analysisStatus, analysis.completedAt()),
+                new ChapterWorkspaceResponse.AnalysisStep(
+                    analysisStatus,
+                    analysis.completedAt(),
+                    analysis.latestJobId(),
+                    analysis.visualGenerationMode(),
+                    analysis.imageProvider()),
                 new ChapterWorkspaceResponse.PipelineStep(planningStatus, analysis.completedAt()),
                 new ChapterWorkspaceResponse.ProgressStep(
                     visualGeneration.status(),
@@ -142,6 +147,7 @@ public class GetChapterWorkspaceUseCase {
                     audio.completedAt(),
                     audio.latestJobId(),
                     audio.voiceId(),
+                    audio.speakingRate(),
                     audioUrl,
                     audio.durationMs()),
                 new ChapterWorkspaceResponse.RenderStep(
