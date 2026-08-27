@@ -15,7 +15,7 @@ class GoogleOidcClientConfigurationTest {
         configuration.clientRegistrationRepository("client-id", "client-secret", "https://narrativex.cloud/");
 
     assertEquals(
-        "https://narrativex.cloud/login/oauth2/code/google",
+        "https://narrativex.cloud/login/oauth2/code/{registrationId}",
         repository.findByRegistrationId("google").getRedirectUri());
   }
 

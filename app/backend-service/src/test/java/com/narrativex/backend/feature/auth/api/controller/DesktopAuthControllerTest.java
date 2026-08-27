@@ -57,7 +57,7 @@ class DesktopAuthControllerTest {
 
   @Test
   void exchangeRequestRequiresABase64UrlVerifier() {
-    var verifier = DesktopAuthExchangeRequest.class.getRecordComponents()[1];
+    var verifier = DesktopAuthExchangeRequest.class.getRecordComponents()[1].getAccessor();
     assertTrue(verifier.isAnnotationPresent(NotBlank.class));
     assertEquals("[A-Za-z0-9_-]{43,86}", verifier.getAnnotation(Pattern.class).regexp());
   }
@@ -65,9 +65,11 @@ class DesktopAuthControllerTest {
   @Test
   void guestRequestRequiresInstallationCredentials() {
     var components = DesktopGuestSessionRequest.class.getRecordComponents();
-    assertTrue(components[0].isAnnotationPresent(NotBlank.class));
-    assertTrue(components[1].isAnnotationPresent(NotBlank.class));
-    assertEquals("[A-Za-z0-9_-]{43}", components[1].getAnnotation(Pattern.class).regexp());
+    var deviceId = components[0].getAccessor();
+    var secret = components[1].getAccessor();
+    assertTrue(deviceId.isAnnotationPresent(NotBlank.class));
+    assertTrue(secret.isAnnotationPresent(NotBlank.class));
+    assertEquals("[A-Za-z0-9_-]{43}", secret.getAnnotation(Pattern.class).regexp());
   }
 
   @Test

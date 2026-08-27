@@ -34,6 +34,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.web.util.UriUtils;
 
 @RestController
 @RequestMapping("/api/v1/auth/desktop")
@@ -207,14 +208,14 @@ public class DesktopAuthController {
       return null;
     }
 
+    String encodedRedirectUri = UriUtils.encodeQueryParam(redirectUri, StandardCharsets.UTF_8);
+    String encodedCodeChallenge = UriUtils.encodeQueryParam(codeChallenge, StandardCharsets.UTF_8);
     return UriComponentsBuilder.fromUri(publicOrigin)
         .replacePath(DESKTOP_START_PATH)
         .replaceQuery(null)
         .fragment(null)
-        .queryParam("redirect_uri", redirectUri)
-        .queryParam("code_challenge", codeChallenge)
-        .build()
-        .encode(StandardCharsets.UTF_8)
+        .query("redirect_uri=" + encodedRedirectUri + "&code_challenge=" + encodedCodeChallenge)
+        .build(true)
         .toUriString();
   }
 
