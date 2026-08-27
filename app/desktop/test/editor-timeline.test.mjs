@@ -2,7 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   buildEditorHierarchy,
+  findEditorBeatAtTime,
   resolveEditorScopeWindow,
+  sortEditorBeats,
 } from "../src/renderer/features/editor/editor-timeline.ts";
 
 const chapters = [
@@ -51,6 +53,21 @@ test("editor hierarchy preserves Chapter -> Scene -> Visual Beat ordering", () =
     ["beat-1", "beat-2"],
   );
   assert.equal(hierarchy[0].scenes[0].durationMs, 12_000);
+});
+
+test("editor playback orders beats before previous/next navigation", () => {
+  assert.deepEqual(
+    sortEditorBeats(beats).map((item) => item.visualBeatId),
+    ["beat-1", "beat-2", "beat-3", "beat-4"],
+  );
+});
+
+test("editor playback resolves boundaries and includes the final endpoint", () => {
+  assert.equal(findEditorBeatAtTime(beats, 0)?.visualBeatId, "beat-1");
+  assert.equal(findEditorBeatAtTime(beats, 5_000)?.visualBeatId, "beat-2");
+  assert.equal(findEditorBeatAtTime(beats, 12_000)?.visualBeatId, "beat-3");
+  assert.equal(findEditorBeatAtTime(beats, 32_000)?.visualBeatId, "beat-4");
+  assert.equal(findEditorBeatAtTime(beats, 32_001), null);
 });
 
 test("editor scope resolves beat, scene, chapter and project windows without prerender grouping", () => {
