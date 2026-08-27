@@ -1,5 +1,5 @@
 import { BookOpen, Clapperboard, FileText, WandSparkles } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 type Props = Readonly<{
   sceneAvailable?: boolean;
@@ -20,7 +20,10 @@ export function ChapterWorkflowRibbon({
   onOpenEditor,
 }: Props = {}) {
   const navigate = useNavigate();
-  const openEditor = onOpenEditor ?? (() => navigate("../editor"));
+  const { projectId } = useParams<{ projectId: string }>();
+  const openEditor =
+    onOpenEditor ??
+    (() => navigate(projectId ? `/projects/${projectId}/editor` : "/projects"));
 
   return (
     <div className="shrink-0 border-b border-border bg-surface-panel px-6 py-2">
