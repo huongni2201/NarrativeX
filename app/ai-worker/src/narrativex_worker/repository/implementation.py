@@ -17,6 +17,7 @@ from narrativex_worker.schema import (
     ChapterAnalysisRequest,
     ChapterAnalysisResult,
     ProviderOperationStatus,
+    VisualGenerationMode,
 )
 
 
@@ -143,6 +144,7 @@ class WorkerRepository:
                            gj.source_hash,
                            gj.source_text,
                            gj.source_language,
+                           gj.production_mode,
                            gj.requested_by_user_id
                       FROM stage_attempts sa
                       JOIN generation_jobs gj ON gj.id = sa.generation_job_id
@@ -189,6 +191,11 @@ class WorkerRepository:
                     row["generation_job_id"],
                 )
 
+                visual_generation_mode = (
+                    VisualGenerationMode.VIDEO
+                    if row["production_mode"] == "VIDEO_GENERATION"
+                    else VisualGenerationMode.IMAGE
+                )
                 request = ChapterAnalysisRequest(
                     project_id=row["project_id"],
                     story_version_id=row["story_version_id"],
@@ -197,6 +204,7 @@ class WorkerRepository:
                     source_hash=row["source_hash"],
                     source_text=row["source_text"],
                     source_language=row["source_language"],
+                    visual_generation_mode=visual_generation_mode,
                 )
                 return ClaimedChapterAnalysisJob(
                     stage_attempt_id=row["stage_attempt_id"],
@@ -810,6 +818,7 @@ def provider_request_fingerprint(claimed: ClaimedChapterAnalysisJob, provider_ke
             str(claimed.generation_job_id),
             str(claimed.request.chapter_id),
             claimed.request.source_hash,
+            claimed.request.visual_generation_mode.value,
         )
     )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
