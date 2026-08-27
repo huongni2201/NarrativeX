@@ -65,6 +65,10 @@ export function ChapterListPanel({
   const selectionHidden = Boolean(
     editingId && !isCreating && !chapters.some((chapter) => chapter.id === editingId),
   );
+  const statusFilterLoading =
+    statusFilter !== "all" &&
+    allChaptersCount > 0 &&
+    workspacesByChapterId.size + workspaceErrorsByChapterId.size < allChaptersCount;
 
   return (
     <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-surface-panel shadow-[var(--shadow-panel)]">
@@ -138,6 +142,12 @@ export function ChapterListPanel({
           <p className="text-[10px] leading-4 text-text-muted">
             Bộ lọc trạng thái tải workspace của toàn bộ chapter theo yêu cầu; polling nền vẫn chỉ
             chạy cho chapter đang chọn.
+          </p>
+        )}
+
+        {statusFilterLoading && (
+          <p className="rounded-md border border-info/30 bg-info-bg px-2.5 py-2 text-[10px] leading-4 text-text-secondary" role="status">
+            Đang tải trạng thái chapter để áp dụng bộ lọc. Kết quả sẽ ổn định sau khi dữ liệu tải xong.
           </p>
         )}
 
@@ -219,11 +229,13 @@ export function ChapterListPanel({
 
         {!filteredCount && (
           <EmptyState
-            title="Chưa có chapter phù hợp"
+            title={statusFilterLoading ? "Đang tải trạng thái chapter…" : "Chưa có chapter phù hợp"}
             description={
-              allChaptersCount
-                ? "Thử đổi bộ lọc hoặc tạo chapter mới."
-                : "Tạo chapter đầu tiên để bắt đầu story flow."
+              statusFilterLoading
+                ? "Kết quả bộ lọc sẽ xuất hiện khi trạng thái các chapter tải xong."
+                : allChaptersCount
+                  ? "Thử đổi bộ lọc hoặc tạo chapter mới."
+                  : "Tạo chapter đầu tiên để bắt đầu story flow."
             }
           />
         )}
