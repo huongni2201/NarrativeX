@@ -44,7 +44,10 @@ const QUERY_REQUIREMENTS: Record<ActivityId, WorkspaceQueryRequirements> = {
   editor: {
     timeline: true,
     chapters: false,
-    assetScope: "visual",
+    // Editor needs both visual media and narration assets. Restricting this to
+    // "visual" makes LOCAL_ONLY narration look remote and causes preview URL
+    // requests to hit an endpoint that cannot serve that local asset.
+    assetScope: "all",
     characters: false,
     voices: false,
     presets: false,
