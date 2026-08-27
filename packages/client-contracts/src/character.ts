@@ -5,4 +5,34 @@ export interface DesktopCharacter {
   sceneCount?: number;
   status?: string;
   pinnedCharacterVersionId?: string | null;
+  aliases?: string[];
+  projectAliases?: string[];
+  importance?: number;
+  groups?: string[];
+  workspaceId?: string | null;
+  assignmentId?: string;
+  projectId?: string;
+  rowVersion?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface DesktopCharacterVersion {
+  versionNumber?: number | null;
+  status?: string | null;
+  bible?: string | null;
+  visualPrompt?: string | null;
+}
+
+export interface DesktopCharacterAppearance {
+  ageState?: string | null;
+  hairstyle?: string | null;
+  injury?: string | null;
+  wardrobeContext?: string | null;
+  appearancePrompt?: string | null;
+}
+
+export interface DesktopCharacterDetail extends DesktopCharacter {
+  version?: DesktopCharacterVersion | null;
+  appearance?: DesktopCharacterAppearance | null;
 }
