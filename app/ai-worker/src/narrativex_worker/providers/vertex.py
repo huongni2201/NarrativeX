@@ -54,7 +54,7 @@ class VertexGeminiProvider(LlmProvider):
                 f"model; unsupported model={settings.vertex_model}"
             )
         self.settings = settings
-        credentials, _ = google.auth.default(
+        credentials, _ = google.auth.default(  # type: ignore[no-untyped-call]
             scopes=["https://www.googleapis.com/auth/cloud-platform"]
         )
         self._credentials: Credentials = credentials
@@ -222,7 +222,8 @@ class VertexGeminiProvider(LlmProvider):
         last_exception: Exception | None = None
         for attempt in range(3):
             try:
-                await asyncio.to_thread(self._credentials.refresh, Request())
+                refresh_request = Request()  # type: ignore[no-untyped-call]
+                await asyncio.to_thread(self._credentials.refresh, refresh_request)
                 token = self._credentials.token
                 if isinstance(token, str) and token:
                     return token
