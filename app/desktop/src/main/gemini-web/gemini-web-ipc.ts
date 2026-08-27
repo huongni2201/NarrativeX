@@ -4,6 +4,7 @@ import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
 import { GeminiWebAutomation } from "./gemini-web-automation";
+import { GeminiWebNetworkCapture } from "./gemini-web-network-capture";
 import { compileGeminiWebPrompt } from "./gemini-web-prompt";
 import { ProjectStorage } from "../local-storage/project-storage";
 import {
@@ -13,6 +14,7 @@ import {
 import { SelectionTokenStore } from "../security/selection-token-store";
 
 const pendingGeminiSelections = new SelectionTokenStore<{ sourcePath: string }>();
+const NETWORK_RECOVERY_GRACE_MS = 8_000;
 
 export function registerGeminiWebIpc(
   policy: RendererTrustPolicy,
@@ -26,8 +28,22 @@ export function registerGeminiWebIpc(
     policy,
     async (event, input) => {
       if (!isGenerateInput(input)) throw new Error("Invalid Gemini Web generation request.");
-      const result = await automation.generateImage(compileGeminiWebPrompt(input.prompt));
-      return stageGeneratedImage(event.sender.id, result.sourcePath);
+
+      const networkCapture = new GeminiWebNetworkCapture(automationRoot);
+      const networkResult = networkCapture.captureNextGeneratedImage().catch(() => null);
+      try {
+        const result = await automation.generateImage(compileGeminiWebPrompt(input.prompt));
+        networkCapture.cancel();
+        return stageGeneratedImage(event.sender.id, result.sourcePath);
+      } catch (error) {
+        const captured = await waitForNetworkCapture(networkResult, NETWORK_RECOVERY_GRACE_MS);
+        if (captured) {
+          return stageGeneratedImage(event.sender.id, captured.sourcePath);
+        }
+        throw error;
+      } finally {
+        networkCapture.cancel();
+      }
     },
   );
 
@@ -52,6 +68,13 @@ export function registerGeminiWebIpc(
   app.on("before-quit", () => {
     void automation.stop().catch(() => undefined);
   });
+}
+
+async function waitForNetworkCapture<T>(promise: Promise<T | null>, timeoutMs: number): Promise<T | null> {
+  return await Promise.race([
+    promise,
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
+  ]);
 }
 
 async function stageGeneratedImage(senderId: number, sourcePath: string) {
