@@ -125,7 +125,7 @@ export function EditorPreviewViewport({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-background px-3 py-1.5">
+    <div className="flex h-full min-h-0 flex-col bg-background px-5 py-3">
       {narrationUrl && !audioFailed && (
         <audio
           ref={audioRef}
@@ -136,13 +136,13 @@ export function EditorPreviewViewport({
         />
       )}
 
-      <div className="mx-auto flex h-7 w-full max-w-[680px] items-center justify-between gap-3 text-[10px]">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="font-mono text-[9px] font-semibold text-text-dim">{beatNumber}</span>
-          <h2 className="truncate text-[11px] font-semibold text-foreground">
+      <div className="mx-auto flex h-10 w-full max-w-[1040px] items-center justify-between gap-4 text-[11px]">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className="font-mono text-[10px] font-semibold text-text-dim">{beatNumber}</span>
+          <h2 className="truncate text-[13px] font-semibold text-foreground">
             {selectedBeat?.title || "Visual Beat"}
           </h2>
-          <span className={`shrink-0 rounded-sm border px-1.5 py-0.5 text-[8px] font-medium ${
+          <span className={`shrink-0 rounded-md border px-2 py-1 text-[9px] font-medium ${
             showMedia
               ? "border-success/30 bg-success-bg text-success"
               : "border-border bg-surface-2 text-text-muted"
@@ -155,16 +155,16 @@ export function EditorPreviewViewport({
           <span className="hidden font-mono xl:inline">
             Duration <strong className="ml-1 font-semibold text-text-secondary">{formatTimecode(selectedBeat?.durationMs || 0)}</strong>
           </span>
-          <button type="button" className="nx-icon-button size-6" aria-label="More options">
-            <MoreVertical size={13} />
+          <button type="button" className="nx-icon-button size-7" aria-label="More options">
+            <MoreVertical size={14} />
           </button>
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 items-center justify-center py-1">
+      <div className="flex min-h-0 flex-1 items-center justify-center py-3">
         <div
           ref={frameRef}
-          className="nx-editor-preview-frame relative aspect-[21/9] overflow-hidden rounded-md border border-border bg-surface-dark shadow-[var(--shadow-panel)]"
+          className="nx-editor-preview-frame relative aspect-video overflow-hidden rounded-lg border border-border bg-surface-dark shadow-[var(--shadow-panel)]"
         >
           {showMedia && selectedBeat?.mediaType === "IMAGE" ? (
             <img
@@ -194,14 +194,14 @@ export function EditorPreviewViewport({
             />
           ) : (
             <div className="nx-media-placeholder relative flex h-full w-full items-center justify-center overflow-hidden">
-              <div className="relative z-10 max-w-md px-5 text-center">
-                <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-primary-hover">
+              <div className="relative z-10 max-w-lg px-6 text-center">
+                <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary-hover">
                   {selectedBeat?.cameraMovement || "Auto Edit"}
                 </span>
-                <h3 className="mt-1 text-sm font-semibold text-foreground">
+                <h3 className="mt-2 text-base font-semibold text-foreground">
                   {previewLoading ? "Đang tải preview…" : selectedBeat?.title || "Visual Beat"}
                 </h3>
-                <p className="mt-1 line-clamp-2 text-[10px] leading-4 text-text-secondary">
+                <p className="mt-2 line-clamp-2 text-[11px] leading-5 text-text-secondary">
                   {mediaFailed
                     ? "Không tải được media preview. Render source vẫn được giữ nguyên."
                     : previewMessage || selectedBeat?.visualIntent || "Chưa có media để preview."}
@@ -212,8 +212,8 @@ export function EditorPreviewViewport({
           )}
 
           {showMedia && (
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-background/70 to-transparent px-3 pb-2 pt-8">
-              <div className="flex items-end justify-between gap-3 text-[8px] text-white/80">
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-background/70 to-transparent px-4 pb-3 pt-10">
+              <div className="flex items-end justify-between gap-3 text-[9px] text-white/80">
                 <span>{selectedBeat?.cameraMovement || "NONE"}</span>
                 <span>{selectedBeat?.fitMode || "TRIM"}</span>
               </div>
@@ -222,34 +222,34 @@ export function EditorPreviewViewport({
         </div>
       </div>
 
-      <div className="mx-auto flex h-8 w-full max-w-[680px] items-center justify-between gap-3">
-        <div className="min-w-[118px] font-mono text-[9px]">
+      <div className="mx-auto flex h-10 w-full max-w-[1040px] items-center justify-between gap-4">
+        <div className="min-w-[150px] font-mono text-[10px]">
           <span className="font-semibold text-text-secondary">{formatTimecode(currentOffsetMs)}</span>
-          <span className="mx-1 text-text-dim">/</span>
+          <span className="mx-1.5 text-text-dim">/</span>
           <span className="text-text-muted">{formatTimecode(totalScopeDurationMs)}</span>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           <button type="button" onClick={onPrevBeat} className="nx-icon-button" title="Previous beat" aria-label="Previous beat">
-            <SkipBack size={13} />
+            <SkipBack size={14} />
           </button>
           <button type="button" onClick={() => onStepMs(-500)} className="nx-icon-button" title="Step back" aria-label="Step back">
-            <span className="font-mono text-[10px] font-bold">‹‹</span>
+            <span className="font-mono text-[11px] font-bold">‹‹</span>
           </button>
           <button
             type="button"
             onClick={onTogglePlay}
-            className="mx-1 flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[var(--shadow-primary)] transition hover:bg-primary-hover active:scale-95"
+            className="mx-1.5 flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[var(--shadow-primary)] transition hover:bg-primary-hover active:scale-95"
             title={playing ? "Pause" : "Play"}
             aria-label={playing ? "Pause" : "Play"}
           >
-            {playing ? <Pause size={13} /> : <Play size={13} className="ml-0.5" />}
+            {playing ? <Pause size={14} /> : <Play size={14} className="ml-0.5" />}
           </button>
           <button type="button" onClick={() => onStepMs(500)} className="nx-icon-button" title="Step forward" aria-label="Step forward">
-            <span className="font-mono text-[10px] font-bold">››</span>
+            <span className="font-mono text-[11px] font-bold">››</span>
           </button>
           <button type="button" onClick={onNextBeat} className="nx-icon-button" title="Next beat" aria-label="Next beat">
-            <SkipForward size={13} />
+            <SkipForward size={14} />
           </button>
           <button
             type="button"
@@ -258,23 +258,23 @@ export function EditorPreviewViewport({
             title={muted ? "Unmute narration" : "Mute narration"}
             aria-label={muted ? "Unmute narration" : "Mute narration"}
           >
-            {muted ? <VolumeX size={13} /> : <Volume2 size={13} />}
+            {muted ? <VolumeX size={14} /> : <Volume2 size={14} />}
           </button>
         </div>
 
-        <div className="flex min-w-[118px] justify-end gap-1.5">
+        <div className="flex min-w-[150px] justify-end gap-2">
           <div className="relative">
             <button
               type="button"
               onClick={() => setIsFitOpen(!isFitOpen)}
-              className="nx-compact-control flex h-7 items-center gap-1 px-2 text-[9px] font-medium"
+              className="nx-compact-control flex h-8 items-center gap-1.5 px-2.5 text-[10px] font-medium"
               aria-expanded={isFitOpen}
             >
               <span>{fitMode}</span>
               <ChevronDown size={10} className="text-text-muted" />
             </button>
             {isFitOpen && (
-              <div className="absolute bottom-8 right-0 z-30 w-24 rounded-md border border-border bg-surface-elevated p-1 shadow-[var(--shadow-panel)]">
+              <div className="absolute bottom-9 right-0 z-30 w-28 rounded-md border border-border bg-surface-elevated p-1 shadow-[var(--shadow-panel)]">
                 {(["Fit", "100%", "Fill"] as const).map((mode) => (
                   <button
                     key={mode}
@@ -283,7 +283,7 @@ export function EditorPreviewViewport({
                       setFitMode(mode);
                       setIsFitOpen(false);
                     }}
-                    className={`w-full rounded-sm px-2 py-1 text-left text-[9px] transition ${
+                    className={`w-full rounded-sm px-2 py-1.5 text-left text-[9px] transition ${
                       fitMode === mode
                         ? "bg-primary-muted font-semibold text-primary-hover"
                         : "text-text-muted hover:bg-surface-3 hover:text-foreground"
@@ -299,11 +299,11 @@ export function EditorPreviewViewport({
           <button
             type="button"
             onClick={() => void toggleFullscreen()}
-            className="nx-compact-control grid size-7 place-items-center text-text-muted"
+            className="nx-compact-control grid size-8 place-items-center text-text-muted"
             title="Toàn màn hình"
             aria-label="Fullscreen"
           >
-            <Maximize2 size={11} />
+            <Maximize2 size={12} />
           </button>
         </div>
       </div>
