@@ -61,6 +61,12 @@ class CameraAngle(StrEnum):
     POV = "POV"
 
 
+class VisualBeatCharacterRole(StrEnum):
+    PRIMARY = "PRIMARY"
+    SECONDARY = "SECONDARY"
+    BACKGROUND = "BACKGROUND"
+
+
 class ModerationDecision(StrEnum):
     SAFE = "SAFE"
     REVIEW = "REVIEW"
@@ -94,12 +100,20 @@ class LocationAnalysis(BaseModel):
     description: str = Field(default="", max_length=4000)
 
 
+class VisualBeatCharacterRef(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    character_key: str = Field(pattern=ENTITY_KEY_PATTERN)
+    role: VisualBeatCharacterRole = VisualBeatCharacterRole.SECONDARY
+
+
 class VisualBeatAnalysis(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     title: str = Field(min_length=1, max_length=200)
     visual_intent: str = Field(min_length=1, max_length=8000)
     camera_angle: CameraAngle = CameraAngle.MEDIUM
+    characters: list[VisualBeatCharacterRef] = Field(default_factory=list)
 
 
 class SceneCharacterRef(BaseModel):
@@ -149,6 +163,25 @@ class ChapterAnalysisResult(BaseModel):
                 raise ValueError(
                     f"scene {scene_index} references unknown location_key {scene.location_key!r}"
                 )
+
+            scene_character_set = set(scene_character_keys)
+            for beat_index, beat in enumerate(scene.visual_beats):
+                beat_character_keys = [ref.character_key for ref in beat.characters]
+                if len(beat_character_keys) != len(set(beat_character_keys)):
+                    raise ValueError(
+                        f"scene {scene_index} visual beat {beat_index} contains duplicate character references"
+                    )
+                for character_key in beat_character_keys:
+                    if character_key not in known_character_keys:
+                        raise ValueError(
+                            f"scene {scene_index} visual beat {beat_index} references unknown "
+                            f"character_key {character_key!r}"
+                        )
+                    if character_key not in scene_character_set:
+                        raise ValueError(
+                            f"scene {scene_index} visual beat {beat_index} references character_key "
+                            f"{character_key!r} that is not present in the scene"
+                        )
         return self
 
 
