@@ -73,7 +73,10 @@ test("remote reconcile updates known projects without deleting local-only projec
   try {
     const catalog = new ProjectCatalog(new ProjectStorage(root));
     await catalog.upsert(project(projectId, "Local guest project"));
-    await catalog.upsert(project(secondProjectId, "Remote project"));
+    await catalog.upsert(project(secondProjectId, "Remote project"), {
+      cloudProjectId: secondProjectId,
+      syncStatus: "SYNCED",
+    });
 
     const reconciled = await catalog.reconcile([
       project(secondProjectId, "Remote project renamed"),
@@ -88,6 +91,53 @@ test("remote reconcile updates known projects without deleting local-only projec
       reconciled.find((entry) => entry.project.id === secondProjectId)?.project.name,
       "Remote project renamed",
     );
+    assert.equal(
+      reconciled.find((entry) => entry.project.id === secondProjectId)?.syncStatus,
+      "SYNCED",
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("remote reconcile hides a synced project that no longer exists remotely", async () => {
+  const root = await mkdtemp(join(tmpdir(), "narrativex-catalog-orphaned-"));
+  try {
+    const catalog = new ProjectCatalog(new ProjectStorage(root));
+    await catalog.upsert(project(projectId, "Cloud project"), {
+      cloudProjectId: projectId,
+      syncStatus: "SYNCED",
+    });
+    await catalog.touch(projectId);
+
+    const reconciled = await catalog.reconcile([]);
+
+    assert.equal(reconciled.length, 0);
+    assert.equal(await catalog.lastOpened(), null);
+
+    const snapshot = JSON.parse(
+      await readFile(join(root, projectId, "project.json"), "utf8"),
+    );
+    assert.equal(snapshot.syncStatus, "ORPHANED");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("remote reconcile upgrades an existing matching local project to synced", async () => {
+  const root = await mkdtemp(join(tmpdir(), "narrativex-catalog-upgrade-"));
+  try {
+    const catalog = new ProjectCatalog(new ProjectStorage(root));
+    await catalog.upsert(project(projectId, "Legacy local entry"));
+
+    const reconciled = await catalog.reconcile([
+      project(projectId, "Remote project"),
+    ]);
+
+    assert.equal(reconciled.length, 1);
+    assert.equal(reconciled[0].syncStatus, "SYNCED");
+    assert.equal(reconciled[0].cloudProjectId, projectId);
+    assert.equal(reconciled[0].project.name, "Remote project");
   } finally {
     await rm(root, { recursive: true, force: true });
   }
