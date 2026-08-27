@@ -54,12 +54,6 @@ class GenerationJobControllerContractTest {
             null,
             null,
             null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
             null);
     when(useCase.execute(any(GetGenerationJobQuery.class))).thenReturn(job);
 
@@ -105,12 +99,6 @@ class GenerationJobControllerContractTest {
             chapterId,
             null,
             0L,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
             null,
             null,
             null,
