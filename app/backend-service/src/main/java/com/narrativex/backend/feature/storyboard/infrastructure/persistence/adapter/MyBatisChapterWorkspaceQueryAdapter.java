@@ -31,7 +31,12 @@ public class MyBatisChapterWorkspaceQueryAdapter implements ChapterWorkspaceRead
         row.getStoryboardSourceHash(),
         row.isHasApprovedOutput(),
         new Analysis(
-            row.getAnalysisStatus(), row.getAnalysisSourceHash(), row.getAnalysisCompletedAt()),
+            row.getAnalysisStatus(),
+            row.getAnalysisSourceHash(),
+            row.getAnalysisCompletedAt(),
+            row.getAnalysisLatestJobId(),
+            row.getAnalysisVisualGenerationMode(),
+            row.getAnalysisImageProvider()),
         new ChapterWorkspaceProjection(
             new ProgressStep(
                 progressStatus(
@@ -54,6 +59,7 @@ public class MyBatisChapterWorkspaceQueryAdapter implements ChapterWorkspaceRead
                 row.getNarrationCompletedAt(),
                 row.getNarrationJobId(),
                 row.getNarrationVoiceId(),
+                row.getNarrationSpeakingRate(),
                 row.getNarrationStorageKey(),
                 row.getNarrationDurationMs()),
             new RenderStep(
