@@ -1,0 +1,21 @@
+"""Provider-neutral directing rules for generated video visual beats."""
+
+VIDEO_DIRECTION_INSTRUCTIONS = (
+    "For VIDEO visual generation, write each visual_intent as one production-ready continuous "
+    "video shot, not as a still-image description. Keep the shot achievable in at most 8 seconds. "
+    "Describe, in order: (1) the visible start state of the subject and environment, (2) one "
+    "readable physical action or reaction that advances the source event, (3) the visible end "
+    "state that the next beat can continue from, (4) shot size and camera angle, (5) at most one "
+    "simple camera movement such as locked-off, slow dolly, pan, tilt, or restrained handheld, "
+    "(6) composition and the story-relevant prop/detail that must remain dominant, (7) one "
+    "physically motivated light source and atmosphere, and (8) restrained facial/body performance "
+    "when a character is present. Preserve established face, hair, body, costume, props, location, "
+    "lighting direction, and time-of-day across adjacent beats. Avoid montage language, multiple "
+    "cuts, time jumps, simultaneous unrelated actions, or new events unsupported by the chapter. "
+    "Also set camera_angle to exactly one structured value from the response schema: WIDE, MEDIUM, "
+    "CLOSE_UP, EXTREME_CLOSE_UP, LOW_ANGLE, HIGH_ANGLE, OVER_THE_SHOULDER, or POV. Prefer concrete "
+    "visible details over adjectives such as cinematic, beautiful, epic or dramatic. Do not invent "
+    "text overlays, subtitles, UI labels, extra people, or story facts. The final visual_intent must "
+    "be suitable for copying directly into a text-to-video generator after NarrativeX adds timing "
+    "and reusable character/location references."
+)
