@@ -30,7 +30,7 @@ export function EditorExplorerPanel({
   onAddChapter,
   onClose,
 }: Readonly<EditorExplorerPanelProps>) {
-  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  const [viewMode, setViewMode] = useState<"list" | "grid">("grid");
 
   const totalDurationMs = useMemo(
     () => hierarchy.reduce((total, group) => total + Math.max(0, group.chapter.endMs - group.chapter.startMs), 0),
@@ -60,14 +60,7 @@ export function EditorExplorerPanel({
       });
     }
 
-    // Default placeholder chapters if hierarchy is empty for visual consistency
-    return [
-      { id: "1", number: "01", title: "Visual Beat", timeRange: "00:00 - 00:10", isActive: true, firstBeat: null, beats: [] },
-      { id: "2", number: "02", title: "Introduction", timeRange: "00:10 - 00:25", isActive: false, firstBeat: null, beats: [] },
-      { id: "3", number: "03", title: "The Turning Point", timeRange: "00:25 - 00:45", isActive: false, firstBeat: null, beats: [] },
-      { id: "4", number: "04", title: "Climax", timeRange: "00:45 - 01:05", isActive: false, firstBeat: null, beats: [] },
-      { id: "5", number: "05", title: "Resolution", timeRange: "01:05 - 01:30", isActive: false, firstBeat: null, beats: [] },
-    ];
+    return [];
   }, [hierarchy, selectedBeatId]);
 
   return (
@@ -111,6 +104,7 @@ export function EditorExplorerPanel({
           className="grid size-8 shrink-0 place-items-center rounded-md border border-border-subtle bg-surface-input text-text-muted hover:border-border hover:bg-surface-2 hover:text-foreground"
           title="Toggle view mode"
           aria-label="Toggle view mode"
+          aria-pressed={viewMode === "grid"}
         >
           <LayoutGrid size={13} />
         </button>
@@ -118,7 +112,7 @@ export function EditorExplorerPanel({
 
       {/* Chapters List */}
       <div className="min-h-0 flex-1 overflow-y-auto px-3.5 py-2.5 pb-28">
-        <div className="space-y-2">
+        <div className={viewMode === "grid" ? "grid grid-cols-2 gap-2 max-[960px]:grid-cols-1" : "space-y-2"}>
           {chaptersList.map((chapter) => {
             const isActive = chapter.isActive;
 
@@ -168,14 +162,27 @@ export function EditorExplorerPanel({
             );
           })}
 
-          <button
-            type="button"
-            onClick={onAddChapter}
-            className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border-subtle bg-surface/50 text-[11px] font-medium text-text-muted transition hover:border-primary/50 hover:bg-primary-muted hover:text-primary"
-          >
-            <Plus size={14} />
-            <span>Add Chapter</span>
-          </button>
+          {chaptersList.length === 0 && (
+            <div className="rounded-lg border border-dashed border-border-subtle bg-surface/50 px-4 py-7 text-center" role="status">
+              <p className="text-[12px] font-medium text-text-secondary">
+                {query.trim() ? "Không tìm thấy chapter phù hợp." : "Chưa có chapter nào."}
+              </p>
+              <p className="mt-1 text-[10px] leading-4 text-text-dim">
+                {query.trim() ? "Thử thay đổi từ khóa tìm kiếm." : "Tạo chapter trong tab Chapters để bắt đầu biên tập."}
+              </p>
+            </div>
+          )}
+
+          {onAddChapter && (
+            <button
+              type="button"
+              onClick={onAddChapter}
+              className="col-span-full flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border-subtle bg-surface/50 text-[11px] font-medium text-text-muted transition hover:border-primary/50 hover:bg-primary-muted hover:text-primary"
+            >
+              <Plus size={14} aria-hidden="true" />
+              <span>Add Chapter</span>
+            </button>
+          )}
         </div>
       </div>
 
