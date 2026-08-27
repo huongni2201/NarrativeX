@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import type {
   DesktopChapterDetails,
   DesktopTimeline,
+  ImageGenerationProvider,
+  ImageGenerationStrategy,
   MediaAspectRatio,
   MediaImageStyle,
   MediaJobCostEstimate,
@@ -49,12 +51,16 @@ export function ImagesScreen({
   const [chapterId, setChapterId] = useState("");
   const [qualityTier, setQualityTier] = useState<MediaQualityTier>("STANDARD");
   const [imageStyle, setImageStyle] = useState<MediaImageStyle>("CINEMATIC");
+  const [imageProvider, setImageProvider] = useState<ImageGenerationProvider>("API");
+  const [imageStrategy, setImageStrategy] = useState<ImageGenerationStrategy>("GENERATE_NEW");
   const [analysisJobId, setAnalysisJobId] = useState<string | null>(null);
   const [mediaJobId, setMediaJobId] = useState<string | null>(null);
   const [costEstimate, setCostEstimate] = useState<MediaJobCostEstimate | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const mediaIntentRef = useRef<{ signature: string; idempotencyKey: string } | null>(null);
 
+  const effectiveStrategy: ImageGenerationStrategy =
+    imageProvider === "GEMINI_WEB" ? "GENERATE_NEW" : imageStrategy;
   const currentMediaJob = useCurrentMediaJob(projectId, chapterId || null);
   const effectiveMediaJobId = mediaJobId ?? currentMediaJob.data?.jobId ?? null;
   const analysisJob = useGenerationJob(analysisJobId);
@@ -74,9 +80,18 @@ export function ImagesScreen({
   }, [chapterId]);
 
   useEffect(() => {
+    if (imageProvider === "GEMINI_WEB") {
+      setImageStrategy("GENERATE_NEW");
+    }
+    setCostEstimate(null);
+    setMediaJobId(null);
+    mediaIntentRef.current = null;
+  }, [imageProvider]);
+
+  useEffect(() => {
     setCostEstimate(null);
     mediaIntentRef.current = null;
-  }, [imageStyle, qualityTier, timeline?.aspectRatio]);
+  }, [imageStrategy, imageStyle, qualityTier, timeline?.aspectRatio]);
 
   useEffect(() => {
     if (isTerminalGenerationJobStatus(mediaGenerationJob.data?.status)) {
@@ -106,9 +121,16 @@ export function ImagesScreen({
     if (!chapterId || analysisBusy) return;
     setNotice(null);
     try {
-      const job = await analyze.mutateAsync({ projectId, chapterId });
+      const job = await analyze.mutateAsync({
+        projectId,
+        chapterId,
+        request: {
+          visualGenerationMode: "IMAGE",
+          imageProvider,
+        },
+      });
       setAnalysisJobId(job.jobId);
-      setNotice(`Analysis ${job.jobId.slice(0, 8)} đã được queue.`);
+      setNotice(`Analysis ${job.jobId.slice(0, 8)} đã được queue cho ${formatProvider(imageProvider)}.`);
     } catch (error) {
       setNotice(toMessage(error));
     }
@@ -117,6 +139,10 @@ export function ImagesScreen({
   async function estimateCost(): Promise<MediaJobCostEstimate | null> {
     if (!chapterId) return null;
     setNotice(null);
+    if (imageProvider === "GEMINI_WEB") {
+      setNotice("Gemini Web là flow manual theo từng Visual Beat nên không tạo API cost estimate. Hãy dùng Storyboard để generate/import ảnh.");
+      return null;
+    }
     try {
       const result = await estimate.mutateAsync({ projectId, chapterId, qualityTier });
       setCostEstimate(result);
@@ -131,6 +157,10 @@ export function ImagesScreen({
   }
 
   async function generateImages() {
+    if (imageProvider === "GEMINI_WEB") {
+      setNotice("Gemini Web luôn Generate New và chạy theo từng Visual Beat trong Storyboard. Không có API media job cho provider này.");
+      return;
+    }
     if (!chapterId || mediaBusy || mediaSubmissionBlocked || analysisBusy || !beats.length) return;
     setNotice(null);
     try {
@@ -148,6 +178,8 @@ export function ImagesScreen({
         chapterId,
         qualityTier,
         imageStyle,
+        imageProvider,
+        effectiveStrategy,
         aspectRatio,
         latestEstimate.estimatedCost,
       ].join(":");
@@ -165,11 +197,14 @@ export function ImagesScreen({
           qualityTier,
           maxAuthorizedCost,
           imageStyle,
+          visualGenerationMode: "IMAGE",
+          imageProvider,
+          imageGenerationStrategy: effectiveStrategy,
         },
       });
       setMediaJobId(job.jobId);
       setNotice(
-        `Media job ${job.jobId.slice(0, 8)} đã được queue với cap ${latestEstimate.estimatedCost} ${latestEstimate.currency}.`,
+        `Media job ${job.jobId.slice(0, 8)} đã được queue với ${formatStrategy(effectiveStrategy)} và cap ${latestEstimate.estimatedCost} ${latestEstimate.currency}.`,
       );
     } catch (error) {
       setNotice(toMessage(error));
@@ -196,18 +231,20 @@ export function ImagesScreen({
     );
   }
 
-  const generateLabel = mediaHeadChecking
-    ? "Checking…"
-    : mediaHeadUnavailable
-      ? "Unavailable"
-      : mediaBusy
-        ? "Generating…"
-        : "Generate images";
+  const generateLabel = imageProvider === "GEMINI_WEB"
+    ? "Use Storyboard"
+    : mediaHeadChecking
+      ? "Checking…"
+      : mediaHeadUnavailable
+        ? "Unavailable"
+        : mediaBusy
+          ? "Generating…"
+          : "Generate images";
 
   return (
     <FeaturePage
       title="Image Generation"
-      description="Analyze chapter, estimate cost, generate image assets và review từng media item trong generation feature riêng."
+      description="Chọn provider/strategy, phân tích chapter và tạo hoặc import image assets cho từng visual beat."
       actions={
         <Button
           size="sm"
@@ -216,9 +253,7 @@ export function ImagesScreen({
             !chapterId ||
             !beats.length ||
             analysisBusy ||
-            mediaBusy ||
-            mediaSubmissionBlocked ||
-            estimate.isPending
+            (imageProvider === "API" && (mediaBusy || mediaSubmissionBlocked || estimate.isPending))
           }
         >
           <Sparkles size={14} /> {generateLabel}
@@ -241,9 +276,40 @@ export function ImagesScreen({
               </SelectContent>
             </Select>
           </Field>
+          <Field label="Provider">
+            <Select
+              value={imageProvider}
+              onValueChange={(value) => setImageProvider(value as ImageGenerationProvider)}
+            >
+              <SelectTrigger className="min-w-[150px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="GEMINI_WEB">Gemini Web</SelectItem>
+                <SelectItem value="API">API</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Generation strategy">
+            <Select
+              value={effectiveStrategy}
+              disabled={imageProvider === "GEMINI_WEB"}
+              onValueChange={(value) => setImageStrategy(value as ImageGenerationStrategy)}
+            >
+              <SelectTrigger className="min-w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="GENERATE_NEW">Generate New</SelectItem>
+                <SelectItem value="REUSE_APPROVED">Reuse Approved</SelectItem>
+                <SelectItem value="REFRAME_DERIVED">Reframe Derived</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
           <Field label="Quality">
             <Select
               value={qualityTier}
+              disabled={imageProvider === "GEMINI_WEB"}
               onValueChange={(value) => setQualityTier(value as MediaQualityTier)}
             >
               <SelectTrigger className="min-w-[120px]">
@@ -259,6 +325,7 @@ export function ImagesScreen({
           <Field label="Image style">
             <Select
               value={imageStyle}
+              disabled={imageProvider === "GEMINI_WEB"}
               onValueChange={(value) => setImageStyle(value as MediaImageStyle)}
             >
               <SelectTrigger className="min-w-[190px]">
@@ -280,13 +347,19 @@ export function ImagesScreen({
           <Button
             variant="outline"
             onClick={() => void estimateCost()}
-            disabled={!chapterId || estimate.isPending || mediaBusy}
+            disabled={!chapterId || imageProvider === "GEMINI_WEB" || estimate.isPending || mediaBusy}
           >
             {estimate.isPending ? "Estimating…" : "Estimate cost"}
           </Button>
         </section>
 
-        {costEstimate && (
+        {imageProvider === "GEMINI_WEB" && (
+          <div className="rounded-md border border-primary/25 bg-primary/5 p-3 text-[10px] leading-4 text-muted-foreground">
+            Web image generation always creates a new image for each visual beat. Reuse/reframe controls are disabled. Generate và import output trong Storyboard.
+          </div>
+        )}
+
+        {costEstimate && imageProvider === "API" && (
           <div className="rounded-md border border-border bg-card p-3 text-[10px] text-muted-foreground">
             Cost estimate · {costEstimate.estimatedCost} {costEstimate.currency} · {costEstimate.visualBeatCount} visual beat
           </div>
@@ -302,13 +375,13 @@ export function ImagesScreen({
             {Math.round(analysisJob.data.progress * 100)}%
           </div>
         )}
-        {mediaGenerationJob.data && (
+        {mediaGenerationJob.data && imageProvider === "API" && (
           <div className="rounded-md border border-border bg-card p-3 text-[10px] text-muted-foreground">
             Generation {mediaGenerationJob.data.jobId.slice(0, 8)} · {mediaGenerationJob.data.status} ·{" "}
             {Math.round(mediaGenerationJob.data.progress * 100)}%
           </div>
         )}
-        {mediaHeadUnavailable && (
+        {mediaHeadUnavailable && imageProvider === "API" && (
           <p className="text-[10px] text-warning" role="status">
             Không thể xác định media job hiện tại. Generate đã được khóa để tránh gửi trùng; hãy thử tải lại màn hình.
           </p>
@@ -329,6 +402,9 @@ export function ImagesScreen({
                   <p className="mt-1 text-[9px] leading-4 text-muted-foreground">
                     {beat.visualIntent}
                   </p>
+                  <p className="mt-1 text-[9px] text-muted-foreground">
+                    {formatProvider(imageProvider)} · {formatStrategy(effectiveStrategy)}
+                  </p>
                 </div>
               ))}
               {!beats.length && (
@@ -344,56 +420,65 @@ export function ImagesScreen({
             <span className="text-[9px] uppercase tracking-[.12em] text-muted-foreground">
               Media review
             </span>
-            <div className="mt-2 grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-2">
-              {mediaJob.data?.items.map((item) => (
-                <article
-                  key={item.id}
-                  className="grid gap-2 rounded-md border border-border-subtle bg-popover p-3"
-                >
-                  <MediaItemPreview
-                    mediaAssetId={item.mediaAssetId}
-                    visualBeatId={item.visualBeatId}
-                    executionStatus={item.executionStatus}
-                  />
-                  <div className="flex items-center gap-2">
-                    <ImageIcon size={16} className="text-primary-hover" />
-                    <strong
-                      className="truncate text-[10px]"
-                      title={item.itemKey ?? item.visualBeatId}
-                    >
-                      {item.itemKey ?? item.visualBeatId}
-                    </strong>
-                  </div>
-                  <span className="text-[9px] text-muted-foreground">
-                    {item.executionStatus} · {item.reviewStatus}
-                  </span>
-                  {item.reviewStatus === "NEEDS_REVIEW" && item.executionStatus === "READY" && (
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() => reviewItem(item.id, item.rowVersion, "APPROVED")}
-                        disabled={review.isPending || !item.mediaAssetId}
-                      >
-                        <Check size={12} /> Approve
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => reviewItem(item.id, item.rowVersion, "REJECTED")}
-                        disabled={review.isPending || !item.mediaAssetId}
-                      >
-                        <X size={12} /> Reject
-                      </Button>
-                    </div>
-                  )}
-                </article>
-              ))}
-            </div>
-            {!mediaJob.data?.items.length && (
+            {imageProvider === "GEMINI_WEB" ? (
               <EmptyState
-                title="Chưa có media job"
-                description="Generate images để theo dõi và review output."
+                title="Review trong Storyboard"
+                description="Gemini Web không tạo API media job. Import ảnh vào từng beat rồi approve trực tiếp trong Storyboard."
               />
+            ) : (
+              <>
+                <div className="mt-2 grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-2">
+                  {mediaJob.data?.items.map((item) => (
+                    <article
+                      key={item.id}
+                      className="grid gap-2 rounded-md border border-border-subtle bg-popover p-3"
+                    >
+                      <MediaItemPreview
+                        mediaAssetId={item.mediaAssetId}
+                        visualBeatId={item.visualBeatId}
+                        executionStatus={item.executionStatus}
+                      />
+                      <div className="flex items-center gap-2">
+                        <ImageIcon size={16} className="text-primary-hover" />
+                        <strong
+                          className="truncate text-[10px]"
+                          title={item.itemKey ?? item.visualBeatId}
+                        >
+                          {item.itemKey ?? item.visualBeatId}
+                        </strong>
+                      </div>
+                      <span className="text-[9px] text-muted-foreground">
+                        {item.executionStatus} · {item.reviewStatus}
+                      </span>
+                      {item.reviewStatus === "NEEDS_REVIEW" && item.executionStatus === "READY" && (
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => reviewItem(item.id, item.rowVersion, "APPROVED")}
+                            disabled={review.isPending || !item.mediaAssetId}
+                          >
+                            <Check size={12} /> Approve
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => reviewItem(item.id, item.rowVersion, "REJECTED")}
+                            disabled={review.isPending || !item.mediaAssetId}
+                          >
+                            <X size={12} /> Reject
+                          </Button>
+                        </div>
+                      )}
+                    </article>
+                  ))}
+                </div>
+                {!mediaJob.data?.items.length && (
+                  <EmptyState
+                    title="Chưa có media job"
+                    description="Generate images để theo dõi và review output."
+                  />
+                )}
+              </>
             )}
           </div>
         </section>
@@ -483,6 +568,16 @@ function asAspectRatio(value: string | undefined): MediaAspectRatio {
   return value === "9:16" || value === "1:1" || value === "4:3" || value === "3:4"
     ? value
     : "16:9";
+}
+
+function formatProvider(value: ImageGenerationProvider) {
+  return value === "GEMINI_WEB" ? "Gemini Web" : "API";
+}
+
+function formatStrategy(value: ImageGenerationStrategy) {
+  if (value === "REUSE_APPROVED") return "Reuse Approved";
+  if (value === "REFRAME_DERIVED") return "Reframe Derived";
+  return "Generate New";
 }
 
 function toMessage(error: unknown) {
