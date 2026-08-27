@@ -22,8 +22,7 @@ public final class FlywayMigrationContract {
           "V5__catalog_generation_and_render_snapshots.sql",
           "V6__database_logic_and_triggers.sql",
           "V7__indexes.sql",
-          "V8__seed_catalog.sql",
-          "V9__chapter_analysis_preferences.sql");
+          "V8__seed_catalog.sql");
 
   private FlywayMigrationContract() {}
 
