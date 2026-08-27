@@ -24,6 +24,8 @@ import org.springframework.test.web.servlet.MockMvc;
 @ActiveProfiles("test")
 class ChapterCreationApiIntegrationTest extends PostgreSqlIntegrationTestSupport {
   private static final UUID PROJECT_ID = UUID.fromString("00000000-0000-4000-8000-000000001003");
+  private static final UUID MISSING_PROJECT_ID =
+      UUID.fromString("00000000-0000-4000-8000-000000001004");
 
   @DynamicPropertySource
   static void identityProperties(DynamicPropertyRegistry registry) {
@@ -89,5 +91,26 @@ class ChapterCreationApiIntegrationTest extends PostgreSqlIntegrationTestSupport
                 Integer.class,
                 PROJECT_ID))
         .isEqualTo(1);
+  }
+
+  @Test
+  void returnsNotFoundInsteadOfLeakingProjectForeignKeyFailure() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/v1/projects/" + MISSING_PROJECT_ID + "/chapters")
+                .with(csrf())
+                .header("Idempotency-Key", "chapter-create-missing-project")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"title\":\"Chapter 1\",\"sourceText\":\"Once upon a time\","
+                        + "\"storyVersionId\":null}"))
+        .andExpect(status().isNotFound());
+
+    org.assertj.core.api.Assertions.assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM chapter_creation_idempotency WHERE project_id = ?",
+                Integer.class,
+                MISSING_PROJECT_ID))
+        .isZero();
   }
 }
