@@ -186,11 +186,14 @@ def main() -> int:
 
     migrations = ROOT / "app" / "backend-service" / "src" / "main" / "resources" / "db" / "migration"
     expected_migrations = {
-        "V1__create_tables.sql",
-        "V2__init_indexes.sql",
-        "V3__seed_data.sql",
-        "V4__project_render_subtitles.sql",
-        "V5__chapter_workspace_generation_lookup.sql",
+        "V1__identity_and_access.sql",
+        "V2__project_story_and_planning.sql",
+        "V3__generation_billing_and_media.sql",
+        "V4__narration_notifications_and_artifacts.sql",
+        "V5__catalog_generation_and_render_snapshots.sql",
+        "V6__database_logic_and_triggers.sql",
+        "V7__indexes.sql",
+        "V8__seed_catalog.sql",
     }
     if migrations.exists():
         actual = {path.name for path in migrations.glob("V*.sql")}
@@ -200,7 +203,7 @@ def main() -> int:
         unexpected_migrations = sorted(actual - expected_migrations)
         if unexpected_migrations:
             errors.append(
-                "unexpected Flyway migration(s) outside consolidated baseline: "
+                "unexpected Flyway migration(s) outside clean pre-release baseline: "
                 + ", ".join(unexpected_migrations)
             )
 
