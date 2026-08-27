@@ -116,10 +116,10 @@ public class CreateMediaPlanUseCase {
       Map<UUID, VisualAssetReuseResolver.Decision> reuseDecisions) {
     List<MediaScenePlan> resolved = new ArrayList<>();
     for (var scene : planningSource.scenes()) {
-      var context =
-          visualPromptContextRepository.findForScene(command.projectId(), scene.sceneId());
       List<MediaBeatPlan> beats = new ArrayList<>();
       for (var beat : scene.beats()) {
+        var context =
+            visualPromptContextRepository.findForBeat(command.projectId(), beat.visualBeatId());
         var reuseDecision = reuseDecisions.get(beat.visualBeatId());
         if (reuseDecision == null) {
           reuseDecision = VisualAssetReuseResolver.resolve(null, beat);
@@ -137,7 +137,7 @@ public class CreateMediaPlanUseCase {
                 beat.motionIntent().name(),
                 motionStrategyResolver.resolve(command.productionMode(), beat.motionIntent()),
                 reuseDecision.assetStrategy(),
-                "prompt-v7-" + command.imageStyle().name().toLowerCase(),
+                "prompt-v8-" + command.imageStyle().name().toLowerCase(),
                 composed.prompt(),
                 composed.negativePrompt(),
                 beat.audioStartMs(),
@@ -189,9 +189,7 @@ public class CreateMediaPlanUseCase {
     int plannedI2vSeconds = 0;
 
     for (var scene : scenes) {
-      if (scene.narration() != null) {
-        narrationCharacters += scene.narration().length();
-      }
+      if (scene.narration() != null) narrationCharacters += scene.narration().length();
       imageGenerateCount +=
           (int)
               scene.beats().stream()
@@ -203,11 +201,8 @@ public class CreateMediaPlanUseCase {
       boolean usesI2v =
           scene.beats().stream()
               .anyMatch(beat -> beat.motionStrategy() == MotionStrategy.IMAGE_TO_VIDEO);
-      if (usesI2v) {
-        plannedI2vSeconds += duration;
-      } else {
-        basicMotionSeconds += duration;
-      }
+      if (usesI2v) plannedI2vSeconds += duration;
+      else basicMotionSeconds += duration;
     }
 
     return new MediaWorkload(
