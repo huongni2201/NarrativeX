@@ -25,7 +25,6 @@ class FlywayBaselineStructureTest {
     String v6 = read("V6__database_logic_and_triggers.sql");
     String v7 = read("V7__indexes.sql");
     String v8 = read("V8__seed_catalog.sql");
-    String v9 = read("V9__chapter_analysis_preferences.sql");
 
     for (String schema : new String[] {v1, v2, v3, v4, v5, v6}) {
       assertFalse(schema.matches("(?is).*\\bCREATE\\s+(?:UNIQUE\\s+)?INDEX\\b.*"));
@@ -34,8 +33,6 @@ class FlywayBaselineStructureTest {
     assertFalse(v8.matches("(?is).*\\bCREATE\\s+TABLE\\b.*"));
     assertFalse(v8.matches("(?is).*\\bCREATE\\s+(?:UNIQUE\\s+)?INDEX\\b.*"));
     assertFalse(v8.matches("(?is).*\\bALTER\\s+TABLE\\b.*"));
-    assertFalse(v9.matches("(?is).*\\bCREATE\\s+TABLE\\b.*"));
-    assertFalse(v9.matches("(?is).*\\bCREATE\\s+(?:UNIQUE\\s+)?INDEX\\b.*"));
 
     assertTrue(v1.contains("CREATE TABLE auth_users"));
     assertTrue(v1.contains("CREATE TABLE desktop_guest_installations"));
@@ -51,6 +48,9 @@ class FlywayBaselineStructureTest {
 
     assertTrue(v3.contains("CREATE TABLE generation_jobs"));
     assertTrue(v3.contains("idempotency_key VARCHAR(512)"));
+    assertTrue(v3.contains("analysis_visual_generation_mode VARCHAR(16)"));
+    assertTrue(v3.contains("analysis_image_provider VARCHAR(32)"));
+    assertTrue(v3.contains("ck_generation_jobs_analysis_preferences_consistent"));
     assertTrue(v3.contains("CREATE TABLE plan_entitlements"));
     assertTrue(v3.contains("CREATE TABLE production_beat_media_selections"));
 
@@ -78,11 +78,7 @@ class FlywayBaselineStructureTest {
     assertTrue(v8.contains("\"supportsSpeakingRate\":true"));
     assertFalse(v8.contains("\"supportsSpeakingRate\":false"));
 
-    assertTrue(v9.contains("analysis_visual_generation_mode VARCHAR(16)"));
-    assertTrue(v9.contains("analysis_image_provider VARCHAR(32)"));
-    assertTrue(v9.contains("ck_generation_jobs_analysis_preferences_consistent"));
-
-    String allSchema = v1 + v2 + v3 + v4 + v5 + v6 + v9;
+    String allSchema = v1 + v2 + v3 + v4 + v5 + v6;
     assertFalse(allSchema.contains("narrativex_uuid_v7"));
     assertFalse(allSchema.contains("CREATE EXTENSION IF NOT EXISTS pgcrypto"));
     assertTrue(allSchema.contains("DEFAULT uuidv7()"));
