@@ -9,7 +9,6 @@ import {
   Image as ImageIcon,
   RotateCcw,
   SlidersHorizontal,
-  Upload,
   WandSparkles,
 } from "lucide-react";
 import type {
@@ -26,7 +25,7 @@ interface EditorInspectorPanelProps {
   selectableAssets: DesktopAsset[];
   mediaBusy: boolean;
   mediaNotice: MediaMutationNotice | null;
-  onUploadMedia: (type: "IMAGE" | "VIDEO") => void;
+  onUploadMedia: (type?: "IMAGE" | "VIDEO") => void;
   onChooseAsset: (assetId: string) => void;
   onUpdateFitMode: (fitMode: BeatMediaFitMode) => void;
   onResetSource: () => void;
@@ -59,6 +58,8 @@ export function EditorInspectorPanel({
 
   const beatTitle = selectedBeat?.title || "Visual Beat";
   const durationText = selectedBeat ? formatTimecode(selectedBeat.durationMs) : "00:10.00";
+  const visibleMediaNotice =
+    selectedBeat && mediaNotice?.beatId === selectedBeat.visualBeatId ? mediaNotice : null;
 
   return (
     <aside className="nx-editor-inspector flex h-full min-h-0 flex-col bg-surface-panel font-sans text-foreground">
@@ -66,15 +67,19 @@ export function EditorInspectorPanel({
         <h3 className="text-[14px] font-bold text-foreground">Inspector</h3>
       </div>
 
-      <div className="flex border-b border-border-subtle bg-surface-dark px-4">
-        <InspectorTabButton label="Scene" active={activeTab === "scene"} onClick={() => setActiveTab("scene")} />
-        <InspectorTabButton label="Audio" active={activeTab === "audio"} onClick={() => setActiveTab("audio")} />
-        <InspectorTabButton label="Effects" active={activeTab === "effects"} onClick={() => setActiveTab("effects")} />
+      <div
+        role="tablist"
+        aria-label="Inspector sections"
+        className="flex border-b border-border-subtle bg-surface-dark px-4"
+      >
+        <InspectorTabButton tab="scene" label="Scene" active={activeTab === "scene"} onClick={() => setActiveTab("scene")} />
+        <InspectorTabButton tab="audio" label="Audio" active={activeTab === "audio"} onClick={() => setActiveTab("audio")} />
+        <InspectorTabButton tab="effects" label="Effects" active={activeTab === "effects"} onClick={() => setActiveTab("effects")} />
       </div>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
         {activeTab === "scene" && (
-          <>
+          <div role="tabpanel" id="inspector-panel-scene" aria-labelledby="inspector-tab-scene" className="space-y-4">
             <section className="space-y-3">
               <h4 className="text-[12px] font-bold text-foreground">Scene Settings</h4>
 
@@ -118,7 +123,7 @@ export function EditorInspectorPanel({
                 <button
                   type="button"
                   disabled={mediaBusy}
-                  onClick={() => onUploadMedia("IMAGE")}
+                  onClick={() => onUploadMedia()}
                   className="mt-2.5 h-8 rounded-md bg-[#2d1b54] px-4 text-[11px] font-semibold text-white shadow-[0_0_12px_rgba(109,60,207,0.25)] transition hover:bg-[#3c246f] active:scale-95 disabled:opacity-40"
                 >
                   Upload Media
@@ -185,28 +190,28 @@ export function EditorInspectorPanel({
                 </p>
               )}
 
-              {mediaNotice && !mediaBusy && (
+              {visibleMediaNotice && !mediaBusy && (
                 <div
                   className={`rounded-md border px-2.5 py-2 text-[10px] leading-4 ${
-                    mediaNotice.tone === "success"
+                    visibleMediaNotice.tone === "success"
                       ? "border-success/30 bg-success-bg text-success"
                       : "border-danger/30 bg-danger-bg text-danger"
                   }`}
-                  role={mediaNotice.tone === "error" ? "alert" : "status"}
+                  role={visibleMediaNotice.tone === "error" ? "alert" : "status"}
                 >
                   <div className="flex items-start gap-2">
-                    {mediaNotice.tone === "success" ? (
+                    {visibleMediaNotice.tone === "success" ? (
                       <CheckCircle2 size={12} className="mt-0.5 shrink-0" />
                     ) : (
                       <AlertCircle size={12} className="mt-0.5 shrink-0" />
                     )}
                     <div className="min-w-0 flex-1">
-                      <p>{mediaNotice.message}</p>
-                      {mediaNotice.retry && (
+                      <p>{visibleMediaNotice.message}</p>
+                      {visibleMediaNotice.retry && (
                         <button
                           type="button"
-                          onClick={mediaNotice.retry}
-                          className="mt-2 rounded-md border border-current/30 px-2 py-1 text-[8px] font-semibold transition hover:bg-background/30"
+                          onClick={visibleMediaNotice.retry}
+                          className="mt-2 rounded-md border border-current/30 px-2 py-1 text-[10px] font-semibold transition hover:bg-background/30"
                         >
                           Thử lại
                         </button>
@@ -239,7 +244,7 @@ export function EditorInspectorPanel({
                 <span className="flex items-center gap-1.5 text-[11px] font-semibold text-primary">
                   <WandSparkles size={12} /> Auto Edit Decision
                 </span>
-                <span className="rounded bg-primary-muted px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-primary">
+                <span className="rounded bg-primary-muted px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
                   {autoDecision?.source === "AI_DIRECTED" ? "AI directed" : "Rule engine"}
                 </span>
               </div>
@@ -255,14 +260,14 @@ export function EditorInspectorPanel({
               <button
                 type="button"
                 onClick={() => setShowAdvanced((value) => !value)}
-                className="flex h-8 w-full items-center justify-center gap-1.5 rounded-md border border-border bg-surface-input text-[9px] font-medium text-text-muted transition hover:bg-surface-2 hover:text-foreground"
+                className="flex h-8 w-full items-center justify-center gap-1.5 rounded-md border border-border bg-surface-input text-[10px] font-medium text-text-muted transition hover:bg-surface-2 hover:text-foreground"
               >
                 <SlidersHorizontal size={11} />
                 {showAdvanced ? "Hide manual override" : "Manual override"}
               </button>
               {showAdvanced && (
                 <div className="space-y-2 rounded-lg border border-border-subtle bg-background p-2.5">
-                  <p className="text-[8px] leading-4 text-text-dim">Ghi đè quyết định Auto Edit cho beat hiện tại.</p>
+                  <p className="text-[10px] leading-4 text-text-dim">Ghi đè quyết định Auto Edit cho beat hiện tại.</p>
                   <div className="grid grid-cols-2 gap-1.5 rounded-md border border-border-subtle bg-surface p-1.5">
                     {(
                       [
@@ -277,7 +282,7 @@ export function EditorInspectorPanel({
                         type="button"
                         disabled={mediaBusy || !selectedBeat?.mediaAssetId}
                         onClick={() => onUpdateFitMode(mode)}
-                        className={`rounded-md py-1.5 text-[8px] font-medium transition-colors disabled:opacity-40 ${
+                        className={`rounded-md py-1.5 text-[10px] font-medium transition-colors disabled:opacity-40 ${
                           selectedBeat?.fitMode === mode
                             ? "bg-primary text-primary-foreground"
                             : "text-text-muted hover:bg-surface-2 hover:text-foreground"
@@ -290,11 +295,16 @@ export function EditorInspectorPanel({
                 </div>
               )}
             </section>
-          </>
+          </div>
         )}
 
         {activeTab === "audio" && (
-          <section className="space-y-2 rounded-lg border border-border-subtle bg-surface p-3.5">
+          <section
+            role="tabpanel"
+            id="inspector-panel-audio"
+            aria-labelledby="inspector-tab-audio"
+            className="space-y-2 rounded-lg border border-border-subtle bg-surface p-3.5"
+          >
             <h4 className="text-[12px] font-bold text-foreground">Audio Sync</h4>
             <p className="text-[11px] leading-5 text-text-dim">
               Timing của visual beat được căn theo master narration track. Audio controls chi tiết được quản lý ở workflow Voice và timeline.
@@ -303,7 +313,12 @@ export function EditorInspectorPanel({
         )}
 
         {activeTab === "effects" && (
-          <section className="space-y-2 rounded-lg border border-border-subtle bg-surface p-3.5">
+          <section
+            role="tabpanel"
+            id="inspector-panel-effects"
+            aria-labelledby="inspector-tab-effects"
+            className="space-y-2 rounded-lg border border-border-subtle bg-surface p-3.5"
+          >
             <h4 className="text-[12px] font-bold text-foreground">Visual Effects</h4>
             <p className="text-[11px] text-text-dim">
               Current motion: <strong className="text-foreground">{selectedBeat?.cameraMovement || "Auto"}</strong>
@@ -315,17 +330,26 @@ export function EditorInspectorPanel({
   );
 }
 
-function InspectorTabButton({ label, active, onClick }: Readonly<{ label: string; active: boolean; onClick: () => void }>) {
+function InspectorTabButton({
+  tab,
+  label,
+  active,
+  onClick,
+}: Readonly<{ tab: InspectorTab; label: string; active: boolean; onClick: () => void }>) {
   return (
     <button
+      id={`inspector-tab-${tab}`}
       type="button"
+      role="tab"
+      aria-selected={active}
+      aria-controls={`inspector-panel-${tab}`}
       onClick={onClick}
       className={`relative px-4 py-2.5 text-[11px] font-medium transition ${
         active ? "font-semibold text-primary" : "text-text-muted hover:text-foreground"
       }`}
     >
       {label}
-      {active && <span className="absolute inset-x-0 bottom-0 h-[2px] bg-primary" />}
+      {active && <span className="absolute inset-x-0 bottom-0 h-[2px] bg-primary" aria-hidden="true" />}
     </button>
   );
 }
@@ -333,8 +357,8 @@ function InspectorTabButton({ label, active, onClick }: Readonly<{ label: string
 function InfoCell({ label, value }: Readonly<{ label: string; value: string }>) {
   return (
     <div className="min-w-0 rounded-md border border-border-subtle bg-background px-2.5 py-2">
-      <span className="block text-[7px] uppercase tracking-wider text-text-dim">{label}</span>
-      <strong className="mt-1 block truncate text-[9px] font-medium text-text-secondary">{value}</strong>
+      <span className="block text-[9px] uppercase tracking-wider text-text-dim">{label}</span>
+      <strong className="mt-1 block truncate text-[10px] font-medium text-text-secondary">{value}</strong>
     </div>
   );
 }
