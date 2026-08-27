@@ -82,10 +82,11 @@ Renderer code does not own arbitrary filesystem paths, session cookies, provider
 - saved `chapters.source_text/source_hash` are the authoritative chapter content for analysis/narration;
 - durable generation jobs, stages, provider operations, plans, outbox and quota foundations;
 - owner-scoped generation SSE snapshots, current chapter media-head recovery and voice-preview jobs;
-- persisted production beat media selections consolidated into V1;
+- persisted production beat media selections in the project/story/planning baseline;
 - production timeline aggregation/alignment and local render input snapshots;
 - atomic Auto Edit override application during render admission;
-- immutable render subtitle snapshots (`subtitle_text`, `subtitle_spans_json`);
+- immutable render subtitle snapshots (`subtitle_text`, `subtitle_spans_json`) defined directly in the render-snapshot baseline;
+- narration requests persist `speaking_rate`; enabled VieNeu catalog rows advertise `supportsSpeakingRate=true`;
 - local device capability/heartbeat/revocation/render assignment;
 - render completion and FinalArtifact metadata without final-video byte storage/proxying.
 
@@ -116,14 +117,17 @@ Backend state uses stable IDs/checksums and opaque project-relative artifact key
 ## Flyway baseline
 
 ```text
-V1__create_tables.sql            # final consolidated schema/runtime state
-V2__init_indexes.sql             # final consolidated indexes/invariants
-V3__seed_data.sql                # deterministic seeds
-V4__project_render_subtitles.sql # immutable narration subtitle snapshot fields
-V5__chapter_workspace_generation_lookup.sql # Chapter Workspace lookup index
+V1__identity_and_access.sql
+V2__project_story_and_planning.sql
+V3__generation_billing_and_media.sql
+V4__narration_notifications_and_artifacts.sql
+V5__catalog_generation_and_render_snapshots.sql
+V6__database_logic_and_triggers.sql
+V7__indexes.sql
+V8__seed_catalog.sql
 ```
 
-V1-V3 remain the frozen consolidated baseline. Spring Session, Desktop OAuth handoffs, Desktop guest identity and beat media selections are already folded into V1/V2. V4 adds render subtitle snapshot fields and V5 adds a Chapter Workspace generation lookup index. Translation/content-variant tables and columns are absent. Future schema changes begin with append-only `V6__*.sql`.
+This is a clean pre-production baseline rather than frozen upgrade history. The old subtitle, Chapter Workspace index and VieNeu speaking-rate patch migrations have been folded into V5, V7 and V8. Translation/content-variant tables and columns are absent. Disposable development/test databases are recreated after baseline rewrites. Applied migrations become immutable at the first production deployment; subsequent evolution is append-only.
 
 ## Current gaps
 
