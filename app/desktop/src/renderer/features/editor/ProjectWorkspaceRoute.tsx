@@ -7,6 +7,7 @@ import { ImagesScreen } from "../generation/screens/ImagesScreen";
 import { RenderScreen } from "../production/screens/RenderScreen";
 import { useProjectSessionStore } from "../projects/store/project-session.store";
 import { SettingsScreen } from "../settings/screens/SettingsScreen";
+import { StoryboardScreen } from "../storyboard/screens/StoryboardScreen";
 import { VoiceScreen } from "../voices/screens/VoiceScreen";
 import { WorkspaceShell } from "../workspace/components/WorkspaceShell";
 import { useProjectWorkspace } from "../workspace/queries/useProjectWorkspace";
@@ -44,6 +45,9 @@ export function ProjectWorkspaceRoute() {
           assetsCount={workspace.assets.length}
           charactersCount={workspace.characters.length}
         />
+      )}
+      {screen === "storyboard" && (
+        <StoryboardScreen projectId={projectId} chapters={workspace.chapters} />
       )}
       {screen === "characters" && (
         <CharactersScreen projectId={projectId} characters={workspace.characters} />
