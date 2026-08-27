@@ -4,13 +4,20 @@ import type {
   DesktopChapterDetails,
   DesktopVoice,
 } from "@narrativex/client-contracts";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { MoreVertical, SlidersHorizontal, Upload } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { toErrorMessage } from "@/lib/errors";
 import { assetsApi } from "../../assets/api/assets.api";
-import { useGenerateBatchNarration, useGenerateNarration } from "../../generation/queries/narration.queries";
+import { narrationApi } from "../../generation/api/narration.api";
+import { isActiveGenerationJobStatus } from "../../generation/generation-status";
+import { useGenerationJob } from "../../generation/queries/generation.queries";
+import {
+  useGenerateBatchNarration,
+  useGenerateNarration,
+  useGenerateVoicePreview,
+} from "../../generation/queries/narration.queries";
 import { EmptyState } from "../../workspace/components/FeaturePage";
 import { VoiceCard } from "../components/VoiceCard";
 import { VoiceFiltersBar, type VoiceViewMode } from "../components/VoiceFiltersBar";
@@ -22,6 +29,10 @@ import {
   uniqueVoiceValues,
   type VoiceSortMode,
 } from "../voice-filters";
+
+const DEFAULT_VOICE_ID = "vieneu-ngoc-huyen-v2";
+const DEFAULT_PREVIEW_TEXT =
+  "Xin chào, đây là giọng đọc mẫu được tạo từ đoạn giọng tham chiếu bạn vừa tải lên.";
 
 export function VoiceScreen({
   projectId,
@@ -36,6 +47,7 @@ export function VoiceScreen({
 }>) {
   const generate = useGenerateNarration();
   const generateBatch = useGenerateBatchNarration();
+  const generatePreview = useGenerateVoicePreview();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -54,10 +66,17 @@ export function VoiceScreen({
   const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
   const [assetBusy, setAssetBusy] = useState(false);
+  const [voiceReferenceBusy, setVoiceReferenceBusy] = useState(false);
+  const [voiceReferenceAssetId, setVoiceReferenceAssetId] = useState<string | null>(null);
+  const [voiceReferenceName, setVoiceReferenceName] = useState<string | null>(null);
+  const [previewText, setPreviewText] = useState(DEFAULT_PREVIEW_TEXT);
+  const [previewJobId, setPreviewJobId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!chapterId && chapters[0]) setChapterId(chapters[0].id);
-    if (!voiceId && voices[0]) setVoiceId(voices[0].id);
+    if (!voiceId && voices.length) {
+      setVoiceId(voices.find((voice) => voice.id === DEFAULT_VOICE_ID)?.id ?? voices[0].id);
+    }
   }, [chapterId, chapters, voiceId, voices]);
 
   useEffect(() => () => audioRef.current?.pause(), []);
@@ -99,7 +118,64 @@ export function VoiceScreen({
   const totalSizeBytes = audioAssets.reduce((sum, asset) => sum + asset.sizeBytes, 0);
   const parsedRate = Number.parseFloat(speakingRate);
   const normalizedRate = Number.isFinite(parsedRate) ? parsedRate : 1;
-  const busy = assetBusy || generate.isPending || generateBatch.isPending;
+
+  const voiceReferenceQuery = useQuery({
+    queryKey: ["assets", "voice-reference", voiceReferenceAssetId ?? "none"],
+    queryFn: () => assetsApi.get(voiceReferenceAssetId as string),
+    enabled: Boolean(voiceReferenceAssetId),
+    refetchInterval: (current) => {
+      const status = current.state.data?.status;
+      return status && status !== "READY" && status !== "REJECTED" ? 1_500 : false;
+    },
+  });
+  const voiceReferenceReady = voiceReferenceQuery.data?.status === "READY";
+  const referencePending = Boolean(voiceReferenceAssetId && !voiceReferenceReady);
+
+  useEffect(() => {
+    if (!voiceReferenceAssetId) return;
+    if (voiceReferenceQuery.data?.status === "REJECTED") {
+      setNotice("Giọng tham chiếu bị từ chối khi kiểm tra file. Hãy chọn MP3/WAV sạch dài ít nhất 3 giây.");
+      setVoiceReferenceAssetId(null);
+      setVoiceReferenceName(null);
+      setPreviewJobId(null);
+      return;
+    }
+    if (voiceReferenceQuery.isError) {
+      setNotice("Không thể xác nhận giọng tham chiếu. Hãy upload lại file.");
+      setVoiceReferenceAssetId(null);
+      setVoiceReferenceName(null);
+      setPreviewJobId(null);
+    }
+  }, [voiceReferenceAssetId, voiceReferenceQuery.data?.status, voiceReferenceQuery.isError]);
+
+  const previewJobQuery = useGenerationJob(previewJobId);
+  const previewResultQuery = useQuery({
+    queryKey: ["voice-preview-result", projectId, previewJobId ?? "none"],
+    queryFn: () => narrationApi.getPreviewResult(projectId, previewJobId as string),
+    enabled: Boolean(previewJobId && previewJobQuery.data?.status === "COMPLETED"),
+    retry: 2,
+    staleTime: 8 * 60_000,
+  });
+
+  useEffect(() => {
+    if (!previewJobId || !previewJobQuery.data) return;
+    if (previewJobQuery.data.status === "FAILED" || previewJobQuery.data.status === "CANCELED") {
+      setNotice("Không thể tạo giọng mẫu. Hãy kiểm tra file tham chiếu hoặc thử lại.");
+    }
+  }, [previewJobId, previewJobQuery.data]);
+
+  const previewStatus = previewJobQuery.data?.status ?? null;
+  const previewActive = isActiveGenerationJobStatus(previewStatus);
+  const previewBusy =
+    voiceReferenceBusy || referencePending || generatePreview.isPending || previewActive;
+  const busy =
+    assetBusy ||
+    voiceReferenceBusy ||
+    referencePending ||
+    generate.isPending ||
+    generateBatch.isPending ||
+    generatePreview.isPending ||
+    previewActive;
 
   async function runSingle() {
     if (!chapterId || !voiceId || busy) return;
@@ -107,7 +183,12 @@ export function VoiceScreen({
     try {
       const job = await generate.mutateAsync({
         projectId,
-        request: { chapterId, voiceId, speakingRate: normalizedRate },
+        request: {
+          chapterId,
+          voiceId,
+          speakingRate: normalizedRate,
+          voiceReferenceAssetId: voiceReferenceAssetId ?? undefined,
+        },
       });
       setNotice(`Narration job ${job.jobId.slice(0, 8)} đã được queue.`);
     } catch (error) {
@@ -124,11 +205,74 @@ export function VoiceScreen({
         chapterIds: chapters.map((chapter) => chapter.id),
         voiceId,
         speakingRate: normalizedRate,
+        voiceReferenceAssetId: voiceReferenceAssetId ?? undefined,
       });
       setNotice(`${jobs.length} narration job đã được queue.`);
     } catch (error) {
       setNotice(toErrorMessage(error, "Không thể tạo batch narration."));
     }
+  }
+
+  async function runVoicePreview() {
+    if (
+      !chapterId ||
+      !voiceId ||
+      !voiceReferenceAssetId ||
+      !voiceReferenceReady ||
+      !previewText.trim() ||
+      previewBusy
+    ) {
+      return;
+    }
+    setNotice(null);
+    setPreviewJobId(null);
+    try {
+      const job = await generatePreview.mutateAsync({
+        projectId,
+        request: {
+          chapterId,
+          voiceId,
+          sampleText: previewText.trim(),
+          speakingRate: normalizedRate,
+          voiceReferenceAssetId,
+        },
+      });
+      setPreviewJobId(job.jobId);
+      setNotice("Đang tạo giọng mẫu từ file tham chiếu…");
+    } catch (error) {
+      setNotice(toErrorMessage(error, "Không thể tạo giọng mẫu."));
+    }
+  }
+
+  async function uploadVoiceReference() {
+    if (voiceReferenceBusy) return;
+    setVoiceReferenceBusy(true);
+    setNotice(null);
+    try {
+      const uploaded = await window.narrativex.api.uploadVoiceReference();
+      if (!uploaded) return;
+      setVoiceReferenceAssetId(uploaded.assetId);
+      setVoiceReferenceName(uploaded.originalFilename);
+      setPreviewJobId(null);
+      await queryClient.invalidateQueries({ queryKey: ["assets", "library"] });
+      setNotice(
+        uploaded.status === "READY"
+          ? `${uploaded.originalFilename} đã sẵn sàng để clone giọng.`
+          : `${uploaded.originalFilename} đã upload. Đang kiểm tra audio…`,
+      );
+    } catch (error) {
+      setNotice(toErrorMessage(error, "Không thể upload giọng tham chiếu."));
+    } finally {
+      setVoiceReferenceBusy(false);
+    }
+  }
+
+  function clearVoiceReference() {
+    if (voiceReferenceBusy) return;
+    setVoiceReferenceAssetId(null);
+    setVoiceReferenceName(null);
+    setPreviewJobId(null);
+    setNotice("Đã bỏ giọng tham chiếu. Narration sẽ dùng voice preset đang chọn.");
   }
 
   function togglePreview(voice: DesktopVoice) {
@@ -219,7 +363,7 @@ export function VoiceScreen({
   }
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-[minmax(176px,.85fr)_minmax(0,4fr)_minmax(230px,1.3fr)] bg-[radial-gradient(circle_at_50%_0%,var(--voice-glow),transparent_44%)]">
+    <div className="grid h-full min-h-0 grid-cols-[minmax(176px,.85fr)_minmax(0,4fr)_minmax(250px,1.45fr)] bg-[radial-gradient(circle_at_50%_0%,var(--voice-glow),transparent_44%)]">
       <VoiceLibraryRail />
 
       <main className="min-w-0 overflow-hidden border-x border-border">
@@ -232,7 +376,7 @@ export function VoiceScreen({
                 </span>
                 <h1 className="mt-1 text-[22px] font-semibold tracking-[-.02em]">Voice &amp; TTS</h1>
                 <p className="mt-1 text-[11px] text-text-secondary">
-                  Quản lý, phát thử và dùng voice cho narration trong workspace.
+                  Ngọc Huyền v2 là voice mặc định. Có thể upload giọng riêng để tạo sample và narration.
                 </p>
               </div>
 
@@ -342,13 +486,30 @@ export function VoiceScreen({
         totalDurationMs={totalDurationMs}
         totalSizeBytes={totalSizeBytes}
         busy={busy}
+        voiceReferenceName={voiceReferenceName}
+        previewText={previewText}
+        previewStatus={voiceReferenceQuery.data?.status === "READY" ? previewStatus : voiceReferenceQuery.data?.status ?? null}
+        previewUrl={previewResultQuery.data?.url ?? null}
+        previewBusy={previewBusy}
         onToggleAsset={toggleAsset}
         onCreateTake={() => void runSingle()}
         onResetFilters={resetFilters}
-        onSelectFiles={() => void importAudioAsset()}
+        onUploadVoiceReference={() => void uploadVoiceReference()}
+        onClearVoiceReference={clearVoiceReference}
+        onPreviewTextChange={(value) => {
+          setPreviewText(value);
+          setPreviewJobId(null);
+        }}
+        onGeneratePreview={() => void runVoicePreview()}
         onBatch={() => void runBatch()}
-        onChapterChange={setChapterId}
-        onSpeakingRateChange={setSpeakingRate}
+        onChapterChange={(value) => {
+          setChapterId(value);
+          setPreviewJobId(null);
+        }}
+        onSpeakingRateChange={(value) => {
+          setSpeakingRate(value);
+          setPreviewJobId(null);
+        }}
         onTagFilter={setTag}
         onOpenAssets={() => navigate(`/projects/${projectId}/assets`)}
       />
@@ -362,3 +523,4 @@ function formatDuration(value: number) {
   const seconds = totalSeconds % 60;
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
+

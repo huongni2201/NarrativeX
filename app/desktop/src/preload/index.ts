@@ -7,6 +7,7 @@ import type {
   DesktopSseHandlers,
   LocalExecutionStatus,
   NarrativeXDesktopBridge,
+  VoiceReferenceUploadResult,
 } from "./types";
 
 const SSE_EVENT_CHANNEL = "desktop:api:sse:event";
@@ -18,6 +19,8 @@ const bridge: NarrativeXDesktopBridge = {
     request: (input: DesktopApiRequest) =>
       ipcRenderer.invoke("desktop:api:request", input) as Promise<DesktopApiResponse>,
     subscribe: subscribeBackendEvents,
+    uploadVoiceReference: () =>
+      ipcRenderer.invoke("desktop:api:upload-voice-reference") as Promise<VoiceReferenceUploadResult | null>,
   },
   auth: {
     login: () => ipcRenderer.invoke("desktop:auth:login"),

@@ -14,6 +14,7 @@ public class VoiceReferenceAssetAccessAdapter implements VoiceReferenceAssetAcce
   @Override
   public VoiceReferenceAsset findOwned(String accountId, UUID id) {
     var asset = mediaAssetRepository.findOwned(accountId, id);
-    return new VoiceReferenceAsset(asset.type(), asset.contentType(), asset.status());
+    return new VoiceReferenceAsset(
+        asset.type(), asset.contentType(), asset.status(), asset.origin(), asset.storageKey());
   }
 }

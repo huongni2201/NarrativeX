@@ -1,4 +1,7 @@
-import type { WebContents } from "electron";
+import { dialog, session, type WebContents } from "electron";
+import { createHash, randomUUID } from "node:crypto";
+import { readFile, stat } from "node:fs/promises";
+import { basename, extname } from "node:path";
 import type { DesktopBackendApiService, DesktopSseEvent } from "./backend-api-service";
 import {
   registerTrustedIpcHandlerWithEvent,
@@ -11,6 +14,12 @@ const RECONNECT_DELAY_MS = 1_500;
 const GENERATION_EVENTS_PATH = /^\/api\/v1\/generation-jobs\/[0-9a-f-]{36}\/events$/iu;
 const SUBSCRIPTION_ID = /^[0-9a-f-]{36}$/iu;
 const TERMINAL_JOB_STATUSES = new Set(["COMPLETED", "FAILED", "CANCELED"]);
+const MAX_VOICE_REFERENCE_BYTES = 50 * 1024 * 1024;
+
+type BackendRequestOptions = Omit<
+  Parameters<DesktopBackendApiService["request"]>[0],
+  "path"
+>;
 
 interface StartSseInput {
   subscriptionId: string;
@@ -24,6 +33,38 @@ interface StopSseInput {
 interface ActiveSubscription {
   senderId: number;
   controller: AbortController;
+}
+
+interface ApiEnvelope<T> {
+  success: boolean;
+  message: string;
+  data?: T;
+}
+
+interface CsrfTokenData {
+  token: string;
+  headerName: string;
+}
+
+interface UploadIntentData {
+  id: string;
+  uploadUrl: string | null;
+  uploadHeaders: Record<string, string>;
+  status: string;
+}
+
+interface UploadFinalizeData {
+  status: string;
+  mediaAssetId: string | null;
+}
+
+export interface VoiceReferenceUploadResult {
+  assetId: string;
+  status: string;
+  originalFilename: string;
+  contentType: string;
+  sizeBytes: number;
+  checksumSha256: string;
 }
 
 export function registerBackendSseIpc(
@@ -81,6 +122,143 @@ export function registerBackendSseIpc(
     if (!isStopSseInput(input)) throw new Error("Invalid desktop SSE unsubscribe request.");
     return stop(input.subscriptionId, event.sender.id);
   });
+
+  registerVoiceReferenceUploadIpc(policy, apiProvider);
+}
+
+function registerVoiceReferenceUploadIpc(
+  policy: RendererTrustPolicy,
+  apiProvider: () => DesktopBackendApiService,
+): void {
+  registerTrustedIpcHandlerWithEvent(
+    "desktop:api:upload-voice-reference",
+    policy,
+    async () => {
+      const selected = await dialog.showOpenDialog({
+        properties: ["openFile"],
+        filters: [{ name: "Voice reference", extensions: ["mp3", "wav"] }],
+      });
+      const sourcePath = selected.filePaths[0];
+      if (selected.canceled || !sourcePath) return null;
+
+      const extension = extname(sourcePath).toLowerCase();
+      const contentType = extension === ".wav" ? "audio/wav" : extension === ".mp3" ? "audio/mpeg" : null;
+      if (!contentType) throw new Error("Voice reference chỉ hỗ trợ MP3 hoặc WAV.");
+
+      const fileInfo = await stat(sourcePath);
+      if (!fileInfo.isFile() || fileInfo.size <= 0) {
+        throw new Error("Voice reference phải là file audio không rỗng.");
+      }
+      if (fileInfo.size > MAX_VOICE_REFERENCE_BYTES) {
+        throw new Error("Voice reference vượt quá giới hạn 50MB.");
+      }
+
+      const bytes = await readFile(sourcePath);
+      const checksumSha256 = createHash("sha256").update(bytes).digest("hex");
+      const originalFilename = basename(sourcePath);
+      // Keep one key stable inside this upload attempt, but generate a new key when
+      // the user explicitly retries the same file after a rejected/expired session.
+      const idempotencyKey = `desktop-voice-${randomUUID()}`;
+      const api = apiProvider();
+      const csrf = await backendData<CsrfTokenData>(
+        api,
+        "/api/v1/auth/csrf",
+        { method: "GET", headers: { Accept: "application/json" } },
+      );
+      const mutationHeaders = {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        [csrf.headerName]: csrf.token,
+      };
+
+      const intent = await backendData<UploadIntentData>(
+        api,
+        "/api/v1/assets/upload-intents",
+        {
+          method: "POST",
+          headers: { ...mutationHeaders, "Idempotency-Key": idempotencyKey },
+          body: JSON.stringify({
+            type: "AUDIO",
+            originalFilename,
+            contentType,
+            expectedSizeBytes: fileInfo.size,
+            expectedSha256: checksumSha256,
+          }),
+          timeoutMs: 30_000,
+        },
+      );
+
+      if (intent.uploadUrl) {
+        const uploadUrl = validatePresignedUploadUrl(intent.uploadUrl);
+        const uploadHeaders = new Headers(intent.uploadHeaders ?? {});
+        if (!uploadHeaders.has("Content-Type")) uploadHeaders.set("Content-Type", contentType);
+        const response = await session.defaultSession.fetch(uploadUrl.toString(), {
+          method: "PUT",
+          headers: uploadHeaders,
+          body: new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength),
+          redirect: "error",
+        });
+        if (!response.ok) {
+          const detail = await response.text().catch(() => "");
+          throw new Error(
+            `Voice reference upload failed (${response.status})${detail ? `: ${detail.slice(0, 200)}` : ""}`,
+          );
+        }
+      } else if (intent.status !== "READY") {
+        throw new Error("Backend upload intent không cung cấp upload URL hợp lệ.");
+      }
+
+      const finalized = await backendData<UploadFinalizeData>(
+        api,
+        `/api/v1/assets/upload-intents/${encodeURIComponent(intent.id)}/finalize`,
+        {
+          method: "POST",
+          headers: mutationHeaders,
+          body: "{}",
+          timeoutMs: 30_000,
+        },
+      );
+      if (finalized.status === "REJECTED" || !finalized.mediaAssetId) {
+        throw new Error("Voice reference bị từ chối khi backend xác minh file upload.");
+      }
+
+      return {
+        assetId: finalized.mediaAssetId,
+        status: finalized.status,
+        originalFilename,
+        contentType,
+        sizeBytes: fileInfo.size,
+        checksumSha256,
+      } satisfies VoiceReferenceUploadResult;
+    },
+  );
+}
+
+async function backendData<T>(
+  api: DesktopBackendApiService,
+  path: string,
+  request: BackendRequestOptions,
+): Promise<T> {
+  const response = await api.request({ ...request, path });
+  let envelope: ApiEnvelope<T> | null = null;
+  try {
+    envelope = JSON.parse(response.bodyText) as ApiEnvelope<T>;
+  } catch {
+    envelope = null;
+  }
+  if (response.status < 200 || response.status >= 300 || !envelope?.success || envelope.data === undefined) {
+    throw new Error(envelope?.message || response.statusText || `Backend request failed: ${path}`);
+  }
+  return envelope.data;
+}
+
+function validatePresignedUploadUrl(value: string): URL {
+  const url = new URL(value);
+  if (url.username || url.password) throw new Error("Presigned upload URL must not contain credentials.");
+  if (url.protocol === "https:") return url;
+  const localHost = url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "::1";
+  if (url.protocol === "http:" && localHost) return url;
+  throw new Error("Presigned upload URL must use HTTPS.");
 }
 
 async function runSubscription(

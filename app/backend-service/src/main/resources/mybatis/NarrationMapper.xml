@@ -50,4 +50,25 @@
              #{generationJobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler},
              #{stageAttemptId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler})
     </insert>
+
+    <select id="findCompletedVoicePreview" resultType="com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.VoicePreviewResultRow">
+        SELECT pa.storage_key AS storageKey,
+               pa.mime_type AS contentType,
+               na.duration_ms AS durationMs
+          FROM generation_jobs gj
+          JOIN projects p ON p.id = gj.project_id
+          JOIN narration_operations no ON no.generation_job_id = gj.id
+          JOIN narration_requests nr ON nr.id = no.narration_request_id
+          JOIN narration_assets na ON na.narration_request_id = nr.id
+          JOIN project_assets pa ON pa.id = na.project_asset_id
+         WHERE gj.job_id = #{jobId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+           AND gj.project_id = #{projectId,typeHandler=com.narrativex.backend.feature.generation.infrastructure.persistence.mybatis.UuidTypeHandler}
+           AND p.owner_id = #{ownerId}
+           AND gj.job_type = 'NARRATION_GENERATE'
+           AND gj.status = 'COMPLETED'
+           AND gj.idempotency_key LIKE 'voice-preview:%'
+           AND pa.status = 'ACTIVE'
+           AND pa.storage_key IS NOT NULL
+         LIMIT 1
+    </select>
 </mapper>

@@ -1,7 +1,9 @@
 import type {
   GenerateBatchNarrationInput,
   GenerateNarrationInput,
+  GenerateVoicePreviewInput,
   GenerationJob,
+  VoicePreviewResult,
 } from "@narrativex/client-contracts";
 import { apiRequest } from "../../../api/client";
 
@@ -31,5 +33,19 @@ export const narrationApi = {
           voiceReferenceAssetId: input.voiceReferenceAssetId,
         }),
       },
+    ),
+
+  generatePreview: (projectId: string, input: GenerateVoicePreviewInput) =>
+    apiRequest<GenerationJob>(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/voice-preview-jobs`,
+      {
+        method: "POST",
+        body: JSON.stringify(input),
+      },
+    ),
+
+  getPreviewResult: (projectId: string, jobId: string) =>
+    apiRequest<VoicePreviewResult>(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/voice-preview-jobs/${encodeURIComponent(jobId)}/result`,
     ),
 };

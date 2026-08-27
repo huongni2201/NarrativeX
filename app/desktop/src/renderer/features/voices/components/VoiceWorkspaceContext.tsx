@@ -12,6 +12,7 @@ import {
   FolderPlus,
   Mic2,
   Sparkles,
+  Trash2,
   Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,10 +30,18 @@ type Props = Readonly<{
   totalDurationMs: number;
   totalSizeBytes: number;
   busy: boolean;
+  voiceReferenceName: string | null;
+  previewText: string;
+  previewStatus: string | null;
+  previewUrl: string | null;
+  previewBusy: boolean;
   onToggleAsset: (assetId: string) => void;
   onCreateTake: () => void;
   onResetFilters: () => void;
-  onSelectFiles: () => void;
+  onUploadVoiceReference: () => void;
+  onClearVoiceReference: () => void;
+  onPreviewTextChange: (value: string) => void;
+  onGeneratePreview: () => void;
   onBatch: () => void;
   onChapterChange: (chapterId: string) => void;
   onSpeakingRateChange: (value: string) => void;
@@ -51,10 +60,18 @@ export function VoiceWorkspaceContext({
   totalDurationMs,
   totalSizeBytes,
   busy,
+  voiceReferenceName,
+  previewText,
+  previewStatus,
+  previewUrl,
+  previewBusy,
   onToggleAsset,
   onCreateTake,
   onResetFilters,
-  onSelectFiles,
+  onUploadVoiceReference,
+  onClearVoiceReference,
+  onPreviewTextChange,
+  onGeneratePreview,
   onBatch,
   onChapterChange,
   onSpeakingRateChange,
@@ -103,7 +120,7 @@ export function VoiceWorkspaceContext({
           <span>Speaking rate</span>
           <Input
             type="number"
-            min="0.5"
+            min="0.25"
             max="2"
             step="0.1"
             value={speakingRate}
@@ -113,20 +130,78 @@ export function VoiceWorkspaceContext({
         </label>
       </section>
 
-      <button
-        type="button"
-        onClick={onSelectFiles}
-        disabled={busy}
-        className="mt-4 grid min-h-[140px] w-full place-items-center rounded-lg border border-dashed border-border-dark bg-surface-input p-4 text-center text-[10px] text-text-secondary transition-colors hover:border-primary/50 hover:bg-primary-muted/30 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        <span>
-          <Upload className="mx-auto mb-2 text-text-muted" size={20} />
-          <span className="block">Chọn file audio từ máy</span>
-          <span className="mt-2 block text-[9px] text-text-muted">
-            MP3, WAV, M4A · tối đa 50MB / file
+      <section className="mt-4 rounded-lg border border-primary/25 bg-primary-muted/10 p-3">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <span className="text-[9px] font-bold uppercase tracking-[.14em] text-primary-hover">
+              Custom voice
+            </span>
+            <p className="mt-1 text-[9px] leading-4 text-text-muted">
+              Upload 3–8 giây giọng sạch để VieNeu tạo giọng mẫu. MP3/WAV, tối đa 50MB.
+            </p>
+          </div>
+          {voiceReferenceName && (
+            <button
+              type="button"
+              aria-label="Bỏ giọng tham chiếu"
+              onClick={onClearVoiceReference}
+              disabled={busy}
+              className="rounded p-1 text-text-muted hover:bg-surface-3 hover:text-foreground disabled:opacity-40"
+            >
+              <Trash2 size={13} />
+            </button>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={onUploadVoiceReference}
+          disabled={busy}
+          className="mt-3 flex min-h-20 w-full items-center justify-center rounded-lg border border-dashed border-border-dark bg-surface-input px-3 text-center text-[10px] text-text-secondary transition-colors hover:border-primary/50 hover:bg-primary-muted/30 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <span>
+            <Upload className="mx-auto mb-1.5 text-text-muted" size={18} />
+            <span className="block truncate">
+              {voiceReferenceName ?? "Upload giọng tham chiếu"}
+            </span>
           </span>
-        </span>
-      </button>
+        </button>
+
+        <label className="mt-3 grid gap-1 text-[10px] text-text-secondary">
+          <span>Câu đọc thử</span>
+          <textarea
+            value={previewText}
+            maxLength={500}
+            rows={3}
+            onChange={(event) => onPreviewTextChange(event.target.value)}
+            className="resize-none rounded-md border border-border bg-surface-2 px-2.5 py-2 text-[10px] leading-4 text-foreground outline-none focus-visible:ring-1 focus-visible:ring-primary/70"
+          />
+          <span className="text-right text-[9px] text-text-muted">{previewText.length}/500</span>
+        </label>
+
+        <Button
+          type="button"
+          onClick={onGeneratePreview}
+          disabled={!voiceReferenceName || !selectedVoice || !chapterId || !previewText.trim() || previewBusy}
+          className="mt-2 h-9 w-full bg-primary text-[10px] text-primary-foreground hover:bg-primary-hover"
+        >
+          <Sparkles size={13} />
+          {previewBusy ? "Đang tạo giọng mẫu…" : "Tạo giọng mẫu"}
+        </Button>
+
+        {previewStatus && !previewUrl && (
+          <p className="mt-2 text-[9px] text-text-muted">Trạng thái: {previewStatus}</p>
+        )}
+        {previewUrl && (
+          <audio
+            key={previewUrl}
+            controls
+            preload="metadata"
+            src={previewUrl}
+            className="mt-3 h-9 w-full"
+          />
+        )}
+      </section>
 
       <Button
         variant="outline"
