@@ -85,27 +85,15 @@ class MyBatisChapterAnalysisSnapshotRepositoryIntegrationTest
             """,
             UUID.class,
             projectId);
-    UUID chapterId =
-        jdbcTemplate.queryForObject(
-            """
-            INSERT INTO chapters
-              (story_version_id, order_index, title, source_text, source_hash, status)
-            VALUES (?, 0, 'Chapter', 'source', ?, 'DRAFT')
-            RETURNING id
-            """,
-            UUID.class,
-            storyVersionId,
-            SOURCE_HASH);
-    jdbcTemplate.update(
+    return jdbcTemplate.queryForObject(
         """
-        INSERT INTO chapter_content_variants
-          (chapter_id, variant_type, language_code, content, content_hash,
-           source_content_hash, translation_status)
-        VALUES (?, 'ORIGINAL', 'en-US', 'source', ?, ?, 'NOT_REQUIRED')
+        INSERT INTO chapters
+          (story_version_id, order_index, title, source_text, source_hash, status)
+        VALUES (?, 0, 'Chapter', 'source', ?, 'DRAFT')
+        RETURNING id
         """,
-        chapterId,
-        SOURCE_HASH,
+        UUID.class,
+        storyVersionId,
         SOURCE_HASH);
-    return chapterId;
   }
 }
