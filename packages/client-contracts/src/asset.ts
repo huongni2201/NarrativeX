@@ -20,7 +20,7 @@ export interface RegisterLocalAssetRequest {
   contentType: string;
   sizeBytes: number;
   checksumSha256: string;
-  durationMs?: number;
+  durationMs?: number | null;
 }
 
 /** Desktop-local registration context. projectId/assetId must never be sent to the backend DTO. */
