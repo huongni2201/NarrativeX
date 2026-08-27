@@ -2,6 +2,7 @@ import type {
   CreateChapterInput,
   CursorPage,
   DesktopChapterDetails,
+  DesktopChapterWorkspace,
   UpdateChapterInput,
 } from "@narrativex/client-contracts";
 import { apiCommand, apiRequest } from "../../../api/client";
@@ -14,6 +15,7 @@ export { parseChapterWorkspace } from "./chapter-workspace-contract";
 export type ChaptersPage = CursorPage<DesktopChapterDetails>;
 
 const CHAPTER_PAGE_LIMIT = 100;
+const WORKSPACE_BATCH_LIMIT = 200;
 
 function isChapter(value: unknown): value is DesktopChapterDetails {
   return (
@@ -34,6 +36,13 @@ function parseChapters(value: unknown): ChaptersPage {
     isChapter,
     "Chapters response không đúng contract.",
   );
+}
+
+function parseChapterWorkspaces(value: unknown): DesktopChapterWorkspace[] {
+  if (!Array.isArray(value)) {
+    throw new Error("Chapter workspaces response không đúng contract.");
+  }
+  return value.map(parseChapterWorkspace);
 }
 
 async function listPage(
@@ -60,6 +69,26 @@ async function listAll(projectId: string, storyVersionId: string): Promise<Deskt
   return pages.flatMap((page) => page.content);
 }
 
+async function listWorkspaces(
+  projectId: string,
+  chapterIds: string[],
+): Promise<DesktopChapterWorkspace[]> {
+  const requests: Array<Promise<DesktopChapterWorkspace[]>> = [];
+  for (let index = 0; index < chapterIds.length; index += WORKSPACE_BATCH_LIMIT) {
+    const batch = chapterIds.slice(index, index + WORKSPACE_BATCH_LIMIT);
+    requests.push(
+      apiRequest<unknown>(
+        `/api/v1/projects/${encodeURIComponent(projectId)}/chapters/workspaces:batch`,
+        {
+          method: "POST",
+          body: JSON.stringify(batch),
+        },
+      ).then(parseChapterWorkspaces),
+    );
+  }
+  return (await Promise.all(requests)).flat();
+}
+
 export const chaptersApi = {
   list: listPage,
   listAll,
@@ -73,6 +102,8 @@ export const chaptersApi = {
     apiRequest<unknown>(
       `/api/v1/projects/${encodeURIComponent(projectId)}/chapters/${encodeURIComponent(chapterId)}/workspace`,
     ).then(parseChapterWorkspace),
+
+  workspaces: listWorkspaces,
 
   create: (projectId: string, input: CreateChapterInput) =>
     apiRequest<DesktopChapterDetails>(
