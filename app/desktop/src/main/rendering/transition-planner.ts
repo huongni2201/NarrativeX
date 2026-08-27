@@ -22,11 +22,11 @@ export interface BeatTransitionPlan {
 export function planBeatTransitions(
   beats: readonly TransitionPlanningBeat[],
 ): BeatTransitionPlan[] {
-  const plans = beats.map((beat) => ({
+  const plans: BeatTransitionPlan[] = beats.map((beat) => ({
     visualBeatId: beat.visualBeatId,
     transitionInMs: 0,
     transitionOutMs: 0,
-    transitionType: "CUT" as const,
+    transitionType: "CUT",
   }));
 
   for (let index = 1; index < beats.length; index += 1) {
