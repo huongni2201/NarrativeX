@@ -4,6 +4,7 @@ import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.response.ApiResponse;
+import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterResponse;
 import com.narrativex.backend.feature.storyboard.application.command.CreateChapterCommand;
@@ -23,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class CreateChapterWithStoryUseCase {
   private final CurrentUserId currentUserId;
+  private final ProjectAccess projectAccess;
   private final StoryVersionAccess storyVersionAccess;
   private final CreateChapterUseCase createChapterUseCase;
   private final ChapterRepository chapterRepository;
@@ -32,6 +34,9 @@ public class CreateChapterWithStoryUseCase {
   public ApiResponse<ChapterResponse> execute(CreateChapterWithStoryCommand command) {
     requireIdempotencyKey(command.idempotencyKey());
     String ownerId = currentUserId.get();
+    // Reserve only after the parent exists and is locked, so the FK cannot fail for a
+    // missing or concurrently deleted project before the request reaches domain validation.
+    projectAccess.findOwnedProjectForUpdate(command.projectId(), ownerId);
     String fingerprint = fingerprint(command);
     var reservation =
         idempotencyRepository

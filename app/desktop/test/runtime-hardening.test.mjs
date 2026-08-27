@@ -94,3 +94,9 @@ test("desktop renderer keeps Node isolation while disabling Chromium sandbox", (
   assert.match(main, /nodeIntegration: false/);
   assert.match(main, /sandbox: false/);
 });
+
+test("desktop removes the native application menu", () => {
+  const main = source("app", "desktop", "src", "main", "main.ts");
+  assert.match(main, /import \{[^}]*\bMenu\b[^}]*\} from "electron"/s);
+  assert.match(main, /Menu\.setApplicationMenu\(null\)/);
+});

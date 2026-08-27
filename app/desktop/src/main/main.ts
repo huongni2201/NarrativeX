@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, session, shell } from "electron";
+import { app, BrowserWindow, dialog, Menu, session, shell } from "electron";
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
@@ -288,6 +288,7 @@ function registerNarrativeXProtocol(): void {
 
 void app.whenReady().then(async () => {
   app.setAppUserModelId("com.narrativex.desktop");
+  Menu.setApplicationMenu(null);
   ffmpegRuntime = await resolveFfmpegRuntime();
   const config = loadLocalExecutionConfig(ffmpegRuntime.available);
   const trustPolicy = rendererTrustPolicy();

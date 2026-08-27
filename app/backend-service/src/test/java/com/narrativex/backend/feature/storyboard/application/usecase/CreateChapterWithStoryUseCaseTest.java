@@ -1,16 +1,20 @@
 package com.narrativex.backend.feature.storyboard.application.usecase;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.narrativex.backend.feature.auth.application.port.in.CurrentUserId;
+import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.response.ApiResponse;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
+import com.narrativex.backend.feature.project.application.port.in.ProjectAccess;
 import com.narrativex.backend.feature.project.application.port.in.StoryVersionAccess;
 import com.narrativex.backend.feature.storyboard.api.response.ChapterResponse;
 import com.narrativex.backend.feature.storyboard.application.command.CreateChapterWithStoryCommand;
@@ -25,6 +29,7 @@ class CreateChapterWithStoryUseCaseTest {
   private final CurrentUserId currentUserId = org.mockito.Mockito.mock(CurrentUserId.class);
   private final StoryVersionAccess storyVersionAccess =
       org.mockito.Mockito.mock(StoryVersionAccess.class);
+  private final ProjectAccess projectAccess = org.mockito.Mockito.mock(ProjectAccess.class);
   private final CreateChapterUseCase createChapter =
       org.mockito.Mockito.mock(CreateChapterUseCase.class);
   private final ChapterRepository chapters = org.mockito.Mockito.mock(ChapterRepository.class);
@@ -32,12 +37,29 @@ class CreateChapterWithStoryUseCaseTest {
       org.mockito.Mockito.mock(ChapterCreationIdempotencyRepository.class);
   private final CreateChapterWithStoryUseCase useCase =
       new CreateChapterWithStoryUseCase(
-          currentUserId, storyVersionAccess, createChapter, chapters, idempotency);
+          currentUserId, projectAccess, storyVersionAccess, createChapter, chapters, idempotency);
 
   private static final UUID RESERVATION_ID = UuidV7.random();
   private static final UUID PROJECT_ID = UuidV7.random();
   private static final UUID STORY_ID = UuidV7.random();
   private static final UUID CHAPTER_ID = UuidV7.random();
+
+  @Test
+  void rejectsMissingProjectBeforeCreatingIdempotencyReservation() {
+    when(currentUserId.get()).thenReturn("owner");
+    doThrow(new ResourceNotFoundException("Project not found"))
+        .when(projectAccess)
+        .findOwnedProjectForUpdate(PROJECT_ID, "owner");
+
+    assertThrows(
+        ResourceNotFoundException.class,
+        () ->
+            useCase.execute(
+                new CreateChapterWithStoryCommand(
+                    PROJECT_ID, null, null, "Chapter", "Text", "key-missing-project")));
+
+    verify(idempotency, never()).reserve(anyString(), eq(PROJECT_ID), anyString(), anyString());
+  }
 
   @Test
   void createsStoryVersionAndChapterInsideTheSameApplicationWorkflow() {
