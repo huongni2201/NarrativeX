@@ -1,9 +1,9 @@
 import { BookOpen, Clapperboard, FileText, WandSparkles } from "lucide-react";
 
 type Props = Readonly<{
-  sceneAvailable: boolean;
-  visualBeatAvailable: boolean;
-  onOpenEditor: () => void;
+  sceneAvailable?: boolean;
+  visualBeatAvailable?: boolean;
+  onOpenEditor?: () => void;
 }>;
 
 const STEPS = [
@@ -14,10 +14,10 @@ const STEPS = [
 ] as const;
 
 export function ChapterWorkflowRibbon({
-  sceneAvailable,
-  visualBeatAvailable,
+  sceneAvailable = true,
+  visualBeatAvailable = true,
   onOpenEditor,
-}: Props) {
+}: Props = {}) {
   return (
     <div className="shrink-0 border-b border-border bg-surface-panel px-6 py-2">
       <div className="flex max-w-2xl items-center gap-3 text-xs text-text-muted">
@@ -30,18 +30,18 @@ export function ChapterWorkflowRibbon({
             active
               ? "border-b-2 border-primary bg-transparent text-primary-hover"
               : available
-                ? "cursor-pointer text-text-secondary hover:text-primary-hover"
+                ? "text-text-secondary"
                 : "text-text-muted"
           }`;
 
           return (
             <div key={key} className="flex items-center gap-3">
-              {editorStep ? (
+              {editorStep && onOpenEditor ? (
                 <button
                   type="button"
                   disabled={!available}
                   onClick={onOpenEditor}
-                  className={`${className} disabled:cursor-not-allowed disabled:opacity-55`}
+                  className={`${className} cursor-pointer hover:text-primary-hover disabled:cursor-not-allowed disabled:opacity-55`}
                   title={
                     available
                       ? key === "visual-beat"
@@ -57,7 +57,11 @@ export function ChapterWorkflowRibbon({
                 </button>
               ) : (
                 <div className={className}>
-                  <span className={`size-1.5 rounded-full ${active ? "bg-primary" : "bg-text-dim"}`} />
+                  <span
+                    className={`size-1.5 rounded-full ${
+                      active ? "bg-primary" : available ? "bg-primary" : "bg-text-dim"
+                    }`}
+                  />
                   <span>{label}</span>
                 </div>
               )}
