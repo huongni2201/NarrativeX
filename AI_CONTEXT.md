@@ -99,15 +99,22 @@ Do not describe these implemented foundations as future migration work.
 
 Production backend application persistence is MyBatis + explicit PostgreSQL SQL. JPA and direct `JdbcTemplate` persistence are not production application persistence paths.
 
-Final pre-release Flyway baseline:
+Current pre-release Flyway baseline:
 
 ```text
-V1__create_tables.sql
-V2__init_indexes.sql
-V3__seed_data.sql
+V1__identity_and_access.sql
+V2__project_story_and_planning.sql
+V3__generation_billing_and_media.sql
+V4__narration_notifications_and_artifacts.sql
+V5__catalog_generation_and_render_snapshots.sql
+V6__database_logic_and_triggers.sql
+V7__indexes.sql
+V8__seed_catalog.sql
 ```
 
-V1 contains the complete relational/runtime schema, including Spring Session, Desktop OAuth handoffs and PostgreSQL runtime triggers. V2 contains the complete index/invariant set. V3 contains deterministic catalog/bootstrap data. There is no V4 in this final consolidated baseline. After this baseline is adopted, future schema changes begin with append-only `V4__*.sql` migrations rather than rewriting V1-V3.
+V1-V6 are responsibility-separated schema/database-logic migrations, V7 owns indexes, and V8 owns deterministic catalog/system seed data. Subtitle snapshot fields, the Chapter Workspace covering index and VieNeu speaking-rate capability are represented directly in their final owning migrations rather than as patch migrations. VieNeu voices advertise `supportsSpeakingRate=true`, while narration requests persist a positive `speaking_rate`.
+
+NarrativeX has not reached its first production deployment. Until that point, the clean baseline may be reorganized and disposable development/test databases should be recreated after checksum/version changes. At the first production deployment, freeze the accepted baseline; from then on never rewrite applied migrations and add only new append-only versions.
 
 ## Rendering rules
 
