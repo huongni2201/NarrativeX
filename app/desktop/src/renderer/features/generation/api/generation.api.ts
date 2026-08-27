@@ -35,8 +35,17 @@ export function normalizeCreateMediaJobInput(input: CreateMediaJobInput): Create
   };
 }
 
+const DEFAULT_ANALYZE_REQUEST: AnalyzeChapterInput = {
+  visualGenerationMode: "IMAGE",
+  imageProvider: "API",
+};
+
 export const generationApi = {
-  analyze: (projectId: string, chapterId: string, input: AnalyzeChapterInput) =>
+  analyze: (
+    projectId: string,
+    chapterId: string,
+    input: AnalyzeChapterInput = DEFAULT_ANALYZE_REQUEST,
+  ) =>
     apiRequest<GenerationJob>(
       `/api/v1/projects/${encodeURIComponent(projectId)}/chapters/${encodeURIComponent(chapterId)}/analysis-jobs`,
       {
