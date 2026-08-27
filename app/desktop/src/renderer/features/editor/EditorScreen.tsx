@@ -30,6 +30,12 @@ interface PreviewSources {
   message: string | null;
 }
 
+export interface MediaMutationNotice {
+  tone: "success" | "error";
+  message: string;
+  retry?: () => void;
+}
+
 const EMPTY_PREVIEW: PreviewSources = {
   mediaUrl: null,
   narrationUrl: null,
@@ -58,7 +64,7 @@ export function EditorScreen({
   // scopes remain modelled in editor-timeline for future explicit focus controls.
   const [scope] = useState<EditorScope>("project");
   const [mediaBusy, setMediaBusy] = useState(false);
-  const [mediaNotice, setMediaNotice] = useState<string | null>(null);
+  const [mediaNotice, setMediaNotice] = useState<MediaMutationNotice | null>(null);
   const [previewSources, setPreviewSources] = useState<PreviewSources>(EMPTY_PREVIEW);
 
   useEffect(() => {
@@ -213,15 +219,23 @@ export function EditorScreen({
     ]);
   }
 
-  async function withMediaMutation(action: () => Promise<void>, successMessage: string) {
+  async function withMediaMutation(
+    action: () => Promise<void>,
+    successMessage: string,
+    retry?: () => void,
+  ) {
     setMediaBusy(true);
     setMediaNotice(null);
     try {
       await action();
       await refreshEditorData();
-      setMediaNotice(successMessage);
+      setMediaNotice({ tone: "success", message: successMessage });
     } catch (error) {
-      setMediaNotice(error instanceof Error ? error.message : "Không thể cập nhật media cho beat.");
+      setMediaNotice({
+        tone: "error",
+        message: error instanceof Error ? error.message : "Không thể cập nhật media cho beat.",
+        retry,
+      });
     } finally {
       setMediaBusy(false);
     }
@@ -229,17 +243,19 @@ export function EditorScreen({
 
   async function uploadBeatMedia(expectedType: "IMAGE" | "VIDEO") {
     if (!projectId || !selected) return;
-    await withMediaMutation(async () => {
-      const selection = await window.narrativex.localStorage.selectAsset();
-      if (!selection) return;
-      if (selection.kind !== expectedType) {
-        throw new Error(
-          expectedType === "VIDEO"
-            ? "Hãy chọn một file video."
-            : "Hãy chọn một file ảnh.",
-        );
-      }
+    setMediaNotice(null);
+    const selection = await window.narrativex.localStorage.selectAsset();
+    if (!selection) return;
+    if (selection.kind !== expectedType) {
+      setMediaNotice({
+        tone: "error",
+        message: expectedType === "VIDEO" ? "Hãy chọn một file video." : "Hãy chọn một file ảnh.",
+      });
+      return;
+    }
 
+    setMediaBusy(true);
+    try {
       const asset = await assetsApi.registerLocal({
         projectId,
         type: selection.kind,
@@ -260,12 +276,47 @@ export function EditorScreen({
         sourceDurationMs: asset.durationMs,
         durationMs: selected.durationMs,
       });
-      await productionApi.updateBeatMedia(projectId, selected.visualBeatId, {
-        mediaAssetId: asset.id,
-        fitMode: autoFit.fitMode,
-        trimStartMs: autoFit.trimStartMs,
+      const attachAsset = () =>
+        productionApi.updateBeatMedia(projectId, selected.visualBeatId, {
+          mediaAssetId: asset.id,
+          fitMode: autoFit.fitMode,
+          trimStartMs: autoFit.trimStartMs,
+        });
+
+      try {
+        await attachAsset();
+        await refreshEditorData();
+        setMediaNotice({
+          tone: "success",
+          message:
+            expectedType === "VIDEO"
+              ? "Video đã được gắn và Auto Edit sẽ tự fit theo narration."
+              : "Ảnh đã được gắn vào Visual Beat.",
+        });
+      } catch (error) {
+        setMediaNotice({
+          tone: "error",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Asset đã được lưu cục bộ nhưng chưa thể gắn vào Visual Beat.",
+          retry: () => {
+            void withMediaMutation(
+              attachAsset,
+              "Asset đã được gắn lại vào Visual Beat.",
+              () => void withMediaMutation(attachAsset, "Asset đã được gắn lại vào Visual Beat."),
+            );
+          },
+        });
+      }
+    } catch (error) {
+      setMediaNotice({
+        tone: "error",
+        message: error instanceof Error ? error.message : "Không thể nhập media vào project.",
       });
-    }, expectedType === "VIDEO" ? "Video đã được gắn và Auto Edit sẽ tự fit theo narration." : "Ảnh đã được gắn vào Visual Beat.");
+    } finally {
+      setMediaBusy(false);
+    }
   }
 
   async function chooseExistingAsset(assetId: string) {
@@ -277,36 +328,47 @@ export function EditorScreen({
       sourceDurationMs: asset.durationMs,
       durationMs: selected.durationMs,
     });
+    const action = () =>
+      productionApi.updateBeatMedia(projectId, selected.visualBeatId, {
+        mediaAssetId: asset.id,
+        fitMode: autoFit.fitMode,
+        trimStartMs: autoFit.trimStartMs,
+      });
+    const retry = () => {
+      void withMediaMutation(action, `${asset.originalFilename} đã được gắn; Auto Edit chọn ${autoFit.fitMode}.`, retry);
+    };
     await withMediaMutation(
-      () =>
-        productionApi.updateBeatMedia(projectId, selected.visualBeatId, {
-          mediaAssetId: asset.id,
-          fitMode: autoFit.fitMode,
-          trimStartMs: autoFit.trimStartMs,
-        }),
+      action,
       `${asset.originalFilename} đã được gắn; Auto Edit chọn ${autoFit.fitMode}.`,
+      retry,
     );
   }
 
   async function updateFitMode(fitMode: BeatMediaFitMode) {
     if (!projectId || !selected?.mediaAssetId) return;
+    const action = () =>
+      productionApi.updateBeatMedia(projectId, selected.visualBeatId, {
+        mediaAssetId: selected.mediaAssetId as string,
+        fitMode,
+        trimStartMs: selected.trimStartMs,
+      });
+    const retry = () => {
+      void withMediaMutation(action, `Manual override đã chuyển fit mode sang ${fitMode}.`, retry);
+    };
     await withMediaMutation(
-      () =>
-        productionApi.updateBeatMedia(projectId, selected.visualBeatId, {
-          mediaAssetId: selected.mediaAssetId as string,
-          fitMode,
-          trimStartMs: selected.trimStartMs,
-        }),
+      action,
       `Manual override đã chuyển fit mode sang ${fitMode}.`,
+      retry,
     );
   }
 
   async function resetToGeneratedSource() {
     if (!projectId || !selected) return;
-    await withMediaMutation(
-      () => productionApi.resetBeatMedia(projectId, selected.visualBeatId),
-      "Visual Beat đã quay về generated source.",
-    );
+    const action = () => productionApi.resetBeatMedia(projectId, selected.visualBeatId);
+    const retry = () => {
+      void withMediaMutation(action, "Visual Beat đã quay về generated source.", retry);
+    };
+    await withMediaMutation(action, "Visual Beat đã quay về generated source.", retry);
   }
 
   return (

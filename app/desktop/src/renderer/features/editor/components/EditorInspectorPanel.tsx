@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import {
+  AlertCircle,
+  CheckCircle2,
   ChevronDown,
   FileImage,
   Film,
@@ -16,13 +18,14 @@ import type {
   DesktopAsset,
   DesktopTimelineBeat,
 } from "@narrativex/client-contracts";
+import type { MediaMutationNotice } from "../EditorScreen";
 
 interface EditorInspectorPanelProps {
   selectedBeat: DesktopTimelineBeat | null;
   autoDecision: AutoEditBeatDecision | null;
   selectableAssets: DesktopAsset[];
   mediaBusy: boolean;
-  mediaNotice: string | null;
+  mediaNotice: MediaMutationNotice | null;
   onUploadMedia: (type: "IMAGE" | "VIDEO") => void;
   onChooseAsset: (assetId: string) => void;
   onUpdateFitMode: (fitMode: BeatMediaFitMode) => void;
@@ -59,26 +62,22 @@ export function EditorInspectorPanel({
 
   return (
     <aside className="flex h-full min-h-0 flex-col bg-surface-panel font-sans text-foreground">
-      {/* Header */}
-      <div className="flex h-14 shrink-0 items-center px-5 border-b border-border-subtle">
+      <div className="flex h-14 shrink-0 items-center border-b border-border-subtle px-5">
         <h3 className="text-[14px] font-bold text-foreground">Inspector</h3>
       </div>
 
-      {/* Tabs */}
       <div className="flex border-b border-border-subtle bg-surface-dark px-4">
         <InspectorTabButton label="Scene" active={activeTab === "scene"} onClick={() => setActiveTab("scene")} />
         <InspectorTabButton label="Audio" active={activeTab === "audio"} onClick={() => setActiveTab("audio")} />
         <InspectorTabButton label="Effects" active={activeTab === "effects"} onClick={() => setActiveTab("effects")} />
       </div>
 
-      {/* Content */}
-      <div className="min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
         {activeTab === "scene" && (
           <>
-            {/* Scene Settings Card */}
             <section className="space-y-3">
               <h4 className="text-[12px] font-bold text-foreground">Scene Settings</h4>
-              
+
               <div>
                 <label className="mb-1.5 block text-[11px] text-text-dim">Name</label>
                 <input
@@ -109,10 +108,9 @@ export function EditorInspectorPanel({
               </div>
             </section>
 
-            {/* Media Card */}
             <section className="space-y-2">
               <h4 className="text-[12px] font-bold text-foreground">Media</h4>
-              
+
               <div className="flex min-h-[140px] flex-col items-center justify-center rounded-lg border border-border-subtle bg-[#0a0e16] p-4 text-center">
                 <ImageIcon size={26} className="text-text-muted opacity-80" strokeWidth={1.5} aria-hidden="true" />
                 <p className="mt-2.5 text-[12px] font-medium text-text-secondary">Drag &amp; drop media here</p>
@@ -129,7 +127,7 @@ export function EditorInspectorPanel({
 
               <div className="flex items-center justify-between pt-1 text-[10px]">
                 <span className="text-text-dim">Current source</span>
-                <span className="rounded bg-surface-input px-2 py-0.5 font-medium text-text-secondary border border-border-subtle">
+                <span className="rounded border border-border-subtle bg-surface-input px-2 py-0.5 font-medium text-text-secondary">
                   {selectedBeat ? mediaSourceLabel(selectedBeat) : "Auto / Default"}
                 </span>
               </div>
@@ -181,14 +179,44 @@ export function EditorInspectorPanel({
                 </button>
               )}
 
-              {mediaNotice && (
-                <p className="rounded-md border border-primary/25 bg-primary-muted px-2.5 py-1.5 text-[10px] text-primary" role="status">
-                  {mediaNotice}
+              {mediaBusy && (
+                <p className="rounded-md border border-border-subtle bg-background px-2.5 py-1.5 text-[10px] text-text-muted" role="status">
+                  Đang lưu thay đổi…
                 </p>
+              )}
+
+              {mediaNotice && !mediaBusy && (
+                <div
+                  className={`rounded-md border px-2.5 py-2 text-[10px] leading-4 ${
+                    mediaNotice.tone === "success"
+                      ? "border-success/30 bg-success-bg text-success"
+                      : "border-danger/30 bg-danger-bg text-danger"
+                  }`}
+                  role={mediaNotice.tone === "error" ? "alert" : "status"}
+                >
+                  <div className="flex items-start gap-2">
+                    {mediaNotice.tone === "success" ? (
+                      <CheckCircle2 size={12} className="mt-0.5 shrink-0" />
+                    ) : (
+                      <AlertCircle size={12} className="mt-0.5 shrink-0" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p>{mediaNotice.message}</p>
+                      {mediaNotice.retry && (
+                        <button
+                          type="button"
+                          onClick={mediaNotice.retry}
+                          className="mt-2 rounded-md border border-current/30 px-2 py-1 text-[8px] font-semibold transition hover:bg-background/30"
+                        >
+                          Thử lại
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
               )}
             </section>
 
-            {/* Notes Card */}
             <section className="space-y-2">
               <h4 className="text-[12px] font-bold text-foreground">Notes</h4>
               <div className="relative">
@@ -206,8 +234,7 @@ export function EditorInspectorPanel({
               </div>
             </section>
 
-            {/* Auto Edit Collapsible / Sub-section */}
-            <section className="rounded-lg border border-border-subtle bg-surface p-3 space-y-2">
+            <section className="space-y-2 rounded-lg border border-border-subtle bg-surface p-3">
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-1.5 text-[11px] font-semibold text-primary">
                   <WandSparkles size={12} /> Auto Edit Decision
@@ -216,26 +243,69 @@ export function EditorInspectorPanel({
                   {autoDecision?.source === "AI_DIRECTED" ? "AI directed" : "Rule engine"}
                 </span>
               </div>
-              <p className="text-[10px] text-text-muted leading-4">
+              <div className="grid grid-cols-2 gap-2">
+                <InfoCell label="Motion" value={autoDecision?.cameraMovement || "NONE"} />
+                <InfoCell label="Fit" value={autoDecision?.fitMode || selectedBeat?.fitMode || "TRIM"} />
+                <InfoCell label="Trim start" value={formatTimecode(autoDecision?.trimStartMs ?? selectedBeat?.trimStartMs ?? 0)} />
+                <InfoCell label="Clock" value="Narration" />
+              </div>
+              <p className="text-[10px] leading-4 text-text-muted">
                 {autoDecision?.reason || "Narration controls beat duration and FFmpeg auto-fits the media."}
               </p>
+              <button
+                type="button"
+                onClick={() => setShowAdvanced((value) => !value)}
+                className="flex h-8 w-full items-center justify-center gap-1.5 rounded-md border border-border bg-surface-input text-[9px] font-medium text-text-muted transition hover:bg-surface-2 hover:text-foreground"
+              >
+                <SlidersHorizontal size={11} />
+                {showAdvanced ? "Hide manual override" : "Manual override"}
+              </button>
+              {showAdvanced && (
+                <div className="space-y-2 rounded-lg border border-border-subtle bg-background p-2.5">
+                  <p className="text-[8px] leading-4 text-text-dim">Ghi đè quyết định Auto Edit cho beat hiện tại.</p>
+                  <div className="grid grid-cols-2 gap-1.5 rounded-md border border-border-subtle bg-surface p-1.5">
+                    {(
+                      [
+                        { mode: "TRIM", label: "Trim" },
+                        { mode: "LOOP", label: "Loop" },
+                        { mode: "FREEZE_END", label: "Freeze" },
+                        { mode: "SPEED_ADJUST", label: "Speed" },
+                      ] as const
+                    ).map(({ mode, label }) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        disabled={mediaBusy || !selectedBeat?.mediaAssetId}
+                        onClick={() => onUpdateFitMode(mode)}
+                        className={`rounded-md py-1.5 text-[8px] font-medium transition-colors disabled:opacity-40 ${
+                          selectedBeat?.fitMode === mode
+                            ? "bg-primary text-primary-foreground"
+                            : "text-text-muted hover:bg-surface-2 hover:text-foreground"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </section>
           </>
         )}
 
         {activeTab === "audio" && (
-          <section className="rounded-lg border border-border-subtle bg-surface p-3.5 space-y-2">
+          <section className="space-y-2 rounded-lg border border-border-subtle bg-surface p-3.5">
             <h4 className="text-[12px] font-bold text-foreground">Audio Sync</h4>
-            <p className="text-[11px] text-text-dim leading-5">
+            <p className="text-[11px] leading-5 text-text-dim">
               Timing của visual beat được căn theo master narration track. Audio controls chi tiết được quản lý ở workflow Voice và timeline.
             </p>
           </section>
         )}
 
         {activeTab === "effects" && (
-          <section className="rounded-lg border border-border-subtle bg-surface p-3.5 space-y-2">
+          <section className="space-y-2 rounded-lg border border-border-subtle bg-surface p-3.5">
             <h4 className="text-[12px] font-bold text-foreground">Visual Effects</h4>
-            <p className="text-[11px] text-text-dim leading-5">
+            <p className="text-[11px] text-text-dim">
               Current motion: <strong className="text-foreground">{selectedBeat?.cameraMovement || "Auto"}</strong>
             </p>
           </section>
@@ -251,14 +321,21 @@ function InspectorTabButton({ label, active, onClick }: Readonly<{ label: string
       type="button"
       onClick={onClick}
       className={`relative px-4 py-2.5 text-[11px] font-medium transition ${
-        active ? "text-primary font-semibold" : "text-text-muted hover:text-foreground"
+        active ? "font-semibold text-primary" : "text-text-muted hover:text-foreground"
       }`}
     >
       {label}
-      {active && (
-        <span className="absolute inset-x-0 bottom-0 h-[2px] bg-primary" />
-      )}
+      {active && <span className="absolute inset-x-0 bottom-0 h-[2px] bg-primary" />}
     </button>
+  );
+}
+
+function InfoCell({ label, value }: Readonly<{ label: string; value: string }>) {
+  return (
+    <div className="min-w-0 rounded-md border border-border-subtle bg-background px-2.5 py-2">
+      <span className="block text-[7px] uppercase tracking-wider text-text-dim">{label}</span>
+      <strong className="mt-1 block truncate text-[9px] font-medium text-text-secondary">{value}</strong>
+    </div>
   );
 }
 
