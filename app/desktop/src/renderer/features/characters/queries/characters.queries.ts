@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { charactersApi } from "../api/characters.api";
 
 export function useCreateCharacter(projectId: string) {
@@ -16,5 +16,13 @@ export function useCreateCharacter(projectId: string) {
         queryKey: ["projects", projectId, "characters"],
       });
     },
+  });
+}
+
+export function useCharacterDetail(projectId: string, characterId: string | null) {
+  return useQuery({
+    queryKey: ["projects", projectId, "characters", characterId],
+    queryFn: () => charactersApi.detail(projectId, characterId as string),
+    enabled: Boolean(projectId && characterId),
   });
 }
