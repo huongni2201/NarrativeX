@@ -1,7 +1,10 @@
+import { useState } from "react";
 import type {
   DesktopChapterDetails,
   DesktopChapterWorkspace,
   DesktopVoice,
+  ImageGenerationProvider,
+  VisualGenerationMode,
 } from "@narrativex/client-contracts";
 import {
   AudioLines,
@@ -11,10 +14,12 @@ import {
   PencilLine,
   Plus,
   WandSparkles,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { setAnalyzeChapterPreferences } from "../../generation/api/generation.api";
 import {
   audioButtonLabel,
   audioStatusBadgeClass,
@@ -83,173 +88,321 @@ export function ChapterEditorPanel({
   onAnalyze,
   onOpenEditor,
 }: Props) {
+  const [analyzeModalOpen, setAnalyzeModalOpen] = useState(false);
+  const [visualGenerationMode, setVisualGenerationMode] =
+    useState<VisualGenerationMode>("IMAGE");
+  const [imageProvider, setImageProvider] =
+    useState<ImageGenerationProvider>("GEMINI_WEB");
   const generationBlockedByUnsavedChanges = Boolean(selected && isDirty);
 
+  function submitAnalysis() {
+    setAnalyzeChapterPreferences({
+      visualGenerationMode,
+      imageProvider: visualGenerationMode === "IMAGE" ? imageProvider : null,
+    });
+    setAnalyzeModalOpen(false);
+    onAnalyze();
+  }
+
   return (
-    <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-surface-panel shadow-[var(--shadow-panel)]">
-      <header className="flex shrink-0 items-start justify-between gap-3 border-b border-border p-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <PencilLine className="text-text-secondary" size={18} />
-            <h2 className="text-base font-bold text-foreground">
-              {selected ? "Chỉnh sửa chapter" : "Tạo chapter mới"}
-            </h2>
+    <>
+      <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-surface-panel shadow-[var(--shadow-panel)]">
+        <header className="flex shrink-0 items-start justify-between gap-3 border-b border-border p-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <PencilLine className="text-text-secondary" size={18} />
+              <h2 className="text-base font-bold text-foreground">
+                {selected ? "Chỉnh sửa chapter" : "Tạo chapter mới"}
+              </h2>
+            </div>
+            <p className="mt-0.5 text-xs text-text-muted">
+              {selected
+                ? "Lưu thay đổi trước khi chạy các bước phân tích hoặc tạo audio."
+                : "Nhập nội dung chapter rồi lưu để tiếp tục pipeline."}
+            </p>
           </div>
-          <p className="mt-0.5 text-xs text-text-muted">
-            {selected
-              ? "Lưu thay đổi trước khi chạy các bước phân tích hoặc tạo audio."
-              : "Nhập nội dung chapter rồi lưu để tiếp tục pipeline."}
-          </p>
-        </div>
 
-        {selected && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onBeginCreate}
-            disabled={busy}
-            className="h-8 shrink-0 gap-1.5 text-xs"
-          >
-            <Plus size={13} />
-            Chapter mới
-          </Button>
-        )}
-      </header>
+          {selected && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onBeginCreate}
+              disabled={busy}
+              className="h-8 shrink-0 gap-1.5 text-xs"
+            >
+              <Plus size={13} />
+              Chapter mới
+            </Button>
+          )}
+        </header>
 
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
-        <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-text-secondary" htmlFor="chapter-title">
-            Tên chapter <span className="text-danger">*</span>
-          </label>
-          <div className="relative">
-            <Input
-              id="chapter-title"
-              name="chapter-title"
-              autoComplete="off"
-              maxLength={120}
-              value={title}
-              onChange={(event) => onTitleChange(event.target.value)}
-              placeholder="Nhập tên chapter"
-              className="h-9 border-border bg-surface-input pr-16 text-xs"
-            />
-            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-text-dim">
-              {title.length} / 120
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-text-secondary" htmlFor="chapter-title">
+              Tên chapter <span className="text-danger">*</span>
+            </label>
+            <div className="relative">
+              <Input
+                id="chapter-title"
+                name="chapter-title"
+                autoComplete="off"
+                maxLength={120}
+                value={title}
+                onChange={(event) => onTitleChange(event.target.value)}
+                placeholder="Nhập tên chapter"
+                className="h-9 border-border bg-surface-input pr-16 text-xs"
+              />
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-text-dim">
+                {title.length} / 120
+              </span>
+            </div>
+          </div>
+
+          <div className="flex min-h-[240px] flex-col space-y-1.5">
+            <label className="text-xs font-semibold text-text-secondary" htmlFor="chapter-source">
+              Nội dung chapter <span className="text-danger">*</span>
+            </label>
+            <div className="relative flex flex-1 flex-col overflow-hidden rounded-md border border-border bg-surface-input focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
+              <Textarea
+                id="chapter-source"
+                name="chapter-source"
+                value={sourceText}
+                onChange={(event) => onSourceTextChange(event.target.value)}
+                placeholder="Nhập nội dung chapter..."
+                className="min-h-[100px] flex-1 resize-none border-0 bg-transparent p-3 text-xs leading-relaxed focus-visible:ring-0"
+              />
+              <div className="flex items-center justify-between border-t border-border-subtle bg-surface-2 px-3 py-1.5 text-[10px] text-text-dim">
+                <span>{wordCount(sourceText).toLocaleString("vi-VN")} từ</span>
+                <span>{sourceText.length.toLocaleString("vi-VN")} ký tự</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-2 rounded-md border border-info/20 bg-info-bg p-3 text-xs leading-relaxed text-text-secondary">
+            <Info className="mt-0.5 shrink-0 text-info" size={15} />
+            <span>
+              Phân tích và tạo audio luôn dùng bản chapter đã lưu trên backend, không dùng nội dung
+              nháp chưa lưu trong form.
             </span>
           </div>
-        </div>
 
-        <div className="flex min-h-[240px] flex-col space-y-1.5">
-          <label className="text-xs font-semibold text-text-secondary" htmlFor="chapter-source">
-            Nội dung chapter <span className="text-danger">*</span>
-          </label>
-          <div className="relative flex flex-1 flex-col overflow-hidden rounded-md border border-border bg-surface-input focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
-            <Textarea
-              id="chapter-source"
-              name="chapter-source"
-              value={sourceText}
-              onChange={(event) => onSourceTextChange(event.target.value)}
-              placeholder="Nhập nội dung chapter..."
-              className="min-h-[100px] flex-1 resize-none border-0 bg-transparent p-3 text-xs leading-relaxed focus-visible:ring-0"
-            />
-            <div className="flex items-center justify-between border-t border-border-subtle bg-surface-2 px-3 py-1.5 text-[10px] text-text-dim">
-              <span>{wordCount(sourceText).toLocaleString("vi-VN")} từ</span>
-              <span>{sourceText.length.toLocaleString("vi-VN")} ký tự</span>
+          <AudioChapterCard
+            selected={selected}
+            generationBlockedByUnsavedChanges={generationBlockedByUnsavedChanges}
+            audio={audio}
+          />
+
+          <div className="space-y-2.5 border-t border-border pt-4">
+            <span className="block text-[11px] font-semibold text-text-muted">
+              Các hành động tiếp theo
+            </span>
+            <div className="grid grid-cols-2 gap-2.5">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={!selected || busy || generationBlockedByUnsavedChanges}
+                onClick={() => setAnalyzeModalOpen(true)}
+                aria-busy={analyzeBusy}
+                className="h-auto items-start justify-start rounded-md border-border bg-surface p-3 text-left hover:border-border-dark hover:bg-surface-2"
+              >
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-primary-hover">
+                    {analyzeBusy ? (
+                      <Loader2 className="animate-spin" size={13} />
+                    ) : (
+                      <WandSparkles size={13} />
+                    )}
+                    <span>{analyzeBusy ? "Đang phân tích…" : "Phân tích chapter"}</span>
+                  </div>
+                  <p className="mt-1 text-[10px] font-normal leading-4 text-text-muted">
+                    {analyzeBusy
+                      ? "AI đang phân tích nội dung. Nút được khóa để tránh gửi trùng request."
+                      : "Chọn IMAGE/VIDEO và provider trước khi tạo scene/beat."}
+                  </p>
+                </div>
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                disabled={!selected || busy}
+                onClick={onOpenEditor}
+                className="h-auto items-start justify-start rounded-md border-border bg-surface p-3 text-left hover:border-border-dark hover:bg-surface-2"
+              >
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-text-secondary">
+                    <Clapperboard size={13} />
+                    <span>Mở Editor</span>
+                  </div>
+                  <p className="mt-1 text-[10px] font-normal leading-4 text-text-muted">
+                    Chỉnh scene, visual beat và media trên timeline.
+                  </p>
+                </div>
+              </Button>
             </div>
           </div>
         </div>
 
-        <div className="flex items-start gap-2 rounded-md border border-info/20 bg-info-bg p-3 text-xs leading-relaxed text-text-secondary">
-          <Info className="mt-0.5 shrink-0 text-info" size={15} />
-          <span>
-            Phân tích và tạo audio luôn dùng bản chapter đã lưu trên backend, không dùng nội dung
-            nháp chưa lưu trong form.
-          </span>
-        </div>
-
-        <AudioChapterCard
-          selected={selected}
-          generationBlockedByUnsavedChanges={generationBlockedByUnsavedChanges}
-          audio={audio}
-        />
-
-        <div className="space-y-2.5 border-t border-border pt-4">
-          <span className="block text-[11px] font-semibold text-text-muted">
-            Các hành động tiếp theo
-          </span>
-          <div className="grid grid-cols-2 gap-2.5">
+        <footer className="shrink-0 border-t border-border bg-surface-panel px-5 py-3">
+          {notice && (
+            <p className="mb-2 text-xs text-text-secondary" role="status">
+              {notice}
+            </p>
+          )}
+          <div className="flex items-center gap-3">
             <Button
-              type="button"
               variant="outline"
-              disabled={!selected || busy || generationBlockedByUnsavedChanges}
-              onClick={onAnalyze}
-              aria-busy={analyzeBusy}
-              className="h-auto items-start justify-start rounded-md border-border bg-surface p-3 text-left hover:border-border-dark hover:bg-surface-2"
+              onClick={onCancel}
+              disabled={busy}
+              className="h-9 flex-1 border-border bg-surface-input text-xs font-semibold text-text-secondary"
             >
-              <div>
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-primary-hover">
-                  {analyzeBusy ? (
-                    <Loader2 className="animate-spin" size={13} />
-                  ) : (
-                    <WandSparkles size={13} />
-                  )}
-                  <span>{analyzeBusy ? "Đang phân tích…" : "Phân tích chapter"}</span>
-                </div>
-                <p className="mt-1 text-[10px] font-normal leading-4 text-text-muted">
-                  {analyzeBusy
-                    ? "AI đang phân tích nội dung. Nút được khóa để tránh gửi trùng request."
-                    : "Phân tích nội dung và tạo cấu trúc scene/beat."}
-                </p>
-              </div>
+              Hủy
             </Button>
-
             <Button
-              type="button"
-              variant="outline"
-              disabled={!selected || busy}
-              onClick={onOpenEditor}
-              className="h-auto items-start justify-start rounded-md border-border bg-surface p-3 text-left hover:border-border-dark hover:bg-surface-2"
+              onClick={onSave}
+              disabled={!title.trim() || !sourceText.trim() || busy || !isDirty}
+              className="h-9 flex-1 gap-1.5 text-xs font-bold"
             >
-              <div>
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-text-secondary">
-                  <Clapperboard size={13} />
-                  <span>Mở Editor</span>
-                </div>
-                <p className="mt-1 text-[10px] font-normal leading-4 text-text-muted">
-                  Chỉnh scene, visual beat và media trên timeline.
-                </p>
-              </div>
+              <PencilLine size={13} />
+              <span>{saveBusy ? "Đang lưu…" : selected ? "Lưu thay đổi" : "Tạo chapter"}</span>
             </Button>
           </div>
-        </div>
-      </div>
+        </footer>
+      </section>
 
-      <footer className="shrink-0 border-t border-border bg-surface-panel px-5 py-3">
-        {notice && (
-          <p className="mb-2 text-xs text-text-secondary" role="status">
-            {notice}
-          </p>
-        )}
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
+      {analyzeModalOpen && selected && (
+        <AnalyzeChapterModal
+          visualGenerationMode={visualGenerationMode}
+          imageProvider={imageProvider}
+          onVisualGenerationModeChange={setVisualGenerationMode}
+          onImageProviderChange={setImageProvider}
+          onCancel={() => setAnalyzeModalOpen(false)}
+          onSubmit={submitAnalysis}
+        />
+      )}
+    </>
+  );
+}
+
+function AnalyzeChapterModal({
+  visualGenerationMode,
+  imageProvider,
+  onVisualGenerationModeChange,
+  onImageProviderChange,
+  onCancel,
+  onSubmit,
+}: Readonly<{
+  visualGenerationMode: VisualGenerationMode;
+  imageProvider: ImageGenerationProvider;
+  onVisualGenerationModeChange: (value: VisualGenerationMode) => void;
+  onImageProviderChange: (value: ImageGenerationProvider) => void;
+  onCancel: () => void;
+  onSubmit: () => void;
+}>) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/55 p-4" role="presentation">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="analyze-chapter-title"
+        className="w-full max-w-md rounded-xl border border-border bg-surface-panel shadow-2xl"
+      >
+        <header className="flex items-start justify-between gap-4 border-b border-border p-4">
+          <div>
+            <h2 id="analyze-chapter-title" className="text-sm font-bold text-foreground">
+              Analyze Chapter
+            </h2>
+            <p className="mt-1 text-[11px] leading-4 text-text-muted">
+              Chọn loại visual và provider để AI chuẩn bị scene/visual beat phù hợp cho bước generation.
+            </p>
+          </div>
+          <button
+            type="button"
+            aria-label="Đóng"
             onClick={onCancel}
-            disabled={busy}
-            className="h-9 flex-1 border-border bg-surface-input text-xs font-semibold text-text-secondary"
+            className="grid size-7 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-2 hover:text-foreground"
           >
-            Hủy
-          </Button>
-          <Button
-            onClick={onSave}
-            disabled={!title.trim() || !sourceText.trim() || busy || !isDirty}
-            className="h-9 flex-1 gap-1.5 text-xs font-bold"
-          >
-            <PencilLine size={13} />
-            <span>{saveBusy ? "Đang lưu…" : selected ? "Lưu thay đổi" : "Tạo chapter"}</span>
-          </Button>
+            <X size={14} />
+          </button>
+        </header>
+
+        <div className="space-y-4 p-4">
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wide text-text-muted">
+              Step 1 · Visual generation mode
+            </span>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              {(["IMAGE", "VIDEO"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => onVisualGenerationModeChange(mode)}
+                  className={`rounded-md border px-3 py-3 text-left transition ${
+                    visualGenerationMode === mode
+                      ? "border-primary/60 bg-primary/10 text-foreground"
+                      : "border-border bg-surface text-text-secondary hover:bg-surface-2"
+                  }`}
+                >
+                  <div className="text-xs font-bold">{mode === "IMAGE" ? "Image" : "Video"}</div>
+                  <p className="mt-1 text-[10px] leading-4 text-text-muted">
+                    {mode === "IMAGE"
+                      ? "Tạo storyboard still-image theo từng visual beat."
+                      : "Chuẩn bị storyboard cho video generation."}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {visualGenerationMode === "IMAGE" && (
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wide text-text-muted">
+                Step 2 · Image provider
+              </span>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {(["GEMINI_WEB", "API"] as const).map((provider) => (
+                  <button
+                    key={provider}
+                    type="button"
+                    onClick={() => onImageProviderChange(provider)}
+                    className={`rounded-md border px-3 py-3 text-left transition ${
+                      imageProvider === provider
+                        ? "border-primary/60 bg-primary/10 text-foreground"
+                        : "border-border bg-surface text-text-secondary hover:bg-surface-2"
+                    }`}
+                  >
+                    <div className="text-xs font-bold">
+                      {provider === "GEMINI_WEB" ? "Gemini Web" : "API"}
+                    </div>
+                    <p className="mt-1 text-[10px] leading-4 text-text-muted">
+                      {provider === "GEMINI_WEB"
+                        ? "Manual generate/import trong Storyboard."
+                        : "Generation job tự động qua backend provider."}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {visualGenerationMode === "IMAGE" && imageProvider === "GEMINI_WEB" && (
+            <div className="rounded-md border border-info/25 bg-info-bg px-3 py-2 text-[10px] leading-4 text-text-secondary">
+              Web image generation always creates a new image for each visual beat. Reuse và reframe không được dùng với Gemini Web.
+            </div>
+          )}
         </div>
-      </footer>
-    </section>
+
+        <footer className="flex justify-end gap-2 border-t border-border p-4">
+          <Button type="button" variant="outline" size="sm" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button type="button" size="sm" onClick={onSubmit}>
+            <WandSparkles size={13} /> Analyze
+          </Button>
+        </footer>
+      </div>
+    </div>
   );
 }
 

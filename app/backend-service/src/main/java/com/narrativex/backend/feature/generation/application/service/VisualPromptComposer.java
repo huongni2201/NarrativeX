@@ -43,6 +43,8 @@ public class VisualPromptComposer {
     Set<UUID> selectedReferenceIds = selectReferenceIds(safeContext.characters());
 
     StringBuilder prompt = new StringBuilder(style.promptFor(visualIntent));
+    prompt.append(
+        "\nIMAGE TASK: Generate exactly one coherent still frame for one storyboard visual beat.");
     appendCameraFraming(prompt, cameraAngle);
     appendLocation(prompt, safeContext.location());
     appendCharacters(prompt, safeContext.characters());
@@ -53,9 +55,16 @@ public class VisualPromptComposer {
               + "apply the requested scene, camera, pose, expression, wardrobe state, and lighting.");
     }
     prompt.append(
+        "\nCOMPOSITION RULE: create one frame only. Do not create a montage, collage, split screen, "
+            + "contact sheet, or multiple panels.");
+    prompt.append(
+        "\nVISUAL VARIETY: avoid repetitive centered framing. Use the requested camera framing as a "
+            + "deliberate shot variation; when neighboring beats are wide, prefer a tighter or "
+            + "detail-oriented composition unless the story explicitly requires another wide shot.");
+    prompt.append(
         "\nCONTINUITY RULES: preserve established identity, wardrobe, environment, spatial logic, "
-            + "and lighting unless the scene description explicitly changes them. Do not invent "
-            + "new characters, props, text, logos, or costume changes.");
+            + "prop ownership, and lighting unless the scene description explicitly changes them. "
+            + "Do not invent new characters, props, text, logos, or costume changes.");
 
     return new ComposedVisualPrompt(
         prompt.toString(),

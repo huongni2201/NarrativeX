@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.generation.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSource.BeatSnapshot;
 import com.narrativex.backend.feature.storyboard.application.port.in.MediaPlanningSource.MotionIntent;
@@ -50,6 +51,77 @@ class VisualAssetReuseResolverTest {
         new SceneSnapshot(UUID.randomUUID(), 0, "Narration", 30, List.of(first, reused, changed));
 
     assertThat(VisualAssetReuseResolver.countGenerated(List.of(scene))).isEqualTo(2);
+  }
+
+  @Test
+  void geminiWebAlwaysGeneratesEveryBeat() {
+    var first = beat(UUID.randomUUID(), 0, SHARED_INTENT, "MEDIUM");
+    var equivalent = beat(UUID.randomUUID(), 1, SHARED_INTENT, "MEDIUM");
+    var scene = new SceneSnapshot(UUID.randomUUID(), 0, "Narration", 20, List.of(first, equivalent));
+
+    var plan =
+        VisualAssetReuseResolver.plan(
+            List.of(scene), "GEMINI_WEB", VisualAssetReuseResolver.GENERATE_NEW);
+
+    assertThat(plan.values())
+        .allMatch(decision -> VisualAssetReuseResolver.GENERATE_NEW.equals(decision.assetStrategy()));
+    assertThat(plan.values()).allMatch(decision -> decision.sourceVisualBeatId() == null);
+  }
+
+  @Test
+  void geminiWebRejectsReuseAndReframeStrategies() {
+    assertThatThrownBy(
+            () ->
+                VisualAssetReuseResolver.normalizeStrategy(
+                    "GEMINI_WEB", VisualAssetReuseResolver.REUSE_APPROVED))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("only supports GENERATE_NEW");
+
+    assertThatThrownBy(
+            () ->
+                VisualAssetReuseResolver.normalizeStrategy(
+                    "GEMINI_WEB", VisualAssetReuseResolver.REFRAME_DERIVED))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("only supports GENERATE_NEW");
+  }
+
+  @Test
+  void apiRequestedReuseFallsBackToGenerateNewWhenNoReusableSourceExists() {
+    var first = beat(UUID.randomUUID(), 0, SHARED_INTENT, "MEDIUM");
+    var changed =
+        beat(
+            UUID.randomUUID(),
+            1,
+            "A helicopter crosses a frozen mountain valley as rescue workers descend toward a crashed aircraft",
+            "WIDE");
+    var scene = new SceneSnapshot(UUID.randomUUID(), 0, "Narration", 20, List.of(first, changed));
+
+    var plan =
+        VisualAssetReuseResolver.plan(
+            List.of(scene), "API", VisualAssetReuseResolver.REUSE_APPROVED);
+
+    assertThat(plan.get(first.visualBeatId()).assetStrategy())
+        .isEqualTo(VisualAssetReuseResolver.GENERATE_NEW);
+    assertThat(plan.get(changed.visualBeatId()).assetStrategy())
+        .isEqualTo(VisualAssetReuseResolver.GENERATE_NEW);
+  }
+
+  @Test
+  void apiRequestedReuseUsesApprovedEquivalentSource() {
+    var first = beat(UUID.randomUUID(), 0, SHARED_INTENT, "MEDIUM");
+    var equivalent = beat(UUID.randomUUID(), 1, SHARED_INTENT, "MEDIUM");
+    var scene = new SceneSnapshot(UUID.randomUUID(), 0, "Narration", 20, List.of(first, equivalent));
+
+    var plan =
+        VisualAssetReuseResolver.plan(
+            List.of(scene), "API", VisualAssetReuseResolver.REUSE_APPROVED);
+
+    assertThat(plan.get(first.visualBeatId()).assetStrategy())
+        .isEqualTo(VisualAssetReuseResolver.GENERATE_NEW);
+    assertThat(plan.get(equivalent.visualBeatId()).assetStrategy())
+        .isEqualTo(VisualAssetReuseResolver.REUSE_APPROVED);
+    assertThat(plan.get(equivalent.visualBeatId()).sourceVisualBeatId())
+        .isEqualTo(first.visualBeatId());
   }
 
   @Test

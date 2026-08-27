@@ -1,14 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { DesktopChapterDetails } from "@narrativex/client-contracts";
+import type {
+  DesktopChapterDetails,
+  DesktopTimeline,
+  DesktopTimelineBeat,
+} from "@narrativex/client-contracts";
 import {
   Check,
   Clapperboard,
+  Copy,
+  ExternalLink,
+  ImagePlus,
   Loader2,
   Plus,
   RotateCcw,
   WandSparkles,
 } from "lucide-react";
+import { assetsApi } from "../../assets/api/assets.api";
+import { productionApi } from "../../production/api/production.api";
 import {
   storyboardApi,
   storyboardQueryKey,
@@ -19,9 +28,11 @@ import {
 export function StoryboardScreen({
   projectId,
   chapters,
+  timeline,
 }: Readonly<{
   projectId: string;
   chapters: DesktopChapterDetails[];
+  timeline: DesktopTimeline | null;
 }>) {
   const queryClient = useQueryClient();
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
@@ -29,6 +40,9 @@ export function StoryboardScreen({
   const [creatingBeat, setCreatingBeat] = useState(false);
   const [beatTitle, setBeatTitle] = useState("");
   const [visualIntent, setVisualIntent] = useState("");
+  const [pendingImportBeatId, setPendingImportBeatId] = useState<string | null>(null);
+  const [mediaBusyBeatId, setMediaBusyBeatId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (!chapters.length) {
@@ -62,6 +76,16 @@ export function StoryboardScreen({
 
   const selectedScene = scenes.find((scene) => scene.id === selectedSceneId) ?? null;
   const selectedChapter = chapters.find((chapter) => chapter.id === selectedChapterId) ?? null;
+
+  const timelineBeats = useMemo(
+    () =>
+      new Map(
+        (timeline?.beats ?? [])
+          .filter((beat) => beat.chapterId === selectedChapterId)
+          .map((beat) => [beat.visualBeatId, beat]),
+      ),
+    [selectedChapterId, timeline?.beats],
+  );
 
   const approvedCount = useMemo(
     () => scenes.reduce((total, scene) => total + scene.approvedBeatCount, 0),
@@ -111,6 +135,85 @@ export function StoryboardScreen({
     },
   });
 
+  async function generateWithGemini(beat: StoryboardVisualBeat) {
+    const prompt = compileGeminiPrompt(beat);
+    setNotice(null);
+    try {
+      await navigator.clipboard.writeText(prompt);
+      window.open("https://gemini.google.com/", "_blank", "noopener,noreferrer");
+      setPendingImportBeatId(beat.id);
+      setNotice(
+        `Prompt của “${beat.title}” đã được copy. Tạo một ảnh mới trên Gemini, tải ảnh về rồi bấm Import Generated Image.`,
+      );
+    } catch (error) {
+      setNotice(errorMessage(error, "Không thể copy prompt hoặc mở Gemini Web."));
+    }
+  }
+
+  async function copyPrompt(beat: StoryboardVisualBeat) {
+    try {
+      await navigator.clipboard.writeText(compileGeminiPrompt(beat));
+      setNotice(`Đã copy prompt của “${beat.title}”.`);
+    } catch (error) {
+      setNotice(errorMessage(error, "Không thể copy prompt."));
+    }
+  }
+
+  async function importGeneratedImage(beat: StoryboardVisualBeat) {
+    if (mediaBusyBeatId) return;
+    setMediaBusyBeatId(beat.id);
+    setNotice(null);
+    try {
+      const selection = await window.narrativex.localStorage.selectAsset();
+      if (!selection) return;
+      if (selection.kind !== "IMAGE") {
+        throw new Error("Import Generated Image chỉ chấp nhận file ảnh.");
+      }
+
+      const asset = await assetsApi.registerLocal({
+        projectId,
+        type: "IMAGE",
+        originalFilename: selection.originalFilename,
+        contentType: selection.contentType,
+        sizeBytes: selection.sizeBytes,
+        checksumSha256: selection.checksumSha256,
+        durationMs: null,
+      });
+
+      try {
+        await window.narrativex.localStorage.commitSelectedAsset({
+          projectId,
+          assetId: asset.id,
+          kind: "IMAGE",
+          selectionToken: selection.selectionToken,
+        });
+        await productionApi.updateBeatMedia(projectId, beat.id, {
+          mediaAssetId: asset.id,
+          fitMode: "TRIM",
+          trimStartMs: 0,
+        });
+      } catch (error) {
+        throw error;
+      }
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["projects", projectId, "timeline"] }),
+        selectedChapterId
+          ? queryClient.invalidateQueries({
+              queryKey: storyboardQueryKey(projectId, selectedChapterId),
+            })
+          : Promise.resolve(),
+        queryClient.invalidateQueries({ queryKey: ["assets", "library"] }),
+      ]);
+      setPendingImportBeatId((current) => (current === beat.id ? null : current));
+      setNotice(`Ảnh đã được import và gắn đúng Visual Beat “${beat.title}”.`);
+    } catch (error) {
+      setNotice(errorMessage(error, "Không thể import ảnh vào Visual Beat."));
+    } finally {
+      setMediaBusyBeatId(null);
+    }
+  }
+
   const mutationError = createBeat.error ?? updateReview.error;
   const canCreateBeat = Boolean(beatTitle.trim() && visualIntent.trim() && selectedSceneId);
 
@@ -124,7 +227,7 @@ export function StoryboardScreen({
           </div>
           <h1 className="mt-1 text-xl font-bold tracking-tight">Scene & Visual Beat Manager</h1>
           <p className="mt-1 text-xs text-text-secondary">
-            Quản lý cấu trúc scene, visual beat và trạng thái duyệt sau khi phân tích chapter.
+            Quản lý visual beat, tạo ảnh mới bằng Gemini Web và import output về đúng beat.
           </p>
         </div>
 
@@ -155,6 +258,8 @@ export function StoryboardScreen({
                       setSelectedChapterId(chapter.id);
                       setSelectedSceneId(null);
                       setCreatingBeat(false);
+                      setPendingImportBeatId(null);
+                      setNotice(null);
                     }}
                     className={`w-full rounded-md border px-3 py-2.5 text-left transition ${
                       active
@@ -245,9 +350,15 @@ export function StoryboardScreen({
               </button>
             </div>
 
-            {mutationError && (
+            {(mutationError || notice) && (
               <div className="mx-5 mt-3">
-                <InlineError message={errorMessage(mutationError, "Không thể cập nhật storyboard.")} />
+                {mutationError ? (
+                  <InlineError message={errorMessage(mutationError, "Không thể cập nhật storyboard.")} />
+                ) : (
+                  <div className="rounded-md border border-border bg-surface-panel px-3 py-2 text-xs text-text-secondary">
+                    {notice}
+                  </div>
+                )}
               </div>
             )}
 
@@ -315,8 +426,14 @@ export function StoryboardScreen({
                     <VisualBeatCard
                       key={beat.id}
                       beat={beat}
+                      timelineBeat={timelineBeats.get(beat.id) ?? null}
                       updating={updateReview.isPending}
+                      mediaBusy={mediaBusyBeatId === beat.id}
+                      pendingImport={pendingImportBeatId === beat.id}
                       onReview={(status) => updateReview.mutate({ beat, status })}
+                      onGenerate={() => void generateWithGemini(beat)}
+                      onCopyPrompt={() => void copyPrompt(beat)}
+                      onImport={() => void importGeneratedImage(beat)}
                     />
                   ))}
                 </div>
@@ -331,22 +448,41 @@ export function StoryboardScreen({
 
 function VisualBeatCard({
   beat,
+  timelineBeat,
   updating,
+  mediaBusy,
+  pendingImport,
   onReview,
+  onGenerate,
+  onCopyPrompt,
+  onImport,
 }: Readonly<{
   beat: StoryboardVisualBeat;
+  timelineBeat: DesktopTimelineBeat | null;
   updating: boolean;
+  mediaBusy: boolean;
+  pendingImport: boolean;
   onReview: (status: VisualBeatReviewStatus) => void;
+  onGenerate: () => void;
+  onCopyPrompt: () => void;
+  onImport: () => void;
 }>) {
   const approved = beat.reviewStatus === "APPROVED";
+  const prompt = compileGeminiPrompt(beat);
 
   return (
     <article className="rounded-lg border border-border bg-surface-panel p-4">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0 flex-1">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_240px]">
+        <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="rounded bg-surface-input px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-text-muted">
               Beat {beat.orderIndex + 1}
+            </span>
+            <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-primary-hover">
+              Gemini Web
+            </span>
+            <span className="rounded bg-surface-input px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-text-muted">
+              Generate New
             </span>
             <span
               className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
@@ -360,30 +496,152 @@ function VisualBeatCard({
           <p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-text-secondary">
             {beat.visualIntent}
           </p>
+
+          <div className="mt-3 rounded-md border border-border-subtle bg-surface-dark p-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[9px] font-bold uppercase tracking-wide text-text-muted">
+                Prompt preview
+              </span>
+              <button
+                type="button"
+                onClick={onCopyPrompt}
+                className="inline-flex items-center gap-1 text-[10px] font-semibold text-primary-hover hover:text-primary"
+              >
+                <Copy size={11} /> Copy
+              </button>
+            </div>
+            <p className="mt-2 line-clamp-4 whitespace-pre-wrap text-[10px] leading-4 text-text-secondary">
+              {prompt}
+            </p>
+          </div>
+
+          {pendingImport && (
+            <div className="mt-3 rounded-md border border-info/25 bg-info-bg p-3 text-[10px] leading-4 text-text-secondary">
+              Prompt đã copy. Gemini Web luôn tạo ảnh mới; sau khi tải ảnh xuống, dùng Import Generated Image để gắn output vào chính beat này.
+            </div>
+          )}
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={onGenerate}
+              className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-[11px] font-bold text-white hover:bg-primary-hover"
+            >
+              <ExternalLink size={12} /> Generate with Gemini
+            </button>
+            <button
+              type="button"
+              disabled={mediaBusy}
+              onClick={onImport}
+              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-surface-input px-3 text-[11px] font-semibold text-text-secondary hover:bg-surface-2 disabled:opacity-50"
+            >
+              {mediaBusy ? <Loader2 size={12} className="animate-spin" /> : <ImagePlus size={12} />}
+              Import Generated Image
+            </button>
+            <button
+              type="button"
+              disabled={updating}
+              onClick={() => onReview(approved ? "NEEDS_REVIEW" : "APPROVED")}
+              className={`inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[11px] font-semibold transition disabled:opacity-50 ${
+                approved
+                  ? "border-border text-text-secondary hover:bg-surface-2"
+                  : "border-success/35 bg-success/5 text-success hover:bg-success/10"
+              }`}
+            >
+              {approved ? <RotateCcw size={12} /> : <Check size={12} />}
+              {approved ? "Needs review" : "Approve"}
+            </button>
+          </div>
+
+          <div className="mt-4 grid grid-cols-4 gap-2 border-t border-border-subtle pt-3 text-[10px] text-text-muted">
+            <Meta label="Motion" value={formatEnum(beat.motionMode)} />
+            <Meta label="Camera" value={formatEnum(beat.cameraMovement)} />
+            <Meta label="Angle" value={formatEnum(beat.cameraAngle)} />
+            <Meta
+              label="Time"
+              value={timelineBeat ? `${formatMs(timelineBeat.startMs)} – ${formatMs(timelineBeat.endMs)}` : "—"}
+            />
+          </div>
         </div>
 
-        <button
-          type="button"
-          disabled={updating}
-          onClick={() => onReview(approved ? "NEEDS_REVIEW" : "APPROVED")}
-          className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-[11px] font-semibold transition disabled:opacity-50 ${
-            approved
-              ? "border-border text-text-secondary hover:bg-surface-2"
-              : "border-success/35 bg-success/5 text-success hover:bg-success/10"
-          }`}
-        >
-          {approved ? <RotateCcw size={12} /> : <Check size={12} />}
-          {approved ? "Needs review" : "Approve"}
-        </button>
-      </div>
-
-      <div className="mt-4 grid grid-cols-3 gap-2 border-t border-border-subtle pt-3 text-[10px] text-text-muted">
-        <Meta label="Motion" value={formatEnum(beat.motionMode)} />
-        <Meta label="Camera" value={formatEnum(beat.cameraMovement)} />
-        <Meta label="Angle" value={formatEnum(beat.cameraAngle)} />
+        <BeatImagePreview timelineBeat={timelineBeat} />
       </div>
     </article>
   );
+}
+
+function BeatImagePreview({ timelineBeat }: Readonly<{ timelineBeat: DesktopTimelineBeat | null }>) {
+  const [failed, setFailed] = useState(false);
+  const preview = useQuery({
+    queryKey: ["assets", timelineBeat?.mediaAssetId ?? "none", "download-url"],
+    queryFn: () => assetsApi.downloadUrl(timelineBeat?.mediaAssetId as string),
+    enabled: Boolean(timelineBeat?.mediaAssetId && timelineBeat.mediaType === "IMAGE"),
+    staleTime: 30_000,
+  });
+
+  if (!timelineBeat?.mediaAssetId || timelineBeat.mediaType !== "IMAGE") {
+    return (
+      <div className="grid min-h-40 place-items-center rounded-md border border-dashed border-border bg-surface-dark text-center text-[10px] text-text-muted">
+        <div>
+          <ImagePlus className="mx-auto mb-2" size={22} />
+          Chưa có ảnh cho beat này
+        </div>
+      </div>
+    );
+  }
+
+  if (preview.isLoading) {
+    return (
+      <div className="grid min-h-40 place-items-center rounded-md border border-border bg-surface-dark text-text-muted">
+        <Loader2 size={18} className="animate-spin" />
+      </div>
+    );
+  }
+
+  if (!preview.data?.url || preview.isError || failed) {
+    return (
+      <div className="grid min-h-40 place-items-center rounded-md border border-border bg-surface-dark px-3 text-center text-[10px] text-text-muted">
+        Ảnh đã attach nhưng preview hiện không khả dụng.
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-hidden rounded-md border border-border bg-surface-dark">
+      <img
+        src={preview.data.url}
+        alt={`Visual beat ${timelineBeat.visualBeatId}`}
+        className="aspect-video h-full w-full object-cover"
+        onError={() => setFailed(true)}
+      />
+    </div>
+  );
+}
+
+function compileGeminiPrompt(beat: StoryboardVisualBeat) {
+  return [
+    "IMAGE TASK:",
+    "Generate exactly one coherent still frame for one storyboard visual beat.",
+    "",
+    "VISUAL INTENT:",
+    beat.visualIntent,
+    "",
+    "SHOT DESIGN:",
+    `- camera angle: ${formatEnum(beat.cameraAngle)}`,
+    `- camera movement intent: ${formatEnum(beat.cameraMovement)}`,
+    "- create a readable cinematic composition that clearly advances the story",
+    "- avoid repeating the same centered framing pattern used by adjacent beats",
+    "",
+    "COMPOSITION RULE:",
+    "Do not create a montage, collage, split screen, contact sheet, or multiple panels.",
+    "",
+    "CONTINUITY RULE:",
+    "Preserve established character identity, wardrobe, environment, prop ownership, and lighting continuity.",
+    "Use canonical character/location/prop references only; do not treat a previous generated beat image as a base image.",
+    "",
+    "OUTPUT:",
+    "One new image only. No text, captions, logos, or watermarks unless explicitly required by the story.",
+  ].join("\n");
 }
 
 function Metric({ label, value }: Readonly<{ label: string; value: number }>) {
@@ -453,6 +711,13 @@ function formatEnum(value: string | null | undefined) {
     .split("_")
     .map((part) => part.charAt(0).toLocaleUpperCase() + part.slice(1))
     .join(" ");
+}
+
+function formatMs(value: number) {
+  const totalSeconds = Math.max(0, Math.round(value / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
 function errorMessage(error: unknown, fallback: string) {

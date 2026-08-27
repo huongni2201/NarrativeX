@@ -52,7 +52,11 @@ public class CreateMediaPlanUseCase {
       throw new GenerationAdmissionDeniedException(
           "SOURCE_STALE", "The storyboard source is stale; refresh the chapter before generating.");
     }
-    var reuseDecisions = VisualAssetReuseResolver.plan(planningSource.scenes());
+    var reuseDecisions =
+        VisualAssetReuseResolver.plan(
+            planningSource.scenes(),
+            command.imageGenerationProvider(),
+            command.imageGenerationStrategy());
     var scenes = resolveScenes(command, planningSource, reuseDecisions);
     if (scenes.isEmpty() || scenes.stream().allMatch(scene -> scene.beats().isEmpty())) {
       throw new GenerationAdmissionDeniedException(
@@ -93,10 +97,12 @@ public class CreateMediaPlanUseCase {
                 planningSource.narrationAlignmentRunId()));
 
     log.info(
-        "Created media plan id={} (revision={}, mode={}, generatedImages={}, totalBeats={}) for chapterId={}, projectId={}",
+        "Created media plan id={} (revision={}, mode={}, generationProvider={}, strategy={}, generatedImages={}, totalBeats={}) for chapterId={}, projectId={}",
         savedPlan.id(),
         revision,
         command.productionMode(),
+        command.imageGenerationProvider(),
+        command.imageGenerationStrategy(),
         workload.imageGenerateCount(),
         scenes.stream().mapToInt(scene -> scene.beats().size()).sum(),
         command.chapterId(),
@@ -131,7 +137,7 @@ public class CreateMediaPlanUseCase {
                 beat.motionIntent().name(),
                 motionStrategyResolver.resolve(command.productionMode(), beat.motionIntent()),
                 reuseDecision.assetStrategy(),
-                "prompt-v6-" + command.imageStyle().name().toLowerCase(),
+                "prompt-v7-" + command.imageStyle().name().toLowerCase(),
                 composed.prompt(),
                 composed.negativePrompt(),
                 beat.audioStartMs(),

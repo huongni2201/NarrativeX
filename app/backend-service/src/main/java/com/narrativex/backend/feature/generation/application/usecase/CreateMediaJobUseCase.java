@@ -57,12 +57,30 @@ public class CreateMediaJobUseCase {
   @Transactional
   public GenerationJob execute(CreateMediaJobCommand command) {
     String userId = currentUserId.get();
-    if (!"IMAGE_MOTION".equals(command.productionMode())) {
+    if (!"IMAGE_MOTION".equals(command.productionMode())
+        || !"IMAGE".equals(normalizeVisualMode(command.visualGenerationMode()))) {
       throw new GenerationAdmissionDeniedException(
-          "UNSUPPORTED_MEDIA_STRATEGY", "Only IMAGE_MOTION is available in the MVP.");
+          "UNSUPPORTED_MEDIA_STRATEGY", "Only IMAGE generation with IMAGE_MOTION is available in the MVP.");
     }
+
+    String imageProvider = normalizeImageProvider(command.imageProvider());
+    String imageStrategy;
+    try {
+      imageStrategy =
+          VisualAssetReuseResolver.normalizeStrategy(imageProvider, command.imageGenerationStrategy());
+    } catch (IllegalArgumentException exception) {
+      throw new GenerationAdmissionDeniedException(
+          "UNSUPPORTED_MEDIA_STRATEGY", exception.getMessage());
+    }
+
+    if ("GEMINI_WEB".equals(imageProvider)) {
+      throw new GenerationAdmissionDeniedException(
+          "EXTERNAL_IMAGE_PROVIDER",
+          "Gemini Web generation is performed per visual beat from Storyboard and does not create an API media job.");
+    }
+
     String idempotencyKey = requireIdempotencyKey(command.idempotencyKey());
-    String requestFingerprint = fingerprint(command);
+    String requestFingerprint = fingerprint(command, imageProvider, imageStrategy);
     generationJobRepository.acquireIdempotencyLock(idempotencyKey, userId);
     var existing = generationJobRepository.findByIdempotencyKey(idempotencyKey, userId);
     if (existing.isPresent()) {
@@ -107,7 +125,9 @@ public class CreateMediaJobUseCase {
 
     var planningSource = mediaPlanningSourceAccess.requireCurrent(command.chapterId());
     int beatCount = planningSource.scenes().stream().mapToInt(scene -> scene.beats().size()).sum();
-    int generatedImageCount = VisualAssetReuseResolver.countGenerated(planningSource.scenes());
+    int generatedImageCount =
+        VisualAssetReuseResolver.countGenerated(
+            planningSource.scenes(), imageProvider, imageStrategy);
     var imageProfile = imageGenerationCatalog.resolve(command.qualityTier());
     BigDecimal expectedCost = imageProfile.estimateCost(generatedImageCount);
     if (expectedCost.compareTo(command.maxAuthorizedCost()) > 0) {
@@ -138,7 +158,9 @@ public class CreateMediaJobUseCase {
                 imageProfile.model(),
                 imageProfile.pricingSnapshot(),
                 imageProfile.pricingFingerprint(),
-                command.imageStyle()));
+                command.imageStyle(),
+                imageProvider,
+                imageStrategy));
     var reservation =
         quotaReservation
             .reserve(userId, command.maxAuthorizedCost(), quota.maxConcurrentExpensiveJobs())
@@ -182,11 +204,13 @@ public class CreateMediaJobUseCase {
     }
     generationOutboxRepository.enqueue(job);
     log.info(
-        "Created and enqueued shot-image media job id={} (planId={}, beats={}, generatedImages={}, quality='{}', model='{}', estimatedCost={}) for projectId={}, chapterId={}",
+        "Created and enqueued shot-image media job id={} (planId={}, beats={}, generatedImages={}, provider={}, strategy={}, quality='{}', model='{}', estimatedCost={}) for projectId={}, chapterId={}",
         job.getId(),
         plan.id(),
         beatCount,
         generatedImageCount,
+        imageProvider,
+        imageStrategy,
         command.qualityTier(),
         imageProfile.model(),
         expectedCost,
@@ -208,7 +232,21 @@ public class CreateMediaJobUseCase {
     return normalized;
   }
 
-  private static String fingerprint(CreateMediaJobCommand command) {
+  private static String normalizeVisualMode(String value) {
+    return value == null || value.isBlank() ? "IMAGE" : value;
+  }
+
+  private static String normalizeImageProvider(String value) {
+    if (value == null || value.isBlank()) return "API";
+    if (!"API".equals(value) && !"GEMINI_WEB".equals(value)) {
+      throw new GenerationAdmissionDeniedException(
+          "UNSUPPORTED_MEDIA_STRATEGY", "Unsupported image generation provider: " + value);
+    }
+    return value;
+  }
+
+  private static String fingerprint(
+      CreateMediaJobCommand command, String imageProvider, String imageStrategy) {
     return sha256(
         command.projectId()
             + ":"
@@ -221,6 +259,10 @@ public class CreateMediaJobUseCase {
             + command.qualityTier()
             + ":"
             + command.imageStyle()
+            + ":"
+            + imageProvider
+            + ":"
+            + imageStrategy
             + ":"
             + command.maxAuthorizedCost().toPlainString());
   }

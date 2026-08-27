@@ -28,6 +28,18 @@ export interface GenerationJob {
   errorCode: string | null;
 }
 
+export type VisualGenerationMode = "IMAGE" | "VIDEO";
+export type ImageGenerationProvider = "GEMINI_WEB" | "API";
+export type ImageGenerationStrategy =
+  | "GENERATE_NEW"
+  | "REUSE_APPROVED"
+  | "REFRAME_DERIVED";
+
+export interface AnalyzeChapterInput {
+  visualGenerationMode: VisualGenerationMode;
+  imageProvider?: ImageGenerationProvider | null;
+}
+
 export type MediaAspectRatio = "16:9" | "9:16" | "1:1" | "4:3" | "3:4";
 export type MediaQualityTier = "DRAFT" | "STANDARD" | "HIGH";
 export type MediaImageStyle = "CINEMATIC" | "STORYBOOK_WATERCOLOR";
@@ -38,6 +50,9 @@ export interface CreateMediaJobInput {
   qualityTier: MediaQualityTier;
   maxAuthorizedCost: number;
   imageStyle?: MediaImageStyle;
+  visualGenerationMode: VisualGenerationMode;
+  imageProvider?: ImageGenerationProvider | null;
+  imageGenerationStrategy?: ImageGenerationStrategy | null;
 }
 
 export interface MediaJobCostEstimate {

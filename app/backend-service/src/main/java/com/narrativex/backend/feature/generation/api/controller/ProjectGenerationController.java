@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.generation.api.controller;
 
 import com.narrativex.backend.feature.common.response.ApiResponse;
+import com.narrativex.backend.feature.generation.api.request.AnalyzeChapterRequest;
 import com.narrativex.backend.feature.generation.api.request.GenerateBatchNarrationRequest;
 import com.narrativex.backend.feature.generation.api.request.GenerateChapterNarrationRequest;
 import com.narrativex.backend.feature.generation.api.request.GenerateVoicePreviewRequest;
@@ -39,11 +40,30 @@ public class ProjectGenerationController {
 
   @PostMapping("/{projectId}/chapters/{chapterId}/analysis-jobs")
   public ResponseEntity<ApiResponse<JobResponse>> analyzeChapter(
-      @PathVariable UUID projectId, @PathVariable UUID chapterId) {
-    log.info("Requesting story analysis for chapter {} in project {}", chapterId, projectId);
-    var job = enqueueStoryAnalysisUseCase.execute(new EnqueueStoryAnalysisCommand(projectId, chapterId));
+      @PathVariable UUID projectId,
+      @PathVariable UUID chapterId,
+      @Valid @RequestBody(required = false) AnalyzeChapterRequest request) {
+    AnalyzeChapterRequest effective = request == null ? new AnalyzeChapterRequest(null, null) : request;
+    log.info(
+        "Requesting story analysis for chapter {} in project {} (visualMode={}, imageProvider={})",
+        chapterId,
+        projectId,
+        effective.effectiveVisualGenerationMode(),
+        effective.effectiveImageProvider());
+    var job =
+        enqueueStoryAnalysisUseCase.execute(
+            new EnqueueStoryAnalysisCommand(
+                projectId,
+                chapterId,
+                effective.effectiveVisualGenerationMode(),
+                effective.effectiveImageProvider()));
     return ResponseEntity.status(HttpStatus.ACCEPTED)
         .body(ApiResponse.success("Story analysis job accepted", JobResponse.from(job)));
+  }
+
+  /** Backward-compatible direct-call overload retained for controller contract tests and callers. */
+  public ResponseEntity<ApiResponse<JobResponse>> analyzeChapter(UUID projectId, UUID chapterId) {
+    return analyzeChapter(projectId, chapterId, null);
   }
 
   @PostMapping("/{projectId}/chapters/{chapterId}/narration-jobs")

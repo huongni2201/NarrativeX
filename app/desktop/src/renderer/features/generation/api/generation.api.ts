@@ -1,6 +1,9 @@
 import type {
+  AnalyzeChapterInput,
   CreateMediaJobInput,
   GenerationJob,
+  ImageGenerationProvider,
+  ImageGenerationStrategy,
   MediaJobCostEstimate,
   MediaJobDetails,
   MediaReviewInput,
@@ -11,13 +14,55 @@ export interface CurrentMediaJob {
   jobId: string | null;
 }
 
+export function normalizeImageStrategy(
+  provider: ImageGenerationProvider,
+  strategy: ImageGenerationStrategy | null | undefined,
+): ImageGenerationStrategy {
+  if (provider === "GEMINI_WEB") return "GENERATE_NEW";
+  return strategy ?? "GENERATE_NEW";
+}
+
+export function normalizeCreateMediaJobInput(input: CreateMediaJobInput): CreateMediaJobInput {
+  if (input.visualGenerationMode !== "IMAGE") {
+    return { ...input, imageProvider: null, imageGenerationStrategy: null };
+  }
+
+  const provider = input.imageProvider ?? "API";
+  return {
+    ...input,
+    imageProvider: provider,
+    imageGenerationStrategy: normalizeImageStrategy(provider, input.imageGenerationStrategy),
+  };
+}
+
+let analyzeChapterPreferences: AnalyzeChapterInput = {
+  visualGenerationMode: "IMAGE",
+  imageProvider: "GEMINI_WEB",
+};
+
+export function setAnalyzeChapterPreferences(input: AnalyzeChapterInput) {
+  analyzeChapterPreferences = {
+    visualGenerationMode: input.visualGenerationMode,
+    imageProvider: input.visualGenerationMode === "IMAGE" ? input.imageProvider ?? "GEMINI_WEB" : null,
+  };
+}
+
+export function getAnalyzeChapterPreferences(): AnalyzeChapterInput {
+  return { ...analyzeChapterPreferences };
+}
+
 export const generationApi = {
-  analyze: (projectId: string, chapterId: string) =>
+  analyze: (
+    projectId: string,
+    chapterId: string,
+    input?: AnalyzeChapterInput,
+  ) =>
     apiRequest<GenerationJob>(
       `/api/v1/projects/${encodeURIComponent(projectId)}/chapters/${encodeURIComponent(chapterId)}/analysis-jobs`,
       {
         method: "POST",
         headers: { "Idempotency-Key": crypto.randomUUID() },
+        body: JSON.stringify(input ?? getAnalyzeChapterPreferences()),
       },
     ),
 
@@ -42,7 +87,7 @@ export const generationApi = {
       {
         method: "POST",
         headers: { "Idempotency-Key": idempotencyKey },
-        body: JSON.stringify(input),
+        body: JSON.stringify(normalizeCreateMediaJobInput(input)),
       },
     ),
 

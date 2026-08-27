@@ -57,7 +57,11 @@ public class EnqueueStoryAnalysisUseCase {
             + ":"
             + chapter.rowVersion()
             + ":"
-            + chapter.sourceHash();
+            + chapter.sourceHash()
+            + ":"
+            + command.visualGenerationMode()
+            + ":"
+            + (command.imageProvider() == null ? "NONE" : command.imageProvider());
 
     generationJobRepository.acquireIdempotencyLock(baseIdempotencyKey, userId);
     var baseJob = generationJobRepository.findByIdempotencyKey(baseIdempotencyKey, userId);
@@ -115,11 +119,13 @@ public class EnqueueStoryAnalysisUseCase {
     stageAttemptRepository.create(StageAttempt.create(job.getId(), STAGE_NAME, 1));
     generationOutboxRepository.enqueue(job);
     log.info(
-        "Enqueued story analysis job id={} for projectId={}, chapterId={}, storyboardRevisionId={}",
+        "Enqueued story analysis job id={} for projectId={}, chapterId={}, storyboardRevisionId={}, visualMode={}, imageProvider={}",
         job.getId(),
         command.projectId(),
         command.chapterId(),
-        storyboardRevisionId);
+        storyboardRevisionId,
+        command.visualGenerationMode(),
+        command.imageProvider());
     return job;
   }
 

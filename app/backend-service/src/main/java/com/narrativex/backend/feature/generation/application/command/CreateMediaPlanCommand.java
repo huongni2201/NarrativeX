@@ -18,7 +18,38 @@ public record CreateMediaPlanCommand(
     String imageModelKey,
     String pricingSnapshotJson,
     String pricingFingerprint,
-    ImageStyle imageStyle) {
+    ImageStyle imageStyle,
+    String imageGenerationProvider,
+    String imageGenerationStrategy) {
+
+  public CreateMediaPlanCommand(
+      UUID projectId,
+      UUID chapterId,
+      ProductionMode productionMode,
+      BigDecimal estimatedCost,
+      String imageAspectRatio,
+      String imageQualityTier,
+      String imageProviderKey,
+      String imageModelKey,
+      String pricingSnapshotJson,
+      String pricingFingerprint,
+      ImageStyle imageStyle) {
+    this(
+        projectId,
+        chapterId,
+        productionMode,
+        estimatedCost,
+        imageAspectRatio,
+        imageQualityTier,
+        imageProviderKey,
+        imageModelKey,
+        pricingSnapshotJson,
+        pricingFingerprint,
+        imageStyle,
+        "API",
+        null);
+  }
+
   public CreateMediaPlanCommand {
     Objects.requireNonNull(projectId, "projectId");
     Objects.requireNonNull(chapterId, "chapterId");
