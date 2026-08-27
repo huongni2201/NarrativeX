@@ -1,0 +1,460 @@
+import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { DesktopChapterDetails } from "@narrativex/client-contracts";
+import {
+  Check,
+  Clapperboard,
+  Loader2,
+  Plus,
+  RotateCcw,
+  WandSparkles,
+} from "lucide-react";
+import {
+  storyboardApi,
+  storyboardQueryKey,
+  type StoryboardVisualBeat,
+  type VisualBeatReviewStatus,
+} from "../api/storyboard.api";
+
+export function StoryboardScreen({
+  projectId,
+  chapters,
+}: Readonly<{
+  projectId: string;
+  chapters: DesktopChapterDetails[];
+}>) {
+  const queryClient = useQueryClient();
+  const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
+  const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
+  const [creatingBeat, setCreatingBeat] = useState(false);
+  const [beatTitle, setBeatTitle] = useState("");
+  const [visualIntent, setVisualIntent] = useState("");
+
+  useEffect(() => {
+    if (!chapters.length) {
+      setSelectedChapterId(null);
+      return;
+    }
+    if (!selectedChapterId || !chapters.some((chapter) => chapter.id === selectedChapterId)) {
+      setSelectedChapterId(chapters[0].id);
+    }
+  }, [chapters, selectedChapterId]);
+
+  const storyboardQuery = useQuery({
+    queryKey: selectedChapterId
+      ? storyboardQueryKey(projectId, selectedChapterId)
+      : ["projects", projectId, "storyboard", "idle"],
+    queryFn: () => storyboardApi.get(projectId, selectedChapterId as string),
+    enabled: Boolean(selectedChapterId),
+  });
+
+  const scenes = storyboardQuery.data?.scenes ?? [];
+
+  useEffect(() => {
+    if (!scenes.length) {
+      setSelectedSceneId(null);
+      return;
+    }
+    if (!selectedSceneId || !scenes.some((scene) => scene.id === selectedSceneId)) {
+      setSelectedSceneId(scenes[0].id);
+    }
+  }, [scenes, selectedSceneId]);
+
+  const selectedScene = scenes.find((scene) => scene.id === selectedSceneId) ?? null;
+  const selectedChapter = chapters.find((chapter) => chapter.id === selectedChapterId) ?? null;
+
+  const approvedCount = useMemo(
+    () => scenes.reduce((total, scene) => total + scene.approvedBeatCount, 0),
+    [scenes],
+  );
+  const beatCount = useMemo(
+    () => scenes.reduce((total, scene) => total + scene.totalBeatCount, 0),
+    [scenes],
+  );
+
+  const createBeat = useMutation({
+    mutationFn: async () => {
+      if (!selectedChapterId || !selectedSceneId) throw new Error("Chưa chọn scene.");
+      return storyboardApi.createVisualBeat(projectId, selectedChapterId, selectedSceneId, {
+        title: beatTitle.trim(),
+        visualIntent: visualIntent.trim(),
+      });
+    },
+    onSuccess: async () => {
+      if (!selectedChapterId) return;
+      await queryClient.invalidateQueries({
+        queryKey: storyboardQueryKey(projectId, selectedChapterId),
+      });
+      setBeatTitle("");
+      setVisualIntent("");
+      setCreatingBeat(false);
+    },
+  });
+
+  const updateReview = useMutation({
+    mutationFn: async ({ beat, status }: { beat: StoryboardVisualBeat; status: VisualBeatReviewStatus }) => {
+      if (!selectedChapterId) throw new Error("Chưa chọn chapter.");
+      return storyboardApi.updateReviewStatus(
+        projectId,
+        selectedChapterId,
+        beat.sceneId,
+        beat.id,
+        beat.rowVersion,
+        status,
+      );
+    },
+    onSuccess: async () => {
+      if (!selectedChapterId) return;
+      await queryClient.invalidateQueries({
+        queryKey: storyboardQueryKey(projectId, selectedChapterId),
+      });
+    },
+  });
+
+  const mutationError = createBeat.error ?? updateReview.error;
+  const canCreateBeat = Boolean(beatTitle.trim() && visualIntent.trim() && selectedSceneId);
+
+  return (
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background text-foreground select-none">
+      <header className="flex shrink-0 items-center justify-between border-b border-border bg-surface-panel px-6 py-4">
+        <div>
+          <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-text-muted">
+            <Clapperboard size={13} />
+            Storyboard Workspace
+          </div>
+          <h1 className="mt-1 text-xl font-bold tracking-tight">Scene & Visual Beat Manager</h1>
+          <p className="mt-1 text-xs text-text-secondary">
+            Quản lý cấu trúc scene, visual beat và trạng thái duyệt sau khi phân tích chapter.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 text-xs">
+          <Metric label="Scenes" value={scenes.length} />
+          <Metric label="Visual Beats" value={beatCount} />
+          <Metric label="Approved" value={approvedCount} />
+        </div>
+      </header>
+
+      {!chapters.length ? (
+        <EmptyState
+          title="Chưa có chapter để quản lý"
+          detail="Tạo chapter và chạy phân tích trước. Scene và Visual Beat sẽ xuất hiện tại đây."
+        />
+      ) : (
+        <div className="grid min-h-0 flex-1 grid-cols-[260px_320px_minmax(0,1fr)] overflow-hidden">
+          <section className="min-h-0 overflow-y-auto border-r border-border bg-surface-dark p-3">
+            <PanelTitle title="Chapters" count={chapters.length} />
+            <div className="mt-3 space-y-1.5">
+              {chapters.map((chapter) => {
+                const active = chapter.id === selectedChapterId;
+                return (
+                  <button
+                    key={chapter.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedChapterId(chapter.id);
+                      setSelectedSceneId(null);
+                      setCreatingBeat(false);
+                    }}
+                    className={`w-full rounded-md border px-3 py-2.5 text-left transition ${
+                      active
+                        ? "border-primary/55 bg-primary/10 text-foreground"
+                        : "border-border-subtle bg-surface-panel text-text-secondary hover:border-border hover:bg-surface-2"
+                    }`}
+                  >
+                    <div className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+                      Chapter {chapter.orderIndex + 1}
+                    </div>
+                    <div className="mt-1 truncate text-xs font-semibold">{chapter.title}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="min-h-0 overflow-y-auto border-r border-border bg-surface-panel p-3">
+            <PanelTitle title="Scenes" count={scenes.length} />
+            <div className="mt-1 truncate text-[11px] text-text-muted">
+              {selectedChapter?.title ?? "Chọn chapter"}
+            </div>
+
+            {storyboardQuery.isLoading ? (
+              <LoadingState label="Đang tải storyboard..." />
+            ) : storyboardQuery.isError ? (
+              <InlineError message={errorMessage(storyboardQuery.error, "Không tải được storyboard.")} />
+            ) : !scenes.length ? (
+              <div className="mt-4 rounded-md border border-dashed border-border p-4 text-xs text-text-muted">
+                Chapter này chưa có scene. Hãy chạy hoặc chạy lại phân tích chapter.
+              </div>
+            ) : (
+              <div className="mt-3 space-y-2">
+                {scenes.map((scene) => {
+                  const active = scene.id === selectedSceneId;
+                  return (
+                    <button
+                      key={scene.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedSceneId(scene.id);
+                        setCreatingBeat(false);
+                      }}
+                      className={`w-full rounded-md border p-3 text-left transition ${
+                        active
+                          ? "border-primary/55 bg-primary/10"
+                          : "border-border-subtle bg-surface-dark hover:border-border hover:bg-surface-2"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-text-muted">
+                          Scene {scene.orderIndex + 1}
+                        </span>
+                        <span className="rounded bg-surface-input px-1.5 py-0.5 text-[9px] text-text-muted">
+                          {scene.approvedBeatCount}/{scene.totalBeatCount} approved
+                        </span>
+                      </div>
+                      <div className="mt-1.5 text-xs font-semibold text-foreground">{scene.title}</div>
+                      <div className="mt-2 text-[10px] uppercase tracking-wide text-text-dim">
+                        {formatEnum(scene.status)}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          <section className="flex min-h-0 flex-col overflow-hidden bg-background">
+            <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-text-muted">
+                  <WandSparkles size={12} />
+                  Visual Beats
+                </div>
+                <div className="mt-1 truncate text-sm font-semibold">
+                  {selectedScene ? selectedScene.title : "Chọn một scene"}
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={!selectedScene}
+                onClick={() => setCreatingBeat((value) => !value)}
+                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-bold text-white transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Plus size={13} />
+                Add Visual Beat
+              </button>
+            </div>
+
+            {mutationError && (
+              <div className="mx-5 mt-3">
+                <InlineError message={errorMessage(mutationError, "Không thể cập nhật storyboard.")} />
+              </div>
+            )}
+
+            {creatingBeat && selectedScene && (
+              <div className="mx-5 mt-4 rounded-lg border border-primary/35 bg-surface-panel p-4">
+                <div className="text-xs font-bold">New Visual Beat</div>
+                <div className="mt-3 grid gap-3">
+                  <input
+                    value={beatTitle}
+                    maxLength={200}
+                    onChange={(event) => setBeatTitle(event.target.value)}
+                    placeholder="Beat title"
+                    className="h-9 rounded-md border border-border bg-surface-input px-3 text-xs outline-none focus:border-primary"
+                  />
+                  <textarea
+                    value={visualIntent}
+                    maxLength={8000}
+                    onChange={(event) => setVisualIntent(event.target.value)}
+                    placeholder="Visual intent..."
+                    rows={4}
+                    className="resize-none rounded-md border border-border bg-surface-input px-3 py-2 text-xs outline-none focus:border-primary"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCreatingBeat(false);
+                        setBeatTitle("");
+                        setVisualIntent("");
+                      }}
+                      className="h-8 rounded-md border border-border px-3 text-xs text-text-secondary hover:bg-surface-2"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!canCreateBeat || createBeat.isPending}
+                      onClick={() => createBeat.mutate()}
+                      className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-bold text-white hover:bg-primary-hover disabled:opacity-50"
+                    >
+                      {createBeat.isPending && <Loader2 size={12} className="animate-spin" />}
+                      Create beat
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="min-h-0 flex-1 overflow-y-auto p-5">
+              {!selectedScene ? (
+                <EmptyState
+                  title="Chọn scene để xem Visual Beat"
+                  detail="Mỗi scene chứa các visual beat được tạo bởi quá trình phân tích hoặc thêm thủ công."
+                  compact
+                />
+              ) : !selectedScene.visualBeats.length ? (
+                <EmptyState
+                  title="Scene chưa có Visual Beat"
+                  detail="Bạn có thể thêm Visual Beat mới bằng nút phía trên."
+                  compact
+                />
+              ) : (
+                <div className="space-y-3">
+                  {selectedScene.visualBeats.map((beat) => (
+                    <VisualBeatCard
+                      key={beat.id}
+                      beat={beat}
+                      updating={updateReview.isPending}
+                      onReview={(status) => updateReview.mutate({ beat, status })}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function VisualBeatCard({
+  beat,
+  updating,
+  onReview,
+}: Readonly<{
+  beat: StoryboardVisualBeat;
+  updating: boolean;
+  onReview: (status: VisualBeatReviewStatus) => void;
+}>) {
+  const approved = beat.reviewStatus === "APPROVED";
+
+  return (
+    <article className="rounded-lg border border-border bg-surface-panel p-4">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="rounded bg-surface-input px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-text-muted">
+              Beat {beat.orderIndex + 1}
+            </span>
+            <span
+              className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
+                approved ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
+              }`}
+            >
+              {approved ? "Approved" : "Needs review"}
+            </span>
+          </div>
+          <h3 className="mt-2 text-sm font-bold text-foreground">{beat.title}</h3>
+          <p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-text-secondary">
+            {beat.visualIntent}
+          </p>
+        </div>
+
+        <button
+          type="button"
+          disabled={updating}
+          onClick={() => onReview(approved ? "NEEDS_REVIEW" : "APPROVED")}
+          className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-[11px] font-semibold transition disabled:opacity-50 ${
+            approved
+              ? "border-border text-text-secondary hover:bg-surface-2"
+              : "border-success/35 bg-success/5 text-success hover:bg-success/10"
+          }`}
+        >
+          {approved ? <RotateCcw size={12} /> : <Check size={12} />}
+          {approved ? "Needs review" : "Approve"}
+        </button>
+      </div>
+
+      <div className="mt-4 grid grid-cols-3 gap-2 border-t border-border-subtle pt-3 text-[10px] text-text-muted">
+        <Meta label="Motion" value={formatEnum(beat.motionMode)} />
+        <Meta label="Camera" value={formatEnum(beat.cameraMovement)} />
+        <Meta label="Angle" value={formatEnum(beat.cameraAngle)} />
+      </div>
+    </article>
+  );
+}
+
+function Metric({ label, value }: Readonly<{ label: string; value: number }>) {
+  return (
+    <div className="min-w-[78px] rounded-md border border-border bg-surface px-3 py-2 text-center">
+      <div className="text-sm font-bold text-foreground">{value}</div>
+      <div className="mt-0.5 text-[9px] font-semibold uppercase tracking-wide text-text-muted">{label}</div>
+    </div>
+  );
+}
+
+function PanelTitle({ title, count }: Readonly<{ title: string; count: number }>) {
+  return (
+    <div className="flex items-center justify-between">
+      <h2 className="text-[11px] font-bold uppercase tracking-[0.12em] text-text-secondary">{title}</h2>
+      <span className="rounded bg-surface-input px-1.5 py-0.5 text-[9px] text-text-muted">{count}</span>
+    </div>
+  );
+}
+
+function Meta({ label, value }: Readonly<{ label: string; value: string }>) {
+  return (
+    <div>
+      <div className="font-semibold uppercase tracking-wide text-text-dim">{label}</div>
+      <div className="mt-1 truncate text-text-secondary">{value}</div>
+    </div>
+  );
+}
+
+function LoadingState({ label }: Readonly<{ label: string }>) {
+  return (
+    <div className="mt-6 flex items-center justify-center gap-2 text-xs text-text-muted">
+      <Loader2 size={14} className="animate-spin" />
+      {label}
+    </div>
+  );
+}
+
+function InlineError({ message }: Readonly<{ message: string }>) {
+  return (
+    <div className="rounded-md border border-danger/30 bg-danger/5 px-3 py-2 text-xs text-danger">
+      {message}
+    </div>
+  );
+}
+
+function EmptyState({
+  title,
+  detail,
+  compact = false,
+}: Readonly<{ title: string; detail: string; compact?: boolean }>) {
+  return (
+    <div className={`grid place-items-center ${compact ? "min-h-[220px]" : "min-h-0 flex-1"}`}>
+      <div className="max-w-md px-6 text-center">
+        <Clapperboard size={compact ? 24 : 30} className="mx-auto text-text-dim" />
+        <div className="mt-3 text-sm font-bold">{title}</div>
+        <p className="mt-1 text-xs leading-5 text-text-muted">{detail}</p>
+      </div>
+    </div>
+  );
+}
+
+function formatEnum(value: string | null | undefined) {
+  if (!value) return "—";
+  return value
+    .toLocaleLowerCase()
+    .split("_")
+    .map((part) => part.charAt(0).toLocaleUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message ? error.message : fallback;
+}

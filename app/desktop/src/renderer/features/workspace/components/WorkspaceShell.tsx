@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import {
   BookOpen,
+  Clapperboard,
   Folder,
   Image as ImageIcon,
   Layers3,
@@ -21,6 +22,7 @@ const navigation: Array<{
 }> = [
   { id: "editor", label: "Editor", icon: Layers3, segment: "editor" },
   { id: "chapters", label: "Chapters", icon: BookOpen, segment: "chapters" },
+  { id: "storyboard", label: "Storyboard", icon: Clapperboard, segment: "storyboard" },
   { id: "characters", label: "Characters", icon: UserCircle, segment: "characters" },
   { id: "images", label: "Media", icon: ImageIcon, segment: "images" },
   { id: "voice", label: "Voice", icon: Mic2, segment: "voice" },

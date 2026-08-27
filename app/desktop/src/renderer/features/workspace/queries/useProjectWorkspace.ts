@@ -64,6 +64,14 @@ const QUERY_REQUIREMENTS: Record<ActivityId, WorkspaceQueryRequirements> = {
     voices: true,
     presets: false,
   },
+  storyboard: {
+    timeline: true,
+    chapters: true,
+    assetScope: null,
+    characters: false,
+    voices: false,
+    presets: false,
+  },
   characters: {
     timeline: false,
     chapters: false,

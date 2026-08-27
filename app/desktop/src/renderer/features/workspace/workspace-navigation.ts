@@ -1,6 +1,7 @@
 export type ActivityId =
   | "editor"
   | "chapters"
+  | "storyboard"
   | "characters"
   | "images"
   | "voice"
@@ -12,6 +13,7 @@ export type DesktopScreen = ActivityId | "projects";
 
 const workspaceSegments: ReadonlyArray<readonly [string, ActivityId]> = [
   ["chapters", "chapters"],
+  ["storyboard", "storyboard"],
   ["characters", "characters"],
   ["images", "images"],
   ["voice", "voice"],
