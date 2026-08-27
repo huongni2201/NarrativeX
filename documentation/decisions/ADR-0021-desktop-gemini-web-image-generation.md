@@ -14,7 +14,7 @@ Gemini Web is a browser product rather than a provider SDK exposed to the backen
 1. `GEMINI_WEB` is a Desktop-only image provider path. The Chapter setup records the provider choice, but Images does not create the backend API media job, reuse/reframe plan or API cost estimate for this provider. Storyboard is the generation entry point and always uses `GENERATE_NEW`.
 2. Electron main owns Chrome lifecycle and browser automation. It starts or reuses a visible Chrome process with a dedicated profile, a local loopback DevTools Protocol port and a Gemini tab. The renderer never receives CDP, process or filesystem capabilities.
 3. The user signs in to Gemini in the NarrativeX Chrome window when required. NarrativeX does not fill, read or persist Google/Gemini credentials.
-4. The main-process prompt wrapper owns the series visual style lock and the scene boundary. Scene text is untrusted narrative input delimited separately from the style contract; it may describe story content but cannot remove the style contract, request multiple panels or add text/logos/watermarks.
+4. The backend returns the composed Visual Beat prompt used by Desktop, including the server-owned style, camera framing and continuity context. Electron main remains the provider boundary: it adds the Gemini Web series visual style lock and scene boundary before submitting the untrusted backend prompt to Chrome. Scene text may describe story content but cannot remove the style contract, request multiple panels or add text/logos/watermarks.
 5. Generation downloads one full-size image, validates that it is a supported non-empty image, calculates SHA-256 and exposes only metadata plus a short-lived sender-bound, single-use selection token to the renderer. The renderer registers `LOCAL_ONLY` asset metadata through the backend, then invokes the trusted commit capability so main copies the staged bytes into ProjectStorage and the renderer persists the Visual Beat media selection.
 6. `Gemini All` is a renderer-owned serial queue keyed by project/chapter state. It may resume, skip and stop between beats, but it is not a durable backend queue and stopping the queue does not promise cancellation of a generation already running in Chrome.
 7. Prompt copy uses a typed preload capability to Electron main's clipboard API. The renderer does not call `navigator.clipboard` or receive a general clipboard primitive.
@@ -25,7 +25,7 @@ Gemini Web is a browser product rather than a provider SDK exposed to the backen
 
 - Users can use their existing Gemini Web access without putting provider credentials or a browser editor into the NarrativeX renderer.
 - The generated result follows the existing local-first project media contract and backend stable asset identity/checksum rules.
-- One main-owned style wrapper keeps Generate, Generate All and copied prompts visually consistent while still preserving scene-specific character/location content.
+- The backend-composed prompt keeps the UI and server generation inputs aligned, while the main-owned wrapper keeps Generate and Generate All consistent with Gemini Web's provider-specific style contract.
 - Selection-token binding and validation keep the privileged file commit outside the renderer.
 
 ### Trade-offs

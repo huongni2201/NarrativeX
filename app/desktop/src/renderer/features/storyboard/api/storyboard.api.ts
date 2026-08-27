@@ -8,6 +8,7 @@ export interface StoryboardVisualBeat {
   orderIndex: number;
   title: string;
   visualIntent: string;
+  prompt: string | null;
   motionMode: string;
   cameraMovement: string;
   cameraAngle: string;

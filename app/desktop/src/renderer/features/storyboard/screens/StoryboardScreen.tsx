@@ -342,6 +342,10 @@ export function StoryboardScreen({
 
   async function generateGeminiImage(beat: StoryboardVisualBeat, queueMode = false): Promise<boolean> {
     if (mediaBusyBeatId) return false;
+    if (!beat.prompt) {
+      setNotice("Backend chưa trả prompt cho Visual Beat này. Hãy refresh Storyboard rồi thử lại.");
+      return false;
+    }
     setMediaBusyBeatId(beat.id);
     setPendingImportBeatId(null);
     setNotice(
@@ -351,7 +355,7 @@ export function StoryboardScreen({
     );
     try {
       const selection = await window.narrativex.geminiWeb.generateImage({
-        prompt: compileGeminiPrompt(beat),
+        prompt: beat.prompt,
       });
       await persistGeneratedImage(beat, selection, "GEMINI_WEB");
       setNotice(
@@ -482,8 +486,12 @@ export function StoryboardScreen({
   }
 
   async function copyPrompt(beat: StoryboardVisualBeat) {
+    if (!beat.prompt) {
+      setNotice("Backend chưa trả prompt cho Visual Beat này. Hãy refresh Storyboard rồi thử lại.");
+      return;
+    }
     try {
-      await window.narrativex.system.copyText(compileGeminiPrompt(beat));
+      await window.narrativex.system.copyText(beat.prompt);
       setCopiedPromptBeatId(beat.id);
       setNotice(`Đã copy prompt của “${beat.title}”.`);
     } catch (error) {
@@ -938,7 +946,7 @@ function VisualBeatCard({
   onImport: () => void;
 }>) {
   const approved = beat.reviewStatus === "APPROVED";
-  const prompt = compileGeminiPrompt(beat);
+  const prompt = beat.prompt ?? "Prompt chưa khả dụng từ backend.";
 
   return (
     <article className={`rounded-lg border bg-surface-panel p-4 ${queueCurrent ? "border-primary/60 ring-1 ring-primary/20" : "border-border"}`}>
@@ -1017,7 +1025,7 @@ function VisualBeatCard({
               className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-surface-input px-3 text-[11px] font-semibold text-text-secondary hover:bg-surface-2 disabled:opacity-50"
             >
               {mediaBusy ? <Loader2 size={12} className="animate-spin" /> : <ImagePlus size={12} />}
-              Import Image (fallback)
+              Import Image
             </button>
             <button
               type="button"
@@ -1097,32 +1105,6 @@ function BeatImagePreview({ timelineBeat }: Readonly<{ timelineBeat: DesktopTime
       />
     </div>
   );
-}
-
-function compileGeminiPrompt(beat: StoryboardVisualBeat) {
-  return [
-    "IMAGE TASK:",
-    "Generate exactly one coherent still frame for one storyboard visual beat.",
-    "",
-    "VISUAL INTENT:",
-    beat.visualIntent,
-    "",
-    "SHOT DESIGN:",
-    `- camera angle: ${formatEnum(beat.cameraAngle)}`,
-    `- camera movement intent: ${formatEnum(beat.cameraMovement)}`,
-    "- create a readable cinematic composition that clearly advances the story",
-    "- avoid repeating the same centered framing pattern used by adjacent beats",
-    "",
-    "COMPOSITION RULE:",
-    "Do not create a montage, collage, split screen, contact sheet, or multiple panels.",
-    "",
-    "CONTINUITY RULE:",
-    "Preserve established character identity, wardrobe, environment, prop ownership, and lighting continuity.",
-    "Use canonical character/location/prop references only; do not treat a previous generated beat image as a base image.",
-    "",
-    "OUTPUT:",
-    "One new image only. No text, captions, logos, or watermarks unless explicitly required by the story.",
-  ].join("\n");
 }
 
 function geminiQueueStorageKey(projectId: string, chapterId: string) {

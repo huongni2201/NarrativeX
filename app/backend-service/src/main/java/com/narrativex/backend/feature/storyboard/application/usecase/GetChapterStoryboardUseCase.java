@@ -8,6 +8,7 @@ import com.narrativex.backend.feature.storyboard.api.response.ChapterStoryboardR
 import com.narrativex.backend.feature.storyboard.api.response.VisualBeatResponse;
 import com.narrativex.backend.feature.storyboard.application.port.out.ChapterRepository;
 import com.narrativex.backend.feature.storyboard.application.port.out.StoryboardRepository;
+import com.narrativex.backend.feature.storyboard.application.port.out.VisualBeatPromptProvider;
 import com.narrativex.backend.feature.storyboard.domain.entity.VisualBeat;
 import com.narrativex.backend.feature.storyboard.domain.enums.VisualBeatReviewStatus;
 import java.util.List;
@@ -27,6 +28,7 @@ public class GetChapterStoryboardUseCase {
   private final StoryVersionAccess storyVersionAccess;
   private final ChapterRepository chapterRepository;
   private final StoryboardRepository storyboardRepository;
+  private final VisualBeatPromptProvider visualBeatPromptProvider;
 
   @Transactional(readOnly = true)
   public ApiResponse<ChapterStoryboardResponse> execute(UUID projectId, UUID chapterId) {
@@ -43,7 +45,6 @@ public class GetChapterStoryboardUseCase {
     Map<UUID, List<VisualBeat>> beatsByScene =
         storyboardRepository.findVisualBeatsBySceneIds(sceneIds).stream()
             .collect(Collectors.groupingBy(VisualBeat::getSceneId));
-
     List<ChapterStoryboardResponse.SceneItem> sceneItems =
         scenes.stream()
             .map(
@@ -62,7 +63,13 @@ public class GetChapterStoryboardUseCase {
                       scene.getStatus(),
                       approved,
                       beats.size(),
-                      beats.stream().map(VisualBeatResponse::from).toList());
+                      beats.stream()
+                          .map(
+                              beat ->
+                                  VisualBeatResponse.from(
+                                      beat,
+                                      visualBeatPromptProvider.promptFor(projectId, beat)))
+                          .toList());
                 })
             .toList();
 

@@ -15,6 +15,7 @@ public record VisualBeatResponse(
     int orderIndex,
     String title,
     String visualIntent,
+    String prompt,
     MotionMode motionMode,
     CameraMovement cameraMovement,
     CameraAngle cameraAngle,
@@ -29,6 +30,24 @@ public record VisualBeatResponse(
         beat.getOrderIndex(),
         beat.getTitle(),
         beat.getVisualIntent(),
+        null,
+        beat.getMotionMode(),
+        beat.getCameraMovement(),
+        beat.getCameraAngle(),
+        beat.getReviewStatus(),
+        beat.getAspectRatioOverride(),
+        beat.getQualityTierOverride(),
+        beat.getRowVersion());
+  }
+
+  public static VisualBeatResponse from(VisualBeat beat, String prompt) {
+    return new VisualBeatResponse(
+        beat.getId(),
+        beat.getSceneId(),
+        beat.getOrderIndex(),
+        beat.getTitle(),
+        beat.getVisualIntent(),
+        prompt,
         beat.getMotionMode(),
         beat.getCameraMovement(),
         beat.getCameraAngle(),

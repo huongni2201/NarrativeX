@@ -27,7 +27,8 @@ The renderer consumes typed backend contracts; it does not call Vertex or receiv
 
 ```text
 Storyboard Visual Beat
-  -> compile locked Gemini Web prompt in Electron main
+  -> backend returns the composed Visual Beat prompt with style, framing and continuity context
+  -> Electron main adds the Gemini Web provider boundary/style wrapper
   -> trusted preload call
   -> Electron main starts/reuses a visible Chrome profile with CDP
   -> user completes Gemini sign-in in that Chrome window when needed
@@ -45,7 +46,7 @@ The Storyboard supports single-beat Generate and a renderer-persisted `Gemini Al
 
 This path requires Google Chrome. `NARRATIVEX_CHROME_PATH` may point to `chrome.exe` when automatic discovery cannot find it. NarrativeX never fills Gemini credentials. The Chrome profile, downloaded staging files and CDP session metadata are owned by Electron main, and provider web-page changes can make the automation unavailable. Errors such as missing Chrome, required sign-in, a busy generation, changed Gemini UI, timeout or failed download are surfaced to the Desktop UI.
 
-Copy Prompt uses the typed `system.copyText` preload capability and Electron main clipboard API. The renderer does not call `navigator.clipboard` or receive unrestricted system APIs.
+Copy Prompt uses the backend-composed Visual Beat prompt through the typed `system.copyText` preload capability and Electron main clipboard API. The renderer does not construct prompt text, call `navigator.clipboard` or receive unrestricted system APIs.
 
 ## Durable provider execution
 
