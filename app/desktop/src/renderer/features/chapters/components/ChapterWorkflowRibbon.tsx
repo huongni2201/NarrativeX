@@ -1,4 +1,5 @@
 import { BookOpen, Clapperboard, FileText, WandSparkles } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 type Props = Readonly<{
   sceneAvailable?: boolean;
@@ -18,6 +19,9 @@ export function ChapterWorkflowRibbon({
   visualBeatAvailable = true,
   onOpenEditor,
 }: Props = {}) {
+  const navigate = useNavigate();
+  const openEditor = onOpenEditor ?? (() => navigate("../editor"));
+
   return (
     <div className="shrink-0 border-b border-border bg-surface-panel px-6 py-2">
       <div className="flex max-w-2xl items-center gap-3 text-xs text-text-muted">
@@ -36,11 +40,11 @@ export function ChapterWorkflowRibbon({
 
           return (
             <div key={key} className="flex items-center gap-3">
-              {editorStep && onOpenEditor ? (
+              {editorStep ? (
                 <button
                   type="button"
                   disabled={!available}
-                  onClick={onOpenEditor}
+                  onClick={openEditor}
                   className={`${className} cursor-pointer hover:text-primary-hover disabled:cursor-not-allowed disabled:opacity-55`}
                   title={
                     available
@@ -57,11 +61,7 @@ export function ChapterWorkflowRibbon({
                 </button>
               ) : (
                 <div className={className}>
-                  <span
-                    className={`size-1.5 rounded-full ${
-                      active ? "bg-primary" : available ? "bg-primary" : "bg-text-dim"
-                    }`}
-                  />
+                  <span className={`size-1.5 rounded-full ${active ? "bg-primary" : "bg-text-dim"}`} />
                   <span>{label}</span>
                 </div>
               )}
