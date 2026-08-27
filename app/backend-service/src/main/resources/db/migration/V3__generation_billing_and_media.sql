@@ -128,7 +128,7 @@ CREATE TABLE operation_plans (
     row_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    project_id UUID NOT NULL,
+    project_id UUID NOT NULL REFERENCES projects(id),
     generation_job_id UUID REFERENCES generation_jobs(id),
     operation_type VARCHAR(40) NOT NULL,
     estimate_min NUMERIC(19, 6) NOT NULL,
