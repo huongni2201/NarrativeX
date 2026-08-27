@@ -27,6 +27,7 @@
         <result property="hairstyle" column="hairstyle" />
         <result property="injury" column="injury" />
         <result property="wardrobeContext" column="wardrobe_context" />
+        <result property="beatRole" column="beat_role" />
     </resultMap>
 
     <resultMap id="visualPromptReferenceRow"
@@ -67,7 +68,8 @@
                appearance.age_state,
                appearance.hairstyle,
                appearance.injury,
-               appearance.wardrobe_context
+               appearance.wardrobe_context,
+               NULL::varchar AS beat_role
           FROM scene_characters sc
           JOIN scenes s ON s.id = sc.scene_id
           JOIN chapters ch ON ch.id = s.chapter_id
@@ -161,5 +163,166 @@
            AND pc.status = 'ACTIVE'
            AND c.status = 'ACTIVE'
          ORDER BY sc.order_index, pc.id, ref.priority, ma.id
+    </select>
+
+    <select id="findLocationForBeat" resultMap="visualPromptLocationRow">
+        SELECT pl.id AS location_id,
+               pl.name,
+               pl.description,
+               pl.visual_prompt
+          FROM visual_beats vb
+          JOIN scenes s ON s.id = vb.scene_id
+          JOIN chapters ch ON ch.id = s.chapter_id
+          JOIN story_versions sv ON sv.id = ch.story_version_id
+          LEFT JOIN project_locations pl ON pl.id = s.project_location_id
+         WHERE vb.id = #{visualBeatId}
+           AND ch.deleted_at IS NULL
+           AND sv.project_id = #{projectId}
+         LIMIT 1
+    </select>
+
+    <select id="findCharactersForBeat" resultMap="visualPromptCharacterRow">
+        SELECT pc.id AS assignment_id,
+               c.id AS character_id,
+               c.canonical_name,
+               canon.version_number,
+               canon.visual_prompt,
+               appearance.appearance_prompt,
+               appearance.age_state,
+               appearance.hairstyle,
+               appearance.injury,
+               appearance.wardrobe_context,
+               COALESCE(vbc.role, 'SECONDARY') AS beat_role
+          FROM visual_beats vb
+          JOIN scenes s ON s.id = vb.scene_id
+          JOIN chapters ch ON ch.id = s.chapter_id
+          JOIN story_versions sv ON sv.id = ch.story_version_id
+          JOIN scene_characters sc ON sc.scene_id = s.id
+          JOIN project_characters pc ON pc.id = sc.project_character_id
+          JOIN characters c ON c.id = pc.character_id
+          LEFT JOIN visual_beat_characters vbc
+            ON vbc.visual_beat_id = vb.id
+           AND vbc.project_character_id = pc.id
+          LEFT JOIN LATERAL (
+              SELECT cv.id,
+                     cv.version_number,
+                     cv.visual_prompt
+                FROM character_versions cv
+               WHERE cv.character_id = c.id
+                 AND (
+                     cv.id = pc.pinned_character_version_id
+                     OR (
+                         pc.pinned_character_version_id IS NULL
+                         AND cv.status = 'LOCKED'
+                     )
+                 )
+               ORDER BY CASE WHEN cv.id = pc.pinned_character_version_id THEN 0 ELSE 1 END,
+                        cv.version_number DESC,
+                        cv.id DESC
+               LIMIT 1
+          ) canon ON TRUE
+          LEFT JOIN LATERAL (
+              SELECT ca.appearance_prompt,
+                     ca.age_state,
+                     ca.hairstyle,
+                     ca.injury,
+                     ca.wardrobe_context
+                FROM character_appearances ca
+               WHERE ca.character_id = c.id
+                 AND (ca.project_id = pc.project_id OR ca.project_id IS NULL)
+               ORDER BY CASE WHEN ca.project_id = pc.project_id THEN 0 ELSE 1 END,
+                        ca.updated_at DESC,
+                        ca.id DESC
+               LIMIT 1
+          ) appearance ON TRUE
+         WHERE vb.id = #{visualBeatId}
+           AND ch.deleted_at IS NULL
+           AND sv.project_id = #{projectId}
+           AND pc.project_id = #{projectId}
+           AND pc.status = 'ACTIVE'
+           AND c.status = 'ACTIVE'
+           AND (
+               NOT EXISTS (
+                   SELECT 1
+                     FROM visual_beat_characters any_vbc
+                    WHERE any_vbc.visual_beat_id = vb.id
+               )
+               OR vbc.visual_beat_id IS NOT NULL
+           )
+         ORDER BY CASE COALESCE(vbc.role, 'SECONDARY')
+                      WHEN 'PRIMARY' THEN 0
+                      WHEN 'SECONDARY' THEN 1
+                      ELSE 2
+                  END,
+                  sc.order_index,
+                  pc.id
+    </select>
+
+    <select id="findCharacterReferencesForBeat" resultMap="visualPromptReferenceRow">
+        SELECT pc.id AS assignment_id,
+               ma.id AS asset_id,
+               ref.reference_role AS role,
+               ref.priority,
+               ma.storage_key,
+               COALESCE(ma.detected_content_type, ma.content_type) AS content_type,
+               ma.sha256
+          FROM visual_beats vb
+          JOIN scenes s ON s.id = vb.scene_id
+          JOIN chapters ch ON ch.id = s.chapter_id
+          JOIN story_versions sv ON sv.id = ch.story_version_id
+          JOIN scene_characters sc ON sc.scene_id = s.id
+          JOIN project_characters pc ON pc.id = sc.project_character_id
+          JOIN projects p ON p.id = pc.project_id
+          JOIN characters c ON c.id = pc.character_id
+          LEFT JOIN visual_beat_characters vbc
+            ON vbc.visual_beat_id = vb.id
+           AND vbc.project_character_id = pc.id
+          JOIN LATERAL (
+              SELECT cv.id
+                FROM character_versions cv
+               WHERE cv.character_id = c.id
+                 AND (
+                     cv.id = pc.pinned_character_version_id
+                     OR (
+                         pc.pinned_character_version_id IS NULL
+                         AND cv.status = 'LOCKED'
+                     )
+                 )
+               ORDER BY CASE WHEN cv.id = pc.pinned_character_version_id THEN 0 ELSE 1 END,
+                        cv.version_number DESC,
+                        cv.id DESC
+               LIMIT 1
+          ) canon ON TRUE
+          JOIN character_version_reference_assets ref
+            ON ref.character_version_id = canon.id
+          JOIN media_assets ma
+            ON ma.id = ref.media_asset_id
+           AND ma.account_id = p.owner_id
+           AND ma.asset_type = 'IMAGE'
+           AND ma.status = 'READY'
+           AND ma.deleted_at IS NULL
+         WHERE vb.id = #{visualBeatId}
+           AND ch.deleted_at IS NULL
+           AND sv.project_id = #{projectId}
+           AND pc.project_id = #{projectId}
+           AND pc.status = 'ACTIVE'
+           AND c.status = 'ACTIVE'
+           AND (
+               NOT EXISTS (
+                   SELECT 1
+                     FROM visual_beat_characters any_vbc
+                    WHERE any_vbc.visual_beat_id = vb.id
+               )
+               OR vbc.visual_beat_id IS NOT NULL
+           )
+         ORDER BY CASE COALESCE(vbc.role, 'SECONDARY')
+                      WHEN 'PRIMARY' THEN 0
+                      WHEN 'SECONDARY' THEN 1
+                      ELSE 2
+                  END,
+                  sc.order_index,
+                  pc.id,
+                  ref.priority,
+                  ma.id
     </select>
 </mapper>
