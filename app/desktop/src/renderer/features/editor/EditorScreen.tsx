@@ -275,6 +275,14 @@ export function EditorScreen({
     setMediaNotice(null);
     const selection = await window.narrativex.localStorage.selectAsset();
     if (!selection || selectedIdRef.current !== beatId) return;
+    if (selection.kind !== "IMAGE" && selection.kind !== "VIDEO") {
+      setMediaNotice({
+        beatId,
+        tone: "error",
+        message: "Hãy chọn một file ảnh hoặc video.",
+      });
+      return;
+    }
     if (expectedType && selection.kind !== expectedType) {
       setMediaNotice({
         beatId,
