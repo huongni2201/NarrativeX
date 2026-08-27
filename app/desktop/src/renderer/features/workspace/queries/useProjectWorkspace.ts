@@ -44,7 +44,9 @@ const QUERY_REQUIREMENTS: Record<ActivityId, WorkspaceQueryRequirements> = {
   editor: {
     timeline: true,
     chapters: false,
-    assetScope: "visual",
+    // The editor picker still filters to IMAGE/VIDEO, but playback also needs
+    // narration asset metadata to resolve LOCAL_ONLY audio preview URLs correctly.
+    assetScope: "all",
     characters: false,
     voices: false,
     presets: false,
