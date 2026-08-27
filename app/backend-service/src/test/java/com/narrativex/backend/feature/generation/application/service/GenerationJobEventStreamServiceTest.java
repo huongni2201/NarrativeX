@@ -80,12 +80,6 @@ class GenerationJobEventStreamServiceTest {
         null,
         null,
         null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
         null);
   }
 }

@@ -54,12 +54,6 @@ class GenerationJobControllerContractTest {
             null,
             null,
             null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
             null);
     when(useCase.execute(any(GetGenerationJobQuery.class))).thenReturn(job);
 
@@ -83,38 +77,22 @@ class GenerationJobControllerContractTest {
 
   @Test
   void responseTargetsChapterWhenJobHasChapterScope() {
-    UUID jobId = UuidV7.random();
     UUID projectId = UuidV7.random();
     UUID storyVersionId = UuidV7.random();
     UUID chapterId = UuidV7.random();
+    UUID storyboardRevisionId = UuidV7.random();
     GenerationJob job =
-        GenerationJob.rehydrate(
-            UuidV7.random(),
-            0L,
-            jobId,
+        GenerationJob.createChapterAnalysis(
             projectId,
-            JobType.NARRATION_GENERATE,
-            JobStatus.QUEUED,
-            ResourceClass.PROVIDER_INTERACTIVE,
-            0,
-            "QUEUED",
-            null,
-            "owner",
-            "owner",
             storyVersionId,
             chapterId,
-            null,
+            storyboardRevisionId,
             0L,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null);
+            "source-hash",
+            "source text",
+            "vi-VN",
+            "chapter-analysis:test",
+            "owner");
 
     JobResponse response = JobResponse.from(job);
 

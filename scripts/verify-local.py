@@ -54,6 +54,7 @@ def main() -> int:
     npm = "npm.cmd" if windows else "npm"
 
     steps = [
+        Step("Secret scan", ROOT, [python, "scripts/check-secrets.py"]),
         Step("Docs drift", ROOT, [python, "scripts/check-docs-drift.py"]),
         Step("Compose config", ROOT, ["docker", "compose", "config", "--no-interpolate"], optional=True),
         Step("Backend verify", backend, [mvnw, "verify"]),

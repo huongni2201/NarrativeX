@@ -1,11 +1,11 @@
 package com.narrativex.backend.feature.storyboard.infrastructure.persistence.adapter;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.when;
 
-import com.narrativex.backend.feature.common.exception.ResourceConflictException;
+import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
 import com.narrativex.backend.feature.common.uuid.UuidV7;
-import com.narrativex.backend.feature.storyboard.domain.exception.ContentVariantNotReadyException;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterAnalysisSnapshotMapper;
 import com.narrativex.backend.feature.storyboard.infrastructure.persistence.mybatis.ChapterAnalysisSnapshotRow;
 import java.util.UUID;
@@ -19,28 +19,37 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class MyBatisChapterAnalysisSnapshotRepositoryTest {
   private static final UUID PROJECT_ID = UuidV7.random();
   private static final UUID CHAPTER_ID = UuidV7.random();
-  private static final UUID VARIANT_ID = UuidV7.random();
 
   @Mock private ChapterAnalysisSnapshotMapper mapper;
   @InjectMocks private MyBatisChapterAnalysisSnapshotRepository repository;
 
   @Test
-  void rejectsAnOwnedButStaleExplicitVariantAsConflict() {
-    var row = new ChapterAnalysisSnapshotRow();
-    row.setStale(true);
-    when(mapper.findOwned(PROJECT_ID, CHAPTER_ID, "user-1", VARIANT_ID)).thenReturn(row);
+  void rejectsMissingOwnedChapterAsNotFound() {
+    when(mapper.findOwned(PROJECT_ID, CHAPTER_ID, "user-1")).thenReturn(null);
 
     assertThrows(
-        ResourceConflictException.class,
-        () -> repository.requireOwnedByProject(PROJECT_ID, CHAPTER_ID, "user-1", VARIANT_ID));
+        ResourceNotFoundException.class,
+        () -> repository.requireOwnedByProject(PROJECT_ID, CHAPTER_ID, "user-1"));
   }
 
   @Test
-  void rejectsMissingOwnedOriginalVariantAsContentVariantConflict() {
-    when(mapper.existsOwnedChapter(PROJECT_ID, CHAPTER_ID, "user-1")).thenReturn(true);
+  void mapsOwnedChapterToCurrentAnalysisSource() {
+    var row = new ChapterAnalysisSnapshotRow();
+    UUID snapshotId = UuidV7.random();
+    UUID storyVersionId = UuidV7.random();
+    row.setId(snapshotId);
+    row.setStoryVersionId(storyVersionId);
+    row.setRowVersion(7L);
+    row.setSourceHash("a".repeat(64));
+    row.setSourceText("Chapter source");
+    when(mapper.findOwned(PROJECT_ID, CHAPTER_ID, "user-1")).thenReturn(row);
 
-    assertThrows(
-        ContentVariantNotReadyException.class,
-        () -> repository.requireOwnedByProject(PROJECT_ID, CHAPTER_ID, "user-1"));
+    var source = repository.requireOwnedByProject(PROJECT_ID, CHAPTER_ID, "user-1");
+
+    assertEquals(snapshotId, source.chapterId());
+    assertEquals(storyVersionId, source.storyVersionId());
+    assertEquals(7L, source.rowVersion());
+    assertEquals("a".repeat(64), source.sourceHash());
+    assertEquals("Chapter source", source.sourceText());
   }
 }

@@ -302,12 +302,6 @@ class EnqueueStoryAnalysisUseCaseTest {
         SOURCE_HASH,
         "latest source",
         "vi-VN",
-        IDEMPOTENCY_KEY,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null);
+        IDEMPOTENCY_KEY);
   }
 }

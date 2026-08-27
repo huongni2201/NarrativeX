@@ -6,9 +6,9 @@ never calls an AI provider, which makes long-form visual density testable and st
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from math import ceil
-from typing import Iterable, Sequence
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,7 +52,7 @@ class TimedVisualBeat:
 def normalize_visual_timing(
     narration_duration_ms: int,
     semantic_beats: Sequence[SemanticBeat] | Iterable[SemanticBeat],
-    policy: VisualTimingPolicy = VisualTimingPolicy(),
+    policy: VisualTimingPolicy | None = None,
 ) -> list[TimedVisualBeat]:
     """Return gap-free ordered beats that exactly cover the narration clock.
 
@@ -63,6 +63,7 @@ def normalize_visual_timing(
     if narration_duration_ms <= 0:
         raise ValueError("narration_duration_ms must be positive")
 
+    policy = policy or VisualTimingPolicy()
     seeds = list(semantic_beats)
     if not seeds:
         seeds = [SemanticBeat("auto-0", reuse_group="auto-0")]
@@ -84,7 +85,12 @@ def normalize_visual_timing(
 
     if result:
         last = result[-1]
-        result[-1] = TimedVisualBeat(last.key, last.start_ms, narration_duration_ms, last.reuse_group)
+        result[-1] = TimedVisualBeat(
+            last.key,
+            last.start_ms,
+            narration_duration_ms,
+            last.reuse_group,
+        )
     return result
 
 

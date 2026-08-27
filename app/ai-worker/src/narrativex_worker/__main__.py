@@ -82,7 +82,8 @@ async def run_workers(settings: WorkerSettings, *, dry_run: bool) -> None:
     database_host, database_port, database_name = _database_target(settings.database_url)
     provider = settings.tts_provider_mode if settings.has_worker_role("narration") else "n/a"
     logging.getLogger("narrativex.worker").info(
-        "Worker database ready workerName=%s roles=%s provider=%s dbHost=%s dbPort=%s dbName=%s dbSchema=%s configuredDbName=%s buildSha=%s",
+        "Worker database ready workerName=%s roles=%s provider=%s "
+        "dbHost=%s dbPort=%s dbName=%s dbSchema=%s configuredDbName=%s buildSha=%s",
         settings.worker_name,
         ",".join(sorted(workers)),
         provider,

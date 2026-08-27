@@ -58,6 +58,7 @@ export function useChapterWorkspacesQuery(
     isError:
       batchQuery.isError ||
       (chapter.id === pollingChapterId && pollingQuery.isError && !workspacesByChapterId.has(chapter.id)),
+    refetch: chapter.id === pollingChapterId ? pollingQuery.refetch : batchQuery.refetch,
   }));
 }
 
