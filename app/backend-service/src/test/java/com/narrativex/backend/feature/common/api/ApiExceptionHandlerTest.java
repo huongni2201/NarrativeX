@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import com.narrativex.backend.feature.common.exception.ResourceConflictException;
 import com.narrativex.backend.feature.common.exception.ResourceNotFoundException;
-import com.narrativex.backend.feature.storyboard.domain.exception.ContentVariantNotReadyException;
+import com.narrativex.backend.feature.project.domain.exception.ArchivedProjectException;
 import java.sql.SQLException;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,14 +54,11 @@ class ApiExceptionHandlerTest {
   }
 
   @Test
-  void contentVariantNotReadyUsesStableConflictCode() {
-    ErrorResponse error =
-        body(handler.handleDomainConflict(new ContentVariantNotReadyException(), request));
+  void domainConflictUsesStableConflictCode() {
+    ErrorResponse error = body(handler.handleDomainConflict(new ArchivedProjectException(), request));
     assertEquals(409, error.status());
-    assertEquals("CONTENT_VARIANT_NOT_READY", error.code());
-    assertEquals(
-        "The ORIGINAL content variant is missing or does not match the current chapter source.",
-        error.message());
+    assertEquals("RESOURCE_CONFLICT", error.code());
+    assertEquals("Archived projects cannot receive story versions", error.message());
   }
 
   @Test
