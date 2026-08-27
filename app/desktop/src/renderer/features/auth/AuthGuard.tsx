@@ -44,17 +44,24 @@ export function AuthGuard({ children }: PropsWithChildren) {
   const needsGuestBootstrap =
     currentUser.error instanceof DesktopApiError && currentUser.error.status === 401;
 
+  const replaceAuthenticatedUser = (user: NonNullable<typeof currentUser.data>) => {
+    // Every non-auth query can contain account-scoped data (projects, assets,
+    // timelines, etc.). Remove it before switching identities so a newly
+    // authenticated user can never render cached data from the previous one.
+    queryClient.removeQueries({
+      predicate: (query) => query.queryKey[0] !== "auth",
+    });
+    queryClient.setQueryData(authQueryKeys.currentUser, user);
+  };
+
   useEffect(() => {
     if (!needsGuestBootstrap || guestBootstrapStarted.current) return;
     guestBootstrapStarted.current = true;
     setGuestBootstrapPending(true);
     setBootstrapError(null);
     void authApi.ensureGuestSession()
-      .then(async (user) => {
-        queryClient.setQueryData(authQueryKeys.currentUser, user);
-        await queryClient.invalidateQueries({
-          predicate: (query) => query.queryKey[0] !== "auth",
-        });
+      .then((user) => {
+        replaceAuthenticatedUser(user);
       })
       .catch((reason) => {
         setBootstrapError(
@@ -71,11 +78,10 @@ export function AuthGuard({ children }: PropsWithChildren) {
     if (!window.narrativex?.auth) return;
     const unsubscribe = window.narrativex.auth.onCallback((response) => {
       void authApi.exchange(response)
-        .then(async (user) => {
+        .then((user) => {
           setExchangeError(null);
           setLoginReason(null);
-          queryClient.setQueryData(authQueryKeys.currentUser, user);
-          await queryClient.invalidateQueries();
+          replaceAuthenticatedUser(user);
         })
         .catch((reason) => {
           setExchangeError(reason instanceof Error ? reason.message : "Mã đăng nhập không hợp lệ.");
