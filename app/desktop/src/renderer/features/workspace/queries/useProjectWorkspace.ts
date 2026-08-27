@@ -9,6 +9,7 @@ import type {
   DesktopVoice,
 } from "@narrativex/client-contracts";
 import { assetsApi, type AssetLibraryScope } from "../../assets/api/assets.api";
+import { useCurrentUserQuery } from "../../auth/queries/auth.queries";
 import { chaptersApi } from "../../chapters/api/chapters.api";
 import { charactersApi } from "../../characters/api/characters.api";
 import { presetsApi } from "../../presets/api/presets.api";
@@ -39,6 +40,9 @@ type WorkspaceQueryRequirements = Readonly<{
 }>;
 
 const CATALOG_STALE_TIME_MS = 5 * 60 * 1000;
+
+export const assetLibraryQueryKey = (userId: string, scope: AssetLibraryScope) =>
+  ["assets", "library", userId, scope] as const;
 
 const QUERY_REQUIREMENTS: Record<ActivityId, WorkspaceQueryRequirements> = {
   editor: {
@@ -123,10 +127,13 @@ const emptyWorkspace: DesktopWorkspaceState = {
 };
 
 export function useProjectWorkspace(projectId: string | null, screen: ActivityId) {
+  const currentUser = useCurrentUserQuery();
   const projectQuery = useProjectQuery(projectId);
   const enabled = Boolean(projectId);
   const requirements = QUERY_REQUIREMENTS[screen];
   const hasAssets = requirements.assetScope !== null;
+  const assetScope = requirements.assetScope ?? "all";
+  const currentUserId = currentUser.data?.id;
 
   const timelineQuery = useQuery({
     queryKey: ["projects", projectId, "timeline"],
@@ -141,9 +148,9 @@ export function useProjectWorkspace(projectId: string | null, screen: ActivityId
       enabled && requirements.chapters && Boolean(timelineQuery.data?.storyVersionId),
   });
   const assetsQuery = useQuery({
-    queryKey: ["assets", "library", requirements.assetScope ?? "none"],
-    queryFn: () => assetsApi.listAll(requirements.assetScope ?? "all"),
-    enabled: enabled && hasAssets,
+    queryKey: assetLibraryQueryKey(currentUserId ?? "anonymous", assetScope),
+    queryFn: () => assetsApi.listAll(assetScope),
+    enabled: enabled && hasAssets && Boolean(currentUserId),
   });
   const charactersQuery = useQuery({
     queryKey: ["projects", projectId, "characters"],
