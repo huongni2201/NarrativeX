@@ -12,7 +12,34 @@ public record CreateMediaJobCommand(
     String aspectRatio,
     String qualityTier,
     BigDecimal maxAuthorizedCost,
-    ImageStyle imageStyle) {
+    ImageStyle imageStyle,
+    String visualGenerationMode,
+    String imageProvider,
+    String imageGenerationStrategy) {
+
+  public CreateMediaJobCommand(
+      UUID projectId,
+      UUID chapterId,
+      String idempotencyKey,
+      String productionMode,
+      String aspectRatio,
+      String qualityTier,
+      BigDecimal maxAuthorizedCost,
+      ImageStyle imageStyle) {
+    this(
+        projectId,
+        chapterId,
+        idempotencyKey,
+        productionMode,
+        aspectRatio,
+        qualityTier,
+        maxAuthorizedCost,
+        imageStyle,
+        "IMAGE",
+        "API",
+        null);
+  }
+
   public CreateMediaJobCommand(
       UUID projectId,
       UUID chapterId,
