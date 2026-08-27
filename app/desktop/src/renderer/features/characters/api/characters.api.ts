@@ -1,4 +1,8 @@
-import type { CursorPage, DesktopCharacter } from "@narrativex/client-contracts";
+import type {
+  CursorPage,
+  DesktopCharacter,
+  DesktopCharacterDetail,
+} from "@narrativex/client-contracts";
 import { apiRequest } from "../../../api/client";
 import { isRecord, isString } from "../../../api/guards";
 import { collectCursorPages, parseCursorPage } from "../../../api/pagination";
@@ -40,6 +44,11 @@ async function listAll(projectId: string): Promise<DesktopCharacter[]> {
 export const charactersApi = {
   list: listPage,
   listAll,
+
+  detail: (projectId: string, characterId: string) =>
+    apiRequest<DesktopCharacterDetail>(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/characters/${encodeURIComponent(characterId)}`,
+    ),
 
   create: (input: {
     canonicalName: string;
