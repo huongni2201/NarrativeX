@@ -33,6 +33,7 @@ import {
 const DEFAULT_VOICE_ID = "vieneu-ngoc-huyen-v2";
 const DEFAULT_PREVIEW_TEXT =
   "Xin chào, đây là giọng đọc mẫu được tạo từ đoạn giọng tham chiếu bạn vừa tải lên.";
+const PREVIEW_URL_REFRESH_SKEW_MS = 60_000;
 
 export function VoiceScreen({
   projectId,
@@ -155,6 +156,15 @@ export function VoiceScreen({
     enabled: Boolean(previewJobId && previewJobQuery.data?.status === "COMPLETED"),
     retry: 2,
     staleTime: 8 * 60_000,
+    refetchOnWindowFocus: "always",
+    refetchInterval: (current) => {
+      const expiresAt = current.state.data?.expiresAt;
+      if (!expiresAt) return false;
+      const expiresAtMs = Date.parse(expiresAt);
+      if (!Number.isFinite(expiresAtMs)) return false;
+      return Math.max(expiresAtMs - Date.now() - PREVIEW_URL_REFRESH_SKEW_MS, 1_000);
+    },
+    refetchIntervalInBackground: false,
   });
 
   useEffect(() => {
@@ -523,4 +533,3 @@ function formatDuration(value: number) {
   const seconds = totalSeconds % 60;
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
-
