@@ -34,7 +34,11 @@ class WorkerRepository(WorkerRepositoryImplementation):
         self._claim_owner.set(claim_owner if claimed is not None else None)
         if claimed is None:
             return None
+        return await self._hydrate_analysis_preferences(claimed)
 
+    async def _hydrate_analysis_preferences(
+        self, claimed: ClaimedChapterAnalysisJob
+    ) -> ClaimedChapterAnalysisJob:
         pool = self._require_pool()
         row = await pool.fetchrow(
             """
