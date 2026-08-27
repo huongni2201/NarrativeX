@@ -10,6 +10,8 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from math import ceil
 
+from narrativex_worker.schema import VisualGenerationMode
+
 
 @dataclass(frozen=True, slots=True)
 class VisualTimingPolicy:
@@ -22,6 +24,14 @@ class VisualTimingPolicy:
             raise ValueError("visual timing policy values must be positive")
         if not self.min_ms <= self.target_ms <= self.max_ms:
             raise ValueError("expected min_ms <= target_ms <= max_ms")
+
+
+IMAGE_TIMING_POLICY = VisualTimingPolicy(target_ms=12_000, min_ms=4_000, max_ms=25_000)
+VIDEO_TIMING_POLICY = VisualTimingPolicy(target_ms=6_500, min_ms=3_500, max_ms=8_000)
+
+
+def timing_policy_for(mode: VisualGenerationMode) -> VisualTimingPolicy:
+    return VIDEO_TIMING_POLICY if mode is VisualGenerationMode.VIDEO else IMAGE_TIMING_POLICY
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,7 +73,7 @@ def normalize_visual_timing(
     if narration_duration_ms <= 0:
         raise ValueError("narration_duration_ms must be positive")
 
-    policy = policy or VisualTimingPolicy()
+    policy = policy or IMAGE_TIMING_POLICY
     seeds = list(semantic_beats)
     if not seeds:
         seeds = [SemanticBeat("auto-0", reuse_group="auto-0")]
