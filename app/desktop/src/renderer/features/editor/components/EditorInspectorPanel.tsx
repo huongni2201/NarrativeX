@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import {
+  AlertCircle,
+  CheckCircle2,
   FileImage,
   Film,
   FolderOpen,
@@ -14,13 +16,14 @@ import type {
   DesktopAsset,
   DesktopTimelineBeat,
 } from "@narrativex/client-contracts";
+import type { MediaMutationNotice } from "../EditorScreen";
 
 interface EditorInspectorPanelProps {
   selectedBeat: DesktopTimelineBeat | null;
   autoDecision: AutoEditBeatDecision | null;
   selectableAssets: DesktopAsset[];
   mediaBusy: boolean;
-  mediaNotice: string | null;
+  mediaNotice: MediaMutationNotice | null;
   onUploadMedia: (type: "IMAGE" | "VIDEO") => void;
   onChooseAsset: (assetId: string) => void;
   onUpdateFitMode: (fitMode: BeatMediaFitMode) => void;
@@ -211,10 +214,41 @@ export function EditorInspectorPanel({
                     </button>
                   )}
 
-                  {mediaNotice && (
-                    <p className="mt-2 rounded-md border border-primary/25 bg-primary-muted px-2.5 py-2 text-[9px] leading-4 text-primary-hover" role="status">
-                      {mediaNotice}
+                  {mediaBusy && (
+                    <p className="mt-2 rounded-md border border-border-subtle bg-background px-2.5 py-2 text-[9px] leading-4 text-text-muted" role="status">
+                      Đang lưu thay đổi…
                     </p>
+                  )}
+
+                  {mediaNotice && !mediaBusy && (
+                    <div
+                      className={`mt-2 rounded-md border px-2.5 py-2 text-[9px] leading-4 ${
+                        mediaNotice.tone === "success"
+                          ? "border-success/30 bg-success-bg text-success"
+                          : "border-danger/30 bg-danger-bg text-danger"
+                      }`}
+                      role={mediaNotice.tone === "error" ? "alert" : "status"}
+                    >
+                      <div className="flex items-start gap-2">
+                        {mediaNotice.tone === "success" ? (
+                          <CheckCircle2 size={12} className="mt-0.5 shrink-0" />
+                        ) : (
+                          <AlertCircle size={12} className="mt-0.5 shrink-0" />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p>{mediaNotice.message}</p>
+                          {mediaNotice.retry && (
+                            <button
+                              type="button"
+                              onClick={mediaNotice.retry}
+                              className="mt-2 rounded-md border border-current/30 px-2 py-1 text-[8px] font-semibold transition hover:bg-background/30"
+                            >
+                              Thử lại
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   )}
                 </InspectorCard>
 
