@@ -1,6 +1,7 @@
 package com.narrativex.backend.feature.generation.api.controller;
 
 import com.narrativex.backend.feature.common.response.ApiResponse;
+import com.narrativex.backend.feature.generation.api.request.AnalyzeChapterRequest;
 import com.narrativex.backend.feature.generation.api.request.GenerateBatchNarrationRequest;
 import com.narrativex.backend.feature.generation.api.request.GenerateChapterNarrationRequest;
 import com.narrativex.backend.feature.generation.api.request.GenerateVoicePreviewRequest;
@@ -13,6 +14,7 @@ import com.narrativex.backend.feature.generation.application.usecase.EnqueueStor
 import com.narrativex.backend.feature.generation.application.usecase.GenerateBatchNarrationUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.GenerateChapterNarrationUseCase;
 import com.narrativex.backend.feature.generation.application.usecase.GetVoicePreviewResultUseCase;
+import com.narrativex.backend.feature.generation.domain.enums.ProductionMode;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
@@ -39,9 +41,19 @@ public class ProjectGenerationController {
 
   @PostMapping("/{projectId}/chapters/{chapterId}/analysis-jobs")
   public ResponseEntity<ApiResponse<JobResponse>> analyzeChapter(
-      @PathVariable UUID projectId, @PathVariable UUID chapterId) {
-    log.info("Requesting story analysis for chapter {} in project {}", chapterId, projectId);
-    var job = enqueueStoryAnalysisUseCase.execute(new EnqueueStoryAnalysisCommand(projectId, chapterId));
+      @PathVariable UUID projectId,
+      @PathVariable UUID chapterId,
+      @RequestBody(required = false) AnalyzeChapterRequest request) {
+    ProductionMode productionMode =
+        request == null ? ProductionMode.IMAGE_MOTION : request.effectiveProductionMode();
+    log.info(
+        "Requesting story analysis for chapter {} in project {} with productionMode={}",
+        chapterId,
+        projectId,
+        productionMode);
+    var job =
+        enqueueStoryAnalysisUseCase.execute(
+            new EnqueueStoryAnalysisCommand(projectId, chapterId, productionMode));
     return ResponseEntity.status(HttpStatus.ACCEPTED)
         .body(ApiResponse.success("Story analysis job accepted", JobResponse.from(job)));
   }
