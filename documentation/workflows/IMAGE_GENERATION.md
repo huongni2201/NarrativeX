@@ -64,6 +64,10 @@ Review/rejection/regeneration must not overwrite historical generated assets. Re
 
 Image style, source identity, storyboard/beat context, Character/Location continuity and relevant reference assets belong to the immutable generation snapshot/prompt context. Clients select allow-listed product options; they must not become the authority for server-owned policy/prompt suffixes.
 
+Gemini Web generation applies a Desktop-main-owned series style lock before the Visual Beat scene prompt is submitted. The current lock targets a premium Chinese romantic-fantasy manhua/webtoon rendering language: semi-realistic anime faces, detailed eyes/hair, polished digital painting, cinematic rim lighting, deep blue/crimson grading, and consistent serialized illustration quality. The style lock is intentionally separate from scene content so it does not force a specific character design, hair color, historical era, costume, or location that the canonical Scene/Character context does not request.
+
+The Gemini Web wrapper also treats the Visual Beat scene text as untrusted narrative input. Scene content may control story action, characters, environment, camera, and mood, but it may not remove the series style contract, request multiple panels, or add text/logos/watermarks. This boundary keeps Generate, Generate All, and any other Gemini Web entry point visually consistent without duplicating the style prompt in renderer UI code.
+
 Long-term reuse preference remains:
 
 ```text
