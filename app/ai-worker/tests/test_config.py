@@ -89,7 +89,7 @@ def test_build_sha_is_loaded_for_startup_diagnostics() -> None:
 
 
 def test_database_target_does_not_include_credentials() -> None:
-    assert _database_target("postgresql://user:secret@postgres:5432/narrativex") == (
+    assert _database_target("postgresql://user:secret@postgres:5432/narrativex") == (  # secret-scan: allow - synthetic parser fixture
         "postgres",
         5432,
         "narrativex",
