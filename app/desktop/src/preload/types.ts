@@ -188,6 +188,7 @@ export interface NarrativeXDesktopBridge {
     upsert(project: DesktopProject, metadata?: LocalProjectCatalogMetadata): Promise<LocalProjectCatalogEntry>;
     reconcile(projects: DesktopProject[], metadata?: LocalProjectCatalogMetadata): Promise<LocalProjectCatalogEntry[]>;
     touch(projectId: string): Promise<LocalProjectCatalogEntry>;
+    markArchived(projectId: string): Promise<void>;
   };
   localStorage: {
     ensureProject(projectId: string): Promise<LocalProjectStorageStatus>;
@@ -222,4 +223,3 @@ export interface NarrativeXDesktopBridge {
     close(): Promise<void>;
   };
 }
-

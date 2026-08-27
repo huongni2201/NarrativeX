@@ -126,6 +126,25 @@ test("apiCommand accepts ApiResponse<Void> when data is omitted", async () => {
   });
 });
 
+test("projects api deletes a project through the owner-scoped endpoint", async () => {
+  await withApiTransport(async (input) => {
+    if (input.path === "/api/v1/auth/csrf") {
+      return ok({
+        success: true,
+        message: "CSRF token issued",
+        data: { token: "csrf-token", headerName: "X-CSRF-TOKEN" },
+        timestamp,
+      });
+    }
+    assert.equal(input.path, "/api/v1/projects/project%2Fwith%2Fslashes");
+    assert.equal(input.method, "DELETE");
+    assert.equal(input.headers["x-csrf-token"], "csrf-token");
+    return { status: 204, statusText: "No Content", bodyText: "" };
+  }, async () => {
+    await projectsApi.remove("project/with/slashes");
+  });
+});
+
 test("resetting api session state reloads CSRF for the next mutation", async () => {
   let csrfRequests = 0;
   const mutationTokens = [];

@@ -124,6 +124,30 @@ test("remote reconcile hides a synced project that no longer exists remotely", a
   }
 });
 
+test("markArchived hides a project without deleting its local snapshot", async () => {
+  const root = await mkdtemp(join(tmpdir(), "narrativex-catalog-archived-"));
+  try {
+    const catalog = new ProjectCatalog(new ProjectStorage(root));
+    await catalog.upsert(project(projectId, "Cloud project"), {
+      cloudProjectId: projectId,
+      syncStatus: "SYNCED",
+    });
+    await catalog.touch(projectId);
+
+    await catalog.markArchived(projectId);
+
+    assert.deepEqual(await catalog.list(), []);
+    assert.equal(await catalog.lastOpened(), null);
+    const snapshot = JSON.parse(
+      await readFile(join(root, projectId, "project.json"), "utf8"),
+    );
+    assert.equal(snapshot.project.id, projectId);
+    assert.equal(snapshot.syncStatus, "ORPHANED");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("remote reconcile upgrades an existing matching local project to synced", async () => {
   const root = await mkdtemp(join(tmpdir(), "narrativex-catalog-upgrade-"));
   try {

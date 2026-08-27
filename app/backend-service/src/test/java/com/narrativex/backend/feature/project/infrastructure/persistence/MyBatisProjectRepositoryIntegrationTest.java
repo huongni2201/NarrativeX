@@ -49,6 +49,7 @@ class MyBatisProjectRepositoryIntegrationTest extends PostgreSqlIntegrationTestS
     assertEquals(ProjectStatus.ARCHIVED, archived.getStatus());
     assertTrue(timestamp("updated_at", archived.getId()).compareTo(createdAt) >= 0);
     assertEquals(1L, archived.getRowVersion());
+    assertTrue(repository.findOwnedById(archived.getId(), "owner-a").isEmpty());
   }
 
   @Test

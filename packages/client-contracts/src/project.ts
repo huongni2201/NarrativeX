@@ -1,9 +1,12 @@
+export type ProjectAspectRatio = "16:9" | "9:16" | "1:1" | "4:3" | "3:4";
+
 export interface DesktopProject {
   id: string;
   name: string;
   description: string | null;
   coverImageUrl: string | null;
   status: string;
+  imageAspectRatio?: ProjectAspectRatio;
   createdAt?: string;
   updatedAt?: string;
   isStarred?: boolean;
@@ -20,6 +23,6 @@ export interface CreateProjectInput {
   sourceLanguage?: string;
   narrationLanguage?: string;
   metadataLanguage?: string;
-  imageAspectRatio?: string;
+  imageAspectRatio?: ProjectAspectRatio;
   imageQualityTier?: string;
 }

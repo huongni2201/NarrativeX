@@ -1,11 +1,11 @@
-import { ArrowUpRight, FolderOpen, Layers3 } from "lucide-react";
+import { FolderOpen, Layers3 } from "lucide-react";
 import type { DesktopProject } from "@narrativex/client-contracts";
 
 export function ProjectCard({ project, onOpen }: Readonly<{ project: DesktopProject; onOpen: () => void }>) {
   return (
     <button
       type="button"
-      className="group grid min-h-36 w-full grid-cols-[34px_minmax(0,1fr)_20px] gap-x-2 gap-y-3 rounded-md border border-border bg-surface-card p-3 text-left text-inherit transition-colors hover:border-primary/35 hover:bg-surface-2"
+      className="group grid min-h-36 w-full grid-cols-[34px_minmax(0,1fr)] gap-x-2 gap-y-3 rounded-md border border-border bg-surface-card p-3 pr-20 text-left text-inherit transition-colors hover:border-primary/35 hover:bg-surface-2"
       onClick={onOpen}
     >
       <div className="grid size-[34px] place-items-center rounded-sm border border-primary/20 bg-primary-muted text-primary-hover">
@@ -16,12 +16,6 @@ export function ProjectCard({ project, onOpen }: Readonly<{ project: DesktopProj
         <span className="text-[8px] font-medium uppercase tracking-[0.12em] text-text-dim">Project</span>
         <strong className="mt-0.5 block truncate text-[11px] font-semibold text-foreground">{project.name}</strong>
       </div>
-
-      <ArrowUpRight
-        size={13}
-        className="mt-1 text-text-dim transition-colors group-hover:text-primary-hover"
-        aria-hidden="true"
-      />
 
       <p className="col-span-full line-clamp-2 min-h-8 text-[9px] leading-4 text-text-muted">
         {project.description || "Chưa có mô tả project."}

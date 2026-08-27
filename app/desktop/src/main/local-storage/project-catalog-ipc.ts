@@ -20,6 +20,10 @@ export function registerProjectCatalogIpc(
     if (typeof projectId !== "string") throw new Error("projectId must be a string.");
     return catalog.touch(projectId);
   });
+  registerTrustedIpcHandler("desktop:projects-local:mark-archived", trustPolicy, (projectId) => {
+    if (typeof projectId !== "string") throw new Error("projectId must be a string.");
+    return catalog.markArchived(projectId);
+  });
   registerTrustedIpcHandler("desktop:projects-local:upsert", trustPolicy, (input) => {
     if (!isCatalogUpsertInput(input)) throw new Error("Invalid local project catalog input.");
     return catalog.upsert(input.project, input.metadata);

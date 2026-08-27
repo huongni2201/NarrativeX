@@ -26,6 +26,21 @@ PostgreSQL state, not renderer memory, delivery hints or process memory, determi
 
 Redis is not required by the MVP runtime.
 
+## Project deletion
+
+```text
+Desktop confirms deletion
+  -> DELETE /api/v1/projects/{projectId}
+  -> backend locks the owner-scoped Project row
+  -> Project transitions to ARCHIVED with archived_at
+  -> active project queries no longer return it
+  -> Desktop marks the local catalog entry ORPHANED
+  -> local project bytes remain available for recovery/backup
+```
+
+PostgreSQL remains authoritative for the project lifecycle. Deleting a project does not
+recursively delete shared Characters or machine-local project bytes.
+
 ## Guest-first session flow
 
 ```text

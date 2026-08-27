@@ -1,27 +1,60 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { FolderOpen, Plus, RefreshCw, Star } from "lucide-react";
+import { FolderOpen, Plus, RefreshCw, Star, Trash2 } from "lucide-react";
+import type { DesktopProject, ProjectAspectRatio } from "@narrativex/client-contracts";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogCloseButton,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ProjectCard } from "../components/ProjectCard";
 import {
   useCreateProject,
+  useDeleteProject,
   useProjectsQuery,
   useToggleProjectFavorite,
 } from "../queries/projects.queries";
 import { useProjectSessionStore } from "../store/project-session.store";
 
+const ASPECT_RATIOS: ReadonlyArray<{
+  value: ProjectAspectRatio;
+  label: string;
+}> = [
+  { value: "16:9", label: "16:9 · Ngang" },
+  { value: "9:16", label: "9:16 · Dọc" },
+  { value: "1:1", label: "1:1 · Vuông" },
+  { value: "4:3", label: "4:3 · Ngang cổ điển" },
+  { value: "3:4", label: "3:4 · Dọc cổ điển" },
+];
+
 export function ProjectsScreen() {
   const navigate = useNavigate();
   const projects = useProjectsQuery();
   const createProject = useCreateProject();
+  const deleteProject = useDeleteProject();
   const toggleFavorite = useToggleProjectFavorite();
   const [isCreating, setIsCreating] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [imageAspectRatio, setImageAspectRatio] = useState<ProjectAspectRatio>("16:9");
+  const [projectToDelete, setProjectToDelete] = useState<DesktopProject | null>(null);
   const activeProjectId = useProjectSessionStore((state) => state.activeProjectId);
   const setActiveProject = useProjectSessionStore((state) => state.setActiveProject);
+  const clearActiveProject = useProjectSessionStore((state) => state.clearActiveProject);
 
   useEffect(() => {
     const firstProject = projects.data?.content[0];
@@ -59,17 +92,31 @@ export function ProjectsScreen() {
       {
         name: projectName,
         description: description.trim() || undefined,
+        imageAspectRatio,
       },
       {
         onSuccess: (project) => {
           setName("");
           setDescription("");
+          setImageAspectRatio("16:9");
           setIsCreating(false);
           setActiveProject(project.id);
           navigate(`/projects/${project.id}/editor`);
         },
       },
     );
+  }
+
+  function confirmDeleteProject() {
+    if (!projectToDelete || deleteProject.isPending) return;
+    const project = projectToDelete;
+    deleteProject.mutate(project.id, {
+      onSuccess: () => {
+        if (activeProjectId === project.id) clearActiveProject();
+        setProjectToDelete(null);
+        toast.success(`Đã xoá project “${project.name}”.`);
+      },
+    });
   }
 
   const projectCount = projects.data.content.length;
@@ -126,7 +173,7 @@ export function ProjectsScreen() {
               </span>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-[minmax(220px,.8fr)_minmax(0,1.2fr)]">
+            <div className="grid gap-3 md:grid-cols-[minmax(220px,1.2fr)_minmax(180px,.8fr)]">
               <label className="grid gap-1 text-[9px] font-medium text-text-secondary">
                 <span>Name</span>
                 <Input
@@ -138,7 +185,31 @@ export function ProjectsScreen() {
                   className="h-8 border-border bg-surface-input text-[10px]"
                 />
               </label>
-              <label className="grid gap-1 text-[9px] font-medium text-text-secondary">
+              <div className="grid content-start gap-1 text-[9px] font-medium text-text-secondary">
+                <label htmlFor="project-aspect-ratio">Khung hình</label>
+                <Select
+                  value={imageAspectRatio}
+                  onValueChange={(value) => setImageAspectRatio(value as ProjectAspectRatio)}
+                >
+                  <SelectTrigger
+                    id="project-aspect-ratio"
+                    className="h-8 w-full border-border bg-surface-input text-[10px] text-foreground"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ASPECT_RATIOS.map((ratio) => (
+                      <SelectItem key={ratio.value} value={ratio.value}>
+                        {ratio.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <span className="font-normal leading-4 text-text-dim">
+                  Dùng cho storyboard, ảnh và bản render của project.
+                </span>
+              </div>
+              <label className="grid gap-1 text-[9px] font-medium text-text-secondary md:col-span-2">
                 <span>Description</span>
                 <Textarea
                   value={description}
@@ -201,29 +272,98 @@ export function ProjectsScreen() {
                     navigate(`/projects/${project.id}/editor`);
                   }}
                 />
-                <button
-                  type="button"
-                  className="nx-icon-button absolute right-2 top-2 size-6 disabled:cursor-not-allowed disabled:opacity-50"
-                  aria-label={project.isStarred ? "Remove favorite" : "Add favorite"}
-                  disabled={toggleFavorite.isPending}
-                  onClick={() =>
-                    toggleFavorite.mutate({
-                      projectId: project.id,
-                      starred: Boolean(project.isStarred),
-                    })
-                  }
-                >
-                  <Star
-                    size={12}
-                    className={project.isStarred ? "text-warning" : "text-text-dim"}
-                    fill={project.isStarred ? "currentColor" : "none"}
-                  />
-                </button>
+                <div className="absolute right-2 top-2 flex items-center gap-1">
+                  <button
+                    type="button"
+                    className="nx-icon-button size-7 disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-label={project.isStarred ? "Remove favorite" : "Add favorite"}
+                    disabled={toggleFavorite.isPending || deleteProject.isPending}
+                    onClick={() =>
+                      toggleFavorite.mutate({
+                        projectId: project.id,
+                        starred: Boolean(project.isStarred),
+                      })
+                    }
+                  >
+                    <Star
+                      size={12}
+                      className={project.isStarred ? "text-warning" : "text-text-dim"}
+                      fill={project.isStarred ? "currentColor" : "none"}
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    className="nx-icon-button size-7 text-text-dim hover:border-danger-border hover:bg-danger-bg hover:text-danger disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-label={`Xoá project ${project.name}`}
+                    disabled={deleteProject.isPending}
+                    onClick={() => {
+                      deleteProject.reset();
+                      setProjectToDelete(project);
+                    }}
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      <Dialog
+        open={projectToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open && !deleteProject.isPending) setProjectToDelete(null);
+        }}
+      >
+        <DialogContent
+          className="w-[min(420px,calc(100vw-32px))] gap-3 bg-surface-panel p-5"
+          aria-describedby="delete-project-description"
+        >
+          <DialogCloseButton disabled={deleteProject.isPending} />
+          <DialogHeader className="pr-6 text-left">
+            <DialogTitle className="text-sm text-foreground">Xoá project?</DialogTitle>
+            <DialogDescription
+              id="delete-project-description"
+              className="text-[10px] leading-5 text-text-muted"
+            >
+              Project <strong className="font-semibold text-foreground">{projectToDelete?.name}</strong>{" "}
+              sẽ biến mất khỏi workspace. Dữ liệu local vẫn được giữ lại để backup hoặc khôi phục.
+            </DialogDescription>
+          </DialogHeader>
+
+          {deleteProject.isError && (
+            <p
+              className="m-0 rounded-sm border border-danger-border bg-danger-bg px-2 py-1.5 text-[9px] text-danger"
+              role="alert"
+            >
+              Không thể xoá project: {deleteProject.error.message}
+            </p>
+          )}
+
+          <div className="flex justify-end gap-2 border-t border-border-subtle pt-3">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={deleteProject.isPending}
+              onClick={() => setProjectToDelete(null)}
+              className="h-8 text-[10px]"
+            >
+              Huỷ
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={deleteProject.isPending}
+              onClick={confirmDeleteProject}
+              className="h-8 text-[10px]"
+            >
+              <Trash2 size={12} />
+              {deleteProject.isPending ? "Đang xoá…" : "Xoá project"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }

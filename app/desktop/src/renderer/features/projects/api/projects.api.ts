@@ -109,6 +109,11 @@ export const projectsApi = {
       body: JSON.stringify(input),
     }),
 
+  remove: (projectId: string) =>
+    apiCommand(`/api/v1/projects/${encodeURIComponent(projectId)}`, {
+      method: "DELETE",
+    }),
+
   addFavorite: (projectId: string) =>
     apiCommand(`/api/v1/projects/${encodeURIComponent(projectId)}/favorite`, {
       method: "PUT",

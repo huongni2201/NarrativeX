@@ -1,5 +1,5 @@
 export type { ApiErrorResponse, ApiResponse, CursorPage, FieldViolation, Pagination } from "./api";
-export type { CreateProjectInput, DesktopProject } from "./project";
+export type { CreateProjectInput, DesktopProject, ProjectAspectRatio } from "./project";
 export type { ChapterWorkspaceAudio, ChapterWorkspacePreviewScene, ChapterWorkspaceProgress, ChapterWorkspaceRender, ChapterWorkspaceStep, CreateChapterInput, DesktopChapter, DesktopChapterDetails, DesktopChapterWorkspace, UpdateChapterInput } from "./chapter";
 export type {
   DesktopCharacter,

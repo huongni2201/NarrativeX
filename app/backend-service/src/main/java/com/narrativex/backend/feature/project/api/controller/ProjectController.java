@@ -14,6 +14,7 @@ import com.narrativex.backend.feature.project.application.query.GetProjectQuery;
 import com.narrativex.backend.feature.project.application.query.ProjectListQuery;
 import com.narrativex.backend.feature.project.application.usecase.CreateProjectUseCase;
 import com.narrativex.backend.feature.project.application.usecase.CreateStoryVersionUseCase;
+import com.narrativex.backend.feature.project.application.usecase.DeleteProjectUseCase;
 import com.narrativex.backend.feature.project.application.usecase.GetLatestStoryVersionUseCase;
 import com.narrativex.backend.feature.project.application.usecase.GetProjectDashboardUseCase;
 import com.narrativex.backend.feature.project.application.usecase.GetProjectOverviewUseCase;
@@ -47,6 +48,7 @@ public class ProjectController {
   private final GetProjectDashboardUseCase getProjectDashboardUseCase;
   private final SetProjectFavoriteUseCase setProjectFavoriteUseCase;
   private final CreateProjectUseCase createProjectUseCase;
+  private final DeleteProjectUseCase deleteProjectUseCase;
   private final CreateStoryVersionUseCase createStoryVersionUseCase;
   private final GetLatestStoryVersionUseCase getLatestStoryVersionUseCase;
 
@@ -91,6 +93,12 @@ public class ProjectController {
         ApiResponse.success(
             "Project retrieved successfully",
             ProjectResponse.from(getProjectUseCase.execute(new GetProjectQuery(projectId)))));
+  }
+
+  @DeleteMapping("/{projectId}")
+  public ResponseEntity<Void> delete(@PathVariable UUID projectId) {
+    deleteProjectUseCase.execute(projectId);
+    return ResponseEntity.noContent().build();
   }
 
   @GetMapping("/{projectId}/overview")
