@@ -90,6 +90,16 @@ class CharacterAnalysis(BaseModel):
     name: str = Field(min_length=1, max_length=160)
     aliases: list[str] = Field(default_factory=list)
     description: str = Field(default="", max_length=4000)
+    role: str = Field(default="SUPPORTING", min_length=1, max_length=64)
+    importance: int = Field(default=0, ge=0)
+    groups: list[str] = Field(default_factory=list, max_length=20)
+    bible: str = Field(default="", max_length=8000)
+    visual_prompt: str = Field(default="", max_length=8000)
+    age_state: str = Field(default="", max_length=2000)
+    hairstyle: str = Field(default="", max_length=2000)
+    injury: str = Field(default="", max_length=2000)
+    wardrobe_context: str = Field(default="", max_length=4000)
+    appearance_prompt: str = Field(default="", max_length=8000)
 
 
 class LocationAnalysis(BaseModel):
