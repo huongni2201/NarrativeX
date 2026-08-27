@@ -11,8 +11,6 @@ import type {
 
 const SSE_EVENT_CHANNEL = "desktop:api:sse:event";
 const SSE_ERROR_CHANNEL = "desktop:api:sse:error";
-const SUBSCRIPTION_PROCESS_PREFIX = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-let subscriptionSequence = 0;
 
 const bridge: NarrativeXDesktopBridge = {
   appVersion: () => ipcRenderer.invoke("desktop:app-version"),
@@ -92,8 +90,7 @@ const bridge: NarrativeXDesktopBridge = {
 };
 
 function createSubscriptionId(): string {
-  subscriptionSequence += 1;
-  return `${SUBSCRIPTION_PROCESS_PREFIX}-${subscriptionSequence.toString(36)}`;
+  return crypto.randomUUID();
 }
 
 function subscribeBackendEvents(path: string, handlers: DesktopSseHandlers): () => void {
