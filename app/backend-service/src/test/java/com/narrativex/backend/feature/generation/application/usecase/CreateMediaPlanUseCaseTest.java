@@ -78,7 +78,7 @@ class CreateMediaPlanUseCaseTest {
                         List.of(
                             new BeatSnapshot(
                                 beatId, 0, "Character runs", MotionIntent.AI_VIDEO))))));
-    when(visualPromptContextRepository.findForScene(projectId, sceneId))
+    when(visualPromptContextRepository.findForBeat(projectId, beatId))
         .thenReturn(
             new VisualPromptContext(
                 new LocationCanon(
@@ -95,6 +95,7 @@ class CreateMediaPlanUseCaseTest {
                         "shoulder-length straight black hair",
                         null,
                         "beige cardigan and white blouse",
+                        "PRIMARY",
                         List.of()))));
     when(mediaPlanRepository.nextRevision(chapterId)).thenReturn(3);
     when(mediaPlanRepository.save(any(MediaPlan.class)))
@@ -124,10 +125,12 @@ class CreateMediaPlanUseCaseTest {
     assertThat(plan.scenes().getFirst().beats().getFirst().motionStrategy())
         .isEqualTo(MotionStrategy.IMAGE_TO_VIDEO);
     assertThat(plan.scenes().getFirst().beats().getFirst().promptSnapshot())
-        .contains("Vietnamese woman with oval face");
+        .contains("Vietnamese woman with oval face")
+        .contains("beat role: PRIMARY");
     assertThat(plan.scenes().getFirst().beats().getFirst().characterSnapshotJson())
         .contains("\"canonicalName\":\"Lan\"")
-        .contains("\"versionNumber\":3");
+        .contains("\"versionNumber\":3")
+        .contains("\"beatRole\":\"PRIMARY\"");
   }
 
   @Test
@@ -168,7 +171,7 @@ class CreateMediaPlanUseCaseTest {
                         8,
                         List.of(
                             new BeatSnapshot(beatId, 0, "Character runs", MotionIntent.STILL))))));
-    when(visualPromptContextRepository.findForScene(projectId, sceneId))
+    when(visualPromptContextRepository.findForBeat(projectId, beatId))
         .thenReturn(VisualPromptContext.empty());
     when(mediaPlanRepository.nextRevision(chapterId)).thenReturn(1);
     when(mediaPlanRepository.save(any(MediaPlan.class)))
